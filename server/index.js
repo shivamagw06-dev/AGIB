@@ -9,22 +9,25 @@ import dotenv from 'dotenv';
 import cors from 'cors';
 import fetch from 'node-fetch';
 
-dotenv.config({ path: '../.env.local' });
+//
+// Load local .env if present. On Render/production we'll set env vars in the service settings.
+//
+dotenv.config(); // look for server/.env or project root .env
 
 const app = express();
 app.use(express.json());
 
 // --- CONFIG ---
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3000;
 const INDIANAPI_KEY = process.env.VITE_INDIANAPI_KEY || process.env.INDIANAPI_KEY || '';
 const INDIANAPI_BASE = 'https://stock.indianapi.in';
 
 if (!INDIANAPI_KEY) {
-  console.error('❌ Missing INDIANAPI_KEY in .env.local');
-  process.exit(1);
+  console.warn('⚠️  INDIANAPI_KEY is not set. Requests requiring the API key will fail with 500 until you set it in environment variables.');
 }
 
 // --- MIDDLEWARE ---
+// For now allow all origins (useful for testing). Later restrict to your frontend domain e.g. { origin: 'https://agarwalglobalinvestments.com' }
 app.use(cors({ origin: '*', methods: ['GET'] }));
 app.use(rateLimit({ windowMs: 60 * 1000, max: 100 }));
 
@@ -37,18 +40,25 @@ function forwardHeaders() {
 }
 
 async function proxyFetch(res, url) {
+  if (!INDIANAPI_KEY) {
+    return res.status(500).json({ error: 'Server missing INDIANAPI_KEY environment variable' });
+  }
+
   try {
     const r = await fetch(url, { headers: forwardHeaders() });
     const text = await r.text();
+
+    // Try to parse JSON; if not JSON return raw text
     try {
       const json = JSON.parse(text);
       return res.status(r.status).json(json);
-    } catch {
+    } catch (parseErr) {
+      // Not JSON — return text (useful when API returns plain text / HTML error)
       return res.status(r.status).send(text);
     }
   } catch (err) {
-    console.error('🔥 Fetch error:', err.message);
-    res.status(500).json({ error: 'Proxy fetch failed', detail: err.message });
+    console.error('🔥 Proxy fetch error:', err);
+    return res.status(500).json({ error: 'Proxy fetch failed', detail: err?.message || String(err) });
   }
 }
 
