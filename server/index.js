@@ -7,11 +7,8 @@ import express from 'express';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import cors from 'cors';
-import fetch from 'node-fetch';
 
-//
 // Load local .env if present. On Render/production we'll set env vars in the service settings.
-//
 dotenv.config(); // look for server/.env or project root .env
 
 const app = express();
@@ -23,7 +20,9 @@ const INDIANAPI_KEY = process.env.VITE_INDIANAPI_KEY || process.env.INDIANAPI_KE
 const INDIANAPI_BASE = 'https://stock.indianapi.in';
 
 if (!INDIANAPI_KEY) {
-  console.warn('⚠️  INDIANAPI_KEY is not set. Requests requiring the API key will fail with 500 until you set it in environment variables.');
+  console.warn(
+    '⚠️  INDIANAPI_KEY is not set. Requests requiring the API key will fail with 500 until you set it in environment variables.'
+  );
 }
 
 // --- MIDDLEWARE ---
@@ -39,13 +38,24 @@ function forwardHeaders() {
   };
 }
 
+/**
+ * proxyFetch
+ * - uses the global fetch available in Node 18+
+ * - returns JSON when possible, otherwise returns raw text with the original status
+ */
 async function proxyFetch(res, url) {
   if (!INDIANAPI_KEY) {
     return res.status(500).json({ error: 'Server missing INDIANAPI_KEY environment variable' });
   }
 
+  // ensure fetch is available
+  if (typeof globalThis.fetch !== 'function') {
+    console.error('❌ global fetch is not available in this Node runtime.');
+    return res.status(500).json({ error: 'Server runtime missing global fetch' });
+  }
+
   try {
-    const r = await fetch(url, { headers: forwardHeaders() });
+    const r = await globalThis.fetch(url, { headers: forwardHeaders() });
     const text = await r.text();
 
     // Try to parse JSON; if not JSON return raw text
@@ -135,3 +145,4 @@ app.use((req, res) => res.status(404).json({ error: 'Not found' }));
 
 // --- START SERVER ---
 app.listen(PORT, () => console.log(`🚀 Proxy running on port ${PORT}`));
+
