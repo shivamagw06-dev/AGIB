@@ -1,0 +1,139 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 240 6% 96%; /* #F5F5F7 */
+    --foreground: 240 2% 11%; /* #1C1C1E */
+    --card: 0 0% 100%;
+    --card-foreground: 240 2% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 2% 11%;
+    --primary: 40 70% 64%; /* #D4AF37 - Deep Gold */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 43 100% 51%; /* Muted Gold */
+    --secondary-foreground: 240 2% 11%;
+    --muted: 220 9% 93%;
+    --muted-foreground: 240 5% 34%;
+    --accent: 220 9% 93%;
+    --accent-foreground: 240 2% 11%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 240 4% 89%;
+    --input: 240 4% 89%;
+    --ring: 40 70% 64%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 240 2% 11%; /* #1C1C1E */
+    --foreground: 240 6% 96%; /* #F5F5F7 */
+    --card: 240 2% 14%;
+    --card-foreground: 240 6% 96%;
+    --popover: 240 2% 11%;
+    --popover-foreground: 240 6% 96%;
+    --primary: 40 70% 64%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 43 100% 51%;
+    --secondary-foreground: 240 2% 11%;
+    --muted: 240 2% 20%;
+    --muted-foreground: 240 5% 65%;
+    --accent: 240 2% 20%;
+    --accent-foreground: 240 6% 96%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 240 2% 25%;
+    --input: 240 2% 25%;
+    --ring: 40 70% 64%;
+  }
+}
+
+body {
+  @apply bg-background text-foreground;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+* {
+  @apply border-border;
+}
+
+/* grid backgrounds for cards */
+.bg-grid-slate-200 {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' width='32' height='32' fill='none' stroke='hsl(240 4% 89% / 0.5)'%3e%3cpath d='M0 .5H31.5V32'/%3e%3c/svg%3e");
+}
+.dark .bg-grid-slate-200 {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' width='32' height='32' fill='none' stroke='hsl(240 2% 25% / 0.5)'%3e%3cpath d='M0 .5H31.5V32'/%3e%3c/svg%3e");
+}
+
+/* ----------- TipTap editor overrides ----------- */
+.tiptap {
+  min-height: 360px;
+  outline: none;
+  background-color: #fff; /* always white editing surface */
+  color: #000 !important;
+  caret-color: #000;
+  border-radius: .5rem;
+  padding: 1rem;
+}
+
+.tiptap p {
+  margin: .75rem 0;
+  line-height: 1.7;
+}
+.tiptap h1 {
+  font-size: 1.8rem;
+  font-weight: 800;
+  margin: 1.25rem 0 .5rem;
+}
+.tiptap h2 {
+  font-size: 1.4rem;
+  font-weight: 700;
+  margin: 1rem 0 .5rem;
+}
+.tiptap ul,
+.tiptap ol {
+  padding-left: 1.25rem;
+  margin: .5rem 0;
+}
+.tiptap blockquote {
+  border-left: 3px solid #e5e7eb;
+  padding-left: .75rem;
+  color: #111;
+}
+
+/* image sizes and alignment classes for TipTap */
+.tiptap-img-full {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 1rem auto;
+  border-radius: 8px;
+}
+.tiptap-img-small {
+  max-width: 40%;
+  height: auto;
+  border-radius: 8px;
+}
+.tiptap-img-left {
+  float: left;
+  margin: .5rem 1rem .5rem 0;
+}
+.tiptap-img-center {
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+  float: none;
+}
+.tiptap-img-right {
+  float: right;
+  margin: .5rem 0 .5rem 1rem;
+}
+.tiptap .img-caption {
+  font-size: 0.9rem;
+  color: #555;
+  text-align: center;
+  margin-top: .25rem;
+  margin-bottom: 1rem;
+}
