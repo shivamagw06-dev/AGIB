@@ -1,5 +1,5 @@
 // src/App.jsx
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Helmet, HelmetProvider } from 'react-helmet-async';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 
@@ -38,6 +38,23 @@ function HomeLayout() {
 }
 
 function App() {
+  // Expose the Vite env var to window for easy debugging in the browser console.
+  useEffect(() => {
+    try {
+      const apiUrl = import.meta.env.VITE_API_URL || null;
+      // attach so you can type `window.API_URL` in the console to inspect
+      if (apiUrl) {
+        window.API_URL = apiUrl;
+        console.log('[App] VITE_API_URL:', apiUrl);
+      } else {
+        console.warn('[App] VITE_API_URL is not defined. Check your .env.local');
+      }
+    } catch (err) {
+      // import.meta isn't available in non-module contexts (shouldn't happen inside Vite-built app)
+      console.error('[App] Error reading VITE_API_URL', err);
+    }
+  }, []);
+
   return (
     <HelmetProvider>
       <BrowserRouter>

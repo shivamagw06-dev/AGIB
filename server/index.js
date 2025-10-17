@@ -1,6 +1,9 @@
+// server/index.js
 /**
- * server/index.js
  * Unified Express proxy for IndianAPI
+ *
+ * Note: this file uses ESM `import`. Ensure your server/package.json
+ * has "type": "module" (or convert imports to require() for CommonJS).
  */
 
 import express from 'express';
@@ -8,8 +11,8 @@ import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import cors from 'cors';
 
-// Load local .env if present. On Render/production we'll set env vars in the service settings.
-dotenv.config(); // look for server/.env or project root .env
+// Load .env for local development (Render will provide env vars)
+dotenv.config();
 
 const app = express();
 app.use(express.json());
@@ -26,29 +29,36 @@ if (!INDIANAPI_KEY) {
 }
 
 // --- MIDDLEWARE ---
-// For now allow all origins (useful for testing). Later restrict to your frontend domain e.g. { origin: 'https://agarwalglobalinvestments.com' }
-app.use(cors({ origin: '*', methods: ['GET'] }));
-app.use(rateLimit({ windowMs: 60 * 1000, max: 100 }));
+// Allow all origins for testing; restrict in production via FRONTEND_ORIGIN
+app.use(cors({ origin: process.env.FRONTEND_ORIGIN || '*', methods: ['GET', 'OPTIONS'] }));
 
+// Apply rate limit only to /api routes so health and root are unaffected
+const apiLimiter = rateLimit({ windowMs: 60 * 1000, max: 100 });
+app.use('/api', apiLimiter);
+
+/** forwardHeaders
+ *  ensures we always send the API key + expected headers to IndianAPI
+ */
 function forwardHeaders() {
-  return {
-    'x-api-key': INDIANAPI_KEY,
+  const headers = {
     'Content-Type': 'application/json',
-    Accept: 'application/json',
+    Accept: 'application/json'
   };
+  if (INDIANAPI_KEY) headers['x-api-key'] = INDIANAPI_KEY;
+  return headers;
 }
 
 /**
  * proxyFetch
- * - uses the global fetch available in Node 18+
- * - returns JSON when possible, otherwise returns raw text with the original status
+ * - Uses global fetch (Node 18+). If response body is JSON returns res.json(),
+ *   otherwise forwards raw text with original status and content-type.
  */
 async function proxyFetch(res, url) {
   if (!INDIANAPI_KEY) {
+    // For security we return explicit error rather than forwarding a call that will likely fail.
     return res.status(500).json({ error: 'Server missing INDIANAPI_KEY environment variable' });
   }
 
-  // ensure fetch is available
   if (typeof globalThis.fetch !== 'function') {
     console.error('❌ global fetch is not available in this Node runtime.');
     return res.status(500).json({ error: 'Server runtime missing global fetch' });
@@ -56,30 +66,52 @@ async function proxyFetch(res, url) {
 
   try {
     const r = await globalThis.fetch(url, { headers: forwardHeaders() });
+
+    // read raw text (some endpoints might return plain text or HTML on error)
     const text = await r.text();
 
-    // Try to parse JSON; if not JSON return raw text
+    // If no body, forward status with empty body
+    if (!text) {
+      res.status(r.status).end();
+      console.log(`[proxy] ${url} -> ${r.status} (empty body)`);
+      return;
+    }
+
+    // Try parse JSON
     try {
       const json = JSON.parse(text);
-      return res.status(r.status).json(json);
+      res.status(r.status).json(json);
+      console.log(`[proxy] ${url} -> ${r.status} (json)`);
+      return;
     } catch (parseErr) {
-      // Not JSON — return text (useful when API returns plain text / HTML error)
-      return res.status(r.status).send(text);
+      // Not JSON — forward as text and preserve content-type where possible
+      const contentType = r.headers.get('content-type') || 'text/plain; charset=utf-8';
+      res.set('Content-Type', contentType);
+      res.status(r.status).send(text);
+      console.log(`[proxy] ${url} -> ${r.status} (text: ${contentType})`);
+      return;
     }
   } catch (err) {
-    console.error('🔥 Proxy fetch error:', err);
+    console.error('🔥 Proxy fetch error for', url, err);
     return res.status(500).json({ error: 'Proxy fetch failed', detail: err?.message || String(err) });
   }
 }
 
 // --- ROUTES ---
+
+// Root route — useful when you open service root on browser (no 404 JSON at root)
+app.get('/', (req, res) => {
+  res.json({ service: 'finance-news-backend', status: 'running', endpoints: ['/api/health', '/api/trending', '/api/...'] });
+});
+
+// Health for Render / monitoring
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
 // 1️⃣ Company data
 app.get('/api/stock', (req, res) => {
-  const name = req.query.name || req.query.symbol;
-  if (!name) return res.status(400).json({ error: 'Missing ?name parameter' });
-  return proxyFetch(res, `${INDIANAPI_BASE}/stock?name=${encodeURIComponent(name)}`);
+  const symbolOrName = req.query.symbol || req.query.name;
+  if (!symbolOrName) return res.status(400).json({ error: 'Missing ?symbol or ?name parameter' });
+  return proxyFetch(res, `${INDIANAPI_BASE}/stock?name=${encodeURIComponent(symbolOrName)}`);
 });
 
 // 2️⃣ Industry search
@@ -140,9 +172,10 @@ app.get('/api/historical_stats', (req, res) => {
   return proxyFetch(res, `${INDIANAPI_BASE}/historical_stats?${params.toString()}`);
 });
 
-// 🧩 Default 404 JSON
+// Default 404 JSON for everything else
 app.use((req, res) => res.status(404).json({ error: 'Not found' }));
 
 // --- START SERVER ---
-app.listen(PORT, () => console.log(`🚀 Proxy running on port ${PORT}`));
-
+app.listen(PORT, () => {
+  console.log(`🚀 Proxy running on port ${PORT} — IndianAPI base: ${INDIANAPI_BASE}`);
+});

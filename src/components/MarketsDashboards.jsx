@@ -1,47 +1,129 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-
-// NOTE: This file is an updated, self-contained version of your component with
-// a more robust fetch fallback and response normalizers so the UI consistently
-// receives arrays/objects it expects. It tries in order:
-// 1) relative `/api/...` (same-origin dev proxy)
-// 2) absolute local backend `http://localhost:5000/api/...` (useful when proxy
-//    is not configured)
-// 3) fallback to `/indianapi/...` (proxy to stock.indianapi.in) or the remote
-//    provider if configured by the environment.
+// src/components/MarketsDashboards.jsx
+import React, { useEffect, useState } from 'react';
+import apiFetch from '../utils/apiFetch';
+import { API_ORIGIN } from '../config';
 
 /* small utils */
-function fmt(n, d = 2) { if (n == null || !isFinite(n)) return '—'; return new Intl.NumberFormat(undefined, { maximumFractionDigits: d }).format(n); }
-function fmtInt(n) { if (n == null || !isFinite(n)) return '—'; return new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(n); }
+function fmt(n, d = 2) {
+  if (n == null || !isFinite(n)) return '—';
+  return new Intl.NumberFormat(undefined, { maximumFractionDigits: d }).format(n);
+}
+function fmtInt(n) {
+  if (n == null || !isFinite(n)) return '—';
+  return new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(n);
+}
 const noop = () => {};
-function downloadCSV(filename, rows) { const csv = rows.map(r => r.map(v => (v == null ? '' : String(v))).join(',')).join('\n'); const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); }
+function downloadCSV(filename, rows) {
+  const csv = rows.map(r => r.map(v => (v == null ? '' : String(v))).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
 
-/* safeFetch (simple defensive wrapper) */
-async function safeFetch(url, opts = {}) {
-  const res = await fetch(url, opts);
-  const ct = res.headers.get('content-type') || '';
-  const text = await res.text().catch(() => '');
+/**
+ * safeFetch
+ * - Defensive wrapper around fetch
+ * - opts.timeout (ms) supported
+ * - accepts a custom fetchFn as third argument (use apiFetch to prefix /api -> API_ORIGIN)
+ * - throws informative errors for non-2xx responses and for HTML responses
+ * - returns parsed JSON when possible, otherwise returns text
+ */
+async function safeFetch(pathOrUrl, opts = {}, fetchFn = fetch) {
+  const { timeout, ...fetchOpts } = opts;
+
+  // Setup AbortController for timeout support
+  const controller = new AbortController();
+  let timeoutId = null;
+
+  if (typeof timeout === 'number' && timeout > 0) {
+    timeoutId = setTimeout(() => controller.abort(), timeout);
+  }
+
+  // ensure we respect caller-supplied signal if present by chaining signals
+  if (fetchOpts.signal) {
+    const callerSignal = fetchOpts.signal;
+    const chained = new AbortController();
+
+    const onAbort = () => chained.abort();
+    callerSignal.addEventListener('abort', onAbort);
+    controller.signal.addEventListener('abort', onAbort);
+
+    fetchOpts.signal = chained.signal;
+  } else {
+    fetchOpts.signal = controller.signal;
+  }
+
+  let res;
+  try {
+    res = await fetchFn(pathOrUrl, fetchOpts);
+  } catch (err) {
+    if (err && err.name === 'AbortError') {
+      throw new Error(`Request aborted (possible timeout ${timeout}ms)`);
+    }
+    throw err;
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+
+  // Safely read text body (some responses have no body)
+  let text = '';
+  try {
+    text = await res.text();
+  } catch (e) {
+    text = '';
+  }
+
+  const ct = (res.headers.get('content-type') || '').toLowerCase();
+
+  // Non-2xx responses -> throw with useful snippet
   if (!res.ok) {
-    const snippet = text ? text.slice(0, 800) : `${res.status} ${res.statusText}`;
+    const snippet = text ? text.slice(0, 1000) : `${res.status} ${res.statusText}`;
     const err = new Error(`HTTP ${res.status}: ${snippet}`);
+    // attach status for callers that want to handle status codes
     err.status = res.status;
+    err.body = text;
     throw err;
   }
+
+  // If content-type looks like HTML, treat as an unexpected response (helps catch HTML error pages)
   if (ct.includes('text/html') || ct.includes('application/xhtml+xml')) {
     const snippet = text ? text.slice(0, 1000) : 'HTML response';
-    throw new Error(`Unexpected HTML response: ${snippet}`);
+    const err = new Error(`Unexpected HTML response: ${snippet}`);
+    err.status = res.status;
+    err.body = text;
+    throw err;
   }
-  try { return JSON.parse(text); } catch { return text; }
+
+  // Prefer JSON parse for content-types that indicate JSON, or try parse as fallback.
+  if (ct.includes('application/json') || ct.includes('+json')) {
+    try {
+      return JSON.parse(text);
+    } catch (e) {
+      // fall through and return raw text if parse fails
+      return text;
+    }
+  }
+
+  // Last resort: try to parse JSON then return text
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
 }
 
 /* normalize helpers - return data in shapes expected by UI */
 function normalizeTrending(raw) {
-  // Accept several shapes and return { top_gainers: [], top_losers: [] }
   if (!raw) return { top_gainers: [], top_losers: [] };
   if (raw.trending_stocks) return raw.trending_stocks;
   if (raw.top_gainers || raw.top_losers) return { top_gainers: raw.top_gainers || [], top_losers: raw.top_losers || [] };
-  // sometimes API returns { gainers: [], losers: [] }
   if (raw.gainers || raw.losers) return { top_gainers: raw.gainers || [], top_losers: raw.losers || [] };
-  // if raw is array, try to split by sign
   if (Array.isArray(raw)) {
     const gainers = raw.filter(r => Number(r.percent_change ?? r.percent ?? 0) >= 0);
     const losers = raw.filter(r => Number(r.percent_change ?? r.percent ?? 0) < 0);
@@ -51,13 +133,11 @@ function normalizeTrending(raw) {
 }
 
 function normalizeMostActive(raw) {
-  // raw can be array or { data: [...] } or { most_active: [...] }
   if (!raw) return [];
   if (Array.isArray(raw)) return raw;
   if (raw.data && Array.isArray(raw.data)) return raw.data;
   if (raw.most_active && Array.isArray(raw.most_active)) return raw.most_active;
-  // maybe wrapped under a top-level key
-  const arr = Object.keys(raw).reduce((acc, k) => (Array.isArray(raw[k]) ? acc.concat(raw[k]) : acc), []);
+  const arr = Object.keys(raw || {}).reduce((acc, k) => (Array.isArray(raw[k]) ? acc.concat(raw[k]) : acc), []);
   return arr.length ? arr : [];
 }
 
@@ -66,29 +146,23 @@ function normalizeCommodities(raw) {
   if (Array.isArray(raw)) return raw;
   if (raw.data && Array.isArray(raw.data)) return raw.data;
   if (raw.commodities && Array.isArray(raw.commodities)) return raw.commodities;
-  // try keys
-  return Object.keys(raw).map(k => raw[k]).flat().filter(Boolean);
+  return Object.keys(raw || {}).map(k => raw[k]).flat().filter(Boolean);
 }
 
 function normalizeMutualFunds(raw) {
-  // The IndianAPI mutual_funds endpoint returns a nested object of categories.
-  // We want a flat array of fund objects for the UI panels.
   if (!raw) return [];
   if (Array.isArray(raw)) return raw;
-  // if already has key 'Debt' / 'Equity' etc, flatten
   if (typeof raw === 'object') {
     const out = [];
     Object.keys(raw).forEach(top => {
       const group = raw[top];
       if (!group || typeof group !== 'object') return;
-      // group could be { "Floating Rate": [ ... ], "Dynamic Bond": [ ... ] }
       Object.keys(group).forEach(sub => {
         const list = group[sub];
         if (Array.isArray(list)) list.forEach(item => out.push({ ...item, category: top, subcategory: sub }));
       });
     });
     if (out.length) return out;
-    // fallback: if object has key 'Index Funds' or 'Equity' etc
     Object.keys(raw).forEach(k => {
       const v = raw[k];
       if (Array.isArray(v)) v.forEach(i => out.push({ ...i, category: k }));
@@ -100,33 +174,35 @@ function normalizeMutualFunds(raw) {
 
 /* =========================================
    fetchApi with robust fallbacks
-   - tries same-origin /api
+   - tries same-origin /api (via apiFetch helper)
    - then http://localhost:5000/api (absolute)
-   - then /indianapi or absolute remote
-   returns parsed JSON or throws
+   - then /indianapi (legacy proxy path)
+   - then API_ORIGIN (if provided)
 ========================================= */
 async function fetchApiRaw(path, params = {}) {
   const qs = new URLSearchParams();
-  Object.keys(params || {}).forEach(k => { const v = params[k]; if (v !== undefined && v !== null && v !== '') qs.append(k, String(v)); });
+  Object.keys(params || {}).forEach(k => {
+    const v = params[k];
+    if (v !== undefined && v !== null && v !== '') qs.append(k, String(v));
+  });
   const qstr = qs.toString() ? `?${qs.toString()}` : '';
-  const rel = `/api/${path}${qstr}`;
+  const rel = `/api/${path}${qstr}`; // will be prefixed by apiFetch in production
   const localAbs = `http://localhost:5000/api/${path}${qstr}`;
   const altLocal = `http://127.0.0.1:5000/api/${path}${qstr}`;
   const indianProxy = `/indianapi/${path}${qstr}`;
-  // remote origin if VITE config present
-  const remote = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_INDIANAPI_BASE) ? `${import.meta.env.VITE_INDIANAPI_BASE.replace(/\/$/, '')}/${path}${qstr}` : null;
+  const remote = API_ORIGIN ? `${API_ORIGIN.replace(/\/$/, '')}/api/${path}${qstr}` : null;
 
-  // try an ordered list until one works
   const attempts = [rel, localAbs, altLocal, indianProxy];
   if (remote) attempts.push(remote);
 
   let lastErr = null;
   for (const url of attempts) {
     try {
-      return await safeFetch(url, { method: 'GET', credentials: 'same-origin' });
+      // call safeFetch with apiFetch as fetchFn so top-level /api gets converted in production
+      return await safeFetch(url, { method: 'GET', credentials: 'same-origin', timeout: 8000 }, apiFetch);
     } catch (e) {
       lastErr = e;
-      // continue to next attempt
+      // continue
     }
   }
   throw lastErr || new Error('All fetch attempts failed');
@@ -138,7 +214,6 @@ async function fetchApi(req) {
   const path = isObj ? req.path : String(req);
   const params = isObj ? req.params || {} : {};
   const raw = await fetchApiRaw(path, params);
-  // normalization per endpoint
   if (path === 'trending') return normalizeTrending(raw);
   if (path === 'mutual_funds' || path === 'mutual_fund_search') return normalizeMutualFunds(raw);
   if (path === 'commodities') return normalizeCommodities(raw);
@@ -172,12 +247,12 @@ const IndianAPI = {
   clearCache: noop,
 };
 
-/* presentational components (unchanged except small safe-guards) */
+/* presentational components */
 function MiniRow({ item, onClick }) {
   const pctVal = Number(item.percent_change ?? item.percent ?? item.percentChange ?? 0);
   const positive = pctVal >= 0;
   return (
-    <div onClick={onClick} className="flex items-center justify-between py-2 border-b last:border-b-0 cursor-pointer hover:bg-slate-50" role="button" tabIndex={0} onKeyDown={(e)=>{ if(e.key==='Enter') onClick?.(); }}>
+    <div onClick={onClick} className="flex items-center justify-between py-2 border-b last:border-b-0 cursor-pointer hover:bg-slate-50" role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') onClick?.(); }}>
       <div className="min-w-0">
         <div className="text-sm font-medium truncate">{item.company_name || item.name || item.ticker || item.scheme_name || item.title || item.company}</div>
         <div className="text-xs text-gray-500 truncate">{item.ric || item.ticker_id || item.ticker || item.scheme_type || item.date || ''}</div>
@@ -189,7 +264,9 @@ function MiniRow({ item, onClick }) {
     </div>
   );
 }
-function PanelShell({ title, children }) { return (<div className="rounded-2xl border border-slate-200 p-4 bg-white shadow-sm"><div className="mb-2 text-sm text-slate-600 font-medium">{title}</div>{children}</div>); }
+function PanelShell({ title, children }) {
+  return (<div className="rounded-2xl border border-slate-200 p-4 bg-white shadow-sm"><div className="mb-2 text-sm text-slate-600 font-medium">{title}</div>{children}</div>);
+}
 
 function TrendingPanel() {
   const [data, setData] = useState(null);
@@ -210,9 +287,9 @@ function TrendingPanel() {
       {!loading && !err && data && (
         <>
           <div className="text-xs text-slate-500 mb-2">Top Gainers</div>
-          <div className="space-y-1">{(data.top_gainers || []).slice(0,6).map(s => (<MiniRow key={s.ticker_id || s.ticker || s.ticker_id} item={s} onClick={() => window.location.assign(`/stock/${encodeURIComponent(s.ric || s.ticker_id || s.ticker)}`)} />))}</div>
+          <div className="space-y-1">{(data.top_gainers || []).slice(0, 6).map(s => (<MiniRow key={s.ticker_id || s.ticker || s.ticker_id} item={s} onClick={() => window.location.assign(`/stock/${encodeURIComponent(s.ric || s.ticker_id || s.ticker)}`)} />))}</div>
           <div className="mt-3 text-xs text-slate-500 mb-2">Top Losers</div>
-          <div className="space-y-1">{(data.top_losers || []).slice(0,6).map(s => (<MiniRow key={s.ticker_id || s.ticker} item={s} onClick={() => window.location.assign(`/stock/${encodeURIComponent(s.ric || s.ticker_id || s.ticker)}`)} />))}</div>
+          <div className="space-y-1">{(data.top_losers || []).slice(0, 6).map(s => (<MiniRow key={s.ticker_id || s.ticker} item={s} onClick={() => window.location.assign(`/stock/${encodeURIComponent(s.ric || s.ticker_id || s.ticker)}`)} />))}</div>
         </>
       )}
     </PanelShell>
@@ -232,7 +309,7 @@ function MostActivePanel({ which = 'BSE' }) {
   return (
     <PanelShell title={`${which} — Most Active`}>
       <div className="space-y-1">
-        {data.slice(0,8).map(s => (<MiniRow key={s.ticker_id || s.ticker || s.ticker_id} item={s} onClick={() => window.location.assign(`/stock/${encodeURIComponent(s.ric || s.ticker_id || s.ticker)}`)} />))}
+        {data.slice(0, 8).map(s => (<MiniRow key={s.ticker_id || s.ticker || s.ticker_id} item={s} onClick={() => window.location.assign(`/stock/${encodeURIComponent(s.ric || s.ticker_id || s.ticker)}`)} />))}
         {data.length === 0 && <div className="text-sm text-slate-500">No data</div>}
       </div>
     </PanelShell>
@@ -251,7 +328,7 @@ function CommoditiesPanel() {
   return (
     <PanelShell title="Commodities">
       <div className="space-y-1">
-        {data.slice(0,8).map(c => (
+        {data.slice(0, 8).map(c => (
           <div key={c.ticker || c.name} className="flex justify-between py-2 border-b last:border-b-0">
             <div>
               <div className="text-sm font-medium">{c.name || c.instrument || c.ticker}</div>
@@ -281,7 +358,7 @@ function MutualFundsPanel() {
   return (
     <PanelShell title="Mutual Funds">
       <div className="space-y-1">
-        {data.slice(0,8).map(m => (
+        {data.slice(0, 8).map(m => (
           <div key={m.scheme_code || m.name || m.fund_name} className="flex justify-between py-2 border-b last:border-b-0">
             <div>
               <div className="text-sm font-medium truncate">{m.scheme_name ?? m.name ?? m.fund_name}</div>
@@ -311,7 +388,7 @@ function StockForecastsPanel() {
   return (
     <PanelShell title="Stock Forecasts">
       <div className="space-y-2">
-        {data.slice(0,8).map((f, i) => (
+        {data.slice(0, 8).map((f, i) => (
           <div key={f.ticker_id ?? i} className="py-2 border-b last:border-b-0">
             <div className="flex justify-between"><div className="text-sm font-medium">{f.company_name ?? f.ticker ?? f.symbol}</div><div className="text-xs text-gray-500">{f.horizon ?? f.period ?? ''}</div></div>
             <div className="text-xs text-slate-600">{f.summary ?? f.note ?? ''}</div>
@@ -335,7 +412,7 @@ function NewsPanel() {
   return (
     <PanelShell title="Market News">
       <div className="space-y-2">
-        {data.slice(0,6).map((n, i) => (
+        {data.slice(0, 6).map((n, i) => (
           <div key={n.id ?? i} className="py-2 border-b last:border-b-0">
             <a className="text-sm font-medium" href={n.link ?? n.url ?? n.source_url ?? '#'} target="_blank" rel="noreferrer">{n.title ?? n.headline ?? n.name}</a>
             <div className="text-xs text-gray-500">{n.source ?? n.date ?? ''}</div>
@@ -349,10 +426,19 @@ function NewsPanel() {
 
 function IPOPanel() {
   const [data, setData] = useState([]);
-  useEffect(() => { let canceled = false; IndianAPI.ipo().then(j => { if (!canceled) setData(Array.isArray(j) ? j : (j?.data || j?.ipos || [])); }).catch(e => { console.warn('IPOPanel', e?.message || e); if (!canceled) setData([]); }); return () => { canceled = true; }; }, []);
+  useEffect(() => {
+    let canceled = false;
+    IndianAPI.ipo()
+      .then(j => { if (!canceled) setData(Array.isArray(j) ? j : (j?.data || j?.ipos || [])); })
+      .catch(e => { console.warn('IPOPanel', e?.message || e); if (!canceled) setData([]); });
+    return () => { canceled = true; };
+  }, []);
   return (
     <PanelShell title="Upcoming IPOs">
-      <div className="space-y-2">{data.slice(0,6).map((ip, i) => (<div key={ip.ticker_id ?? i} className="py-2 border-b last:border-b-0"><div className="text-sm font-medium">{ip.company_name ?? ip.name}</div><div className="text-xs text-gray-500">{ip.listing_date ?? ip.date ?? ''}</div></div>))}{data.length===0 && <div className="text-sm text-slate-500">No upcoming IPOs</div>}</div>
+      <div className="space-y-2">
+        {data.slice(0, 6).map((ip, i) => (<div key={ip.ticker_id ?? i} className="py-2 border-b last:border-b-0"><div className="text-sm font-medium">{ip.company_name ?? ip.name}</div><div className="text-xs text-gray-500">{ip.listing_date ?? ip.date ?? ''}</div></div>))}
+        {data.length === 0 && <div className="text-sm text-slate-500">No upcoming IPOs</div>}
+      </div>
     </PanelShell>
   );
 }
@@ -388,10 +474,6 @@ function MarketsView() {
   );
 }
 
-/* EconomicsView is kept minimal here (unchanged heavy logic removed for brevity)
-   — you already had a working WB section; keep it as-is or paste your
-   full EconomicsView below if you want it included. For now we'll render a
-   placeholder so the file is standalone. */
 function EconomicsView() {
   return (
     <div className="rounded-2xl border border-slate-200 p-6 bg-white shadow-sm">
@@ -411,8 +493,8 @@ export default function G20WorldBankAndMarketsPro() {
           <p className="text-slate-600 text-sm">World Bank macro for G20 + India market panels (via IndianAPI).</p>
         </div>
         <div className="flex gap-2">
-          <button type="button" onClick={() => setTab('economics')} className={`px-4 py-2 rounded-xl border ${tab==='economics' ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-800 border-slate-300 hover:bg-slate-50'}`}>Economics</button>
-          <button type="button" onClick={() => setTab('markets')} className={`px-4 py-2 rounded-xl border ${tab==='markets' ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-800 border-slate-300 hover:bg-slate-50'}`}>Markets (India)</button>
+          <button type="button" onClick={() => setTab('economics')} className={`px-4 py-2 rounded-xl border ${tab === 'economics' ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-800 border-slate-300 hover:bg-slate-50'}`}>Economics</button>
+          <button type="button" onClick={() => setTab('markets')} className={`px-4 py-2 rounded-xl border ${tab === 'markets' ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-800 border-slate-300 hover:bg-slate-50'}`}>Markets (India)</button>
         </div>
       </header>
       {tab === 'economics' ? <EconomicsView /> : <MarketsView />}

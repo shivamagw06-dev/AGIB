@@ -6,8 +6,8 @@ import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import ImageExtension from '@tiptap/extension-image';
 import Link from '@tiptap/extension-link';
-// NOTE: removed direct CodeBlock import because StarterKit already includes it
 import { supabase } from '@/lib/supabaseClient';
+import apiFetch from '../utils/apiFetch'; // <-- fixed: top-level import
 
 // --- config
 const STORAGE_BUCKET_COVERS = 'covers';
@@ -119,7 +119,6 @@ export default function WriteArticle() {
         Placeholder.configure({ placeholder: 'Write your article. Use the image button to insert visuals.' }),
         ImageExtension.configure({ inline: false, allowBase64: false }),
         Link.configure({ openOnClick: true }),
-        // do not add a separate CodeBlock import — StarterKit already provides one.
       ]),
     []
   );
@@ -182,16 +181,13 @@ export default function WriteArticle() {
       throw uploadError;
     }
 
-    // getPublicUrl in some supabase client shapes returns a synchronous object; unify both
     try {
       const urlRes = await supabase.storage.from(bucket).getPublicUrl(path);
-      // urlRes may be { data: { publicUrl } } or { data: { publicURL } } or synchronous object
       const publicUrl =
         urlRes?.data?.publicUrl ?? urlRes?.data?.publicURL ?? urlRes?.publicUrl ?? urlRes?.publicURL ?? urlRes?.public_url ?? null;
       return publicUrl;
     } catch (err) {
       console.warn('getPublicUrl returned an unexpected shape', err);
-      // try the synchronous route (older clients)
       const fallback = supabase.storage.from(bucket).getPublicUrl(path);
       const publicUrl =
         fallback?.data?.publicUrl ?? fallback?.data?.publicURL ?? fallback?.publicUrl ?? fallback?.publicURL ?? fallback?.public_url ?? null;
@@ -205,7 +201,6 @@ export default function WriteArticle() {
     if (!file) return;
     setCoverFile(file);
 
-    // immediate data-url preview
     try {
       const reader = new FileReader();
       reader.onload = (ev) => {
@@ -217,7 +212,6 @@ export default function WriteArticle() {
       console.warn('Preview generation failed', err);
     }
 
-    // upload in background to get public URL
     setCoverUploading(true);
     setError(null);
     try {
@@ -455,9 +449,6 @@ export default function WriteArticle() {
       // pick last chosen label as main section (keeps previous behavior)
       const payloadSectionLabel = payloadSectionsLabels[payloadSectionsLabels.length - 1] || toDbSectionLabel('live-articles');
 
-      // debug
-      console.debug('Publishing article payload sections:', payloadSectionsKeys, payloadSectionsLabels);
-
       const { data: userData, error: userErr } = await supabase.auth.getUser();
       if (userErr) console.warn('supabase.auth.getUser error', userErr);
       const user = userData?.user ?? null;
@@ -467,11 +458,8 @@ export default function WriteArticle() {
 
       const payload = {
         title: title || 'Untitled',
-        // HTML content (primary)
         content: html,
-        // also write content_md so older code expecting content_md works
         content_md: html,
-        // excerpt plain-text
         excerpt,
         status,
         cover_url,
@@ -484,22 +472,22 @@ export default function WriteArticle() {
         author: user?.email ?? null,
       };
 
-      console.debug('Inserting article payload:', payload);
-
       const { data, error: insertError } = await supabase.from('articles').insert(payload).select('id,slug').single();
       if (insertError) {
         console.error('Insert error', insertError);
         throw insertError;
       }
 
+      // If published, notify subscribers (best-effort; don't fail overall publish)
       if (status === 'published') {
         try {
-          await fetch('/api/notify-subscribers', {
+          await apiFetch('/api/notify-subscribers', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ articleId: data?.id ?? null, title: payload.title, slug: data?.slug ?? data?.id, body: html }),
           });
         } catch (notifyErr) {
+          // log and continue
           console.warn('Failed to notify subscribers', notifyErr);
         }
       }
