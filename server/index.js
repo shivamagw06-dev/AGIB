@@ -21,26 +21,47 @@ const API_KEY = typeof API_KEY_RAW === "string" ? API_KEY_RAW.trim() : "";
 
 if (!API_KEY) console.warn("⚠️ Missing INDIANAPI_KEY — set in env (Render/local).");
 
-// CORS: allow configured frontend OR fallback to permissive behaviour for server-side requests
-const allowed = (process.env.FRONTEND_ORIGIN && process.env.FRONTEND_ORIGIN.split(",").map(s => s.trim())) || [
-  "https://agarwalglobalinvestments.com",
-  "https://www.agarwalglobalinvestments.com",
-  "*"
-];
+// Parse FRONTEND_ORIGIN from env (comma-separated allowed list) or use sensible defaults
+const rawAllowed = (process.env.FRONTEND_ORIGIN && String(process.env.FRONTEND_ORIGIN).trim()) || "";
+const ALLOWED_ORIGINS = rawAllowed
+  ? rawAllowed.split(",").map(s => s.trim()).filter(Boolean)
+  : [
+      "https://agarwalglobalinvestments.com",
+      "https://www.agarwalglobalinvestments.com"
+    ];
 
-app.use(cors({
-  origin: (origin, cb) => {
-    // allow server-to-server & curl requests with no origin
-    if (!origin) return cb(null, true);
-    if (allowed.includes("*") || allowed.includes(origin)) return cb(null, true);
-    return cb(new Error("CORS origin not allowed"));
+// Build cors options
+const corsOptions = {
+  origin(origin, callback) {
+    // allow server-to-server & curl requests (no origin header)
+    if (!origin) return callback(null, true);
+
+    // allow if wildcard present in env
+    if (ALLOWED_ORIGINS.includes("*") || ALLOWED_ORIGINS.includes(origin)) {
+      return callback(null, true);
+    }
+
+    // not allowed
+    return callback(new Error(`CORS origin not allowed: ${origin}`), false);
   },
-  methods: ["GET", "OPTIONS"]
-}));
+  credentials: true, // set to true only if you send cookies/auth from frontend
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept", "x-api-key"],
+  preflightContinue: false,
+  optionsSuccessStatus: 204
+};
 
+// Apply CORS early so preflight is handled
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions)); // enable preflight for all routes
+
+// Trust proxy (Render, Heroku, etc.)
 app.set("trust proxy", 1);
+
+// Rate limit API routes
 app.use("/api", rateLimit({ windowMs: 60 * 1000, max: 100 }));
 
+// Helper: headers to send to IndianAPI
 function makeHeaders() {
   const h = {
     Accept: "application/json",
@@ -52,6 +73,7 @@ function makeHeaders() {
   return h;
 }
 
+// Proxy fetch wrapper
 async function proxyFetch(res, url) {
   try {
     console.log(`[proxy] -> ${url}`);
@@ -63,12 +85,12 @@ async function proxyFetch(res, url) {
     // If upstream returned no body, just forward the status
     if (!text) return res.status(r.status).end();
 
-    // upstream may respond with plaintext errors like "Invalid API key"
+    // Upstream sensitive responses
     if (r.status === 401 || r.status === 402 || r.status === 403) {
       console.error(`[proxy][upstream ${r.status}] ${text.slice(0, 200)}`);
     }
 
-    // Try parse JSON — if JSON contains error, surface as 502
+    // Try parse JSON — surface upstream JSON errors as 502
     try {
       const json = JSON.parse(text);
       if (json && (json.error || json.upstream_error)) {
@@ -77,7 +99,7 @@ async function proxyFetch(res, url) {
       }
       return res.status(r.status).json(json);
     } catch (e) {
-      // Non-JSON body: forward as text / preserve upstream status (map 401 -> 401)
+      // Non-JSON body: forward as text and preserve upstream status
       res.set("Content-Type", ct || "text/plain");
       if (r.status === 401) return res.status(401).send(text);
       return res.status(r.status).send(text);
@@ -92,6 +114,7 @@ async function proxyFetch(res, url) {
 let trendingCache = null;
 let trendingExpiry = 0;
 
+// Simple register helper for GET routes
 function reg(path, handler) {
   app.get(path, handler);
   console.log("[route registered]", path);
@@ -232,4 +255,5 @@ app.use((req, res) => res.status(404).json({ error: "Not found", path: req.path 
 
 app.listen(PORT, () => {
   console.log(`🚀 IndianAPI Proxy running on port ${PORT} — Base: ${BASE_URL}`);
+  console.log("Allowed origins:", ALLOWED_ORIGINS);
 });
