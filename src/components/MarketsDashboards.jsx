@@ -13,7 +13,6 @@ function fmtPct(n) {
   return `${v >= 0 ? '+' : ''}${v}%`;
 }
 function csvDownload(filename, rows) {
-  // rows: array of arrays (rows/cols)
   const csv = rows
     .map(r =>
       r
@@ -43,7 +42,6 @@ async function apiFetch(path, params = {}) {
   });
   const qstr = qs.toString() ? `?${qs.toString()}` : '';
   const base = API_ORIGIN ? API_ORIGIN.replace(/\/$/, '') : window.location.origin;
-  // Backend proxy assumed at /api/<path>
   const url = `${base}/api/${path}${qstr}`;
 
   const res = await fetch(url, { credentials: 'same-origin' });
@@ -70,7 +68,7 @@ async function apiFetch(path, params = {}) {
   }
 }
 
-/* ---------- G20 countries list (name + ISO2/ISO3 where useful) ---------- */
+/* ---------- G20 list ---------- */
 const G20 = [
   { name: 'Argentina', iso2: 'AR', iso3: 'ARG' },
   { name: 'Australia', iso2: 'AU', iso3: 'AUS' },
@@ -91,10 +89,10 @@ const G20 = [
   { name: 'Turkey', iso2: 'TR', iso3: 'TUR' },
   { name: 'United Kingdom', iso2: 'GB', iso3: 'GBR' },
   { name: 'United States', iso2: 'US', iso3: 'USA' },
-  { name: 'European Union', iso2: 'EU', iso3: 'EU' } // EU often included in G20 context
+  { name: 'European Union', iso2: 'EU', iso3: 'EU' }
 ];
 
-/* ---------- Stock search + details component ---------- */
+/* ---------- Stock search + details ---------- */
 function StockDetails({ stock }) {
   if (!stock) return null;
 
@@ -128,6 +126,11 @@ function StockDetails({ stock }) {
         <div>52wk Low: {fmt(stock.yearLow ?? stock.year_low)}</div>
         <div>Mkt Cap: {fmt(metrics.market_cap ?? metrics.mktcap ?? metrics.marketCap, 0)}</div>
       </div>
+
+      {/* quick links for deeper IndianAPI features */}
+      <div className="mt-3 text-xs text-slate-500">
+        <div>Shareholding and corporate actions are available via the API: <code>/stock?name=&lt;name&gt;</code> (look for <code>shareholding</code> and <code>stockCorporateActionData</code> fields)</div>
+      </div>
     </div>
   );
 }
@@ -137,8 +140,9 @@ function StockExtraPanels({ tickerId, stockName }) {
   const [forecasts, setForecasts] = useState(null);
   const [target, setTarget] = useState(null);
   const [historical, setHistorical] = useState(null);
+  const [historicalStats, setHistoricalStats] = useState(null);
   const [news, setNews] = useState(null);
-  const [loading, setLoading] = useState({ f: false, t: false, h: false, n: false });
+  const [loading, setLoading] = useState({ f: false, t: false, h: false, n: false, hs: false });
   const safeTicker = tickerId || stockName;
 
   useEffect(() => {
@@ -166,6 +170,13 @@ function StockExtraPanels({ tickerId, stockName }) {
       .catch(e => { console.warn('fetch hist', e?.message || e); if (mounted) setHistorical(null); })
       .finally(() => { if (mounted) setLoading(l => ({ ...l, h: false })); });
 
+    // historical stats (quarter results) -- useful for quick financials
+    setLoading(l => ({ ...l, hs: true }));
+    apiFetch('historical_stats', { stock_name: safeTicker, stats: 'quarter_results' })
+      .then(j => { if (mounted) setHistoricalStats(j); })
+      .catch(e => { console.warn('fetch hist stats', e?.message || e); if (mounted) setHistoricalStats(null); })
+      .finally(() => { if (mounted) setLoading(l => ({ ...l, hs: false })); });
+
     // news (global)
     setLoading(l => ({ ...l, n: true }));
     apiFetch('news', { q: safeTicker })
@@ -188,7 +199,6 @@ function StockExtraPanels({ tickerId, stockName }) {
     return 'Sell';
   }, [target]);
 
-  // helper to extract price dataset and allow CSV export
   const historicalRows = useMemo(() => {
     if (!historical || !historical.datasets || !Array.isArray(historical.datasets)) return [];
     const priceDs = historical.datasets.find(ds => /price/i.test(String(ds.metric || ds.label || ''))) || historical.datasets[0];
@@ -258,11 +268,23 @@ function StockExtraPanels({ tickerId, stockName }) {
         ))}
         {!loading.n && (!news || news.length === 0) && <div className="text-sm text-slate-500">No recent news</div>}
       </div>
+
+      {/* show a small historical stats excerpt if available */}
+      {historicalStats && (
+        <div className="rounded-2xl border p-4 bg-white text-xs">
+          <div className="font-medium text-slate-700 mb-2">Quarterly Snapshot (most recent)</div>
+          <div className="text-xs text-slate-600">
+            {typeof historicalStats === 'object' ? (
+              Object.keys(historicalStats).slice(0,3).map(k => (<div key={k}><strong>{k}:</strong> {fmt(Object.values(historicalStats[k] || {})[Object.values(historicalStats[k]||{}).length-1] ?? '')}</div>))
+            ) : 'N/A'}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-/* ---------- Trending & Side widgets ---------- */
+/* ---------- Trending & Side widgets (expanded to include IndianAPI endpoints) ---------- */
 function TrendingPanel() {
   const [data, setData] = useState(null);
   useEffect(() => {
@@ -281,7 +303,6 @@ function TrendingPanel() {
       {losers.slice(0, 6).map((g, i) => (<div key={i} className="flex justify-between text-sm py-1 border-b"><div>{g.company_name ?? g.name ?? g.ticker}</div><div className={`text-xs ${Number(g.percent_change ?? g.percent ?? 0) >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{fmtPct(g.percent_change ?? g.percent ?? 0)}</div></div>))}
       <div className="mt-3 flex gap-2">
         <button className="text-xs px-2 py-1 rounded-xl border" onClick={() => {
-          // export top gainers CSV (simple)
           const rows = [['name','ticker','percent_change'], ...gainers.slice(0, 50).map(g => [g.company_name ?? g.name ?? '', g.ticker ?? '', g.percent_change ?? g.percent ?? ''])];
           csvDownload('top_gainers.csv', rows);
         }}>Export Gainers</button>
@@ -295,29 +316,183 @@ function TrendingPanel() {
 }
 
 function SideWidgets() {
+  const [nse, setNse] = useState(null);
+  const [bse, setBse] = useState(null);
+  const [commodities, setCommodities] = useState(null);
+  const [mutualFunds, setMutualFunds] = useState(null);
+  const [week52, setWeek52] = useState(null);
+  const [priceShockers, setPriceShockers] = useState(null);
+  const [loading, setLoading] = useState({ nse: false, bse: false, comm: false, mf: false, wk: false, ps: false });
+
+  useEffect(() => {
+    let mounted = true;
+    setLoading(l => ({ ...l, nse: true }));
+    apiFetch('NSE_most_active').then(d => { if (mounted) setNse(d); }).catch(e => { console.warn('NSE_most_active', e); setNse(null); }).finally(() => { if (mounted) setLoading(l => ({ ...l, nse: false })); });
+
+    setLoading(l => ({ ...l, bse: true }));
+    apiFetch('BSE_most_active').then(d => { if (mounted) setBse(d); }).catch(e => { console.warn('BSE_most_active', e); setBse(null); }).finally(() => { if (mounted) setLoading(l => ({ ...l, bse: false })); });
+
+    setLoading(l => ({ ...l, comm: true }));
+    apiFetch('commodities').then(d => { if (mounted) setCommodities(d); }).catch(e => { console.warn('commodities', e); setCommodities(null); }).finally(() => { if (mounted) setLoading(l => ({ ...l, comm: false })); });
+
+    setLoading(l => ({ ...l, mf: true }));
+    apiFetch('mutual_funds').then(d => { if (mounted) setMutualFunds(d); }).catch(e => { console.warn('mutual_funds', e); setMutualFunds(null); }).finally(() => { if (mounted) setLoading(l => ({ ...l, mf: false })); });
+
+    setLoading(l => ({ ...l, wk: true }));
+    apiFetch('fetch_52_week_high_low_data').then(d => { if (mounted) setWeek52(d); }).catch(e => { console.warn('52wk', e); setWeek52(null); }).finally(() => { if (mounted) setLoading(l => ({ ...l, wk: false })); });
+
+    setLoading(l => ({ ...l, ps: true }));
+    apiFetch('price_shockers').then(d => { if (mounted) setPriceShockers(d); }).catch(e => { console.warn('price_shockers', e); setPriceShockers(null); }).finally(() => { if (mounted) setLoading(l => ({ ...l, ps: false })); });
+
+    return () => { mounted = false; };
+  }, []);
+
+  const exportList = (name, arr, mapper) => {
+    if (!arr || !Array.isArray(arr)) return;
+    const rows = [Object.keys(mapper(arr[0])).map(k => k), ...arr.slice(0, 200).map(mapper)];
+    csvDownload(`${name}.csv`, rows);
+  };
+
   return (
     <aside className="space-y-4">
       <TrendingPanel />
+
       <div className="rounded-2xl border p-4 bg-white text-sm">
-        <div className="font-medium text-slate-700 text-sm mb-2">Quick Widgets</div>
-        <div className="text-xs text-slate-500">Most Active, Commodities, Mutual Funds — wire to /api endpoints as needed.</div>
+        <div className="font-medium text-slate-700 text-sm mb-2">Most Active</div>
+        <div className="text-xs text-slate-500 mb-2">NSE</div>
+        {loading.nse && <div className="text-xs text-slate-500">Loading…</div>}
+        {!loading.nse && Array.isArray(nse) && nse.slice(0,6).map((r,i)=>(<div key={i} className="flex justify-between py-1 text-xs border-b"><div>{r.company ?? r.company_name ?? r.ticker}</div><div className="text-xs">{fmt(r.percent_change ?? r.percent ?? 0)}</div></div>))}
+        <div className="text-xs text-slate-500 mt-2 mb-1">BSE</div>
+        {loading.bse && <div className="text-xs text-slate-500">Loading…</div>}
+        {!loading.bse && Array.isArray(bse) && bse.slice(0,6).map((r,i)=>(<div key={i} className="flex justify-between py-1 text-xs border-b"><div>{r.company ?? r.company_name ?? r.ticker}</div><div className="text-xs">{fmt(r.percent_change ?? r.percent ?? 0)}</div></div>))}
+        <div className="mt-3 flex gap-2">
+          <button className="text-xs px-2 py-1 rounded-xl border" onClick={() => exportList('nse_most_active', nse, x => [x.company ?? x.company_name ?? x.ticker, x.ticker ?? x.exchangeCodeNsi ?? '', x.price ?? x.lastTradedPrice ?? '', x.percent_change ?? x.percent ?? ''])}>Export Most Active</button>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border p-4 bg-white text-sm">
+        <div className="font-medium text-slate-700 text-sm mb-2">Commodities</div>
+        {loading.comm && <div className="text-xs text-slate-500">Loading…</div>}
+        {!loading.comm && Array.isArray(commodities) && commodities.slice(0,6).map((c,i)=>(<div key={i} className="py-1 text-xs border-b"><div className="flex justify-between"><div>{c.commoditySymbol ?? c.commodity ?? c.contractName}</div><div className="text-xs">{fmt(c.lastTradedPrice ?? c.price)}</div></div></div>))}
+        <div className="mt-3 flex gap-2">
+          <button className="text-xs px-2 py-1 rounded-xl border" onClick={() => exportList('commodities', commodities, x => [x.contractId ?? '', x.commoditySymbol ?? x.commodity ?? '', x.lastTradedPrice ?? x.price ?? ''])}>Export</button>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border p-4 bg-white text-sm">
+        <div className="font-medium text-slate-700 text-sm mb-2">Mutual Funds (top categories)</div>
+        {loading.mf && <div className="text-xs text-slate-500">Loading…</div>}
+        {!loading.mf && mutualFunds && typeof mutualFunds === 'object' && (
+          <div className="text-xs text-slate-600 max-h-40 overflow-auto">
+            {Object.keys(mutualFunds).slice(0,3).map(cat => (
+              <div key={cat} className="mb-2">
+                <div className="text-xs font-medium">{cat}</div>
+                {(mutualFunds[cat]||[]).slice(0,3).map((f,i)=>(<div key={i} className="text-xs">{f.fund_name ?? f.schemeName} — NAV: {fmt(f.latest_nav)}</div>))}
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="mt-3 flex gap-2">
+          <button className="text-xs px-2 py-1 rounded-xl border" onClick={() => exportList('mutual_funds', (mutualFunds && mutualFunds.Equity && mutualFunds.Equity['Large Cap']) || [], x => [x.fund_name ?? x.schemeName ?? '', x.latest_nav ?? x.nav ?? '', x['1_year_return'] ?? x.one_year_return ?? ''])}>Export</button>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border p-4 bg-white text-sm">
+        <div className="font-medium text-slate-700 text-sm mb-2">52-week High / Low</div>
+        {loading.wk && <div className="text-xs text-slate-500">Loading…</div>}
+        {!loading.wk && week52 && (
+          <div className="text-xs text-slate-600 max-h-40 overflow-auto">
+            <div className="font-medium">BSE Highs</div>
+            {(week52.BSE_52WeekHighLow?.high52Week||[]).slice(0,4).map((r,i)=>(<div key={`bhi-${i}`} className="py-1">{r.company} — {fmt(r.price)} ({fmt(r['52_week_high'])})</div>))}
+            <div className="font-medium mt-2">NSE Highs</div>
+            {(week52.NSE_52WeekHighLow?.high52Week||[]).slice(0,4).map((r,i)=>(<div key={`nhi-${i}`} className="py-1">{r.company} — {fmt(r.price)} ({fmt(r['52_week_high'])})</div>))}
+          </div>
+        )}
+      </div>
+
+      <div className="rounded-2xl border p-4 bg-white text-sm">
+        <div className="font-medium text-slate-700 text-sm mb-2">Price Shockers</div>
+        {loading.ps && <div className="text-xs text-slate-500">Loading…</div>}
+        {!loading.ps && Array.isArray(priceShockers) && priceShockers.slice(0,6).map((p,i)=>(<div key={i} className="py-1 text-xs border-b"><div className="flex justify-between"><div>{p.company ?? p.ticker}</div><div>{fmtPct(p.percent_change ?? p.percent ?? 0)}</div></div></div>))}
       </div>
     </aside>
   );
 }
 
-/* ---------- Economics / G20 Panel ---------- */
+/* ---------- Industry search component (uses /industry_search) ---------- */
+function IndustrySearch() {
+  const [q, setQ] = useState('');
+  const [results, setResults] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState(null);
+
+  async function doSearch() {
+    const t = (q||'').trim();
+    if (!t) return;
+    setLoading(true); setErr(null); setResults(null);
+    try {
+      const r = await apiFetch('industry_search', { query: t });
+      setResults(r);
+    } catch (e) {
+      console.warn('industry_search', e);
+      setErr(e.message || 'Search failed');
+    } finally { setLoading(false); }
+  }
+
+  return (
+    <div className="rounded-2xl border p-4 bg-white text-sm">
+      <div className="font-medium text-slate-700 mb-2">Industry Search</div>
+      <div className="flex gap-2 mb-2">
+        <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search industry (e.g. Software)" className="flex-1 border rounded-xl px-3 py-2 text-xs" />
+        <button className="px-3 py-1 rounded-xl border text-xs" onClick={doSearch}>Search</button>
+      </div>
+      {loading && <div className="text-xs text-slate-500">Loading…</div>}
+      {err && <div className="text-xs text-rose-600">{err}</div>}
+      {results && Array.isArray(results) && results.slice(0,6).map((r,i)=>(<div key={i} className="text-xs py-1 border-b">{r.commonName ?? r.company_name} — {r.mgIndustry ?? r.mgSector}</div>))}
+    </div>
+  );
+}
+
+/* ---------- Mutual fund search component (uses /mutual_fund_search) ---------- */
+function MutualFundSearch() {
+  const [q, setQ] = useState('');
+  const [results, setResults] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState(null);
+
+  async function doSearch() {
+    const t = (q||'').trim();
+    if (!t) return;
+    setLoading(true); setErr(null); setResults(null);
+    try {
+      const r = await apiFetch('mutual_fund_search', { query: t });
+      setResults(r);
+    } catch (e) {
+      console.warn('mutual_fund_search', e);
+      setErr(e.message || 'Search failed');
+    } finally { setLoading(false); }
+  }
+
+  return (
+    <div className="rounded-2xl border p-4 bg-white text-sm">
+      <div className="font-medium text-slate-700 mb-2">Mutual Fund Search</div>
+      <div className="flex gap-2 mb-2">
+        <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search mutual fund (scheme name / ISIN)" className="flex-1 border rounded-xl px-3 py-2 text-xs" />
+        <button className="px-3 py-1 rounded-xl border text-xs" onClick={doSearch}>Search</button>
+      </div>
+      {loading && <div className="text-xs text-slate-500">Loading…</div>}
+      {err && <div className="text-xs text-rose-600">{err}</div>}
+      {results && Array.isArray(results) && results.slice(0,6).map((r,i)=>(<div key={i} className="text-xs py-1 border-b">{r.schemeName ?? r.fund_name} — {r.isin}</div>))}
+    </div>
+  );
+}
+
+/* ---------- G20 Panel (unchanged) ---------- */
 function G20EconomicsPanel() {
   const [g20Data, setG20Data] = useState(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState(null);
-  const controllers = useRef({});
 
-  // Example indicators we want from World Bank (or backend proxy). These keys are illustrative:
-  // GDP (current US$): NY.GDP.MKTP.CD
-  // Inflation (CPI annual %): FP.CPI.TOTL.ZG
-  // Unemployment rate (%): SL.UEM.TOTL.ZS
-  // Population: SP.POP.TOTL
   const indicators = [
     { code: 'NY.GDP.MKTP.CD', label: 'GDP (current US$)' },
     { code: 'FP.CPI.TOTL.ZG', label: 'Inflation (CPI %)' },
@@ -329,11 +504,8 @@ function G20EconomicsPanel() {
     let mounted = true;
     setLoading(true);
     setErr(null);
-    // fetch in parallel for all G20 countries via backend endpoint 'worldbank' (proxy)
-    // backend expected to accept: /api/worldbank?country=ISO2&indicators=code1,code2&date=2022:2024 etc.
     Promise.all(G20.map(async (c) => {
       try {
-        // optional: pass 'latest' param so backend returns the most recent available value
         const q = { country: c.iso2, indicators: indicators.map(i => i.code).join(','), date: '2020:2024', per_page: 1, latest: true };
         const data = await apiFetch('worldbank', q);
         return { country: c, data };
@@ -349,12 +521,11 @@ function G20EconomicsPanel() {
       if (mounted) setErr(e?.message || String(e));
     }).finally(() => { if (mounted) setLoading(false); });
 
-    return () => { mounted = false; Object.values(controllers.current).forEach(ctrl => ctrl?.abort?.()); };
+    return () => { mounted = false; };
   }, []);
 
   function exportG20Csv() {
     if (!g20Data || !Array.isArray(g20Data)) return;
-    // build rows header: country + indicator labels
     const header = ['country', ...indicators.map(i => i.label)];
     const rows = [header];
     g20Data.forEach(item => {
@@ -362,12 +533,9 @@ function G20EconomicsPanel() {
         rows.push([item.country.name, 'error', item.message || '']);
         return;
       }
-      // attempt to read latest values from returned data structure (backend may return an object keyed by indicator)
       const values = indicators.map(ind => {
-        // try common shapes
         const v = (item.data && (item.data[ind.code] ?? item.data[ind.code]?.value)) ?? null;
         if (v == null) {
-          // attempt: item.data may be an array of indicator results
           if (Array.isArray(item.data)) {
             const found = item.data.find(d => d.indicator?.id === ind.code || d.indicator === ind.code);
             if (found) return found.value ?? found.latest_value ?? found.data?.value ?? '—';
@@ -410,13 +578,10 @@ function G20EconomicsPanel() {
                 if (item.error) {
                   return (<tr key={idx}><td className="py-1">{item.country.name}</td><td colSpan={indicators.length} className="py-1 text-xs text-rose-600">Error: {item.message}</td></tr>);
                 }
-                // try several shapes for data
                 const rowVals = indicators.map(ind => {
                   const d = item.data;
-                  // common shapes: { 'NY.GDP.MKTP.CD': { value: ... } } OR array [{ indicator: {id: code}, value: ... }]
                   const byKey = d?.[ind.code];
                   if (byKey != null) {
-                    // if object with value
                     if (typeof byKey === 'object' && ('value' in byKey)) return fmt(byKey.value);
                     return fmt(byKey);
                   }
@@ -424,7 +589,6 @@ function G20EconomicsPanel() {
                     const found = d.find(x => (x.indicator && (x.indicator.id === ind.code || x.indicator === ind.code)) || x.code === ind.code);
                     if (found) return fmt(found.value ?? found.latest_value ?? found.data?.value);
                   }
-                  // fallback try top-level fields
                   return '—';
                 });
                 return (
@@ -442,7 +606,7 @@ function G20EconomicsPanel() {
   );
 }
 
-/* ---------- Main Markets view ---------- */
+/* ---------- Main Markets view (adds IndustrySearch and MutualFundSearch in sidebar) ---------- */
 export default function MarketsDashboard() {
   const [query, setQuery] = useState('');
   const [stock, setStock] = useState(null);
@@ -484,16 +648,13 @@ export default function MarketsDashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-4">
-          {/* G20 economics summary (top) */}
           <G20EconomicsPanel />
 
-          {/* Stock details */}
           <div className="rounded-2xl border p-4 bg-white">
             {!stock && <div className="text-sm text-slate-500">No stock selected — search above to view details.</div>}
             {stock && <StockDetails stock={stock} />}
           </div>
 
-          {/* Extra panels for selected stock */}
           {stock && <StockExtraPanels
             tickerId={stock.tickerId || stock.ticker_id || stock.ticker || stock.ric || stock.symbol}
             stockName={stock.companyName || stock.company_name || stock.commonName || stock.name}
@@ -502,6 +663,10 @@ export default function MarketsDashboard() {
 
         <div>
           <SideWidgets />
+          <div className="mt-4 space-y-4">
+            <IndustrySearch />
+            <MutualFundSearch />
+          </div>
         </div>
       </div>
     </div>
