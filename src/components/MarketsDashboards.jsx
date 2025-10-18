@@ -22,7 +22,7 @@ function safeGet(obj, ...keys) {
 }
 function csvDownload(filename, rows) {
   const esc = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
-  const csv = (rows || []).map(r => (Array.isArray(r) ? r.map(esc).join(',') : esc(r))).join('\n');
+  const csv = rows.map(r => r.map(esc).join(',')).join('\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -55,23 +55,25 @@ async function apiFetch(path, params = {}, opts = {}) {
       const controller = new AbortController();
       const timeout = opts.timeout || 8000;
       const t = setTimeout(() => controller.abort(), timeout);
-      const res = await fetch(url, { credentials: 'same-origin', signal: controller.signal });
+      const res = await fetch(url, { credentials: 'same-origin', signal: controller.signal, headers: { Accept: 'application/json, text/plain, */*' } });
       clearTimeout(t);
       const ct = res.headers.get ? (res.headers.get('content-type') || '') : '';
       const text = await res.text().catch(() => '');
       if (!res.ok) {
-        const snippet = text ? text.slice(0, 800) : res.statusText;
+        // construct informative error with server body snippet
+        const snippet = text ? text.slice(0, 200) : res.statusText;
         const err = new Error(`HTTP ${res.status} from ${url}: ${snippet}`);
         err.status = res.status; err.body = text; err.url = url;
         throw err;
       }
+      // try parse JSON, otherwise return text
       if (ct.toLowerCase().includes('json') || ct.toLowerCase().includes('+json')) {
-        try { return JSON.parse(text); } catch { return text; }
+        try { return JSON.parse(text); } catch (parseErr) { return text; }
       }
       try { return JSON.parse(text); } catch { return text; }
     } catch (err) {
       lastErr = err;
-      // try next candidate
+      // try next candidate silently (we capture in DebugPanel)
     }
   }
   throw lastErr || new Error('All API fetch attempts failed');
@@ -90,7 +92,7 @@ async function fetchThrottle(key, fn, ms = 600) {
 }
 
 /* ---------- DebugPanel (handy during dev) ---------- */
-function DebugPanel({ visible = false }) {
+function DebugPanel({ visible = true }) {
   const [out, setOut] = useState([]);
   const append = (label, v) => setOut(o => [...o, { label, v }]);
   useEffect(() => {
@@ -112,7 +114,7 @@ function DebugPanel({ visible = false }) {
           if (ct.includes('json')) {
             try { body = JSON.parse(text); } catch {}
           }
-          append(c.label, { status: res.status, ok: res.ok, body: (typeof body === 'string' ? body.slice(0, 1000) : body) });
+          append(c.label, { status: res.status, ok: res.ok, body: (typeof body === 'string' ? body.slice(0, 1000) : body), type: typeof body });
         } catch (err) {
           append(c.label, { error: String(err) });
         }
@@ -127,6 +129,7 @@ function DebugPanel({ visible = false }) {
         {out.map((r, i) => (
           <div key={i} className="mb-2">
             <div className="text-slate-700">{r.label} — {r.v.error ? 'ERR' : `HTTP ${r.v.status}`}</div>
+            <div className="text-[11px] text-slate-500">type: {r.v.type ?? typeof r.v.body}</div>
             <pre className="text-[11px] text-slate-500 whitespace-pre-wrap">{typeof r.v.body === 'string' ? r.v.body : JSON.stringify(r.v.body, null, 2)}</pre>
           </div>
         ))}
@@ -138,29 +141,20 @@ function DebugPanel({ visible = false }) {
 /* ---------- Basic UI components ---------- */
 
 function Sparkline({ values = [], width = 200, height = 40 }) {
-  try {
-    const arr = Array.isArray(values) ? values : (values && typeof values === 'object' && Array.from(values)) || [];
-    if (!arr || arr.length === 0) return <div className="text-xs text-slate-400">No data</div>;
-    // accept either [[date, value], ...] or [num,num,...]
-    const nums = arr.map(v => {
-      if (Array.isArray(v)) return Number(v[1] ?? v[0] ?? 0);
-      return Number(v ?? 0);
-    }).map(n => (isFinite(n) ? n : 0));
-    const min = Math.min(...nums);
-    const max = Math.max(...nums);
-    const range = max - min || 1;
-    const stepX = width / Math.max(1, nums.length - 1);
-    const points = nums.map((n, i) => `${i * stepX},${height - ((n - min) / range) * height}`).join(' ');
-    const last = nums[nums.length - 1];
-    const color = last >= nums[0] ? '#059669' : '#ef4444';
-    return (
-      <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} className="block">
-        <polyline fill="none" stroke={color} strokeWidth="1.6" points={points} />
-      </svg>
-    );
-  } catch (e) {
-    return <div className="text-xs text-slate-400">No data</div>;
-  }
+  if (!values || values.length === 0) return <div className="text-xs text-slate-400">No data</div>;
+  const nums = values.map(v => Number(v[1] ?? v));
+  const min = Math.min(...nums);
+  const max = Math.max(...nums);
+  const range = max - min || 1;
+  const stepX = width / Math.max(1, nums.length - 1);
+  const points = nums.map((n, i) => `${i * stepX},${height - ((n - min) / range) * height}`).join(' ');
+  const last = nums[nums.length - 1];
+  const color = last >= nums[0] ? '#059669' : '#ef4444';
+  return (
+    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} className="block">
+      <polyline fill="none" stroke={color} strokeWidth="1.6" points={points} />
+    </svg>
+  );
 }
 
 /* ---------- Panels: Stock search + details ---------- */
@@ -173,7 +167,7 @@ function StockDetails({ stock, onViewDeeper }) {
   const tickerId = stock.tickerId || stock.ticker_id || stock.ticker || stock.ric || stock.ticker;
   const name = stock.companyName || stock.company_name || stock.commonName || stock.name || 'Company';
   const priceObj = stock.currentPrice || stock.current_price || stock.price || {};
-  const price = (typeof priceObj === 'object') ? (priceObj.NSE ?? priceObj.BSE ?? priceObj.latest ?? priceObj) : priceObj;
+  const price = (typeof priceObj === 'object') ? (priceObj.NSE ?? priceObj.BSE ?? priceObj.latest ?? priceObj.value ?? priceObj) : priceObj;
   const pct = stock.percentChange ?? stock.percent_change ?? stock.percent ?? 0;
   const metrics = stock.keyMetrics || stock.key_metrics || stock.stockDetailsReusableData || {};
   const yearHigh = stock.yearHigh ?? stock.year_high;
@@ -236,8 +230,29 @@ export default function MarketsDashboard() {
   const setLoading = useCallback((k, v) => setLoadingMap(m => ({ ...m, [k]: v })), []);
   const setError = useCallback((k, v) => setErrorMap(m => ({ ...m, [k]: v })), []);
 
+  /* ---------- fetch many panels on mount (limit frequency) ---------- */
   useEffect(() => {
-    // trending
+    // helper to safely coerce array-like responses
+    const toArray = (data) => {
+      if (!data) return [];
+      if (Array.isArray(data)) return data;
+      // sometimes api returns object with keys being items
+      if (typeof data === 'object') {
+        // if object has keys like trending_stocks -> check nested
+        if (data.trending_stocks) return toArray(data.trending_stocks.top_gainers || data.trending_stocks.topLosers || data.trending_stocks);
+        // if object is keyed by categories (mutual funds), return object values
+        const vals = Object.values(data);
+        // If values are arrays and first entry looks like items, flatten first useful array
+        if (vals.length === 0) return [];
+        const firstArr = vals.find(v => Array.isArray(v));
+        if (firstArr) return firstArr;
+        // fallback: return values as items
+        return vals;
+      }
+      // if string, return empty
+      return [];
+    };
+
     (async () => {
       setLoading('trending', true); setError('trending', null);
       try {
@@ -247,10 +262,11 @@ export default function MarketsDashboard() {
       } catch (err) {
         if (!mountedRef.current) return;
         setError('trending', err.message || String(err));
-      } finally { if (mountedRef.current) setLoading('trending', false); }
+      } finally {
+        if (mountedRef.current) setLoading('trending', false);
+      }
     })();
 
-    // NSE / BSE most active
     (async () => {
       setLoading('nse', true); setError('nse', null);
       try {
@@ -260,7 +276,9 @@ export default function MarketsDashboard() {
       } catch (err) {
         if (!mountedRef.current) return;
         setError('nse', err.message || String(err));
-      } finally { if (mountedRef.current) setLoading('nse', false); }
+      } finally {
+        if (mountedRef.current) setLoading('nse', false);
+      }
     })();
 
     (async () => {
@@ -272,10 +290,11 @@ export default function MarketsDashboard() {
       } catch (err) {
         if (!mountedRef.current) return;
         setError('bse', err.message || String(err));
-      } finally { if (mountedRef.current) setLoading('bse', false); }
+      } finally {
+        if (mountedRef.current) setLoading('bse', false);
+      }
     })();
 
-    // commodities
     (async () => {
       setLoading('commod', true); setError('commod', null);
       try {
@@ -285,10 +304,11 @@ export default function MarketsDashboard() {
       } catch (err) {
         if (!mountedRef.current) return;
         setError('commod', err.message || String(err));
-      } finally { if (mountedRef.current) setLoading('commod', false); }
+      } finally {
+        if (mountedRef.current) setLoading('commod', false);
+      }
     })();
 
-    // mutual funds
     (async () => {
       setLoading('mf', true); setError('mf', null);
       try {
@@ -298,10 +318,11 @@ export default function MarketsDashboard() {
       } catch (err) {
         if (!mountedRef.current) return;
         setError('mf', err.message || String(err));
-      } finally { if (mountedRef.current) setLoading('mf', false); }
+      } finally {
+        if (mountedRef.current) setLoading('mf', false);
+      }
     })();
 
-    // price shockers
     (async () => {
       setLoading('shock', true); setError('shock', null);
       try {
@@ -311,10 +332,11 @@ export default function MarketsDashboard() {
       } catch (err) {
         if (!mountedRef.current) return;
         setError('shock', err.message || String(err));
-      } finally { if (mountedRef.current) setLoading('shock', false); }
+      } finally {
+        if (mountedRef.current) setLoading('shock', false);
+      }
     })();
 
-    // IPOs & News
     (async () => {
       setLoading('ipo', true); setError('ipo', null);
       try {
@@ -324,7 +346,9 @@ export default function MarketsDashboard() {
       } catch (err) {
         if (!mountedRef.current) return;
         setError('ipo', err.message || String(err));
-      } finally { if (mountedRef.current) setLoading('ipo', false); }
+      } finally {
+        if (mountedRef.current) setLoading('ipo', false);
+      }
     })();
 
     (async () => {
@@ -336,10 +360,12 @@ export default function MarketsDashboard() {
       } catch (err) {
         if (!mountedRef.current) return;
         setError('news', err.message || String(err));
-      } finally { if (mountedRef.current) setLoading('news', false); }
+      } finally {
+        if (mountedRef.current) setLoading('news', false);
+      }
     })();
 
-    // World Bank macro (example)
+    // World Bank macro (fetch directly from worldbank API)
     (async () => {
       setLoading('macro', true); setError('macro', null);
       try {
@@ -352,11 +378,14 @@ export default function MarketsDashboard() {
       } catch (err) {
         if (!mountedRef.current) return;
         setError('macro', String(err));
-      } finally { if (mountedRef.current) setLoading('macro', false); }
+      } finally {
+        if (mountedRef.current) setLoading('macro', false);
+      }
     })();
 
   }, []);
 
+  /* ---------- search for a stock by name (calls /stock?name=) ---------- */
   const handleSearch = useCallback(async (q) => {
     const qtrim = (q || query || '').trim();
     if (!qtrim) return;
@@ -364,20 +393,27 @@ export default function MarketsDashboard() {
     setStock(null);
     try {
       const data = await apiFetch('stock', { name: qtrim });
+      // unify array/object: many APIs return either array or single object
       const chosen = Array.isArray(data) ? data[0] : data;
+      if (!chosen) {
+        setError('stockSearch', 'No stock data returned');
+        return;
+      }
       setStock(chosen || null);
       setSelectedTicker(chosen?.tickerId || chosen?.ticker || chosen?.ric || null);
 
+      // historical (guarded)
       if (chosen?.tickerId || chosen?.ticker || chosen?.companyName) {
         const stockNameParam = (chosen.tickerId || chosen.ticker || chosen.companyName || qtrim);
-
         setLoading('historical', true); setError('historical', null);
         try {
           const hist = await apiFetch('historical_data', { stock_name: stockNameParam, period: '1yr', filter: 'price' });
           if (mountedRef.current) setHistorical(hist || null);
         } catch (err) {
           if (mountedRef.current) setError('historical', err.message || String(err));
-        } finally { if (mountedRef.current) setLoading('historical', false); }
+        } finally {
+          if (mountedRef.current) setLoading('historical', false);
+        }
 
         if (chosen.tickerId || chosen.ticker) {
           const id = chosen.tickerId || chosen.ticker;
@@ -403,28 +439,33 @@ export default function MarketsDashboard() {
     } finally {
       setLoading('stockSearch', false);
     }
-  }, [query, setLoading, setError]);
+  }, [query]);
 
+  /* ---------- helper to render trending list ---------- */
   const renderList = (items = [], labelKey = 'company_name', valueKey = 'percent_change') => {
-    // ensure items is array
-    let list = [];
-    if (Array.isArray(items)) list = items;
-    else if (items && typeof items === 'object') {
-      // try find array-valued property
-      const arrProp = Object.values(items).find(v => Array.isArray(v));
-      if (Array.isArray(arrProp)) list = arrProp;
-      else list = [];
+    if (!items) return <div className="text-xs text-slate-500">No data</div>;
+    // coerce to array - support object keyed responses
+    let arr = [];
+    if (Array.isArray(items)) arr = items;
+    else if (typeof items === 'object') {
+      // if the object contains arrays, prefer those
+      const nested = Object.values(items).find(v => Array.isArray(v));
+      if (nested) arr = nested;
+      else arr = Object.values(items);
     } else {
-      list = [];
+      return <div className="text-xs text-slate-500">No data</div>;
     }
-
-    if (!list || list.length === 0) return <div className="text-xs text-slate-500">No data</div>;
-    return list.slice(0, 6).map((it, i) => (
-      <div key={i} className="flex justify-between py-1">
-        <div className="truncate text-sm">{it[labelKey] ?? it.name ?? it.ticker ?? it.company ?? '—'}</div>
-        <div className={`text-xs ${Number(it[valueKey] ?? it.percent ?? 0) >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{fmtPct(it[valueKey] ?? it.percent ?? 0)}</div>
-      </div>
-    ));
+    if (!arr || arr.length === 0) return <div className="text-xs text-slate-500">No data</div>;
+    return arr.slice(0, 6).map((it, i) => {
+      const label = (it && (it[labelKey] ?? it.name ?? it.ticker ?? it.company ?? '—')) || '—';
+      const pct = Number(it?.[valueKey] ?? it?.percent ?? 0);
+      return (
+        <div key={i} className="flex justify-between py-1">
+          <div className="truncate text-sm">{label}</div>
+          <div className={`text-xs ${pct >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{fmtPct(pct)}</div>
+        </div>
+      );
+    });
   };
 
   function handleViewDeeper(ticker) {
@@ -437,26 +478,18 @@ export default function MarketsDashboard() {
   const topLosers = trending?.trending_stocks?.top_losers || trending?.top_losers || [];
 
   const historicalRows = useMemo(() => {
-    const dsArr = historical?.datasets && Array.isArray(historical.datasets) ? historical.datasets : null;
-    const priceDs = dsArr ? (dsArr.find(d => /price/i.test(d.metric || d.label || '')) || dsArr[0]) : null;
-    const vals = priceDs?.values || [];
-    const rows = (Array.isArray(vals) ? vals.map(r => (Array.isArray(r) ? [r[0], r[1]] : [r[0], r[1]])) : []);
-    return [['date', 'price'], ...rows];
+    const ds = historical?.datasets && Array.isArray(historical.datasets) ? historical.datasets.find(d => /price/i.test(d.metric || d.label || '')) || historical.datasets[0] : null;
+    const vals = ds?.values || [];
+    return [['date', 'price'], ...vals.map(r => [r[0], r[1]])];
   }, [historical]);
 
+  /* ---------- UI ---------- */
   return (
     <div className="space-y-6">
-      <DebugPanel visible={false} />
+      <DebugPanel visible={true} />
 
       <div className="rounded-2xl border p-4 bg-white flex gap-3 items-center">
-        <input
-          type="text"
-          placeholder="Search stock by name or symbol (e.g. Reliance, TCS)"
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter') handleSearch(); }}
-          className="flex-1 border rounded-xl px-4 py-3"
-        />
+        <input type="text" placeholder="Search stock by name or symbol (e.g. Reliance, TCS)" value={query} onChange={e => setQuery(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleSearch(); }} className="flex-1 border rounded-xl px-4 py-3" />
         <button onClick={() => handleSearch()} className="px-4 py-2 rounded-xl bg-slate-800 text-white">Search</button>
         <button onClick={() => { if (selectedTicker) window.open(`/sections/markets?ticker=${selectedTicker}`, '_blank'); }} className="px-3 py-2 rounded-xl border">Open detail</button>
       </div>
@@ -474,7 +507,7 @@ export default function MarketsDashboard() {
                 <>
                   <div className="text-lg font-semibold">{(() => {
                     const rec = targetPrice.recommendation;
-                    const mean = rec?.PreliminaryMean ?? rec?.UnverifiedMean ?? rec?.Mean ?? rec;
+                    const mean = rec?.PreliminaryMean ?? rec?.UnverifiedMean ?? rec?.Mean ?? (typeof rec === 'number' ? rec : null);
                     if (mean == null) return 'N/A';
                     const m = Number(mean);
                     if (m <= 1.5) return 'Buy';
@@ -514,13 +547,12 @@ export default function MarketsDashboard() {
             {!loadingMap['historical'] && historical && historical.datasets && Array.isArray(historical.datasets) && (
               <>
                 {(() => {
-                  const priceDs = (historical.datasets.find(ds => /price/i.test(ds.metric || ds.label || '')) || historical.datasets[0]) || null;
-                  const vals = Array.isArray(priceDs?.values) ? priceDs.values : [];
-                  const rows = vals.map(r => (Array.isArray(r) ? [r[0], r[1]] : [r[0], r[1]]));
+                  const priceDs = historical.datasets.find(ds => /price/i.test(ds.metric || ds.label || '')) || historical.datasets[0];
+                  const rows = (priceDs.values || []).map(r => [r[0], r[1]]);
                   return (
                     <>
                       <div className="mt-2">
-                        <Sparkline values={vals} width={600} height={60} />
+                        <Sparkline values={priceDs.values || []} width={600} height={60} />
                       </div>
                       <div className="mt-3 text-xs text-slate-600 max-h-36 overflow-auto">
                         <table className="w-full text-xs">
@@ -543,7 +575,7 @@ export default function MarketsDashboard() {
               <div className="text-sm font-medium text-slate-700 mb-2">Recent Announcements</div>
               {loadingMap['announcements'] && <div className="text-sm text-slate-500">Loading…</div>}
               {!loadingMap['announcements'] && errorMap['announcements'] && <div className="text-sm text-rose-600">{errorMap['announcements']}</div>}
-              {!loadingMap['announcements'] && Array.isArray(news) && news.slice(0, 6).map((n, i) => (
+              {!loadingMap['announcements'] && news && (Array.isArray(news) ? news.slice(0, 6) : Object.values(news).slice(0,6)).map((n, i) => (
                 <div key={i} className="py-1 border-b last:border-b-0 text-xs">
                   <a href={n.link ?? n.url ?? n.source_url ?? '#'} target="_blank" rel="noreferrer" className="hover:underline">{n.title ?? n.headline ?? n.name ?? 'Article'}</a>
                   <div className="text-xs text-slate-500">{n.source ?? n.date ?? ''}</div>
@@ -555,7 +587,7 @@ export default function MarketsDashboard() {
             <div className="rounded-2xl border p-4 bg-white">
               <div className="text-sm font-medium text-slate-700 mb-2">Upcoming IPOs</div>
               {loadingMap['ipo'] && <div className="text-sm text-slate-500">Loading…</div>}
-              {!loadingMap['ipo'] && Array.isArray(ipos) && ipos.slice(0,6).map((it, idx) => (<div key={idx} className="py-1 border-b text-xs">{it.name ?? it.company ?? it.ticker ?? it.title}</div>))}
+              {!loadingMap['ipo'] && ipos && (Array.isArray(ipos) ? ipos.slice(0,6) : Object.values(ipos).slice(0,6)).map((i, idx) => (<div key={idx} className="py-1 border-b text-xs">{i.name ?? i.company ?? i.ticker ?? i.title}</div>))}
               {!loadingMap['ipo'] && (!ipos || (Array.isArray(ipos) && ipos.length === 0)) && <div className="text-sm text-slate-500">No upcoming IPOs</div>}
             </div>
           </div>
@@ -589,10 +621,10 @@ export default function MarketsDashboard() {
           <div className="rounded-2xl border p-4 bg-white w-72">
             <div className="text-sm font-medium text-slate-700">Commodities</div>
             <div className="mt-2 text-xs text-slate-500">{loadingMap['commod'] ? 'Loading…' : (errorMap['commod'] ? <span className="text-rose-600">{errorMap['commod']}</span> : '')}</div>
-            {!loadingMap['commod'] && Array.isArray(commodities) && commodities.slice(0,6).map((c, i) => (
+            {!loadingMap['commod'] && commodities && Array.isArray(commodities) && commodities.slice(0,6).map((c, i) => (
               <div key={i} className="py-1 text-sm border-b last:border-b-0">
-                <div className="truncate">{c.commoditySymbol ?? c.commodity_symbol ?? c.contractId ?? '—'}</div>
-                <div className="text-xs text-slate-500">{fmtNum(c.lastTradedPrice ?? c.lastTradedPrice) } ({fmtPct(c.percentageChange ?? c.percentage_change ?? 0)})</div>
+                <div className="truncate">{c.commoditySymbol ?? c.contractId ?? c.contractId}</div>
+                <div className="text-xs text-slate-500">{fmtNum(c.lastTradedPrice ?? c.price ?? c.closingPrice)} ({fmtPct(c.percentageChange ?? c.priceChange ?? c.percentageChange)})</div>
               </div>
             ))}
             {!loadingMap['commod'] && (!commodities || (Array.isArray(commodities) && commodities.length === 0)) && <div className="text-xs text-slate-500 mt-2">No data</div>}
@@ -603,48 +635,35 @@ export default function MarketsDashboard() {
             <div className="mt-2 text-xs text-slate-500">{loadingMap['mf'] ? 'Loading…' : (errorMap['mf'] ? <span className="text-rose-600">{errorMap['mf']}</span> : '')}</div>
             {!loadingMap['mf'] && mutualFunds && typeof mutualFunds === 'object' && (
               <>
-                {(() => {
-                  const entries = Array.isArray(mutualFunds) ? mutualFunds : Object.entries(mutualFunds || {});
-                  // if it's object with categories, try to display first category arrays
-                  if (Array.isArray(entries) && entries.length > 0) {
-                    if (Array.isArray(entries[0])) {
-                      // entries from Object.entries -> [key, value]
-                      const display = entries.slice(0, 2);
-                      return display.map(([k, v]) => {
-                        const list = Array.isArray(v) ? v : (v && typeof v === 'object' ? (Object.values(v).find(a => Array.isArray(a)) || []) : []);
-                        return (
-                          <div key={k} className="mt-2 text-sm">
-                            <div className="text-xs text-slate-600">{k}</div>
-                            {(Array.isArray(list) ? list : []).slice(0,4).map((f,i) => (<div key={i} className="py-1 text-sm">{f.fund_name ?? f.schemeName ?? f.scheme_name}</div>))}
-                          </div>
-                        );
-                      });
-                    } else {
-                      // array of funds
-                      return entries.slice(0,4).map((f,i) => (<div key={i} className="py-1 text-sm">{f.fund_name ?? f.schemeName ?? f.scheme_name}</div>));
-                    }
-                  }
-                  return <div className="text-xs text-slate-500">No data</div>;
-                })()}
+                {Object.entries(mutualFunds).slice(0,1).map(([k,v]) => {
+                  // v may be object categories, or arrays; defend accordingly
+                  const arr = Array.isArray(v) ? v : (v && typeof v === 'object' ? Object.values(v).flat().filter(Boolean) : []);
+                  return (
+                    <div key={k} className="mt-2 text-sm">
+                      <div className="text-xs text-slate-600">{k}</div>
+                      {(arr || []).slice(0,4).map((f,i) => (<div key={i} className="py-1 text-sm">{f.fund_name ?? f.schemeName ?? f.scheme_name ?? f.scheme}</div>))}
+                    </div>
+                  );
+                })}
               </>
             )}
-            {!loadingMap['mf'] && (!mutualFunds || (typeof mutualFunds === 'object' && Object.keys(mutualFunds).length === 0)) && <div className="text-xs text-slate-500 mt-2">No data</div>}
+            {!loadingMap['mf'] && (!mutualFunds || (Object.keys(mutualFunds || {}).length === 0)) && <div className="text-xs text-slate-500 mt-2">No data</div>}
           </div>
 
           <div className="rounded-2xl border p-4 bg-white w-72">
             <div className="text-sm font-medium text-slate-700">Price Shockers</div>
             <div className="mt-2 text-xs text-slate-500">{loadingMap['shock'] ? 'Loading…' : (errorMap['shock'] ? <span className="text-rose-600">{errorMap['shock']}</span> : '')}</div>
-            {!loadingMap['shock'] && Array.isArray(priceShockers) && priceShockers.slice(0,6).map((s,i) => (<div key={i} className="py-1 text-sm border-b">{s.company ?? s.ticker ?? s.name}</div>))}
+            {!loadingMap['shock'] && priceShockers && (Array.isArray(priceShockers) ? priceShockers.slice(0,6) : Object.values(priceShockers).slice(0,6)).map((s,i) => (<div key={i} className="py-1 text-sm border-b">{s.company ?? s.ticker ?? s.name}</div>))}
             {!loadingMap['shock'] && (!priceShockers || (Array.isArray(priceShockers) && priceShockers.length === 0)) && <div className="text-xs text-slate-500 mt-2">No data</div>}
           </div>
 
           <div className="rounded-2xl border p-4 bg-white w-72">
             <div className="text-sm font-medium text-slate-700">Macro (World Bank)</div>
             <div className="mt-2 text-xs text-slate-500">{loadingMap['macro'] ? 'Loading…' : (errorMap['macro'] ? <span className="text-rose-600">{errorMap['macro']}</span> : '')}</div>
-            {!loadingMap['macro'] && macro && (
+            {!loadingMap['macro'] && macro && Array.isArray(macro) && (
               <div className="text-xs text-slate-600 mt-2">
                 <div>Indicator snapshot:</div>
-                <pre className="text-[11px] whitespace-pre-wrap">{JSON.stringify(macro, null, 2).slice(0, 400)}</pre>
+                <pre className="text-[11px]">{JSON.stringify(macro, null, 2).slice(0, 400)}</pre>
               </div>
             )}
             {!loadingMap['macro'] && !macro && <div className="text-xs text-slate-500 mt-2">No data</div>}
