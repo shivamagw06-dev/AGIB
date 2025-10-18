@@ -1,212 +1,193 @@
 // server/index.js
 /**
- * Unified Express proxy for IndianAPI
- *
- * - Prefers server-only INDIANAPI_KEY (falls back to VITE_INDIANAPI_KEY)
- * - Sets trust proxy for hosted environments (Render)
- * - Handles upstream errors gracefully with caching & retry
- * - Adds a small 30s cache for /api/trending
- * - Maps upstream {"error": "..."} -> 502 for clarity
+ * Unified Express Proxy for IndianAPI (Full Coverage)
+ * Shivam's version — covers all known endpoints (July 2024 doc)
+ * Backend: Render (Node/Express)
+ * Frontend: Hostinger (CORS allowed)
  */
 
-import express from 'express';
-import rateLimit from 'express-rate-limit';
-import dotenv from 'dotenv';
-import cors from 'cors';
+import express from "express";
+import rateLimit from "express-rate-limit";
+import cors from "cors";
+import dotenv from "dotenv";
 
 dotenv.config();
-
 const app = express();
 app.use(express.json());
 
 // --- CONFIG ---
 const PORT = process.env.PORT || 3000;
-const INDIANAPI_KEY = process.env.INDIANAPI_KEY || process.env.VITE_INDIANAPI_KEY || '';
-const INDIANAPI_BASE = 'https://stock.indianapi.in';
+const BASE_URL = "https://stock.indianapi.in";
+const API_KEY = process.env.INDIANAPI_KEY || process.env.VITE_INDIANAPI_KEY || "";
 
-if (!INDIANAPI_KEY) {
-  console.warn('⚠️  INDIANAPI_KEY is not set. Requests requiring the API key will fail until you set it in environment variables.');
-}
+if (!API_KEY)
+  console.warn("⚠️ Missing INDIANAPI_KEY — requests will fail until key is added to Render.");
 
 // --- MIDDLEWARE ---
-app.use(cors({ origin: process.env.FRONTEND_ORIGIN || '*', methods: ['GET', 'OPTIONS'] }));
-app.set('trust proxy', 1);
-const apiLimiter = rateLimit({ windowMs: 60 * 1000, max: 100 });
-app.use('/api', apiLimiter);
+app.use(
+  cors({
+    origin: process.env.FRONTEND_ORIGIN || [
+      "https://agarwalglobalinvestments.com",
+      "https://www.agarwalglobalinvestments.com",
+    ],
+    methods: ["GET", "OPTIONS"],
+  })
+);
+
+app.set("trust proxy", 1);
+app.use("/api", rateLimit({ windowMs: 60 * 1000, max: 100 }));
 
 // --- HELPERS ---
-function forwardHeaders() {
-  const headers = {
-    'Content-Type': 'application/json',
-    Accept: 'application/json',
-    'User-Agent': 'AGIB-Proxy/1.0'
+function makeHeaders() {
+  return {
+    Accept: "application/json",
+    "Content-Type": "application/json",
+    "X-Api-Key": API_KEY,
+    "User-Agent": "AGIB-Proxy/1.0",
   };
-  if (INDIANAPI_KEY) headers['x-api-key'] = INDIANAPI_KEY;
-  return headers;
 }
 
 async function proxyFetch(res, url) {
   try {
-    const r = await globalThis.fetch(url, { headers: forwardHeaders() });
-    const text = await r.text();
+    const response = await fetch(url, { headers: makeHeaders() });
+    const text = await response.text();
+    console.log(`[Proxy] ${url} -> ${response.status}`);
 
-    console.log(`[proxy] ${url} -> ${r.status}`);
-    console.log('[proxy] first 200 chars:', text.slice(0, 200).replace(/\n/g, ' '));
-
-    if (!text) return res.status(r.status).end();
+    // empty body
+    if (!text) return res.status(response.status).end();
 
     try {
       const json = JSON.parse(text);
-      if (json && json.error) {
-        console.log('[proxy] upstream error:', json.error);
-        return res.status(502).json({ upstream_error: json.error, upstream_body: json });
+      if (json.error) {
+        console.error("[Upstream error]", json.error);
+        return res.status(502).json({ upstream_error: json.error, body: json });
       }
-      return res.status(r.status).json(json);
+      return res.status(response.status).json(json);
     } catch {
-      res.set('Content-Type', r.headers.get('content-type') || 'text/plain');
-      return res.status(r.status).send(text);
+      res.set("Content-Type", response.headers.get("content-type") || "text/plain");
+      return res.status(response.status).send(text);
     }
   } catch (err) {
-    console.error('🔥 Proxy fetch failed:', err);
-    return res.status(500).json({ error: 'Proxy fetch failed', detail: err?.message });
+    console.error("🔥 Fetch failed:", err);
+    return res.status(500).json({ error: "Proxy fetch failed", message: err.message });
   }
 }
 
-// --- SIMPLE CACHE for trending (30s) ---
+// Cache for /trending (30 seconds)
 let trendingCache = null;
-let trendingCacheExpiry = 0;
+let trendingExpiry = 0;
 
-// --- ROUTES ---
+// --- HEALTH ---
+app.get("/", (req, res) => res.json({ service: "finance-news-backend", status: "running" }));
+app.get("/api/health", (req, res) => res.json({ ok: true }));
 
-// Health and root
-app.get('/', (req, res) => res.json({ service: 'finance-news-backend', status: 'running' }));
-app.get('/api/health', (req, res) => res.json({ ok: true }));
+// --- CORE PROXY ROUTES ---
 
-// Debug (safe)
-app.get('/_debug_env', (req, res) => {
-  res.json({
-    INDIANAPI_KEY_exists: !!process.env.INDIANAPI_KEY,
-    VITE_INDIANAPI_KEY_exists: !!process.env.VITE_INDIANAPI_KEY,
-    FRONTEND_ORIGIN: process.env.FRONTEND_ORIGIN || null,
-    PORT: process.env.PORT || null
-  });
+// 1. Stock by name
+app.get("/api/stock", (req, res) => {
+  const name = req.query.name || req.query.symbol;
+  if (!name) return res.status(400).json({ error: "Missing ?name" });
+  return proxyFetch(res, `${BASE_URL}/stock?name=${encodeURIComponent(name)}`);
 });
 
-// ✅ Trending with retry, cache, fallback
-app.get('/api/trending', async (req, res) => {
+// 2. Industry search
+app.get("/api/industry_search", (req, res) => {
+  const q = req.query.query;
+  if (!q) return res.status(400).json({ error: "Missing ?query" });
+  return proxyFetch(res, `${BASE_URL}/industry_search?query=${encodeURIComponent(q)}`);
+});
+
+// 3. Mutual fund search
+app.get("/api/mutual_fund_search", (req, res) => {
+  const q = req.query.query;
+  if (!q) return res.status(400).json({ error: "Missing ?query" });
+  return proxyFetch(res, `${BASE_URL}/mutual_fund_search?query=${encodeURIComponent(q)}`);
+});
+
+// 4. Trending (cached)
+app.get("/api/trending", async (req, res) => {
   const now = Date.now();
-  if (trendingCache && now < trendingCacheExpiry) {
-    console.log('[cache] returning cached trending');
+  if (trendingCache && now < trendingExpiry) {
+    console.log("[Cache hit] trending");
     return res.json(trendingCache);
   }
 
-  async function fetchOnce() {
-    const r = await globalThis.fetch(`${INDIANAPI_BASE}/trending`, { headers: forwardHeaders() });
-    const text = await r.text();
-    let body;
-    try { body = JSON.parse(text); } catch { body = text; }
-    return { status: r.status, body, raw: text };
+  try {
+    const response = await fetch(`${BASE_URL}/trending`, { headers: makeHeaders() });
+    const data = await response.json();
+    trendingCache = data;
+    trendingExpiry = Date.now() + 30 * 1000;
+    res.json(data);
+  } catch (err) {
+    console.error("Trending fetch failed:", err);
+    if (trendingCache) return res.json(trendingCache);
+    res.status(502).json({ error: "Upstream error", detail: err.message });
   }
-
-  let last = null;
-  for (let i = 0; i < 2; i++) {
-    try {
-      const result = await fetchOnce();
-      if (result.body && result.body.error) {
-        console.log(`[trending] upstream error attempt ${i + 1}:`, result.body.error);
-        last = result;
-        await new Promise(r => setTimeout(r, 500));
-        continue;
-      }
-      trendingCache = result.body;
-      trendingCacheExpiry = Date.now() + 30 * 1000;
-      return res.status(result.status).json(result.body);
-    } catch (err) {
-      console.error(`[trending] fetch failed attempt ${i + 1}:`, err.message);
-      await new Promise(r => setTimeout(r, 500));
-    }
-  }
-
-  if (trendingCache) {
-    console.log('[trending] returning cached fallback');
-    return res.json({ data: trendingCache, upstream_issue: true });
-  }
-
-  return res.status(502).json({
-    data: [],
-    upstream_issue: true,
-    upstream_last: last && last.body ? last.body : { error: 'unknown' }
-  });
 });
 
-// Other endpoints
-app.get('/api/stock', (req, res) => {
-  const symbol = req.query.symbol || req.query.name;
-  if (!symbol) return res.status(400).json({ error: 'Missing ?symbol or ?name' });
-  return proxyFetch(res, `${INDIANAPI_BASE}/stock?name=${encodeURIComponent(symbol)}`);
-});
-
-app.get('/api/industry_search', (req, res) => {
-  const q = req.query.query;
-  if (!q) return res.status(400).json({ error: 'Missing ?query' });
-  return proxyFetch(res, `${INDIANAPI_BASE}/industry_search?query=${encodeURIComponent(q)}`);
-});
-
-app.get('/api/mutual_fund_search', (req, res) => {
-  const q = req.query.query;
-  if (!q) return res.status(400).json({ error: 'Missing ?query' });
-  return proxyFetch(res, `${INDIANAPI_BASE}/mutual_fund_search?query=${encodeURIComponent(q)}`);
-});
-
-app.get('/api/fetch_52_week_high_low_data', (req, res) =>
-  proxyFetch(res, `${INDIANAPI_BASE}/fetch_52_week_high_low_data`)
+// 5. 52-week highs/lows
+app.get("/api/fetch_52_week_high_low_data", (req, res) =>
+  proxyFetch(res, `${BASE_URL}/fetch_52_week_high_low_data`)
 );
 
-app.get('/api/NSE_most_active', (req, res) =>
-  proxyFetch(res, `${INDIANAPI_BASE}/NSE_most_active`)
+// 6–7. NSE/BSE most active
+app.get("/api/NSE_most_active", (req, res) =>
+  proxyFetch(res, `${BASE_URL}/NSE_most_active`)
+);
+app.get("/api/BSE_most_active", (req, res) =>
+  proxyFetch(res, `${BASE_URL}/BSE_most_active`)
 );
 
-app.get('/api/BSE_most_active', (req, res) =>
-  proxyFetch(res, `${INDIANAPI_BASE}/BSE_most_active`)
+// 8. Mutual funds
+app.get("/api/mutual_funds", (req, res) =>
+  proxyFetch(res, `${BASE_URL}/mutual_funds`)
 );
 
-app.get('/api/mutual_funds', (req, res) =>
-  proxyFetch(res, `${INDIANAPI_BASE}/mutual_funds`)
+// 9. Price shockers
+app.get("/api/price_shockers", (req, res) =>
+  proxyFetch(res, `${BASE_URL}/price_shockers`)
 );
 
-app.get('/api/price_shockers', (req, res) =>
-  proxyFetch(res, `${INDIANAPI_BASE}/price_shockers`)
+// 10. Commodities
+app.get("/api/commodities", (req, res) =>
+  proxyFetch(res, `${BASE_URL}/commodities`)
 );
 
-app.get('/api/commodities', (req, res) =>
-  proxyFetch(res, `${INDIANAPI_BASE}/commodities`)
-);
-
-app.get('/api/stock_target_price', (req, res) => {
+// 11. Analyst recommendations
+app.get("/api/stock_target_price", (req, res) => {
   const id = req.query.stock_id;
-  if (!id) return res.status(400).json({ error: 'Missing ?stock_id' });
-  return proxyFetch(res, `${INDIANAPI_BASE}/stock_target_price?stock_id=${encodeURIComponent(id)}`);
+  if (!id) return res.status(400).json({ error: "Missing ?stock_id" });
+  return proxyFetch(res, `${BASE_URL}/stock_target_price?stock_id=${encodeURIComponent(id)}`);
 });
 
-app.get('/api/stock_forecasts', (req, res) => {
+// 12. Stock forecasts
+app.get("/api/stock_forecasts", (req, res) => {
   const params = new URLSearchParams(req.query);
-  return proxyFetch(res, `${INDIANAPI_BASE}/stock_forecasts?${params}`);
+  return proxyFetch(res, `${BASE_URL}/stock_forecasts?${params}`);
 });
 
-app.get('/api/historical_data', (req, res) => {
+// 13. Historical data
+app.get("/api/historical_data", (req, res) => {
   const params = new URLSearchParams(req.query);
-  return proxyFetch(res, `${INDIANAPI_BASE}/historical_data?${params}`);
+  return proxyFetch(res, `${BASE_URL}/historical_data?${params}`);
 });
 
-app.get('/api/historical_stats', (req, res) => {
+// 14. Historical stats
+app.get("/api/historical_stats", (req, res) => {
   const params = new URLSearchParams(req.query);
-  return proxyFetch(res, `${INDIANAPI_BASE}/historical_stats?${params}`);
+  return proxyFetch(res, `${BASE_URL}/historical_stats?${params}`);
 });
 
-// Default 404
-app.use((req, res) => res.status(404).json({ error: 'Not found' }));
+// Extra: /news, /ipo, /recent_announcements, /corporate_actions, /statement
+["news", "ipo", "recent_announcements", "corporate_actions", "statement"].forEach((ep) => {
+  app.get(`/api/${ep}`, (req, res) => proxyFetch(res, `${BASE_URL}/${ep}`));
+});
 
-// Start server
+// --- FALLBACK 404 ---
+app.use((req, res) => res.status(404).json({ error: "Not found", path: req.path }));
+
+// --- START SERVER ---
 app.listen(PORT, () => {
-  console.log(`🚀 Proxy running on port ${PORT} — IndianAPI base: ${INDIANAPI_BASE}`);
+  console.log(`🚀 IndianAPI Proxy running on port ${PORT}`);
+  console.log(`Base URL: ${BASE_URL}`);
 });
