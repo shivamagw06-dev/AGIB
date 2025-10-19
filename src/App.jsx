@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Header from '@/components/Header';
 import Hero from '@/components/Hero';
 import ArticlesFeed from '@/components/ArticlesFeed';
+import LatestNews from '@/components/LatestNews'; // <-- added
 import About from '@/components/About';
 import Contact from '@/components/Contact';
 import Newsletter from '@/components/Newsletter';
@@ -32,6 +33,12 @@ function HomeLayout() {
     <>
       <Hero />
       <ArticlesFeed />
+
+      {/* Latest news panel (sourced from your IndianAPI proxy) */}
+      <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 my-8">
+        <LatestNews max={6} />
+      </div>
+
       <Newsletter />
     </>
   );
