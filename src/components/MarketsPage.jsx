@@ -1,642 +1,451 @@
-// src/components/MarketsDashboards.jsx
-import React, { useEffect, useState } from 'react';
-import apiFetch from '../utils/apiFetch';
-import { API_ORIGIN } from '../config';
+import React, { useEffect, useState, useMemo, useRef } from "react";
+import PropTypes from "prop-types";
+import { API_ORIGIN } from "../config";
 
-/* small utils */
-function fmt(n, d = 2) {
-  if (n == null || !isFinite(n)) return '—';
-  return new Intl.NumberFormat(undefined, { maximumFractionDigits: d }).format(n);
-}
-function fmtInt(n) {
-  if (n == null || !isFinite(n)) return '—';
-  return new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(n);
-}
-const noop = () => {};
-function downloadCSV(filename, rows) {
-  const csv = rows.map(r => r.map(v => (v == null ? '' : String(v))).join(',')).join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
+// MarketsDashboard.jsx
+// Production-ready single-file React component (default export)
+// - TailwindCSS for styling
+// - Polls backend proxy endpoints and respects a 2-hour freshness limit
+// - Caches last-successful response in localStorage to avoid hitting rate limits
+// - Manual refresh button and lightweight error handling
+// - Uses simple cards / tables to mimic a professional market page layout
+
+const TWO_HOURS = 2 * 60 * 60 * 1000; // ms
+const CACHE_KEY = "markets_dashboard_cache_v1";
+
+function fmtNumber(n) {
+  if (n == null || n === "" || Number.isNaN(Number(n))) return "—";
+  const num = Number(n);
+  if (Math.abs(num) >= 1e9) return `${(num / 1e9).toFixed(2)}B`;
+  if (Math.abs(num) >= 1e6) return `${(num / 1e6).toFixed(2)}M`;
+  if (Math.abs(num) >= 1e3) return `${(num / 1e3).toFixed(2)}k`;
+  return num.toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
-/**
- * safeFetch
- * defensive wrapper around fetch. returns parsed JSON or text, throws on non-2xx or HTML
- */
-async function safeFetch(pathOrUrl, opts = {}, fetchFn = fetch) {
-  const { timeout, ...fetchOpts } = opts;
+function fmtPct(n) {
+  if (n == null || n === "" || Number.isNaN(Number(n))) return "—";
+  const v = Number(n);
+  const sign = v > 0 ? "+" : "";
+  return `${sign}${v.toFixed(2)}%`;
+}
 
-  // AbortController for timeout
-  const controller = new AbortController();
-  let timeoutId = null;
-  if (typeof timeout === 'number' && timeout > 0) {
-    timeoutId = setTimeout(() => controller.abort(), timeout);
-  }
-
-  // chain caller signal if provided
-  if (fetchOpts.signal) {
-    const callerSignal = fetchOpts.signal;
-    const chained = new AbortController();
-    const onAbort = () => chained.abort();
-    callerSignal.addEventListener('abort', onAbort);
-    controller.signal.addEventListener('abort', onAbort);
-    fetchOpts.signal = chained.signal;
-  } else {
-    fetchOpts.signal = controller.signal;
-  }
-
-  let res;
-  try {
-    // fetchFn should behave like window.fetch; apiFetch wrapper should be compatible
-    res = await fetchFn(pathOrUrl, fetchOpts);
-  } catch (err) {
-    if (err && err.name === 'AbortError') {
-      throw new Error(`Request aborted (possible timeout ${timeout}ms)`);
-    }
-    throw err;
-  } finally {
-    if (timeoutId) clearTimeout(timeoutId);
-  }
-
-  // read text safely
-  let text = '';
-  try {
-    text = await res.text();
-  } catch (e) {
-    text = '';
-  }
-
-  const ct = (res.headers && res.headers.get ? res.headers.get('content-type') : '') || '';
-  const ctLower = ct.toLowerCase();
-
+async function fetchJson(path, signal) {
+  const res = await fetch(`${API_ORIGIN}${path}`, { signal });
   if (!res.ok) {
-    const snippet = text ? text.slice(0, 1000) : `${res.status} ${res.statusText}`;
-    const err = new Error(`HTTP ${res.status}: ${snippet}`);
-    err.status = res.status;
-    err.body = text;
-    throw err;
+    const txt = await res.text().catch(() => res.statusText);
+    throw new Error(`${res.status} ${res.statusText} - ${txt}`);
   }
-
-  if (ctLower.includes('text/html') || ctLower.includes('application/xhtml+xml')) {
-    const snippet = text ? text.slice(0, 1000) : 'HTML response';
-    const err = new Error(`Unexpected HTML response: ${snippet}`);
-    err.status = res.status;
-    err.body = text;
-    throw err;
-  }
-
-  if (ctLower.includes('application/json') || ctLower.includes('+json')) {
-    try {
-      return JSON.parse(text);
-    } catch (e) {
-      // malformed JSON — return text
-      return text;
-    }
-  }
-
-  try {
-    return JSON.parse(text);
-  } catch {
-    return text;
-  }
+  return res.json();
 }
 
-/* =========================================
-   fetchApiRaw - robust attempts order:
-   - prefers remote API_ORIGIN in production (non-localhost)
-   - preserves local fallbacks for development
-   - returns parsed response (object/array/text)
-========================================= */
-async function fetchApiRaw(path, params = {}) {
-  const qs = new URLSearchParams();
-  Object.keys(params || {}).forEach(k => {
-    const v = params[k];
-    if (v !== undefined && v !== null && v !== '') qs.append(k, String(v));
+export default function MarketsDashboard({ refreshInterval = TWO_HOURS }) {
+  const [data, setData] = useState(() => {
+    try {
+      const raw = localStorage.getItem(CACHE_KEY);
+      if (!raw) return { loadedAt: 0 };
+      const parsed = JSON.parse(raw);
+      return parsed;
+    } catch (e) {
+      return { loadedAt: 0 };
+    }
   });
-  const qstr = qs.toString() ? `?${qs.toString()}` : '';
-  const rel = `/api/${path}${qstr}`;
-  const localAbs = `http://localhost:5000/api/${path}${qstr}`;
-  const altLocal = `http://127.0.0.1:5000/api/${path}${qstr}`;
-  const indianProxy = `/indianapi/${path}${qstr}`;
-  const remote = API_ORIGIN ? `${API_ORIGIN.replace(/\/$/, '')}/api/${path}${qstr}` : null;
 
-  const hostname =
-    (typeof window !== 'undefined' && window.location && window.location.hostname)
-      ? window.location.hostname
-      : null;
-  const runningLocally = hostname === 'localhost' || hostname === '127.0.0.1';
-
-  let attempts;
-  if (remote && !runningLocally) {
-    // production: try remote first, then same-origin legacy, then fallbacks
-    attempts = [remote, rel, indianProxy, localAbs, altLocal];
-  } else {
-    // dev: try same-origin then local fallbacks then remote
-    attempts = [rel, localAbs, altLocal, indianProxy];
-    if (remote) attempts.push(remote);
-  }
-
-  let lastErr = null;
-  for (const url of attempts) {
-    try {
-      const fetchFn = (url === rel) ? apiFetch : fetch;
-      const data = await safeFetch(url, { method: 'GET', credentials: 'same-origin', timeout: 8000 }, fetchFn);
-      return data;
-    } catch (e) {
-      lastErr = e;
-      // try next attempt
-    }
-  }
-  throw lastErr || new Error('All fetch attempts failed');
-}
-
-/* helper: detect upstream error shapes and return consistent object */
-function detectUpstreamIssue(raw) {
-  if (!raw) return { ok: true, data: raw };
-  if (typeof raw === 'object') {
-    // Several possible fields used earlier: upstream_issue, upstream_error, error
-    if (raw.upstream_issue || raw.upstream_error || raw.error || raw.upstream_last) {
-      // prefer explicit upstream fields
-      const upstream = raw.upstream_error || raw.error || raw.upstream_last || raw;
-      return { ok: false, upstream };
-    }
-  }
-  return { ok: true, data: raw };
-}
-
-/* normalize helpers - return data in shapes expected by UI */
-function normalizeTrending(raw) {
-  const d = detectUpstreamIssue(raw);
-  if (!d.ok) {
-    return { top_gainers: [], top_losers: [], upstream_issue: true, upstream_last: d.upstream };
-  }
-  const rawBody = d.data || {};
-  if (!rawBody) return { top_gainers: [], top_losers: [] };
-  if (rawBody.trending_stocks) return { ...rawBody.trending_stocks };
-  if (rawBody.top_gainers || rawBody.top_losers) return { top_gainers: rawBody.top_gainers || [], top_losers: rawBody.top_losers || [] };
-  if (rawBody.gainers || rawBody.losers) return { top_gainers: rawBody.gainers || [], top_losers: rawBody.losers || [] };
-  if (Array.isArray(rawBody)) {
-    const gainers = rawBody.filter(r => Number(r.percent_change ?? r.percent ?? r.percentChange ?? 0) >= 0);
-    const losers = rawBody.filter(r => Number(r.percent_change ?? r.percent ?? r.percentChange ?? 0) < 0);
-    return { top_gainers: gainers, top_losers: losers };
-  }
-  return { top_gainers: [], top_losers: [] };
-}
-
-function normalizeMostActive(raw) {
-  const d = detectUpstreamIssue(raw);
-  if (!d.ok) return { list: [], upstream_issue: true, upstream_last: d.upstream };
-  const rawBody = d.data;
-  if (!rawBody) return [];
-  if (Array.isArray(rawBody)) return rawBody;
-  if (rawBody.data && Array.isArray(rawBody.data)) return rawBody.data;
-  if (rawBody.most_active && Array.isArray(rawBody.most_active)) return rawBody.most_active;
-  const arr = Object.keys(rawBody || {}).reduce((acc, k) => (Array.isArray(rawBody[k]) ? acc.concat(rawBody[k]) : acc), []);
-  return arr.length ? arr : [];
-}
-
-function normalizeCommodities(raw) {
-  const d = detectUpstreamIssue(raw);
-  if (!d.ok) return { list: [], upstream_issue: true, upstream_last: d.upstream };
-  const rawBody = d.data;
-  if (!rawBody) return [];
-  if (Array.isArray(rawBody)) return rawBody;
-  if (rawBody.data && Array.isArray(rawBody.data)) return rawBody.data;
-  if (rawBody.commodities && Array.isArray(rawBody.commodities)) return rawBody.commodities;
-  return Object.keys(rawBody || {}).map(k => rawBody[k]).flat().filter(Boolean);
-}
-
-function normalizeMutualFunds(raw) {
-  const d = detectUpstreamIssue(raw);
-  if (!d.ok) return { list: [], upstream_issue: true, upstream_last: d.upstream };
-  const rawBody = d.data;
-  if (!rawBody) return [];
-  if (Array.isArray(rawBody)) return rawBody;
-  if (typeof rawBody === 'object') {
-    const out = [];
-    Object.keys(rawBody).forEach(top => {
-      const group = rawBody[top];
-      if (!group || typeof group !== 'object') return;
-      Object.keys(group).forEach(sub => {
-        const list = group[sub];
-        if (Array.isArray(list)) list.forEach(item => out.push({ ...item, category: top, subcategory: sub }));
-      });
-    });
-    if (out.length) return out;
-    Object.keys(rawBody).forEach(k => {
-      const v = rawBody[k];
-      if (Array.isArray(v)) v.forEach(i => out.push({ ...i, category: k }));
-    });
-    if (out.length) return out;
-  }
-  return [];
-}
-
-/* API wrapper for the frontend components (uses fetchApi) */
-async function fetchApi(req) {
-  const isObj = typeof req === 'object' && req !== null;
-  const path = isObj ? req.path : String(req);
-  const params = isObj ? req.params || {} : {};
-  const raw = await fetchApiRaw(path, params);
-
-  // If raw explicitly included upstream_issue or error, return a simple upstream object
-  if (raw && typeof raw === 'object') {
-    if (raw.upstream_issue || raw.upstream_error || raw.error || raw.upstream_last) {
-      return { upstream_issue: true, upstream_last: raw.upstream_last || raw.upstream_error || raw.error || raw };
-    }
-  }
-
-  if (path === 'trending') return normalizeTrending(raw);
-  if (path === 'mutual_funds' || path === 'mutual_fund_search') return normalizeMutualFunds(raw);
-  if (path === 'commodities') return normalizeCommodities(raw);
-  if (path === 'NSE_most_active' || path === 'BSE_most_active') {
-    const arr = normalizeMostActive(raw);
-    if (arr && arr.upstream_issue) return arr;
-    return Array.isArray(arr) ? arr : (arr.list || []);
-  }
-  if (path === 'news') {
-    if (Array.isArray(raw)) return raw;
-    if (raw.articles && Array.isArray(raw.articles)) return raw.articles;
-    if (raw.data && Array.isArray(raw.data)) return raw.data;
-    if (raw.news && Array.isArray(raw.news)) return raw.news;
-    return raw;
-  }
-  return raw;
-}
-
-/* lightweight IndianAPI wrapper (frontend-facing) */
-const IndianAPI = {
-  ipo: () => fetchApi('ipo'),
-  news: () => fetchApi('news'),
-  trending: () => fetchApi('trending'),
-  commodities: () => fetchApi('commodities'),
-  mutual_funds: () => fetchApi('mutual_funds'),
-  price_shockers: () => fetchApi('price_shockers'),
-  fetch_52_week_high_low_data: () => fetchApi('fetch_52_week_high_low_data'),
-  BSE_most_active: () => fetchApi('BSE_most_active'),
-  NSE_most_active: () => fetchApi('NSE_most_active'),
-  stock: (name) => fetchApi({ path: 'stock', params: { name } }),
-  industry_search: (query) => fetchApi({ path: 'industry_search', params: { query } }),
-  stock_forecasts: (opts) => fetchApi({ path: 'stock_forecasts', params: opts || {} }),
-  historical_stats: (stock_name, stats) => fetchApi({ path: 'historical_stats', params: { stock_name, stats } }),
-  mutual_fund_search: (query) => fetchApi({ path: 'mutual_fund_search', params: { query } }),
-  stock_target_price: (stock_id) => fetchApi({ path: 'stock_target_price', params: { stock_id } }),
-  mutual_funds_details: (stock_name) => fetchApi({ path: 'mutual_funds_details', params: { stock_name } }),
-  recent_announcements: (stock_name) => fetchApi({ path: 'recent_announcements', params: { stock_name } }),
-  fetch_52_week_high_low: () => fetchApi('fetch_52_week_high_low_data'),
-  clearCache: noop,
-};
-
-/* presentational components (mostly unchanged) */
-function MiniRow({ item, onClick }) {
-  const pctVal = Number(item.percent_change ?? item.percent ?? item.percentChange ?? 0);
-  const positive = pctVal >= 0;
-  return (
-    <div
-      onClick={onClick}
-      className="flex items-center justify-between py-2 border-b last:border-b-0 cursor-pointer hover:bg-slate-50"
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => { if (e.key === 'Enter') onClick?.(); }}
-    >
-      <div className="min-w-0">
-        <div className="text-sm font-medium truncate">{item.company_name || item.name || item.ticker || item.scheme_name || item.title || item.company}</div>
-        <div className="text-xs text-gray-500 truncate">{item.ric || item.ticker_id || item.ticker || item.scheme_type || item.date || ''}</div>
-      </div>
-      <div className="text-right ml-4">
-        <div className="text-sm font-semibold">{item.price ?? item.nav ?? item.last ?? item.latest_nav ?? '—'}</div>
-        <div className={`text-xs ${positive ? 'text-emerald-600' : 'text-rose-600'}`}>{isFinite(pctVal) ? `${pctVal >= 0 ? '+' : ''}${pctVal}%` : '—'}</div>
-      </div>
-    </div>
-  );
-}
-function PanelShell({ title, children }) {
-  return (<div className="rounded-2xl border border-slate-200 p-4 bg-white shadow-sm"><div className="mb-2 text-sm text-slate-600 font-medium">{title}</div>{children}</div>);
-}
-
-/* Panels showing friendly upstream messages when IndianAPI fails */
-function TrendingPanel() {
-  const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [upstreamIssue, setUpstreamIssue] = useState(false);
+  const [error, setError] = useState(null);
+  const controllerRef = useRef(null);
+
+  const needsRefresh = useMemo(() => {
+    const now = Date.now();
+    return !data || !data.loadedAt || now - data.loadedAt > TWO_HOURS;
+  }, [data]);
+
   useEffect(() => {
-    let canceled = false;
+    // auto-refresh on mount if stale
+    if (needsRefresh) {
+      refreshAll();
+    }
+
+    // setup periodic refresh to run at refreshInterval
+    const id = setInterval(() => {
+      refreshAll();
+    }, refreshInterval);
+
+    return () => {
+      clearInterval(id);
+      if (controllerRef.current) controllerRef.current.abort();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function refreshAll({ force = false } = {}) {
+    if (loading) return;
+    if (!force && !needsRefresh) return; // respect freshness
+
     setLoading(true);
-    setUpstreamIssue(false);
-    IndianAPI.trending()
-      .then(j => {
-        if (canceled) return;
-        if (j && j.upstream_issue) {
-          setUpstreamIssue(true);
-          // j may contain empty arrays but also upstream_last
-          setData({ top_gainers: j.top_gainers || [], top_losers: j.top_losers || [], upstream_last: j.upstream_last });
-        } else {
-          setData(j);
-        }
-      })
-      .catch(e => {
-        if (!canceled) {
-          console.warn('TrendingPanel error', e);
-          setUpstreamIssue(true);
-          setData({ top_gainers: [], top_losers: [] });
-        }
-      })
-      .finally(() => { if (!canceled) setLoading(false); });
-    return () => { canceled = true; };
-  }, []);
+    setError(null);
+    controllerRef.current = new AbortController();
+    const { signal } = controllerRef.current;
 
-  return (
-    <PanelShell title="Trending (Top gainers / losers)">
-      {loading && <div className="text-sm text-slate-500">Loading…</div>}
-      {upstreamIssue && <div className="mb-2 text-sm text-amber-700">Trending data temporarily unavailable — showing fallback results.</div>}
-      {!loading && data && (
-        <>
-          <div className="text-xs text-slate-500 mb-2">Top Gainers</div>
-          <div className="space-y-1">{(data.top_gainers || []).slice(0, 6).map(s => (<MiniRow key={s.ticker_id || s.ticker || s.ticker_id} item={s} onClick={() => window.location.assign(`/stock/${encodeURIComponent(s.ric || s.ticker_id || s.ticker)}`)} />))}</div>
-          <div className="mt-3 text-xs text-slate-500 mb-2">Top Losers</div>
-          <div className="space-y-1">{(data.top_losers || []).slice(0, 6).map(s => (<MiniRow key={s.ticker_id || s.ticker} item={s} onClick={() => window.location.assign(`/stock/${encodeURIComponent(s.ric || s.ticker_id || s.ticker)}`)} />))}</div>
-        </>
-      )}
-    </PanelShell>
-  );
-}
+    try {
+      // Parallel fetch common panels
+      const [trending, fetch52, nseActive, bseActive, commodities, priceShockers, mutualFunds] =
+        await Promise.all([
+          fetchJson("/trending", signal).catch((e) => ({ _error: e.message })),
+          fetchJson("/fetch_52_week_high_low_data", signal).catch((e) => ({ _error: e.message })),
+          fetchJson("/NSE_most_active", signal).catch((e) => ({ _error: e.message })),
+          fetchJson("/BSE_most_active", signal).catch((e) => ({ _error: e.message })),
+          fetchJson("/commodities", signal).catch((e) => ({ _error: e.message })),
+          fetchJson("/price_shockers", signal).catch((e) => ({ _error: e.message })),
+          fetchJson("/mutual_funds", signal).catch((e) => ({ _error: e.message })),
+        ]);
 
-function MostActivePanel({ which = 'BSE' }) {
-  const [data, setData] = useState([]);
-  const [upstreamIssue, setUpstreamIssue] = useState(false);
-  useEffect(() => {
-    let canceled = false;
-    setUpstreamIssue(false);
-    const endpoint = which === 'BSE' ? IndianAPI.BSE_most_active : IndianAPI.NSE_most_active;
-    endpoint()
-      .then(j => {
-        if (canceled) return;
-        if (j && j.upstream_issue) {
-          setUpstreamIssue(true);
-          setData([]);
-        } else {
-          setData(Array.isArray(j) ? j : (j?.data || j?.most_active || j || []));
-        }
-      })
-      .catch(e => { console.warn('MostActivePanel:', e?.message || e); if (!canceled) setData([]); });
-    return () => { canceled = true; };
-  }, [which]);
-  return (
-    <PanelShell title={`${which} — Most Active`}>
-      {upstreamIssue && <div className="mb-2 text-sm text-amber-700">Most active data temporarily unavailable.</div>}
-      <div className="space-y-1">
-        {data.slice(0, 8).map(s => (<MiniRow key={s.ticker_id || s.ticker || s.ticker_id} item={s} onClick={() => window.location.assign(`/stock/${encodeURIComponent(s.ric || s.ticker_id || s.ticker)}`)} />))}
-        {data.length === 0 && <div className="text-sm text-slate-500">No data</div>}
+      const newState = {
+        loadedAt: Date.now(),
+        trending: trending && !trending._error ? trending : null,
+        fetch52: fetch52 && !fetch52._error ? fetch52 : null,
+        nseActive: nseActive && !nseActive._error ? nseActive : null,
+        bseActive: bseActive && !bseActive._error ? bseActive : null,
+        commodities: commodities && !commodities._error ? commodities : null,
+        priceShockers: priceShockers && !priceShockers._error ? priceShockers : null,
+        mutualFunds: mutualFunds && !mutualFunds._error ? mutualFunds : null,
+      };
+
+      setData(newState);
+      try {
+        localStorage.setItem(CACHE_KEY, JSON.stringify(newState));
+      } catch (e) {
+        // ignore
+      }
+    } catch (e) {
+      console.error("MarketsDashboard refresh failed", e);
+      setError(e.message || String(e));
+    } finally {
+      setLoading(false);
+      controllerRef.current = null;
+    }
+  }
+
+  function renderTopGainersLosers() {
+    const trending = data.trending || {};
+    const topGainers = trending.top_gainers || [];
+    const topLosers = trending.top_losers || [];
+
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Panel title="Top Gainers" subtitle="Real-time snapshot">
+          <SimpleTable rows={topGainers.slice(0, 6)} emptyMessage="No gainers" />
+        </Panel>
+
+        <Panel title="Top Losers" subtitle="Real-time snapshot">
+          <SimpleTable rows={topLosers.slice(0, 6)} emptyMessage="No losers" />
+        </Panel>
       </div>
-    </PanelShell>
-  );
-}
+    );
+  }
 
-function CommoditiesPanel() {
-  const [data, setData] = useState([]);
-  const [upstreamIssue, setUpstreamIssue] = useState(false);
-  useEffect(() => {
-    let canceled = false;
-    setUpstreamIssue(false);
-    IndianAPI.commodities()
-      .then(j => {
-        if (canceled) return;
-        if (j && j.upstream_issue) {
-          setUpstreamIssue(true);
-          setData([]);
-        } else {
-          setData(Array.isArray(j) ? j : (j?.data || j?.commodities || []));
-        }
-      })
-      .catch(e => { console.warn('CommoditiesPanel', e?.message || e); if (!canceled) setData([]); });
-    return () => { canceled = true; };
-  }, []);
-  return (
-    <PanelShell title="Commodities">
-      {upstreamIssue && <div className="mb-2 text-sm text-amber-700">Commodities data temporarily unavailable.</div>}
-      <div className="space-y-1">
-        {data.slice(0, 8).map(c => (
-          <div key={c.ticker || c.name} className="flex justify-between py-2 border-b last:border-b-0">
-            <div>
-              <div className="text-sm font-medium">{c.name || c.instrument || c.ticker}</div>
-              <div className="text-xs text-gray-500">{c.exchange || c.market || ''}</div>
-            </div>
-            <div className="text-right ml-4">
-              <div className="text-sm font-semibold">{c.price ?? c.last ?? '—'}</div>
-              <div className={`text-xs ${Number(c.percent_change ?? c.change ?? 0) >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{c.percent_change ?? c.change ?? '—'}</div>
-            </div>
-          </div>
-        ))}
-        {data.length === 0 && <div className="text-sm text-slate-500">No data</div>}
+  function renderMostActive() {
+    const nse = data.nseActive || [];
+    const bse = data.bseActive || [];
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Panel title="NSE - Most Active" subtitle="By volume">
+          <ActiveTable rows={nse.slice(0, 8)} />
+        </Panel>
+        <Panel title="BSE - Most Active" subtitle="By volume">
+          <ActiveTable rows={bse.slice(0, 8)} />
+        </Panel>
       </div>
-    </PanelShell>
-  );
-}
+    );
+  }
 
-function MutualFundsPanel() {
-  const [data, setData] = useState([]);
-  const [upstreamIssue, setUpstreamIssue] = useState(false);
-  useEffect(() => {
-    let canceled = false;
-    setUpstreamIssue(false);
-    IndianAPI.mutual_funds()
-      .then(j => {
-        if (canceled) return;
-        if (j && j.upstream_issue) {
-          setUpstreamIssue(true);
-          setData([]);
-        } else {
-          setData(Array.isArray(j) ? j : (Array.isArray(j?.data) ? j.data : Array.isArray(j?.mutual_funds) ? j.mutual_funds : (Array.isArray(j) ? j : [])));
-        }
-      })
-      .catch(e => { console.warn('MutualFundsPanel', e?.message || e); if (!canceled) setData([]); });
-    return () => { canceled = true; };
-  }, []);
-  return (
-    <PanelShell title="Mutual Funds">
-      {upstreamIssue && <div className="mb-2 text-sm text-amber-700">Mutual funds data temporarily unavailable.</div>}
-      <div className="space-y-1">
-        {data.slice(0, 8).map(m => (
-          <div key={m.scheme_code || m.name || m.fund_name} className="flex justify-between py-2 border-b last:border-b-0">
-            <div>
-              <div className="text-sm font-medium truncate">{m.scheme_name ?? m.name ?? m.fund_name}</div>
-              <div className="text-xs text-gray-500 truncate">{m.scheme_type ?? m.category ?? m.subcategory ?? ''}</div>
-            </div>
-            <div className="text-right ml-4">
-              <div className="text-sm font-semibold">{m.nav ?? m.latest_nav ?? m.price ?? '—'}</div>
-              <div className="text-xs text-gray-500">{m.date ?? ''}</div>
-            </div>
-          </div>
-        ))}
-        {data.length === 0 && <div className="text-sm text-slate-500">No data</div>}
+  function render52Week() {
+    const f52 = data.fetch52 || {};
+    const bse = f52.BSE_52WeekHighLow || {};
+    const nse = f52.NSE_52WeekHighLow || {};
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Panel title="52 Week (BSE)" subtitle="Highs & lows">
+          <HighLowList high={bse.high52Week} low={bse.low52Week} />
+        </Panel>
+        <Panel title="52 Week (NSE)" subtitle="Highs & lows">
+          <HighLowList high={nse.high52Week} low={nse.low52Week} />
+        </Panel>
       </div>
-    </PanelShell>
-  );
-}
+    );
+  }
 
-function StockForecastsPanel() {
-  const [data, setData] = useState([]);
-  const [upstreamIssue, setUpstreamIssue] = useState(false);
-  useEffect(() => {
-    let canceled = false;
-    setUpstreamIssue(false);
-    // sample default call — ideally pass a real stock_id to get useful data
-    IndianAPI.stock_forecasts({ stock_id: '', measure_code: 'EPS', period_type: 'Annual', data_type: 'Actuals', age: 'Current' })
-      .then(j => {
-        if (canceled) return;
-        if (j && j.upstream_issue) {
-          setUpstreamIssue(true);
-          setData([]);
-        } else {
-          setData(j?.forecasts ?? j?.data ?? (Array.isArray(j) ? j : []));
-        }
-      })
-      .catch(e => { console.warn('StockForecastsPanel', e?.message || e); if (!canceled) setData([]); });
-    return () => { canceled = true; };
-  }, []);
+  function renderCommodities() {
+    const c = data.commodities || [];
+    return (
+      <Panel title="Commodities" subtitle="Futures snapshot">
+        <CommodityTable rows={c.slice(0, 8)} />
+      </Panel>
+    );
+  }
+
+  function renderMutualFunds() {
+    const m = data.mutualFunds || {};
+    return (
+      <Panel title="Mutual Funds" subtitle="Top categories">
+        <MutualFundsView mf={m} />
+      </Panel>
+    );
+  }
+
   return (
-    <PanelShell title="Stock Forecasts">
-      {upstreamIssue && <div className="mb-2 text-sm text-amber-700">Forecasts temporarily unavailable.</div>}
-      <div className="space-y-2">
-        {data.slice(0, 8).map((f, i) => (
-          <div key={f.ticker_id ?? i} className="py-2 border-b last:border-b-0">
-            <div className="flex justify-between"><div className="text-sm font-medium">{f.company_name ?? f.ticker ?? f.symbol}</div><div className="text-xs text-gray-500">{f.horizon ?? f.period ?? ''}</div></div>
-            <div className="text-xs text-slate-600">{f.summary ?? f.note ?? ''}</div>
-          </div>
-        ))}
-        {data.length === 0 && <div className="text-sm text-slate-500">No forecasts</div>}
-      </div>
-    </PanelShell>
-  );
-}
-
-function NewsPanel() {
-  const [data, setData] = useState([]);
-  const [upstreamIssue, setUpstreamIssue] = useState(false);
-  useEffect(() => {
-    let canceled = false;
-    setUpstreamIssue(false);
-    IndianAPI.news()
-      .then(j => {
-        if (canceled) return;
-        if (j && j.upstream_issue) {
-          setUpstreamIssue(true);
-          setData([]);
-        } else {
-          setData(Array.isArray(j) ? j : (j?.data || j?.news || j?.articles || []));
-        }
-      })
-      .catch(e => { console.warn('NewsPanel', e?.message || e); if (!canceled) setData([]); });
-    return () => { canceled = true; };
-  }, []);
-  return (
-    <PanelShell title="Market News">
-      {upstreamIssue && <div className="mb-2 text-sm text-amber-700">Market news temporarily unavailable.</div>}
-      <div className="space-y-2">
-        {data.slice(0, 6).map((n, i) => (
-          <div key={n.id ?? i} className="py-2 border-b last:border-b-0">
-            <a className="text-sm font-medium" href={n.link ?? n.url ?? n.source_url ?? '#'} target="_blank" rel="noreferrer">{n.title ?? n.headline ?? n.name}</a>
-            <div className="text-xs text-gray-500">{n.source ?? n.date ?? ''}</div>
-          </div>
-        ))}
-        {data.length === 0 && <div className="text-sm text-slate-500">No news</div>}
-      </div>
-    </PanelShell>
-  );
-}
-
-function IPOPanel() {
-  const [data, setData] = useState([]);
-  const [upstreamIssue, setUpstreamIssue] = useState(false);
-  useEffect(() => {
-    let canceled = false;
-    setUpstreamIssue(false);
-    IndianAPI.ipo()
-      .then(j => {
-        if (canceled) return;
-        if (j && j.upstream_issue) {
-          setUpstreamIssue(true);
-          setData([]);
-        } else {
-          setData(Array.isArray(j) ? j : (j?.data || j?.ipos || []));
-        }
-      })
-      .catch(e => { console.warn('IPOPanel', e?.message || e); if (!canceled) setData([]); });
-    return () => { canceled = true; };
-  }, []);
-  return (
-    <PanelShell title="Upcoming IPOs">
-      {upstreamIssue && <div className="mb-2 text-sm text-amber-700">IPO data temporarily unavailable.</div>}
-      <div className="space-y-2">
-        {data.slice(0, 6).map((ip, i) => (<div key={ip.ticker_id ?? i} className="py-2 border-b last:border-b-0"><div className="text-sm font-medium">{ip.company_name ?? ip.name}</div><div className="text-xs text-gray-500">{ip.listing_date ?? ip.date ?? ''}</div></div>))}
-        {data.length === 0 && <div className="text-sm text-slate-500">No upcoming IPOs</div>}
-      </div>
-    </PanelShell>
-  );
-}
-
-/* simplified MarketsView and export */
-function MarketsView() {
-  return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-4">
-          <div className="rounded-2xl border border-slate-200 p-4 bg-white shadow-sm">
-            <h3 className="text-lg font-semibold text-slate-800 mb-2">Markets — Snapshot (India)</h3>
-            <p className="text-sm text-slate-500">Live snippets from IndianAPI: trending, most active, commodities, mutual funds and forecasts.</p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <NewsPanel />
-            <StockForecastsPanel />
-          </div>
-
-          <IPOPanel />
-        </div>
-
-        <aside className="space-y-4">
-          <TrendingPanel />
-          <MostActivePanel which="BSE" />
-          <MostActivePanel which="NSE" />
-          <CommoditiesPanel />
-          <MutualFundsPanel />
-        </aside>
-      </div>
-    </div>
-  );
-}
-
-function EconomicsView() {
-  return (
-    <div className="rounded-2xl border border-slate-200 p-6 bg-white shadow-sm">
-      <h3 className="text-lg font-semibold">Economics — World Bank data</h3>
-      <p className="text-sm text-slate-500">(Economics view omitted in this fixed file. Reuse your existing WB logic.)</p>
-    </div>
-  );
-}
-
-export default function G20WorldBankAndMarketsPro() {
-  const [tab, setTab] = useState('markets');
-  return (
-    <div className="space-y-8">
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+    <div className="p-4 max-w-screen-xl mx-auto">
+      <header className="flex items-center justify-between mb-4">
         <div>
-          <h2 className="text-2xl font-semibold text-slate-900">G20 — Economics & India Markets</h2>
-          <p className="text-slate-600 text-sm">World Bank macro for G20 + India market panels (via IndianAPI).</p>
+          <h1 className="text-2xl font-semibold">Markets Dashboard</h1>
+          <p className="text-sm text-slate-500">Realtime market snapshots — updated every 2 hours</p>
         </div>
-        <div className="flex gap-2">
-          <button type="button" onClick={() => setTab('economics')} className={`px-4 py-2 rounded-xl border ${tab === 'economics' ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-800 border-slate-300 hover:bg-slate-50'}`}>Economics</button>
-          <button type="button" onClick={() => setTab('markets')} className={`px-4 py-2 rounded-xl border ${tab === 'markets' ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-800 border-slate-300 hover:bg-slate-50'}`}>Markets (India)</button>
+        <div className="flex items-center gap-2">
+          <div className="text-sm text-slate-600 mr-3">
+            {data.loadedAt ? (
+              <span>Last update: {new Date(data.loadedAt).toLocaleString()}</span>
+            ) : (
+              <span>Never updated</span>
+            )}
+          </div>
+          <button
+            className="px-3 py-2 rounded bg-slate-800 text-white text-sm hover:opacity-90"
+            onClick={() => refreshAll({ force: true })}
+            disabled={loading}
+          >
+            {loading ? "Refreshing..." : "Refresh"}
+          </button>
         </div>
       </header>
-      {tab === 'economics' ? <EconomicsView /> : <MarketsView />}
+
+      {error && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded">Error: {error}</div>
+      )}
+
+      <main className="space-y-4">
+        {renderTopGainersLosers()}
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="lg:col-span-2">
+            {renderMostActive()}
+            <div className="mt-4">{render52Week()}</div>
+          </div>
+
+          <div>
+            {renderCommodities()}
+            <div className="mt-4">{renderMutualFunds()}</div>
+            <div className="mt-4">
+              <Panel title="Price Shockers" subtitle="Large intraday moves">
+                <PriceShockers rows={(data.priceShockers || []).slice(0, 8)} />
+              </Panel>
+            </div>
+          </div>
+        </div>
+
+        <footer className="text-xs text-slate-500">Data provided via your IndianAPI proxy. UI refresh limit: 2 hours (configurable).</footer>
+      </main>
+    </div>
+  );
+}
+
+MarketsDashboard.propTypes = {
+  refreshInterval: PropTypes.number,
+};
+
+/* ---------- Presentational subcomponents ---------- */
+function Panel({ title, subtitle, children }) {
+  return (
+    <section className="bg-white shadow-sm rounded p-3 border">
+      <div className="flex items-baseline justify-between mb-2">
+        <div>
+          <h3 className="text-lg font-medium">{title}</h3>
+          {subtitle && <p className="text-xs text-slate-500">{subtitle}</p>}
+        </div>
+      </div>
+      <div>{children}</div>
+    </section>
+  );
+}
+
+function SimpleTable({ rows = [], emptyMessage = "No data" }) {
+  if (!rows || rows.length === 0) return <div className="text-sm text-slate-500">{emptyMessage}</div>;
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm table-auto">
+        <thead>
+          <tr className="text-left text-xs text-slate-400 border-b">
+            <th className="py-2">Ticker</th>
+            <th className="py-2">Price</th>
+            <th className="py-2">% Change</th>
+            <th className="py-2">Volume</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r, i) => (
+            <tr key={r.ticker_id || r.ticker || i} className="border-b last:border-b-0 hover:bg-slate-50">
+              <td className="py-2 font-medium">{r.company_name || r.company || r.ticker_id || r.ticker}</td>
+              <td className="py-2">{fmtNumber(r.price || r.current_price || r.close || r.price)}</td>
+              <td className={`py-2 ${Number(r.percent_change) > 0 ? "text-green-600" : "text-red-600"}`}>
+                {fmtPct(Number(r.percent_change) || Number(r.percentChange) || Number(r.net_change))}
+              </td>
+              <td className="py-2">{fmtNumber(r.volume)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function ActiveTable({ rows = [] }) {
+  if (!rows || rows.length === 0) return <div className="text-sm text-slate-500">No data</div>;
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm table-auto">
+        <thead>
+          <tr className="text-left text-xs text-slate-400 border-b">
+            <th className="py-2">Ticker</th>
+            <th className="py-2">Price</th>
+            <th className="py-2">%</th>
+            <th className="py-2">Volume</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r, i) => (
+            <tr key={r.ticker || i} className="border-b last:border-b-0 hover:bg-slate-50">
+              <td className="py-2 font-medium">{r.company || r.ticker}</td>
+              <td className="py-2">{fmtNumber(r.price)}</td>
+              <td className={`py-2 ${Number(r.percent_change) > 0 ? "text-green-600" : "text-red-600"}`}>
+                {fmtPct(Number(r.percent_change))}
+              </td>
+              <td className="py-2">{fmtNumber(r.volume)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function HighLowList({ high = [], low = [] }) {
+  if ((!high || high.length === 0) && (!low || low.length === 0)) return <div className="text-sm text-slate-500">No data</div>;
+  return (
+    <div className="grid grid-cols-1 gap-2">
+      {high && high.length > 0 && (
+        <div>
+          <h4 className="text-sm font-medium">Highs</h4>
+          <ul className="text-sm text-slate-700">
+            {high.slice(0, 6).map((h, i) => (
+              <li key={h.ticker || i} className="flex justify-between py-1 border-b last:border-b-0">
+                <span>{h.company || h.ticker}</span>
+                <span className="font-medium">{fmtNumber(h.price)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {low && low.length > 0 && (
+        <div>
+          <h4 className="text-sm font-medium">Lows</h4>
+          <ul className="text-sm text-slate-700">
+            {low.slice(0, 6).map((h, i) => (
+              <li key={h.ticker || i} className="flex justify-between py-1 border-b last:border-b-0">
+                <span>{h.company || h.ticker}</span>
+                <span className="font-medium">{fmtNumber(h.price)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CommodityTable({ rows = [] }) {
+  if (!rows || rows.length === 0) return <div className="text-sm text-slate-500">No data</div>;
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm table-auto">
+        <thead>
+          <tr className="text-left text-xs text-slate-400 border-b">
+            <th className="py-2">Symbol</th>
+            <th className="py-2">LTP</th>
+            <th className="py-2">Change</th>
+            <th className="py-2">OI</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r, i) => (
+            <tr key={r.contractId || i} className="border-b last:border-b-0 hover:bg-slate-50">
+              <td className="py-2 font-medium">{r.commoditySymbol}</td>
+              <td className="py-2">{fmtNumber(r.lastTradedPrice)}</td>
+              <td className={`py-2 ${Number(r.priceChange) > 0 ? "text-green-600" : "text-red-600"}`}>
+                {fmtNumber(r.priceChange)} ({fmtPct(r.percentageChange * 100)})
+              </td>
+              <td className="py-2">{fmtNumber(r.openInterest)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function MutualFundsView({ mf = {} }) {
+  // mf often has nested categories; show top-level categories and their first funds
+  if (!mf || Object.keys(mf).length === 0) return <div className="text-sm text-slate-500">No data</div>;
+
+  return (
+    <div className="space-y-3">
+      {Object.entries(mf).slice(0, 3).map(([category, buckets]) => (
+        <div key={category} className="border rounded p-2 bg-slate-50">
+          <h4 className="text-sm font-medium">{category}</h4>
+          {typeof buckets === "object" && (
+            <ul className="text-sm mt-1">
+              {Object.entries(buckets)
+                .flatMap(([, list]) => list || [])
+                .slice(0, 3)
+                .map((f, i) => (
+                  <li key={f.fund_name || i} className="flex justify-between py-1 border-b last:border-b-0">
+                    <span>{f.fund_name}</span>
+                    <span className="font-medium">{fmtNumber(f.latest_nav)}</span>
+                  </li>
+                ))}
+            </ul>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function PriceShockers({ rows = [] }) {
+  if (!rows || rows.length === 0) return <div className="text-sm text-slate-500">No data</div>;
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm table-auto">
+        <thead>
+          <tr className="text-left text-xs text-slate-400 border-b">
+            <th className="py-2">Ticker</th>
+            <th className="py-2">Price</th>
+            <th className="py-2">%</th>
+            <th className="py-2">Volume</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r, i) => (
+            <tr key={r.ticker || i} className="border-b last:border-b-0 hover:bg-slate-50">
+              <td className="py-2 font-medium">{r.company || r.ticker}</td>
+              <td className="py-2">{fmtNumber(r.price)}</td>
+              <td className={`py-2 ${Number(r.percent_change) > 0 ? "text-green-600" : "text-red-600"}`}>
+                {fmtPct(Number(r.percent_change))}
+              </td>
+              <td className="py-2">{fmtNumber(r.volume)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
