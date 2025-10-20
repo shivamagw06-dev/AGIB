@@ -1,11 +1,42 @@
 // server/research.js
 import express from "express";
-import fetch from "node-fetch"; // optional on Node >=18, you can remove this import
 import dotenv from "dotenv";
 
 dotenv.config();
-
 const router = express.Router();
+
+// Use global fetch (Node 18+) if present; otherwise dynamically import node-fetch v3
+let fetchFn = globalThis.fetch;
+async function ensureNodeFetch() {
+  if (!fetchFn) {
+    const mod = await import("node-fetch");
+    // node-fetch v3 default export is the fetch function
+    fetchFn = mod.default;
+  }
+  return fetchFn;
+}
+
+/**
+ * fetchWithTimeout
+ * - works with globalThis.fetch or node-fetch
+ * - timeout in ms (default 15000)
+ */
+async function fetchWithTimeout(url, opts = {}, timeoutMs = 15000) {
+  // ensure fetchFn is available if not already
+  if (!fetchFn) await ensureNodeFetch();
+
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const merged = { ...opts, signal: controller.signal };
+    const response = await fetchFn(url, merged);
+    clearTimeout(id);
+    return response;
+  } catch (err) {
+    clearTimeout(id);
+    throw err;
+  }
+}
 
 /**
  * Config / env
@@ -39,7 +70,7 @@ async function fetchIndian(path) {
   const p = path.startsWith("/") ? path : `/${path}`;
   const url = `${INDIANAPI_BASE}${p}`;
   try {
-    const r = await fetch(url, { method: "GET", headers: makeIndianHeaders(), timeout: 15_000 });
+    const r = await fetchWithTimeout(url, { method: "GET", headers: makeIndianHeaders() }, 15_000);
     const text = await r.text().catch(() => "");
     const ct = (r.headers.get("content-type") || "").toLowerCase();
 
@@ -100,7 +131,7 @@ async function callPerplexity(prompt) {
     max_tokens: 800,
   };
 
-  const res = await fetch(PERPLEXITY_URL, {
+  const res = await fetchWithTimeout(PERPLEXITY_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -108,8 +139,7 @@ async function callPerplexity(prompt) {
       Accept: "application/json",
     },
     body: JSON.stringify(payload),
-    timeout: 25_000,
-  });
+  }, 25_000);
 
   const rawText = await res.text().catch(() => "");
   const ct = (res.headers.get("content-type") || "").toLowerCase();
@@ -128,7 +158,6 @@ async function callPerplexity(prompt) {
 
   // Some Perplexity responses return plain text (choices[].message.content)
   // Attempt to extract a JSON block (array or object)
-  // First try to find a JSON object/array in the text
   const jsonMatch = rawText.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
   if (jsonMatch) {
     try {
@@ -201,7 +230,6 @@ router.post("/summary", async (req, res) => {
           if (!one_liner && Array.isArray(llmResp.choices) && llmResp.choices[0]) {
             const content = llmResp.choices[0].message?.content || llmResp.choices[0].text || null;
             if (content) {
-              // try parse JSON block from content
               const match = String(content).match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
               if (match) {
                 try {
@@ -213,7 +241,6 @@ router.post("/summary", async (req, res) => {
                   // ignore parse error
                 }
               } else {
-                // as a last resort, place the content into summary
                 summary = summary || String(content).slice(0, 2000);
               }
             }
@@ -233,11 +260,8 @@ router.post("/summary", async (req, res) => {
           } else {
             summary = llmResp.slice(0, 2000);
           }
-        } else {
-          // fallback: attach raw
         }
 
-        // Guarantee at least limited outputs
         if (!one_liner && summary) {
           one_liner = typeof summary === "string" ? summary.split(".")[0].slice(0, 160) : null;
         }

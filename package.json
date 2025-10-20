@@ -54,7 +54,6 @@
     "jspdf": "^3.0.3",
     "lowlight": "^2.9.0",
     "lucide-react": "^0.292.0",
-    "node-fetch": "^3.3.2",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-helmet": "^6.1.0",
