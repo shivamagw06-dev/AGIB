@@ -6,13 +6,10 @@ import inlineEditPlugin from './plugins/visual-editor/vite-plugin-react-inline-e
 import editModeDevPlugin from './plugins/visual-editor/vite-plugin-edit-mode.js';
 import iframeRouteRestorationPlugin from './plugins/vite-plugin-iframe-route-restoration.js';
 
-const isDev = process.env.NODE_ENV !== 'production';
+/* ---- NOTE: don't compute isDev at top-level using process.env.NODE_ENV.
+   Vite passes `mode` into defineConfig — use that. ---- */
 
-// ---- set your production base here ----
-const BASE_PATH_PROD = '/'; // root deploy
-const BASE_PATH = process.env.VITE_BASE ?? (isDev ? '/' : BASE_PATH_PROD);
-
-// ------------------ error handler strings (placeholders) ------------------
+/* ------------------ error handler strings (placeholders) ------------------ */
 const configHorizonsViteErrorHandler = `/* … your string … */`;
 const configHorizonsRuntimeErrorHandler = `/* … your string … */`;
 const configHorizonsConsoleErrroHandler = `/* … your string … */`;
@@ -36,11 +33,19 @@ const addTransformIndexHtml = {
 const logger = createLogger();
 const loggerError = logger.error;
 logger.error = (msg, options) => {
-  if (options?.error?.toString().includes('CssSyntaxError: [postcss]')) return;
+  try {
+    const maybeErr = options && options.error;
+    const errStr = (typeof maybeErr === 'string') ? maybeErr : (maybeErr && typeof maybeErr.toString === 'function' ? maybeErr.toString() : '');
+    if (errStr && errStr.includes('CssSyntaxError: [postcss]')) return;
+  } catch (e) {
+    // if our check throws for any reason, fall back to original
+  }
   loggerError(msg, options);
 };
 
 export default defineConfig(({ mode }) => {
+  const isDev = mode !== 'production';
+
   // load .env* into process.env-like object for vite (prefix handling done below)
   const env = loadEnv(mode, process.cwd(), '');
 
@@ -48,6 +53,10 @@ export default defineConfig(({ mode }) => {
   const apiBackend = env.VITE_API_BACKEND || 'http://localhost:3001';
   const indianApiBackend = env.VITE_INDIANAPI || 'https://stock.indianapi.in';
   const tradewatchKey = env.VITE_TRADEWATCH_API_KEY || '';
+
+  // ---- set your production base here ----
+  const BASE_PATH_PROD = '/'; // root deploy
+  const BASE_PATH = env.VITE_BASE ?? (isDev ? '/' : BASE_PATH_PROD);
 
   return {
     base: BASE_PATH,
@@ -62,6 +71,8 @@ export default defineConfig(({ mode }) => {
       // allow network access in dev (replaces allowedHosts)
       host: true,
       cors: true,
+      // NOTE: COEP / credentialless can cause stricter headers in browsers.
+      // Keep it only if you need SharedArrayBuffer / cross-origin isolation features.
       headers: { 'Cross-Origin-Embedder-Policy': 'credentialless' },
       // hmr overlay default is useful; keep it enabled (you can disable by setting server.hmr.overlay = false)
       proxy: {
@@ -95,14 +106,14 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           ws: true,
           secure: true,
-          headers: { 'X-API-Key': tradewatchKey },
+          headers: tradewatchKey ? { 'X-API-Key': tradewatchKey } : {},
         },
 
         // Your backend API (local)
         '/api': {
           target: apiBackend,
           changeOrigin: true,
-          secure: apiBackend.startsWith('https'),
+          secure: typeof apiBackend === 'string' && apiBackend.startsWith('https'),
           // keep prefix: /api/whatever -> forwarded to <apiBackend>/api/whatever
         },
 

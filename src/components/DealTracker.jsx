@@ -1,155 +1,165 @@
 // src/components/DealTracker.jsx
-import React, { useEffect, useState, useCallback } from 'react';
-import { motion } from 'framer-motion';
-import { Building2, MapPin, RefreshCw } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
-import { supabase } from '@/lib/supabaseClient';
+import React, { useEffect, useState, useRef } from "react";
+import { RefreshCcw, ExternalLink } from "lucide-react"; // ✅ FIXED ICON IMPORT
 
-const POLL_INTERVAL_MS = 30000; // 30s poll (optional)
+const API_BASE = import.meta.env.VITE_API_URL || window?.API_URL || "";
 
-const DealTracker = () => {
-  const { toast } = useToast();
+export default function DealTracker() {
+  const [region, setRegion] = useState("global");
   const [deals, setDeals] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const mounted = useRef(false);
 
-  const fetchDeals = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const fetchDeals = async (opts = {}) => {
+    const limit = opts.limit || 12;
     try {
-      // Adjust selected columns if your table has different columns
-      const { data, error: fetchError } = await supabase
-        .from('deals')
-        .select('id, acquirer, target, value, sector, region, type, created_at')
-        .order('created_at', { ascending: false });
+      setLoading(true);
+      setError(null);
+      const url = `${API_BASE}/api/perplexity/deals?region=${encodeURIComponent(region)}&limit=${limit}`;
+      const res = await fetch(url, { credentials: "same-origin" });
+      if (!res.ok) {
+        const txt = await res.text().catch(() => "");
+        throw new Error(`Upstream error ${res.status}: ${txt || res.statusText}`);
+      }
+      const json = await res.json();
+      const arr = Array.isArray(json) ? json : json.parsed ?? json;
+      if (!Array.isArray(arr)) {
+        console.warn("[DealTracker] unexpected payload", json);
+        setDeals([]);
+        setError("Unexpected response from deals API (check server logs).");
+        return;
+      }
 
-      if (fetchError) throw fetchError;
-      setDeals(data ?? []);
-    } catch (e) {
-      console.error('Failed to load deals', e);
-      setError(e.message || String(e));
-      toast({
-        title: 'Failed to load deals',
-        description: e?.message || 'Check console for details',
-        variant: 'destructive',
-      });
+      const norm = arr.map((it) => ({
+        acquirer: it.acquirer ?? it.buyer ?? "Unknown",
+        target: it.target ?? it.company ?? "Unknown",
+        value: it.value ?? "Undisclosed",
+        sector: it.sector ?? it.industry ?? "N/A",
+        type: it.type ?? "M&A",
+        region: it.region ?? region,
+        date: it.date ? new Date(it.date) : null,
+        source: it.source ?? null,
+      }));
+      setDeals(norm);
+    } catch (err) {
+      console.error("[DealTracker] fetch error:", err);
+      setError("Failed to load deals. Try refreshing or check server.");
     } finally {
-      setLoading(false);
+      if (mounted.current) setLoading(false);
+      else setLoading(false);
     }
-  }, [toast]);
+  };
 
   useEffect(() => {
+    mounted.current = true;
     fetchDeals();
-
-    // Optional: polling to keep UI fresh
-    const id = setInterval(() => {
-      fetchDeals();
-    }, POLL_INTERVAL_MS);
-
-    return () => clearInterval(id);
-  }, [fetchDeals]);
-
-  // Optional: lightweight formatting helper
-  const formatValue = (v) => (v ? v : '—');
+    return () => {
+      mounted.current = false;
+    };
+  }, [region]);
 
   return (
-    <section className="py-20 bg-background">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-6">
-          <h1 className="text-4xl sm:text-5xl font-bold text-foreground mb-3">Tracking the World of Deals</h1>
-          <p className="text-lg text-foreground/70 max-w-3xl mx-auto">
-            Live updates on private equity & M&amp;A activity across sectors and regions.
-          </p>
-        </motion.div>
+    <div className="max-w-6xl mx-auto px-6 py-12">
+      <header className="text-center mb-8">
+        <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-gray-900">
+          Tracking the World of Deals
+        </h1>
+        <p className="mt-2 text-gray-600">
+          Live updates on private equity, M&A, and buyout activity across sectors and regions.
+        </p>
 
-        <div className="mb-6 flex items-center justify-end gap-3">
+        <div className="flex items-center justify-center gap-3 mt-6">
+          <select
+            value={region}
+            onChange={(e) => setRegion(e.target.value)}
+            aria-label="Select region"
+            className="border border-gray-300 rounded-lg px-3 py-2 bg-white text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-black"
+          >
+            <option value="global">🌍 Global</option>
+            <option value="india">🇮🇳 India</option>
+            <option value="asia">Asia</option>
+            <option value="europe">Europe</option>
+            <option value="usa">United States</option>
+          </select>
+
           <button
-            onClick={() => {
-              fetchDeals();
-              toast({ title: 'Refreshing', description: 'Fetching latest deals...' });
-            }}
-            className="inline-flex items-center gap-2 px-3 py-1.5 border rounded shadow-sm hover:bg-gray-50"
+            onClick={() => fetchDeals({ limit: 20 })}
+            className="inline-flex items-center gap-2 bg-black text-white px-4 py-2 rounded-lg text-sm hover:bg-gray-800 transition"
+            title="Refresh deals"
             aria-label="Refresh deals"
           >
-            <RefreshCw className="w-4 h-4" />
-            <span className="text-sm">Refresh</span>
+            <RefreshCcw size={16} /> {/* ✅ FIXED ICON */}
+            <span>Refresh</span>
           </button>
         </div>
+      </header>
 
-        {/* Loading */}
-        {loading && (
-          <div className="space-y-4">
-            {[1, 2, 3].map((n) => (
-              <div key={n} className="animate-pulse bg-card border border-border rounded-lg p-6">
-                <div className="h-6 w-3/4 bg-gray-200 rounded mb-3"></div>
-                <div className="h-4 w-1/3 bg-gray-200 rounded mb-4"></div>
-                <div className="h-3 w-1/5 bg-gray-200 rounded"></div>
-              </div>
+      <section>
+        {loading ? (
+          <div className="text-center text-gray-500 py-16">Loading latest deals…</div>
+        ) : error ? (
+          <div className="text-center text-red-600 py-12">{error}</div>
+        ) : deals.length === 0 ? (
+          <div className="text-center text-gray-500 py-12">
+            No deals found for <strong>{region}</strong>. Try another region or refresh.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {deals.map((d, i) => (
+              <article
+                key={`${d.acquirer}-${d.target}-${i}`}
+                className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm hover:shadow-md transition"
+              >
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h2 className="text-lg font-semibold text-gray-900">
+                      {d.acquirer} <span className="text-gray-400">→</span> {d.target}
+                    </h2>
+                    <div className="mt-1 text-sm text-gray-600">
+                      <span className="inline-block mr-2"><strong>Sector:</strong> {d.sector}</span>
+                      <span className="inline-block mr-2"><strong>Type:</strong> {d.type}</span>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-sm text-gray-500">{d.region}</div>
+                    <div className="mt-2 text-sm font-medium text-gray-900">
+                      {d.value ?? "Undisclosed"}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 text-sm text-gray-600 space-y-2">
+                  <div>
+                    <strong>Date:</strong>{" "}
+                    {d.date ? d.date.toLocaleDateString() : "—"}
+                  </div>
+
+                  {d.source ? (
+                    <div>
+                      <a
+                        href={d.source}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 text-blue-600 hover:underline"
+                      >
+                        Source
+                        <ExternalLink size={14} />
+                      </a>
+                    </div>
+                  ) : (
+                    <div className="text-xs text-gray-400">Source not provided</div>
+                  )}
+                </div>
+              </article>
             ))}
           </div>
         )}
+      </section>
 
-        {/* Error */}
-        {error && !loading && (
-          <div className="bg-red-50 border border-red-200 rounded p-4 text-sm text-red-700 mb-6">
-            Error loading deals: {error}
-          </div>
-        )}
-
-        {/* Empty */}
-        {!loading && deals.length === 0 && !error && (
-          <div className="bg-card border border-border rounded-lg p-6 text-center text-muted-foreground">
-            No deals found yet. You can add deals in your admin panel or via Supabase.
-          </div>
-        )}
-
-        {/* Deals list */}
-        <div className="space-y-8">
-          {deals.map((deal, index) => (
-            <motion.div
-              key={deal.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.06 }}
-              className="bg-card border border-border rounded-lg p-6 hover:shadow-md transition-shadow"
-            >
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4">
-                <div>
-                  <span
-                    className={`inline-block px-3 py-1 text-xs font-semibold rounded-full ${
-                      deal.type === 'M&A' ? 'bg-primary/10 text-primary' : 'bg-green-100 text-green-800'
-                    }`}
-                  >
-                    {deal.type ?? 'Deal'}
-                  </span>
-                  <h2 className="text-2xl font-bold text-card-foreground mt-2">{deal.target ?? '—'}</h2>
-                  <p className="text-muted-foreground">acquired by {deal.acquirer ?? '—'}</p>
-                </div>
-
-                <div className="mt-4 sm:mt-0 text-3xl font-bold text-primary">
-                  {formatValue(deal.value)}
-                </div>
-              </div>
-
-              <div className="border-t border-border pt-4 mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted-foreground">
-                <div className="flex items-center gap-2">
-                  <Building2 className="h-4 w-4" />
-                  <span>{deal.sector ?? '—'}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <MapPin className="h-4 w-4" />
-                  <span>{deal.region ?? '—'}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs px-2 py-1 rounded bg-gray-100">{new Date(deal.created_at).toLocaleDateString()}</span>
-                </div>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      </div>
-    </section>
+      <footer className="mt-10 text-center text-xs text-gray-500">
+        Data provided by Perplexity (via your backend). Refreshes on demand and when region changes.
+      </footer>
+    </div>
   );
-};
-
-export default DealTracker;
+}

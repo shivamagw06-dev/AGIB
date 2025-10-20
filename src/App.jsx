@@ -6,7 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Header from '@/components/Header';
 import Hero from '@/components/Hero';
 import ArticlesFeed from '@/components/ArticlesFeed';
-import LatestNews from '@/components/LatestNews'; // <-- added
+import LatestNews from "./components/LatestNews";
 import About from '@/components/About';
 import Contact from '@/components/Contact';
 import Newsletter from '@/components/Newsletter';
