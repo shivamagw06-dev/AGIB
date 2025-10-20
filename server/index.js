@@ -13,12 +13,10 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-// App and basic middleware
 const app = express();
 app.use(express.json({ limit: "200kb" }));
 app.set("trust proxy", 1);
 
-// Config
 const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
 const BASE_URL = process.env.INDIANAPI_BASE || "https://stock.indianapi.in";
 
@@ -31,7 +29,7 @@ const DEBUG_API = (process.env.DEBUG_API || "").toLowerCase() === "true";
 if (!API_KEY) console.warn("⚠️ Missing INDIANAPI_KEY — some endpoints may return limited data.");
 if (!PERPLEXITY_KEY) console.warn("⚠️ Missing PERPLEXITY_KEY — Perplexity-backed endpoints disabled.");
 
-// CORS: FRONTEND_ORIGIN can be comma-separated list (no '*' when credentials true)
+// CORS: prefer explicit FRONTEND_ORIGIN entries; don't use '*' when credentials true
 const rawAllowed = (process.env.FRONTEND_ORIGIN || "").split(",").map(s => s.trim()).filter(Boolean);
 const allowedOrigins = rawAllowed.length ? rawAllowed : [
   "https://agarwalglobalinvestments.com",
@@ -40,8 +38,7 @@ const allowedOrigins = rawAllowed.length ? rawAllowed : [
 
 app.use(cors({
   origin: (origin, cb) => {
-    // allow server-to-server requests (no origin)
-    if (!origin) return cb(null, true);
+    if (!origin) return cb(null, true); // server-to-server or curl
     if (allowedOrigins.includes(origin)) return cb(null, true);
     return cb(new Error("CORS origin not allowed"));
   },
@@ -56,7 +53,7 @@ const researchLimiter = rateLimit({ windowMs: 60_000, max: 30, standardHeaders: 
 app.use('/api', apiLimiter);
 app.use('/research', researchLimiter);
 
-// fetch implementation helpers (dynamic import if needed)
+// dynamic fetch implementation
 let _fetchImpl = undefined;
 async function ensureFetch() {
   if (typeof _fetchImpl === 'function') return _fetchImpl;
@@ -74,7 +71,7 @@ async function ensureFetch() {
   }
 }
 
-// fetch with timeout -> marks timeout errors with isTimeout
+// fetch with timeout and timeout flag
 async function fetchWithTimeout(url, opts = {}, timeoutMs = 15_000) {
   const fetchFn = await ensureFetch();
   const controller = new AbortController();
@@ -137,9 +134,7 @@ async function proxyFetch(res, url, opts = {}) {
     return res.status(r.status).send(text);
   } catch (err) {
     console.error('🔥 proxyFetch failed:', err?.message || err);
-    if (err?.isTimeout) {
-      return res.status(504).json({ error: 'Upstream request timed out' });
-    }
+    if (err?.isTimeout) return res.status(504).json({ error: 'Upstream request timed out' });
     return res.status(500).json({ error: 'Proxy fetch failed', detail: err?.message || String(err) });
   }
 }
@@ -153,7 +148,7 @@ function reg(path, handler) {
   console.log('[route registered]', path);
 }
 
-// Health + debug
+// --- Health + debug endpoints
 reg('/', (req, res) => res.json({ service: 'finance-news-backend', status: 'running' }));
 reg('/api/health', (req, res) => res.json({ ok: true }));
 reg('/_debug_env', (req, res) => res.json({ API_KEY_exists: !!API_KEY, PERPLEXITY_key_present: !!PERPLEXITY_KEY, FRONTEND_ORIGIN: process.env.FRONTEND_ORIGIN || null, PORT: process.env.PORT || null }));
@@ -162,36 +157,53 @@ reg('/_debug_key', (req, res) => { if (!API_KEY) return res.json({ key_present: 
 // mount research router
 app.use('/research', researchRouter);
 
-/* ---------- /api/perplexity/deals (always returns an array; parses choices[].message.content) ---------- */
+/* ---------- /api/perplexity/deals ----------
+   Ask Perplexity for a strict JSON array of deals with these fields:
+   - acquirer, target, value (string), value_number (number, optional), sector, type, date (ISO), source (URL), image (URL), summary (string)
+   The endpoint WILL try multiple models (env override -> defaults) and parse choices[0].message.content robustly.
+*/
 reg('/api/perplexity/deals', async (req, res) => {
   try {
     const region = req.query.region || 'global';
     const limit = Math.min(50, Number(req.query.limit || 8));
 
-    // Defensive: if PERPLEXITY_KEY absent -> return empty array (200)
     if (!PERPLEXITY_KEY) {
       console.warn('[perplexity] PERPLEXITY_KEY missing — returning empty array');
       return res.json([]);
     }
 
-    const prompt = `Return a JSON array (max ${limit}) of recent M&A / PE deals for region: ${region}. Each object must have these fields: acquirer, target, value, sector, region, date (ISO), source, type. Respond ONLY with a valid JSON array.`;
+    // Strong prompt to force structured JSON output
+    const structuredPrompt = `
+Return a JSON array (max ${limit}) of recent M&A / PE deals for region: ${region}.
+Each array item MUST be an object with the following keys:
+- acquirer (string)
+- target (string)
+- value (string|null) e.g. "1.5 billion USD" or null
+- value_number (number|null) USD amount if determinable (e.g. 1500000000)
+- sector (string|null)
+- type (string) one of "M&A", "PE", "Debt", "JV", etc.
+- date (string|null) ISO 8601 date if available
+- source (string|null) direct URL to the news/article
+- image (string|null) an image URL or og:image if available
+- summary (string|null) 1-2 sentence investor-facing summary
 
-    // Candidate models: env override first, then safe defaults
+Return ONLY valid JSON (a single top-level JSON array). Do not include any explanation text or markdown.
+`.trim();
+
+    // models to try (env override first)
     const candidateModels = PERPLEXITY_MODEL_ENV ? [PERPLEXITY_MODEL_ENV, 'sonar', 'sonar-pro'] : ['sonar', 'sonar-pro'];
 
-    let pRes = null;
-    let pText = "";
-    let usedModel = null;
+    let pRes = null, pText = "", usedModel = null;
 
     for (const mdl of candidateModels) {
       const body = {
         model: mdl,
         messages: [
-          { role: 'system', content: 'You are a factual research assistant that always replies with pure JSON when asked.' },
-          { role: 'user', content: prompt },
+          { role: 'system', content: 'You are a factual research assistant. Respond only with JSON when asked.' },
+          { role: 'user', content: structuredPrompt },
         ],
         temperature: 0.1,
-        max_tokens: 1000,
+        max_tokens: 1200,
       };
 
       try {
@@ -200,31 +212,25 @@ reg('/api/perplexity/deals', async (req, res) => {
           method: 'POST',
           headers: { Authorization: `Bearer ${PERPLEXITY_KEY}`, 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
-        }, 25_000);
+        }, 30_000);
 
         pText = await pRes.text().catch(() => "");
 
-        if (pRes.ok) {
-          usedModel = mdl;
-          break;
-        }
+        if (pRes.ok) { usedModel = mdl; break; }
 
-        // If Perplexity explicitly rejects the model, try next candidate
+        // if model invalid, try next
         if (pRes.status === 400 && /invalid_model/i.test(pText)) {
-          console.warn(`[perplexity] model "${mdl}" invalid, trying next candidate. response: ${String(pText).slice(0,200)}`);
-          pRes = null;
-          pText = "";
+          console.warn(`[perplexity] model "${mdl}" invalid — trying next candidate`);
+          pRes = null; pText = "";
           continue;
         }
 
-        // other error responses: log and break (we'll fallback afterwards)
-        console.error(`[perplexity] upstream error for model=${mdl}:`, pRes.status, String(pText).slice(0,400));
+        // other error: break and fallback
+        console.error(`[perplexity] model ${mdl} returned ${pRes.status}:`, String(pText).slice(0,300));
         break;
       } catch (err) {
         console.error(`[perplexity] request failed for model=${mdl}:`, err?.message || err);
-        // try next model
-        pRes = null;
-        pText = "";
+        pRes = null; pText = "";
         continue;
       }
     }
@@ -234,19 +240,20 @@ reg('/api/perplexity/deals', async (req, res) => {
       return res.json([]);
     }
 
-    // Parse the response body: prefer choices[0].message.content
-    const text = pText;
-    if (DEBUG_API) console.warn(`[perplexity] RAW RESPONSE (model=${usedModel}) (truncated):`, String(text).slice(0, 2000));
+    const rawText = pText;
+    if (DEBUG_API) console.warn(`[perplexity] RAW RESPONSE (model=${usedModel}) (truncated):`, String(rawText).slice(0, 2000));
 
+    // parsing: prefer choices[0].message.content, then fallbacks
     let parsed = null;
     try {
-      const respObj = JSON.parse(text);
-      const reply = respObj?.choices?.[0]?.message?.content || respObj?.choices?.[0]?.text || null;
+      const respObj = JSON.parse(rawText);
+      const reply = respObj?.choices?.[0]?.message?.content ?? respObj?.choices?.[0]?.text ?? null;
 
       if (typeof reply === 'string' && reply.trim()) {
         try {
           parsed = JSON.parse(reply);
         } catch (innerErr) {
+          // try to extract array substring inside reply
           const arrMatch = String(reply).match(/\[\s*(?:\{[\s\S]*?\}\s*,?\s*)+\s*\]/m);
           if (arrMatch) {
             try { parsed = JSON.parse(arrMatch[0]); } catch (ee) { parsed = null; }
@@ -254,36 +261,37 @@ reg('/api/perplexity/deals', async (req, res) => {
         }
       }
 
-      // fallback: try find array in the full text
+      // final fallback: try array substring from the full rawText
       if (!Array.isArray(parsed)) {
-        const anyArr = String(text).match(/\[\s*(?:\{[\s\S]*?\}\s*,?\s*)+\s*\]/m);
+        const anyArr = String(rawText).match(/\[\s*(?:\{[\s\S]*?\}\s*,?\s*)+\s*\]/m);
         if (anyArr) {
           try { parsed = JSON.parse(anyArr[0]); } catch (ee) { parsed = null; }
         }
       }
     } catch (e) {
-      // if top-level parse failed, attempt array substring extraction
-      const fallback = String(text).match(/\[\s*(?:\{[\s\S]*?\}\s*,?\s*)+\s*\]/m);
+      const fallback = String(rawText).match(/\[\s*(?:\{[\s\S]*?\}\s*,?\s*)+\s*\]/m);
       if (fallback) {
         try { parsed = JSON.parse(fallback[0]); } catch (ee) { parsed = null; }
-      } else {
-        parsed = null;
-      }
+      } else parsed = null;
     }
 
     if (!Array.isArray(parsed)) {
-      if (DEBUG_API) console.warn('[perplexity] unexpected shape from API, returning empty array -- first 2000 chars:', String(text).slice(0,2000));
+      if (DEBUG_API) console.warn('[perplexity] unexpected shape from API, returning empty array; raw (truncated):', String(rawText).slice(0,2000));
       return res.json([]);
     }
 
+    // Normalize items: keep required fields consistent
     const normalized = parsed.slice(0, limit).map(it => ({
       acquirer: it?.acquirer ?? it?.buyer ?? null,
       target: it?.target ?? it?.company ?? null,
       value: it?.value ?? null,
+      value_number: typeof it?.value_number === 'number' ? it.value_number : (it?.value_number ? Number(it.value_number) : null),
       sector: it?.sector ?? null,
       region: it?.region ?? region,
-      date: it?.date ?? new Date().toISOString(),
+      date: it?.date ?? null,
       source: it?.source ?? null,
+      image: it?.image ?? null,
+      summary: it?.summary ?? null,
       type: it?.type ?? 'M&A'
     }));
 
@@ -291,7 +299,7 @@ reg('/api/perplexity/deals', async (req, res) => {
   } catch (err) {
     console.error('Perplexity proxy failed:', err);
     if (err?.isTimeout) return res.status(504).json({ error: 'Perplexity request timed out' });
-    return res.json([]); // keep frontend safe
+    return res.json([]);
   }
 });
 
@@ -341,7 +349,7 @@ reg('/api/quote', async (req, res) => {
   }
 });
 
-// many proxy endpoints
+// --- many proxy endpoints (unchanged) ---
 reg('/api/stock', (req, res) => { const q = req.query.name || req.query.symbol; if (!q) return res.status(400).json({ error: 'Missing ?name or ?symbol' }); return proxyFetch(res, `${BASE_URL}/stock?name=${encodeURIComponent(q)}`); });
 reg('/api/industry_search', (req, res) => { const q = req.query.query; if (!q) return res.status(400).json({ error: 'Missing ?query' }); return proxyFetch(res, `${BASE_URL}/industry_search?query=${encodeURIComponent(q)}`); });
 reg('/api/mutual_fund_search', (req, res) => { const q = req.query.query; if (!q) return res.status(400).json({ error: 'Missing ?query' }); return proxyFetch(res, `${BASE_URL}/mutual_fund_search?query=${encodeURIComponent(q)}`); });
