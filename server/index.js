@@ -152,7 +152,7 @@ reg('/_debug_key', (req, res) => { if (!API_KEY) return res.json({ key_present: 
 // mount research router
 app.use('/research', researchRouter);
 
-/* ---------- /api/perplexity/deals (always returns an array) ---------- */
+/* ---------- /api/perplexity/deals (always returns an array; parses choices[].message.content) ---------- */
 reg('/api/perplexity/deals', async (req, res) => {
   try {
     const region = req.query.region || 'global';
@@ -165,40 +165,87 @@ reg('/api/perplexity/deals', async (req, res) => {
     }
 
     const prompt = `Return a JSON array (max ${limit}) of recent M&A / PE deals for region: ${region}. Each object must have these fields: acquirer, target, value, sector, region, date (ISO), source, type. Respond ONLY with a valid JSON array.`;
-    const body = { model: 'sonar', messages: [{ role: 'system', content: 'You are a factual research assistant.' }, { role: 'user', content: prompt }], temperature: 0.1, max_tokens: 800 };
+    const body = {
+      // use a modern sonar model name; you can change if your account uses a different model
+      model: 'sonar-medium-online',
+      messages: [
+        { role: 'system', content: 'You are a factual research assistant that always replies with a pure JSON array when asked.' },
+        { role: 'user', content: prompt }
+      ],
+      temperature: 0.1,
+      max_tokens: 1000,
+    };
 
-    const pRes = await fetchWithTimeout(PERPLEXITY_URL, { method: 'POST', headers: { Authorization: `Bearer ${PERPLEXITY_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) }, 25_000);
+    const pRes = await fetchWithTimeout(PERPLEXITY_URL, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${PERPLEXITY_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }, 25_000);
+
     const text = await pRes.text().catch(() => '');
     if (!pRes.ok) {
       console.error('[perplexity] upstream error:', pRes.status, text.slice(0, 400));
-      // fallback to empty array so frontend doesn't break
+      // return safe empty array so frontend doesn't break
       return res.json([]);
     }
+
+    // --- parse payload from choices[0].message.content (Perplexity chat completions) ---
+    // Log truncated raw response for debugging
+    console.warn('[perplexity] RAW RESPONSE (truncated):', String(text).slice(0, 2000));
 
     let parsed = null;
     try {
-      parsed = JSON.parse(text);
+      // top-level object
+      const respObj = JSON.parse(text);
+      // typical place for model reply
+      const reply = respObj?.choices?.[0]?.message?.content || respObj?.choices?.[0]?.text || null;
+
+      if (typeof reply === 'string' && reply.trim()) {
+        // try parse the reply as JSON directly
+        try {
+          parsed = JSON.parse(reply);
+        } catch (innerErr) {
+          // try to extract array substring from the reply
+          const arrMatch = String(reply).match(/\[\s*(?:\{[\s\S]*?\}\s*,?\s*)+\s*\]/m);
+          if (arrMatch) {
+            try { parsed = JSON.parse(arrMatch[0]); } catch (ee) { parsed = null; }
+          }
+        }
+      }
+
+      // final fallback: if parsed still null, try to find an array in the full response text
+      if (!Array.isArray(parsed)) {
+        const anyArr = String(text).match(/\[\s*(?:\{[\s\S]*?\}\s*,?\s*)+\s*\]/m);
+        if (anyArr) {
+          try { parsed = JSON.parse(anyArr[0]); } catch (ee) { parsed = null; }
+        }
+      }
     } catch (e) {
-      const match = text.match(/\[.*\]/s);
-      if (match) {
-        try { parsed = JSON.parse(match[0]); } catch (ee) { parsed = null; }
+      // If top-level parse fails, attempt to find JSON array substring in raw text
+      const fallback = String(text).match(/\[\s*(?:\{[\s\S]*?\}\s*,?\s*)+\s*\]/m);
+      if (fallback) {
+        try { parsed = JSON.parse(fallback[0]); } catch (ee) { parsed = null; }
+      } else {
+        parsed = null;
       }
     }
 
+    // If we didn't get an array, return empty array (frontend expects an array)
     if (!Array.isArray(parsed)) {
-      console.warn('[perplexity] unexpected shape from API, returning empty array');
+      console.warn('[perplexity] unexpected shape from API, returning empty array -- first 2000 chars:', String(text).slice(0,2000));
       return res.json([]);
     }
 
+    // Normalize to target deal object shape and cap to limit
     const normalized = parsed.slice(0, limit).map(it => ({
-      acquirer: it.acquirer ?? it.buyer ?? null,
-      target: it.target ?? it.company ?? null,
-      value: it.value ?? null,
-      sector: it.sector ?? null,
-      region: it.region ?? region,
-      date: it.date ?? new Date().toISOString(),
-      source: it.source ?? null,
-      type: it.type ?? 'M&A'
+      acquirer: it?.acquirer ?? it?.buyer ?? null,
+      target: it?.target ?? it?.company ?? null,
+      value: it?.value ?? null,
+      sector: it?.sector ?? null,
+      region: it?.region ?? region,
+      date: it?.date ?? new Date().toISOString(),
+      source: it?.source ?? null,
+      type: it?.type ?? 'M&A'
     }));
 
     return res.json(normalized);
