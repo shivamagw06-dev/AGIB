@@ -15,6 +15,7 @@ import { FiSearch, FiRefreshCw, FiDownload } from "react-icons/fi";
 import jsPDF from "jspdf";
 
 /* ---------------------- CONFIG ---------------------- */
+const DEBUG = false; // set true while debugging to see console.debug outputs
 const API_ORIGIN =
   (typeof process !== "undefined" && process.env && process.env.REACT_APP_API_ORIGIN) ||
   (typeof import.meta !== "undefined" && import.meta.env && import.meta.env.VITE_API_URL) ||
@@ -225,13 +226,31 @@ export default function MarketsDashboard() {
       // Backend endpoint expected: GET /api/quote?symbol=XYZ
       const q = await apiGet("/api/quote", { symbol: ticker });
       if (!q) return;
-      // normalize minimal fields
-      const cp = q.currentPrice || q.current_price || q.price || q.last_price || q.lastTradedPrice || q.last_traded_price || null;
-      const percent = q.percentChange ?? q.changePercent ?? q.percent_change ?? q.percent ?? null;
-      const volume = q.volume ?? q.totalVolume ?? q.v ?? null;
-      const prevClose = q.prevClose ?? q.previous_close ?? q.prev_close ?? null;
-      const openPrice = q.openPrice ?? q.open ?? null;
-      const dayRange = q.dayRange ?? (q.low && q.high ? { low: q.low, high: q.high } : null);
+
+      // normalize minimal fields (use q.raw fallback where proxy includes it)
+      const raw = q.raw || null;
+      const cp =
+        q.currentPrice ||
+        q.current_price ||
+        q.price ||
+        q.last_price ||
+        q.lastTradedPrice ||
+        q.last_traded_price ||
+        (raw && (raw.price || raw.last_price || raw.lastPrice)) ||
+        null;
+      const percent =
+        q.percentChange ??
+        q.changePercent ??
+        q.percent_change ??
+        q.percent ??
+        q.change ??
+        (raw && (raw.percentChange ?? raw.change ?? raw.percent)) ??
+        null;
+      const volume = q.volume ?? q.totalVolume ?? q.v ?? (raw && (raw.volume || raw.totalVolume || raw.v)) ?? null;
+      const prevClose =
+        q.prevClose ?? q.previous_close ?? q.prev_close ?? (raw && (raw.prevClose || raw.previous_close || raw.prev_close)) ?? null;
+      const openPrice = q.openPrice ?? q.open ?? (raw && (raw.open || raw.openPrice)) ?? null;
+      const dayRange = q.dayRange ?? (q.low && q.high ? { low: q.low, high: q.high } : null) ?? (raw && raw.dayRange) ?? null;
 
       setCompany((prev) => {
         if (!prev) return prev;
@@ -364,34 +383,49 @@ export default function MarketsDashboard() {
     try {
       // 1) Ask Perplexity research for a summary + source_data (server should call Perplexity)
       const research = await fetchResearchSummary(name, "short");
+      if (DEBUG) console.debug("research payload for", name, research);
 
       if (research && research.source_data && research.source_data.stockData) {
         // research returned structured stockData — prefer it
         const sd = research.source_data.stockData || {};
 
-        // Normalization: map many possible keys to our canonical structure
+        // collect a possible raw payload inside sd (some adapters embed raw)
+        const rawFromSd = sd.raw || sd.rawData || sd.source || sd.original || null;
+
+        // Normalization: map many possible keys to our canonical structure (accept many shapes)
         const normalized = {
-          companyName: sd.companyName || sd.commonName || sd.name || sd.company_name || sd.company || name,
-          tickerId: sd.tickerId || sd.ticker || sd.ticker_id || sd.symbol || name,
-          industry: sd.industry || sd.sector || sd.industrySector || null,
+          companyName:
+            sd.companyName || sd.commonName || sd.name || sd.company_name || sd.company || sd.tickerName || (rawFromSd && rawFromSd.name) || name,
+          tickerId:
+            sd.tickerId || sd.ticker || sd.ticker_id || sd.symbol || (rawFromSd && (rawFromSd.symbol || rawFromSd.ticker)) || name,
+          industry:
+            sd.industry || sd.sector || sd.industrySector || (rawFromSd && rawFromSd.sector) || null,
+          // try many shapes for current price
           currentPrice:
             sd.currentPrice ||
             sd.current_price ||
             (sd.last_price ? (typeof sd.last_price === "object" ? sd.last_price : { NSE: sd.last_price, BSE: sd.last_price }) : null) ||
+            (rawFromSd && (rawFromSd.currentPrice || rawFromSd.price || rawFromSd.last_price || rawFromSd.lastPrice)) ||
             null,
-          percentChange: sd.percentChange ?? sd.changePercent ?? sd.percent_change ?? sd.change ?? null,
-          stockDetailsReusableData: sd.stockDetailsReusableData || sd.stock_details_reusable_data || {
-            marketCap: sd.marketCap || sd.market_cap || sd.marketCapitalization || sd.marketCapital || null,
-            peRatio: sd.peRatio || sd.pe || sd.p_e_ratio || sd.pe_ratio || sd.pe_ratio,
-            eps: sd.eps || sd.EPS || sd.e_p_s,
-            dividendYield: sd.dividendYield || sd.dividend_yield || sd.div_yield,
-            volume: sd.volume ?? sd.last_traded_volume ?? sd.avgVolume ?? null,
-            prevClose: sd.prevClose ?? sd.previous_close ?? sd.prev_close ?? null,
-          },
-          companyProfile: sd.companyProfile || sd.company_profile || sd.profile || sd.description || {},
-          yearHigh: sd.yearHigh ?? sd.high52 ?? sd._52WeekHigh ?? null,
-          yearLow: sd.yearLow ?? sd.low52 ?? sd._52WeekLow ?? null,
-          dayRange: sd.dayRange || sd.day_range || null,
+          percentChange:
+            sd.percentChange ?? sd.changePercent ?? sd.percent_change ?? sd.change ?? (rawFromSd && (rawFromSd.percentChange ?? rawFromSd.change ?? rawFromSd.percent)) ?? null,
+          stockDetailsReusableData:
+            sd.stockDetailsReusableData ||
+            sd.stock_details_reusable_data ||
+            (rawFromSd && rawFromSd.stockDetailsReusableData) ||
+            {
+              marketCap: sd.marketCap || sd.market_cap || sd.marketCapitalization || sd.marketCapital || (rawFromSd && rawFromSd.market_cap) || null,
+              peRatio: sd.peRatio || sd.pe || sd.p_e_ratio || sd.pe_ratio || sd.pe_ratio || (rawFromSd && (rawFromSd.pe || rawFromSd.pe_ratio)) || null,
+              eps: sd.eps || sd.EPS || sd.e_p_s || (rawFromSd && (rawFromSd.eps || rawFromSd.EPS)) || null,
+              dividendYield: sd.dividendYield || sd.dividend_yield || sd.div_yield || (rawFromSd && rawFromSd.dividendYield) || null,
+              volume: sd.volume ?? sd.last_traded_volume ?? sd.avgVolume ?? (rawFromSd && (rawFromSd.volume || rawFromSd.avgVolume)) ?? null,
+              prevClose: sd.prevClose ?? sd.previous_close ?? sd.prev_close ?? (rawFromSd && (rawFromSd.prevClose || rawFromSd.previous_close)) ?? null,
+            },
+          companyProfile:
+            sd.companyProfile || sd.company_profile || sd.profile || sd.description || (rawFromSd && rawFromSd.profile) || {},
+          yearHigh: sd.yearHigh ?? sd.high52 ?? sd._52WeekHigh ?? (rawFromSd && (rawFromSd.high52 || rawFromSd.yearHigh)) ?? null,
+          yearLow: sd.yearLow ?? sd.low52 ?? sd._52WeekLow ?? (rawFromSd && (rawFromSd.low52 || rawFromSd.yearLow)) ?? null,
+          dayRange: sd.dayRange || sd.day_range || (rawFromSd && rawFromSd.dayRange) || null,
         };
 
         // Ensure currentPrice shape is consistent (NSE/BSE keys if possible)
@@ -410,6 +444,7 @@ export default function MarketsDashboard() {
         } else {
           try {
             const hist = await apiGet("/api/historical_data", { symbol: name, period: "1yr", filter: "price" });
+            if (DEBUG) console.debug("/api/historical_data payload for", name, hist);
             setHistorical(hist?.datasets || hist || null);
           } catch (e) {
             setHistorical(null);
@@ -429,6 +464,23 @@ export default function MarketsDashboard() {
       } else {
         // fallback: use existing APIs
         const stock = await apiGet("/api/stock", { name });
+        if (DEBUG) console.debug("/api/stock payload for", name, stock);
+
+        // Try to enrich stock.stockDetailsReusableData from nested raw/data fields if missing
+        if (stock) {
+          const raw = stock.raw || stock.data || stock.stock || stock.response || null;
+          if ((!stock.stockDetailsReusableData || Object.keys(stock.stockDetailsReusableData || {}).length === 0) && raw) {
+            stock.stockDetailsReusableData = {
+              marketCap: raw.marketCap || raw.market_cap || raw.marketCapitalization || raw.marketCapital || stock.marketCap || null,
+              peRatio: raw.pe || raw.peRatio || raw.pe_ratio || stock.pe || null,
+              eps: raw.eps || stock.eps || null,
+              dividendYield: raw.dividendYield || raw.dividend_yield || stock.dividendYield || null,
+              volume: raw.volume ?? raw.avgVolume ?? stock.volume ?? null,
+              prevClose: raw.prevClose ?? raw.previous_close ?? stock.prevClose ?? null,
+            };
+          }
+        }
+
         setCompany(stock || null);
         saveRecentCompany(name, stock || null);
 
@@ -436,6 +488,7 @@ export default function MarketsDashboard() {
 
         try {
           const hist = await apiGet("/api/historical_data", { symbol: name, period: "1yr", filter: "price" });
+          if (DEBUG) console.debug("/api/historical_data payload for", name, hist);
           setHistorical(hist?.datasets || hist || null);
         } catch {
           setHistorical(null);
@@ -443,6 +496,8 @@ export default function MarketsDashboard() {
 
         try {
           const pt = await apiGet("/api/stock_target_price", { stock_id: ticker });
+          if (DEBUG) console.debug("/api/stock_target_price payload for", ticker, pt);
+          // If pt has a different shape, try to normalize here (common case: proxy returns { priceTarget: {...} })
           setPriceTarget(pt || null);
         } catch {
           setPriceTarget(null);
@@ -450,6 +505,7 @@ export default function MarketsDashboard() {
 
         try {
           const fc = await apiGet("/api/stock_forecasts", { stock_id: ticker, measure_code: "EPS", period_type: "Annual", data_type: "Estimates", age: "Current" });
+          if (DEBUG) console.debug("/api/stock_forecasts payload for", ticker, fc);
           setForecast(fc || null);
         } catch {
           setForecast(null);
@@ -457,6 +513,7 @@ export default function MarketsDashboard() {
 
         try {
           const hs = await apiGet("/api/historical_stats", { stock_name: name, stats: "quarter_results" });
+          if (DEBUG) console.debug("/api/historical_stats payload for", name, hs);
           setHistoricalStats(hs || null);
         } catch {
           setHistoricalStats(null);
@@ -746,15 +803,15 @@ export default function MarketsDashboard() {
                     <div className="mt-3 grid grid-cols-4 gap-3 text-sm">
                       <div className="p-2 bg-slate-50 rounded">
                         <div className="text-xs text-slate-500">P/E</div>
-                        <div className="font-semibold">{fmtNumber(company.stockDetailsReusableData?.peRatio ?? company.stockDetailsReusableData?.pe ?? "—")}</div>
+                        <div className="font-semibold">{fmtNumber(company.stockDetailsReusableData?.peRatio ?? company.stockDetailsReusableData?.pe ?? company.stockDetailsReusableData?.PE ?? "—")}</div>
                       </div>
                       <div className="p-2 bg-slate-50 rounded">
                         <div className="text-xs text-slate-500">EPS</div>
-                        <div className="font-semibold">{fmtNumber(company.stockDetailsReusableData?.eps ?? "—")}</div>
+                        <div className="font-semibold">{fmtNumber(company.stockDetailsReusableData?.eps ?? company.stockDetailsReusableData?.EPS ?? "—")}</div>
                       </div>
                       <div className="p-2 bg-slate-50 rounded">
                         <div className="text-xs text-slate-500">Div Yield</div>
-                        <div className="font-semibold">{fmtNumber(company.stockDetailsReusableData?.dividendYield ?? company.stockDetailsReusableData?.dividend_yield ?? "—")}</div>
+                        <div className="font-semibold">{fmtNumber(company.stockDetailsReusableData?.dividendYield ?? company.stockDetailsReusableData?.dividend_yield ?? company.stockDetailsReusableData?.div_yield ?? "—")}</div>
                       </div>
                       <div className="p-2 bg-slate-50 rounded">
                         <div className="text-xs text-slate-500">Volume</div>
@@ -767,7 +824,7 @@ export default function MarketsDashboard() {
                     <Card className="p-3">
                       <div className="text-xs text-slate-500">Analyst Recommendation</div>
                       <div className="text-lg font-semibold mt-2">
-                        {priceTargetSummary?.mean != null ? `${recommendationLabel(priceTargetSummary.mean)} (${Number(priceTargetSummary.mean).toFixed(2)})` : "No data"}
+                        {priceTargetSummary?.mean != null ? `Analyst score: ${Number(priceTargetSummary.mean).toFixed(2)}` : "No data"}
                       </div>
                       <div className="text-xs mt-2 text-slate-400">Estimates: {priceTargetSummary?.count ?? "—"}</div>
                       <div style={{ height: 120 }}>
@@ -960,9 +1017,9 @@ export default function MarketsDashboard() {
             {priceTarget ? (
               <>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="p-3 bg-slate-50 rounded"><div className="text-xs text-slate-500">Mean Target</div><div className="font-semibold">{fmtNumber(priceTarget.priceTarget?.Mean ?? priceTarget.priceTarget?.UnverifiedMean)}</div></div>
-                  <div className="p-3 bg-slate-50 rounded"><div className="text-xs text-slate-500">Median</div><div className="font-semibold">{fmtNumber(priceTarget.priceTarget?.Median)}</div></div>
-                  <div className="p-3 bg-slate-50 rounded"><div className="text-xs text-slate-500">Number Estimates</div><div className="font-semibold">{fmtNumber(priceTarget.priceTarget?.NumberOfEstimates)}</div></div>
+                  <div className="p-3 bg-slate-50 rounded"><div className="text-xs text-slate-500">Mean Target</div><div className="font-semibold">{fmtNumber(priceTarget.priceTarget?.Mean ?? priceTarget.priceTarget?.UnverifiedMean ?? priceTarget?.Mean ?? priceTarget?.mean)}</div></div>
+                  <div className="p-3 bg-slate-50 rounded"><div className="text-xs text-slate-500">Median</div><div className="font-semibold">{fmtNumber(priceTarget.priceTarget?.Median ?? priceTarget?.Median ?? priceTarget?.median)}</div></div>
+                  <div className="p-3 bg-slate-50 rounded"><div className="text-xs text-slate-500">Number Estimates</div><div className="font-semibold">{fmtNumber(priceTarget.priceTarget?.NumberOfEstimates ?? priceTarget.priceTarget?.NumberOfRecommendations ?? priceTarget?.NumberOfEstimates ?? priceTarget?.count)}</div></div>
                 </div>
 
                 <div className="mt-4">
