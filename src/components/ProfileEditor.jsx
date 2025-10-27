@@ -1,277 +1,236 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/lib/supabaseClient.js';
-import { useAuth } from '@/contexts/AuthContext';
-import { Button } from '@/components/ui/button';
-import { EditorContent, useEditor } from '@tiptap/react';
+import React, { useState } from 'react';
+import ProfileEditor from './ProfileEditor';
 
-/* ---------- TipTap v3 extensions ---------- */
-import StarterKit from '@tiptap/starter-kit';
-import Placeholder from '@tiptap/extension-placeholder';
-import Link from '@tiptap/extension-link';
-import Underline from '@tiptap/extension-underline';
-import Highlight from '@tiptap/extension-highlight';
-import TextAlign from '@tiptap/extension-text-align';
-import { TextStyle } from '@tiptap/extension-text-style';
-import Color from '@tiptap/extension-color';
-import HorizontalRule from '@tiptap/extension-horizontal-rule';
-import TaskList from '@tiptap/extension-task-list';
-import TaskItem from '@tiptap/extension-task-item';
-import { Table } from '@tiptap/extension-table';
-import { TableRow } from '@tiptap/extension-table-row';
-import { TableCell } from '@tiptap/extension-table-cell';
-import { TableHeader } from '@tiptap/extension-table-header';
-import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
+// LinkedIn-like Auth + Profile single-file React component (rewritten to use existing ProfileEditor.jsx)
+// Tailwind CSS required in the project. Replace onAuthenticate handlers with real auth/profile APIs.
 
-/* ---------- Lowlight for syntax highlighting ---------- */
-import { lowlight } from 'lowlight/lib/core.js';
-import javascript from 'highlight.js/lib/languages/javascript';
-import xml from 'highlight.js/lib/languages/xml';
-import jsonLang from 'highlight.js/lib/languages/json';
-lowlight.registerLanguage('javascript', javascript);
-lowlight.registerLanguage('xml', xml);
-lowlight.registerLanguage('json', jsonLang);
+export function AuthCard({ onAuthenticate }) {
+  const [mode, setMode] = useState('login'); // 'login' | 'signup'
+  const [form, setForm] = useState({
+    email: '',
+    password: '',
+    name: '',
+    headline: '',
+  });
+  const [error, setError] = useState('');
 
-/* ---------- Custom image extension ---------- */
-import { CustomImage } from '@/extensions/CustomImage';
+  function update(e) {
+    setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
+  }
 
-/* ---------- Helpers ---------- */
-function wordCountFromHTML(html = '') {
-  const text = html.replace(/<[^>]*>/g, ' ');
-  return text.split(/\s+/).filter(Boolean).length;
+  function submit(e) {
+    e.preventDefault();
+    setError('');
+    if (!form.email || !form.password) return setError('Please fill email & password.');
+    if (mode === 'signup' && !form.name) return setError('Please enter your full name.');
+
+    const profile = {
+      name: mode === 'signup' ? form.name : 'Shivam Agarwal',
+      headline: form.headline || 'Finance & Markets Analyst',
+      email: form.email,
+      avatarUrl: null,
+      location: 'Mumbai, India',
+      about: 'I write about markets, macro and investment strategy.',
+      skills: ['Equity Research', 'Financial Modelling'],
+      experiences: [
+        { id: 1, title: 'Private Equity', company: '-', period: '2024 - 2025' },
+      ],
+      education: [
+        { id: 1, degree: 'MBA Finance', school: 'Top Business School', period: '2022 - 2025' }
+      ]
+    };
+
+    onAuthenticate(profile);
+  }
+
+  return (
+    <div className="max-w-3xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8 bg-white shadow-2xl rounded-2xl overflow-hidden">
+      <div className="hidden md:flex flex-col justify-center p-8 bg-gradient-to-b from-slate-50 to-white">
+        <h2 className="text-3xl font-extrabold text-slate-800">Welcome to Agarwal Global</h2>
+        <p className="mt-3 text-slate-500">Professional network focused on finance, markets and research. Create your profile, follow experts and discover insights.</p>
+        <ul className="mt-6 space-y-3 text-sm text-slate-600">
+          <li>• Share and publish research notes</li>
+          <li>• Build your professional profile</li>
+          <li>• Follow sectors & receive tailored updates</li>
+        </ul>
+      </div>
+
+      <div className="p-8">
+        <div className="flex items-center justify-between">
+          <h3 className="text-xl font-semibold text-slate-800">{mode === 'login' ? 'Sign in' : 'Create an account'}</h3>
+          <div className="text-sm text-slate-500">{mode === 'login' ? 'New here?' : 'Already have an account?'}
+            <button onClick={() => setMode(mode === 'login' ? 'signup' : 'login')} className="ml-2 text-amber-600 font-medium">{mode === 'login' ? 'Create account' : 'Sign in'}</button>
+          </div>
+        </div>
+
+        <form onSubmit={submit} className="mt-6 space-y-4">
+          {mode === 'signup' && (
+            <div>
+              <label className="block text-sm text-slate-600">Full name</label>
+              <input name="name" value={form.name} onChange={update} className="mt-2 w-full rounded-md border px-3 py-2 text-sm shadow-sm" placeholder="Your full name" />
+            </div>
+          )}
+
+          <div>
+            <label className="block text-sm text-slate-600">Email</label>
+            <input name="email" type="email" value={form.email} onChange={update} className="mt-2 w-full rounded-md border px-3 py-2 text-sm shadow-sm" placeholder="name@company.com" />
+          </div>
+
+          <div>
+            <label className="block text-sm text-slate-600">Password</label>
+            <input name="password" type="password" value={form.password} onChange={update} className="mt-2 w-full rounded-md border px-3 py-2 text-sm shadow-sm" placeholder="Minimum 8 characters" />
+          </div>
+
+          <div>
+            <label className="block text-sm text-slate-600">Headline (optional)</label>
+            <input name="headline" value={form.headline} onChange={update} className="mt-2 w-full rounded-md border px-3 py-2 text-sm shadow-sm" placeholder="e.g. Equity Research Analyst | MBA" />
+          </div>
+
+          {error && <div className="text-sm text-red-600">{error}</div>}
+
+          <div className="flex flex-col sm:flex-row gap-3 mt-4">
+            <button type="submit" className="flex-1 bg-amber-500 hover:bg-amber-600 text-white rounded-md py-2 font-medium">{mode === 'login' ? 'Sign in' : 'Create account'}</button>
+            <button type="button" onClick={() => onAuthenticate(null)} className="flex-1 border rounded-md py-2 font-medium">Continue as guest</button>
+          </div>
+
+          <div className="pt-3">
+            <div className="text-xs text-center text-slate-500">or continue with</div>
+            <div className="mt-3 flex gap-3 justify-center">
+              <button type="button" className="px-4 py-2 border rounded-md inline-flex items-center gap-2"> 
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M4 4h16v16H4z" stroke="#0A66C2" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                LinkedIn
+              </button>
+              <button type="button" className="px-4 py-2 border rounded-md inline-flex items-center gap-2">Google</button>
+            </div>
+          </div>
+
+          <p className="text-xs text-slate-400">By continuing, you agree to our Terms & Privacy Policy.</p>
+        </form>
+      </div>
+    </div>
+  );
 }
-function readingTime(html = '') {
-  return Math.max(1, Math.round(wordCountFromHTML(html) / 200));
-}
 
-/* ============================================================ */
-/* ------------------- COMPONENT START ------------------------- */
-/* ============================================================ */
-
-export default function ProfileEditor() {
-  // ✅ Hooks declared unconditionally at the top (fixes React error #310)
-  const { user } = useAuth();
-  const navigate = useNavigate();
-
-  const [title, setTitle] = useState('');
-  const [excerpt, setExcerpt] = useState('');
-  const [coverUrl, setCoverUrl] = useState('');
-  const [tagsInput, setTagsInput] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [errorText, setErrorText] = useState('');
-  const [dirty, setDirty] = useState(false);
-
-  // ✅ Editor (no character limit)
-  const editor = useEditor({
-    extensions: [
-      StarterKit.configure({ history: true, codeBlock: false }),
-      Placeholder.configure({ placeholder: 'Start writing your bio or profile…' }),
-      Link.configure({ openOnClick: false, autolink: true }),
-      CustomImage,
-      Underline,
-      Highlight,
-      TextStyle,
-      Color,
-      TextAlign.configure({ types: ['heading', 'paragraph'] }),
-      HorizontalRule,
-      TaskList,
-      TaskItem.configure({ nested: true }),
-      Table.configure({ resizable: true }),
-      TableRow,
-      TableHeader,
-      TableCell,
-      CodeBlockLowlight.configure({ lowlight }),
+export function ProfilePage({ profile: initialProfile, onSignOut }) {
+  const [editing, setEditing] = useState(false);
+  const [profile, setProfile] = useState(initialProfile || {
+    name: 'Shivam Agarwal',
+    headline: 'Finance & Markets Analyst',
+    location: 'Mumbai, India',
+    about: 'I write about markets, macro and investment strategy.',
+    avatarUrl: null,
+    skills: ['Equity Research', 'Financial Modelling', 'Econometrics'],
+    experiences: [
+      { id: 1, title: 'Risk Consultant', company: 'EY', period: '2024 - 2025', desc: 'Risk assessment, ESG reporting and internal audit projects.' },
     ],
-    content: '',
-    autofocus: true,
-    onUpdate: () => setDirty(true),
+    education: [
+      { id: 1, degree: 'MBA Finance', school: 'Top Business School', period: '2022 - 2025' }
+    ]
   });
 
-  // ✅ Access Control
-  if (!user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
-        <p className="text-lg font-medium">Please log in to edit your profile.</p>
-      </div>
-    );
+  function saveProfile() {
+    // TODO: call API to persist profile data
+    setEditing(false);
   }
 
-  // ✅ Load Profile Data
-  useEffect(() => {
-    if (!editor || !user) return;
-
-    (async () => {
-      try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('id, title, excerpt, content_md, cover_url, tags')
-          .eq('id', user.id)
-          .maybeSingle();
-
-        if (error) {
-          console.error('Profile load error:', error);
-          return;
-        }
-
-        if (data) {
-          setTitle(data.title || '');
-          setExcerpt(data.excerpt || '');
-          setCoverUrl(data.cover_url || '');
-          setTagsInput(Array.isArray(data.tags) ? data.tags.join(', ') : '');
-          editor.commands.setContent(data.content_md || '', { emitUpdate: false });
-          setDirty(false);
-        }
-      } catch (err) {
-        console.error('Error loading profile:', err);
-      }
-    })();
-  }, [user, editor]);
-
-  // ✅ Upload Helpers
-  async function uploadToBucket(bucket, file) {
-    const path = `${user.id}/${Date.now()}-${file.name}`;
-    const { error } = await supabase.storage.from(bucket).upload(path, file, {
-      cacheControl: '3600',
-      upsert: false,
-    });
-    if (error) throw error;
-    const { data: pub } = supabase.storage.from(bucket).getPublicUrl(path);
-    return pub.publicUrl;
-  }
-
-  async function chooseCover() {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.onchange = async () => {
-      const file = input.files?.[0];
-      if (!file) return;
-      try {
-        const url = await uploadToBucket('covers', file);
-        setCoverUrl(url);
-        setDirty(true);
-      } catch (e) {
-        console.error('Cover upload failed:', e);
-        alert('Cover upload failed: ' + (e?.message || e));
-      }
-    };
-    input.click();
-  }
-
-  // ✅ Save Profile
-  async function saveProfile() {
-    const html = editor?.getHTML() || '';
-    const tags = tagsInput.split(',').map((t) => t.trim()).filter(Boolean);
-
-    const payload = {
-      id: user.id,
-      title,
-      excerpt,
-      content_md: html,
-      cover_url: coverUrl || null,
-      tags,
-      updated_at: new Date().toISOString(),
-    };
-
-    setSaving(true);
-    try {
-      const { error } = await supabase.from('profiles').upsert(payload);
-      if (error) throw error;
-      setDirty(false);
-      setErrorText('');
-      alert('✅ Profile saved successfully!');
-    } catch (err) {
-      console.error('Save profile error:', err);
-      setErrorText(err?.message || 'Failed to save profile');
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  // ✅ Derived Stats
-  const html = editor?.getHTML() || '';
-  const minutes = useMemo(() => readingTime(html), [html]);
-  const words = useMemo(() => wordCountFromHTML(html), [html]);
-
-  // ✅ Render
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-5xl mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold mb-6">Edit Profile</h1>
-
-        {/* COVER IMAGE */}
-        <div className="mb-6">
-          {coverUrl ? (
-            <div>
-              <img src={coverUrl} alt="Cover" className="w-full rounded-xl border" />
-              <div className="mt-3 flex gap-2">
-                <Button variant="outline" onClick={chooseCover}>
-                  Change Cover
-                </Button>
-                <Button variant="ghost" onClick={() => setCoverUrl('')}>
-                  Remove
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div
-              className="w-full h-52 rounded-xl border border-dashed flex items-center justify-center cursor-pointer bg-white"
-              onClick={chooseCover}
-            >
-              <span className="text-sm text-gray-500">
-                Add a cover image (click to upload)
-              </span>
-            </div>
+    <div className="max-w-5xl mx-auto bg-white rounded-2xl shadow-md p-6">
+      <div className="flex items-start gap-6">
+        <div className="w-28 h-28 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden"> 
+          {profile.avatarUrl ? <img src={profile.avatarUrl} alt="avatar" className="w-full h-full object-cover" /> : (
+            <div className="text-slate-600 text-xl font-semibold">{(profile.name || 'U').split(' ').map(s=>s[0]).slice(0,2).join('')}</div>
           )}
         </div>
 
-        {/* PROFILE FIELDS */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium mb-1">Profile Title</label>
-            <input
-              className="w-full p-3 rounded-lg border bg-white text-black placeholder-gray-500"
-              placeholder="Your headline or role"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-            />
-          </div>
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium mb-1">Bio Summary</label>
-            <input
-              className="w-full p-3 rounded-lg border bg-white text-black placeholder-gray-500"
-              placeholder="Brief summary about you"
-              value={excerpt}
-              onChange={(e) => setExcerpt(e.target.value)}
-            />
-          </div>
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium mb-1">Skills / Tags</label>
-            <input
-              className="w-full p-3 rounded-lg border bg-white text-black placeholder-gray-500"
-              placeholder="finance, markets, investing"
-              value={tagsInput}
-              onChange={(e) => setTagsInput(e.target.value)}
-            />
-          </div>
-        </div>
+        <div className="flex-1">
+          <div className="flex items-start justify-between">
+            <div>
+              <div className="text-2xl font-bold">{profile.name}</div>
+              <div className="text-sm text-slate-500 mt-1">{profile.headline} • {profile.location}</div>
+              <div className="mt-3 text-sm text-slate-700">{profile.about}</div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {profile.skills.map(s => (
+                  <span key={s} className="text-xs px-3 py-1 border rounded-full">{s}</span>
+                ))}
+              </div>
+            </div>
 
-        {/* EDITOR */}
-        <div className="bg-white text-black border rounded-xl p-5 min-h-[300px] shadow-sm">
-          <EditorContent editor={editor} className="tiptap" />
-        </div>
+            <div className="flex flex-col items-end gap-2">
+              <div className="text-sm text-slate-500">Profile strength: <span className="font-medium text-amber-600">80%</span></div>
+              <div className="flex gap-2">
+                <button onClick={() => setEditing(e => !e)} className="px-4 py-2 border rounded-md">{editing ? 'Close editor' : 'Edit profile'}</button>
+                <button onClick={onSignOut} className="px-4 py-2 bg-red-100 text-red-700 rounded-md">Sign out</button>
+              </div>
+            </div>
+          </div>
 
-        {errorText && <p className="mt-3 text-sm text-red-600">{errorText}</p>}
+          <div className="mt-6">
+            <h4 className="text-lg font-semibold">Experience</h4>
+            <div className="mt-3 space-y-3">
+              {profile.experiences.map(exp => (
+                <div key={exp.id} className="border rounded-md p-3 bg-slate-50">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="font-medium">{exp.title} • {exp.company}</div>
+                      <div className="text-sm text-slate-500">{exp.period}</div>
+                    </div>
+                    <div className="text-sm text-slate-400">{exp.desc}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
 
-        {/* FOOTER */}
-        <div className="mt-6 flex flex-wrap items-center gap-3">
-          <Button variant="outline" onClick={saveProfile} disabled={saving}>
-            {saving ? 'Saving…' : 'Save Profile'}
-          </Button>
-          <span className="ml-auto text-sm text-gray-500">
-            {minutes} min · {words} words
-          </span>
+          <div className="mt-6">
+            <h4 className="text-lg font-semibold">Education</h4>
+            <div className="mt-3 space-y-2">
+              {profile.education.map(ed => (
+                <div key={ed.id} className="text-sm text-slate-700">{ed.degree}, {ed.school} • {ed.period}</div>
+              ))}
+            </div>
+          </div>
+
         </div>
+      </div>
+
+      {/* Use existing ProfileEditor component for editing */}
+      {editing && (
+        <div className="mt-6">
+          <ProfileEditor
+            profile={profile}
+            onChange={setProfile}
+            onSave={saveProfile}
+            onCancel={() => setEditing(false)}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function LinkedInStyleAuthAndProfile() {
+  const [userProfile, setUserProfile] = useState(null);
+
+  function handleAuth(profile) {
+    if (profile === null) {
+      setUserProfile({ name: 'Guest', headline: 'Visitor', location: '', about: '', skills: [], experiences: [], education: [] });
+    } else {
+      setUserProfile(profile);
+    }
+  }
+
+  function signOut() {
+    setUserProfile(null);
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-50 p-8">
+      <div className="max-w-6xl mx-auto">
+        {!userProfile ? (
+          <AuthCard onAuthenticate={handleAuth} />
+        ) : (
+          <ProfilePage profile={userProfile} onSignOut={signOut} />
+        )}
       </div>
     </div>
   );

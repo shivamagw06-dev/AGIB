@@ -1,271 +1,237 @@
-// src/pages/ProfileEditor.jsx
-import React, { useEffect, useMemo, useState } from 'react';
-import {
-  getMyProfile, upsertMyProfile, checkHandleUnique,
-  uploadAvatar, uploadBanner,
-  listSection, addSection, updateSection, deleteSection,
-  sections,
-} from '../lib/profileApi';
-import { supabase } from '../lib/supabaseClient';
+import React, { useState } from 'react';
+import ProfileEditor from './ProfileEditor';
 
-function LabeledInput({ label, ...props }) {
+// LinkedIn-like Auth + Profile single-file React component (rewritten to use existing ProfileEditor.jsx)
+// Tailwind CSS required in the project. Replace onAuthenticate handlers with real auth/profile APIs.
+
+export function AuthCard({ onAuthenticate }) {
+  const [mode, setMode] = useState('login'); // 'login' | 'signup'
+  const [form, setForm] = useState({
+    email: '',
+    password: '',
+    name: '',
+    headline: '',
+  });
+  const [error, setError] = useState('');
+
+  function update(e) {
+    setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
+  }
+
+  function submit(e) {
+    e.preventDefault();
+    setError('');
+    if (!form.email || !form.password) return setError('Please fill email & password.');
+    if (mode === 'signup' && !form.name) return setError('Please enter your full name.');
+
+    const profile = {
+      name: mode === 'signup' ? form.name : 'Shivam Agarwal',
+      headline: form.headline || 'Finance & Markets Analyst',
+      email: form.email,
+      avatarUrl: null,
+      location: 'Mumbai, India',
+      about: 'I write about markets, macro and investment strategy.',
+      skills: ['Equity Research', 'Financial Modelling'],
+      experiences: [
+        { id: 1, title: 'Private Equity', company: '-', period: '2024 - 2025' },
+      ],
+      education: [
+        { id: 1, degree: 'MBA Finance', school: 'Top Business School', period: '2022 - 2025' }
+      ]
+    };
+
+    onAuthenticate(profile);
+  }
+
   return (
-    <label className="block mb-3">
-      <span className="block text-sm font-medium mb-1">{label}</span>
-      <input className="w-full border rounded px-3 py-2" {...props} />
-    </label>
-  );
-}
-function TextArea({ label, ...props }) {
-  return (
-    <label className="block mb-3">
-      <span className="block text-sm font-medium mb-1">{label}</span>
-      <textarea className="w-full border rounded px-3 py-2" rows={props.rows ?? 4} {...props} />
-    </label>
-  );
-}
-function SectionRow({ item, onEdit, onDelete, titleKey, subtitleKey, right }) {
-  return (
-    <div className="flex items-start justify-between border rounded p-3 mb-2">
-      <div>
-        <div className="font-semibold">{item[titleKey]}</div>
-        <div className="text-sm opacity-80">{item[subtitleKey]}</div>
-        {right ? <div className="text-xs opacity-70 mt-1">{right(item)}</div> : null}
+    <div className="max-w-3xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8 bg-white shadow-2xl rounded-2xl overflow-hidden">
+      <div className="hidden md:flex flex-col justify-center p-8 bg-gradient-to-b from-slate-50 to-white">
+        <h2 className="text-3xl font-extrabold text-slate-800">Welcome to Agarwal Global</h2>
+        <p className="mt-3 text-slate-500">Professional network focused on finance, markets and research. Create your profile, follow experts and discover insights.</p>
+        <ul className="mt-6 space-y-3 text-sm text-slate-600">
+          <li>• Share and publish research notes</li>
+          <li>• Build your professional profile</li>
+          <li>• Follow sectors & receive tailored updates</li>
+        </ul>
       </div>
-      <div className="flex gap-2">
-        <button className="text-blue-600" onClick={() => onEdit(item)}>Edit</button>
-        <button className="text-red-600" onClick={() => onDelete(item.id)}>Delete</button>
+
+      <div className="p-8">
+        <div className="flex items-center justify-between">
+          <h3 className="text-xl font-semibold text-slate-800">{mode === 'login' ? 'Sign in' : 'Create an account'}</h3>
+          <div className="text-sm text-slate-500">{mode === 'login' ? 'New here?' : 'Already have an account?'}
+            <button onClick={() => setMode(mode === 'login' ? 'signup' : 'login')} className="ml-2 text-amber-600 font-medium">{mode === 'login' ? 'Create account' : 'Sign in'}</button>
+          </div>
+        </div>
+
+        <form onSubmit={submit} className="mt-6 space-y-4">
+          {mode === 'signup' && (
+            <div>
+              <label className="block text-sm text-slate-600">Full name</label>
+              <input name="name" value={form.name} onChange={update} className="mt-2 w-full rounded-md border px-3 py-2 text-sm shadow-sm" placeholder="Your full name" />
+            </div>
+          )}
+
+          <div>
+            <label className="block text-sm text-slate-600">Email</label>
+            <input name="email" type="email" value={form.email} onChange={update} className="mt-2 w-full rounded-md border px-3 py-2 text-sm shadow-sm" placeholder="name@company.com" />
+          </div>
+
+          <div>
+            <label className="block text-sm text-slate-600">Password</label>
+            <input name="password" type="password" value={form.password} onChange={update} className="mt-2 w-full rounded-md border px-3 py-2 text-sm shadow-sm" placeholder="Minimum 8 characters" />
+          </div>
+
+          <div>
+            <label className="block text-sm text-slate-600">Headline (optional)</label>
+            <input name="headline" value={form.headline} onChange={update} className="mt-2 w-full rounded-md border px-3 py-2 text-sm shadow-sm" placeholder="e.g. Equity Research Analyst | MBA" />
+          </div>
+
+          {error && <div className="text-sm text-red-600">{error}</div>}
+
+          <div className="flex flex-col sm:flex-row gap-3 mt-4">
+            <button type="submit" className="flex-1 bg-amber-500 hover:bg-amber-600 text-white rounded-md py-2 font-medium">{mode === 'login' ? 'Sign in' : 'Create account'}</button>
+            <button type="button" onClick={() => onAuthenticate(null)} className="flex-1 border rounded-md py-2 font-medium">Continue as guest</button>
+          </div>
+
+          <div className="pt-3">
+            <div className="text-xs text-center text-slate-500">or continue with</div>
+            <div className="mt-3 flex gap-3 justify-center">
+              <button type="button" className="px-4 py-2 border rounded-md inline-flex items-center gap-2"> 
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M4 4h16v16H4z" stroke="#0A66C2" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                LinkedIn
+              </button>
+              <button type="button" className="px-4 py-2 border rounded-md inline-flex items-center gap-2">Google</button>
+            </div>
+          </div>
+
+          <p className="text-xs text-slate-400">By continuing, you agree to our Terms & Privacy Policy.</p>
+        </form>
       </div>
     </div>
   );
 }
 
-export default function ProfileEditor() {
-  const [profile, setProfile] = useState(null);
-  const [saving, setSaving] = useState(false);
-  const [handleStatus, setHandleStatus] = useState(''); // '', 'checking', 'ok', 'taken'
-  const [me, setMe] = useState(null);
-  const [exp, setExp] = useState([]);
-  const [edu, setEdu] = useState([]);
-  const [message, setMessage] = useState('');
+export function ProfilePage({ profile: initialProfile, onSignOut }) {
+  const [editing, setEditing] = useState(false);
+  const [profile, setProfile] = useState(initialProfile || {
+    name: 'Shivam Agarwal',
+    headline: 'Finance & Markets Analyst',
+    location: 'Mumbai, India',
+    about: 'I write about markets, macro and investment strategy.',
+    avatarUrl: null,
+    skills: ['Equity Research', 'Financial Modelling', 'Econometrics'],
+    experiences: [
+      { id: 1, title: 'Risk Consultant', company: 'EY', period: '2024 - 2025', desc: 'Risk assessment, ESG reporting and internal audit projects.' },
+    ],
+    education: [
+      { id: 1, degree: 'MBA Finance', school: 'Top Business School', period: '2022 - 2025' }
+    ]
+  });
 
-  useEffect(() => {
-    (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setMe(user);
-      const p = await getMyProfile();
-      setProfile({
-        full_name: p.full_name ?? '',
-        display_name: p.display_name ?? '',
-        handle: p.handle ?? (user?.email?.split('@')[0] || ''),
-        headline: p.headline ?? '',
-        summary: p.summary ?? '',
-        location: p.location ?? '',
-        industry: p.industry ?? '',
-        website: p.website ?? '',
-        github: p.github ?? '',
-        twitter: p.twitter ?? '',
-        photo_url: p.photo_url ?? '',
-        banner_url: p.banner_url ?? '',
-        is_public: p.is_public ?? true,
-      });
-      setExp(await listSection('experiences', user.id));
-      setEdu(await listSection('educations', user.id));
-    })();
-  }, []);
-
-  async function saveProfile(e) {
-    e?.preventDefault();
-    setSaving(true);
-    setMessage('');
-    try {
-      // validate handle uniqueness if changed
-      if (profile.handle) {
-        const ok = await checkHandleUnique(profile.handle);
-        // allow if it's our own handle; simplest: try upsert & rely on unique constraint
-        if (!ok && profile.handle !== (me?.email?.split('@')[0] ?? '')) {
-          setHandleStatus('taken');
-          setSaving(false);
-          return;
-        }
-        setHandleStatus('ok');
-      }
-      const saved = await upsertMyProfile(profile);
-      setProfile(prev => ({ ...prev, ...saved }));
-      setMessage('Profile saved ✅');
-    } catch (err) {
-      console.error(err);
-      setMessage(err.message);
-    } finally {
-      setSaving(false);
-    }
+  function saveProfile() {
+    // TODO: call API to persist profile data
+    setEditing(false);
   }
-
-  async function onAvatarChange(ev) {
-    const file = ev.target.files?.[0];
-    if (!file) return;
-    const url = await uploadAvatar(file);
-    setProfile(p => ({ ...p, photo_url: url }));
-  }
-  async function onBannerChange(ev) {
-    const file = ev.target.files?.[0];
-    if (!file) return;
-    const url = await uploadBanner(file);
-    setProfile(p => ({ ...p, banner_url: url }));
-  }
-
-  // ---- experience & education simple forms ----
-  const [draft, setDraft] = useState(null); // {table, data}
-  function openDraft(table, data = {}) {
-    setDraft({ table, data });
-  }
-  async function saveDraft() {
-    const table = draft.table;
-    const payload = draft.data;
-    if (payload.id) {
-      const updated = await updateSection(table, payload.id, payload);
-      applyList(table, (list) => list.map(r => r.id === updated.id ? updated : r));
-    } else {
-      const created = await addSection(table, payload);
-      applyList(table, (list) => [created, ...list]);
-    }
-    setDraft(null);
-  }
-  async function removeRow(table, id) {
-    await deleteSection(table, id);
-    applyList(table, (list) => list.filter(r => r.id !== id));
-  }
-  function applyList(table, updater) {
-    if (table === sections.experiences) setExp(updater);
-    if (table === sections.educations) setEdu(updater);
-  }
-
-  if (!profile) return <div className="p-6">Loading…</div>;
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      <h1 className="text-2xl font-bold mb-4">Edit Profile</h1>
-
-      {/* Banner + Avatar */}
-      <div className="relative mb-6">
-        {profile.banner_url ? (
-          <img src={profile.banner_url} alt="banner" className="w-full h-48 object-cover rounded" />
-        ) : (
-          <div className="w-full h-48 bg-gray-100 rounded" />
-        )}
-        <label className="absolute right-3 bottom-3 bg-white border rounded px-3 py-1 cursor-pointer">
-          Change cover
-          <input type="file" className="hidden" onChange={onBannerChange} />
-        </label>
-        <div className="absolute left-6 bottom-[-24px]">
-          <div className="w-24 h-24 rounded-full border-4 border-white overflow-hidden bg-white">
-            {profile.photo_url ? <img src={profile.photo_url} alt="avatar" className="w-full h-full object-cover" /> : null}
-          </div>
-          <label className="block mt-2 text-sm text-blue-700 cursor-pointer">
-            Update photo
-            <input type="file" className="hidden" onChange={onAvatarChange} />
-          </label>
+    <div className="max-w-5xl mx-auto bg-white rounded-2xl shadow-md p-6">
+      <div className="flex items-start gap-6">
+        <div className="w-28 h-28 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden"> 
+          {profile.avatarUrl ? <img src={profile.avatarUrl} alt="avatar" className="w-full h-full object-cover" /> : (
+            <div className="text-slate-600 text-xl font-semibold">{(profile.name || 'U').split(' ').map(s=>s[0]).slice(0,2).join('')}</div>
+          )}
         </div>
-      </div>
 
-      <form onSubmit={saveProfile} className="mt-10">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <LabeledInput label="Full name" value={profile.full_name} onChange={e => setProfile(p => ({ ...p, full_name: e.target.value }))} />
-          <LabeledInput label="Handle (public URL)" value={profile.handle} onChange={e => { setHandleStatus(''); setProfile(p => ({ ...p, handle: e.target.value.toLowerCase().replace(/[^a-z0-9\-]/g,'-') })); }} />
-          <LabeledInput label="Headline" value={profile.headline} onChange={e => setProfile(p => ({ ...p, headline: e.target.value }))} />
-          <LabeledInput label="Location" value={profile.location} onChange={e => setProfile(p => ({ ...p, location: e.target.value }))} />
-          <LabeledInput label="Industry" value={profile.industry} onChange={e => setProfile(p => ({ ...p, industry: e.target.value }))} />
-          <LabeledInput label="Website" value={profile.website} onChange={e => setProfile(p => ({ ...p, website: e.target.value }))} />
-          <LabeledInput label="GitHub" value={profile.github} onChange={e => setProfile(p => ({ ...p, github: e.target.value }))} />
-          <LabeledInput label="Twitter/X" value={profile.twitter} onChange={e => setProfile(p => ({ ...p, twitter: e.target.value }))} />
-        </div>
-        <TextArea label="Summary" value={profile.summary} onChange={e => setProfile(p => ({ ...p, summary: e.target.value }))} />
+        <div className="flex-1">
+          <div className="flex items-start justify-between">
+            <div>
+              <div className="text-2xl font-bold">{profile.name}</div>
+              <div className="text-sm text-slate-500 mt-1">{profile.headline} • {profile.location}</div>
+              <div className="mt-3 text-sm text-slate-700">{profile.about}</div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {profile.skills.map(s => (
+                  <span key={s} className="text-xs px-3 py-1 border rounded-full">{s}</span>
+                ))}
+              </div>
+            </div>
 
-        <label className="flex items-center gap-2 mb-4">
-          <input type="checkbox" checked={!!profile.is_public} onChange={e => setProfile(p => ({ ...p, is_public: e.target.checked }))} />
-          <span>Make my profile public</span>
-        </label>
-
-        <button disabled={saving} className="bg-black text-white px-4 py-2 rounded">{saving ? 'Saving…' : 'Save Profile'}</button>
-        <span className="ml-3 text-sm">{handleStatus === 'taken' ? 'Handle already taken' : message}</span>
-      </form>
-
-      {/* Experiences */}
-      <div className="mt-10">
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="text-xl font-semibold">Experience</h2>
-          <button className="text-blue-600" onClick={() => openDraft(sections.experiences, { title: '', company: '', start_date: '', end_date: null, is_current: false, location: '', description: '' })}>Add</button>
-        </div>
-        {exp.map(item => (
-          <SectionRow key={item.id}
-            item={item}
-            titleKey="title"
-            subtitleKey="company"
-            right={(it) => `${it.start_date ?? ''} – ${it.is_current ? 'Present' : (it.end_date ?? '')}`}
-            onEdit={(it) => openDraft(sections.experiences, it)}
-            onDelete={(id) => removeRow(sections.experiences, id)}
-          />
-        ))}
-      </div>
-
-      {/* Education */}
-      <div className="mt-8">
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="text-xl font-semibold">Education</h2>
-          <button className="text-blue-600" onClick={() => openDraft(sections.educations, { school: '', degree: '', field: '', start_year: null, end_year: null, description: '' })}>Add</button>
-        </div>
-        {edu.map(item => (
-          <SectionRow key={item.id}
-            item={item}
-            titleKey="school"
-            subtitleKey="degree"
-            right={(it) => [it.field, [it.start_year, it.end_year].filter(Boolean).join('–')].filter(Boolean).join(' · ')}
-            onEdit={(it) => openDraft(sections.educations, it)}
-            onDelete={(id) => removeRow(sections.educations, id)}
-          />
-        ))}
-      </div>
-
-      {/* Draft modal (simple inline) */}
-      {draft && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
-          <div className="bg-white rounded p-4 w-full max-w-lg">
-            <h3 className="font-semibold mb-3">{draft.table === sections.experiences ? 'Experience' : 'Education'}</h3>
-            {draft.table === sections.experiences ? (
-              <>
-                <LabeledInput label="Title" value={draft.data.title || ''} onChange={e => setDraft(d => ({ ...d, data: { ...d.data, title: e.target.value } }))} />
-                <LabeledInput label="Company" value={draft.data.company || ''} onChange={e => setDraft(d => ({ ...d, data: { ...d.data, company: e.target.value } }))} />
-                <LabeledInput label="Location" value={draft.data.location || ''} onChange={e => setDraft(d => ({ ...d, data: { ...d.data, location: e.target.value } }))} />
-                <div className="grid grid-cols-2 gap-3">
-                  <LabeledInput type="date" label="Start date" value={draft.data.start_date || ''} onChange={e => setDraft(d => ({ ...d, data: { ...d.data, start_date: e.target.value } }))} />
-                  <LabeledInput type="date" label="End date" value={draft.data.end_date || ''} onChange={e => setDraft(d => ({ ...d, data: { ...d.data, end_date: e.target.value } }))} />
-                </div>
-                <label className="flex items-center gap-2 mb-2">
-                  <input type="checkbox" checked={!!draft.data.is_current} onChange={e => setDraft(d => ({ ...d, data: { ...d.data, is_current: e.target.checked } }))} />
-                  <span>Currently working here</span>
-                </label>
-                <TextArea label="Description" value={draft.data.description || ''} onChange={e => setDraft(d => ({ ...d, data: { ...d.data, description: e.target.value } }))} />
-              </>
-            ) : (
-              <>
-                <LabeledInput label="School" value={draft.data.school || ''} onChange={e => setDraft(d => ({ ...d, data: { ...d.data, school: e.target.value } }))} />
-                <LabeledInput label="Degree" value={draft.data.degree || ''} onChange={e => setDraft(d => ({ ...d, data: { ...d.data, degree: e.target.value } }))} />
-                <LabeledInput label="Field" value={draft.data.field || ''} onChange={e => setDraft(d => ({ ...d, data: { ...d.data, field: e.target.value } }))} />
-                <div className="grid grid-cols-2 gap-3">
-                  <LabeledInput label="Start year" type="number" value={draft.data.start_year || ''} onChange={e => setDraft(d => ({ ...d, data: { ...d.data, start_year: e.target.valueAsNumber || null } }))} />
-                  <LabeledInput label="End year" type="number" value={draft.data.end_year || ''} onChange={e => setDraft(d => ({ ...d, data: { ...d.data, end_year: e.target.valueAsNumber || null } }))} />
-                </div>
-                <TextArea label="Description" value={draft.data.description || ''} onChange={e => setDraft(d => ({ ...d, data: { ...d.data, description: e.target.value } }))} />
-              </>
-            )}
-
-            <div className="flex justify-end gap-2 mt-3">
-              <button className="px-3 py-2" onClick={() => setDraft(null)}>Cancel</button>
-              <button className="bg-black text-white px-3 py-2 rounded" onClick={saveDraft}>Save</button>
+            <div className="flex flex-col items-end gap-2">
+              <div className="text-sm text-slate-500">Profile strength: <span className="font-medium text-amber-600">80%</span></div>
+              <div className="flex gap-2">
+                <button onClick={() => setEditing(e => !e)} className="px-4 py-2 border rounded-md">{editing ? 'Close editor' : 'Edit profile'}</button>
+                <button onClick={onSignOut} className="px-4 py-2 bg-red-100 text-red-700 rounded-md">Sign out</button>
+              </div>
             </div>
           </div>
+
+          <div className="mt-6">
+            <h4 className="text-lg font-semibold">Experience</h4>
+            <div className="mt-3 space-y-3">
+              {profile.experiences.map(exp => (
+                <div key={exp.id} className="border rounded-md p-3 bg-slate-50">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="font-medium">{exp.title} • {exp.company}</div>
+                      <div className="text-sm text-slate-500">{exp.period}</div>
+                    </div>
+                    <div className="text-sm text-slate-400">{exp.desc}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-6">
+            <h4 className="text-lg font-semibold">Education</h4>
+            <div className="mt-3 space-y-2">
+              {profile.education.map(ed => (
+                <div key={ed.id} className="text-sm text-slate-700">{ed.degree}, {ed.school} • {ed.period}</div>
+              ))}
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      {/* Use existing ProfileEditor component for editing */}
+      {editing && (
+        <div className="mt-6">
+          <ProfileEditor
+            profile={profile}
+            onChange={setProfile}
+            onSave={saveProfile}
+            onCancel={() => setEditing(false)}
+          />
         </div>
       )}
+    </div>
+  );
+}
+
+export default function LinkedInStyleAuthAndProfile() {
+  const [userProfile, setUserProfile] = useState(null);
+
+  function handleAuth(profile) {
+    if (profile === null) {
+      setUserProfile({ name: 'Guest', headline: 'Visitor', location: '', about: '', skills: [], experiences: [], education: [] });
+    } else {
+      setUserProfile(profile);
+    }
+  }
+
+  function signOut() {
+    setUserProfile(null);
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-50 p-8">
+      <div className="max-w-6xl mx-auto">
+        {!userProfile ? (
+          <AuthCard onAuthenticate={handleAuth} />
+        ) : (
+          <ProfilePage profile={userProfile} onSignOut={signOut} />
+        )}
+      </div>
     </div>
   );
 }

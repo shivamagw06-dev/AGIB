@@ -20,7 +20,6 @@ if (!globalThis.net.http_post) {
 
       // prefer JSON when available, otherwise text
       if (contentType.includes('application/json')) {
-        // If response is not ok, return an object containing status + body for better debugging
         const json = await res.json();
         if (!res.ok) return { status: res.status, ok: false, body: json };
         return json;
@@ -31,8 +30,6 @@ if (!globalThis.net.http_post) {
       return text;
     } catch (err) {
       // Keep the error shape consistent for callers and log helpful debug info
-      // Returning an object rather than throwing keeps older code paths compatible
-      // while still exposing the error to devtools.
       console.error('net.http_post polyfill failed:', err);
       return { error: err?.message || String(err) };
     }
@@ -52,15 +49,45 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 // export helmetContext so it can be used on the server if you later add SSR
 export const helmetContext = {};
 
+/**
+ * Initialize theme (dark class) on documentElement early.
+ * - Checks saved preference in localStorage ('theme' = 'dark'|'light')
+ * - Falls back to system preference (prefers-color-scheme)
+ * - Applies .dark to <html> if dark should be active
+ *
+ * Running this synchronously here minimizes a flash of incorrect theme on initial paint.
+ */
+(function initTheme() {
+  try {
+    // Read saved preference; we intentionally don't parse JSON — it's a simple string
+    const saved = typeof window !== 'undefined' ? localStorage.getItem('theme') : null;
+    const prefersDark =
+      typeof window !== 'undefined' &&
+      window.matchMedia &&
+      window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+    // Decide whether to enable dark mode
+    const shouldDark = saved === 'dark' || (saved === null && prefersDark);
+
+    // Mutate documentElement early (before React mounts) to avoid FOUC
+    if (typeof document !== 'undefined') {
+      if (shouldDark) document.documentElement.classList.add('dark');
+      else document.documentElement.classList.remove('dark');
+    }
+  } catch (err) {
+    // Non-fatal: just log in dev
+    // We don't want this to crash render in test/SSR environments where window/document may be undefined
+    // eslint-disable-next-line no-console
+    console.warn('initTheme failed:', err);
+  }
+})();
+
 const rootElement = typeof document !== 'undefined' ? document.getElementById('root') : null;
 
 if (!rootElement) {
   // Fail fast with a helpful message in development
-  // In production builds this will silently do nothing if root is missing.
-  // This prevents runtime throws in test or SSR environments where `document` may be undefined.
   console.error('Root element not found: make sure an element with id="root" exists in index.html');
 } else {
-  // Create and render the React tree
   const root = ReactDOM.createRoot(rootElement);
 
   root.render(

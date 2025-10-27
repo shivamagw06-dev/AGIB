@@ -1,6 +1,7 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-  darkMode: ['class'],
+  // Use the standard 'class' value so you control dark mode by toggling the `.dark` class.
+  darkMode: 'class',
   content: [
     './pages/**/*.{js,jsx,ts,tsx}',
     './components/**/*.{js,jsx,ts,tsx}',
@@ -93,7 +94,7 @@ module.exports = {
             'code::after': { content: 'none' },
             pre: {
               backgroundColor: theme('colors.card.DEFAULT'),
-              color: theme('colors.card-foreground'),
+              color: theme('colors.card.foreground'),
               borderRadius: theme('borderRadius.lg'),
               borderColor: theme('colors.border'),
               borderWidth: '1px',
@@ -110,7 +111,7 @@ module.exports = {
             code: { backgroundColor: theme('colors.muted.DEFAULT') },
             pre: {
               backgroundColor: theme('colors.card.DEFAULT'),
-              color: theme('colors.card-foreground'),
+              color: theme('colors.card.foreground'),
               borderColor: theme('colors.border'),
             },
           },
@@ -120,7 +121,9 @@ module.exports = {
   },
   safelist: [
     // ensure these classes are not purged when used in JSX strings
-    'prose', 'prose-lg', 'dark:prose-invert',
+    'prose',
+    'prose-lg',
+    'dark:prose-invert',
   ],
   plugins: [
     require('@tailwindcss/typography'),

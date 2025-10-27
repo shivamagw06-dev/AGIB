@@ -1,7 +1,7 @@
 // src/components/ArticlePage.jsx
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
-import { Helmet } from 'react-helmet-async'; // <- use react-helmet-async
+import { Helmet } from 'react-helmet-async';
 import DOMPurify from 'dompurify';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/contexts/AuthContext';
@@ -21,58 +21,217 @@ export default function ArticlePage() {
 
   const [article, setArticle] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [author, setAuthor] = useState(null);
 
+  // subscription states
+  const [isSubscribed, setIsSubscribed] = useState(false);
+  const [checkingSubscription, setCheckingSubscription] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  // UI messages
+  const [message, setMessage] = useState(null);
+  const [errorMessage, setErrorMessage] = useState(null);
+
+  // --- Fetch article (published; if author is current user allow draft)
   useEffect(() => {
-    let ignore = false;
+    let mounted = true;
     (async () => {
       setLoading(true);
+      setMessage(null);
+      setErrorMessage(null);
 
-      const baseSelect =
-        'id, title, slug, section, excerpt, cover_url, content, content_md, tags, status, published_at, author_id, created_at';
+      try {
+        const baseSelect =
+          'id, title, slug, section, excerpt, cover_url, content, content_md, tags, status, published_at, author_id, created_at';
 
-      let { data, error } = await supabase
-        .from('articles')
-        .select(baseSelect)
-        .eq('slug', slug)
-        .eq('status', 'published')
-        .maybeSingle();
-
-      if ((!data || error) && user?.id) {
-        const { data: authorData } = await supabase
+        let { data, error } = await supabase
           .from('articles')
           .select(baseSelect)
           .eq('slug', slug)
-          .eq('author_id', user.id)
+          .eq('status', 'published')
           .maybeSingle();
-        if (authorData) data = authorData;
-      }
 
-      if (!ignore) {
-        setArticle(data || null);
-        setLoading(false);
+        // if not found and user is the author, allow them to view their draft
+        if ((!data || error) && user?.id) {
+          const { data: authorData, error: authorErr } = await supabase
+            .from('articles')
+            .select(baseSelect)
+            .eq('slug', slug)
+            .eq('author_id', user.id)
+            .maybeSingle();
+
+          if (authorErr) {
+            console.warn('Author fetch error for draft fallback', authorErr);
+          }
+
+          if (authorData) data = authorData;
+        }
+
+        if (mounted) {
+          setArticle(data || null);
+        }
+      } catch (err) {
+        console.error('Article fetch error', err);
+        if (mounted) setErrorMessage('Failed to load article.');
+      } finally {
+        if (mounted) setLoading(false);
       }
     })();
 
     return () => {
-      ignore = true;
+      mounted = false;
     };
   }, [slug, user?.id]);
+
+  // --- Fetch author profile once we have article
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      setAuthor(null);
+      if (!article?.author_id) return;
+
+      try {
+        const { data: aData, error } = await supabase
+          .from('profiles') // your table (confirmed in screenshots)
+          .select('id, full_name, display_name, handle, photo_url, is_public')
+          .eq('id', article.author_id)
+          .maybeSingle();
+
+        if (error) {
+          console.warn('Author lookup error', error);
+        } else if (mounted) {
+          setAuthor(aData || null);
+        }
+      } catch (err) {
+        console.error('Author fetch failed', err);
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, [article?.author_id]);
+
+  // --- Check subscription status (subscriber -> author)
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      setIsSubscribed(false);
+      setCheckingSubscription(false);
+      if (!user?.id || !article?.author_id) return;
+
+      setCheckingSubscription(true);
+
+      try {
+        // adjust column names if different; expects `subscriber_id` & `author_id`
+        const { data: subData, error } = await supabase
+          .from('subscriptions')
+          .select('id')
+          .eq('subscriber_id', user.id)
+          .eq('author_id', article.author_id)
+          .maybeSingle();
+
+        if (error) {
+          console.warn('Subscription check error', error);
+        } else if (mounted) {
+          setIsSubscribed(!!subData);
+        }
+      } catch (err) {
+        console.error('Subscription check failed', err);
+      } finally {
+        if (mounted) setCheckingSubscription(false);
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, [user?.id, article?.author_id]);
 
   const htmlToUse = article ? (article.content ?? article.content_md ?? '') : '';
   const minutes = useMemo(() => readingTimeFromHTML(htmlToUse), [htmlToUse]);
 
+  // delete article (author only)
   async function deleteArticle() {
     if (!article) return;
-    if (!window.confirm('Delete this article? This cannot be undone.')) return;
+    const ok = window.confirm('Delete this article? This cannot be undone.');
+    if (!ok) return;
 
-    const { error } = await supabase
-      .from('articles')
-      .delete()
-      .eq('id', article.id)
-      .eq('author_id', user?.id);
+    try {
+      const { error } = await supabase
+        .from('articles')
+        .delete()
+        .eq('id', article.id)
+        .eq('author_id', user?.id);
 
-    if (error) alert('Delete failed: ' + error.message);
-    else navigate('/');
+      if (error) throw error;
+      navigate('/');
+    } catch (err) {
+      console.error('Delete failed', err);
+      setErrorMessage('Delete failed: ' + (err.message || 'unknown error'));
+    }
+  }
+
+  // subscribe / unsubscribe toggle
+  async function handleSubscribeToggle() {
+    // require login
+    if (!user?.id) {
+      const next = typeof window !== 'undefined' ? window.location.pathname : `/article/${article?.slug}`;
+      navigate(`/login?next=${encodeURIComponent(next)}`);
+      return;
+    }
+
+    if (!article?.author_id) {
+      setErrorMessage('Unable to subscribe to this author.');
+      return;
+    }
+
+    if (user.id === article.author_id) {
+      setMessage('You are the author of this article.');
+      return;
+    }
+
+    setSubmitting(true);
+    setErrorMessage(null);
+    setMessage(null);
+
+    try {
+      if (!isSubscribed) {
+        // create subscription — upsert to avoid duplicates if unique constraint exists
+        const payload = {
+          subscriber_id: user.id,
+          author_id: article.author_id,
+          created_at: new Date().toISOString()
+        };
+
+        // use upsert to avoid unique constraint errors (onConflict: subscriber_id,author_id not supported here — server-side constraint recommended)
+        const { data, error } = await supabase
+          .from('subscriptions')
+          .insert(payload)
+          .select()
+          .maybeSingle();
+
+        if (error) throw error;
+        setIsSubscribed(true);
+        setMessage('Subscribed successfully.');
+      } else {
+        // unsubscribe: delete the record(s)
+        const { error } = await supabase
+          .from('subscriptions')
+          .delete()
+          .eq('subscriber_id', user.id)
+          .eq('author_id', article.author_id);
+
+        if (error) throw error;
+        setIsSubscribed(false);
+        setMessage('Unsubscribed.');
+      }
+    } catch (err) {
+      console.error('Subscription action error', err);
+      setErrorMessage('Subscription action failed: ' + (err.message || 'unknown error'));
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   if (loading) {
@@ -104,54 +263,53 @@ export default function ArticlePage() {
         year: 'numeric',
       })
     : '';
-  // build a canonical share URL (works client-side)
-  const shareUrl = typeof window !== 'undefined'
-    ? window.location.href
-    : `https://agarwalglobalinvestments.com/article/${article.slug}`;
+
+  const shareUrl =
+    typeof window !== 'undefined'
+      ? window.location.href
+      : `https://agarwalglobalinvestments.com/article/${article.slug}`;
 
   const title = article.title || 'Article';
-  const description = article.excerpt || (htmlToUse ? String(htmlToUse).replace(/<[^>]*>/g, ' ').slice(0, 160) : 'AGI article');
+  const description =
+    article.excerpt ||
+    (htmlToUse ? String(htmlToUse).replace(/<[^>]*>/g, ' ').slice(0, 160) : 'AGI article');
   const image = article.cover_url || 'https://agarwalglobalinvestments.com/assets/og-image.png';
   const siteName = 'Agarwal Global Investments';
   const canonical = `https://agarwalglobalinvestments.com/article/${article.slug}`;
 
   const sanitizedHtml = DOMPurify.sanitize(htmlToUse);
 
-  // JSON-LD for Article schema (helps SEO & some crawlers)
   const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": "Article",
-    "mainEntityOfPage": {
-      "@type": "WebPage",
-      "@id": canonical
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    mainEntityOfPage: {
+      '@type': 'WebPage',
+      '@id': canonical
     },
-    "headline": title,
-    "image": [image],
-    "datePublished": isoPubDate,
-    "author": {
-      "@type": "Person",
-      "name": "Shivam Agarwal"
+    headline: title,
+    image: [image],
+    datePublished: isoPubDate,
+    author: {
+      '@type': 'Person',
+      name: author?.full_name || author?.display_name || 'Author'
     },
-    "publisher": {
-      "@type": "Organization",
-      "name": siteName,
-      "logo": {
-        "@type": "ImageObject",
-        "url": "https://agarwalglobalinvestments.com/assets/logo.png"
+    publisher: {
+      '@type': 'Organization',
+      name: siteName,
+      logo: {
+        '@type': 'ImageObject',
+        url: 'https://agarwalglobalinvestments.com/assets/logo.png'
       }
     },
-    "description": description
+    description
   };
 
   return (
     <div className="min-h-screen bg-background">
       <Helmet>
-        {/* Basic */}
         <title>{title} • AGI</title>
         <meta name="description" content={description} />
         <link rel="canonical" href={canonical} />
-
-        {/* Open Graph */}
         <meta property="og:site_name" content={siteName} />
         <meta property="og:type" content="article" />
         <meta property="og:url" content={shareUrl} />
@@ -160,19 +318,12 @@ export default function ArticlePage() {
         <meta property="og:image" content={image} />
         {isoPubDate && <meta property="article:published_time" content={isoPubDate} />}
         {Array.isArray(article.tags) &&
-          article.tags.map((t, i) => (
-            <meta key={i} property="article:tag" content={t} />
-          ))}
-
-        {/* Twitter */}
+          article.tags.map((t, i) => <meta key={i} property="article:tag" content={t} />)}
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content={`${title} | ${siteName}`} />
         <meta name="twitter:description" content={description} />
         <meta name="twitter:image" content={image} />
-
-        {/* Fallback image */}
         {image && <meta property="og:image:alt" content={title} />}
-        {/* JSON-LD */}
         <script type="application/ld+json">{JSON.stringify(jsonLd)}</script>
       </Helmet>
 
@@ -185,6 +336,52 @@ export default function ArticlePage() {
           {article.title}
         </h1>
 
+        {/* author + subscribe */}
+        <div className="mt-4 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-100">
+              {author?.photo_url ? (
+                <img src={author.photo_url} alt={author.full_name || 'author'} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-sm text-gray-400">
+                  {author?.display_name ? author.display_name[0] : 'A'}
+                </div>
+              )}
+            </div>
+
+            <div className="text-sm">
+              <div className="font-medium text-foreground">
+                {author?.full_name || author?.display_name || author?.handle || 'Author'}
+              </div>
+              <div className="text-muted-foreground text-xs">
+                {author?.handle ? `@${author.handle}` : ''}
+              </div>
+            </div>
+          </div>
+
+          <div>
+            {article.author_id !== user?.id && (
+              <div>
+                <Button
+                  onClick={handleSubscribeToggle}
+                  disabled={checkingSubscription || submitting}
+                  className="bg-yellow-500 hover:bg-yellow-600 text-white text-sm px-3 py-1 rounded-full"
+                >
+                  {checkingSubscription || submitting
+                    ? 'Please wait...'
+                    : isSubscribed
+                    ? 'Unsubscribe'
+                    : 'Subscribe'}
+                </Button>
+              </div>
+            )}
+
+            {article.author_id === user?.id && (
+              <div className="text-sm text-muted-foreground">You are the author</div>
+            )}
+          </div>
+        </div>
+
         <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
           <span>{niceDate}</span>
           <span>•</span>
@@ -195,10 +392,7 @@ export default function ArticlePage() {
               <span>•</span>
               <div className="flex flex-wrap gap-2">
                 {article.tags.map((t, i) => (
-                  <span
-                    key={i}
-                    className="rounded-full bg-accent px-2 py-0.5 text-xs text-foreground"
-                  >
+                  <span key={i} className="rounded-full bg-accent px-2 py-0.5 text-xs text-foreground">
                     #{t}
                   </span>
                 ))}
@@ -221,11 +415,12 @@ export default function ArticlePage() {
         )}
 
         <article
-          className="prose prose-neutral dark:prose-invert max-w-none mt-8
-                     prose-img:rounded-lg prose-img:border
-                     prose-h1:font-extrabold prose-h2:font-bold prose-p:leading-7"
+          className="prose prose-neutral dark:prose-invert max-w-none mt-8 prose-img:rounded-lg prose-img:border prose-h1:font-extrabold prose-h2:font-bold prose-p:leading-7"
           dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
         />
+
+        {message && <div className="mt-6 text-sm text-green-700">{message}</div>}
+        {errorMessage && <div className="mt-6 text-sm text-red-600">{errorMessage}</div>}
 
         <div className="mt-10 flex flex-wrap gap-3">
           <Button

@@ -12,7 +12,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu";
+} from '@/components/ui/dropdown-menu';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/supabaseClient';
 
@@ -24,8 +24,8 @@ const Header = ({ currentPage, setCurrentPage }) => {
   const navigate = useNavigate();
   const [handle, setHandle] = useState('');
 
-  // Replace with env var if you prefer
-  const ADMIN_ID = 'c56e4d07-273c-49c9-86a5-a4445e687ece';
+  // Prefer an env var, fallback to hardcoded ID (replace in .env.local: VITE_ADMIN_ID)
+  const ADMIN_ID = import.meta?.env?.VITE_ADMIN_ID || 'c56e4d07-273c-49c9-86a5-a4445e687ece';
 
   // load profile handle once user logs in
   useEffect(() => {
@@ -34,18 +34,18 @@ const Header = ({ currentPage, setCurrentPage }) => {
       return;
     }
 
+    let mounted = true;
     supabase
       .from('profiles')
       .select('handle')
       .eq('id', user.id)
       .maybeSingle()
       .then(({ data, error }) => {
-        // If there was an error, or data is null (no profile), fallback to email prefix
+        if (!mounted) return;
         if (error) {
           console.error('Profile fetch error:', error);
           setHandle(user.email?.split('@')[0] || 'me');
         } else if (!data) {
-          // no profile row found
           setHandle(user.email?.split('@')[0] || 'me');
         } else {
           setHandle(data.handle || user.email?.split('@')[0] || 'me');
@@ -53,34 +53,39 @@ const Header = ({ currentPage, setCurrentPage }) => {
       })
       .catch((err) => {
         console.error('Profile fetch catch:', err);
-        setHandle(user.email?.split('@')[0] || 'me');
+        if (mounted) setHandle(user.email?.split('@')[0] || 'me');
       });
-  }, [user]);
 
+    return () => {
+      mounted = false;
+    };
+  }, [user]);
   const navItems = [
     { name: 'Home', page: 'home', path: '/' },
     { name: 'Live Articles', page: 'live-articles', path: '/sections/live-articles' },
     { name: 'Research Notes', page: 'research-notes', path: '/sections/research-notes' },
-    { name: 'Deal Tracker', page: 'deal-tracker', path: '/deal-tracker' },
-    { name: 'Markets Dashboard', page: 'markets', path: '/markets' },
-    { name: 'Opinions & Editorials', page: 'opinions-editorials', path: '/sections/opinions-editorials' },
+    { name: 'Deal Tracker', page: 'deal-tracker', path: '/sections/deal-tracker' },
+    { name: 'Markets Dashboard', page: 'markets', path: '/sections/markets' },
+    { name: 'Wealth Management', page: 'wealth-management', path: '/wealth-management' },
+    // ✅ Added Business Page
+    { name: 'Business', page: 'business', path: '/business' },
     { name: 'Events & Webinars', page: 'events-webinars', path: '/events' },
     { name: 'About Us', page: 'about', path: '/about' },
     { name: 'Contact', page: 'contact', path: '/contact' },
-  ];
-
+  ];  
   const handleNavClick = (page, path) => {
     if (typeof setCurrentPage === 'function') {
       try {
         setCurrentPage(page);
       } catch (err) {
-        // ignore
+        // ignore setCurrentPage errors
       }
     }
 
     if (path) navigate(path);
     setMobileMenuOpen(false);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    // small delay so navigation begins then scroll — avoids jumping when route changes instantly
+    setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 50);
   };
 
   const handleLogout = async () => {
@@ -126,8 +131,8 @@ const Header = ({ currentPage, setCurrentPage }) => {
                     ? 'text-primary bg-primary/10'
                     : 'text-foreground/70 hover:text-primary hover:bg-primary/5'
                 }`}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.98 }}
                 aria-current={currentPage === item.page ? 'page' : undefined}
               >
                 {item.name}
@@ -158,10 +163,11 @@ const Header = ({ currentPage, setCurrentPage }) => {
               title="Toggle theme"
               aria-pressed={theme === 'dark'}
             >
-              <span className="relative inline-block">
-                <Sun className="h-[1.2rem] w-[1.2rem] transition-all" />
-                <Moon className="absolute inset-0 h-[1.2rem] w-[1.2rem] transition-all" />
-              </span>
+              {theme === 'dark' ? (
+                <Sun className="h-[1.2rem] w-[1.2rem]" aria-hidden />
+              ) : (
+                <Moon className="h-[1.2rem] w-[1.2rem]" aria-hidden />
+              )}
               <span className="sr-only">Toggle theme</span>
             </Button>
 
@@ -176,11 +182,21 @@ const Header = ({ currentPage, setCurrentPage }) => {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => { setMobileMenuOpen(false); navigate('/profile/edit'); }}>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setMobileMenuOpen(false);
+                        navigate('/profile/edit');
+                      }}
+                    >
                       Edit Profile
                     </DropdownMenuItem>
                     {handle && (
-                      <DropdownMenuItem onClick={() => { setMobileMenuOpen(false); navigate(`/u/${handle}`); }}>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setMobileMenuOpen(false);
+                          navigate(`/u/${handle}`);
+                        }}
+                      >
                         View My Profile
                       </DropdownMenuItem>
                     )}
@@ -226,9 +242,7 @@ const Header = ({ currentPage, setCurrentPage }) => {
                   key={item.page}
                   onClick={() => handleNavClick(item.page, item.path)}
                   className={`block w-full text-left px-4 py-3 text-base font-medium ${
-                    currentPage === item.page
-                      ? 'text-primary bg-primary/10'
-                      : 'text-foreground/80 hover:bg-accent'
+                    currentPage === item.page ? 'text-primary bg-primary/10' : 'text-foreground/80 hover:bg-accent'
                   }`}
                 >
                   {item.name}
@@ -240,7 +254,10 @@ const Header = ({ currentPage, setCurrentPage }) => {
                   <>
                     {user.id === ADMIN_ID && (
                       <Button
-                        onClick={() => { setMobileMenuOpen(false); navigate('/articles/new'); }}
+                        onClick={() => {
+                          setMobileMenuOpen(false);
+                          navigate('/articles/new');
+                        }}
                         variant="secondary"
                         className="w-full mb-2"
                         aria-label="Write a new article"
@@ -250,7 +267,10 @@ const Header = ({ currentPage, setCurrentPage }) => {
                     )}
 
                     <Button
-                      onClick={() => { setMobileMenuOpen(false); navigate('/profile/edit'); }}
+                      onClick={() => {
+                        setMobileMenuOpen(false);
+                        navigate('/profile/edit');
+                      }}
                       variant="outline"
                       className="w-full mb-2"
                     >
@@ -259,7 +279,10 @@ const Header = ({ currentPage, setCurrentPage }) => {
 
                     {handle && (
                       <Button
-                        onClick={() => { setMobileMenuOpen(false); navigate(`/u/${handle}`); }}
+                        onClick={() => {
+                          setMobileMenuOpen(false);
+                          navigate(`/u/${handle}`);
+                        }}
                         variant="outline"
                         className="w-full mb-2"
                       >
@@ -268,7 +291,10 @@ const Header = ({ currentPage, setCurrentPage }) => {
                     )}
 
                     <Button
-                      onClick={() => { setMobileMenuOpen(false); handleLogout(); }}
+                      onClick={() => {
+                        setMobileMenuOpen(false);
+                        handleLogout();
+                      }}
                       variant="outline"
                       className="w-full"
                     >
@@ -277,7 +303,10 @@ const Header = ({ currentPage, setCurrentPage }) => {
                   </>
                 ) : (
                   <Button
-                    onClick={() => { setMobileMenuOpen(false); navigate('/login'); }}
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      navigate('/login');
+                    }}
                     className="w-full"
                   >
                     Login / Sign Up
