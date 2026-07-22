@@ -1,24 +1,24 @@
 import { Link } from 'react-router-dom';
+import Logo from '@/components/Layout/Logo';
 
 const footerLinks = [
   { label: 'About', to: '/about' },
+  { label: 'Contact', to: '/contact' },
+  { label: 'Privacy Policy', to: '/privacy' },
+  { label: 'Terms of Service', to: '/terms' },
   { label: 'Disclaimer', to: '/disclaimer' },
   { label: 'SEBI Disclosure', to: '/sebi-disclosure' },
-  { label: 'Privacy Policy', to: '/privacy' },
-  { label: 'Contact', to: '/contact' },
 ];
 
 export default function Footer() {
   return (
     <footer className="bg-[#f7f7f7] border-t border-[#dddddd]">
-      <div className="max-w-6xl mx-auto px-6 py-10">
+      <div className="max-w-[1280px] mx-auto px-4 py-10">
         <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-8">
           <div>
-            <Link to="/" className="text-sm font-bold text-[#111111] hover:text-[#ff8000]">
-              Agarwal Global Investments
-            </Link>
-            <p className="mt-2 text-xs text-[#767676] max-w-sm leading-relaxed">
-              Independent market research for Indian investors. For informational purposes only — not investment advice.
+            <Logo compact className="mb-3" />
+            <p className="text-xs text-[#767676] max-w-sm leading-relaxed mt-2">
+              Independent equity research for Indian investors. For informational purposes only — not investment advice.
             </p>
           </div>
 
@@ -27,7 +27,7 @@ export default function Footer() {
               <Link
                 key={link.to}
                 to={link.to}
-                className="text-[#555555] hover:text-[#ff8000] transition-colors"
+                className="text-[#555555] hover:text-[#ff6600] transition-colors"
               >
                 {link.label}
               </Link>

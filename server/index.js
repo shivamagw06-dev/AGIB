@@ -7,6 +7,7 @@
 
 import express from "express";
 import researchRouter from "./research.js";
+import createMarketRouter from "./routes/market.js";
 import rateLimit from "express-rate-limit";
 import cors from "cors";
 import dotenv from "dotenv";
@@ -156,6 +157,12 @@ reg('/_debug_key', (req, res) => { if (!API_KEY) return res.json({ key_present: 
 
 // mount research router
 app.use('/research', researchRouter);
+
+const marketRouter = createMarketRouter({
+  indianApiKey: API_KEY,
+  indianApiBase: BASE_URL,
+});
+app.use('/api/market', marketRouter);
 
 /* ---------- /api/perplexity/deals ----------
    Ask Perplexity for a strict JSON array of deals with these fields:
@@ -471,6 +478,31 @@ reg('/api/ipo', (req, res) => proxyFetch(res, `${BASE_URL}/ipo`));
 reg('/api/recent_announcements', (req, res) => proxyFetch(res, `${BASE_URL}/recent_announcements`));
 reg('/api/corporate_actions', (req, res) => proxyFetch(res, `${BASE_URL}/corporate_actions`));
 reg('/api/statement', (req, res) => proxyFetch(res, `${BASE_URL}/statement`));
+
+// Free NSE/BSE stock API proxy (http://65.0.104.9 — avoids browser mixed-content/CORS)
+const FREE_STOCK_API = (process.env.FREE_STOCK_API || 'http://65.0.104.9').replace(/\/+$/, '');
+
+reg('/api/market/search', (req, res) => {
+  const q = req.query.q;
+  if (!q) return res.status(400).json({ status: 'error', message: 'Missing ?q' });
+  return proxyFetch(res, `${FREE_STOCK_API}/search?q=${encodeURIComponent(q)}`);
+});
+
+reg('/api/market/stock/list', (req, res) => {
+  const symbols = req.query.symbols;
+  if (!symbols) return res.status(400).json({ status: 'error', message: 'Missing ?symbols' });
+  const qs = new URLSearchParams(req.query).toString();
+  return proxyFetch(res, `${FREE_STOCK_API}/stock/list?${qs}`);
+});
+
+reg('/api/market/stock', (req, res) => {
+  const symbol = req.query.symbol;
+  if (!symbol) return res.status(400).json({ status: 'error', message: 'Missing ?symbol' });
+  const qs = new URLSearchParams(req.query).toString();
+  return proxyFetch(res, `${FREE_STOCK_API}/stock?${qs}`);
+});
+
+reg('/api/market/symbols', (req, res) => proxyFetch(res, `${FREE_STOCK_API}/symbols`));
 
 // wildcard fallback
 reg('/api/:path(*)', (req, res) => {

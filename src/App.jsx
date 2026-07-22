@@ -5,8 +5,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import AdminRoutes from '@/pages/admin/AdminRoutes';
 import CategoryPage from '@/pages/CategoryPage';
 import Header from "@/components/Layout/Header";
-import InstitutionalHero from "@/components/Home/InstitutionalHero";
-import ContentCategoryGrid from "@/components/Home/ContentCategoryGrid";
+import EditorialHome from "@/components/Home/EditorialHome";
 import ArticlesFeed from '@/components/ArticlesFeed';
 import About from '@/components/About';
 import Contact from '@/components/Contact';
@@ -32,12 +31,7 @@ const Opinions = React.lazy(() => import('@/components/Opinions'));
 const Markets = React.lazy(() => import('@/pages/Markets'));
 
 function HomeLayout() {
-  return (
-    <div className="bg-white min-h-screen">
-      <InstitutionalHero />
-      <ContentCategoryGrid />
-    </div>
-  );
+  return <EditorialHome />;
 }
 
 function AppShell() {
@@ -149,15 +143,15 @@ function App() {
       <BrowserRouter>
         <div className="min-h-screen bg-white">
           <Helmet>
-            <title>Agarwal Global Investments — Market Research for Indian Investors</title>
+            <title>AGI — Independent Equity Research for Indian Investors</title>
             <meta
               name="description"
-              content="Daily market updates, company research, earnings analysis, and actionable investment insights for Indian investors."
+              content="Institutional-quality market research updated every trading day. Morning briefs, sector analysis, and company updates from Agarwal Global Investments."
             />
             <link rel="preconnect" href="https://fonts.googleapis.com" />
             <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
             <link
-              href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+              href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400;1,700&display=swap"
               rel="stylesheet"
             />
           </Helmet>
