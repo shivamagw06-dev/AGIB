@@ -7,15 +7,14 @@
 /* =========================
    Design tokens (define first)
    ========================= */
-:root{
-  /* stored as "hue saturation% lightness%" triplets for hsl(var(--token)) usage */
-  --background: 240 6% 96%;    /* light page bg */
-  --foreground: 240 2% 11%;    /* default text (dark) */
+:root {
+  --background: 240 6% 96%;
+  --foreground: 240 2% 11%;
   --card: 0 0% 100%;
   --card-foreground: 240 2% 11%;
   --popover: 0 0% 100%;
   --popover-foreground: 240 2% 11%;
-  --primary: 40 70% 64%;      /* gold */
+  --primary: 40 70% 64%; /* gold */
   --primary-foreground: 0 0% 100%;
   --secondary: 43 100% 51%;
   --secondary-foreground: 240 2% 11%;
@@ -29,33 +28,8 @@
   --input: 240 4% 89%;
   --ring: 40 70% 64%;
   --radius: 0.5rem;
-}
 
-/* dark theme variant toggled by applying .dark to the <html> element */
-.dark{
-  --background: 240 2% 11%;
-  --foreground: 240 6% 96%;
-  --card: 240 2% 14%;
-  --card-foreground: 240 6% 96%;
-  --popover: 240 2% 11%;
-  --popover-foreground: 240 6% 96%;
-  --primary: 40 70% 64%;
-  --primary-foreground: 0 0% 100%;
-  --secondary: 43 100% 51%;
-  --secondary-foreground: 240 2% 11%;
-  --muted: 240 2% 20%;
-  --muted-foreground: 240 5% 65%;
-  --accent: 240 2% 20%;
-  --accent-foreground: 240 6% 96%;
-  --destructive: 0 62.8% 30.6%;
-  --destructive-foreground: 0 0% 100%;
-  --border: 240 2% 25%;
-  --input: 240 2% 25%;
-  --ring: 40 70% 64%;
-}
-
-/* convenience mappings for compiled CSS to consume */
-:root{
+  /* convenience mappings */
   --bg-hsl: var(--background);
   --fg-hsl: var(--foreground);
   --card-hsl: var(--card);
@@ -66,16 +40,12 @@
   --muted-fg-hsl: var(--muted-foreground);
 }
 
-/* =========================
-   Tailwind directives (required)
-   ========================= */
+/* ========================= Tailwind directives (required) ========================= */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* =========================
-   Base layer: accessible defaults
-   ========================= */
+/* ========================= Base layer: accessible defaults ========================= */
 @layer base {
   html, body {
     background-color: hsl(var(--bg-hsl));
@@ -91,8 +61,13 @@
   }
 
   /* links */
-  a { color: hsl(var(--primary)); text-decoration: none; }
-  a:hover, a:focus { text-decoration: underline; }
+  a {
+    color: hsl(var(--primary));
+    text-decoration: none;
+  }
+  a:hover, a:focus {
+    text-decoration: underline;
+  }
 
   /* inputs */
   input, textarea, select, .search-input {
@@ -101,13 +76,18 @@
     border: 1px solid hsl(var(--border-hsl));
     padding: 0.5rem 0.75rem;
     outline: none;
-    transition: box-shadow .12s ease, border-color .12s ease, background-color .12s ease, color .12s ease;
+    transition: box-shadow 0.12s ease, border-color 0.12s ease, background-color 0.12s ease, color 0.12s ease;
   }
 
-  ::placeholder { color: hsl(var(--muted-hsl)); opacity: 1; }
+  ::placeholder {
+    color: hsl(var(--muted-hsl));
+    opacity: 1;
+  }
 
   /* muted / small text */
-  .text-muted, .muted, small { color: hsl(var(--muted-fg-hsl)); }
+  .text-muted, .muted, small {
+    color: hsl(var(--muted-fg-hsl));
+  }
 
   /* card surfaces */
   .card, .panel, .box {
@@ -118,7 +98,9 @@
   }
 
   /* accessible focus ring for keyboard users */
-  :focus { box-shadow: 0 0 0 4px hsl(var(--ring) / 0.12); }
+  :focus {
+    box-shadow: 0 0 0 4px hsl(var(--ring) / 0.12);
+  }
 }
 
 /* sensible border defaults (avoid global * rule) */
@@ -126,19 +108,12 @@
   border: 1px solid hsl(var(--border-hsl));
 }
 
-/* =========================
-   Decorative helpers
-   ========================= */
+/* ========================= Decorative helpers ========================= */
 .bg-grid-slate-200 {
   background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' width='32' height='32' fill='none' stroke='hsl(240 4% 89% / 0.5)'%3e%3cpath d='M0 .5H31.5V32'/%3e%3c/svg%3e");
 }
-.dark .bg-grid-slate-200 {
-  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' width='32' height='32' fill='none' stroke='hsl(240 2% 25% / 0.5)'%3e%3cpath d='M0 .5H31.5V32'/%3e%3c/svg%3e");
-}
 
-/* =========================
-   TipTap editor (theme-aware)
-   ========================= */
+/* ========================= TipTap editor (theme-aware) ========================= */
 .tiptap {
   min-height: 360px;
   outline: none;
@@ -148,130 +123,133 @@
   border-radius: var(--radius);
   padding: 1rem;
   border: 1px solid hsl(var(--border-hsl));
-  transition: background-color .12s ease, color .12s ease;
+  transition: background-color 0.12s ease, color 0.12s ease;
 }
-.tiptap p { margin: .75rem 0; line-height: 1.7; color: inherit; }
-.tiptap h1 { font-size: 1.8rem; font-weight: 800; margin: 1.25rem 0 .5rem; color: inherit; }
-.tiptap h2 { font-size: 1.4rem; font-weight: 700; margin: 1rem 0 .5rem; color: inherit; }
-.tiptap ul, .tiptap ol { padding-left: 1.25rem; margin: .5rem 0; }
+
+.tiptap p { margin: 0.75rem 0; line-height: 1.7; color: inherit; }
+.tiptap h1 { font-size: 1.8rem; font-weight: 800; margin: 1.25rem 0 0.5rem; color: inherit; }
+.tiptap h2 { font-size: 1.4rem; font-weight: 700; margin: 1rem 0 0.5rem; color: inherit; }
+.tiptap ul, .tiptap ol { padding-left: 1.25rem; margin: 0.5rem 0; }
 .tiptap blockquote {
   border-left: 3px solid hsl(var(--border-hsl));
-  padding-left: .75rem;
+  padding-left: 0.75rem;
   color: hsl(var(--muted-fg-hsl));
   background: transparent;
 }
-.tiptap-img-full { max-width: 100%; height: auto; display: block; margin: 1rem auto; border-radius: 8px; }
-.tiptap-img-small { max-width: 40%; height: auto; border-radius: 8px; }
-.tiptap-img-left { float: left; margin: .5rem 1rem .5rem 0; }
-.tiptap-img-center { display: block; margin-left: auto; margin-right: auto; float: none; }
-.tiptap-img-right { float: right; margin: .5rem 0 .5rem 1rem; }
-.tiptap .img-caption { font-size: 0.9rem; color: hsl(var(--muted-hsl)); text-align: center; margin-top: .25rem; margin-bottom: 1rem; }
-
-/* =========================
-   Dark-mode explicit rules (readability + accessibility)
-   ========================= */
-.dark input, .dark textarea, .dark select, .dark .search-input {
-  background: hsl(var(--input-hsl));
-  color: hsl(var(--fg-hsl));
-  border: 1px solid hsl(var(--border-hsl));
+.tiptap-img-full {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 1rem auto;
+  border-radius: 8px;
 }
-.dark ::placeholder { color: hsl(var(--muted-hsl)); opacity: 1; }
-
-/* site chrome */
-.dark .navbar, .dark .site-header, .dark .sidebar {
-  background: hsl(var(--background));
-  color: hsl(var(--foreground));
-}
-
-/* panel/card surfaces */
-.dark .card, .dark .panel, .dark .box {
-  background: hsl(var(--card-hsl));
-  color: hsl(var(--card-fg-hsl));
-  border-color: hsl(var(--border-hsl));
+.tiptap .img-caption {
+  font-size: 0.9rem;
+  color: hsl(var(--muted-hsl));
+  text-align: center;
+  margin-top: 0.25rem;
+  margin-bottom: 1rem;
 }
 
 /* accessible colors for market values */
-.value.positive { color: #16a34a; } /* green */
-.value.negative { color: #dc2626; }  /* red */
+.value.positive { color: #16a34a; }
+.value.negative { color: #dc2626; }
 
-/* TipTap dark tweaks */
-.dark .tiptap { background-color: hsl(var(--card-hsl)); color: hsl(var(--card-fg-hsl)) !important; caret-color: hsl(var(--card-fg-hsl)); }
-.dark .tiptap blockquote { border-left-color: hsl(var(--border-hsl)); color: hsl(var(--muted-fg-hsl)); }
-.dark .tiptap .img-caption { color: hsl(var(--muted-hsl)); }
-
-/* =========================
-   Emergency, scoped readability override
-   (safe, scoped — keeps panels/cards readable if low-contrast utilities are present)
-   Remove or refine after you fix the root cause (search for low-contrast classes).
-   ========================= */
-html.dark .panel,
-html.dark .card,
-html.dark .box,
-html.dark .sidebar,
-html.dark .site-header,
-html.dark .navbar,
-html.dark .right-column,
-html.dark .market-list {
-  background-color: hsl(var(--card-hsl)) !important;
-  color: hsl(var(--card-fg-hsl)) !important;
-  border-color: hsl(var(--border-hsl)) !important;
-  opacity: 1 !important;
-}
-
-/* force readable color for children of the above containers */
-html.dark .panel * ,
-html.dark .card * ,
-html.dark .sidebar * ,
-html.dark .right-column * {
-  color: hsl(var(--card-fg-hsl)) !important;
-  opacity: 1 !important;
-  -webkit-text-fill-color: unset !important;
-}
-
-/* keep links and values visually distinct */
-html.dark .panel a,
-html.dark .card a,
-html.dark .sidebar a,
-html.dark .right-column a {
-  color: hsl(var(--primary)) !important;
-  opacity: 1 !important;
-}
-html.dark .panel .value.positive,
-html.dark .card .value.positive,
-html.dark .sidebar .value.positive { color: #16a34a !important; }
-html.dark .panel .value.negative,
-html.dark .card .value.negative,
-html.dark .sidebar .value.negative { color: #dc2626 !important; }
-
-html.dark .panel .text-muted,
-html.dark .card .text-muted,
-html.dark .sidebar .text-muted,
-html.dark .right-column .text-muted {
-  color: hsl(var(--muted-fg-hsl)) !important;
-  opacity: 1 !important;
-}
-
-/* =========================
-   Small helpers / accessibility
-   ========================= */
+/* ========================= Small helpers / accessibility ========================= */
 .small, small, .caption { color: hsl(var(--muted-fg-hsl)); }
-:focus-visible { outline: 3px solid hsl(var(--ring) / 0.18); outline-offset: 2px; }
+
+:focus-visible {
+  outline: 3px solid hsl(var(--ring) / 0.18);
+  outline-offset: 2px;
+}
+
 .force-contrast { color: hsl(var(--fg-hsl)) !important; background: transparent !important; }
 
-/* =========================
-   Short notes:
-   - If you still see faded text in dark mode inspect the element:
-     look for `opacity` in computed styles or utility classes like `text-white/20` or `opacity-40`.
-   - If `.dark` is added *after* paint you can get FOUC. Add the inline script below
-     into your index.html <head> BEFORE loading CSS to set .dark synchronously:
-     <script>
-       try {
-         const saved = localStorage.getItem('theme');
-         const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-         if (saved === 'dark' || (saved === null && prefersDark)) document.documentElement.classList.add('dark');
-         else document.documentElement.classList.remove('dark');
-       } catch(e){}
-     </script>
-   - After this emergency patch works, search your codebase for low-contrast classes and fix them:
-     grep -R --line-number -E "text-[^ ]+\/[0-9]{1,3}|opacity-[0-9]+" src || true
-   ========================= */
+/* ------------------------- Emergency mobile responsive fixes ------------------------- */
+@media (max-width: 768px) {
+  html, body { overflow-x: hidden; }
+
+  /* collapse layouts */
+  .container, .grid, .tax-container, .main-layout, .page-grid {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* hide the right-hand summary panels */
+  .right-sidebar, .summary-panel, .tax-summary, .right-column, .floating-panel, .sticky-panel {
+    display: none !important;
+    visibility: hidden !important;
+    height: auto !important;
+  }
+
+  /* main content area full width */
+  .main-form, .content, main {
+    width: 100% !important;
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+    box-sizing: border-box !important;
+  }
+
+  /* full width inputs/buttons */
+  input, select, textarea, button, .btn {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* remove sticky/fixed positioning */
+  .sticky, .fixed, .sidebar, .panel-fixed {
+    position: static !important;
+    top: auto !important;
+    left: auto !important;
+    right: auto !important;
+  }
+
+  /* form tweaks */
+  .form-row {
+    display: block !important;
+    margin-bottom: 0.75rem !important;
+  }
+  .preset-buttons {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0.5rem !important;
+  }
+  .summary-card { margin: 0.75rem 0 !important; }
+
+  /* table adjustments */
+  table {
+    width: 100% !important;
+    display: block !important;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    box-sizing: border-box;
+  }
+}
+
+/* ========================= CMS Editor styles ========================= */
+.ProseMirror table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1rem 0;
+}
+.ProseMirror td,
+.ProseMirror th {
+  border: 1px solid #cbd5e1;
+  padding: 0.5rem 0.75rem;
+  min-width: 80px;
+}
+.ProseMirror th {
+  background: #f1f5f9;
+  font-weight: 600;
+}
+.iframe-embed-wrapper iframe {
+  width: 100%;
+  border: 0;
+  border-radius: 0.5rem;
+}
+.tiptap-img-full { max-width: 100%; height: auto; display: block; margin: 1rem auto; }
+.tiptap-img-small { max-width: 320px; height: auto; display: block; margin: 1rem auto; }
+
+/* End of file */

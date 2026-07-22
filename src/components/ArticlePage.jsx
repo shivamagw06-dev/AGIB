@@ -1,5 +1,5 @@
 // src/components/ArticlePage.jsx
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import DOMPurify from 'dompurify';
@@ -11,6 +11,360 @@ function readingTimeFromHTML(html = '') {
   const text = String(html).replace(/<[^>]*>/g, ' ');
   const words = text.split(/\s+/).filter(Boolean).length;
   return Math.max(3, Math.round(words / 200));
+}
+
+// -----------------------------
+// Comments (LinkedIn-style)
+// -----------------------------
+function timeAgo(date) {
+  if (!date) return '';
+  const d = typeof date === 'string' ? new Date(date) : date;
+  const s = Math.floor((Date.now() - d.getTime()) / 1000);
+  if (s < 60) return `${s}s ago`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const day = Math.floor(h / 24);
+  if (day < 7) return `${day}d ago`;
+  return d.toLocaleDateString();
+}
+
+function CommentInput({ placeholder = 'Add a comment…', onSubmit, submitting }) {
+  const [value, setValue] = useState('');
+  const [count, setCount] = useState(0);
+
+  const handleChange = (e) => {
+    const v = e.target.value;
+    setValue(v);
+    setCount(v.trim().length);
+  };
+
+  const handleSend = async () => {
+    const v = value.trim();
+    if (!v) return;
+    await onSubmit(v);
+    setValue('');
+    setCount(0);
+  };
+
+  return (
+    <div className="w-full border rounded-xl p-3 bg-card">
+      <textarea
+        className="w-full resize-y min-h-[64px] bg-transparent focus:outline-none text-sm"
+        value={value}
+        onChange={handleChange}
+        placeholder={placeholder}
+        maxLength={2000}
+      />
+      <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
+        <span>{count}/2000</span>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => { setValue(''); setCount(0); }} disabled={submitting || !count}>
+            Clear
+          </Button>
+          <Button size="sm" onClick={handleSend} disabled={submitting || !count}>
+            {submitting ? 'Posting…' : 'Post'}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CommentItem({ comment, profile, currentUserId, onReply, onLikeToggle, onDelete, children }) {
+  const you = currentUserId === comment.user_id;
+  return (
+    <div className="flex gap-3">
+      <div className="w-9 h-9 rounded-full overflow-hidden bg-gray-100 shrink-0">
+        {profile?.photo_url ? (
+          <img src={profile.photo_url} alt={profile.display_name || 'user'} className="w-full h-full object-cover" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-xs text-gray-400">
+            {(profile?.display_name || 'U').slice(0, 1)}
+          </div>
+        )}
+      </div>
+      <div className="flex-1">
+        <div className="bg-accent/40 border rounded-2xl px-3 py-2">
+          <div className="text-sm font-medium">
+            {profile?.display_name || profile?.full_name || 'User'}
+            <span className="ml-2 text-xs text-muted-foreground">{timeAgo(comment.created_at)}</span>
+          </div>
+          <div className="mt-1 text-sm whitespace-pre-wrap break-words">{comment.content}</div>
+        </div>
+        <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
+          <button className="hover:underline" onClick={() => onLikeToggle(comment)}>
+            {comment.viewer_liked ? 'Unlike' : 'Like'}{comment.likes_count ? ` • ${comment.likes_count}` : ''}
+          </button>
+          <button className="hover:underline" onClick={() => onReply(comment)}>Reply</button>
+          {you && (
+            <button className="hover:underline text-red-600" onClick={() => onDelete(comment)}>Delete</button>
+          )}
+        </div>
+        {/* Children (replies) */}
+        {children && <div className="mt-3 pl-6 border-l">{children}</div>}
+      </div>
+    </div>
+  );
+}
+
+function buildTree(comments) {
+  const map = new Map();
+  comments.forEach((c) => map.set(c.id, { ...c, children: [] }));
+  const roots = [];
+  map.forEach((node) => {
+    if (node.parent_id && map.has(node.parent_id)) {
+      map.get(node.parent_id).children.push(node);
+    } else {
+      roots.push(node);
+    }
+  });
+  return roots;
+}
+
+function Comments({ articleId }) {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [replyingTo, setReplyingTo] = useState(null);
+  const [error, setError] = useState(null);
+
+  const [comments, setComments] = useState([]); // flat list
+  const [profiles, setProfiles] = useState({}); // user_id -> profile
+
+  // FIX: functional update to avoid stale closure
+  const fetchProfiles = useCallback(async (userIds) => {
+    const unique = Array.from(new Set(userIds.filter(Boolean)));
+    if (!unique.length) return;
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, display_name, full_name, handle, photo_url')
+      .in('id', unique);
+    if (!error && data) {
+      setProfiles(prev => {
+        const next = { ...prev };
+        data.forEach((p) => { next[p.id] = p; });
+        return next;
+      });
+    }
+  }, []);
+
+  const load = useCallback(async () => {
+    if (!articleId) return;
+    setLoading(true);
+    setError(null);
+    try {
+      // 1) Get comments for this article
+      const { data: rows, error: cErr } = await supabase
+        .from('article_comments')
+        .select('id, article_id, user_id, content, parent_id, created_at')
+        .eq('article_id', articleId)
+        .order('created_at', { ascending: true });
+      if (cErr) throw cErr;
+
+      const ids = rows?.map((r) => r.id) || [];
+      const userIds = rows?.map((r) => r.user_id) || [];
+
+      // 2) Fetch likes to compute counts & viewer state
+      let counts = {};
+      let viewer = new Set();
+      if (ids.length) {
+        const { data: likes, error: lErr } = await supabase
+          .from('comment_likes')
+          .select('comment_id, user_id')
+          .in('comment_id', ids);
+        if (!lErr && likes) {
+          likes.forEach((lk) => {
+            counts[lk.comment_id] = (counts[lk.comment_id] || 0) + 1;
+            if (lk.user_id === user?.id) viewer.add(lk.comment_id);
+          });
+        }
+      }
+
+      const merged = (rows || []).map((r) => ({
+        ...r,
+        likes_count: counts[r.id] || 0,
+        viewer_liked: viewer.has(r.id),
+      }));
+
+      setComments(merged);
+      await fetchProfiles(userIds);
+    } catch (err) {
+      console.error('Comments load error', err);
+      setError('Failed to load comments.');
+    } finally {
+      setLoading(false);
+    }
+  }, [articleId, user?.id, fetchProfiles]);
+
+  useEffect(() => { load(); }, [load]);
+
+  // Realtime updates
+  useEffect(() => {
+    if (!articleId) return;
+    const channel = supabase.channel(`comments:${articleId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'article_comments', filter: `article_id=eq.${articleId}` }, load)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'comment_likes' }, load)
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [articleId, load]);
+
+  const requireLogin = () => {
+    if (!user?.id) {
+      const next = typeof window !== 'undefined' ? window.location.pathname : '/';
+      navigate(`/login?next=${encodeURIComponent(next)}`);
+      return true;
+    }
+    return false;
+  };
+
+  const handlePost = async (content, parentId = null) => {
+    if (requireLogin()) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const payload = {
+        article_id: articleId,
+        user_id: user.id,
+        content: content.trim().slice(0, 2000),
+        parent_id: parentId,
+        created_at: new Date().toISOString(),
+      };
+      const { error } = await supabase.from('article_comments').insert(payload);
+      if (error) throw error;
+      setReplyingTo(null);
+      await load(); // fallback even with realtime
+    } catch (err) {
+      console.error('Post comment error', err);
+      setError('Could not post comment.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // FIX: optimistic toggle for instant feedback
+  const handleLikeToggle = async (comment) => {
+    if (requireLogin()) return;
+
+    // optimistic update
+    setComments(prev => prev.map(c =>
+      c.id === comment.id
+        ? { ...c, viewer_liked: !c.viewer_liked, likes_count: c.viewer_liked ? Math.max(0, c.likes_count - 1) : c.likes_count + 1 }
+        : c
+    ));
+
+    try {
+      if (comment.viewer_liked) {
+        const { error } = await supabase
+          .from('comment_likes')
+          .delete()
+          .eq('comment_id', comment.id)
+          .eq('user_id', user.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('comment_likes')
+          .insert({ comment_id: comment.id, user_id: user.id, created_at: new Date().toISOString() });
+        if (error) throw error;
+      }
+    } catch (err) {
+      console.error('Toggle like error', err);
+      setError('Could not update like.');
+      // revert on failure
+      setComments(prev => prev.map(c =>
+        c.id === comment.id
+          ? { ...c, viewer_liked: comment.viewer_liked, likes_count: comment.likes_count }
+          : c
+      ));
+    }
+  };
+
+  const handleDelete = async (comment) => {
+    if (requireLogin()) return;
+    if (comment.user_id !== user.id) return;
+    if (!window.confirm('Delete this comment?')) return;
+    try {
+      const { error } = await supabase
+        .from('article_comments')
+        .delete()
+        .eq('id', comment.id)
+        .eq('user_id', user.id);
+      if (error) throw error;
+      // remove locally (realtime will also update)
+      setComments(prev => prev.filter(c => c.id !== comment.id && c.parent_id !== comment.id));
+    } catch (err) {
+      console.error('Delete comment error', err);
+      setError('Could not delete comment.');
+    }
+  };
+
+  const tree = useMemo(() => buildTree(comments), [comments]);
+
+  return (
+    <section className="mt-12">
+      <h2 className="text-lg font-semibold">Comments</h2>
+      <p className="text-sm text-muted-foreground mb-3">Join the conversation — be respectful and on-topic.</p>
+
+      {/* New top-level comment */}
+      <CommentInput onSubmit={(v) => handlePost(v, null)} submitting={submitting} />
+
+      {error && <div className="mt-3 text-sm text-red-600">{error}</div>}
+
+      {/* List */}
+      <div className="mt-6 space-y-6">
+        {loading && <div className="text-sm text-muted-foreground">Loading comments…</div>}
+        {!loading && tree.length === 0 && (
+          <div className="text-sm text-muted-foreground">Be the first to comment.</div>
+        )}
+        {!loading && tree.map((c) => (
+          <div key={c.id}>
+            <CommentItem
+              comment={c}
+              profile={profiles[c.user_id]}
+              currentUserId={user?.id}
+              onReply={(cm) => setReplyingTo(cm)}
+              onLikeToggle={handleLikeToggle}
+              onDelete={handleDelete}
+            >
+              {/* Replies */}
+              {c.children?.length > 0 && (
+                <div className="space-y-4">
+                  {c.children.map((r) => (
+                    <CommentItem
+                      key={r.id}
+                      comment={r}
+                      profile={profiles[r.user_id]}
+                      currentUserId={user?.id}
+                      onReply={(cm) => setReplyingTo(cm)}
+                      onLikeToggle={handleLikeToggle}
+                      onDelete={handleDelete}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {/* Reply box */}
+              {replyingTo?.id === c.id && (
+                <div className="mt-3">
+                  <CommentInput
+                    placeholder={`Reply to ${profiles[c.user_id]?.display_name || 'comment'}…`}
+                    onSubmit={(v) => handlePost(v, c.id)}
+                    submitting={submitting}
+                  />
+                  <div className="mt-2">
+                    <Button variant="ghost" size="sm" onClick={() => setReplyingTo(null)}>Cancel</Button>
+                  </div>
+                </div>
+              )}
+            </CommentItem>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
 }
 
 export default function ArticlePage() {
@@ -92,7 +446,7 @@ export default function ArticlePage() {
 
       try {
         const { data: aData, error } = await supabase
-          .from('profiles') // your table (confirmed in screenshots)
+          .from('profiles') // your table
           .select('id, full_name, display_name, handle, photo_url, is_public')
           .eq('id', article.author_id)
           .maybeSingle();
@@ -123,7 +477,6 @@ export default function ArticlePage() {
       setCheckingSubscription(true);
 
       try {
-        // adjust column names if different; expects `subscriber_id` & `author_id`
         const { data: subData, error } = await supabase
           .from('subscriptions')
           .select('id')
@@ -174,7 +527,6 @@ export default function ArticlePage() {
 
   // subscribe / unsubscribe toggle
   async function handleSubscribeToggle() {
-    // require login
     if (!user?.id) {
       const next = typeof window !== 'undefined' ? window.location.pathname : `/article/${article?.slug}`;
       navigate(`/login?next=${encodeURIComponent(next)}`);
@@ -197,15 +549,13 @@ export default function ArticlePage() {
 
     try {
       if (!isSubscribed) {
-        // create subscription — upsert to avoid duplicates if unique constraint exists
         const payload = {
           subscriber_id: user.id,
           author_id: article.author_id,
           created_at: new Date().toISOString()
         };
 
-        // use upsert to avoid unique constraint errors (onConflict: subscriber_id,author_id not supported here — server-side constraint recommended)
-        const { data, error } = await supabase
+        const { error } = await supabase
           .from('subscriptions')
           .insert(payload)
           .select()
@@ -215,7 +565,6 @@ export default function ArticlePage() {
         setIsSubscribed(true);
         setMessage('Subscribed successfully.');
       } else {
-        // unsubscribe: delete the record(s)
         const { error } = await supabase
           .from('subscriptions')
           .delete()
@@ -416,7 +765,7 @@ export default function ArticlePage() {
 
         <article
           className="prose prose-neutral dark:prose-invert max-w-none mt-8 prose-img:rounded-lg prose-img:border prose-h1:font-extrabold prose-h2:font-bold prose-p:leading-7"
-          dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
+          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(htmlToUse) }}
         />
 
         {message && <div className="mt-6 text-sm text-green-700">{message}</div>}
@@ -453,7 +802,7 @@ export default function ArticlePage() {
 
           {user?.id === article.author_id && (
             <>
-              <Button variant="outline" onClick={() => navigate(`/write?edit=${encodeURIComponent(article.slug)}`)}>
+              <Button variant="outline" onClick={() => navigate(`/admin/articles/edit/${encodeURIComponent(article.slug)}`)}>
                 Edit
               </Button>
               <Button variant="destructive" onClick={deleteArticle}>
@@ -462,6 +811,11 @@ export default function ArticlePage() {
             </>
           )}
         </div>
+
+        {/* ----------------------------- */}
+        {/* Comments Section */}
+        {/* ----------------------------- */}
+        <Comments articleId={article.id} />
       </div>
     </div>
   );
