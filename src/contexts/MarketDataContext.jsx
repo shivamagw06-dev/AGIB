@@ -28,7 +28,7 @@ export function MarketDataProvider({ children, pollMs = 300_000 }) {
       busy.current = true;
       try {
         const data = await getMarketIntelligence();
-        if (!cancelled) setIntelligence({ ...EMPTY, ...data });
+        if (!cancelled && data) setIntelligence({ ...EMPTY, ...data });
       } catch {
         /* keep last good data */
       } finally {

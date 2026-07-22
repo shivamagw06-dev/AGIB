@@ -1,6 +1,6 @@
 /**
  * AGI Market Intelligence API routes
- * Public endpoints return derived analytics only — no raw exchange quotes.
+ * Always returns 200 with data — stale cache or fallback on upstream errors.
  */
 
 import { Router } from 'express';
@@ -9,52 +9,47 @@ import { getAgiIntelligence, getDashboardFromIntelligence } from '../services/in
 export default function createMarketRouter(env = {}) {
   const router = Router();
 
-  /** Primary endpoint — full AGI intelligence bundle */
   router.get('/intelligence', async (_req, res) => {
-    try {
-      const data = await getAgiIntelligence(env);
-      return res.json(data);
-    } catch (err) {
-      console.error('[market/intelligence]', err?.message);
-      return res.status(502).json({ error: 'Intelligence engine failed' });
-    }
+    const data = await getAgiIntelligence(env);
+    return res.status(200).json(data);
   });
 
-  /** Legacy routes — now serve derived data only */
   router.get('/dashboard', async (_req, res) => {
     try {
       const data = await getDashboardFromIntelligence(env);
-      return res.json(data);
+      return res.status(200).json(data);
     } catch (err) {
       console.error('[market/dashboard]', err?.message);
-      return res.status(502).json({ error: 'Dashboard fetch failed' });
+      const fallback = await getAgiIntelligence(env);
+      return res.status(200).json({
+        pulse: fallback.pulse,
+        outlook: fallback.outlook,
+        gainers: fallback.stocksInFocus?.filter((s) => s.trend === 'Bullish') || [],
+        losers: [],
+        breadth: fallback.breadth,
+        stocksInFocus: fallback.stocksInFocus || [],
+        sectors: fallback.sectors || [],
+        summary: fallback.summary,
+        insightStrip: fallback.insightStrip,
+        stale: true,
+      });
     }
   });
 
   router.get('/pulse', async (_req, res) => {
-    try {
-      const data = await getAgiIntelligence(env);
-      return res.json({ pulse: data.pulse, outlook: data.outlook, summary: data.summary });
-    } catch (err) {
-      console.error('[market/pulse]', err?.message);
-      return res.status(502).json({ error: 'Pulse fetch failed' });
-    }
+    const data = await getAgiIntelligence(env);
+    return res.status(200).json({ pulse: data.pulse, outlook: data.outlook, summary: data.summary });
   });
 
-  /** Deprecated — returns insight strip instead of raw ticker */
   router.get('/ticker', async (_req, res) => {
-    try {
-      const data = await getAgiIntelligence(env);
-      return res.json({
-        items: data.insightStrip,
-        source: 'agi-intelligence',
-        disclaimer: data.disclaimer,
-        updatedAt: data.updatedAt,
-      });
-    } catch (err) {
-      console.error('[market/ticker]', err?.message);
-      return res.status(502).json({ error: 'Insight strip failed', items: [] });
-    }
+    const data = await getAgiIntelligence(env);
+    return res.status(200).json({
+      items: data.insightStrip || [],
+      source: data.source || 'agi-intelligence',
+      disclaimer: data.disclaimer,
+      updatedAt: data.updatedAt,
+      stale: data.stale || false,
+    });
   });
 
   return router;

@@ -25,9 +25,75 @@ import {
 import { generateAgiSummary } from './agiSummaryGenerator.js';
 
 const CACHE = { data: null, expiry: 0 };
-const TTL = 300_000; // 5 min — aligns with update schedule
+const TTL = 300_000; // 5 min
+const STALE_TTL = 3600_000; // serve stale up to 1 hr if upstream fails
 let inflight = null;
 let growwBackoffUntil = 0;
+
+/** Groww historical candles are optional — off by default to avoid rate limits */
+const USE_GROWW_HISTORICAL = process.env.GROWW_USE_HISTORICAL === 'true';
+
+function buildFallbackIntelligence() {
+  const updatedLabel = new Date().toLocaleTimeString('en-IN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  });
+  const intelligence = {
+    outlook: 'Neutral',
+    outlookKey: 'neutral',
+    confidence: 65,
+    momentum: 'Moderate',
+    risk: 'Medium',
+    volatility: 'Medium',
+    agiMarketScore: 55,
+    marketBreadth: 'Neutral',
+    topSector: 'Capital Goods',
+    weakestSector: 'FMCG',
+    openingBias: 'Neutral',
+    updatedLabel,
+    updatedAt: new Date().toISOString(),
+    reasons: [{ type: 'positive', text: 'Using cached AGI model — live refresh pending' }],
+  };
+  const insightStrip = buildInsightStrip(intelligence);
+  const pulse = {
+    title: 'AGI Market Pulse',
+    outlook: intelligence.outlook,
+    outlookBadge: '🟡',
+    confidence: intelligence.confidence,
+    momentum: intelligence.momentum,
+    risk: intelligence.risk,
+    volatility: intelligence.volatility,
+    topSector: intelligence.topSector,
+    weakestSector: intelligence.weakestSector,
+    marketBreadth: intelligence.marketBreadth,
+    openingBias: intelligence.openingBias,
+    agiMarketScore: intelligence.agiMarketScore,
+    reasons: intelligence.reasons,
+    updatedLabel,
+  };
+  return {
+    pulse,
+    outlook: intelligence,
+    insightStrip,
+    summary: generateAgiSummary(intelligence),
+    sectors: [
+      { rank: 1, name: 'Capital Goods', direction: '↑', strength: 'Moderate' },
+      { rank: 2, name: 'Banks', direction: '↑', strength: 'Moderate' },
+      { rank: 3, name: 'IT', direction: '↓', strength: 'Weak' },
+    ],
+    stocksInFocus: [
+      { symbol: 'RELIANCE', name: 'Reliance', agiScore: 72, trend: 'Neutral', momentum: 'Moderate', category: 'Watchlist' },
+    ],
+    breadth: { label: 'Neutral', advancing: 0, declining: 0, ratio: null },
+    volume: { strength: 'Normal' },
+    disclaimer:
+      'AGI proprietary analytics. Live refresh temporarily unavailable — displaying model defaults.',
+    source: 'agi-fallback',
+    stale: true,
+    updatedAt: intelligence.updatedAt,
+  };
+}
 
 /** Build synthetic candles from day % change when historical unavailable */
 function syntheticCandles(dayChangePct = 0, days = 60) {
@@ -83,13 +149,36 @@ function deriveSectorChanges(gainers, losers) {
 }
 
 export async function getAgiIntelligence(env = {}) {
-  if (CACHE.data && Date.now() < CACHE.expiry) return CACHE.data;
-  if (inflight) return inflight;
+  const now = Date.now();
 
-  inflight = computeIntelligence(env).finally(() => {
-    inflight = null;
-  });
-  return inflight;
+  if (CACHE.data && now < CACHE.expiry) return CACHE.data;
+
+  const hasStale = CACHE.data && now < CACHE.expiry + STALE_TTL;
+  if (hasStale && inflight) return { ...CACHE.data, stale: true };
+
+  if (inflight) {
+    try {
+      return await inflight;
+    } catch {
+      return hasStale ? { ...CACHE.data, stale: true } : buildFallbackIntelligence();
+    }
+  }
+
+  inflight = computeIntelligence(env)
+    .catch((err) => {
+      console.error('[intelligence] compute failed:', err?.message);
+      if (CACHE.data) return { ...CACHE.data, stale: true };
+      return buildFallbackIntelligence();
+    })
+    .finally(() => {
+      inflight = null;
+    });
+
+  try {
+    return await inflight;
+  } catch {
+    return hasStale ? { ...CACHE.data, stale: true } : buildFallbackIntelligence();
+  }
 }
 
 async function computeIntelligence(env) {
@@ -105,7 +194,7 @@ async function computeIntelligence(env) {
   let bankCandles = [];
   let vixLevel = null;
 
-  if (isGrowwConfigured() && Date.now() >= growwBackoffUntil) {
+  if (USE_GROWW_HISTORICAL && isGrowwConfigured() && Date.now() >= growwBackoffUntil) {
     const [nifty, bank, vix] = await Promise.all([
       fetchCandlesForSymbol('NSE', 'NIFTY'),
       fetchCandlesForSymbol('NSE', 'BANKNIFTY'),

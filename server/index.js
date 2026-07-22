@@ -48,8 +48,23 @@ app.use(cors({
   credentials: true,
 }));
 
-// Rate limiting
-const apiLimiter = rateLimit({ windowMs: 60_000, max: 120, standardHeaders: true, legacyHeaders: false });
+// Rate limiting — AGI market intelligence has its own limiter (cached, low churn)
+const apiLimiter = rateLimit({
+  windowMs: 60_000,
+  max: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => {
+    const p = (req.path || req.url || '').split('?')[0];
+    return /\/market\/(intelligence|dashboard|pulse|ticker)\/?$/.test(p);
+  },
+});
+const marketIntelLimiter = rateLimit({
+  windowMs: 60_000,
+  max: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 const researchLimiter = rateLimit({ windowMs: 60_000, max: 30, standardHeaders: true, legacyHeaders: false });
 app.use('/api', apiLimiter);
 app.use('/research', researchLimiter);
@@ -162,7 +177,7 @@ const marketRouter = createMarketRouter({
   indianApiKey: API_KEY,
   indianApiBase: BASE_URL,
 });
-app.use('/api/market', marketRouter);
+app.use('/api/market', marketIntelLimiter, marketRouter);
 
 /* ---------- /api/perplexity/deals ----------
    Ask Perplexity for a strict JSON array of deals with these fields:
