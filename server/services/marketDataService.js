@@ -5,11 +5,12 @@
 
 import { isGrowwConfigured, fetchGrowwTicker } from '../providers/groww.js';
 import { fetchNseIndices, fetchCommodities, fetchTrending } from '../providers/fallback.js';
+import { MARKET_REFRESH_MS } from '../config/marketRefresh.js';
 import { computeMarketOutlook, computeMarketPulse } from './marketOutlookEngine.js';
 
 const CACHE = { ticker: null, tickerExpiry: 0, dashboard: null, dashboardExpiry: 0 };
-const TICKER_TTL = 120_000;
-const DASHBOARD_TTL = 180_000;
+const TICKER_TTL = MARKET_REFRESH_MS;
+const DASHBOARD_TTL = MARKET_REFRESH_MS;
 
 let tickerInflight = null;
 let dashboardInflight = null;

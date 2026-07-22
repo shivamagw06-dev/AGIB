@@ -23,10 +23,11 @@ import {
   buildInsightStrip,
 } from './marketIntelligenceEngine.js';
 import { generateAgiSummary } from './agiSummaryGenerator.js';
+import { MARKET_REFRESH_MS } from '../config/marketRefresh.js';
 
 const CACHE = { data: null, expiry: 0 };
-const TTL = 300_000; // 5 min
-const STALE_TTL = 3600_000; // serve stale up to 1 hr if upstream fails
+const TTL = MARKET_REFRESH_MS;
+const STALE_TTL = 3600_000;
 let inflight = null;
 let growwBackoffUntil = 0;
 

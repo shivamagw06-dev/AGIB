@@ -41,7 +41,9 @@ GROWW_ACCESS_TOKEN=...   # or GROWW_API_KEY + GROWW_API_SECRET
 
 ## Update schedule
 
-Engine recalculates every 5 minutes (configurable via `TTL` in `intelligenceService.js`).
+Engine recalculates every **10 minutes** (server cache + client session cache).
+
+Clients logging in within the same 10-minute window reuse cached data — no extra API calls to Groww.
 
 ## Before launch
 
