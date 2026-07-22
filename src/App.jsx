@@ -23,44 +23,19 @@ import PublicProfile from '@/pages/PublicProfile';
 import LoginPage from '@/components/LoginPage';
 import ArticlePage from '@/components/ArticlePage';
 import NotFound from '@/components/NotFound';
-import Business from '@/components/Business.jsx'; // ✅ explicitly use .jsx
-import MarketBrief from "@/components/Home/MarketBrief";
+import Business from '@/components/Business.jsx';
 import FeaturedResearch from "@/components/Home/FeaturedResearch";
 import LatestResearch from "@/components/Home/LatestResearch";
-import MarketDashboard from "@/components/Home/MarketDashboard";
 import ResearchTicker from "@/components/Layout/ResearchTicker";
-import { MarketOverviewProvider } from "@/contexts/MarketOverviewContext";
-import MarketPulse from "@/components/markets/MarketPulse";
-import IpoWatch from "@/components/markets/IpoWatch";
-import MutualFundsSpotlight from "@/components/markets/MutualFundsSpotlight";
-import StockSearchBar from "@/components/markets/StockSearchBar";
 
-// Lazy-load heavier or less-frequently-used sections
 const Opinions = React.lazy(() => import('@/components/Opinions'));
-const MarketsPage = React.lazy(() => import('@/components/MarketsPage'));
+const Markets = React.lazy(() => import('@/pages/Markets'));
 const OnePageWealthTools = React.lazy(() => import('@/components/OnePageWealthTools'));
 
 function HomeLayout() {
   return (
     <div className="bg-slate-950">
-
       <Hero />
-
-      <section className="bg-slate-950 py-12 border-b border-white/5">
-        <div className="max-w-7xl mx-auto px-6">
-          <StockSearchBar />
-        </div>
-      </section>
-
-      <MarketDashboard />
-
-      <MarketPulse />
-
-      <MarketBrief />
-
-      <IpoWatch />
-
-      <MutualFundsSpotlight />
 
       <CategoryNavigation />
 
@@ -70,12 +45,18 @@ function HomeLayout() {
 
       <LatestResearch />
 
-      <div className="max-w-screen-xl mx-auto px-6 py-16">
+      <section className="max-w-screen-xl mx-auto px-6 py-16">
+        <div className="mb-8">
+          <span className="text-blue-400 uppercase tracking-widest text-sm font-semibold">
+            Market News
+          </span>
+          <h2 className="mt-2 text-3xl font-bold text-white">Latest Headlines</h2>
+          <p className="mt-2 text-slate-400">Powered by IndianAPI · updated throughout the day</p>
+        </div>
         <LatestNews max={6} />
-      </div>
+      </section>
 
       <Newsletter />
-
     </div>
   );
 }
@@ -93,7 +74,7 @@ function AppShell() {
   }
 
   return (
-    <MarketOverviewProvider>
+    <>
       <Header />
       <ResearchTicker />
       <main>
@@ -103,7 +84,7 @@ function AppShell() {
       </main>
       <Footer />
       <Toaster />
-    </MarketOverviewProvider>
+    </>
   );
 }
 
@@ -122,8 +103,8 @@ function PublicRoutes() {
       <Route path="/sections/deal-tracker" element={<DealTracker />} />
       <Route path="/deal-tracker" element={<Navigate replace to="/sections/deal-tracker" />} />
 
-      <Route path="/sections/markets" element={<MarketsPage />} />
-      <Route path="/markets" element={<Navigate replace to="/sections/markets" />} />
+      <Route path="/markets" element={<Markets />} />
+      <Route path="/sections/markets" element={<Navigate replace to="/markets" />} />
 
       <Route path="/sections/opinions-editorials" element={<Opinions />} />
       <Route path="/opinions-editorials" element={<Navigate replace to="/sections/opinions-editorials" />} />
@@ -168,12 +149,9 @@ function App() {
       const apiUrl = import.meta.env.VITE_API_URL || null;
       if (apiUrl) {
         window.API_URL = apiUrl;
-        console.log('[App] VITE_API_URL:', apiUrl);
-      } else {
-        console.warn('[App] VITE_API_URL is not defined. Check your .env.local');
       }
-    } catch (err) {
-      console.error('[App] Error reading VITE_API_URL', err);
+    } catch {
+      /* ignore */
     }
   }, []);
 
