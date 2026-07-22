@@ -13,7 +13,7 @@ const DEFAULT_CATEGORIES = ['All', 'Finance', 'Economics', 'Private Equity', 'M&
  * Props:
  *   section?: string  -> filters by articles.section in DB (e.g., 'Research Notes')
  */
-export default function ArticlesFeed({ section }) {
+export default function ArticlesFeed({ section, variant = 'light' }) {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [articles, setArticles] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -76,10 +76,11 @@ export default function ArticlesFeed({ section }) {
       ? articles
       : articles.filter((a) => a.category === selectedCategory);
 
-  const pageTitle = section || 'Research Library';
+  const pageTitle = section || 'Research';
+  const isLight = variant === 'light';
 
   return (
-    <div className="bg-slate-950 min-h-screen">
+    <div className={`min-h-screen ${isLight ? 'bg-white' : 'bg-slate-950'}`}>
       <Helmet>
         <title>{pageTitle} | Agarwal Global Investments</title>
         <meta
@@ -88,26 +89,30 @@ export default function ArticlesFeed({ section }) {
         />
       </Helmet>
 
-      <div className="border-b border-white/10">
-        <div className="max-w-7xl mx-auto px-6 py-14">
+      <div className={`border-b ${isLight ? 'border-slate-200 bg-white' : 'border-white/10'}`}>
+        <div className="max-w-6xl mx-auto px-6 py-12">
           <Link
             to="/"
-            className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white mb-6 transition-colors"
+            className={`inline-flex items-center gap-2 text-sm mb-6 transition-colors ${
+              isLight ? 'text-slate-500 hover:text-slate-900' : 'text-slate-400 hover:text-white'
+            }`}
           >
             <ArrowLeft size={16} /> Back to Home
           </Link>
-          <span className="text-blue-400 text-sm font-semibold uppercase tracking-widest">
+          <span className={`text-sm font-semibold uppercase tracking-widest ${isLight ? 'text-blue-700' : 'text-blue-400'}`}>
             Research
           </span>
-          <h1 className="mt-2 text-4xl md:text-5xl font-bold text-white">{pageTitle}</h1>
-          <p className="mt-4 text-slate-400 text-lg max-w-2xl">
-            Expert commentary on global finance, economics, and investment trends.
+          <h1 className={`mt-2 text-3xl md:text-4xl font-bold tracking-tight ${isLight ? 'text-slate-900' : 'text-white'}`}>
+            {pageTitle}
+          </h1>
+          <p className={`mt-4 text-lg max-w-2xl ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
+            In-depth reports, sector analysis, and investment insights.
           </p>
         </div>
       </div>
 
-      <section id="articles" className="py-16">
-        <div className="max-w-7xl mx-auto px-6">
+      <section id="articles" className="py-12">
+        <div className="max-w-6xl mx-auto px-6">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -122,8 +127,10 @@ export default function ArticlesFeed({ section }) {
               onClick={() => setSelectedCategory(category)}
               className={
                 selectedCategory === category
-                  ? 'bg-blue-600 hover:bg-blue-700'
-                  : 'border-white/20 text-slate-300 hover:bg-white/10 hover:text-white'
+                  ? 'bg-blue-700 hover:bg-blue-800 text-white'
+                  : isLight
+                    ? 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                    : 'border-white/20 text-slate-300 hover:bg-white/10 hover:text-white'
               }
             >
               {category}
@@ -133,18 +140,17 @@ export default function ArticlesFeed({ section }) {
 
         {/* Grid */}
         {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-80 rounded-2xl bg-white/5 animate-pulse" />
+              <div key={i} className={`h-72 rounded-xl animate-pulse ${isLight ? 'bg-slate-100' : 'bg-white/5'}`} />
             ))}
           </div>
         ) : filteredArticles.length === 0 ? (
-          <div className="text-center py-16 rounded-2xl border border-white/10 bg-white/5">
-            <p className="text-slate-400">No articles published yet.</p>
-            <p className="text-slate-500 text-sm mt-2">Check back soon for new research.</p>
+          <div className={`text-center py-16 rounded-xl border ${isLight ? 'border-slate-200 bg-slate-50' : 'border-white/10 bg-white/5'}`}>
+            <p className={isLight ? 'text-slate-600' : 'text-slate-400'}>No articles published yet.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredArticles.map((article, index) => (
               <motion.article
                 key={article.id}
@@ -152,25 +158,29 @@ export default function ArticlesFeed({ section }) {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: index * 0.05 }}
-                className="rounded-2xl border border-white/10 bg-white/5 overflow-hidden hover:border-blue-500/40 transition-colors group flex flex-col"
+                className={`rounded-xl border overflow-hidden group flex flex-col transition-all ${
+                  isLight
+                    ? 'border-slate-200 bg-white shadow-sm hover:shadow-md hover:border-slate-300'
+                    : 'border-white/10 bg-white/5 hover:border-blue-500/40'
+                }`}
               >
                 <Link to={`/article/${article.slug}`} className="block">
-                  <div className="aspect-video bg-slate-900 relative overflow-hidden">
+                  <div className={`aspect-video relative overflow-hidden ${isLight ? 'bg-slate-100' : 'bg-slate-900'}`}>
                     <img
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                       alt={article.title}
                       src={article.image}
                     />
                     <div className="absolute top-4 left-4">
-                      <span className="bg-blue-600/90 text-white text-xs font-semibold px-3 py-1 rounded-full">
+                      <span className="bg-blue-700 text-white text-xs font-semibold px-3 py-1 rounded-full">
                         {article.category}
                       </span>
                     </div>
                   </div>
                 </Link>
 
-                <div className="p-6 flex flex-col flex-grow">
-                  <div className="flex items-center gap-4 text-xs text-slate-500 mb-3">
+                <div className="p-5 flex flex-col flex-grow">
+                  <div className={`flex items-center gap-4 text-xs mb-3 ${isLight ? 'text-slate-500' : 'text-slate-500'}`}>
                     <div className="flex items-center gap-1">
                       <Calendar className="h-3.5 w-3.5" />
                       <span>{formatDate(article.date)}</span>
@@ -181,22 +191,24 @@ export default function ArticlesFeed({ section }) {
                     </div>
                   </div>
 
-                  <Link to={`/article/${article.slug}`} className="group/title">
-                    <h3 className="text-lg font-semibold text-white mb-3 group-hover/title:text-blue-300 transition-colors line-clamp-2">
+                  <Link to={`/article/${article.slug}`}>
+                    <h3 className={`text-lg font-semibold mb-2 line-clamp-2 transition-colors ${
+                      isLight ? 'text-slate-900 group-hover:text-blue-800' : 'text-white group-hover:text-blue-300'
+                    }`}>
                       {article.title}
                     </h3>
                   </Link>
 
-                  <p className="text-slate-400 text-sm mb-4 line-clamp-3 flex-grow leading-relaxed">
+                  <p className={`text-sm mb-4 line-clamp-3 flex-grow leading-relaxed ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
                     {article.excerpt}
                   </p>
 
                   <Link
                     to={`/article/${article.slug}`}
-                    className="mt-auto inline-flex items-center text-sm text-blue-400 font-medium hover:text-blue-300"
+                    className="mt-auto inline-flex items-center text-sm text-blue-700 font-medium hover:text-blue-900"
                   >
                     Read article
-                    <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                    <ArrowRight className="ml-2 h-4 w-4" />
                   </Link>
                 </div>
               </motion.article>

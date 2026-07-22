@@ -11,47 +11,80 @@ export default function PageShell({
   backLabel = 'Back to Home',
   children,
   className = '',
+  theme = 'light',
+  wide = false,
 }) {
+  const isLight = theme === 'light';
+
   return (
-    <div className={`bg-slate-950 min-h-screen ${className}`}>
+    <div
+      className={`min-h-screen ${isLight ? 'bg-white' : 'bg-slate-950'} ${className}`}
+    >
       <Helmet>
         <title>{metaTitle || `${title} | Agarwal Global Investments`}</title>
         {description && <meta name="description" content={description} />}
       </Helmet>
 
-      <div className="border-b border-white/10 bg-slate-950">
-        <div className="max-w-4xl mx-auto px-6 py-14 lg:py-16">
+      <div className={`border-b ${isLight ? 'border-slate-200 bg-white' : 'border-white/10 bg-slate-950'}`}>
+        <div className={`${wide ? 'max-w-6xl' : 'max-w-4xl'} mx-auto px-6 py-12 lg:py-14`}>
           <Link
             to={backTo}
-            className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white mb-8 transition-colors"
+            className={`inline-flex items-center gap-2 text-sm mb-6 transition-colors ${
+              isLight ? 'text-slate-500 hover:text-slate-900' : 'text-slate-400 hover:text-white'
+            }`}
           >
             <ArrowLeft size={16} />
             {backLabel}
           </Link>
           {eyebrow && (
-            <span className="text-blue-400 text-sm font-semibold uppercase tracking-widest">
+            <span
+              className={`text-sm font-semibold uppercase tracking-widest ${
+                isLight ? 'text-blue-700' : 'text-blue-400'
+              }`}
+            >
               {eyebrow}
             </span>
           )}
-          <h1 className="mt-3 text-3xl md:text-4xl lg:text-5xl font-bold text-white tracking-tight">
+          <h1
+            className={`mt-2 text-3xl md:text-4xl font-bold tracking-tight ${
+              isLight ? 'text-slate-900' : 'text-white'
+            }`}
+          >
             {title}
           </h1>
           {description && (
-            <p className="mt-4 text-lg text-slate-400 max-w-3xl leading-relaxed">{description}</p>
+            <p
+              className={`mt-4 text-lg max-w-3xl leading-relaxed ${
+                isLight ? 'text-slate-600' : 'text-slate-400'
+              }`}
+            >
+              {description}
+            </p>
           )}
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-6 py-12 lg:py-16">{children}</div>
+      <div className={`${wide ? 'max-w-6xl' : 'max-w-4xl'} mx-auto px-6 py-10 lg:py-14`}>
+        {children}
+      </div>
     </div>
   );
 }
 
-export function LegalSection({ title, children }) {
+export function LegalSection({ title, children, theme = 'light' }) {
+  const isLight = theme === 'light';
   return (
     <section className="mb-10">
-      <h2 className="text-xl font-semibold text-white mb-3">{title}</h2>
-      <div className="text-slate-300 leading-relaxed space-y-3 text-[15px]">{children}</div>
+      <h2 className={`text-xl font-semibold mb-3 ${isLight ? 'text-slate-900' : 'text-white'}`}>
+        {title}
+      </h2>
+      <div
+        className={`leading-relaxed space-y-3 text-[15px] ${
+          isLight ? 'text-slate-700' : 'text-slate-300'
+        }`}
+      >
+        {children}
+      </div>
     </section>
   );
 }

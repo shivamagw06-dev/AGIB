@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Menu, X, User, LogOut, Sun, Moon, Edit2 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -61,28 +61,32 @@ const Header = ({ currentPage, setCurrentPage }) => {
       mounted = false;
     };
   }, [user]);
-  const navItems = [
-    { name: "Research", page: "research", path: "/sections/live-articles" },
-    { name: "Markets", page: "markets", path: "/markets" },
-    { name: "Economy", page: "economy", path: "/sections/research-notes" },
-    { name: "Companies", page: "companies", path: "/sections/live-articles" },
-    { name: "Private Markets", page: "private-markets", path: "/sections/deal-tracker" },
-    { name: "Business", page: "business", path: "/business" },
-    { name: "Insights", page: "insights", path: "/sections/opinions-editorials" },
-    { name: "About", page: "about", path: "/about" },
-  ];
-  const handleNavClick = (page, path) => {
-    if (typeof setCurrentPage === 'function') {
-      try {
-        setCurrentPage(page);
-      } catch (err) {
-        // ignore setCurrentPage errors
-      }
-    }
 
-    if (path) navigate(path);
+  const location = useLocation();
+
+  const navItems = [
+    { name: 'Home', path: '/' },
+    { name: 'Market Updates', path: '/market-updates' },
+    { name: 'Research', path: '/research' },
+    { name: 'Company Updates', path: '/company-updates' },
+    { name: 'About', path: '/about' },
+    { name: 'Contact', path: '/contact' },
+  ];
+
+  const isActive = (path) => {
+    if (path === '/') return location.pathname === '/';
+    if (path === '/market-updates') {
+      return location.pathname === '/market-updates' || location.pathname.startsWith('/updates/');
+    }
+    if (path === '/research') {
+      return location.pathname === '/research' || location.pathname.startsWith('/sections/live-articles');
+    }
+    return location.pathname === path || location.pathname.startsWith(`${path}/`);
+  };
+
+  const handleNavClick = (path) => {
+    navigate(path);
     setMobileMenuOpen(false);
-    // small delay so navigation begins then scroll — avoids jumping when route changes instantly
     setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 50);
   };
 
@@ -100,41 +104,38 @@ const Header = ({ currentPage, setCurrentPage }) => {
   };
 
   return (
-    <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
-      <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-slate-200">
+      <nav className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
-          {/* Logo */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             className="flex items-center cursor-pointer"
-            onClick={() => handleNavClick('home', '/')}
+            onClick={() => handleNavClick('/')}
             role="button"
             tabIndex={0}
-            onKeyDown={(e) => e.key === 'Enter' && handleNavClick('home', '/')}
+            onKeyDown={(e) => e.key === 'Enter' && handleNavClick('/')}
           >
-            <span className="text-xl md:text-2xl font-bold bg-gradient-to-r from-primary to-purple-800 bg-clip-text text-transparent">
+            <span className="text-xl font-bold text-slate-900 tracking-tight">
               AGI
             </span>
           </motion.div>
 
-          {/* Desktop Navigation */}
-          <div className="hidden lg:flex items-center space-x-4">
+          <div className="hidden lg:flex items-center gap-1">
             {navItems.map((item) => (
-              <motion.button
-                key={item.page}
-                onClick={() => handleNavClick(item.page, item.path)}
-                className={`text-sm font-medium transition-colors whitespace-nowrap px-2 py-1 rounded-md ${
-                  currentPage === item.page
-                    ? 'text-primary bg-primary/10'
-                    : 'text-foreground/70 hover:text-primary hover:bg-primary/5'
+              <button
+                key={item.path}
+                type="button"
+                onClick={() => handleNavClick(item.path)}
+                className={`text-sm font-medium transition-colors whitespace-nowrap px-3 py-2 rounded-md ${
+                  isActive(item.path)
+                    ? 'text-blue-800 bg-blue-50'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
                 }`}
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.98 }}
-                aria-current={currentPage === item.page ? 'page' : undefined}
+                aria-current={isActive(item.path) ? 'page' : undefined}
               >
                 {item.name}
-              </motion.button>
+              </button>
             ))}
 
             {/* Admin-only Write button */}
@@ -248,13 +249,16 @@ const Header = ({ currentPage, setCurrentPage }) => {
             exit={{ opacity: 0, height: 0 }}
             className="lg:hidden overflow-hidden"
           >
-            <div className="py-4 border-t border-border flex flex-col items-start">
+            <div className="py-4 border-t border-slate-200 flex flex-col items-start bg-white">
               {navItems.map((item) => (
                 <button
-                  key={item.page}
-                  onClick={() => handleNavClick(item.page, item.path)}
+                  key={item.path}
+                  type="button"
+                  onClick={() => handleNavClick(item.path)}
                   className={`block w-full text-left px-4 py-3 text-base font-medium ${
-                    currentPage === item.page ? 'text-primary bg-primary/10' : 'text-foreground/80 hover:bg-accent'
+                    isActive(item.path)
+                      ? 'text-blue-800 bg-blue-50'
+                      : 'text-slate-700 hover:bg-slate-50'
                   }`}
                 >
                   {item.name}

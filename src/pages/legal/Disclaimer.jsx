@@ -3,6 +3,7 @@ import PageShell, { LegalSection } from '@/components/Layout/PageShell';
 export default function Disclaimer() {
   return (
     <PageShell
+      theme="light"
       eyebrow="Legal"
       title="Investment Disclaimer"
       description="Important information about the nature of content published on this platform."
@@ -10,7 +11,7 @@ export default function Disclaimer() {
     >
       <p className="text-sm text-slate-500 mb-10">Last updated: July 2026</p>
 
-      <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-5 py-4 mb-10 text-amber-100 text-sm leading-relaxed">
+      <div className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 mb-10 text-amber-900 text-sm leading-relaxed">
         Agarwal Global Investments is a research and insights platform. Nothing on this website
         constitutes investment advice, a recommendation, or a solicitation to buy or sell any security.
       </div>

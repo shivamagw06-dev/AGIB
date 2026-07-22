@@ -3,6 +3,7 @@ import PageShell, { LegalSection } from '@/components/Layout/PageShell';
 export default function TermsOfService() {
   return (
     <PageShell
+      theme="light"
       eyebrow="Legal"
       title="Terms of Service"
       description="Terms governing use of the Agarwal Global Investments research platform."

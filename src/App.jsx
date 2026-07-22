@@ -1,17 +1,15 @@
 // src/App.jsx
-import CategoryNavigation from "@/components/Home/CategoryNavigation";
 import React, { useEffect, Suspense } from 'react';
 import { Helmet, HelmetProvider } from 'react-helmet-async';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import AdminRoutes from '@/pages/admin/AdminRoutes';
 import CategoryPage from '@/pages/CategoryPage';
 import Header from "@/components/Layout/Header";
-import Hero from "@/components/Hero/Hero";
+import InstitutionalHero from "@/components/Home/InstitutionalHero";
+import ContentCategoryGrid from "@/components/Home/ContentCategoryGrid";
 import ArticlesFeed from '@/components/ArticlesFeed';
-import LatestNews from '@/components/LatestNews';
 import About from '@/components/About';
 import Contact from '@/components/Contact';
-import Newsletter from '@/components/Newsletter';
 import Footer from '@/components/Footer';
 import ResearchNotes from '@/components/ResearchNotes';
 import DealTracker from '@/components/DealTracker';
@@ -22,35 +20,22 @@ import LoginPage from '@/components/LoginPage';
 import ArticlePage from '@/components/ArticlePage';
 import NotFound from '@/components/NotFound';
 import Business from '@/components/Business.jsx';
-import LatestResearch from "@/components/Home/LatestResearch";
-import MarketsTeaser from "@/components/Home/MarketsTeaser";
+import MarketUpdates from '@/pages/MarketUpdates';
+import SectionArticlesPage from '@/pages/SectionArticlesPage';
 import Events from '@/pages/Events';
 import PrivacyPolicy from '@/pages/legal/PrivacyPolicy';
 import TermsOfService from '@/pages/legal/TermsOfService';
 import Disclaimer from '@/pages/legal/Disclaimer';
+import SebiDisclosure from '@/pages/legal/SebiDisclosure';
 
 const Opinions = React.lazy(() => import('@/components/Opinions'));
 const Markets = React.lazy(() => import('@/pages/Markets'));
-const OnePageWealthTools = React.lazy(() => import('@/components/OnePageWealthTools'));
 
 function HomeLayout() {
   return (
-    <div className="bg-slate-950">
-      <Hero />
-      <CategoryNavigation />
-      <LatestResearch />
-      <MarketsTeaser />
-      <section className="max-w-7xl mx-auto px-6 py-20">
-        <div className="mb-10">
-          <span className="text-blue-400 uppercase tracking-widest text-sm font-semibold">
-            Market News
-          </span>
-          <h2 className="mt-2 text-3xl font-bold text-white">Latest Headlines</h2>
-          <p className="mt-2 text-slate-400">Powered by IndianAPI · updated throughout the day</p>
-        </div>
-        <LatestNews max={6} variant="dark" />
-      </section>
-      <Newsletter />
+    <div className="bg-white min-h-screen">
+      <InstitutionalHero />
+      <ContentCategoryGrid />
     </div>
   );
 }
@@ -71,7 +56,7 @@ function AppShell() {
     <>
       <Header />
       <main>
-        <Suspense fallback={<div className="p-8 text-center">Loading...</div>}>
+        <Suspense fallback={<div className="p-8 text-center text-slate-600">Loading…</div>}>
           <PublicRoutes />
         </Suspense>
       </main>
@@ -85,16 +70,25 @@ function PublicRoutes() {
   return (
     <Routes>
       <Route path="/" element={<HomeLayout />} />
+
+      <Route path="/market-updates" element={<MarketUpdates />} />
+      <Route path="/updates/:sectionId" element={<SectionArticlesPage />} />
+      <Route path="/company-updates" element={<SectionArticlesPage overrideId="company-updates" />} />
+
+      <Route path="/research" element={<ArticlesFeed variant="light" />} />
+      <Route path="/sections/live-articles" element={<Navigate replace to="/research" />} />
+      <Route path="/live-articles" element={<Navigate replace to="/research" />} />
+
       <Route path="/category/:slug" element={<CategoryPage />} />
 
-      <Route path="/research" element={<Navigate replace to="/sections/live-articles" />} />
+      <Route path="/markets" element={<Markets />} />
+      <Route path="/sections/markets" element={<Navigate replace to="/markets" />} />
+
+      {/* Legacy redirects */}
       <Route path="/economy" element={<Navigate replace to="/sections/research-notes" />} />
-      <Route path="/companies" element={<Navigate replace to="/sections/live-articles" />} />
+      <Route path="/companies" element={<Navigate replace to="/company-updates" />} />
       <Route path="/private-markets" element={<Navigate replace to="/sections/deal-tracker" />} />
       <Route path="/insights" element={<Navigate replace to="/sections/opinions-editorials" />} />
-
-      <Route path="/sections/live-articles" element={<ArticlesFeed />} />
-      <Route path="/live-articles" element={<Navigate replace to="/sections/live-articles" />} />
 
       <Route path="/sections/research-notes" element={<ResearchNotes />} />
       <Route path="/research-notes" element={<Navigate replace to="/sections/research-notes" />} />
@@ -102,17 +96,10 @@ function PublicRoutes() {
       <Route path="/sections/deal-tracker" element={<DealTracker />} />
       <Route path="/deal-tracker" element={<Navigate replace to="/sections/deal-tracker" />} />
 
-      <Route path="/markets" element={<Markets />} />
-      <Route path="/sections/markets" element={<Navigate replace to="/markets" />} />
-
       <Route path="/sections/opinions-editorials" element={<Opinions />} />
       <Route path="/opinions-editorials" element={<Navigate replace to="/sections/opinions-editorials" />} />
 
-      <Route path="/wealth-management" element={<OnePageWealthTools />} />
-      <Route path="/sections/wealth-management" element={<Navigate replace to="/wealth-management" />} />
-
       <Route path="/business" element={<Business />} />
-      <Route path="/sections/business" element={<Navigate replace to="/business" />} />
 
       <Route path="/events" element={<Events />} />
       <Route path="/events-webinars" element={<Navigate replace to="/events" />} />
@@ -120,6 +107,7 @@ function PublicRoutes() {
       <Route path="/privacy" element={<PrivacyPolicy />} />
       <Route path="/terms" element={<TermsOfService />} />
       <Route path="/disclaimer" element={<Disclaimer />} />
+      <Route path="/sebi-disclosure" element={<SebiDisclosure />} />
 
       <Route path="/login" element={<LoginPage />} />
       <Route path="/article/:slug" element={<ArticlePage />} />
@@ -153,12 +141,12 @@ function App() {
   return (
     <HelmetProvider>
       <BrowserRouter>
-        <div className="min-h-screen bg-background">
+        <div className="min-h-screen bg-white">
           <Helmet>
-            <title>Agarwal Global Investments - Insights that Power Investment Decisions</title>
+            <title>Agarwal Global Investments — Market Research for Indian Investors</title>
             <meta
               name="description"
-              content="Independent research and live insights on finance, economics, private equity & M&A. Stay informed with Agarwal Global Investments."
+              content="Daily market updates, company research, earnings analysis, and actionable investment insights for Indian investors."
             />
             <link rel="preconnect" href="https://fonts.googleapis.com" />
             <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
