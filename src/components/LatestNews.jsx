@@ -9,7 +9,8 @@ const AUTO_REFRESH_INTERVAL = 2 * 60 * 60 * 1000; // 2 hours
 
 /* ---------- helpers ---------- */
 function buildApiBase() {
-  const origin = (API_ORIGIN || "").replace(/\/+$/, "");
+  const origin =
+    (API_ORIGIN || import.meta.env.VITE_API_URL || "").replace(/\/+$/, "");
   return origin ? `${origin}/api` : "/api";
 }
 

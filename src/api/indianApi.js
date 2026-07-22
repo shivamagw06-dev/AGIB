@@ -1,8 +1,20 @@
 // Market-data requests go through the Express proxy (local dev or Render in production).
 import { API_ORIGIN } from "../config";
 
+function resolveOrigin() {
+  if (API_ORIGIN) return String(API_ORIGIN).replace(/\/+$/, "");
+  // Fallback: Vite inlines import.meta.env.VITE_API_URL at build time.
+  const fromEnv = import.meta.env.VITE_API_URL;
+  if (fromEnv) return String(fromEnv).replace(/\/+$/, "");
+  if (typeof window !== "undefined") {
+    const host = window.location.hostname;
+    if (host === "localhost" || host === "127.0.0.1") return "http://localhost:5000";
+  }
+  return "";
+}
+
 function apiBase() {
-  const origin = (API_ORIGIN || "").replace(/\/+$/, "");
+  const origin = resolveOrigin();
   return origin ? `${origin}/api` : "/api";
 }
 
