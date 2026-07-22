@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import SearchButton from "@/components/layout/SearchButton";
+import SearchButton from "@/components/Layout/SearchButton";
 import {
   DropdownMenu,
   DropdownMenuContent,

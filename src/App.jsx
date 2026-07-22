@@ -7,7 +7,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import AdminRoutes from '@/pages/admin/AdminRoutes';
 import CategoryPage from '@/pages/CategoryPage';
 import Header from "@/components/Layout/Header";
-import Hero from "@/components/hero/Hero";
+import Hero from "@/components/Hero/Hero";
 import ArticlesFeed from '@/components/ArticlesFeed';
 import LatestNews from '@/components/LatestNews';
 import About from '@/components/About';
@@ -28,7 +28,7 @@ import MarketBrief from "@/components/Home/MarketBrief";
 import FeaturedResearch from "@/components/Home/FeaturedResearch";
 import LatestResearch from "@/components/Home/LatestResearch";
 import MarketDashboard from "@/components/Home/MarketDashboard";
-import ResearchTicker from "@/components/layout/ResearchTicker";
+import ResearchTicker from "@/components/Layout/ResearchTicker";
 
 // Lazy-load heavier or less-frequently-used sections
 const Opinions = React.lazy(() => import('@/components/Opinions'));
