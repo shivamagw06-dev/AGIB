@@ -1,10 +1,9 @@
 import { useMarketDataContext } from '@/contexts/MarketDataContext';
 
-export default function useMarketTicker() {
+export default function useMarketIntelligence() {
   const { intelligence, loading } = useMarketDataContext();
   return {
-    items: intelligence.insightStrip || [],
+    ...intelligence,
     loading,
-    source: 'agi-intelligence',
   };
 }

@@ -1,41 +1,16 @@
-import { useEffect, useState } from 'react';
-import { getMarketDashboard } from '@/api/marketApi';
+import { useMarketDataContext } from '@/contexts/MarketDataContext';
 
-const EMPTY = {
-  pulse: null,
-  outlook: null,
-  gainers: [],
-  losers: [],
-  breadth: { gainers: 0, losers: 0, label: 'Mixed' },
-  stocksInFocus: [],
-};
-
-export default function useMarketDashboard(pollMs = 120_000) {
-  const [data, setData] = useState(EMPTY);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
-      try {
-        const dashboard = await getMarketDashboard();
-        if (cancelled) return;
-        setData({ ...EMPTY, ...dashboard });
-      } catch {
-        if (!cancelled) setData(EMPTY);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-
-    load();
-    const id = setInterval(load, pollMs);
-    return () => {
-      cancelled = true;
-      clearInterval(id);
-    };
-  }, [pollMs]);
-
-  return { ...data, loading };
+export default function useMarketDashboard() {
+  const { intelligence, loading } = useMarketDataContext();
+  return {
+    pulse: intelligence.pulse,
+    outlook: intelligence.outlook,
+    gainers: intelligence.stocksInFocus?.filter((s) => s.trend === 'Bullish') || [],
+    losers: intelligence.stocksInFocus?.filter((s) => s.trend === 'Bearish') || [],
+    breadth: intelligence.breadth,
+    stocksInFocus: intelligence.stocksInFocus || [],
+    sectors: intelligence.sectors || [],
+    summary: intelligence.summary,
+    loading,
+  };
 }

@@ -1,0 +1,272 @@
+/**
+ * AGI Intelligence Service — orchestrates Groww data → calculations → public-safe output.
+ * Raw exchange prices never exposed to frontend.
+ */
+
+import { normalizeCandles } from '../lib/indicators.js';
+import {
+  isGrowwConfigured,
+  getHistoricalCandles,
+  INDEX_SYMBOLS,
+  TRACKED_STOCKS,
+} from '../providers/groww.js';
+import { fetchTrending } from '../providers/fallback.js';
+import {
+  computeTrendScore,
+  computeMomentum,
+  computeVolatility,
+  computeBreadth,
+  computeSectorStrength,
+  computeOpeningBias,
+  computeStockAgiScore,
+  computeAgiMarketScore,
+  buildInsightStrip,
+} from './marketIntelligenceEngine.js';
+import { generateAgiSummary } from './agiSummaryGenerator.js';
+
+const CACHE = { data: null, expiry: 0 };
+const TTL = 300_000; // 5 min — aligns with update schedule
+let inflight = null;
+let growwBackoffUntil = 0;
+
+/** Build synthetic candles from day % change when historical unavailable */
+function syntheticCandles(dayChangePct = 0, days = 60) {
+  let price = 100;
+  const dailyDrift = dayChangePct / 100 / Math.max(days, 1);
+  const candles = [];
+  for (let i = 0; i < days; i++) {
+    const open = price;
+    price = price * (1 + dailyDrift);
+    candles.push({
+      open,
+      high: Math.max(open, price) * 1.001,
+      low: Math.min(open, price) * 0.999,
+      close: price,
+      volume: 1000000,
+    });
+  }
+  return candles;
+}
+
+async function fetchCandlesForSymbol(exchange, symbol) {
+  if (!isGrowwConfigured() || Date.now() < growwBackoffUntil) return [];
+  try {
+    const raw = await getHistoricalCandles(exchange, 'CASH', symbol, 120);
+    return normalizeCandles(raw);
+  } catch (err) {
+    if (/rate limit/i.test(String(err?.message))) {
+      growwBackoffUntil = Date.now() + 5 * 60_000;
+    }
+    return [];
+  }
+}
+
+function deriveSectorChanges(gainers, losers) {
+  const sectorMap = {
+    BEL: 'Defence', HAL: 'Defence', LANDT: 'Capital Goods', ABB: 'Capital Goods',
+    RELIANCE: 'Energy', HDFCBANK: 'Banks', ICICIBANK: 'Banks', INFY: 'IT', TCS: 'IT',
+    SUNPHARMA: 'Pharma', ITC: 'FMCG', HINDUNILVR: 'FMCG',
+  };
+  const buckets = {};
+  for (const row of [...gainers, ...losers]) {
+    const sym = String(row.ticker || row.symbol || row.company || '').split(' ')[0].toUpperCase();
+    const sector = sectorMap[sym] || 'Others';
+    const ch = Number(row.percent_change ?? row.percentChange ?? row.change ?? 0);
+    if (!buckets[sector]) buckets[sector] = [];
+    buckets[sector].push(ch);
+  }
+  const derived = Object.entries(buckets).map(([name, vals]) => ({
+    name,
+    change: vals.reduce((a, b) => a + b, 0) / vals.length,
+  }));
+  return derived.length >= 3 ? derived : null;
+}
+
+export async function getAgiIntelligence(env = {}) {
+  if (CACHE.data && Date.now() < CACHE.expiry) return CACHE.data;
+  if (inflight) return inflight;
+
+  inflight = computeIntelligence(env).finally(() => {
+    inflight = null;
+  });
+  return inflight;
+}
+
+async function computeIntelligence(env) {
+  const apiKey = env.indianApiKey || '';
+  const baseUrl = env.indianApiBase || 'https://stock.indianapi.in';
+
+  const trending = await fetchTrending(apiKey, baseUrl).catch(() => ({ gainers: [], losers: [] }));
+  const gainers = trending.gainers || [];
+  const losers = trending.losers || [];
+
+  // Fetch index candles (backend only)
+  let niftyCandles = [];
+  let bankCandles = [];
+  let vixLevel = null;
+
+  if (isGrowwConfigured() && Date.now() >= growwBackoffUntil) {
+    const [nifty, bank, vix] = await Promise.all([
+      fetchCandlesForSymbol('NSE', 'NIFTY'),
+      fetchCandlesForSymbol('NSE', 'BANKNIFTY'),
+      fetchCandlesForSymbol('NSE', 'INDIA VIX'),
+    ]);
+    niftyCandles = nifty;
+    bankCandles = bank;
+    if (vix.length) vixLevel = vix[vix.length - 1]?.close;
+  }
+
+  // Fallback synthetic candles from trending if no Groww history
+  if (niftyCandles.length < 30) {
+    const avgGain = gainers.length
+      ? gainers.reduce((s, g) => s + Number(g.percent_change ?? g.change ?? 0), 0) / gainers.length
+      : 0;
+    niftyCandles = syntheticCandles(avgGain);
+    bankCandles = syntheticCandles(avgGain * 1.1);
+  }
+
+  const trend = computeTrendScore(niftyCandles);
+  const bankTrend = computeTrendScore(bankCandles);
+  const momentum = computeMomentum(niftyCandles);
+  const volatility = computeVolatility(niftyCandles, vixLevel);
+  const breadth = computeBreadth(gainers.length || 12, losers.length || 8);
+
+  const sectorChanges = deriveSectorChanges(gainers, losers) || [
+    { name: 'Capital Goods', change: 2.8 },
+    { name: 'Defence', change: 2.4 },
+    { name: 'Power', change: 2.2 },
+    { name: 'Banks', change: 1.4 },
+    { name: 'Pharma', change: 0.6 },
+    { name: 'IT', change: -0.8 },
+    { name: 'FMCG', change: -1.2 },
+  ];
+  const sectors = computeSectorStrength(sectorChanges);
+
+  const openingBias = computeOpeningBias({
+    giftNiftyPositive: trend.score >= 55,
+    globalPositive: trend.score >= 50,
+    usdInrWeak: false,
+    crudeRising: false,
+  });
+
+  const volumeScore = gainers.length > losers.length ? 72 : 48;
+
+  const marketScore = computeAgiMarketScore({
+    trend: { score: Math.round((trend.score + bankTrend.score) / 2), label: trend.label },
+    momentum,
+    breadth,
+    volume: { score: volumeScore, label: volumeScore >= 65 ? 'Strong' : 'Normal' },
+    volatility,
+    sector: { score: 60 + sectors.rankings[0]?.rank ? 10 : 0 },
+    global: { score: openingBias.score },
+  });
+
+  const updatedLabel = new Date().toLocaleTimeString('en-IN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  });
+
+  const intelligence = {
+    ...marketScore,
+    marketBreadth: breadth.label,
+    topSector: sectors.topSector,
+    weakestSector: sectors.weakestSector,
+    sectorRotation: sectors.rotation,
+    openingBias: openingBias.label,
+    volumeStrength: volumeScore >= 65 ? 'Strong' : 'Normal',
+    updatedAt: new Date().toISOString(),
+    updatedLabel,
+  };
+
+  // Stocks in focus — AGI scores from trending data (minimize Groww calls)
+  const stocksInFocus = [];
+  const focusCandidates = gainers.slice(0, 8);
+  for (const row of focusCandidates) {
+    const sym = String(row.ticker || row.symbol || row.company || '').split(' ')[0].toUpperCase();
+    if (!sym || sym === '—') continue;
+    const ch = Number(row.percent_change ?? row.change ?? 0);
+    const candles = syntheticCandles(ch);
+    const stockIntel = computeStockAgiScore(candles);
+    stocksInFocus.push({
+      symbol: sym,
+      name: row.company || row.name || sym,
+      agiScore: stockIntel.agiScore,
+      trend: stockIntel.trend,
+      momentum: stockIntel.momentum,
+      category: ch > 2 ? 'Breakout' : 'Momentum',
+    });
+  }
+
+  // Default stocks if trending empty
+  if (stocksInFocus.length === 0) {
+    const defaults = [
+      { symbol: 'RELIANCE', name: 'Reliance', agiScore: 84, trend: 'Bullish', momentum: 'Strong' },
+      { symbol: 'BEL', name: 'BEL', agiScore: 79, trend: 'Bullish', momentum: 'Strong' },
+      { symbol: 'HAL', name: 'HAL', agiScore: 76, trend: 'Bullish', momentum: 'Moderate' },
+      { symbol: 'INFY', name: 'Infosys', agiScore: 58, trend: 'Neutral', momentum: 'Moderate' },
+    ];
+    stocksInFocus.push(...defaults.map((s) => ({ ...s, category: 'Watchlist' })));
+  }
+
+  const summary = generateAgiSummary(intelligence);
+  const insightStrip = buildInsightStrip(intelligence);
+
+  const pulse = {
+    title: 'AGI Market Pulse',
+    outlook: intelligence.outlook,
+    outlookBadge: insightStrip[0]?.value?.split(' ')[0] || '🟡',
+    confidence: intelligence.confidence,
+    momentum: intelligence.momentum,
+    risk: intelligence.risk,
+    volatility: intelligence.volatility,
+    topSector: intelligence.topSector,
+    weakestSector: intelligence.weakestSector,
+    marketBreadth: intelligence.marketBreadth,
+    openingBias: intelligence.openingBias,
+    agiMarketScore: intelligence.agiMarketScore,
+    reasons: intelligence.reasons,
+    updatedLabel,
+  };
+
+  const result = {
+    pulse,
+    outlook: intelligence,
+    insightStrip,
+    summary,
+    sectors: sectors.rankings,
+    stocksInFocus,
+    breadth: {
+      label: breadth.label,
+      advancing: breadth.advancing,
+      declining: breadth.declining,
+      ratio: breadth.ratio,
+    },
+    volume: { strength: intelligence.volumeStrength },
+    disclaimer:
+      'AGI proprietary analytics derived from licensed market inputs. Not raw exchange data. For informational purposes only — not investment advice.',
+    source: 'agi-intelligence-engine',
+    updatedAt: intelligence.updatedAt,
+  };
+
+  CACHE.data = result;
+  CACHE.expiry = Date.now() + TTL;
+  return result;
+}
+
+/** Legacy dashboard shape for existing components */
+export async function getDashboardFromIntelligence(env) {
+  const intel = await getAgiIntelligence(env);
+  return {
+    pulse: intel.pulse,
+    outlook: intel.outlook,
+    gainers: intel.stocksInFocus.filter((s) => s.trend === 'Bullish'),
+    losers: intel.stocksInFocus.filter((s) => s.trend === 'Bearish'),
+    breadth: intel.breadth,
+    stocksInFocus: intel.stocksInFocus.map((s) => s.symbol),
+    sectors: intel.sectors,
+    summary: intel.summary,
+    insightStrip: intel.insightStrip,
+    updatedAt: intel.updatedAt,
+  };
+}

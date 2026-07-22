@@ -34,7 +34,9 @@ export default function AgiMarketPulse() {
     <div className="border border-[#dddddd] bg-white">
       <div className="px-5 py-4 border-b border-[#eeeeee]">
         <h2 className="text-sm font-bold text-[#111111]">AGI Market Pulse</h2>
-        <p className="text-[11px] text-[#767676] mt-0.5">Proprietary analytics · Not raw exchange data</p>
+        <p className="text-[11px] text-[#767676] mt-0.5">
+          Proprietary analytics · AGI Score {p.agiMarketScore ?? outlook?.agiMarketScore ?? '—'}/100
+        </p>
       </div>
 
       <div className="px-5 py-2">
@@ -47,8 +49,10 @@ export default function AgiMarketPulse() {
         <PulseRow label="Momentum" value={p.momentum} />
         <PulseRow label="Risk" value={p.risk} />
         <PulseRow label="Volatility" value={p.volatility} />
-        <PulseRow label="Top Sector" value={p.topSector} />
+        <PulseRow label="Opening Bias" value={p.openingBias} />
         <PulseRow label="Market Breadth" value={p.marketBreadth} />
+        <PulseRow label="Top Sector" value={p.topSector} />
+        <PulseRow label="Weakest Sector" value={p.weakestSector} />
       </div>
 
       {reasons.length > 0 && (
@@ -66,7 +70,7 @@ export default function AgiMarketPulse() {
       )}
 
       <div className="px-5 py-2.5 border-t border-[#eeeeee] text-[10px] text-[#767676]">
-        Updated {p.updatedLabel || 'recently'}
+        Updated {p.updatedLabel || 'recently'} · Not raw exchange data
       </div>
     </div>
   );

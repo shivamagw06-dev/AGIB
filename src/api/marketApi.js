@@ -9,6 +9,7 @@ async function marketFetch(path) {
   return resp.json();
 }
 
+export const getMarketIntelligence = () => marketFetch('/intelligence');
 export const getMarketTicker = () => marketFetch('/ticker');
 export const getMarketPulse = () => marketFetch('/pulse');
 export const getMarketDashboard = () => marketFetch('/dashboard');

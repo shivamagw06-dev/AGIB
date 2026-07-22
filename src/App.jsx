@@ -6,6 +6,7 @@ import AdminRoutes from '@/pages/admin/AdminRoutes';
 import CategoryPage from '@/pages/CategoryPage';
 import Header from "@/components/Layout/Header";
 import EditorialHome from "@/components/Home/EditorialHome";
+import { MarketDataProvider } from "@/contexts/MarketDataContext";
 import ArticlesFeed from '@/components/ArticlesFeed';
 import About from '@/components/About';
 import Contact from '@/components/Contact';
@@ -54,14 +55,16 @@ function AppShell() {
 
   return (
     <>
-      <Header />
-      <main>
-        <Suspense fallback={<div className="p-8 text-center text-slate-600">Loading…</div>}>
-          <PublicRoutes />
-        </Suspense>
-      </main>
-      <Footer />
-      <Toaster />
+      <MarketDataProvider>
+        <Header />
+        <main>
+          <Suspense fallback={<div className="p-8 text-center text-slate-600">Loading…</div>}>
+            <PublicRoutes />
+          </Suspense>
+        </main>
+        <Footer />
+        <Toaster />
+      </MarketDataProvider>
     </>
   );
 }

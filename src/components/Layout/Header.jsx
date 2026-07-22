@@ -15,7 +15,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/supabaseClient';
 import { isAdmin } from '@/lib/adminAuth';
 import Logo from '@/components/Layout/Logo';
-import MarketTicker from '@/components/Layout/MarketTicker';
+import AgiInsightStrip from '@/components/Layout/AgiInsightStrip';
 import ResearchSearch from '@/components/Search/ResearchSearch';
 
 const NAV = [
@@ -211,7 +211,7 @@ export default function Header() {
         </nav>
       )}
 
-      <MarketTicker />
+      <AgiInsightStrip />
 
       {searchOpen && <ResearchSearch onClose={() => setSearchOpen(false)} />}
     </header>

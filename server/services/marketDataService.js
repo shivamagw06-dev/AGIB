@@ -8,8 +8,12 @@ import { fetchNseIndices, fetchCommodities, fetchTrending } from '../providers/f
 import { computeMarketOutlook, computeMarketPulse } from './marketOutlookEngine.js';
 
 const CACHE = { ticker: null, tickerExpiry: 0, dashboard: null, dashboardExpiry: 0 };
-const TICKER_TTL = 30_000;
-const DASHBOARD_TTL = 60_000;
+const TICKER_TTL = 120_000;
+const DASHBOARD_TTL = 180_000;
+
+let tickerInflight = null;
+let dashboardInflight = null;
+let growwBackoffUntil = 0;
 
 function findIndex(rows, ...names) {
   const set = new Set(names.map((n) => n.toUpperCase()));
@@ -28,17 +32,31 @@ function normalizeTrendingRow(row) {
 export async function getTickerData(env = {}) {
   const now = Date.now();
   if (CACHE.ticker && now < CACHE.tickerExpiry) return CACHE.ticker;
+  if (tickerInflight) return tickerInflight;
 
+  tickerInflight = fetchTickerData(env).finally(() => {
+    tickerInflight = null;
+  });
+  return tickerInflight;
+}
+
+async function fetchTickerData(env = {}) {
+  const now = Date.now();
   const apiKey = env.indianApiKey || '';
   const baseUrl = env.indianApiBase || 'https://stock.indianapi.in';
 
   let rows = [];
+  const growwAllowed = isGrowwConfigured() && now >= growwBackoffUntil;
 
-  if (isGrowwConfigured()) {
+  if (growwAllowed) {
     try {
       rows = await fetchGrowwTicker();
     } catch (err) {
-      console.warn('[marketData] Groww ticker failed:', err?.message);
+      const msg = String(err?.message || err);
+      console.warn('[marketData] Groww ticker failed:', msg);
+      if (/rate limit|too many|429/i.test(msg)) {
+        growwBackoffUntil = Date.now() + 5 * 60_000;
+      }
     }
   }
 
@@ -75,14 +93,22 @@ export async function getTickerData(env = {}) {
   };
 
   CACHE.ticker = result;
-  CACHE.tickerExpiry = now + TICKER_TTL;
+  CACHE.tickerExpiry = Date.now() + TICKER_TTL;
   return result;
 }
 
 export async function getDashboardData(env = {}) {
   const now = Date.now();
   if (CACHE.dashboard && now < CACHE.dashboardExpiry) return CACHE.dashboard;
+  if (dashboardInflight) return dashboardInflight;
 
+  dashboardInflight = fetchDashboardData(env).finally(() => {
+    dashboardInflight = null;
+  });
+  return dashboardInflight;
+}
+
+async function fetchDashboardData(env = {}) {
   const apiKey = env.indianApiKey || '';
   const baseUrl = env.indianApiBase || 'https://stock.indianapi.in';
 
@@ -141,6 +167,6 @@ export async function getDashboardData(env = {}) {
   };
 
   CACHE.dashboard = result;
-  CACHE.dashboardExpiry = now + DASHBOARD_TTL;
+  CACHE.dashboardExpiry = Date.now() + DASHBOARD_TTL;
   return result;
 }
