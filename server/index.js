@@ -388,6 +388,65 @@ reg('/api/BSE_most_active', (req, res) => proxyFetch(res, `${BASE_URL}/BSE_most_
 reg('/api/mutual_funds', (req, res) => proxyFetch(res, `${BASE_URL}/mutual_funds`));
 reg('/api/price_shockers', (req, res) => proxyFetch(res, `${BASE_URL}/price_shockers`));
 reg('/api/commodities', (req, res) => proxyFetch(res, `${BASE_URL}/commodities`));
+
+// NSE index snapshot for homepage Market Snapshot (IndianAPI has no /indices endpoint).
+const INDEX_NAMES = ['NIFTY 50', 'NIFTY BANK', 'BANK NIFTY'];
+let indicesCache = null;
+let indicesExpiry = 0;
+
+reg('/api/indices', async (req, res) => {
+  const now = Date.now();
+  if (indicesCache && now < indicesExpiry) return res.json(indicesCache);
+
+  try {
+    const r = await fetchWithTimeout('https://www.nseindia.com/api/allIndices', {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'User-Agent': 'Mozilla/5.0 (compatible; AGIB-Proxy/1.0)',
+        Referer: 'https://www.nseindia.com/',
+      },
+    }, 15_000);
+
+    const text = await r.text().catch(() => '');
+    if (!r.ok || !text) {
+      return res.status(502).json({ error: 'Failed to fetch NSE indices', indices: [] });
+    }
+
+    const payload = JSON.parse(text);
+    const rows = Array.isArray(payload?.data) ? payload.data : [];
+    const wanted = new Set(INDEX_NAMES.map((n) => n.toUpperCase()));
+    const indices = [];
+
+    for (const row of rows) {
+      const name = String(row.index || row.indexSymbol || '').trim();
+      if (!name || !wanted.has(name.toUpperCase())) continue;
+
+      indices.push({
+        name,
+        price: row.last ?? row.previousClose ?? null,
+        percentChange: row.percentChange ?? row.variation ?? null,
+        date: row.timeStamp ? String(row.timeStamp).split(' ')[0] : null,
+        time: row.timeStamp ? String(row.timeStamp).split(' ').slice(1).join(' ') : null,
+      });
+    }
+
+    // Hero also looks for "BANK NIFTY" — alias NIFTY BANK if needed.
+    const bank = indices.find((i) => i.name.toUpperCase() === 'NIFTY BANK');
+    if (bank && !indices.some((i) => i.name.toUpperCase() === 'BANK NIFTY')) {
+      indices.push({ ...bank, name: 'BANK NIFTY' });
+    }
+
+    const body = { indices };
+    indicesCache = body;
+    indicesExpiry = Date.now() + 60_000;
+    return res.json(body);
+  } catch (err) {
+    console.error('[indices] fetch failed:', err?.message || err);
+    return res.status(502).json({ error: 'Indices fetch failed', indices: [] });
+  }
+});
+
 reg('/api/stock_target_price', (req, res) => { const id = req.query.stock_id; if (!id) return res.status(400).json({ error: 'Missing ?stock_id' }); return proxyFetch(res, `${BASE_URL}/stock_target_price?stock_id=${encodeURIComponent(id)}`); });
 reg('/api/stock_forecasts', (req, res) => { const params = new URLSearchParams(req.query); if (!params.has('stock_id')) return res.status(400).json({ error: 'Missing required ?stock_id' }); return proxyFetch(res, `${BASE_URL}/stock_forecasts?${params.toString()}`); });
 

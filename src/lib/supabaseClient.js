@@ -1,14 +1,27 @@
 // src/lib/supabaseClient.js
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim() || '';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim() || '';
 
-console.log('Supabase URL:', supabaseUrl);
-console.log('Anon key present:', !!supabaseAnonKey);
+export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: { persistSession: true, detectSessionInUrl: true, autoRefreshToken: true }
-});
-window.supabase = supabase;
+if (!isSupabaseConfigured && import.meta.env.DEV) {
+  console.warn(
+    'Supabase env vars missing (VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY). CMS and auth features will not work.'
+  );
+}
+
+// Placeholders keep the app from crashing when secrets are missing at build time.
+export const supabase = createClient(
+  supabaseUrl || 'https://placeholder.supabase.co',
+  supabaseAnonKey || 'placeholder-anon-key',
+  {
+    auth: { persistSession: true, detectSessionInUrl: true, autoRefreshToken: true },
+  }
+);
+
+if (typeof window !== 'undefined') {
+  window.supabase = supabase;
+}
     

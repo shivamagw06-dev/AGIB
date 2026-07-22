@@ -29,6 +29,11 @@ import FeaturedResearch from "@/components/Home/FeaturedResearch";
 import LatestResearch from "@/components/Home/LatestResearch";
 import MarketDashboard from "@/components/Home/MarketDashboard";
 import ResearchTicker from "@/components/Layout/ResearchTicker";
+import { MarketOverviewProvider } from "@/contexts/MarketOverviewContext";
+import MarketPulse from "@/components/markets/MarketPulse";
+import IpoWatch from "@/components/markets/IpoWatch";
+import MutualFundsSpotlight from "@/components/markets/MutualFundsSpotlight";
+import StockSearchBar from "@/components/markets/StockSearchBar";
 
 // Lazy-load heavier or less-frequently-used sections
 const Opinions = React.lazy(() => import('@/components/Opinions'));
@@ -41,9 +46,21 @@ function HomeLayout() {
 
       <Hero />
 
+      <section className="bg-slate-950 py-12 border-b border-white/5">
+        <div className="max-w-7xl mx-auto px-6">
+          <StockSearchBar />
+        </div>
+      </section>
+
       <MarketDashboard />
 
+      <MarketPulse />
+
       <MarketBrief />
+
+      <IpoWatch />
+
+      <MutualFundsSpotlight />
 
       <CategoryNavigation />
 
@@ -76,7 +93,7 @@ function AppShell() {
   }
 
   return (
-    <>
+    <MarketOverviewProvider>
       <Header />
       <ResearchTicker />
       <main>
@@ -86,7 +103,7 @@ function AppShell() {
       </main>
       <Footer />
       <Toaster />
-    </>
+    </MarketOverviewProvider>
   );
 }
 

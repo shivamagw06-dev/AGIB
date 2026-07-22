@@ -26,6 +26,22 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
+      - name: Verify build secrets
+        run: |
+          missing=0
+          for name in VITE_SUPABASE_URL VITE_SUPABASE_ANON_KEY; do
+            if [ -z "${!name}" ]; then
+              echo "::warning::$name is not set — CMS/auth will not work on the live site."
+              missing=1
+            fi
+          done
+          if [ "$missing" -eq 1 ]; then
+            echo "Add missing secrets under GitHub → Settings → Secrets → Actions."
+          fi
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+
       - name: Build production site
         run: npm run build
         env:
