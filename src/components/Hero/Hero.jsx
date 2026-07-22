@@ -1,118 +1,72 @@
-// Place this file at: src/components/Hero/Hero.jsx
-import React, { useMemo } from "react";
-import { motion } from "framer-motion";
-import useMarketData from "@/hooks/useMarketData";
-import useFeaturedArticle from "@/hooks/useFeaturedArticle";
+import { motion } from 'framer-motion';
+import useFeaturedArticle from '@/hooks/useFeaturedArticle';
+import usePublishedArticles from '@/hooks/usePublishedArticles';
 import {
   ArrowRight,
   Building2,
   Clock3,
   Globe2,
   TrendingUp,
-} from "lucide-react";
-import { useNavigate } from "react-router-dom";
+} from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
 
-import { Button } from "@/components/ui/button";
-
-const focusTopics = [
-  "RBI",
-  "GDP",
-  "Inflation",
-  "Earnings",
-  "Oil",
-  "Gold",
-  "Banking",
-  "FII Flows",
+const quickLinks = [
+  { title: 'Markets', path: '/markets' },
+  { title: 'Research Library', path: '/sections/live-articles' },
+  { title: 'Deal Tracker', path: '/sections/deal-tracker' },
 ];
-
-const economicEvents = [
-  { title: "India CPI", detail: "Inflation data", timing: "Watch calendar" },
-  { title: "RBI Policy", detail: "Monetary policy", timing: "Watch calendar" },
-  { title: "US FOMC", detail: "Interest-rate decision", timing: "Watch calendar" },
-];
-
-function formatNumber(value) {
-  const number = Number(value);
-  if (!Number.isFinite(number)) return "—";
-
-  return new Intl.NumberFormat("en-IN", {
-    maximumFractionDigits: 2,
-  }).format(number);
-}
-
-function formatChange(value) {
-  const number = Number(value);
-  if (!Number.isFinite(number)) return "—";
-
-  return `${number > 0 ? "+" : ""}${number.toFixed(2)}%`;
-}
 
 export default function Hero() {
   const navigate = useNavigate();
-  const { indices = [], commodities = [], loading } = useMarketData();
   const { article: featuredArticle, loading: articleLoading } = useFeaturedArticle();
-
-  const marketSnapshot = useMemo(() => {
-    const priority = ["NIFTY 50", "SENSEX", "NIFTY BANK", "BANK NIFTY"];
-
-    return priority
-      .map((name) => indices.find((index) => index.name?.toUpperCase() === name))
-      .filter(Boolean)
-      .slice(0, 4)
-      .map((index) => ({
-        name: index.name,
-        value: formatNumber(index.price),
-        change: formatChange(index.percentChange),
-        isPositive: Number(index.percentChange) >= 0,
-        updatedAt: [index.date, index.time].filter(Boolean).join(" "),
-      }));
-  }, [indices]);
-
-  const commoditySnapshot = useMemo(
-    () =>
-      commodities
-        .filter((item) => /gold|silver|crude|copper/i.test(item.product || ""))
-        .slice(0, 3)
-        .map((item) => ({
-          name: item.product,
-          value: formatNumber(item.last_traded_price),
-          change: formatChange(item.per_change),
-          isPositive: Number(item.per_change) >= 0,
-        })),
-    [commodities]
-  );
-
-  const lastUpdated = marketSnapshot.find((item) => item.updatedAt)?.updatedAt;
+  const { articles: recentArticles, loading: recentLoading } = usePublishedArticles({
+    limit: 4,
+    excludeSlug: featuredArticle?.slug,
+  });
 
   return (
-    <section className="bg-white border-b border-slate-200">
-      <div className="max-w-7xl mx-auto px-6 lg:px-8 py-12">
-        <div className="grid lg:grid-cols-12 gap-12">
+    <section className="bg-slate-950 border-b border-white/10">
+      <div className="max-w-7xl mx-auto px-6 lg:px-8 py-12 lg:py-16">
+        <div className="grid lg:grid-cols-12 gap-10 lg:gap-12">
           <motion.div
             initial={{ opacity: 0, y: 25 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
             className="lg:col-span-8"
           >
-            <div className="inline-flex items-center gap-2 rounded-full bg-blue-50 text-blue-700 px-4 py-2 text-sm font-semibold">
+            <div className="inline-flex items-center gap-2 rounded-full bg-blue-600/20 border border-blue-500/30 text-blue-300 px-4 py-2 text-sm font-semibold">
               <TrendingUp size={16} />
-              {featuredArticle ? "Featured Research" : "Research Platform"}
+              {featuredArticle ? 'Featured Research' : 'Research Platform'}
             </div>
 
             {articleLoading ? (
               <div className="mt-6 space-y-4 animate-pulse">
-                <div className="h-12 bg-slate-100 rounded-lg w-3/4" />
-                <div className="h-12 bg-slate-100 rounded-lg w-full" />
-                <div className="h-6 bg-slate-100 rounded-lg w-1/2" />
-                <div className="h-24 bg-slate-100 rounded-lg w-full mt-8" />
+                <div className="aspect-[2/1] bg-white/5 rounded-2xl" />
+                <div className="h-10 bg-white/5 rounded-lg w-3/4" />
+                <div className="h-6 bg-white/5 rounded-lg w-1/2" />
               </div>
             ) : featuredArticle ? (
               <>
-                <h1 className="mt-6 text-4xl md:text-5xl lg:text-6xl font-bold leading-tight tracking-tight text-slate-900">
+                {featuredArticle.cover_url && (
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/article/${featuredArticle.slug}`)}
+                    className="mt-6 block w-full rounded-2xl overflow-hidden border border-white/10 aspect-[2/1] lg:aspect-[21/9]"
+                  >
+                    <img
+                      src={featuredArticle.cover_url}
+                      alt={featuredArticle.title}
+                      className="w-full h-full object-cover hover:scale-[1.02] transition-transform duration-500"
+                    />
+                  </button>
+                )}
+
+                <h1 className="mt-6 text-3xl md:text-4xl lg:text-5xl font-bold leading-tight tracking-tight text-white">
                   {featuredArticle.title}
                 </h1>
 
-                <div className="mt-6 flex flex-wrap items-center gap-5 text-sm text-slate-500">
+                <div className="mt-5 flex flex-wrap items-center gap-5 text-sm text-slate-400">
                   <span className="flex items-center gap-2">
                     <Clock3 size={16} /> {featuredArticle.publishedLabel}
                   </span>
@@ -126,14 +80,14 @@ export default function Hero() {
                   )}
                 </div>
 
-                <p className="mt-8 max-w-3xl text-lg md:text-xl leading-9 text-slate-600">
-                  {featuredArticle.excerpt || "Read our latest institutional research and market analysis."}
+                <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-300">
+                  {featuredArticle.excerpt || 'Read our latest institutional research and market analysis.'}
                 </p>
 
-                <div className="mt-10 flex flex-wrap gap-4">
+                <div className="mt-8 flex flex-wrap gap-4">
                   <Button
                     size="lg"
-                    className="rounded-lg h-12 px-7 bg-blue-700 hover:bg-blue-800"
+                    className="rounded-lg h-12 px-7 bg-blue-600 hover:bg-blue-700"
                     onClick={() => navigate(`/article/${featuredArticle.slug}`)}
                   >
                     Read full research <ArrowRight className="ml-2 h-4 w-4" />
@@ -141,8 +95,8 @@ export default function Hero() {
                   <Button
                     variant="outline"
                     size="lg"
-                    className="rounded-lg h-12 px-7 border-slate-300 text-slate-800 hover:bg-slate-50"
-                    onClick={() => navigate("/sections/live-articles")}
+                    className="rounded-lg h-12 px-7 border-white/20 text-white hover:bg-white/10"
+                    onClick={() => navigate('/sections/live-articles')}
                   >
                     Browse research library
                   </Button>
@@ -150,45 +104,42 @@ export default function Hero() {
               </>
             ) : (
               <>
-                <h1 className="mt-6 text-4xl md:text-5xl lg:text-6xl font-bold leading-tight tracking-tight text-slate-900">
+                <h1 className="mt-6 text-4xl md:text-5xl font-bold leading-tight tracking-tight text-white">
                   Independent Research for Serious Investors
                 </h1>
-
-                <p className="mt-8 max-w-3xl text-lg md:text-xl leading-9 text-slate-600">
-                  Publish your first research article and it will appear here automatically
-                  as the featured story on your homepage.
+                <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-300">
+                  Publish research in the CMS and your latest article appears here as the featured story.
                 </p>
-
-                <div className="mt-10 flex flex-wrap gap-4">
+                <div className="mt-8 flex flex-wrap gap-4">
                   <Button
                     size="lg"
-                    className="rounded-lg h-12 px-7 bg-blue-700 hover:bg-blue-800"
-                    onClick={() => navigate("/write")}
+                    className="rounded-lg h-12 px-7 bg-blue-600 hover:bg-blue-700"
+                    onClick={() => navigate('/admin/articles/new')}
                   >
                     Write your first article <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
                   <Button
                     variant="outline"
                     size="lg"
-                    className="rounded-lg h-12 px-7 border-slate-300 text-slate-800 hover:bg-slate-50"
-                    onClick={() => navigate("/sections/live-articles")}
+                    className="rounded-lg h-12 px-7 border-white/20 text-white hover:bg-white/10"
+                    onClick={() => navigate('/markets')}
                   >
-                    Browse research library
+                    View Markets
                   </Button>
                 </div>
               </>
             )}
 
-            <div className="grid md:grid-cols-3 gap-5 mt-14">
-              {[
-                ["Markets", "Daily analysis of equities, bonds, commodities, currencies and global markets."],
-                ["Economy", "GDP, inflation, RBI policy, macro indicators and global outlook."],
-                ["Private Markets", "M&A, venture capital, private equity and strategic transactions."],
-              ].map(([title, description]) => (
-                <div key={title} className="rounded-xl border border-slate-200 p-6">
-                  <h2 className="font-semibold text-slate-900">{title}</h2>
-                  <p className="mt-3 text-sm leading-7 text-slate-600">{description}</p>
-                </div>
+            <div className="flex flex-wrap gap-2 mt-10">
+              {quickLinks.map((link) => (
+                <button
+                  key={link.path}
+                  type="button"
+                  onClick={() => navigate(link.path)}
+                  className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm text-slate-300 hover:border-blue-500/50 hover:text-white transition-colors"
+                >
+                  {link.title}
+                </button>
               ))}
             </div>
           </motion.div>
@@ -199,88 +150,56 @@ export default function Hero() {
             transition={{ duration: 0.6, delay: 0.15 }}
             className="lg:col-span-4"
           >
-            <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-              <div className="border-b border-slate-200 p-6">
-                <div className="flex items-center justify-between gap-4">
-                  <h2 className="text-xl font-bold text-slate-900">Market Snapshot</h2>
-                  <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">Delayed live</span>
-                </div>
-                <p className="mt-2 text-sm text-slate-500">
-                  {lastUpdated ? `Last updated ${lastUpdated}` : "Updating market data…"}
-                </p>
+            <div className="rounded-2xl border border-white/10 bg-white/5 overflow-hidden">
+              <div className="border-b border-white/10 px-6 py-5">
+                <h2 className="text-lg font-bold text-white">Recent Research</h2>
+                <p className="text-sm text-slate-400 mt-1">Latest published articles</p>
               </div>
 
-              <div className="divide-y divide-slate-200">
-                {loading && marketSnapshot.length === 0 ? (
-                  <p className="px-6 py-5 text-sm text-slate-500">Loading live indices…</p>
-                ) : marketSnapshot.length > 0 ? (
-                  marketSnapshot.map((item) => (
-                    <div key={item.name} className="flex items-center justify-between px-6 py-4 hover:bg-slate-50">
-                      <div>
-                        <p className="text-sm text-slate-500">{item.name}</p>
-                        <p className="font-semibold text-slate-900">{item.value}</p>
-                      </div>
-                      <span className={`text-sm font-semibold ${item.isPositive ? "text-green-600" : "text-red-600"}`}>
-                        {item.change}
-                      </span>
+              <div className="divide-y divide-white/10">
+                {recentLoading ? (
+                  Array.from({ length: 4 }).map((_, i) => (
+                    <div key={i} className="px-6 py-4 animate-pulse">
+                      <div className="h-4 bg-white/10 rounded w-3/4 mb-2" />
+                      <div className="h-3 bg-white/5 rounded w-1/2" />
                     </div>
                   ))
+                ) : recentArticles.length === 0 ? (
+                  <p className="px-6 py-8 text-sm text-slate-500 text-center">
+                    No articles yet — publish from CMS to populate this list.
+                  </p>
                 ) : (
-                  <p className="px-6 py-5 text-sm text-slate-500">Live index data is temporarily unavailable.</p>
+                  recentArticles.map((article) => (
+                    <button
+                      key={article.id}
+                      type="button"
+                      onClick={() => navigate(`/article/${article.slug}`)}
+                      className="flex w-full gap-4 px-6 py-4 hover:bg-white/5 text-left transition-colors"
+                    >
+                      <img
+                        src={article.image}
+                        alt=""
+                        className="w-16 h-16 rounded-lg object-cover shrink-0 bg-slate-800"
+                      />
+                      <div className="min-w-0">
+                        <p className="font-medium text-white text-sm line-clamp-2 leading-snug">
+                          {article.title}
+                        </p>
+                        <p className="text-xs text-slate-500 mt-1.5">{article.publishedLabel}</p>
+                      </div>
+                    </button>
+                  ))
                 )}
               </div>
 
-              {commoditySnapshot.length > 0 && (
-                <div className="border-t border-slate-200 p-6">
-                  <h3 className="font-semibold text-slate-900">Commodities</h3>
-                  <div className="mt-4 space-y-3">
-                    {commoditySnapshot.map((item) => (
-                      <div key={item.name} className="flex items-center justify-between text-sm">
-                        <span className="text-slate-600">{item.name}</span>
-                        <span className="flex items-center gap-2">
-                          <strong className="text-slate-900">{item.value}</strong>
-                          <span className={item.isPositive ? "text-green-600" : "text-red-600"}>{item.change}</span>
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="border-t border-slate-200 p-6">
-                <h3 className="font-semibold text-slate-900 mb-4">Today&apos;s Focus</h3>
-                <div className="flex flex-wrap gap-2">
-                  {focusTopics.map((topic) => (
-                    <button
-                      type="button"
-                      key={topic}
-                      className="rounded-full border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100"
-                      onClick={() => navigate("/sections/live-articles")}
-                    >
-                      {topic}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="border-t border-slate-200 p-6">
-                <h3 className="font-semibold text-slate-900 mb-4">Economic Calendar</h3>
-                <div className="space-y-4">
-                  {economicEvents.map((event) => (
-                    <div className="flex items-start justify-between gap-4" key={event.title}>
-                      <div>
-                        <p className="font-medium text-slate-800">{event.title}</p>
-                        <p className="text-sm text-slate-500">{event.detail}</p>
-                      </div>
-                      <span className="shrink-0 text-sm text-blue-700">{event.timing}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="border-t border-slate-200 p-6">
-                <Button className="w-full h-11 rounded-lg bg-blue-700 hover:bg-blue-800" onClick={() => navigate("/sections/research-notes")}>
-                  Read morning brief
+              <div className="border-t border-white/10 p-4">
+                <Button
+                  variant="ghost"
+                  className="w-full text-blue-400 hover:text-blue-300 hover:bg-white/5"
+                  onClick={() => navigate('/sections/live-articles')}
+                >
+                  View all research
+                  <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </div>
             </div>

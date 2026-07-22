@@ -1,5 +1,4 @@
 // src/App.jsx
-import ResearchCategories from "@/components/Home/ResearchCategories";
 import CategoryNavigation from "@/components/Home/CategoryNavigation";
 import React, { useEffect, Suspense } from 'react';
 import { Helmet, HelmetProvider } from 'react-helmet-async';
@@ -16,7 +15,6 @@ import Newsletter from '@/components/Newsletter';
 import Footer from '@/components/Footer';
 import ResearchNotes from '@/components/ResearchNotes';
 import DealTracker from '@/components/DealTracker';
-import PlaceholderPage from '@/components/PlaceholderPage';
 import { Toaster } from '@/components/ui/toaster';
 import ProfileEditor from '@/pages/ProfileEditor';
 import PublicProfile from '@/pages/PublicProfile';
@@ -24,9 +22,12 @@ import LoginPage from '@/components/LoginPage';
 import ArticlePage from '@/components/ArticlePage';
 import NotFound from '@/components/NotFound';
 import Business from '@/components/Business.jsx';
-import FeaturedResearch from "@/components/Home/FeaturedResearch";
 import LatestResearch from "@/components/Home/LatestResearch";
-import ResearchTicker from "@/components/Layout/ResearchTicker";
+import MarketsTeaser from "@/components/Home/MarketsTeaser";
+import Events from '@/pages/Events';
+import PrivacyPolicy from '@/pages/legal/PrivacyPolicy';
+import TermsOfService from '@/pages/legal/TermsOfService';
+import Disclaimer from '@/pages/legal/Disclaimer';
 
 const Opinions = React.lazy(() => import('@/components/Opinions'));
 const Markets = React.lazy(() => import('@/pages/Markets'));
@@ -36,26 +37,19 @@ function HomeLayout() {
   return (
     <div className="bg-slate-950">
       <Hero />
-
       <CategoryNavigation />
-
-      <ResearchCategories />
-
-      <FeaturedResearch />
-
       <LatestResearch />
-
-      <section className="max-w-screen-xl mx-auto px-6 py-16">
-        <div className="mb-8">
+      <MarketsTeaser />
+      <section className="max-w-7xl mx-auto px-6 py-20">
+        <div className="mb-10">
           <span className="text-blue-400 uppercase tracking-widest text-sm font-semibold">
             Market News
           </span>
           <h2 className="mt-2 text-3xl font-bold text-white">Latest Headlines</h2>
           <p className="mt-2 text-slate-400">Powered by IndianAPI · updated throughout the day</p>
         </div>
-        <LatestNews max={6} />
+        <LatestNews max={6} variant="dark" />
       </section>
-
       <Newsletter />
     </div>
   );
@@ -76,7 +70,6 @@ function AppShell() {
   return (
     <>
       <Header />
-      <ResearchTicker />
       <main>
         <Suspense fallback={<div className="p-8 text-center">Loading...</div>}>
           <PublicRoutes />
@@ -93,6 +86,12 @@ function PublicRoutes() {
     <Routes>
       <Route path="/" element={<HomeLayout />} />
       <Route path="/category/:slug" element={<CategoryPage />} />
+
+      <Route path="/research" element={<Navigate replace to="/sections/live-articles" />} />
+      <Route path="/economy" element={<Navigate replace to="/sections/research-notes" />} />
+      <Route path="/companies" element={<Navigate replace to="/sections/live-articles" />} />
+      <Route path="/private-markets" element={<Navigate replace to="/sections/deal-tracker" />} />
+      <Route path="/insights" element={<Navigate replace to="/sections/opinions-editorials" />} />
 
       <Route path="/sections/live-articles" element={<ArticlesFeed />} />
       <Route path="/live-articles" element={<Navigate replace to="/sections/live-articles" />} />
@@ -115,16 +114,12 @@ function PublicRoutes() {
       <Route path="/business" element={<Business />} />
       <Route path="/sections/business" element={<Navigate replace to="/business" />} />
 
-      <Route
-        path="/events"
-        element={
-          <PlaceholderPage
-            title="Events & Webinars"
-            subtitle="Our calendar of upcoming events will be available shortly."
-          />
-        }
-      />
+      <Route path="/events" element={<Events />} />
       <Route path="/events-webinars" element={<Navigate replace to="/events" />} />
+
+      <Route path="/privacy" element={<PrivacyPolicy />} />
+      <Route path="/terms" element={<TermsOfService />} />
+      <Route path="/disclaimer" element={<Disclaimer />} />
 
       <Route path="/login" element={<LoginPage />} />
       <Route path="/article/:slug" element={<ArticlePage />} />

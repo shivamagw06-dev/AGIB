@@ -50,3 +50,54 @@ export function formatArticleDate(dateString) {
     minute: '2-digit',
   });
 }
+
+export function formatRelativePublishedDate(dateString) {
+  if (!dateString) return 'Recently published';
+
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return 'Recently published';
+
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfPublishDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const dayDiff = Math.round((startOfToday - startOfPublishDay) / (1000 * 60 * 60 * 24));
+
+  if (dayDiff === 0) return 'Published today';
+  if (dayDiff === 1) return 'Published yesterday';
+  if (dayDiff < 7) return `Published ${dayDiff} days ago`;
+
+  return date.toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
+export function estimateReadTimeFromExcerpt(text = '') {
+  const words = (text || '').split(/\s+/).filter(Boolean).length;
+  const mins = Math.max(3, Math.round(words / 200));
+  return `${mins} min read`;
+}
+
+const DEFAULT_COVER =
+  'https://images.unsplash.com/photo-1595872018818-97555653a011?auto=format&fit=crop&w=1200&q=80';
+
+export function mapArticleForCard(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    title: row.title,
+    slug: row.slug,
+    excerpt: row.excerpt,
+    coverUrl: row.cover_url || DEFAULT_COVER,
+    image: row.cover_url || DEFAULT_COVER,
+    category:
+      row.section ||
+      (Array.isArray(row.tags) && row.tags.length ? row.tags[0] : 'Research'),
+    tags: row.tags,
+    section: row.section,
+    date: row.published_at,
+    publishedLabel: formatRelativePublishedDate(row.published_at),
+    readTime: estimateReadTimeFromExcerpt(row.excerpt),
+  };
+}

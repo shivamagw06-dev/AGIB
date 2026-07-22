@@ -81,7 +81,7 @@ async function fetchDirectIndianApiNews(signal) {
 }
 
 /* ---------- Main Component ---------- */
-export default function LiveNews({ max = 6 }) {
+export default function LiveNews({ max = 6, variant = 'light' }) {
   const [items, setItems] = useState(() => {
     try {
       const cached = localStorage.getItem(CACHE_KEY);
@@ -234,6 +234,47 @@ export default function LiveNews({ max = 6 }) {
     const date = it.date ? new Date(it.date).toLocaleString() : null;
     const source = it.source || "Unknown";
 
+    if (isDark) {
+      return (
+        <article
+          key={i}
+          className="group rounded-xl border border-white/10 bg-white/5 overflow-hidden hover:border-blue-500/30 transition-colors"
+        >
+          <a href={url} target="_blank" rel="noopener noreferrer" className="flex gap-4 p-4">
+            <div className="w-24 h-16 flex-shrink-0 rounded-lg overflow-hidden bg-slate-800">
+              {img ? (
+                <img
+                  src={img}
+                  alt=""
+                  className="object-cover w-full h-full"
+                  loading="lazy"
+                  onError={(e) => {
+                    e.target.style.display = "none";
+                  }}
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-xs text-slate-500">
+                  News
+                </div>
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-white group-hover:text-blue-300 transition-colors line-clamp-2">
+                {title}
+              </p>
+              {summary ? (
+                <p className="text-xs text-slate-400 mt-1.5 line-clamp-2">{summary}</p>
+              ) : null}
+              <p className="text-xs text-slate-500 mt-2">
+                {source}
+                {date ? ` · ${date}` : ""}
+              </p>
+            </div>
+          </a>
+        </article>
+      );
+    }
+
     return (
       <article
         key={i}
@@ -268,6 +309,49 @@ export default function LiveNews({ max = 6 }) {
   }
 
   const list = (items.items || []).slice(0, max);
+
+  if (isDark) {
+    return (
+      <div>
+        {errorMsg && (
+          <div className="text-sm text-amber-400 mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3">
+            {String(errorMsg).slice(0, 300)}
+          </div>
+        )}
+
+        {usingFallbackCache && (
+          <div className="text-sm text-slate-400 mb-4">Showing cached headlines.</div>
+        )}
+
+        {loading && (
+          <div className="grid md:grid-cols-2 gap-4">
+            {Array.from({ length: max }).map((_, i) => (
+              <div key={i} className="h-24 rounded-xl bg-white/5 animate-pulse" />
+            ))}
+          </div>
+        )}
+
+        {!loading && list.length === 0 && !errorMsg && (
+          <p className="text-slate-400 text-center py-8">No headlines available right now.</p>
+        )}
+
+        {!loading && list.length > 0 && (
+          <div className="grid md:grid-cols-2 gap-4">{list.map(renderItem)}</div>
+        )}
+
+        <div className="flex items-center justify-between mt-6 pt-4 border-t border-white/10">
+          <p className="text-xs text-slate-500">IndianAPI · auto-refresh every 2 hours</p>
+          <button
+            type="button"
+            onClick={() => loadNews({ force: true })}
+            className="text-xs px-3 py-1.5 rounded-lg border border-white/15 text-slate-300 hover:bg-white/10 transition-colors"
+          >
+            Refresh
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <section className="bg-white shadow-sm rounded p-3 border">
@@ -310,4 +394,4 @@ export default function LiveNews({ max = 6 }) {
   );
 }
 
-LiveNews.propTypes = { max: PropTypes.number };
+LiveNews.propTypes = { max: PropTypes.number, variant: PropTypes.oneOf(['light', 'dark']) };

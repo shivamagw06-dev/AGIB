@@ -62,13 +62,13 @@ const Header = ({ currentPage, setCurrentPage }) => {
     };
   }, [user]);
   const navItems = [
-    { name: "Research", page: "research", path: "/research" },
+    { name: "Research", page: "research", path: "/sections/live-articles" },
     { name: "Markets", page: "markets", path: "/markets" },
-    { name: "Economy", page: "economy", path: "/economy" },
-    { name: "Companies", page: "companies", path: "/companies" },
-    { name: "Private Markets", page: "private-markets", path: "/private-markets" },
+    { name: "Economy", page: "economy", path: "/sections/research-notes" },
+    { name: "Companies", page: "companies", path: "/sections/live-articles" },
+    { name: "Private Markets", page: "private-markets", path: "/sections/deal-tracker" },
     { name: "Business", page: "business", path: "/business" },
-    { name: "Insights", page: "insights", path: "/insights" },
+    { name: "Insights", page: "insights", path: "/sections/opinions-editorials" },
     { name: "About", page: "about", path: "/about" },
   ];
   const handleNavClick = (page, path) => {

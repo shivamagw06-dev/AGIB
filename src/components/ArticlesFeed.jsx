@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Calendar, Clock, ArrowRight, Bookmark } from 'lucide-react';
+import { Helmet } from 'react-helmet-async';
+import { Link } from 'react-router-dom';
+import { Calendar, Clock, ArrowRight, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
-import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
 
 const DEFAULT_CATEGORIES = ['All', 'Finance', 'Economics', 'Private Equity', 'M&A', 'Global Markets'];
@@ -18,7 +19,6 @@ export default function ArticlesFeed({ section }) {
   const [loading, setLoading] = useState(true);
 
   const { toast } = useToast();
-  const { user } = useAuth();
 
   useEffect(() => {
     let cancelled = false;
@@ -76,54 +76,55 @@ export default function ArticlesFeed({ section }) {
       ? articles
       : articles.filter((a) => a.category === selectedCategory);
 
-  const handleAction = (feature) => {
-    if (!user) {
-      toast({
-        title: 'Authentication Required',
-        description: 'Please log in to use this feature.',
-        duration: 5000,
-      });
-      return;
-    }
-    toast({
-      title: `🚧 ${feature} coming soon`,
-      description: 'We’ll wire this next.',
-      duration: 3000,
-    });
-  };
+  const pageTitle = section || 'Research Library';
 
   return (
-    <section id="articles" className="py-20 bg-background">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Heading */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="text-center mb-12"
-        >
-          <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-4">
-            Latest Insights & Analysis
-          </h2>
-          <p className="text-lg text-foreground/70 max-w-2xl mx-auto">
-            Stay informed with our expert commentary on global finance and investment trends
-          </p>
-        </motion.div>
+    <div className="bg-slate-950 min-h-screen">
+      <Helmet>
+        <title>{pageTitle} | Agarwal Global Investments</title>
+        <meta
+          name="description"
+          content="Browse institutional research, macro analysis, and market commentary from Agarwal Global Investments."
+        />
+      </Helmet>
 
-        {/* Category chips */}
+      <div className="border-b border-white/10">
+        <div className="max-w-7xl mx-auto px-6 py-14">
+          <Link
+            to="/"
+            className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white mb-6 transition-colors"
+          >
+            <ArrowLeft size={16} /> Back to Home
+          </Link>
+          <span className="text-blue-400 text-sm font-semibold uppercase tracking-widest">
+            Research
+          </span>
+          <h1 className="mt-2 text-4xl md:text-5xl font-bold text-white">{pageTitle}</h1>
+          <p className="mt-4 text-slate-400 text-lg max-w-2xl">
+            Expert commentary on global finance, economics, and investment trends.
+          </p>
+        </div>
+      </div>
+
+      <section id="articles" className="py-16">
+        <div className="max-w-7xl mx-auto px-6">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ delay: 0.2 }}
-          className="flex flex-wrap justify-center gap-3 mb-12"
+          transition={{ delay: 0.1 }}
+          className="flex flex-wrap gap-2 mb-12"
         >
           {categories.map((category) => (
             <Button
               key={category}
               variant={selectedCategory === category ? 'default' : 'outline'}
               onClick={() => setSelectedCategory(category)}
-              className="transition-all"
+              className={
+                selectedCategory === category
+                  ? 'bg-blue-600 hover:bg-blue-700'
+                  : 'border-white/20 text-slate-300 hover:bg-white/10 hover:text-white'
+              }
             >
               {category}
             </Button>
@@ -134,11 +135,14 @@ export default function ArticlesFeed({ section }) {
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-72 rounded-lg bg-muted animate-pulse" />
+              <div key={i} className="h-80 rounded-2xl bg-white/5 animate-pulse" />
             ))}
           </div>
         ) : filteredArticles.length === 0 ? (
-          <p className="text-center text-muted-foreground">No articles yet.</p>
+          <div className="text-center py-16 rounded-2xl border border-white/10 bg-white/5">
+            <p className="text-slate-400">No articles published yet.</p>
+            <p className="text-slate-500 text-sm mt-2">Check back soon for new research.</p>
+          </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {filteredArticles.map((article, index) => (
@@ -148,64 +152,60 @@ export default function ArticlesFeed({ section }) {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: index * 0.05 }}
-                className="bg-card border border-border rounded-lg overflow-hidden hover:shadow-lg transition-shadow group flex flex-col"
+                className="rounded-2xl border border-white/10 bg-white/5 overflow-hidden hover:border-blue-500/40 transition-colors group flex flex-col"
               >
-                <a href={`/article/${article.slug}`} className="block">
-                  <div className="aspect-video bg-muted relative overflow-hidden">
+                <Link to={`/article/${article.slug}`} className="block">
+                  <div className="aspect-video bg-slate-900 relative overflow-hidden">
                     <img
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                       alt={article.title}
                       src={article.image}
                     />
                     <div className="absolute top-4 left-4">
-                      <span className="bg-primary text-primary-foreground text-xs font-semibold px-3 py-1 rounded-full">
+                      <span className="bg-blue-600/90 text-white text-xs font-semibold px-3 py-1 rounded-full">
                         {article.category}
                       </span>
                     </div>
                   </div>
-                </a>
+                </Link>
 
                 <div className="p-6 flex flex-col flex-grow">
-                  <div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
+                  <div className="flex items-center gap-4 text-xs text-slate-500 mb-3">
                     <div className="flex items-center gap-1">
-                      <Calendar className="h-4 w-4" />
+                      <Calendar className="h-3.5 w-3.5" />
                       <span>{formatDate(article.date)}</span>
                     </div>
                     <div className="flex items-center gap-1">
-                      <Clock className="h-4 w-4" />
+                      <Clock className="h-3.5 w-3.5" />
                       <span>{article.readTime}</span>
                     </div>
                   </div>
 
-                  <a href={`/article/${article.slug}`} className="group">
-                    <h3 className="text-xl font-bold text-card-foreground mb-3 group-hover:text-primary transition-colors">
+                  <Link to={`/article/${article.slug}`} className="group/title">
+                    <h3 className="text-lg font-semibold text-white mb-3 group-hover/title:text-blue-300 transition-colors line-clamp-2">
                       {article.title}
                     </h3>
-                  </a>
+                  </Link>
 
-                  <p className="text-muted-foreground mb-4 line-clamp-3 flex-grow">
+                  <p className="text-slate-400 text-sm mb-4 line-clamp-3 flex-grow leading-relaxed">
                     {article.excerpt}
                   </p>
 
-                  <div className="mt-auto flex justify-between items-center">
-                    <a
-                      href={`/article/${article.slug}`}
-                      className="text-primary hover:text-primary/90 hover:bg-accent p-0 h-auto font-semibold inline-flex items-center"
-                    >
-                      Read More
-                      <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
-                    </a>
-                    <Button variant="ghost" size="icon" onClick={() => handleAction('Bookmark')}>
-                      <Bookmark className="h-5 w-5 text-muted-foreground hover:text-primary transition-colors" />
-                    </Button>
-                  </div>
+                  <Link
+                    to={`/article/${article.slug}`}
+                    className="mt-auto inline-flex items-center text-sm text-blue-400 font-medium hover:text-blue-300"
+                  >
+                    Read article
+                    <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                  </Link>
                 </div>
               </motion.article>
             ))}
           </div>
         )}
-      </div>
-    </section>
+        </div>
+      </section>
+    </div>
   );
 }
 
