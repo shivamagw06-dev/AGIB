@@ -1,79 +1,111 @@
-import React from 'react';
-import { Linkedin, Twitter, Mail } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Mail, Linkedin } from 'lucide-react';
 
-const Footer = ({ setCurrentPage }) => {
-  const handleNavClick = (page) => {
-    setCurrentPage(page);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
+const CONTACT_EMAIL = 'shivam@agarwalglobalinvestments.com';
 
-  const handleCategoryClick = (category) => {
-    setCurrentPage('live-articles');
-    // In a real app, you'd pass the category to the ArticlesFeed component
-    // For now, it just navigates to the page.
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
+const researchLinks = [
+  { label: 'Research Library', to: '/sections/live-articles' },
+  { label: 'Research Notes', to: '/sections/research-notes' },
+  { label: 'Deal Tracker', to: '/sections/deal-tracker' },
+  { label: 'Markets', to: '/markets' },
+  { label: 'Opinions', to: '/sections/opinions-editorials' },
+];
 
+const companyLinks = [
+  { label: 'About', to: '/about' },
+  { label: 'Contact', to: '/contact' },
+  { label: 'Events', to: '/events' },
+];
+
+const legalLinks = [
+  { label: 'Privacy Policy', to: '/privacy' },
+  { label: 'Terms of Service', to: '/terms' },
+  { label: 'Disclaimer', to: '/disclaimer' },
+];
+
+export default function Footer() {
   return (
-    <footer className="bg-foreground text-background/70 py-12">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
-          <div className="col-span-1 md:col-span-2">
-            <h3 className="text-2xl font-bold text-white mb-4 cursor-pointer" onClick={() => handleNavClick('home')}>
+    <footer className="bg-slate-950 border-t border-white/10 text-slate-400">
+      <div className="max-w-7xl mx-auto px-6 py-14">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 mb-12">
+          <div className="lg:col-span-1">
+            <Link to="/" className="text-xl font-bold text-white hover:text-blue-300 transition-colors">
               Agarwal Global Investments
-            </h3>
-            <p className="text-background/60 mb-4 max-w-md">
-              Delivering world-class research and analysis to empower informed investment decisions across global markets.
+            </Link>
+            <p className="mt-4 text-sm leading-relaxed max-w-xs">
+              Independent research on finance, economics, private markets, and global business.
             </p>
-            <div className="flex gap-4">
-              <a href="#" className="bg-white/10 p-2 rounded-lg hover:bg-white/20 transition-colors">
-                <Linkedin className="h-5 w-5" />
+            <div className="flex gap-3 mt-5">
+              <a
+                href={`mailto:${CONTACT_EMAIL}`}
+                className="rounded-lg border border-white/10 p-2.5 text-slate-400 hover:text-white hover:border-white/25 transition-colors"
+                aria-label="Email"
+              >
+                <Mail size={18} />
               </a>
-              <a href="#" className="bg-white/10 p-2 rounded-lg hover:bg-white/20 transition-colors">
-                <Twitter className="h-5 w-5" />
-              </a>
-              <a href="#" className="bg-white/10 p-2 rounded-lg hover:bg-white/20 transition-colors">
-                <Mail className="h-5 w-5" />
+              <a
+                href="https://www.linkedin.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-lg border border-white/10 p-2.5 text-slate-400 hover:text-white hover:border-white/25 transition-colors"
+                aria-label="LinkedIn"
+              >
+                <Linkedin size={18} />
               </a>
             </div>
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-4">Quick Links</h4>
-            <ul className="space-y-2">
-              <li><button onClick={() => handleNavClick('home')} className="hover:text-white transition-colors">Home</button></li>
-              <li><button onClick={() => handleNavClick('live-articles')} className="hover:text-white transition-colors">Live Articles</button></li>
-              <li><button onClick={() => handleNavClick('about')} className="hover:text-white transition-colors">About Us</button></li>
-              <li><button onClick={() => handleNavClick('contact')} className="hover:text-white transition-colors">Contact</button></li>
+            <h4 className="text-white font-semibold text-sm mb-4">Research</h4>
+            <ul className="space-y-2.5 text-sm">
+              {researchLinks.map((link) => (
+                <li key={link.to}>
+                  <Link to={link.to} className="hover:text-white transition-colors">
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
             </ul>
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-4">Categories</h4>
-            <ul className="space-y-2">
-              <li><button onClick={() => handleCategoryClick('Finance')} className="hover:text-white transition-colors">Finance</button></li>
-              <li><button onClick={() => handleCategoryClick('Economics')} className="hover:text-white transition-colors">Economics</button></li>
-              <li><button onClick={() => handleCategoryClick('Private Equity')} className="hover:text-white transition-colors">Private Equity</button></li>
-              <li><button onClick={() => handleCategoryClick('M&A')} className="hover:text-white transition-colors">M&A</button></li>
+            <h4 className="text-white font-semibold text-sm mb-4">Company</h4>
+            <ul className="space-y-2.5 text-sm">
+              {companyLinks.map((link) => (
+                <li key={link.to}>
+                  <Link to={link.to} className="hover:text-white transition-colors">
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div>
+            <h4 className="text-white font-semibold text-sm mb-4">Legal</h4>
+            <ul className="space-y-2.5 text-sm">
+              {legalLinks.map((link) => (
+                <li key={link.to}>
+                  <Link to={link.to} className="hover:text-white transition-colors">
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
             </ul>
           </div>
         </div>
 
-        <div className="border-t border-white/20 pt-8">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-            <p className="text-background/60 text-sm">
-              © 2025 Agarwal Global Investments. All rights reserved.
-            </p>
-            <div className="flex gap-6 text-sm">
-              <a href="#" className="hover:text-white transition-colors">Privacy Policy</a>
-              <a href="#" className="hover:text-white transition-colors">Terms of Service</a>
-              <a href="#" className="hover:text-white transition-colors">Disclaimer</a>
-            </div>
-          </div>
+        <div className="border-t border-white/10 pt-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-xs">
+          <p>© {new Date().getFullYear()} Agarwal Global Investments. All rights reserved.</p>
+          <p className="text-slate-500 max-w-lg leading-relaxed">
+            Content is for informational purposes only and does not constitute investment advice.{' '}
+            <Link to="/disclaimer" className="text-blue-400 hover:underline">
+              Read full disclaimer
+            </Link>
+            .
+          </p>
         </div>
       </div>
     </footer>
   );
-};
-
-export default Footer;
+}

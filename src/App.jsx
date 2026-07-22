@@ -1,5 +1,4 @@
 // src/App.jsx
-import ResearchCategories from "@/components/Home/ResearchCategories";
 import CategoryNavigation from "@/components/Home/CategoryNavigation";
 import React, { useEffect, Suspense } from 'react';
 import { Helmet, HelmetProvider } from 'react-helmet-async';
@@ -16,66 +15,42 @@ import Newsletter from '@/components/Newsletter';
 import Footer from '@/components/Footer';
 import ResearchNotes from '@/components/ResearchNotes';
 import DealTracker from '@/components/DealTracker';
-import PlaceholderPage from '@/components/PlaceholderPage';
 import { Toaster } from '@/components/ui/toaster';
 import ProfileEditor from '@/pages/ProfileEditor';
 import PublicProfile from '@/pages/PublicProfile';
 import LoginPage from '@/components/LoginPage';
 import ArticlePage from '@/components/ArticlePage';
 import NotFound from '@/components/NotFound';
-import Business from '@/components/Business.jsx'; // ✅ explicitly use .jsx
-import MarketBrief from "@/components/Home/MarketBrief";
-import FeaturedResearch from "@/components/Home/FeaturedResearch";
+import Business from '@/components/Business.jsx';
 import LatestResearch from "@/components/Home/LatestResearch";
-import MarketDashboard from "@/components/Home/MarketDashboard";
-import ResearchTicker from "@/components/Layout/ResearchTicker";
-import { MarketOverviewProvider } from "@/contexts/MarketOverviewContext";
-import MarketPulse from "@/components/markets/MarketPulse";
-import IpoWatch from "@/components/markets/IpoWatch";
-import MutualFundsSpotlight from "@/components/markets/MutualFundsSpotlight";
-import StockSearchBar from "@/components/markets/StockSearchBar";
+import MarketsTeaser from "@/components/Home/MarketsTeaser";
+import Events from '@/pages/Events';
+import PrivacyPolicy from '@/pages/legal/PrivacyPolicy';
+import TermsOfService from '@/pages/legal/TermsOfService';
+import Disclaimer from '@/pages/legal/Disclaimer';
 
-// Lazy-load heavier or less-frequently-used sections
 const Opinions = React.lazy(() => import('@/components/Opinions'));
-const MarketsPage = React.lazy(() => import('@/components/MarketsPage'));
+const Markets = React.lazy(() => import('@/pages/Markets'));
 const OnePageWealthTools = React.lazy(() => import('@/components/OnePageWealthTools'));
 
 function HomeLayout() {
   return (
     <div className="bg-slate-950">
-
       <Hero />
-
-      <section className="bg-slate-950 py-12 border-b border-white/5">
-        <div className="max-w-7xl mx-auto px-6">
-          <StockSearchBar />
-        </div>
-      </section>
-
-      <MarketDashboard />
-
-      <MarketPulse />
-
-      <MarketBrief />
-
-      <IpoWatch />
-
-      <MutualFundsSpotlight />
-
       <CategoryNavigation />
-
-      <ResearchCategories />
-
-      <FeaturedResearch />
-
       <LatestResearch />
-
-      <div className="max-w-screen-xl mx-auto px-6 py-16">
-        <LatestNews max={6} />
-      </div>
-
+      <MarketsTeaser />
+      <section className="max-w-7xl mx-auto px-6 py-20">
+        <div className="mb-10">
+          <span className="text-blue-400 uppercase tracking-widest text-sm font-semibold">
+            Market News
+          </span>
+          <h2 className="mt-2 text-3xl font-bold text-white">Latest Headlines</h2>
+          <p className="mt-2 text-slate-400">Powered by IndianAPI · updated throughout the day</p>
+        </div>
+        <LatestNews max={6} variant="dark" />
+      </section>
       <Newsletter />
-
     </div>
   );
 }
@@ -93,9 +68,8 @@ function AppShell() {
   }
 
   return (
-    <MarketOverviewProvider>
+    <>
       <Header />
-      <ResearchTicker />
       <main>
         <Suspense fallback={<div className="p-8 text-center">Loading...</div>}>
           <PublicRoutes />
@@ -103,7 +77,7 @@ function AppShell() {
       </main>
       <Footer />
       <Toaster />
-    </MarketOverviewProvider>
+    </>
   );
 }
 
@@ -112,6 +86,12 @@ function PublicRoutes() {
     <Routes>
       <Route path="/" element={<HomeLayout />} />
       <Route path="/category/:slug" element={<CategoryPage />} />
+
+      <Route path="/research" element={<Navigate replace to="/sections/live-articles" />} />
+      <Route path="/economy" element={<Navigate replace to="/sections/research-notes" />} />
+      <Route path="/companies" element={<Navigate replace to="/sections/live-articles" />} />
+      <Route path="/private-markets" element={<Navigate replace to="/sections/deal-tracker" />} />
+      <Route path="/insights" element={<Navigate replace to="/sections/opinions-editorials" />} />
 
       <Route path="/sections/live-articles" element={<ArticlesFeed />} />
       <Route path="/live-articles" element={<Navigate replace to="/sections/live-articles" />} />
@@ -122,8 +102,8 @@ function PublicRoutes() {
       <Route path="/sections/deal-tracker" element={<DealTracker />} />
       <Route path="/deal-tracker" element={<Navigate replace to="/sections/deal-tracker" />} />
 
-      <Route path="/sections/markets" element={<MarketsPage />} />
-      <Route path="/markets" element={<Navigate replace to="/sections/markets" />} />
+      <Route path="/markets" element={<Markets />} />
+      <Route path="/sections/markets" element={<Navigate replace to="/markets" />} />
 
       <Route path="/sections/opinions-editorials" element={<Opinions />} />
       <Route path="/opinions-editorials" element={<Navigate replace to="/sections/opinions-editorials" />} />
@@ -134,16 +114,12 @@ function PublicRoutes() {
       <Route path="/business" element={<Business />} />
       <Route path="/sections/business" element={<Navigate replace to="/business" />} />
 
-      <Route
-        path="/events"
-        element={
-          <PlaceholderPage
-            title="Events & Webinars"
-            subtitle="Our calendar of upcoming events will be available shortly."
-          />
-        }
-      />
+      <Route path="/events" element={<Events />} />
       <Route path="/events-webinars" element={<Navigate replace to="/events" />} />
+
+      <Route path="/privacy" element={<PrivacyPolicy />} />
+      <Route path="/terms" element={<TermsOfService />} />
+      <Route path="/disclaimer" element={<Disclaimer />} />
 
       <Route path="/login" element={<LoginPage />} />
       <Route path="/article/:slug" element={<ArticlePage />} />
@@ -168,12 +144,9 @@ function App() {
       const apiUrl = import.meta.env.VITE_API_URL || null;
       if (apiUrl) {
         window.API_URL = apiUrl;
-        console.log('[App] VITE_API_URL:', apiUrl);
-      } else {
-        console.warn('[App] VITE_API_URL is not defined. Check your .env.local');
       }
-    } catch (err) {
-      console.error('[App] Error reading VITE_API_URL', err);
+    } catch {
+      /* ignore */
     }
   }, []);
 

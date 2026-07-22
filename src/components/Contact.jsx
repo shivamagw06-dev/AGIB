@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import { useState } from 'react';
 import { Mail, Send } from 'lucide-react';
+import PageShell from '@/components/Layout/PageShell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -9,7 +9,7 @@ import { supabase } from '@/lib/supabaseClient';
 
 const CONTACT_EMAIL = 'shivam@agarwalglobalinvestments.com';
 
-const Contact = () => {
+export default function Contact() {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -46,8 +46,8 @@ const Contact = () => {
       if (error) throw error;
 
       toast({
-        title: 'Message Sent',
-        description: 'Thank you — your message has been received.',
+        title: 'Message sent',
+        description: 'Thank you — we will respond as soon as possible.',
         duration: 4000,
       });
 
@@ -56,7 +56,7 @@ const Contact = () => {
       console.error('Submission failed:', err);
       toast({
         title: 'Submission failed',
-        description: 'Unable to send your message. Please try again later.',
+        description: 'Unable to send your message. Please email us directly.',
         variant: 'destructive',
         duration: 4000,
       });
@@ -69,122 +69,119 @@ const Contact = () => {
     setFormData((s) => ({ ...s, [e.target.name]: e.target.value }));
 
   return (
-    <section className="py-20 bg-background">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-16"
-        >
-          <h1 className="text-4xl sm:text-5xl font-bold text-foreground mb-6">
-            Get in Touch
-          </h1>
-          <p className="text-xl text-foreground/70 max-w-3xl mx-auto">
-            We welcome media inquiries, partnerships and feedback. Use the form below to reach out.
-          </p>
-        </motion.div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.2 }}
-          >
-            <h2 className="text-2xl font-bold text-foreground mb-6">Contact Information</h2>
-
-            <div className="space-y-6 mb-8">
-              <div className="flex items-start gap-4">
-                <div className="bg-primary/10 p-3 rounded-lg">
-                  <Mail className="h-6 w-6 text-primary" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-foreground mb-1">Email</h3>
-                  <p className="text-muted-foreground">
-                    <a href={`mailto:${CONTACT_EMAIL}`} className="underline hover:text-primary">
-                      {CONTACT_EMAIL}
-                    </a>
-                  </p>
-                </div>
+    <PageShell
+      eyebrow="Contact"
+      title="Get in Touch"
+      description="Media inquiries, research partnerships, institutional subscriptions, and general feedback."
+      metaTitle="Contact | Agarwal Global Investments"
+    >
+      <div className="grid lg:grid-cols-5 gap-10">
+        <div className="lg:col-span-2 space-y-6">
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+            <div className="flex items-start gap-4">
+              <div className="rounded-lg bg-blue-600/20 p-3 text-blue-400">
+                <Mail size={22} />
+              </div>
+              <div>
+                <h2 className="font-semibold text-white">Email</h2>
+                <a
+                  href={`mailto:${CONTACT_EMAIL}`}
+                  className="text-blue-400 hover:underline text-sm mt-1 block"
+                >
+                  {CONTACT_EMAIL}
+                </a>
+                <p className="text-slate-500 text-xs mt-2">We typically respond within 1–2 business days.</p>
               </div>
             </div>
-          </motion.div>
+          </div>
 
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.3 }}
-            className="bg-card p-8 rounded-lg border border-border"
-          >
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div>
-                <label htmlFor="name" className="block text-sm font-medium text-card-foreground mb-2">
-                  Full Name
-                </label>
-                <Input
-                  id="name"
-                  name="name"
-                  type="text"
-                  required
-                  value={formData.name}
-                  onChange={handleChange}
-                  placeholder="John Doe"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-card-foreground mb-2">
-                  Email Address (optional)
-                </label>
-                <Input
-                  id="email"
-                  name="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  placeholder="john@example.com"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="subject" className="block text-sm font-medium text-card-foreground mb-2">
-                  Subject
-                </label>
-                <Input
-                  id="subject"
-                  name="subject"
-                  type="text"
-                  required
-                  value={formData.subject}
-                  onChange={handleChange}
-                  placeholder="How can we help?"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="message" className="block text-sm font-medium text-card-foreground mb-2">
-                  Message
-                </label>
-                <Textarea
-                  id="message"
-                  name="message"
-                  required
-                  rows={6}
-                  value={formData.message}
-                  onChange={handleChange}
-                  placeholder="Tell us more about your inquiry..."
-                />
-              </div>
-
-              <Button type="submit" className="w-full" size="lg" disabled={loading}>
-                {loading ? 'Sending…' : 'Send Message'}
-                {!loading && <Send className="ml-2 h-4 w-4" />}
-              </Button>
-            </form>
-          </motion.div>
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-sm text-slate-400 leading-relaxed">
+            <p className="font-medium text-white mb-2">What to reach out about</p>
+            <ul className="space-y-2">
+              <li>· Institutional research subscriptions</li>
+              <li>· Media &amp; press inquiries</li>
+              <li>· Speaking &amp; webinar partnerships</li>
+              <li>· Platform feedback</li>
+            </ul>
+          </div>
         </div>
-      </div>
-    </section>
-  );
-};
 
-export default Contact;
+        <form
+          onSubmit={handleSubmit}
+          className="lg:col-span-3 rounded-2xl border border-white/10 bg-white/5 p-6 lg:p-8 space-y-5"
+        >
+          <div>
+            <label htmlFor="name" className="block text-sm font-medium text-slate-300 mb-2">
+              Full name
+            </label>
+            <Input
+              id="name"
+              name="name"
+              required
+              value={formData.name}
+              onChange={handleChange}
+              placeholder="Your name"
+              className="bg-slate-900/50 border-white/15 text-white placeholder:text-slate-500"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="email" className="block text-sm font-medium text-slate-300 mb-2">
+              Email <span className="text-slate-500">(optional)</span>
+            </label>
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              value={formData.email}
+              onChange={handleChange}
+              placeholder="you@company.com"
+              className="bg-slate-900/50 border-white/15 text-white placeholder:text-slate-500"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="subject" className="block text-sm font-medium text-slate-300 mb-2">
+              Subject
+            </label>
+            <Input
+              id="subject"
+              name="subject"
+              required
+              value={formData.subject}
+              onChange={handleChange}
+              placeholder="How can we help?"
+              className="bg-slate-900/50 border-white/15 text-white placeholder:text-slate-500"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="message" className="block text-sm font-medium text-slate-300 mb-2">
+              Message
+            </label>
+            <Textarea
+              id="message"
+              name="message"
+              required
+              rows={6}
+              value={formData.message}
+              onChange={handleChange}
+              placeholder="Tell us about your inquiry…"
+              className="bg-slate-900/50 border-white/15 text-white placeholder:text-slate-500"
+            />
+          </div>
+
+          <Button
+            type="submit"
+            className="w-full bg-blue-600 hover:bg-blue-700"
+            size="lg"
+            disabled={loading}
+          >
+            {loading ? 'Sending…' : 'Send message'}
+            {!loading && <Send className="ml-2 h-4 w-4" />}
+          </Button>
+        </form>
+      </div>
+    </PageShell>
+  );
+}
