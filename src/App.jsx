@@ -44,6 +44,12 @@ function AppShell() {
   const location = useLocation();
   const isAdmin = location.pathname.startsWith('/admin');
 
+  useEffect(() => {
+    if (!isAdmin) {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [isAdmin, location.pathname]);
+
   if (isAdmin) {
     return (
       <Routes>

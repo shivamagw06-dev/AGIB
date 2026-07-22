@@ -80,7 +80,7 @@ export default function ArticlesFeed({ section, variant = 'light' }) {
   const isLight = variant === 'light';
 
   return (
-    <div className={`min-h-screen ${isLight ? 'bg-white' : 'bg-slate-950'}`}>
+    <div className={`min-h-screen reuters-page ${isLight ? 'bg-white' : 'bg-slate-950'}`}>
       <Helmet>
         <title>{pageTitle} | Agarwal Global Investments</title>
         <meta
@@ -89,23 +89,23 @@ export default function ArticlesFeed({ section, variant = 'light' }) {
         />
       </Helmet>
 
-      <div className={`border-b ${isLight ? 'border-slate-200 bg-white' : 'border-white/10'}`}>
-        <div className="max-w-6xl mx-auto px-6 py-12">
+      <div className={`border-b ${isLight ? 'border-[#dddddd] bg-white' : 'border-white/10'}`}>
+        <div className="max-w-6xl mx-auto px-6 py-10">
           <Link
             to="/"
-            className={`inline-flex items-center gap-2 text-sm mb-6 transition-colors ${
-              isLight ? 'text-slate-500 hover:text-slate-900' : 'text-slate-400 hover:text-white'
+            className={`inline-flex items-center gap-2 text-xs mb-5 transition-colors ${
+              isLight ? 'text-[#767676] hover:text-[#ff8000]' : 'text-slate-400 hover:text-white'
             }`}
           >
-            <ArrowLeft size={16} /> Back to Home
+            <ArrowLeft size={14} /> Back to Home
           </Link>
-          <span className={`text-sm font-semibold uppercase tracking-widest ${isLight ? 'text-blue-700' : 'text-blue-400'}`}>
+          <span className={`text-xs font-semibold uppercase tracking-widest ${isLight ? 'text-[#767676]' : 'text-blue-400'}`}>
             Research
           </span>
-          <h1 className={`mt-2 text-3xl md:text-4xl font-bold tracking-tight ${isLight ? 'text-slate-900' : 'text-white'}`}>
+          <h1 className={`mt-2 text-3xl font-bold tracking-tight ${isLight ? 'text-[#111111] reuters-heading' : 'text-white'}`}>
             {pageTitle}
           </h1>
-          <p className={`mt-4 text-lg max-w-2xl ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
+          <p className={`mt-3 text-base max-w-2xl ${isLight ? 'text-[#555555]' : 'text-slate-400'}`}>
             In-depth reports, sector analysis, and investment insights.
           </p>
         </div>
@@ -127,9 +127,9 @@ export default function ArticlesFeed({ section, variant = 'light' }) {
               onClick={() => setSelectedCategory(category)}
               className={
                 selectedCategory === category
-                  ? 'bg-blue-700 hover:bg-blue-800 text-white'
+                  ? 'bg-[#ff8000] hover:bg-[#e67300] text-white border-[#ff8000]'
                   : isLight
-                    ? 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                    ? 'border-[#dddddd] text-[#555555] hover:bg-[#f7f7f7]'
                     : 'border-white/20 text-slate-300 hover:bg-white/10 hover:text-white'
               }
             >
@@ -158,10 +158,10 @@ export default function ArticlesFeed({ section, variant = 'light' }) {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: index * 0.05 }}
-                className={`rounded-xl border overflow-hidden group flex flex-col transition-all ${
+                className={`overflow-hidden group flex flex-col transition-all ${
                   isLight
-                    ? 'border-slate-200 bg-white shadow-sm hover:shadow-md hover:border-slate-300'
-                    : 'border-white/10 bg-white/5 hover:border-blue-500/40'
+                    ? 'reuters-card'
+                    : 'rounded-2xl border border-white/10 bg-white/5 hover:border-blue-500/40'
                 }`}
               >
                 <Link to={`/article/${article.slug}`} className="block">
@@ -172,7 +172,7 @@ export default function ArticlesFeed({ section, variant = 'light' }) {
                       src={article.image}
                     />
                     <div className="absolute top-4 left-4">
-                      <span className="bg-blue-700 text-white text-xs font-semibold px-3 py-1 rounded-full">
+                      <span className="bg-[#ff8000] text-white text-[10px] font-semibold uppercase px-2 py-0.5">
                         {article.category}
                       </span>
                     </div>
@@ -192,8 +192,8 @@ export default function ArticlesFeed({ section, variant = 'light' }) {
                   </div>
 
                   <Link to={`/article/${article.slug}`}>
-                    <h3 className={`text-lg font-semibold mb-2 line-clamp-2 transition-colors ${
-                      isLight ? 'text-slate-900 group-hover:text-blue-800' : 'text-white group-hover:text-blue-300'
+                    <h3 className={`text-base font-bold mb-2 line-clamp-2 transition-colors ${
+                      isLight ? 'text-[#111111] group-hover:text-[#ff8000]' : 'text-white group-hover:text-blue-300'
                     }`}>
                       {article.title}
                     </h3>
@@ -205,7 +205,7 @@ export default function ArticlesFeed({ section, variant = 'light' }) {
 
                   <Link
                     to={`/article/${article.slug}`}
-                    className="mt-auto inline-flex items-center text-sm text-blue-700 font-medium hover:text-blue-900"
+                    className="mt-auto inline-flex items-center text-xs font-semibold uppercase tracking-wide text-[#ff8000] hover:text-[#e67300]"
                   >
                     Read article
                     <ArrowRight className="ml-2 h-4 w-4" />

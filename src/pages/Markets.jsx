@@ -71,30 +71,29 @@ export default function Markets() {
         />
       </Helmet>
 
-      <div className="bg-slate-50 min-h-screen">
-        {/* Hero + stock picker */}
-        <section className="bg-slate-950 text-white border-b border-white/10">
-          <div className="max-w-7xl mx-auto px-6 py-14 lg:py-16">
-            <div className="flex items-center gap-3 text-blue-400 text-sm font-semibold uppercase tracking-widest">
-              <BarChart3 size={18} />
-              Markets
+      <div className="bg-white min-h-screen reuters-page">
+        <section className="bg-white border-b border-[#dddddd]">
+          <div className="max-w-6xl mx-auto px-6 py-10 lg:py-12">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-[#767676]">
+              <BarChart3 size={16} />
+              Market Overview
             </div>
-            <h1 className="mt-3 text-4xl md:text-5xl font-bold tracking-tight">
+            <h1 className="reuters-heading mt-2 text-3xl md:text-4xl">
               Market Intelligence
             </h1>
-            <p className="mt-4 text-slate-400 text-lg max-w-2xl">
+            <p className="reuters-body mt-3 text-base max-w-2xl">
               Search a stock to update SWOT, technical analysis, and fundamentals widgets below.
             </p>
 
-            <div className="mt-8 flex flex-wrap items-center gap-3">
-              <span className="rounded-full bg-blue-600/20 border border-blue-500/30 px-4 py-1.5 text-sm font-semibold text-blue-300">
+            <div className="mt-6">
+              <span className="inline-block border border-[#dddddd] bg-[#f7f7f7] px-3 py-1 text-xs font-semibold text-[#555555]">
                 Viewing: {symbol}
-                {selectedStock ? ` · ${selectedStock.name}` : ""}
+                {selectedStock ? ` · ${selectedStock.name}` : ''}
               </span>
             </div>
 
-            <div className="relative mt-6 max-w-xl">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+            <div className="relative mt-5 max-w-xl">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#767676]" size={18} />
               <input
                 type="search"
                 value={query}
@@ -104,21 +103,21 @@ export default function Markets() {
                 }}
                 onFocus={() => setOpen(true)}
                 onBlur={() => setTimeout(() => setOpen(false), 180)}
-                placeholder="Search stock for widgets — Reliance, TCS, HDFC Bank…"
-                className="w-full rounded-2xl border border-white/10 bg-white/5 pl-12 pr-4 py-4 text-white placeholder:text-slate-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                placeholder="Search stock — Reliance, TCS, HDFC Bank…"
+                className="w-full border border-[#dddddd] bg-white pl-10 pr-4 py-2.5 text-[#111111] placeholder:text-[#767676] focus:border-[#ff8000] focus:outline-none focus:ring-1 focus:ring-[#ff8000]"
               />
               {open && filtered.length > 0 && (
-                <div className="absolute z-30 mt-2 w-full rounded-2xl border border-slate-200 bg-white shadow-2xl overflow-hidden">
+                <div className="absolute z-30 mt-1 w-full border border-[#dddddd] bg-white shadow-sm overflow-hidden">
                   {filtered.map((s) => (
                     <button
                       key={s.symbol}
                       type="button"
                       onMouseDown={() => selectSymbol(s.symbol)}
-                      className="flex w-full items-center justify-between px-5 py-3.5 hover:bg-slate-50 text-left border-b border-slate-100 last:border-0"
+                      className="flex w-full px-4 py-3 hover:bg-[#f7f7f7] text-left border-b border-[#eeeeee] last:border-0"
                     >
                       <div>
-                        <p className="font-semibold text-slate-900">{s.symbol}</p>
-                        <p className="text-sm text-slate-500">{s.name}</p>
+                        <p className="font-semibold text-sm text-[#111111]">{s.symbol}</p>
+                        <p className="text-xs text-[#767676]">{s.name}</p>
                       </div>
                     </button>
                   ))}
@@ -126,16 +125,16 @@ export default function Markets() {
               )}
             </div>
 
-            <div className="mt-5 flex flex-wrap gap-2">
+            <div className="mt-4 flex flex-wrap gap-2">
               {STOCK_CATALOG.slice(0, 10).map((s) => (
                 <button
                   key={s.symbol}
                   type="button"
                   onClick={() => selectSymbol(s.symbol)}
-                  className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors ${
+                  className={`px-3 py-1 text-xs font-medium border transition-colors ${
                     symbol === s.symbol
-                      ? "bg-blue-600 text-white"
-                      : "bg-white/10 text-slate-300 hover:bg-white/20"
+                      ? 'bg-[#ff8000] text-white border-[#ff8000]'
+                      : 'bg-white text-[#555555] border-[#dddddd] hover:border-[#bbbbbb]'
                   }`}
                 >
                   {s.symbol}
@@ -145,7 +144,7 @@ export default function Markets() {
           </div>
         </section>
 
-        <div className="max-w-7xl mx-auto px-6 py-10 lg:py-14 space-y-10 lg:space-y-14">
+        <div className="max-w-6xl mx-auto px-6 py-10 space-y-10">
           {/* TradingView — market-wide */}
           <section className="space-y-10">
             <TradingViewMarketOverview />
@@ -154,9 +153,9 @@ export default function Markets() {
 
           {/* Stock-specific — 2 column layout */}
           <section>
-            <div className="mb-6">
-              <h2 className="text-2xl font-bold text-slate-900">Stock Analysis · {symbol}</h2>
-              <p className="text-slate-500 mt-1">Trendlyne & TradingView · updates when you search</p>
+            <div className="mb-6 border-b border-[#dddddd] pb-4">
+              <h2 className="reuters-heading text-xl">Stock Analysis · {symbol}</h2>
+              <p className="reuters-muted mt-1 text-sm">Trendlyne & TradingView</p>
             </div>
 
             <div className="grid xl:grid-cols-2 gap-8">
@@ -185,7 +184,7 @@ export default function Markets() {
             </div>
           </section>
 
-          <p className="text-xs text-slate-400 text-center pb-6">
+          <p className="text-[11px] text-[#767676] text-center pb-6">
             Widgets by Trendlyne & TradingView. For informational purposes only — not investment advice.
           </p>
         </div>

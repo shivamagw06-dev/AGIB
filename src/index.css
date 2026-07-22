@@ -8,26 +8,33 @@
    Design tokens (define first)
    ========================= */
 :root {
-  --background: 240 6% 96%;
-  --foreground: 240 2% 11%;
+  --background: 0 0% 100%;
+  --foreground: 0 0% 7%;
   --card: 0 0% 100%;
-  --card-foreground: 240 2% 11%;
+  --card-foreground: 0 0% 7%;
   --popover: 0 0% 100%;
-  --popover-foreground: 240 2% 11%;
-  --primary: 40 70% 64%; /* gold */
+  --popover-foreground: 0 0% 7%;
+  --primary: 28 100% 50%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 43 100% 51%;
-  --secondary-foreground: 240 2% 11%;
-  --muted: 220 9% 93%;
-  --muted-foreground: 240 5% 34%;
-  --accent: 220 9% 93%;
-  --accent-foreground: 240 2% 11%;
+  --secondary: 0 0% 96%;
+  --secondary-foreground: 0 0% 7%;
+  --muted: 0 0% 96%;
+  --muted-foreground: 0 0% 40%;
+  --accent: 0 0% 96%;
+  --accent-foreground: 0 0% 7%;
   --destructive: 0 84.2% 60.2%;
   --destructive-foreground: 0 0% 100%;
-  --border: 240 4% 89%;
-  --input: 240 4% 89%;
-  --ring: 40 70% 64%;
-  --radius: 0.5rem;
+  --border: 0 0% 88%;
+  --input: 0 0% 88%;
+  --ring: 28 100% 50%;
+  --radius: 0.25rem;
+
+  --reuters-orange: #ff8000;
+  --reuters-black: #111111;
+  --reuters-gray: #555555;
+  --reuters-muted: #767676;
+  --reuters-border: #dddddd;
+  --reuters-bg-subtle: #f7f7f7;
 
   /* convenience mappings */
   --bg-hsl: var(--background);
@@ -48,25 +55,24 @@
 /* ========================= Base layer: accessible defaults ========================= */
 @layer base {
   html, body {
-    background-color: hsl(var(--bg-hsl));
-    color: hsl(var(--fg-hsl));
+    background-color: #ffffff;
+    color: var(--reuters-black);
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
-  /* shared radius for panels, cards and controls */
-  .container, .card, .panel, input, textarea, select, button {
-    border-radius: var(--radius);
+  html.dark body {
+    background-color: #ffffff;
+    color: var(--reuters-black);
   }
 
-  /* links */
   a {
-    color: hsl(var(--primary));
+    color: var(--reuters-black);
     text-decoration: none;
   }
   a:hover, a:focus {
-    text-decoration: underline;
+    color: var(--reuters-orange);
   }
 
   /* inputs */
@@ -163,7 +169,45 @@
   outline-offset: 2px;
 }
 
-.force-contrast { color: hsl(var(--fg-hsl)) !important; background: transparent !important; }
+.force-contrast { color: var(--reuters-black) !important; background: transparent !important; }
+
+/* Reuters-style public site helpers */
+.reuters-page {
+  background: #ffffff;
+  color: var(--reuters-black);
+}
+.reuters-heading {
+  color: var(--reuters-black);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.reuters-body {
+  color: var(--reuters-gray);
+}
+.reuters-muted {
+  color: var(--reuters-muted);
+}
+.reuters-card {
+  background: #ffffff;
+  border: 1px solid var(--reuters-border);
+  border-radius: 2px;
+}
+.reuters-card:hover {
+  border-color: #bbbbbb;
+}
+.reuters-btn {
+  background: var(--reuters-orange);
+  color: #ffffff;
+  font-weight: 600;
+  border-radius: 2px;
+}
+.reuters-btn:hover {
+  background: #e67300;
+}
+.reuters-nav-active {
+  color: var(--reuters-black) !important;
+  box-shadow: inset 0 -2px 0 0 var(--reuters-orange);
+}
 
 /* ------------------------- Emergency mobile responsive fixes ------------------------- */
 @media (max-width: 768px) {

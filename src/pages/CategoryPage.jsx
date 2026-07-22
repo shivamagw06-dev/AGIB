@@ -57,51 +57,51 @@ export default function CategoryPage() {
   const title = category?.name || slug?.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 
   return (
-    <div className="bg-slate-950 min-h-screen">
+    <div className="bg-white min-h-screen reuters-page">
       <Helmet>
         <title>{title} | Agarwal Global Investments</title>
         <meta name="description" content={category?.description || `Browse ${title} articles and market updates.`} />
       </Helmet>
 
-      <div className="max-w-7xl mx-auto px-6 py-16">
-        <Link to="/" className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white mb-8 transition-colors">
-          <ArrowLeft size={16} /> Back to Home
+      <div className="max-w-6xl mx-auto px-6 py-12">
+        <Link to="/" className="inline-flex items-center gap-2 text-xs text-[#767676] hover:text-[#ff8000] mb-6">
+          <ArrowLeft size={14} /> Back to Home
         </Link>
 
-        <span className="text-blue-400 text-sm font-semibold uppercase tracking-widest">{title}</span>
-        <h1 className="mt-3 text-4xl md:text-5xl font-bold text-white">{title}</h1>
+        <h1 className="reuters-heading text-3xl md:text-4xl border-b border-[#dddddd] pb-4">{title}</h1>
         {category?.description && (
-          <p className="mt-4 text-slate-400 text-lg max-w-3xl">{category.description}</p>
+          <p className="reuters-body mt-4 text-base max-w-3xl">{category.description}</p>
         )}
 
         {loading ? (
-          <p className="mt-16 text-slate-500 text-center">Loading articles…</p>
+          <p className="mt-12 text-[#767676] text-center text-sm">Loading articles…</p>
         ) : articles.length === 0 ? (
-          <div className="mt-16 text-center py-16 rounded-2xl border border-white/10 bg-white/5">
-            <p className="text-slate-400">No published articles in this category yet.</p>
-            <p className="text-slate-500 text-sm mt-2">Check back soon for new updates.</p>
+          <div className="mt-12 text-center py-12 reuters-card">
+            <p className="text-[#555555]">No published articles in this category yet.</p>
           </div>
         ) : (
-          <div className="mt-12 grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="mt-10 grid md:grid-cols-2 lg:grid-cols-3 gap-5">
             {articles.map((article) => (
               <Link
                 key={article.id}
                 to={`/article/${article.slug}`}
-                className="group rounded-2xl border border-white/10 bg-white/5 overflow-hidden hover:border-blue-500/40 transition-all"
+                className="reuters-card group overflow-hidden"
               >
                 {article.cover_url && (
-                  <img src={article.cover_url} alt="" className="w-full h-44 object-cover" />
+                  <img src={article.cover_url} alt="" className="w-full h-40 object-cover border-b border-[#dddddd]" />
                 )}
-                <div className="p-6">
-                  <span className="text-blue-400 text-xs font-medium">{article.section}</span>
-                  <h2 className="mt-2 text-xl font-semibold text-white group-hover:text-blue-300 transition-colors line-clamp-2">
+                <div className="p-4">
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-[#767676]">
+                    {article.section}
+                  </span>
+                  <h2 className="mt-1 text-base font-bold text-[#111111] group-hover:text-[#ff8000] transition-colors line-clamp-2">
                     {article.title}
                   </h2>
                   {article.excerpt && (
-                    <p className="mt-3 text-slate-400 text-sm line-clamp-3 leading-relaxed">{article.excerpt}</p>
+                    <p className="mt-2 text-sm text-[#555555] line-clamp-3 leading-relaxed">{article.excerpt}</p>
                   )}
-                  <div className="mt-4 flex items-center gap-1.5 text-xs text-slate-500">
-                    <Clock3 size={13} />
+                  <div className="mt-3 flex items-center gap-1.5 text-[11px] text-[#767676]">
+                    <Clock3 size={12} />
                     {formatArticleDate(article.published_at)}
                   </div>
                 </div>

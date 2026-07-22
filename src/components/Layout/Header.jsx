@@ -1,11 +1,10 @@
 // src/components/Header.jsx
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Menu, X, User, LogOut, Sun, Moon, Edit2 } from 'lucide-react';
+import { Menu, X, User, LogOut, Edit2 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTheme } from '@/contexts/ThemeContext';
 import SearchButton from "./SearchButton";
 import {
   DropdownMenu,
@@ -21,7 +20,6 @@ import { isAdmin } from '@/lib/adminAuth';
 const Header = ({ currentPage, setCurrentPage }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { user, logout } = useAuth();
-  const { theme, setTheme } = useTheme();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [handle, setHandle] = useState('');
@@ -104,9 +102,9 @@ const Header = ({ currentPage, setCurrentPage }) => {
   };
 
   return (
-    <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-slate-200">
-      <nav className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
+    <header className="sticky top-0 z-50 bg-white border-b-2 border-[#111111]">
+      <nav className="max-w-6xl mx-auto px-4 sm:px-6">
+        <div className="flex justify-between items-center h-14">
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
@@ -116,21 +114,21 @@ const Header = ({ currentPage, setCurrentPage }) => {
             tabIndex={0}
             onKeyDown={(e) => e.key === 'Enter' && handleNavClick('/')}
           >
-            <span className="text-xl font-bold text-slate-900 tracking-tight">
-              AGI
+            <span className="text-lg font-bold text-[#111111] tracking-tight">
+              AGI<span className="text-[#ff8000]">.</span>
             </span>
           </motion.div>
 
-          <div className="hidden lg:flex items-center gap-1">
+          <div className="hidden lg:flex items-center h-14">
             {navItems.map((item) => (
               <button
                 key={item.path}
                 type="button"
                 onClick={() => handleNavClick(item.path)}
-                className={`text-sm font-medium transition-colors whitespace-nowrap px-3 py-2 rounded-md ${
+                className={`h-full px-4 text-sm font-medium transition-colors whitespace-nowrap ${
                   isActive(item.path)
-                    ? 'text-blue-800 bg-blue-50'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                    ? 'reuters-nav-active text-[#111111]'
+                    : 'text-[#555555] hover:text-[#111111]'
                 }`}
                 aria-current={isActive(item.path) ? 'page' : undefined}
               >
@@ -138,48 +136,29 @@ const Header = ({ currentPage, setCurrentPage }) => {
               </button>
             ))}
 
-            {/* Admin-only Write button */}
             {userIsAdmin && (
               <Button
-                variant="secondary"
+                variant="outline"
                 onClick={() => {
                   setMobileMenuOpen(false);
                   navigate('/admin');
                 }}
-                className="inline-flex items-center gap-2 ml-3"
+                className="ml-3 h-8 text-xs border-[#dddddd] text-[#555555] hover:text-[#111111]"
                 aria-label="Open CMS"
               >
-                <Edit2 className="h-4 w-4" />
+                <Edit2 className="h-3.5 w-3.5 mr-1.5" />
                 CMS
               </Button>
             )}
           </div>
 
-          {/* Right Side Buttons */}
           <div className="flex items-center gap-2">
-            {/* Theme Toggle */}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-              title="Toggle theme"
-              aria-pressed={theme === 'dark'}
-            >
-              {theme === 'dark' ? (
-                <Sun className="h-[1.2rem] w-[1.2rem]" aria-hidden />
-              ) : (
-                <Moon className="h-[1.2rem] w-[1.2rem]" aria-hidden />
-              )}
-              <span className="sr-only">Toggle theme</span>
-            </Button>
-
-            {/* Profile / Auth */}
             <div className="hidden lg:block">
               {user ? (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="flex items-center gap-2">
-                      <User className="h-4 w-4" />
+                    <Button variant="outline" className="h-8 text-xs border-[#dddddd] text-[#555555]">
+                      <User className="h-3.5 w-3.5 mr-1.5" />
                       <span>{(user.email ?? 'User').split('@')[0]}</span>
                     </Button>
                   </DropdownMenuTrigger>
@@ -221,7 +200,13 @@ const Header = ({ currentPage, setCurrentPage }) => {
                   </DropdownMenuContent>
                 </DropdownMenu>
               ) : (
-                <Button onClick={() => navigate('/login')}>Login / Sign Up</Button>
+                <Button
+                  onClick={() => navigate('/login')}
+                  variant="outline"
+                  className="h-8 text-xs border-[#dddddd] text-[#555555]"
+                >
+                  Sign in
+                </Button>
               )}
             </div>
 
@@ -249,16 +234,16 @@ const Header = ({ currentPage, setCurrentPage }) => {
             exit={{ opacity: 0, height: 0 }}
             className="lg:hidden overflow-hidden"
           >
-            <div className="py-4 border-t border-slate-200 flex flex-col items-start bg-white">
+            <div className="py-3 border-t border-[#dddddd] flex flex-col bg-white">
               {navItems.map((item) => (
                 <button
                   key={item.path}
                   type="button"
                   onClick={() => handleNavClick(item.path)}
-                  className={`block w-full text-left px-4 py-3 text-base font-medium ${
+                  className={`block w-full text-left px-4 py-3 text-sm font-medium border-b border-[#eeeeee] ${
                     isActive(item.path)
-                      ? 'text-blue-800 bg-blue-50'
-                      : 'text-slate-700 hover:bg-slate-50'
+                      ? 'text-[#111111] bg-[#fff8f0]'
+                      : 'text-[#555555]'
                   }`}
                 >
                   {item.name}

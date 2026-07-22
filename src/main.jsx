@@ -66,13 +66,11 @@ export const helmetContext = {};
       window.matchMedia &&
       window.matchMedia('(prefers-color-scheme: dark)').matches;
 
-    // Decide whether to enable dark mode
-    const shouldDark = saved === 'dark' || (saved === null && prefersDark);
+    const shouldDark = saved === 'dark';
 
-    // Mutate documentElement early (before React mounts) to avoid FOUC
     if (typeof document !== 'undefined') {
+      document.documentElement.classList.remove('dark');
       if (shouldDark) document.documentElement.classList.add('dark');
-      else document.documentElement.classList.remove('dark');
     }
   } catch (err) {
     // Non-fatal: just log in dev

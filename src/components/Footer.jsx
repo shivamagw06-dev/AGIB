@@ -10,24 +10,24 @@ const footerLinks = [
 
 export default function Footer() {
   return (
-    <footer className="bg-white border-t border-slate-200">
+    <footer className="bg-[#f7f7f7] border-t border-[#dddddd]">
       <div className="max-w-6xl mx-auto px-6 py-10">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-8">
           <div>
-            <Link to="/" className="text-base font-semibold text-slate-900 hover:text-blue-800 transition-colors">
+            <Link to="/" className="text-sm font-bold text-[#111111] hover:text-[#ff8000]">
               Agarwal Global Investments
             </Link>
-            <p className="mt-2 text-sm text-slate-500 max-w-md leading-relaxed">
+            <p className="mt-2 text-xs text-[#767676] max-w-sm leading-relaxed">
               Independent market research for Indian investors. For informational purposes only — not investment advice.
             </p>
           </div>
 
-          <nav className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
+          <nav className="flex flex-wrap gap-x-5 gap-y-2 text-xs">
             {footerLinks.map((link) => (
               <Link
                 key={link.to}
                 to={link.to}
-                className="text-slate-600 hover:text-slate-900 transition-colors"
+                className="text-[#555555] hover:text-[#ff8000] transition-colors"
               >
                 {link.label}
               </Link>
@@ -35,7 +35,7 @@ export default function Footer() {
           </nav>
         </div>
 
-        <p className="mt-8 pt-6 border-t border-slate-100 text-xs text-slate-400">
+        <p className="mt-8 pt-5 border-t border-[#dddddd] text-[11px] text-[#767676]">
           © {new Date().getFullYear()} Agarwal Global Investments. All rights reserved.
         </p>
       </div>
