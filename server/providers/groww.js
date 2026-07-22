@@ -23,15 +23,34 @@ function generateChecksum(secret, timestamp) {
   return crypto.createHash('sha256').update(secret + timestamp).digest('hex');
 }
 
+function looksLikeAccessToken(value) {
+  // Daily access tokens from Groww dashboard are JWTs; API keys are short opaque strings.
+  return value.startsWith('eyJ') && value.length > 100;
+}
+
 async function resolveAccessToken() {
   const direct = (process.env.GROWW_ACCESS_TOKEN || '').trim();
   if (direct) return direct;
 
-  if (cachedToken && Date.now() < tokenExpiry) return cachedToken;
-
   const apiKey = (process.env.GROWW_API_KEY || '').trim();
   const apiSecret = (process.env.GROWW_API_SECRET || '').trim();
-  if (!apiKey || !apiSecret) return null;
+
+  // Common setup mistake: access token pasted into GROWW_API_KEY.
+  if (!direct && looksLikeAccessToken(apiKey)) return apiKey;
+
+  if (cachedToken && Date.now() < tokenExpiry) return cachedToken;
+
+  if (!apiKey || !apiSecret) {
+    throw new Error(
+      'Groww auth missing: set GROWW_ACCESS_TOKEN or GROWW_API_KEY + GROWW_API_SECRET in server/.env'
+    );
+  }
+
+  if (apiSecret.length < 8) {
+    throw new Error(
+      'Groww API secret looks invalid (too short). Copy the full secret from Groww Cloud API Keys, or use GROWW_ACCESS_TOKEN from Trading APIs.'
+    );
+  }
 
   const timestamp = Math.floor(Date.now() / 1000).toString();
   const checksum = generateChecksum(apiSecret, timestamp);
@@ -53,7 +72,12 @@ async function resolveAccessToken() {
     tokenExpiry = Date.now() + 23 * 60 * 60 * 1000;
     return cachedToken;
   }
-  return null;
+
+  const authMsg =
+    json?.error?.errorMessage ||
+    json?.error?.message ||
+    (resp.status === 400 ? 'Invalid credentials — approve the key on Groww Cloud API Keys page' : null);
+  throw new Error(authMsg || `Groww token request failed (HTTP ${resp.status})`);
 }
 
 export function isGrowwConfigured() {
@@ -65,7 +89,6 @@ export function isGrowwConfigured() {
 
 async function growwRequest(path, params = {}) {
   const token = await resolveAccessToken();
-  if (!token) throw new Error('Groww API not configured');
 
   const url = new URL(`${GROWW_BASE}${path}`);
   Object.entries(params).forEach(([k, v]) => {

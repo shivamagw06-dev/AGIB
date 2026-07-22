@@ -6,6 +6,7 @@
 import { Router } from 'express';
 import { getAgiIntelligence, getDashboardFromIntelligence } from '../services/intelligenceService.js';
 import { MARKET_REFRESH_MS } from '../config/marketRefresh.js';
+import { getGrowwHealth } from '../services/growwHealth.js';
 
 const CACHE_CONTROL = `public, max-age=${Math.floor(MARKET_REFRESH_MS / 1000)}, stale-while-revalidate=60`;
 
@@ -16,6 +17,14 @@ function sendJson(res, data) {
 
 export default function createMarketRouter(env = {}) {
   const router = Router();
+
+  router.get('/groww-health', async (_req, res) => {
+    if (process.env.DEBUG_GROWW !== 'true' && process.env.NODE_ENV === 'production') {
+      return res.status(404).json({ error: 'Not found' });
+    }
+    const health = await getGrowwHealth();
+    return res.status(health.ok ? 200 : 502).json(health);
+  });
 
   router.get('/intelligence', async (_req, res) => {
     const data = await getAgiIntelligence(env);
