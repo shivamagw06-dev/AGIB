@@ -4,6 +4,7 @@ import MorningBriefHero from '@/components/Home/MorningBriefHero';
 import TodayDashboard from '@/components/Home/TodayDashboard';
 import IndexSentimentTicker from '@/components/Home/IndexSentimentTicker';
 import ResearchNotesPreview from '@/components/Home/ResearchNotesPreview';
+import NewsHeadlineBar from '@/components/Home/NewsHeadlineBar';
 import InstitutionalResearchCard from '@/components/Home/InstitutionalResearchCard';
 import NewsletterSection from '@/components/Home/NewsletterSection';
 import usePublishedArticles from '@/hooks/usePublishedArticles';
@@ -109,8 +110,9 @@ export default function EditorialHome() {
 
   return (
     <div className="bg-white min-h-screen">
-      <div className="max-w-[1280px] mx-auto px-4">
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6">
         <MorningBriefHero />
+        <NewsHeadlineBar />
         <IndexSentimentTicker />
         <TodayDashboard />
         <ResearchNotesPreview />

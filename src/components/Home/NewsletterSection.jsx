@@ -37,7 +37,7 @@ export default function NewsletterSection() {
 
   return (
     <section className="py-12 border-t border-[#dddddd] bg-[#fafafa]">
-      <div className="max-w-[1280px] mx-auto px-4">
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center border border-[#dddddd] bg-white p-6 md:p-10">
           <div>
             <h2 className="text-2xl font-bold text-[#111111]">Join Thousands of Investors</h2>

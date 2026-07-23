@@ -236,6 +236,26 @@
   .agi-sentiment-ticker-track { animation: none; }
 }
 
+.agi-headline-ticker {
+  overflow: hidden;
+}
+.agi-headline-ticker-track {
+  display: flex;
+  width: max-content;
+  min-width: 100%;
+  animation: agi-headline-marquee 58s linear infinite;
+}
+.agi-headline-ticker:hover .agi-headline-ticker-track {
+  animation-play-state: paused;
+}
+@keyframes agi-headline-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .agi-headline-ticker-track { animation: none; }
+}
+
 /* ------------------------- Emergency mobile responsive fixes ------------------------- */
 @media (max-width: 768px) {
   html, body { overflow-x: hidden; }

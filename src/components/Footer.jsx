@@ -13,7 +13,7 @@ const footerLinks = [
 export default function Footer() {
   return (
     <footer className="bg-[#f7f7f7] border-t border-[#dddddd]">
-      <div className="max-w-[1280px] mx-auto px-4 py-10">
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-10">
         <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-8">
           <div>
             <Logo compact className="mb-3" />

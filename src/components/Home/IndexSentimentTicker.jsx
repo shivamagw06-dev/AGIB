@@ -53,7 +53,7 @@ export default function IndexSentimentTicker() {
 
   return (
     <section className="border-y border-[#dfe3e8] bg-[#f8fafb] overflow-hidden" aria-label="AGI index sentiment ticker">
-      <div className="max-w-[1280px] mx-auto flex">
+      <div className="max-w-[1600px] mx-auto flex">
         <div className="hidden md:flex shrink-0 items-center px-4 border-r border-[#dfe3e8] bg-white">
           <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#252b36]">AGI Index Signals</span>
         </div>

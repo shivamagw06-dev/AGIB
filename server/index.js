@@ -8,6 +8,7 @@
 import express from "express";
 import researchRouter from "./research.js";
 import createMarketRouter from "./routes/market.js";
+import { getNewsHeadlines } from "./services/newsHeadlinesService.js";
 import rateLimit from "express-rate-limit";
 import cors from "cors";
 import dotenv from "dotenv";
@@ -167,6 +168,11 @@ function reg(path, handler) {
 // --- Health + debug endpoints
 reg('/', (req, res) => res.json({ service: 'finance-news-backend', status: 'running' }));
 reg('/api/health', (req, res) => res.json({ ok: true }));
+reg('/api/news/headlines', async (_req, res) => {
+  const data = await getNewsHeadlines();
+  res.set('Cache-Control', 'public, max-age=1800, stale-while-revalidate=300');
+  return res.json(data);
+});
 reg('/_debug_env', (req, res) => res.json({ API_KEY_exists: !!API_KEY, PERPLEXITY_key_present: !!PERPLEXITY_KEY, FRONTEND_ORIGIN: process.env.FRONTEND_ORIGIN || null, PORT: process.env.PORT || null }));
 reg('/_debug_key', (req, res) => { if (!API_KEY) return res.json({ key_present: false }); return res.json({ key_present: true, masked: `${API_KEY.slice(0,6)}... (length ${API_KEY.length})` }); });
 

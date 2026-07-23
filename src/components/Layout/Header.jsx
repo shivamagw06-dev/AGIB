@@ -82,7 +82,7 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-50 bg-white shadow-sm">
       <div className="bg-[#001e44] text-white text-[11px]">
-        <div className="max-w-[1280px] mx-auto px-4 py-1.5 flex items-center justify-between gap-4">
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-1.5 flex items-center justify-between gap-4">
           <span className="truncate opacity-90">
             Independent equity research · Updated every trading day
           </span>
@@ -97,7 +97,7 @@ export default function Header() {
       </div>
 
       <div className="border-b border-[#dddddd]">
-        <div className="max-w-[1280px] mx-auto px-4">
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between h-[58px] gap-4">
             <Logo />
 

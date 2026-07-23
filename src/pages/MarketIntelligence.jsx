@@ -56,7 +56,7 @@ export default function MarketIntelligence() {
 
       <div className="market-intelligence-page min-h-screen bg-[#f8fafb]">
         <section className="border-b border-[#dde1e6] bg-[#0d1d33] text-white">
-          <div className="max-w-[1280px] mx-auto px-4 py-8 sm:py-10 lg:py-14">
+          <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-8 sm:py-10 lg:py-14">
             <div className="flex flex-wrap items-center gap-2 text-[11px] font-bold uppercase tracking-[0.12em] text-[#a7c5ec]">
               <Activity className="h-4 w-4" /> AGI research platform
             </div>
@@ -75,7 +75,7 @@ export default function MarketIntelligence() {
           </div>
         </section>
 
-        <main className="max-w-[1280px] mx-auto px-4 py-6 sm:py-8 lg:py-10">
+        <main className="max-w-[1600px] mx-auto px-4 sm:px-6 py-6 sm:py-8 lg:py-10">
           <section aria-label="Market overview">
             <div className="mb-4 flex items-center gap-2">
               <BrainCircuit className="h-5 w-5 text-[#274c77]" />
