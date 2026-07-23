@@ -147,14 +147,21 @@ export async function getOHLC(exchangeSymbols, segment = 'CASH') {
 const formatGrowwDate = (date) => date.toISOString().slice(0, 19).replace('T', ' ');
 
 /** Historical daily candle range — backend only; callers must not expose raw candles publicly. */
-export async function getHistoricalCandleRange(exchange, segment, tradingSymbol, start, end) {
+export async function getHistoricalCandleRange(
+  exchange,
+  segment,
+  tradingSymbol,
+  start,
+  end,
+  intervalMinutes = 1440
+) {
   const payload = await growwRequest('/historical/candle/range', {
     exchange,
     segment,
     trading_symbol: tradingSymbol,
     start_time: formatGrowwDate(start),
     end_time: formatGrowwDate(end),
-    interval_in_minutes: '1440',
+    interval_in_minutes: String(intervalMinutes),
   });
   return payload?.candles || [];
 }

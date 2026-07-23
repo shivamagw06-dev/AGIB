@@ -23,8 +23,11 @@ import {
   computeStockAgiScore,
   computeAgiMarketScore,
   buildInsightStrip,
-  computeIndexBullishness,
 } from './marketIntelligenceEngine.js';
+import {
+  computeMultiTimeframeConfluence,
+  computeTimeframeConfluence,
+} from './indexConfluenceEngine.js';
 import { generateAgiSummary } from './agiSummaryGenerator.js';
 import { MARKET_REFRESH_MS } from '../config/marketRefresh.js';
 
@@ -38,7 +41,7 @@ let growwBackoffUntil = 0;
 const USE_GROWW_HISTORICAL = process.env.GROWW_USE_HISTORICAL !== 'false';
 
 function buildFallbackIndexSentiments() {
-  return INDEX_SENTIMENT_UNIVERSE.slice(0, 8).map((index) => ({
+  return INDEX_SENTIMENT_UNIVERSE.map((index) => ({
     key: index.key,
     label: index.label,
     sentiment: 'Neutral',
@@ -141,32 +144,41 @@ async function fetchCandlesForSymbol(exchange, symbol) {
   }
 }
 
+const INDEX_TIMEFRAMES = {
+  long: { intervalMinutes: 1440, lookbackDays: 365, maxRangeDays: 180 },
+  medium: { intervalMinutes: 60, lookbackDays: 60, maxRangeDays: 180 },
+  short: { intervalMinutes: 15, lookbackDays: 15, maxRangeDays: 90 },
+};
+
 /**
- * The score includes SMA200, so fetch enough calendar history for 200 trading
- * candles. Groww range calls are capped to 180-day windows and remain backend-only.
+ * Fetches an API-safe paginated candle range for an index timeframe. Raw
+ * OHLCV data is retained only in-process for the confluence calculation.
  */
-async function fetchIndexCandles(index) {
+async function fetchIndexTimeframeCandles(index, timeframe) {
   if (!USE_GROWW_HISTORICAL || !isGrowwConfigured() || Date.now() < growwBackoffUntil) return [];
 
   const end = new Date();
-  const chunkDays = 180;
-  const windows = [
-    [new Date(end.getTime() - chunkDays * 24 * 60 * 60 * 1000), end],
-    [
-      new Date(end.getTime() - chunkDays * 2 * 24 * 60 * 60 * 1000),
-      new Date(end.getTime() - chunkDays * 24 * 60 * 60 * 1000),
-    ],
-    [
-      new Date(end.getTime() - (chunkDays * 2 + 30) * 24 * 60 * 60 * 1000),
-      new Date(end.getTime() - chunkDays * 2 * 24 * 60 * 60 * 1000),
-    ],
-  ];
+  const start = new Date(end.getTime() - timeframe.lookbackDays * 24 * 60 * 60 * 1000);
+  const windows = [];
+  let cursor = start;
+  while (cursor < end) {
+    const finish = new Date(Math.min(cursor.getTime() + timeframe.maxRangeDays * 24 * 60 * 60 * 1000, end.getTime()));
+    windows.push([cursor, finish]);
+    cursor = finish;
+  }
 
   try {
     const raw = [];
     for (const [start, finish] of windows) {
       raw.push(
-        ...(await getHistoricalCandleRange(index.exchange, 'CASH', index.symbol, start, finish))
+        ...(await getHistoricalCandleRange(
+          index.exchange,
+          'CASH',
+          index.symbol,
+          start,
+          finish,
+          timeframe.intervalMinutes
+        ))
       );
     }
     return normalizeCandles(raw);
@@ -182,8 +194,13 @@ async function buildIndexSentiments() {
 
   const sentiments = [];
   for (const index of INDEX_SENTIMENT_UNIVERSE) {
-    const candles = await fetchIndexCandles(index);
-    const model = computeIndexBullishness(candles);
+    const timeframeResults = {};
+    for (const [key, timeframe] of Object.entries(INDEX_TIMEFRAMES)) {
+      const candles = await fetchIndexTimeframeCandles(index, timeframe);
+      const model = computeTimeframeConfluence(candles);
+      if (model) timeframeResults[key] = model;
+    }
+    const model = computeMultiTimeframeConfluence(timeframeResults);
     if (model) {
       sentiments.push({
         key: index.key,
