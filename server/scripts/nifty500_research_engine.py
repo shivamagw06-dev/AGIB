@@ -6,9 +6,10 @@ Requirements:
   pip install growwapi pandas
 
 Configuration:
-  export GROWW_API_KEY="..."
-  export GROWW_API_SECRET="..."
+  export GROWW_ACCESS_TOKEN="..."
   export NIFTY500_CONSTITUENTS_PATH="/path/to/nifty500_constituents.csv"
+  export SUPABASE_URL="https://your-project.supabase.co"
+  export SUPABASE_SERVICE_ROLE_KEY="server-only-service-role-key"
 
 The CSV must be a current, licensed constituent export with one `symbol` column.
 This script validates and de-duplicates symbols through Groww before analysis.
@@ -23,11 +24,44 @@ import time
 from datetime import datetime, timedelta, time as clock_time
 from pathlib import Path
 from typing import Any, Optional
+from urllib.error import HTTPError, URLError
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
 from zoneinfo import ZoneInfo
 
 import pandas as pd
 from growwapi import GrowwAPI
 
+
+SERVER_ENV_PATH = Path(__file__).resolve().parents[1] / ".env"
+
+
+def load_server_env() -> None:
+    """Load server/.env without requiring python-dotenv or shell `source`.
+
+    Existing non-empty environment variables take precedence, which keeps
+    Render/cron configuration authoritative while making local `--once` runs
+    work from the server directory.
+    """
+    if not SERVER_ENV_PATH.exists():
+        return
+
+    for raw_line in SERVER_ENV_PATH.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key = key.strip().removeprefix("export ").strip()
+        if not key:
+            continue
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
+            value = value[1:-1]
+        if not os.environ.get(key):
+            os.environ[key] = value
+
+
+load_server_env()
 
 IST = ZoneInfo("Asia/Kolkata")
 OUTPUT_PATH = Path(os.getenv("NIFTY500_RESEARCH_OUTPUT", "nifty500_research.json"))
@@ -39,12 +73,17 @@ CONFIG = {
     "segment": "CASH",
     "lookback_days": 380,  # enough calendar history for 200+ trading sessions
     "top_n": 20,
-    "schedule_times_ist": ("16:15",),  # add "08:30", "12:30" only when required
+    "schedule_times_ist": tuple(
+        value.strip()
+        for value in os.getenv("NIFTY500_SCHEDULE_TIMES_IST", "16:15").split(",")
+        if value.strip()
+    ),
     "rsi_period": 14,
     "sma_short": 20,
     "sma_long": 50,
     "sma_200": 200,
     "volume_average_period": 20,
+    "minimum_publish_coverage": float(os.getenv("NIFTY500_MINIMUM_PUBLISH_COVERAGE", "0.95")),
 }
 
 
@@ -77,34 +116,204 @@ def chunks(values: list[Any], size: int) -> list[list[Any]]:
     return [values[index : index + size] for index in range(0, len(values), size)]
 
 
+def supabase_request(
+    method: str,
+    table: str,
+    *,
+    body: Optional[dict | list[dict]] = None,
+    query: Optional[dict[str, str]] = None,
+    prefer: str = "return=minimal",
+) -> Any:
+    """Call Supabase REST with server-only credentials; never use these in the browser."""
+    base_url = os.getenv("SUPABASE_URL", "").rstrip("/")
+    service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "").strip()
+    if not base_url or not service_key:
+        raise RuntimeError(
+            "Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY to publish Nifty 500 research."
+        )
+    if not base_url.startswith(("https://", "http://")):
+        raise RuntimeError(
+            "SUPABASE_URL must be only the project URL, for example "
+            "https://your-project.supabase.co. Remove any duplicated SUPABASE_URL= prefix."
+        )
+
+    url = f"{base_url}/rest/v1/{table}"
+    if query:
+        url = f"{url}?{urlencode(query)}"
+    payload = json.dumps(body).encode("utf-8") if body is not None else None
+    request = Request(
+        url,
+        data=payload,
+        method=method,
+        headers={
+            "apikey": service_key,
+            "Authorization": f"Bearer {service_key}",
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "Prefer": prefer,
+        },
+    )
+    try:
+        with urlopen(request, timeout=45) as response:
+            raw = response.read().decode("utf-8")
+            return json.loads(raw) if raw else None
+    except HTTPError as error:
+        details = error.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"Supabase {method} {table} failed ({error.code}): {details}") from error
+    except URLError as error:
+        raise RuntimeError(f"Supabase {method} {table} connection failed: {error.reason}") from error
+
+
+def validate_publish_config() -> None:
+    base_url = os.getenv("SUPABASE_URL", "").strip()
+    if not base_url or not os.getenv("SUPABASE_SERVICE_ROLE_KEY", "").strip():
+        raise RuntimeError(
+            "Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in server/.env before running "
+            "the Nifty 500 worker. The service-role key is required to publish the completed run."
+        )
+    if not base_url.startswith(("https://", "http://")):
+        raise RuntimeError(
+            "SUPABASE_URL must be only the project URL, for example "
+            "https://your-project.supabase.co. Remove any duplicated SUPABASE_URL= prefix."
+        )
+
+
+def publish_to_supabase(output: dict) -> str:
+    """Publish only a fully written draft run; draft/failed runs stay private."""
+    meta = output["meta"]
+    run_rows = supabase_request(
+        "POST",
+        "nifty500_research_runs",
+        body={
+            "generated_at": meta["generated_at"],
+            "run_name": meta["run_name"],
+            "total_stocks_analyzed": meta["total_stocks_analyzed"],
+            "rejected_symbols": meta["rejected_symbols"],
+            "disclaimer": meta["disclaimer"],
+            "status": "draft",
+        },
+        prefer="return=representation",
+    )
+    if not run_rows or not run_rows[0].get("id"):
+        raise RuntimeError("Supabase did not return a research run id.")
+    run_id = run_rows[0]["id"]
+
+    records = [{"run_id": run_id, **stock} for stock in output["stocks"].values()]
+    for batch in chunks(records, 100):
+        supabase_request("POST", "nifty500_stock_research", body=batch)
+
+    # Stock rows are complete before either visibility change. If publishing
+    # fails, this draft remains private and the prior published run stays usable.
+    supabase_request(
+        "PATCH",
+        "nifty500_research_runs",
+        body={"is_current": False},
+        query={"is_current": "eq.true"},
+    )
+    supabase_request(
+        "PATCH",
+        "nifty500_research_runs",
+        body={
+            "status": "published",
+            "is_current": True,
+            "published_at": now_ist().isoformat(),
+        },
+        query={"id": f"eq.{run_id}", "status": "eq.draft"},
+    )
+    return run_id
+
+
+def publish_existing_output() -> None:
+    """Publish an already completed local JSON output without repeating analysis."""
+    validate_publish_config()
+    if not OUTPUT_PATH.exists():
+        raise FileNotFoundError(f"No saved research output exists at {OUTPUT_PATH}. Run with --once first.")
+    output = json.loads(OUTPUT_PATH.read_text(encoding="utf-8"))
+    stocks = output.get("stocks") or {}
+    rejected = output.get("meta", {}).get("rejected_symbols") or []
+    total = len(stocks) + len(rejected)
+    coverage = len(stocks) / max(total, 1)
+    if not stocks or coverage < CONFIG["minimum_publish_coverage"]:
+        raise RuntimeError(
+            f"Refusing to publish saved output with {coverage:.1%} coverage; "
+            f"minimum is {CONFIG['minimum_publish_coverage']:.1%}."
+        )
+    run_id = publish_to_supabase(output)
+    print(f"Published saved Nifty 500 research run {run_id} to Supabase")
+
+
 def candle_frame(response: dict) -> pd.DataFrame:
     candles = response.get("candles", [])
     if not candles:
         return pd.DataFrame(columns=["timestamp", "open", "high", "low", "close", "volume"])
-    frame = pd.DataFrame(candles, columns=["timestamp", "open", "high", "low", "close", "volume", "oi"])
+    # Groww's CASH endpoint currently returns six fields (without open
+    # interest), while FNO payloads may include a seventh OI field. Research
+    # uses the first six fields only.
+    rows = [list(candle[:6]) for candle in candles if len(candle) >= 6]
+    frame = pd.DataFrame(rows, columns=["timestamp", "open", "high", "low", "close", "volume"])
     for field in ("open", "high", "low", "close", "volume"):
         frame[field] = pd.to_numeric(frame[field], errors="coerce")
     return frame.dropna(subset=["open", "high", "low", "close"]).sort_values("timestamp").reset_index(drop=True)
 
 
-def fetch_daily_history(groww: GrowwAPI, instrument: dict) -> pd.DataFrame:
-    """Fetch daily history in safe 180-day windows, then de-duplicate candles."""
+def fetch_daily_history(access_token: str, instrument: dict) -> pd.DataFrame:
+    """Fetch daily candles through Groww's REST endpoint in safe 180-day windows.
+
+    The Python SDK's backtesting method can return empty candle arrays for CASH
+    equities even when the corresponding Groww REST endpoint returns data.
+    """
     end = now_ist()
     start = end - timedelta(days=CONFIG["lookback_days"])
     cursor = start
     parts: list[pd.DataFrame] = []
+    api_base = os.getenv("GROWW_API_BASE", "https://api.groww.in/v1").rstrip("/")
+    # Groww documents CASH groww symbols as NSE-<trading_symbol>. Prefer this
+    # canonical value: some SDK instrument payloads expose a display symbol
+    # with an exchange-series suffix that the historical REST endpoint rejects.
+    groww_symbol = str(instrument.get("groww_symbol") or "")
+    trading_symbol = groww_symbol.split("-", 1)[-1] if "-" in groww_symbol else (
+        instrument.get("symbol") or instrument.get("trading_symbol") or groww_symbol
+    )
 
     while cursor < end:
         finish = min(cursor + timedelta(days=180), end)
-        response = groww.get_historical_candles(
-            exchange=instrument["exchange"],
-            segment=instrument["segment"],
-            groww_symbol=instrument["groww_symbol"],
-            start_time=cursor.strftime("%Y-%m-%d %H:%M:%S"),
-            end_time=finish.strftime("%Y-%m-%d %H:%M:%S"),
-            candle_interval=groww.CANDLE_INTERVAL_DAY,
+        query = urlencode(
+            {
+                "exchange": instrument["exchange"],
+                "segment": instrument["segment"],
+                "trading_symbol": trading_symbol,
+                "start_time": cursor.strftime("%Y-%m-%d %H:%M:%S"),
+                "end_time": finish.strftime("%Y-%m-%d %H:%M:%S"),
+                "interval_in_minutes": "1440",
+            }
         )
-        parts.append(candle_frame(response))
+        request = Request(
+            f"{api_base}/historical/candle/range?{query}",
+            headers={
+                "Accept": "application/json",
+                "Authorization": f"Bearer {access_token}",
+                "X-API-VERSION": "1.0",
+            },
+        )
+        try:
+            with urlopen(request, timeout=45) as response:
+                envelope = json.loads(response.read().decode("utf-8"))
+        except HTTPError as error:
+            detail = error.read().decode("utf-8", errors="replace")
+            raise RuntimeError(f"Groww historical request failed ({error.code}): {detail}") from error
+        except URLError as error:
+            raise RuntimeError(f"Groww historical request failed: {error.reason}") from error
+
+        if envelope.get("status") != "SUCCESS":
+            error = envelope.get("error") or {}
+            raise RuntimeError(
+                f"Groww historical request failed: "
+                f"{error.get('message') or error.get('errorMessage') or envelope}"
+            )
+        payload = envelope.get("payload") or {}
+        frame = candle_frame(payload)
+        if not frame.empty:
+            parts.append(frame)
         cursor = finish
         time.sleep(0.35)
 
@@ -303,16 +512,18 @@ def run_once(run_name: str = "After Market Close Research") -> None:
     api_key = os.environ.get("GROWW_API_KEY", "").strip()
     api_secret = os.environ.get("GROWW_API_SECRET", "").strip()
     if access_token:
-        groww = GrowwAPI(access_token)
+        groww_access_token = access_token
     elif api_key.startswith("eyJ") and len(api_key) > 100:
         # Backward-compatible handling for an access token placed in GROWW_API_KEY.
         # Prefer moving it to GROWW_ACCESS_TOKEN in the environment configuration.
         print("Using JWT-style access token from GROWW_API_KEY; move it to GROWW_ACCESS_TOKEN.")
-        groww = GrowwAPI(api_key)
+        groww_access_token = api_key
     elif api_key and api_secret:
-        groww = GrowwAPI(GrowwAPI.get_access_token(api_key=api_key, secret=api_secret))
+        groww_access_token = GrowwAPI.get_access_token(api_key=api_key, secret=api_secret)
     else:
         raise RuntimeError("Set GROWW_ACCESS_TOKEN or GROWW_API_KEY and GROWW_API_SECRET before running.")
+    groww = GrowwAPI(groww_access_token)
+    validate_publish_config()
     symbols = load_constituents(CONSTITUENTS_PATH)
     results, rejected = [], []
 
@@ -324,7 +535,12 @@ def run_once(run_name: str = "After Market Close Research") -> None:
             if instrument.get("segment") != CONFIG["segment"]:
                 rejected.append({"symbol": symbol, "reason": "not_cash_equity"})
                 continue
-            history = fetch_daily_history(groww, instrument)
+            history = fetch_daily_history(groww_access_token, instrument)
+            if index == 1 and history.empty:
+                raise RuntimeError(
+                    f"Groww returned no daily candles for {symbol}; "
+                    f"resolved trading symbol was {instrument.get('groww_symbol')!r}."
+                )
             indicators = calculate_indicators(history)
             if not indicators:
                 rejected.append({"symbol": symbol, "reason": "insufficient_history"})
@@ -344,8 +560,18 @@ def run_once(run_name: str = "After Market Close Research") -> None:
         except Exception as error:
             rejected.append({"symbol": symbol, "reason": str(error)})
 
-    OUTPUT_PATH.write_text(json.dumps(build_output(results, run_name, rejected), indent=2), encoding="utf-8")
+    output = build_output(results, run_name, rejected)
+    OUTPUT_PATH.write_text(json.dumps(output, indent=2), encoding="utf-8")
     print(f"Saved {len(results)} research records to {OUTPUT_PATH}")
+
+    coverage = len(results) / max(len(symbols), 1)
+    if coverage < CONFIG["minimum_publish_coverage"]:
+        raise RuntimeError(
+            f"Refusing to publish an incomplete run ({coverage:.1%} coverage; "
+            f"minimum {CONFIG['minimum_publish_coverage']:.1%})."
+        )
+    run_id = publish_to_supabase(output)
+    print(f"Published Nifty 500 research run {run_id} to Supabase")
 
 
 def run_scheduler() -> None:
@@ -360,10 +586,13 @@ def run_scheduler() -> None:
 
 
 if __name__ == "__main__":
-    # Use --once for an immediate manual run; otherwise run the daily schedule.
+    # Use --once for an immediate manual run, --publish-existing to publish a
+    # completed JSON backup, or no flag for the weekday scheduler.
     import sys
 
-    if "--once" in sys.argv:
+    if "--publish-existing" in sys.argv:
+        publish_existing_output()
+    elif "--once" in sys.argv:
         run_once("Manual Research Run")
     else:
         run_scheduler()

@@ -5,6 +5,7 @@ import TodayDashboard from '@/components/Home/TodayDashboard';
 import IndexSentimentTicker from '@/components/Home/IndexSentimentTicker';
 import ResearchNotesPreview from '@/components/Home/ResearchNotesPreview';
 import NewsHeadlineBar from '@/components/Home/NewsHeadlineBar';
+import Nifty500ResearchPreview from '@/components/Home/Nifty500ResearchPreview';
 import InstitutionalResearchCard from '@/components/Home/InstitutionalResearchCard';
 import NewsletterSection from '@/components/Home/NewsletterSection';
 import usePublishedArticles from '@/hooks/usePublishedArticles';
@@ -116,6 +117,7 @@ export default function EditorialHome() {
         <IndexSentimentTicker />
         <TodayDashboard />
         <ResearchNotesPreview />
+        <Nifty500ResearchPreview />
 
         {/* Market update cadence */}
         <section className="py-8 border-b border-[#dddddd]">

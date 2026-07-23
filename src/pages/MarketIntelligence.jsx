@@ -2,6 +2,7 @@ import { Helmet } from 'react-helmet-async';
 import { Link } from 'react-router-dom';
 import { Activity, ArrowDownRight, ArrowUpRight, BrainCircuit, Clock3, ShieldAlert } from 'lucide-react';
 import useMarketIntelligence from '@/hooks/useMarketIntelligence';
+import Nifty500ResearchPanel from '@/components/Research/Nifty500ResearchPanel';
 
 function tone(value = '') {
   const text = String(value).toLowerCase();
@@ -76,6 +77,8 @@ export default function MarketIntelligence() {
         </section>
 
         <main className="max-w-[1600px] mx-auto px-4 sm:px-6 py-6 sm:py-8 lg:py-10">
+          <Nifty500ResearchPanel />
+
           <section aria-label="Market overview">
             <div className="mb-4 flex items-center gap-2">
               <BrainCircuit className="h-5 w-5 text-[#274c77]" />

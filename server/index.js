@@ -8,12 +8,16 @@
 import express from "express";
 import researchRouter from "./research.js";
 import createMarketRouter from "./routes/market.js";
+import createNifty500ResearchRouter from "./routes/nifty500Research.js";
 import { getNewsHeadlines } from "./services/newsHeadlinesService.js";
 import rateLimit from "express-rate-limit";
 import cors from "cors";
 import dotenv from "dotenv";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-dotenv.config();
+const serverDirectory = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.join(serverDirectory, ".env") });
 
 const app = express();
 app.use(express.json({ limit: "200kb" }));
@@ -63,6 +67,12 @@ const apiLimiter = rateLimit({
 const marketIntelLimiter = rateLimit({
   windowMs: 60_000,
   max: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+const nifty500ResearchLimiter = rateLimit({
+  windowMs: 60_000,
+  max: 120,
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -184,6 +194,7 @@ const marketRouter = createMarketRouter({
   indianApiBase: BASE_URL,
 });
 app.use('/api/market', marketIntelLimiter, marketRouter);
+app.use('/api/research/nifty500', nifty500ResearchLimiter, createNifty500ResearchRouter());
 
 /* ---------- /api/perplexity/deals ----------
    Ask Perplexity for a strict JSON array of deals with these fields:
