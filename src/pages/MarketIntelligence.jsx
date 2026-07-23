@@ -15,14 +15,14 @@ function tone(value = '') {
 }
 
 function SignalPill({ children }) {
-  return <span className={`inline-flex border px-2 py-1 text-[10px] font-bold uppercase tracking-wide ${tone(children)}`}>{children}</span>;
+  return <span className={`inline-flex w-fit border px-2 py-1 text-[10px] font-bold uppercase tracking-wide ${tone(children)}`}>{children}</span>;
 }
 
 function MetricCard({ label, value, detail }) {
   return (
-    <div className="border border-[#dde1e6] bg-white p-4">
+    <div className="min-w-0 border border-[#dde1e6] bg-white p-4">
       <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#737982]">{label}</p>
-      <p className="mt-2 text-xl font-bold text-[#18202b]">{value || '—'}</p>
+      <p className="mt-2 break-words text-xl font-bold text-[#18202b]">{value || '—'}</p>
       {detail && <p className="mt-1 text-[11px] text-[#737982]">{detail}</p>}
     </div>
   );
@@ -54,9 +54,9 @@ export default function MarketIntelligence() {
         <meta name="description" content="AGI derived market intelligence, sector leadership and research context for Indian markets." />
       </Helmet>
 
-      <div className="min-h-screen bg-[#f8fafb]">
+      <div className="market-intelligence-page min-h-screen bg-[#f8fafb]">
         <section className="border-b border-[#dde1e6] bg-[#0d1d33] text-white">
-          <div className="max-w-[1280px] mx-auto px-4 py-10 lg:py-14">
+          <div className="max-w-[1280px] mx-auto px-4 py-8 sm:py-10 lg:py-14">
             <div className="flex flex-wrap items-center gap-2 text-[11px] font-bold uppercase tracking-[0.12em] text-[#a7c5ec]">
               <Activity className="h-4 w-4" /> AGI research platform
             </div>
@@ -67,7 +67,7 @@ export default function MarketIntelligence() {
                   A 60-second, model-driven read of market conditions, leadership and risk—built for information, not recommendations.
                 </p>
               </div>
-              <div className="flex items-center gap-2 text-xs text-[#c6d4e7]">
+              <div className="flex items-start gap-2 text-xs leading-relaxed text-[#c6d4e7]">
                 <Clock3 className="h-4 w-4" />
                 {updatedAt ? `Updated ${new Date(updatedAt).toLocaleString('en-IN')}` : 'Awaiting model refresh'}
               </div>
@@ -75,7 +75,7 @@ export default function MarketIntelligence() {
           </div>
         </section>
 
-        <main className="max-w-[1280px] mx-auto px-4 py-8 lg:py-10">
+        <main className="max-w-[1280px] mx-auto px-4 py-6 sm:py-8 lg:py-10">
           <section aria-label="Market overview">
             <div className="mb-4 flex items-center gap-2">
               <BrainCircuit className="h-5 w-5 text-[#274c77]" />
@@ -106,7 +106,7 @@ export default function MarketIntelligence() {
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {orderedIndices.length ? orderedIndices.map((index) => (
                   <article key={index.key} className="border border-[#dde1e6] bg-white p-4">
-                    <div className="flex items-start justify-between gap-3">
+                    <div className="flex flex-col items-start justify-between gap-3 sm:flex-row">
                       <div>
                         <h3 className="font-bold text-[#18202b]">{index.label}</h3>
                         <p className="mt-1 text-[11px] text-[#737982]">Technical strength · Momentum · Trend model</p>
@@ -154,7 +154,7 @@ export default function MarketIntelligence() {
               </div>
               <div className="border border-[#dde1e6] bg-white divide-y divide-[#edf0f2]">
                 {sectors.slice(0, 8).map((sector) => (
-                  <div key={sector.name} className="flex items-center justify-between gap-3 p-4">
+                  <div key={sector.name} className="flex flex-col items-start justify-between gap-3 p-4 sm:flex-row sm:items-center">
                     <div className="flex items-center gap-3">
                       {sector.direction === '↑' ? <ArrowUpRight className="h-4 w-4 text-[#087443]" /> : <ArrowDownRight className="h-4 w-4 text-[#b42318]" />}
                       <span className="font-semibold text-[#18202b]">{sector.name}</span>
@@ -175,7 +175,7 @@ export default function MarketIntelligence() {
               </div>
               <div className="border border-[#dde1e6] bg-white divide-y divide-[#edf0f2]">
                 {stocksInFocus.slice(0, 8).map((stock) => (
-                  <div key={stock.symbol} className="flex items-center justify-between gap-3 p-4">
+                  <div key={stock.symbol} className="flex flex-col items-start justify-between gap-3 p-4 sm:flex-row sm:items-center">
                     <div>
                       <p className="font-semibold text-[#18202b]">{stock.name || stock.symbol}</p>
                       <p className="mt-1 text-[11px] text-[#737982]">{stock.momentum || 'Developing'} momentum · {stock.category || 'AGI watchlist'}</p>

@@ -240,8 +240,9 @@
 @media (max-width: 768px) {
   html, body { overflow-x: hidden; }
 
-  /* collapse layouts */
-  .container, .grid, .tax-container, .main-layout, .page-grid {
+  /* Legacy form/layout pages only. Do not target Tailwind's generic .grid or
+     all buttons here: those rules break public dashboards and auth controls. */
+  .tax-container, .main-layout, .page-grid {
     display: block !important;
     width: 100% !important;
     max-width: 100% !important;
@@ -262,8 +263,10 @@
     box-sizing: border-box !important;
   }
 
-  /* full width inputs/buttons */
-  input, select, textarea, button, .btn {
+  /* Full-width controls are appropriate only for the legacy form screens. */
+  .main-form input, .main-form select, .main-form textarea,
+  .tax-container input, .tax-container select, .tax-container textarea,
+  .main-form .btn, .tax-container .btn {
     width: 100% !important;
     max-width: 100% !important;
     box-sizing: border-box !important;
