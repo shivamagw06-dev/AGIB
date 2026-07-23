@@ -27,13 +27,13 @@ function LinkedInMark() {
 export default function LoginPage() {
   const { user, login } = useAuth();
   const [email, setEmail] = useState('');
-  const [mode, setMode] = useState('signup');
+  const [searchParams] = useSearchParams();
+  const [mode, setMode] = useState(searchParams.get('mode') === 'signin' ? 'signin' : 'signup');
   const [magicLoading, setMagicLoading] = useState(false);
   const [oauthLoading, setOauthLoading] = useState(null);
   const [message, setMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const next = searchParams.get('next') || searchParams.get('redirect') || '/';
   const redirectTo =
     typeof window !== 'undefined' ? `${window.location.origin}${next.startsWith('/') ? next : '/'}` : undefined;

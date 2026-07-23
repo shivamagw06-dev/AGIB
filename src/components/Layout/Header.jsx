@@ -209,6 +209,24 @@ export default function Header() {
               {item.name}
             </button>
           ))}
+          {!user && (
+            <div className="grid grid-cols-2 gap-2 py-3">
+              <button
+                type="button"
+                onClick={() => go('/login?mode=signin')}
+                className="min-h-[44px] border border-[#111111] px-3 text-sm font-bold text-[#111111]"
+              >
+                Sign in
+              </button>
+              <button
+                type="button"
+                onClick={() => go('/login?mode=signup')}
+                className="min-h-[44px] bg-[#111111] px-3 text-sm font-bold text-white"
+              >
+                Create account
+              </button>
+            </div>
+          )}
         </nav>
       )}
 
