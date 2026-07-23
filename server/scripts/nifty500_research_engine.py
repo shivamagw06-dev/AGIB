@@ -304,6 +304,11 @@ def run_once(run_name: str = "After Market Close Research") -> None:
     api_secret = os.environ.get("GROWW_API_SECRET", "").strip()
     if access_token:
         groww = GrowwAPI(access_token)
+    elif api_key.startswith("eyJ") and len(api_key) > 100:
+        # Backward-compatible handling for an access token placed in GROWW_API_KEY.
+        # Prefer moving it to GROWW_ACCESS_TOKEN in the environment configuration.
+        print("Using JWT-style access token from GROWW_API_KEY; move it to GROWW_ACCESS_TOKEN.")
+        groww = GrowwAPI(api_key)
     elif api_key and api_secret:
         groww = GrowwAPI(GrowwAPI.get_access_token(api_key=api_key, secret=api_secret))
     else:
