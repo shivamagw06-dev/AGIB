@@ -19,11 +19,16 @@ export const AuthProvider = ({ children }) => {
     return () => sub.subscription.unsubscribe();
   }, []);
 
-  const login = async (email) => {
-    // Magic link login
-    const { error } = await supabase.auth.signInWithOtp({ email });
-    if (error) alert(error.message);
-    else alert('Check your email for the magic link!');
+  const login = async (email, options = {}) => {
+    const { shouldCreateUser = true, emailRedirectTo } = options;
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        shouldCreateUser,
+        ...(emailRedirectTo ? { emailRedirectTo } : {}),
+      },
+    });
+    if (error) throw error;
   };
 
   const logout = async () => {
