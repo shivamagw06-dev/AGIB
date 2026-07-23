@@ -107,7 +107,7 @@ async function growwRequest(path, params = {}) {
 
   const json = await resp.json().catch(() => ({}));
   if (json?.status === 'SUCCESS') return json.payload;
-  const msg = json?.error?.message || `Groww request failed (${resp.status})`;
+  const msg = json?.error?.message || json?.error?.errorMessage || `Groww request failed (${resp.status})`;
   if (resp.status === 429 || /rate limit/i.test(msg)) {
     const err = new Error('Groww rate limit exceeded');
     err.isRateLimit = true;
@@ -144,21 +144,27 @@ export async function getOHLC(exchangeSymbols, segment = 'CASH') {
   });
 }
 
+const formatGrowwDate = (date) => date.toISOString().slice(0, 19).replace('T', ' ');
+
+/** Historical daily candle range — backend only; callers must not expose raw candles publicly. */
+export async function getHistoricalCandleRange(exchange, segment, tradingSymbol, start, end) {
+  const payload = await growwRequest('/historical/candle/range', {
+    exchange,
+    segment,
+    trading_symbol: tradingSymbol,
+    start_time: formatGrowwDate(start),
+    end_time: formatGrowwDate(end),
+    interval_in_minutes: '1440',
+  });
+  return payload?.candles || [];
+}
+
 /** Historical daily candles for indicator calculation — backend only */
 export async function getHistoricalCandles(exchange, segment, tradingSymbol, days = 120) {
   const end = new Date();
   const start = new Date(end.getTime() - days * 24 * 60 * 60 * 1000);
-  const fmt = (d) => d.toISOString().slice(0, 19).replace('T', ' ');
   try {
-    const payload = await growwRequest('/historical/candle/range', {
-      exchange,
-      segment,
-      trading_symbol: tradingSymbol,
-      start_time: fmt(start),
-      end_time: fmt(end),
-      interval_in_minutes: '1440',
-    });
-    return payload?.candles || [];
+    return await getHistoricalCandleRange(exchange, segment, tradingSymbol, start, end);
   } catch {
     return [];
   }
@@ -168,6 +174,22 @@ export const INDEX_SYMBOLS = [
   { key: 'nifty', exchange: 'NSE', symbol: 'NIFTY', label: 'Nifty 50' },
   { key: 'banknifty', exchange: 'NSE', symbol: 'BANKNIFTY', label: 'Bank Nifty' },
   { key: 'vix', exchange: 'NSE', symbol: 'INDIA VIX', label: 'India VIX' },
+];
+
+/** Universe for the AGI index-sentiment model. No raw market fields leave the service. */
+export const INDEX_SENTIMENT_UNIVERSE = [
+  { key: 'nifty50', exchange: 'NSE', symbol: 'NIFTY', label: 'Nifty 50' },
+  { key: 'banknifty', exchange: 'NSE', symbol: 'BANKNIFTY', label: 'Bank Nifty' },
+  { key: 'finnifty', exchange: 'NSE', symbol: 'FINNIFTY', label: 'Fin Nifty' },
+  { key: 'midcap', exchange: 'NSE', symbol: 'MIDCPNIFTY', label: 'Nifty Midcap' },
+  { key: 'next50', exchange: 'NSE', symbol: 'NIFTYNXT50', label: 'Nifty Next 50' },
+  { key: 'nifty100', exchange: 'NSE', symbol: 'NIFTY100', label: 'Nifty 100' },
+  { key: 'nifty200', exchange: 'NSE', symbol: 'NIFTY200', label: 'Nifty 200' },
+  { key: 'nifty500', exchange: 'NSE', symbol: 'NIFTY500', label: 'Nifty 500' },
+  { key: 'midcap100', exchange: 'NSE', symbol: 'NIFTYMIDCAP100', label: 'Nifty Midcap 100' },
+  { key: 'smallcap100', exchange: 'NSE', symbol: 'NIFTYSMALLCAP100', label: 'Nifty Smallcap 100' },
+  { key: 'sensex', exchange: 'BSE', symbol: 'SENSEX', label: 'Sensex' },
+  { key: 'bankex', exchange: 'BSE', symbol: 'BANKEX', label: 'BSE Bankex' },
 ];
 
 export const TRACKED_STOCKS = [

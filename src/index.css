@@ -216,6 +216,26 @@
   display: none;
 }
 
+.agi-sentiment-ticker {
+  overflow: hidden;
+}
+.agi-sentiment-ticker-track {
+  display: flex;
+  width: max-content;
+  min-width: 100%;
+  animation: agi-sentiment-marquee 42s linear infinite;
+}
+.agi-sentiment-ticker:hover .agi-sentiment-ticker-track {
+  animation-play-state: paused;
+}
+@keyframes agi-sentiment-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .agi-sentiment-ticker-track { animation: none; }
+}
+
 /* ------------------------- Emergency mobile responsive fixes ------------------------- */
 @media (max-width: 768px) {
   html, body { overflow-x: hidden; }

@@ -2,6 +2,8 @@ import { Link } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
 import MorningBriefHero from '@/components/Home/MorningBriefHero';
 import TodayDashboard from '@/components/Home/TodayDashboard';
+import IndexSentimentTicker from '@/components/Home/IndexSentimentTicker';
+import ResearchNotesPreview from '@/components/Home/ResearchNotesPreview';
 import InstitutionalResearchCard from '@/components/Home/InstitutionalResearchCard';
 import NewsletterSection from '@/components/Home/NewsletterSection';
 import usePublishedArticles from '@/hooks/usePublishedArticles';
@@ -109,7 +111,9 @@ export default function EditorialHome() {
     <div className="bg-white min-h-screen">
       <div className="max-w-[1280px] mx-auto px-4">
         <MorningBriefHero />
+        <IndexSentimentTicker />
         <TodayDashboard />
+        <ResearchNotesPreview />
 
         {/* Market update cadence */}
         <section className="py-8 border-b border-[#dddddd]">
@@ -127,7 +131,11 @@ export default function EditorialHome() {
 
         {/* Featured research */}
         <section className="py-8 border-b border-[#dddddd]">
-          <SectionHeader title="Featured Research" href="/research" />
+          <SectionHeader
+            title="Research Notes & Featured Analysis"
+            subtitle="Independent perspectives from the AGI research desk"
+            href="/research"
+          />
           {researchLoading ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {[1, 2, 3, 4].map((i) => (

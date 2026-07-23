@@ -7,7 +7,9 @@ import { normalizeCandles } from '../lib/indicators.js';
 import {
   isGrowwConfigured,
   getHistoricalCandles,
+  getHistoricalCandleRange,
   INDEX_SYMBOLS,
+  INDEX_SENTIMENT_UNIVERSE,
   TRACKED_STOCKS,
 } from '../providers/groww.js';
 import { fetchTrending } from '../providers/fallback.js';
@@ -21,6 +23,7 @@ import {
   computeStockAgiScore,
   computeAgiMarketScore,
   buildInsightStrip,
+  computeIndexBullishness,
 } from './marketIntelligenceEngine.js';
 import { generateAgiSummary } from './agiSummaryGenerator.js';
 import { MARKET_REFRESH_MS } from '../config/marketRefresh.js';
@@ -33,6 +36,15 @@ let growwBackoffUntil = 0;
 
 /** Groww historical candles are optional — off by default to avoid rate limits */
 const USE_GROWW_HISTORICAL = process.env.GROWW_USE_HISTORICAL === 'true';
+
+function buildFallbackIndexSentiments() {
+  return INDEX_SENTIMENT_UNIVERSE.slice(0, 8).map((index) => ({
+    key: index.key,
+    label: index.label,
+    sentiment: 'Neutral',
+    strength: 'Model refresh pending',
+  }));
+}
 
 function buildFallbackIntelligence() {
   const updatedLabel = new Date().toLocaleTimeString('en-IN', {
@@ -88,6 +100,7 @@ function buildFallbackIntelligence() {
     ],
     breadth: { label: 'Neutral', advancing: 0, declining: 0, ratio: null },
     volume: { strength: 'Normal' },
+    indexSentiments: buildFallbackIndexSentiments(),
     disclaimer:
       'AGI proprietary analytics. Live refresh temporarily unavailable — displaying model defaults.',
     source: 'agi-fallback',
@@ -126,6 +139,61 @@ async function fetchCandlesForSymbol(exchange, symbol) {
     }
     return [];
   }
+}
+
+/**
+ * The score includes SMA200, so fetch enough calendar history for 200 trading
+ * candles. Groww range calls are capped to 180-day windows and remain backend-only.
+ */
+async function fetchIndexCandles(index) {
+  if (!USE_GROWW_HISTORICAL || !isGrowwConfigured() || Date.now() < growwBackoffUntil) return [];
+
+  const end = new Date();
+  const chunkDays = 180;
+  const windows = [
+    [new Date(end.getTime() - chunkDays * 24 * 60 * 60 * 1000), end],
+    [
+      new Date(end.getTime() - chunkDays * 2 * 24 * 60 * 60 * 1000),
+      new Date(end.getTime() - chunkDays * 24 * 60 * 60 * 1000),
+    ],
+    [
+      new Date(end.getTime() - (chunkDays * 2 + 30) * 24 * 60 * 60 * 1000),
+      new Date(end.getTime() - chunkDays * 2 * 24 * 60 * 60 * 1000),
+    ],
+  ];
+
+  try {
+    const raw = [];
+    for (const [start, finish] of windows) {
+      raw.push(
+        ...(await getHistoricalCandleRange(index.exchange, 'CASH', index.symbol, start, finish))
+      );
+    }
+    return normalizeCandles(raw);
+  } catch (err) {
+    if (/rate limit/i.test(String(err?.message))) growwBackoffUntil = Date.now() + 5 * 60_000;
+    console.warn(`[intelligence] ${index.label} history unavailable:`, err?.message);
+    return [];
+  }
+}
+
+async function buildIndexSentiments() {
+  if (!USE_GROWW_HISTORICAL || !isGrowwConfigured()) return buildFallbackIndexSentiments();
+
+  const sentiments = [];
+  for (const index of INDEX_SENTIMENT_UNIVERSE) {
+    const candles = await fetchIndexCandles(index);
+    const model = computeIndexBullishness(candles);
+    if (model) {
+      sentiments.push({
+        key: index.key,
+        label: index.label,
+        sentiment: model.label,
+        strength: model.strength,
+      });
+    }
+  }
+  return sentiments.length ? sentiments : buildFallbackIndexSentiments();
 }
 
 function deriveSectorChanges(gainers, losers) {
@@ -301,6 +369,7 @@ async function computeIntelligence(env) {
 
   const summary = generateAgiSummary(intelligence);
   const insightStrip = buildInsightStrip(intelligence);
+  const indexSentiments = await buildIndexSentiments();
 
   const pulse = {
     title: 'AGI Market Pulse',
@@ -333,6 +402,7 @@ async function computeIntelligence(env) {
       ratio: breadth.ratio,
     },
     volume: { strength: intelligence.volumeStrength },
+    indexSentiments,
     disclaimer:
       'AGI proprietary analytics derived from licensed market inputs. Not raw exchange data. For informational purposes only — not investment advice.',
     source: 'agi-intelligence-engine',
@@ -357,6 +427,7 @@ export async function getDashboardFromIntelligence(env) {
     sectors: intel.sectors,
     summary: intel.summary,
     insightStrip: intel.insightStrip,
+    indexSentiments: intel.indexSentiments,
     updatedAt: intel.updatedAt,
   };
 }

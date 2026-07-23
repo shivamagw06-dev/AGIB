@@ -33,6 +33,116 @@ function clamp(n, lo = 0, hi = 100) {
   return Math.max(lo, Math.min(hi, Math.round(n)));
 }
 
+function simpleMovingAverage(values, period) {
+  if (values.length < period) return null;
+  return values.slice(-period).reduce((sum, value) => sum + value, 0) / period;
+}
+
+function bollingerBands(values, period = 20, standardDeviations = 2) {
+  const window = values.slice(-period);
+  if (window.length < period) return null;
+  const middle = window.reduce((sum, value) => sum + value, 0) / period;
+  const variance = window.reduce((sum, value) => sum + (value - middle) ** 2, 0) / period;
+  const deviation = Math.sqrt(variance);
+  return { upper: middle + standardDeviations * deviation, middle, lower: middle - standardDeviations * deviation };
+}
+
+function scoreRsi(value) {
+  if (!Number.isFinite(value)) return 0.5;
+  if (value >= 70) return 0.65;
+  if (value >= 60) return 1;
+  if (value >= 50) return 0.75;
+  if (value >= 40) return 0.4;
+  if (value >= 30) return 0.25;
+  return 0.1;
+}
+
+function scoreMacd(value) {
+  if (!value || !Number.isFinite(value.macd) || !Number.isFinite(value.signal)) return 0.5;
+  let score = 0.5;
+  score += value.macd > value.signal ? 0.25 : -0.25;
+  score += value.macd > 0 ? 0.15 : -0.15;
+  score += value.histogram > 0 ? 0.1 : -0.1;
+  return Math.max(0, Math.min(1, score));
+}
+
+function scoreSma(close, shortSma, longSma) {
+  if (![close, shortSma, longSma].every(Number.isFinite)) return 0.5;
+  if (close > shortSma && shortSma > longSma) return 1;
+  if (close > longSma && shortSma > longSma) return 0.8;
+  if (close > longSma) return 0.6;
+  if (close < shortSma && shortSma < longSma) return 0;
+  if (close < longSma) return 0.25;
+  return 0.5;
+}
+
+function scoreEma(shortEma, longEma) {
+  if (![shortEma, longEma].every(Number.isFinite) || longEma === 0) return 0.5;
+  if (shortEma > longEma) return Math.min(1, 0.65 + ((shortEma - longEma) / longEma) * 5);
+  return Math.max(0, 0.35 - ((longEma - shortEma) / longEma) * 5);
+}
+
+function scoreBollinger(close, bands) {
+  if (!bands || !Number.isFinite(close)) return 0.5;
+  const width = bands.upper - bands.lower;
+  return width ? Math.max(0, Math.min(1, (close - bands.lower) / width)) : 0.5;
+}
+
+function scoreAdx(value) {
+  if (!Number.isFinite(value)) return 0.5;
+  if (value >= 40) return 1;
+  if (value >= 25) return 0.75;
+  if (value >= 20) return 0.55;
+  return 0.3;
+}
+
+function scorePriceVsSma200(close, sma200) {
+  if (![close, sma200].every(Number.isFinite) || sma200 === 0) return 0.5;
+  const percent = ((close - sma200) / sma200) * 100;
+  if (percent >= 5) return 1;
+  if (percent >= 2) return 0.85;
+  if (percent >= 0) return 0.65;
+  if (percent >= -2) return 0.35;
+  if (percent >= -5) return 0.2;
+  return 0.05;
+}
+
+export function indexSentimentLabel(score) {
+  if (score >= 80) return 'Strongly Bullish';
+  if (score >= 65) return 'Bullish';
+  if (score >= 50) return 'Mildly Bullish';
+  if (score >= 35) return 'Mildly Bearish';
+  if (score >= 20) return 'Bearish';
+  return 'Strongly Bearish';
+}
+
+/**
+ * Seven-factor index model supplied by AGI: RSI, MACD, SMA/EMA alignment,
+ * Bollinger position, ADX and price-vs-SMA200. The returned score stays server-side;
+ * public clients receive only its derived label and strength.
+ */
+export function computeIndexBullishness(candles) {
+  const closes = closesFromCandles(candles);
+  if (closes.length < 200) return null;
+
+  const close = closes[closes.length - 1];
+  const macdValue = macd(closes);
+  const weightedScore =
+    scoreRsi(rsi(closes, 14)) * 0.2 +
+    scoreMacd(macdValue) * 0.2 +
+    scoreSma(close, simpleMovingAverage(closes, 20), simpleMovingAverage(closes, 50)) * 0.15 +
+    scoreEma(lastEma(closes, 9), lastEma(closes, 21)) * 0.15 +
+    scoreBollinger(close, bollingerBands(closes)) * 0.1 +
+    scoreAdx(adx(candles, 14)) * 0.1 +
+    scorePriceVsSma200(close, simpleMovingAverage(closes, 200)) * 0.1;
+  const score = clamp(weightedScore * 100);
+
+  return {
+    label: indexSentimentLabel(score),
+    strength: score >= 65 || score < 35 ? 'High conviction' : 'Developing',
+  };
+}
+
 /** Trend score 0–100 from EMA alignment rules */
 export function computeTrendScore(candles) {
   const closes = closesFromCandles(candles);

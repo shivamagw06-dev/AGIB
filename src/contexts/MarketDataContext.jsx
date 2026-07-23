@@ -15,6 +15,7 @@ const EMPTY = {
   sectors: [],
   stocksInFocus: [],
   breadth: { label: 'Neutral', advancing: 0, declining: 0 },
+  indexSentiments: [],
   disclaimer: '',
 };
 
