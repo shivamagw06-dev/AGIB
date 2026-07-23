@@ -34,8 +34,8 @@ const STALE_TTL = 3600_000;
 let inflight = null;
 let growwBackoffUntil = 0;
 
-/** Groww historical candles are optional — off by default to avoid rate limits */
-const USE_GROWW_HISTORICAL = process.env.GROWW_USE_HISTORICAL === 'true';
+/** Historical model is on by default; set GROWW_USE_HISTORICAL=false only during maintenance. */
+const USE_GROWW_HISTORICAL = process.env.GROWW_USE_HISTORICAL !== 'false';
 
 function buildFallbackIndexSentiments() {
   return INDEX_SENTIMENT_UNIVERSE.slice(0, 8).map((index) => ({

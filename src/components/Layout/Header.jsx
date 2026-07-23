@@ -20,6 +20,7 @@ import ResearchSearch from '@/components/Search/ResearchSearch';
 
 const NAV = [
   { name: 'Home', path: '/' },
+  { name: 'Market Intelligence', path: '/market-intelligence' },
   { name: 'Pre-Market', path: '/updates/pre-market' },
   { name: '12 PM', path: '/updates/midday' },
   { name: 'Market Close', path: '/updates/market-close' },

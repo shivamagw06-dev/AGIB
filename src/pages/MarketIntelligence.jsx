@@ -1,0 +1,198 @@
+import { Helmet } from 'react-helmet-async';
+import { Link } from 'react-router-dom';
+import { Activity, ArrowDownRight, ArrowUpRight, BrainCircuit, Clock3, ShieldAlert } from 'lucide-react';
+import useMarketIntelligence from '@/hooks/useMarketIntelligence';
+
+function tone(value = '') {
+  const text = String(value).toLowerCase();
+  if (text.includes('bearish') || text.includes('negative') || text.includes('weak')) {
+    return 'bg-[#fff1f0] text-[#b42318] border-[#f7c5c0]';
+  }
+  if (text.includes('bullish') || text.includes('positive') || text.includes('leading') || text.includes('strong')) {
+    return 'bg-[#ecfdf3] text-[#087443] border-[#b7ebcc]';
+  }
+  return 'bg-[#fff8e8] text-[#966a00] border-[#f4d99d]';
+}
+
+function SignalPill({ children }) {
+  return <span className={`inline-flex border px-2 py-1 text-[10px] font-bold uppercase tracking-wide ${tone(children)}`}>{children}</span>;
+}
+
+function MetricCard({ label, value, detail }) {
+  return (
+    <div className="border border-[#dde1e6] bg-white p-4">
+      <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#737982]">{label}</p>
+      <p className="mt-2 text-xl font-bold text-[#18202b]">{value || '—'}</p>
+      {detail && <p className="mt-1 text-[11px] text-[#737982]">{detail}</p>}
+    </div>
+  );
+}
+
+export default function MarketIntelligence() {
+  const {
+    pulse,
+    outlook,
+    summary,
+    sectors = [],
+    stocksInFocus = [],
+    breadth,
+    indexSentiments = [],
+    disclaimer,
+    loading,
+    updatedAt,
+  } = useMarketIntelligence();
+
+  const orderedIndices = [...indexSentiments].sort((a, b) => {
+    const ordering = { 'Strongly Bullish': 5, Bullish: 4, 'Mildly Bullish': 3, Neutral: 2, 'Mildly Bearish': 1, Bearish: 0, 'Strongly Bearish': -1 };
+    return (ordering[b.sentiment] ?? 2) - (ordering[a.sentiment] ?? 2);
+  });
+
+  return (
+    <>
+      <Helmet>
+        <title>Market Intelligence | Agarwal Global Investments</title>
+        <meta name="description" content="AGI derived market intelligence, sector leadership and research context for Indian markets." />
+      </Helmet>
+
+      <div className="min-h-screen bg-[#f8fafb]">
+        <section className="border-b border-[#dde1e6] bg-[#0d1d33] text-white">
+          <div className="max-w-[1280px] mx-auto px-4 py-10 lg:py-14">
+            <div className="flex flex-wrap items-center gap-2 text-[11px] font-bold uppercase tracking-[0.12em] text-[#a7c5ec]">
+              <Activity className="h-4 w-4" /> AGI research platform
+            </div>
+            <div className="mt-4 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <h1 className="text-3xl font-bold tracking-tight md:text-5xl">Market Intelligence</h1>
+                <p className="mt-3 max-w-2xl text-sm leading-relaxed text-[#d2dceb] md:text-base">
+                  A 60-second, model-driven read of market conditions, leadership and risk—built for information, not recommendations.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 text-xs text-[#c6d4e7]">
+                <Clock3 className="h-4 w-4" />
+                {updatedAt ? `Updated ${new Date(updatedAt).toLocaleString('en-IN')}` : 'Awaiting model refresh'}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <main className="max-w-[1280px] mx-auto px-4 py-8 lg:py-10">
+          <section aria-label="Market overview">
+            <div className="mb-4 flex items-center gap-2">
+              <BrainCircuit className="h-5 w-5 text-[#274c77]" />
+              <h2 className="text-lg font-bold text-[#18202b]">AGI Market Overview</h2>
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-[#737982]">AI-generated summary</span>
+            </div>
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+              <MetricCard label="Market intelligence score" value={pulse?.agiMarketScore != null ? `${pulse.agiMarketScore}/100` : '—'} detail="Derived model score" />
+              <MetricCard label="Overall market mood" value={pulse?.outlook || outlook?.outlook} />
+              <MetricCard label="AI confidence" value={pulse?.confidence ? `${pulse.confidence}%` : '—'} />
+              <MetricCard label="Market breadth" value={breadth?.label || pulse?.marketBreadth} />
+              <MetricCard label="Volatility" value={pulse?.volatility} />
+              <MetricCard label="Risk level" value={pulse?.risk} />
+            </div>
+            <div className="mt-4 border-l-4 border-[#274c77] bg-white p-5 text-sm leading-relaxed text-[#374151]">
+              {loading ? 'Refreshing AGI market intelligence…' : summary || 'The AGI model is preparing its next market summary.'}
+            </div>
+          </section>
+
+          <div className="mt-8 grid grid-cols-1 gap-8 xl:grid-cols-12">
+            <section className="xl:col-span-8">
+              <div className="mb-4 flex items-end justify-between border-b border-[#dde1e6] pb-3">
+                <div>
+                  <h2 className="text-lg font-bold text-[#18202b]">Index Intelligence</h2>
+                  <p className="mt-1 text-xs text-[#737982]">Ranked by AGI-derived trend and momentum conditions. No exchange quotes displayed.</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {orderedIndices.length ? orderedIndices.map((index) => (
+                  <article key={index.key} className="border border-[#dde1e6] bg-white p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <h3 className="font-bold text-[#18202b]">{index.label}</h3>
+                        <p className="mt-1 text-[11px] text-[#737982]">Technical strength · Momentum · Trend model</p>
+                      </div>
+                      <SignalPill>{index.sentiment}</SignalPill>
+                    </div>
+                    <p className="mt-4 text-xs font-medium text-[#4b5563]">{index.strength}</p>
+                  </article>
+                )) : (
+                  <div className="border border-dashed border-[#cbd2da] bg-white p-6 text-sm text-[#737982]">
+                    Index signals will appear after the next successful model refresh.
+                  </div>
+                )}
+              </div>
+            </section>
+
+            <section className="xl:col-span-4">
+              <div className="border border-[#dde1e6] bg-white">
+                <div className="border-b border-[#dde1e6] p-4">
+                  <h2 className="font-bold text-[#18202b]">Market Breadth</h2>
+                  <p className="mt-1 text-xs text-[#737982]">Participation signal from available market inputs</p>
+                </div>
+                <div className="divide-y divide-[#edf0f2] p-4">
+                  <div className="flex items-center justify-between py-2 text-sm"><span className="text-[#737982]">Breadth condition</span><SignalPill>{breadth?.label || 'Neutral'}</SignalPill></div>
+                  <div className="flex items-center justify-between py-2 text-sm"><span className="text-[#737982]">Advancing signals</span><span className="font-bold text-[#18202b]">{breadth?.advancing ?? '—'}</span></div>
+                  <div className="flex items-center justify-between py-2 text-sm"><span className="text-[#737982]">Declining signals</span><span className="font-bold text-[#18202b]">{breadth?.declining ?? '—'}</span></div>
+                  <div className="flex items-center justify-between py-2 text-sm"><span className="text-[#737982]">Participation ratio</span><span className="font-bold text-[#18202b]">{breadth?.ratio?.toFixed?.(2) ?? '—'}</span></div>
+                </div>
+              </div>
+
+              <div className="mt-4 border border-[#f2d7a0] bg-[#fffaf0] p-4">
+                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-[#8a5b00]"><ShieldAlert className="h-4 w-4" /> Model limitations</div>
+                <p className="mt-2 text-xs leading-relaxed text-[#6f5a2e]">Signals are descriptive technical analytics. They are not investment recommendations or calls to action.</p>
+              </div>
+            </section>
+          </div>
+
+          <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-2">
+            <section>
+              <div className="mb-4 flex items-end justify-between border-b border-[#dde1e6] pb-3">
+                <div>
+                  <h2 className="text-lg font-bold text-[#18202b]">Sector Dashboard</h2>
+                  <p className="mt-1 text-xs text-[#737982]">Leadership and relative trend conditions</p>
+                </div>
+              </div>
+              <div className="border border-[#dde1e6] bg-white divide-y divide-[#edf0f2]">
+                {sectors.slice(0, 8).map((sector) => (
+                  <div key={sector.name} className="flex items-center justify-between gap-3 p-4">
+                    <div className="flex items-center gap-3">
+                      {sector.direction === '↑' ? <ArrowUpRight className="h-4 w-4 text-[#087443]" /> : <ArrowDownRight className="h-4 w-4 text-[#b42318]" />}
+                      <span className="font-semibold text-[#18202b]">{sector.name}</span>
+                    </div>
+                    <SignalPill>{sector.direction === '↑' ? `Leading · ${sector.strength}` : `Under pressure · ${sector.strength}`}</SignalPill>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section>
+              <div className="mb-4 flex items-end justify-between border-b border-[#dde1e6] pb-3">
+                <div>
+                  <h2 className="text-lg font-bold text-[#18202b]">Technical Strength Watchlist</h2>
+                  <p className="mt-1 text-xs text-[#737982]">Companies selected by the AGI technical model—not recommendations</p>
+                </div>
+                <Link to="/research" className="text-xs font-bold text-[#274c77] hover:underline">Research →</Link>
+              </div>
+              <div className="border border-[#dde1e6] bg-white divide-y divide-[#edf0f2]">
+                {stocksInFocus.slice(0, 8).map((stock) => (
+                  <div key={stock.symbol} className="flex items-center justify-between gap-3 p-4">
+                    <div>
+                      <p className="font-semibold text-[#18202b]">{stock.name || stock.symbol}</p>
+                      <p className="mt-1 text-[11px] text-[#737982]">{stock.momentum || 'Developing'} momentum · {stock.category || 'AGI watchlist'}</p>
+                    </div>
+                    <SignalPill>{stock.trend || 'Neutral'}</SignalPill>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </div>
+
+          <section className="mt-8 border border-[#dde1e6] bg-white p-5 text-xs leading-relaxed text-[#59616d]">
+            <p className="font-bold uppercase tracking-wide text-[#18202b]">Disclosure</p>
+            <p className="mt-2">{disclaimer || 'The information provided on this platform is for educational and informational purposes only. It should not be construed as investment advice, research recommendations, portfolio management services, or a solicitation to buy or sell securities. Users should conduct their own research and consult a SEBI-registered investment professional before making investment decisions.'}</p>
+          </section>
+        </main>
+      </div>
+    </>
+  );
+}

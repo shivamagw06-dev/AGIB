@@ -188,6 +188,13 @@ export const INDEX_SENTIMENT_UNIVERSE = [
   { key: 'nifty500', exchange: 'NSE', symbol: 'NIFTY500', label: 'Nifty 500' },
   { key: 'midcap100', exchange: 'NSE', symbol: 'NIFTYMIDCAP100', label: 'Nifty Midcap 100' },
   { key: 'smallcap100', exchange: 'NSE', symbol: 'NIFTYSMALLCAP100', label: 'Nifty Smallcap 100' },
+  { key: 'niftyit', exchange: 'NSE', symbol: 'NIFTYIT', label: 'Nifty IT' },
+  { key: 'niftyauto', exchange: 'NSE', symbol: 'NIFTYAUTO', label: 'Nifty Auto' },
+  { key: 'niftypharma', exchange: 'NSE', symbol: 'NIFTYPHARMA', label: 'Nifty Pharma' },
+  { key: 'niftypsubank', exchange: 'NSE', symbol: 'NIFTYPSUBANK', label: 'Nifty PSU Bank' },
+  { key: 'niftyrealty', exchange: 'NSE', symbol: 'NIFTYREALTY', label: 'Nifty Realty' },
+  { key: 'niftyfmcg', exchange: 'NSE', symbol: 'NIFTYFMCG', label: 'Nifty FMCG' },
+  { key: 'niftymetal', exchange: 'NSE', symbol: 'NIFTYMETAL', label: 'Nifty Metal' },
   { key: 'sensex', exchange: 'BSE', symbol: 'SENSEX', label: 'Sensex' },
   { key: 'bankex', exchange: 'BSE', symbol: 'BANKEX', label: 'BSE Bankex' },
 ];

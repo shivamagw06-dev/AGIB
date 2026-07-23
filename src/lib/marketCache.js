@@ -1,8 +1,10 @@
-/** Client-side market intelligence cache — 10 min refresh window */
-export const MARKET_REFRESH_MS = 10 * 60 * 1000;
+/** Client-side market intelligence cache — 30 min refresh window */
+export const MARKET_REFRESH_MS = 30 * 60 * 1000;
 
-const STORAGE_KEY = 'agi_market_intelligence';
-const STORAGE_TS_KEY = 'agi_market_intelligence_ts';
+// Versioned after adding the index-sentiment payload; prevents an old session
+// cache from masking the newly deployed model fields for another refresh cycle.
+const STORAGE_KEY = 'agi_market_intelligence_v2';
+const STORAGE_TS_KEY = 'agi_market_intelligence_v2_ts';
 
 export function readMarketCache() {
   try {

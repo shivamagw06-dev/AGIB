@@ -19,6 +19,22 @@ function TickerItem({ item }) {
   );
 }
 
+const PENDING_INDICES = [
+  'Nifty 50',
+  'Sensex',
+  'Bank Nifty',
+  'Fin Nifty',
+  'Nifty Midcap',
+  'Nifty Smallcap',
+  'Nifty IT',
+  'Nifty Auto',
+  'Nifty Pharma',
+  'Nifty PSU Bank',
+  'Nifty Realty',
+  'Nifty FMCG',
+  'Nifty Metal',
+];
+
 /**
  * Moving, compliance-safe ticker: it intentionally contains model labels only,
  * never exchange prices, daily change or live volume.
@@ -27,7 +43,12 @@ export default function IndexSentimentTicker() {
   const { indexSentiments, loading } = useMarketIntelligence();
   const items = indexSentiments?.length
     ? indexSentiments
-    : [{ key: 'loading', label: 'Index sentiment', sentiment: loading ? 'Calculating' : 'Neutral', strength: 'AGI model' }];
+    : PENDING_INDICES.map((label) => ({
+        key: label.toLowerCase().replace(/\s+/g, '-'),
+        label,
+        sentiment: loading ? 'Calculating' : 'Sync pending',
+        strength: 'AGI model',
+      }));
   const loop = [...items, ...items];
 
   return (

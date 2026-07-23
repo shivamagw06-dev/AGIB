@@ -30,6 +30,7 @@ import SebiDisclosure from '@/pages/legal/SebiDisclosure';
 
 const Opinions = React.lazy(() => import('@/components/Opinions'));
 const Markets = React.lazy(() => import('@/pages/Markets'));
+const MarketIntelligence = React.lazy(() => import('@/pages/MarketIntelligence'));
 
 function HomeLayout() {
   return <EditorialHome />;
@@ -86,6 +87,7 @@ function PublicRoutes() {
 
       <Route path="/markets" element={<Markets />} />
       <Route path="/sections/markets" element={<Navigate replace to="/markets" />} />
+      <Route path="/market-intelligence" element={<MarketIntelligence />} />
 
       {/* Legacy redirects */}
       <Route path="/economy" element={<Navigate replace to="/sections/research-notes" />} />
