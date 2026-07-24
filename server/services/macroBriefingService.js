@@ -672,6 +672,117 @@ export async function getMacroBriefing({ force = false } = {}) {
   return inflight;
 }
 
+/**
+ * Answer a desk question using the current macro briefing + optional OpenAI.
+ * Always returns a structured answer (deterministic fallback if OpenAI is unset/fails).
+ */
+export async function askMacroEconomist(query) {
+  const q = String(query || '').trim();
+  if (!q) {
+    const err = new Error('Question is required');
+    err.status = 400;
+    throw err;
+  }
+
+  const briefing = await getMacroBriefing();
+  const brief = briefing?.chiefEconomistBrief || {};
+  const workspace = briefing?.workspace || {};
+  const snapshot = briefing?.snapshot || {};
+
+  const deterministic = {
+    query: q,
+    response: brief.executiveThesis || 'Macro briefing is still warming up. Refresh in a moment.',
+    evidence: Array.isArray(brief.whyReached) ? brief.whyReached.slice(0, 4) : [],
+    implications: brief.sectorImpact || null,
+    related: Array.isArray(brief.institutionalQuestions) ? brief.institutionalQuestions.slice(0, 4) : [],
+    outlook: brief.outlook || 'Data-dependent',
+    source: 'deterministic-desk',
+    updatedAt: briefing?.updatedAt || null,
+  };
+
+  const lower = q.toLowerCase();
+  if (/bank|rate|fed|yield|rbi|monetary/i.test(lower)) {
+    deterministic.evidence = [
+      { title: 'Rates transmission', explanation: brief.evidence?.interestRates?.evidence || brief.debate?.verdict },
+      { title: 'Market impact', explanation: brief.evidence?.interestRates?.marketImpact },
+    ].filter((item) => item.explanation);
+  } else if (/oil|inflat|cpi|commodity/i.test(lower)) {
+    deterministic.evidence = [
+      { title: 'Inflation channel', explanation: brief.evidence?.inflation?.evidence },
+      { title: 'Commodities', explanation: brief.evidence?.commodities?.evidence },
+    ].filter((item) => item.explanation);
+  } else if (/monsoon|food|rural|weather/i.test(lower)) {
+    deterministic.evidence = [
+      { title: 'Weather channel', explanation: snapshot.weather?.implication },
+    ].filter((item) => item.explanation);
+  }
+
+  const apiKey = (process.env.OPENAI_API_KEY || '').trim();
+  if (!apiKey) return deterministic;
+
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      signal: AbortSignal.timeout(25_000),
+      body: JSON.stringify({
+        model: process.env.OPENAI_MARKET_BRIEFING_MODEL || 'gpt-4.1-mini',
+        response_format: { type: 'json_object' },
+        messages: [
+          {
+            role: 'system',
+            content:
+              'You are the Chief Economist of Agarwal Global Investments. Answer one institutional macro question using only the supplied briefing evidence. No buy/sell calls. No fabricated data. Return JSON: { response (120-220 words), outlook, evidence:[{title, explanation}], related:[string] }.',
+          },
+          {
+            role: 'user',
+            content: JSON.stringify({
+              question: q,
+              brief: {
+                outlook: brief.outlook,
+                thesis: brief.executiveThesis,
+                evidence: brief.evidence,
+                whyReached: brief.whyReached,
+                risks: brief.keyRisks,
+                questions: brief.institutionalQuestions,
+                regime: workspace.regime,
+                fx: snapshot.fx,
+                commodities: snapshot.commodities,
+                weather: snapshot.weather,
+              },
+            }),
+          },
+        ],
+        temperature: 0.2,
+      }),
+    });
+    if (!response.ok) throw new Error(`OpenAI macro-ask failed (${response.status})`);
+    const generated = JSON.parse((await response.json())?.choices?.[0]?.message?.content || '{}');
+    return {
+      query: q,
+      response: typeof generated.response === 'string' && generated.response.trim()
+        ? generated.response.trim()
+        : deterministic.response,
+      outlook: typeof generated.outlook === 'string' ? generated.outlook : deterministic.outlook,
+      evidence: Array.isArray(generated.evidence) && generated.evidence.length
+        ? generated.evidence.slice(0, 5).map((item) => ({
+          title: String(item.title || 'Evidence'),
+          explanation: String(item.explanation || ''),
+        }))
+        : deterministic.evidence,
+      implications: deterministic.implications,
+      related: Array.isArray(generated.related) && generated.related.length
+        ? generated.related.map(String).slice(0, 4)
+        : deterministic.related,
+      source: 'openai',
+      updatedAt: briefing?.updatedAt || null,
+    };
+  } catch (error) {
+    console.warn('[macro-ask] OpenAI failed; using deterministic desk:', error.message);
+    return { ...deterministic, source: 'deterministic-fallback', upstreamError: error.message };
+  }
+}
+
 export function startMacroBriefingScheduler() {
   if (scheduler) return;
   const refresh = () => {

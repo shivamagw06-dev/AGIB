@@ -24,7 +24,7 @@ import {
   Sparkles,
   X,
 } from 'lucide-react';
-import { getMacroBriefing } from '@/api/marketApi';
+import { getMacroBriefing, askMacroEconomist } from '@/api/marketApi';
 import { getIntelligenceHealth, listResearchRuns } from '@/lib/intelligenceApi';
 import { supabase } from '@/lib/supabaseClient';
 import { mapArticleForCard } from '@/lib/articleUtils';
@@ -128,6 +128,7 @@ export default function MacroIntelligence() {
   const [askOpen, setAskOpen] = useState(false);
   const [askQuery, setAskQuery] = useState('');
   const [askAnswer, setAskAnswer] = useState(null);
+  const [askLoading, setAskLoading] = useState(false);
   const [nodePanel, setNodePanel] = useState(null);
   const [briefExpanded, setBriefExpanded] = useState(false);
 
@@ -208,36 +209,51 @@ export default function MacroIntelligence() {
     });
   }, [briefing?.updatedAt]);
 
-  const handleAsk = (query) => {
-    const q = String(query || askQuery).trim();
-    if (!q) return;
+  const handleAsk = async (query) => {
+    const q = String(query || askQuery || workspace.askPrompts?.[0] || '').trim();
+    if (!q || askLoading) return;
     setAskQuery(q);
-    const lower = q.toLowerCase();
-    let evidence = brief.whyReached || [];
-    let implications = brief.sectorImpact;
-    let related = (brief.institutionalQuestions || []).slice(0, 3);
-    if (/bank|rate|fed|yield/i.test(lower)) {
-      evidence = [
-        { title: 'Rates transmission', explanation: brief.evidence?.interestRates?.evidence || brief.debate?.verdict },
-        { title: 'Market impact', explanation: brief.evidence?.interestRates?.marketImpact },
-      ].filter((item) => item.explanation);
-    } else if (/oil|inflat|cpi/i.test(lower)) {
-      evidence = [
-        { title: 'Inflation channel', explanation: brief.evidence?.inflation?.evidence },
-        { title: 'Commodities', explanation: brief.evidence?.commodities?.evidence },
-      ].filter((item) => item.explanation);
-    } else if (/monsoon|food|rural/i.test(lower)) {
-      evidence = [{ title: 'Weather channel', explanation: snapshot.weather?.implication }];
-    }
+    setAskLoading(true);
+    setAskOpen(true);
     setAskAnswer({
       query: q,
-      response: brief.executiveThesis,
-      evidence,
-      implications,
-      related,
-      outlook: brief.outlook,
+      response: 'Consulting the AGI macro desk…',
+      evidence: [],
+      implications: null,
+      related: [],
+      outlook: brief.outlook || 'Data-dependent',
+      source: 'loading',
     });
-    setAskOpen(true);
+    try {
+      const answer = await askMacroEconomist(q);
+      setAskAnswer(answer);
+    } catch (error) {
+      // Local fallback so the button never feels dead if the API blips.
+      const lower = q.toLowerCase();
+      let evidence = brief.whyReached || [];
+      if (/bank|rate|fed|yield/i.test(lower)) {
+        evidence = [
+          { title: 'Rates transmission', explanation: brief.evidence?.interestRates?.evidence || brief.debate?.verdict },
+          { title: 'Market impact', explanation: brief.evidence?.interestRates?.marketImpact },
+        ].filter((item) => item.explanation);
+      } else if (/oil|inflat|cpi/i.test(lower)) {
+        evidence = [
+          { title: 'Inflation channel', explanation: brief.evidence?.inflation?.evidence },
+          { title: 'Commodities', explanation: brief.evidence?.commodities?.evidence },
+        ].filter((item) => item.explanation);
+      }
+      setAskAnswer({
+        query: q,
+        response: brief.executiveThesis || `Desk temporarily unavailable (${error.message}). Showing the latest cached thesis.`,
+        evidence,
+        implications: brief.sectorImpact,
+        related: (brief.institutionalQuestions || []).slice(0, 3),
+        outlook: brief.outlook,
+        source: 'local-fallback',
+      });
+    } finally {
+      setAskLoading(false);
+    }
   };
 
   const goTab = (id) => {
@@ -310,11 +326,18 @@ export default function MacroIntelligence() {
               <button
                 type="button"
                 onClick={() => handleAsk(askQuery || workspace.askPrompts?.[0])}
-                className="inline-flex items-center gap-2 rounded-xl bg-[#1d4f91] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#163f75]"
+                disabled={askLoading}
+                className="inline-flex items-center gap-2 rounded-xl bg-[#1d4f91] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#163f75] disabled:opacity-60"
               >
                 <Sparkles className="h-4 w-4" />
-                Ask AGI Economist
+                {askLoading ? 'Asking…' : 'Ask AGI Economist'}
               </button>
+              <Link
+                to="/beta"
+                className="inline-flex items-center gap-2 rounded-xl border border-[#e7eaf0] bg-white px-4 py-2.5 text-sm font-semibold text-[#101828] hover:bg-[#f8fafc]"
+              >
+                Open Intelligence →
+              </Link>
               <button type="button" className="rounded-xl border border-[#e7eaf0] p-2.5 text-[#667085]" aria-label="Notifications">
                 <Bell className="h-4 w-4" />
               </button>
@@ -373,6 +396,11 @@ export default function MacroIntelligence() {
                             ? `Intelligence Engine online${engineStatus.latestRun?.run_id ? ` · last run ${String(engineStatus.latestRun.run_id).slice(0, 12)}` : ''}`
                             : 'Intelligence Engine offline (deterministic desk active)'}
                       </span>
+                      {!(engineStatus.health?.engine?.ok || engineStatus.health?.ok) && !engineStatus.loading && (
+                        <Link to="/beta" className="font-semibold text-[#1d4f91] hover:underline">
+                          Open Intelligence workspace →
+                        </Link>
+                      )}
                     </div>
                   </Card>
 
@@ -799,7 +827,9 @@ export default function MacroIntelligence() {
               </button>
             </div>
             <div className="mt-4 rounded-xl bg-[#f8fafc] p-4">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-[#3b6ea5]">AI response</p>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-[#3b6ea5]">
+                {askLoading ? 'Thinking…' : askAnswer.source === 'openai' ? 'AI economist response' : 'Desk response'}
+              </p>
               <p className="mt-2 text-sm leading-7 text-[#344054]">{askAnswer.response}</p>
               <div className="mt-3"><Badge tone={statusTone(askAnswer.outlook)}>{askAnswer.outlook}</Badge></div>
             </div>
