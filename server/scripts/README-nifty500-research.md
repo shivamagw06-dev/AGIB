@@ -46,6 +46,15 @@ Smoke test a small slice:
 NIFTY500_SYMBOL_LIMIT=25 python3 scripts/nifty500_research_engine.py --once
 ```
 
+## Troubleshooting: `Saved 0 research records` / `0.0% coverage`
+
+`Ready to Groww!` only means the SDK constructed. If every symbol then fails:
+
+1. Pull the latest `nifty500_research_engine.py` — history now uses Groww’s **`get_historical_candles`** (`groww_symbol` + `1day`), not the deprecated `/historical/candle/range` path that often returned empty/truncated series.
+2. Re-run a smoke slice and read the per-symbol `REJECT` / `ERROR` lines (and the final “top reasons” summary).
+3. Confirm `GROWW_ACCESS_TOKEN` is a fresh Trading API access token with historical/backtesting access.
+4. Confirm `server/.env` has `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` (publish still runs after analysis).
+
 ## Run as a Render background worker
 
 ```bash

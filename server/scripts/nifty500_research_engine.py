@@ -88,7 +88,7 @@ _default_coverage = "0.85" if _universe_hint > 600 else "0.95"
 CONFIG = {
     "exchange": "NSE",
     "segment": "CASH",
-    "lookback_days": 380,  # enough calendar history for 200+ trading sessions
+    "lookback_days": 420,  # ~14 months calendar → 200+ trading sessions across 180-day pages
     "top_n": 20,
     "schedule_times_ist": tuple(
         value.strip()
@@ -271,79 +271,84 @@ def publish_existing_output() -> None:
 
 
 def candle_frame(response: dict) -> pd.DataFrame:
-    candles = response.get("candles", [])
+    candles = response.get("candles", []) if isinstance(response, dict) else []
     if not candles:
         return pd.DataFrame(columns=["timestamp", "open", "high", "low", "close", "volume"])
-    # Groww's CASH endpoint currently returns six fields (without open
-    # interest), while FNO payloads may include a seventh OI field. Research
-    # uses the first six fields only.
+    # Groww V2 candles: [timestamp, open, high, low, close, volume, oi?]
+    # Timestamp may be epoch seconds or an ISO / "YYYY-MM-DD HH:MM:SS" string.
     rows = [list(candle[:6]) for candle in candles if len(candle) >= 6]
     frame = pd.DataFrame(rows, columns=["timestamp", "open", "high", "low", "close", "volume"])
+    frame["timestamp"] = pd.to_datetime(frame["timestamp"], utc=False, errors="coerce")
     for field in ("open", "high", "low", "close", "volume"):
         frame[field] = pd.to_numeric(frame[field], errors="coerce")
-    return frame.dropna(subset=["open", "high", "low", "close"]).sort_values("timestamp").reset_index(drop=True)
+    return (
+        frame.dropna(subset=["timestamp", "open", "high", "low", "close"])
+        .sort_values("timestamp")
+        .reset_index(drop=True)
+    )
 
 
-def fetch_daily_history(access_token: str, instrument: dict) -> pd.DataFrame:
-    """Fetch daily candles through Groww's REST endpoint in safe 180-day windows.
+def resolve_groww_symbol(instrument: dict, trading_symbol: str = "") -> str:
+    """Prefer Groww's canonical NSE-<symbol> id for the V2 candles API."""
+    groww_symbol = str(instrument.get("groww_symbol") or "").strip()
+    if groww_symbol:
+        return groww_symbol
+    symbol = str(
+        instrument.get("trading_symbol")
+        or instrument.get("symbol")
+        or trading_symbol
+        or ""
+    ).strip()
+    if not symbol:
+        raise RuntimeError("Instrument payload missing groww_symbol / trading_symbol")
+    exchange = str(instrument.get("exchange") or CONFIG["exchange"]).strip().upper() or "NSE"
+    if symbol.upper().startswith(f"{exchange}-"):
+        return symbol
+    return f"{exchange}-{symbol}"
 
-    The Python SDK's backtesting method can return empty candle arrays for CASH
-    equities even when the corresponding Groww REST endpoint returns data.
+
+def fetch_daily_history(groww: GrowwAPI, instrument: dict, trading_symbol: str = "") -> pd.DataFrame:
+    """Fetch daily candles via Groww's current backtesting candles API.
+
+    Uses `get_historical_candles` (groww_symbol + candle_interval=1day).
+    The older `/historical/candle/range` endpoint is deprecated and often returns
+    empty / truncated series — which previously caused 0% research coverage.
+    Daily interval max window is 180 days per Groww docs; we page lookback.
     """
     end = now_ist()
     start = end - timedelta(days=CONFIG["lookback_days"])
     cursor = start
     parts: list[pd.DataFrame] = []
-    api_base = os.getenv("GROWW_API_BASE", "https://api.groww.in/v1").rstrip("/")
-    # Groww documents CASH groww symbols as NSE-<trading_symbol>. Prefer this
-    # canonical value: some SDK instrument payloads expose a display symbol
-    # with an exchange-series suffix that the historical REST endpoint rejects.
-    groww_symbol = str(instrument.get("groww_symbol") or "")
-    trading_symbol = groww_symbol.split("-", 1)[-1] if "-" in groww_symbol else (
-        instrument.get("symbol") or instrument.get("trading_symbol") or groww_symbol
-    )
+    groww_symbol = resolve_groww_symbol(instrument, trading_symbol)
+    exchange = str(instrument.get("exchange") or CONFIG["exchange"])
+    segment = str(instrument.get("segment") or CONFIG["segment"])
+    interval = getattr(groww, "CANDLE_INTERVAL_DAY", "1day")
 
     while cursor < end:
         finish = min(cursor + timedelta(days=180), end)
-        query = urlencode(
-            {
-                "exchange": instrument["exchange"],
-                "segment": instrument["segment"],
-                "trading_symbol": trading_symbol,
-                "start_time": cursor.strftime("%Y-%m-%d %H:%M:%S"),
-                "end_time": finish.strftime("%Y-%m-%d %H:%M:%S"),
-                "interval_in_minutes": "1440",
-            }
-        )
-        request = Request(
-            f"{api_base}/historical/candle/range?{query}",
-            headers={
-                "Accept": "application/json",
-                "Authorization": f"Bearer {access_token}",
-                "X-API-VERSION": "1.0",
-            },
-        )
         try:
-            with urlopen(request, timeout=45) as response:
-                envelope = json.loads(response.read().decode("utf-8"))
-        except HTTPError as error:
-            detail = error.read().decode("utf-8", errors="replace")
-            raise RuntimeError(f"Groww historical request failed ({error.code}): {detail}") from error
-        except URLError as error:
-            raise RuntimeError(f"Groww historical request failed: {error.reason}") from error
-
-        if envelope.get("status") != "SUCCESS":
-            error = envelope.get("error") or {}
-            raise RuntimeError(
-                f"Groww historical request failed: "
-                f"{error.get('message') or error.get('errorMessage') or envelope}"
+            payload = groww.get_historical_candles(
+                exchange=exchange,
+                segment=segment,
+                groww_symbol=groww_symbol,
+                start_time=cursor.strftime("%Y-%m-%d %H:%M:%S"),
+                end_time=finish.strftime("%Y-%m-%d %H:%M:%S"),
+                candle_interval=interval,
+                timeout=45,
             )
-        payload = envelope.get("payload") or {}
-        frame = candle_frame(payload)
+        except Exception as error:
+            raise RuntimeError(
+                f"Groww historical candles failed for {groww_symbol}: {error}"
+            ) from error
+
+        # SDK returns payload dict directly; tolerate wrapped responses.
+        if isinstance(payload, dict) and "candles" not in payload and isinstance(payload.get("payload"), dict):
+            payload = payload["payload"]
+        frame = candle_frame(payload if isinstance(payload, dict) else {})
         if not frame.empty:
             parts.append(frame)
         cursor = finish
-        time.sleep(0.35)
+        time.sleep(0.2)
 
     if not parts:
         return pd.DataFrame()
@@ -535,6 +540,19 @@ def build_output(results: list[dict], run_name: str, rejected: list[dict]) -> di
     }
 
 
+def summarize_rejections(rejected: list[dict], limit: int = 8) -> str:
+    counts: dict[str, int] = {}
+    for item in rejected:
+        reason = str(item.get("reason") or "unknown")
+        # Collapse noisy per-symbol HTTP bodies to a short key
+        key = reason.split(":")[0].strip()[:120]
+        counts[key] = counts.get(key, 0) + 1
+    ordered = sorted(counts.items(), key=lambda pair: pair[1], reverse=True)[:limit]
+    if not ordered:
+        return "none"
+    return "; ".join(f"{reason} ×{count}" for reason, count in ordered)
+
+
 def run_once(run_name: str = "After Market Close Research") -> None:
     access_token = os.environ.get("GROWW_ACCESS_TOKEN", "").strip()
     api_key = os.environ.get("GROWW_API_KEY", "").strip()
@@ -554,6 +572,7 @@ def run_once(run_name: str = "After Market Close Research") -> None:
     validate_publish_config()
     symbols = load_constituents(CONSTITUENTS_PATH)
     print(f"Universe: {len(symbols)} symbols from {CONSTITUENTS_PATH}")
+    print("Candle source: Groww get_historical_candles (1day / groww_symbol)")
     results, rejected = [], []
 
     for index, symbol in enumerate(symbols, start=1):
@@ -561,18 +580,35 @@ def run_once(run_name: str = "After Market Close Research") -> None:
             instrument = groww.get_instrument_by_exchange_and_trading_symbol(
                 exchange=CONFIG["exchange"], trading_symbol=symbol
             )
-            if instrument.get("segment") != CONFIG["segment"]:
-                rejected.append({"symbol": symbol, "reason": "not_cash_equity"})
+            if not isinstance(instrument, dict):
+                raise RuntimeError(f"Unexpected instrument payload type: {type(instrument)}")
+            # Some SDK versions nest under payload
+            if "segment" not in instrument and isinstance(instrument.get("payload"), dict):
+                instrument = instrument["payload"]
+            segment = str(instrument.get("segment") or "").upper()
+            if segment and segment != str(CONFIG["segment"]).upper():
+                rejected.append({"symbol": symbol, "reason": f"not_cash_equity ({segment})"})
+                print(f"[{index}/{len(symbols)}] {symbol}: REJECT not_cash_equity ({segment})")
                 continue
-            history = fetch_daily_history(groww_access_token, instrument)
-            if index == 1 and history.empty:
-                raise RuntimeError(
-                    f"Groww returned no daily candles for {symbol}; "
-                    f"resolved trading symbol was {instrument.get('groww_symbol')!r}."
+            history = fetch_daily_history(groww, instrument, trading_symbol=symbol)
+            if history.empty:
+                reason = (
+                    f"empty_history ({resolve_groww_symbol(instrument, symbol)})"
                 )
+                rejected.append({"symbol": symbol, "reason": reason})
+                print(f"[{index}/{len(symbols)}] {symbol}: REJECT {reason}")
+                if index == 1:
+                    raise RuntimeError(
+                        f"Groww returned no daily candles for first symbol {symbol} "
+                        f"({resolve_groww_symbol(instrument, symbol)}). "
+                        "Check GROWW_ACCESS_TOKEN scopes / Groww backtesting API access."
+                    )
+                continue
             indicators = calculate_indicators(history)
             if not indicators:
-                rejected.append({"symbol": symbol, "reason": "insufficient_history"})
+                reason = f"insufficient_history ({len(history)} bars; need {CONFIG['sma_200']})"
+                rejected.append({"symbol": symbol, "reason": reason})
+                print(f"[{index}/{len(symbols)}] {symbol}: REJECT {reason}")
                 continue
             score = score_research(indicators)
             label = category(score)
@@ -585,9 +621,12 @@ def run_once(run_name: str = "After Market Close Research") -> None:
                 **narrative(symbol, label, indicators),
             }
             results.append(result)
-            print(f"[{index}/{len(symbols)}] {symbol}: {label} ({score})")
+            print(f"[{index}/{len(symbols)}] {symbol}: {label} ({score}) · {len(history)} bars")
         except Exception as error:
             rejected.append({"symbol": symbol, "reason": str(error)})
+            print(f"[{index}/{len(symbols)}] {symbol}: ERROR {error}")
+            if index == 1:
+                raise
         delay = CONFIG.get("request_delay_sec") or 0
         if delay > 0:
             time.sleep(delay)
@@ -595,15 +634,17 @@ def run_once(run_name: str = "After Market Close Research") -> None:
     output = build_output(results, run_name, rejected)
     OUTPUT_PATH.write_text(json.dumps(output, indent=2), encoding="utf-8")
     print(f"Saved {len(results)} research records to {OUTPUT_PATH}")
+    print(f"Rejected {len(rejected)} · top reasons: {summarize_rejections(rejected)}")
 
     coverage = len(results) / max(len(symbols), 1)
     if coverage < CONFIG["minimum_publish_coverage"]:
         raise RuntimeError(
             f"Refusing to publish an incomplete run ({coverage:.1%} coverage; "
-            f"minimum {CONFIG['minimum_publish_coverage']:.1%})."
+            f"minimum {CONFIG['minimum_publish_coverage']:.1%}). "
+            f"Top reject reasons: {summarize_rejections(rejected)}"
         )
     run_id = publish_to_supabase(output)
-    print(f"Published Nifty 500 research run {run_id} to Supabase")
+    print(f"Published NSE research run {run_id} to Supabase")
 
 
 def run_scheduler() -> None:
