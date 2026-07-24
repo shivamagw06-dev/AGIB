@@ -1,37 +1,35 @@
 import { ChevronRight } from "lucide-react";
-import { useMarketOverviewContext } from "@/contexts/MarketOverviewContext";
-import { formatPct, pctClass } from "@/lib/marketFormat";
+import { useNavigate } from "react-router-dom";
+
+const items = [
+  { label: "Featured Research", path: "/" },
+  { label: "Research Library", path: "/sections/live-articles" },
+  { label: "Research Notes", path: "/sections/research-notes" },
+  { label: "Deal Tracker", path: "/sections/deal-tracker" },
+  { label: "Markets", path: "/markets" },
+  { label: "Economy", path: "/sections/research-notes" },
+  { label: "Private Equity", path: "/sections/deal-tracker" },
+  { label: "Opinions", path: "/sections/opinions-editorials" },
+  { label: "Business", path: "/business" },
+];
 
 export default function ResearchTicker() {
-  const { gainers, commodities, news, loading } = useMarketOverviewContext();
-
-  const commodityTags = commodities
-    .filter((c) => /gold|silver|crude|copper|natural/i.test(c.product || ""))
-    .slice(0, 3)
-    .map((c) => `${c.product?.replace(/MIC$/i, "")} ${formatPct(c.per_change)}`);
-
-  const moverTags = gainers.slice(0, 4).map((g) => `${g.name?.split(" ")[0]} ${formatPct(g.change)}`);
-
-  const newsTags = news.slice(0, 2).map((n) => n.topics?.[0] || n.source).filter(Boolean);
-
-  const items = loading
-    ? ["Markets", "Economy", "RBI Policy", "Inflation", "IPO Watch"]
-    : [...moverTags, ...commodityTags, ...newsTags, "IPO Watch", "Mutual Funds"];
+  const navigate = useNavigate();
 
   return (
     <section className="border-b border-slate-200 bg-white">
       <div className="max-w-7xl mx-auto flex items-center overflow-x-auto whitespace-nowrap px-6 py-3 scrollbar-hide">
-        <span className="mr-5 font-semibold text-blue-700 shrink-0">Live Markets</span>
+        <span className="mr-5 font-semibold text-blue-700 shrink-0">Research</span>
 
         {items.map((item) => (
-          <div key={item} className="flex items-center text-sm text-slate-700 shrink-0">
-            <span
-              className={`px-3 hover:text-blue-700 cursor-default transition-colors ${
-                item.includes("%") ? pctClass(parseFloat(item.match(/-?\d+\.?\d*/)?.[0])) : ""
-              }`}
+          <div key={item.path} className="flex items-center text-sm shrink-0">
+            <button
+              type="button"
+              onClick={() => navigate(item.path)}
+              className="px-3 text-slate-700 hover:text-blue-700 transition-colors"
             >
-              {item}
-            </span>
+              {item.label}
+            </button>
             <ChevronRight className="h-3 w-3 text-slate-300" />
           </div>
         ))}

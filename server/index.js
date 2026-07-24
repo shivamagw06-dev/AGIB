@@ -7,11 +7,21 @@
 
 import express from "express";
 import researchRouter from "./research.js";
+import createMarketRouter from "./routes/market.js";
+import createNifty500ResearchRouter from "./routes/nifty500Research.js";
+import createIntelligenceRouter from "./routes/intelligence.js";
+import { getNewsHeadlines } from "./services/newsHeadlinesService.js";
+import { getIpoDetail, getIpoSummary } from "./services/ipoService.js";
+import { getMarketContext } from "./services/marketContextService.js";
+import { startCioMorningScheduler } from "./services/cioMorningScheduler.js";
 import rateLimit from "express-rate-limit";
 import cors from "cors";
 import dotenv from "dotenv";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-dotenv.config();
+const serverDirectory = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.join(serverDirectory, ".env") });
 
 const app = express();
 app.use(express.json({ limit: "200kb" }));
@@ -47,8 +57,29 @@ app.use(cors({
   credentials: true,
 }));
 
-// Rate limiting
-const apiLimiter = rateLimit({ windowMs: 60_000, max: 120, standardHeaders: true, legacyHeaders: false });
+// Rate limiting — AGI market intelligence has its own limiter (cached, low churn)
+const apiLimiter = rateLimit({
+  windowMs: 60_000,
+  max: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => {
+    const p = (req.path || req.url || '').split('?')[0];
+    return /\/market\/(intelligence|dashboard|pulse|ticker)\/?$/.test(p);
+  },
+});
+const marketIntelLimiter = rateLimit({
+  windowMs: 60_000,
+  max: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+const nifty500ResearchLimiter = rateLimit({
+  windowMs: 60_000,
+  max: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 const researchLimiter = rateLimit({ windowMs: 60_000, max: 30, standardHeaders: true, legacyHeaders: false });
 app.use('/api', apiLimiter);
 app.use('/research', researchLimiter);
@@ -151,11 +182,25 @@ function reg(path, handler) {
 // --- Health + debug endpoints
 reg('/', (req, res) => res.json({ service: 'finance-news-backend', status: 'running' }));
 reg('/api/health', (req, res) => res.json({ ok: true }));
+reg('/api/news/headlines', async (_req, res) => {
+  const data = await getNewsHeadlines();
+  res.set('Cache-Control', 'public, max-age=1800, stale-while-revalidate=300');
+  return res.json(data);
+});
 reg('/_debug_env', (req, res) => res.json({ API_KEY_exists: !!API_KEY, PERPLEXITY_key_present: !!PERPLEXITY_KEY, FRONTEND_ORIGIN: process.env.FRONTEND_ORIGIN || null, PORT: process.env.PORT || null }));
 reg('/_debug_key', (req, res) => { if (!API_KEY) return res.json({ key_present: false }); return res.json({ key_present: true, masked: `${API_KEY.slice(0,6)}... (length ${API_KEY.length})` }); });
 
 // mount research router
 app.use('/research', researchRouter);
+
+const marketRouter = createMarketRouter({
+  indianApiKey: API_KEY,
+  indianApiBase: BASE_URL,
+});
+app.use('/api/market', marketIntelLimiter, marketRouter);
+app.use('/api/research/nifty500', nifty500ResearchLimiter, createNifty500ResearchRouter());
+app.use('/api/intelligence', createIntelligenceRouter());
+startCioMorningScheduler();
 
 /* ---------- /api/perplexity/deals ----------
    Ask Perplexity for a strict JSON array of deals with these fields:
@@ -388,6 +433,11 @@ reg('/api/BSE_most_active', (req, res) => proxyFetch(res, `${BASE_URL}/BSE_most_
 reg('/api/mutual_funds', (req, res) => proxyFetch(res, `${BASE_URL}/mutual_funds`));
 reg('/api/price_shockers', (req, res) => proxyFetch(res, `${BASE_URL}/price_shockers`));
 reg('/api/commodities', (req, res) => proxyFetch(res, `${BASE_URL}/commodities`));
+reg('/api/market-context', async (_req, res) => {
+  const data = await getMarketContext();
+  res.set('Cache-Control', 'public, max-age=900, stale-while-revalidate=300');
+  return res.json(data);
+});
 
 // NSE index snapshot for homepage Market Snapshot (IndianAPI has no /indices endpoint).
 const INDEX_NAMES = ['NIFTY 50', 'NIFTY BANK', 'BANK NIFTY'];
@@ -466,15 +516,72 @@ reg('/api/historical_data', async (req, res) => {
 });
 
 reg('/api/historical_stats', (req, res) => proxyFetch(res, `${BASE_URL}/historical_stats?${new URLSearchParams(req.query).toString()}`));
-reg('/api/news', (req, res) => proxyFetch(res, `${BASE_URL}/news`));
+reg('/api/news', (req, res) => proxyFetch(res, `${BASE_URL}/news?${new URLSearchParams(req.query).toString()}`));
+reg('/api/ipo/summary', async (_req, res) => {
+  const data = await getIpoSummary();
+  res.set('Cache-Control', 'public, max-age=3600, stale-while-revalidate=300');
+  return res.json(data);
+});
+reg('/api/ipo/:symbol', async (req, res) => {
+  const data = await getIpoDetail(req.params.symbol);
+  if (!data.ipo) return res.status(404).json({ error: 'IPO record not found.' });
+  res.set('Cache-Control', 'public, max-age=3600, stale-while-revalidate=300');
+  return res.json(data);
+});
 reg('/api/ipo', (req, res) => proxyFetch(res, `${BASE_URL}/ipo`));
-reg('/api/recent_announcements', (req, res) => proxyFetch(res, `${BASE_URL}/recent_announcements`));
-reg('/api/corporate_actions', (req, res) => proxyFetch(res, `${BASE_URL}/corporate_actions`));
-reg('/api/statement', (req, res) => proxyFetch(res, `${BASE_URL}/statement`));
+reg('/api/recent_announcements', (req, res) => proxyFetch(res, `${BASE_URL}/recent_announcements?${new URLSearchParams(req.query).toString()}`));
+reg('/api/corporate_actions', (req, res) => proxyFetch(res, `${BASE_URL}/corporate_actions?${new URLSearchParams(req.query).toString()}`));
+reg('/api/statement', (req, res) => proxyFetch(res, `${BASE_URL}/statement?${new URLSearchParams(req.query).toString()}`));
 
-// wildcard fallback
+// Free NSE/BSE stock API proxy (http://65.0.104.9 — avoids browser mixed-content/CORS)
+const FREE_STOCK_API = (process.env.FREE_STOCK_API || 'http://65.0.104.9').replace(/\/+$/, '');
+
+reg('/api/market/search', (req, res) => {
+  const q = req.query.q;
+  if (!q) return res.status(400).json({ status: 'error', message: 'Missing ?q' });
+  return proxyFetch(res, `${FREE_STOCK_API}/search?q=${encodeURIComponent(q)}`);
+});
+
+reg('/api/market/stock/list', (req, res) => {
+  const symbols = req.query.symbols;
+  if (!symbols) return res.status(400).json({ status: 'error', message: 'Missing ?symbols' });
+  const qs = new URLSearchParams(req.query).toString();
+  return proxyFetch(res, `${FREE_STOCK_API}/stock/list?${qs}`);
+});
+
+reg('/api/market/stock', (req, res) => {
+  const symbol = req.query.symbol;
+  if (!symbol) return res.status(400).json({ status: 'error', message: 'Missing ?symbol' });
+  const qs = new URLSearchParams(req.query).toString();
+  return proxyFetch(res, `${FREE_STOCK_API}/stock?${qs}`);
+});
+
+reg('/api/market/symbols', (req, res) => proxyFetch(res, `${FREE_STOCK_API}/symbols`));
+
+// Do not proxy AGI market-intelligence paths to IndianAPI — that produced confusing 404s
+// when the Render deploy lagged the frontend.
+const AGI_MARKET_INTEL = new Set([
+  'briefing',
+  'macro-briefing',
+  'pre-market-briefing',
+  'intelligence',
+  'dashboard',
+  'ticker',
+  'pulse',
+  'groww-health',
+]);
+
+// wildcard fallback (IndianAPI proxy only)
 reg('/api/:path(*)', (req, res) => {
   const path = req.params.path || '';
+  const [head, ...rest] = path.split('/').filter(Boolean);
+  if (head === 'market' && AGI_MARKET_INTEL.has(rest[0])) {
+    return res.status(503).json({
+      error: 'AGI market intelligence route unavailable on this server build',
+      path: `/api/${path}`,
+      hint: 'Redeploy finance-news-backend with the latest market router (briefing / macro-briefing / pre-market-briefing).',
+    });
+  }
   const qs = new URLSearchParams(req.query).toString();
   const upstream = `${BASE_URL}/${path}${qs ? `?${qs}` : ''}`;
   console.log(`[wildcard proxy] /api/${path} -> ${upstream}`);

@@ -73,6 +73,24 @@ export function formatRelativePublishedDate(dateString) {
   });
 }
 
+/** Reuters-style relative time e.g. "17 min ago" */
+export function formatTimeAgo(dateString) {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return '';
+
+  const sec = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (sec < 60) return 'Just now';
+  const mins = Math.floor(sec / 60);
+  if (mins < 60) return `${mins} min ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs} hr ago`;
+  const days = Math.floor(hrs / 24);
+  if (days === 1) return '1 day ago';
+  if (days < 7) return `${days} days ago`;
+  return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+}
+
 export function estimateReadTimeFromExcerpt(text = '') {
   const words = (text || '').split(/\s+/).filter(Boolean).length;
   const mins = Math.max(3, Math.round(words / 200));

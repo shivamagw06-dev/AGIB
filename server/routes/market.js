@@ -1,0 +1,97 @@
+/**
+ * AGI Market Intelligence API routes
+ * Always returns 200 with data — stale cache or fallback on upstream errors.
+ */
+
+import { Router } from 'express';
+import { getAgiIntelligence, getDashboardFromIntelligence } from '../services/intelligenceService.js';
+import { MARKET_REFRESH_MS } from '../config/marketRefresh.js';
+import { getGrowwHealth } from '../services/growwHealth.js';
+import { getMarketBriefing, startMarketBriefingScheduler } from '../services/marketBriefingService.js';
+import { getMacroBriefing, startMacroBriefingScheduler } from '../services/macroBriefingService.js';
+import { getPreMarketBriefing, startPreMarketBriefingScheduler } from '../services/preMarketBriefingService.js';
+
+const CACHE_CONTROL = `public, max-age=${Math.floor(MARKET_REFRESH_MS / 1000)}, stale-while-revalidate=60`;
+
+function sendJson(res, data) {
+  res.set('Cache-Control', CACHE_CONTROL);
+  return res.status(200).json(data);
+}
+
+export default function createMarketRouter(env = {}) {
+  startMarketBriefingScheduler();
+  startMacroBriefingScheduler();
+  startPreMarketBriefingScheduler();
+  const router = Router();
+
+  router.get('/groww-health', async (_req, res) => {
+    if (process.env.DEBUG_GROWW !== 'true' && process.env.NODE_ENV === 'production') {
+      return res.status(404).json({ error: 'Not found' });
+    }
+    const health = await getGrowwHealth();
+    return res.status(health.ok ? 200 : 502).json(health);
+  });
+
+  router.get('/intelligence', async (_req, res) => {
+    const data = await getAgiIntelligence(env);
+    return sendJson(res, data);
+  });
+
+  router.get('/dashboard', async (_req, res) => {
+    try {
+      const data = await getDashboardFromIntelligence(env);
+      return sendJson(res, data);
+    } catch (err) {
+      console.error('[market/dashboard]', err?.message);
+      const fallback = await getAgiIntelligence(env);
+      return sendJson(res, {
+        pulse: fallback.pulse,
+        outlook: fallback.outlook,
+        gainers: fallback.stocksInFocus?.filter((s) => s.trend === 'Bullish') || [],
+        losers: [],
+        breadth: fallback.breadth,
+        stocksInFocus: fallback.stocksInFocus || [],
+        sectors: fallback.sectors || [],
+        summary: fallback.summary,
+        insightStrip: fallback.insightStrip,
+        stale: true,
+      });
+    }
+  });
+
+  router.get('/pulse', async (_req, res) => {
+    const data = await getAgiIntelligence(env);
+    return sendJson(res, { pulse: data.pulse, outlook: data.outlook, summary: data.summary });
+  });
+
+  router.get('/ticker', async (_req, res) => {
+    const data = await getAgiIntelligence(env);
+    return sendJson(res, {
+      items: data.insightStrip || [],
+      source: data.source || 'agi-intelligence',
+      disclaimer: data.disclaimer,
+      updatedAt: data.updatedAt,
+      stale: data.stale || false,
+    });
+  });
+
+  router.get('/briefing', async (_req, res) => {
+    const data = await getMarketBriefing();
+    res.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
+    return res.status(200).json(data);
+  });
+
+  router.get('/macro-briefing', async (_req, res) => {
+    const data = await getMacroBriefing();
+    res.set('Cache-Control', 'public, max-age=300, stale-while-revalidate=1800');
+    return res.status(200).json(data);
+  });
+
+  router.get('/pre-market-briefing', async (_req, res) => {
+    const data = await getPreMarketBriefing();
+    res.set('Cache-Control', 'public, max-age=120, stale-while-revalidate=600');
+    return res.status(200).json(data);
+  });
+
+  return router;
+}

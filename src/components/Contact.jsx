@@ -70,23 +70,24 @@ export default function Contact() {
 
   return (
     <PageShell
+      theme="light"
       eyebrow="Contact"
       title="Get in Touch"
-      description="Media inquiries, research partnerships, institutional subscriptions, and general feedback."
+      description="Media inquiries, research partnerships, and general feedback."
       metaTitle="Contact | Agarwal Global Investments"
     >
       <div className="grid lg:grid-cols-5 gap-10">
-        <div className="lg:col-span-2 space-y-6">
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+        <div className="lg:col-span-2 space-y-5">
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-6">
             <div className="flex items-start gap-4">
-              <div className="rounded-lg bg-blue-600/20 p-3 text-blue-400">
+              <div className="rounded-lg bg-blue-100 p-3 text-blue-700">
                 <Mail size={22} />
               </div>
               <div>
-                <h2 className="font-semibold text-white">Email</h2>
+                <h2 className="font-semibold text-slate-900">Email</h2>
                 <a
                   href={`mailto:${CONTACT_EMAIL}`}
-                  className="text-blue-400 hover:underline text-sm mt-1 block"
+                  className="text-blue-700 hover:underline text-sm mt-1 block"
                 >
                   {CONTACT_EMAIL}
                 </a>
@@ -94,24 +95,14 @@ export default function Contact() {
               </div>
             </div>
           </div>
-
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-sm text-slate-400 leading-relaxed">
-            <p className="font-medium text-white mb-2">What to reach out about</p>
-            <ul className="space-y-2">
-              <li>· Institutional research subscriptions</li>
-              <li>· Media &amp; press inquiries</li>
-              <li>· Speaking &amp; webinar partnerships</li>
-              <li>· Platform feedback</li>
-            </ul>
-          </div>
         </div>
 
         <form
           onSubmit={handleSubmit}
-          className="lg:col-span-3 rounded-2xl border border-white/10 bg-white/5 p-6 lg:p-8 space-y-5"
+          className="lg:col-span-3 rounded-xl border border-slate-200 bg-white p-6 lg:p-8 space-y-5 shadow-sm"
         >
           <div>
-            <label htmlFor="name" className="block text-sm font-medium text-slate-300 mb-2">
+            <label htmlFor="name" className="block text-sm font-medium text-slate-700 mb-2">
               Full name
             </label>
             <Input
@@ -121,13 +112,12 @@ export default function Contact() {
               value={formData.name}
               onChange={handleChange}
               placeholder="Your name"
-              className="bg-slate-900/50 border-white/15 text-white placeholder:text-slate-500"
             />
           </div>
 
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-slate-300 mb-2">
-              Email <span className="text-slate-500">(optional)</span>
+            <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-2">
+              Email <span className="text-slate-400">(optional)</span>
             </label>
             <Input
               id="email"
@@ -136,12 +126,11 @@ export default function Contact() {
               value={formData.email}
               onChange={handleChange}
               placeholder="you@company.com"
-              className="bg-slate-900/50 border-white/15 text-white placeholder:text-slate-500"
             />
           </div>
 
           <div>
-            <label htmlFor="subject" className="block text-sm font-medium text-slate-300 mb-2">
+            <label htmlFor="subject" className="block text-sm font-medium text-slate-700 mb-2">
               Subject
             </label>
             <Input
@@ -151,12 +140,11 @@ export default function Contact() {
               value={formData.subject}
               onChange={handleChange}
               placeholder="How can we help?"
-              className="bg-slate-900/50 border-white/15 text-white placeholder:text-slate-500"
             />
           </div>
 
           <div>
-            <label htmlFor="message" className="block text-sm font-medium text-slate-300 mb-2">
+            <label htmlFor="message" className="block text-sm font-medium text-slate-700 mb-2">
               Message
             </label>
             <Textarea
@@ -167,13 +155,12 @@ export default function Contact() {
               value={formData.message}
               onChange={handleChange}
               placeholder="Tell us about your inquiry…"
-              className="bg-slate-900/50 border-white/15 text-white placeholder:text-slate-500"
             />
           </div>
 
           <Button
             type="submit"
-            className="w-full bg-blue-600 hover:bg-blue-700"
+            className="w-full bg-blue-700 hover:bg-blue-800"
             size="lg"
             disabled={loading}
           >

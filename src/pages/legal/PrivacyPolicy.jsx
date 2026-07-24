@@ -3,6 +3,7 @@ import PageShell, { LegalSection } from '@/components/Layout/PageShell';
 export default function PrivacyPolicy() {
   return (
     <PageShell
+      theme="light"
       eyebrow="Legal"
       title="Privacy Policy"
       description="How Agarwal Global Investments collects, uses, and protects your information."
@@ -10,7 +11,7 @@ export default function PrivacyPolicy() {
     >
       <p className="text-sm text-slate-500 mb-10">Last updated: July 2026</p>
 
-      <LegalSection title="Overview">
+      <LegalSection theme="light" title="Overview">
         <p>
           Agarwal Global Investments (&quot;AGI&quot;, &quot;we&quot;, &quot;us&quot;) respects your privacy.
           This policy explains what data we collect when you use agarwalglobalinvestments.com and related services,

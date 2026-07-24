@@ -96,6 +96,7 @@ export default function LiveNews({ max = 6, variant = 'light' }) {
   const [errorMsg, setErrorMsg] = useState(null);
   const [usingFallbackCache, setUsingFallbackCache] = useState(false);
   const ctrlRef = useRef(null);
+  const isDark = variant === 'dark';
 
   useEffect(() => {
     const now = Date.now();
