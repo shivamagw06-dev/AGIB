@@ -6,6 +6,7 @@ import IndexSentimentTicker from '@/components/Home/IndexSentimentTicker';
 import ResearchNotesPreview from '@/components/Home/ResearchNotesPreview';
 import NewsHeadlineBar from '@/components/Home/NewsHeadlineBar';
 import Nifty500ResearchPreview from '@/components/Home/Nifty500ResearchPreview';
+import IpoMonitorPreview from '@/components/Home/IpoMonitorPreview';
 import InstitutionalResearchCard from '@/components/Home/InstitutionalResearchCard';
 import NewsletterSection from '@/components/Home/NewsletterSection';
 import usePublishedArticles from '@/hooks/usePublishedArticles';
@@ -111,13 +112,14 @@ export default function EditorialHome() {
 
   return (
     <div className="bg-white min-h-screen">
-      <div className="max-w-[1600px] mx-auto px-4 sm:px-6">
+      <div className="max-w-[1800px] mx-auto px-4 sm:px-6">
         <MorningBriefHero />
         <NewsHeadlineBar />
         <IndexSentimentTicker />
         <TodayDashboard />
         <ResearchNotesPreview />
         <Nifty500ResearchPreview />
+        <IpoMonitorPreview />
 
         {/* Market update cadence */}
         <section className="py-8 border-b border-[#dddddd]">

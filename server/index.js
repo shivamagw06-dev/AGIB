@@ -10,6 +10,7 @@ import researchRouter from "./research.js";
 import createMarketRouter from "./routes/market.js";
 import createNifty500ResearchRouter from "./routes/nifty500Research.js";
 import { getNewsHeadlines } from "./services/newsHeadlinesService.js";
+import { getIpoDetail, getIpoSummary } from "./services/ipoService.js";
 import rateLimit from "express-rate-limit";
 import cors from "cors";
 import dotenv from "dotenv";
@@ -506,6 +507,17 @@ reg('/api/historical_data', async (req, res) => {
 
 reg('/api/historical_stats', (req, res) => proxyFetch(res, `${BASE_URL}/historical_stats?${new URLSearchParams(req.query).toString()}`));
 reg('/api/news', (req, res) => proxyFetch(res, `${BASE_URL}/news`));
+reg('/api/ipo/summary', async (_req, res) => {
+  const data = await getIpoSummary();
+  res.set('Cache-Control', 'public, max-age=3600, stale-while-revalidate=300');
+  return res.json(data);
+});
+reg('/api/ipo/:symbol', async (req, res) => {
+  const data = await getIpoDetail(req.params.symbol);
+  if (!data.ipo) return res.status(404).json({ error: 'IPO record not found.' });
+  res.set('Cache-Control', 'public, max-age=3600, stale-while-revalidate=300');
+  return res.json(data);
+});
 reg('/api/ipo', (req, res) => proxyFetch(res, `${BASE_URL}/ipo`));
 reg('/api/recent_announcements', (req, res) => proxyFetch(res, `${BASE_URL}/recent_announcements`));
 reg('/api/corporate_actions', (req, res) => proxyFetch(res, `${BASE_URL}/corporate_actions`));
