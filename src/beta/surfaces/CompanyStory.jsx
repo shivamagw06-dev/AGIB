@@ -82,7 +82,6 @@ export default function CompanyStory() {
         setPeers(list.map((p) => String(p).toUpperCase()));
       })
       .catch(() => {
-        // Curated fallback peers for beta demo UX only (identity, not financials)
         const FALLBACK = {
           RELIANCE: ['ONGC', 'IOC', 'BPCL', 'HPCL'],
           TCS: ['INFY', 'WIPRO', 'HCLTECH', 'TECHM'],
@@ -104,6 +103,10 @@ export default function CompanyStory() {
 
   const story = buildStoryFromReport(run?.report, { symbols: [symbol] });
   const tone = stanceTone(story?.stance || niftyRow?.overallSentiment);
+  const summary =
+    story?.summary ||
+    niftyRow?.researchSummary ||
+    `${symbol} — research opens when the Intelligence engine is available. AGI never invents numbers to fill a page.`;
 
   const openSymbol = (e) => {
     e.preventDefault();
@@ -113,60 +116,62 @@ export default function CompanyStory() {
 
   return (
     <SurfaceChrome askPlaceholder={`Ask about ${symbol}…`}>
-      <div className="beta-story-stack">
-        <form onSubmit={openSymbol} className="flex flex-wrap gap-2">
-          <input
-            className="beta-input max-w-xs"
-            value={input}
-            onChange={(e) => setInput(e.target.value.toUpperCase())}
-            placeholder="Symbol"
-          />
-          <button type="submit" className="beta-btn">
-            Open company
-          </button>
-        </form>
+      <form onSubmit={openSymbol} className="mb-2 flex flex-wrap items-center gap-2">
+        <input
+          className="beta-input max-w-[12rem] py-2.5 text-sm"
+          value={input}
+          onChange={(e) => setInput(e.target.value.toUpperCase())}
+          placeholder="Symbol"
+          aria-label="Company symbol"
+        />
+        <button type="submit" className="beta-btn-ghost beta-btn py-2.5 text-xs">
+          Switch
+        </button>
+      </form>
 
-        <header>
-          <p className="beta-kicker">Company Intelligence</p>
-          <h1 className="beta-h1 mt-2">{symbol}</h1>
-          <div className="mt-4 flex flex-wrap items-center gap-2">
+      {/* Full-bleed editorial hero — brand/company first, one stance, one lede */}
+      <header className="beta-hero !min-h-[70vh] !justify-end !pb-10 !pt-16">
+        <div className="beta-hero-inner max-w-3xl">
+          <p className="beta-kicker beta-fade">Company Intelligence</p>
+          <h1 className="beta-display mt-4 beta-rise">{symbol}</h1>
+          <div className="mt-6 flex flex-wrap items-center gap-2 beta-rise-delay">
             <span className={`beta-chip beta-chip-${tone === 'pos' ? 'pos' : tone === 'neg' ? 'neg' : 'warn'}`}>
-              {story?.stance || niftyRow?.overallSentiment || 'Awaiting stance'}
+              {story?.stance || niftyRow?.overallSentiment || 'Stance pending'}
             </span>
             {(story?.confidence ?? niftyRow?.agiResearchScore) != null && (
               <span className="beta-chip">
                 Confidence {story?.confidence ?? niftyRow?.agiResearchScore}
-                {story?.confidence != null ? '%' : '/100'}
+                {story?.confidence != null ? '%' : ''}
               </span>
             )}
-            <span className="beta-chip">Read time {story?.readTime || 5} min</span>
+            <span className="beta-chip">{story?.readTime || 5} min read</span>
           </div>
-        </header>
+          <p className="beta-lede mt-8 max-w-2xl beta-rise-delay-2">
+            {isExplain ? `${summary.slice(0, 200)}${summary.length > 200 ? '…' : ''}` : summary.slice(0, 320)}
+            {!isExplain && summary.length > 320 ? '…' : ''}
+          </p>
+        </div>
+      </header>
 
-        {loading && (
-          <div className="beta-card flex items-center gap-2 text-sm text-[var(--beta-muted)]">
-            <Loader2 className="h-4 w-4 animate-spin" /> Building company story…
-          </div>
-        )}
-        {error && !story && (
-          <EmptyState
-            title="Could not load equity research"
-            detail={error.message || 'Engine may be offline. Showing any published Nifty context available.'}
-          />
-        )}
+      {loading && (
+        <div className="flex items-center gap-2 py-8 text-sm text-[var(--beta-muted)]">
+          <Loader2 className="h-4 w-4 animate-spin" /> Writing the company story…
+        </div>
+      )}
+      {error && !story && (
+        <EmptyState title="Equity research unavailable" detail={error.message || 'Showing any published context available.'} />
+      )}
 
-        <StorySection kicker="01" title="One Minute Summary">
-          <InsightCard
-            body={
-              story?.summary ||
-              niftyRow?.researchSummary ||
-              `${symbol} — open research when the Intelligence engine is available. No numbers are invented for this beta.`
-            }
-          />
+      <div className="beta-story-stack mt-6">
+        <StorySection chapter="01" title="One Minute Summary">
+          <InsightCard lede body={summary} />
           {!isExplain && (story?.takeaways || []).length > 0 && (
-            <ul className="mt-4 space-y-2 text-sm text-[var(--beta-ink-soft)]">
+            <ul className="mt-8 max-w-xl space-y-3">
               {story.takeaways.slice(0, 4).map((t) => (
-                <li key={t}>• {t}</li>
+                <li key={t} className="flex gap-3 text-[var(--beta-ink-soft)]">
+                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--beta-navy)]" />
+                  <span className="leading-relaxed">{t}</span>
+                </li>
               ))}
             </ul>
           )}
@@ -174,44 +179,42 @@ export default function CompanyStory() {
 
         {!isExplain && (
           <>
-            <StorySection kicker="02" title="Business Story">
+            <StorySection chapter="02" title="Business Story">
               {story?.business || niftyRow?.trendAnalysis ? (
-                <InsightCard body={story?.business || niftyRow?.trendAnalysis} />
+                <InsightCard lede body={story?.business || niftyRow?.trendAnalysis} />
               ) : (
-                <EmptyState title="Business narrative withheld" detail="Appears when Equity Desk / CIO note includes company_view." />
+                <EmptyState title="Business narrative withheld" detail="Appears when the note includes a company view." />
               )}
             </StorySection>
 
-            <StorySection kicker="03" title="Financial Story">
+            <StorySection chapter="03" title="Financial Story">
               {story?.financial ? (
                 <MetricStoryCard
-                  label="Financials"
-                  to="See narrative"
+                  label="The numbers that matter"
+                  to="Narrative"
                   why={whyFromText(story.financial)}
                   meaning={story.financial}
                   watchNext="Can margins stay durable while growth compounds?"
                 />
               ) : (
                 <EmptyState
-                  title="No financial metrics in this note"
-                  detail="Beta never fabricates ₹ figures. Financial story renders when the report includes financial_view or cached metrics."
+                  title="No fabricated financials"
+                  detail="When financial_view or cached metrics exist, this becomes Number → Why → Meaning → Watch next."
                 />
               )}
             </StorySection>
 
-            <StorySection kicker="04" title="Growth Story">
-              <div className="grid gap-3 sm:grid-cols-2">
-                {(story?.growth || []).length ? (
-                  story.growth.map((g) => <OpportunityCard key={g} title={g} />)
-                ) : (
-                  <EmptyState title="No catalysts listed" detail="Growth drivers come from report catalysts." />
-                )}
-              </div>
+            <StorySection chapter="04" title="Growth Story">
+              {(story?.growth || []).length ? (
+                story.growth.map((g) => <OpportunityCard key={g} title={g} />)
+              ) : (
+                <EmptyState title="No catalysts listed" />
+              )}
             </StorySection>
 
-            <StorySection kicker="05" title="Forecast Story">
+            <StorySection chapter="05" title="Forecast Story">
               {story?.forecast ? (
-                <div className="grid gap-3 sm:grid-cols-3">
+                <div className="grid gap-4 sm:grid-cols-3">
                   {['bull', 'base', 'bear'].map((key) => {
                     const c = story.forecast[key];
                     if (!c) return null;
@@ -219,12 +222,12 @@ export default function CompanyStory() {
                   })}
                 </div>
               ) : (
-                <EmptyState title="No scenario package" detail="Bull / base / bear appear when CIO attaches scenarios." />
+                <EmptyState title="No scenario package yet" detail="Bull / base / bear appear when CIO attaches scenarios." />
               )}
             </StorySection>
 
-            <StorySection kicker="06" title="Risk Story">
-              <div className="grid gap-3 sm:grid-cols-2">
+            <StorySection chapter="06" title="Risk Story">
+              <div className="grid gap-4 sm:grid-cols-2">
                 {(story?.risks || niftyRow?.riskFactors || []).length ? (
                   (story?.risks || niftyRow?.riskFactors || []).slice(0, 6).map((r) => (
                     <RiskCard key={r} title="Stated risk" items={[r]} level="stated" />
@@ -235,56 +238,50 @@ export default function CompanyStory() {
               </div>
             </StorySection>
 
-            <StorySection kicker="07" title="Timeline">
+            <StorySection chapter="07" title="Timeline">
               {(story?.timeline || []).length ? (
                 <TimelineCard items={story.timeline} />
               ) : (
-                <EmptyState title="No timeline events" detail="Action items and catalysts become the timeline." />
+                <EmptyState title="No timeline events" />
               )}
             </StorySection>
 
-            <StorySection kicker="08" title="Peer Comparison">
+            <StorySection chapter="08" title="Peers">
               {peers.length ? (
                 <>
-                  <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="grid gap-4 sm:grid-cols-2">
                     {peers.slice(0, 4).map((p) => (
-                      <CompanyCard
-                        key={p}
-                        symbol={p}
-                        onOpen={() => navigate(`/beta/companies/${encodeURIComponent(p)}`)}
-                      />
+                      <CompanyCard key={p} symbol={p} onOpen={() => navigate(`/beta/companies/${encodeURIComponent(p)}`)} />
                     ))}
                   </div>
                   <button
                     type="button"
-                    className="beta-btn mt-4"
+                    className="beta-btn mt-8"
                     onClick={() =>
                       navigate(`/beta/compare?symbols=${encodeURIComponent([symbol, ...peers].slice(0, 5).join(','))}`)
                     }
                   >
-                    Compare {symbol} vs peers
+                    Compare vs peers
                   </button>
                 </>
               ) : (
-                <EmptyState title="No peer set" detail="Similar companies appear from comparison maps when available." />
+                <EmptyState title="No peer set" />
               )}
             </StorySection>
 
             {isProfessional && (story?.evidence || []).length > 0 && (
-              <StorySection kicker="09" title="Sources">
-                <div className="space-y-3">
-                  {story.evidence.slice(0, 8).map((ev) => (
-                    <EvidenceCard key={ev.claim} claim={ev.claim} source={`${ev.source_type} · ${ev.source_id}`} />
-                  ))}
-                </div>
+              <StorySection chapter="09" title="Sources">
+                {story.evidence.slice(0, 8).map((ev) => (
+                  <EvidenceCard key={ev.claim} claim={ev.claim} source={`${ev.source_type} · ${ev.source_id}`} />
+                ))}
               </StorySection>
             )}
           </>
         )}
 
         {isExplain && (
-          <p className="beta-caption">
-            Switch depth to <strong>Research Report</strong> for the full scroll story.
+          <p className="beta-caption border-t border-[var(--beta-border)] pt-6">
+            Switch depth to <strong>Research Report</strong> for the full scroll — business, financials, forecast, risk, peers.
           </p>
         )}
       </div>

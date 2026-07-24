@@ -2,7 +2,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, Loader2 } from 'lucide-react';
 import SurfaceChrome from '@/beta/components/SurfaceChrome';
-import { StorySection, InsightCard, OpportunityCard, RiskCard, CompanyCard, EmptyState } from '@/beta/components/Cards';
+import {
+  StorySection,
+  InsightCard,
+  OpportunityCard,
+  RiskCard,
+  CompanyCard,
+  EmptyState,
+} from '@/beta/components/Cards';
 import { useBetaDepth } from '@/beta/BetaDepthContext';
 import { formatCountdown, getMarketSession, greetingForHour } from '@/beta/lib/marketClock';
 import { buildStoryFromReport } from '@/beta/lib/reportStory';
@@ -17,7 +24,7 @@ export default function HomeTerminal() {
   const { isExplain, isProfessional } = useBetaDepth();
   const { brief, loading: briefLoading } = useMorningBrief();
   const dash = useMarketDashboard();
-  const { articles } = usePublishedArticles({ limit: 4 });
+  const { articles } = usePublishedArticles({ limit: 3 });
   const nifty = useNifty500Research();
   const [ask, setAsk] = useState('');
   const [now, setNow] = useState(() => new Date());
@@ -49,7 +56,7 @@ export default function HomeTerminal() {
         const full = await getResearchRun(morning.run_id);
         if (active) setCioRun(full);
       } catch {
-        /* honest empty — engine may be offline */
+        /* engine may be offline */
       }
     })();
     return () => {
@@ -77,151 +84,130 @@ export default function HomeTerminal() {
     navigate(q ? `/beta/copilot?q=${encodeURIComponent(q)}` : '/beta/copilot');
   };
 
+  const briefBody =
+    story?.summary ||
+    brief?.excerpt ||
+    'Your morning intelligence opens here — one clear view of what matters before the session.';
+
   return (
-    <SurfaceChrome askPlaceholder="Ask what matters for today’s session…">
-      <div className="beta-story-stack">
-        <header>
-          <p className="beta-kicker">Home Terminal</p>
-          <h1 className="beta-h1 mt-2">
-            {greeting}, Shiv
-          </h1>
-          <p className="mt-3 text-lg text-[var(--beta-ink-soft)]">
-            {session.label}{' '}
-            <span className="font-[family-name:var(--beta-serif)] text-2xl font-semibold tabular-nums text-[var(--beta-navy)]">
+    <SurfaceChrome wide askPlaceholder="Ask what matters for today’s session…">
+      {/* Hero: one composition — brand, one line, countdown, one CTA feel */}
+      <section className="beta-hero">
+        <div className="beta-hero-inner">
+          <p className="beta-kicker beta-fade">Morning Intelligence</p>
+          <h1 className="beta-display mt-4 beta-rise">AGI</h1>
+          <p className="beta-lede mt-5 max-w-xl beta-rise-delay">
+            Complex Markets. Simple Intelligence.
+          </p>
+          <p className="mt-8 text-[var(--beta-ink-soft)] beta-rise-delay-2">
+            <span className="font-[family-name:var(--beta-serif)] text-xl">{greeting}, Shiv.</span>
+            <span className="mx-2 text-[var(--beta-caption)]">·</span>
+            <span>{session.label}</span>{' '}
+            <span className="beta-countdown ml-1 font-[family-name:var(--beta-serif)] text-2xl font-semibold text-[var(--beta-navy)]">
               {countdown}
             </span>
           </p>
-          <p className="beta-caption mt-2">
+          <p className="beta-caption mt-4">
             {engineOk === false
-              ? 'Intelligence engine offline — showing market context only.'
+              ? 'Engine offline — editorial + market context only.'
               : engineOk
                 ? 'Live intelligence connected.'
-                : 'Checking intelligence engine…'}
+                : 'Connecting…'}
           </p>
-        </header>
+        </div>
+      </section>
 
-        <StorySection kicker="What do I need to know?" title="CIO Morning Brief">
-          {story ? (
-            <InsightCard
-              title={story.title}
-              body={isExplain ? story.summary?.slice(0, 220) + (story.summary?.length > 220 ? '…' : '') : story.summary}
-              meta={story.stance}
-            >
-              {!isExplain && story.takeaways?.length > 0 && (
-                <ul className="mt-4 space-y-2 text-sm text-[var(--beta-ink-soft)]">
-                  {story.takeaways.slice(0, isProfessional ? 6 : 3).map((t) => (
-                    <li key={t}>• {t}</li>
-                  ))}
-                </ul>
-              )}
-              <div className="mt-5 flex flex-wrap gap-2">
-                <Link to="/beta/research" className="beta-btn">
-                  Read full brief
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
-                {cioRun?.run_id && isProfessional && (
-                  <span className="beta-chip">run {cioRun.run_id.slice(0, 10)}</span>
-                )}
-              </div>
-            </InsightCard>
-          ) : briefLoading ? (
-            <div className="beta-card flex items-center gap-2 text-sm text-[var(--beta-muted)]">
-              <Loader2 className="h-4 w-4 animate-spin" /> Loading morning context…
+      <div className="beta-story-stack mt-4">
+        <StorySection chapter="I." title="What do I need to know?">
+          {briefLoading && !story ? (
+            <div className="flex items-center gap-2 py-6 text-sm text-[var(--beta-muted)]">
+              <Loader2 className="h-4 w-4 animate-spin" /> Opening the brief…
             </div>
           ) : (
             <InsightCard
-              title={brief?.title || "Today's Market Brief"}
-              body={brief?.excerpt}
-              meta={brief?.heroLabel || 'Editorial'}
+              lede
+              body={isExplain ? `${briefBody.slice(0, 240)}${briefBody.length > 240 ? '…' : ''}` : briefBody}
+              meta={story?.stance || brief?.heroLabel || 'CIO Morning Brief'}
             >
-              {brief?.slug && (
-                <Link to={`/article/${brief.slug}`} className="beta-btn mt-5 inline-flex">
-                  Open article
-                </Link>
+              {!isExplain && (story?.takeaways || []).length > 0 && (
+                <ul className="mt-6 max-w-xl space-y-3 text-[var(--beta-ink-soft)]">
+                  {story.takeaways.slice(0, isProfessional ? 5 : 3).map((t) => (
+                    <li key={t} className="flex gap-3">
+                      <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--beta-navy)]" />
+                      <span className="leading-relaxed">{t}</span>
+                    </li>
+                  ))}
+                </ul>
               )}
-              <p className="beta-caption mt-3">
-                CIO desk brief unavailable — showing published morning context instead.
-              </p>
+              <div className="mt-8 flex flex-wrap gap-3">
+                <Link to="/beta/research" className="beta-btn">
+                  Continue reading
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+                {brief?.slug && (
+                  <Link to={`/article/${brief.slug}`} className="beta-btn-ghost beta-btn">
+                    Editorial brief
+                  </Link>
+                )}
+              </div>
             </InsightCard>
           )}
         </StorySection>
 
         {!isExplain && (
-          <StorySection title="Global Markets">
-            <div className="grid gap-3 sm:grid-cols-2">
-              {(dash.indexSentiments || dash.sectors || []).slice(0, 4).length === 0 && !dash.pulse ? (
-                <EmptyState
-                  title="Market snapshot loading"
-                  detail="Index and sector context appears when market intelligence is available."
-                />
-              ) : (
-                <>
-                  <div className="beta-card">
-                    <p className="beta-kicker">Pulse</p>
-                    <p className="beta-h3 mt-2">{dash.pulse || dash.summary || 'Awaiting session data'}</p>
-                    <p className="beta-caption mt-2">{dash.outlook || 'Outlook updates with the live brief.'}</p>
+          <StorySection chapter="II." title="The session climate">
+            <div className="grid gap-8 sm:grid-cols-2">
+              <div>
+                <p className="beta-kicker">Pulse</p>
+                <p className="mt-3 font-[family-name:var(--beta-serif)] text-2xl leading-snug text-[var(--beta-navy)]">
+                  {dash.pulse || dash.summary || 'Awaiting open'}
+                </p>
+                <p className="beta-caption mt-3 max-w-sm">{dash.outlook || 'Outlook updates with live market intelligence.'}</p>
+              </div>
+              <div className="space-y-4">
+                {(dash.sectors || []).slice(0, 3).map((s) => (
+                  <div key={s.name || s.sector} className="flex items-baseline justify-between gap-4 border-t border-[var(--beta-border)] pt-3">
+                    <p className="text-sm font-semibold text-[var(--beta-ink)]">{s.name || s.sector}</p>
+                    <p className="beta-caption">{s.bias || s.trend || s.sentiment || '—'}</p>
                   </div>
-                  {(dash.sectors || []).slice(0, 3).map((s) => (
-                    <div key={s.name || s.sector} className="beta-card-quiet">
-                      <p className="text-sm font-semibold">{s.name || s.sector}</p>
-                      <p className="beta-caption mt-1">{s.bias || s.trend || s.sentiment || '—'}</p>
-                    </div>
-                  ))}
-                </>
-              )}
+                ))}
+                {!(dash.sectors || []).length && (
+                  <EmptyState title="Sector climate quiet" detail="Leadership names appear when market intelligence loads." />
+                )}
+              </div>
             </div>
+            <Link to="/beta/macro" className="mt-8 inline-flex text-sm font-semibold text-[var(--beta-navy)] hover:underline">
+              Open macro weather →
+            </Link>
           </StorySection>
         )}
 
-        <div className="grid gap-6 lg:grid-cols-2">
-          <StorySection title="Biggest Opportunities Today">
-            <div className="space-y-3">
-              {opportunities.length ? (
-                opportunities.slice(0, isExplain ? 2 : 4).map((item) => (
-                  <OpportunityCard key={item} title={typeof item === 'string' ? item : item.title} />
-                ))
-              ) : (
-                <EmptyState title="No opportunity list yet" detail="Catalysts appear when a CIO brief or market focus set is available." />
-              )}
-            </div>
+        <div className="grid gap-12 lg:grid-cols-2">
+          <StorySection chapter="III." title="Opportunities">
+            {opportunities.length ? (
+              opportunities.slice(0, isExplain ? 2 : 4).map((item) => (
+                <OpportunityCard key={item} title={typeof item === 'string' ? item : item.title} />
+              ))
+            ) : (
+              <EmptyState title="No catalysts yet" detail="They appear from CIO briefs or market focus." />
+            )}
           </StorySection>
-          <StorySection title="Biggest Risks Today">
-            <div className="space-y-3">
-              {risks.length ? (
-                risks.slice(0, isExplain ? 2 : 4).map((item) => (
+          <StorySection chapter="IV." title="Risks">
+            {risks.length ? (
+              <div className="space-y-3">
+                {risks.slice(0, isExplain ? 2 : 4).map((item) => (
                   <RiskCard key={item} title="Watch" items={[typeof item === 'string' ? item : item.title]} level="stated" />
-                ))
-              ) : (
-                <EmptyState title="No risk list yet" detail="Risks surface from CIO notes or market focus." />
-              )}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <EmptyState title="No risks listed yet" />
+            )}
           </StorySection>
         </div>
 
-        <StorySection title="Macro Dashboard">
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {[
-              ['India', dash.pulse ? 'In focus' : '—'],
-              ['Breadth', dash.breadth?.advancers != null ? `${dash.breadth.advancers} adv` : '—'],
-              ['Leaders', (dash.gainers || []).length ? `${(dash.gainers || []).length} names` : '—'],
-              ['Pressure', (dash.losers || []).length ? `${(dash.losers || []).length} names` : '—'],
-            ].map(([label, value]) => (
-              <div key={label} className="beta-card text-center">
-                <p className="beta-caption">{label}</p>
-                <p className="mt-2 font-[family-name:var(--beta-serif)] text-xl font-semibold text-[var(--beta-navy)]">
-                  {value}
-                </p>
-              </div>
-            ))}
-          </div>
-          <Link to="/beta/macro" className="beta-btn-ghost beta-btn mt-4 inline-flex">
-            Open macro →
-          </Link>
-        </StorySection>
-
-        <StorySection title="AI Screener Picks">
+        <StorySection chapter="V." title="Names worth opening">
           {screenerPicks.length ? (
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-2">
               {screenerPicks.slice(0, isExplain ? 2 : 4).map((row) => {
                 const symbol = row.symbol || row.ticker || row.name;
                 return (
@@ -237,44 +223,41 @@ export default function HomeTerminal() {
               })}
             </div>
           ) : (
-            <EmptyState
-              title="No screener picks yet"
-              detail="When Nifty 500 research or market focus is available, interesting names appear here."
-            />
+            <EmptyState title="No picks yet" detail="Interesting companies appear from Nifty research or market focus." />
           )}
-          <Link to="/beta/screener" className="beta-btn mt-4 inline-flex">
-            Open screener
-          </Link>
+          <button type="button" className="beta-btn mt-8" onClick={() => navigate('/beta/screener')}>
+            See all interesting names
+          </button>
         </StorySection>
 
-        {!isExplain && (
-          <StorySection title="Research Feed">
-            <div className="space-y-3">
-              {(articles || []).slice(0, isProfessional ? 4 : 3).map((a) => (
-                <Link key={a.id || a.slug} to={a.slug ? `/article/${a.slug}` : '/research'} className="beta-card block hover:border-[var(--beta-navy)]">
+        {!isExplain && (articles || []).length > 0 && (
+          <StorySection chapter="VI." title="From the library">
+            <div className="space-y-0">
+              {(articles || []).slice(0, isProfessional ? 3 : 2).map((a) => (
+                <Link
+                  key={a.id || a.slug}
+                  to={a.slug ? `/article/${a.slug}` : '/research'}
+                  className="block border-t border-[var(--beta-border)] py-5 transition-colors hover:bg-white/40"
+                >
                   <p className="beta-caption">{a.section || 'Research'}</p>
-                  <p className="mt-1 text-base font-semibold text-[var(--beta-ink)]">{a.title}</p>
-                  {a.excerpt && <p className="beta-caption mt-2 line-clamp-2">{a.excerpt}</p>}
+                  <p className="mt-1 font-[family-name:var(--beta-serif)] text-xl text-[var(--beta-ink)]">{a.title}</p>
                 </Link>
               ))}
-              {!(articles || []).length && (
-                <EmptyState title="Research feed empty" detail="Published articles will appear here." />
-              )}
             </div>
           </StorySection>
         )}
 
-        <StorySection title="Ask AGI…">
-          <form onSubmit={onAsk} className="beta-card bg-[#f4f7fb]">
-            <p className="beta-caption">Start with one question. Copilot routes to the right desk.</p>
+        <StorySection chapter="VII." title="Ask AGI">
+          <form onSubmit={onAsk} className="max-w-2xl">
+            <p className="beta-lede">One question can turn the morning into a decision.</p>
             <textarea
-              className="beta-textarea mt-3"
+              className="beta-textarea mt-6"
               value={ask}
               onChange={(e) => setAsk(e.target.value)}
               placeholder="How will lower oil prices affect Indian paint companies?"
             />
-            <button type="submit" className="beta-btn mt-3">
-              Ask AGI
+            <button type="submit" className="beta-btn mt-4">
+              Ask
               <ArrowRight className="h-4 w-4" />
             </button>
           </form>

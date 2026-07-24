@@ -94,15 +94,17 @@ export default function CompareStory() {
   return (
     <SurfaceChrome askPlaceholder="Ask why these companies differ…">
       <div className="beta-story-stack">
-        <header>
-          <p className="beta-kicker">AI Company Comparison</p>
-          <h1 className="beta-h1 mt-2">Why they differ</h1>
-          <p className="mt-3 max-w-2xl text-[var(--beta-ink-soft)]">
-            Cards and stories — not spreadsheets. Relative roles only from available research notes.
-          </p>
+        <header className="beta-hero !min-h-[42vh] !pb-6 !pt-12">
+          <div className="beta-hero-inner">
+            <p className="beta-kicker beta-fade">AI Company Comparison</p>
+            <h1 className="beta-display mt-3 beta-rise">Why they differ</h1>
+            <p className="beta-lede mt-4 max-w-xl beta-rise-delay">
+              Not a spreadsheet — relative roles from real research notes only.
+            </p>
+          </div>
         </header>
 
-        <form onSubmit={compare} className="beta-card">
+        <form onSubmit={compare} className="max-w-xl">
           <label className="beta-caption">Companies (2–5)</label>
           <textarea className="beta-textarea mt-2" value={text} onChange={(e) => setText(e.target.value.toUpperCase())} />
           <button type="submit" className="beta-btn mt-3" disabled={running}>
@@ -118,24 +120,24 @@ export default function CompareStory() {
         </form>
 
         {runs.length > 0 && (
-          <StorySection title="Verdict cards">
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <StorySection chapter="Verdict" title="Who leads — and why">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {[
                 ['Winner', ranked.overall],
                 ['Best Growth', ranked.growth],
                 ['Best Value', ranked.value],
                 ['Safest', ranked.safest],
               ].map(([label, value]) => (
-                <div key={label} className="beta-card text-center">
+                <div key={label} className="beta-panel text-center">
                   <p className="beta-caption">{label}</p>
-                  <p className="mt-2 font-[family-name:var(--beta-serif)] text-2xl font-semibold text-[var(--beta-navy)]">
+                  <p className="mt-3 font-[family-name:var(--beta-serif)] text-3xl font-semibold text-[var(--beta-navy)]">
                     {value || '—'}
                   </p>
                 </div>
               ))}
             </div>
-            <p className="beta-caption mt-3">
-              Roles reflect available confidence, catalysts, and risk counts among compared notes — never Buy/Sell/Hold.
+            <p className="beta-caption mt-4">
+              Roles reflect confidence, catalysts, and risk counts among compared notes — never Buy/Sell/Hold.
             </p>
           </StorySection>
         )}

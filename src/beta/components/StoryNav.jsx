@@ -38,15 +38,9 @@ export default function StoryNav({ onNavigate }) {
           to={to}
           end={end}
           onClick={onNavigate}
-          className={({ isActive }) =>
-            `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
-              isActive
-                ? 'bg-[var(--beta-navy)] text-white'
-                : 'text-[var(--beta-ink-soft)] hover:bg-[#eef2f7]'
-            }`
-          }
+          className={({ isActive }) => `beta-nav-link ${isActive ? 'active' : ''}`}
         >
-          <Icon className="h-4 w-4 shrink-0" />
+          <Icon className="h-4 w-4 shrink-0 opacity-80" />
           <span>{label}</span>
         </NavLink>
       ))}
