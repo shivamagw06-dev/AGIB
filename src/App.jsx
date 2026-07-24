@@ -27,6 +27,7 @@ import PrivacyPolicy from '@/pages/legal/PrivacyPolicy';
 import TermsOfService from '@/pages/legal/TermsOfService';
 import Disclaimer from '@/pages/legal/Disclaimer';
 import SebiDisclosure from '@/pages/legal/SebiDisclosure';
+import UnsubscribePage from '@/pages/UnsubscribePage';
 
 const Opinions = React.lazy(() => import('@/components/Opinions'));
 const Markets = React.lazy(() => import('@/pages/Markets'));
@@ -134,6 +135,8 @@ function PublicRoutes() {
       <Route path="/events-webinars" element={<Navigate replace to="/events" />} />
 
       <Route path="/privacy" element={<PrivacyPolicy />} />
+      <Route path="/unsubscribe" element={<UnsubscribePage />} />
+      <Route path="/unsubscribe-preferences" element={<UnsubscribePage />} />
       <Route path="/terms" element={<TermsOfService />} />
       <Route path="/disclaimer" element={<Disclaimer />} />
       <Route path="/sebi-disclosure" element={<SebiDisclosure />} />

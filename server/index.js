@@ -10,6 +10,7 @@ import researchRouter from "./research.js";
 import createMarketRouter from "./routes/market.js";
 import createNifty500ResearchRouter from "./routes/nifty500Research.js";
 import createIntelligenceRouter from "./routes/intelligence.js";
+import createNewsletterRouter from "./routes/newsletter.js";
 import { getNewsHeadlines } from "./services/newsHeadlinesService.js";
 import { getIpoDetail, getIpoSummary } from "./services/ipoService.js";
 import { getMarketContext } from "./services/marketContextService.js";
@@ -24,7 +25,7 @@ const serverDirectory = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(serverDirectory, ".env") });
 
 const app = express();
-app.use(express.json({ limit: "200kb" }));
+app.use(express.json({ limit: "2mb" }));
 app.set("trust proxy", 1);
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
@@ -52,7 +53,7 @@ app.use(cors({
     if (allowedOrigins.includes(origin)) return cb(null, true);
     return cb(new Error("CORS origin not allowed"));
   },
-  methods: ["GET", "POST", "OPTIONS"],
+  methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
   optionsSuccessStatus: 200,
   credentials: true,
 }));
@@ -200,6 +201,7 @@ const marketRouter = createMarketRouter({
 app.use('/api/market', marketIntelLimiter, marketRouter);
 app.use('/api/research/nifty500', nifty500ResearchLimiter, createNifty500ResearchRouter());
 app.use('/api/intelligence', createIntelligenceRouter());
+app.use('/api', createNewsletterRouter());
 startCioMorningScheduler();
 
 /* ---------- /api/perplexity/deals ----------

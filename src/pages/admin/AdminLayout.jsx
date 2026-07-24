@@ -7,6 +7,12 @@ import {
   ExternalLink,
   LogOut,
   ChevronRight,
+  Send,
+  Users,
+  Upload,
+  BarChart3,
+  Mail,
+  History,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -14,6 +20,12 @@ const navItems = [
   { to: '/admin', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/admin/articles/new', label: 'New Article', icon: Plus },
   { to: '/admin/categories', label: 'Categories', icon: FolderOpen },
+  { to: '/admin/publishing', label: 'Publishing', icon: Send },
+  { to: '/admin/publishing/subscribers', label: 'Subscribers', icon: Users },
+  { to: '/admin/publishing/import', label: 'Import CSV', icon: Upload },
+  { to: '/admin/publishing/analytics', label: 'Analytics', icon: BarChart3 },
+  { to: '/admin/publishing/templates', label: 'Templates', icon: Mail },
+  { to: '/admin/publishing/campaigns', label: 'Campaigns', icon: History },
 ];
 
 export default function AdminLayout() {

@@ -28,6 +28,7 @@ import {
   toSlug,
   wordCountFromHTML,
 } from '@/lib/articleUtils';
+import { publishArticleDistribution } from '@/lib/publishingApi';
 import { Button } from '@/components/ui/button';
 
 const AUTOSAVE_MS = 4000;
@@ -280,6 +281,24 @@ export default function ArticleEditor() {
         dirtyRef.current = false;
 
         if (!silent && publishStatus === 'published') {
+          try {
+            await publishArticleDistribution({
+              article: {
+                id: data.id,
+                title,
+                slug: data.slug,
+                body: editor.getHTML(),
+                excerpt: htmlToExcerpt(editor.getHTML()),
+                coverUrl,
+                section,
+                meta_description: metaDescription,
+              },
+              segment: 'all',
+              dry_run: !import.meta.env.VITE_RESEND_LIVE,
+            });
+          } catch (distErr) {
+            console.warn('Research distribution failed (article still published)', distErr);
+          }
           navigate(`/article/${data.slug}`);
         }
 

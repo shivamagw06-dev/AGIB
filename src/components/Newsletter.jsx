@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/use-toast';
-import { supabase } from '@/lib/supabaseClient';
+import { newsletterSubscribe } from '@/lib/publishingApi';
 
 export default function Newsletter() {
   const [email, setEmail] = useState('');
@@ -17,27 +17,11 @@ export default function Newsletter() {
     setLoading(true);
 
     try {
-      const { error } = await supabase.from('subscribers').insert({ email: email.trim() });
-
-      if (error) {
-        const msg = error.message?.includes('duplicate')
-          ? 'This email is already subscribed.'
-          : error.message || 'Subscription failed.';
-        throw new Error(msg);
-      }
-
-      try {
-        await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-welcome`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-          },
-          body: JSON.stringify({ email: email.trim() }),
-        });
-      } catch {
-        /* welcome email is best-effort */
-      }
+      // Prefer Research Distribution Engine API (file/supabase-backed)
+      await newsletterSubscribe({
+        email: email.trim(),
+        source: 'website_signup',
+      });
 
       toast({
         title: 'Subscribed successfully',
