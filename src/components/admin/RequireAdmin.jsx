@@ -3,9 +3,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { isAdmin } from '@/lib/adminAuth';
 
 export default function RequireAdmin({ children }) {
-  const { user } = useAuth();
+  const { user, hasPin, unlocked, loading } = useAuth();
 
-  if (!user) return <Navigate to="/login?redirect=/admin" replace />;
+  if (loading) return null;
+  if (!user || !hasPin || !unlocked) {
+    return <Navigate to="/login?next=/admin" replace />;
+  }
   if (!isAdmin(user)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white">

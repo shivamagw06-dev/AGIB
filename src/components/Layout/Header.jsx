@@ -33,7 +33,7 @@ const NAV = [
 export default function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-  const { user, logout } = useAuth();
+  const { user, logout, hasPin, unlocked, needsPinUnlock } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
@@ -130,7 +130,7 @@ export default function Header() {
                 <Search className="w-5 h-5" />
               </button>
 
-              {user ? (
+              {user && hasPin && unlocked ? (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" className="hidden sm:flex h-8 text-xs text-[#111111]">
@@ -139,6 +139,9 @@ export default function Header() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => go('/portal')}>Research Portal</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => go('/account')}>Account</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => go('/account/security')}>Security</DropdownMenuItem>
                     <DropdownMenuItem onClick={() => go('/profile/edit')}>Edit profile</DropdownMenuItem>
                     {handle && (
                       <DropdownMenuItem onClick={() => go(`/u/${handle}`)}>Public profile</DropdownMenuItem>
@@ -154,21 +157,29 @@ export default function Header() {
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
+              ) : user && needsPinUnlock ? (
+                <button
+                  type="button"
+                  onClick={() => go('/login?next=/portal')}
+                  className="hidden sm:block text-sm font-medium text-[#111111] hover:underline px-2"
+                >
+                  Enter PIN
+                </button>
               ) : (
                 <>
                   <button
                     type="button"
-                    onClick={() => go('/login')}
+                    onClick={() => go('/login?next=/portal')}
                     className="hidden sm:block text-sm font-medium text-[#111111] hover:underline px-2"
                   >
                     Sign in
                   </button>
                   <button
                     type="button"
-                    onClick={() => go('/login')}
+                    onClick={() => go('/login?next=/portal')}
                     className="hidden sm:block bg-[#111111] text-white text-sm font-bold px-4 py-1.5 hover:bg-[#333]"
                   >
-                    Subscribe
+                    Research Portal
                   </button>
                 </>
               )}
@@ -211,23 +222,31 @@ export default function Header() {
               {item.name}
             </button>
           ))}
-          {!user && (
+          {!user || !hasPin || !unlocked ? (
             <div className="grid grid-cols-2 gap-2 py-3">
               <button
                 type="button"
-                onClick={() => go('/login?mode=signin')}
+                onClick={() => go('/login?next=/portal')}
                 className="min-h-[44px] border border-[#111111] px-3 text-sm font-bold text-[#111111]"
               >
-                Sign in
+                {needsPinUnlock ? 'Enter PIN' : 'Sign in'}
               </button>
               <button
                 type="button"
-                onClick={() => go('/login?mode=signup')}
+                onClick={() => go('/login?next=/portal')}
                 className="min-h-[44px] bg-[#111111] px-3 text-sm font-bold text-white"
               >
-                Create account
+                Research Portal
               </button>
             </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => go('/portal')}
+              className="block w-full text-left py-3 text-sm font-medium border-b border-[#eee] text-[#111]"
+            >
+              Research Portal
+            </button>
           )}
         </nav>
       )}

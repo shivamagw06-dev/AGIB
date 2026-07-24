@@ -28,6 +28,9 @@ import TermsOfService from '@/pages/legal/TermsOfService';
 import Disclaimer from '@/pages/legal/Disclaimer';
 import SebiDisclosure from '@/pages/legal/SebiDisclosure';
 import UnsubscribePage from '@/pages/UnsubscribePage';
+import ResearchPortal from '@/pages/ResearchPortal';
+import AccountPage from '@/pages/AccountPage';
+import AccountSecurityPage from '@/pages/AccountSecurityPage';
 
 const Opinions = React.lazy(() => import('@/components/Opinions'));
 const Markets = React.lazy(() => import('@/pages/Markets'));
@@ -47,6 +50,10 @@ function AppShell() {
   const location = useLocation();
   const isAdmin = location.pathname.startsWith('/admin');
   const isBeta = location.pathname.startsWith('/beta');
+  const hideChrome =
+    location.pathname === '/login' ||
+    location.pathname === '/portal' ||
+    location.pathname.startsWith('/account');
 
   useEffect(() => {
     if (!isAdmin) {
@@ -76,13 +83,13 @@ function AppShell() {
   return (
     <>
       <MarketDataProvider>
-        <Header />
+        {!hideChrome && <Header />}
         <main>
           <Suspense fallback={<div className="p-8 text-center text-slate-600">Loading…</div>}>
             <PublicRoutes />
           </Suspense>
         </main>
-        <Footer />
+        {!hideChrome && <Footer />}
         <Toaster />
       </MarketDataProvider>
     </>
@@ -142,6 +149,9 @@ function PublicRoutes() {
       <Route path="/sebi-disclosure" element={<SebiDisclosure />} />
 
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/portal" element={<ResearchPortal />} />
+      <Route path="/account" element={<AccountPage />} />
+      <Route path="/account/security" element={<AccountSecurityPage />} />
       <Route path="/article/:slug" element={<ArticlePage />} />
       <Route path="/articles/new" element={<Navigate replace to="/admin/articles/new" />} />
       <Route path="/write" element={<Navigate replace to="/admin/articles/new" />} />
