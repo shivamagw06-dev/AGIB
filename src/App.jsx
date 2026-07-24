@@ -36,6 +36,7 @@ const PreMarketIntelligence = React.lazy(() => import('@/pages/PreMarketIntellig
 const Nifty500StockResearch = React.lazy(() => import('@/pages/Nifty500StockResearch'));
 const IpoDetailPage = React.lazy(() => import('@/pages/IpoDetailPage'));
 const MarketDataCentre = React.lazy(() => import('@/pages/MarketDataCentre'));
+const BetaApp = React.lazy(() => import('@/beta/BetaApp'));
 
 function HomeLayout() {
   return <EditorialHome />;
@@ -44,6 +45,7 @@ function HomeLayout() {
 function AppShell() {
   const location = useLocation();
   const isAdmin = location.pathname.startsWith('/admin');
+  const isBeta = location.pathname.startsWith('/beta');
 
   useEffect(() => {
     if (!isAdmin) {
@@ -56,6 +58,17 @@ function AppShell() {
       <Routes>
         <Route path="/admin/*" element={<AdminRoutes />} />
       </Routes>
+    );
+  }
+
+  if (isBeta) {
+    return (
+      <Suspense fallback={<div className="p-8 text-center text-slate-600">Loading AGI Beta…</div>}>
+        <Routes>
+          <Route path="/beta/*" element={<BetaApp />} />
+        </Routes>
+        <Toaster />
+      </Suspense>
     );
   }
 

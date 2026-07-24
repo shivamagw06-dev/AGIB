@@ -90,10 +90,10 @@ export default function Header() {
           </span>
           <button
             type="button"
-            onClick={() => go('/research')}
+            onClick={() => go('/beta')}
             className="shrink-0 font-semibold hover:underline hidden sm:inline text-[11px]"
           >
-            Explore research →
+            Try AGI Beta →
           </button>
         </div>
       </div>

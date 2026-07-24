@@ -1,0 +1,207 @@
+/* AGI Story Beta — scoped design tokens. Colors: white / gray / navy / green / amber / red only. */
+
+.agi-beta {
+  --beta-white: #ffffff;
+  --beta-bg: #f6f7f9;
+  --beta-surface: #ffffff;
+  --beta-border: #e4e7ec;
+  --beta-border-strong: #d0d5dd;
+  --beta-ink: #101828;
+  --beta-ink-soft: #344054;
+  --beta-muted: #667085;
+  --beta-caption: #98a2b3;
+  --beta-navy: #0b1f3a;
+  --beta-navy-soft: #143253;
+  --beta-green: #087443;
+  --beta-green-bg: #ecfdf3;
+  --beta-green-border: #b7ebcc;
+  --beta-amber: #966a00;
+  --beta-amber-bg: #fff8e8;
+  --beta-amber-border: #f4d99d;
+  --beta-red: #b42318;
+  --beta-red-bg: #fff1f0;
+  --beta-red-border: #f7c5c0;
+  --beta-serif: 'Source Serif 4', 'Libre Baskerville', Georgia, serif;
+  --beta-sans: 'IBM Plex Sans', system-ui, sans-serif;
+  --beta-space: 1.5rem;
+  --beta-radius: 1rem;
+
+  font-family: var(--beta-sans);
+  color: var(--beta-ink);
+  background: var(--beta-bg);
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+.agi-beta * {
+  box-sizing: border-box;
+}
+
+.agi-beta h1,
+.agi-beta .beta-h1 {
+  font-family: var(--beta-serif);
+  font-size: 40px;
+  line-height: 1.15;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--beta-ink);
+}
+
+.agi-beta h2,
+.agi-beta .beta-h2 {
+  font-family: var(--beta-serif);
+  font-size: 28px;
+  line-height: 1.2;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: var(--beta-ink);
+}
+
+.agi-beta h3,
+.agi-beta .beta-h3 {
+  font-family: var(--beta-serif);
+  font-size: 22px;
+  line-height: 1.25;
+  font-weight: 600;
+  color: var(--beta-ink);
+}
+
+.agi-beta .beta-body {
+  font-size: 16px;
+  line-height: 1.65;
+  color: var(--beta-ink-soft);
+}
+
+.agi-beta .beta-caption {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--beta-muted);
+}
+
+.agi-beta .beta-kicker {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--beta-navy);
+}
+
+.agi-beta .beta-card {
+  background: var(--beta-surface);
+  border: 1px solid var(--beta-border);
+  border-radius: var(--beta-radius);
+  padding: 1.25rem 1.35rem;
+}
+
+.agi-beta .beta-card-quiet {
+  background: #fbfcfe;
+  border: 1px solid var(--beta-border);
+  border-radius: var(--beta-radius);
+  padding: 1.25rem 1.35rem;
+}
+
+.agi-beta .beta-chip {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--beta-border);
+  border-radius: 999px;
+  padding: 0.2rem 0.7rem;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--beta-ink-soft);
+  background: var(--beta-white);
+}
+
+.agi-beta .beta-chip-pos {
+  border-color: var(--beta-green-border);
+  background: var(--beta-green-bg);
+  color: var(--beta-green);
+}
+
+.agi-beta .beta-chip-warn {
+  border-color: var(--beta-amber-border);
+  background: var(--beta-amber-bg);
+  color: var(--beta-amber);
+}
+
+.agi-beta .beta-chip-neg {
+  border-color: var(--beta-red-border);
+  background: var(--beta-red-bg);
+  color: var(--beta-red);
+}
+
+.agi-beta .beta-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border-radius: 999px;
+  border: 1px solid var(--beta-navy);
+  background: var(--beta-navy);
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 0.65rem 1.1rem;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.agi-beta .beta-btn:hover {
+  background: var(--beta-navy-soft);
+  border-color: var(--beta-navy-soft);
+}
+
+.agi-beta .beta-btn-ghost {
+  background: transparent;
+  color: var(--beta-navy);
+}
+
+.agi-beta .beta-btn-ghost:hover {
+  background: #eef2f7;
+}
+
+.agi-beta .beta-input,
+.agi-beta .beta-textarea {
+  width: 100%;
+  border: 1px solid var(--beta-border-strong);
+  border-radius: 0.85rem;
+  background: white;
+  color: var(--beta-ink);
+  font-family: var(--beta-sans);
+  font-size: 16px;
+  padding: 0.85rem 1rem;
+  outline: none;
+}
+
+.agi-beta .beta-textarea {
+  min-height: 7rem;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.agi-beta .beta-input:focus,
+.agi-beta .beta-textarea:focus {
+  border-color: var(--beta-navy);
+  box-shadow: 0 0 0 3px rgba(11, 31, 58, 0.08);
+}
+
+.agi-beta .beta-story-stack > * + * {
+  margin-top: 2.75rem;
+}
+
+.agi-beta .beta-divider {
+  height: 1px;
+  background: var(--beta-border);
+  border: 0;
+}
+
+@media (max-width: 900px) {
+  .agi-beta h1,
+  .agi-beta .beta-h1 {
+    font-size: 32px;
+  }
+  .agi-beta h2,
+  .agi-beta .beta-h2 {
+    font-size: 24px;
+  }
+}
