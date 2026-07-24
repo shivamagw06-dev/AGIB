@@ -1,0 +1,45 @@
+services:
+  # Existing AGIB Node API gateway (finance-news-backend)
+  - type: web
+    name: agib-api
+    runtime: node
+    rootDir: server
+    plan: free
+    buildCommand: npm install --no-audit --no-fund
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: INTELLIGENCE_ENGINE_URL
+        fromService:
+          name: agib-intelligence-engine
+          type: web
+          property: host
+      - key: INTELLIGENCE_ENGINE_TOKEN
+        generateValue: true
+      - key: CIO_MORNING_SCHEDULER
+        value: "true"
+
+  # Python multi-agent Intelligence Engine
+  - type: web
+    name: agib-intelligence-engine
+    runtime: python
+    rootDir: intelligence-engine
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /v1/health
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: INTELLIGENCE_ENGINE_TOKEN
+        fromService:
+          name: agib-api
+          type: web
+          envVarKey: INTELLIGENCE_ENGINE_TOKEN
+      - key: AGIB_API_BASE_URL
+        fromService:
+          name: agib-api
+          type: web
+          property: host

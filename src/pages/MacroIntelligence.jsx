@@ -25,6 +25,7 @@ import {
   X,
 } from 'lucide-react';
 import { getMacroBriefing } from '@/api/marketApi';
+import { getIntelligenceHealth, listResearchRuns } from '@/lib/intelligenceApi';
 import { supabase } from '@/lib/supabaseClient';
 import { mapArticleForCard } from '@/lib/articleUtils';
 
@@ -122,6 +123,7 @@ function SectionTitle({ eyebrow, title, action }) {
 export default function MacroIntelligence() {
   const [state, setState] = useState({ loading: true, data: null, error: null });
   const [research, setResearch] = useState([]);
+  const [engineStatus, setEngineStatus] = useState({ loading: true, health: null, latestRun: null });
   const [activeTab, setActiveTab] = useState('overview');
   const [askOpen, setAskOpen] = useState(false);
   const [askQuery, setAskQuery] = useState('');
@@ -145,6 +147,27 @@ export default function MacroIntelligence() {
       active = false;
       window.clearInterval(interval);
     };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const [health, runs] = await Promise.all([
+          getIntelligenceHealth().catch(() => null),
+          listResearchRuns({ limit: '1' }).catch(() => []),
+        ]);
+        if (!active) return;
+        setEngineStatus({
+          loading: false,
+          health,
+          latestRun: Array.isArray(runs) && runs[0] ? runs[0] : null,
+        });
+      } catch {
+        if (active) setEngineStatus({ loading: false, health: null, latestRun: null });
+      }
+    })();
+    return () => { active = false; };
   }, []);
 
   useEffect(() => {
@@ -342,6 +365,14 @@ export default function MacroIntelligence() {
                       <span className="inline-flex items-center gap-1.5"><Clock3 className="h-3.5 w-3.5" /> Updated {updatedLabel}</span>
                       <span className="inline-flex items-center gap-1.5"><Globe2 className="h-3.5 w-3.5" /> Sources: {(briefing?.sourcesUsed || []).join(' · ') || 'AGI repository'}</span>
                       {briefing?.stale && <span className="font-medium text-[#966a00]">Serving last cached repository data</span>}
+                      <span className="inline-flex items-center gap-1.5">
+                        <BrainCircuit className="h-3.5 w-3.5" />
+                        {engineStatus.loading
+                          ? 'Intelligence Engine…'
+                          : engineStatus.health?.engine?.ok || engineStatus.health?.ok
+                            ? `Intelligence Engine online${engineStatus.latestRun?.run_id ? ` · last run ${String(engineStatus.latestRun.run_id).slice(0, 12)}` : ''}`
+                            : 'Intelligence Engine offline (deterministic desk active)'}
+                      </span>
                     </div>
                   </Card>
 

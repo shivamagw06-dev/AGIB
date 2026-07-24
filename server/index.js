@@ -9,9 +9,11 @@ import express from "express";
 import researchRouter from "./research.js";
 import createMarketRouter from "./routes/market.js";
 import createNifty500ResearchRouter from "./routes/nifty500Research.js";
+import createIntelligenceRouter from "./routes/intelligence.js";
 import { getNewsHeadlines } from "./services/newsHeadlinesService.js";
 import { getIpoDetail, getIpoSummary } from "./services/ipoService.js";
 import { getMarketContext } from "./services/marketContextService.js";
+import { startCioMorningScheduler } from "./services/cioMorningScheduler.js";
 import rateLimit from "express-rate-limit";
 import cors from "cors";
 import dotenv from "dotenv";
@@ -197,6 +199,8 @@ const marketRouter = createMarketRouter({
 });
 app.use('/api/market', marketIntelLimiter, marketRouter);
 app.use('/api/research/nifty500', nifty500ResearchLimiter, createNifty500ResearchRouter());
+app.use('/api/intelligence', createIntelligenceRouter());
+startCioMorningScheduler();
 
 /* ---------- /api/perplexity/deals ----------
    Ask Perplexity for a strict JSON array of deals with these fields:
