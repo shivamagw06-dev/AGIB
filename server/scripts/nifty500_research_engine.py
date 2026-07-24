@@ -35,6 +35,7 @@ import pandas as pd
 from growwapi import GrowwAPI
 
 
+ENGINE_VERSION = "2026-07-24-candles-v2"
 SERVER_ENV_PATH = Path(__file__).resolve().parents[1] / ".env"
 
 
@@ -553,26 +554,60 @@ def summarize_rejections(rejected: list[dict], limit: int = 8) -> str:
     return "; ".join(f"{reason} ×{count}" for reason, count in ordered)
 
 
-def run_once(run_name: str = "After Market Close Research") -> None:
+def create_groww_client() -> GrowwAPI:
     access_token = os.environ.get("GROWW_ACCESS_TOKEN", "").strip()
     api_key = os.environ.get("GROWW_API_KEY", "").strip()
     api_secret = os.environ.get("GROWW_API_SECRET", "").strip()
     if access_token:
         groww_access_token = access_token
     elif api_key.startswith("eyJ") and len(api_key) > 100:
-        # Backward-compatible handling for an access token placed in GROWW_API_KEY.
-        # Prefer moving it to GROWW_ACCESS_TOKEN in the environment configuration.
         print("Using JWT-style access token from GROWW_API_KEY; move it to GROWW_ACCESS_TOKEN.")
         groww_access_token = api_key
     elif api_key and api_secret:
         groww_access_token = GrowwAPI.get_access_token(api_key=api_key, secret=api_secret)
     else:
         raise RuntimeError("Set GROWW_ACCESS_TOKEN or GROWW_API_KEY and GROWW_API_SECRET before running.")
-    groww = GrowwAPI(groww_access_token)
+    return GrowwAPI(groww_access_token)
+
+
+def diagnose_symbol(symbol: str) -> None:
+    """Single-symbol deep check — prints instrument + candle counts (no publish)."""
+    symbol = str(symbol or "").strip().upper()
+    if not symbol:
+        raise RuntimeError("Usage: python3 scripts/nifty500_research_engine.py --diagnose RELIANCE")
+    print(f"AGI research engine {ENGINE_VERSION}")
+    print(f"Diagnosing {symbol} …")
+    groww = create_groww_client()
+    instrument = groww.get_instrument_by_exchange_and_trading_symbol(
+        exchange=CONFIG["exchange"], trading_symbol=symbol
+    )
+    if isinstance(instrument, dict) and "segment" not in instrument and isinstance(instrument.get("payload"), dict):
+        instrument = instrument["payload"]
+    print("Instrument keys:", sorted(instrument.keys()) if isinstance(instrument, dict) else type(instrument))
+    print("groww_symbol:", instrument.get("groww_symbol") if isinstance(instrument, dict) else None)
+    print("segment:", instrument.get("segment") if isinstance(instrument, dict) else None)
+    print("trading_symbol:", instrument.get("trading_symbol") if isinstance(instrument, dict) else None)
+    history = fetch_daily_history(groww, instrument, trading_symbol=symbol)
+    print(f"Daily bars: {len(history)}")
+    if not history.empty:
+        print(history.tail(3).to_string(index=False))
+    indicators = calculate_indicators(history)
+    if not indicators:
+        print(f"FAIL: need {CONFIG['sma_200']} bars for SMA200; got {len(history)}")
+        return
+    score = score_research(indicators)
+    print(f"OK: {category(score)} · score={score} · confidence={confidence(score, indicators)}")
+
+
+def run_once(run_name: str = "After Market Close Research") -> None:
+    print(f"AGI research engine {ENGINE_VERSION}")
+    groww = create_groww_client()
     validate_publish_config()
     symbols = load_constituents(CONSTITUENTS_PATH)
     print(f"Universe: {len(symbols)} symbols from {CONSTITUENTS_PATH}")
     print("Candle source: Groww get_historical_candles (1day / groww_symbol)")
+    if not symbols:
+        raise RuntimeError(f"No symbols loaded from {CONSTITUENTS_PATH}")
     results, rejected = [], []
 
     for index, symbol in enumerate(symbols, start=1):
@@ -660,10 +695,15 @@ def run_scheduler() -> None:
 
 if __name__ == "__main__":
     # Use --once for an immediate manual run, --publish-existing to publish a
-    # completed JSON backup, or no flag for the weekday scheduler.
+    # completed JSON backup, --diagnose SYMBOL for a single-name API check,
+    # or no flag for the weekday scheduler.
     import sys
 
-    if "--publish-existing" in sys.argv:
+    print(f"AGI research engine {ENGINE_VERSION}")
+    if "--diagnose" in sys.argv:
+        idx = sys.argv.index("--diagnose")
+        diagnose_symbol(sys.argv[idx + 1] if len(sys.argv) > idx + 1 else "RELIANCE")
+    elif "--publish-existing" in sys.argv:
         publish_existing_output()
     elif "--once" in sys.argv:
         run_once("Manual Research Run")
