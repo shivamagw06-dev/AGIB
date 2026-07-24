@@ -11,6 +11,7 @@ import createMarketRouter from "./routes/market.js";
 import createNifty500ResearchRouter from "./routes/nifty500Research.js";
 import { getNewsHeadlines } from "./services/newsHeadlinesService.js";
 import { getIpoDetail, getIpoSummary } from "./services/ipoService.js";
+import { getMarketContext } from "./services/marketContextService.js";
 import rateLimit from "express-rate-limit";
 import cors from "cors";
 import dotenv from "dotenv";
@@ -428,6 +429,11 @@ reg('/api/BSE_most_active', (req, res) => proxyFetch(res, `${BASE_URL}/BSE_most_
 reg('/api/mutual_funds', (req, res) => proxyFetch(res, `${BASE_URL}/mutual_funds`));
 reg('/api/price_shockers', (req, res) => proxyFetch(res, `${BASE_URL}/price_shockers`));
 reg('/api/commodities', (req, res) => proxyFetch(res, `${BASE_URL}/commodities`));
+reg('/api/market-context', async (_req, res) => {
+  const data = await getMarketContext();
+  res.set('Cache-Control', 'public, max-age=900, stale-while-revalidate=300');
+  return res.json(data);
+});
 
 // NSE index snapshot for homepage Market Snapshot (IndianAPI has no /indices endpoint).
 const INDEX_NAMES = ['NIFTY 50', 'NIFTY BANK', 'BANK NIFTY'];
@@ -506,7 +512,7 @@ reg('/api/historical_data', async (req, res) => {
 });
 
 reg('/api/historical_stats', (req, res) => proxyFetch(res, `${BASE_URL}/historical_stats?${new URLSearchParams(req.query).toString()}`));
-reg('/api/news', (req, res) => proxyFetch(res, `${BASE_URL}/news`));
+reg('/api/news', (req, res) => proxyFetch(res, `${BASE_URL}/news?${new URLSearchParams(req.query).toString()}`));
 reg('/api/ipo/summary', async (_req, res) => {
   const data = await getIpoSummary();
   res.set('Cache-Control', 'public, max-age=3600, stale-while-revalidate=300');
@@ -519,9 +525,9 @@ reg('/api/ipo/:symbol', async (req, res) => {
   return res.json(data);
 });
 reg('/api/ipo', (req, res) => proxyFetch(res, `${BASE_URL}/ipo`));
-reg('/api/recent_announcements', (req, res) => proxyFetch(res, `${BASE_URL}/recent_announcements`));
-reg('/api/corporate_actions', (req, res) => proxyFetch(res, `${BASE_URL}/corporate_actions`));
-reg('/api/statement', (req, res) => proxyFetch(res, `${BASE_URL}/statement`));
+reg('/api/recent_announcements', (req, res) => proxyFetch(res, `${BASE_URL}/recent_announcements?${new URLSearchParams(req.query).toString()}`));
+reg('/api/corporate_actions', (req, res) => proxyFetch(res, `${BASE_URL}/corporate_actions?${new URLSearchParams(req.query).toString()}`));
+reg('/api/statement', (req, res) => proxyFetch(res, `${BASE_URL}/statement?${new URLSearchParams(req.query).toString()}`));
 
 // Free NSE/BSE stock API proxy (http://65.0.104.9 — avoids browser mixed-content/CORS)
 const FREE_STOCK_API = (process.env.FREE_STOCK_API || 'http://65.0.104.9').replace(/\/+$/, '');

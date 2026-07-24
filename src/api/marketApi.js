@@ -18,3 +18,6 @@ export const getMarketIntelligence = () => marketFetch('/intelligence');
 export const getMarketTicker = () => marketFetch('/ticker');
 export const getMarketPulse = () => marketFetch('/pulse');
 export const getMarketDashboard = () => marketFetch('/dashboard');
+export const getMarketBriefing = () => marketFetch('/briefing');
+export const getMacroBriefing = () => marketFetch('/macro-briefing');
+export const getPreMarketBriefing = () => marketFetch('/pre-market-briefing');

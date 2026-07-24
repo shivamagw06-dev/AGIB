@@ -7,6 +7,9 @@ import { Router } from 'express';
 import { getAgiIntelligence, getDashboardFromIntelligence } from '../services/intelligenceService.js';
 import { MARKET_REFRESH_MS } from '../config/marketRefresh.js';
 import { getGrowwHealth } from '../services/growwHealth.js';
+import { getMarketBriefing, startMarketBriefingScheduler } from '../services/marketBriefingService.js';
+import { getMacroBriefing, startMacroBriefingScheduler } from '../services/macroBriefingService.js';
+import { getPreMarketBriefing, startPreMarketBriefingScheduler } from '../services/preMarketBriefingService.js';
 
 const CACHE_CONTROL = `public, max-age=${Math.floor(MARKET_REFRESH_MS / 1000)}, stale-while-revalidate=60`;
 
@@ -16,6 +19,9 @@ function sendJson(res, data) {
 }
 
 export default function createMarketRouter(env = {}) {
+  startMarketBriefingScheduler();
+  startMacroBriefingScheduler();
+  startPreMarketBriefingScheduler();
   const router = Router();
 
   router.get('/groww-health', async (_req, res) => {
@@ -67,6 +73,24 @@ export default function createMarketRouter(env = {}) {
       updatedAt: data.updatedAt,
       stale: data.stale || false,
     });
+  });
+
+  router.get('/briefing', async (_req, res) => {
+    const data = await getMarketBriefing();
+    res.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
+    return res.status(200).json(data);
+  });
+
+  router.get('/macro-briefing', async (_req, res) => {
+    const data = await getMacroBriefing();
+    res.set('Cache-Control', 'public, max-age=300, stale-while-revalidate=1800');
+    return res.status(200).json(data);
+  });
+
+  router.get('/pre-market-briefing', async (_req, res) => {
+    const data = await getPreMarketBriefing();
+    res.set('Cache-Control', 'public, max-age=120, stale-while-revalidate=600');
+    return res.status(200).json(data);
   });
 
   return router;

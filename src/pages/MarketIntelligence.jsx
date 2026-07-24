@@ -1,8 +1,11 @@
+import { useEffect, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Link } from 'react-router-dom';
 import { Activity, ArrowDownRight, ArrowUpRight, BrainCircuit, Clock3, ShieldAlert } from 'lucide-react';
 import useMarketIntelligence from '@/hooks/useMarketIntelligence';
 import Nifty500ResearchPanel from '@/components/Research/Nifty500ResearchPanel';
+import InstitutionalIntelligenceLayer from '@/components/Research/InstitutionalIntelligenceLayer';
+import { getMarketBriefing } from '@/api/marketApi';
 
 function tone(value = '') {
   const text = String(value).toLowerCase();
@@ -33,7 +36,6 @@ export default function MarketIntelligence() {
   const {
     pulse,
     outlook,
-    summary,
     sectors = [],
     stocksInFocus = [],
     breadth,
@@ -42,6 +44,25 @@ export default function MarketIntelligence() {
     loading,
     updatedAt,
   } = useMarketIntelligence();
+  const [briefingState, setBriefingState] = useState({ loading: true, data: null });
+
+  useEffect(() => {
+    let active = true;
+    const loadBriefing = async () => {
+      try {
+        const data = await getMarketBriefing();
+        if (active && data) setBriefingState({ loading: false, data });
+      } catch {
+        if (active) setBriefingState((previous) => ({ ...previous, loading: false }));
+      }
+    };
+    loadBriefing();
+    const interval = window.setInterval(loadBriefing, 60_000);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, []);
 
   const orderedIndices = [...indexSentiments].sort((a, b) => {
     const ordering = { 'Strongly Bullish': 5, Bullish: 4, 'Mildly Bullish': 3, Neutral: 2, 'Mildly Bearish': 1, Bearish: 0, 'Strongly Bearish': -1 };
@@ -57,7 +78,7 @@ export default function MarketIntelligence() {
 
       <div className="market-intelligence-page min-h-screen bg-[#f8fafb]">
         <section className="border-b border-[#dde1e6] bg-[#0d1d33] text-white">
-          <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-8 sm:py-10 lg:py-14">
+          <div className="max-w-[1800px] mx-auto px-4 sm:px-6 py-8 sm:py-10 lg:py-14">
             <div className="flex flex-wrap items-center gap-2 text-[11px] font-bold uppercase tracking-[0.12em] text-[#a7c5ec]">
               <Activity className="h-4 w-4" /> AGI research platform
             </div>
@@ -65,7 +86,7 @@ export default function MarketIntelligence() {
               <div>
                 <h1 className="text-3xl font-bold tracking-tight md:text-5xl">Market Intelligence</h1>
                 <p className="mt-3 max-w-2xl text-sm leading-relaxed text-[#d2dceb] md:text-base">
-                  A 60-second, model-driven read of market conditions, leadership and risk—built for information, not recommendations.
+                  Mint-style Pre-Market, 12 PM and Market Close notes — Bullish, Bearish or Neutral, with clear reasoning.
                 </p>
               </div>
               <div className="flex items-start gap-2 text-xs leading-relaxed text-[#c6d4e7]">
@@ -76,14 +97,14 @@ export default function MarketIntelligence() {
           </div>
         </section>
 
-        <main className="max-w-[1600px] mx-auto px-4 sm:px-6 py-6 sm:py-8 lg:py-10">
+        <main className="max-w-[1800px] mx-auto px-4 sm:px-6 py-6 sm:py-8 lg:py-10">
           <Nifty500ResearchPanel />
 
           <section aria-label="Market overview">
             <div className="mb-4 flex items-center gap-2">
               <BrainCircuit className="h-5 w-5 text-[#274c77]" />
               <h2 className="text-lg font-bold text-[#18202b]">AGI Market Overview</h2>
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-[#737982]">AI-generated summary</span>
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-[#737982]">Model metrics</span>
             </div>
             <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
               <MetricCard label="Market intelligence score" value={pulse?.agiMarketScore != null ? `${pulse.agiMarketScore}/100` : '—'} detail="Derived model score" />
@@ -93,10 +114,9 @@ export default function MarketIntelligence() {
               <MetricCard label="Volatility" value={pulse?.volatility} />
               <MetricCard label="Risk level" value={pulse?.risk} />
             </div>
-            <div className="mt-4 border-l-4 border-[#274c77] bg-white p-5 text-sm leading-relaxed text-[#374151]">
-              {loading ? 'Refreshing AGI market intelligence…' : summary || 'The AGI model is preparing its next market summary.'}
-            </div>
           </section>
+
+          <InstitutionalIntelligenceLayer briefing={briefingState.data} loading={briefingState.loading} />
 
           <div className="mt-8 grid grid-cols-1 gap-8 xl:grid-cols-12">
             <section className="xl:col-span-8">
