@@ -1,17 +1,19 @@
 #!/usr/bin/env python3
 """
-Nifty 500 research engine — read-only, research-only output.
+NSE / Nifty research engine — read-only, research-only output.
 
 Requirements:
   pip install growwapi pandas
 
 Configuration:
   export GROWW_ACCESS_TOKEN="..."
-  export NIFTY500_CONSTITUENTS_PATH="/path/to/nifty500_constituents.csv"
+  export NIFTY500_CONSTITUENTS_PATH="/path/to/NIFTYstocks.csv"  # or Nifty500.csv
   export SUPABASE_URL="https://your-project.supabase.co"
   export SUPABASE_SERVICE_ROLE_KEY="server-only-service-role-key"
 
-The CSV must be a current, licensed constituent export with one `symbol` column.
+The CSV must include a `Symbol` (or `symbol`) column.
+Defaults to repo-root `NIFTYstocks.csv` (all NSE equities) when present,
+otherwise `Nifty500.csv`. Refresh with `python3 scripts/refresh_nifty_stocks.py`.
 This script validates and de-duplicates symbols through Groww before analysis.
 It does not place orders and does not generate investment recommendations.
 """
@@ -65,8 +67,23 @@ load_server_env()
 
 IST = ZoneInfo("Asia/Kolkata")
 OUTPUT_PATH = Path(os.getenv("NIFTY500_RESEARCH_OUTPUT", "nifty500_research.json"))
-DEFAULT_CONSTITUENTS_PATH = Path(__file__).resolve().parents[2] / "Nifty500.csv"
+REPO_ROOT = Path(__file__).resolve().parents[2]
+# Prefer full NSE equity universe (NIFTYstocks.csv) when present; fall back to Nifty 500.
+_DEFAULT_ALL = REPO_ROOT / "NIFTYstocks.csv"
+_DEFAULT_500 = REPO_ROOT / "Nifty500.csv"
+DEFAULT_CONSTITUENTS_PATH = _DEFAULT_ALL if _DEFAULT_ALL.exists() else _DEFAULT_500
 CONSTITUENTS_PATH = Path(os.getenv("NIFTY500_CONSTITUENTS_PATH", DEFAULT_CONSTITUENTS_PATH))
+
+_universe_hint = 0
+try:
+    if CONSTITUENTS_PATH.exists():
+        with CONSTITUENTS_PATH.open(encoding="utf-8-sig") as _preview:
+            _universe_hint = max(sum(1 for _ in _preview) - 1, 0)
+except OSError:
+    _universe_hint = 0
+
+# Full NSE runs reject more thin names — allow a slightly lower default coverage floor.
+_default_coverage = "0.85" if _universe_hint > 600 else "0.95"
 
 CONFIG = {
     "exchange": "NSE",
@@ -83,7 +100,13 @@ CONFIG = {
     "sma_long": 50,
     "sma_200": 200,
     "volume_average_period": 20,
-    "minimum_publish_coverage": float(os.getenv("NIFTY500_MINIMUM_PUBLISH_COVERAGE", "0.95")),
+    "minimum_publish_coverage": float(
+        os.getenv("NIFTY500_MINIMUM_PUBLISH_COVERAGE", _default_coverage)
+    ),
+    # Pace Groww lookups for the full NSE book (~2k symbols).
+    "request_delay_sec": float(os.getenv("NIFTY500_REQUEST_DELAY_SEC", "0.15")),
+    # Optional smoke / partial runs: NIFTY500_SYMBOL_LIMIT=50
+    "symbol_limit": int(os.getenv("NIFTY500_SYMBOL_LIMIT", "0") or 0),
 }
 
 
@@ -92,10 +115,11 @@ def now_ist() -> datetime:
 
 
 def load_constituents(path: Path) -> list[str]:
-    """Load, normalize and de-duplicate a licensed Nifty 500 CSV export."""
+    """Load, normalize and de-duplicate a licensed NSE / Nifty constituent CSV."""
     if not path.exists():
         raise FileNotFoundError(
-            f"Missing constituent file: {path}. Supply a current licensed CSV with a 'symbol' column."
+            f"Missing constituent file: {path}. Supply a current licensed CSV with a 'symbol' column "
+            "(NIFTYstocks.csv for all NSE equities, or Nifty500.csv)."
         )
 
     seen: set[str] = set()
@@ -109,6 +133,10 @@ def load_constituents(path: Path) -> list[str]:
 
     if not symbols:
         raise ValueError("No symbols found. The CSV must include a 'symbol' column.")
+
+    limit = CONFIG.get("symbol_limit") or 0
+    if limit > 0:
+        symbols = symbols[:limit]
     return symbols
 
 
@@ -525,6 +553,7 @@ def run_once(run_name: str = "After Market Close Research") -> None:
     groww = GrowwAPI(groww_access_token)
     validate_publish_config()
     symbols = load_constituents(CONSTITUENTS_PATH)
+    print(f"Universe: {len(symbols)} symbols from {CONSTITUENTS_PATH}")
     results, rejected = [], []
 
     for index, symbol in enumerate(symbols, start=1):
@@ -559,6 +588,9 @@ def run_once(run_name: str = "After Market Close Research") -> None:
             print(f"[{index}/{len(symbols)}] {symbol}: {label} ({score})")
         except Exception as error:
             rejected.append({"symbol": symbol, "reason": str(error)})
+        delay = CONFIG.get("request_delay_sec") or 0
+        if delay > 0:
+            time.sleep(delay)
 
     output = build_output(results, run_name, rejected)
     OUTPUT_PATH.write_text(json.dumps(output, indent=2), encoding="utf-8")
