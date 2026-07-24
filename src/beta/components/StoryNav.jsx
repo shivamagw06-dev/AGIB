@@ -12,6 +12,7 @@ import {
   BarChart3,
   CloudSun,
   Settings,
+  Briefcase,
 } from 'lucide-react';
 
 const ITEMS = [
@@ -25,6 +26,7 @@ const ITEMS = [
   { to: '/beta/screener', label: 'Screener', icon: Search },
   { to: '/beta/compare', label: 'Compare', icon: Scale },
   { to: '/beta/watchlists', label: 'Watchlists', icon: Eye },
+  { to: '/beta/portfolio', label: 'Portfolio Office', icon: Briefcase },
   { to: '/beta/validation', label: 'Validation', icon: BarChart3 },
   { to: '/beta/settings', label: 'Settings', icon: Settings },
 ];

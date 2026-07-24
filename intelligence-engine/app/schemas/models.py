@@ -21,6 +21,7 @@ class DeskType(str, Enum):
     SMOKE = "smoke"
     CIO_MORNING = "cio_morning"
     EQUITY = "equity"
+    PORTFOLIO = "portfolio"
     CUSTOM = "custom"
 
 
@@ -41,6 +42,7 @@ class SourceType(str, Enum):
     FUNDAMENTAL = "fundamental"
     INTERNAL = "internal"
     MEMORY = "memory"
+    PORTFOLIO = "portfolio"
 
 
 class EvidenceItem(BaseModel):
@@ -165,6 +167,80 @@ class ResearchRunCreate(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
+class PortfolioHolding(BaseModel):
+    """Normalized holding — never invents prices or returns."""
+
+    symbol: str
+    weight: float | None = Field(default=None, ge=0.0, le=1.0)
+    quantity: float | None = None
+    avg_price: float | None = None
+    sector: str | None = None
+    name: str | None = None
+    notes: str | None = None
+
+
+class PortfolioSnapshot(BaseModel):
+    portfolio_id: str = Field(default_factory=lambda: new_id("pf_"))
+    name: str = "Client Portfolio"
+    client_id: str | None = None
+    source: Literal["manual", "csv", "model", "broker_future"] = "manual"
+    holdings: list[PortfolioHolding] = Field(default_factory=list)
+    currency: str = "INR"
+    as_of: datetime = Field(default_factory=utcnow)
+    notes: list[str] = Field(default_factory=list)
+
+
+class PortfolioRecommendation(BaseModel):
+    recommendation_id: str = Field(default_factory=lambda: new_id("rec_"))
+    priority: Literal["high", "medium", "low"] = "medium"
+    verb: Literal["Review", "Research", "Monitor", "Consider", "Investigate"] = "Review"
+    title: str
+    reason: str
+    evidence: list[str] = Field(default_factory=list)
+    confidence: int = Field(default=50, ge=0, le=100)
+    symbols: list[str] = Field(default_factory=list)
+    supporting_research: list[str] = Field(default_factory=list)
+
+
+class PortfolioPackage(BaseModel):
+    """Portfolio Office package — packaging only; never executes trades or invents returns."""
+
+    portfolio: PortfolioSnapshot
+    health_score: int | None = Field(default=None, ge=0, le=100)
+    research_score: int | None = Field(default=None, ge=0, le=100)
+    forecast_score: int | None = Field(default=None, ge=0, le=100)
+    risk_score: int | None = Field(default=None, ge=0, le=100)
+    diversification_score: int | None = Field(default=None, ge=0, le=100)
+    sector_exposure: dict[str, float] = Field(default_factory=dict)
+    macro_exposure: dict[str, Any] = Field(default_factory=dict)
+    holding_research: list[dict[str, Any]] = Field(default_factory=list)
+    recommendations: list[PortfolioRecommendation] = Field(default_factory=list)
+    action_center: dict[str, list[dict[str, Any]]] = Field(default_factory=dict)
+    health_summary: dict[str, Any] = Field(default_factory=dict)
+    timeline: list[dict[str, Any]] = Field(default_factory=list)
+    monthly_report: dict[str, Any] = Field(default_factory=dict)
+    scenarios: list[dict[str, Any]] = Field(default_factory=list)
+    monitoring: dict[str, Any] = Field(default_factory=dict)
+    workspace: dict[str, Any] = Field(default_factory=dict)
+    client_dashboard: dict[str, Any] = Field(default_factory=dict)
+    advisor_dashboard: dict[str, Any] = Field(default_factory=dict)
+    child_runs: list[dict[str, Any]] = Field(default_factory=list)
+    evidence: list[str] = Field(default_factory=list)
+    confidence: int = Field(default=50, ge=0, le=100)
+    notes: list[str] = Field(default_factory=list)
+    withheld: list[str] = Field(default_factory=list)
+    components_reused: list[str] = Field(default_factory=list)
+
+
+class PortfolioIngestRequest(BaseModel):
+    name: str = "Client Portfolio"
+    client_id: str | None = None
+    source: Literal["manual", "csv", "model", "broker_future"] = "manual"
+    holdings: list[dict[str, Any]] = Field(default_factory=list)
+    csv_text: str | None = None
+    model_id: str | None = None
+
+
 class ResearchRun(BaseModel):
     run_id: str = Field(default_factory=lambda: new_id("run_"))
     desk: DeskType
@@ -176,6 +252,7 @@ class ResearchRun(BaseModel):
     debate: DebatePackage | None = None
     cio_thesis: str | None = None
     report: InstitutionalReport | None = None
+    portfolio: PortfolioPackage | None = None
     errors: list[str] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=utcnow)

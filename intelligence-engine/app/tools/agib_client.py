@@ -14,7 +14,7 @@ class AgibClient:
     """Read-only client for AGIB Node cached endpoints. Never call third-party APIs here."""
 
     def __init__(self, base_url: str | None = None, timeout: float = 30.0):
-    settings = get_settings()
+        settings = get_settings()
         base = (base_url or settings.agib_api_base_url).rstrip("/")
         if base and not base.startswith(("http://", "https://")):
             base = f"https://{base}"

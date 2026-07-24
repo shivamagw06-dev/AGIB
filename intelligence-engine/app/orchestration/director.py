@@ -11,6 +11,7 @@ from app.engines.confidence import ConfidenceEngine
 from app.engines.debate import DebateEngine
 from app.engines.evidence import EvidenceEngine
 from app.memory.store import ResearchStore
+from app.portfolio.pack import attach_portfolio_to_run, package_from_metadata
 from app.schemas.models import (
     DeskType,
     DirectorPlan,
@@ -30,6 +31,12 @@ DESK_PLANS: dict[DeskType, list[str]] = {
         "risk_manager",
     ],
     DeskType.EQUITY: ["smoke_analyst"],  # Phase 3 expands
+    DeskType.PORTFOLIO: [
+        "portfolio_health",
+        "portfolio_risk",
+        "portfolio_recommendations",
+        "portfolio_summary",
+    ],
     DeskType.CUSTOM: ["smoke_analyst"],
 }
 
@@ -74,6 +81,28 @@ class ResearchDirector:
             "metadata": run.metadata,
         }
 
+        # Portfolio Office: build package before agent loop (packaging only)
+        if run.desk == DeskType.PORTFOLIO:
+            try:
+                package = package_from_metadata(run.metadata)
+                if package is None:
+                    # Default model portfolio so desk is always exercisable
+                    package = package_from_metadata(
+                        {
+                            "source": "model",
+                            "model_id": "balanced_india",
+                            "name": run.query or "Model Portfolio",
+                        }
+                    )
+                if package is not None:
+                    attach_portfolio_to_run(run, package)
+                    context["portfolio_pack"] = package
+                    if not run.symbols:
+                        run.symbols = [h.symbol for h in package.portfolio.holdings]
+            except Exception as exc:
+                run.errors.append(f"portfolio_package: {exc}")
+                log.exception("portfolio_package_failed", extra={"run_id": run.run_id})
+
         # Memory retrieval (similar past runs) — soft fail
         try:
             similar = await self.store.similar_runs(run.desk.value, limit=3)
@@ -109,6 +138,7 @@ class ResearchDirector:
                     "confidence": confidence,
                     "evidence": evidence,
                     "query": run.query,
+                    "portfolio_pack": context.get("portfolio_pack"),
                 }
             )
             citations = self.citation_engine.build_citation_map(outputs, evidence)
