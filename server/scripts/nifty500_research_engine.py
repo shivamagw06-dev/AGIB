@@ -338,6 +338,8 @@ def fetch_daily_history(groww: GrowwAPI, instrument: dict, trading_symbol: str =
                 timeout=45,
             )
         except Exception as error:
+            if is_groww_auth_error(error):
+                raise RuntimeError(groww_auth_help()) from error
             raise RuntimeError(
                 f"Groww historical candles failed for {groww_symbol}: {error}"
             ) from error
@@ -552,6 +554,28 @@ def summarize_rejections(rejected: list[dict], limit: int = 8) -> str:
     if not ordered:
         return "none"
     return "; ".join(f"{reason} ×{count}" for reason, count in ordered)
+
+
+def is_groww_auth_error(error: BaseException) -> bool:
+    name = type(error).__name__
+    text = str(error).lower()
+    return (
+        "Authentication" in name
+        or "authentication failed" in text
+        or "token has either expired" in text
+        or "invalid" in text and "token" in text
+    )
+
+
+def groww_auth_help() -> str:
+    return (
+        "Groww access token is expired or invalid for historical candles.\n"
+        "Fix:\n"
+        "  1) Open Groww → Trade API → generate a fresh Access Token (tokens expire daily)\n"
+        "  2) Put it in server/.env as GROWW_ACCESS_TOKEN=...\n"
+        "  3) Or set GROWW_API_KEY + GROWW_API_SECRET and re-run (SDK will mint a token)\n"
+        "  4) Re-test: python3 scripts/nifty500_research_engine.py --diagnose RELIANCE"
+    )
 
 
 def create_groww_client() -> GrowwAPI:

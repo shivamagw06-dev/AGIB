@@ -42,3 +42,24 @@ Expect `Daily bars: 200+` and `OK: … score=…`. Then:
 ```bash
 NIFTY500_SYMBOL_LIMIT=10 python3 scripts/nifty500_research_engine.py --once
 ```
+
+## If diagnose says Authentication failed
+
+Instrument lookup can still succeed from Groww’s local instrument CSV while **historical candles require a valid access token**.
+
+1. Groww app/web → **Trade API** → generate a **new Access Token** (they expire, often daily)
+2. Update `server/.env`:
+
+```bash
+GROWW_ACCESS_TOKEN=paste_new_token_here
+```
+
+Or use key+secret instead (SDK mints a token):
+
+```bash
+GROWW_API_KEY=...
+GROWW_API_SECRET=...
+# remove or blank out a stale GROWW_ACCESS_TOKEN so it is not preferred
+```
+
+3. Re-run `--diagnose RELIANCE`
