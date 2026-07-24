@@ -19,6 +19,7 @@ import ValidationStory from '@/beta/surfaces/ValidationStory';
 import MacroStory from '@/beta/surfaces/MacroStory';
 import SettingsStory from '@/beta/surfaces/SettingsStory';
 import PortfolioOfficeStory from '@/beta/surfaces/PortfolioOfficeStory';
+import InvestmentOfficeStory from '@/beta/surfaces/InvestmentOfficeStory';
 import '@/beta/theme.css';
 
 function BetaChrome() {
@@ -98,6 +99,7 @@ function BetaChrome() {
             <Route path="compare" element={<CompareStory />} />
             <Route path="watchlists" element={<WatchlistStory />} />
             <Route path="portfolio" element={<PortfolioOfficeStory />} />
+            <Route path="investment-office" element={<InvestmentOfficeStory />} />
             <Route path="validation" element={<ValidationStory />} />
             <Route path="settings" element={<SettingsStory />} />
             <Route path="*" element={<Navigate replace to="/beta" />} />

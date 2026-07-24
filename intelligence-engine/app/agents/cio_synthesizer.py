@@ -59,6 +59,8 @@ class ChiefInvestmentOfficer(BaseAgent):
         desk_enum = desk if isinstance(desk, DeskType) else DeskType(str(desk))
         if desk_enum == DeskType.PORTFOLIO:
             return await self._synthesize_portfolio(context)
+        if desk_enum == DeskType.INVESTMENT_OFFICE:
+            return await self._synthesize_investment_office(context)
 
         outputs: list[AgentOutput] = context.get("agent_outputs") or []
         debate: DebatePackage | None = context.get("debate")
@@ -227,6 +229,98 @@ class ChiefInvestmentOfficer(BaseAgent):
             action_items=action_items,
         )
 
+    async def _synthesize_investment_office(self, context: dict[str, Any]) -> InstitutionalReport:
+        """CIO Summary for Investment Office — Neutral / Review only. Never trade instructions."""
+        outputs: list[AgentOutput] = context.get("agent_outputs") or []
+        confidence: ConfidenceBreakdown = context.get("confidence") or ConfidenceBreakdown(
+            score=50,
+            supports=[],
+            challenges=["Missing confidence package"],
+            rationale="Default investment office confidence.",
+        )
+        evidence: list[EvidenceItem] = context.get("evidence") or []
+        pack = context.get("investment_office_pack")
+        pack_data = pack.model_dump() if pack is not None and hasattr(pack, "model_dump") else (pack or {})
+        brief = pack_data.get("daily_brief") or {}
+        queue = pack_data.get("research_queue") or []
+        high = [q for q in queue if q.get("priority") == "high"]
+        withheld = pack_data.get("withheld") or []
+
+        key_findings: list[str] = []
+        for output in outputs:
+            for finding in output.findings[:2]:
+                key_findings.append(finding.statement)
+
+        thesis = (
+            "AGI Investment Office CIO Summary. "
+            f"{brief.get('executive_summary') or 'Daily brief packaged.'} "
+            f"{len(high)} high-priority research item(s) deserve attention. "
+            "Stance is Neutral / Review — guidance uses Review, Research, Monitor, Consider, and Investigate only. "
+        )
+        if withheld:
+            thesis += f"Withheld (not fabricated): {withheld[0]}. "
+        if key_findings:
+            thesis += f"Lead packaging finding: {key_findings[0]}"
+
+        enriched = await self._maybe_enrich(
+            thesis,
+            key_findings,
+            context.get("debate"),
+            confidence,
+            investment_office_mode=True,
+        )
+        executive = enriched or thesis
+        action_items = [
+            f"{'Research' if q.get('priority')=='high' else 'Review'}: {q.get('title')} — {q.get('reason')}"
+            for q in queue[:6]
+        ] or [
+            "Review Today's Brief for market story and risks",
+            "Work Research Queue high-priority names",
+            "Open Scenario Center only with evidenced assumptions",
+        ]
+
+        return InstitutionalReport(
+            desk=DeskType.INVESTMENT_OFFICE,
+            title="AGI Investment Office — Daily CIO",
+            executive_summary=executive,
+            key_findings=key_findings[:8],
+            macro_view=str(brief.get("outlook") or "") or None,
+            market_view=str(brief.get("todays_market_story"))[:240]
+            if not isinstance(brief.get("todays_market_story"), dict)
+            else (brief.get("todays_market_story") or {}).get("note"),
+            sector_view=None,
+            company_view=", ".join(
+                str(x) for x in (brief.get("companies_to_research") or [])[:6] if x
+            )
+            or None,
+            technical_view=None,
+            valuation_view=None,
+            catalysts=list(brief.get("research_priorities") or [])[:4],
+            risks=[w for w in withheld[:3]]
+            + [str((r or {}).get("title")) for r in (brief.get("top_risks") or [])[:3]],
+            bull_case=ScenarioCase(
+                label="Constructive research path",
+                probability=max(10, min(40, confidence.score // 2)),
+                detail="High-priority queue items are researched and assumptions re-checked — not a trade signal.",
+                is_prediction=True,
+            ),
+            base_case=ScenarioCase(
+                label="Monitor / Review",
+                probability=confidence.score,
+                detail=executive[:240],
+                is_prediction=True,
+            ),
+            bear_case=ScenarioCase(
+                label="Elevated attention",
+                probability=max(10, min(40, 100 - confidence.score)),
+                detail="Macro or forecast uncertainty rises — investigate and monitor; not a liquidation instruction.",
+                is_prediction=True,
+            ),
+            confidence=confidence,
+            supporting_evidence=evidence[:20],
+            action_items=action_items,
+        )
+
     async def _maybe_enrich(
         self,
         thesis: str,
@@ -234,6 +328,7 @@ class ChiefInvestmentOfficer(BaseAgent):
         debate: DebatePackage | None,
         confidence: ConfidenceBreakdown,
         portfolio_mode: bool = False,
+        investment_office_mode: bool = False,
     ) -> str | None:
         from app.core.config import get_settings
 
@@ -244,18 +339,27 @@ class ChiefInvestmentOfficer(BaseAgent):
             from openai import AsyncOpenAI
 
             client = AsyncOpenAI(api_key=settings.openai_api_key)
-            system = (
-                "You are AGI's Portfolio Office CIO. Write a 160-240 word Neutral/Review summary. "
-                "Use only Review, Research, Monitor, Consider, Investigate. "
-                "Never say Buy, Sell, or Execute. Never invent returns or risk numbers. "
-                "Disclose withheld layers. Cite because-what from provided findings only."
-                if portfolio_mode
-                else (
+            if investment_office_mode:
+                system = (
+                    "You are AGI's Investment Office CIO. Write a 160-240 word Neutral/Review daily summary. "
+                    "Prioritise what changed and what deserves attention. "
+                    "Use only Review, Research, Monitor, Consider, Investigate. "
+                    "Never say Buy, Sell, or Execute. Never invent assumptions, returns, or event dates. "
+                    "Disclose withheld layers. Cite because-what from provided findings only."
+                )
+            elif portfolio_mode:
+                system = (
+                    "You are AGI's Portfolio Office CIO. Write a 160-240 word Neutral/Review summary. "
+                    "Use only Review, Research, Monitor, Consider, Investigate. "
+                    "Never say Buy, Sell, or Execute. Never invent returns or risk numbers. "
+                    "Disclose withheld layers. Cite because-what from provided findings only."
+                )
+            else:
+                system = (
                     "You are AGI's Chief Investment Officer. Synthesize a 180-260 word institutional thesis. "
                     "Cite reasoning with because-what. Never invent data. Mark scenarios as scenarios. "
                     "No buy/sell recommendations."
                 )
-            )
             response = await client.chat.completions.create(
                 model=settings.openai_model,
                 temperature=0.2,

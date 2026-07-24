@@ -22,6 +22,7 @@ class DeskType(str, Enum):
     CIO_MORNING = "cio_morning"
     EQUITY = "equity"
     PORTFOLIO = "portfolio"
+    INVESTMENT_OFFICE = "investment_office"
     CUSTOM = "custom"
 
 
@@ -43,6 +44,7 @@ class SourceType(str, Enum):
     INTERNAL = "internal"
     MEMORY = "memory"
     PORTFOLIO = "portfolio"
+    INVESTMENT_OFFICE = "investment_office"
 
 
 class EvidenceItem(BaseModel):
@@ -241,6 +243,110 @@ class PortfolioIngestRequest(BaseModel):
     model_id: str | None = None
 
 
+class ResearchQueueItem(BaseModel):
+    item_id: str = Field(default_factory=lambda: new_id("rq_"))
+    priority: Literal["high", "medium", "low"] = "medium"
+    symbol: str | None = None
+    title: str
+    reason: str
+    evidence: list[str] = Field(default_factory=list)
+    confidence: int = Field(default=50, ge=0, le=100)
+    supporting_research: list[str] = Field(default_factory=list)
+    related_reports: list[str] = Field(default_factory=list)
+
+
+class CalendarEvent(BaseModel):
+    event_id: str = Field(default_factory=lambda: new_id("cal_"))
+    category: Literal[
+        "earnings",
+        "rbi",
+        "fed",
+        "inflation",
+        "gdp",
+        "corporate_action",
+        "agm",
+        "dividend",
+        "policy",
+        "results",
+        "other",
+    ] = "other"
+    title: str
+    date: str | None = None
+    status: Literal["scheduled", "tentative", "withheld"] = "withheld"
+    evidence: list[str] = Field(default_factory=list)
+    symbols: list[str] = Field(default_factory=list)
+    note: str | None = None
+
+
+class DecisionJournalEntry(BaseModel):
+    entry_id: str = Field(default_factory=lambda: new_id("dj_"))
+    kind: Literal[
+        "research_completed",
+        "forecast_revision",
+        "portfolio_review",
+        "watchlist_change",
+        "scenario_analysis",
+        "cio_recommendation",
+        "other",
+    ] = "other"
+    title: str
+    detail: str
+    ts: datetime = Field(default_factory=utcnow)
+    evidence: list[str] = Field(default_factory=list)
+    confidence: int | None = Field(default=None, ge=0, le=100)
+    related_run_id: str | None = None
+
+
+class KnowledgeGraphNode(BaseModel):
+    node_id: str
+    label: str
+    kind: Literal["company", "sector", "theme", "macro", "forecast", "research", "risk", "event", "playbook"]
+    meta: dict[str, Any] = Field(default_factory=dict)
+
+
+class KnowledgeGraphEdge(BaseModel):
+    source: str
+    target: str
+    relation: str
+    evidence: list[str] = Field(default_factory=list)
+
+
+class InvestmentOfficePackage(BaseModel):
+    """Operational layer above existing AGI capabilities — packaging only."""
+
+    office_id: str = Field(default_factory=lambda: new_id("io_"))
+    as_of: datetime = Field(default_factory=utcnow)
+    daily_brief: dict[str, Any] = Field(default_factory=dict)
+    research_queue: list[ResearchQueueItem] = Field(default_factory=list)
+    calendar: list[CalendarEvent] = Field(default_factory=list)
+    playbooks: list[dict[str, Any]] = Field(default_factory=list)
+    scenario_center: dict[str, Any] = Field(default_factory=dict)
+    research_timeline: list[dict[str, Any]] = Field(default_factory=list)
+    decision_journal: list[DecisionJournalEntry] = Field(default_factory=list)
+    knowledge_graph: dict[str, Any] = Field(default_factory=dict)
+    portfolio_office_link: dict[str, Any] = Field(default_factory=dict)
+    workspace: dict[str, Any] = Field(default_factory=dict)
+    recommendations: list[dict[str, Any]] = Field(default_factory=list)
+    evidence: list[str] = Field(default_factory=list)
+    confidence: int = Field(default=50, ge=0, le=100)
+    notes: list[str] = Field(default_factory=list)
+    withheld: list[str] = Field(default_factory=list)
+    components_reused: list[str] = Field(default_factory=list)
+
+
+class InvestmentOfficeRequest(BaseModel):
+    """Inputs for Investment Office packaging — never invents market facts."""
+
+    user_id: str | None = None
+    watchlist: list[str] = Field(default_factory=list)
+    symbols: list[str] = Field(default_factory=list)
+    sectors: list[str] = Field(default_factory=list)
+    portfolio: PortfolioIngestRequest | None = None
+    journal_seed: list[dict[str, Any]] = Field(default_factory=list)
+    prior_runs: list[dict[str, Any]] = Field(default_factory=list)
+    query: str | None = None
+
+
 class ResearchRun(BaseModel):
     run_id: str = Field(default_factory=lambda: new_id("run_"))
     desk: DeskType
@@ -253,6 +359,7 @@ class ResearchRun(BaseModel):
     cio_thesis: str | None = None
     report: InstitutionalReport | None = None
     portfolio: PortfolioPackage | None = None
+    investment_office: InvestmentOfficePackage | None = None
     errors: list[str] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=utcnow)

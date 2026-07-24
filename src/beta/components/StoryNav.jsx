@@ -13,10 +13,12 @@ import {
   CloudSun,
   Settings,
   Briefcase,
+  Landmark,
 } from 'lucide-react';
 
 const ITEMS = [
   { to: '/beta', end: true, label: 'Home', icon: Home },
+  { to: '/beta/investment-office', label: 'Investment Office', icon: Landmark },
   { to: '/beta/copilot', label: 'Copilot', icon: Bot },
   { to: '/beta/markets', label: 'Markets', icon: Globe2 },
   { to: '/beta/macro', label: 'Macro', icon: CloudSun },

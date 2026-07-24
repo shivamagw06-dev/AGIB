@@ -102,5 +102,11 @@ export default function createIntelligenceRouter() {
   router.post('/portfolio/scenario', proxyPost('/v1/portfolio/scenario'));
   router.post('/portfolio/office', proxyPost('/v1/portfolio/office'));
 
+  // Investment Office
+  router.get('/investment-office/playbooks', proxyGet('/v1/investment-office/playbooks'));
+  router.post('/investment-office/package', proxyPost('/v1/investment-office/package'));
+  router.post('/investment-office/scenario', proxyPost('/v1/investment-office/scenario'));
+  router.post('/investment-office/run', proxyPost('/v1/investment-office/run'));
+
   return router;
 }

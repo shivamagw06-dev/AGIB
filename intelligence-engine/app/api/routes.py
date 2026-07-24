@@ -10,8 +10,15 @@ from app.memory.store import ResearchStore
 from app.orchestration.director import ResearchDirector
 from app.portfolio.normalize import MODEL_PORTFOLIOS
 from app.portfolio.pack import build_portfolio_package, evaluate_scenario
+from app.investment_office.pack import (
+    build_investment_office_package,
+    evaluate_office_scenario,
+)
+from app.investment_office.playbooks import list_playbooks
 from app.schemas.models import (
     DeskType,
+    InvestmentOfficePackage,
+    InvestmentOfficeRequest,
     PortfolioIngestRequest,
     PortfolioPackage,
     PredictionRecord,
@@ -127,5 +134,60 @@ async def run_portfolio_office(body: PortfolioIngestRequest):
         query=f"Portfolio Office: {body.name}",
         symbols=[str(h.get("symbol") or "") for h in (body.holdings or []) if h.get("symbol")],
         metadata={"portfolio": body.model_dump()},
+    )
+    return await _director.execute(create)
+
+
+@router.get("/investment-office/playbooks", dependencies=[Depends(require_token)])
+async def get_playbooks():
+    return {
+        "playbooks": list_playbooks(),
+        "note": "Structural industry templates — not live valuations or trade calls.",
+    }
+
+
+@router.post(
+    "/investment-office/package",
+    response_model=InvestmentOfficePackage,
+    dependencies=[Depends(require_token)],
+)
+async def package_investment_office(body: InvestmentOfficeRequest):
+    """Build Investment Office package (brief/queue/calendar/graph) without full CIO run."""
+    return build_investment_office_package(body)
+
+
+class OfficeScenarioRequest(BaseModel):
+    question: str
+    portfolio: PortfolioIngestRequest | None = None
+    office: InvestmentOfficeRequest | None = None
+
+
+@router.post("/investment-office/scenario", dependencies=[Depends(require_token)])
+async def investment_office_scenario(body: OfficeScenarioRequest):
+    office_pack = None
+    if body.office is not None:
+        office_pack = build_investment_office_package(body.office)
+    return evaluate_office_scenario(
+        body.question,
+        portfolio_req=body.portfolio.model_dump() if body.portfolio else None,
+        package=office_pack,
+    )
+
+
+@router.post("/investment-office/run", response_model=ResearchRun, dependencies=[Depends(require_token)])
+async def run_investment_office(body: InvestmentOfficeRequest):
+    """Full Investment Office desk via Research Director + CIO."""
+    create = ResearchRunCreate(
+        desk=DeskType.INVESTMENT_OFFICE,
+        query=body.query or "Investment Office daily package",
+        symbols=list(body.symbols or body.watchlist or []),
+        metadata={
+            "investment_office": body.model_dump(),
+            "watchlist": body.watchlist,
+            "symbols": body.symbols,
+            "portfolio": body.portfolio.model_dump() if body.portfolio else None,
+            "prior_runs": body.prior_runs,
+            "journal_seed": body.journal_seed,
+        },
     )
     return await _director.execute(create)

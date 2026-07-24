@@ -61,6 +61,15 @@ export const runPortfolioScenario = (payload) =>
 export const runPortfolioOffice = (payload) =>
   intelligenceFetch('/portfolio/office', { method: 'POST', body: payload });
 
+/** Investment Office */
+export const listInvestmentPlaybooks = () => intelligenceFetch('/investment-office/playbooks');
+export const packageInvestmentOffice = (payload) =>
+  intelligenceFetch('/investment-office/package', { method: 'POST', body: payload });
+export const runInvestmentOfficeScenario = (payload) =>
+  intelligenceFetch('/investment-office/scenario', { method: 'POST', body: payload });
+export const runInvestmentOffice = (payload) =>
+  intelligenceFetch('/investment-office/run', { method: 'POST', body: payload });
+
 /**
  * Create a research run and poll until complete (or timeout).
  * Works with the current engine that only exposes /research/runs.

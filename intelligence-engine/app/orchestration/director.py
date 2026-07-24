@@ -12,13 +12,19 @@ from app.engines.debate import DebateEngine
 from app.engines.evidence import EvidenceEngine
 from app.memory.store import ResearchStore
 from app.portfolio.pack import attach_portfolio_to_run, package_from_metadata
+from app.investment_office.pack import (
+    attach_office_to_run,
+    build_investment_office_package,
+)
 from app.schemas.models import (
     DeskType,
     DirectorPlan,
+    InvestmentOfficeRequest,
     ResearchRun,
     ResearchRunCreate,
     RunStatus,
 )
+from app.tools.agib_client import AgibClient
 
 log = get_logger(__name__)
 
@@ -37,6 +43,12 @@ DESK_PLANS: dict[DeskType, list[str]] = {
         "portfolio_recommendations",
         "portfolio_summary",
     ],
+    DeskType.INVESTMENT_OFFICE: [
+        "investment_brief",
+        "investment_queue_calendar",
+        "investment_knowledge",
+        "investment_summary",
+    ],
     DeskType.CUSTOM: ["smoke_analyst"],
 }
 
@@ -51,6 +63,7 @@ class ResearchDirector:
         self.citation_engine = CitationEngine()
         self.debate_engine = DebateEngine()
         self.cio = ChiefInvestmentOfficer()
+        self.agib = AgibClient()
 
     def plan(self, desk: DeskType, query: str | None = None) -> DirectorPlan:
         agent_ids = DESK_PLANS.get(desk, DESK_PLANS[DeskType.SMOKE])
@@ -103,6 +116,51 @@ class ResearchDirector:
                 run.errors.append(f"portfolio_package: {exc}")
                 log.exception("portfolio_package_failed", extra={"run_id": run.run_id})
 
+        # Investment Office: operational layer over existing capabilities
+        if run.desk == DeskType.INVESTMENT_OFFICE:
+            try:
+                similar_for_office: list[dict[str, Any]] = []
+                try:
+                    similar_for_office = await self.store.similar_runs("investment_office", limit=5)
+                    similar_for_office += await self.store.similar_runs("cio_morning", limit=3)
+                    similar_for_office += await self.store.similar_runs("portfolio", limit=3)
+                except Exception:
+                    similar_for_office = []
+
+                macro = await self.agib.macro_briefing()
+                market = await self.agib.market_briefing()
+                pre = await self.agib.pre_market_briefing()
+
+                meta = run.metadata or {}
+                block = meta.get("investment_office") if isinstance(meta.get("investment_office"), dict) else {}
+                req = InvestmentOfficeRequest(
+                    user_id=block.get("user_id") or meta.get("user_id"),
+                    watchlist=block.get("watchlist")
+                    or meta.get("watchlist")
+                    or run.symbols
+                    or ["INFY", "RELIANCE", "HDFCBANK"],
+                    symbols=block.get("symbols") or meta.get("symbols") or run.symbols or [],
+                    sectors=block.get("sectors") or meta.get("sectors") or [],
+                    portfolio=block.get("portfolio") or meta.get("portfolio"),
+                    journal_seed=block.get("journal_seed") or meta.get("journal_seed") or [],
+                    prior_runs=block.get("prior_runs") or meta.get("prior_runs") or [],
+                    query=run.query or block.get("query") or "Investment Office daily package",
+                )
+                office = build_investment_office_package(
+                    req,
+                    macro=macro,
+                    market=market,
+                    pre_market=pre,
+                    similar_runs=similar_for_office,
+                )
+                attach_office_to_run(run, office)
+                context["investment_office_pack"] = office
+                if not run.symbols:
+                    run.symbols = [i.symbol for i in office.research_queue if i.symbol][:12]
+            except Exception as exc:
+                run.errors.append(f"investment_office_package: {exc}")
+                log.exception("investment_office_package_failed", extra={"run_id": run.run_id})
+
         # Memory retrieval (similar past runs) — soft fail
         try:
             similar = await self.store.similar_runs(run.desk.value, limit=3)
@@ -139,6 +197,7 @@ class ResearchDirector:
                     "evidence": evidence,
                     "query": run.query,
                     "portfolio_pack": context.get("portfolio_pack"),
+                    "investment_office_pack": context.get("investment_office_pack"),
                 }
             )
             citations = self.citation_engine.build_citation_map(outputs, evidence)
