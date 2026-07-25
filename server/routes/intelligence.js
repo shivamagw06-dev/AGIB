@@ -705,5 +705,77 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // FIML v1 — Financial Intelligence Model Library (not an engine).
+  router.get('/fiml/health', kfGet('/v1/fiml/health'));
+  router.get('/fiml/dashboard', kfGet('/v1/fiml/dashboard'));
+  router.get('/fiml/models', kfGet('/v1/fiml/models'));
+  router.get('/fiml/industries', kfGet('/v1/fiml/industries'));
+  router.get('/fiml/search', kfGet('/v1/fiml/search'));
+  router.get('/fiml/metrics', kfGet('/v1/fiml/metrics'));
+  router.get('/fiml/graph', kfGet('/v1/fiml/graph'));
+  router.post('/fiml/analyse/:domain', async (req, res) => {
+    try {
+      const result = await engineFetch(`/v1/fiml/analyse/${encodeURIComponent(req.params.domain)}`, {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'FIML unavailable', detail: error.message });
+    }
+  });
+  router.post('/fiml/score/:domain', async (req, res) => {
+    try {
+      const result = await engineFetch(`/v1/fiml/score/${encodeURIComponent(req.params.domain)}`, {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'FIML unavailable', detail: error.message });
+    }
+  });
+  router.post('/fiml/explain/:domain', async (req, res) => {
+    try {
+      const result = await engineFetch(`/v1/fiml/explain/${encodeURIComponent(req.params.domain)}`, {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'FIML unavailable', detail: error.message });
+    }
+  });
+  router.post('/fiml/compare/:domain', async (req, res) => {
+    try {
+      const result = await engineFetch(`/v1/fiml/compare/${encodeURIComponent(req.params.domain)}`, {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'FIML unavailable', detail: error.message });
+    }
+  });
+  router.post('/fiml/bundle', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/fiml/bundle', { method: 'POST', body: req.body || {} });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'FIML unavailable', detail: error.message });
+    }
+  });
+  router.post('/fiml/consumer/:engine', async (req, res) => {
+    try {
+      const result = await engineFetch(`/v1/fiml/consumer/${encodeURIComponent(req.params.engine)}`, {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'FIML unavailable', detail: error.message });
+    }
+  });
+
   return router;
 }

@@ -522,3 +522,28 @@ export const valueVeCompany = (body = {}) =>
   intelligenceFetch('/ve/value', { method: 'POST', body });
 export const getVeValuation = (id) =>
   intelligenceFetch(`/ve/valuation/${encodeURIComponent(id)}`);
+
+/** FIML v1 — Financial Intelligence Model Library */
+export const getFimlHealth = () => intelligenceFetch('/fiml/health');
+export const getFimlDashboard = () => intelligenceFetch('/fiml/dashboard');
+export const getFimlModels = () => intelligenceFetch('/fiml/models');
+export const getFimlIndustries = () => intelligenceFetch('/fiml/industries');
+export const getFimlMetrics = () => intelligenceFetch('/fiml/metrics');
+export const getFimlGraph = () => intelligenceFetch('/fiml/graph');
+export const searchFiml = (q, domain, limit = 20) => {
+  const qs = new URLSearchParams({ q, limit: String(limit) });
+  if (domain) qs.set('domain', domain);
+  return intelligenceFetch(`/fiml/search?${qs}`);
+};
+export const analyseFiml = (domain, body = {}) =>
+  intelligenceFetch(`/fiml/analyse/${encodeURIComponent(domain)}`, { method: 'POST', body });
+export const scoreFiml = (domain, body = {}) =>
+  intelligenceFetch(`/fiml/score/${encodeURIComponent(domain)}`, { method: 'POST', body });
+export const explainFiml = (domain, body = {}) =>
+  intelligenceFetch(`/fiml/explain/${encodeURIComponent(domain)}`, { method: 'POST', body });
+export const compareFiml = (domain, body = {}) =>
+  intelligenceFetch(`/fiml/compare/${encodeURIComponent(domain)}`, { method: 'POST', body });
+export const bundleFiml = (body = {}) =>
+  intelligenceFetch('/fiml/bundle', { method: 'POST', body });
+export const consumerFiml = (engine, body = {}) =>
+  intelligenceFetch(`/fiml/consumer/${encodeURIComponent(engine)}`, { method: 'POST', body });

@@ -67,6 +67,7 @@ from app.mee.service import MeeService
 from app.cae.service import CaeService
 from app.ib.service import IbService
 from app.ve.service import VeService
+from app.fiml.service import FimlService
 from app.ui.service import UiService
 from app.validation.service import ValidationService
 from app.features.models import FeatureMetadata
@@ -184,6 +185,8 @@ try:
     _ib.delivery.register_handler("ve", _ve.on_bus_event)
 except Exception:
     pass
+# FIML — shared domain model library (not an engine; engines consume via models.consumers).
+_fiml = FimlService()
 _ui = UiService(
     aws=_aws,
     ioc=_ioc,
@@ -2810,6 +2813,146 @@ async def ve_valuation(valuation_id: str):
         return _ve.get_valuation(valuation_id)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+# --- FIML v1 Financial Intelligence Model Library (not an engine; no platform redesign) ---
+
+
+@router.get("/fiml/health")
+async def fiml_health():
+    return _fiml.health()
+
+
+@router.get("/fiml/dashboard")
+async def fiml_dashboard():
+    try:
+        return _fiml.dashboard()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/fiml/models")
+async def fiml_models():
+    try:
+        return _fiml.list_models()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/fiml/industries")
+async def fiml_industries():
+    try:
+        return _fiml.industries()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/fiml/analyse/{domain}")
+async def fiml_analyse(domain: str, payload: dict[str, Any] = Body(default={})):
+    try:
+        return _fiml.analyse(domain, payload or {})
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/fiml/score/{domain}")
+async def fiml_score(domain: str, payload: dict[str, Any] = Body(default={})):
+    try:
+        return _fiml.score(domain, payload or {})
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/fiml/explain/{domain}")
+async def fiml_explain(domain: str, payload: dict[str, Any] = Body(default={})):
+    try:
+        return _fiml.explain(domain, payload or {})
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/fiml/compare/{domain}")
+async def fiml_compare(domain: str, payload: dict[str, Any] = Body(default={})):
+    try:
+        return _fiml.compare(domain, payload or {})
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/fiml/monitor/{domain}")
+async def fiml_monitor(domain: str, payload: dict[str, Any] = Body(default={})):
+    try:
+        return _fiml.monitor(domain, payload or {})
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/fiml/relationships/{domain}")
+async def fiml_relationships(domain: str, payload: dict[str, Any] = Body(default={})):
+    try:
+        return _fiml.relationships(domain, payload or {})
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/fiml/bundle")
+async def fiml_bundle(payload: dict[str, Any] = Body(default={})):
+    try:
+        return _fiml.bundle(payload or {})
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/fiml/consumer/{engine}")
+async def fiml_consumer(engine: str, payload: dict[str, Any] = Body(default={})):
+    try:
+        return _fiml.consumer(engine, payload or {})
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/fiml/search")
+async def fiml_search(
+    q: str = Query(...),
+    domain: str | None = Query(default=None),
+    limit: int = Query(default=20, ge=1, le=100),
+):
+    try:
+        return _fiml.search(q, domain=domain, limit=limit)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/fiml/metrics")
+async def fiml_metrics():
+    try:
+        return _fiml.metrics()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/fiml/graph")
+async def fiml_graph():
+    try:
+        return _fiml.graph()
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

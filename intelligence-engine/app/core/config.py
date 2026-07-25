@@ -263,6 +263,10 @@ class Settings(BaseSettings):
     ve_relative: bool = True
     ve_ibus_updates: bool = True
 
+    # FIML v1 — Financial Intelligence Model Library (shared domain models; not an engine)
+    fiml: bool = True
+    fiml_persist_analyses: bool = True
+
 
 @lru_cache
 def get_settings() -> Settings:
