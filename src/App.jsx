@@ -42,16 +42,15 @@ const ResearchWorkflowDesk = React.lazy(() => import('@/pages/ResearchWorkflowDe
 const AskAgiPage = React.lazy(() => import('@/pages/AskAgiPage'));
 const PredictionCentre = React.lazy(() => import('@/pages/PredictionCentre'));
 const PersonalWorkspace = React.lazy(() => import('@/pages/PersonalWorkspace'));
-const InvestmentOfficeHome = React.lazy(() => import('@/office/InvestmentOfficeHome'));
+const EditorialHome = React.lazy(() => import('@/components/Home/EditorialHome'));
 
 function HomeLayout() {
-  return <InvestmentOfficeHome />;
+  return <EditorialHome />;
 }
 
 function AppShell() {
   const location = useLocation();
   const isAdmin = location.pathname.startsWith('/admin');
-  const isOfficeHome = location.pathname === '/';
 
   useEffect(() => {
     if (!isAdmin) {
@@ -70,19 +69,13 @@ function AppShell() {
   return (
     <>
       <MarketDataProvider>
-        {!isOfficeHome && <Header />}
+        <Header />
         <main>
-          <Suspense
-            fallback={
-              <div className={`p-8 text-center ${isOfficeHome ? 'bg-[#090c11] text-slate-300 min-h-screen' : 'text-slate-600'}`}>
-                Loading…
-              </div>
-            }
-          >
+          <Suspense fallback={<div className="p-8 text-center text-slate-600">Loading…</div>}>
             <PublicRoutes />
           </Suspense>
         </main>
-        {!isOfficeHome && <Footer />}
+        <Footer />
         <Toaster />
       </MarketDataProvider>
     </>
