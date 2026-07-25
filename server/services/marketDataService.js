@@ -61,12 +61,29 @@ async function fetchTickerData(env = {}) {
     }
   }
 
-  if (rows.length < 2) {
-    const nseRows = await fetchNseIndices().catch(() => []);
-    rows = [
-      ...nseRows,
-      ...rows.filter((r) => !nseRows.some((n) => n.name === r.name)),
-    ];
+  // Always merge NSE so mid/small-cap and any missing cash indices are available.
+  // Groww remains preferred when both return the same name.
+  const nseRows = await fetchNseIndices().catch(() => []);
+  if (nseRows.length) {
+    const byName = new Map();
+    for (const row of [...rows, ...nseRows]) {
+      const key = String(row?.name || '').trim().toUpperCase();
+      if (!key || byName.has(key)) continue;
+      byName.set(key, row);
+    }
+    // Prefer Groww/existing rows first (already in `rows`), then fill from NSE.
+    const prefer = new Map();
+    for (const row of rows) {
+      const key = String(row?.name || '').trim().toUpperCase();
+      if (key) prefer.set(key, row);
+    }
+    for (const row of nseRows) {
+      const key = String(row?.name || '').trim().toUpperCase();
+      if (key && !prefer.has(key)) prefer.set(key, row);
+    }
+    rows = [...prefer.values()];
+  } else if (rows.length < 2) {
+    /* keep Groww/partial rows */
   }
 
   const commodities = await fetchCommodities(apiKey, baseUrl).catch(() => []);

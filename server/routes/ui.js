@@ -9,6 +9,9 @@ import {
   cachedMarketSnapshot,
   enrichHomePayload,
 } from '../services/homeOfficeEnrichment.js';
+import { getTickerData } from '../services/marketDataService.js';
+import { fetchNseIndices } from '../providers/fallback.js';
+import { fetchYahooIndices } from '../providers/yahooIndices.js';
 
 function engineConfig() {
   let baseUrl = (process.env.INTELLIGENCE_ENGINE_URL || 'http://127.0.0.1:8100').replace(/\/$/, '');
@@ -50,59 +53,163 @@ function sparkFromChange(change) {
   return [0, 1, 2, 3, 4, 5, 6].map((i) => base + dir * Math.abs(n) * (i / 2));
 }
 
+const SNAPSHOT_NAME_ALIASES = {
+  'NIFTY 50': 'NIFTY',
+  NIFTY: 'NIFTY',
+  'NIFTY BANK': 'BANK NIFTY',
+  'BANK NIFTY': 'BANK NIFTY',
+  BANKNIFTY: 'BANK NIFTY',
+  SENSEX: 'SENSEX',
+  'BSE SENSEX': 'SENSEX',
+  'S&P BSE SENSEX': 'SENSEX',
+  'INDIA VIX': 'VIX',
+  VIX: 'VIX',
+  'NIFTY MIDCAP 100': 'MIDCAP',
+  'NIFTY MIDCAP 50': 'MIDCAP',
+  // Next 50 is a weaker stand-in — only used if Midcap 100/50 are missing.
+  'NIFTY NEXT 50': 'MIDCAP',
+  MIDCAP: 'MIDCAP',
+  'NIFTY SMALLCAP 100': 'SMALLCAP',
+  'NIFTY SMALLCAP 50': 'SMALLCAP',
+  'NIFTY SMLCAP 100': 'SMALLCAP',
+  SMALLCAP: 'SMALLCAP',
+};
+
+/** Higher wins when multiple raw indices map to the same snapshot label. */
+const SNAPSHOT_SOURCE_PRIORITY = {
+  'NIFTY 50': 100,
+  NIFTY: 100,
+  'NIFTY BANK': 100,
+  'BANK NIFTY': 100,
+  BANKNIFTY: 100,
+  SENSEX: 100,
+  'BSE SENSEX': 90,
+  'S&P BSE SENSEX': 90,
+  'INDIA VIX': 100,
+  VIX: 100,
+  'NIFTY MIDCAP 100': 100,
+  MIDCAP: 95,
+  'NIFTY MIDCAP 50': 80,
+  'NIFTY NEXT 50': 40,
+  'NIFTY SMALLCAP 100': 100,
+  'NIFTY SMLCAP 100': 95,
+  SMALLCAP: 90,
+  'NIFTY SMALLCAP 50': 70,
+};
+
+const CORE_INDIAN = ['NIFTY', 'BANK NIFTY', 'SENSEX', 'MIDCAP', 'SMALLCAP', 'VIX'];
+
+function normalizeSnapshotName(raw) {
+  const key = String(raw || '').trim().toUpperCase();
+  return SNAPSHOT_NAME_ALIASES[key] || null;
+}
+
+function snapshotPriority(raw) {
+  const key = String(raw || '').trim().toUpperCase();
+  return SNAPSHOT_SOURCE_PRIORITY[key] || 50;
+}
+
+function hasLivePrice(card) {
+  return card && Number.isFinite(Number(card.price));
+}
+
 async function buildMarketSnapshot() {
   const cards = [];
-  const push = (name, price, percentChange, extra = {}) => {
+  const push = (name, price, percentChange, extra = {}, priority = 50) => {
     if (!name) return;
+    const existing = cards.find((c) => c.name === name);
+    const livePrice = Number(price);
+    if (existing) {
+      const existingPriority = Number(existing._priority || 0);
+      const betterPriority = priority > existingPriority;
+      if (hasLivePrice(existing) && !betterPriority) return;
+      if (Number.isFinite(livePrice) && (betterPriority || !hasLivePrice(existing))) {
+        existing.price = livePrice;
+        existing.percentChange = percentChange ?? existing.percentChange ?? null;
+        existing.sparkline = sparkFromChange(existing.percentChange);
+        existing._priority = priority;
+        Object.assign(existing, extra);
+      }
+      return;
+    }
     cards.push({
       name,
-      price: price ?? null,
+      price: Number.isFinite(livePrice) ? livePrice : price ?? null,
       percentChange: percentChange ?? null,
       sparkline: sparkFromChange(percentChange),
+      _priority: priority,
       ...extra,
     });
   };
 
-  // NSE cash indices (server-side only)
+  // 1) Groww primary (+ NSE inside marketDataService when Groww is thin)
   try {
-    const r = await fetch('https://www.nseindia.com/api/allIndices', {
-      method: 'GET',
-      headers: {
-        Accept: 'application/json',
-        'User-Agent': 'Mozilla/5.0 (compatible; AGIB-UI/1.0)',
-        Referer: 'https://www.nseindia.com/',
-      },
-      signal: AbortSignal.timeout(12_000),
+    const ticker = await getTickerData({
+      indianApiKey: process.env.INDIANAPI_KEY || process.env.VITE_INDIANAPI_KEY || '',
+      indianApiBase: process.env.INDIANAPI_BASE || 'https://stock.indianapi.in',
     });
-    const text = await r.text().catch(() => '');
-    if (r.ok && text) {
-      const payload = JSON.parse(text);
-      const rows = Array.isArray(payload?.data) ? payload.data : [];
-      const wanted = {
-        'NIFTY 50': 'NIFTY',
-        'NIFTY BANK': 'BANK NIFTY',
-        'INDIA VIX': 'VIX',
-        'NIFTY NEXT 50': 'MIDCAP',
-        'NIFTY MIDCAP 100': 'MIDCAP',
-        'NIFTY MIDCAP 50': 'MIDCAP',
-        'NIFTY SMALLCAP 100': 'SMALLCAP',
-        'NIFTY SMALLCAP 50': 'SMALLCAP',
-        'SENSEX': 'SENSEX',
-        'BSE SENSEX': 'SENSEX',
-      };
-      for (const row of rows) {
-        const raw = String(row.index || row.indexSymbol || '').trim().toUpperCase();
-        const label = wanted[raw];
-        if (!label) continue;
-        if (cards.some((c) => c.name === label)) continue;
-        push(label, row.last ?? row.previousClose ?? null, row.percentChange ?? row.variation ?? null, {
-          session: 'NSE',
-          updatedAt: new Date().toISOString(),
-        });
-      }
+    for (const row of ticker?.items || []) {
+      const raw = row.name || row.label;
+      const name = normalizeSnapshotName(raw);
+      if (!name) continue;
+      if (!Number.isFinite(Number(row.price))) continue;
+      push(
+        name,
+        row.price,
+        row.percentChange ?? row.change ?? null,
+        {
+          session: row.source === 'groww' ? 'Groww' : row.source === 'nse' ? 'NSE' : 'Live',
+          updatedAt: ticker.updatedAt || new Date().toISOString(),
+        },
+        snapshotPriority(raw) + (row.source === 'groww' ? 5 : 0)
+      );
     }
   } catch {
     /* soft */
+  }
+
+  // 2) Direct NSE allIndices (covers MIDCAP / SMALLCAP beyond Groww ticker set)
+  try {
+    const nseRows = await fetchNseIndices();
+    for (const row of nseRows) {
+      const name = normalizeSnapshotName(row.name);
+      if (!name || !Number.isFinite(Number(row.price))) continue;
+      push(
+        name,
+        row.price,
+        row.percentChange ?? null,
+        {
+          session: 'NSE',
+          updatedAt: new Date().toISOString(),
+        },
+        snapshotPriority(row.name)
+      );
+    }
+  } catch {
+    /* soft */
+  }
+
+  // 3) Yahoo fallback — matches Groww/NSE prints when cloud hosts block NSE
+  const missingCore = CORE_INDIAN.filter((name) => !hasLivePrice(cards.find((c) => c.name === name)));
+  if (missingCore.length) {
+    try {
+      const yahooRows = await fetchYahooIndices(missingCore);
+      for (const row of yahooRows) {
+        if (!Number.isFinite(Number(row.price))) continue;
+        push(
+          row.name,
+          row.price,
+          row.percentChange ?? null,
+          {
+            session: 'Yahoo',
+            updatedAt: new Date().toISOString(),
+          },
+          snapshotPriority(row.name) - 10
+        );
+      }
+    } catch {
+      /* soft */
+    }
   }
 
   // Global / commodity proxies from pre-market context (server-side)
@@ -122,7 +229,6 @@ async function buildMarketSnapshot() {
       else if (/bitcoin|btc/i.test(label)) name = 'Bitcoin';
       else if (/vix/i.test(label)) name = 'VIX';
       else continue;
-      if (cards.some((c) => c.name === name)) continue;
       push(name, m.level ?? m.price ?? null, m.changePct ?? m.percentChange ?? null);
     }
     for (const c of ctx.commodities || []) {
@@ -131,7 +237,7 @@ async function buildMarketSnapshot() {
       if (/gold/i.test(label)) name = 'Gold';
       if (/silver/i.test(label)) name = 'Silver';
       if (/brent|crude/i.test(label)) name = 'Brent';
-      if (!name || cards.some((x) => x.name === name)) continue;
+      if (!name) continue;
       push(name, c.level ?? c.price ?? null, c.changePct ?? c.percentChange ?? null);
     }
   } catch {
@@ -146,21 +252,15 @@ async function buildMarketSnapshot() {
     if (fx.ok) {
       const body = await fx.json();
       const rate = body?.rates?.INR;
-      if (Number.isFinite(rate) && !cards.some((c) => c.name === 'USDINR')) {
-        push('USDINR', rate, null);
-      }
+      if (Number.isFinite(rate)) push('USDINR', rate, null);
     }
   } catch {
     /* soft */
   }
 
-  // Soft desk close levels — fill missing names / null prices so snapshot never looks empty.
+  // Soft desk close levels — ONLY for still-missing names. Never override live Indian quotes.
+  // Indian index desk numbers are intentionally omitted so stale 51k Bank Nifty cannot resurface.
   const deskClose = [
-    ['NIFTY', 24150.2, 0.18],
-    ['BANK NIFTY', 51820.4, 0.22],
-    ['SENSEX', 79410.6, 0.15],
-    ['MIDCAP', 54210.0, -0.12],
-    ['SMALLCAP', 17820.5, -0.28],
     ['NASDAQ', 19840.0, 0.35],
     ['S&P', 5480.0, 0.21],
     ['Dow', 39820.0, 0.11],
@@ -168,7 +268,6 @@ async function buildMarketSnapshot() {
     ['Silver', 29.8, 0.55],
     ['USDINR', 83.52, -0.08],
     ['Brent', 82.4, -0.3],
-    ['VIX', 13.8, -1.2],
   ];
   if (!cards.length) {
     const cached = cachedMarketSnapshot();
@@ -180,7 +279,7 @@ async function buildMarketSnapshot() {
       push(name, price, pct, { session: 'Cached close', updatedAt: new Date().toISOString() });
       continue;
     }
-    if (existing.price == null || Number.isNaN(Number(existing.price))) {
+    if (!hasLivePrice(existing)) {
       existing.price = price;
       existing.percentChange = existing.percentChange ?? pct;
       existing.sparkline = existing.sparkline?.length ? existing.sparkline : sparkFromChange(pct);
@@ -209,7 +308,7 @@ async function buildMarketSnapshot() {
     const bi = order.indexOf(b.name);
     return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
   });
-  return cards;
+  return cards.map(({ _priority, ...rest }) => rest);
 }
 
 function marketSessionNow() {
