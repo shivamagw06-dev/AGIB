@@ -51,11 +51,11 @@ jobs:
           VITE_ADMIN_ID: ${{ secrets.VITE_ADMIN_ID }}
           VITE_ADMIN_EMAILS: ${{ secrets.VITE_ADMIN_EMAILS }}
 
-      # Hostinger serves the Git working tree at the domain document root (repo root),
-      # not a nested ./public_html/ folder. FTP must publish Vite dist/ contents there
-      # so /index.html references /assets/* (built bundles), not /src/main.jsx.
-      # Never use dangerous-clean-slate against ./ — that would wipe src/, server/, etc.
-      - name: Deploy dist/ to Hostinger document root via FTP
+      # Hostinger Git sync serves the repo document root. Keep built index.html + /assets
+      # in git (via npm run build:hostinger on release commits). FTP remains a secondary
+      # publish to the FTP account root; override with secret FTP_SERVER_DIR if needed.
+      # Never use dangerous-clean-slate against the repo root.
+      - name: Deploy dist/ to Hostinger via FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ secrets.FTP_SERVER }}
