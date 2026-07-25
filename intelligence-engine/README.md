@@ -211,3 +211,16 @@ Agents read **AGIB Node cached APIs only** (no direct third-party market API cal
 - Outputs: EngineScorecard, CompositeScorecard, PromotionReport, DriftAlert, RegressionAlert
 - Flags: `CRE=true`, `PROMOTION=false` (evidence-only; never promotes / no production influence)
 - APIs: `POST /v1/cre/evaluate`, `GET /v1/cre/scorecards`, `GET /v1/cre/scorecards/{engine}`, `GET /v1/cre/alerts`, `GET /v1/cre/promotion`, `GET /v1/cre/dashboard`, `GET /v1/cre/health`
+
+### Knowledge Intelligence Platform P0 (KIP)
+
+- Package: `app/kip/` — institutional memory layer for AGI (does **not** redesign research engines)
+- Pipeline: OCR → clean → metadata → entity/theme/sector → metrics/tables/timeline → thesis/bull/bear/risks/catalysts/valuation → confidence → chunk → embed → hybrid index → knowledge graph → KB
+- Sources: AGI research/CIO/briefs + broker PDFs/emails, newsletters, filings, transcripts, macro/industry/commodity reports
+- Immutable document versioning with supersession + knowledge lineage
+- Company research timeline; hybrid/keyword/semantic/entity/company/sector/theme/broker/similarity search
+- RAG evidence packs: retrieved docs, supporting evidence, conflicting opinions, freshness, confidence
+- Self-learning: completed Research Director runs auto-ingest into KIP; writer retrieves prior institutional context
+- Flags: `KIP=true`, `KIP_RAG=true`, `KIP_GRAPH=true`, `KIP_VERSIONING=true`, `KIP_OCR=true`, `KIP_LLM_SUMMARY=true`
+- Out of scope: model fine-tuning, broker execution, portfolio management, research engine redesign
+- APIs: `POST /v1/kip/ingest`, `GET /v1/kip/document/{id}`, `GET /v1/kip/company/{ticker}`, `GET /v1/kip/theme/{id}`, `GET /v1/kip/search`, `GET /v1/kip/timeline/{ticker}`, `GET /v1/kip/similar/{document}`, `GET /v1/kip/graph/{entity}`, `GET /v1/kip/rag`, `GET /v1/kip/health`

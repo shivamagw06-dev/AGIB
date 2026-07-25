@@ -30,6 +30,8 @@ from app.engines.l4.consumer import register_l4_with_orch
 from app.engines.l4.service import L4Service
 from app.eval.evaluation_agent import EvaluationAgent
 from app.cre.service import CREService
+from app.kip.models import IngestRequest
+from app.kip.service import KipService
 from app.validation.service import ValidationService
 from app.features.models import FeatureMetadata
 from app.features.service import FeatureRegistryService
@@ -67,6 +69,9 @@ _l4 = L4Service(
 _e10 = E10Service(l4=_l4, e14=_e14, e02=_e02, orch_ledger=_orch_ledger)
 _validation = ValidationService()
 _cre = CREService()
+_kip = KipService()
+# Soft-wire institutional memory into Research Director (no engine redesign).
+_director.kip = _kip
 
 
 def _wire_market_data_to_l2() -> None:
@@ -568,6 +573,110 @@ async def cre_dashboard():
     if dash is None:
         raise HTTPException(status_code=404, detail="CRE dashboard not found")
     return dash
+
+
+@router.get("/kip/health")
+async def kip_health():
+    """Knowledge Intelligence Platform health (institutional memory layer)."""
+    return _kip.health()
+
+
+@router.post("/kip/ingest")
+async def kip_ingest(body: IngestRequest):
+    """Ingest a document into AGI institutional knowledge."""
+    try:
+        doc = _kip.ingest(body)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return doc.model_dump(mode="json")
+
+
+@router.get("/kip/document/{document_id}")
+async def kip_document(document_id: str):
+    doc = _kip.get_document(document_id)
+    if doc is None:
+        raise HTTPException(status_code=404, detail="Document not found")
+    return doc.model_dump(mode="json")
+
+
+@router.get("/kip/company/{ticker}")
+async def kip_company(ticker: str):
+    try:
+        return _kip.get_company(ticker).model_dump(mode="json")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/kip/theme/{theme_id}")
+async def kip_theme(theme_id: str):
+    try:
+        return _kip.get_theme(theme_id).model_dump(mode="json")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/kip/search")
+async def kip_search(
+    q: str = Query(..., description="Search query"),
+    mode: str = Query(default="hybrid"),
+    limit: int = Query(default=10, ge=1, le=50),
+    ticker: str | None = None,
+    sector: str | None = None,
+    theme: str | None = None,
+    broker: str | None = None,
+):
+    try:
+        return _kip.search(
+            q, mode=mode, limit=limit, ticker=ticker, sector=sector, theme=theme, broker=broker
+        ).model_dump(mode="json")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/kip/timeline/{ticker}")
+async def kip_timeline(ticker: str):
+    try:
+        return _kip.timeline(ticker).model_dump(mode="json")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/kip/similar/{document_id}")
+async def kip_similar(document_id: str, limit: int = Query(default=10, ge=1, le=50)):
+    try:
+        return _kip.similar(document_id, limit=limit).model_dump(mode="json")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/kip/graph/{entity}")
+async def kip_graph(entity: str):
+    try:
+        return _kip.graph(entity).model_dump(mode="json")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/kip/rag")
+async def kip_rag(
+    q: str = Query(..., description="RAG query"),
+    ticker: str | None = None,
+    limit: int = Query(default=8, ge=1, le=30),
+):
+    """Retrieval-augmented evidence pack (never answer from model memory alone)."""
+    try:
+        return _kip.rag(q, ticker=ticker, limit=limit).model_dump(mode="json")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/kip/research-context")
+async def kip_research_context(q: str = Query(...), ticker: str | None = None):
+    """Institutional context for AGI Research Writer (validation fields included)."""
+    try:
+        return _kip.research_context(q, ticker=ticker)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.post("/orch/l2/trigger", dependencies=[Depends(require_token)])

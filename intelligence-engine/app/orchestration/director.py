@@ -37,8 +37,9 @@ DESK_PLANS: dict[DeskType, list[str]] = {
 class ResearchDirector:
     """Orchestrates agents only. Does not write the investment thesis."""
 
-    def __init__(self, store: ResearchStore | None = None):
+    def __init__(self, store: ResearchStore | None = None, kip: Any | None = None):
         self.store = store or ResearchStore()
+        self.kip = kip
         self.evidence_engine = EvidenceEngine()
         self.confidence_engine = ConfidenceEngine()
         self.citation_engine = CitationEngine()
@@ -80,6 +81,16 @@ class ResearchDirector:
             context["similar_runs"] = similar
         except Exception as exc:
             run.errors.append(f"memory_retrieve: {exc}")
+
+        # KIP RAG institutional context — soft fail; never redesigns research engines
+        try:
+            kip = getattr(self, "kip", None)
+            if kip is not None and getattr(getattr(kip, "flags", None), "kip", False):
+                ticker = run.symbols[0] if run.symbols else None
+                q = run.query or " ".join(run.symbols) or run.desk.value
+                context["kip_research_context"] = kip.research_context(q, ticker=ticker)
+        except Exception as exc:
+            run.errors.append(f"kip_retrieve: {exc}")
 
         outputs = []
         for agent_id in run.director_plan.agent_ids:
@@ -126,5 +137,13 @@ class ResearchDirector:
         await self.store.save_run(run)
         if run.report:
             await self.store.save_report_embedding(run)
+            # Self-learning: published AGI research becomes institutional knowledge
+            try:
+                kip = getattr(self, "kip", None)
+                if kip is not None:
+                    kip.ingest_research_run(run)
+            except Exception as exc:
+                run.errors.append(f"kip_ingest: {exc}")
+                await self.store.save_run(run)
         log.info("director_complete", extra={"run_id": run.run_id, "status": run.status.value})
         return run

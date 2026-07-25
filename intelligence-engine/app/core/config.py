@@ -124,6 +124,14 @@ class Settings(BaseSettings):
     cre: bool = True
     promotion: bool = False
 
+    # Knowledge Intelligence Platform flags (P0 defaults)
+    kip: bool = True
+    kip_rag: bool = True
+    kip_graph: bool = True
+    kip_versioning: bool = True
+    kip_ocr: bool = True
+    kip_llm_summary: bool = True
+
 
 @lru_cache
 def get_settings() -> Settings:
