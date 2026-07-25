@@ -56,3 +56,10 @@ Agents read **AGIB Node cached APIs only** (no direct third-party market API cal
 - Providers: IndianAPI, Finnhub, FMP (pluggable via registry)
 - Engines must consume canonical objects from `MarketDataClient` only
 - Health: `GET /v1/market-data/health`
+
+### WS03 Feature Registry (WBS FEAT-001–005)
+
+- Package: `app/features/` — metadata registry, dependency graph, calculators, PIT store, cache
+- Categories: `TECH_`, `VOL_`, `MACRO_`, `FUND_`, `UNIV_` (plus reserved EVENT_/OPTIONS_/SENT_/RVAL_)
+- Engines must consume Feature Registry outputs; they must not compute RSI/EMA/ATR/etc. internally
+- Health: `GET /v1/features/health`
