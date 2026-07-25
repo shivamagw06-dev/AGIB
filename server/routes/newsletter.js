@@ -18,7 +18,8 @@ function siteUrl() {
 }
 
 function logoUrl() {
-  return `${siteUrl()}/agi-logo.png`;
+  // Compact email asset at site root (also kept under /public for older deploys).
+  return `${siteUrl()}/agi-logo-email.png`;
 }
 
 function escapeHtml(value = '') {

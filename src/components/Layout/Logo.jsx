@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 
+// Root copy is required for Hostinger Git sync (public/ is not served at /).
 const LOGO_SRC = '/agi-logo.png';
 
 export default function Logo({ compact = false, className = '' }) {
