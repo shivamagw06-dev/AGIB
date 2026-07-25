@@ -35,7 +35,7 @@ export default function MorningBriefHero({ uiHome = null, uiLoading = false }) {
   const { outlook, loading: dashLoading } = useMarketDashboard();
 
   const link = brief?.slug ? `/article/${brief.slug}` : '/updates/pre-market';
-  const label = brief?.heroLabel || "Today's Market Brief";
+  const label = brief?.heroLabel || 'AGI Morning Brief';
   const hero = uiHome?.hero || {};
   const regime = hero.market_regime || uiHome?.market_regime?.label || outlook?.outlook;
   const risk = hero.risk_level || uiHome?.market_risk?.label;

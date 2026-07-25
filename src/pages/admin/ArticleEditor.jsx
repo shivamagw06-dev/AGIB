@@ -336,12 +336,17 @@ export default function ArticleEditor() {
             slug: data.slug,
             summary: htmlToExcerpt(html, 280),
             body: html,
+            section,
           });
         }
 
         if (!silent && publishStatus === 'published' && !stayInEditor) {
           if (notifyResult?.ok && notifyResult?.sent > 0) {
-            alert(`Published. Notified ${notifyResult.sent} subscriber${notifyResult.sent === 1 ? '' : 's'}.`);
+            alert(
+              `Published to ${notifyResult.letter || 'letter'}. Notified ${notifyResult.sent} subscriber${
+                notifyResult.sent === 1 ? '' : 's'
+              }.`
+            );
           } else if (notifyResult && !notifyResult.ok && !notifyResult.skipped) {
             alert('Published to website, but subscriber email notify failed. Check Resend / Render env.');
           }

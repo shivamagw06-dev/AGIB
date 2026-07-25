@@ -1,5 +1,12 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
+import {
+  getLetter,
+  letterDisplayFrom,
+  letterKeyFromSection,
+  normalizePreferences,
+  selectedLetterNames,
+} from '../lib/agiLetters.js';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -7,14 +14,6 @@ function siteUrl() {
   return (process.env.PUBLIC_SITE_URL || process.env.BASE_URL || 'https://agarwalglobalinvestments.com').replace(
     /\/$/,
     ''
-  );
-}
-
-function newsletterFrom() {
-  return (
-    process.env.NEWSLETTER_FROM_EMAIL ||
-    process.env.UPDATES_FROM_EMAIL ||
-    'AGI Updates <updates@agarwalglobalinvestments.com>'
   );
 }
 
@@ -109,7 +108,7 @@ async function sendBatchWithResend(items) {
   return json;
 }
 
-function articleHtml({ title, summary, slug, email }) {
+function articleHtml({ title, summary, slug, email, letter }) {
   const site = siteUrl();
   const url = `${site}/article/${encodeURIComponent(slug)}`;
   const unsub = `${site}/unsubscribe?email=${encodeURIComponent(email)}`;
@@ -121,8 +120,9 @@ function articleHtml({ title, summary, slug, email }) {
       <table role="presentation" width="100%" style="max-width:560px;background:#ffffff;border:1px solid #dce1e7;">
         <tr>
           <td style="background:#0d1d33;color:#ffffff;padding:22px 26px;">
-            <div style="font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#a7c5ec;">AGI Updates</div>
-            <div style="margin-top:8px;font-size:22px;font-weight:700;">${escapeHtml(title)}</div>
+            <div style="font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#a7c5ec;">${escapeHtml(letter.name)}</div>
+            <div style="margin-top:6px;font-size:12px;color:#c6d4e7;">${escapeHtml(letter.tagline)}</div>
+            <div style="margin-top:12px;font-size:22px;font-weight:700;">${escapeHtml(title)}</div>
           </td>
         </tr>
         <tr>
@@ -130,11 +130,11 @@ function articleHtml({ title, summary, slug, email }) {
             ${summary ? `<p style="margin:0 0 18px;font-size:15px;line-height:1.6;color:#445066;">${escapeHtml(summary)}</p>` : ''}
             <p style="margin:0 0 22px;">
               <a href="${escapeHtml(url)}" style="display:inline-block;background:#0d1d33;color:#ffffff;text-decoration:none;padding:12px 18px;font-size:14px;font-weight:700;">
-                Read the article
+                Read the brief
               </a>
             </p>
             <p style="margin:0;font-size:12px;line-height:1.6;color:#7b8491;">
-              You receive AGI Updates because you subscribed at ${escapeHtml(site)}.
+              You receive ${escapeHtml(letter.name)} because you subscribed at ${escapeHtml(site)}.
               <a href="${escapeHtml(unsub)}" style="color:#274c77;">Unsubscribe</a>
             </p>
           </td>
@@ -146,9 +146,13 @@ function articleHtml({ title, summary, slug, email }) {
 </html>`;
 }
 
-function welcomeHtml(email) {
+function welcomeHtml(email, preferences = {}) {
   const site = siteUrl();
   const unsub = `${site}/unsubscribe?email=${encodeURIComponent(email)}`;
+  const names = selectedLetterNames(preferences);
+  const list = names
+    .map((name) => `<li style="margin:0 0 6px;">${escapeHtml(name)}</li>`)
+    .join('');
   return `<!DOCTYPE html>
 <html>
 <body style="margin:0;padding:0;background:#f5f7fa;font-family:Arial,sans-serif;color:#18202b;">
@@ -157,16 +161,19 @@ function welcomeHtml(email) {
       <table role="presentation" width="100%" style="max-width:560px;background:#ffffff;border:1px solid #dce1e7;">
         <tr>
           <td style="background:#0d1d33;color:#ffffff;padding:22px 26px;">
-            <div style="font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#a7c5ec;">AGI Updates</div>
-            <div style="margin-top:8px;font-size:22px;font-weight:700;">Welcome to AGI Updates</div>
+            <div style="font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#a7c5ec;">Agarwal Global Investments</div>
+            <div style="margin-top:8px;font-size:22px;font-weight:700;">Welcome to AGI Letters</div>
           </td>
         </tr>
         <tr>
           <td style="padding:26px;">
             <p style="margin:0 0 14px;font-size:15px;line-height:1.6;">Thanks for subscribing.</p>
-            <p style="margin:0 0 18px;font-size:15px;line-height:1.6;color:#445066;">
-              You will receive Agarwal Global Investments research and market updates when we publish new articles.
+            <p style="margin:0 0 10px;font-size:15px;line-height:1.6;color:#445066;">
+              You are on:
             </p>
+            <ul style="margin:0 0 18px;padding-left:18px;font-size:15px;line-height:1.6;color:#18202b;">
+              ${list || '<li>AGI Markets</li>'}
+            </ul>
             <p style="margin:0 0 18px;">
               <a href="${escapeHtml(site)}" style="display:inline-block;background:#0d1d33;color:#ffffff;text-decoration:none;padding:12px 18px;font-size:14px;font-weight:700;">
                 Visit AGI
@@ -207,7 +214,7 @@ export default function createNewsletterRouter() {
     res.json({
       ok: true,
       resend: Boolean((process.env.RESEND_API_KEY || '').trim()),
-      from: newsletterFrom(),
+      letters: ['agi_markets', 'agi_morning_brief', 'agi_evening_brief', 'agi_macro'],
       supabaseAdmin: Boolean(
         (process.env.SUPABASE_URL || '').trim() &&
           (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim()
@@ -215,21 +222,54 @@ export default function createNewsletterRouter() {
     });
   });
 
+  router.get('/letters', (_req, res) => {
+    res.json({
+      ok: true,
+      letters: [
+        {
+          key: 'agi_markets',
+          name: 'AGI Markets',
+          schedule: 'Flagship publication',
+          tagline: 'Your market hub for equities, macro, commodities, FX and fixed income.',
+        },
+        {
+          key: 'agi_morning_brief',
+          name: 'AGI Morning Brief',
+          schedule: '7:00–8:00 AM IST',
+          tagline: 'Everything you need before the opening bell.',
+        },
+        {
+          key: 'agi_evening_brief',
+          name: 'AGI Evening Brief',
+          schedule: '4:30–6:00 PM IST',
+          tagline: 'What moved markets today—and why.',
+        },
+        {
+          key: 'agi_macro',
+          name: 'AGI Macro',
+          schedule: 'Weekly or major events',
+          tagline: 'Understanding the forces shaping global markets.',
+        },
+      ],
+    });
+  });
+
   router.post('/welcome', welcomeLimiter, async (req, res) => {
     try {
       const email = String(req.body?.email || '').trim().toLowerCase();
+      const preferences = normalizePreferences(req.body?.preferences || null);
       if (!EMAIL_RE.test(email)) {
         return res.status(400).json({ error: 'Valid email is required.' });
       }
 
       await sendWithResend({
-        from: newsletterFrom(),
+        from: letterDisplayFrom('agi_markets'),
         to: email,
-        subject: 'Welcome to AGI Updates',
-        html: welcomeHtml(email),
+        subject: 'Welcome to AGI Letters',
+        html: welcomeHtml(email, preferences),
       });
 
-      return res.json({ ok: true });
+      return res.json({ ok: true, preferences });
     } catch (err) {
       console.error('[newsletter/welcome]', err?.message || err);
       if (err?.code === 'RESEND_MISSING') {
@@ -243,6 +283,11 @@ export default function createNewsletterRouter() {
     try {
       const title = String(req.body?.title || '').trim();
       const slug = String(req.body?.slug || '').trim();
+      const section = String(req.body?.section || '').trim();
+      const letterKey =
+        String(req.body?.newsletterKey || req.body?.letterKey || '').trim() ||
+        letterKeyFromSection(section);
+      const letter = getLetter(letterKey);
       const summary = String(
         req.body?.summary || req.body?.excerpt || excerptFromHtml(req.body?.body || '')
       ).trim();
@@ -252,36 +297,53 @@ export default function createNewsletterRouter() {
       }
 
       const admin = await getSupabaseAdmin();
-      const { data: list, error } = await admin
-        .from('subscribers')
-        .select('email')
-        .eq('is_active', true);
+      let list = [];
+      let queryError = null;
 
-      if (error) throw error;
-      const emails = (list || [])
-        .map((row) => String(row.email || '').trim().toLowerCase())
-        .filter((email) => EMAIL_RE.test(email));
+      const withPrefs = await admin.from('subscribers').select('email, preferences').eq('is_active', true);
+      if (withPrefs.error && /preferences|column/i.test(withPrefs.error.message || '')) {
+        const fallback = await admin.from('subscribers').select('email').eq('is_active', true);
+        list = fallback.data || [];
+        queryError = fallback.error;
+      } else {
+        list = withPrefs.data || [];
+        queryError = withPrefs.error;
+      }
+      if (queryError) throw queryError;
 
-      if (!emails.length) {
-        return res.json({ ok: true, sent: 0, skipped: true, reason: 'No active subscribers.' });
+      const recipients = (list || [])
+        .map((row) => ({
+          email: String(row.email || '').trim().toLowerCase(),
+          preferences: normalizePreferences(row.preferences),
+        }))
+        .filter((row) => EMAIL_RE.test(row.email) && row.preferences[letter.key]);
+
+      if (!recipients.length) {
+        return res.json({
+          ok: true,
+          sent: 0,
+          skipped: true,
+          letter: letter.key,
+          reason: `No active subscribers for ${letter.name}.`,
+        });
       }
 
-      const from = newsletterFrom();
+      const from = letterDisplayFrom(letter.key);
       let sent = 0;
 
-      for (let i = 0; i < emails.length; i += 50) {
-        const chunk = emails.slice(i, i + 50);
-        const items = chunk.map((email) => ({
+      for (let i = 0; i < recipients.length; i += 50) {
+        const chunk = recipients.slice(i, i + 50);
+        const items = chunk.map((row) => ({
           from,
-          to: [email],
-          subject: `New from AGI: ${title}`,
-          html: articleHtml({ title, summary, slug, email }),
+          to: [row.email],
+          subject: `${letter.name}: ${title}`,
+          html: articleHtml({ title, summary, slug, email: row.email, letter }),
         }));
         await sendBatchWithResend(items);
         sent += chunk.length;
       }
 
-      return res.json({ ok: true, sent, from });
+      return res.json({ ok: true, sent, from, letter: letter.key, section: section || null });
     } catch (err) {
       console.error('[newsletter/notify-subscribers]', err?.message || err);
       if (err?.code === 'RESEND_MISSING' || err?.code === 'SUPABASE_ADMIN_MISSING') {

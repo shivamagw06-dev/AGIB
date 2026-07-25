@@ -5,7 +5,7 @@ function apiBase() {
 }
 
 /** Best-effort welcome email after newsletter signup. */
-export async function sendWelcomeEmail(email) {
+export async function sendWelcomeEmail(email, preferences = null) {
   const value = String(email || '').trim();
   if (!value) return { ok: false, skipped: true };
   const base = apiBase();
@@ -15,7 +15,7 @@ export async function sendWelcomeEmail(email) {
     const resp = await fetch(`${base}/api/newsletter/welcome`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: value }),
+      body: JSON.stringify({ email: value, preferences }),
     });
     const data = await resp.json().catch(() => ({}));
     return { ok: resp.ok, ...data };
@@ -24,8 +24,17 @@ export async function sendWelcomeEmail(email) {
   }
 }
 
-/** Best-effort new-article blast to active subscribers. */
-export async function notifySubscribers({ title, slug, summary, excerpt, body } = {}) {
+/** Best-effort new-article blast to matching letter subscribers. */
+export async function notifySubscribers({
+  title,
+  slug,
+  summary,
+  excerpt,
+  body,
+  section,
+  newsletterKey,
+  letterKey,
+} = {}) {
   const base = apiBase();
   if (!base) return { ok: false, skipped: true, reason: 'API origin missing' };
 
@@ -33,7 +42,16 @@ export async function notifySubscribers({ title, slug, summary, excerpt, body } 
     const resp = await fetch(`${base}/api/newsletter/notify-subscribers`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, slug, summary, excerpt, body }),
+      body: JSON.stringify({
+        title,
+        slug,
+        summary,
+        excerpt,
+        body,
+        section,
+        newsletterKey,
+        letterKey,
+      }),
     });
     const data = await resp.json().catch(() => ({}));
     return { ok: resp.ok, ...data };
