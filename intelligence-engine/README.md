@@ -106,6 +106,16 @@ Agents read **AGIB Node cached APIs only** (no direct third-party market API cal
 - ORCH: passive Feature Ready / E01 Ready / E14 Ready consumer
 - APIs: `GET /v1/e02/exposure/{symbol}`, `GET /v1/e02/history/{symbol}`, `GET /v1/e02/health`
 
+### E08 Volatility & Options Intelligence P0 (WBS E08-001–005)
+
+- Package: `app/engines/e08/` — Volatility Feature Builder, Volatility State Builder, E08State, EngineState
+- P0 only: historical/realized vol, regime, expansion/compression, basic expected move (when IV metadata available), composite score
+- Inputs: FeatureSnapshot + E01State + E14State + `VOL_*` / available `OPTIONS_*` registry metadata only (no MarketDataClient)
+- Flags: `E08_P0=true`, `E08_GAMMA/DEALER/SURFACE/ML=false`
+- ORCH: passive Feature Ready / E01 Ready / E14 Ready consumer
+- CRE/Replay: auto-registered; promotion disabled
+- APIs: `GET /v1/e08/state/{symbol}`, `GET /v1/e08/history/{symbol}`, `GET /v1/e08/health`
+
 ### E13 Equity Fundamental L/S P0 (WBS E13-001–005)
 
 - Package: `app/engines/e13/` — Fundamental Feature Builder, Composite Fundamental Scorer, E13Fundamental, EngineState
@@ -146,7 +156,7 @@ Agents read **AGIB Node cached APIs only** (no direct third-party market API cal
 ### Validation & Backtesting P0 (WBS BT-001–005)
 
 - Package: `app/validation/` — Replay Engine, Golden Dataset Loader, Historical Engine Runner, Metrics, Dashboard payload
-- Pipeline: Snapshot → E01 → E14 → E02 → E13 → E03 → L4 → E10 → Metrics (isolated instances; replay store only)
+- Pipeline: Snapshot → E01 → E14 → E02 → E13 → E08 → E03 → L4 → E10 → Metrics (isolated instances; replay store only)
 - Metrics: daily/benchmark return, hit/win rate, IC, Sharpe, Sortino, max DD, turnover, confidence calibration, bucket accuracy, parity stability
 - Flags: `BACKTEST=true`, `LIVE=false`
 - APIs: `POST /v1/validation/replay`, `GET /v1/validation/runs`, `GET /v1/validation/runs/{id}`, `GET /v1/validation/dashboard/{id}`, `GET /v1/validation/health`

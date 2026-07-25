@@ -82,6 +82,13 @@ class Settings(BaseSettings):
     e13_moat: bool = False
     e13_ml: bool = False
 
+    # E08 Volatility & Options Intelligence feature flags (P0 defaults)
+    e08_p0: bool = True
+    e08_gamma: bool = False
+    e08_dealer: bool = False
+    e08_surface: bool = False
+    e08_ml: bool = False
+
     # Validation & Backtesting platform flags (P0 defaults)
     backtest: bool = True
     live: bool = False

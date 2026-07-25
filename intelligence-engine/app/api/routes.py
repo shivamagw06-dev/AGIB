@@ -14,6 +14,8 @@ from app.engines.e14.consumer import register_e14_with_orch
 from app.engines.e14.service import E14Service
 from app.engines.e10.consumer import register_e10_with_orch
 from app.engines.e10.service import E10Service
+from app.engines.e08.consumer import register_e08_with_orch
+from app.engines.e08.service import E08Service
 from app.engines.e13.consumer import register_e13_with_orch
 from app.engines.e13.service import E13Service
 from app.engines.l4.consumer import register_l4_with_orch
@@ -43,6 +45,7 @@ _e01 = E01Service(_features, orch_ledger=_orch_ledger)
 _e14 = E14Service(_features, e01=_e01, orch_ledger=_orch_ledger)
 _e02 = E02Service(_features, e01=_e01, e14=_e14, orch_ledger=_orch_ledger)
 _e13 = E13Service(_features, e01=_e01, e14=_e14, orch_ledger=_orch_ledger)
+_e08 = E08Service(_features, e01=_e01, e14=_e14, orch_ledger=_orch_ledger)
 _e03 = E03Service(_features, e01=_e01, e14=_e14, e02=_e02, orch_ledger=_orch_ledger)
 _l4 = L4Service(e01=_e01, e14=_e14, e02=_e02, e03=_e03, orch_ledger=_orch_ledger)
 _e10 = E10Service(l4=_l4, e14=_e14, e02=_e02, orch_ledger=_orch_ledger)
@@ -79,6 +82,11 @@ def _wire_e13_passive_consumer() -> None:
     register_e13_with_orch(_l2, _e13, _e01, _e14)
 
 
+def _wire_e08_passive_consumer() -> None:
+    """E08 registers as passive consumer of FeatureSnapshot + E01State + E14State."""
+    register_e08_with_orch(_l2, _e08, _e01, _e14)
+
+
 def _wire_e03_passive_consumer() -> None:
     """E03 registers as passive consumer of FeatureSnapshot + E01/E14/E02 Ready."""
     register_e03_with_orch(_l2, _e03, _e01, _e14, _e02)
@@ -99,6 +107,7 @@ _wire_e01_passive_consumer()
 _wire_e14_passive_consumer()
 _wire_e02_passive_consumer()
 _wire_e13_passive_consumer()
+_wire_e08_passive_consumer()
 _wire_e03_passive_consumer()
 _wire_l4_passive_consumer()
 _wire_e10_passive_consumer()
@@ -224,6 +233,27 @@ async def e13_fundamental(symbol: str, as_of: str | None = None):
 async def e13_history(symbol: str, limit: int = 50):
     """E13 EngineState history for a symbol (newest first)."""
     return [s.model_dump(mode="json") for s in _e13.history(symbol, limit=min(limit, 200))]
+
+
+@router.get("/e08/health")
+async def e08_health():
+    """E08 Volatility & Options Intelligence health (E08-001–005 P0)."""
+    return _e08.health()
+
+
+@router.get("/e08/state/{symbol}")
+async def e08_state(symbol: str, as_of: str | None = None):
+    """Frontend-ready E08State (warm cache)."""
+    vol = _e08.get_vol_state(symbol, as_of=as_of)
+    if vol is None:
+        raise HTTPException(status_code=404, detail="E08 state not available")
+    return vol.model_dump(mode="json")
+
+
+@router.get("/e08/history/{symbol}")
+async def e08_history(symbol: str, limit: int = 50):
+    """E08 EngineState history for a symbol (newest first)."""
+    return [s.model_dump(mode="json") for s in _e08.history(symbol, limit=min(limit, 200))]
 
 
 @router.get("/e03/health")

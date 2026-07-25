@@ -60,6 +60,23 @@ def register_vol_calculators(service: Any) -> None:
         )
     )
 
+    service.register_calculator(
+        _LastSeries(
+            FeatureMetadata(
+                feature_id="VOL_HIST_60",
+                category="VOL_",
+                description="Annualized historical volatility (60d log returns)",
+                owner="feature-registry",
+                formula_version="1.0.0",
+                dependencies=[],
+                inputs=["ohlcv.close"],
+                refresh_frequency="1d",
+                source="feature_registry",
+            ),
+            lambda ctx: realized_vol(closes(ctx), 60),
+        )
+    )
+
     def atr(ctx: FeatureContext) -> list[float | None]:
         bars = ctx.get("bars") or []
         h = [float(b["high"]) for b in bars]

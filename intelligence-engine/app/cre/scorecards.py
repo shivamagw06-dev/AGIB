@@ -8,7 +8,7 @@ from app.validation.golden.loader import GoldenDataset
 from app.validation.models import ReplayResult
 
 
-ENGINE_IDS = ("E01", "E14", "E02", "E13", "E03", "L4", "E10")
+ENGINE_IDS = ("E01", "E14", "E02", "E13", "E08", "E03", "L4", "E10")
 
 
 def _rank_score(m: RollingMetrics, *, schema: float | None, parity: float | None) -> float:
@@ -71,6 +71,8 @@ def build_engine_scorecards(
             notes.append("parity_reference")
         if eng == "E13":
             notes.append("fundamental_ls")
+        if eng == "E08":
+            notes.append("volatility_intelligence")
         if eng == "E10":
             notes.append("model_portfolio_metrics")
         rank = _rank_score(primary, schema=schema, parity=parity)
@@ -79,6 +81,7 @@ def build_engine_scorecards(
             "L4": 0.02,
             "E03": 0.015,
             "E13": 0.012,
+            "E08": 0.011,
             "E10": 0.01,
             "E02": 0.005,
             "E01": 0.0,
