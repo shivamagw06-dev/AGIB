@@ -137,6 +137,12 @@ class Settings(BaseSettings):
     kip_prediction_tracking: bool = True
     kip_timeline: bool = True
 
+    # Reasoning & Research Synthesis Platform flags (P0 defaults)
+    rsp: bool = True
+    rsp_consensus: bool = True
+    rsp_contradictions: bool = True
+    rsp_reasoning: bool = True
+
 
 @lru_cache
 def get_settings() -> Settings:

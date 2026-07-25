@@ -235,3 +235,16 @@ Agents read **AGIB Node cached APIs only** (no direct third-party market API cal
 - Company dossier + research continuity context for Research Writer
 - Flags: `KIP_AUTO_INGEST=true`, `KIP_HOUSE_VIEW=true`, `KIP_PREDICTION_TRACKING=true`, `KIP_RAG=true`, `KIP_GRAPH=true`, `KIP_TIMELINE=true`
 - APIs: `POST /v1/kip/ingest/agi|broker|newsletter|internal`, `GET /v1/kip/house-view/{ticker}`, `GET /v1/kip/research-history/{ticker}`, `GET /v1/kip/predictions/{ticker}`, `GET /v1/kip/company-dossier/{ticker}`, `POST /v1/kip/client-search`, `GET /v1/kip/search`, `GET /v1/kip/rag`
+
+### Reasoning & Research Synthesis Platform P0 (RSP)
+
+- Package: `app/rsp/` — institutional **Research Committee** layer (does **not** redesign engines)
+- Contract: **KIP retrieves → RSP reasons → LLM writes** (LLM never receives raw retrieved documents)
+- Pipeline: retrieve → dedupe → rank → contradictions → cluster opinions → separate facts/opinions → extract/score evidence → consensus → house-view compare → change detection → ReasoningPackage
+- Consensus: AGI view, broker consensus, market consensus, contrarian view, unknowns
+- Contradiction engine: AGI vs broker, broker disagreement, news vs fundamentals, macro vs technicals, events vs house view, conflicting targets
+- Synthesis: research brief, thesis, counter-thesis, catalysts, risks, valuation, confidence, evidence tree
+- Soft-wired into Research Director as `rsp_reasoning_package` for institutional writing
+- Flags: `RSP=true`, `RSP_CONSENSUS=true`, `RSP_CONTRADICTIONS=true`, `RSP_REASONING=true`
+- Out of scope: fine-tuning, engine redesign, broker execution, portfolio optimisation, autonomous decisions
+- APIs: `POST /v1/rsp/reason`, `POST /v1/rsp/synthesize`, `POST /v1/rsp/committee`, `GET /v1/rsp/reasoning/{id}`, `GET /v1/rsp/evidence/{id}`, `GET /v1/rsp/health`

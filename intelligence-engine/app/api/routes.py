@@ -38,6 +38,8 @@ from app.kip.models import (
     PredictionEvalRequest,
 )
 from app.kip.service import KipService
+from app.rsp.models import CommitteeRequest, ReasonRequest, SynthesizeRequest
+from app.rsp.service import RspService
 from app.validation.service import ValidationService
 from app.features.models import FeatureMetadata
 from app.features.service import FeatureRegistryService
@@ -76,8 +78,10 @@ _e10 = E10Service(l4=_l4, e14=_e14, e02=_e02, orch_ledger=_orch_ledger)
 _validation = ValidationService()
 _cre = CREService()
 _kip = KipService()
-# Soft-wire institutional memory into Research Director (no engine redesign).
+_rsp = RspService(kip=_kip)
+# Soft-wire KIP retrieve → RSP reason into Research Director (no engine redesign).
 _director.kip = _kip
+_director.rsp = _rsp
 
 
 def _wire_market_data_to_l2() -> None:
@@ -796,6 +800,57 @@ async def kip_research_context(q: str = Query(...), ticker: str | None = None):
         return _kip.research_context(q, ticker=ticker)
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/rsp/health")
+async def rsp_health():
+    """Reasoning & Research Synthesis Platform health."""
+    return _rsp.health()
+
+
+@router.post("/rsp/reason")
+async def rsp_reason(body: ReasonRequest):
+    """Run institutional reasoning pipeline → ReasoningPackage (no raw docs to LLM)."""
+    try:
+        return _rsp.reason(body).model_dump(mode="json")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/rsp/synthesize")
+async def rsp_synthesize(body: SynthesizeRequest):
+    """Generate / refresh research synthesis from reasoning inputs."""
+    try:
+        return _rsp.synthesize(body).model_dump(mode="json")
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/rsp/committee")
+async def rsp_committee(body: CommitteeRequest):
+    """Full Research Committee pass (reason + synthesize)."""
+    try:
+        return _rsp.committee(body).model_dump(mode="json")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/rsp/reasoning/{reasoning_id}")
+async def rsp_get_reasoning(reasoning_id: str):
+    pkg = _rsp.get_reasoning(reasoning_id)
+    if pkg is None:
+        raise HTTPException(status_code=404, detail="Reasoning package not found")
+    return pkg.model_dump(mode="json")
+
+
+@router.get("/rsp/evidence/{evidence_id}")
+async def rsp_get_evidence(evidence_id: str):
+    ev = _rsp.get_evidence(evidence_id)
+    if ev is None:
+        raise HTTPException(status_code=404, detail="Evidence not found")
+    return ev.model_dump(mode="json")
 
 
 @router.post("/orch/l2/trigger", dependencies=[Depends(require_token)])

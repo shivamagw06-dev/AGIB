@@ -37,9 +37,15 @@ DESK_PLANS: dict[DeskType, list[str]] = {
 class ResearchDirector:
     """Orchestrates agents only. Does not write the investment thesis."""
 
-    def __init__(self, store: ResearchStore | None = None, kip: Any | None = None):
+    def __init__(
+        self,
+        store: ResearchStore | None = None,
+        kip: Any | None = None,
+        rsp: Any | None = None,
+    ):
         self.store = store or ResearchStore()
         self.kip = kip
+        self.rsp = rsp
         self.evidence_engine = EvidenceEngine()
         self.confidence_engine = ConfidenceEngine()
         self.citation_engine = CitationEngine()
@@ -82,15 +88,25 @@ class ResearchDirector:
         except Exception as exc:
             run.errors.append(f"memory_retrieve: {exc}")
 
-        # KIP RAG institutional context — soft fail; never redesigns research engines
+        # KIP retrieves — soft fail; never redesigns research engines
+        ticker = run.symbols[0] if run.symbols else None
+        q = run.query or " ".join(run.symbols) or run.desk.value
         try:
             kip = getattr(self, "kip", None)
             if kip is not None and getattr(getattr(kip, "flags", None), "kip", False):
-                ticker = run.symbols[0] if run.symbols else None
-                q = run.query or " ".join(run.symbols) or run.desk.value
                 context["kip_research_context"] = kip.research_context(q, ticker=ticker)
         except Exception as exc:
             run.errors.append(f"kip_retrieve: {exc}")
+
+        # RSP reasons — LLM must write from ReasoningPackage, not raw retrieval
+        try:
+            rsp = getattr(self, "rsp", None)
+            if rsp is not None and getattr(getattr(rsp, "flags", None), "rsp", False):
+                context["rsp_reasoning_package"] = rsp.reason_for_writer(q, ticker=ticker)
+                # Do not expose raw KIP document bodies to the writer path
+                context.pop("kip_raw_documents", None)
+        except Exception as exc:
+            run.errors.append(f"rsp_reason: {exc}")
 
         outputs = []
         for agent_id in run.director_plan.agent_ids:
