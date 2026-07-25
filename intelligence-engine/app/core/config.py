@@ -155,6 +155,11 @@ class Settings(BaseSettings):
     aws_replay: bool = True
     aws_cre: bool = True
 
+    # Investment Operations Centre flags (P0 defaults)
+    ioc: bool = True
+    ioc_alerts: bool = True
+    ioc_reports: bool = True
+
 
 @lru_cache
 def get_settings() -> Settings:

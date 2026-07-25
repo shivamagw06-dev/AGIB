@@ -50,6 +50,7 @@ from app.rms.models import (
 from app.rms.service import RmsService
 from app.rms.workflow import WorkflowError
 from app.aws.service import AwsService
+from app.ioc.service import IocService
 from app.validation.service import ValidationService
 from app.features.models import FeatureMetadata
 from app.features.service import FeatureRegistryService
@@ -108,6 +109,30 @@ _aws = AwsService(
     e13=_e13,
     e14=_e14,
     l4=_l4,
+)
+_ioc = IocService(
+    market_data=_market_data,
+    features=_features,
+    orch_l2=_l2,
+    orch_ledger=_orch_ledger,
+    e01=_e01,
+    e02=_e02,
+    e03=_e03,
+    e04=_e04,
+    e05=_e05,
+    e08=_e08,
+    e09=_e09,
+    e10=_e10,
+    e11=_e11,
+    e13=_e13,
+    e14=_e14,
+    l4=_l4,
+    validation=_validation,
+    cre=_cre,
+    kip=_kip,
+    rsp=_rsp,
+    rms=_rms,
+    aws=_aws,
 )
 # Soft-wire KIP retrieve → RSP reason into Research Director (no engine redesign).
 _director.kip = _kip
@@ -1089,6 +1114,65 @@ async def aws_knowledge(entity: str):
     try:
         return _aws.knowledge_explorer(entity).model_dump(mode="json")
     except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/ioc/health")
+async def ioc_health():
+    """Investment Operations Centre health (monitor-only mission control)."""
+    return _ioc.health()
+
+
+@router.get("/ioc/dashboard")
+async def ioc_dashboard():
+    """Ops dashboard: overall/engine/platform health, queues, failures, alerts."""
+    try:
+        return _ioc.dashboard().model_dump(mode="json")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/ioc/alerts")
+async def ioc_alerts():
+    try:
+        rows = _ioc.alerts()
+        return {
+            "alerts": [a.model_dump(mode="json") for a in rows],
+            "count": len(rows),
+        }
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/ioc/providers")
+async def ioc_providers():
+    try:
+        return _ioc.providers()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/ioc/readiness")
+async def ioc_readiness():
+    """Morning / market-open readiness checklist."""
+    try:
+        return _ioc.readiness().model_dump(mode="json")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/ioc/report")
+async def ioc_report(
+    type: str = Query(
+        default="daily_operations",
+        description="daily_operations|morning_readiness|market_open|end_of_day|weekly_operations",
+    ),
+):
+    try:
+        return _ioc.report(type).model_dump(mode="json")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 

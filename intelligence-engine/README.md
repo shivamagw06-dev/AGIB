@@ -271,3 +271,15 @@ Agents read **AGIB Node cached APIs only** (no direct third-party market API cal
 - Flags: `AWS=true`, `AWS_COPILOT=true`, `AWS_REPLAY=true`, `AWS_CRE=true`
 - Out of scope: research engine changes, trading, OMS, broker execution, architecture amendments
 - APIs: `GET /v1/aws/company/{ticker}`, `GET /v1/aws/theme/{id}`, `GET /v1/aws/sector/{id}`, `GET /v1/aws/replay/{date}`, `GET /v1/aws/dashboard`, `GET /v1/aws/search`, `GET /v1/aws/copilot`, plus `/macro`, `/portfolio`, `/research`, `/cre`, `/knowledge/{entity}`, `/health`
+
+### Investment Operations Centre P0 (IOC)
+
+- Package: `app/ioc/` — operational mission control for the AGI Investment Office
+- **Monitors only** — no investment opinions, no research, no portfolio logic, no engine redesign
+- Monitors: Market Data, Feature Registry, ORCH, all engines, L4, E10, Replay, CRE, KIP, RSP, RMS, AWS
+- Health model: healthy / warning / critical / offline / stale / recovering
+- Checks: provider/feature freshness, engine completion, ORCH queue, API/DB latency, replay/CRE success, research publication, knowledge ingestion, prediction tracking, portfolio generation
+- Alerts + reports: daily ops, morning readiness, market open checklist, EOD, weekly summary
+- Flags: `IOC=true`, `IOC_ALERTS=true`, `IOC_REPORTS=true`
+- Out of scope: trading, research, portfolio logic, architecture changes
+- APIs: `GET /v1/ioc/dashboard`, `GET /v1/ioc/health`, `GET /v1/ioc/alerts`, `GET /v1/ioc/providers`, `GET /v1/ioc/readiness`, `GET /v1/ioc/report`
