@@ -31,6 +31,14 @@ class Settings(BaseSettings):
     # Embedding dimension for pgvector (text-embedding-3-small)
     embedding_dimensions: int = 1536
 
+    # WS02 Market Data Platform providers (engines never call these directly)
+    indian_api_key: str = ""
+    indian_api_base_url: str = "https://stock.indianapi.in"
+    finnhub_api_key: str = ""
+    finnhub_base_url: str = "https://finnhub.io/api/v1"
+    fmp_api_key: str = ""
+    fmp_base_url: str = "https://financialmodelingprep.com/api/v3"
+
 
 @lru_cache
 def get_settings() -> Settings:

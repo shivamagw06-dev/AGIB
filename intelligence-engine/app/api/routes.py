@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException
 from app.agents.registry import list_agents
 from app.core.config import Settings, get_settings
 from app.eval.evaluation_agent import EvaluationAgent
+from app.market_data.client import MarketDataClient
 from app.memory.store import ResearchStore
 from app.orchestration.director import ResearchDirector
 from app.schemas.models import PredictionRecord, ResearchRun, ResearchRunCreate
@@ -13,6 +14,7 @@ router = APIRouter(prefix="/v1")
 _store = ResearchStore()
 _director = ResearchDirector(store=_store)
 _eval = EvaluationAgent()
+_market_data = MarketDataClient.from_settings(get_settings())
 
 
 def require_token(
@@ -37,6 +39,12 @@ async def health():
         "service": "agi-intelligence-engine",
         "agents": list_agents(),
     }
+
+
+@router.get("/market-data/health")
+async def market_data_health():
+    """WS02 provider health + cache/latency metrics (no provider-native payloads)."""
+    return _market_data.health.snapshot()
 
 
 @router.post("/research/runs", response_model=ResearchRun, dependencies=[Depends(require_token)])

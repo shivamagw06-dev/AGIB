@@ -49,3 +49,10 @@ curl -sS -X POST http://127.0.0.1:8100/v1/research/runs \
 Research Director plans and invokes analysts → Evidence/Confidence/Citation/Debate engines → Chief Investment Officer synthesizes the final report only.
 
 Agents read **AGIB Node cached APIs only** (no direct third-party market API calls).
+
+### WS02 Market Data Platform (WBS DATA-001–005)
+
+- Package: `app/market_data/` — provider abstraction, rate limit, cache, retry, circuit breaker, failover
+- Providers: IndianAPI, Finnhub, FMP (pluggable via registry)
+- Engines must consume canonical objects from `MarketDataClient` only
+- Health: `GET /v1/market-data/health`
