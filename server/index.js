@@ -182,7 +182,12 @@ function reg(path, handler) {
 
 // --- Health + debug endpoints
 reg('/', (req, res) => res.json({ service: 'finance-news-backend', status: 'running' }));
-reg('/api/health', (req, res) => res.json({ ok: true }));
+reg('/api/health', (req, res) => res.json({
+  ok: true,
+  architecture: 'v1.0.1 LOCKED',
+  ui_aggregation: true,
+  commit: process.env.RENDER_GIT_COMMIT || process.env.GIT_COMMIT || null,
+}));
 reg('/api/news/headlines', async (_req, res) => {
   const data = await getNewsHeadlines();
   res.set('Cache-Control', 'public, max-age=1800, stale-while-revalidate=300');
@@ -560,8 +565,8 @@ reg('/api/market/stock', (req, res) => {
 
 reg('/api/market/symbols', (req, res) => proxyFetch(res, `${FREE_STOCK_API}/symbols`));
 
-// Do not proxy AGI market-intelligence paths to IndianAPI — that produced confusing 404s
-// when the Render deploy lagged the frontend.
+// Do not proxy AGI paths to IndianAPI — that produced confusing "Endpoint not allowed"
+// 404s when a mount lagged or a request fell through the wildcard.
 const AGI_MARKET_INTEL = new Set([
   'briefing',
   'macro-briefing',
@@ -573,10 +578,21 @@ const AGI_MARKET_INTEL = new Set([
   'groww-health',
 ]);
 
+// Mounted AGI routers (must never be forwarded to IndianAPI).
+const AGI_API_PREFIXES = new Set(['ui', 'intelligence', 'research']);
+
 // wildcard fallback (IndianAPI proxy only)
 reg('/api/:path(*)', (req, res) => {
   const path = req.params.path || '';
   const [head, ...rest] = path.split('/').filter(Boolean);
+  if (AGI_API_PREFIXES.has(head)) {
+    return res.status(503).json({
+      error: 'AGI API route unavailable on this server build',
+      path: `/api/${path}`,
+      hint: 'Redeploy finance-news-backend from main so /api/ui, /api/intelligence, and /api/research/nifty500 are mounted.',
+      architecture: 'v1.0.1 LOCKED',
+    });
+  }
   if (head === 'market' && AGI_MARKET_INTEL.has(rest[0])) {
     return res.status(503).json({
       error: 'AGI market intelligence route unavailable on this server build',

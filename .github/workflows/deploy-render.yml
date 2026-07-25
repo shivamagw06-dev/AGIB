@@ -1,0 +1,49 @@
+name: Deploy to Render
+
+# Triggers Render deploy hooks when server or intelligence-engine changes on main.
+# Requires repository secrets:
+#   RENDER_DEPLOY_HOOK_API     — Deploy Hook URL for finance-news-backend / agib-api
+#   RENDER_DEPLOY_HOOK_ENGINE  — Deploy Hook URL for agib-intelligence-engine
+# Create hooks in Render → Service → Settings → Deploy Hook.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'server/**'
+      - 'intelligence-engine/**'
+      - 'render.yaml'
+      - '.github/workflows/deploy-render.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-render
+  cancel-in-progress: false
+
+jobs:
+  trigger-render-deploys:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Node API deploy hook
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_API }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "::warning::RENDER_DEPLOY_HOOK_API secret is not set — skipping API redeploy trigger."
+            echo "Add a Render Deploy Hook secret so /api/ui/* reaches production."
+            exit 0
+          fi
+          curl -fsS -X POST "$HOOK"
+          echo "Triggered RENDER_DEPLOY_HOOK_API"
+
+      - name: Trigger Intelligence Engine deploy hook
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_ENGINE }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "::warning::RENDER_DEPLOY_HOOK_ENGINE secret is not set — skipping engine redeploy trigger."
+            echo "Add a Render Deploy Hook secret so /v1/ui/* backs /api/ui/*."
+            exit 0
+          fi
+          curl -fsS -X POST "$HOOK"
+          echo "Triggered RENDER_DEPLOY_HOOK_ENGINE"
