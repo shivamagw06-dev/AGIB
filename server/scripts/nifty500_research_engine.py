@@ -35,7 +35,7 @@ import pandas as pd
 from growwapi import GrowwAPI
 
 
-ENGINE_VERSION = "2026-07-24-candles-v2"
+ENGINE_VERSION = "2026-07-25-short-history-v3"
 SERVER_ENV_PATH = Path(__file__).resolve().parents[1] / ".env"
 
 
@@ -89,7 +89,7 @@ _default_coverage = "0.85" if _universe_hint > 600 else "0.95"
 CONFIG = {
     "exchange": "NSE",
     "segment": "CASH",
-    "lookback_days": 420,  # ~14 months calendar → 200+ trading sessions across 180-day pages
+    "lookback_days": 420,  # page Groww 1day candles (max 180 days/request)
     "top_n": 20,
     "schedule_times_ist": tuple(
         value.strip()
@@ -100,6 +100,9 @@ CONFIG = {
     "sma_short": 20,
     "sma_long": 50,
     "sma_200": 200,
+    # Groww often returns ~100-130 daily bars even across paged lookbacks.
+    # Require enough for SMA50 + MACD; treat SMA200 as optional when absent.
+    "minimum_bars": int(os.getenv("NIFTY500_MINIMUM_BARS", "60") or 60),
     "volume_average_period": 20,
     "minimum_publish_coverage": float(
         os.getenv("NIFTY500_MINIMUM_PUBLISH_COVERAGE", _default_coverage)
@@ -312,27 +315,32 @@ def fetch_daily_history(groww: GrowwAPI, instrument: dict, trading_symbol: str =
     """Fetch daily candles via Groww's current backtesting candles API.
 
     Uses `get_historical_candles` (groww_symbol + candle_interval=1day).
-    The older `/historical/candle/range` endpoint is deprecated and often returns
-    empty / truncated series — which previously caused 0% research coverage.
-    Daily interval max window is 180 days per Groww docs; we page lookback.
+    Pages newest→oldest in ≤180-day windows (Groww max for 1day).
+    Soft-skips empty/failed older windows so a short recent series still works.
     """
-    end = now_ist()
+    end = now_ist().replace(hour=15, minute=30, second=0, microsecond=0)
     start = end - timedelta(days=CONFIG["lookback_days"])
-    cursor = start
-    parts: list[pd.DataFrame] = []
     groww_symbol = resolve_groww_symbol(instrument, trading_symbol)
     exchange = str(instrument.get("exchange") or CONFIG["exchange"])
     segment = str(instrument.get("segment") or CONFIG["segment"])
     interval = getattr(groww, "CANDLE_INTERVAL_DAY", "1day")
 
-    while cursor < end:
-        finish = min(cursor + timedelta(days=180), end)
+    # Newest window first — Groww often fills recent pages more reliably.
+    windows: list[tuple[datetime, datetime]] = []
+    finish = end
+    while finish > start:
+        begin = max(start, finish - timedelta(days=170))
+        windows.append((begin, finish))
+        finish = begin
+
+    parts: list[pd.DataFrame] = []
+    for begin, finish in windows:
         try:
             payload = groww.get_historical_candles(
                 exchange=exchange,
                 segment=segment,
                 groww_symbol=groww_symbol,
-                start_time=cursor.strftime("%Y-%m-%d %H:%M:%S"),
+                start_time=begin.strftime("%Y-%m-%d %H:%M:%S"),
                 end_time=finish.strftime("%Y-%m-%d %H:%M:%S"),
                 candle_interval=interval,
                 timeout=45,
@@ -340,17 +348,14 @@ def fetch_daily_history(groww: GrowwAPI, instrument: dict, trading_symbol: str =
         except Exception as error:
             if is_groww_auth_error(error):
                 raise RuntimeError(groww_auth_help()) from error
-            raise RuntimeError(
-                f"Groww historical candles failed for {groww_symbol}: {error}"
-            ) from error
+            # Older windows can fail while recent data is still usable.
+            continue
 
-        # SDK returns payload dict directly; tolerate wrapped responses.
         if isinstance(payload, dict) and "candles" not in payload and isinstance(payload.get("payload"), dict):
             payload = payload["payload"]
         frame = candle_frame(payload if isinstance(payload, dict) else {})
         if not frame.empty:
             parts.append(frame)
-        cursor = finish
         time.sleep(0.2)
 
     if not parts:
@@ -369,10 +374,12 @@ def last_or_default(series: pd.Series, default: float = 0.0) -> float:
 
 
 def calculate_indicators(frame: pd.DataFrame) -> Optional[dict]:
-    if len(frame) < CONFIG["sma_200"]:
+    min_bars = CONFIG["minimum_bars"]
+    if len(frame) < min_bars:
         return None
 
     close, high, low, volume = frame["close"], frame["high"], frame["low"], frame["volume"]
+    bars = len(frame)
     delta = close.diff()
     gain, loss = delta.clip(lower=0), -delta.clip(upper=0)
     average_gain = gain.ewm(com=CONFIG["rsi_period"] - 1, min_periods=CONFIG["rsi_period"]).mean()
@@ -385,9 +392,15 @@ def calculate_indicators(frame: pd.DataFrame) -> Optional[dict]:
     macd_signal = macd.ewm(span=9, adjust=False).mean()
     histogram = macd - macd_signal
 
-    sma20, sma50, sma200 = close.rolling(20).mean(), close.rolling(50).mean(), close.rolling(200).mean()
-    middle = close.rolling(20).mean()
-    std = close.rolling(20).std()
+    sma20 = close.rolling(20, min_periods=20).mean()
+    sma50 = close.rolling(50, min_periods=min(50, bars)).mean()
+    # Long benchmark: true SMA200 when available, else longest usable SMA (100/50).
+    long_period = 200 if bars >= 200 else 100 if bars >= 100 else 50
+    sma_long = close.rolling(long_period, min_periods=long_period).mean()
+    has_sma200 = bars >= CONFIG["sma_200"]
+
+    middle = close.rolling(20, min_periods=20).mean()
+    std = close.rolling(20, min_periods=20).std()
     upper, lower = middle + 2 * std, middle - 2 * std
     band_width = upper - lower
     percent_b = (close - lower) / band_width.replace(0, math.nan)
@@ -396,23 +409,28 @@ def calculate_indicators(frame: pd.DataFrame) -> Optional[dict]:
     true_range = pd.concat([high - low, (high - previous_close).abs(), (low - previous_close).abs()], axis=1).max(axis=1)
     atr = true_range.ewm(com=13, min_periods=14).mean()
 
-    average_volume = volume.rolling(CONFIG["volume_average_period"]).mean()
+    average_volume = volume.rolling(CONFIG["volume_average_period"], min_periods=5).mean()
     roc_10 = (close / close.shift(10) - 1) * 100
     change_5 = (close / close.shift(5) - 1) * 100
     change_20 = (close / close.shift(20) - 1) * 100
-    change_60 = (close / close.shift(60) - 1) * 100
+    change_60 = (close / close.shift(min(60, max(bars - 1, 1))) - 1) * 100
 
-    high_52 = high.rolling(252).max()
-    low_52 = low.rolling(252).min()
-    position_52 = (close - low_52) / (high_52 - low_52).replace(0, math.nan)
+    range_n = min(252, bars)
+    high_range = high.rolling(range_n, min_periods=max(20, range_n // 2)).max()
+    low_range = low.rolling(range_n, min_periods=max(20, range_n // 2)).min()
+    position_range = (close - low_range) / (high_range - low_range).replace(0, math.nan)
 
+    above_long = last_or_default(close) > last_or_default(sma_long)
     return {
+        "bars": bars,
+        "long_sma_period": long_period,
+        "has_sma200": has_sma200,
         "rsi": last_or_default(rsi, 50),
         "macd_histogram": last_or_default(histogram),
         "macd_positive": last_or_default(macd) > last_or_default(macd_signal),
         "above_sma20": last_or_default(close) > last_or_default(sma20),
         "above_sma50": last_or_default(close) > last_or_default(sma50),
-        "above_sma200": last_or_default(close) > last_or_default(sma200),
+        "above_sma200": above_long,  # long-term proxy when SMA200 unavailable
         "sma20_above_sma50": last_or_default(sma20) > last_or_default(sma50),
         "percent_b": last_or_default(percent_b, 0.5),
         "atr_percent": (last_or_default(atr) / max(last_or_default(close), 0.01)) * 100,
@@ -421,7 +439,7 @@ def calculate_indicators(frame: pd.DataFrame) -> Optional[dict]:
         "change_20d": last_or_default(change_20),
         "change_60d": last_or_default(change_60),
         "roc_10": last_or_default(roc_10),
-        "position_52w": last_or_default(position_52, 0.5),
+        "position_52w": last_or_default(position_range, 0.5),
     }
 
 
@@ -617,10 +635,13 @@ def diagnose_symbol(symbol: str) -> None:
         print(history.tail(3).to_string(index=False))
     indicators = calculate_indicators(history)
     if not indicators:
-        print(f"FAIL: need {CONFIG['sma_200']} bars for SMA200; got {len(history)}")
+        print(f"FAIL: need {CONFIG['minimum_bars']} bars minimum; got {len(history)}")
         return
     score = score_research(indicators)
-    print(f"OK: {category(score)} · score={score} · confidence={confidence(score, indicators)}")
+    print(
+        f"OK: {category(score)} · score={score} · confidence={confidence(score, indicators)} "
+        f"· long_sma={indicators.get('long_sma_period')} · bars={indicators.get('bars')}"
+    )
 
 
 def run_once(run_name: str = "After Market Close Research") -> None:
