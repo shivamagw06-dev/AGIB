@@ -12,6 +12,8 @@ from app.engines.e02.exposure import E02Exposure
 from app.engines.e02.service import E02Service
 from app.engines.e03.alpha import E03Alpha
 from app.engines.e03.service import E03Service
+from app.engines.e11.sentiment_state import E11State
+from app.engines.e11.service import E11Service
 from app.engines.e14.service import E14Service
 from app.engines.l4.builder import build_opinion
 from app.engines.l4.collector import collect_inputs
@@ -41,6 +43,7 @@ class L4Service:
         e14: E14Service | None = None,
         e02: E02Service | None = None,
         e03: E03Service | None = None,
+        e11: E11Service | None = None,
         store: L4StateStore | None = None,
         orch_ledger: OrchLedger | None = None,
         flags: L4Flags | None = None,
@@ -50,6 +53,7 @@ class L4Service:
         self.e14 = e14
         self.e02 = e02
         self.e03 = e03
+        self.e11 = e11
         self.store = store or L4StateStore()
         self.orch_ledger = orch_ledger
         self.flags = flags or L4Flags.from_settings()
@@ -66,6 +70,7 @@ class L4Service:
         e14_state: EngineState | None = None,
         e02_exposure: E02Exposure | None = None,
         e03_alpha: E03Alpha | None = None,
+        e11_state: E11State | None = None,
         universe_id: str | None = None,
         generated_at: datetime | None = None,
         persist: bool = True,
@@ -87,6 +92,8 @@ class L4Service:
                 e02_exposure = self.e02.get_exposure(sym, as_of=as_of)
             if e03_alpha is None and self.e03 is not None:
                 e03_alpha = self.e03.get_alpha(sym, as_of=as_of)
+            if e11_state is None and self.e11 is not None:
+                e11_state = self.e11.get_sentiment_state(sym, as_of=as_of)
 
             inputs = collect_inputs(
                 symbol=sym,
@@ -95,6 +102,7 @@ class L4Service:
                 e14=e14_state,
                 e02=e02_exposure,
                 e03=e03_alpha,
+                e11=e11_state,
             )
             if inputs.e03 is None and inputs.e01 is None and inputs.e14 is None:
                 raise ValueError("L4 requires at least one of E03/E01/E14")

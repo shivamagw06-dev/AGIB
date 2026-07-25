@@ -32,16 +32,26 @@ def fuse_shadow_vote(
     *,
     evidence: dict[str, list[dict[str, Any]]],
 ) -> FusionResult:
+    e11_signed = 0.0
+    e11_conf = 0.0
+    e11_w = 0.0
+    if inputs.e11 is not None:
+        e11_signed = max(-1.0, min(1.0, (inputs.e11.composite_score - 50.0) / 50.0))
+        e11_conf = float(inputs.e11.confidence)
+        e11_w = min(float(inputs.e11.soft_voter_weight or 0.0), float(VOTER_WEIGHTS.get("E11", 0.05)))
+
     signed_map = {
         "E03": e03_signed(inputs.e03),
         "E01": e01_signed(inputs.e01),
         "E14": e14_signed(inputs.e14),
+        "E11": e11_signed,
         "E02": 0.0,  # context only
     }
     conf_map = {
         "E03": float(inputs.e03.confidence) if inputs.e03 else 0.0,
         "E01": float(inputs.e01.confidence.value) if inputs.e01 else 0.0,
         "E14": float(inputs.e14.confidence.value) if inputs.e14 else 0.0,
+        "E11": e11_conf,
         "E02": float(inputs.e02.factor_confidence) if inputs.e02 else 0.0,
     }
 
@@ -57,6 +67,11 @@ def fuse_shadow_vote(
             continue
         if eng == "E14" and inputs.e14 is None:
             continue
+        if eng == "E11":
+            # Chaos acceptance: absent soft voter ⇒ weight 0, L4 continues
+            if inputs.e11 is None or e11_w <= 0:
+                continue
+            w = e11_w
         x = signed_map[eng]
         c = max(0.05, conf_map[eng])
         effective = w * c

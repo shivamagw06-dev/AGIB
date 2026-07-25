@@ -108,6 +108,14 @@ class Settings(BaseSettings):
     e05_transcripts: bool = False
     e05_ml: bool = False
 
+    # E11 Sentiment & Alternative Data feature flags (P0 defaults)
+    e11_p0: bool = True
+    e11_social: bool = False
+    e11_transcripts: bool = False
+    e11_llm: bool = False
+    e11_ml: bool = False
+    e11_altdata: bool = False
+
     # Validation & Backtesting platform flags (P0 defaults)
     backtest: bool = True
     live: bool = False

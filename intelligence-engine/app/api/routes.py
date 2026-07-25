@@ -14,6 +14,8 @@ from app.engines.e04.consumer import register_e04_with_orch
 from app.engines.e04.service import E04Service
 from app.engines.e05.consumer import register_e05_with_orch
 from app.engines.e05.service import E05Service
+from app.engines.e11.consumer import register_e11_with_orch
+from app.engines.e11.service import E11Service
 from app.engines.e14.consumer import register_e14_with_orch
 from app.engines.e14.service import E14Service
 from app.engines.e10.consumer import register_e10_with_orch
@@ -58,7 +60,10 @@ _e04 = E04Service(
     _features, e01=_e01, e14=_e14, e02=_e02, e03=_e03, orch_ledger=_orch_ledger
 )
 _e05 = E05Service(_features, e01=_e01, e14=_e14, orch_ledger=_orch_ledger)
-_l4 = L4Service(e01=_e01, e14=_e14, e02=_e02, e03=_e03, orch_ledger=_orch_ledger)
+_e11 = E11Service(_features, e01=_e01, e14=_e14, orch_ledger=_orch_ledger)
+_l4 = L4Service(
+    e01=_e01, e14=_e14, e02=_e02, e03=_e03, e11=_e11, orch_ledger=_orch_ledger
+)
 _e10 = E10Service(l4=_l4, e14=_e14, e02=_e02, orch_ledger=_orch_ledger)
 _validation = ValidationService()
 _cre = CREService()
@@ -108,6 +113,11 @@ def _wire_e05_passive_consumer() -> None:
     register_e05_with_orch(_l2, _e05, _e01, _e14)
 
 
+def _wire_e11_passive_consumer() -> None:
+    """E11 registers as passive soft voter after Feature Ready + E01 + E14 Ready."""
+    register_e11_with_orch(_l2, _e11, _e01, _e14)
+
+
 def _wire_e03_passive_consumer() -> None:
     """E03 registers as passive consumer of FeatureSnapshot + E01/E14/E02 Ready."""
     register_e03_with_orch(_l2, _e03, _e01, _e14, _e02)
@@ -136,6 +146,7 @@ _wire_e13_passive_consumer()
 _wire_e08_passive_consumer()
 _wire_e09_passive_consumer()
 _wire_e05_passive_consumer()
+_wire_e11_passive_consumer()
 _wire_e03_passive_consumer()
 _wire_e04_passive_consumer()
 _wire_l4_passive_consumer()
@@ -346,6 +357,36 @@ async def e05_events(symbol: str, as_of: str | None = None):
 async def e05_history(symbol: str, limit: int = 50):
     """E05 EngineState history for a symbol (newest first)."""
     return [s.model_dump(mode="json") for s in _e05.history(symbol, limit=min(limit, 200))]
+
+
+@router.get("/e11/health")
+async def e11_health():
+    """E11 Sentiment & Alternative Data health (E11-001–005 P0)."""
+    return _e11.health()
+
+
+@router.get("/e11/sentiment/{symbol}")
+async def e11_sentiment(symbol: str, as_of: str | None = None):
+    """Frontend-ready E11State soft sentiment (warm cache)."""
+    sent = _e11.get_sentiment_state(symbol, as_of=as_of)
+    if sent is None:
+        raise HTTPException(status_code=404, detail="E11 sentiment not available")
+    return sent.model_dump(mode="json")
+
+
+@router.get("/e11/state/{symbol}")
+async def e11_state(symbol: str, as_of: str | None = None):
+    """Alias of /e11/sentiment/{symbol} for EngineState-style clients."""
+    sent = _e11.get_sentiment_state(symbol, as_of=as_of)
+    if sent is None:
+        raise HTTPException(status_code=404, detail="E11 state not available")
+    return sent.model_dump(mode="json")
+
+
+@router.get("/e11/history/{symbol}")
+async def e11_history(symbol: str, limit: int = 50):
+    """E11 EngineState history for a symbol (newest first)."""
+    return [s.model_dump(mode="json") for s in _e11.history(symbol, limit=min(limit, 200))]
 
 
 @router.get("/e03/health")

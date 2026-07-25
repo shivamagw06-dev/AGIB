@@ -126,6 +126,17 @@ Agents read **AGIB Node cached APIs only** (no direct third-party market API cal
 - CRE/Replay: auto-registered; promotion disabled
 - APIs: `GET /v1/e05/events/{symbol}`, `GET /v1/e05/history/{symbol}`, `GET /v1/e05/health`
 
+### E11 Sentiment & Alternative Data P0 (EPIC-015 / E11-001–005)
+
+- Package: `app/engines/e11/` — Entity map, news tone/decay, soft `E11State` envelope, L4 soft-voter adapter
+- P0 only: entity resolution, news sentiment + exponential decay, social ≤5% weight cap (social disabled), soft voter
+- Inputs: FeatureSnapshot + E01State + E14State + `SENT_*` / `NEWS_*` PIT metadata only (no MarketDataClient)
+- Flags: `E11_P0=true`, `E11_SOCIAL/TRANSCRIPTS/LLM/ML/ALTDATA=false`
+- ORCH: passive Feature Ready / E01 Ready / E14 Ready consumer
+- L4: optional soft voter; absent E11 ⇒ weight 0 (chaos path)
+- CRE/Replay: auto-registered; promotion disabled
+- APIs: `GET /v1/e11/sentiment/{symbol}`, `GET /v1/e11/state/{symbol}`, `GET /v1/e11/history/{symbol}`, `GET /v1/e11/health`
+
 ### E09 CTA Trend Engine P0 (WBS E09-001–005)
 
 - Package: `app/engines/e09/` — Trend Feature Builder, Trend State Builder, E09State, EngineState
@@ -186,7 +197,7 @@ Agents read **AGIB Node cached APIs only** (no direct third-party market API cal
 ### Validation & Backtesting P0 (WBS BT-001–005)
 
 - Package: `app/validation/` — Replay Engine, Golden Dataset Loader, Historical Engine Runner, Metrics, Dashboard payload
-- Pipeline: Snapshot → E01 → E14 → E02 → E13 → E08 → E09 → E05 → E03 → E04 → L4 → E10 → Metrics (isolated instances; replay store only)
+- Pipeline: Snapshot → E01 → E14 → E02 → E13 → E08 → E09 → E05 → E11 → E03 → E04 → L4 → E10 → Metrics (isolated instances; replay store only)
 - Metrics: daily/benchmark return, hit/win rate, IC, Sharpe, Sortino, max DD, turnover, confidence calibration, bucket accuracy, parity stability
 - Flags: `BACKTEST=true`, `LIVE=false`
 - APIs: `POST /v1/validation/replay`, `GET /v1/validation/runs`, `GET /v1/validation/runs/{id}`, `GET /v1/validation/dashboard/{id}`, `GET /v1/validation/health`

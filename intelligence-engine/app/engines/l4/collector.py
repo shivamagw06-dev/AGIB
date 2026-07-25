@@ -1,4 +1,4 @@
-"""L4-001 EngineState Collector — E01/E14/E02/E03 products only."""
+"""L4-001 EngineState Collector — E01/E14/E02/E03 + optional soft E11."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ from typing import Any
 from app.contracts.engine_state import EngineState
 from app.engines.e02.exposure import E02Exposure
 from app.engines.e03.alpha import E03Alpha
+from app.engines.e11.sentiment_state import E11State
 
 
 @dataclass
@@ -18,11 +19,13 @@ class CollectedInputs:
     e14: EngineState | None = None
     e02: E02Exposure | None = None
     e03: E03Alpha | None = None
+    e11: E11State | None = None
     missing: list[str] = field(default_factory=list)
     upstream_hashes: dict[str, str] = field(default_factory=dict)
 
     @property
     def completeness(self) -> float:
+        # Core voters only for completeness; E11 soft optional
         present = sum(
             1
             for x in (self.e01, self.e14, self.e02, self.e03)
@@ -39,6 +42,7 @@ def collect_inputs(
     e14: EngineState | None,
     e02: E02Exposure | None,
     e03: E03Alpha | None,
+    e11: E11State | None = None,
 ) -> CollectedInputs:
     """Assemble typed upstream products. No FeatureSnapshot / MarketData."""
     missing: list[str] = []
@@ -59,6 +63,9 @@ def collect_inputs(
         missing.append("E03Alpha")
     else:
         hashes["E03"] = e03.hash
+    # E11 soft: absence is not a hard missing dependency (chaos: weight 0)
+    if e11 is not None:
+        hashes["E11"] = e11.hash
     return CollectedInputs(
         symbol=symbol.upper(),
         as_of=as_of,
@@ -66,6 +73,7 @@ def collect_inputs(
         e14=e14,
         e02=e02,
         e03=e03,
+        e11=e11,
         missing=missing,
         upstream_hashes=hashes,
     )
