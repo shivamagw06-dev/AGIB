@@ -136,6 +136,8 @@ class SearchView(BaseModel):
     investment_intelligence: dict[str, Any] = Field(default_factory=dict)
     # FLE v1 — forecast history, calibration and learning before reasoning
     forecast_learning: dict[str, Any] = Field(default_factory=dict)
+    # MEE v1 — canonical market events / what changed before reasoning
+    market_events: dict[str, Any] = Field(default_factory=dict)
     institutional_briefing: dict[str, Any] = Field(default_factory=dict)
     sector_intelligence: dict[str, Any] = Field(default_factory=dict)
     company_intelligence: dict[str, Any] = Field(default_factory=dict)

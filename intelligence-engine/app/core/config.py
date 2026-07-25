@@ -231,6 +231,13 @@ class Settings(BaseSettings):
     fle_calibration: bool = True
     fle_scenarios: bool = True
 
+    # Market Event Engine v1 (after FLE; event backbone; no core redesign)
+    mee: bool = True
+    mee_auto_detect: bool = True
+    mee_propagate: bool = True
+    mee_impact: bool = True
+    mee_similar: bool = True
+
 
 @lru_cache
 def get_settings() -> Settings:

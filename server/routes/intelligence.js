@@ -473,5 +473,105 @@ export default function createIntelligenceRouter() {
   router.get('/fle/search', kfGet('/v1/fle/search'));
   router.get('/fle/consult', kfGet('/v1/fle/consult'));
 
+  // MEE v1 — Market Event Engine (after FLE; event backbone).
+  router.get('/mee/health', kfGet('/v1/mee/health'));
+  router.get('/mee/dashboard', kfGet('/v1/mee/dashboard'));
+  router.get('/mee/events', kfGet('/v1/mee/events'));
+  router.post('/mee/events', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/mee/events', { method: 'POST', body: req.body || {} });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Market event engine unavailable', detail: error.message });
+    }
+  });
+  router.get('/mee/events/:eventId', async (req, res) => {
+    try {
+      const result = await engineFetch(`/v1/mee/events/${encodeURIComponent(req.params.eventId)}`);
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Market event engine unavailable', detail: error.message });
+    }
+  });
+  router.post('/mee/events/:eventId/verify', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/mee/events/${encodeURIComponent(req.params.eventId)}/verify`,
+        { method: 'POST', body: {} }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Market event engine unavailable', detail: error.message });
+    }
+  });
+  router.post('/mee/events/:eventId/version', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/mee/events/${encodeURIComponent(req.params.eventId)}/version`,
+        { method: 'POST', body: req.body || {} }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Market event engine unavailable', detail: error.message });
+    }
+  });
+  router.get('/mee/company/:key', async (req, res) => {
+    try {
+      const result = await engineFetch(`/v1/mee/company/${encodeURIComponent(req.params.key)}`);
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Market event engine unavailable', detail: error.message });
+    }
+  });
+  router.get('/mee/sector/:sectorId', async (req, res) => {
+    try {
+      const result = await engineFetch(`/v1/mee/sector/${encodeURIComponent(req.params.sectorId)}`);
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Market event engine unavailable', detail: error.message });
+    }
+  });
+  router.get('/mee/theme/:themeId', async (req, res) => {
+    try {
+      const result = await engineFetch(`/v1/mee/theme/${encodeURIComponent(req.params.themeId)}`);
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Market event engine unavailable', detail: error.message });
+    }
+  });
+  router.get('/mee/timeline', kfGet('/v1/mee/timeline'));
+  router.get('/mee/impact/:eventId', async (req, res) => {
+    try {
+      const result = await engineFetch(`/v1/mee/impact/${encodeURIComponent(req.params.eventId)}`);
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Market event engine unavailable', detail: error.message });
+    }
+  });
+  router.get('/mee/relationships', kfGet('/v1/mee/relationships'));
+  router.get('/mee/history', kfGet('/v1/mee/history'));
+  router.get('/mee/similar/:eventId', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query).toString();
+      const result = await engineFetch(
+        `/v1/mee/similar/${encodeURIComponent(req.params.eventId)}${qs ? `?${qs}` : ''}`
+      );
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Market event engine unavailable', detail: error.message });
+    }
+  });
+  router.post('/mee/cycle', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query).toString();
+      const result = await engineFetch(`/v1/mee/cycle${qs ? `?${qs}` : ''}`, { method: 'POST', body: {} });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Market event engine unavailable', detail: error.message });
+    }
+  });
+  router.get('/mee/search', kfGet('/v1/mee/search'));
+  router.get('/mee/consult', kfGet('/v1/mee/consult'));
+
   return router;
 }

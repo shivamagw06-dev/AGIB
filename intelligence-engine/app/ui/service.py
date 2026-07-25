@@ -90,6 +90,7 @@ class UiService:
         eve: Any | None = None,
         iie: Any | None = None,
         fle: Any | None = None,
+        mee: Any | None = None,
     ) -> None:
         self.flags = flags or UiFlags.from_settings(get_settings())
         self.aws = aws
@@ -107,6 +108,7 @@ class UiService:
         self.eve = eve
         self.iie = iie
         self.fle = fle
+        self.mee = mee
 
     def health(self) -> dict[str, Any]:
         return {
@@ -675,13 +677,25 @@ class UiService:
         irp_pkg = None
         irp_dump: dict[str, Any] = {}
 
-        # FLE → IIE → EVE → AOI → KCV1 / KF1 — forecast history before reasoning (soft enrichment).
+        # MEE → FLE → IIE → EVE → AOI → KCV1 / KF1 — what changed before reasoning (soft enrichment).
         kf_hits: list[dict[str, Any]] = []
         knowledge_corpus: dict[str, Any] = {}
         open_intelligence: dict[str, Any] = {}
         evidence_verification: dict[str, Any] = {}
         investment_intelligence: dict[str, Any] = {}
         forecast_learning: dict[str, Any] = {}
+        market_events: dict[str, Any] = {}
+        if self.mee and q:
+            try:
+                market_events = dump(soft(self.mee.consult, q, limit=8)) or {}
+                if isinstance(market_events, dict):
+                    company_pack = market_events.get("company") or {}
+                    if isinstance(company_pack, dict) and company_pack.get("company_id") and not detected_ticker:
+                        events = company_pack.get("events") or []
+                        if events and events[0].get("company_symbols"):
+                            detected_ticker = str(events[0]["company_symbols"][0]).upper()
+            except Exception:
+                market_events = {}
         if self.fle and q:
             try:
                 forecast_learning = dump(soft(self.fle.consult, q, limit=8)) or {}
@@ -1426,6 +1440,16 @@ class UiService:
                     "use_forecast_history_first": True,
                     "reduce_certainty_if_miscalibrated": False,
                     "never_forget_predictions": True,
+                },
+            },
+            market_events=scrub(market_events)
+            if market_events
+            else {
+                "answer_policy": "what_changed_before_reasoning",
+                "guidance": {
+                    "always_ask_what_changed": True,
+                    "use_event_context_first": True,
+                    "immutable_events": True,
                 },
             },
             institutional_briefing=scrub(briefing) or {},

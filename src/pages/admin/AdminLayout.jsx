@@ -12,6 +12,7 @@ import {
   Shield,
   LineChart,
   Target,
+  Zap,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -24,6 +25,7 @@ const navItems = [
   { to: '/admin/evidence', label: 'Evidence', icon: Shield },
   { to: '/admin/investment-intelligence', label: 'Investment Intel', icon: LineChart },
   { to: '/admin/forecasting', label: 'Forecasting', icon: Target },
+  { to: '/admin/events', label: 'Events', icon: Zap },
 ];
 
 export default function AdminLayout() {

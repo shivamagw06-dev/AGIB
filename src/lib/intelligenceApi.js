@@ -305,3 +305,77 @@ export const consultFle = (q, limit = 8) => {
   const qs = new URLSearchParams({ q, limit: String(limit) }).toString();
   return intelligenceFetch(`/fle/consult?${qs}`);
 };
+
+/** MEE v1 Market Event Engine */
+export const getMeeHealth = () => intelligenceFetch('/mee/health');
+export const getMeeDashboard = () => intelligenceFetch('/mee/dashboard');
+export const listMeeEvents = (params = {}) => {
+  const qs = new URLSearchParams(
+    Object.fromEntries(
+      Object.entries(params)
+        .filter(([, v]) => v !== undefined && v !== null && v !== '')
+        .map(([k, v]) => [k, String(v)])
+    )
+  ).toString();
+  return intelligenceFetch(`/mee/events${qs ? `?${qs}` : ''}`);
+};
+export const createMeeEvent = (payload) =>
+  intelligenceFetch('/mee/events', { method: 'POST', body: payload || {} });
+export const getMeeEvent = (id) => intelligenceFetch(`/mee/events/${encodeURIComponent(id)}`);
+export const verifyMeeEvent = (id) =>
+  intelligenceFetch(`/mee/events/${encodeURIComponent(id)}/verify`, { method: 'POST', body: {} });
+export const versionMeeEvent = (id, payload) =>
+  intelligenceFetch(`/mee/events/${encodeURIComponent(id)}/version`, {
+    method: 'POST',
+    body: payload || {},
+  });
+export const getMeeCompany = (key) => intelligenceFetch(`/mee/company/${encodeURIComponent(key)}`);
+export const getMeeSector = (id) => intelligenceFetch(`/mee/sector/${encodeURIComponent(id)}`);
+export const getMeeTheme = (id) => intelligenceFetch(`/mee/theme/${encodeURIComponent(id)}`);
+export const getMeeTimeline = (params = {}) => {
+  const qs = new URLSearchParams(
+    Object.fromEntries(
+      Object.entries(params)
+        .filter(([, v]) => v !== undefined && v !== null && v !== '')
+        .map(([k, v]) => [k, String(v)])
+    )
+  ).toString();
+  return intelligenceFetch(`/mee/timeline${qs ? `?${qs}` : ''}`);
+};
+export const getMeeImpact = (id) => intelligenceFetch(`/mee/impact/${encodeURIComponent(id)}`);
+export const getMeeRelationships = (params = {}) => {
+  const qs = new URLSearchParams(
+    Object.fromEntries(
+      Object.entries(params)
+        .filter(([, v]) => v !== undefined && v !== null && v !== '')
+        .map(([k, v]) => [k, String(v)])
+    )
+  ).toString();
+  return intelligenceFetch(`/mee/relationships${qs ? `?${qs}` : ''}`);
+};
+export const getMeeHistory = (params = {}) => {
+  const qs = new URLSearchParams(
+    Object.fromEntries(
+      Object.entries(params)
+        .filter(([, v]) => v !== undefined && v !== null && v !== '')
+        .map(([k, v]) => [k, String(v)])
+    )
+  ).toString();
+  return intelligenceFetch(`/mee/history${qs ? `?${qs}` : ''}`);
+};
+export const getMeeSimilar = (id, limit = 8) => {
+  const qs = new URLSearchParams({ limit: String(limit) }).toString();
+  return intelligenceFetch(`/mee/similar/${encodeURIComponent(id)}?${qs}`);
+};
+export const runMeeCycle = (limit = 40) => {
+  const qs = new URLSearchParams({ limit: String(limit) }).toString();
+  return intelligenceFetch(`/mee/cycle?${qs}`, { method: 'POST', body: {} });
+};
+export const searchMee = (q, limit = 20) => {
+  const qs = new URLSearchParams({ q, limit: String(limit) }).toString();
+  return intelligenceFetch(`/mee/search?${qs}`);
+};
+export const consultMee = (q, limit = 8) => {
+  const qs = new URLSearchParams({ q, limit: String(limit) }).toString();
+  return intelligenceFetch(`/mee/consult?${qs}`);
+};

@@ -63,6 +63,7 @@ from app.aoi.service import AoiService
 from app.eve.service import EveService
 from app.iie.service import IieService
 from app.fle.service import FleService
+from app.mee.service import MeeService
 from app.ui.service import UiService
 from app.validation.service import ValidationService
 from app.features.models import FeatureMetadata
@@ -156,6 +157,7 @@ _eve = EveService(aoi=_aoi, kc=_kc, kf=_kf)
 _aoi.bind_eve(_eve)
 _iie = IieService(eve=_eve, kc=_kc, kf=_kf, aoi=_aoi)
 _fle = FleService(iie=_iie, eve=_eve, kc=_kc, kf=_kf, aoi=_aoi)
+_mee = MeeService(eve=_eve, iie=_iie, fle=_fle, aoi=_aoi, kf=_kf, kc=_kc)
 _ui = UiService(
     aws=_aws,
     ioc=_ioc,
@@ -172,6 +174,7 @@ _ui = UiService(
     eve=_eve,
     iie=_iie,
     fle=_fle,
+    mee=_mee,
 )
 # Soft-wire KIP retrieve → RSP reason into Research Director (no engine redesign).
 _director.kip = _kip
@@ -2251,6 +2254,186 @@ async def fle_search(q: str = Query(...), limit: int = Query(default=20, ge=1, l
 async def fle_consult(q: str = Query(...), limit: int = Query(default=8, ge=1, le=40)):
     try:
         return _fle.consult(q, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+# --- MEE v1 Market Event Engine (after FLE; event backbone; no core redesign) ---
+
+
+@router.get("/mee/health")
+async def mee_health():
+    return _mee.health()
+
+
+@router.get("/mee/dashboard")
+async def mee_dashboard():
+    try:
+        return _mee.dashboard()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/mee/events")
+async def mee_list_events(
+    company_id: str | None = Query(default=None),
+    sector_id: str | None = Query(default=None),
+    theme_id: str | None = Query(default=None),
+    category: str | None = Query(default=None),
+    event_type: str | None = Query(default=None),
+    status: str | None = Query(default=None),
+    severity: str | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=200),
+):
+    try:
+        return _mee.list_events(
+            company_id=company_id,
+            sector_id=sector_id,
+            theme_id=theme_id,
+            category=category,
+            event_type=event_type,
+            status=status,
+            severity=severity,
+            limit=limit,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/mee/events")
+async def mee_create_event(payload: dict[str, Any] = Body(default_factory=dict)):
+    try:
+        return _mee.create_event(payload or {})
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/mee/events/{event_id}")
+async def mee_get_event(event_id: str):
+    try:
+        return _mee.get_event(event_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/mee/events/{event_id}/verify")
+async def mee_verify_event(event_id: str):
+    try:
+        return _mee.verify(event_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/mee/events/{event_id}/version")
+async def mee_version_event(event_id: str, payload: dict[str, Any] = Body(default_factory=dict)):
+    try:
+        return _mee.version(event_id, payload or {})
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/mee/company/{key}")
+async def mee_company(key: str):
+    try:
+        return _mee.company(key)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/mee/sector/{sector_id}")
+async def mee_sector(sector_id: str):
+    try:
+        return _mee.sector(sector_id)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/mee/theme/{theme_id}")
+async def mee_theme(theme_id: str):
+    try:
+        return _mee.theme(theme_id)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/mee/timeline")
+async def mee_timeline(
+    scope: str = Query(default="company"),
+    scope_id: str | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=200),
+):
+    try:
+        return _mee.timeline(scope=scope, scope_id=scope_id, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/mee/impact/{event_id}")
+async def mee_impact(event_id: str):
+    try:
+        return _mee.impact(event_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/mee/relationships")
+async def mee_relationships(
+    event_id: str | None = Query(default=None),
+    limit: int = Query(default=100, ge=1, le=500),
+):
+    try:
+        return _mee.relationships(event_id=event_id, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/mee/history")
+async def mee_history(
+    company_id: str | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=200),
+):
+    try:
+        return _mee.history(company_id=company_id, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/mee/similar/{event_id}")
+async def mee_similar(event_id: str, limit: int = Query(default=8, ge=1, le=40)):
+    try:
+        return _mee.similar(event_id, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/mee/cycle")
+async def mee_cycle(limit: int = Query(default=40, ge=1, le=200)):
+    try:
+        return _mee.run_cycle(limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/mee/search")
+async def mee_search(q: str = Query(...), limit: int = Query(default=20, ge=1, le=100)):
+    try:
+        return _mee.search(q, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/mee/consult")
+async def mee_consult(q: str = Query(...), limit: int = Query(default=8, ge=1, le=40)):
+    try:
+        return _mee.consult(q, limit=limit)
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
