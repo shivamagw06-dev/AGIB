@@ -259,3 +259,15 @@ Agents read **AGIB Node cached APIs only** (no direct third-party market API cal
 - Flags: `RMS=true`, `RMS_REVIEW=true`, `RMS_APPROVAL=true`, `RMS_PUBLISH=true`
 - Out of scope: CMS redesign, website redesign, trading, engine redesign
 - APIs: `POST /v1/rms/request`, `POST /v1/rms/draft`, `POST /v1/rms/review`, `POST /v1/rms/approve`, `POST /v1/rms/publish`, `GET /v1/rms/dashboard`, `GET /v1/rms/research/{id}`, `GET /v1/rms/health`
+
+### AGI Analyst Workspace P0 (AWS)
+
+- Package: `app/aws/` — internal Bloomberg-style institutional terminal (**not** a public website)
+- Consumes existing platforms only: KIP, RSP, E01–E05/E08–E11/E13–E14, L4, E10, Replay, CRE, RMS
+- Creates **no** new research logic; soft-aggregates workspace views
+- Workspaces: Company, Sector, Theme, Macro, Portfolio, Research, Replay, CRE + Knowledge Explorer
+- Global search: companies, themes, reports, people, sectors, broker notes, research, predictions
+- Context-aware AI Copilot — never starts from an empty prompt (workspace + KIP + RSP + L4 + portfolio + research)
+- Flags: `AWS=true`, `AWS_COPILOT=true`, `AWS_REPLAY=true`, `AWS_CRE=true`
+- Out of scope: research engine changes, trading, OMS, broker execution, architecture amendments
+- APIs: `GET /v1/aws/company/{ticker}`, `GET /v1/aws/theme/{id}`, `GET /v1/aws/sector/{id}`, `GET /v1/aws/replay/{date}`, `GET /v1/aws/dashboard`, `GET /v1/aws/search`, `GET /v1/aws/copilot`, plus `/macro`, `/portfolio`, `/research`, `/cre`, `/knowledge/{entity}`, `/health`

@@ -49,6 +49,7 @@ from app.rms.models import (
 )
 from app.rms.service import RmsService
 from app.rms.workflow import WorkflowError
+from app.aws.service import AwsService
 from app.validation.service import ValidationService
 from app.features.models import FeatureMetadata
 from app.features.service import FeatureRegistryService
@@ -89,6 +90,25 @@ _cre = CREService()
 _kip = KipService()
 _rsp = RspService(kip=_kip)
 _rms = RmsService(kip=_kip, rsp=_rsp)
+_aws = AwsService(
+    kip=_kip,
+    rsp=_rsp,
+    rms=_rms,
+    cre=_cre,
+    validation=_validation,
+    e01=_e01,
+    e02=_e02,
+    e03=_e03,
+    e04=_e04,
+    e05=_e05,
+    e08=_e08,
+    e09=_e09,
+    e10=_e10,
+    e11=_e11,
+    e13=_e13,
+    e14=_e14,
+    l4=_l4,
+)
 # Soft-wire KIP retrieve → RSP reason into Research Director (no engine redesign).
 _director.kip = _kip
 _director.rsp = _rsp
@@ -947,6 +967,129 @@ async def rms_research(research_id: str):
     if obj is None:
         raise HTTPException(status_code=404, detail="Research not found")
     return obj.model_dump(mode="json")
+
+
+@router.get("/aws/health")
+async def aws_health():
+    """AGI Analyst Workspace health (internal terminal — no public website)."""
+    return _aws.health()
+
+
+@router.get("/aws/company/{ticker}")
+async def aws_company(ticker: str, as_of: str | None = None):
+    """Company workspace — house view, engines, L4, portfolio, KIP, timeline, graph."""
+    try:
+        return _aws.company(ticker, as_of=as_of).model_dump(mode="json")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/aws/theme/{theme_id}")
+async def aws_theme(theme_id: str):
+    try:
+        return _aws.theme(theme_id).model_dump(mode="json")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/aws/sector/{sector_id}")
+async def aws_sector(sector_id: str):
+    try:
+        return _aws.sector(sector_id).model_dump(mode="json")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/aws/replay/{as_of}")
+async def aws_replay(as_of: str):
+    """Replay explorer for a historical date."""
+    try:
+        return _aws.replay(as_of).model_dump(mode="json")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/aws/dashboard")
+async def aws_dashboard():
+    try:
+        return _aws.dashboard().model_dump(mode="json")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/aws/search")
+async def aws_search(q: str = Query(...), limit: int = Query(default=20, ge=1, le=100)):
+    """Global search across companies, themes, reports, research, predictions, people."""
+    try:
+        return _aws.search(q, limit=limit).model_dump(mode="json")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/aws/copilot")
+async def aws_copilot(
+    workspace: str = Query(default="company"),
+    q: str = Query(default=""),
+    ticker: str | None = None,
+    theme_id: str | None = None,
+    sector_id: str | None = None,
+    research_id: str | None = None,
+    as_of: str | None = None,
+):
+    """Context-aware AI copilot pack — never starts from an empty prompt."""
+    try:
+        return _aws.copilot(
+            workspace=workspace,
+            question=q,
+            ticker=ticker,
+            theme_id=theme_id,
+            sector_id=sector_id,
+            research_id=research_id,
+            as_of=as_of,
+        ).model_dump(mode="json")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/aws/macro")
+async def aws_macro(as_of: str | None = None):
+    try:
+        return _aws.macro(as_of=as_of).model_dump(mode="json")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/aws/portfolio")
+async def aws_portfolio(as_of: str | None = None):
+    try:
+        return _aws.portfolio(as_of=as_of).model_dump(mode="json")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/aws/research")
+async def aws_research(research_id: str | None = None):
+    try:
+        return _aws.research(research_id).model_dump(mode="json")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/aws/cre")
+async def aws_cre():
+    try:
+        return _aws.cre_workspace().model_dump(mode="json")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/aws/knowledge/{entity}")
+async def aws_knowledge(entity: str):
+    """Knowledge explorer — graph, themes, industries, research relationships."""
+    try:
+        return _aws.knowledge_explorer(entity).model_dump(mode="json")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.post("/orch/l2/trigger", dependencies=[Depends(require_token)])

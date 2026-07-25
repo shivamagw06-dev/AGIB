@@ -149,6 +149,12 @@ class Settings(BaseSettings):
     rms_approval: bool = True
     rms_publish: bool = True
 
+    # AGI Analyst Workspace flags (P0 defaults)
+    aws: bool = True
+    aws_copilot: bool = True
+    aws_replay: bool = True
+    aws_cre: bool = True
+
 
 @lru_cache
 def get_settings() -> Settings:
