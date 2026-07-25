@@ -9,23 +9,14 @@ import iframeRouteRestorationPlugin from './plugins/vite-plugin-iframe-route-res
 /* ---- NOTE: don't compute isDev at top-level using process.env.NODE_ENV.
    Vite passes `mode` into defineConfig — use that. ---- */
 
-/* ------------------ error handler strings (placeholders) ------------------ */
-const configHorizonsViteErrorHandler = `/* … your string … */`;
-const configHorizonsRuntimeErrorHandler = `/* … your string … */`;
-const configHorizonsConsoleErrroHandler = `/* … your string … */`;
-const configWindowFetchMonkeyPatch = `/* … your string … */`;
-
-/* small plugin to inject scripts into index.html (kept from your original) */
+// Removed broken Horizons placeholder script injectors that polluted production HTML.
 const addTransformIndexHtml = {
   name: 'add-transform-index-html',
   transformIndexHtml(html) {
-    const tags = [
-      { tag: 'script', attrs: { type: 'module' }, children: configHorizonsRuntimeErrorHandler, injectTo: 'head' },
-      { tag: 'script', attrs: { type: 'module' }, children: configHorizonsViteErrorHandler, injectTo: 'head' },
-      { tag: 'script', attrs: { type: 'module' }, children: configHorizonsConsoleErrroHandler, injectTo: 'head' },
-      { tag: 'script', attrs: { type: 'module' }, children: configWindowFetchMonkeyPatch, injectTo: 'head' },
-    ];
-    return { html, tags };
+    return {
+      html: html.replace(/<script type="module">\/\* … your string … \*\/<\/script>\s*/g, ''),
+      tags: [],
+    };
   },
 };
 

@@ -205,7 +205,8 @@ export default function InvestmentOfficeHome() {
       .then((data) => {
         if (!alive || !data) return;
         writeHomeCache(data);
-        setState({ loading: false, data, error: null, source: 'live' });
+        const source = data?.meta?.source || (data?.meta?.fallback_used ? 'market_api' : 'live');
+        setState({ loading: false, data, error: null, source });
       })
       .catch((error) => {
         if (!alive) return;
