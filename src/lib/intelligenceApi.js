@@ -24,3 +24,19 @@ export const listResearchRuns = (params = {}) => {
   const qs = new URLSearchParams(params).toString();
   return intelligenceFetch(`/research/runs${qs ? `?${qs}` : ''}`);
 };
+
+/** KF1 Knowledge Foundation */
+export const getKfHealth = () => intelligenceFetch('/kf/health');
+export const getKfCoverage = () => intelligenceFetch('/kf/coverage');
+export const seedKf = () => intelligenceFetch('/kf/seed', { method: 'POST', body: {} });
+export const rebuildKf = () => intelligenceFetch('/kf/rebuild', { method: 'POST', body: {} });
+export const searchKf = (q, limit = 12) => {
+  const qs = new URLSearchParams({ q, limit: String(limit) }).toString();
+  return intelligenceFetch(`/kf/search?${qs}`);
+};
+export const listKfCompanies = () => intelligenceFetch('/kf/companies');
+export const listKfSectors = () => intelligenceFetch('/kf/sectors');
+export const listKfThemes = () => intelligenceFetch('/kf/themes');
+export const listKfMacros = () => intelligenceFetch('/kf/macros');
+export const listKfPredictions = () => intelligenceFetch('/kf/predictions');
+export const listKfExtracts = () => intelligenceFetch('/kf/extracts');

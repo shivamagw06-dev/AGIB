@@ -173,6 +173,15 @@ class Settings(BaseSettings):
     irp_learning: bool = True
     irp_validation: bool = True
 
+    # Knowledge Foundation V1 (structured knowledge objects over KIP)
+    kf: bool = True
+    kf_auto_build: bool = True
+    kf_company: bool = True
+    kf_sector: bool = True
+    kf_theme: bool = True
+    kf_macro: bool = True
+    kf_predictions: bool = True
+
 
 @lru_cache
 def get_settings() -> Settings:

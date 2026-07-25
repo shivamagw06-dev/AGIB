@@ -84,6 +84,7 @@ class UiService:
         validation: Any | None = None,
         aip: Any | None = None,
         irp: Any | None = None,
+        kf: Any | None = None,
     ) -> None:
         self.flags = flags or UiFlags.from_settings(get_settings())
         self.aws = aws
@@ -95,6 +96,7 @@ class UiService:
         self.validation = validation
         self.aip = aip
         self.irp = irp
+        self.kf = kf
 
     def health(self) -> dict[str, Any]:
         return {
@@ -663,6 +665,20 @@ class UiService:
         irp_pkg = None
         irp_dump: dict[str, Any] = {}
 
+        # KF1 — resolve knowledge objects before document retrieval (soft enrichment).
+        kf_hits: list[dict[str, Any]] = []
+        if self.kf and q:
+            try:
+                kf_search = dump(soft(self.kf.search, q, limit=8)) or {}
+                kf_hits = list(kf_search.get("hits") or []) if isinstance(kf_search, dict) else []
+                if not detected_ticker:
+                    for hit in kf_hits:
+                        if isinstance(hit, dict) and hit.get("kind") == "company" and hit.get("key"):
+                            detected_ticker = str(hit["key"]).upper()
+                            break
+            except Exception:
+                kf_hits = []
+
         # IRP V1 — think (intent → entities → plan → retrieve → reason) before answering.
         if self.irp and q:
             try:
@@ -816,6 +832,17 @@ class UiService:
                 related_sectors.append(str(irp_entities.get("sector")))
             if irp_entities.get("sector_label"):
                 related_sectors.append(str(irp_entities.get("sector_label")))
+        for hit in kf_hits:
+            if not isinstance(hit, dict):
+                continue
+            kind = str(hit.get("kind") or "")
+            key = str(hit.get("key") or "")
+            if kind == "company" and key:
+                related.append(key.upper())
+            elif kind == "theme" and key:
+                related_themes.append(key)
+            elif kind == "sector" and key:
+                related_sectors.append(str(hit.get("label") or key))
         if isinstance(house, dict):
             related_themes.extend([str(x) for x in (house.get("themes") or [])])
             related_sectors.extend([str(x) for x in (house.get("sectors") or [])])
@@ -1221,6 +1248,12 @@ class UiService:
                 "programme": "IRP V1",
                 "think_before_answer": True,
             }
+        if kf_hits:
+            workspace = {
+                **workspace,
+                "knowledge_first": True,
+                "knowledge_hits": len(kf_hits),
+            }
 
         return SearchView(
             meta=UiMeta(
@@ -1287,6 +1320,11 @@ class UiService:
             portfolio_context=port_ctx,
             workspace=workspace,
             irp=scrub(irp_meta) or {},
+            knowledge_foundation={
+                "answer_policy": "knowledge_objects_before_documents",
+                "hits": scrub(kf_hits)[:8],
+                "count": len(kf_hits),
+            },
             institutional_briefing=scrub(briefing) or {},
             sector_intelligence=scrub((irp_dump or {}).get("sector_intelligence") or {})
             if isinstance(irp_dump, dict)

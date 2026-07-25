@@ -136,5 +136,70 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // KF1 Knowledge Foundation — structured knowledge objects over KIP.
+  const kfGet = (enginePath) => async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query).toString();
+      const suffix = qs ? `?${qs}` : '';
+      const result = await engineFetch(`${enginePath}${suffix}`);
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Knowledge Foundation unavailable', detail: error.message });
+    }
+  };
+
+  const kfPost = (enginePath) => async (_req, res) => {
+    try {
+      const result = await engineFetch(enginePath, { method: 'POST', body: {} });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Knowledge Foundation unavailable', detail: error.message });
+    }
+  };
+
+  router.get('/kf/health', kfGet('/v1/kf/health'));
+  router.get('/kf/coverage', kfGet('/v1/kf/coverage'));
+  router.post('/kf/seed', kfPost('/v1/kf/seed'));
+  router.post('/kf/rebuild', kfPost('/v1/kf/rebuild'));
+  router.get('/kf/search', kfGet('/v1/kf/search'));
+  router.get('/kf/companies', kfGet('/v1/kf/companies'));
+  router.get('/kf/company/:ticker', async (req, res) => {
+    try {
+      const result = await engineFetch(`/v1/kf/company/${encodeURIComponent(req.params.ticker)}`);
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Knowledge Foundation unavailable', detail: error.message });
+    }
+  });
+  router.get('/kf/sectors', kfGet('/v1/kf/sectors'));
+  router.get('/kf/sector/:sectorId', async (req, res) => {
+    try {
+      const result = await engineFetch(`/v1/kf/sector/${encodeURIComponent(req.params.sectorId)}`);
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Knowledge Foundation unavailable', detail: error.message });
+    }
+  });
+  router.get('/kf/themes', kfGet('/v1/kf/themes'));
+  router.get('/kf/theme/:themeId', async (req, res) => {
+    try {
+      const result = await engineFetch(`/v1/kf/theme/${encodeURIComponent(req.params.themeId)}`);
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Knowledge Foundation unavailable', detail: error.message });
+    }
+  });
+  router.get('/kf/macros', kfGet('/v1/kf/macros'));
+  router.get('/kf/macro/:macroId', async (req, res) => {
+    try {
+      const result = await engineFetch(`/v1/kf/macro/${encodeURIComponent(req.params.macroId)}`);
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Knowledge Foundation unavailable', detail: error.message });
+    }
+  });
+  router.get('/kf/predictions', kfGet('/v1/kf/predictions'));
+  router.get('/kf/extracts', kfGet('/v1/kf/extracts'));
+
   return router;
 }

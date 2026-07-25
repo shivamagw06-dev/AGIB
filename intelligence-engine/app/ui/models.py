@@ -124,6 +124,8 @@ class SearchView(BaseModel):
     workspace: dict[str, Any] = Field(default_factory=dict)
     # IRP V1 — Institutional Reasoning Pipeline (Ask AGI briefing layer)
     irp: dict[str, Any] = Field(default_factory=dict)
+    # KF1 — Knowledge Foundation objects resolved before documents
+    knowledge_foundation: dict[str, Any] = Field(default_factory=dict)
     institutional_briefing: dict[str, Any] = Field(default_factory=dict)
     sector_intelligence: dict[str, Any] = Field(default_factory=dict)
     company_intelligence: dict[str, Any] = Field(default_factory=dict)

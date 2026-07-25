@@ -7,6 +7,7 @@ import {
   ExternalLink,
   LogOut,
   ChevronRight,
+  Brain,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -14,6 +15,7 @@ const navItems = [
   { to: '/admin', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/admin/articles/new', label: 'New Article', icon: Plus },
   { to: '/admin/categories', label: 'Categories', icon: FolderOpen },
+  { to: '/admin/knowledge', label: 'Knowledge Foundation', icon: Brain },
 ];
 
 export default function AdminLayout() {

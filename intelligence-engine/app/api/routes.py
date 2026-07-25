@@ -54,6 +54,7 @@ from app.ioc.service import IocService
 from app.aip.models import ExperimentHypothesis, ExperimentRequest
 from app.aip.service import AipService
 from app.irp.service import IrpService
+from app.kf.service import KfService
 from app.ui.service import UiService
 from app.validation.service import ValidationService
 from app.features.models import FeatureMetadata
@@ -140,6 +141,7 @@ _ioc = IocService(
 )
 _aip = AipService()
 _irp = IrpService(kip=_kip, rsp=_rsp)
+_kf = KfService(kip=_kip)
 _ui = UiService(
     aws=_aws,
     ioc=_ioc,
@@ -150,6 +152,7 @@ _ui = UiService(
     validation=_validation,
     aip=_aip,
     irp=_irp,
+    kf=_kf,
 )
 # Soft-wire KIP retrieve → RSP reason into Research Director (no engine redesign).
 _director.kip = _kip
@@ -670,7 +673,16 @@ async def kip_ingest(body: IngestRequest):
         doc = _kip.ingest(body)
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    _kf_soft_learn(doc)
     return doc.model_dump(mode="json")
+
+
+def _kf_soft_learn(doc) -> None:
+    """Soft KF learning hook — never fails the KIP ingest path."""
+    try:
+        _kf.on_document(doc)
+    except Exception:
+        return
 
 
 def _channel_ingest(body: ChannelIngestRequest, channel: str):
@@ -688,6 +700,9 @@ def _channel_ingest(body: ChannelIngestRequest, channel: str):
                 result = _kip.ingest_newsletter(bulk)
             else:
                 result = _kip.ingest_bulk(bulk.model_copy(update={"source_channel": channel}))
+            # Soft-learn each ingested document into Knowledge Foundation.
+            for item in getattr(result, "ingested", None) or []:
+                _kf_soft_learn(item)
             return result.model_dump(mode="json")
         single = IngestRequest(**body.model_dump(exclude={"items", "zip_base64", "default_broker"}))
         if channel == "agi":
@@ -698,6 +713,7 @@ def _channel_ingest(body: ChannelIngestRequest, channel: str):
             doc = _kip.ingest_newsletter(single)
         else:
             doc = _kip.ingest_internal(single)
+        _kf_soft_learn(doc)
         return doc.model_dump(mode="json")
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -1397,6 +1413,126 @@ async def aip_promotion():
 async def aip_dashboard():
     try:
         return _aip.dashboard()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+# --- KF1 Knowledge Foundation (structured knowledge over KIP; no redesign) ---
+
+
+@router.get("/kf/health")
+async def kf_health():
+    return _kf.health()
+
+
+@router.get("/kf/coverage")
+async def kf_coverage():
+    try:
+        return _kf.coverage()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/kf/seed")
+async def kf_seed():
+    try:
+        return _kf.seed()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/kf/rebuild")
+async def kf_rebuild():
+    try:
+        return _kf.rebuild()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/kf/search")
+async def kf_search(q: str = Query(...), limit: int = Query(default=12, ge=1, le=50)):
+    try:
+        return _kf.search(q, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/kf/companies")
+async def kf_companies():
+    try:
+        return {"companies": _kf.list_companies()}
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/kf/company/{ticker}")
+async def kf_company(ticker: str):
+    try:
+        return _kf.get_company(ticker)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/kf/sectors")
+async def kf_sectors():
+    try:
+        return {"sectors": _kf.list_sectors()}
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/kf/sector/{sector_id}")
+async def kf_sector(sector_id: str):
+    try:
+        return _kf.get_sector(sector_id)
+    except (RuntimeError, KeyError) as exc:
+        raise HTTPException(status_code=404 if isinstance(exc, KeyError) else 400, detail=str(exc)) from exc
+
+
+@router.get("/kf/themes")
+async def kf_themes():
+    try:
+        return {"themes": _kf.list_themes()}
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/kf/theme/{theme_id}")
+async def kf_theme(theme_id: str):
+    try:
+        return _kf.get_theme(theme_id)
+    except (RuntimeError, KeyError) as exc:
+        raise HTTPException(status_code=404 if isinstance(exc, KeyError) else 400, detail=str(exc)) from exc
+
+
+@router.get("/kf/macros")
+async def kf_macros():
+    try:
+        return {"macros": _kf.list_macros()}
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/kf/macro/{macro_id}")
+async def kf_macro(macro_id: str):
+    try:
+        return _kf.get_macro(macro_id)
+    except (RuntimeError, KeyError) as exc:
+        raise HTTPException(status_code=404 if isinstance(exc, KeyError) else 400, detail=str(exc)) from exc
+
+
+@router.get("/kf/predictions")
+async def kf_predictions():
+    try:
+        return {"predictions": _kf.list_predictions()}
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/kf/extracts")
+async def kf_extracts():
+    try:
+        return {"extracts": _kf.list_extracts()}
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
