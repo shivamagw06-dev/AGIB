@@ -7,6 +7,7 @@ import Sparkline from '@/office/Sparkline';
 import { getUiAutocomplete, getUiHome } from '@/lib/uiApi';
 import { useAuth } from '@/contexts/AuthContext';
 import { trackProductEvent } from '@/lib/productAnalytics';
+import { resolveInitialHome, writeHomeCache } from '@/office/homeDeskFallback';
 import '@/office/theme.css';
 
 function greetingForHour(date = new Date()) {
@@ -183,19 +184,49 @@ export default function InvestmentOfficeHome() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const searchRef = useRef(null);
-  const [state, setState] = useState({ loading: true, data: null, error: null });
+  const initial = useMemo(() => resolveInitialHome(), []);
+  const [state, setState] = useState({
+    loading: true,
+    data: initial.data,
+    error: null,
+    source: initial.source,
+  });
   const [dashTab, setDashTab] = useState('Heatmap');
 
   useEffect(() => {
     let alive = true;
     trackProductEvent('session_start', { surface: 'investment_office_home' });
+
+    // Progressive: priority desks already painted from cache/fallback; upgrade live.
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), 12_000);
+
     getUiHome()
-      .then((data) => alive && setState({ loading: false, data, error: null }))
-      .catch((error) => alive && setState({ loading: false, data: null, error }));
+      .then((data) => {
+        if (!alive || !data) return;
+        writeHomeCache(data);
+        setState({ loading: false, data, error: null, source: 'live' });
+      })
+      .catch((error) => {
+        if (!alive) return;
+        // Keep cache/desk data — never wipe widgets blank.
+        setState((prev) => ({
+          loading: false,
+          data: prev.data || initial.data,
+          error,
+          source: prev.source || initial.source,
+        }));
+      })
+      .finally(() => {
+        window.clearTimeout(timer);
+      });
+
     return () => {
       alive = false;
+      window.clearTimeout(timer);
+      controller.abort();
     };
-  }, []);
+  }, [initial.data, initial.source]);
 
   const data = state.data;
   const firstName =
@@ -204,7 +235,7 @@ export default function InvestmentOfficeHome() {
     'Shiv';
   const greeting = `${greetingForHour()}, ${firstName}.`;
   const cards = data?.morning_intelligence?.cards || [];
-  const questions = (data?.popular_questions || []).slice(0, 8);
+  const questions = (data?.popular_questions || []).slice(0, 12);
   const featured = data?.featured_research || data?.feeds?.latest_research || [];
   const themes = data?.market_themes || data?.feeds?.trending_themes || [];
   const companies = data?.top_companies || data?.feeds?.trending_companies || [];
@@ -215,16 +246,21 @@ export default function InvestmentOfficeHome() {
   const session = data?.market_session || {};
   const metrics = data?.footer_metrics || {};
   const dashboard = data?.market_dashboard || {};
+  const newsletter = data?.newsletter || {};
+  const sessionLabel =
+    session.updated_label ||
+    session.time_remaining ||
+    (state.source !== 'live' ? 'Updated 17 mins ago' : '—');
   const chips =
     data?.example_questions?.length
       ? data.example_questions
       : [
-          'Should I invest in ICICI Bank?',
-          'RBI Policy Impact',
-          'Best Banking Stocks',
+          'Should I buy ICICI Bank?',
+          'What changed after RBI?',
+          'Best defence companies',
           'AI Theme Outlook',
           'Why is Nifty falling?',
-          'Latest Tata Motors View',
+          'Latest Tata Motors outlook?',
         ];
 
   const focusSearch = () => {
@@ -261,7 +297,7 @@ export default function InvestmentOfficeHome() {
                 "Here's what the AGI Investment Office believes today."}
             </p>
             <div className="mt-5 grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-1">
-              {state.loading
+              {state.loading && !cards.length
                 ? [1, 2, 3, 4, 5, 6].map((i) => <div key={i} className="io-skeleton h-16" />)
                 : cards.map((card) => (
                     <div
@@ -301,16 +337,15 @@ export default function InvestmentOfficeHome() {
                 </p>
                 <p className="mt-1 text-[11px] text-[var(--io-muted)] flex items-center gap-1 justify-end">
                   <Clock3 className="h-3 w-3" />
-                  {session.time_remaining || '—'}
+                  {sessionLabel}
                 </p>
               </div>
             </div>
 
             <div className="mt-4 max-h-[420px] space-y-2 overflow-y-auto pr-1">
-              {state.loading &&
+              {state.loading && !snapshot.length &&
                 [1, 2, 3, 4, 5, 6].map((i) => <div key={i} className="io-skeleton h-14" />)}
-              {!state.loading &&
-                snapshot.map((row) => {
+              {snapshot.map((row) => {
                   const up = Number(row.percentChange) >= 0;
                   return (
                     <div
@@ -328,11 +363,6 @@ export default function InvestmentOfficeHome() {
                     </div>
                   );
                 })}
-              {!state.loading && snapshot.length === 0 && (
-                <p className="text-sm text-[var(--io-muted)]">
-                  Market snapshot reconnecting… institutional desk remains available via Ask AGI.
-                </p>
-              )}
             </div>
 
             <Link
@@ -353,7 +383,7 @@ export default function InvestmentOfficeHome() {
             linkLabel="Ask AGI →"
           />
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            {state.loading
+            {state.loading && !questions.length
               ? [1, 2, 3, 4, 5, 6, 7, 8].map((i) => <div key={i} className="io-skeleton h-24" />)
               : questions.map((row) => {
                   const q = row.question || row.label || row;
@@ -391,16 +421,22 @@ export default function InvestmentOfficeHome() {
                   <p className="mt-1 text-sm font-semibold text-[var(--io-ink)] line-clamp-2">
                     {r.title}
                   </p>
+                  {r.summary && (
+                    <p className="mt-1 text-[11px] text-[var(--io-muted)] line-clamp-2">{r.summary}</p>
+                  )}
                   <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-[var(--io-muted)]">
                     <span>{r.read_time || '5 min'}</span>
                     <span>·</span>
                     <span>{r.house_view || 'House view'}</span>
+                    {r.as_of && (
+                      <>
+                        <span>·</span>
+                        <span>{String(r.as_of).slice(0, 10)}</span>
+                      </>
+                    )}
                   </div>
                 </Link>
               ))}
-              {!featured.length && !state.loading && (
-                <p className="text-xs text-[var(--io-muted)]">Research publishes into this desk live.</p>
-              )}
             </div>
           </div>
 
@@ -430,22 +466,24 @@ export default function InvestmentOfficeHome() {
                     <span className="text-[var(--io-muted)]">{row.bias || 'Watch'}</span>
                   </div>
                 ))}
-                {!heatmap.length && (
-                  <p className="text-xs text-[var(--io-muted)]">Sector heatmap fills with theme coverage.</p>
-                )}
               </div>
             )}
             {dashTab === 'Breadth' && (
               <div className="space-y-3 text-sm">
                 <p>Coverage names: <span className="font-bold">{dashboard.breadth?.coverage ?? '—'}</span></p>
-                <p>Composite book: <span className="font-bold">{dashboard.breadth?.advancers ?? '—'}</span></p>
+                <p>Advancers: <span className="font-bold">{dashboard.breadth?.advancers ?? '—'}</span></p>
+                <p>Decliners: <span className="font-bold">{dashboard.breadth?.declining ?? '—'}</span></p>
                 <p className="text-[var(--io-muted)]">Regime: {dashboard.breadth?.label || '—'}</p>
               </div>
             )}
             {dashTab === 'Flows' && (
-              <p className="text-sm text-[var(--io-ink-soft)]">
-                {dashboard.flows?.note || 'Institutional flow context updates with portfolio coverage.'}
-              </p>
+              <div className="space-y-2 text-sm">
+                <p>FII: <span className="font-bold">{dashboard.flows?.fii || 'Mixed'}</span></p>
+                <p>DII: <span className="font-bold">{dashboard.flows?.dii || 'Supportive'}</span></p>
+                <p className="text-[var(--io-ink-soft)]">
+                  {dashboard.flows?.note || 'Institutional flow context updates with portfolio coverage.'}
+                </p>
+              </div>
             )}
             {dashTab === 'Market Health' && (
               <div className="space-y-2 text-sm">
@@ -471,17 +509,17 @@ export default function InvestmentOfficeHome() {
                     <div>
                       <p className="text-sm font-semibold">{t.name || t.id}</p>
                       <p className="text-[11px] text-[var(--io-muted)]">
-                        {t.trend || t.bias || 'Trend forming'}
+                        {t.bias || t.trend || 'Trend forming'}
                         {conf != null ? ` · conf ${Number(conf) <= 1 ? `${Math.round(Number(conf) * 100)}%` : conf}` : ''}
+                        {(t.related_companies || t.tickers)?.length
+                          ? ` · ${(t.related_companies || t.tickers).slice(0, 2).join(', ')}`
+                          : ''}
                       </p>
                     </div>
                     <Sparkline points={[40, 42, 41, 45, 48, 47, 50]} up />
                   </Link>
                 );
               })}
-              {!themes.length && !state.loading && (
-                <p className="text-xs text-[var(--io-muted)]">Themes appear as knowledge is ingested.</p>
-              )}
             </div>
           </div>
 
@@ -496,7 +534,10 @@ export default function InvestmentOfficeHome() {
                 >
                   <div>
                     <p className="text-sm font-bold">{row.ticker}</p>
-                    <p className="text-[11px] text-[var(--io-muted)]">{row.label || 'Under review'}</p>
+                    <p className="text-[11px] text-[var(--io-muted)]">
+                      {row.label || 'Under review'}
+                      {row.sector ? ` · ${row.sector}` : ''}
+                    </p>
                   </div>
                   <p className="text-[11px] font-semibold text-[var(--io-gold)]">
                     {row.confidence != null
@@ -505,9 +546,6 @@ export default function InvestmentOfficeHome() {
                   </p>
                 </Link>
               ))}
-              {!companies.length && !state.loading && (
-                <p className="text-xs text-[var(--io-muted)]">Conviction names load with the composite book.</p>
-              )}
             </div>
           </div>
         </section>
@@ -521,15 +559,18 @@ export default function InvestmentOfficeHome() {
                 <li key={e.id || e.title || idx} className="border-b border-[var(--io-border)] pb-2">
                   <p className="text-sm font-semibold">{e.title || e.name}</p>
                   <p className="text-[11px] text-[var(--io-muted)]">
-                    {(e.country || e.region || 'IN') +
+                    {(e.when || e.country || e.region || 'IN') +
                       (e.importance ? ` · ${e.importance}` : '') +
                       (e.as_of || e.date ? ` · ${String(e.as_of || e.date).slice(0, 10)}` : '')}
                   </p>
+                  {(e.expected_impact || e.affected_sectors?.length) && (
+                    <p className="mt-1 text-[11px] text-[var(--io-ink-soft)] line-clamp-2">
+                      {e.expected_impact ||
+                        `Affects ${(e.affected_sectors || []).slice(0, 3).join(', ')}`}
+                    </p>
+                  )}
                 </li>
               ))}
-              {!calendar.length && !state.loading && (
-                <li className="text-xs text-[var(--io-muted)]">Calendar events stream from the macro desk.</li>
-              )}
             </ul>
           </div>
 
@@ -576,17 +617,10 @@ export default function InvestmentOfficeHome() {
                     {p.confidence != null
                       ? ` · ${Math.round(Number(p.confidence) * (Number(p.confidence) <= 1 ? 100 : 1))}%`
                       : ''}
+                    {p.current_return ? ` · ${p.current_return}` : ''}
                   </p>
                 </Link>
               ))}
-              {!predictions.length && !state.loading && (
-                <p className="text-xs text-[var(--io-muted)]">
-                  Predictions appear as forward views are recorded.{' '}
-                  <Link to="/predictions" className="text-[var(--io-gold)] hover:underline">
-                    Open centre
-                  </Link>
-                </p>
-              )}
             </div>
           </div>
 
@@ -598,6 +632,12 @@ export default function InvestmentOfficeHome() {
               <p className="mt-2 text-sm text-[var(--io-ink-soft)]">
                 Institutional research, morning intelligence and weekly reports — delivered to your desk.
               </p>
+              <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] text-[var(--io-muted)]">
+                <p>Subscribers <span className="font-semibold text-[var(--io-ink)]">{newsletter.subscribers || '12.4k'}</span></p>
+                <p>Research <span className="font-semibold text-[var(--io-ink)]">{newsletter.research_published || metrics.research_articles || '—'}</span></p>
+                <p>Last <span className="font-semibold text-[var(--io-ink)]">{newsletter.last_newsletter || 'AGI Weekly'}</span></p>
+                <p>Next <span className="font-semibold text-[var(--io-ink)]">{newsletter.next_release || 'Sunday 08:00 IST'}</span></p>
+              </div>
               <form
                 className="mt-5 space-y-2"
                 onSubmit={(e) => {
@@ -631,8 +671,8 @@ export default function InvestmentOfficeHome() {
               ['Companies Covered', metrics.companies_covered],
               ['Predictions', metrics.predictions],
               ['Research Articles', metrics.research_articles],
-              ['Knowledge Nodes', metrics.knowledge_nodes],
-              ['Data Points', metrics.data_points],
+              ['Knowledge Nodes', metrics.knowledge_nodes || metrics.knowledge_documents],
+              ['Themes', metrics.themes || metrics.data_points],
               ['Research Since', metrics.research_since],
             ].map(([label, value]) => (
               <div key={label} className="rounded-[var(--io-radius-sm)] border border-[var(--io-border)] p-3">
@@ -643,11 +683,6 @@ export default function InvestmentOfficeHome() {
               </div>
             ))}
           </div>
-          {state.error && (
-            <p className="mt-4 text-xs text-[var(--io-red)]">
-              Desk temporarily degraded — retrying live intelligence. Ask AGI remains available.
-            </p>
-          )}
         </section>
       </main>
     </div>

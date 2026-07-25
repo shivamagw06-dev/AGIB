@@ -7,9 +7,29 @@ from typing import Any
 
 SEED_QUESTIONS: list[dict[str, str]] = [
     {
-        "question": "Should I invest in ICICI Bank?",
+        "question": "Should I buy ICICI Bank?",
         "category": "company",
         "reason": "Frequently asked company research",
+    },
+    {
+        "question": "What changed after RBI?",
+        "category": "macro",
+        "reason": "Policy transmission into equities",
+    },
+    {
+        "question": "Why is Nifty falling?",
+        "category": "market_summary",
+        "reason": "Daily index move literacy",
+    },
+    {
+        "question": "Which sectors benefit from lower rates?",
+        "category": "macro",
+        "reason": "Rates sensitivity across the book",
+    },
+    {
+        "question": "Latest Tata Motors outlook?",
+        "category": "company",
+        "reason": "Auto cycle and earnings continuity",
     },
     {
         "question": "What is AGI's current market view?",
@@ -17,34 +37,34 @@ SEED_QUESTIONS: list[dict[str, str]] = [
         "reason": "Today's institutional house view",
     },
     {
-        "question": "Which sectors benefit from lower interest rates?",
-        "category": "macro",
-        "reason": "Rates transmission into equities",
-    },
-    {
-        "question": "Summarise today's market.",
-        "category": "market_summary",
-        "reason": "Daily desk briefing",
-    },
-    {
         "question": "Compare HDFC Bank vs ICICI Bank.",
         "category": "compare",
         "reason": "Popular relative-value question",
     },
     {
-        "question": "Best defence companies in India.",
+        "question": "Best defence companies in India?",
         "category": "theme",
         "reason": "Trending theme coverage",
     },
     {
-        "question": "Explain RBI policy.",
+        "question": "How should investors position for US yields?",
         "category": "macro",
-        "reason": "Central bank event literacy",
+        "reason": "Global financial conditions",
     },
     {
-        "question": "What are the risks for Tata Motors?",
+        "question": "Is IT services still a buy?",
+        "category": "theme",
+        "reason": "Deal pipeline and pricing watch",
+    },
+    {
+        "question": "What are the risks for Reliance?",
         "category": "risk",
-        "reason": "Risk-focused company research",
+        "reason": "Risk-focused conglomerate research",
+    },
+    {
+        "question": "Summarise today's market for an investor.",
+        "category": "market_summary",
+        "reason": "Daily desk briefing",
     },
 ]
 

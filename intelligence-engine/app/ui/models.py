@@ -49,6 +49,7 @@ class HomeView(BaseModel):
     featured_research: list[dict[str, Any]] = Field(default_factory=list)
     market_dashboard: dict[str, Any] = Field(default_factory=dict)
     footer_metrics: dict[str, Any] = Field(default_factory=dict)
+    newsletter: dict[str, Any] = Field(default_factory=dict)
     market_snapshot: list[dict[str, Any]] = Field(default_factory=list)
     market_session: dict[str, Any] = Field(default_factory=dict)
 
