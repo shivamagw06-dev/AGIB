@@ -15,6 +15,7 @@ import {
   Zap,
   Layers,
   Bus,
+  Scale,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -30,6 +31,7 @@ const navItems = [
   { to: '/admin/events', label: 'Events', icon: Zap },
   { to: '/admin/context', label: 'Context', icon: Layers },
   { to: '/admin/intelligence-bus', label: 'Intelligence Bus', icon: Bus },
+  { to: '/admin/valuation', label: 'Valuation', icon: Scale },
 ];
 
 export default function AdminLayout() {

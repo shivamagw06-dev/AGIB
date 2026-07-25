@@ -255,6 +255,14 @@ class Settings(BaseSettings):
     ib_soft_handlers: bool = True
     ib_ask_agi_emit: bool = True
 
+    # Valuation Engine v1 (after FLE/MEE structured intel; no core redesign)
+    ve: bool = True
+    ve_auto_value: bool = True
+    ve_scenarios: bool = True
+    ve_sensitivity: bool = True
+    ve_relative: bool = True
+    ve_ibus_updates: bool = True
+
 
 @lru_cache
 def get_settings() -> Settings:

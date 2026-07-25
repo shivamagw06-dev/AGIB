@@ -474,3 +474,51 @@ export const runIbDemoChain = (companySymbol = 'INFY') => {
   const qs = new URLSearchParams({ company_symbol: companySymbol }).toString();
   return intelligenceFetch(`/ib/demo-chain?${qs}`, { method: 'POST', body: {} });
 };
+
+/** VE v1 Valuation Engine */
+export const getVeHealth = () => intelligenceFetch('/ve/health');
+export const getVeDashboard = () => intelligenceFetch('/ve/dashboard');
+export const getVeCompany = (key, params = {}) => {
+  const qs = new URLSearchParams(
+    Object.fromEntries(
+      Object.entries(params)
+        .filter(([, v]) => v !== undefined && v !== null && v !== '')
+        .map(([k, v]) => [k, String(v)])
+    )
+  ).toString();
+  return intelligenceFetch(`/ve/company/${encodeURIComponent(key)}${qs ? `?${qs}` : ''}`);
+};
+export const getVeModel = (model, key, marketPrice) => {
+  const qs = new URLSearchParams({ model, key });
+  if (marketPrice != null) qs.set('market_price', String(marketPrice));
+  return intelligenceFetch(`/ve/model?${qs}`);
+};
+export const getVeHistory = (key, limit = 50) => {
+  const qs = new URLSearchParams({ key, limit: String(limit) }).toString();
+  return intelligenceFetch(`/ve/history?${qs}`);
+};
+export const getVeScenarios = (key) => {
+  const qs = new URLSearchParams({ key }).toString();
+  return intelligenceFetch(`/ve/scenarios?${qs}`);
+};
+export const getVeCompare = (key, peers) => {
+  const qs = new URLSearchParams({ key });
+  if (peers) qs.set('peers', Array.isArray(peers) ? peers.join(',') : String(peers));
+  return intelligenceFetch(`/ve/compare?${qs}`);
+};
+export const getVeSensitivity = (key) => {
+  const qs = new URLSearchParams({ key }).toString();
+  return intelligenceFetch(`/ve/sensitivity?${qs}`);
+};
+export const searchVe = (q, limit = 20) => {
+  const qs = new URLSearchParams({ q, limit: String(limit) }).toString();
+  return intelligenceFetch(`/ve/search?${qs}`);
+};
+export const consultVe = (q, limit = 8) => {
+  const qs = new URLSearchParams({ q, limit: String(limit) }).toString();
+  return intelligenceFetch(`/ve/consult?${qs}`);
+};
+export const valueVeCompany = (body = {}) =>
+  intelligenceFetch('/ve/value', { method: 'POST', body });
+export const getVeValuation = (id) =>
+  intelligenceFetch(`/ve/valuation/${encodeURIComponent(id)}`);

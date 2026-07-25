@@ -93,6 +93,7 @@ class UiService:
         mee: Any | None = None,
         cae: Any | None = None,
         ib: Any | None = None,
+        ve: Any | None = None,
     ) -> None:
         self.flags = flags or UiFlags.from_settings(get_settings())
         self.aws = aws
@@ -113,6 +114,7 @@ class UiService:
         self.mee = mee
         self.cae = cae
         self.ib = ib
+        self.ve = ve
 
     def health(self) -> dict[str, Any]:
         return {
@@ -691,6 +693,7 @@ class UiService:
         market_events: dict[str, Any] = {}
         context_assembly: dict[str, Any] = {}
         intelligence_bus: dict[str, Any] = {}
+        valuation: dict[str, Any] = {}
         used_cae = False
         if self.cae and q:
             try:
@@ -784,6 +787,17 @@ class UiService:
                     if isinstance(hit, dict) and hit.get("kind") == "company" and hit.get("key"):
                         detected_ticker = str(hit["key"]).upper()
                         break
+
+        # VE soft consult — intrinsic value / MoS before reasoning (CAE and fallback paths).
+        if self.ve and q:
+            try:
+                valuation = dump(soft(self.ve.consult, q, limit=8)) or {}
+                if isinstance(valuation, dict):
+                    company_pack = valuation.get("company") or {}
+                    if isinstance(company_pack, dict) and company_pack.get("company_symbol") and not detected_ticker:
+                        detected_ticker = str(company_pack["company_symbol"]).upper()
+            except Exception:
+                valuation = {}
 
         # IRP V1 — think (intent → entities → plan → retrieve → reason) before answering.
         if self.irp and q:
@@ -1518,6 +1532,15 @@ class UiService:
                 "guidance": {
                     "publish_subscribe": True,
                     "fallback_when_disabled": True,
+                },
+            },
+            valuation=scrub(valuation)
+            if valuation
+            else {
+                "answer_policy": "valuation_before_reasoning",
+                "guidance": {
+                    "use_intrinsic_value_first": True,
+                    "never_execute_trades": True,
                 },
             },
             institutional_briefing=scrub(briefing) or {},

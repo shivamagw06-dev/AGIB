@@ -66,6 +66,7 @@ from app.fle.service import FleService
 from app.mee.service import MeeService
 from app.cae.service import CaeService
 from app.ib.service import IbService
+from app.ve.service import VeService
 from app.ui.service import UiService
 from app.validation.service import ValidationService
 from app.features.models import FeatureMetadata
@@ -162,6 +163,27 @@ _fle = FleService(iie=_iie, eve=_eve, kc=_kc, kf=_kf, aoi=_aoi)
 _mee = MeeService(eve=_eve, iie=_iie, fle=_fle, aoi=_aoi, kf=_kf, kc=_kc)
 _cae = CaeService(kf=_kf, kc=_kc, aoi=_aoi, eve=_eve, iie=_iie, fle=_fle, mee=_mee)
 _ib = IbService(aoi=_aoi, eve=_eve, iie=_iie, fle=_fle, mee=_mee, cae=_cae)
+_ve = VeService(eve=_eve, iie=_iie, fle=_fle, mee=_mee, aoi=_aoi, ib=_ib)
+# Soft IB subscriber for valuation recalculation (additive; engines unchanged).
+try:
+    _ib.subscribe(
+        {
+            "subscriber": "ve",
+            "event_types": [
+                "EvidenceVerified",
+                "ForecastUpdated",
+                "ForecastResolved",
+                "InvestmentThesisUpdated",
+                "CorporateEventDetected",
+                "CompanyUpdated",
+            ],
+            "priority": "normal",
+            "retry_max": 2,
+        }
+    )
+    _ib.delivery.register_handler("ve", _ve.on_bus_event)
+except Exception:
+    pass
 _ui = UiService(
     aws=_aws,
     ioc=_ioc,
@@ -181,6 +203,7 @@ _ui = UiService(
     mee=_mee,
     cae=_cae,
     ib=_ib,
+    ve=_ve,
 )
 # Soft-wire KIP retrieve → RSP reason into Research Director (no engine redesign).
 _director.kip = _kip
@@ -2670,6 +2693,123 @@ async def ib_schema(event_type: str | None = Query(default=None)):
 async def ib_demo_chain(company_symbol: str = Query(default="INFY")):
     try:
         return _ib.publish_chain_demo(company_symbol=company_symbol)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+# --- VE v1 Valuation Engine (after FLE/MEE; no platform redesign) ---
+
+
+@router.get("/ve/health")
+async def ve_health():
+    return _ve.health()
+
+
+@router.get("/ve/dashboard")
+async def ve_dashboard():
+    try:
+        return _ve.dashboard()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/ve/company/{key}")
+async def ve_company(key: str, value_if_empty: bool = Query(default=True)):
+    try:
+        return _ve.company(key, value_if_empty=value_if_empty)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/ve/model")
+async def ve_model(
+    model: str = Query(...),
+    key: str = Query(...),
+    market_price: float | None = Query(default=None),
+):
+    try:
+        return _ve.model(model, key, market_price=market_price)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/ve/history")
+async def ve_history(key: str = Query(...), limit: int = Query(default=50, ge=1, le=200)):
+    try:
+        return _ve.history(key, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/ve/scenarios")
+async def ve_scenarios(key: str = Query(...)):
+    try:
+        return _ve.scenarios(key)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/ve/compare")
+async def ve_compare(key: str = Query(...), peers: str | None = Query(default=None)):
+    try:
+        peer_list = [p.strip() for p in (peers or "").split(",") if p.strip()] or None
+        return _ve.compare(key, peers=peer_list)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/ve/sensitivity")
+async def ve_sensitivity(key: str = Query(...)):
+    try:
+        return _ve.sensitivity(key)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/ve/search")
+async def ve_search(q: str = Query(...), limit: int = Query(default=20, ge=1, le=100)):
+    try:
+        return _ve.search(q, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/ve/consult")
+async def ve_consult(q: str = Query(...), limit: int = Query(default=8, ge=1, le=40)):
+    try:
+        return _ve.consult(q, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/ve/value")
+async def ve_value(payload: dict[str, Any] = Body(default={})):
+    try:
+        key = str((payload or {}).get("key") or (payload or {}).get("symbol") or "").strip()
+        if not key:
+            raise RuntimeError("key is required")
+        models = (payload or {}).get("models")
+        market_price = (payload or {}).get("market_price")
+        fiscal_year = (payload or {}).get("fiscal_year")
+        return _ve.value(
+            key,
+            models=models,
+            market_price=float(market_price) if market_price is not None else None,
+            trigger=str((payload or {}).get("trigger") or "api"),
+            fiscal_year=fiscal_year,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/ve/valuation/{valuation_id}")
+async def ve_valuation(valuation_id: str):
+    try:
+        return _ve.get_valuation(valuation_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

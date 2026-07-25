@@ -665,5 +665,45 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // VE v1 — Valuation Engine (intrinsic value platform).
+  router.get('/ve/health', kfGet('/v1/ve/health'));
+  router.get('/ve/dashboard', kfGet('/v1/ve/dashboard'));
+  router.get('/ve/company/:key', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query || {}).toString();
+      const result = await engineFetch(
+        `/v1/ve/company/${encodeURIComponent(req.params.key)}${qs ? `?${qs}` : ''}`
+      );
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Valuation engine unavailable', detail: error.message });
+    }
+  });
+  router.get('/ve/model', kfGet('/v1/ve/model'));
+  router.get('/ve/history', kfGet('/v1/ve/history'));
+  router.get('/ve/scenarios', kfGet('/v1/ve/scenarios'));
+  router.get('/ve/compare', kfGet('/v1/ve/compare'));
+  router.get('/ve/sensitivity', kfGet('/v1/ve/sensitivity'));
+  router.get('/ve/search', kfGet('/v1/ve/search'));
+  router.get('/ve/consult', kfGet('/v1/ve/consult'));
+  router.post('/ve/value', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/ve/value', { method: 'POST', body: req.body || {} });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Valuation engine unavailable', detail: error.message });
+    }
+  });
+  router.get('/ve/valuation/:valuationId', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/ve/valuation/${encodeURIComponent(req.params.valuationId)}`
+      );
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Valuation engine unavailable', detail: error.message });
+    }
+  });
+
   return router;
 }
