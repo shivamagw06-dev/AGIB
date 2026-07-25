@@ -15,7 +15,8 @@ function brandedVerificationHtml({ fullName, actionLink, siteUrl }) {
   const name = escapeHtml(fullName || 'Investor');
   const link = escapeHtml(actionLink);
   const site = escapeHtml(siteUrl);
-  const logo = `${siteUrl.replace(/\/$/, '')}/agi-logo.png`;
+  // Prefer compact email asset; fall back to full logo. Root paths work on Hostinger.
+  const logo = `${siteUrl.replace(/\/$/, '')}/agi-logo-email.png`;
   return `<!DOCTYPE html>
 <html>
 <body style="margin:0;padding:0;background:#f5f7fa;font-family:Arial,sans-serif;color:#18202b;">
