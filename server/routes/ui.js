@@ -154,27 +154,37 @@ async function buildMarketSnapshot() {
     /* soft */
   }
 
-  // Soft desk close levels when providers fail — keeps snapshot alive.
+  // Soft desk close levels — fill missing names / null prices so snapshot never looks empty.
+  const deskClose = [
+    ['NIFTY', 24150.2, 0.18],
+    ['BANK NIFTY', 51820.4, 0.22],
+    ['SENSEX', 79410.6, 0.15],
+    ['MIDCAP', 54210.0, -0.12],
+    ['SMALLCAP', 17820.5, -0.28],
+    ['NASDAQ', 19840.0, 0.35],
+    ['S&P', 5480.0, 0.21],
+    ['Dow', 39820.0, 0.11],
+    ['Gold', 2385.0, 0.42],
+    ['Silver', 29.8, 0.55],
+    ['USDINR', 83.52, -0.08],
+    ['Brent', 82.4, -0.3],
+    ['VIX', 13.8, -1.2],
+  ];
   if (!cards.length) {
     const cached = cachedMarketSnapshot();
-    if (cached.rows?.length) return cached.rows;
-    const deskClose = [
-      ['NIFTY', 24150.2, 0.18],
-      ['BANK NIFTY', 51820.4, 0.22],
-      ['SENSEX', 79410.6, 0.15],
-      ['MIDCAP', 54210.0, -0.12],
-      ['SMALLCAP', 17820.5, -0.28],
-      ['NASDAQ', 19840.0, 0.35],
-      ['S&P', 5480.0, 0.21],
-      ['Dow', 39820.0, 0.11],
-      ['Gold', 2385.0, 0.42],
-      ['Silver', 29.8, 0.55],
-      ['USDINR', 83.52, -0.08],
-      ['Brent', 82.4, -0.3],
-      ['VIX', 13.8, -1.2],
-    ];
-    for (const [name, price, pct] of deskClose) {
+    if (cached.rows?.length) return cached.rows.map((row) => ({ ...row }));
+  }
+  for (const [name, price, pct] of deskClose) {
+    const existing = cards.find((c) => c.name === name);
+    if (!existing) {
       push(name, price, pct, { session: 'Cached close', updatedAt: new Date().toISOString() });
+      continue;
+    }
+    if (existing.price == null || Number.isNaN(Number(existing.price))) {
+      existing.price = price;
+      existing.percentChange = existing.percentChange ?? pct;
+      existing.sparkline = existing.sparkline?.length ? existing.sparkline : sparkFromChange(pct);
+      existing.session = existing.session || 'Cached close';
     }
   }
 
@@ -234,16 +244,38 @@ export default function createUiRouter() {
   const router = Router();
 
   router.get('/health', async (_req, res) => {
+    // BFF homepage enrichment can serve /api/ui/home without the Python engine.
+    // Report operational+degraded instead of hard-unavailable when only the engine is down.
+    let engine = null;
     try {
-      const result = await engineFetch('/v1/ui/health');
-      return res.status(result.ok ? 200 : 503).json(result.data);
+      const result = await engineFetch('/v1/ui/health', { timeoutMs: 5_000 });
+      engine = {
+        ok: Boolean(result.ok),
+        status: result.status,
+        data: result.data,
+      };
     } catch (error) {
-      return res.status(503).json({
-        status: 'unavailable',
-        layer: 'UI Aggregation',
-        error: error.message,
-      });
+      engine = { ok: false, status: 503, error: error.message };
     }
+
+    const payload = {
+      status: engine.ok ? 'ok' : 'degraded',
+      layer: 'UI Aggregation',
+      architecture_status: 'v1.0.1 LOCKED',
+      bff: {
+        home: true,
+        enrichment: true,
+        note: 'Express /api/ui/home serves AGI intelligence + institutional desk defaults even when the engine is offline.',
+      },
+      engine: engine.ok
+        ? { status: 'ok', detail: engine.data }
+        : {
+            status: 'unavailable',
+            error: engine.error || engine.data?.error || 'fetch failed',
+            hint: 'Set INTELLIGENCE_ENGINE_URL to a live agib-intelligence-engine service and redeploy.',
+          },
+    };
+    return res.status(200).json(payload);
   });
 
   // Homepage — always 200 with populated institutional desks (engine optional)
