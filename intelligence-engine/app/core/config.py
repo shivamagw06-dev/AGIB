@@ -143,6 +143,12 @@ class Settings(BaseSettings):
     rsp_contradictions: bool = True
     rsp_reasoning: bool = True
 
+    # Research Management System flags (P0 defaults)
+    rms: bool = True
+    rms_review: bool = True
+    rms_approval: bool = True
+    rms_publish: bool = True
+
 
 @lru_cache
 def get_settings() -> Settings:

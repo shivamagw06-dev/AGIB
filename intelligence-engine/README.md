@@ -248,3 +248,14 @@ Agents read **AGIB Node cached APIs only** (no direct third-party market API cal
 - Flags: `RSP=true`, `RSP_CONSENSUS=true`, `RSP_CONTRADICTIONS=true`, `RSP_REASONING=true`
 - Out of scope: fine-tuning, engine redesign, broker execution, portfolio optimisation, autonomous decisions
 - APIs: `POST /v1/rsp/reason`, `POST /v1/rsp/synthesize`, `POST /v1/rsp/committee`, `GET /v1/rsp/reasoning/{id}`, `GET /v1/rsp/evidence/{id}`, `GET /v1/rsp/health`
+
+### Research Management System P0 (RMS)
+
+- Package: `app/rms/` — institutional research workflow (does **not** redesign engines/CMS/website)
+- Lifecycle: Idea → Request → Knowledge Collection → RSP Reasoning → Draft → Internal Review → Compliance Review → Approval → Publication → Automatic KIP Ingestion → Prediction Tracking
+- Research object: status, owner, reviewer, version, evidence package, reasoning package, engine snapshot, house view, prediction horizon, publishing history, compliance audit
+- Publishing creates website article, newsletter, LinkedIn draft, internal archive stubs; then KIP ingest + prediction records
+- Dashboard: pipeline, draft/review queues, publication calendar, prediction tracker, company/sector coverage
+- Flags: `RMS=true`, `RMS_REVIEW=true`, `RMS_APPROVAL=true`, `RMS_PUBLISH=true`
+- Out of scope: CMS redesign, website redesign, trading, engine redesign
+- APIs: `POST /v1/rms/request`, `POST /v1/rms/draft`, `POST /v1/rms/review`, `POST /v1/rms/approve`, `POST /v1/rms/publish`, `GET /v1/rms/dashboard`, `GET /v1/rms/research/{id}`, `GET /v1/rms/health`

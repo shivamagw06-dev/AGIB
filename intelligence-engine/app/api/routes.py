@@ -40,6 +40,15 @@ from app.kip.models import (
 from app.kip.service import KipService
 from app.rsp.models import CommitteeRequest, ReasonRequest, SynthesizeRequest
 from app.rsp.service import RspService
+from app.rms.models import (
+    ApproveRequest,
+    DraftRequest,
+    PublishRequest,
+    ResearchRequestCreate,
+    ReviewRequest,
+)
+from app.rms.service import RmsService
+from app.rms.workflow import WorkflowError
 from app.validation.service import ValidationService
 from app.features.models import FeatureMetadata
 from app.features.service import FeatureRegistryService
@@ -79,6 +88,7 @@ _validation = ValidationService()
 _cre = CREService()
 _kip = KipService()
 _rsp = RspService(kip=_kip)
+_rms = RmsService(kip=_kip, rsp=_rsp)
 # Soft-wire KIP retrieve → RSP reason into Research Director (no engine redesign).
 _director.kip = _kip
 _director.rsp = _rsp
@@ -851,6 +861,92 @@ async def rsp_get_evidence(evidence_id: str):
     if ev is None:
         raise HTTPException(status_code=404, detail="Evidence not found")
     return ev.model_dump(mode="json")
+
+
+@router.get("/rms/health")
+async def rms_health():
+    """Research Management System health."""
+    return _rms.health()
+
+
+@router.post("/rms/request")
+async def rms_request(body: ResearchRequestCreate):
+    """Create research idea/request and optionally collect KIP + run RSP."""
+    try:
+        return _rms.create_request(body).model_dump(mode="json")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except WorkflowError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/rms/draft")
+async def rms_draft(body: DraftRequest):
+    """Create or update a research draft."""
+    try:
+        return _rms.create_or_update_draft(body).model_dump(mode="json")
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except WorkflowError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/rms/review")
+async def rms_review(body: ReviewRequest):
+    """Add review comment / internal or compliance decision."""
+    try:
+        return _rms.review(body).model_dump(mode="json")
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except WorkflowError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/rms/approve")
+async def rms_approve(body: ApproveRequest):
+    """Compliance / final approval gate."""
+    try:
+        return _rms.approve(body).model_dump(mode="json")
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except WorkflowError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/rms/publish")
+async def rms_publish(body: PublishRequest):
+    """Publish approved research → website/newsletter/LinkedIn/archive + KIP + predictions."""
+    try:
+        return _rms.publish(body).model_dump(mode="json")
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except WorkflowError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/rms/dashboard")
+async def rms_dashboard():
+    """Research pipeline, queues, calendar, coverage, prediction tracker."""
+    try:
+        return _rms.dashboard().model_dump(mode="json")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/rms/research/{research_id}")
+async def rms_research(research_id: str):
+    obj = _rms.get_research(research_id)
+    if obj is None:
+        raise HTTPException(status_code=404, detail="Research not found")
+    return obj.model_dump(mode="json")
 
 
 @router.post("/orch/l2/trigger", dependencies=[Depends(require_token)])
