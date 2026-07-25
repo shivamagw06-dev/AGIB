@@ -26,6 +26,12 @@ import PrivacyPolicy from '@/pages/legal/PrivacyPolicy';
 import TermsOfService from '@/pages/legal/TermsOfService';
 import Disclaimer from '@/pages/legal/Disclaimer';
 import SebiDisclosure from '@/pages/legal/SebiDisclosure';
+import VerifyEmailPage from '@/pages/auth/VerifyEmailPage';
+import ForgotPasswordPage from '@/pages/auth/ForgotPasswordPage';
+import ResetPasswordPage from '@/pages/auth/ResetPasswordPage';
+import PinUnlockPage from '@/pages/auth/PinUnlockPage';
+import AccountSecurityPage from '@/pages/auth/AccountSecurityPage';
+import PinGate from '@/components/auth/PinGate';
 
 const Opinions = React.lazy(() => import('@/components/Opinions'));
 const Markets = React.lazy(() => import('@/pages/Markets'));
@@ -69,14 +75,16 @@ function AppShell() {
   return (
     <>
       <MarketDataProvider>
-        <Header />
-        <main>
-          <Suspense fallback={<div className="p-8 text-center text-slate-600">Loading…</div>}>
-            <PublicRoutes />
-          </Suspense>
-        </main>
-        <Footer />
-        <Toaster />
+        <PinGate>
+          <Header />
+          <main>
+            <Suspense fallback={<div className="p-8 text-center text-slate-600">Loading…</div>}>
+              <PublicRoutes />
+            </Suspense>
+          </main>
+          <Footer />
+          <Toaster />
+        </PinGate>
       </MarketDataProvider>
     </>
   );
@@ -141,6 +149,11 @@ function PublicRoutes() {
       <Route path="/sebi-disclosure" element={<SebiDisclosure />} />
 
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/verify-email" element={<VerifyEmailPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
+      <Route path="/unlock-pin" element={<PinUnlockPage />} />
+      <Route path="/account/security" element={<AccountSecurityPage />} />
       <Route path="/article/:slug" element={<ArticlePage />} />
       <Route path="/articles/new" element={<Navigate replace to="/admin/articles/new" />} />
       <Route path="/write" element={<Navigate replace to="/admin/articles/new" />} />
