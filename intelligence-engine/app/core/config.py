@@ -70,6 +70,12 @@ class Settings(BaseSettings):
     l4_ml: bool = False
     l4_probability: bool = False
 
+    # E10 Portfolio Construction feature flags (P0 defaults)
+    e10_p0: bool = True
+    e10_optimizer: bool = False
+    e10_hrp: bool = False
+    e10_mvo: bool = False
+
 
 @lru_cache
 def get_settings() -> Settings:

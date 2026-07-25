@@ -68,6 +68,17 @@ class L4StateStore:
                 return None
             return self._shadow.get((sym, day))
 
+    def list_opinions(self, as_of: str | None = None) -> dict[str, L4Opinion]:
+        """Latest opinion per symbol, optionally filtered to a single as_of day."""
+        with self._lock:
+            out: dict[str, L4Opinion] = {}
+            for sym, day in self._latest_as_of.items():
+                use_day = as_of or day
+                op = self._opinion.get((sym, use_day))
+                if op is not None:
+                    out[sym] = op
+            return out
+
     def stats(self) -> dict[str, Any]:
         with self._lock:
             return {

@@ -12,6 +12,8 @@ from app.engines.e03.consumer import register_e03_with_orch
 from app.engines.e03.service import E03Service
 from app.engines.e14.consumer import register_e14_with_orch
 from app.engines.e14.service import E14Service
+from app.engines.e10.consumer import register_e10_with_orch
+from app.engines.e10.service import E10Service
 from app.engines.l4.consumer import register_l4_with_orch
 from app.engines.l4.service import L4Service
 from app.eval.evaluation_agent import EvaluationAgent
@@ -38,6 +40,7 @@ _e14 = E14Service(_features, e01=_e01, orch_ledger=_orch_ledger)
 _e02 = E02Service(_features, e01=_e01, e14=_e14, orch_ledger=_orch_ledger)
 _e03 = E03Service(_features, e01=_e01, e14=_e14, e02=_e02, orch_ledger=_orch_ledger)
 _l4 = L4Service(e01=_e01, e14=_e14, e02=_e02, e03=_e03, orch_ledger=_orch_ledger)
+_e10 = E10Service(l4=_l4, e14=_e14, e02=_e02, orch_ledger=_orch_ledger)
 
 
 def _wire_market_data_to_l2() -> None:
@@ -74,12 +77,18 @@ def _wire_l4_passive_consumer() -> None:
     register_l4_with_orch(_l4, _e01, _e14, _e02, _e03)
 
 
+def _wire_e10_passive_consumer() -> None:
+    """E10 registers as passive model-portfolio builder after L4 Ready."""
+    register_e10_with_orch(_e10, _l4)
+
+
 _wire_market_data_to_l2()
 _wire_e01_passive_consumer()
 _wire_e14_passive_consumer()
 _wire_e02_passive_consumer()
 _wire_e03_passive_consumer()
 _wire_l4_passive_consumer()
+_wire_e10_passive_consumer()
 
 
 def require_token(
@@ -232,6 +241,27 @@ async def l4_opinion(symbol: str, as_of: str | None = None):
 async def l4_history(symbol: str, limit: int = 50):
     """L4 EngineState history for a symbol (newest first)."""
     return [s.model_dump(mode="json") for s in _l4.history(symbol, limit=min(limit, 200))]
+
+
+@router.get("/e10/health")
+async def e10_health():
+    """E10 Portfolio Construction health (E10-001–005 P0)."""
+    return _e10.health()
+
+
+@router.get("/e10/portfolio")
+async def e10_portfolio(as_of: str | None = None):
+    """Current model E10Portfolio (warm cache). Research only — not executable."""
+    port = _e10.get_portfolio(as_of=as_of)
+    if port is None:
+        raise HTTPException(status_code=404, detail="E10 portfolio not available")
+    return port.model_dump(mode="json")
+
+
+@router.get("/e10/history")
+async def e10_history(limit: int = 50):
+    """E10 PortfolioState history (newest first)."""
+    return [s.model_dump(mode="json") for s in _e10.history(limit=min(limit, 200))]
 
 
 @router.post("/orch/l2/trigger", dependencies=[Depends(require_token)])

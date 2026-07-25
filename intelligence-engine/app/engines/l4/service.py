@@ -165,6 +165,10 @@ class L4Service:
     def get_shadow(self, symbol: str, as_of: str | None = None) -> ShadowComparison | None:
         return self.store.get_shadow(symbol, as_of=as_of)
 
+    def list_opinions(self, as_of: str | None = None) -> dict[str, L4Opinion]:
+        """Expose latest shadow opinions for downstream model-portfolio builders (E10)."""
+        return self.store.list_opinions(as_of=as_of)
+
     def on_e01_ready(self, e01_state: EngineState) -> dict[str, L4Opinion]:
         return self._refresh_known(as_of=e01_state.as_of, e01_state=e01_state)
 

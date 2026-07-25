@@ -123,3 +123,12 @@ Agents read **AGIB Node cached APIs only** (no direct third-party market API cal
 - Flags: `L4_SHADOW=true`, `L4_PRIMARY/BAYES/ML/PROBABILITY=false`
 - ORCH: passive E01 / E14 / E02 / E03 Ready consumer
 - APIs: `GET /v1/l4/opinion/{symbol}`, `GET /v1/l4/history/{symbol}`, `GET /v1/l4/health`
+
+### E10 Portfolio Construction P0 (WBS E10-001–005)
+
+- Package: `app/engines/e10/` — Top-N selection, inverse-volatility, vol targeting, name/sector caps, cash floors, E10Portfolio validation
+- Model portfolio only: no execution, OMS, broker routing, BL/MVO/HRP/ERC
+- Inputs: L4Opinion + E14State + E02Exposure only
+- Flags: `E10_P0=true`, `E10_OPTIMIZER/HRP/MVO=false`
+- ORCH: passive L4 Ready consumer
+- APIs: `GET /v1/e10/portfolio`, `GET /v1/e10/history`, `GET /v1/e10/health`
