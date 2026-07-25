@@ -98,6 +98,18 @@ const SNAPSHOT_SOURCE_PRIORITY = {
 };
 
 const CORE_INDIAN = ['NIFTY', 'BANK NIFTY', 'SENSEX', 'MIDCAP', 'SMALLCAP', 'VIX'];
+const CORE_GLOBAL = ['NASDAQ', 'S&P', 'Dow', 'Gold', 'Silver', 'Brent', 'Bitcoin', 'USDINR'];
+
+/** ETF proxy prices must never be shown as cash index levels. */
+function looksLikeEtfProxy(name, price) {
+  const n = Number(price);
+  if (!Number.isFinite(n) || n <= 0) return false;
+  if (name === 'S&P' && n < 2000) return true; // SPY ~700s vs S&P cash ~thousands
+  if (name === 'NASDAQ' && n < 5000) return true; // QQQ vs NASDAQ Composite
+  if (name === 'Dow' && n < 10000) return true; // DIA vs Dow cash
+  if (name === 'Gold' && n < 1000) return true; // GLD ETF vs gold futures/oz
+  return false;
+}
 
 function normalizeSnapshotName(raw) {
   const key = String(raw || '').trim().toUpperCase();
@@ -196,13 +208,17 @@ async function buildMarketSnapshot() {
     /* soft */
   }
 
-  // 3) Yahoo fallback — matches Groww/NSE prints when cloud hosts block NSE
-  const missingCore = CORE_INDIAN.filter((name) => !hasLivePrice(cards.find((c) => c.name === name)));
-  if (missingCore.length) {
+  // 3) Yahoo cash indices / commodities — preferred for global cards.
+  // Pre-market context historically used ETF proxies (SPY/QQQ/DIA/GLD); those must not win.
+  const missingYahoo = [...CORE_INDIAN, ...CORE_GLOBAL].filter((name) => {
+    const card = cards.find((c) => c.name === name);
+    return !hasLivePrice(card) || looksLikeEtfProxy(name, card.price);
+  });
+  if (missingYahoo.length) {
     try {
-      const yahooRows = await fetchYahooIndices(missingCore);
+      const yahooRows = await fetchYahooIndices(missingYahoo);
       for (const row of yahooRows) {
-        if (!isValidPrice(row.price)) continue;
+        if (!isValidPrice(row.price) || looksLikeEtfProxy(row.name, row.price)) continue;
         push(
           row.name,
           row.price,
@@ -211,7 +227,7 @@ async function buildMarketSnapshot() {
             session: 'Yahoo',
             updatedAt: new Date().toISOString(),
           },
-          snapshotPriority(row.name) - 10
+          120
         );
       }
     } catch {
@@ -219,7 +235,7 @@ async function buildMarketSnapshot() {
     }
   }
 
-  // Global / commodity proxies from pre-market context (server-side)
+  // Global / commodity tone feed — only fill names still missing after Yahoo cash quotes.
   try {
     const { getPreMarketContext } = await import('../services/preMarketContextService.js');
     const ctx = await getPreMarketContext({ force: false });
@@ -228,15 +244,21 @@ async function buildMarketSnapshot() {
       if (!label) continue;
       let name = label;
       if (/nasdaq/i.test(label)) name = 'NASDAQ';
-      else if (/s&p|spx|spy/i.test(label)) name = 'S&P';
+      else if (/s&p|spx/i.test(label)) name = 'S&P';
       else if (/dow/i.test(label)) name = 'Dow';
-      else if (/gold|gld/i.test(label)) name = 'Gold';
-      else if (/silver|slv/i.test(label)) name = 'Silver';
-      else if (/brent|crude|wti|usoil|oil/i.test(label)) name = 'Brent';
+      else if (/gold/i.test(label)) name = 'Gold';
+      else if (/silver/i.test(label)) name = 'Silver';
+      else if (/brent|crude|wti|usoil/i.test(label)) name = 'Brent';
       else if (/bitcoin|btc/i.test(label)) name = 'Bitcoin';
       else if (/vix/i.test(label)) name = 'VIX';
       else continue;
-      push(name, m.level ?? m.price ?? null, m.changePct ?? m.percentChange ?? null);
+      const price = m.level ?? m.price ?? null;
+      if (looksLikeEtfProxy(name, price)) continue;
+      if (hasLivePrice(cards.find((c) => c.name === name))) continue;
+      push(name, price, m.changePct ?? m.percentChange ?? null, {
+        session: m.source || 'Global',
+        updatedAt: m.asOf || new Date().toISOString(),
+      }, 40);
     }
     for (const c of ctx.commodities || []) {
       const label = String(c.label || c.name || '');
@@ -245,53 +267,40 @@ async function buildMarketSnapshot() {
       if (/silver/i.test(label)) name = 'Silver';
       if (/brent|crude/i.test(label)) name = 'Brent';
       if (!name) continue;
-      push(name, c.level ?? c.price ?? null, c.changePct ?? c.percentChange ?? null);
+      const price = c.level ?? c.price ?? null;
+      if (looksLikeEtfProxy(name, price)) continue;
+      if (hasLivePrice(cards.find((x) => x.name === name))) continue;
+      push(name, price, c.changePct ?? c.percentChange ?? null, {
+        session: c.source || 'Global',
+        updatedAt: c.asOf || new Date().toISOString(),
+      }, 40);
     }
   } catch {
     /* soft */
   }
 
-  // USDINR via Frankfurter soft
+  // USDINR via Frankfurter soft (Yahoo INR=X preferred above when available)
   try {
-    const fx = await fetch('https://api.frankfurter.app/latest?from=USD&to=INR', {
-      signal: AbortSignal.timeout(8_000),
-    });
-    if (fx.ok) {
-      const body = await fx.json();
-      const rate = body?.rates?.INR;
-      if (Number.isFinite(rate)) push('USDINR', rate, null);
+    if (!hasLivePrice(cards.find((c) => c.name === 'USDINR'))) {
+      const fx = await fetch('https://api.frankfurter.app/latest?from=USD&to=INR', {
+        signal: AbortSignal.timeout(8_000),
+      });
+      if (fx.ok) {
+        const body = await fx.json();
+        const rate = body?.rates?.INR;
+        if (Number.isFinite(rate)) {
+          push('USDINR', rate, null, { session: 'Frankfurter', updatedAt: new Date().toISOString() }, 30);
+        }
+      }
     }
   } catch {
     /* soft */
   }
 
-  // Soft desk close levels — ONLY for still-missing names. Never override live Indian quotes.
-  // Indian index desk numbers are intentionally omitted so stale 51k Bank Nifty cannot resurface.
-  const deskClose = [
-    ['NASDAQ', 19840.0, 0.35],
-    ['S&P', 5480.0, 0.21],
-    ['Dow', 39820.0, 0.11],
-    ['Gold', 2385.0, 0.42],
-    ['Silver', 29.8, 0.55],
-    ['USDINR', 83.52, -0.08],
-    ['Brent', 82.4, -0.3],
-  ];
+  // Soft desk close levels — last resort only. No Indian / US cash / commodity desk fakes.
   if (!cards.length) {
     const cached = cachedMarketSnapshot();
     if (cached.rows?.length) return cached.rows.map((row) => ({ ...row }));
-  }
-  for (const [name, price, pct] of deskClose) {
-    const existing = cards.find((c) => c.name === name);
-    if (!existing) {
-      push(name, price, pct, { session: 'Cached close', updatedAt: new Date().toISOString() });
-      continue;
-    }
-    if (!hasLivePrice(existing)) {
-      existing.price = price;
-      existing.percentChange = existing.percentChange ?? pct;
-      existing.sparkline = existing.sparkline?.length ? existing.sparkline : sparkFromChange(pct);
-      existing.session = existing.session || 'Cached close';
-    }
   }
 
   const order = [

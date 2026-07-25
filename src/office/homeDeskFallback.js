@@ -141,27 +141,28 @@ function spark(pct) {
 }
 
 function deskSnapshot() {
-  const rows = [
-    ['NIFTY', 24150.2, 0.18],
-    ['BANK NIFTY', 51820.4, 0.22],
-    ['SENSEX', 79410.6, 0.15],
-    ['MIDCAP', 54210.0, -0.12],
-    ['SMALLCAP', 17820.5, -0.28],
-    ['NASDAQ', 19840.0, 0.35],
-    ['S&P', 5480.0, 0.21],
-    ['Dow', 39820.0, 0.11],
-    ['Gold', 2385.0, 0.42],
-    ['Silver', 29.8, 0.55],
-    ['USDINR', 83.52, -0.08],
-    ['Brent', 82.4, -0.3],
-    ['VIX', 13.8, -1.2],
+  // Names only — never invent index/commodity prints. Live values come from /api/ui/home.
+  const names = [
+    'NIFTY',
+    'BANK NIFTY',
+    'SENSEX',
+    'MIDCAP',
+    'SMALLCAP',
+    'NASDAQ',
+    'S&P',
+    'Dow',
+    'Gold',
+    'Silver',
+    'USDINR',
+    'Brent',
+    'VIX',
   ];
-  return rows.map(([name, price, percentChange]) => ({
+  return names.map((name) => ({
     name,
-    price,
-    percentChange,
-    sparkline: spark(percentChange),
-    session: 'Cached close',
+    price: null,
+    percentChange: null,
+    sparkline: spark(0),
+    session: 'Awaiting live quote',
   }));
 }
 
