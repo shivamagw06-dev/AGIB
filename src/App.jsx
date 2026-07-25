@@ -36,6 +36,10 @@ const PreMarketIntelligence = React.lazy(() => import('@/pages/PreMarketIntellig
 const Nifty500StockResearch = React.lazy(() => import('@/pages/Nifty500StockResearch'));
 const IpoDetailPage = React.lazy(() => import('@/pages/IpoDetailPage'));
 const MarketDataCentre = React.lazy(() => import('@/pages/MarketDataCentre'));
+const PortfolioDesk = React.lazy(() => import('@/pages/PortfolioDesk'));
+const ThemeDesk = React.lazy(() => import('@/pages/ThemeDesk'));
+const SectorDesk = React.lazy(() => import('@/pages/SectorDesk'));
+const ResearchWorkflowDesk = React.lazy(() => import('@/pages/ResearchWorkflowDesk'));
 
 function HomeLayout() {
   return <EditorialHome />;
@@ -99,6 +103,11 @@ function PublicRoutes() {
       <Route path="/updates/pre-market" element={<Navigate replace to="/pre-market" />} />
       <Route path="/market-data" element={<MarketDataCentre />} />
       <Route path="/research/stocks/:symbol" element={<Nifty500StockResearch />} />
+      <Route path="/portfolio" element={<PortfolioDesk />} />
+      <Route path="/themes/:themeId" element={<ThemeDesk />} />
+      <Route path="/themes" element={<Navigate replace to="/themes/credit_growth" />} />
+      <Route path="/sectors/:sectorId" element={<SectorDesk />} />
+      <Route path="/research/workflow" element={<ResearchWorkflowDesk />} />
       <Route path="/ipos/:symbol" element={<IpoDetailPage />} />
 
       {/* Legacy redirects */}

@@ -53,6 +53,7 @@ from app.aws.service import AwsService
 from app.ioc.service import IocService
 from app.aip.models import ExperimentHypothesis, ExperimentRequest
 from app.aip.service import AipService
+from app.ui.service import UiService
 from app.validation.service import ValidationService
 from app.features.models import FeatureMetadata
 from app.features.service import FeatureRegistryService
@@ -137,6 +138,16 @@ _ioc = IocService(
     aws=_aws,
 )
 _aip = AipService()
+_ui = UiService(
+    aws=_aws,
+    ioc=_ioc,
+    kip=_kip,
+    rsp=_rsp,
+    rms=_rms,
+    cre=_cre,
+    validation=_validation,
+    aip=_aip,
+)
 # Soft-wire KIP retrieve → RSP reason into Research Director (no engine redesign).
 _director.kip = _kip
 _director.rsp = _rsp
@@ -1383,6 +1394,119 @@ async def aip_promotion():
 async def aip_dashboard():
     try:
         return _aip.dashboard()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+# --- UI Aggregation Layer (client facade; no engine name exposure) ---
+
+
+@router.get("/ui/health")
+async def ui_health():
+    return _ui.health()
+
+
+@router.get("/ui/home")
+async def ui_home():
+    try:
+        return _ui.home().model_dump(mode="json")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/ui/company/{ticker}")
+async def ui_company(ticker: str):
+    try:
+        return _ui.company(ticker).model_dump(mode="json")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/ui/search")
+async def ui_search(
+    question: str = Query(...),
+    ticker: str | None = Query(default=None),
+):
+    try:
+        return _ui.search(question, ticker=ticker).model_dump(mode="json")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/ui/research/{research_id}")
+async def ui_research(research_id: str):
+    try:
+        return _ui.research(research_id).model_dump(mode="json")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/ui/theme/{theme_id}")
+async def ui_theme(theme_id: str):
+    try:
+        return _ui.theme(theme_id).model_dump(mode="json")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/ui/sector/{sector_id}")
+async def ui_sector(sector_id: str):
+    try:
+        return _ui.sector(sector_id).model_dump(mode="json")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/ui/dashboard")
+async def ui_dashboard():
+    try:
+        return _ui.dashboard().model_dump(mode="json")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/ui/macro")
+async def ui_macro():
+    try:
+        return _ui.macro().model_dump(mode="json")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/ui/portfolio")
+async def ui_portfolio():
+    try:
+        return _ui.portfolio().model_dump(mode="json")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/ui/copilot")
+async def ui_copilot(
+    page: str = Query(default="home"),
+    question: str = Query(default=""),
+    ticker: str | None = Query(default=None),
+    theme_id: str | None = Query(default=None),
+    sector_id: str | None = Query(default=None),
+    research_id: str | None = Query(default=None),
+):
+    try:
+        return _ui.copilot(
+            page=page,
+            question=question,
+            ticker=ticker,
+            theme_id=theme_id,
+            sector_id=sector_id,
+            research_id=research_id,
+        ).model_dump(mode="json")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/ui/workflow")
+async def ui_workflow():
+    try:
+        return _ui.workflow().model_dump(mode="json")
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

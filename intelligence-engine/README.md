@@ -284,6 +284,17 @@ Agents read **AGIB Node cached APIs only** (no direct third-party market API cal
 - Out of scope: trading, research, portfolio logic, architecture changes
 - APIs: `GET /v1/ioc/dashboard`, `GET /v1/ioc/health`, `GET /v1/ioc/alerts`, `GET /v1/ioc/providers`, `GET /v1/ioc/readiness`, `GET /v1/ioc/report`
 
+### UI Aggregation Layer (Client Facade)
+
+- Package: `app/ui/` — **client-facing aggregation**, not a new research platform
+- Architecture v1.0.1 **LOCKED** — no visual redesign mandate on the website; no engine exposure to public clients
+- Soft-consumes AWS / KIP / RSP / RMS / IOC / CRE / Validation / AIP
+- Frontend must call `/api/ui/*` (Express) → `/v1/ui/*` (engine) — never E01–E14 directly
+- Surfaces: home, company, search, research, theme, sector, dashboard, macro, portfolio, copilot, workflow
+- Search returns an institutional evidence pack (house view, confidence, supporting/conflicting research) — not raw engine dumps
+- Flags: `UI=true`
+- APIs: `GET /v1/ui/home`, `GET /v1/ui/company/{ticker}`, `POST /v1/ui/search`, `GET /v1/ui/research/{id}`, `GET /v1/ui/theme/{id}`, `GET /v1/ui/sector/{id}`, `GET /v1/ui/dashboard`, `GET /v1/ui/macro`, `GET /v1/ui/portfolio`, `GET /v1/ui/copilot`, `GET /v1/ui/workflow`, `GET /v1/ui/health`
+
 ### Alpha Improvement Programme (AIP) — Research Roadmap
 
 - Package: `app/aip/` — **research programme**, not a new platform

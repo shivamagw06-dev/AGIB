@@ -3,6 +3,7 @@ import { ChevronRight } from 'lucide-react';
 import MorningBriefHero from '@/components/Home/MorningBriefHero';
 import TodayDashboard from '@/components/Home/TodayDashboard';
 import IndexSentimentTicker from '@/components/Home/IndexSentimentTicker';
+import HomeIntelligenceStrip from '@/components/Home/HomeIntelligenceStrip';
 import ResearchNotesPreview from '@/components/Home/ResearchNotesPreview';
 import NewsHeadlineBar from '@/components/Home/NewsHeadlineBar';
 import Nifty500ResearchPreview from '@/components/Home/Nifty500ResearchPreview';
@@ -116,6 +117,7 @@ export default function EditorialHome() {
         <MorningBriefHero />
         <NewsHeadlineBar />
         <IndexSentimentTicker />
+        <HomeIntelligenceStrip />
         <TodayDashboard />
         <ResearchNotesPreview />
         <Nifty500ResearchPreview />

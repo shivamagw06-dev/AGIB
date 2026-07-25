@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { getMacroBriefing } from '@/api/marketApi';
 import { getIntelligenceHealth, listResearchRuns } from '@/lib/intelligenceApi';
+import { getUiCopilot, getUiMacro } from '@/lib/uiApi';
 import { supabase } from '@/lib/supabaseClient';
 import { mapArticleForCard } from '@/lib/articleUtils';
 
@@ -130,6 +131,7 @@ export default function MacroIntelligence() {
   const [askAnswer, setAskAnswer] = useState(null);
   const [nodePanel, setNodePanel] = useState(null);
   const [briefExpanded, setBriefExpanded] = useState(false);
+  const [uiMacro, setUiMacro] = useState(null);
 
   useEffect(() => {
     let active = true;
@@ -142,6 +144,9 @@ export default function MacroIntelligence() {
       }
     };
     load();
+    getUiMacro()
+      .then((data) => active && setUiMacro(data))
+      .catch(() => active && setUiMacro(null));
     const interval = window.setInterval(load, 30 * 60_000);
     return () => {
       active = false;
@@ -208,7 +213,7 @@ export default function MacroIntelligence() {
     });
   }, [briefing?.updatedAt]);
 
-  const handleAsk = (query) => {
+  const handleAsk = async (query) => {
     const q = String(query || askQuery).trim();
     if (!q) return;
     setAskQuery(q);
@@ -229,13 +234,29 @@ export default function MacroIntelligence() {
     } else if (/monsoon|food|rural/i.test(lower)) {
       evidence = [{ title: 'Weather channel', explanation: snapshot.weather?.implication }];
     }
+
+    // Always hydrate from UI copilot context (page + knowledge + committee + house view)
+    let copilot = null;
+    try {
+      copilot = await getUiCopilot({ page: 'macro', question: q });
+    } catch {
+      copilot = null;
+    }
+    const ctx = copilot?.context || {};
+    const ctxEvidence = [
+      ...(Array.isArray(ctx.latest_news) ? ctx.latest_news.map((n) => ({ title: n.title, explanation: n.snippet })) : []),
+      ...(ctx.house_view ? [{ title: 'Current house view', explanation: ctx.house_view.thesis || ctx.house_view.summary || ctx.house_view.current_view }] : []),
+    ].filter((item) => item.title || item.explanation);
+
     setAskAnswer({
       query: q,
       response: brief.executiveThesis,
-      evidence,
+      evidence: [...evidence, ...ctxEvidence].slice(0, 8),
       implications,
       related,
-      outlook: brief.outlook,
+      outlook: brief.outlook || uiMacro?.current_regime?.label,
+      regime: uiMacro?.current_regime?.label,
+      contextLoaded: Boolean(copilot),
     });
     setAskOpen(true);
   };

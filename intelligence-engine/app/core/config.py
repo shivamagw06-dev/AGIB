@@ -165,6 +165,9 @@ class Settings(BaseSettings):
     aip_experiments: bool = True
     aip_promotion: bool = False
 
+    # UI Aggregation Layer (client facade; not a platform redesign)
+    ui: bool = True
+
 
 @lru_cache
 def get_settings() -> Settings:
