@@ -4,6 +4,8 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Query
 
 from app.agents.registry import list_agents
 from app.core.config import Settings, get_settings
+from app.engines.e01.consumer import register_e01_with_orch_l2
+from app.engines.e01.service import E01Service
 from app.eval.evaluation_agent import EvaluationAgent
 from app.features.models import FeatureMetadata
 from app.features.service import FeatureRegistryService
@@ -23,6 +25,7 @@ _market_data = MarketDataClient.from_settings(get_settings())
 _features = FeatureRegistryService()
 _orch_ledger = OrchLedger()
 _l2 = L2FeatureBuildService(_features, orch_ledger=_orch_ledger)
+_e01 = E01Service(_features, orch_ledger=_orch_ledger)
 
 
 def _wire_market_data_to_l2() -> None:
@@ -34,7 +37,13 @@ def _wire_market_data_to_l2() -> None:
     _market_data.on_update(_on_update)
 
 
+def _wire_e01_passive_consumer() -> None:
+    """E01 registers as passive FeatureSnapshot consumer on ORCH L2 ready events."""
+    register_e01_with_orch_l2(_l2, _e01)
+
+
 _wire_market_data_to_l2()
+_wire_e01_passive_consumer()
 
 
 def require_token(
@@ -73,6 +82,27 @@ async def orch_status():
 async def orch_l2_health():
     """ORCH Layer 2 Feature Build health (ORCH-003–005)."""
     return _l2.health()
+
+
+@router.get("/e01/health")
+async def e01_health():
+    """E01 Macro & Regime Engine health (E01-001–005 P0)."""
+    return _e01.health()
+
+
+@router.get("/e01/state")
+async def e01_state(as_of: str | None = None):
+    """Frontend-ready E01 EngineState (warm cache)."""
+    state = _e01.get_state(as_of=as_of)
+    if state is None:
+        raise HTTPException(status_code=404, detail="E01 state not available")
+    return state.model_dump(mode="json")
+
+
+@router.get("/e01/history")
+async def e01_history(limit: int = 50):
+    """E01 regime history (newest first)."""
+    return [s.model_dump(mode="json") for s in _e01.history(limit=min(limit, 200))]
 
 
 @router.post("/orch/l2/trigger", dependencies=[Depends(require_token)])

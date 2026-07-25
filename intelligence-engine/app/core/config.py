@@ -39,6 +39,11 @@ class Settings(BaseSettings):
     fmp_api_key: str = ""
     fmp_base_url: str = "https://financialmodelingprep.com/api/v3"
 
+    # E01 Macro & Regime Engine feature flags (P0 defaults)
+    e01_p0: bool = True
+    e01_hmm: bool = False
+    e01_ml: bool = False
+
 
 @lru_cache
 def get_settings() -> Settings:

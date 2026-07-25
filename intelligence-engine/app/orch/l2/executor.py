@@ -73,6 +73,8 @@ class L2FeatureBuildService:
         self.default_workers = default_workers
         self._ready_handlers: list[ReadyHandler] = []
         self._lock = threading.Lock()
+        # Latest batch snapshots for passive engine consumers (E01, …)
+        self._last_snapshots: dict[str, FeatureSnapshot] = {}
 
     def on_ready(self, handler: ReadyHandler) -> None:
         self._ready_handlers.append(handler)
@@ -241,6 +243,10 @@ class L2FeatureBuildService:
             symbol=job.symbol,
             values=values,
         )
+        self._last_snapshots[snapshot.snapshot_id] = snapshot
+        while len(self._last_snapshots) > 32:
+            oldest = next(iter(self._last_snapshots))
+            del self._last_snapshots[oldest]
 
         status = "succeeded"
         if failed and succeeded:

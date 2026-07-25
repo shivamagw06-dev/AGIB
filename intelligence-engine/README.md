@@ -78,3 +78,12 @@ Agents read **AGIB Node cached APIs only** (no direct third-party market API cal
 - Flow: MarketDataClient publish → ORCH dirty detection → impacted subgraph → Feature Registry recompute → cache/store → ready event
 - Engines must not request recalculation; they only read FeatureSnapshots
 - APIs: `GET /v1/orch/l2/health`, `POST /v1/orch/l2/trigger`, `POST /v1/orch/l2/drain`, `GET /v1/orch/l2/builds`
+
+### E01 Macro & Regime Engine P0 (WBS E01-001–005)
+
+- Package: `app/engines/e01/` — Feature Builder, threshold classifiers, MacroScore, sizing, EngineState builder
+- Inputs: Feature Registry / FeatureSnapshots only (no provider payloads, no polling)
+- Outputs: canonical EngineState (`engine_state.schema.json`) with E01 metadata (axes, primary_regime, size_multiplier, …)
+- Flags: `E01_P0=true`, `E01_HMM=false`, `E01_ML=false`
+- ORCH: passive L2 ready-event consumer (`E01_MACRO` node)
+- APIs: `GET /v1/e01/state`, `GET /v1/e01/history`, `GET /v1/e01/health`
