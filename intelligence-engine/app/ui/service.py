@@ -222,6 +222,140 @@ class UiService:
             "research_published_today": [scrub(r) for r in published[:6]],
         }
 
+        health_label = hero.get("platform_health") or "ok"
+        morning_intelligence = {
+            "greeting_line": "Here's what the AGI Investment Office believes today.",
+            "cards": [
+                {
+                    "id": "house_view",
+                    "label": "Current House View",
+                    "value": brief.get("summary") or market_regime.get("label") or "Under review",
+                },
+                {"id": "market_regime", "label": "Market Regime", "value": market_regime.get("label") or "Unavailable"},
+                {"id": "risk_level", "label": "Risk Level", "value": market_risk.get("label") or "Unavailable"},
+                {
+                    "id": "last_updated",
+                    "label": "Last Updated",
+                    "value": hero.get("latest_update") or "Today",
+                },
+                {
+                    "id": "research_today",
+                    "label": "Research Published Today",
+                    "value": str(hero.get("research_published_today") or len(published) or 0),
+                },
+                {
+                    "id": "platform_health",
+                    "label": "Platform Health",
+                    "value": str(health_label).replace("_", " ").title(),
+                },
+            ],
+        }
+
+        knowledge_feed: list[dict[str, Any]] = []
+        for r in published[:4]:
+            if isinstance(r, dict):
+                knowledge_feed.append(
+                    {
+                        "type": "research",
+                        "title": scrub_text(r.get("title") or "Research update"),
+                        "as_of": r.get("updated_at") or r.get("as_of") or r.get("published_at"),
+                        "href": f"/article/{r.get('research_id') or r.get('id')}"
+                        if (r.get("research_id") or r.get("id"))
+                        else "/research",
+                    }
+                )
+        knowledge_feed.append(
+            {
+                "type": "house_view",
+                "title": f"House view · regime {market_regime.get('label')}",
+                "as_of": hero.get("latest_update"),
+                "href": "/ask",
+            }
+        )
+        for p in latest_preds[:3]:
+            knowledge_feed.append(
+                {
+                    "type": "prediction",
+                    "title": scrub_text(p.get("thesis") or f"Prediction · {p.get('ticker')}"),
+                    "as_of": p.get("publication_date"),
+                    "href": "/predictions",
+                }
+            )
+        for n in news[:3]:
+            if isinstance(n, dict):
+                knowledge_feed.append(
+                    {
+                        "type": "knowledge",
+                        "title": scrub_text(n.get("title")),
+                        "as_of": n.get("date") or n.get("published_at"),
+                        "href": "/research",
+                    }
+                )
+
+        featured = []
+        for r in (published or todays)[:6]:
+            if not isinstance(r, dict):
+                continue
+            featured.append(
+                {
+                    "id": r.get("research_id") or r.get("id"),
+                    "title": scrub_text(r.get("title")),
+                    "category": (r.get("sectors") or ["Research"])[0]
+                    if isinstance(r.get("sectors"), list) and r.get("sectors")
+                    else "Research",
+                    "as_of": r.get("updated_at") or r.get("as_of"),
+                    "read_time": r.get("read_time") or "5 min",
+                    "house_view": r.get("house_view") or market_regime.get("label"),
+                    "tickers": r.get("tickers") or [],
+                    "href": f"/article/{r.get('research_id') or r.get('id')}"
+                    if (r.get("research_id") or r.get("id"))
+                    else "/research",
+                }
+            )
+
+        sector_rows = []
+        for th in themes[:8]:
+            if isinstance(th, dict):
+                sector_rows.append(
+                    {
+                        "name": th.get("name") or th.get("id"),
+                        "bias": th.get("bias") or th.get("trend") or "Watch",
+                        "change": th.get("change") or th.get("score"),
+                    }
+                )
+        market_dashboard = {
+            "tabs": ["Heatmap", "Breadth", "Flows", "Market Health"],
+            "heatmap": sector_rows,
+            "breadth": {
+                "advancers": composite.get("n_names") or 0,
+                "coverage": len(top_companies),
+                "label": market_regime.get("label"),
+            },
+            "flows": {"note": "Institutional flow context updates with model portfolio coverage."},
+            "market_health": {
+                "regime": market_regime.get("label"),
+                "risk": market_risk.get("label"),
+                "platform": health_label,
+            },
+        }
+
+        graph_nodes = 0
+        if self.kip:
+            try:
+                # soft count from themes + companies + research as knowledge nodes proxy
+                graph_nodes = len(themes) + len(top_companies) + len(todays) + len(news)
+            except Exception:
+                graph_nodes = len(themes) + len(top_companies)
+        footer_metrics = {
+            "research_coverage": len(todays) or research_count,
+            "companies_covered": len(top_companies) or composite.get("n_names") or 0,
+            "predictions": len(latest_preds),
+            "research_articles": len(published) or len(todays),
+            "knowledge_nodes": graph_nodes,
+            "data_points": (len(todays) + len(news) + len(calendar) + len(latest_preds)) * 12,
+            "research_since": "2024",
+        }
+
         return HomeView(
             meta=UiMeta(
                 surface="home",
@@ -242,8 +376,30 @@ class UiService:
             popular_questions=popular,
             feeds=feeds,
             top_companies=top_companies,
+            ask_placeholder=(
+                "Ask AGI anything about markets, companies, investments, themes, "
+                "macroeconomics, valuation or research..."
+            ),
             example_questions=[s["question"] for s in SEED_QUESTIONS],
+            morning_intelligence=morning_intelligence,
+            knowledge_feed=knowledge_feed[:16],
+            featured_research=featured,
+            market_dashboard=market_dashboard,
+            footer_metrics=footer_metrics,
+            market_snapshot=[],
+            market_session={"status": "live", "label": "Market session"},
         )
+
+    def calendar(self) -> dict[str, Any]:
+        """Thin calendar surface for Investment Office homepage."""
+        home = self.home()
+        return {
+            "meta": UiMeta(surface="calendar", sources=["knowledge", "operations"]).model_dump(),
+            "events": home.economic_calendar,
+            "today": home.economic_calendar[:6],
+            "tomorrow": home.economic_calendar[6:12],
+            "week": home.economic_calendar[:20],
+        }
 
     def company(self, ticker: str) -> CompanyView:
         self._require()

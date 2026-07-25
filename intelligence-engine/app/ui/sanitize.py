@@ -108,9 +108,14 @@ def scrub(obj: Any) -> Any:
                     out["meta"] = scrub(meta)
                 continue
             pk = public_label(k) if k in _ENGINE_LABELS or k.upper() in _ENGINE_LABELS else k
-            # Also map nested e01/l4 style keys
+            # Also map nested e01/l4 style keys and compound keys like E03_xs_momentum
             if re.fullmatch(r"[eE]\d{2}|[lL]4", str(k) or ""):
                 pk = public_label(k)
+            elif re.match(r"^(E0[1-9]|E1[0-4]|L4|e0[1-9]|e1[0-4]|l4)([_\-.].*)?$", str(k) or ""):
+                m = re.match(r"^(E0[1-9]|E1[0-4]|L4|e0[1-9]|e1[0-4]|l4)([_\-.].*)?$", str(k))
+                base = public_label(m.group(1)) if m else str(k)
+                suffix = m.group(2) or ""
+                pk = f"{base}{suffix}"
             out[pk] = scrub(v)
         return out
     return obj

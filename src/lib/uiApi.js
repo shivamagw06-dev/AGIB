@@ -39,6 +39,7 @@ export const getUiArticle = (id, ticker) =>
 export const getUiTimeline = (entity) => uiFetch(`/timeline/${encodeURIComponent(entity)}`);
 export const getUiAutocomplete = (q) => uiFetch('/autocomplete', { query: { q: q || '' } });
 export const getUiPredictions = () => uiFetch('/predictions');
+export const getUiCalendar = () => uiFetch('/calendar');
 export const getUiCopilot = (params = {}) => uiFetch('/copilot', { query: params });
 export const postUiSearch = (question, ticker) =>
   uiFetch('/search', {

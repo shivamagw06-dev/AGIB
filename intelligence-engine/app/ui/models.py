@@ -39,9 +39,18 @@ class HomeView(BaseModel):
     feeds: dict[str, Any] = Field(default_factory=dict)
     top_companies: list[dict[str, Any]] = Field(default_factory=list)
     ask_placeholder: str = (
-        "Ask AGI anything about markets, companies, sectors, investing or the economy..."
+        "Ask AGI anything about markets, companies, investments, themes, "
+        "macroeconomics, valuation or research..."
     )
     example_questions: list[str] = Field(default_factory=list)
+    # Investment Office Homepage V1
+    morning_intelligence: dict[str, Any] = Field(default_factory=dict)
+    knowledge_feed: list[dict[str, Any]] = Field(default_factory=list)
+    featured_research: list[dict[str, Any]] = Field(default_factory=list)
+    market_dashboard: dict[str, Any] = Field(default_factory=dict)
+    footer_metrics: dict[str, Any] = Field(default_factory=dict)
+    market_snapshot: list[dict[str, Any]] = Field(default_factory=list)
+    market_session: dict[str, Any] = Field(default_factory=dict)
 
 
 class CompanyView(BaseModel):

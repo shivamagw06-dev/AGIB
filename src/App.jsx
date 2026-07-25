@@ -5,7 +5,6 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import AdminRoutes from '@/pages/admin/AdminRoutes';
 import CategoryPage from '@/pages/CategoryPage';
 import Header from "@/components/Layout/Header";
-import EditorialHome from "@/components/Home/EditorialHome";
 import { MarketDataProvider } from "@/contexts/MarketDataContext";
 import ArticlesFeed from '@/components/ArticlesFeed';
 import About from '@/components/About';
@@ -43,14 +42,16 @@ const ResearchWorkflowDesk = React.lazy(() => import('@/pages/ResearchWorkflowDe
 const AskAgiPage = React.lazy(() => import('@/pages/AskAgiPage'));
 const PredictionCentre = React.lazy(() => import('@/pages/PredictionCentre'));
 const PersonalWorkspace = React.lazy(() => import('@/pages/PersonalWorkspace'));
+const InvestmentOfficeHome = React.lazy(() => import('@/office/InvestmentOfficeHome'));
 
 function HomeLayout() {
-  return <EditorialHome />;
+  return <InvestmentOfficeHome />;
 }
 
 function AppShell() {
   const location = useLocation();
   const isAdmin = location.pathname.startsWith('/admin');
+  const isOfficeHome = location.pathname === '/';
 
   useEffect(() => {
     if (!isAdmin) {
@@ -69,13 +70,19 @@ function AppShell() {
   return (
     <>
       <MarketDataProvider>
-        <Header />
+        {!isOfficeHome && <Header />}
         <main>
-          <Suspense fallback={<div className="p-8 text-center text-slate-600">Loading…</div>}>
+          <Suspense
+            fallback={
+              <div className={`p-8 text-center ${isOfficeHome ? 'bg-[#090c11] text-slate-300 min-h-screen' : 'text-slate-600'}`}>
+                Loading…
+              </div>
+            }
+          >
             <PublicRoutes />
           </Suspense>
         </main>
-        <Footer />
+        {!isOfficeHome && <Footer />}
         <Toaster />
       </MarketDataProvider>
     </>

@@ -1414,6 +1414,14 @@ async def ui_home():
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+@router.get("/ui/calendar")
+async def ui_calendar():
+    try:
+        return _ui.calendar()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 @router.get("/ui/company/{ticker}")
 async def ui_company(ticker: str):
     try:
