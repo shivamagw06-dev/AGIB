@@ -4,8 +4,9 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "dev": "vite --host :: --port 3000",
-    "build": "vite build",
+    "dev": "cp index.vite.html index.html && vite --host :: --port 3000",
+    "build": "cp index.vite.html index.html && vite build",
+    "build:hostinger": "cp index.vite.html index.html && vite build && cp dist/index.html index.html && rm -rf assets && cp -R dist/assets assets && cp dist/.htaccess .htaccess",
     "preview": "vite preview --host :: --port 3000"
   },
   "dependencies": {
