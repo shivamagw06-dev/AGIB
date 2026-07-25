@@ -56,6 +56,13 @@ class Settings(BaseSettings):
     e02_smart_beta: bool = False
     e02_ml: bool = False
 
+    # E03 Cross-Sectional Quant Engine feature flags (P0/M0 defaults)
+    e03_p0: bool = True
+    e03_parity: bool = True
+    e03_composite: bool = False
+    e03_xs_mode: bool = False
+    e03_ml: bool = False
+
 
 @lru_cache
 def get_settings() -> Settings:

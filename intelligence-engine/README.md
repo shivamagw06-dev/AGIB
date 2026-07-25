@@ -105,3 +105,12 @@ Agents read **AGIB Node cached APIs only** (no direct third-party market API cal
 - Flags: `E02_P0=true`, `E02_TIMING/ROTATION/SMART_BETA/ML=false`
 - ORCH: passive Feature Ready / E01 Ready / E14 Ready consumer
 - APIs: `GET /v1/e02/exposure/{symbol}`, `GET /v1/e02/history/{symbol}`, `GET /v1/e02/health`
+
+### E03 Cross-Sectional Quant Engine P0/M0 (WBS E03-001–005)
+
+- Package: `app/engines/e03/` — Technical Feature Adapter, `SM_AGI_TECH` (production `score_research` parity), E03Alpha, EngineState, ParityReport
+- Behavioural migration only: RSI / MACD / SMA / returns / volume / range / ROC thresholds identical to `nifty500_research_engine.py`
+- Inputs: FeatureSnapshot + E01State + E14State + E02Exposure only (no MarketDataClient, no polling)
+- Flags: `E03_P0=true`, `E03_PARITY=true`, `E03_COMPOSITE/XS_MODE/ML=false`
+- ORCH: passive Feature Ready / E01 Ready / E14 Ready / E02 Ready consumer
+- APIs: `GET /v1/e03/alpha/{symbol}`, `GET /v1/e03/history/{symbol}`, `GET /v1/e03/parity`, `GET /v1/e03/health`

@@ -8,6 +8,8 @@ from app.engines.e01.consumer import register_e01_with_orch_l2
 from app.engines.e01.service import E01Service
 from app.engines.e02.consumer import register_e02_with_orch
 from app.engines.e02.service import E02Service
+from app.engines.e03.consumer import register_e03_with_orch
+from app.engines.e03.service import E03Service
 from app.engines.e14.consumer import register_e14_with_orch
 from app.engines.e14.service import E14Service
 from app.eval.evaluation_agent import EvaluationAgent
@@ -32,6 +34,7 @@ _l2 = L2FeatureBuildService(_features, orch_ledger=_orch_ledger)
 _e01 = E01Service(_features, orch_ledger=_orch_ledger)
 _e14 = E14Service(_features, e01=_e01, orch_ledger=_orch_ledger)
 _e02 = E02Service(_features, e01=_e01, e14=_e14, orch_ledger=_orch_ledger)
+_e03 = E03Service(_features, e01=_e01, e14=_e14, e02=_e02, orch_ledger=_orch_ledger)
 
 
 def _wire_market_data_to_l2() -> None:
@@ -58,10 +61,16 @@ def _wire_e02_passive_consumer() -> None:
     register_e02_with_orch(_l2, _e02, _e01, _e14)
 
 
+def _wire_e03_passive_consumer() -> None:
+    """E03 registers as passive consumer of FeatureSnapshot + E01/E14/E02 Ready."""
+    register_e03_with_orch(_l2, _e03, _e01, _e14, _e02)
+
+
 _wire_market_data_to_l2()
 _wire_e01_passive_consumer()
 _wire_e14_passive_consumer()
 _wire_e02_passive_consumer()
+_wire_e03_passive_consumer()
 
 
 def require_token(
@@ -163,6 +172,36 @@ async def e02_exposure(symbol: str, as_of: str | None = None):
 async def e02_history(symbol: str, limit: int = 50):
     """E02 EngineState history for a symbol (newest first)."""
     return [s.model_dump(mode="json") for s in _e02.history(symbol, limit=min(limit, 200))]
+
+
+@router.get("/e03/health")
+async def e03_health():
+    """E03 Cross-Sectional Quant Engine health (E03-001–005 P0/M0)."""
+    return _e03.health()
+
+
+@router.get("/e03/alpha/{symbol}")
+async def e03_alpha(symbol: str, as_of: str | None = None):
+    """Frontend-ready E03Alpha (warm cache)."""
+    alpha = _e03.get_alpha(symbol, as_of=as_of)
+    if alpha is None:
+        raise HTTPException(status_code=404, detail="E03 alpha not available")
+    return alpha.model_dump(mode="json")
+
+
+@router.get("/e03/history/{symbol}")
+async def e03_history(symbol: str, limit: int = 50):
+    """E03 EngineState history for a symbol (newest first)."""
+    return [s.model_dump(mode="json") for s in _e03.history(symbol, limit=min(limit, 200))]
+
+
+@router.get("/e03/parity")
+async def e03_parity():
+    """Latest SM_AGI_TECH vs legacy score_research parity report."""
+    report = _e03.get_parity()
+    if report is None:
+        raise HTTPException(status_code=404, detail="E03 parity report not available")
+    return report.model_dump(mode="json")
 
 
 @router.post("/orch/l2/trigger", dependencies=[Depends(require_token)])
