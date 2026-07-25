@@ -102,6 +102,12 @@ class Settings(BaseSettings):
     e04_etf_basis: bool = False
     e04_ml: bool = False
 
+    # E05 Event-Driven & Special Situations feature flags (P0 defaults)
+    e05_p0: bool = True
+    e05_deal_probability: bool = False
+    e05_transcripts: bool = False
+    e05_ml: bool = False
+
     # Validation & Backtesting platform flags (P0 defaults)
     backtest: bool = True
     live: bool = False

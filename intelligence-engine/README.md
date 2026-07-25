@@ -116,6 +116,16 @@ Agents read **AGIB Node cached APIs only** (no direct third-party market API cal
 - CRE/Replay: auto-registered; promotion disabled
 - APIs: `GET /v1/e04/state/{pair}`, `GET /v1/e04/history/{pair}`, `GET /v1/e04/health`
 
+### E05 Event-Driven & Special Situations P0 (WBS E05-001–005)
+
+- Package: `app/engines/e05/` — Event Feature Builder, Event State Builder, E05EventState, EngineState
+- P0 only: earnings calendar, dividends, corporate actions (split/bonus/rights), guidance, basic EPS surprise, event decay/importance, composite event score
+- Inputs: FeatureSnapshot + E01State + E14State + available `EVENT_*` + PIT corporate event objects only (no MarketDataClient / raw calendars)
+- Flags: `E05_P0=true`, `E05_DEAL_PROBABILITY/TRANSCRIPTS/ML=false`
+- ORCH: passive Feature Ready / E01 Ready / E14 Ready consumer
+- CRE/Replay: auto-registered; promotion disabled
+- APIs: `GET /v1/e05/events/{symbol}`, `GET /v1/e05/history/{symbol}`, `GET /v1/e05/health`
+
 ### E09 CTA Trend Engine P0 (WBS E09-001–005)
 
 - Package: `app/engines/e09/` — Trend Feature Builder, Trend State Builder, E09State, EngineState
@@ -176,7 +186,7 @@ Agents read **AGIB Node cached APIs only** (no direct third-party market API cal
 ### Validation & Backtesting P0 (WBS BT-001–005)
 
 - Package: `app/validation/` — Replay Engine, Golden Dataset Loader, Historical Engine Runner, Metrics, Dashboard payload
-- Pipeline: Snapshot → E01 → E14 → E02 → E13 → E08 → E09 → E03 → E04 → L4 → E10 → Metrics (isolated instances; replay store only)
+- Pipeline: Snapshot → E01 → E14 → E02 → E13 → E08 → E09 → E05 → E03 → E04 → L4 → E10 → Metrics (isolated instances; replay store only)
 - Metrics: daily/benchmark return, hit/win rate, IC, Sharpe, Sortino, max DD, turnover, confidence calibration, bucket accuracy, parity stability
 - Flags: `BACKTEST=true`, `LIVE=false`
 - APIs: `POST /v1/validation/replay`, `GET /v1/validation/runs`, `GET /v1/validation/runs/{id}`, `GET /v1/validation/dashboard/{id}`, `GET /v1/validation/health`
