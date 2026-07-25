@@ -151,14 +151,39 @@ export const AuthProvider = ({ children }) => {
 
     const logoutAllDevices = async () => logout({ scope: 'global' });
 
-    const resendVerification = async (email) => {
+    const resendVerification = async (email, fullName = '') => {
       requireConfigured();
+      const target = email.trim();
+      const redirectTo = `${SITE_URL}/verify-email`;
+
+      // Prefer AGI branded Resend path; fall back to Supabase auth email.
+      try {
+        const { API_ORIGIN } = await import('@/config');
+        const base = (API_ORIGIN || '').replace(/\/$/, '');
+        if (base) {
+          const resp = await fetch(`${base}/api/auth/send-verification`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: target, fullName, redirectTo }),
+          });
+          const payload = await resp.json().catch(() => ({}));
+          if (resp.ok && payload?.ok) return payload;
+          if (!payload?.skipped) {
+            // Continue to Supabase fallback below.
+            console.warn('[auth] branded resend failed', payload);
+          }
+        }
+      } catch (err) {
+        console.warn('[auth] branded resend request failed', err?.message || err);
+      }
+
       const { error } = await supabase.auth.resend({
         type: 'signup',
-        email: email.trim(),
-        options: { emailRedirectTo: `${SITE_URL}/verify-email` },
+        email: target,
+        options: { emailRedirectTo: redirectTo },
       });
       if (error) throw error;
+      return { ok: true, provider: 'supabase' };
     };
 
     return {

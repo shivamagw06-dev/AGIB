@@ -63,39 +63,89 @@ function brandedVerificationHtml({ fullName, actionLink, siteUrl }) {
 </html>`;
 }
 
-async function sendEmail({ to, subject, html }) {
-  const from =
-    process.env.FROM_EMAIL ||
-    process.env.AUTH_FROM_EMAIL ||
-    'Agarwal Global Investments <support@agarwalglobalinvestments.com>';
+function fromCandidates() {
+  const configured = [
+    process.env.FROM_EMAIL,
+    process.env.AUTH_FROM_EMAIL,
+    'Agarwal Global Investments <support@agarwalglobalinvestments.com>',
+    'AGI Updates <updates@agarwalglobalinvestments.com>',
+  ]
+    .map((v) => String(v || '').trim())
+    .filter(Boolean);
+  return [...new Set(configured)];
+}
 
+async function sendWithResend({ to, subject, html, from }) {
+  const resendKey = (process.env.RESEND_API_KEY || '').trim();
+  if (!resendKey) return null;
+  const resp = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${resendKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ from, to, subject, html }),
+  });
+  const body = await resp.text().catch(() => '');
+  if (!resp.ok) {
+    const err = new Error(`Resend failed (${resp.status}): ${body.slice(0, 240)}`);
+    err.code = 'RESEND_FAILED';
+    err.status = resp.status;
+    throw err;
+  }
+  return { provider: 'resend', from };
+}
+
+async function sendEmail({ to, subject, html }) {
   const sendgridKey = (process.env.SENDGRID_API_KEY || '').trim();
   if (sendgridKey) {
+    const from = fromCandidates()[0];
     const sgMail = (await import('@sendgrid/mail')).default;
     sgMail.setApiKey(sendgridKey);
     await sgMail.send({ to, from, subject, html });
-    return { provider: 'sendgrid' };
+    return { provider: 'sendgrid', from };
   }
 
   const resendKey = (process.env.RESEND_API_KEY || '').trim();
   if (resendKey) {
-    const resp = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${resendKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ from, to, subject, html }),
-    });
-    if (!resp.ok) {
-      const body = await resp.text().catch(() => '');
-      throw new Error(`Resend failed (${resp.status}): ${body.slice(0, 200)}`);
+    let lastErr = null;
+    for (const from of fromCandidates()) {
+      try {
+        return await sendWithResend({ to, subject, html, from });
+      } catch (err) {
+        lastErr = err;
+        // Try next from-address if domain/sender rejected.
+        if (!/resend failed|from|domain|sender/i.test(err?.message || '')) throw err;
+      }
     }
-    return { provider: 'resend' };
+    throw lastErr || new Error('Resend send failed.');
   }
 
   const err = new Error('No email provider configured (SENDGRID_API_KEY or RESEND_API_KEY).');
   err.code = 'EMAIL_PROVIDER_MISSING';
+  throw err;
+}
+
+async function generateActionLink(admin, email, redirectTo) {
+  const types = ['signup', 'magiclink', 'invite'];
+  let lastError = null;
+
+  for (const type of types) {
+    const { data, error } = await admin.auth.admin.generateLink({
+      type,
+      email,
+      options: { redirectTo },
+    });
+    if (error) {
+      lastError = error;
+      continue;
+    }
+    const actionLink = data?.properties?.action_link || data?.action_link || null;
+    if (actionLink) return { actionLink, type };
+  }
+
+  const err = new Error(lastError?.message || 'Unable to generate verification link.');
+  err.code = 'LINK_GENERATION_FAILED';
   throw err;
 }
 
@@ -104,7 +154,7 @@ export default function createAuthRouter() {
 
   const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 12,
+    max: 20,
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: 'Too many auth email requests. Try again later.' },
@@ -136,22 +186,11 @@ export default function createAuthRouter() {
         auth: { autoRefreshToken: false, persistSession: false },
       });
 
-      const { data, error } = await admin.auth.admin.generateLink({
-        type: 'signup',
+      const { actionLink, type } = await generateActionLink(
+        admin,
         email,
-        options: {
-          redirectTo: redirectTo || `${siteUrl}/verify-email`,
-        },
-      });
-      if (error) throw error;
-
-      const actionLink =
-        data?.properties?.action_link ||
-        data?.action_link ||
-        null;
-      if (!actionLink) {
-        return res.status(502).json({ error: 'Unable to generate verification link.' });
-      }
+        redirectTo || `${siteUrl}/verify-email`
+      );
 
       try {
         const sent = await sendEmail({
@@ -159,21 +198,32 @@ export default function createAuthRouter() {
           subject: 'Verify your Agarwal Global Investments account',
           html: brandedVerificationHtml({ fullName, actionLink, siteUrl }),
         });
-        return res.json({ ok: true, provider: sent.provider });
+        return res.json({
+          ok: true,
+          provider: sent.provider,
+          from: sent.from,
+          linkType: type,
+        });
       } catch (mailErr) {
         if (mailErr?.code === 'EMAIL_PROVIDER_MISSING') {
           return res.status(503).json({
             ok: false,
             skipped: true,
             reason: mailErr.message,
-            note: 'Configure SENDGRID_API_KEY or RESEND_API_KEY, or use Supabase custom SMTP templates.',
+            note: 'Configure RESEND_API_KEY on Render, and/or Supabase custom SMTP.',
           });
         }
-        throw mailErr;
+        return res.status(502).json({
+          error: 'Email provider rejected the message.',
+          detail: mailErr?.message || String(mailErr),
+        });
       }
     } catch (err) {
       console.error('[auth/send-verification]', err?.message || err);
-      return res.status(500).json({ error: 'Failed to send verification email.' });
+      return res.status(500).json({
+        error: 'Failed to send verification email.',
+        detail: err?.message || String(err),
+      });
     }
   });
 
@@ -182,6 +232,7 @@ export default function createAuthRouter() {
       ok: true,
       sendgrid: Boolean((process.env.SENDGRID_API_KEY || '').trim()),
       resend: Boolean((process.env.RESEND_API_KEY || '').trim()),
+      fromCandidates: fromCandidates(),
       supabaseAdmin: Boolean(
         (process.env.SUPABASE_URL || '').trim() &&
           (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim()
