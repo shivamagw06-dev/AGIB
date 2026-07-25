@@ -70,6 +70,22 @@ def test_normalize_stance_and_house_card():
     assert card["stance"] == "Bullish"
     assert card["bullish"] is True
     assert card["confidence"] == 0.72
+    # HouseView dumps nest thesis under current_view — must not collapse to Neutral noise.
+    nested = house_view_card(
+        {
+            "ticker": "INDIA_IT",
+            "research_confidence": 0.7,
+            "current_view": {
+                "document_id": "doc_x",
+                "thesis": "Indian IT services face weak growth visibility and AI productivity pressure.",
+                "bull_case": [],
+                "bear_case": ["Slower deal conversions", "Macro demand softness"],
+            },
+        },
+        None,
+    )
+    assert nested["stance"] == "Bearish"
+    assert nested["confidence"] == 0.7
 
 
 def test_whats_changed_highlights_deltas():
@@ -127,6 +143,55 @@ def test_search_returns_iax_workspace_fields():
     assert not re.search(r"(?<![A-Za-z0-9])E01(?![A-Za-z0-9])", dumped)
     assert not re.search(r"(?<![A-Za-z0-9])E03(?![A-Za-z0-9])", dumped)
     assert "EngineState" not in dumped
+
+
+def test_sector_search_uses_titles_and_synthesizes_house_view():
+    ui = _ui()
+    ui.kip.ingest_agi(
+        IngestRequest(
+            title="hello world",
+            content="tiny test note that should be ignored by Ask AGI quality filters",
+            tickers=["SERVICES", "GLOBAL", "TCS"],
+            date=date(2026, 7, 1),
+            article_id="junk_hello",
+            document_type=DocumentType.AGI_NOTE,
+        )
+    )
+    ui.kip.ingest_agi(
+        IngestRequest(
+            title="India IT Sector update",
+            content=(
+                "India IT Services – Q1FY27 Review & Outlook. "
+                "The Indian IT services sector continues to face weak growth visibility, "
+                "with earnings reflecting ongoing macro challenges, slower deal conversions, "
+                "and increasing pressure from AI-led productivity demands.\n"
+                "Key Sector Takeaways (Q1FY27)\n"
+                "Bull Case\n- Large-deal pipeline still intact for Tier-1 names\n"
+                "Bear Case\n- Weak growth visibility near 0% QoQ\n- AI productivity pressure on billing\n"
+                "Risks\n- Client budget freezes in US/Europe\n"
+                "Catalysts\n- FY27 guidance upgrades if demand stabilises\n"
+                "Sector: Information Technology\nTheme: ai_adoption\n"
+            ),
+            tickers=["SERVICES", "CONTINUES", "TCS", "INFY"],
+            sectors=["Information Technology"],
+            themes=["ai_adoption"],
+            date=date(2026, 7, 24),
+            article_id="india_it_q1fy27",
+            document_type=DocumentType.AGI_RESEARCH,
+        )
+    )
+    pack = ui.search("how Indian It service doin g")
+    titles = " ".join(str(i.get("title") or "") for i in (pack.supporting_evidence or []))
+    assert "India IT" in titles or "IT Services" in titles or "IT Sector" in titles
+    assert "hello world" not in titles.lower()
+    assert not any(str(i.get("title") or "").startswith("doc_") for i in (pack.supporting_evidence or []))
+    assert pack.house_view_card.get("stance") in {"Bearish", "Neutral"}
+    assert pack.investment_thesis or (pack.current_thesis or {}).get("summary")
+    assert "House view not yet established" not in (pack.executive_summary or "")
+    related_blob = " ".join(pack.related_companies or [])
+    assert "SERVICES" not in related_blob
+    assert "CONTINUES" not in related_blob
+    assert "GLOBAL" not in related_blob
 
 
 def test_timeline_surface():

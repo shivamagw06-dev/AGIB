@@ -10,7 +10,16 @@ from app.ui.sanitize import pick_label, pick_number, public_source, scrub, scrub
 def normalize_stance(label: str | None) -> str:
     if not label:
         return "Neutral"
+    if isinstance(label, dict):
+        return stance_from_historical(label)
     t = str(label).lower()
+    if t.startswith("{") and "thesis" in t:
+        # Defensive: stringified HistoricalView dump
+        if "bear" in t and "bull" not in t:
+            return "Bearish"
+        if "bull" in t and "bear" not in t:
+            return "Bullish"
+        return "Neutral"
     if "strong" in t and "bull" in t:
         return "Bullish"
     if "strong" in t and "bear" in t:
@@ -20,6 +29,80 @@ def normalize_stance(label: str | None) -> str:
     if "bear" in t:
         return "Bearish"
     return "Neutral"
+
+
+def stance_from_historical(view: dict[str, Any] | None) -> str:
+    """Infer institutional stance from a HistoricalView-shaped dict / thesis text."""
+    if not isinstance(view, dict):
+        return "Neutral"
+    bulls = [str(x) for x in (view.get("bull_case") or []) if x]
+    bears = [str(x) for x in (view.get("bear_case") or []) if x]
+    blob = " ".join(
+        [
+            str(view.get("thesis") or ""),
+            " ".join(bulls),
+            " ".join(bears),
+        ]
+    ).lower()
+    cautious = any(
+        w in blob
+        for w in (
+            "weak growth",
+            "slow growth",
+            "slower deal",
+            "macro challenge",
+            "pressure",
+            "headwind",
+            "downgrade",
+            "underweight",
+            "muted",
+            "soft demand",
+        )
+    )
+    constructive = any(
+        w in blob
+        for w in ("upgrade", "overweight", "acceleration", "strong demand", "reacceleration", "beat")
+    )
+    if bears and not bulls:
+        return "Bearish"
+    if bulls and not bears:
+        return "Bullish"
+    if cautious and not constructive:
+        return "Bearish"
+    if constructive and not cautious:
+        return "Bullish"
+    return "Neutral"
+
+
+def flatten_house_view(house: dict[str, Any] | None) -> dict[str, Any]:
+    """Expose thesis / cases / stance at top-level for IAX cards."""
+    if not isinstance(house, dict):
+        return {}
+    out = dict(house)
+    cv = house.get("current_view")
+    if isinstance(cv, dict):
+        out.setdefault("thesis", cv.get("thesis") or "")
+        out.setdefault("summary", cv.get("thesis") or "")
+        out.setdefault("bull_case", list(cv.get("bull_case") or []))
+        out.setdefault("bear_case", list(cv.get("bear_case") or []))
+        out.setdefault("valuation", cv.get("valuation") or "")
+        out.setdefault("target_prices", list(cv.get("target_prices") or []))
+        stance = house.get("stance") or house.get("label") or stance_from_historical(cv)
+        out["stance"] = normalize_stance(stance)
+        out["label"] = out["stance"]
+        # Keep current_view object for history, but also expose string label for cards.
+        out["current_view_label"] = out["stance"]
+    elif isinstance(cv, str):
+        out["stance"] = normalize_stance(house.get("stance") or cv)
+        out["label"] = out["stance"]
+        out["current_view_label"] = out["stance"]
+    else:
+        out["stance"] = normalize_stance(house.get("stance") or house.get("label"))
+        out["label"] = out["stance"]
+        out["current_view_label"] = out["stance"]
+    if out.get("confidence") is None and house.get("research_confidence") is not None:
+        out["confidence"] = house.get("research_confidence")
+    return out
 
 
 def evidence_items(raw_items: list[Any], *, default_type: str = "research") -> list[dict[str, Any]]:
@@ -55,7 +138,40 @@ def evidence_items(raw_items: list[Any], *, default_type: str = "research") -> l
                 "summary": scrub_text(item.get("snippet") or item.get("summary") or item.get("title")),
                 "confidence": item.get("confidence") or item.get("score"),
                 "href": item.get("href") or item.get("url"),
-                "tickers": item.get("tickers") or [],
+                "tickers": [
+                    str(t).upper()
+                    for t in (item.get("tickers") or [])
+                    if str(t).upper().endswith("BANK")
+                    or (
+                        2 <= len(str(t)) <= 12
+                        and str(t).upper().isalpha()
+                        and str(t).upper()
+                        not in {
+                            "SERVICES",
+                            "GLOBAL",
+                            "UPDATE",
+                            "OUTLOOK",
+                            "REVIEW",
+                            "EARNINGS",
+                            "CONTINUES",
+                            "RESEARCH",
+                            "INDIA",
+                            "INDIAN",
+                            "MARKET",
+                            "SECTOR",
+                            "GROWTH",
+                            "WEEK",
+                            "NOTE",
+                            "AMP",
+                            "HIS",
+                            "IMPLICATIONS",
+                            "TAKEAWAYS",
+                            "PRESSURE",
+                            "DEMAND",
+                            "MACRO",
+                        }
+                    )
+                ][:8],
             }
         )
     return out[:20]
@@ -81,12 +197,16 @@ def whats_changed(
     thesis: str | None = None,
 ) -> dict[str, Any]:
     """Compare current institutional view vs previous — never make users hunt for deltas."""
-    house = house or {}
-    prior = prior_house or {}
+    house = flatten_house_view(house)
+    prior = flatten_house_view(prior_house)
     changes: list[dict[str, str]] = []
 
-    cur_stance = normalize_stance(house.get("current_view") or house.get("stance") or house.get("label"))
-    prior_stance = normalize_stance(prior.get("current_view") or prior.get("stance") or prior.get("label"))
+    cur_stance = normalize_stance(
+        house.get("stance") or house.get("current_view_label") or house.get("label")
+    )
+    prior_stance = normalize_stance(
+        prior.get("stance") or prior.get("current_view_label") or prior.get("label")
+    )
     if prior and cur_stance != prior_stance:
         changes.append(
             {
@@ -353,19 +473,25 @@ def knowledge_graph_view(graph: dict[str, Any] | None, ticker: str | None) -> di
 
 
 def house_view_card(house: dict[str, Any] | None, conf: float | None) -> dict[str, Any]:
-    house = house or {}
-    stance = normalize_stance(house.get("current_view") or house.get("stance") or house.get("label"))
+    house = flatten_house_view(house)
+    stance = normalize_stance(
+        house.get("stance")
+        or house.get("current_view_label")
+        or house.get("label")
+        or (house.get("current_view") if isinstance(house.get("current_view"), str) else None)
+    )
+    conf_val = conf if conf is not None else house.get("confidence")
     return {
         "stance": stance,
         "bullish": stance == "Bullish",
         "neutral": stance == "Neutral",
         "bearish": stance == "Bearish",
-        "confidence": conf if conf is not None else house.get("confidence"),
+        "confidence": conf_val,
         "investment_horizon": house.get("horizon") or house.get("investment_horizon") or "medium-term",
-        "conviction": house.get("conviction") or _conviction(conf),
+        "conviction": house.get("conviction") or _conviction(conf_val if isinstance(conf_val, (int, float)) else conf),
         "change_since_last_update": house.get("change_since_last_update")
         or (house.get("thesis_evolution") or [None])[0],
-        "label": house.get("current_view") or house.get("stance") or house.get("label") or stance,
+        "label": stance,
     }
 
 
