@@ -57,6 +57,7 @@ from app.irp.service import IrpService
 from app.kf.service import KfService
 from app.kc.service import KcService
 from app.aoi.service import AoiService
+from app.eve.service import EveService
 from app.ui.service import UiService
 from app.validation.service import ValidationService
 from app.features.models import FeatureMetadata
@@ -146,6 +147,8 @@ _irp = IrpService(kip=_kip, rsp=_rsp)
 _kf = KfService(kip=_kip)
 _kc = KcService(kf=_kf, kip=_kip)
 _aoi = AoiService(kip=_kip, kc=_kc, kf=_kf)
+_eve = EveService(aoi=_aoi, kc=_kc, kf=_kf)
+_aoi.bind_eve(_eve)
 _ui = UiService(
     aws=_aws,
     ioc=_ioc,
@@ -159,6 +162,7 @@ _ui = UiService(
     kf=_kf,
     kc=_kc,
     aoi=_aoi,
+    eve=_eve,
 )
 # Soft-wire KIP retrieve → RSP reason into Research Director (no engine redesign).
 _director.kip = _kip
@@ -1720,6 +1724,127 @@ async def aoi_learning():
     try:
         dash = _aoi.dashboard()
         return dash.get("learning") or {}
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+# --- EVE v1 Evidence & Verification (between AOI and KCV/KF; no core redesign) ---
+
+
+@router.get("/eve/health")
+async def eve_health():
+    return _eve.health()
+
+
+@router.get("/eve/dashboard")
+async def eve_dashboard():
+    try:
+        return _eve.dashboard()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/eve/evidence")
+async def eve_evidence(
+    company_id: str | None = Query(default=None),
+    fact_key: str | None = Query(default=None),
+    limit: int = Query(default=100, ge=1, le=500),
+):
+    try:
+        return _eve.list_evidence(company_id=company_id, fact_key=fact_key, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/eve/evidence/{evidence_id}")
+async def eve_evidence_one(evidence_id: str):
+    try:
+        return _eve.get_evidence(evidence_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/eve/company/{key}")
+async def eve_company(key: str):
+    try:
+        return _eve.company_pack(key)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/eve/conflicts")
+async def eve_conflicts(status: str = Query(default="open")):
+    try:
+        return _eve.conflicts(status=status)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/eve/timeline")
+async def eve_timeline(
+    company_id: str | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=200),
+):
+    try:
+        return _eve.timeline(company_id=company_id, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/eve/trust")
+async def eve_trust():
+    try:
+        return _eve.trust()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/eve/source")
+async def eve_source():
+    try:
+        return _eve.list_sources()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/eve/verification")
+async def eve_verification():
+    try:
+        return _eve.verification_queue()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/eve/verification/run")
+async def eve_verification_run():
+    try:
+        return _eve.run_verification_jobs()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/eve/search")
+async def eve_search(q: str = Query(...), limit: int = Query(default=20, ge=1, le=100)):
+    try:
+        return _eve.search(q, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/eve/consult")
+async def eve_consult(q: str = Query(...), limit: int = Query(default=8, ge=1, le=40)):
+    try:
+        return _eve.consult(q, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/eve/audit")
+async def eve_audit(limit: int = Query(default=50, ge=1, le=200)):
+    try:
+        return _eve.audit_logs(limit=limit)
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

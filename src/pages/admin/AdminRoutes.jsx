@@ -6,6 +6,7 @@ import ArticleEditor from '@/pages/admin/ArticleEditor';
 import CategoryManager from '@/pages/admin/CategoryManager';
 import KnowledgeFoundation from '@/pages/admin/KnowledgeFoundation';
 import OpenIntelligence from '@/pages/admin/OpenIntelligence';
+import Evidence from '@/pages/admin/Evidence';
 
 export default function AdminRoutes() {
   return (
@@ -19,6 +20,7 @@ export default function AdminRoutes() {
           <Route path="categories" element={<CategoryManager />} />
           <Route path="knowledge" element={<KnowledgeFoundation />} />
           <Route path="open-intelligence" element={<OpenIntelligence />} />
+          <Route path="evidence" element={<Evidence />} />
           <Route path="*" element={<Navigate to="/admin" replace />} />
         </Route>
       </Routes>

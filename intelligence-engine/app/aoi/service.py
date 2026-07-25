@@ -22,6 +22,7 @@ class AoiService:
         kip: Any | None = None,
         kc: Any | None = None,
         kf: Any | None = None,
+        eve: Any | None = None,
         flags: AoiFlags | None = None,
         store: AoiStore | None = None,
         registry: CompanyRegistry | None = None,
@@ -29,6 +30,7 @@ class AoiService:
         self.flags = flags or AoiFlags.from_settings(get_settings())
         self.store = store or AoiStore()
         self.registry = registry or CompanyRegistry()
+        self.eve = eve
         self.pipeline = AoiPipeline(
             flags=self.flags,
             store=self.store,
@@ -36,9 +38,15 @@ class AoiService:
             kip=kip,
             kc=kc,
             kf=kf,
+            eve=eve,
         )
         if self.flags.aoi:
             self.pipeline.ensure_registry()
+
+    def bind_eve(self, eve: Any) -> None:
+        """Soft extension point — attach EVE without redesigning AOI internals."""
+        self.eve = eve
+        self.pipeline.eve = eve
 
     def health(self) -> dict[str, Any]:
         cov = self.store.coverage_counts() if self.flags.aoi else {}

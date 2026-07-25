@@ -17,10 +17,12 @@ def publish_artifact(
     kip: Any | None = None,
     kc: Any | None = None,
     kf: Any | None = None,
+    eve: Any | None = None,
 ) -> dict[str, Any]:
     """Convert AOI artifact into an institutional ingest soft-handoff.
 
     Prefer KIP ingest when available; always soft-fail.
+    Optional EVE extension verifies facts before KC/KF memory (no AOI redesign).
     """
     result: dict[str, Any] = {"published": False, "targets": []}
     co = registry.get(artifact.company_id) if artifact.company_id else None
@@ -30,6 +32,20 @@ def publish_artifact(
     content = artifact.content_text or artifact.title
     if thesis_bits:
         content = content + "\n\nStructured facts:\n" + "\n".join(thesis_bits)
+
+    # Soft EVE verification gate (between AOI and KCV/KF).
+    if eve is not None:
+        try:
+            eve_result = eve.ingest_aoi_artifact(artifact, facts, company_symbol=symbol)
+            result["eve"] = {
+                "accepted": bool(eve_result.get("accepted")),
+                "evidence_count": eve_result.get("evidence_count"),
+                "conflicts": eve_result.get("conflicts"),
+                "gate": eve_result.get("gate") or {},
+            }
+            result["targets"].append("eve")
+        except Exception as exc:
+            result["eve_error"] = str(exc)
 
     # Soft KIP ingest
     if kip is not None:

@@ -34,6 +34,7 @@ class AoiPipeline:
         kip: Any | None = None,
         kc: Any | None = None,
         kf: Any | None = None,
+        eve: Any | None = None,
     ) -> None:
         self.flags = flags
         self.store = store or AoiStore()
@@ -41,6 +42,7 @@ class AoiPipeline:
         self.kip = kip
         self.kc = kc
         self.kf = kf
+        self.eve = eve
         self.connectors = build_connectors(flags)
         self.scheduler = Scheduler(self.store)
         self.downloader = Downloader(self.store)
@@ -213,6 +215,7 @@ class AoiPipeline:
                 kip=self.kip,
                 kc=self.kc,
                 kf=self.kf,
+                eve=self.eve,
             )
             if pub.get("published"):
                 totals["published"] += 1

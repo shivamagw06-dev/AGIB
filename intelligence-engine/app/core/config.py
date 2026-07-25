@@ -208,6 +208,14 @@ class Settings(BaseSettings):
     aoi_worldbank: bool = True
     aoi_pib: bool = True
 
+    # Evidence & Verification Engine v1 (between AOI and KCV/KF; no core redesign)
+    eve: bool = True
+    eve_auto_verify: bool = True
+    eve_gate_publish: bool = True
+    eve_conflicts: bool = True
+    eve_timeline: bool = True
+    eve_daily_jobs: bool = True
+
 
 @lru_cache
 def get_settings() -> Settings:

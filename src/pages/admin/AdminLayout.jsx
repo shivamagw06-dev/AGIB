@@ -9,6 +9,7 @@ import {
   ChevronRight,
   Brain,
   Radar,
+  Shield,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -18,6 +19,7 @@ const navItems = [
   { to: '/admin/categories', label: 'Categories', icon: FolderOpen },
   { to: '/admin/knowledge', label: 'Knowledge Corpus', icon: Brain },
   { to: '/admin/open-intelligence', label: 'Open Intelligence', icon: Radar },
+  { to: '/admin/evidence', label: 'Evidence', icon: Shield },
 ];
 
 export default function AdminLayout() {

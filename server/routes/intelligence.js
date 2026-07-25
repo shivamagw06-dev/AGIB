@@ -255,5 +255,35 @@ export default function createIntelligenceRouter() {
   router.get('/aoi/gaps', kfGet('/v1/aoi/gaps'));
   router.get('/aoi/learning', kfGet('/v1/aoi/learning'));
 
+  // EVE v1 — Evidence & Verification Engine (between AOI and KCV/KF).
+  router.get('/eve/health', kfGet('/v1/eve/health'));
+  router.get('/eve/dashboard', kfGet('/v1/eve/dashboard'));
+  router.get('/eve/evidence', kfGet('/v1/eve/evidence'));
+  router.get('/eve/evidence/:evidenceId', async (req, res) => {
+    try {
+      const result = await engineFetch(`/v1/eve/evidence/${encodeURIComponent(req.params.evidenceId)}`);
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Evidence engine unavailable', detail: error.message });
+    }
+  });
+  router.get('/eve/company/:key', async (req, res) => {
+    try {
+      const result = await engineFetch(`/v1/eve/company/${encodeURIComponent(req.params.key)}`);
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Evidence engine unavailable', detail: error.message });
+    }
+  });
+  router.get('/eve/conflicts', kfGet('/v1/eve/conflicts'));
+  router.get('/eve/timeline', kfGet('/v1/eve/timeline'));
+  router.get('/eve/trust', kfGet('/v1/eve/trust'));
+  router.get('/eve/source', kfGet('/v1/eve/source'));
+  router.get('/eve/verification', kfGet('/v1/eve/verification'));
+  router.post('/eve/verification/run', kfPost('/v1/eve/verification/run'));
+  router.get('/eve/search', kfGet('/v1/eve/search'));
+  router.get('/eve/consult', kfGet('/v1/eve/consult'));
+  router.get('/eve/audit', kfGet('/v1/eve/audit'));
+
   return router;
 }

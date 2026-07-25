@@ -87,6 +87,7 @@ class UiService:
         kf: Any | None = None,
         kc: Any | None = None,
         aoi: Any | None = None,
+        eve: Any | None = None,
     ) -> None:
         self.flags = flags or UiFlags.from_settings(get_settings())
         self.aws = aws
@@ -101,6 +102,7 @@ class UiService:
         self.kf = kf
         self.kc = kc
         self.aoi = aoi
+        self.eve = eve
 
     def health(self) -> dict[str, Any]:
         return {
@@ -669,10 +671,20 @@ class UiService:
         irp_pkg = None
         irp_dump: dict[str, Any] = {}
 
-        # AOI → KCV1 / KF1 — structured knowledge before document retrieval (soft enrichment).
+        # EVE → AOI → KCV1 / KF1 — verified evidence before raw facts/documents (soft enrichment).
         kf_hits: list[dict[str, Any]] = []
         knowledge_corpus: dict[str, Any] = {}
         open_intelligence: dict[str, Any] = {}
+        evidence_verification: dict[str, Any] = {}
+        if self.eve and q:
+            try:
+                evidence_verification = dump(soft(self.eve.consult, q, limit=8)) or {}
+                if isinstance(evidence_verification, dict):
+                    company_pack = evidence_verification.get("company") or {}
+                    if isinstance(company_pack, dict) and company_pack.get("symbol") and not detected_ticker:
+                        detected_ticker = str(company_pack["symbol"]).upper()
+            except Exception:
+                evidence_verification = {}
         if self.aoi and q:
             try:
                 open_intelligence = dump(soft(self.aoi.consult, q, limit=8)) or {}
@@ -1359,6 +1371,15 @@ class UiService:
                 "primary_source_of_truth": "knowledge_objects",
             },
             open_intelligence=scrub(open_intelligence) if open_intelligence else {},
+            evidence_verification=scrub(evidence_verification)
+            if evidence_verification
+            else {
+                "answer_policy": "verified_evidence_before_raw_facts",
+                "guidance": {
+                    "use_highest_confidence_first": True,
+                    "avoid_hallucinated_certainty": True,
+                },
+            },
             institutional_briefing=scrub(briefing) or {},
             sector_intelligence=scrub((irp_dump or {}).get("sector_intelligence") or {})
             if isinstance(irp_dump, dict)

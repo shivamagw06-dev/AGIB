@@ -93,3 +93,49 @@ export const getAoiConnectors = () => intelligenceFetch('/aoi/connectors');
 export const getAoiScheduler = () => intelligenceFetch('/aoi/scheduler');
 export const getAoiGaps = () => intelligenceFetch('/aoi/gaps');
 export const getAoiLearning = () => intelligenceFetch('/aoi/learning');
+
+/** EVE v1 Evidence & Verification */
+export const getEveHealth = () => intelligenceFetch('/eve/health');
+export const getEveDashboard = () => intelligenceFetch('/eve/dashboard');
+export const listEveEvidence = (params = {}) => {
+  const qs = new URLSearchParams(
+    Object.fromEntries(
+      Object.entries(params)
+        .filter(([, v]) => v !== undefined && v !== null && v !== '')
+        .map(([k, v]) => [k, String(v)])
+    )
+  ).toString();
+  return intelligenceFetch(`/eve/evidence${qs ? `?${qs}` : ''}`);
+};
+export const getEveEvidence = (id) => intelligenceFetch(`/eve/evidence/${encodeURIComponent(id)}`);
+export const getEveCompany = (key) => intelligenceFetch(`/eve/company/${encodeURIComponent(key)}`);
+export const getEveConflicts = (status = 'open') => {
+  const qs = new URLSearchParams({ status }).toString();
+  return intelligenceFetch(`/eve/conflicts?${qs}`);
+};
+export const getEveTimeline = (params = {}) => {
+  const qs = new URLSearchParams(
+    Object.fromEntries(
+      Object.entries(params)
+        .filter(([, v]) => v !== undefined && v !== null && v !== '')
+        .map(([k, v]) => [k, String(v)])
+    )
+  ).toString();
+  return intelligenceFetch(`/eve/timeline${qs ? `?${qs}` : ''}`);
+};
+export const getEveTrust = () => intelligenceFetch('/eve/trust');
+export const getEveSources = () => intelligenceFetch('/eve/source');
+export const getEveVerification = () => intelligenceFetch('/eve/verification');
+export const runEveVerification = () => intelligenceFetch('/eve/verification/run', { method: 'POST', body: {} });
+export const searchEve = (q, limit = 20) => {
+  const qs = new URLSearchParams({ q, limit: String(limit) }).toString();
+  return intelligenceFetch(`/eve/search?${qs}`);
+};
+export const consultEve = (q, limit = 8) => {
+  const qs = new URLSearchParams({ q, limit: String(limit) }).toString();
+  return intelligenceFetch(`/eve/consult?${qs}`);
+};
+export const getEveAudit = (limit = 50) => {
+  const qs = new URLSearchParams({ limit: String(limit) }).toString();
+  return intelligenceFetch(`/eve/audit?${qs}`);
+};
