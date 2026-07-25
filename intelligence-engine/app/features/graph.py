@@ -54,7 +54,23 @@ class FeatureDependencyGraph:
                     continue
                 nodes.add(node)
                 stack.extend(self._deps.get(node, ()))
+        return self._kahn(nodes)
 
+    def order_closed_set(self, feature_ids: list[str] | set[str]) -> list[str]:
+        """Topo order over exactly these nodes (no ancestor expansion).
+
+        Used for incremental recompute of dirty seeds ∪ dependents only.
+        """
+        return self._kahn(set(feature_ids))
+
+    def impacted_set(self, seeds: list[str] | set[str]) -> set[str]:
+        """Seeds plus transitive dependents — unrelated features excluded."""
+        impacted: set[str] = set(seeds)
+        for seed in list(seeds):
+            impacted |= self.transitive_dependents(seed)
+        return impacted
+
+    def _kahn(self, nodes: set[str]) -> list[str]:
         indegree = {n: 0 for n in nodes}
         for n in nodes:
             for dep in self._deps.get(n, ()):
@@ -75,3 +91,21 @@ class FeatureDependencyGraph:
         if len(order) != len(nodes):
             raise DependencyCycleError("feature dependency cycle detected")
         return order
+
+    def parallel_waves(self, feature_ids: list[str] | set[str]) -> list[list[str]]:
+        """Partition a closed feature set into parallelizable topo waves."""
+        order = self.order_closed_set(feature_ids)
+        nodes = set(order)
+        remaining = set(nodes)
+        waves: list[list[str]] = []
+        while remaining:
+            wave = sorted(
+                n
+                for n in remaining
+                if all(d not in remaining for d in self._deps.get(n, ()))
+            )
+            if not wave:
+                raise DependencyCycleError("feature dependency cycle detected")
+            waves.append(wave)
+            remaining -= set(wave)
+        return waves

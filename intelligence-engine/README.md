@@ -71,3 +71,10 @@ Agents read **AGIB Node cached APIs only** (no direct third-party market API cal
 - Engines must consume Feature Registry outputs; they must not compute RSI/EMA/ATR/etc. internally
 - Health: `GET /v1/features/health`
 - Scheduler: `GET /v1/features/schedule/frequencies`, `GET /v1/features/schedule/plan`
+
+### ORCH Layer 2 Feature Builds (WBS ORCH-003–005)
+
+- Package: `app/orch/l2/` — dirty tracking, build queue, dependency scheduler, feature build ledger, ready events
+- Flow: MarketDataClient publish → ORCH dirty detection → impacted subgraph → Feature Registry recompute → cache/store → ready event
+- Engines must not request recalculation; they only read FeatureSnapshots
+- APIs: `GET /v1/orch/l2/health`, `POST /v1/orch/l2/trigger`, `POST /v1/orch/l2/drain`, `GET /v1/orch/l2/builds`

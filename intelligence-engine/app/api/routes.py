@@ -9,6 +9,8 @@ from app.features.models import FeatureMetadata
 from app.features.service import FeatureRegistryService
 from app.market_data.client import MarketDataClient
 from app.memory.store import ResearchStore
+from app.orch.l2.executor import L2FeatureBuildService
+from app.orch.l2.models import BuildBatchRequest, MarketDataUpdateEvent
 from app.orch.ledger import OrchLedger
 from app.orchestration.director import ResearchDirector
 from app.schemas.models import PredictionRecord, ResearchRun, ResearchRunCreate
@@ -17,12 +19,22 @@ router = APIRouter(prefix="/v1")
 _store = ResearchStore()
 _director = ResearchDirector(store=_store)
 _eval = EvaluationAgent()
-<<<<<<< HEAD
 _market_data = MarketDataClient.from_settings(get_settings())
 _features = FeatureRegistryService()
-=======
 _orch_ledger = OrchLedger()
->>>>>>> 89c8748f (Implement WBS S01 EngineState SSOT and ORCH run ledger.)
+_l2 = L2FeatureBuildService(_features, orch_ledger=_orch_ledger)
+
+
+def _wire_market_data_to_l2() -> None:
+    """MarketData publishes updates; ORCH L2 marks dirty + schedules builds."""
+
+    def _on_update(event: MarketDataUpdateEvent) -> None:
+        _l2.on_market_data_update(event, drain=False)
+
+    _market_data.on_update(_on_update)
+
+
+_wire_market_data_to_l2()
 
 
 def require_token(
@@ -49,7 +61,87 @@ async def health():
     }
 
 
-<<<<<<< HEAD
+@router.get("/orch/status")
+async def orch_status():
+    """ORCH control-plane status (Document ID ORCH; not E00 Layer 5 / E10)."""
+    summary = _orch_ledger.status_summary()
+    summary["l2"] = _l2.health()
+    return summary
+
+
+@router.get("/orch/l2/health")
+async def orch_l2_health():
+    """ORCH Layer 2 Feature Build health (ORCH-003–005)."""
+    return _l2.health()
+
+
+@router.post("/orch/l2/trigger", dependencies=[Depends(require_token)])
+async def orch_l2_trigger(body: BuildBatchRequest):
+    """Enqueue + drain an L2 feature build. Engines must not call this for research."""
+    if body.feature_ids:
+        _l2.enqueue_manual(
+            as_of=body.as_of,
+            symbol=body.symbol,
+            feature_ids=body.feature_ids,
+            ctx=body.ctx,
+        )
+    else:
+        event = MarketDataUpdateEvent(
+            update_type=body.update_type,
+            symbol=body.symbol,
+            as_of=body.as_of,
+            input_keys=body.input_keys,
+        )
+        _l2.dirty.mark(event)
+        _l2.queue.enqueue(
+            as_of=body.as_of,
+            symbol=body.symbol,
+            feature_ids=_l2.dirty.snapshot(symbol=body.symbol, as_of=body.as_of),
+            ctx=body.ctx,
+            update_type=body.update_type,
+        )
+    result = _l2.drain(parallel=body.parallel, max_workers=body.max_workers)
+    if result is None:
+        return {"ok": True, "status": "empty", "impacted": []}
+    return {
+        "ok": True,
+        "status": result.status,
+        "batch_id": result.batch_id,
+        "orch_run_id": result.orch_run_id,
+        "impacted": result.impacted,
+        "snapshot_id": result.snapshot.snapshot_id if result.snapshot else None,
+        "ready": result.ready.model_dump(mode="json") if result.ready else None,
+        "builds": [b.model_dump(mode="json") for b in result.builds],
+    }
+
+
+@router.get("/orch/l2/builds", dependencies=[Depends(require_token)])
+async def orch_l2_builds(limit: int = 50):
+    return [b.model_dump(mode="json") for b in _l2.build_ledger.recent(limit=min(limit, 200))]
+
+
+@router.get("/orch/l2/builds/{build_id}", dependencies=[Depends(require_token)])
+async def orch_l2_build(build_id: str):
+    row = _l2.build_ledger.get(build_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="build not found")
+    return row.model_dump(mode="json")
+
+
+@router.post("/orch/l2/drain", dependencies=[Depends(require_token)])
+async def orch_l2_drain(parallel: bool = True, max_workers: int = 4):
+    result = _l2.drain(parallel=parallel, max_workers=max_workers)
+    if result is None:
+        return {"ok": True, "status": "empty"}
+    return {
+        "ok": True,
+        "status": result.status,
+        "batch_id": result.batch_id,
+        "impacted": result.impacted,
+        "ready": result.ready.model_dump(mode="json") if result.ready else None,
+    }
+
+
 @router.get("/market-data/health")
 async def market_data_health():
     """WS02 provider health + cache/latency metrics (no provider-native payloads)."""
@@ -123,12 +215,6 @@ async def get_feature_value(
     if value is None:
         raise HTTPException(status_code=404, detail="feature value not found")
     return value.model_dump(mode="json")
-=======
-@router.get("/orch/status")
-async def orch_status():
-    """ORCH control-plane status (Document ID ORCH; not E00 Layer 5 / E10)."""
-    return _orch_ledger.status_summary()
->>>>>>> 89c8748f (Implement WBS S01 EngineState SSOT and ORCH run ledger.)
 
 
 @router.post("/research/runs", response_model=ResearchRun, dependencies=[Depends(require_token)])

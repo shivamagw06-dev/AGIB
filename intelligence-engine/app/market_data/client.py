@@ -31,6 +31,7 @@ from app.market_data.retry import RetryError, retry_async
 
 log = get_logger(__name__)
 T = TypeVar("T", bound=CanonicalModel)
+UpdateHandler = Callable[[Any], None]
 
 
 class MarketDataClient:
@@ -62,6 +63,11 @@ class MarketDataClient:
         self.ohlcv_ttl_s = ohlcv_ttl_s
         self.default_ttl_s = default_ttl_s
         self.max_attempts = max_attempts
+        self._update_handlers: list[UpdateHandler] = []
+
+    def on_update(self, handler: UpdateHandler) -> None:
+        """Subscribe to successful provider pulls (ORCH L2 dirty trigger)."""
+        self._update_handlers.append(handler)
 
     @classmethod
     def from_settings(cls, settings: Any) -> "MarketDataClient":
@@ -288,6 +294,7 @@ class MarketDataClient:
                         }
                     },
                 )
+                self._publish_update(cache_key, result)
                 return result
             except Exception as exc:
                 latency = timer.ms()
@@ -320,3 +327,46 @@ class MarketDataClient:
             raise
         except CircuitOpenError:
             raise
+
+    def _publish_update(self, cache_key: str, result: Any) -> None:
+        if not self._update_handlers:
+            return
+        try:
+            from app.orch.l2.models import MarketDataUpdateEvent
+
+            update_type, symbol, as_of, input_keys = _infer_update(cache_key, result)
+            event = MarketDataUpdateEvent(
+                update_type=update_type,
+                symbol=symbol,
+                as_of=as_of,
+                input_keys=input_keys,
+                payload_fingerprint=cache_key,
+            )
+            for handler in self._update_handlers:
+                try:
+                    handler(event)
+                except Exception as exc:
+                    log.warning(
+                        "market_data_update_handler_failed",
+                        extra={"extra": {"error": str(exc)}},
+                    )
+        except Exception as exc:
+            log.warning("market_data_publish_failed", extra={"extra": {"error": str(exc)}})
+
+
+def _infer_update(cache_key: str, result: Any) -> tuple[str, str | None, str, list[str]]:
+    today = date.today().isoformat()
+    if cache_key.startswith("ohlcv:"):
+        symbol = getattr(result, "symbol", None) or cache_key.split(":", 1)[1].split(":")[0]
+        bars = getattr(result, "bars", None) or []
+        as_of = str(getattr(bars[-1], "ts", today))[:10] if bars else today
+        return "ohlcv", str(symbol).upper() if symbol else None, as_of, ["ohlcv.close", "ohlcv.high", "ohlcv.low", "ohlcv.volume"]
+    if cache_key.startswith("quote:"):
+        symbol = getattr(result, "symbol", None) or cache_key.split(":", 1)[1]
+        return "quote", str(symbol).upper() if symbol else None, today, ["quote.last"]
+    if cache_key.startswith("fundamentals:") or "fundamental" in cache_key:
+        symbol = getattr(result, "symbol", None)
+        return "fundamentals", str(symbol).upper() if symbol else None, today, ["fundamentals."]
+    if "macro" in cache_key or "economic" in cache_key:
+        return "macro", None, today, ["macro."]
+    return "manual", getattr(result, "symbol", None), today, []

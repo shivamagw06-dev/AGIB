@@ -218,6 +218,84 @@ class FeatureRegistryService:
             dep_removed += self.cache.invalidate_prefix(dep)
         return {"feature": removed, "dependents": dep_removed}
 
+    def recompute_impacted(
+        self,
+        feature_ids: list[str] | set[str],
+        *,
+        symbol: str | None,
+        as_of: date | datetime | str,
+        ctx: FeatureContext | dict[str, Any] | None = None,
+        persist: bool = True,
+    ) -> FeatureSnapshot:
+        """Recompute only the given closed impacted set (no unrelated features).
+
+        Ancestors outside the set are loaded from cache/store — not rebuilt.
+        """
+        context = FeatureContext(ctx or {})
+        as_of_s = _as_of_str(as_of)
+        available = _as_of_datetime(as_of)
+        impacted = set(feature_ids)
+        order = self.graph.order_closed_set(impacted)
+        computed: dict[str, FeatureValue] = {}
+        values: dict[str, FeatureValue] = {}
+
+        for fid in order:
+            meta = self.store.get_metadata(fid)
+            if meta is None:
+                continue
+            calc = self._calculators.get(fid)
+            if calc is None:
+                stored = self.store.get_value(fid, symbol=symbol, as_of=as_of, pit_mode=True)
+                if stored is not None:
+                    computed[fid] = stored
+                    values[fid] = stored
+                continue
+
+            dep_vals: dict[str, FeatureValue] = {}
+            for dep in meta.dependencies:
+                if dep in computed:
+                    dep_vals[dep] = computed[dep]
+                    continue
+                # Ancestor outside impacted set — reuse cache/store (incremental)
+                cached = self.get(dep, symbol=symbol, as_of=as_of, pit_mode=True)
+                if cached is not None:
+                    dep_vals[dep] = cached
+                    computed[dep] = cached
+
+            timer = Timer()
+            try:
+                value = calc.compute(
+                    symbol=symbol,
+                    as_of=as_of,
+                    available_at=available,
+                    ctx=context,
+                    dep_values=dep_vals,
+                )
+                if _date_str(value.available_at) > as_of_s:
+                    value = value.model_copy(
+                        update={"value": None, "quality_flag": "error", "confidence": 0.0}
+                    )
+                computed[fid] = value
+                values[fid] = value
+                self.cache.set(
+                    FeatureCache.key(fid, symbol, as_of_s, meta.formula_version),
+                    value,
+                    self.cache_ttl_s,
+                )
+                if persist:
+                    self.store.put_value(value)
+                self.metrics.record_compute(fid, timer.ms(), ok=True)
+            except Exception:
+                self.metrics.record_compute(fid, timer.ms(), ok=False)
+                raise
+
+        return FeatureSnapshot(
+            snapshot_id=str(uuid4()),
+            as_of=as_of,
+            symbol=symbol,
+            values=values,
+        )
+
     def health(self) -> dict[str, Any]:
         return {
             "ok": True,
