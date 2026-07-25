@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Brain, RefreshCw, Search, Sprout } from 'lucide-react';
+import { AlertTriangle, Brain, RefreshCw, Search, Sprout } from 'lucide-react';
 import {
+  consultKc,
+  getKcDashboard,
   getKfCoverage,
   getKfHealth,
   listKfCompanies,
   listKfMacros,
-  listKfPredictions,
   listKfSectors,
   listKfThemes,
+  populateKc,
   rebuildKf,
-  searchKf,
   seedKf,
 } from '@/lib/intelligenceApi';
 import { Button } from '@/components/ui/button';
@@ -32,11 +33,11 @@ function MetricCard({ label, value, hint }) {
 export default function KnowledgeFoundation() {
   const [health, setHealth] = useState(null);
   const [coverage, setCoverage] = useState(null);
+  const [dashboard, setDashboard] = useState(null);
   const [companies, setCompanies] = useState([]);
   const [sectors, setSectors] = useState([]);
   const [themes, setThemes] = useState([]);
   const [macros, setMacros] = useState([]);
-  const [predictions, setPredictions] = useState([]);
   const [query, setQuery] = useState('Indian FMCG');
   const [hits, setHits] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -47,24 +48,24 @@ export default function KnowledgeFoundation() {
     setLoading(true);
     setError('');
     try {
-      const [h, c, cos, secs, ths, macs, preds] = await Promise.all([
+      const [h, c, dash, cos, secs, ths, macs] = await Promise.all([
         getKfHealth(),
         getKfCoverage(),
+        getKcDashboard().catch(() => null),
         listKfCompanies(),
         listKfSectors(),
         listKfThemes(),
         listKfMacros(),
-        listKfPredictions().catch(() => ({ predictions: [] })),
       ]);
       setHealth(h);
       setCoverage(c);
+      setDashboard(dash);
       setCompanies(cos?.companies || []);
       setSectors(secs?.sectors || []);
       setThemes(ths?.themes || []);
       setMacros(macs?.macros || []);
-      setPredictions(preds?.predictions || []);
     } catch (err) {
-      setError(err?.message || 'Failed to load Knowledge Foundation');
+      setError(err?.message || 'Failed to load Knowledge Corpus');
     } finally {
       setLoading(false);
     }
@@ -80,10 +81,10 @@ export default function KnowledgeFoundation() {
     setBusy('search');
     setError('');
     try {
-      const result = await searchKf(query.trim(), 10);
+      const result = await consultKc(query.trim(), 10);
       setHits(result?.hits || []);
     } catch (err) {
-      setError(err?.message || 'Search failed');
+      setError(err?.message || 'Corpus consult failed');
     } finally {
       setBusy('');
     }
@@ -95,6 +96,7 @@ export default function KnowledgeFoundation() {
     try {
       if (action === 'seed') await seedKf();
       if (action === 'rebuild') await rebuildKf();
+      if (action === 'populate') await populateKc(true);
       await load();
     } catch (err) {
       setError(err?.message || `${action} failed`);
@@ -103,86 +105,156 @@ export default function KnowledgeFoundation() {
     }
   };
 
-  const metrics = useMemo(() => {
-    const c = coverage || {};
-    return [
-      ['Companies', c.companies_covered ?? 0, `seeded ${c.companies_seeded ?? 0}`],
-      ['Sectors', c.sector_coverage ?? 0, `seeded ${c.sectors_seeded ?? 0}`],
-      ['Themes', c.theme_coverage ?? 0, `seeded ${c.themes_seeded ?? 0}`],
-      ['Macro', c.macro_coverage ?? 0, `seeded ${c.macros_seeded ?? 0}`],
-      ['Research extracts', c.research_extracts ?? 0, 'Phase 5'],
-      ['Predictions', c.prediction_coverage ?? 0, 'Phase 6'],
-      ['Avg confidence', pct(c.avg_confidence), 'quality'],
-      ['Avg freshness', pct(c.avg_freshness), 'recency'],
-      ['Relationships', c.relationship_count ?? 0, 'graph links'],
-      ['Dupes reduced', c.duplicate_reductions ?? 0, 'merge savings'],
-    ];
-  }, [coverage]);
+  const metrics = dashboard?.metrics || {};
+  const executive = useMemo(
+    () => [
+      ['Nifty 50', pct(metrics.nifty_50_coverage), `${metrics.nifty_50_covered || 0}/${metrics.nifty_50_total || 0}`],
+      ['Nifty Next 50', pct(metrics.nifty_next_50_coverage), `${metrics.nifty_next_50_covered || 0} covered`],
+      ['Nifty 500 path', pct(metrics.nifty_500_path_coverage), `${metrics.nifty_500_path_covered || 0}/${metrics.nifty_500_path_total || 0}`],
+      ['Companies', metrics.companies_covered ?? coverage?.companies_covered ?? 0, 'dossiers'],
+      ['Sectors', metrics.sector_coverage ?? coverage?.sector_coverage ?? 0, 'living reports'],
+      ['Themes', metrics.theme_coverage ?? coverage?.theme_coverage ?? 0, 'theme objects'],
+      ['Macro', metrics.macro_coverage ?? coverage?.macro_coverage ?? 0, 'macro library'],
+      ['Research notes', metrics.research_notes ?? coverage?.research_extracts ?? 0, 'structured'],
+      ['Broker reports', metrics.broker_reports ?? 0, 'structured'],
+      ['Predictions', metrics.predictions ?? coverage?.prediction_coverage ?? 0, 'memory'],
+      ['Knowledge objects', metrics.knowledge_objects ?? 0, 'total'],
+      ['Relationships', metrics.relationships ?? coverage?.relationship_count ?? 0, 'graph'],
+      ['Freshness', pct(metrics.avg_freshness ?? coverage?.avg_freshness), 'avg'],
+      ['Confidence', pct(metrics.avg_confidence ?? coverage?.avg_confidence), 'avg'],
+      ['Quality', pct(metrics.avg_quality), 'overall'],
+      ['Gaps open', metrics.gaps_open ?? 0, 'tasks'],
+    ],
+    [metrics, coverage]
+  );
+
+  const gaps = dashboard?.needs_attention || dashboard?.gaps || [];
+  const learning = dashboard?.learning || {};
+  const heatmap = metrics.coverage_heatmap || [];
+  const recently = metrics.recently_updated || [];
 
   return (
     <div className="p-6 lg:p-8 max-w-7xl">
       <div className="flex flex-wrap items-start justify-between gap-4 mb-8">
         <div>
-          <p className="text-[11px] uppercase tracking-[0.18em] text-orange-600 font-semibold">KF1 · Locked architecture</p>
-          <h1 className="text-2xl font-bold text-slate-900 mt-1">Knowledge Foundation</h1>
+          <p className="text-[11px] uppercase tracking-[0.18em] text-orange-600 font-semibold">
+            KCV1 · Knowledge Corpus · Architecture locked
+          </p>
+          <h1 className="text-2xl font-bold text-slate-900 mt-1">Institutional Knowledge Corpus</h1>
           <p className="text-slate-500 mt-1 max-w-2xl">
-            Institutional knowledge objects for companies, sectors, themes and macro — searched before documents.
+            Populate and compound the Knowledge Foundation. Knowledge objects are the primary source of truth;
+            documents enrich them.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button
-            variant="outline"
-            disabled={!!busy || loading}
-            onClick={() => runAction('seed')}
-            className="border-slate-300"
-          >
+          <Button variant="outline" disabled={!!busy || loading} onClick={() => runAction('seed')} className="border-slate-300">
             <Sprout size={16} className="mr-2" />
-            {busy === 'seed' ? 'Seeding…' : 'Seed'}
+            {busy === 'seed' ? 'Seeding…' : 'Seed KF'}
           </Button>
-          <Button
-            variant="outline"
-            disabled={!!busy || loading}
-            onClick={() => runAction('rebuild')}
-            className="border-slate-300"
-          >
+          <Button variant="outline" disabled={!!busy || loading} onClick={() => runAction('rebuild')} className="border-slate-300">
             <RefreshCw size={16} className="mr-2" />
-            {busy === 'rebuild' ? 'Rebuilding…' : 'Rebuild from KIP'}
+            {busy === 'rebuild' ? 'Rebuilding…' : 'Rebuild KF'}
           </Button>
-          <Button disabled={!!busy || loading} onClick={load} className="bg-blue-700 hover:bg-blue-800">
+          <Button disabled={!!busy || loading} onClick={() => runAction('populate')} className="bg-blue-700 hover:bg-blue-800">
             <Brain size={16} className="mr-2" />
-            Refresh
+            {busy === 'populate' ? 'Populating…' : 'Populate Corpus'}
           </Button>
         </div>
       </div>
 
       {error ? (
-        <div className="mb-6 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
-          {error}
-        </div>
+        <div className="mb-6 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{error}</div>
       ) : null}
 
       {loading ? (
-        <p className="text-slate-400">Loading knowledge coverage…</p>
+        <p className="text-slate-400">Loading corpus dashboard…</p>
       ) : (
         <>
           <div className="mb-6 rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
             <p className="font-semibold text-slate-900">
-              Status: {health?.status || 'unknown'} · {health?.version || 'kf-v1'}
+              KF {health?.status || 'unknown'} · Corpus {dashboard ? 'online' : 'pending populate'} ·{' '}
+              {health?.architecture_status || 'v1.0.1 LOCKED'}
             </p>
             <p className="mt-1">
-              Architecture {health?.architecture_status || 'v1.0.1 LOCKED'}. Priority: knowledge objects before PDFs.
-              Last updated: {coverage?.last_updated || '—'}
+              Last populated: {metrics.last_populated_at || '—'} · Answer policy: knowledge corpus before documents.
             </p>
           </div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
-            {metrics.map(([label, value, hint]) => (
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            {executive.map(([label, value, hint]) => (
               <MetricCard key={label} label={label} value={value} hint={hint} />
             ))}
           </div>
 
+          <div className="grid lg:grid-cols-2 gap-6 mb-8">
+            <div className="bg-white rounded-xl border border-slate-200 p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <AlertTriangle size={16} className="text-amber-600" />
+                <h2 className="font-semibold text-slate-900">Needs attention</h2>
+              </div>
+              {gaps.length === 0 ? (
+                <p className="text-sm text-slate-400">No critical gaps. Populate corpus after new research.</p>
+              ) : (
+                <ul className="space-y-3 max-h-80 overflow-y-auto">
+                  {gaps.slice(0, 12).map((g) => (
+                    <li key={g.task_id} className="text-sm border-b border-slate-100 pb-2">
+                      <p className="font-medium text-slate-900">
+                        <span className="text-xs uppercase tracking-wide text-amber-700 mr-2">{g.severity}</span>
+                        {g.title}
+                      </p>
+                      <p className="text-slate-500 mt-0.5">{g.suggested_action || g.detail}</p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <div className="bg-white rounded-xl border border-slate-200 p-5">
+              <h2 className="font-semibold text-slate-900 mb-3">What did AGI learn today?</h2>
+              <ul className="space-y-2 text-sm text-slate-600 max-h-80 overflow-y-auto">
+                {(learning.learned_today || ['No learning digest yet — populate corpus.']).map((item) => (
+                  <li key={item} className="border-b border-slate-100 pb-2">
+                    {item}
+                  </li>
+                ))}
+              </ul>
+              {(learning.companies_changed || []).length > 0 ? (
+                <p className="text-xs text-slate-400 mt-3">
+                  Companies changed: {(learning.companies_changed || []).slice(0, 8).join(', ')}
+                </p>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl border border-slate-200 p-5 mb-8">
+            <h2 className="font-semibold text-slate-900 mb-3">Nifty 50 coverage heatmap</h2>
+            {heatmap.length === 0 ? (
+              <p className="text-sm text-slate-400">Populate corpus to build sector heatmap.</p>
+            ) : (
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {heatmap.map((row) => (
+                  <div key={row.sector} className="rounded-lg border border-slate-100 px-3 py-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="font-medium text-slate-800">{row.sector}</span>
+                      <span className="text-slate-500">{pct(row.coverage)}</span>
+                    </div>
+                    <div className="mt-2 h-2 rounded bg-slate-100 overflow-hidden">
+                      <div
+                        className="h-full bg-blue-600"
+                        style={{ width: `${Math.round(Number(row.coverage || 0) * 100)}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-slate-400 mt-1">
+                      {row.covered}/{row.companies} · quality {pct(row.avg_quality)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           <form onSubmit={runSearch} className="mb-8 bg-white rounded-xl border border-slate-200 p-5">
-            <label className="text-sm font-semibold text-slate-900">Knowledge-first search</label>
+            <label className="text-sm font-semibold text-slate-900">Corpus-first consult</label>
             <div className="mt-3 flex flex-wrap gap-2">
               <input
                 value={query}
@@ -192,7 +264,7 @@ export default function KnowledgeFoundation() {
               />
               <Button type="submit" disabled={busy === 'search'} className="bg-blue-700 hover:bg-blue-800">
                 <Search size={16} className="mr-2" />
-                {busy === 'search' ? 'Searching…' : 'Search objects'}
+                {busy === 'search' ? 'Consulting…' : 'Consult corpus'}
               </Button>
             </div>
             {hits.length > 0 ? (
@@ -205,7 +277,7 @@ export default function KnowledgeFoundation() {
                         {hit.label}
                       </p>
                       <p className="text-xs text-slate-500">
-                        score {hit.score} · conf {pct(hit.confidence)} · fresh {pct(hit.freshness)}
+                        score {hit.score} · quality {pct(hit.quality)} · conf {pct(hit.confidence)}
                       </p>
                     </div>
                     {hit.summary ? <p className="text-slate-500 mt-1 line-clamp-2">{hit.summary}</p> : null}
@@ -213,59 +285,35 @@ export default function KnowledgeFoundation() {
                 ))}
               </ul>
             ) : (
-              <p className="text-xs text-slate-400 mt-3">Run a search to verify knowledge objects resolve before documents.</p>
+              <p className="text-xs text-slate-400 mt-3">Consult verifies knowledge objects resolve before documents.</p>
             )}
           </form>
 
-          <div className="grid lg:grid-cols-2 gap-6">
+          <div className="grid lg:grid-cols-2 gap-6 mb-8">
+            <CoverageTable
+              title="Recently updated"
+              columns={['Kind', 'Key', 'Conf', 'Fresh']}
+              rows={recently.slice(0, 15).map((r) => [r.kind, r.key || r.label, pct(r.confidence), pct(r.freshness)])}
+            />
             <CoverageTable
               title="Companies"
               columns={['Ticker', 'Name', 'Sector', 'Conf', 'Fresh']}
-              rows={companies.slice(0, 40).map((c) => [
-                c.ticker,
-                c.name,
-                c.sector || '—',
-                pct(c.confidence),
-                pct(c.freshness),
-              ])}
+              rows={companies.slice(0, 40).map((c) => [c.ticker, c.name, c.sector || '—', pct(c.confidence), pct(c.freshness)])}
             />
             <CoverageTable
               title="Sectors"
-              columns={['Sector', 'Companies', 'View', 'Conf', 'Fresh']}
-              rows={sectors.map((s) => [
-                s.label,
-                s.companies ?? 0,
-                s.current_agi_view || 'Seeded',
-                pct(s.confidence),
-                pct(s.freshness),
-              ])}
+              columns={['Sector', 'Companies', 'View', 'Conf']}
+              rows={sectors.map((s) => [s.label, s.companies ?? 0, s.current_agi_view || 'Seeded', pct(s.confidence)])}
             />
             <CoverageTable
-              title="Themes"
-              columns={['Theme', 'Companies', 'Conf', 'Fresh']}
-              rows={themes.map((t) => [t.label, t.companies ?? 0, pct(t.confidence), pct(t.freshness)])}
-            />
-            <CoverageTable
-              title="Macro"
-              columns={['Topic', 'Conf', 'Fresh']}
-              rows={macros.map((m) => [m.label, pct(m.confidence), pct(m.freshness)])}
+              title="Themes & Macro"
+              columns={['Object', 'Type', 'Conf', 'Fresh']}
+              rows={[
+                ...themes.map((t) => [t.label, 'theme', pct(t.confidence), pct(t.freshness)]),
+                ...macros.map((m) => [m.label, 'macro', pct(m.confidence), pct(m.freshness)]),
+              ]}
             />
           </div>
-
-          {predictions.length > 0 ? (
-            <div className="mt-6">
-              <CoverageTable
-                title="Prediction memory"
-                columns={['Prediction', 'Company', 'Status', 'Conf']}
-                rows={predictions.slice(0, 20).map((p) => [
-                  p.prediction || p.prediction_id,
-                  p.company || '—',
-                  p.status || 'open',
-                  pct(p.confidence),
-                ])}
-              />
-            </div>
-          ) : null}
         </>
       )}
     </div>
@@ -279,7 +327,7 @@ function CoverageTable({ title, columns, rows }) {
         <h2 className="font-semibold text-slate-900">{title}</h2>
       </div>
       {rows.length === 0 ? (
-        <p className="p-6 text-sm text-slate-400">No objects yet. Seed the foundation.</p>
+        <p className="p-6 text-sm text-slate-400">No objects yet. Populate the corpus.</p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">

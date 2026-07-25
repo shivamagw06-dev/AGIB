@@ -182,6 +182,15 @@ class Settings(BaseSettings):
     kf_macro: bool = True
     kf_predictions: bool = True
 
+    # Knowledge Corpus V1 (populate / improve KF; no KF redesign)
+    kc: bool = True
+    kc_auto_populate: bool = True
+    kc_broker: bool = True
+    kc_earnings: bool = True
+    kc_gaps: bool = True
+    kc_learning: bool = True
+    kc_quality: bool = True
+
 
 @lru_cache
 def get_settings() -> Settings:

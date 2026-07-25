@@ -201,5 +201,27 @@ export default function createIntelligenceRouter() {
   router.get('/kf/predictions', kfGet('/v1/kf/predictions'));
   router.get('/kf/extracts', kfGet('/v1/kf/extracts'));
 
+  // KCV1 Knowledge Corpus — populate/improve KF; no redesign.
+  router.get('/kc/health', kfGet('/v1/kc/health'));
+  router.get('/kc/metrics', kfGet('/v1/kc/metrics'));
+  router.get('/kc/dashboard', kfGet('/v1/kc/dashboard'));
+  router.post('/kc/populate', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query).toString();
+      const result = await engineFetch(`/v1/kc/populate${qs ? `?${qs}` : ''}`, {
+        method: 'POST',
+        body: {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Knowledge Corpus unavailable', detail: error.message });
+    }
+  });
+  router.post('/kc/universe', kfPost('/v1/kc/universe'));
+  router.get('/kc/gaps', kfGet('/v1/kc/gaps'));
+  router.get('/kc/learning', kfGet('/v1/kc/learning'));
+  router.get('/kc/quality', kfGet('/v1/kc/quality'));
+  router.get('/kc/consult', kfGet('/v1/kc/consult'));
+
   return router;
 }

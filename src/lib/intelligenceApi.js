@@ -40,3 +40,24 @@ export const listKfThemes = () => intelligenceFetch('/kf/themes');
 export const listKfMacros = () => intelligenceFetch('/kf/macros');
 export const listKfPredictions = () => intelligenceFetch('/kf/predictions');
 export const listKfExtracts = () => intelligenceFetch('/kf/extracts');
+
+/** KCV1 Knowledge Corpus */
+export const getKcHealth = () => intelligenceFetch('/kc/health');
+export const getKcMetrics = () => intelligenceFetch('/kc/metrics');
+export const getKcDashboard = () => intelligenceFetch('/kc/dashboard');
+export const populateKc = (rebuildKip = true) =>
+  intelligenceFetch(`/kc/populate?rebuild_kip=${rebuildKip ? 'true' : 'false'}`, {
+    method: 'POST',
+    body: {},
+  });
+export const ensureKcUniverse = () => intelligenceFetch('/kc/universe', { method: 'POST', body: {} });
+export const getKcGaps = () => intelligenceFetch('/kc/gaps');
+export const getKcLearning = () => intelligenceFetch('/kc/learning');
+export const getKcQuality = (params = {}) => {
+  const qs = new URLSearchParams(params).toString();
+  return intelligenceFetch(`/kc/quality${qs ? `?${qs}` : ''}`);
+};
+export const consultKc = (q, limit = 8) => {
+  const qs = new URLSearchParams({ q, limit: String(limit) }).toString();
+  return intelligenceFetch(`/kc/consult?${qs}`);
+};

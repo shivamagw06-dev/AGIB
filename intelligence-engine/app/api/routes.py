@@ -55,6 +55,7 @@ from app.aip.models import ExperimentHypothesis, ExperimentRequest
 from app.aip.service import AipService
 from app.irp.service import IrpService
 from app.kf.service import KfService
+from app.kc.service import KcService
 from app.ui.service import UiService
 from app.validation.service import ValidationService
 from app.features.models import FeatureMetadata
@@ -142,6 +143,7 @@ _ioc = IocService(
 _aip = AipService()
 _irp = IrpService(kip=_kip, rsp=_rsp)
 _kf = KfService(kip=_kip)
+_kc = KcService(kf=_kf, kip=_kip)
 _ui = UiService(
     aws=_aws,
     ioc=_ioc,
@@ -153,6 +155,7 @@ _ui = UiService(
     aip=_aip,
     irp=_irp,
     kf=_kf,
+    kc=_kc,
 )
 # Soft-wire KIP retrieve → RSP reason into Research Director (no engine redesign).
 _director.kip = _kip
@@ -678,9 +681,13 @@ async def kip_ingest(body: IngestRequest):
 
 
 def _kf_soft_learn(doc) -> None:
-    """Soft KF learning hook — never fails the KIP ingest path."""
+    """Soft KF + Knowledge Corpus learning hook — never fails the KIP ingest path."""
     try:
         _kf.on_document(doc)
+    except Exception:
+        pass
+    try:
+        _kc.on_document(doc)
     except Exception:
         return
 
@@ -1533,6 +1540,78 @@ async def kf_predictions():
 async def kf_extracts():
     try:
         return {"extracts": _kf.list_extracts()}
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+# --- KCV1 Knowledge Corpus (populate/improve KF; no KF/KIP/IRP/RSP redesign) ---
+
+
+@router.get("/kc/health")
+async def kc_health():
+    return _kc.health()
+
+
+@router.get("/kc/metrics")
+async def kc_metrics():
+    try:
+        return _kc.metrics()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/kc/dashboard")
+async def kc_dashboard():
+    try:
+        return _kc.dashboard()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/kc/populate")
+async def kc_populate(rebuild_kip: bool = Query(default=True)):
+    try:
+        return _kc.populate(rebuild_kip=rebuild_kip)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/kc/universe")
+async def kc_universe():
+    try:
+        return _kc.ensure_universe()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/kc/gaps")
+async def kc_gaps():
+    try:
+        return _kc.gaps()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/kc/learning")
+async def kc_learning():
+    try:
+        return _kc.learning()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/kc/quality")
+async def kc_quality(kind: str | None = Query(default=None), key: str | None = Query(default=None)):
+    try:
+        return _kc.quality(kind=kind, key=key)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/kc/consult")
+async def kc_consult(q: str = Query(...), limit: int = Query(default=8, ge=1, le=40)):
+    try:
+        return _kc.consult(q, limit=limit)
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

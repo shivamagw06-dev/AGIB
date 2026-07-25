@@ -126,6 +126,8 @@ class SearchView(BaseModel):
     irp: dict[str, Any] = Field(default_factory=dict)
     # KF1 — Knowledge Foundation objects resolved before documents
     knowledge_foundation: dict[str, Any] = Field(default_factory=dict)
+    # KCV1 — Knowledge Corpus consult (primary source of truth before documents)
+    knowledge_corpus: dict[str, Any] = Field(default_factory=dict)
     institutional_briefing: dict[str, Any] = Field(default_factory=dict)
     sector_intelligence: dict[str, Any] = Field(default_factory=dict)
     company_intelligence: dict[str, Any] = Field(default_factory=dict)

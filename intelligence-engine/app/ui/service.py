@@ -85,6 +85,7 @@ class UiService:
         aip: Any | None = None,
         irp: Any | None = None,
         kf: Any | None = None,
+        kc: Any | None = None,
     ) -> None:
         self.flags = flags or UiFlags.from_settings(get_settings())
         self.aws = aws
@@ -97,6 +98,7 @@ class UiService:
         self.aip = aip
         self.irp = irp
         self.kf = kf
+        self.kc = kc
 
     def health(self) -> dict[str, Any]:
         return {
@@ -665,19 +667,27 @@ class UiService:
         irp_pkg = None
         irp_dump: dict[str, Any] = {}
 
-        # KF1 — resolve knowledge objects before document retrieval (soft enrichment).
+        # KF1 / KCV1 — consult knowledge corpus before document retrieval (soft enrichment).
         kf_hits: list[dict[str, Any]] = []
-        if self.kf and q:
+        knowledge_corpus: dict[str, Any] = {}
+        if self.kc and q:
+            try:
+                knowledge_corpus = dump(soft(self.kc.consult, q, limit=8)) or {}
+                kf_hits = list(knowledge_corpus.get("hits") or []) if isinstance(knowledge_corpus, dict) else []
+            except Exception:
+                knowledge_corpus = {}
+                kf_hits = []
+        if not kf_hits and self.kf and q:
             try:
                 kf_search = dump(soft(self.kf.search, q, limit=8)) or {}
                 kf_hits = list(kf_search.get("hits") or []) if isinstance(kf_search, dict) else []
-                if not detected_ticker:
-                    for hit in kf_hits:
-                        if isinstance(hit, dict) and hit.get("kind") == "company" and hit.get("key"):
-                            detected_ticker = str(hit["key"]).upper()
-                            break
             except Exception:
                 kf_hits = []
+        if q and kf_hits and not detected_ticker:
+            for hit in kf_hits:
+                if isinstance(hit, dict) and hit.get("kind") == "company" and hit.get("key"):
+                    detected_ticker = str(hit["key"]).upper()
+                    break
 
         # IRP V1 — think (intent → entities → plan → retrieve → reason) before answering.
         if self.irp and q:
@@ -1253,6 +1263,8 @@ class UiService:
                 **workspace,
                 "knowledge_first": True,
                 "knowledge_hits": len(kf_hits),
+                "knowledge_corpus": True if knowledge_corpus else False,
+                "primary_source_of_truth": "knowledge_objects",
             }
 
         return SearchView(
@@ -1324,6 +1336,14 @@ class UiService:
                 "answer_policy": "knowledge_objects_before_documents",
                 "hits": scrub(kf_hits)[:8],
                 "count": len(kf_hits),
+            },
+            knowledge_corpus=scrub(knowledge_corpus)
+            if knowledge_corpus
+            else {
+                "answer_policy": "knowledge_corpus_before_documents",
+                "hits": scrub(kf_hits)[:8],
+                "count": len(kf_hits),
+                "primary_source_of_truth": "knowledge_objects",
             },
             institutional_briefing=scrub(briefing) or {},
             sector_intelligence=scrub((irp_dump or {}).get("sector_intelligence") or {})
