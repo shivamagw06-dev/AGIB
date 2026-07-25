@@ -106,6 +106,16 @@ Agents read **AGIB Node cached APIs only** (no direct third-party market API cal
 - ORCH: passive Feature Ready / E01 Ready / E14 Ready consumer
 - APIs: `GET /v1/e02/exposure/{symbol}`, `GET /v1/e02/history/{symbol}`, `GET /v1/e02/health`
 
+### E13 Equity Fundamental L/S P0 (WBS E13-001–005)
+
+- Package: `app/engines/e13/` — Fundamental Feature Builder, Composite Fundamental Scorer, E13Fundamental, EngineState
+- P0 only: Revenue/EPS growth, margins, ROE/ROIC/ROCE, debt metrics, cash-flow quality, basic valuation → Quality / Value / Composite scores
+- Inputs: FeatureSnapshot + E01State + E14State + PIT `FUND_*` registry features only (no MarketDataClient, no ML/NLP/moat)
+- Flags: `E13_P0=true`, `E13_REVISIONS/MOAT/ML=false`
+- ORCH: passive Feature Ready / E01 Ready / E14 Ready consumer
+- CRE/Replay: auto-registered in Historical Engine Runner + CRE scorecards; promotion disabled
+- APIs: `GET /v1/e13/fundamental/{symbol}`, `GET /v1/e13/history/{symbol}`, `GET /v1/e13/health`
+
 ### E03 Cross-Sectional Quant Engine P0/M0 (WBS E03-001–005)
 
 - Package: `app/engines/e03/` — Technical Feature Adapter, `SM_AGI_TECH` (production `score_research` parity), E03Alpha, EngineState, ParityReport
@@ -136,7 +146,7 @@ Agents read **AGIB Node cached APIs only** (no direct third-party market API cal
 ### Validation & Backtesting P0 (WBS BT-001–005)
 
 - Package: `app/validation/` — Replay Engine, Golden Dataset Loader, Historical Engine Runner, Metrics, Dashboard payload
-- Pipeline: Snapshot → E01 → E14 → E02 → E03 → L4 → E10 → Metrics (isolated instances; replay store only)
+- Pipeline: Snapshot → E01 → E14 → E02 → E13 → E03 → L4 → E10 → Metrics (isolated instances; replay store only)
 - Metrics: daily/benchmark return, hit/win rate, IC, Sharpe, Sortino, max DD, turnover, confidence calibration, bucket accuracy, parity stability
 - Flags: `BACKTEST=true`, `LIVE=false`
 - APIs: `POST /v1/validation/replay`, `GET /v1/validation/runs`, `GET /v1/validation/runs/{id}`, `GET /v1/validation/dashboard/{id}`, `GET /v1/validation/health`

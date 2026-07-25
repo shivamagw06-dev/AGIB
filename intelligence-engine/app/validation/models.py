@@ -14,10 +14,13 @@ class ReplayDaySlice(BaseModel):
     e01_hash: str | None = None
     e14_hash: str | None = None
     e02_hashes: dict[str, str] = Field(default_factory=dict)
+    e13_hashes: dict[str, str] = Field(default_factory=dict)
     e03_hashes: dict[str, str] = Field(default_factory=dict)
     l4_hashes: dict[str, str] = Field(default_factory=dict)
+    e13_labels: dict[str, str] = Field(default_factory=dict)
     e03_labels: dict[str, str] = Field(default_factory=dict)
     l4_labels: dict[str, str] = Field(default_factory=dict)
+    e13_scores: dict[str, float] = Field(default_factory=dict)
     e03_scores: dict[str, float] = Field(default_factory=dict)
     l4_scores: dict[str, float] = Field(default_factory=dict)
     confidences: dict[str, float] = Field(default_factory=dict)

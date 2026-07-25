@@ -1,4 +1,4 @@
-"""BT-003 Historical Engine Runner — isolated E01→E14→E02→E03→L4→E10 chain.
+"""BT-003 Historical Engine Runner — isolated E01→E14→E02→E13→E03→L4→E10 chain.
 
 Creates fresh engine instances so replay never mutates production singletons.
 """
@@ -16,6 +16,9 @@ from app.engines.e03.mapping import MODEL_VERSION as E03_MODEL
 from app.engines.e03.service import E03Service
 from app.engines.e10.mapping import MODEL_VERSION as E10_MODEL
 from app.engines.e10.service import E10Service
+from app.engines.e13.mapping import FORMULA_ID as E13_FORMULA
+from app.engines.e13.mapping import MODEL_VERSION as E13_MODEL
+from app.engines.e13.service import E13Service
 from app.engines.e14.mapping import MODEL_VERSION as E14_MODEL
 from app.engines.e14.service import E14Service, snapshot_from_risk_dict
 from app.engines.l4.mapping import MODEL_VERSION as L4_MODEL
@@ -38,6 +41,13 @@ class HistoricalEngineRunner:
         self.e01 = E01Service(self.registry, orch_ledger=self.ledger)
         self.e14 = E14Service(self.registry, e01=self.e01, orch_ledger=self.ledger)
         self.e02 = E02Service(self.registry, e01=self.e01, e14=self.e14, orch_ledger=self.ledger)
+        self.e13 = E13Service(
+            self.registry,
+            e01=self.e01,
+            e14=self.e14,
+            orch_ledger=self.ledger,
+            default_universe_id=universe_id,
+        )
         self.e03 = E03Service(
             self.registry,
             e01=self.e01,
@@ -67,6 +77,7 @@ class HistoricalEngineRunner:
             "E01": E01_MODEL,
             "E14": E14_MODEL,
             "E02": E02_MODEL,
+            "E13": E13_MODEL,
             "E03": E03_MODEL,
             "L4": L4_MODEL,
             "E10": E10_MODEL,
@@ -78,6 +89,7 @@ class HistoricalEngineRunner:
         for meta in self.registry.list_features():
             out[meta.feature_id] = meta.formula_version
         out["SM_AGI_TECH"] = E03_MODEL
+        out["FM_AGI_FUND"] = E13_FORMULA
         out["AM_INVVOL"] = E10_MODEL
         return out
 
@@ -94,6 +106,14 @@ class HistoricalEngineRunner:
             generated_at=ts,
         )
         e02_exps = self.e02.run_universe(
+            as_of=day.as_of,
+            panels=day.e02_panels,
+            e01_state=e01_state,
+            e14_state=e14_state,
+            universe_id=self.universe_id,
+            generated_at=ts,
+        )
+        e13_funds = self.e13.run_universe(
             as_of=day.as_of,
             panels=day.e02_panels,
             e01_state=e01_state,
@@ -146,10 +166,13 @@ class HistoricalEngineRunner:
             e01_hash=e01_state.hash,
             e14_hash=e14_state.hash,
             e02_hashes={s: e.hash for s, e in e02_exps.items()},
+            e13_hashes={s: f.hash for s, f in e13_funds.items()},
             e03_hashes={s: a.hash for s, a in e03_alphas.items()},
             l4_hashes={s: o.hash for s, o in l4_opinions.items()},
+            e13_labels={s: f.label for s, f in e13_funds.items()},
             e03_labels={s: a.label for s, a in e03_alphas.items()},
             l4_labels={s: o.label for s, o in l4_opinions.items()},
+            e13_scores={s: f.composite_score for s, f in e13_funds.items()},
             e03_scores={s: a.agi_tech_score for s, a in e03_alphas.items()},
             l4_scores={s: o.composite_score for s, o in l4_opinions.items()},
             confidences={s: o.confidence for s, o in l4_opinions.items()},
@@ -160,7 +183,11 @@ class HistoricalEngineRunner:
             e14_risk_level=str((e14_state.metadata or {}).get("risk_level")),
             e01_regime=str((e01_state.metadata or {}).get("primary_regime")),
             model_versions=self.engine_versions(),
-            formula_versions={"SM_AGI_TECH": E03_MODEL, "AM_INVVOL": E10_MODEL},
+            formula_versions={
+                "SM_AGI_TECH": E03_MODEL,
+                "FM_AGI_FUND": E13_FORMULA,
+                "AM_INVVOL": E10_MODEL,
+            },
             portfolio_return=round(port_ret, 8),
             benchmark_return=day.benchmark_return,
         )

@@ -45,9 +45,18 @@ def register_fund_calculators(service: Any) -> None:
     specs = [
         ("FUND_ROE", "roe", "Return on equity"),
         ("FUND_ROIC", "roic", "Return on invested capital"),
+        ("FUND_ROCE", "roce", "Return on capital employed"),
         ("FUND_GROSS_MARGIN", "grossMargin", "Gross margin"),
         ("FUND_OPERATING_MARGIN", "operatingMargin", "Operating margin"),
         ("FUND_NET_MARGIN", "netMargin", "Net margin"),
+        ("FUND_REVENUE_GROWTH", "revenueGrowth", "Revenue growth"),
+        ("FUND_EPS_GROWTH", "epsGrowth", "EPS growth"),
+        ("FUND_DEBT_EQUITY", "debtEquity", "Debt to equity"),
+        ("FUND_INTEREST_COVERAGE", "interestCoverage", "Interest coverage"),
+        ("FUND_FCF_YIELD", "fcfYield", "Free cash flow yield"),
+        ("FUND_FCF_CONVERSION", "fcfConversion", "FCF conversion"),
+        ("FUND_EP", "earningsYield", "Earnings yield"),
+        ("FUND_BP", "bookYield", "Book yield"),
         ("FUND_PEG", "pegRatio", "PEG ratio"),
     ]
     for feature_id, key, desc in specs:

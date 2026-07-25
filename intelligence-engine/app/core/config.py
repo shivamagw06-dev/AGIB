@@ -76,6 +76,12 @@ class Settings(BaseSettings):
     e10_hrp: bool = False
     e10_mvo: bool = False
 
+    # E13 Equity Fundamental L/S feature flags (P0 defaults)
+    e13_p0: bool = True
+    e13_revisions: bool = False
+    e13_moat: bool = False
+    e13_ml: bool = False
+
     # Validation & Backtesting platform flags (P0 defaults)
     backtest: bool = True
     live: bool = False

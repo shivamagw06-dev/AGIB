@@ -77,5 +77,5 @@ class ValidationService:
                 "Historical E10Portfolio",
             ],
             "market_data_access": False,
-            "pipeline": ["Snapshot", "ORCH Replay", "E01", "E14", "E02", "E03", "L4", "E10", "Metrics"],
+            "pipeline": ["Snapshot", "ORCH Replay", "E01", "E14", "E02", "E13", "E03", "L4", "E10", "Metrics"],
         }
