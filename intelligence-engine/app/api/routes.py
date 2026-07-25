@@ -6,6 +6,8 @@ from app.agents.registry import list_agents
 from app.core.config import Settings, get_settings
 from app.engines.e01.consumer import register_e01_with_orch_l2
 from app.engines.e01.service import E01Service
+from app.engines.e14.consumer import register_e14_with_orch
+from app.engines.e14.service import E14Service
 from app.eval.evaluation_agent import EvaluationAgent
 from app.features.models import FeatureMetadata
 from app.features.service import FeatureRegistryService
@@ -26,6 +28,7 @@ _features = FeatureRegistryService()
 _orch_ledger = OrchLedger()
 _l2 = L2FeatureBuildService(_features, orch_ledger=_orch_ledger)
 _e01 = E01Service(_features, orch_ledger=_orch_ledger)
+_e14 = E14Service(_features, e01=_e01, orch_ledger=_orch_ledger)
 
 
 def _wire_market_data_to_l2() -> None:
@@ -42,8 +45,14 @@ def _wire_e01_passive_consumer() -> None:
     register_e01_with_orch_l2(_l2, _e01)
 
 
+def _wire_e14_passive_consumer() -> None:
+    """E14 registers as passive consumer of FeatureSnapshot + E01State."""
+    register_e14_with_orch(_l2, _e14, _e01)
+
+
 _wire_market_data_to_l2()
 _wire_e01_passive_consumer()
+_wire_e14_passive_consumer()
 
 
 def require_token(
@@ -103,6 +112,27 @@ async def e01_state(as_of: str | None = None):
 async def e01_history(limit: int = 50):
     """E01 regime history (newest first)."""
     return [s.model_dump(mode="json") for s in _e01.history(limit=min(limit, 200))]
+
+
+@router.get("/e14/health")
+async def e14_health():
+    """E14 Risk & Crowding Overlay health (E14-001–005 P0)."""
+    return _e14.health()
+
+
+@router.get("/e14/state")
+async def e14_state(as_of: str | None = None):
+    """Frontend-ready E14 EngineState (warm cache)."""
+    state = _e14.get_state(as_of=as_of)
+    if state is None:
+        raise HTTPException(status_code=404, detail="E14 state not available")
+    return state.model_dump(mode="json")
+
+
+@router.get("/e14/history")
+async def e14_history(limit: int = 50):
+    """E14 firm risk history (newest first)."""
+    return [s.model_dump(mode="json") for s in _e14.history(limit=min(limit, 200))]
 
 
 @router.post("/orch/l2/trigger", dependencies=[Depends(require_token)])

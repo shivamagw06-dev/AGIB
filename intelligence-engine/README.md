@@ -87,3 +87,12 @@ Agents read **AGIB Node cached APIs only** (no direct third-party market API cal
 - Flags: `E01_P0=true`, `E01_HMM=false`, `E01_ML=false`
 - ORCH: passive L2 ready-event consumer (`E01_MACRO` node)
 - APIs: `GET /v1/e01/state`, `GET /v1/e01/history`, `GET /v1/e01/health`
+
+### E14 Risk & Crowding Overlay P0 (WBS E14-001–005)
+
+- Package: `app/engines/e14/` — Risk Feature Builder, rule-based taxonomy/risk_score, sizing/conf adj, E14Assessment, EngineState
+- Inputs: Feature Registry + E01State only (no MarketDataClient, no polling)
+- Outputs: canonical EngineState + E14Assessment; fail-closed without E01
+- Flags: `E14_P0=true`, `E14_ML=false`, `E14_BAYES=false`
+- ORCH: passive consumer of FeatureSnapshot + E01State (`E14_FIRM_PRIOR` / `E14_ASSESS`)
+- APIs: `GET /v1/e14/state`, `GET /v1/e14/history`, `GET /v1/e14/health`

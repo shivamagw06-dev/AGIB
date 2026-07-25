@@ -44,6 +44,11 @@ class Settings(BaseSettings):
     e01_hmm: bool = False
     e01_ml: bool = False
 
+    # E14 Risk & Crowding Overlay feature flags (P0 defaults)
+    e14_p0: bool = True
+    e14_ml: bool = False
+    e14_bayes: bool = False
+
 
 @lru_cache
 def get_settings() -> Settings:
