@@ -120,9 +120,12 @@ def test_search_returns_iax_workspace_fields():
     assert pack.related_ideas
     assert pack.workspace.get("mode") == "institutional_answer"
     assert 4 <= len(pack.follow_up_questions) <= 8
+    import re
+
     dumped = str(pack.model_dump())
-    assert "E01" not in dumped
-    assert "E03" not in dumped
+    # Avoid false positives from hex ids (e.g. ...E03EE84)
+    assert not re.search(r"(?<![A-Za-z0-9])E01(?![A-Za-z0-9])", dumped)
+    assert not re.search(r"(?<![A-Za-z0-9])E03(?![A-Za-z0-9])", dumped)
     assert "EngineState" not in dumped
 
 
