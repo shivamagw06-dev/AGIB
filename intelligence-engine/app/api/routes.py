@@ -58,6 +58,7 @@ from app.kf.service import KfService
 from app.kc.service import KcService
 from app.aoi.service import AoiService
 from app.eve.service import EveService
+from app.iie.service import IieService
 from app.ui.service import UiService
 from app.validation.service import ValidationService
 from app.features.models import FeatureMetadata
@@ -149,6 +150,7 @@ _kc = KcService(kf=_kf, kip=_kip)
 _aoi = AoiService(kip=_kip, kc=_kc, kf=_kf)
 _eve = EveService(aoi=_aoi, kc=_kc, kf=_kf)
 _aoi.bind_eve(_eve)
+_iie = IieService(eve=_eve, kc=_kc, kf=_kf, aoi=_aoi)
 _ui = UiService(
     aws=_aws,
     ioc=_ioc,
@@ -163,6 +165,7 @@ _ui = UiService(
     kc=_kc,
     aoi=_aoi,
     eve=_eve,
+    iie=_iie,
 )
 # Soft-wire KIP retrieve → RSP reason into Research Director (no engine redesign).
 _director.kip = _kip
@@ -1845,6 +1848,208 @@ async def eve_consult(q: str = Query(...), limit: int = Query(default=8, ge=1, l
 async def eve_audit(limit: int = Query(default=50, ge=1, le=200)):
     try:
         return _eve.audit_logs(limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+# --- IIE v1 Investment Intelligence (after EVE/KCV/KF, before reasoning; no core redesign) ---
+
+
+@router.get("/iie/health")
+async def iie_health():
+    return _iie.health()
+
+
+@router.get("/iie/dashboard")
+async def iie_dashboard():
+    try:
+        return _iie.dashboard()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/iie/analyse")
+async def iie_analyse(key: str = Query(...)):
+    try:
+        return _iie.analyse(key)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/iie/batch")
+async def iie_batch(limit: int = Query(default=20, ge=1, le=100)):
+    try:
+        return _iie.run_batch(limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/iie/company/{key}")
+async def iie_company(key: str):
+    try:
+        return _iie.company(key)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/iie/sector")
+async def iie_sectors():
+    try:
+        return _iie.list_sectors()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/iie/sector/{sector_id}")
+async def iie_sector(sector_id: str):
+    try:
+        return _iie.sector(sector_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/iie/theme")
+async def iie_themes():
+    try:
+        return _iie.list_themes()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/iie/theme/{theme_id}")
+async def iie_theme(theme_id: str):
+    try:
+        return _iie.theme(theme_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/iie/thesis/{key}")
+async def iie_thesis(key: str):
+    try:
+        return _iie.thesis(key)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/iie/scenario/{key}")
+async def iie_scenario(key: str):
+    try:
+        return _iie.scenario(key)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/iie/catalysts")
+async def iie_catalysts(
+    company_id: str | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=200),
+):
+    try:
+        return _iie.catalysts(company_id=company_id, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/iie/risks")
+async def iie_risks(
+    company_id: str | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=200),
+):
+    try:
+        return _iie.risks(company_id=company_id, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/iie/opportunities")
+async def iie_opportunities(
+    company_id: str | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=200),
+):
+    try:
+        return _iie.opportunities(company_id=company_id, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/iie/compare")
+async def iie_compare(
+    companies: str = Query(..., description="Comma-separated company ids/symbols"),
+    dimensions: str | None = Query(default=None),
+):
+    try:
+        ids = [c.strip() for c in companies.split(",") if c.strip()]
+        dims = [d.strip() for d in dimensions.split(",") if d.strip()] if dimensions else None
+        return _iie.compare(ids, dimensions=dims)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/iie/monitor/{key}")
+async def iie_monitor(key: str):
+    try:
+        return _iie.monitor(key)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/iie/dna/{key}")
+async def iie_dna(key: str):
+    try:
+        return _iie.dna(key)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/iie/macro")
+async def iie_macro(event: str = Query(...)):
+    try:
+        return _iie.macro(event)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/iie/evolution")
+async def iie_evolution(
+    entity_id: str | None = Query(default=None),
+    object_type: str | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=200),
+):
+    try:
+        return _iie.evolution(entity_id=entity_id, object_type=object_type, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/iie/search")
+async def iie_search(q: str = Query(...), limit: int = Query(default=20, ge=1, le=100)):
+    try:
+        return _iie.search(q, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/iie/consult")
+async def iie_consult(q: str = Query(...), limit: int = Query(default=8, ge=1, le=40)):
+    try:
+        return _iie.consult(q, limit=limit)
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

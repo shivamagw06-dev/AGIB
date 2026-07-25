@@ -88,6 +88,7 @@ class UiService:
         kc: Any | None = None,
         aoi: Any | None = None,
         eve: Any | None = None,
+        iie: Any | None = None,
     ) -> None:
         self.flags = flags or UiFlags.from_settings(get_settings())
         self.aws = aws
@@ -103,6 +104,7 @@ class UiService:
         self.kc = kc
         self.aoi = aoi
         self.eve = eve
+        self.iie = iie
 
     def health(self) -> dict[str, Any]:
         return {
@@ -671,11 +673,21 @@ class UiService:
         irp_pkg = None
         irp_dump: dict[str, Any] = {}
 
-        # EVE → AOI → KCV1 / KF1 — verified evidence before raw facts/documents (soft enrichment).
+        # IIE → EVE → AOI → KCV1 / KF1 — investment intelligence before reasoning (soft enrichment).
         kf_hits: list[dict[str, Any]] = []
         knowledge_corpus: dict[str, Any] = {}
         open_intelligence: dict[str, Any] = {}
         evidence_verification: dict[str, Any] = {}
+        investment_intelligence: dict[str, Any] = {}
+        if self.iie and q:
+            try:
+                investment_intelligence = dump(soft(self.iie.consult, q, limit=8)) or {}
+                if isinstance(investment_intelligence, dict):
+                    company_pack = investment_intelligence.get("company") or {}
+                    if isinstance(company_pack, dict) and company_pack.get("symbol") and not detected_ticker:
+                        detected_ticker = str(company_pack["symbol"]).upper()
+            except Exception:
+                investment_intelligence = {}
         if self.eve and q:
             try:
                 evidence_verification = dump(soft(self.eve.consult, q, limit=8)) or {}
@@ -1378,6 +1390,17 @@ class UiService:
                 "guidance": {
                     "use_highest_confidence_first": True,
                     "avoid_hallucinated_certainty": True,
+                },
+            },
+            investment_intelligence=scrub(investment_intelligence)
+            if investment_intelligence
+            else {
+                "answer_policy": "investment_intelligence_before_reasoning",
+                "guidance": {
+                    "use_structured_intelligence_first": True,
+                    "trace_to_eve_evidence": True,
+                    "preserve_uncertainty": True,
+                    "never_hallucinate": True,
                 },
             },
             institutional_briefing=scrub(briefing) or {},

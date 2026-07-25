@@ -139,3 +139,81 @@ export const getEveAudit = (limit = 50) => {
   const qs = new URLSearchParams({ limit: String(limit) }).toString();
   return intelligenceFetch(`/eve/audit?${qs}`);
 };
+
+/** IIE v1 Investment Intelligence */
+export const getIieHealth = () => intelligenceFetch('/iie/health');
+export const getIieDashboard = () => intelligenceFetch('/iie/dashboard');
+export const analyseIieCompany = (key) => {
+  const qs = new URLSearchParams({ key }).toString();
+  return intelligenceFetch(`/iie/analyse?${qs}`, { method: 'POST', body: {} });
+};
+export const runIieBatch = (limit = 20) => {
+  const qs = new URLSearchParams({ limit: String(limit) }).toString();
+  return intelligenceFetch(`/iie/batch?${qs}`, { method: 'POST', body: {} });
+};
+export const getIieCompany = (key) => intelligenceFetch(`/iie/company/${encodeURIComponent(key)}`);
+export const getIieSectors = () => intelligenceFetch('/iie/sector');
+export const getIieSector = (id) => intelligenceFetch(`/iie/sector/${encodeURIComponent(id)}`);
+export const getIieThemes = () => intelligenceFetch('/iie/theme');
+export const getIieTheme = (id) => intelligenceFetch(`/iie/theme/${encodeURIComponent(id)}`);
+export const getIieThesis = (key) => intelligenceFetch(`/iie/thesis/${encodeURIComponent(key)}`);
+export const getIieScenario = (key) => intelligenceFetch(`/iie/scenario/${encodeURIComponent(key)}`);
+export const getIieCatalysts = (params = {}) => {
+  const qs = new URLSearchParams(
+    Object.fromEntries(
+      Object.entries(params)
+        .filter(([, v]) => v !== undefined && v !== null && v !== '')
+        .map(([k, v]) => [k, String(v)])
+    )
+  ).toString();
+  return intelligenceFetch(`/iie/catalysts${qs ? `?${qs}` : ''}`);
+};
+export const getIieRisks = (params = {}) => {
+  const qs = new URLSearchParams(
+    Object.fromEntries(
+      Object.entries(params)
+        .filter(([, v]) => v !== undefined && v !== null && v !== '')
+        .map(([k, v]) => [k, String(v)])
+    )
+  ).toString();
+  return intelligenceFetch(`/iie/risks${qs ? `?${qs}` : ''}`);
+};
+export const getIieOpportunities = (params = {}) => {
+  const qs = new URLSearchParams(
+    Object.fromEntries(
+      Object.entries(params)
+        .filter(([, v]) => v !== undefined && v !== null && v !== '')
+        .map(([k, v]) => [k, String(v)])
+    )
+  ).toString();
+  return intelligenceFetch(`/iie/opportunities${qs ? `?${qs}` : ''}`);
+};
+export const compareIie = (companies, dimensions) => {
+  const qs = new URLSearchParams({ companies: Array.isArray(companies) ? companies.join(',') : companies });
+  if (dimensions) qs.set('dimensions', Array.isArray(dimensions) ? dimensions.join(',') : dimensions);
+  return intelligenceFetch(`/iie/compare?${qs}`);
+};
+export const getIieMonitor = (key) => intelligenceFetch(`/iie/monitor/${encodeURIComponent(key)}`);
+export const getIieDna = (key) => intelligenceFetch(`/iie/dna/${encodeURIComponent(key)}`);
+export const getIieMacro = (event) => {
+  const qs = new URLSearchParams({ event }).toString();
+  return intelligenceFetch(`/iie/macro?${qs}`);
+};
+export const getIieEvolution = (params = {}) => {
+  const qs = new URLSearchParams(
+    Object.fromEntries(
+      Object.entries(params)
+        .filter(([, v]) => v !== undefined && v !== null && v !== '')
+        .map(([k, v]) => [k, String(v)])
+    )
+  ).toString();
+  return intelligenceFetch(`/iie/evolution${qs ? `?${qs}` : ''}`);
+};
+export const searchIie = (q, limit = 20) => {
+  const qs = new URLSearchParams({ q, limit: String(limit) }).toString();
+  return intelligenceFetch(`/iie/search?${qs}`);
+};
+export const consultIie = (q, limit = 8) => {
+  const qs = new URLSearchParams({ q, limit: String(limit) }).toString();
+  return intelligenceFetch(`/iie/consult?${qs}`);
+};

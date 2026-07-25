@@ -285,5 +285,93 @@ export default function createIntelligenceRouter() {
   router.get('/eve/consult', kfGet('/v1/eve/consult'));
   router.get('/eve/audit', kfGet('/v1/eve/audit'));
 
+  // IIE v1 — Investment Intelligence Engine (after EVE/KCV/KF, before reasoning).
+  router.get('/iie/health', kfGet('/v1/iie/health'));
+  router.get('/iie/dashboard', kfGet('/v1/iie/dashboard'));
+  router.post('/iie/analyse', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query).toString();
+      const result = await engineFetch(`/v1/iie/analyse${qs ? `?${qs}` : ''}`, { method: 'POST', body: {} });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Investment intelligence unavailable', detail: error.message });
+    }
+  });
+  router.post('/iie/batch', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query).toString();
+      const result = await engineFetch(`/v1/iie/batch${qs ? `?${qs}` : ''}`, { method: 'POST', body: {} });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Investment intelligence unavailable', detail: error.message });
+    }
+  });
+  router.get('/iie/company/:key', async (req, res) => {
+    try {
+      const result = await engineFetch(`/v1/iie/company/${encodeURIComponent(req.params.key)}`);
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Investment intelligence unavailable', detail: error.message });
+    }
+  });
+  router.get('/iie/sector', kfGet('/v1/iie/sector'));
+  router.get('/iie/sector/:sectorId', async (req, res) => {
+    try {
+      const result = await engineFetch(`/v1/iie/sector/${encodeURIComponent(req.params.sectorId)}`);
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Investment intelligence unavailable', detail: error.message });
+    }
+  });
+  router.get('/iie/theme', kfGet('/v1/iie/theme'));
+  router.get('/iie/theme/:themeId', async (req, res) => {
+    try {
+      const result = await engineFetch(`/v1/iie/theme/${encodeURIComponent(req.params.themeId)}`);
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Investment intelligence unavailable', detail: error.message });
+    }
+  });
+  router.get('/iie/thesis/:key', async (req, res) => {
+    try {
+      const result = await engineFetch(`/v1/iie/thesis/${encodeURIComponent(req.params.key)}`);
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Investment intelligence unavailable', detail: error.message });
+    }
+  });
+  router.get('/iie/scenario/:key', async (req, res) => {
+    try {
+      const result = await engineFetch(`/v1/iie/scenario/${encodeURIComponent(req.params.key)}`);
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Investment intelligence unavailable', detail: error.message });
+    }
+  });
+  router.get('/iie/catalysts', kfGet('/v1/iie/catalysts'));
+  router.get('/iie/risks', kfGet('/v1/iie/risks'));
+  router.get('/iie/opportunities', kfGet('/v1/iie/opportunities'));
+  router.get('/iie/compare', kfGet('/v1/iie/compare'));
+  router.get('/iie/monitor/:key', async (req, res) => {
+    try {
+      const result = await engineFetch(`/v1/iie/monitor/${encodeURIComponent(req.params.key)}`);
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Investment intelligence unavailable', detail: error.message });
+    }
+  });
+  router.get('/iie/dna/:key', async (req, res) => {
+    try {
+      const result = await engineFetch(`/v1/iie/dna/${encodeURIComponent(req.params.key)}`);
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Investment intelligence unavailable', detail: error.message });
+    }
+  });
+  router.get('/iie/macro', kfGet('/v1/iie/macro'));
+  router.get('/iie/evolution', kfGet('/v1/iie/evolution'));
+  router.get('/iie/search', kfGet('/v1/iie/search'));
+  router.get('/iie/consult', kfGet('/v1/iie/consult'));
+
   return router;
 }

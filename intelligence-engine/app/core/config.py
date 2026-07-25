@@ -216,6 +216,14 @@ class Settings(BaseSettings):
     eve_timeline: bool = True
     eve_daily_jobs: bool = True
 
+    # Investment Intelligence Engine v1 (after EVE/KCV/KF, before reasoning; no core redesign)
+    iie: bool = True
+    iie_auto_analyse: bool = True
+    iie_scenarios: bool = True
+    iie_catalysts: bool = True
+    iie_risks: bool = True
+    iie_compare: bool = True
+
 
 @lru_cache
 def get_settings() -> Settings:

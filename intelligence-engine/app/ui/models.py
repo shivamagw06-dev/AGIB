@@ -132,6 +132,8 @@ class SearchView(BaseModel):
     open_intelligence: dict[str, Any] = Field(default_factory=dict)
     # EVE v1 — verified evidence / conflicts / confidence for Ask AGI
     evidence_verification: dict[str, Any] = Field(default_factory=dict)
+    # IIE v1 — structured investment intelligence before reasoning
+    investment_intelligence: dict[str, Any] = Field(default_factory=dict)
     institutional_briefing: dict[str, Any] = Field(default_factory=dict)
     sector_intelligence: dict[str, Any] = Field(default_factory=dict)
     company_intelligence: dict[str, Any] = Field(default_factory=dict)

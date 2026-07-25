@@ -10,6 +10,7 @@ import {
   Brain,
   Radar,
   Shield,
+  LineChart,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -20,6 +21,7 @@ const navItems = [
   { to: '/admin/knowledge', label: 'Knowledge Corpus', icon: Brain },
   { to: '/admin/open-intelligence', label: 'Open Intelligence', icon: Radar },
   { to: '/admin/evidence', label: 'Evidence', icon: Shield },
+  { to: '/admin/investment-intelligence', label: 'Investment Intel', icon: LineChart },
 ];
 
 export default function AdminLayout() {
