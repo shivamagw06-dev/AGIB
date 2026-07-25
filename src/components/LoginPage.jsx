@@ -1,9 +1,12 @@
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { supabase } from '../lib/supabaseClient';
+import { isSupabaseConfigured, supabase } from '../lib/supabaseClient';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { isAdmin } from '@/lib/adminAuth';
 import { ArrowLeft, Check, Mail } from 'lucide-react';
+
+const AUTH_UNCONFIGURED =
+  'Sign-in is not configured on this site build. Supabase auth keys are missing — redeploy the frontend with VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.';
 
 function GoogleMark() {
   return (
@@ -43,6 +46,11 @@ export default function LoginPage() {
     setMagicLoading(true);
     setMessage('');
     setErrorMessage('');
+    if (!isSupabaseConfigured) {
+      setErrorMessage(AUTH_UNCONFIGURED);
+      setMagicLoading(false);
+      return;
+    }
     try {
       await login(email, {
         shouldCreateUser: mode === 'signup',
@@ -60,6 +68,9 @@ export default function LoginPage() {
     try {
       setOauthLoading(provider);
       setErrorMessage('');
+      if (!isSupabaseConfigured) {
+        throw new Error(AUTH_UNCONFIGURED);
+      }
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: { redirectTo },
@@ -106,6 +117,12 @@ export default function LoginPage() {
           <Link to="/" className="inline-flex items-center gap-2 text-xs font-bold text-[#59616d] hover:text-[#111]"><ArrowLeft className="h-3.5 w-3.5" /> Back to public research</Link>
           <h2 className="mt-8 text-2xl font-bold text-[#18202b]">{mode === 'signup' ? 'Create your account' : 'Welcome back'}</h2>
           <p className="mt-2 text-sm text-[#667085]">{mode === 'signup' ? 'Save your research preferences and receive AGI updates.' : 'Sign in to continue to your AGI account.'}</p>
+
+          {!isSupabaseConfigured && (
+            <p className="mt-4 border border-[#f7c5c0] bg-[#fff1f0] p-3 text-xs text-[#b42318]">
+              {AUTH_UNCONFIGURED}
+            </p>
+          )}
 
           <div className="mt-6 grid grid-cols-2 rounded-sm border border-[#dce1e7] p-1 text-sm font-semibold">
             <button type="button" onClick={() => { setMode('signup'); setMessage(''); setErrorMessage(''); }} className={`rounded-sm py-2 ${mode === 'signup' ? 'bg-[#0d1d33] text-white' : 'text-[#667085]'}`}>Sign up</button>
