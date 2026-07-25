@@ -6,6 +6,7 @@ from app.agents.registry import list_agents
 from app.core.config import Settings, get_settings
 from app.eval.evaluation_agent import EvaluationAgent
 from app.memory.store import ResearchStore
+from app.orch.ledger import OrchLedger
 from app.orchestration.director import ResearchDirector
 from app.schemas.models import PredictionRecord, ResearchRun, ResearchRunCreate
 
@@ -13,6 +14,7 @@ router = APIRouter(prefix="/v1")
 _store = ResearchStore()
 _director = ResearchDirector(store=_store)
 _eval = EvaluationAgent()
+_orch_ledger = OrchLedger()
 
 
 def require_token(
@@ -37,6 +39,12 @@ async def health():
         "service": "agi-intelligence-engine",
         "agents": list_agents(),
     }
+
+
+@router.get("/orch/status")
+async def orch_status():
+    """ORCH control-plane status (Document ID ORCH; not E00 Layer 5 / E10)."""
+    return _orch_ledger.status_summary()
 
 
 @router.post("/research/runs", response_model=ResearchRun, dependencies=[Depends(require_token)])

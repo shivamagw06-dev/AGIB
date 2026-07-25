@@ -26,6 +26,18 @@ async def test_health():
 
 
 @pytest.mark.asyncio
+async def test_orch_status():
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.get("/v1/orch/status")
+        assert response.status_code == 200
+        body = response.json()
+        assert body["ok"] is True
+        assert body["document_id"] == "ORCH"
+        assert body["dag_version"] == "orch-1.0.0"
+
+
+@pytest.mark.asyncio
 async def test_smoke_run_requires_token():
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
