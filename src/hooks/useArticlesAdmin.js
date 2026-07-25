@@ -12,7 +12,7 @@ export default function useArticlesAdmin() {
 
     const { data, error: fetchError } = await supabase
       .from('articles')
-      .select('id, title, slug, section, excerpt, status, published_at, created_at, cover_url, tags')
+      .select('id, title, slug, section, excerpt, status, published_at, created_at, cover_url, tags, intelligence_document_id, intelligence_ingested_at')
       .order('created_at', { ascending: false });
 
     if (fetchError) {
@@ -37,7 +37,10 @@ export default function useArticlesAdmin() {
   const stats = {
     total: articles.length,
     published: articles.filter((a) => a.status === 'published').length,
-    drafts: articles.filter((a) => a.status === 'draft').length,
+    drafts: articles.filter((a) => a.status === 'draft' && !(a.tags || []).includes('intelligence-only')).length,
+    intelligence: articles.filter(
+      (a) => a.status === 'intelligence' || (Array.isArray(a.tags) && a.tags.includes('intelligence-only'))
+    ).length,
   };
 
   return { articles, loading, error, reload: load, deleteArticle, stats };

@@ -30,10 +30,20 @@ export default function AdminDashboard() {
         </Button>
       </div>
 
-      <div className="grid sm:grid-cols-3 gap-4 mb-8">
+      <div className="mb-6 rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
+        <p className="font-semibold text-slate-900">Two CMS destinations</p>
+        <p className="mt-1">
+          <span className="font-semibold text-blue-700">Publish to Website</span> — live public research.
+          {' '}
+          <span className="font-semibold text-violet-700">Send to Intelligence</span> — private notes for Ask AGI only (not on the website).
+        </p>
+      </div>
+
+      <div className="grid sm:grid-cols-4 gap-4 mb-8">
         {[
-          ['Total Articles', stats.total, 'text-slate-900'],
-          ['Published', stats.published, 'text-green-600'],
+          ['Total', stats.total, 'text-slate-900'],
+          ['Website', stats.published, 'text-green-600'],
+          ['Intelligence', stats.intelligence, 'text-violet-700'],
           ['Drafts', stats.drafts, 'text-amber-600'],
         ].map(([label, value, color]) => (
           <div key={label} className="bg-white rounded-xl border border-slate-200 p-5">
@@ -83,10 +93,14 @@ export default function AdminDashboard() {
                         className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold ${
                           article.status === 'published'
                             ? 'bg-green-100 text-green-700'
-                            : 'bg-amber-100 text-amber-700'
+                            : article.status === 'intelligence' || (article.tags || []).includes('intelligence-only')
+                              ? 'bg-violet-100 text-violet-700'
+                              : 'bg-amber-100 text-amber-700'
                         }`}
                       >
-                        {article.status}
+                        {article.status === 'intelligence' || (article.tags || []).includes('intelligence-only')
+                          ? 'intelligence'
+                          : article.status}
                       </span>
                     </td>
                     <td className="px-5 py-4 text-slate-500 whitespace-nowrap">

@@ -85,5 +85,56 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // CMS → KIP: ingest AGI research (public or private) into institutional memory.
+  router.post('/kip/ingest/agi', async (req, res) => {
+    try {
+      const body = req.body || {};
+      const title = String(body.title || '').trim();
+      const content = String(body.content || body.content_md || '').trim();
+      if (!title || !content) {
+        return res.status(400).json({ error: 'title and content are required' });
+      }
+
+      const payload = {
+        title,
+        content,
+        author: body.author || 'AGI Research Desk',
+        source: 'agi',
+        document_type: body.document_type || 'agi_research',
+        language: 'en',
+        tickers: Array.isArray(body.tickers) ? body.tickers : [],
+        themes: Array.isArray(body.themes) ? body.themes : [],
+        sectors: Array.isArray(body.sectors) ? body.sectors : [],
+        article_id: body.article_id || body.slug || null,
+        research_type: body.research_type || body.section || '',
+        metadata: {
+          cms_status: body.cms_status || body.status || null,
+          slug: body.slug || null,
+          section: body.section || null,
+          destination: body.destination || 'intelligence',
+          ...(body.metadata && typeof body.metadata === 'object' ? body.metadata : {}),
+        },
+      };
+
+      const result = await engineFetch('/v1/kip/ingest/agi', { method: 'POST', body: payload });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({
+        error: 'Intelligence ingest unavailable',
+        detail: error.message,
+        hint: 'Ensure agib-intelligence-engine is live and INTELLIGENCE_ENGINE_URL/TOKEN are set on the API.',
+      });
+    }
+  });
+
+  router.get('/kip/health', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/kip/health');
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'KIP unavailable', detail: error.message });
+    }
+  });
+
   return router;
 }

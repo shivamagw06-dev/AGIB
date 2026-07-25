@@ -13,7 +13,7 @@ import { Table } from '@tiptap/extension-table';
 import TableRow from '@tiptap/extension-table-row';
 import TableCell from '@tiptap/extension-table-cell';
 import TableHeader from '@tiptap/extension-table-header';
-import { Eye, Save, Send, ImageIcon, Loader2 } from 'lucide-react';
+import { Eye, Save, Send, ImageIcon, Loader2, Brain } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/contexts/AuthContext';
 import useCategories from '@/hooks/useCategories';
@@ -28,6 +28,7 @@ import {
   toSlug,
   wordCountFromHTML,
 } from '@/lib/articleUtils';
+import { ingestArticleToIntelligence } from '@/lib/cmsIntelligence';
 import { Button } from '@/components/ui/button';
 
 const AUTOSAVE_MS = 4000;
@@ -237,6 +238,8 @@ export default function ArticleEditor() {
 
       if (metaDescription.trim()) payload.meta_description = metaDescription.trim();
       if (publishStatus === 'published') payload.published_at = new Date().toISOString();
+      // Private intelligence notes must never appear as website posts.
+      if (publishStatus === 'intelligence') payload.published_at = null;
 
       return payload;
     },
@@ -244,7 +247,7 @@ export default function ArticleEditor() {
   );
 
   const persist = useCallback(
-    async (publishStatus, { silent = false } = {}) => {
+    async (publishStatus, { silent = false, ingest = false, stayInEditor = false } = {}) => {
       if (!editor) return null;
       setSaving(true);
       setError('');
@@ -253,7 +256,7 @@ export default function ArticleEditor() {
         let articleSlug = slug || (await generateUniqueSlug(title, draftId));
         if (!slugManual) setSlug(articleSlug);
 
-        const payload = { ...buildPayload(publishStatus), slug: articleSlug };
+        let payload = { ...buildPayload(publishStatus), slug: articleSlug };
 
         let result;
         if (draftId) {
@@ -263,6 +266,22 @@ export default function ArticleEditor() {
         }
 
         let { data, error: saveError } = result;
+
+        // Older schemas may not allow the intelligence status yet — keep content saved as draft metadata.
+        if (saveError && publishStatus === 'intelligence' && /status|check|constraint/i.test(saveError.message || '')) {
+          const fallbackPayload = {
+            ...payload,
+            status: 'draft',
+            tags: Array.from(new Set([...(payload.tags || []), 'intelligence-only', 'agi-private'])),
+          };
+          result = draftId
+            ? await supabase.from('articles').update(fallbackPayload).eq('id', draftId).select('id, slug, status').single()
+            : await supabase.from('articles').insert(fallbackPayload).select('id, slug, status').single();
+          ({ data, error: saveError } = result);
+          if (!saveError) {
+            setError('Saved for intelligence. Run the CMS migration to enable status=intelligence in Supabase.');
+          }
+        }
 
         if (saveError?.message?.includes('meta_description')) {
           const { meta_description, ...fallbackPayload } = payload;
@@ -275,15 +294,48 @@ export default function ArticleEditor() {
 
         setDraftId(data.id);
         setSlug(data.slug);
-        setStatus(data.status);
+        setStatus(publishStatus === 'intelligence' ? 'intelligence' : data.status);
         setLastSaved(new Date());
         dirtyRef.current = false;
 
-        if (!silent && publishStatus === 'published') {
-          navigate(`/article/${data.slug}`);
+        let ingestResult = null;
+        if (ingest) {
+          ingestResult = await ingestArticleToIntelligence({
+            title: title.trim(),
+            contentHtml: editor.getHTML(),
+            slug: data.slug,
+            articleId: data.id,
+            section,
+            tags: tagsInput.split(',').map((t) => t.trim()).filter(Boolean),
+            status: publishStatus,
+            destination: publishStatus === 'published' ? 'website' : 'intelligence',
+          });
+
+          if (ingestResult?.id || ingestResult?.document_id) {
+            const docId = ingestResult.id || ingestResult.document_id;
+            try {
+              await supabase
+                .from('articles')
+                .update({
+                  intelligence_document_id: docId,
+                  intelligence_ingested_at: new Date().toISOString(),
+                })
+                .eq('id', data.id);
+            } catch {
+              /* optional columns may be missing until migration */
+            }
+          }
         }
 
-        return data;
+        if (!silent && publishStatus === 'published' && !stayInEditor) {
+          navigate(`/article/${data.slug}`);
+        } else if (!silent && publishStatus === 'intelligence') {
+          alert('Sent to AGI Intelligence only. This will not appear on the public website.');
+        } else if (!silent && ingest && publishStatus === 'published' && stayInEditor) {
+          alert('Published to website and ingested into AGI Intelligence.');
+        }
+
+        return { ...data, ingestResult };
       } catch (err) {
         const msg = err?.message || 'Save failed';
         setError(msg);
@@ -293,7 +345,7 @@ export default function ArticleEditor() {
         setSaving(false);
       }
     },
-    [editor, slug, slugManual, title, draftId, buildPayload, navigate]
+    [editor, slug, slugManual, title, draftId, buildPayload, navigate, section, tagsInput]
   );
 
   useEffect(() => {
@@ -325,8 +377,16 @@ export default function ArticleEditor() {
       {/* Top bar */}
       <div className="shrink-0 bg-white border-b border-slate-200 px-6 py-3 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3 text-sm text-slate-500">
-          <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${status === 'published' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
-            {status}
+          <span
+            className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+              status === 'published'
+                ? 'bg-green-100 text-green-700'
+                : status === 'intelligence'
+                  ? 'bg-violet-100 text-violet-700'
+                  : 'bg-amber-100 text-amber-700'
+            }`}
+          >
+            {status === 'intelligence' ? 'intelligence only' : status}
           </span>
           {saving ? (
             <span className="flex items-center gap-1"><Loader2 size={14} className="animate-spin" /> Saving…</span>
@@ -338,16 +398,42 @@ export default function ArticleEditor() {
           <span>· {words} words · {minutes} min read</span>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => setPreviewOpen(true)}>
             <Eye size={15} className="mr-1.5" /> Preview
           </Button>
           <Button variant="outline" size="sm" onClick={() => persist('draft')} disabled={saving}>
             <Save size={15} className="mr-1.5" /> Save Draft
           </Button>
-          <Button size="sm" className="bg-blue-700 hover:bg-blue-800" onClick={() => persist('published')} disabled={saving || !title.trim()}>
-            <Send size={15} className="mr-1.5" /> Publish
+          <Button
+            size="sm"
+            className="bg-blue-700 hover:bg-blue-800"
+            onClick={() => persist('published', { ingest: true })}
+            disabled={saving || !title.trim()}
+            title="Goes live on the website and is also studied by AGI Intelligence"
+          >
+            <Send size={15} className="mr-1.5" /> Publish to Website
           </Button>
+          <Button
+            size="sm"
+            className="bg-violet-700 hover:bg-violet-800"
+            onClick={() => persist('intelligence', { ingest: true, stayInEditor: true })}
+            disabled={saving || !title.trim()}
+            title="Private — AGI studies this. Not shown on the public website."
+          >
+            <Brain size={15} className="mr-1.5" /> Send to Intelligence
+          </Button>
+        </div>
+      </div>
+
+      <div className="mx-6 mt-3 grid gap-2 md:grid-cols-2 text-xs text-slate-600">
+        <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2">
+          <p className="font-semibold text-blue-800">1) Publish to Website</p>
+          <p>Daily public articles (about 3–4/day). Live on Research pages and also ingested for Ask AGI.</p>
+        </div>
+        <div className="rounded-lg border border-violet-100 bg-violet-50 px-3 py-2">
+          <p className="font-semibold text-violet-800">2) Send to Intelligence</p>
+          <p>Paste private research/notes for AGI to study. Not published on the website.</p>
         </div>
       </div>
 
