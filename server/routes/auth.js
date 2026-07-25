@@ -15,6 +15,7 @@ function brandedVerificationHtml({ fullName, actionLink, siteUrl }) {
   const name = escapeHtml(fullName || 'Investor');
   const link = escapeHtml(actionLink);
   const site = escapeHtml(siteUrl);
+  const logo = `${siteUrl.replace(/\/$/, '')}/agi-logo.png`;
   return `<!DOCTYPE html>
 <html>
 <body style="margin:0;padding:0;background:#f5f7fa;font-family:Arial,sans-serif;color:#18202b;">
@@ -24,7 +25,8 @@ function brandedVerificationHtml({ fullName, actionLink, siteUrl }) {
         <table role="presentation" width="100%" style="max-width:560px;background:#ffffff;border:1px solid #dce1e7;">
           <tr>
             <td style="background:#0d1d33;color:#ffffff;padding:24px 28px;">
-              <div style="font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#a7c5ec;">Agarwal Global Investments</div>
+              <img src="${escapeHtml(logo)}" alt="Agarwal Global Investments" width="72" height="64" style="display:block;width:72px;height:auto;border:0;" />
+              <div style="margin-top:14px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#d4af37;">Agarwal Global Investments</div>
               <div style="margin-top:10px;font-size:24px;font-weight:700;">Verify your AGI account</div>
             </td>
           </tr>

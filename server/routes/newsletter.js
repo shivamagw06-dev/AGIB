@@ -17,6 +17,10 @@ function siteUrl() {
   );
 }
 
+function logoUrl() {
+  return `${siteUrl()}/agi-logo.png`;
+}
+
 function escapeHtml(value = '') {
   return String(value)
     .replace(/&/g, '&amp;')
@@ -112,6 +116,7 @@ function articleHtml({ title, summary, slug, email, letter }) {
   const site = siteUrl();
   const url = `${site}/article/${encodeURIComponent(slug)}`;
   const unsub = `${site}/unsubscribe?email=${encodeURIComponent(email)}`;
+  const logo = logoUrl();
   return `<!DOCTYPE html>
 <html>
 <body style="margin:0;padding:0;background:#f5f7fa;font-family:Arial,sans-serif;color:#18202b;">
@@ -120,7 +125,8 @@ function articleHtml({ title, summary, slug, email, letter }) {
       <table role="presentation" width="100%" style="max-width:560px;background:#ffffff;border:1px solid #dce1e7;">
         <tr>
           <td style="background:#0d1d33;color:#ffffff;padding:22px 26px;">
-            <div style="font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#a7c5ec;">${escapeHtml(letter.name)}</div>
+            <img src="${escapeHtml(logo)}" alt="Agarwal Global Investments" width="72" height="64" style="display:block;width:72px;height:auto;border:0;" />
+            <div style="margin-top:14px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#d4af37;">${escapeHtml(letter.name)}</div>
             <div style="margin-top:6px;font-size:12px;color:#c6d4e7;">${escapeHtml(letter.tagline)}</div>
             <div style="margin-top:12px;font-size:22px;font-weight:700;">${escapeHtml(title)}</div>
           </td>
@@ -149,6 +155,7 @@ function articleHtml({ title, summary, slug, email, letter }) {
 function welcomeHtml(email, preferences = {}) {
   const site = siteUrl();
   const unsub = `${site}/unsubscribe?email=${encodeURIComponent(email)}`;
+  const logo = logoUrl();
   const names = selectedLetterNames(preferences);
   const list = names
     .map((name) => `<li style="margin:0 0 6px;">${escapeHtml(name)}</li>`)
@@ -161,7 +168,8 @@ function welcomeHtml(email, preferences = {}) {
       <table role="presentation" width="100%" style="max-width:560px;background:#ffffff;border:1px solid #dce1e7;">
         <tr>
           <td style="background:#0d1d33;color:#ffffff;padding:22px 26px;">
-            <div style="font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#a7c5ec;">Agarwal Global Investments</div>
+            <img src="${escapeHtml(logo)}" alt="Agarwal Global Investments" width="72" height="64" style="display:block;width:72px;height:auto;border:0;" />
+            <div style="margin-top:14px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#d4af37;">Agarwal Global Investments</div>
             <div style="margin-top:8px;font-size:22px;font-weight:700;">Welcome to AGI Letters</div>
           </td>
         </tr>
