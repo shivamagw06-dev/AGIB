@@ -35,7 +35,7 @@ import pandas as pd
 from growwapi import GrowwAPI
 
 
-ENGINE_VERSION = "2026-07-25-short-history-v3"
+ENGINE_VERSION = "2026-07-25-short-history-v4"
 SERVER_ENV_PATH = Path(__file__).resolve().parents[1] / ".env"
 
 
@@ -118,6 +118,32 @@ def now_ist() -> datetime:
     return datetime.now(IST)
 
 
+def _row_symbol(row: dict) -> str:
+    """Extract a trading symbol from common NSE / AGI CSV header variants."""
+    if not row:
+        return ""
+    # Exact common keys first
+    for key in (
+        "Symbol",
+        "symbol",
+        "SYMBOL",
+        "Trading Symbol",
+        "trading_symbol",
+        "Ticker",
+        "ticker",
+    ):
+        value = row.get(key)
+        if value is not None and str(value).strip():
+            return str(value).strip().upper()
+    # Case / whitespace-insensitive fallback
+    normalized = {str(k).strip().lower(): v for k, v in row.items() if k is not None}
+    for key in ("symbol", "trading symbol", "trading_symbol", "ticker", "nse symbol"):
+        value = normalized.get(key)
+        if value is not None and str(value).strip():
+            return str(value).strip().upper()
+    return ""
+
+
 def load_constituents(path: Path) -> list[str]:
     """Load, normalize and de-duplicate a licensed NSE / Nifty constituent CSV."""
     if not path.exists():
@@ -128,15 +154,21 @@ def load_constituents(path: Path) -> list[str]:
 
     seen: set[str] = set()
     symbols: list[str] = []
+    fieldnames: list[str] = []
     with path.open(newline="", encoding="utf-8-sig") as source:
-        for row in csv.DictReader(source):
-            raw = str(row.get("symbol") or row.get("Symbol") or "").strip().upper()
+        reader = csv.DictReader(source)
+        fieldnames = list(reader.fieldnames or [])
+        for row in reader:
+            raw = _row_symbol(row)
             if raw and raw not in seen:
                 seen.add(raw)
                 symbols.append(raw)
 
     if not symbols:
-        raise ValueError("No symbols found. The CSV must include a 'symbol' column.")
+        raise ValueError(
+            f"No symbols found in {path}. Headers seen: {fieldnames or '(none)'}. "
+            "Need a Symbol / SYMBOL / trading_symbol column."
+        )
 
     limit = CONFIG.get("symbol_limit") or 0
     if limit > 0:
@@ -686,7 +718,7 @@ def run_once(run_name: str = "After Market Close Research") -> None:
                 continue
             indicators = calculate_indicators(history)
             if not indicators:
-                reason = f"insufficient_history ({len(history)} bars; need {CONFIG['sma_200']})"
+                reason = f"insufficient_history ({len(history)} bars; need {CONFIG['minimum_bars']})"
                 rejected.append({"symbol": symbol, "reason": reason})
                 print(f"[{index}/{len(symbols)}] {symbol}: REJECT {reason}")
                 continue
