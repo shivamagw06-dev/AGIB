@@ -53,6 +53,7 @@ from app.aws.service import AwsService
 from app.ioc.service import IocService
 from app.aip.models import ExperimentHypothesis, ExperimentRequest
 from app.aip.service import AipService
+from app.irp.service import IrpService
 from app.ui.service import UiService
 from app.validation.service import ValidationService
 from app.features.models import FeatureMetadata
@@ -138,6 +139,7 @@ _ioc = IocService(
     aws=_aws,
 )
 _aip = AipService()
+_irp = IrpService(kip=_kip, rsp=_rsp)
 _ui = UiService(
     aws=_aws,
     ioc=_ioc,
@@ -147,6 +149,7 @@ _ui = UiService(
     cre=_cre,
     validation=_validation,
     aip=_aip,
+    irp=_irp,
 )
 # Soft-wire KIP retrieve → RSP reason into Research Director (no engine redesign).
 _director.kip = _kip
@@ -1394,6 +1397,33 @@ async def aip_promotion():
 async def aip_dashboard():
     try:
         return _aip.dashboard()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+# --- IRP V1 (above KIP/RSP, below Ask AGI; no platform redesign) ---
+
+
+@router.get("/irp/health")
+async def irp_health():
+    return _irp.health()
+
+
+@router.post("/irp/run")
+async def irp_run(
+    question: str = Query(...),
+    ticker: str | None = Query(default=None),
+):
+    try:
+        return _irp.run(question, ticker=ticker).model_dump(mode="json")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/irp/learning")
+async def irp_learning(limit: int = Query(default=20, ge=1, le=100)):
+    try:
+        return {"records": _irp.recent_learning(limit=limit)}
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

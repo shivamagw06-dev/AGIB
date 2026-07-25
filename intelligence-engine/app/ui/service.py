@@ -83,6 +83,7 @@ class UiService:
         cre: Any | None = None,
         validation: Any | None = None,
         aip: Any | None = None,
+        irp: Any | None = None,
     ) -> None:
         self.flags = flags or UiFlags.from_settings(get_settings())
         self.aws = aws
@@ -93,6 +94,7 @@ class UiService:
         self.cre = cre
         self.validation = validation
         self.aip = aip
+        self.irp = irp
 
     def health(self) -> dict[str, Any]:
         return {
@@ -658,8 +660,25 @@ class UiService:
         client = None
         detected_ticker = ticker.upper() if ticker else None
         rsp_pkg: dict[str, Any] = {}
+        irp_pkg = None
+        irp_dump: dict[str, Any] = {}
 
-        if self.kip and q:
+        # IRP V1 — think (intent → entities → plan → retrieve → reason) before answering.
+        if self.irp and q:
+            try:
+                irp_pkg = soft(self.irp.run, q, ticker=detected_ticker)
+                irp_dump = dump(irp_pkg) if irp_pkg is not None else {}
+                if isinstance(irp_dump, dict) and irp_dump:
+                    client = irp_dump.get("client_search") or {}
+                    rsp_pkg = irp_dump.get("rsp") or {}
+                    ents = irp_dump.get("entities") or {}
+                    if not detected_ticker and isinstance(ents, dict) and ents.get("primary_ticker"):
+                        detected_ticker = str(ents["primary_ticker"]).upper()
+            except Exception:
+                irp_pkg = None
+                irp_dump = {}
+
+        if self.kip and q and not client:
             l4 = None
             port = None
             if detected_ticker and self.aws:
@@ -711,18 +730,41 @@ class UiService:
             conf = house.get("confidence") or house.get("research_confidence")
 
         # Soft RSP reasoning package for thesis / bull / bear / risks
-        if self.rsp and detected_ticker:
+        # (skipped when IRP already ran the Research Committee pass)
+        if not rsp_pkg and self.rsp and detected_ticker:
             raw = soft(self.rsp.reason_for_writer, q or f"{detected_ticker} search", ticker=detected_ticker)
             rsp_pkg = dump(raw) if raw is not None and not isinstance(raw, dict) else (raw or {})
             if not isinstance(rsp_pkg, dict):
                 rsp_pkg = {}
             rsp_pkg = scrub(rsp_pkg) or {}
+        elif rsp_pkg:
+            rsp_pkg = scrub(rsp_pkg) or {}
 
-        # Prefer rich RAG evidence items (title + snippet) over raw document id lists.
+        # Prefer IRP-ranked evidence, then rich RAG items, then raw document id lists.
+        irp_ranked = []
+        if isinstance(irp_dump, dict):
+            irp_ranked = [
+                {
+                    "id": r.get("document_id"),
+                    "document_id": r.get("document_id"),
+                    "title": r.get("title"),
+                    "snippet": r.get("snippet"),
+                    "summary": r.get("snippet"),
+                    "tickers": r.get("tickers") or [],
+                    "stance": r.get("stance"),
+                    "confidence": r.get("confidence"),
+                    "freshness": r.get("freshness"),
+                    "type": r.get("source_class") or "agi_research",
+                    "source_class": r.get("source_class") or "agi_research",
+                }
+                for r in (irp_dump.get("ranked_evidence") or [])
+                if isinstance(r, dict) and not r.get("rejected")
+            ]
         supporting = _filter_junk_docs(
             self._hydrate_evidence(
                 _evidence_dicts(
-                    evidence.get("supporting_evidence")
+                    irp_ranked
+                    or evidence.get("supporting_evidence")
                     or evidence.get("agi_research_used")
                     or evidence.get("documents_retrieved")
                     or []
@@ -731,8 +773,24 @@ class UiService:
         )
         news = _filter_junk_docs(self._hydrate_evidence(_evidence_dicts(evidence.get("news_used") or [])))
         articles = supporting[:8]
+        irp_conflicts = []
+        if isinstance(irp_dump, dict):
+            for c in irp_dump.get("contradictions") or []:
+                if not isinstance(c, dict):
+                    continue
+                irp_conflicts.append(
+                    {
+                        "title": c.get("topic") or "Research disagreement",
+                        "summary": c.get("summary"),
+                        "snippet": c.get("why") or c.get("summary"),
+                        "type": "conflict",
+                        "confidence": c.get("confidence"),
+                    }
+                )
         conflicting = _filter_junk_docs(
-            self._hydrate_evidence(scrub(evidence.get("conflicting_opinions") or [])[:12])
+            self._hydrate_evidence(
+                scrub(irp_conflicts or evidence.get("conflicting_opinions") or [])[:12]
+            )
         )
         if not conflicting and isinstance(rsp_pkg.get("contradictions"), list):
             conflicting = scrub(rsp_pkg.get("contradictions") or [])[:12]
@@ -750,6 +808,14 @@ class UiService:
         related = []
         related_themes: list[str] = []
         related_sectors: list[str] = []
+        irp_entities = (irp_dump or {}).get("entities") if isinstance(irp_dump, dict) else {}
+        if isinstance(irp_entities, dict):
+            related.extend([str(t) for t in (irp_entities.get("tickers") or [])])
+            related_themes.extend([str(t) for t in (irp_entities.get("themes") or [])])
+            if irp_entities.get("sector"):
+                related_sectors.append(str(irp_entities.get("sector")))
+            if irp_entities.get("sector_label"):
+                related_sectors.append(str(irp_entities.get("sector_label")))
         if isinstance(house, dict):
             related_themes.extend([str(x) for x in (house.get("themes") or [])])
             related_sectors.extend([str(x) for x in (house.get("sectors") or [])])
@@ -835,8 +901,27 @@ class UiService:
                         bear.append(snip[:220])
                 if len(bear) >= 3:
                     break
+        # IRP reasoning wins when present — this is the institutional think-step.
+        irp_reasoning = (irp_dump or {}).get("reasoning") if isinstance(irp_dump, dict) else None
+        if isinstance(irp_reasoning, dict) and irp_reasoning:
+            thesis = clean_thesis_text(irp_reasoning.get("what_is_happening") or thesis) or thesis
+            bull = [str(x) for x in (irp_reasoning.get("bull_case") or bull)][:6]
+            bear = [str(x) for x in (irp_reasoning.get("bear_case") or bear)][:6]
+            risks = [str(x) for x in (irp_reasoning.get("risks") or risks)][:6]
+            catalysts = [str(x) for x in (irp_reasoning.get("catalysts") or catalysts)][:6]
+            house_label = normalize_stance(irp_reasoning.get("stance") or house_label)
+            if isinstance(house, dict):
+                house = dict(house)
+                house["stance"] = house_label
+                house["label"] = house_label
+                house["current_view_label"] = house_label
+                house["thesis"] = thesis
+                if irp_reasoning.get("confidence") is not None:
+                    house["confidence"] = irp_reasoning.get("confidence")
+                    conf = irp_reasoning.get("confidence")
+
         # Recompute stance from the cleaned thesis so "bull_case" field names cannot flip Bullish.
-        if thesis:
+        if thesis and not (isinstance(irp_reasoning, dict) and irp_reasoning.get("stance")):
             house_label = normalize_stance(
                 {"thesis": thesis, "bull_case": bull, "bear_case": bear}
             )
@@ -983,21 +1068,24 @@ class UiService:
             graph_raw = dump(soft(self.kip.graph, detected_ticker))
         kg = knowledge_graph_view(graph_raw if isinstance(graph_raw, dict) else None, detected_ticker)
 
-        followups = follow_up_questions(
-            question=q,
-            intent=(client or {}).get("intent"),
-            related_companies=related,
-            related_themes=related_themes,
-            house_label=str(house_label) if house_label else None,
-            risks=risks,
-            catalysts=catalysts,
-            knowledge_graph=kg,
-            recent_research_titles=[
-                str(a.get("title"))
-                for a in (articles or [])[:4]
-                if isinstance(a, dict) and a.get("title")
-            ],
-        )
+        if isinstance(irp_dump, dict) and irp_dump.get("follow_ups"):
+            followups = [str(x) for x in irp_dump.get("follow_ups") or [] if x][:8]
+        else:
+            followups = follow_up_questions(
+                question=q,
+                intent=(irp_dump or {}).get("intent") or (client or {}).get("intent"),
+                related_companies=related,
+                related_themes=related_themes,
+                house_label=str(house_label) if house_label else None,
+                risks=risks,
+                catalysts=catalysts,
+                knowledge_graph=kg,
+                recent_research_titles=[
+                    str(a.get("title"))
+                    for a in (articles or [])[:4]
+                    if isinstance(a, dict) and a.get("title")
+                ],
+            )
         recommendations["related_questions"] = followups[:6]
 
         timeline_enriched = enrich_timeline(timeline if isinstance(timeline, list) else [])
@@ -1016,7 +1104,10 @@ class UiService:
         timeline_enriched = enrich_timeline(timeline_enriched)
 
         mi = market_intelligence_summary(company_ws)
-        charts = build_charts(ticker=detected_ticker, predictions=preds, timeline=timeline_enriched)
+        chart_subject = detected_ticker
+        if not chart_subject and isinstance(irp_entities, dict):
+            chart_subject = irp_entities.get("sector_key") or irp_entities.get("sector_label")
+        charts = build_charts(ticker=chart_subject, predictions=preds, timeline=timeline_enriched)
         ideas = related_ideas(
             related_companies=related,
             related_sectors=related_sectors,
@@ -1049,11 +1140,17 @@ class UiService:
         else:
             freshness_indicator = "unknown"
 
-        neutral_case = []
-        if hv_card.get("stance") == "Neutral":
-            neutral_case = ["Wait for clearer catalysts before increasing conviction."]
-        elif risks and catalysts:
-            neutral_case = ["Balance catalysts against listed risks; position sizing remains discretionary."]
+        briefing = (irp_dump or {}).get("institutional_briefing") if isinstance(irp_dump, dict) else {}
+        if not isinstance(briefing, dict):
+            briefing = {}
+        neutral_case = list(briefing.get("neutral_case") or [])
+        if not neutral_case:
+            if hv_card.get("stance") == "Neutral":
+                neutral_case = ["Wait for clearer catalysts before increasing conviction."]
+            elif risks and catalysts:
+                neutral_case = [
+                    "Balance catalysts against listed risks; position sizing remains discretionary."
+                ]
 
         current_thesis = {
             "bull_case": bull,
@@ -1061,7 +1158,8 @@ class UiService:
             "neutral_case": neutral_case,
             "catalysts": catalysts,
             "risks": risks,
-            "valuation": (house or {}).get("valuation") if isinstance(house, dict) else None,
+            "valuation": briefing.get("valuation_perspective")
+            or ((house or {}).get("valuation") if isinstance(house, dict) else None),
             "time_horizon": hv_card.get("investment_horizon"),
             "summary": scrub_text(thesis) if thesis else None,
         }
@@ -1087,18 +1185,64 @@ class UiService:
             },
         }
 
+        if briefing.get("executive_summary"):
+            executive = scrub_text(briefing["executive_summary"]) or executive
+            answer["summary"] = executive
+            answer["executive_summary"] = executive
+            if house_label:
+                answer["house_view_label"] = house_label
+
+        irp_meta = {}
+        if isinstance(irp_dump, dict) and irp_dump:
+            irp_meta = {
+                "irp_id": irp_dump.get("irp_id"),
+                "version": irp_dump.get("version"),
+                "intent": irp_dump.get("intent"),
+                "domain": irp_dump.get("domain"),
+                "validation": irp_dump.get("validation") or {},
+                "research_plan": {
+                    "plan_id": (irp_dump.get("research_plan") or {}).get("plan_id"),
+                    "steps": [
+                        {
+                            "order": s.get("order"),
+                            "source_class": s.get("source_class"),
+                            "query": s.get("query"),
+                        }
+                        for s in ((irp_dump.get("research_plan") or {}).get("steps") or [])[:10]
+                        if isinstance(s, dict)
+                    ],
+                },
+                "rejected_count": len(irp_dump.get("rejected_evidence") or []),
+                "answer_policy": irp_dump.get("answer_policy"),
+            }
+            workspace = {
+                **workspace,
+                "mode": "institutional_reasoning_pipeline",
+                "programme": "IRP V1",
+                "think_before_answer": True,
+            }
+
         return SearchView(
             meta=UiMeta(
                 surface="search",
-                sources=["knowledge", "research_committee", "composite_view", "model_portfolio"],
+                sources=["knowledge", "research_committee", "composite_view", "model_portfolio", "irp"],
             ),
             question=q,
-            intent=(client or {}).get("intent"),
+            intent=(irp_dump or {}).get("intent") or (client or {}).get("intent"),
             entities={
                 "ticker": detected_ticker,
                 "companies": related,
                 "themes": related_themes,
                 "sectors": related_sectors,
+                "countries": list((irp_entities or {}).get("countries") or [])
+                if isinstance(irp_entities, dict)
+                else [],
+                "currencies": list((irp_entities or {}).get("currencies") or [])
+                if isinstance(irp_entities, dict)
+                else [],
+                "sector_key": (irp_entities or {}).get("sector_key")
+                if isinstance(irp_entities, dict)
+                else None,
             },
             answer=answer,
             executive_summary=executive,
@@ -1124,7 +1268,9 @@ class UiService:
             recommendations=recommendations,
             follow_up_questions=followups,
             hits=hits,
-            answer_policy="institutional_evidence_pack",
+            answer_policy="think_then_answer_institutional"
+            if irp_meta
+            else "institutional_evidence_pack",
             market_regime=regime_label,
             freshness_indicator=freshness_indicator,
             house_view_card=hv_card,
@@ -1140,6 +1286,25 @@ class UiService:
             related_ideas=ideas,
             portfolio_context=port_ctx,
             workspace=workspace,
+            irp=scrub(irp_meta) or {},
+            institutional_briefing=scrub(briefing) or {},
+            sector_intelligence=scrub((irp_dump or {}).get("sector_intelligence") or {})
+            if isinstance(irp_dump, dict)
+            else {},
+            company_intelligence=scrub((irp_dump or {}).get("company_intelligence") or {})
+            if isinstance(irp_dump, dict)
+            else {},
+            current_outlook=scrub_text(briefing.get("current_outlook")) if briefing else None,
+            key_drivers=[str(x) for x in (briefing.get("key_drivers") or [])][:8],
+            valuation_perspective=scrub_text(briefing.get("valuation_perspective"))
+            if briefing
+            else None,
+            macro_drivers=[str(x) for x in (briefing.get("macro_drivers") or [])][:8],
+            sector_drivers=[str(x) for x in (briefing.get("sector_drivers") or [])][:8],
+            company_leaders=[str(x) for x in (briefing.get("company_leaders") or [])][:10],
+            historical_comparison=scrub_text(briefing.get("historical_comparison"))
+            if briefing
+            else None,
         )
 
     def timeline(self, entity: str) -> TimelineView:

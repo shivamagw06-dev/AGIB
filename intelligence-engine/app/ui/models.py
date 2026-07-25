@@ -122,6 +122,18 @@ class SearchView(BaseModel):
     related_ideas: dict[str, Any] = Field(default_factory=dict)
     portfolio_context: dict[str, Any] = Field(default_factory=dict)
     workspace: dict[str, Any] = Field(default_factory=dict)
+    # IRP V1 — Institutional Reasoning Pipeline (Ask AGI briefing layer)
+    irp: dict[str, Any] = Field(default_factory=dict)
+    institutional_briefing: dict[str, Any] = Field(default_factory=dict)
+    sector_intelligence: dict[str, Any] = Field(default_factory=dict)
+    company_intelligence: dict[str, Any] = Field(default_factory=dict)
+    current_outlook: str | None = None
+    key_drivers: list[str] = Field(default_factory=list)
+    valuation_perspective: str | None = None
+    macro_drivers: list[str] = Field(default_factory=list)
+    sector_drivers: list[str] = Field(default_factory=list)
+    company_leaders: list[str] = Field(default_factory=list)
+    historical_comparison: str | None = None
 
 
 class TimelineView(BaseModel):

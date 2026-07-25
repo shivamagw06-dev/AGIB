@@ -203,13 +203,31 @@ export default function InstitutionalAnswer({ pack, onFollowUp, onContinue, onSa
     .map((w) => asPlainText(w, ''))
     .filter(Boolean);
   const thesisSummary = asPlainText(thesis.summary || pack?.investment_thesis, '');
+  const briefing = pack?.institutional_briefing || {};
+  const sectorIntel = pack?.sector_intelligence || {};
+  const irpMeta = pack?.irp || {};
+  const outlook = asPlainText(pack?.current_outlook || briefing.current_outlook, '');
+  const keyDrivers = pack?.key_drivers || briefing.key_drivers || [];
+  const macroDrivers = pack?.macro_drivers || briefing.macro_drivers || [];
+  const sectorDrivers = pack?.sector_drivers || briefing.sector_drivers || [];
+  const companyLeaders = pack?.company_leaders || briefing.company_leaders || [];
+  const valuationPerspective = asPlainText(
+    pack?.valuation_perspective || briefing.valuation_perspective || thesis.valuation,
+    ''
+  );
+  const historicalComparison = asPlainText(
+    pack?.historical_comparison || briefing.historical_comparison,
+    ''
+  );
 
   const toc = useMemo(
     () => [
       { id: 'iax-summary', label: 'Executive Summary' },
       { id: 'iax-house', label: 'House View' },
+      { id: 'iax-outlook', label: 'Outlook & Drivers' },
       { id: 'iax-changed', label: "What's Changed" },
       { id: 'iax-thesis', label: 'Current Thesis' },
+      { id: 'iax-sector', label: 'Sector Intelligence' },
       { id: 'iax-evidence', label: 'Evidence' },
       { id: 'iax-research', label: 'Research' },
       { id: 'iax-timeline', label: 'Timeline' },
@@ -327,7 +345,11 @@ export default function InstitutionalAnswer({ pack, onFollowUp, onContinue, onSa
           <p className="text-[10px] font-bold uppercase tracking-wide text-[#ff6600]">Question</p>
           <h1 className="mt-2 text-2xl md:text-3xl font-bold text-[#111111] leading-tight">{pack.question}</h1>
           {pack.intent && (
-            <p className="mt-2 text-xs text-[#767676]">Intent: {String(pack.intent).replace(/_/g, ' ')}</p>
+            <p className="mt-2 text-xs text-[#767676]">
+              Intent: {String(pack.intent).replace(/_/g, ' ')}
+              {irpMeta.domain ? ` · Domain: ${String(irpMeta.domain).replace(/_/g, ' ')}` : ''}
+              {pack.workspace?.programme ? ` · ${pack.workspace.programme}` : ''}
+            </p>
           )}
           <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
             <div className="border border-[#eee] bg-white p-2">
@@ -336,7 +358,7 @@ export default function InstitutionalAnswer({ pack, onFollowUp, onContinue, onSa
             </div>
             <div className="border border-[#eee] bg-white p-2">
               <p className="text-[#767676] uppercase font-bold">Why</p>
-              <p className="font-bold text-[#111] mt-1 line-clamp-2">{whyItems[0] || 'See evidence'}</p>
+              <p className="font-bold text-[#111] mt-1 line-clamp-2">{whyItems[0] || outlook || 'See evidence'}</p>
             </div>
             <div className="border border-[#eee] bg-white p-2">
               <p className="text-[#767676] uppercase font-bold">Evidence</p>
@@ -407,6 +429,37 @@ export default function InstitutionalAnswer({ pack, onFollowUp, onContinue, onSa
           </div>
         </Block>
 
+        <Block id="iax-outlook" title="Current Outlook & Key Drivers">
+          {outlook ? <p className="mb-3">{outlook}</p> : null}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="border border-[#eee] p-3">
+              <p className="text-[10px] font-bold uppercase text-[#767676]">Key drivers</p>
+              <List items={keyDrivers} />
+            </div>
+            <div className="border border-[#eee] p-3">
+              <p className="text-[10px] font-bold uppercase text-[#767676]">Macro drivers</p>
+              <List items={macroDrivers} />
+            </div>
+            <div className="border border-[#eee] p-3">
+              <p className="text-[10px] font-bold uppercase text-[#767676]">Sector drivers</p>
+              <List items={sectorDrivers} />
+            </div>
+            <div className="border border-[#eee] p-3">
+              <p className="text-[10px] font-bold uppercase text-[#767676]">Valuation perspective</p>
+              <p className="mt-2 text-sm">{valuationPerspective || '—'}</p>
+              {historicalComparison ? (
+                <p className="mt-2 text-xs text-[#767676]">{historicalComparison}</p>
+              ) : null}
+            </div>
+          </div>
+          {companyLeaders.length > 0 && (
+            <div className="mt-3 border border-[#eee] p-3">
+              <p className="text-[10px] font-bold uppercase text-[#767676]">Company leaders</p>
+              <List items={companyLeaders} />
+            </div>
+          )}
+        </Block>
+
         <Block id="iax-changed" title="What's Changed">
           <p className="text-sm text-[#333] mb-3">{changed.summary}</p>
           <ul className="space-y-2">
@@ -461,6 +514,43 @@ export default function InstitutionalAnswer({ pack, onFollowUp, onContinue, onSa
             </div>
           </div>
         </Block>
+
+        {(sectorIntel.sector_overview || sectorIntel.top_companies?.length) ? (
+          <Block id="iax-sector" title="Sector Intelligence">
+            {sectorIntel.sector_overview ? (
+              <p className="mb-3 font-bold text-[#111]">{sectorIntel.sector_overview}</p>
+            ) : null}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="border border-[#eee] p-3">
+                <p className="text-[10px] font-bold uppercase text-[#767676]">Top companies</p>
+                <List
+                  items={(sectorIntel.top_companies || []).map((c) =>
+                    typeof c === 'string' ? c : `${c.ticker || ''} — ${c.name || ''}`.trim()
+                  )}
+                />
+              </div>
+              <div className="border border-[#eee] p-3">
+                <p className="text-[10px] font-bold uppercase text-[#767676]">Demand / competitive notes</p>
+                <List items={sectorIntel.demand_drivers || sectorIntel.competitive_landscape || []} />
+              </div>
+              <div className="border border-[#eee] p-3">
+                <p className="text-[10px] font-bold uppercase text-[#767676]">Countries / themes</p>
+                <List
+                  items={[
+                    ...((sectorIntel.countries || []).map((c) => `Country: ${c}`)),
+                    ...((sectorIntel.themes || []).map((t) => `Theme: ${t}`)),
+                    ...((sectorIntel.currencies || []).map((c) => `FX: ${c}`)),
+                  ]}
+                />
+              </div>
+              <div className="border border-[#eee] p-3">
+                <p className="text-[10px] font-bold uppercase text-[#767676]">AGI sector view</p>
+                <p className="mt-2 text-sm font-bold">{sectorIntel.current_agi_view || stance}</p>
+                <p className="mt-2 text-xs text-[#555]">{asPlainText(sectorIntel.outlook, outlook)}</p>
+              </div>
+            </div>
+          </Block>
+        ) : null}
 
         <div id="iax-evidence" className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Block title="Supporting Evidence">
