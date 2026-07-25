@@ -10,38 +10,107 @@ function stripHtml(html = '') {
     .trim();
 }
 
+/** Allowlisted equity tickers only — never scrape prose into fake tickers. */
+const KNOWN_TICKERS = new Set([
+  'ICICIBANK',
+  'HDFCBANK',
+  'RELIANCE',
+  'TCS',
+  'INFY',
+  'SBIN',
+  'AXISBANK',
+  'KOTAKBANK',
+  'BHARTIARTL',
+  'LT',
+  'ITC',
+  'WIPRO',
+  'MARUTI',
+  'TATAMOTORS',
+  'HINDUNILVR',
+  'HCLTECH',
+  'TECHM',
+  'LTIM',
+  'LTTS',
+  'PERSISTENT',
+  'COFORGE',
+  'MPHASIS',
+  'OFSS',
+  'AAPL',
+  'MSFT',
+  'GOOGL',
+  'AMZN',
+  'NVDA',
+]);
+
+const TICKER_BLOCK = new Set([
+  'THE',
+  'AND',
+  'FOR',
+  'WITH',
+  'FROM',
+  'THIS',
+  'THAT',
+  'HAVE',
+  'WILL',
+  'INTO',
+  'OVER',
+  'UNDER',
+  'INDIA',
+  'INDIAN',
+  'MARKET',
+  'MARKETS',
+  'STOCK',
+  'STOCKS',
+  'SECTOR',
+  'UPDATE',
+  'OUTLOOK',
+  'REVIEW',
+  'GROWTH',
+  'WEAK',
+  'DEAL',
+  'DEALS',
+  'SERVICE',
+  'SERVICES',
+  'GLOBAL',
+  'RESEARCH',
+  'NOTE',
+  'WEEK',
+  'CONTINUES',
+  'EARNINGS',
+  'PRESSURE',
+  'DEMAND',
+  'MACRO',
+  'KEY',
+  'TAKEAWAYS',
+  'AMP',
+  'HIS',
+  'IMPLICATIONS',
+  'IPO',
+  'USD',
+  'INR',
+  'CEO',
+  'GDP',
+  'RBI',
+  'AGI',
+  'CMS',
+  'QOQ',
+  'YOY',
+  'AI',
+  'IT',
+]);
+
 export function extractTickersFromText(...parts) {
   const text = parts.filter(Boolean).join(' ').toUpperCase();
   const matches = text.match(/\b[A-Z]{2,12}\b/g) || [];
-  const block = new Set([
-    'THE',
-    'AND',
-    'FOR',
-    'WITH',
-    'FROM',
-    'THIS',
-    'THAT',
-    'HAVE',
-    'WILL',
-    'INTO',
-    'OVER',
-    'UNDER',
-    'INDIA',
-    'INDIAN',
-    'MARKET',
-    'MARKETS',
-    'STOCK',
-    'STOCKS',
-    'IPO',
-    'USD',
-    'INR',
-    'CEO',
-    'GDP',
-    'RBI',
-    'AGI',
-    'CMS',
-  ]);
-  return [...new Set(matches.filter((t) => !block.has(t) && t.length >= 3))].slice(0, 12);
+  return [
+    ...new Set(
+      matches.filter(
+        (t) =>
+          !TICKER_BLOCK.has(t) &&
+          (KNOWN_TICKERS.has(t) || t.endsWith('BANK'))
+      )
+    ),
+  ].slice(0, 12);
 }
 
 function sleep(ms) {

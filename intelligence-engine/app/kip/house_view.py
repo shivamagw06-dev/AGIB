@@ -38,7 +38,32 @@ def build_house_view(
         if t in {x.upper() for x in d.investment.tickers}
         and d.document.document_type.value in AGI_TYPES
     ]
-    agi_docs.sort(key=lambda d: (d.document.date or _dt.date.min, d.document.version))
+    return _assemble_house_view(t, agi_docs, predictions=predictions or [])
+
+
+def build_sector_house_view(
+    sector_key: str,
+    documents: list[KipDocument],
+    *,
+    predictions: list[PredictionRecord] | None = None,
+) -> HouseView | None:
+    """Synthesize an institutional view for sector / theme questions (no single ticker)."""
+    key = (sector_key or "").strip().upper() or "SECTOR"
+    agi_docs = [d for d in documents if d.document.document_type.value in AGI_TYPES]
+    if not agi_docs:
+        agi_docs = list(documents)
+    if not agi_docs:
+        return None
+    return _assemble_house_view(key, agi_docs, predictions=predictions or [])
+
+
+def _assemble_house_view(
+    subject: str,
+    agi_docs: list[KipDocument],
+    *,
+    predictions: list[PredictionRecord],
+) -> HouseView:
+    agi_docs = sorted(agi_docs, key=lambda d: (d.document.date or _dt.date.min, d.document.version))
     history = [_to_hist(d) for d in agi_docs]
     current = history[-1] if history else None
 
@@ -69,16 +94,13 @@ def build_house_view(
                 f"Target price changed {_fmt_date(cur.document.date)}: "
                 f"{sorted(prev_targets)} → {sorted(cur_targets)}"
             )
-        # assumptions that disappeared are treated as failed/retired
         lost = [a for a in prev.research.assumptions if a not in cur.research.assumptions]
         for a in lost[:5]:
             failed.append(f"Assumption retired {_fmt_date(cur.document.date)}: {a}")
-        # catalysts mentioned historically
         for c in prev.research.catalysts:
             if any(c.lower() in (x.cleaned_content or "").lower() for x in agi_docs[i:]):
                 catalysts_occurred.append(c)
 
-    # risks that later appear as realized language
     for d in agi_docs[:-1]:
         for r in d.research.risks:
             later = " ".join((x.cleaned_content or "").lower() for x in agi_docs if x is not d)
@@ -87,10 +109,10 @@ def build_house_view(
                     failed.append(f"Risk materialized: {r}")
 
     conf = current.confidence if current else 0.0
-    pred_acc = _prediction_accuracy(predictions or [], t)
+    pred_acc = _prediction_accuracy(predictions, subject)
 
     return HouseView(
-        ticker=t,
+        ticker=subject,
         current_view=current,
         historical_views=list(reversed(history)),
         thesis_evolution=thesis_evolution,

@@ -8,15 +8,20 @@ from app.aws.adapters import dump, soft
 from app.core.config import get_settings
 from app.kip.models import ClientSearchRequest
 from app.ui.flags import UiFlags
+from app.kip.extractors import KNOWN_TICKERS, TICKER_STOPWORDS
 from app.ui.iax import (
     build_charts,
+    clean_thesis_text,
     enrich_timeline,
     evidence_items,
+    flatten_house_view,
     house_view_card,
     knowledge_graph_view,
     market_intelligence_summary,
+    normalize_stance,
     related_ideas,
     research_panel,
+    synthesize_thesis_points,
     whats_changed,
 )
 from app.ui.models import (
@@ -689,15 +694,21 @@ class UiService:
             )
 
         evidence = (client or {}).get("evidence") or {}
-        house = scrub((client or {}).get("house_view"))
-        if isinstance(house, dict) and not detected_ticker and house.get("ticker"):
-            detected_ticker = str(house["ticker"]).upper()
+        house = flatten_house_view(scrub((client or {}).get("house_view")))
+        if isinstance(house, dict) and house.get("ticker"):
+            tkr = str(house["ticker"]).upper()
+            # Sector synthetic subjects (e.g. INDIA_IT) are not company tickers.
+            if "_" not in tkr and tkr not in TICKER_STOPWORDS and (
+                tkr in KNOWN_TICKERS or tkr.endswith("BANK")
+            ):
+                if not detected_ticker:
+                    detected_ticker = tkr
 
         conf = None
         if isinstance(evidence, dict):
             conf = evidence.get("confidence_score")
         if conf is None and isinstance(house, dict):
-            conf = house.get("confidence")
+            conf = house.get("confidence") or house.get("research_confidence")
 
         # Soft RSP reasoning package for thesis / bull / bear / risks
         if self.rsp and detected_ticker:
@@ -707,14 +718,22 @@ class UiService:
                 rsp_pkg = {}
             rsp_pkg = scrub(rsp_pkg) or {}
 
-        supporting = _as_docs(
-            evidence.get("agi_research_used")
-            or evidence.get("documents_retrieved")
-            or []
+        # Prefer rich RAG evidence items (title + snippet) over raw document id lists.
+        supporting = _filter_junk_docs(
+            self._hydrate_evidence(
+                _evidence_dicts(
+                    evidence.get("supporting_evidence")
+                    or evidence.get("agi_research_used")
+                    or evidence.get("documents_retrieved")
+                    or []
+                )
+            )
         )
-        news = _as_docs(evidence.get("news_used") or [])
+        news = _filter_junk_docs(self._hydrate_evidence(_evidence_dicts(evidence.get("news_used") or [])))
         articles = supporting[:8]
-        conflicting = scrub(evidence.get("conflicting_opinions") or [])[:12]
+        conflicting = _filter_junk_docs(
+            self._hydrate_evidence(scrub(evidence.get("conflicting_opinions") or [])[:12])
+        )
         if not conflicting and isinstance(rsp_pkg.get("contradictions"), list):
             conflicting = scrub(rsp_pkg.get("contradictions") or [])[:12]
 
@@ -732,44 +751,129 @@ class UiService:
         related_themes: list[str] = []
         related_sectors: list[str] = []
         if isinstance(house, dict):
-            if house.get("ticker"):
-                related.append(str(house["ticker"]))
             related_themes.extend([str(x) for x in (house.get("themes") or [])])
             related_sectors.extend([str(x) for x in (house.get("sectors") or [])])
+        for item in supporting:
+            if not isinstance(item, dict):
+                continue
+            for t in item.get("tickers") or []:
+                related.append(str(t))
         for h in hits:
             if h.get("ticker"):
                 related.append(str(h["ticker"]))
             if h.get("kind") == "theme" and h.get("id"):
                 related_themes.append(str(h["id"]))
-        related = sorted({r.upper() for r in related})[:12]
+        related = sorted(
+            {
+                r.upper()
+                for r in related
+                if r
+                and str(r).upper() not in TICKER_STOPWORDS
+                and (str(r).upper() in KNOWN_TICKERS or str(r).upper().endswith("BANK"))
+            }
+        )[:12]
         related_themes = sorted({t for t in related_themes if t})[:8]
         related_sectors = sorted({s for s in related_sectors if s})[:8]
 
         house_label = None
-        if isinstance(house, dict):
-            house_label = house.get("current_view") or house.get("stance") or house.get("label")
+        if isinstance(house, dict) and house:
+            house_label = normalize_stance(
+                house.get("stance") or house.get("current_view_label") or house.get("label")
+            )
 
         thesis = None
         bull: list[str] = []
         bear: list[str] = []
         risks: list[str] = []
         catalysts: list[str] = []
-        if isinstance(house, dict):
-            thesis = house.get("thesis") or house.get("summary")
+        if isinstance(house, dict) and house:
+            thesis = clean_thesis_text(house.get("thesis") or house.get("summary"))
             bull = [str(x) for x in (house.get("bull_case") or [])][:6]
             bear = [str(x) for x in (house.get("bear_case") or [])][:6]
-            risks = [str(x) for x in (house.get("risks") or [])][:6]
-            catalysts = [str(x) for x in (house.get("catalysts") or [])][:6]
-        # RSP enrichment
+            risks = [str(x) for x in (house.get("risks") or house.get("failed_assumptions") or [])][:6]
+            catalysts = [str(x) for x in (house.get("catalysts") or house.get("catalysts_occurred") or [])][:6]
+            # Pull risks / catalysts from the latest source document backing the house view.
+            cv = house.get("current_view")
+            doc_id = cv.get("document_id") if isinstance(cv, dict) else None
+            if self.kip and doc_id and (not risks or not catalysts or not bull or not bear or not thesis):
+                src = soft(self.kip.get_document, doc_id)
+                research = getattr(src, "research", None) if src is not None else None
+                if research is not None:
+                    if not bull:
+                        bull = [str(x) for x in (research.bull_case or [])][:6]
+                    if not bear:
+                        bear = [str(x) for x in (research.bear_case or [])][:6]
+                    if not risks:
+                        risks = [str(x) for x in (research.risks or [])][:6]
+                    if not catalysts:
+                        catalysts = [str(x) for x in (research.catalysts or [])][:6]
+                    if not thesis and research.investment_thesis:
+                        thesis = clean_thesis_text(research.investment_thesis)
+        # Fill thesis fields from strongest supporting evidence when house view is thin.
+        if not thesis:
+            for item in supporting:
+                if isinstance(item, dict) and (item.get("snippet") or item.get("summary") or item.get("title")):
+                    thesis = clean_thesis_text(
+                        item.get("snippet") or item.get("summary") or item.get("title")
+                    )
+                    break
+        if thesis and (not bull or not bear or not risks or not catalysts):
+            synthesized = synthesize_thesis_points(thesis)
+            if not bull:
+                bull = synthesized["bull_case"]
+            if not bear:
+                bear = synthesized["bear_case"]
+            if not risks:
+                risks = synthesized["risks"]
+            if not catalysts:
+                catalysts = synthesized["catalysts"]
+        if not bear:
+            for item in supporting + conflicting:
+                if isinstance(item, dict) and str(item.get("stance") or "").lower() == "bear":
+                    snip = clean_thesis_text(item.get("snippet") or item.get("summary"))
+                    if snip:
+                        bear.append(snip[:220])
+                if len(bear) >= 3:
+                    break
+        # Recompute stance from the cleaned thesis so "bull_case" field names cannot flip Bullish.
+        if thesis:
+            house_label = normalize_stance(
+                {"thesis": thesis, "bull_case": bull, "bear_case": bear}
+            )
+            if isinstance(house, dict) and house:
+                house["stance"] = house_label
+                house["label"] = house_label
+                house["current_view_label"] = house_label
+                house["thesis"] = thesis
+        # RSP enrichment — never let a noisy research_brief overwrite a real AGI thesis.
         synth = rsp_pkg.get("synthesis") if isinstance(rsp_pkg.get("synthesis"), dict) else rsp_pkg
         if isinstance(synth, dict):
-            thesis = thesis or synth.get("thesis") or synth.get("research_brief")
+            rsp_thesis = clean_thesis_text(synth.get("thesis") or "")
+            rsp_brief = clean_thesis_text(synth.get("research_brief") or "")
+            if not thesis and rsp_thesis:
+                thesis = rsp_thesis
+            elif not thesis and rsp_brief and "research brief —" not in rsp_brief.lower():
+                thesis = rsp_brief
             bull = bull or [str(x) for x in (synth.get("bull_case") or [])][:6]
             bear = bear or [str(x) for x in (synth.get("bear_case") or [])][:6]
             risks = risks or [str(x) for x in (synth.get("risks") or [])][:6]
             catalysts = catalysts or [str(x) for x in (synth.get("catalysts") or [])][:6]
+            if thesis and isinstance(house, dict) and house:
+                house["thesis"] = thesis
+                house_label = normalize_stance(
+                    {"thesis": thesis, "bull_case": bull, "bear_case": bear}
+                )
+                house["stance"] = house_label
+                house["label"] = house_label
+                house["current_view_label"] = house_label
 
-        executive = _search_answer_summary(q, house if isinstance(house, dict) else None, conf, supporting)
+        executive = _search_answer_summary(
+            q,
+            house if isinstance(house, dict) else None,
+            conf,
+            supporting,
+            house_label=house_label,
+        )
         why = _why_bullets(house if isinstance(house, dict) else None, supporting, news, house_label)
 
         timeline: list[dict[str, Any]] = []
@@ -1562,6 +1666,54 @@ class UiService:
             ][:20],
         )
 
+    def _hydrate_evidence(self, items: list[Any]) -> list[dict[str, Any]]:
+        """Resolve bare doc_ ids into real titles/snippets from KIP when possible."""
+        out: list[dict[str, Any]] = []
+        for item in items or []:
+            if not isinstance(item, dict):
+                continue
+            row = dict(item)
+            doc_id = row.get("id") or row.get("document_id")
+            title = str(row.get("title") or "").strip()
+            needs_title = (not title) or title.startswith("doc_") or (
+                doc_id and title == str(doc_id)
+            )
+            needs_summary = not (row.get("snippet") or row.get("summary"))
+            if self.kip and doc_id and (needs_title or needs_summary):
+                src = soft(self.kip.get_document, str(doc_id))
+                if src is not None:
+                    doc_title = getattr(getattr(src, "document", None), "title", None)
+                    research = getattr(src, "research", None)
+                    knowledge = getattr(src, "knowledge", None)
+                    if needs_title and doc_title:
+                        row["title"] = scrub_text(doc_title) or doc_title
+                    if needs_summary:
+                        summary = None
+                        if knowledge is not None:
+                            summary = getattr(knowledge, "summary", None)
+                        if not summary and research is not None:
+                            summary = getattr(research, "investment_thesis", None)
+                        if summary:
+                            row["summary"] = scrub_text(str(summary)[:320]) or str(summary)[:320]
+                            row.setdefault("snippet", row["summary"])
+                    if research is not None and not row.get("tickers"):
+                        inv = getattr(src, "investment", None)
+                        tickers = list(getattr(inv, "tickers", None) or [])
+                        row["tickers"] = [
+                            str(t).upper()
+                            for t in tickers
+                            if str(t).upper() in KNOWN_TICKERS or str(t).upper().endswith("BANK")
+                        ]
+            # Final ticker scrub for already-populated noisy lists
+            if isinstance(row.get("tickers"), list):
+                row["tickers"] = [
+                    str(t).upper()
+                    for t in row["tickers"]
+                    if str(t).upper() in KNOWN_TICKERS or str(t).upper().endswith("BANK")
+                ]
+            out.append(row)
+        return out
+
     def _require(self) -> None:
         if not self.flags.ui:
             raise RuntimeError("UI aggregation disabled (UI=false)")
@@ -1743,14 +1895,66 @@ def _filter_docs(docs: list, needle: str) -> list[dict[str, Any]]:
 
 
 def _as_docs(items: Any) -> list[dict[str, Any]]:
+    return _evidence_dicts(items)
+
+
+def _evidence_dicts(items: Any) -> list[dict[str, Any]]:
     if not items:
         return []
-    out = []
+    out: list[dict[str, Any]] = []
     for x in items:
         if isinstance(x, dict):
-            out.append(x)
+            row = dict(x)
+            # Normalize RagEvidenceItem dumps
+            if not row.get("id") and row.get("document_id"):
+                row["id"] = row["document_id"]
+            if not row.get("title") and row.get("document_id"):
+                # Avoid showing bare ids as titles when snippet exists
+                row["title"] = row.get("snippet") or row["document_id"]
+            if row.get("snippet") and not row.get("summary"):
+                row["summary"] = row["snippet"]
+            # Sanitize noisy tickers on evidence cards
+            if isinstance(row.get("tickers"), list):
+                row["tickers"] = [
+                    str(t).upper()
+                    for t in row["tickers"]
+                    if str(t).upper() in KNOWN_TICKERS or str(t).upper().endswith("BANK")
+                ]
+            out.append(row)
         else:
-            out.append({"id": str(x), "title": scrub_text(str(x))})
+            sid = str(x)
+            # Skip bare doc ids without metadata — they render as useless cards.
+            if sid.startswith("doc_") and len(sid) < 40:
+                continue
+            out.append({"id": sid, "title": scrub_text(sid)})
+    return out
+
+
+_JUNK_EVIDENCE_TITLES = {
+    "hello world",
+    "sample private research",
+    "test",
+    "asdf",
+    "lorem ipsum",
+    "untitled",
+    "demo",
+}
+
+
+def _filter_junk_docs(items: list[Any]) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    for item in items or []:
+        if not isinstance(item, dict):
+            continue
+        title = str(item.get("title") or "").strip()
+        title_l = title.lower()
+        if not title or title_l in _JUNK_EVIDENCE_TITLES:
+            continue
+        if title.startswith("doc_") and not (item.get("snippet") or item.get("summary")):
+            continue
+        if title_l.startswith(("test ", "demo ", "sample ", "hello ")):
+            continue
+        out.append(item)
     return out
 
 
@@ -1759,23 +1963,45 @@ def _search_answer_summary(
     house: dict | None,
     confidence: float | None,
     supporting: list,
+    house_label: str | None = None,
 ) -> str:
-    if house:
-        label = house.get("current_view") or house.get("stance") or house.get("label") or "Under review"
-        conf_val = confidence
+    house = flatten_house_view(house) if house else None
+    label = normalize_stance(
+        house_label
+        or (house.get("stance") if house else None)
+        or (house.get("current_view_label") if house else None)
+        or (house.get("label") if house else None)
+    )
+    thesis = clean_thesis_text((house or {}).get("thesis") or (house or {}).get("summary") or "")
+    if not thesis and supporting:
+        top = supporting[0] if isinstance(supporting[0], dict) else {}
+        thesis = clean_thesis_text(top.get("snippet") or top.get("summary") or top.get("title") or "")
+    if house and (thesis or label != "Neutral" or house.get("current_view")):
+        conf_val = confidence if confidence is not None else (house or {}).get("confidence")
         if isinstance(conf_val, (int, float)) and conf_val > 1:
             conf = f" Confidence {conf_val:.0f}%."
         elif isinstance(conf_val, (int, float)):
             conf = f" Confidence {conf_val:.0%}."
         else:
             conf = ""
-        thesis = house.get("thesis") or house.get("summary") or ""
         thesis_bit = f" {thesis[:220]}" if thesis else ""
         return (
             f"AGI institutional view on “{question}”: {label}.{conf}"
             f"{thesis_bit} "
             f"Evidence pack includes {len(supporting)} supporting research items. "
             "Not investment advice."
+        )
+    if supporting:
+        top = supporting[0] if isinstance(supporting[0], dict) else {}
+        title = scrub_text(top.get("title")) if isinstance(top, dict) else None
+        if title and str(title).startswith("doc_"):
+            title = None
+        snip = scrub_text(top.get("snippet") or top.get("summary")) if isinstance(top, dict) else None
+        lead = f" Latest note: {title}." if title else ""
+        detail = f" {snip[:200]}" if snip else ""
+        return (
+            f"Institutional evidence pack for “{question}”.{lead}{detail} "
+            f"{len(supporting)} research items retrieved. Not investment advice."
         )
     return (
         f"Institutional evidence pack for “{question}”. "
@@ -1792,10 +2018,20 @@ def _why_bullets(
     house_label: str | None,
 ) -> list[str]:
     out: list[str] = []
-    if house_label:
-        out.append(f"Current AGI house view is {house_label}.")
-    if house and house.get("thesis"):
-        out.append(str(house["thesis"])[:200])
+    house = flatten_house_view(house) if house else None
+    label = normalize_stance(
+        house_label or (house.get("stance") if house else None)
+    )
+    if label:
+        out.append(f"Current AGI house view is {label}.")
+    thesis = clean_thesis_text((house or {}).get("thesis") or "")
+    if thesis:
+        out.append(thesis[:200])
+    elif supporting:
+        top = supporting[0] if isinstance(supporting[0], dict) else {}
+        snip = clean_thesis_text(top.get("snippet") or top.get("summary") or top.get("title") or "")
+        if snip and not snip.startswith("doc_"):
+            out.append(snip[:200])
     if supporting:
         out.append(f"{len(supporting)} supporting AGI / institutional research items retrieved.")
     if news:
@@ -1804,7 +2040,14 @@ def _why_bullets(
         out.append("Recent thesis assumptions have changed — see knowledge timeline.")
     if not out:
         out.append("Answer assembled from AGI knowledge, research committee reasoning, and live desk context.")
-    return [scrub_text(x) or x for x in out[:6]]
+    # Never surface raw object dumps in Why chips.
+    cleaned: list[str] = []
+    for x in out[:6]:
+        s = scrub_text(x) or str(x)
+        if s.startswith("{") or "document_id" in s:
+            continue
+        cleaned.append(s)
+    return cleaned or ["Answer assembled from AGI knowledge and live desk context."]
 
 
 def _workflow_stages(status: str | None) -> list[dict[str, Any]]:
