@@ -89,6 +89,7 @@ class UiService:
         aoi: Any | None = None,
         eve: Any | None = None,
         iie: Any | None = None,
+        fle: Any | None = None,
     ) -> None:
         self.flags = flags or UiFlags.from_settings(get_settings())
         self.aws = aws
@@ -105,6 +106,7 @@ class UiService:
         self.aoi = aoi
         self.eve = eve
         self.iie = iie
+        self.fle = fle
 
     def health(self) -> dict[str, Any]:
         return {
@@ -673,12 +675,25 @@ class UiService:
         irp_pkg = None
         irp_dump: dict[str, Any] = {}
 
-        # IIE → EVE → AOI → KCV1 / KF1 — investment intelligence before reasoning (soft enrichment).
+        # FLE → IIE → EVE → AOI → KCV1 / KF1 — forecast history before reasoning (soft enrichment).
         kf_hits: list[dict[str, Any]] = []
         knowledge_corpus: dict[str, Any] = {}
         open_intelligence: dict[str, Any] = {}
         evidence_verification: dict[str, Any] = {}
         investment_intelligence: dict[str, Any] = {}
+        forecast_learning: dict[str, Any] = {}
+        if self.fle and q:
+            try:
+                forecast_learning = dump(soft(self.fle.consult, q, limit=8)) or {}
+                if isinstance(forecast_learning, dict):
+                    company_pack = forecast_learning.get("company") or {}
+                    if isinstance(company_pack, dict) and company_pack.get("company_id") and not detected_ticker:
+                        # prefer symbol from pending forecast if present
+                        pending = company_pack.get("pending_forecasts") or []
+                        if pending and pending[0].get("company_symbol"):
+                            detected_ticker = str(pending[0]["company_symbol"]).upper()
+            except Exception:
+                forecast_learning = {}
         if self.iie and q:
             try:
                 investment_intelligence = dump(soft(self.iie.consult, q, limit=8)) or {}
@@ -1401,6 +1416,16 @@ class UiService:
                     "trace_to_eve_evidence": True,
                     "preserve_uncertainty": True,
                     "never_hallucinate": True,
+                },
+            },
+            forecast_learning=scrub(forecast_learning)
+            if forecast_learning
+            else {
+                "answer_policy": "forecast_history_and_calibration_before_reasoning",
+                "guidance": {
+                    "use_forecast_history_first": True,
+                    "reduce_certainty_if_miscalibrated": False,
+                    "never_forget_predictions": True,
                 },
             },
             institutional_briefing=scrub(briefing) or {},

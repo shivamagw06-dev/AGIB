@@ -373,5 +373,105 @@ export default function createIntelligenceRouter() {
   router.get('/iie/search', kfGet('/v1/iie/search'));
   router.get('/iie/consult', kfGet('/v1/iie/consult'));
 
+  // FLE v1 — Forecasting & Learning Engine (after IIE, before reasoning).
+  router.get('/fle/health', kfGet('/v1/fle/health'));
+  router.get('/fle/dashboard', kfGet('/v1/fle/dashboard'));
+  router.get('/fle/forecast', kfGet('/v1/fle/forecast'));
+  router.post('/fle/forecast', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/fle/forecast', { method: 'POST', body: req.body || {} });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Forecasting engine unavailable', detail: error.message });
+    }
+  });
+  router.get('/fle/forecast/:forecastId', async (req, res) => {
+    try {
+      const result = await engineFetch(`/v1/fle/forecast/${encodeURIComponent(req.params.forecastId)}`);
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Forecasting engine unavailable', detail: error.message });
+    }
+  });
+  router.post('/fle/forecast/:forecastId/resolve', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/fle/forecast/${encodeURIComponent(req.params.forecastId)}/resolve`,
+        { method: 'POST', body: req.body || {} }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Forecasting engine unavailable', detail: error.message });
+    }
+  });
+  router.post('/fle/forecast/:forecastId/version', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/fle/forecast/${encodeURIComponent(req.params.forecastId)}/version`,
+        { method: 'POST', body: req.body || {} }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Forecasting engine unavailable', detail: error.message });
+    }
+  });
+  router.get('/fle/compare/:forecastId', async (req, res) => {
+    try {
+      const result = await engineFetch(`/v1/fle/compare/${encodeURIComponent(req.params.forecastId)}`);
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Forecasting engine unavailable', detail: error.message });
+    }
+  });
+  router.get('/fle/company/:key', async (req, res) => {
+    try {
+      const result = await engineFetch(`/v1/fle/company/${encodeURIComponent(req.params.key)}`);
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Forecasting engine unavailable', detail: error.message });
+    }
+  });
+  router.get('/fle/outcomes', kfGet('/v1/fle/outcomes'));
+  router.get('/fle/learning', kfGet('/v1/fle/learning'));
+  router.get('/fle/calibration', kfGet('/v1/fle/calibration'));
+  router.get('/fle/scenarios/:forecastId', async (req, res) => {
+    try {
+      const result = await engineFetch(`/v1/fle/scenarios/${encodeURIComponent(req.params.forecastId)}`);
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Forecasting engine unavailable', detail: error.message });
+    }
+  });
+  router.get('/fle/accuracy', kfGet('/v1/fle/accuracy'));
+  router.get('/fle/history', kfGet('/v1/fle/history'));
+  router.post('/fle/generate', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query).toString();
+      const result = await engineFetch(`/v1/fle/generate${qs ? `?${qs}` : ''}`, { method: 'POST', body: {} });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Forecasting engine unavailable', detail: error.message });
+    }
+  });
+  router.post('/fle/batch', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query).toString();
+      const result = await engineFetch(`/v1/fle/batch${qs ? `?${qs}` : ''}`, { method: 'POST', body: {} });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Forecasting engine unavailable', detail: error.message });
+    }
+  });
+  router.post('/fle/jobs', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/fle/jobs', { method: 'POST', body: {} });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Forecasting engine unavailable', detail: error.message });
+    }
+  });
+  router.get('/fle/search', kfGet('/v1/fle/search'));
+  router.get('/fle/consult', kfGet('/v1/fle/consult'));
+
   return router;
 }

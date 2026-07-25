@@ -217,3 +217,91 @@ export const consultIie = (q, limit = 8) => {
   const qs = new URLSearchParams({ q, limit: String(limit) }).toString();
   return intelligenceFetch(`/iie/consult?${qs}`);
 };
+
+/** FLE v1 Forecasting & Learning */
+export const getFleHealth = () => intelligenceFetch('/fle/health');
+export const getFleDashboard = () => intelligenceFetch('/fle/dashboard');
+export const listFleForecasts = (params = {}) => {
+  const qs = new URLSearchParams(
+    Object.fromEntries(
+      Object.entries(params)
+        .filter(([, v]) => v !== undefined && v !== null && v !== '')
+        .map(([k, v]) => [k, String(v)])
+    )
+  ).toString();
+  return intelligenceFetch(`/fle/forecast${qs ? `?${qs}` : ''}`);
+};
+export const createFleForecast = (payload) =>
+  intelligenceFetch('/fle/forecast', { method: 'POST', body: payload || {} });
+export const getFleForecast = (id) => intelligenceFetch(`/fle/forecast/${encodeURIComponent(id)}`);
+export const resolveFleForecast = (id, payload) =>
+  intelligenceFetch(`/fle/forecast/${encodeURIComponent(id)}/resolve`, {
+    method: 'POST',
+    body: payload || {},
+  });
+export const versionFleForecast = (id, payload) =>
+  intelligenceFetch(`/fle/forecast/${encodeURIComponent(id)}/version`, {
+    method: 'POST',
+    body: payload || {},
+  });
+export const compareFleForecast = (id) => intelligenceFetch(`/fle/compare/${encodeURIComponent(id)}`);
+export const getFleCompany = (key) => intelligenceFetch(`/fle/company/${encodeURIComponent(key)}`);
+export const getFleOutcomes = (params = {}) => {
+  const qs = new URLSearchParams(
+    Object.fromEntries(
+      Object.entries(params)
+        .filter(([, v]) => v !== undefined && v !== null && v !== '')
+        .map(([k, v]) => [k, String(v)])
+    )
+  ).toString();
+  return intelligenceFetch(`/fle/outcomes${qs ? `?${qs}` : ''}`);
+};
+export const getFleLearning = (params = {}) => {
+  const qs = new URLSearchParams(
+    Object.fromEntries(
+      Object.entries(params)
+        .filter(([, v]) => v !== undefined && v !== null && v !== '')
+        .map(([k, v]) => [k, String(v)])
+    )
+  ).toString();
+  return intelligenceFetch(`/fle/learning${qs ? `?${qs}` : ''}`);
+};
+export const getFleCalibration = () => intelligenceFetch('/fle/calibration');
+export const getFleScenarios = (id) => intelligenceFetch(`/fle/scenarios/${encodeURIComponent(id)}`);
+export const getFleAccuracy = (params = {}) => {
+  const qs = new URLSearchParams(
+    Object.fromEntries(
+      Object.entries(params)
+        .filter(([, v]) => v !== undefined && v !== null && v !== '')
+        .map(([k, v]) => [k, String(v)])
+    )
+  ).toString();
+  return intelligenceFetch(`/fle/accuracy${qs ? `?${qs}` : ''}`);
+};
+export const getFleHistory = (params = {}) => {
+  const qs = new URLSearchParams(
+    Object.fromEntries(
+      Object.entries(params)
+        .filter(([, v]) => v !== undefined && v !== null && v !== '')
+        .map(([k, v]) => [k, String(v)])
+    )
+  ).toString();
+  return intelligenceFetch(`/fle/history${qs ? `?${qs}` : ''}`);
+};
+export const generateFleForecasts = (key) => {
+  const qs = new URLSearchParams({ key }).toString();
+  return intelligenceFetch(`/fle/generate?${qs}`, { method: 'POST', body: {} });
+};
+export const runFleBatch = (limit = 20) => {
+  const qs = new URLSearchParams({ limit: String(limit) }).toString();
+  return intelligenceFetch(`/fle/batch?${qs}`, { method: 'POST', body: {} });
+};
+export const runFleJobs = () => intelligenceFetch('/fle/jobs', { method: 'POST', body: {} });
+export const searchFle = (q, limit = 20) => {
+  const qs = new URLSearchParams({ q, limit: String(limit) }).toString();
+  return intelligenceFetch(`/fle/search?${qs}`);
+};
+export const consultFle = (q, limit = 8) => {
+  const qs = new URLSearchParams({ q, limit: String(limit) }).toString();
+  return intelligenceFetch(`/fle/consult?${qs}`);
+};

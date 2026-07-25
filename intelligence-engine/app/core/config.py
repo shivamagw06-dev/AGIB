@@ -224,6 +224,13 @@ class Settings(BaseSettings):
     iie_risks: bool = True
     iie_compare: bool = True
 
+    # Forecasting & Learning Engine v1 (after IIE, before reasoning; no core redesign)
+    fle: bool = True
+    fle_auto_resolve: bool = True
+    fle_learning: bool = True
+    fle_calibration: bool = True
+    fle_scenarios: bool = True
+
 
 @lru_cache
 def get_settings() -> Settings:

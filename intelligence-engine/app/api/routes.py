@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
+from fastapi import Body
 
 from app.agents.registry import list_agents
 from app.core.config import Settings, get_settings
@@ -59,6 +62,7 @@ from app.kc.service import KcService
 from app.aoi.service import AoiService
 from app.eve.service import EveService
 from app.iie.service import IieService
+from app.fle.service import FleService
 from app.ui.service import UiService
 from app.validation.service import ValidationService
 from app.features.models import FeatureMetadata
@@ -151,6 +155,7 @@ _aoi = AoiService(kip=_kip, kc=_kc, kf=_kf)
 _eve = EveService(aoi=_aoi, kc=_kc, kf=_kf)
 _aoi.bind_eve(_eve)
 _iie = IieService(eve=_eve, kc=_kc, kf=_kf, aoi=_aoi)
+_fle = FleService(iie=_iie, eve=_eve, kc=_kc, kf=_kf, aoi=_aoi)
 _ui = UiService(
     aws=_aws,
     ioc=_ioc,
@@ -166,6 +171,7 @@ _ui = UiService(
     aoi=_aoi,
     eve=_eve,
     iie=_iie,
+    fle=_fle,
 )
 # Soft-wire KIP retrieve → RSP reason into Research Director (no engine redesign).
 _director.kip = _kip
@@ -2050,6 +2056,201 @@ async def iie_search(q: str = Query(...), limit: int = Query(default=20, ge=1, l
 async def iie_consult(q: str = Query(...), limit: int = Query(default=8, ge=1, le=40)):
     try:
         return _iie.consult(q, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+# --- FLE v1 Forecasting & Learning (after IIE, before reasoning; no core redesign) ---
+
+
+@router.get("/fle/health")
+async def fle_health():
+    return _fle.health()
+
+
+@router.get("/fle/dashboard")
+async def fle_dashboard():
+    try:
+        return _fle.dashboard()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/fle/forecast")
+async def fle_list_forecasts(
+    company_id: str | None = Query(default=None),
+    sector_id: str | None = Query(default=None),
+    metric: str | None = Query(default=None),
+    status: str | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=200),
+):
+    try:
+        return _fle.list_forecasts(
+            company_id=company_id, sector_id=sector_id, metric=metric, status=status, limit=limit
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/fle/forecast")
+async def fle_create_forecast(payload: dict[str, Any] = Body(default_factory=dict)):
+    try:
+        return _fle.create_forecast(payload or {})
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/fle/forecast/{forecast_id}")
+async def fle_get_forecast(forecast_id: str):
+    try:
+        return _fle.get_forecast(forecast_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/fle/forecast/{forecast_id}/resolve")
+async def fle_resolve_forecast(forecast_id: str, payload: dict[str, Any] = Body(default_factory=dict)):
+    try:
+        return _fle.resolve(forecast_id, payload or {})
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/fle/forecast/{forecast_id}/version")
+async def fle_version_forecast(forecast_id: str, payload: dict[str, Any] = Body(default_factory=dict)):
+    try:
+        return _fle.version(forecast_id, payload or {})
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/fle/compare/{forecast_id}")
+async def fle_compare(forecast_id: str):
+    try:
+        return _fle.compare(forecast_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/fle/company/{key}")
+async def fle_company(key: str):
+    try:
+        return _fle.company(key)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/fle/outcomes")
+async def fle_outcomes(
+    company_id: str | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=200),
+):
+    try:
+        return _fle.outcomes(company_id=company_id, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/fle/learning")
+async def fle_learning(
+    q: str | None = Query(default=None),
+    company_id: str | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=200),
+):
+    try:
+        return _fle.learning(q=q, company_id=company_id, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/fle/calibration")
+async def fle_calibration():
+    try:
+        return _fle.calibration()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/fle/scenarios/{forecast_id}")
+async def fle_scenarios(forecast_id: str):
+    try:
+        return _fle.scenarios(forecast_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/fle/accuracy")
+async def fle_accuracy(
+    scope: str | None = Query(default=None),
+    scope_id: str | None = Query(default=None),
+):
+    try:
+        return _fle.accuracy(scope=scope, scope_id=scope_id)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/fle/history")
+async def fle_history(
+    company_id: str | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=200),
+):
+    try:
+        return _fle.history(company_id=company_id, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/fle/generate")
+async def fle_generate(key: str = Query(...)):
+    try:
+        return _fle.generate(key)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/fle/batch")
+async def fle_batch(limit: int = Query(default=20, ge=1, le=100)):
+    try:
+        return _fle.batch(limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/fle/jobs")
+async def fle_jobs():
+    try:
+        return _fle.run_jobs()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/fle/search")
+async def fle_search(q: str = Query(...), limit: int = Query(default=20, ge=1, le=100)):
+    try:
+        return _fle.search(q, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/fle/consult")
+async def fle_consult(q: str = Query(...), limit: int = Query(default=8, ge=1, le=40)):
+    try:
+        return _fle.consult(q, limit=limit)
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
