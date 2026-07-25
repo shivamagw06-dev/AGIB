@@ -12,6 +12,7 @@ import createNifty500ResearchRouter from "./routes/nifty500Research.js";
 import createIntelligenceRouter from "./routes/intelligence.js";
 import createUiRouter from "./routes/ui.js";
 import createAuthRouter from "./routes/auth.js";
+import createNewsletterRouter from "./routes/newsletter.js";
 import { getNewsHeadlines } from "./services/newsHeadlinesService.js";
 import { getIpoDetail, getIpoSummary } from "./services/ipoService.js";
 import { getMarketContext } from "./services/marketContextService.js";
@@ -209,6 +210,13 @@ app.use('/api/research/nifty500', nifty500ResearchLimiter, createNifty500Researc
 app.use('/api/intelligence', createIntelligenceRouter());
 app.use('/api/ui', createUiRouter());
 app.use('/api/auth', createAuthRouter());
+const newsletterRouter = createNewsletterRouter();
+app.use('/api/newsletter', newsletterRouter);
+// Legacy alias used by older CMS publish helpers
+app.post('/api/notify-subscribers', (req, res, next) => {
+  req.url = '/notify-subscribers';
+  return newsletterRouter.handle(req, res, next);
+});
 startCioMorningScheduler();
 
 /* ---------- /api/perplexity/deals ----------

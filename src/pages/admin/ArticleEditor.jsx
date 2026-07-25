@@ -29,6 +29,7 @@ import {
   wordCountFromHTML,
 } from '@/lib/articleUtils';
 import { ingestArticleToIntelligence } from '@/lib/cmsIntelligence';
+import { notifySubscribers } from '@/lib/newsletterClient';
 import { Button } from '@/components/ui/button';
 
 const AUTOSAVE_MS = 4000;
@@ -327,15 +328,40 @@ export default function ArticleEditor() {
           }
         }
 
+        let notifyResult = null;
+        if (publishStatus === 'published') {
+          const html = editor.getHTML();
+          notifyResult = await notifySubscribers({
+            title: title.trim(),
+            slug: data.slug,
+            summary: htmlToExcerpt(html, 280),
+            body: html,
+            section,
+          });
+        }
+
         if (!silent && publishStatus === 'published' && !stayInEditor) {
+          if (notifyResult?.ok && notifyResult?.sent > 0) {
+            alert(
+              `Published to ${notifyResult.letter || 'letter'}. Notified ${notifyResult.sent} subscriber${
+                notifyResult.sent === 1 ? '' : 's'
+              }.`
+            );
+          } else if (notifyResult && !notifyResult.ok && !notifyResult.skipped) {
+            alert('Published to website, but subscriber email notify failed. Check Resend / Render env.');
+          }
           navigate(`/article/${data.slug}`);
         } else if (!silent && publishStatus === 'intelligence') {
           alert('Sent to AGI Intelligence only. This will not appear on the public website.');
         } else if (!silent && ingest && publishStatus === 'published' && stayInEditor) {
-          alert('Published to website and ingested into AGI Intelligence.');
+          const notifyNote =
+            notifyResult?.ok && notifyResult?.sent > 0
+              ? ` Notified ${notifyResult.sent} subscribers.`
+              : '';
+          alert(`Published to website and ingested into AGI Intelligence.${notifyNote}`);
         }
 
-        return { ...data, ingestResult };
+        return { ...data, ingestResult, notifyResult };
       } catch (err) {
         const msg = err?.message || 'Save failed';
         setError(msg);
