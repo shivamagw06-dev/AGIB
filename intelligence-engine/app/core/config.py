@@ -63,6 +63,13 @@ class Settings(BaseSettings):
     e03_xs_mode: bool = False
     e03_ml: bool = False
 
+    # L4 Composite Intelligence feature flags (P0 Shadow defaults)
+    l4_shadow: bool = True
+    l4_primary: bool = False
+    l4_bayes: bool = False
+    l4_ml: bool = False
+    l4_probability: bool = False
+
 
 @lru_cache
 def get_settings() -> Settings:

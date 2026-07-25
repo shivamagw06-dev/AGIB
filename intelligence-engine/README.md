@@ -114,3 +114,12 @@ Agents read **AGIB Node cached APIs only** (no direct third-party market API cal
 - Flags: `E03_P0=true`, `E03_PARITY=true`, `E03_COMPOSITE/XS_MODE/ML=false`
 - ORCH: passive Feature Ready / E01 Ready / E14 Ready / E02 Ready consumer
 - APIs: `GET /v1/e03/alpha/{symbol}`, `GET /v1/e03/history/{symbol}`, `GET /v1/e03/parity`, `GET /v1/e03/health`
+
+### L4 Composite Intelligence P0 Shadow (WBS L4-001–005)
+
+- Package: `app/engines/l4/` — EngineState collector, evidence aggregator, conflict resolver, rule-based vote, L4Opinion, ShadowComparison
+- Shadow only: never influences production; never replaces E03
+- Inputs: E01State + E14State + E02Exposure + E03Alpha only (no MarketDataClient, no FeatureSnapshot)
+- Flags: `L4_SHADOW=true`, `L4_PRIMARY/BAYES/ML/PROBABILITY=false`
+- ORCH: passive E01 / E14 / E02 / E03 Ready consumer
+- APIs: `GET /v1/l4/opinion/{symbol}`, `GET /v1/l4/history/{symbol}`, `GET /v1/l4/health`

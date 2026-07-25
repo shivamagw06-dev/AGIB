@@ -12,6 +12,8 @@ from app.engines.e03.consumer import register_e03_with_orch
 from app.engines.e03.service import E03Service
 from app.engines.e14.consumer import register_e14_with_orch
 from app.engines.e14.service import E14Service
+from app.engines.l4.consumer import register_l4_with_orch
+from app.engines.l4.service import L4Service
 from app.eval.evaluation_agent import EvaluationAgent
 from app.features.models import FeatureMetadata
 from app.features.service import FeatureRegistryService
@@ -35,6 +37,7 @@ _e01 = E01Service(_features, orch_ledger=_orch_ledger)
 _e14 = E14Service(_features, e01=_e01, orch_ledger=_orch_ledger)
 _e02 = E02Service(_features, e01=_e01, e14=_e14, orch_ledger=_orch_ledger)
 _e03 = E03Service(_features, e01=_e01, e14=_e14, e02=_e02, orch_ledger=_orch_ledger)
+_l4 = L4Service(e01=_e01, e14=_e14, e02=_e02, e03=_e03, orch_ledger=_orch_ledger)
 
 
 def _wire_market_data_to_l2() -> None:
@@ -66,11 +69,17 @@ def _wire_e03_passive_consumer() -> None:
     register_e03_with_orch(_l2, _e03, _e01, _e14, _e02)
 
 
+def _wire_l4_passive_consumer() -> None:
+    """L4 shadow registers as passive consumer of E01/E14/E02/E03 Ready only."""
+    register_l4_with_orch(_l4, _e01, _e14, _e02, _e03)
+
+
 _wire_market_data_to_l2()
 _wire_e01_passive_consumer()
 _wire_e14_passive_consumer()
 _wire_e02_passive_consumer()
 _wire_e03_passive_consumer()
+_wire_l4_passive_consumer()
 
 
 def require_token(
@@ -202,6 +211,27 @@ async def e03_parity():
     if report is None:
         raise HTTPException(status_code=404, detail="E03 parity report not available")
     return report.model_dump(mode="json")
+
+
+@router.get("/l4/health")
+async def l4_health():
+    """L4 Composite Intelligence health (L4-001–005 P0 Shadow)."""
+    return _l4.health()
+
+
+@router.get("/l4/opinion/{symbol}")
+async def l4_opinion(symbol: str, as_of: str | None = None):
+    """Shadow L4Opinion (warm cache). Never replaces E03 production."""
+    opinion = _l4.get_opinion(symbol, as_of=as_of)
+    if opinion is None:
+        raise HTTPException(status_code=404, detail="L4 opinion not available")
+    return opinion.model_dump(mode="json")
+
+
+@router.get("/l4/history/{symbol}")
+async def l4_history(symbol: str, limit: int = 50):
+    """L4 EngineState history for a symbol (newest first)."""
+    return [s.model_dump(mode="json") for s in _l4.history(symbol, limit=min(limit, 200))]
 
 
 @router.post("/orch/l2/trigger", dependencies=[Depends(require_token)])
