@@ -160,6 +160,11 @@ class Settings(BaseSettings):
     ioc_alerts: bool = True
     ioc_reports: bool = True
 
+    # Alpha Improvement Programme flags (research programme; not a platform)
+    aip: bool = True
+    aip_experiments: bool = True
+    aip_promotion: bool = False
+
 
 @lru_cache
 def get_settings() -> Settings:

@@ -51,6 +51,8 @@ from app.rms.service import RmsService
 from app.rms.workflow import WorkflowError
 from app.aws.service import AwsService
 from app.ioc.service import IocService
+from app.aip.models import ExperimentHypothesis, ExperimentRequest
+from app.aip.service import AipService
 from app.validation.service import ValidationService
 from app.features.models import FeatureMetadata
 from app.features.service import FeatureRegistryService
@@ -134,6 +136,7 @@ _ioc = IocService(
     rms=_rms,
     aws=_aws,
 )
+_aip = AipService()
 # Soft-wire KIP retrieve → RSP reason into Research Director (no engine redesign).
 _director.kip = _kip
 _director.rsp = _rsp
@@ -1173,6 +1176,214 @@ async def ioc_report(
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/aip/health")
+async def aip_health():
+    """Alpha Improvement Programme health (research programme, not a platform)."""
+    return _aip.health()
+
+
+@router.get("/aip/roadmap")
+async def aip_roadmap():
+    """Long-term AIP research roadmap (AIP-01 … AIP-10)."""
+    return _aip.roadmap()
+
+
+@router.get("/aip/weights")
+async def aip_weights():
+    """Dynamic Weight Registry — shadow weight sets only."""
+    try:
+        rows = _aip.list_weights()
+        return {
+            "weight_sets": [w.model_dump(mode="json") for w in rows],
+            "count": len(rows),
+            "production_influence": False,
+            "l4_remains_shadow": True,
+        }
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/aip/weights")
+async def aip_register_weight(
+    weight_set_id: str = Query(...),
+    name: str = Query(...),
+    e03: float = Query(default=0.7),
+    e01: float = Query(default=0.2),
+    e14: float = Query(default=0.1),
+    e11: float = Query(default=0.05),
+    e02: float = Query(default=0.0),
+    regime: str | None = Query(default=None),
+    sector: str | None = Query(default=None),
+    description: str = Query(default=""),
+):
+    """Register a shadow candidate weight set (never applied to production L4)."""
+    try:
+        ws = _aip.register_weight(
+            weight_set_id=weight_set_id,
+            name=name,
+            weights={"E03": e03, "E01": e01, "E14": e14, "E11": e11, "E02": e02},
+            description=description,
+            regime=regime,
+            sector=sector,
+        )
+        return ws.model_dump(mode="json")
+    except (RuntimeError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/aip/experiment")
+async def aip_experiment(
+    candidate_weight_set_id: str | None = Query(default="aip_e03_heavier_v1"),
+    dataset_id: str = Query(default="golden_p0_v1"),
+    workstream: str = Query(default="AIP-02"),
+    hypothesis: str | None = Query(default=None),
+    regime: str | None = Query(default=None),
+    sector: str | None = Query(default=None),
+):
+    """Run an AIP shadow experiment vs L4 / E03 / replay / golden / paper portfolio."""
+    try:
+        req = ExperimentRequest(
+            hypothesis=ExperimentHypothesis(
+                statement=hypothesis
+                or (
+                    "Candidate L4 shadow weights improve measurable alpha metrics "
+                    "versus current L4 without worsening risk or calibration."
+                ),
+                workstream=workstream,
+                expected_effect="Positive research / portfolio deltas with evidence",
+            ),
+            candidate_weight_set_id=candidate_weight_set_id,
+            dataset_id=dataset_id,
+            regime=regime,
+            sector=sector,
+            name=f"{workstream}:{candidate_weight_set_id}",
+        )
+        result = _aip.run_experiment(req)
+        return result.model_dump(mode="json")
+    except (RuntimeError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/aip/experiments")
+async def aip_experiments(limit: int = Query(default=50, ge=1, le=200)):
+    try:
+        rows = _aip.list_experiments(limit=limit)
+        return {
+            "experiments": [r.model_dump(mode="json") for r in rows],
+            "count": len(rows),
+        }
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/aip/experiments/{experiment_id}")
+async def aip_experiment_get(experiment_id: str):
+    try:
+        row = _aip.get_experiment(experiment_id)
+        if row is None:
+            raise HTTPException(status_code=404, detail="experiment not found")
+        return row.model_dump(mode="json")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/aip/contribution")
+async def aip_contribution(
+    dataset_id: str = Query(default="golden_p0_v1"),
+    weight_set_id: str | None = Query(default=None),
+):
+    """Engine contribution + marginal information gain (AIP-03)."""
+    try:
+        return _aip.contribution(dataset_id, weight_set_id=weight_set_id)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/aip/calibration")
+async def aip_calibration():
+    """Latest confidence calibration plan (suggestion only)."""
+    try:
+        plan = _aip.calibration()
+        if plan is None:
+            return {"plan": None, "note": "Run an experiment first"}
+        return plan
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/aip/attribution")
+async def aip_attribution():
+    try:
+        report = _aip.attribution()
+        if report is None:
+            return {"report": None, "note": "Run an experiment first"}
+        return report
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/aip/house-view-evolution/{ticker}")
+async def aip_house_view_evolution(
+    ticker: str,
+    dataset_id: str = Query(default="golden_p0_v1"),
+):
+    try:
+        return _aip.house_view_evolution(ticker, dataset_id)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/aip/quality")
+async def aip_quality(
+    domain: str = Query(default="research"),
+    evidence_count: int = Query(default=0),
+    has_reasoning_package: bool = Query(default=False),
+    has_house_view: bool = Query(default=False),
+    contradiction_resolved: bool = Query(default=False),
+    grounded: bool = Query(default=False),
+    cites_evidence: bool = Query(default=False),
+    confidence_stated: bool = Query(default=False),
+    unknowns_stated: bool = Query(default=False),
+    answer_chars: int = Query(default=0),
+):
+    """Research / client answer quality scoring (AIP-09 / AIP-10)."""
+    try:
+        score = _aip.score_quality(
+            {
+                "domain": domain,
+                "evidence_count": evidence_count,
+                "has_reasoning_package": has_reasoning_package,
+                "has_house_view": has_house_view,
+                "contradiction_resolved": contradiction_resolved,
+                "grounded": grounded,
+                "cites_evidence": cites_evidence,
+                "confidence_stated": confidence_stated,
+                "unknowns_stated": unknowns_stated,
+                "answer_chars": answer_chars,
+            }
+        )
+        return score.model_dump(mode="json")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/aip/promotion")
+async def aip_promotion():
+    """Promotion evidence checklist — never ready when AIP_PROMOTION=false."""
+    try:
+        return _aip.promotion()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/aip/dashboard")
+async def aip_dashboard():
+    try:
+        return _aip.dashboard()
+    except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 

@@ -283,3 +283,18 @@ Agents read **AGIB Node cached APIs only** (no direct third-party market API cal
 - Flags: `IOC=true`, `IOC_ALERTS=true`, `IOC_REPORTS=true`
 - Out of scope: trading, research, portfolio logic, architecture changes
 - APIs: `GET /v1/ioc/dashboard`, `GET /v1/ioc/health`, `GET /v1/ioc/alerts`, `GET /v1/ioc/providers`, `GET /v1/ioc/readiness`, `GET /v1/ioc/report`
+
+### Alpha Improvement Programme (AIP) — Research Roadmap
+
+- Package: `app/aip/` — **research programme**, not a new platform
+- Architecture v1.0.1 **LOCKED** — no platform / infrastructure / workflow redesign; no duplicate engines
+- Mission: improve measurable investment performance (prediction accuracy, risk, portfolio construction, research quality, calibration, explainability)
+- L4 remains **shadow**; AIP never mutates `app/engines/l4/mapping.py` production weights
+- Capabilities: Dynamic Weight Registry, engine contribution / marginal information gain, calibration optimisation, confidence recalibration, regime- & sector-specific shadow weights, prediction attribution, House View evolution, research/client quality scoring
+- Experiment framework (every run): hypothesis → metrics → historical replay → CRE → statistical significance → rollback plan
+- Baselines: current L4, current E03, historical replay, golden dataset, paper portfolio
+- Validation deltas: Sharpe, Sortino, IC, hit rate, calibration, max drawdown, turnover, prediction accuracy
+- Promotion: evidence-only when `AIP_PROMOTION=false`; requires replay superiority, CRE superiority, significance, risk approval, architecture approval
+- Workstreams: AIP-01 … AIP-10 (cross-engine calibration → client answer quality)
+- Flags: `AIP=true`, `AIP_EXPERIMENTS=true`, `AIP_PROMOTION=false`
+- APIs: `GET /v1/aip/health`, `GET /v1/aip/roadmap`, `GET|POST /v1/aip/weights`, `POST /v1/aip/experiment`, `GET /v1/aip/experiments`, `GET /v1/aip/contribution`, `GET /v1/aip/calibration`, `GET /v1/aip/attribution`, `GET /v1/aip/house-view-evolution/{ticker}`, `POST /v1/aip/quality`, `GET /v1/aip/promotion`, `GET /v1/aip/dashboard`
