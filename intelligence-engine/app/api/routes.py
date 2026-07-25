@@ -9,6 +9,7 @@ from app.features.models import FeatureMetadata
 from app.features.service import FeatureRegistryService
 from app.market_data.client import MarketDataClient
 from app.memory.store import ResearchStore
+from app.orch.ledger import OrchLedger
 from app.orchestration.director import ResearchDirector
 from app.schemas.models import PredictionRecord, ResearchRun, ResearchRunCreate
 
@@ -16,8 +17,12 @@ router = APIRouter(prefix="/v1")
 _store = ResearchStore()
 _director = ResearchDirector(store=_store)
 _eval = EvaluationAgent()
+<<<<<<< HEAD
 _market_data = MarketDataClient.from_settings(get_settings())
 _features = FeatureRegistryService()
+=======
+_orch_ledger = OrchLedger()
+>>>>>>> 89c8748f (Implement WBS S01 EngineState SSOT and ORCH run ledger.)
 
 
 def require_token(
@@ -44,6 +49,7 @@ async def health():
     }
 
 
+<<<<<<< HEAD
 @router.get("/market-data/health")
 async def market_data_health():
     """WS02 provider health + cache/latency metrics (no provider-native payloads)."""
@@ -117,6 +123,12 @@ async def get_feature_value(
     if value is None:
         raise HTTPException(status_code=404, detail="feature value not found")
     return value.model_dump(mode="json")
+=======
+@router.get("/orch/status")
+async def orch_status():
+    """ORCH control-plane status (Document ID ORCH; not E00 Layer 5 / E10)."""
+    return _orch_ledger.status_summary()
+>>>>>>> 89c8748f (Implement WBS S01 EngineState SSOT and ORCH run ledger.)
 
 
 @router.post("/research/runs", response_model=ResearchRun, dependencies=[Depends(require_token)])

@@ -50,6 +50,13 @@ Research Director plans and invokes analysts → Evidence/Confidence/Citation/De
 
 Agents read **AGIB Node cached APIs only** (no direct third-party market API calls).
 
+### Architecture v1.0.1 contracts (WBS CON-001)
+
+- EngineState SSOT: `contracts/v1/engine_state.schema.json` (pointer: `contracts/v1/CANONICAL.json`)
+- Fixtures: `contracts/v1/fixtures/`
+- ORCH control plane package: `app/orch/` (Document ID `ORCH`; distinct from `app/orchestration` Research Director and from E00 Layer 5 / E10)
+- ORCH status: `GET /v1/orch/status`
+
 ### WS02 Market Data Platform (WBS DATA-001–005)
 
 - Package: `app/market_data/` — provider abstraction, rate limit, cache, retry, circuit breaker, failover
