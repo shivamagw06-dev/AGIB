@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Check, Loader2 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
-import { supabase } from '@/lib/supabaseClient';
+import { subscribeNewsletter } from '@/lib/subscribeNewsletter';
 
 const BENEFITS = [
   'Morning Market Update',
@@ -20,13 +20,11 @@ export default function NewsletterSection() {
     e.preventDefault();
     setLoading(true);
     try {
-      const { error } = await supabase.from('subscribers').insert({ email: email.trim() });
-      if (error) {
-        throw new Error(
-          error.message?.includes('duplicate') ? 'Already subscribed.' : error.message
-        );
-      }
-      toast({ title: 'Subscribed', description: 'Welcome to AGI Research Brief.' });
+      await subscribeNewsletter(email);
+      toast({
+        title: 'Subscribed',
+        description: 'Welcome email sent from AGI Updates.',
+      });
       setEmail('');
     } catch (err) {
       toast({ title: 'Subscription failed', description: err.message, variant: 'destructive' });

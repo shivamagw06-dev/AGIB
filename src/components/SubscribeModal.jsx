@@ -1,74 +1,27 @@
 // src/components/SubscribeModal.jsx
 import React, { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import { subscribeNewsletter } from '@/lib/subscribeNewsletter';
 
-/**
- * subscribeWithSupabase
- * - normalizes email
- * - includes user_id when session exists
- * - tries upsert using constraint name 'email' first, falls back to index name
- * - returns { ok: boolean, mode: 'upserted'|'exists' }
- */
 async function subscribeWithSupabase(emailFromInput) {
   const email = (emailFromInput || '').trim().toLowerCase();
   if (!email) throw new Error('Please enter a valid email address.');
-
-  // basic email format check
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     throw new Error('Please enter a valid email address.');
   }
 
-  // get session (may be null)
-  const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
-  if (sessionErr) throw sessionErr;
-  const session = sessionData?.session ?? null;
+  const { data: sessionData } = await supabase.auth.getSession();
+  const userId = sessionData?.session?.user?.id || null;
 
-  const row = session?.user ? { email, user_id: session.user.id } : { email };
-
-  // try upsert using a unique constraint name ('email') first (most common)
-  // if your DB uses a unique index name (e.g. subscribers_email_key_idx) the client may return an error,
-  // so we catch and retry using the index name.
-  const tryUpsert = async (onConflictKey) => {
-    return supabase
-      .from('subscribers')
-      .upsert([row], { onConflict: onConflictKey, returning: 'representation' });
-  };
-
-  // first attempt: common case uses unique constraint on column 'email'
-  let result = await tryUpsert('email');
-
-  // if it failed due to "invalid on_conflict" / unknown index, retry with index name
-  if (result.error) {
-    const low = (result.error.message || '').toLowerCase();
-    const needsIndexRecovery =
-      low.includes('subscribers_email_key_idx') ||
-      low.includes('on_conflict') ||
-      low.includes('invalid') ||
-      low.includes('does not exist');
-
-    if (needsIndexRecovery) {
-      // retry with the index name many tutorials use
-      result = await tryUpsert('subscribers_email_key_idx');
-    }
-  }
-
-  if (result.error) {
-    const msg = (result.error.message || '').toLowerCase();
-    // Already subscribed / duplicate
-    if (msg.includes('violates unique constraint') || msg.includes('duplicate key')) {
+  try {
+    await subscribeNewsletter(email, { userId });
+    return { ok: true, mode: 'upserted' };
+  } catch (err) {
+    if (/already subscribed/i.test(err?.message || '')) {
       return { ok: true, mode: 'exists' };
     }
-    if (msg.includes('violates row-level security') || msg.includes('row-level security')) {
-      throw new Error(
-        'Subscription failed due to database security rules. Enable inserts for subscribers in Supabase.'
-      );
-    }
-    // fallback: rethrow original error for debugging
-    throw result.error;
+    throw err;
   }
-
-  // success (rows may be returned)
-  return { ok: true, mode: 'upserted' };
 }
 
 /** Subscribe modal component */
