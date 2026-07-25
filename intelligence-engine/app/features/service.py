@@ -19,6 +19,7 @@ from app.features.models import (
     HistoricalFeatureSeries,
     utcnow,
 )
+from app.features.scheduler import CalculationScheduler
 from app.features.store import FeatureStore
 
 log = get_logger(__name__)
@@ -39,6 +40,7 @@ class FeatureRegistryService:
         self.metrics = FeatureMetrics()
         self.cache_ttl_s = cache_ttl_s
         self._calculators: dict[str, FeatureCalculator] = {}
+        self.scheduler = CalculationScheduler(self)
         if register_builtins:
             register_builtin_calculators(self)
 
@@ -222,6 +224,9 @@ class FeatureRegistryService:
             "service": "feature-registry",
             "feature_count": len(self.list_features()),
             "calculator_count": len(self._calculators),
+            "schedule_frequencies": {
+                freq: len(ids) for freq, ids in self.scheduler.frequencies().items()
+            },
             "cache": self.cache.stats(),
             "metrics": self.metrics.snapshot(),
         }

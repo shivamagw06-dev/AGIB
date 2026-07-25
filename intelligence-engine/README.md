@@ -59,7 +59,8 @@ Agents read **AGIB Node cached APIs only** (no direct third-party market API cal
 
 ### WS03 Feature Registry (WBS FEAT-001–005)
 
-- Package: `app/features/` — metadata registry, dependency graph, calculators, PIT store, cache
-- Categories: `TECH_`, `VOL_`, `MACRO_`, `FUND_`, `UNIV_` (plus reserved EVENT_/OPTIONS_/SENT_/RVAL_)
+- Package: `app/features/` — metadata registry, calculator registry, dependency graph, calculation scheduler, PIT store, cache, versioning, health/metrics
+- Categories: `TECH_`, `VOL_`, `MACRO_`, `FUND_`, `UNIV_`; external stubs for `OPTIONS_`, `SENT_`, `EVENT_`, `RVAL_`
 - Engines must consume Feature Registry outputs; they must not compute RSI/EMA/ATR/etc. internally
 - Health: `GET /v1/features/health`
+- Scheduler: `GET /v1/features/schedule/frequencies`, `GET /v1/features/schedule/plan`

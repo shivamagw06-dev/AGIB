@@ -73,6 +73,31 @@ async def register_feature(body: FeatureMetadata):
     return {"ok": True, "feature_id": body.feature_id}
 
 
+@router.get("/features/schedule/frequencies", dependencies=[Depends(require_token)])
+async def feature_schedule_frequencies():
+    """Calculation Scheduler frequency map (topo-ordered calculator IDs)."""
+    return {"frequencies": _features.scheduler.frequencies()}
+
+
+@router.get("/features/schedule/plan", dependencies=[Depends(require_token)])
+async def feature_schedule_plan(
+    as_of: str = Query(...),
+    refresh_frequency: str | None = None,
+    feature_id: list[str] | None = Query(default=None),
+):
+    plan = _features.scheduler.plan(
+        as_of=as_of,
+        refresh_frequency=refresh_frequency,
+        feature_ids=feature_id,
+    )
+    return {
+        "as_of": plan.as_of,
+        "refresh_frequency": plan.refresh_frequency,
+        "feature_ids": plan.feature_ids,
+        "symbols": plan.symbols,
+    }
+
+
 @router.get("/features/{feature_id}", dependencies=[Depends(require_token)])
 async def get_feature_metadata(feature_id: str):
     meta = _features.get_metadata(feature_id)

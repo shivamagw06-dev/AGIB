@@ -39,12 +39,25 @@ def test_builtin_features_registered():
         "TECH_EMA_20",
         "TECH_MACD",
         "TECH_RSI_14",
+        "TECH_ADX_14",
         "MACRO_YIELD_CURVE_10Y2Y",
         "FUND_ROE",
         "UNIV_MEMBER_NIFTY500",
         "VOL_REALIZED_20",
+        "OPTIONS_IV_RANK",
+        "SENT_NEWS",
+        "EVENT_EPS_SURPRISE",
+        "RVAL_HALF_LIFE",
     ):
         assert required in ids
+
+
+def test_external_category_stubs_have_no_calculator():
+    svc = FeatureRegistryService()
+    assert "OPTIONS_IV_RANK" not in svc._calculators
+    assert "RVAL_SPREAD" not in svc._calculators
+    order = svc.dependency_order(["RVAL_HALF_LIFE"])
+    assert order.index("RVAL_SPREAD") < order.index("RVAL_HALF_LIFE")
 
 
 def test_macd_depends_on_emas():
@@ -176,6 +189,88 @@ def test_history_series():
     assert len(hist.points) == 2
 
 
+def test_adx_compute():
+    svc = FeatureRegistryService()
+    v = svc.compute("TECH_ADX_14", symbol="RELIANCE", as_of="2026-07-24", ctx={"bars": _bars(80)})
+    assert v.quality_flag == "ok"
+    assert v.value is not None
+    assert 0 <= float(v.value) <= 100
+
+
+def test_calculation_scheduler_topo_and_incremental():
+    svc = FeatureRegistryService()
+    plan = svc.scheduler.plan(
+        as_of="2026-07-24",
+        feature_ids=["TECH_MACD"],
+        symbols=["RELIANCE"],
+    )
+    assert plan.feature_ids.index("TECH_EMA_12") < plan.feature_ids.index("TECH_MACD")
+    assert len(plan.feature_ids) == len(set(plan.feature_ids))
+
+    ctx = {"bars": _bars(80)}
+    result = svc.scheduler.run(plan, ctx=ctx)
+    assert result.plans_executed == 1
+    assert "TECH_MACD" in result.snapshots[0].values
+
+    # Second run is incremental via cache (no duplicate calc work)
+    before_hits = svc.cache.hits
+    result2 = svc.scheduler.run(plan, ctx=ctx)
+    assert result2.snapshots[0].values["TECH_MACD"].value == result.snapshots[0].values["TECH_MACD"].value
+    assert svc.cache.hits > before_hits
+
+    freqs = svc.scheduler.frequencies()
+    assert "1d" in freqs
+    assert "TECH_EMA_20" in freqs["1d"]
+
+
+def test_scheduler_invalidation_seed():
+    svc = FeatureRegistryService()
+    ctx = {"bars": _bars(80)}
+    plan = svc.scheduler.plan(as_of="2026-07-24", feature_ids=["TECH_MACD"], symbols=["TCS"])
+    svc.scheduler.run(plan, ctx=ctx)
+    result = svc.scheduler.run(plan, ctx=ctx, invalidate_seeds=["TECH_EMA_12"])
+    assert result.invalidated["TECH_EMA_12"] >= 1
+
+
+def test_formula_version_change_isolates_cache():
+    svc = FeatureRegistryService(register_builtins=False)
+
+    class _Const:
+        def __init__(self, version: str, value: float) -> None:
+            self.metadata = FeatureMetadata(
+                feature_id="TECH_CONST",
+                category="TECH_",
+                description="const",
+                owner="test",
+                formula_version=version,
+                refresh_frequency="1d",
+                source="test",
+            )
+            self._value = value
+
+        def compute(self, *, symbol, as_of, available_at, ctx, dep_values):
+            return FeatureValue(
+                feature_id="TECH_CONST",
+                formula_version=self.metadata.formula_version,
+                symbol=symbol,
+                as_of=as_of,
+                available_at=available_at,
+                value=self._value,
+                source="test",
+            )
+
+    svc.register_calculator(_Const("1.0.0", 1.0))
+    a = svc.compute("TECH_CONST", symbol="Z", as_of="2026-07-24", ctx={})
+    assert a.value == 1.0
+    svc.register_calculator(_Const("1.0.1", 2.0))
+    b = svc.compute("TECH_CONST", symbol="Z", as_of="2026-07-24", ctx={})
+    assert b.value == 2.0
+    assert b.formula_version == "1.0.1"
+    hist = svc.history("TECH_CONST", symbol="Z")
+    versions = {p.formula_version for p in hist.points}
+    assert versions == {"1.0.0", "1.0.1"}
+
+
 @pytest.mark.asyncio
 async def test_features_api_health_and_list():
     transport = ASGITransport(app=app)
@@ -199,3 +294,10 @@ async def test_features_api_health_and_list():
         )
         assert order.status_code == 200
         assert "TECH_EMA_12" in order.json()["order"]
+        sched = await client.get(
+            "/v1/features/schedule/plan",
+            params={"as_of": "2026-07-24", "feature_id": "TECH_MACD"},
+            headers={"Authorization": "Bearer dev-intelligence-token"},
+        )
+        assert sched.status_code == 200
+        assert "TECH_EMA_12" in sched.json()["feature_ids"]

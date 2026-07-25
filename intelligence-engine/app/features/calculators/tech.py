@@ -6,7 +6,15 @@ from datetime import date, datetime
 from typing import Any
 
 from app.features.calculators.base import FeatureCalculator, FeatureContext
-from app.features.calculators.tech_math import atr_wilder, ema, roc, rsi_wilder, sma, stdev
+from app.features.calculators.tech_math import (
+    adx_wilder,
+    atr_wilder,
+    ema,
+    roc,
+    rsi_wilder,
+    sma,
+    stdev,
+)
 from app.features.models import FeatureMetadata, FeatureValue
 
 
@@ -165,6 +173,25 @@ def register_tech_calculators(service: Any) -> None:
             source="feature_registry",
         ),
         atr14,
+    )
+
+    def adx14(ctx: FeatureContext, deps: dict[str, FeatureValue]) -> list[float | None]:
+        c, h, l, _ = _series(ctx)
+        return adx_wilder(h, l, c, 14)
+
+    add(
+        FeatureMetadata(
+            feature_id="TECH_ADX_14",
+            category="TECH_",
+            description="Wilder ADX(14)",
+            owner="feature-registry",
+            formula_version="1.0.0",
+            dependencies=["TECH_ATR_14"],
+            inputs=["ohlcv.high", "ohlcv.low", "ohlcv.close"],
+            refresh_frequency="1d",
+            source="feature_registry",
+        ),
+        adx14,
     )
 
     add(
