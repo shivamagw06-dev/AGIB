@@ -223,5 +223,37 @@ export default function createIntelligenceRouter() {
   router.get('/kc/quality', kfGet('/v1/kc/quality'));
   router.get('/kc/consult', kfGet('/v1/kc/consult'));
 
+  // AOI v1 — Open Intelligence acquisition platform (no core redesign).
+  router.get('/aoi/health', kfGet('/v1/aoi/health'));
+  router.get('/aoi/dashboard', kfGet('/v1/aoi/dashboard'));
+  router.post('/aoi/registry/seed', kfPost('/v1/aoi/registry/seed'));
+  router.post('/aoi/run', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query).toString();
+      const result = await engineFetch(`/v1/aoi/run${qs ? `?${qs}` : ''}`, {
+        method: 'POST',
+        body: {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Open Intelligence unavailable', detail: error.message });
+    }
+  });
+  router.get('/aoi/companies', kfGet('/v1/aoi/companies'));
+  router.get('/aoi/company/:key', async (req, res) => {
+    try {
+      const result = await engineFetch(`/v1/aoi/company/${encodeURIComponent(req.params.key)}`);
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Open Intelligence unavailable', detail: error.message });
+    }
+  });
+  router.get('/aoi/search', kfGet('/v1/aoi/search'));
+  router.get('/aoi/consult', kfGet('/v1/aoi/consult'));
+  router.get('/aoi/connectors', kfGet('/v1/aoi/connectors'));
+  router.get('/aoi/scheduler', kfGet('/v1/aoi/scheduler'));
+  router.get('/aoi/gaps', kfGet('/v1/aoi/gaps'));
+  router.get('/aoi/learning', kfGet('/v1/aoi/learning'));
+
   return router;
 }

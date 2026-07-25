@@ -61,3 +61,35 @@ export const consultKc = (q, limit = 8) => {
   const qs = new URLSearchParams({ q, limit: String(limit) }).toString();
   return intelligenceFetch(`/kc/consult?${qs}`);
 };
+
+/** AOI v1 Open Intelligence */
+export const getAoiHealth = () => intelligenceFetch('/aoi/health');
+export const getAoiDashboard = () => intelligenceFetch('/aoi/dashboard');
+export const seedAoiRegistry = () => intelligenceFetch('/aoi/registry/seed', { method: 'POST', body: {} });
+export const runAoiCycle = (params = {}) => {
+  const qs = new URLSearchParams(
+    Object.fromEntries(
+      Object.entries(params)
+        .filter(([, v]) => v !== undefined && v !== null)
+        .map(([k, v]) => [k, String(v)])
+    )
+  ).toString();
+  return intelligenceFetch(`/aoi/run${qs ? `?${qs}` : ''}`, { method: 'POST', body: {} });
+};
+export const listAoiCompanies = (universe = 'nifty_50') => {
+  const qs = new URLSearchParams({ universe }).toString();
+  return intelligenceFetch(`/aoi/companies?${qs}`);
+};
+export const getAoiCompany = (key) => intelligenceFetch(`/aoi/company/${encodeURIComponent(key)}`);
+export const searchAoi = (q, limit = 20) => {
+  const qs = new URLSearchParams({ q, limit: String(limit) }).toString();
+  return intelligenceFetch(`/aoi/search?${qs}`);
+};
+export const consultAoi = (q, limit = 8) => {
+  const qs = new URLSearchParams({ q, limit: String(limit) }).toString();
+  return intelligenceFetch(`/aoi/consult?${qs}`);
+};
+export const getAoiConnectors = () => intelligenceFetch('/aoi/connectors');
+export const getAoiScheduler = () => intelligenceFetch('/aoi/scheduler');
+export const getAoiGaps = () => intelligenceFetch('/aoi/gaps');
+export const getAoiLearning = () => intelligenceFetch('/aoi/learning');

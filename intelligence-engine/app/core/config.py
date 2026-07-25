@@ -191,6 +191,23 @@ class Settings(BaseSettings):
     kc_learning: bool = True
     kc_quality: bool = True
 
+    # AGI Open Intelligence v1 (public acquisition → KC/KF; no core redesign)
+    aoi: bool = True
+    aoi_scheduler: bool = True
+    aoi_publish: bool = True
+    aoi_live_fetch: bool = False
+    aoi_company_ir: bool = True
+    aoi_nse: bool = True
+    aoi_bse: bool = True
+    aoi_rbi: bool = True
+    aoi_sebi: bool = True
+    aoi_mof: bool = True
+    aoi_mospi: bool = True
+    aoi_fred: bool = True
+    aoi_imf: bool = True
+    aoi_worldbank: bool = True
+    aoi_pib: bool = True
+
 
 @lru_cache
 def get_settings() -> Settings:

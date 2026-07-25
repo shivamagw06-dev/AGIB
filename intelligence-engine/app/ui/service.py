@@ -86,6 +86,7 @@ class UiService:
         irp: Any | None = None,
         kf: Any | None = None,
         kc: Any | None = None,
+        aoi: Any | None = None,
     ) -> None:
         self.flags = flags or UiFlags.from_settings(get_settings())
         self.aws = aws
@@ -99,6 +100,7 @@ class UiService:
         self.irp = irp
         self.kf = kf
         self.kc = kc
+        self.aoi = aoi
 
     def health(self) -> dict[str, Any]:
         return {
@@ -667,9 +669,20 @@ class UiService:
         irp_pkg = None
         irp_dump: dict[str, Any] = {}
 
-        # KF1 / KCV1 — consult knowledge corpus before document retrieval (soft enrichment).
+        # AOI → KCV1 / KF1 — structured knowledge before document retrieval (soft enrichment).
         kf_hits: list[dict[str, Any]] = []
         knowledge_corpus: dict[str, Any] = {}
+        open_intelligence: dict[str, Any] = {}
+        if self.aoi and q:
+            try:
+                open_intelligence = dump(soft(self.aoi.consult, q, limit=8)) or {}
+                if isinstance(open_intelligence, dict):
+                    company_pack = open_intelligence.get("company") or {}
+                    co = company_pack.get("company") if isinstance(company_pack, dict) else None
+                    if isinstance(co, dict) and co.get("nse_symbol") and not detected_ticker:
+                        detected_ticker = str(co["nse_symbol"]).upper()
+            except Exception:
+                open_intelligence = {}
         if self.kc and q:
             try:
                 knowledge_corpus = dump(soft(self.kc.consult, q, limit=8)) or {}
@@ -1345,6 +1358,7 @@ class UiService:
                 "count": len(kf_hits),
                 "primary_source_of_truth": "knowledge_objects",
             },
+            open_intelligence=scrub(open_intelligence) if open_intelligence else {},
             institutional_briefing=scrub(briefing) or {},
             sector_intelligence=scrub((irp_dump or {}).get("sector_intelligence") or {})
             if isinstance(irp_dump, dict)

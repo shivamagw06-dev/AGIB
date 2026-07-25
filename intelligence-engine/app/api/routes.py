@@ -56,6 +56,7 @@ from app.aip.service import AipService
 from app.irp.service import IrpService
 from app.kf.service import KfService
 from app.kc.service import KcService
+from app.aoi.service import AoiService
 from app.ui.service import UiService
 from app.validation.service import ValidationService
 from app.features.models import FeatureMetadata
@@ -144,6 +145,7 @@ _aip = AipService()
 _irp = IrpService(kip=_kip, rsp=_rsp)
 _kf = KfService(kip=_kip)
 _kc = KcService(kf=_kf, kip=_kip)
+_aoi = AoiService(kip=_kip, kc=_kc, kf=_kf)
 _ui = UiService(
     aws=_aws,
     ioc=_ioc,
@@ -156,6 +158,7 @@ _ui = UiService(
     irp=_irp,
     kf=_kf,
     kc=_kc,
+    aoi=_aoi,
 )
 # Soft-wire KIP retrieve → RSP reason into Research Director (no engine redesign).
 _director.kip = _kip
@@ -1612,6 +1615,111 @@ async def kc_quality(kind: str | None = Query(default=None), key: str | None = Q
 async def kc_consult(q: str = Query(...), limit: int = Query(default=8, ge=1, le=40)):
     try:
         return _kc.consult(q, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+# --- AOI v1 Open Intelligence (public acquisition → KC/KF; no core redesign) ---
+
+
+@router.get("/aoi/health")
+async def aoi_health():
+    return _aoi.health()
+
+
+@router.get("/aoi/dashboard")
+async def aoi_dashboard():
+    try:
+        return _aoi.dashboard()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/aoi/registry/seed")
+async def aoi_registry_seed():
+    try:
+        return _aoi.seed_registry()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/aoi/run")
+async def aoi_run(
+    connector_id: str | None = Query(default=None),
+    limit_per_connector: int | None = Query(default=30, ge=1, le=500),
+    publish: bool = Query(default=True),
+):
+    try:
+        ids = [connector_id] if connector_id else None
+        return _aoi.run_cycle(connector_ids=ids, limit_per_connector=limit_per_connector, publish=publish)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/aoi/companies")
+async def aoi_companies(universe: str | None = Query(default="nifty_50")):
+    try:
+        return _aoi.list_companies(universe=universe)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/aoi/company/{key}")
+async def aoi_company(key: str):
+    try:
+        return _aoi.get_company(key)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/aoi/search")
+async def aoi_search(q: str = Query(...), limit: int = Query(default=20, ge=1, le=100)):
+    try:
+        return _aoi.search(q, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/aoi/consult")
+async def aoi_consult(q: str = Query(...), limit: int = Query(default=8, ge=1, le=40)):
+    try:
+        return _aoi.consult(q, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/aoi/connectors")
+async def aoi_connectors():
+    try:
+        return _aoi.connector_health()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/aoi/scheduler")
+async def aoi_scheduler():
+    try:
+        return _aoi.pipeline.scheduler.status()
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/aoi/gaps")
+async def aoi_gaps():
+    try:
+        dash = _aoi.dashboard()
+        return {"count": len(dash.get("gaps") or []), "tasks": dash.get("gaps") or []}
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/aoi/learning")
+async def aoi_learning():
+    try:
+        dash = _aoi.dashboard()
+        return dash.get("learning") or {}
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
