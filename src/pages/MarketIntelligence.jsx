@@ -6,6 +6,7 @@ import useMarketIntelligence from '@/hooks/useMarketIntelligence';
 import Nifty500ResearchPanel from '@/components/Research/Nifty500ResearchPanel';
 import InstitutionalIntelligenceLayer from '@/components/Research/InstitutionalIntelligenceLayer';
 import { getMarketBriefing } from '@/api/marketApi';
+import { getUiDashboard } from '@/lib/uiApi';
 
 function tone(value = '') {
   const text = String(value).toLowerCase();
@@ -45,6 +46,7 @@ export default function MarketIntelligence() {
     updatedAt,
   } = useMarketIntelligence();
   const [briefingState, setBriefingState] = useState({ loading: true, data: null });
+  const [uiDash, setUiDash] = useState(null);
 
   useEffect(() => {
     let active = true;
@@ -57,6 +59,9 @@ export default function MarketIntelligence() {
       }
     };
     loadBriefing();
+    getUiDashboard()
+      .then((data) => active && setUiDash(data))
+      .catch(() => active && setUiDash(null));
     const interval = window.setInterval(loadBriefing, 60_000);
     return () => {
       active = false;
@@ -99,6 +104,22 @@ export default function MarketIntelligence() {
 
         <main className="max-w-[1800px] mx-auto px-4 sm:px-6 py-6 sm:py-8 lg:py-10">
           <Nifty500ResearchPanel />
+
+          {uiDash && (
+            <section className="mb-6 border border-[#dde1e6] bg-white p-4" aria-label="Investment office desk">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-[#737982]">Investment Office Desk</p>
+              <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
+                <MetricCard label="Market brief" value={uiDash.market_brief?.regime || uiDash.market_regime?.label} detail={uiDash.market_brief?.summary} />
+                <MetricCard label="Market regime" value={uiDash.market_regime?.label} />
+                <MetricCard label="Market risk" value={uiDash.market_risk?.label} />
+                <MetricCard
+                  label="Research queue"
+                  value={(uiDash.research_queue || []).length}
+                  detail={`${(uiDash.latest_reports || []).length} latest reports`}
+                />
+              </div>
+            </section>
+          )}
 
           <section aria-label="Market overview">
             <div className="mb-4 flex items-center gap-2">

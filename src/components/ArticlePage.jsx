@@ -1,11 +1,13 @@
 // src/components/ArticlePage.jsx
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useState, useCallback, Suspense, lazy } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import DOMPurify from 'dompurify';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
+
+const ArticleKnowledgePanel = lazy(() => import('@/components/Article/ArticleKnowledgePanel'));
 
 function readingTimeFromHTML(html = '') {
   const text = String(html).replace(/<[^>]*>/g, ' ');
@@ -811,6 +813,14 @@ export default function ArticlePage() {
             </>
           )}
         </div>
+
+        <Suspense fallback={null}>
+          <ArticleKnowledgePanel
+            researchId={article.research_id || article.rms_id || null}
+            ticker={(Array.isArray(article.tickers) && article.tickers[0]) || null}
+            title={article.title}
+          />
+        </Suspense>
 
         {/* ----------------------------- */}
         {/* Comments Section */}

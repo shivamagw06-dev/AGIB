@@ -10,6 +10,7 @@ import researchRouter from "./research.js";
 import createMarketRouter from "./routes/market.js";
 import createNifty500ResearchRouter from "./routes/nifty500Research.js";
 import createIntelligenceRouter from "./routes/intelligence.js";
+import createUiRouter from "./routes/ui.js";
 import { getNewsHeadlines } from "./services/newsHeadlinesService.js";
 import { getIpoDetail, getIpoSummary } from "./services/ipoService.js";
 import { getMarketContext } from "./services/marketContextService.js";
@@ -200,6 +201,7 @@ const marketRouter = createMarketRouter({
 app.use('/api/market', marketIntelLimiter, marketRouter);
 app.use('/api/research/nifty500', nifty500ResearchLimiter, createNifty500ResearchRouter());
 app.use('/api/intelligence', createIntelligenceRouter());
+app.use('/api/ui', createUiRouter());
 startCioMorningScheduler();
 
 /* ---------- /api/perplexity/deals ----------

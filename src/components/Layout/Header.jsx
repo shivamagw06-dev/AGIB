@@ -20,13 +20,13 @@ import ResearchSearch from '@/components/Search/ResearchSearch';
 
 const NAV = [
   { name: 'Home', path: '/' },
+  { name: 'Ask AGI', path: '/ask' },
   { name: 'Macro Intelligence', path: '/macro-intelligence' },
   { name: 'Market Intelligence', path: '/market-intelligence' },
-  { name: 'Market News', path: '/market-data' },
-  { name: 'Pre-Market', path: '/pre-market' },
-  { name: '12 PM', path: '/updates/midday' },
-  { name: 'Market Close', path: '/updates/market-close' },
+  { name: 'Predictions', path: '/predictions' },
   { name: 'Research', path: '/research' },
+  { name: 'Workspace', path: '/workspace' },
+  { name: 'Pre-Market', path: '/pre-market' },
   { name: 'Company Updates', path: '/company-updates' },
 ];
 
@@ -58,6 +58,19 @@ export default function Header() {
       mounted = false;
     };
   }, [user]);
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === '/' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        const tag = (e.target?.tagName || '').toLowerCase();
+        if (tag === 'input' || tag === 'textarea' || e.target?.isContentEditable) return;
+        e.preventDefault();
+        setSearchOpen(true);
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, []);
 
   const isActive = (path) => {
     if (path === '/') return location.pathname === '/';

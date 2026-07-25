@@ -1,8 +1,12 @@
 import { Link } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import { ChevronRight } from 'lucide-react';
 import MorningBriefHero from '@/components/Home/MorningBriefHero';
+import AskAgiBar from '@/components/Home/AskAgiBar';
+import PopularInvestorQuestions from '@/components/Home/PopularInvestorQuestions';
 import TodayDashboard from '@/components/Home/TodayDashboard';
 import IndexSentimentTicker from '@/components/Home/IndexSentimentTicker';
+import HomeIntelligenceStrip from '@/components/Home/HomeIntelligenceStrip';
 import ResearchNotesPreview from '@/components/Home/ResearchNotesPreview';
 import NewsHeadlineBar from '@/components/Home/NewsHeadlineBar';
 import Nifty500ResearchPreview from '@/components/Home/Nifty500ResearchPreview';
@@ -10,8 +14,11 @@ import IpoMonitorPreview from '@/components/Home/IpoMonitorPreview';
 import InstitutionalResearchCard from '@/components/Home/InstitutionalResearchCard';
 import NewsletterSection from '@/components/Home/NewsletterSection';
 import usePublishedArticles from '@/hooks/usePublishedArticles';
+import useUiHome from '@/hooks/useUiHome';
 import { MARKET_UPDATE_SECTIONS, SECTOR_RESEARCH } from '@/config/sectors';
 import { formatTimeAgo } from '@/lib/articleUtils';
+import { trackProductEvent } from '@/lib/productAnalytics';
+import { useEffect } from 'react';
 
 function SectionHeader({ title, subtitle, href, linkLabel = 'View all →' }) {
   return (
@@ -88,10 +95,15 @@ function MarketUpdateSectionLoader({ sectionId }) {
 }
 
 export default function EditorialHome() {
+  const { data: uiHome, loading: uiLoading } = useUiHome();
   const { articles: research, loading: researchLoading } = usePublishedArticles({
     limit: 6,
     section: null,
   });
+
+  useEffect(() => {
+    trackProductEvent('session_start', { surface: 'home' });
+  }, []);
 
   const featuredResearch = research.filter(
     (a) =>
@@ -110,35 +122,88 @@ export default function EditorialHome() {
       (Array.isArray(a.tags) && a.tags.some((t) => /macro|global/i.test(t)))
   ).slice(0, 3);
 
+  const topCompanies = uiHome?.top_companies || uiHome?.feeds?.trending_companies || [];
+  const themes = uiHome?.market_themes || uiHome?.feeds?.trending_themes || [];
+  const calendar = uiHome?.economic_calendar || [];
+  const knowledge = uiHome?.latest_news || [];
+  const predictions = uiHome?.feeds?.latest_predictions || [];
+
   return (
     <div className="bg-white min-h-screen">
+      <Helmet>
+        <title>AGI — Institutional Investment Research</title>
+        <meta
+          name="description"
+          content="What AGI believes today, why, the evidence, what changed, and where to explore next — Ask AGI, company, sector, theme and macro intelligence."
+        />
+        <link rel="canonical" href="https://agarwalglobalinvestments.com/" />
+        <meta property="og:title" content="Agarwal Global Investments" />
+        <meta property="og:description" content="Talk to the Investment Office. Evidence-backed institutional research." />
+        <script type="application/ld+json">
+          {JSON.stringify({
+            '@context': 'https://schema.org',
+            '@type': 'Organization',
+            name: 'Agarwal Global Investments',
+            url: 'https://agarwalglobalinvestments.com/',
+            description: 'Independent institutional investment research',
+          })}
+        </script>
+      </Helmet>
       <div className="max-w-[1800px] mx-auto px-4 sm:px-6">
-        <MorningBriefHero />
+        {/* Hero — existing design, live intelligence */}
+        <MorningBriefHero uiHome={uiHome} uiLoading={uiLoading} />
+
+        {/* Ask AGI — flagship */}
+        <section className="py-8 border-b border-[#dddddd]" aria-labelledby="ask-agi-heading">
+          <div className="max-w-[900px]">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-[#ff6600]">Ask AGI</p>
+            <h2 id="ask-agi-heading" className="mt-2 text-2xl md:text-3xl font-bold text-[#111111]">
+              Talk to the Investment Office
+            </h2>
+            <p className="mt-2 text-sm text-[#767676] max-w-2xl">
+              Ask about markets, companies, sectors or the economy. Every answer is evidence-based —
+              house view, confidence, research and conflicting opinions.
+            </p>
+            <div className="mt-5">
+              <AskAgiBar
+                placeholder={uiHome?.ask_placeholder}
+                examples={uiHome?.example_questions || []}
+                autoFocus={false}
+              />
+            </div>
+            <div className="mt-4 flex flex-wrap gap-2 text-[11px] font-bold">
+              <Link to="/ask" className="border border-[#ddd] px-2.5 py-1.5 hover:text-[#ff6600]">Open Ask AGI</Link>
+              <Link to="/predictions" className="border border-[#ddd] px-2.5 py-1.5 hover:text-[#ff6600]">Prediction Centre</Link>
+              <Link to="/workspace" className="border border-[#ddd] px-2.5 py-1.5 hover:text-[#ff6600]">Personal Workspace</Link>
+              <Link to="/macro-intelligence" className="border border-[#ddd] px-2.5 py-1.5 hover:text-[#ff6600]">Macro Intelligence</Link>
+            </div>
+          </div>
+        </section>
+
+        <div className="pt-8">
+          <PopularInvestorQuestions
+            questions={uiHome?.popular_questions || []}
+            loading={uiLoading}
+          />
+        </div>
+
         <NewsHeadlineBar />
         <IndexSentimentTicker />
+
+        {/* Today's Market Intelligence */}
+        <HomeIntelligenceStrip />
+
+        {/* Market Dashboard */}
         <TodayDashboard />
+
         <ResearchNotesPreview />
         <Nifty500ResearchPreview />
         <IpoMonitorPreview />
 
-        {/* Market update cadence */}
+        {/* Featured Research */}
         <section className="py-8 border-b border-[#dddddd]">
           <SectionHeader
-            title="Trading Day Updates"
-            subtitle="Published throughout the session"
-            href="/market-updates"
-          />
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <MarketUpdateSectionLoader sectionId="pre-market" />
-            <MarketUpdateSectionLoader sectionId="midday" />
-            <MarketUpdateSectionLoader sectionId="market-close" />
-          </div>
-        </section>
-
-        {/* Featured research */}
-        <section className="py-8 border-b border-[#dddddd]">
-          <SectionHeader
-            title="Research Notes & Featured Analysis"
+            title="Featured Research"
             subtitle="Independent perspectives from the AGI research desk"
             href="/research"
           />
@@ -154,6 +219,16 @@ export default function EditorialHome() {
                 <InstitutionalResearchCard key={a.id} article={a} />
               ))}
             </div>
+          ) : (uiHome?.latest_published || []).length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {(uiHome.latest_published || []).slice(0, 4).map((r) => (
+                <div key={r.research_id || r.title} className="border border-[#dddddd] p-4">
+                  <p className="text-[10px] font-bold uppercase text-[#ff6600]">Research desk</p>
+                  <p className="mt-2 text-sm font-bold text-[#111] line-clamp-3">{r.title}</p>
+                  <p className="mt-2 text-[11px] text-[#767676]">{(r.tickers || []).join(', ')}</p>
+                </div>
+              ))}
+            </div>
           ) : (
             <p className="text-sm text-[#767676]">
               Publish research notes in CMS to populate this section.{' '}
@@ -164,46 +239,125 @@ export default function EditorialHome() {
           )}
         </section>
 
-        {/* Company updates */}
+        {/* Trending Themes */}
         <section className="py-8 border-b border-[#dddddd]">
-          <SectionHeader title="Latest Company Updates" href="/company-updates" />
-          {companyUpdates.length > 0 ? (
+          <SectionHeader title="Trending Themes" subtitle="Live themes from institutional knowledge" href="/themes/credit_growth" />
+          {themes.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {themes.slice(0, 12).map((t) => (
+                <Link
+                  key={t.id || t.name}
+                  to={`/themes/${encodeURIComponent(t.id || t.name)}`}
+                  className="text-xs font-bold border border-[#dddddd] px-3 py-2 hover:border-[#111] hover:text-[#ff6600]"
+                >
+                  {t.name || t.id}
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <SectorGrid />
+          )}
+        </section>
+
+        {/* Top Companies */}
+        <section className="py-8 border-b border-[#dddddd]">
+          <SectionHeader title="Top Companies" subtitle="Composite book snapshot" href="/portfolio" />
+          {topCompanies.length > 0 ? (
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
+              {topCompanies.slice(0, 8).map((row) => (
+                <Link
+                  key={row.ticker}
+                  to={`/research/stocks/${encodeURIComponent(row.ticker)}`}
+                  className="border border-[#dddddd] p-3 hover:border-[#111]"
+                >
+                  <p className="text-sm font-bold text-[#111]">{row.ticker}</p>
+                  <p className="text-[11px] text-[#767676] mt-1">{row.label || '—'}</p>
+                </Link>
+              ))}
+            </div>
+          ) : companyUpdates.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {companyUpdates.map((a) => (
                 <InstitutionalResearchCard key={a.id} article={a} showImage={false} />
               ))}
             </div>
           ) : (
+            <p className="text-sm text-[#767676]">Composite coverage will appear as opinions load.</p>
+          )}
+        </section>
+
+        {/* Economic Calendar */}
+        <section className="py-8 border-b border-[#dddddd]">
+          <SectionHeader title="Economic Calendar" href="/macro-intelligence" />
+          {calendar.length > 0 ? (
+            <ul className="space-y-2">
+              {calendar.slice(0, 6).map((e, idx) => (
+                <li key={e.id || e.title || idx} className="border border-[#dddddd] px-4 py-3 text-sm">
+                  {e.title || e.name}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <MarketUpdateSectionLoader sectionId="pre-market" />
+              <MarketUpdateSectionLoader sectionId="midday" />
+              <MarketUpdateSectionLoader sectionId="market-close" />
+            </div>
+          )}
+        </section>
+
+        {/* Latest Predictions */}
+        <section className="py-8 border-b border-[#dddddd]">
+          <SectionHeader title="Latest Predictions" subtitle="Public prediction tracker" href="/predictions" />
+          {predictions.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {predictions.slice(0, 6).map((p) => (
+                <Link
+                  key={p.id}
+                  to={p.ticker ? `/research/stocks/${encodeURIComponent(p.ticker)}` : '/predictions'}
+                  className="border border-[#dddddd] p-4 hover:border-[#111]"
+                >
+                  <p className="text-[10px] font-bold uppercase text-[#ff6600]">{p.ticker || 'Prediction'}</p>
+                  <p className="mt-2 text-sm font-bold text-[#111] line-clamp-2">{p.thesis || p.target_horizon}</p>
+                  <p className="mt-2 text-[11px] text-[#767676] capitalize">{p.current_status || 'open'}</p>
+                </Link>
+              ))}
+            </div>
+          ) : (
             <p className="text-sm text-[#767676]">
-              Tag articles with section &ldquo;Company Updates&rdquo; in CMS.
+              Predictions populate as forward-looking views are recorded.{' '}
+              <Link to="/predictions" className="font-bold hover:text-[#ff6600]">Open Prediction Centre →</Link>
             </p>
           )}
         </section>
 
-        {/* Sector research */}
+        {/* Knowledge Feed */}
         <section className="py-8 border-b border-[#dddddd]">
-          <SectionHeader
-            title="Sector Research"
-            subtitle="Deep-dive coverage across key sectors"
-            href="/research"
-          />
-          <SectorGrid />
-        </section>
-
-        {/* Macro */}
-        <section className="py-8 border-b border-[#dddddd]">
-          <SectionHeader title="Macro & Global Markets" href="/research" />
-          {macroArticles.length > 0 ? (
+          <SectionHeader title="Knowledge Feed" subtitle="Latest institutional memory" href="/research" />
+          {knowledge.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {knowledge.slice(0, 6).map((n) => (
+                <div key={n.id || n.title} className="border border-[#dddddd] p-4">
+                  <p className="text-sm font-bold text-[#111] line-clamp-2">{n.title}</p>
+                  {n.snippet && <p className="text-xs text-[#767676] mt-2 line-clamp-3">{n.snippet}</p>}
+                </div>
+              ))}
+            </div>
+          ) : macroArticles.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {macroArticles.map((a) => (
                 <InstitutionalResearchCard key={a.id} article={a} showImage={false} />
               ))}
             </div>
           ) : (
-            <p className="text-sm text-[#767676]">
-              Publish macro articles with tags like &ldquo;Macro&rdquo; or &ldquo;Global Markets&rdquo;.
-            </p>
+            <p className="text-sm text-[#767676]">Knowledge feed populates as documents are ingested.</p>
           )}
+        </section>
+
+        {/* Sector research grid retained */}
+        <section className="py-8 border-b border-[#dddddd]">
+          <SectionHeader title="Sector Research" subtitle="Deep-dive coverage across key sectors" href="/research" />
+          <SectorGrid />
         </section>
       </div>
 
