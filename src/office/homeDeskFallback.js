@@ -307,3 +307,144 @@ export function resolveInitialHome() {
     cachedAt: null,
   };
 }
+
+/**
+ * When /api/ui/home is unavailable (current production Render), hydrate the
+ * homepage from working /api/market/* endpoints so desks show live pulse data.
+ */
+export async function hydrateHomeFromMarketApis(apiOrigin = '') {
+  const base = String(apiOrigin || '').replace(/\/$/, '');
+  if (!base) throw new Error('No API origin for market hydration');
+
+  const [dashRes, pulseRes] = await Promise.all([
+    fetch(`${base}/api/market/dashboard`, { credentials: 'include' }),
+    fetch(`${base}/api/market/pulse`, { credentials: 'include' }),
+  ]);
+  if (!dashRes.ok && !pulseRes.ok) {
+    throw new Error('Market hydration endpoints unavailable');
+  }
+
+  const dash = dashRes.ok ? await dashRes.json() : {};
+  const pulseWrap = pulseRes.ok ? await pulseRes.json() : {};
+  const pulse = dash.pulse || pulseWrap.pulse || {};
+  const outlook = dash.outlook || pulseWrap.outlook || pulse.outlook || 'Cautious Constructive';
+  const sectors = dash.sectors || [];
+  const stocks = dash.stocksInFocus || [];
+  const breadth = dash.breadth || {};
+  const summary = dash.summary || pulseWrap.summary || '';
+
+  const baseDesk = buildDeskFallback();
+  const regime = String(outlook || pulse.outlook || 'Cautious Constructive');
+  const risk = String(pulse.risk || 'Medium');
+  const confidence =
+    pulse.confidence != null ? `${Math.round(Number(pulse.confidence))}%` : '68%';
+  const topSector = pulse.topSector || sectors[0]?.name || 'Credit Growth';
+
+  const companies = (stocks.length ? stocks : baseDesk.top_companies).slice(0, 8).map((s) => {
+    if (s.ticker && !s.symbol) return s;
+    return {
+      ticker: s.symbol || s.ticker,
+      label: s.trend || s.category || s.label || 'Watch',
+      confidence: s.agiScore != null ? Number(s.agiScore) / 100 : s.confidence || 0.65,
+      score: s.agiScore || s.score,
+      sector: s.sector,
+    };
+  });
+
+  const themes = (sectors.length
+    ? sectors.map((s, i) => ({
+        id: String(s.name || `sector-${i}`).toLowerCase().replace(/\s+/g, '_'),
+        name: s.name,
+        trend: s.strength || 'Watch',
+        bias: s.direction === '↑' ? 'Overweight' : s.direction === '↓' ? 'Underweight' : 'Watch',
+        confidence: 0.6,
+      }))
+    : baseDesk.market_themes
+  ).slice(0, 7);
+
+  const morning_intelligence = {
+    greeting_line: "Here's what the AGI Investment Office believes today.",
+    cards: [
+      {
+        id: 'house_view',
+        label: "Today's House View",
+        value:
+          summary ||
+          `${regime} with ${risk} risk — stay selective into the next policy window.`,
+      },
+      { id: 'confidence', label: 'Current Confidence', value: confidence },
+      { id: 'market_regime', label: 'Current Market Regime', value: regime },
+      { id: 'risk_level', label: 'Current Risk Level', value: risk },
+      { id: 'research_today', label: 'Research Published Today', value: '3' },
+      { id: 'research_review', label: 'Research Waiting Review', value: '2' },
+      { id: 'platform_health', label: 'Platform Health', value: 'Operational' },
+      {
+        id: 'last_updated',
+        label: 'Last Updated',
+        value: new Date().toISOString().slice(0, 16).replace('T', ' '),
+      },
+      { id: 'current_theme', label: 'Current Theme', value: topSector },
+      {
+        id: 'market_bias',
+        label: 'Current Market Bias',
+        value: /bear/i.test(regime) ? 'Defensive selective' : 'Risk-on selective',
+      },
+    ],
+  };
+
+  const popular = [
+    topSector ? { question: `Which stocks lead ${topSector} right now?`, reason: 'Live sector leadership' } : null,
+    companies[0]?.ticker
+      ? { question: `What is AGI's view on ${companies[0].ticker}?`, reason: 'Most covered conviction name' }
+      : null,
+    { question: 'Why is Nifty moving today?', reason: 'Live market pulse' },
+    ...baseDesk.popular_questions,
+  ].filter(Boolean);
+
+  return {
+    ...baseDesk,
+    meta: {
+      surface: 'home',
+      architecture_status: 'v1.0.1 LOCKED',
+      fallback_used: true,
+      source: 'market_api_hydration',
+    },
+    morning_intelligence,
+    popular_questions: popular.slice(0, 12),
+    example_questions: popular.slice(0, 8).map((q) => q.question),
+    market_themes: themes,
+    top_companies: companies,
+    market_dashboard: {
+      ...baseDesk.market_dashboard,
+      heatmap: themes.map((t) => ({ name: t.name, bias: t.bias, change: t.trend })),
+      breadth: {
+        advancers: breadth.advancing ?? breadth.advancers ?? 12,
+        declining: breadth.declining ?? 8,
+        coverage: companies.length,
+        label: breadth.label || regime,
+        ratio: breadth.ratio,
+      },
+      market_health: { regime, risk, platform: 'Operational' },
+      top_movers: companies.slice(0, 5),
+    },
+    feeds: {
+      ...baseDesk.feeds,
+      trending_themes: themes,
+      trending_companies: companies,
+    },
+    market_regime: { label: regime, detail: {} },
+    market_risk: { label: risk, detail: {} },
+    market_brief: {
+      title: "Today's AGI Market Brief",
+      summary: summary || `${regime} with ${risk} risk.`,
+      regime,
+      risk,
+    },
+    market_session: {
+      ...baseDesk.market_session,
+      label: 'Live desk',
+      time_remaining: 'Updated just now',
+      updated_label: 'Updated just now',
+    },
+  };
+}

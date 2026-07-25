@@ -23,8 +23,17 @@ const hostname =
 
 const runningLocally = hostname === "localhost" || hostname === "127.0.0.1";
 
+// Production Hostinger is static — always prefer the Render API host when env was not baked in.
+const productionApiFallback =
+  hostname && /agarwalglobalinvestments\.com$/i.test(hostname)
+    ? 'https://finance-news-backend-19i5.onrender.com'
+    : null;
+
 export const API_ORIGIN =
-  runtimeOverride || viteUrl || (runningLocally ? "http://localhost:5000" : null);
+  runtimeOverride ||
+  viteUrl ||
+  (runningLocally ? 'http://localhost:5000' : null) ||
+  productionApiFallback;
 
 export default API_ORIGIN;
 

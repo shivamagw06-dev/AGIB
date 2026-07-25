@@ -7,16 +7,20 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
 
   useEffect(() => {
-    // Initial session
-    supabase.auth.getSession().then(({ data }) => {
-      setUser(data.session?.user ?? null);
-    });
+    // Initial session — never crash the app if Supabase secrets are missing.
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        setUser(data.session?.user ?? null);
+      })
+      .catch(() => {
+        setUser(null);
+      });
 
-    // Listen for changes
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
     });
-    return () => sub.subscription.unsubscribe();
+    return () => sub?.subscription?.unsubscribe?.();
   }, []);
 
   const login = async (email, options = {}) => {
