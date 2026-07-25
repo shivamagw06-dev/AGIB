@@ -132,3 +132,11 @@ Agents read **AGIB Node cached APIs only** (no direct third-party market API cal
 - Flags: `E10_P0=true`, `E10_OPTIMIZER/HRP/MVO=false`
 - ORCH: passive L4 Ready consumer
 - APIs: `GET /v1/e10/portfolio`, `GET /v1/e10/history`, `GET /v1/e10/health`
+
+### Validation & Backtesting P0 (WBS BT-001–005)
+
+- Package: `app/validation/` — Replay Engine, Golden Dataset Loader, Historical Engine Runner, Metrics, Dashboard payload
+- Pipeline: Snapshot → E01 → E14 → E02 → E03 → L4 → E10 → Metrics (isolated instances; replay store only)
+- Metrics: daily/benchmark return, hit/win rate, IC, Sharpe, Sortino, max DD, turnover, confidence calibration, bucket accuracy, parity stability
+- Flags: `BACKTEST=true`, `LIVE=false`
+- APIs: `POST /v1/validation/replay`, `GET /v1/validation/runs`, `GET /v1/validation/runs/{id}`, `GET /v1/validation/dashboard/{id}`, `GET /v1/validation/health`

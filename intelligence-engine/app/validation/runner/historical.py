@@ -1,0 +1,166 @@
+"""BT-003 Historical Engine Runner — isolated E01→E14→E02→E03→L4→E10 chain.
+
+Creates fresh engine instances so replay never mutates production singletons.
+"""
+
+from __future__ import annotations
+
+from datetime import datetime, timezone
+from typing import Any
+
+from app.engines.e01.mapping import MODEL_VERSION as E01_MODEL
+from app.engines.e01.service import E01Service, snapshot_from_macro_dict
+from app.engines.e02.mapping import MODEL_VERSION as E02_MODEL
+from app.engines.e02.service import E02Service
+from app.engines.e03.mapping import MODEL_VERSION as E03_MODEL
+from app.engines.e03.service import E03Service
+from app.engines.e10.mapping import MODEL_VERSION as E10_MODEL
+from app.engines.e10.service import E10Service
+from app.engines.e14.mapping import MODEL_VERSION as E14_MODEL
+from app.engines.e14.service import E14Service, snapshot_from_risk_dict
+from app.engines.l4.mapping import MODEL_VERSION as L4_MODEL
+from app.engines.l4.service import L4Service
+from app.features.service import FeatureRegistryService
+from app.orch.ledger import OrchLedger
+from app.validation.golden.loader import GoldenDay
+from app.validation.models import ReplayDaySlice
+
+FIXED_TS = datetime(2026, 7, 24, 12, 0, tzinfo=timezone.utc)
+
+
+class HistoricalEngineRunner:
+    """Run one as-of day through the frozen institutional DAG (replay kind)."""
+
+    def __init__(self, *, universe_id: str = "NIFTY500") -> None:
+        self.universe_id = universe_id
+        self.registry = FeatureRegistryService()
+        self.ledger = OrchLedger()
+        self.e01 = E01Service(self.registry, orch_ledger=self.ledger)
+        self.e14 = E14Service(self.registry, e01=self.e01, orch_ledger=self.ledger)
+        self.e02 = E02Service(self.registry, e01=self.e01, e14=self.e14, orch_ledger=self.ledger)
+        self.e03 = E03Service(
+            self.registry,
+            e01=self.e01,
+            e14=self.e14,
+            e02=self.e02,
+            orch_ledger=self.ledger,
+            default_universe_id=universe_id,
+        )
+        self.l4 = L4Service(
+            e01=self.e01,
+            e14=self.e14,
+            e02=self.e02,
+            e03=self.e03,
+            orch_ledger=self.ledger,
+            default_universe_id=universe_id,
+        )
+        self.e10 = E10Service(
+            l4=self.l4,
+            e14=self.e14,
+            e02=self.e02,
+            orch_ledger=self.ledger,
+            default_universe_id=universe_id,
+        )
+
+    def engine_versions(self) -> dict[str, str]:
+        return {
+            "E01": E01_MODEL,
+            "E14": E14_MODEL,
+            "E02": E02_MODEL,
+            "E03": E03_MODEL,
+            "L4": L4_MODEL,
+            "E10": E10_MODEL,
+        }
+
+    def formula_versions(self) -> dict[str, str]:
+        # Feature registry formula versions for registered calculators
+        out: dict[str, str] = {}
+        for meta in self.registry.list_features():
+            out[meta.feature_id] = meta.formula_version
+        out["SM_AGI_TECH"] = E03_MODEL
+        out["AM_INVVOL"] = E10_MODEL
+        return out
+
+    def run_day(self, day: GoldenDay, *, generated_at: datetime | None = None) -> ReplayDaySlice:
+        ts = generated_at or FIXED_TS
+        macro_snap = snapshot_from_macro_dict(day.as_of, day.macro_features)
+        risk_snap = snapshot_from_risk_dict(day.as_of, day.risk_features)
+
+        e01_state = self.e01.run(as_of=day.as_of, snapshot=macro_snap, generated_at=ts)
+        e14_state = self.e14.run(
+            as_of=day.as_of,
+            snapshot=risk_snap,
+            e01_state=e01_state,
+            generated_at=ts,
+        )
+        e02_exps = self.e02.run_universe(
+            as_of=day.as_of,
+            panels=day.e02_panels,
+            e01_state=e01_state,
+            e14_state=e14_state,
+            universe_id=self.universe_id,
+            generated_at=ts,
+        )
+        e03_alphas = self.e03.run_universe(
+            as_of=day.as_of,
+            panels=day.e03_panels,
+            e01_state=e01_state,
+            e14_state=e14_state,
+            e02_exposures=e02_exps,
+            universe_id=self.universe_id,
+            generated_at=ts,
+            run_parity=False,
+        )
+
+        l4_opinions: dict[str, Any] = {}
+        for sym, alpha in e03_alphas.items():
+            op = self.l4.run(
+                symbol=sym,
+                as_of=day.as_of,
+                e01_state=e01_state,
+                e14_state=e14_state,
+                e02_exposure=e02_exps.get(sym),
+                e03_alpha=alpha,
+                universe_id=self.universe_id,
+                generated_at=ts,
+            )
+            l4_opinions[sym] = op
+
+        portfolio = self.e10.run(
+            as_of=day.as_of,
+            opinions=l4_opinions,
+            exposures=e02_exps,
+            e14_state=e14_state,
+            universe_id=self.universe_id,
+            generated_at=ts,
+        )
+
+        # Portfolio return uses next-day forward returns from golden day
+        port_ret = 0.0
+        for sym, w in portfolio.weights.items():
+            port_ret += w * float(day.forward_returns.get(sym, 0.0))
+        # Cash earns 0 in P0 research replay
+
+        return ReplayDaySlice(
+            as_of=day.as_of,
+            e01_hash=e01_state.hash,
+            e14_hash=e14_state.hash,
+            e02_hashes={s: e.hash for s, e in e02_exps.items()},
+            e03_hashes={s: a.hash for s, a in e03_alphas.items()},
+            l4_hashes={s: o.hash for s, o in l4_opinions.items()},
+            e03_labels={s: a.label for s, a in e03_alphas.items()},
+            l4_labels={s: o.label for s, o in l4_opinions.items()},
+            e03_scores={s: a.agi_tech_score for s, a in e03_alphas.items()},
+            l4_scores={s: o.composite_score for s, o in l4_opinions.items()},
+            confidences={s: o.confidence for s, o in l4_opinions.items()},
+            portfolio_weights=dict(portfolio.weights),
+            cash_allocation=portfolio.cash_allocation,
+            portfolio_hash=portfolio.hash,
+            expected_volatility=portfolio.expected_volatility,
+            e14_risk_level=str((e14_state.metadata or {}).get("risk_level")),
+            e01_regime=str((e01_state.metadata or {}).get("primary_regime")),
+            model_versions=self.engine_versions(),
+            formula_versions={"SM_AGI_TECH": E03_MODEL, "AM_INVVOL": E10_MODEL},
+            portfolio_return=round(port_ret, 8),
+            benchmark_return=day.benchmark_return,
+        )

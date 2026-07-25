@@ -17,6 +17,7 @@ from app.engines.e10.service import E10Service
 from app.engines.l4.consumer import register_l4_with_orch
 from app.engines.l4.service import L4Service
 from app.eval.evaluation_agent import EvaluationAgent
+from app.validation.service import ValidationService
 from app.features.models import FeatureMetadata
 from app.features.service import FeatureRegistryService
 from app.market_data.client import MarketDataClient
@@ -41,6 +42,7 @@ _e02 = E02Service(_features, e01=_e01, e14=_e14, orch_ledger=_orch_ledger)
 _e03 = E03Service(_features, e01=_e01, e14=_e14, e02=_e02, orch_ledger=_orch_ledger)
 _l4 = L4Service(e01=_e01, e14=_e14, e02=_e02, e03=_e03, orch_ledger=_orch_ledger)
 _e10 = E10Service(l4=_l4, e14=_e14, e02=_e02, orch_ledger=_orch_ledger)
+_validation = ValidationService()
 
 
 def _wire_market_data_to_l2() -> None:
@@ -262,6 +264,54 @@ async def e10_portfolio(as_of: str | None = None):
 async def e10_history(limit: int = 50):
     """E10 PortfolioState history (newest first)."""
     return [s.model_dump(mode="json") for s in _e10.history(limit=min(limit, 200))]
+
+
+@router.get("/validation/health")
+async def validation_health():
+    """Validation & Backtesting platform health (BT-001–005 P0)."""
+    return _validation.health()
+
+
+@router.get("/validation/datasets")
+async def validation_datasets():
+    """List frozen golden datasets available for replay."""
+    return _validation.list_datasets()
+
+
+@router.post("/validation/replay")
+async def validation_replay(dataset_id: str = Query(default="golden_p0_v1")):
+    """Run institutional historical replay (isolated engines; no production influence)."""
+    try:
+        result = _validation.run_replay(dataset_id)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return result.model_dump(mode="json")
+
+
+@router.get("/validation/runs")
+async def validation_runs(limit: int = 50):
+    """List recent ReplayRun records."""
+    return [r.model_dump(mode="json") for r in _validation.list_runs(limit=min(limit, 200))]
+
+
+@router.get("/validation/runs/{run_id}")
+async def validation_run(run_id: str):
+    """Full ReplayResult for a run."""
+    result = _validation.get_result(run_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Replay run not found")
+    return result.model_dump(mode="json")
+
+
+@router.get("/validation/dashboard/{run_id}")
+async def validation_dashboard(run_id: str):
+    """Validation dashboard payload (timeline, portfolio, L4 vs E03, distributions)."""
+    dash = _validation.get_dashboard(run_id)
+    if dash is None:
+        raise HTTPException(status_code=404, detail="Replay dashboard not found")
+    return dash
 
 
 @router.post("/orch/l2/trigger", dependencies=[Depends(require_token)])

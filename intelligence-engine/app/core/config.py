@@ -76,6 +76,10 @@ class Settings(BaseSettings):
     e10_hrp: bool = False
     e10_mvo: bool = False
 
+    # Validation & Backtesting platform flags (P0 defaults)
+    backtest: bool = True
+    live: bool = False
+
 
 @lru_cache
 def get_settings() -> Settings:
