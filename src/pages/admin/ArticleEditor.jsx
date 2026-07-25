@@ -30,6 +30,7 @@ import {
 } from '@/lib/articleUtils';
 import { ingestArticleToIntelligence } from '@/lib/cmsIntelligence';
 import { notifySubscribers } from '@/lib/newsletterClient';
+import { normalizeArticleSection } from '@/lib/articleSections';
 import { Button } from '@/components/ui/button';
 
 const AUTOSAVE_MS = 4000;
@@ -223,12 +224,15 @@ export default function ArticleEditor() {
       const html = editor?.getHTML() || '';
       const tags = tagsInput.split(',').map((t) => t.trim()).filter(Boolean);
       const excerpt = metaDescription.trim() || htmlToExcerpt(html, 320);
+      const safeSection = normalizeArticleSection(section, {
+        forIntelligence: publishStatus === 'intelligence',
+      });
 
       const payload = {
         author_id: user.id,
         title: title.trim() || 'Untitled',
         slug: slug || toSlug(title) || `draft-${Date.now()}`,
-        section,
+        section: safeSection,
         excerpt,
         content_md: html,
         content: html,
@@ -240,7 +244,12 @@ export default function ArticleEditor() {
       if (metaDescription.trim()) payload.meta_description = metaDescription.trim();
       if (publishStatus === 'published') payload.published_at = new Date().toISOString();
       // Private intelligence notes must never appear as website posts.
-      if (publishStatus === 'intelligence') payload.published_at = null;
+      if (publishStatus === 'intelligence') {
+        payload.published_at = null;
+        payload.tags = Array.from(
+          new Set([...(payload.tags || []), 'intelligence-only', 'agi-private'])
+        );
+      }
 
       return payload;
     },
@@ -273,6 +282,7 @@ export default function ArticleEditor() {
           const fallbackPayload = {
             ...payload,
             status: 'draft',
+            section: normalizeArticleSection(payload.section || section, { forIntelligence: true }),
             tags: Array.from(new Set([...(payload.tags || []), 'intelligence-only', 'agi-private'])),
           };
           result = draftId
@@ -281,6 +291,24 @@ export default function ArticleEditor() {
           ({ data, error: saveError } = result);
           if (!saveError) {
             setError('Saved for intelligence. Run the CMS migration to enable status=intelligence in Supabase.');
+          }
+        }
+
+        // Section value not in DB check constraint — coerce to a known-safe section and retry once.
+        if (saveError && /articles_section_allowed|section_allowed/i.test(saveError.message || '')) {
+          const fallbackPayload = {
+            ...payload,
+            section: publishStatus === 'intelligence' ? 'Intelligence' : 'Research Reports',
+          };
+          result = draftId
+            ? await supabase.from('articles').update(fallbackPayload).eq('id', draftId).select('id, slug, status').single()
+            : await supabase.from('articles').insert(fallbackPayload).select('id, slug, status').single();
+          ({ data, error: saveError } = result);
+          if (!saveError) {
+            setSection(fallbackPayload.section);
+            setError(
+              `Section was adjusted to "${fallbackPayload.section}" because the database section list needs updating. Run the latest CMS section migration in Supabase.`
+            );
           }
         }
 
