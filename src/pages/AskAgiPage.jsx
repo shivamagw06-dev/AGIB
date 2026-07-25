@@ -12,6 +12,7 @@ import {
   saveAnswer,
   saveSearch,
 } from '@/lib/searchHistory';
+import { trackProductEvent } from '@/lib/productAnalytics';
 
 export default function AskAgiPage() {
   const [params] = useSearchParams();
@@ -28,8 +29,13 @@ export default function AskAgiPage() {
     let active = true;
     setState({ loading: true, pack: null, error: null });
     pushSearch(question);
+    trackProductEvent('question_asked', { question });
     postUiSearch(question)
-      .then((pack) => active && setState({ loading: false, pack, error: null }))
+      .then((pack) => {
+        if (!active) return;
+        setState({ loading: false, pack, error: null });
+        trackProductEvent('search_success', { question });
+      })
       .catch((error) => active && setState({ loading: false, pack: null, error }));
     return () => {
       active = false;
@@ -39,6 +45,7 @@ export default function AskAgiPage() {
   const onFollowUp = (q) => {
     const next = String(q || '').trim();
     if (!next) return;
+    trackProductEvent('follow_up_question', { question: next });
     navigate(`/ask?q=${encodeURIComponent(next)}`);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };

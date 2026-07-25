@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import { ChevronRight } from 'lucide-react';
 import MorningBriefHero from '@/components/Home/MorningBriefHero';
 import AskAgiBar from '@/components/Home/AskAgiBar';
@@ -16,6 +17,8 @@ import usePublishedArticles from '@/hooks/usePublishedArticles';
 import useUiHome from '@/hooks/useUiHome';
 import { MARKET_UPDATE_SECTIONS, SECTOR_RESEARCH } from '@/config/sectors';
 import { formatTimeAgo } from '@/lib/articleUtils';
+import { trackProductEvent } from '@/lib/productAnalytics';
+import { useEffect } from 'react';
 
 function SectionHeader({ title, subtitle, href, linkLabel = 'View all →' }) {
   return (
@@ -98,6 +101,10 @@ export default function EditorialHome() {
     section: null,
   });
 
+  useEffect(() => {
+    trackProductEvent('session_start', { surface: 'home' });
+  }, []);
+
   const featuredResearch = research.filter(
     (a) =>
       a.section?.includes('Research') ||
@@ -119,9 +126,29 @@ export default function EditorialHome() {
   const themes = uiHome?.market_themes || uiHome?.feeds?.trending_themes || [];
   const calendar = uiHome?.economic_calendar || [];
   const knowledge = uiHome?.latest_news || [];
+  const predictions = uiHome?.feeds?.latest_predictions || [];
 
   return (
     <div className="bg-white min-h-screen">
+      <Helmet>
+        <title>AGI — Institutional Investment Research</title>
+        <meta
+          name="description"
+          content="What AGI believes today, why, the evidence, what changed, and where to explore next — Ask AGI, company, sector, theme and macro intelligence."
+        />
+        <link rel="canonical" href="https://agarwalglobalinvestments.com/" />
+        <meta property="og:title" content="Agarwal Global Investments" />
+        <meta property="og:description" content="Talk to the Investment Office. Evidence-backed institutional research." />
+        <script type="application/ld+json">
+          {JSON.stringify({
+            '@context': 'https://schema.org',
+            '@type': 'Organization',
+            name: 'Agarwal Global Investments',
+            url: 'https://agarwalglobalinvestments.com/',
+            description: 'Independent institutional investment research',
+          })}
+        </script>
+      </Helmet>
       <div className="max-w-[1800px] mx-auto px-4 sm:px-6">
         {/* Hero — existing design, live intelligence */}
         <MorningBriefHero uiHome={uiHome} uiLoading={uiLoading} />
@@ -143,6 +170,12 @@ export default function EditorialHome() {
                 examples={uiHome?.example_questions || []}
                 autoFocus={false}
               />
+            </div>
+            <div className="mt-4 flex flex-wrap gap-2 text-[11px] font-bold">
+              <Link to="/ask" className="border border-[#ddd] px-2.5 py-1.5 hover:text-[#ff6600]">Open Ask AGI</Link>
+              <Link to="/predictions" className="border border-[#ddd] px-2.5 py-1.5 hover:text-[#ff6600]">Prediction Centre</Link>
+              <Link to="/workspace" className="border border-[#ddd] px-2.5 py-1.5 hover:text-[#ff6600]">Personal Workspace</Link>
+              <Link to="/macro-intelligence" className="border border-[#ddd] px-2.5 py-1.5 hover:text-[#ff6600]">Macro Intelligence</Link>
             </div>
           </div>
         </section>
@@ -270,6 +303,31 @@ export default function EditorialHome() {
               <MarketUpdateSectionLoader sectionId="midday" />
               <MarketUpdateSectionLoader sectionId="market-close" />
             </div>
+          )}
+        </section>
+
+        {/* Latest Predictions */}
+        <section className="py-8 border-b border-[#dddddd]">
+          <SectionHeader title="Latest Predictions" subtitle="Public prediction tracker" href="/predictions" />
+          {predictions.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {predictions.slice(0, 6).map((p) => (
+                <Link
+                  key={p.id}
+                  to={p.ticker ? `/research/stocks/${encodeURIComponent(p.ticker)}` : '/predictions'}
+                  className="border border-[#dddddd] p-4 hover:border-[#111]"
+                >
+                  <p className="text-[10px] font-bold uppercase text-[#ff6600]">{p.ticker || 'Prediction'}</p>
+                  <p className="mt-2 text-sm font-bold text-[#111] line-clamp-2">{p.thesis || p.target_horizon}</p>
+                  <p className="mt-2 text-[11px] text-[#767676] capitalize">{p.current_status || 'open'}</p>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-[#767676]">
+              Predictions populate as forward-looking views are recorded.{' '}
+              <Link to="/predictions" className="font-bold hover:text-[#ff6600]">Open Prediction Centre →</Link>
+            </p>
           )}
         </section>
 

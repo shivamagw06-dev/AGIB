@@ -29,6 +29,7 @@ from app.ui.models import (
     HomeView,
     MacroView,
     PortfolioView,
+    PredictionCentreView,
     ResearchView,
     SearchView,
     SectorView,
@@ -36,6 +37,16 @@ from app.ui.models import (
     TimelineView,
     UiMeta,
     WorkflowView,
+)
+from app.ui.product import (
+    accuracy_summary,
+    discovery_pack,
+    enrichment_meta,
+    macro_intelligence,
+    prediction_row,
+    sector_intelligence,
+    theme_intelligence,
+    thesis_status,
 )
 from app.ui.questions import (
     SEED_QUESTIONS,
@@ -184,13 +195,26 @@ class UiService:
             )
             or "ok",
         }
+        latest_preds: list[dict[str, Any]] = []
+        if self.kip:
+            for row in top_companies[:6]:
+                tk = str((row or {}).get("ticker") or "").upper()
+                if not tk:
+                    continue
+                for p in soft(self.kip.predictions, tk, default=[]) or []:
+                    pr = prediction_row(dump(p), ticker=tk)
+                    if pr:
+                        latest_preds.append(pr)
+                if len(latest_preds) >= 8:
+                    break
+
         feeds = {
             "latest_research": [scrub(r) for r in published[:6]],
             "most_read": [scrub(r) for r in todays[:6]],
             "trending_companies": top_companies,
             "trending_themes": themes[:8],
             "most_asked_questions": popular[:6],
-            "latest_predictions": [],
+            "latest_predictions": latest_preds[:8],
             "latest_macro_changes": [
                 {"label": market_regime.get("label"), "type": "regime"},
                 {"label": market_risk.get("label"), "type": "risk"},
@@ -293,11 +317,48 @@ class UiService:
         evo = None
         if self.aip:
             evo = soft(self.aip.house_view_evolution, t)
+        pred_hist = scrub(ws.get("prediction_history") or [])
+        if self.kip and not pred_hist:
+            for p in soft(self.kip.predictions, t, default=[]) or []:
+                pr = prediction_row(dump(p), ticker=t)
+                if pr:
+                    pred_hist.append(pr)
         portfolio = {
             "current_exposure": ws.get("portfolio_weight"),
-            "prediction_history": scrub(ws.get("prediction_history") or []),
+            "prediction_history": pred_hist[:12],
             "house_view_evolution": scrub(evo) if evo else scrub(_timeline_events(ws.get("research_timeline"))),
         }
+
+        graph_raw = ws.get("knowledge_graph")
+        if graph_raw is None and self.kip:
+            graph_raw = dump(soft(self.kip.graph, t))
+        kg = knowledge_graph_view(graph_raw if isinstance(graph_raw, dict) else None, t)
+        themes = list((house or {}).get("themes") or [])[:6]
+        sectors = list((house or {}).get("sectors") or [])[:4]
+        followups = follow_up_questions(
+            question=f"What is AGI's view on {t}?",
+            intent="company",
+            related_companies=[t],
+            related_themes=themes,
+            house_label=str(overview.get("house_view") or ""),
+            risks=list(overview.get("current_risks") or []),
+            catalysts=list(overview.get("current_catalysts") or []),
+            knowledge_graph=kg,
+        )
+        related_cos = [str(x).upper() for x in (kg.get("buckets") or {}).get("related_companies", [])][:8]
+        valuation = scrub(ws.get("valuation") or dossier.get("valuation") or {})
+        meta = enrichment_meta(
+            last_updated=overview.get("last_updated"),
+            freshness_score=(ws.get("freshness") or {}).get("score")
+            if isinstance(ws.get("freshness"), dict)
+            else ws.get("freshness_score"),
+            evidence_count=len(evidence.get("supporting_research") or [])
+            + len(evidence.get("conflicting_research") or []),
+            research_count=len(research.get("latest_agi_articles") or []),
+        )
+        overview["freshness_indicator"] = meta["freshness_indicator"]
+        overview["evidence_count"] = meta["evidence_count"]
+        overview["research_count"] = meta["research_count"]
 
         return CompanyView(
             meta=UiMeta(
@@ -310,6 +371,18 @@ class UiService:
             research=research,
             evidence=evidence,
             portfolio=portfolio,
+            valuation_snapshot=valuation if isinstance(valuation, dict) else {},
+            product_meta=meta,
+            discovery=discovery_pack(
+                companies=[t] + related_cos,
+                themes=themes,
+                sectors=sectors,
+                research=research.get("latest_agi_articles") or [],
+                questions=followups,
+            ),
+            follow_up_questions=followups,
+            knowledge_graph=kg,
+            prediction_timeline=pred_hist[:12],
         )
 
     def search(self, question: str, *, ticker: str | None = None) -> SearchView:
@@ -793,6 +866,23 @@ class UiService:
             previous = scrub(hist.get("agi_reports") or [])[:8]
             updates = _kip_news(self.kip, primary, limit=5)
 
+        status = thesis_status(house=house if isinstance(house, dict) else None)
+        preds: list[dict[str, Any]] = []
+        if primary and self.kip:
+            for p in soft(self.kip.predictions, primary, default=[]) or []:
+                pr = prediction_row(dump(p), ticker=primary)
+                if pr:
+                    preds.append(pr)
+        qs = follow_up_questions(
+            question=f"Summarise research {aid}",
+            intent="research",
+            related_companies=[str(t).upper() for t in tickers],
+            related_themes=[str(t) for t in themes],
+            house_label=str((house or {}).get("current_view") or (house or {}).get("stance") or "")
+            if isinstance(house, dict)
+            else None,
+            recent_research_titles=[str(x.get("title")) for x in previous[:3] if isinstance(x, dict)],
+        )
         return ArticleView(
             meta=UiMeta(surface="article", sources=["knowledge", "research_desk", "research_committee"]),
             article_id=aid,
@@ -805,6 +895,18 @@ class UiService:
             confidence=float(conf) if conf is not None else None,
             latest_updates=updates,
             supporting_evidence=_as_docs(scrub(research.get("supporting_documents") or []))[:20],
+            whats_changed_since_publication=status.get("whats_changed_since_publication") or [],
+            thesis_still_holds=status.get("thesis_still_holds"),
+            thesis_status=status,
+            prediction_status=preds[:8],
+            latest_news=updates,
+            discovery=discovery_pack(
+                companies=[str(t).upper() for t in tickers],
+                themes=[str(t) for t in themes],
+                research=previous,
+                questions=qs,
+            ),
+            follow_up_questions=qs,
         )
 
     def research(self, research_id: str) -> ResearchView:
@@ -870,23 +972,46 @@ class UiService:
         ws = ws or {}
         theme = scrub(ws.get("theme")) or {}
         docs = _as_docs(scrub(ws.get("documents") or ws.get("search_hits") or []))
-        companies = list(ws.get("related_companies") or theme.get("tickers") or [])
+        companies = [str(c).upper() for c in (ws.get("related_companies") or theme.get("tickers") or [])]
         risks = list(theme.get("risks") or [])[:10]
         catalysts = list(theme.get("catalysts") or [])[:10]
         thesis = theme.get("thesis") or theme.get("summary") or theme.get("theme")
         house = None
+        graph = None
         if companies and self.kip:
             house = scrub(dump(soft(self.kip.house_view, str(companies[0]).upper())))
+            graph = scrub(dump(soft(self.kip.graph, str(companies[0]).upper())))
+        timeline = _timeline_events(ws.get("knowledge_graph") or ws.get("timeline"))
+        intel = theme_intelligence(
+            theme_id=theme_id,
+            thesis=scrub_text(thesis) if thesis else None,
+            companies=companies,
+            risks=[scrub_text(str(r)) or "" for r in risks],
+            catalysts=[scrub_text(str(c)) or "" for c in catalysts],
+            research=docs[:15],
+            house=house if isinstance(house, dict) else None,
+            graph=graph if isinstance(graph, dict) else None,
+            timeline=timeline,
+            macro_themes=list(theme.get("related_macro") or theme.get("macro_themes") or [])[:6],
+        )
         return ThemeView(
             meta=UiMeta(surface="theme", sources=["knowledge"]),
             theme_id=theme_id,
             current_thesis=scrub_text(thesis) if thesis else None,
-            related_companies=[str(c).upper() for c in companies],
+            related_companies=companies,
             related_research=docs[:15],
             current_risks=[scrub_text(str(r)) or "" for r in risks],
             current_catalysts=[scrub_text(str(c)) or "" for c in catalysts],
             house_view=house,
-            timeline=_timeline_events(ws.get("knowledge_graph")),
+            timeline=timeline,
+            confidence=intel.get("confidence"),
+            stance=intel.get("stance"),
+            related_macro=intel.get("related_macro") or [],
+            knowledge_graph=intel.get("knowledge_graph") or {},
+            research_timeline=intel.get("research_timeline") or [],
+            follow_up_questions=intel.get("follow_up_questions") or [],
+            discovery=intel.get("discovery") or {},
+            product_meta=intel.get("product_meta") or {},
         )
 
     def sector(self, sector_id: str) -> SectorView:
@@ -902,7 +1027,25 @@ class UiService:
         leaders = [k for k, _ in ranked[:5]]
         laggards = [k for k, _ in ranked[-3:]] if len(ranked) > 3 else []
         research = scrub(ws.get("rms_research") or ws.get("documents") or [])[:12]
+        if not isinstance(research, list):
+            research = []
         health = "Active coverage" if ranked else "Limited coverage"
+        valuation = scrub(ws.get("portfolio_exposure") or {})
+        risks = [scrub_text(str(r)) or "" for r in (ws.get("risks") or [])][:8]
+        opportunities = [scrub_text(str(o)) or "" for o in (ws.get("opportunities") or [])][:8]
+        macro_drivers = [scrub_text(str(m)) or "" for m in (ws.get("macro_drivers") or [])][:8]
+        intel = sector_intelligence(
+            sector_id=sector_id,
+            health=health,
+            leaders=leaders,
+            laggards=laggards,
+            research=research,
+            valuation=valuation if isinstance(valuation, dict) else {},
+            risks=risks,
+            opportunities=opportunities,
+            macro_drivers=macro_drivers,
+            timeline=_as_docs(research),
+        )
         return SectorView(
             meta=UiMeta(surface="sector", sources=["knowledge", "research_desk", "model_portfolio"]),
             sector_id=sector_id,
@@ -910,9 +1053,17 @@ class UiService:
             leaders=leaders,
             laggards=laggards,
             current_theme=sector_id,
-            current_risks=[],
-            current_research=research if isinstance(research, list) else [],
-            valuation_snapshot=scrub(ws.get("portfolio_exposure") or {}),
+            current_risks=intel.get("current_risks") or risks,
+            current_research=research,
+            valuation_snapshot=valuation if isinstance(valuation, dict) else {},
+            current_outlook=intel.get("current_outlook"),
+            current_opportunities=intel.get("current_opportunities") or [],
+            macro_drivers=intel.get("macro_drivers") or [],
+            sector_timeline=intel.get("sector_timeline") or [],
+            valuation_summary=intel.get("valuation_summary") or {},
+            follow_up_questions=intel.get("follow_up_questions") or [],
+            discovery=intel.get("discovery") or {},
+            product_meta=intel.get("product_meta") or {},
         )
 
     def dashboard(self) -> DashboardView:
@@ -948,6 +1099,27 @@ class UiService:
             if isinstance(d, dict)
             and any(x in str(d.get("title") or "").lower() for x in ("rbi", "fed", "ecb", "central"))
         ][:8]
+        theme_names: list[str] = []
+        for t in themes or []:
+            if isinstance(t, dict):
+                name = t.get("name") or t.get("id")
+                if name:
+                    theme_names.append(str(name))
+            elif t:
+                theme_names.append(str(t))
+        related_companies: list[str] = []
+        port = dump(soft(self.aws.portfolio)) if self.aws else None
+        book = (port or {}).get("l4_book") or {}
+        if isinstance(book, dict):
+            related_companies = [str(k).upper() for k in list(book.keys())[:8]]
+        intel = macro_intelligence(
+            regime=regime if isinstance(regime, dict) else None,
+            risk=risk if isinstance(risk, dict) else None,
+            events=scrub(events)[:10],
+            research=_as_docs(docs)[:15],
+            themes=theme_names,
+            related_companies=related_companies,
+        )
         return MacroView(
             meta=UiMeta(surface="macro", sources=["market_regime", "market_risk", "knowledge"]),
             current_regime={
@@ -965,6 +1137,59 @@ class UiService:
             macro_research=_as_docs(docs)[:15],
             central_bank_events=scrub(events)[:10],
             market_risk=risk if isinstance(risk, dict) else {},
+            intelligence=intel,
+            follow_up_questions=intel.get("follow_up_questions") or [],
+            discovery=intel.get("discovery") or {},
+        )
+
+    def predictions(self) -> PredictionCentreView:
+        self._require()
+        preds: list[dict[str, Any]] = []
+        home = self.home()
+        tickers = [str(c.get("ticker")).upper() for c in (home.top_companies or []) if c.get("ticker")]
+        if self.kip:
+            for tk in tickers[:12]:
+                for p in soft(self.kip.predictions, tk, default=[]) or []:
+                    pr = prediction_row(dump(p), ticker=tk)
+                    if pr:
+                        preds.append(pr)
+        # de-dupe by id
+        seen: set[str] = set()
+        uniq: list[dict[str, Any]] = []
+        for p in preds:
+            pid = str(p.get("id"))
+            if pid in seen:
+                continue
+            seen.add(pid)
+            uniq.append(p)
+        acc = accuracy_summary(uniq)
+        qs = follow_up_questions(
+            question="How accurate are AGI predictions?",
+            intent="prediction",
+            related_companies=tickers[:6],
+            related_themes=[str(t.get("id") or t.get("name")) for t in (home.market_themes or [])][:4],
+            house_label=None,
+        )
+        timeline = [
+            {
+                "as_of": p.get("publication_date"),
+                "type": "prediction",
+                "title": p.get("thesis") or p.get("ticker"),
+                "summary": f"{p.get('current_status')} · {p.get('target_horizon')}",
+            }
+            for p in uniq[:20]
+        ]
+        return PredictionCentreView(
+            meta=UiMeta(surface="predictions", sources=["knowledge", "evaluation"]),
+            predictions=uniq[:40],
+            accuracy=acc,
+            prediction_timeline=enrich_timeline(timeline),
+            discovery=discovery_pack(
+                companies=tickers,
+                themes=[str(t.get("id") or t.get("name")) for t in (home.market_themes or [])][:6],
+                questions=qs,
+            ),
+            follow_up_questions=qs,
         )
 
     def portfolio(self) -> PortfolioView:

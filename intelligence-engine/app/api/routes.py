@@ -1500,6 +1500,14 @@ async def ui_macro():
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+@router.get("/ui/predictions")
+async def ui_predictions():
+    try:
+        return _ui.predictions().model_dump(mode="json")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 @router.get("/ui/portfolio")
 async def ui_portfolio():
     try:

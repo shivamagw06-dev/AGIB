@@ -266,12 +266,65 @@ export default function MacroIntelligence() {
     scrollToId(id === 'overview' ? 'macro-hero' : id);
   };
 
+  const intel = uiMacro?.intelligence || {};
+
   return (
     <div className="min-h-screen bg-[#f5f7fb] text-[#101828]">
       <Helmet>
         <title>Macro Intelligence | Agarwal Global Investments</title>
-        <meta name="description" content="AGI institutional macro research workspace — Chief Economist brief, transmission maps, sector impact and policy intelligence." />
+        <meta name="description" content="AGI institutional macro research workspace — what happened, why, who benefits, who loses, and how the house view changed." />
+        <link rel="canonical" href="https://agarwalglobalinvestments.com/macro-intelligence" />
+        <meta property="og:title" content="Macro Intelligence | AGI" />
+        <meta property="og:description" content="Transform macro data into investment intelligence." />
+        <script type="application/ld+json">
+          {JSON.stringify({
+            '@context': 'https://schema.org',
+            '@type': 'WebPage',
+            name: 'AGI Macro Intelligence',
+            description: intel.what_happened || 'Institutional macro investment intelligence',
+          })}
+        </script>
       </Helmet>
+
+      {(intel.what_happened || (uiMacro?.follow_up_questions || []).length > 0) && (
+        <section className="border-b border-[#e7eaf0] bg-white">
+          <div className="mx-auto max-w-[1600px] px-4 py-5 sm:px-6">
+            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#ff6600]">Investment intelligence</p>
+            <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <div className="border border-[#e7eaf0] p-4">
+                <p className="text-[10px] font-bold uppercase text-[#667085]">What happened</p>
+                <p className="mt-2 text-sm font-semibold text-[#101828]">{intel.what_happened || uiMacro?.current_regime?.label || '—'}</p>
+              </div>
+              <div className="border border-[#e7eaf0] p-4">
+                <p className="text-[10px] font-bold uppercase text-[#667085]">Why</p>
+                <p className="mt-2 text-sm text-[#344054]">{intel.why || 'Regime context from the institutional desk.'}</p>
+              </div>
+              <div className="border border-[#e7eaf0] p-4">
+                <p className="text-[10px] font-bold uppercase text-[#667085]">Who benefits</p>
+                <p className="mt-2 text-sm text-[#344054]">{(intel.who_benefits || []).join(' · ') || '—'}</p>
+              </div>
+              <div className="border border-[#e7eaf0] p-4">
+                <p className="text-[10px] font-bold uppercase text-[#667085]">How AGI view changed</p>
+                <p className="mt-2 text-sm text-[#344054]">{intel.how_view_changed || 'See What Changed below.'}</p>
+              </div>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {(uiMacro?.follow_up_questions || []).slice(0, 4).map((q) => (
+                <Link
+                  key={q}
+                  to={`/ask?q=${encodeURIComponent(q)}`}
+                  className="text-[11px] border border-[#ddd] bg-white px-2.5 py-1.5 font-bold text-[#101828] hover:text-[#ff6600]"
+                >
+                  {q}
+                </Link>
+              ))}
+              <Link to="/predictions" className="text-[11px] border border-[#ddd] bg-white px-2.5 py-1.5 font-bold hover:text-[#ff6600]">
+                Prediction Centre →
+              </Link>
+            </div>
+          </div>
+        </section>
+      )}
 
       <div className="mx-auto flex min-h-screen max-w-[1600px]">
         {/* Workspace sidebar */}

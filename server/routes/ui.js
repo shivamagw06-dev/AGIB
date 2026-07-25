@@ -65,6 +65,7 @@ export default function createUiRouter() {
     '/timeline/:entity',
     '/theme/:themeId',
     '/sector/:sectorId',
+    '/predictions',
     '/copilot',
     '/autocomplete',
   ];

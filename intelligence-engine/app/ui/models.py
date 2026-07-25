@@ -54,6 +54,13 @@ class CompanyView(BaseModel):
     research: dict[str, Any] = Field(default_factory=dict)
     evidence: dict[str, Any] = Field(default_factory=dict)
     portfolio: dict[str, Any] = Field(default_factory=dict)
+    # AGI Product V1
+    valuation_snapshot: dict[str, Any] = Field(default_factory=dict)
+    product_meta: dict[str, Any] = Field(default_factory=dict)
+    discovery: dict[str, Any] = Field(default_factory=dict)
+    follow_up_questions: list[str] = Field(default_factory=list)
+    knowledge_graph: dict[str, Any] = Field(default_factory=dict)
+    prediction_timeline: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class SearchView(BaseModel):
@@ -130,6 +137,14 @@ class ArticleView(BaseModel):
     confidence: float | None = None
     latest_updates: list[dict[str, Any]] = Field(default_factory=list)
     supporting_evidence: list[dict[str, Any]] = Field(default_factory=list)
+    # AGI Product V1 — living research
+    whats_changed_since_publication: list[str] = Field(default_factory=list)
+    thesis_still_holds: bool | None = None
+    thesis_status: dict[str, Any] = Field(default_factory=dict)
+    prediction_status: list[dict[str, Any]] = Field(default_factory=list)
+    latest_news: list[dict[str, Any]] = Field(default_factory=list)
+    discovery: dict[str, Any] = Field(default_factory=dict)
+    follow_up_questions: list[str] = Field(default_factory=list)
 
 
 class AutocompleteView(BaseModel):
@@ -175,6 +190,15 @@ class ThemeView(BaseModel):
     current_catalysts: list[str] = Field(default_factory=list)
     house_view: dict[str, Any] | None = None
     timeline: list[dict[str, Any]] = Field(default_factory=list)
+    # AGI Product V1
+    confidence: float | None = None
+    stance: str | None = None
+    related_macro: list[str] = Field(default_factory=list)
+    knowledge_graph: dict[str, Any] = Field(default_factory=dict)
+    research_timeline: list[dict[str, Any]] = Field(default_factory=list)
+    follow_up_questions: list[str] = Field(default_factory=list)
+    discovery: dict[str, Any] = Field(default_factory=dict)
+    product_meta: dict[str, Any] = Field(default_factory=dict)
 
 
 class SectorView(BaseModel):
@@ -189,6 +213,15 @@ class SectorView(BaseModel):
     current_risks: list[str] = Field(default_factory=list)
     current_research: list[dict[str, Any]] = Field(default_factory=list)
     valuation_snapshot: dict[str, Any] = Field(default_factory=dict)
+    # AGI Product V1
+    current_outlook: str | None = None
+    current_opportunities: list[str] = Field(default_factory=list)
+    macro_drivers: list[str] = Field(default_factory=list)
+    sector_timeline: list[dict[str, Any]] = Field(default_factory=list)
+    valuation_summary: dict[str, Any] = Field(default_factory=dict)
+    follow_up_questions: list[str] = Field(default_factory=list)
+    discovery: dict[str, Any] = Field(default_factory=dict)
+    product_meta: dict[str, Any] = Field(default_factory=dict)
 
 
 class DashboardView(BaseModel):
@@ -216,6 +249,21 @@ class MacroView(BaseModel):
     macro_research: list[dict[str, Any]] = Field(default_factory=list)
     central_bank_events: list[dict[str, Any]] = Field(default_factory=list)
     market_risk: dict[str, Any] = Field(default_factory=dict)
+    # AGI Product V1 — investment intelligence layer
+    intelligence: dict[str, Any] = Field(default_factory=dict)
+    follow_up_questions: list[str] = Field(default_factory=list)
+    discovery: dict[str, Any] = Field(default_factory=dict)
+
+
+class PredictionCentreView(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    meta: UiMeta
+    predictions: list[dict[str, Any]] = Field(default_factory=list)
+    accuracy: dict[str, Any] = Field(default_factory=dict)
+    prediction_timeline: list[dict[str, Any]] = Field(default_factory=list)
+    discovery: dict[str, Any] = Field(default_factory=dict)
+    follow_up_questions: list[str] = Field(default_factory=list)
 
 
 class PortfolioView(BaseModel):

@@ -3,6 +3,9 @@ const FAV_COMPANIES = 'agi_fav_companies_v1';
 const FAV_THEMES = 'agi_fav_themes_v1';
 const SAVED = 'agi_saved_searches_v1';
 const SAVED_ANSWERS = 'agi_saved_answers_v1';
+const READING = 'agi_reading_history_v1';
+const WATCHLIST = 'agi_watchlist_v1';
+const BOOKMARKS = 'agi_bookmarks_v1';
 
 function read(key, fallback = []) {
   try {
@@ -91,4 +94,56 @@ export function saveAnswer(answer) {
   );
   write(SAVED_ANSWERS, [row, ...prev].slice(0, 40));
   return getSavedAnswers();
+}
+
+export function getReadingHistory(limit = 20) {
+  return read(READING).slice(0, limit);
+}
+
+export function pushReading(item) {
+  const title = String(item?.title || item?.id || '').trim();
+  if (!title) return getReadingHistory();
+  const row = {
+    id: item?.id || title,
+    title,
+    href: item?.href || (item?.id ? `/article/${encodeURIComponent(item.id)}` : '/research'),
+    at: new Date().toISOString(),
+  };
+  const prev = read(READING).filter((x) => x.id !== row.id);
+  write(READING, [row, ...prev].slice(0, 50));
+  return getReadingHistory();
+}
+
+export function getWatchlist() {
+  const explicit = read(WATCHLIST);
+  if (explicit.length) return explicit;
+  return getFavouriteCompanies();
+}
+
+export function toggleWatchlist(ticker) {
+  const t = String(ticker || '').toUpperCase();
+  if (!t) return getWatchlist();
+  const prev = read(WATCHLIST);
+  const base = prev.length ? prev : getFavouriteCompanies();
+  const next = base.includes(t) ? base.filter((x) => x !== t) : [t, ...base].slice(0, 40);
+  write(WATCHLIST, next);
+  return next;
+}
+
+export function getBookmarks(limit = 20) {
+  return read(BOOKMARKS).slice(0, limit);
+}
+
+export function pushBookmark(item) {
+  const href = String(item?.href || '').trim();
+  if (!href) return getBookmarks();
+  const row = {
+    id: item?.id || href,
+    title: item?.title || href,
+    href,
+    at: new Date().toISOString(),
+  };
+  const prev = read(BOOKMARKS).filter((x) => x.href !== href);
+  write(BOOKMARKS, [row, ...prev].slice(0, 50));
+  return getBookmarks();
 }

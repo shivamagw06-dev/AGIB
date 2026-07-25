@@ -2,7 +2,10 @@
  * Flagship company intelligence panels — extends existing page styling.
  * Does not expose internal engine names.
  */
+import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import DiscoveryRail from '@/components/Product/DiscoveryRail';
+import { trackProductEvent } from '@/lib/productAnalytics';
 
 function Card({ title, children }) {
   return (
@@ -47,12 +50,19 @@ function DocList({ items }) {
 }
 
 export default function CompanyIntelligencePanels({ data }) {
+  useEffect(() => {
+    if (data?.ticker) trackProductEvent('company_viewed', { ticker: data.ticker });
+  }, [data?.ticker]);
+
   if (!data) return null;
   const overview = data.overview || {};
   const mi = data.market_intelligence || {};
   const research = data.research || {};
   const evidence = data.evidence || {};
   const portfolio = data.portfolio || {};
+  const meta = data.product_meta || {};
+  const valuation = data.valuation_snapshot || {};
+  const kg = data.knowledge_graph?.buckets || {};
 
   const intelRows = [
     ['Technical Summary', asText(mi.technical_summary)],
@@ -82,9 +92,27 @@ export default function CompanyIntelligencePanels({ data }) {
                 : '—'}
             </p>
           </div>
-          <div className="border border-[#edf0f2] p-3 sm:col-span-2">
+          <div className="border border-[#edf0f2] p-3">
             <p className="text-[10px] font-bold uppercase tracking-wide text-[#737982]">Last Updated</p>
-            <p className="mt-1 text-sm font-bold text-[#18202b]">{overview.last_updated || '—'}</p>
+            <p className="mt-1 text-sm font-bold text-[#18202b]">{overview.last_updated || meta.last_updated || '—'}</p>
+          </div>
+          <div className="border border-[#edf0f2] p-3">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-[#737982]">Freshness</p>
+            <p className="mt-1 text-sm font-bold text-[#18202b] capitalize">
+              {overview.freshness_indicator || meta.freshness_indicator || '—'}
+            </p>
+          </div>
+          <div className="border border-[#edf0f2] p-3">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-[#737982]">Evidence</p>
+            <p className="mt-1 text-sm font-bold text-[#18202b]">
+              {overview.evidence_count ?? meta.evidence_count ?? 0}
+            </p>
+          </div>
+          <div className="border border-[#edf0f2] p-3">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-[#737982]">Research</p>
+            <p className="mt-1 text-sm font-bold text-[#18202b]">
+              {overview.research_count ?? meta.research_count ?? 0}
+            </p>
           </div>
         </div>
         {overview.investment_thesis && (
@@ -110,15 +138,51 @@ export default function CompanyIntelligencePanels({ data }) {
             />
           </Card>
         </div>
-        <div className="mt-4">
+        <div className="mt-4 flex flex-wrap gap-3">
           <Link
             to={`/ask?q=${encodeURIComponent(`What is AGI's view on ${data.ticker}?`)}`}
             className="text-xs font-bold text-[#274c77] hover:underline"
           >
             Ask AGI about {data.ticker} →
           </Link>
+          <Link to="/predictions" className="text-xs font-bold text-[#274c77] hover:underline">
+            Prediction Centre →
+          </Link>
+          <Link to="/workspace" className="text-xs font-bold text-[#274c77] hover:underline">
+            Save to workspace →
+          </Link>
         </div>
       </section>
+
+      {(Object.keys(valuation).length > 0 || (data.prediction_timeline || []).length > 0) && (
+        <section>
+          <h2 className="text-sm font-bold text-[#18202b] mb-3">Valuation & Predictions</h2>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <Card title="Valuation Snapshot">
+              {Object.keys(valuation).length ? (
+                <ul className="space-y-1 text-xs">
+                  {Object.entries(valuation).slice(0, 8).map(([k, v]) => (
+                    <li key={k} className="flex justify-between gap-3 border-b border-[#edf0f2] py-1">
+                      <span className="text-[#737982]">{k.replace(/_/g, ' ')}</span>
+                      <span className="font-bold text-[#18202b]">{typeof v === 'object' ? asText(v) || '—' : String(v)}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-xs text-[#929292]">Valuation context loads with coverage.</p>
+              )}
+            </Card>
+            <Card title="Prediction Timeline">
+              <DocList
+                items={(data.prediction_timeline || portfolio.prediction_history || []).map((p) => ({
+                  title: `${p.ticker || data.ticker} · ${p.current_status || p.status || 'open'}`,
+                  snippet: p.thesis || p.target_horizon || p.horizon || '',
+                }))}
+              />
+            </Card>
+          </div>
+        </section>
+      )}
 
       {intelRows.length > 0 && (
         <section>
@@ -203,6 +267,54 @@ export default function CompanyIntelligencePanels({ data }) {
           </Link>
         </div>
       </section>
+
+      {Object.keys(kg).length > 0 && (
+        <section>
+          <h2 className="text-sm font-bold text-[#18202b] mb-3">Related Network</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {Object.entries(kg).slice(0, 6).map(([key, vals]) => (
+              <Card key={key} title={key.replace(/_/g, ' ')}>
+                <div className="flex flex-wrap gap-1">
+                  {(vals || []).slice(0, 5).map((v) => (
+                    <Link
+                      key={v}
+                      to={
+                        key.includes('theme') || key.includes('macro')
+                          ? `/themes/${encodeURIComponent(v)}`
+                          : key.includes('sector') || key.includes('industry')
+                            ? `/sectors/${encodeURIComponent(v)}`
+                            : `/research/stocks/${encodeURIComponent(v)}`
+                      }
+                      className="text-[11px] border border-[#ddd] px-1.5 py-0.5 hover:text-[#ff6600]"
+                    >
+                      {v}
+                    </Link>
+                  ))}
+                </div>
+              </Card>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {(data.follow_up_questions || []).length > 0 && (
+        <section className="border border-[#dde1e6] bg-white p-5">
+          <h2 className="text-sm font-bold text-[#18202b]">Ask AGI about this company</h2>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {(data.follow_up_questions || []).map((q) => (
+              <Link
+                key={q}
+                to={`/ask?q=${encodeURIComponent(q)}`}
+                className="text-[11px] border border-[#ddd] px-2.5 py-1.5 hover:border-[#111] hover:text-[#ff6600]"
+              >
+                {q}
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <DiscoveryRail discovery={data.discovery} />
     </div>
   );
 }

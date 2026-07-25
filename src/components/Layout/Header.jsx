@@ -20,13 +20,13 @@ import ResearchSearch from '@/components/Search/ResearchSearch';
 
 const NAV = [
   { name: 'Home', path: '/' },
+  { name: 'Ask AGI', path: '/ask' },
   { name: 'Macro Intelligence', path: '/macro-intelligence' },
   { name: 'Market Intelligence', path: '/market-intelligence' },
-  { name: 'Market News', path: '/market-data' },
-  { name: 'Pre-Market', path: '/pre-market' },
-  { name: '12 PM', path: '/updates/midday' },
-  { name: 'Market Close', path: '/updates/market-close' },
+  { name: 'Predictions', path: '/predictions' },
   { name: 'Research', path: '/research' },
+  { name: 'Workspace', path: '/workspace' },
+  { name: 'Pre-Market', path: '/pre-market' },
   { name: 'Company Updates', path: '/company-updates' },
 ];
 
