@@ -64,6 +64,7 @@ from app.eve.service import EveService
 from app.iie.service import IieService
 from app.fle.service import FleService
 from app.mee.service import MeeService
+from app.cae.service import CaeService
 from app.ui.service import UiService
 from app.validation.service import ValidationService
 from app.features.models import FeatureMetadata
@@ -158,6 +159,7 @@ _aoi.bind_eve(_eve)
 _iie = IieService(eve=_eve, kc=_kc, kf=_kf, aoi=_aoi)
 _fle = FleService(iie=_iie, eve=_eve, kc=_kc, kf=_kf, aoi=_aoi)
 _mee = MeeService(eve=_eve, iie=_iie, fle=_fle, aoi=_aoi, kf=_kf, kc=_kc)
+_cae = CaeService(kf=_kf, kc=_kc, aoi=_aoi, eve=_eve, iie=_iie, fle=_fle, mee=_mee)
 _ui = UiService(
     aws=_aws,
     ioc=_ioc,
@@ -175,6 +177,7 @@ _ui = UiService(
     iie=_iie,
     fle=_fle,
     mee=_mee,
+    cae=_cae,
 )
 # Soft-wire KIP retrieve → RSP reason into Research Director (no engine redesign).
 _director.kip = _kip
@@ -2434,6 +2437,102 @@ async def mee_search(q: str = Query(...), limit: int = Query(default=20, ge=1, l
 async def mee_consult(q: str = Query(...), limit: int = Query(default=8, ge=1, le=40)):
     try:
         return _mee.consult(q, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+# --- CAE v1 Context Assembly (Ask AGI orchestration gateway; no core redesign) ---
+
+
+@router.get("/cae/health")
+async def cae_health():
+    return _cae.health()
+
+
+@router.get("/cae/dashboard")
+async def cae_dashboard():
+    try:
+        return _cae.dashboard()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/cae/context")
+async def cae_context(
+    q: str = Query(...),
+    ticker: str | None = Query(default=None),
+    use_cache: bool | None = Query(default=None),
+):
+    try:
+        return _cae.context(q, ticker=ticker, use_cache=use_cache)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/cae/query-plan")
+async def cae_query_plan(q: str = Query(...), ticker: str | None = Query(default=None)):
+    try:
+        return _cae.query_plan(q, ticker=ticker)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/cae/retrieval")
+async def cae_retrieval(q: str = Query(...), ticker: str | None = Query(default=None)):
+    try:
+        return _cae.retrieve(q, ticker=ticker)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/cae/cache")
+async def cae_cache_stats():
+    try:
+        return _cae.cache(action="stats")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/cae/cache/clear")
+async def cae_cache_clear():
+    try:
+        return _cae.cache(action="clear")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/cae/metrics")
+async def cae_metrics():
+    try:
+        return _cae.metrics()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/cae/explain/{package_id}")
+async def cae_explain(package_id: str):
+    try:
+        return _cae.explain(package_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/cae/package/{package_id}")
+async def cae_package(package_id: str):
+    try:
+        return _cae.get_package(package_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/cae/search")
+async def cae_search(q: str = Query(...), limit: int = Query(default=20, ge=1, le=100)):
+    try:
+        return _cae.search(q, limit=limit)
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

@@ -238,6 +238,13 @@ class Settings(BaseSettings):
     mee_impact: bool = True
     mee_similar: bool = True
 
+    # Context Assembly Engine v1 (Ask AGI orchestration gateway; no core redesign)
+    cae: bool = True
+    cae_cache: bool = True
+    cae_compress: bool = True
+    cae_parallel: bool = True
+    cae_ask_agi_gateway: bool = True
+
 
 @lru_cache
 def get_settings() -> Settings:

@@ -91,6 +91,7 @@ class UiService:
         iie: Any | None = None,
         fle: Any | None = None,
         mee: Any | None = None,
+        cae: Any | None = None,
     ) -> None:
         self.flags = flags or UiFlags.from_settings(get_settings())
         self.aws = aws
@@ -109,6 +110,7 @@ class UiService:
         self.iie = iie
         self.fle = fle
         self.mee = mee
+        self.cae = cae
 
     def health(self) -> dict[str, Any]:
         return {
@@ -677,7 +679,7 @@ class UiService:
         irp_pkg = None
         irp_dump: dict[str, Any] = {}
 
-        # MEE → FLE → IIE → EVE → AOI → KCV1 / KF1 — what changed before reasoning (soft enrichment).
+        # CAE gateway (preferred) — else MEE→FLE→IIE→EVE→AOI→KCV/KF soft enrichment.
         kf_hits: list[dict[str, Any]] = []
         knowledge_corpus: dict[str, Any] = {}
         open_intelligence: dict[str, Any] = {}
@@ -685,75 +687,100 @@ class UiService:
         investment_intelligence: dict[str, Any] = {}
         forecast_learning: dict[str, Any] = {}
         market_events: dict[str, Any] = {}
-        if self.mee and q:
+        context_assembly: dict[str, Any] = {}
+        used_cae = False
+        if self.cae and q:
             try:
-                market_events = dump(soft(self.mee.consult, q, limit=8)) or {}
-                if isinstance(market_events, dict):
-                    company_pack = market_events.get("company") or {}
-                    if isinstance(company_pack, dict) and company_pack.get("company_id") and not detected_ticker:
-                        events = company_pack.get("events") or []
-                        if events and events[0].get("company_symbols"):
-                            detected_ticker = str(events[0]["company_symbols"][0]).upper()
+                assembled = dump(soft(self.cae.assemble_for_ask_agi, q, ticker=detected_ticker)) or {}
+                if isinstance(assembled, dict) and assembled.get("soft_fields"):
+                    used_cae = True
+                    cae_soft = assembled.get("soft_fields") or {}
+                    context_assembly = {
+                        "answer_policy": assembled.get("answer_policy") or "unified_context_before_reasoning",
+                        "package": assembled.get("package") or {},
+                        "guidance": assembled.get("guidance") or {},
+                    }
+                    knowledge_corpus = cae_soft.get("knowledge_corpus") or {}
+                    open_intelligence = cae_soft.get("open_intelligence") or {}
+                    evidence_verification = cae_soft.get("evidence_verification") or {}
+                    investment_intelligence = cae_soft.get("investment_intelligence") or {}
+                    forecast_learning = cae_soft.get("forecast_learning") or {}
+                    market_events = cae_soft.get("market_events") or {}
+                    kf_hits = list((cae_soft.get("knowledge_foundation") or {}).get("hits") or [])
+                    if assembled.get("primary_ticker") and not detected_ticker:
+                        detected_ticker = str(assembled["primary_ticker"]).upper()
             except Exception:
-                market_events = {}
-        if self.fle and q:
-            try:
-                forecast_learning = dump(soft(self.fle.consult, q, limit=8)) or {}
-                if isinstance(forecast_learning, dict):
-                    company_pack = forecast_learning.get("company") or {}
-                    if isinstance(company_pack, dict) and company_pack.get("company_id") and not detected_ticker:
-                        # prefer symbol from pending forecast if present
-                        pending = company_pack.get("pending_forecasts") or []
-                        if pending and pending[0].get("company_symbol"):
-                            detected_ticker = str(pending[0]["company_symbol"]).upper()
-            except Exception:
-                forecast_learning = {}
-        if self.iie and q:
-            try:
-                investment_intelligence = dump(soft(self.iie.consult, q, limit=8)) or {}
-                if isinstance(investment_intelligence, dict):
-                    company_pack = investment_intelligence.get("company") or {}
-                    if isinstance(company_pack, dict) and company_pack.get("symbol") and not detected_ticker:
-                        detected_ticker = str(company_pack["symbol"]).upper()
-            except Exception:
-                investment_intelligence = {}
-        if self.eve and q:
-            try:
-                evidence_verification = dump(soft(self.eve.consult, q, limit=8)) or {}
-                if isinstance(evidence_verification, dict):
-                    company_pack = evidence_verification.get("company") or {}
-                    if isinstance(company_pack, dict) and company_pack.get("symbol") and not detected_ticker:
-                        detected_ticker = str(company_pack["symbol"]).upper()
-            except Exception:
-                evidence_verification = {}
-        if self.aoi and q:
-            try:
-                open_intelligence = dump(soft(self.aoi.consult, q, limit=8)) or {}
-                if isinstance(open_intelligence, dict):
-                    company_pack = open_intelligence.get("company") or {}
-                    co = company_pack.get("company") if isinstance(company_pack, dict) else None
-                    if isinstance(co, dict) and co.get("nse_symbol") and not detected_ticker:
-                        detected_ticker = str(co["nse_symbol"]).upper()
-            except Exception:
-                open_intelligence = {}
-        if self.kc and q:
-            try:
-                knowledge_corpus = dump(soft(self.kc.consult, q, limit=8)) or {}
-                kf_hits = list(knowledge_corpus.get("hits") or []) if isinstance(knowledge_corpus, dict) else []
-            except Exception:
-                knowledge_corpus = {}
-                kf_hits = []
-        if not kf_hits and self.kf and q:
-            try:
-                kf_search = dump(soft(self.kf.search, q, limit=8)) or {}
-                kf_hits = list(kf_search.get("hits") or []) if isinstance(kf_search, dict) else []
-            except Exception:
-                kf_hits = []
-        if q and kf_hits and not detected_ticker:
-            for hit in kf_hits:
-                if isinstance(hit, dict) and hit.get("kind") == "company" and hit.get("key"):
-                    detected_ticker = str(hit["key"]).upper()
-                    break
+                used_cae = False
+                context_assembly = {}
+        if not used_cae:
+            if self.mee and q:
+                try:
+                    market_events = dump(soft(self.mee.consult, q, limit=8)) or {}
+                    if isinstance(market_events, dict):
+                        company_pack = market_events.get("company") or {}
+                        if isinstance(company_pack, dict) and company_pack.get("company_id") and not detected_ticker:
+                            events = company_pack.get("events") or []
+                            if events and events[0].get("company_symbols"):
+                                detected_ticker = str(events[0]["company_symbols"][0]).upper()
+                except Exception:
+                    market_events = {}
+            if self.fle and q:
+                try:
+                    forecast_learning = dump(soft(self.fle.consult, q, limit=8)) or {}
+                    if isinstance(forecast_learning, dict):
+                        company_pack = forecast_learning.get("company") or {}
+                        if isinstance(company_pack, dict) and company_pack.get("company_id") and not detected_ticker:
+                            pending = company_pack.get("pending_forecasts") or []
+                            if pending and pending[0].get("company_symbol"):
+                                detected_ticker = str(pending[0]["company_symbol"]).upper()
+                except Exception:
+                    forecast_learning = {}
+            if self.iie and q:
+                try:
+                    investment_intelligence = dump(soft(self.iie.consult, q, limit=8)) or {}
+                    if isinstance(investment_intelligence, dict):
+                        company_pack = investment_intelligence.get("company") or {}
+                        if isinstance(company_pack, dict) and company_pack.get("symbol") and not detected_ticker:
+                            detected_ticker = str(company_pack["symbol"]).upper()
+                except Exception:
+                    investment_intelligence = {}
+            if self.eve and q:
+                try:
+                    evidence_verification = dump(soft(self.eve.consult, q, limit=8)) or {}
+                    if isinstance(evidence_verification, dict):
+                        company_pack = evidence_verification.get("company") or {}
+                        if isinstance(company_pack, dict) and company_pack.get("symbol") and not detected_ticker:
+                            detected_ticker = str(company_pack["symbol"]).upper()
+                except Exception:
+                    evidence_verification = {}
+            if self.aoi and q:
+                try:
+                    open_intelligence = dump(soft(self.aoi.consult, q, limit=8)) or {}
+                    if isinstance(open_intelligence, dict):
+                        company_pack = open_intelligence.get("company") or {}
+                        co = company_pack.get("company") if isinstance(company_pack, dict) else None
+                        if isinstance(co, dict) and co.get("nse_symbol") and not detected_ticker:
+                            detected_ticker = str(co["nse_symbol"]).upper()
+                except Exception:
+                    open_intelligence = {}
+            if self.kc and q:
+                try:
+                    knowledge_corpus = dump(soft(self.kc.consult, q, limit=8)) or {}
+                    kf_hits = list(knowledge_corpus.get("hits") or []) if isinstance(knowledge_corpus, dict) else []
+                except Exception:
+                    knowledge_corpus = {}
+                    kf_hits = []
+            if not kf_hits and self.kf and q:
+                try:
+                    kf_search = dump(soft(self.kf.search, q, limit=8)) or {}
+                    kf_hits = list(kf_search.get("hits") or []) if isinstance(kf_search, dict) else []
+                except Exception:
+                    kf_hits = []
+            if q and kf_hits and not detected_ticker:
+                for hit in kf_hits:
+                    if isinstance(hit, dict) and hit.get("kind") == "company" and hit.get("key"):
+                        detected_ticker = str(hit["key"]).upper()
+                        break
 
         # IRP V1 — think (intent → entities → plan → retrieve → reason) before answering.
         if self.irp and q:
@@ -1450,6 +1477,15 @@ class UiService:
                     "always_ask_what_changed": True,
                     "use_event_context_first": True,
                     "immutable_events": True,
+                },
+            },
+            context_assembly=scrub(context_assembly)
+            if context_assembly
+            else {
+                "answer_policy": "unified_context_before_reasoning",
+                "guidance": {
+                    "single_orchestration_call": False,
+                    "fallback_multi_engine": True,
                 },
             },
             institutional_briefing=scrub(briefing) or {},

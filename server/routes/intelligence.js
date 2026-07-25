@@ -573,5 +573,39 @@ export default function createIntelligenceRouter() {
   router.get('/mee/search', kfGet('/v1/mee/search'));
   router.get('/mee/consult', kfGet('/v1/mee/consult'));
 
+  // CAE v1 — Context Assembly Engine (Ask AGI orchestration gateway).
+  router.get('/cae/health', kfGet('/v1/cae/health'));
+  router.get('/cae/dashboard', kfGet('/v1/cae/dashboard'));
+  router.get('/cae/context', kfGet('/v1/cae/context'));
+  router.get('/cae/query-plan', kfGet('/v1/cae/query-plan'));
+  router.get('/cae/retrieval', kfGet('/v1/cae/retrieval'));
+  router.get('/cae/cache', kfGet('/v1/cae/cache'));
+  router.post('/cae/cache/clear', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/cae/cache/clear', { method: 'POST', body: {} });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Context assembly unavailable', detail: error.message });
+    }
+  });
+  router.get('/cae/metrics', kfGet('/v1/cae/metrics'));
+  router.get('/cae/explain/:packageId', async (req, res) => {
+    try {
+      const result = await engineFetch(`/v1/cae/explain/${encodeURIComponent(req.params.packageId)}`);
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Context assembly unavailable', detail: error.message });
+    }
+  });
+  router.get('/cae/package/:packageId', async (req, res) => {
+    try {
+      const result = await engineFetch(`/v1/cae/package/${encodeURIComponent(req.params.packageId)}`);
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Context assembly unavailable', detail: error.message });
+    }
+  });
+  router.get('/cae/search', kfGet('/v1/cae/search'));
+
   return router;
 }

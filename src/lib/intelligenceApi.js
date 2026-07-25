@@ -379,3 +379,37 @@ export const consultMee = (q, limit = 8) => {
   const qs = new URLSearchParams({ q, limit: String(limit) }).toString();
   return intelligenceFetch(`/mee/consult?${qs}`);
 };
+
+/** CAE v1 Context Assembly */
+export const getCaeHealth = () => intelligenceFetch('/cae/health');
+export const getCaeDashboard = () => intelligenceFetch('/cae/dashboard');
+export const getCaeContext = (q, params = {}) => {
+  const qs = new URLSearchParams({
+    q,
+    ...Object.fromEntries(
+      Object.entries(params)
+        .filter(([, v]) => v !== undefined && v !== null && v !== '')
+        .map(([k, v]) => [k, String(v)])
+    ),
+  }).toString();
+  return intelligenceFetch(`/cae/context?${qs}`);
+};
+export const getCaeQueryPlan = (q, ticker) => {
+  const qs = new URLSearchParams({ q });
+  if (ticker) qs.set('ticker', ticker);
+  return intelligenceFetch(`/cae/query-plan?${qs}`);
+};
+export const getCaeRetrieval = (q, ticker) => {
+  const qs = new URLSearchParams({ q });
+  if (ticker) qs.set('ticker', ticker);
+  return intelligenceFetch(`/cae/retrieval?${qs}`);
+};
+export const getCaeCache = () => intelligenceFetch('/cae/cache');
+export const clearCaeCache = () => intelligenceFetch('/cae/cache/clear', { method: 'POST', body: {} });
+export const getCaeMetrics = () => intelligenceFetch('/cae/metrics');
+export const explainCaePackage = (id) => intelligenceFetch(`/cae/explain/${encodeURIComponent(id)}`);
+export const getCaePackage = (id) => intelligenceFetch(`/cae/package/${encodeURIComponent(id)}`);
+export const searchCae = (q, limit = 20) => {
+  const qs = new URLSearchParams({ q, limit: String(limit) }).toString();
+  return intelligenceFetch(`/cae/search?${qs}`);
+};

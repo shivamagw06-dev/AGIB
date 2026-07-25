@@ -138,6 +138,8 @@ class SearchView(BaseModel):
     forecast_learning: dict[str, Any] = Field(default_factory=dict)
     # MEE v1 — canonical market events / what changed before reasoning
     market_events: dict[str, Any] = Field(default_factory=dict)
+    # CAE v1 — unified context assembly package (orchestration gateway)
+    context_assembly: dict[str, Any] = Field(default_factory=dict)
     institutional_briefing: dict[str, Any] = Field(default_factory=dict)
     sector_intelligence: dict[str, Any] = Field(default_factory=dict)
     company_intelligence: dict[str, Any] = Field(default_factory=dict)
