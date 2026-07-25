@@ -95,6 +95,13 @@ class Settings(BaseSettings):
     e09_cross_asset: bool = False
     e09_ml: bool = False
 
+    # E04 Statistical Arbitrage & Relative Value feature flags (P0 defaults)
+    e04_p0: bool = True
+    e04_kalman: bool = False
+    e04_dynamic_hedge: bool = False
+    e04_etf_basis: bool = False
+    e04_ml: bool = False
+
     # Validation & Backtesting platform flags (P0 defaults)
     backtest: bool = True
     live: bool = False

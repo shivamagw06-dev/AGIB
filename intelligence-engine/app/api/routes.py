@@ -10,6 +10,8 @@ from app.engines.e02.consumer import register_e02_with_orch
 from app.engines.e02.service import E02Service
 from app.engines.e03.consumer import register_e03_with_orch
 from app.engines.e03.service import E03Service
+from app.engines.e04.consumer import register_e04_with_orch
+from app.engines.e04.service import E04Service
 from app.engines.e14.consumer import register_e14_with_orch
 from app.engines.e14.service import E14Service
 from app.engines.e10.consumer import register_e10_with_orch
@@ -50,6 +52,9 @@ _e13 = E13Service(_features, e01=_e01, e14=_e14, orch_ledger=_orch_ledger)
 _e08 = E08Service(_features, e01=_e01, e14=_e14, orch_ledger=_orch_ledger)
 _e09 = E09Service(_features, e01=_e01, e14=_e14, orch_ledger=_orch_ledger)
 _e03 = E03Service(_features, e01=_e01, e14=_e14, e02=_e02, orch_ledger=_orch_ledger)
+_e04 = E04Service(
+    _features, e01=_e01, e14=_e14, e02=_e02, e03=_e03, orch_ledger=_orch_ledger
+)
 _l4 = L4Service(e01=_e01, e14=_e14, e02=_e02, e03=_e03, orch_ledger=_orch_ledger)
 _e10 = E10Service(l4=_l4, e14=_e14, e02=_e02, orch_ledger=_orch_ledger)
 _validation = ValidationService()
@@ -100,6 +105,11 @@ def _wire_e03_passive_consumer() -> None:
     register_e03_with_orch(_l2, _e03, _e01, _e14, _e02)
 
 
+def _wire_e04_passive_consumer() -> None:
+    """E04 registers as passive consumer of Feature/E01/E14/E02/E03 Ready."""
+    register_e04_with_orch(_l2, _e04, _e01, _e14, _e02, _e03)
+
+
 def _wire_l4_passive_consumer() -> None:
     """L4 shadow registers as passive consumer of E01/E14/E02/E03 Ready only."""
     register_l4_with_orch(_l4, _e01, _e14, _e02, _e03)
@@ -118,6 +128,7 @@ _wire_e13_passive_consumer()
 _wire_e08_passive_consumer()
 _wire_e09_passive_consumer()
 _wire_e03_passive_consumer()
+_wire_e04_passive_consumer()
 _wire_l4_passive_consumer()
 _wire_e10_passive_consumer()
 
@@ -284,6 +295,27 @@ async def e09_state(symbol: str, as_of: str | None = None):
 async def e09_history(symbol: str, limit: int = 50):
     """E09 EngineState history for a symbol (newest first)."""
     return [s.model_dump(mode="json") for s in _e09.history(symbol, limit=min(limit, 200))]
+
+
+@router.get("/e04/health")
+async def e04_health():
+    """E04 Statistical Arbitrage & Relative Value health (E04-001–005 P0)."""
+    return _e04.health()
+
+
+@router.get("/e04/state/{pair}")
+async def e04_state(pair: str, as_of: str | None = None):
+    """Frontend-ready E04State for a pair id (warm cache)."""
+    rv = _e04.get_rv_state(pair, as_of=as_of)
+    if rv is None:
+        raise HTTPException(status_code=404, detail="E04 state not available")
+    return rv.model_dump(mode="json")
+
+
+@router.get("/e04/history/{pair}")
+async def e04_history(pair: str, limit: int = 50):
+    """E04 EngineState history for a pair (newest first)."""
+    return [s.model_dump(mode="json") for s in _e04.history(pair, limit=min(limit, 200))]
 
 
 @router.get("/e03/health")

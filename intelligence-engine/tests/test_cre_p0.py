@@ -23,7 +23,7 @@ def test_daily_evaluation_runner():
     assert result.flags["PROMOTION"] is False
     assert result.dataset_id == "golden_p0_v1"
     assert result.replay_run_id
-    assert len(result.engine_scorecards) == 9
+    assert len(result.engine_scorecards) == 10
     assert result.composite is not None
     assert result.composite.promotion_ready is False
     assert result.promotion is not None
@@ -172,7 +172,7 @@ async def test_cre_api():
         assert eval_resp.status_code == 200
         payload = eval_resp.json()
         assert payload["production_influence"] is False
-        assert len(payload["engine_scorecards"]) == 9
+        assert len(payload["engine_scorecards"]) == 10
 
         cards = await client.get("/v1/cre/scorecards")
         assert cards.status_code == 200
