@@ -85,6 +85,7 @@ class ValidationService:
                 "E02",
                 "E13",
                 "E08",
+                "E09",
                 "E03",
                 "L4",
                 "E10",

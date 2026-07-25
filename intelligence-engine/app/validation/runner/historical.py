@@ -1,4 +1,4 @@
-"""BT-003 Historical Engine Runner — isolated E01→E14→E02→E13→E08→E03→L4→E10 chain.
+"""BT-003 Historical Engine Runner — isolated E01→E14→E02→E13→E08→E09→E03→L4→E10 chain.
 
 Creates fresh engine instances so replay never mutates production singletons.
 """
@@ -17,6 +17,9 @@ from app.engines.e03.service import E03Service
 from app.engines.e08.mapping import FORMULA_ID as E08_FORMULA
 from app.engines.e08.mapping import MODEL_VERSION as E08_MODEL
 from app.engines.e08.service import E08Service
+from app.engines.e09.mapping import FORMULA_ID as E09_FORMULA
+from app.engines.e09.mapping import MODEL_VERSION as E09_MODEL
+from app.engines.e09.service import E09Service
 from app.engines.e10.mapping import MODEL_VERSION as E10_MODEL
 from app.engines.e10.service import E10Service
 from app.engines.e13.mapping import FORMULA_ID as E13_FORMULA
@@ -58,6 +61,13 @@ class HistoricalEngineRunner:
             orch_ledger=self.ledger,
             default_universe_id=universe_id,
         )
+        self.e09 = E09Service(
+            self.registry,
+            e01=self.e01,
+            e14=self.e14,
+            orch_ledger=self.ledger,
+            default_universe_id=universe_id,
+        )
         self.e03 = E03Service(
             self.registry,
             e01=self.e01,
@@ -89,6 +99,7 @@ class HistoricalEngineRunner:
             "E02": E02_MODEL,
             "E13": E13_MODEL,
             "E08": E08_MODEL,
+            "E09": E09_MODEL,
             "E03": E03_MODEL,
             "L4": L4_MODEL,
             "E10": E10_MODEL,
@@ -102,6 +113,7 @@ class HistoricalEngineRunner:
         out["SM_AGI_TECH"] = E03_MODEL
         out["FM_AGI_FUND"] = E13_FORMULA
         out["VM_AGI_VOL"] = E08_FORMULA
+        out["TM_AGI_CTA"] = E09_FORMULA
         out["AM_INVVOL"] = E10_MODEL
         return out
 
@@ -134,6 +146,14 @@ class HistoricalEngineRunner:
             generated_at=ts,
         )
         e08_states = self.e08.run_universe(
+            as_of=day.as_of,
+            panels=day.e02_panels,
+            e01_state=e01_state,
+            e14_state=e14_state,
+            universe_id=self.universe_id,
+            generated_at=ts,
+        )
+        e09_states = self.e09.run_universe(
             as_of=day.as_of,
             panels=day.e02_panels,
             e01_state=e01_state,
@@ -188,14 +208,17 @@ class HistoricalEngineRunner:
             e02_hashes={s: e.hash for s, e in e02_exps.items()},
             e13_hashes={s: f.hash for s, f in e13_funds.items()},
             e08_hashes={s: v.hash for s, v in e08_states.items()},
+            e09_hashes={s: t.hash for s, t in e09_states.items()},
             e03_hashes={s: a.hash for s, a in e03_alphas.items()},
             l4_hashes={s: o.hash for s, o in l4_opinions.items()},
             e13_labels={s: f.label for s, f in e13_funds.items()},
             e08_labels={s: v.label for s, v in e08_states.items()},
+            e09_labels={s: t.label for s, t in e09_states.items()},
             e03_labels={s: a.label for s, a in e03_alphas.items()},
             l4_labels={s: o.label for s, o in l4_opinions.items()},
             e13_scores={s: f.composite_score for s, f in e13_funds.items()},
             e08_scores={s: v.composite_score for s, v in e08_states.items()},
+            e09_scores={s: t.composite_score for s, t in e09_states.items()},
             e03_scores={s: a.agi_tech_score for s, a in e03_alphas.items()},
             l4_scores={s: o.composite_score for s, o in l4_opinions.items()},
             confidences={s: o.confidence for s, o in l4_opinions.items()},
@@ -210,6 +233,7 @@ class HistoricalEngineRunner:
                 "SM_AGI_TECH": E03_MODEL,
                 "FM_AGI_FUND": E13_FORMULA,
                 "VM_AGI_VOL": E08_FORMULA,
+                "TM_AGI_CTA": E09_FORMULA,
                 "AM_INVVOL": E10_MODEL,
             },
             portfolio_return=round(port_ret, 8),

@@ -106,6 +106,16 @@ Agents read **AGIB Node cached APIs only** (no direct third-party market API cal
 - ORCH: passive Feature Ready / E01 Ready / E14 Ready consumer
 - APIs: `GET /v1/e02/exposure/{symbol}`, `GET /v1/e02/history/{symbol}`, `GET /v1/e02/health`
 
+### E09 CTA Trend Engine P0 (WBS E09-001–005)
+
+- Package: `app/engines/e09/` — Trend Feature Builder, Trend State Builder, E09State, EngineState
+- P0 only: time-series momentum, short/medium/long horizons, volatility scaling, persistence, exhaustion, composite CTA score
+- Inputs: FeatureSnapshot + E01State + E14State + `TECH_*` / `VOL_*` only (no MarketDataClient, no portfolio/cross-asset/ML)
+- Flags: `E09_P0=true`, `E09_BREAKOUT/CROSS_ASSET/ML=false`
+- ORCH: passive Feature Ready / E01 Ready / E14 Ready consumer
+- CRE/Replay: auto-registered; promotion disabled
+- APIs: `GET /v1/e09/state/{symbol}`, `GET /v1/e09/history/{symbol}`, `GET /v1/e09/health`
+
 ### E08 Volatility & Options Intelligence P0 (WBS E08-001–005)
 
 - Package: `app/engines/e08/` — Volatility Feature Builder, Volatility State Builder, E08State, EngineState
@@ -156,7 +166,7 @@ Agents read **AGIB Node cached APIs only** (no direct third-party market API cal
 ### Validation & Backtesting P0 (WBS BT-001–005)
 
 - Package: `app/validation/` — Replay Engine, Golden Dataset Loader, Historical Engine Runner, Metrics, Dashboard payload
-- Pipeline: Snapshot → E01 → E14 → E02 → E13 → E08 → E03 → L4 → E10 → Metrics (isolated instances; replay store only)
+- Pipeline: Snapshot → E01 → E14 → E02 → E13 → E08 → E09 → E03 → L4 → E10 → Metrics (isolated instances; replay store only)
 - Metrics: daily/benchmark return, hit/win rate, IC, Sharpe, Sortino, max DD, turnover, confidence calibration, bucket accuracy, parity stability
 - Flags: `BACKTEST=true`, `LIVE=false`
 - APIs: `POST /v1/validation/replay`, `GET /v1/validation/runs`, `GET /v1/validation/runs/{id}`, `GET /v1/validation/dashboard/{id}`, `GET /v1/validation/health`

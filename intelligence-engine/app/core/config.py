@@ -89,6 +89,12 @@ class Settings(BaseSettings):
     e08_surface: bool = False
     e08_ml: bool = False
 
+    # E09 CTA Trend Engine feature flags (P0 defaults)
+    e09_p0: bool = True
+    e09_breakout: bool = False
+    e09_cross_asset: bool = False
+    e09_ml: bool = False
+
     # Validation & Backtesting platform flags (P0 defaults)
     backtest: bool = True
     live: bool = False
