@@ -92,13 +92,20 @@ def test_home_ppe_fields():
 
 
 def test_rich_search_answer():
+    import re
+
     pack = _ui().search("Should I buy ICICIBANK?")
     assert pack.executive_summary
     assert pack.answer.get("summary")
     assert len(pack.follow_up_questions) >= 4
     assert pack.recommendations
-    assert "E03" not in str(pack.model_dump())
-    assert pack.answer_policy == "institutional_evidence_pack"
+    dumped = str(pack.model_dump())
+    # Avoid false positives from hex ids (e.g. ...E03F)
+    assert not re.search(r"(?<![A-Za-z0-9])E03(?![A-Za-z0-9])", dumped)
+    assert pack.answer_policy in {
+        "institutional_evidence_pack",
+        "think_then_answer_institutional",
+    }
 
 
 def test_autocomplete_and_article():

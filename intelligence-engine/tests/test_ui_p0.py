@@ -144,7 +144,10 @@ async def test_ui_api_endpoints():
             params={"question": "Should I buy ICICIBANK?"},
         )
         assert search.status_code == 200
-        assert search.json()["answer_policy"] == "institutional_evidence_pack"
+        assert search.json()["answer_policy"] in {
+            "institutional_evidence_pack",
+            "think_then_answer_institutional",
+        }
 
         company = await client.get("/v1/ui/company/ICICIBANK")
         assert company.status_code == 200

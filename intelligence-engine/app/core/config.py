@@ -168,6 +168,11 @@ class Settings(BaseSettings):
     # UI Aggregation Layer (client facade; not a platform redesign)
     ui: bool = True
 
+    # Institutional Reasoning Pipeline (above KIP/RSP, below Ask AGI)
+    irp: bool = True
+    irp_learning: bool = True
+    irp_validation: bool = True
+
 
 @lru_cache
 def get_settings() -> Settings:
