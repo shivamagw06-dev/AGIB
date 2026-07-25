@@ -11,6 +11,7 @@ import InvestmentIntelligence from '@/pages/admin/InvestmentIntelligence';
 import Forecasting from '@/pages/admin/Forecasting';
 import Events from '@/pages/admin/Events';
 import ContextAssembly from '@/pages/admin/ContextAssembly';
+import IntelligenceBus from '@/pages/admin/IntelligenceBus';
 
 export default function AdminRoutes() {
   return (
@@ -29,6 +30,7 @@ export default function AdminRoutes() {
           <Route path="forecasting" element={<Forecasting />} />
           <Route path="events" element={<Events />} />
           <Route path="context" element={<ContextAssembly />} />
+          <Route path="intelligence-bus" element={<IntelligenceBus />} />
           <Route path="*" element={<Navigate to="/admin" replace />} />
         </Route>
       </Routes>

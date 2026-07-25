@@ -92,6 +92,7 @@ class UiService:
         fle: Any | None = None,
         mee: Any | None = None,
         cae: Any | None = None,
+        ib: Any | None = None,
     ) -> None:
         self.flags = flags or UiFlags.from_settings(get_settings())
         self.aws = aws
@@ -111,6 +112,7 @@ class UiService:
         self.fle = fle
         self.mee = mee
         self.cae = cae
+        self.ib = ib
 
     def health(self) -> dict[str, Any]:
         return {
@@ -688,6 +690,7 @@ class UiService:
         forecast_learning: dict[str, Any] = {}
         market_events: dict[str, Any] = {}
         context_assembly: dict[str, Any] = {}
+        intelligence_bus: dict[str, Any] = {}
         used_cae = False
         if self.cae and q:
             try:
@@ -1360,6 +1363,26 @@ class UiService:
                 "primary_source_of_truth": "knowledge_objects",
             }
 
+        # IB soft emit — Ask AGI activity becomes a bus event when enabled.
+        if self.ib and q:
+            try:
+                emitted = soft(
+                    self.ib.emit_ask_agi_activity,
+                    query=q,
+                    ticker=detected_ticker,
+                    used_cae=used_cae,
+                )
+                if isinstance(emitted, dict) and emitted.get("event"):
+                    intelligence_bus = {
+                        "answer_policy": "event_driven_backbone",
+                        "emitted": True,
+                        "event": emitted.get("event") or {},
+                        "deliveries": emitted.get("deliveries") or [],
+                        "correlation_id": (emitted.get("event") or {}).get("correlation_id"),
+                    }
+            except Exception:
+                intelligence_bus = {}
+
         return SearchView(
             meta=UiMeta(
                 surface="search",
@@ -1486,6 +1509,15 @@ class UiService:
                 "guidance": {
                     "single_orchestration_call": False,
                     "fallback_multi_engine": True,
+                },
+            },
+            intelligence_bus=scrub(intelligence_bus)
+            if intelligence_bus
+            else {
+                "answer_policy": "event_driven_backbone",
+                "guidance": {
+                    "publish_subscribe": True,
+                    "fallback_when_disabled": True,
                 },
             },
             institutional_briefing=scrub(briefing) or {},

@@ -607,5 +607,63 @@ export default function createIntelligenceRouter() {
   });
   router.get('/cae/search', kfGet('/v1/cae/search'));
 
+  // IB v1 — AGI Intelligence Bus (event-driven backbone).
+  router.get('/ib/health', kfGet('/v1/ib/health'));
+  router.get('/ib/dashboard', kfGet('/v1/ib/dashboard'));
+  router.get('/ib/events', kfGet('/v1/ib/events'));
+  router.post('/ib/publish', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/ib/publish', { method: 'POST', body: req.body || {} });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Intelligence bus unavailable', detail: error.message });
+    }
+  });
+  router.get('/ib/subscriptions', kfGet('/v1/ib/subscriptions'));
+  router.post('/ib/subscriptions', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/ib/subscriptions', { method: 'POST', body: req.body || {} });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Intelligence bus unavailable', detail: error.message });
+    }
+  });
+  router.post('/ib/replay', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/ib/replay', { method: 'POST', body: req.body || {} });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Intelligence bus unavailable', detail: error.message });
+    }
+  });
+  router.get('/ib/history', kfGet('/v1/ib/history'));
+  router.get('/ib/metrics', kfGet('/v1/ib/metrics'));
+  router.get('/ib/traces', kfGet('/v1/ib/traces'));
+  router.get('/ib/dead-letter', kfGet('/v1/ib/dead-letter'));
+  router.post('/ib/dead-letter/:dlqId/resolve', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/ib/dead-letter/${encodeURIComponent(req.params.dlqId)}/resolve`,
+        { method: 'POST', body: {} }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Intelligence bus unavailable', detail: error.message });
+    }
+  });
+  router.get('/ib/schema', kfGet('/v1/ib/schema'));
+  router.post('/ib/demo-chain', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query || {}).toString();
+      const result = await engineFetch(`/v1/ib/demo-chain${qs ? `?${qs}` : ''}`, {
+        method: 'POST',
+        body: {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Intelligence bus unavailable', detail: error.message });
+    }
+  });
+
   return router;
 }

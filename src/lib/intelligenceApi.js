@@ -413,3 +413,64 @@ export const searchCae = (q, limit = 20) => {
   const qs = new URLSearchParams({ q, limit: String(limit) }).toString();
   return intelligenceFetch(`/cae/search?${qs}`);
 };
+
+/** IB v1 Intelligence Bus */
+export const getIbHealth = () => intelligenceFetch('/ib/health');
+export const getIbDashboard = () => intelligenceFetch('/ib/dashboard');
+export const getIbEvents = (params = {}) => {
+  const qs = new URLSearchParams(
+    Object.fromEntries(
+      Object.entries(params)
+        .filter(([, v]) => v !== undefined && v !== null && v !== '')
+        .map(([k, v]) => [k, String(v)])
+    )
+  ).toString();
+  return intelligenceFetch(`/ib/events${qs ? `?${qs}` : ''}`);
+};
+export const publishIbEvent = (body = {}) =>
+  intelligenceFetch('/ib/publish', { method: 'POST', body });
+export const getIbSubscriptions = () => intelligenceFetch('/ib/subscriptions');
+export const createIbSubscription = (body = {}) =>
+  intelligenceFetch('/ib/subscriptions', { method: 'POST', body });
+export const replayIbEvents = (body = {}) =>
+  intelligenceFetch('/ib/replay', { method: 'POST', body });
+export const getIbHistory = (params = {}) => {
+  const qs = new URLSearchParams(
+    Object.fromEntries(
+      Object.entries(params)
+        .filter(([, v]) => v !== undefined && v !== null && v !== '')
+        .map(([k, v]) => [k, String(v)])
+    )
+  ).toString();
+  return intelligenceFetch(`/ib/history${qs ? `?${qs}` : ''}`);
+};
+export const getIbMetrics = () => intelligenceFetch('/ib/metrics');
+export const getIbTraces = (params = {}) => {
+  const qs = new URLSearchParams(
+    Object.fromEntries(
+      Object.entries(params)
+        .filter(([, v]) => v !== undefined && v !== null && v !== '')
+        .map(([k, v]) => [k, String(v)])
+    )
+  ).toString();
+  return intelligenceFetch(`/ib/traces${qs ? `?${qs}` : ''}`);
+};
+export const getIbDeadLetter = (limit = 50) => {
+  const qs = new URLSearchParams({ limit: String(limit) }).toString();
+  return intelligenceFetch(`/ib/dead-letter?${qs}`);
+};
+export const resolveIbDeadLetter = (id) =>
+  intelligenceFetch(`/ib/dead-letter/${encodeURIComponent(id)}/resolve`, {
+    method: 'POST',
+    body: {},
+  });
+export const getIbSchema = (eventType) => {
+  const qs = new URLSearchParams();
+  if (eventType) qs.set('event_type', eventType);
+  const s = qs.toString();
+  return intelligenceFetch(`/ib/schema${s ? `?${s}` : ''}`);
+};
+export const runIbDemoChain = (companySymbol = 'INFY') => {
+  const qs = new URLSearchParams({ company_symbol: companySymbol }).toString();
+  return intelligenceFetch(`/ib/demo-chain?${qs}`, { method: 'POST', body: {} });
+};

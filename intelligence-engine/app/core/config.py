@@ -245,6 +245,16 @@ class Settings(BaseSettings):
     cae_parallel: bool = True
     cae_ask_agi_gateway: bool = True
 
+    # Intelligence Bus v1 (event-driven backbone; no core redesign)
+    ib: bool = True
+    ib_persist: bool = True
+    ib_retry: bool = True
+    ib_dlq: bool = True
+    ib_replay: bool = True
+    ib_cache_invalidate: bool = True
+    ib_soft_handlers: bool = True
+    ib_ask_agi_emit: bool = True
+
 
 @lru_cache
 def get_settings() -> Settings:

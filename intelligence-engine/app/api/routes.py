@@ -65,6 +65,7 @@ from app.iie.service import IieService
 from app.fle.service import FleService
 from app.mee.service import MeeService
 from app.cae.service import CaeService
+from app.ib.service import IbService
 from app.ui.service import UiService
 from app.validation.service import ValidationService
 from app.features.models import FeatureMetadata
@@ -160,6 +161,7 @@ _iie = IieService(eve=_eve, kc=_kc, kf=_kf, aoi=_aoi)
 _fle = FleService(iie=_iie, eve=_eve, kc=_kc, kf=_kf, aoi=_aoi)
 _mee = MeeService(eve=_eve, iie=_iie, fle=_fle, aoi=_aoi, kf=_kf, kc=_kc)
 _cae = CaeService(kf=_kf, kc=_kc, aoi=_aoi, eve=_eve, iie=_iie, fle=_fle, mee=_mee)
+_ib = IbService(aoi=_aoi, eve=_eve, iie=_iie, fle=_fle, mee=_mee, cae=_cae)
 _ui = UiService(
     aws=_aws,
     ioc=_ioc,
@@ -178,6 +180,7 @@ _ui = UiService(
     fle=_fle,
     mee=_mee,
     cae=_cae,
+    ib=_ib,
 )
 # Soft-wire KIP retrieve → RSP reason into Research Director (no engine redesign).
 _director.kip = _kip
@@ -2533,6 +2536,140 @@ async def cae_package(package_id: str):
 async def cae_search(q: str = Query(...), limit: int = Query(default=20, ge=1, le=100)):
     try:
         return _cae.search(q, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+# --- IB v1 Intelligence Bus (event-driven backbone; no platform redesign) ---
+
+
+@router.get("/ib/health")
+async def ib_health():
+    return _ib.health()
+
+
+@router.get("/ib/dashboard")
+async def ib_dashboard():
+    try:
+        return _ib.dashboard()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/ib/events")
+async def ib_events(
+    event_type: str | None = Query(default=None),
+    producer: str | None = Query(default=None),
+    aggregate_id: str | None = Query(default=None),
+    correlation_id: str | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=500),
+):
+    try:
+        return _ib.list_events(
+            event_type=event_type,
+            producer=producer,
+            aggregate_id=aggregate_id,
+            correlation_id=correlation_id,
+            limit=limit,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/ib/publish")
+async def ib_publish(payload: dict[str, Any] = Body(default={})):
+    try:
+        return _ib.publish(payload or {})
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/ib/subscriptions")
+async def ib_subscriptions_list():
+    try:
+        return _ib.list_subscriptions()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/ib/subscriptions")
+async def ib_subscriptions_create(payload: dict[str, Any] = Body(default={})):
+    try:
+        return _ib.subscribe(payload or {})
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/ib/replay")
+async def ib_replay(payload: dict[str, Any] = Body(default={})):
+    try:
+        return _ib.replay(payload or {})
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/ib/history")
+async def ib_history(
+    aggregate_id: str | None = Query(default=None),
+    correlation_id: str | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=500),
+):
+    try:
+        return _ib.history(aggregate_id=aggregate_id, correlation_id=correlation_id, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/ib/metrics")
+async def ib_metrics():
+    try:
+        return _ib.metrics()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/ib/traces")
+async def ib_traces(
+    correlation_id: str | None = Query(default=None),
+    event_id: str | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=200),
+):
+    try:
+        return _ib.traces(correlation_id=correlation_id, event_id=event_id, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/ib/dead-letter")
+async def ib_dead_letter(limit: int = Query(default=50, ge=1, le=200)):
+    try:
+        return _ib.dead_letter(limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/ib/dead-letter/{dlq_id}/resolve")
+async def ib_dead_letter_resolve(dlq_id: str):
+    try:
+        return _ib.dead_letter(resolve_id=dlq_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/ib/schema")
+async def ib_schema(event_type: str | None = Query(default=None)):
+    try:
+        return _ib.schemas(event_type=event_type)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/ib/demo-chain")
+async def ib_demo_chain(company_symbol: str = Query(default="INFY")):
+    try:
+        return _ib.publish_chain_demo(company_symbol=company_symbol)
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

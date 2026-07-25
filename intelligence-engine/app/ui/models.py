@@ -140,6 +140,8 @@ class SearchView(BaseModel):
     market_events: dict[str, Any] = Field(default_factory=dict)
     # CAE v1 — unified context assembly package (orchestration gateway)
     context_assembly: dict[str, Any] = Field(default_factory=dict)
+    # IB v1 — intelligence bus soft emit metadata (Ask AGI activity)
+    intelligence_bus: dict[str, Any] = Field(default_factory=dict)
     institutional_briefing: dict[str, Any] = Field(default_factory=dict)
     sector_intelligence: dict[str, Any] = Field(default_factory=dict)
     company_intelligence: dict[str, Any] = Field(default_factory=dict)
