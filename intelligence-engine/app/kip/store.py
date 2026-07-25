@@ -10,6 +10,7 @@ from app.kip.models import (
     GraphNode,
     KipChunk,
     KipDocument,
+    PredictionRecord,
     TimelineEvent,
 )
 
@@ -25,6 +26,8 @@ class KipStore:
         self.timeline: dict[str, list[TimelineEvent]] = defaultdict(list)  # ticker -> events
         self.themes: dict[str, set[str]] = defaultdict(set)  # theme -> doc ids
         self.company_docs: dict[str, set[str]] = defaultdict(set)
+        self.article_index: dict[str, str] = {}  # article_id -> latest document_id
+        self.predictions: dict[str, PredictionRecord] = {}
 
     def put_document(self, doc: KipDocument, chunks: list[KipChunk]) -> None:
         with self._lock:
@@ -39,6 +42,15 @@ class KipStore:
                 self.company_docs[t.upper()].add(doc.document_id)
             for theme in doc.investment.themes:
                 self.themes[theme.lower()].add(doc.document_id)
+            if doc.article_id:
+                self.article_index[doc.article_id] = doc.document_id
+
+    def get_by_article_id(self, article_id: str) -> KipDocument | None:
+        with self._lock:
+            doc_id = self.article_index.get(article_id)
+            if not doc_id:
+                return None
+            return self.documents.get(doc_id)
 
     def get_document(self, document_id: str) -> KipDocument | None:
         with self._lock:
@@ -88,6 +100,23 @@ class KipStore:
         with self._lock:
             return sorted(self.themes.get(theme.lower(), set()))
 
+    def put_prediction(self, pred: PredictionRecord) -> None:
+        with self._lock:
+            self.predictions[pred.prediction_id] = pred
+
+    def get_prediction(self, prediction_id: str) -> PredictionRecord | None:
+        with self._lock:
+            return self.predictions.get(prediction_id)
+
+    def list_predictions(self, ticker: str | None = None) -> list[PredictionRecord]:
+        with self._lock:
+            rows = list(self.predictions.values())
+            if ticker:
+                t = ticker.upper()
+                rows = [p for p in rows if p.ticker.upper() == t]
+            rows.sort(key=lambda p: p.predicted_at, reverse=True)
+            return rows
+
     def stats(self) -> dict[str, int]:
         with self._lock:
             return {
@@ -97,4 +126,6 @@ class KipStore:
                 "graph_edges": len(self.edges),
                 "tickers": len(self.company_docs),
                 "themes": len(self.themes),
+                "predictions": len(self.predictions),
+                "articles": len(self.article_index),
             }

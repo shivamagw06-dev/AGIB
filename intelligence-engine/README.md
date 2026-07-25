@@ -224,3 +224,14 @@ Agents read **AGIB Node cached APIs only** (no direct third-party market API cal
 - Flags: `KIP=true`, `KIP_RAG=true`, `KIP_GRAPH=true`, `KIP_VERSIONING=true`, `KIP_OCR=true`, `KIP_LLM_SUMMARY=true`
 - Out of scope: model fine-tuning, broker execution, portfolio management, research engine redesign
 - APIs: `POST /v1/kip/ingest`, `GET /v1/kip/document/{id}`, `GET /v1/kip/company/{ticker}`, `GET /v1/kip/theme/{id}`, `GET /v1/kip/search`, `GET /v1/kip/timeline/{ticker}`, `GET /v1/kip/similar/{document}`, `GET /v1/kip/graph/{entity}`, `GET /v1/kip/rag`, `GET /v1/kip/health`
+
+### Knowledge Intelligence Platform P1 (House Intelligence)
+
+- Extends KIP into a living institutional knowledge system (no engine redesign, no fine-tuning)
+- Auto-ingest channels: AGI published research, broker bulk (PDF/DOCX/MD/Email/ZIP), newsletters, internal notes
+- House View engine per ticker: current view, historical views, thesis evolution, changed/stable/failed assumptions, catalysts, confidence, prediction accuracy
+- Priority RAG / client search: AGI research → Engine states → L4 → Broker → News → Filings → General; homepage search **never answers directly**
+- Prediction tracking + 3m/6m/12m self-evaluation (hit rate, average return, sector/analyst/catalyst accuracy)
+- Company dossier + research continuity context for Research Writer
+- Flags: `KIP_AUTO_INGEST=true`, `KIP_HOUSE_VIEW=true`, `KIP_PREDICTION_TRACKING=true`, `KIP_RAG=true`, `KIP_GRAPH=true`, `KIP_TIMELINE=true`
+- APIs: `POST /v1/kip/ingest/agi|broker|newsletter|internal`, `GET /v1/kip/house-view/{ticker}`, `GET /v1/kip/research-history/{ticker}`, `GET /v1/kip/predictions/{ticker}`, `GET /v1/kip/company-dossier/{ticker}`, `POST /v1/kip/client-search`, `GET /v1/kip/search`, `GET /v1/kip/rag`

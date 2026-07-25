@@ -30,7 +30,13 @@ from app.engines.l4.consumer import register_l4_with_orch
 from app.engines.l4.service import L4Service
 from app.eval.evaluation_agent import EvaluationAgent
 from app.cre.service import CREService
-from app.kip.models import IngestRequest
+from app.kip.models import (
+    BulkIngestRequest,
+    ChannelIngestRequest,
+    ClientSearchRequest,
+    IngestRequest,
+    PredictionEvalRequest,
+)
 from app.kip.service import KipService
 from app.validation.service import ValidationService
 from app.features.models import FeatureMetadata
@@ -591,6 +597,60 @@ async def kip_ingest(body: IngestRequest):
     return doc.model_dump(mode="json")
 
 
+def _channel_ingest(body: ChannelIngestRequest, channel: str):
+    try:
+        if body.items or body.zip_base64:
+            bulk = BulkIngestRequest(
+                items=body.items,
+                zip_base64=body.zip_base64,
+                default_broker=body.default_broker or body.broker,
+                source_channel=channel,  # type: ignore[arg-type]
+            )
+            if channel == "broker":
+                result = _kip.ingest_broker(bulk)
+            elif channel == "newsletter":
+                result = _kip.ingest_newsletter(bulk)
+            else:
+                result = _kip.ingest_bulk(bulk.model_copy(update={"source_channel": channel}))
+            return result.model_dump(mode="json")
+        single = IngestRequest(**body.model_dump(exclude={"items", "zip_base64", "default_broker"}))
+        if channel == "agi":
+            doc = _kip.ingest_agi(single)
+        elif channel == "broker":
+            doc = _kip.ingest_broker(single)
+        elif channel == "newsletter":
+            doc = _kip.ingest_newsletter(single)
+        else:
+            doc = _kip.ingest_internal(single)
+        return doc.model_dump(mode="json")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/kip/ingest/agi")
+async def kip_ingest_agi(body: ChannelIngestRequest):
+    """Auto-ingest published AGI research into institutional memory."""
+    return _channel_ingest(body, "agi")
+
+
+@router.post("/kip/ingest/broker")
+async def kip_ingest_broker(body: ChannelIngestRequest):
+    """Ingest broker research (single or bulk PDF/DOCX/MD/Email/ZIP)."""
+    return _channel_ingest(body, "broker")
+
+
+@router.post("/kip/ingest/newsletter")
+async def kip_ingest_newsletter(body: ChannelIngestRequest):
+    """Ingest newsletter content (single or bulk)."""
+    return _channel_ingest(body, "newsletter")
+
+
+@router.post("/kip/ingest/internal")
+async def kip_ingest_internal(body: ChannelIngestRequest):
+    """Ingest internal AGI research notes."""
+    return _channel_ingest(body, "internal")
+
+
 @router.get("/kip/document/{document_id}")
 async def kip_document(document_id: str):
     doc = _kip.get_document(document_id)
@@ -615,6 +675,56 @@ async def kip_theme(theme_id: str):
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+@router.get("/kip/house-view/{ticker}")
+async def kip_house_view(ticker: str):
+    """Current AGI House View + thesis evolution for a company."""
+    try:
+        return _kip.house_view(ticker).model_dump(mode="json")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/kip/research-history/{ticker}")
+async def kip_research_history(ticker: str):
+    try:
+        return _kip.research_history(ticker).model_dump(mode="json")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/kip/predictions/{ticker}")
+async def kip_predictions(ticker: str):
+    try:
+        preds = _kip.predictions(ticker)
+        stats = _kip.prediction_stats(ticker)
+        return {
+            "ticker": ticker.upper(),
+            "predictions": [p.model_dump(mode="json") for p in preds],
+            "stats": stats.model_dump(mode="json"),
+        }
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/kip/predictions/evaluate")
+async def kip_predictions_evaluate(body: PredictionEvalRequest):
+    try:
+        return _kip.evaluate_prediction(body).model_dump(mode="json")
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/kip/company-dossier/{ticker}")
+async def kip_company_dossier(ticker: str):
+    """Full institutional dossier: house view, history, predictions, timeline, graph."""
+    try:
+        return _kip.company_dossier(ticker).model_dump(mode="json")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 @router.get("/kip/search")
 async def kip_search(
     q: str = Query(..., description="Search query"),
@@ -629,6 +739,15 @@ async def kip_search(
         return _kip.search(
             q, mode=mode, limit=limit, ticker=ticker, sector=sector, theme=theme, broker=broker
         ).model_dump(mode="json")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/kip/client-search")
+async def kip_client_search(body: ClientSearchRequest):
+    """Homepage search — NEVER answers directly; returns evidence for LLM synthesis."""
+    try:
+        return _kip.client_search(body).model_dump(mode="json")
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -663,7 +782,7 @@ async def kip_rag(
     ticker: str | None = None,
     limit: int = Query(default=8, ge=1, le=30),
 ):
-    """Retrieval-augmented evidence pack (never answer from model memory alone)."""
+    """Priority RAG evidence pack (AGI house view first; never model memory alone)."""
     try:
         return _kip.rag(q, ticker=ticker, limit=limit).model_dump(mode="json")
     except RuntimeError as exc:
@@ -672,7 +791,7 @@ async def kip_rag(
 
 @router.get("/kip/research-context")
 async def kip_research_context(q: str = Query(...), ticker: str | None = None):
-    """Institutional context for AGI Research Writer (validation fields included)."""
+    """Research continuity context for AGI Research Writer (validation fields included)."""
     try:
         return _kip.research_context(q, ticker=ticker)
     except RuntimeError as exc:

@@ -17,6 +17,12 @@ RELATION_PRIORITY = (
     "SUPPLIER_OF",
     "CUSTOMER_OF",
     "RELATED_RESEARCH",
+    "RELATED_AGI_RESEARCH",
+    "RELATED_BROKER_RESEARCH",
+    "HAS_PREDICTION",
+    "PREDICTION_OUTCOME",
+    "IN_PORTFOLIO",
+    "ON_TIMELINE",
 )
 
 
@@ -83,6 +89,59 @@ def upsert_from_document(
     if doc.supersedes:
         prev = node_id("document", doc.supersedes)
         _edge(edges, doc_node, prev, "SUPERSEDES", doc.document_id)
+
+
+def link_related_research(
+    doc: KipDocument,
+    related_docs: list[KipDocument],
+    *,
+    edges: list[GraphEdge],
+) -> None:
+    """Link broker ↔ AGI research sharing tickers; AGI articles ↔ each other."""
+    doc_node = node_id("document", doc.document_id)
+    dtype = doc.document.document_type.value
+    is_agi = dtype.startswith("agi_")
+    is_broker = "broker" in dtype or dtype in {"sell_side", "buy_side", "strategy_note", "newsletter"}
+    for other in related_docs:
+        if other.document_id == doc.document_id:
+            continue
+        other_type = other.document.document_type.value
+        other_node = node_id("document", other.document_id)
+        if is_agi and ("broker" in other_type or other_type in {"sell_side", "buy_side", "newsletter"}):
+            _edge(edges, doc_node, other_node, "RELATED_BROKER_RESEARCH", doc.document_id, weight=0.8)
+        elif is_broker and other_type.startswith("agi_"):
+            _edge(edges, doc_node, other_node, "RELATED_AGI_RESEARCH", doc.document_id, weight=0.9)
+        elif is_agi and other_type.startswith("agi_"):
+            _edge(edges, doc_node, other_node, "RELATED_RESEARCH", doc.document_id, weight=0.7)
+
+
+def link_prediction(
+    prediction_id: str,
+    ticker: str,
+    document_id: str,
+    *,
+    nodes: dict[str, GraphNode],
+    edges: list[GraphEdge],
+    outcome: bool | None = None,
+) -> None:
+    pid = node_id("prediction", prediction_id)
+    nodes[pid] = GraphNode(
+        node_id=pid,
+        kind="prediction",
+        label=prediction_id,
+        attributes={"ticker": ticker.upper(), "document_id": document_id},
+    )
+    _edge(edges, pid, node_id("company", ticker), "HAS_PREDICTION", document_id)
+    _edge(edges, node_id("document", document_id), pid, "HAS_PREDICTION", document_id)
+    if outcome is not None:
+        oid = node_id("outcome", f"{prediction_id}_{'hit' if outcome else 'miss'}")
+        nodes[oid] = GraphNode(
+            node_id=oid,
+            kind="outcome",
+            label="hit" if outcome else "miss",
+            attributes={"prediction_id": prediction_id},
+        )
+        _edge(edges, pid, oid, "PREDICTION_OUTCOME", document_id)
 
 
 def view_for_entity(

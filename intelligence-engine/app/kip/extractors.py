@@ -16,6 +16,9 @@ from app.kip.models import (
 _TICKER_RE = re.compile(r"\b([A-Z]{2,6})(?:\.(?:NS|BO))?\b")
 _DATE_RE = re.compile(r"\b(20\d{2}-\d{2}-\d{2})\b")
 _TARGET_RE = re.compile(r"(?:target(?:\s+price)?|tp)\s*(?:of|:)?\s*(?:rs\.?|₹|\$)?\s*([0-9]+(?:,[0-9]{3})*(?:\.\d+)?)", re.I)
+_EXPECTED_RETURN_RE = re.compile(r"expected return[^.\n]{0,40}?(-?\d+(?:\.\d+)?\s*%)", re.I)
+_HORIZON_RE = re.compile(r"\b((?:3|6|12)\s*(?:months?|m)|(?:1\s*)?years?|near[- ]term|medium[- ]term|long[- ]term)\b", re.I)
+_CHART_RE = re.compile(r"\b(?:chart|figure|exhibit)\s*[:#]?\s*([A-Za-z0-9][\w\s.-]{0,60})", re.I)
 _METRIC_RE = re.compile(
     r"\b(roe|roa|pe|p/e|pb|p/b|eps|revenue|ebitda|nim|roa|cet1|npa)\b[^.\n]{0,40}?(-?\d+(?:\.\d+)?%?)",
     re.I,
@@ -213,6 +216,16 @@ def extract_research_metadata(content: str) -> ResearchMetadata:
         timeline_events.append({"date": m.group(1), "context": _nearby(content, m.start(), 80)})
     if not thesis and lines:
         thesis = lines[0][:500]
+    er = ""
+    m_er = _EXPECTED_RETURN_RE.search(content or "")
+    if m_er:
+        er = m_er.group(1).strip()
+    horizon = ""
+    m_h = _HORIZON_RE.search(content or "")
+    if m_h:
+        horizon = m_h.group(1).strip()
+    charts = [m.group(0).strip() for m in _CHART_RE.finditer(content or "")][:12]
+    evidence = _bullets_after(content, ("supporting evidence", "evidence", "sources"))
     return ResearchMetadata(
         investment_thesis=thesis[:2000],
         bull_case=bull[:12],
@@ -223,9 +236,13 @@ def extract_research_metadata(content: str) -> ResearchMetadata:
         valuation=valuation[:1000],
         forecasts=forecasts[:12],
         target_prices=targets[:8],
+        expected_return=er,
+        time_horizon=horizon,
         assumptions=assumptions[:12],
         key_metrics=metrics,
         tables=tables[:5],
+        charts=charts,
+        supporting_evidence=evidence[:12],
         timeline_events=timeline_events[:20],
     )
 

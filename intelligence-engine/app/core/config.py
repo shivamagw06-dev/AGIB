@@ -131,6 +131,11 @@ class Settings(BaseSettings):
     kip_versioning: bool = True
     kip_ocr: bool = True
     kip_llm_summary: bool = True
+    # KIP P1 — Continuous Knowledge Acquisition & House Intelligence
+    kip_auto_ingest: bool = True
+    kip_house_view: bool = True
+    kip_prediction_tracking: bool = True
+    kip_timeline: bool = True
 
 
 @lru_cache

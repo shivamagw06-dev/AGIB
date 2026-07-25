@@ -15,7 +15,7 @@ from app.kip.extractors import (
     extractive_summary,
 )
 from app.kip.flags import KipFlags
-from app.kip.graph import upsert_from_document
+from app.kip.graph import link_related_research, upsert_from_document
 from app.kip.models import (
     DocumentType,
     IngestRequest,
@@ -47,6 +47,7 @@ PIPELINE_STAGES = [
     "embeddings",
     "hybrid_search_index",
     "knowledge_graph",
+    "house_view_update",
     "institutional_knowledge_base",
 ]
 
@@ -117,6 +118,10 @@ class KipPipeline:
         )
 
         research = extract_research_metadata(cleaned)
+        if request.expected_return:
+            research.expected_return = request.expected_return
+        if request.time_horizon:
+            research.time_horizon = request.time_horizon
         stages.extend(
             [
                 "table_extraction",
@@ -139,7 +144,7 @@ class KipPipeline:
         related = []
         if investment.tickers:
             for t in investment.tickers:
-                related.extend(self.store.company_document_ids(t)[:5])
+                related.extend(self.store.company_document_ids(t)[:8])
         related = sorted(set(related))
 
         knowledge = build_knowledge_metadata(
@@ -151,9 +156,27 @@ class KipPipeline:
             related_documents=related,
             summary=summary,
         )
+        # Prefer AGI related research links
+        knowledge.related_research = [
+            rid
+            for rid in related
+            if (d := self.store.get_document(rid)) is not None
+            and d.document.document_type.value.startswith("agi_")
+        ][:12]
         stages.append("confidence")
 
+        # Auto-version AGI articles by article_id when supersedes not provided
+        article_id = request.article_id
+        if self.flags.kip_versioning and article_id and not supersedes:
+            prior = self.store.get_by_article_id(article_id)
+            if prior is not None and prior.superseded_by is None:
+                supersedes = prior.document_id
+                lineage_id = prior.lineage_id
+                version = prior.document.version + 1
+
         doc = KipDocument(
+            article_id=article_id,
+            research_type=request.research_type or request.document_type.value,
             content=request.content,
             cleaned_content=cleaned,
             ocr_applied=ocr_applied,
@@ -178,41 +201,49 @@ class KipPipeline:
 
         if self.flags.kip_graph:
             upsert_from_document(doc, nodes=self.store.nodes, edges=self.store.edges)
+            related_docs = [self.store.get_document(i) for i in related]
+            related_docs = [d for d in related_docs if d is not None]
+            link_related_research(doc, related_docs, edges=self.store.edges)
             stages.append("knowledge_graph")
 
         # Research timeline events
-        events: list[TimelineEvent] = []
-        event_type = _event_type(doc.document.document_type, cleaned)
-        for t in doc.investment.tickers:
-            events.append(
-                TimelineEvent(
-                    ticker=t,
-                    event_date=doc.document.date or date.today(),
-                    event_type=event_type,
-                    title=doc.document.title,
-                    document_id=doc.document_id,
-                    source=doc.document.source,
-                    summary=doc.knowledge.summary or doc.research.investment_thesis[:240],
-                )
-            )
-        for te in research.timeline_events:
-            try:
-                ed = date.fromisoformat(str(te.get("date")))
-            except Exception:
-                continue
-            for t in doc.investment.tickers or ["UNKNOWN"]:
+        if self.flags.kip_timeline:
+            events: list[TimelineEvent] = []
+            event_type = _event_type(doc.document.document_type, cleaned)
+            for t in doc.investment.tickers:
                 events.append(
                     TimelineEvent(
                         ticker=t,
-                        event_date=ed,
-                        event_type="mentioned_date",
-                        title=str(te.get("context", ""))[:160],
+                        event_date=doc.document.date or date.today(),
+                        event_type=event_type,
+                        title=doc.document.title,
                         document_id=doc.document_id,
                         source=doc.document.source,
-                        summary=str(te.get("context", ""))[:240],
+                        summary=doc.knowledge.summary or doc.research.investment_thesis[:240],
                     )
                 )
-        self.store.add_timeline_events(events)
+            for te in research.timeline_events:
+                try:
+                    ed = date.fromisoformat(str(te.get("date")))
+                except Exception:
+                    continue
+                for t in doc.investment.tickers or ["UNKNOWN"]:
+                    events.append(
+                        TimelineEvent(
+                            ticker=t,
+                            event_date=ed,
+                            event_type="mentioned_date",
+                            title=str(te.get("context", ""))[:160],
+                            document_id=doc.document_id,
+                            source=doc.document.source,
+                            summary=str(te.get("context", ""))[:240],
+                        )
+                    )
+            self.store.add_timeline_events(events)
+
+        if self.flags.kip_house_view and doc.investment.tickers:
+            stages.append("house_view_update")
+
         stages.append("institutional_knowledge_base")
         doc.pipeline_stages = stages
         # refresh stored doc with final stages list
@@ -228,7 +259,13 @@ def _event_type(dtype: DocumentType, content: str) -> str:
         return "broker_downgrade"
     if dtype == DocumentType.EARNINGS_TRANSCRIPT or "earnings" in text:
         return "earnings"
-    if dtype in {DocumentType.AGI_RESEARCH, DocumentType.AGI_NOTE, DocumentType.AGI_CIO_REPORT}:
+    if dtype in {
+        DocumentType.AGI_RESEARCH,
+        DocumentType.AGI_NOTE,
+        DocumentType.AGI_CIO_REPORT,
+        DocumentType.AGI_INVESTMENT_OFFICE,
+        DocumentType.AGI_MODEL_PORTFOLIO,
+    }:
         return "agi_research"
     if dtype == DocumentType.AGI_DAILY_BRIEF:
         return "agi_daily_brief"

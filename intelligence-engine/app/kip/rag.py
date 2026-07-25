@@ -1,9 +1,19 @@
-"""RAG evidence packs — retrieval-augmented answers only; never model memory alone."""
+"""RAG evidence packs — priority retrieval; never model memory alone (KIP P0/P1)."""
 
 from __future__ import annotations
 
-from app.kip.models import KipDocument, RagEvidenceItem, RagEvidencePack, SearchHit
+import datetime as _dt
+from typing import Any
+
+from app.kip.models import (
+    KipDocument,
+    RagEvidenceItem,
+    RagEvidencePack,
+    SearchHit,
+    SOURCE_PRIORITY,
+)
 from app.kip.search import search
+from app.kip.sources import retrieval_priority, source_class
 
 
 def build_evidence_pack(
@@ -15,22 +25,62 @@ def build_evidence_pack(
     limit: int = 8,
     dim: int = 256,
 ) -> RagEvidencePack:
+    return build_priority_evidence_pack(
+        query,
+        documents=documents,
+        chunks=chunks,
+        ticker=ticker,
+        limit=limit,
+        dim=dim,
+    )
+
+
+def build_priority_evidence_pack(
+    query: str,
+    *,
+    documents: dict[str, KipDocument],
+    chunks: list,
+    ticker: str | None = None,
+    limit: int = 12,
+    dim: int = 256,
+    engine_states: list[dict[str, Any]] | None = None,
+    l4_opinion: dict[str, Any] | None = None,
+    portfolio_exposure: dict[str, Any] | None = None,
+) -> RagEvidencePack:
+    """
+    Retrieval order:
+      1 AGI research → 2 Engine states → 3 L4 → 4 Broker → 5 News → 6 Filings → 7 General
+    """
     result = search(
         query,
         documents=documents,
         chunks=chunks,
         mode="hybrid",
-        limit=limit,
+        limit=max(limit * 3, 20),
         ticker=ticker,
         dim=dim,
     )
+    # Re-rank by institutional priority then score
+    ranked = sorted(
+        result.hits,
+        key=lambda h: (
+            SOURCE_PRIORITY.get(h.document_type, 7),
+            -h.score,
+        ),
+    )[:limit]
+
     supporting: list[RagEvidenceItem] = []
     conflicting: list[RagEvidenceItem] = []
     sources: list[str] = []
     freshness_vals: list[float] = []
     conf_vals: list[float] = []
+    agi_used: list[str] = []
+    broker_used: list[str] = []
+    news_used: list[str] = []
+    filings_used: list[str] = []
+    last_updated: _dt.datetime | None = None
 
-    for hit in result.hits:
+    for hit in ranked:
         doc = documents.get(hit.document_id)
         if doc is None:
             continue
@@ -38,12 +88,23 @@ def build_evidence_pack(
         sources.append(f"{doc.document.source}:{doc.document.title}")
         freshness_vals.append(doc.knowledge.freshness)
         conf_vals.append(doc.knowledge.confidence)
+        if last_updated is None or doc.created_at > last_updated:
+            last_updated = doc.created_at
+        cls = source_class(doc.document.document_type)
+        if cls == "agi_research":
+            agi_used.append(doc.document_id)
+        elif cls == "broker_research":
+            broker_used.append(doc.document_id)
+        elif cls == "latest_news":
+            news_used.append(doc.document_id)
+        elif cls == "company_filings":
+            filings_used.append(doc.document_id)
+
         if item.stance == "bear" or _conflicts_with_query(query, doc):
             conflicting.append(item)
         else:
             supporting.append(item)
 
-    # Explicit conflict detection: bull vs bear across retrieved set
     bulls = [i for i in supporting + conflicting if i.stance == "bull"]
     bears = [i for i in supporting + conflicting if i.stance == "bear"]
     if bulls and bears:
@@ -53,19 +114,29 @@ def build_evidence_pack(
 
     freshness = sum(freshness_vals) / len(freshness_vals) if freshness_vals else 0.0
     confidence = sum(conf_vals) / len(conf_vals) if conf_vals else 0.0
-    # Cap confidence when conflicts present
     if conflicting and bulls and bears:
         confidence *= 0.75
+    # House-view boost when AGI research present
+    if agi_used:
+        confidence = min(0.98, confidence + 0.05)
 
     return RagEvidencePack(
         query=query,
-        documents_retrieved=[h.document_id for h in result.hits],
+        documents_retrieved=[h.document_id for h in ranked],
         supporting_evidence=supporting,
         conflicting_opinions=conflicting,
         source_list=sources,
+        agi_research_used=agi_used,
+        broker_reports_used=broker_used,
+        news_used=news_used,
+        filings_used=filings_used,
+        engine_evidence=list(engine_states or []),
+        l4_opinion=l4_opinion,
+        portfolio_exposure=portfolio_exposure,
         freshness_score=round(freshness, 4),
         confidence_score=round(confidence, 4),
-        knowledge_version="kip-v1.0.1",
+        last_updated=last_updated,
+        knowledge_version="kip-v1.0.1-p1",
         answer_policy="retrieval_augmented_only",
     )
 
@@ -77,51 +148,23 @@ def research_writer_context(
     documents: dict[str, KipDocument],
     chunks: list,
     dim: int = 256,
+    engine_states: list[dict[str, Any]] | None = None,
+    l4_opinion: dict[str, Any] | None = None,
+    portfolio_exposure: dict[str, Any] | None = None,
 ) -> dict:
     """Retrieve institutional context for AGI research writing (no engine redesign)."""
-    pack = build_evidence_pack(query, documents=documents, chunks=chunks, ticker=ticker, dim=dim)
-    prior = []
-    brokers = []
-    filings = []
-    transcripts = []
-    macro = []
-    for doc_id in pack.documents_retrieved:
-        d = documents.get(doc_id)
-        if d is None:
-            continue
-        dtype = d.document.document_type.value
-        entry = {
-            "document_id": d.document_id,
-            "title": d.document.title,
-            "type": dtype,
-            "thesis": d.research.investment_thesis,
-            "version": d.document.version,
-            "date": d.document.date.isoformat() if d.document.date else None,
-        }
-        if dtype.startswith("agi_"):
-            prior.append(entry)
-        elif "broker" in dtype:
-            brokers.append(entry)
-        elif "filing" in dtype or "report" in dtype:
-            filings.append(entry)
-        elif "transcript" in dtype:
-            transcripts.append(entry)
-        elif "macro" in dtype or "central_bank" in dtype:
-            macro.append(entry)
-    return {
-        "documents_retrieved": pack.documents_retrieved,
-        "knowledge_version": pack.knowledge_version,
-        "source_list": pack.source_list,
-        "conflicting_evidence": [c.model_dump(mode="json") for c in pack.conflicting_opinions],
-        "freshness_score": pack.freshness_score,
-        "confidence_score": pack.confidence_score,
-        "previous_agi_research": prior,
-        "broker_reports": brokers,
-        "filings": filings,
-        "transcripts": transcripts,
-        "macro_reports": macro,
-        "supporting_evidence": [s.model_dump(mode="json") for s in pack.supporting_evidence],
-    }
+    from app.kip.client_search import research_continuity_context
+
+    return research_continuity_context(
+        ticker=ticker,
+        query=query,
+        documents=documents,
+        chunks=chunks,
+        engine_states=engine_states,
+        l4_opinion=l4_opinion,
+        portfolio_exposure=portfolio_exposure,
+        dim=dim,
+    )
 
 
 def _to_item(doc: KipDocument, hit: SearchHit) -> RagEvidenceItem:
@@ -131,7 +174,6 @@ def _to_item(doc: KipDocument, hit: SearchHit) -> RagEvidenceItem:
     elif doc.research.bear_case and not doc.research.bull_case:
         stance = "bear"
     elif doc.research.bull_case and doc.research.bear_case:
-        # lean by counts
         stance = "bull" if len(doc.research.bull_case) >= len(doc.research.bear_case) else "bear"
     text_l = (doc.cleaned_content or "").lower()
     if any(w in text_l for w in ("downgrade", "sell", "underweight", "bearish")):
@@ -144,6 +186,8 @@ def _to_item(doc: KipDocument, hit: SearchHit) -> RagEvidenceItem:
         snippet=hit.snippet or (doc.knowledge.summary or doc.research.investment_thesis)[:280],
         tickers=list(doc.investment.tickers),
         stance=stance,
+        priority=retrieval_priority(doc.document.document_type),
+        source_class=source_class(doc.document.document_type),
         freshness=doc.knowledge.freshness,
         confidence=doc.knowledge.confidence,
         date=doc.document.date,
