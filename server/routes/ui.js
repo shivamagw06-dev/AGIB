@@ -110,7 +110,14 @@ function snapshotPriority(raw) {
 }
 
 function hasLivePrice(card) {
-  return card && Number.isFinite(Number(card.price));
+  const n = Number(card?.price);
+  // Groww sometimes returns 0 for unresolved symbols — treat as missing.
+  return Number.isFinite(n) && n > 0;
+}
+
+function isValidPrice(price) {
+  const n = Number(price);
+  return Number.isFinite(n) && n > 0;
 }
 
 async function buildMarketSnapshot() {
@@ -118,12 +125,12 @@ async function buildMarketSnapshot() {
   const push = (name, price, percentChange, extra = {}, priority = 50) => {
     if (!name) return;
     const existing = cards.find((c) => c.name === name);
-    const livePrice = Number(price);
+    const livePrice = isValidPrice(price) ? Number(price) : null;
     if (existing) {
       const existingPriority = Number(existing._priority || 0);
       const betterPriority = priority > existingPriority;
       if (hasLivePrice(existing) && !betterPriority) return;
-      if (Number.isFinite(livePrice) && (betterPriority || !hasLivePrice(existing))) {
+      if (livePrice != null && (betterPriority || !hasLivePrice(existing))) {
         existing.price = livePrice;
         existing.percentChange = percentChange ?? existing.percentChange ?? null;
         existing.sparkline = sparkFromChange(existing.percentChange);
@@ -132,9 +139,10 @@ async function buildMarketSnapshot() {
       }
       return;
     }
+    if (livePrice == null) return;
     cards.push({
       name,
-      price: Number.isFinite(livePrice) ? livePrice : price ?? null,
+      price: livePrice,
       percentChange: percentChange ?? null,
       sparkline: sparkFromChange(percentChange),
       _priority: priority,
@@ -151,8 +159,7 @@ async function buildMarketSnapshot() {
     for (const row of ticker?.items || []) {
       const raw = row.name || row.label;
       const name = normalizeSnapshotName(raw);
-      if (!name) continue;
-      if (!Number.isFinite(Number(row.price))) continue;
+      if (!name || !isValidPrice(row.price)) continue;
       push(
         name,
         row.price,
@@ -173,7 +180,7 @@ async function buildMarketSnapshot() {
     const nseRows = await fetchNseIndices();
     for (const row of nseRows) {
       const name = normalizeSnapshotName(row.name);
-      if (!name || !Number.isFinite(Number(row.price))) continue;
+      if (!name || !isValidPrice(row.price)) continue;
       push(
         name,
         row.price,
@@ -195,7 +202,7 @@ async function buildMarketSnapshot() {
     try {
       const yahooRows = await fetchYahooIndices(missingCore);
       for (const row of yahooRows) {
-        if (!Number.isFinite(Number(row.price))) continue;
+        if (!isValidPrice(row.price)) continue;
         push(
           row.name,
           row.price,

@@ -51,7 +51,10 @@ async function fetchTickerData(env = {}) {
 
   if (growwAllowed) {
     try {
-      rows = await fetchGrowwTicker();
+      rows = (await fetchGrowwTicker()).filter((row) => {
+        const price = Number(row?.price);
+        return Number.isFinite(price) && price > 0;
+      });
     } catch (err) {
       const msg = String(err?.message || err);
       console.warn('[marketData] Groww ticker failed:', msg);
