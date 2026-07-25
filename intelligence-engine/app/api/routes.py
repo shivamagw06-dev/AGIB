@@ -1452,6 +1452,14 @@ async def ui_article(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+@router.get("/ui/timeline/{entity}")
+async def ui_timeline(entity: str):
+    try:
+        return _ui.timeline(entity).model_dump(mode="json")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 @router.get("/ui/research/{research_id}")
 async def ui_research(research_id: str):
     try:

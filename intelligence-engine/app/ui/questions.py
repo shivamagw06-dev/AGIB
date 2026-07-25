@@ -186,24 +186,45 @@ def follow_up_questions(
     related_companies: list[str],
     related_themes: list[str],
     house_label: str | None,
+    risks: list[str] | None = None,
+    catalysts: list[str] | None = None,
+    knowledge_graph: dict[str, Any] | None = None,
+    recent_research_titles: list[str] | None = None,
 ) -> list[str]:
-    """Generate 4–8 intelligent follow-ups — never empty."""
+    """Generate 4–8 intelligent follow-ups from thesis, risks, graph and research."""
     q = (question or "").strip()
     company = related_companies[0] if related_companies else None
     theme = related_themes[0] if related_themes else None
     peers = related_companies[1] if len(related_companies) > 1 else None
+    buckets = (knowledge_graph or {}).get("buckets") if isinstance(knowledge_graph, dict) else {}
+    buckets = buckets if isinstance(buckets, dict) else {}
+    competitors = list(buckets.get("competitors") or [])
+    suppliers = list(buckets.get("suppliers") or [])
+    macro_themes = list(buckets.get("macro_themes") or related_themes)
 
     out: list[str] = []
     if company:
-        out.append(f"How does {company} compare with {peers or 'HDFC Bank'}?")
+        compare_to = peers or (competitors[0] if competitors else "HDFC Bank")
+        out.append(f"How does {company} compare with {compare_to}?")
         out.append(f"What are the biggest risks for {company}?")
         out.append(f"How has AGI's view on {company} changed over time?")
         out.append(f"What do broker reports say about {company}?")
         out.append(f"How did earnings affect the thesis for {company}?")
         out.append(f"What catalysts could re-rate {company}?")
-    if theme:
-        out.append(f"Which companies benefit most from {theme}?")
-        out.append(f"What are the key risks in the {theme} theme?")
+    if risks:
+        out.append(f"How material is this risk: {str(risks[0])[:90]}?")
+    if catalysts:
+        out.append(f"What happens if this catalyst plays out: {str(catalysts[0])[:90]}?")
+    if suppliers:
+        out.append(f"How exposed is {company or 'the thesis'} to supplier {suppliers[0]}?")
+    if competitors:
+        out.append(f"Does {competitors[0]} challenge the current house view?")
+    if theme or macro_themes:
+        tname = theme or macro_themes[0]
+        out.append(f"Which companies benefit most from {tname}?")
+        out.append(f"What are the key risks in the {tname} theme?")
+    if recent_research_titles:
+        out.append(f"What changed after: {str(recent_research_titles[0])[:90]}?")
     if intent in {"macro", "market_summary", "recommendation_request", "general_research"}:
         out.append("What is AGI's current market view?")
         out.append("Which sectors look relatively attractive today?")

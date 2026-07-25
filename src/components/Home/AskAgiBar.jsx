@@ -13,6 +13,7 @@ export default function AskAgiBar({
   autoFocus = false,
   size = 'large',
   initialQuery = '',
+  onAsk,
 }) {
   const navigate = useNavigate();
   const [query, setQuery] = useState(initialQuery || '');
@@ -24,6 +25,10 @@ export default function AskAgiBar({
   useEffect(() => {
     setRecent(getRecentSearches());
   }, []);
+
+  useEffect(() => {
+    setQuery(initialQuery || '');
+  }, [initialQuery]);
 
   useEffect(() => {
     if (!query.trim()) {
@@ -59,6 +64,10 @@ export default function AskAgiBar({
     if (!value) return;
     pushSearch(value);
     setOpen(false);
+    if (typeof onAsk === 'function') {
+      onAsk(value);
+      return;
+    }
     navigate(`/ask?q=${encodeURIComponent(value)}`);
   };
 

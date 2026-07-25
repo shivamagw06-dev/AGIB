@@ -62,6 +62,7 @@ export default function createUiRouter() {
     '/company/:ticker',
     '/research/:researchId',
     '/article/:articleId',
+    '/timeline/:entity',
     '/theme/:themeId',
     '/sector/:sectorId',
     '/copilot',

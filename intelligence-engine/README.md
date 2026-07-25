@@ -290,10 +290,11 @@ Agents read **AGIB Node cached APIs only** (no direct third-party market API cal
 - Architecture v1.0.1 **LOCKED** — no visual redesign mandate on the website; no engine exposure to public clients
 - Soft-consumes AWS / KIP / RSP / RMS / IOC / CRE / Validation / AIP
 - Frontend must call `/api/ui/*` (Express) → `/v1/ui/*` (engine) — never E01–E14 directly
-- Surfaces: home, company, search, autocomplete, article, research, theme, sector, dashboard, macro, portfolio, copilot, workflow
+- Surfaces: home, company, search, autocomplete, article, research, theme, sector, dashboard, macro, portfolio, copilot, workflow, timeline
 - **Public Product Experience V1**: homepage Ask AGI + Popular Investor Questions; search returns full institutional answer (executive summary, house view, confidence, thesis, bull/bear, risks, catalysts, evidence, timeline, follow-ups)
+- **IAX (Institutional Answer Experience)**: `/ask` becomes an interactive research workspace — house view card, what's changed, supporting/conflicting evidence, research panel, knowledge graph, market intelligence summaries (no engine names), charts descriptors, related ideas, portfolio context, in-page follow-ups, save/export/share
 - Flags: `UI=true`
-- APIs: `GET /v1/ui/home`, `GET /v1/ui/company/{ticker}`, `POST /v1/ui/search`, `GET /v1/ui/autocomplete`, `GET /v1/ui/article/{id}`, `GET /v1/ui/research/{id}`, `GET /v1/ui/theme/{id}`, `GET /v1/ui/sector/{id}`, `GET /v1/ui/dashboard`, `GET /v1/ui/macro`, `GET /v1/ui/portfolio`, `GET /v1/ui/copilot`, `GET /v1/ui/workflow`, `GET /v1/ui/health`
+- APIs: `GET /v1/ui/home`, `GET /v1/ui/company/{ticker}`, `POST /v1/ui/search`, `GET /v1/ui/autocomplete`, `GET /v1/ui/article/{id}`, `GET /v1/ui/research/{id}`, `GET /v1/ui/theme/{id}`, `GET /v1/ui/sector/{id}`, `GET /v1/ui/timeline/{entity}`, `GET /v1/ui/dashboard`, `GET /v1/ui/macro`, `GET /v1/ui/portfolio`, `GET /v1/ui/copilot`, `GET /v1/ui/workflow`, `GET /v1/ui/health`
 
 ### Alpha Improvement Programme (AIP) — Research Roadmap
 

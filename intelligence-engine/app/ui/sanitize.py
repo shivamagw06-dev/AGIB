@@ -34,7 +34,7 @@ _ENGINE_LABELS = {
 }
 
 _ENGINE_RE = re.compile(
-    r"\b(E0[1-9]|E1[0-4]|L4|ORCH|CRE|RSP|RMS|KIP|IOC|AWS|AIP)\b",
+    r"(?<![A-Za-z0-9])(E0[1-9]|E1[0-4]|L4|ORCH|CRE|RSP|RMS|KIP|IOC|AWS|AIP)(?![A-Za-z0-9])",
     re.IGNORECASE,
 )
 

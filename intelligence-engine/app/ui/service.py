@@ -8,6 +8,17 @@ from app.aws.adapters import dump, soft
 from app.core.config import get_settings
 from app.kip.models import ClientSearchRequest
 from app.ui.flags import UiFlags
+from app.ui.iax import (
+    build_charts,
+    enrich_timeline,
+    evidence_items,
+    house_view_card,
+    knowledge_graph_view,
+    market_intelligence_summary,
+    related_ideas,
+    research_panel,
+    whats_changed,
+)
 from app.ui.models import (
     UI_VERSION,
     ArticleView,
@@ -22,6 +33,7 @@ from app.ui.models import (
     SearchView,
     SectorView,
     ThemeView,
+    TimelineView,
     UiMeta,
     WorkflowView,
 )
@@ -80,6 +92,7 @@ class UiService:
                 "search",
                 "autocomplete",
                 "article",
+                "timeline",
                 "research",
                 "theme",
                 "sector",
@@ -437,13 +450,8 @@ class UiService:
         if isinstance(house, dict):
             last_updated = last_updated or house.get("updated_at") or house.get("as_of")
 
-        followups = follow_up_questions(
-            question=q,
-            intent=(client or {}).get("intent"),
-            related_companies=related,
-            related_themes=related_themes,
-            house_label=str(house_label) if house_label else None,
-        )
+        # Follow-ups assembled after IAX graph/evidence enrichment below.
+        followups: list[str] = []
 
         answer = {
             "policy": "evidence_pack_not_direct_advice",
@@ -464,6 +472,180 @@ class UiService:
             "related_themes": related_themes[:6],
             "related_articles": scrub(articles)[:6],
             "related_questions": followups[:6],
+        }
+
+        # --- IAX enrichment ---
+        company_ws = dump(soft(self.aws.company, detected_ticker)) if self.aws and detected_ticker else None
+        company_ws = company_ws or {}
+        prior_house = None
+        if isinstance(house, dict):
+            hist = house.get("historical_views") or house.get("history") or []
+            if isinstance(hist, list) and hist:
+                prior_house = scrub(hist[0] if isinstance(hist[0], dict) else None)
+        if prior_house is None and detected_ticker and self.aip:
+            evo = soft(self.aip.house_view_evolution, detected_ticker)
+            evo_d = dump(evo) if evo is not None else None
+            points = (evo_d or {}).get("points") or []
+            if len(points) >= 2:
+                prior_house = {
+                    "label": points[-2].get("label"),
+                    "current_view": points[-2].get("label"),
+                    "confidence": points[-2].get("confidence"),
+                }
+
+        hv_card = house_view_card(house if isinstance(house, dict) else None, conf)
+        changed = whats_changed(
+            house=house if isinstance(house, dict) else None,
+            prior_house=prior_house if isinstance(prior_house, dict) else None,
+            conf=float(conf) if conf is not None else None,
+            prior_conf=float(prior_house["confidence"])
+            if isinstance(prior_house, dict) and prior_house.get("confidence") is not None
+            else None,
+            thesis=thesis,
+        )
+
+        broker_docs = evidence_items(
+            _as_docs((company_ws.get("broker_research") or [])[:10]),
+            default_type="broker",
+        )
+        filing_docs = evidence_items(
+            [
+                d
+                for d in _as_docs(company_ws.get("agi_articles") or [])
+                if "filing" in str(d.get("document_type") or d.get("title") or "").lower()
+            ],
+            default_type="filing",
+        )
+        earning_docs = evidence_items(
+            [
+                d
+                for d in _as_docs(company_ws.get("agi_articles") or [])
+                if "earn" in str(d.get("document_type") or d.get("title") or "").lower()
+            ],
+            default_type="earnings",
+        )
+        support_ev = evidence_items(scrub(supporting)[:12], default_type="agi_research")
+        conflict_ev = evidence_items(
+            conflicting if isinstance(conflicting, list) else [],
+            default_type="conflict",
+        )
+        if not support_ev:
+            support_ev = evidence_items(scrub(articles)[:8], default_type="agi_research")
+
+        preds = []
+        if detected_ticker and self.kip:
+            for p in soft(self.kip.predictions, detected_ticker, default=[]) or []:
+                d = dump(p)
+                if d:
+                    preds.append(scrub(d))
+
+        graph_raw = company_ws.get("knowledge_graph")
+        if graph_raw is None and detected_ticker and self.kip:
+            graph_raw = dump(soft(self.kip.graph, detected_ticker))
+        kg = knowledge_graph_view(graph_raw if isinstance(graph_raw, dict) else None, detected_ticker)
+
+        followups = follow_up_questions(
+            question=q,
+            intent=(client or {}).get("intent"),
+            related_companies=related,
+            related_themes=related_themes,
+            house_label=str(house_label) if house_label else None,
+            risks=risks,
+            catalysts=catalysts,
+            knowledge_graph=kg,
+            recent_research_titles=[
+                str(a.get("title"))
+                for a in (articles or [])[:4]
+                if isinstance(a, dict) and a.get("title")
+            ],
+        )
+        recommendations["related_questions"] = followups[:6]
+
+        timeline_enriched = enrich_timeline(timeline if isinstance(timeline, list) else [])
+        # merge news into timeline
+        for n in (news or [])[:8]:
+            if isinstance(n, dict):
+                timeline_enriched.append(
+                    {
+                        "as_of": n.get("date") or n.get("published_at"),
+                        "type": "news",
+                        "title": scrub_text(n.get("title")),
+                        "summary": scrub_text(n.get("snippet")),
+                        "source": "knowledge",
+                    }
+                )
+        timeline_enriched = enrich_timeline(timeline_enriched)
+
+        mi = market_intelligence_summary(company_ws)
+        charts = build_charts(ticker=detected_ticker, predictions=preds, timeline=timeline_enriched)
+        ideas = related_ideas(
+            related_companies=related,
+            related_sectors=related_sectors,
+            related_themes=related_themes,
+            stance=hv_card.get("stance"),
+        )
+
+        port_ctx: dict[str, Any] = {}
+        if self.aws:
+            port = dump(soft(self.aws.portfolio)) or {}
+            weight = company_ws.get("portfolio_weight")
+            port_ctx = {
+                "current_exposure": weight,
+                "sector_allocation": scrub(port.get("sector_exposure") or {}),
+                "theme_allocation": related_themes[:6],
+                "position_history": scrub(port.get("historical_portfolio") or [])[:5],
+                "note": "Model portfolio context — not a recommendation to trade.",
+            }
+
+        regime_label = None
+        macro = dump(soft(self.aws.macro)) if self.aws else None
+        if isinstance(macro, dict):
+            regime_label = pick_label(macro.get("e01") or macro.get("market_regime"), "regime", "label")
+
+        freshness_score = freshness.get("score")
+        if isinstance(freshness_score, (int, float)):
+            freshness_indicator = (
+                "fresh" if freshness_score >= 0.7 else "aging" if freshness_score >= 0.4 else "stale"
+            )
+        else:
+            freshness_indicator = "unknown"
+
+        neutral_case = []
+        if hv_card.get("stance") == "Neutral":
+            neutral_case = ["Wait for clearer catalysts before increasing conviction."]
+        elif risks and catalysts:
+            neutral_case = ["Balance catalysts against listed risks; position sizing remains discretionary."]
+
+        current_thesis = {
+            "bull_case": bull,
+            "bear_case": bear,
+            "neutral_case": neutral_case,
+            "catalysts": catalysts,
+            "risks": risks,
+            "valuation": (house or {}).get("valuation") if isinstance(house, dict) else None,
+            "time_horizon": hv_card.get("investment_horizon"),
+            "summary": scrub_text(thesis) if thesis else None,
+        }
+
+        rpanel = research_panel(
+            agi=evidence_items(scrub(articles)[:10], default_type="agi_research"),
+            broker=broker_docs,
+            filings=filing_docs,
+            earnings=earning_docs,
+            historical=evidence_items(
+                _as_docs(company_ws.get("agi_articles") or [])[3:12],
+                default_type="agi_research",
+            ),
+        )
+
+        workspace = {
+            "mode": "institutional_answer",
+            "four_questions": {
+                "view": hv_card.get("stance"),
+                "why": why[:3],
+                "evidence_count": len(support_ev),
+                "explore_next": followups[:4],
+            },
         }
 
         return SearchView(
@@ -494,7 +676,7 @@ class UiService:
             latest_news=scrub(news)[:8] or _kip_news(self.kip, q, limit=5),
             conflicting_opinions=conflicting if isinstance(conflicting, list) else [],
             evidence_used=evidence_used if isinstance(evidence_used, list) else [],
-            knowledge_timeline=timeline if isinstance(timeline, list) else [],
+            knowledge_timeline=timeline_enriched,
             knowledge_freshness=freshness,
             last_updated=str(last_updated) if last_updated else None,
             related_companies=related,
@@ -504,6 +686,51 @@ class UiService:
             follow_up_questions=followups,
             hits=hits,
             answer_policy="institutional_evidence_pack",
+            market_regime=regime_label,
+            freshness_indicator=freshness_indicator,
+            house_view_card=hv_card,
+            whats_changed=changed,
+            current_thesis=current_thesis,
+            supporting_evidence=support_ev,
+            conflicting_evidence=conflict_ev,
+            research_panel=rpanel,
+            knowledge_graph=kg,
+            market_intelligence=mi,
+            charts=charts,
+            predictions=[p for p in preds if p][:12],
+            related_ideas=ideas,
+            portfolio_context=port_ctx,
+            workspace=workspace,
+        )
+
+    def timeline(self, entity: str) -> TimelineView:
+        self._require()
+        ent = (entity or "").strip()
+        events: list[dict[str, Any]] = []
+        preds: list[dict[str, Any]] = []
+        if self.kip and ent:
+            events = enrich_timeline(_timeline_events(dump(soft(self.kip.timeline, ent.upper()))))
+            for p in soft(self.kip.predictions, ent.upper(), default=[]) or []:
+                d = dump(p)
+                if d:
+                    preds.append(scrub(d))
+            # soft-add news
+            for n in _kip_news(self.kip, ent, limit=8):
+                events.append(
+                    {
+                        "as_of": n.get("date"),
+                        "type": "news",
+                        "title": n.get("title"),
+                        "summary": n.get("snippet"),
+                        "source": "knowledge",
+                    }
+                )
+            events = enrich_timeline(events)
+        return TimelineView(
+            meta=UiMeta(surface="timeline", sources=["knowledge"]),
+            entity=ent.upper() if ent else ent,
+            events=events,
+            predictions=preds[:20],
         )
 
     def autocomplete(self, query: str) -> AutocompleteView:

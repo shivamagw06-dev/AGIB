@@ -89,6 +89,31 @@ class SearchView(BaseModel):
     follow_up_questions: list[str] = Field(default_factory=list)
     hits: list[dict[str, Any]] = Field(default_factory=list)
     answer_policy: str = "institutional_evidence_pack"
+    # IAX — Institutional Answer Experience
+    market_regime: str | None = None
+    freshness_indicator: str | None = None
+    house_view_card: dict[str, Any] = Field(default_factory=dict)
+    whats_changed: dict[str, Any] = Field(default_factory=dict)
+    current_thesis: dict[str, Any] = Field(default_factory=dict)
+    supporting_evidence: list[dict[str, Any]] = Field(default_factory=list)
+    conflicting_evidence: list[dict[str, Any]] = Field(default_factory=list)
+    research_panel: dict[str, Any] = Field(default_factory=dict)
+    knowledge_graph: dict[str, Any] = Field(default_factory=dict)
+    market_intelligence: list[dict[str, Any]] = Field(default_factory=list)
+    charts: list[dict[str, Any]] = Field(default_factory=list)
+    predictions: list[dict[str, Any]] = Field(default_factory=list)
+    related_ideas: dict[str, Any] = Field(default_factory=dict)
+    portfolio_context: dict[str, Any] = Field(default_factory=dict)
+    workspace: dict[str, Any] = Field(default_factory=dict)
+
+
+class TimelineView(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    meta: UiMeta
+    entity: str
+    events: list[dict[str, Any]] = Field(default_factory=list)
+    predictions: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class ArticleView(BaseModel):

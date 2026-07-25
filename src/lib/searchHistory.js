@@ -2,6 +2,7 @@ const KEY = 'agi_ask_history_v1';
 const FAV_COMPANIES = 'agi_fav_companies_v1';
 const FAV_THEMES = 'agi_fav_themes_v1';
 const SAVED = 'agi_saved_searches_v1';
+const SAVED_ANSWERS = 'agi_saved_answers_v1';
 
 function read(key, fallback = []) {
   try {
@@ -68,4 +69,26 @@ export function toggleFavouriteTheme(theme) {
   const next = prev.includes(t) ? prev.filter((x) => x !== t) : [t, ...prev].slice(0, 40);
   write(FAV_THEMES, next);
   return next;
+}
+
+export function getSavedAnswers(limit = 12) {
+  return read(SAVED_ANSWERS).slice(0, limit);
+}
+
+export function saveAnswer(answer) {
+  const question = String(answer?.question || '').trim();
+  if (!question) return getSavedAnswers();
+  const row = {
+    id: `${Date.now()}-${question.slice(0, 24)}`,
+    question,
+    stance: answer?.stance || '',
+    summary: answer?.summary || '',
+    href: answer?.href || `/ask?q=${encodeURIComponent(question)}`,
+    saved_at: new Date().toISOString(),
+  };
+  const prev = read(SAVED_ANSWERS).filter(
+    (x) => String(x.question || '').toLowerCase() !== question.toLowerCase()
+  );
+  write(SAVED_ANSWERS, [row, ...prev].slice(0, 40));
+  return getSavedAnswers();
 }
