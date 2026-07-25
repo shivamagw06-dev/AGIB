@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Search, Menu, X, User, LogOut, Edit2 } from 'lucide-react';
+import { Search, Menu, X, User, LogOut, Edit2, Shield, Briefcase, LayoutDashboard } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -10,10 +10,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuSeparator,
+  DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/supabaseClient';
 import { isAdmin } from '@/lib/adminAuth';
+import { firstNameFromUser } from '@/lib/authValidation';
 import Logo from '@/components/Layout/Logo';
 import AgiInsightStrip from '@/components/Layout/AgiInsightStrip';
 import ResearchSearch from '@/components/Search/ResearchSearch';
@@ -33,12 +35,13 @@ const NAV = [
 export default function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-  const { user, logout } = useAuth();
+  const { user, logout, logoutAllDevices } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
   const [handle, setHandle] = useState('');
   const userIsAdmin = isAdmin(user);
+  const firstName = firstNameFromUser(user);
 
   useEffect(() => {
     if (!user) {
@@ -89,6 +92,16 @@ export default function Header() {
       await logout();
       navigate('/');
       toast?.({ title: 'Signed out' });
+    } catch (err) {
+      toast?.({ title: 'Error', description: err?.message, variant: 'destructive' });
+    }
+  };
+
+  const handleLogoutAll = async () => {
+    try {
+      await logoutAllDevices();
+      navigate('/');
+      toast?.({ title: 'Signed out of all devices' });
     } catch (err) {
       toast?.({ title: 'Error', description: err?.message, variant: 'destructive' });
     }
@@ -148,14 +161,27 @@ export default function Header() {
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" className="hidden sm:flex h-8 text-xs text-[#111111]">
                       <User className="w-4 h-4 mr-1" />
-                      {(user.email ?? '').split('@')[0]}
+                      {firstName}
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => go('/profile/edit')}>Edit profile</DropdownMenuItem>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuLabel className="font-normal">
+                      <div className="text-sm font-semibold text-[#111]">{firstName}</div>
+                      <div className="truncate text-[11px] text-[#767676]">{user.email}</div>
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => go('/workspace')}>
+                      <Briefcase className="w-4 h-4 mr-2" /> Personal workspace
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => go('/profile/edit')}>
+                      <User className="w-4 h-4 mr-2" /> Edit profile
+                    </DropdownMenuItem>
                     {handle && (
                       <DropdownMenuItem onClick={() => go(`/u/${handle}`)}>Public profile</DropdownMenuItem>
                     )}
+                    <DropdownMenuItem onClick={() => go('/account/security')}>
+                      <Shield className="w-4 h-4 mr-2" /> Security &amp; PIN
+                    </DropdownMenuItem>
                     {userIsAdmin && (
                       <DropdownMenuItem onClick={() => go('/admin')}>
                         <Edit2 className="w-4 h-4 mr-2" /> CMS
@@ -165,23 +191,26 @@ export default function Header() {
                     <DropdownMenuItem onClick={handleLogout}>
                       <LogOut className="w-4 h-4 mr-2" /> Sign out
                     </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleLogoutAll}>
+                      <LayoutDashboard className="w-4 h-4 mr-2" /> Sign out all devices
+                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               ) : (
                 <>
                   <button
                     type="button"
-                    onClick={() => go('/login')}
+                    onClick={() => go('/login?mode=signin')}
                     className="hidden sm:block text-sm font-medium text-[#111111] hover:underline px-2"
                   >
                     Sign in
                   </button>
                   <button
                     type="button"
-                    onClick={() => go('/login')}
+                    onClick={() => go('/login?mode=signup')}
                     className="hidden sm:block bg-[#111111] text-white text-sm font-bold px-4 py-1.5 hover:bg-[#333]"
                   >
-                    Subscribe
+                    Create account
                   </button>
                 </>
               )}
@@ -224,7 +253,7 @@ export default function Header() {
               {item.name}
             </button>
           ))}
-          {!user && (
+          {!user ? (
             <div className="grid grid-cols-2 gap-2 py-3">
               <button
                 type="button"
@@ -239,6 +268,22 @@ export default function Header() {
                 className="min-h-[44px] bg-[#111111] px-3 text-sm font-bold text-white"
               >
                 Create account
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-1 border-t border-[#eee] py-3">
+              <p className="px-1 pb-2 text-xs text-[#767676]">Signed in as {firstName}</p>
+              <button type="button" onClick={() => go('/workspace')} className="block w-full py-2.5 text-left text-sm font-medium">
+                Personal workspace
+              </button>
+              <button type="button" onClick={() => go('/account/security')} className="block w-full py-2.5 text-left text-sm font-medium">
+                Security &amp; PIN
+              </button>
+              <button type="button" onClick={() => go('/profile/edit')} className="block w-full py-2.5 text-left text-sm font-medium">
+                Edit profile
+              </button>
+              <button type="button" onClick={handleLogout} className="block w-full py-2.5 text-left text-sm font-medium text-[#b42318]">
+                Sign out
               </button>
             </div>
           )}

@@ -18,6 +18,9 @@ import useUiHome from '@/hooks/useUiHome';
 import { MARKET_UPDATE_SECTIONS, SECTOR_RESEARCH } from '@/config/sectors';
 import { formatTimeAgo } from '@/lib/articleUtils';
 import { trackProductEvent } from '@/lib/productAnalytics';
+import { useAuth } from '@/contexts/AuthContext';
+import { firstNameFromUser, greetingForNow } from '@/lib/authValidation';
+import { hasPin } from '@/lib/devicePin';
 import { useEffect } from 'react';
 
 function SectionHeader({ title, subtitle, href, linkLabel = 'View all →' }) {
@@ -95,15 +98,18 @@ function MarketUpdateSectionLoader({ sectionId }) {
 }
 
 export default function EditorialHome() {
+  const { user } = useAuth();
   const { data: uiHome, loading: uiLoading } = useUiHome();
   const { articles: research, loading: researchLoading } = usePublishedArticles({
     limit: 6,
     section: null,
   });
+  const firstName = firstNameFromUser(user);
+  const showPinNudge = Boolean(user?.id && !hasPin(user.id));
 
   useEffect(() => {
-    trackProductEvent('session_start', { surface: 'home' });
-  }, []);
+    trackProductEvent('session_start', { surface: 'home', authenticated: Boolean(user) });
+  }, [user]);
 
   const featuredResearch = research.filter(
     (a) =>
@@ -150,6 +156,37 @@ export default function EditorialHome() {
         </script>
       </Helmet>
       <div className="max-w-[1800px] mx-auto px-4 sm:px-6">
+        {user && (
+          <section className="border-b border-[#dddddd] py-5" aria-label="Personal greeting">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-[#ff6600]">Your desk</p>
+            <h2 className="mt-1 text-xl md:text-2xl font-bold text-[#111111]">
+              {greetingForNow()}, {firstName}
+            </h2>
+            <p className="mt-1 text-sm text-[#767676]">
+              Continue with Ask AGI, your workspace, and today&apos;s market brief.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-bold">
+              <Link to="/ask" className="border border-[#ddd] px-2.5 py-1.5 hover:text-[#ff6600]">
+                Ask AGI
+              </Link>
+              <Link to="/workspace" className="border border-[#ddd] px-2.5 py-1.5 hover:text-[#ff6600]">
+                Workspace
+              </Link>
+              <Link to="/account/security" className="border border-[#ddd] px-2.5 py-1.5 hover:text-[#ff6600]">
+                Security &amp; PIN
+              </Link>
+              {showPinNudge && (
+                <Link
+                  to="/account/security"
+                  className="border border-[#ff6600] bg-[#fff7f0] px-2.5 py-1.5 text-[#ff6600]"
+                >
+                  Set a device PIN
+                </Link>
+              )}
+            </div>
+          </section>
+        )}
+
         {/* Hero — existing design, live intelligence */}
         <MorningBriefHero uiHome={uiHome} uiLoading={uiLoading} />
 
@@ -158,7 +195,7 @@ export default function EditorialHome() {
           <div className="max-w-[900px]">
             <p className="text-[11px] font-bold uppercase tracking-wider text-[#ff6600]">Ask AGI</p>
             <h2 id="ask-agi-heading" className="mt-2 text-2xl md:text-3xl font-bold text-[#111111]">
-              Talk to the Investment Office
+              {user ? `${firstName}, talk to the Investment Office` : 'Talk to the Investment Office'}
             </h2>
             <p className="mt-2 text-sm text-[#767676] max-w-2xl">
               Ask about markets, companies, sectors or the economy. Every answer is evidence-based —
