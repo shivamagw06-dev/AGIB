@@ -17,6 +17,7 @@ from app.engines.e10.service import E10Service
 from app.engines.l4.consumer import register_l4_with_orch
 from app.engines.l4.service import L4Service
 from app.eval.evaluation_agent import EvaluationAgent
+from app.cre.service import CREService
 from app.validation.service import ValidationService
 from app.features.models import FeatureMetadata
 from app.features.service import FeatureRegistryService
@@ -43,6 +44,7 @@ _e03 = E03Service(_features, e01=_e01, e14=_e14, e02=_e02, orch_ledger=_orch_led
 _l4 = L4Service(e01=_e01, e14=_e14, e02=_e02, e03=_e03, orch_ledger=_orch_ledger)
 _e10 = E10Service(l4=_l4, e14=_e14, e02=_e02, orch_ledger=_orch_ledger)
 _validation = ValidationService()
+_cre = CREService()
 
 
 def _wire_market_data_to_l2() -> None:
@@ -311,6 +313,67 @@ async def validation_dashboard(run_id: str):
     dash = _validation.get_dashboard(run_id)
     if dash is None:
         raise HTTPException(status_code=404, detail="Replay dashboard not found")
+    return dash
+
+
+@router.get("/cre/health")
+async def cre_health():
+    """Continuous Research Evaluation platform health (CRE-001–005 P0)."""
+    return _cre.health()
+
+
+@router.post("/cre/evaluate")
+async def cre_evaluate(dataset_id: str = Query(default="golden_p0_v1")):
+    """Run nightly/on-demand CRE evaluation over Historical Replay (no production influence)."""
+    try:
+        result = _cre.evaluate(dataset_id)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return result.model_dump(mode="json")
+
+
+@router.get("/cre/scorecards")
+async def cre_scorecards():
+    """Latest EngineScorecards + CompositeScorecard."""
+    composite = _cre.get_composite()
+    return {
+        "engines": [s.model_dump(mode="json") for s in _cre.list_scorecards()],
+        "composite": composite.model_dump(mode="json") if composite else None,
+    }
+
+
+@router.get("/cre/scorecards/{engine}")
+async def cre_scorecard(engine: str):
+    """Latest EngineScorecard for one engine."""
+    card = _cre.get_scorecard(engine)
+    if card is None:
+        raise HTTPException(status_code=404, detail="Engine scorecard not found")
+    return card.model_dump(mode="json")
+
+
+@router.get("/cre/alerts")
+async def cre_alerts():
+    """Latest DriftAlert + RegressionAlert sets."""
+    return _cre.get_alerts()
+
+
+@router.get("/cre/promotion")
+async def cre_promotion():
+    """Promotion evidence report (PROMOTION=false ⇒ never ready)."""
+    report = _cre.get_promotion()
+    if report is None:
+        raise HTTPException(status_code=404, detail="Promotion report not found")
+    return report.model_dump(mode="json")
+
+
+@router.get("/cre/dashboard")
+async def cre_dashboard():
+    """CRE dashboard: trends, rankings, confidence/performance, promotion readiness."""
+    dash = _cre.get_dashboard()
+    if dash is None:
+        raise HTTPException(status_code=404, detail="CRE dashboard not found")
     return dash
 
 

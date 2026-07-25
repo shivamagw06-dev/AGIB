@@ -140,3 +140,13 @@ Agents read **AGIB Node cached APIs only** (no direct third-party market API cal
 - Metrics: daily/benchmark return, hit/win rate, IC, Sharpe, Sortino, max DD, turnover, confidence calibration, bucket accuracy, parity stability
 - Flags: `BACKTEST=true`, `LIVE=false`
 - APIs: `POST /v1/validation/replay`, `GET /v1/validation/runs`, `GET /v1/validation/runs/{id}`, `GET /v1/validation/dashboard/{id}`, `GET /v1/validation/health`
+
+### Continuous Research Evaluation P0 (WBS CRE-001–005)
+
+- Package: `app/cre/` — Daily Evaluation Runner, Rolling Metrics Store, Drift Detection, Research Scorecards, Promotion Evidence, Dashboard
+- Not a research/trading engine: consumes Historical Replay, Daily Shadow Runs, EngineStates, L4Opinion, E10Portfolio
+- Rolling windows: 30 / 90 / 252 days (adaptive `days_used` when series shorter)
+- Drift: model, confidence, feature, distribution, performance + regression alerts
+- Outputs: EngineScorecard, CompositeScorecard, PromotionReport, DriftAlert, RegressionAlert
+- Flags: `CRE=true`, `PROMOTION=false` (evidence-only; never promotes / no production influence)
+- APIs: `POST /v1/cre/evaluate`, `GET /v1/cre/scorecards`, `GET /v1/cre/scorecards/{engine}`, `GET /v1/cre/alerts`, `GET /v1/cre/promotion`, `GET /v1/cre/dashboard`, `GET /v1/cre/health`

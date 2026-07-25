@@ -80,6 +80,10 @@ class Settings(BaseSettings):
     backtest: bool = True
     live: bool = False
 
+    # Continuous Research Evaluation platform flags (P0 defaults)
+    cre: bool = True
+    promotion: bool = False
+
 
 @lru_cache
 def get_settings() -> Settings:
