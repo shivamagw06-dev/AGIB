@@ -45,6 +45,46 @@ function fmtConfidence(value) {
   return n <= 1 ? `${Math.round(n * 100)}%` : `${Math.round(n)}%`;
 }
 
+function asPlainText(value, fallback = '') {
+  if (value == null) return fallback;
+  if (typeof value === 'object') {
+    const nested = value.thesis || value.summary || value.snippet || value.title || value.stance;
+    return asPlainText(nested, fallback);
+  }
+  const text = String(value).replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
+  if (!text || text.startsWith('{') || text.includes("'document_id'") || text.includes('"document_id"')) {
+    return fallback;
+  }
+  if (/^doc_[a-z0-9]+$/i.test(text)) return fallback;
+  return text;
+}
+
+function asStance(value) {
+  if (value && typeof value === 'object') {
+    const thesis = asPlainText(value.thesis || value.summary, '');
+    const blob = thesis.toLowerCase();
+    if (/(weak growth|slower deal|macro challenge|pressure|muted|headwind|demand weakness)/.test(blob)) {
+      return 'Bearish';
+    }
+    if (/(upgrade|overweight|acceleration|strong demand|reacceleration)/.test(blob)) {
+      return 'Bullish';
+    }
+    return 'Neutral';
+  }
+  const raw = asPlainText(value, '');
+  if (!raw) return 'Neutral';
+  const s = raw.toLowerCase();
+  // Do not treat field names like "bull_case" as Bullish.
+  if (s.includes('bull_case') || s.includes('bear_case') || s.includes('document_id')) {
+    return asStance({ thesis: raw });
+  }
+  if (/\bbearish\b|\bunderweight\b|\bdowngrade\b|\bsell\b/.test(s)) return 'Bearish';
+  if (/\bbullish\b|\boverweight\b|\bupgrade\b|\bbuy\b/.test(s)) return 'Bullish';
+  if (s === 'bear') return 'Bearish';
+  if (s === 'bull') return 'Bullish';
+  return 'Neutral';
+}
+
 function stanceTone(stance = '') {
   const s = String(stance).toLowerCase();
   if (s.includes('bull')) return 'bg-[#e8f5e9] text-[#1b5e20] border-[#a5d6a7]';
@@ -85,12 +125,20 @@ function EvidenceCard({ item }) {
           </>
         )}
       </div>
-      <p className="mt-2 text-sm font-bold text-[#111]">{item.title || item.id}</p>
-      {item.summary && <p className="mt-1 text-xs text-[#555] leading-relaxed">{item.summary}</p>}
+      <p className="mt-2 text-sm font-bold text-[#111]">
+        {asPlainText(item.title, asPlainText(item.summary, 'Research note'))}
+      </p>
+      {asPlainText(item.summary, '') &&
+        asPlainText(item.summary, '') !== asPlainText(item.title, '') && (
+        <p className="mt-1 text-xs text-[#555] leading-relaxed">{asPlainText(item.summary, '')}</p>
+      )}
       {item.confidence != null && (
         <p className="mt-2 text-[11px] text-[#767676]">Confidence {fmtConfidence(item.confidence)}</p>
       )}
-      {(item.tickers || []).slice(0, 3).map((t) => (
+      {(item.tickers || [])
+        .filter((t) => typeof t === 'string' && !/^(SERVICES|GLOBAL|UPDATE|OUTLOOK|EARNINGS|CONTINUES|AMP|HIS|IMPLICATIONS|RESEARCH|INDIA|INDIAN|MARKET|SECTOR|GROWTH)$/i.test(t))
+        .slice(0, 3)
+        .map((t) => (
         <span key={t} className="inline-block mt-2 mr-2 text-[11px] font-bold text-[#111]">
           {t}
         </span>
@@ -137,7 +185,7 @@ export default function InstitutionalAnswer({ pack, onFollowUp, onContinue, onSa
   const [favs, setFavs] = useState(() => getFavouriteCompanies());
 
   const house = pack?.house_view_card || {};
-  const stance = house.stance || pack?.answer?.house_view_label || 'Neutral';
+  const stance = asStance(house.stance || pack?.answer?.house_view_label || 'Neutral');
   const ticker = pack?.entities?.ticker;
   const changed = pack?.whats_changed || {};
   const thesis = pack?.current_thesis || {};
@@ -147,6 +195,14 @@ export default function InstitutionalAnswer({ pack, onFollowUp, onContinue, onSa
   const portfolio = pack?.portfolio_context || {};
   const charts = pack?.charts || [];
   const mi = pack?.market_intelligence || [];
+  const executiveSummary = asPlainText(
+    pack?.executive_summary || pack?.answer?.summary,
+    'Institutional evidence pack. Not investment advice.'
+  );
+  const whyItems = (pack?.why || [])
+    .map((w) => asPlainText(w, ''))
+    .filter(Boolean);
+  const thesisSummary = asPlainText(thesis.summary || pack?.investment_thesis, '');
 
   const toc = useMemo(
     () => [
@@ -189,12 +245,12 @@ export default function InstitutionalAnswer({ pack, onFollowUp, onContinue, onSa
       `Market regime: ${pack.market_regime || '—'}`,
       `Last updated: ${pack.last_updated || '—'}`,
       '',
-      pack.executive_summary || '',
+      executiveSummary || '',
       '',
-      `Thesis: ${pack.investment_thesis || ''}`,
+      `Thesis: ${thesisSummary || ''}`,
       '',
       'Why:',
-      ...(pack.why || []).map((w) => `- ${w}`),
+      ...whyItems.map((w) => `- ${w}`),
       '',
       "What's changed:",
       ...((changed.items || []).map((i) => `- ${i.label}: ${i.detail}`)),
@@ -280,7 +336,7 @@ export default function InstitutionalAnswer({ pack, onFollowUp, onContinue, onSa
             </div>
             <div className="border border-[#eee] bg-white p-2">
               <p className="text-[#767676] uppercase font-bold">Why</p>
-              <p className="font-bold text-[#111] mt-1 line-clamp-2">{(pack.why || [])[0] || 'See evidence'}</p>
+              <p className="font-bold text-[#111] mt-1 line-clamp-2">{whyItems[0] || 'See evidence'}</p>
             </div>
             <div className="border border-[#eee] bg-white p-2">
               <p className="text-[#767676] uppercase font-bold">Evidence</p>
@@ -294,7 +350,7 @@ export default function InstitutionalAnswer({ pack, onFollowUp, onContinue, onSa
         </header>
 
         <Block id="iax-summary" title="Executive Summary">
-          <p className="text-base text-[#222]">{pack.executive_summary || pack.answer?.summary}</p>
+          <p className="text-base text-[#222]">{executiveSummary}</p>
           <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-2">
             <div className="border border-[#eee] p-3">
               <p className="text-[10px] font-bold uppercase text-[#767676]">Current stance</p>
@@ -376,9 +432,7 @@ export default function InstitutionalAnswer({ pack, onFollowUp, onContinue, onSa
         </Block>
 
         <Block id="iax-thesis" title="Current Thesis">
-          {thesis.summary || pack.investment_thesis ? (
-            <p className="mb-4">{thesis.summary || pack.investment_thesis}</p>
-          ) : null}
+          {thesisSummary ? <p className="mb-4">{thesisSummary}</p> : null}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="border border-[#eee] p-3">
               <p className="text-[10px] font-bold uppercase text-[#087443]">Bull case</p>

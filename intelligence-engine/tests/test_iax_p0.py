@@ -65,7 +65,13 @@ def _ui() -> UiService:
 
 def test_normalize_stance_and_house_card():
     assert normalize_stance("Strongly Bullish") == "Bullish"
-    assert normalize_stance("bear case") == "Bearish"
+    assert normalize_stance("bearish") == "Bearish"
+    # Critical: stringified HistoricalView contains "bull_case" and must NOT become Bullish.
+    dumped = (
+        "{'document_id': 'doc_x', 'thesis': 'weak growth visibility and macro challenges', "
+        "'bull_case': [], 'bear_case': []}"
+    )
+    assert normalize_stance(dumped) == "Bearish"
     card = house_view_card({"current_view": "Bullish", "horizon": "12m", "conviction": "high"}, 0.72)
     assert card["stance"] == "Bullish"
     assert card["bullish"] is True
@@ -79,13 +85,14 @@ def test_normalize_stance_and_house_card():
                 "document_id": "doc_x",
                 "thesis": "Indian IT services face weak growth visibility and AI productivity pressure.",
                 "bull_case": [],
-                "bear_case": ["Slower deal conversions", "Macro demand softness"],
+                "bear_case": [],
             },
         },
         None,
     )
     assert nested["stance"] == "Bearish"
     assert nested["confidence"] == 0.7
+    assert nested["label"] == "Bearish"
 
 
 def test_whats_changed_highlights_deltas():
@@ -161,15 +168,14 @@ def test_sector_search_uses_titles_and_synthesizes_house_view():
         IngestRequest(
             title="India IT Sector update",
             content=(
-                "India IT Services – Q1FY27 Review & Outlook. "
+                "India IT Services – Q1FY27 Review &amp; Outlook. "
                 "The Indian IT services sector continues to face weak growth visibility, "
                 "with earnings reflecting ongoing macro challenges, slower deal conversions, "
-                "and increasing pressure from AI-led productivity demands.\n"
-                "Key Sector Takeaways (Q1FY27)\n"
-                "Bull Case\n- Large-deal pipeline still intact for Tier-1 names\n"
-                "Bear Case\n- Weak growth visibility near 0% QoQ\n- AI productivity pressure on billing\n"
-                "Risks\n- Client budget freezes in US/Europe\n"
-                "Catalysts\n- FY27 guidance upgrades if demand stabilises\n"
+                "and increasing pressure from AI-led productivity demands. "
+                "Key Sector Takeaways (Q1FY27) Revenue growth remained muted at around 0% QoQ "
+                "(constant currency, organic), indicating continued demand weakness. "
+                "On a YoY basis, growth improved slightly to 3.1%, driven mainly by better "
+                "performance from select large-cap names.\n"
                 "Sector: Information Technology\nTheme: ai_adoption\n"
             ),
             tickers=["SERVICES", "CONTINUES", "TCS", "INFY"],
@@ -180,18 +186,27 @@ def test_sector_search_uses_titles_and_synthesizes_house_view():
             document_type=DocumentType.AGI_RESEARCH,
         )
     )
-    pack = ui.search("how Indian It service doin g")
+    pack = ui.search("how is Indian IT services doing?")
     titles = " ".join(str(i.get("title") or "") for i in (pack.supporting_evidence or []))
     assert "India IT" in titles or "IT Services" in titles or "IT Sector" in titles
     assert "hello world" not in titles.lower()
     assert not any(str(i.get("title") or "").startswith("doc_") for i in (pack.supporting_evidence or []))
-    assert pack.house_view_card.get("stance") in {"Bearish", "Neutral"}
-    assert pack.investment_thesis or (pack.current_thesis or {}).get("summary")
+    assert pack.house_view_card.get("stance") == "Bearish"
+    assert pack.house_view_card.get("label") == "Bearish"
+    assert "document_id" not in (pack.executive_summary or "")
+    assert "bull_case" not in (pack.executive_summary or "")
+    assert "Current AGI house view is Bearish" in " ".join(pack.why or [])
+    thesis_text = pack.investment_thesis or (pack.current_thesis or {}).get("summary") or ""
+    assert "weak growth" in thesis_text.lower() or "IT services" in thesis_text
+    assert "&amp;" not in thesis_text
+    assert (pack.current_thesis or {}).get("bear_case")
     assert "House view not yet established" not in (pack.executive_summary or "")
     related_blob = " ".join(pack.related_companies or [])
     assert "SERVICES" not in related_blob
     assert "CONTINUES" not in related_blob
     assert "GLOBAL" not in related_blob
+    for item in pack.supporting_evidence or []:
+        assert not str(item.get("title") or "").startswith("doc_")
 
 
 def test_timeline_surface():
