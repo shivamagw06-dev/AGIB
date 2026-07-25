@@ -328,31 +328,38 @@ export default function ArticleEditor() {
         dirtyRef.current = false;
 
         let ingestResult = null;
+        let ingestError = null;
         if (ingest) {
-          ingestResult = await ingestArticleToIntelligence({
-            title: title.trim(),
-            contentHtml: editor.getHTML(),
-            slug: data.slug,
-            articleId: data.id,
-            section,
-            tags: tagsInput.split(',').map((t) => t.trim()).filter(Boolean),
-            status: publishStatus,
-            destination: publishStatus === 'published' ? 'website' : 'intelligence',
-          });
+          try {
+            ingestResult = await ingestArticleToIntelligence({
+              title: title.trim(),
+              contentHtml: editor.getHTML(),
+              slug: data.slug,
+              articleId: data.id,
+              section: payload.section || section,
+              tags: tagsInput.split(',').map((t) => t.trim()).filter(Boolean),
+              status: publishStatus,
+              destination: publishStatus === 'published' ? 'website' : 'intelligence',
+            });
 
-          if (ingestResult?.id || ingestResult?.document_id) {
-            const docId = ingestResult.id || ingestResult.document_id;
-            try {
-              await supabase
-                .from('articles')
-                .update({
-                  intelligence_document_id: docId,
-                  intelligence_ingested_at: new Date().toISOString(),
-                })
-                .eq('id', data.id);
-            } catch {
-              /* optional columns may be missing until migration */
+            if (ingestResult?.id || ingestResult?.document_id) {
+              const docId = ingestResult.id || ingestResult.document_id;
+              try {
+                await supabase
+                  .from('articles')
+                  .update({
+                    intelligence_document_id: docId,
+                    intelligence_ingested_at: new Date().toISOString(),
+                  })
+                  .eq('id', data.id);
+              } catch {
+                /* optional columns may be missing until migration */
+              }
             }
+          } catch (err) {
+            // Article is already saved — do not fail the whole CMS action on engine cold-start.
+            ingestError = err?.message || 'Intelligence ingest failed';
+            console.warn('[cms] intelligence ingest failed', err);
           }
         }
 
@@ -380,16 +387,29 @@ export default function ArticleEditor() {
           }
           navigate(`/article/${data.slug}`);
         } else if (!silent && publishStatus === 'intelligence') {
-          alert('Sent to AGI Intelligence only. This will not appear on the public website.');
+          if (ingestError) {
+            alert(
+              `Saved for Intelligence, but engine ingest failed (${ingestError}). Wait ~30s for the engine to wake, then click Send to Intelligence again.`
+            );
+          } else {
+            alert('Sent to AGI Intelligence only. This will not appear on the public website.');
+          }
         } else if (!silent && ingest && publishStatus === 'published' && stayInEditor) {
           const notifyNote =
             notifyResult?.ok && notifyResult?.sent > 0
               ? ` Notified ${notifyResult.sent} subscribers.`
               : '';
-          alert(`Published to website and ingested into AGI Intelligence.${notifyNote}`);
+          const ingestNote = ingestError
+            ? ` Intelligence ingest failed (${ingestError}).`
+            : ' Ingested into AGI Intelligence.';
+          alert(`Published to website.${ingestNote}${notifyNote}`);
         }
 
-        return { ...data, ingestResult, notifyResult };
+        if (ingestError && !silent) {
+          setError(ingestError);
+        }
+
+        return { ...data, ingestResult, notifyResult, ingestError };
       } catch (err) {
         const msg = err?.message || 'Save failed';
         setError(msg);
