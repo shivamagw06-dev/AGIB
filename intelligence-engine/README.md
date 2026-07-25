@@ -96,3 +96,12 @@ Agents read **AGIB Node cached APIs only** (no direct third-party market API cal
 - Flags: `E14_P0=true`, `E14_ML=false`, `E14_BAYES=false`
 - ORCH: passive consumer of FeatureSnapshot + E01State (`E14_FIRM_PRIOR` / `E14_ASSESS`)
 - APIs: `GET /v1/e14/state`, `GET /v1/e14/history`, `GET /v1/e14/health`
+
+### E02 Factor & Style Engine P0 (WBS E02-001–005)
+
+- Package: `app/engines/e02/` — Factor Feature Builder, exposure calculator, sector/universe normalisation, E02Exposure, EngineState
+- P0 factors only: Momentum, LowVol, Size, Liquidity, Quality, Value
+- Inputs: FeatureSnapshot + E01State + E14State only (no MarketDataClient, no polling)
+- Flags: `E02_P0=true`, `E02_TIMING/ROTATION/SMART_BETA/ML=false`
+- ORCH: passive Feature Ready / E01 Ready / E14 Ready consumer
+- APIs: `GET /v1/e02/exposure/{symbol}`, `GET /v1/e02/history/{symbol}`, `GET /v1/e02/health`

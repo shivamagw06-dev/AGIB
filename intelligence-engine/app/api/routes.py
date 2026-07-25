@@ -6,6 +6,8 @@ from app.agents.registry import list_agents
 from app.core.config import Settings, get_settings
 from app.engines.e01.consumer import register_e01_with_orch_l2
 from app.engines.e01.service import E01Service
+from app.engines.e02.consumer import register_e02_with_orch
+from app.engines.e02.service import E02Service
 from app.engines.e14.consumer import register_e14_with_orch
 from app.engines.e14.service import E14Service
 from app.eval.evaluation_agent import EvaluationAgent
@@ -29,6 +31,7 @@ _orch_ledger = OrchLedger()
 _l2 = L2FeatureBuildService(_features, orch_ledger=_orch_ledger)
 _e01 = E01Service(_features, orch_ledger=_orch_ledger)
 _e14 = E14Service(_features, e01=_e01, orch_ledger=_orch_ledger)
+_e02 = E02Service(_features, e01=_e01, e14=_e14, orch_ledger=_orch_ledger)
 
 
 def _wire_market_data_to_l2() -> None:
@@ -50,9 +53,15 @@ def _wire_e14_passive_consumer() -> None:
     register_e14_with_orch(_l2, _e14, _e01)
 
 
+def _wire_e02_passive_consumer() -> None:
+    """E02 registers as passive consumer of FeatureSnapshot + E01State + E14State."""
+    register_e02_with_orch(_l2, _e02, _e01, _e14)
+
+
 _wire_market_data_to_l2()
 _wire_e01_passive_consumer()
 _wire_e14_passive_consumer()
+_wire_e02_passive_consumer()
 
 
 def require_token(
@@ -133,6 +142,27 @@ async def e14_state(as_of: str | None = None):
 async def e14_history(limit: int = 50):
     """E14 firm risk history (newest first)."""
     return [s.model_dump(mode="json") for s in _e14.history(limit=min(limit, 200))]
+
+
+@router.get("/e02/health")
+async def e02_health():
+    """E02 Factor & Style Engine health (E02-001–005 P0)."""
+    return _e02.health()
+
+
+@router.get("/e02/exposure/{symbol}")
+async def e02_exposure(symbol: str, as_of: str | None = None):
+    """Frontend-ready E02Exposure (warm cache)."""
+    exp = _e02.get_exposure(symbol, as_of=as_of)
+    if exp is None:
+        raise HTTPException(status_code=404, detail="E02 exposure not available")
+    return exp.model_dump(mode="json")
+
+
+@router.get("/e02/history/{symbol}")
+async def e02_history(symbol: str, limit: int = 50):
+    """E02 EngineState history for a symbol (newest first)."""
+    return [s.model_dump(mode="json") for s in _e02.history(symbol, limit=min(limit, 200))]
 
 
 @router.post("/orch/l2/trigger", dependencies=[Depends(require_token)])

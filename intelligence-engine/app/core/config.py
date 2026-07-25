@@ -49,6 +49,13 @@ class Settings(BaseSettings):
     e14_ml: bool = False
     e14_bayes: bool = False
 
+    # E02 Factor & Style Engine feature flags (P0 defaults)
+    e02_p0: bool = True
+    e02_timing: bool = False
+    e02_rotation: bool = False
+    e02_smart_beta: bool = False
+    e02_ml: bool = False
+
 
 @lru_cache
 def get_settings() -> Settings:
