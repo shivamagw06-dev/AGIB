@@ -61,9 +61,11 @@ export default function createUiRouter() {
     '/workflow',
     '/company/:ticker',
     '/research/:researchId',
+    '/article/:articleId',
     '/theme/:themeId',
     '/sector/:sectorId',
     '/copilot',
+    '/autocomplete',
   ];
 
   for (const p of getPaths) {

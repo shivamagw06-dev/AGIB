@@ -93,6 +93,31 @@ export default function CompanyIntelligencePanels({ data }) {
             <p className="mt-2 text-sm leading-relaxed text-[#374151]">{overview.investment_thesis}</p>
           </div>
         )}
+        <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-3">
+          <Card title="What's Changed">
+            <DocList
+              items={(overview.whats_changed || []).map((x) => ({ title: String(x) }))}
+            />
+          </Card>
+          <Card title="Current Risks">
+            <DocList
+              items={(overview.current_risks || []).map((x) => ({ title: String(x) }))}
+            />
+          </Card>
+          <Card title="Current Catalysts">
+            <DocList
+              items={(overview.current_catalysts || []).map((x) => ({ title: String(x) }))}
+            />
+          </Card>
+        </div>
+        <div className="mt-4">
+          <Link
+            to={`/ask?q=${encodeURIComponent(`What is AGI's view on ${data.ticker}?`)}`}
+            className="text-xs font-bold text-[#274c77] hover:underline"
+          >
+            Ask AGI about {data.ticker} →
+          </Link>
+        </div>
       </section>
 
       {intelRows.length > 0 && (

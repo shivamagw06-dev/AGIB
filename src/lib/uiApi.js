@@ -34,6 +34,9 @@ export const getUiCompany = (ticker) => uiFetch(`/company/${encodeURIComponent(t
 export const getUiResearch = (id) => uiFetch(`/research/${encodeURIComponent(id)}`);
 export const getUiTheme = (id) => uiFetch(`/theme/${encodeURIComponent(id)}`);
 export const getUiSector = (id) => uiFetch(`/sector/${encodeURIComponent(id)}`);
+export const getUiArticle = (id, ticker) =>
+  uiFetch(`/article/${encodeURIComponent(id)}`, ticker ? { query: { ticker } } : undefined);
+export const getUiAutocomplete = (q) => uiFetch('/autocomplete', { query: { q: q || '' } });
 export const getUiCopilot = (params = {}) => uiFetch('/copilot', { query: params });
 export const postUiSearch = (question, ticker) =>
   uiFetch('/search', {

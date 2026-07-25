@@ -21,12 +21,24 @@ function OutlookBadge({ outlook }) {
   );
 }
 
-export default function MorningBriefHero() {
+function Metric({ label, value }) {
+  return (
+    <div className="border border-[#eeeeee] bg-white p-3">
+      <p className="text-[10px] font-bold uppercase tracking-wide text-[#767676]">{label}</p>
+      <p className="mt-1 text-sm font-bold text-[#111111] line-clamp-2">{value || '—'}</p>
+    </div>
+  );
+}
+
+export default function MorningBriefHero({ uiHome = null, uiLoading = false }) {
   const { brief, loading } = useMorningBrief();
   const { outlook, loading: dashLoading } = useMarketDashboard();
 
   const link = brief?.slug ? `/article/${brief.slug}` : '/updates/pre-market';
   const label = brief?.heroLabel || "Today's Market Brief";
+  const hero = uiHome?.hero || {};
+  const regime = hero.market_regime || uiHome?.market_regime?.label || outlook?.outlook;
+  const risk = hero.risk_level || uiHome?.market_risk?.label;
 
   return (
     <section className="border-b border-[#dddddd] py-8 lg:py-10">
@@ -45,28 +57,40 @@ export default function MorningBriefHero() {
               </span>
 
               <h1 className="mt-3 text-3xl md:text-4xl lg:text-[2.75rem] font-bold text-[#111111] leading-[1.1] tracking-tight">
-                {brief?.title}
+                {hero.headline || brief?.title || 'What do I need to know today?'}
               </h1>
 
               <div className="flex flex-wrap items-center gap-3 mt-4 text-xs text-[#767676]">
-                {brief?.published_at && (
+                {(brief?.published_at || hero.latest_update) && (
                   <span className="flex items-center gap-1">
                     <Clock className="w-3.5 h-3.5" />
-                    {brief.publishedLabel || brief.timeAgo}
+                    {brief?.publishedLabel || brief?.timeAgo || hero.latest_update || 'Updated today'}
                   </span>
                 )}
                 <span className="flex items-center gap-1">
                   <BookOpen className="w-3.5 h-3.5" />
-                  {brief?.readTime || 5} min read
+                  {hero.research_published_today != null
+                    ? `${hero.research_published_today} research today`
+                    : `${brief?.readTime || 5} min read`}
                 </span>
-                {!dashLoading && outlook?.outlook && (
-                  <OutlookBadge outlook={outlook.outlook} />
-                )}
+                {!dashLoading && regime && <OutlookBadge outlook={regime} />}
               </div>
 
               <p className="mt-5 text-base md:text-lg text-[#444444] leading-relaxed max-w-2xl">
-                {brief?.excerpt}
+                {hero.house_view || uiHome?.market_brief?.summary || brief?.excerpt}
               </p>
+
+              <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 gap-2">
+                <Metric label="Market Regime" value={regime} />
+                <Metric label="Risk Level" value={risk} />
+                <Metric
+                  label="Platform Health"
+                  value={uiLoading ? '…' : hero.platform_health || uiHome?.system_health?.overall || '—'}
+                />
+                <Metric label="Research Count" value={hero.research_count} />
+                <Metric label="Published Today" value={hero.research_published_today} />
+                <Metric label="House View" value={regime ? 'Live desk' : 'Forming'} />
+              </div>
 
               <Link
                 to={link}

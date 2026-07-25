@@ -1433,6 +1433,25 @@ async def ui_search(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+@router.get("/ui/autocomplete")
+async def ui_autocomplete(q: str = Query(default="")):
+    try:
+        return _ui.autocomplete(q).model_dump(mode="json")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/ui/article/{article_id}")
+async def ui_article(
+    article_id: str,
+    ticker: str | None = Query(default=None),
+):
+    try:
+        return _ui.article(article_id, ticker=ticker).model_dump(mode="json")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 @router.get("/ui/research/{research_id}")
 async def ui_research(research_id: str):
     try:

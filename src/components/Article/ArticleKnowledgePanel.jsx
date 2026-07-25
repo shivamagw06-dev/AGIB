@@ -4,7 +4,7 @@
  */
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getUiResearch, getUiCopilot } from '@/lib/uiApi';
+import { getUiArticle, getUiCopilot } from '@/lib/uiApi';
 
 export default function ArticleKnowledgePanel({ researchId, ticker, title }) {
   const [pack, setPack] = useState(null);
@@ -14,11 +14,10 @@ export default function ArticleKnowledgePanel({ researchId, ticker, title }) {
     const load = async () => {
       try {
         if (researchId) {
-          const data = await getUiResearch(researchId);
+          const data = await getUiArticle(researchId, ticker || undefined);
           if (active) setPack(data);
           return;
         }
-        // Fallback: copilot context for article page when RMS id unknown
         const ctx = await getUiCopilot({
           page: 'research',
           question: title || 'Related institutional context',
@@ -26,15 +25,20 @@ export default function ArticleKnowledgePanel({ researchId, ticker, title }) {
         });
         if (active) {
           setPack({
-            related_companies: ctx.context?.house_view?.ticker ? [ctx.context.house_view.ticker] : ticker ? [ticker] : [],
-            related_research: [],
+            related_companies: ctx.context?.house_view?.ticker
+              ? [ctx.context.house_view.ticker]
+              : ticker
+                ? [ticker]
+                : [],
             related_themes: [],
+            related_research: [],
             related_sectors: [],
-            latest_news: ctx.context?.latest_news || [],
-            supporting_evidence: [],
-            prediction_tracker: [],
-            knowledge_timeline: [],
+            latest_updates: ctx.context?.latest_news || [],
+            previous_agi_articles: [],
             research_timeline: [],
+            house_view: ctx.context?.house_view,
+            confidence: ctx.context?.house_view?.confidence,
+            supporting_evidence: [],
           });
         }
       } catch {
@@ -49,19 +53,38 @@ export default function ArticleKnowledgePanel({ researchId, ticker, title }) {
 
   if (!pack) return null;
 
-  const blocks = [
-    ['Related AGI Research', pack.related_research],
-    ['Latest News', pack.latest_news],
-    ['Supporting Evidence', pack.supporting_evidence],
-    ['Prediction Tracker', pack.prediction_tracker],
-    ['Knowledge Timeline', pack.knowledge_timeline],
-    ['Research Timeline', pack.research_timeline],
-  ];
+  const houseLabel =
+    pack.house_view?.current_view ||
+    pack.house_view?.stance ||
+    pack.house_view?.label;
 
   return (
     <aside className="mt-10 border-t border-[#dddddd] pt-8">
       <h2 className="text-lg font-bold text-[#111111]">Institutional Context</h2>
       <p className="text-xs text-[#767676] mt-1">Every article is connected to the AGI knowledge graph.</p>
+
+      <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="border border-[#dddddd] p-3">
+          <p className="text-[10px] font-bold uppercase text-[#767676]">Current House View</p>
+          <p className="mt-1 text-sm font-bold text-[#111]">{houseLabel || 'Under review'}</p>
+        </div>
+        <div className="border border-[#dddddd] p-3">
+          <p className="text-[10px] font-bold uppercase text-[#767676]">Confidence</p>
+          <p className="mt-1 text-sm font-bold text-[#111]">
+            {pack.confidence != null
+              ? `${Math.round(Number(pack.confidence) * (Number(pack.confidence) <= 1 ? 100 : 1))}%`
+              : '—'}
+          </p>
+        </div>
+        <div className="border border-[#dddddd] p-3">
+          <Link
+            to={`/ask?q=${encodeURIComponent(title ? `Summarise: ${title}` : 'Summarise today\'s research')}`}
+            className="text-xs font-bold text-[#111] hover:text-[#ff6600]"
+          >
+            Ask AGI about this article →
+          </Link>
+        </div>
+      </div>
 
       <div className="mt-4 flex flex-wrap gap-2">
         {(pack.related_companies || []).map((t) => (
@@ -74,15 +97,15 @@ export default function ArticleKnowledgePanel({ researchId, ticker, title }) {
             Theme: {t}
           </Link>
         ))}
-        {(pack.related_sectors || []).map((t) => (
-          <Link key={t} to={`/sectors/${encodeURIComponent(t)}`} className="text-[11px] font-bold border border-[#ddd] px-2 py-1 hover:text-[#ff6600]">
-            Sector: {t}
-          </Link>
-        ))}
       </div>
 
       <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-        {blocks.map(([label, items]) => (
+        {[
+          ['Previous AGI Articles', pack.previous_agi_articles],
+          ['Latest Updates Since Publication', pack.latest_updates],
+          ['Research Timeline', pack.research_timeline],
+          ['Supporting Evidence', pack.supporting_evidence],
+        ].map(([label, items]) => (
           <section key={label} className="border border-[#dddddd] p-4">
             <h3 className="text-xs font-bold uppercase tracking-wide text-[#767676]">{label}</h3>
             <ul className="mt-3 space-y-2">

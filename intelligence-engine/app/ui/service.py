@@ -10,6 +10,8 @@ from app.kip.models import ClientSearchRequest
 from app.ui.flags import UiFlags
 from app.ui.models import (
     UI_VERSION,
+    ArticleView,
+    AutocompleteView,
     CompanyView,
     CopilotView,
     DashboardView,
@@ -22,6 +24,12 @@ from app.ui.models import (
     ThemeView,
     UiMeta,
     WorkflowView,
+)
+from app.ui.questions import (
+    SEED_QUESTIONS,
+    autocomplete as build_autocomplete,
+    build_popular_questions,
+    follow_up_questions,
 )
 from app.ui.sanitize import (
     pick_label,
@@ -70,6 +78,8 @@ class UiService:
                 "home",
                 "company",
                 "search",
+                "autocomplete",
+                "article",
                 "research",
                 "theme",
                 "sector",
@@ -128,6 +138,53 @@ class UiService:
             "risk": market_risk.get("label"),
         }
 
+        research_count = len(todays)
+        published_today = len(
+            [
+                r
+                for r in todays
+                if str(r.get("status") or "").lower() == "published"
+            ]
+        )
+        top_companies = list(composite.get("sample") or [])[:8]
+        popular = build_popular_questions(
+            themes=themes,
+            research=todays,
+            calendar=calendar,
+            regime_label=market_regime.get("label"),
+            risk_label=market_risk.get("label"),
+        )
+        hero = {
+            "headline": "What do I need to know today?",
+            "house_view": brief.get("summary"),
+            "market_regime": market_regime.get("label"),
+            "risk_level": market_risk.get("label"),
+            "latest_update": (ioc or {}).get("as_of") or (dash or {}).get("as_of"),
+            "research_count": research_count,
+            "research_published_today": published_today or len(published),
+            "platform_health": (
+                health.get("overall")
+                if isinstance(health.get("overall"), str)
+                else (health.get("overall") or {}).get("status")
+                if isinstance(health.get("overall"), dict)
+                else health.get("overall")
+            )
+            or "ok",
+        }
+        feeds = {
+            "latest_research": [scrub(r) for r in published[:6]],
+            "most_read": [scrub(r) for r in todays[:6]],
+            "trending_companies": top_companies,
+            "trending_themes": themes[:8],
+            "most_asked_questions": popular[:6],
+            "latest_predictions": [],
+            "latest_macro_changes": [
+                {"label": market_regime.get("label"), "type": "regime"},
+                {"label": market_risk.get("label"), "type": "risk"},
+            ],
+            "research_published_today": [scrub(r) for r in published[:6]],
+        }
+
         return HomeView(
             meta=UiMeta(
                 surface="home",
@@ -144,6 +201,11 @@ class UiService:
             economic_calendar=calendar,
             system_health=health,
             research_queue=[scrub({"id": q} if not isinstance(q, dict) else q) for q in queue[:10]],
+            hero=hero,
+            popular_questions=popular,
+            feeds=feeds,
+            top_companies=top_companies,
+            example_questions=[s["question"] for s in SEED_QUESTIONS],
         )
 
     def company(self, ticker: str) -> CompanyView:
@@ -164,6 +226,11 @@ class UiService:
             "last_updated": house.get("updated_at") or house.get("as_of") or dossier.get("updated_at"),
             "composite_label": pick_label(ws.get("l4_opinion"), "label", "side"),
             "composite_score": pick_number(ws.get("l4_opinion"), "composite_score", "score"),
+            "whats_changed": list(house.get("thesis_evolution") or house.get("changed_assumptions") or [])[:8],
+            "current_risks": list(house.get("risks") or house.get("failed_assumptions") or [])[:8],
+            "current_catalysts": list(house.get("catalysts") or house.get("catalysts_occurred") or [])[:8],
+            "bull_case": list(house.get("bull_case") or [])[:6],
+            "bear_case": list(house.get("bear_case") or [])[:6],
         }
 
         market_intelligence = {
@@ -236,21 +303,27 @@ class UiService:
         self._require()
         q = (question or "").strip()
         client = None
+        detected_ticker = ticker.upper() if ticker else None
+        rsp_pkg: dict[str, Any] = {}
+
         if self.kip and q:
-            # Attach soft composite / portfolio context without exposing codes
             l4 = None
             port = None
-            if ticker and self.aws:
-                co = dump(soft(self.aws.company, ticker.upper())) or {}
+            if detected_ticker and self.aws:
+                co = dump(soft(self.aws.company, detected_ticker)) or {}
                 l4 = co.get("l4_opinion")
                 port = {"weight": co.get("portfolio_weight")}
             req = ClientSearchRequest(
                 question=q,
-                ticker=ticker.upper() if ticker else None,
+                ticker=detected_ticker,
                 l4_opinion=l4,
                 portfolio_exposure=port,
             )
             client = dump(soft(self.kip.client_search, req))
+            if not detected_ticker and isinstance(client, dict):
+                hv = client.get("house_view") or {}
+                if hv.get("ticker"):
+                    detected_ticker = str(hv["ticker"]).upper()
 
         aws_hits = dump(soft(self.aws.search, q, limit=12)) if self.aws and q else None
         hits = []
@@ -269,11 +342,22 @@ class UiService:
 
         evidence = (client or {}).get("evidence") or {}
         house = scrub((client or {}).get("house_view"))
+        if isinstance(house, dict) and not detected_ticker and house.get("ticker"):
+            detected_ticker = str(house["ticker"]).upper()
+
         conf = None
         if isinstance(evidence, dict):
             conf = evidence.get("confidence_score")
         if conf is None and isinstance(house, dict):
             conf = house.get("confidence")
+
+        # Soft RSP reasoning package for thesis / bull / bear / risks
+        if self.rsp and detected_ticker:
+            raw = soft(self.rsp.reason_for_writer, q or f"{detected_ticker} search", ticker=detected_ticker)
+            rsp_pkg = dump(raw) if raw is not None and not isinstance(raw, dict) else (raw or {})
+            if not isinstance(rsp_pkg, dict):
+                rsp_pkg = {}
+            rsp_pkg = scrub(rsp_pkg) or {}
 
         supporting = _as_docs(
             evidence.get("agi_research_used")
@@ -283,6 +367,9 @@ class UiService:
         news = _as_docs(evidence.get("news_used") or [])
         articles = supporting[:8]
         conflicting = scrub(evidence.get("conflicting_opinions") or [])[:12]
+        if not conflicting and isinstance(rsp_pkg.get("contradictions"), list):
+            conflicting = scrub(rsp_pkg.get("contradictions") or [])[:12]
+
         evidence_used = scrub(
             [
                 {"type": "agi_research", "items": evidence.get("agi_research_used") or []},
@@ -294,32 +381,90 @@ class UiService:
         )
 
         related = []
-        if isinstance(house, dict) and house.get("ticker"):
-            related.append(str(house["ticker"]))
+        related_themes: list[str] = []
+        related_sectors: list[str] = []
+        if isinstance(house, dict):
+            if house.get("ticker"):
+                related.append(str(house["ticker"]))
+            related_themes.extend([str(x) for x in (house.get("themes") or [])])
+            related_sectors.extend([str(x) for x in (house.get("sectors") or [])])
         for h in hits:
             if h.get("ticker"):
                 related.append(str(h["ticker"]))
+            if h.get("kind") == "theme" and h.get("id"):
+                related_themes.append(str(h["id"]))
         related = sorted({r.upper() for r in related})[:12]
+        related_themes = sorted({t for t in related_themes if t})[:8]
+        related_sectors = sorted({s for s in related_sectors if s})[:8]
+
+        house_label = None
+        if isinstance(house, dict):
+            house_label = house.get("current_view") or house.get("stance") or house.get("label")
+
+        thesis = None
+        bull: list[str] = []
+        bear: list[str] = []
+        risks: list[str] = []
+        catalysts: list[str] = []
+        if isinstance(house, dict):
+            thesis = house.get("thesis") or house.get("summary")
+            bull = [str(x) for x in (house.get("bull_case") or [])][:6]
+            bear = [str(x) for x in (house.get("bear_case") or [])][:6]
+            risks = [str(x) for x in (house.get("risks") or [])][:6]
+            catalysts = [str(x) for x in (house.get("catalysts") or [])][:6]
+        # RSP enrichment
+        synth = rsp_pkg.get("synthesis") if isinstance(rsp_pkg.get("synthesis"), dict) else rsp_pkg
+        if isinstance(synth, dict):
+            thesis = thesis or synth.get("thesis") or synth.get("research_brief")
+            bull = bull or [str(x) for x in (synth.get("bull_case") or [])][:6]
+            bear = bear or [str(x) for x in (synth.get("bear_case") or [])][:6]
+            risks = risks or [str(x) for x in (synth.get("risks") or [])][:6]
+            catalysts = catalysts or [str(x) for x in (synth.get("catalysts") or [])][:6]
+
+        executive = _search_answer_summary(q, house if isinstance(house, dict) else None, conf, supporting)
+        why = _why_bullets(house if isinstance(house, dict) else None, supporting, news, house_label)
+
+        timeline: list[dict[str, Any]] = []
+        if detected_ticker and self.kip:
+            timeline = scrub(_timeline_events(dump(soft(self.kip.timeline, detected_ticker))))[:20]
+
+        freshness = {
+            "score": evidence.get("freshness_score") if isinstance(evidence, dict) else None,
+            "last_updated": evidence.get("last_updated") if isinstance(evidence, dict) else None,
+            "knowledge_version": evidence.get("knowledge_version") if isinstance(evidence, dict) else None,
+        }
+        last_updated = freshness.get("last_updated")
+        if isinstance(house, dict):
+            last_updated = last_updated or house.get("updated_at") or house.get("as_of")
+
+        followups = follow_up_questions(
+            question=q,
+            intent=(client or {}).get("intent"),
+            related_companies=related,
+            related_themes=related_themes,
+            house_label=str(house_label) if house_label else None,
+        )
 
         answer = {
             "policy": "evidence_pack_not_direct_advice",
-            "summary": _search_answer_summary(q, house, conf, supporting),
-            "house_view_label": (house or {}).get("current_view")
-            or (house or {}).get("stance")
-            or (house or {}).get("label"),
+            "summary": executive,
+            "house_view_label": house_label,
+            "executive_summary": executive,
+            "investment_thesis": scrub_text(thesis) if thesis else None,
+            "bull_case": bull,
+            "bear_case": bear,
+            "key_risks": risks,
+            "key_catalysts": catalysts,
+            "why": why,
         }
 
-        followups = [
-            f"What is the current house view on {related[0]}?" if related else "What is AGI's house view?",
-            "What evidence supports this view?",
-            "What are the key risks and catalysts?",
-            "Show related research and latest news",
-        ]
-
-        # Soft RSP enrichment for institutional framing
-        if self.rsp and (ticker or related):
-            t = (ticker or related[0]).upper()
-            soft(self.rsp.reason_for_writer, q or f"{t} search", ticker=t)
+        recommendations = {
+            "related_research": scrub(articles)[:6],
+            "related_companies": related[:6],
+            "related_themes": related_themes[:6],
+            "related_articles": scrub(articles)[:6],
+            "related_questions": followups[:6],
+        }
 
         return SearchView(
             meta=UiMeta(
@@ -328,18 +473,111 @@ class UiService:
             ),
             question=q,
             intent=(client or {}).get("intent"),
+            entities={
+                "ticker": detected_ticker,
+                "companies": related,
+                "themes": related_themes,
+                "sectors": related_sectors,
+            },
             answer=answer,
-            house_view=house,
+            executive_summary=executive,
+            house_view=house if isinstance(house, dict) else None,
             confidence=float(conf) if conf is not None else None,
+            investment_thesis=scrub_text(thesis) if thesis else None,
+            bull_case=bull,
+            bear_case=bear,
+            key_risks=risks,
+            key_catalysts=catalysts,
+            why=why,
             supporting_research=scrub(supporting)[:12],
             latest_articles=scrub(articles),
             latest_news=scrub(news)[:8] or _kip_news(self.kip, q, limit=5),
             conflicting_opinions=conflicting if isinstance(conflicting, list) else [],
             evidence_used=evidence_used if isinstance(evidence_used, list) else [],
+            knowledge_timeline=timeline if isinstance(timeline, list) else [],
+            knowledge_freshness=freshness,
+            last_updated=str(last_updated) if last_updated else None,
             related_companies=related,
+            related_themes=related_themes,
+            related_sectors=related_sectors,
+            recommendations=recommendations,
             follow_up_questions=followups,
             hits=hits,
             answer_policy="institutional_evidence_pack",
+        )
+
+    def autocomplete(self, query: str) -> AutocompleteView:
+        self._require()
+        q = (query or "").strip()
+        home = self.home()
+        companies = [c.get("ticker") for c in (home.top_companies or []) if c.get("ticker")]
+        # Also pull from search hits for typed query
+        if q and self.aws:
+            sr = dump(soft(self.aws.search, q, limit=10)) or {}
+            for h in sr.get("hits") or []:
+                if h.get("kind") == "company" and h.get("id"):
+                    companies.append(str(h["id"]).upper())
+                if h.get("ticker"):
+                    companies.append(str(h["ticker"]).upper())
+        companies = sorted({c for c in companies if c})
+        pack = build_autocomplete(
+            q,
+            companies=companies,
+            themes=home.market_themes,
+            sectors=["Financials", "Technology", "Energy", "Healthcare", "Defence", "Auto"],
+            articles=home.todays_research,
+            popular=home.popular_questions,
+        )
+        return AutocompleteView(
+            meta=UiMeta(surface="autocomplete", sources=["knowledge", "research_desk"]),
+            query=q,
+            companies=pack.get("companies") or [],
+            themes=pack.get("themes") or [],
+            sectors=pack.get("sectors") or [],
+            articles=pack.get("articles") or [],
+            questions=pack.get("questions") or [],
+            popular_searches=pack.get("popular_searches") or [],
+        )
+
+    def article(self, article_id: str, *, ticker: str | None = None) -> ArticleView:
+        self._require()
+        aid = str(article_id)
+        # Prefer RMS research id; also accept ticker-linked knowledge
+        research = dump(soft(self.aws.research, aid)) if self.aws else None
+        research = research or {}
+        current = scrub(research.get("current_draft")) or {}
+        tickers = list(current.get("tickers") or ([] if not ticker else [ticker.upper()]))
+        themes = list(current.get("themes") or [])
+        primary = tickers[0].upper() if tickers else (ticker.upper() if ticker else None)
+
+        house = None
+        conf = None
+        graph = None
+        timeline: list[dict[str, Any]] = []
+        previous: list[dict[str, Any]] = []
+        updates: list[dict[str, Any]] = []
+        if primary and self.kip:
+            house = scrub(dump(soft(self.kip.house_view, primary)))
+            if isinstance(house, dict):
+                conf = house.get("confidence")
+            graph = scrub(dump(soft(self.kip.graph, primary)))
+            timeline = scrub(_timeline_events(dump(soft(self.kip.timeline, primary))))[:20]
+            hist = dump(soft(self.kip.research_history, primary)) or {}
+            previous = scrub(hist.get("agi_reports") or [])[:8]
+            updates = _kip_news(self.kip, primary, limit=5)
+
+        return ArticleView(
+            meta=UiMeta(surface="article", sources=["knowledge", "research_desk", "research_committee"]),
+            article_id=aid,
+            related_companies=[str(t).upper() for t in tickers],
+            related_themes=[str(t) for t in themes],
+            knowledge_graph=graph if isinstance(graph, dict) else None,
+            research_timeline=timeline if isinstance(timeline, list) else [],
+            previous_agi_articles=previous if isinstance(previous, list) else [],
+            house_view=house if isinstance(house, dict) else None,
+            confidence=float(conf) if conf is not None else None,
+            latest_updates=updates,
+            supporting_evidence=_as_docs(scrub(research.get("supporting_documents") or []))[:20],
         )
 
     def research(self, research_id: str) -> ResearchView:
@@ -770,18 +1008,49 @@ def _search_answer_summary(
 ) -> str:
     if house:
         label = house.get("current_view") or house.get("stance") or house.get("label") or "Under review"
-        conf = f" Confidence {confidence:.0%}." if isinstance(confidence, (int, float)) else ""
+        conf_val = confidence
+        if isinstance(conf_val, (int, float)) and conf_val > 1:
+            conf = f" Confidence {conf_val:.0f}%."
+        elif isinstance(conf_val, (int, float)):
+            conf = f" Confidence {conf_val:.0%}."
+        else:
+            conf = ""
+        thesis = house.get("thesis") or house.get("summary") or ""
+        thesis_bit = f" {thesis[:220]}" if thesis else ""
         return (
-            f"Institutional evidence pack for “{question}”. "
-            f"Current house view: {label}.{conf} "
-            f"{len(supporting)} supporting research items retrieved. "
-            "This is not a buy/sell instruction."
+            f"AGI institutional view on “{question}”: {label}.{conf}"
+            f"{thesis_bit} "
+            f"Evidence pack includes {len(supporting)} supporting research items. "
+            "Not investment advice."
         )
     return (
         f"Institutional evidence pack for “{question}”. "
         "House view not yet established for the detected subject. "
-        "Review supporting research and conflicting opinions below."
+        "Review supporting research and conflicting opinions below. "
+        "Not investment advice."
     )
+
+
+def _why_bullets(
+    house: dict | None,
+    supporting: list,
+    news: list,
+    house_label: str | None,
+) -> list[str]:
+    out: list[str] = []
+    if house_label:
+        out.append(f"Current AGI house view is {house_label}.")
+    if house and house.get("thesis"):
+        out.append(str(house["thesis"])[:200])
+    if supporting:
+        out.append(f"{len(supporting)} supporting AGI / institutional research items retrieved.")
+    if news:
+        out.append(f"{len(news)} related news items included for freshness.")
+    if house and house.get("changed_assumptions"):
+        out.append("Recent thesis assumptions have changed — see knowledge timeline.")
+    if not out:
+        out.append("Answer assembled from AGI knowledge, research committee reasoning, and live desk context.")
+    return [scrub_text(x) or x for x in out[:6]]
 
 
 def _workflow_stages(status: str | None) -> list[dict[str, Any]]:

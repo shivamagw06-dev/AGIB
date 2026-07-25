@@ -33,6 +33,15 @@ class HomeView(BaseModel):
     economic_calendar: list[dict[str, Any]] = Field(default_factory=list)
     system_health: dict[str, Any] = Field(default_factory=dict)
     research_queue: list[dict[str, Any]] = Field(default_factory=list)
+    # PPE V1 — Ask AGI homepage
+    hero: dict[str, Any] = Field(default_factory=dict)
+    popular_questions: list[dict[str, Any]] = Field(default_factory=list)
+    feeds: dict[str, Any] = Field(default_factory=dict)
+    top_companies: list[dict[str, Any]] = Field(default_factory=list)
+    ask_placeholder: str = (
+        "Ask AGI anything about markets, companies, sectors, investing or the economy..."
+    )
+    example_questions: list[str] = Field(default_factory=list)
 
 
 class CompanyView(BaseModel):
@@ -53,18 +62,62 @@ class SearchView(BaseModel):
     meta: UiMeta
     question: str
     intent: str | None = None
+    entities: dict[str, Any] = Field(default_factory=dict)
     answer: dict[str, Any] = Field(default_factory=dict)
+    # Institutional answer blocks (PPE V1)
+    executive_summary: str | None = None
     house_view: dict[str, Any] | None = None
     confidence: float | None = None
+    investment_thesis: str | None = None
+    bull_case: list[str] = Field(default_factory=list)
+    bear_case: list[str] = Field(default_factory=list)
+    key_risks: list[str] = Field(default_factory=list)
+    key_catalysts: list[str] = Field(default_factory=list)
+    why: list[str] = Field(default_factory=list)
     supporting_research: list[dict[str, Any]] = Field(default_factory=list)
     latest_articles: list[dict[str, Any]] = Field(default_factory=list)
     latest_news: list[dict[str, Any]] = Field(default_factory=list)
     conflicting_opinions: list[dict[str, Any]] = Field(default_factory=list)
     evidence_used: list[dict[str, Any]] = Field(default_factory=list)
+    knowledge_timeline: list[dict[str, Any]] = Field(default_factory=list)
+    knowledge_freshness: dict[str, Any] = Field(default_factory=dict)
+    last_updated: str | None = None
     related_companies: list[str] = Field(default_factory=list)
+    related_themes: list[str] = Field(default_factory=list)
+    related_sectors: list[str] = Field(default_factory=list)
+    recommendations: dict[str, Any] = Field(default_factory=dict)
     follow_up_questions: list[str] = Field(default_factory=list)
     hits: list[dict[str, Any]] = Field(default_factory=list)
     answer_policy: str = "institutional_evidence_pack"
+
+
+class ArticleView(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    meta: UiMeta
+    article_id: str
+    related_companies: list[str] = Field(default_factory=list)
+    related_themes: list[str] = Field(default_factory=list)
+    knowledge_graph: dict[str, Any] | None = None
+    research_timeline: list[dict[str, Any]] = Field(default_factory=list)
+    previous_agi_articles: list[dict[str, Any]] = Field(default_factory=list)
+    house_view: dict[str, Any] | None = None
+    confidence: float | None = None
+    latest_updates: list[dict[str, Any]] = Field(default_factory=list)
+    supporting_evidence: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class AutocompleteView(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    meta: UiMeta
+    query: str
+    companies: list[dict[str, Any]] = Field(default_factory=list)
+    themes: list[dict[str, Any]] = Field(default_factory=list)
+    sectors: list[dict[str, Any]] = Field(default_factory=list)
+    articles: list[dict[str, Any]] = Field(default_factory=list)
+    questions: list[dict[str, Any]] = Field(default_factory=list)
+    popular_searches: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class ResearchView(BaseModel):

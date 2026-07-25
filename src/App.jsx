@@ -40,6 +40,7 @@ const PortfolioDesk = React.lazy(() => import('@/pages/PortfolioDesk'));
 const ThemeDesk = React.lazy(() => import('@/pages/ThemeDesk'));
 const SectorDesk = React.lazy(() => import('@/pages/SectorDesk'));
 const ResearchWorkflowDesk = React.lazy(() => import('@/pages/ResearchWorkflowDesk'));
+const AskAgiPage = React.lazy(() => import('@/pages/AskAgiPage'));
 
 function HomeLayout() {
   return <EditorialHome />;
@@ -83,6 +84,7 @@ function PublicRoutes() {
   return (
     <Routes>
       <Route path="/" element={<HomeLayout />} />
+      <Route path="/ask" element={<AskAgiPage />} />
 
       <Route path="/market-updates" element={<MarketUpdates />} />
       <Route path="/updates/:sectionId" element={<SectionArticlesPage />} />
