@@ -54,20 +54,27 @@ def _ui() -> UiService:
 def test_home_office_fields():
     home = _ui().home()
     assert home.morning_intelligence.get("cards")
-    assert len(home.morning_intelligence["cards"]) == 6
+    assert len(home.morning_intelligence["cards"]) >= 6
     labels = {c["label"] for c in home.morning_intelligence["cards"]}
-    assert "Current House View" in labels
-    assert "Market Regime" in labels
+    assert "Today's House View" in labels or "Current House View" in labels
+    assert any("Regime" in x for x in labels)
     assert "Platform Health" in labels
-    assert home.knowledge_feed is not None
-    assert home.featured_research is not None
+    assert home.knowledge_feed
+    assert home.featured_research
+    assert home.economic_calendar
+    assert home.market_themes
+    assert home.top_companies
+    assert home.feeds.get("latest_predictions")
     assert home.market_dashboard.get("tabs")
-    assert home.footer_metrics.get("companies_covered") is not None
-    assert home.popular_questions
+    assert home.market_dashboard.get("heatmap")
+    assert home.footer_metrics.get("companies_covered")
+    assert home.newsletter.get("subscribers")
+    assert len(home.popular_questions) >= 8
     blob = str(home.model_dump())
     assert "E01" not in blob
     assert "E14" not in blob
     assert "L4" not in blob
+    assert "Unavailable" not in home.morning_intelligence["cards"][0]["value"]
 
 
 def test_calendar_surface():
