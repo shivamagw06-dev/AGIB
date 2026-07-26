@@ -18,6 +18,7 @@ import {
   Scale,
   BookOpen,
   GraduationCap,
+  Activity,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -28,6 +29,7 @@ const navItems = [
   { to: '/admin/knowledge', label: 'Knowledge Corpus', icon: Brain },
   { to: '/admin/open-intelligence', label: 'Open Intelligence', icon: Radar },
   { to: '/admin/evidence', label: 'Evidence', icon: Shield },
+  { to: '/admin/live-evidence', label: 'Live Evidence (LEO)', icon: Activity },
   { to: '/admin/investment-intelligence', label: 'Investment Intel', icon: LineChart },
   { to: '/admin/forecasting', label: 'Forecasting', icon: Target },
   { to: '/admin/events', label: 'Events', icon: Zap },

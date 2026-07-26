@@ -1,10 +1,10 @@
 # External API Audit (`.env` keys)
 
 **Scope:** keys documented in `.env.example`, `intelligence-engine/.env.example`, and `server/.env`  
-**Ask AGI path:** `POST /api/ui/search` → IE `/v1/ui/search` → `UiService.search` → CAE / IRP  
-**HDFC probe:** `Should I buy HDFC Bank?` via `UiService.search` with HTTP instrumentation (urllib / httpx / requests)  
-**HDFC result:** **0 outbound HTTP hosts**. Reasoning used in-process SIF (`sector_id=banks`) + Finance Academy (FAPI). Recommendation gated: insufficient company evidence.  
-**Runtime secrets in this environment:** all vendor keys **unset** (only empty Groww placeholders appear in `server/.env`). Status below is from **code wiring**, plus the HDFC replay.
+**Ask AGI path:** `POST /api/ui/search` → IE `/v1/ui/search` → `UiService.search` → **LEO** → CAE / Academy / SIF / IRP  
+**Update (LEO v1.0):** Live Evidence Orchestrator now selects sources from the Evidence Plan, fetches (vendor APIs when configured; AOI NSE/BSE/Company IR/RBI soft connectors always), normalises Evidence Objects, soft-verifies via EVE, and packages into Ask AGI / CAE / IRP. See `LEO_VALIDATION.md`.
+
+**HDFC probe (post-LEO):** LEO created 50+ evidence objects; sources used include `nse`, `bse`, `company_ir`, `rbi`. Vendor keys still unset here → Groww/Finnhub/etc. attempted but empty; corporate/macro AOI evidence **Used in reasoning**. Recommendation still gated until live market_data + statements + valuation arrive.
 
 **Status legend (primary):**
 | Status | Meaning |
@@ -12,7 +12,7 @@
 | Unused | Documented in `.env*` but never read in code |
 | Configured | Read in code / adapter exists; no production vendor HTTP caller (or metadata-only) |
 | Called | Production route can invoke vendor HTTP (when key is set) |
-| Used in reasoning | Vendor response is fed into sync Ask AGI / CAE / IRP recommendation reasoning |
+| Used in reasoning | Response feeds sync Ask AGI / CAE / IRP (via LEO Evidence Objects) |
 
 ---
 
@@ -46,14 +46,14 @@
 
 ---
 
-## Ask AGI / CAE / IRP vs vendors
+## Ask AGI / CAE / IRP vs vendors (post-LEO)
 
 | Question | Finding |
 |---|---|
-| Do sync Ask AGI / CAE / IRP call market vendor APIs? | **No.** All reasoning engines run in-process. |
-| Do they use vendor-returned payloads? | **No** on the sync path. Indirect only if a prior CIO/briefing ingest landed text into KIP. |
-| What powered the last HDFC answer? | **SIF** (banks framework: NIM, CASA, credit cost, GNPA/NNPA, CET1, ROE, P/B) + **Finance Academy (FAPI)** + empty company evidence → recommendation **blocked**. |
-| Any vendor key reached “Used in reasoning”? | **None.** |
+| Do sync Ask AGI paths acquire external evidence? | **Yes — via LEO** before Academy/SIF/IRP. |
+| Do vendor keys contribute when set? | LEO selects + calls Groww/IndianAPI/Finnhub/FMP/FRED/… when configured and required by the Evidence Plan. |
+| What powered the last HDFC answer (this env)? | **LEO** evidence (NSE/BSE/Company IR/RBI) + **SIF** banks + **FAPI** Academy. Live quote vendors empty (keys unset). Recommendation **blocked** until must-have market/statement/valuation evidence exists. |
+| Reached “Used in reasoning”? | **NSE / BSE / Company IR / RBI** (AOI soft) — yes. Groww/Finnhub/FMP/etc. — **Called by LEO planner**, contribute when keys + Node are live. |
 
 ---
 

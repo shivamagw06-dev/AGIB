@@ -635,3 +635,13 @@ export const analyseSif = (query, ticker, engine = 'ask_agi') => {
   if (ticker) qs.set('ticker', ticker);
   return intelligenceFetch(`/sif/analyse?${qs}`, { method: 'POST', body: {} });
 };
+export const getLeoHealth = () => intelligenceFetch('/leo/health');
+export const getLeoDashboard = () => intelligenceFetch('/leo/dashboard');
+export const getLeoQualityGates = () => intelligenceFetch('/leo/quality-gates');
+export const getLeoDossier = (ticker) =>
+  intelligenceFetch(`/leo/dossier/${encodeURIComponent(ticker)}`);
+export const packageLeo = (query, ticker, engine = 'ask_agi') => {
+  const qs = new URLSearchParams({ query: query || '', engine });
+  if (ticker) qs.set('ticker', ticker);
+  return intelligenceFetch(`/leo/package?${qs}`, { method: 'POST', body: {} });
+};

@@ -3279,6 +3279,68 @@ async def sif_quality_gates():
     return quality_gates(warm=True)
 
 
+# --- LEO v1.0 (Live Evidence Orchestrator — additive; not an engine) ---
+
+
+@router.get("/leo/health")
+async def leo_health():
+    from leo.production import is_leo_enabled
+    from leo.schema import LEO_VERSION
+
+    return {
+        "status": "ok" if is_leo_enabled() else "disabled",
+        "layer": "Live Evidence Orchestrator",
+        "programme": "LEO",
+        "version": LEO_VERSION,
+        "not_an_engine": True,
+        "architecture_status": "v1.0.1 LOCKED",
+        "position": "before_cae_academy_sif_irp",
+    }
+
+
+@router.get("/leo/dashboard")
+async def leo_dashboard():
+    from leo.production import production_dashboard
+
+    return production_dashboard()
+
+
+@router.post("/leo/package")
+async def leo_package(
+    query: str = Query(...),
+    ticker: str | None = Query(default=None),
+    engine: str = Query(default="ask_agi"),
+):
+    from leo.production import package_for_query
+
+    return package_for_query(
+        query,
+        ticker=ticker,
+        engine=engine,
+        eve=_eve,
+        kip=_kip,
+        aoi=_aoi,
+        mee=_mee,
+    )
+
+
+@router.get("/leo/quality-gates")
+async def leo_quality_gates():
+    from leo.production import run_quality_gates
+
+    return run_quality_gates(eve=_eve)
+
+
+@router.get("/leo/dossier/{ticker}")
+async def leo_dossier(ticker: str):
+    from leo.dossier import get_dossier
+
+    d = get_dossier(ticker)
+    if not d:
+        raise HTTPException(status_code=404, detail=f"No LEO dossier for {ticker}")
+    return d
+
+
 # --- IRP V1 (above KIP/RSP, below Ask AGI; no platform redesign) ---
 
 

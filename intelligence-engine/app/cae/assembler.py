@@ -29,6 +29,7 @@ class CaeAssembler:
         compress: bool = True,
         token_budget: int = DEFAULT_TOKEN_BUDGET,
         aoi: Any | None = None,
+        eve: Any | None = None,
     ) -> None:
         self.store = store
         self.retriever = retriever
@@ -36,6 +37,7 @@ class CaeAssembler:
         self.compress = compress
         self.token_budget = token_budget
         self.aoi = aoi
+        self.eve = eve
 
     def assemble(self, query: str, *, ticker: str | None = None, use_cache: bool | None = None) -> ContextPackage:
         t0 = time.perf_counter()
@@ -325,6 +327,8 @@ class CaeAssembler:
             },
             # FAPI v1.0 — Finance Academy production context (additive soft field)
             "finance_academy": self._finance_academy_soft(query or "", plan.primary_ticker),
+            # LEO v1.0 — Live Evidence package before reasoning (additive soft field)
+            "live_evidence": self._live_evidence_soft(query or "", plan.primary_ticker),
         }
 
     def _finance_academy_soft(self, query: str, ticker: str | None) -> dict[str, Any]:
@@ -335,3 +339,18 @@ class CaeAssembler:
             return package_for_query(query, engine="cae", ticker=ticker)
         except Exception as exc:  # noqa: BLE001
             return {"enabled": False, "error": str(exc), "concept_ids": []}
+
+    def _live_evidence_soft(self, query: str, ticker: str | None) -> dict[str, Any]:
+        """Soft-orchestrate live evidence for CAE packaging (no engine redesign)."""
+        try:
+            from leo.production import package_for_query
+
+            return package_for_query(
+                query,
+                ticker=ticker,
+                engine="cae",
+                eve=getattr(self, "eve", None),
+                aoi=getattr(self, "aoi", None),
+            )
+        except Exception as exc:  # noqa: BLE001
+            return {"enabled": False, "error": str(exc), "evidence_objects": []}

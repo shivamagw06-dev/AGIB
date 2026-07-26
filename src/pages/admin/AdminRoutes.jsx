@@ -15,6 +15,7 @@ import IntelligenceBus from '@/pages/admin/IntelligenceBus';
 import Valuation from '@/pages/admin/Valuation';
 import Models from '@/pages/admin/Models';
 import FinanceAcademy from '@/pages/admin/FinanceAcademy';
+import LiveEvidence from '@/pages/admin/LiveEvidence';
 
 export default function AdminRoutes() {
   return (
@@ -29,6 +30,7 @@ export default function AdminRoutes() {
           <Route path="knowledge" element={<KnowledgeFoundation />} />
           <Route path="open-intelligence" element={<OpenIntelligence />} />
           <Route path="evidence" element={<Evidence />} />
+          <Route path="live-evidence" element={<LiveEvidence />} />
           <Route path="investment-intelligence" element={<InvestmentIntelligence />} />
           <Route path="forecasting" element={<Forecasting />} />
           <Route path="events" element={<Events />} />

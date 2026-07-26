@@ -54,9 +54,23 @@ class IrpPipeline:
         # Learning cues (soft)
         cues = self.learning.cues_for(q)
 
-        # 5a FAPI + SIF — sector framework then Finance Academy (additive; no redesign)
+        # 5a LEO — live evidence before Academy / SIF (additive; no redesign)
+        leo_pkg: dict[str, Any] = {}
+        try:
+            from leo.production import package_for_query as leo_package
+
+            leo_pkg = leo_package(
+                q,
+                ticker=ticker or entities.primary_ticker,
+                engine="irp",
+            ) or {}
+        except Exception:
+            leo_pkg = {}
+
+        # 5b FAPI + SIF — sector framework then Finance Academy (consume LEO evidence)
         academy_pkg: dict[str, Any] = {}
         sif_pkg: dict[str, Any] = {}
+        leo_supplied = (leo_pkg.get("sif_evidence_supplied") or {}) if isinstance(leo_pkg, dict) else {}
         try:
             from academy.fapi.production import package_for_query
 
@@ -65,13 +79,24 @@ class IrpPipeline:
         except Exception:
             academy_pkg = {}
             sif_pkg = {}
-        if not sif_pkg:
+        if not sif_pkg or leo_supplied:
             try:
                 from sif.production import analyse_query as sif_analyse
 
-                sif_pkg = sif_analyse(q, ticker=ticker or entities.primary_ticker, engine="irp")
+                sif_pkg = (
+                    sif_analyse(
+                        q,
+                        ticker=ticker or entities.primary_ticker,
+                        engine="irp",
+                        evidence_supplied=leo_supplied or None,
+                        kip=self.kip,
+                    )
+                    or sif_pkg
+                    or {}
+                )
             except Exception:
-                sif_pkg = {}
+                if not sif_pkg:
+                    sif_pkg = {}
 
         # 5 Knowledge retrieval via existing KIP client_search / rag (no redesign)
         client = {}
@@ -106,6 +131,25 @@ class IrpPipeline:
                 eid = str(e.get("document_id") or e.get("id") or e.get("title") or "")
                 if eid and any(eid in str(p) for p in cues["prefer_evidence"]):
                     e["confidence"] = max(float(e.get("confidence") or 0.5), 0.75)
+
+        # Inject LEO verified evidence into the IRP evidence pool (before rank/reason)
+        if isinstance(leo_pkg, dict) and leo_pkg.get("evidence_objects"):
+            for o in (leo_pkg.get("evidence_objects") or [])[:24]:
+                if not isinstance(o, dict):
+                    continue
+                evidence_dicts.append(
+                    {
+                        "id": o.get("evidence_id"),
+                        "document_id": o.get("evidence_id"),
+                        "title": o.get("title") or o.get("fact_key"),
+                        "snippet": o.get("value_text"),
+                        "source": o.get("source_id"),
+                        "evidence_type": o.get("evidence_type"),
+                        "confidence": o.get("confidence"),
+                        "verification_status": o.get("verification_status"),
+                        "leo": True,
+                    }
+                )
 
         # 6 Rank + reject unrelated
         ranked, rejected = filter_and_rank_evidence(evidence_dicts, entities=entities, plan=plan)
@@ -144,12 +188,20 @@ class IrpPipeline:
             rsp=rsp_pkg,
         )
 
-        # 8b Enrich reasoning with SIF sector framework then Finance Academy
+        # 8b Enrich reasoning with LEO citations, then SIF, then Finance Academy
         try:
             from academy.fapi.production import enrich_reasoning as fapi_enrich
+            from leo.production import enrich_reasoning as leo_enrich
             from sif.production import enrich_reasoning as sif_enrich
 
             enriched = reasoning.model_dump()
+            if isinstance(leo_pkg, dict) and leo_pkg.get("enabled"):
+                enriched = leo_enrich(enriched, leo_pkg)
+                for hint in (leo_pkg.get("answer_hints") or [])[:2]:
+                    why = list(enriched.get("why") or [])
+                    if hint and hint not in why:
+                        why.insert(0, hint)
+                        enriched["why"] = why[:10]
             if sif_pkg.get("sector_id"):
                 enriched = sif_enrich(enriched, sif_pkg)
             if academy_pkg.get("is_finance") and academy_pkg.get("concept_ids"):
@@ -259,6 +311,19 @@ class IrpPipeline:
                         "trace": sif_pkg.get("trace"),
                     },
                 }
+            if isinstance(leo_pkg, dict) and leo_pkg.get("enabled"):
+                briefing = {
+                    **briefing,
+                    "live_evidence": {
+                        "leo_version": leo_pkg.get("leo_version"),
+                        "sources_used": leo_pkg.get("sources_used"),
+                        "evidence_count": leo_pkg.get("evidence_count"),
+                        "evidence_confidence": leo_pkg.get("evidence_confidence"),
+                        "missing_evidence": leo_pkg.get("missing_evidence"),
+                        "quality_gate": leo_pkg.get("quality_gate"),
+                        "api_calls": len(leo_pkg.get("api_calls") or []),
+                    },
+                }
         sector_intel = build_sector_intelligence(entities, reasoning)
         company_intel = build_company_intelligence(entities, reasoning)
         sector_pkg = dump(sector_intel) if not isinstance(sector_intel, dict) else dict(sector_intel)
@@ -286,6 +351,7 @@ class IrpPipeline:
             sector_intelligence=sector_pkg,
             company_intelligence=company_intel,
             finance_academy=academy_pkg if isinstance(academy_pkg, dict) else {},
+            live_evidence=leo_pkg if isinstance(leo_pkg, dict) else {},
         )
 
         # 14 Learning loop

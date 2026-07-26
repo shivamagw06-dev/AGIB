@@ -696,9 +696,32 @@ class UiService:
         valuation: dict[str, Any] = {}
         finance_academy: dict[str, Any] = {}
         sector_intelligence: dict[str, Any] = {}
+        live_evidence: dict[str, Any] = {}
         used_cae = False
 
-        # FAPI + SIF — sector framework then Finance Academy before answering
+        # LEO v1.0 — gather / verify / package live evidence BEFORE Academy + SIF + IRP
+        try:
+            from leo.production import package_for_query as leo_package
+
+            live_evidence = (
+                leo_package(
+                    q,
+                    ticker=detected_ticker,
+                    engine="ask_agi",
+                    eve=self.eve,
+                    kip=self.kip,
+                    aoi=self.aoi,
+                    mee=self.mee,
+                )
+                or {}
+            )
+            if live_evidence.get("ticker") and not detected_ticker:
+                detected_ticker = str(live_evidence["ticker"]).upper()
+        except Exception:
+            live_evidence = {}
+
+        # FAPI + SIF — sector framework then Finance Academy (consume LEO evidence_supplied)
+        leo_supplied = (live_evidence.get("sif_evidence_supplied") or {}) if isinstance(live_evidence, dict) else {}
         try:
             from academy.fapi.production import package_for_query
 
@@ -709,15 +732,28 @@ class UiService:
         except Exception:
             finance_academy = {}
             sector_intelligence = {}
-        if not sector_intelligence:
+        if not sector_intelligence or leo_supplied:
             try:
                 from sif.production import analyse_query as sif_analyse
 
-                sector_intelligence = sif_analyse(q, ticker=detected_ticker, engine="ask_agi") or {}
+                sector_intelligence = (
+                    sif_analyse(
+                        q,
+                        ticker=detected_ticker,
+                        engine="ask_agi",
+                        evidence_supplied=leo_supplied or None,
+                        kip=self.kip,
+                        eve=self.eve,
+                        aws=self.aws,
+                    )
+                    or sector_intelligence
+                    or {}
+                )
                 if sector_intelligence.get("ticker") and not detected_ticker:
                     detected_ticker = str(sector_intelligence["ticker"]).upper()
             except Exception:
-                sector_intelligence = {}
+                if not sector_intelligence:
+                    sector_intelligence = {}
 
         if self.cae and q:
             try:
@@ -739,6 +775,10 @@ class UiService:
                     kf_hits = list((cae_soft.get("knowledge_foundation") or {}).get("hits") or [])
                     if not finance_academy.get("concept_ids") and isinstance(cae_soft.get("finance_academy"), dict):
                         finance_academy = cae_soft.get("finance_academy") or finance_academy
+                    if (not live_evidence.get("evidence_objects")) and isinstance(
+                        cae_soft.get("live_evidence"), dict
+                    ):
+                        live_evidence = cae_soft.get("live_evidence") or live_evidence
                     if assembled.get("primary_ticker") and not detected_ticker:
                         detected_ticker = str(assembled["primary_ticker"]).upper()
             except Exception:
@@ -1162,10 +1202,22 @@ class UiService:
                     "influenced_answer": True,
                     "concepts_influencing_answer": list(prov.get("concept_ids") or [])[:12],
                 }
-        # Evidence gate — do not issue Buy/Hold/Sell without company evidence
+        # LEO hints — live evidence contribution before recommendation
+        if isinstance(live_evidence, dict) and live_evidence.get("enabled"):
+            for hint in (live_evidence.get("answer_hints") or [])[:3]:
+                if hint and hint not in why:
+                    why.insert(0, scrub_text(hint)[:300])
+            why = why[:12]
+
+        # Evidence gate — SIF company evidence + LEO live evidence (do not Buy/Hold/Sell on Academy alone)
         reco_gate = (sector_intelligence.get("recommendation_gate") or {})
-        if reco_gate.get("blocked"):
-            thesis = reco_gate.get("message") or "Insufficient company evidence for institutional recommendation."
+        leo_gate = (live_evidence.get("quality_gate") or {}) if isinstance(live_evidence, dict) else {}
+        if reco_gate.get("blocked") or leo_gate.get("blocked"):
+            thesis = (
+                leo_gate.get("message")
+                or reco_gate.get("message")
+                or "Institutional recommendation withheld due to insufficient current evidence."
+            )
             house_label = "Insufficient Evidence"
             executive = thesis
             bull = []
@@ -1609,6 +1661,7 @@ class UiService:
                 },
             },
             finance_academy=scrub(finance_academy) if finance_academy else {},
+            live_evidence=scrub(live_evidence) if live_evidence else {},
             institutional_briefing=scrub(briefing) or {},
             # Prefer live SIF/Ask-AGI sector pack; fall back to IRP sector pack
             sector_intelligence=scrub(sector_intelligence)

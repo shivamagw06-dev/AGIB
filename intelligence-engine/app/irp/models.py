@@ -204,5 +204,7 @@ class IrpPackage(BaseModel):
     company_intelligence: dict[str, Any] = Field(default_factory=dict)
     # FAPI v1.0 — Finance Academy provenance for production reasoning (additive)
     finance_academy: dict[str, Any] = Field(default_factory=dict)
+    # LEO v1.0 — Live Evidence Orchestrator provenance (additive)
+    live_evidence: dict[str, Any] = Field(default_factory=dict)
     answer_policy: str = "think_then_answer_institutional"
     created_at: _dt.datetime = Field(default_factory=lambda: _dt.datetime.now(_dt.timezone.utc))

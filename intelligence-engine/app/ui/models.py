@@ -149,6 +149,8 @@ class SearchView(BaseModel):
     # SIF v1.0 — Sector Intelligence Framework provenance (additive)
     # SIF / IRP sector pack (single field; SIF may nest under "sif")
     sector_intelligence: dict[str, Any] = Field(default_factory=dict)
+    # LEO v1.0 — Live Evidence Orchestrator provenance (additive)
+    live_evidence: dict[str, Any] = Field(default_factory=dict)
     institutional_briefing: dict[str, Any] = Field(default_factory=dict)
     company_intelligence: dict[str, Any] = Field(default_factory=dict)
     current_outlook: str | None = None

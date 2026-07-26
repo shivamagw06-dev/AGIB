@@ -273,6 +273,7 @@ class Settings(BaseSettings):
     academy_exams: bool = True
     academy_production: bool = True  # FAPI — production integration into locked engines
     sif: bool = True  # SIF — Sector Intelligence Framework (additive analysis lens)
+    leo: bool = True  # LEO — Live Evidence Orchestrator (additive evidence acquisition)
 
 
 @lru_cache

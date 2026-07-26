@@ -56,6 +56,7 @@ class CaeService:
             compress=self.flags.cae_compress,
             token_budget=token_budget,
             aoi=aoi,
+            eve=eve,
         )
 
     def bind(self, **engines: Any) -> None:
@@ -66,6 +67,8 @@ class CaeService:
                 setattr(self.retriever, name, eng)
         if "aoi" in engines:
             self.assembler.aoi = engines["aoi"]
+        if "eve" in engines:
+            self.assembler.eve = engines["eve"]
 
     def health(self) -> dict[str, Any]:
         return {
