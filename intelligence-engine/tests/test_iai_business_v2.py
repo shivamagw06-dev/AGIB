@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from institutional_analysts.business.analyst import analyse
 from institutional_analysts.business.brain import IAI_BUSINESS_VERSION, think
+from institutional_analysts.business.brain.business_dna import reset_for_tests as reset_dna
+from institutional_analysts.business.brain.memory import reset_for_tests as reset_ba_mem
 from institutional_analysts.business.brain.quality_checks import run_checklist
 from institutional_analysts.flags import is_iai_business_v2_enabled
 from institutional_analysts.memory import put_opinion, reset_for_tests
@@ -72,6 +74,8 @@ def _rich_evidence(**overrides):
 
 def setup_function():
     reset_for_tests()
+    reset_dna()
+    reset_ba_mem()
 
 
 def test_v2_flag_on():

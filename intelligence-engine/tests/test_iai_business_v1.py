@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from institutional_analysts.business.analyst import analyse
 from institutional_analysts.business.brain import IAI_BUSINESS_VERSION, think
+from institutional_analysts.business.brain.business_dna import reset_for_tests as reset_dna
+from institutional_analysts.business.brain.memory import reset_for_tests as reset_ba_mem
 from institutional_analysts.flags import is_iai_business_enabled
 from institutional_analysts.memory import put_opinion, reset_for_tests
 from institutional_analysts.production import package_for_ask_agi
@@ -61,6 +63,8 @@ def _ctx(*, biz_score: float = 78) -> dict:
 
 def setup_function():
     reset_for_tests()
+    reset_dna()
+    reset_ba_mem()
 
 
 def test_iai_business_flag_default_on():

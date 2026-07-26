@@ -208,11 +208,13 @@ def analyse(ctx: dict[str, Any]) -> dict[str, Any]:
     if previous and isinstance(ctx.get("_prior_business_v2"), dict):
         previous = {**previous, **ctx["_prior_business_v2"]}
 
+    evidence["ticker"] = ticker_of(ctx)
     brain = think(
         company=name,
         evidence=evidence,
         previous=previous,
         confidence=conf,
+        ticker=ticker_of(ctx),
     )
 
     # Prefer brain confidence (includes reasoning factor)
@@ -307,9 +309,16 @@ def analyse(ctx: dict[str, Any]) -> dict[str, Any]:
     base["trajectory"] = brain.get("trajectory")
     base["primary_question_answer"] = brain.get("primary_question_answer")
     base["institutional_business_opinion"] = brain.get("institutional_business_opinion") or summary
+    base["case_studies"] = brain.get("case_studies")
+    base["archetype"] = brain.get("archetype")
+    base["historical_outcomes"] = brain.get("historical_outcomes")
+    base["lessons_learned"] = brain.get("lessons_learned")
+    base["business_dna"] = brain.get("business_dna")
+    base["learning_chain"] = brain.get("learning_chain")
     base["iai_version"] = brain.get("iai_version")
     base["iai_active"] = True
     base["iai_v2"] = True
+    base["iai_v2_1"] = True
     base["ready_for_committee"] = brain.get("ready_for_committee")
 
     # Ensure confidence exposes reasoning factor

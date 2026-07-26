@@ -28,6 +28,11 @@ def is_iai_business_v2_enabled() -> bool:
     return is_iai_business_enabled() and _flag("iai_business_analyst_v2", True)
 
 
+def is_iai_business_v2_1_enabled() -> bool:
+    """Phase 3.1.1 — Business Analyst institutional learning assets."""
+    return is_iai_business_v2_enabled() and _flag("iai_business_analyst_v2_1", True)
+
+
 def flags_dict() -> dict[str, bool]:
     return {
         "INSTITUTIONAL_ANALYSTS": _flag("institutional_analysts", True),
@@ -36,6 +41,8 @@ def flags_dict() -> dict[str, bool]:
         "INSTITUTIONAL_ANALYST_INTELLIGENCE": _flag("institutional_analyst_intelligence", True),
         "IAI_BUSINESS_ANALYST": _flag("iai_business_analyst", True),
         "IAI_BUSINESS_ANALYST_V2": _flag("iai_business_analyst_v2", True),
+        "IAI_BUSINESS_ANALYST_V2_1": _flag("iai_business_analyst_v2_1", True),
         "IAI_BUSINESS_ENABLED": is_iai_business_enabled(),
         "IAI_BUSINESS_V2_ENABLED": is_iai_business_v2_enabled(),
+        "IAI_BUSINESS_V2_1_ENABLED": is_iai_business_v2_1_enabled(),
     }

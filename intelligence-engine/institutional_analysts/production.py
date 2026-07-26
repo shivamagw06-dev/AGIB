@@ -66,6 +66,7 @@ def health() -> dict[str, Any]:
             "cio_editor": True,
             "iai_business_analyst": is_iai_business_enabled(),
             "iai_business_analyst_v2": is_iai_business_enabled(),
+            "iai_business_analyst_v2_1": is_iai_business_enabled(),
         },
         "does_not_redesign": [
             "cid",

@@ -1,9 +1,15 @@
-"""Business Analyst memory package."""
+"""Business Analyst memory package — trajectory + long-term opinion timeline."""
 
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
+from institutional_analysts.business.brain.memory.opinion_timeline import (
+    get_timeline,
+    quality_series,
+    record_opinion,
+    reset_for_tests as reset_timeline_for_tests,
+)
 from institutional_analysts.business.brain.memory.trajectory import (
     build_memory_record as _build,
     compare_views as _compare,
@@ -59,4 +65,16 @@ def build_memory_record(
     )
 
 
-__all__ = ["extract_prior_view", "compare_views", "build_memory_record"]
+def reset_for_tests() -> None:
+    reset_timeline_for_tests()
+
+
+__all__ = [
+    "extract_prior_view",
+    "compare_views",
+    "build_memory_record",
+    "record_opinion",
+    "get_timeline",
+    "quality_series",
+    "reset_for_tests",
+]

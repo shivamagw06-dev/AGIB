@@ -34,6 +34,7 @@ def synthesize(
     scoring: dict[str, Any],
     benchmarks: dict[str, Any],
     previous: dict[str, Any] | None = None,
+    learning: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     moat = frameworks.get("moat") or {}
     bm = frameworks.get("business_model") or {}
@@ -45,11 +46,22 @@ def synthesize(
     porter = frameworks.get("porter_five_forces") or {}
     chain = frameworks.get("value_chain") or {}
     mgmt = frameworks.get("management") or {}
+    learn = learning if isinstance(learning, dict) else {}
+    cases = learn.get("cases") if isinstance(learn.get("cases"), dict) else {}
+    archetype = learn.get("archetype") if isinstance(learn.get("archetype"), dict) else {}
+    historical = learn.get("historical") if isinstance(learn.get("historical"), dict) else {}
+    dna = learn.get("business_dna") if isinstance(learn.get("business_dna"), dict) else {}
 
     grade = scoring.get("grade") or "Adequate"
     exceptional = bool(scoring.get("exceptional_business"))
     durability = str(moat.get("durability") or "Medium")
+    hist_note = str(historical.get("trajectory_note") or "")
+    softening = "no longer strengthening" in hist_note.lower() or "softening" in str(
+        historical.get("quality_trend") or ""
+    ).lower()
 
+    # Softening trajectory is expressed in prose — not an automatic stance downgrade.
+    # A durable high-quality franchise can remain an ownership candidate while no longer strengthening.
     if exceptional or grade in {"Exceptional", "High"}:
         stance = "Bullish"
     elif grade == "Weak" or durability in {"Weak", "Declining"}:
@@ -68,12 +80,30 @@ def synthesize(
             "above the opportunity cost of capital through the cycle."
         )
 
+    hist_narrative = str(historical.get("historical_narrative") or "").strip()
+    resemblance = str(cases.get("resemblance") or "").strip()
+    arch_line = str(archetype.get("template_reasoning") or "").strip()
+
+    # Institutional learning overlay — trajectory-aware, case-informed
+    if hist_narrative and ("no longer strengthening" in hist_narrative.lower() or softening):
+        executive = _scrub_lazy(f"{hist_narrative} {executive}").strip()
+    elif hist_narrative:
+        executive = _scrub_lazy(f"{executive} {hist_narrative}").strip()
+    if resemblance:
+        executive = _scrub_lazy(f"{executive} {resemblance}").strip()
+
     # Ensure primary question is answered explicitly
     if stance == "Bullish":
-        ownership = (
-            f"Yes — a long-term institutional investor would want to own {company} on business grounds. "
-            f"{executive or 'Franchise economics support durable compounding when execution remains disciplined.'}"
-        )
+        if softening:
+            ownership = (
+                f"Yes — a long-term institutional investor would still want to own {company} on business grounds, "
+                "while recognising the moat is durable but no longer strengthening as it did historically."
+            )
+        else:
+            ownership = (
+                f"Yes — a long-term institutional investor would want to own {company} on business grounds. "
+                f"{executive or 'Franchise economics support durable compounding when execution remains disciplined.'}"
+            )
     elif stance == "Bearish":
         ownership = (
             f"No — on present evidence, {company} does not yet clear the bar as an exceptional business "
@@ -99,6 +129,24 @@ def synthesize(
             "answer": capital.get("what_creates_long_term_returns") or capital.get("assessment"),
         },
         {
+            "question": "Which historical outcomes shape the current view?",
+            "answer": hist_narrative or "No seeded multi-year path; relying on case and archetype lessons.",
+        },
+        {
+            "question": "Which case analogues apply?",
+            "answer": resemblance
+            or f"Success analogue: {cases.get('primary_success_analogue')}; "
+            f"counter-case: {cases.get('primary_failure_analogue')}.",
+        },
+        {
+            "question": "What archetype pattern is this?",
+            "answer": arch_line or (archetype.get("primary") or {}).get("name"),
+        },
+        {
+            "question": "What is the Business DNA?",
+            "answer": dna.get("summary"),
+        },
+        {
             "question": "Would a long-term institutional investor want to own this business?",
             "answer": ownership,
         },
@@ -114,7 +162,11 @@ def synthesize(
         "No abrupt regulatory or technological break permanently resets industry structure.",
         benchmarks.get("relative_positioning")
         or "Peer comparisons are directionally informative even when named peer sets are incomplete.",
+        "Case analogues and archetypes are directional pattern guides, not identity claims.",
     ]
+    for lesson in list(historical.get("lessons_learned") or [])[:2]:
+        if lesson and lesson not in assumptions:
+            assumptions.append(f"Lesson carried forward: {lesson}")
 
     uncertainties = [
         "Share gains versus industry growth may still be incompletely separated.",
@@ -183,4 +235,9 @@ def synthesize(
         "opportunities": list(growth.get("growth_drivers") or [])[:5],
         "risks_list": list(risks.get("primary_risks") or [])[:6],
         "management_summary": mgmt.get("assessment"),
+        "lessons_learned": list(historical.get("lessons_learned") or [])[:8],
+        "case_resemblance": resemblance,
+        "archetype_name": (archetype.get("primary") or {}).get("name"),
+        "historical_narrative": hist_narrative,
+        "business_dna_summary": dna.get("summary"),
     }
