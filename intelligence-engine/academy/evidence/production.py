@@ -23,6 +23,13 @@ def is_enabled() -> bool:
 
 def dashboard() -> dict[str, Any]:
     case = enrich_case("acs_live_11_jul2026")
+    peer_slice: dict[str, Any] = {}
+    try:
+        from peer_intelligence.production import soft_slice_for_eil
+
+        peer_slice = soft_slice_for_eil()
+    except Exception as exc:
+        peer_slice = {"peer_intelligence": {"enabled": False, "soft_error": str(exc)}}
     return {
         "programme": "AGIB_EVIDENCE_INTELLIGENCE_LAYER",
         "eil_version": EIL_VERSION,
@@ -45,6 +52,7 @@ def dashboard() -> dict[str, Any]:
             "academy_books",
             "analysts",
         ],
+        **peer_slice,
     }
 
 

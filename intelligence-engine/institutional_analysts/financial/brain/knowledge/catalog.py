@@ -61,4 +61,15 @@ def knowledge_pack() -> dict[str, Any]:
             )
     except Exception:
         pass
+    try:
+        from peer_intelligence.flags import is_enabled as pil_enabled
+
+        if pil_enabled():
+            pack["peer_intelligence"] = {
+                "enabled": True,
+                "rule": "Financial conclusions must reference peer rank, history, or sector percentile before judgement",
+                "soft_slice": "peer_intelligence.production.soft_slice_for_analyst(ticker, analyst='financial')",
+            }
+    except Exception:
+        pass
     return pack

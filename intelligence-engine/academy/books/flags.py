@@ -91,6 +91,14 @@ def flag_evidence_intelligence_layer() -> bool:
     )
 
 
+def flag_peer_intelligence() -> bool:
+    """Peer Intelligence Layer — relative peer/history/percentile comparison."""
+    s = _settings()
+    if s is None:
+        return True
+    return bool(getattr(s, "peer_intelligence", True))
+
+
 def flags_dict() -> dict[str, Any]:
     return {
         "ACADEMY": is_academy_enabled(),
@@ -100,6 +108,7 @@ def flags_dict() -> dict[str, Any]:
         "ACADEMY_CERTIFICATION_SUITE": flag_certification_suite(),
         "INSTITUTIONAL_REGRESSION_SUITE": flag_regression_suite(),
         "EVIDENCE_INTELLIGENCE_LAYER": flag_evidence_intelligence_layer(),
+        "PEER_INTELLIGENCE": flag_peer_intelligence(),
         "ACADEMY_FRAMEWORKS": flag_frameworks(),
         "ACADEMY_FORMULAS": flag_formulas(),
         "ACADEMY_GRAPH": flag_graph(),

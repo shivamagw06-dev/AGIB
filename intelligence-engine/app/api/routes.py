@@ -3854,6 +3854,97 @@ async def academy_evidence_quality_gates():
     return quality_gates()
 
 
+# --- Peer Intelligence Layer V1 (relative peer / history / percentile) ---
+
+
+@router.get("/peer-intelligence/health")
+async def peer_intelligence_health():
+    from peer_intelligence.flags import is_enabled
+    from peer_intelligence.schema import PIL_VERSION
+
+    return {
+        "status": "ok" if is_enabled() else "disabled",
+        "programme": "AGIB_PEER_INTELLIGENCE_LAYER",
+        "version": PIL_VERSION,
+        "architecture_status": "v1.0.1 LOCKED",
+        "primary_question": "How does this company compare to the best and most relevant peers?",
+    }
+
+
+@router.get("/peer-intelligence/dashboard")
+async def peer_intelligence_dashboard():
+    from peer_intelligence.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/peer-intelligence/company/{ticker}")
+async def peer_intelligence_company(ticker: str):
+    from peer_intelligence.production import company
+
+    out = company(ticker)
+    if out.get("scorecard") and not out["scorecard"].get("found"):
+        raise HTTPException(status_code=404, detail="no_peer_pack")
+    return out
+
+
+@router.get("/peer-intelligence/compare")
+async def peer_intelligence_compare(
+    tickers: str = Query(default="HDFCBANK,ICICIBANK,AXISBANK"),
+    metric: str | None = Query(default=None),
+):
+    from peer_intelligence.production import compare
+
+    parts = [t.strip() for t in tickers.split(",") if t.strip()]
+    return compare(parts, metric=metric)
+
+
+@router.post("/peer-intelligence/analyse")
+async def peer_intelligence_analyse(payload: dict[str, Any] = Body(default={})):
+    from peer_intelligence.production import analyse
+
+    ticker = str(payload.get("ticker") or "").strip()
+    if not ticker:
+        raise HTTPException(status_code=400, detail="ticker_required")
+    focus = payload.get("focus_metrics")
+    return analyse(ticker, focus_metrics=list(focus) if focus else None)
+
+
+@router.get("/peer-intelligence/history/{ticker}")
+async def peer_intelligence_history(
+    ticker: str,
+    metric: str | None = Query(default=None),
+):
+    from peer_intelligence.production import history
+
+    return history(ticker, metric)
+
+
+@router.get("/peer-intelligence/rankings")
+async def peer_intelligence_rankings(
+    ticker: str | None = Query(default=None),
+    sector: str | None = Query(default=None),
+):
+    from peer_intelligence.production import rankings
+
+    return rankings(ticker, sector=sector)
+
+
+@router.get("/peer-intelligence/quality-gates")
+async def peer_intelligence_quality_gates():
+    from peer_intelligence.production import quality_gates
+
+    return quality_gates()
+
+
+@router.get("/admin/peer-intelligence", response_class=HTMLResponse)
+async def admin_peer_intelligence():
+    """Soft admin surface — no UI redesign."""
+    from peer_intelligence.production import admin_page
+
+    return HTMLResponse(admin_page())
+
+
 # --- SIF v1.0 (Sector Intelligence Framework — additive; not an engine) ---
 
 

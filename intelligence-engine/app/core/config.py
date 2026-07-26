@@ -318,6 +318,14 @@ class Settings(BaseSettings):
     academy_certification_suite: bool = True  # ACS — institutional intelligence certification / merge gate
     institutional_regression_suite: bool = True  # IRS — did this PR make AGIB smarter?
     evidence_intelligence_layer: bool = True  # EIL — sources / peers / history / explainable confidence
+    peer_intelligence: bool = True  # PIL — how does this company compare to best/relevant peers?
+    pil_peers: bool = True
+    pil_history: bool = True
+    pil_percentiles: bool = True
+    pil_rankings: bool = True
+    pil_benchmarks: bool = True
+    pil_commentary: bool = True
+    pil_scorecards: bool = True
     academy_frameworks: bool = True  # ACADEMY_FRAMEWORKS
     academy_formulas: bool = True  # ACADEMY_FORMULAS
     academy_graph: bool = True  # ACADEMY_GRAPH

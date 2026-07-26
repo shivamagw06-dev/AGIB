@@ -83,6 +83,13 @@ Soft layer addressing ACS/IRS evidence quality: named sources, peer/history gaps
 See `academy/evidence/README.md` · `/v1/academy/evidence/*`  
 Flag: `evidence_intelligence_layer`
 
+## Peer Intelligence Layer (PIL)
+
+Soft comparison layer: peer resolution, history, percentiles, rankings, commentary, scorecards.
+
+See `peer_intelligence/README.md` · `/v1/peer-intelligence/*` · `/admin/peer-intelligence`  
+Flag: `peer_intelligence` / `PEER_INTELLIGENCE`
+
 ## Admin
 
 `/admin/academy` — Books V2 panel with ingest action, spreadsheet count, ingestion report table.

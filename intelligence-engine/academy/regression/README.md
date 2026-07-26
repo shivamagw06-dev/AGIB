@@ -36,3 +36,11 @@ Blocked if Overall IQ decreases, core reasoning decreases, critical hallucinatio
 IRS dashboard includes an additive `evidence_intelligence` block from `academy.evidence.production.soft_slice_for_irs` (no IRS redesign).
 
 See `academy/evidence/README.md` · `/v1/academy/evidence/*`
+
+## Soft-wire: Peer Intelligence Layer
+
+IRS dashboard includes an additive `peer_intelligence` block from `peer_intelligence.production.soft_slice_for_irs` (no IRS redesign).
+
+Rule checked conceptually: no generic standalone conclusions where peer evidence exists.
+
+See `peer_intelligence/README.md` · `/v1/peer-intelligence/*`
