@@ -172,7 +172,7 @@ def think(
 
     return {
         "iai_version": IAI_FINANCIAL_VERSION,
-        "knowledge": knowledge_pack(),
+        "knowledge": knowledge_pack(t),
         "learning_chain": [
             "knowledge",
             "frameworks",

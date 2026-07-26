@@ -1,0 +1,223 @@
+"""Orchestrate FIL → FDI → MII → EIL/PIL soft refresh. No engine redesign."""
+
+from __future__ import annotations
+
+from typing import Any
+
+from institutional_stack.flags import is_enabled
+from institutional_stack.schema import DEFAULT_BOOTSTRAP_TICKERS, LAYERS, STACK_VERSION
+
+
+def ensure_filings_seeded() -> dict[str, Any]:
+    """Ensure FIL corpus is loaded into memory (idempotent)."""
+    try:
+        from filing_intelligence.ingestion.store import all_documents
+
+        docs = all_documents()
+        return {"seeded": True, "document_count": len(docs)}
+    except Exception as exc:
+        return {"seeded": False, "error": str(exc)[:160]}
+
+
+def refresh_ticker(ticker: str) -> dict[str, Any]:
+    """Run FIL → FDI → MII analyse for one ticker; soft-touch PIL/EIL dashboards."""
+    t = (ticker or "").upper().replace(".NS", "").replace(".BO", "")
+    aliases = {"HDFC": "HDFCBANK", "NESTLE": "NESTLEIND"}
+    t = aliases.get(t, t)
+    out: dict[str, Any] = {
+        "ticker": t,
+        "stack_version": STACK_VERSION,
+        "layers": {},
+        "errors": [],
+    }
+    if not t:
+        out["errors"].append("ticker_required")
+        return out
+
+    # FIL
+    try:
+        from filing_intelligence.production import analyse as fil_analyse
+
+        fil = fil_analyse(t)
+        out["layers"]["filing_intelligence"] = {
+            "found": bool(fil.get("found")),
+            "document_count": len(fil.get("documents") or fil.get("timeline") or [])
+            if isinstance(fil.get("documents") or fil.get("timeline"), list)
+            else fil.get("document_count"),
+            "enabled": fil.get("enabled", True),
+        }
+    except Exception as exc:
+        out["errors"].append(f"fil:{str(exc)[:120]}")
+
+    # FDI
+    try:
+        from filing_diff.production import analyse as fdi_analyse
+
+        fdi = fdi_analyse(t)
+        out["layers"]["filing_diff"] = {
+            "found": bool(fdi.get("found")),
+            "material_changes": len(fdi.get("material_changes") or fdi.get("changes") or []),
+            "enabled": fdi.get("enabled", True),
+        }
+    except Exception as exc:
+        out["errors"].append(f"fdi:{str(exc)[:120]}")
+
+    # MII
+    try:
+        from management_intelligence.production import analyse as mii_analyse
+
+        mii = mii_analyse(t)
+        conf = mii.get("confidence") or {}
+        dna = mii.get("dna") or {}
+        out["layers"]["management_intelligence"] = {
+            "found": bool(mii.get("found")),
+            "confidence": conf.get("confidence") if isinstance(conf, dict) else conf,
+            "dna": dna.get("primary") if isinstance(dna, dict) else dna,
+            "enabled": mii.get("enabled", True),
+        }
+    except Exception as exc:
+        out["errors"].append(f"mii:{str(exc)[:120]}")
+
+    # PIL soft refresh (overlay from FIL)
+    try:
+        from peer_intelligence.production import company as pil_company
+
+        pil = pil_company(t)
+        out["layers"]["peer_intelligence"] = {
+            "found": bool(pil.get("found") or pil.get("enabled")),
+            "enabled": pil.get("enabled", True),
+        }
+    except Exception as exc:
+        out["errors"].append(f"pil:{str(exc)[:120]}")
+
+    # EIL soft touch
+    try:
+        from academy.evidence.production import dashboard as eil_dashboard
+
+        eil = eil_dashboard()
+        out["layers"]["evidence_intelligence"] = {
+            "enabled": eil.get("enabled", True),
+            "version": eil.get("version") or eil.get("eil_version"),
+        }
+    except Exception as exc:
+        out["errors"].append(f"eil:{str(exc)[:120]}")
+
+    out["ok"] = len(out["errors"]) == 0
+    return out
+
+
+def ingest_and_refresh(payload: dict[str, Any]) -> dict[str, Any]:
+    """Accept a filing payload, persist via FIL, then chain FDI/MII refresh."""
+    ensure_filings_seeded()
+    from filing_intelligence.production import ingest as fil_ingest
+
+    result = fil_ingest(payload)
+    ticker = str(payload.get("ticker") or result.get("ticker") or "").upper()
+    chain: dict[str, Any] = {}
+    if result.get("accepted") and ticker and is_enabled():
+        chain = refresh_ticker(ticker)
+    return {
+        "ingest": result,
+        "chain": chain,
+        "stack_version": STACK_VERSION,
+        "auto_chain": bool(chain),
+    }
+
+
+def bootstrap(tickers: list[str] | tuple[str, ...] | None = None) -> dict[str, Any]:
+    """Seed FIL corpus and refresh default institutional tickers."""
+    seed = ensure_filings_seeded()
+    targets = list(tickers or DEFAULT_BOOTSTRAP_TICKERS)
+    refreshed = [refresh_ticker(t) for t in targets]
+    return {
+        "stack_version": STACK_VERSION,
+        "seed": seed,
+        "tickers": targets,
+        "refreshed": refreshed,
+        "layers": list(LAYERS),
+        "ok": seed.get("seeded") and all(r.get("ok") for r in refreshed),
+    }
+
+
+def company_pack(ticker: str, *, analyst: str = "committee") -> dict[str, Any]:
+    """Assemble soft slices from all institutional layers for one ticker."""
+    t = (ticker or "").upper().replace(".NS", "").replace(".BO", "")
+    aliases = {"HDFC": "HDFCBANK", "NESTLE": "NESTLEIND"}
+    t = aliases.get(t, t)
+    pack: dict[str, Any] = {
+        "enabled": is_enabled(),
+        "stack_version": STACK_VERSION,
+        "ticker": t,
+        "pipeline": [
+            "Official Filings",
+            "FIL",
+            "FDI",
+            "MII",
+            "EIL",
+            "PIL",
+        ],
+        "layers": {},
+    }
+    if not t or not is_enabled():
+        return pack
+
+    # FIL
+    try:
+        from filing_intelligence.production import soft_slice_for_analyst as fil_slice
+
+        pack["layers"].update(fil_slice(t, analyst=analyst) or {})
+    except Exception as exc:
+        pack["layers"]["filing_intelligence"] = {"enabled": False, "error": str(exc)[:120]}
+
+    # FDI
+    try:
+        from filing_diff.production import soft_slice_for_analyst as fdi_slice
+
+        pack["layers"].update(fdi_slice(t, analyst=analyst) or {})
+    except Exception as exc:
+        pack["layers"]["filing_diff"] = {"enabled": False, "error": str(exc)[:120]}
+
+    # MII
+    try:
+        from management_intelligence.production import soft_slice_for_analyst as mii_slice
+
+        pack["layers"].update(mii_slice(t, analyst=analyst) or {})
+    except Exception as exc:
+        pack["layers"]["management_intelligence"] = {"enabled": False, "error": str(exc)[:120]}
+
+    # PIL
+    try:
+        from peer_intelligence.production import soft_slice_for_analyst as pil_slice
+
+        pack["layers"].update(pil_slice(t, analyst=analyst) or {})
+    except Exception as exc:
+        pack["layers"]["peer_intelligence"] = {"enabled": False, "error": str(exc)[:120]}
+
+    # EIL (company-agnostic support slice)
+    try:
+        from academy.evidence.production import soft_slice_for_irs
+
+        eil = soft_slice_for_irs() or {}
+        if eil:
+            pack["layers"]["evidence_intelligence"] = eil.get("evidence_intelligence") or eil
+    except Exception as exc:
+        pack["layers"]["evidence_intelligence"] = {"enabled": False, "error": str(exc)[:120]}
+
+    # Compact summary for UI / Ask AGI
+    mii = pack["layers"].get("management_intelligence") or {}
+    fdi = pack["layers"].get("filing_diff") or {}
+    fil = pack["layers"].get("filing_intelligence") or {}
+    pil = pack["layers"].get("peer_intelligence") or {}
+    pack["summary"] = {
+        "management_confidence": mii.get("confidence"),
+        "management_dna": mii.get("dna"),
+        "filing_found": fil.get("found", bool(fil.get("enabled"))),
+        "material_change_signal": bool(fdi.get("committee") or fdi.get("desk") or fdi.get("enabled")),
+        "peer_enabled": bool(pil.get("enabled")),
+        "primary_question_mii": "Can this management team be trusted to compound shareholder value?",
+        "primary_question_fdi": "What materially changed since the previous filing?",
+        "primary_question_fil": "What do the company's own filings actually say?",
+        "primary_question_pil": "How does this company compare to the best and most relevant peers?",
+        "primary_question_eil": "What evidence supports each claim, and at what confidence?",
+    }
+    return pack

@@ -4,6 +4,7 @@ import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, BrainCircuit, CalendarClock, ShieldAlert } from 'lucide-react';
 import { getNifty500StockResearch } from '@/lib/nifty500ResearchApi';
 import { getUiCompany } from '@/lib/uiApi';
+import { getInstitutionalStackCompany } from '@/lib/intelligenceApi';
 import CompanyIntelligencePanels from '@/components/Company/CompanyIntelligencePanels';
 
 function tone(sentiment = '') {
@@ -44,9 +45,29 @@ export default function Nifty500StockResearch() {
     getNifty500StockResearch(symbol)
       .then((data) => active && setState({ loading: false, data, error: null }))
       .catch((error) => active && setState({ loading: false, data: null, error }));
-    getUiCompany(symbol)
-      .then((data) => active && setCompanyIntel(data))
-      .catch(() => active && setCompanyIntel(null));
+    Promise.allSettled([
+      getUiCompany(symbol),
+      getInstitutionalStackCompany(symbol).catch(() => null),
+    ]).then(([uiRes, stackRes]) => {
+      if (!active) return;
+      const ui = uiRes.status === 'fulfilled' ? uiRes.value : null;
+      const stack = stackRes.status === 'fulfilled' ? stackRes.value : null;
+      if (!ui && !stack) {
+        setCompanyIntel(null);
+        return;
+      }
+      setCompanyIntel({
+        ...(ui || { ticker: String(symbol || '').toUpperCase() }),
+        institutional_stack: stack || undefined,
+        management_trust: stack?.summary
+          ? {
+              dna: stack.summary.management_dna,
+              confidence: stack.summary.management_confidence,
+              source: 'management_intelligence',
+            }
+          : undefined,
+      });
+    });
     return () => {
       active = false;
     };

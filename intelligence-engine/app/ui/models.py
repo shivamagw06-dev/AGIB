@@ -73,6 +73,9 @@ class CompanyView(BaseModel):
     follow_up_questions: list[str] = Field(default_factory=list)
     knowledge_graph: dict[str, Any] = Field(default_factory=dict)
     prediction_timeline: list[dict[str, Any]] = Field(default_factory=list)
+    # Institutional Stack soft slice (FIL→FDI→MII→EIL→PIL) — additive
+    institutional_stack: dict[str, Any] = Field(default_factory=dict)
+    management_trust: dict[str, Any] = Field(default_factory=dict)
 
 
 class SearchView(BaseModel):
@@ -177,6 +180,8 @@ class SearchView(BaseModel):
     institutional_analysts: dict[str, Any] = Field(default_factory=dict)
     institutional_briefing: dict[str, Any] = Field(default_factory=dict)
     company_intelligence: dict[str, Any] = Field(default_factory=dict)
+    # Institutional Stack soft slice (FIL→FDI→MII→EIL→PIL) — additive
+    institutional_stack: dict[str, Any] = Field(default_factory=dict)
     current_outlook: str | None = None
     key_drivers: list[str] = Field(default_factory=list)
     valuation_perspective: str | None = None

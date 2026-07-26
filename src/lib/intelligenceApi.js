@@ -942,3 +942,67 @@ export const getCompanyMonitorAil = (ticker) =>
 export const getAilEvent = (id) => intelligenceFetch(`/event/${encodeURIComponent(id)}`);
 export const getAilEvidence = (id) => intelligenceFetch(`/evidence/${encodeURIComponent(id)}`);
 export const getAilPrediction = (id) => intelligenceFetch(`/prediction/${encodeURIComponent(id)}`);
+
+/** Institutional Intelligence Stack — FIL → FDI → MII → EIL → PIL */
+export const getInstitutionalStackHealth = () => intelligenceFetch('/institutional-stack/health');
+export const getInstitutionalStackDashboard = () => intelligenceFetch('/institutional-stack/dashboard');
+export const getInstitutionalStackQualityGates = () =>
+  intelligenceFetch('/institutional-stack/quality-gates');
+export const getInstitutionalStackCompany = (ticker, analyst = 'committee') => {
+  const qs = new URLSearchParams({ analyst }).toString();
+  return intelligenceFetch(`/institutional-stack/company/${encodeURIComponent(ticker)}?${qs}`);
+};
+export const analyseInstitutionalStack = (ticker) =>
+  intelligenceFetch('/institutional-stack/analyse', { method: 'POST', body: { ticker } });
+export const bootstrapInstitutionalStack = (tickers) =>
+  intelligenceFetch('/institutional-stack/bootstrap', {
+    method: 'POST',
+    body: tickers ? { tickers } : {},
+  });
+export const ingestInstitutionalStack = (payload) =>
+  intelligenceFetch('/institutional-stack/ingest', { method: 'POST', body: payload || {} });
+
+/** Evidence Intelligence Layer */
+export const getEilHealth = () => intelligenceFetch('/academy/evidence/health');
+export const getEilDashboard = () => intelligenceFetch('/academy/evidence/dashboard');
+export const getEilQualityGates = () => intelligenceFetch('/academy/evidence/quality-gates');
+
+/** Peer Intelligence Layer */
+export const getPilHealth = () => intelligenceFetch('/peer-intelligence/health');
+export const getPilDashboard = () => intelligenceFetch('/peer-intelligence/dashboard');
+export const getPilQualityGates = () => intelligenceFetch('/peer-intelligence/quality-gates');
+export const getPilCompany = (ticker) =>
+  intelligenceFetch(`/peer-intelligence/company/${encodeURIComponent(ticker)}`);
+export const analysePil = (ticker) =>
+  intelligenceFetch('/peer-intelligence/analyse', { method: 'POST', body: { ticker } });
+
+/** Filing Intelligence Layer */
+export const getFilHealth = () => intelligenceFetch('/filing-intelligence/health');
+export const getFilDashboard = () => intelligenceFetch('/filing-intelligence/dashboard');
+export const getFilQualityGates = () => intelligenceFetch('/filing-intelligence/quality-gates');
+export const getFilCompany = (ticker) =>
+  intelligenceFetch(`/filing-intelligence/company/${encodeURIComponent(ticker)}`);
+export const analyseFil = (ticker) =>
+  intelligenceFetch('/filing-intelligence/analyse', { method: 'POST', body: { ticker } });
+export const ingestFil = (payload) =>
+  intelligenceFetch('/filing-intelligence/ingest', { method: 'POST', body: payload || {} });
+
+/** Filing Diff Engine */
+export const getFdiHealth = () => intelligenceFetch('/filing-diff/health');
+export const getFdiDashboard = () => intelligenceFetch('/filing-diff/dashboard');
+export const getFdiQualityGates = () => intelligenceFetch('/filing-diff/quality-gates');
+export const getFdiCompany = (ticker) =>
+  intelligenceFetch(`/filing-diff/company/${encodeURIComponent(ticker)}`);
+export const analyseFdi = (ticker) =>
+  intelligenceFetch('/filing-diff/analyse', { method: 'POST', body: { ticker } });
+
+/** Management Intelligence Engine */
+export const getMiiHealth = () => intelligenceFetch('/management-intelligence/health');
+export const getMiiDashboard = () => intelligenceFetch('/management-intelligence/dashboard');
+export const getMiiQualityGates = () => intelligenceFetch('/management-intelligence/quality-gates');
+export const getMiiCompany = (ticker) =>
+  intelligenceFetch(`/management-intelligence/company/${encodeURIComponent(ticker)}`);
+export const getMiiGuidance = (ticker) =>
+  intelligenceFetch(`/management-intelligence/guidance/${encodeURIComponent(ticker)}`);
+export const analyseMii = (ticker) =>
+  intelligenceFetch('/management-intelligence/analyse', { method: 'POST', body: { ticker } });

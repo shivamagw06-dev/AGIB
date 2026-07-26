@@ -109,6 +109,17 @@ def package_for_ask_agi(**kwargs: Any) -> dict[str, Any]:
         if iaf_pack.get("research_writer"):
             out["research_writer"] = iaf_pack.get("research_writer")
             out["institutional_report"] = iaf_pack.get("institutional_report")
+        if iaf_pack.get("institutional_stack"):
+            out["institutional_stack"] = iaf_pack["institutional_stack"]
+    if not out.get("institutional_stack"):
+        try:
+            from institutional_stack.production import soft_slice_for_ask_agi
+
+            stack = soft_slice_for_ask_agi(kwargs.get("ticker"))
+            if stack:
+                out["institutional_stack"] = stack.get("institutional_stack") or stack
+        except Exception:
+            pass
     return out
 
 

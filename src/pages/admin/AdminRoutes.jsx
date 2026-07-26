@@ -24,6 +24,7 @@ import CompanyAnalysis from '@/pages/admin/CompanyAnalysis';
 import CompanyMonitor from '@/pages/admin/CompanyMonitor';
 import InvestmentOfficeAdmin from '@/pages/admin/InvestmentOffice';
 import MissionControl from '@/pages/admin/MissionControl';
+import InstitutionalStack from '@/pages/admin/InstitutionalStack';
 
 export default function AdminRoutes() {
   return (
@@ -44,6 +45,7 @@ export default function AdminRoutes() {
           <Route path="data-quality" element={<DataQuality />} />
           <Route path="evidence-completion" element={<EvidenceCompletion />} />
           <Route path="company-analysis" element={<CompanyAnalysis />} />
+          <Route path="institutional-stack" element={<InstitutionalStack />} />
           <Route path="company-monitor" element={<CompanyMonitor />} />
           <Route path="investment-office" element={<InvestmentOfficeAdmin />} />
           <Route path="mission-control" element={<MissionControl />} />

@@ -123,6 +123,14 @@ def flag_management_intelligence() -> bool:
     return bool(getattr(s, "management_intelligence", True))
 
 
+def flag_institutional_stack() -> bool:
+    """Institutional Intelligence Stack — soft FIL→FDI→MII→EIL→PIL integration."""
+    s = _settings()
+    if s is None:
+        return True
+    return bool(getattr(s, "institutional_stack", True))
+
+
 def flags_dict() -> dict[str, Any]:
     return {
         "ACADEMY": is_academy_enabled(),
@@ -136,6 +144,7 @@ def flags_dict() -> dict[str, Any]:
         "FILING_INTELLIGENCE": flag_filing_intelligence(),
         "FILING_DIFF_ENGINE": flag_filing_diff_engine(),
         "MANAGEMENT_INTELLIGENCE": flag_management_intelligence(),
+        "INSTITUTIONAL_STACK": flag_institutional_stack(),
         "ACADEMY_FRAMEWORKS": flag_frameworks(),
         "ACADEMY_FORMULAS": flag_formulas(),
         "ACADEMY_GRAPH": flag_graph(),

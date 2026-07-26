@@ -19,6 +19,22 @@ log = get_logger(__name__)
 async def lifespan(_app: FastAPI):
     settings = get_settings()
     bootstrap_registry()
+    # Soft-seed Institutional Stack (FIL corpus + FDI/MII refresh) — never blocks startup
+    try:
+        if getattr(settings, "institutional_stack", True):
+            from institutional_stack.production import bootstrap_stack
+
+            boot = bootstrap_stack()
+            log.info(
+                "institutional_stack_bootstrapped",
+                extra={
+                    "ok": boot.get("ok"),
+                    "documents": (boot.get("seed") or {}).get("document_count"),
+                    "tickers": boot.get("tickers"),
+                },
+            )
+    except Exception as exc:
+        log.warning("institutional_stack_bootstrap_failed", extra={"error": str(exc)[:160]})
     log.info(
         "intelligence_engine_started",
         extra={"env": settings.app_env, "agib_base": settings.agib_api_base_url},

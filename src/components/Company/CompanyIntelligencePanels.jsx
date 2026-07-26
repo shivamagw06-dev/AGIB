@@ -197,6 +197,35 @@ export default function CompanyIntelligencePanels({ data }) {
         </section>
       )}
 
+      {(data.institutional_stack || data.management_trust) && (
+        <section>
+          <h2 className="text-sm font-bold text-[#18202b] mb-3">Institutional Intelligence</h2>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <Card title="Management Trust">
+              {data.management_trust?.dna ||
+                data.institutional_stack?.summary?.management_dna ||
+                '—'}
+              {(data.management_trust?.confidence ??
+                data.institutional_stack?.summary?.management_confidence) != null ? (
+                <p className="text-xs text-[#667085] mt-1">
+                  Score{' '}
+                  {data.management_trust?.confidence ??
+                    data.institutional_stack?.summary?.management_confidence}
+                </p>
+              ) : null}
+            </Card>
+            <Card title="Filing Memory">
+              {data.institutional_stack?.summary?.filing_found ? 'Official filings loaded' : 'Building'}
+            </Card>
+            <Card title="What Changed">
+              {data.institutional_stack?.summary?.material_change_signal
+                ? 'Material change signal active'
+                : 'No material FDI signal'}
+            </Card>
+          </div>
+        </section>
+      )}
+
       <section>
         <h2 className="text-sm font-bold text-[#18202b] mb-3">Research</h2>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">

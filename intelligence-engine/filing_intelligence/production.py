@@ -126,6 +126,16 @@ def ingest(payload: dict[str, Any]) -> dict[str, Any]:
     if result.get("accepted"):
         # peer refresh signal
         result["peer_refresh"] = live_panel_for(doc.ticker)
+        # Soft auto-chain FDI → MII (no FIL/FDI/MII redesign)
+        if not payload.get("skip_stack_chain"):
+            try:
+                from institutional_stack.flags import is_enabled as stack_enabled
+                from institutional_stack.pipeline import refresh_ticker
+
+                if stack_enabled():
+                    result["institutional_stack_chain"] = refresh_ticker(doc.ticker)
+            except Exception as exc:
+                result["institutional_stack_chain"] = {"ok": False, "error": str(exc)[:160]}
     return result
 
 

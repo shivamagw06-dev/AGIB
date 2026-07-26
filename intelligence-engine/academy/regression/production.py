@@ -196,6 +196,14 @@ def dashboard() -> dict[str, Any]:
     except Exception as exc:
         management_slice = {"management_intelligence": {"enabled": False, "soft_error": str(exc)}}
 
+    stack_slice: dict[str, Any] = {}
+    try:
+        from institutional_stack.production import soft_slice_for_irs as stack_soft_slice
+
+        stack_slice = stack_soft_slice()
+    except Exception as exc:
+        stack_slice = {"institutional_stack": {"enabled": False, "soft_error": str(exc)}}
+
     return {
         "programme": "AGIB_INSTITUTIONAL_REGRESSION_SUITE",
         "irs_version": IRS_VERSION,
@@ -220,6 +228,7 @@ def dashboard() -> dict[str, Any]:
         **filing_slice,
         **filing_diff_slice,
         **management_slice,
+        **stack_slice,
     }
 
 

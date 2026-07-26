@@ -855,7 +855,45 @@ export default function ResearchWorkspace({
                   </Section>
                 </div>
 
-                {(vm.managementNarrative || vm.ownershipNarrative) && (
+                {vm.institutionalStack ? (
+                  <Section
+                    id="institutional-stack"
+                    kicker="Institutional Stack"
+                    title="Filing · Diff · Management Trust · Peers"
+                  >
+                    <div className="rw-grid-2">
+                      <div>
+                        <p className="rw-mini">Management DNA</p>
+                        <p className="font-semibold">
+                          {vm.institutionalStack.managementDna || '—'}
+                        </p>
+                        <p className="rw-mini mt-2">Trust score</p>
+                        <p className="font-semibold">
+                          {vm.institutionalStack.managementConfidence ?? '—'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="rw-mini">Filing evidence</p>
+                        <p className="font-semibold">
+                          {vm.institutionalStack.filingFound ? 'Present' : 'Sparse'}
+                        </p>
+                        <p className="rw-mini mt-2">Material change signal</p>
+                        <p className="font-semibold">
+                          {vm.institutionalStack.materialChangeSignal ? 'Active' : 'Quiet'}
+                        </p>
+                      </div>
+                    </div>
+                    {vm.institutionalStack.openConcerns?.length ? (
+                      <ul className="rw-list mt-3">
+                        {vm.institutionalStack.openConcerns.map((c) => (
+                          <li key={c}>{c}</li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </Section>
+                ) : null}
+
+                {(vm.managementNarrative || vm.ownershipNarrative || vm.institutionalStack) && (
                   <div className="rw-grid-2">
                     <Section
                       id="management"

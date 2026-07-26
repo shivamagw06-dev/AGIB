@@ -1370,5 +1370,170 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // --- Institutional Intelligence Stack (FIL→FDI→MII→EIL→PIL) ---
+  router.get('/institutional-stack/health', kfGet('/v1/institutional-stack/health'));
+  router.get('/institutional-stack/dashboard', kfGet('/v1/institutional-stack/dashboard'));
+  router.get('/institutional-stack/quality-gates', kfGet('/v1/institutional-stack/quality-gates'));
+  router.get('/institutional-stack/company/:ticker', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query).toString();
+      const result = await engineFetch(
+        `/v1/institutional-stack/company/${encodeURIComponent(req.params.ticker)}${qs ? `?${qs}` : ''}`
+      );
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Institutional stack unavailable', detail: error.message });
+    }
+  });
+  router.post('/institutional-stack/analyse', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/institutional-stack/analyse', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Institutional stack analyse failed', detail: error.message });
+    }
+  });
+  router.post('/institutional-stack/ingest', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/institutional-stack/ingest', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Institutional stack ingest failed', detail: error.message });
+    }
+  });
+  router.post('/institutional-stack/bootstrap', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/institutional-stack/bootstrap', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Institutional stack bootstrap failed', detail: error.message });
+    }
+  });
+
+  // Layer proxies (EIL / PIL / FIL / FDI / MII)
+  router.get('/academy/evidence/health', kfGet('/v1/academy/evidence/health'));
+  router.get('/academy/evidence/dashboard', kfGet('/v1/academy/evidence/dashboard'));
+  router.get('/academy/evidence/quality-gates', kfGet('/v1/academy/evidence/quality-gates'));
+  router.get('/academy/evidence/case/:id', async (req, res) => {
+    try {
+      const result = await engineFetch(`/v1/academy/evidence/case/${encodeURIComponent(req.params.id)}`);
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Evidence intelligence unavailable', detail: error.message });
+    }
+  });
+
+  router.get('/peer-intelligence/health', kfGet('/v1/peer-intelligence/health'));
+  router.get('/peer-intelligence/dashboard', kfGet('/v1/peer-intelligence/dashboard'));
+  router.get('/peer-intelligence/quality-gates', kfGet('/v1/peer-intelligence/quality-gates'));
+  router.get('/peer-intelligence/company/:ticker', async (req, res) => {
+    try {
+      const result = await engineFetch(`/v1/peer-intelligence/company/${encodeURIComponent(req.params.ticker)}`);
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Peer intelligence unavailable', detail: error.message });
+    }
+  });
+  router.post('/peer-intelligence/analyse', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/peer-intelligence/analyse', { method: 'POST', body: req.body || {} });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Peer intelligence analyse failed', detail: error.message });
+    }
+  });
+
+  router.get('/filing-intelligence/health', kfGet('/v1/filing-intelligence/health'));
+  router.get('/filing-intelligence/dashboard', kfGet('/v1/filing-intelligence/dashboard'));
+  router.get('/filing-intelligence/quality-gates', kfGet('/v1/filing-intelligence/quality-gates'));
+  router.get('/filing-intelligence/company/:ticker', async (req, res) => {
+    try {
+      const result = await engineFetch(`/v1/filing-intelligence/company/${encodeURIComponent(req.params.ticker)}`);
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Filing intelligence unavailable', detail: error.message });
+    }
+  });
+  router.post('/filing-intelligence/analyse', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/filing-intelligence/analyse', { method: 'POST', body: req.body || {} });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Filing intelligence analyse failed', detail: error.message });
+    }
+  });
+  router.post('/filing-intelligence/ingest', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/filing-intelligence/ingest', { method: 'POST', body: req.body || {} });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Filing intelligence ingest failed', detail: error.message });
+    }
+  });
+
+  router.get('/filing-diff/health', kfGet('/v1/filing-diff/health'));
+  router.get('/filing-diff/dashboard', kfGet('/v1/filing-diff/dashboard'));
+  router.get('/filing-diff/quality-gates', kfGet('/v1/filing-diff/quality-gates'));
+  router.get('/filing-diff/company/:ticker', async (req, res) => {
+    try {
+      const result = await engineFetch(`/v1/filing-diff/company/${encodeURIComponent(req.params.ticker)}`);
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Filing diff unavailable', detail: error.message });
+    }
+  });
+  router.post('/filing-diff/analyse', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/filing-diff/analyse', { method: 'POST', body: req.body || {} });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Filing diff analyse failed', detail: error.message });
+    }
+  });
+
+  router.get('/management-intelligence/health', kfGet('/v1/management-intelligence/health'));
+  router.get('/management-intelligence/dashboard', kfGet('/v1/management-intelligence/dashboard'));
+  router.get('/management-intelligence/quality-gates', kfGet('/v1/management-intelligence/quality-gates'));
+  router.get('/management-intelligence/company/:ticker', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/management-intelligence/company/${encodeURIComponent(req.params.ticker)}`
+      );
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Management intelligence unavailable', detail: error.message });
+    }
+  });
+  router.get('/management-intelligence/guidance/:ticker', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/management-intelligence/guidance/${encodeURIComponent(req.params.ticker)}`
+      );
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Management guidance unavailable', detail: error.message });
+    }
+  });
+  router.post('/management-intelligence/analyse', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/management-intelligence/analyse', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Management intelligence analyse failed', detail: error.message });
+    }
+  });
+
   return router;
 }

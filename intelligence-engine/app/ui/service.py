@@ -677,6 +677,23 @@ class UiService:
         overview["evidence_count"] = meta["evidence_count"]
         overview["research_count"] = meta["research_count"]
 
+        institutional_stack: dict[str, Any] = {}
+        management_trust: dict[str, Any] = {}
+        try:
+            from institutional_stack.production import soft_slice_for_ask_agi
+
+            stack_wrap = soft_slice_for_ask_agi(t) or {}
+            institutional_stack = scrub(stack_wrap.get("institutional_stack") or {}) or {}
+            summary = institutional_stack.get("summary") or {}
+            if summary.get("management_dna") or summary.get("management_confidence") is not None:
+                management_trust = {
+                    "dna": summary.get("management_dna"),
+                    "confidence": summary.get("management_confidence"),
+                    "source": "management_intelligence",
+                }
+        except Exception:
+            institutional_stack, management_trust = {}, {}
+
         return CompanyView(
             meta=UiMeta(
                 surface="company",
@@ -700,6 +717,8 @@ class UiService:
             follow_up_questions=followups,
             knowledge_graph=kg,
             prediction_timeline=pred_hist[:12],
+            institutional_stack=institutional_stack,
+            management_trust=management_trust,
         )
 
     def search(self, question: str, *, ticker: str | None = None) -> SearchView:
@@ -2298,6 +2317,19 @@ class UiService:
             )
             or {},
             institutional_briefing=scrub(briefing) or {},
+            institutional_stack=scrub(
+                (answer_construction or {}).get("institutional_stack")
+                if isinstance(answer_construction, dict)
+                else {}
+            )
+            or scrub(
+                ((answer_construction or {}).get("institutional_analysts") or {}).get(
+                    "institutional_stack"
+                )
+                if isinstance(answer_construction, dict)
+                else {}
+            )
+            or {},
             # Prefer live SIF/Ask-AGI sector pack; fall back to IRP sector pack
             sector_intelligence=scrub(sector_intelligence)
             if sector_intelligence

@@ -197,6 +197,22 @@ def package_for_ask_agi(
     ctx["ticker"] = t
     name = company_name(ctx)
 
+    # Soft-wire Institutional Stack into analyst context (FIL→FDI→MII→EIL→PIL)
+    try:
+        from institutional_stack.pipeline import company_pack as stack_company_pack
+
+        if t:
+            stack_pack = stack_company_pack(t, analyst="committee")
+            ctx["institutional_stack"] = stack_pack
+            layers = stack_pack.get("layers") or {}
+            ctx["filing_intelligence"] = layers.get("filing_intelligence") or {}
+            ctx["filing_diff"] = layers.get("filing_diff") or {}
+            ctx["management_intelligence_layer"] = layers.get("management_intelligence") or {}
+            ctx["peer_intelligence"] = layers.get("peer_intelligence") or {}
+            ctx["evidence_intelligence"] = layers.get("evidence_intelligence") or {}
+    except Exception:
+        ctx["institutional_stack"] = {}
+
     planner = plan_research(query, ticker=t)
     opinions: dict[str, dict[str, Any]] = {}
     for role, fn in _ANALYSERS.items():
@@ -294,12 +310,19 @@ def package_for_ask_agi(
         "management_intelligence": opinions.get("management"),
         "ownership_intelligence": opinions.get("ownership"),
         "institutional_view": committee,
+        "institutional_stack": ctx.get("institutional_stack") or {},
         "ask_agi_hints": [
             f"Specialist analysts contributed structured opinions on {name}",
             f"Committee stance: {committee.get('committee_stance')}",
             f"Chief Investment Officer confidence {cio.get('confidence')}",
         ],
     }
+    stack_summary = (base_pack.get("institutional_stack") or {}).get("summary") or {}
+    if stack_summary.get("management_dna"):
+        base_pack["ask_agi_hints"].append(
+            f"Management DNA: {stack_summary.get('management_dna')} "
+            f"(trust score {stack_summary.get('management_confidence')})"
+        )
 
     # Institutional Research Writer — presentation layer AFTER CIO (never mutates votes/confidence)
     research_writer: dict[str, Any] = {}

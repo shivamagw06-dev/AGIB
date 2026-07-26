@@ -140,6 +140,18 @@ def build_mission_control(*, ioc_service: Any | None = None) -> dict[str, Any]:
         "sources": ["ioc", "investment_office", "company_monitor", "academy.books"],
     }
 
+    # Soft Institutional Stack (FIL→FDI→MII→EIL→PIL) — additive platform cards
+    stack_irs = _soft(
+        lambda: __import__(
+            "institutional_stack.production", fromlist=["soft_slice_for_mission_control"]
+        ).soft_slice_for_mission_control()
+    )
+    stack_dash = _soft(
+        lambda: __import__("institutional_stack.production", fromlist=["dashboard"]).dashboard()
+    )
+    stack_slice = (stack_irs or {}).get("institutional_stack") or {}
+    stack_layers = (stack_dash or {}).get("layer_health") or {}
+
     # SECTION 2 — Platform Status
     ioc_platforms = ioc.get("platform_status") or {}
     platforms = [
@@ -180,6 +192,43 @@ def build_mission_control(*, ioc_service: Any | None = None) -> dict[str, Any]:
         _platform_card("DVC", status="Healthy" if (dvc.get("enabled") is not False) else "Offline", details=dvc.get("metrics") or dvc),
         _platform_card("ECP", status="Healthy" if (ecp.get("enabled") is not False) else "Offline", details=ecp.get("metrics") or ecp),
         _platform_card("Ask AGI", status="soft", dependencies=["IRP", "CAE", "IO", "CMS"]),
+        _platform_card(
+            "Filing Intelligence",
+            status="Healthy" if (stack_layers.get("filing_intelligence") or {}).get("enabled", True) else "Offline",
+            dependencies=["Official Filings"],
+            details=stack_layers.get("filing_intelligence") or {},
+        ),
+        _platform_card(
+            "Filing Diff",
+            status="Healthy" if (stack_layers.get("filing_diff") or {}).get("enabled", True) else "Offline",
+            dependencies=["FIL"],
+            details=stack_layers.get("filing_diff") or {},
+        ),
+        _platform_card(
+            "Management Intelligence",
+            status="Healthy" if (stack_layers.get("management_intelligence") or {}).get("enabled", True) else "Offline",
+            dependencies=["FIL", "FDI"],
+            details=stack_layers.get("management_intelligence") or {},
+        ),
+        _platform_card(
+            "Peer Intelligence",
+            status="Healthy" if (stack_layers.get("peer_intelligence") or {}).get("enabled", True) else "Offline",
+            dependencies=["FIL"],
+            details=stack_layers.get("peer_intelligence") or {},
+        ),
+        _platform_card(
+            "Evidence Intelligence",
+            status="Healthy" if (stack_layers.get("evidence_intelligence") or {}).get("enabled", True) else "Offline",
+            dependencies=["FIL", "PIL"],
+            details=stack_layers.get("evidence_intelligence") or {},
+        ),
+        _platform_card(
+            "Institutional Stack",
+            status="Healthy" if stack_slice.get("enabled", True) else "Offline",
+            dependencies=["FIL", "FDI", "MII", "EIL", "PIL"],
+            knowledge_count=stack_slice.get("seed_documents"),
+            details=stack_slice,
+        ),
     ]
 
     # SECTION 3 — Engine Status

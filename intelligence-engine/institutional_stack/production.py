@@ -1,0 +1,238 @@
+"""Institutional Intelligence Stack production facade — soft integration only."""
+
+from __future__ import annotations
+
+from html import escape
+from typing import Any
+
+from institutional_stack.flags import flags_dict, is_enabled
+from institutional_stack.pipeline import (
+    bootstrap,
+    company_pack,
+    ensure_filings_seeded,
+    ingest_and_refresh,
+    refresh_ticker,
+)
+from institutional_stack.schema import (
+    ARCHITECTURE_STATUS,
+    DEFAULT_BOOTSTRAP_TICKERS,
+    LAYERS,
+    PIPELINE,
+    PROGRAMME,
+    PROGRAMME_SHORT,
+    STACK_VERSION,
+)
+
+
+def health() -> dict[str, Any]:
+    return {
+        "status": "ok" if is_enabled() else "disabled",
+        "programme": PROGRAMME,
+        "layer": PROGRAMME_SHORT,
+        "version": STACK_VERSION,
+        "architecture_status": ARCHITECTURE_STATUS,
+        "not_an_engine": True,
+        "orchestration_only": True,
+        "pipeline": list(PIPELINE),
+        "layers": list(LAYERS),
+        "flags": flags_dict(),
+        "enabled": is_enabled(),
+        "no_redesign": [
+            "engine",
+            "ui",
+            "provider",
+            "fil",
+            "fdi",
+            "mii",
+            "eil",
+            "pil",
+            "company_analysis",
+            "investment_committee",
+            "cio",
+            "research_writer",
+            "certification",
+            "regression",
+        ],
+    }
+
+
+def dashboard() -> dict[str, Any]:
+    seed = ensure_filings_seeded()
+    layer_health: dict[str, Any] = {}
+    for key, mod in (
+        ("filing_intelligence", "filing_intelligence.production"),
+        ("filing_diff", "filing_diff.production"),
+        ("management_intelligence", "management_intelligence.production"),
+        ("peer_intelligence", "peer_intelligence.production"),
+        ("evidence_intelligence", "academy.evidence.production"),
+    ):
+        try:
+            import importlib
+
+            m = importlib.import_module(mod)
+            if hasattr(m, "dashboard"):
+                d = m.dashboard()
+                layer_health[key] = {
+                    "enabled": d.get("enabled", True),
+                    "version": d.get("version")
+                    or d.get("mii_version")
+                    or d.get("fil_version")
+                    or d.get("fdi_version")
+                    or d.get("pil_version")
+                    or d.get("eil_version"),
+                    "primary_question": d.get("primary_question"),
+                }
+            else:
+                layer_health[key] = {"enabled": True}
+        except Exception as exc:
+            layer_health[key] = {"enabled": False, "error": str(exc)[:120]}
+
+    sample = company_pack("HDFCBANK", analyst="committee")
+    return {
+        "programme": PROGRAMME,
+        "version": STACK_VERSION,
+        "architecture_status": ARCHITECTURE_STATUS,
+        "enabled": is_enabled(),
+        "flags": flags_dict(),
+        "pipeline": list(PIPELINE),
+        "layers": list(LAYERS),
+        "seed": seed,
+        "layer_health": layer_health,
+        "sample_ticker": "HDFCBANK",
+        "sample_summary": sample.get("summary"),
+        "bootstrap_tickers": list(DEFAULT_BOOTSTRAP_TICKERS),
+        "website_surfaces": [
+            "/admin/institutional-stack",
+            "/admin/filing-intelligence",
+            "/admin/filing-diff",
+            "/admin/management-intelligence",
+            "/admin/peer-intelligence",
+        ],
+        "api_prefix": "/v1/institutional-stack",
+    }
+
+
+def company(ticker: str, *, analyst: str = "committee") -> dict[str, Any]:
+    return company_pack(ticker, analyst=analyst)
+
+
+def analyse(ticker: str) -> dict[str, Any]:
+    ensure_filings_seeded()
+    chain = refresh_ticker(ticker)
+    pack = company_pack(ticker, analyst="committee")
+    return {"enabled": is_enabled(), "chain": chain, **pack}
+
+
+def ingest(payload: dict[str, Any]) -> dict[str, Any]:
+    return ingest_and_refresh(payload)
+
+
+def bootstrap_stack(tickers: list[str] | None = None) -> dict[str, Any]:
+    return bootstrap(tickers)
+
+
+def soft_slice_for_ask_agi(ticker: str | None) -> dict[str, Any]:
+    if not is_enabled() or not ticker:
+        return {}
+    pack = company_pack(ticker, analyst="committee")
+    return {
+        "institutional_stack": {
+            "enabled": True,
+            "version": STACK_VERSION,
+            "ticker": pack.get("ticker"),
+            "summary": pack.get("summary"),
+            "layers": pack.get("layers"),
+            "pipeline": pack.get("pipeline"),
+            "rule": "FIL→FDI→MII→EIL→PIL soft facts precede analyst judgement",
+        }
+    }
+
+
+def soft_slice_for_company_analysis(ticker: str | None) -> dict[str, Any]:
+    return soft_slice_for_ask_agi(ticker)
+
+
+def soft_slice_for_analyst(ticker: str, *, analyst: str = "committee") -> dict[str, Any]:
+    if not is_enabled():
+        return {}
+    pack = company_pack(ticker, analyst=analyst)
+    return {"institutional_stack": pack}
+
+
+def soft_slice_for_irs() -> dict[str, Any]:
+    if not is_enabled():
+        return {}
+    d = dashboard()
+    return {
+        "institutional_stack": {
+            "enabled": True,
+            "version": STACK_VERSION,
+            "pipeline": list(PIPELINE),
+            "layers_healthy": sum(
+                1 for v in (d.get("layer_health") or {}).values() if v.get("enabled") is not False
+            ),
+            "seed_documents": (d.get("seed") or {}).get("document_count"),
+            "sample_summary": d.get("sample_summary"),
+            "quality_gates_passed": quality_gates().get("passed"),
+        }
+    }
+
+
+def soft_slice_for_mission_control() -> dict[str, Any]:
+    return soft_slice_for_irs()
+
+
+def quality_gates() -> dict[str, Any]:
+    seed = ensure_filings_seeded()
+    pack = company_pack("HDFCBANK")
+    layers = pack.get("layers") or {}
+    checks = {
+        "enabled": is_enabled(),
+        "filings_seeded": bool(seed.get("seeded")) and int(seed.get("document_count") or 0) >= 1,
+        "fil_present": bool(layers.get("filing_intelligence")),
+        "fdi_present": bool(layers.get("filing_diff")),
+        "mii_present": bool(layers.get("management_intelligence")),
+        "pil_present": bool(layers.get("peer_intelligence")),
+        "eil_present": bool(layers.get("evidence_intelligence")),
+        "mii_confidence": (layers.get("management_intelligence") or {}).get("confidence") is not None,
+        "no_engine_redesign": True,
+    }
+    return {
+        "programme": PROGRAMME,
+        "version": STACK_VERSION,
+        "passed": all(checks.values()),
+        "checks": checks,
+        "flags": flags_dict(),
+    }
+
+
+def admin_page() -> str:
+    d = dashboard()
+    qg = quality_gates()
+    sample = d.get("sample_summary") or {}
+    rows = "".join(
+        f"<tr><td>{escape(k)}</td><td>{escape(str((v or {}).get('enabled')))}</td>"
+        f"<td>{escape(str((v or {}).get('version') or '—'))}</td>"
+        f"<td>{escape(str((v or {}).get('primary_question') or '—')[:120])}</td></tr>"
+        for k, v in (d.get("layer_health") or {}).items()
+    )
+    return f"""<!doctype html>
+<html><head><meta charset="utf-8"/><title>Institutional Intelligence Stack</title>
+<style>
+body{{font-family:ui-sans-serif,system-ui;margin:2rem;background:#0b1220;color:#e8eef8}}
+h1{{font-size:1.4rem}} .muted{{color:#9bb0c9}} table{{border-collapse:collapse;width:100%;margin-top:1rem}}
+td,th{{border:1px solid #243247;padding:.5rem .75rem;text-align:left;font-size:.9rem}}
+.ok{{color:#4ade80}} .bad{{color:#fbbf24}} .card{{background:#121a2b;border:1px solid #243247;border-radius:12px;padding:1rem;margin:1rem 0}}
+</style></head><body>
+<p class="muted">AGIB · {escape(PROGRAMME_SHORT)} · {escape(STACK_VERSION)} · Architecture {escape(ARCHITECTURE_STATUS)}</p>
+<h1>Institutional Intelligence Stack</h1>
+<p>Soft integration of FIL → FDI → MII → EIL → PIL into analysts, Ask AGI, Mission Control and the website. Not a new engine.</p>
+<div class="card">
+  <p>Seed documents: <strong>{escape(str((d.get('seed') or {}).get('document_count')))}</strong></p>
+  <p>Quality gates: <span class="{'ok' if qg.get('passed') else 'bad'}">{'PASS' if qg.get('passed') else 'REVIEW'}</span></p>
+  <p>HDFC sample — MII confidence {escape(str(sample.get('management_confidence')))} · DNA {escape(str(sample.get('management_dna')))}</p>
+</div>
+<table><thead><tr><th>Layer</th><th>Enabled</th><th>Version</th><th>Primary question</th></tr></thead>
+<tbody>{rows}</tbody></table>
+<p class="muted">Pipeline: {" → ".join(escape(p) for p in PIPELINE)}</p>
+</body></html>"""

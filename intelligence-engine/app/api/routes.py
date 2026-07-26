@@ -4189,6 +4189,71 @@ async def admin_management_intelligence():
     return HTMLResponse(admin_page())
 
 
+# --- Institutional Intelligence Stack (soft FIL→FDI→MII→EIL→PIL integration) ---
+
+
+@router.get("/institutional-stack/health")
+async def institutional_stack_health():
+    from institutional_stack.production import health
+
+    return health()
+
+
+@router.get("/institutional-stack/dashboard")
+async def institutional_stack_dashboard():
+    from institutional_stack.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/institutional-stack/company/{ticker}")
+async def institutional_stack_company(ticker: str, analyst: str = "committee"):
+    from institutional_stack.production import company
+
+    return company(ticker, analyst=analyst)
+
+
+@router.post("/institutional-stack/analyse")
+async def institutional_stack_analyse(payload: dict[str, Any] = Body(default={})):
+    from institutional_stack.production import analyse
+
+    ticker = str(payload.get("ticker") or "").strip()
+    if not ticker:
+        raise HTTPException(status_code=400, detail="ticker_required")
+    return analyse(ticker)
+
+
+@router.post("/institutional-stack/ingest")
+async def institutional_stack_ingest(payload: dict[str, Any] = Body(default={})):
+    from institutional_stack.production import ingest
+
+    if not payload.get("doc_id") or not payload.get("ticker"):
+        raise HTTPException(status_code=400, detail="doc_id_and_ticker_required")
+    return ingest(payload)
+
+
+@router.post("/institutional-stack/bootstrap")
+async def institutional_stack_bootstrap(payload: dict[str, Any] = Body(default={})):
+    from institutional_stack.production import bootstrap_stack
+
+    tickers = payload.get("tickers")
+    return bootstrap_stack(tickers if isinstance(tickers, list) else None)
+
+
+@router.get("/institutional-stack/quality-gates")
+async def institutional_stack_quality_gates():
+    from institutional_stack.production import quality_gates
+
+    return quality_gates()
+
+
+@router.get("/admin/institutional-stack", response_class=HTMLResponse)
+async def admin_institutional_stack():
+    from institutional_stack.production import admin_page
+
+    return HTMLResponse(admin_page())
+
+
 # --- SIF v1.0 (Sector Intelligence Framework — additive; not an engine) ---
 
 

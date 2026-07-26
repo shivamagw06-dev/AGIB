@@ -36,7 +36,7 @@ CORE_QUESTIONS = [
 ]
 
 
-def knowledge_pack() -> dict[str, Any]:
+def knowledge_pack(ticker: str | None = None) -> dict[str, Any]:
     pack: dict[str, Any] = {
         "analyst": "Valuation Analyst",
         "mission": MISSION,
@@ -59,6 +59,44 @@ def knowledge_pack() -> dict[str, Any]:
                 "valuation",
                 question="How should I interpret high ROIC and margin of safety?",
             )
+    except Exception:
+        pass
+    try:
+        from management_intelligence.flags import is_enabled as mii_enabled
+
+        if mii_enabled():
+            pack["management_intelligence"] = {
+                "enabled": True,
+                "rule": "Management quality premium / capital allocation quality from MII only",
+            }
+            if ticker:
+                from management_intelligence.production import soft_slice_for_analyst as mii_slice
+
+                pack["management_intelligence"].update(
+                    (mii_slice(ticker, analyst="valuation") or {}).get("management_intelligence") or {}
+                )
+    except Exception:
+        pass
+    try:
+        from peer_intelligence.flags import is_enabled as pil_enabled
+
+        if pil_enabled() and ticker:
+            from peer_intelligence.production import soft_slice_for_analyst as pil_slice
+
+            pack["peer_intelligence"] = (pil_slice(ticker, analyst="valuation") or {}).get(
+                "peer_intelligence"
+            ) or {"enabled": True}
+    except Exception:
+        pass
+    try:
+        from filing_intelligence.flags import is_enabled as fil_enabled
+
+        if fil_enabled() and ticker:
+            from filing_intelligence.production import soft_slice_for_analyst as fil_slice
+
+            pack["filing_intelligence"] = (fil_slice(ticker, analyst="valuation") or {}).get(
+                "filing_intelligence"
+            ) or {"enabled": True}
     except Exception:
         pass
     return pack

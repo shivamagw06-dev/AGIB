@@ -127,6 +127,19 @@ export function mapSearchPack(pack) {
   const iafRisk = iaf?.risk_intelligence || iaf?.analyst_opinions?.risk || null;
   const iafMgmt = iaf?.management_intelligence || iaf?.analyst_opinions?.management || null;
   const iafOwn = iaf?.ownership_intelligence || iaf?.analyst_opinions?.ownership || null;
+  const stack =
+    pack.institutional_stack?.enabled
+      ? pack.institutional_stack
+      : iaf?.institutional_stack?.enabled
+        ? iaf.institutional_stack
+        : ca.institutional_stack?.enabled
+          ? ca.institutional_stack
+          : null;
+  const stackSummary = stack?.summary || {};
+  const stackMii = stack?.layers?.management_intelligence || {};
+  const stackFdi = stack?.layers?.filing_diff || {};
+  const stackFil = stack?.layers?.filing_intelligence || {};
+  const stackPil = stack?.layers?.peer_intelligence || {};
   const iafCommittee = iaf?.institutional_view || iaf?.committee || null;
   const iafCio = iaf?.cio || null;
   const irw =
@@ -546,8 +559,30 @@ export function mapSearchPack(pack) {
     managementNarrative:
       asText(irw?.management) ||
       asText(iaf?.written_management) ||
+      asText(stackMii?.cio_brief) ||
       asText(iafMgmt?.summary) ||
-      asText(iafMgmt?.headline),
+      asText(iafMgmt?.headline) ||
+      (stackSummary.management_dna
+        ? `Management DNA: ${stackSummary.management_dna}` +
+          (stackSummary.management_confidence != null
+            ? ` · trust score ${stackSummary.management_confidence}`
+            : '')
+        : ''),
+    institutionalStack: stack
+      ? {
+          enabled: true,
+          ticker: stack.ticker || pack.ticker || null,
+          summary: stackSummary,
+          managementDna: stackSummary.management_dna || stackMii.dna || null,
+          managementConfidence:
+            stackSummary.management_confidence ?? stackMii.confidence ?? null,
+          filingFound: stackSummary.filing_found ?? stackFil.found ?? null,
+          materialChangeSignal: stackSummary.material_change_signal ?? Boolean(stackFdi.enabled),
+          peerEnabled: stackSummary.peer_enabled ?? Boolean(stackPil.enabled),
+          pipeline: stack.pipeline || [],
+          openConcerns: asList(stackMii.open_concerns, 4),
+        }
+      : null,
     institutionalView: iafCommittee
       ? {
           summary:

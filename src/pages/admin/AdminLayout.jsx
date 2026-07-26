@@ -43,6 +43,7 @@ const navItems = [
   { to: '/admin/data-quality', label: 'Data Quality (DVC)', icon: ShieldCheck },
   { to: '/admin/evidence-completion', label: 'Evidence Completion', icon: ClipboardCheck },
   { to: '/admin/company-analysis', label: 'Company Analysis', icon: Building2 },
+  { to: '/admin/institutional-stack', label: 'Institutional Stack', icon: Layers },
   { to: '/admin/company-monitor', label: 'Company Monitor', icon: Bell },
   { to: '/admin/investment-office', label: 'Investment Office', icon: Landmark },
   { to: '/admin/mission-control', label: 'Mission Control', icon: Gauge },

@@ -308,7 +308,7 @@ def think(
 
     return {
         "iai_version": IAI_BUSINESS_VERSION,
-        "knowledge": kn.knowledge_pack(),
+        "knowledge": kn.knowledge_pack(t),
         "learning_chain": [
             "knowledge",
             "frameworks",

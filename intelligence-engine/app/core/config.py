@@ -354,6 +354,10 @@ class Settings(BaseSettings):
     mii_communication: bool = True
     mii_incentives: bool = True
     mii_succession: bool = True
+    institutional_stack: bool = True  # IIS — soft FIL→FDI→MII→EIL→PIL integration
+    institutional_stack_auto_chain: bool = True
+    institutional_stack_ask_agi: bool = True
+    institutional_stack_admin: bool = True
     academy_frameworks: bool = True  # ACADEMY_FRAMEWORKS
     academy_formulas: bool = True  # ACADEMY_FORMULAS
     academy_graph: bool = True  # ACADEMY_GRAPH

@@ -36,7 +36,7 @@ CORE_QUESTIONS = [
 ]
 
 
-def knowledge_pack() -> dict[str, Any]:
+def knowledge_pack(ticker: str | None = None) -> dict[str, Any]:
     pack: dict[str, Any] = {
         "analyst": "Financial Analyst",
         "mission": MISSION,
@@ -70,6 +70,12 @@ def knowledge_pack() -> dict[str, Any]:
                 "rule": "Financial conclusions must reference peer rank, history, or sector percentile before judgement",
                 "soft_slice": "peer_intelligence.production.soft_slice_for_analyst(ticker, analyst='financial')",
             }
+            if ticker:
+                from peer_intelligence.production import soft_slice_for_analyst as pil_slice
+
+                pack["peer_intelligence"].update(
+                    (pil_slice(ticker, analyst="financial") or {}).get("peer_intelligence") or {}
+                )
     except Exception:
         pass
     try:
@@ -81,6 +87,12 @@ def knowledge_pack() -> dict[str, Any]:
                 "rule": "Historical financial trends must originate from validated filing intelligence when available",
                 "soft_slice": "filing_intelligence.production.soft_slice_for_analyst(ticker, analyst='financial')",
             }
+            if ticker:
+                from filing_intelligence.production import soft_slice_for_analyst as fil_slice
+
+                pack["filing_intelligence"].update(
+                    (fil_slice(ticker, analyst="financial") or {}).get("filing_intelligence") or {}
+                )
     except Exception:
         pass
     try:
@@ -92,6 +104,26 @@ def knowledge_pack() -> dict[str, Any]:
                 "rule": "Capital allocation and guidance credibility must use MII evidence",
                 "soft_slice": "management_intelligence.production.soft_slice_for_analyst(ticker, analyst='financial')",
             }
+            if ticker:
+                from management_intelligence.production import soft_slice_for_analyst as mii_slice
+
+                pack["management_intelligence"].update(
+                    (mii_slice(ticker, analyst="financial") or {}).get("management_intelligence") or {}
+                )
+    except Exception:
+        pass
+    try:
+        from filing_diff.flags import is_enabled as fdi_enabled
+
+        if fdi_enabled():
+            pack["filing_diff"] = {
+                "enabled": True,
+                "rule": "Financial what-changed must prefer FDI material changes",
+            }
+            if ticker:
+                from filing_diff.production import soft_slice_for_analyst as fdi_slice
+
+                pack["filing_diff"].update((fdi_slice(ticker, analyst="financial") or {}).get("filing_diff") or {})
     except Exception:
         pass
     return pack

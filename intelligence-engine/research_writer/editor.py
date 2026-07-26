@@ -71,6 +71,19 @@ def write_institutional_report(pack: dict[str, Any], *, query: str = "") -> dict
     q = query or pack.get("query") or ""
     report_type = narrative.detect_report_type(q)
 
+    # Soft-wire MII / stack writer blocks when present (additive narrative evidence)
+    stack = pack.get("institutional_stack") if isinstance(pack.get("institutional_stack"), dict) else {}
+    mii_layer = ((stack.get("layers") or {}).get("management_intelligence") or {})
+    mii_writer = (mii_layer.get("writer_blocks") or {}) if isinstance(mii_layer, dict) else {}
+    mgmt_opinion = opinions.get("management") or {}
+    if mii_writer.get("narrative") and isinstance(mgmt_opinion, dict):
+        mgmt_opinion = {
+            **mgmt_opinion,
+            "mii_narrative": mii_writer.get("narrative"),
+            "mii_dna": mii_writer.get("dna") or mii_layer.get("dna"),
+            "mii_timeline": mii_writer.get("timeline"),
+        }
+
     sections: dict[str, str] = {
         "executive_summary": narrative.write_executive(cio=cio, committee=committee, company=company, query=q),
         "institutional_view": narrative.write_institutional_view(committee),
@@ -81,7 +94,7 @@ def write_institutional_report(pack: dict[str, Any], *, query: str = "") -> dict
         "market_intelligence": narrative.write_market(opinions.get("market") or {}, company=company),
         "sector_intelligence": narrative.write_sector(opinions.get("sector") or {}, company=company),
         "macro_intelligence": narrative.write_macro(opinions.get("macro") or {}, company=company),
-        "management": narrative.write_management(opinions.get("management") or {}, company=company),
+        "management": narrative.write_management(mgmt_opinion, company=company),
         "ownership": narrative.write_ownership(opinions.get("ownership") or {}, company=company),
         "catalysts": scrub_leaks(
             "Key catalysts: " + "; ".join(str(c) for c in (cio.get("key_catalysts") or [])[:4]),
