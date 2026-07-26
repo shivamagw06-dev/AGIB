@@ -52,3 +52,11 @@ IRS dashboard includes an additive `filing_intelligence` block from `filing_inte
 Rule: company conclusions and historical trends should originate from validated filings when available; peer panels refresh after FIL ingest.
 
 See `filing_intelligence/README.md` · `/v1/filing-intelligence/*`
+
+## Soft-wire: Filing Diff Engine
+
+IRS dashboard includes an additive `filing_diff` block from `filing_diff.production.soft_slice_for_irs`.
+
+Rule: every new filing should generate a Filing Diff Report; material changes must be evidence-linked; cosmetic wording must not be flagged as material.
+
+See `filing_diff/README.md` · `/v1/filing-diff/*`

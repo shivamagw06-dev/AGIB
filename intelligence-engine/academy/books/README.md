@@ -97,6 +97,13 @@ Soft institutional memory from official filings (statements, notes, management, 
 See `filing_intelligence/README.md` · `/v1/filing-intelligence/*` · `/admin/filing-intelligence`  
 Flag: `filing_intelligence` / `FILING_INTELLIGENCE`
 
+## Filing Diff Engine (FDI)
+
+Soft change-detection layer: compares latest vs previous filings (financials, guidance, risks, management, capital). Answers “what changed?” — not “what does this filing say?”
+
+See `filing_diff/README.md` · `/v1/filing-diff/*` · `/admin/filing-diff`  
+Flag: `filing_diff_engine` / `FILING_DIFF_ENGINE`
+
 ## Admin
 
 `/admin/academy` — Books V2 panel with ingest action, spreadsheet count, ingestion report table.

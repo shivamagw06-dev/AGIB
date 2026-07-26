@@ -13,6 +13,13 @@ from filing_intelligence.schema import FIL_VERSION, FilingDocument
 
 def dashboard() -> dict[str, Any]:
     docs = all_documents()
+    fdi_slice: dict[str, Any] = {}
+    try:
+        from filing_diff.production import soft_slice_for_fil
+
+        fdi_slice = soft_slice_for_fil()
+    except Exception as exc:
+        fdi_slice = {"filing_diff": {"enabled": False, "soft_error": str(exc)}}
     return {
         "programme": "AGIB_FILING_INTELLIGENCE_LAYER",
         "fil_version": FIL_VERSION,
@@ -25,6 +32,7 @@ def dashboard() -> dict[str, Any]:
         "pipeline": [
             "Official Filings",
             "Filing Intelligence Layer",
+            "Filing Diff Engine",
             "Evidence Intelligence Layer",
             "Peer Intelligence Layer",
             "Institutional Analysts",
@@ -48,6 +56,7 @@ def dashboard() -> dict[str, Any]:
             "regression",
             "peer_intelligence",
         ],
+        **fdi_slice,
     }
 
 

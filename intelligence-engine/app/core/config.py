@@ -335,6 +335,16 @@ class Settings(BaseSettings):
     fil_management: bool = True
     fil_history: bool = True
     fil_evidence: bool = True
+    filing_diff_engine: bool = True  # FDI — what materially changed since the previous filing?
+    fdi_statements: bool = True
+    fdi_guidance: bool = True
+    fdi_risks: bool = True
+    fdi_management: bool = True
+    fdi_segments: bool = True
+    fdi_accounting: bool = True
+    fdi_capital: bool = True
+    fdi_governance: bool = True
+    fdi_ownership: bool = True
     academy_frameworks: bool = True  # ACADEMY_FRAMEWORKS
     academy_formulas: bool = True  # ACADEMY_FORMULAS
     academy_graph: bool = True  # ACADEMY_GRAPH

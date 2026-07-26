@@ -107,6 +107,14 @@ def flag_filing_intelligence() -> bool:
     return bool(getattr(s, "filing_intelligence", True))
 
 
+def flag_filing_diff_engine() -> bool:
+    """Filing Diff Engine — what materially changed since the previous filing?"""
+    s = _settings()
+    if s is None:
+        return True
+    return bool(getattr(s, "filing_diff_engine", True))
+
+
 def flags_dict() -> dict[str, Any]:
     return {
         "ACADEMY": is_academy_enabled(),
@@ -118,6 +126,7 @@ def flags_dict() -> dict[str, Any]:
         "EVIDENCE_INTELLIGENCE_LAYER": flag_evidence_intelligence_layer(),
         "PEER_INTELLIGENCE": flag_peer_intelligence(),
         "FILING_INTELLIGENCE": flag_filing_intelligence(),
+        "FILING_DIFF_ENGINE": flag_filing_diff_engine(),
         "ACADEMY_FRAMEWORKS": flag_frameworks(),
         "ACADEMY_FORMULAS": flag_formulas(),
         "ACADEMY_GRAPH": flag_graph(),

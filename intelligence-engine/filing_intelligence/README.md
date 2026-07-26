@@ -42,6 +42,10 @@ Sub: `fil_statements`, `fil_notes`, `fil_segments`, `fil_guidance`, `fil_risks`,
 - `GET /v1/filing-intelligence/evidence/{ticker}`
 - `GET /admin/filing-intelligence`
 
+## Soft-wire: Filing Diff Engine
+
+FIL dashboard includes an additive `filing_diff` block. FDI consumes FIL extracts to answer “what changed?” without redesigning FIL.
+
 ## Next
 
 Expand corpus via automated exchange/company PDF ingest — keep extractors; do not add analyst frameworks first.

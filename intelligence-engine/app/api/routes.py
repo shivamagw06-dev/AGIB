@@ -4037,6 +4037,82 @@ async def admin_filing_intelligence():
     return HTMLResponse(admin_page())
 
 
+# --- Filing Diff Engine V1 (what materially changed since previous filing) ---
+
+
+@router.get("/filing-diff/health")
+async def filing_diff_health():
+    from filing_diff.flags import is_enabled
+    from filing_diff.schema import FDI_VERSION
+
+    return {
+        "status": "ok" if is_enabled() else "disabled",
+        "programme": "AGIB_FILING_DIFF_ENGINE",
+        "version": FDI_VERSION,
+        "architecture_status": "v1.0.1 LOCKED",
+        "primary_question": "What materially changed since the previous filing?",
+    }
+
+
+@router.get("/filing-diff/dashboard")
+async def filing_diff_dashboard():
+    from filing_diff.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/filing-diff/company/{ticker}")
+async def filing_diff_company(ticker: str):
+    from filing_diff.production import company
+
+    out = company(ticker)
+    if out.get("enabled") and not out.get("found"):
+        raise HTTPException(status_code=404, detail="no_filing_diff")
+    return out
+
+
+@router.post("/filing-diff/analyse")
+async def filing_diff_analyse(payload: dict[str, Any] = Body(default={})):
+    from filing_diff.production import analyse
+
+    ticker = str(payload.get("ticker") or "").strip()
+    if not ticker:
+        raise HTTPException(status_code=400, detail="ticker_required")
+    out = analyse(ticker)
+    if out.get("enabled") and not out.get("found"):
+        raise HTTPException(status_code=404, detail="no_filing_diff")
+    return out
+
+
+@router.get("/filing-diff/timeline/{ticker}")
+async def filing_diff_timeline(ticker: str):
+    from filing_diff.production import timeline
+
+    return timeline(ticker)
+
+
+@router.get("/filing-diff/changes/{ticker}")
+async def filing_diff_changes(ticker: str):
+    from filing_diff.production import changes
+
+    return changes(ticker)
+
+
+@router.get("/filing-diff/quality-gates")
+async def filing_diff_quality_gates():
+    from filing_diff.production import quality_gates
+
+    return quality_gates()
+
+
+@router.get("/admin/filing-diff", response_class=HTMLResponse)
+async def admin_filing_diff():
+    """Soft admin surface — no UI redesign."""
+    from filing_diff.production import admin_page
+
+    return HTMLResponse(admin_page())
+
+
 # --- SIF v1.0 (Sector Intelligence Framework — additive; not an engine) ---
 
 
