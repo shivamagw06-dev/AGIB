@@ -120,6 +120,7 @@ export default function MissionControl() {
   const engines = desk?.engine_status || [];
   const apis = desk?.api_status || [];
   const knowledge = desk?.knowledge_growth || {};
+  const learning5d = desk?.learning_last_5_days || null;
   const coverage = desk?.coverage_dashboard || {};
   const monitor = desk?.company_monitor || {};
   const pipeline = desk?.research_pipeline || {};
@@ -215,7 +216,11 @@ export default function MissionControl() {
             <Stat label="Companies Monitored" value={exec.companies_monitored} />
             <Stat label="Companies Covered" value={exec.companies_covered} />
             <Stat label="Questions Today" value={exec.questions_answered_today ?? '—'} />
-            <Stat label="Last Learning" value={exec.last_successful_learning || '—'} hint="Academy / ingest" />
+            <Stat
+              label="Last Learning"
+              value={exec.last_successful_learning || learning5d?.latest_learning_date || '—'}
+              hint={learning5d?.articles_learned != null ? `${learning5d.articles_learned} articles · 5d` : 'CMS / Academy'}
+            />
             <Stat label="Last Health Check" value={(exec.last_health_check || '').slice(11, 19) || '—'} />
             <Stat label="Last Deployment" value={deploy.last_deployment || deploy.git_commit || '—'} />
             <Stat label="Branch" value={deploy.current_branch || '—'} />
@@ -307,11 +312,101 @@ export default function MissionControl() {
           </div>
         </section>
 
+        {/* What intelligence learned — last 5 days */}
+        <section className="space-y-3">
+          <Kicker>Learning digest · Last 5 days</Kicker>
+          <Glass>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="max-w-3xl">
+                <p className="text-sm leading-relaxed text-[var(--io-ink-soft)]">
+                  {learning5d?.summary ||
+                    knowledge.last_5_days_summary ||
+                    'Learning digest will appear after CMS article learning runs.'}
+                </p>
+                <p className="mt-2 text-[11px] text-[var(--io-caption)]">
+                  Window {learning5d?.days || 5}d · {learning5d?.timezone || 'Asia/Kolkata'} · articles{' '}
+                  {learning5d?.articles_learned ?? knowledge.research_learned ?? '—'} · pending{' '}
+                  {learning5d?.pending_count ?? '—'}
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-right text-sm">
+                <div>
+                  <p className="text-[10px] uppercase text-[var(--io-caption)]">Learned</p>
+                  <p className="text-xl font-semibold text-emerald-400 tabular-nums">
+                    {learning5d?.articles_learned ?? '—'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase text-[var(--io-caption)]">Failed</p>
+                  <p className="text-xl font-semibold text-[var(--io-ink)] tabular-nums">
+                    {learning5d?.failed ?? 0}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 grid gap-3 lg:grid-cols-2">
+              <div>
+                <p className="text-[11px] uppercase tracking-wide text-[var(--io-caption)]">By day</p>
+                <ul className="mt-2 space-y-1.5 text-sm max-h-48 overflow-auto">
+                  {(learning5d?.by_day || knowledge.last_5_days || []).map((d) => (
+                    <li
+                      key={d.learning_date}
+                      className="flex items-start justify-between gap-3 border-b border-[var(--io-border)] pb-1.5"
+                    >
+                      <div>
+                        <p className="font-medium text-[var(--io-ink)]">{d.learning_date}</p>
+                        {(d.titles || []).length ? (
+                          <p className="text-[11px] text-[var(--io-muted)] line-clamp-2">
+                            {d.titles.slice(0, 3).join(' · ')}
+                          </p>
+                        ) : null}
+                      </div>
+                      <p className="shrink-0 tabular-nums text-emerald-400">
+                        {d.articles_learned ?? d.learned ?? 0}
+                      </p>
+                    </li>
+                  ))}
+                  {!(learning5d?.by_day || knowledge.last_5_days || []).length ? (
+                    <li className="text-[var(--io-muted)]">No dated learning events in this window.</li>
+                  ) : null}
+                </ul>
+              </div>
+              <div>
+                <p className="text-[11px] uppercase tracking-wide text-[var(--io-caption)]">Highlights</p>
+                <ul className="mt-2 space-y-1.5 text-sm max-h-48 overflow-auto text-[var(--io-ink-soft)]">
+                  {(learning5d?.highlights || knowledge.last_5_days_highlights || []).map((title) => (
+                    <li key={title} className="border-b border-[var(--io-border)] pb-1.5">
+                      {title}
+                    </li>
+                  ))}
+                  {!(learning5d?.highlights || knowledge.last_5_days_highlights || []).length ? (
+                    <li className="text-[var(--io-muted)]">No article highlights yet.</li>
+                  ) : null}
+                </ul>
+                {(learning5d?.corpus?.learned_today || []).length ? (
+                  <div className="mt-3">
+                    <p className="text-[11px] uppercase tracking-wide text-[var(--io-caption)]">
+                      Corpus notes
+                    </p>
+                    <ul className="mt-1 space-y-1 text-xs text-[var(--io-muted)]">
+                      {learning5d.corpus.learned_today.slice(0, 4).map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </Glass>
+        </section>
+
         {/* SECTION 5 + 6 */}
         <section className="grid gap-4 lg:grid-cols-2">
           <div className="space-y-3">
             <Kicker>Section 5 · Knowledge Growth</Kicker>
             <div className="grid grid-cols-2 gap-3">
+              <Stat label="CMS Articles · 5d" value={knowledge.research_learned ?? learning5d?.articles_learned} />
               <Stat label="Books Learned" value={knowledge.books_learned} />
               <Stat label="Concepts" value={knowledge.concepts_added} />
               <Stat label="Frameworks" value={knowledge.frameworks_added} />

@@ -27,6 +27,8 @@ Requires `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` on the API.
 |--------|------|---------|
 | `POST` | `/api/intelligence/cms/learn-articles` | Read CMS articles into KIP; stamp dates; optional KC populate |
 | `GET` | `/api/intelligence/cms/learning-status` | Pending articles + learning calendar |
+| `GET` | `/api/intelligence/cms/learning-summary?days=5` | Founder digest of what intelligence learned |
+| Mission Control | `/api/intelligence/mission-control/dashboard` | Soft-enriched with `learning_last_5_days` |
 
 Body options for learn:
 

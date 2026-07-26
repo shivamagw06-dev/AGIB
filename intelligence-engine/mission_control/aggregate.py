@@ -273,8 +273,9 @@ def build_mission_control(*, ioc_service: Any | None = None) -> dict[str, Any]:
             )
 
     # SECTION 5 — Knowledge Growth
+    # research_learned / last_5_days_* are soft-enriched by Node from CMS learn events.
     knowledge_growth = {
-        "windows": ["Last Hour", "Last 24 Hours", "Last 7 Days"],
+        "windows": ["Last Hour", "Last 24 Hours", "Last 5 Days", "Last 7 Days"],
         "research_learned": None,
         "companies_updated": knowledge.get("companies_updated"),
         "books_learned": knowledge.get("books_learned") or books.get("books_successfully_ingested"),
@@ -288,7 +289,10 @@ def build_mission_control(*, ioc_service: Any | None = None) -> dict[str, Any]:
         "knowledge_foundation_updates": None,
         "prediction_evaluations": None,
         "house_view_reviews": len(cms_reviews),
-        "sources": ["academy.books", "company_monitor", "investment_office"],
+        "last_5_days_summary": None,
+        "last_5_days_highlights": [],
+        "last_5_days": [],
+        "sources": ["academy.books", "company_monitor", "investment_office", "cms_article_learning"],
     }
 
     # SECTION 6 — Coverage

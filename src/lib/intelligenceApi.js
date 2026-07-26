@@ -661,6 +661,8 @@ export const learnCmsArticles = (body = {}) =>
   intelligenceFetch('/cms/learn-articles', { method: 'POST', body });
 export const getCmsLearningStatus = (days = 14) =>
   intelligenceFetch(`/cms/learning-status?days=${encodeURIComponent(String(days))}`);
+export const getCmsLearningSummary = (days = 5) =>
+  intelligenceFetch(`/cms/learning-summary?days=${encodeURIComponent(String(days))}`);
 export const getSifHealth = () => intelligenceFetch('/sif/health');
 export const getSifDashboard = () => intelligenceFetch('/sif/dashboard');
 export const getSifFrameworks = () => intelligenceFetch('/sif/frameworks');
