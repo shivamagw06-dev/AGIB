@@ -4018,6 +4018,73 @@ async def ecp_complete(
     )
 
 
+# --- Company Monitoring System V1 (continuous living analyst; additive) ---
+
+
+@router.get("/company-monitor/health")
+async def company_monitor_health():
+    from company_monitor.production import health
+
+    return health()
+
+
+@router.get("/company-monitor/dashboard")
+async def company_monitor_dashboard():
+    from company_monitor.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/company-monitor/quality-gates")
+async def company_monitor_quality_gates():
+    from company_monitor.production import quality_gates
+
+    return quality_gates()
+
+
+@router.get("/company-monitor/changes")
+async def company_monitor_changes(
+    ticker: str | None = Query(default=None),
+    limit: int = Query(default=40, ge=1, le=100),
+):
+    from company_monitor import store as cms_store
+
+    return {"changes": cms_store.list_changes(ticker, limit=limit)}
+
+
+@router.get("/company-monitor/alerts")
+async def company_monitor_alerts(limit: int = Query(default=40, ge=1, le=100)):
+    from company_monitor import store as cms_store
+
+    return {"alerts": cms_store.list_alerts(limit=limit)}
+
+
+@router.get("/company-monitor/reviews")
+async def company_monitor_reviews(limit: int = Query(default=40, ge=1, le=100)):
+    from company_monitor import store as cms_store
+
+    return {"reviews": cms_store.list_reviews(limit=limit)}
+
+
+@router.post("/company-monitor/run")
+async def company_monitor_run(payload: dict[str, Any] = Body(default={})):
+    from company_monitor.production import analyse
+
+    ticker = str(payload.get("ticker") or "").upper()
+    query = str(payload.get("query") or payload.get("q") or f"Monitor {ticker}")
+    if not ticker:
+        raise HTTPException(status_code=400, detail="ticker required")
+    return analyse(ticker, query=query)
+
+
+@router.post("/company-monitor/run-universe")
+async def company_monitor_run_universe(payload: dict[str, Any] = Body(default={})):
+    from company_monitor.production import run_universe
+
+    limit = payload.get("limit")
+    return run_universe(limit=int(limit) if limit is not None else None)
+
+
 # --- Company Analysis Engine V1 (institutional company reasoning; not Context Assembly) ---
 
 

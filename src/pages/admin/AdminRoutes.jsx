@@ -21,6 +21,7 @@ import YahooProvider from '@/pages/admin/YahooProvider';
 import DataQuality from '@/pages/admin/DataQuality';
 import EvidenceCompletion from '@/pages/admin/EvidenceCompletion';
 import CompanyAnalysis from '@/pages/admin/CompanyAnalysis';
+import CompanyMonitor from '@/pages/admin/CompanyMonitor';
 
 export default function AdminRoutes() {
   return (
@@ -41,6 +42,7 @@ export default function AdminRoutes() {
           <Route path="data-quality" element={<DataQuality />} />
           <Route path="evidence-completion" element={<EvidenceCompletion />} />
           <Route path="company-analysis" element={<CompanyAnalysis />} />
+          <Route path="company-monitor" element={<CompanyMonitor />} />
           <Route path="investment-intelligence" element={<InvestmentIntelligence />} />
           <Route path="forecasting" element={<Forecasting />} />
           <Route path="events" element={<Events />} />

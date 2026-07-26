@@ -701,6 +701,7 @@ class UiService:
         data_validation: dict[str, Any] = {}
         evidence_completion: dict[str, Any] = {}
         company_analysis: dict[str, Any] = {}
+        company_monitor: dict[str, Any] = {}
         used_cae = False
 
         # LEO v1.0 — gather / verify / package live evidence BEFORE Academy + SIF + IRP
@@ -999,6 +1000,32 @@ class UiService:
                     detected_ticker = str(company_analysis["ticker"]).upper()
         except Exception:
             company_analysis = {}
+
+        # Company Monitoring System V1 — what changed since prior snapshot/quarter (never auto house-view)
+        try:
+            from company_monitor.production import package_for_ask_agi as company_monitor_package
+
+            if detected_ticker:
+                company_monitor = (
+                    company_monitor_package(
+                        q,
+                        ticker=detected_ticker,
+                        run_monitor=True,
+                        layers={
+                            "cid": company_dossier if isinstance(company_dossier, dict) else {},
+                            "leo_pkg": live_evidence if isinstance(live_evidence, dict) else {},
+                            "financial": (company_analysis or {}).get("financial_intelligence") or {},
+                            "valuation": (company_analysis or {}).get("valuation_intelligence")
+                            or (valuation if isinstance(valuation, dict) else {}),
+                            "company_analysis": company_analysis if isinstance(company_analysis, dict) else {},
+                            "house_view": {},
+                            "predictions": [],
+                        },
+                    )
+                    or {}
+                )
+        except Exception:
+            company_monitor = {}
 
         # IRP V1 — think (intent → entities → plan → retrieve → reason) before answering.
         if self.irp and q:
@@ -1405,6 +1432,22 @@ class UiService:
             bq = (company_analysis.get("business_quality") or {}).get("business_quality_score")
             if bq is not None:
                 why.insert(0, scrub_text(f"Business quality score: {bq}/100.")[:200])
+            why = why[:12]
+
+        # Company Monitor — what changed since prior period
+        if isinstance(company_monitor, dict) and company_monitor.get("enabled"):
+            for hint in (company_monitor.get("ask_agi_hints") or [])[:5]:
+                if hint and hint not in why:
+                    why.insert(0, scrub_text(hint)[:400])
+            wc = company_monitor.get("what_changed") or {}
+            if wc.get("change_count"):
+                why.insert(
+                    0,
+                    scrub_text(
+                        f"Company Monitor: {wc.get('change_count')} change(s) since prior snapshot "
+                        f"(max significance: {wc.get('max_significance')})."
+                    )[:300],
+                )
             why = why[:12]
 
         # LEO hints — live evidence contribution before recommendation
@@ -1931,6 +1974,7 @@ class UiService:
             data_validation=scrub(data_validation) if data_validation else {},
             evidence_completion=scrub(evidence_completion) if evidence_completion else {},
             company_analysis=scrub(company_analysis) if company_analysis else {},
+            company_monitor=scrub(company_monitor) if company_monitor else {},
             institutional_briefing=scrub(briefing) or {},
             # Prefer live SIF/Ask-AGI sector pack; fall back to IRP sector pack
             sector_intelligence=scrub(sector_intelligence)

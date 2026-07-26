@@ -717,6 +717,31 @@ export const completeEcp = (ticker, q = 'Should I buy?') => {
   return intelligenceFetch(`/ecp/complete?${qs}`, { method: 'POST', body: {} });
 };
 
+/** Company Monitoring System V1 — continuous living analyst */
+export const getCompanyMonitorHealth = () => intelligenceFetch('/company-monitor/health');
+export const getCompanyMonitorDashboard = () => intelligenceFetch('/company-monitor/dashboard');
+export const getCompanyMonitorQualityGates = () =>
+  intelligenceFetch('/company-monitor/quality-gates');
+export const getCompanyMonitorChanges = (ticker, limit = 40) => {
+  const qs = new URLSearchParams({ limit: String(limit) });
+  if (ticker) qs.set('ticker', ticker);
+  return intelligenceFetch(`/company-monitor/changes?${qs}`);
+};
+export const getCompanyMonitorAlerts = (limit = 40) =>
+  intelligenceFetch(`/company-monitor/alerts?limit=${limit}`);
+export const getCompanyMonitorReviews = (limit = 40) =>
+  intelligenceFetch(`/company-monitor/reviews?limit=${limit}`);
+export const runCompanyMonitor = (ticker, query = '') =>
+  intelligenceFetch('/company-monitor/run', {
+    method: 'POST',
+    body: { ticker, query: query || `Monitor ${ticker}` },
+  });
+export const runCompanyMonitorUniverse = (limit) =>
+  intelligenceFetch('/company-monitor/run-universe', {
+    method: 'POST',
+    body: limit != null ? { limit } : {},
+  });
+
 /** Company Analysis Engine V1 — institutional company-specific reasoning (not Context Assembly) */
 export const getCompanyAnalysisHealth = () => intelligenceFetch('/company-analysis/health');
 export const getCompanyAnalysisDashboard = () => intelligenceFetch('/company-analysis/dashboard');

@@ -159,6 +159,8 @@ class SearchView(BaseModel):
     evidence_completion: dict[str, Any] = Field(default_factory=dict)
     # Company Analysis Engine V1 — apply Academy to company with evidence (additive; not Context Assembly)
     company_analysis: dict[str, Any] = Field(default_factory=dict)
+    # Company Monitoring System V1 — continuous what-changed living analyst (additive)
+    company_monitor: dict[str, Any] = Field(default_factory=dict)
     institutional_briefing: dict[str, Any] = Field(default_factory=dict)
     company_intelligence: dict[str, Any] = Field(default_factory=dict)
     current_outlook: str | None = None

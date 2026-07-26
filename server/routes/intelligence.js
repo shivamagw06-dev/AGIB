@@ -966,6 +966,36 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // Company Monitoring System V1 — continuous living analyst
+  router.get('/company-monitor/health', kfGet('/v1/company-monitor/health'));
+  router.get('/company-monitor/dashboard', kfGet('/v1/company-monitor/dashboard'));
+  router.get('/company-monitor/quality-gates', kfGet('/v1/company-monitor/quality-gates'));
+  router.get('/company-monitor/changes', kfGet('/v1/company-monitor/changes'));
+  router.get('/company-monitor/alerts', kfGet('/v1/company-monitor/alerts'));
+  router.get('/company-monitor/reviews', kfGet('/v1/company-monitor/reviews'));
+  router.post('/company-monitor/run', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/company-monitor/run', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err?.message || 'Company monitor run failed' });
+    }
+  });
+  router.post('/company-monitor/run-universe', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/company-monitor/run-universe', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err?.message || 'Company monitor universe run failed' });
+    }
+  });
+
   // Company Analysis Engine V1 — apply Academy to companies (not Context Assembly)
   router.get('/company-analysis/health', kfGet('/v1/company-analysis/health'));
   router.get('/company-analysis/dashboard', kfGet('/v1/company-analysis/dashboard'));

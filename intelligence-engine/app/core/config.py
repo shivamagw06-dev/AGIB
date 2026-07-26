@@ -317,6 +317,13 @@ class Settings(BaseSettings):
     cae_valuation: bool = True
     cae_investment_thesis: bool = True
 
+    # Company Monitoring System V1 — continuous living analyst (not an engine)
+    company_monitor: bool = True
+    cms_auto_pipeline: bool = True
+    cms_ask_agi: bool = True
+    cms_research_writer: bool = True
+    cms_house_view_hints: bool = True
+
 
 @lru_cache
 def get_settings() -> Settings:
