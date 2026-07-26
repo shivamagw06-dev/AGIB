@@ -459,6 +459,7 @@ export function mapSearchPack(pack) {
     kpis,
     financialCards,
     financialNarrative:
+      asText(iafFin?.summary) ||
       asText(iafFin?.headline) ||
       asText(fin.narrative) ||
       asText(biz.operating_metrics) ||
@@ -466,6 +467,7 @@ export function mapSearchPack(pack) {
       'Financial quality should be judged through incremental returns, cash conversion and balance-sheet resilience.',
     valuationCards,
     valuationNarrative:
+      asText(iafVal?.summary) ||
       asText(iafVal?.headline) ||
       asText(val.narrative) ||
       asText(pack.valuation_perspective) ||
@@ -475,6 +477,7 @@ export function mapSearchPack(pack) {
       ? pack.charts.find((c) => Array.isArray(c?.points) && c.points.some((p) => p?.value != null))
       : null,
     marketNarrative:
+      asText(iafMkt?.summary) ||
       asText(iafMkt?.headline) ||
       asText(marketPack.narrative) ||
       asText(sections.market_performance?.narrative) ||
@@ -482,10 +485,14 @@ export function mapSearchPack(pack) {
     marketSnapshot: marketSnap,
     marketCards: Array.isArray(marketPack.cards) ? marketPack.cards : [],
     ownershipNarrative:
-      asText(iafOwn?.headline) || asText(sections.ownership?.narrative) || asText(briefing.ownership),
+      asText(iafOwn?.summary) ||
+      asText(iafOwn?.headline) ||
+      asText(sections.ownership?.narrative) ||
+      asText(briefing.ownership),
     ownership: sections.ownership?.snapshot || iafOwn?.sections || {},
     businessModel:
       asText(iafBiz?.sections?.business_model) ||
+      asText(iafBiz?.summary) ||
       asText(iafBiz?.headline) ||
       asText(biz.business_model) ||
       asText(ca.identity?.business_model) ||
@@ -493,6 +500,7 @@ export function mapSearchPack(pack) {
     businessIntelligence: biz,
     businessQuality: bq,
     sectorNarrative:
+      asText(iafSec?.summary) ||
       asText(iafSec?.headline) ||
       asText(biz.industry_structure) ||
       asText(sector.reasoning || sector.narrative) ||
@@ -505,18 +513,29 @@ export function mapSearchPack(pack) {
       iafMacro?.sections?.drivers || pack.macro_drivers || briefing.macro_drivers,
       6
     ),
-    macroNarrative: asText(iafMacro?.headline) || asText(briefing.macro_outlook),
-    managementNarrative: asText(iafMgmt?.headline),
+    macroNarrative:
+      asText(iafMacro?.summary) || asText(iafMacro?.headline) || asText(briefing.macro_outlook),
+    managementNarrative: asText(iafMgmt?.summary) || asText(iafMgmt?.headline),
     institutionalView: iafCommittee
       ? {
           summary: asText(iafCommittee.committee_summary, ''),
           consensus: iafCommittee.consensus || {},
+          stage1: iafCommittee.stage_1_consensus || {},
+          stage2: Array.isArray(iafCommittee.stage_2_conflicts)
+            ? iafCommittee.stage_2_conflicts
+            : [],
+          stage3: asList(iafCommittee.stage_3_missing_evidence, 6),
           agreements: asList(iafCommittee.agreements, 4),
           disagreements: asList(iafCommittee.disagreements, 4),
           readiness: asText(iafCommittee.recommendation_readiness, ''),
           confidence: iafCommittee.confidence ?? null,
+          stance: asText(iafCommittee.committee_stance || iaf?.disagreement_matrix?.committee_stance, ''),
+          reason: asText(iafCommittee.committee_reason || iaf?.disagreement_matrix?.reason, ''),
+          disagreementMatrix: iaf?.disagreement_matrix || iafCommittee.disagreement_matrix || null,
+          minutes: iaf?.committee_minutes || iafCommittee.minutes || null,
         }
       : null,
+    whatChanged: asList(iaf?.what_changed || iafCio?.what_changed || pack.whats_changed?.bullets, 6),
     leaders,
     bull: asList(
       iafCio?.bull_case || ac?.bull || thesis.bull_case || pack.bull_case || pack.answer?.bull_case || ca.bull_case,

@@ -5,12 +5,35 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from institutional_analysts.mandates import DOMAIN_FORBIDDEN, mandate_for
+from institutional_analysts.memory import get_previous_opinion
+
 _INTERNAL = re.compile(
     r"\b(CID|LEO|IRP|DVC|ECP|SIF|FLE|MEE|AOI|EVE|IIE|KF|KIP|FAA|FRE|AIL|CAE|"
     r"Company Analysis|Financial Intelligence|MarketDataClient|Yahoo|Groww|IndianAPI|"
-    r"AlphaVantage|TwelveData|Capital IQ|provider|API|engine)\b",
+    r"AlphaVantage|TwelveData|Capital IQ|provider|API|engine|Academy)\b",
     re.I,
 )
+
+_STANCE_WORDS = {
+    "bullish": "Bullish",
+    "constructive": "Bullish",
+    "positive": "Bullish",
+    "improving": "Bullish",
+    "strong": "Bullish",
+    "attractive": "Bullish",
+    "bearish": "Bearish",
+    "cautious": "Bearish",
+    "negative": "Bearish",
+    "deteriorat": "Bearish",
+    "weak": "Bearish",
+    "expensive": "Bearish",
+    "rich": "Bearish",
+    "neutral": "Neutral",
+    "mixed": "Neutral",
+    "balanced": "Neutral",
+    "stable": "Neutral",
+}
 
 
 def scrub_public(text: Any, *, limit: int = 420) -> str:
@@ -93,62 +116,209 @@ def ticker_of(ctx: dict[str, Any]) -> str | None:
     return None
 
 
-def opinion(
+def infer_stance(text: str, *, default: str = "Neutral") -> str:
+    s = (text or "").lower()
+    for needle, label in _STANCE_WORDS.items():
+        if needle in s:
+            return label
+    return default
+
+
+def confidence_block(
     *,
-    role: str,
-    question: str,
-    headline: str,
-    sections: dict[str, Any],
-    evidence: list[str],
-    confidence: float,
-    score: float | None = None,
-    word_limit: int = 500,
-) -> dict[str, Any]:
-    """Standard analyst opinion contract — public language only."""
-    body_bits: list[str] = []
-    clean_sections: dict[str, Any] = {}
-    for k, v in sections.items():
-        if isinstance(v, list):
-            clean_sections[k] = as_list(v, limit=8)
-            body_bits.extend(clean_sections[k])
-        elif isinstance(v, dict):
-            clean_sections[k] = {sk: scrub_public(sv, limit=180) for sk, sv in v.items() if sv not in (None, "", [])}
-            body_bits.extend(str(x) for x in clean_sections[k].values())
-        else:
-            clean_sections[k] = scrub_public(v, limit=280)
-            if clean_sections[k]:
-                body_bits.append(clean_sections[k])
-
-    narrative = scrub_public(headline, limit=280)
-    words = " ".join([narrative, *body_bits]).split()
-    if len(words) > word_limit:
-        narrative = " ".join(words[: max(40, word_limit // 8)])
-
+    evidence: float | None = None,
+    knowledge: float | None = None,
+    freshness: float | None = None,
+    coverage: float | None = None,
+    overall: float | None = None,
+    default: float = 0.55,
+) -> dict[str, float]:
+    ev = pick_confidence(evidence, default=default)
+    kn = pick_confidence(knowledge, default=default)
+    fr = pick_confidence(freshness, default=default)
+    cov = pick_confidence(coverage, default=default)
+    if overall is None:
+        overall = round((ev * 0.35 + kn * 0.25 + fr * 0.2 + cov * 0.2), 4)
     return {
-        "role": role,
-        "analyst": _public_title(role),
-        "question": question,
-        "headline": narrative,
-        "sections": clean_sections,
-        "evidence": as_list(evidence, limit=10),
-        "confidence": pick_confidence(confidence),
-        "score": None if score is None else round(float(score), 2),
-        "owner": role,
-        "word_budget": word_limit,
+        "evidence": ev,
+        "knowledge": kn,
+        "freshness": fr,
+        "coverage": cov,
+        "overall": pick_confidence(overall, default=default),
     }
 
 
-def _public_title(role: str) -> str:
+def domain_scrub(role: str, text: Any, *, limit: int = 280) -> str:
+    """Remove out-of-domain phrases and internal names from analyst free text."""
+    s = scrub_public(text, limit=limit * 2)
+    if not s:
+        return ""
+    for pattern in DOMAIN_FORBIDDEN.get(role, ()):
+        s = re.sub(pattern, "", s, flags=re.I)
+    s = re.sub(r"\s{2,}", " ", s).strip(" -;,:.")
+    return s[:limit]
+
+
+def _clean_sections(role: str, sections: dict[str, Any]) -> dict[str, Any]:
+    clean: dict[str, Any] = {}
+    for k, v in (sections or {}).items():
+        if isinstance(v, list):
+            clean[k] = [domain_scrub(role, x, limit=180) for x in as_list(v, limit=8)]
+            clean[k] = [x for x in clean[k] if x]
+        elif isinstance(v, dict):
+            nested = {
+                sk: domain_scrub(role, sv, limit=160)
+                for sk, sv in v.items()
+                if sv not in (None, "", [])
+            }
+            clean[k] = {sk: sv for sk, sv in nested.items() if sv}
+        else:
+            piece = domain_scrub(role, v, limit=260)
+            if piece:
+                clean[k] = piece
+    return clean
+
+
+def _what_changed(previous: dict[str, Any] | None, *, stance: str, summary: str, strengths: list[str], weaknesses: list[str]) -> dict[str, Any] | None:
+    if not previous:
+        return None
+    prev_stance = previous.get("stance") or "Neutral"
+    prev_summary = scrub_public(previous.get("summary") or "", limit=200)
+    changed = prev_stance != stance
+    notes: list[str] = []
+    if changed:
+        notes.append(f"Stance moved from {prev_stance} to {stance}.")
+    if prev_summary and prev_summary != summary:
+        notes.append(f"Prior view: {prev_summary}")
+    prev_strengths = as_list(previous.get("strengths"), limit=3)
+    if strengths and prev_strengths and strengths[0] != prev_strengths[0]:
+        notes.append(f"Lead strength shifted toward: {strengths[0]}")
+    prev_weak = as_list(previous.get("weaknesses"), limit=3)
+    if weaknesses and prev_weak and weaknesses[0] != prev_weak[0]:
+        notes.append(f"Lead concern shifted toward: {weaknesses[0]}")
+    if not notes:
+        notes.append("Opinion stable versus prior review.")
     return {
-        "business": "Business Analyst",
-        "financial": "Financial Analyst",
-        "valuation": "Valuation Analyst",
-        "market": "Market Analyst",
-        "sector": "Sector Analyst",
-        "macro": "Macro Analyst",
-        "risk": "Risk Analyst",
-        "management": "Management Analyst",
-        "ownership": "Ownership Analyst",
-        "committee": "Investment Committee",
-        "cio": "Chief Investment Officer",
-    }.get(role, role.replace("_", " ").title())
+        "previous_stance": prev_stance,
+        "current_stance": stance,
+        "changed": changed or bool(prev_summary and prev_summary != summary),
+        "notes": notes[:4],
+        "previous_summary": prev_summary or None,
+    }
+
+
+def structured_opinion(
+    *,
+    role: str,
+    summary: str,
+    strengths: list[Any] | None = None,
+    weaknesses: list[Any] | None = None,
+    evidence: list[Any] | None = None,
+    unanswered_questions: list[Any] | None = None,
+    sections: dict[str, Any] | None = None,
+    stance: str | None = None,
+    confidence: dict[str, Any] | float | None = None,
+    score: float | None = None,
+    ticker: str | None = None,
+    ctx: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Canonical structured analyst opinion — not a prose paragraph dump."""
+    meta = mandate_for(role)
+    t = ticker or (ticker_of(ctx) if ctx else None)
+    previous = get_previous_opinion(t, role)
+
+    clean_summary = domain_scrub(role, summary, limit=280)
+    strength_list = [domain_scrub(role, x, limit=160) for x in as_list(strengths, limit=6)]
+    strength_list = [x for x in strength_list if x]
+    weak_list = [domain_scrub(role, x, limit=160) for x in as_list(weaknesses, limit=6)]
+    weak_list = [x for x in weak_list if x]
+    evidence_list = [domain_scrub(role, x, limit=180) for x in as_list(evidence, limit=10)]
+    evidence_list = [x for x in evidence_list if x]
+    open_q = [domain_scrub(role, x, limit=180) for x in as_list(unanswered_questions, limit=6)]
+    open_q = [x for x in open_q if x]
+    clean_sections = _clean_sections(role, sections or {})
+
+    if isinstance(confidence, dict):
+        conf = confidence_block(
+            evidence=confidence.get("evidence"),
+            knowledge=confidence.get("knowledge"),
+            freshness=confidence.get("freshness"),
+            coverage=confidence.get("coverage"),
+            overall=confidence.get("overall"),
+        )
+    else:
+        base = pick_confidence(confidence, default=0.55)
+        conf = confidence_block(evidence=base, knowledge=base, freshness=base * 0.95, coverage=base, overall=base)
+
+    stance_label = stance or infer_stance(" ".join([clean_summary, *strength_list, *weak_list]))
+    if stance_label not in {"Bullish", "Neutral", "Bearish"}:
+        stance_label = infer_stance(stance_label)
+
+    what_changed = _what_changed(
+        previous,
+        stance=stance_label,
+        summary=clean_summary,
+        strengths=strength_list,
+        weaknesses=weak_list,
+    )
+
+    return {
+        "role": role,
+        "analyst": meta["analyst"],
+        "owner": role,
+        "mandate": {
+            "text": meta["mandate"],
+            "primary_question": meta["primary_question"],
+            "primary_inputs": list(meta.get("primary_inputs") or []),
+            "outputs": list(meta.get("outputs") or []),
+            "never": list(meta.get("never") or []),
+        },
+        "primary_question": meta["primary_question"],
+        "question": meta["primary_question"],  # backward-compatible alias
+        "summary": clean_summary,
+        "headline": clean_summary,  # UI / AC alias
+        "stance": stance_label,
+        "strengths": strength_list,
+        "weaknesses": weak_list,
+        "evidence": evidence_list,
+        "unanswered_questions": open_q,
+        "sections": clean_sections,
+        "confidence": conf,
+        "score": None if score is None else round(float(score), 2),
+        "what_changed": what_changed,
+        "structured": True,
+    }
+
+
+# Backward-compatible name used by older imports
+def opinion(
+    *,
+    role: str,
+    question: str = "",
+    headline: str = "",
+    sections: dict[str, Any] | None = None,
+    evidence: list[str] | None = None,
+    confidence: float = 0.55,
+    score: float | None = None,
+    word_limit: int = 500,
+    **kwargs: Any,
+) -> dict[str, Any]:
+    _ = question, word_limit
+    return structured_opinion(
+        role=role,
+        summary=headline,
+        strengths=kwargs.get("strengths"),
+        weaknesses=kwargs.get("weaknesses"),
+        evidence=evidence,
+        unanswered_questions=kwargs.get("unanswered_questions"),
+        sections=sections,
+        stance=kwargs.get("stance"),
+        confidence=confidence,
+        score=score,
+        ticker=kwargs.get("ticker"),
+        ctx=kwargs.get("ctx"),
+    )
+
+
+def public_title(role: str) -> str:
+    return mandate_for(role).get("analyst") or role.replace("_", " ").title()

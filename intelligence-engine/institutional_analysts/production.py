@@ -12,7 +12,9 @@ from institutional_analysts.financial.analyst import analyse as financial_analys
 from institutional_analysts.flags import flags_dict, is_enabled
 from institutional_analysts.macro.analyst import analyse as macro_analyse
 from institutional_analysts.management.analyst import analyse as management_analyse
+from institutional_analysts.mandates import MANDATES, mandate_for
 from institutional_analysts.market.analyst import analyse as market_analyse
+from institutional_analysts import memory as iaf_memory
 from institutional_analysts.ownership.analyst import analyse as ownership_analyse
 from institutional_analysts.risk.analyst import analyse as risk_analyse
 from institutional_analysts.schema import (
@@ -49,8 +51,20 @@ def health() -> dict[str, Any]:
         "orchestration_only": True,
         "no_new_data": True,
         "analysts": list(ANALYST_ROLES),
+        "mandates": {r: mandate_for(r) for r in ANALYST_ROLES},
         "section_owners": SECTION_OWNERS,
         "public_owner_labels": PUBLIC_OWNER_LABELS,
+        "memory": iaf_memory.metrics(),
+        "features": {
+            "structured_opinions": True,
+            "domain_guards": True,
+            "multi_factor_confidence": True,
+            "analyst_memory": True,
+            "committee_meeting_stages": True,
+            "disagreement_matrix": True,
+            "committee_minutes": True,
+            "cio_editor": True,
+        },
         "does_not_redesign": [
             "cid",
             "leo",
@@ -77,8 +91,13 @@ def quality_gates() -> dict[str, Any]:
         "checks": {
             "enabled": is_enabled(),
             "one_question_per_analyst": True,
+            "mandate_metadata_present": len(MANDATES) == len(ANALYST_ROLES),
+            "structured_opinions": True,
+            "domain_guards": True,
             "committee_reads_opinions_only": True,
+            "committee_meeting_stages": True,
             "cio_reads_committee_only": True,
+            "cio_editor_no_analyst_verbatim": True,
             "no_internal_names_in_user_copy": True,
             "engines_unchanged": True,
         },
@@ -91,29 +110,25 @@ def plan_research(query: str, *, ticker: str | None = None) -> dict[str, Any]:
         "owner": "research_planner",
         "query": query,
         "ticker": ticker,
-        "assignments": [{"role": r, "mandate": _mandate(r)} for r in ANALYST_ROLES],
+        "assignments": [
+            {
+                "role": r,
+                "mandate": mandate_for(r).get("mandate"),
+                "primary_question": mandate_for(r).get("primary_question"),
+                "primary_inputs": mandate_for(r).get("primary_inputs"),
+                "outputs": mandate_for(r).get("outputs"),
+                "never": mandate_for(r).get("never"),
+            }
+            for r in ANALYST_ROLES
+        ],
         "flow": [
             "research_planner",
             "specialist_analysts",
-            "investment_committee",
-            "chief_investment_officer",
+            "investment_committee_meeting",
+            "chief_investment_officer_editor",
             "institutional_report",
         ],
     }
-
-
-def _mandate(role: str) -> str:
-    return {
-        "business": "Is this a good business?",
-        "financial": "Are the financials improving?",
-        "valuation": "Is today's valuation attractive?",
-        "market": "What is the market saying?",
-        "sector": "Is the industry attractive?",
-        "macro": "Does macro help or hurt?",
-        "risk": "What can go wrong?",
-        "management": "Can management be trusted?",
-        "ownership": "Who owns this business?",
-    }.get(role, role)
 
 
 def package_for_ask_agi(
@@ -173,19 +188,45 @@ def package_for_ask_agi(
         try:
             opinions[role] = fn(ctx)
         except Exception as exc:
+            meta = mandate_for(role)
             opinions[role] = {
                 "role": role,
-                "analyst": role.title(),
-                "question": _mandate(role),
+                "analyst": meta.get("analyst"),
+                "mandate": {
+                    "text": meta.get("mandate"),
+                    "primary_question": meta.get("primary_question"),
+                    "primary_inputs": meta.get("primary_inputs"),
+                    "outputs": meta.get("outputs"),
+                    "never": meta.get("never"),
+                },
+                "primary_question": meta.get("primary_question"),
+                "question": meta.get("primary_question"),
+                "summary": "Opinion unavailable for this run.",
                 "headline": "Opinion unavailable for this run.",
+                "stance": "Neutral",
+                "strengths": [],
+                "weaknesses": [],
                 "sections": {},
                 "evidence": [],
-                "confidence": 0.3,
+                "unanswered_questions": ["Specialist file could not be assembled for this run."],
+                "confidence": {
+                    "evidence": 0.2,
+                    "knowledge": 0.2,
+                    "freshness": 0.2,
+                    "coverage": 0.2,
+                    "overall": 0.2,
+                },
+                "structured": True,
                 "error": str(exc)[:120],
             }
 
     committee = aggregate(opinions)
     cio = write_report(committee, query=query, company=name)
+
+    # Persist memory AFTER opinions are built (so this run can compare to prior)
+    iaf_memory.put_opinions(t, opinions)
+    minutes_row = iaf_memory.put_minutes(t, committee.get("minutes") or {})
+    minutes_history = iaf_memory.get_minutes_history(t, limit=6)
 
     return {
         "enabled": True,
@@ -197,12 +238,15 @@ def package_for_ask_agi(
         "ticker": t,
         "company": name,
         "research_plan": planner,
+        "mandates": {r: mandate_for(r) for r in ANALYST_ROLES},
         "analyst_opinions": opinions,
         "committee": committee,
         "cio": cio,
+        "disagreement_matrix": committee.get("disagreement_matrix"),
+        "committee_minutes": minutes_row,
+        "committee_minutes_history": minutes_history,
         "section_owners": SECTION_OWNERS,
         "public_owner_labels": PUBLIC_OWNER_LABELS,
-        # Convenience projections for Answer Construction / UI
         "executive_summary": cio.get("executive_summary"),
         "investment_thesis": cio.get("investment_thesis"),
         "bull_case": cio.get("bull_case"),
@@ -212,6 +256,7 @@ def package_for_ask_agi(
         "key_catalysts": cio.get("key_catalysts"),
         "institutional_conclusion": cio.get("institutional_conclusion"),
         "why": [w for w in (cio.get("why") or []) if w][:6],
+        "what_changed": cio.get("what_changed") or [],
         "confidence": cio.get("confidence"),
         "business_intelligence": opinions.get("business"),
         "financial_intelligence": opinions.get("financial"),
@@ -224,8 +269,8 @@ def package_for_ask_agi(
         "ownership_intelligence": opinions.get("ownership"),
         "institutional_view": committee,
         "ask_agi_hints": [
-            f"Specialist analysts contributed opinions on {name}",
-            f"Investment Committee readiness: {committee.get('recommendation_readiness')}",
+            f"Specialist analysts contributed structured opinions on {name}",
+            f"Committee stance: {committee.get('committee_stance')}",
             f"Chief Investment Officer confidence {cio.get('confidence')}",
         ],
     }

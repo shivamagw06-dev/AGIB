@@ -1,4 +1,4 @@
-# Institutional Analyst Framework (IAF V1)
+# Institutional Analyst Framework (IAF V1.1)
 
 Answer Construction orchestration only. **Not an engine.**
 
@@ -13,33 +13,68 @@ No new data. No new intelligence. Ownership of existing intelligence only.
 
 ```text
 Question
-  → Research Planner
-  → Business / Financial / Valuation / Market / Sector / Macro / Risk / Management / Ownership Analysts
-  → Investment Committee
-  → Chief Investment Officer
+  → Research Planner (assigns mandates)
+  → 9 Specialist Analysts (structured opinions + memory)
+  → Investment Committee meeting
+        Stage 1 Consensus
+        Stage 2 Conflicts
+        Stage 3 Missing Evidence
+        Disagreement Matrix + Minutes
+  → Chief Investment Officer (editor)
   → Institutional Report
 ```
 
-## Rules
+## Analyst contract
 
-- Each analyst answers **one** question and must not repeat another analyst.
-- Analysts only **read** existing packs; they never call providers.
-- Committee reads **analyst opinions only** (never raw APIs / CID / statements).
-- CIO reads **committee summary only**.
-- User-facing copy must never expose internal engine, provider, or API names.
+Each analyst has mandate metadata:
 
-## Package layout
+- Mandate
+- Primary Question
+- Primary Inputs
+- Outputs
+- Never (out-of-domain)
 
-```text
-institutional_analysts/
-  business/ financial/ valuation/ market/ sector/ macro/
-  risk/ management/ ownership/
-  committee/
-  cio/
-  production.py   # planner → analysts → committee → CIO
+Each opinion is a **structured object**:
+
+```json
+{
+  "summary": "...",
+  "stance": "Bullish|Neutral|Bearish",
+  "strengths": [],
+  "weaknesses": [],
+  "evidence": [],
+  "unanswered_questions": [],
+  "confidence": {
+    "evidence": 0.0,
+    "knowledge": 0.0,
+    "freshness": 0.0,
+    "coverage": 0.0,
+    "overall": 0.0
+  },
+  "what_changed": null
+}
 ```
 
-## Soft-wire
+Domain guards strip out-of-mandate vocabulary (e.g. Business never discusses PE).
 
-`answer_construction.production.package_for_ask_agi` soft-calls IAF, then applies
-Answer Construction V3 policy. Flags: `institutional_analysts`, `ask_agi_iaf`.
+## Committee
+
+Behaves like a meeting — not a merge:
+
+1. Consensus stances per analyst
+2. Conflicts (e.g. high quality vs rich entry)
+3. Missing evidence asks in institutional language (never “Coverage 73%”)
+4. Disagreement Matrix → committee stance + reason
+5. Investment Committee Minutes (historical memory)
+
+## CIO
+
+Editor, not summariser:
+
+- Never repeats analyst wording
+- Never names engines / providers / subsystems
+- Writes institutional prose from committee signals only
+
+## Flags
+
+`institutional_analysts`, `ask_agi_iaf`

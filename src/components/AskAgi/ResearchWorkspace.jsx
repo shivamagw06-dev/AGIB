@@ -377,15 +377,65 @@ export default function ResearchWorkspace({
                         </p>
                       </div>
                     </div>
-                    {vm.institutionalView?.summary ? (
+                    {vm.institutionalView?.stance ? (
+                      <p className="rw-body mt-4">
+                        Committee: <strong>{vm.institutionalView.stance}</strong>
+                        {vm.institutionalView.reason ? ` — ${vm.institutionalView.reason}` : ''}
+                      </p>
+                    ) : vm.institutionalView?.summary ? (
                       <p className="rw-body mt-4">{vm.institutionalView.summary}</p>
                     ) : null}
-                    {vm.institutionalView?.agreements?.length ? (
-                      <ul className="mt-3 space-y-1 text-sm text-[var(--rw-muted)]">
-                        {vm.institutionalView.agreements.slice(0, 3).map((a) => (
-                          <li key={a}>• {a}</li>
-                        ))}
-                      </ul>
+                    {vm.institutionalView?.disagreementMatrix?.analyst_stances ? (
+                      <div className="mt-4">
+                        <p className="rw-mini mb-2">Disagreement Matrix</p>
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          {Object.entries(vm.institutionalView.disagreementMatrix.analyst_stances)
+                            .slice(0, 9)
+                            .map(([analyst, stance]) => (
+                              <div key={analyst} className="rw-why-card">
+                                <h4>{analyst}</h4>
+                                <p>{stance}</p>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    ) : null}
+                    {vm.institutionalView?.stage2?.length ? (
+                      <div className="mt-4">
+                        <p className="rw-mini mb-2">Conflicts</p>
+                        <ul className="space-y-2 text-sm text-[var(--rw-soft)]">
+                          {vm.institutionalView.stage2.slice(0, 3).map((c) => (
+                            <li key={c.topic || c.tension} className="border-b border-[var(--rw-border)] pb-2">
+                              {c.tension || c.topic}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+                    {vm.institutionalView?.stage3?.length ? (
+                      <div className="mt-4">
+                        <p className="rw-mini mb-2">Before increasing conviction, the committee would like</p>
+                        <ul className="space-y-1 text-sm text-[var(--rw-muted)]">
+                          {vm.institutionalView.stage3.slice(0, 4).map((m) => (
+                            <li key={m}>• {m}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+                    {vm.institutionalView?.minutes ? (
+                      <div className="mt-4">
+                        <p className="rw-mini mb-2">Investment Committee Minutes</p>
+                        <p className="text-sm text-[var(--rw-soft)]">
+                          Business {vm.institutionalView.minutes.business} · Financials{' '}
+                          {vm.institutionalView.minutes.financials} · Valuation{' '}
+                          {vm.institutionalView.minutes.valuation} · Macro{' '}
+                          {vm.institutionalView.minutes.macro}
+                        </p>
+                        <p className="rw-body mt-2">
+                          {vm.institutionalView.minutes.decision}{' '}
+                          {vm.institutionalView.minutes.follow_up}
+                        </p>
+                      </div>
                     ) : null}
                   </Section>
                 </div>
@@ -565,6 +615,15 @@ export default function ResearchWorkspace({
                 ) : null}
 
                 <Section id="changed" kicker="Section 6" title="What's Changed">
+                  {vm.whatChanged?.length ? (
+                    <ul className="mb-4 space-y-2 text-sm text-[var(--rw-soft)]">
+                      {vm.whatChanged.map((item) => (
+                        <li key={item} className="border-b border-[var(--rw-border)] pb-2">
+                          {item}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
                   {vm.changedRows.length ? (
                     <div className="overflow-x-auto">
                       <table className="rw-table">
@@ -588,9 +647,9 @@ export default function ResearchWorkspace({
                         </tbody>
                       </table>
                     </div>
-                  ) : (
+                  ) : !vm.whatChanged?.length ? (
                     <p className="rw-empty">No material period-over-period changes surfaced yet.</p>
-                  )}
+                  ) : null}
                 </Section>
 
                 <Section

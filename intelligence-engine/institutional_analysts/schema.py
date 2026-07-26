@@ -2,7 +2,7 @@
 
 PROGRAMME = "AGIB_INSTITUTIONAL_ANALYST_FRAMEWORK_V1"
 PROGRAMME_SHORT = "IAF"
-IAF_VERSION = "iaf-v1.0.0"
+IAF_VERSION = "iaf-v1.1.0"
 ARCHITECTURE_STATUS = "v1.0.1 LOCKED"
 
 ANALYST_ROLES = [
@@ -33,6 +33,9 @@ SECTION_OWNERS = {
     "scenarios": "cio",
     "conclusion": "cio",
     "recommendation_status": "recommendation_gate",
+    "committee_minutes": "committee",
+    "disagreement_matrix": "committee",
+    "what_changed": "committee",
 }
 
 PUBLIC_OWNER_LABELS = {

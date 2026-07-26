@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from institutional_analysts.base import as_list, company_name, opinion, pick_confidence
+from institutional_analysts.base import as_list, company_name, pick_confidence, structured_opinion
 
 
 def analyse(ctx: dict[str, Any]) -> dict[str, Any]:
@@ -34,22 +34,37 @@ def analyse(ctx: dict[str, Any]) -> dict[str, Any]:
     if not evidence:
         evidence = ["Risk register from institutional monitoring", "Thesis invalidation conditions"]
 
-    return opinion(
+    score = risk_layer.get("score")
+    stance = "Bearish" if (isinstance(score, (int, float)) and float(score) < 50) or len(business_risks) >= 4 else "Neutral"
+    coverage = pick_confidence(score, cm.get("confidence"), default=0.57)
+
+    return structured_opinion(
         role="risk",
-        question="What can go wrong?",
-        headline=f"{name}: downside is a function of business, financial, macro, and valuation shocks.",
+        summary=f"{name}: downside is a function of business, financial, macro, execution, and valuation shocks.",
+        strengths=as_list(what.get("monitor") or ["Active monitoring list in place"], limit=3),
+        weaknesses=business_risks[:4],
+        evidence=evidence,
+        unanswered_questions=[
+            "Which single risk, if realised, most impairs franchise returns?",
+            "What leading indicator should force a thesis review?",
+        ],
         sections={
             "business_risks": business_risks,
             "financial_risks": financial_risks,
             "macro_risks": as_list(risk_layer.get("macro_risks") or ["Rate shock", "Growth slowdown"], limit=4),
-            "execution_risks": as_list(what.get("execution_risks") or ["Delivery against guidance", "Integration / ops complexity"], limit=4),
+            "execution_risks": as_list(what.get("execution_risks") or ["Delivery against guidance", "Ops complexity"], limit=4),
             "valuation_risks": as_list(["Multiple compression", "Expectations reset"], limit=4),
-            "probability": risk_layer.get("reasoning") or "Probability of severe impairment is moderate unless several risks coincide",
+            "probability": risk_layer.get("reasoning") or "Severe impairment is moderate unless several risks coincide",
             "impact": "High-impact risks are those that impair franchise returns or capital",
             "monitoring": as_list(what.get("monitor") or ca.get("monitoring") or ["Next earnings", "Guidance", "Asset quality / margins"], limit=5),
         },
-        evidence=evidence,
-        confidence=pick_confidence(risk_layer.get("score"), cm.get("confidence"), default=0.57),
-        score=risk_layer.get("score"),
-        word_limit=450,
+        stance=stance,
+        confidence={
+            "evidence": pick_confidence(0.5 + 0.05 * min(len(evidence), 4), default=0.55),
+            "knowledge": coverage,
+            "freshness": pick_confidence(cm.get("freshness"), default=0.6),
+            "coverage": coverage,
+        },
+        score=float(score) if isinstance(score, (int, float)) else None,
+        ctx=ctx,
     )
