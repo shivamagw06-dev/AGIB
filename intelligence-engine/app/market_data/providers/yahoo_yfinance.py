@@ -1,13 +1,19 @@
-"""Optional yfinance soft path for Yahoo financial statements / valuation.
+"""Optional yfinance soft path for Yahoo financial statements / calendar / filings.
 
-Uses Ticker.get_income_stmt / get_balance_sheet / get_cash_flow (fundamentals-timeseries)
-when quoteSummary crumb auth fails under plain httpx. Never exposes Yahoo-native payloads
-outward — callers must map through yahoo_mapper canonical helpers.
+Uses:
+  - Ticker.get_income_stmt / get_balance_sheet / get_cash_flow|get_cashflow
+  - quarterly_* properties as secondary (pretty titles — prefer get_* pretty=False)
+  - Ticker.calendar, get_earnings_dates (needs lxml), get_sec_filings
+  - Ticker.get_earnings is deprecated / returns None — do not use
+
+when quoteSummary crumb auth fails under plain httpx. Never exposes Yahoo-native
+payloads outward — callers must map through yahoo_mapper canonical helpers.
 """
 
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
+from datetime import date, datetime
 from typing import Any
 
 _EXEC = ThreadPoolExecutor(max_workers=2, thread_name_prefix="yahoo-yf")
@@ -52,9 +58,13 @@ def _df_to_period_rows(df: Any) -> list[dict[str, Any]]:
                     continue
             except Exception:
                 pass
-            name = str(field)
-            # Yahoo timeseries keys are PascalCase; quoteSummary aliases are camelCase.
-            # All-caps acronyms (EBITDA, EBIT) become lowercase so field maps match.
+            raw_name = str(field).strip()
+            # Properties like quarterly_income_stmt may use pretty titles ("Free Cash Flow").
+            if " " in raw_name:
+                parts = [p for p in raw_name.split() if p]
+                name = parts[0].capitalize() + "".join(p.capitalize() for p in parts[1:])
+            else:
+                name = raw_name
             try:
                 num = float(val)
             except (TypeError, ValueError):
@@ -67,21 +77,161 @@ def _df_to_period_rows(df: Any) -> list[dict[str, Any]]:
                 continue
         if len(period) > 1:
             rows.append(period)
-    # Newest first (matches quoteSummary history ordering expectations)
     rows.sort(key=lambda r: r.get("endDate") or "", reverse=True)
     return rows
+
+
+def _safe_df_call(fn: Any, **kwargs: Any) -> Any:
+    try:
+        return fn(**kwargs)
+    except TypeError:
+        # Some aliases omit pretty=
+        try:
+            kwargs.pop("pretty", None)
+            return fn(**kwargs)
+        except Exception:
+            return None
+    except Exception:
+        return None
+
+
+def _serialize_scalar(v: Any) -> Any:
+    if v is None:
+        return None
+    if isinstance(v, (date, datetime)):
+        return v.isoformat() if isinstance(v, datetime) else v.isoformat()
+    if isinstance(v, (int, float, str, bool)):
+        return v
+    try:
+        import pandas as pd
+
+        if pd.isna(v):
+            return None
+    except Exception:
+        pass
+    if hasattr(v, "isoformat"):
+        try:
+            return v.isoformat()
+        except Exception:
+            pass
+    return str(v)
+
+
+def _calendar_to_dict(cal: Any) -> dict[str, Any]:
+    if not isinstance(cal, dict):
+        return {}
+    out: dict[str, Any] = {}
+    for k, v in cal.items():
+        key = str(k)
+        if isinstance(v, list):
+            out[key] = [_serialize_scalar(x) for x in v]
+        else:
+            out[key] = _serialize_scalar(v)
+    return out
+
+
+def _earnings_dates_to_rows(df: Any, *, limit: int = 12) -> list[dict[str, Any]]:
+    if df is None:
+        return []
+    try:
+        import pandas as pd
+    except Exception:
+        return []
+    if not isinstance(df, pd.DataFrame) or df.empty:
+        return []
+    rows: list[dict[str, Any]] = []
+    # Index is typically Earnings Date; columns EPS Estimate / Reported EPS / Surprise(%)
+    working = df.reset_index()
+    for _, series in working.head(limit).iterrows():
+        item: dict[str, Any] = {}
+        for col, val in series.items():
+            cname = str(col).strip()
+            if cname.lower() in {"earnings date", "earningsdate", "date"}:
+                item["earnings_date"] = _serialize_scalar(val)
+            elif "estimate" in cname.lower():
+                try:
+                    item["eps_estimate"] = None if pd.isna(val) else float(val)
+                except (TypeError, ValueError):
+                    pass
+            elif "reported" in cname.lower():
+                try:
+                    item["eps_actual"] = None if pd.isna(val) else float(val)
+                except (TypeError, ValueError):
+                    pass
+            elif "surprise" in cname.lower():
+                try:
+                    item["surprise_percent"] = None if pd.isna(val) else float(val)
+                except (TypeError, ValueError):
+                    pass
+        if item.get("earnings_date"):
+            rows.append(item)
+    return rows
+
+
+def _sec_filings_to_rows(raw: Any, *, limit: int = 40) -> list[dict[str, Any]]:
+    rows_in: list[Any]
+    if isinstance(raw, dict):
+        # Sometimes {"filings": [...]} or type→list
+        if isinstance(raw.get("filings"), list):
+            rows_in = raw["filings"]
+        else:
+            rows_in = []
+            for v in raw.values():
+                if isinstance(v, list):
+                    rows_in.extend(v)
+    elif isinstance(raw, list):
+        rows_in = raw
+    else:
+        return []
+    out: list[dict[str, Any]] = []
+    for row in rows_in[:limit]:
+        if not isinstance(row, dict):
+            continue
+        out.append(
+            {
+                "date": _serialize_scalar(row.get("date")),
+                "filing_type": row.get("type") or row.get("filing_type"),
+                "title": row.get("title"),
+                "url": row.get("edgarUrl") or row.get("url"),
+                "epoch_date": row.get("epochDate"),
+            }
+        )
+    return out
+
+
+def _statement_df(t: Any, kind: str, freq: str) -> Any:
+    """Prefer get_* pretty=False; fall back to quarterly_* properties."""
+    if kind == "income":
+        df = _safe_df_call(t.get_income_stmt, as_dict=False, pretty=False, freq=freq)
+        if df is not None and getattr(df, "empty", True) is False:
+            return df
+        if freq == "quarterly":
+            return getattr(t, "quarterly_income_stmt", None)
+        return getattr(t, "income_stmt", None)
+    if kind == "balance":
+        return _safe_df_call(t.get_balance_sheet, as_dict=False, pretty=False, freq=freq)
+    if kind == "cash":
+        # Docs list get_cashflow; library also exposes get_cash_flow
+        fn = getattr(t, "get_cash_flow", None) or getattr(t, "get_cashflow", None)
+        df = _safe_df_call(fn, as_dict=False, pretty=False, freq=freq) if fn else None
+        if df is not None and getattr(df, "empty", True) is False:
+            return df
+        if freq == "quarterly":
+            return getattr(t, "quarterly_cashflow", None)
+        return getattr(t, "cashflow", None)
+    return None
 
 
 def _fetch_package_sync(yahoo_symbol: str) -> dict[str, Any]:
     import yfinance as yf
 
     t = yf.Ticker(yahoo_symbol)
-    income_annual = _df_to_period_rows(t.get_income_stmt(as_dict=False, pretty=False, freq="yearly"))
-    income_q = _df_to_period_rows(t.get_income_stmt(as_dict=False, pretty=False, freq="quarterly"))
-    balance_annual = _df_to_period_rows(t.get_balance_sheet(as_dict=False, pretty=False, freq="yearly"))
-    balance_q = _df_to_period_rows(t.get_balance_sheet(as_dict=False, pretty=False, freq="quarterly"))
-    cash_annual = _df_to_period_rows(t.get_cash_flow(as_dict=False, pretty=False, freq="yearly"))
-    cash_q = _df_to_period_rows(t.get_cash_flow(as_dict=False, pretty=False, freq="quarterly"))
+    income_annual = _df_to_period_rows(_statement_df(t, "income", "yearly"))
+    income_q = _df_to_period_rows(_statement_df(t, "income", "quarterly"))
+    balance_annual = _df_to_period_rows(_statement_df(t, "balance", "yearly"))
+    balance_q = _df_to_period_rows(_statement_df(t, "balance", "quarterly"))
+    cash_annual = _df_to_period_rows(_statement_df(t, "cash", "yearly"))
+    cash_q = _df_to_period_rows(_statement_df(t, "cash", "quarterly"))
 
     info: dict[str, Any] = {}
     try:
@@ -91,9 +241,34 @@ def _fetch_package_sync(yahoo_symbol: str) -> dict[str, Any]:
     except Exception:
         info = {}
 
+    calendar: dict[str, Any] = {}
+    try:
+        calendar = _calendar_to_dict(t.calendar)
+    except Exception:
+        calendar = {}
+
+    earnings_dates: list[dict[str, Any]] = []
+    try:
+        earnings_dates = _earnings_dates_to_rows(t.get_earnings_dates(limit=12))
+    except Exception:
+        earnings_dates = []
+
+    sec_filings: list[dict[str, Any]] = []
+    try:
+        sec_filings = _sec_filings_to_rows(t.get_sec_filings())
+    except Exception:
+        sec_filings = []
+
+    # get_earnings is deprecated and returns None — derive soft annual NI series instead
+    earnings_annual = [
+        {"period_end": r.get("endDate"), "net_income": r.get("netIncome") or r.get("netIncomeCommonStockholders")}
+        for r in income_annual
+        if (r.get("netIncome") is not None or r.get("netIncomeCommonStockholders") is not None)
+    ]
+
     return {
         "source": "yfinance",
-        "endpoint": "fundamentals-timeseries",
+        "endpoint": "fundamentals-timeseries+calendar",
         "symbol": yahoo_symbol,
         "income_annual": income_annual,
         "income_quarterly": income_q,
@@ -102,12 +277,24 @@ def _fetch_package_sync(yahoo_symbol: str) -> dict[str, Any]:
         "cash_annual": cash_annual,
         "cash_quarterly": cash_q,
         "info": info,
+        "calendar": calendar,
+        "earnings_dates": earnings_dates,
+        "sec_filings": sec_filings,
+        "earnings_annual": earnings_annual,
+        "apis_used": [
+            "get_income_stmt",
+            "get_balance_sheet",
+            "get_cash_flow|get_cashflow",
+            "calendar",
+            "get_earnings_dates",
+            "get_sec_filings",
+        ],
     }
 
 
 async def fetch_yfinance_financial_package(yahoo_symbol: str) -> dict[str, Any]:
     """
-    Async wrapper around yfinance Ticker statement APIs.
+    Async wrapper around yfinance Ticker statement + calendar APIs.
     Returns empty dict if yfinance missing or fetch fails.
     """
     if not yahoo_symbol or not yfinance_available():

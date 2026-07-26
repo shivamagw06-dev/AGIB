@@ -22,6 +22,7 @@ from app.market_data.provider_base import Capability, MarketDataProvider, Provid
 from app.market_data.providers.yahoo_mapper import (
     fundamentals_metrics_from_yfinance_info,
     map_calendar_from_quote_summary,
+    map_calendar_from_yfinance_package,
     map_corporate_actions_from_chart,
     map_financial_history_from_quote_summary,
     map_financial_history_from_yfinance_package,
@@ -443,6 +444,26 @@ class YahooFinanceProvider(MarketDataProvider):
                     out["valuation_snapshot"] = map_valuation_snapshot_from_yfinance_info(
                         pkg.get("info") or {}, symbol=ysym
                     )
+                # Soft earnings / calendar side-channel (canonical keys only)
+                out["earnings_dates"] = list(pkg.get("earnings_dates") or [])
+                out["earnings_annual"] = list(pkg.get("earnings_annual") or [])
+                out["calendar"] = {
+                    k: v
+                    for k, v in (pkg.get("calendar") or {}).items()
+                    if k
+                    in {
+                        "Earnings Date",
+                        "Ex-Dividend Date",
+                        "Dividend Date",
+                        "Earnings High",
+                        "Earnings Low",
+                        "Earnings Average",
+                        "Revenue High",
+                        "Revenue Low",
+                        "Revenue Average",
+                    }
+                }
+                out["sec_filings_count"] = len(pkg.get("sec_filings") or [])
 
         if not self._history_nonempty(out.get("financial_history") or {}) and not (
             out.get("valuation_snapshot") or {}
@@ -468,18 +489,25 @@ class YahooFinanceProvider(MarketDataProvider):
         mods = [m for m in ("earnings", "earningsHistory", "upgradeDowngradeHistory", "secFilings") if m in self._modules() or m in ALL_MODULES]
         if not self.flag_earnings:
             mods = [m for m in mods if m == "secFilings"]
-        if not mods:
-            return []
-        url = f"{self.quote_summary_base}/v10/finance/quoteSummary/{ysym}"
-        payload = await self._get(url, {"modules": ",".join(mods)}, need_crumb=True)
-        events = map_calendar_from_quote_summary(payload, symbol=ysym, provenance=self.make_provenance())
-        # Optional date filter
+        events: list[CalendarEvent] = []
+        if mods:
+            url = f"{self.quote_summary_base}/v10/finance/quoteSummary/{ysym}"
+            try:
+                payload = await self._get(url, {"modules": ",".join(mods)}, need_crumb=True)
+                events = map_calendar_from_quote_summary(
+                    payload, symbol=ysym, provenance=self.make_provenance()
+                )
+            except ProviderError:
+                events = []
+        if not events and self.flag_yfinance_fallback:
+            pkg = await self._yfinance_package(ysym)
+            if pkg:
+                events = map_calendar_from_yfinance_package(
+                    pkg, symbol=ysym, provenance=self.make_provenance()
+                )
+        # Optional date filter (kept permissive — unparseable dates retained)
         if start or end:
-            filtered = []
-            for ev in events:
-                # keep if unparseable date
-                filtered.append(ev)
-            return filtered
+            return list(events)
         return events
 
     async def get_option_chain(self, underlying: str) -> OptionChain:

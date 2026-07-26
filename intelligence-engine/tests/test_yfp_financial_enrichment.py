@@ -6,13 +6,16 @@ from yfp.enrich import merge_financial_intelligence, merge_yahoo_into_dossier
 from yfp.history import financial_coverage, kpi_trends, valuation_coverage
 from yfp.leo_evidence import evidence_from_financial_intelligence
 from yfp.production import is_cid_enrichment_enabled, quality_gates
+from app.market_data.models import Provenance
 from app.market_data.providers.yahoo_mapper import (
+    map_calendar_from_yfinance_package,
     map_financial_history_from_quote_summary,
     map_financial_history_from_yfinance_package,
     map_valuation_snapshot_from_quote_summary,
     map_valuation_snapshot_from_yfinance_info,
 )
 from app.market_data.providers.yahoo_yfinance import _df_to_period_rows
+from datetime import datetime, timezone
 
 
 def _fixture():
@@ -344,3 +347,60 @@ def test_df_to_period_rows_from_get_income_stmt_shape():
     assert rows[0]["endDate"] == "2025-03-31"
     assert rows[0]["totalRevenue"] == 200.0
     assert rows[0]["netIncome"] == 32.0
+
+
+def test_df_to_period_rows_pretty_quarterly_cashflow_titles():
+    import pandas as pd
+
+    df = pd.DataFrame(
+        {pd.Timestamp("2025-12-31"): [1.0e9, -1.0e8]},
+        index=["Free Cash Flow", "Capital Expenditure"],
+    )
+    rows = _df_to_period_rows(df)
+    assert rows[0]["freeCashFlow"] == 1.0e9
+    assert rows[0]["capitalExpenditure"] == -1.0e8
+
+
+def test_yfinance_calendar_earnings_dates_and_sec_map():
+    pkg = {
+        "calendar": {
+            "Earnings Date": ["2026-10-15"],
+            "Ex-Dividend Date": "2026-07-10",
+            "Earnings Average": 5.265,
+            "Revenue Average": 68409463000,
+        },
+        "earnings_dates": [
+            {
+                "earnings_date": "2026-07-22T01:00:00-04:00",
+                "eps_estimate": 4.36,
+                "eps_actual": 5.08,
+                "surprise_percent": 16.72,
+            }
+        ],
+        "sec_filings": [
+            {
+                "date": "2026-05-28",
+                "filing_type": "SD",
+                "title": "Specialized Disclosure",
+                "url": "https://example.com/sd",
+            }
+        ],
+    }
+    prov = Provenance(
+        source="yahoo",
+        provider_id="yahoo",
+        pulled_at=datetime.now(timezone.utc),
+    )
+    events = map_calendar_from_yfinance_package(pkg, symbol="NESTLEIND.NS", provenance=prov)
+    types = {e.event_type for e in events}
+    assert "earnings" in types
+    assert "earnings_history" in types
+    assert "ex_dividend" in types
+    assert "sec_filing" in types
+    hist = next(e for e in events if e.event_type == "earnings_history")
+    assert hist.details["eps_actual"] == 5.08
+    assert hist.details["surprise_percent"] == 16.72
+    # No Yahoo-native quoteSummary keys leaked
+    blob = str([e.model_dump(mode="json") for e in events])
+    assert "quoteSummary" not in blob
+    assert "earningsDate" not in blob or "Earnings Date" in str(pkg["calendar"])

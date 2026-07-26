@@ -403,6 +403,125 @@ def map_fundamentals_from_quote_summary(
     )
 
 
+def map_calendar_from_yfinance_package(
+    package: dict[str, Any],
+    *,
+    symbol: str,
+    provenance: Provenance,
+) -> list[CalendarEvent]:
+    """
+    Canonical calendar events from yfinance Ticker.calendar / get_earnings_dates / get_sec_filings.
+    get_earnings is deprecated — earnings history comes from earnings_dates.
+    """
+    if not isinstance(package, dict):
+        return []
+    canon = from_yahoo_symbol(symbol)
+    events: list[CalendarEvent] = []
+
+    cal = package.get("calendar") if isinstance(package.get("calendar"), dict) else {}
+    # Upcoming earnings date(s)
+    earn_dates = cal.get("Earnings Date") or cal.get("earningsDate") or []
+    if not isinstance(earn_dates, list):
+        earn_dates = [earn_dates] if earn_dates else []
+    for i, d in enumerate(earn_dates):
+        when = _str(d)
+        if not when:
+            continue
+        events.append(
+            CalendarEvent(
+                event_id=f"yahoo-yf-earn-{canon}-{when}-{i}",
+                event_type="earnings",
+                symbol=canon,
+                title=f"{canon} earnings {when[:10]}",
+                event_time=when,
+                details={
+                    "eps_estimate_high": _num(cal.get("Earnings High")),
+                    "eps_estimate_low": _num(cal.get("Earnings Low")),
+                    "eps_estimate_avg": _num(cal.get("Earnings Average")),
+                    "revenue_high": _num(cal.get("Revenue High")),
+                    "revenue_low": _num(cal.get("Revenue Low")),
+                    "revenue_avg": _num(cal.get("Revenue Average")),
+                    "fetch_path": "yfinance_calendar",
+                },
+                provenance=provenance,
+            )
+        )
+    ex_div = cal.get("Ex-Dividend Date") or cal.get("Ex Dividend Date")
+    if ex_div:
+        when = _str(ex_div)
+        events.append(
+            CalendarEvent(
+                event_id=f"yahoo-yf-exdiv-{canon}-{when}",
+                event_type="ex_dividend",
+                symbol=canon,
+                title=f"{canon} ex-dividend {when[:10] if when else ''}".strip(),
+                event_time=when,
+                details={"fetch_path": "yfinance_calendar"},
+                provenance=provenance,
+            )
+        )
+    div_date = cal.get("Dividend Date")
+    if div_date:
+        when = _str(div_date)
+        events.append(
+            CalendarEvent(
+                event_id=f"yahoo-yf-div-{canon}-{when}",
+                event_type="dividend",
+                symbol=canon,
+                title=f"{canon} dividend {when[:10] if when else ''}".strip(),
+                event_time=when,
+                details={"fetch_path": "yfinance_calendar"},
+                provenance=provenance,
+            )
+        )
+
+    for row in package.get("earnings_dates") or []:
+        if not isinstance(row, dict):
+            continue
+        when = _str(row.get("earnings_date"))
+        if not when:
+            continue
+        events.append(
+            CalendarEvent(
+                event_id=f"yahoo-yf-earn-hist-{canon}-{when[:19]}",
+                event_type="earnings_history",
+                symbol=canon,
+                title=f"{canon} EPS {when[:10]}",
+                event_time=when,
+                details={
+                    "eps_actual": _num(row.get("eps_actual")),
+                    "eps_estimate": _num(row.get("eps_estimate")),
+                    "surprise_percent": _num(row.get("surprise_percent")),
+                    "fetch_path": "yfinance_earnings_dates",
+                },
+                provenance=provenance,
+            )
+        )
+
+    for row in package.get("sec_filings") or []:
+        if not isinstance(row, dict):
+            continue
+        when = _str(row.get("date"))
+        ftype = row.get("filing_type") or "filing"
+        events.append(
+            CalendarEvent(
+                event_id=f"yahoo-yf-sec-{canon}-{when}-{ftype}",
+                event_type="sec_filing",
+                symbol=canon,
+                title=f"{ftype} — {row.get('title') or row.get('url') or ''}".strip(" —"),
+                event_time=when,
+                country="US",
+                details={
+                    "url": row.get("url"),
+                    "filing_type": ftype,
+                    "fetch_path": "yfinance_sec_filings",
+                },
+                provenance=provenance,
+            )
+        )
+    return events
+
+
 def map_calendar_from_quote_summary(
     payload: dict[str, Any],
     *,
