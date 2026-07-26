@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from company_analysis.cid_bridge import normalise_business_model
 from company_analysis.schema import TICKER_BUSINESS, TICKER_PEERS
 
 
@@ -15,6 +16,7 @@ def identify_company(
 ) -> dict[str, Any]:
     t = (ticker or (cid or {}).get("ticker") or "").upper() or None
     ident = dict((cid or {}).get("identity") or {})
+    profile = dict((cid or {}).get("business_profile") or {})
     sif = sif_pkg or {}
     sector_id = (
         ident.get("sector_id")
@@ -43,12 +45,14 @@ def identify_company(
         "sector_id": sector_id or None,
         "industry": ident.get("industry") or sector_name,
         "peers": peers,
-        "business_model": biz.get("business_model") or (cid or {}).get("business_model") or None,
+        "business_model": biz.get("business_model") or normalise_business_model(cid) or None,
         "geography": biz.get("geography") or ident.get("geography") or "India",
-        "products": biz.get("products"),
+        "products": biz.get("products") or profile.get("products"),
         "brands": biz.get("brands"),
         "customers": biz.get("customers"),
         "suppliers": biz.get("suppliers") or (cid or {}).get("suppliers"),
         "index_membership": ident.get("index_membership") or [],
-        "sources": ["cid.identity", "sif", "company_analysis.maps"],
+        "employees": ident.get("employees") or profile.get("employees"),
+        "headquarters": ident.get("headquarters") or profile.get("headquarters"),
+        "sources": ["cid.identity", "cid.business_profile", "sif", "company_analysis.maps"],
     }

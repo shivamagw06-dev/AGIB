@@ -38,6 +38,17 @@ _ENGINE_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Never expose market-data vendor / API / Yahoo-native terms in client answers.
+_PROVIDER_RE = re.compile(
+    r"(?i)\b("
+    r"yahoo(?:\s*finance)?|yfinance|quotesummary|quoteSummary|"
+    r"indianapi|indian\s*api|finnhub|fmp|"
+    r"financialmodelingprep|financial\s*modeling\s*prep|"
+    r"provider_id|provider\s*confidence|winning_provider|"
+    r"api\s*key|x-api-key"
+    r")\b"
+)
+
 _SOURCE_PUBLIC = {
     "KIP": "knowledge",
     "RSP": "research_committee",
@@ -58,6 +69,14 @@ _SOURCE_PUBLIC = {
     "E11": "sentiment",
     "E13": "fundamentals",
     "E14": "market_risk",
+    "yahoo": "institutional",
+    "Yahoo": "institutional",
+    "Yahoo Finance": "institutional",
+    "yfinance": "institutional",
+    "indianapi": "institutional",
+    "finnhub": "institutional",
+    "fmp": "institutional",
+    "YFP": "institutional",
 }
 
 
@@ -76,7 +95,9 @@ def public_label(key: str | None) -> str:
 def scrub_text(value: str | None) -> str | None:
     if value is None:
         return None
-    return _ENGINE_RE.sub("institutional model", str(value))
+    text = _ENGINE_RE.sub("institutional model", str(value))
+    text = _PROVIDER_RE.sub("institutional data", text)
+    return text
 
 
 def scrub(obj: Any) -> Any:
@@ -90,6 +111,21 @@ def scrub(obj: Any) -> Any:
     if isinstance(obj, dict):
         out: dict[str, Any] = {}
         for k, v in obj.items():
+            # Strip provider-native / enrichment provenance keys from client payloads
+            if str(k).lower() in {
+                "provider_id",
+                "provider",
+                "winning_provider",
+                "winning_provider_summary",
+                "provider_confidence",
+                "yfp_version",
+                "enrichment",
+                "yahoo",
+                "quoteSummary",
+                "quotesummary",
+                "yfinance",
+            }:
+                continue
             if k in {"sources", "meta", "engine_versions", "formula_versions", "engines"}:
                 # Drop or rewrite later by caller
                 if k == "sources" and isinstance(v, list):

@@ -726,6 +726,7 @@ class UiService:
         evidence_completion: dict[str, Any] = {}
         company_analysis: dict[str, Any] = {}
         company_monitor: dict[str, Any] = {}
+        intelligence_construction: dict[str, Any] = {}
         used_cae = False
 
         # LEO v1.0 — gather / verify / package live evidence BEFORE Academy + SIF + IRP
@@ -1500,6 +1501,41 @@ class UiService:
                     why.insert(0, scrub_text(hint)[:300])
             why = why[:12]
 
+        # Ask AGI Intelligence Construction V2 — consume validated CID/CA/DVC/LEO/etc into one brief
+        try:
+            from intelligence_construction.production import package_for_ask_agi as ic_package
+
+            intelligence_construction = (
+                ic_package(
+                    q,
+                    ticker=detected_ticker,
+                    cid=company_dossier if isinstance(company_dossier, dict) else None,
+                    company_analysis=company_analysis if isinstance(company_analysis, dict) else None,
+                    company_monitor=company_monitor if isinstance(company_monitor, dict) else None,
+                    finance_academy=finance_academy if isinstance(finance_academy, dict) else None,
+                    knowledge_foundation={"hits": kf_hits} if kf_hits else (knowledge_corpus if isinstance(knowledge_corpus, dict) else None),
+                    live_evidence=live_evidence if isinstance(live_evidence, dict) else None,
+                    data_validation=data_validation if isinstance(data_validation, dict) else None,
+                    evidence_completion=evidence_completion if isinstance(evidence_completion, dict) else None,
+                    irp=irp_dump if isinstance(irp_dump, dict) else None,
+                    investment_office=investment_office_pkg if isinstance(investment_office_pkg, dict) else None,
+                )
+                or {}
+            )
+            if intelligence_construction.get("enabled"):
+                enrich = intelligence_construction.get("answer_enrichment") or {}
+                for bullet in (enrich.get("why_bullets") or [])[:8]:
+                    cleaned = scrub_text(bullet)
+                    if cleaned and cleaned not in why:
+                        why.insert(0, cleaned[:420])
+                if enrich.get("executive_summary"):
+                    executive = scrub_text(enrich["executive_summary"]) or executive
+                if enrich.get("valuation_perspective") and not thesis:
+                    pass
+                why = why[:14]
+        except Exception:
+            intelligence_construction = {}
+
         # ECP second pass — if still blocked, one more soft completion before final gate
         try:
             from app.core.config import get_settings
@@ -1758,6 +1794,30 @@ class UiService:
         briefing = (irp_dump or {}).get("institutional_briefing") if isinstance(irp_dump, dict) else {}
         if not isinstance(briefing, dict):
             briefing = {}
+        # Soft-merge Intelligence Construction V2 interpretive sections into briefing
+        if isinstance(intelligence_construction, dict) and intelligence_construction.get("enabled"):
+            enrich = intelligence_construction.get("answer_enrichment") or {}
+            sections = intelligence_construction.get("sections") or {}
+            briefing = {
+                **briefing,
+                "executive_summary": enrich.get("executive_summary") or briefing.get("executive_summary"),
+                "current_outlook": enrich.get("current_outlook") or briefing.get("current_outlook"),
+                "valuation_perspective": enrich.get("valuation_perspective")
+                or briefing.get("valuation_perspective"),
+                "key_drivers": list(enrich.get("key_drivers") or briefing.get("key_drivers") or [])[:8],
+                "market_performance": (sections.get("market_performance") or {}).get("narrative"),
+                "financial_intelligence": (sections.get("financial_intelligence") or {}).get("narrative"),
+                "ownership": (sections.get("ownership") or {}).get("narrative"),
+                "intelligence_construction_version": intelligence_construction.get("version"),
+            }
+            if enrich.get("executive_summary"):
+                executive = scrub_text(enrich["executive_summary"]) or executive
+                answer["executive_summary"] = executive
+                answer["summary"] = executive
+            if enrich.get("valuation_perspective"):
+                current_thesis_val = scrub_text(enrich["valuation_perspective"])
+                if current_thesis_val:
+                    briefing["valuation_perspective"] = current_thesis_val
         neutral_case = list(briefing.get("neutral_case") or [])
         if not neutral_case:
             if hv_card.get("stance") == "Neutral":
@@ -2018,6 +2078,7 @@ class UiService:
             evidence_completion=scrub(evidence_completion) if evidence_completion else {},
             company_analysis=scrub(company_analysis) if company_analysis else {},
             company_monitor=scrub(company_monitor) if company_monitor else {},
+            intelligence_construction=scrub(intelligence_construction) if intelligence_construction else {},
             institutional_briefing=scrub(briefing) or {},
             # Prefer live SIF/Ask-AGI sector pack; fall back to IRP sector pack
             sector_intelligence=scrub(sector_intelligence)
