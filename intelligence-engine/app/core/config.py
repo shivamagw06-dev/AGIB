@@ -349,6 +349,7 @@ class Settings(BaseSettings):
     iai_business_analyst_v2: bool = True
     iai_business_analyst_v2_1: bool = True
     iai_financial_analyst: bool = True
+    iai_valuation_analyst: bool = True
 
     # Investment Committee Intelligence V1 — deliberation / vote / minutes (not an engine)
     investment_committee_intelligence: bool = True

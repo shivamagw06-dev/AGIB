@@ -14,6 +14,7 @@ from institutional_analysts.flags import (
     is_enabled,
     is_iai_business_enabled,
     is_iai_financial_enabled,
+    is_iai_valuation_enabled,
 )
 from institutional_analysts.macro.analyst import analyse as macro_analyse
 from institutional_analysts.management.analyst import analyse as management_analyse
@@ -73,6 +74,7 @@ def health() -> dict[str, Any]:
             "iai_business_analyst_v2": is_iai_business_enabled(),
             "iai_business_analyst_v2_1": is_iai_business_enabled(),
             "iai_financial_analyst": is_iai_financial_enabled(),
+            "iai_valuation_analyst": is_iai_valuation_enabled(),
         },
         "does_not_redesign": [
             "cid",

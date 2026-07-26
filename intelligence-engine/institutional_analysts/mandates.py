@@ -159,10 +159,13 @@ MANDATES: dict[str, dict[str, Any]] = {
         "role": "valuation",
         "analyst": "Valuation Analyst",
         "mandate": (
-            "Judge whether today's price offers an attractive entry relative to history, "
-            "peers, intrinsic value and expected return."
+            "Determine whether the current market price is justified by expected future cash flows, "
+            "growth, profitability and risk — focusing on expectations, intrinsic value and margin of safety."
         ),
-        "primary_question": "Is today's valuation attractive?",
+        "primary_question": (
+            "Does today's valuation appropriately reflect the company's long-term intrinsic value "
+            "and future expectations?"
+        ),
         "primary_inputs": [
             "Valuation research",
             "Financial Intelligence",
