@@ -13,6 +13,23 @@ Official Filings → FIL → **FDI** → EIL → PIL → Analysts → IC → CIO
 
 Do not summarise the latest filing. Explain what changed, why it matters, thesis impact (never Buy/Sell), and committee follow-ups — with evidence links to current and previous documents.
 
+## Thesis Impact Matrix
+
+Every material change maps to the investment case:
+
+| Filing Change | Business | Financial | Valuation | Risk | Committee |
+|---|---|---|---|---|---|
+| NIM ↓ | ◐ | ✅ | ✅ | ◐ | Review |
+| CASA ↓ | ✅ | ✅ | ◐ | ◐ | Review |
+| Buyback announced | � ✅ | ◐ | Review |
+| CASA ↓ | ✅ | ✅ | ◐ | ◐ | Review |
+| Buyback announced | ◐ | ✅ | ✅ | ❌ | Note |
+| New regulatory risk | ◐ | ❌ | ◐ | ✅ | Escalate |
+
+✅ primary · ◐ secondary · ❌ not material · Committee: Review / Escalate / Note / Monitor
+
+Used by Analyst → Committee → CIO routing (`soft_slice_for_analyst`).
+
 ## Flags
 
 `filing_diff_engine` / `FILING_DIFF_ENGINE`  

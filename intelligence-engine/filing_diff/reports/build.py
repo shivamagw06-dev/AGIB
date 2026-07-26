@@ -16,6 +16,7 @@ def build_report(
     changes: list[dict[str, Any]],
     confidence: dict[str, Any],
     evidence: dict[str, Any],
+    thesis_matrix: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     material = [
         c for c in changes
@@ -36,6 +37,7 @@ def build_report(
             1 for c in material if c.get("thesis_impact") == "needs_committee_review"
         ),
     }
+    matrix = thesis_matrix or {}
     open_q = []
     for c in top10:
         open_q.extend(c.get("open_questions") or [])
@@ -53,9 +55,12 @@ def build_report(
         f"{sum(1 for c in material if c.get('materiality') in {'critical','high'})}).",
     ]
     for c in top10[:5]:
+        tim = c.get("thesis_impact_matrix") or {}
         exec_bits.append(
             f"- [{c.get('materiality')}] {c.get('metric')}: {c.get('change_type')} "
-            f"({c.get('previous_value')} → {c.get('current_value')}); thesis={c.get('thesis_impact')}"
+            f"({c.get('previous_value')} → {c.get('current_value')}); "
+            f"B{tim.get('business','?')} F{tim.get('financial','?')} "
+            f"V{tim.get('valuation','?')} R{tim.get('risk','?')} → {tim.get('committee','Review')}"
         )
 
     committee = {
@@ -67,6 +72,8 @@ def build_report(
             "mode": (ctx.get("comparison_pair") or {}).get("mode"),
         },
         "potential_thesis_impact": thesis,
+        "thesis_impact_matrix": matrix,
+        "committee_queue": matrix.get("committee_queue") or {},
         "open_questions": open_questions[:8],
         "required_follow_up": [
             "Confirm whether NIM/CASA moves are structural vs cyclical with next-quarter liability mix",
@@ -74,6 +81,9 @@ def build_report(
             "Peer sync check via PIL after FIL refresh",
         ],
     }
+
+    escalate_n = len((matrix.get("committee_queue") or {}).get("escalate") or [])
+    review_n = len((matrix.get("committee_queue") or {}).get("review") or [])
 
     lines = [
         f"Filing Diff Report — {ticker}",
@@ -84,6 +94,9 @@ def build_report(
         "",
         "EXECUTIVE SUMMARY",
         *exec_bits,
+        "",
+        "THESIS IMPACT MATRIX",
+        matrix.get("markdown_table") or "(none)",
         "",
         "INVESTMENT THESIS IMPACT (no buy/sell)",
         str(thesis),
@@ -110,6 +123,7 @@ def build_report(
         "segment_changes": _domain("segment"),
         "ownership_changes": _domain("ownership"),
         "investment_thesis_impact": thesis,
+        "thesis_impact_matrix": matrix,
         "confidence": confidence,
         "missing_evidence": [
             "Full multi-quarter transcript corpus",
@@ -119,8 +133,8 @@ def build_report(
         "cio_brief": (
             f"What changed ({ctx.get('previous_period')}→{ctx.get('current_period')}): "
             f"{len(material)} material items; "
-            f"weakens={thesis['weakens_thesis']}, strengthens={thesis['strengthens_thesis']}, "
-            f"committee_review={thesis['needs_committee_review']}."
+            f"weakens={thesis['weakens_thesis']}, strengthens={thesis['strengthens_thesis']}; "
+            f"matrix queue escalate={escalate_n}, review={review_n}."
         ),
         "text": "\n".join(lines),
         "rule": "Never recommend Buy or Sell; classify thesis impact only",

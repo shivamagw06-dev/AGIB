@@ -18,6 +18,7 @@ from filing_diff.risks_diff.diff import risks_diff
 from filing_diff.schema import FDI_VERSION
 from filing_diff.segment_diff.diff import segment_diff
 from filing_diff.statement_diff.diff import statement_diff
+from filing_diff.thesis_matrix.matrix import build_thesis_impact_matrix
 from filing_diff.timeline.build import build_change_timeline
 
 
@@ -45,6 +46,7 @@ def analyse_diff(ticker: str) -> dict[str, Any]:
     changes = [_apply_negation_filter(c, ctx) for c in changes]
     # drop ignores / cosmetics from primary list but keep audit
     material = [c for c in changes if not c.get("cosmetic") and c.get("materiality") != "ignore"]
+    thesis_matrix = build_thesis_impact_matrix(material)
     confidence = score_diff(changes)
     evidence = evidence_for_changes(material, ctx.get("documents") or [])
     # attach prior doc stub into evidence docs list for linkage display
@@ -61,6 +63,7 @@ def analyse_diff(ticker: str) -> dict[str, Any]:
         changes=changes,
         confidence=confidence,
         evidence=evidence,
+        thesis_matrix=thesis_matrix,
     )
 
     return {
@@ -73,6 +76,7 @@ def analyse_diff(ticker: str) -> dict[str, Any]:
         "previous_period": ctx.get("previous_period"),
         "changes": material,
         "all_detected": changes,
+        "thesis_impact_matrix": thesis_matrix,
         "timeline": timeline,
         "evidence": evidence,
         "confidence": confidence,

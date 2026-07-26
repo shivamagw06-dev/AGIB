@@ -127,6 +127,8 @@ def soft_slice_for_analyst(ticker: str, *, analyst: str = "committee") -> dict[s
     if not out.get("found"):
         return {"filing_diff": {"enabled": True, "found": False, "ticker": ticker}}
     report = out.get("report") or {}
+    matrix = out.get("thesis_impact_matrix") or report.get("thesis_impact_matrix") or {}
+    routing = matrix.get("analyst_routing") or {}
     payload = {
         "enabled": True,
         "version": FDI_VERSION,
@@ -135,10 +137,21 @@ def soft_slice_for_analyst(ticker: str, *, analyst: str = "committee") -> dict[s
         "cio_brief": report.get("cio_brief"),
         "top_changes": report.get("top_10_material_changes") or [],
         "thesis_impact": report.get("investment_thesis_impact"),
+        "thesis_impact_matrix": matrix,
         "rule": "Deliver what changed — not a latest-filing summary; never Buy/Sell",
     }
+    # route primary-impact rows to the requesting analyst desk
+    desk_map = {
+        "business": "business_analyst",
+        "financial": "financial_analyst",
+        "valuation": "valuation_analyst",
+        "risk": "risk_analyst",
+    }
+    if analyst in desk_map:
+        payload["desk_primary_changes"] = routing.get(desk_map[analyst]) or []
     if analyst in {"committee", "cio"}:
         payload["committee"] = report.get("committee")
+        payload["committee_queue"] = matrix.get("committee_queue") or {}
     if analyst == "research_writer":
         payload["writer_blocks"] = {
             "qoq": out.get("comparison"),
@@ -147,6 +160,7 @@ def soft_slice_for_analyst(ticker: str, *, analyst: str = "committee") -> dict[s
             "risks": report.get("risk_changes"),
             "guidance": report.get("guidance_changes"),
             "capital": report.get("capital_allocation_changes"),
+            "thesis_impact_matrix_markdown": matrix.get("markdown_table"),
         }
     return {"filing_diff": payload}
 
@@ -170,6 +184,13 @@ def quality_gates() -> dict[str, Any]:
         "material_changes_have_evidence": (evidence.get("linked_count") or 0) >= 1,
         "no_cosmetic_as_material": len(cosmetic_flagged) == 0,
         "thesis_impact_present": bool((out.get("report") or {}).get("investment_thesis_impact")),
+        "thesis_impact_matrix_present": bool(
+            ((out.get("thesis_impact_matrix") or {}).get("rows") or [])
+        ),
+        "matrix_has_committee_actions": any(
+            r.get("committee") in {"Review", "Escalate", "Note", "Monitor"}
+            for r in ((out.get("thesis_impact_matrix") or {}).get("rows") or [])
+        ),
         "no_buy_sell": not any(
             phrase in ((out.get("report") or {}).get("text") or "").lower()
             for phrase in ("buy rating", "sell rating", "recommendation: buy", "recommendation: sell")
@@ -191,6 +212,13 @@ def admin_page() -> str:
         f"<td>{c.get('thesis_impact')}</td></tr>"
         for c in (report.get("top_10_material_changes") or [])[:10]
     )
+    matrix = out.get("thesis_impact_matrix") or {}
+    mrows = "".join(
+        f"<tr><td>{r.get('filing_change')}</td><td>{r.get('business')}</td>"
+        f"<td>{r.get('financial')}</td><td>{r.get('valuation')}</td>"
+        f"<td>{r.get('risk')}</td><td>{r.get('committee')}</td></tr>"
+        for r in (matrix.get("rows") or [])[:15]
+    )
     return f"""<!doctype html>
 <html><head><title>FDI — Filing Diff</title>
 <style>
@@ -207,6 +235,10 @@ table{{border-collapse:collapse;width:100%}} td,th{{border-bottom:1px solid #2a3
   <div class="{'ok' if gates.get('passed') else 'bad'}">Quality gates: {'PASSED' if gates.get('passed') else 'FAILED'}</div>
 </div>
 <div class="card"><h2>CIO brief</h2><p>{report.get('cio_brief')}</p></div>
+<div class="card"><h2>Thesis Impact Matrix</h2>
+<p>✅ primary · ◐ secondary · ❌ not material · Committee: Review / Escalate / Note</p>
+<table><tr><th>Filing Change</th><th>Business</th><th>Financial</th><th>Valuation</th><th>Risk</th><th>Committee</th></tr>{mrows}</table>
+</div>
 <div class="card"><h2>Top material changes</h2>
 <table><tr><th>Mat</th><th>Domain</th><th>Metric</th><th>Type</th><th>Prev→Cur</th><th>Thesis</th></tr>{rows}</table>
 </div>
