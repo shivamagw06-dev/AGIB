@@ -342,6 +342,147 @@ export function cmsLearningConfigured() {
   return Boolean(getAdminClient());
 }
 
+/**
+ * Founder-facing digest: what intelligence learned over the last N days.
+ * Soft-wire only — CMS learn events + optional KC corpus digest.
+ */
+export async function buildRecentLearningSummary({ engineFetch = null, days = 5 } = {}) {
+  const dayCount = Math.min(Math.max(Number(days) || 5, 1), 30);
+  const status = await cmsLearningStatus({ days: dayCount });
+  const today = learningDateIST();
+
+  let corpus = null;
+  if (typeof engineFetch === 'function') {
+    try {
+      const kc = await engineFetch('/v1/kc/learning');
+      if (kc?.ok && kc.data) {
+        corpus = {
+          as_of: kc.data.as_of || null,
+          learned_today: kc.data.learned_today || [],
+          what_changed: kc.data.what_changed || [],
+          companies_changed: kc.data.companies_changed || [],
+          sectors_changed: kc.data.sectors_changed || [],
+          themes_changed: kc.data.themes_changed || [],
+          documents_processed: kc.data.documents_processed ?? null,
+        };
+      }
+    } catch {
+      corpus = null;
+    }
+  }
+
+  if (!status?.ok) {
+    return {
+      ok: Boolean(corpus),
+      days: dayCount,
+      timezone: 'Asia/Kolkata',
+      today,
+      summary:
+        corpus?.learned_today?.length
+          ? `Corpus digest available for ${corpus.as_of || today}; CMS learning calendar unavailable (${status?.reason || status?.error || 'unknown'}).`
+          : `Learning summary unavailable (${status?.reason || status?.error || 'unknown'}).`,
+      articles_learned: 0,
+      unique_articles: 0,
+      failed: 0,
+      highlights: [],
+      by_day: [],
+      latest_learning_date: null,
+      corpus,
+      architecture_status: 'v1.0.1 LOCKED',
+    };
+  }
+
+  const events = Array.isArray(status.recent_events) ? status.recent_events : [];
+  const learnedEvents = events.filter((e) => e.status === 'learned');
+  const failedEvents = events.filter((e) => e.status === 'failed');
+  const uniqueIds = new Set(learnedEvents.map((e) => e.article_id).filter(Boolean));
+  const uniqueTitles = [];
+  const seenTitle = new Set();
+  for (const ev of learnedEvents) {
+    const t = String(ev.title || '').trim();
+    if (!t || seenTitle.has(t)) continue;
+    seenTitle.add(t);
+    uniqueTitles.push(t);
+  }
+
+  const byDayMap = {};
+  for (const ev of events) {
+    const d = ev.learning_date || String(ev.learned_at || '').slice(0, 10);
+    if (!d) continue;
+    if (!byDayMap[d]) {
+      byDayMap[d] = {
+        learning_date: d,
+        learned_events: 0,
+        failed: 0,
+        article_ids: new Set(),
+        titles: [],
+      };
+    }
+    if (ev.status === 'learned') {
+      byDayMap[d].learned_events += 1;
+      if (ev.article_id) byDayMap[d].article_ids.add(ev.article_id);
+      const t = String(ev.title || '').trim();
+      if (t && byDayMap[d].titles.length < 6 && !byDayMap[d].titles.includes(t)) {
+        byDayMap[d].titles.push(t);
+      }
+    }
+    if (ev.status === 'failed') byDayMap[d].failed += 1;
+  }
+
+  const by_day = Object.values(byDayMap)
+    .map((d) => ({
+      learning_date: d.learning_date,
+      articles_learned: d.article_ids.size || d.learned_events,
+      learned_events: d.learned_events,
+      failed: d.failed,
+      titles: d.titles,
+    }))
+    .sort((a, b) => String(b.learning_date).localeCompare(String(a.learning_date)))
+    .slice(0, dayCount);
+
+  const uniqueCount = uniqueIds.size || uniqueTitles.length;
+  const latest = by_day[0]?.learning_date || null;
+  const dayBits = by_day
+    .filter((d) => d.articles_learned > 0)
+    .slice(0, 5)
+    .map((d) => `${d.learning_date}: ${d.articles_learned} article${d.articles_learned === 1 ? '' : 's'}`);
+
+  let summary;
+  if (uniqueCount === 0) {
+    summary = `No CMS articles were learned in the last ${dayCount} days.`;
+  } else {
+    summary = `Over the last ${dayCount} days, intelligence learned ${uniqueCount} CMS article${
+      uniqueCount === 1 ? '' : 's'
+    }${latest ? ` (latest ${latest})` : ''}.`;
+    if (dayBits.length) summary += ` Daily: ${dayBits.join(' · ')}.`;
+  }
+
+  const corpusBits = (corpus?.learned_today || []).slice(0, 3);
+  if (corpusBits.length) {
+    summary += ` Corpus also notes: ${corpusBits.join('; ')}`;
+  }
+
+  return {
+    ok: true,
+    days: dayCount,
+    timezone: 'Asia/Kolkata',
+    today,
+    from_window_days: dayCount,
+    articles_total: status.articles_total || 0,
+    pending_count: status.pending_count || 0,
+    articles_learned: uniqueCount,
+    unique_articles: uniqueCount,
+    learn_events: learnedEvents.length,
+    failed: failedEvents.length,
+    highlights: uniqueTitles.slice(0, 12),
+    by_day,
+    latest_learning_date: latest,
+    summary,
+    corpus,
+    architecture_status: 'v1.0.1 LOCKED',
+  };
+}
+
 let cmsLearnScheduler = null;
 let cmsLearnLastRun = null;
 let cmsLearnLastDate = null;

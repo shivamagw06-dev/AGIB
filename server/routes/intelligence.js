@@ -4,6 +4,7 @@
 
 import { Router } from 'express';
 import {
+  buildRecentLearningSummary,
   cmsLearningStatus,
   learnCmsArticles,
   startCmsArticleLearningScheduler,
@@ -166,6 +167,19 @@ export default function createIntelligenceRouter() {
     } catch (error) {
       return res.status(503).json({
         error: 'CMS learning status unavailable',
+        detail: error.message,
+      });
+    }
+  });
+
+  router.get('/cms/learning-summary', async (req, res) => {
+    try {
+      const days = req.query.days ? Number(req.query.days) : 5;
+      const result = await buildRecentLearningSummary({ engineFetch, days });
+      return res.status(result?.ok ? 200 : 503).json(result);
+    } catch (error) {
+      return res.status(503).json({
+        error: 'CMS learning summary unavailable',
         detail: error.message,
       });
     }
@@ -1012,7 +1026,54 @@ export default function createIntelligenceRouter() {
 
   // Mission Control V1 — administrator operations centre (read-only)
   router.get('/mission-control/health', kfGet('/v1/mission-control/health'));
-  router.get('/mission-control/dashboard', kfGet('/v1/mission-control/dashboard'));
+  router.get('/mission-control/dashboard', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/mission-control/dashboard');
+      if (!result.ok) {
+        return res.status(result.status).json(result.data);
+      }
+      const desk = result.data && typeof result.data === 'object' ? { ...result.data } : {};
+      // Soft enrich with CMS/KC learning digest — never block cockpit if digest fails
+      let learning = null;
+      try {
+        learning = await buildRecentLearningSummary({ engineFetch, days: 5 });
+      } catch {
+        learning = null;
+      }
+      if (learning) {
+        desk.learning_last_5_days = learning;
+        desk.knowledge_growth = {
+          ...(desk.knowledge_growth || {}),
+          research_learned: learning.articles_learned,
+          research_notes: learning.unique_articles,
+          last_5_days_summary: learning.summary,
+          last_5_days_highlights: learning.highlights,
+          last_5_days: learning.by_day,
+        };
+        desk.executive_status = {
+          ...(desk.executive_status || {}),
+          last_successful_learning:
+            learning.latest_learning_date || desk.executive_status?.last_successful_learning || null,
+        };
+        if (Array.isArray(desk.live_event_stream) && learning.summary) {
+          desk.live_event_stream = [
+            {
+              at: new Date().toISOString(),
+              type: 'learning',
+              message: learning.summary,
+            },
+            ...desk.live_event_stream,
+          ].slice(0, 40);
+        }
+      }
+      return res.json(desk);
+    } catch (error) {
+      return res.status(503).json({
+        error: 'Mission Control dashboard unavailable',
+        detail: error.message,
+      });
+    }
+  });
   router.get('/mission-control/quality-gates', kfGet('/v1/mission-control/quality-gates'));
   router.get('/mission-control/report', kfGet('/v1/mission-control/report'));
   router.post('/mission-control/acknowledge', async (req, res) => {
