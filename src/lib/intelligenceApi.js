@@ -1283,3 +1283,19 @@ export const diagnoseLayerRouter = (payload = {}) =>
     method: 'POST',
     body: typeof payload === 'string' ? { question: payload } : payload,
   });
+
+/** RQ1 Dynamic Research Blueprint Engine — Sprint 8 */
+export const getResearchBlueprintHealth = () => intelligenceFetch('/research-blueprint/health');
+export const getResearchBlueprintDashboard = () => intelligenceFetch('/research-blueprint/dashboard');
+export const getResearchBlueprintConstitution = () => intelligenceFetch('/research-blueprint/constitution');
+export const getResearchBlueprintQualityGates = () => intelligenceFetch('/research-blueprint/quality-gates');
+export const planResearchBlueprint = (payload = {}) =>
+  intelligenceFetch('/research-blueprint/plan', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });
+export const diagnoseResearchBlueprint = (payload = {}) =>
+  intelligenceFetch('/research-blueprint/diagnostics', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });

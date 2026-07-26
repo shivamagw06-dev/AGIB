@@ -2065,5 +2065,44 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // RQ1 Dynamic Research Blueprint Engine — Sprint 8 soft-wire
+  router.get('/research-blueprint/health', kfGet('/v1/research-blueprint/health'));
+  router.get('/research-blueprint/dashboard', kfGet('/v1/research-blueprint/dashboard'));
+  router.get('/research-blueprint/constitution', kfGet('/v1/research-blueprint/constitution'));
+  router.get('/research-blueprint/quality-gates', kfGet('/v1/research-blueprint/quality-gates'));
+  router.post('/research-blueprint/plan', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/research-blueprint/plan', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'DRBE plan failed', detail: error.message });
+    }
+  });
+  router.post('/research-blueprint/enrich', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/research-blueprint/enrich', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'DRBE enrich failed', detail: error.message });
+    }
+  });
+  router.post('/research-blueprint/diagnostics', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/research-blueprint/diagnostics', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'DRBE diagnostics failed', detail: error.message });
+    }
+  });
+
   return router;
 }

@@ -5081,6 +5081,58 @@ async def layer_router_diagnostics(payload: dict[str, Any] = Body(default={})):
     return diagnostics(payload or {})
 
 
+# --- RQ1 Dynamic Research Blueprint Engine (Sprint 8 — publication plan soft-wire; not a top-level layer) ---
+
+
+@router.get("/research-blueprint/health")
+async def research_blueprint_health():
+    from research_blueprint.production import health
+
+    return health()
+
+
+@router.get("/research-blueprint/dashboard")
+async def research_blueprint_dashboard():
+    from research_blueprint.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/research-blueprint/constitution")
+async def research_blueprint_constitution():
+    from research_blueprint.production import constitution
+
+    return constitution()
+
+
+@router.get("/research-blueprint/quality-gates")
+async def research_blueprint_quality_gates():
+    from research_blueprint.production import quality_gates
+
+    return quality_gates()
+
+
+@router.post("/research-blueprint/plan")
+async def research_blueprint_plan(payload: dict[str, Any] = Body(default={})):
+    from research_blueprint.production import plan
+
+    return plan(payload or {})
+
+
+@router.post("/research-blueprint/enrich")
+async def research_blueprint_enrich(payload: dict[str, Any] = Body(default={})):
+    from research_blueprint.production import enrich
+
+    return enrich(payload or {})
+
+
+@router.post("/research-blueprint/diagnostics")
+async def research_blueprint_diagnostics(payload: dict[str, Any] = Body(default={})):
+    from research_blueprint.production import diagnostics
+
+    return diagnostics(payload or {})
+
+
 # --- SIF v1.0 (Sector Intelligence Framework — additive; not an engine) ---
 
 

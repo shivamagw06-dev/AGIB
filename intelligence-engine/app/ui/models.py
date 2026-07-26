@@ -194,6 +194,8 @@ class SearchView(BaseModel):
     analyst_router: dict[str, Any] = Field(default_factory=dict)
     # RQ1 Intelligence Layer Router — Sprint 6 execution plan (additive; not a layer)
     layer_router: dict[str, Any] = Field(default_factory=dict)
+    # RQ1 Dynamic Research Blueprint Engine — Sprint 8 publication plan (additive; not a layer)
+    research_blueprint: dict[str, Any] = Field(default_factory=dict)
     current_outlook: str | None = None
     key_drivers: list[str] = Field(default_factory=list)
     valuation_perspective: str | None = None
