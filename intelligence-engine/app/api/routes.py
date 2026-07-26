@@ -4640,3 +4640,42 @@ async def institutional_analysts_quality_gates():
     from institutional_analysts.production import quality_gates
 
     return quality_gates()
+
+
+# --- Investment Committee Intelligence V1 (deliberation / vote / minutes) ---
+
+
+@router.get("/investment-committee/health")
+async def investment_committee_health():
+    from investment_committee.production import health
+
+    return health()
+
+
+@router.get("/investment-committee/quality-gates")
+async def investment_committee_quality_gates():
+    from investment_committee.production import quality_gates
+
+    return quality_gates()
+
+
+@router.get("/investment-committee/timeline/{ticker}")
+async def investment_committee_timeline(ticker: str, limit: int = Query(default=20, ge=1, le=100)):
+    from investment_committee.production import timeline
+
+    return timeline(ticker, limit=limit)
+
+
+@router.post("/investment-committee/record-actuals")
+async def investment_committee_record_actuals(payload: dict[str, Any] = Body(default={})):
+    """Prediction accountability — score prior committee expectations vs actuals."""
+    from investment_committee.production import record_actuals
+
+    ticker = str(payload.get("ticker") or "")
+    if not ticker:
+        raise HTTPException(status_code=400, detail="ticker required")
+    return record_actuals(
+        ticker,
+        meeting_id=payload.get("meeting_id"),
+        actuals=list(payload.get("actuals") or []),
+    )

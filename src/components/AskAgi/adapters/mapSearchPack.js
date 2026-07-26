@@ -525,14 +525,42 @@ export function mapSearchPack(pack) {
             ? iafCommittee.stage_2_conflicts
             : [],
           stage3: asList(iafCommittee.stage_3_missing_evidence, 6),
+          challenges: Array.isArray(iafCommittee.stage_3_challenges || iafCommittee.challenges)
+            ? (iafCommittee.stage_3_challenges || iafCommittee.challenges).slice(0, 4)
+            : [],
           agreements: asList(iafCommittee.agreements, 4),
           disagreements: asList(iafCommittee.disagreements, 4),
-          readiness: asText(iafCommittee.recommendation_readiness, ''),
-          confidence: iafCommittee.confidence ?? null,
-          stance: asText(iafCommittee.committee_stance || iaf?.disagreement_matrix?.committee_stance, ''),
+          readiness: asText(
+            iafCommittee.recommendation_readiness_label ||
+              iaf?.committee_decision?.recommendation_readiness ||
+              iafCommittee.recommendation_readiness,
+            ''
+          ),
+          confidence: iafCommittee.confidence ?? iaf?.committee_decision?.confidence ?? null,
+          stance: asText(
+            iafCommittee.committee_stance ||
+              iaf?.committee_decision?.committee_position ||
+              iaf?.disagreement_matrix?.committee_stance,
+            ''
+          ),
+          conviction: asText(
+            iafCommittee.conviction || iaf?.committee_vote?.conviction || '',
+            ''
+          ),
+          voteTally: asText(iafCommittee.vote_tally || iaf?.committee_vote?.tally || '', ''),
           reason: asText(iafCommittee.committee_reason || iaf?.disagreement_matrix?.reason, ''),
           disagreementMatrix: iaf?.disagreement_matrix || iafCommittee.disagreement_matrix || null,
           minutes: iaf?.committee_minutes || iafCommittee.minutes || null,
+          minority: asList(
+            (iaf?.minority_opinions || iafCommittee.minority_opinions || []).map((m) =>
+              typeof m === 'string' ? m : m?.view
+            ),
+            3
+          ),
+          decision: iaf?.committee_decision || iafCommittee.decision || null,
+          timeline: Array.isArray(iaf?.committee_timeline || iafCommittee.timeline)
+            ? (iaf?.committee_timeline || iafCommittee.timeline).slice(-6)
+            : [],
         }
       : null,
     whatChanged: asList(iaf?.what_changed || iafCio?.what_changed || pack.whats_changed?.bullets, 6),

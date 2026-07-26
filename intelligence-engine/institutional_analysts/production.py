@@ -220,13 +220,15 @@ def package_for_ask_agi(
                 "error": str(exc)[:120],
             }
 
-    committee = aggregate(opinions)
+    committee = aggregate(opinions, query=query, company=name, ticker=t)
     cio = write_report(committee, query=query, company=name)
 
     # Persist memory AFTER opinions are built (so this run can compare to prior)
     iaf_memory.put_opinions(t, opinions)
-    minutes_row = iaf_memory.put_minutes(t, committee.get("minutes") or {})
-    minutes_history = iaf_memory.get_minutes_history(t, limit=6)
+    minutes_row = committee.get("minutes") or {}
+    # ICI already stores minutes forever; keep IAF mirror for analyst what-changed
+    iaf_memory.put_minutes(t, minutes_row)
+    minutes_history = committee.get("timeline") or iaf_memory.get_minutes_history(t, limit=6)
 
     return {
         "enabled": True,
@@ -241,10 +243,18 @@ def package_for_ask_agi(
         "mandates": {r: mandate_for(r) for r in ANALYST_ROLES},
         "analyst_opinions": opinions,
         "committee": committee,
+        "investment_committee_intelligence": committee.get("ici") if committee.get("ici_enabled") else {},
         "cio": cio,
         "disagreement_matrix": committee.get("disagreement_matrix"),
         "committee_minutes": minutes_row,
         "committee_minutes_history": minutes_history,
+        "committee_vote": committee.get("vote") or committee.get("stage_5_vote"),
+        "committee_decision": committee.get("decision") or committee.get("stage_10_decision"),
+        "committee_challenges": committee.get("challenges") or committee.get("stage_3_challenges") or [],
+        "minority_opinions": committee.get("minority_opinions") or [],
+        "confidence_recalibration": committee.get("confidence_recalibration") or {},
+        "committee_timeline": committee.get("timeline") or [],
+        "committee_accuracy": committee.get("accuracy") or {},
         "section_owners": SECTION_OWNERS,
         "public_owner_labels": PUBLIC_OWNER_LABELS,
         "executive_summary": cio.get("executive_summary"),

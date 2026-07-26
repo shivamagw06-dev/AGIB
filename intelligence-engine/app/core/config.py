@@ -343,6 +343,10 @@ class Settings(BaseSettings):
     institutional_analysts: bool = True
     ask_agi_iaf: bool = True
 
+    # Investment Committee Intelligence V1 — deliberation / vote / minutes (not an engine)
+    investment_committee_intelligence: bool = True
+    ask_agi_ici: bool = True
+
     # AGIB Investment Decision Engine — multi-layer investment decisions (soft-wire; not an engine redesign)
     decision_engine: bool = True
     ask_agi_decision_engine: bool = True

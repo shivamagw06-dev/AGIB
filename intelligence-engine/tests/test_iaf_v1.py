@@ -10,6 +10,7 @@ from institutional_analysts.mandates import MANDATES
 from institutional_analysts.memory import reset_for_tests
 from institutional_analysts.production import health, package_for_ask_agi, quality_gates
 from institutional_analysts.schema import ANALYST_ROLES, IAF_VERSION, SECTION_OWNERS
+from investment_committee.store import reset_for_tests as reset_ici_store
 
 
 INTERNAL_LEAKS = (
@@ -101,6 +102,7 @@ def _hdfc_ctx(*, pe: float = 18.5, margin_of_safety: str = "Modest", biz_score: 
 
 def setup_function():
     reset_for_tests()
+    reset_ici_store()
 
 
 def test_health_and_gates():

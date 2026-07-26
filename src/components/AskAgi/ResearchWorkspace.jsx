@@ -379,11 +379,34 @@ export default function ResearchWorkspace({
                     </div>
                     {vm.institutionalView?.stance ? (
                       <p className="rw-body mt-4">
-                        Committee: <strong>{vm.institutionalView.stance}</strong>
+                        Committee: {vm.institutionalView.stance}
+                        {vm.institutionalView.conviction
+                          ? ` · ${vm.institutionalView.conviction} conviction`
+                          : ''}
+                        {vm.institutionalView.voteTally
+                          ? ` · Vote ${vm.institutionalView.voteTally}`
+                          : ''}
                         {vm.institutionalView.reason ? ` — ${vm.institutionalView.reason}` : ''}
                       </p>
                     ) : vm.institutionalView?.summary ? (
                       <p className="rw-body mt-4">{vm.institutionalView.summary}</p>
+                    ) : null}
+                    {vm.institutionalView?.decision ? (
+                      <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+                        {[
+                          ['Business Quality', vm.institutionalView.decision.business_quality],
+                          ['Financials', vm.institutionalView.decision.financials],
+                          ['Valuation', vm.institutionalView.decision.valuation],
+                          ['Risk', vm.institutionalView.decision.risk],
+                        ]
+                          .filter(([, v]) => v)
+                          .map(([label, value]) => (
+                            <div key={label} className="rw-why-card">
+                              <h4>{label}</h4>
+                              <p>{value}</p>
+                            </div>
+                          ))}
+                      </div>
                     ) : null}
                     {vm.institutionalView?.disagreementMatrix?.analyst_stances ? (
                       <div className="mt-4">
@@ -412,11 +435,37 @@ export default function ResearchWorkspace({
                         </ul>
                       </div>
                     ) : null}
+                    {vm.institutionalView?.challenges?.length ? (
+                      <div className="mt-4">
+                        <p className="rw-mini mb-2">Evidence challenges</p>
+                        <ul className="space-y-2 text-sm text-[var(--rw-soft)]">
+                          {vm.institutionalView.challenges.slice(0, 3).map((c) => (
+                            <li
+                              key={c.challenge || c.claim}
+                              className="border-b border-[var(--rw-border)] pb-2"
+                            >
+                              {c.challenge}
+                              {c.need ? ` Need: ${c.need}` : ''}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
                     {vm.institutionalView?.stage3?.length ? (
                       <div className="mt-4">
                         <p className="rw-mini mb-2">Before increasing conviction, the committee would like</p>
                         <ul className="space-y-1 text-sm text-[var(--rw-muted)]">
                           {vm.institutionalView.stage3.slice(0, 4).map((m) => (
+                            <li key={m}>• {m}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+                    {vm.institutionalView?.minority?.length ? (
+                      <div className="mt-4">
+                        <p className="rw-mini mb-2">Minority view</p>
+                        <ul className="space-y-1 text-sm text-[var(--rw-muted)]">
+                          {vm.institutionalView.minority.map((m) => (
                             <li key={m}>• {m}</li>
                           ))}
                         </ul>

@@ -892,6 +892,21 @@ export const getInstitutionalAnalystsHealth = () =>
 export const getInstitutionalAnalystsQualityGates = () =>
   intelligenceFetch('/institutional-analysts/quality-gates');
 
+/** Investment Committee Intelligence V1 — deliberation / vote / minutes */
+export const getInvestmentCommitteeHealth = () =>
+  intelligenceFetch('/investment-committee/health');
+export const getInvestmentCommitteeQualityGates = () =>
+  intelligenceFetch('/investment-committee/quality-gates');
+export const getInvestmentCommitteeTimeline = (ticker, limit = 20) =>
+  intelligenceFetch(
+    `/investment-committee/timeline/${encodeURIComponent(ticker)}?limit=${limit}`
+  );
+export const recordInvestmentCommitteeActuals = (ticker, actuals, meetingId) =>
+  intelligenceFetch('/investment-committee/record-actuals', {
+    method: 'POST',
+    body: { ticker, actuals, meeting_id: meetingId },
+  });
+
 /** AGIB Intelligence Layer V2 — living dossier / thesis / forecast / ledger */
 export const getAilHealth = () => intelligenceFetch('/ail/health');
 export const getAilDashboard = () => intelligenceFetch('/ail/dashboard');

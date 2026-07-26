@@ -1240,6 +1240,32 @@ export default function createIntelligenceRouter() {
   router.get('/institutional-analysts/health', kfGet('/v1/institutional-analysts/health'));
   router.get('/institutional-analysts/quality-gates', kfGet('/v1/institutional-analysts/quality-gates'));
 
+  // Investment Committee Intelligence V1 — deliberation / vote / minutes
+  router.get('/investment-committee/health', kfGet('/v1/investment-committee/health'));
+  router.get('/investment-committee/quality-gates', kfGet('/v1/investment-committee/quality-gates'));
+  router.get('/investment-committee/timeline/:ticker', async (req, res) => {
+    try {
+      const qs = new URLSearchParams();
+      if (req.query?.limit) qs.set('limit', String(req.query.limit));
+      const path = `/v1/investment-committee/timeline/${encodeURIComponent(req.params.ticker)}${qs.toString() ? `?${qs}` : ''}`;
+      res.json(await engineFetch(path));
+    } catch (err) {
+      res.status(502).json({ error: err?.message || 'Committee timeline failed' });
+    }
+  });
+  router.post('/investment-committee/record-actuals', async (req, res) => {
+    try {
+      res.json(
+        await engineFetch('/v1/investment-committee/record-actuals', {
+          method: 'POST',
+          body: req.body || {},
+        })
+      );
+    } catch (err) {
+      res.status(502).json({ error: err?.message || 'Committee actuals failed' });
+    }
+  });
+
   // AGIB Intelligence Layer V2 — living institutional research (soft-wire)
   router.get('/ail/health', kfGet('/v1/ail/health'));
   router.get('/ail/dashboard', kfGet('/v1/ail/dashboard'));

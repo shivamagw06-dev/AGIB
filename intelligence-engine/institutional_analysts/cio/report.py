@@ -14,7 +14,6 @@ from institutional_analysts.base import as_list, pick_confidence, scrub_public
 def _fresh(*parts: str, limit: int = 420) -> str:
     """Join and scrub — CIO voice only."""
     text = scrub_public(" ".join(p for p in parts if p), limit=limit)
-    # Extra hard ban on subsystem vocabulary the CIO must never voice
     banned = (
         "company analysis",
         "financial intelligence",
@@ -40,24 +39,32 @@ def _fresh(*parts: str, limit: int = 420) -> str:
 
 
 def write_report(committee: dict[str, Any], *, query: str = "", company: str = "") -> dict[str, Any]:
-    """CIO never consumes raw provider data or analyst free-text dumps — committee signals only."""
+    """CIO never consumes raw provider data — committee signals / ICI decision only."""
     name = company or "the company"
     signals = committee.get("cio_signals") if isinstance(committee.get("cio_signals"), dict) else {}
     matrix = committee.get("disagreement_matrix") if isinstance(committee.get("disagreement_matrix"), dict) else {}
     minutes = committee.get("minutes") if isinstance(committee.get("minutes"), dict) else {}
+    decision = committee.get("decision") or signals.get("decision") or {}
+    vote = committee.get("vote") or committee.get("stage_5_vote") or {}
     stances = signals.get("stances") if isinstance(signals.get("stances"), dict) else committee.get("stage_1_consensus") or {}
     conflicts = signals.get("conflicts") if isinstance(signals.get("conflicts"), list) else []
+    challenges = signals.get("challenges") if isinstance(signals.get("challenges"), list) else []
     missing = as_list(signals.get("missing_evidence") or committee.get("stage_3_missing_evidence"), limit=5)
     risk_items = as_list(signals.get("risk_items") or (committee.get("consensus") or {}).get("risks"), limit=5)
+    minority = as_list(signals.get("minority") or [m.get("view") for m in (committee.get("minority_opinions") or []) if isinstance(m, dict)], limit=3)
 
     committee_stance = (
-        signals.get("committee_stance")
+        decision.get("committee_position")
+        or signals.get("committee_stance")
         or matrix.get("committee_stance")
         or committee.get("committee_stance")
+        or vote.get("consensus")
         or "Neutral"
     )
+    conviction = vote.get("conviction") or matrix.get("conviction") or signals.get("conviction") or "Moderate"
+    tally = vote.get("tally") or matrix.get("vote") or signals.get("vote") or ""
     reason = signals.get("reason") or matrix.get("reason") or committee.get("committee_reason") or ""
-    conf = pick_confidence(committee.get("confidence"), default=0.55)
+    conf = pick_confidence(decision.get("confidence"), committee.get("confidence"), default=0.55)
 
     biz_s = stances.get("business") or "Neutral"
     fin_s = stances.get("financial") or "Neutral"
@@ -66,20 +73,24 @@ def write_report(committee: dict[str, Any], *, query: str = "", company: str = "
     risk_s = stances.get("risk") or "Neutral"
 
     exec_summary = _fresh(
-        f"{name}: the desk holds a {committee_stance.lower()} institutional view.",
-        f"Business quality is marked {biz_s.lower()}; financial trajectory {fin_s.lower()}; "
-        f"valuation {val_s.lower()}; macro {macro_s.lower()}; risk {risk_s.lower()}.",
+        f"{name}: the desk holds a {str(committee_stance).lower()} institutional view "
+        f"with {str(conviction).lower()} conviction"
+        + (f" (committee vote {tally})" if tally else "")
+        + ".",
+        f"Business quality {decision.get('business_quality') or biz_s.lower()}; "
+        f"financials {decision.get('financials') or fin_s.lower()}; "
+        f"valuation {decision.get('valuation') or val_s.lower()}; "
+        f"risk {decision.get('risk') or risk_s.lower()}.",
         reason,
         limit=420,
     )
 
     thesis = _fresh(
         f"Own {name} only when franchise durability and financial quality justify the entry after macro transmission.",
-        "Position sizing should respect the valuation cushion and the live risk register.",
+        "Position sizing should respect the valuation cushion, live risk register, and committee conviction.",
         limit=360,
     )
 
-    # Scenarios — original CIO prose from stances, not analyst sentence reuse
     if biz_s == "Bullish" and val_s != "Bearish":
         bull = [
             _fresh("Franchise delivery exceeds the base path and returns expand while the entry multiple stays reasonable."),
@@ -110,26 +121,41 @@ def write_report(committee: dict[str, Any], *, query: str = "", company: str = "
     ]
     if missing:
         catalysts = [missing[0], *catalysts]
+    if challenges:
+        need = challenges[0].get("need")
+        if need:
+            catalysts = [_fresh(need, limit=160), *catalysts]
 
     conflict_line = ""
     if conflicts:
         tension = conflicts[0].get("tension") or conflicts[0].get("topic")
         conflict_line = f"Core committee tension: {tension}."
 
+    minority_line = ""
+    if minority:
+        minority_line = f"Minority view noted: {minority[0]}"
+
     follow = minutes.get("follow_up") or "Reassess after the next material evidence update."
+    readiness = (
+        decision.get("recommendation_readiness")
+        or committee.get("recommendation_readiness_label")
+        or committee.get("recommendation_readiness")
+        or "partial"
+    )
     conclusion = _fresh(
-        f"Institutional conclusion remains {committee_stance.lower()} — an assessment, not a trade ticket.",
+        f"Institutional conclusion remains {str(committee_stance).lower()} — an assessment, not a trade ticket.",
         conflict_line,
-        f"Readiness: {committee.get('recommendation_readiness') or 'partial'}.",
+        minority_line,
+        f"Recommendation readiness: {readiness}.",
         follow,
-        limit=380,
+        limit=400,
     )
 
     why = [
-        _fresh(f"Business stance {biz_s}; financial stance {fin_s}."),
-        _fresh(f"Valuation stance {val_s}; risk stance {risk_s}."),
+        _fresh(f"Committee vote {tally or 'n/a'} → {committee_stance} ({conviction} conviction)."),
+        _fresh(f"Business {decision.get('business_quality') or biz_s}; financials {decision.get('financials') or fin_s}."),
+        _fresh(f"Valuation {decision.get('valuation') or val_s}; risk {decision.get('risk') or risk_s}."),
         _fresh(reason, limit=200),
-        _fresh(conflict_line or f"Macro stance {macro_s}.", limit=200),
     ]
 
     what_changed_notes = []
@@ -150,12 +176,16 @@ def write_report(committee: dict[str, Any], *, query: str = "", company: str = "
         "base_case": [x for x in base if x][:4],
         "bear_case": [x for x in bear if x][:4],
         "key_risks": risk_items[:6] or ["Execution", "Earnings miss", "Multiple compression"],
-        "key_catalysts": catalysts[:6],
+        "key_catalysts": [c for c in catalysts if c][:6],
         "institutional_conclusion": conclusion,
         "confidence": conf,
-        "recommendation_readiness": committee.get("recommendation_readiness"),
+        "recommendation_readiness": readiness,
         "committee_stance": committee_stance,
+        "committee_conviction": conviction,
+        "committee_vote": tally,
+        "committee_decision": decision,
         "disagreement_matrix": matrix,
+        "minority_opinions": minority,
         "why": [w for w in why if w][:6],
         "what_changed": what_changed_notes[:6],
         "editor_rules": {
@@ -163,5 +193,6 @@ def write_report(committee: dict[str, Any], *, query: str = "", company: str = "
             "never_mention_engines": True,
             "never_mention_providers": True,
             "institutional_language_only": True,
+            "recommendation_is_committee_vote": True,
         },
     }
