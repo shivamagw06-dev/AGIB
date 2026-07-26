@@ -9,7 +9,12 @@ from institutional_analysts.business.analyst import analyse as business_analyse
 from institutional_analysts.cio.report import write_report
 from institutional_analysts.committee.aggregate import aggregate
 from institutional_analysts.financial.analyst import analyse as financial_analyse
-from institutional_analysts.flags import flags_dict, is_enabled, is_iai_business_enabled
+from institutional_analysts.flags import (
+    flags_dict,
+    is_enabled,
+    is_iai_business_enabled,
+    is_iai_financial_enabled,
+)
 from institutional_analysts.macro.analyst import analyse as macro_analyse
 from institutional_analysts.management.analyst import analyse as management_analyse
 from institutional_analysts.mandates import MANDATES, mandate_for
@@ -67,6 +72,7 @@ def health() -> dict[str, Any]:
             "iai_business_analyst": is_iai_business_enabled(),
             "iai_business_analyst_v2": is_iai_business_enabled(),
             "iai_business_analyst_v2_1": is_iai_business_enabled(),
+            "iai_financial_analyst": is_iai_financial_enabled(),
         },
         "does_not_redesign": [
             "cid",

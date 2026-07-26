@@ -133,10 +133,10 @@ MANDATES: dict[str, dict[str, Any]] = {
         "role": "financial",
         "analyst": "Financial Analyst",
         "mandate": (
-            "Assess whether earnings quality, cash conversion, returns and balance-sheet "
-            "strength are improving or deteriorating."
+            "Determine whether reported financial performance represents durable economic "
+            "value creation through earnings quality, cash conversion, returns and balance-sheet resilience."
         ),
-        "primary_question": "Are the financials improving?",
+        "primary_question": "Do the financial statements support the investment thesis?",
         "primary_inputs": [
             "Financial Intelligence",
             "Company Dossier financial history",

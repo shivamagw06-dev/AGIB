@@ -33,6 +33,13 @@ def is_iai_business_v2_1_enabled() -> bool:
     return is_iai_business_v2_enabled() and _flag("iai_business_analyst_v2_1", True)
 
 
+def is_iai_financial_enabled() -> bool:
+    """Phase 3.2 — Financial Analyst institutional brain (soft; no redesign)."""
+    return is_enabled() and _flag("institutional_analyst_intelligence", True) and _flag(
+        "iai_financial_analyst", True
+    )
+
+
 def flags_dict() -> dict[str, bool]:
     return {
         "INSTITUTIONAL_ANALYSTS": _flag("institutional_analysts", True),
@@ -42,7 +49,9 @@ def flags_dict() -> dict[str, bool]:
         "IAI_BUSINESS_ANALYST": _flag("iai_business_analyst", True),
         "IAI_BUSINESS_ANALYST_V2": _flag("iai_business_analyst_v2", True),
         "IAI_BUSINESS_ANALYST_V2_1": _flag("iai_business_analyst_v2_1", True),
+        "IAI_FINANCIAL_ANALYST": _flag("iai_financial_analyst", True),
         "IAI_BUSINESS_ENABLED": is_iai_business_enabled(),
         "IAI_BUSINESS_V2_ENABLED": is_iai_business_v2_enabled(),
         "IAI_BUSINESS_V2_1_ENABLED": is_iai_business_v2_1_enabled(),
+        "IAI_FINANCIAL_ENABLED": is_iai_financial_enabled(),
     }
