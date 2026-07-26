@@ -269,14 +269,16 @@ def _attach_academy(dossier: dict[str, Any], academy: dict[str, Any]) -> None:
     fa["active_concepts"] = concept_ids[:24]
     fa["courses"] = list(academy.get("courses") or [])[:12]
     # Bucket by course tags when present
-    economics, accounting, acf = [], [], []
+    economics, accounting, acf, books = [], [], [], []
     for c in academy.get("concepts") or []:
         if not isinstance(c, dict):
             continue
         cid = c.get("concept_id") or c.get("id")
         tags = " ".join(str(x) for x in (c.get("tags") or [])).lower()
-        course = str(c.get("course_id") or "").lower()
-        if "econ" in course or "econ" in tags:
+        course = str(c.get("course_id") or c.get("course") or "").lower()
+        if "book" in course or "book" in tags:
+            books.append(cid)
+        elif "econ" in course or "econ" in tags:
             economics.append(cid)
         elif "account" in course or "account" in tags:
             accounting.append(cid)
@@ -288,6 +290,14 @@ def _attach_academy(dossier: dict[str, Any], academy: dict[str, Any]) -> None:
         fa["accounting"] = accounting[:16]
     if acf or concept_ids:
         fa["corporate_finance"] = (acf or concept_ids)[:16]
+    if books:
+        fa["books"] = books[:16]
+    # Soft frameworks / formulas from Academy Books package
+    books_pkg = academy.get("academy_books") if isinstance(academy.get("academy_books"), dict) else {}
+    if books_pkg.get("frameworks") and not fa.get("frameworks"):
+        fa["frameworks"] = books_pkg.get("frameworks")[:8]
+    if books_pkg.get("formulas") and not fa.get("formulas"):
+        fa["formulas"] = books_pkg.get("formulas")[:8]
 
 
 def _attach_valuation(dossier: dict[str, Any], pack: dict[str, Any], now: str) -> None:

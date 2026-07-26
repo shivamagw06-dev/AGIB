@@ -8,6 +8,8 @@ import {
   getAcademyDashboard,
   getAcademyExams,
   getAcademyHealth,
+  getAcademyBooksDashboard,
+  getAcademyBooksQualityGates,
   getAcademyProduction,
   getAcademyProductionAb,
   getAcademyProductionQualityGates,
@@ -46,6 +48,8 @@ export default function FinanceAcademy() {
   const [gates, setGates] = useState(null);
   const [sifDash, setSifDash] = useState(null);
   const [sifGates, setSifGates] = useState(null);
+  const [booksDash, setBooksDash] = useState(null);
+  const [booksGates, setBooksGates] = useState(null);
   const [courseFilter, setCourseFilter] = useState('all');
   const [conceptId, setConceptId] = useState('capital_allocation');
   const [lesson, setLesson] = useState(null);
@@ -57,7 +61,7 @@ export default function FinanceAcademy() {
     setLoading(true);
     setError('');
     try {
-      const [h, d, q, e, c, cm, rf, ac, cf, prod, abRes, g, sd, sg] = await Promise.all([
+      const [h, d, q, e, c, cm, rf, ac, cf, prod, abRes, g, sd, sg, bd, bg] = await Promise.all([
         getAcademyHealth(),
         getAcademyDashboard(),
         getAcademyQuality(),
@@ -72,6 +76,8 @@ export default function FinanceAcademy() {
         getAcademyProductionQualityGates(),
         getSifDashboard(),
         getSifQualityGates(),
+        getAcademyBooksDashboard().catch(() => null),
+        getAcademyBooksQualityGates().catch(() => null),
       ]);
       setHealth(h);
       setDashboard(d);
@@ -87,6 +93,8 @@ export default function FinanceAcademy() {
       setGates(g);
       setSifDash(sd);
       setSifGates(sg);
+      setBooksDash(bd);
+      setBooksGates(bg);
     } catch (err) {
       setError(err?.message || 'Failed to load Finance Academy');
     } finally {
@@ -423,6 +431,46 @@ export default function FinanceAcademy() {
             </div>
           ))}
         </div>
+      </div>
+
+      <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-4">
+        <div className="flex items-center gap-2">
+          <GraduationCap className="h-5 w-5 text-emerald-600" />
+          <div>
+            <h2 className="font-semibold text-slate-900">Academy Books — Institutional Learning</h2>
+            <p className="text-xs text-slate-500">
+              Curated books → concepts / frameworks / formulas / graph. Never searchable PDFs. Never verbatim copyrighted text.
+            </p>
+          </div>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <Stat label="Books" value={booksDash?.books?.length ?? '—'} hint="Seed + ingested" />
+          <Stat label="Concepts" value={booksDash?.concept_count ?? '—'} hint="AGI-owned objects" />
+          <Stat label="Frameworks" value={booksDash?.framework_count ?? '—'} hint="Decision logic" />
+          <Stat label="Formulas" value={booksDash?.formula_count ?? '—'} hint="WACC / ROIC / DCF…" />
+          <Stat label="Graph edges" value={booksDash?.graph_edges ?? '—'} hint="Knowledge graph" />
+        </div>
+        <div className="grid gap-2 sm:grid-cols-2 text-sm">
+          {Object.entries(booksGates?.checks || {}).map(([key, ok]) => (
+            <div key={key} className="flex items-center justify-between border border-slate-100 rounded-lg px-3 py-2">
+              <span className="text-slate-600">{key.replaceAll('_', ' ')}</span>
+              <span className={ok ? 'text-emerald-600 font-medium' : 'text-amber-600 font-medium'}>
+                {ok ? 'Yes' : 'No'}
+              </span>
+            </div>
+          ))}
+        </div>
+        <div className="flex flex-wrap gap-2 text-xs text-slate-600">
+          {Object.entries(booksDash?.flags || {}).map(([k, v]) => (
+            <span key={k} className="rounded-full border border-slate-200 px-2 py-1">
+              {k}={String(v)}
+            </span>
+          ))}
+        </div>
+        <p className="text-xs text-slate-500">
+          Linked companies: {(booksDash?.linked_companies || []).join(', ') || '—'} · Most used:{' '}
+          {(booksDash?.most_used_concepts || []).slice(0, 5).map((x) => x.concept_id).join(', ') || '—'}
+        </p>
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 p-5">

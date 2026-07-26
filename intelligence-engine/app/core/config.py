@@ -287,6 +287,10 @@ class Settings(BaseSettings):
     academy_provenance: bool = True
     academy_exams: bool = True
     academy_production: bool = True  # FAPI — production integration into locked engines
+    academy_books: bool = True  # ACADEMY_BOOKS — curated book → structured knowledge
+    academy_frameworks: bool = True  # ACADEMY_FRAMEWORKS
+    academy_formulas: bool = True  # ACADEMY_FORMULAS
+    academy_graph: bool = True  # ACADEMY_GRAPH
     sif: bool = True  # SIF — Sector Intelligence Framework (additive analysis lens)
     leo: bool = True  # LEO — Live Evidence Orchestrator (additive evidence acquisition)
     cid: bool = True  # CID — Company Intelligence Dossier (permanent institutional memory)

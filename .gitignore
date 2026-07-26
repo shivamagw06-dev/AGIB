@@ -5,6 +5,10 @@ dist/
 .DS_Store
 
 
-# Local book PDFs (copyrighted; do not commit)
-books/
+# Local book PDFs (copyrighted; do not commit) — root corpus only
+/books/
 *.pdf
+# Keep Academy Books programme source (structured knowledge; not PDF corpus)
+!intelligence-engine/academy/books/
+!intelligence-engine/academy/books/**
+__pycache__/

@@ -10,6 +10,10 @@ Institutional **multi-course curriculum library** — not an engine and not a su
 
 These three form the intellectual foundation before Investment Valuation.
 
+## Academy Books V1
+
+Additive programme under `academy/books/` — curated books / manuals become structured concepts, frameworks and formulas (never searchable PDFs, never long verbatim text). Soft-wires into FAPI, CID, KF, Ask AGI and Research Writer. See `academy/books/README.md`.
+
 ## Mission
 
 Convert teaching sources into reusable knowledge objects so AGI understands mechanisms — capital allocation, ROIC vs WACC, leverage, payout, and M&A — without re-reading books.

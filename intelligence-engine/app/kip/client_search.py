@@ -163,6 +163,14 @@ def research_continuity_context(
         if house.catalysts_occurred:
             changes.append(f"Catalysts occurred: {', '.join(house.catalysts_occurred[:5])}")
 
+    academy_books: dict[str, Any] = {}
+    try:
+        from academy.books.production import research_writer_slice
+
+        academy_books = research_writer_slice(query or "", ticker=ticker)
+    except Exception:
+        academy_books = {}
+
     return {
         "documents_retrieved": pack.documents_retrieved,
         "knowledge_version": pack.knowledge_version,
@@ -184,6 +192,12 @@ def research_continuity_context(
         "new_catalysts": (house.catalysts_occurred if house else [])[:10],
         "retrieval_order": pack.retrieval_order,
         "answer_policy": "house_view_first_then_external",
+        "academy_books": academy_books,
+        "research_policy": {
+            "use_academy_frameworks": True,
+            "never_copy_book_text": True,
+            "original_analysis_only": True,
+        },
     }
 
 

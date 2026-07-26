@@ -3218,6 +3218,99 @@ async def academy_production_package(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+# --- AGI Academy Books V1 (structured learning from curated books; not searchable PDFs) ---
+
+
+@router.get("/academy/books/health")
+async def academy_books_health():
+    from academy.books.flags import flags_dict, is_books_enabled
+    from academy.books.schema import BOOKS_VERSION
+
+    return {
+        "status": "ok" if is_books_enabled() else "disabled",
+        "programme": "AGI_ACADEMY_BOOKS",
+        "version": BOOKS_VERSION,
+        "architecture_status": "v1.0.1 LOCKED",
+        "not_an_engine": True,
+        "flags": flags_dict(),
+        "copyright_policy": "concepts_frameworks_formulas_only",
+    }
+
+
+@router.get("/academy/books/dashboard")
+async def academy_books_dashboard():
+    from academy.books.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/academy/books/quality-gates")
+async def academy_books_quality_gates():
+    from academy.books.production import quality_gates
+
+    return quality_gates()
+
+
+@router.get("/academy/books/graph")
+async def academy_books_graph():
+    from academy.books.production import dashboard
+
+    return dashboard().get("knowledge_graph") or {"nodes": [], "edges": []}
+
+
+@router.post("/academy/books/ingest")
+async def academy_books_ingest(payload: dict[str, Any] = Body(default={})):
+    """Ingest a book/manual as structured knowledge. Never retains long verbatim text."""
+    from academy.books.ingest import ingest_book
+
+    title = str(payload.get("title") or "").strip()
+    if not title:
+        raise HTTPException(status_code=400, detail="title required")
+    content = str(payload.get("content") or payload.get("text") or "")
+    content_b64 = str(payload.get("content_base64") or "")
+    raw = None
+    if content_b64:
+        import base64
+
+        try:
+            raw = base64.b64decode(content_b64)
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail=f"invalid content_base64: {exc}") from exc
+    result = ingest_book(
+        title=title,
+        authors=list(payload.get("authors") or []),
+        content=content,
+        content_bytes=raw,
+        filename=str(payload.get("filename") or ""),
+        subject=payload.get("subject"),
+        difficulty=str(payload.get("difficulty") or "intermediate"),
+        publication_year=payload.get("publication_year"),
+        publisher=payload.get("publisher"),
+        edition=payload.get("edition"),
+        language=str(payload.get("language") or "en"),
+    )
+    if not result.get("ok"):
+        raise HTTPException(status_code=400, detail=result.get("reason") or "ingest_failed")
+    return result
+
+
+@router.post("/academy/books/package")
+async def academy_books_package(
+    query: str = Query(...),
+    ticker: str | None = Query(default=None),
+):
+    from academy.books.production import package_for_query
+
+    return package_for_query(query, ticker=ticker)
+
+
+@router.post("/academy/books/attach-kf")
+async def academy_books_attach_kf():
+    from academy.books.production import soft_attach_kf
+
+    return soft_attach_kf()
+
+
 # --- SIF v1.0 (Sector Intelligence Framework — additive; not an engine) ---
 
 

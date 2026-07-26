@@ -127,6 +127,16 @@ def get_or_build(
     except Exception:
         pass
 
+    # Academy Books — soft CID learning enrichment (concepts/frameworks/formulas; no verbatim text)
+    try:
+        from academy.books.production import soft_enrich_cid
+        from cid.store import get_cid_store
+
+        dossier = soft_enrich_cid(dossier, ticker=t)
+        dossier = get_cid_store().put(dossier)
+    except Exception:
+        pass
+
     # DVC V1 — attach validated field metadata / consensus (soft; no LEO redesign)
     try:
         from app.core.config import get_settings

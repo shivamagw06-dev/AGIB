@@ -62,6 +62,42 @@ def course_manifest(course_id: str | None = None) -> dict[str, Any]:
     raise KeyError(f"Unknown course: {course_id}")
 
 
+def _book_knowledge_objects() -> list[KnowledgeObject]:
+    """Soft-include Academy Books concepts as KnowledgeObjects (fill curriculum)."""
+    try:
+        from academy.books.flags import is_books_enabled
+        from academy.books.ingest import ensure_seeded
+        from academy.books.store import get_books_store
+        from academy.schema import SourceRef
+    except Exception:
+        return []
+    if not is_books_enabled():
+        return []
+    ensure_seeded()
+    out: list[KnowledgeObject] = []
+    for c in get_books_store().concepts.values():
+        out.append(
+            KnowledgeObject(
+                concept=c.title,
+                concept_id=c.concept_id,
+                definition=c.definition,
+                purpose=c.explanation or c.definition,
+                first_principles=[c.explanation] if c.explanation else [c.definition],
+                examples=list(c.examples)[:4],
+                confidence=c.confidence,
+                sources=[
+                    SourceRef(
+                        book=c.source_book_id or "academy_books",
+                        chapter_title=c.source_chapter,
+                    )
+                ],
+                course_id="academy_books",
+                tags=["course:books", f"academy:{c.academy}", "source:books"],
+            )
+        )
+    return out
+
+
 def all_knowledge_objects(course_id: str | None = None) -> list[KnowledgeObject]:
     eco = economics_objects()
     for k in eco:
@@ -71,6 +107,11 @@ def all_knowledge_objects(course_id: str | None = None) -> list[KnowledgeObject]
             k.tags = list(k.tags) + ["course:economics"]
     acc = accounting_objects()
     acf = acf_objects()
+    # Books are a parallel structured-learning layer. Soft-included only when
+    # explicitly requested so curriculum QC / completion gates stay unchanged.
+    # FAPI still merges Academy Books via academy.books.production.package_for_query.
+    if course_id in {"academy_books", "books", "book"}:
+        return _book_knowledge_objects()
     if course_id in (None, "", "all"):
         return eco + acc + acf
     if course_id in (COURSE_ID, "economics", "mankiw"):

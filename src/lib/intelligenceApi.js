@@ -624,6 +624,19 @@ export const packageAcademyProduction = (query, engine = 'cae', ticker) => {
   if (ticker) qs.set('ticker', ticker);
   return intelligenceFetch(`/academy/production/package?${qs}`, { method: 'POST', body: {} });
 };
+export const getAcademyBooksHealth = () => intelligenceFetch('/academy/books/health');
+export const getAcademyBooksDashboard = () => intelligenceFetch('/academy/books/dashboard');
+export const getAcademyBooksQualityGates = () => intelligenceFetch('/academy/books/quality-gates');
+export const getAcademyBooksGraph = () => intelligenceFetch('/academy/books/graph');
+export const ingestAcademyBook = (body = {}) =>
+  intelligenceFetch('/academy/books/ingest', { method: 'POST', body });
+export const packageAcademyBooks = (query, ticker) => {
+  const qs = new URLSearchParams({ query: query || '' });
+  if (ticker) qs.set('ticker', ticker);
+  return intelligenceFetch(`/academy/books/package?${qs}`, { method: 'POST', body: {} });
+};
+export const attachAcademyBooksKf = () =>
+  intelligenceFetch('/academy/books/attach-kf', { method: 'POST', body: {} });
 export const getSifHealth = () => intelligenceFetch('/sif/health');
 export const getSifDashboard = () => intelligenceFetch('/sif/dashboard');
 export const getSifFrameworks = () => intelligenceFetch('/sif/frameworks');

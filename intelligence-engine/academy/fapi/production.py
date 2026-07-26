@@ -197,6 +197,45 @@ def package_for_query(
         },
     }
 
+    # Academy Books — soft structured learning (never verbatim book text)
+    try:
+        from academy.books.production import package_for_query as books_package
+
+        books_pkg = books_package(query, ticker=ticker, limit=8)
+        if books_pkg.get("enabled") and books_pkg.get("concept_ids"):
+            have = set(package.get("concept_ids") or [])
+            for row in books_pkg.get("concepts") or []:
+                cid = row.get("concept_id")
+                if not cid or cid in have:
+                    continue
+                package.setdefault("concepts", []).append(
+                    {
+                        "concept_id": cid,
+                        "concept": row.get("title"),
+                        "course": "academy_books",
+                        "score": 70.0,
+                        "definition": row.get("definition"),
+                        "why_selected": "academy_books",
+                    }
+                )
+                package.setdefault("concept_ids", []).append(cid)
+                have.add(cid)
+            if "academy_books" not in (package.get("courses") or []):
+                package.setdefault("courses", []).append("academy_books")
+            for h in books_pkg.get("answer_hints") or []:
+                if h not in package.get("answer_hints", []):
+                    package.setdefault("answer_hints", []).append(h)
+            package["academy_books"] = {
+                "frameworks": books_pkg.get("frameworks") or [],
+                "formulas": books_pkg.get("formulas") or [],
+                "provenance": books_pkg.get("provenance") or {},
+            }
+            prov = package.setdefault("provenance", {})
+            prov["books_influenced"] = True
+            prov["verbatim_quotes"] = False
+    except Exception:
+        pass
+
     if record:
         get_usage_store().record_retrieval(
             query=query,

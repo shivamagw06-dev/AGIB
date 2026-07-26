@@ -848,6 +848,46 @@ export default function createIntelligenceRouter() {
       res.status(502).json({ error: err?.message || 'Academy production package failed' });
     }
   });
+  // AGI Academy Books V1 — structured institutional learning (not searchable PDFs)
+  router.get('/academy/books/health', kfGet('/v1/academy/books/health'));
+  router.get('/academy/books/dashboard', kfGet('/v1/academy/books/dashboard'));
+  router.get('/academy/books/quality-gates', kfGet('/v1/academy/books/quality-gates'));
+  router.get('/academy/books/graph', kfGet('/v1/academy/books/graph'));
+  router.post('/academy/books/ingest', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/academy/books/ingest', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err?.message || 'Academy books ingest failed' });
+    }
+  });
+  router.post('/academy/books/package', async (req, res) => {
+    try {
+      const qs = new URLSearchParams();
+      const query = req.query.query || req.body?.query;
+      const ticker = req.query.ticker || req.body?.ticker;
+      if (query) qs.set('query', String(query));
+      if (ticker) qs.set('ticker', String(ticker));
+      const result = await engineFetch(`/v1/academy/books/package?${qs.toString()}`, {
+        method: 'POST',
+        body: {},
+      });
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err?.message || 'Academy books package failed' });
+    }
+  });
+  router.post('/academy/books/attach-kf', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/academy/books/attach-kf', { method: 'POST', body: {} });
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err?.message || 'Academy books KF attach failed' });
+    }
+  });
   // SIF v1.0 — Sector Intelligence Framework (additive; not an engine)
   router.get('/sif/health', kfGet('/v1/sif/health'));
   router.get('/sif/dashboard', kfGet('/v1/sif/dashboard'));
