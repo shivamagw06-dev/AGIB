@@ -26,7 +26,11 @@ def health() -> dict[str, Any]:
     }
 
 
-def dashboard(*, ioc_service: Any | None = None) -> dict[str, Any]:
+def dashboard(*, ioc_service: Any | None = None, force: bool = False) -> dict[str, Any]:
+    if not force:
+        cached = mc_store.get_dashboard()
+        if cached:
+            return cached
     desk = build_mission_control(ioc_service=ioc_service)
     if desk.get("enabled"):
         mc_store.put_dashboard(desk)
@@ -76,7 +80,8 @@ def system_report(*, ioc_service: Any | None = None) -> dict[str, Any]:
 
 
 def quality_gates() -> dict[str, Any]:
-    desk = dashboard()
+    # Prefer cached desk — never rebuild a second full aggregate for gates.
+    desk = mc_store.get_dashboard() or dashboard()
     criteria = {
         "enabled": desk.get("enabled") is True,
         "read_only": desk.get("read_only") is True,
