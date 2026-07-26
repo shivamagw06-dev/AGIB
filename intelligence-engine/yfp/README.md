@@ -1,44 +1,18 @@
-# Yahoo Finance Institutional Provider (YFP V1)
+# YFP — Yahoo Finance Institutional Provider
 
-**Not an engine.** Secondary MarketData provider adapter under the existing Provider Registry.
+**Architecture status:** v1.0.1 LOCKED  
+**Role:** Secondary MarketData provider (priority 40) — enrichment only
 
-## Priority
+## Financial Intelligence Enrichment
 
-```
-Official Exchange → IndianAPI (10) → Finnhub (20) → FMP (30) → Yahoo (40)
-```
+Canonical financial statement + valuation history via MarketDataClient only.
 
-Yahoo enriches; it never overwrites higher-confidence institutional fields in CID.
+| Flag | Purpose |
+|------|---------|
+| `YAHOO_FINANCIAL_HISTORY` | Income / balance / cash-flow annual+quarterly history |
+| `YAHOO_VALUATION_HISTORY` | PE, EV, EV/EBITDA, PB, PS, PEG, yields, shares |
+| `YAHOO_CID_ENRICHMENT` | Soft-merge into CID (fill empties only) |
 
-## Canonical only
+Soft side-effects (no redesign): CID financial timeline, KF company financial_history, LEO evidence packages, DVC validated_fields (secondary).
 
-Adapters map Yahoo modules into:
-
-- `MarketDataQuote`
-- `OHLCVSeries`
-- `CorporateAction`
-- `FundamentalSnapshot` (profile / ratios / statements / ownership as metrics)
-- `CalendarEvent` (earnings / upgrades / SEC)
-- `OptionChain` (store only)
-
-Downstream engines never see Yahoo-native payloads.
-
-## Flags
-
-```
-YAHOO_PROVIDER=true
-YAHOO_PROFILE=true
-YAHOO_FINANCIALS=true
-YAHOO_EARNINGS=true
-YAHOO_VALUATION=true
-YAHOO_OWNERSHIP=true
-YAHOO_OPTIONS=true
-```
-
-## Soft wiring
-
-- `MarketDataClient.from_settings` registers Yahoo
-- LEO source `yahoo` → evidence objects
-- CID `get_or_build` / `yfp.enrich_cid` soft-merge
-- Admin `/admin/yahoo-provider`
-- API `/v1/yfp/*`
+Ask AGI benefits via enriched CID — never mention Yahoo in answers.
