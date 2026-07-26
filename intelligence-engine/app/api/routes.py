@@ -5036,6 +5036,51 @@ async def analyst_router_diagnostics(payload: dict[str, Any] = Body(default={}))
     return diagnostics(payload or {})
 
 
+# --- RQ1 Intelligence Layer Router (Sprint 6 — execution planner soft-wire; not a top-level layer) ---
+
+
+@router.get("/layer-router/health")
+async def layer_router_health():
+    from layer_router.production import health
+
+    return health()
+
+
+@router.get("/layer-router/dashboard")
+async def layer_router_dashboard():
+    from layer_router.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/layer-router/constitution")
+async def layer_router_constitution():
+    from layer_router.production import constitution
+
+    return constitution()
+
+
+@router.get("/layer-router/quality-gates")
+async def layer_router_quality_gates():
+    from layer_router.production import quality_gates
+
+    return quality_gates()
+
+
+@router.post("/layer-router/plan")
+async def layer_router_plan(payload: dict[str, Any] = Body(default={})):
+    from layer_router.production import plan
+
+    return plan(payload or {})
+
+
+@router.post("/layer-router/diagnostics")
+async def layer_router_diagnostics(payload: dict[str, Any] = Body(default={})):
+    from layer_router.production import diagnostics
+
+    return diagnostics(payload or {})
+
+
 # --- SIF v1.0 (Sector Intelligence Framework — additive; not an engine) ---
 
 

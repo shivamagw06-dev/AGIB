@@ -1267,3 +1267,19 @@ export const diagnoseAnalystRouter = (payload = {}) =>
     method: 'POST',
     body: typeof payload === 'string' ? { question: payload } : payload,
   });
+
+/** RQ1 Intelligence Layer Router — Sprint 6 (execution planner) */
+export const getLayerRouterHealth = () => intelligenceFetch('/layer-router/health');
+export const getLayerRouterDashboard = () => intelligenceFetch('/layer-router/dashboard');
+export const getLayerRouterConstitution = () => intelligenceFetch('/layer-router/constitution');
+export const getLayerRouterQualityGates = () => intelligenceFetch('/layer-router/quality-gates');
+export const planLayerRouter = (payload = {}) =>
+  intelligenceFetch('/layer-router/plan', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });
+export const diagnoseLayerRouter = (payload = {}) =>
+  intelligenceFetch('/layer-router/diagnostics', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });

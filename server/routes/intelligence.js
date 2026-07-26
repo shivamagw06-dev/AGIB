@@ -2037,7 +2037,33 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // RQ1 Intelligence Layer Router — Sprint 6 execution planner soft-wire
+  router.get('/layer-router/health', kfGet('/v1/layer-router/health'));
+  router.get('/layer-router/dashboard', kfGet('/v1/layer-router/dashboard'));
+  router.get('/layer-router/constitution', kfGet('/v1/layer-router/constitution'));
+  router.get('/layer-router/quality-gates', kfGet('/v1/layer-router/quality-gates'));
+  router.post('/layer-router/plan', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/layer-router/plan', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'ILR plan failed', detail: error.message });
+    }
+  });
+  router.post('/layer-router/diagnostics', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/layer-router/diagnostics', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'ILR diagnostics failed', detail: error.message });
+    }
+  });
+
   return router;
 }
-
-# ROE proxy live

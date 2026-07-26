@@ -39,6 +39,7 @@ import EntityResolution from '@/pages/admin/EntityResolution';
 import ResearchPlanner from '@/pages/admin/ResearchPlanner';
 import AnalystRouter from '@/pages/admin/AnalystRouter';
 import ContextIntelligence from '@/pages/admin/ContextIntelligence';
+import LayerRouter from '@/pages/admin/LayerRouter';
 
 export default function AdminRoutes() {
   return (
@@ -77,6 +78,7 @@ export default function AdminRoutes() {
           <Route path="research-planner" element={<ResearchPlanner />} />
           <Route path="context-intelligence" element={<ContextIntelligence />} />
           <Route path="analyst-router" element={<AnalystRouter />} />
+          <Route path="layer-router" element={<LayerRouter />} />
           <Route path="system" element={<MissionControl />} />
           <Route path="investment-intelligence" element={<InvestmentIntelligence />} />
           <Route path="forecasting" element={<Forecasting />} />

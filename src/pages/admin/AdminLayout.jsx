@@ -49,6 +49,7 @@ const navItems = [
   { to: '/admin/research-planner', label: 'Research Planner', icon: ClipboardList },
   { to: '/admin/context-intelligence', label: 'Context Intelligence', icon: Layers3 },
   { to: '/admin/analyst-router', label: 'Analyst Router', icon: Network },
+  { to: '/admin/layer-router', label: 'Layer Router', icon: GitBranch },
   { to: '/admin/articles/new', label: 'New Article', icon: Plus },
   { to: '/admin/categories', label: 'Categories', icon: FolderOpen },
   { to: '/admin/knowledge', label: 'Knowledge Corpus', icon: Brain },
