@@ -63,12 +63,22 @@ def flag_validation_suite() -> bool:
     )
 
 
+def flag_certification_suite() -> bool:
+    s = _settings()
+    if s is None:
+        return True
+    return bool(getattr(s, "academy", True)) and bool(
+        getattr(s, "academy_certification_suite", True)
+    )
+
+
 def flags_dict() -> dict[str, Any]:
     return {
         "ACADEMY": is_academy_enabled(),
         "ACADEMY_BOOKS": is_books_enabled(),
         "ACADEMY_BOOKS_V3": flag_books_v3(),
         "ACADEMY_VALIDATION_SUITE": flag_validation_suite(),
+        "ACADEMY_CERTIFICATION_SUITE": flag_certification_suite(),
         "ACADEMY_FRAMEWORKS": flag_frameworks(),
         "ACADEMY_FORMULAS": flag_formulas(),
         "ACADEMY_GRAPH": flag_graph(),

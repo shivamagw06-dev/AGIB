@@ -3651,6 +3651,77 @@ async def academy_validation_quality_gates():
     return quality_gates()
 
 
+# --- Academy Certification Suite V1 (institutional intelligence / merge gate) ---
+
+
+@router.get("/academy/certification/health")
+async def academy_certification_health():
+    from academy.certification.production import is_enabled
+    from academy.certification.schema import ACS_VERSION, LEVELS
+
+    return {
+        "status": "ok" if is_enabled() else "disabled",
+        "programme": "AGI_ACADEMY_CERTIFICATION_SUITE",
+        "version": ACS_VERSION,
+        "architecture_status": "v1.0.1 LOCKED",
+        "metric": "reasoning_quality",
+        "levels": LEVELS,
+    }
+
+
+@router.get("/academy/certification/dashboard")
+async def academy_certification_dashboard():
+    from academy.certification.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/academy/certification/inventory")
+async def academy_certification_inventory():
+    from academy.certification.production import list_inventory
+
+    return list_inventory()
+
+
+@router.post("/academy/certification/run")
+async def academy_certification_run(payload: dict[str, Any] = Body(default={})):
+    from academy.certification.production import certify
+
+    full = bool(payload.get("full"))
+    limit = payload.get("limit_per_analyst")
+    return certify(
+        full=full,
+        limit_per_analyst=None if full else (int(limit) if limit is not None else 8),
+    )
+
+
+@router.post("/academy/certification/gate")
+async def academy_certification_gate(payload: dict[str, Any] = Body(default={})):
+    from academy.certification.gate import certification_gate
+
+    return certification_gate(
+        full=bool(payload.get("full")),
+        limit_per_analyst=None if payload.get("full") else int(payload.get("limit_per_analyst") or 8),
+    )
+
+
+@router.get("/academy/certification/quality-gates")
+async def academy_certification_quality_gates(full: bool = Query(default=False)):
+    from academy.certification.production import quality_gates
+
+    return quality_gates(full=full)
+
+
+@router.post("/academy/certification/exam/{exam_id}")
+async def academy_certification_exam(exam_id: str):
+    from academy.certification.production import run_one
+
+    result = run_one(exam_id)
+    if result.get("reason") == "unknown_exam":
+        raise HTTPException(status_code=404, detail="unknown_exam")
+    return result
+
+
 # --- SIF v1.0 (Sector Intelligence Framework — additive; not an engine) ---
 
 

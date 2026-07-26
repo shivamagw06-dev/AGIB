@@ -63,6 +63,13 @@ Separate soft programme: **demonstrate** institutional knowledge (Levels 1–8),
 
 See `academy/validation_suite/README.md` and `/v1/academy/validation/*`.
 
+## Academy Certification Suite (ACS)
+
+Institutional examination + merge gate (Levels 1–18). Metric = reasoning quality, not book ingest.
+
+See `academy/certification/README.md` and `/v1/academy/certification/*`.  
+Gate: `POST /v1/academy/certification/gate` — do not merge unless certification passes.
+
 ## Admin
 
 `/admin/academy` — Books V2 panel with ingest action, spreadsheet count, ingestion report table.
