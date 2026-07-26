@@ -1042,3 +1042,16 @@ export const getCigEvent = (event) =>
   intelligenceFetch(`/causal-intelligence/event/${encodeURIComponent(event)}`);
 export const analyseCig = (payload = {}) =>
   intelligenceFetch('/causal-intelligence/analyse', { method: 'POST', body: payload || {} });
+
+/** Forecast Intelligence Engine */
+export const getFieHealth = () => intelligenceFetch('/forecast/health');
+export const getFieDashboard = () => intelligenceFetch('/forecast/dashboard');
+export const getFieQualityGates = () => intelligenceFetch('/forecast/quality-gates');
+export const getFieCompany = (ticker) =>
+  intelligenceFetch(`/forecast/company/${encodeURIComponent(ticker)}`);
+export const getFieScenarios = (ticker) =>
+  intelligenceFetch(`/forecast/scenarios/${encodeURIComponent(ticker)}`);
+export const getFieCatalysts = (ticker) =>
+  intelligenceFetch(`/forecast/catalysts/${encodeURIComponent(ticker)}`);
+export const analyseFie = (payload = {}) =>
+  intelligenceFetch('/forecast/analyse', { method: 'POST', body: payload || {} });

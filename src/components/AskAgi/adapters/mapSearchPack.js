@@ -624,6 +624,26 @@ export function mapSearchPack(pack) {
               ? pack.causal_intelligence.why[0]
               : pack.causal_intelligence?.why) ||
             null,
+          forecastMostLikely:
+            stackSummary.forecast_most_likely ||
+            stack?.layers?.forecast_intelligence?.most_likely ||
+            pack.forecast_intelligence?.most_likely ||
+            null,
+          forecastConfidence:
+            stackSummary.forecast_confidence ??
+            stack?.layers?.forecast_intelligence?.confidence ??
+            pack.forecast_intelligence?.confidence ??
+            null,
+          forecastDistribution:
+            stackSummary.forecast_distribution ||
+            stack?.layers?.forecast_intelligence?.distribution ||
+            pack.forecast_intelligence?.distribution ||
+            null,
+          forecastSummary:
+            stackSummary.forecast_summary ||
+            stack?.layers?.forecast_intelligence?.executive_forecast ||
+            pack.forecast_intelligence?.executive_forecast ||
+            null,
           filingFound: stackSummary.filing_found ?? stackFil.found ?? null,
           materialChangeSignal: stackSummary.material_change_signal ?? Boolean(stackFdi.enabled),
           peerEnabled: stackSummary.peer_enabled ?? Boolean(stackPil.enabled),

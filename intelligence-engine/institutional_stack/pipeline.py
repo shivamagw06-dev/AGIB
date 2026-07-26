@@ -126,6 +126,20 @@ def refresh_ticker(ticker: str) -> dict[str, Any]:
     except Exception as exc:
         out["errors"].append(f"cig:{str(exc)[:120]}")
 
+    # FIE — forecast scenarios soft slice
+    try:
+        from forecast_intelligence.production import soft_slice_for_analyst as fie_slice
+
+        fie = (fie_slice(t, analyst="committee") or {}).get("forecast_intelligence") or {}
+        out["layers"]["forecast_intelligence"] = {
+            "found": bool(fie.get("found")),
+            "most_likely": fie.get("most_likely"),
+            "confidence": fie.get("confidence"),
+            "enabled": fie.get("enabled", True),
+        }
+    except Exception as exc:
+        out["errors"].append(f"fie:{str(exc)[:120]}")
+
     # PIL soft refresh (overlay from FIL)
     try:
         from peer_intelligence.production import company as pil_company
@@ -205,6 +219,7 @@ def company_pack(ticker: str, *, analyst: str = "committee") -> dict[str, Any]:
             "EIL",
             "PIL",
             "CIG",
+            "FIE",
             "PIO",
         ],
         "layers": {},
@@ -268,6 +283,14 @@ def company_pack(ticker: str, *, analyst: str = "committee") -> dict[str, Any]:
     except Exception as exc:
         pack["layers"]["causal_intelligence"] = {"enabled": False, "error": str(exc)[:120]}
 
+    # FIE
+    try:
+        from forecast_intelligence.production import soft_slice_for_analyst as fie_slice
+
+        pack["layers"].update(fie_slice(t, analyst=analyst) or {})
+    except Exception as exc:
+        pack["layers"]["forecast_intelligence"] = {"enabled": False, "error": str(exc)[:120]}
+
     # EIL (company-agnostic support slice)
     try:
         from academy.evidence.production import soft_slice_for_irs
@@ -283,6 +306,7 @@ def company_pack(ticker: str, *, analyst: str = "committee") -> dict[str, Any]:
     aci = pack["layers"].get("accounting_intelligence") or {}
     pio = pack["layers"].get("portfolio_intelligence") or {}
     cig = pack["layers"].get("causal_intelligence") or {}
+    fie = pack["layers"].get("forecast_intelligence") or {}
     fdi = pack["layers"].get("filing_diff") or {}
     fil = pack["layers"].get("filing_intelligence") or {}
     pil = pack["layers"].get("peer_intelligence") or {}
@@ -304,6 +328,10 @@ def company_pack(ticker: str, *, analyst: str = "committee") -> dict[str, Any]:
         "causal_confidence": cig.get("confidence"),
         "causal_upstream": cig.get("upstream_drivers"),
         "causal_why": (cig.get("why") or [None])[0] if isinstance(cig.get("why"), list) else cig.get("why"),
+        "forecast_most_likely": fie.get("most_likely"),
+        "forecast_confidence": fie.get("confidence"),
+        "forecast_distribution": fie.get("distribution"),
+        "forecast_summary": fie.get("executive_forecast"),
         "filing_found": fil.get("found", bool(fil.get("enabled"))),
         "material_change_signal": bool(fdi.get("committee") or fdi.get("desk") or fdi.get("enabled")),
         "peer_enabled": bool(pil.get("enabled")),
@@ -311,6 +339,7 @@ def company_pack(ticker: str, *, analyst: str = "committee") -> dict[str, Any]:
         "primary_question_aci": "Can the financial statements be trusted?",
         "primary_question_pio": "Does this company improve this specific portfolio?",
         "primary_question_cig": "Why did this happen?",
+        "primary_question_fie": "What future paths are plausible?",
         "primary_question_fdi": "What materially changed since the previous filing?",
         "primary_question_fil": "What do the company's own filings actually say?",
         "primary_question_pil": "How does this company compare to the best and most relevant peers?",

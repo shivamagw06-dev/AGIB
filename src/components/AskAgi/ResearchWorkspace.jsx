@@ -923,6 +923,18 @@ export default function ResearchWorkspace({
                             </p>
                           </>
                         ) : null}
+                        <p className="rw-mini mt-2">Most likely scenario</p>
+                        <p className="font-semibold">
+                          {vm.institutionalStack.forecastMostLikely || '—'}
+                          {vm.institutionalStack.forecastConfidence != null
+                            ? ` · conf ${vm.institutionalStack.forecastConfidence}`
+                            : ''}
+                        </p>
+                        {vm.institutionalStack.forecastSummary ? (
+                          <p className="text-xs text-slate-500 mt-2">
+                            {vm.institutionalStack.forecastSummary}
+                          </p>
+                        ) : null}
                       </div>
                     </div>
                     {vm.institutionalStack.openConcerns?.length ? (

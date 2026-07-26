@@ -4454,6 +4454,77 @@ async def admin_causal_intelligence():
     return HTMLResponse(admin_page())
 
 
+# --- Forecast Intelligence Engine V1 (what future paths are plausible?) ---
+
+
+@router.get("/forecast/health")
+async def forecast_intelligence_health():
+    from forecast_intelligence.production import health
+
+    return health()
+
+
+@router.get("/forecast/dashboard")
+async def forecast_intelligence_dashboard():
+    from forecast_intelligence.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/forecast/company/{ticker}")
+async def forecast_intelligence_company(ticker: str):
+    from forecast_intelligence.production import company
+
+    out = company(ticker)
+    if out.get("enabled") and not out.get("found"):
+        raise HTTPException(status_code=404, detail="company_forecast_not_found")
+    return out
+
+
+@router.get("/forecast/scenarios/{ticker}")
+async def forecast_intelligence_scenarios(ticker: str):
+    from forecast_intelligence.production import scenarios
+
+    out = scenarios(ticker)
+    if out.get("enabled") and not out.get("found"):
+        raise HTTPException(status_code=404, detail="company_forecast_not_found")
+    return out
+
+
+@router.get("/forecast/catalysts/{ticker}")
+async def forecast_intelligence_catalysts(ticker: str):
+    from forecast_intelligence.production import catalysts
+
+    out = catalysts(ticker)
+    if out.get("enabled") and not out.get("found"):
+        raise HTTPException(status_code=404, detail="company_forecast_not_found")
+    return out
+
+
+@router.post("/forecast/analyse")
+async def forecast_intelligence_analyse(payload: dict[str, Any] = Body(default={})):
+    from forecast_intelligence.production import analyse
+
+    return analyse(
+        ticker=payload.get("ticker") or payload.get("company"),
+        question=payload.get("question") or payload.get("query"),
+    )
+
+
+@router.get("/forecast/quality-gates")
+async def forecast_intelligence_quality_gates():
+    from forecast_intelligence.production import quality_gates
+
+    return quality_gates()
+
+
+@router.get("/admin/forecast-intelligence", response_class=HTMLResponse)
+async def admin_forecast_intelligence():
+    from forecast_intelligence.production import admin_page
+
+    return HTMLResponse(admin_page())
+
+
 # --- SIF v1.0 (Sector Intelligence Framework — additive; not an engine) ---
 
 

@@ -271,6 +271,20 @@ export default function CompanyIntelligencePanels({ data }) {
                 </p>
               ) : null}
             </Card>
+            <Card title="Forecast Path">
+              {data.institutional_stack?.summary?.forecast_most_likely ||
+                data.forecast_path?.most_likely ||
+                '—'}
+              {(data.institutional_stack?.summary?.forecast_confidence ??
+                data.forecast_path?.confidence) != null ? (
+                <p className="text-xs text-[#667085] mt-1">
+                  Confidence{' '}
+                  {data.institutional_stack?.summary?.forecast_confidence ??
+                    data.forecast_path?.confidence}
+                  {' · not a price target'}
+                </p>
+              ) : null}
+            </Card>
           </div>
         </section>
       )}

@@ -220,6 +220,14 @@ def dashboard() -> dict[str, Any]:
     except Exception as exc:
         causal_slice = {"causal_intelligence": {"enabled": False, "soft_error": str(exc)}}
 
+    forecast_slice: dict[str, Any] = {}
+    try:
+        from forecast_intelligence.production import soft_slice_for_irs as fie_soft_slice
+
+        forecast_slice = fie_soft_slice()
+    except Exception as exc:
+        forecast_slice = {"forecast_intelligence": {"enabled": False, "soft_error": str(exc)}}
+
     stack_slice: dict[str, Any] = {}
     try:
         from institutional_stack.production import soft_slice_for_irs as stack_soft_slice
@@ -255,6 +263,7 @@ def dashboard() -> dict[str, Any]:
         **accounting_slice,
         **portfolio_slice,
         **causal_slice,
+        **forecast_slice,
         **stack_slice,
     }
 

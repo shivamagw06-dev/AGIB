@@ -93,6 +93,15 @@ export default function Nifty500StockResearch() {
               source: 'causal_intelligence',
             }
           : undefined,
+        forecast_path: stack?.summary
+          ? {
+              most_likely: stack.summary.forecast_most_likely,
+              confidence: stack.summary.forecast_confidence,
+              distribution: stack.summary.forecast_distribution,
+              summary: stack.summary.forecast_summary,
+              source: 'forecast_intelligence',
+            }
+          : undefined,
       });
     });
     return () => {

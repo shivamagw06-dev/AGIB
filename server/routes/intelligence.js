@@ -1654,5 +1654,51 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // Forecast Intelligence Engine V1 — what future paths are plausible?
+  router.get('/forecast/health', kfGet('/v1/forecast/health'));
+  router.get('/forecast/dashboard', kfGet('/v1/forecast/dashboard'));
+  router.get('/forecast/quality-gates', kfGet('/v1/forecast/quality-gates'));
+  router.get('/forecast/company/:ticker', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/forecast/company/${encodeURIComponent(req.params.ticker)}`
+      );
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Forecast company unavailable', detail: error.message });
+    }
+  });
+  router.get('/forecast/scenarios/:ticker', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/forecast/scenarios/${encodeURIComponent(req.params.ticker)}`
+      );
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Forecast scenarios unavailable', detail: error.message });
+    }
+  });
+  router.get('/forecast/catalysts/:ticker', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/forecast/catalysts/${encodeURIComponent(req.params.ticker)}`
+      );
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Forecast catalysts unavailable', detail: error.message });
+    }
+  });
+  router.post('/forecast/analyse', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/forecast/analyse', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Forecast analyse failed', detail: error.message });
+    }
+  });
+
   return router;
 }

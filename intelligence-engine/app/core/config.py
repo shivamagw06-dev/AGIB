@@ -386,6 +386,15 @@ class Settings(BaseSettings):
     cig_portfolio_impact: bool = True
     cig_historical: bool = True
     cig_confidence: bool = True
+    forecast_intelligence: bool = True  # FIE — what future paths are plausible?
+    fie_scenarios: bool = True
+    fie_catalysts: bool = True
+    fie_triggers: bool = True
+    fie_sensitivity: bool = True
+    fie_expectations: bool = True
+    fie_consensus: bool = True
+    fie_uncertainty: bool = True
+    fie_probability: bool = True
     academy_frameworks: bool = True  # ACADEMY_FRAMEWORKS
     academy_formulas: bool = True  # ACADEMY_FORMULAS
     academy_graph: bool = True  # ACADEMY_GRAPH

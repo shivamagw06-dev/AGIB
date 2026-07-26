@@ -211,6 +211,7 @@ def package_for_ask_agi(
             ctx["accounting_intelligence"] = layers.get("accounting_intelligence") or {}
             ctx["portfolio_intelligence"] = layers.get("portfolio_intelligence") or {}
             ctx["causal_intelligence"] = layers.get("causal_intelligence") or {}
+            ctx["forecast_intelligence"] = layers.get("forecast_intelligence") or {}
             ctx["peer_intelligence"] = layers.get("peer_intelligence") or {}
             ctx["evidence_intelligence"] = layers.get("evidence_intelligence") or {}
     except Exception:
@@ -230,11 +231,25 @@ def package_for_ask_agi(
     except Exception:
         pass
 
+    # Soft FIE — scenario outlook precedes desk opinions (no redesign of analysts)
+    forecast_intelligence: dict[str, Any] = ctx.get("forecast_intelligence") or {}
+    try:
+        from forecast_intelligence.production import soft_slice_for_analyst as fie_slice
+
+        if t:
+            forecast_intelligence = (fie_slice(t, analyst="committee") or {}).get(
+                "forecast_intelligence"
+            ) or forecast_intelligence
+            if forecast_intelligence:
+                ctx["forecast_intelligence"] = forecast_intelligence
+    except Exception:
+        pass
+
     planner = plan_research(query, ticker=t)
     opinions: dict[str, dict[str, Any]] = {}
     for role, fn in _ANALYSERS.items():
         try:
-            # Soft desk-specific causal slice when available
+            # Soft desk-specific causal / forecast slices when available
             try:
                 from causal_graph.production import soft_slice_for_analyst as cig_desk
 
@@ -242,6 +257,15 @@ def package_for_ask_agi(
                     desk = (cig_desk(t, analyst=role) or {}).get("causal_intelligence") or {}
                     if desk:
                         ctx["causal_intelligence"] = {**causal_intelligence, "desk": desk.get("desk")}
+            except Exception:
+                pass
+            try:
+                from forecast_intelligence.production import soft_slice_for_analyst as fie_desk
+
+                if t and forecast_intelligence:
+                    fdesk = (fie_desk(t, analyst=role) or {}).get("forecast_intelligence") or {}
+                    if fdesk:
+                        ctx["forecast_intelligence"] = {**forecast_intelligence, "desk": fdesk.get("desk")}
             except Exception:
                 pass
             opinions[role] = fn(ctx)
@@ -291,6 +315,17 @@ def package_for_ask_agi(
             "causal_counterfactuals": causal_intelligence.get("counterfactuals"),
         }
 
+    # Soft FIE — scenario probabilities into committee (never redesigns IC)
+    if forecast_intelligence:
+        committee = {
+            **committee,
+            "forecast_intelligence": forecast_intelligence,
+            "scenario_probabilities": forecast_intelligence.get("distribution")
+            or (forecast_intelligence.get("committee") or {}).get("distribution"),
+            "most_likely_scenario": forecast_intelligence.get("most_likely"),
+            "forecast_uncertainty": forecast_intelligence.get("uncertainty"),
+        }
+
     # Soft PIO — portfolio impact between Committee and CIO (never redesigns either)
     portfolio_intelligence: dict[str, Any] = {}
     try:
@@ -317,6 +352,13 @@ def package_for_ask_agi(
             "causal_intelligence": causal_intelligence,
             "why_markets_moved": causal_intelligence.get("cio_brief")
             or causal_intelligence.get("why"),
+        }
+    if forecast_intelligence:
+        cio = {
+            **cio,
+            "forecast_intelligence": forecast_intelligence,
+            "forward_outlook": forecast_intelligence.get("cio_brief")
+            or forecast_intelligence.get("executive_forecast"),
         }
     if portfolio_intelligence:
         cio = {
@@ -385,6 +427,7 @@ def package_for_ask_agi(
         "institutional_stack": ctx.get("institutional_stack") or {},
         "portfolio_intelligence": portfolio_intelligence,
         "causal_intelligence": causal_intelligence,
+        "forecast_intelligence": forecast_intelligence,
         "ask_agi_hints": [
             f"Specialist analysts contributed structured opinions on {name}",
             f"Committee stance: {committee.get('committee_stance')}",
@@ -420,6 +463,14 @@ def package_for_ask_agi(
             base_pack["ask_agi_hints"].append(
                 f"Upstream drivers: {', '.join(str(x) for x in list(upstream)[:4])}"
             )
+    if stack_summary.get("forecast_most_likely") or forecast_intelligence.get("most_likely"):
+        most = stack_summary.get("forecast_most_likely") or forecast_intelligence.get("most_likely")
+        dist = stack_summary.get("forecast_distribution") or forecast_intelligence.get("distribution") or {}
+        base_pack["ask_agi_hints"].append(
+            f"Most likely scenario: {most}"
+            + (f" (~{dist.get(most)})" if isinstance(dist, dict) and most in dist else "")
+            + " — not a price prediction"
+        )
 
     # Institutional Research Writer — presentation layer AFTER CIO (never mutates votes/confidence)
     research_writer: dict[str, Any] = {}

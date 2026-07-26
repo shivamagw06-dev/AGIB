@@ -67,6 +67,7 @@ def dashboard() -> dict[str, Any]:
         ("portfolio_intelligence", "portfolio_intelligence.production"),
         ("peer_intelligence", "peer_intelligence.production"),
         ("causal_intelligence", "causal_graph.production"),
+        ("forecast_intelligence", "forecast_intelligence.production"),
         ("evidence_intelligence", "academy.evidence.production"),
     ):
         try:
@@ -83,6 +84,7 @@ def dashboard() -> dict[str, Any]:
                     or d.get("fdi_version")
                     or d.get("pil_version")
                     or d.get("cig_version")
+                    or d.get("fie_version")
                     or d.get("eil_version"),
                     "primary_question": d.get("primary_question"),
                 }
@@ -113,6 +115,7 @@ def dashboard() -> dict[str, Any]:
             "/admin/accounting-intelligence",
             "/admin/portfolio-intelligence",
             "/admin/causal-intelligence",
+            "/admin/forecast-intelligence",
             "/admin/peer-intelligence",
         ],
         "api_prefix": "/v1/institutional-stack",
@@ -150,7 +153,7 @@ def soft_slice_for_ask_agi(ticker: str | None) -> dict[str, Any]:
             "summary": pack.get("summary"),
             "layers": pack.get("layers"),
             "pipeline": pack.get("pipeline"),
-            "rule": "FIL→FDI→MII→ACI→EIL→PIL→CIG soft facts precede analyst judgement",
+            "rule": "FIL→FDI→MII→ACI→EIL→PIL→CIG→FIE soft facts precede analyst judgement",
         }
     }
 
@@ -202,11 +205,13 @@ def quality_gates() -> dict[str, Any]:
         "aci_present": bool(layers.get("accounting_intelligence")),
         "pio_present": bool(layers.get("portfolio_intelligence")),
         "cig_present": bool(layers.get("causal_intelligence")),
+        "fie_present": bool(layers.get("forecast_intelligence")),
         "pil_present": bool(layers.get("peer_intelligence")),
         "eil_present": bool(layers.get("evidence_intelligence")),
         "mii_confidence": (layers.get("management_intelligence") or {}).get("confidence") is not None,
         "aci_confidence": (layers.get("accounting_intelligence") or {}).get("confidence") is not None,
         "cig_upstream": bool((layers.get("causal_intelligence") or {}).get("upstream_drivers")),
+        "fie_most_likely": (layers.get("forecast_intelligence") or {}).get("most_likely") is not None,
         "no_engine_redesign": True,
     }
     return {
