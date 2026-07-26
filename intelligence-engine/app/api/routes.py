@@ -63,6 +63,7 @@ from app.aoi.service import AoiService
 from app.eve.service import EveService
 from app.iie.service import IieService
 from app.fle.service import FleService
+from app.fre.service import FreService
 from app.mee.service import MeeService
 from app.cae.service import CaeService
 from app.ib.service import IbService
@@ -160,10 +161,11 @@ _kc = KcService(kf=_kf, kip=_kip)
 _aoi = AoiService(kip=_kip, kc=_kc, kf=_kf)
 _eve = EveService(aoi=_aoi, kc=_kc, kf=_kf)
 _aoi.bind_eve(_eve)
+_fre = FreService(aoi=_aoi, kip=_kip, eve=_eve)
 _iie = IieService(eve=_eve, kc=_kc, kf=_kf, aoi=_aoi)
 _fle = FleService(iie=_iie, eve=_eve, kc=_kc, kf=_kf, aoi=_aoi)
 _mee = MeeService(eve=_eve, iie=_iie, fle=_fle, aoi=_aoi, kf=_kf, kc=_kc)
-_cae = CaeService(kf=_kf, kc=_kc, aoi=_aoi, eve=_eve, iie=_iie, fle=_fle, mee=_mee)
+_cae = CaeService(kf=_kf, kc=_kc, aoi=_aoi, eve=_eve, iie=_iie, fle=_fle, mee=_mee, fre=_fre)
 _ib = IbService(aoi=_aoi, eve=_eve, iie=_iie, fle=_fle, mee=_mee, cae=_cae)
 _ve = VeService(eve=_eve, iie=_iie, fle=_fle, mee=_mee, aoi=_aoi, ib=_ib)
 # Soft IB subscriber for valuation recalculation (additive; engines unchanged).
@@ -207,6 +209,7 @@ _ui = UiService(
     iie=_iie,
     fle=_fle,
     mee=_mee,
+    fre=_fre,
     cae=_cae,
     ib=_ib,
     ve=_ve,
@@ -2291,6 +2294,131 @@ async def fle_consult(q: str = Query(...), limit: int = Query(default=8, ge=1, l
         return _fle.consult(q, limit=limit)
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+# --- FRE v1 Finance Retrieval Engine (evidence acquisition; never answers) ---
+
+
+@router.get("/fre/health")
+async def fre_health():
+    return _fre.health()
+
+
+@router.get("/fre/dashboard")
+async def fre_dashboard():
+    try:
+        return _fre.dashboard()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/fre/query")
+async def fre_query(
+    q: str = Query(...),
+    limit: int = Query(default=20, ge=1, le=100),
+    company: str | None = Query(default=None),
+):
+    try:
+        return _fre.query(q, limit=limit, company=company)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/fre/search")
+async def fre_search(
+    q: str = Query(...),
+    limit: int = Query(default=20, ge=1, le=100),
+    company: str | None = Query(default=None),
+    document_type: str | None = Query(default=None),
+    min_authority: int | None = Query(default=None),
+):
+    try:
+        return _fre.search(
+            q,
+            limit=limit,
+            company=company,
+            document_type=document_type,
+            min_authority=min_authority,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/fre/company/{key}")
+async def fre_company(key: str, limit: int = Query(default=20, ge=1, le=100)):
+    try:
+        return _fre.company(key, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/fre/document/{document_id}")
+async def fre_document(document_id: str):
+    try:
+        return _fre.document(document_id)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.get("/fre/evidence")
+async def fre_evidence(company: str | None = Query(default=None), limit: int = Query(default=40, ge=1, le=200)):
+    try:
+        return _fre.evidence(company=company, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/fre/timeline")
+async def fre_timeline(company: str | None = Query(default=None), limit: int = Query(default=40, ge=1, le=200)):
+    try:
+        return _fre.timeline(company=company, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/fre/news")
+async def fre_news(limit: int = Query(default=20, ge=1, le=100)):
+    try:
+        return _fre.news(limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/fre/graph")
+async def fre_graph(entity: str | None = Query(default=None)):
+    try:
+        return _fre.graph(entity=entity)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/fre/ingest")
+async def fre_ingest(payload: dict[str, Any] | None = Body(default=None)):
+    try:
+        return _fre.ingest(payload or {})
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/fre/jobs")
+async def fre_jobs():
+    try:
+        return _fre.run_jobs()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/fre/consult")
+async def fre_consult(q: str = Query(...), limit: int = Query(default=8, ge=1, le=40)):
+    try:
+        return _fre.consult(q, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/fre/scheduler")
+async def fre_scheduler():
+    return _fre.scheduler.status()
 
 
 # --- MEE v1 Market Event Engine (after FLE; event backbone; no core redesign) ---
