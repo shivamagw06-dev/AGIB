@@ -1953,5 +1953,33 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // RQ1 Research Objective Engine — Sprint 3 objective planning soft-wire
+  router.get('/research-objective/health', kfGet('/v1/research-objective/health'));
+  router.get('/research-objective/dashboard', kfGet('/v1/research-objective/dashboard'));
+  router.get('/research-objective/constitution', kfGet('/v1/research-objective/constitution'));
+  router.get('/research-objective/quality-gates', kfGet('/v1/research-objective/quality-gates'));
+  router.post('/research-objective/plan', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/research-objective/plan', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'ROE plan failed', detail: error.message });
+    }
+  });
+  router.post('/research-objective/diagnostics', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/research-objective/diagnostics', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'ROE diagnostics failed', detail: error.message });
+    }
+  });
+
   return router;
 }

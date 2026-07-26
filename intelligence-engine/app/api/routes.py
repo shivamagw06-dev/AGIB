@@ -4901,6 +4901,51 @@ async def entity_resolution_diagnostics(payload: dict[str, Any] = Body(default={
     return diagnostics(payload or {})
 
 
+# --- RQ1 Research Objective Engine (Sprint 3 — objective planning soft-wire; not a top-level layer) ---
+
+
+@router.get("/research-objective/health")
+async def research_objective_health():
+    from research_objective.production import health
+
+    return health()
+
+
+@router.get("/research-objective/dashboard")
+async def research_objective_dashboard():
+    from research_objective.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/research-objective/constitution")
+async def research_objective_constitution():
+    from research_objective.production import constitution
+
+    return constitution()
+
+
+@router.get("/research-objective/quality-gates")
+async def research_objective_quality_gates():
+    from research_objective.production import quality_gates
+
+    return quality_gates()
+
+
+@router.post("/research-objective/plan")
+async def research_objective_plan(payload: dict[str, Any] = Body(default={})):
+    from research_objective.production import plan
+
+    return plan(payload or {})
+
+
+@router.post("/research-objective/diagnostics")
+async def research_objective_diagnostics(payload: dict[str, Any] = Body(default={})):
+    from research_objective.production import diagnostics
+
+    return diagnostics(payload or {})
+
+
 # --- SIF v1.0 (Sector Intelligence Framework — additive; not an engine) ---
 
 

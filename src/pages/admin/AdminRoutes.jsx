@@ -36,6 +36,7 @@ import DecisionEngineV2 from '@/pages/admin/DecisionEngineV2';
 import IntelligenceMap from '@/pages/admin/IntelligenceMap';
 import IntentIntelligence from '@/pages/admin/IntentIntelligence';
 import EntityResolution from '@/pages/admin/EntityResolution';
+import ResearchPlanner from '@/pages/admin/ResearchPlanner';
 
 export default function AdminRoutes() {
   return (
@@ -71,6 +72,7 @@ export default function AdminRoutes() {
           <Route path="intelligence-map" element={<IntelligenceMap />} />
           <Route path="intent-intelligence" element={<IntentIntelligence />} />
           <Route path="entity-resolution" element={<EntityResolution />} />
+          <Route path="research-planner" element={<ResearchPlanner />} />
           <Route path="system" element={<MissionControl />} />
           <Route path="investment-intelligence" element={<InvestmentIntelligence />} />
           <Route path="forecasting" element={<Forecasting />} />

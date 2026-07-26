@@ -1210,3 +1210,22 @@ export const diagnoseEntityResolution = (payload = {}) =>
     method: 'POST',
     body: typeof payload === 'string' ? { question: payload } : payload,
   });
+
+/** RQ1 Research Objective Engine — Sprint 3 (objective-driven research plan) */
+export const getResearchObjectiveHealth = () => intelligenceFetch('/research-objective/health');
+export const getResearchObjectiveDashboard = () =>
+  intelligenceFetch('/research-objective/dashboard');
+export const getResearchObjectiveConstitution = () =>
+  intelligenceFetch('/research-objective/constitution');
+export const getResearchObjectiveQualityGates = () =>
+  intelligenceFetch('/research-objective/quality-gates');
+export const planResearchObjective = (payload = {}) =>
+  intelligenceFetch('/research-objective/plan', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });
+export const diagnoseResearchObjective = (payload = {}) =>
+  intelligenceFetch('/research-objective/diagnostics', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });
