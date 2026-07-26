@@ -70,9 +70,19 @@ export const AuthProvider = ({ children }) => {
           },
         },
       });
-      if (error) throw error;
+      if (error) {
+        const msg = String(error.message || '');
+        if (/database error saving new user/i.test(msg)) {
+          const enriched = new Error(
+            'Account creation is temporarily blocked by a database auth trigger. Please try again shortly, or use “Resend verification” if you already signed up.'
+          );
+          enriched.code = error.code || 'signup_db_trigger';
+          throw enriched;
+        }
+        throw error;
+      }
 
-      // Best-effort branded welcome/verification email via AGI API (SendGrid).
+      // Best-effort branded welcome/verification email via AGI API (Resend).
       try {
         const { API_ORIGIN } = await import('@/config');
         const base = (API_ORIGIN || '').replace(/\/$/, '');

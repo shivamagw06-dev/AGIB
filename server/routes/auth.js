@@ -128,7 +128,9 @@ async function sendEmail({ to, subject, html }) {
 }
 
 async function generateActionLink(admin, email, redirectTo) {
-  const types = ['signup', 'magiclink', 'invite'];
+  // Prefer magiclink first — works for existing users without inserting auth.users.
+  // `signup` / `invite` create users and currently fail when the profiles trigger is broken.
+  const types = ['magiclink', 'recovery', 'signup'];
   let lastError = null;
 
   for (const type of types) {
