@@ -196,6 +196,8 @@ class SearchView(BaseModel):
     layer_router: dict[str, Any] = Field(default_factory=dict)
     # RQ2 Institutional Hypothesis Generation Engine — Sprint 1 (additive; after IREP; not a layer)
     hypothesis_engine: dict[str, Any] = Field(default_factory=dict)
+    # RQ2 Institutional Research Question Engine — Sprint 2 (additive; after IHG; not a layer)
+    research_questions: dict[str, Any] = Field(default_factory=dict)
     current_outlook: str | None = None
     key_drivers: list[str] = Field(default_factory=list)
     valuation_perspective: str | None = None

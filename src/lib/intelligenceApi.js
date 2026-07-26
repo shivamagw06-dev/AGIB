@@ -1299,3 +1299,19 @@ export const diagnoseHypothesisEngine = (payload = {}) =>
     method: 'POST',
     body: typeof payload === 'string' ? { question: payload } : payload,
   });
+
+/** RQ2 Institutional Research Question Engine — Sprint 2 (AFTER IHG) */
+export const getResearchQuestionsHealth = () => intelligenceFetch('/research-questions/health');
+export const getResearchQuestionsDashboard = () => intelligenceFetch('/research-questions/dashboard');
+export const getResearchQuestionsConstitution = () => intelligenceFetch('/research-questions/constitution');
+export const getResearchQuestionsQualityGates = () => intelligenceFetch('/research-questions/quality-gates');
+export const planResearchQuestions = (payload = {}) =>
+  intelligenceFetch('/research-questions/plan', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });
+export const diagnoseResearchQuestions = (payload = {}) =>
+  intelligenceFetch('/research-questions/diagnostics', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });

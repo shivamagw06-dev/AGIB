@@ -5126,6 +5126,51 @@ async def hypothesis_engine_diagnostics(payload: dict[str, Any] = Body(default={
     return diagnostics(payload or {})
 
 
+# --- RQ2 Institutional Research Question Engine (Sprint 2 — soft-wire AFTER IHG; not a top-level layer) ---
+
+
+@router.get("/research-questions/health")
+async def research_questions_health():
+    from research_questions.production import health
+
+    return health()
+
+
+@router.get("/research-questions/dashboard")
+async def research_questions_dashboard():
+    from research_questions.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/research-questions/constitution")
+async def research_questions_constitution():
+    from research_questions.production import constitution
+
+    return constitution()
+
+
+@router.get("/research-questions/quality-gates")
+async def research_questions_quality_gates():
+    from research_questions.production import quality_gates
+
+    return quality_gates()
+
+
+@router.post("/research-questions/plan")
+async def research_questions_plan(payload: dict[str, Any] = Body(default={})):
+    from research_questions.production import plan
+
+    return plan(payload or {})
+
+
+@router.post("/research-questions/diagnostics")
+async def research_questions_diagnostics(payload: dict[str, Any] = Body(default={})):
+    from research_questions.production import diagnostics
+
+    return diagnostics(payload or {})
+
+
 # --- SIF v1.0 (Sector Intelligence Framework — additive; not an engine) ---
 
 

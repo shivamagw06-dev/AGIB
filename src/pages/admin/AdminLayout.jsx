@@ -39,6 +39,7 @@ import {
   ClipboardList,
   Layers3,
   Lightbulb,
+  ListChecks,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -52,6 +53,7 @@ const navItems = [
   { to: '/admin/analyst-router', label: 'Analyst Router', icon: Network },
   { to: '/admin/layer-router', label: 'Layer Router', icon: GitBranch },
   { to: '/admin/hypothesis-engine', label: 'Hypothesis Engine', icon: Lightbulb },
+  { to: '/admin/research-questions', label: 'Research Questions', icon: ListChecks },
   { to: '/admin/articles/new', label: 'New Article', icon: Plus },
   { to: '/admin/categories', label: 'Categories', icon: FolderOpen },
   { to: '/admin/knowledge', label: 'Knowledge Corpus', icon: Brain },

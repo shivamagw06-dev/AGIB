@@ -2093,5 +2093,33 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // RQ2 Institutional Research Question Engine — Sprint 2 (AFTER IHG; BEFORE evidence)
+  router.get('/research-questions/health', kfGet('/v1/research-questions/health'));
+  router.get('/research-questions/dashboard', kfGet('/v1/research-questions/dashboard'));
+  router.get('/research-questions/constitution', kfGet('/v1/research-questions/constitution'));
+  router.get('/research-questions/quality-gates', kfGet('/v1/research-questions/quality-gates'));
+  router.post('/research-questions/plan', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/research-questions/plan', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'IRQ plan failed', detail: error.message });
+    }
+  });
+  router.post('/research-questions/diagnostics', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/research-questions/diagnostics', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'IRQ diagnostics failed', detail: error.message });
+    }
+  });
+
   return router;
 }

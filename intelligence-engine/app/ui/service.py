@@ -837,6 +837,23 @@ class UiService:
         except Exception:
             hypothesis_engine = {}
 
+        # RQ2 Sprint 2 — Institutional Research Question Engine (AFTER IHG; BEFORE evidence collection)
+        research_questions: dict[str, Any] = {}
+        try:
+            from research_questions.production import soft_slice_for_ask_agi as irq_soft_slice
+
+            irq_payload = {
+                "entity_resolution": entity_resolution,
+                "research_objective": research_objective,
+                "analyst_router": analyst_router,
+                "layer_router": layer_router,
+                "context_intelligence": context_intelligence,
+                "hypothesis_engine": hypothesis_engine,
+            }
+            research_questions = irq_soft_slice(q, irq_payload) or {}
+        except Exception:
+            research_questions = {}
+
         # CAE gateway (preferred) — else MEE→FLE→IIE→EVE→AOI→KCV/KF soft enrichment.
         kf_hits: list[dict[str, Any]] = []
         knowledge_corpus: dict[str, Any] = {}
@@ -2466,6 +2483,7 @@ class UiService:
             analyst_router=scrub(analyst_router) if analyst_router else {},
             layer_router=scrub(layer_router) if layer_router else {},
             hypothesis_engine=scrub(hypothesis_engine) if hypothesis_engine else {},
+            research_questions=scrub(research_questions) if research_questions else {},
         )
 
     def timeline(self, entity: str) -> TimelineView:

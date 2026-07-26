@@ -41,6 +41,7 @@ import AnalystRouter from '@/pages/admin/AnalystRouter';
 import ContextIntelligence from '@/pages/admin/ContextIntelligence';
 import LayerRouter from '@/pages/admin/LayerRouter';
 import HypothesisEngine from '@/pages/admin/HypothesisEngine';
+import ResearchQuestions from '@/pages/admin/ResearchQuestions';
 
 export default function AdminRoutes() {
   return (
@@ -81,6 +82,7 @@ export default function AdminRoutes() {
           <Route path="analyst-router" element={<AnalystRouter />} />
           <Route path="layer-router" element={<LayerRouter />} />
           <Route path="hypothesis-engine" element={<HypothesisEngine />} />
+          <Route path="research-questions" element={<ResearchQuestions />} />
           <Route path="system" element={<MissionControl />} />
           <Route path="investment-intelligence" element={<InvestmentIntelligence />} />
           <Route path="forecasting" element={<Forecasting />} />
