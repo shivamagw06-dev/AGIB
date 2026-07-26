@@ -2065,5 +2065,33 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // RQ2 Institutional Hypothesis Generation Engine — Sprint 1 (AFTER IREP; BEFORE analysts)
+  router.get('/hypothesis-engine/health', kfGet('/v1/hypothesis-engine/health'));
+  router.get('/hypothesis-engine/dashboard', kfGet('/v1/hypothesis-engine/dashboard'));
+  router.get('/hypothesis-engine/constitution', kfGet('/v1/hypothesis-engine/constitution'));
+  router.get('/hypothesis-engine/quality-gates', kfGet('/v1/hypothesis-engine/quality-gates'));
+  router.post('/hypothesis-engine/plan', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/hypothesis-engine/plan', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'IHG plan failed', detail: error.message });
+    }
+  });
+  router.post('/hypothesis-engine/diagnostics', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/hypothesis-engine/diagnostics', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'IHG diagnostics failed', detail: error.message });
+    }
+  });
+
   return router;
 }

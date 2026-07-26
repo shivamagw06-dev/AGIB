@@ -5081,6 +5081,51 @@ async def layer_router_diagnostics(payload: dict[str, Any] = Body(default={})):
     return diagnostics(payload or {})
 
 
+# --- RQ2 Institutional Hypothesis Generation Engine (Sprint 1 — soft-wire AFTER IREP; not a top-level layer) ---
+
+
+@router.get("/hypothesis-engine/health")
+async def hypothesis_engine_health():
+    from hypothesis_engine.production import health
+
+    return health()
+
+
+@router.get("/hypothesis-engine/dashboard")
+async def hypothesis_engine_dashboard():
+    from hypothesis_engine.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/hypothesis-engine/constitution")
+async def hypothesis_engine_constitution():
+    from hypothesis_engine.production import constitution
+
+    return constitution()
+
+
+@router.get("/hypothesis-engine/quality-gates")
+async def hypothesis_engine_quality_gates():
+    from hypothesis_engine.production import quality_gates
+
+    return quality_gates()
+
+
+@router.post("/hypothesis-engine/plan")
+async def hypothesis_engine_plan(payload: dict[str, Any] = Body(default={})):
+    from hypothesis_engine.production import plan
+
+    return plan(payload or {})
+
+
+@router.post("/hypothesis-engine/diagnostics")
+async def hypothesis_engine_diagnostics(payload: dict[str, Any] = Body(default={})):
+    from hypothesis_engine.production import diagnostics
+
+    return diagnostics(payload or {})
+
+
 # --- SIF v1.0 (Sector Intelligence Framework — additive; not an engine) ---
 
 

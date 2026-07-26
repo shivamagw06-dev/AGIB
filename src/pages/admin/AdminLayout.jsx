@@ -38,6 +38,7 @@ import {
   Fingerprint,
   ClipboardList,
   Layers3,
+  Lightbulb,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -50,6 +51,7 @@ const navItems = [
   { to: '/admin/context-intelligence', label: 'Context Intelligence', icon: Layers3 },
   { to: '/admin/analyst-router', label: 'Analyst Router', icon: Network },
   { to: '/admin/layer-router', label: 'Layer Router', icon: GitBranch },
+  { to: '/admin/hypothesis-engine', label: 'Hypothesis Engine', icon: Lightbulb },
   { to: '/admin/articles/new', label: 'New Article', icon: Plus },
   { to: '/admin/categories', label: 'Categories', icon: FolderOpen },
   { to: '/admin/knowledge', label: 'Knowledge Corpus', icon: Brain },

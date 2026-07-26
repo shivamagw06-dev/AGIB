@@ -1283,3 +1283,19 @@ export const diagnoseLayerRouter = (payload = {}) =>
     method: 'POST',
     body: typeof payload === 'string' ? { question: payload } : payload,
   });
+
+/** RQ2 Institutional Hypothesis Generation Engine — Sprint 1 (AFTER IREP) */
+export const getHypothesisEngineHealth = () => intelligenceFetch('/hypothesis-engine/health');
+export const getHypothesisEngineDashboard = () => intelligenceFetch('/hypothesis-engine/dashboard');
+export const getHypothesisEngineConstitution = () => intelligenceFetch('/hypothesis-engine/constitution');
+export const getHypothesisEngineQualityGates = () => intelligenceFetch('/hypothesis-engine/quality-gates');
+export const planHypothesisEngine = (payload = {}) =>
+  intelligenceFetch('/hypothesis-engine/plan', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });
+export const diagnoseHypothesisEngine = (payload = {}) =>
+  intelligenceFetch('/hypothesis-engine/diagnostics', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });

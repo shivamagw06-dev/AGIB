@@ -810,6 +810,33 @@ class UiService:
         except Exception:
             layer_router = {}
 
+        # RQ2 Sprint 1 — Institutional Hypothesis Generation Engine (AFTER IREP / Layer Router; BEFORE analysts)
+        hypothesis_engine: dict[str, Any] = {}
+        try:
+            from hypothesis_engine.production import soft_slice_for_ask_agi as ihg_soft_slice
+
+            ihg_payload = {
+                "entity_resolution": entity_resolution,
+                "research_objective": research_objective,
+                "analyst_router": analyst_router,
+                "layer_router": layer_router,
+                "context_intelligence": context_intelligence,
+            }
+            # Soft-import IREP when available (Sprint 10); never hard-depend
+            try:
+                from research_execution.production import soft_slice_for_ask_agi as irep_soft_slice  # type: ignore
+
+                irep_slice = irep_soft_slice(q, ihg_payload) or {}
+                if isinstance(irep_slice, dict) and irep_slice.get("research_execution"):
+                    ihg_payload["research_execution"] = irep_slice.get("research_execution")
+                elif isinstance(irep_slice, dict) and irep_slice.get("ok"):
+                    ihg_payload["research_execution"] = irep_slice
+            except Exception:
+                pass
+            hypothesis_engine = ihg_soft_slice(q, ihg_payload) or {}
+        except Exception:
+            hypothesis_engine = {}
+
         # CAE gateway (preferred) — else MEE→FLE→IIE→EVE→AOI→KCV/KF soft enrichment.
         kf_hits: list[dict[str, Any]] = []
         knowledge_corpus: dict[str, Any] = {}
@@ -2438,6 +2465,7 @@ class UiService:
             context_intelligence=scrub(context_intelligence) if context_intelligence else {},
             analyst_router=scrub(analyst_router) if analyst_router else {},
             layer_router=scrub(layer_router) if layer_router else {},
+            hypothesis_engine=scrub(hypothesis_engine) if hypothesis_engine else {},
         )
 
     def timeline(self, entity: str) -> TimelineView:
