@@ -313,6 +313,7 @@ class Settings(BaseSettings):
     academy_exams: bool = True
     academy_production: bool = True  # FAPI — production integration into locked engines
     academy_books: bool = True  # ACADEMY_BOOKS — curated book → structured knowledge
+    academy_books_v3: bool = True  # ACADEMY_BOOKS_V3 — institutional knowledge transformation
     academy_frameworks: bool = True  # ACADEMY_FRAMEWORKS
     academy_formulas: bool = True  # ACADEMY_FORMULAS
     academy_graph: bool = True  # ACADEMY_GRAPH

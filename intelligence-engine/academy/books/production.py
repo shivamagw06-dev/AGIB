@@ -85,7 +85,29 @@ def dashboard() -> dict[str, Any]:
             "searchable_pdf_index": False,
             "policy": "concepts_frameworks_formulas_only",
         },
+        "books_v3": _v3_dashboard_soft(),
     }
+
+
+def _v3_dashboard_soft() -> dict[str, Any]:
+    try:
+        from academy.books.flags import flag_books_v3
+        from academy.books.v3.production import dashboard as v3_dashboard
+
+        if not flag_books_v3():
+            return {"enabled": False}
+        d = v3_dashboard()
+        return {
+            "enabled": True,
+            "version": d.get("books_v3_version"),
+            "mode": d.get("mode"),
+            "snapshot": d.get("snapshot"),
+            "institutional_topics": d.get("institutional_topics"),
+            "analyst_bases": d.get("analyst_bases"),
+            "sectors": d.get("sectors"),
+        }
+    except Exception as exc:
+        return {"enabled": False, "error": str(exc)}
 
 
 def _graph_preview(store) -> dict[str, Any]:
@@ -151,7 +173,7 @@ def package_for_query(
         formulas = formulas[:8]
 
     answer_hints = _reasoning_hints(concepts, frameworks, formulas)
-    return {
+    out: dict[str, Any] = {
         "enabled": True,
         "books_version": BOOKS_VERSION,
         "concepts": [c.to_dict() for c in concepts],
@@ -165,6 +187,26 @@ def package_for_query(
             "verbatim_quotes": False,
         },
     }
+    # Soft-wire Books V3 institutional knowledge (no engine redesign)
+    try:
+        from academy.books.flags import flag_books_v3
+        from academy.books.v3.production import soft_slice_for_package
+
+        if flag_books_v3():
+            v3 = soft_slice_for_package(query, ticker=ticker)
+            if v3:
+                out.update(v3)
+                for h in (v3.get("books_v3") or {}).get("answer_hints") or []:
+                    if h and h not in out["answer_hints"]:
+                        out["answer_hints"].append(h)
+                out["answer_hints"] = out["answer_hints"][:6]
+                out["provenance"]["books_v3"] = True
+                out["provenance"]["cross_book_synthesis"] = bool(
+                    (v3.get("books_v3") or {}).get("institutional_objects")
+                )
+    except Exception:
+        pass
+    return out
 
 
 def _reasoning_hints(concepts, frameworks, formulas) -> list[str]:
@@ -255,12 +297,25 @@ def quality_gates() -> dict[str, Any]:
         "no_long_verbatim": len(long_hits) == 0,
         "no_searchable_pdf_index": True,
     }
+    v3_gates: dict[str, Any] = {}
+    try:
+        from academy.books.flags import flag_books_v3
+        from academy.books.v3.production import quality_gates as v3_quality_gates
+
+        if flag_books_v3():
+            v3_gates = v3_quality_gates()
+            checks["books_v3_institutional"] = bool(v3_gates.get("passed"))
+    except Exception:
+        checks["books_v3_institutional"] = False
+        v3_gates = {"passed": False}
+
     return {
         "passed": all(checks.values()),
         "checks": checks,
         "long_verbatim_fields": long_hits[:10],
         "books_version": BOOKS_VERSION,
         "flags": flags_dict(),
+        "books_v3": v3_gates,
     }
 
 

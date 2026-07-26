@@ -30,7 +30,32 @@ Convert every book / spreadsheet in the configured personal library into **struc
 
 ## Flags
 
-`ACADEMY`, `ACADEMY_BOOKS`, `ACADEMY_FRAMEWORKS`, `ACADEMY_FORMULAS`, `ACADEMY_GRAPH`, `ACADEMY_SPREADSHEETS`
+`ACADEMY`, `ACADEMY_BOOKS`, `ACADEMY_BOOKS_V3`, `ACADEMY_FRAMEWORKS`, `ACADEMY_FORMULAS`, `ACADEMY_GRAPH`, `ACADEMY_SPREADSHEETS`
+
+## Academy Books V3 — Institutional Knowledge Transformation
+
+**No engine / CID / analyst / UI redesign.** Soft layer on V2.
+
+Books already ingested → V3 upgrades *how* knowledge is represented and consumed.
+
+**Retrieve:** knowledge, reasoning, frameworks, lessons, cases, decision rules  
+**Never retrieve:** chapters, paragraphs, PDFs, verbatim book text
+
+Pipeline:
+
+`Books → Chapters → Concepts → Frameworks → Formulas → Mental Models → Decision Trees → Cases → Counter Cases → Reasoning Patterns → Checklists → Knowledge Graph → Analysts`
+
+Cross-book topics (e.g. ROIC) resolve to **one** `InstitutionalKnowledgeObject` synthesizing Damodaran / Graham / Klarman / Fridson / Fisher — not five separate paragraphs.
+
+### V3 APIs
+
+- `GET /v1/academy/books/v3/health`
+- `GET /v1/academy/books/v3/dashboard`
+- `GET /v1/academy/books/v3/quality-gates`
+- `POST /v1/academy/books/v3/ask` — `{question, analyst?, ticker?}`
+- `GET /v1/academy/books/v3/analyst/{analyst}`
+
+V2 `package_for_query` soft-wires a `books_v3` block. Business / Financial / Valuation IAI knowledge packs soft-consume analyst bases.
 
 ## Admin
 

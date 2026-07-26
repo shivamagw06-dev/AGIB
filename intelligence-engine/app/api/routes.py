@@ -3535,6 +3535,62 @@ async def academy_books_ingestion_report():
     return ingestion_report()
 
 
+# --- AGI Academy Books V3 (institutional knowledge; never PDF/chapter retrieval) ---
+
+
+@router.get("/academy/books/v3/health")
+async def academy_books_v3_health():
+    from academy.books.flags import flag_books_v3, flags_dict
+    from academy.books.v3.schema import BOOKS_V3_VERSION
+
+    return {
+        "status": "ok" if flag_books_v3() else "disabled",
+        "programme": "AGI_ACADEMY_BOOKS_V3",
+        "version": BOOKS_V3_VERSION,
+        "architecture_status": "v1.0.1 LOCKED",
+        "mode": "institutional_knowledge",
+        "never_retrieve": ["chapters", "paragraphs", "pdfs"],
+        "flags": flags_dict(),
+    }
+
+
+@router.get("/academy/books/v3/dashboard")
+async def academy_books_v3_dashboard():
+    from academy.books.v3.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/academy/books/v3/quality-gates")
+async def academy_books_v3_quality_gates():
+    from academy.books.v3.production import quality_gates
+
+    return quality_gates()
+
+
+@router.post("/academy/books/v3/ask")
+async def academy_books_v3_ask(payload: dict[str, Any] = Body(default={})):
+    """Institutional ask — frameworks, cases, rules, chains, lessons. Never PDFs/chapters."""
+    from academy.books.v3.retrieval import institutional_ask
+
+    question = str(payload.get("question") or payload.get("query") or "").strip()
+    if not question:
+        raise HTTPException(status_code=400, detail="question required")
+    return institutional_ask(
+        question,
+        analyst=payload.get("analyst"),
+        ticker=payload.get("ticker"),
+        limit=int(payload.get("limit") or 8),
+    )
+
+
+@router.get("/academy/books/v3/analyst/{analyst}")
+async def academy_books_v3_analyst(analyst: str, question: str = Query(default="")):
+    from academy.books.v3.production import analyst_base
+
+    return analyst_base(analyst, question=question)
+
+
 # --- SIF v1.0 (Sector Intelligence Framework — additive; not an engine) ---
 
 

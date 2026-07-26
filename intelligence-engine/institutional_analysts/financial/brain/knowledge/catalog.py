@@ -37,7 +37,7 @@ CORE_QUESTIONS = [
 
 
 def knowledge_pack() -> dict[str, Any]:
-    return {
+    pack: dict[str, Any] = {
         "analyst": "Financial Analyst",
         "mission": MISSION,
         "primary_question": PRIMARY_QUESTION,
@@ -50,3 +50,15 @@ def knowledge_pack() -> dict[str, Any]:
             "tape / momentum calls",
         ],
     }
+    try:
+        from academy.books.flags import flag_books_v3
+        from academy.books.v3.production import analyst_base
+
+        if flag_books_v3():
+            pack["academy_institutional"] = analyst_base(
+                "financial",
+                question="ROIC cash conversion earnings quality capital allocation",
+            )
+    except Exception:
+        pass
+    return pack
