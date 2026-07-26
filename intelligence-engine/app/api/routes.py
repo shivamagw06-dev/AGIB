@@ -68,6 +68,7 @@ from app.cae.service import CaeService
 from app.ib.service import IbService
 from app.ve.service import VeService
 from app.fiml.service import FimlService
+from app.academy.service import AcademyService
 from app.ui.service import UiService
 from app.validation.service import ValidationService
 from app.features.models import FeatureMetadata
@@ -187,6 +188,8 @@ except Exception:
     pass
 # FIML — shared domain model library (not an engine; engines consume via models.consumers).
 _fiml = FimlService()
+# Finance Academy — curriculum knowledge library (not an engine; soft consumers only).
+_academy = AcademyService()
 _ui = UiService(
     aws=_aws,
     ioc=_ioc,
@@ -2953,6 +2956,168 @@ async def fiml_metrics():
 async def fiml_graph():
     try:
         return _fiml.graph()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+# --- AGI Finance Academy v1 (curriculum library; not an engine; no locked-engine redesign) ---
+
+
+@router.get("/academy/health")
+async def academy_health():
+    return _academy.health()
+
+
+@router.get("/academy/dashboard")
+async def academy_dashboard():
+    try:
+        return _academy.dashboard()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/academy/course")
+async def academy_course():
+    try:
+        return _academy.course()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/academy/concepts")
+async def academy_concepts(tag: str | None = Query(default=None)):
+    try:
+        return _academy.list_concepts(tag=tag)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/academy/concepts/{concept_id}")
+async def academy_concept(concept_id: str):
+    try:
+        return _academy.get_concept(concept_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/academy/teach/{concept_id}")
+async def academy_teach(concept_id: str):
+    try:
+        return _academy.teach(concept_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/academy/graph")
+async def academy_graph():
+    try:
+        return _academy.graph()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/academy/neighborhood/{concept_id}")
+async def academy_neighborhood(concept_id: str):
+    try:
+        return _academy.neighborhood(concept_id)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/academy/causal-models")
+async def academy_causal_models():
+    try:
+        return _academy.causal_models()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/academy/mental-models")
+async def academy_mental_models():
+    try:
+        return _academy.mental_models()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/academy/quality")
+async def academy_quality():
+    try:
+        return _academy.quality()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/academy/provenance")
+async def academy_provenance():
+    try:
+        return _academy.provenance()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/academy/enrich/{concept_id}")
+async def academy_enrich(concept_id: str):
+    try:
+        return _academy.enrich(concept_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/academy/exams")
+async def academy_exams():
+    try:
+        return _academy.exams()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/academy/exams/{question_id}")
+async def academy_exam_answer(question_id: str):
+    try:
+        return _academy.answer(question_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/academy/consumer/{engine}")
+async def academy_consumer(engine: str, payload: dict[str, Any] = Body(default={})):
+    try:
+        return _academy.consumer(engine, payload or {})
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/academy/search")
+async def academy_search(q: str = Query(...), limit: int = Query(default=20, ge=1, le=100)):
+    try:
+        return _academy.search(q, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/academy/completion")
+async def academy_completion():
+    try:
+        return _academy.completion()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/academy/metrics")
+async def academy_metrics():
+    try:
+        return _academy.metrics()
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

@@ -267,6 +267,11 @@ class Settings(BaseSettings):
     fiml: bool = True
     fiml_persist_analyses: bool = True
 
+    # AGI Finance Academy v1 — institutional curriculum library (not an engine)
+    academy: bool = True
+    academy_provenance: bool = True
+    academy_exams: bool = True
+
 
 @lru_cache
 def get_settings() -> Settings:

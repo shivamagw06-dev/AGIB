@@ -4,3 +4,7 @@ dist/
 .env.local
 .DS_Store
 
+
+# Local book PDFs (copyrighted; do not commit)
+books/
+*.pdf

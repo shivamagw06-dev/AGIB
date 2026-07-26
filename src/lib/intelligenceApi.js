@@ -547,3 +547,33 @@ export const bundleFiml = (body = {}) =>
   intelligenceFetch('/fiml/bundle', { method: 'POST', body });
 export const consumerFiml = (engine, body = {}) =>
   intelligenceFetch(`/fiml/consumer/${encodeURIComponent(engine)}`, { method: 'POST', body });
+
+/** AGI Finance Academy v1 — institutional curriculum library */
+export const getAcademyHealth = () => intelligenceFetch('/academy/health');
+export const getAcademyDashboard = () => intelligenceFetch('/academy/dashboard');
+export const getAcademyCourse = () => intelligenceFetch('/academy/course');
+export const getAcademyConcepts = (tag) => {
+  const qs = new URLSearchParams();
+  if (tag) qs.set('tag', tag);
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return intelligenceFetch(`/academy/concepts${suffix}`);
+};
+export const getAcademyConcept = (id) =>
+  intelligenceFetch(`/academy/concepts/${encodeURIComponent(id)}`);
+export const teachAcademyConcept = (id) =>
+  intelligenceFetch(`/academy/teach/${encodeURIComponent(id)}`);
+export const getAcademyGraph = () => intelligenceFetch('/academy/graph');
+export const getAcademyCausalModels = () => intelligenceFetch('/academy/causal-models');
+export const getAcademyMentalModels = () => intelligenceFetch('/academy/mental-models');
+export const getAcademyQuality = () => intelligenceFetch('/academy/quality');
+export const getAcademyProvenance = () => intelligenceFetch('/academy/provenance');
+export const getAcademyExams = () => intelligenceFetch('/academy/exams');
+export const getAcademyExamAnswer = (id) =>
+  intelligenceFetch(`/academy/exams/${encodeURIComponent(id)}`);
+export const getAcademyCompletion = () => intelligenceFetch('/academy/completion');
+export const searchAcademy = (q, limit = 20) => {
+  const qs = new URLSearchParams({ q, limit: String(limit) });
+  return intelligenceFetch(`/academy/search?${qs}`);
+};
+export const consumerAcademy = (engine, body = {}) =>
+  intelligenceFetch(`/academy/consumer/${encodeURIComponent(engine)}`, { method: 'POST', body });

@@ -17,6 +17,7 @@ import {
   Bus,
   Scale,
   BookOpen,
+  GraduationCap,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -34,6 +35,7 @@ const navItems = [
   { to: '/admin/intelligence-bus', label: 'Intelligence Bus', icon: Bus },
   { to: '/admin/valuation', label: 'Valuation', icon: Scale },
   { to: '/admin/models', label: 'Models', icon: BookOpen },
+  { to: '/admin/academy', label: 'Finance Academy', icon: GraduationCap },
 ];
 
 export default function AdminLayout() {

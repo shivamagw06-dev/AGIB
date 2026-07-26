@@ -14,6 +14,7 @@ import ContextAssembly from '@/pages/admin/ContextAssembly';
 import IntelligenceBus from '@/pages/admin/IntelligenceBus';
 import Valuation from '@/pages/admin/Valuation';
 import Models from '@/pages/admin/Models';
+import FinanceAcademy from '@/pages/admin/FinanceAcademy';
 
 export default function AdminRoutes() {
   return (
@@ -35,6 +36,7 @@ export default function AdminRoutes() {
           <Route path="intelligence-bus" element={<IntelligenceBus />} />
           <Route path="valuation" element={<Valuation />} />
           <Route path="models" element={<Models />} />
+          <Route path="academy" element={<FinanceAcademy />} />
           <Route path="*" element={<Navigate to="/admin" replace />} />
         </Route>
       </Routes>

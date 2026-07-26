@@ -777,5 +777,63 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // AGI Finance Academy v1 — curriculum library (not an engine).
+  router.get('/academy/health', kfGet('/v1/academy/health'));
+  router.get('/academy/dashboard', kfGet('/v1/academy/dashboard'));
+  router.get('/academy/course', kfGet('/v1/academy/course'));
+  router.get('/academy/concepts', kfGet('/v1/academy/concepts'));
+  router.get('/academy/concepts/:conceptId', async (req, res) => {
+    try {
+      const result = await engineFetch(`/v1/academy/concepts/${encodeURIComponent(req.params.conceptId)}`);
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Finance Academy unavailable', detail: error.message });
+    }
+  });
+  router.get('/academy/teach/:conceptId', async (req, res) => {
+    try {
+      const result = await engineFetch(`/v1/academy/teach/${encodeURIComponent(req.params.conceptId)}`);
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Finance Academy unavailable', detail: error.message });
+    }
+  });
+  router.get('/academy/graph', kfGet('/v1/academy/graph'));
+  router.get('/academy/neighborhood/:conceptId', async (req, res) => {
+    try {
+      const result = await engineFetch(`/v1/academy/neighborhood/${encodeURIComponent(req.params.conceptId)}`);
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Finance Academy unavailable', detail: error.message });
+    }
+  });
+  router.get('/academy/causal-models', kfGet('/v1/academy/causal-models'));
+  router.get('/academy/mental-models', kfGet('/v1/academy/mental-models'));
+  router.get('/academy/quality', kfGet('/v1/academy/quality'));
+  router.get('/academy/provenance', kfGet('/v1/academy/provenance'));
+  router.get('/academy/exams', kfGet('/v1/academy/exams'));
+  router.get('/academy/exams/:questionId', async (req, res) => {
+    try {
+      const result = await engineFetch(`/v1/academy/exams/${encodeURIComponent(req.params.questionId)}`);
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Finance Academy unavailable', detail: error.message });
+    }
+  });
+  router.get('/academy/search', kfGet('/v1/academy/search'));
+  router.get('/academy/completion', kfGet('/v1/academy/completion'));
+  router.get('/academy/metrics', kfGet('/v1/academy/metrics'));
+  router.post('/academy/consumer/:engine', async (req, res) => {
+    try {
+      const result = await engineFetch(`/v1/academy/consumer/${encodeURIComponent(req.params.engine)}`, {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Finance Academy unavailable', detail: error.message });
+    }
+  });
+
   return router;
 }
