@@ -655,6 +655,12 @@ export const getAcademyBooksIngestionReport = () =>
   intelligenceFetch('/academy/books/ingestion-report');
 export const ingestAcademyBooksLibrary = (body = {}) =>
   intelligenceFetch('/academy/books/ingest-library', { method: 'POST', body });
+
+/** CMS article learning — bulk read uploaded articles into KIP/KF/KC with learning dates */
+export const learnCmsArticles = (body = {}) =>
+  intelligenceFetch('/cms/learn-articles', { method: 'POST', body });
+export const getCmsLearningStatus = (days = 14) =>
+  intelligenceFetch(`/cms/learning-status?days=${encodeURIComponent(String(days))}`);
 export const getSifHealth = () => intelligenceFetch('/sif/health');
 export const getSifDashboard = () => intelligenceFetch('/sif/dashboard');
 export const getSifFrameworks = () => intelligenceFetch('/sif/frameworks');

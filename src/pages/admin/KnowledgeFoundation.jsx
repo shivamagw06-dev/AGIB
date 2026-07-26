@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Brain, RefreshCw, Search, Sprout } from 'lucide-react';
+import { AlertTriangle, BookOpen, Brain, RefreshCw, Search, Sprout } from 'lucide-react';
 import {
   consultKc,
+  getCmsLearningStatus,
   getKcDashboard,
   getKfCoverage,
   getKfHealth,
+  learnCmsArticles,
   listKfCompanies,
   listKfMacros,
   listKfSectors,
@@ -43,12 +45,14 @@ export default function KnowledgeFoundation() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
+  const [cmsLearn, setCmsLearn] = useState(null);
+  const [learnNote, setLearnNote] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      const [h, c, dash, cos, secs, ths, macs] = await Promise.all([
+      const [h, c, dash, cos, secs, ths, macs, cms] = await Promise.all([
         getKfHealth(),
         getKfCoverage(),
         getKcDashboard().catch(() => null),
@@ -56,6 +60,7 @@ export default function KnowledgeFoundation() {
         listKfSectors(),
         listKfThemes(),
         listKfMacros(),
+        getCmsLearningStatus(14).catch(() => null),
       ]);
       setHealth(h);
       setCoverage(c);
@@ -64,6 +69,7 @@ export default function KnowledgeFoundation() {
       setSectors(secs?.sectors || []);
       setThemes(ths?.themes || []);
       setMacros(macs?.macros || []);
+      setCmsLearn(cms);
     } catch (err) {
       setError(err?.message || 'Failed to load Knowledge Corpus');
     } finally {
@@ -93,10 +99,32 @@ export default function KnowledgeFoundation() {
   const runAction = async (action) => {
     setBusy(action);
     setError('');
+    setLearnNote('');
     try {
       if (action === 'seed') await seedKf();
       if (action === 'rebuild') await rebuildKf();
       if (action === 'populate') await populateKc(true);
+      if (action === 'cms-learn') {
+        const result = await learnCmsArticles({
+          mode: 'daily',
+          only_unlearned: false,
+          limit: 100,
+          compound: true,
+        });
+        setLearnNote(
+          `Learning date ${result?.learning_date || '—'}: learned ${result?.learned ?? 0}, failed ${result?.failed ?? 0}, skipped ${result?.skipped ?? 0}.`
+        );
+      }
+      if (action === 'cms-learn-all') {
+        const result = await learnCmsArticles({
+          only_unlearned: true,
+          limit: 200,
+          compound: true,
+        });
+        setLearnNote(
+          `Catch-up ${result?.learning_date || '—'}: learned ${result?.learned ?? 0}, failed ${result?.failed ?? 0}, skipped ${result?.skipped ?? 0}.`
+        );
+      }
       await load();
     } catch (err) {
       setError(err?.message || `${action} failed`);
@@ -147,6 +175,14 @@ export default function KnowledgeFoundation() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button variant="outline" disabled={!!busy || loading} onClick={() => runAction('cms-learn-all')} className="border-slate-300">
+            <BookOpen size={16} className="mr-2" />
+            {busy === 'cms-learn-all' ? 'Reading articles…' : 'Learn unlearned articles'}
+          </Button>
+          <Button variant="outline" disabled={!!busy || loading} onClick={() => runAction('cms-learn')} className="border-slate-300">
+            <BookOpen size={16} className="mr-2" />
+            {busy === 'cms-learn' ? 'Daily learn…' : 'Daily CMS learn'}
+          </Button>
           <Button variant="outline" disabled={!!busy || loading} onClick={() => runAction('seed')} className="border-slate-300">
             <Sprout size={16} className="mr-2" />
             {busy === 'seed' ? 'Seeding…' : 'Seed KF'}
@@ -165,6 +201,9 @@ export default function KnowledgeFoundation() {
       {error ? (
         <div className="mb-6 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{error}</div>
       ) : null}
+      {learnNote ? (
+        <div className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">{learnNote}</div>
+      ) : null}
 
       {loading ? (
         <p className="text-slate-400">Loading corpus dashboard…</p>
@@ -178,6 +217,52 @@ export default function KnowledgeFoundation() {
             <p className="mt-1">
               Last populated: {metrics.last_populated_at || '—'} · Answer policy: knowledge corpus before documents.
             </p>
+          </div>
+
+          <div className="mb-8 rounded-xl border border-slate-200 bg-white p-5">
+            <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
+              <div>
+                <h2 className="font-semibold text-slate-900">CMS article learning calendar</h2>
+                <p className="text-sm text-slate-500 mt-1">
+                  Intelligence reads uploaded CMS articles into KIP/KF/KC. Each run stamps a learning date
+                  (Asia/Kolkata) so knowledge can update every day.
+                </p>
+              </div>
+              <p className="text-xs text-slate-400">
+                Today {cmsLearn?.today || '—'} · pending {cmsLearn?.pending_count ?? '—'} /{' '}
+                {cmsLearn?.articles_total ?? '—'}
+              </p>
+            </div>
+            {(cmsLearn?.learning_calendar || []).length === 0 ? (
+              <p className="text-sm text-slate-400">
+                No learning dates yet. Click <span className="font-medium text-slate-700">Learn unlearned articles</span>{' '}
+                to read everything already uploaded.
+              </p>
+            ) : (
+              <ul className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {(cmsLearn.learning_calendar || []).slice(0, 12).map((day) => (
+                  <li key={day.learning_date} className="rounded-lg border border-slate-100 px-3 py-2 text-sm">
+                    <p className="font-medium text-slate-900">{day.learning_date}</p>
+                    <p className="text-slate-500 mt-0.5">
+                      learned {day.learned || 0}
+                      {day.failed ? ` · failed ${day.failed}` : ''}
+                    </p>
+                    {(day.titles || []).length ? (
+                      <p className="text-xs text-slate-400 mt-1 line-clamp-2">{day.titles.join(' · ')}</p>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {(cmsLearn?.pending_unlearned || []).length > 0 ? (
+              <p className="text-xs text-amber-700 mt-3">
+                Still unread: {(cmsLearn.pending_unlearned || [])
+                  .slice(0, 6)
+                  .map((a) => a.title)
+                  .join(' · ')}
+                {(cmsLearn.pending_unlearned || []).length > 6 ? '…' : ''}
+              </p>
+            ) : null}
           </div>
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">

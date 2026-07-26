@@ -344,12 +344,16 @@ export default function ArticleEditor() {
 
             if (ingestResult?.id || ingestResult?.document_id) {
               const docId = ingestResult.id || ingestResult.document_id;
+              const learnedAt = new Date().toISOString();
               try {
                 await supabase
                   .from('articles')
                   .update({
                     intelligence_document_id: docId,
-                    intelligence_ingested_at: new Date().toISOString(),
+                    intelligence_ingested_at: learnedAt,
+                    last_learned_at: learnedAt,
+                    learn_status: 'learned',
+                    last_learn_error: null,
                   })
                   .eq('id', data.id);
               } catch {

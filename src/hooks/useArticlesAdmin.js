@@ -12,7 +12,7 @@ export default function useArticlesAdmin() {
 
     const { data, error: fetchError } = await supabase
       .from('articles')
-      .select('id, title, slug, section, excerpt, status, published_at, created_at, cover_url, tags, intelligence_document_id, intelligence_ingested_at')
+      .select('id, title, slug, section, excerpt, status, published_at, created_at, cover_url, tags, intelligence_document_id, intelligence_ingested_at, last_learned_at, learn_status, learn_count')
       .order('created_at', { ascending: false });
 
     if (fetchError) {

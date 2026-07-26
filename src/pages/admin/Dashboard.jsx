@@ -1,12 +1,29 @@
+import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Plus, FileText, Eye, Pencil, Trash2, Clock } from 'lucide-react';
+import { Plus, FileText, Eye, Pencil, Trash2, Clock, Brain } from 'lucide-react';
 import useArticlesAdmin from '@/hooks/useArticlesAdmin';
 import { formatArticleDate } from '@/lib/articleUtils';
+import { getCmsLearningStatus, learnCmsArticles } from '@/lib/intelligenceApi';
 import { Button } from '@/components/ui/button';
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const { articles, loading, deleteArticle, stats } = useArticlesAdmin();
+  const [cmsLearn, setCmsLearn] = useState(null);
+  const [learnBusy, setLearnBusy] = useState(false);
+  const [learnMsg, setLearnMsg] = useState('');
+
+  const refreshLearn = useCallback(async () => {
+    try {
+      setCmsLearn(await getCmsLearningStatus(10));
+    } catch {
+      setCmsLearn(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshLearn();
+  }, [refreshLearn]);
 
   const handleDelete = async (id, title) => {
     if (!window.confirm(`Delete "${title}"? This cannot be undone.`)) return;
@@ -17,6 +34,28 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleLearnArticles = async () => {
+    setLearnBusy(true);
+    setLearnMsg('');
+    try {
+      const result = await learnCmsArticles({
+        only_unlearned: true,
+        limit: 200,
+        compound: true,
+      });
+      setLearnMsg(
+        `Intelligence learned ${result?.learned ?? 0} article(s) on ${result?.learning_date || '—'}` +
+          (result?.failed ? ` (${result.failed} failed)` : '') +
+          '.'
+      );
+      await refreshLearn();
+    } catch (err) {
+      setLearnMsg(err?.message || 'Learning run failed');
+    } finally {
+      setLearnBusy(false);
+    }
+  };
+
   return (
     <div className="p-6 lg:p-8 max-w-7xl">
       <div className="flex flex-wrap items-start justify-between gap-4 mb-8">
@@ -24,10 +63,21 @@ export default function AdminDashboard() {
           <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
           <p className="text-slate-500 mt-1">Manage your research articles and market updates</p>
         </div>
-        <Button onClick={() => navigate('/admin/articles/new')} className="bg-blue-700 hover:bg-blue-800">
-          <Plus size={16} className="mr-2" />
-          New Article
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            disabled={learnBusy}
+            onClick={handleLearnArticles}
+            className="border-slate-300"
+          >
+            <Brain size={16} className="mr-2" />
+            {learnBusy ? 'Intelligence reading…' : 'Ask intelligence to learn articles'}
+          </Button>
+          <Button onClick={() => navigate('/admin/articles/new')} className="bg-blue-700 hover:bg-blue-800">
+            <Plus size={16} className="mr-2" />
+            New Article
+          </Button>
+        </div>
       </div>
 
       <div className="mb-6 rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
@@ -37,6 +87,15 @@ export default function AdminDashboard() {
           {' '}
           <span className="font-semibold text-violet-700">Send to Intelligence</span> — private notes for Ask AGI only (not on the website).
         </p>
+        <p className="mt-2 text-slate-500">
+          Learning calendar today: {cmsLearn?.today || '—'} · pending unread:{' '}
+          {cmsLearn?.pending_count ?? '—'} · last dates:{' '}
+          {(cmsLearn?.learning_calendar || [])
+            .slice(0, 3)
+            .map((d) => `${d.learning_date} (${d.learned})`)
+            .join(' · ') || 'none yet'}
+        </p>
+        {learnMsg ? <p className="mt-2 text-emerald-800">{learnMsg}</p> : null}
       </div>
 
       <div className="grid sm:grid-cols-4 gap-4 mb-8">
@@ -77,6 +136,7 @@ export default function AdminDashboard() {
                   <th className="text-left px-5 py-3 font-medium">Category</th>
                   <th className="text-left px-5 py-3 font-medium">Status</th>
                   <th className="text-left px-5 py-3 font-medium">Date</th>
+                  <th className="text-left px-5 py-3 font-medium">Learned</th>
                   <th className="text-right px-5 py-3 font-medium">Actions</th>
                 </tr>
               </thead>
@@ -108,6 +168,13 @@ export default function AdminDashboard() {
                         <Clock size={13} />
                         {formatArticleDate(article.published_at || article.created_at)}
                       </span>
+                    </td>
+                    <td className="px-5 py-4 text-slate-500 whitespace-nowrap text-xs">
+                      {article.last_learned_at
+                        ? formatArticleDate(article.last_learned_at)
+                        : article.status === 'published' || article.status === 'intelligence'
+                          ? 'not yet'
+                          : '—'}
                     </td>
                     <td className="px-5 py-4">
                       <div className="flex items-center justify-end gap-1">
