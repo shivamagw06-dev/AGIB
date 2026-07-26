@@ -1609,11 +1609,15 @@ class UiService:
                 },
             },
             finance_academy=scrub(finance_academy) if finance_academy else {},
-            sector_intelligence=scrub(sector_intelligence) if sector_intelligence else {},
             institutional_briefing=scrub(briefing) or {},
-            sector_intelligence=scrub((irp_dump or {}).get("sector_intelligence") or {})
-            if isinstance(irp_dump, dict)
-            else {},
+            # Prefer live SIF/Ask-AGI sector pack; fall back to IRP sector pack
+            sector_intelligence=scrub(sector_intelligence)
+            if sector_intelligence
+            else (
+                scrub((irp_dump or {}).get("sector_intelligence") or {})
+                if isinstance(irp_dump, dict)
+                else {}
+            ),
             company_intelligence=scrub((irp_dump or {}).get("company_intelligence") or {})
             if isinstance(irp_dump, dict)
             else {},

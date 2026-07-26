@@ -147,9 +147,9 @@ class SearchView(BaseModel):
     # FAPI v1.0 — Finance Academy production provenance (additive)
     finance_academy: dict[str, Any] = Field(default_factory=dict)
     # SIF v1.0 — Sector Intelligence Framework provenance (additive)
+    # SIF / IRP sector pack (single field; SIF may nest under "sif")
     sector_intelligence: dict[str, Any] = Field(default_factory=dict)
     institutional_briefing: dict[str, Any] = Field(default_factory=dict)
-    sector_intelligence: dict[str, Any] = Field(default_factory=dict)
     company_intelligence: dict[str, Any] = Field(default_factory=dict)
     current_outlook: str | None = None
     key_drivers: list[str] = Field(default_factory=list)

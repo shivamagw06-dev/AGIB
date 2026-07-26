@@ -261,6 +261,11 @@ class IrpPipeline:
                 }
         sector_intel = build_sector_intelligence(entities, reasoning)
         company_intel = build_company_intelligence(entities, reasoning)
+        sector_pkg = dump(sector_intel) if not isinstance(sector_intel, dict) else dict(sector_intel)
+        if not isinstance(sector_pkg, dict):
+            sector_pkg = {}
+        if isinstance(sif_pkg, dict) and sif_pkg:
+            sector_pkg = {**sector_pkg, "sif": sif_pkg}
 
         package = IrpPackage(
             question=q,
@@ -278,10 +283,9 @@ class IrpPipeline:
             rsp=rsp_pkg,
             follow_ups=followups[:8],
             institutional_briefing=briefing,
-            sector_intelligence=sector_intel,
+            sector_intelligence=sector_pkg,
             company_intelligence=company_intel,
             finance_academy=academy_pkg if isinstance(academy_pkg, dict) else {},
-            sector_intelligence=sif_pkg if isinstance(sif_pkg, dict) else {},
         )
 
         # 14 Learning loop
