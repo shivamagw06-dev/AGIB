@@ -42,6 +42,7 @@ def analyse_diff(ticker: str) -> dict[str, Any]:
     records += ownership_diff(ctx)
 
     changes = [r.to_dict() for r in records]
+    changes = [_apply_negation_filter(c, ctx) for c in changes]
     # drop ignores / cosmetics from primary list but keep audit
     material = [c for c in changes if not c.get("cosmetic") and c.get("materiality") != "ignore"]
     confidence = score_diff(changes)
@@ -78,3 +79,60 @@ def analyse_diff(ticker: str) -> dict[str, Any]:
         "report": report,
         "origin": "filing_diff_engine",
     }
+
+
+_NEGATION_METRICS = {
+    "Buybacks": ("buyback not", "buybacks not", "no buyback"),
+    "Acquisitions": ("no acquisition",),
+    "Capital_Raises": ("no extraordinary capital raise", "no capital raise"),
+    "Revenue_Recognition": ("no material revenue recognition", "revenue recognition change"),
+}
+
+
+def _apply_negation_filter(change: dict[str, Any], ctx: dict[str, Any]) -> dict[str, Any]:
+    """Downgrade false-positive adds when filing text negates the action."""
+    if change.get("change_type") not in {"buyback", "acquisition_announced", "capital_raise", "policy_added"}:
+        return change
+    metric = change.get("metric") or ""
+    needles = _NEGATION_METRICS.get(metric) or ()
+    if not needles:
+        return change
+    # inspect current-period FIL document text via fil payload
+    texts = []
+    for d in (ctx.get("fil") or {}).get("documents") or []:
+        pass
+    for doc in (ctx.get("documents") or []):
+        # documents in ctx are summaries; pull full from fil facts' source docs via analyse store
+        texts.append(str(doc.get("title") or ""))
+    try:
+        from filing_intelligence.ingestion.store import documents_for
+
+        for doc in documents_for(ctx.get("ticker") or ""):
+            if doc.get("period") == ctx.get("current_period"):
+                texts.append(str(doc.get("text") or "").lower())
+    except Exception:
+        pass
+    blob = " ".join(texts).lower()
+    # special-case: "no material revenue recognition change" means NOT a policy change
+    if metric == "Revenue_Recognition" and "no material revenue recognition" in blob:
+        return {**change, "materiality": "ignore", "cosmetic": True, "notes_filter": "negation"}
+    if metric == "Buybacks" and ("buybacks not announced" in blob or "buyback not announced" in blob):
+        return {**change, "materiality": "ignore", "cosmetic": True, "notes_filter": "negation"}
+    if metric == "Capital_Raises" and "no extraordinary capital raise" in blob:
+        return {**change, "materiality": "ignore", "cosmetic": True, "notes_filter": "negation"}
+    if metric == "Acquisitions" and "merger" in blob and "acquisition" not in blob.replace("merger", ""):
+        # goodwill/merger monitoring alone is not a new acquisition announcement
+        if "acquisition announced" not in blob and "acquires" not in blob:
+            return {**change, "materiality": "ignore", "cosmetic": True, "notes_filter": "negation"}
+    if change.get("domain") in {"notes", "accounting"} and change.get("change_type") == "policy_added":
+        if any(
+            phrase in blob
+            for phrase in (
+                "unchanged vs prior",
+                "exceptional items nil",
+                "no material revenue recognition",
+                "related party and contingent items unchanged",
+            )
+        ):
+            return {**change, "materiality": "ignore", "cosmetic": True, "notes_filter": "unchanged_disclosure"}
+    return change

@@ -49,6 +49,8 @@ def classify_materiality(
 def thesis_impact(materiality: str, change_type: str, metric: str, previous: Any, current: Any) -> str:
     if materiality == "ignore":
         return "neutral"
+    if change_type in {"policy_added", "policy_removed"}:
+        return "needs_committee_review"
     weaker_types = {
         "margin_compression",
         "revenue_deceleration",
@@ -62,6 +64,7 @@ def thesis_impact(materiality: str, change_type: str, metric: str, previous: Any
         "debt_increase",
         "casa_decline",
         "capital_ratio_decline",
+        "roe_decline",
     }
     stronger_types = {
         "margin_expansion",
