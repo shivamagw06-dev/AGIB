@@ -1908,5 +1908,22 @@ export default function createIntelligenceRouter() {
   router.get('/company-dossier/health', kfGet('/v1/company-dossier/health'));
   router.get('/decision-engine/health', kfGet('/v1/decision-engine/health'));
 
+  // RQ1 Research Ontology — Sprint 1 classify-only (not a top-level intelligence layer)
+  router.get('/research-ontology/health', kfGet('/v1/research-ontology/health'));
+  router.get('/research-ontology/dashboard', kfGet('/v1/research-ontology/dashboard'));
+  router.get('/research-ontology/constitution', kfGet('/v1/research-ontology/constitution'));
+  router.get('/research-ontology/quality-gates', kfGet('/v1/research-ontology/quality-gates'));
+  router.post('/research-ontology/classify', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/research-ontology/classify', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'RQ1 research ontology classify failed', detail: error.message });
+    }
+  });
+
   return router;
 }

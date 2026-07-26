@@ -730,6 +730,15 @@ class UiService:
         irp_pkg = None
         irp_dump: dict[str, Any] = {}
 
+        # RQ1 Sprint 1 — classify research type first (metadata only; does not block layers yet)
+        research_ontology: dict[str, Any] = {}
+        try:
+            from research_ontology.production import soft_slice_for_ask_agi
+
+            research_ontology = soft_slice_for_ask_agi(q) or {}
+        except Exception:
+            research_ontology = {}
+
         # CAE gateway (preferred) — else MEE→FLE→IIE→EVE→AOI→KCV/KF soft enrichment.
         kf_hits: list[dict[str, Any]] = []
         knowledge_corpus: dict[str, Any] = {}
@@ -2352,6 +2361,7 @@ class UiService:
             historical_comparison=scrub_text(briefing.get("historical_comparison"))
             if briefing
             else None,
+            research_ontology=scrub(research_ontology) if research_ontology else {},
         )
 
     def timeline(self, entity: str) -> TimelineView:

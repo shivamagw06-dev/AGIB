@@ -4818,6 +4818,44 @@ async def admin_decision_engine_v2():
     return HTMLResponse(admin_page())
 
 
+# --- RQ1 Research Ontology (Sprint 1 — classify-only constitution; not a top-level layer) ---
+
+
+@router.get("/research-ontology/health")
+async def research_ontology_health():
+    from research_ontology.production import health
+
+    return health()
+
+
+@router.get("/research-ontology/dashboard")
+async def research_ontology_dashboard():
+    from research_ontology.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/research-ontology/constitution")
+async def research_ontology_constitution():
+    from research_ontology.production import constitution
+
+    return constitution()
+
+
+@router.get("/research-ontology/quality-gates")
+async def research_ontology_quality_gates():
+    from research_ontology.production import quality_gates
+
+    return quality_gates()
+
+
+@router.post("/research-ontology/classify")
+async def research_ontology_classify(payload: dict[str, Any] = Body(default={})):
+    from research_ontology.production import classify
+
+    return classify(payload or {})
+
+
 # --- SIF v1.0 (Sector Intelligence Framework — additive; not an engine) ---
 
 

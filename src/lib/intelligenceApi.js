@@ -1179,3 +1179,16 @@ export async function probeIntelligencePath(path) {
 export const getAcsHealth = () => intelligenceFetch('/academy/certification/health');
 export const getIrsHealth = () => intelligenceFetch('/academy/regression/health');
 export const getIdev1Health = () => intelligenceFetch('/decision-engine/health');
+
+/** RQ1 Research Ontology — Sprint 1 classify-only (no analysts / layers) */
+export const getResearchOntologyHealth = () => intelligenceFetch('/research-ontology/health');
+export const getResearchOntologyDashboard = () => intelligenceFetch('/research-ontology/dashboard');
+export const getResearchOntologyConstitution = () =>
+  intelligenceFetch('/research-ontology/constitution');
+export const getResearchOntologyQualityGates = () =>
+  intelligenceFetch('/research-ontology/quality-gates');
+export const classifyResearchOntology = (question) =>
+  intelligenceFetch('/research-ontology/classify', {
+    method: 'POST',
+    body: { question },
+  });
