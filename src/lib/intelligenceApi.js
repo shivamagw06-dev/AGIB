@@ -1229,3 +1229,21 @@ export const diagnoseResearchObjective = (payload = {}) =>
     method: 'POST',
     body: typeof payload === 'string' ? { question: payload } : payload,
   });
+
+/** RQ1 Institutional Analyst Router — Sprint 5 (who participates, when, weights) */
+export const getAnalystRouterHealth = () => intelligenceFetch('/analyst-router/health');
+export const getAnalystRouterDashboard = () => intelligenceFetch('/analyst-router/dashboard');
+export const getAnalystRouterConstitution = () =>
+  intelligenceFetch('/analyst-router/constitution');
+export const getAnalystRouterQualityGates = () =>
+  intelligenceFetch('/analyst-router/quality-gates');
+export const routeAnalystRouter = (payload = {}) =>
+  intelligenceFetch('/analyst-router/route', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });
+export const diagnoseAnalystRouter = (payload = {}) =>
+  intelligenceFetch('/analyst-router/diagnostics', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });

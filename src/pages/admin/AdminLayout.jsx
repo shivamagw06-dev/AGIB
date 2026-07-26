@@ -37,6 +37,7 @@ import {
   BrainCircuit,
   Fingerprint,
   ClipboardList,
+  Network,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -46,6 +47,7 @@ const navItems = [
   { to: '/admin/intent-intelligence', label: 'Intent Intelligence', icon: BrainCircuit },
   { to: '/admin/entity-resolution', label: 'Entity Resolution', icon: Fingerprint },
   { to: '/admin/research-planner', label: 'Research Planner', icon: ClipboardList },
+  { to: '/admin/analyst-router', label: 'Analyst Router', icon: Network },
   { to: '/admin/articles/new', label: 'New Article', icon: Plus },
   { to: '/admin/categories', label: 'Categories', icon: FolderOpen },
   { to: '/admin/knowledge', label: 'Knowledge Corpus', icon: Brain },

@@ -770,6 +770,18 @@ class UiService:
         except Exception:
             research_objective = {}
 
+        # RQ1 Sprint 5 — Institutional Analyst Router (who participates; metadata soft-wire)
+        analyst_router: dict[str, Any] = {}
+        try:
+            from analyst_router.production import soft_slice_for_ask_agi as iar_soft_slice
+
+            iar_payload = {
+                "research_objective": (research_objective.get("research_objective") or {}),
+            }
+            analyst_router = iar_soft_slice(q, iar_payload) or {}
+        except Exception:
+            analyst_router = {}
+
         # CAE gateway (preferred) — else MEE→FLE→IIE→EVE→AOI→KCV/KF soft enrichment.
         kf_hits: list[dict[str, Any]] = []
         knowledge_corpus: dict[str, Any] = {}
@@ -2395,6 +2407,7 @@ class UiService:
             research_ontology=scrub(research_ontology) if research_ontology else {},
             entity_resolution=scrub(entity_resolution) if entity_resolution else {},
             research_objective=scrub(research_objective) if research_objective else {},
+            analyst_router=scrub(analyst_router) if analyst_router else {},
         )
 
     def timeline(self, entity: str) -> TimelineView:

@@ -1981,6 +1981,34 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // RQ1 Institutional Analyst Router — Sprint 5 participation soft-wire
+  router.get('/analyst-router/health', kfGet('/v1/analyst-router/health'));
+  router.get('/analyst-router/dashboard', kfGet('/v1/analyst-router/dashboard'));
+  router.get('/analyst-router/constitution', kfGet('/v1/analyst-router/constitution'));
+  router.get('/analyst-router/quality-gates', kfGet('/v1/analyst-router/quality-gates'));
+  router.post('/analyst-router/route', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/analyst-router/route', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'IAR route failed', detail: error.message });
+    }
+  });
+  router.post('/analyst-router/diagnostics', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/analyst-router/diagnostics', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'IAR diagnostics failed', detail: error.message });
+    }
+  });
+
   return router;
 }
 

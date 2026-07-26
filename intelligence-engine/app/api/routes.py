@@ -4946,6 +4946,51 @@ async def research_objective_diagnostics(payload: dict[str, Any] = Body(default=
     return diagnostics(payload or {})
 
 
+# --- RQ1 Institutional Analyst Router (Sprint 5 — participation soft-wire; not a top-level layer) ---
+
+
+@router.get("/analyst-router/health")
+async def analyst_router_health():
+    from analyst_router.production import health
+
+    return health()
+
+
+@router.get("/analyst-router/dashboard")
+async def analyst_router_dashboard():
+    from analyst_router.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/analyst-router/constitution")
+async def analyst_router_constitution():
+    from analyst_router.production import constitution
+
+    return constitution()
+
+
+@router.get("/analyst-router/quality-gates")
+async def analyst_router_quality_gates():
+    from analyst_router.production import quality_gates
+
+    return quality_gates()
+
+
+@router.post("/analyst-router/route")
+async def analyst_router_route(payload: dict[str, Any] = Body(default={})):
+    from analyst_router.production import route
+
+    return route(payload or {})
+
+
+@router.post("/analyst-router/diagnostics")
+async def analyst_router_diagnostics(payload: dict[str, Any] = Body(default={})):
+    from analyst_router.production import diagnostics
+
+    return diagnostics(payload or {})
+
+
 # --- SIF v1.0 (Sector Intelligence Framework — additive; not an engine) ---
 
 
