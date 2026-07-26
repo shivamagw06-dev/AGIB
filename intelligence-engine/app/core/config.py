@@ -39,6 +39,21 @@ class Settings(BaseSettings):
     fmp_api_key: str = ""
     fmp_base_url: str = "https://financialmodelingprep.com/api/v3"
 
+    # YFP V1 — Yahoo Finance Institutional Provider (secondary; MarketData adapter only)
+    yahoo_provider: bool = True
+    yahoo_profile: bool = True
+    yahoo_financials: bool = True
+    yahoo_earnings: bool = True
+    yahoo_valuation: bool = True
+    yahoo_ownership: bool = True
+    yahoo_options: bool = True
+    yahoo_financial_history: bool = True  # YAHOO_FINANCIAL_HISTORY
+    yahoo_valuation_history: bool = True  # YAHOO_VALUATION_HISTORY
+    yahoo_cid_enrichment: bool = True  # YAHOO_CID_ENRICHMENT
+    yahoo_yfinance_fallback: bool = True  # YAHOO_YFINANCE_FALLBACK (get_income_stmt path)
+    yahoo_base_url: str = "https://query1.finance.yahoo.com"
+    yahoo_quote_summary_base: str = "https://query2.finance.yahoo.com"
+
     # E01 Macro & Regime Engine feature flags (P0 defaults)
     e01_p0: bool = True
     e01_hmm: bool = False
@@ -172,6 +187,161 @@ class Settings(BaseSettings):
     irp: bool = True
     irp_learning: bool = True
     irp_validation: bool = True
+
+    # Knowledge Foundation V1 (structured knowledge objects over KIP)
+    kf: bool = True
+    kf_auto_build: bool = True
+    kf_company: bool = True
+    kf_sector: bool = True
+    kf_theme: bool = True
+    kf_macro: bool = True
+    kf_predictions: bool = True
+
+    # Knowledge Corpus V1 (populate / improve KF; no KF redesign)
+    kc: bool = True
+    kc_auto_populate: bool = True
+    kc_broker: bool = True
+    kc_earnings: bool = True
+    kc_gaps: bool = True
+    kc_learning: bool = True
+    kc_quality: bool = True
+
+    # AGI Open Intelligence v1 (public acquisition → KC/KF; no core redesign)
+    aoi: bool = True
+    aoi_scheduler: bool = True
+    aoi_publish: bool = True
+    aoi_live_fetch: bool = False
+    aoi_company_ir: bool = True
+    aoi_nse: bool = True
+    aoi_bse: bool = True
+    aoi_rbi: bool = True
+    aoi_sebi: bool = True
+    aoi_mof: bool = True
+    aoi_mospi: bool = True
+    aoi_fred: bool = True
+    aoi_imf: bool = True
+    aoi_worldbank: bool = True
+    aoi_pib: bool = True
+
+    # Evidence & Verification Engine v1 (between AOI and KCV/KF; no core redesign)
+    eve: bool = True
+    eve_auto_verify: bool = True
+    eve_gate_publish: bool = True
+    eve_conflicts: bool = True
+    eve_timeline: bool = True
+    eve_daily_jobs: bool = True
+
+    # Investment Intelligence Engine v1 (after EVE/KCV/KF, before reasoning; no core redesign)
+    iie: bool = True
+    iie_auto_analyse: bool = True
+    iie_scenarios: bool = True
+    iie_catalysts: bool = True
+    iie_risks: bool = True
+    iie_compare: bool = True
+
+    # Forecasting & Learning Engine v1 (after IIE, before reasoning; no core redesign)
+    fle: bool = True
+    fle_auto_resolve: bool = True
+    fle_learning: bool = True
+    fle_calibration: bool = True
+    fle_scenarios: bool = True
+
+    # Market Event Engine v1 (after FLE; event backbone; no core redesign)
+    mee: bool = True
+    mee_auto_detect: bool = True
+    mee_propagate: bool = True
+    mee_impact: bool = True
+    mee_similar: bool = True
+
+    # Context Assembly Engine v1 (Ask AGI orchestration gateway; no core redesign)
+    cae: bool = True
+    cae_cache: bool = True
+    cae_compress: bool = True
+    cae_parallel: bool = True
+    cae_ask_agi_gateway: bool = True
+
+    # Intelligence Bus v1 (event-driven backbone; no core redesign)
+    ib: bool = True
+    ib_persist: bool = True
+    ib_retry: bool = True
+    ib_dlq: bool = True
+    ib_replay: bool = True
+    ib_cache_invalidate: bool = True
+    ib_soft_handlers: bool = True
+    ib_ask_agi_emit: bool = True
+
+    # Valuation Engine v1 (after FLE/MEE structured intel; no core redesign)
+    ve: bool = True
+    ve_auto_value: bool = True
+    ve_scenarios: bool = True
+    ve_sensitivity: bool = True
+    ve_relative: bool = True
+    ve_ibus_updates: bool = True
+
+    # FIML v1 — Financial Intelligence Model Library (shared domain models; not an engine)
+    fiml: bool = True
+    fiml_persist_analyses: bool = True
+
+    # AGI Finance Academy v1 — institutional curriculum library (not an engine)
+    academy: bool = True
+    academy_provenance: bool = True
+    academy_exams: bool = True
+    academy_production: bool = True  # FAPI — production integration into locked engines
+    academy_books: bool = True  # ACADEMY_BOOKS — curated book → structured knowledge
+    academy_frameworks: bool = True  # ACADEMY_FRAMEWORKS
+    academy_formulas: bool = True  # ACADEMY_FORMULAS
+    academy_graph: bool = True  # ACADEMY_GRAPH
+    academy_spreadsheets: bool = True  # ACADEMY_SPREADSHEETS — xlsx/xls/ods/csv models
+    academy_books_dir: str = ""  # ACADEMY_BOOKS_DIR — personal library root
+    sif: bool = True  # SIF — Sector Intelligence Framework (additive analysis lens)
+    leo: bool = True  # LEO — Live Evidence Orchestrator (additive evidence acquisition)
+    cid: bool = True  # CID — Company Intelligence Dossier (permanent institutional memory)
+
+    # DVC V1 — Data Validation & Consensus (Market Data platform layer; not an engine)
+    dvc: bool = True
+    dvc_multi_provider: bool = True
+    dvc_auto_attach_cid: bool = True
+    dvc_provider_priority: str = ""  # e.g. "official_exchange:1,indianapi:2,finnhub:3,fmp:4,yahoo:5"
+
+    # ECP V1 — Evidence Completion Pipeline (orchestration layer; not an engine)
+    ecp: bool = True
+    ecp_before_irp: bool = True
+    ecp_before_gate: bool = True
+
+    # Company Analysis Engine V1 — institutional company-specific reasoning (not Context Assembly)
+    # Master flag COMPANY_ANALYSIS (cae remains Context Assembly). Subflags match programme brief.
+    company_analysis: bool = True
+    cae_financial: bool = True
+    cae_sector: bool = True
+    cae_business: bool = True
+    cae_valuation: bool = True
+    cae_investment_thesis: bool = True
+
+    # Company Monitoring System V1 — continuous living analyst (not an engine)
+    company_monitor: bool = True
+    cms_auto_pipeline: bool = True
+    cms_ask_agi: bool = True
+    cms_research_writer: bool = True
+    cms_house_view_hints: bool = True
+
+    # Investment Office V1 — executive operating layer (not an engine)
+    investment_office: bool = True
+    io_morning_brief: bool = True
+    io_analyst_queue: bool = True
+    io_research_queue: bool = True
+    io_coverage: bool = True
+    io_risk_center: bool = True
+    io_executive_copilot: bool = True
+
+    # Mission Control V1 — administrator operations centre (read-only; not an engine)
+    mission_control: bool = True
+    mission_control_apis: bool = True
+    mission_control_platforms: bool = True
+    mission_control_coverage: bool = True
+    mission_control_knowledge: bool = True
+    mission_control_alerts: bool = True
+    mission_control_events: bool = True
+    mission_control_reports: bool = True
 
 
 @lru_cache

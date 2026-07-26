@@ -84,6 +84,16 @@ class UiService:
         validation: Any | None = None,
         aip: Any | None = None,
         irp: Any | None = None,
+        kf: Any | None = None,
+        kc: Any | None = None,
+        aoi: Any | None = None,
+        eve: Any | None = None,
+        iie: Any | None = None,
+        fle: Any | None = None,
+        mee: Any | None = None,
+        cae: Any | None = None,
+        ib: Any | None = None,
+        ve: Any | None = None,
     ) -> None:
         self.flags = flags or UiFlags.from_settings(get_settings())
         self.aws = aws
@@ -95,6 +105,16 @@ class UiService:
         self.validation = validation
         self.aip = aip
         self.irp = irp
+        self.kf = kf
+        self.kc = kc
+        self.aoi = aoi
+        self.eve = eve
+        self.iie = iie
+        self.fle = fle
+        self.mee = mee
+        self.cae = cae
+        self.ib = ib
+        self.ve = ve
 
     def health(self) -> dict[str, Any]:
         return {
@@ -468,10 +488,33 @@ class UiService:
         newsletter = default_newsletter()
         newsletter["research_published"] = footer_metrics["research_articles"]
 
+        # Investment Office V1 — executive cockpit aggregate (soft; never empty when enabled)
+        investment_office: dict[str, Any] = {}
+        try:
+            from investment_office.production import package_for_home
+
+            investment_office = (
+                package_for_home(
+                    ui_home={
+                        "hero": hero,
+                        "morning_intelligence": morning_intelligence,
+                        "feeds": feeds,
+                        "calendar": calendar,
+                        "discovery_feeds": feeds,
+                        "research_queue": queue,
+                        "market_dashboard": market_dashboard,
+                    },
+                    ioc_service=self.ioc,
+                )
+                or {}
+            )
+        except Exception:
+            investment_office = {}
+
         return HomeView(
             meta=UiMeta(
                 surface="home",
-                sources=["composite_view", "market_regime", "market_risk", "research_desk", "knowledge", "operations"],
+                sources=["composite_view", "market_regime", "market_risk", "research_desk", "knowledge", "operations", "investment_office"],
             ),
             market_brief=brief,
             composite_view=composite,
@@ -501,6 +544,7 @@ class UiService:
             newsletter=newsletter,
             market_snapshot=[],
             market_session={"status": "live", "label": "Market session"},
+            investment_office=scrub(investment_office) if investment_office else {},
         )
 
     def calendar(self) -> dict[str, Any]:
@@ -663,6 +707,362 @@ class UiService:
         irp_pkg = None
         irp_dump: dict[str, Any] = {}
 
+        # CAE gateway (preferred) — else MEE→FLE→IIE→EVE→AOI→KCV/KF soft enrichment.
+        kf_hits: list[dict[str, Any]] = []
+        knowledge_corpus: dict[str, Any] = {}
+        open_intelligence: dict[str, Any] = {}
+        evidence_verification: dict[str, Any] = {}
+        investment_intelligence: dict[str, Any] = {}
+        forecast_learning: dict[str, Any] = {}
+        market_events: dict[str, Any] = {}
+        context_assembly: dict[str, Any] = {}
+        intelligence_bus: dict[str, Any] = {}
+        valuation: dict[str, Any] = {}
+        finance_academy: dict[str, Any] = {}
+        sector_intelligence: dict[str, Any] = {}
+        live_evidence: dict[str, Any] = {}
+        company_dossier: dict[str, Any] = {}
+        data_validation: dict[str, Any] = {}
+        evidence_completion: dict[str, Any] = {}
+        company_analysis: dict[str, Any] = {}
+        company_monitor: dict[str, Any] = {}
+        used_cae = False
+
+        # LEO v1.0 — gather / verify / package live evidence BEFORE Academy + SIF + IRP
+        try:
+            from leo.production import package_for_query as leo_package
+
+            live_evidence = (
+                leo_package(
+                    q,
+                    ticker=detected_ticker,
+                    engine="ask_agi",
+                    eve=self.eve,
+                    kip=self.kip,
+                    aoi=self.aoi,
+                    mee=self.mee,
+                )
+                or {}
+            )
+            if live_evidence.get("ticker") and not detected_ticker:
+                detected_ticker = str(live_evidence["ticker"]).upper()
+        except Exception:
+            live_evidence = {}
+
+        # FAPI + SIF — sector framework then Finance Academy (consume LEO evidence_supplied)
+        leo_supplied = (live_evidence.get("sif_evidence_supplied") or {}) if isinstance(live_evidence, dict) else {}
+        try:
+            from academy.fapi.production import package_for_query
+
+            finance_academy = package_for_query(q, engine="ask_agi", ticker=detected_ticker) or {}
+            sector_intelligence = finance_academy.get("sector_intelligence") or {}
+            if sector_intelligence.get("ticker") and not detected_ticker:
+                detected_ticker = str(sector_intelligence["ticker"]).upper()
+        except Exception:
+            finance_academy = {}
+            sector_intelligence = {}
+        if not sector_intelligence or leo_supplied:
+            try:
+                from sif.production import analyse_query as sif_analyse
+
+                sector_intelligence = (
+                    sif_analyse(
+                        q,
+                        ticker=detected_ticker,
+                        engine="ask_agi",
+                        evidence_supplied=leo_supplied or None,
+                        kip=self.kip,
+                        eve=self.eve,
+                        aws=self.aws,
+                    )
+                    or sector_intelligence
+                    or {}
+                )
+                if sector_intelligence.get("ticker") and not detected_ticker:
+                    detected_ticker = str(sector_intelligence["ticker"]).upper()
+            except Exception:
+                if not sector_intelligence:
+                    sector_intelligence = {}
+
+        # CID v1.0 — load living company dossier FIRST for company analysis (never rebuild from raw APIs)
+        try:
+            from cid.production import package_for_ask_agi as cid_package
+
+            company_dossier = (
+                cid_package(
+                    q,
+                    ticker=detected_ticker,
+                    leo_pkg=live_evidence if isinstance(live_evidence, dict) else None,
+                    finance_academy=finance_academy if isinstance(finance_academy, dict) else None,
+                    sif_pkg=sector_intelligence if isinstance(sector_intelligence, dict) else None,
+                )
+                or {}
+            )
+            if company_dossier.get("ticker") and not detected_ticker:
+                detected_ticker = str(company_dossier["ticker"]).upper()
+            # Prefer dossier-embedded SIF when richer
+            if not sector_intelligence.get("sector_id") and (company_dossier.get("sector_framework") or {}).get("sector_id"):
+                sector_intelligence = {
+                    **sector_intelligence,
+                    "sector_id": company_dossier["sector_framework"].get("sector_id"),
+                    "sector_name": company_dossier["sector_framework"].get("sector_name"),
+                    "priority_metrics": (company_dossier.get("sector_kpis") or {}).get("priority_metrics") or [],
+                    "from_cid": True,
+                }
+        except Exception:
+            company_dossier = live_evidence.get("company_dossier") if isinstance(live_evidence, dict) else {}
+            company_dossier = company_dossier or {}
+
+        # DVC V1 — load validated canonical values / conflict hints before answering
+        try:
+            from dvc.production import package_for_ask_agi as dvc_package
+
+            data_validation = dvc_package(detected_ticker) or {}
+            # Prefer dossier-embedded DVC panel when already attached via CID
+            if not data_validation.get("validated_fields") and isinstance(company_dossier.get("dvc"), dict):
+                data_validation = {
+                    "enabled": True,
+                    "ticker": company_dossier.get("ticker"),
+                    "validated_fields": company_dossier.get("validated_fields") or {},
+                    "quality": (company_dossier.get("dvc") or {}).get("quality"),
+                    "grades": (company_dossier.get("dvc") or {}).get("grades"),
+                    "conflicts": (company_dossier.get("dvc") or {}).get("conflicts") or [],
+                    "panel": company_dossier.get("data_quality_panel")
+                    or (company_dossier.get("dvc") or {}).get("panel"),
+                    "ask_agi_hints": [],
+                    "answer_policy": "validated_canonical_values_only",
+                    "from_cid": True,
+                }
+        except Exception:
+            data_validation = {}
+
+        # ECP V1 — complete missing evidence BEFORE IRP / recommendation gate evaluation
+        try:
+            from app.core.config import get_settings
+            from ecp.production import soft_complete as ecp_soft_complete
+
+            if bool(getattr(get_settings(), "ecp", True)) and bool(
+                getattr(get_settings(), "ecp_before_irp", True)
+            ):
+                evidence_completion = (
+                    ecp_soft_complete(
+                        query=q,
+                        ticker=detected_ticker,
+                        leo_pkg=live_evidence if isinstance(live_evidence, dict) else {},
+                        cid=company_dossier if isinstance(company_dossier, dict) else {},
+                        sif_pkg=sector_intelligence if isinstance(sector_intelligence, dict) else {},
+                        dvc_pkg=data_validation if isinstance(data_validation, dict) else {},
+                        kip=self.kip,
+                        kf=self.kf,
+                    )
+                    or {}
+                )
+                leo_delta = evidence_completion.get("leo_delta") or {}
+                if leo_delta:
+                    live_evidence = {**live_evidence, **leo_delta}
+                cid_delta = evidence_completion.get("cid_delta") or {}
+                if cid_delta:
+                    company_dossier = {**company_dossier, **cid_delta}
+                sif_delta = evidence_completion.get("sif_delta") or {}
+                if sif_delta:
+                    sector_intelligence = {**sector_intelligence, **sif_delta}
+                    if sif_delta.get("sif_evidence_supplied"):
+                        # Keep LEO-supplied map aligned for downstream soft consumers
+                        live_evidence = {
+                            **live_evidence,
+                            "sif_evidence_supplied": sif_delta.get("sif_evidence_supplied"),
+                        }
+                # Refresh DVC panel from CID if ECP attached validated fields
+                if company_dossier.get("validated_fields") and not (data_validation or {}).get("validated_fields"):
+                    data_validation = {
+                        **(data_validation or {}),
+                        "enabled": True,
+                        "validated_fields": company_dossier.get("validated_fields"),
+                        "panel": company_dossier.get("data_quality_panel"),
+                        "quality": (company_dossier.get("dvc") or {}).get("quality"),
+                        "grades": (company_dossier.get("dvc") or {}).get("grades"),
+                        "from_ecp": True,
+                    }
+        except Exception:
+            evidence_completion = {}
+
+        if self.cae and q:
+            try:
+                assembled = dump(soft(self.cae.assemble_for_ask_agi, q, ticker=detected_ticker)) or {}
+                if isinstance(assembled, dict) and assembled.get("soft_fields"):
+                    used_cae = True
+                    cae_soft = assembled.get("soft_fields") or {}
+                    context_assembly = {
+                        "answer_policy": assembled.get("answer_policy") or "unified_context_before_reasoning",
+                        "package": assembled.get("package") or {},
+                        "guidance": assembled.get("guidance") or {},
+                    }
+                    knowledge_corpus = cae_soft.get("knowledge_corpus") or {}
+                    open_intelligence = cae_soft.get("open_intelligence") or {}
+                    evidence_verification = cae_soft.get("evidence_verification") or {}
+                    investment_intelligence = cae_soft.get("investment_intelligence") or {}
+                    forecast_learning = cae_soft.get("forecast_learning") or {}
+                    market_events = cae_soft.get("market_events") or {}
+                    kf_hits = list((cae_soft.get("knowledge_foundation") or {}).get("hits") or [])
+                    if not finance_academy.get("concept_ids") and isinstance(cae_soft.get("finance_academy"), dict):
+                        finance_academy = cae_soft.get("finance_academy") or finance_academy
+                    if (not live_evidence.get("evidence_objects")) and isinstance(
+                        cae_soft.get("live_evidence"), dict
+                    ):
+                        live_evidence = cae_soft.get("live_evidence") or live_evidence
+                    if (not company_dossier.get("ticker")) and isinstance(
+                        cae_soft.get("company_dossier"), dict
+                    ):
+                        company_dossier = cae_soft.get("company_dossier") or company_dossier
+                    if assembled.get("primary_ticker") and not detected_ticker:
+                        detected_ticker = str(assembled["primary_ticker"]).upper()
+            except Exception:
+                used_cae = False
+                context_assembly = {}
+        if not used_cae:
+            if self.mee and q:
+                try:
+                    market_events = dump(soft(self.mee.consult, q, limit=8)) or {}
+                    if isinstance(market_events, dict):
+                        company_pack = market_events.get("company") or {}
+                        if isinstance(company_pack, dict) and company_pack.get("company_id") and not detected_ticker:
+                            events = company_pack.get("events") or []
+                            if events and events[0].get("company_symbols"):
+                                detected_ticker = str(events[0]["company_symbols"][0]).upper()
+                except Exception:
+                    market_events = {}
+            if self.fle and q:
+                try:
+                    forecast_learning = dump(soft(self.fle.consult, q, limit=8)) or {}
+                    if isinstance(forecast_learning, dict):
+                        company_pack = forecast_learning.get("company") or {}
+                        if isinstance(company_pack, dict) and company_pack.get("company_id") and not detected_ticker:
+                            pending = company_pack.get("pending_forecasts") or []
+                            if pending and pending[0].get("company_symbol"):
+                                detected_ticker = str(pending[0]["company_symbol"]).upper()
+                except Exception:
+                    forecast_learning = {}
+            if self.iie and q:
+                try:
+                    investment_intelligence = dump(soft(self.iie.consult, q, limit=8)) or {}
+                    if isinstance(investment_intelligence, dict):
+                        company_pack = investment_intelligence.get("company") or {}
+                        if isinstance(company_pack, dict) and company_pack.get("symbol") and not detected_ticker:
+                            detected_ticker = str(company_pack["symbol"]).upper()
+                except Exception:
+                    investment_intelligence = {}
+            if self.eve and q:
+                try:
+                    evidence_verification = dump(soft(self.eve.consult, q, limit=8)) or {}
+                    if isinstance(evidence_verification, dict):
+                        company_pack = evidence_verification.get("company") or {}
+                        if isinstance(company_pack, dict) and company_pack.get("symbol") and not detected_ticker:
+                            detected_ticker = str(company_pack["symbol"]).upper()
+                except Exception:
+                    evidence_verification = {}
+            if self.aoi and q:
+                try:
+                    open_intelligence = dump(soft(self.aoi.consult, q, limit=8)) or {}
+                    if isinstance(open_intelligence, dict):
+                        company_pack = open_intelligence.get("company") or {}
+                        co = company_pack.get("company") if isinstance(company_pack, dict) else None
+                        if isinstance(co, dict) and co.get("nse_symbol") and not detected_ticker:
+                            detected_ticker = str(co["nse_symbol"]).upper()
+                except Exception:
+                    open_intelligence = {}
+            if self.kc and q:
+                try:
+                    knowledge_corpus = dump(soft(self.kc.consult, q, limit=8)) or {}
+                    kf_hits = list(knowledge_corpus.get("hits") or []) if isinstance(knowledge_corpus, dict) else []
+                except Exception:
+                    knowledge_corpus = {}
+                    kf_hits = []
+            if not kf_hits and self.kf and q:
+                try:
+                    kf_search = dump(soft(self.kf.search, q, limit=8)) or {}
+                    kf_hits = list(kf_search.get("hits") or []) if isinstance(kf_search, dict) else []
+                except Exception:
+                    kf_hits = []
+            if q and kf_hits and not detected_ticker:
+                for hit in kf_hits:
+                    if isinstance(hit, dict) and hit.get("kind") == "company" and hit.get("key"):
+                        detected_ticker = str(hit["key"]).upper()
+                        break
+
+        # VE soft consult — intrinsic value / MoS before reasoning (CAE and fallback paths).
+        if self.ve and q:
+            try:
+                valuation = dump(soft(self.ve.consult, q, limit=8)) or {}
+                if isinstance(valuation, dict):
+                    company_pack = valuation.get("company") or {}
+                    if isinstance(company_pack, dict) and company_pack.get("company_symbol") and not detected_ticker:
+                        detected_ticker = str(company_pack["company_symbol"]).upper()
+            except Exception:
+                valuation = {}
+
+        # Company Analysis Engine V1 — apply Academy to THIS company before IRP (not Context Assembly)
+        try:
+            from company_analysis.production import package_for_ask_agi as company_analysis_package
+
+            if detected_ticker or q:
+                company_analysis = (
+                    company_analysis_package(
+                        q,
+                        ticker=detected_ticker,
+                        cid=company_dossier if isinstance(company_dossier, dict) else None,
+                        finance_academy=finance_academy if isinstance(finance_academy, dict) else None,
+                        sif_pkg=sector_intelligence if isinstance(sector_intelligence, dict) else None,
+                        leo_pkg=live_evidence if isinstance(live_evidence, dict) else None,
+                        dvc_pkg=data_validation if isinstance(data_validation, dict) else None,
+                        valuation_pack=valuation if isinstance(valuation, dict) else None,
+                        forecast_learning=forecast_learning if isinstance(forecast_learning, dict) else None,
+                        market_events=market_events if isinstance(market_events, dict) else None,
+                    )
+                    or {}
+                )
+                if company_analysis.get("ticker") and not detected_ticker:
+                    detected_ticker = str(company_analysis["ticker"]).upper()
+        except Exception:
+            company_analysis = {}
+
+        # Company Monitoring System V1 — what changed since prior snapshot/quarter (never auto house-view)
+        try:
+            from company_monitor.production import package_for_ask_agi as company_monitor_package
+
+            if detected_ticker:
+                company_monitor = (
+                    company_monitor_package(
+                        q,
+                        ticker=detected_ticker,
+                        run_monitor=True,
+                        layers={
+                            "cid": company_dossier if isinstance(company_dossier, dict) else {},
+                            "leo_pkg": live_evidence if isinstance(live_evidence, dict) else {},
+                            "financial": (company_analysis or {}).get("financial_intelligence") or {},
+                            "valuation": (company_analysis or {}).get("valuation_intelligence")
+                            or (valuation if isinstance(valuation, dict) else {}),
+                            "company_analysis": company_analysis if isinstance(company_analysis, dict) else {},
+                            "house_view": {},
+                            "predictions": [],
+                        },
+                    )
+                    or {}
+                )
+        except Exception:
+            company_monitor = {}
+
+        # Investment Office V1 — executive desk context for Ask AGI (aggregate only)
+        investment_office_pkg: dict[str, Any] = {}
+        try:
+            from investment_office.production import package_for_ask_agi as io_package
+
+            investment_office_pkg = io_package(q, ticker=detected_ticker) or {}
+            for hint in (investment_office_pkg.get("ask_agi_hints") or [])[:3]:
+                # Stash on company_monitor-adjacent path via why later if needed
+                pass
+        except Exception:
+            investment_office_pkg = {}
+
         # IRP V1 — think (intent → entities → plan → retrieve → reason) before answering.
         if self.irp and q:
             try:
@@ -816,6 +1216,17 @@ class UiService:
                 related_sectors.append(str(irp_entities.get("sector")))
             if irp_entities.get("sector_label"):
                 related_sectors.append(str(irp_entities.get("sector_label")))
+        for hit in kf_hits:
+            if not isinstance(hit, dict):
+                continue
+            kind = str(hit.get("kind") or "")
+            key = str(hit.get("key") or "")
+            if kind == "company" and key:
+                related.append(key.upper())
+            elif kind == "theme" and key:
+                related_themes.append(key)
+            elif kind == "sector" and key:
+                related_sectors.append(str(hit.get("label") or key))
         if isinstance(house, dict):
             related_themes.extend([str(x) for x in (house.get("themes") or [])])
             related_sectors.extend([str(x) for x in (house.get("sectors") or [])])
@@ -960,6 +1371,210 @@ class UiService:
             house_label=house_label,
         )
         why = _why_bullets(house if isinstance(house, dict) else None, supporting, news, house_label)
+
+        # Prefer richer SIF / Academy packages from IRP when present
+        if isinstance(irp_dump, dict) and isinstance(irp_dump.get("sector_intelligence"), dict):
+            irp_sif = irp_dump.get("sector_intelligence") or {}
+            if irp_sif.get("sector_id"):
+                sector_intelligence = irp_sif
+        if isinstance(irp_dump, dict) and isinstance(irp_dump.get("finance_academy"), dict):
+            irp_fa = irp_dump.get("finance_academy") or {}
+            if len(irp_fa.get("concept_ids") or []) >= len(finance_academy.get("concept_ids") or []):
+                finance_academy = irp_fa
+        # Sector framework hints first, then Academy
+        if sector_intelligence.get("answer_hints"):
+            for hint in (sector_intelligence.get("answer_hints") or [])[:4]:
+                if hint and hint not in why:
+                    why.insert(0, scrub_text(hint)[:300])
+        if finance_academy.get("is_finance") and finance_academy.get("answer_hints"):
+            for hint in (finance_academy.get("answer_hints") or [])[:3]:
+                if hint and hint not in why:
+                    why.insert(0, scrub_text(hint)[:280])
+            why = why[:10]
+            if not thesis:
+                thesis = scrub_text((finance_academy.get("answer_hints") or [None])[0])
+            prov = finance_academy.get("provenance") or {}
+            if prov.get("concept_ids"):
+                finance_academy = {
+                    **finance_academy,
+                    "influenced_answer": True,
+                    "concepts_influencing_answer": list(prov.get("concept_ids") or [])[:12],
+                }
+        # CID first — reason from living dossier, not raw API rebuilds
+        if isinstance(company_dossier, dict) and company_dossier.get("ticker"):
+            hint = company_dossier.get("reasoning_hint")
+            if hint and hint not in why:
+                why.insert(0, scrub_text(hint)[:320])
+            grade = company_dossier.get("coverage_grade")
+            if grade and f"CID coverage: {grade}" not in why:
+                why.insert(
+                    0,
+                    scrub_text(
+                        f"CID coverage: {grade} ({company_dossier.get('coverage_score')}). "
+                        f"Missing: {', '.join((company_dossier.get('missing_evidence') or [])[:5]) or 'none'}."
+                    )[:300],
+                )
+            why = why[:12]
+
+        # DVC — mention conflicts; prefer validated canonical values
+        if isinstance(data_validation, dict) and data_validation.get("enabled") is not False:
+            for hint in (data_validation.get("ask_agi_hints") or [])[:4]:
+                if hint and hint not in why:
+                    why.insert(0, scrub_text(hint)[:360])
+            # Surface research/data grade from DVC panel when present
+            panel = data_validation.get("panel") or {}
+            if panel.get("research_grade") and f"Research Grade {panel.get('research_grade')}" not in str(why):
+                why.insert(
+                    0,
+                    scrub_text(
+                        f"Research Grade {panel.get('research_grade')} · Data Grade {panel.get('data_grade')} · "
+                        f"Confidence {round(float(panel.get('confidence') or 0) * 100)}% "
+                        f"(canonical: {panel.get('winning_provider') or data_validation.get('winning_provider') or 'n/a'})."
+                    )[:320],
+                )
+            why = why[:12]
+
+        # ECP — quality gates + completion / withheld explanation
+        if isinstance(evidence_completion, dict) and evidence_completion.get("enabled") is not False:
+            for hint in (evidence_completion.get("ask_agi_hints") or [])[:4]:
+                if hint and hint not in why:
+                    why.insert(0, scrub_text(hint)[:400])
+            panel = evidence_completion.get("quality_panel") or {}
+            if panel.get("coverage_pct") is not None:
+                why.insert(
+                    0,
+                    scrub_text(
+                        f"ECP Coverage {panel.get('coverage_pct')}% "
+                        f"(was {panel.get('coverage_before_pct')}%). "
+                        f"Missing: {', '.join((panel.get('missing_items') or panel.get('must_have_missing') or [])[:6]) or 'none'}."
+                    )[:360],
+                )
+            why = why[:12]
+
+        # Company Analysis — applied Academy concepts + readiness (never auto-recommend)
+        if isinstance(company_analysis, dict) and company_analysis.get("enabled"):
+            for hint in (company_analysis.get("ask_agi_hints") or [])[:4]:
+                if hint and hint not in why:
+                    why.insert(0, scrub_text(hint)[:400])
+            readiness = company_analysis.get("recommendation_readiness") or {}
+            if readiness.get("overall") is not None:
+                why.insert(
+                    0,
+                    scrub_text(
+                        f"Company Analysis readiness {readiness.get('overall')}% — "
+                        f"gate: {readiness.get('gate')} (not an automatic recommendation)."
+                    )[:320],
+                )
+            bq = (company_analysis.get("business_quality") or {}).get("business_quality_score")
+            if bq is not None:
+                why.insert(0, scrub_text(f"Business quality score: {bq}/100.")[:200])
+            why = why[:12]
+
+        # Company Monitor — what changed since prior period
+        if isinstance(company_monitor, dict) and company_monitor.get("enabled"):
+            for hint in (company_monitor.get("ask_agi_hints") or [])[:5]:
+                if hint and hint not in why:
+                    why.insert(0, scrub_text(hint)[:400])
+            wc = company_monitor.get("what_changed") or {}
+            if wc.get("change_count"):
+                why.insert(
+                    0,
+                    scrub_text(
+                        f"Company Monitor: {wc.get('change_count')} change(s) since prior snapshot "
+                        f"(max significance: {wc.get('max_significance')})."
+                    )[:300],
+                )
+            why = why[:12]
+
+        # Investment Office — desk attention / research queue context
+        if isinstance(investment_office_pkg, dict) and investment_office_pkg.get("enabled"):
+            for hint in (investment_office_pkg.get("ask_agi_hints") or [])[:4]:
+                if hint and hint not in why:
+                    why.insert(0, scrub_text(hint)[:400])
+            why = why[:12]
+
+        # LEO hints — live evidence contribution before recommendation
+        if isinstance(live_evidence, dict) and live_evidence.get("enabled"):
+            for hint in (live_evidence.get("answer_hints") or [])[:3]:
+                if hint and hint not in why:
+                    why.insert(0, scrub_text(hint)[:300])
+            why = why[:12]
+
+        # ECP second pass — if still blocked, one more soft completion before final gate
+        try:
+            from app.core.config import get_settings
+            from ecp.production import soft_complete as ecp_soft_complete
+
+            reco_gate_pre = (sector_intelligence.get("recommendation_gate") or {})
+            leo_gate_pre = (live_evidence.get("quality_gate") or {}) if isinstance(live_evidence, dict) else {}
+            if (
+                bool(getattr(get_settings(), "ecp", True))
+                and bool(getattr(get_settings(), "ecp_before_gate", True))
+                and (reco_gate_pre.get("blocked") or leo_gate_pre.get("blocked"))
+            ):
+                pass2 = (
+                    ecp_soft_complete(
+                        query=q,
+                        ticker=detected_ticker,
+                        leo_pkg=live_evidence if isinstance(live_evidence, dict) else {},
+                        cid=company_dossier if isinstance(company_dossier, dict) else {},
+                        sif_pkg=sector_intelligence if isinstance(sector_intelligence, dict) else {},
+                        dvc_pkg=data_validation if isinstance(data_validation, dict) else {},
+                        kip=self.kip,
+                        kf=self.kf,
+                        force=True,
+                    )
+                    or {}
+                )
+                if pass2.get("leo_delta"):
+                    live_evidence = {**live_evidence, **(pass2.get("leo_delta") or {})}
+                if pass2.get("cid_delta"):
+                    company_dossier = {**company_dossier, **(pass2.get("cid_delta") or {})}
+                if pass2.get("sif_delta"):
+                    sector_intelligence = {**sector_intelligence, **(pass2.get("sif_delta") or {})}
+                if pass2:
+                    evidence_completion = {
+                        **(evidence_completion or {}),
+                        "pass2": {
+                            "completed_automatically": pass2.get("completed_automatically"),
+                            "still_missing": pass2.get("still_missing"),
+                            "gate_blocked_after": pass2.get("gate_blocked_after"),
+                            "quality_improvement": pass2.get("quality_improvement"),
+                        },
+                        "quality_panel": pass2.get("quality_panel")
+                        or (evidence_completion or {}).get("quality_panel"),
+                        "withheld_explanation": pass2.get("withheld_explanation")
+                        or (evidence_completion or {}).get("withheld_explanation"),
+                        "ask_agi_hints": list(
+                            dict.fromkeys(
+                                list((evidence_completion or {}).get("ask_agi_hints") or [])
+                                + list(pass2.get("ask_agi_hints") or [])
+                            )
+                        )[:8],
+                    }
+        except Exception:
+            pass
+
+        # Evidence gate — SIF company evidence + LEO live evidence (do not Buy/Hold/Sell on Academy alone)
+        # Gate logic unchanged — ECP only attempts completion before this evaluation.
+        reco_gate = (sector_intelligence.get("recommendation_gate") or {})
+        leo_gate = (live_evidence.get("quality_gate") or {}) if isinstance(live_evidence, dict) else {}
+        if reco_gate.get("blocked") or leo_gate.get("blocked"):
+            ecp_expl = None
+            if isinstance(evidence_completion, dict):
+                ecp_expl = evidence_completion.get("withheld_explanation")
+            thesis = (
+                ecp_expl
+                or leo_gate.get("message")
+                or reco_gate.get("message")
+                or "Institutional recommendation withheld due to insufficient current evidence."
+            )
+            house_label = "Insufficient Evidence"
+            executive = thesis
+            bull = []
+            bear = []
+            if thesis not in why:
+                why.insert(0, scrub_text(thesis)[:500])
 
         timeline: list[dict[str, Any]] = []
         if detected_ticker and self.kip:
@@ -1221,6 +1836,34 @@ class UiService:
                 "programme": "IRP V1",
                 "think_before_answer": True,
             }
+        if kf_hits:
+            workspace = {
+                **workspace,
+                "knowledge_first": True,
+                "knowledge_hits": len(kf_hits),
+                "knowledge_corpus": True if knowledge_corpus else False,
+                "primary_source_of_truth": "knowledge_objects",
+            }
+
+        # IB soft emit — Ask AGI activity becomes a bus event when enabled.
+        if self.ib and q:
+            try:
+                emitted = soft(
+                    self.ib.emit_ask_agi_activity,
+                    query=q,
+                    ticker=detected_ticker,
+                    used_cae=used_cae,
+                )
+                if isinstance(emitted, dict) and emitted.get("event"):
+                    intelligence_bus = {
+                        "answer_policy": "event_driven_backbone",
+                        "emitted": True,
+                        "event": emitted.get("event") or {},
+                        "deliveries": emitted.get("deliveries") or [],
+                        "correlation_id": (emitted.get("event") or {}).get("correlation_id"),
+                    }
+            except Exception:
+                intelligence_bus = {}
 
         return SearchView(
             meta=UiMeta(
@@ -1287,10 +1930,103 @@ class UiService:
             portfolio_context=port_ctx,
             workspace=workspace,
             irp=scrub(irp_meta) or {},
+            knowledge_foundation={
+                "answer_policy": "knowledge_objects_before_documents",
+                "hits": scrub(kf_hits)[:8],
+                "count": len(kf_hits),
+            },
+            knowledge_corpus=scrub(knowledge_corpus)
+            if knowledge_corpus
+            else {
+                "answer_policy": "knowledge_corpus_before_documents",
+                "hits": scrub(kf_hits)[:8],
+                "count": len(kf_hits),
+                "primary_source_of_truth": "knowledge_objects",
+            },
+            open_intelligence=scrub(open_intelligence) if open_intelligence else {},
+            evidence_verification=scrub(evidence_verification)
+            if evidence_verification
+            else {
+                "answer_policy": "verified_evidence_before_raw_facts",
+                "guidance": {
+                    "use_highest_confidence_first": True,
+                    "avoid_hallucinated_certainty": True,
+                },
+            },
+            investment_intelligence=scrub(investment_intelligence)
+            if investment_intelligence
+            else {
+                "answer_policy": "investment_intelligence_before_reasoning",
+                "guidance": {
+                    "use_structured_intelligence_first": True,
+                    "trace_to_eve_evidence": True,
+                    "preserve_uncertainty": True,
+                    "never_hallucinate": True,
+                },
+            },
+            forecast_learning=scrub(forecast_learning)
+            if forecast_learning
+            else {
+                "answer_policy": "forecast_history_and_calibration_before_reasoning",
+                "guidance": {
+                    "use_forecast_history_first": True,
+                    "reduce_certainty_if_miscalibrated": False,
+                    "never_forget_predictions": True,
+                },
+            },
+            market_events=scrub(market_events)
+            if market_events
+            else {
+                "answer_policy": "what_changed_before_reasoning",
+                "guidance": {
+                    "always_ask_what_changed": True,
+                    "use_event_context_first": True,
+                    "immutable_events": True,
+                },
+            },
+            context_assembly=scrub(context_assembly)
+            if context_assembly
+            else {
+                "answer_policy": "unified_context_before_reasoning",
+                "guidance": {
+                    "single_orchestration_call": False,
+                    "fallback_multi_engine": True,
+                },
+            },
+            intelligence_bus=scrub(intelligence_bus)
+            if intelligence_bus
+            else {
+                "answer_policy": "event_driven_backbone",
+                "guidance": {
+                    "publish_subscribe": True,
+                    "fallback_when_disabled": True,
+                },
+            },
+            valuation=scrub(valuation)
+            if valuation
+            else {
+                "answer_policy": "valuation_before_reasoning",
+                "guidance": {
+                    "use_intrinsic_value_first": True,
+                    "never_execute_trades": True,
+                },
+            },
+            finance_academy=scrub(finance_academy) if finance_academy else {},
+            live_evidence=scrub(live_evidence) if live_evidence else {},
+            company_dossier=scrub(company_dossier) if company_dossier else {},
+            data_validation=scrub(data_validation) if data_validation else {},
+            evidence_completion=scrub(evidence_completion) if evidence_completion else {},
+            company_analysis=scrub(company_analysis) if company_analysis else {},
+            company_monitor=scrub(company_monitor) if company_monitor else {},
             institutional_briefing=scrub(briefing) or {},
-            sector_intelligence=scrub((irp_dump or {}).get("sector_intelligence") or {})
-            if isinstance(irp_dump, dict)
-            else {},
+            # Prefer live SIF/Ask-AGI sector pack; fall back to IRP sector pack
+            sector_intelligence=scrub(sector_intelligence)
+            if sector_intelligence
+            else (
+                scrub((irp_dump or {}).get("sector_intelligence") or {})
+                if isinstance(irp_dump, dict)
+                else {}
+            ),
             company_intelligence=scrub((irp_dump or {}).get("company_intelligence") or {})
             if isinstance(irp_dump, dict)
             else {},

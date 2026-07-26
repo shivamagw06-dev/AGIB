@@ -163,6 +163,30 @@ def research_continuity_context(
         if house.catalysts_occurred:
             changes.append(f"Catalysts occurred: {', '.join(house.catalysts_occurred[:5])}")
 
+    academy_books: dict[str, Any] = {}
+    try:
+        from academy.books.production import research_writer_slice
+
+        academy_books = research_writer_slice(query or "", ticker=ticker)
+        try:
+            from company_monitor.production import research_writer_slice as cms_research_writer_slice
+
+            cms_slice = cms_research_writer_slice(query or "", ticker=ticker) or {}
+            if isinstance(academy_books, dict) and cms_slice.get("enabled"):
+                academy_books = {
+                    **academy_books,
+                    "company_monitor": cms_slice,
+                    "what_changed": cms_slice.get("what_changed"),
+                    "historical_timeline": cms_slice.get("historical_timeline"),
+                    "financial_changes": cms_slice.get("financial_changes"),
+                    "management_changes": cms_slice.get("management_changes"),
+                    "valuation_changes": cms_slice.get("valuation_changes"),
+                }
+        except Exception:
+            pass
+    except Exception:
+        academy_books = {}
+
     return {
         "documents_retrieved": pack.documents_retrieved,
         "knowledge_version": pack.knowledge_version,
@@ -184,6 +208,12 @@ def research_continuity_context(
         "new_catalysts": (house.catalysts_occurred if house else [])[:10],
         "retrieval_order": pack.retrieval_order,
         "answer_policy": "house_view_first_then_external",
+        "academy_books": academy_books,
+        "research_policy": {
+            "use_academy_frameworks": True,
+            "never_copy_book_text": True,
+            "original_analysis_only": True,
+        },
     }
 
 

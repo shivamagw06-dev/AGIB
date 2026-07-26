@@ -52,6 +52,8 @@ class HomeView(BaseModel):
     newsletter: dict[str, Any] = Field(default_factory=dict)
     market_snapshot: list[dict[str, Any]] = Field(default_factory=list)
     market_session: dict[str, Any] = Field(default_factory=dict)
+    # Investment Office V1 — executive operating cockpit (aggregate only)
+    investment_office: dict[str, Any] = Field(default_factory=dict)
 
 
 class CompanyView(BaseModel):
@@ -124,8 +126,44 @@ class SearchView(BaseModel):
     workspace: dict[str, Any] = Field(default_factory=dict)
     # IRP V1 — Institutional Reasoning Pipeline (Ask AGI briefing layer)
     irp: dict[str, Any] = Field(default_factory=dict)
-    institutional_briefing: dict[str, Any] = Field(default_factory=dict)
+    # KF1 — Knowledge Foundation objects resolved before documents
+    knowledge_foundation: dict[str, Any] = Field(default_factory=dict)
+    # KCV1 — Knowledge Corpus consult (primary source of truth before documents)
+    knowledge_corpus: dict[str, Any] = Field(default_factory=dict)
+    # AOI v1 — public acquisition structured knowledge soft retrieval
+    open_intelligence: dict[str, Any] = Field(default_factory=dict)
+    # EVE v1 — verified evidence / conflicts / confidence for Ask AGI
+    evidence_verification: dict[str, Any] = Field(default_factory=dict)
+    # IIE v1 — structured investment intelligence before reasoning
+    investment_intelligence: dict[str, Any] = Field(default_factory=dict)
+    # FLE v1 — forecast history, calibration and learning before reasoning
+    forecast_learning: dict[str, Any] = Field(default_factory=dict)
+    # MEE v1 — canonical market events / what changed before reasoning
+    market_events: dict[str, Any] = Field(default_factory=dict)
+    # CAE v1 — unified context assembly package (orchestration gateway)
+    context_assembly: dict[str, Any] = Field(default_factory=dict)
+    # IB v1 — intelligence bus soft emit metadata (Ask AGI activity)
+    intelligence_bus: dict[str, Any] = Field(default_factory=dict)
+    # VE v1 — intrinsic value / margin of safety before reasoning
+    valuation: dict[str, Any] = Field(default_factory=dict)
+    # FAPI v1.0 — Finance Academy production provenance (additive)
+    finance_academy: dict[str, Any] = Field(default_factory=dict)
+    # SIF v1.0 — Sector Intelligence Framework provenance (additive)
+    # SIF / IRP sector pack (single field; SIF may nest under "sif")
     sector_intelligence: dict[str, Any] = Field(default_factory=dict)
+    # LEO v1.0 — Live Evidence Orchestrator provenance (additive)
+    live_evidence: dict[str, Any] = Field(default_factory=dict)
+    # CID v1.0 — Company Intelligence Dossier (permanent institutional memory)
+    company_dossier: dict[str, Any] = Field(default_factory=dict)
+    # DVC V1 — Data Validation & Consensus (Market Data platform layer; additive)
+    data_validation: dict[str, Any] = Field(default_factory=dict)
+    # ECP V1 — Evidence Completion Pipeline (orchestration; additive)
+    evidence_completion: dict[str, Any] = Field(default_factory=dict)
+    # Company Analysis Engine V1 — apply Academy to company with evidence (additive; not Context Assembly)
+    company_analysis: dict[str, Any] = Field(default_factory=dict)
+    # Company Monitoring System V1 — continuous what-changed living analyst (additive)
+    company_monitor: dict[str, Any] = Field(default_factory=dict)
+    institutional_briefing: dict[str, Any] = Field(default_factory=dict)
     company_intelligence: dict[str, Any] = Field(default_factory=dict)
     current_outlook: str | None = None
     key_drivers: list[str] = Field(default_factory=list)

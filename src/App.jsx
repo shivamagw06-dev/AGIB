@@ -48,10 +48,11 @@ const ResearchWorkflowDesk = React.lazy(() => import('@/pages/ResearchWorkflowDe
 const AskAgiPage = React.lazy(() => import('@/pages/AskAgiPage'));
 const PredictionCentre = React.lazy(() => import('@/pages/PredictionCentre'));
 const PersonalWorkspace = React.lazy(() => import('@/pages/PersonalWorkspace'));
-const EditorialHome = React.lazy(() => import('@/components/Home/EditorialHome'));
+const InvestmentOfficeHome = React.lazy(() => import('@/office/InvestmentOfficeHome'));
 
 function HomeLayout() {
-  return <EditorialHome />;
+  // Investment Office V1 — executive cockpit (existing dark IO shell; no site redesign)
+  return <InvestmentOfficeHome />;
 }
 
 function AppShell() {

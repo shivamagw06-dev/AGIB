@@ -42,17 +42,22 @@ class ProviderHealthService:
             state = circuit_states.get(provider.provider_id, "closed")
             configured = provider.is_configured()
             ok = configured and state != "open"
-            providers.append(
-                {
-                    "provider_id": provider.provider_id,
-                    "configured": configured,
-                    "circuit_state": state,
-                    "capabilities": sorted(provider.capabilities()),
-                    "priority": provider.priority,
-                    "last_error": self._last_errors.get(provider.provider_id),
-                    "ok": ok,
-                }
-            )
+            row: dict[str, object] = {
+                "provider_id": provider.provider_id,
+                "configured": configured,
+                "circuit_state": state,
+                "capabilities": sorted(provider.capabilities()),
+                "priority": provider.priority,
+                "last_error": self._last_errors.get(provider.provider_id),
+                "ok": ok,
+            }
+            # Soft extras (Yahoo health dashboard fields)
+            if hasattr(provider, "health_extras"):
+                try:
+                    row["extras"] = provider.health_extras()  # type: ignore[operator]
+                except Exception:
+                    pass
+            providers.append(row)
         return {
             "ok": any(p["ok"] for p in providers) if providers else False,
             "checked_at": datetime.now(timezone.utc).isoformat(),

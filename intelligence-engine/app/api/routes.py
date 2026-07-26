@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
+from fastapi import Body
 
 from app.agents.registry import list_agents
 from app.core.config import Settings, get_settings
@@ -54,6 +57,18 @@ from app.ioc.service import IocService
 from app.aip.models import ExperimentHypothesis, ExperimentRequest
 from app.aip.service import AipService
 from app.irp.service import IrpService
+from app.kf.service import KfService
+from app.kc.service import KcService
+from app.aoi.service import AoiService
+from app.eve.service import EveService
+from app.iie.service import IieService
+from app.fle.service import FleService
+from app.mee.service import MeeService
+from app.cae.service import CaeService
+from app.ib.service import IbService
+from app.ve.service import VeService
+from app.fiml.service import FimlService
+from app.academy.service import AcademyService
 from app.ui.service import UiService
 from app.validation.service import ValidationService
 from app.features.models import FeatureMetadata
@@ -140,6 +155,41 @@ _ioc = IocService(
 )
 _aip = AipService()
 _irp = IrpService(kip=_kip, rsp=_rsp)
+_kf = KfService(kip=_kip)
+_kc = KcService(kf=_kf, kip=_kip)
+_aoi = AoiService(kip=_kip, kc=_kc, kf=_kf)
+_eve = EveService(aoi=_aoi, kc=_kc, kf=_kf)
+_aoi.bind_eve(_eve)
+_iie = IieService(eve=_eve, kc=_kc, kf=_kf, aoi=_aoi)
+_fle = FleService(iie=_iie, eve=_eve, kc=_kc, kf=_kf, aoi=_aoi)
+_mee = MeeService(eve=_eve, iie=_iie, fle=_fle, aoi=_aoi, kf=_kf, kc=_kc)
+_cae = CaeService(kf=_kf, kc=_kc, aoi=_aoi, eve=_eve, iie=_iie, fle=_fle, mee=_mee)
+_ib = IbService(aoi=_aoi, eve=_eve, iie=_iie, fle=_fle, mee=_mee, cae=_cae)
+_ve = VeService(eve=_eve, iie=_iie, fle=_fle, mee=_mee, aoi=_aoi, ib=_ib)
+# Soft IB subscriber for valuation recalculation (additive; engines unchanged).
+try:
+    _ib.subscribe(
+        {
+            "subscriber": "ve",
+            "event_types": [
+                "EvidenceVerified",
+                "ForecastUpdated",
+                "ForecastResolved",
+                "InvestmentThesisUpdated",
+                "CorporateEventDetected",
+                "CompanyUpdated",
+            ],
+            "priority": "normal",
+            "retry_max": 2,
+        }
+    )
+    _ib.delivery.register_handler("ve", _ve.on_bus_event)
+except Exception:
+    pass
+# FIML — shared domain model library (not an engine; engines consume via models.consumers).
+_fiml = FimlService()
+# Finance Academy — curriculum knowledge library (not an engine; soft consumers only).
+_academy = AcademyService()
 _ui = UiService(
     aws=_aws,
     ioc=_ioc,
@@ -150,6 +200,16 @@ _ui = UiService(
     validation=_validation,
     aip=_aip,
     irp=_irp,
+    kf=_kf,
+    kc=_kc,
+    aoi=_aoi,
+    eve=_eve,
+    iie=_iie,
+    fle=_fle,
+    mee=_mee,
+    cae=_cae,
+    ib=_ib,
+    ve=_ve,
 )
 # Soft-wire KIP retrieve → RSP reason into Research Director (no engine redesign).
 _director.kip = _kip
@@ -670,7 +730,20 @@ async def kip_ingest(body: IngestRequest):
         doc = _kip.ingest(body)
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    _kf_soft_learn(doc)
     return doc.model_dump(mode="json")
+
+
+def _kf_soft_learn(doc) -> None:
+    """Soft KF + Knowledge Corpus learning hook — never fails the KIP ingest path."""
+    try:
+        _kf.on_document(doc)
+    except Exception:
+        pass
+    try:
+        _kc.on_document(doc)
+    except Exception:
+        return
 
 
 def _channel_ingest(body: ChannelIngestRequest, channel: str):
@@ -688,6 +761,9 @@ def _channel_ingest(body: ChannelIngestRequest, channel: str):
                 result = _kip.ingest_newsletter(bulk)
             else:
                 result = _kip.ingest_bulk(bulk.model_copy(update={"source_channel": channel}))
+            # Soft-learn each ingested document into Knowledge Foundation.
+            for item in getattr(result, "ingested", None) or []:
+                _kf_soft_learn(item)
             return result.model_dump(mode="json")
         single = IngestRequest(**body.model_dump(exclude={"items", "zip_base64", "default_broker"}))
         if channel == "agi":
@@ -698,6 +774,7 @@ def _channel_ingest(body: ChannelIngestRequest, channel: str):
             doc = _kip.ingest_newsletter(single)
         else:
             doc = _kip.ingest_internal(single)
+        _kf_soft_learn(doc)
         return doc.model_dump(mode="json")
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -1401,6 +1478,2071 @@ async def aip_dashboard():
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+# --- KF1 Knowledge Foundation (structured knowledge over KIP; no redesign) ---
+
+
+@router.get("/kf/health")
+async def kf_health():
+    return _kf.health()
+
+
+@router.get("/kf/coverage")
+async def kf_coverage():
+    try:
+        return _kf.coverage()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/kf/seed")
+async def kf_seed():
+    try:
+        return _kf.seed()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/kf/rebuild")
+async def kf_rebuild():
+    try:
+        return _kf.rebuild()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/kf/search")
+async def kf_search(q: str = Query(...), limit: int = Query(default=12, ge=1, le=50)):
+    try:
+        return _kf.search(q, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/kf/companies")
+async def kf_companies():
+    try:
+        return {"companies": _kf.list_companies()}
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/kf/company/{ticker}")
+async def kf_company(ticker: str):
+    try:
+        return _kf.get_company(ticker)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/kf/sectors")
+async def kf_sectors():
+    try:
+        return {"sectors": _kf.list_sectors()}
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/kf/sector/{sector_id}")
+async def kf_sector(sector_id: str):
+    try:
+        return _kf.get_sector(sector_id)
+    except (RuntimeError, KeyError) as exc:
+        raise HTTPException(status_code=404 if isinstance(exc, KeyError) else 400, detail=str(exc)) from exc
+
+
+@router.get("/kf/themes")
+async def kf_themes():
+    try:
+        return {"themes": _kf.list_themes()}
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/kf/theme/{theme_id}")
+async def kf_theme(theme_id: str):
+    try:
+        return _kf.get_theme(theme_id)
+    except (RuntimeError, KeyError) as exc:
+        raise HTTPException(status_code=404 if isinstance(exc, KeyError) else 400, detail=str(exc)) from exc
+
+
+@router.get("/kf/macros")
+async def kf_macros():
+    try:
+        return {"macros": _kf.list_macros()}
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/kf/macro/{macro_id}")
+async def kf_macro(macro_id: str):
+    try:
+        return _kf.get_macro(macro_id)
+    except (RuntimeError, KeyError) as exc:
+        raise HTTPException(status_code=404 if isinstance(exc, KeyError) else 400, detail=str(exc)) from exc
+
+
+@router.get("/kf/predictions")
+async def kf_predictions():
+    try:
+        return {"predictions": _kf.list_predictions()}
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/kf/extracts")
+async def kf_extracts():
+    try:
+        return {"extracts": _kf.list_extracts()}
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+# --- KCV1 Knowledge Corpus (populate/improve KF; no KF/KIP/IRP/RSP redesign) ---
+
+
+@router.get("/kc/health")
+async def kc_health():
+    return _kc.health()
+
+
+@router.get("/kc/metrics")
+async def kc_metrics():
+    try:
+        return _kc.metrics()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/kc/dashboard")
+async def kc_dashboard():
+    try:
+        return _kc.dashboard()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/kc/populate")
+async def kc_populate(rebuild_kip: bool = Query(default=True)):
+    try:
+        return _kc.populate(rebuild_kip=rebuild_kip)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/kc/universe")
+async def kc_universe():
+    try:
+        return _kc.ensure_universe()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/kc/gaps")
+async def kc_gaps():
+    try:
+        return _kc.gaps()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/kc/learning")
+async def kc_learning():
+    try:
+        return _kc.learning()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/kc/quality")
+async def kc_quality(kind: str | None = Query(default=None), key: str | None = Query(default=None)):
+    try:
+        return _kc.quality(kind=kind, key=key)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/kc/consult")
+async def kc_consult(q: str = Query(...), limit: int = Query(default=8, ge=1, le=40)):
+    try:
+        return _kc.consult(q, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+# --- AOI v1 Open Intelligence (public acquisition → KC/KF; no core redesign) ---
+
+
+@router.get("/aoi/health")
+async def aoi_health():
+    return _aoi.health()
+
+
+@router.get("/aoi/dashboard")
+async def aoi_dashboard():
+    try:
+        return _aoi.dashboard()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/aoi/registry/seed")
+async def aoi_registry_seed():
+    try:
+        return _aoi.seed_registry()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/aoi/run")
+async def aoi_run(
+    connector_id: str | None = Query(default=None),
+    limit_per_connector: int | None = Query(default=30, ge=1, le=500),
+    publish: bool = Query(default=True),
+):
+    try:
+        ids = [connector_id] if connector_id else None
+        return _aoi.run_cycle(connector_ids=ids, limit_per_connector=limit_per_connector, publish=publish)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/aoi/companies")
+async def aoi_companies(universe: str | None = Query(default="nifty_50")):
+    try:
+        return _aoi.list_companies(universe=universe)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/aoi/company/{key}")
+async def aoi_company(key: str):
+    try:
+        return _aoi.get_company(key)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/aoi/search")
+async def aoi_search(q: str = Query(...), limit: int = Query(default=20, ge=1, le=100)):
+    try:
+        return _aoi.search(q, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/aoi/consult")
+async def aoi_consult(q: str = Query(...), limit: int = Query(default=8, ge=1, le=40)):
+    try:
+        return _aoi.consult(q, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/aoi/connectors")
+async def aoi_connectors():
+    try:
+        return _aoi.connector_health()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/aoi/scheduler")
+async def aoi_scheduler():
+    try:
+        return _aoi.pipeline.scheduler.status()
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/aoi/gaps")
+async def aoi_gaps():
+    try:
+        dash = _aoi.dashboard()
+        return {"count": len(dash.get("gaps") or []), "tasks": dash.get("gaps") or []}
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/aoi/learning")
+async def aoi_learning():
+    try:
+        dash = _aoi.dashboard()
+        return dash.get("learning") or {}
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+# --- EVE v1 Evidence & Verification (between AOI and KCV/KF; no core redesign) ---
+
+
+@router.get("/eve/health")
+async def eve_health():
+    return _eve.health()
+
+
+@router.get("/eve/dashboard")
+async def eve_dashboard():
+    try:
+        return _eve.dashboard()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/eve/evidence")
+async def eve_evidence(
+    company_id: str | None = Query(default=None),
+    fact_key: str | None = Query(default=None),
+    limit: int = Query(default=100, ge=1, le=500),
+):
+    try:
+        return _eve.list_evidence(company_id=company_id, fact_key=fact_key, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/eve/evidence/{evidence_id}")
+async def eve_evidence_one(evidence_id: str):
+    try:
+        return _eve.get_evidence(evidence_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/eve/company/{key}")
+async def eve_company(key: str):
+    try:
+        return _eve.company_pack(key)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/eve/conflicts")
+async def eve_conflicts(status: str = Query(default="open")):
+    try:
+        return _eve.conflicts(status=status)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/eve/timeline")
+async def eve_timeline(
+    company_id: str | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=200),
+):
+    try:
+        return _eve.timeline(company_id=company_id, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/eve/trust")
+async def eve_trust():
+    try:
+        return _eve.trust()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/eve/source")
+async def eve_source():
+    try:
+        return _eve.list_sources()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/eve/verification")
+async def eve_verification():
+    try:
+        return _eve.verification_queue()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/eve/verification/run")
+async def eve_verification_run():
+    try:
+        return _eve.run_verification_jobs()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/eve/search")
+async def eve_search(q: str = Query(...), limit: int = Query(default=20, ge=1, le=100)):
+    try:
+        return _eve.search(q, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/eve/consult")
+async def eve_consult(q: str = Query(...), limit: int = Query(default=8, ge=1, le=40)):
+    try:
+        return _eve.consult(q, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/eve/audit")
+async def eve_audit(limit: int = Query(default=50, ge=1, le=200)):
+    try:
+        return _eve.audit_logs(limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+# --- IIE v1 Investment Intelligence (after EVE/KCV/KF, before reasoning; no core redesign) ---
+
+
+@router.get("/iie/health")
+async def iie_health():
+    return _iie.health()
+
+
+@router.get("/iie/dashboard")
+async def iie_dashboard():
+    try:
+        return _iie.dashboard()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/iie/analyse")
+async def iie_analyse(key: str = Query(...)):
+    try:
+        return _iie.analyse(key)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/iie/batch")
+async def iie_batch(limit: int = Query(default=20, ge=1, le=100)):
+    try:
+        return _iie.run_batch(limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/iie/company/{key}")
+async def iie_company(key: str):
+    try:
+        return _iie.company(key)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/iie/sector")
+async def iie_sectors():
+    try:
+        return _iie.list_sectors()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/iie/sector/{sector_id}")
+async def iie_sector(sector_id: str):
+    try:
+        return _iie.sector(sector_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/iie/theme")
+async def iie_themes():
+    try:
+        return _iie.list_themes()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/iie/theme/{theme_id}")
+async def iie_theme(theme_id: str):
+    try:
+        return _iie.theme(theme_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/iie/thesis/{key}")
+async def iie_thesis(key: str):
+    try:
+        return _iie.thesis(key)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/iie/scenario/{key}")
+async def iie_scenario(key: str):
+    try:
+        return _iie.scenario(key)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/iie/catalysts")
+async def iie_catalysts(
+    company_id: str | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=200),
+):
+    try:
+        return _iie.catalysts(company_id=company_id, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/iie/risks")
+async def iie_risks(
+    company_id: str | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=200),
+):
+    try:
+        return _iie.risks(company_id=company_id, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/iie/opportunities")
+async def iie_opportunities(
+    company_id: str | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=200),
+):
+    try:
+        return _iie.opportunities(company_id=company_id, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/iie/compare")
+async def iie_compare(
+    companies: str = Query(..., description="Comma-separated company ids/symbols"),
+    dimensions: str | None = Query(default=None),
+):
+    try:
+        ids = [c.strip() for c in companies.split(",") if c.strip()]
+        dims = [d.strip() for d in dimensions.split(",") if d.strip()] if dimensions else None
+        return _iie.compare(ids, dimensions=dims)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/iie/monitor/{key}")
+async def iie_monitor(key: str):
+    try:
+        return _iie.monitor(key)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/iie/dna/{key}")
+async def iie_dna(key: str):
+    try:
+        return _iie.dna(key)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/iie/macro")
+async def iie_macro(event: str = Query(...)):
+    try:
+        return _iie.macro(event)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/iie/evolution")
+async def iie_evolution(
+    entity_id: str | None = Query(default=None),
+    object_type: str | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=200),
+):
+    try:
+        return _iie.evolution(entity_id=entity_id, object_type=object_type, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/iie/search")
+async def iie_search(q: str = Query(...), limit: int = Query(default=20, ge=1, le=100)):
+    try:
+        return _iie.search(q, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/iie/consult")
+async def iie_consult(q: str = Query(...), limit: int = Query(default=8, ge=1, le=40)):
+    try:
+        return _iie.consult(q, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+# --- FLE v1 Forecasting & Learning (after IIE, before reasoning; no core redesign) ---
+
+
+@router.get("/fle/health")
+async def fle_health():
+    return _fle.health()
+
+
+@router.get("/fle/dashboard")
+async def fle_dashboard():
+    try:
+        return _fle.dashboard()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/fle/forecast")
+async def fle_list_forecasts(
+    company_id: str | None = Query(default=None),
+    sector_id: str | None = Query(default=None),
+    metric: str | None = Query(default=None),
+    status: str | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=200),
+):
+    try:
+        return _fle.list_forecasts(
+            company_id=company_id, sector_id=sector_id, metric=metric, status=status, limit=limit
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/fle/forecast")
+async def fle_create_forecast(payload: dict[str, Any] = Body(default_factory=dict)):
+    try:
+        return _fle.create_forecast(payload or {})
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/fle/forecast/{forecast_id}")
+async def fle_get_forecast(forecast_id: str):
+    try:
+        return _fle.get_forecast(forecast_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/fle/forecast/{forecast_id}/resolve")
+async def fle_resolve_forecast(forecast_id: str, payload: dict[str, Any] = Body(default_factory=dict)):
+    try:
+        return _fle.resolve(forecast_id, payload or {})
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/fle/forecast/{forecast_id}/version")
+async def fle_version_forecast(forecast_id: str, payload: dict[str, Any] = Body(default_factory=dict)):
+    try:
+        return _fle.version(forecast_id, payload or {})
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/fle/compare/{forecast_id}")
+async def fle_compare(forecast_id: str):
+    try:
+        return _fle.compare(forecast_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/fle/company/{key}")
+async def fle_company(key: str):
+    try:
+        return _fle.company(key)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/fle/outcomes")
+async def fle_outcomes(
+    company_id: str | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=200),
+):
+    try:
+        return _fle.outcomes(company_id=company_id, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/fle/learning")
+async def fle_learning(
+    q: str | None = Query(default=None),
+    company_id: str | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=200),
+):
+    try:
+        return _fle.learning(q=q, company_id=company_id, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/fle/calibration")
+async def fle_calibration():
+    try:
+        return _fle.calibration()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/fle/scenarios/{forecast_id}")
+async def fle_scenarios(forecast_id: str):
+    try:
+        return _fle.scenarios(forecast_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/fle/accuracy")
+async def fle_accuracy(
+    scope: str | None = Query(default=None),
+    scope_id: str | None = Query(default=None),
+):
+    try:
+        return _fle.accuracy(scope=scope, scope_id=scope_id)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/fle/history")
+async def fle_history(
+    company_id: str | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=200),
+):
+    try:
+        return _fle.history(company_id=company_id, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/fle/generate")
+async def fle_generate(key: str = Query(...)):
+    try:
+        return _fle.generate(key)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/fle/batch")
+async def fle_batch(limit: int = Query(default=20, ge=1, le=100)):
+    try:
+        return _fle.batch(limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/fle/jobs")
+async def fle_jobs():
+    try:
+        return _fle.run_jobs()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/fle/search")
+async def fle_search(q: str = Query(...), limit: int = Query(default=20, ge=1, le=100)):
+    try:
+        return _fle.search(q, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/fle/consult")
+async def fle_consult(q: str = Query(...), limit: int = Query(default=8, ge=1, le=40)):
+    try:
+        return _fle.consult(q, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+# --- MEE v1 Market Event Engine (after FLE; event backbone; no core redesign) ---
+
+
+@router.get("/mee/health")
+async def mee_health():
+    return _mee.health()
+
+
+@router.get("/mee/dashboard")
+async def mee_dashboard():
+    try:
+        return _mee.dashboard()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/mee/events")
+async def mee_list_events(
+    company_id: str | None = Query(default=None),
+    sector_id: str | None = Query(default=None),
+    theme_id: str | None = Query(default=None),
+    category: str | None = Query(default=None),
+    event_type: str | None = Query(default=None),
+    status: str | None = Query(default=None),
+    severity: str | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=200),
+):
+    try:
+        return _mee.list_events(
+            company_id=company_id,
+            sector_id=sector_id,
+            theme_id=theme_id,
+            category=category,
+            event_type=event_type,
+            status=status,
+            severity=severity,
+            limit=limit,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/mee/events")
+async def mee_create_event(payload: dict[str, Any] = Body(default_factory=dict)):
+    try:
+        return _mee.create_event(payload or {})
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/mee/events/{event_id}")
+async def mee_get_event(event_id: str):
+    try:
+        return _mee.get_event(event_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/mee/events/{event_id}/verify")
+async def mee_verify_event(event_id: str):
+    try:
+        return _mee.verify(event_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/mee/events/{event_id}/version")
+async def mee_version_event(event_id: str, payload: dict[str, Any] = Body(default_factory=dict)):
+    try:
+        return _mee.version(event_id, payload or {})
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/mee/company/{key}")
+async def mee_company(key: str):
+    try:
+        return _mee.company(key)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/mee/sector/{sector_id}")
+async def mee_sector(sector_id: str):
+    try:
+        return _mee.sector(sector_id)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/mee/theme/{theme_id}")
+async def mee_theme(theme_id: str):
+    try:
+        return _mee.theme(theme_id)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/mee/timeline")
+async def mee_timeline(
+    scope: str = Query(default="company"),
+    scope_id: str | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=200),
+):
+    try:
+        return _mee.timeline(scope=scope, scope_id=scope_id, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/mee/impact/{event_id}")
+async def mee_impact(event_id: str):
+    try:
+        return _mee.impact(event_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/mee/relationships")
+async def mee_relationships(
+    event_id: str | None = Query(default=None),
+    limit: int = Query(default=100, ge=1, le=500),
+):
+    try:
+        return _mee.relationships(event_id=event_id, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/mee/history")
+async def mee_history(
+    company_id: str | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=200),
+):
+    try:
+        return _mee.history(company_id=company_id, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/mee/similar/{event_id}")
+async def mee_similar(event_id: str, limit: int = Query(default=8, ge=1, le=40)):
+    try:
+        return _mee.similar(event_id, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/mee/cycle")
+async def mee_cycle(limit: int = Query(default=40, ge=1, le=200)):
+    try:
+        return _mee.run_cycle(limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/mee/search")
+async def mee_search(q: str = Query(...), limit: int = Query(default=20, ge=1, le=100)):
+    try:
+        return _mee.search(q, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/mee/consult")
+async def mee_consult(q: str = Query(...), limit: int = Query(default=8, ge=1, le=40)):
+    try:
+        return _mee.consult(q, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+# --- CAE v1 Context Assembly (Ask AGI orchestration gateway; no core redesign) ---
+
+
+@router.get("/cae/health")
+async def cae_health():
+    return _cae.health()
+
+
+@router.get("/cae/dashboard")
+async def cae_dashboard():
+    try:
+        return _cae.dashboard()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/cae/context")
+async def cae_context(
+    q: str = Query(...),
+    ticker: str | None = Query(default=None),
+    use_cache: bool | None = Query(default=None),
+):
+    try:
+        return _cae.context(q, ticker=ticker, use_cache=use_cache)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/cae/query-plan")
+async def cae_query_plan(q: str = Query(...), ticker: str | None = Query(default=None)):
+    try:
+        return _cae.query_plan(q, ticker=ticker)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/cae/retrieval")
+async def cae_retrieval(q: str = Query(...), ticker: str | None = Query(default=None)):
+    try:
+        return _cae.retrieve(q, ticker=ticker)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/cae/cache")
+async def cae_cache_stats():
+    try:
+        return _cae.cache(action="stats")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/cae/cache/clear")
+async def cae_cache_clear():
+    try:
+        return _cae.cache(action="clear")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/cae/metrics")
+async def cae_metrics():
+    try:
+        return _cae.metrics()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/cae/explain/{package_id}")
+async def cae_explain(package_id: str):
+    try:
+        return _cae.explain(package_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/cae/package/{package_id}")
+async def cae_package(package_id: str):
+    try:
+        return _cae.get_package(package_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/cae/search")
+async def cae_search(q: str = Query(...), limit: int = Query(default=20, ge=1, le=100)):
+    try:
+        return _cae.search(q, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+# --- IB v1 Intelligence Bus (event-driven backbone; no platform redesign) ---
+
+
+@router.get("/ib/health")
+async def ib_health():
+    return _ib.health()
+
+
+@router.get("/ib/dashboard")
+async def ib_dashboard():
+    try:
+        return _ib.dashboard()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/ib/events")
+async def ib_events(
+    event_type: str | None = Query(default=None),
+    producer: str | None = Query(default=None),
+    aggregate_id: str | None = Query(default=None),
+    correlation_id: str | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=500),
+):
+    try:
+        return _ib.list_events(
+            event_type=event_type,
+            producer=producer,
+            aggregate_id=aggregate_id,
+            correlation_id=correlation_id,
+            limit=limit,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/ib/publish")
+async def ib_publish(payload: dict[str, Any] = Body(default={})):
+    try:
+        return _ib.publish(payload or {})
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/ib/subscriptions")
+async def ib_subscriptions_list():
+    try:
+        return _ib.list_subscriptions()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/ib/subscriptions")
+async def ib_subscriptions_create(payload: dict[str, Any] = Body(default={})):
+    try:
+        return _ib.subscribe(payload or {})
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/ib/replay")
+async def ib_replay(payload: dict[str, Any] = Body(default={})):
+    try:
+        return _ib.replay(payload or {})
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/ib/history")
+async def ib_history(
+    aggregate_id: str | None = Query(default=None),
+    correlation_id: str | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=500),
+):
+    try:
+        return _ib.history(aggregate_id=aggregate_id, correlation_id=correlation_id, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/ib/metrics")
+async def ib_metrics():
+    try:
+        return _ib.metrics()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/ib/traces")
+async def ib_traces(
+    correlation_id: str | None = Query(default=None),
+    event_id: str | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=200),
+):
+    try:
+        return _ib.traces(correlation_id=correlation_id, event_id=event_id, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/ib/dead-letter")
+async def ib_dead_letter(limit: int = Query(default=50, ge=1, le=200)):
+    try:
+        return _ib.dead_letter(limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/ib/dead-letter/{dlq_id}/resolve")
+async def ib_dead_letter_resolve(dlq_id: str):
+    try:
+        return _ib.dead_letter(resolve_id=dlq_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/ib/schema")
+async def ib_schema(event_type: str | None = Query(default=None)):
+    try:
+        return _ib.schemas(event_type=event_type)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/ib/demo-chain")
+async def ib_demo_chain(company_symbol: str = Query(default="INFY")):
+    try:
+        return _ib.publish_chain_demo(company_symbol=company_symbol)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+# --- VE v1 Valuation Engine (after FLE/MEE; no platform redesign) ---
+
+
+@router.get("/ve/health")
+async def ve_health():
+    return _ve.health()
+
+
+@router.get("/ve/dashboard")
+async def ve_dashboard():
+    try:
+        return _ve.dashboard()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/ve/company/{key}")
+async def ve_company(key: str, value_if_empty: bool = Query(default=True)):
+    try:
+        return _ve.company(key, value_if_empty=value_if_empty)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/ve/model")
+async def ve_model(
+    model: str = Query(...),
+    key: str = Query(...),
+    market_price: float | None = Query(default=None),
+):
+    try:
+        return _ve.model(model, key, market_price=market_price)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/ve/history")
+async def ve_history(key: str = Query(...), limit: int = Query(default=50, ge=1, le=200)):
+    try:
+        return _ve.history(key, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/ve/scenarios")
+async def ve_scenarios(key: str = Query(...)):
+    try:
+        return _ve.scenarios(key)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/ve/compare")
+async def ve_compare(key: str = Query(...), peers: str | None = Query(default=None)):
+    try:
+        peer_list = [p.strip() for p in (peers or "").split(",") if p.strip()] or None
+        return _ve.compare(key, peers=peer_list)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/ve/sensitivity")
+async def ve_sensitivity(key: str = Query(...)):
+    try:
+        return _ve.sensitivity(key)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/ve/search")
+async def ve_search(q: str = Query(...), limit: int = Query(default=20, ge=1, le=100)):
+    try:
+        return _ve.search(q, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/ve/consult")
+async def ve_consult(q: str = Query(...), limit: int = Query(default=8, ge=1, le=40)):
+    try:
+        return _ve.consult(q, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/ve/value")
+async def ve_value(payload: dict[str, Any] = Body(default={})):
+    try:
+        key = str((payload or {}).get("key") or (payload or {}).get("symbol") or "").strip()
+        if not key:
+            raise RuntimeError("key is required")
+        models = (payload or {}).get("models")
+        market_price = (payload or {}).get("market_price")
+        fiscal_year = (payload or {}).get("fiscal_year")
+        return _ve.value(
+            key,
+            models=models,
+            market_price=float(market_price) if market_price is not None else None,
+            trigger=str((payload or {}).get("trigger") or "api"),
+            fiscal_year=fiscal_year,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/ve/valuation/{valuation_id}")
+async def ve_valuation(valuation_id: str):
+    try:
+        return _ve.get_valuation(valuation_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+# --- FIML v1 Financial Intelligence Model Library (not an engine; no platform redesign) ---
+
+
+@router.get("/fiml/health")
+async def fiml_health():
+    return _fiml.health()
+
+
+@router.get("/fiml/dashboard")
+async def fiml_dashboard():
+    try:
+        return _fiml.dashboard()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/fiml/models")
+async def fiml_models():
+    try:
+        return _fiml.list_models()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/fiml/industries")
+async def fiml_industries():
+    try:
+        return _fiml.industries()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/fiml/analyse/{domain}")
+async def fiml_analyse(domain: str, payload: dict[str, Any] = Body(default={})):
+    try:
+        return _fiml.analyse(domain, payload or {})
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/fiml/score/{domain}")
+async def fiml_score(domain: str, payload: dict[str, Any] = Body(default={})):
+    try:
+        return _fiml.score(domain, payload or {})
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/fiml/explain/{domain}")
+async def fiml_explain(domain: str, payload: dict[str, Any] = Body(default={})):
+    try:
+        return _fiml.explain(domain, payload or {})
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/fiml/compare/{domain}")
+async def fiml_compare(domain: str, payload: dict[str, Any] = Body(default={})):
+    try:
+        return _fiml.compare(domain, payload or {})
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/fiml/monitor/{domain}")
+async def fiml_monitor(domain: str, payload: dict[str, Any] = Body(default={})):
+    try:
+        return _fiml.monitor(domain, payload or {})
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/fiml/relationships/{domain}")
+async def fiml_relationships(domain: str, payload: dict[str, Any] = Body(default={})):
+    try:
+        return _fiml.relationships(domain, payload or {})
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/fiml/bundle")
+async def fiml_bundle(payload: dict[str, Any] = Body(default={})):
+    try:
+        return _fiml.bundle(payload or {})
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/fiml/consumer/{engine}")
+async def fiml_consumer(engine: str, payload: dict[str, Any] = Body(default={})):
+    try:
+        return _fiml.consumer(engine, payload or {})
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/fiml/search")
+async def fiml_search(
+    q: str = Query(...),
+    domain: str | None = Query(default=None),
+    limit: int = Query(default=20, ge=1, le=100),
+):
+    try:
+        return _fiml.search(q, domain=domain, limit=limit)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/fiml/metrics")
+async def fiml_metrics():
+    try:
+        return _fiml.metrics()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/fiml/graph")
+async def fiml_graph():
+    try:
+        return _fiml.graph()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+# --- AGI Finance Academy v1.1 (curriculum library; multi-course; no locked-engine redesign) ---
+
+
+@router.get("/academy/health")
+async def academy_health():
+    return _academy.health()
+
+
+@router.get("/academy/dashboard")
+async def academy_dashboard():
+    try:
+        return _academy.dashboard()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/academy/courses")
+async def academy_courses():
+    try:
+        return _academy.courses()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/academy/course")
+async def academy_course(course_id: str | None = Query(default=None)):
+    try:
+        return _academy.course(course_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/academy/concepts")
+async def academy_concepts(
+    tag: str | None = Query(default=None),
+    course_id: str | None = Query(default=None),
+):
+    try:
+        return _academy.list_concepts(tag=tag, course_id=course_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/academy/concepts/{concept_id}")
+async def academy_concept(concept_id: str):
+    try:
+        return _academy.get_concept(concept_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/academy/teach/{concept_id}")
+async def academy_teach(concept_id: str):
+    try:
+        return _academy.teach(concept_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/academy/graph")
+async def academy_graph(course_id: str | None = Query(default=None)):
+    try:
+        return _academy.graph(course_id)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/academy/neighborhood/{concept_id}")
+async def academy_neighborhood(concept_id: str):
+    try:
+        return _academy.neighborhood(concept_id)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/academy/causal-models")
+async def academy_causal_models():
+    try:
+        return _academy.causal_models()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/academy/mental-models")
+async def academy_mental_models():
+    try:
+        return _academy.mental_models()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/academy/quality")
+async def academy_quality(course_id: str | None = Query(default=None)):
+    try:
+        return _academy.quality(course_id)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/academy/provenance")
+async def academy_provenance():
+    try:
+        return _academy.provenance()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/academy/enrich/{concept_id}")
+async def academy_enrich(concept_id: str):
+    try:
+        return _academy.enrich(concept_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/academy/exams")
+async def academy_exams(course_id: str | None = Query(default=None)):
+    try:
+        return _academy.exams(course_id)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/academy/exams/{question_id}")
+async def academy_exam_answer(question_id: str):
+    try:
+        return _academy.answer(question_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/academy/consumer/{engine}")
+async def academy_consumer(engine: str, payload: dict[str, Any] = Body(default={})):
+    try:
+        return _academy.consumer(engine, payload or {})
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/academy/search")
+async def academy_search(
+    q: str = Query(...),
+    limit: int = Query(default=20, ge=1, le=100),
+    course_id: str | None = Query(default=None),
+):
+    try:
+        return _academy.search(q, limit=limit, course_id=course_id)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/academy/red-flags")
+async def academy_red_flags():
+    try:
+        return _academy.red_flags()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/academy/red-flags/score")
+async def academy_red_flags_score(payload: dict[str, Any] = Body(default={})):
+    try:
+        return _academy.red_flags(payload or {})
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/academy/earnings-quality")
+async def academy_earnings_quality(payload: dict[str, Any] = Body(default={})):
+    try:
+        return _academy.earnings_quality(payload or {})
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/academy/accounting")
+async def academy_accounting():
+    try:
+        return _academy.accounting()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/academy/corporate-finance")
+async def academy_corporate_finance():
+    try:
+        return _academy.corporate_finance()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/academy/completion")
+async def academy_completion(course_id: str | None = Query(default=None)):
+    try:
+        return _academy.completion(course_id)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/academy/metrics")
+async def academy_metrics():
+    try:
+        return _academy.metrics()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/academy/production")
+async def academy_production_dashboard():
+    """FAPI v1.0 — production usage dashboard (not a new engine)."""
+    try:
+        return _academy.production_dashboard()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/academy/production/ab")
+async def academy_production_ab(question: str | None = Query(default=None)):
+    try:
+        return _academy.production_ab(question)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/academy/production/quality-gates")
+async def academy_production_quality_gates():
+    try:
+        return _academy.production_quality_gates()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/academy/production/package")
+async def academy_production_package(
+    query: str = Query(...),
+    engine: str = Query(default="cae"),
+    ticker: str | None = Query(default=None),
+):
+    try:
+        return _academy.production_package(query, engine=engine, ticker=ticker)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+# --- AGI Academy Books V1 (structured learning from curated books; not searchable PDFs) ---
+
+
+@router.get("/academy/books/health")
+async def academy_books_health():
+    from academy.books.flags import flags_dict, is_books_enabled
+    from academy.books.schema import BOOKS_VERSION
+
+    return {
+        "status": "ok" if is_books_enabled() else "disabled",
+        "programme": "AGI_ACADEMY_BOOKS",
+        "version": BOOKS_VERSION,
+        "architecture_status": "v1.0.1 LOCKED",
+        "not_an_engine": True,
+        "flags": flags_dict(),
+        "copyright_policy": "concepts_frameworks_formulas_only",
+    }
+
+
+@router.get("/academy/books/dashboard")
+async def academy_books_dashboard():
+    from academy.books.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/academy/books/quality-gates")
+async def academy_books_quality_gates():
+    from academy.books.production import quality_gates
+
+    return quality_gates()
+
+
+@router.get("/academy/books/graph")
+async def academy_books_graph():
+    from academy.books.production import dashboard
+
+    return dashboard().get("knowledge_graph") or {"nodes": [], "edges": []}
+
+
+@router.post("/academy/books/ingest")
+async def academy_books_ingest(payload: dict[str, Any] = Body(default={})):
+    """Ingest a book/manual as structured knowledge. Never retains long verbatim text."""
+    from academy.books.ingest import ingest_book
+
+    title = str(payload.get("title") or "").strip()
+    if not title:
+        raise HTTPException(status_code=400, detail="title required")
+    content = str(payload.get("content") or payload.get("text") or "")
+    content_b64 = str(payload.get("content_base64") or "")
+    raw = None
+    if content_b64:
+        import base64
+
+        try:
+            raw = base64.b64decode(content_b64)
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail=f"invalid content_base64: {exc}") from exc
+    result = ingest_book(
+        title=title,
+        authors=list(payload.get("authors") or []),
+        content=content,
+        content_bytes=raw,
+        filename=str(payload.get("filename") or ""),
+        subject=payload.get("subject"),
+        difficulty=str(payload.get("difficulty") or "intermediate"),
+        publication_year=payload.get("publication_year"),
+        publisher=payload.get("publisher"),
+        edition=payload.get("edition"),
+        language=str(payload.get("language") or "en"),
+    )
+    if not result.get("ok"):
+        raise HTTPException(status_code=400, detail=result.get("reason") or "ingest_failed")
+    return result
+
+
+@router.post("/academy/books/package")
+async def academy_books_package(
+    query: str = Query(...),
+    ticker: str | None = Query(default=None),
+):
+    from academy.books.production import package_for_query
+
+    return package_for_query(query, ticker=ticker)
+
+
+@router.post("/academy/books/attach-kf")
+async def academy_books_attach_kf():
+    from academy.books.production import soft_attach_kf
+
+    return soft_attach_kf()
+
+
+@router.get("/academy/books/library")
+async def academy_books_library():
+    from academy.books.library import scan_library
+
+    return scan_library()
+
+
+@router.post("/academy/books/ingest-library")
+async def academy_books_ingest_library(payload: dict[str, Any] = Body(default={})):
+    """Batch-ingest personal library into structured Academy knowledge."""
+    from academy.books.production import ingest_library
+
+    root = payload.get("root")
+    limit = payload.get("limit")
+    return ingest_library(root=root, limit=int(limit) if limit is not None else None)
+
+
+@router.get("/academy/books/ingestion-report")
+async def academy_books_ingestion_report():
+    from academy.books.production import ingestion_report
+
+    return ingestion_report()
+
+
+# --- SIF v1.0 (Sector Intelligence Framework — additive; not an engine) ---
+
+
+@router.get("/sif/health")
+async def sif_health():
+    from sif.production import SIF_VERSION, is_sif_enabled
+    from sif.frameworks import FRAMEWORKS
+
+    return {
+        "status": "ok" if is_sif_enabled() else "disabled",
+        "layer": "Sector Intelligence Framework",
+        "programme": "SIF",
+        "version": SIF_VERSION,
+        "not_an_engine": True,
+        "sector_count": len(FRAMEWORKS),
+        "architecture_status": "v1.0.1 LOCKED",
+    }
+
+
+@router.get("/sif/dashboard")
+async def sif_dashboard():
+    from sif.production import production_dashboard
+
+    return production_dashboard()
+
+
+@router.get("/sif/frameworks")
+async def sif_frameworks():
+    from sif.frameworks import list_frameworks
+
+    return {"count": len(list_frameworks()), "frameworks": list_frameworks()}
+
+
+@router.get("/sif/frameworks/{sector_id}")
+async def sif_framework(sector_id: str):
+    from sif.frameworks import get_framework
+
+    fw = get_framework(sector_id)
+    if not fw:
+        raise HTTPException(status_code=404, detail=f"Unknown sector framework: {sector_id}")
+    return fw.to_dict()
+
+
+@router.post("/sif/analyse")
+async def sif_analyse(
+    query: str = Query(...),
+    ticker: str | None = Query(default=None),
+    engine: str = Query(default="ask_agi"),
+):
+    from sif.production import analyse_query
+
+    return analyse_query(query, ticker=ticker, engine=engine, kip=_kip, eve=_eve, aws=_aws)
+
+
+@router.get("/sif/quality-gates")
+async def sif_quality_gates():
+    from sif.production import quality_gates
+
+    return quality_gates(warm=True)
+
+
+# --- LEO v1.0 (Live Evidence Orchestrator — additive; not an engine) ---
+
+
+@router.get("/leo/health")
+async def leo_health():
+    from leo.production import is_leo_enabled
+    from leo.schema import LEO_VERSION
+
+    return {
+        "status": "ok" if is_leo_enabled() else "disabled",
+        "layer": "Live Evidence Orchestrator",
+        "programme": "LEO",
+        "version": LEO_VERSION,
+        "not_an_engine": True,
+        "architecture_status": "v1.0.1 LOCKED",
+        "position": "before_cae_academy_sif_irp",
+    }
+
+
+@router.get("/leo/dashboard")
+async def leo_dashboard():
+    from leo.production import production_dashboard
+
+    return production_dashboard()
+
+
+@router.post("/leo/package")
+async def leo_package(
+    query: str = Query(...),
+    ticker: str | None = Query(default=None),
+    engine: str = Query(default="ask_agi"),
+):
+    from leo.production import package_for_query
+
+    return package_for_query(
+        query,
+        ticker=ticker,
+        engine=engine,
+        eve=_eve,
+        kip=_kip,
+        aoi=_aoi,
+        mee=_mee,
+    )
+
+
+@router.get("/leo/quality-gates")
+async def leo_quality_gates():
+    from leo.production import run_quality_gates
+
+    return run_quality_gates(eve=_eve)
+
+
+@router.get("/leo/dossier/{ticker}")
+async def leo_dossier(ticker: str):
+    from leo.dossier import get_dossier
+
+    d = get_dossier(ticker)
+    if not d:
+        raise HTTPException(status_code=404, detail=f"No LEO dossier for {ticker}")
+    return d
+
+
+# --- CID v1.0 (Company Intelligence Dossier — permanent memory; not an engine) ---
+
+
+@router.get("/company-dossier")
+async def company_dossier_dashboard():
+    from cid.production import production_dashboard
+
+    return production_dashboard()
+
+
+@router.get("/company-dossier/quality-gates")
+async def company_dossier_quality_gates():
+    from cid.production import quality_gates
+
+    return quality_gates()
+
+
+@router.get("/company-dossier/health")
+async def company_dossier_health():
+    from cid.production import is_cid_enabled
+    from cid.schema import CID_VERSION
+
+    return {
+        "status": "ok" if is_cid_enabled() else "disabled",
+        "layer": "Company Intelligence Dossier",
+        "programme": "CID",
+        "version": CID_VERSION,
+        "not_an_engine": True,
+        "architecture_status": "v1.0.1 LOCKED",
+        "position": "permanent_company_memory_after_leo",
+    }
+
+
+@router.get("/company-dossier/{ticker}")
+async def company_dossier_get(ticker: str):
+    from cid.production import get_dossier
+
+    d = get_dossier(ticker)
+    if not d.get("ticker") and d.get("bypassed"):
+        raise HTTPException(status_code=404, detail=f"CID disabled or missing for {ticker}")
+    return d
+
+
+@router.get("/company-dossier/{ticker}/timeline")
+async def company_dossier_timeline(ticker: str, limit: int = Query(default=100, ge=1, le=500)):
+    from cid.production import timeline
+
+    return timeline(ticker, limit=limit)
+
+
+@router.get("/company-dossier/{ticker}/coverage")
+async def company_dossier_coverage(ticker: str):
+    from cid.production import coverage
+
+    return coverage(ticker)
+
+
+@router.get("/company-dossier/{ticker}/valuation")
+async def company_dossier_valuation(ticker: str):
+    from cid.production import valuation_view
+
+    return valuation_view(ticker)
+
+
+@router.get("/company-dossier/{ticker}/risk")
+async def company_dossier_risk(ticker: str):
+    from cid.production import risk_view
+
+    return risk_view(ticker)
+
+
+@router.get("/company-dossier/{ticker}/forecast")
+async def company_dossier_forecast(ticker: str):
+    from cid.production import forecast_view
+
+    return forecast_view(ticker)
+
+
+@router.get("/company-dossier/{ticker}/documents")
+async def company_dossier_documents(ticker: str):
+    from cid.production import documents_view
+
+    return documents_view(ticker)
+
+
 # --- IRP V1 (above KIP/RSP, below Ask AGI; no platform redesign) ---
 
 
@@ -1655,6 +3797,417 @@ async def orch_l2_drain(parallel: bool = True, max_workers: int = 4):
 async def market_data_health():
     """WS02 provider health + cache/latency metrics (no provider-native payloads)."""
     return _market_data.health.snapshot()
+
+
+# --- YFP V1 (Yahoo Finance Institutional Provider — secondary MarketData adapter) ---
+
+
+@router.get("/yfp/health")
+async def yfp_health():
+    from yfp.production import is_yfp_enabled, production_dashboard
+    from yfp.schema import YFP_VERSION
+
+    dash = production_dashboard(client=_market_data)
+    return {
+        "status": "ok" if is_yfp_enabled() else "disabled",
+        "layer": "Yahoo Finance Institutional Provider",
+        "programme": "YFP",
+        "version": YFP_VERSION,
+        "not_an_engine": True,
+        "architecture_status": "v1.0.1 LOCKED",
+        "position": "secondary_market_data_provider",
+        "yahoo_status": dash.get("yahoo_status"),
+        "flags": dash.get("coverage_flags"),
+    }
+
+
+@router.get("/yfp/dashboard")
+async def yfp_dashboard():
+    from yfp.production import production_dashboard
+
+    return production_dashboard(client=_market_data)
+
+
+@router.get("/yfp/quality-gates")
+async def yfp_quality_gates():
+    from yfp.production import quality_gates
+
+    return quality_gates()
+
+
+@router.get("/yfp/search")
+async def yfp_search(q: str = Query(...), limit: int = Query(default=8, ge=1, le=25)):
+    from yfp.production import search
+
+    return search(q, limit=limit, client=_market_data)
+
+
+@router.post("/yfp/enrich/{ticker}")
+async def yfp_enrich(ticker: str):
+    from yfp.production import enrich_cid
+
+    return enrich_cid(ticker, client=_market_data)
+
+
+# --- DVC V1 (Data Validation & Consensus — Market Data platform layer) ---
+
+
+@router.get("/dvc/health")
+async def dvc_health():
+    from dvc.production import is_dvc_enabled, production_dashboard
+    from dvc.schema import DVC_VERSION
+
+    dash = production_dashboard()
+    return {
+        "status": "ok" if is_dvc_enabled() else "disabled",
+        "layer": "Data Validation & Consensus",
+        "programme": "DVC",
+        "version": DVC_VERSION,
+        "not_an_engine": True,
+        "not_a_provider": True,
+        "architecture_status": "v1.0.1 LOCKED",
+        "position": "after_canonical_mapper_before_market_data_client_consumers",
+        "metrics": dash.get("metrics"),
+        "enabled": is_dvc_enabled(),
+    }
+
+
+@router.get("/dvc/dashboard")
+async def dvc_dashboard():
+    from dvc.production import production_dashboard
+
+    return production_dashboard()
+
+
+@router.get("/dvc/quality-gates")
+async def dvc_quality_gates():
+    from dvc.production import quality_gates
+
+    return quality_gates()
+
+
+@router.get("/dvc/metrics")
+async def dvc_metrics():
+    from dvc.production import success_metrics
+
+    return success_metrics()
+
+
+@router.get("/dvc/company/{ticker}")
+async def dvc_company(ticker: str):
+    from dvc.production import get_company_quality
+
+    return get_company_quality(ticker)
+
+
+@router.get("/dvc/conflicts")
+async def dvc_conflicts(
+    limit: int = Query(default=40, ge=1, le=200),
+    severity: str | None = Query(default=None),
+):
+    from dvc import store as dvc_store
+
+    return {"conflicts": dvc_store.list_conflicts(limit=limit, severity=severity)}
+
+
+@router.post("/dvc/validate/{ticker}")
+async def dvc_validate(ticker: str):
+    from dvc.validate import validate_symbol
+
+    return await validate_symbol(_market_data, ticker)
+
+
+@router.post("/dvc/enrich/{ticker}")
+async def dvc_enrich(ticker: str):
+    from dvc.production import enrich_cid
+
+    return enrich_cid(ticker, client=_market_data)
+
+
+# --- ECP V1 (Evidence Completion Pipeline — orchestration layer) ---
+
+
+@router.get("/ecp/health")
+async def ecp_health():
+    from ecp.production import is_ecp_enabled, production_dashboard
+    from ecp.schema import ECP_VERSION
+
+    dash = production_dashboard()
+    return {
+        "status": "ok" if is_ecp_enabled() else "disabled",
+        "layer": "Evidence Completion Pipeline",
+        "programme": "ECP",
+        "version": ECP_VERSION,
+        "not_an_engine": True,
+        "not_a_recommendation_model": True,
+        "architecture_status": "v1.0.1 LOCKED",
+        "metrics": dash.get("metrics"),
+        "enabled": is_ecp_enabled(),
+    }
+
+
+@router.get("/ecp/dashboard")
+async def ecp_dashboard():
+    from ecp.production import production_dashboard
+
+    return production_dashboard()
+
+
+@router.get("/ecp/quality-gates")
+async def ecp_quality_gates():
+    from ecp.production import quality_gates
+
+    return quality_gates()
+
+
+@router.get("/ecp/reports")
+async def ecp_reports(limit: int = Query(default=30, ge=1, le=100)):
+    from ecp import store as ecp_store
+
+    return {"reports": ecp_store.list_reports(limit=limit)}
+
+
+@router.get("/ecp/report/{ticker}")
+async def ecp_report(ticker: str):
+    from ecp import store as ecp_store
+
+    row = ecp_store.get_report(ticker)
+    return row or {"ticker": ticker.upper(), "found": False}
+
+
+@router.post("/ecp/complete")
+async def ecp_complete(
+    ticker: str = Query(...),
+    q: str = Query(default="Should I buy?"),
+):
+    """Run evidence completion for a ticker (admin / probe)."""
+    from ecp.production import soft_complete
+
+    leo_pkg: dict = {}
+    cid: dict = {}
+    sif_pkg: dict = {}
+    try:
+        from leo.production import package_for_query as leo_package
+
+        leo_pkg = leo_package(q, ticker=ticker, engine="ecp_admin") or {}
+    except Exception:
+        leo_pkg = {"ticker": ticker.upper(), "evidence_objects": [], "quality_gate": {"blocked": True}}
+    try:
+        from cid.production import get_dossier
+
+        cid = get_dossier(ticker) or {}
+    except Exception:
+        cid = {"ticker": ticker.upper()}
+    try:
+        from sif.production import analyse_query as sif_analyse
+
+        sif_pkg = sif_analyse(q, ticker=ticker, engine="ecp_admin") or {}
+    except Exception:
+        sif_pkg = {}
+
+    return soft_complete(
+        query=q,
+        ticker=ticker,
+        leo_pkg=leo_pkg,
+        cid=cid,
+        sif_pkg=sif_pkg,
+        kip=_kip,
+        kf=_kf,
+        client=_market_data,
+        force=True,
+    )
+
+
+# --- Mission Control V1 (administrator operations centre; read-only) ---
+
+
+@router.get("/mission-control/health")
+async def mission_control_health():
+    from mission_control.production import health
+
+    return health()
+
+
+@router.get("/mission-control/dashboard")
+async def mission_control_dashboard():
+    from mission_control.production import dashboard
+
+    return dashboard(ioc_service=getattr(_ui, "ioc", None) or _ioc)
+
+
+@router.get("/mission-control/quality-gates")
+async def mission_control_quality_gates():
+    from mission_control.production import quality_gates
+
+    return quality_gates()
+
+
+@router.get("/mission-control/report")
+async def mission_control_report():
+    from mission_control.production import system_report
+
+    return system_report(ioc_service=getattr(_ui, "ioc", None) or _ioc)
+
+
+@router.post("/mission-control/acknowledge")
+async def mission_control_acknowledge(payload: dict[str, Any] = Body(default={})):
+    from mission_control.production import acknowledge_alert
+
+    alert_id = str(payload.get("alert_id") or payload.get("id") or "").strip()
+    if not alert_id:
+        raise HTTPException(status_code=400, detail="alert_id required")
+    return acknowledge_alert(alert_id)
+
+
+# --- Investment Office V1 (executive operating cockpit; additive aggregate) ---
+
+
+@router.get("/investment-office/health")
+async def investment_office_health():
+    from investment_office.production import health
+
+    return health()
+
+
+@router.get("/investment-office/dashboard")
+async def investment_office_dashboard():
+    from investment_office.production import dashboard
+
+    # Soft aggregate only — do not call UiService.home() (would recurse into IO package)
+    return dashboard(ui_home=None, ioc_service=getattr(_ui, "ioc", None))
+
+
+@router.get("/investment-office/quality-gates")
+async def investment_office_quality_gates():
+    from investment_office.production import quality_gates
+
+    return quality_gates()
+
+
+@router.post("/investment-office/package")
+async def investment_office_package(payload: dict[str, Any] = Body(default={})):
+    from investment_office.production import package_for_ask_agi
+
+    return package_for_ask_agi(
+        str(payload.get("query") or ""),
+        ticker=payload.get("ticker"),
+    )
+
+
+# --- Company Monitoring System V1 (continuous living analyst; additive) ---
+
+
+@router.get("/company-monitor/health")
+async def company_monitor_health():
+    from company_monitor.production import health
+
+    return health()
+
+
+@router.get("/company-monitor/dashboard")
+async def company_monitor_dashboard():
+    from company_monitor.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/company-monitor/quality-gates")
+async def company_monitor_quality_gates():
+    from company_monitor.production import quality_gates
+
+    return quality_gates()
+
+
+@router.get("/company-monitor/changes")
+async def company_monitor_changes(
+    ticker: str | None = Query(default=None),
+    limit: int = Query(default=40, ge=1, le=100),
+):
+    from company_monitor import store as cms_store
+
+    return {"changes": cms_store.list_changes(ticker, limit=limit)}
+
+
+@router.get("/company-monitor/alerts")
+async def company_monitor_alerts(limit: int = Query(default=40, ge=1, le=100)):
+    from company_monitor import store as cms_store
+
+    return {"alerts": cms_store.list_alerts(limit=limit)}
+
+
+@router.get("/company-monitor/reviews")
+async def company_monitor_reviews(limit: int = Query(default=40, ge=1, le=100)):
+    from company_monitor import store as cms_store
+
+    return {"reviews": cms_store.list_reviews(limit=limit)}
+
+
+@router.post("/company-monitor/run")
+async def company_monitor_run(payload: dict[str, Any] = Body(default={})):
+    from company_monitor.production import analyse
+
+    ticker = str(payload.get("ticker") or "").upper()
+    query = str(payload.get("query") or payload.get("q") or f"Monitor {ticker}")
+    if not ticker:
+        raise HTTPException(status_code=400, detail="ticker required")
+    return analyse(ticker, query=query)
+
+
+@router.post("/company-monitor/run-universe")
+async def company_monitor_run_universe(payload: dict[str, Any] = Body(default={})):
+    from company_monitor.production import run_universe
+
+    limit = payload.get("limit")
+    return run_universe(limit=int(limit) if limit is not None else None)
+
+
+# --- Company Analysis Engine V1 (institutional company reasoning; not Context Assembly) ---
+
+
+@router.get("/company-analysis/health")
+async def company_analysis_health():
+    from company_analysis.production import health
+
+    return health()
+
+
+@router.get("/company-analysis/dashboard")
+async def company_analysis_dashboard():
+    from company_analysis.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/company-analysis/quality-gates")
+async def company_analysis_quality_gates():
+    from company_analysis.production import quality_gates
+
+    return quality_gates()
+
+
+@router.get("/company-analysis/reports")
+async def company_analysis_reports(limit: int = Query(default=30, ge=1, le=100)):
+    from company_analysis import store as ca_store
+
+    return {"reports": ca_store.list_reports(limit=limit)}
+
+
+@router.get("/company-analysis/report/{ticker}")
+async def company_analysis_report(ticker: str):
+    from company_analysis import store as ca_store
+
+    row = ca_store.get_report(ticker)
+    return row or {"ticker": ticker.upper(), "found": False}
+
+
+@router.post("/company-analysis/analyse")
+async def company_analysis_analyse(payload: dict[str, Any] = Body(default={})):
+    """Run institutional company analysis for a ticker/query (admin / Ask AGI soft path)."""
+    from company_analysis.production import analyse
+
+    query = str(payload.get("query") or payload.get("q") or "Company analysis")
+    ticker = payload.get("ticker")
+    return analyse(query, ticker=ticker)
 
 
 @router.get("/features/health")
