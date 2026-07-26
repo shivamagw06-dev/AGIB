@@ -42,18 +42,21 @@ const DEBUG_API = (process.env.DEBUG_API || "").toLowerCase() === "true";
 if (!API_KEY) console.warn("⚠️ Missing INDIANAPI_KEY — some endpoints may return limited data.");
 if (!PERPLEXITY_KEY) console.warn("⚠️ Missing PERPLEXITY_KEY — Perplexity-backed endpoints disabled.");
 
-// CORS: prefer explicit FRONTEND_ORIGIN entries; don't use '*' when credentials true
-const rawAllowed = (process.env.FRONTEND_ORIGIN || "").split(",").map(s => s.trim()).filter(Boolean);
-const allowedOrigins = rawAllowed.length ? rawAllowed : [
+// CORS: prefer explicit FRONTEND_ORIGIN entries; don't use '*' when credentials true.
+// Always allow both apex + www production hosts — throwing here becomes a 500 in browsers.
+const DEFAULT_FRONTEND_ORIGINS = [
   "https://agarwalglobalinvestments.com",
-  "https://www.agarwalglobalinvestments.com"
+  "https://www.agarwalglobalinvestments.com",
 ];
+const rawAllowed = (process.env.FRONTEND_ORIGIN || "").split(",").map(s => s.trim()).filter(Boolean);
+const allowedOrigins = Array.from(new Set([...DEFAULT_FRONTEND_ORIGINS, ...rawAllowed]));
 
 app.use(cors({
   origin: (origin, cb) => {
     if (!origin) return cb(null, true); // server-to-server or curl
     if (allowedOrigins.includes(origin)) return cb(null, true);
-    return cb(new Error("CORS origin not allowed"));
+    // Deny quietly — never cb(Error) (that surfaces as Internal Server Error).
+    return cb(null, false);
   },
   methods: ["GET", "POST", "OPTIONS"],
   optionsSuccessStatus: 200,
