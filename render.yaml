@@ -63,3 +63,43 @@ services:
         value: "true"
       - key: FRE_ASK_AGI
         value: "true"
+      # AGIB v3 institutional stack (architecture frozen after IDE V2)
+      # Keys match Settings field names in intelligence-engine/app/core/config.py
+      - key: INSTITUTIONAL_STACK
+        value: "true"
+      - key: FILING_INTELLIGENCE
+        value: "true"
+      - key: FILING_DIFF_ENGINE
+        value: "true"
+      - key: MANAGEMENT_INTELLIGENCE
+        value: "true"
+      - key: ACCOUNTING_INTELLIGENCE
+        value: "true"
+      - key: PORTFOLIO_INTELLIGENCE
+        value: "true"
+      - key: PEER_INTELLIGENCE
+        value: "true"
+      - key: CAUSAL_INTELLIGENCE
+        value: "true"
+      - key: FORECAST_INTELLIGENCE
+        value: "true"
+      - key: KNOWLEDGE_GRAPH
+        value: "true"
+      - key: INSTITUTIONAL_MEMORY
+        value: "true"
+      - key: SIMULATION_LAB
+        value: "true"
+      - key: DECISION_ENGINE_V2
+        value: "true"
+      - key: EVIDENCE_INTELLIGENCE_LAYER
+        value: "true"
+      - key: INSTITUTIONAL_ANALYSTS
+        value: "true"
+      - key: INVESTMENT_COMMITTEE_INTELLIGENCE
+        value: "true"
+      - key: INSTITUTIONAL_RESEARCH_WRITER
+        value: "true"
+      - key: ACADEMY_CERTIFICATION_SUITE
+        value: "true"
+      - key: INSTITUTIONAL_REGRESSION_SUITE
+        value: "true"
