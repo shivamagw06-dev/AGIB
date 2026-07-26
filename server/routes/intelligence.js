@@ -1814,5 +1814,44 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // Institutional Simulation & Strategy Lab V1 — what happens if we decide?
+  router.get('/simulation/health', kfGet('/v1/simulation/health'));
+  router.get('/simulation/dashboard', kfGet('/v1/simulation/dashboard'));
+  router.get('/simulation/quality-gates', kfGet('/v1/simulation/quality-gates'));
+  router.get('/simulation/scenarios', kfGet('/v1/simulation/scenarios'));
+  router.get('/simulation/history', async (req, res) => {
+    try {
+      const qs = new URLSearchParams();
+      if (req.query.limit) qs.set('limit', String(req.query.limit));
+      const suffix = qs.toString() ? `?${qs}` : '';
+      const result = await engineFetch(`/v1/simulation/history${suffix}`);
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'SSL history unavailable', detail: error.message });
+    }
+  });
+  router.post('/simulation/run', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/simulation/run', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'SSL run failed', detail: error.message });
+    }
+  });
+  router.post('/simulation/portfolio', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/simulation/portfolio', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'SSL portfolio simulation failed', detail: error.message });
+    }
+  });
+
   return router;
 }

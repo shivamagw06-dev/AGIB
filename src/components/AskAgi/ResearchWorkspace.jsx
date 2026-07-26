@@ -967,6 +967,21 @@ export default function ResearchWorkspace({
                             {vm.institutionalStack.memorySummary}
                           </p>
                         ) : null}
+                        <p className="rw-mini mt-2">Simulation lab</p>
+                        <p className="font-semibold">
+                          {vm.institutionalStack.simulationScenarioId || '—'}
+                          {vm.institutionalStack.simulationExpectedReturn != null
+                            ? ` · E[r] ${vm.institutionalStack.simulationExpectedReturn}`
+                            : ''}
+                          {vm.institutionalStack.simulationConfidence != null
+                            ? ` · conf ${vm.institutionalStack.simulationConfidence}`
+                            : ''}
+                        </p>
+                        {vm.institutionalStack.simulationSummary ? (
+                          <p className="text-xs text-slate-500 mt-2">
+                            {vm.institutionalStack.simulationSummary}
+                          </p>
+                        ) : null}
                       </div>
                     </div>
                     {vm.institutionalStack.openConcerns?.length ? (

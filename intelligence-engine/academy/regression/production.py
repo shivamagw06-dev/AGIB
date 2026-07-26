@@ -244,6 +244,14 @@ def dashboard() -> dict[str, Any]:
     except Exception as exc:
         memory_slice = {"institutional_memory": {"enabled": False, "soft_error": str(exc)}}
 
+    simulation_slice: dict[str, Any] = {}
+    try:
+        from simulation_lab.production import soft_slice_for_irs as ssl_soft_slice
+
+        simulation_slice = ssl_soft_slice()
+    except Exception as exc:
+        simulation_slice = {"simulation_lab": {"enabled": False, "soft_error": str(exc)}}
+
     stack_slice: dict[str, Any] = {}
     try:
         from institutional_stack.production import soft_slice_for_irs as stack_soft_slice
@@ -282,6 +290,7 @@ def dashboard() -> dict[str, Any]:
         **forecast_slice,
         **knowledge_slice,
         **memory_slice,
+        **simulation_slice,
         **stack_slice,
     }
 

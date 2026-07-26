@@ -326,6 +326,27 @@ export default function CompanyIntelligencePanels({ data }) {
                 </p>
               ) : null}
             </Card>
+            <Card title="If We Decide">
+              {data.institutional_stack?.summary?.simulation_scenario_id ||
+                data.simulation_lab?.scenario_id ||
+                '—'}
+              {(data.institutional_stack?.summary?.simulation_expected_return ??
+                data.simulation_lab?.expected_return) != null ? (
+                <p className="text-xs text-[#667085] mt-1">
+                  E[r]{' '}
+                  {data.institutional_stack?.summary?.simulation_expected_return ??
+                    data.simulation_lab?.expected_return}
+                  {(data.institutional_stack?.summary?.simulation_confidence ??
+                    data.simulation_lab?.confidence) != null
+                    ? ` · conf ${
+                        data.institutional_stack?.summary?.simulation_confidence ??
+                        data.simulation_lab?.confidence
+                      }`
+                    : ''}
+                  {' · experiment first'}
+                </p>
+              ) : null}
+            </Card>
           </div>
         </section>
       )}

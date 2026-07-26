@@ -120,6 +120,15 @@ export default function Nifty500StockResearch() {
               source: 'institutional_memory',
             }
           : undefined,
+        simulation_lab: stack?.summary
+          ? {
+              scenario_id: stack.summary.simulation_scenario_id,
+              expected_return: stack.summary.simulation_expected_return,
+              confidence: stack.summary.simulation_confidence,
+              summary: stack.summary.simulation_summary,
+              source: 'simulation_lab',
+            }
+          : undefined,
       });
     });
     return () => {

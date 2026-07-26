@@ -170,6 +170,21 @@ def refresh_ticker(ticker: str) -> dict[str, Any]:
     except Exception as exc:
         out["errors"].append(f"ilm:{str(exc)[:120]}")
 
+    # SSL — simulation & strategy lab soft slice
+    try:
+        from simulation_lab.production import soft_slice_for_analyst as ssl_slice
+
+        ssl = (ssl_slice(t, analyst="committee") or {}).get("simulation_lab") or {}
+        out["layers"]["simulation_lab"] = {
+            "found": bool(ssl.get("found")),
+            "expected_return": ssl.get("expected_return"),
+            "confidence": ssl.get("confidence"),
+            "scenario_id": ssl.get("scenario_id"),
+            "enabled": ssl.get("enabled", True),
+        }
+    except Exception as exc:
+        out["errors"].append(f"ssl:{str(exc)[:120]}")
+
     # PIL soft refresh (overlay from FIL)
     try:
         from peer_intelligence.production import company as pil_company
@@ -252,6 +267,7 @@ def company_pack(ticker: str, *, analyst: str = "committee") -> dict[str, Any]:
             "IKG",
             "FIE",
             "ILM",
+            "SSL",
             "PIO",
         ],
         "layers": {},
@@ -339,6 +355,14 @@ def company_pack(ticker: str, *, analyst: str = "committee") -> dict[str, Any]:
     except Exception as exc:
         pack["layers"]["institutional_memory"] = {"enabled": False, "error": str(exc)[:120]}
 
+    # SSL
+    try:
+        from simulation_lab.production import soft_slice_for_analyst as ssl_slice
+
+        pack["layers"].update(ssl_slice(t, analyst=analyst) or {})
+    except Exception as exc:
+        pack["layers"]["simulation_lab"] = {"enabled": False, "error": str(exc)[:120]}
+
     # EIL (company-agnostic support slice)
     try:
         from academy.evidence.production import soft_slice_for_irs
@@ -357,6 +381,7 @@ def company_pack(ticker: str, *, analyst: str = "committee") -> dict[str, Any]:
     fie = pack["layers"].get("forecast_intelligence") or {}
     ikg = pack["layers"].get("knowledge_graph") or {}
     ilm = pack["layers"].get("institutional_memory") or {}
+    ssl = pack["layers"].get("simulation_lab") or {}
     fdi = pack["layers"].get("filing_diff") or {}
     fil = pack["layers"].get("filing_intelligence") or {}
     pil = pack["layers"].get("peer_intelligence") or {}
@@ -390,6 +415,11 @@ def company_pack(ticker: str, *, analyst: str = "committee") -> dict[str, Any]:
         "memory_mistake_count": ilm.get("mistake_count"),
         "memory_thinking_improved": ilm.get("thinking_improved"),
         "memory_summary": ilm.get("summary"),
+        "simulation_scenario_id": ssl.get("scenario_id"),
+        "simulation_expected_return": ssl.get("expected_return"),
+        "simulation_confidence": ssl.get("confidence"),
+        "simulation_summary": ssl.get("summary"),
+        "simulation_stress_completed": ssl.get("stress_completed"),
         "filing_found": fil.get("found", bool(fil.get("enabled"))),
         "material_change_signal": bool(fdi.get("committee") or fdi.get("desk") or fdi.get("enabled")),
         "peer_enabled": bool(pil.get("enabled")),
@@ -400,6 +430,7 @@ def company_pack(ticker: str, *, analyst: str = "committee") -> dict[str, Any]:
         "primary_question_fie": "What future paths are plausible?",
         "primary_question_ikg": "What is connected?",
         "primary_question_ilm": "What has AGIB learned over time?",
+        "primary_question_ssl": "What happens if this decision is taken?",
         "primary_question_fdi": "What materially changed since the previous filing?",
         "primary_question_fil": "What do the company's own filings actually say?",
         "primary_question_pil": "How does this company compare to the best and most relevant peers?",

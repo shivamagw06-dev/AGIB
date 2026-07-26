@@ -4688,6 +4688,65 @@ async def admin_institutional_memory():
     return HTMLResponse(admin_page())
 
 
+# --- Institutional Simulation & Strategy Lab V1 (what happens if we decide?) ---
+
+
+@router.get("/simulation/health")
+async def ssl_health():
+    from simulation_lab.production import health
+
+    return health()
+
+
+@router.get("/simulation/dashboard")
+async def ssl_dashboard():
+    from simulation_lab.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/simulation/scenarios")
+async def ssl_scenarios():
+    from simulation_lab.production import scenarios
+
+    return scenarios()
+
+
+@router.post("/simulation/run")
+async def ssl_run(payload: dict[str, Any] = Body(default={})):
+    from simulation_lab.production import run
+
+    return run(payload or {})
+
+
+@router.post("/simulation/portfolio")
+async def ssl_portfolio(payload: dict[str, Any] = Body(default={})):
+    from simulation_lab.production import portfolio
+
+    return portfolio(payload or {})
+
+
+@router.get("/simulation/history")
+async def ssl_history(limit: int = 50):
+    from simulation_lab.production import history
+
+    return history(limit=limit)
+
+
+@router.get("/simulation/quality-gates")
+async def ssl_quality_gates():
+    from simulation_lab.production import quality_gates
+
+    return quality_gates()
+
+
+@router.get("/admin/simulation-lab", response_class=HTMLResponse)
+async def admin_simulation_lab():
+    from simulation_lab.production import admin_page
+
+    return HTMLResponse(admin_page())
+
+
 # --- SIF v1.0 (Sector Intelligence Framework — additive; not an engine) ---
 
 

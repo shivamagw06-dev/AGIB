@@ -19,6 +19,7 @@ PIPELINE = [
     "INSTITUTIONAL KNOWLEDGE GRAPH",
     "FORECAST INTELLIGENCE ENGINE",
     "INSTITUTIONAL LEARNING & MEMORY",
+    "SIMULATION & STRATEGY LAB",
     "Institutional Analysts",
     "Investment Committee",
     "PORTFOLIO INTELLIGENCE OFFICE",
@@ -41,6 +42,7 @@ LAYERS = (
     "knowledge_graph",
     "forecast_intelligence",
     "institutional_memory",
+    "simulation_lab",
 )
 
 DEFAULT_BOOTSTRAP_TICKERS = ("HDFCBANK", "NESTLEIND", "TCS")

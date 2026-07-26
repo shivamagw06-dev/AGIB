@@ -1089,3 +1089,17 @@ export const getIlmPortfolio = (portfolioId) =>
   intelligenceFetch(`/ilm/portfolio/${encodeURIComponent(portfolioId)}`);
 export const updateIlmLearning = (payload = {}) =>
   intelligenceFetch('/ilm/learning/update', { method: 'POST', body: payload || {} });
+
+/** Institutional Simulation & Strategy Lab (SSL) */
+export const getSslHealth = () => intelligenceFetch('/simulation/health');
+export const getSslDashboard = () => intelligenceFetch('/simulation/dashboard');
+export const getSslQualityGates = () => intelligenceFetch('/simulation/quality-gates');
+export const getSslScenarios = () => intelligenceFetch('/simulation/scenarios');
+export const getSslHistory = (limit = 50) => {
+  const qs = new URLSearchParams({ limit: String(limit) }).toString();
+  return intelligenceFetch(`/simulation/history?${qs}`);
+};
+export const runSslSimulation = (payload = {}) =>
+  intelligenceFetch('/simulation/run', { method: 'POST', body: payload || {} });
+export const runSslPortfolio = (payload = {}) =>
+  intelligenceFetch('/simulation/portfolio', { method: 'POST', body: payload || {} });

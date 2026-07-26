@@ -214,6 +214,7 @@ def package_for_ask_agi(
             ctx["forecast_intelligence"] = layers.get("forecast_intelligence") or {}
             ctx["knowledge_graph"] = layers.get("knowledge_graph") or {}
             ctx["institutional_memory"] = layers.get("institutional_memory") or {}
+            ctx["simulation_lab"] = layers.get("simulation_lab") or {}
             ctx["peer_intelligence"] = layers.get("peer_intelligence") or {}
             ctx["evidence_intelligence"] = layers.get("evidence_intelligence") or {}
     except Exception:
@@ -275,6 +276,20 @@ def package_for_ask_agi(
     except Exception:
         pass
 
+    # Soft SSL — simulation/decision packages precede desk opinions (no redesign of analysts)
+    simulation_lab: dict[str, Any] = ctx.get("simulation_lab") or {}
+    try:
+        from simulation_lab.production import soft_slice_for_analyst as ssl_slice
+
+        if t:
+            simulation_lab = (ssl_slice(t, analyst="committee") or {}).get(
+                "simulation_lab"
+            ) or simulation_lab
+            if simulation_lab:
+                ctx["simulation_lab"] = simulation_lab
+    except Exception:
+        pass
+
     planner = plan_research(query, ticker=t)
     opinions: dict[str, dict[str, Any]] = {}
     for role, fn in _ANALYSERS.items():
@@ -314,6 +329,15 @@ def package_for_ask_agi(
                     idesk = (ilm_desk(t, analyst=role) or {}).get("institutional_memory") or {}
                     if idesk:
                         ctx["institutional_memory"] = {**institutional_memory, "desk": idesk.get("desk")}
+            except Exception:
+                pass
+            try:
+                from simulation_lab.production import soft_slice_for_analyst as ssl_desk
+
+                if t and simulation_lab:
+                    sdesk = (ssl_desk(t, analyst=role) or {}).get("simulation_lab") or {}
+                    if sdesk:
+                        ctx["simulation_lab"] = {**simulation_lab, "desk": sdesk.get("desk")}
             except Exception:
                 pass
             opinions[role] = fn(ctx)
@@ -399,6 +423,19 @@ def package_for_ask_agi(
             "mistake_intelligence": institutional_memory.get("mistake_intelligence"),
         }
 
+    # Soft SSL — alternative strategies / trade-offs / opportunity cost into committee (never redesigns IC)
+    if simulation_lab:
+        committee = {
+            **committee,
+            "simulation_lab": simulation_lab,
+            "alternative_strategies": simulation_lab.get("alternative_strategies")
+            or (simulation_lab.get("committee") or {}).get("alternatives"),
+            "simulation_trade_offs": (simulation_lab.get("committee") or {}).get("trade_offs"),
+            "opportunity_cost": (simulation_lab.get("committee") or {}).get("opportunity_cost")
+            or (simulation_lab.get("decision_package") or {}).get("opportunity_cost"),
+            "scenario_comparison": simulation_lab.get("decision_package"),
+        }
+
     # Soft PIO — portfolio impact between Committee and CIO (never redesigns either)
     portfolio_intelligence: dict[str, Any] = {}
     try:
@@ -447,6 +484,15 @@ def package_for_ask_agi(
             "institutional_learning_summary": institutional_memory.get("cio_brief")
             or institutional_memory.get("institutional_learning")
             or institutional_memory.get("summary"),
+        }
+    if simulation_lab:
+        cio = {
+            **cio,
+            "simulation_lab": simulation_lab,
+            "decision_package": simulation_lab.get("decision_package")
+            or simulation_lab.get("cio_brief")
+            or simulation_lab.get("summary"),
+            "recommended_monitoring": simulation_lab.get("monitoring_plan"),
         }
     if portfolio_intelligence:
         cio = {
@@ -518,6 +564,7 @@ def package_for_ask_agi(
         "forecast_intelligence": forecast_intelligence,
         "knowledge_graph": knowledge_graph,
         "institutional_memory": institutional_memory,
+        "simulation_lab": simulation_lab,
         "ask_agi_hints": [
             f"Specialist analysts contributed structured opinions on {name}",
             f"Committee stance: {committee.get('committee_stance')}",
@@ -572,6 +619,16 @@ def package_for_ask_agi(
             f"{stack_summary.get('memory_mistake_count') or institutional_memory.get('mistake_count')} classified mistakes · "
             f"thinking_improved={stack_summary.get('memory_thinking_improved') if stack_summary.get('memory_thinking_improved') is not None else institutional_memory.get('thinking_improved')}"
         )
+    if stack_summary.get("simulation_expected_return") is not None or simulation_lab.get("expected_return") is not None:
+        er = stack_summary.get("simulation_expected_return")
+        if er is None:
+            er = simulation_lab.get("expected_return")
+        sid = stack_summary.get("simulation_scenario_id") or simulation_lab.get("scenario_id")
+        base_pack["ask_agi_hints"].append(
+            f"Simulation lab: scenario {sid} · E[r]={er} · "
+            f"conf {stack_summary.get('simulation_confidence') if stack_summary.get('simulation_confidence') is not None else simulation_lab.get('confidence')} "
+            f"— experiment before allocate"
+        )
 
     # Institutional Research Writer — presentation layer AFTER CIO (never mutates votes/confidence)
     research_writer: dict[str, Any] = {}
@@ -613,7 +670,7 @@ def package_for_ask_agi(
         for h in research_writer.get("ask_agi_hints") or []:
             if h not in hints:
                 hints.append(h)
-        # Keep late institutional-layer hints (FIE / IKG / ILM) visible in Ask AGI.
-        base_pack["ask_agi_hints"] = hints[:12]
+        # Keep late institutional-layer hints (FIE / IKG / ILM / SSL) visible in Ask AGI.
+        base_pack["ask_agi_hints"] = hints[:14]
 
     return base_pack

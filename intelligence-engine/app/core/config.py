@@ -413,6 +413,16 @@ class Settings(BaseSettings):
     ilm_learning: bool = True
     ilm_accuracy: bool = True
     ilm_mistake_intelligence: bool = True
+    simulation_lab: bool = True  # SSL — what happens if this decision is taken?
+    ssl_scenario: bool = True
+    ssl_portfolio: bool = True
+    ssl_macro: bool = True
+    ssl_stress: bool = True
+    ssl_strategy: bool = True
+    ssl_decision: bool = True
+    ssl_sensitivity: bool = True
+    ssl_monte_carlo: bool = True
+    ssl_replay: bool = True
     academy_frameworks: bool = True  # ACADEMY_FRAMEWORKS
     academy_formulas: bool = True  # ACADEMY_FORMULAS
     academy_graph: bool = True  # ACADEMY_GRAPH

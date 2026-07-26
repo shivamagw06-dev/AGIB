@@ -684,6 +684,26 @@ export function mapSearchPack(pack) {
             stack?.layers?.institutional_memory?.summary ||
             pack.institutional_memory?.summary ||
             null,
+          simulationScenarioId:
+            stackSummary.simulation_scenario_id ||
+            stack?.layers?.simulation_lab?.scenario_id ||
+            pack.simulation_lab?.scenario_id ||
+            null,
+          simulationExpectedReturn:
+            stackSummary.simulation_expected_return ??
+            stack?.layers?.simulation_lab?.expected_return ??
+            pack.simulation_lab?.expected_return ??
+            null,
+          simulationConfidence:
+            stackSummary.simulation_confidence ??
+            stack?.layers?.simulation_lab?.confidence ??
+            pack.simulation_lab?.confidence ??
+            null,
+          simulationSummary:
+            stackSummary.simulation_summary ||
+            stack?.layers?.simulation_lab?.summary ||
+            pack.simulation_lab?.summary ||
+            null,
           filingFound: stackSummary.filing_found ?? stackFil.found ?? null,
           materialChangeSignal: stackSummary.material_change_signal ?? Boolean(stackFdi.enabled),
           peerEnabled: stackSummary.peer_enabled ?? Boolean(stackPil.enabled),
