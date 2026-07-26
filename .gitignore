@@ -12,3 +12,4 @@ dist/
 !intelligence-engine/academy/books/
 !intelligence-engine/academy/books/**
 __pycache__/
+.env.production.local
