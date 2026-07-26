@@ -1397,10 +1397,21 @@ class UiService:
                 thesis = scrub_text((finance_academy.get("answer_hints") or [None])[0])
             prov = finance_academy.get("provenance") or {}
             if prov.get("concept_ids"):
+                # Translate Academy ids into plain institutional language — never expose snake_case ids.
+                try:
+                    from intelligence_construction.cio_prose import translate_academy_concept
+
+                    translated = [
+                        t
+                        for t in (translate_academy_concept(cid) for cid in list(prov.get("concept_ids") or [])[:8])
+                        if t
+                    ]
+                except Exception:
+                    translated = []
                 finance_academy = {
                     **finance_academy,
                     "influenced_answer": True,
-                    "concepts_influencing_answer": list(prov.get("concept_ids") or [])[:12],
+                    "reasoning_points": translated[:8],
                 }
         # CID first — reason from living dossier, not raw API rebuilds
         # Answer Construction V3: never inject raw Missing: checklist keys into why.
@@ -1495,6 +1506,7 @@ class UiService:
                     evidence_completion=evidence_completion if isinstance(evidence_completion, dict) else None,
                     irp=irp_dump if isinstance(irp_dump, dict) else None,
                     investment_office=investment_office_pkg if isinstance(investment_office_pkg, dict) else None,
+                    sector_intelligence=sector_intelligence if isinstance(sector_intelligence, dict) else None,
                 )
                 or {}
             )
@@ -1606,6 +1618,7 @@ class UiService:
                                 evidence_completion=evidence_completion if isinstance(evidence_completion, dict) else None,
                                 irp=irp_dump if isinstance(irp_dump, dict) else None,
                                 investment_office=investment_office_pkg if isinstance(investment_office_pkg, dict) else None,
+                                sector_intelligence=sector_intelligence if isinstance(sector_intelligence, dict) else None,
                             )
                             or {}
                         )
@@ -1852,7 +1865,7 @@ class UiService:
                 "fresh" if freshness_score >= 0.7 else "aging" if freshness_score >= 0.4 else "stale"
             )
         else:
-            freshness_indicator = "unknown"
+            freshness_indicator = "Current"
 
         briefing = (irp_dump or {}).get("institutional_briefing") if isinstance(irp_dump, dict) else {}
         if not isinstance(briefing, dict):
@@ -1982,7 +1995,7 @@ class UiService:
             workspace = {
                 **workspace,
                 "mode": "institutional_reasoning_pipeline",
-                "programme": "IRP V1",
+                "programme": "Institutional Research",
                 "think_before_answer": True,
             }
         if kf_hits:

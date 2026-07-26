@@ -6,9 +6,17 @@ Never mentions providers. Interpretive prose only — no raw dumps.
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
-from company_analysis.cid_bridge import market_snapshot, ownership_snapshot
+from company_analysis.cid_bridge import ownership_snapshot
+from intelligence_construction.cio_prose import (
+    academy_from_company_analysis,
+    academy_reasoning_bullets,
+    business_intelligence_narrative,
+    market_intelligence_pack,
+    research_takeaways,
+)
 from intelligence_construction.flags import flags_dict, is_enabled
 from intelligence_construction.schema import ARCHITECTURE_STATUS, IC_VERSION, PROGRAMME
 
@@ -33,41 +41,6 @@ def _list(v: Any, limit: int = 6) -> list[str]:
         if len(out) >= limit:
             break
     return out
-
-
-def _market_narrative(cid: dict[str, Any], company_analysis: dict[str, Any]) -> str | None:
-    snap = market_snapshot(cid)
-    if not snap:
-        return None
-    price = snap.get("current_price")
-    hi = snap.get("fifty_two_week_high")
-    lo = snap.get("fifty_two_week_low")
-    pos = snap.get("range_position_0_1")
-    bits: list[str] = []
-    name = ((company_analysis.get("identity") or {}).get("company_name") or cid.get("ticker") or "The company")
-    if price is not None:
-        bits.append(f"{name} currently trades near {price}")
-        if snap.get("currency"):
-            bits[-1] += f" {snap['currency']}"
-        bits[-1] += "."
-    if pos is not None:
-        if pos >= 0.75:
-            bits.append(
-                "Price sits toward the upper end of the 52-week range, signalling constructive market momentum while reducing valuation comfort."
-            )
-        elif pos <= 0.35:
-            bits.append(
-                "Price remains in the lower half of the 52-week range, reflecting cautious positioning and a wider path for either recovery or further stress."
-            )
-        else:
-            bits.append("Price occupies a mid-range 52-week position — neither extreme momentum nor deep distress.")
-    elif hi is not None and lo is not None:
-        bits.append(f"The observed 52-week band runs from about {lo} to {hi}.")
-    if snap.get("market_cap") is not None:
-        bits.append("Market capitalisation in the living dossier anchors scale for peer and ownership context.")
-    if snap.get("volume") is not None:
-        bits.append("Recent volume is available as a liquidity/context check rather than a standalone signal.")
-    return " ".join(bits) if bits else None
 
 
 def _ownership_narrative(cid: dict[str, Any]) -> str | None:
@@ -137,6 +110,7 @@ def build_institutional_research_brief(
     evidence_completion: dict[str, Any] | None = None,
     irp: dict[str, Any] | None = None,
     investment_office: dict[str, Any] | None = None,
+    sector_intelligence: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     if not is_enabled():
         return {
@@ -157,6 +131,7 @@ def build_institutional_research_brief(
     dvc = data_validation if isinstance(data_validation, dict) else {}
     ecp = evidence_completion if isinstance(evidence_completion, dict) else {}
     io = investment_office if isinstance(investment_office, dict) else {}
+    sif = sector_intelligence if isinstance(sector_intelligence, dict) else (ca.get("sector_intelligence") or {})
 
     identity = ca.get("identity") or cid.get("identity") or {}
     name = identity.get("company_name") or ticker or cid.get("ticker") or "the company"
@@ -166,14 +141,22 @@ def build_institutional_research_brief(
     thesis = _txt(ca.get("investment_thesis") or (irp.get("reasoning") or {}).get("what_is_happening"))
     irp_brief = irp.get("institutional_briefing") if isinstance(irp.get("institutional_briefing"), dict) else {}
 
-    market_n = _market_narrative(cid, ca)
+    business = business_intelligence_narrative(cid=cid, company_analysis=ca, sector_intelligence=sif)
+    market = market_intelligence_pack(cid, ca)
+    market_n = market.get("narrative")
     ownership_n = _ownership_narrative(cid)
     calendar_n = _calendar_narrative(cid, cm)
     financial_n = _txt(financial.get("narrative"), 600)
     valuation_n = _txt(valuation.get("narrative"), 600)
     bq_score = bq.get("business_quality_score")
+    academy_bits = academy_reasoning_bullets(academy, limit=4) + academy_from_company_analysis(ca)
+    academy_bits = list(dict.fromkeys([a for a in academy_bits if a]))[:5]
 
     why: list[str] = []
+    if business.get("business_model"):
+        why.append(business["business_model"])
+    if business.get("competitive_advantages"):
+        why.append(business["competitive_advantages"])
     if market_n:
         why.append(market_n)
     if financial_n:
@@ -182,54 +165,38 @@ def build_institutional_research_brief(
         why.append(valuation_n)
     if ownership_n:
         why.append(ownership_n)
-    if bq_score is not None:
-        why.append(
-            f"Business quality scores {bq_score}/100 in the institutional company analysis — use as a structured quality scaffold, not a trade signal."
-        )
+    for hint in academy_bits[:3]:
+        if hint not in why:
+            why.append(hint)
     for hint in (ca.get("ask_agi_hints") or [])[:3]:
         t = _txt(hint, 280)
-        if t and t not in why:
+        if t and t not in why and "readiness" not in t.lower() and "gate" not in t.lower():
             why.append(t)
     for hint in (cm.get("ask_agi_hints") or [])[:2]:
         t = _txt(hint, 260)
-        if t and t not in why:
+        if t and t not in why and "change(s)" not in t.lower():
             why.append(t)
-    for hint in (academy.get("answer_hints") or [])[:2]:
-        t = _txt(hint, 240)
-        if t and t not in why:
-            why.append(t)
-    for hint in (leo.get("answer_hints") or [])[:2]:
-        t = _txt(hint, 240)
-        if t and t not in why:
-            why.append(t)
-    for hint in (ecp.get("ask_agi_hints") or [])[:2]:
-        t = _txt(hint, 240)
-        if t and t not in why:
-            why.append(t)
-    for hint in (io.get("ask_agi_hints") or [])[:2]:
-        t = _txt(hint, 240)
-        if t and t not in why:
-            why.append(t)
+    # Skip LEO/ECP/IO status hints — they read as pipeline reports, not research.
+    _ = (leo, ecp, io, dvc, kf)
     if calendar_n:
         why.append(calendar_n)
-    if dvc.get("research_grade") or dvc.get("data_grade"):
-        why.append(
-            f"Data confidence grades — research {dvc.get('research_grade') or 'n/a'}, "
-            f"data {dvc.get('data_grade') or 'n/a'} — frame how firmly conclusions can be held."
-        )
 
     exec_bits = []
-    if thesis:
+    if business.get("narrative"):
+        exec_bits.append(business["narrative"].split(".")[0] + ".")
+    if thesis and "not a recommendation" not in thesis.lower() and "key applied lenses" not in thesis.lower():
         exec_bits.append(thesis)
     elif market_n:
-        exec_bits.append(market_n)
+        exec_bits.append(market_n.split(".")[0] + ".")
     if financial_n:
         exec_bits.append(financial_n.split(".")[0] + ".")
     if valuation_n:
         exec_bits.append(valuation_n.split(".")[0] + ".")
+    if academy_bits:
+        exec_bits.append(academy_bits[0])
     executive = " ".join(exec_bits)[:900] if exec_bits else (
-        f"Institutional research brief on {name}: synthesising the living company dossier, "
-        "financial intelligence, valuation context and monitored changes."
+        f"{name} requires a full institutional read across business model, competitive position, "
+        "sector structure, financial quality and valuation — even where some statement fields remain incomplete."
     )
 
     key_drivers = _list(
@@ -238,24 +205,45 @@ def build_institutional_research_brief(
         + _list((ca.get("catalysts") or []), 3),
         8,
     )
+    # Humanise snake_case driver tokens
+    key_drivers = [d.replace("_", " ") if re.fullmatch(r"[a-z]+(?:_[a-z0-9]+)+", d) else d for d in key_drivers]
     risks = _list((ca.get("risks") or []) + _list((irp.get("reasoning") or {}).get("risks"), 4), 6)
     catalysts = _list((ca.get("catalysts") or []) + _list((irp.get("reasoning") or {}).get("catalysts"), 4), 6)
+    takeaways = research_takeaways(
+        business=business,
+        market=market,
+        financial_n=financial_n,
+        valuation_n=valuation_n,
+        academy_bits=academy_bits,
+        risks=risks,
+    )
 
     sections = {
-        "market_performance": {"narrative": market_n, "snapshot": market_snapshot(cid)},
+        "market_performance": {
+            "narrative": market_n,
+            "snapshot": market.get("snapshot") or {},
+            "cards": market.get("cards") or [],
+            "momentum": market.get("momentum"),
+        },
+        "business_intelligence": business,
         "business_quality": {
             "score": bq_score,
             "grade": bq.get("grade"),
-            "narrative": _txt(bq.get("narrative") or bq.get("summary"), 400),
+            "narrative": business.get("competitive_advantages")
+            or _txt(bq.get("narrative") or bq.get("summary"), 400),
         },
         "financial_intelligence": {
-            "narrative": financial_n,
+            "narrative": financial_n or business.get("operating_metrics"),
             "coverage_pct": financial.get("coverage_pct"),
-            "what_improved": financial.get("what_improved") or [],
-            "what_deteriorated": financial.get("what_deteriorated") or [],
+            "what_improved": [str(x).replace("_", " ") for x in (financial.get("what_improved") or [])],
+            "what_deteriorated": [str(x).replace("_", " ") for x in (financial.get("what_deteriorated") or [])],
         },
         "valuation": {
-            "narrative": valuation_n,
+            "narrative": valuation_n
+            or (
+                f"Valuation for {name} should be framed against growth durability and competitive position — "
+                "multiples alone are incomplete without that context."
+            ),
             "current_pe": valuation.get("current_pe"),
             "forward_pe": valuation.get("forward_pe"),
             "pb": valuation.get("pb"),
@@ -269,15 +257,13 @@ def build_institutional_research_brief(
         "what_changed": cm.get("what_changed") or ca.get("what_changed") or {},
         "calendar": {"narrative": calendar_n},
         "academy": {
-            "hints": _list(academy.get("answer_hints"), 4),
-            "concepts": len(academy.get("concepts") or academy.get("concept_ids") or []),
+            "hints": academy_bits,
+            "reasoning": academy_bits,
         },
-        "knowledge_foundation": {
-            "hits": len(kf.get("hits") or kf.get("results") or []),
+        "sector_intelligence": {
+            "narrative": business.get("industry_structure"),
         },
-        "live_evidence": {
-            "count": leo.get("evidence_count") or len(leo.get("evidence_objects") or []),
-        },
+        "research_takeaways": takeaways,
         "risks": risks,
         "catalysts": catalysts,
     }
@@ -299,10 +285,17 @@ def build_institutional_research_brief(
             "why_bullets": why[:12],
             "valuation_perspective": valuation_n or _txt(irp_brief.get("valuation_perspective"), 400),
             "key_drivers": key_drivers,
-            "current_outlook": _txt(irp_brief.get("current_outlook") or thesis, 400),
+            "current_outlook": _txt(irp_brief.get("current_outlook") or thesis, 400)
+            if thesis and "insufficient" not in str(irp_brief.get("current_outlook") or "").lower()
+            else (business.get("long_term_growth") or executive)[:400],
             "risks": risks,
             "catalysts": catalysts,
+            "business_intelligence": business,
+            "market_intelligence": market,
+            "research_takeaways": takeaways,
+            "academy_reasoning": academy_bits,
         },
-        "answer_policy": "institutional_research_brief_from_validated_intelligence",
+        "answer_policy": "cio_equity_research_note",
         "never_expose_providers": True,
+        "never_expose_framework_names": True,
     }

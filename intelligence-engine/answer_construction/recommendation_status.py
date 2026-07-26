@@ -62,18 +62,14 @@ def build_recommendation_status(
             "the decision frame. Position sizing remains discretionary."
         )
 
+    _ = (leo_gate, reco_gate)  # gate inputs used for blocked; names never exposed to clients
     return {
-        "programme": PROGRAMME,
-        "version": AC_VERSION,
-        "architecture_status": ARCHITECTURE_STATUS,
         "blocked": bool(blocked),
         "status": status,
         "summary": summary,
         "detail": detail,
         "coverage_pct": coverage,
-        "readiness_gate": readiness.get("gate"),
-        "leo_blocked": bool(leo_gate.get("blocked")),
-        "sif_blocked": bool(reco_gate.get("blocked")),
+        "readiness_label": "Open" if not blocked else "Deferred",
         "knowledge_gaps": gaps,
         "placement": "conclusion_only",
         "never_lead_answer": True,

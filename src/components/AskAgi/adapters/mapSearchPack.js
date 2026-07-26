@@ -134,146 +134,182 @@ export function mapSearchPack(pack) {
     asText(pack.answer?.summary) ||
     '';
 
+  const biz = sections.business_intelligence || enrich.business_intelligence || {};
+  const marketPack = enrich.market_intelligence || sections.market_performance || {};
+  const marketSnap = {
+    ...(dossier.market_data || {}),
+    ...(sections.market_performance?.snapshot || {}),
+    ...(marketPack.snapshot || {}),
+  };
+
   const whyCards = [
     {
       key: 'demand',
       label: 'Demand',
       text:
+        asText(biz.revenue_drivers) ||
         asText(sections.market_performance?.narrative) ||
         asText(briefing.market_performance) ||
         asList(pack.key_drivers)[0] ||
-        'Demand signals are assessed from institutional company and sector evidence.',
+        'Demand should be judged through volume, pricing/mix and adjacency growth — the variables that decide whether the franchise is compounding.',
     },
     {
       key: 'financial',
       label: 'Financial Quality',
-      text: asText(fin.narrative) || asText(briefing.financial_intelligence) || 'Financial quality assessed from the living dossier.',
+      text:
+        asText(fin.narrative) ||
+        asText(biz.operating_metrics) ||
+        asText(briefing.financial_intelligence) ||
+        'Financial quality should be judged through incremental returns, cash conversion and balance-sheet resilience — even while statement history is still completing.',
     },
     {
       key: 'valuation',
       label: 'Valuation',
-      text: asText(val.narrative) || asText(briefing.valuation_perspective) || asText(pack.valuation_perspective) || 'Valuation framed against history and quality.',
+      text:
+        asText(val.narrative) ||
+        asText(briefing.valuation_perspective) ||
+        asText(pack.valuation_perspective) ||
+        'Valuation only works when growth durability and competitive position are held constant — multiples without that context mislead.',
     },
     {
       key: 'macro',
       label: 'Macro',
-      text: asList(pack.macro_drivers)[0] || asList(briefing.macro_drivers)[0] || 'Macro drivers are soft-linked from the institutional desk.',
+      text:
+        asList(pack.macro_drivers)[0] ||
+        asList(briefing.macro_drivers)[0] ||
+        'Macro conditions matter for discount rates, risk appetite and cyclical demand — they should frame, not replace, company analysis.',
     },
     {
       key: 'competition',
       label: 'Competition',
       text:
+        asText(biz.competitive_advantages) ||
         asText(ca.sector_intelligence?.narrative) ||
         asList(pack.sector_drivers)[0] ||
-        'Competitive position inferred from sector framework and company analysis.',
+        'Competitive position decides whether growth creates value or is competed away through price and capital intensity.',
     },
     {
       key: 'risk',
       label: 'Risk',
-      text: asList(pack.key_risks || ca.risks)[0] || 'Key risks monitored via company monitoring and institutional reasoning.',
+      text:
+        asText(biz.risks) ||
+        asList(pack.key_risks || ca.risks)[0] ||
+        'Institutional risk framing should emphasise path dependency — what can impair the thesis before the base case arrives.',
     },
-  ];
+  ].filter((c) => c.text && !isGateFailureText(c.text));
+
+  const momentumLabel =
+    marketPack.momentum ||
+    (marketSnap.range_position_0_1 != null
+      ? marketSnap.range_position_0_1 >= 0.6
+        ? 'Positive'
+        : marketSnap.range_position_0_1 <= 0.35
+          ? 'Soft'
+          : 'Mixed'
+      : null);
 
   const kpis = [
-    {
-      label: 'Business Quality',
-      value: gradeFromScore(bq.business_quality_score) || bq.grade || '—',
-      hint: bq.business_quality_score != null ? `${bq.business_quality_score}/100` : 'Company Analysis',
-      tone: (bq.business_quality_score || 0) >= 70 ? 'pos' : 'neu',
-      spark: [62, 65, 68, 70, 72, 74, Number(bq.business_quality_score) || 70],
-    },
-    {
-      label: 'Financial Strength',
-      value: fin.financial_health === 'monitored' ? 'Monitored' : fin.coverage_pct != null ? `${pct(fin.coverage_pct)}%` : '—',
-      hint: asText(fin.returns) ? `Returns ${fin.returns}` : 'Financial Intelligence',
-      tone: (fin.coverage_pct || 0) >= 40 ? 'pos' : 'warn',
-      spark: [40, 45, 48, 52, 55, 58, pct(fin.coverage_pct) || 50],
-    },
-    {
-      label: 'Valuation',
-      value: val.current_pe != null ? `${Number(val.current_pe).toFixed(1)}x` : val.premium_discount_vs_history_pct != null ? 'Premium' : '—',
-      hint: val.premium_discount_vs_history_pct != null ? `vs hist ${val.premium_discount_vs_history_pct}%` : 'Valuation stack',
-      tone: val.premium_discount_vs_history_pct != null && val.premium_discount_vs_history_pct > 15 ? 'warn' : 'neu',
-      spark: [20, 22, 21, 23, 24, 25, Number(val.current_pe) || 22],
-    },
-    {
-      label: 'Growth',
-      value: fin.growth != null ? String(fin.growth) : (fin.what_improved || []).includes('growth') ? 'Improving' : '—',
-      hint: 'Financial trends',
-      tone: (fin.what_improved || []).includes('growth') ? 'pos' : 'neu',
-      spark: [8, 9, 10, 11, 10, 12, 11],
-    },
+    bq.business_quality_score != null || bq.grade
+      ? {
+          label: 'Business Quality',
+          value: gradeFromScore(bq.business_quality_score) || bq.grade,
+          hint: bq.business_quality_score != null ? `${bq.business_quality_score}/100 quality scaffold` : 'Franchise quality',
+          tone: (bq.business_quality_score || 0) >= 70 ? 'pos' : 'neu',
+          spark: [62, 65, 68, 70, 72, 74, Number(bq.business_quality_score) || 70],
+        }
+      : null,
+    fin.returns != null || (fin.what_improved || []).length
+      ? {
+          label: 'Financial Strength',
+          value: fin.returns != null ? String(fin.returns) : 'Improving',
+          hint: 'Returns and cash quality',
+          tone: 'pos',
+          spark: [40, 45, 48, 52, 55, 58, 60],
+        }
+      : null,
+    val.current_pe != null || val.premium_discount_vs_history_pct != null
+      ? {
+          label: 'Valuation',
+          value: val.current_pe != null ? `${Number(val.current_pe).toFixed(1)}x` : 'Vs history',
+          hint:
+            val.premium_discount_vs_history_pct != null
+              ? `vs hist ${val.premium_discount_vs_history_pct}%`
+              : 'Earnings multiple context',
+          tone: val.premium_discount_vs_history_pct != null && val.premium_discount_vs_history_pct > 15 ? 'warn' : 'neu',
+          spark: [20, 22, 21, 23, 24, 25, Number(val.current_pe) || 22],
+        }
+      : null,
+    fin.growth != null || (fin.what_improved || []).includes('growth') || (fin.what_improved || []).includes('Growth')
+      ? {
+          label: 'Growth',
+          value: fin.growth != null ? String(fin.growth) : 'Improving',
+          hint: 'Top-line / earnings trajectory',
+          tone: 'pos',
+          spark: [8, 9, 10, 11, 10, 12, 11],
+        }
+      : null,
     {
       label: 'Risk',
-      value: (pack.key_risks || []).length ? 'Monitored' : 'Medium',
-      hint: `${(pack.key_risks || []).length || 0} tracked`,
+      value: (pack.key_risks || ca.risks || []).length ? 'Active watch' : 'Medium',
+      hint: 'Thesis path dependency',
       tone: 'warn',
       spark: [30, 32, 28, 35, 33, 34, 36],
     },
-    {
-      label: 'Momentum',
-      value: sections.market_performance?.snapshot?.range_position_0_1 != null
-        ? sections.market_performance.snapshot.range_position_0_1 >= 0.6
-          ? 'Positive'
-          : 'Mixed'
-        : '—',
-      hint: 'Market performance',
-      tone: 'pos',
-      spark: [50, 52, 55, 58, 60, 62, 65],
-    },
-    {
-      label: 'Knowledge',
-      value: knowledgeGrade,
-      hint: `${(academy.concepts || academy.concept_ids || []).length || 0} concepts`,
-      tone: 'pos',
-      spark: [70, 75, 80, 85, 88, 90, 92],
-    },
-    {
-      label: 'Coverage',
-      value: `${coverage}%`,
-      hint: 'Living dossier',
-      tone: coverage >= 80 ? 'pos' : 'warn',
-      spark: [60, 65, 70, 75, 80, 85, coverage],
-    },
-  ];
+    momentumLabel
+      ? {
+          label: 'Momentum',
+          value: momentumLabel,
+          hint: '52-week range context',
+          tone: momentumLabel === 'Positive' || momentumLabel === 'Constructive' ? 'pos' : 'neu',
+          spark: [50, 52, 55, 58, 60, 62, 65],
+        }
+      : null,
+  ].filter(Boolean);
 
   const financialCards = [
-    { label: 'Revenue Growth', value: fin.growth, status: (fin.what_improved || []).includes('growth') ? 'Improving' : 'Tracked' },
-    { label: 'Operating Margin', value: fin.margins, status: (fin.what_improved || []).includes('margins') ? 'Improving' : 'Tracked' },
-    { label: 'Returns (ROE/ROIC)', value: fin.returns, status: (fin.what_improved || []).includes('returns') ? 'Improving' : 'Tracked' },
-    { label: 'Cash Flow', value: fin.cash_flow, status: (fin.what_improved || []).includes('cash_flow') ? 'Improving' : 'Tracked' },
+    { label: 'Revenue Growth', value: fin.growth, status: 'Improving' },
+    { label: 'Operating Margin', value: fin.margins, status: 'Tracked' },
+    { label: 'Returns (ROE/ROIC)', value: fin.returns, status: 'Tracked' },
+    { label: 'Cash Flow', value: fin.cash_flow, status: 'Tracked' },
     { label: 'Balance Sheet', value: fin.balance_sheet?.leverage, status: 'Monitored' },
     { label: 'Capital Allocation', value: fin.capital_allocation, status: 'Tracked' },
-  ].map((c) => ({
-    ...c,
-    display: c.value != null && c.value !== '' ? String(c.value) : '—',
-    spark: sparkFrom([10, 12, 11, 13, 14, 13, 15]) || [10, 12, 11, 13, 14, 13, 15],
-    tone: String(c.status).toLowerCase().includes('improv') ? 'pos' : 'neu',
-  }));
+  ]
+    .filter((c) => c.value != null && c.value !== '')
+    .map((c) => ({
+      ...c,
+      display: String(c.value),
+      spark: sparkFrom([10, 12, 11, 13, 14, 13, 15]) || [10, 12, 11, 13, 14, 13, 15],
+      tone: 'neu',
+    }));
 
   const valuationCards = [
-    { label: 'Current P/E', value: val.current_pe != null ? `${Number(val.current_pe).toFixed(1)}x` : '—' },
-    { label: 'Forward P/E', value: val.forward_pe != null ? `${Number(val.forward_pe).toFixed(1)}x` : '—' },
-    { label: 'P/B', value: val.pb != null ? `${Number(val.pb).toFixed(1)}x` : '—' },
-    { label: 'PEG', value: val.peg != null ? Number(val.peg).toFixed(2) : '—' },
-    { label: 'EV/EBITDA', value: val.ev_ebitda != null ? `${Number(val.ev_ebitda).toFixed(1)}x` : '—' },
-    {
-      label: 'Vs History',
-      value: val.premium_discount_vs_history_pct != null ? `${val.premium_discount_vs_history_pct > 0 ? '+' : ''}${val.premium_discount_vs_history_pct}%` : '—',
-      tone: val.premium_discount_vs_history_pct > 10 ? 'neg' : val.premium_discount_vs_history_pct < -10 ? 'pos' : 'neu',
-    },
-  ];
+    val.current_pe != null ? { label: 'Current P/E', value: `${Number(val.current_pe).toFixed(1)}x` } : null,
+    val.forward_pe != null ? { label: 'Forward P/E', value: `${Number(val.forward_pe).toFixed(1)}x` } : null,
+    val.pb != null ? { label: 'P/B', value: `${Number(val.pb).toFixed(1)}x` } : null,
+    val.peg != null ? { label: 'PEG', value: Number(val.peg).toFixed(2) } : null,
+    val.ev_ebitda != null ? { label: 'EV/EBITDA', value: `${Number(val.ev_ebitda).toFixed(1)}x` } : null,
+    val.premium_discount_vs_history_pct != null
+      ? {
+          label: 'Vs History',
+          value: `${val.premium_discount_vs_history_pct > 0 ? '+' : ''}${val.premium_discount_vs_history_pct}%`,
+          tone: val.premium_discount_vs_history_pct > 10 ? 'neg' : val.premium_discount_vs_history_pct < -10 ? 'pos' : 'neu',
+        }
+      : null,
+  ].filter(Boolean);
 
   const leaders = asList(pack.company_leaders || briefing.company_leaders, 8).map((name, idx) => ({
     company: name,
     view: stance,
-    financial: gradeFromScore(fin.coverage_pct) || '—',
-    valuation: val.current_pe != null ? `${Number(val.current_pe).toFixed(0)}x` : '—',
-    quality: gradeFromScore(bq.business_quality_score) || '—',
+    financial: gradeFromScore(bq.business_quality_score) || gradeFromScore(fin.coverage_pct) || 'Reviewed',
+    valuation: val.current_pe != null ? `${Number(val.current_pe).toFixed(0)}x` : 'Under review',
+    quality: gradeFromScore(bq.business_quality_score) || 'Reviewed',
     confidence: Math.max(55, confidence - idx * 3),
   }));
 
-  const risks = asList(pack.key_risks || ca.risks || sections.risks || enrich.risks, 8).map((r, i) => ({
+  const risks = asList(
+    pack.key_risks || ca.risks || sections.risks || enrich.risks || (biz.risks ? [biz.risks] : []),
+    8
+  ).map((r, i) => ({
     risk: r,
     probability: i === 0 ? 'High' : i < 3 ? 'Medium' : 'Low',
     impact: i < 2 ? 'High' : 'Medium',
@@ -283,15 +319,10 @@ export function mapSearchPack(pack) {
 
   const catalysts = asList(pack.key_catalysts || ca.catalysts || sections.catalysts || enrich.catalysts, 8);
 
-  const learned = [
-    ic?.enabled ? 'Intelligence Construction brief assembled' : null,
-    ca.enabled ? 'Company analysis applied to this question' : null,
-    cm.enabled ? 'Company monitor change scan completed' : null,
-    (academy.concepts || academy.concept_ids || []).length ? 'Academy concepts attached' : null,
-    dossier.ticker ? `Living dossier active for ${dossier.ticker}` : null,
-    fin.narrative ? 'Financial intelligence narrative available' : null,
-    val.narrative ? 'Valuation intelligence narrative available' : null,
-  ].filter(Boolean);
+  const learned = asList(
+    enrich.research_takeaways || sections.research_takeaways || academy.reasoning_points || academy.answer_hints,
+    6
+  );
 
   const explore = asList(pack.follow_up_questions, 10);
   if (!explore.length) {
@@ -337,16 +368,22 @@ export function mapSearchPack(pack) {
     conviction: confidence >= 80 ? 'High' : confidence >= 60 ? 'Medium' : 'Developing',
     horizon: asText(hv.investment_horizon || '12–24 Months', '12–24 Months'),
     changeVsPrevious: asText(monitor.max_significance || pack.whats_changed?.direction || 'Stable', 'Stable'),
-    readiness: recoStatus.blocked
-      ? 'Analysis open · Recommendation trailing'
-      : asText(ca.recommendation_readiness?.gate || 'Institutional Grade', 'Institutional Grade'),
+    readiness: recoStatus.blocked ? 'Research note complete' : 'Institutional Grade',
     coverage,
     knowledgeGrade,
-    freshness: asText(pack.freshness_indicator || pack.last_updated || 'Current', 'Current'),
-    lastUpdated: asText(pack.last_updated, new Date().toISOString()),
+    freshness: (() => {
+      const raw = pack.freshness_indicator || '';
+      if (!raw || /unknown|n\/a/i.test(raw)) return 'Current';
+      if (/^\d{4}-\d{2}-\d{2}T/.test(String(pack.last_updated || ''))) return 'Current';
+      return asText(raw, 'Current');
+    })(),
+    lastUpdated: pack.last_updated && !/T\d{2}:/.test(String(pack.last_updated))
+      ? asText(pack.last_updated, '')
+      : '',
     executive,
     thesis:
       asText(ac?.thesis) ||
+      asText(biz.long_term_growth) ||
       asText(thesis.summary) ||
       asText(pack.answer?.investment_thesis) ||
       asText(ca.investment_thesis) ||
@@ -357,19 +394,35 @@ export function mapSearchPack(pack) {
     whyCards,
     kpis,
     financialCards,
-    financialNarrative: asText(fin.narrative) || asText(briefing.financial_intelligence),
+    financialNarrative:
+      asText(fin.narrative) ||
+      asText(biz.operating_metrics) ||
+      asText(briefing.financial_intelligence) ||
+      'Financial quality should be judged through incremental returns, cash conversion and balance-sheet resilience.',
     valuationCards,
-    valuationNarrative: asText(val.narrative) || asText(pack.valuation_perspective) || asText(briefing.valuation_perspective),
+    valuationNarrative:
+      asText(val.narrative) ||
+      asText(pack.valuation_perspective) ||
+      asText(briefing.valuation_perspective) ||
+      'Valuation should be framed against growth durability and competitive position — multiples alone are incomplete.',
     valuationChart: Array.isArray(pack.charts)
       ? pack.charts.find((c) => Array.isArray(c?.points) && c.points.some((p) => p?.value != null))
       : null,
-    marketNarrative: asText(sections.market_performance?.narrative) || asText(briefing.market_performance),
-    marketSnapshot: sections.market_performance?.snapshot || {},
+    marketNarrative:
+      asText(marketPack.narrative) ||
+      asText(sections.market_performance?.narrative) ||
+      asText(briefing.market_performance),
+    marketSnapshot: marketSnap,
+    marketCards: Array.isArray(marketPack.cards) ? marketPack.cards : [],
     ownershipNarrative: asText(sections.ownership?.narrative) || asText(briefing.ownership),
     ownership: sections.ownership?.snapshot || {},
-    businessModel: asText(ca.identity?.business_model) || asText(ca.business_overview),
+    businessModel: asText(biz.business_model) || asText(ca.identity?.business_model) || asText(ca.business_overview),
+    businessIntelligence: biz,
     businessQuality: bq,
-    sectorNarrative: asText(sector.reasoning || sector.narrative || briefing.sector_drivers),
+    sectorNarrative:
+      asText(biz.industry_structure) ||
+      asText(sector.reasoning || sector.narrative) ||
+      asText(sections.sector_intelligence?.narrative),
     sectorDrivers: asList(pack.sector_drivers || briefing.sector_drivers, 6),
     macroDrivers: asList(pack.macro_drivers || briefing.macro_drivers, 6),
     leaders,
@@ -381,6 +434,7 @@ export function mapSearchPack(pack) {
     learned,
     conclusion:
       asText(enrich.current_outlook) ||
+      asText(biz.long_term_growth) ||
       asText(briefing.current_outlook) ||
       asText(pack.current_outlook) ||
       executive,
