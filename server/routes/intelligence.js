@@ -9,6 +9,10 @@ import {
   learnCmsArticles,
   startCmsArticleLearningScheduler,
 } from '../services/cmsArticleLearning.js';
+import {
+  mergeApiStatus,
+  probeMissionControlApis,
+} from '../services/missionControlApiProbes.js';
 
 function engineConfig() {
   let baseUrl = (process.env.INTELLIGENCE_ENGINE_URL || 'http://127.0.0.1:8100').replace(/\/$/, '');
@@ -1033,13 +1037,14 @@ export default function createIntelligenceRouter() {
         return res.status(result.status).json(result.data);
       }
       const desk = result.data && typeof result.data === 'object' ? { ...result.data } : {};
-      // Soft enrich with CMS/KC learning digest — never block cockpit if digest fails
-      let learning = null;
-      try {
-        learning = await buildRecentLearningSummary({ engineFetch, days: 5 });
-      } catch {
-        learning = null;
-      }
+      // Soft enrich with CMS/KC learning digest + live API probes — never block cockpit
+      const [learningSettled, apiSettled] = await Promise.allSettled([
+        buildRecentLearningSummary({ engineFetch, days: 5 }),
+        probeMissionControlApis({ engineFetch }),
+      ]);
+      const learning = learningSettled.status === 'fulfilled' ? learningSettled.value : null;
+      const apiProbe = apiSettled.status === 'fulfilled' ? apiSettled.value : null;
+
       if (learning) {
         desk.learning_last_5_days = learning;
         desk.knowledge_growth = {
@@ -1066,6 +1071,30 @@ export default function createIntelligenceRouter() {
           ].slice(0, 40);
         }
       }
+
+      if (apiProbe?.probes?.length) {
+        desk.api_probe = {
+          summary: apiProbe.summary,
+          probed_at: apiProbe.probed_at,
+          healthy: apiProbe.healthy,
+          not_configured: apiProbe.not_configured,
+          critical: apiProbe.critical,
+          total: apiProbe.total,
+        };
+        desk.api_status = mergeApiStatus(desk.api_status || [], apiProbe.probes);
+        desk.system_health = {
+          ...(desk.system_health || {}),
+          backend: 'Healthy',
+          fastapi: apiProbe.probes.find((p) => p.name === 'Intelligence Engine')?.status || desk.system_health?.fastapi,
+          database: apiProbe.probes.find((p) => p.name === 'Supabase')?.status || desk.system_health?.database,
+          authentication: apiProbe.probes.find((p) => p.name === 'Supabase')?.status || desk.system_health?.authentication,
+          email: apiProbe.probes.find((p) => p.name === 'Email')?.status || desk.system_health?.email,
+          frontend: apiProbe.probes.find((p) => p.name === 'Hostinger')?.status || desk.system_health?.frontend,
+          scheduler: apiProbe.probes.find((p) => p.name === 'Scheduler')?.status || desk.system_health?.scheduler,
+          cache: apiProbe.probes.find((p) => p.name === 'Redis')?.status || desk.system_health?.cache,
+          note: apiProbe.summary,
+        };
+      }
       return res.json(desk);
     } catch (error) {
       return res.status(503).json({
@@ -1075,6 +1104,17 @@ export default function createIntelligenceRouter() {
     }
   });
   router.get('/mission-control/quality-gates', kfGet('/v1/mission-control/quality-gates'));
+  router.get('/mission-control/api-status', async (_req, res) => {
+    try {
+      const result = await probeMissionControlApis({ engineFetch });
+      return res.json(result);
+    } catch (error) {
+      return res.status(503).json({
+        error: 'Mission Control API probes unavailable',
+        detail: error.message,
+      });
+    }
+  });
   router.get('/mission-control/report', kfGet('/v1/mission-control/report'));
   router.post('/mission-control/acknowledge', async (req, res) => {
     try {

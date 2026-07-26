@@ -743,6 +743,7 @@ export const getMissionControlHealth = () => intelligenceFetch('/mission-control
 export const getMissionControlDashboard = () => intelligenceFetch('/mission-control/dashboard');
 export const getMissionControlQualityGates = () =>
   intelligenceFetch('/mission-control/quality-gates');
+export const getMissionControlApiStatus = () => intelligenceFetch('/mission-control/api-status');
 export const getMissionControlReport = () => intelligenceFetch('/mission-control/report');
 export const acknowledgeMissionControlAlert = (alertId) =>
   intelligenceFetch('/mission-control/acknowledge', {

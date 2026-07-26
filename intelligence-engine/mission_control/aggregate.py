@@ -220,8 +220,19 @@ def build_mission_control(*, ioc_service: Any | None = None) -> dict[str, Any]:
                 p = p.model_dump(mode="json") if hasattr(p, "model_dump") else {"provider_id": str(p), "status": "unknown"}
             except Exception:
                 p = {"provider_id": str(p), "status": "unknown"}
-        st = _status_norm(p.get("status"))
-        colour = "Green" if st == "Healthy" else "Yellow" if st == "Warning" else "Red"
+        configured = p.get("configured")
+        # Missing keys are "Not configured", not a live outage.
+        if configured is False:
+            st = "Not configured"
+        else:
+            st = _status_norm(p.get("status"))
+        colour = (
+            "Green"
+            if st == "Healthy"
+            else "Yellow"
+            if st in {"Warning", "Unknown", "Not Configured", "Not configured"}
+            else "Red"
+        )
         providers.append(
             {
                 "name": p.get("provider_id") or p.get("name") or "provider",
@@ -237,9 +248,11 @@ def build_mission_control(*, ioc_service: Any | None = None) -> dict[str, Any]:
                 "remaining_quota": None,
                 "last_successful_request": None,
                 "average_response_time": None,
-                "provider_confidence": "configured" if p.get("configured") else "unknown",
+                "provider_confidence": "configured" if configured else "missing_key" if configured is False else "unknown",
                 "circuit_state": p.get("circuit_state"),
                 "capabilities": p.get("capabilities") or [],
+                "configured": configured,
+                "note": None if configured is not False else "API key not set on intelligence engine",
             }
         )
     # Ensure named providers appear even if IOC sparse

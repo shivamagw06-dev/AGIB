@@ -19,8 +19,15 @@ import '@/office/theme.css';
 function statusColour(status) {
   const s = String(status || '').toLowerCase();
   if (s.includes('healthy') || s === 'ok' || s === 'green') return 'text-emerald-400';
-  if (s.includes('warn') || s.includes('yellow') || s.includes('unknown') || s.includes('soft'))
+  if (
+    s.includes('warn') ||
+    s.includes('yellow') ||
+    s.includes('unknown') ||
+    s.includes('soft') ||
+    s.includes('not configured')
+  ) {
     return 'text-amber-300';
+  }
   if (s.includes('critical') || s.includes('offline') || s.includes('red') || s.includes('fail'))
     return 'text-rose-400';
   return 'text-[var(--io-muted)]';
@@ -121,6 +128,7 @@ export default function MissionControl() {
   const apis = desk?.api_status || [];
   const knowledge = desk?.knowledge_growth || {};
   const learning5d = desk?.learning_last_5_days || null;
+  const apiProbe = desk?.api_probe || null;
   const coverage = desk?.coverage_dashboard || {};
   const monitor = desk?.company_monitor || {};
   const pipeline = desk?.research_pipeline || {};
@@ -289,6 +297,9 @@ export default function MissionControl() {
           <div className="space-y-3">
             <Kicker>Section 4 · API Status</Kicker>
             <Glass>
+              {apiProbe?.summary ? (
+                <p className="mb-3 text-[11px] text-[var(--io-caption)]">{apiProbe.summary}</p>
+              ) : null}
               <ul className="space-y-2 max-h-80 overflow-auto">
                 {apis
                   .filter((p) => !query || JSON.stringify(p).toLowerCase().includes(query.toLowerCase()))
@@ -297,12 +308,16 @@ export default function MissionControl() {
                     <li key={p.name} className="border-b border-[var(--io-border)] pb-2 text-sm">
                       <div className="flex items-center justify-between gap-2">
                         <span className="font-medium text-[var(--io-ink)]">{p.name}</span>
-                        <span className={statusColour(p.status)}>
-                          {p.colour || p.status}
-                        </span>
+                        <span className={statusColour(p.status)}>{p.status || p.colour || '—'}</span>
                       </div>
                       <p className="mt-1 text-[11px] text-[var(--io-muted)]">
-                        {p.last_error ? `Last error: ${p.last_error}` : p.provider_confidence || '—'}
+                        {p.note ||
+                          (p.last_error
+                            ? `Last error: ${p.last_error}`
+                            : p.configured === false
+                              ? 'API key missing'
+                              : p.provider_confidence || '—')}
+                        {p.latency != null ? ` · ${p.latency}ms` : ''}
                         {p.circuit_state ? ` · circuit ${p.circuit_state}` : ''}
                       </p>
                     </li>
