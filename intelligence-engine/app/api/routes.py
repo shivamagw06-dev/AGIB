@@ -3807,6 +3807,100 @@ async def dvc_enrich(ticker: str):
     return enrich_cid(ticker, client=_market_data)
 
 
+# --- ECP V1 (Evidence Completion Pipeline — orchestration layer) ---
+
+
+@router.get("/ecp/health")
+async def ecp_health():
+    from ecp.production import is_ecp_enabled, production_dashboard
+    from ecp.schema import ECP_VERSION
+
+    dash = production_dashboard()
+    return {
+        "status": "ok" if is_ecp_enabled() else "disabled",
+        "layer": "Evidence Completion Pipeline",
+        "programme": "ECP",
+        "version": ECP_VERSION,
+        "not_an_engine": True,
+        "not_a_recommendation_model": True,
+        "architecture_status": "v1.0.1 LOCKED",
+        "metrics": dash.get("metrics"),
+        "enabled": is_ecp_enabled(),
+    }
+
+
+@router.get("/ecp/dashboard")
+async def ecp_dashboard():
+    from ecp.production import production_dashboard
+
+    return production_dashboard()
+
+
+@router.get("/ecp/quality-gates")
+async def ecp_quality_gates():
+    from ecp.production import quality_gates
+
+    return quality_gates()
+
+
+@router.get("/ecp/reports")
+async def ecp_reports(limit: int = Query(default=30, ge=1, le=100)):
+    from ecp import store as ecp_store
+
+    return {"reports": ecp_store.list_reports(limit=limit)}
+
+
+@router.get("/ecp/report/{ticker}")
+async def ecp_report(ticker: str):
+    from ecp import store as ecp_store
+
+    row = ecp_store.get_report(ticker)
+    return row or {"ticker": ticker.upper(), "found": False}
+
+
+@router.post("/ecp/complete")
+async def ecp_complete(
+    ticker: str = Query(...),
+    q: str = Query(default="Should I buy?"),
+):
+    """Run evidence completion for a ticker (admin / probe)."""
+    from ecp.production import soft_complete
+
+    leo_pkg: dict = {}
+    cid: dict = {}
+    sif_pkg: dict = {}
+    try:
+        from leo.production import package_for_query as leo_package
+
+        leo_pkg = leo_package(q, ticker=ticker, engine="ecp_admin") or {}
+    except Exception:
+        leo_pkg = {"ticker": ticker.upper(), "evidence_objects": [], "quality_gate": {"blocked": True}}
+    try:
+        from cid.production import get_dossier
+
+        cid = get_dossier(ticker) or {}
+    except Exception:
+        cid = {"ticker": ticker.upper()}
+    try:
+        from sif.production import analyse_query as sif_analyse
+
+        sif_pkg = sif_analyse(q, ticker=ticker, engine="ecp_admin") or {}
+    except Exception:
+        sif_pkg = {}
+
+    return soft_complete(
+        query=q,
+        ticker=ticker,
+        leo_pkg=leo_pkg,
+        cid=cid,
+        sif_pkg=sif_pkg,
+        kip=_kip,
+        kf=_kf,
+        client=_market_data,
+        force=True,
+    )
+
+
 @router.get("/features/health")
 async def features_health():
     """WS03 Feature Registry health + cache/metrics."""

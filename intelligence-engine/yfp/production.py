@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from typing import Any
 
 from yfp.enrich import fundamentals_to_kip_facts, merge_yahoo_into_dossier
@@ -26,15 +25,9 @@ def _client():
 
 
 def _run(coro):
-    try:
-        return asyncio.run(coro)
-    except RuntimeError:
-        # Nested loop — create task-less fallback
-        loop = asyncio.new_event_loop()
-        try:
-            return loop.run_until_complete(coro)
-        finally:
-            loop.close()
+    from app.core.async_run import run_coro
+
+    return run_coro(coro)
 
 
 def enrich_ticker(ticker: str, *, client: Any | None = None) -> dict[str, Any]:

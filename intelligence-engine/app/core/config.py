@@ -293,6 +293,11 @@ class Settings(BaseSettings):
     dvc_auto_attach_cid: bool = True
     dvc_provider_priority: str = ""  # e.g. "official_exchange:1,indianapi:2,finnhub:3,fmp:4,yahoo:5"
 
+    # ECP V1 — Evidence Completion Pipeline (orchestration layer; not an engine)
+    ecp: bool = True
+    ecp_before_irp: bool = True
+    ecp_before_gate: bool = True
+
 
 @lru_cache
 def get_settings() -> Settings:

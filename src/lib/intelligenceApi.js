@@ -684,3 +684,17 @@ export const validateDvc = (ticker) =>
   intelligenceFetch(`/dvc/validate/${encodeURIComponent(ticker)}`, { method: 'POST', body: {} });
 export const enrichDvc = (ticker) =>
   intelligenceFetch(`/dvc/enrich/${encodeURIComponent(ticker)}`, { method: 'POST', body: {} });
+export const getEcpHealth = () => intelligenceFetch('/ecp/health');
+export const getEcpDashboard = () => intelligenceFetch('/ecp/dashboard');
+export const getEcpQualityGates = () => intelligenceFetch('/ecp/quality-gates');
+export const getEcpReports = (limit = 30) =>
+  intelligenceFetch(`/ecp/reports?limit=${limit}`);
+export const getEcpReport = (ticker) =>
+  intelligenceFetch(`/ecp/report/${encodeURIComponent(ticker)}`);
+export const completeEcp = (ticker, q = 'Should I buy?') => {
+  const qs = new URLSearchParams({
+    ticker: ticker || '',
+    q: q || 'Should I buy?',
+  });
+  return intelligenceFetch(`/ecp/complete?${qs}`, { method: 'POST', body: {} });
+};

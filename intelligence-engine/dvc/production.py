@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from typing import Any, Dict, List, Optional
 
 from dvc.enrich import merge_dvc_into_dossier
@@ -28,14 +27,9 @@ def _client():
 
 
 def _run(coro):
-    try:
-        return asyncio.run(coro)
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        try:
-            return loop.run_until_complete(coro)
-        finally:
-            loop.close()
+    from app.core.async_run import run_coro
+
+    return run_coro(coro)
 
 
 def validate_ticker(ticker: str, *, client: Any | None = None) -> Dict[str, Any]:

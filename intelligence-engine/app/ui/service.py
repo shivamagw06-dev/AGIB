@@ -699,6 +699,7 @@ class UiService:
         live_evidence: dict[str, Any] = {}
         company_dossier: dict[str, Any] = {}
         data_validation: dict[str, Any] = {}
+        evidence_completion: dict[str, Any] = {}
         used_cae = False
 
         # LEO v1.0 — gather / verify / package live evidence BEFORE Academy + SIF + IRP
@@ -808,6 +809,56 @@ class UiService:
                 }
         except Exception:
             data_validation = {}
+
+        # ECP V1 — complete missing evidence BEFORE IRP / recommendation gate evaluation
+        try:
+            from app.core.config import get_settings
+            from ecp.production import soft_complete as ecp_soft_complete
+
+            if bool(getattr(get_settings(), "ecp", True)) and bool(
+                getattr(get_settings(), "ecp_before_irp", True)
+            ):
+                evidence_completion = (
+                    ecp_soft_complete(
+                        query=q,
+                        ticker=detected_ticker,
+                        leo_pkg=live_evidence if isinstance(live_evidence, dict) else {},
+                        cid=company_dossier if isinstance(company_dossier, dict) else {},
+                        sif_pkg=sector_intelligence if isinstance(sector_intelligence, dict) else {},
+                        dvc_pkg=data_validation if isinstance(data_validation, dict) else {},
+                        kip=self.kip,
+                        kf=self.kf,
+                    )
+                    or {}
+                )
+                leo_delta = evidence_completion.get("leo_delta") or {}
+                if leo_delta:
+                    live_evidence = {**live_evidence, **leo_delta}
+                cid_delta = evidence_completion.get("cid_delta") or {}
+                if cid_delta:
+                    company_dossier = {**company_dossier, **cid_delta}
+                sif_delta = evidence_completion.get("sif_delta") or {}
+                if sif_delta:
+                    sector_intelligence = {**sector_intelligence, **sif_delta}
+                    if sif_delta.get("sif_evidence_supplied"):
+                        # Keep LEO-supplied map aligned for downstream soft consumers
+                        live_evidence = {
+                            **live_evidence,
+                            "sif_evidence_supplied": sif_delta.get("sif_evidence_supplied"),
+                        }
+                # Refresh DVC panel from CID if ECP attached validated fields
+                if company_dossier.get("validated_fields") and not (data_validation or {}).get("validated_fields"):
+                    data_validation = {
+                        **(data_validation or {}),
+                        "enabled": True,
+                        "validated_fields": company_dossier.get("validated_fields"),
+                        "panel": company_dossier.get("data_quality_panel"),
+                        "quality": (company_dossier.get("dvc") or {}).get("quality"),
+                        "grades": (company_dossier.get("dvc") or {}).get("grades"),
+                        "from_ecp": True,
+                    }
+        except Exception:
+            evidence_completion = {}
 
         if self.cae and q:
             try:
@@ -1294,6 +1345,23 @@ class UiService:
                 )
             why = why[:12]
 
+        # ECP — quality gates + completion / withheld explanation
+        if isinstance(evidence_completion, dict) and evidence_completion.get("enabled") is not False:
+            for hint in (evidence_completion.get("ask_agi_hints") or [])[:4]:
+                if hint and hint not in why:
+                    why.insert(0, scrub_text(hint)[:400])
+            panel = evidence_completion.get("quality_panel") or {}
+            if panel.get("coverage_pct") is not None:
+                why.insert(
+                    0,
+                    scrub_text(
+                        f"ECP Coverage {panel.get('coverage_pct')}% "
+                        f"(was {panel.get('coverage_before_pct')}%). "
+                        f"Missing: {', '.join((panel.get('missing_items') or panel.get('must_have_missing') or [])[:6]) or 'none'}."
+                    )[:360],
+                )
+            why = why[:12]
+
         # LEO hints — live evidence contribution before recommendation
         if isinstance(live_evidence, dict) and live_evidence.get("enabled"):
             for hint in (live_evidence.get("answer_hints") or [])[:3]:
@@ -1301,12 +1369,72 @@ class UiService:
                     why.insert(0, scrub_text(hint)[:300])
             why = why[:12]
 
+        # ECP second pass — if still blocked, one more soft completion before final gate
+        try:
+            from app.core.config import get_settings
+            from ecp.production import soft_complete as ecp_soft_complete
+
+            reco_gate_pre = (sector_intelligence.get("recommendation_gate") or {})
+            leo_gate_pre = (live_evidence.get("quality_gate") or {}) if isinstance(live_evidence, dict) else {}
+            if (
+                bool(getattr(get_settings(), "ecp", True))
+                and bool(getattr(get_settings(), "ecp_before_gate", True))
+                and (reco_gate_pre.get("blocked") or leo_gate_pre.get("blocked"))
+            ):
+                pass2 = (
+                    ecp_soft_complete(
+                        query=q,
+                        ticker=detected_ticker,
+                        leo_pkg=live_evidence if isinstance(live_evidence, dict) else {},
+                        cid=company_dossier if isinstance(company_dossier, dict) else {},
+                        sif_pkg=sector_intelligence if isinstance(sector_intelligence, dict) else {},
+                        dvc_pkg=data_validation if isinstance(data_validation, dict) else {},
+                        kip=self.kip,
+                        kf=self.kf,
+                        force=True,
+                    )
+                    or {}
+                )
+                if pass2.get("leo_delta"):
+                    live_evidence = {**live_evidence, **(pass2.get("leo_delta") or {})}
+                if pass2.get("cid_delta"):
+                    company_dossier = {**company_dossier, **(pass2.get("cid_delta") or {})}
+                if pass2.get("sif_delta"):
+                    sector_intelligence = {**sector_intelligence, **(pass2.get("sif_delta") or {})}
+                if pass2:
+                    evidence_completion = {
+                        **(evidence_completion or {}),
+                        "pass2": {
+                            "completed_automatically": pass2.get("completed_automatically"),
+                            "still_missing": pass2.get("still_missing"),
+                            "gate_blocked_after": pass2.get("gate_blocked_after"),
+                            "quality_improvement": pass2.get("quality_improvement"),
+                        },
+                        "quality_panel": pass2.get("quality_panel")
+                        or (evidence_completion or {}).get("quality_panel"),
+                        "withheld_explanation": pass2.get("withheld_explanation")
+                        or (evidence_completion or {}).get("withheld_explanation"),
+                        "ask_agi_hints": list(
+                            dict.fromkeys(
+                                list((evidence_completion or {}).get("ask_agi_hints") or [])
+                                + list(pass2.get("ask_agi_hints") or [])
+                            )
+                        )[:8],
+                    }
+        except Exception:
+            pass
+
         # Evidence gate — SIF company evidence + LEO live evidence (do not Buy/Hold/Sell on Academy alone)
+        # Gate logic unchanged — ECP only attempts completion before this evaluation.
         reco_gate = (sector_intelligence.get("recommendation_gate") or {})
         leo_gate = (live_evidence.get("quality_gate") or {}) if isinstance(live_evidence, dict) else {}
         if reco_gate.get("blocked") or leo_gate.get("blocked"):
+            ecp_expl = None
+            if isinstance(evidence_completion, dict):
+                ecp_expl = evidence_completion.get("withheld_explanation")
             thesis = (
-                leo_gate.get("message")
+                ecp_expl
+                or leo_gate.get("message")
                 or reco_gate.get("message")
                 or "Institutional recommendation withheld due to insufficient current evidence."
             )
@@ -1315,7 +1443,7 @@ class UiService:
             bull = []
             bear = []
             if thesis not in why:
-                why.insert(0, thesis)
+                why.insert(0, scrub_text(thesis)[:500])
 
         timeline: list[dict[str, Any]] = []
         if detected_ticker and self.kip:
@@ -1756,6 +1884,7 @@ class UiService:
             live_evidence=scrub(live_evidence) if live_evidence else {},
             company_dossier=scrub(company_dossier) if company_dossier else {},
             data_validation=scrub(data_validation) if data_validation else {},
+            evidence_completion=scrub(evidence_completion) if evidence_completion else {},
             institutional_briefing=scrub(briefing) or {},
             # Prefer live SIF/Ask-AGI sector pack; fall back to IRP sector pack
             sector_intelligence=scrub(sector_intelligence)

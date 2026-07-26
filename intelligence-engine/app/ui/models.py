@@ -155,6 +155,8 @@ class SearchView(BaseModel):
     company_dossier: dict[str, Any] = Field(default_factory=dict)
     # DVC V1 — Data Validation & Consensus (Market Data platform layer; additive)
     data_validation: dict[str, Any] = Field(default_factory=dict)
+    # ECP V1 — Evidence Completion Pipeline (orchestration; additive)
+    evidence_completion: dict[str, Any] = Field(default_factory=dict)
     institutional_briefing: dict[str, Any] = Field(default_factory=dict)
     company_intelligence: dict[str, Any] = Field(default_factory=dict)
     current_outlook: str | None = None
