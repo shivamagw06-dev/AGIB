@@ -353,6 +353,19 @@ class Settings(BaseSettings):
     mission_control_events: bool = True
     mission_control_reports: bool = True
 
+    # AGIB Intelligence Layer V2 — living institutional research (soft-wire; not FAA/FRE/CAE redesign)
+    ail: bool = True
+    ail_cde: bool = True
+    ail_ede: bool = True
+    ail_te: bool = True
+    ail_pe: bool = True
+    ail_cme: bool = True
+    ail_el: bool = True
+    ail_graph: bool = True
+    ail_timeline: bool = True
+    ail_ask_agi: bool = True
+    ail_redis_cache: bool = False
+
 
 @lru_cache
 def get_settings() -> Settings:

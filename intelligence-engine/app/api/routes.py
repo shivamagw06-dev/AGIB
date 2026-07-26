@@ -67,6 +67,7 @@ from app.mee.service import MeeService
 from app.cae.service import CaeService
 from app.ib.service import IbService
 from app.ve.service import VeService
+from app.ail.service import AilService
 from app.fiml.service import FimlService
 from app.academy.service import AcademyService
 from app.ui.service import UiService
@@ -164,6 +165,7 @@ _iie = IieService(eve=_eve, kc=_kc, kf=_kf, aoi=_aoi)
 _fle = FleService(iie=_iie, eve=_eve, kc=_kc, kf=_kf, aoi=_aoi)
 _mee = MeeService(eve=_eve, iie=_iie, fle=_fle, aoi=_aoi, kf=_kf, kc=_kc)
 _cae = CaeService(kf=_kf, kc=_kc, aoi=_aoi, eve=_eve, iie=_iie, fle=_fle, mee=_mee)
+_ail = AilService(cae=_cae)
 _ib = IbService(aoi=_aoi, eve=_eve, iie=_iie, fle=_fle, mee=_mee, cae=_cae)
 _ve = VeService(eve=_eve, iie=_iie, fle=_fle, mee=_mee, aoi=_aoi, ib=_ib)
 # Soft IB subscriber for valuation recalculation (additive; engines unchanged).
@@ -210,10 +212,16 @@ _ui = UiService(
     cae=_cae,
     ib=_ib,
     ve=_ve,
+    ail=_ail,
 )
 # Soft-wire KIP retrieve → RSP reason into Research Director (no engine redesign).
 _director.kip = _kip
 _director.rsp = _rsp
+# Soft-bind CAE into AIL for ledger-gated downstream context (no CAE redesign).
+try:
+    _ail.bind(cae=_cae)
+except Exception:
+    pass
 
 
 def _wire_market_data_to_l2() -> None:
@@ -4305,3 +4313,121 @@ async def record_prediction(body: PredictionRecord):
 @router.get("/eval/predictions/pending", response_model=list[PredictionRecord], dependencies=[Depends(require_token)])
 async def pending_predictions(limit: int = 50):
     return _eval.list_pending(limit=limit)
+
+
+# --- AGIB Intelligence Layer V2 (CDE/EDE/TE/PE/CME/EL; soft-wire; no FAA/FRE/CAE redesign) ---
+
+
+@router.get("/ail/health")
+async def ail_health():
+    return _ail.health()
+
+
+@router.get("/ail/dashboard")
+async def ail_dashboard():
+    try:
+        return _ail.dashboard()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/ail/analyse")
+async def ail_analyse(q: str = Query(...), ticker: str | None = Query(default=None)):
+    try:
+        return _ail.analyse(q, ticker=ticker)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/ail/monitor/run")
+async def ail_monitor_run(watchlist: str = Query(default="default")):
+    try:
+        return _ail.run_monitor(watchlist=watchlist)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/company/{ticker}/dossier")
+async def company_dossier_ail(ticker: str):
+    try:
+        return _ail.dossier(ticker)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/company/{ticker}/timeline")
+async def company_timeline_ail(ticker: str, limit: int = Query(default=100, ge=1, le=500)):
+    try:
+        return _ail.timeline(ticker, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/company/{ticker}/events")
+async def company_events_ail(ticker: str, limit: int = Query(default=50, ge=1, le=200)):
+    try:
+        return _ail.events(ticker, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/company/{ticker}/thesis")
+async def company_thesis_ail(ticker: str):
+    try:
+        return _ail.thesis(ticker)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/company/{ticker}/forecast")
+async def company_forecast_ail(ticker: str):
+    try:
+        return _ail.forecast(ticker)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/company/{ticker}/ledger")
+async def company_ledger_ail(ticker: str):
+    try:
+        return _ail.ledger(ticker)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/company/{ticker}/monitor")
+async def company_monitor_ail(ticker: str):
+    try:
+        return _ail.monitor(ticker)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/event/{event_id}")
+async def ail_event(event_id: str):
+    try:
+        return _ail.event(event_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="event_not_found") from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/evidence/{evidence_id}")
+async def ail_evidence(evidence_id: str):
+    try:
+        return _ail.evidence(evidence_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="evidence_not_found") from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/prediction/{prediction_id}")
+async def ail_prediction(prediction_id: str):
+    try:
+        return _ail.prediction(prediction_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="prediction_not_found") from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc

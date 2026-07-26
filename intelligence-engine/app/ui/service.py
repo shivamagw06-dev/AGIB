@@ -94,6 +94,7 @@ class UiService:
         cae: Any | None = None,
         ib: Any | None = None,
         ve: Any | None = None,
+        ail: Any | None = None,
     ) -> None:
         self.flags = flags or UiFlags.from_settings(get_settings())
         self.aws = aws
@@ -115,6 +116,7 @@ class UiService:
         self.cae = cae
         self.ib = ib
         self.ve = ve
+        self.ail = ail
 
     def health(self) -> dict[str, Any]:
         return {
@@ -729,6 +731,7 @@ class UiService:
         intelligence_construction: dict[str, Any] = {}
         answer_construction: dict[str, Any] = {}
         decision_engine: dict[str, Any] = {}
+        intelligence_layer: dict[str, Any] = {}
         used_cae = False
 
         # LEO v1.0 — gather / verify / package live evidence BEFORE Academy + SIF + IRP
@@ -1489,6 +1492,24 @@ class UiService:
                     why.insert(0, scrub_text(hint)[:300])
             why = why[:12]
 
+        # AGIB Intelligence Layer V2 — living dossier/thesis/forecast (soft; no FAA/FRE/CAE redesign)
+        try:
+            if self.ail is not None and hasattr(self.ail, "package_for_ask_agi"):
+                intelligence_layer = (
+                    self.ail.package_for_ask_agi(q, ticker=detected_ticker) or {}
+                )
+                if intelligence_layer.get("enabled") and intelligence_layer.get("ticker"):
+                    detected_ticker = detected_ticker or str(intelligence_layer.get("ticker")).upper()
+                    for hint in (intelligence_layer.get("ask_agi_hints") or [])[:4]:
+                        cleaned = scrub_text(hint)
+                        if cleaned and cleaned not in why:
+                            why.insert(0, cleaned[:300])
+                    why = why[:14]
+            else:
+                intelligence_layer = {}
+        except Exception:
+            intelligence_layer = {}
+
         # Ask AGI Intelligence Construction V2 — consume validated CID/CA/DVC/LEO/etc into one brief
         try:
             from intelligence_construction.production import package_for_ask_agi as ic_package
@@ -2230,6 +2251,7 @@ class UiService:
             intelligence_construction=scrub(intelligence_construction) if intelligence_construction else {},
             answer_construction=scrub(answer_construction) if answer_construction else {},
             decision_engine=scrub(decision_engine) if decision_engine else {},
+            intelligence_layer=scrub(intelligence_layer) if intelligence_layer else {},
             institutional_briefing=scrub(briefing) or {},
             # Prefer live SIF/Ask-AGI sector pack; fall back to IRP sector pack
             sector_intelligence=scrub(sector_intelligence)
