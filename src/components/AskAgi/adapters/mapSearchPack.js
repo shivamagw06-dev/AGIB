@@ -644,6 +644,26 @@ export function mapSearchPack(pack) {
             stack?.layers?.forecast_intelligence?.executive_forecast ||
             pack.forecast_intelligence?.executive_forecast ||
             null,
+          knowledgeCanonicalId:
+            stackSummary.knowledge_canonical_id ||
+            stack?.layers?.knowledge_graph?.canonical_id ||
+            pack.knowledge_graph?.canonical_id ||
+            null,
+          knowledgeRelationshipCount:
+            stackSummary.knowledge_relationship_count ??
+            stack?.layers?.knowledge_graph?.relationship_count ??
+            pack.knowledge_graph?.relationship_count ??
+            null,
+          knowledgeConfidence:
+            stackSummary.knowledge_confidence ??
+            stack?.layers?.knowledge_graph?.confidence ??
+            pack.knowledge_graph?.confidence ??
+            null,
+          knowledgeSummary:
+            stackSummary.knowledge_summary ||
+            stack?.layers?.knowledge_graph?.summary ||
+            pack.knowledge_graph?.summary ||
+            null,
           filingFound: stackSummary.filing_found ?? stackFil.found ?? null,
           materialChangeSignal: stackSummary.material_change_signal ?? Boolean(stackFdi.enabled),
           peerEnabled: stackSummary.peer_enabled ?? Boolean(stackPil.enabled),

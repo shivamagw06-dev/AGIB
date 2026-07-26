@@ -212,6 +212,7 @@ def package_for_ask_agi(
             ctx["portfolio_intelligence"] = layers.get("portfolio_intelligence") or {}
             ctx["causal_intelligence"] = layers.get("causal_intelligence") or {}
             ctx["forecast_intelligence"] = layers.get("forecast_intelligence") or {}
+            ctx["knowledge_graph"] = layers.get("knowledge_graph") or {}
             ctx["peer_intelligence"] = layers.get("peer_intelligence") or {}
             ctx["evidence_intelligence"] = layers.get("evidence_intelligence") or {}
     except Exception:
@@ -228,6 +229,20 @@ def package_for_ask_agi(
             ) or causal_intelligence
             if causal_intelligence:
                 ctx["causal_intelligence"] = causal_intelligence
+    except Exception:
+        pass
+
+    # Soft IKG — connected knowledge precedes desk opinions (no redesign of analysts)
+    knowledge_graph: dict[str, Any] = ctx.get("knowledge_graph") or {}
+    try:
+        from knowledge_graph.production import soft_slice_for_analyst as ikg_slice
+
+        if t:
+            knowledge_graph = (ikg_slice(t, analyst="committee") or {}).get(
+                "knowledge_graph"
+            ) or knowledge_graph
+            if knowledge_graph:
+                ctx["knowledge_graph"] = knowledge_graph
     except Exception:
         pass
 
@@ -249,7 +264,7 @@ def package_for_ask_agi(
     opinions: dict[str, dict[str, Any]] = {}
     for role, fn in _ANALYSERS.items():
         try:
-            # Soft desk-specific causal / forecast slices when available
+            # Soft desk-specific causal / knowledge / forecast slices when available
             try:
                 from causal_graph.production import soft_slice_for_analyst as cig_desk
 
@@ -257,6 +272,15 @@ def package_for_ask_agi(
                     desk = (cig_desk(t, analyst=role) or {}).get("causal_intelligence") or {}
                     if desk:
                         ctx["causal_intelligence"] = {**causal_intelligence, "desk": desk.get("desk")}
+            except Exception:
+                pass
+            try:
+                from knowledge_graph.production import soft_slice_for_analyst as ikg_desk
+
+                if t and knowledge_graph:
+                    kdesk = (ikg_desk(t, analyst=role) or {}).get("knowledge_graph") or {}
+                    if kdesk:
+                        ctx["knowledge_graph"] = {**knowledge_graph, "desk": kdesk.get("desk")}
             except Exception:
                 pass
             try:
@@ -315,6 +339,19 @@ def package_for_ask_agi(
             "causal_counterfactuals": causal_intelligence.get("counterfactuals"),
         }
 
+    # Soft IKG — relationship / dependency maps into committee (never redesigns IC)
+    if knowledge_graph:
+        committee = {
+            **committee,
+            "knowledge_graph": knowledge_graph,
+            "relationship_maps": (knowledge_graph.get("committee") or {}).get("relationship_maps")
+            or knowledge_graph.get("summary"),
+            "dependency_risks": (knowledge_graph.get("committee") or {}).get("dependency_risks")
+            or (knowledge_graph.get("dependencies") or {}).get("suppliers"),
+            "hidden_concentration": (knowledge_graph.get("committee") or {}).get("hidden_concentration")
+            or knowledge_graph.get("portfolio"),
+        }
+
     # Soft FIE — scenario probabilities into committee (never redesigns IC)
     if forecast_intelligence:
         committee = {
@@ -352,6 +389,13 @@ def package_for_ask_agi(
             "causal_intelligence": causal_intelligence,
             "why_markets_moved": causal_intelligence.get("cio_brief")
             or causal_intelligence.get("why"),
+        }
+    if knowledge_graph:
+        cio = {
+            **cio,
+            "knowledge_graph": knowledge_graph,
+            "relationship_intelligence": knowledge_graph.get("cio_brief")
+            or knowledge_graph.get("summary"),
         }
     if forecast_intelligence:
         cio = {
@@ -428,6 +472,7 @@ def package_for_ask_agi(
         "portfolio_intelligence": portfolio_intelligence,
         "causal_intelligence": causal_intelligence,
         "forecast_intelligence": forecast_intelligence,
+        "knowledge_graph": knowledge_graph,
         "ask_agi_hints": [
             f"Specialist analysts contributed structured opinions on {name}",
             f"Committee stance: {committee.get('committee_stance')}",
@@ -470,6 +515,11 @@ def package_for_ask_agi(
             f"Most likely scenario: {most}"
             + (f" (~{dist.get(most)})" if isinstance(dist, dict) and most in dist else "")
             + " — not a price prediction"
+        )
+    if stack_summary.get("knowledge_relationship_count") or knowledge_graph.get("relationship_count"):
+        base_pack["ask_agi_hints"].append(
+            f"Knowledge graph: {stack_summary.get('knowledge_relationship_count') or knowledge_graph.get('relationship_count')} "
+            f"evidenced relationships for {stack_summary.get('knowledge_canonical_id') or knowledge_graph.get('canonical_id') or t}"
         )
 
     # Institutional Research Writer — presentation layer AFTER CIO (never mutates votes/confidence)

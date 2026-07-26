@@ -29,6 +29,7 @@ import {
   Gauge,
   GitBranch,
   Compass,
+  Network,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -50,6 +51,7 @@ const navItems = [
   { to: '/admin/portfolio-intelligence', label: 'Portfolio Intel', icon: Briefcase },
   { to: '/admin/causal-intelligence', label: 'Causal Intel', icon: GitBranch },
   { to: '/admin/forecast-intelligence', label: 'Forecast Intel', icon: Compass },
+  { to: '/admin/knowledge-graph', label: 'Knowledge Graph', icon: Network },
   { to: '/admin/company-monitor', label: 'Company Monitor', icon: Bell },
   { to: '/admin/investment-office', label: 'Investment Office', icon: Landmark },
   { to: '/admin/mission-control', label: 'Mission Control', icon: Gauge },

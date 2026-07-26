@@ -228,6 +228,14 @@ def dashboard() -> dict[str, Any]:
     except Exception as exc:
         forecast_slice = {"forecast_intelligence": {"enabled": False, "soft_error": str(exc)}}
 
+    knowledge_slice: dict[str, Any] = {}
+    try:
+        from knowledge_graph.production import soft_slice_for_irs as ikg_soft_slice
+
+        knowledge_slice = ikg_soft_slice()
+    except Exception as exc:
+        knowledge_slice = {"knowledge_graph": {"enabled": False, "soft_error": str(exc)}}
+
     stack_slice: dict[str, Any] = {}
     try:
         from institutional_stack.production import soft_slice_for_irs as stack_soft_slice
@@ -264,6 +272,7 @@ def dashboard() -> dict[str, Any]:
         **portfolio_slice,
         **causal_slice,
         **forecast_slice,
+        **knowledge_slice,
         **stack_slice,
     }
 

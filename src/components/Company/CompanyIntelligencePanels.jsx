@@ -285,6 +285,21 @@ export default function CompanyIntelligencePanels({ data }) {
                 </p>
               ) : null}
             </Card>
+            <Card title="Connected To">
+              {data.institutional_stack?.summary?.knowledge_relationship_count != null
+                ? `${data.institutional_stack.summary.knowledge_relationship_count} links`
+                : data.knowledge_links?.count != null
+                  ? `${data.knowledge_links.count} links`
+                  : '—'}
+              {(data.institutional_stack?.summary?.knowledge_confidence ??
+                data.knowledge_links?.confidence) != null ? (
+                <p className="text-xs text-[#667085] mt-1">
+                  Confidence{' '}
+                  {data.institutional_stack?.summary?.knowledge_confidence ??
+                    data.knowledge_links?.confidence}
+                </p>
+              ) : null}
+            </Card>
           </div>
         </section>
       )}

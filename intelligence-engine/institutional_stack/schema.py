@@ -16,10 +16,11 @@ PIPELINE = [
     "EIL",
     "PIL",
     "CAUSAL INTELLIGENCE GRAPH",
-    "FORECAST INTELLIGENCE ENGINE",
+    "INSTITUTIONAL KNOWLEDGE GRAPH",
     "Institutional Analysts",
     "Investment Committee",
     "PORTFOLIO INTELLIGENCE OFFICE",
+    "FORECAST INTELLIGENCE ENGINE",
     "CIO",
     "Research Writer",
     "ACS",
@@ -36,6 +37,7 @@ LAYERS = (
     "evidence_intelligence",
     "peer_intelligence",
     "causal_intelligence",
+    "knowledge_graph",
     "forecast_intelligence",
 )
 

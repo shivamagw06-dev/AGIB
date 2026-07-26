@@ -1055,3 +1055,20 @@ export const getFieCatalysts = (ticker) =>
   intelligenceFetch(`/forecast/catalysts/${encodeURIComponent(ticker)}`);
 export const analyseFie = (payload = {}) =>
   intelligenceFetch('/forecast/analyse', { method: 'POST', body: payload || {} });
+
+/** Institutional Knowledge Graph */
+export const getIkgHealth = () => intelligenceFetch('/knowledge-graph/health');
+export const getIkgDashboard = () => intelligenceFetch('/knowledge-graph/dashboard');
+export const getIkgQualityGates = () => intelligenceFetch('/knowledge-graph/quality-gates');
+export const getIkgEntity = (id) =>
+  intelligenceFetch(`/knowledge-graph/entity/${encodeURIComponent(id)}`);
+export const getIkgCompany = (ticker) =>
+  intelligenceFetch(`/knowledge-graph/company/${encodeURIComponent(ticker)}`);
+export const getIkgRelationships = (id) =>
+  intelligenceFetch(`/knowledge-graph/relationships/${encodeURIComponent(id)}`);
+export const getIkgPath = (source, target) => {
+  const qs = new URLSearchParams({ source: source || '', target: target || '' }).toString();
+  return intelligenceFetch(`/knowledge-graph/path?${qs}`);
+};
+export const queryIkg = (payload = {}) =>
+  intelligenceFetch('/knowledge-graph/query', { method: 'POST', body: payload || {} });

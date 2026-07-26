@@ -4525,6 +4525,81 @@ async def admin_forecast_intelligence():
     return HTMLResponse(admin_page())
 
 
+# --- Institutional Knowledge Graph V1 (what is connected?) ---
+
+
+@router.get("/knowledge-graph/health")
+async def knowledge_graph_health():
+    from knowledge_graph.production import health
+
+    return health()
+
+
+@router.get("/knowledge-graph/dashboard")
+async def knowledge_graph_dashboard():
+    from knowledge_graph.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/knowledge-graph/entity/{entity_id}")
+async def knowledge_graph_entity(entity_id: str):
+    from knowledge_graph.production import entity
+
+    out = entity(entity_id)
+    if out.get("enabled") and not out.get("found"):
+        raise HTTPException(status_code=404, detail="entity_not_found")
+    return out
+
+
+@router.get("/knowledge-graph/company/{ticker}")
+async def knowledge_graph_company(ticker: str):
+    from knowledge_graph.production import company
+
+    out = company(ticker)
+    if out.get("enabled") and not out.get("found"):
+        raise HTTPException(status_code=404, detail="company_not_in_knowledge_graph")
+    return out
+
+
+@router.get("/knowledge-graph/relationships/{entity_id}")
+async def knowledge_graph_relationships(entity_id: str):
+    from knowledge_graph.production import relationships
+
+    out = relationships(entity_id)
+    if out.get("enabled") and not out.get("found"):
+        raise HTTPException(status_code=404, detail="entity_not_found")
+    return out
+
+
+@router.post("/knowledge-graph/query")
+async def knowledge_graph_query(payload: dict[str, Any] = Body(default={})):
+    from knowledge_graph.production import query
+
+    return query(payload)
+
+
+@router.get("/knowledge-graph/path")
+async def knowledge_graph_path(source: str, target: str):
+    from knowledge_graph.production import path
+
+    return path(source, target)
+
+
+@router.get("/knowledge-graph/quality-gates")
+async def knowledge_graph_quality_gates():
+    from knowledge_graph.production import quality_gates
+
+    return quality_gates()
+
+
+@router.get("/admin/knowledge-graph", response_class=HTMLResponse)
+async def admin_knowledge_graph():
+    from knowledge_graph.production import admin_page
+
+    return HTMLResponse(admin_page())
+
+
 # --- SIF v1.0 (Sector Intelligence Framework — additive; not an engine) ---
 
 

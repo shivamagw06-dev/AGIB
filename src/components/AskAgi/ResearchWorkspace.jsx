@@ -935,6 +935,21 @@ export default function ResearchWorkspace({
                             {vm.institutionalStack.forecastSummary}
                           </p>
                         ) : null}
+                        <p className="rw-mini mt-2">Knowledge connections</p>
+                        <p className="font-semibold">
+                          {vm.institutionalStack.knowledgeRelationshipCount ?? '—'}
+                          {vm.institutionalStack.knowledgeCanonicalId
+                            ? ` · ${vm.institutionalStack.knowledgeCanonicalId}`
+                            : ''}
+                          {vm.institutionalStack.knowledgeConfidence != null
+                            ? ` · conf ${vm.institutionalStack.knowledgeConfidence}`
+                            : ''}
+                        </p>
+                        {vm.institutionalStack.knowledgeSummary ? (
+                          <p className="text-xs text-slate-500 mt-2">
+                            {vm.institutionalStack.knowledgeSummary}
+                          </p>
+                        ) : null}
                       </div>
                     </div>
                     {vm.institutionalStack.openConcerns?.length ? (

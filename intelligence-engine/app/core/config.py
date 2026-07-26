@@ -395,6 +395,15 @@ class Settings(BaseSettings):
     fie_consensus: bool = True
     fie_uncertainty: bool = True
     fie_probability: bool = True
+    knowledge_graph: bool = True  # IKG — what is connected?
+    ikg_entity_resolution: bool = True
+    ikg_supply_chain: bool = True
+    ikg_ownership: bool = True
+    ikg_macro: bool = True
+    ikg_events: bool = True
+    ikg_thesis: bool = True
+    ikg_query: bool = True
+    ikg_dependency: bool = True
     academy_frameworks: bool = True  # ACADEMY_FRAMEWORKS
     academy_formulas: bool = True  # ACADEMY_FORMULAS
     academy_graph: bool = True  # ACADEMY_GRAPH

@@ -1700,5 +1700,63 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // Institutional Knowledge Graph V1 — what is connected?
+  router.get('/knowledge-graph/health', kfGet('/v1/knowledge-graph/health'));
+  router.get('/knowledge-graph/dashboard', kfGet('/v1/knowledge-graph/dashboard'));
+  router.get('/knowledge-graph/quality-gates', kfGet('/v1/knowledge-graph/quality-gates'));
+  router.get('/knowledge-graph/entity/:id', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/knowledge-graph/entity/${encodeURIComponent(req.params.id)}`
+      );
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Knowledge entity unavailable', detail: error.message });
+    }
+  });
+  router.get('/knowledge-graph/company/:ticker', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/knowledge-graph/company/${encodeURIComponent(req.params.ticker)}`
+      );
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Knowledge company unavailable', detail: error.message });
+    }
+  });
+  router.get('/knowledge-graph/relationships/:id', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/knowledge-graph/relationships/${encodeURIComponent(req.params.id)}`
+      );
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Knowledge relationships unavailable', detail: error.message });
+    }
+  });
+  router.get('/knowledge-graph/path', async (req, res) => {
+    try {
+      const qs = new URLSearchParams({
+        source: String(req.query.source || ''),
+        target: String(req.query.target || ''),
+      }).toString();
+      const result = await engineFetch(`/v1/knowledge-graph/path?${qs}`);
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Knowledge path unavailable', detail: error.message });
+    }
+  });
+  router.post('/knowledge-graph/query', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/knowledge-graph/query', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Knowledge query failed', detail: error.message });
+    }
+  });
+
   return router;
 }
