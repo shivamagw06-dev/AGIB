@@ -54,6 +54,7 @@ const navItems = [
   { to: '/admin/layer-router', label: 'Layer Router', icon: GitBranch },
   { to: '/admin/hypothesis-engine', label: 'Hypothesis Engine', icon: Lightbulb },
   { to: '/admin/research-questions', label: 'Research Questions', icon: ListChecks },
+  { to: '/admin/hypothesis-testing', label: 'Hypothesis Testing', icon: FlaskConical },
   { to: '/admin/articles/new', label: 'New Article', icon: Plus },
   { to: '/admin/categories', label: 'Categories', icon: FolderOpen },
   { to: '/admin/knowledge', label: 'Knowledge Corpus', icon: Brain },

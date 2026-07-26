@@ -1315,3 +1315,19 @@ export const diagnoseResearchQuestions = (payload = {}) =>
     method: 'POST',
     body: typeof payload === 'string' ? { question: payload } : payload,
   });
+
+/** RQ2 Institutional Hypothesis Testing Engine — Sprint 4 (AFTER evidence planning) */
+export const getHypothesisTestingHealth = () => intelligenceFetch('/hypothesis-testing/health');
+export const getHypothesisTestingDashboard = () => intelligenceFetch('/hypothesis-testing/dashboard');
+export const getHypothesisTestingConstitution = () => intelligenceFetch('/hypothesis-testing/constitution');
+export const getHypothesisTestingQualityGates = () => intelligenceFetch('/hypothesis-testing/quality-gates');
+export const planHypothesisTesting = (payload = {}) =>
+  intelligenceFetch('/hypothesis-testing/plan', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });
+export const diagnoseHypothesisTesting = (payload = {}) =>
+  intelligenceFetch('/hypothesis-testing/diagnostics', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });

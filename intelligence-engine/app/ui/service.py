@@ -854,6 +854,33 @@ class UiService:
         except Exception:
             research_questions = {}
 
+        # RQ2 Sprint 4 — Institutional Hypothesis Testing Engine (AFTER evidence planning; BEFORE analysts)
+        hypothesis_testing: dict[str, Any] = {}
+        try:
+            from hypothesis_testing.production import soft_slice_for_ask_agi as ihte_soft_slice
+
+            ihte_payload = {
+                "entity_resolution": entity_resolution,
+                "research_objective": research_objective,
+                "analyst_router": analyst_router,
+                "layer_router": layer_router,
+                "context_intelligence": context_intelligence,
+                "hypothesis_engine": hypothesis_engine,
+                "research_questions": research_questions,
+            }
+            # Soft-import evidence / acquisition plan when available
+            try:
+                from acquisition_planner.production import soft_slice_for_ask_agi as iape_soft  # type: ignore
+
+                iape = iape_soft(q, ihte_payload) or {}
+                if isinstance(iape, dict):
+                    ihte_payload.update(iape)
+            except Exception:
+                pass
+            hypothesis_testing = ihte_soft_slice(q, ihte_payload) or {}
+        except Exception:
+            hypothesis_testing = {}
+
         # CAE gateway (preferred) — else MEE→FLE→IIE→EVE→AOI→KCV/KF soft enrichment.
         kf_hits: list[dict[str, Any]] = []
         knowledge_corpus: dict[str, Any] = {}
@@ -2484,6 +2511,7 @@ class UiService:
             layer_router=scrub(layer_router) if layer_router else {},
             hypothesis_engine=scrub(hypothesis_engine) if hypothesis_engine else {},
             research_questions=scrub(research_questions) if research_questions else {},
+            hypothesis_testing=scrub(hypothesis_testing) if hypothesis_testing else {},
         )
 
     def timeline(self, entity: str) -> TimelineView:

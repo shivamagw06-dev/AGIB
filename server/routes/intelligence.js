@@ -2121,5 +2121,33 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // RQ2 Institutional Hypothesis Testing Engine — Sprint 4 (AFTER evidence planning; BEFORE analysts)
+  router.get('/hypothesis-testing/health', kfGet('/v1/hypothesis-testing/health'));
+  router.get('/hypothesis-testing/dashboard', kfGet('/v1/hypothesis-testing/dashboard'));
+  router.get('/hypothesis-testing/constitution', kfGet('/v1/hypothesis-testing/constitution'));
+  router.get('/hypothesis-testing/quality-gates', kfGet('/v1/hypothesis-testing/quality-gates'));
+  router.post('/hypothesis-testing/plan', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/hypothesis-testing/plan', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'IHTE plan failed', detail: error.message });
+    }
+  });
+  router.post('/hypothesis-testing/diagnostics', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/hypothesis-testing/diagnostics', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'IHTE diagnostics failed', detail: error.message });
+    }
+  });
+
   return router;
 }

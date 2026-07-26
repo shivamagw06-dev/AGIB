@@ -198,6 +198,8 @@ class SearchView(BaseModel):
     hypothesis_engine: dict[str, Any] = Field(default_factory=dict)
     # RQ2 Institutional Research Question Engine — Sprint 2 (additive; after IHG; not a layer)
     research_questions: dict[str, Any] = Field(default_factory=dict)
+    # RQ2 Institutional Hypothesis Testing Engine — Sprint 4 (additive; after evidence planning; not a layer)
+    hypothesis_testing: dict[str, Any] = Field(default_factory=dict)
     current_outlook: str | None = None
     key_drivers: list[str] = Field(default_factory=list)
     valuation_perspective: str | None = None
