@@ -155,6 +155,21 @@ def refresh_ticker(ticker: str) -> dict[str, Any]:
     except Exception as exc:
         out["errors"].append(f"ikg:{str(exc)[:120]}")
 
+    # ILM — institutional learning & memory soft slice
+    try:
+        from institutional_memory.production import soft_slice_for_analyst as ilm_slice
+
+        ilm = (ilm_slice(t, analyst="committee") or {}).get("institutional_memory") or {}
+        out["layers"]["institutional_memory"] = {
+            "found": bool(ilm.get("found")),
+            "lesson_count": ilm.get("lesson_count"),
+            "mistake_count": ilm.get("mistake_count"),
+            "thinking_improved": ilm.get("thinking_improved"),
+            "enabled": ilm.get("enabled", True),
+        }
+    except Exception as exc:
+        out["errors"].append(f"ilm:{str(exc)[:120]}")
+
     # PIL soft refresh (overlay from FIL)
     try:
         from peer_intelligence.production import company as pil_company
@@ -236,6 +251,7 @@ def company_pack(ticker: str, *, analyst: str = "committee") -> dict[str, Any]:
             "CIG",
             "IKG",
             "FIE",
+            "ILM",
             "PIO",
         ],
         "layers": {},
@@ -315,6 +331,14 @@ def company_pack(ticker: str, *, analyst: str = "committee") -> dict[str, Any]:
     except Exception as exc:
         pack["layers"]["knowledge_graph"] = {"enabled": False, "error": str(exc)[:120]}
 
+    # ILM
+    try:
+        from institutional_memory.production import soft_slice_for_analyst as ilm_slice
+
+        pack["layers"].update(ilm_slice(t, analyst=analyst) or {})
+    except Exception as exc:
+        pack["layers"]["institutional_memory"] = {"enabled": False, "error": str(exc)[:120]}
+
     # EIL (company-agnostic support slice)
     try:
         from academy.evidence.production import soft_slice_for_irs
@@ -332,6 +356,7 @@ def company_pack(ticker: str, *, analyst: str = "committee") -> dict[str, Any]:
     cig = pack["layers"].get("causal_intelligence") or {}
     fie = pack["layers"].get("forecast_intelligence") or {}
     ikg = pack["layers"].get("knowledge_graph") or {}
+    ilm = pack["layers"].get("institutional_memory") or {}
     fdi = pack["layers"].get("filing_diff") or {}
     fil = pack["layers"].get("filing_intelligence") or {}
     pil = pack["layers"].get("peer_intelligence") or {}
@@ -361,6 +386,10 @@ def company_pack(ticker: str, *, analyst: str = "committee") -> dict[str, Any]:
         "knowledge_relationship_count": ikg.get("relationship_count"),
         "knowledge_confidence": ikg.get("confidence"),
         "knowledge_summary": ikg.get("summary"),
+        "memory_lesson_count": ilm.get("lesson_count"),
+        "memory_mistake_count": ilm.get("mistake_count"),
+        "memory_thinking_improved": ilm.get("thinking_improved"),
+        "memory_summary": ilm.get("summary"),
         "filing_found": fil.get("found", bool(fil.get("enabled"))),
         "material_change_signal": bool(fdi.get("committee") or fdi.get("desk") or fdi.get("enabled")),
         "peer_enabled": bool(pil.get("enabled")),
@@ -370,6 +399,7 @@ def company_pack(ticker: str, *, analyst: str = "committee") -> dict[str, Any]:
         "primary_question_cig": "Why did this happen?",
         "primary_question_fie": "What future paths are plausible?",
         "primary_question_ikg": "What is connected?",
+        "primary_question_ilm": "What has AGIB learned over time?",
         "primary_question_fdi": "What materially changed since the previous filing?",
         "primary_question_fil": "What do the company's own filings actually say?",
         "primary_question_pil": "How does this company compare to the best and most relevant peers?",

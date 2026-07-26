@@ -111,6 +111,15 @@ export default function Nifty500StockResearch() {
               source: 'knowledge_graph',
             }
           : undefined,
+        institutional_learning: stack?.summary
+          ? {
+              lesson_count: stack.summary.memory_lesson_count,
+              mistake_count: stack.summary.memory_mistake_count,
+              thinking_improved: stack.summary.memory_thinking_improved,
+              summary: stack.summary.memory_summary,
+              source: 'institutional_memory',
+            }
+          : undefined,
       });
     });
     return () => {

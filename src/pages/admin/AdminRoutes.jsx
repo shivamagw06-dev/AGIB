@@ -30,6 +30,7 @@ import PortfolioIntelligence from '@/pages/admin/PortfolioIntelligence';
 import CausalIntelligence from '@/pages/admin/CausalIntelligence';
 import ForecastIntelligence from '@/pages/admin/ForecastIntelligence';
 import KnowledgeGraph from '@/pages/admin/KnowledgeGraph';
+import InstitutionalMemory from '@/pages/admin/InstitutionalMemory';
 
 export default function AdminRoutes() {
   return (
@@ -56,6 +57,7 @@ export default function AdminRoutes() {
           <Route path="causal-intelligence" element={<CausalIntelligence />} />
           <Route path="forecast-intelligence" element={<ForecastIntelligence />} />
           <Route path="knowledge-graph" element={<KnowledgeGraph />} />
+          <Route path="institutional-memory" element={<InstitutionalMemory />} />
           <Route path="company-monitor" element={<CompanyMonitor />} />
           <Route path="investment-office" element={<InvestmentOfficeAdmin />} />
           <Route path="mission-control" element={<MissionControl />} />

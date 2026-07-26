@@ -17,10 +17,11 @@ PIPELINE = [
     "PIL",
     "CAUSAL INTELLIGENCE GRAPH",
     "INSTITUTIONAL KNOWLEDGE GRAPH",
+    "FORECAST INTELLIGENCE ENGINE",
+    "INSTITUTIONAL LEARNING & MEMORY",
     "Institutional Analysts",
     "Investment Committee",
     "PORTFOLIO INTELLIGENCE OFFICE",
-    "FORECAST INTELLIGENCE ENGINE",
     "CIO",
     "Research Writer",
     "ACS",
@@ -39,6 +40,7 @@ LAYERS = (
     "causal_intelligence",
     "knowledge_graph",
     "forecast_intelligence",
+    "institutional_memory",
 )
 
 DEFAULT_BOOTSTRAP_TICKERS = ("HDFCBANK", "NESTLEIND", "TCS")

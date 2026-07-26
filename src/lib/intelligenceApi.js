@@ -1072,3 +1072,20 @@ export const getIkgPath = (source, target) => {
 };
 export const queryIkg = (payload = {}) =>
   intelligenceFetch('/knowledge-graph/query', { method: 'POST', body: payload || {} });
+
+/** Institutional Learning & Memory Engine (ILM + MIE) */
+export const getIlmHealth = () => intelligenceFetch('/ilm/health');
+export const getIlmDashboard = () => intelligenceFetch('/ilm/dashboard');
+export const getIlmQualityGates = () => intelligenceFetch('/ilm/quality-gates');
+export const getIlmCompany = (ticker) =>
+  intelligenceFetch(`/ilm/company/${encodeURIComponent(ticker)}`);
+export const getIlmThesis = (ticker) =>
+  intelligenceFetch(`/ilm/thesis/${encodeURIComponent(ticker)}`);
+export const getIlmCommittee = (ticker) =>
+  intelligenceFetch(`/ilm/committee/${encodeURIComponent(ticker)}`);
+export const getIlmForecast = (ticker) =>
+  intelligenceFetch(`/ilm/forecast/${encodeURIComponent(ticker)}`);
+export const getIlmPortfolio = (portfolioId) =>
+  intelligenceFetch(`/ilm/portfolio/${encodeURIComponent(portfolioId)}`);
+export const updateIlmLearning = (payload = {}) =>
+  intelligenceFetch('/ilm/learning/update', { method: 'POST', body: payload || {} });

@@ -69,6 +69,7 @@ def dashboard() -> dict[str, Any]:
         ("causal_intelligence", "causal_graph.production"),
         ("forecast_intelligence", "forecast_intelligence.production"),
         ("knowledge_graph", "knowledge_graph.production"),
+        ("institutional_memory", "institutional_memory.production"),
         ("evidence_intelligence", "academy.evidence.production"),
     ):
         try:
@@ -87,6 +88,7 @@ def dashboard() -> dict[str, Any]:
                     or d.get("cig_version")
                     or d.get("fie_version")
                     or d.get("ikg_version")
+                    or d.get("ilm_version")
                     or d.get("eil_version"),
                     "primary_question": d.get("primary_question"),
                 }
@@ -119,6 +121,7 @@ def dashboard() -> dict[str, Any]:
             "/admin/causal-intelligence",
             "/admin/forecast-intelligence",
             "/admin/knowledge-graph",
+            "/admin/institutional-memory",
             "/admin/peer-intelligence",
         ],
         "api_prefix": "/v1/institutional-stack",
@@ -156,7 +159,7 @@ def soft_slice_for_ask_agi(ticker: str | None) -> dict[str, Any]:
             "summary": pack.get("summary"),
             "layers": pack.get("layers"),
             "pipeline": pack.get("pipeline"),
-            "rule": "FIL→FDI→MII→ACI→EIL→PIL→CIG→IKG→FIE soft facts precede analyst judgement",
+            "rule": "FIL→FDI→MII→ACI→EIL→PIL→CIG→IKG→FIE→ILM soft facts precede analyst judgement",
         }
     }
 
@@ -210,6 +213,7 @@ def quality_gates() -> dict[str, Any]:
         "cig_present": bool(layers.get("causal_intelligence")),
         "fie_present": bool(layers.get("forecast_intelligence")),
         "ikg_present": bool(layers.get("knowledge_graph")),
+        "ilm_present": bool(layers.get("institutional_memory")),
         "pil_present": bool(layers.get("peer_intelligence")),
         "eil_present": bool(layers.get("evidence_intelligence")),
         "mii_confidence": (layers.get("management_intelligence") or {}).get("confidence") is not None,
@@ -217,6 +221,7 @@ def quality_gates() -> dict[str, Any]:
         "cig_upstream": bool((layers.get("causal_intelligence") or {}).get("upstream_drivers")),
         "fie_most_likely": (layers.get("forecast_intelligence") or {}).get("most_likely") is not None,
         "ikg_relationships": (layers.get("knowledge_graph") or {}).get("relationship_count") is not None,
+        "ilm_lessons": (layers.get("institutional_memory") or {}).get("lesson_count") is not None,
         "no_engine_redesign": True,
     }
     return {

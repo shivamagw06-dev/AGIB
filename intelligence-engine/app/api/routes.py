@@ -4600,6 +4600,94 @@ async def admin_knowledge_graph():
     return HTMLResponse(admin_page())
 
 
+# --- Institutional Learning & Memory Engine V1 (what have we learned?) ---
+
+
+@router.get("/ilm/health")
+async def ilm_health():
+    from institutional_memory.production import health
+
+    return health()
+
+
+@router.get("/ilm/dashboard")
+async def ilm_dashboard():
+    from institutional_memory.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/ilm/company/{ticker}")
+async def ilm_company(ticker: str):
+    from institutional_memory.production import company
+
+    out = company(ticker)
+    if out.get("enabled") and not out.get("found"):
+        raise HTTPException(status_code=404, detail="company_memory_not_found")
+    return out
+
+
+@router.get("/ilm/thesis/{ticker}")
+async def ilm_thesis(ticker: str):
+    from institutional_memory.production import thesis
+
+    out = thesis(ticker)
+    if out.get("enabled") and not out.get("found"):
+        raise HTTPException(status_code=404, detail="thesis_memory_not_found")
+    return out
+
+
+@router.get("/ilm/committee/{ticker}")
+async def ilm_committee(ticker: str):
+    from institutional_memory.production import committee
+
+    out = committee(ticker)
+    if out.get("enabled") and not out.get("found"):
+        raise HTTPException(status_code=404, detail="committee_memory_not_found")
+    return out
+
+
+@router.get("/ilm/forecast/{ticker}")
+async def ilm_forecast(ticker: str):
+    from institutional_memory.production import forecast
+
+    out = forecast(ticker)
+    if out.get("enabled") and not out.get("found"):
+        raise HTTPException(status_code=404, detail="forecast_memory_not_found")
+    return out
+
+
+@router.get("/ilm/portfolio/{portfolio_id}")
+async def ilm_portfolio(portfolio_id: str):
+    from institutional_memory.production import portfolio
+
+    out = portfolio(portfolio_id)
+    if out.get("enabled") and not out.get("found"):
+        raise HTTPException(status_code=404, detail="portfolio_memory_not_found")
+    return out
+
+
+@router.post("/ilm/learning/update")
+async def ilm_learning_update(payload: dict[str, Any] = Body(default={})):
+    from institutional_memory.production import learning_update
+
+    return learning_update(payload)
+
+
+@router.get("/ilm/quality-gates")
+async def ilm_quality_gates():
+    from institutional_memory.production import quality_gates
+
+    return quality_gates()
+
+
+@router.get("/admin/institutional-memory", response_class=HTMLResponse)
+async def admin_institutional_memory():
+    from institutional_memory.production import admin_page
+
+    return HTMLResponse(admin_page())
+
+
 # --- SIF v1.0 (Sector Intelligence Framework — additive; not an engine) ---
 
 

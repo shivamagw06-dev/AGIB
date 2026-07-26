@@ -300,6 +300,32 @@ export default function CompanyIntelligencePanels({ data }) {
                 </p>
               ) : null}
             </Card>
+            <Card title="What We Learned">
+              {data.institutional_stack?.summary?.memory_lesson_count != null
+                ? `${data.institutional_stack.summary.memory_lesson_count} lessons`
+                : data.institutional_learning?.lesson_count != null
+                  ? `${data.institutional_learning.lesson_count} lessons`
+                  : '—'}
+              {(data.institutional_stack?.summary?.memory_mistake_count ??
+                data.institutional_learning?.mistake_count) != null ? (
+                <p className="text-xs text-[#667085] mt-1">
+                  {data.institutional_stack?.summary?.memory_mistake_count ??
+                    data.institutional_learning?.mistake_count}{' '}
+                  classified mistakes
+                  {(data.institutional_stack?.summary?.memory_thinking_improved ??
+                    data.institutional_learning?.thinking_improved) != null
+                    ? ` · thinking ${
+                        (
+                          data.institutional_stack?.summary?.memory_thinking_improved ??
+                          data.institutional_learning?.thinking_improved
+                        )
+                          ? 'improved'
+                          : 'not yet'
+                      }`
+                    : ''}
+                </p>
+              ) : null}
+            </Card>
           </div>
         </section>
       )}

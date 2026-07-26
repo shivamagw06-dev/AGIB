@@ -404,6 +404,15 @@ class Settings(BaseSettings):
     ikg_thesis: bool = True
     ikg_query: bool = True
     ikg_dependency: bool = True
+    institutional_memory: bool = True  # ILM — what has AGIB learned over time?
+    ilm_thesis: bool = True
+    ilm_analyst: bool = True
+    ilm_committee: bool = True
+    ilm_forecast: bool = True
+    ilm_portfolio: bool = True
+    ilm_learning: bool = True
+    ilm_accuracy: bool = True
+    ilm_mistake_intelligence: bool = True
     academy_frameworks: bool = True  # ACADEMY_FRAMEWORKS
     academy_formulas: bool = True  # ACADEMY_FORMULAS
     academy_graph: bool = True  # ACADEMY_GRAPH

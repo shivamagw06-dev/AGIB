@@ -950,6 +950,23 @@ export default function ResearchWorkspace({
                             {vm.institutionalStack.knowledgeSummary}
                           </p>
                         ) : null}
+                        <p className="rw-mini mt-2">Institutional learning</p>
+                        <p className="font-semibold">
+                          {vm.institutionalStack.memoryLessonCount != null
+                            ? `${vm.institutionalStack.memoryLessonCount} lessons`
+                            : '—'}
+                          {vm.institutionalStack.memoryMistakeCount != null
+                            ? ` · ${vm.institutionalStack.memoryMistakeCount} mistakes`
+                            : ''}
+                          {vm.institutionalStack.memoryThinkingImproved != null
+                            ? ` · thinking ${vm.institutionalStack.memoryThinkingImproved ? 'improved' : 'not yet'}`
+                            : ''}
+                        </p>
+                        {vm.institutionalStack.memorySummary ? (
+                          <p className="text-xs text-slate-500 mt-2">
+                            {vm.institutionalStack.memorySummary}
+                          </p>
+                        ) : null}
                       </div>
                     </div>
                     {vm.institutionalStack.openConcerns?.length ? (

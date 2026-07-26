@@ -1758,5 +1758,61 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // Institutional Learning & Memory Engine V1 — what have we learned?
+  router.get('/ilm/health', kfGet('/v1/ilm/health'));
+  router.get('/ilm/dashboard', kfGet('/v1/ilm/dashboard'));
+  router.get('/ilm/quality-gates', kfGet('/v1/ilm/quality-gates'));
+  router.get('/ilm/company/:ticker', async (req, res) => {
+    try {
+      const result = await engineFetch(`/v1/ilm/company/${encodeURIComponent(req.params.ticker)}`);
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'ILM company unavailable', detail: error.message });
+    }
+  });
+  router.get('/ilm/thesis/:ticker', async (req, res) => {
+    try {
+      const result = await engineFetch(`/v1/ilm/thesis/${encodeURIComponent(req.params.ticker)}`);
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'ILM thesis unavailable', detail: error.message });
+    }
+  });
+  router.get('/ilm/committee/:ticker', async (req, res) => {
+    try {
+      const result = await engineFetch(`/v1/ilm/committee/${encodeURIComponent(req.params.ticker)}`);
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'ILM committee unavailable', detail: error.message });
+    }
+  });
+  router.get('/ilm/forecast/:ticker', async (req, res) => {
+    try {
+      const result = await engineFetch(`/v1/ilm/forecast/${encodeURIComponent(req.params.ticker)}`);
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'ILM forecast unavailable', detail: error.message });
+    }
+  });
+  router.get('/ilm/portfolio/:id', async (req, res) => {
+    try {
+      const result = await engineFetch(`/v1/ilm/portfolio/${encodeURIComponent(req.params.id)}`);
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'ILM portfolio unavailable', detail: error.message });
+    }
+  });
+  router.post('/ilm/learning/update', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/ilm/learning/update', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'ILM learning update failed', detail: error.message });
+    }
+  });
+
   return router;
 }

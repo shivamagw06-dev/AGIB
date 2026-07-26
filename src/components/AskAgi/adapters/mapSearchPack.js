@@ -664,6 +664,26 @@ export function mapSearchPack(pack) {
             stack?.layers?.knowledge_graph?.summary ||
             pack.knowledge_graph?.summary ||
             null,
+          memoryLessonCount:
+            stackSummary.memory_lesson_count ??
+            stack?.layers?.institutional_memory?.lesson_count ??
+            pack.institutional_memory?.lesson_count ??
+            null,
+          memoryMistakeCount:
+            stackSummary.memory_mistake_count ??
+            stack?.layers?.institutional_memory?.mistake_count ??
+            pack.institutional_memory?.mistake_count ??
+            null,
+          memoryThinkingImproved:
+            stackSummary.memory_thinking_improved ??
+            stack?.layers?.institutional_memory?.thinking_improved ??
+            pack.institutional_memory?.thinking_improved ??
+            null,
+          memorySummary:
+            stackSummary.memory_summary ||
+            stack?.layers?.institutional_memory?.summary ||
+            pack.institutional_memory?.summary ||
+            null,
           filingFound: stackSummary.filing_found ?? stackFil.found ?? null,
           materialChangeSignal: stackSummary.material_change_signal ?? Boolean(stackFdi.enabled),
           peerEnabled: stackSummary.peer_enabled ?? Boolean(stackPil.enabled),
