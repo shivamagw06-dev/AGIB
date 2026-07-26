@@ -25,7 +25,7 @@ def test_multi_course_catalog(svc: AcademyService):
     ids = {c["course_id"] for c in courses["courses"]}
     assert "mankiw_principles_of_economics" in ids
     assert "damodaran_minimalist_accounting" in ids
-    assert svc.health()["version"].startswith("academy-v1.1")
+    assert svc.health()["version"].startswith("academy-v1.")
     assert svc.health()["course_count"] >= 2
 
 

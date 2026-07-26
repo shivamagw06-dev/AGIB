@@ -1,25 +1,28 @@
-# AGI Finance Academy v1.1
+# AGI Finance Academy v1.2
 
 Institutional **multi-course curriculum library** — not an engine and not a summariser.
 
 ## Courses
 
-1. **Principles of Economics (Mankiw)** — macro/micro foundations for markets, policy, and valuation
-2. **Minimalist Accounting (Aswath Damodaran)** — how institutional investors read financial statements
+1. **Principles of Economics (Mankiw)** — markets, policy, macro transmission
+2. **Minimalist Accounting (Damodaran)** — how investors read financial statements
+3. **Applied Corporate Finance (Damodaran)** — how firms create, preserve, and destroy value
+
+These three form the intellectual foundation before Investment Valuation.
 
 ## Mission
 
-Convert teaching sources into reusable knowledge objects so AGI understands mechanisms — cause, effect, industry impact, valuation, forecast, and decision frameworks — without re-reading books.
+Convert teaching sources into reusable knowledge objects so AGI understands mechanisms — capital allocation, ROIC vs WACC, leverage, payout, and M&A — without re-reading books.
 
 ## Architecture
 
 Architecture v1.0.1 is LOCKED. Academy only expands curriculum knowledge. Soft consumers expose views for KF, KCV, EVE, IIE, VE, FLE, IRP, and FIML without modifying those packages.
 
-## Accounting toolkit
+## Toolkits
 
-- Earnings Quality Score methodology
-- Red-flag library
-- Investor mental models (cash ≠ profit, growth consumes capital, etc.)
+- Earnings Quality Score + accounting red flags
+- Corporate finance decision questions (allocation, leverage, buybacks, acquisitions)
+- ROIC–WACC spread as first-class value-creation logic
 
 ## Local book PDFs
 
@@ -27,5 +30,6 @@ Place copyrighted PDFs under `/workspace/books/` (gitignored) or set:
 
 - `AGI_ACADEMY_MANKIW_PDF`
 - `AGI_ACADEMY_DAMODARAN_PDF`
+- `AGI_ACADEMY_ACF_PDF`
 
 Never commit PDFs.

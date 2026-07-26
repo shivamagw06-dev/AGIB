@@ -8,6 +8,8 @@ from typing import Any
 
 from academy.accounting.curriculum import CHAPTERS as ACC_CHAPTERS
 from academy.accounting.curriculum import chapter_meta as acc_chapter_meta
+from academy.corporate_finance.curriculum import CHAPTERS as ACF_CHAPTERS
+from academy.corporate_finance.curriculum import chapter_meta as acf_chapter_meta
 from academy.curriculum import CHAPTERS as ECO_CHAPTERS
 from academy.curriculum import PDF_PAGE_OFFSET, chapter_meta as eco_chapter_meta
 
@@ -18,12 +20,18 @@ MANKIW_CANDIDATES = [
     Path.home() / "Downloads" / "AGIB" / "Books" / "Mankiw_Principles_of_Economics.pdf",
 ]
 
-DAMODARAN_CANDIDATES = [
+DAMODARAN_ACCOUNTING_CANDIDATES = [
     Path("/workspace/books/Damodaran_Understanding_Financial_Statements.pdf"),
     Path("/workspace/books/Damodaran_Accounting_Prep.pdf"),
     Path("/workspace/books/Damodaran_Measuring_Earnings.pdf"),
     Path.home() / "Downloads" / "AGIB" / "books" / "Damodaran_Understanding_Financial_Statements.pdf",
     Path.home() / "Downloads" / "AGIB" / "Books" / "Minimalist_Accounting.pdf",
+]
+
+DAMODARAN_ACF_CANDIDATES = [
+    Path("/workspace/books/Damodaran_Applied_Corporate_Finance.pdf"),
+    Path.home() / "Downloads" / "AGIB" / "books" / "Damodaran_Applied_Corporate_Finance.pdf",
+    Path.home() / "Downloads" / "AGIB" / "Books" / "Applied_Corporate_Finance.pdf",
 ]
 
 
@@ -38,11 +46,16 @@ def locate_pdf(explicit: str | None = None, *, course: str = "economics") -> Pat
     if explicit:
         p = Path(explicit)
         return p if p.exists() else None
+    if course in ("acf", "corporate_finance", "applied_corporate_finance"):
+        env = os.environ.get("AGI_ACADEMY_ACF_PDF")
+        if env and Path(env).exists():
+            return Path(env)
+        return _first_existing(DAMODARAN_ACF_CANDIDATES)
     if course in ("accounting", "damodaran", "minimalist_accounting"):
         env = os.environ.get("AGI_ACADEMY_DAMODARAN_PDF")
         if env and Path(env).exists():
             return Path(env)
-        return _first_existing(DAMODARAN_CANDIDATES)
+        return _first_existing(DAMODARAN_ACCOUNTING_CANDIDATES)
     env = os.environ.get("AGI_ACADEMY_MANKIW_PDF")
     if env and Path(env).exists():
         return Path(env)
@@ -63,6 +76,7 @@ def _pdf_meta(path: Path | None) -> dict[str, Any]:
 def provenance_status(pdf_path: str | None = None) -> dict[str, Any]:
     eco_path = locate_pdf(pdf_path, course="economics")
     acc_path = locate_pdf(course="accounting")
+    acf_path = locate_pdf(course="acf")
     eco_chapters = []
     for row in ECO_CHAPTERS:
         meta = eco_chapter_meta(row["chapter"])
@@ -86,17 +100,31 @@ def provenance_status(pdf_path: str | None = None) -> dict[str, Any]:
                 "source": meta.get("source"),
             }
         )
+    acf_chapters = []
+    for row in ACF_CHAPTERS:
+        meta = acf_chapter_meta(row["chapter"])
+        acf_chapters.append(
+            {
+                "chapter": meta["chapter"],
+                "title": meta["title"],
+                "printed_page": meta.get("printed_page"),
+                "pdf_page_estimate": meta.get("pdf_page"),
+            }
+        )
     return {
         "note": "PDFs are gitignored; provenance uses local paths only",
         "economics": {**_pdf_meta(eco_path), "pdf_page_offset": PDF_PAGE_OFFSET, "chapters": eco_chapters},
         "accounting": {
             **_pdf_meta(acc_path),
-            "materials": [str(p) for p in DAMODARAN_CANDIDATES if p.exists()],
+            "materials": [str(p) for p in DAMODARAN_ACCOUNTING_CANDIDATES if p.exists()],
             "chapters": acc_chapters,
         },
-        # backward-compatible top-level fields (economics)
-        **{f"legacy_{k}" if k in ("pdf_found", "pdf_path", "pdf_pages") else k: v for k, v in _pdf_meta(eco_path).items()},
-        "pdf_found": eco_path is not None or acc_path is not None,
+        "corporate_finance": {
+            **_pdf_meta(acf_path),
+            "materials": [str(p) for p in DAMODARAN_ACF_CANDIDATES if p.exists()],
+            "chapters": acf_chapters,
+        },
+        "pdf_found": eco_path is not None or acc_path is not None or acf_path is not None,
         "pdf_page_offset": PDF_PAGE_OFFSET,
         "chapters": eco_chapters,
     }
@@ -115,7 +143,12 @@ def enrich_concept_pages(concept_id: str, section_hint: str | None = None) -> di
         "section_hint": section_hint,
         "course_id": ko.course_id,
     }
-    course = "accounting" if "accounting" in (ko.course_id or "") or "course:accounting" in ko.tags else "economics"
+    if "corporate_finance" in (ko.course_id or "") or "course:corporate_finance" in ko.tags:
+        course = "acf"
+    elif "accounting" in (ko.course_id or "") or "course:accounting" in ko.tags:
+        course = "accounting"
+    else:
+        course = "economics"
     path = locate_pdf(course=course)
     if path is None:
         return {**base, "enriched": False, "reason": "pdf_not_found"}

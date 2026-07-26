@@ -6,7 +6,7 @@ from dataclasses import asdict, dataclass, field
 from typing import Any
 
 
-ACADEMY_VERSION = "academy-v1.1.0"
+ACADEMY_VERSION = "academy-v1.2.0"
 COURSE_ID = "mankiw_principles_of_economics"
 COURSE_TITLE = "Principles of Economics (Gregory Mankiw)"
 COURSE_EDITION = "7e"
@@ -14,6 +14,8 @@ COURSE_EDITION = "7e"
 # Multi-course Academy — additional course ids live under academy/<course>/
 ACCOUNTING_COURSE_ID = "damodaran_minimalist_accounting"
 ACCOUNTING_COURSE_TITLE = "Minimalist Accounting (Aswath Damodaran)"
+ACF_COURSE_ID = "damodaran_applied_corporate_finance"
+ACF_COURSE_TITLE = "Applied Corporate Finance (Aswath Damodaran)"
 
 
 INDUSTRIES = [
@@ -113,6 +115,7 @@ class KnowledgeObject:
     accounting_meaning: str = ""
     industry_variations: dict[str, str] = field(default_factory=dict)
     red_flags: list[str] = field(default_factory=list)
+    management_decisions: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         d = asdict(self)

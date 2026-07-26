@@ -133,6 +133,10 @@ class AcademyService:
         self._require()
         return self.core.accounting()
 
+    def corporate_finance(self) -> dict[str, Any]:
+        self._require()
+        return self.core.corporate_finance()
+
     def completion(self, course_id: str | None = None) -> dict[str, Any]:
         self._require()
         return self.core.completion(course_id)

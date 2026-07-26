@@ -600,6 +600,7 @@ export const getAcademyCompletion = (courseId) => {
 };
 export const getAcademyRedFlags = () => intelligenceFetch('/academy/red-flags');
 export const getAcademyAccounting = () => intelligenceFetch('/academy/accounting');
+export const getAcademyCorporateFinance = () => intelligenceFetch('/academy/corporate-finance');
 export const scoreAcademyEarningsQuality = (body = {}) =>
   intelligenceFetch('/academy/earnings-quality', { method: 'POST', body });
 export const scoreAcademyRedFlags = (body = {}) =>

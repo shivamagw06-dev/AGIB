@@ -4,6 +4,7 @@ import {
   getAcademyAccounting,
   getAcademyCausalModels,
   getAcademyCompletion,
+  getAcademyCorporateFinance,
   getAcademyDashboard,
   getAcademyExams,
   getAcademyHealth,
@@ -34,8 +35,9 @@ export default function FinanceAcademy() {
   const [redFlags, setRedFlags] = useState(null);
   const [eq, setEq] = useState(null);
   const [accounting, setAccounting] = useState(null);
+  const [acf, setAcf] = useState(null);
   const [courseFilter, setCourseFilter] = useState('all');
-  const [conceptId, setConceptId] = useState('earnings_quality');
+  const [conceptId, setConceptId] = useState('capital_allocation');
   const [lesson, setLesson] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState('');
@@ -45,7 +47,7 @@ export default function FinanceAcademy() {
     setLoading(true);
     setError('');
     try {
-      const [h, d, q, e, c, cm, rf, ac] = await Promise.all([
+      const [h, d, q, e, c, cm, rf, ac, cf] = await Promise.all([
         getAcademyHealth(),
         getAcademyDashboard(),
         getAcademyQuality(),
@@ -54,6 +56,7 @@ export default function FinanceAcademy() {
         getAcademyCausalModels(),
         getAcademyRedFlags(),
         getAcademyAccounting(),
+        getAcademyCorporateFinance(),
       ]);
       setHealth(h);
       setDashboard(d);
@@ -63,6 +66,7 @@ export default function FinanceAcademy() {
       setCausal(cm);
       setRedFlags(rf);
       setAccounting(ac);
+      setAcf(cf);
     } catch (err) {
       setError(err?.message || 'Failed to load Finance Academy');
     } finally {
@@ -128,12 +132,12 @@ export default function FinanceAcademy() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-[10px] uppercase tracking-[0.2em] text-emerald-600 font-semibold">
-            Finance Academy v1.1
+            Finance Academy v1.2
           </p>
           <h1 className="text-2xl font-bold text-slate-900 mt-1">AGI Finance Academy</h1>
           <p className="text-sm text-slate-500 mt-1 max-w-2xl">
-            Multi-course institutional curriculum — Economics (Mankiw) + Accounting (Damodaran). Knowledge
-            objects, causal graphs, earnings quality, and red flags. Not a summariser. Not an engine.
+            Multi-course institutional curriculum — Economics, Accounting, and Applied Corporate Finance.
+            ROIC, WACC, and capital allocation as first-class reasoning. Not a summariser. Not an engine.
           </p>
         </div>
         <Button variant="outline" onClick={load} disabled={loading}>
@@ -150,7 +154,7 @@ export default function FinanceAcademy() {
       ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <Stat label="Courses" value={health?.course_count ?? courses.length ?? '—'} hint="Economics + Accounting" />
+        <Stat label="Courses" value={health?.course_count ?? courses.length ?? '—'} hint="Economics + Accounting + ACF" />
         <Stat label="Concepts" value={health?.concept_count ?? '—'} hint="Canonical objects" />
         <Stat
           label="Quality"
@@ -180,7 +184,13 @@ export default function FinanceAcademy() {
             size="sm"
             onClick={() => setCourseFilter(c.course_id)}
           >
-            {c.title?.includes('Accounting') ? 'Accounting' : c.title?.includes('Economics') ? 'Economics' : c.title}
+            {c.title?.includes('Corporate Finance')
+              ? 'Corporate Finance'
+              : c.title?.includes('Accounting')
+                ? 'Accounting'
+                : c.title?.includes('Economics')
+                  ? 'Economics'
+                  : c.title}
           </Button>
         ))}
       </div>
@@ -252,7 +262,8 @@ export default function FinanceAcademy() {
             </div>
           ) : null}
           <p className="text-xs text-slate-400">
-            Toolkit course: {accounting?.course?.title || 'Minimalist Accounting'}
+            Accounting: {accounting?.course?.title || 'Minimalist Accounting'} · ACF:{' '}
+            {acf?.course?.title || 'Applied Corporate Finance'} · Core spread: {acf?.core_spread || 'roic_wacc_spread'}
           </p>
         </div>
       </div>

@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from academy import accounting
+from academy import corporate_finance
 from academy.accounting import causal_models as acc_causal
 from academy.accounting import mental_models as acc_mental
 from academy.accounting import teaching as acc_teaching
@@ -14,6 +15,12 @@ from academy.accounting.earnings_quality import score_earnings_quality
 from academy.accounting.knowledge_objects import all_knowledge_objects as accounting_objects
 from academy.accounting.red_flags import list_red_flags, score_red_flags
 from academy.causal_models import all_causal_models as economics_causal
+from academy.corporate_finance import causal_models as acf_causal
+from academy.corporate_finance import mental_models as acf_mental
+from academy.corporate_finance import teaching as acf_teaching
+from academy.corporate_finance.curriculum import CONCEPT_CHAPTER_MAP as ACF_CHAPTER_MAP
+from academy.corporate_finance.curriculum import course_manifest as acf_manifest
+from academy.corporate_finance.knowledge_objects import all_knowledge_objects as acf_objects
 from academy.curriculum import CONCEPT_CHAPTER_MAP as ECO_CHAPTER_MAP
 from academy.curriculum import course_manifest as economics_manifest
 from academy.knowledge_objects import all_knowledge_objects as economics_objects
@@ -24,16 +31,34 @@ from academy.teaching import answer_question as eco_answer
 from academy.teaching import run_exam_suite as eco_exams
 from academy.teaching import teach as eco_teach
 
+_ACC_ALIASES = {
+    accounting.COURSE_ID,
+    "accounting",
+    "minimalist_accounting",
+    "damodaran_accounting",
+}
+_ACF_ALIASES = {
+    corporate_finance.COURSE_ID,
+    "acf",
+    "corporate_finance",
+    "applied_corporate_finance",
+    "damodaran_acf",
+}
+# bare "damodaran" kept for accounting backward-compat (existing tests/API clients)
+_ACC_ALIASES.add("damodaran")
+
 
 def list_courses() -> list[dict[str, Any]]:
-    return [economics_manifest(), accounting_manifest()]
+    return [economics_manifest(), accounting_manifest(), acf_manifest()]
 
 
 def course_manifest(course_id: str | None = None) -> dict[str, Any]:
     if not course_id or course_id in (COURSE_ID, "economics", "mankiw"):
         return economics_manifest()
-    if course_id in (accounting.COURSE_ID, "accounting", "damodaran", "minimalist_accounting"):
+    if course_id in _ACC_ALIASES:
         return accounting_manifest()
+    if course_id in _ACF_ALIASES:
+        return acf_manifest()
     raise KeyError(f"Unknown course: {course_id}")
 
 
@@ -45,12 +70,15 @@ def all_knowledge_objects(course_id: str | None = None) -> list[KnowledgeObject]
         if "course:economics" not in k.tags:
             k.tags = list(k.tags) + ["course:economics"]
     acc = accounting_objects()
+    acf = acf_objects()
     if course_id in (None, "", "all"):
-        return eco + acc
+        return eco + acc + acf
     if course_id in (COURSE_ID, "economics", "mankiw"):
         return eco
-    if course_id in (accounting.COURSE_ID, "accounting", "damodaran", "minimalist_accounting"):
+    if course_id in _ACC_ALIASES:
         return acc
+    if course_id in _ACF_ALIASES:
+        return acf
     raise KeyError(f"Unknown course: {course_id}")
 
 
@@ -65,45 +93,54 @@ def list_concept_ids(course_id: str | None = None) -> list[str]:
 def concept_chapter_map() -> dict[str, int]:
     out = dict(ECO_CHAPTER_MAP)
     out.update(ACC_CHAPTER_MAP)
+    out.update(ACF_CHAPTER_MAP)
     return out
 
 
 def all_causal_models():
-    return economics_causal() + acc_causal.all_causal_models()
+    return economics_causal() + acc_causal.all_causal_models() + acf_causal.all_causal_models()
 
 
 def all_mental_models():
-    return economics_mental() + acc_mental.all_mental_models()
+    return economics_mental() + acc_mental.all_mental_models() + acf_mental.all_mental_models()
 
 
 def all_exams() -> list[dict[str, Any]]:
     eco = [{**e, "course": COURSE_ID} for e in ECO_EXAMS]
     acc = [{**e, "course": accounting.COURSE_ID} for e in acc_teaching.EXAMS]
-    return eco + acc
+    acf = [{**e, "course": corporate_finance.COURSE_ID} for e in acf_teaching.EXAMS]
+    return eco + acc + acf
 
 
 def answer_question(question_id: str) -> dict[str, Any]:
     try:
         return eco_answer(question_id)
     except KeyError:
-        return acc_teaching.answer_question(question_id)
+        try:
+            return acc_teaching.answer_question(question_id)
+        except KeyError:
+            return acf_teaching.answer_question(question_id)
 
 
 def run_exam_suite(course_id: str | None = None) -> dict[str, Any]:
-    if course_id in (accounting.COURSE_ID, "accounting", "damodaran"):
+    if course_id in _ACC_ALIASES:
         return acc_teaching.run_exam_suite()
+    if course_id in _ACF_ALIASES:
+        return acf_teaching.run_exam_suite()
     if course_id in (COURSE_ID, "economics", "mankiw"):
         return eco_exams()
     eco = eco_exams()
     acc = acc_teaching.run_exam_suite()
+    acf = acf_teaching.run_exam_suite()
     return {
-        "total": eco["total"] + acc["total"],
-        "passed": eco["passed"] + acc["passed"],
-        "failed": eco["failed"] + acc["failed"],
-        "complete": eco["complete"] and acc["complete"],
+        "total": eco["total"] + acc["total"] + acf["total"],
+        "passed": eco["passed"] + acc["passed"] + acf["passed"],
+        "failed": eco["failed"] + acc["failed"] + acf["failed"],
+        "complete": eco["complete"] and acc["complete"] and acf["complete"],
         "by_course": {
             COURSE_ID: eco,
             accounting.COURSE_ID: acc,
+            corporate_finance.COURSE_ID: acf,
         },
     }
 
@@ -112,8 +149,12 @@ def teach(concept_id: str) -> dict[str, Any]:
     kb = knowledge_by_id()
     if concept_id not in kb:
         raise KeyError(concept_id)
-    if kb[concept_id].course_id == accounting.COURSE_ID or "course:accounting" in kb[concept_id].tags:
+    cid = kb[concept_id].course_id
+    tags = kb[concept_id].tags
+    if cid == accounting.COURSE_ID or "course:accounting" in tags:
         return acc_teaching.teach(concept_id)
+    if cid == corporate_finance.COURSE_ID or "course:corporate_finance" in tags:
+        return acf_teaching.teach(concept_id)
     return eco_teach(concept_id)
 
 
@@ -122,5 +163,22 @@ def accounting_toolkit() -> dict[str, Any]:
         "course": accounting_manifest(),
         "red_flags": list_red_flags(),
         "earnings_quality_methodology": score_earnings_quality({}),
+        "version": ACADEMY_VERSION,
+    }
+
+
+def corporate_finance_toolkit() -> dict[str, Any]:
+    return {
+        "course": acf_manifest(),
+        "foundations": ["investment_principle", "financing_principle", "dividend_principle"],
+        "core_spread": "roic_wacc_spread",
+        "decision_questions": [
+            "Is management allocating capital efficiently?",
+            "Is ROIC above WACC?",
+            "Is leverage appropriate?",
+            "Is the buyback value accretive?",
+            "Is the acquisition likely to create value?",
+            "Should excess cash be returned or reinvested?",
+        ],
         "version": ACADEMY_VERSION,
     }

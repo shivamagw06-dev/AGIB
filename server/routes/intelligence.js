@@ -824,6 +824,7 @@ export default function createIntelligenceRouter() {
   router.get('/academy/search', kfGet('/v1/academy/search'));
   router.get('/academy/red-flags', kfGet('/v1/academy/red-flags'));
   router.get('/academy/accounting', kfGet('/v1/academy/accounting'));
+  router.get('/academy/corporate-finance', kfGet('/v1/academy/corporate-finance'));
   router.get('/academy/completion', kfGet('/v1/academy/completion'));
   router.get('/academy/metrics', kfGet('/v1/academy/metrics'));
   router.post('/academy/red-flags/score', async (req, res) => {

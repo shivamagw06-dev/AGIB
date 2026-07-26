@@ -15,6 +15,7 @@ from academy.catalog import (
     all_mental_models,
     answer_question,
     concept_chapter_map,
+    corporate_finance_toolkit,
     course_manifest,
     knowledge_by_id,
     list_concept_ids,
@@ -47,7 +48,7 @@ class AcademyCore:
             "architecture_status": "v1.0.1 LOCKED",
             "not_an_engine": True,
             "not_a_summariser": True,
-            "mission": "Teach institutional economics and accounting understanding from canonical knowledge objects",
+            "mission": "Teach institutional economics, accounting, and corporate finance from canonical knowledge objects",
             "no_redesign": [
                 "aoi",
                 "eve",
@@ -98,16 +99,20 @@ class AcademyCore:
                 "red_flag_count": list_red_flags()["count"],
                 "earnings_quality": True,
             },
+            "corporate_finance_toolkit": corporate_finance_toolkit(),
             "modules": [
                 "Curriculum Map",
                 "Economics Course",
                 "Accounting Course",
+                "Corporate Finance Course",
                 "Knowledge Objects",
                 "Knowledge Graph",
                 "Causal Models",
                 "Mental Models",
                 "Earnings Quality Score",
                 "Accounting Red Flags",
+                "ROIC–WACC Value Creation",
+                "Capital Allocation Frameworks",
                 "Teaching Exams",
                 "Quality Control",
                 "Provenance",
@@ -180,12 +185,14 @@ class AcademyCore:
         suite = run_exam_suite(course_id)
         questions = all_exams()
         if course_id:
-            questions = [q for q in questions if q.get("course") == course_id or course_id in str(q.get("course", ""))]
-            # also allow short aliases
-            if course_id in ("accounting", "damodaran"):
+            if course_id in ("accounting", "damodaran", "minimalist_accounting", "damodaran_minimalist_accounting"):
                 questions = [q for q in all_exams() if "accounting" in q.get("course", "")]
-            if course_id in ("economics", "mankiw"):
+            elif course_id in ("acf", "corporate_finance", "applied_corporate_finance", "damodaran_applied_corporate_finance"):
+                questions = [q for q in all_exams() if "corporate_finance" in q.get("course", "")]
+            elif course_id in ("economics", "mankiw", "mankiw_principles_of_economics"):
                 questions = [q for q in all_exams() if "economics" in q.get("course", "") or "mankiw" in q.get("course", "")]
+            else:
+                questions = [q for q in questions if q.get("course") == course_id or course_id in str(q.get("course", ""))]
         return {
             "questions": [{"id": e["id"], "question": e["question"], "course": e.get("course")} for e in questions],
             "suite": suite,
@@ -240,6 +247,9 @@ class AcademyCore:
     def accounting(self) -> dict[str, Any]:
         return accounting_toolkit()
 
+    def corporate_finance(self) -> dict[str, Any]:
+        return corporate_finance_toolkit()
+
     def completion(self, course_id: str | None = None) -> dict[str, Any]:
         qc = review_corpus(course_id)
         exams = run_exam_suite(course_id)
@@ -264,6 +274,9 @@ class AcademyCore:
         if course_id in (None, "", "all", "accounting", "damodaran_minimalist_accounting"):
             criteria["earnings_quality_methodology"] = True
             criteria["red_flag_library"] = list_red_flags()["count"] >= 8
+        if course_id in (None, "", "all", "acf", "corporate_finance", "damodaran_applied_corporate_finance"):
+            criteria["roic_wacc_first_class"] = "wacc" in ids or "wacc" in list_concept_ids()
+            criteria["capital_allocation_first_class"] = "capital_allocation" in ids or "capital_allocation" in list_concept_ids()
         return {
             "complete": all(criteria.values()),
             "criteria": criteria,

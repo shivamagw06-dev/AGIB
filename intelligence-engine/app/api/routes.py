@@ -3157,6 +3157,14 @@ async def academy_accounting():
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+@router.get("/academy/corporate-finance")
+async def academy_corporate_finance():
+    try:
+        return _academy.corporate_finance()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 @router.get("/academy/completion")
 async def academy_completion(course_id: str | None = Query(default=None)):
     try:
