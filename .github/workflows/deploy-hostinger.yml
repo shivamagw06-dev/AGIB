@@ -9,13 +9,22 @@ concurrency:
   group: deploy-hostinger
   cancel-in-progress: true
 
+permissions:
+  contents: write
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    # Hostinger Horizons serves the Git document root (index.html + /assets).
+    # Skipping CI on the sync commit prevents a deploy loop.
+    if: ${{ !contains(github.event.head_commit.message || '', '[skip ci]') }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -35,15 +44,20 @@ jobs:
               missing=1
             fi
           done
+          if [ -z "${VITE_ADMIN_ID}" ] && [ -z "${VITE_ADMIN_EMAILS}" ]; then
+            echo "::warning::Neither VITE_ADMIN_ID nor VITE_ADMIN_EMAILS is set — admin CMS/Mission Control may deny access."
+          fi
           if [ "$missing" -eq 1 ]; then
             echo "Add missing secrets under GitHub → Settings → Secrets → Actions."
           fi
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_ADMIN_ID: ${{ secrets.VITE_ADMIN_ID }}
+          VITE_ADMIN_EMAILS: ${{ secrets.VITE_ADMIN_EMAILS }}
 
-      - name: Build production site
-        run: npm run build
+      - name: Build production site for Hostinger root
+        run: npm run build:hostinger
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
@@ -51,10 +65,20 @@ jobs:
           VITE_ADMIN_ID: ${{ secrets.VITE_ADMIN_ID }}
           VITE_ADMIN_EMAILS: ${{ secrets.VITE_ADMIN_EMAILS }}
 
-      # Hostinger Git sync serves the repo document root. Keep built index.html + /assets
-      # in git (via npm run build:hostinger on release commits). FTP remains a secondary
-      # publish to the FTP account root; override with secret FTP_SERVER_DIR if needed.
-      # Never use dangerous-clean-slate against the repo root.
+      - name: Commit Hostinger root artifacts for Git sync
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A index.html assets .htaccess dist
+          if git diff --cached --quiet; then
+            echo "No Hostinger root artifact changes to commit."
+          else
+            git commit -m "chore: sync Hostinger production build [skip ci]"
+            git push origin HEAD:main
+            echo "Committed and pushed Hostinger root build for Horizons Git sync."
+          fi
+
+      # FTP remains a secondary publish path (some Hostinger setups also read FTP root).
       - name: Deploy dist/ to Hostinger via FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:

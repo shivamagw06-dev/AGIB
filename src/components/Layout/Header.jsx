@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Search, Menu, X, User, LogOut, Edit2, Shield, Briefcase, LayoutDashboard } from 'lucide-react';
+import { Search, Menu, X, User, LogOut, Edit2, Shield, Briefcase, LayoutDashboard, Gauge } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -183,9 +183,14 @@ export default function Header() {
                       <Shield className="w-4 h-4 mr-2" /> Security &amp; PIN
                     </DropdownMenuItem>
                     {userIsAdmin && (
-                      <DropdownMenuItem onClick={() => go('/admin')}>
-                        <Edit2 className="w-4 h-4 mr-2" /> CMS
-                      </DropdownMenuItem>
+                      <>
+                        <DropdownMenuItem onClick={() => go('/admin')}>
+                          <Edit2 className="w-4 h-4 mr-2" /> CMS
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => go('/admin/mission-control')}>
+                          <Gauge className="w-4 h-4 mr-2" /> Mission Control
+                        </DropdownMenuItem>
+                      </>
                     )}
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={handleLogout}>
@@ -216,6 +221,7 @@ export default function Header() {
               )}
 
               {userIsAdmin && (
+                <>
                 <Button
                   variant="outline"
                   size="sm"
@@ -224,6 +230,16 @@ export default function Header() {
                 >
                   CMS
                 </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="hidden md:flex h-8 text-xs border-[#ddd]"
+                  onClick={() => go('/admin/mission-control')}
+                >
+                  <Gauge className="w-3.5 h-3.5 mr-1" />
+                  Mission Control
+                </Button>
+                </>
               )}
 
               <button

@@ -1,6 +1,9 @@
 const ADMIN_ID = import.meta?.env?.VITE_ADMIN_ID || 'c56e4d07-273c-49c9-86a5-a4445e687ece';
-const ADMIN_EMAILS = (import.meta?.env?.VITE_ADMIN_EMAILS || '')
-  .split(',')
+// Always allow the founder mailbox even if VITE_ADMIN_EMAILS secret is unset in CI.
+const ADMIN_EMAILS = [
+  ...(import.meta?.env?.VITE_ADMIN_EMAILS || '').split(','),
+  'shivam.agw06@gmail.com',
+]
   .map((e) => e.trim().toLowerCase())
   .filter(Boolean);
 
