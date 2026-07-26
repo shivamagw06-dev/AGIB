@@ -24,13 +24,15 @@ class FreService:
         aoi: Any | None = None,
         kip: Any | None = None,
         eve: Any | None = None,
+        faa: Any | None = None,
     ) -> None:
         self.flags = flags or FreFlags.from_settings(get_settings())
         self.store = store or FreStore()
         self.aoi = aoi
         self.kip = kip
         self.eve = eve
-        self.pipeline = FrePipeline(self.store, aoi=aoi, kip=kip)
+        self.faa = faa
+        self.pipeline = FrePipeline(self.store, aoi=aoi, kip=kip, faa=faa)
         self.scheduler = FreScheduler()
         if self.flags.fre:
             self.pipeline.ensure_seed()
@@ -41,6 +43,7 @@ class FreService:
                 setattr(self, name, eng)
         self.pipeline.aoi = self.aoi
         self.pipeline.kip = self.kip
+        self.pipeline.faa = self.faa
 
     def _require(self) -> None:
         if not self.flags.fre:
@@ -54,9 +57,11 @@ class FreService:
             "programme": "FRE",
             "version": "fre-v1.0.0",
             "architecture_status": "v1.0.1 LOCKED",
-            "position": "after_aoi_before_cae_reasoning",
+            "position": "after_faa_before_cae_reasoning",
             "does_not_answer": True,
-            "no_redesign": ["aoi", "eve", "kf", "kc", "kip", "cae", "irp", "rsp", "ask_agi"],
+            "upstream": ["faa"],
+            "faa_bound": self.faa is not None,
+            "no_redesign": ["faa", "aoi", "eve", "kf", "kc", "kip", "cae", "irp", "rsp", "ask_agi"],
             "pipeline": [
                 "intent_detection",
                 "entity_detection",
