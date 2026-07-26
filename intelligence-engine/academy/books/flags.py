@@ -115,6 +115,14 @@ def flag_filing_diff_engine() -> bool:
     return bool(getattr(s, "filing_diff_engine", True))
 
 
+def flag_management_intelligence() -> bool:
+    """Management Intelligence Engine — can management be trusted?"""
+    s = _settings()
+    if s is None:
+        return True
+    return bool(getattr(s, "management_intelligence", True))
+
+
 def flags_dict() -> dict[str, Any]:
     return {
         "ACADEMY": is_academy_enabled(),
@@ -127,6 +135,7 @@ def flags_dict() -> dict[str, Any]:
         "PEER_INTELLIGENCE": flag_peer_intelligence(),
         "FILING_INTELLIGENCE": flag_filing_intelligence(),
         "FILING_DIFF_ENGINE": flag_filing_diff_engine(),
+        "MANAGEMENT_INTELLIGENCE": flag_management_intelligence(),
         "ACADEMY_FRAMEWORKS": flag_frameworks(),
         "ACADEMY_FORMULAS": flag_formulas(),
         "ACADEMY_GRAPH": flag_graph(),

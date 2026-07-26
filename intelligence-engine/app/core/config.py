@@ -345,6 +345,15 @@ class Settings(BaseSettings):
     fdi_capital: bool = True
     fdi_governance: bool = True
     fdi_ownership: bool = True
+    management_intelligence: bool = True  # MII — can management be trusted to compound value?
+    mii_credibility: bool = True
+    mii_guidance: bool = True
+    mii_execution: bool = True
+    mii_capital_allocation: bool = True
+    mii_governance: bool = True
+    mii_communication: bool = True
+    mii_incentives: bool = True
+    mii_succession: bool = True
     academy_frameworks: bool = True  # ACADEMY_FRAMEWORKS
     academy_formulas: bool = True  # ACADEMY_FORMULAS
     academy_graph: bool = True  # ACADEMY_GRAPH

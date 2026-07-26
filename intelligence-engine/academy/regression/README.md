@@ -60,3 +60,11 @@ IRS dashboard includes an additive `filing_diff` block from `filing_diff.product
 Rule: every new filing should generate a Filing Diff Report; material changes must be evidence-linked; cosmetic wording must not be flagged as material.
 
 See `filing_diff/README.md` · `/v1/filing-diff/*`
+
+## Soft-wire: Management Intelligence Engine
+
+IRS dashboard includes an additive `management_intelligence` block from `management_intelligence.production.soft_slice_for_irs`.
+
+Rule: guidance accuracy, credibility, capital allocation and governance must update from filings; no subjective opinion without evidence.
+
+See `management_intelligence/README.md` · `/v1/management-intelligence/*`

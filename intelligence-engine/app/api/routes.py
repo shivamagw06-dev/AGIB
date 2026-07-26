@@ -4113,6 +4113,82 @@ async def admin_filing_diff():
     return HTMLResponse(admin_page())
 
 
+# --- Management Intelligence Engine V1 (can management be trusted?) ---
+
+
+@router.get("/management-intelligence/health")
+async def management_intelligence_health():
+    from management_intelligence.flags import is_enabled
+    from management_intelligence.schema import MII_VERSION
+
+    return {
+        "status": "ok" if is_enabled() else "disabled",
+        "programme": "AGIB_MANAGEMENT_INTELLIGENCE_ENGINE",
+        "version": MII_VERSION,
+        "architecture_status": "v1.0.1 LOCKED",
+        "primary_question": "Can this management team be trusted to compound shareholder value?",
+    }
+
+
+@router.get("/management-intelligence/dashboard")
+async def management_intelligence_dashboard():
+    from management_intelligence.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/management-intelligence/company/{ticker}")
+async def management_intelligence_company(ticker: str):
+    from management_intelligence.production import company
+
+    out = company(ticker)
+    if out.get("enabled") and not out.get("found"):
+        raise HTTPException(status_code=404, detail="no_management_profile")
+    return out
+
+
+@router.get("/management-intelligence/history/{ticker}")
+async def management_intelligence_history(ticker: str):
+    from management_intelligence.production import history
+
+    return history(ticker)
+
+
+@router.get("/management-intelligence/guidance/{ticker}")
+async def management_intelligence_guidance(ticker: str):
+    from management_intelligence.production import guidance
+
+    return guidance(ticker)
+
+
+@router.post("/management-intelligence/analyse")
+async def management_intelligence_analyse(payload: dict[str, Any] = Body(default={})):
+    from management_intelligence.production import analyse
+
+    ticker = str(payload.get("ticker") or "").strip()
+    if not ticker:
+        raise HTTPException(status_code=400, detail="ticker_required")
+    out = analyse(ticker)
+    if out.get("enabled") and not out.get("found"):
+        raise HTTPException(status_code=404, detail="no_management_profile")
+    return out
+
+
+@router.get("/management-intelligence/quality-gates")
+async def management_intelligence_quality_gates():
+    from management_intelligence.production import quality_gates
+
+    return quality_gates()
+
+
+@router.get("/admin/management-intelligence", response_class=HTMLResponse)
+async def admin_management_intelligence():
+    """Soft admin surface — no UI redesign."""
+    from management_intelligence.production import admin_page
+
+    return HTMLResponse(admin_page())
+
+
 # --- SIF v1.0 (Sector Intelligence Framework — additive; not an engine) ---
 
 

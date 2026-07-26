@@ -104,6 +104,13 @@ Soft change-detection layer: compares latest vs previous filings (financials, gu
 See `filing_diff/README.md` · `/v1/filing-diff/*` · `/admin/filing-diff`  
 Flag: `filing_diff_engine` / `FILING_DIFF_ENGINE`
 
+## Management Intelligence Engine (MII)
+
+Soft trust layer: credibility, guidance accuracy, execution, capital allocation, governance, communication, and Management DNA. Answers “can management be trusted?” — not “what did they say?”
+
+See `management_intelligence/README.md` · `/v1/management-intelligence/*` · `/admin/management-intelligence`  
+Flag: `management_intelligence` / `MANAGEMENT_INTELLIGENCE`
+
 ## Admin
 
 `/admin/academy` — Books V2 panel with ingest action, spreadsheet count, ingestion report table.

@@ -188,6 +188,14 @@ def dashboard() -> dict[str, Any]:
     except Exception as exc:
         filing_diff_slice = {"filing_diff": {"enabled": False, "soft_error": str(exc)}}
 
+    management_slice: dict[str, Any] = {}
+    try:
+        from management_intelligence.production import soft_slice_for_irs as mii_soft_slice
+
+        management_slice = mii_soft_slice()
+    except Exception as exc:
+        management_slice = {"management_intelligence": {"enabled": False, "soft_error": str(exc)}}
+
     return {
         "programme": "AGIB_INSTITUTIONAL_REGRESSION_SUITE",
         "irs_version": IRS_VERSION,
@@ -211,6 +219,7 @@ def dashboard() -> dict[str, Any]:
         **peer_slice,
         **filing_slice,
         **filing_diff_slice,
+        **management_slice,
     }
 
 

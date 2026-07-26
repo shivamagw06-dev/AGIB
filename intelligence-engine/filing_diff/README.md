@@ -21,8 +21,6 @@ Every material change maps to the investment case:
 |---|---|---|---|---|---|
 | NIM ↓ | ◐ | ✅ | ✅ | ◐ | Review |
 | CASA ↓ | ✅ | ✅ | ◐ | ◐ | Review |
-| Buyback announced | � ✅ | ◐ | Review |
-| CASA ↓ | ✅ | ✅ | ◐ | ◐ | Review |
 | Buyback announced | ◐ | ✅ | ✅ | ❌ | Note |
 | New regulatory risk | ◐ | ❌ | ◐ | ✅ | Escalate |
 

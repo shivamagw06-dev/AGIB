@@ -10,6 +10,13 @@ from filing_diff.schema import FDI_VERSION
 
 
 def dashboard() -> dict[str, Any]:
+    mii_slice: dict[str, Any] = {}
+    try:
+        from management_intelligence.production import soft_slice_for_fdi
+
+        mii_slice = soft_slice_for_fdi()
+    except Exception as exc:
+        mii_slice = {"management_intelligence": {"enabled": False, "soft_error": str(exc)}}
     return {
         "programme": "AGIB_FILING_DIFF_ENGINE",
         "fdi_version": FDI_VERSION,
@@ -21,6 +28,7 @@ def dashboard() -> dict[str, Any]:
             "Official Filings",
             "FIL",
             "FDI",
+            "MII",
             "EIL",
             "PIL",
             "Institutional Analysts",
@@ -45,6 +53,7 @@ def dashboard() -> dict[str, Any]:
             "certification",
             "regression",
         ],
+        **mii_slice,
     }
 
 

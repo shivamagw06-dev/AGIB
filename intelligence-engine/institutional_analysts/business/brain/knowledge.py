@@ -92,4 +92,15 @@ def knowledge_pack() -> dict[str, Any]:
             }
     except Exception:
         pass
+    try:
+        from management_intelligence.flags import is_enabled as mii_enabled
+
+        if mii_enabled():
+            pack["management_intelligence"] = {
+                "enabled": True,
+                "rule": "Leadership quality and competitive execution must use MII evidence, not vibes",
+                "soft_slice": "management_intelligence.production.soft_slice_for_analyst(ticker, analyst='business')",
+            }
+    except Exception:
+        pass
     return pack
