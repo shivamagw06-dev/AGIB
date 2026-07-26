@@ -770,6 +770,20 @@ class UiService:
         except Exception:
             research_objective = {}
 
+        # RQ1 Sprint 4 — Context Intelligence Engine (surrounding context + Research Context Card)
+        context_intelligence: dict[str, Any] = {}
+        try:
+            from context_intelligence.production import soft_slice_for_ask_agi as cie_soft_slice
+
+            cie_payload = {
+                "entity_resolution": (entity_resolution.get("entity_resolution") or {}),
+                "research_objective": (research_objective.get("research_objective") or {}),
+                "skip_iar": True,
+            }
+            context_intelligence = cie_soft_slice(q, cie_payload) or {}
+        except Exception:
+            context_intelligence = {}
+
         # RQ1 Sprint 5 — Institutional Analyst Router (who participates; metadata soft-wire)
         analyst_router: dict[str, Any] = {}
         try:
@@ -2407,6 +2421,7 @@ class UiService:
             research_ontology=scrub(research_ontology) if research_ontology else {},
             entity_resolution=scrub(entity_resolution) if entity_resolution else {},
             research_objective=scrub(research_objective) if research_objective else {},
+            context_intelligence=scrub(context_intelligence) if context_intelligence else {},
             analyst_router=scrub(analyst_router) if analyst_router else {},
         )
 

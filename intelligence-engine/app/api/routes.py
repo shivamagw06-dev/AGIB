@@ -4946,6 +4946,51 @@ async def research_objective_diagnostics(payload: dict[str, Any] = Body(default=
     return diagnostics(payload or {})
 
 
+# --- RQ1 Context Intelligence Engine (Sprint 4 — context enrichment soft-wire; not a top-level layer) ---
+
+
+@router.get("/context-intelligence/health")
+async def context_intelligence_health():
+    from context_intelligence.production import health
+
+    return health()
+
+
+@router.get("/context-intelligence/dashboard")
+async def context_intelligence_dashboard():
+    from context_intelligence.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/context-intelligence/constitution")
+async def context_intelligence_constitution():
+    from context_intelligence.production import constitution
+
+    return constitution()
+
+
+@router.get("/context-intelligence/quality-gates")
+async def context_intelligence_quality_gates():
+    from context_intelligence.production import quality_gates
+
+    return quality_gates()
+
+
+@router.post("/context-intelligence/enrich")
+async def context_intelligence_enrich(payload: dict[str, Any] = Body(default={})):
+    from context_intelligence.production import enrich
+
+    return enrich(payload or {})
+
+
+@router.post("/context-intelligence/diagnostics")
+async def context_intelligence_diagnostics(payload: dict[str, Any] = Body(default={})):
+    from context_intelligence.production import diagnostics
+
+    return diagnostics(payload or {})
+
+
 # --- RQ1 Institutional Analyst Router (Sprint 5 — participation soft-wire; not a top-level layer) ---
 
 

@@ -1230,6 +1230,26 @@ export const diagnoseResearchObjective = (payload = {}) =>
     body: typeof payload === 'string' ? { question: payload } : payload,
   });
 
+/** RQ1 Context Intelligence Engine — Sprint 4 (surrounding institutional context) */
+export const getContextIntelligenceHealth = () =>
+  intelligenceFetch('/context-intelligence/health');
+export const getContextIntelligenceDashboard = () =>
+  intelligenceFetch('/context-intelligence/dashboard');
+export const getContextIntelligenceConstitution = () =>
+  intelligenceFetch('/context-intelligence/constitution');
+export const getContextIntelligenceQualityGates = () =>
+  intelligenceFetch('/context-intelligence/quality-gates');
+export const enrichContextIntelligence = (payload = {}) =>
+  intelligenceFetch('/context-intelligence/enrich', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });
+export const diagnoseContextIntelligence = (payload = {}) =>
+  intelligenceFetch('/context-intelligence/diagnostics', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });
+
 /** RQ1 Institutional Analyst Router — Sprint 5 (who participates, when, weights) */
 export const getAnalystRouterHealth = () => intelligenceFetch('/analyst-router/health');
 export const getAnalystRouterDashboard = () => intelligenceFetch('/analyst-router/dashboard');

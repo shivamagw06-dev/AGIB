@@ -1981,6 +1981,34 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // RQ1 Context Intelligence Engine — Sprint 4 context enrichment soft-wire
+  router.get('/context-intelligence/health', kfGet('/v1/context-intelligence/health'));
+  router.get('/context-intelligence/dashboard', kfGet('/v1/context-intelligence/dashboard'));
+  router.get('/context-intelligence/constitution', kfGet('/v1/context-intelligence/constitution'));
+  router.get('/context-intelligence/quality-gates', kfGet('/v1/context-intelligence/quality-gates'));
+  router.post('/context-intelligence/enrich', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/context-intelligence/enrich', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'CIE enrich failed', detail: error.message });
+    }
+  });
+  router.post('/context-intelligence/diagnostics', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/context-intelligence/diagnostics', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'CIE diagnostics failed', detail: error.message });
+    }
+  });
+
   // RQ1 Institutional Analyst Router — Sprint 5 participation soft-wire
   router.get('/analyst-router/health', kfGet('/v1/analyst-router/health'));
   router.get('/analyst-router/dashboard', kfGet('/v1/analyst-router/dashboard'));

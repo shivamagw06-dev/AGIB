@@ -188,6 +188,8 @@ class SearchView(BaseModel):
     entity_resolution: dict[str, Any] = Field(default_factory=dict)
     # RQ1 Research Objective Engine — Sprint 3 objective plan (additive; not a layer)
     research_objective: dict[str, Any] = Field(default_factory=dict)
+    # RQ1 Context Intelligence Engine — Sprint 4 context enrichment (additive; not a layer)
+    context_intelligence: dict[str, Any] = Field(default_factory=dict)
     # RQ1 Institutional Analyst Router — Sprint 5 participation plan (additive; not a layer)
     analyst_router: dict[str, Any] = Field(default_factory=dict)
     current_outlook: str | None = None
