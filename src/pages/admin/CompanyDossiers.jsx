@@ -203,6 +203,35 @@ export default function CompanyDossiers() {
                 hint={(dossier.sector_kpis?.priority_metrics || []).slice(0, 4).join(', ') || '—'}
               />
             </div>
+            {(dossier.data_quality_panel || dossier.dvc?.panel) && (
+              <div className="rounded-lg border border-emerald-100 bg-emerald-50/40 p-3 space-y-2">
+                <h3 className="text-sm font-semibold text-emerald-900">Data Quality Panel (DVC)</h3>
+                {(() => {
+                  const panel = dossier.data_quality_panel || dossier.dvc?.panel || {};
+                  const pct = (v) =>
+                    v == null ? '—' : `${Math.round(Number(v) <= 1 ? Number(v) * 100 : Number(v))}%`;
+                  return (
+                    <div className="grid gap-2 sm:grid-cols-3 text-xs text-slate-700">
+                      <div>Research Grade: <strong>{panel.research_grade || '—'}</strong></div>
+                      <div>Knowledge Grade: <strong>{panel.knowledge_grade || '—'}</strong></div>
+                      <div>Data Grade: <strong>{panel.data_grade || '—'}</strong></div>
+                      <div>Coverage: {pct(panel.coverage)}</div>
+                      <div>Freshness: {pct(panel.freshness)}</div>
+                      <div>Confidence: {pct(panel.confidence)}</div>
+                      <div className="sm:col-span-3">
+                        Providers: {(panel.provider_sources || []).join(', ') || '—'}
+                      </div>
+                      <div className="sm:col-span-3">
+                        Missing: {(panel.missing_information || []).slice(0, 8).join(', ') || 'None'}
+                      </div>
+                      <div className="sm:col-span-3">
+                        Recommended refresh: {panel.recommended_refresh || '—'}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
             <div>
               <h3 className="text-sm font-medium text-slate-800 mb-1">Missing evidence</h3>
               <p className="text-sm text-slate-600">

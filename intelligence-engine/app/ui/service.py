@@ -698,6 +698,7 @@ class UiService:
         sector_intelligence: dict[str, Any] = {}
         live_evidence: dict[str, Any] = {}
         company_dossier: dict[str, Any] = {}
+        data_validation: dict[str, Any] = {}
         used_cae = False
 
         # LEO v1.0 — gather / verify / package live evidence BEFORE Academy + SIF + IRP
@@ -784,6 +785,29 @@ class UiService:
         except Exception:
             company_dossier = live_evidence.get("company_dossier") if isinstance(live_evidence, dict) else {}
             company_dossier = company_dossier or {}
+
+        # DVC V1 — load validated canonical values / conflict hints before answering
+        try:
+            from dvc.production import package_for_ask_agi as dvc_package
+
+            data_validation = dvc_package(detected_ticker) or {}
+            # Prefer dossier-embedded DVC panel when already attached via CID
+            if not data_validation.get("validated_fields") and isinstance(company_dossier.get("dvc"), dict):
+                data_validation = {
+                    "enabled": True,
+                    "ticker": company_dossier.get("ticker"),
+                    "validated_fields": company_dossier.get("validated_fields") or {},
+                    "quality": (company_dossier.get("dvc") or {}).get("quality"),
+                    "grades": (company_dossier.get("dvc") or {}).get("grades"),
+                    "conflicts": (company_dossier.get("dvc") or {}).get("conflicts") or [],
+                    "panel": company_dossier.get("data_quality_panel")
+                    or (company_dossier.get("dvc") or {}).get("panel"),
+                    "ask_agi_hints": [],
+                    "answer_policy": "validated_canonical_values_only",
+                    "from_cid": True,
+                }
+        except Exception:
+            data_validation = {}
 
         if self.cae and q:
             try:
@@ -1252,6 +1276,24 @@ class UiService:
                 )
             why = why[:12]
 
+        # DVC — mention conflicts; prefer validated canonical values
+        if isinstance(data_validation, dict) and data_validation.get("enabled") is not False:
+            for hint in (data_validation.get("ask_agi_hints") or [])[:4]:
+                if hint and hint not in why:
+                    why.insert(0, scrub_text(hint)[:360])
+            # Surface research/data grade from DVC panel when present
+            panel = data_validation.get("panel") or {}
+            if panel.get("research_grade") and f"Research Grade {panel.get('research_grade')}" not in str(why):
+                why.insert(
+                    0,
+                    scrub_text(
+                        f"Research Grade {panel.get('research_grade')} · Data Grade {panel.get('data_grade')} · "
+                        f"Confidence {round(float(panel.get('confidence') or 0) * 100)}% "
+                        f"(canonical: {panel.get('winning_provider') or data_validation.get('winning_provider') or 'n/a'})."
+                    )[:320],
+                )
+            why = why[:12]
+
         # LEO hints — live evidence contribution before recommendation
         if isinstance(live_evidence, dict) and live_evidence.get("enabled"):
             for hint in (live_evidence.get("answer_hints") or [])[:3]:
@@ -1713,6 +1755,7 @@ class UiService:
             finance_academy=scrub(finance_academy) if finance_academy else {},
             live_evidence=scrub(live_evidence) if live_evidence else {},
             company_dossier=scrub(company_dossier) if company_dossier else {},
+            data_validation=scrub(data_validation) if data_validation else {},
             institutional_briefing=scrub(briefing) or {},
             # Prefer live SIF/Ask-AGI sector pack; fall back to IRP sector pack
             sector_intelligence=scrub(sector_intelligence)

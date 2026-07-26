@@ -3732,6 +3732,81 @@ async def yfp_enrich(ticker: str):
     return enrich_cid(ticker, client=_market_data)
 
 
+# --- DVC V1 (Data Validation & Consensus — Market Data platform layer) ---
+
+
+@router.get("/dvc/health")
+async def dvc_health():
+    from dvc.production import is_dvc_enabled, production_dashboard
+    from dvc.schema import DVC_VERSION
+
+    dash = production_dashboard()
+    return {
+        "status": "ok" if is_dvc_enabled() else "disabled",
+        "layer": "Data Validation & Consensus",
+        "programme": "DVC",
+        "version": DVC_VERSION,
+        "not_an_engine": True,
+        "not_a_provider": True,
+        "architecture_status": "v1.0.1 LOCKED",
+        "position": "after_canonical_mapper_before_market_data_client_consumers",
+        "metrics": dash.get("metrics"),
+        "enabled": is_dvc_enabled(),
+    }
+
+
+@router.get("/dvc/dashboard")
+async def dvc_dashboard():
+    from dvc.production import production_dashboard
+
+    return production_dashboard()
+
+
+@router.get("/dvc/quality-gates")
+async def dvc_quality_gates():
+    from dvc.production import quality_gates
+
+    return quality_gates()
+
+
+@router.get("/dvc/metrics")
+async def dvc_metrics():
+    from dvc.production import success_metrics
+
+    return success_metrics()
+
+
+@router.get("/dvc/company/{ticker}")
+async def dvc_company(ticker: str):
+    from dvc.production import get_company_quality
+
+    return get_company_quality(ticker)
+
+
+@router.get("/dvc/conflicts")
+async def dvc_conflicts(
+    limit: int = Query(default=40, ge=1, le=200),
+    severity: str | None = Query(default=None),
+):
+    from dvc import store as dvc_store
+
+    return {"conflicts": dvc_store.list_conflicts(limit=limit, severity=severity)}
+
+
+@router.post("/dvc/validate/{ticker}")
+async def dvc_validate(ticker: str):
+    from dvc.validate import validate_symbol
+
+    return await validate_symbol(_market_data, ticker)
+
+
+@router.post("/dvc/enrich/{ticker}")
+async def dvc_enrich(ticker: str):
+    from dvc.production import enrich_cid
+
+    return enrich_cid(ticker, client=_market_data)
+
+
 @router.get("/features/health")
 async def features_health():
     """WS03 Feature Registry health + cache/metrics."""

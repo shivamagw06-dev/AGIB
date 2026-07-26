@@ -167,6 +167,36 @@ class MarketDataClient:
             out["calendar_events_error"] = str(exc)[:200]
         return out
 
+    async def validated_package(
+        self,
+        symbol: str,
+        *,
+        include_quote: bool = True,
+        include_fundamentals: bool = True,
+        persist: bool = True,
+    ) -> dict[str, Any]:
+        """
+        DVC V1 — multi-provider validation & consensus package.
+        Additive soft path; does not change first-success failover for get_quote/get_fundamentals.
+        Returns audited field objects, conflicts, quality scores (never provider-native JSON).
+        """
+        try:
+            from app.core.config import get_settings
+
+            if not bool(getattr(get_settings(), "dvc", True)):
+                return {"enabled": False, "reason": "dvc_disabled", "symbol": (symbol or "").upper()}
+        except Exception:
+            pass
+        from dvc.validate import validate_symbol
+
+        return await validate_symbol(
+            self,
+            symbol,
+            include_quote=include_quote,
+            include_fundamentals=include_fundamentals,
+            persist=persist,
+        )
+
     async def get_quote(self, symbol: str) -> MarketDataQuote:
         return await self._fetch(
             capability="quote",

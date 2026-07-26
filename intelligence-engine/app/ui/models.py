@@ -153,6 +153,8 @@ class SearchView(BaseModel):
     live_evidence: dict[str, Any] = Field(default_factory=dict)
     # CID v1.0 — Company Intelligence Dossier (permanent institutional memory)
     company_dossier: dict[str, Any] = Field(default_factory=dict)
+    # DVC V1 — Data Validation & Consensus (Market Data platform layer; additive)
+    data_validation: dict[str, Any] = Field(default_factory=dict)
     institutional_briefing: dict[str, Any] = Field(default_factory=dict)
     company_intelligence: dict[str, Any] = Field(default_factory=dict)
     current_outlook: str | None = None

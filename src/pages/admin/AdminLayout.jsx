@@ -21,6 +21,7 @@ import {
   Activity,
   Briefcase,
   Radio,
+  ShieldCheck,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -34,6 +35,7 @@ const navItems = [
   { to: '/admin/live-evidence', label: 'Live Evidence (LEO)', icon: Activity },
   { to: '/admin/company-dossiers', label: 'Company Dossiers', icon: Briefcase },
   { to: '/admin/yahoo-provider', label: 'Yahoo Provider', icon: Radio },
+  { to: '/admin/data-quality', label: 'Data Quality (DVC)', icon: ShieldCheck },
   { to: '/admin/investment-intelligence', label: 'Investment Intel', icon: LineChart },
   { to: '/admin/forecasting', label: 'Forecasting', icon: Target },
   { to: '/admin/events', label: 'Events', icon: Zap },

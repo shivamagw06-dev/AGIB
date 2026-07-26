@@ -669,3 +669,18 @@ export const searchYfp = (q, limit = 8) =>
   intelligenceFetch(`/yfp/search?q=${encodeURIComponent(q || '')}&limit=${limit}`);
 export const enrichYfp = (ticker) =>
   intelligenceFetch(`/yfp/enrich/${encodeURIComponent(ticker)}`, { method: 'POST', body: {} });
+export const getDvcHealth = () => intelligenceFetch('/dvc/health');
+export const getDvcDashboard = () => intelligenceFetch('/dvc/dashboard');
+export const getDvcQualityGates = () => intelligenceFetch('/dvc/quality-gates');
+export const getDvcMetrics = () => intelligenceFetch('/dvc/metrics');
+export const getDvcCompany = (ticker) =>
+  intelligenceFetch(`/dvc/company/${encodeURIComponent(ticker)}`);
+export const getDvcConflicts = (limit = 40, severity) => {
+  const qs = new URLSearchParams({ limit: String(limit) });
+  if (severity) qs.set('severity', severity);
+  return intelligenceFetch(`/dvc/conflicts?${qs}`);
+};
+export const validateDvc = (ticker) =>
+  intelligenceFetch(`/dvc/validate/${encodeURIComponent(ticker)}`, { method: 'POST', body: {} });
+export const enrichDvc = (ticker) =>
+  intelligenceFetch(`/dvc/enrich/${encodeURIComponent(ticker)}`, { method: 'POST', body: {} });

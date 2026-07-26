@@ -120,6 +120,31 @@ def get_or_build(
     except Exception:
         pass
 
+    # DVC V1 — attach validated field metadata / consensus (soft; no LEO redesign)
+    try:
+        from app.core.config import get_settings
+        from dvc.enrich import merge_dvc_into_dossier
+        from dvc.production import is_dvc_enabled, package_for_ask_agi as dvc_package
+        from cid.coverage import compute_coverage
+        from cid.store import get_cid_store
+
+        if is_dvc_enabled() and bool(getattr(get_settings(), "dvc_auto_attach_cid", True)):
+            dvc_pack = dvc_package(t)
+            if dvc_pack.get("enabled") and dvc_pack.get("validated_fields"):
+                dossier = merge_dvc_into_dossier(dossier, dvc_pack)
+                cov = compute_coverage(dossier)
+                dossier.update(
+                    {
+                        "coverage": cov["coverage"],
+                        "coverage_score": cov["coverage_score"],
+                        "coverage_grade": cov["coverage_grade"],
+                        "missing_evidence": cov["missing_evidence"],
+                    }
+                )
+                dossier = get_cid_store().put(dossier)
+    except Exception:
+        pass
+
     return {
         **dossier,
         "enabled": True,

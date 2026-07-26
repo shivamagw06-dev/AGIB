@@ -287,6 +287,12 @@ class Settings(BaseSettings):
     leo: bool = True  # LEO — Live Evidence Orchestrator (additive evidence acquisition)
     cid: bool = True  # CID — Company Intelligence Dossier (permanent institutional memory)
 
+    # DVC V1 — Data Validation & Consensus (Market Data platform layer; not an engine)
+    dvc: bool = True
+    dvc_multi_provider: bool = True
+    dvc_auto_attach_cid: bool = True
+    dvc_provider_priority: str = ""  # e.g. "official_exchange:1,indianapi:2,finnhub:3,fmp:4,yahoo:5"
+
 
 @lru_cache
 def get_settings() -> Settings:
