@@ -1117,3 +1117,65 @@ export const getIdev2Monitoring = (ticker) =>
   intelligenceFetch(`/decision-engine-v2/monitoring/${encodeURIComponent(ticker)}`);
 export const analyseIdev2 = (payload = {}) =>
   intelligenceFetch('/decision-engine-v2/analyse', { method: 'POST', body: payload || {} });
+
+/** Soft-wire probes for Intelligence Map — never throw; return status envelope. */
+export async function probeIntelligencePath(path) {
+  const started = performance.now();
+  if (!BASE) {
+    return {
+      ok: false,
+      status: 0,
+      latency_ms: 0,
+      data: null,
+      error: 'API origin is not configured. Set VITE_API_URL to the Render backend.',
+      path,
+    };
+  }
+  try {
+    const url = `${BASE}/api/intelligence${path}`;
+    const resp = await fetch(url, {
+      method: 'GET',
+      credentials: 'include',
+      headers: { Accept: 'application/json' },
+      signal: AbortSignal.timeout(20_000),
+    });
+    const text = await resp.text().catch(() => '');
+    let data = null;
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch {
+      data = { raw: text.slice(0, 240) };
+    }
+    const latency_ms = Math.round(performance.now() - started);
+    if (!resp.ok) {
+      const detail =
+        data?.error ||
+        data?.detail ||
+        data?.message ||
+        (typeof data?.raw === 'string' ? data.raw : '') ||
+        `HTTP ${resp.status}`;
+      return {
+        ok: false,
+        status: resp.status,
+        latency_ms,
+        data,
+        error: String(detail).slice(0, 280),
+        path,
+      };
+    }
+    return { ok: true, status: resp.status, latency_ms, data, error: null, path };
+  } catch (err) {
+    return {
+      ok: false,
+      status: 0,
+      latency_ms: Math.round(performance.now() - started),
+      data: null,
+      error: err?.message || String(err),
+      path,
+    };
+  }
+}
+
+export const getAcsHealth = () => intelligenceFetch('/academy/certification/health');
+export const getIrsHealth = () => intelligenceFetch('/academy/regression/health');
+export const getIdev1Health = () => intelligenceFetch('/decision-engine/health');

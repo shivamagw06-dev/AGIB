@@ -33,11 +33,13 @@ import {
   BookMarked,
   FlaskConical,
   Gavel,
+  Map,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
 const navItems = [
   { to: '/admin', label: 'Dashboard', icon: LayoutDashboard, end: true },
+  { to: '/admin/intelligence-map', label: 'Intelligence Map', icon: Map },
   { to: '/admin/articles/new', label: 'New Article', icon: Plus },
   { to: '/admin/categories', label: 'Categories', icon: FolderOpen },
   { to: '/admin/knowledge', label: 'Knowledge Corpus', icon: Brain },
