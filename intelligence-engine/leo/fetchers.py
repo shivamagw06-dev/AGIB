@@ -31,7 +31,7 @@ def fetch_for_plan(
             if sid in {"nse", "bse", "company_ir", "rbi"}:
                 items = _fetch_aoi(sid, ticker, aoi=aoi)
                 status = "ok" if items else "empty"
-            elif sid in {"indianapi", "finnhub", "fmp"}:
+            elif sid in {"indianapi", "finnhub", "fmp", "yahoo"}:
                 items = _fetch_market_data(sid, ticker)
                 status = "ok" if items else "empty_or_unconfigured"
             elif sid in {"groww", "twelve_data", "fred", "alphavantage", "newsapi"}:
@@ -191,12 +191,42 @@ def _fetch_market_data(source_id: str, ticker: str | None) -> list[dict[str, Any
 
         settings = get_settings()
         client = MarketDataClient.from_settings(settings)
-        if not client.providers:
+        if not client.registry.list_providers():
             return []
 
         async def _run():
             items = []
-            quote = await client.get_quote(ticker)
+            # Prefer provider-specific secondary path for Yahoo; failover for others
+            if source_id == "yahoo":
+                yahoo = client.yahoo_provider()
+                if yahoo is None or not yahoo.is_configured():
+                    return []
+                try:
+                    quote = await yahoo.get_quote(ticker)
+                except Exception:
+                    quote = None
+                try:
+                    fund = await yahoo.get_fundamentals(ticker)
+                except Exception:
+                    fund = None
+                try:
+                    actions = await yahoo.get_corporate_actions(ticker)
+                except Exception:
+                    actions = []
+            else:
+                try:
+                    quote = await client.get_quote(ticker)
+                except Exception:
+                    quote = None
+                try:
+                    fund = await client.get_fundamentals(ticker)
+                except Exception:
+                    fund = None
+                try:
+                    actions = await client.get_corporate_actions(ticker)
+                except Exception:
+                    actions = []
+
             if quote is not None:
                 items.append(
                     {
@@ -204,61 +234,70 @@ def _fetch_market_data(source_id: str, ticker: str | None) -> list[dict[str, Any
                         "evidence_type": "market_data",
                         "title": f"{ticker} quote via {source_id}",
                         "facts": [
-                            {"field": "last_price", "value_text": str(getattr(quote, "last", None) or getattr(quote, "price", None) or quote)},
+                            {
+                                "field": "last_price",
+                                "value_text": str(
+                                    getattr(quote, "last", None) or getattr(quote, "price", None) or quote
+                                ),
+                            },
                             {"field": "symbol", "value_text": ticker},
+                            {"field": "volume", "value_text": str(getattr(quote, "volume", None))},
                         ],
                         "raw": quote.model_dump(mode="json") if hasattr(quote, "model_dump") else {"quote": str(quote)[:500]},
                         "provider_requested": source_id,
                     }
                 )
-            try:
-                fund = await client.get_fundamentals(ticker)
-                if fund is not None:
-                    items.append(
-                        {
-                            "kind": "fundamentals",
-                            "evidence_type": "financial_statements",
-                            "title": f"{ticker} fundamentals",
-                            "facts": [
-                                {"field": k, "value_text": str(v)}
-                                for k, v in (fund.model_dump(mode="json") if hasattr(fund, "model_dump") else {}).items()
-                                if v is not None
-                            ][:20],
-                            "raw": fund.model_dump(mode="json") if hasattr(fund, "model_dump") else {},
-                            "provider_requested": source_id,
-                        }
-                    )
-                    items.append(
-                        {
-                            "kind": "valuation",
-                            "evidence_type": "valuation_metrics",
-                            "title": f"{ticker} valuation metrics",
-                            "facts": [
-                                {"field": k, "value_text": str(v)}
-                                for k, v in (fund.model_dump(mode="json") if hasattr(fund, "model_dump") else {}).items()
-                                if any(x in k.lower() for x in ("pe", "pb", "ev", "roe", "yield", "market"))
-                            ][:12],
-                            "raw": {"from": "fundamentals"},
-                            "provider_requested": source_id,
-                        }
-                    )
-            except Exception:
-                pass
-            try:
-                actions = await client.get_corporate_actions(ticker)
-                for a in (actions or [])[:6]:
-                    items.append(
-                        {
-                            "kind": "corporate_action",
-                            "evidence_type": "corporate_announcement",
-                            "title": f"{ticker} corporate action",
-                            "facts": [{"field": "action", "value_text": str(a)[:300]}],
-                            "raw": a.model_dump(mode="json") if hasattr(a, "model_dump") else {"action": str(a)[:300]},
-                            "provider_requested": source_id,
-                        }
-                    )
-            except Exception:
-                pass
+            if fund is not None:
+                metrics = getattr(fund, "metrics", None) or {}
+                if not isinstance(metrics, dict) and hasattr(fund, "model_dump"):
+                    metrics = (fund.model_dump(mode="json") or {}).get("metrics") or {}
+                items.append(
+                    {
+                        "kind": "fundamentals",
+                        "evidence_type": "financial_statements",
+                        "title": f"{ticker} fundamentals via {source_id}",
+                        "facts": [
+                            {"field": k, "value_text": str(v)[:300]}
+                            for k, v in list(metrics.items())[:24]
+                            if v is not None and not str(k).endswith("_json")
+                        ],
+                        "raw": {"metrics_keys": list(metrics.keys())[:40], "provider": source_id},
+                        "provider_requested": source_id,
+                    }
+                )
+                items.append(
+                    {
+                        "kind": "valuation",
+                        "evidence_type": "valuation_metrics",
+                        "title": f"{ticker} valuation metrics via {source_id}",
+                        "facts": [
+                            {"field": k, "value_text": str(v)}
+                            for k, v in list(metrics.items())
+                            if any(x in str(k).lower() for x in ("pe", "pb", "ev", "roe", "yield", "market", "book"))
+                            and v is not None
+                        ][:12],
+                        "raw": {"from": "fundamentals", "provider": source_id},
+                        "provider_requested": source_id,
+                    }
+                )
+            for a in (actions or [])[:6]:
+                items.append(
+                    {
+                        "kind": "corporate_action",
+                        "evidence_type": "corporate_announcement",
+                        "title": f"{ticker} corporate action via {source_id}",
+                        "facts": [
+                            {
+                                "field": "action",
+                                "value_text": str(
+                                    getattr(a, "action_type", None) or a
+                                )[:300],
+                            }
+                        ],
+                        "raw": a.model_dump(mode="json") if hasattr(a, "model_dump") else {"action": str(a)[:300]},
+                        "provider_requested": source_id,
+                    }
+                )
             return items
 
         try:

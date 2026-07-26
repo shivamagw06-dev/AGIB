@@ -25,6 +25,7 @@ from app.market_data.provider_base import Capability, MarketDataProvider, Provid
 from app.market_data.providers.finnhub import FinnhubProvider
 from app.market_data.providers.fmp import FmpProvider
 from app.market_data.providers.indianapi import IndianApiProvider
+from app.market_data.providers.yahoo import YahooFinanceProvider
 from app.market_data.rate_limiter import ProviderRateLimitRegistry, RateLimitExceeded
 from app.market_data.registry import ProviderRegistry
 from app.market_data.retry import RetryError, retry_async
@@ -90,14 +91,81 @@ class MarketDataClient:
                 base_url=getattr(settings, "fmp_base_url", "https://financialmodelingprep.com/api/v3"),
             )
         )
+        # Yahoo — secondary institutional enricher (no API key; feature-flagged)
+        client.registry.register(
+            YahooFinanceProvider(
+                enabled=bool(getattr(settings, "yahoo_provider", True)),
+                profile=bool(getattr(settings, "yahoo_profile", True)),
+                financials=bool(getattr(settings, "yahoo_financials", True)),
+                earnings=bool(getattr(settings, "yahoo_earnings", True)),
+                valuation=bool(getattr(settings, "yahoo_valuation", True)),
+                ownership=bool(getattr(settings, "yahoo_ownership", True)),
+                options=bool(getattr(settings, "yahoo_options", True)),
+                base_url=getattr(settings, "yahoo_base_url", "https://query1.finance.yahoo.com"),
+                quote_summary_base=getattr(
+                    settings, "yahoo_quote_summary_base", "https://query2.finance.yahoo.com"
+                ),
+            )
+        )
         # Conservative defaults; override in config later if needed.
         client.rate_limits.configure("indianapi", rate_per_second=5, burst=10)
         client.rate_limits.configure("finnhub", rate_per_second=8, burst=15)
         client.rate_limits.configure("fmp", rate_per_second=5, burst=10)
+        client.rate_limits.configure("yahoo", rate_per_second=3, burst=6)
         return client
 
     def register_provider(self, provider: MarketDataProvider) -> None:
         self.registry.register(provider)
+
+    def yahoo_provider(self) -> YahooFinanceProvider | None:
+        """Soft access to Yahoo adapter for secondary enrichment / search."""
+        provider = self.registry.get("yahoo")
+        return provider if isinstance(provider, YahooFinanceProvider) else None
+
+    async def search_symbols(self, query: str, *, limit: int = 8) -> list[dict[str, Any]]:
+        """Canonical symbol search via Yahoo provider (secondary). Never returns Yahoo-native payloads."""
+        yahoo = self.yahoo_provider()
+        if yahoo is None or not yahoo.is_configured():
+            return []
+        return await yahoo.search(query, limit=limit)
+
+    async def yahoo_enrich(self, symbol: str) -> dict[str, Any]:
+        """
+        Secondary Yahoo enrichment package for CID / KIP / KF.
+        Goes through the Yahoo adapter only; returns canonical dumps (not Yahoo-native JSON).
+        Does not replace higher-priority provider results — callers merge softly.
+        """
+        yahoo = self.yahoo_provider()
+        if yahoo is None or not yahoo.is_configured():
+            return {"enabled": False, "provider_id": "yahoo", "reason": "not_configured"}
+        out: dict[str, Any] = {
+            "enabled": True,
+            "provider_id": "yahoo",
+            "priority": yahoo.priority,
+            "role": "secondary_enrichment",
+            "symbol": (symbol or "").upper(),
+        }
+        try:
+            quote = await yahoo.get_quote(symbol)
+            out["quote"] = quote.model_dump(mode="json")
+        except Exception as exc:  # noqa: BLE001
+            out["quote_error"] = str(exc)[:200]
+        try:
+            fund = await yahoo.get_fundamentals(symbol)
+            out["fundamentals"] = fund.model_dump(mode="json")
+        except Exception as exc:  # noqa: BLE001
+            out["fundamentals_error"] = str(exc)[:200]
+        try:
+            actions = await yahoo.get_corporate_actions(symbol)
+            out["corporate_actions"] = [a.model_dump(mode="json") for a in actions[:40]]
+        except Exception as exc:  # noqa: BLE001
+            out["corporate_actions_error"] = str(exc)[:200]
+        try:
+            events = await yahoo.get_calendar_events(symbol=symbol)
+            out["calendar_events"] = [e.model_dump(mode="json") for e in events[:40]]
+        except Exception as exc:  # noqa: BLE001
+            out["calendar_events_error"] = str(exc)[:200]
+        return out
 
     async def get_quote(self, symbol: str) -> MarketDataQuote:
         return await self._fetch(

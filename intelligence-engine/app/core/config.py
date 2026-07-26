@@ -39,6 +39,17 @@ class Settings(BaseSettings):
     fmp_api_key: str = ""
     fmp_base_url: str = "https://financialmodelingprep.com/api/v3"
 
+    # YFP V1 — Yahoo Finance Institutional Provider (secondary; MarketData adapter only)
+    yahoo_provider: bool = True
+    yahoo_profile: bool = True
+    yahoo_financials: bool = True
+    yahoo_earnings: bool = True
+    yahoo_valuation: bool = True
+    yahoo_ownership: bool = True
+    yahoo_options: bool = True
+    yahoo_base_url: str = "https://query1.finance.yahoo.com"
+    yahoo_quote_summary_base: str = "https://query2.finance.yahoo.com"
+
     # E01 Macro & Regime Engine feature flags (P0 defaults)
     e01_p0: bool = True
     e01_hmm: bool = False

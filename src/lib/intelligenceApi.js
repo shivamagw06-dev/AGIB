@@ -662,3 +662,10 @@ export const getCompanyDossierForecast = (ticker) =>
   intelligenceFetch(`/company-dossier/${encodeURIComponent(ticker)}/forecast`);
 export const getCompanyDossierDocuments = (ticker) =>
   intelligenceFetch(`/company-dossier/${encodeURIComponent(ticker)}/documents`);
+export const getYfpHealth = () => intelligenceFetch('/yfp/health');
+export const getYfpDashboard = () => intelligenceFetch('/yfp/dashboard');
+export const getYfpQualityGates = () => intelligenceFetch('/yfp/quality-gates');
+export const searchYfp = (q, limit = 8) =>
+  intelligenceFetch(`/yfp/search?q=${encodeURIComponent(q || '')}&limit=${limit}`);
+export const enrichYfp = (ticker) =>
+  intelligenceFetch(`/yfp/enrich/${encodeURIComponent(ticker)}`, { method: 'POST', body: {} });

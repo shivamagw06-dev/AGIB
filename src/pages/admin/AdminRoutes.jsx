@@ -17,6 +17,7 @@ import Models from '@/pages/admin/Models';
 import FinanceAcademy from '@/pages/admin/FinanceAcademy';
 import LiveEvidence from '@/pages/admin/LiveEvidence';
 import CompanyDossiers from '@/pages/admin/CompanyDossiers';
+import YahooProvider from '@/pages/admin/YahooProvider';
 
 export default function AdminRoutes() {
   return (
@@ -33,6 +34,7 @@ export default function AdminRoutes() {
           <Route path="evidence" element={<Evidence />} />
           <Route path="live-evidence" element={<LiveEvidence />} />
           <Route path="company-dossiers" element={<CompanyDossiers />} />
+          <Route path="yahoo-provider" element={<YahooProvider />} />
           <Route path="investment-intelligence" element={<InvestmentIntelligence />} />
           <Route path="forecasting" element={<Forecasting />} />
           <Route path="events" element={<Events />} />

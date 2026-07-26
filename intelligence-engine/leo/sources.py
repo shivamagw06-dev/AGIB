@@ -40,6 +40,18 @@ SOURCE_CATALOG: dict[str, dict[str, Any]] = {
         "via": "market_data",
         "evidence_types": ("market_data", "financial_statements", "valuation_metrics"),
     },
+    "yahoo": {
+        "category": "market_data",
+        "env": (),
+        "via": "market_data",
+        "evidence_types": (
+            "market_data",
+            "financial_statements",
+            "valuation_metrics",
+            "corporate_announcement",
+        ),
+        "always_soft": True,  # flag-gated in YahooFinanceProvider.is_configured
+    },
     "fred": {
         "category": "macro",
         "env": ("FRED_API_KEY",),

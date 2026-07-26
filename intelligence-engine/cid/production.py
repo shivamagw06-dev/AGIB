@@ -97,6 +97,29 @@ def get_or_build(
                 forecast_pack=forecast_pack,
             )
 
+    # YFP V1 — secondary Yahoo enrichment (fill empties only; never overwrite institutional data)
+    try:
+        from yfp.enrich import merge_yahoo_into_dossier
+        from yfp.production import enrich_ticker
+        from cid.coverage import compute_coverage
+        from cid.store import get_cid_store
+
+        ypack = enrich_ticker(t)
+        if ypack.get("enabled") and (ypack.get("quote") or ypack.get("fundamentals")):
+            dossier = merge_yahoo_into_dossier(dossier, ypack)
+            cov = compute_coverage(dossier)
+            dossier.update(
+                {
+                    "coverage": cov["coverage"],
+                    "coverage_score": cov["coverage_score"],
+                    "coverage_grade": cov["coverage_grade"],
+                    "missing_evidence": cov["missing_evidence"],
+                }
+            )
+            dossier = get_cid_store().put(dossier)
+    except Exception:
+        pass
+
     return {
         **dossier,
         "enabled": True,

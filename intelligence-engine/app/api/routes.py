@@ -3682,6 +3682,56 @@ async def market_data_health():
     return _market_data.health.snapshot()
 
 
+# --- YFP V1 (Yahoo Finance Institutional Provider — secondary MarketData adapter) ---
+
+
+@router.get("/yfp/health")
+async def yfp_health():
+    from yfp.production import is_yfp_enabled, production_dashboard
+    from yfp.schema import YFP_VERSION
+
+    dash = production_dashboard(client=_market_data)
+    return {
+        "status": "ok" if is_yfp_enabled() else "disabled",
+        "layer": "Yahoo Finance Institutional Provider",
+        "programme": "YFP",
+        "version": YFP_VERSION,
+        "not_an_engine": True,
+        "architecture_status": "v1.0.1 LOCKED",
+        "position": "secondary_market_data_provider",
+        "yahoo_status": dash.get("yahoo_status"),
+        "flags": dash.get("coverage_flags"),
+    }
+
+
+@router.get("/yfp/dashboard")
+async def yfp_dashboard():
+    from yfp.production import production_dashboard
+
+    return production_dashboard(client=_market_data)
+
+
+@router.get("/yfp/quality-gates")
+async def yfp_quality_gates():
+    from yfp.production import quality_gates
+
+    return quality_gates()
+
+
+@router.get("/yfp/search")
+async def yfp_search(q: str = Query(...), limit: int = Query(default=8, ge=1, le=25)):
+    from yfp.production import search
+
+    return search(q, limit=limit, client=_market_data)
+
+
+@router.post("/yfp/enrich/{ticker}")
+async def yfp_enrich(ticker: str):
+    from yfp.production import enrich_cid
+
+    return enrich_cid(ticker, client=_market_data)
+
+
 @router.get("/features/health")
 async def features_health():
     """WS03 Feature Registry health + cache/metrics."""
