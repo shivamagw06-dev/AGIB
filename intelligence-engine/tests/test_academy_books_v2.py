@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from academy.books.batch import ingest_personal_library
-from academy.books.library import scan_library
+from academy.books.library import candidate_roots, scan_library
 from academy.books.production import dashboard, reset_for_tests
 from academy.books.spreadsheet import ingest_spreadsheet, parse_spreadsheet
 from academy.books.store import get_books_store
@@ -11,6 +13,13 @@ from academy.books.store import get_books_store
 
 def setup_function() -> None:
     reset_for_tests()
+
+
+def test_candidate_roots_include_project_books():
+    roots = [str(p) for p in candidate_roots()]
+    # tests/ → intelligence-engine → repo root
+    project_root = Path(__file__).resolve().parents[2]
+    assert str(project_root / "books") in roots or str(project_root / "Books") in roots
 
 
 def test_library_scan_finds_workspace_books():

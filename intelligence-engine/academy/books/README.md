@@ -10,9 +10,10 @@ Convert every book / spreadsheet in the configured personal library into **struc
 ## Library roots (first existing wins)
 
 1. `ACADEMY_BOOKS_DIR` / settings `academy_books_dir`
-2. `/workspace/books`
-3. `~/Downloads/AGIB/Books`
-4. `/Users/shivamagarwal/Downloads/AGIB/Books`
+2. AGIB project root `Books/` or `books/` (the folder next to `src`, `server`, `intelligence-engine`)
+3. `/workspace/books`
+4. `~/Downloads/AGIB/Books`
+5. `/Users/shivamagarwal/Downloads/AGIB/Books`
 
 ## Supported formats
 

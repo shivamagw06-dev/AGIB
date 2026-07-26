@@ -30,7 +30,7 @@ def ingest_personal_library(
             "ok": False,
             "reason": "library_root_not_found",
             "candidates": scan.get("candidates") or [],
-            "hint": "Copy library into /workspace/books or set ACADEMY_BOOKS_DIR",
+            "hint": "Copy library into AGIB/Books (project root) or set ACADEMY_BOOKS_DIR",
             "books_version": BOOKS_VERSION,
         }
 

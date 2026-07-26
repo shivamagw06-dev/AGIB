@@ -27,8 +27,16 @@ def candidate_roots() -> list[Path]:
             roots.append(Path(cfg).expanduser())
     except Exception:
         pass
+    # AGIB project root Books/ (Finder often shows capital B)
+    try:
+        repo_root = Path(__file__).resolve().parents[3]
+    except Exception:
+        repo_root = Path("/workspace")
     roots.extend(
         [
+            repo_root / "Books",
+            repo_root / "books",
+            Path("/workspace/Books"),
             Path("/workspace/books"),
             Path.home() / "Downloads" / "AGIB" / "Books",
             Path.home() / "Downloads" / "AGIB" / "books",
