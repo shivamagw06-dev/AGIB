@@ -20,10 +20,18 @@ from app.fre.understanding import understand_query
 
 
 class FrePipeline:
-    def __init__(self, store: FreStore, *, aoi: Any | None = None, kip: Any | None = None) -> None:
+    def __init__(
+        self,
+        store: FreStore,
+        *,
+        aoi: Any | None = None,
+        kip: Any | None = None,
+        faa: Any | None = None,
+    ) -> None:
         self.store = store
         self.aoi = aoi
         self.kip = kip
+        self.faa = faa
         self._seeded = False
 
     def ensure_seed(self) -> dict[str, Any]:
@@ -88,11 +96,19 @@ class FrePipeline:
         plan = plan_retrieval(query, aoi=self.aoi, understanding=understanding)
         routes = route_plan(plan)
 
-        if acquire and self.aoi is not None:
+        acquisition: dict[str, Any] = {}
+        # Prefer FAA (live acquisition) over legacy AOI soft-ingest.
+        if acquire and self.faa is not None:
+            try:
+                acquisition = self.faa.acquire(query, limit=24) or {}
+            except Exception as exc:
+                acquisition = {"error": str(exc)[:160], "programme": "FAA"}
+        elif acquire and self.aoi is not None:
             try:
                 self.ingest_query_sources(query)
+                acquisition = {"mode": "aoi_soft", "programme": "AOI"}
             except Exception:
-                pass
+                acquisition = {}
 
         company_filter = company or understanding.primary_entity
         hits = hybrid_search(
@@ -134,6 +150,15 @@ class FrePipeline:
             "understanding": understanding.to_dict(),
             "plan": plan.to_dict(),
             "routes": routes,
+            "acquisition": {
+                "programme": acquisition.get("programme") or ("FAA" if self.faa else None),
+                "live_fetch": acquisition.get("live_fetch"),
+                "discovered": acquisition.get("discovered"),
+                "fetched": acquisition.get("fetched"),
+                "skipped_cached": acquisition.get("skipped_cached"),
+                "indexed_to_fre": acquisition.get("indexed_to_fre"),
+                "errors": acquisition.get("errors") or [],
+            },
             "top_evidence": [e.to_dict() for e in evidence[:limit]],
             "top_sources": related_docs[:12],
             "chunks": top[:limit],
@@ -142,6 +167,7 @@ class FrePipeline:
                 "document_type": document_type,
                 "min_authority": min_authority,
                 "retrieval_ms": round(ms, 2),
+                "faa_bound": self.faa is not None,
             },
             "confidence": {
                 "mean_evidence_confidence": round(

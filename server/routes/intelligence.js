@@ -432,7 +432,35 @@ export default function createIntelligenceRouter() {
   router.get('/iie/consult', kfGet('/v1/iie/consult'));
 
   // FLE v1 — Forecasting & Learning Engine (after IIE, before reasoning).
-  // FRE v1 — Finance Retrieval Engine (evidence acquisition; never answers).
+  // FAA v1 — Finance Acquisition Agent (upstream live acquisition; feeds FRE).
+  router.get('/faa/health', kfGet('/v1/faa/health'));
+  router.get('/faa/dashboard', kfGet('/v1/faa/dashboard'));
+  router.get('/faa/discover', kfGet('/v1/faa/discover'));
+  router.get('/faa/connectors', kfGet('/v1/faa/connectors'));
+  router.get('/faa/scheduler', kfGet('/v1/faa/scheduler'));
+  router.get('/faa/consult', kfGet('/v1/faa/consult'));
+  router.post('/faa/acquire', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query).toString();
+      const result = await engineFetch(`/v1/faa/acquire${qs ? `?${qs}` : ''}`, {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Finance acquisition agent unavailable', detail: error.message });
+    }
+  });
+  router.post('/faa/jobs', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/faa/jobs', { method: 'POST', body: {} });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Finance acquisition agent unavailable', detail: error.message });
+    }
+  });
+
+  // FRE v1 — Finance Retrieval Engine (evidence retrieval & rank; never answers).
   router.get('/fre/health', kfGet('/v1/fre/health'));
   router.get('/fre/dashboard', kfGet('/v1/fre/dashboard'));
   router.get('/fre/query', kfGet('/v1/fre/query'));

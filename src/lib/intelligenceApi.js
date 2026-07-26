@@ -231,6 +231,25 @@ export const consultIie = (q, limit = 8) => {
   return intelligenceFetch(`/iie/consult?${qs}`);
 };
 
+/** FAA v1 Finance Acquisition Agent — gather public docs, feed FRE */
+export const getFaaHealth = () => intelligenceFetch('/faa/health');
+export const getFaaDashboard = () => intelligenceFetch('/faa/dashboard');
+export const discoverFaa = (q, limit = 40) => {
+  const qs = new URLSearchParams({ q, limit: String(limit) }).toString();
+  return intelligenceFetch(`/faa/discover?${qs}`);
+};
+export const acquireFaa = (q, limit = 24) => {
+  const qs = new URLSearchParams({ q, limit: String(limit) }).toString();
+  return intelligenceFetch(`/faa/acquire?${qs}`, { method: 'POST', body: {} });
+};
+export const getFaaConnectors = () => intelligenceFetch('/faa/connectors');
+export const getFaaScheduler = () => intelligenceFetch('/faa/scheduler');
+export const runFaaJobs = () => intelligenceFetch('/faa/jobs', { method: 'POST', body: {} });
+export const consultFaa = (q, limit = 8) => {
+  const qs = new URLSearchParams({ q, limit: String(limit) }).toString();
+  return intelligenceFetch(`/faa/consult?${qs}`);
+};
+
 /** FRE v1 Finance Retrieval Engine — evidence only, never answers */
 export const getFreHealth = () => intelligenceFetch('/fre/health');
 export const getFreDashboard = () => intelligenceFetch('/fre/dashboard');

@@ -265,6 +265,19 @@ class Settings(BaseSettings):
     fre_soft_publish_kip: bool = True
     fre_ask_agi: bool = True
 
+    # Finance Acquisition Agent v1 (upstream live acquisition; feeds FRE; no core redesign)
+    faa: bool = True
+    faa_discovery: bool = True
+    faa_fetch: bool = True
+    faa_processing: bool = True
+    faa_index: bool = True
+    faa_live_fetch: bool = False
+    faa_search_api: bool = True
+    faa_pdf: bool = True
+    faa_notify_fre: bool = True
+    faa_scheduler: bool = True
+    faa_max_workers: int = 6
+
     # Context Assembly Engine v1 (Ask AGI orchestration gateway; no core redesign)
     cae: bool = True
     cae_cache: bool = True

@@ -64,6 +64,7 @@ from app.eve.service import EveService
 from app.iie.service import IieService
 from app.fle.service import FleService
 from app.fre.service import FreService
+from app.faa.service import FaaService
 from app.mee.service import MeeService
 from app.cae.service import CaeService
 from app.ib.service import IbService
@@ -162,6 +163,8 @@ _aoi = AoiService(kip=_kip, kc=_kc, kf=_kf)
 _eve = EveService(aoi=_aoi, kc=_kc, kf=_kf)
 _aoi.bind_eve(_eve)
 _fre = FreService(aoi=_aoi, kip=_kip, eve=_eve)
+_faa = FaaService(fre=_fre, aoi=_aoi)
+_fre.bind(faa=_faa)
 _iie = IieService(eve=_eve, kc=_kc, kf=_kf, aoi=_aoi)
 _fle = FleService(iie=_iie, eve=_eve, kc=_kc, kf=_kf, aoi=_aoi)
 _mee = MeeService(eve=_eve, iie=_iie, fle=_fle, aoi=_aoi, kf=_kf, kc=_kc)
@@ -2296,7 +2299,68 @@ async def fle_consult(q: str = Query(...), limit: int = Query(default=8, ge=1, l
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-# --- FRE v1 Finance Retrieval Engine (evidence acquisition; never answers) ---
+# --- FAA v1 Finance Acquisition Agent (upstream live acquisition; feeds FRE) ---
+
+
+@router.get("/faa/health")
+async def faa_health():
+    return _faa.health()
+
+
+@router.get("/faa/dashboard")
+async def faa_dashboard():
+    try:
+        return _faa.dashboard()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/faa/discover")
+async def faa_discover(q: str = Query(...), limit: int = Query(default=40, ge=1, le=100)):
+    try:
+        return _faa.discover(q, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/faa/acquire")
+async def faa_acquire(
+    q: str = Query(...),
+    limit: int = Query(default=24, ge=1, le=100),
+):
+    try:
+        return _faa.acquire(q, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/faa/connectors")
+async def faa_connectors():
+    return _faa.connectors_health()
+
+
+@router.get("/faa/scheduler")
+async def faa_scheduler():
+    return _faa.scheduler.status()
+
+
+@router.post("/faa/jobs")
+async def faa_jobs():
+    try:
+        return _faa.run_jobs()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/faa/consult")
+async def faa_consult(q: str = Query(...), limit: int = Query(default=8, ge=1, le=40)):
+    try:
+        return _faa.consult(q, limit=limit)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+# --- FRE v1 Finance Retrieval Engine (evidence retrieval & rank; never answers) ---
 
 
 @router.get("/fre/health")
