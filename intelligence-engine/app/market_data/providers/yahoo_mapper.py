@@ -561,3 +561,319 @@ def _simplify_statements(rows: list[Any]) -> list[dict[str, Any]]:
             item[k] = _num(v) if isinstance(v, dict) or isinstance(v, (int, float)) else _str(v)
         simplified.append(item)
     return simplified
+
+
+# --- Canonical financial history (YFP enrichment) — never Yahoo-native keys outward ---
+
+_INCOME_MAP: dict[str, tuple[str, ...]] = {
+    "revenue": ("totalRevenue", "revenue"),
+    "ebitda": ("ebitda", "normalizedEBITDA"),
+    "ebit": ("ebit", "operatingIncome"),
+    "operating_income": ("operatingIncome", "ebit"),
+    "gross_profit": ("grossProfit",),
+    "net_income": ("netIncome", "netIncomeApplicableToCommonShares", "netIncomeFromContinuingOps"),
+    "eps": ("basicEPS", "reportedEPS"),
+    "diluted_eps": ("dilutedEPS", "basicEPS"),
+    "tax_expense": ("incomeTaxExpense", "taxProvision"),
+    "interest_expense": ("interestExpense", "netInterestIncome"),
+    "cost_of_revenue": ("costOfRevenue", "reconciledCostOfRevenue"),
+    "operating_expenses": ("totalOperatingExpenses", "operatingExpense"),
+}
+
+_BALANCE_MAP: dict[str, tuple[str, ...]] = {
+    "total_assets": ("totalAssets",),
+    "current_assets": ("totalCurrentAssets", "currentAssets"),
+    "non_current_assets": ("totalNonCurrentAssets", "nonCurrentAssetsTotal"),
+    "cash": ("cash", "cashAndCashEquivalents"),
+    "cash_equivalents": ("cashAndCashEquivalents", "cashCashEquivalentsAndShortTermInvestments"),
+    "short_term_investments": ("shortTermInvestments", "otherShortTermInvestments"),
+    "total_debt": ("totalDebt", "longTermDebtAndCapitalLeaseObligation"),
+    "short_term_debt": ("shortLongTermDebt", "currentDebt", "shortTermDebt"),
+    "long_term_debt": ("longTermDebt", "longTermDebtAndCapitalLeaseObligation"),
+    "total_liabilities": ("totalLiab", "totalLiabilitiesNetMinorityInterest", "totalLiabilities"),
+    "current_liabilities": ("totalCurrentLiabilities", "currentLiabilities"),
+    "non_current_liabilities": (
+        "totalNonCurrentLiabilitiesNetMinorityInterest",
+        "nonCurrentLiabilitiesTotal",
+    ),
+    "shareholders_equity": (
+        "totalStockholderEquity",
+        "stockholdersEquity",
+        "commonStockEquity",
+        "totalEquityGrossMinorityInterest",
+    ),
+    "book_value": ("tangibleBookValue", "commonStockEquity", "totalStockholderEquity"),
+}
+
+_CASHFLOW_MAP: dict[str, tuple[str, ...]] = {
+    "operating_cash_flow": (
+        "totalCashFromOperatingActivities",
+        "operatingCashflow",
+        "cashFlowFromContinuingOperatingActivities",
+    ),
+    "investing_cash_flow": (
+        "totalCashflowsFromInvestingActivities",
+        "investingCashflow",
+        "cashFlowFromContinuingInvestingActivities",
+    ),
+    "financing_cash_flow": (
+        "totalCashFromFinancingActivities",
+        "financingCashflow",
+        "cashFlowFromContinuingFinancingActivities",
+    ),
+    "free_cash_flow": ("freeCashFlow",),
+    "capital_expenditure": ("capitalExpenditures", "purchaseOfPPE", "capex"),
+    "depreciation": ("depreciation", "depreciationAndAmortization"),
+    "amortisation": ("amortization", "amortizationOfIntangibles"),
+    "dividends_paid": ("dividendsPaid", "commonStockDividendPaid", "cashDividendsPaid"),
+    "share_buybacks": ("repurchaseOfStock", "salePurchaseOfStock", "commonStockPayments"),
+}
+
+
+def _pick_mapped(row: dict[str, Any], aliases: tuple[str, ...]) -> float | None:
+    for a in aliases:
+        if a in row and row.get(a) is not None:
+            return _num(row.get(a))
+    return None
+
+
+def _period_end(row: dict[str, Any]) -> str | None:
+    for key in ("endDate", "asOfDate", "period", "date"):
+        if key not in row:
+            continue
+        v = row.get(key)
+        if isinstance(v, dict):
+            return _str(v.get("fmt") or v.get("raw"))
+        if isinstance(v, (int, float)) and v > 1_000_000_000:
+            try:
+                return datetime.fromtimestamp(int(v), tz=timezone.utc).date().isoformat()
+            except (OverflowError, OSError, ValueError):
+                pass
+        s = _str(v)
+        if s:
+            return s[:10] if len(s) >= 10 else s
+    return None
+
+
+def _extract_module_rows(module_payload: dict[str, Any]) -> list[dict[str, Any]]:
+    if not isinstance(module_payload, dict):
+        return []
+    for key in (
+        "incomeStatementHistory",
+        "balanceSheetStatements",
+        "cashflowStatements",
+        "financialsTemplate",
+    ):
+        rows = module_payload.get(key)
+        if isinstance(rows, list):
+            return [r for r in rows if isinstance(r, dict)]
+    for v in module_payload.values():
+        if isinstance(v, list) and v and isinstance(v[0], dict):
+            return [r for r in v if isinstance(r, dict)]
+    return []
+
+
+def _map_statement_rows(
+    rows: list[dict[str, Any]],
+    *,
+    field_map: dict[str, tuple[str, ...]],
+    statement: str,
+    period_type: str,
+    currency: str | None,
+    max_rows: int = 12,
+) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    for row in rows[:max_rows]:
+        simplified = {}
+        for k, v in row.items():
+            if k == "maxAge":
+                continue
+            simplified[k] = _num(v) if isinstance(v, (dict, int, float)) else _str(v)
+        line_items: dict[str, float | None] = {}
+        for canon, aliases in field_map.items():
+            line_items[canon] = _pick_mapped(simplified, aliases)
+        # Derived working capital for balance sheet
+        if statement == "balance_sheet":
+            ca = line_items.get("current_assets")
+            cl = line_items.get("current_liabilities")
+            if ca is not None and cl is not None:
+                line_items["working_capital"] = ca - cl
+            if line_items.get("non_current_assets") is None:
+                ta = line_items.get("total_assets")
+                if ta is not None and ca is not None:
+                    line_items["non_current_assets"] = ta - ca
+            if line_items.get("total_debt") is None:
+                st = line_items.get("short_term_debt") or 0.0
+                lt = line_items.get("long_term_debt") or 0.0
+                if line_items.get("short_term_debt") is not None or line_items.get("long_term_debt") is not None:
+                    line_items["total_debt"] = float(st) + float(lt)
+        # FCF proxy if missing
+        if statement == "cash_flow" and line_items.get("free_cash_flow") is None:
+            ocf = line_items.get("operating_cash_flow")
+            capex = line_items.get("capital_expenditure")
+            if ocf is not None and capex is not None:
+                # Capex often negative in Yahoo
+                line_items["free_cash_flow"] = ocf + capex if capex < 0 else ocf - abs(capex)
+
+        present = {k: v for k, v in line_items.items() if v is not None}
+        if len(present) < 2:
+            continue  # reject incomplete / malformed mapping
+        out.append(
+            {
+                "period_end": _period_end(simplified) or _period_end(row),
+                "period_type": period_type,
+                "statement": statement,
+                "currency": currency,
+                "line_items": present,
+                "coverage": round(len(present) / max(1, len(field_map)), 4),
+                "provider_id": "yahoo",
+                "provider_priority": 40,
+            }
+        )
+    return out
+
+
+def validate_balance_sheet_row(row: dict[str, Any]) -> dict[str, Any]:
+    """Soft accounting-equation check: Assets ≈ Liabilities + Equity (tolerance 5%)."""
+    items = row.get("line_items") or {}
+    assets = items.get("total_assets")
+    liab = items.get("total_liabilities")
+    equity = items.get("shareholders_equity")
+    ok = None
+    rel = None
+    if assets is not None and liab is not None and equity is not None and abs(assets) > 0:
+        rel = abs(assets - (liab + equity)) / abs(assets)
+        ok = rel <= 0.05
+    return {
+        **row,
+        "validation": {
+            "accounting_equation_ok": ok,
+            "accounting_equation_rel_error": round(rel, 6) if rel is not None else None,
+            "status": "validated" if ok else ("warning" if ok is False else "unchecked"),
+        },
+    }
+
+
+def map_financial_history_from_quote_summary(
+    payload: dict[str, Any],
+    *,
+    symbol: str,
+    currency: str | None = None,
+) -> dict[str, Any]:
+    """
+    Canonical financial history package from quoteSummary.
+    Never returns Yahoo-native module names as top-level schema.
+    """
+    result = ((payload.get("quoteSummary") or {}).get("result") or [None])[0] or {}
+    canon = from_yahoo_symbol(symbol)
+    cur = currency
+    if not cur and isinstance(result.get("price"), dict):
+        cur = _str(result["price"].get("currency"))
+    if not cur and isinstance(result.get("financialData"), dict):
+        cur = _str(result["financialData"].get("financialCurrency"))
+
+    income_annual = _map_statement_rows(
+        _extract_module_rows(result.get("incomeStatementHistory") or {}),
+        field_map=_INCOME_MAP,
+        statement="income_statement",
+        period_type="annual",
+        currency=cur,
+    )
+    income_q = _map_statement_rows(
+        _extract_module_rows(result.get("incomeStatementHistoryQuarterly") or {}),
+        field_map=_INCOME_MAP,
+        statement="income_statement",
+        period_type="quarterly",
+        currency=cur,
+    )
+    balance_annual = [
+        validate_balance_sheet_row(r)
+        for r in _map_statement_rows(
+            _extract_module_rows(result.get("balanceSheetHistory") or {}),
+            field_map=_BALANCE_MAP,
+            statement="balance_sheet",
+            period_type="annual",
+            currency=cur,
+        )
+    ]
+    balance_q = [
+        validate_balance_sheet_row(r)
+        for r in _map_statement_rows(
+            _extract_module_rows(result.get("balanceSheetHistoryQuarterly") or {}),
+            field_map=_BALANCE_MAP,
+            statement="balance_sheet",
+            period_type="quarterly",
+            currency=cur,
+        )
+    ]
+    cash_annual = _map_statement_rows(
+        _extract_module_rows(result.get("cashflowStatementHistory") or {}),
+        field_map=_CASHFLOW_MAP,
+        statement="cash_flow",
+        period_type="annual",
+        currency=cur,
+    )
+    cash_q = _map_statement_rows(
+        _extract_module_rows(result.get("cashflowStatementHistoryQuarterly") or {}),
+        field_map=_CASHFLOW_MAP,
+        statement="cash_flow",
+        period_type="quarterly",
+        currency=cur,
+    )
+
+    return {
+        "symbol": canon,
+        "currency": cur,
+        "income_statement": {"annual": income_annual, "quarterly": income_q},
+        "balance_sheet": {"annual": balance_annual, "quarterly": balance_q},
+        "cash_flow": {"annual": cash_annual, "quarterly": cash_q},
+        "counts": {
+            "income_annual": len(income_annual),
+            "income_quarterly": len(income_q),
+            "balance_annual": len(balance_annual),
+            "balance_quarterly": len(balance_q),
+            "cashflow_annual": len(cash_annual),
+            "cashflow_quarterly": len(cash_q),
+        },
+        "provider_id": "yahoo",
+        "provider_priority": 40,
+    }
+
+
+def map_valuation_snapshot_from_quote_summary(
+    payload: dict[str, Any],
+    *,
+    symbol: str,
+) -> dict[str, Any]:
+    """Canonical point-in-time valuation metrics (for valuation timeline)."""
+    result = ((payload.get("quoteSummary") or {}).get("result") or [None])[0] or {}
+    sd = result.get("summaryDetail") if isinstance(result.get("summaryDetail"), dict) else {}
+    ks = result.get("defaultKeyStatistics") if isinstance(result.get("defaultKeyStatistics"), dict) else {}
+    fd = result.get("financialData") if isinstance(result.get("financialData"), dict) else {}
+    price = result.get("price") if isinstance(result.get("price"), dict) else {}
+    metrics = {
+        "market_cap": _num(sd.get("marketCap") or price.get("marketCap")),
+        "enterprise_value": _num(ks.get("enterpriseValue") or sd.get("enterpriseValue")),
+        "trailing_pe": _num(sd.get("trailingPE") or ks.get("trailingPE")),
+        "forward_pe": _num(sd.get("forwardPE") or ks.get("forwardPE")),
+        "peg": _num(ks.get("pegRatio")),
+        "price_to_book": _num(ks.get("priceToBook") or sd.get("priceToBook")),
+        "price_to_sales": _num(sd.get("priceToSalesTrailing12Months")),
+        "ev_ebitda": _num(ks.get("enterpriseToEbitda")),
+        "dividend_yield": _num(sd.get("dividendYield")),
+        "dividend_rate": _num(sd.get("dividendRate")),
+        "beta": _num(ks.get("beta") or sd.get("beta")),
+        "shares_outstanding": _num(ks.get("sharesOutstanding")),
+        "float_shares": _num(ks.get("floatShares")),
+        "book_value_per_share": _num(ks.get("bookValue")),
+        "target_mean_price": _num(fd.get("targetMeanPrice")),
+    }
+    metrics = {k: v for k, v in metrics.items() if v is not None}
+    return {
+        "symbol": from_yahoo_symbol(symbol),
+        "as_of": date.today().isoformat(),
+        "metrics": metrics,
+        "provider_id": "yahoo",
+        "provider_priority": 40,
+        "coverage": round(len(metrics) / 15.0, 4),
+    }

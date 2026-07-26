@@ -7,6 +7,7 @@ import {
   getCompanyDossier,
   getCompanyDossierCoverage,
   getCompanyDossierTimeline,
+  enrichYfp,
 } from '@/lib/intelligenceApi';
 import { Button } from '@/components/ui/button';
 
@@ -71,6 +72,32 @@ export default function CompanyDossiers() {
     }
   };
 
+  const onEnrichFinancials = async () => {
+    setBusy('enrich');
+    setError('');
+    try {
+      await enrichYfp(selected || 'HDFCBANK');
+      await loadTicker(selected || 'HDFCBANK');
+      await load();
+    } catch (err) {
+      setError(err?.message || 'Financial enrichment failed');
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const pct = (v) =>
+    v == null || Number.isNaN(Number(v)) ? '—' : `${Math.round(Number(v) <= 1 ? Number(v) * 100 : Number(v))}%`;
+
+  const revenueTrend = (dossier?.historical_kpi_trends?.revenue || dossier?.financial_history?.kpi_trends?.revenue || []).slice(0, 6);
+  const valuationHist = (dossier?.valuation?.historical || []).slice(-8).reverse();
+  const finCov = dossier?.financial_coverage || {};
+  const missingFin = [
+    ...(finCov?.financial?.missing_financial_fields || []),
+    ...(finCov?.valuation?.missing_valuation_fields || []),
+    ...((dossier?.financial_statements?.coverage || {}).missing_financial_fields || []),
+  ];
+
   const rows = dashboard?.dossiers || [];
 
   return (
@@ -89,10 +116,15 @@ export default function CompanyDossiers() {
             evidence; Ask AGI reasons from the dossier first — never rebuilds from raw APIs.
           </p>
         </div>
-        <Button variant="outline" onClick={load} disabled={loading}>
-          <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-          Refresh
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={onEnrichFinancials} disabled={!!busy || loading}>
+            {busy === 'enrich' ? 'Enriching…' : 'Enrich Financials'}
+          </Button>
+          <Button variant="outline" onClick={load} disabled={loading}>
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {error ? (
@@ -266,6 +298,93 @@ export default function CompanyDossiers() {
                 </li>
               ))}
             </ul>
+          </div>
+
+          <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-3 lg:col-span-2">
+            <h2 className="font-semibold text-slate-900">Financial History</h2>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <Stat
+                label="Financial coverage"
+                value={pct(finCov?.financial?.coverage || dossier?.financial_statements?.coverage?.coverage)}
+                hint="Statement / field coverage"
+              />
+              <Stat
+                label="Valuation coverage"
+                value={pct(finCov?.valuation?.coverage || dossier?.valuation?.coverage?.coverage)}
+                hint="Multiples present"
+              />
+              <Stat
+                label="Freshness"
+                value={pct(finCov?.financial?.freshness ?? finCov?.valuation?.freshness)}
+              />
+              <Stat
+                label="Confidence"
+                value={pct(finCov?.financial?.confidence ?? finCov?.valuation?.confidence)}
+              />
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-slate-800 mb-1">Missing financial fields</h3>
+              <p className="text-sm text-slate-600">
+                {[...new Set(missingFin)].slice(0, 16).join(', ') || 'None listed'}
+              </p>
+            </div>
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div>
+                <h3 className="text-sm font-medium text-slate-800 mb-2">Revenue history (chart)</h3>
+                {revenueTrend.length === 0 ? (
+                  <p className="text-sm text-slate-400">No revenue series yet — run Enrich Financials.</p>
+                ) : (
+                  <div className="flex items-end gap-2 h-28">
+                    {revenueTrend
+                      .slice()
+                      .reverse()
+                      .map((p, idx) => {
+                        const vals = revenueTrend.map((x) => Number(x.value) || 0);
+                        const max = Math.max(...vals, 1);
+                        const h = Math.max(8, Math.round((Number(p.value) / max) * 100));
+                        return (
+                          <div key={`${p.period_end}-${idx}`} className="flex-1 flex flex-col items-center gap-1">
+                            <div
+                              className="w-full rounded-t bg-indigo-500/80"
+                              style={{ height: `${h}%` }}
+                              title={`${p.period_end}: ${p.value}`}
+                            />
+                            <span className="text-[10px] text-slate-400 truncate w-full text-center">
+                              {String(p.period_end || '').slice(0, 4)}
+                            </span>
+                          </div>
+                        );
+                      })}
+                  </div>
+                )}
+              </div>
+              <div>
+                <h3 className="text-sm font-medium text-slate-800 mb-2">Valuation history</h3>
+                <ul className="text-xs text-slate-600 space-y-1 max-h-36 overflow-auto">
+                  {valuationHist.length === 0 ? (
+                    <li className="text-slate-400">No valuation timeline yet.</li>
+                  ) : (
+                    valuationHist.map((v, idx) => (
+                      <li key={`${v.at}-${idx}`} className="border border-slate-100 rounded-lg px-2 py-1 flex justify-between gap-2">
+                        <span>
+                          PE {v.valuation?.trailing_pe ?? '—'} · EV/EBITDA {v.valuation?.ev_ebitda ?? '—'} · PB{' '}
+                          {v.valuation?.price_to_book ?? '—'}
+                        </span>
+                        <span className="text-slate-400">{v.at ? String(v.at).slice(0, 10) : ''}</span>
+                      </li>
+                    ))
+                  )}
+                </ul>
+              </div>
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-slate-800 mb-1">Statement versions</h3>
+              <p className="text-xs text-slate-500">
+                {((dossier.financial_statements?.versions || []).slice(-6) || [])
+                  .map((v) => `${v.statement}/${v.period} (${v.row_count || 'n'} rows)`)
+                  .join(' · ') || '—'}
+              </p>
+            </div>
           </div>
         </div>
       ) : null}

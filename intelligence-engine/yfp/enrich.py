@@ -198,6 +198,9 @@ def merge_yahoo_into_dossier(dossier: dict[str, Any], enrich: dict[str, Any]) ->
         }
         d.setdefault("evidence_timeline", []).append(timeline_item)
 
+    # Canonical financial / valuation history (YAHOO_FINANCIAL_HISTORY / VALUATION_HISTORY)
+    d = merge_financial_intelligence(d, enrich, now=now)
+
     # Provenance stamp
     d.setdefault("enrichment", {})
     d["enrichment"]["yahoo"] = {
@@ -207,8 +210,189 @@ def merge_yahoo_into_dossier(dossier: dict[str, Any], enrich: dict[str, Any]) ->
         "has_quote": bool(quote),
         "has_fundamentals": bool(metrics),
         "calendar_events": len(enrich.get("calendar_events") or []),
+        "has_financial_history": bool(enrich.get("financial_history")),
+        "has_valuation_snapshot": bool((enrich.get("valuation_snapshot") or {}).get("metrics")),
     }
     d["updated_at"] = now
+    return d
+
+
+def merge_financial_intelligence(
+    dossier: dict[str, Any],
+    enrich: dict[str, Any],
+    *,
+    now: str | None = None,
+) -> dict[str, Any]:
+    """Fill CID financial history / valuation timeline / KPI trends from canonical YFP pack."""
+    from yfp.history import (
+        dvc_fields_from_valuation,
+        financial_coverage,
+        kpi_trends,
+        valuation_coverage,
+    )
+
+    now = now or datetime.now(timezone.utc).isoformat()
+    d = dict(dossier)
+    fh = enrich.get("financial_history") if isinstance(enrich.get("financial_history"), dict) else {}
+    vs = enrich.get("valuation_snapshot") if isinstance(enrich.get("valuation_snapshot"), dict) else {}
+
+    if fh and (fh.get("income_statement") or fh.get("balance_sheet") or fh.get("cash_flow")):
+        fs = dict(d.get("financial_statements") or {})
+        for stmt in ("income_statement", "balance_sheet", "cash_flow"):
+            block = dict(fs.get(stmt) or {"annual": [], "quarterly": []})
+            for period in ("annual", "quarterly"):
+                new_rows = list((fh.get(stmt) or {}).get(period) or [])
+                if not new_rows:
+                    continue
+                arr = list(block.get(period) or [])
+                # Fill empties only — if institutional rows already present, skip overwrite
+                if not arr:
+                    block[period] = [
+                        {
+                            "at": now,
+                            "source": "yahoo",
+                            "provider_id": "yahoo",
+                            "provider_priority": 40,
+                            "period_rows": new_rows,
+                            "row_count": len(new_rows),
+                        }
+                    ]
+                    versions = list(fs.get("versions") or [])
+                    versions.append(
+                        {
+                            "at": now,
+                            "source": "yahoo",
+                            "statement": stmt,
+                            "period": period,
+                            "row_count": len(new_rows),
+                        }
+                    )
+                    fs["versions"] = versions[-80:]
+                else:
+                    # Append timeline version if newer periods available and not duplicate
+                    existing_ends = set()
+                    for entry in arr:
+                        for pr in entry.get("period_rows") or entry.get("rows") or []:
+                            if isinstance(pr, dict) and pr.get("period_end"):
+                                existing_ends.add(str(pr.get("period_end")))
+                    novel = [r for r in new_rows if str(r.get("period_end")) not in existing_ends]
+                    if novel and not any(e.get("source") == "yahoo" for e in arr):
+                        arr.append(
+                            {
+                                "at": now,
+                                "source": "yahoo",
+                                "provider_id": "yahoo",
+                                "period_rows": novel,
+                                "row_count": len(novel),
+                            }
+                        )
+                        block[period] = arr[-6:]
+            fs[stmt] = block
+        # Legacy JSON metric fallback still handled above in merge_yahoo_into_dossier
+        fs["coverage"] = financial_coverage(fh)
+        d["financial_statements"] = fs
+        d["financial_history"] = {
+            "provider_id": "yahoo",
+            "counts": fh.get("counts"),
+            "currency": fh.get("currency"),
+            "kpi_trends": kpi_trends(fh),
+            "coverage": financial_coverage(fh),
+            "updated_at": now,
+        }
+        # Historical KPI trends side-car
+        d["historical_kpi_trends"] = kpi_trends(fh)
+
+        # Evidence timeline — financial history markers (append-only)
+        timeline = list(d.get("evidence_timeline") or [])
+        seen = {e.get("evidence_id") for e in timeline if e.get("evidence_id")}
+        key_map = {
+            "income_statement": "income_annual",
+            "balance_sheet": "balance_annual",
+            "cash_flow": "cashflow_annual",
+        }
+        for stmt, label in (
+            ("income_statement", "Income statement history"),
+            ("balance_sheet", "Balance sheet history"),
+            ("cash_flow", "Cash flow history"),
+        ):
+            n = int((fh.get("counts") or {}).get(key_map[stmt]) or 0)
+            if n <= 0:
+                continue
+            eid = f"yfp:fs:{stmt}:{d.get('ticker')}"
+            if eid in seen:
+                continue
+            timeline.append(
+                {
+                    "at": now,
+                    "evidence_id": eid,
+                    "evidence_type": "financial_statements",
+                    "category": "financial_statements",
+                    "title": f"{label} ({n} annual periods)",
+                    "source_id": "yahoo",
+                    "confidence": 0.74,
+                    "verification_status": "provisionally_verified",
+                    "value_text": f"{n} annual periods ingested (canonical)",
+                }
+            )
+            seen.add(eid)
+        d["evidence_timeline"] = timeline[-500:]
+
+    if vs and (vs.get("metrics") or {}):
+        metrics = vs.get("metrics") or {}
+        val = dict(d.get("valuation") or {})
+        current = dict(val.get("current") or {})
+        for k, v in metrics.items():
+            if v is not None and current.get(k) is None:
+                current[k] = v
+        if current:
+            val["current"] = current
+            hist = list(val.get("historical") or [])
+            hist.append(
+                {
+                    "at": now,
+                    "as_of": vs.get("as_of") or now,
+                    "valuation": metrics,
+                    "source": "yahoo",
+                    "provider_id": "yahoo",
+                    "provider_priority": 40,
+                }
+            )
+            val["historical"] = hist[-60:]
+            val["timeline"] = list(val.get("timeline") or [])
+            val["timeline"].append({"at": now, "metrics": metrics, "source": "yahoo"})
+            val["timeline"] = val["timeline"][-80:]
+            val["coverage"] = valuation_coverage(vs)
+        d["valuation"] = val
+
+        # Market data multiples fill empties
+        md = dict(d.get("market_data") or {})
+        _fill(md, "market_cap", metrics.get("market_cap"))
+        _fill(md, "enterprise_value", metrics.get("enterprise_value"))
+        _fill(md, "dividend_yield", metrics.get("dividend_yield"))
+        _fill(md, "beta", metrics.get("beta"))
+        multiples = dict(md.get("valuation_multiples") or {})
+        for k in ("trailing_pe", "forward_pe", "price_to_book", "price_to_sales", "ev_ebitda", "peg"):
+            if metrics.get(k) is not None and multiples.get(k) is None:
+                multiples[k] = metrics.get(k)
+        if multiples:
+            md["valuation_multiples"] = multiples
+        d["market_data"] = md
+
+        # Soft DVC validated_fields for valuation (fill empties only)
+        existing_vf = dict(d.get("validated_fields") or {})
+        for field, vf in dvc_fields_from_valuation(vs).items():
+            if field not in existing_vf or existing_vf.get(field, {}).get("value") in (None, ""):
+                existing_vf[field] = vf
+        d["validated_fields"] = existing_vf
+
+        # Financial coverage panel for admin
+        d["financial_coverage"] = {
+            "financial": financial_coverage(fh) if fh else {},
+            "valuation": valuation_coverage(vs),
+            "updated_at": now,
+            "provider_id": "yahoo",
+        }
+
     return d
 
 

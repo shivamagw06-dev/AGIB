@@ -99,24 +99,31 @@ def get_or_build(
 
     # YFP V1 — secondary Yahoo enrichment (fill empties only; never overwrite institutional data)
     try:
+        from app.core.config import get_settings
         from yfp.enrich import merge_yahoo_into_dossier
-        from yfp.production import enrich_ticker
+        from yfp.production import enrich_ticker, is_cid_enrichment_enabled
         from cid.coverage import compute_coverage
         from cid.store import get_cid_store
 
-        ypack = enrich_ticker(t)
-        if ypack.get("enabled") and (ypack.get("quote") or ypack.get("fundamentals")):
-            dossier = merge_yahoo_into_dossier(dossier, ypack)
-            cov = compute_coverage(dossier)
-            dossier.update(
-                {
-                    "coverage": cov["coverage"],
-                    "coverage_score": cov["coverage_score"],
-                    "coverage_grade": cov["coverage_grade"],
-                    "missing_evidence": cov["missing_evidence"],
-                }
-            )
-            dossier = get_cid_store().put(dossier)
+        if is_cid_enrichment_enabled() and bool(getattr(get_settings(), "yahoo_provider", True)):
+            ypack = enrich_ticker(t)
+            if ypack.get("enabled") and (
+                ypack.get("quote")
+                or ypack.get("fundamentals")
+                or ypack.get("financial_history")
+                or ypack.get("valuation_snapshot")
+            ):
+                dossier = merge_yahoo_into_dossier(dossier, ypack)
+                cov = compute_coverage(dossier)
+                dossier.update(
+                    {
+                        "coverage": cov["coverage"],
+                        "coverage_score": cov["coverage_score"],
+                        "coverage_grade": cov["coverage_grade"],
+                        "missing_evidence": cov["missing_evidence"],
+                    }
+                )
+                dossier = get_cid_store().put(dossier)
     except Exception:
         pass
 

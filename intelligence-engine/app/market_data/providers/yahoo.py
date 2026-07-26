@@ -22,12 +22,14 @@ from app.market_data.provider_base import Capability, MarketDataProvider, Provid
 from app.market_data.providers.yahoo_mapper import (
     map_calendar_from_quote_summary,
     map_corporate_actions_from_chart,
+    map_financial_history_from_quote_summary,
     map_fundamentals_from_chart_meta,
     map_fundamentals_from_quote_summary,
     map_ohlcv_from_chart,
     map_option_chain,
     map_quote_from_chart,
     map_search_results,
+    map_valuation_snapshot_from_quote_summary,
 )
 from app.market_data.providers.yahoo_symbols import to_yahoo_symbol
 
@@ -74,6 +76,8 @@ class YahooFinanceProvider(MarketDataProvider):
         valuation: bool = True,
         ownership: bool = True,
         options: bool = True,
+        financial_history: bool = True,
+        valuation_history: bool = True,
         base_url: str = "https://query1.finance.yahoo.com",
         quote_summary_base: str = "https://query2.finance.yahoo.com",
         client: httpx.AsyncClient | None = None,
@@ -86,6 +90,8 @@ class YahooFinanceProvider(MarketDataProvider):
         self.flag_valuation = valuation
         self.flag_ownership = ownership
         self.flag_options = options
+        self.flag_financial_history = financial_history
+        self.flag_valuation_history = valuation_history
         self.base_url = base_url.rstrip("/")
         self.quote_summary_base = quote_summary_base.rstrip("/")
         self._client = client
@@ -122,6 +128,8 @@ class YahooFinanceProvider(MarketDataProvider):
                 "YAHOO_VALUATION": self.flag_valuation,
                 "YAHOO_OWNERSHIP": self.flag_ownership,
                 "YAHOO_OPTIONS": self.flag_options,
+                "YAHOO_FINANCIAL_HISTORY": self.flag_financial_history,
+                "YAHOO_VALUATION_HISTORY": self.flag_valuation_history,
             },
             "last_error": self._last_error,
         }
@@ -323,6 +331,63 @@ class YahooFinanceProvider(MarketDataProvider):
                 self._companies_updated += 1
                 return snap
             raise
+
+    async def get_financial_intelligence(self, symbol: str) -> dict[str, Any]:
+        """
+        Canonical financial + valuation history package for YFP enrichment.
+        Never returns Yahoo-native quoteSummary payloads.
+        """
+        if not self.is_configured():
+            return {"enabled": False, "reason": "not_configured", "provider_id": "yahoo"}
+        ysym = to_yahoo_symbol(symbol)
+        mods: list[str] = ["price"]
+        if self.flag_financial_history or self.flag_financials:
+            mods.extend(
+                [
+                    "financialData",
+                    "incomeStatementHistory",
+                    "incomeStatementHistoryQuarterly",
+                    "balanceSheetHistory",
+                    "balanceSheetHistoryQuarterly",
+                    "cashflowStatementHistory",
+                    "cashflowStatementHistoryQuarterly",
+                ]
+            )
+        if self.flag_valuation_history or self.flag_valuation:
+            mods.extend(["summaryDetail", "defaultKeyStatistics"])
+        seen_m: set[str] = set()
+        modules: list[str] = []
+        for m in mods:
+            if m not in seen_m:
+                seen_m.add(m)
+                modules.append(m)
+        url = f"{self.quote_summary_base}/v10/finance/quoteSummary/{ysym}"
+        try:
+            payload = await self._get(url, {"modules": ",".join(modules)}, need_crumb=True)
+        except ProviderError as exc:
+            return {
+                "enabled": False,
+                "provider_id": "yahoo",
+                "symbol": (symbol or "").upper(),
+                "error": str(exc)[:200],
+                "financial_history": {},
+                "valuation_snapshot": {},
+            }
+
+        out: dict[str, Any] = {
+            "enabled": True,
+            "provider_id": "yahoo",
+            "priority": self.priority,
+            "symbol": (symbol or "").upper(),
+            "financial_history": {},
+            "valuation_snapshot": {},
+        }
+        if self.flag_financial_history:
+            out["financial_history"] = map_financial_history_from_quote_summary(payload, symbol=ysym)
+        if self.flag_valuation_history:
+            out["valuation_snapshot"] = map_valuation_snapshot_from_quote_summary(payload, symbol=ysym)
+        self._companies_updated += 1
+        return out
 
     async def get_calendar_events(
         self,

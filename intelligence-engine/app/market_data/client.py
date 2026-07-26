@@ -101,6 +101,8 @@ class MarketDataClient:
                 valuation=bool(getattr(settings, "yahoo_valuation", True)),
                 ownership=bool(getattr(settings, "yahoo_ownership", True)),
                 options=bool(getattr(settings, "yahoo_options", True)),
+                financial_history=bool(getattr(settings, "yahoo_financial_history", True)),
+                valuation_history=bool(getattr(settings, "yahoo_valuation_history", True)),
                 base_url=getattr(settings, "yahoo_base_url", "https://query1.finance.yahoo.com"),
                 quote_summary_base=getattr(
                     settings, "yahoo_quote_summary_base", "https://query2.finance.yahoo.com"
@@ -165,7 +167,25 @@ class MarketDataClient:
             out["calendar_events"] = [e.model_dump(mode="json") for e in events[:40]]
         except Exception as exc:  # noqa: BLE001
             out["calendar_events_error"] = str(exc)[:200]
+        # YFP financial intelligence — canonical history (gated on provider flags)
+        try:
+            if getattr(yahoo, "flag_financial_history", True) or getattr(yahoo, "flag_valuation_history", True):
+                fi = await yahoo.get_financial_intelligence(symbol)
+                if fi.get("enabled"):
+                    out["financial_history"] = fi.get("financial_history") or {}
+                    out["valuation_snapshot"] = fi.get("valuation_snapshot") or {}
+                elif fi.get("error"):
+                    out["financial_intelligence_error"] = fi.get("error")
+        except Exception as exc:  # noqa: BLE001
+            out["financial_intelligence_error"] = str(exc)[:200]
         return out
+
+    async def yahoo_financial_intelligence(self, symbol: str) -> dict[str, Any]:
+        """Canonical Yahoo financial/valuation history via provider only (never Yahoo-native)."""
+        yahoo = self.yahoo_provider()
+        if yahoo is None or not yahoo.is_configured():
+            return {"enabled": False, "provider_id": "yahoo", "reason": "not_configured"}
+        return await yahoo.get_financial_intelligence(symbol)
 
     async def validated_package(
         self,
