@@ -108,9 +108,49 @@ export function mapSearchPack(pack) {
     recoStatus.knowledge_gaps || ac?.knowledge_gaps || briefing.knowledge_gaps,
     8
   );
+  const ide = pack.decision_engine?.active ? pack.decision_engine : null;
+  const ideSummary = ide?.summary || {};
+  const ideLayers = Array.isArray(ide?.layers)
+    ? ide.layers
+        .filter((layer) => layer && layer.id)
+        .map((layer, idx) => ({
+          id: String(layer.id),
+          index: idx + 1,
+          title: asText(layer.title, String(layer.id).replace(/_/g, ' ')),
+          question: asText(layer.question, ''),
+          score: layer.score == null ? null : Number(layer.score),
+          grade: asText(layer.grade, gradeFromScore(layer.score) || ''),
+          weight: layer.weight == null ? null : Number(layer.weight),
+          status: asText(layer.status, 'partial'),
+          reasoning: asText(layer.reasoning, ''),
+          evidence: asList(layer.evidence, 5),
+          isDecision: String(layer.id) === 'decision',
+          positive: asList(layer.positive, 6),
+          negative: asList(layer.negative, 6),
+          bull: layer.bull || null,
+          base: layer.base || null,
+          bear: layer.bear || null,
+          probabilityWeighted:
+            layer.probability_weighted_return_pct ??
+            ideSummary.probability_weighted_return_pct ??
+            null,
+          riskReward: layer.risk_reward ?? ideSummary.risk_reward ?? null,
+          suitableFor: asList(layer.suitable_for || ideSummary.suitable_for, 6),
+          unsuitableFor: asList(layer.unsuitable_for || ideSummary.unsuitable_for, 6),
+          action: asText(layer.action || ideSummary.action, ''),
+        }))
+    : [];
+  const decisionStackLayers = ideLayers.filter((l) => !l.isDecision);
+  const decisionLayer = ideLayers.find((l) => l.isDecision) || null;
 
   const stance = stanceOf(pack);
-  const confidence = pct(pack.confidence ?? hv.confidence ?? enrich.confidence) ?? 72;
+  const confidence =
+    pct(
+      ideSummary.confidence_pct ??
+        pack.confidence ??
+        hv.confidence ??
+        enrich.confidence
+    ) ?? 72;
   const coverage =
     pct(
       recoStatus.coverage_pct ||
@@ -127,6 +167,7 @@ export function mapSearchPack(pack) {
 
   const executive =
     asText(ac?.executive) ||
+    asText(ide?.answer_enrichment?.executive_framing) ||
     asText(enrich.executive_summary) ||
     asText(briefing.executive_summary) ||
     asText(pack.executive_summary) ||
@@ -433,11 +474,39 @@ export function mapSearchPack(pack) {
     catalysts,
     learned,
     conclusion:
+      asText(ac?.decision_conclusion) ||
+      asText(decisionLayer?.reasoning) ||
+      asText(ide?.decision?.reasoning) ||
       asText(enrich.current_outlook) ||
       asText(biz.long_term_growth) ||
       asText(briefing.current_outlook) ||
       asText(pack.current_outlook) ||
       executive,
+    decisionEngine: ide
+      ? {
+          active: true,
+          overallScore: ideSummary.overall_score ?? ide.overall_score ?? null,
+          investmentGrade: asText(
+            ideSummary.investment_grade || ide.investment_grade,
+            gradeFromScore(ideSummary.overall_score ?? ide.overall_score) || ''
+          ),
+          confidence: pct(ideSummary.confidence_pct) ?? confidence,
+          expectedReturn12m: ideSummary.expected_return_12m_pct ?? null,
+          bullCase: ideSummary.bull_case_pct ?? null,
+          baseCase: ideSummary.base_case_pct ?? null,
+          bearCase: ideSummary.bear_case_pct ?? null,
+          probabilityWeighted: ideSummary.probability_weighted_return_pct ?? null,
+          riskReward: ideSummary.risk_reward ?? null,
+          action: asText(ideSummary.action || decisionLayer?.action, ''),
+          suitableFor: asList(ideSummary.suitable_for, 6),
+          unsuitableFor: asList(ideSummary.unsuitable_for, 6),
+          layerScores: ideSummary.layer_scores || {},
+          preQuestions: asList(ide.pre_questions, 8),
+          stackLayers: decisionStackLayers,
+          decision: decisionLayer,
+          gateBlocked: Boolean(ideSummary.gate_blocked),
+        }
+      : null,
     recommendationStatus: {
       blocked: Boolean(recoStatus.blocked),
       status: asText(recoStatus.status, recoStatus.blocked ? 'Withheld' : 'Open'),
@@ -457,6 +526,7 @@ export function mapSearchPack(pack) {
     conflicting: pack.conflicting_evidence || [],
     icEnabled: Boolean(ic?.enabled),
     acEnabled: Boolean(ac?.enabled),
+    ideEnabled: Boolean(ide?.active),
     ticker: ca.ticker || dossier.ticker || pack.entities?.primary_ticker || null,
   };
 }

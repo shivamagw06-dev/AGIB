@@ -314,6 +314,10 @@ class Settings(BaseSettings):
     answer_construction_v3: bool = True
     ask_agi_answer_construction_v3: bool = True
 
+    # AGIB Investment Decision Engine — multi-layer investment decisions (soft-wire; not an engine redesign)
+    decision_engine: bool = True
+    ask_agi_decision_engine: bool = True
+
     # Company Analysis Engine V1 — institutional company-specific reasoning (not Context Assembly)
     # Master flag COMPANY_ANALYSIS (cae remains Context Assembly). Subflags match programme brief.
     company_analysis: bool = True

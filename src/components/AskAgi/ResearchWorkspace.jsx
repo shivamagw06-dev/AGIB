@@ -294,6 +294,7 @@ export default function ResearchWorkspace({
                     <span className="rw-chip blue">{vm.category}</span>
                     {vm.ticker ? <span className="rw-chip muted">{vm.ticker}</span> : null}
                     {vm.acEnabled ? <span className="rw-chip muted">Institutional Brief</span> : null}
+                    {vm.ideEnabled ? <span className="rw-chip muted">Decision Stack</span> : null}
                   </div>
                   <p className="rw-meta">
                     Last research refresh: {vm.freshness}
@@ -331,6 +332,54 @@ export default function ResearchWorkspace({
                     </div>
                   </Section>
                 </div>
+
+                {vm.decisionEngine ? (
+                  <Section id="decision-scorecard" kicker="Decision Framework" title="Investment Decision Scorecard">
+                    <p className="rw-body mb-4">
+                      Ownership questions are answered through a layered institutional stack — macro through
+                      expected return — before any investment conclusion. No layer is skipped.
+                    </p>
+                    <div className="rw-decision-scorecard">
+                      <div className="rw-decision-hero">
+                        <p className="rw-mini">Overall Score</p>
+                        <p className="rw-decision-score">
+                          {vm.decisionEngine.overallScore != null ? vm.decisionEngine.overallScore : '—'}
+                          <span>/100</span>
+                        </p>
+                        <p className="rw-decision-grade">
+                          Grade {vm.decisionEngine.investmentGrade || '—'} · Confidence{' '}
+                          {vm.decisionEngine.confidence}%
+                        </p>
+                      </div>
+                      <div className="rw-decision-metrics">
+                        {[
+                          ['Expected Return (12m)', vm.decisionEngine.expectedReturn12m, '%'],
+                          ['Bull Case', vm.decisionEngine.bullCase, '%'],
+                          ['Base Case', vm.decisionEngine.baseCase, '%'],
+                          ['Bear Case', vm.decisionEngine.bearCase, '%'],
+                          ['Prob. Weighted', vm.decisionEngine.probabilityWeighted, '%'],
+                          ['Risk / Reward', vm.decisionEngine.riskReward, ''],
+                        ].map(([label, value, suffix]) => (
+                          <div key={label} className="rw-why-card">
+                            <h4>{label}</h4>
+                            <p className="tabular-nums text-[var(--rw-ink)] font-semibold">
+                              {value == null || Number.isNaN(Number(value))
+                                ? '—'
+                                : `${Number(value) > 0 && suffix === '%' ? '+' : ''}${value}${suffix}`}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    {vm.decisionEngine.preQuestions?.length ? (
+                      <ol className="rw-preq mt-4">
+                        {vm.decisionEngine.preQuestions.map((q) => (
+                          <li key={q}>{q}</li>
+                        ))}
+                      </ol>
+                    ) : null}
+                  </Section>
+                ) : null}
 
                 {vm.kpis?.length ? (
                   <Section id="dashboard" kicker="Section 3" title="Executive Dashboard">
@@ -578,9 +627,33 @@ export default function ResearchWorkspace({
                 <Section id="scenarios" kicker="Section 14" title="Bull · Base · Bear">
                   <div className="rw-grid-3">
                     {[
-                      { key: 'bull', title: 'Bull', items: vm.bull, prob: '35%' },
-                      { key: 'base', title: 'Base', items: vm.base, prob: '45%' },
-                      { key: 'bear', title: 'Bear', items: vm.bear, prob: '20%' },
+                      {
+                        key: 'bull',
+                        title: 'Bull',
+                        items: vm.bull,
+                        prob:
+                          vm.decisionEngine?.bullCase != null
+                            ? `${vm.decisionEngine.bullCase}% ret`
+                            : '35%',
+                      },
+                      {
+                        key: 'base',
+                        title: 'Base',
+                        items: vm.base,
+                        prob:
+                          vm.decisionEngine?.baseCase != null
+                            ? `${vm.decisionEngine.baseCase}% ret`
+                            : '45%',
+                      },
+                      {
+                        key: 'bear',
+                        title: 'Bear',
+                        items: vm.bear,
+                        prob:
+                          vm.decisionEngine?.bearCase != null
+                            ? `${vm.decisionEngine.bearCase}% ret`
+                            : '20%',
+                      },
                     ].map((s) => (
                       <div key={s.key} className={`rw-scenario ${s.key}`}>
                         <div className="flex items-center justify-between">
@@ -679,10 +752,109 @@ export default function ResearchWorkspace({
                   </Section>
                 ) : null}
 
+                {vm.decisionEngine?.stackLayers?.length ? (
+                  <Section id="decision-stack" kicker="Decision Stack" title="Layered Investment Analysis">
+                    <p className="rw-body mb-4">
+                      Each layer answers one institutional question with evidence. The investment decision
+                      appears only after this stack is complete.
+                    </p>
+                    <div className="rw-stack">
+                      {vm.decisionEngine.stackLayers.map((layer) => (
+                        <article key={layer.id} className="rw-stack-layer">
+                          <header>
+                            <div>
+                              <p className="rw-mini">
+                                Layer {layer.index}
+                                {layer.weight != null ? ` · Weight ${layer.weight}%` : ''}
+                              </p>
+                              <h3>{layer.title}</h3>
+                              {layer.question ? <p className="rw-stack-q">{layer.question}</p> : null}
+                            </div>
+                            <div className="rw-stack-score">
+                              {layer.score != null ? (
+                                <>
+                                  <strong>{layer.score}</strong>
+                                  <span>{layer.grade || layer.status}</span>
+                                </>
+                              ) : (
+                                <span className="rw-mini">{layer.status}</span>
+                              )}
+                            </div>
+                          </header>
+                          {layer.reasoning ? <p className="rw-body mt-3">{layer.reasoning}</p> : null}
+                          {layer.evidence?.length ? (
+                            <ul className="mt-2 space-y-1 text-sm text-[var(--rw-muted)]">
+                              {layer.evidence.map((e) => (
+                                <li key={e}>• {e}</li>
+                              ))}
+                            </ul>
+                          ) : null}
+                          {layer.positive?.length || layer.negative?.length ? (
+                            <div className="rw-grid-2 mt-3">
+                              {layer.positive?.length ? (
+                                <div>
+                                  <p className="rw-mini tone-pos">Positive</p>
+                                  <ul className="mt-1 space-y-1 text-sm text-[var(--rw-soft)]">
+                                    {layer.positive.map((e) => (
+                                      <li key={e}>• {e}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              ) : null}
+                              {layer.negative?.length ? (
+                                <div>
+                                  <p className="rw-mini tone-neg">Negative</p>
+                                  <ul className="mt-1 space-y-1 text-sm text-[var(--rw-soft)]">
+                                    {layer.negative.map((e) => (
+                                      <li key={e}>• {e}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              ) : null}
+                            </div>
+                          ) : null}
+                        </article>
+                      ))}
+                    </div>
+                  </Section>
+                ) : null}
+
                 <Section id="conclusion" kicker="Section 19" title="Institutional Conclusion">
                   <p className="rw-body">{vm.conclusion}</p>
+                  {vm.decisionEngine ? (
+                    <div className="rw-decision-final mt-4">
+                      <p className="rw-mini">Layer 13 · Investment Decision</p>
+                      <p className="rw-view-value text-[20px] mt-1">
+                        {vm.decisionEngine.action || 'Committee conclusion pending fuller evidence'}
+                      </p>
+                      <div className="rw-grid-2 mt-3">
+                        <div>
+                          <p className="rw-mini tone-pos">Suitable for</p>
+                          <ul className="mt-1 space-y-1 text-sm text-[var(--rw-soft)]">
+                            {(vm.decisionEngine.suitableFor.length
+                              ? vm.decisionEngine.suitableFor
+                              : ['Watchlist']
+                            ).map((item) => (
+                              <li key={item}>✔ {item}</li>
+                            ))}
+                          </ul>
+                        </div>
+                        <div>
+                          <p className="rw-mini tone-neg">Not suitable for</p>
+                          <ul className="mt-1 space-y-1 text-sm text-[var(--rw-soft)]">
+                            {(vm.decisionEngine.unsuitableFor.length
+                              ? vm.decisionEngine.unsuitableFor
+                              : ['High-Leverage Positions']
+                            ).map((item) => (
+                              <li key={item}>✖ {item}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
                   <p className="rw-mini mt-3">
-                    This briefing is institutional research context — not a recommendation to buy or sell.
+                    This briefing is institutional research context — not a brokerage order ticket.
                   </p>
                 </Section>
 

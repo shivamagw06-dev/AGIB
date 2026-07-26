@@ -728,6 +728,7 @@ class UiService:
         company_monitor: dict[str, Any] = {}
         intelligence_construction: dict[str, Any] = {}
         answer_construction: dict[str, Any] = {}
+        decision_engine: dict[str, Any] = {}
         used_cae = False
 
         # LEO v1.0 — gather / verify / package live evidence BEFORE Academy + SIF + IRP
@@ -1641,7 +1642,52 @@ class UiService:
         # Answer Construction V3: do NOT replace the research briefing with a withheld checklist.
         reco_gate = (sector_intelligence.get("recommendation_gate") or {})
         leo_gate = (live_evidence.get("quality_gate") or {}) if isinstance(live_evidence, dict) else {}
-        answer_construction: dict[str, Any] = {}
+
+        # AGIB Investment Decision Engine — multi-layer stack before any buy/sell conclusion
+        try:
+            from decision_engine.production import package_for_ask_agi as ide_package
+
+            aws_macro_pkg = dump(soft(self.aws.macro)) if self.aws else {}
+            decision_engine = (
+                ide_package(
+                    q,
+                    ticker=detected_ticker,
+                    cid=company_dossier if isinstance(company_dossier, dict) else None,
+                    company_analysis=company_analysis if isinstance(company_analysis, dict) else None,
+                    company_monitor=company_monitor if isinstance(company_monitor, dict) else None,
+                    sector_intelligence=sector_intelligence if isinstance(sector_intelligence, dict) else None,
+                    live_evidence=live_evidence if isinstance(live_evidence, dict) else None,
+                    evidence_completion=evidence_completion if isinstance(evidence_completion, dict) else None,
+                    valuation_pack=valuation if isinstance(valuation, dict) else None,
+                    market_events=market_events if isinstance(market_events, dict) else None,
+                    investment_intelligence=investment_intelligence
+                    if isinstance(investment_intelligence, dict)
+                    else None,
+                    institutional_briefing=(irp_dump or {}).get("institutional_briefing")
+                    if isinstance(irp_dump, dict)
+                    else None,
+                    intelligence_construction=intelligence_construction
+                    if isinstance(intelligence_construction, dict)
+                    else None,
+                    irp=irp_dump if isinstance(irp_dump, dict) else None,
+                    aws_macro=aws_macro_pkg if isinstance(aws_macro_pkg, dict) else None,
+                    gate_blocked=bool(reco_gate.get("blocked") or leo_gate.get("blocked")),
+                )
+                or {}
+            )
+            if decision_engine.get("active"):
+                for bullet in (decision_engine.get("answer_enrichment") or {}).get("why_bullets") or []:
+                    cleaned = scrub_text(bullet)
+                    if cleaned and cleaned not in why:
+                        why.append(cleaned[:420])
+                why = why[:14]
+                # Never lead with Buy/Sell — frame the executive as the decision hierarchy
+                framing = (decision_engine.get("answer_enrichment") or {}).get("executive_framing")
+                if framing and (not executive or "Insufficient" in str(executive)):
+                    executive = scrub_text(framing) or executive
+        except Exception:
+            decision_engine = {}
+
         try:
             from answer_construction.production import package_for_ask_agi as ac_package
 
@@ -1667,6 +1713,7 @@ class UiService:
                     institutional_briefing=(irp_dump or {}).get("institutional_briefing")
                     if isinstance(irp_dump, dict)
                     else None,
+                    decision_engine=decision_engine if isinstance(decision_engine, dict) else None,
                     reco_gate=reco_gate,
                     leo_gate=leo_gate,
                 )
@@ -2182,6 +2229,7 @@ class UiService:
             company_monitor=scrub(company_monitor) if company_monitor else {},
             intelligence_construction=scrub(intelligence_construction) if intelligence_construction else {},
             answer_construction=scrub(answer_construction) if answer_construction else {},
+            decision_engine=scrub(decision_engine) if decision_engine else {},
             institutional_briefing=scrub(briefing) or {},
             # Prefer live SIF/Ask-AGI sector pack; fall back to IRP sector pack
             sector_intelligence=scrub(sector_intelligence)
