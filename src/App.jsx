@@ -48,11 +48,12 @@ const ResearchWorkflowDesk = React.lazy(() => import('@/pages/ResearchWorkflowDe
 const AskAgiPage = React.lazy(() => import('@/pages/AskAgiPage'));
 const PredictionCentre = React.lazy(() => import('@/pages/PredictionCentre'));
 const PersonalWorkspace = React.lazy(() => import('@/pages/PersonalWorkspace'));
-const InvestmentOfficeHome = React.lazy(() => import('@/office/InvestmentOfficeHome'));
+const EditorialHome = React.lazy(() => import('@/components/Home/EditorialHome'));
 
 function HomeLayout() {
-  // Investment Office V1 — executive cockpit (existing dark IO shell; no site redesign)
-  return <InvestmentOfficeHome />;
+  // Public site home — do not replace with Investment Office / Mission Control shells.
+  // Those remain administrator-only under /admin/*.
+  return <EditorialHome />;
 }
 
 function AppShell() {
