@@ -343,9 +343,10 @@ class Settings(BaseSettings):
     institutional_analysts: bool = True
     ask_agi_iaf: bool = True
 
-    # Institutional Analyst Intelligence V1 — per-analyst brain upgrade (soft; one analyst at a time)
+    # Institutional Analyst Intelligence V1/V2 — per-analyst brain upgrade (soft; one analyst at a time)
     institutional_analyst_intelligence: bool = True
     iai_business_analyst: bool = True
+    iai_business_analyst_v2: bool = True
 
     # Investment Committee Intelligence V1 — deliberation / vote / minutes (not an engine)
     investment_committee_intelligence: bool = True

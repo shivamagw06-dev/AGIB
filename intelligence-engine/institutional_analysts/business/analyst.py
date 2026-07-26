@@ -1,10 +1,10 @@
-"""Business Analyst — Is this a business we would like to own?"""
+"""Business Analyst — Would a long-term institutional investor want to own this business?"""
 
 from __future__ import annotations
 
 from typing import Any
 
-from institutional_analysts.base import as_list, company_name, pick_confidence, structured_opinion
+from institutional_analysts.base import as_list, company_name, pick_confidence, structured_opinion, ticker_of
 from institutional_analysts.flags import is_iai_business_enabled
 from institutional_analysts.memory import get_previous_opinion
 
@@ -108,11 +108,13 @@ def _evidence_pack(ctx: dict[str, Any], name: str) -> dict[str, Any]:
     cid = ctx.get("company_dossier") if isinstance(ctx.get("company_dossier"), dict) else {}
     academy = ctx.get("finance_academy") if isinstance(ctx.get("finance_academy"), dict) else {}
     leo = ctx.get("live_evidence") if isinstance(ctx.get("live_evidence"), dict) else {}
+    sector = ctx.get("sector_intelligence") if isinstance(ctx.get("sector_intelligence"), dict) else {}
 
     bq = ca.get("business_quality") if isinstance(ca.get("business_quality"), dict) else {}
     identity = cid.get("identity") if isinstance(cid.get("identity"), dict) else {}
     profile = cid.get("business_profile") if isinstance(cid.get("business_profile"), dict) else {}
     thesis = ca.get("investment_thesis") if isinstance(ca.get("investment_thesis"), dict) else {}
+    management = cid.get("management") if isinstance(cid.get("management"), dict) else {}
 
     advantages = as_list(
         bq.get("strengths")
@@ -166,6 +168,13 @@ def _evidence_pack(ctx: dict[str, Any], name: str) -> dict[str, Any]:
         ),
         "business_risks": risks,
         "business_quality_score": score_f,
+        "management": management,
+        "governance": management.get("governance") if isinstance(management, dict) else None,
+        "documents_used": as_list(leo.get("documents_used"), limit=5),
+        "sector": sector,
+        "global_peers": as_list(sector.get("global_peers"), limit=4),
+        "indian_peers": as_list(sector.get("indian_peers") or sector.get("peers"), limit=4),
+        "historical_performance": as_list(bq.get("historical_performance"), limit=4),
         "evidence_refs": [
             {"claim": r, "source_ref": "institutional research"} for r in refs
         ]
@@ -178,7 +187,6 @@ def analyse(ctx: dict[str, Any]) -> dict[str, Any]:
         return _legacy_analyse(ctx)
 
     from institutional_analysts.business.brain import think
-    from institutional_analysts.base import ticker_of
 
     name = company_name(ctx)
     ca = ctx.get("company_analysis") if isinstance(ctx.get("company_analysis"), dict) else {}
@@ -194,17 +202,12 @@ def analyse(ctx: dict[str, Any]) -> dict[str, Any]:
         "freshness": pick_confidence(leo.get("freshness_score"), default=0.55),
         "coverage": coverage,
     }
-    conf["overall"] = round(
-        (
-            conf["evidence"] * 0.35
-            + conf["knowledge"] * 0.25
-            + conf["freshness"] * 0.2
-            + conf["coverage"] * 0.2
-        ),
-        4,
-    )
 
     previous = get_previous_opinion(ticker_of(ctx), "business")
+    # Enrich prior with V2 fields if present on stored opinion
+    if previous and isinstance(ctx.get("_prior_business_v2"), dict):
+        previous = {**previous, **ctx["_prior_business_v2"]}
+
     brain = think(
         company=name,
         evidence=evidence,
@@ -212,66 +215,107 @@ def analyse(ctx: dict[str, Any]) -> dict[str, Any]:
         confidence=conf,
     )
 
+    # Prefer brain confidence (includes reasoning factor)
+    conf_out = brain.get("confidence") if isinstance(brain.get("confidence"), dict) else conf
+
     score = evidence.get("business_quality_score")
     try:
         score_f = float(score) if score is not None else None
     except Exception:
         score_f = None
 
+    summary = str(brain.get("summary") or brain.get("executive_opinion") or "")
     base = structured_opinion(
         role="business",
-        summary=str(brain.get("summary") or brain.get("institutional_business_opinion") or ""),
+        summary=summary,
         strengths=list(brain.get("strengths") or []),
         weaknesses=list(brain.get("weaknesses") or []),
         evidence=[
             (e.get("claim") if isinstance(e, dict) else str(e))
             for e in (evidence.get("evidence_refs") or [])
         ],
-        unanswered_questions=list(brain.get("unanswered_questions") or []),
+        unanswered_questions=list(brain.get("unanswered_questions") or brain.get("missing_evidence") or []),
         sections={
-            "business_model": evidence.get("business_model"),
-            "revenue_drivers": evidence.get("revenue_drivers"),
-            "competitive_position": evidence.get("competitive_position"),
+            "business_model": (brain.get("business_model") or {}).get("assessment")
+            or evidence.get("business_model"),
+            "revenue_drivers": brain.get("revenue_drivers") or evidence.get("revenue_drivers"),
+            "competitive_position": brain.get("competitive_position") or evidence.get("competitive_position"),
             "competitive_advantages": evidence.get("advantages"),
-            "pricing_power": evidence.get("pricing_power"),
+            "pricing_power": (brain.get("pricing_power") or {}).get("assessment")
+            or evidence.get("pricing_power"),
             "brand": evidence.get("brand"),
-            "capital_allocation": evidence.get("capital_allocation"),
-            "growth_opportunities": evidence.get("growth_opportunities"),
-            "business_risks": evidence.get("business_risks"),
+            "capital_allocation": (brain.get("capital_allocation") or {}).get("assessment")
+            or evidence.get("capital_allocation"),
+            "growth_opportunities": brain.get("opportunities") or evidence.get("growth_opportunities"),
+            "business_risks": brain.get("risks") or evidence.get("business_risks"),
             "business_quality_score": score_f if score_f is not None else "n/a",
-            # IAI enrichment — section-safe summaries (full objects attached top-level)
-            "institutional_business_opinion": brain.get("institutional_business_opinion"),
+            "executive_opinion": brain.get("executive_opinion"),
             "business_quality_grade": (brain.get("business_quality") or {}).get("grade"),
-            "moat_durability": (brain.get("moat_assessment") or {}).get("durability"),
-            "moat_summary": (brain.get("moat_assessment") or {}).get("summary"),
-            "competitive_outlook_summary": (brain.get("competitive_outlook") or {}).get("summary"),
+            "moat_durability": (brain.get("moat") or {}).get("durability"),
+            "moat_summary": (brain.get("moat") or {}).get("summary")
+            or (brain.get("moat") or {}).get("assessment"),
+            "growth_runway": brain.get("growth_runway"),
+            "industry_position": brain.get("industry_position"),
             "assumptions": brain.get("assumptions"),
-            "uncertainty": brain.get("uncertainty"),
+            "uncertainties": brain.get("uncertainties"),
             "frameworks_applied": brain.get("frameworks_applied"),
+            "trajectory": brain.get("trajectory"),
             "iai_version": brain.get("iai_version"),
+            "quality_status": (brain.get("quality_checks") or {}).get("status"),
         },
         stance=str(brain.get("stance") or "Neutral"),
-        confidence=conf,
+        confidence=conf_out,
         score=score_f,
         ctx=ctx,
     )
 
-    # Soft enrich top-level without breaking structured_opinion contract consumers.
-    base["institutional_business_opinion"] = brain.get("institutional_business_opinion")
-    base["business_quality"] = brain.get("business_quality")
-    base["moat_assessment"] = brain.get("moat_assessment")
+    # Canonical V2 structured object + compatibility aliases
+    structured = brain.get("structured_business_opinion") or {}
+    for key in (
+        "executive_opinion",
+        "business_quality",
+        "moat",
+        "competitive_position",
+        "business_model",
+        "revenue_drivers",
+        "customer_economics",
+        "pricing_power",
+        "capital_allocation",
+        "innovation",
+        "industry_position",
+        "growth_runway",
+        "risks",
+        "opportunities",
+        "assumptions",
+        "uncertainties",
+        "missing_evidence",
+        "quality_checks",
+    ):
+        if key in structured:
+            base[key] = structured[key]
+        elif brain.get(key) is not None:
+            base[key] = brain.get(key)
+
+    base["structured_business_opinion"] = structured
+    base["moat_assessment"] = brain.get("moat_assessment") or brain.get("moat")
     base["competitive_outlook"] = brain.get("competitive_outlook")
     base["reasoning"] = brain.get("reasoning")
-    base["assumptions"] = brain.get("assumptions")
-    base["uncertainty"] = brain.get("uncertainty")
-    base["quality_checks"] = brain.get("quality_checks")
+    base["uncertainty"] = brain.get("uncertainty") or brain.get("uncertainties")
     base["validation"] = brain.get("validation")
     base["analyst_memory"] = brain.get("memory")
+    base["benchmarks"] = brain.get("benchmarks")
+    base["trajectory"] = brain.get("trajectory")
+    base["primary_question_answer"] = brain.get("primary_question_answer")
+    base["institutional_business_opinion"] = brain.get("institutional_business_opinion") or summary
     base["iai_version"] = brain.get("iai_version")
     base["iai_active"] = True
+    base["iai_v2"] = True
     base["ready_for_committee"] = brain.get("ready_for_committee")
 
-    # Enrich change notes only when a prior opinion exists (preserve first-run None).
+    # Ensure confidence exposes reasoning factor
+    if isinstance(base.get("confidence"), dict) and "reasoning" in conf_out:
+        base["confidence"]["reasoning"] = conf_out["reasoning"]
+
     if previous:
         brain_changed = list(brain.get("what_changed") or [])
         wc = base.get("what_changed") if isinstance(base.get("what_changed"), dict) else {}
@@ -279,8 +323,12 @@ def analyse(ctx: dict[str, Any]) -> dict[str, Any]:
         for note in brain_changed:
             if note and note not in notes:
                 notes.append(note)
+        traj = brain.get("trajectory")
+        if traj and traj != "Stable":
+            notes.append(f"Overall business view trajectory: {traj}")
         if wc:
             wc["notes"] = notes[:6]
+            wc["trajectory"] = traj
             base["what_changed"] = wc
         elif notes:
             base["what_changed"] = {
@@ -288,6 +336,7 @@ def analyse(ctx: dict[str, Any]) -> dict[str, Any]:
                 "current_stance": base.get("stance"),
                 "changed": True,
                 "notes": notes[:6],
+                "trajectory": traj,
             }
 
     return base

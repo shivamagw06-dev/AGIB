@@ -92,8 +92,17 @@ def test_brain_think_institutional_shape():
     )
     assert out["iai_version"] == IAI_BUSINESS_VERSION
     assert out["stance"] in {"Bullish", "Neutral", "Bearish"}
-    assert out["business_quality"]["grade"] in {"High", "Adequate", "Weak"}
-    assert out["moat_assessment"]["durability"] in {"High", "Moderate", "Low"}
+    assert out["business_quality"]["grade"] in {"Exceptional", "High", "Adequate", "Weak"}
+    assert out["moat_assessment"]["durability"] in {
+        "High",
+        "Moderate",
+        "Low",
+        "Strong",
+        "Medium",
+        "Weak",
+        "Improving",
+        "Declining",
+    }
     assert out["competitive_outlook"]["summary"]
     assert len(out["reasoning"]) >= 4
     assert out["assumptions"]
@@ -166,7 +175,13 @@ def test_memory_compares_prior_view():
 def test_weak_franchise_bearish_path():
     op = analyse(_ctx(biz_score=35))
     assert op["stance"] in {"Bearish", "Neutral"}
-    assert op["moat_assessment"]["durability"] in {"Low", "Moderate"}
+    assert op["moat_assessment"]["durability"] in {
+        "Low",
+        "Moderate",
+        "Weak",
+        "Medium",
+        "Declining",
+    }
 
 
 def test_package_still_consumes_business_opinion():
