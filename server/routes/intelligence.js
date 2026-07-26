@@ -2065,5 +2065,66 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // RQ1 Institutional Research Execution Package — Sprint 10 soft-wire (final RQ1)
+  router.get('/research-execution/health', kfGet('/v1/research-execution/health'));
+  router.get('/research-execution/dashboard', kfGet('/v1/research-execution/dashboard'));
+  router.get('/research-execution/constitution', kfGet('/v1/research-execution/constitution'));
+  router.get('/research-execution/quality-gates', kfGet('/v1/research-execution/quality-gates'));
+  router.post('/research-execution/build', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/research-execution/build', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'IREP build failed', detail: error.message });
+    }
+  });
+  router.post('/research-execution/plan', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/research-execution/plan', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'IREP plan failed', detail: error.message });
+    }
+  });
+  router.post('/research-execution/enrich', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/research-execution/enrich', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'IREP enrich failed', detail: error.message });
+    }
+  });
+  router.post('/research-execution/export', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/research-execution/export', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'IREP export failed', detail: error.message });
+    }
+  });
+  router.post('/research-execution/diagnostics', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/research-execution/diagnostics', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'IREP diagnostics failed', detail: error.message });
+    }
+  });
+
   return router;
 }

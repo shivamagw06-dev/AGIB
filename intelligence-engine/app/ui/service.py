@@ -810,6 +810,23 @@ class UiService:
         except Exception:
             layer_router = {}
 
+        # RQ1 Sprint 10 — Institutional Research Execution Package (final immutable planning brief)
+        research_execution: dict[str, Any] = {}
+        try:
+            from research_execution.production import soft_slice_for_ask_agi as irep_soft_slice
+
+            irep_payload = {
+                "research_ontology": research_ontology,
+                "entity_resolution": entity_resolution,
+                "research_objective": research_objective,
+                "context_intelligence": context_intelligence,
+                "analyst_router": analyst_router,
+                "layer_router": layer_router,
+            }
+            research_execution = irep_soft_slice(q, irep_payload) or {}
+        except Exception:
+            research_execution = {}
+
         # CAE gateway (preferred) — else MEE→FLE→IIE→EVE→AOI→KCV/KF soft enrichment.
         kf_hits: list[dict[str, Any]] = []
         knowledge_corpus: dict[str, Any] = {}
@@ -2438,6 +2455,7 @@ class UiService:
             context_intelligence=scrub(context_intelligence) if context_intelligence else {},
             analyst_router=scrub(analyst_router) if analyst_router else {},
             layer_router=scrub(layer_router) if layer_router else {},
+            research_execution=scrub(research_execution) if research_execution else {},
         )
 
     def timeline(self, entity: str) -> TimelineView:

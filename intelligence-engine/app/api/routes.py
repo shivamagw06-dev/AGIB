@@ -5081,6 +5081,72 @@ async def layer_router_diagnostics(payload: dict[str, Any] = Body(default={})):
     return diagnostics(payload or {})
 
 
+# --- RQ1 Institutional Research Execution Package (Sprint 10 — final RQ1 planning package; not a top-level layer) ---
+
+
+@router.get("/research-execution/health")
+async def research_execution_health():
+    from research_execution.production import health
+
+    return health()
+
+
+@router.get("/research-execution/dashboard")
+async def research_execution_dashboard():
+    from research_execution.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/research-execution/constitution")
+async def research_execution_constitution():
+    from research_execution.production import constitution
+
+    return constitution()
+
+
+@router.get("/research-execution/quality-gates")
+async def research_execution_quality_gates():
+    from research_execution.production import quality_gates
+
+    return quality_gates()
+
+
+@router.post("/research-execution/build")
+async def research_execution_build(payload: dict[str, Any] = Body(default={})):
+    from research_execution.production import build
+
+    return build(payload or {})
+
+
+@router.post("/research-execution/plan")
+async def research_execution_plan(payload: dict[str, Any] = Body(default={})):
+    from research_execution.production import plan
+
+    return plan(payload or {})
+
+
+@router.post("/research-execution/enrich")
+async def research_execution_enrich(payload: dict[str, Any] = Body(default={})):
+    from research_execution.production import enrich
+
+    return enrich(payload or {})
+
+
+@router.post("/research-execution/export")
+async def research_execution_export(payload: dict[str, Any] = Body(default={})):
+    from research_execution.production import export
+
+    return export(payload or {})
+
+
+@router.post("/research-execution/diagnostics")
+async def research_execution_diagnostics(payload: dict[str, Any] = Body(default={})):
+    from research_execution.production import diagnostics
+
+    return diagnostics(payload or {})
+
+
 # --- SIF v1.0 (Sector Intelligence Framework — additive; not an engine) ---
 
 

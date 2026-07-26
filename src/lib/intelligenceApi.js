@@ -1283,3 +1283,24 @@ export const diagnoseLayerRouter = (payload = {}) =>
     method: 'POST',
     body: typeof payload === 'string' ? { question: payload } : payload,
   });
+
+/** RQ1 Institutional Research Execution Package — Sprint 10 (final RQ1) */
+export const getResearchExecutionHealth = () => intelligenceFetch('/research-execution/health');
+export const getResearchExecutionDashboard = () => intelligenceFetch('/research-execution/dashboard');
+export const getResearchExecutionConstitution = () => intelligenceFetch('/research-execution/constitution');
+export const getResearchExecutionQualityGates = () => intelligenceFetch('/research-execution/quality-gates');
+export const buildResearchExecution = (payload = {}) =>
+  intelligenceFetch('/research-execution/build', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });
+export const exportResearchExecution = (payload = {}) =>
+  intelligenceFetch('/research-execution/export', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload, format: 'markdown' } : payload,
+  });
+export const diagnoseResearchExecution = (payload = {}) =>
+  intelligenceFetch('/research-execution/diagnostics', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });
