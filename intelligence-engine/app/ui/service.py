@@ -726,6 +726,8 @@ class UiService:
         evidence_completion: dict[str, Any] = {}
         company_analysis: dict[str, Any] = {}
         company_monitor: dict[str, Any] = {}
+        intelligence_construction: dict[str, Any] = {}
+        answer_construction: dict[str, Any] = {}
         used_cae = False
 
         # LEO v1.0 — gather / verify / package live evidence BEFORE Academy + SIF + IRP
@@ -1401,70 +1403,45 @@ class UiService:
                     "concepts_influencing_answer": list(prov.get("concept_ids") or [])[:12],
                 }
         # CID first — reason from living dossier, not raw API rebuilds
+        # Answer Construction V3: never inject raw Missing: checklist keys into why.
         if isinstance(company_dossier, dict) and company_dossier.get("ticker"):
             hint = company_dossier.get("reasoning_hint")
             if hint and hint not in why:
                 why.insert(0, scrub_text(hint)[:320])
-            grade = company_dossier.get("coverage_grade")
-            if grade and f"CID coverage: {grade}" not in why:
-                why.insert(
-                    0,
-                    scrub_text(
-                        f"CID coverage: {grade} ({company_dossier.get('coverage_score')}). "
-                        f"Missing: {', '.join((company_dossier.get('missing_evidence') or [])[:5]) or 'none'}."
-                    )[:300],
-                )
             why = why[:12]
 
-        # DVC — mention conflicts; prefer validated canonical values
+        # DVC — mention conflicts; prefer validated canonical values (no provider / grade spam)
         if isinstance(data_validation, dict) and data_validation.get("enabled") is not False:
             for hint in (data_validation.get("ask_agi_hints") or [])[:4]:
-                if hint and hint not in why:
-                    why.insert(0, scrub_text(hint)[:360])
-            # Surface research/data grade from DVC panel when present
-            panel = data_validation.get("panel") or {}
-            if panel.get("research_grade") and f"Research Grade {panel.get('research_grade')}" not in str(why):
-                why.insert(
-                    0,
-                    scrub_text(
-                        f"Research Grade {panel.get('research_grade')} · Data Grade {panel.get('data_grade')} · "
-                        f"Confidence {round(float(panel.get('confidence') or 0) * 100)}% "
-                        f"(canonical: {panel.get('winning_provider') or data_validation.get('winning_provider') or 'n/a'})."
-                    )[:320],
-                )
+                cleaned = scrub_text(hint)[:360]
+                if cleaned and cleaned not in why and "winning_provider" not in cleaned.lower():
+                    why.insert(0, cleaned)
             why = why[:12]
 
-        # ECP — quality gates + completion / withheld explanation
+        # ECP — completion hints only (coverage / Missing checklists deferred to Recommendation Status)
         if isinstance(evidence_completion, dict) and evidence_completion.get("enabled") is not False:
             for hint in (evidence_completion.get("ask_agi_hints") or [])[:4]:
-                if hint and hint not in why:
-                    why.insert(0, scrub_text(hint)[:400])
-            panel = evidence_completion.get("quality_panel") or {}
-            if panel.get("coverage_pct") is not None:
-                why.insert(
-                    0,
-                    scrub_text(
-                        f"ECP Coverage {panel.get('coverage_pct')}% "
-                        f"(was {panel.get('coverage_before_pct')}%). "
-                        f"Missing: {', '.join((panel.get('missing_items') or panel.get('must_have_missing') or [])[:6]) or 'none'}."
-                    )[:360],
-                )
+                cleaned = scrub_text(hint)[:400]
+                if (
+                    cleaned
+                    and cleaned not in why
+                    and "missing:" not in cleaned.lower()
+                    and "recommendation withheld" not in cleaned.lower()
+                ):
+                    why.insert(0, cleaned)
             why = why[:12]
 
-        # Company Analysis — applied Academy concepts + readiness (never auto-recommend)
+        # Company Analysis — applied Academy concepts (readiness gate is trailing, not lead why)
         if isinstance(company_analysis, dict) and company_analysis.get("enabled"):
             for hint in (company_analysis.get("ask_agi_hints") or [])[:4]:
-                if hint and hint not in why:
-                    why.insert(0, scrub_text(hint)[:400])
-            readiness = company_analysis.get("recommendation_readiness") or {}
-            if readiness.get("overall") is not None:
-                why.insert(
-                    0,
-                    scrub_text(
-                        f"Company Analysis readiness {readiness.get('overall')}% — "
-                        f"gate: {readiness.get('gate')} (not an automatic recommendation)."
-                    )[:320],
-                )
+                cleaned = scrub_text(hint)[:400]
+                if (
+                    cleaned
+                    and cleaned not in why
+                    and "readiness" not in cleaned.lower()
+                    and "gate:" not in cleaned.lower()
+                ):
+                    why.insert(0, cleaned)
             bq = (company_analysis.get("business_quality") or {}).get("business_quality_score")
             if bq is not None:
                 why.insert(0, scrub_text(f"Business quality score: {bq}/100.")[:200])
@@ -1499,6 +1476,41 @@ class UiService:
                 if hint and hint not in why:
                     why.insert(0, scrub_text(hint)[:300])
             why = why[:12]
+
+        # Ask AGI Intelligence Construction V2 — consume validated CID/CA/DVC/LEO/etc into one brief
+        try:
+            from intelligence_construction.production import package_for_ask_agi as ic_package
+
+            intelligence_construction = (
+                ic_package(
+                    q,
+                    ticker=detected_ticker,
+                    cid=company_dossier if isinstance(company_dossier, dict) else None,
+                    company_analysis=company_analysis if isinstance(company_analysis, dict) else None,
+                    company_monitor=company_monitor if isinstance(company_monitor, dict) else None,
+                    finance_academy=finance_academy if isinstance(finance_academy, dict) else None,
+                    knowledge_foundation={"hits": kf_hits} if kf_hits else (knowledge_corpus if isinstance(knowledge_corpus, dict) else None),
+                    live_evidence=live_evidence if isinstance(live_evidence, dict) else None,
+                    data_validation=data_validation if isinstance(data_validation, dict) else None,
+                    evidence_completion=evidence_completion if isinstance(evidence_completion, dict) else None,
+                    irp=irp_dump if isinstance(irp_dump, dict) else None,
+                    investment_office=investment_office_pkg if isinstance(investment_office_pkg, dict) else None,
+                )
+                or {}
+            )
+            if intelligence_construction.get("enabled"):
+                enrich = intelligence_construction.get("answer_enrichment") or {}
+                for bullet in (enrich.get("why_bullets") or [])[:8]:
+                    cleaned = scrub_text(bullet)
+                    if cleaned and cleaned not in why:
+                        why.insert(0, cleaned[:420])
+                if enrich.get("executive_summary"):
+                    executive = scrub_text(enrich["executive_summary"]) or executive
+                if enrich.get("valuation_perspective") and not thesis:
+                    pass
+                why = why[:14]
+        except Exception:
+            intelligence_construction = {}
 
         # ECP second pass — if still blocked, one more soft completion before final gate
         try:
@@ -1552,29 +1564,116 @@ class UiService:
                             )
                         )[:8],
                     }
+                    # Soft refresh Company Analysis + Intelligence Construction after secondary enrichment
+                    try:
+                        from company_analysis.production import package_for_ask_agi as company_analysis_package
+
+                        refreshed_ca = (
+                            company_analysis_package(
+                                q,
+                                ticker=detected_ticker,
+                                cid=company_dossier if isinstance(company_dossier, dict) else None,
+                                finance_academy=finance_academy if isinstance(finance_academy, dict) else None,
+                                sif_pkg=sector_intelligence if isinstance(sector_intelligence, dict) else None,
+                                leo_pkg=live_evidence if isinstance(live_evidence, dict) else None,
+                                dvc_pkg=data_validation if isinstance(data_validation, dict) else None,
+                                valuation_pack=valuation if isinstance(valuation, dict) else None,
+                                forecast_learning=forecast_learning if isinstance(forecast_learning, dict) else None,
+                                market_events=market_events if isinstance(market_events, dict) else None,
+                            )
+                            or {}
+                        )
+                        if refreshed_ca.get("enabled") or refreshed_ca.get("ticker"):
+                            company_analysis = refreshed_ca
+                    except Exception:
+                        pass
+                    try:
+                        from intelligence_construction.production import package_for_ask_agi as ic_package
+
+                        refreshed_ic = (
+                            ic_package(
+                                q,
+                                ticker=detected_ticker,
+                                cid=company_dossier if isinstance(company_dossier, dict) else None,
+                                company_analysis=company_analysis if isinstance(company_analysis, dict) else None,
+                                company_monitor=company_monitor if isinstance(company_monitor, dict) else None,
+                                finance_academy=finance_academy if isinstance(finance_academy, dict) else None,
+                                knowledge_foundation={"hits": kf_hits}
+                                if kf_hits
+                                else (knowledge_corpus if isinstance(knowledge_corpus, dict) else None),
+                                live_evidence=live_evidence if isinstance(live_evidence, dict) else None,
+                                data_validation=data_validation if isinstance(data_validation, dict) else None,
+                                evidence_completion=evidence_completion if isinstance(evidence_completion, dict) else None,
+                                irp=irp_dump if isinstance(irp_dump, dict) else None,
+                                investment_office=investment_office_pkg if isinstance(investment_office_pkg, dict) else None,
+                            )
+                            or {}
+                        )
+                        if refreshed_ic.get("enabled"):
+                            intelligence_construction = refreshed_ic
+                            enrich2 = refreshed_ic.get("answer_enrichment") or {}
+                            if enrich2.get("executive_summary"):
+                                executive = scrub_text(enrich2["executive_summary"]) or executive
+                            for bullet in (enrich2.get("why_bullets") or [])[:6]:
+                                cleaned = scrub_text(bullet)
+                                if cleaned and cleaned not in why:
+                                    why.insert(0, cleaned[:420])
+                            why = why[:14]
+                    except Exception:
+                        pass
         except Exception:
             pass
 
-        # Evidence gate — SIF company evidence + LEO live evidence (do not Buy/Hold/Sell on Academy alone)
-        # Gate logic unchanged — ECP only attempts completion before this evaluation.
+        # Evidence gate — SIF + LEO still control Buy/Hold/Sell.
+        # Answer Construction V3: do NOT replace the research briefing with a withheld checklist.
         reco_gate = (sector_intelligence.get("recommendation_gate") or {})
         leo_gate = (live_evidence.get("quality_gate") or {}) if isinstance(live_evidence, dict) else {}
-        if reco_gate.get("blocked") or leo_gate.get("blocked"):
-            ecp_expl = None
-            if isinstance(evidence_completion, dict):
-                ecp_expl = evidence_completion.get("withheld_explanation")
-            thesis = (
-                ecp_expl
-                or leo_gate.get("message")
-                or reco_gate.get("message")
-                or "Institutional recommendation withheld due to insufficient current evidence."
+        answer_construction: dict[str, Any] = {}
+        try:
+            from answer_construction.production import package_for_ask_agi as ac_package
+
+            answer_construction = (
+                ac_package(
+                    query=q,
+                    executive=executive,
+                    thesis=thesis,
+                    house_label=house_label,
+                    bull=bull,
+                    bear=bear,
+                    risks=risks,
+                    catalysts=catalysts,
+                    why=why,
+                    intelligence_construction=intelligence_construction
+                    if isinstance(intelligence_construction, dict)
+                    else None,
+                    company_analysis=company_analysis if isinstance(company_analysis, dict) else None,
+                    company_dossier=company_dossier if isinstance(company_dossier, dict) else None,
+                    evidence_completion=evidence_completion if isinstance(evidence_completion, dict) else None,
+                    live_evidence=live_evidence if isinstance(live_evidence, dict) else None,
+                    sector_intelligence=sector_intelligence if isinstance(sector_intelligence, dict) else None,
+                    institutional_briefing=(irp_dump or {}).get("institutional_briefing")
+                    if isinstance(irp_dump, dict)
+                    else None,
+                    reco_gate=reco_gate,
+                    leo_gate=leo_gate,
+                )
+                or {}
             )
-            house_label = "Insufficient Evidence"
-            executive = thesis
-            bull = []
-            bear = []
-            if thesis not in why:
-                why.insert(0, scrub_text(thesis)[:500])
+            if answer_construction.get("enabled"):
+                executive = answer_construction.get("executive") or executive
+                thesis = answer_construction.get("thesis") or thesis
+                house_label = answer_construction.get("house_label") or house_label
+                bull = list(answer_construction.get("bull") or bull)
+                bear = list(answer_construction.get("bear") or bear)
+                risks = list(answer_construction.get("risks") or risks)
+                catalysts = list(answer_construction.get("catalysts") or catalysts)
+                why = list(answer_construction.get("why") or why)
+        except Exception:
+            answer_construction = {}
+            # Legacy soft fallback — still avoid wiping the brief when gated
+            if reco_gate.get("blocked") or leo_gate.get("blocked"):
+                if house_label and "insufficient" in str(house_label).lower():
+                    house_label = "Neutral"
 
         timeline: list[dict[str, Any]] = []
         if detected_ticker and self.kip:
@@ -1758,6 +1857,56 @@ class UiService:
         briefing = (irp_dump or {}).get("institutional_briefing") if isinstance(irp_dump, dict) else {}
         if not isinstance(briefing, dict):
             briefing = {}
+        # Soft-merge Intelligence Construction V2 interpretive sections into briefing
+        if isinstance(intelligence_construction, dict) and intelligence_construction.get("enabled"):
+            enrich = intelligence_construction.get("answer_enrichment") or {}
+            sections = intelligence_construction.get("sections") or {}
+            briefing = {
+                **briefing,
+                "executive_summary": enrich.get("executive_summary") or briefing.get("executive_summary"),
+                "current_outlook": enrich.get("current_outlook") or briefing.get("current_outlook"),
+                "valuation_perspective": enrich.get("valuation_perspective")
+                or briefing.get("valuation_perspective"),
+                "key_drivers": list(enrich.get("key_drivers") or briefing.get("key_drivers") or [])[:8],
+                "market_performance": (sections.get("market_performance") or {}).get("narrative"),
+                "financial_intelligence": (sections.get("financial_intelligence") or {}).get("narrative"),
+                "ownership": (sections.get("ownership") or {}).get("narrative"),
+                "intelligence_construction_version": intelligence_construction.get("version"),
+            }
+            if enrich.get("executive_summary"):
+                # Prefer ACV3 executive when it already replaced a gate-failure summary
+                from answer_construction.knowledge_gaps import looks_like_gate_failure_summary as _gate_fail
+
+                candidate = scrub_text(enrich["executive_summary"])
+                if candidate and not _gate_fail(candidate):
+                    if not executive or _gate_fail(executive):
+                        executive = candidate
+                    elif not answer_construction.get("enabled"):
+                        executive = candidate
+                answer["executive_summary"] = executive
+                answer["summary"] = executive
+            if enrich.get("valuation_perspective"):
+                current_thesis_val = scrub_text(enrich["valuation_perspective"])
+                if current_thesis_val:
+                    briefing["valuation_perspective"] = current_thesis_val
+
+        # Answer Construction V3 — keep IRP gate-failure outlook out of the lead briefing
+        if isinstance(answer_construction, dict) and answer_construction.get("enabled"):
+            from answer_construction.knowledge_gaps import looks_like_gate_failure_summary as _gate_fail
+
+            if answer_construction.get("executive"):
+                executive = scrub_text(answer_construction["executive"]) or executive
+                answer["executive_summary"] = executive
+                answer["summary"] = executive
+                briefing["executive_summary"] = executive
+            if _gate_fail(briefing.get("current_outlook")):
+                briefing["current_outlook"] = answer_construction.get("thesis") or executive
+            reco_status = answer_construction.get("recommendation_status") or {}
+            if reco_status:
+                briefing["recommendation_status"] = reco_status
+                briefing["knowledge_gaps"] = reco_status.get("knowledge_gaps") or answer_construction.get(
+                    "knowledge_gaps"
+                )
         neutral_case = list(briefing.get("neutral_case") or [])
         if not neutral_case:
             if hv_card.get("stance") == "Neutral":
@@ -2018,6 +2167,8 @@ class UiService:
             evidence_completion=scrub(evidence_completion) if evidence_completion else {},
             company_analysis=scrub(company_analysis) if company_analysis else {},
             company_monitor=scrub(company_monitor) if company_monitor else {},
+            intelligence_construction=scrub(intelligence_construction) if intelligence_construction else {},
+            answer_construction=scrub(answer_construction) if answer_construction else {},
             institutional_briefing=scrub(briefing) or {},
             # Prefer live SIF/Ask-AGI sector pack; fall back to IRP sector pack
             sector_intelligence=scrub(sector_intelligence)
