@@ -17,6 +17,7 @@ PIPELINE = [
     "PIL",
     "Institutional Analysts",
     "Investment Committee",
+    "PORTFOLIO INTELLIGENCE OFFICE",
     "CIO",
     "Research Writer",
     "ACS",
@@ -29,6 +30,7 @@ LAYERS = (
     "filing_diff",
     "management_intelligence",
     "accounting_intelligence",
+    "portfolio_intelligence",
     "evidence_intelligence",
     "peer_intelligence",
 )

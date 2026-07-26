@@ -209,6 +209,7 @@ def package_for_ask_agi(
             ctx["filing_diff"] = layers.get("filing_diff") or {}
             ctx["management_intelligence_layer"] = layers.get("management_intelligence") or {}
             ctx["accounting_intelligence"] = layers.get("accounting_intelligence") or {}
+            ctx["portfolio_intelligence"] = layers.get("portfolio_intelligence") or {}
             ctx["peer_intelligence"] = layers.get("peer_intelligence") or {}
             ctx["evidence_intelligence"] = layers.get("evidence_intelligence") or {}
     except Exception:
@@ -253,7 +254,34 @@ def package_for_ask_agi(
             }
 
     committee = aggregate(opinions, query=query, company=name, ticker=t)
+
+    # Soft PIO — portfolio impact between Committee and CIO (never redesigns either)
+    portfolio_intelligence: dict[str, Any] = {}
+    try:
+        from portfolio_intelligence.production import soft_slice_for_analyst as pio_slice
+
+        if t:
+            portfolio_intelligence = (pio_slice(t, analyst="committee") or {}).get(
+                "portfolio_intelligence"
+            ) or {}
+            if portfolio_intelligence:
+                committee = {
+                    **committee,
+                    "portfolio_intelligence": portfolio_intelligence,
+                    "portfolio_impact": portfolio_intelligence.get("impact"),
+                    "portfolio_trade_offs": portfolio_intelligence.get("suitability"),
+                }
+    except Exception:
+        portfolio_intelligence = ctx.get("portfolio_intelligence") or {}
+
     cio = write_report(committee, query=query, company=name)
+    if portfolio_intelligence:
+        cio = {
+            **cio,
+            "portfolio_intelligence": portfolio_intelligence,
+            "portfolio_context": portfolio_intelligence.get("cio_brief")
+            or portfolio_intelligence.get("suitability"),
+        }
 
     # Persist memory AFTER opinions are built (so this run can compare to prior)
     iaf_memory.put_opinions(t, opinions)
@@ -312,6 +340,7 @@ def package_for_ask_agi(
         "ownership_intelligence": opinions.get("ownership"),
         "institutional_view": committee,
         "institutional_stack": ctx.get("institutional_stack") or {},
+        "portfolio_intelligence": portfolio_intelligence,
         "ask_agi_hints": [
             f"Specialist analysts contributed structured opinions on {name}",
             f"Committee stance: {committee.get('committee_stance')}",
@@ -328,6 +357,13 @@ def package_for_ask_agi(
         base_pack["ask_agi_hints"].append(
             f"Accounting behaviour: {stack_summary.get('accounting_behaviour')} "
             f"(quality {stack_summary.get('accounting_quality_score')})"
+        )
+    if stack_summary.get("portfolio_net_effect") or stack_summary.get("portfolio_grade"):
+        base_pack["ask_agi_hints"].append(
+            f"Portfolio fit ({stack_summary.get('portfolio_id')}): "
+            f"grade {stack_summary.get('portfolio_grade')} · "
+            f"net effect {stack_summary.get('portfolio_net_effect')} · "
+            f"PQE {stack_summary.get('portfolio_quality')}"
         )
 
     # Institutional Research Writer — presentation layer AFTER CIO (never mutates votes/confidence)

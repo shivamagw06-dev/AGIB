@@ -26,6 +26,7 @@ import InvestmentOfficeAdmin from '@/pages/admin/InvestmentOffice';
 import MissionControl from '@/pages/admin/MissionControl';
 import InstitutionalStack from '@/pages/admin/InstitutionalStack';
 import AccountingIntelligence from '@/pages/admin/AccountingIntelligence';
+import PortfolioIntelligence from '@/pages/admin/PortfolioIntelligence';
 
 export default function AdminRoutes() {
   return (
@@ -48,6 +49,7 @@ export default function AdminRoutes() {
           <Route path="company-analysis" element={<CompanyAnalysis />} />
           <Route path="institutional-stack" element={<InstitutionalStack />} />
           <Route path="accounting-intelligence" element={<AccountingIntelligence />} />
+          <Route path="portfolio-intelligence" element={<PortfolioIntelligence />} />
           <Route path="company-monitor" element={<CompanyMonitor />} />
           <Route path="investment-office" element={<InvestmentOfficeAdmin />} />
           <Route path="mission-control" element={<MissionControl />} />

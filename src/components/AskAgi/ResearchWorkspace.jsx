@@ -859,7 +859,7 @@ export default function ResearchWorkspace({
                   <Section
                     id="institutional-stack"
                     kicker="Institutional Stack"
-                    title="Filing · Diff · Management · Accounting · Peers"
+                    title="Filing · Trust · Accounting · Portfolio Fit · Peers"
                   >
                     <div className="rw-grid-2">
                       <div>
@@ -884,13 +884,28 @@ export default function ResearchWorkspace({
                         </p>
                       </div>
                       <div>
-                        <p className="rw-mini">Filing evidence</p>
+                        <p className="rw-mini">Portfolio book</p>
                         <p className="font-semibold">
-                          {vm.institutionalStack.filingFound ? 'Present' : 'Sparse'}
+                          {vm.institutionalStack.portfolioId || '—'}
+                          {vm.institutionalStack.portfolioGrade
+                            ? ` · grade ${vm.institutionalStack.portfolioGrade}`
+                            : ''}
                         </p>
-                        <p className="rw-mini mt-2">Material change signal</p>
+                        <p className="rw-mini mt-2">Portfolio quality (PQE)</p>
                         <p className="font-semibold">
-                          {vm.institutionalStack.materialChangeSignal ? 'Active' : 'Quiet'}
+                          {vm.institutionalStack.portfolioQuality ?? '—'}
+                        </p>
+                        <p className="rw-mini mt-2">Candidate portfolio effect</p>
+                        <p className="font-semibold">
+                          {vm.institutionalStack.portfolioNetEffect || '—'}
+                          {vm.institutionalStack.portfolioFit
+                            ? ` · fit ${vm.institutionalStack.portfolioFit}`
+                            : ''}
+                        </p>
+                        <p className="rw-mini mt-2">Filing / what-changed</p>
+                        <p className="font-semibold">
+                          {vm.institutionalStack.filingFound ? 'Filings present' : 'Sparse'}
+                          {vm.institutionalStack.materialChangeSignal ? ' · FDI active' : ''}
                         </p>
                       </div>
                     </div>

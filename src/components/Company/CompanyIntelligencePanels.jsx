@@ -242,6 +242,22 @@ export default function CompanyIntelligencePanels({ data }) {
                 ? 'Material change signal active'
                 : 'No material FDI signal'}
             </Card>
+            <Card title="Portfolio Fit">
+              {data.institutional_stack?.summary?.portfolio_net_effect ||
+                data.portfolio_fit?.net_effect ||
+                '—'}
+              {(data.institutional_stack?.summary?.portfolio_quality ??
+                data.portfolio_fit?.portfolio_quality) != null ? (
+                <p className="text-xs text-[#667085] mt-1">
+                  PQE{' '}
+                  {data.institutional_stack?.summary?.portfolio_quality ??
+                    data.portfolio_fit?.portfolio_quality}
+                  {data.institutional_stack?.summary?.portfolio_grade
+                    ? ` · grade ${data.institutional_stack.summary.portfolio_grade}`
+                    : ''}
+                </p>
+              ) : null}
+            </Card>
           </div>
         </section>
       )}

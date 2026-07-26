@@ -1571,5 +1571,51 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // Portfolio Intelligence Office
+  router.get('/portfolio-intelligence/health', kfGet('/v1/portfolio-intelligence/health'));
+  router.get('/portfolio-intelligence/dashboard', kfGet('/v1/portfolio-intelligence/dashboard'));
+  router.get('/portfolio-intelligence/quality-gates', kfGet('/v1/portfolio-intelligence/quality-gates'));
+  router.get('/portfolio-intelligence/portfolio/:id', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/portfolio-intelligence/portfolio/${encodeURIComponent(req.params.id)}`
+      );
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Portfolio intelligence unavailable', detail: error.message });
+    }
+  });
+  router.get('/portfolio-intelligence/health/:id', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/portfolio-intelligence/health/${encodeURIComponent(req.params.id)}`
+      );
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Portfolio health unavailable', detail: error.message });
+    }
+  });
+  router.get('/portfolio-intelligence/scenarios/:id', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/portfolio-intelligence/scenarios/${encodeURIComponent(req.params.id)}`
+      );
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Portfolio scenarios unavailable', detail: error.message });
+    }
+  });
+  router.post('/portfolio-intelligence/analyse', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/portfolio-intelligence/analyse', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Portfolio intelligence analyse failed', detail: error.message });
+    }
+  });
+
   return router;
 }

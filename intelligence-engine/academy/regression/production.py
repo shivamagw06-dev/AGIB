@@ -204,6 +204,14 @@ def dashboard() -> dict[str, Any]:
     except Exception as exc:
         accounting_slice = {"accounting_intelligence": {"enabled": False, "soft_error": str(exc)}}
 
+    portfolio_slice: dict[str, Any] = {}
+    try:
+        from portfolio_intelligence.production import soft_slice_for_irs as pio_soft_slice
+
+        portfolio_slice = pio_soft_slice()
+    except Exception as exc:
+        portfolio_slice = {"portfolio_intelligence": {"enabled": False, "soft_error": str(exc)}}
+
     stack_slice: dict[str, Any] = {}
     try:
         from institutional_stack.production import soft_slice_for_irs as stack_soft_slice
@@ -237,6 +245,7 @@ def dashboard() -> dict[str, Any]:
         **filing_diff_slice,
         **management_slice,
         **accounting_slice,
+        **portfolio_slice,
         **stack_slice,
     }
 

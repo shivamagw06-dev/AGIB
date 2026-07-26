@@ -368,6 +368,16 @@ class Settings(BaseSettings):
     aci_balance_sheet: bool = True
     aci_policies: bool = True
     aci_behaviour: bool = True
+    portfolio_intelligence: bool = True  # PIO — does this improve this specific portfolio?
+    pio_allocation: bool = True
+    pio_risk: bool = True
+    pio_diversification: bool = True
+    pio_factors: bool = True
+    pio_scenarios: bool = True
+    pio_optimisation: bool = True
+    pio_position_sizing: bool = True
+    pio_overlap: bool = True
+    pio_quality: bool = True
     academy_frameworks: bool = True  # ACADEMY_FRAMEWORKS
     academy_formulas: bool = True  # ACADEMY_FORMULAS
     academy_graph: bool = True  # ACADEMY_GRAPH

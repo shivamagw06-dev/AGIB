@@ -139,6 +139,14 @@ def flag_accounting_intelligence() -> bool:
     return bool(getattr(s, "accounting_intelligence", True))
 
 
+def flag_portfolio_intelligence() -> bool:
+    """Portfolio Intelligence Office — does this improve this specific portfolio?"""
+    s = _settings()
+    if s is None:
+        return True
+    return bool(getattr(s, "portfolio_intelligence", True))
+
+
 def flags_dict() -> dict[str, Any]:
     return {
         "ACADEMY": is_academy_enabled(),
@@ -153,6 +161,7 @@ def flags_dict() -> dict[str, Any]:
         "FILING_DIFF_ENGINE": flag_filing_diff_engine(),
         "MANAGEMENT_INTELLIGENCE": flag_management_intelligence(),
         "ACCOUNTING_INTELLIGENCE": flag_accounting_intelligence(),
+        "PORTFOLIO_INTELLIGENCE": flag_portfolio_intelligence(),
         "INSTITUTIONAL_STACK": flag_institutional_stack(),
         "ACADEMY_FRAMEWORKS": flag_frameworks(),
         "ACADEMY_FORMULAS": flag_formulas(),

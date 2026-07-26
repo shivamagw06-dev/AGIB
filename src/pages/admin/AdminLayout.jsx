@@ -45,6 +45,7 @@ const navItems = [
   { to: '/admin/company-analysis', label: 'Company Analysis', icon: Building2 },
   { to: '/admin/institutional-stack', label: 'Institutional Stack', icon: Layers },
   { to: '/admin/accounting-intelligence', label: 'Accounting Intel', icon: Scale },
+  { to: '/admin/portfolio-intelligence', label: 'Portfolio Intel', icon: Briefcase },
   { to: '/admin/company-monitor', label: 'Company Monitor', icon: Bell },
   { to: '/admin/investment-office', label: 'Investment Office', icon: Landmark },
   { to: '/admin/mission-control', label: 'Mission Control', icon: Gauge },

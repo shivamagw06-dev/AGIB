@@ -590,6 +590,21 @@ export function mapSearchPack(pack) {
             stackSummary.manipulation_risk ||
             stack?.layers?.accounting_intelligence?.manipulation_risk ||
             null,
+          portfolioId: stackSummary.portfolio_id || stack?.layers?.portfolio_intelligence?.portfolio_id || null,
+          portfolioGrade:
+            stackSummary.portfolio_grade || stack?.layers?.portfolio_intelligence?.health_grade || null,
+          portfolioQuality:
+            stackSummary.portfolio_quality ??
+            stack?.layers?.portfolio_intelligence?.portfolio_quality ??
+            null,
+          portfolioNetEffect:
+            stackSummary.portfolio_net_effect ||
+            stack?.layers?.portfolio_intelligence?.impact?.net_portfolio_effect ||
+            null,
+          portfolioFit:
+            stackSummary.portfolio_fit ||
+            stack?.layers?.portfolio_intelligence?.suitability?.portfolio_fit ||
+            null,
           filingFound: stackSummary.filing_found ?? stackFil.found ?? null,
           materialChangeSignal: stackSummary.material_change_signal ?? Boolean(stackFdi.enabled),
           peerEnabled: stackSummary.peer_enabled ?? Boolean(stackPil.enabled),

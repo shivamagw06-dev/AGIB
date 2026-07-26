@@ -96,6 +96,10 @@ def write_institutional_report(pack: dict[str, Any], *, query: str = "") -> dict
             "aci_tables": aci_writer.get("tables"),
             "aci_quality": aci_layer.get("accounting_quality_score"),
         }
+    pio_layer = ((stack.get("layers") or {}).get("portfolio_intelligence") or {})
+    if not pio_layer and isinstance(pack.get("portfolio_intelligence"), dict):
+        pio_layer = pack.get("portfolio_intelligence") or {}
+    pio_writer = (pio_layer.get("writer_blocks") or {}) if isinstance(pio_layer, dict) else {}
 
     sections: dict[str, str] = {
         "executive_summary": narrative.write_executive(cio=cio, committee=committee, company=company, query=q),
@@ -116,6 +120,18 @@ def write_institutional_report(pack: dict[str, Any], *, query: str = "") -> dict
         "conclusion": narrative.write_conclusion(cio=cio, committee=committee, company=company),
     }
 
+    if pio_writer.get("narrative") or pio_layer.get("cio_brief") or pio_layer.get("suitability"):
+        suit = pio_layer.get("suitability") if isinstance(pio_layer.get("suitability"), dict) else {}
+        sections["portfolio_context"] = scrub_leaks(
+            str(
+                pio_writer.get("narrative")
+                or pio_layer.get("cio_brief")
+                or suit.get("summary")
+                or "Portfolio suitability assessed — not a trade instruction."
+            ),
+            limit=480,
+        )
+
     # Consistency + transitions
     sections = {k: enforce_consistency(v, ctx) for k, v in sections.items()}
     sections = with_transitions(sections, [k for k in SECTION_ORDER if k in sections])
@@ -123,6 +139,8 @@ def write_institutional_report(pack: dict[str, Any], *, query: str = "") -> dict
     risks = narrative.write_risks(opinions.get("risk") or {}, cio=cio)
     scenarios = narrative.write_scenarios(cio)
     tables = build_tables(opinions=opinions, cio=cio, committee=committee)
+    if isinstance(pio_writer.get("tables"), dict):
+        tables = {**(tables or {}), "portfolio": pio_writer.get("tables")}
     charts = recommend_charts(opinions, pack=pack)
     citations = build_citations(opinions)
 

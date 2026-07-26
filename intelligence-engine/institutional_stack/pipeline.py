@@ -96,6 +96,22 @@ def refresh_ticker(ticker: str) -> dict[str, Any]:
     except Exception as exc:
         out["errors"].append(f"aci:{str(exc)[:120]}")
 
+    # PIO — lightweight soft slice (avoid recursive stack refresh)
+    try:
+        from portfolio_intelligence.production import soft_slice_for_analyst as pio_slice
+
+        pio = (pio_slice(t, analyst="committee") or {}).get("portfolio_intelligence") or {}
+        out["layers"]["portfolio_intelligence"] = {
+            "found": bool(pio.get("enabled")),
+            "portfolio_id": pio.get("portfolio_id"),
+            "health_grade": pio.get("health_grade"),
+            "portfolio_quality": pio.get("portfolio_quality"),
+            "net_effect": (pio.get("impact") or {}).get("net_portfolio_effect"),
+            "enabled": pio.get("enabled", True),
+        }
+    except Exception as exc:
+        out["errors"].append(f"pio:{str(exc)[:120]}")
+
     # PIL soft refresh (overlay from FIL)
     try:
         from peer_intelligence.production import company as pil_company
@@ -174,6 +190,7 @@ def company_pack(ticker: str, *, analyst: str = "committee") -> dict[str, Any]:
             "ACI",
             "EIL",
             "PIL",
+            "PIO",
         ],
         "layers": {},
     }
@@ -212,6 +229,14 @@ def company_pack(ticker: str, *, analyst: str = "committee") -> dict[str, Any]:
     except Exception as exc:
         pack["layers"]["accounting_intelligence"] = {"enabled": False, "error": str(exc)[:120]}
 
+    # PIO
+    try:
+        from portfolio_intelligence.production import soft_slice_for_analyst as pio_slice
+
+        pack["layers"].update(pio_slice(t, analyst=analyst) or {})
+    except Exception as exc:
+        pack["layers"]["portfolio_intelligence"] = {"enabled": False, "error": str(exc)[:120]}
+
     # PIL
     try:
         from peer_intelligence.production import soft_slice_for_analyst as pil_slice
@@ -233,9 +258,11 @@ def company_pack(ticker: str, *, analyst: str = "committee") -> dict[str, Any]:
     # Compact summary for UI / Ask AGI
     mii = pack["layers"].get("management_intelligence") or {}
     aci = pack["layers"].get("accounting_intelligence") or {}
+    pio = pack["layers"].get("portfolio_intelligence") or {}
     fdi = pack["layers"].get("filing_diff") or {}
     fil = pack["layers"].get("filing_intelligence") or {}
     pil = pack["layers"].get("peer_intelligence") or {}
+    impact = pio.get("impact") if isinstance(pio.get("impact"), dict) else {}
     pack["summary"] = {
         "management_confidence": mii.get("confidence"),
         "management_dna": mii.get("dna"),
@@ -243,11 +270,19 @@ def company_pack(ticker: str, *, analyst: str = "committee") -> dict[str, Any]:
         "accounting_behaviour": aci.get("behaviour"),
         "accounting_quality_score": aci.get("accounting_quality_score"),
         "manipulation_risk": aci.get("manipulation_risk"),
+        "portfolio_id": pio.get("portfolio_id"),
+        "portfolio_grade": pio.get("health_grade"),
+        "portfolio_quality": pio.get("portfolio_quality"),
+        "portfolio_net_effect": impact.get("net_portfolio_effect"),
+        "portfolio_fit": (pio.get("suitability") or {}).get("portfolio_fit")
+        if isinstance(pio.get("suitability"), dict)
+        else None,
         "filing_found": fil.get("found", bool(fil.get("enabled"))),
         "material_change_signal": bool(fdi.get("committee") or fdi.get("desk") or fdi.get("enabled")),
         "peer_enabled": bool(pil.get("enabled")),
         "primary_question_mii": "Can this management team be trusted to compound shareholder value?",
         "primary_question_aci": "Can the financial statements be trusted?",
+        "primary_question_pio": "Does this company improve this specific portfolio?",
         "primary_question_fdi": "What materially changed since the previous filing?",
         "primary_question_fil": "What do the company's own filings actually say?",
         "primary_question_pil": "How does this company compare to the best and most relevant peers?",

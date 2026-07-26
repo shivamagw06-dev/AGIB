@@ -4315,6 +4315,75 @@ async def admin_accounting_intelligence():
     return HTMLResponse(admin_page())
 
 
+# --- Portfolio Intelligence Office V1 (does this improve the portfolio?) ---
+
+
+@router.get("/portfolio-intelligence/health")
+async def portfolio_intelligence_health_root():
+    from portfolio_intelligence.production import health
+
+    return health()
+
+
+@router.get("/portfolio-intelligence/dashboard")
+async def portfolio_intelligence_dashboard():
+    from portfolio_intelligence.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/portfolio-intelligence/portfolio/{portfolio_id}")
+async def portfolio_intelligence_portfolio(portfolio_id: str):
+    from portfolio_intelligence.production import portfolio
+
+    out = portfolio(portfolio_id)
+    if out.get("enabled") and not out.get("found"):
+        raise HTTPException(status_code=404, detail="portfolio_not_found")
+    return out
+
+
+@router.get("/portfolio-intelligence/health/{portfolio_id}")
+async def portfolio_intelligence_health(portfolio_id: str):
+    from portfolio_intelligence.production import portfolio_health
+
+    return portfolio_health(portfolio_id)
+
+
+@router.get("/portfolio-intelligence/scenarios/{portfolio_id}")
+async def portfolio_intelligence_scenarios(portfolio_id: str):
+    from portfolio_intelligence.production import scenarios
+
+    return scenarios(portfolio_id)
+
+
+@router.post("/portfolio-intelligence/analyse")
+async def portfolio_intelligence_analyse(payload: dict[str, Any] = Body(default={})):
+    from portfolio_intelligence.production import analyse
+
+    out = analyse(
+        payload.get("portfolio_id"),
+        candidate=payload.get("candidate") or payload.get("ticker"),
+        candidate_weight=payload.get("candidate_weight"),
+    )
+    if out.get("enabled") and not out.get("found"):
+        raise HTTPException(status_code=404, detail="portfolio_not_found")
+    return out
+
+
+@router.get("/portfolio-intelligence/quality-gates")
+async def portfolio_intelligence_quality_gates():
+    from portfolio_intelligence.production import quality_gates
+
+    return quality_gates()
+
+
+@router.get("/admin/portfolio-intelligence", response_class=HTMLResponse)
+async def admin_portfolio_intelligence():
+    from portfolio_intelligence.production import admin_page
+
+    return HTMLResponse(admin_page())
+
+
 # --- SIF v1.0 (Sector Intelligence Framework — additive; not an engine) ---
 
 

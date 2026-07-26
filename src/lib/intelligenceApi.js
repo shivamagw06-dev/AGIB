@@ -1017,3 +1017,16 @@ export const getAciHistory = (ticker) =>
   intelligenceFetch(`/accounting-intelligence/history/${encodeURIComponent(ticker)}`);
 export const analyseAci = (ticker) =>
   intelligenceFetch('/accounting-intelligence/analyse', { method: 'POST', body: { ticker } });
+
+/** Portfolio Intelligence Office */
+export const getPioHealth = () => intelligenceFetch('/portfolio-intelligence/health');
+export const getPioDashboard = () => intelligenceFetch('/portfolio-intelligence/dashboard');
+export const getPioQualityGates = () => intelligenceFetch('/portfolio-intelligence/quality-gates');
+export const getPioPortfolio = (id) =>
+  intelligenceFetch(`/portfolio-intelligence/portfolio/${encodeURIComponent(id)}`);
+export const getPioPortfolioHealth = (id) =>
+  intelligenceFetch(`/portfolio-intelligence/health/${encodeURIComponent(id)}`);
+export const getPioScenarios = (id) =>
+  intelligenceFetch(`/portfolio-intelligence/scenarios/${encodeURIComponent(id)}`);
+export const analysePio = (payload = {}) =>
+  intelligenceFetch('/portfolio-intelligence/analyse', { method: 'POST', body: payload || {} });
