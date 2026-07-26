@@ -20,6 +20,13 @@ from peer_intelligence.visualization.charts import visualization_pack
 
 
 def dashboard() -> dict[str, Any]:
+    filing_slice: dict[str, Any] = {}
+    try:
+        from filing_intelligence.peer_sync import soft_slice_for_pil
+
+        filing_slice = soft_slice_for_pil()
+    except Exception as exc:
+        filing_slice = {"filing_intelligence": {"enabled": False, "soft_error": str(exc)}}
     return {
         "programme": "AGIB_PEER_INTELLIGENCE_LAYER",
         "pil_version": PIL_VERSION,
@@ -40,6 +47,7 @@ def dashboard() -> dict[str, Any]:
             "certification",
             "regression",
         ],
+        **filing_slice,
     }
 
 

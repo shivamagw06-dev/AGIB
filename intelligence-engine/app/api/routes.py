@@ -3945,6 +3945,98 @@ async def admin_peer_intelligence():
     return HTMLResponse(admin_page())
 
 
+# --- Filing Intelligence Layer V1 (official filings → institutional memory) ---
+
+
+@router.get("/filing-intelligence/health")
+async def filing_intelligence_health():
+    from filing_intelligence.flags import is_enabled
+    from filing_intelligence.schema import FIL_VERSION
+
+    return {
+        "status": "ok" if is_enabled() else "disabled",
+        "programme": "AGIB_FILING_INTELLIGENCE_LAYER",
+        "version": FIL_VERSION,
+        "architecture_status": "v1.0.1 LOCKED",
+        "primary_question": "What do the company's own filings actually say?",
+    }
+
+
+@router.get("/filing-intelligence/dashboard")
+async def filing_intelligence_dashboard():
+    from filing_intelligence.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/filing-intelligence/company/{ticker}")
+async def filing_intelligence_company(ticker: str):
+    from filing_intelligence.production import company
+
+    out = company(ticker)
+    if out.get("enabled") and not out.get("found"):
+        raise HTTPException(status_code=404, detail="no_filings")
+    return out
+
+
+@router.get("/filing-intelligence/history/{ticker}")
+async def filing_intelligence_history(ticker: str):
+    from filing_intelligence.production import history
+
+    return history(ticker)
+
+
+@router.get("/filing-intelligence/timeline/{ticker}")
+async def filing_intelligence_timeline(ticker: str):
+    from filing_intelligence.production import timeline
+
+    return timeline(ticker)
+
+
+@router.post("/filing-intelligence/analyse")
+async def filing_intelligence_analyse(payload: dict[str, Any] = Body(default={})):
+    from filing_intelligence.production import analyse
+
+    ticker = str(payload.get("ticker") or "").strip()
+    if not ticker:
+        raise HTTPException(status_code=400, detail="ticker_required")
+    out = analyse(ticker)
+    if out.get("enabled") and not out.get("found"):
+        raise HTTPException(status_code=404, detail="no_filings")
+    return out
+
+
+@router.get("/filing-intelligence/evidence/{ticker}")
+async def filing_intelligence_evidence(ticker: str):
+    from filing_intelligence.production import evidence
+
+    return evidence(ticker)
+
+
+@router.post("/filing-intelligence/ingest")
+async def filing_intelligence_ingest(payload: dict[str, Any] = Body(default={})):
+    from filing_intelligence.production import ingest
+
+    if not payload.get("doc_id") or not payload.get("ticker"):
+        raise HTTPException(status_code=400, detail="doc_id_and_ticker_required")
+    return ingest(payload)
+
+
+@router.get("/filing-intelligence/quality-gates")
+async def filing_intelligence_quality_gates():
+    from filing_intelligence.production import quality_gates
+
+    return quality_gates()
+
+
+@router.get("/admin/filing-intelligence", response_class=HTMLResponse)
+async def admin_filing_intelligence():
+    """Soft admin surface — no UI redesign."""
+    from filing_intelligence.production import admin_page
+
+    return HTMLResponse(admin_page())
+
+
 # --- SIF v1.0 (Sector Intelligence Framework — additive; not an engine) ---
 
 

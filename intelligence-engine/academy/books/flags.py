@@ -99,6 +99,14 @@ def flag_peer_intelligence() -> bool:
     return bool(getattr(s, "peer_intelligence", True))
 
 
+def flag_filing_intelligence() -> bool:
+    """Filing Intelligence Layer — institutional memory from official filings."""
+    s = _settings()
+    if s is None:
+        return True
+    return bool(getattr(s, "filing_intelligence", True))
+
+
 def flags_dict() -> dict[str, Any]:
     return {
         "ACADEMY": is_academy_enabled(),
@@ -109,6 +117,7 @@ def flags_dict() -> dict[str, Any]:
         "INSTITUTIONAL_REGRESSION_SUITE": flag_regression_suite(),
         "EVIDENCE_INTELLIGENCE_LAYER": flag_evidence_intelligence_layer(),
         "PEER_INTELLIGENCE": flag_peer_intelligence(),
+        "FILING_INTELLIGENCE": flag_filing_intelligence(),
         "ACADEMY_FRAMEWORKS": flag_frameworks(),
         "ACADEMY_FORMULAS": flag_formulas(),
         "ACADEMY_GRAPH": flag_graph(),

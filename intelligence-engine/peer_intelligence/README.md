@@ -47,6 +47,10 @@ Sub: `pil_peers`, `pil_history`, `pil_percentiles`, `pil_rankings`, `pil_benchma
 - EIL dashboard: `soft_slice_for_eil`
 - Analysts: `soft_slice_for_analyst(ticker, analyst=…)`
 
+## Soft-wire: Filing Intelligence Layer
+
+When FIL is enabled, pack loaders overlay `live_filing` points onto seed series via `filing_intelligence.peer_sync.overlay_peer_series`.
+
 ## Next
 
-Replace seed panels with filing-complete history via automation — do not add more analyst frameworks first.
+Expand FIL corpus so remaining seed peers become live filing panels — do not add more analyst frameworks first.

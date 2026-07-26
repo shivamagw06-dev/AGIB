@@ -19,10 +19,22 @@ PACKS = {
 }
 
 
+def _maybe_filing_overlay(pack: dict[str, Any]) -> dict[str, Any]:
+    """Soft-wire: Filing Intelligence upgrades seed panels → live filing panels."""
+    try:
+        from filing_intelligence.peer_sync import overlay_peer_series
+
+        return overlay_peer_series(pack)
+    except Exception:
+        return pack
+
+
 def all_packs() -> list[dict[str, Any]]:
-    return [fn() for fn in PACKS.values()]
+    return [_maybe_filing_overlay(fn()) for fn in PACKS.values()]
 
 
 def pack_by_id(pack_id: str) -> dict[str, Any] | None:
     fn = PACKS.get(pack_id)
-    return fn() if fn else None
+    if not fn:
+        return None
+    return _maybe_filing_overlay(fn())

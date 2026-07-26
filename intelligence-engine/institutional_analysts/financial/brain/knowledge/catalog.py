@@ -72,4 +72,15 @@ def knowledge_pack() -> dict[str, Any]:
             }
     except Exception:
         pass
+    try:
+        from filing_intelligence.flags import is_enabled as fil_enabled
+
+        if fil_enabled():
+            pack["filing_intelligence"] = {
+                "enabled": True,
+                "rule": "Historical financial trends must originate from validated filing intelligence when available",
+                "soft_slice": "filing_intelligence.production.soft_slice_for_analyst(ticker, analyst='financial')",
+            }
+    except Exception:
+        pass
     return pack

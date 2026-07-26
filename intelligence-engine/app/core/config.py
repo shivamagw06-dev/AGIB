@@ -326,6 +326,15 @@ class Settings(BaseSettings):
     pil_benchmarks: bool = True
     pil_commentary: bool = True
     pil_scorecards: bool = True
+    filing_intelligence: bool = True  # FIL — what do the company's own filings actually say?
+    fil_statements: bool = True
+    fil_notes: bool = True
+    fil_segments: bool = True
+    fil_guidance: bool = True
+    fil_risks: bool = True
+    fil_management: bool = True
+    fil_history: bool = True
+    fil_evidence: bool = True
     academy_frameworks: bool = True  # ACADEMY_FRAMEWORKS
     academy_formulas: bool = True  # ACADEMY_FORMULAS
     academy_graph: bool = True  # ACADEMY_GRAPH

@@ -90,6 +90,13 @@ Soft comparison layer: peer resolution, history, percentiles, rankings, commenta
 See `peer_intelligence/README.md` · `/v1/peer-intelligence/*` · `/admin/peer-intelligence`  
 Flag: `peer_intelligence` / `PEER_INTELLIGENCE`
 
+## Filing Intelligence Layer (FIL)
+
+Soft institutional memory from official filings (statements, notes, management, guidance, risks, capital allocation). Updates PIL seed panels → live filing panels.
+
+See `filing_intelligence/README.md` · `/v1/filing-intelligence/*` · `/admin/filing-intelligence`  
+Flag: `filing_intelligence` / `FILING_INTELLIGENCE`
+
 ## Admin
 
 `/admin/academy` — Books V2 panel with ingest action, spreadsheet count, ingestion report table.

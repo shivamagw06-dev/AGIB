@@ -172,6 +172,14 @@ def dashboard() -> dict[str, Any]:
     except Exception as exc:
         peer_slice = {"peer_intelligence": {"enabled": False, "soft_error": str(exc)}}
 
+    filing_slice: dict[str, Any] = {}
+    try:
+        from filing_intelligence.production import soft_slice_for_irs as fil_soft_slice
+
+        filing_slice = fil_soft_slice()
+    except Exception as exc:
+        filing_slice = {"filing_intelligence": {"enabled": False, "soft_error": str(exc)}}
+
     return {
         "programme": "AGIB_INSTITUTIONAL_REGRESSION_SUITE",
         "irs_version": IRS_VERSION,
@@ -193,6 +201,7 @@ def dashboard() -> dict[str, Any]:
         "admin_path": "/admin/regression",
         **evidence_slice,
         **peer_slice,
+        **filing_slice,
     }
 
 

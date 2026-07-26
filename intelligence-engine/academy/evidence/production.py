@@ -30,6 +30,13 @@ def dashboard() -> dict[str, Any]:
         peer_slice = soft_slice_for_eil()
     except Exception as exc:
         peer_slice = {"peer_intelligence": {"enabled": False, "soft_error": str(exc)}}
+    filing_slice: dict[str, Any] = {}
+    try:
+        from filing_intelligence.production import soft_slice_for_eil as fil_soft_eil
+
+        filing_slice = fil_soft_eil()
+    except Exception as exc:
+        filing_slice = {"filing_intelligence": {"enabled": False, "soft_error": str(exc)}}
     return {
         "programme": "AGIB_EVIDENCE_INTELLIGENCE_LAYER",
         "eil_version": EIL_VERSION,
@@ -53,6 +60,7 @@ def dashboard() -> dict[str, Any]:
             "analysts",
         ],
         **peer_slice,
+        **filing_slice,
     }
 
 
