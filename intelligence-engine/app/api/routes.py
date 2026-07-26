@@ -4,6 +4,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from fastapi import Body
+from fastapi.responses import HTMLResponse
 
 from app.agents.registry import list_agents
 from app.core.config import Settings, get_settings
@@ -3720,6 +3721,74 @@ async def academy_certification_exam(exam_id: str):
     if result.get("reason") == "unknown_exam":
         raise HTTPException(status_code=404, detail="unknown_exam")
     return result
+
+
+# --- Institutional Regression Suite V1 (Did this PR make AGIB smarter?) ---
+
+
+@router.get("/academy/regression/health")
+async def academy_regression_health():
+    from academy.regression.production import is_enabled
+    from academy.regression.schema import GOLDEN_SET_VERSION, IRS_VERSION
+
+    return {
+        "status": "ok" if is_enabled() else "disabled",
+        "programme": "AGIB_INSTITUTIONAL_REGRESSION_SUITE",
+        "version": IRS_VERSION,
+        "golden_set_version": GOLDEN_SET_VERSION,
+        "architecture_status": "v1.0.1 LOCKED",
+        "primary_question": "Did this pull request make AGIB smarter?",
+    }
+
+
+@router.get("/academy/regression/dashboard")
+async def academy_regression_dashboard():
+    from academy.regression.production import dashboard
+
+    return dashboard()
+
+
+@router.post("/academy/regression/run")
+async def academy_regression_run(payload: dict[str, Any] = Body(default={})):
+    from academy.regression.production import run_regression
+
+    return run_regression(
+        release=payload.get("release"),
+        persist=bool(payload.get("persist", True)),
+        golden_version=str(payload.get("golden_version") or "v1"),
+    )
+
+
+@router.post("/academy/regression/gate")
+async def academy_regression_gate(payload: dict[str, Any] = Body(default={})):
+    from academy.regression.production import release_gate
+
+    return release_gate(
+        release=payload.get("release"),
+        persist=bool(payload.get("persist", True)),
+    )
+
+
+@router.get("/academy/regression/quality-gates")
+async def academy_regression_quality_gates():
+    from academy.regression.production import quality_gates
+
+    return quality_gates()
+
+
+@router.get("/academy/regression/history")
+async def academy_regression_history():
+    from academy.regression.history.store import all_releases
+
+    return {"releases": all_releases()}
+
+
+@router.get("/admin/regression", response_class=HTMLResponse)
+async def admin_regression():
+    """Soft admin surface — no UI redesign of existing admin systems."""
+    from academy.regression.production import admin_page
+
+    return HTMLResponse(admin_page())
 
 
 # --- SIF v1.0 (Sector Intelligence Framework — additive; not an engine) ---

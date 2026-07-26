@@ -70,6 +70,12 @@ Institutional examination + merge gate (Levels 1–18). Metric = reasoning quali
 See `academy/certification/README.md` and `/v1/academy/certification/*`.  
 Gate: `POST /v1/academy/certification/gate` — do not merge unless certification passes.
 
+## Institutional Regression Suite (IRS)
+
+Final gate: **Did this PR make AGIB smarter?** Frozen golden set, IQ deltas, hallucination/drift audits.
+
+See `academy/regression/README.md` · `/v1/academy/regression/*` · `/admin/regression`
+
 ## Admin
 
 `/admin/academy` — Books V2 panel with ingest action, spreadsheet count, ingestion report table.

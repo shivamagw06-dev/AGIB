@@ -316,6 +316,7 @@ class Settings(BaseSettings):
     academy_books_v3: bool = True  # ACADEMY_BOOKS_V3 — institutional knowledge transformation
     academy_validation_suite: bool = True  # AVS — demonstrate institutional knowledge (not ingest checks)
     academy_certification_suite: bool = True  # ACS — institutional intelligence certification / merge gate
+    institutional_regression_suite: bool = True  # IRS — did this PR make AGIB smarter?
     academy_frameworks: bool = True  # ACADEMY_FRAMEWORKS
     academy_formulas: bool = True  # ACADEMY_FORMULAS
     academy_graph: bool = True  # ACADEMY_GRAPH
