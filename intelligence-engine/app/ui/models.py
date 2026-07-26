@@ -165,6 +165,8 @@ class SearchView(BaseModel):
     company_monitor: dict[str, Any] = Field(default_factory=dict)
     # Ask AGI Intelligence Construction V2 — institutional research brief (additive)
     intelligence_construction: dict[str, Any] = Field(default_factory=dict)
+    # Ask AGI Answer Construction V3 — full brief + trailing recommendation status (additive)
+    answer_construction: dict[str, Any] = Field(default_factory=dict)
     institutional_briefing: dict[str, Any] = Field(default_factory=dict)
     company_intelligence: dict[str, Any] = Field(default_factory=dict)
     current_outlook: str | None = None

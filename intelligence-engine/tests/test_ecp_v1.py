@@ -122,10 +122,10 @@ def test_withheld_explanation_lists_missing():
         },
         {"leo_missing": ["financial_statements"]},
     )
-    assert text.startswith("Recommendation withheld.")
+    assert "Institutional recommendation status" in text
     assert "62%" in text
-    assert "financial_statements" in text
-    assert "Institutional Grade" in text
+    assert "financial_statements" not in text
+    assert "knowledge gaps" in text.lower()
 
 
 def test_quality_gates_offline():

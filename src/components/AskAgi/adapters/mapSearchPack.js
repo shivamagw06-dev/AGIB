@@ -3,6 +3,19 @@
  * Soft-wire only — never invent provider names; hide empty sections.
  */
 
+function isGateFailureText(value) {
+  const s = String(value || '').toLowerCase();
+  if (!s) return false;
+  return (
+    s.includes('recommendation withheld') ||
+    s.includes('insufficient evidence') ||
+    s.includes('insufficient company evidence') ||
+    s.includes('missing:') ||
+    /^(cid|ecp)\s+coverage/i.test(String(value || '')) ||
+    /\b(financial_statements|market_data|valuation_metrics|shares_outstanding)\b/i.test(String(value || ''))
+  );
+}
+
 function asText(value, fallback = '') {
   if (value == null) return fallback;
   if (typeof value === 'object') {
@@ -12,6 +25,7 @@ function asText(value, fallback = '') {
   if (!text || text.startsWith('{') || /document_id|provider_id|yahoo|finnhub|indianapi/i.test(text)) {
     return fallback;
   }
+  if (isGateFailureText(text)) return fallback;
   return text;
 }
 
@@ -30,14 +44,15 @@ function stanceOf(pack) {
   const raw =
     pack?.house_view_card?.stance ||
     pack?.answer?.house_view_label ||
-    pack?.institutional_briefing?.current_outlook ||
+    pack?.answer_construction?.house_label ||
     '';
-  const s = asText(raw, '').toLowerCase();
-  if (/insufficient|withheld|unknown/.test(s)) return 'Insufficient Evidence';
+  const s = String(raw || '').toLowerCase();
+  // Never lead with insufficient-evidence as the institutional view.
+  if (/insufficient|withheld|unknown/.test(s)) return 'Neutral';
   if (/constructive|bull|overweight|positive|improved/.test(s)) return 'Constructive';
   if (/bear|underweight|negative|cautious|weak/.test(s)) return 'Cautious';
   if (/neutral|hold|balanced/.test(s)) return 'Neutral';
-  if (s) return asText(raw, 'Neutral');
+  if (raw) return String(raw);
   return 'Neutral';
 }
 
@@ -72,6 +87,7 @@ export function mapSearchPack(pack) {
   if (!pack || typeof pack !== 'object') return null;
 
   const ic = pack.intelligence_construction?.enabled ? pack.intelligence_construction : null;
+  const ac = pack.answer_construction?.enabled ? pack.answer_construction : null;
   const sections = ic?.sections || {};
   const enrich = ic?.answer_enrichment || {};
   const briefing = pack.institutional_briefing || {};
@@ -87,12 +103,18 @@ export function mapSearchPack(pack) {
   const academy = pack.finance_academy || {};
   const sector = pack.sector_intelligence || {};
   const monitor = cm.what_changed || sections.what_changed || pack.whats_changed || {};
+  const recoStatus = ac?.recommendation_status || briefing.recommendation_status || {};
+  const knowledgeGaps = asList(
+    recoStatus.knowledge_gaps || ac?.knowledge_gaps || briefing.knowledge_gaps,
+    8
+  );
 
   const stance = stanceOf(pack);
   const confidence = pct(pack.confidence ?? hv.confidence ?? enrich.confidence) ?? 72;
   const coverage =
     pct(
-      dossier.coverage_pct ||
+      recoStatus.coverage_pct ||
+        dossier.coverage_pct ||
         ca.recommendation_readiness?.overall ||
         fin.coverage_pct ||
         dvc.coverage_pct
@@ -104,6 +126,7 @@ export function mapSearchPack(pack) {
     (coverage >= 90 ? 'A+' : coverage >= 75 ? 'A' : 'B');
 
   const executive =
+    asText(ac?.executive) ||
     asText(enrich.executive_summary) ||
     asText(briefing.executive_summary) ||
     asText(pack.executive_summary) ||
@@ -314,18 +337,23 @@ export function mapSearchPack(pack) {
     conviction: confidence >= 80 ? 'High' : confidence >= 60 ? 'Medium' : 'Developing',
     horizon: asText(hv.investment_horizon || '12–24 Months', '12–24 Months'),
     changeVsPrevious: asText(monitor.max_significance || pack.whats_changed?.direction || 'Stable', 'Stable'),
-    readiness: asText(ca.recommendation_readiness?.gate || 'Institutional Grade', 'Institutional Grade'),
+    readiness: recoStatus.blocked
+      ? 'Analysis open · Recommendation trailing'
+      : asText(ca.recommendation_readiness?.gate || 'Institutional Grade', 'Institutional Grade'),
     coverage,
     knowledgeGrade,
     freshness: asText(pack.freshness_indicator || pack.last_updated || 'Current', 'Current'),
     lastUpdated: asText(pack.last_updated, new Date().toISOString()),
     executive,
     thesis:
+      asText(ac?.thesis) ||
       asText(thesis.summary) ||
       asText(pack.answer?.investment_thesis) ||
       asText(ca.investment_thesis) ||
       executive,
-    why: asList(enrich.why_bullets || pack.why || pack.answer?.why, 12),
+    why: asList(ac?.why || enrich.why_bullets || pack.why || pack.answer?.why, 12).filter(
+      (w) => !isGateFailureText(w)
+    ),
     whyCards,
     kpis,
     financialCards,
@@ -356,11 +384,25 @@ export function mapSearchPack(pack) {
       asText(briefing.current_outlook) ||
       asText(pack.current_outlook) ||
       executive,
+    recommendationStatus: {
+      blocked: Boolean(recoStatus.blocked),
+      status: asText(recoStatus.status, recoStatus.blocked ? 'Withheld' : 'Open'),
+      summary: asText(
+        recoStatus.summary,
+        recoStatus.blocked
+          ? 'Institutional recommendation is withheld until validated evidence coverage clears the bar.'
+          : 'Evidence coverage supports institutional analysis — not an automatic trade instruction.'
+      ),
+      detail: asText(recoStatus.detail, ''),
+      gaps: knowledgeGaps,
+    },
+    knowledgeGaps,
     explore,
     changedRows,
     supporting: pack.supporting_evidence || [],
     conflicting: pack.conflicting_evidence || [],
     icEnabled: Boolean(ic?.enabled),
+    acEnabled: Boolean(ac?.enabled),
     ticker: ca.ticker || dossier.ticker || pack.entities?.primary_ticker || null,
   };
 }

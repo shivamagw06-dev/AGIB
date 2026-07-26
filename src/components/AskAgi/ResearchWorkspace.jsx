@@ -293,11 +293,13 @@ export default function ResearchWorkspace({
                     <span className="rw-chip blue">{vm.intent}</span>
                     <span className="rw-chip blue">{vm.category}</span>
                     {vm.ticker ? <span className="rw-chip muted">{vm.ticker}</span> : null}
-                    {vm.icEnabled ? <span className="rw-chip muted">Intelligence Construction</span> : null}
+                    {vm.acEnabled ? <span className="rw-chip muted">Institutional Brief</span> : null}
                   </div>
                   <p className="rw-meta">
-                    Last Intelligence Refresh: {vm.freshness} · Research Coverage: {vm.coverage}% ·
-                    Knowledge Grade: {vm.knowledgeGrade}
+                    Last Intelligence Refresh: {vm.freshness} · Knowledge Grade: {vm.knowledgeGrade}
+                    {vm.recommendationStatus.blocked
+                      ? ' · Recommendation status deferred to conclusion'
+                      : ` · Research Coverage: ${vm.coverage}%`}
                   </p>
                 </div>
 
@@ -657,6 +659,28 @@ export default function ResearchWorkspace({
                   <p className="rw-mini mt-3">
                     This briefing is institutional research context — not a recommendation to buy or sell.
                   </p>
+                </Section>
+
+                <Section id="recommendation-status" kicker="Section 19b" title="Institutional Recommendation Status">
+                  <p className={`rw-view-value text-[22px] tone-${vm.recommendationStatus.blocked ? 'warn' : 'pos'}`}>
+                    {vm.recommendationStatus.status}
+                  </p>
+                  <p className="rw-body mt-3">{vm.recommendationStatus.summary}</p>
+                  {vm.recommendationStatus.detail ? (
+                    <p className="rw-body mt-2">{vm.recommendationStatus.detail}</p>
+                  ) : null}
+                  {(vm.knowledgeGaps || []).length ? (
+                    <div className="mt-4">
+                      <p className="rw-mini mb-2">Current Knowledge Gaps</p>
+                      <ul className="space-y-2 text-sm text-[var(--rw-soft)]">
+                        {vm.knowledgeGaps.map((g) => (
+                          <li key={g} className="border-b border-[var(--rw-border)] pb-2">
+                            {g}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
                 </Section>
 
                 <Section id="explore" kicker="Section 20" title="Explore Further">

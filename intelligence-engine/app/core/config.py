@@ -308,6 +308,12 @@ class Settings(BaseSettings):
     ecp_before_irp: bool = True
     ecp_before_gate: bool = True
 
+    # Ask AGI Intelligence Construction V2 + Answer Construction V3 (soft orchestration; not engines)
+    intelligence_construction: bool = True
+    ask_agi_intelligence_v2: bool = True
+    answer_construction_v3: bool = True
+    ask_agi_answer_construction_v3: bool = True
+
     # Company Analysis Engine V1 — institutional company-specific reasoning (not Context Assembly)
     # Master flag COMPANY_ANALYSIS (cae remains Context Assembly). Subflags match programme brief.
     company_analysis: bool = True

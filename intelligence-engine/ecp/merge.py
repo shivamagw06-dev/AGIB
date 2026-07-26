@@ -156,21 +156,42 @@ def quality_panel(
 
 
 def withheld_explanation(panel: Dict[str, Any], gaps: Dict[str, Any]) -> str:
-    """Exact explanation when recommendation remains withheld."""
+    """Professional explanation when recommendation remains withheld.
+
+    Soft-wire: never expose raw snake_case checklist keys to Ask AGI clients.
+    Full research briefing is still produced — this text is for recommendation status only.
+    """
     missing = panel.get("missing_items") or []
     leo_miss = panel.get("must_have_missing") or panel.get("missing_leo") or []
-    lines = [
-        "Recommendation withheld.",
-        f"Coverage: {panel.get('coverage_pct')}%",
-        f"Research Grade: {panel.get('research_grade') or 'n/a'}",
-        f"Data Grade: {panel.get('data_grade') or 'n/a'}",
-        f"Knowledge Grade: {panel.get('knowledge_grade') or 'n/a'}",
-        "Missing:",
-    ]
     shown = list(dict.fromkeys([*leo_miss, *missing]))[:12]
     if not shown:
         shown = list(gaps.get("leo_missing") or [])[:8] or ["validated institutional evidence"]
-    for m in shown:
-        lines.append(f"- {m}")
-    lines.append("To reach Institutional Grade retrieve these items first.")
+
+    try:
+        from answer_construction.knowledge_gaps import professional_gap
+
+        gap_lines = [professional_gap(m) for m in shown]
+    except Exception:
+        gap_lines = [
+            str(m).replace("_", " ").strip().capitalize() + " coverage is still being completed."
+            for m in shown
+        ]
+
+    # Deduplicate while preserving order
+    gap_lines = list(dict.fromkeys([g for g in gap_lines if g]))[:8]
+    cov = panel.get("coverage_pct")
+    cov_bit = f" Current validated coverage is about {cov}%." if cov is not None else ""
+
+    lines = [
+        "Institutional recommendation status: withheld." + cov_bit,
+        "Current evidence is insufficient to support a Buy / Hold / Sell recommendation, "
+        "but the research briefing itself should still be read in full.",
+        "Current knowledge gaps:",
+    ]
+    for g in gap_lines:
+        lines.append(f"- {g}")
+    lines.append(
+        "AGI continues evidence completion against the living dossier; recommendation readiness "
+        "reopens when institutional coverage clears the bar."
+    )
     return "\n".join(lines)
