@@ -14,11 +14,12 @@ class FaaFlags:
     faa_fetch: bool = True
     faa_processing: bool = True
     faa_index: bool = True
-    faa_live_fetch: bool = False  # offline-safe default; enable for live HTTP
+    faa_live_fetch: bool = False  # set true in production for real HTTP/PDF downloads
     faa_search_api: bool = True
     faa_pdf: bool = True
     faa_notify_fre: bool = True
     faa_scheduler: bool = True
+    faa_max_workers: int = 6
 
     @classmethod
     def from_settings(cls, settings: Settings | None = None) -> "FaaFlags":
@@ -34,9 +35,10 @@ class FaaFlags:
             faa_pdf=bool(getattr(s, "faa_pdf", True)),
             faa_notify_fre=bool(getattr(s, "faa_notify_fre", True)),
             faa_scheduler=bool(getattr(s, "faa_scheduler", True)),
+            faa_max_workers=int(getattr(s, "faa_max_workers", 6) or 6),
         )
 
-    def as_dict(self) -> dict[str, bool]:
+    def as_dict(self) -> dict[str, bool | int]:
         return {
             "FAA": self.faa,
             "FAA_DISCOVERY": self.faa_discovery,
@@ -48,4 +50,5 @@ class FaaFlags:
             "FAA_PDF": self.faa_pdf,
             "FAA_NOTIFY_FRE": self.faa_notify_fre,
             "FAA_SCHEDULER": self.faa_scheduler,
+            "FAA_MAX_WORKERS": self.faa_max_workers,
         }

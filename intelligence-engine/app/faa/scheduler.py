@@ -1,4 +1,4 @@
-"""FAA continuous acquisition schedule."""
+"""Continuous acquisition scheduler — institutional cadences."""
 
 from __future__ import annotations
 
@@ -7,10 +7,26 @@ from typing import Any
 
 
 SCHEDULE = [
-    {"stream": "exchange_filings", "cadence": "immediate", "connectors": ["nse", "bse"]},
-    {"stream": "news", "cadence": "every_5_15_minutes", "connectors": ["news", "search_api"]},
-    {"stream": "government", "cadence": "hourly", "connectors": ["rbi", "sebi", "government"]},
-    {"stream": "company_ir", "cadence": "detect_automatically", "connectors": ["company_ir"]},
+    {"stream": "exchange_filings", "cadence": "every_5_minutes", "connectors": ["nse", "bse"]},
+    {"stream": "news", "cadence": "every_5_minutes", "connectors": ["news", "rss", "search_api"]},
+    {"stream": "rss", "cadence": "every_10_minutes", "connectors": ["rss"]},
+    {"stream": "government", "cadence": "hourly", "connectors": ["rbi", "sebi", "government", "pib", "mca"]},
+    {"stream": "annual_reports", "cadence": "daily", "connectors": ["company_ir", "pdf_url"]},
+    {"stream": "investor_presentations", "cadence": "daily", "connectors": ["company_ir"]},
+    {
+        "stream": "quarterly_reports",
+        "cadence": "every_hour_during_earnings_season",
+        "connectors": ["company_ir", "nse", "bse"],
+    },
+]
+
+WATCHLIST_QUERIES = [
+    "Reliance Industries annual report filings news",
+    "Infosys quarterly results guidance transcript",
+    "TCS investor presentation and filings",
+    "HDFC Bank exchange filings and news",
+    "RBI monetary policy press release",
+    "SEBI notifications latest",
 ]
 
 
@@ -24,8 +40,9 @@ class FaaScheduler:
         return {
             "enabled": self.enabled,
             "schedule": SCHEDULE,
+            "watchlist_queries": WATCHLIST_QUERIES,
             "last_run_at": self.last_run_at,
-            "recent_runs": self.runs[-20:],
+            "recent_runs": self.runs[-30:],
         }
 
     def mark_run(self, stream: str, **kwargs: Any) -> dict[str, Any]:
@@ -36,5 +53,5 @@ class FaaScheduler:
         }
         self.last_run_at = row["at"]
         self.runs.append(row)
-        self.runs = self.runs[-100:]
+        self.runs = self.runs[-120:]
         return row

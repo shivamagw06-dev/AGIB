@@ -1,4 +1,4 @@
-"""Company Investor Relations discovery connector."""
+"""Company Investor Relations connector."""
 
 from __future__ import annotations
 
@@ -21,11 +21,19 @@ class CompanyIrConnector(AcquisitionConnector):
     connector_id = "company_ir"
     name = "Company Investor Relations"
     tier = 1
+    max_per_minute = 20
+    document_types = [
+        "annual_report",
+        "quarterly_report",
+        "investor_presentation",
+        "transcript",
+        "conference_call",
+        "news",
+    ]
 
-    def discover(self, task: DiscoveryTask) -> list[CandidateDocument]:
+    def search(self, task: DiscoveryTask) -> list[CandidateDocument]:
         sym = resolve_symbol(task.company, task.symbol)
         if not sym or sym not in COMPANY_IR:
-            # Generic IR search candidate via search_api handoff metadata
             if task.preferred_url:
                 return [
                     CandidateDocument(
@@ -47,7 +55,7 @@ class CompanyIrConnector(AcquisitionConnector):
         url = profile.get(key) or profile.get("ir_home")
         if not url:
             return []
-        return [
+        out = [
             CandidateDocument(
                 title=f"{profile['company']} — {task.description}",
                 url=url,
@@ -57,6 +65,22 @@ class CompanyIrConnector(AcquisitionConnector):
                 symbol=sym,
                 organisation=profile["company"],
                 discovery_task_id=task.task_id,
-                metadata={"ir_home": profile.get("ir_home"), "doc_key": key},
+                metadata={"ir_home": profile.get("ir_home"), "doc_key": key, "authority": 10 if "report" in task.document_type else 8},
             )
         ]
+        # Also surface IR home for broader crawl target
+        if key != "ir_home" and profile.get("ir_home"):
+            out.append(
+                CandidateDocument(
+                    title=f"{profile['company']} — Investor Relations Hub",
+                    url=profile["ir_home"],
+                    connector_id=self.connector_id,
+                    document_type="investor_relations",
+                    company=profile["company"],
+                    symbol=sym,
+                    organisation=profile["company"],
+                    discovery_task_id=task.task_id,
+                    metadata={"doc_key": "ir_home", "authority": 8},
+                )
+            )
+        return out

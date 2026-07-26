@@ -1,11 +1,11 @@
-"""FAA domain models — discovery tasks, fetch results, acquisition jobs."""
+"""FAA domain models — discovery, fetch, versions, metrics."""
 
 from __future__ import annotations
 
 import hashlib
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Literal
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -24,21 +24,6 @@ def sha256_bytes(data: bytes) -> str:
 
 def sha256_text(text: str) -> str:
     return sha256_bytes((text or "").encode("utf-8"))
-
-
-ConnectorId = Literal[
-    "company_ir",
-    "nse",
-    "bse",
-    "sebi",
-    "rbi",
-    "government",
-    "news",
-    "rss",
-    "search_api",
-    "pdf_url",
-    "html_page",
-]
 
 
 class DiscoveryTask(BaseModel):
@@ -88,17 +73,45 @@ class FetchedDocument(BaseModel):
     content_text: str = ""
     content_bytes_len: int = 0
     checksum: str = ""
+    etag: str | None = None
+    last_modified: str | None = None
     live_fetch: bool = False
     skipped: bool = False
     skip_reason: str | None = None
     error: str | None = None
+    fetch_ms: float = 0.0
+    attempts: int = 1
     fetched_at: datetime = Field(default_factory=utc_now)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         d = self.model_dump()
         d["fetched_at"] = self.fetched_at.isoformat()
-        # never dump raw bytes
+        return d
+
+
+class DocumentVersion(BaseModel):
+    document_id: str = Field(default_factory=lambda: new_id("faadoc"))
+    version: int = 1
+    url: str
+    checksum: str
+    title: str
+    connector_id: str
+    document_type: str = "unknown"
+    company: str | None = None
+    symbol: str | None = None
+    status: str = "active"  # active | superseded | failed
+    superseded_by: str | None = None
+    etag: str | None = None
+    last_modified: str | None = None
+    live_fetch: bool = False
+    retrieved_at: datetime = Field(default_factory=utc_now)
+    fre_document_id: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        d = self.model_dump()
+        d["retrieved_at"] = self.retrieved_at.isoformat()
         return d
 
 
@@ -112,9 +125,12 @@ class AcquisitionResult(BaseModel):
     processed: int = 0
     indexed_to_fre: int = 0
     live_fetch: bool = False
+    parallel_workers: int = 1
     candidates: list[dict[str, Any]] = Field(default_factory=list)
     documents: list[dict[str, Any]] = Field(default_factory=list)
+    versions: list[dict[str, Any]] = Field(default_factory=list)
     errors: list[str] = Field(default_factory=list)
+    timings: dict[str, float] = Field(default_factory=dict)
     started_at: datetime = Field(default_factory=utc_now)
     finished_at: datetime | None = None
 
@@ -134,7 +150,15 @@ class FaaMetrics(BaseModel):
     cache_hits: int = 0
     processed: int = 0
     indexed_to_fre: int = 0
+    parse_failures: int = 0
+    rate_limit_events: int = 0
+    avg_fetch_ms: float = 0.0
+    avg_parse_ms: float = 0.0
+    avg_embed_ms: float = 0.0
+    queue_size: int = 0
+    worker_count: int = 0
     last_run_at: str | None = None
+    last_success_at: str | None = None
 
     def model_dump(self, **kwargs: Any) -> dict[str, Any]:  # type: ignore[override]
         return super().model_dump(**kwargs)

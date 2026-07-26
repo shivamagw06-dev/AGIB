@@ -1,4 +1,4 @@
-"""FAA service facade — acquire public docs and notify FRE."""
+"""FAA service facade — production live acquisition; never answers/reasons."""
 
 from __future__ import annotations
 
@@ -11,7 +11,8 @@ from app.faa.connectors.search_api import available_search_providers
 from app.faa.flags import FaaFlags
 from app.faa.models import FaaMetrics
 from app.faa.pipeline import FaaPipeline
-from app.faa.scheduler import FaaScheduler
+from app.faa.scheduler import WATCHLIST_QUERIES, FaaScheduler
+from app.faa.store import FaaStore
 
 
 class FaaService:
@@ -24,22 +25,28 @@ class FaaService:
         fre: Any | None = None,
         aoi: Any | None = None,
         cache: DocumentCache | None = None,
+        store: FaaStore | None = None,
     ) -> None:
         self.flags = flags or FaaFlags.from_settings(get_settings())
         self.fre = fre
         self.aoi = aoi
         self.cache = cache or DocumentCache()
+        self.store = store or FaaStore()
         self.metrics = FaaMetrics()
         self.scheduler = FaaScheduler()
+        self.connectors = build_connectors(live_fetch=self.flags.faa_live_fetch)
+        workers = int(self.flags.faa_max_workers or getattr(get_settings(), "faa_max_workers", 6) or 6)
         self.pipeline = FaaPipeline(
             cache=self.cache,
+            store=self.store,
             fre=fre,
             aoi=aoi,
             live_fetch=self.flags.faa_live_fetch,
             pdf_enabled=self.flags.faa_pdf,
             metrics=self.metrics,
+            max_workers=workers,
+            connectors=self.connectors,
         )
-        self.connectors = build_connectors(live_fetch=self.flags.faa_live_fetch)
 
     def bind(self, **engines: Any) -> None:
         if "fre" in engines:
@@ -54,11 +61,13 @@ class FaaService:
             raise RuntimeError("FAA disabled")
 
     def health(self) -> dict[str, Any]:
+        connector_health = [c.health() for c in self.connectors.values()]
+        degraded = [c["connector_id"] for c in connector_health if c.get("status") != "ok"]
         return {
             "status": "ok" if self.flags.faa else "disabled",
             "layer": "Finance Acquisition Agent",
             "programme": "FAA",
-            "version": "faa-v1.0.0",
+            "version": "faa-v1.1.0",
             "architecture_status": "v1.0.1 LOCKED",
             "position": "upstream_of_fre",
             "does_not_answer": True,
@@ -69,18 +78,25 @@ class FaaService:
             "invariants": [
                 "never_answer_user",
                 "never_reason",
-                "dedupe_by_url_checksum",
-                "version_on_change",
+                "dedupe_by_url_etag_checksum",
+                "immutable_versions",
                 "prefer_authoritative_connectors",
+                "parallel_fetch_with_retry",
             ],
             "flags": self.flags.as_dict(),
             "live_fetch_enabled": self.flags.faa_live_fetch,
             "search_providers_configured": available_search_providers(),
-            "connectors": [c.health() for c in self.connectors.values()],
+            "connectors": connector_health,
+            "connector_degraded": degraded,
+            "queue_depth": self.metrics.queue_size,
+            "worker_count": self.metrics.worker_count,
             "cache": self.cache.snapshot(),
+            "versions": self.store.snapshot(),
+            "http": self.pipeline.client.stats(),
             "metrics": self.metrics.model_dump(),
             "scheduler": self.scheduler.status() if self.flags.faa_scheduler else {},
             "fre_bound": self.fre is not None,
+            "last_successful_acquisition": self.metrics.last_success_at,
         }
 
     def dashboard(self) -> dict[str, Any]:
@@ -88,18 +104,20 @@ class FaaService:
         return {
             "programme": "FAA",
             "architecture_status": "v1.0.1 LOCKED",
+            "version": "faa-v1.1.0",
             "does_not_answer": True,
             "live_fetch_enabled": self.flags.faa_live_fetch,
             "search_providers_configured": available_search_providers(),
             "metrics": self.metrics.model_dump(),
             "cache": self.cache.snapshot(),
+            "versions": self.store.snapshot(),
+            "http": self.pipeline.client.stats(),
             "scheduler": self.scheduler.status(),
             "connectors": [c.health() for c in self.connectors.values()],
-            "recent_urls": list(self.cache.by_url.values())[-30:],
+            "recent_urls": list(self.cache.by_url.values())[-40:],
         }
 
     def acquire(self, q: str, *, limit: int = 24) -> dict[str, Any]:
-        """Run full acquisition cycle for a question and index into FRE."""
         self._require()
         result = self.pipeline.acquire_for_query(q, limit=limit)
         self.scheduler.mark_run(
@@ -107,15 +125,39 @@ class FaaService:
             query=q,
             discovered=result.discovered,
             fetched=result.fetched,
+            skipped=result.skipped_cached,
+            failed=result.failed,
             indexed=result.indexed_to_fre,
             live_fetch=result.live_fetch,
+            timings=result.timings,
         )
+        payload = result.to_dict()
+        docs = payload.get("documents") or []
         return {
             "programme": "FAA",
             "architecture_status": "v1.0.1 LOCKED",
+            "version": "faa-v1.1.0",
             "does_not_answer": True,
             "never_reasons": True,
-            **result.to_dict(),
+            **payload,
+            "summary": {
+                "live_acquisition_enabled": bool(payload.get("live_fetch")),
+                "documents_discovered": payload.get("discovered") or 0,
+                "documents_downloaded": payload.get("fetched") or 0,
+                "documents_skipped": payload.get("skipped_cached") or 0,
+                "documents_failed": payload.get("failed") or 0,
+                "documents_parsed": payload.get("processed") or 0,
+                "documents_indexed": payload.get("indexed_to_fre") or 0,
+                "connector_names": sorted({d.get("source") or d.get("metadata", {}).get("faa_connector") for d in docs if d}),
+                "source_urls": [d.get("url") for d in docs if d.get("url")][:40],
+                "retrieved_timestamps": [
+                    (d.get("metadata") or {}).get("faa_retrieved_at") for d in docs if (d.get("metadata") or {}).get("faa_retrieved_at")
+                ][:40],
+                "validation_status": [
+                    (d.get("metadata") or {}).get("validation_status") or "ok" for d in docs
+                ][:40],
+                "authority_scores": [d.get("authority") for d in docs if d.get("authority") is not None][:40],
+            },
         }
 
     def discover(self, q: str, *, limit: int = 40) -> dict[str, Any]:
@@ -126,6 +168,7 @@ class FaaService:
             "query": q,
             "tasks": [t.to_dict() for t in tasks],
             "candidates": [c.to_dict() for c in candidates],
+            "connector_count": len(self.connectors),
         }
 
     def connectors_health(self) -> dict[str, Any]:
@@ -133,30 +176,26 @@ class FaaService:
             "programme": "FAA",
             "live_fetch_enabled": self.flags.faa_live_fetch,
             "search_providers_configured": available_search_providers(),
-            "connectors": [c.health() for c in self.connectors.values()],
+            "connectors": [c.health() for c in sorted(self.connectors.values(), key=lambda c: c.priority())],
         }
 
     def run_jobs(self) -> dict[str, Any]:
         self._require()
-        # Scheduled soft cycles for key universes
-        queries = [
-            "Reliance Industries filings and annual report",
-            "Infosys quarterly results and guidance",
-            "RBI monetary policy latest",
-        ]
         runs = []
-        for q in queries:
-            runs.append(self.acquire(q, limit=12))
-        self.scheduler.mark_run("scheduled_batch", queries=len(queries))
+        for q in WATCHLIST_QUERIES:
+            runs.append(self.acquire(q, limit=16))
+        self.scheduler.mark_run("scheduled_batch", queries=len(WATCHLIST_QUERIES))
         return {
             "programme": "FAA",
             "runs": runs,
             "scheduler": self.scheduler.status(),
             "metrics": self.metrics.model_dump(),
+            "cache": self.cache.snapshot(),
+            "versions": self.store.snapshot(),
         }
 
     def consult(self, query: str, *, limit: int = 8) -> dict[str, Any]:
-        """Soft path for Ask AGI observability — acquisition summary only, never an answer."""
+        """Observability path only — acquisition summary, never an answer."""
         self._require()
         result = self.acquire(query, limit=max(limit, 12))
         return {
@@ -169,8 +208,11 @@ class FaaService:
             "discovered": result.get("discovered"),
             "fetched": result.get("fetched"),
             "skipped_cached": result.get("skipped_cached"),
+            "failed": result.get("failed"),
             "indexed_to_fre": result.get("indexed_to_fre"),
+            "timings": result.get("timings"),
             "documents": (result.get("documents") or [])[:limit],
+            "versions": (result.get("versions") or [])[:limit],
             "errors": result.get("errors") or [],
             "guidance": {
                 "enable_live_fetch": "Set FAA_LIVE_FETCH=true on intelligence-engine",

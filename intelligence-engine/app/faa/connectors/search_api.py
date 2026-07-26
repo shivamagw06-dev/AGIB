@@ -1,7 +1,6 @@
-"""Optional public search API connector (Tavily / SerpAPI / Exa / Bing).
+"""Public search API connectors — Tavily / SerpAPI / Exa / Bing / Google CSE.
 
-Enabled only when corresponding API keys exist and FAA_SEARCH_API is on.
-Never used as the sole answer path — discovery only.
+Discovery-only adapters. Actual provider calls run in FetchService when live.
 """
 
 from __future__ import annotations
@@ -33,12 +32,13 @@ class SearchApiConnector(AcquisitionConnector):
     connector_id = "search_api"
     name = "Public Search APIs"
     tier = 6
+    max_per_minute = 20
+    document_types = ["general_web", "news", "industry_report", "research_publication"]
 
-    def discover(self, task: DiscoveryTask) -> list[CandidateDocument]:
+    def search(self, task: DiscoveryTask) -> list[CandidateDocument]:
         providers = available_search_providers()
         q = task.query or task.description
         if not providers:
-            # No key configured — emit a deferred candidate marker (not fetched).
             return [
                 CandidateDocument(
                     title=f"Search deferred (no API key): {q}",
@@ -49,11 +49,9 @@ class SearchApiConnector(AcquisitionConnector):
                     symbol=task.symbol,
                     organisation="search_api",
                     discovery_task_id=task.task_id,
-                    metadata={"providers_available": [], "deferred": True},
+                    metadata={"providers_available": [], "deferred": True, "authority": 2},
                 )
             ]
-
-        # Live provider calls happen in FetchService for these candidates.
         return [
             CandidateDocument(
                 title=f"Search: {q}",
@@ -64,7 +62,7 @@ class SearchApiConnector(AcquisitionConnector):
                 symbol=task.symbol,
                 organisation=providers[0],
                 discovery_task_id=task.task_id,
-                metadata={"providers_available": providers, "query": q},
+                metadata={"providers_available": providers, "query": q, "authority": 4},
             )
         ]
 
@@ -72,3 +70,118 @@ class SearchApiConnector(AcquisitionConnector):
         base = super().health()
         base["providers_available"] = available_search_providers()
         return base
+
+
+class TavilyConnector(SearchApiConnector):
+    connector_id = "tavily"
+    name = "Tavily Search"
+
+    def search(self, task: DiscoveryTask) -> list[CandidateDocument]:
+        if "tavily" not in available_search_providers():
+            return []
+        q = task.query or task.description
+        return [
+            CandidateDocument(
+                title=f"Tavily: {q}",
+                url=f"search://tavily?q={quote_plus(q)}",
+                connector_id=self.connector_id,
+                document_type=task.document_type or "general_web",
+                company=task.company,
+                symbol=task.symbol,
+                organisation="tavily",
+                discovery_task_id=task.task_id,
+                metadata={"providers_available": ["tavily"], "query": q, "authority": 4},
+            )
+        ]
+
+
+class ExaConnector(SearchApiConnector):
+    connector_id = "exa"
+    name = "Exa Search"
+
+    def search(self, task: DiscoveryTask) -> list[CandidateDocument]:
+        if "exa" not in available_search_providers():
+            return []
+        q = task.query or task.description
+        return [
+            CandidateDocument(
+                title=f"Exa: {q}",
+                url=f"search://exa?q={quote_plus(q)}",
+                connector_id=self.connector_id,
+                document_type=task.document_type or "general_web",
+                company=task.company,
+                symbol=task.symbol,
+                organisation="exa",
+                discovery_task_id=task.task_id,
+                metadata={"providers_available": ["exa"], "query": q, "authority": 4},
+            )
+        ]
+
+
+class SerpApiConnector(SearchApiConnector):
+    connector_id = "serpapi"
+    name = "SerpAPI"
+
+    def search(self, task: DiscoveryTask) -> list[CandidateDocument]:
+        if "serpapi" not in available_search_providers():
+            return []
+        q = task.query or task.description
+        return [
+            CandidateDocument(
+                title=f"SerpAPI: {q}",
+                url=f"search://serpapi?q={quote_plus(q)}",
+                connector_id=self.connector_id,
+                document_type=task.document_type or "general_web",
+                company=task.company,
+                symbol=task.symbol,
+                organisation="serpapi",
+                discovery_task_id=task.task_id,
+                metadata={"providers_available": ["serpapi"], "query": q, "authority": 4},
+            )
+        ]
+
+
+class GoogleCseConnector(SearchApiConnector):
+    connector_id = "google_cse"
+    name = "Google Custom Search"
+
+    def search(self, task: DiscoveryTask) -> list[CandidateDocument]:
+        if "google_cse" not in available_search_providers():
+            return []
+        q = task.query or task.description
+        return [
+            CandidateDocument(
+                title=f"Google CSE: {q}",
+                url=f"search://google_cse?q={quote_plus(q)}",
+                connector_id=self.connector_id,
+                document_type=task.document_type or "general_web",
+                company=task.company,
+                symbol=task.symbol,
+                organisation="google_cse",
+                discovery_task_id=task.task_id,
+                metadata={"providers_available": ["google_cse"], "query": q, "authority": 4},
+            )
+        ]
+
+
+class BingConnector(SearchApiConnector):
+    connector_id = "bing"
+    name = "Bing Search API"
+
+    def search(self, task: DiscoveryTask) -> list[CandidateDocument]:
+        if "bing" not in available_search_providers():
+            return []
+        q = task.query or task.description
+        return [
+            CandidateDocument(
+                title=f"Bing: {q}",
+                url=f"search://bing?q={quote_plus(q)}",
+                connector_id=self.connector_id,
+                document_type=task.document_type or "general_web",
+                company=task.company,
+                symbol=task.symbol,
+                organisation="bing",
+                discovery_task_id=task.task_id,
+                metadata={"providers_available": ["bing"], "query": q, "authority": 4},
+            )
+        ]

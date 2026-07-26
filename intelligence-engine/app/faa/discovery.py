@@ -1,4 +1,4 @@
-"""Discovery Service — intelligent task generation + connector routing."""
+"""Discovery Engine — multi-task retrieval plans, independent connector execution."""
 
 from __future__ import annotations
 
@@ -10,24 +10,26 @@ from app.faa.models import CandidateDocument, DiscoveryTask
 from app.fre.planner import plan_retrieval
 from app.fre.understanding import understand_query
 
-# Map FRE planner document types → FAA connectors
 _TYPE_TO_CONNECTORS: dict[str, list[str]] = {
-    "annual_report": ["company_ir"],
-    "quarterly_report": ["company_ir"],
-    "investor_presentation": ["company_ir"],
-    "transcript": ["company_ir"],
-    "conference_call": ["company_ir"],
+    "annual_report": ["company_ir", "pdf_url", "search_api"],
+    "quarterly_report": ["company_ir", "pdf_url", "search_api"],
+    "investor_presentation": ["company_ir", "pdf_url"],
+    "transcript": ["company_ir", "search_api"],
+    "conference_call": ["company_ir", "search_api"],
     "exchange_filing": ["nse", "bse"],
     "nse_bse_filing": ["nse", "bse"],
-    "news": ["news", "search_api"],
-    "government": ["rbi", "sebi", "government"],
-    "rbi": ["rbi"],
-    "sebi": ["sebi"],
-    "industry_report": ["search_api"],
-    "research_publication": ["search_api"],
+    "news": ["news", "rss", "search_api", "tavily", "serpapi"],
+    "government": ["rbi", "sebi", "government", "pib", "mca"],
+    "rbi": ["rbi", "rss"],
+    "sebi": ["sebi", "rss"],
+    "industry_report": ["search_api", "exa", "tavily"],
+    "research_publication": ["search_api", "exa"],
     "fred": ["search_api"],
     "imf": ["search_api"],
     "world_bank": ["search_api"],
+    "rss": ["rss"],
+    "html": ["html_page"],
+    "pdf": ["pdf_url"],
 }
 
 
@@ -39,14 +41,15 @@ class DiscoveryService:
         ud = understand_query(query, aoi=aoi)
         plan = plan_retrieval(query, aoi=aoi, understanding=ud)
         tasks: list[DiscoveryTask] = []
+
         for t in plan.tasks:
             connectors: list[str] = []
             for dt in t.document_types:
                 for cid in _TYPE_TO_CONNECTORS.get(dt, ["search_api"]):
-                    if cid not in connectors:
+                    if cid not in connectors and cid in self.connectors:
                         connectors.append(cid)
             if not connectors:
-                connectors = ["search_api"]
+                connectors = ["search_api"] if "search_api" in self.connectors else list(self.connectors)[:1]
             for cid in connectors:
                 tasks.append(
                     DiscoveryTask(
@@ -59,29 +62,62 @@ class DiscoveryService:
                         priority=t.priority,
                     )
                 )
-        # Always include IR + filings + news for investment analysis
-        if ud.intent == "investment_analysis" and ud.primary_entity:
-            for cid, desc, dtype, pri in [
+
+        entity = ud.primary_entity
+        company = ud.companies[0] if ud.companies else None
+        if entity:
+            forced = [
                 ("company_ir", "Latest annual report", "annual_report", 1),
-                ("company_ir", "Latest quarterly results", "quarterly_report", 1),
-                ("nse", "Exchange filings", "exchange_filing", 2),
+                ("company_ir", "Latest quarterly report", "quarterly_report", 1),
+                ("company_ir", "Investor presentation", "investor_presentation", 2),
+                ("company_ir", "Conference call transcript", "transcript", 2),
+                ("nse", "Exchange filings NSE", "exchange_filing", 2),
+                ("bse", "Exchange filings BSE", "exchange_filing", 2),
                 ("news", "Latest news", "news", 3),
-            ]:
+                ("rss", "Regulator / news RSS", "rss", 3),
+                ("rbi", "Government / RBI policy", "government", 4),
+                ("sebi", "SEBI notifications", "government", 4),
+                ("search_api", "Industry / peer / macro context", "industry_report", 5),
+            ]
+            for cid, desc, dtype, pri in forced:
+                if cid not in self.connectors:
+                    continue
                 tasks.append(
                     DiscoveryTask(
                         description=desc,
                         connector_id=cid,
-                        query=f"{ud.primary_entity} {desc}",
-                        company=ud.companies[0] if ud.companies else None,
-                        symbol=ud.primary_entity,
+                        query=f"{entity} {desc}",
+                        company=company,
+                        symbol=entity,
                         document_type=dtype,
                         priority=pri,
                     )
                 )
-        # de-dupe by connector+description+symbol
+
+        # Peer discovery for investment analysis
+        if ud.intent in {"investment_analysis", "comparison"} and entity:
+            peers = {
+                "RELIANCE": ["BHARTIARTL", "ONGC"],
+                "INFY": ["TCS", "WIPRO"],
+                "TCS": ["INFY", "WIPRO"],
+                "HDFCBANK": ["ICICIBANK", "SBIN"],
+            }.get(entity.upper(), [])
+            for peer in peers:
+                tasks.append(
+                    DiscoveryTask(
+                        description=f"Peer update — {peer}",
+                        connector_id="news",
+                        query=f"{peer} latest results",
+                        company=peer,
+                        symbol=peer,
+                        document_type="news",
+                        priority=5,
+                    )
+                )
+
         seen = set()
         unique: list[DiscoveryTask] = []
-        for task in sorted(tasks, key=lambda x: x.priority):
+        for task in sorted(tasks, key=lambda x: (x.priority, x.connector_id)):
             key = (task.connector_id, task.description, task.symbol, task.document_type)
             if key in seen:
                 continue
@@ -97,16 +133,34 @@ class DiscoveryService:
             if not conn:
                 continue
             try:
-                found = conn.discover(task)
+                found = conn.search(task)
             except Exception:
-                found = []
-            for c in found:
-                candidates.append(c)
-            if len(candidates) >= limit:
+                try:
+                    found = conn.discover(task)
+                except Exception:
+                    found = []
+            candidates.extend(found)
+            if len(candidates) >= limit * 2:
                 break
-        # de-dupe by URL
+
+        # Prefer higher-authority / lower-tier connectors when de-duping URLs
         by_url: dict[str, CandidateDocument] = {}
         for c in candidates:
-            if c.url and c.url not in by_url:
+            if not c.url:
+                continue
+            prev = by_url.get(c.url)
+            if prev is None:
                 by_url[c.url] = c
-        return tasks, list(by_url.values())[:limit]
+                continue
+            prev_auth = int((prev.metadata or {}).get("authority") or 0)
+            new_auth = int((c.metadata or {}).get("authority") or 0)
+            if new_auth > prev_auth:
+                by_url[c.url] = c
+
+        # Sort by connector priority then keep limit
+        def sort_key(c: CandidateDocument) -> tuple[int, int]:
+            conn = self.connectors.get(c.connector_id)
+            return (conn.priority() if conn else 99, -int((c.metadata or {}).get("authority") or 0))
+
+        ordered = sorted(by_url.values(), key=sort_key)
+        return tasks, ordered[:limit]

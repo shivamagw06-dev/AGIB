@@ -1,4 +1,4 @@
-"""FAA acquisition connectors."""
+"""FAA acquisition connectors registry."""
 
 from __future__ import annotations
 
@@ -9,12 +9,22 @@ from app.faa.connectors.company_ir import CompanyIrConnector
 from app.faa.connectors.exchanges import (
     BseConnector,
     GovernmentConnector,
+    McaConnector,
     NseConnector,
+    PibConnector,
     RbiConnector,
     SebiConnector,
 )
-from app.faa.connectors.news import NewsConnector
-from app.faa.connectors.search_api import SearchApiConnector
+from app.faa.connectors.generic import GenericHtmlConnector, GenericPdfConnector
+from app.faa.connectors.news import NewsConnector, RssConnector
+from app.faa.connectors.search_api import (
+    BingConnector,
+    ExaConnector,
+    GoogleCseConnector,
+    SearchApiConnector,
+    SerpApiConnector,
+    TavilyConnector,
+)
 
 
 def build_connectors(*, live_fetch: bool = False) -> dict[str, AcquisitionConnector]:
@@ -25,8 +35,18 @@ def build_connectors(*, live_fetch: bool = False) -> dict[str, AcquisitionConnec
         BseConnector(**args),
         SebiConnector(**args),
         RbiConnector(**args),
+        McaConnector(**args),
+        PibConnector(**args),
         GovernmentConnector(**args),
         NewsConnector(**args),
+        RssConnector(**args),
         SearchApiConnector(**args),
+        TavilyConnector(**args),
+        ExaConnector(**args),
+        SerpApiConnector(**args),
+        GoogleCseConnector(**args),
+        BingConnector(**args),
+        GenericHtmlConnector(**args),
+        GenericPdfConnector(**args),
     ]
     return {c.connector_id: c for c in connectors}

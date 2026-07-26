@@ -276,6 +276,7 @@ class Settings(BaseSettings):
     faa_pdf: bool = True
     faa_notify_fre: bool = True
     faa_scheduler: bool = True
+    faa_max_workers: int = 6
 
     # Context Assembly Engine v1 (Ask AGI orchestration gateway; no core redesign)
     cae: bool = True
