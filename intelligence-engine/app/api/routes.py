@@ -3181,6 +3181,43 @@ async def academy_metrics():
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+@router.get("/academy/production")
+async def academy_production_dashboard():
+    """FAPI v1.0 — production usage dashboard (not a new engine)."""
+    try:
+        return _academy.production_dashboard()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/academy/production/ab")
+async def academy_production_ab(question: str | None = Query(default=None)):
+    try:
+        return _academy.production_ab(question)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/academy/production/quality-gates")
+async def academy_production_quality_gates():
+    try:
+        return _academy.production_quality_gates()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/academy/production/package")
+async def academy_production_package(
+    query: str = Query(...),
+    engine: str = Query(default="cae"),
+    ticker: str | None = Query(default=None),
+):
+    try:
+        return _academy.production_package(query, engine=engine, ticker=ticker)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 # --- IRP V1 (above KIP/RSP, below Ask AGI; no platform redesign) ---
 
 

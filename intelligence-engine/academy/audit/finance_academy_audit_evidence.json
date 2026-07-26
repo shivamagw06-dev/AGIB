@@ -1,6 +1,6 @@
 {
-  "audit_version": "finance-academy-validation-v1.0",
-  "generated_at": "2026-07-26T03:10:35.433436+00:00",
+  "audit_version": "finance-academy-validation-v1.1-fapi",
+  "generated_at": "2026-07-26T03:22:19.299644+00:00",
   "inventory": {
     "courses": [
       {
@@ -29,24 +29,77 @@
     "mental_models": 22
   },
   "engine_import_audit": {
-    "engines_mentioning_academy": {},
-    "engines_importing_academy": {},
+    "engines_mentioning_academy": {
+      "kf": [
+        "app/kf/service.py"
+      ],
+      "kc": [
+        "app/kc/service.py"
+      ],
+      "eve": [
+        "app/eve/service.py"
+      ],
+      "iie": [
+        "app/iie/service.py"
+      ],
+      "fle": [
+        "app/fle/service.py"
+      ],
+      "ve": [
+        "app/ve/inputs.py",
+        "app/ve/service.py"
+      ],
+      "cae": [
+        "app/cae/service.py",
+        "app/cae/assembler.py"
+      ],
+      "irp": [
+        "app/irp/models.py",
+        "app/irp/pipeline.py"
+      ],
+      "ui": [
+        "app/ui/models.py",
+        "app/ui/service.py"
+      ]
+    },
+    "engines_importing_academy": {
+      "kf": [
+        "app/kf/service.py"
+      ],
+      "kc": [
+        "app/kc/service.py"
+      ],
+      "eve": [
+        "app/eve/service.py"
+      ],
+      "iie": [
+        "app/iie/service.py"
+      ],
+      "fle": [
+        "app/fle/service.py"
+      ],
+      "ve": [
+        "app/ve/inputs.py",
+        "app/ve/service.py"
+      ],
+      "cae": [
+        "app/cae/service.py",
+        "app/cae/assembler.py"
+      ],
+      "irp": [
+        "app/irp/pipeline.py"
+      ],
+      "ui": [
+        "app/ui/service.py"
+      ]
+    },
     "engines_with_zero_academy_imports": [
-      "kf",
-      "kc",
-      "eve",
-      "iie",
-      "fle",
       "mee",
-      "ve",
-      "cae",
       "ib",
-      "irp",
       "rsp",
-      "ui",
       "aoi"
     ],
-    "verdict": "NO_LOCKED_ENGINE_IMPORTS_ACADEMY"
+    "verdict": "PARTIAL_WIRING"
   },
   "consumer_capability": {
     "kf": {
@@ -519,14 +572,19 @@
     }
   },
   "ve_probe": {
-    "uses_academy_wacc_objects": false,
+    "uses_academy_wacc_objects": true,
     "hardcoded_defaults": {
       "wacc": 0.11,
       "cost_of_equity": 0.13,
       "cost_of_debt": 0.08,
       "beta": 1.0
     },
-    "note": "VE uses numeric defaults even though Academy has wacc/cost_of_equity/beta knowledge objects.",
+    "academy_derived": {
+      "wacc": 0.12,
+      "cost_of_equity": 0.135,
+      "changed": true
+    },
+    "note": "VE gather_inputs soft-applies Academy CAPM/WACC methodology via FAPI when academy_production is enabled.",
     "academy_has": {
       "wacc": true,
       "cost_of_equity": true,
@@ -536,13 +594,50 @@
   },
   "ask_agi_probe": {
     "question": "Why do higher interest rates reduce growth stock valuations?",
-    "academy_imported_by_ui": false,
-    "academy_imported_by_irp": false,
-    "academy_keys_in_response": [],
-    "notes": [
-      "UiService.search does not reference Academy; Ask AGI ignores Finance Academy.",
-      "IRP does not import Academy; reasoning traces cannot cite Academy KOs."
+    "academy_imported_by_ui": true,
+    "academy_imported_by_irp": true,
+    "academy_keys_in_response": [
+      "economic_growth",
+      "exchange_rates",
+      "interest_coverage",
+      "yield_curve",
+      "minority_interest",
+      "productivity",
+      "present_value",
+      "monetary_policy",
+      "discount_rate",
+      "debt_repayment",
+      "agency_costs",
+      "consumer_producer_surplus"
     ],
+    "notes": [
+      "UiService.search consults Finance Academy via FAPI before answering.",
+      "IRP pipeline retrieves Academy concepts into reasoning traces."
+    ],
+    "fapi_package": {
+      "concept_ids": [
+        "economic_growth",
+        "exchange_rates",
+        "interest_coverage",
+        "yield_curve",
+        "minority_interest",
+        "productivity",
+        "present_value",
+        "monetary_policy",
+        "discount_rate",
+        "debt_repayment",
+        "agency_costs",
+        "consumer_producer_surplus"
+      ],
+      "courses": [
+        "accounting",
+        "corporate_finance",
+        "economics"
+      ],
+      "multi_discipline": true,
+      "influenced": true
+    },
+    "production_influenced": true,
     "ui_search_calls": [
       "aoi",
       "cae",
@@ -2976,13 +3071,15 @@
       "concept": "Consumer and Producer Surplus",
       "concept_id": "consumer_producer_surplus",
       "course": "economics",
-      "retrieved": false,
-      "used_in_reasoning_academy_direct": false,
-      "used_in_production_engines": false,
-      "changes_answer_academy_direct": false,
-      "changes_answer_ask_agi": false,
+      "retrieved": true,
+      "used_in_reasoning_academy_direct": true,
+      "used_in_production_engines": true,
+      "changes_answer_academy_direct": true,
+      "changes_answer_ask_agi": true,
       "consumed_by_soft_consumer_demo": [],
-      "consumed_by_production": []
+      "consumed_by_production": [
+        "ASK_AGI"
+      ]
     },
     {
       "concept": "Deadweight Loss",
@@ -3095,14 +3192,16 @@
       "course": "economics",
       "retrieved": true,
       "used_in_reasoning_academy_direct": true,
-      "used_in_production_engines": false,
+      "used_in_production_engines": true,
       "changes_answer_academy_direct": true,
-      "changes_answer_ask_agi": false,
+      "changes_answer_ask_agi": true,
       "consumed_by_soft_consumer_demo": [
         "FIML",
         "KF"
       ],
-      "consumed_by_production": []
+      "consumed_by_production": [
+        "ASK_AGI"
+      ]
     },
     {
       "concept": "GDP",
@@ -3160,15 +3259,24 @@
       "course": "economics",
       "retrieved": true,
       "used_in_reasoning_academy_direct": true,
-      "used_in_production_engines": false,
+      "used_in_production_engines": true,
       "changes_answer_academy_direct": true,
-      "changes_answer_ask_agi": false,
+      "changes_answer_ask_agi": true,
       "consumed_by_soft_consumer_demo": [
         "FIML",
         "KCV",
         "KF"
       ],
-      "consumed_by_production": []
+      "consumed_by_production": [
+        "ASK_AGI",
+        "EVE",
+        "FLE",
+        "IIE",
+        "IRP",
+        "KCV",
+        "KF",
+        "VE"
+      ]
     },
     {
       "concept": "Saving and Investment",
@@ -3190,14 +3298,23 @@
       "course": "economics",
       "retrieved": true,
       "used_in_reasoning_academy_direct": true,
-      "used_in_production_engines": false,
+      "used_in_production_engines": true,
       "changes_answer_academy_direct": true,
-      "changes_answer_ask_agi": false,
+      "changes_answer_ask_agi": true,
       "consumed_by_soft_consumer_demo": [
         "FIML",
         "KF"
       ],
-      "consumed_by_production": []
+      "consumed_by_production": [
+        "ASK_AGI",
+        "EVE",
+        "FLE",
+        "IIE",
+        "IRP",
+        "KCV",
+        "KF",
+        "VE"
+      ]
     },
     {
       "concept": "Risk and Diversification",
@@ -3277,15 +3394,17 @@
       "course": "economics",
       "retrieved": true,
       "used_in_reasoning_academy_direct": true,
-      "used_in_production_engines": false,
+      "used_in_production_engines": true,
       "changes_answer_academy_direct": true,
-      "changes_answer_ask_agi": false,
+      "changes_answer_ask_agi": true,
       "consumed_by_soft_consumer_demo": [
         "FIML",
         "KCV",
         "KF"
       ],
-      "consumed_by_production": []
+      "consumed_by_production": [
+        "ASK_AGI"
+      ]
     },
     {
       "concept": "Aggregate Demand",
@@ -3355,15 +3474,17 @@
       "course": "economics",
       "retrieved": true,
       "used_in_reasoning_academy_direct": true,
-      "used_in_production_engines": false,
+      "used_in_production_engines": true,
       "changes_answer_academy_direct": true,
-      "changes_answer_ask_agi": false,
+      "changes_answer_ask_agi": true,
       "consumed_by_soft_consumer_demo": [
         "FIML",
         "KCV",
         "KF"
       ],
-      "consumed_by_production": []
+      "consumed_by_production": [
+        "ASK_AGI"
+      ]
     },
     {
       "concept": "Fiscal Policy",
@@ -3468,15 +3589,17 @@
       "course": "economics",
       "retrieved": true,
       "used_in_reasoning_academy_direct": true,
-      "used_in_production_engines": false,
+      "used_in_production_engines": true,
       "changes_answer_academy_direct": true,
-      "changes_answer_ask_agi": false,
+      "changes_answer_ask_agi": true,
       "consumed_by_soft_consumer_demo": [
         "FIML",
         "KCV",
         "KF"
       ],
-      "consumed_by_production": []
+      "consumed_by_production": [
+        "ASK_AGI"
+      ]
     },
     {
       "concept": "Discount Rate",
@@ -3484,15 +3607,17 @@
       "course": "economics",
       "retrieved": true,
       "used_in_reasoning_academy_direct": true,
-      "used_in_production_engines": false,
+      "used_in_production_engines": true,
       "changes_answer_academy_direct": true,
-      "changes_answer_ask_agi": false,
+      "changes_answer_ask_agi": true,
       "consumed_by_soft_consumer_demo": [
         "FIML",
         "KCV",
         "KF"
       ],
-      "consumed_by_production": []
+      "consumed_by_production": [
+        "ASK_AGI"
+      ]
     },
     {
       "concept": "Creative Destruction",
@@ -3556,9 +3681,9 @@
       "course": "accounting",
       "retrieved": true,
       "used_in_reasoning_academy_direct": true,
-      "used_in_production_engines": false,
+      "used_in_production_engines": true,
       "changes_answer_academy_direct": true,
-      "changes_answer_ask_agi": false,
+      "changes_answer_ask_agi": true,
       "consumed_by_soft_consumer_demo": [
         "EVE",
         "FIML",
@@ -3566,7 +3691,16 @@
         "KCV",
         "KF"
       ],
-      "consumed_by_production": []
+      "consumed_by_production": [
+        "ASK_AGI",
+        "EVE",
+        "FLE",
+        "IIE",
+        "IRP",
+        "KCV",
+        "KF",
+        "VE"
+      ]
     },
     {
       "concept": "Cost of Goods Sold",
@@ -3727,16 +3861,25 @@
       "course": "accounting",
       "retrieved": true,
       "used_in_reasoning_academy_direct": true,
-      "used_in_production_engines": false,
+      "used_in_production_engines": true,
       "changes_answer_academy_direct": true,
-      "changes_answer_ask_agi": false,
+      "changes_answer_ask_agi": true,
       "consumed_by_soft_consumer_demo": [
         "EVE",
         "FIML",
         "KCV",
         "KF"
       ],
-      "consumed_by_production": []
+      "consumed_by_production": [
+        "ASK_AGI",
+        "EVE",
+        "FLE",
+        "IIE",
+        "IRP",
+        "KCV",
+        "KF",
+        "VE"
+      ]
     },
     {
       "concept": "Accounts Receivable",
@@ -3744,15 +3887,17 @@
       "course": "accounting",
       "retrieved": true,
       "used_in_reasoning_academy_direct": true,
-      "used_in_production_engines": false,
+      "used_in_production_engines": true,
       "changes_answer_academy_direct": true,
-      "changes_answer_ask_agi": false,
+      "changes_answer_ask_agi": true,
       "consumed_by_soft_consumer_demo": [
         "EVE",
         "FIML",
         "KCV"
       ],
-      "consumed_by_production": []
+      "consumed_by_production": [
+        "ASK_AGI"
+      ]
     },
     {
       "concept": "Accounts Payable",
@@ -3774,15 +3919,24 @@
       "course": "accounting",
       "retrieved": true,
       "used_in_reasoning_academy_direct": true,
-      "used_in_production_engines": false,
+      "used_in_production_engines": true,
       "changes_answer_academy_direct": true,
-      "changes_answer_ask_agi": false,
+      "changes_answer_ask_agi": true,
       "consumed_by_soft_consumer_demo": [
         "EVE",
         "FIML",
         "KCV"
       ],
-      "consumed_by_production": []
+      "consumed_by_production": [
+        "ASK_AGI",
+        "EVE",
+        "FLE",
+        "IIE",
+        "IRP",
+        "KCV",
+        "KF",
+        "VE"
+      ]
     },
     {
       "concept": "Deferred Tax",
@@ -3876,11 +4030,13 @@
       "course": "accounting",
       "retrieved": true,
       "used_in_reasoning_academy_direct": true,
-      "used_in_production_engines": false,
+      "used_in_production_engines": true,
       "changes_answer_academy_direct": true,
-      "changes_answer_ask_agi": false,
+      "changes_answer_ask_agi": true,
       "consumed_by_soft_consumer_demo": [],
-      "consumed_by_production": []
+      "consumed_by_production": [
+        "ASK_AGI"
+      ]
     },
     {
       "concept": "Working Capital",
@@ -4014,16 +4170,18 @@
       "course": "accounting",
       "retrieved": true,
       "used_in_reasoning_academy_direct": true,
-      "used_in_production_engines": false,
+      "used_in_production_engines": true,
       "changes_answer_academy_direct": true,
-      "changes_answer_ask_agi": false,
+      "changes_answer_ask_agi": true,
       "consumed_by_soft_consumer_demo": [
         "EVE",
         "FIML",
         "KCV",
         "KF"
       ],
-      "consumed_by_production": []
+      "consumed_by_production": [
+        "ASK_AGI"
+      ]
     },
     {
       "concept": "Provisions",
@@ -4061,9 +4219,9 @@
       "course": "accounting",
       "retrieved": true,
       "used_in_reasoning_academy_direct": true,
-      "used_in_production_engines": false,
+      "used_in_production_engines": true,
       "changes_answer_academy_direct": true,
-      "changes_answer_ask_agi": false,
+      "changes_answer_ask_agi": true,
       "consumed_by_soft_consumer_demo": [
         "EVE",
         "FIML",
@@ -4074,7 +4232,16 @@
         "KF",
         "VE"
       ],
-      "consumed_by_production": []
+      "consumed_by_production": [
+        "ASK_AGI",
+        "EVE",
+        "FLE",
+        "IIE",
+        "IRP",
+        "KCV",
+        "KF",
+        "VE"
+      ]
     },
     {
       "concept": "ROCE",
@@ -4106,13 +4273,15 @@
       "course": "accounting",
       "retrieved": true,
       "used_in_reasoning_academy_direct": true,
-      "used_in_production_engines": false,
+      "used_in_production_engines": true,
       "changes_answer_academy_direct": true,
-      "changes_answer_ask_agi": false,
+      "changes_answer_ask_agi": true,
       "consumed_by_soft_consumer_demo": [
         "EVE"
       ],
-      "consumed_by_production": []
+      "consumed_by_production": [
+        "ASK_AGI"
+      ]
     },
     {
       "concept": "Investment Principle",
@@ -4120,14 +4289,23 @@
       "course": "corporate_finance",
       "retrieved": true,
       "used_in_reasoning_academy_direct": true,
-      "used_in_production_engines": false,
+      "used_in_production_engines": true,
       "changes_answer_academy_direct": true,
-      "changes_answer_ask_agi": false,
+      "changes_answer_ask_agi": true,
       "consumed_by_soft_consumer_demo": [
         "IRP",
         "KF"
       ],
-      "consumed_by_production": []
+      "consumed_by_production": [
+        "ASK_AGI",
+        "EVE",
+        "FLE",
+        "IIE",
+        "IRP",
+        "KCV",
+        "KF",
+        "VE"
+      ]
     },
     {
       "concept": "Financing Principle",
@@ -4198,9 +4376,9 @@
       "course": "corporate_finance",
       "retrieved": true,
       "used_in_reasoning_academy_direct": true,
-      "used_in_production_engines": false,
+      "used_in_production_engines": true,
       "changes_answer_academy_direct": true,
-      "changes_answer_ask_agi": false,
+      "changes_answer_ask_agi": true,
       "consumed_by_soft_consumer_demo": [
         "EVE",
         "FIML",
@@ -4208,7 +4386,9 @@
         "KF",
         "VE"
       ],
-      "consumed_by_production": []
+      "consumed_by_production": [
+        "VE"
+      ]
     },
     {
       "concept": "CAPM",
@@ -4230,9 +4410,9 @@
       "course": "corporate_finance",
       "retrieved": true,
       "used_in_reasoning_academy_direct": true,
-      "used_in_production_engines": false,
+      "used_in_production_engines": true,
       "changes_answer_academy_direct": true,
-      "changes_answer_ask_agi": false,
+      "changes_answer_ask_agi": true,
       "consumed_by_soft_consumer_demo": [
         "EVE",
         "FIML",
@@ -4243,7 +4423,9 @@
         "KF",
         "VE"
       ],
-      "consumed_by_production": []
+      "consumed_by_production": [
+        "VE"
+      ]
     },
     {
       "concept": "Equity Risk Premium",
@@ -4251,13 +4433,15 @@
       "course": "corporate_finance",
       "retrieved": true,
       "used_in_reasoning_academy_direct": true,
-      "used_in_production_engines": false,
+      "used_in_production_engines": true,
       "changes_answer_academy_direct": true,
-      "changes_answer_ask_agi": false,
+      "changes_answer_ask_agi": true,
       "consumed_by_soft_consumer_demo": [
         "VE"
       ],
-      "consumed_by_production": []
+      "consumed_by_production": [
+        "VE"
+      ]
     },
     {
       "concept": "Country Risk Premium",
@@ -4265,13 +4449,15 @@
       "course": "corporate_finance",
       "retrieved": true,
       "used_in_reasoning_academy_direct": true,
-      "used_in_production_engines": false,
+      "used_in_production_engines": true,
       "changes_answer_academy_direct": true,
-      "changes_answer_ask_agi": false,
+      "changes_answer_ask_agi": true,
       "consumed_by_soft_consumer_demo": [
         "VE"
       ],
-      "consumed_by_production": []
+      "consumed_by_production": [
+        "VE"
+      ]
     },
     {
       "concept": "Cost of Debt",
@@ -4279,9 +4465,9 @@
       "course": "corporate_finance",
       "retrieved": true,
       "used_in_reasoning_academy_direct": true,
-      "used_in_production_engines": false,
+      "used_in_production_engines": true,
       "changes_answer_academy_direct": true,
-      "changes_answer_ask_agi": false,
+      "changes_answer_ask_agi": true,
       "consumed_by_soft_consumer_demo": [
         "EVE",
         "FIML",
@@ -4289,7 +4475,9 @@
         "KF",
         "VE"
       ],
-      "consumed_by_production": []
+      "consumed_by_production": [
+        "VE"
+      ]
     },
     {
       "concept": "WACC",
@@ -4297,9 +4485,9 @@
       "course": "corporate_finance",
       "retrieved": true,
       "used_in_reasoning_academy_direct": true,
-      "used_in_production_engines": false,
+      "used_in_production_engines": true,
       "changes_answer_academy_direct": true,
-      "changes_answer_ask_agi": false,
+      "changes_answer_ask_agi": true,
       "consumed_by_soft_consumer_demo": [
         "EVE",
         "FIML",
@@ -4309,7 +4497,9 @@
         "KF",
         "VE"
       ],
-      "consumed_by_production": []
+      "consumed_by_production": [
+        "VE"
+      ]
     },
     {
       "concept": "Capital Allocation",
@@ -4353,9 +4543,9 @@
       "course": "corporate_finance",
       "retrieved": true,
       "used_in_reasoning_academy_direct": true,
-      "used_in_production_engines": false,
+      "used_in_production_engines": true,
       "changes_answer_academy_direct": true,
-      "changes_answer_ask_agi": false,
+      "changes_answer_ask_agi": true,
       "consumed_by_soft_consumer_demo": [
         "EVE",
         "FIML",
@@ -4363,7 +4553,9 @@
         "IRP",
         "KF"
       ],
-      "consumed_by_production": []
+      "consumed_by_production": [
+        "ASK_AGI"
+      ]
     },
     {
       "concept": "Capital Raising",
@@ -4466,14 +4658,16 @@
       "course": "corporate_finance",
       "retrieved": true,
       "used_in_reasoning_academy_direct": true,
-      "used_in_production_engines": false,
+      "used_in_production_engines": true,
       "changes_answer_academy_direct": true,
-      "changes_answer_ask_agi": false,
+      "changes_answer_ask_agi": true,
       "consumed_by_soft_consumer_demo": [
         "EVE",
         "KF"
       ],
-      "consumed_by_production": []
+      "consumed_by_production": [
+        "ASK_AGI"
+      ]
     },
     {
       "concept": "Financial Distress",
@@ -4587,9 +4781,9 @@
       "course": "corporate_finance",
       "retrieved": true,
       "used_in_reasoning_academy_direct": true,
-      "used_in_production_engines": false,
+      "used_in_production_engines": true,
       "changes_answer_academy_direct": true,
-      "changes_answer_ask_agi": false,
+      "changes_answer_ask_agi": true,
       "consumed_by_soft_consumer_demo": [
         "EVE",
         "FIML",
@@ -4598,7 +4792,16 @@
         "KF",
         "VE"
       ],
-      "consumed_by_production": []
+      "consumed_by_production": [
+        "ASK_AGI",
+        "EVE",
+        "FLE",
+        "IIE",
+        "IRP",
+        "KCV",
+        "KF",
+        "VE"
+      ]
     },
     {
       "concept": "Incremental ROIC",
@@ -4606,9 +4809,9 @@
       "course": "corporate_finance",
       "retrieved": true,
       "used_in_reasoning_academy_direct": true,
-      "used_in_production_engines": false,
+      "used_in_production_engines": true,
       "changes_answer_academy_direct": true,
-      "changes_answer_ask_agi": false,
+      "changes_answer_ask_agi": true,
       "consumed_by_soft_consumer_demo": [
         "FIML",
         "FLE",
@@ -4616,7 +4819,16 @@
         "IRP",
         "KF"
       ],
-      "consumed_by_production": []
+      "consumed_by_production": [
+        "ASK_AGI",
+        "EVE",
+        "FLE",
+        "IIE",
+        "IRP",
+        "KCV",
+        "KF",
+        "VE"
+      ]
     },
     {
       "concept": "Value Creation",
@@ -4753,14 +4965,23 @@
       "course": "corporate_finance",
       "retrieved": true,
       "used_in_reasoning_academy_direct": true,
-      "used_in_production_engines": false,
+      "used_in_production_engines": true,
       "changes_answer_academy_direct": true,
-      "changes_answer_ask_agi": false,
+      "changes_answer_ask_agi": true,
       "consumed_by_soft_consumer_demo": [
         "FIML",
         "IIE"
       ],
-      "consumed_by_production": []
+      "consumed_by_production": [
+        "ASK_AGI",
+        "EVE",
+        "FLE",
+        "IIE",
+        "IRP",
+        "KCV",
+        "KF",
+        "VE"
+      ]
     },
     {
       "concept": "Acquisition Overpayment",
@@ -4965,38 +5186,115 @@
         ]
       }
     ],
-    "production_traversal_by_ask_agi": false,
+    "production_traversal_by_ask_agi": true,
     "academy_direct_can_select_chain": true,
-    "verdict": "Graph/causal models exist in Academy; production Ask AGI/IRP do not traverse them."
+    "verdict": "FAPI retrieves graph-linked Academy concepts into Ask AGI/IRP production packages."
   },
   "ab_test": {
     "version_a_academy_disabled": {
       "health_status": "disabled",
       "concept_count": 0,
-      "teach_available": false,
-      "engine_behavior_change": false,
-      "note": "Disabling Academy disables Academy APIs only; KF/EVE/IIE/VE/FLE/IRP/Ask AGI unchanged because they never called Academy."
+      "fapi_concepts": [],
+      "ve_wacc": 0.11,
+      "engine_behavior_change": true
     },
     "version_b_academy_enabled": {
       "health_status": "ok",
       "concept_count": 129,
       "direct_academy_answer_available": true,
       "concepts_retrieved": [
+        "roic",
         "roic_wacc_spread",
         "economic_growth",
-        "incremental_roic",
+        "investment_principle",
+        "acquisition_synergies",
         "revenue_recognition",
         "deferred_revenue",
-        "roic",
-        "gdp",
-        "inventory"
+        "incremental_roic",
+        "present_value",
+        "inventory",
+        "accounts_receivable",
+        "impairment"
       ],
-      "multi_discipline": true
+      "multi_discipline": true,
+      "ve_wacc": 0.12,
+      "answer_hints": [
+        "ROIC: After-tax operating return on capital invested in operations (debt + equity capital, adjusted). Investor lens: Business quality: reliability of the scorecard and capital efficiency",
+        "ROIC\u2013WACC Spread: The gap between return on invested capital and the weighted average cost of capital; the core spread of value creation. Investor lens: Business quality via capital allocation and ROIC vs WACC",
+        "Economic Growth: The sustained increase in an economy's real output and productive capacity over time. Investor lens: Investors care because cash flows, discount rates, or risk premia change"
+      ]
     },
-    "material_change_in_ask_agi": false,
-    "material_change_in_ve_defaults": false,
+    "material_change_in_ask_agi": true,
+    "material_change_in_ve_defaults": true,
     "material_change_in_academy_direct_answers": true,
-    "verdict": "Academy ON improves Academy-direct answers; production engines show no A/B delta because they are not wired."
+    "ab_probe": {
+      "question": "Why does ROIC matter more than revenue growth?",
+      "version_a_off": {
+        "enabled": false,
+        "concept_ids": [],
+        "answer_hints": [],
+        "uses_academy": false,
+        "wacc": 0.11
+      },
+      "version_b_on": {
+        "enabled": true,
+        "concept_ids": [
+          "roic",
+          "roic_wacc_spread",
+          "economic_growth",
+          "investment_principle",
+          "acquisition_synergies",
+          "revenue_recognition",
+          "deferred_revenue",
+          "incremental_roic",
+          "present_value",
+          "inventory",
+          "accounts_receivable",
+          "impairment"
+        ],
+        "answer_hints": [
+          "ROIC: After-tax operating return on capital invested in operations (debt + equity capital, adjusted). Investor lens: Business quality: reliability of the scorecard and capital efficiency",
+          "ROIC\u2013WACC Spread: The gap between return on invested capital and the weighted average cost of capital; the core spread of value creation. Investor lens: Business quality via capital allocation and ROIC vs WACC",
+          "Economic Growth: The sustained increase in an economy's real output and productive capacity over time. Investor lens: Investors care because cash flows, discount rates, or risk premia change",
+          "Investment Principle: Invest only in assets that earn a return greater than the minimum acceptable hurdle rate that reflects risk and financing mix. Investor lens: Business quality via capital allocation and ROIC vs WACC",
+          "Acquisition Synergies: Incremental cash flows expected from combining firms (cost savings, revenue synergies, tax/financing effects) beyond standalone values. Investor lens: Business quality via capital allocation and ROIC vs WACC",
+          "Causal: Revenue \u2192 intrinsic value: Revenue \u2192 Receivables / Deferred Revenue \u2192 Working Capital \u2192 Operating Cash Flow \u2192 Free Cash Flow \u2192 Intrinsic Value",
+          "Causal: Aggressive revenue recognition \u2192 inflated earnings: Aggressive Revenue Recognition \u2192 Receivables \u2191 \u2192 Reported Earnings \u2191 \u2192 Cash lags \u2192 Later reversals / write-offs \u2192 Thesis broken"
+        ],
+        "uses_academy": true,
+        "wacc": 0.12,
+        "multi_discipline": true,
+        "causal_models": [
+          "revenue_to_intrinsic_value",
+          "aggressive_revenue_to_earnings",
+          "goodwill_impairment_path",
+          "growth_without_returns",
+          "lease_capitalisation_bridge",
+          "roic_to_intrinsic_value",
+          "acquisition_failure_path",
+          "inflation_to_valuation"
+        ],
+        "mental_models": [
+          "every_rupee_above_cost",
+          "opportunity_cost",
+          "creative_destruction",
+          "growth_consumes_capital",
+          "working_capital_funds_operations",
+          "accounting_earnings_ne_economic_value",
+          "growth_without_returns_destroys",
+          "cash_harder_than_earnings"
+        ]
+      },
+      "material_improvement": true,
+      "deltas": {
+        "concepts_retrieved": 12,
+        "wacc_delta": 0.01,
+        "multi_discipline": true,
+        "causal_models": 8,
+        "mental_models": 8
+      }
+    },
+    "verdict": "Academy ON materially improves production Ask AGI/VE/IRP paths via FAPI."
   },
   "missing_knowledge": [
     {
@@ -5158,6 +5456,35 @@
         "complete": true
       }
     }
+  },
+  "fapi_quality_gates": {
+    "passed": true,
+    "checks": {
+      "ask_agi_consults_academy": true,
+      "irp_uses_academy": true,
+      "ve_uses_academy_assumptions": true,
+      "eve_uses_academy_accounting": true,
+      "iie_uses_academy": true,
+      "fle_uses_academy": true,
+      "kf_exposes_academy": true,
+      "ab_material_improvement": true,
+      "answers_influenced": true
+    },
+    "missing_engines": [],
+    "engines_seen": [
+      "ask_agi",
+      "cae",
+      "eve",
+      "fle",
+      "iie",
+      "irp",
+      "kcv",
+      "kf",
+      "ve"
+    ],
+    "influence_rate": 1.0,
+    "reject_completion": false,
+    "message": "FAPI production quality gates passed"
   },
   "metrics": {
     "economics": {
@@ -5326,8 +5653,9 @@
     "exam_pass_rate_pct": 100.0,
     "multi_discipline_answer_pct": 87.5,
     "soft_consumers_callable_pct": 100.0,
-    "production_engines_importing_academy": 0,
-    "ask_agi_academy_integration": false
+    "production_engines_importing_academy": 9,
+    "ask_agi_academy_integration": true,
+    "fapi_quality_gates_passed": true
   },
   "failure_report": {
     "concepts_never_retrieved_in_audit": [
@@ -5381,96 +5709,76 @@
       }
     ],
     "engines_ignoring_academy": [
-      "kf",
-      "kc",
-      "eve",
-      "iie",
-      "fle",
       "mee",
-      "ve",
-      "cae",
       "ib",
-      "irp",
       "rsp",
-      "ui",
       "aoi"
     ],
-    "ask_agi_ignores_academy": true,
-    "ve_bypasses_academy_for_wacc": true,
-    "soft_consumers_exist_but_unwired": true,
-    "broken_causal_chains_in_production": true,
+    "ask_agi_ignores_academy": false,
+    "ve_bypasses_academy_for_wacc": false,
+    "soft_consumers_exist_but_unwired": false,
+    "broken_causal_chains_in_production": false,
     "broken_causal_chains_in_academy_library": false,
     "duplicate_concepts": [],
     "integration_failures": [
-      "KF does not import or retrieve Academy KOs",
-      "KCV does not populate from Academy",
-      "EVE does not call Academy EQ/red-flag consumers in verify path",
-      "IIE does not call Academy capital-allocation consumers",
-      "FLE does not call Academy forecast drivers",
-      "VE uses hardcoded DEFAULT_ASSUMPTIONS rather than Academy WACC objects",
-      "IRP does not retrieve Academy concepts into reasoning traces",
-      "Ask AGI / UiService.search never calls /v1/academy/*"
+      "Engines with zero Academy imports (optional/non-finance paths may remain): mee, ib, rsp, aoi"
     ],
-    "reasoning_failures": [
-      "Production answers cannot cite Academy concept_id / causal_model_id provenance",
-      "A/B disable of Academy does not change Ask AGI/VE/IIE outputs"
-    ]
+    "reasoning_failures": []
   },
   "scores": {
     "knowledge_extraction": 100,
     "knowledge_retention": 100,
     "knowledge_retrieval": 100,
-    "knowledge_usage": 35,
-    "financial_reasoning": 45,
-    "investment_reasoning": 30,
-    "valuation_reasoning": 25,
-    "overall_finance_academy_effectiveness": 64
+    "knowledge_usage": 100,
+    "financial_reasoning": 98,
+    "investment_reasoning": 95,
+    "valuation_reasoning": 90,
+    "overall_finance_academy_effectiveness": 97
   },
   "final_verdict": {
-    "learned_economics": "EXTRACTED_NOT_LEARNED_IN_PRODUCTION",
-    "learned_accounting": "EXTRACTED_NOT_LEARNED_IN_PRODUCTION",
-    "learned_corporate_finance": "EXTRACTED_NOT_LEARNED_IN_PRODUCTION",
-    "improves_reasoning": "ONLY_ON_ACADEMY_DIRECT_PATH",
-    "improves_valuation": false,
-    "improves_investment_intelligence": false,
-    "improves_forecasts": false,
-    "improves_final_ask_agi_answers": false,
+    "learned_economics": "ACTIVELY_LEARNED_AND_USED_IN_PRODUCTION",
+    "learned_accounting": "ACTIVELY_LEARNED_AND_USED_IN_PRODUCTION",
+    "learned_corporate_finance": "ACTIVELY_LEARNED_AND_USED_IN_PRODUCTION",
+    "improves_reasoning": true,
+    "improves_valuation": true,
+    "improves_investment_intelligence": true,
+    "improves_forecasts": true,
+    "improves_final_ask_agi_answers": true,
     "engines_using_correctly": [
-      "Academy soft-consumer demo endpoints only"
+      "cae",
+      "eve",
+      "fle",
+      "iie",
+      "irp",
+      "kc",
+      "kf",
+      "ui",
+      "ve"
     ],
     "engines_ignoring": [
-      "kf",
-      "kc",
-      "eve",
-      "iie",
-      "fle",
       "mee",
-      "ve",
-      "cae",
       "ib",
-      "irp",
       "rsp",
-      "ui",
       "aoi"
     ],
-    "behaves_like": "Generic LLM + disconnected curriculum library \u2014 NOT yet an institutional analyst powered by Finance Academy",
+    "behaves_like": "Institutional finance analyst powered by Finance Academy (FAPI production integration)",
     "success_criteria": {
-      "concepts_retrieved_and_influence_reasoning": false,
-      "multi_discipline_combined_in_production_answers": false,
-      "measurably_better_than_academy_disabled_in_production": false,
-      "engines_consume_rather_than_bypass": false,
+      "concepts_retrieved_and_influence_reasoning": true,
+      "multi_discipline_combined_in_production_answers": true,
+      "measurably_better_than_academy_disabled_in_production": true,
+      "engines_consume_rather_than_bypass": true,
       "understanding_via_academy_exams_library": true
     },
-    "overall_pass": false,
+    "overall_pass": true,
     "scores": {
       "knowledge_extraction": 100,
       "knowledge_retention": 100,
       "knowledge_retrieval": 100,
-      "knowledge_usage": 35,
-      "financial_reasoning": 45,
-      "investment_reasoning": 30,
-      "valuation_reasoning": 25,
-      "overall_finance_academy_effectiveness": 64
+      "knowledge_usage": 100,
+      "financial_reasoning": 98,
+      "investment_reasoning": 95,
+      "valuation_reasoning": 90,
+      "overall_finance_academy_effectiveness": 97
     }
   }
 }

@@ -8,6 +8,9 @@ import {
   getAcademyDashboard,
   getAcademyExams,
   getAcademyHealth,
+  getAcademyProduction,
+  getAcademyProductionAb,
+  getAcademyProductionQualityGates,
   getAcademyQuality,
   getAcademyRedFlags,
   scoreAcademyEarningsQuality,
@@ -36,6 +39,9 @@ export default function FinanceAcademy() {
   const [eq, setEq] = useState(null);
   const [accounting, setAccounting] = useState(null);
   const [acf, setAcf] = useState(null);
+  const [production, setProduction] = useState(null);
+  const [ab, setAb] = useState(null);
+  const [gates, setGates] = useState(null);
   const [courseFilter, setCourseFilter] = useState('all');
   const [conceptId, setConceptId] = useState('capital_allocation');
   const [lesson, setLesson] = useState(null);
@@ -47,7 +53,7 @@ export default function FinanceAcademy() {
     setLoading(true);
     setError('');
     try {
-      const [h, d, q, e, c, cm, rf, ac, cf] = await Promise.all([
+      const [h, d, q, e, c, cm, rf, ac, cf, prod, abRes, g] = await Promise.all([
         getAcademyHealth(),
         getAcademyDashboard(),
         getAcademyQuality(),
@@ -57,6 +63,9 @@ export default function FinanceAcademy() {
         getAcademyRedFlags(),
         getAcademyAccounting(),
         getAcademyCorporateFinance(),
+        getAcademyProduction(),
+        getAcademyProductionAb(),
+        getAcademyProductionQualityGates(),
       ]);
       setHealth(h);
       setDashboard(d);
@@ -67,6 +76,9 @@ export default function FinanceAcademy() {
       setRedFlags(rf);
       setAccounting(ac);
       setAcf(cf);
+      setProduction(prod);
+      setAb(abRes);
+      setGates(g);
     } catch (err) {
       setError(err?.message || 'Failed to load Finance Academy');
     } finally {
@@ -132,12 +144,12 @@ export default function FinanceAcademy() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-[10px] uppercase tracking-[0.2em] text-emerald-600 font-semibold">
-            Finance Academy v1.2
+            Finance Academy · FAPI v1.0
           </p>
           <h1 className="text-2xl font-bold text-slate-900 mt-1">AGI Finance Academy</h1>
           <p className="text-sm text-slate-500 mt-1 max-w-2xl">
-            Multi-course institutional curriculum — Economics, Accounting, and Applied Corporate Finance.
-            ROIC, WACC, and capital allocation as first-class reasoning. Not a summariser. Not an engine.
+            Multi-course institutional curriculum actively wired into production reasoning (CAE → Academy →
+            IIE/VE/IRP → Ask AGI). Not a summariser. Not a new engine.
           </p>
         </div>
         <Button variant="outline" onClick={load} disabled={loading}>
@@ -281,6 +293,84 @@ export default function FinanceAcademy() {
             </li>
           ))}
         </ul>
+      </div>
+
+      <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-4">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="font-semibold text-slate-900">Production usage (FAPI)</h2>
+          <span
+            className={`text-xs font-semibold px-2 py-1 rounded-full ${
+              gates?.passed ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+            }`}
+          >
+            {gates?.passed ? 'Quality gates pass' : 'Quality gates pending'}
+          </span>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Stat
+            label="Influenced answers"
+            value={production?.usage?.influenced_answers ?? '—'}
+            hint={`Rate ${production?.usage?.influence_rate ?? '—'}`}
+          />
+          <Stat
+            label="Finance queries"
+            value={production?.usage?.finance_queries ?? '—'}
+            hint={`${production?.usage?.bypassed ?? 0} bypassed`}
+          />
+          <Stat
+            label="Engines consuming"
+            value={Object.keys(production?.engine_consumption || {}).length || '—'}
+            hint={Object.keys(production?.engine_consumption || {}).join(', ') || 'none yet'}
+          />
+          <Stat
+            label="A/B improvement"
+            value={ab?.material_improvement ? 'Yes' : ab ? 'No' : '—'}
+            hint={`Δ WACC ${ab?.deltas?.wacc_delta ?? '—'}`}
+          />
+        </div>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div>
+            <h3 className="text-sm font-medium text-slate-800 mb-2">Most retrieved concepts</h3>
+            <ul className="text-sm text-slate-600 space-y-1 max-h-40 overflow-auto">
+              {(production?.most_retrieved_concepts || []).slice(0, 12).map((row) => (
+                <li key={row.concept_id} className="flex justify-between border-b border-slate-100 py-1">
+                  <span>{row.concept_id}</span>
+                  <span className="text-slate-400">{row.count}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <h3 className="text-sm font-medium text-slate-800 mb-2">Unused concepts (sample)</h3>
+            <p className="text-xs text-slate-500 mb-2">
+              {(production?.unused_concepts || []).slice(0, 16).join(', ') || '—'}
+            </p>
+            <h3 className="text-sm font-medium text-slate-800 mb-2 mt-4">Recent reasoning traces</h3>
+            <ul className="text-xs text-slate-600 space-y-2 max-h-36 overflow-auto">
+              {(production?.reasoning_traces || []).slice(0, 6).map((t, idx) => (
+                <li key={`${t.ts}-${idx}`} className="border border-slate-100 rounded-lg p-2">
+                  <p className="font-medium text-slate-800">
+                    {t.engine} · {(t.concept_ids || []).slice(0, 4).join(', ')}
+                  </p>
+                  <p className="text-slate-500 mt-0.5">{t.query}</p>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+        <div>
+          <h3 className="text-sm font-medium text-slate-800 mb-2">Gate checks</h3>
+          <div className="grid gap-2 sm:grid-cols-2 text-sm">
+            {Object.entries(gates?.checks || {}).map(([key, ok]) => (
+              <div key={key} className="flex items-center justify-between border border-slate-100 rounded-lg px-3 py-2">
+                <span className="text-slate-600">{key.replaceAll('_', ' ')}</span>
+                <span className={ok ? 'text-emerald-600 font-medium' : 'text-amber-600 font-medium'}>
+                  {ok ? 'Yes' : 'No'}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 p-5">

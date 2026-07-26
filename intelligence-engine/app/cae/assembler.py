@@ -192,7 +192,9 @@ class CaeAssembler:
             "engines_failed": len([c for c in contribs if not c.succeeded]),
         }
 
-        soft_fields = self._soft_fields(plan, evidence, investment, forecasts, events, knowledge, conflicts, items)
+        soft_fields = self._soft_fields(
+            plan, evidence, investment, forecasts, events, knowledge, conflicts, items, query=query
+        )
 
         return ContextPackage(
             package_id=new_id("ctx"),
@@ -231,6 +233,7 @@ class CaeAssembler:
         knowledge: list,
         conflicts: list,
         items: list,
+        query: str = "",
     ) -> dict[str, Any]:
         """Populate backward-compatible Ask AGI soft field shapes from unified package."""
         def _hits(rows: list, kind: str) -> list[dict[str, Any]]:
@@ -320,4 +323,15 @@ class CaeAssembler:
                 "reasoning_strategy": plan.reasoning_strategy,
                 "primary_ticker": plan.primary_ticker,
             },
+            # FAPI v1.0 — Finance Academy production context (additive soft field)
+            "finance_academy": self._finance_academy_soft(query or "", plan.primary_ticker),
         }
+
+    def _finance_academy_soft(self, query: str, ticker: str | None) -> dict[str, Any]:
+        """Soft-retrieve Finance Academy concepts for CAE packaging (no engine redesign)."""
+        try:
+            from academy.fapi.production import package_for_query
+
+            return package_for_query(query, engine="cae", ticker=ticker)
+        except Exception as exc:  # noqa: BLE001
+            return {"enabled": False, "error": str(exc), "concept_ids": []}

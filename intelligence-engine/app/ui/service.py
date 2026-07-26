@@ -694,7 +694,17 @@ class UiService:
         context_assembly: dict[str, Any] = {}
         intelligence_bus: dict[str, Any] = {}
         valuation: dict[str, Any] = {}
+        finance_academy: dict[str, Any] = {}
         used_cae = False
+
+        # FAPI — Ask AGI must consult Finance Academy before answering finance questions
+        try:
+            from academy.fapi.production import package_for_query
+
+            finance_academy = package_for_query(q, engine="ask_agi", ticker=detected_ticker) or {}
+        except Exception:
+            finance_academy = {}
+
         if self.cae and q:
             try:
                 assembled = dump(soft(self.cae.assemble_for_ask_agi, q, ticker=detected_ticker)) or {}
@@ -713,6 +723,8 @@ class UiService:
                     forecast_learning = cae_soft.get("forecast_learning") or {}
                     market_events = cae_soft.get("market_events") or {}
                     kf_hits = list((cae_soft.get("knowledge_foundation") or {}).get("hits") or [])
+                    if not finance_academy.get("concept_ids") and isinstance(cae_soft.get("finance_academy"), dict):
+                        finance_academy = cae_soft.get("finance_academy") or finance_academy
                     if assembled.get("primary_ticker") and not detected_ticker:
                         detected_ticker = str(assembled["primary_ticker"]).upper()
             except Exception:
@@ -1107,6 +1119,26 @@ class UiService:
             house_label=house_label,
         )
         why = _why_bullets(house if isinstance(house, dict) else None, supporting, news, house_label)
+
+        # Prefer richer Academy package from IRP when present; enrich answer with Academy provenance
+        if isinstance(irp_dump, dict) and isinstance(irp_dump.get("finance_academy"), dict):
+            irp_fa = irp_dump.get("finance_academy") or {}
+            if len(irp_fa.get("concept_ids") or []) >= len(finance_academy.get("concept_ids") or []):
+                finance_academy = irp_fa
+        if finance_academy.get("is_finance") and finance_academy.get("answer_hints"):
+            for hint in (finance_academy.get("answer_hints") or [])[:3]:
+                if hint and hint not in why:
+                    why.insert(0, scrub_text(hint)[:280])
+            why = why[:8]
+            if not thesis:
+                thesis = scrub_text((finance_academy.get("answer_hints") or [None])[0])
+            prov = finance_academy.get("provenance") or {}
+            if prov.get("concept_ids"):
+                finance_academy = {
+                    **finance_academy,
+                    "influenced_answer": True,
+                    "concepts_influencing_answer": list(prov.get("concept_ids") or [])[:12],
+                }
 
         timeline: list[dict[str, Any]] = []
         if detected_ticker and self.kip:
@@ -1543,6 +1575,7 @@ class UiService:
                     "never_execute_trades": True,
                 },
             },
+            finance_academy=scrub(finance_academy) if finance_academy else {},
             institutional_briefing=scrub(briefing) or {},
             sector_intelligence=scrub((irp_dump or {}).get("sector_intelligence") or {})
             if isinstance(irp_dump, dict)

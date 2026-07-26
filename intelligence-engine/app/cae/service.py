@@ -141,15 +141,27 @@ class CaeService:
         pkg = self.assembler.assemble(query, ticker=ticker)
         data = pkg.to_dict()
         soft = data.get("soft_fields") or {}
+        # Ensure FAPI package is present even on cache hits (additive; never blocks CAE).
+        if not (isinstance(soft.get("finance_academy"), dict) and soft["finance_academy"].get("concept_ids")):
+            try:
+                from academy.fapi.production import package_for_query
+
+                soft["finance_academy"] = package_for_query(
+                    query, engine="cae", ticker=ticker or (data.get("plan") or {}).get("primary_ticker")
+                )
+            except Exception:
+                soft.setdefault("finance_academy", {"enabled": False, "concept_ids": []})
         return {
             "package": data,
             "soft_fields": soft,
+            "finance_academy": soft.get("finance_academy") or {},
             "primary_ticker": (data.get("plan") or {}).get("primary_ticker") or ticker,
             "answer_policy": "unified_context_before_reasoning",
             "guidance": {
                 "single_orchestration_call": True,
                 "do_not_bypass_to_individual_engines": True,
                 "preserve_engine_independence": True,
+                "academy_before_reasoning": True,
             },
         }
 

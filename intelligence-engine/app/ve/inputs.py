@@ -66,6 +66,28 @@ def gather_inputs(
     risks: list[str] = []
     base_revenue_cr = 150000.0
     confidence_bits: list[float] = []
+    academy_assumption_note: dict[str, Any] = {}
+
+    # FAPI — derive WACC / cost of equity methodology from Finance Academy (additive)
+    try:
+        from academy.fapi.production import apply_ve_assumptions
+
+        academy_applied = apply_ve_assumptions(assumptions)
+        if academy_applied.get("changed") or academy_applied.get("uses_academy_wacc_objects"):
+            assumptions = dict(academy_applied.get("assumptions") or assumptions)
+            academy_assumption_note = academy_applied.get("academy") or {}
+            for name in ("wacc", "cost_of_equity", "cost_of_debt", "beta"):
+                if name in assumptions:
+                    assumption_meta.append(
+                        Assumption(
+                            name,
+                            float(assumptions[name]),
+                            source="finance_academy.methodology",
+                            confidence=0.8,
+                        )
+                    )
+    except Exception:
+        academy_assumption_note = {}
 
     # IIE — quality / growth / risks / capital allocation
     iie_pack = _soft(iie.company, key, analyse_if_missing=True, default=None) if iie else None
@@ -230,4 +252,5 @@ def gather_inputs(
         "event_ids": list(dict.fromkeys(event_ids)),
         "risks": risks[:12],
         "input_confidence": conf,
+        "finance_academy": academy_assumption_note,
     }

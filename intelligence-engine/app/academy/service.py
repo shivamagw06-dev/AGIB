@@ -144,3 +144,43 @@ class AcademyService:
     def metrics(self) -> dict[str, Any]:
         self._require()
         return self.store.snapshot()
+
+    # --- FAPI v1.0 — production integration (not a new engine) ---
+
+    def _production_enabled(self) -> bool:
+        return bool(self.flags.academy and self.flags.academy_production)
+
+    def production_package(self, query: str, *, engine: str = "cae", ticker: str | None = None) -> dict[str, Any]:
+        """Retrieve + package Academy knowledge for a production query."""
+        if not self._production_enabled():
+            return {"enabled": False, "bypassed": True, "concept_ids": []}
+        from academy.fapi.production import package_for_query
+
+        out = package_for_query(query, engine=engine, ticker=ticker)
+        self.store.observe("fapi", {"engine": engine, "concepts": len(out.get("concept_ids") or [])})
+        return out
+
+    def production_dashboard(self) -> dict[str, Any]:
+        self._require()
+        from academy.fapi.production import production_dashboard
+
+        return production_dashboard()
+
+    def production_ab(self, question: str | None = None) -> dict[str, Any]:
+        self._require()
+        from academy.fapi.production import run_ab_probe
+
+        return run_ab_probe(question or "Why does ROIC matter more than revenue growth?")
+
+    def production_quality_gates(self) -> dict[str, Any]:
+        self._require()
+        from academy.fapi.production import quality_gates
+
+        return quality_gates()
+
+    def production_attach(self, engine: str, query: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
+        if not self._production_enabled():
+            return {"attached": False, "enabled": False}
+        from academy.fapi.production import attach_for_engine
+
+        return attach_for_engine(engine, query, payload=payload)

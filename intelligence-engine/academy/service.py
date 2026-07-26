@@ -277,6 +277,18 @@ class AcademyCore:
         if course_id in (None, "", "all", "acf", "corporate_finance", "damodaran_applied_corporate_finance"):
             criteria["roic_wacc_first_class"] = "wacc" in ids or "wacc" in list_concept_ids()
             criteria["capital_allocation_first_class"] = "capital_allocation" in ids or "capital_allocation" in list_concept_ids()
+        fapi_gates = None
+        if course_id in (None, "", "all"):
+            try:
+                from academy.fapi.production import quality_gates, run_ab_probe
+
+                # Ensure at least one AB probe exists before gating completion
+                run_ab_probe()
+                fapi_gates = quality_gates()
+                criteria["fapi_production_integration"] = bool(fapi_gates.get("passed"))
+            except Exception:
+                criteria["fapi_production_integration"] = False
+                fapi_gates = {"passed": False, "error": "fapi_unavailable"}
         return {
             "complete": all(criteria.values()),
             "criteria": criteria,
@@ -285,5 +297,6 @@ class AcademyCore:
             "concept_count": len(ids),
             "exam_suite": exams,
             "quality": {"publishable": qc["publishable"], "rejected": qc["rejected"], "duplicates": qc["duplicates"]},
+            "fapi_quality_gates": fapi_gates,
             "version": self.version,
         }

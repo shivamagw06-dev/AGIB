@@ -827,6 +827,27 @@ export default function createIntelligenceRouter() {
   router.get('/academy/corporate-finance', kfGet('/v1/academy/corporate-finance'));
   router.get('/academy/completion', kfGet('/v1/academy/completion'));
   router.get('/academy/metrics', kfGet('/v1/academy/metrics'));
+  router.get('/academy/production', kfGet('/v1/academy/production'));
+  router.get('/academy/production/ab', kfGet('/v1/academy/production/ab'));
+  router.get('/academy/production/quality-gates', kfGet('/v1/academy/production/quality-gates'));
+  router.post('/academy/production/package', async (req, res) => {
+    try {
+      const qs = new URLSearchParams();
+      if (req.query.query) qs.set('query', String(req.query.query));
+      if (req.query.engine) qs.set('engine', String(req.query.engine));
+      if (req.query.ticker) qs.set('ticker', String(req.query.ticker));
+      if (req.body?.query) qs.set('query', String(req.body.query));
+      if (req.body?.engine) qs.set('engine', String(req.body.engine));
+      if (req.body?.ticker) qs.set('ticker', String(req.body.ticker));
+      const result = await engineFetch(`/v1/academy/production/package?${qs.toString()}`, {
+        method: 'POST',
+        body: req.body || {},
+      });
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err?.message || 'Academy production package failed' });
+    }
+  });
   router.post('/academy/red-flags/score', async (req, res) => {
     try {
       const result = await engineFetch('/v1/academy/red-flags/score', {

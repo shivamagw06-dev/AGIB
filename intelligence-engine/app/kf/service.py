@@ -207,11 +207,35 @@ class KfService:
         """Prefer knowledge objects before raw documents."""
         self._require()
         hits = self.pipeline.search(query, limit=limit)
+        hit_rows = [h.model_dump(mode="json") for h in hits]
+        # FAPI — expose Finance Academy objects as first-class knowledge (additive)
+        finance_academy: dict = {}
+        try:
+            from academy.fapi.production import attach_for_engine
+
+            attached = attach_for_engine("kf", query, payload={"limit": limit})
+            finance_academy = attached.get("finance_academy") or {}
+            for c in (finance_academy.get("concepts") or [])[: max(1, min(limit, 8))]:
+                hit_rows.append(
+                    {
+                        "kind": "finance_academy_concept",
+                        "id": c.get("concept_id"),
+                        "key": c.get("concept_id"),
+                        "label": c.get("concept"),
+                        "score": c.get("score"),
+                        "snippet": (c.get("definition") or "")[:220],
+                        "source": "finance_academy",
+                        "course": c.get("course"),
+                    }
+                )
+        except Exception:
+            finance_academy = {}
         return {
             "query": query,
             "answer_policy": "knowledge_objects_before_documents",
-            "hits": [h.model_dump(mode="json") for h in hits],
-            "count": len(hits),
+            "hits": hit_rows[: max(limit + 8, limit)],
+            "count": len(hit_rows[: max(limit + 8, limit)]),
+            "finance_academy": finance_academy,
         }
 
     def _require(self) -> None:

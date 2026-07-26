@@ -294,6 +294,15 @@ class VeService:
         company_pack = self.company(resolved, value_if_empty=True) if resolved else {}
         latest = company_pack.get("latest") or {}
         mos = latest.get("margin_of_safety") or {}
+        # FAPI soft attach — valuation methodology concepts for Ask AGI
+        finance_academy: dict = {}
+        try:
+            from academy.fapi.production import attach_for_engine
+
+            finance_academy = attach_for_engine("ve", query).get("finance_academy") or {}
+        except Exception:
+            finance_academy = {}
+
         return {
             "answer_policy": "valuation_before_reasoning",
             "guidance": {
@@ -302,6 +311,7 @@ class VeService:
                 "surface_key_assumptions": True,
                 "surface_sensitivity": True,
                 "never_execute_trades": True,
+                "academy_methodology_for_wacc": True,
             },
             "company": company_pack,
             "latest_valuation": latest,
@@ -313,6 +323,7 @@ class VeService:
             "sensitivity_highlights": (latest.get("sensitivity") or [])[:8],
             "explainability": latest.get("explainability") or {},
             "search": search,
+            "finance_academy": finance_academy,
             "questions": {
                 "is_undervalued": bool(mos.get("undervalued")),
                 "intrinsic_value": latest.get("intrinsic_value"),

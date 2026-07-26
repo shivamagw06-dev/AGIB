@@ -612,3 +612,15 @@ export const searchAcademy = (q, limit = 20, courseId) => {
 };
 export const consumerAcademy = (engine, body = {}) =>
   intelligenceFetch(`/academy/consumer/${encodeURIComponent(engine)}`, { method: 'POST', body });
+export const getAcademyProduction = () => intelligenceFetch('/academy/production');
+export const getAcademyProductionAb = (question) => {
+  const qs = question ? `?question=${encodeURIComponent(question)}` : '';
+  return intelligenceFetch(`/academy/production/ab${qs}`);
+};
+export const getAcademyProductionQualityGates = () =>
+  intelligenceFetch('/academy/production/quality-gates');
+export const packageAcademyProduction = (query, engine = 'cae', ticker) => {
+  const qs = new URLSearchParams({ query: query || '', engine });
+  if (ticker) qs.set('ticker', ticker);
+  return intelligenceFetch(`/academy/production/package?${qs}`, { method: 'POST', body: {} });
+};

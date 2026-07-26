@@ -127,7 +127,17 @@ class KcService:
 
     def consult(self, query: str, *, limit: int = 8) -> dict[str, Any]:
         self._require()
-        return self.populator.consult(query, limit=limit)
+        out = self.populator.consult(query, limit=limit)
+        if not isinstance(out, dict):
+            out = {"result": out}
+        try:
+            from academy.fapi.production import attach_for_engine
+
+            attached = attach_for_engine("kcv", query, payload={"limit": limit})
+            out["finance_academy"] = attached.get("finance_academy") or {}
+        except Exception:
+            out["finance_academy"] = {}
+        return out
 
     def on_document(self, doc: Any) -> dict[str, Any]:
         """Soft corpus learning hook after KF/KIP ingest."""

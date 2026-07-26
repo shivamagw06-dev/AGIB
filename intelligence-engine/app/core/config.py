@@ -271,6 +271,7 @@ class Settings(BaseSettings):
     academy: bool = True
     academy_provenance: bool = True
     academy_exams: bool = True
+    academy_production: bool = True  # FAPI — production integration into locked engines
 
 
 @lru_cache

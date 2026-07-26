@@ -260,6 +260,14 @@ class EveService:
         evidence_hits = [h for h in search["hits"] if h.get("kind") == "evidence"]
         conflict_hits = [h for h in search["hits"] if h.get("kind") == "conflict"]
         low_confidence = [h for h in evidence_hits if float(h.get("confidence") or 0) < 0.55]
+        # FAPI — Academy accounting intelligence for verification (additive)
+        finance_academy: dict = {}
+        try:
+            from academy.fapi.production import attach_for_engine
+
+            finance_academy = attach_for_engine("eve", query).get("finance_academy") or {}
+        except Exception:
+            finance_academy = {}
         return {
             "answer_policy": "verified_evidence_before_raw_facts",
             "query": query,
@@ -272,8 +280,10 @@ class EveService:
                 "present_conflicts": bool(conflict_hits),
                 "avoid_hallucinated_certainty": True,
                 "inform_reasoning_if_low_confidence": bool(low_confidence),
+                "academy_accounting_rules": True,
             },
             "primary_source_of_truth": "verified_evidence",
+            "finance_academy": finance_academy,
         }
 
     def audit_logs(self, *, limit: int = 50) -> dict[str, Any]:

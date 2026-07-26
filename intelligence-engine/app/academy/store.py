@@ -11,6 +11,7 @@ class AcademyMetrics(BaseModel):
     exams_run: int = 0
     consumer_calls: int = 0
     searches: int = 0
+    fapi_calls: int = 0
 
 
 class AcademyStore:
@@ -29,6 +30,8 @@ class AcademyStore:
             self.metrics.consumer_calls += 1
         elif kind == "search":
             self.metrics.searches += 1
+        elif kind == "fapi":
+            self.metrics.fapi_calls += 1
         if payload:
             self.recent.append({"kind": kind, **payload})
             self.recent = self.recent[-50:]

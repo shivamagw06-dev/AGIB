@@ -454,6 +454,13 @@ class FleService:
             uncertainty_flags.append("underconfident_calibration_drift")
 
         reduce_certainty = bool(uncertainty_flags)
+        finance_academy: dict = {}
+        try:
+            from academy.fapi.production import attach_for_engine
+
+            finance_academy = attach_for_engine("fle", query).get("finance_academy") or {}
+        except Exception:
+            finance_academy = {}
         return {
             "answer_policy": "forecast_history_and_calibration_before_reasoning",
             "query": query,
@@ -469,8 +476,10 @@ class FleService:
                 "reduce_certainty_if_miscalibrated": reduce_certainty,
                 "never_forget_predictions": True,
                 "immutable_forecasts": True,
+                "academy_forecast_drivers": True,
             },
             "primary_source_of_truth": "forecast_registry",
+            "finance_academy": finance_academy,
         }
 
     def _require(self) -> None:
