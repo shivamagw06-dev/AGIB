@@ -171,6 +171,8 @@ class SearchView(BaseModel):
     answer_construction: dict[str, Any] = Field(default_factory=dict)
     # AGIB Investment Decision Engine — multi-layer Macro→…→Decision stack (additive)
     decision_engine: dict[str, Any] = Field(default_factory=dict)
+    # AGIB Intelligence Layer V2 — living dossier / thesis / forecast / ledger (additive)
+    intelligence_layer: dict[str, Any] = Field(default_factory=dict)
     institutional_briefing: dict[str, Any] = Field(default_factory=dict)
     company_intelligence: dict[str, Any] = Field(default_factory=dict)
     current_outlook: str | None = None

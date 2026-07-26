@@ -108,6 +108,10 @@ export function mapSearchPack(pack) {
     recoStatus.knowledge_gaps || ac?.knowledge_gaps || briefing.knowledge_gaps,
     8
   );
+  const ail = pack.intelligence_layer?.enabled ? pack.intelligence_layer : null;
+  const ailThesis = ail?.thesis || {};
+  const ailForecast = ail?.forecast || {};
+  const ailDossier = ail?.dossier || {};
   const ide = pack.decision_engine?.active ? pack.decision_engine : null;
   const ideSummary = ide?.summary || {};
   const ideLayers = Array.isArray(ide?.layers)
@@ -527,6 +531,42 @@ export function mapSearchPack(pack) {
     icEnabled: Boolean(ic?.enabled),
     acEnabled: Boolean(ac?.enabled),
     ideEnabled: Boolean(ide?.active),
-    ticker: ca.ticker || dossier.ticker || pack.entities?.primary_ticker || null,
+    intelligenceLayer: ail
+      ? {
+          enabled: true,
+          ticker: asText(ail.ticker || ailDossier.ticker, ''),
+          company: asText(ail.company || ailDossier.company, ''),
+          dossierVersion: ailDossier.version ?? null,
+          hints: asList(ail.ask_agi_hints, 4),
+          thesis: {
+            bull: ailThesis.bull?.probability ?? null,
+            base: ailThesis.base?.probability ?? null,
+            bear: ailThesis.bear?.probability ?? null,
+            explanation: asList(ailThesis.explanation, 4),
+          },
+          forecastConfidence: ailForecast.confidence ?? ail.prediction_confidence ?? null,
+          forecastId: asText(ailForecast.prediction_id, ''),
+          scenario: ailForecast.scenario || {},
+          distributions: Array.isArray(ailForecast.distributions)
+            ? ailForecast.distributions.slice(0, 8).map((d) => ({
+                metric: asText(d.metric, ''),
+                unit: asText(d.unit, ''),
+                p10: d.p10 ?? null,
+                p50: d.p50 ?? null,
+                p90: d.p90 ?? null,
+              }))
+            : [],
+          events: asList(ail.events, 6).map((e) =>
+            typeof e === 'string'
+              ? e
+              : asText(e.category || e.title || e.new_value, '')
+          ),
+          supportingEvidenceIds: asList(ail.supporting_evidence_ids, 8),
+          contradictoryEvidenceIds: asList(ail.contradictory_evidence_ids, 8),
+          graphCount: ail.knowledge_graph?.count ?? (ail.knowledge_graph?.relationships || []).length,
+          auditId: asText(ail.audit_trail?.audit_id, ''),
+        }
+      : null,
+    ticker: ca.ticker || dossier.ticker || ail?.ticker || pack.entities?.primary_ticker || null,
   };
 }
