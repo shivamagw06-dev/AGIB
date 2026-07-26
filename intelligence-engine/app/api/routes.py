@@ -4747,6 +4747,77 @@ async def admin_simulation_lab():
     return HTMLResponse(admin_page())
 
 
+# --- Institutional Decision Engine V2 (final architectural component) ---
+
+
+@router.get("/decision-engine-v2/health")
+async def idev2_health():
+    from decision_engine_v2.production import health
+
+    return health()
+
+
+@router.get("/decision-engine-v2/dashboard")
+async def idev2_dashboard():
+    from decision_engine_v2.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/decision-engine-v2/company/{ticker}")
+async def idev2_company(ticker: str):
+    from decision_engine_v2.production import company
+
+    out = company(ticker)
+    if out.get("enabled") and out.get("found") is False:
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=404, detail="company_not_found")
+    return out
+
+
+@router.post("/decision-engine-v2/analyse")
+async def idev2_analyse(payload: dict[str, Any] = Body(default={})):
+    from decision_engine_v2.production import analyse
+
+    return analyse(payload or {})
+
+
+@router.get("/decision-engine-v2/audit/{audit_id}")
+async def idev2_audit(audit_id: str):
+    from decision_engine_v2.production import audit
+
+    return audit(audit_id)
+
+
+@router.get("/decision-engine-v2/monitoring/{ticker}")
+async def idev2_monitoring(ticker: str):
+    from decision_engine_v2.production import monitoring
+
+    return monitoring(ticker)
+
+
+@router.get("/decision-engine-v2/quality-gates")
+async def idev2_quality_gates():
+    from decision_engine_v2.production import quality_gates
+
+    return quality_gates()
+
+
+@router.get("/decision-engine-v2/freeze-review")
+async def idev2_freeze_review():
+    from decision_engine_v2.production import freeze_review
+
+    return freeze_review()
+
+
+@router.get("/admin/decision-engine-v2", response_class=HTMLResponse)
+async def admin_decision_engine_v2():
+    from decision_engine_v2.production import admin_page
+
+    return HTMLResponse(admin_page())
+
+
 # --- SIF v1.0 (Sector Intelligence Framework — additive; not an engine) ---
 
 

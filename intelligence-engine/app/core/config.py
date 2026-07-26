@@ -423,6 +423,17 @@ class Settings(BaseSettings):
     ssl_sensitivity: bool = True
     ssl_monte_carlo: bool = True
     ssl_replay: bool = True
+    decision_engine_v2: bool = True  # IDE V2 — final constitutional orchestrator (architecture frozen)
+    idev2_orchestrator: bool = True
+    idev2_constitution: bool = True
+    idev2_weighting: bool = True
+    idev2_conflicts: bool = True
+    idev2_uncertainty: bool = True
+    idev2_confidence: bool = True
+    idev2_recommendation_gate: bool = True
+    idev2_monitoring: bool = True
+    idev2_audit: bool = True
+    idev2_learning_hooks: bool = True
     academy_frameworks: bool = True  # ACADEMY_FRAMEWORKS
     academy_formulas: bool = True  # ACADEMY_FORMULAS
     academy_graph: bool = True  # ACADEMY_GRAPH

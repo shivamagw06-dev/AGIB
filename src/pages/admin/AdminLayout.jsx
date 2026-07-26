@@ -32,6 +32,7 @@ import {
   Network,
   BookMarked,
   FlaskConical,
+  Gavel,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -56,6 +57,7 @@ const navItems = [
   { to: '/admin/knowledge-graph', label: 'Knowledge Graph', icon: Network },
   { to: '/admin/institutional-memory', label: 'Learning & Memory', icon: BookMarked },
   { to: '/admin/simulation-lab', label: 'Simulation Lab', icon: FlaskConical },
+  { to: '/admin/decision-engine-v2', label: 'Decision Engine V2', icon: Gavel },
   { to: '/admin/company-monitor', label: 'Company Monitor', icon: Bell },
   { to: '/admin/investment-office', label: 'Investment Office', icon: Landmark },
   { to: '/admin/mission-control', label: 'Mission Control', icon: Gauge },

@@ -1103,3 +1103,17 @@ export const runSslSimulation = (payload = {}) =>
   intelligenceFetch('/simulation/run', { method: 'POST', body: payload || {} });
 export const runSslPortfolio = (payload = {}) =>
   intelligenceFetch('/simulation/portfolio', { method: 'POST', body: payload || {} });
+
+/** Institutional Decision Engine V2 (final architectural component) */
+export const getIdev2Health = () => intelligenceFetch('/decision-engine-v2/health');
+export const getIdev2Dashboard = () => intelligenceFetch('/decision-engine-v2/dashboard');
+export const getIdev2QualityGates = () => intelligenceFetch('/decision-engine-v2/quality-gates');
+export const getIdev2FreezeReview = () => intelligenceFetch('/decision-engine-v2/freeze-review');
+export const getIdev2Company = (ticker) =>
+  intelligenceFetch(`/decision-engine-v2/company/${encodeURIComponent(ticker)}`);
+export const getIdev2Audit = (auditId) =>
+  intelligenceFetch(`/decision-engine-v2/audit/${encodeURIComponent(auditId)}`);
+export const getIdev2Monitoring = (ticker) =>
+  intelligenceFetch(`/decision-engine-v2/monitoring/${encodeURIComponent(ticker)}`);
+export const analyseIdev2 = (payload = {}) =>
+  intelligenceFetch('/decision-engine-v2/analyse', { method: 'POST', body: payload || {} });

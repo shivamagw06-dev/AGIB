@@ -215,6 +215,7 @@ def package_for_ask_agi(
             ctx["knowledge_graph"] = layers.get("knowledge_graph") or {}
             ctx["institutional_memory"] = layers.get("institutional_memory") or {}
             ctx["simulation_lab"] = layers.get("simulation_lab") or {}
+            ctx["decision_engine_v2"] = layers.get("decision_engine_v2") or {}
             ctx["peer_intelligence"] = layers.get("peer_intelligence") or {}
             ctx["evidence_intelligence"] = layers.get("evidence_intelligence") or {}
     except Exception:
@@ -455,6 +456,56 @@ def package_for_ask_agi(
     except Exception:
         portfolio_intelligence = ctx.get("portfolio_intelligence") or {}
 
+    # Soft IDE V2 — constitutional package AFTER PIO and BEFORE CIO (never redesigns CIO/IC)
+    decision_engine_v2: dict[str, Any] = ctx.get("decision_engine_v2") or {}
+    try:
+        from decision_engine_v2.production import analyse as idev2_analyse
+
+        if t:
+            idev2_pack = idev2_analyse(
+                {
+                    "ticker": t,
+                    "question": query,
+                    "committee": committee,
+                    "portfolio_intelligence": portfolio_intelligence,
+                }
+            )
+            if idev2_pack.get("enabled") is not False and idev2_pack.get("found"):
+                decision_engine_v2 = {
+                    "enabled": True,
+                    "found": True,
+                    "version": idev2_pack.get("idev2_version"),
+                    "recommendation_status": (idev2_pack.get("recommendation_gate") or {}).get("status"),
+                    "confidence": (idev2_pack.get("confidence") or {}).get("confidence"),
+                    "conflict_count": (idev2_pack.get("conflicts") or {}).get("conflict_count"),
+                    "audit_id": (idev2_pack.get("audit") or {}).get("audit_id"),
+                    "summary": (idev2_pack.get("report") or {}).get("cio_brief")
+                    or idev2_pack.get("institutional_judgement"),
+                    "decision_package": {
+                        "gate": idev2_pack.get("recommendation_gate"),
+                        "judgement": idev2_pack.get("institutional_judgement"),
+                        "monitoring": idev2_pack.get("monitoring"),
+                        "confidence": idev2_pack.get("confidence"),
+                        "conflicts": idev2_pack.get("conflicts"),
+                        "uncertainty": idev2_pack.get("uncertainty"),
+                        "weights": idev2_pack.get("weights"),
+                        "audit": idev2_pack.get("audit"),
+                    },
+                    "monitoring_plan": idev2_pack.get("monitoring"),
+                    "cio_brief": (idev2_pack.get("report") or {}).get("cio_brief"),
+                    "architecture_frozen": True,
+                    "never_recommendation": True,
+                }
+                committee = {
+                    **committee,
+                    "decision_engine_v2": decision_engine_v2,
+                    "unified_decision_package": decision_engine_v2.get("decision_package"),
+                    "decision_readiness": decision_engine_v2.get("recommendation_status"),
+                    "decision_conflicts": (idev2_pack.get("conflicts") or {}).get("matrix"),
+                }
+    except Exception:
+        pass
+
     cio = write_report(committee, query=query, company=name)
     if causal_intelligence:
         cio = {
@@ -489,10 +540,22 @@ def package_for_ask_agi(
         cio = {
             **cio,
             "simulation_lab": simulation_lab,
-            "decision_package": simulation_lab.get("decision_package")
+            "simulation_decision_package": simulation_lab.get("decision_package")
             or simulation_lab.get("cio_brief")
             or simulation_lab.get("summary"),
             "recommended_monitoring": simulation_lab.get("monitoring_plan"),
+        }
+    if decision_engine_v2:
+        cio = {
+            **cio,
+            "decision_engine_v2": decision_engine_v2,
+            "constitutional_decision_package": decision_engine_v2.get("decision_package")
+            or decision_engine_v2.get("cio_brief")
+            or decision_engine_v2.get("summary"),
+            "decision_readiness": decision_engine_v2.get("recommendation_status"),
+            "decision_audit_id": decision_engine_v2.get("audit_id"),
+            "recommended_monitoring": decision_engine_v2.get("monitoring_plan")
+            or cio.get("recommended_monitoring"),
         }
     if portfolio_intelligence:
         cio = {
@@ -565,6 +628,7 @@ def package_for_ask_agi(
         "knowledge_graph": knowledge_graph,
         "institutional_memory": institutional_memory,
         "simulation_lab": simulation_lab,
+        "decision_engine_v2": decision_engine_v2,
         "ask_agi_hints": [
             f"Specialist analysts contributed structured opinions on {name}",
             f"Committee stance: {committee.get('committee_stance')}",
@@ -629,6 +693,14 @@ def package_for_ask_agi(
             f"conf {stack_summary.get('simulation_confidence') if stack_summary.get('simulation_confidence') is not None else simulation_lab.get('confidence')} "
             f"— experiment before allocate"
         )
+    if stack_summary.get("decision_status") or decision_engine_v2.get("recommendation_status"):
+        status = stack_summary.get("decision_status") or decision_engine_v2.get("recommendation_status")
+        base_pack["ask_agi_hints"].append(
+            f"IDE V2: {status} · conf "
+            f"{stack_summary.get('decision_confidence') if stack_summary.get('decision_confidence') is not None else decision_engine_v2.get('confidence')} · "
+            f"audit {stack_summary.get('decision_audit_id') or decision_engine_v2.get('audit_id')} "
+            f"— constitutional judgement, not a trade ticket"
+        )
 
     # Institutional Research Writer — presentation layer AFTER CIO (never mutates votes/confidence)
     research_writer: dict[str, Any] = {}
@@ -670,7 +742,7 @@ def package_for_ask_agi(
         for h in research_writer.get("ask_agi_hints") or []:
             if h not in hints:
                 hints.append(h)
-        # Keep late institutional-layer hints (FIE / IKG / ILM / SSL) visible in Ask AGI.
-        base_pack["ask_agi_hints"] = hints[:14]
+        # Keep late institutional-layer hints (FIE / IKG / ILM / SSL / IDE V2) visible in Ask AGI.
+        base_pack["ask_agi_hints"] = hints[:16]
 
     return base_pack

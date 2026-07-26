@@ -982,6 +982,21 @@ export default function ResearchWorkspace({
                             {vm.institutionalStack.simulationSummary}
                           </p>
                         ) : null}
+                        <p className="rw-mini mt-2">Constitutional decision</p>
+                        <p className="font-semibold">
+                          {vm.institutionalStack.decisionStatus || '—'}
+                          {vm.institutionalStack.decisionConfidence != null
+                            ? ` · conf ${vm.institutionalStack.decisionConfidence}`
+                            : ''}
+                          {vm.institutionalStack.decisionAuditId
+                            ? ` · audit ${String(vm.institutionalStack.decisionAuditId).slice(0, 8)}`
+                            : ''}
+                        </p>
+                        {vm.institutionalStack.decisionSummary ? (
+                          <p className="text-xs text-slate-500 mt-2">
+                            {vm.institutionalStack.decisionSummary}
+                          </p>
+                        ) : null}
                       </div>
                     </div>
                     {vm.institutionalStack.openConcerns?.length ? (

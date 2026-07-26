@@ -23,6 +23,7 @@ PIPELINE = [
     "Institutional Analysts",
     "Investment Committee",
     "PORTFOLIO INTELLIGENCE OFFICE",
+    "INSTITUTIONAL DECISION ENGINE V2",
     "CIO",
     "Research Writer",
     "ACS",
@@ -43,6 +44,7 @@ LAYERS = (
     "forecast_intelligence",
     "institutional_memory",
     "simulation_lab",
+    "decision_engine_v2",
 )
 
 DEFAULT_BOOTSTRAP_TICKERS = ("HDFCBANK", "NESTLEIND", "TCS")

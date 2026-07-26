@@ -347,6 +347,20 @@ export default function CompanyIntelligencePanels({ data }) {
                 </p>
               ) : null}
             </Card>
+            <Card title="Decision Readiness">
+              {data.institutional_stack?.summary?.decision_status ||
+                data.decision_engine_v2?.recommendation_status ||
+                '—'}
+              {(data.institutional_stack?.summary?.decision_confidence ??
+                data.decision_engine_v2?.confidence) != null ? (
+                <p className="text-xs text-[#667085] mt-1">
+                  Confidence{' '}
+                  {data.institutional_stack?.summary?.decision_confidence ??
+                    data.decision_engine_v2?.confidence}
+                  {' · constitutional · not a trade ticket'}
+                </p>
+              ) : null}
+            </Card>
           </div>
         </section>
       )}

@@ -704,6 +704,26 @@ export function mapSearchPack(pack) {
             stack?.layers?.simulation_lab?.summary ||
             pack.simulation_lab?.summary ||
             null,
+          decisionStatus:
+            stackSummary.decision_status ||
+            stack?.layers?.decision_engine_v2?.recommendation_status ||
+            pack.decision_engine_v2?.recommendation_status ||
+            null,
+          decisionConfidence:
+            stackSummary.decision_confidence ??
+            stack?.layers?.decision_engine_v2?.confidence ??
+            pack.decision_engine_v2?.confidence ??
+            null,
+          decisionAuditId:
+            stackSummary.decision_audit_id ||
+            stack?.layers?.decision_engine_v2?.audit_id ||
+            pack.decision_engine_v2?.audit_id ||
+            null,
+          decisionSummary:
+            stackSummary.decision_summary ||
+            stack?.layers?.decision_engine_v2?.summary ||
+            pack.decision_engine_v2?.summary ||
+            null,
           filingFound: stackSummary.filing_found ?? stackFil.found ?? null,
           materialChangeSignal: stackSummary.material_change_signal ?? Boolean(stackFdi.enabled),
           peerEnabled: stackSummary.peer_enabled ?? Boolean(stackPil.enabled),

@@ -71,6 +71,7 @@ def dashboard() -> dict[str, Any]:
         ("knowledge_graph", "knowledge_graph.production"),
         ("institutional_memory", "institutional_memory.production"),
         ("simulation_lab", "simulation_lab.production"),
+        ("decision_engine_v2", "decision_engine_v2.production"),
         ("evidence_intelligence", "academy.evidence.production"),
     ):
         try:
@@ -91,6 +92,7 @@ def dashboard() -> dict[str, Any]:
                     or d.get("ikg_version")
                     or d.get("ilm_version")
                     or d.get("ssl_version")
+                    or d.get("idev2_version")
                     or d.get("eil_version"),
                     "primary_question": d.get("primary_question"),
                 }
@@ -125,6 +127,7 @@ def dashboard() -> dict[str, Any]:
             "/admin/knowledge-graph",
             "/admin/institutional-memory",
             "/admin/simulation-lab",
+            "/admin/decision-engine-v2",
             "/admin/peer-intelligence",
         ],
         "api_prefix": "/v1/institutional-stack",
@@ -162,7 +165,7 @@ def soft_slice_for_ask_agi(ticker: str | None) -> dict[str, Any]:
             "summary": pack.get("summary"),
             "layers": pack.get("layers"),
             "pipeline": pack.get("pipeline"),
-            "rule": "FIL→FDI→MII→ACI→EIL→PIL→CIG→IKG→FIE→ILM→SSL soft facts precede analyst judgement",
+            "rule": "FIL→FDI→MII→ACI→EIL→PIL→CIG→IKG→FIE→ILM→SSL→IDE_V2 soft facts precede CIO judgement",
         }
     }
 
@@ -218,6 +221,7 @@ def quality_gates() -> dict[str, Any]:
         "ikg_present": bool(layers.get("knowledge_graph")),
         "ilm_present": bool(layers.get("institutional_memory")),
         "ssl_present": bool(layers.get("simulation_lab")),
+        "idev2_present": bool(layers.get("decision_engine_v2")),
         "pil_present": bool(layers.get("peer_intelligence")),
         "eil_present": bool(layers.get("evidence_intelligence")),
         "mii_confidence": (layers.get("management_intelligence") or {}).get("confidence") is not None,
@@ -227,7 +231,9 @@ def quality_gates() -> dict[str, Any]:
         "ikg_relationships": (layers.get("knowledge_graph") or {}).get("relationship_count") is not None,
         "ilm_lessons": (layers.get("institutional_memory") or {}).get("lesson_count") is not None,
         "ssl_expected_return": (layers.get("simulation_lab") or {}).get("expected_return") is not None,
+        "idev2_gate": (layers.get("decision_engine_v2") or {}).get("recommendation_status") is not None,
         "no_engine_redesign": True,
+        "architecture_frozen": True,
     }
     return {
         "programme": PROGRAMME,

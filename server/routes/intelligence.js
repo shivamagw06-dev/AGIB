@@ -1853,5 +1853,52 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // Institutional Decision Engine V2 — final constitutional orchestrator
+  router.get('/decision-engine-v2/health', kfGet('/v1/decision-engine-v2/health'));
+  router.get('/decision-engine-v2/dashboard', kfGet('/v1/decision-engine-v2/dashboard'));
+  router.get('/decision-engine-v2/quality-gates', kfGet('/v1/decision-engine-v2/quality-gates'));
+  router.get('/decision-engine-v2/freeze-review', kfGet('/v1/decision-engine-v2/freeze-review'));
+  router.get('/decision-engine-v2/company/:ticker', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/decision-engine-v2/company/${encodeURIComponent(req.params.ticker)}`
+      );
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'IDE V2 company unavailable', detail: error.message });
+    }
+  });
+  router.get('/decision-engine-v2/audit/:id', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/decision-engine-v2/audit/${encodeURIComponent(req.params.id)}`
+      );
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'IDE V2 audit unavailable', detail: error.message });
+    }
+  });
+  router.get('/decision-engine-v2/monitoring/:ticker', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/decision-engine-v2/monitoring/${encodeURIComponent(req.params.ticker)}`
+      );
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'IDE V2 monitoring unavailable', detail: error.message });
+    }
+  });
+  router.post('/decision-engine-v2/analyse', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/decision-engine-v2/analyse', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'IDE V2 analyse failed', detail: error.message });
+    }
+  });
+
   return router;
 }
