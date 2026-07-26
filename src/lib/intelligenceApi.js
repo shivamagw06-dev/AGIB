@@ -645,3 +645,20 @@ export const packageLeo = (query, ticker, engine = 'ask_agi') => {
   if (ticker) qs.set('ticker', ticker);
   return intelligenceFetch(`/leo/package?${qs}`, { method: 'POST', body: {} });
 };
+export const getCidHealth = () => intelligenceFetch('/company-dossier/health');
+export const getCidDashboard = () => intelligenceFetch('/company-dossier');
+export const getCidQualityGates = () => intelligenceFetch('/company-dossier/quality-gates');
+export const getCompanyDossier = (ticker) =>
+  intelligenceFetch(`/company-dossier/${encodeURIComponent(ticker)}`);
+export const getCompanyDossierTimeline = (ticker, limit = 100) =>
+  intelligenceFetch(`/company-dossier/${encodeURIComponent(ticker)}/timeline?limit=${limit}`);
+export const getCompanyDossierCoverage = (ticker) =>
+  intelligenceFetch(`/company-dossier/${encodeURIComponent(ticker)}/coverage`);
+export const getCompanyDossierValuation = (ticker) =>
+  intelligenceFetch(`/company-dossier/${encodeURIComponent(ticker)}/valuation`);
+export const getCompanyDossierRisk = (ticker) =>
+  intelligenceFetch(`/company-dossier/${encodeURIComponent(ticker)}/risk`);
+export const getCompanyDossierForecast = (ticker) =>
+  intelligenceFetch(`/company-dossier/${encodeURIComponent(ticker)}/forecast`);
+export const getCompanyDossierDocuments = (ticker) =>
+  intelligenceFetch(`/company-dossier/${encodeURIComponent(ticker)}/documents`);

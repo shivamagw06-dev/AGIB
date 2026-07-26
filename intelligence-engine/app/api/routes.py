@@ -3341,6 +3341,91 @@ async def leo_dossier(ticker: str):
     return d
 
 
+# --- CID v1.0 (Company Intelligence Dossier — permanent memory; not an engine) ---
+
+
+@router.get("/company-dossier")
+async def company_dossier_dashboard():
+    from cid.production import production_dashboard
+
+    return production_dashboard()
+
+
+@router.get("/company-dossier/quality-gates")
+async def company_dossier_quality_gates():
+    from cid.production import quality_gates
+
+    return quality_gates()
+
+
+@router.get("/company-dossier/health")
+async def company_dossier_health():
+    from cid.production import is_cid_enabled
+    from cid.schema import CID_VERSION
+
+    return {
+        "status": "ok" if is_cid_enabled() else "disabled",
+        "layer": "Company Intelligence Dossier",
+        "programme": "CID",
+        "version": CID_VERSION,
+        "not_an_engine": True,
+        "architecture_status": "v1.0.1 LOCKED",
+        "position": "permanent_company_memory_after_leo",
+    }
+
+
+@router.get("/company-dossier/{ticker}")
+async def company_dossier_get(ticker: str):
+    from cid.production import get_dossier
+
+    d = get_dossier(ticker)
+    if not d.get("ticker") and d.get("bypassed"):
+        raise HTTPException(status_code=404, detail=f"CID disabled or missing for {ticker}")
+    return d
+
+
+@router.get("/company-dossier/{ticker}/timeline")
+async def company_dossier_timeline(ticker: str, limit: int = Query(default=100, ge=1, le=500)):
+    from cid.production import timeline
+
+    return timeline(ticker, limit=limit)
+
+
+@router.get("/company-dossier/{ticker}/coverage")
+async def company_dossier_coverage(ticker: str):
+    from cid.production import coverage
+
+    return coverage(ticker)
+
+
+@router.get("/company-dossier/{ticker}/valuation")
+async def company_dossier_valuation(ticker: str):
+    from cid.production import valuation_view
+
+    return valuation_view(ticker)
+
+
+@router.get("/company-dossier/{ticker}/risk")
+async def company_dossier_risk(ticker: str):
+    from cid.production import risk_view
+
+    return risk_view(ticker)
+
+
+@router.get("/company-dossier/{ticker}/forecast")
+async def company_dossier_forecast(ticker: str):
+    from cid.production import forecast_view
+
+    return forecast_view(ticker)
+
+
+@router.get("/company-dossier/{ticker}/documents")
+async def company_dossier_documents(ticker: str):
+    from cid.production import documents_view
+
+    return documents_view(ticker)
+
+
 # --- IRP V1 (above KIP/RSP, below Ask AGI; no platform redesign) ---
 
 

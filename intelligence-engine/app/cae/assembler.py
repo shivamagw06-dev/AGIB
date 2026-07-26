@@ -329,6 +329,8 @@ class CaeAssembler:
             "finance_academy": self._finance_academy_soft(query or "", plan.primary_ticker),
             # LEO v1.0 — Live Evidence package before reasoning (additive soft field)
             "live_evidence": self._live_evidence_soft(query or "", plan.primary_ticker),
+            # CID v1.0 — living company dossier before raw API rebuilds
+            "company_dossier": self._company_dossier_soft(query or "", plan.primary_ticker),
         }
 
     def _finance_academy_soft(self, query: str, ticker: str | None) -> dict[str, Any]:
@@ -354,3 +356,13 @@ class CaeAssembler:
             )
         except Exception as exc:  # noqa: BLE001
             return {"enabled": False, "error": str(exc), "evidence_objects": []}
+
+    def _company_dossier_soft(self, query: str, ticker: str | None) -> dict[str, Any]:
+        """Soft-load Company Intelligence Dossier for CAE (dossier before raw APIs)."""
+        try:
+            from cid.production import get_or_build
+
+            # Prefer existing living dossier; LEO Ask-AGI path already ingests before CAE.
+            return get_or_build(ticker, query=query)
+        except Exception as exc:  # noqa: BLE001
+            return {"enabled": False, "error": str(exc)}

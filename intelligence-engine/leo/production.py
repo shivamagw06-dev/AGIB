@@ -68,10 +68,29 @@ def package_for_query(
     plan["present_evidence"] = sorted(present_types)
 
     gate = assess_quality_gate(plan, ranked, usage)
-    dossier = update_dossier(resolved_ticker, ranked, plan=plan)
+    # Soft-attach SIF for CID sector KPIs when available
+    sif_for_cid: dict[str, Any] = {}
+    try:
+        from sif.production import analyse_query as sif_analyse
+
+        sif_for_cid = sif_analyse(
+            query,
+            ticker=resolved_ticker,
+            engine="leo_cid",
+            record=False,
+        ) or {}
+    except Exception:
+        sif_for_cid = {}
+    dossier = update_dossier(
+        resolved_ticker,
+        ranked,
+        plan=plan,
+        sif_pkg=sif_for_cid,
+    )
 
     # Provenance / contribution
     influenced = bool(ranked) and bool(usage.get("external_api_contributed") or usage.get("documents_used"))
+    docs = dossier.get("documents") or {}
     package = {
         "enabled": True,
         "leo_version": LEO_VERSION,
@@ -80,7 +99,7 @@ def package_for_query(
         "intent": plan.get("intent"),
         "ticker": resolved_ticker,
         "entity": plan.get("entity"),
-        "sector_id": plan.get("sector_id"),
+        "sector_id": plan.get("sector_id") or (dossier.get("identity") or {}).get("sector_id"),
         "evidence_plan": plan,
         "sources_selected": [{"source_id": s["source_id"], "selected_for": s.get("selected_for")} for s in sources],
         "sources_queried": usage.get("sources_queried") or [],
@@ -98,16 +117,25 @@ def package_for_query(
         "quality_gate": gate,
         "company_dossier": {
             "ticker": dossier.get("ticker"),
+            "cid_version": dossier.get("cid_version"),
             "coverage_score": dossier.get("coverage_score"),
+            "coverage_grade": dossier.get("coverage_grade"),
             "updated_at": dossier.get("updated_at"),
+            "sector_id": (dossier.get("sector_framework") or {}).get("sector_id"),
+            "missing_evidence": dossier.get("missing_evidence") or [],
+            "latest_announcement": dossier.get("latest_announcement"),
+            "latest_filing": dossier.get("latest_filing"),
+            "latest_presentation": dossier.get("latest_presentation"),
             "counts": {
-                "annual_reports": len(dossier.get("annual_reports") or []),
-                "quarterly_results": len(dossier.get("quarterly_results") or []),
-                "investor_presentations": len(dossier.get("investor_presentations") or []),
-                "corporate_announcements": len(dossier.get("corporate_announcements") or []),
-                "financial_statements": len(dossier.get("financial_statements") or []),
+                "annual_reports": len(docs.get("annual_reports") or []),
+                "quarterly_results": len(docs.get("quarterly_results") or []),
+                "investor_presentations": len(docs.get("investor_presentations") or []),
+                "corporate_announcements": len(dossier.get("announcements") or []),
+                "financial_statements": len((dossier.get("financial_statements") or {}).get("versions") or []),
+                "timeline_events": len(dossier.get("evidence_timeline") or []),
             },
         },
+        "sector_intelligence": sif_for_cid if isinstance(sif_for_cid, dict) else {},
         "sif_evidence_supplied": gate.get("sif_evidence_supplied") or {},
         "usage": usage,
         "eve": {

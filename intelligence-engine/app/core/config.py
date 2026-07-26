@@ -274,6 +274,7 @@ class Settings(BaseSettings):
     academy_production: bool = True  # FAPI — production integration into locked engines
     sif: bool = True  # SIF — Sector Intelligence Framework (additive analysis lens)
     leo: bool = True  # LEO — Live Evidence Orchestrator (additive evidence acquisition)
+    cid: bool = True  # CID — Company Intelligence Dossier (permanent institutional memory)
 
 
 @lru_cache

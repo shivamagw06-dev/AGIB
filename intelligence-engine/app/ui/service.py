@@ -697,6 +697,7 @@ class UiService:
         finance_academy: dict[str, Any] = {}
         sector_intelligence: dict[str, Any] = {}
         live_evidence: dict[str, Any] = {}
+        company_dossier: dict[str, Any] = {}
         used_cae = False
 
         # LEO v1.0 — gather / verify / package live evidence BEFORE Academy + SIF + IRP
@@ -755,6 +756,35 @@ class UiService:
                 if not sector_intelligence:
                     sector_intelligence = {}
 
+        # CID v1.0 — load living company dossier FIRST for company analysis (never rebuild from raw APIs)
+        try:
+            from cid.production import package_for_ask_agi as cid_package
+
+            company_dossier = (
+                cid_package(
+                    q,
+                    ticker=detected_ticker,
+                    leo_pkg=live_evidence if isinstance(live_evidence, dict) else None,
+                    finance_academy=finance_academy if isinstance(finance_academy, dict) else None,
+                    sif_pkg=sector_intelligence if isinstance(sector_intelligence, dict) else None,
+                )
+                or {}
+            )
+            if company_dossier.get("ticker") and not detected_ticker:
+                detected_ticker = str(company_dossier["ticker"]).upper()
+            # Prefer dossier-embedded SIF when richer
+            if not sector_intelligence.get("sector_id") and (company_dossier.get("sector_framework") or {}).get("sector_id"):
+                sector_intelligence = {
+                    **sector_intelligence,
+                    "sector_id": company_dossier["sector_framework"].get("sector_id"),
+                    "sector_name": company_dossier["sector_framework"].get("sector_name"),
+                    "priority_metrics": (company_dossier.get("sector_kpis") or {}).get("priority_metrics") or [],
+                    "from_cid": True,
+                }
+        except Exception:
+            company_dossier = live_evidence.get("company_dossier") if isinstance(live_evidence, dict) else {}
+            company_dossier = company_dossier or {}
+
         if self.cae and q:
             try:
                 assembled = dump(soft(self.cae.assemble_for_ask_agi, q, ticker=detected_ticker)) or {}
@@ -779,6 +809,10 @@ class UiService:
                         cae_soft.get("live_evidence"), dict
                     ):
                         live_evidence = cae_soft.get("live_evidence") or live_evidence
+                    if (not company_dossier.get("ticker")) and isinstance(
+                        cae_soft.get("company_dossier"), dict
+                    ):
+                        company_dossier = cae_soft.get("company_dossier") or company_dossier
                     if assembled.get("primary_ticker") and not detected_ticker:
                         detected_ticker = str(assembled["primary_ticker"]).upper()
             except Exception:
@@ -1202,6 +1236,22 @@ class UiService:
                     "influenced_answer": True,
                     "concepts_influencing_answer": list(prov.get("concept_ids") or [])[:12],
                 }
+        # CID first — reason from living dossier, not raw API rebuilds
+        if isinstance(company_dossier, dict) and company_dossier.get("ticker"):
+            hint = company_dossier.get("reasoning_hint")
+            if hint and hint not in why:
+                why.insert(0, scrub_text(hint)[:320])
+            grade = company_dossier.get("coverage_grade")
+            if grade and f"CID coverage: {grade}" not in why:
+                why.insert(
+                    0,
+                    scrub_text(
+                        f"CID coverage: {grade} ({company_dossier.get('coverage_score')}). "
+                        f"Missing: {', '.join((company_dossier.get('missing_evidence') or [])[:5]) or 'none'}."
+                    )[:300],
+                )
+            why = why[:12]
+
         # LEO hints — live evidence contribution before recommendation
         if isinstance(live_evidence, dict) and live_evidence.get("enabled"):
             for hint in (live_evidence.get("answer_hints") or [])[:3]:
@@ -1662,6 +1712,7 @@ class UiService:
             },
             finance_academy=scrub(finance_academy) if finance_academy else {},
             live_evidence=scrub(live_evidence) if live_evidence else {},
+            company_dossier=scrub(company_dossier) if company_dossier else {},
             institutional_briefing=scrub(briefing) or {},
             # Prefer live SIF/Ask-AGI sector pack; fall back to IRP sector pack
             sector_intelligence=scrub(sector_intelligence)
