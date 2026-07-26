@@ -1331,3 +1331,19 @@ export const diagnoseHypothesisTesting = (payload = {}) =>
     method: 'POST',
     body: typeof payload === 'string' ? { question: payload } : payload,
   });
+
+/** RQ2 Bayesian Belief & Confidence Engine — Sprint 6 (AFTER falsification) */
+export const getBeliefEngineHealth = () => intelligenceFetch('/belief-engine/health');
+export const getBeliefEngineDashboard = () => intelligenceFetch('/belief-engine/dashboard');
+export const getBeliefEngineConstitution = () => intelligenceFetch('/belief-engine/constitution');
+export const getBeliefEngineQualityGates = () => intelligenceFetch('/belief-engine/quality-gates');
+export const planBeliefEngine = (payload = {}) =>
+  intelligenceFetch('/belief-engine/plan', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });
+export const diagnoseBeliefEngine = (payload = {}) =>
+  intelligenceFetch('/belief-engine/diagnostics', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });

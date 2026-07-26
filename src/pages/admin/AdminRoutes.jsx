@@ -43,6 +43,7 @@ import LayerRouter from '@/pages/admin/LayerRouter';
 import HypothesisEngine from '@/pages/admin/HypothesisEngine';
 import ResearchQuestions from '@/pages/admin/ResearchQuestions';
 import HypothesisTesting from '@/pages/admin/HypothesisTesting';
+import BeliefEngine from '@/pages/admin/BeliefEngine';
 
 export default function AdminRoutes() {
   return (
@@ -85,6 +86,7 @@ export default function AdminRoutes() {
           <Route path="hypothesis-engine" element={<HypothesisEngine />} />
           <Route path="research-questions" element={<ResearchQuestions />} />
           <Route path="hypothesis-testing" element={<HypothesisTesting />} />
+          <Route path="belief-engine" element={<BeliefEngine />} />
           <Route path="system" element={<MissionControl />} />
           <Route path="investment-intelligence" element={<InvestmentIntelligence />} />
           <Route path="forecasting" element={<Forecasting />} />

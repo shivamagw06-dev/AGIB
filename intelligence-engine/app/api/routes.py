@@ -5216,6 +5216,51 @@ async def hypothesis_testing_diagnostics(payload: dict[str, Any] = Body(default=
     return diagnostics(payload or {})
 
 
+# --- RQ2 Bayesian Belief & Confidence Engine (Sprint 6 — soft-wire AFTER falsification; not a top-level layer) ---
+
+
+@router.get("/belief-engine/health")
+async def belief_engine_health():
+    from belief_engine.production import health
+
+    return health()
+
+
+@router.get("/belief-engine/dashboard")
+async def belief_engine_dashboard():
+    from belief_engine.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/belief-engine/constitution")
+async def belief_engine_constitution():
+    from belief_engine.production import constitution
+
+    return constitution()
+
+
+@router.get("/belief-engine/quality-gates")
+async def belief_engine_quality_gates():
+    from belief_engine.production import quality_gates
+
+    return quality_gates()
+
+
+@router.post("/belief-engine/plan")
+async def belief_engine_plan(payload: dict[str, Any] = Body(default={})):
+    from belief_engine.production import plan
+
+    return plan(payload or {})
+
+
+@router.post("/belief-engine/diagnostics")
+async def belief_engine_diagnostics(payload: dict[str, Any] = Body(default={})):
+    from belief_engine.production import diagnostics
+
+    return diagnostics(payload or {})
+
+
 # --- SIF v1.0 (Sector Intelligence Framework — additive; not an engine) ---
 
 

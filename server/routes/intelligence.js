@@ -2149,5 +2149,33 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // RQ2 Bayesian Belief & Confidence Engine — Sprint 6 (AFTER falsification; BEFORE opinions)
+  router.get('/belief-engine/health', kfGet('/v1/belief-engine/health'));
+  router.get('/belief-engine/dashboard', kfGet('/v1/belief-engine/dashboard'));
+  router.get('/belief-engine/constitution', kfGet('/v1/belief-engine/constitution'));
+  router.get('/belief-engine/quality-gates', kfGet('/v1/belief-engine/quality-gates'));
+  router.post('/belief-engine/plan', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/belief-engine/plan', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'BBCE plan failed', detail: error.message });
+    }
+  });
+  router.post('/belief-engine/diagnostics', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/belief-engine/diagnostics', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'BBCE diagnostics failed', detail: error.message });
+    }
+  });
+
   return router;
 }

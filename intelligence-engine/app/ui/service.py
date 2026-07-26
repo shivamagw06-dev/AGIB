@@ -881,6 +881,34 @@ class UiService:
         except Exception:
             hypothesis_testing = {}
 
+        # RQ2 Sprint 6 — Bayesian Belief & Confidence Engine (AFTER falsification; BEFORE analyst opinions)
+        belief_engine: dict[str, Any] = {}
+        try:
+            from belief_engine.production import soft_slice_for_ask_agi as bbce_soft_slice
+
+            bbce_payload = {
+                "entity_resolution": entity_resolution,
+                "research_objective": research_objective,
+                "analyst_router": analyst_router,
+                "layer_router": layer_router,
+                "context_intelligence": context_intelligence,
+                "hypothesis_engine": hypothesis_engine,
+                "research_questions": research_questions,
+                "hypothesis_testing": hypothesis_testing,
+            }
+            # Soft-import falsification engine when available (RQ2.5)
+            try:
+                from falsification_engine.production import soft_slice_for_ask_agi as ife_soft  # type: ignore
+
+                ife = ife_soft(q, bbce_payload) or {}
+                if isinstance(ife, dict):
+                    bbce_payload.update(ife)
+            except Exception:
+                pass
+            belief_engine = bbce_soft_slice(q, bbce_payload) or {}
+        except Exception:
+            belief_engine = {}
+
         # CAE gateway (preferred) — else MEE→FLE→IIE→EVE→AOI→KCV/KF soft enrichment.
         kf_hits: list[dict[str, Any]] = []
         knowledge_corpus: dict[str, Any] = {}
@@ -2512,6 +2540,7 @@ class UiService:
             hypothesis_engine=scrub(hypothesis_engine) if hypothesis_engine else {},
             research_questions=scrub(research_questions) if research_questions else {},
             hypothesis_testing=scrub(hypothesis_testing) if hypothesis_testing else {},
+            belief_engine=scrub(belief_engine) if belief_engine else {},
         )
 
     def timeline(self, entity: str) -> TimelineView:
