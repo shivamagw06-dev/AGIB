@@ -32,16 +32,21 @@ def candidate_roots() -> list[Path]:
         repo_root = Path(__file__).resolve().parents[3]
     except Exception:
         repo_root = Path("/workspace")
+    # Prefer Books/ inside the Mac AGIB dump; fall back to the AGIB folder itself.
+    mac_agib = Path("/Users/shivamagarwal/Downloads/AGIB")
+    home_agib = Path.home() / "Downloads" / "AGIB"
     roots.extend(
         [
+            mac_agib / "Books",
+            mac_agib / "books",
+            home_agib / "Books",
+            home_agib / "books",
+            mac_agib,
+            home_agib,
             repo_root / "Books",
             repo_root / "books",
             Path("/workspace/Books"),
             Path("/workspace/books"),
-            Path.home() / "Downloads" / "AGIB" / "Books",
-            Path.home() / "Downloads" / "AGIB" / "books",
-            Path("/Users/shivamagarwal/Downloads/AGIB/Books"),
-            Path("/Users/shivamagarwal/Downloads/AGIB/books"),
         ]
     )
     # de-dupe preserve order

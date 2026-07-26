@@ -20,6 +20,8 @@ def test_candidate_roots_include_project_books():
     # tests/ → intelligence-engine → repo root
     project_root = Path(__file__).resolve().parents[2]
     assert str(project_root / "books") in roots or str(project_root / "Books") in roots
+    assert "/Users/shivamagarwal/Downloads/AGIB" in roots
+    assert "/Users/shivamagarwal/Downloads/AGIB/Books" in roots
 
 
 def test_library_scan_finds_workspace_books():
