@@ -4,24 +4,35 @@ from __future__ import annotations
 
 from copy import deepcopy
 from threading import Lock
+from time import monotonic
 from typing import Any
 
 
 _LOCK = Lock()
 _DASH: dict[str, Any] | None = None
+_DASH_AT: float = 0.0
 _ACK: set[str] = set()
+
+# Short TTL keeps the cockpit snappy under parallel health/dashboard/gates calls.
+_DASH_TTL_SEC = 20.0
 
 
 def put_dashboard(row: dict[str, Any]) -> dict[str, Any]:
-    global _DASH
+    global _DASH, _DASH_AT
     with _LOCK:
         _DASH = deepcopy(row)
+        _DASH_AT = monotonic()
     return row
 
 
-def get_dashboard() -> dict[str, Any] | None:
+def get_dashboard(*, max_age_sec: float | None = None) -> dict[str, Any] | None:
+    ttl = _DASH_TTL_SEC if max_age_sec is None else max_age_sec
     with _LOCK:
-        return deepcopy(_DASH) if _DASH else None
+        if not _DASH:
+            return None
+        if ttl >= 0 and (monotonic() - _DASH_AT) > ttl:
+            return None
+        return deepcopy(_DASH)
 
 
 def acknowledge(alert_id: str, *, actor: str | None = None) -> dict[str, Any]:
@@ -44,7 +55,8 @@ def acknowledged_ids() -> set[str]:
 
 
 def reset_for_tests() -> None:
-    global _DASH
+    global _DASH, _DASH_AT
     with _LOCK:
         _DASH = None
+        _DASH_AT = 0.0
         _ACK.clear()

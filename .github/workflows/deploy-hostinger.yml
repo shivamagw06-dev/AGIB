@@ -35,7 +35,8 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
-      - name: Write production env file (avoid shell/$ truncation of JWT secrets)
+      - name: Prepare production env / decide rebuild
+        id: prep
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
@@ -46,16 +47,17 @@ jobs:
           python3 <<'PY'
           import os
           from pathlib import Path
-          required = ["VITE_SUPABASE_URL", "VITE_SUPABASE_ANON_KEY"]
-          missing = [k for k in required if not (os.environ.get(k) or "").strip()]
-          if missing:
-              raise SystemExit(f"Missing required secrets: {', '.join(missing)}")
-          anon = os.environ["VITE_SUPABASE_ANON_KEY"].strip()
-          if len(anon) < 100 or anon.count(".") != 2:
-              raise SystemExit(
-                  f"VITE_SUPABASE_ANON_KEY looks invalid (len={len(anon)}). "
+          anon = (os.environ.get("VITE_SUPABASE_ANON_KEY") or "").strip()
+          url = (os.environ.get("VITE_SUPABASE_URL") or "").strip()
+          rebuild = bool(url and len(anon) >= 100 and anon.count(".") == 2)
+          Path(os.environ["GITHUB_OUTPUT"]).write_text(f"rebuild={'true' if rebuild else 'false'}\n")
+          if not rebuild:
+              print(
+                  f"::warning::VITE_SUPABASE_ANON_KEY invalid/truncated (len={len(anon)}). "
+                  "Skipping rebuild; deploying committed Hostinger root artifacts. "
                   "Re-paste the full anon JWT in GitHub Actions secrets."
               )
+              raise SystemExit(0)
           keys = [
               "VITE_SUPABASE_URL",
               "VITE_SUPABASE_ANON_KEY",
@@ -68,17 +70,14 @@ jobs:
               val = (os.environ.get(key) or "").strip()
               if not val:
                   continue
-              # Quote so dotenv never expands $ inside JWTs / secrets.
               safe = val.replace("\\", "\\\\").replace('"', '\\"')
               lines.append(f'{key}="{safe}"')
           Path(".env.production.local").write_text("\n".join(lines) + "\n")
-          print("Wrote .env.production.local")
-          print("VITE_SUPABASE_URL set:", bool(os.environ.get("VITE_SUPABASE_URL")))
-          print("VITE_SUPABASE_ANON_KEY length:", len(anon))
-          print("VITE_API_URL set:", bool(os.environ.get("VITE_API_URL")))
+          print("Wrote .env.production.local; anon key length:", len(anon))
           PY
 
       - name: Build production site for Hostinger root
+        if: steps.prep.outputs.rebuild == 'true'
         run: npm run build:hostinger
 
       - name: Verify baked Supabase anon key in bundle
@@ -88,10 +87,10 @@ jobs:
           import re
           files = sorted(Path("assets").glob("index-*.js"))
           if not files:
-              raise SystemExit("No assets/index-*.js after build")
+              raise SystemExit("No assets/index-*.js present")
           text = files[-1].read_text(errors="ignore")
-          if "placeholder.supabase.co" in text and "zrvdtpxfmuijhionbaxr.supabase.co" not in text:
-              raise SystemExit("Bundle still points at placeholder Supabase URL")
+          if "zrvdtpxfmuijhionbaxr.supabase.co" not in text:
+              raise SystemExit("Bundle missing production Supabase URL")
           matches = re.findall(r'"(eyJhbGciOiJIUzI1NiIs[^"]+)"', text)
           if not matches:
               raise SystemExit("No JWT anon key found in bundle")
@@ -102,10 +101,10 @@ jobs:
           PY
 
       - name: Commit Hostinger root artifacts for Git sync
+        if: steps.prep.outputs.rebuild == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          # Hostinger Horizons serves repo root — never git-add ignored dist/
           git add index.html .htaccess
           git add -A assets
           if git diff --cached --quiet; then
@@ -114,6 +113,16 @@ jobs:
             git commit -m "chore: sync Hostinger production build [skip ci]"
             git push origin HEAD:main
             echo "Committed and pushed Hostinger root build for Horizons Git sync."
+          fi
+
+      - name: Ensure dist/ exists for FTP fallback
+        run: |
+          if [ ! -f dist/index.html ]; then
+            mkdir -p dist
+            cp index.html dist/index.html
+            rm -rf dist/assets
+            cp -R assets dist/assets
+            cp .htaccess dist/.htaccess 2>/dev/null || true
           fi
 
       # FTP remains a secondary publish path (some Hostinger setups also read FTP root).

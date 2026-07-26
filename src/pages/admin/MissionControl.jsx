@@ -65,17 +65,22 @@ export default function MissionControl() {
   const load = useCallback(async () => {
     setError('');
     try {
-      const [h, d, g] = await Promise.all([
-        getMissionControlHealth(),
-        getMissionControlDashboard(),
-        getMissionControlQualityGates(),
-      ]);
-      setHealth(h);
+      // Dashboard is the cockpit. Health/gates are secondary and must not block render.
+      const d = await getMissionControlDashboard();
       setDesk(d);
-      setGates(g);
+      setLoading(false);
+
+      Promise.allSettled([getMissionControlHealth(), getMissionControlQualityGates()]).then(
+        ([hRes, gRes]) => {
+          if (hRes.status === 'fulfilled') setHealth(hRes.value);
+          if (gRes.status === 'fulfilled') setGates(gRes.value);
+          if (hRes.status === 'rejected' && gRes.status === 'rejected') {
+            setError('Secondary Mission Control probes timed out; dashboard data is still shown.');
+          }
+        }
+      );
     } catch (err) {
       setError(err?.message || 'Failed to load Mission Control');
-    } finally {
       setLoading(false);
     }
   }, []);
@@ -136,6 +141,20 @@ export default function MissionControl() {
     if (!q) return platforms;
     return platforms.filter((p) => JSON.stringify(p).toLowerCase().includes(q));
   }, [platforms, query]);
+
+  if (loading && !desk) {
+    return (
+      <div className="agi-office -m-6 min-h-screen p-4 md:p-6">
+        <div className="mx-auto max-w-[1400px] py-16 text-center">
+          <RefreshCw className="mx-auto h-8 w-8 animate-spin text-[var(--io-gold)]" />
+          <p className="mt-4 text-sm text-[var(--io-muted)]">Loading Mission Control diagnostics…</p>
+          <p className="mt-2 text-[11px] text-[var(--io-caption)]">
+            First load can take a few seconds while the intelligence engine wakes.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="agi-office -m-6 min-h-screen p-4 md:p-6">
