@@ -624,3 +624,14 @@ export const packageAcademyProduction = (query, engine = 'cae', ticker) => {
   if (ticker) qs.set('ticker', ticker);
   return intelligenceFetch(`/academy/production/package?${qs}`, { method: 'POST', body: {} });
 };
+export const getSifHealth = () => intelligenceFetch('/sif/health');
+export const getSifDashboard = () => intelligenceFetch('/sif/dashboard');
+export const getSifFrameworks = () => intelligenceFetch('/sif/frameworks');
+export const getSifFramework = (sectorId) =>
+  intelligenceFetch(`/sif/frameworks/${encodeURIComponent(sectorId)}`);
+export const getSifQualityGates = () => intelligenceFetch('/sif/quality-gates');
+export const analyseSif = (query, ticker, engine = 'ask_agi') => {
+  const qs = new URLSearchParams({ query: query || '', engine });
+  if (ticker) qs.set('ticker', ticker);
+  return intelligenceFetch(`/sif/analyse?${qs}`, { method: 'POST', body: {} });
+};

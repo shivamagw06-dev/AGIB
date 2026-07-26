@@ -380,12 +380,21 @@ class IieService:
                 company_pack = None
 
         finance_academy: dict = {}
+        sector_intelligence: dict = {}
         try:
             from academy.fapi.production import attach_for_engine
 
             finance_academy = attach_for_engine("iie", query).get("finance_academy") or {}
+            sector_intelligence = finance_academy.get("sector_intelligence") or {}
         except Exception:
             finance_academy = {}
+        if not sector_intelligence:
+            try:
+                from sif.production import attach_for_engine as sif_attach
+
+                sector_intelligence = sif_attach("iie", query).get("sector_intelligence") or {}
+            except Exception:
+                sector_intelligence = {}
         return {
             "answer_policy": "investment_intelligence_before_reasoning",
             "query": query,
@@ -398,10 +407,12 @@ class IieService:
                 "never_hallucinate": True,
                 "versioned_outputs": True,
                 "academy_capital_allocation": True,
+                "sector_iie_focus": sector_intelligence.get("iie_focus") or [],
             },
             "primary_source_of_truth": "investment_intelligence_objects",
             "upstream_evidence": "eve_verified_only",
             "finance_academy": finance_academy,
+            "sector_intelligence": sector_intelligence,
         }
 
     def _require(self) -> None:

@@ -49,6 +49,22 @@ def package_for_query(
         }
 
     intent = detect_finance_intent(query)
+    # SIF — sector detection / framework before generic Academy ranking (additive)
+    sif_pkg: dict[str, Any] = {}
+    try:
+        from sif.production import analyse_query as sif_analyse
+
+        sif_pkg = sif_analyse(query, ticker=ticker, engine=engine, record=record)
+        if sif_pkg.get("ticker") and not ticker:
+            ticker = sif_pkg.get("ticker")
+    except Exception:
+        sif_pkg = {}
+
+    # Company / sector questions are finance even if lexical intent is thin
+    if sif_pkg.get("sector_id"):
+        intent["is_finance"] = True
+        intent.setdefault("domains", ["economics", "accounting", "corporate_finance"])
+
     if not intent["is_finance"]:
         if record:
             get_usage_store().record_retrieval(
@@ -74,10 +90,61 @@ def package_for_query(
             "relationships": [],
             "consumer": {},
             "answer_hints": [],
+            "sector_intelligence": sif_pkg or {},
             "provenance": {"influenced": False, "reason": "non_finance_query"},
         }
 
-    retrieved = retrieve_academy(query, domains=intent["domains"], limit=limit)
+    # Prefer SIF-reranked Academy concepts when a sector framework is active
+    if sif_pkg.get("sector_id") and sif_pkg.get("academy_concepts_used"):
+        from academy.catalog import knowledge_by_id
+
+        kb = knowledge_by_id()
+        concepts = []
+        for cid in sif_pkg.get("academy_concepts_used") or []:
+            ko = kb.get(cid)
+            if not ko:
+                continue
+            concepts.append(
+                {
+                    "concept_id": cid,
+                    "concept": ko.concept,
+                    "course": ko.course_id,
+                    "score": 90.0,
+                    "definition": ko.definition,
+                    "formula": ko.formula,
+                    "why_selected": "sif_sector_priority",
+                }
+            )
+        # Fill remaining via lexical retrieve, excluding suppressed generics
+        lexical = retrieve_academy(query, domains=intent["domains"], limit=limit)
+        suppress = set(sif_pkg.get("generic_suppressed") or [])
+        have = {c["concept_id"] for c in concepts}
+        for row in lexical.get("concepts") or []:
+            if row["concept_id"] in have or row["concept_id"] in suppress:
+                continue
+            concepts.append(row)
+            have.add(row["concept_id"])
+            if len(concepts) >= limit:
+                break
+        courses = sorted(
+            {
+                ("economics" if "mankiw" in str(c.get("course")) or "economics" in str(c.get("course")) else
+                 "accounting" if "accounting" in str(c.get("course")) else
+                 "corporate_finance" if "corporate" in str(c.get("course")) or "acf" in str(c.get("course")) else
+                 str(c.get("course") or "unknown"))
+                for c in concepts[:12]
+                if c.get("course")
+            }
+        )
+        retrieved = {
+            **lexical,
+            "concepts": concepts[:limit],
+            "concept_ids": [c["concept_id"] for c in concepts[:limit]],
+            "courses": [c for c in courses if c != "unknown"] or lexical.get("courses") or [],
+            "multi_discipline": len({c for c in courses if c != "unknown"}) >= 2,
+        }
+    else:
+        retrieved = retrieve_academy(query, domains=intent["domains"], limit=limit)
     primary = (retrieved["concept_ids"] or ["value_creation"])[0]
     consumer_payload: dict[str, Any] = {"concept_id": primary, "concepts": retrieved["concept_ids"][:10]}
     if ticker:
@@ -87,8 +154,10 @@ def package_for_query(
     except Exception:
         consumer = for_engine("irp", consumer_payload)
 
-    answer_hints = _compose_answer_hints(retrieved)
+    answer_hints = list(sif_pkg.get("answer_hints") or [])[:4] + _compose_answer_hints(retrieved)
     graph_chain = _best_chain(retrieved)
+    if sif_pkg.get("sector_id") == "banks":
+        graph_chain = ["Interest Rates", "NIM / Deposit Franchise", "Credit Cost / Asset Quality", "ROE vs COE", "P/B", "Investment Decision"]
 
     package = {
         "enabled": True,
@@ -107,15 +176,24 @@ def package_for_query(
         "multi_discipline": retrieved["multi_discipline"],
         "knowledge_graph_chain": graph_chain,
         "consumer": consumer,
-        "answer_hints": answer_hints,
-        "answer_policy": "academy_before_llm_finance_reasoning",
+        "answer_hints": answer_hints[:10],
+        "sector_intelligence": sif_pkg or {},
+        "answer_policy": (
+            sif_pkg.get("answer_policy")
+            if sif_pkg.get("sector_id")
+            else "academy_before_llm_finance_reasoning"
+        ),
         "provenance": {
-            "influenced": bool(retrieved["concept_ids"]),
+            "influenced": bool(retrieved["concept_ids"]) or bool(sif_pkg.get("kpis_retrieved")),
             "concept_ids": retrieved["concept_ids"][:16],
             "causal_model_ids": [c["model_id"] for c in retrieved["causal_models"][:8]],
             "mental_model_ids": [m["model_id"] for m in retrieved["mental_models"][:8]],
             "courses": retrieved["courses"],
             "frameworks": _frameworks(retrieved),
+            "sector_id": sif_pkg.get("sector_id"),
+            "sector_kpis": sif_pkg.get("kpis_retrieved") or [],
+            "valuation_framework": (sif_pkg.get("valuation_framework") or {}).get("methodology"),
+            "recommendation_blocked": bool((sif_pkg.get("recommendation_gate") or {}).get("blocked")),
         },
     }
 

@@ -294,14 +294,24 @@ class VeService:
         company_pack = self.company(resolved, value_if_empty=True) if resolved else {}
         latest = company_pack.get("latest") or {}
         mos = latest.get("margin_of_safety") or {}
-        # FAPI soft attach — valuation methodology concepts for Ask AGI
+        # FAPI + SIF soft attach — sector-aware valuation methodology for Ask AGI
         finance_academy: dict = {}
+        sector_intelligence: dict = {}
         try:
             from academy.fapi.production import attach_for_engine
 
             finance_academy = attach_for_engine("ve", query).get("finance_academy") or {}
+            sector_intelligence = finance_academy.get("sector_intelligence") or {}
         except Exception:
             finance_academy = {}
+        if not sector_intelligence:
+            try:
+                from sif.production import attach_for_engine as sif_attach
+
+                sector_intelligence = sif_attach("ve", query).get("sector_intelligence") or {}
+            except Exception:
+                sector_intelligence = {}
+        sif_val = (sector_intelligence.get("valuation_framework") or {}) if sector_intelligence else {}
 
         return {
             "answer_policy": "valuation_before_reasoning",
@@ -312,6 +322,9 @@ class VeService:
                 "surface_sensitivity": True,
                 "never_execute_trades": True,
                 "academy_methodology_for_wacc": True,
+                "sector_preferred_methodology": sif_val.get("methodology") or [],
+                "sector_preferred_multiples": sif_val.get("preferred_multiples") or [],
+                "primary_method": sif_val.get("primary_method"),
             },
             "company": company_pack,
             "latest_valuation": latest,
@@ -324,11 +337,13 @@ class VeService:
             "explainability": latest.get("explainability") or {},
             "search": search,
             "finance_academy": finance_academy,
+            "sector_intelligence": sector_intelligence,
             "questions": {
                 "is_undervalued": bool(mos.get("undervalued")),
                 "intrinsic_value": latest.get("intrinsic_value"),
                 "market_price": latest.get("market_price"),
                 "key_assumptions": [a.get("name") for a in (latest.get("assumptions") or [])[:6]],
+                "preferred_valuation_method": sif_val.get("primary_method"),
             },
         }
 

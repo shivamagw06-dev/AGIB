@@ -13,6 +13,8 @@ import {
   getAcademyProductionQualityGates,
   getAcademyQuality,
   getAcademyRedFlags,
+  getSifDashboard,
+  getSifQualityGates,
   scoreAcademyEarningsQuality,
   teachAcademyConcept,
 } from '@/lib/intelligenceApi';
@@ -42,6 +44,8 @@ export default function FinanceAcademy() {
   const [production, setProduction] = useState(null);
   const [ab, setAb] = useState(null);
   const [gates, setGates] = useState(null);
+  const [sifDash, setSifDash] = useState(null);
+  const [sifGates, setSifGates] = useState(null);
   const [courseFilter, setCourseFilter] = useState('all');
   const [conceptId, setConceptId] = useState('capital_allocation');
   const [lesson, setLesson] = useState(null);
@@ -53,7 +57,7 @@ export default function FinanceAcademy() {
     setLoading(true);
     setError('');
     try {
-      const [h, d, q, e, c, cm, rf, ac, cf, prod, abRes, g] = await Promise.all([
+      const [h, d, q, e, c, cm, rf, ac, cf, prod, abRes, g, sd, sg] = await Promise.all([
         getAcademyHealth(),
         getAcademyDashboard(),
         getAcademyQuality(),
@@ -66,6 +70,8 @@ export default function FinanceAcademy() {
         getAcademyProduction(),
         getAcademyProductionAb(),
         getAcademyProductionQualityGates(),
+        getSifDashboard(),
+        getSifQualityGates(),
       ]);
       setHealth(h);
       setDashboard(d);
@@ -79,6 +85,8 @@ export default function FinanceAcademy() {
       setProduction(prod);
       setAb(abRes);
       setGates(g);
+      setSifDash(sd);
+      setSifGates(sg);
     } catch (err) {
       setError(err?.message || 'Failed to load Finance Academy');
     } finally {
@@ -370,6 +378,50 @@ export default function FinanceAcademy() {
               </div>
             ))}
           </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-4">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="font-semibold text-slate-900">Sector Intelligence (SIF)</h2>
+          <span
+            className={`text-xs font-semibold px-2 py-1 rounded-full ${
+              sifGates?.passed ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+            }`}
+          >
+            {sifGates?.passed ? 'SIF gates pass' : 'SIF gates pending'}
+          </span>
+        </div>
+        <p className="text-sm text-slate-500">
+          Additive sector frameworks that teach when/how to apply Finance Academy concepts. Not a new engine.
+        </p>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Stat label="Sectors" value={sifDash?.sector_count ?? '—'} hint="Framework coverage" />
+          <Stat
+            label="Queries"
+            value={sifDash?.usage?.queries ?? '—'}
+            hint={`${sifDash?.usage?.blocked_recommendations ?? 0} reco blocked`}
+          />
+          <Stat
+            label="HDFC banking KPIs"
+            value={(sifGates?.hdfc_banking_hits || []).length || '—'}
+            hint={(sifGates?.hdfc_banking_hits || []).slice(0, 6).join(', ') || '—'}
+          />
+          <Stat
+            label="Sector outranks generic"
+            value={sifGates?.checks?.sector_outranks_generic ? 'Yes' : 'No'}
+            hint="Banks: NIM/CASA before liquidity"
+          />
+        </div>
+        <div className="grid gap-2 sm:grid-cols-2 text-sm">
+          {Object.entries(sifGates?.checks || {}).map(([key, ok]) => (
+            <div key={key} className="flex items-center justify-between border border-slate-100 rounded-lg px-3 py-2">
+              <span className="text-slate-600">{key.replaceAll('_', ' ')}</span>
+              <span className={ok ? 'text-emerald-600 font-medium' : 'text-amber-600 font-medium'}>
+                {ok ? 'Yes' : 'No'}
+              </span>
+            </div>
+          ))}
         </div>
       </div>
 

@@ -54,14 +54,24 @@ class IrpPipeline:
         # Learning cues (soft)
         cues = self.learning.cues_for(q)
 
-        # 5a FAPI — Finance Academy retrieval before / alongside KIP (additive; no redesign)
+        # 5a FAPI + SIF — sector framework then Finance Academy (additive; no redesign)
         academy_pkg: dict[str, Any] = {}
+        sif_pkg: dict[str, Any] = {}
         try:
-            from academy.fapi.production import enrich_reasoning, package_for_query
+            from academy.fapi.production import package_for_query
 
             academy_pkg = package_for_query(q, engine="irp", ticker=ticker or entities.primary_ticker)
+            sif_pkg = academy_pkg.get("sector_intelligence") or {}
         except Exception:
             academy_pkg = {}
+            sif_pkg = {}
+        if not sif_pkg:
+            try:
+                from sif.production import analyse_query as sif_analyse
+
+                sif_pkg = sif_analyse(q, ticker=ticker or entities.primary_ticker, engine="irp")
+            except Exception:
+                sif_pkg = {}
 
         # 5 Knowledge retrieval via existing KIP client_search / rag (no redesign)
         client = {}
@@ -134,24 +144,30 @@ class IrpPipeline:
             rsp=rsp_pkg,
         )
 
-        # 8b Enrich reasoning with Finance Academy concepts / causal / mental models
-        if academy_pkg.get("is_finance") and academy_pkg.get("concept_ids"):
-            try:
-                from academy.fapi.production import enrich_reasoning
+        # 8b Enrich reasoning with SIF sector framework then Finance Academy
+        try:
+            from academy.fapi.production import enrich_reasoning as fapi_enrich
+            from sif.production import enrich_reasoning as sif_enrich
 
-                enriched = enrich_reasoning(reasoning.model_dump(), academy_pkg)
-                # Apply only known InstitutionalReasoning fields (extra keys stay in finance_academy)
-                for field in (
-                    "why",
-                    "what_is_happening",
-                    "key_drivers",
-                    "valuation_perspective",
-                    "supports",
-                ):
-                    if field in enriched and enriched[field] is not None:
-                        setattr(reasoning, field, enriched[field])
-            except Exception:
-                pass
+            enriched = reasoning.model_dump()
+            if sif_pkg.get("sector_id"):
+                enriched = sif_enrich(enriched, sif_pkg)
+            if academy_pkg.get("is_finance") and academy_pkg.get("concept_ids"):
+                enriched = fapi_enrich(enriched, academy_pkg)
+            for field in (
+                "why",
+                "what_is_happening",
+                "key_drivers",
+                "valuation_perspective",
+                "supports",
+                "stance",
+                "outlook",
+                "uncertainties",
+            ):
+                if field in enriched and enriched[field] is not None:
+                    setattr(reasoning, field, enriched[field])
+        except Exception:
+            pass
 
         # 13 Self-check; rebuild once if needed
         validation = validate_package(
@@ -174,22 +190,29 @@ class IrpPipeline:
                 house_view=house if isinstance(house, dict) else None,
                 rsp=rsp_pkg,
             )
-            if academy_pkg.get("is_finance") and academy_pkg.get("concept_ids"):
-                try:
-                    from academy.fapi.production import enrich_reasoning
+            try:
+                from academy.fapi.production import enrich_reasoning as fapi_enrich
+                from sif.production import enrich_reasoning as sif_enrich
 
-                    enriched = enrich_reasoning(reasoning.model_dump(), academy_pkg)
-                    for field in (
-                        "why",
-                        "what_is_happening",
-                        "key_drivers",
-                        "valuation_perspective",
-                        "supports",
-                    ):
-                        if field in enriched and enriched[field] is not None:
-                            setattr(reasoning, field, enriched[field])
-                except Exception:
-                    pass
+                enriched = reasoning.model_dump()
+                if sif_pkg.get("sector_id"):
+                    enriched = sif_enrich(enriched, sif_pkg)
+                if academy_pkg.get("is_finance") and academy_pkg.get("concept_ids"):
+                    enriched = fapi_enrich(enriched, academy_pkg)
+                for field in (
+                    "why",
+                    "what_is_happening",
+                    "key_drivers",
+                    "valuation_perspective",
+                    "supports",
+                    "stance",
+                    "outlook",
+                    "uncertainties",
+                ):
+                    if field in enriched and enriched[field] is not None:
+                        setattr(reasoning, field, enriched[field])
+            except Exception:
+                pass
             validation = validate_package(
                 q,
                 entities=entities,
@@ -213,16 +236,29 @@ class IrpPipeline:
         )
 
         briefing = build_institutional_briefing(reasoning, question=q)
-        if isinstance(briefing, dict) and academy_pkg.get("concept_ids"):
-            briefing = {
-                **briefing,
-                "finance_academy": {
-                    "concept_ids": academy_pkg.get("concept_ids"),
-                    "causal_models": [c.get("model_id") for c in (academy_pkg.get("causal_models") or [])],
-                    "mental_models": [m.get("model_id") for m in (academy_pkg.get("mental_models") or [])],
-                    "answer_hints": academy_pkg.get("answer_hints") or [],
-                },
-            }
+        if isinstance(briefing, dict):
+            if academy_pkg.get("concept_ids"):
+                briefing = {
+                    **briefing,
+                    "finance_academy": {
+                        "concept_ids": academy_pkg.get("concept_ids"),
+                        "causal_models": [c.get("model_id") for c in (academy_pkg.get("causal_models") or [])],
+                        "mental_models": [m.get("model_id") for m in (academy_pkg.get("mental_models") or [])],
+                        "answer_hints": academy_pkg.get("answer_hints") or [],
+                    },
+                }
+            if sif_pkg.get("sector_id"):
+                briefing = {
+                    **briefing,
+                    "sector_intelligence": {
+                        "sector_id": sif_pkg.get("sector_id"),
+                        "framework_version": sif_pkg.get("framework_version"),
+                        "kpis_retrieved": sif_pkg.get("kpis_retrieved"),
+                        "valuation_framework": sif_pkg.get("valuation_framework"),
+                        "recommendation_gate": sif_pkg.get("recommendation_gate"),
+                        "trace": sif_pkg.get("trace"),
+                    },
+                }
         sector_intel = build_sector_intelligence(entities, reasoning)
         company_intel = build_company_intelligence(entities, reasoning)
 
@@ -245,6 +281,7 @@ class IrpPipeline:
             sector_intelligence=sector_intel,
             company_intelligence=company_intel,
             finance_academy=academy_pkg if isinstance(academy_pkg, dict) else {},
+            sector_intelligence=sif_pkg if isinstance(sif_pkg, dict) else {},
         )
 
         # 14 Learning loop

@@ -695,15 +695,29 @@ class UiService:
         intelligence_bus: dict[str, Any] = {}
         valuation: dict[str, Any] = {}
         finance_academy: dict[str, Any] = {}
+        sector_intelligence: dict[str, Any] = {}
         used_cae = False
 
-        # FAPI — Ask AGI must consult Finance Academy before answering finance questions
+        # FAPI + SIF — sector framework then Finance Academy before answering
         try:
             from academy.fapi.production import package_for_query
 
             finance_academy = package_for_query(q, engine="ask_agi", ticker=detected_ticker) or {}
+            sector_intelligence = finance_academy.get("sector_intelligence") or {}
+            if sector_intelligence.get("ticker") and not detected_ticker:
+                detected_ticker = str(sector_intelligence["ticker"]).upper()
         except Exception:
             finance_academy = {}
+            sector_intelligence = {}
+        if not sector_intelligence:
+            try:
+                from sif.production import analyse_query as sif_analyse
+
+                sector_intelligence = sif_analyse(q, ticker=detected_ticker, engine="ask_agi") or {}
+                if sector_intelligence.get("ticker") and not detected_ticker:
+                    detected_ticker = str(sector_intelligence["ticker"]).upper()
+            except Exception:
+                sector_intelligence = {}
 
         if self.cae and q:
             try:
@@ -1120,16 +1134,25 @@ class UiService:
         )
         why = _why_bullets(house if isinstance(house, dict) else None, supporting, news, house_label)
 
-        # Prefer richer Academy package from IRP when present; enrich answer with Academy provenance
+        # Prefer richer SIF / Academy packages from IRP when present
+        if isinstance(irp_dump, dict) and isinstance(irp_dump.get("sector_intelligence"), dict):
+            irp_sif = irp_dump.get("sector_intelligence") or {}
+            if irp_sif.get("sector_id"):
+                sector_intelligence = irp_sif
         if isinstance(irp_dump, dict) and isinstance(irp_dump.get("finance_academy"), dict):
             irp_fa = irp_dump.get("finance_academy") or {}
             if len(irp_fa.get("concept_ids") or []) >= len(finance_academy.get("concept_ids") or []):
                 finance_academy = irp_fa
+        # Sector framework hints first, then Academy
+        if sector_intelligence.get("answer_hints"):
+            for hint in (sector_intelligence.get("answer_hints") or [])[:4]:
+                if hint and hint not in why:
+                    why.insert(0, scrub_text(hint)[:300])
         if finance_academy.get("is_finance") and finance_academy.get("answer_hints"):
             for hint in (finance_academy.get("answer_hints") or [])[:3]:
                 if hint and hint not in why:
                     why.insert(0, scrub_text(hint)[:280])
-            why = why[:8]
+            why = why[:10]
             if not thesis:
                 thesis = scrub_text((finance_academy.get("answer_hints") or [None])[0])
             prov = finance_academy.get("provenance") or {}
@@ -1139,6 +1162,16 @@ class UiService:
                     "influenced_answer": True,
                     "concepts_influencing_answer": list(prov.get("concept_ids") or [])[:12],
                 }
+        # Evidence gate — do not issue Buy/Hold/Sell without company evidence
+        reco_gate = (sector_intelligence.get("recommendation_gate") or {})
+        if reco_gate.get("blocked"):
+            thesis = reco_gate.get("message") or "Insufficient company evidence for institutional recommendation."
+            house_label = "Insufficient Evidence"
+            executive = thesis
+            bull = []
+            bear = []
+            if thesis not in why:
+                why.insert(0, thesis)
 
         timeline: list[dict[str, Any]] = []
         if detected_ticker and self.kip:
@@ -1576,6 +1609,7 @@ class UiService:
                 },
             },
             finance_academy=scrub(finance_academy) if finance_academy else {},
+            sector_intelligence=scrub(sector_intelligence) if sector_intelligence else {},
             institutional_briefing=scrub(briefing) or {},
             sector_intelligence=scrub((irp_dump or {}).get("sector_intelligence") or {})
             if isinstance(irp_dump, dict)

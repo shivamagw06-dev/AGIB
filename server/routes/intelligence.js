@@ -848,6 +848,37 @@ export default function createIntelligenceRouter() {
       res.status(502).json({ error: err?.message || 'Academy production package failed' });
     }
   });
+  // SIF v1.0 — Sector Intelligence Framework (additive; not an engine)
+  router.get('/sif/health', kfGet('/v1/sif/health'));
+  router.get('/sif/dashboard', kfGet('/v1/sif/dashboard'));
+  router.get('/sif/frameworks', kfGet('/v1/sif/frameworks'));
+  router.get('/sif/frameworks/:sectorId', async (req, res) => {
+    try {
+      const result = await engineFetch(`/v1/sif/frameworks/${encodeURIComponent(req.params.sectorId)}`);
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err?.message || 'SIF framework failed' });
+    }
+  });
+  router.get('/sif/quality-gates', kfGet('/v1/sif/quality-gates'));
+  router.post('/sif/analyse', async (req, res) => {
+    try {
+      const qs = new URLSearchParams();
+      const query = req.query.query || req.body?.query;
+      const ticker = req.query.ticker || req.body?.ticker;
+      const engine = req.query.engine || req.body?.engine || 'ask_agi';
+      if (query) qs.set('query', String(query));
+      if (ticker) qs.set('ticker', String(ticker));
+      if (engine) qs.set('engine', String(engine));
+      const result = await engineFetch(`/v1/sif/analyse?${qs.toString()}`, {
+        method: 'POST',
+        body: req.body || {},
+      });
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err?.message || 'SIF analyse failed' });
+    }
+  });
   router.post('/academy/red-flags/score', async (req, res) => {
     try {
       const result = await engineFetch('/v1/academy/red-flags/score', {

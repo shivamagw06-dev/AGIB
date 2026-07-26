@@ -3218,6 +3218,67 @@ async def academy_production_package(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+# --- SIF v1.0 (Sector Intelligence Framework — additive; not an engine) ---
+
+
+@router.get("/sif/health")
+async def sif_health():
+    from sif.production import SIF_VERSION, is_sif_enabled
+    from sif.frameworks import FRAMEWORKS
+
+    return {
+        "status": "ok" if is_sif_enabled() else "disabled",
+        "layer": "Sector Intelligence Framework",
+        "programme": "SIF",
+        "version": SIF_VERSION,
+        "not_an_engine": True,
+        "sector_count": len(FRAMEWORKS),
+        "architecture_status": "v1.0.1 LOCKED",
+    }
+
+
+@router.get("/sif/dashboard")
+async def sif_dashboard():
+    from sif.production import production_dashboard
+
+    return production_dashboard()
+
+
+@router.get("/sif/frameworks")
+async def sif_frameworks():
+    from sif.frameworks import list_frameworks
+
+    return {"count": len(list_frameworks()), "frameworks": list_frameworks()}
+
+
+@router.get("/sif/frameworks/{sector_id}")
+async def sif_framework(sector_id: str):
+    from sif.frameworks import get_framework
+
+    fw = get_framework(sector_id)
+    if not fw:
+        raise HTTPException(status_code=404, detail=f"Unknown sector framework: {sector_id}")
+    return fw.to_dict()
+
+
+@router.post("/sif/analyse")
+async def sif_analyse(
+    query: str = Query(...),
+    ticker: str | None = Query(default=None),
+    engine: str = Query(default="ask_agi"),
+):
+    from sif.production import analyse_query
+
+    return analyse_query(query, ticker=ticker, engine=engine, kip=_kip, eve=_eve, aws=_aws)
+
+
+@router.get("/sif/quality-gates")
+async def sif_quality_gates():
+    from sif.production import quality_gates
+
+    return quality_gates(warm=True)
+
+
 # --- IRP V1 (above KIP/RSP, below Ask AGI; no platform redesign) ---
 
 
