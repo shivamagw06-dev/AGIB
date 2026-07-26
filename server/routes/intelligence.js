@@ -2065,5 +2065,55 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // RQ1 Institutional Validation & Clarification Engine — Sprint 9 soft-wire
+  router.get('/validation-engine/health', kfGet('/v1/validation-engine/health'));
+  router.get('/validation-engine/dashboard', kfGet('/v1/validation-engine/dashboard'));
+  router.get('/validation-engine/constitution', kfGet('/v1/validation-engine/constitution'));
+  router.get('/validation-engine/quality-gates', kfGet('/v1/validation-engine/quality-gates'));
+  router.post('/validation-engine/validate', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/validation-engine/validate', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'IVCE validate failed', detail: error.message });
+    }
+  });
+  router.post('/validation-engine/plan', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/validation-engine/plan', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'IVCE plan failed', detail: error.message });
+    }
+  });
+  router.post('/validation-engine/enrich', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/validation-engine/enrich', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'IVCE enrich failed', detail: error.message });
+    }
+  });
+  router.post('/validation-engine/diagnostics', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/validation-engine/diagnostics', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'IVCE diagnostics failed', detail: error.message });
+    }
+  });
+
   return router;
 }

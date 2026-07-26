@@ -810,6 +810,26 @@ class UiService:
         except Exception:
             layer_router = {}
 
+        # RQ1 Sprint 9 — Institutional Validation & Clarification Engine (readiness gate; metadata soft-wire)
+        validation_engine: dict[str, Any] = {}
+        try:
+            from validation_engine.production import soft_slice_for_ask_agi as ivce_soft_slice
+
+            ivce_payload = {
+                "research_ontology": research_ontology,
+                "entity_resolution": entity_resolution,
+                "research_objective": research_objective,
+                "context_intelligence": context_intelligence,
+                "analyst_router": analyst_router,
+                "layer_router": layer_router,
+                "primary_objective": (research_objective.get("research_objective") or {}).get("primary_objective")
+                or research_objective.get("primary_objective"),
+                "intent_family": (research_ontology.get("intent_family") or research_ontology.get("family")),
+            }
+            validation_engine = ivce_soft_slice(q, ivce_payload) or {}
+        except Exception:
+            validation_engine = {}
+
         # CAE gateway (preferred) — else MEE→FLE→IIE→EVE→AOI→KCV/KF soft enrichment.
         kf_hits: list[dict[str, Any]] = []
         knowledge_corpus: dict[str, Any] = {}
@@ -2438,6 +2458,7 @@ class UiService:
             context_intelligence=scrub(context_intelligence) if context_intelligence else {},
             analyst_router=scrub(analyst_router) if analyst_router else {},
             layer_router=scrub(layer_router) if layer_router else {},
+            validation_engine=scrub(validation_engine) if validation_engine else {},
         )
 
     def timeline(self, entity: str) -> TimelineView:

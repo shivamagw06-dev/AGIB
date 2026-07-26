@@ -5081,6 +5081,65 @@ async def layer_router_diagnostics(payload: dict[str, Any] = Body(default={})):
     return diagnostics(payload or {})
 
 
+# --- RQ1 Institutional Validation & Clarification Engine (Sprint 9 — readiness gate soft-wire; not a top-level layer) ---
+
+
+@router.get("/validation-engine/health")
+async def validation_engine_health():
+    from validation_engine.production import health
+
+    return health()
+
+
+@router.get("/validation-engine/dashboard")
+async def validation_engine_dashboard():
+    from validation_engine.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/validation-engine/constitution")
+async def validation_engine_constitution():
+    from validation_engine.production import constitution
+
+    return constitution()
+
+
+@router.get("/validation-engine/quality-gates")
+async def validation_engine_quality_gates():
+    from validation_engine.production import quality_gates
+
+    return quality_gates()
+
+
+@router.post("/validation-engine/validate")
+async def validation_engine_validate(payload: dict[str, Any] = Body(default={})):
+    from validation_engine.production import validate
+
+    return validate(payload or {})
+
+
+@router.post("/validation-engine/plan")
+async def validation_engine_plan(payload: dict[str, Any] = Body(default={})):
+    from validation_engine.production import plan
+
+    return plan(payload or {})
+
+
+@router.post("/validation-engine/enrich")
+async def validation_engine_enrich(payload: dict[str, Any] = Body(default={})):
+    from validation_engine.production import enrich
+
+    return enrich(payload or {})
+
+
+@router.post("/validation-engine/diagnostics")
+async def validation_engine_diagnostics(payload: dict[str, Any] = Body(default={})):
+    from validation_engine.production import diagnostics
+
+    return diagnostics(payload or {})
+
+
 # --- SIF v1.0 (Sector Intelligence Framework — additive; not an engine) ---
 
 

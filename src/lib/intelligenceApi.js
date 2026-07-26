@@ -1283,3 +1283,19 @@ export const diagnoseLayerRouter = (payload = {}) =>
     method: 'POST',
     body: typeof payload === 'string' ? { question: payload } : payload,
   });
+
+/** RQ1 Institutional Validation & Clarification Engine — Sprint 9 */
+export const getValidationEngineHealth = () => intelligenceFetch('/validation-engine/health');
+export const getValidationEngineDashboard = () => intelligenceFetch('/validation-engine/dashboard');
+export const getValidationEngineConstitution = () => intelligenceFetch('/validation-engine/constitution');
+export const getValidationEngineQualityGates = () => intelligenceFetch('/validation-engine/quality-gates');
+export const validateValidationEngine = (payload = {}) =>
+  intelligenceFetch('/validation-engine/validate', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });
+export const diagnoseValidationEngine = (payload = {}) =>
+  intelligenceFetch('/validation-engine/diagnostics', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });
