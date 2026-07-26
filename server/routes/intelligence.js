@@ -1243,6 +1243,10 @@ export default function createIntelligenceRouter() {
   // Investment Committee Intelligence V1 — deliberation / vote / minutes
   router.get('/investment-committee/health', kfGet('/v1/investment-committee/health'));
   router.get('/investment-committee/quality-gates', kfGet('/v1/investment-committee/quality-gates'));
+
+  // Institutional Research Writer V1 — presentation/writing layer after CIO
+  router.get('/research-writer/health', kfGet('/v1/research-writer/health'));
+  router.get('/research-writer/quality-gates', kfGet('/v1/research-writer/quality-gates'));
   router.get('/investment-committee/timeline/:ticker', async (req, res) => {
     try {
       const qs = new URLSearchParams();

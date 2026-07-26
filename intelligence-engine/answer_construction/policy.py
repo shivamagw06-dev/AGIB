@@ -93,6 +93,9 @@ def apply_answer_construction_v3(
     iaf = institutional_analysts if isinstance(institutional_analysts, dict) else {}
     iaf_active = bool(iaf.get("enabled"))
     cio = iaf.get("cio") if isinstance(iaf.get("cio"), dict) else {}
+    irw = iaf.get("research_writer") if isinstance(iaf.get("research_writer"), dict) else {}
+    irw_active = bool(irw.get("enabled"))
+    irw_report = irw.get("institutional_report") if isinstance(irw.get("institutional_report"), dict) else {}
 
     blocked = bool((reco_gate or {}).get("blocked") or (leo_gate or {}).get("blocked"))
 
@@ -136,6 +139,8 @@ def apply_answer_construction_v3(
         )
 
     exec_out = _first_useful(
+        irw.get("executive_summary") if irw_active else None,
+        irw_report.get("executive_summary") if irw_active else None,
         cio.get("executive_summary") if iaf_active else None,
         ide_exec_fallback if ide_active and not iaf_active else None,
         enrich.get("executive_summary"),
@@ -157,6 +162,7 @@ def apply_answer_construction_v3(
     )
 
     thesis_out = _first_useful(
+        irw.get("investment_thesis") if irw_active else None,
         cio.get("investment_thesis") if iaf_active else None,
         ca.get("investment_thesis"),
         enrich.get("current_outlook"),
@@ -258,7 +264,9 @@ def apply_answer_construction_v3(
         company_name=str(name),
     )
 
-    decision_conclusion = _txt(cio.get("institutional_conclusion")) if iaf_active else None
+    decision_conclusion = _txt(irw.get("institutional_conclusion")) if irw_active else None
+    if not decision_conclusion:
+        decision_conclusion = _txt(cio.get("institutional_conclusion")) if iaf_active else None
     if not decision_conclusion:
         decision_conclusion = _txt(ide_enrich.get("decision_conclusion")) if ide_active else None
     if ide_active and decision_conclusion and not iaf_active:
@@ -278,9 +286,13 @@ def apply_answer_construction_v3(
         "executive": exec_out,
         "thesis": thesis_out,
         "house_label": label,
-        "bull": bull_out[:6],
-        "base": list(cio.get("base_case") or [])[:6] if iaf_active else [],
-        "bear": bear_out[:6],
+        "bull": (list(irw.get("bull_case") or bull_out)[:6] if irw_active else bull_out[:6]),
+        "base": (
+            list(irw.get("base_case") or cio.get("base_case") or [])[:6]
+            if irw_active or iaf_active
+            else []
+        ),
+        "bear": (list(irw.get("bear_case") or bear_out)[:6] if irw_active else bear_out[:6]),
         "risks": risk_out[:8],
         "catalysts": cat_out[:8],
         "why": why_out[:12],
@@ -288,16 +300,23 @@ def apply_answer_construction_v3(
         "recommendation_status": reco,
         "decision_engine_active": ide_active,
         "institutional_analysts_active": iaf_active,
+        "institutional_research_writer_active": irw_active,
         "decision_conclusion": decision_conclusion,
         "institutional_analysts": iaf if iaf_active else {},
+        "research_writer": irw if irw_active else {},
+        "institutional_report": irw_report if irw_active else {},
         "section_owners": iaf.get("section_owners") if iaf_active else {},
         "answer_policy": (
-            "institutional_analyst_framework_cio_report"
-            if iaf_active
+            "institutional_research_writer_publication_note"
+            if irw_active
             else (
-                "multi_layer_investment_decision_never_direct_buy_sell"
-                if ide_active
-                else "full_institutional_brief_even_when_recommendation_withheld"
+                "institutional_analyst_framework_cio_report"
+                if iaf_active
+                else (
+                    "multi_layer_investment_decision_never_direct_buy_sell"
+                    if ide_active
+                    else "full_institutional_brief_even_when_recommendation_withheld"
+                )
             )
         ),
         "never_expose_checklist_keys": True,

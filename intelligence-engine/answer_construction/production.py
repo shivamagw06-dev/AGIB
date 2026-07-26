@@ -11,12 +11,19 @@ from answer_construction.schema import AC_VERSION, ARCHITECTURE_STATUS, PROGRAMM
 
 def health() -> dict[str, Any]:
     iaf_health: dict[str, Any] = {}
+    irw_health: dict[str, Any] = {}
     try:
         from institutional_analysts.production import health as iaf_h
 
         iaf_health = iaf_h()
     except Exception:
         iaf_health = {"status": "unavailable"}
+    try:
+        from research_writer.production import health as irw_h
+
+        irw_health = irw_h()
+    except Exception:
+        irw_health = {"status": "unavailable"}
     return {
         "status": "ok" if is_enabled() else "disabled",
         "programme": PROGRAMME,
@@ -26,6 +33,7 @@ def health() -> dict[str, Any]:
         "gate_logic_unchanged": True,
         "never_stop_at_first_coverage_check": True,
         "institutional_analyst_framework": iaf_health,
+        "institutional_research_writer": irw_health,
         "flags": flags_dict(),
     }
 
@@ -56,8 +64,8 @@ _AC_POLICY_KEYS = {
 def package_for_ask_agi(**kwargs: Any) -> dict[str, Any]:
     """Soft entry used by UiService after IRP / IC / ECP orchestration.
 
-    Runs Institutional Analyst Framework (opinions → committee → CIO), then
-    applies Answer Construction V3 policy. Engines remain unchanged.
+    Runs Institutional Analyst Framework (opinions → committee → CIO → Research Writer),
+    then applies Answer Construction V3 policy. Engines remain unchanged.
     """
     iaf_pack: dict[str, Any] = {}
     try:
@@ -98,6 +106,9 @@ def package_for_ask_agi(**kwargs: Any) -> dict[str, Any]:
     if iaf_pack.get("enabled"):
         out["institutional_analysts"] = iaf_pack
         out["base"] = list(iaf_pack.get("base_case") or out.get("base") or [])[:6]
+        if iaf_pack.get("research_writer"):
+            out["research_writer"] = iaf_pack.get("research_writer")
+            out["institutional_report"] = iaf_pack.get("institutional_report")
     return out
 
 
@@ -114,6 +125,7 @@ def quality_gates() -> dict[str, Any]:
             "never_expose_raw_missing_keys": True,
             "gate_logic_unchanged": True,
             "institutional_analyst_framework_soft": True,
+            "institutional_research_writer_soft": True,
         },
         "flags": flags_dict(),
     }

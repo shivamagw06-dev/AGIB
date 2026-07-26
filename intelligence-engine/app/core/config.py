@@ -347,6 +347,10 @@ class Settings(BaseSettings):
     investment_committee_intelligence: bool = True
     ask_agi_ici: bool = True
 
+    # Institutional Research Writer V1 — presentation/writing layer after CIO (not an engine)
+    institutional_research_writer: bool = True
+    ask_agi_irw: bool = True
+
     # AGIB Investment Decision Engine — multi-layer investment decisions (soft-wire; not an engine redesign)
     decision_engine: bool = True
     ask_agi_decision_engine: bool = True

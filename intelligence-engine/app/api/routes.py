@@ -4679,3 +4679,20 @@ async def investment_committee_record_actuals(payload: dict[str, Any] = Body(def
         meeting_id=payload.get("meeting_id"),
         actuals=list(payload.get("actuals") or []),
     )
+
+
+# --- Institutional Research Writer V1 (presentation layer after CIO) ---
+
+
+@router.get("/research-writer/health")
+async def research_writer_health():
+    from research_writer.production import health
+
+    return health()
+
+
+@router.get("/research-writer/quality-gates")
+async def research_writer_quality_gates():
+    from research_writer.production import quality_gates
+
+    return quality_gates()

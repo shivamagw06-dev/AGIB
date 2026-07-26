@@ -907,6 +907,11 @@ export const recordInvestmentCommitteeActuals = (ticker, actuals, meetingId) =>
     body: { ticker, actuals, meeting_id: meetingId },
   });
 
+/** Institutional Research Writer V1 — publication writing after CIO */
+export const getResearchWriterHealth = () => intelligenceFetch('/research-writer/health');
+export const getResearchWriterQualityGates = () =>
+  intelligenceFetch('/research-writer/quality-gates');
+
 /** AGIB Intelligence Layer V2 — living dossier / thesis / forecast / ledger */
 export const getAilHealth = () => intelligenceFetch('/ail/health');
 export const getAilDashboard = () => intelligenceFetch('/ail/dashboard');

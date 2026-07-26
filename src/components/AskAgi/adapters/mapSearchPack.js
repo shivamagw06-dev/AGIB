@@ -129,6 +129,15 @@ export function mapSearchPack(pack) {
   const iafOwn = iaf?.ownership_intelligence || iaf?.analyst_opinions?.ownership || null;
   const iafCommittee = iaf?.institutional_view || iaf?.committee || null;
   const iafCio = iaf?.cio || null;
+  const irw =
+    pack.research_writer?.enabled
+      ? pack.research_writer
+      : ac?.research_writer?.enabled
+        ? ac.research_writer
+        : iaf?.research_writer?.enabled
+          ? iaf.research_writer
+          : null;
+  const irwReport = irw?.institutional_report || ac?.institutional_report || iaf?.institutional_report || null;
   const ide = pack.decision_engine?.active ? pack.decision_engine : null;
   const ideSummary = ide?.summary || {};
   const ideLayers = Array.isArray(ide?.layers)
@@ -187,6 +196,8 @@ export function mapSearchPack(pack) {
     (coverage >= 90 ? 'A+' : coverage >= 75 ? 'A' : 'B');
 
   const executive =
+    asText(irw?.executive_summary) ||
+    asText(irwReport?.executive_summary) ||
     asText(iafCio?.executive_summary) ||
     asText(ac?.executive) ||
     asText(ide?.answer_enrichment?.executive_framing) ||
@@ -445,6 +456,7 @@ export function mapSearchPack(pack) {
       : '',
     executive,
     thesis:
+      asText(irw?.investment_thesis) ||
       asText(iafCio?.investment_thesis) ||
       asText(ac?.thesis) ||
       asText(biz.long_term_growth) ||
@@ -459,6 +471,8 @@ export function mapSearchPack(pack) {
     kpis,
     financialCards,
     financialNarrative:
+      asText(irw?.financial_intelligence) ||
+      asText(iaf?.written_financial_intelligence) ||
       asText(iafFin?.summary) ||
       asText(iafFin?.headline) ||
       asText(fin.narrative) ||
@@ -467,6 +481,8 @@ export function mapSearchPack(pack) {
       'Financial quality should be judged through incremental returns, cash conversion and balance-sheet resilience.',
     valuationCards,
     valuationNarrative:
+      asText(irw?.valuation_intelligence) ||
+      asText(iaf?.written_valuation_intelligence) ||
       asText(iafVal?.summary) ||
       asText(iafVal?.headline) ||
       asText(val.narrative) ||
@@ -477,6 +493,8 @@ export function mapSearchPack(pack) {
       ? pack.charts.find((c) => Array.isArray(c?.points) && c.points.some((p) => p?.value != null))
       : null,
     marketNarrative:
+      asText(irw?.market_intelligence) ||
+      asText(iaf?.written_market_intelligence) ||
       asText(iafMkt?.summary) ||
       asText(iafMkt?.headline) ||
       asText(marketPack.narrative) ||
@@ -485,12 +503,16 @@ export function mapSearchPack(pack) {
     marketSnapshot: marketSnap,
     marketCards: Array.isArray(marketPack.cards) ? marketPack.cards : [],
     ownershipNarrative:
+      asText(irw?.ownership) ||
+      asText(iaf?.written_ownership) ||
       asText(iafOwn?.summary) ||
       asText(iafOwn?.headline) ||
       asText(sections.ownership?.narrative) ||
       asText(briefing.ownership),
     ownership: sections.ownership?.snapshot || iafOwn?.sections || {},
     businessModel:
+      asText(irw?.business_intelligence) ||
+      asText(iaf?.written_business_intelligence) ||
       asText(iafBiz?.sections?.business_model) ||
       asText(iafBiz?.summary) ||
       asText(iafBiz?.headline) ||
@@ -500,6 +522,8 @@ export function mapSearchPack(pack) {
     businessIntelligence: biz,
     businessQuality: bq,
     sectorNarrative:
+      asText(irw?.sector_intelligence) ||
+      asText(iaf?.written_sector_intelligence) ||
       asText(iafSec?.summary) ||
       asText(iafSec?.headline) ||
       asText(biz.industry_structure) ||
@@ -514,11 +538,22 @@ export function mapSearchPack(pack) {
       6
     ),
     macroNarrative:
-      asText(iafMacro?.summary) || asText(iafMacro?.headline) || asText(briefing.macro_outlook),
-    managementNarrative: asText(iafMgmt?.summary) || asText(iafMgmt?.headline),
+      asText(irw?.macro_intelligence) ||
+      asText(iaf?.written_macro_intelligence) ||
+      asText(iafMacro?.summary) ||
+      asText(iafMacro?.headline) ||
+      asText(briefing.macro_outlook),
+    managementNarrative:
+      asText(irw?.management) ||
+      asText(iaf?.written_management) ||
+      asText(iafMgmt?.summary) ||
+      asText(iafMgmt?.headline),
     institutionalView: iafCommittee
       ? {
-          summary: asText(iafCommittee.committee_summary, ''),
+          summary:
+            asText(irw?.institutional_view) ||
+            asText(iaf?.written_institutional_view) ||
+            asText(iafCommittee.committee_summary, ''),
           consensus: iafCommittee.consensus || {},
           stage1: iafCommittee.stage_1_consensus || {},
           stage2: Array.isArray(iafCommittee.stage_2_conflicts)
@@ -590,6 +625,7 @@ export function mapSearchPack(pack) {
     catalysts: asList(iafCio?.key_catalysts || catalysts, 8),
     learned,
     conclusion:
+      asText(irw?.institutional_conclusion) ||
       asText(iafCio?.institutional_conclusion) ||
       asText(ac?.decision_conclusion) ||
       asText(decisionLayer?.reasoning) ||
@@ -645,6 +681,14 @@ export function mapSearchPack(pack) {
     acEnabled: Boolean(ac?.enabled),
     ideEnabled: Boolean(ide?.active),
     iafEnabled: Boolean(iaf?.enabled),
+    irwEnabled: Boolean(irw?.enabled),
+    reportType: asText(irw?.report_type || irwReport?.report_type, ''),
+    reportTables: Array.isArray(irw?.tables) ? irw.tables : Array.isArray(iaf?.report_tables) ? iaf.report_tables : [],
+    chartRecommendations: Array.isArray(irw?.chart_recommendations)
+      ? irw.chart_recommendations
+      : Array.isArray(iaf?.chart_recommendations)
+        ? iaf.chart_recommendations
+        : [],
     sectionOwners: iaf?.section_owners || ac?.section_owners || {},
     publicOwnerLabels: iaf?.public_owner_labels || {},
     analystOpinions: iaf?.analyst_opinions || null,

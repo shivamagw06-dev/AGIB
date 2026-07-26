@@ -230,13 +230,14 @@ def package_for_ask_agi(
     iaf_memory.put_minutes(t, minutes_row)
     minutes_history = committee.get("timeline") or iaf_memory.get_minutes_history(t, limit=6)
 
-    return {
+    base_pack = {
         "enabled": True,
         "programme": PROGRAMME,
         "version": IAF_VERSION,
         "architecture_status": ARCHITECTURE_STATUS,
         "not_an_engine": True,
         "orchestration_only": True,
+        "query": query,
         "ticker": t,
         "company": name,
         "research_plan": planner,
@@ -284,3 +285,47 @@ def package_for_ask_agi(
             f"Chief Investment Officer confidence {cio.get('confidence')}",
         ],
     }
+
+    # Institutional Research Writer — presentation layer AFTER CIO (never mutates votes/confidence)
+    research_writer: dict[str, Any] = {}
+    try:
+        from research_writer.production import package_for_ask_agi as irw_package
+
+        research_writer = irw_package(base_pack, query=query) or {}
+    except Exception:
+        research_writer = {}
+
+    if research_writer.get("enabled"):
+        base_pack["research_writer"] = research_writer
+        base_pack["institutional_report"] = research_writer.get("institutional_report")
+        # Presentation overlays only — intelligence fields above stay authoritative for votes/confidence
+        base_pack["executive_summary"] = research_writer.get("executive_summary") or base_pack["executive_summary"]
+        base_pack["investment_thesis"] = research_writer.get("investment_thesis") or base_pack["investment_thesis"]
+        base_pack["institutional_conclusion"] = (
+            research_writer.get("institutional_conclusion") or base_pack["institutional_conclusion"]
+        )
+        base_pack["written_business_intelligence"] = research_writer.get("business_intelligence")
+        base_pack["written_financial_intelligence"] = research_writer.get("financial_intelligence")
+        base_pack["written_valuation_intelligence"] = research_writer.get("valuation_intelligence")
+        base_pack["written_market_intelligence"] = research_writer.get("market_intelligence")
+        base_pack["written_sector_intelligence"] = research_writer.get("sector_intelligence")
+        base_pack["written_macro_intelligence"] = research_writer.get("macro_intelligence")
+        base_pack["written_management"] = research_writer.get("management")
+        base_pack["written_ownership"] = research_writer.get("ownership")
+        base_pack["written_institutional_view"] = research_writer.get("institutional_view")
+        base_pack["risk_register"] = research_writer.get("risk_register")
+        base_pack["report_tables"] = research_writer.get("tables")
+        base_pack["chart_recommendations"] = research_writer.get("chart_recommendations")
+        if research_writer.get("bull_case"):
+            base_pack["bull_case"] = research_writer.get("bull_case")
+        if research_writer.get("base_case"):
+            base_pack["base_case"] = research_writer.get("base_case")
+        if research_writer.get("bear_case"):
+            base_pack["bear_case"] = research_writer.get("bear_case")
+        hints = list(base_pack.get("ask_agi_hints") or [])
+        for h in research_writer.get("ask_agi_hints") or []:
+            if h not in hints:
+                hints.append(h)
+        base_pack["ask_agi_hints"] = hints[:8]
+
+    return base_pack

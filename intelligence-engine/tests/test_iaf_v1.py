@@ -279,4 +279,7 @@ def test_answer_construction_consumes_iaf():
     assert iaf.get("committee_minutes")
     assert "HDFC" in (out["executive"] or "")
     assert out["bull"] and out["base"] and out["bear"]
-    assert out["answer_policy"] == "institutional_analyst_framework_cio_report"
+    assert out["answer_policy"] in {
+        "institutional_research_writer_publication_note",
+        "institutional_analyst_framework_cio_report",
+    }
