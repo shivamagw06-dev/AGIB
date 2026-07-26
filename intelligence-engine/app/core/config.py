@@ -333,6 +333,16 @@ class Settings(BaseSettings):
     io_risk_center: bool = True
     io_executive_copilot: bool = True
 
+    # Mission Control V1 — administrator operations centre (read-only; not an engine)
+    mission_control: bool = True
+    mission_control_apis: bool = True
+    mission_control_platforms: bool = True
+    mission_control_coverage: bool = True
+    mission_control_knowledge: bool = True
+    mission_control_alerts: bool = True
+    mission_control_events: bool = True
+    mission_control_reports: bool = True
+
 
 @lru_cache
 def get_settings() -> Settings:

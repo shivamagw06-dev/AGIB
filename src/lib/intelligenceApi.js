@@ -717,6 +717,18 @@ export const completeEcp = (ticker, q = 'Should I buy?') => {
   return intelligenceFetch(`/ecp/complete?${qs}`, { method: 'POST', body: {} });
 };
 
+/** Mission Control V1 — administrator operations centre (read-only) */
+export const getMissionControlHealth = () => intelligenceFetch('/mission-control/health');
+export const getMissionControlDashboard = () => intelligenceFetch('/mission-control/dashboard');
+export const getMissionControlQualityGates = () =>
+  intelligenceFetch('/mission-control/quality-gates');
+export const getMissionControlReport = () => intelligenceFetch('/mission-control/report');
+export const acknowledgeMissionControlAlert = (alertId) =>
+  intelligenceFetch('/mission-control/acknowledge', {
+    method: 'POST',
+    body: { alert_id: alertId },
+  });
+
 /** Investment Office V1 — executive operating cockpit */
 export const getInvestmentOfficeHealth = () => intelligenceFetch('/investment-office/health');
 export const getInvestmentOfficeDashboard = () => intelligenceFetch('/investment-office/dashboard');

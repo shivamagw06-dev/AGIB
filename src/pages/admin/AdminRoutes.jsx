@@ -23,6 +23,7 @@ import EvidenceCompletion from '@/pages/admin/EvidenceCompletion';
 import CompanyAnalysis from '@/pages/admin/CompanyAnalysis';
 import CompanyMonitor from '@/pages/admin/CompanyMonitor';
 import InvestmentOfficeAdmin from '@/pages/admin/InvestmentOffice';
+import MissionControl from '@/pages/admin/MissionControl';
 
 export default function AdminRoutes() {
   return (
@@ -45,6 +46,8 @@ export default function AdminRoutes() {
           <Route path="company-analysis" element={<CompanyAnalysis />} />
           <Route path="company-monitor" element={<CompanyMonitor />} />
           <Route path="investment-office" element={<InvestmentOfficeAdmin />} />
+          <Route path="mission-control" element={<MissionControl />} />
+          <Route path="system" element={<MissionControl />} />
           <Route path="investment-intelligence" element={<InvestmentIntelligence />} />
           <Route path="forecasting" element={<Forecasting />} />
           <Route path="events" element={<Events />} />

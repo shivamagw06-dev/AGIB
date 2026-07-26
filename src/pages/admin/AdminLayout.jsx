@@ -26,6 +26,7 @@ import {
   Building2,
   Bell,
   Landmark,
+  Gauge,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -44,6 +45,7 @@ const navItems = [
   { to: '/admin/company-analysis', label: 'Company Analysis', icon: Building2 },
   { to: '/admin/company-monitor', label: 'Company Monitor', icon: Bell },
   { to: '/admin/investment-office', label: 'Investment Office', icon: Landmark },
+  { to: '/admin/mission-control', label: 'Mission Control', icon: Gauge },
   { to: '/admin/investment-intelligence', label: 'Investment Intel', icon: LineChart },
   { to: '/admin/forecasting', label: 'Forecasting', icon: Target },
   { to: '/admin/events', label: 'Events', icon: Zap },

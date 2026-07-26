@@ -4018,6 +4018,47 @@ async def ecp_complete(
     )
 
 
+# --- Mission Control V1 (administrator operations centre; read-only) ---
+
+
+@router.get("/mission-control/health")
+async def mission_control_health():
+    from mission_control.production import health
+
+    return health()
+
+
+@router.get("/mission-control/dashboard")
+async def mission_control_dashboard():
+    from mission_control.production import dashboard
+
+    return dashboard(ioc_service=getattr(_ui, "ioc", None) or _ioc)
+
+
+@router.get("/mission-control/quality-gates")
+async def mission_control_quality_gates():
+    from mission_control.production import quality_gates
+
+    return quality_gates()
+
+
+@router.get("/mission-control/report")
+async def mission_control_report():
+    from mission_control.production import system_report
+
+    return system_report(ioc_service=getattr(_ui, "ioc", None) or _ioc)
+
+
+@router.post("/mission-control/acknowledge")
+async def mission_control_acknowledge(payload: dict[str, Any] = Body(default={})):
+    from mission_control.production import acknowledge_alert
+
+    alert_id = str(payload.get("alert_id") or payload.get("id") or "").strip()
+    if not alert_id:
+        raise HTTPException(status_code=400, detail="alert_id required")
+    return acknowledge_alert(alert_id)
+
+
 # --- Investment Office V1 (executive operating cockpit; additive aggregate) ---
 
 

@@ -966,6 +966,23 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // Mission Control V1 — administrator operations centre (read-only)
+  router.get('/mission-control/health', kfGet('/v1/mission-control/health'));
+  router.get('/mission-control/dashboard', kfGet('/v1/mission-control/dashboard'));
+  router.get('/mission-control/quality-gates', kfGet('/v1/mission-control/quality-gates'));
+  router.get('/mission-control/report', kfGet('/v1/mission-control/report'));
+  router.post('/mission-control/acknowledge', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/mission-control/acknowledge', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err?.message || 'Mission Control acknowledge failed' });
+    }
+  });
+
   // Investment Office V1 — executive operating cockpit
   router.get('/investment-office/health', kfGet('/v1/investment-office/health'));
   router.get('/investment-office/dashboard', kfGet('/v1/investment-office/dashboard'));
