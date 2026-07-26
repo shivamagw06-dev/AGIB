@@ -59,13 +59,17 @@ Domain guards strip out-of-mandate vocabulary (e.g. Business never discusses PE)
 
 ## Committee
 
-Behaves like a meeting — not a merge:
+Soft-calls **Investment Committee Intelligence (ICI V1)** for full deliberation:
 
-1. Consensus stances per analyst
-2. Conflicts (e.g. high quality vs rich entry)
-3. Missing evidence asks in institutional language (never “Coverage 73%”)
-4. Disagreement Matrix → committee stance + reason
-5. Investment Committee Minutes (historical memory)
+1. Consensus Engine
+2. Conflict Engine
+3. Evidence Challenge
+4. Confidence Recalibration
+5. Committee Vote
+6. Committee Minutes (stored)
+7. Minority Opinions
+8. Historical Memory / Prediction Accountability
+9. Recommendation as vote (not Buy/Hold/Sell)
 
 ## CIO
 
@@ -73,8 +77,8 @@ Editor, not summariser:
 
 - Never repeats analyst wording
 - Never names engines / providers / subsystems
-- Writes institutional prose from committee signals only
+- Writes institutional prose from committee signals / vote only
 
 ## Flags
 
-`institutional_analysts`, `ask_agi_iaf`
+`institutional_analysts`, `ask_agi_iaf` (+ ICI: `investment_committee_intelligence`, `ask_agi_ici`)
