@@ -20,9 +20,11 @@ from app.market_data.models import (
 )
 from app.market_data.provider_base import Capability, MarketDataProvider, ProviderError
 from app.market_data.providers.yahoo_mapper import (
+    fundamentals_metrics_from_yfinance_info,
     map_calendar_from_quote_summary,
     map_corporate_actions_from_chart,
     map_financial_history_from_quote_summary,
+    map_financial_history_from_yfinance_package,
     map_fundamentals_from_chart_meta,
     map_fundamentals_from_quote_summary,
     map_ohlcv_from_chart,
@@ -30,8 +32,10 @@ from app.market_data.providers.yahoo_mapper import (
     map_quote_from_chart,
     map_search_results,
     map_valuation_snapshot_from_quote_summary,
+    map_valuation_snapshot_from_yfinance_info,
 )
 from app.market_data.providers.yahoo_symbols import to_yahoo_symbol
+from app.market_data.providers.yahoo_yfinance import fetch_yfinance_financial_package, yfinance_available
 
 
 # quoteSummary modules (gated by feature flags in provider)
@@ -78,6 +82,7 @@ class YahooFinanceProvider(MarketDataProvider):
         options: bool = True,
         financial_history: bool = True,
         valuation_history: bool = True,
+        yfinance_fallback: bool = True,
         base_url: str = "https://query1.finance.yahoo.com",
         quote_summary_base: str = "https://query2.finance.yahoo.com",
         client: httpx.AsyncClient | None = None,
@@ -92,6 +97,7 @@ class YahooFinanceProvider(MarketDataProvider):
         self.flag_options = options
         self.flag_financial_history = financial_history
         self.flag_valuation_history = valuation_history
+        self.flag_yfinance_fallback = yfinance_fallback
         self.base_url = base_url.rstrip("/")
         self.quote_summary_base = quote_summary_base.rstrip("/")
         self._client = client
@@ -103,6 +109,7 @@ class YahooFinanceProvider(MarketDataProvider):
         self._latencies_ms: list[float] = []
         self._crumb: str | None = None
         self._cookie_header: str | None = None
+        self._yfinance_hits = 0
 
     def capabilities(self) -> set[Capability]:
         caps: set[Capability] = {"quote", "ohlcv", "corporate_action", "fundamental", "calendar_event"}
@@ -130,7 +137,10 @@ class YahooFinanceProvider(MarketDataProvider):
                 "YAHOO_OPTIONS": self.flag_options,
                 "YAHOO_FINANCIAL_HISTORY": self.flag_financial_history,
                 "YAHOO_VALUATION_HISTORY": self.flag_valuation_history,
+                "YAHOO_YFINANCE_FALLBACK": self.flag_yfinance_fallback,
             },
+            "yfinance_available": yfinance_available(),
+            "yfinance_hits": self._yfinance_hits,
             "last_error": self._last_error,
         }
 
@@ -195,7 +205,13 @@ class YahooFinanceProvider(MarketDataProvider):
             )
             if crumb_resp.status_code < 400:
                 crumb = (crumb_resp.text or "").strip().strip('"')
-                if crumb and "html" not in crumb.lower():
+                # Reject HTML / JSON error bodies (e.g. 406 Not Acceptable payload with 200)
+                if (
+                    crumb
+                    and "html" not in crumb.lower()
+                    and "not acceptable" not in crumb.lower()
+                    and not crumb.startswith("{")
+                ):
                     self._crumb = crumb
         except httpx.HTTPError:
             return
@@ -304,6 +320,19 @@ class YahooFinanceProvider(MarketDataProvider):
         )
         return map_corporate_actions_from_chart(payload, symbol=ysym, provenance=self.make_provenance())
 
+    async def _yfinance_package(self, ysym: str) -> dict[str, Any]:
+        if not self.flag_yfinance_fallback:
+            return {}
+        pkg = await fetch_yfinance_financial_package(ysym)
+        if pkg:
+            self._yfinance_hits += 1
+        return pkg
+
+    @staticmethod
+    def _history_nonempty(hist: dict[str, Any]) -> bool:
+        counts = (hist or {}).get("counts") or {}
+        return any(int(counts.get(k) or 0) > 0 for k in counts)
+
     async def get_fundamentals(self, symbol: str) -> FundamentalSnapshot:
         ysym = to_yahoo_symbol(symbol)
         modules = self._modules()
@@ -319,23 +348,41 @@ class YahooFinanceProvider(MarketDataProvider):
             self._companies_updated += 1
             return snap
         except ProviderError as exc:
-            # Crumb / auth failures are common; fall back to chart meta (still canonical)
-            if "401" in str(exc) or "403" in str(exc) or "Unauthorized" in str(exc) or "crumb" in str(exc).lower():
-                chart_url = f"{self.base_url}/v8/finance/chart/{ysym}"
-                chart_payload = await self._get(chart_url, {"interval": "1d", "range": "5d"})
-                snap = map_fundamentals_from_chart_meta(
-                    chart_payload,
-                    symbol=ysym,
-                    provenance=self.make_provenance(),
-                )
-                self._companies_updated += 1
-                return snap
-            raise
+            # Crumb / auth failures are common; try yfinance info, then chart meta
+            authish = (
+                "401" in str(exc)
+                or "403" in str(exc)
+                or "Unauthorized" in str(exc)
+                or "crumb" in str(exc).lower()
+            )
+            if not authish:
+                raise
+            yf_metrics: dict[str, Any] = {}
+            if self.flag_yfinance_fallback and (self.flag_financials or self.flag_valuation):
+                pkg = await self._yfinance_package(ysym)
+                yf_metrics = fundamentals_metrics_from_yfinance_info(pkg.get("info") or {})
+            chart_url = f"{self.base_url}/v8/finance/chart/{ysym}"
+            chart_payload = await self._get(chart_url, {"interval": "1d", "range": "5d"})
+            snap = map_fundamentals_from_chart_meta(
+                chart_payload,
+                symbol=ysym,
+                provenance=self.make_provenance(),
+            )
+            # Soft-fill empty valuation/fundamental fields from yfinance.info
+            if yf_metrics:
+                merged = dict(snap.metrics or {})
+                for k, v in yf_metrics.items():
+                    if merged.get(k) in (None, "", 0, 0.0):
+                        merged[k] = v
+                snap = snap.model_copy(update={"metrics": merged})
+            self._companies_updated += 1
+            return snap
 
     async def get_financial_intelligence(self, symbol: str) -> dict[str, Any]:
         """
         Canonical financial + valuation history package for YFP enrichment.
-        Never returns Yahoo-native quoteSummary payloads.
+        Never returns Yahoo-native quoteSummary / yfinance payloads.
+        Prefer quoteSummary; soft-fallback to yfinance.get_income_stmt family on crumb failure.
         """
         if not self.is_configured():
             return {"enabled": False, "reason": "not_configured", "provider_id": "yahoo"}
@@ -362,17 +409,12 @@ class YahooFinanceProvider(MarketDataProvider):
                 seen_m.add(m)
                 modules.append(m)
         url = f"{self.quote_summary_base}/v10/finance/quoteSummary/{ysym}"
+        payload: dict[str, Any] | None = None
+        qs_error: str | None = None
         try:
             payload = await self._get(url, {"modules": ",".join(modules)}, need_crumb=True)
         except ProviderError as exc:
-            return {
-                "enabled": False,
-                "provider_id": "yahoo",
-                "symbol": (symbol or "").upper(),
-                "error": str(exc)[:200],
-                "financial_history": {},
-                "valuation_snapshot": {},
-            }
+            qs_error = str(exc)[:200]
 
         out: dict[str, Any] = {
             "enabled": True,
@@ -381,11 +423,35 @@ class YahooFinanceProvider(MarketDataProvider):
             "symbol": (symbol or "").upper(),
             "financial_history": {},
             "valuation_snapshot": {},
+            "fetch_path": "quoteSummary" if payload is not None else None,
         }
-        if self.flag_financial_history:
-            out["financial_history"] = map_financial_history_from_quote_summary(payload, symbol=ysym)
-        if self.flag_valuation_history:
-            out["valuation_snapshot"] = map_valuation_snapshot_from_quote_summary(payload, symbol=ysym)
+        if payload is not None:
+            if self.flag_financial_history:
+                out["financial_history"] = map_financial_history_from_quote_summary(payload, symbol=ysym)
+            if self.flag_valuation_history:
+                out["valuation_snapshot"] = map_valuation_snapshot_from_quote_summary(payload, symbol=ysym)
+
+        need_history = self.flag_financial_history and not self._history_nonempty(out.get("financial_history") or {})
+        need_valuation = self.flag_valuation_history and not (out.get("valuation_snapshot") or {}).get("metrics")
+        if (need_history or need_valuation) and self.flag_yfinance_fallback:
+            pkg = await self._yfinance_package(ysym)
+            if pkg:
+                out["fetch_path"] = "yfinance_fundamentals_timeseries"
+                if need_history:
+                    out["financial_history"] = map_financial_history_from_yfinance_package(pkg, symbol=ysym)
+                if need_valuation:
+                    out["valuation_snapshot"] = map_valuation_snapshot_from_yfinance_info(
+                        pkg.get("info") or {}, symbol=ysym
+                    )
+
+        if not self._history_nonempty(out.get("financial_history") or {}) and not (
+            out.get("valuation_snapshot") or {}
+        ).get("metrics"):
+            out["enabled"] = False
+            out["error"] = qs_error or "no_financial_intelligence"
+            out["fetch_path"] = out.get("fetch_path") or "none"
+            return out
+
         self._companies_updated += 1
         return out
 

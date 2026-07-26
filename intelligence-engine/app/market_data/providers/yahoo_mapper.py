@@ -571,7 +571,12 @@ _INCOME_MAP: dict[str, tuple[str, ...]] = {
     "ebit": ("ebit", "operatingIncome"),
     "operating_income": ("operatingIncome", "ebit"),
     "gross_profit": ("grossProfit",),
-    "net_income": ("netIncome", "netIncomeApplicableToCommonShares", "netIncomeFromContinuingOps"),
+    "net_income": (
+        "netIncome",
+        "netIncomeCommonStockholders",
+        "netIncomeApplicableToCommonShares",
+        "netIncomeFromContinuingOps",
+    ),
     "eps": ("basicEPS", "reportedEPS"),
     "diluted_eps": ("dilutedEPS", "basicEPS"),
     "tax_expense": ("incomeTaxExpense", "taxProvision"),
@@ -608,25 +613,38 @@ _BALANCE_MAP: dict[str, tuple[str, ...]] = {
 _CASHFLOW_MAP: dict[str, tuple[str, ...]] = {
     "operating_cash_flow": (
         "totalCashFromOperatingActivities",
+        "operatingCashFlow",
         "operatingCashflow",
         "cashFlowFromContinuingOperatingActivities",
     ),
     "investing_cash_flow": (
         "totalCashflowsFromInvestingActivities",
+        "investingCashFlow",
         "investingCashflow",
         "cashFlowFromContinuingInvestingActivities",
     ),
     "financing_cash_flow": (
         "totalCashFromFinancingActivities",
+        "financingCashFlow",
         "financingCashflow",
         "cashFlowFromContinuingFinancingActivities",
     ),
     "free_cash_flow": ("freeCashFlow",),
-    "capital_expenditure": ("capitalExpenditures", "purchaseOfPPE", "capex"),
+    "capital_expenditure": (
+        "capitalExpenditures",
+        "capitalExpenditure",
+        "purchaseOfPPE",
+        "capex",
+    ),
     "depreciation": ("depreciation", "depreciationAndAmortization"),
     "amortisation": ("amortization", "amortizationOfIntangibles"),
     "dividends_paid": ("dividendsPaid", "commonStockDividendPaid", "cashDividendsPaid"),
-    "share_buybacks": ("repurchaseOfStock", "salePurchaseOfStock", "commonStockPayments"),
+    "share_buybacks": (
+        "repurchaseOfStock",
+        "salePurchaseOfStock",
+        "commonStockPayments",
+        "repurchaseOfCapitalStock",
+    ),
 }
 
 
@@ -718,6 +736,13 @@ def _map_statement_rows(
         present = {k: v for k, v in line_items.items() if v is not None}
         if len(present) < 2:
             continue  # reject incomplete / malformed mapping
+        # Income periods sometimes arrive with only expense lines (NaN revenue/NI) - skip those.
+        if (
+            statement == "income_statement"
+            and present.get("revenue") is None
+            and present.get("net_income") is None
+        ):
+            continue
         out.append(
             {
                 "period_end": _period_end(simplified) or _period_end(row),
@@ -877,3 +902,156 @@ def map_valuation_snapshot_from_quote_summary(
         "provider_priority": 40,
         "coverage": round(len(metrics) / 15.0, 4),
     }
+
+
+def map_financial_history_from_yfinance_package(
+    package: dict[str, Any],
+    *,
+    symbol: str,
+) -> dict[str, Any]:
+    """
+    Canonical financial history from yfinance get_income_stmt / balance_sheet / cash_flow rows.
+    Input rows use camelCase field names (already normalized from PascalCase index).
+    """
+    if not isinstance(package, dict):
+        return {}
+    info = package.get("info") if isinstance(package.get("info"), dict) else {}
+    cur = _str(info.get("financialCurrency") or info.get("currency"))
+    income_annual = _map_statement_rows(
+        list(package.get("income_annual") or []),
+        field_map=_INCOME_MAP,
+        statement="income_statement",
+        period_type="annual",
+        currency=cur,
+    )
+    income_q = _map_statement_rows(
+        list(package.get("income_quarterly") or []),
+        field_map=_INCOME_MAP,
+        statement="income_statement",
+        period_type="quarterly",
+        currency=cur,
+    )
+    balance_annual = [
+        validate_balance_sheet_row(r)
+        for r in _map_statement_rows(
+            list(package.get("balance_annual") or []),
+            field_map=_BALANCE_MAP,
+            statement="balance_sheet",
+            period_type="annual",
+            currency=cur,
+        )
+    ]
+    balance_q = [
+        validate_balance_sheet_row(r)
+        for r in _map_statement_rows(
+            list(package.get("balance_quarterly") or []),
+            field_map=_BALANCE_MAP,
+            statement="balance_sheet",
+            period_type="quarterly",
+            currency=cur,
+        )
+    ]
+    cash_annual = _map_statement_rows(
+        list(package.get("cash_annual") or []),
+        field_map=_CASHFLOW_MAP,
+        statement="cash_flow",
+        period_type="annual",
+        currency=cur,
+    )
+    cash_q = _map_statement_rows(
+        list(package.get("cash_quarterly") or []),
+        field_map=_CASHFLOW_MAP,
+        statement="cash_flow",
+        period_type="quarterly",
+        currency=cur,
+    )
+    return {
+        "symbol": from_yahoo_symbol(symbol),
+        "currency": cur,
+        "income_statement": {"annual": income_annual, "quarterly": income_q},
+        "balance_sheet": {"annual": balance_annual, "quarterly": balance_q},
+        "cash_flow": {"annual": cash_annual, "quarterly": cash_q},
+        "counts": {
+            "income_annual": len(income_annual),
+            "income_quarterly": len(income_q),
+            "balance_annual": len(balance_annual),
+            "balance_quarterly": len(balance_q),
+            "cashflow_annual": len(cash_annual),
+            "cashflow_quarterly": len(cash_q),
+        },
+        "provider_id": "yahoo",
+        "provider_priority": 40,
+        "fetch_path": "yfinance_fundamentals_timeseries",
+    }
+
+
+def map_valuation_snapshot_from_yfinance_info(
+    info: dict[str, Any],
+    *,
+    symbol: str,
+) -> dict[str, Any]:
+    """Canonical valuation snapshot from yfinance Ticker.info (fill-empties source)."""
+    if not isinstance(info, dict):
+        info = {}
+    metrics = {
+        "market_cap": _num(info.get("marketCap")),
+        "enterprise_value": _num(info.get("enterpriseValue")),
+        "trailing_pe": _num(info.get("trailingPE")),
+        "forward_pe": _num(info.get("forwardPE")),
+        "peg": _num(info.get("pegRatio")),
+        "price_to_book": _num(info.get("priceToBook")),
+        "price_to_sales": _num(info.get("priceToSalesTrailing12Months")),
+        "ev_ebitda": _num(info.get("enterpriseToEbitda")),
+        "dividend_yield": _num(info.get("dividendYield")),
+        "dividend_rate": _num(info.get("dividendRate")),
+        "beta": _num(info.get("beta")),
+        "shares_outstanding": _num(info.get("sharesOutstanding")),
+        "float_shares": _num(info.get("floatShares")),
+        "book_value_per_share": _num(info.get("bookValue")),
+        "target_mean_price": _num(info.get("targetMeanPrice")),
+    }
+    metrics = {k: v for k, v in metrics.items() if v is not None}
+    return {
+        "symbol": from_yahoo_symbol(symbol),
+        "as_of": date.today().isoformat(),
+        "metrics": metrics,
+        "provider_id": "yahoo",
+        "provider_priority": 40,
+        "coverage": round(len(metrics) / 15.0, 4),
+        "fetch_path": "yfinance_info",
+    }
+
+
+def fundamentals_metrics_from_yfinance_info(info: dict[str, Any]) -> dict[str, float | int | str | None]:
+    """Subset of FundamentalSnapshot.metrics from yfinance info (canonical keys only)."""
+    if not isinstance(info, dict):
+        return {}
+    metrics: dict[str, float | int | str | None] = {
+        "trailing_pe": _num(info.get("trailingPE")),
+        "forward_pe": _num(info.get("forwardPE")),
+        "peg": _num(info.get("pegRatio")),
+        "price_to_book": _num(info.get("priceToBook")),
+        "price_to_sales": _num(info.get("priceToSalesTrailing12Months")),
+        "market_cap": _num(info.get("marketCap")),
+        "enterprise_value": _num(info.get("enterpriseValue")),
+        "ev_ebitda": _num(info.get("enterpriseToEbitda")),
+        "ev_revenue": _num(info.get("enterpriseToRevenue")),
+        "dividend_yield": _num(info.get("dividendYield")),
+        "beta": _num(info.get("beta")),
+        "shares_outstanding": _num(info.get("sharesOutstanding")),
+        "book_value_per_share": _num(info.get("bookValue")),
+        "trailing_eps": _num(info.get("trailingEps")),
+        "forward_eps": _num(info.get("forwardEps")),
+        "profit_margin": _num(info.get("profitMargins")),
+        "operating_margin": _num(info.get("operatingMargins")),
+        "gross_margin": _num(info.get("grossMargins")),
+        "revenue_growth": _num(info.get("revenueGrowth")),
+        "earnings_growth": _num(info.get("earningsGrowth")),
+        "total_revenue": _num(info.get("totalRevenue")),
+        "ebitda": _num(info.get("ebitda")),
+        "currency": _str(info.get("financialCurrency") or info.get("currency")),
+        "sector": _str(info.get("sector")),
+        "industry": _str(info.get("industry")),
+        "company_name": _str(info.get("longName") or info.get("shortName")),
+    }
+    return {k: v for k, v in metrics.items() if v is not None}

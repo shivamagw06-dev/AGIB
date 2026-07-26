@@ -50,6 +50,7 @@ class Settings(BaseSettings):
     yahoo_financial_history: bool = True  # YAHOO_FINANCIAL_HISTORY
     yahoo_valuation_history: bool = True  # YAHOO_VALUATION_HISTORY
     yahoo_cid_enrichment: bool = True  # YAHOO_CID_ENRICHMENT
+    yahoo_yfinance_fallback: bool = True  # YAHOO_YFINANCE_FALLBACK (get_income_stmt path)
     yahoo_base_url: str = "https://query1.finance.yahoo.com"
     yahoo_quote_summary_base: str = "https://query2.finance.yahoo.com"
 

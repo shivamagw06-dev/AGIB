@@ -103,6 +103,7 @@ class MarketDataClient:
                 options=bool(getattr(settings, "yahoo_options", True)),
                 financial_history=bool(getattr(settings, "yahoo_financial_history", True)),
                 valuation_history=bool(getattr(settings, "yahoo_valuation_history", True)),
+                yfinance_fallback=bool(getattr(settings, "yahoo_yfinance_fallback", True)),
                 base_url=getattr(settings, "yahoo_base_url", "https://query1.finance.yahoo.com"),
                 quote_summary_base=getattr(
                     settings, "yahoo_quote_summary_base", "https://query2.finance.yahoo.com"

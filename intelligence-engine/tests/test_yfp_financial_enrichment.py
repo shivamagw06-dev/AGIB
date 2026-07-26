@@ -8,8 +8,11 @@ from yfp.leo_evidence import evidence_from_financial_intelligence
 from yfp.production import is_cid_enrichment_enabled, quality_gates
 from app.market_data.providers.yahoo_mapper import (
     map_financial_history_from_quote_summary,
+    map_financial_history_from_yfinance_package,
     map_valuation_snapshot_from_quote_summary,
+    map_valuation_snapshot_from_yfinance_info,
 )
+from app.market_data.providers.yahoo_yfinance import _df_to_period_rows
 
 
 def _fixture():
@@ -221,3 +224,123 @@ def test_merge_financial_intelligence_idempotent_fill():
     assert out["financial_statements"]["income_statement"]["annual"][0]["source"] == "official"
     # Empty balance filled
     assert out["financial_statements"]["balance_sheet"]["annual"]
+
+
+def _yfinance_package_fixture():
+    """Mirrors rows produced from yfinance.get_income_stmt / balance / cash_flow DataFrames."""
+    return {
+        "source": "yfinance",
+        "endpoint": "fundamentals-timeseries",
+        "symbol": "NESTLEIND.NS",
+        "income_annual": [
+            {
+                "endDate": "2025-03-31",
+                "totalRevenue": 200775000000.0,
+                "grossProfit": 111278400000.0,
+                "operatingIncome": 42677600000.0,
+                "ebitda": 49702900000.0,
+                "ebit": 44521200000.0,
+                "netIncome": 32075900000.0,
+                "netIncomeCommonStockholders": 32075900000.0,
+                "dilutedEPS": 16.63,
+                "basicEPS": 16.63,
+                "costOfRevenue": 89496600000.0,
+                "operatingExpense": 68600800000.0,
+                "interestExpense": 1360000000.0,
+                "taxProvision": 11085300000.0,
+            }
+        ],
+        "income_quarterly": [
+            {
+                "endDate": "2025-12-31",
+                "totalRevenue": 50000000000.0,
+                "netIncome": 9984200000.0,
+                "dilutedEPS": 5.1,
+            }
+        ],
+        "balance_annual": [
+            {
+                "endDate": "2025-03-31",
+                "totalAssets": 1.2e11,
+                "currentAssets": 7e10,
+                "cashAndCashEquivalents": 1.5e10,
+                "totalDebt": 2e10,
+                "longTermDebt": 1.5e10,
+                "currentDebt": 5e9,
+                "totalLiabilitiesNetMinorityInterest": 4e10,
+                "currentLiabilities": 2.5e10,
+                "stockholdersEquity": 8e10,
+            }
+        ],
+        "balance_quarterly": [],
+        "cash_annual": [
+            {
+                "endDate": "2025-03-31",
+                "operatingCashFlow": 4e10,
+                "investingCashFlow": -1e10,
+                "financingCashFlow": -2e10,
+                "freeCashFlow": 3.2e10,
+                "capitalExpenditure": -8e9,
+                "depreciation": 5e9,
+                "cashDividendsPaid": -1.5e10,
+            }
+        ],
+        "cash_quarterly": [],
+        "info": {
+            "trailingPE": 72.9,
+            "forwardPE": 58.2,
+            "priceToBook": 54.0,
+            "enterpriseToEbitda": 49.5,
+            "marketCap": 2.78e12,
+            "enterpriseValue": 2.77e12,
+            "currency": "INR",
+            "financialCurrency": "INR",
+        },
+    }
+
+
+def test_yfinance_package_maps_canonical_income_stmt():
+    hist = map_financial_history_from_yfinance_package(_yfinance_package_fixture(), symbol="NESTLEIND.NS")
+    inc = hist["income_statement"]["annual"][0]["line_items"]
+    assert inc["revenue"] == 200775000000.0
+    assert inc["net_income"] == 32075900000.0
+    assert inc["diluted_eps"] == 16.63
+    assert inc["ebitda"] == 49702900000.0
+    bal = hist["balance_sheet"]["annual"][0]
+    assert bal["line_items"]["total_assets"] == 1.2e11
+    assert bal["line_items"]["shareholders_equity"] == 8e10
+    assert bal["validation"]["accounting_equation_ok"] is True
+    cash = hist["cash_flow"]["annual"][0]["line_items"]
+    assert cash["operating_cash_flow"] == 4e10
+    assert cash["capital_expenditure"] == -8e9
+    assert cash["free_cash_flow"] == 3.2e10
+    assert hist["fetch_path"] == "yfinance_fundamentals_timeseries"
+    for row in hist["income_statement"]["annual"]:
+        for k in row["line_items"]:
+            assert k == k.lower()
+            assert "totalRevenue" not in k
+
+
+def test_yfinance_info_valuation_snapshot():
+    val = map_valuation_snapshot_from_yfinance_info(
+        _yfinance_package_fixture()["info"], symbol="NESTLEIND.NS"
+    )
+    assert val["metrics"]["trailing_pe"] == 72.9
+    assert val["metrics"]["market_cap"] == 2.78e12
+    assert val["fetch_path"] == "yfinance_info"
+
+
+def test_df_to_period_rows_from_get_income_stmt_shape():
+    import pandas as pd
+
+    df = pd.DataFrame(
+        {
+            pd.Timestamp("2025-03-31"): [200.0, 32.0],
+            pd.Timestamp("2024-03-31"): [180.0, 28.0],
+        },
+        index=["TotalRevenue", "NetIncome"],
+    )
+    rows = _df_to_period_rows(df)
+    assert rows[0]["endDate"] == "2025-03-31"
+    assert rows[0]["totalRevenue"] == 200.0
+    assert rows[0]["netIncome"] == 32.0

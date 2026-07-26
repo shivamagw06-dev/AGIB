@@ -227,6 +227,7 @@ def production_dashboard(*, client: Any | None = None) -> dict[str, Any]:
             "YAHOO_FINANCIAL_HISTORY": bool(getattr(s, "yahoo_financial_history", True)),
             "YAHOO_VALUATION_HISTORY": bool(getattr(s, "yahoo_valuation_history", True)),
             "YAHOO_CID_ENRICHMENT": bool(getattr(s, "yahoo_cid_enrichment", True)),
+            "YAHOO_YFINANCE_FALLBACK": bool(getattr(s, "yahoo_yfinance_fallback", True)),
         }
     except Exception:
         flag_overlay = {}
