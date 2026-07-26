@@ -47,6 +47,7 @@ def apply_answer_construction_v3(
     live_evidence: dict[str, Any] | None = None,
     sector_intelligence: dict[str, Any] | None = None,
     institutional_briefing: dict[str, Any] | None = None,
+    decision_engine: dict[str, Any] | None = None,
     reco_gate: dict[str, Any] | None = None,
     leo_gate: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
@@ -55,6 +56,8 @@ def apply_answer_construction_v3(
     Gate logic is unchanged: Buy/Hold/Sell remains blocked when LEO/SIF say so.
     What changes: the full research briefing is preserved; recommendation status
     becomes a trailing section; checklist language is removed from the lead.
+    When the Investment Decision Engine is active, never lead with Buy/Sell —
+    frame the executive around the multi-layer stack; decision conclusion trails.
     """
     if not is_enabled():
         return {
@@ -81,11 +84,15 @@ def apply_answer_construction_v3(
     ca = company_analysis if isinstance(company_analysis, dict) else {}
     briefing = institutional_briefing if isinstance(institutional_briefing, dict) else {}
     cid = company_dossier if isinstance(company_dossier, dict) else {}
+    ide = decision_engine if isinstance(decision_engine, dict) else {}
+    ide_active = bool(ide.get("active") and ide.get("enabled", True))
+    ide_enrich = ide.get("answer_enrichment") if isinstance(ide.get("answer_enrichment"), dict) else {}
 
     blocked = bool((reco_gate or {}).get("blocked") or (leo_gate or {}).get("blocked"))
 
     name = (
-        ic.get("company_name")
+        ide.get("company_name")
+        or ic.get("company_name")
         or (ca.get("identity") or {}).get("company_name")
         or cid.get("ticker")
         or "the company"
@@ -101,7 +108,28 @@ def apply_answer_construction_v3(
     ]
     business_bits = [b for b in business_bits if b]
 
+    ide_exec_fallback = None
+    if ide_active:
+        grade = ide.get("investment_grade") or (ide.get("summary") or {}).get("investment_grade")
+        overall = ide.get("overall_score") or (ide.get("summary") or {}).get("overall_score")
+        framing = _txt(ide_enrich.get("executive_framing"))
+        score_bit = (
+            f" Layered decision score {overall}/100 (grade {grade})."
+            if overall is not None
+            else ""
+        )
+        ide_exec_fallback = (
+            framing
+            or (
+                f"Investment decision stack for {name}: macro, industry, company quality, financials, "
+                f"management, valuation, expectations, technicals, risk, catalysts, probability and "
+                f"expected return are assessed before any ownership conclusion.{score_bit} "
+                "No layer is skipped."
+            )
+        )
+
     exec_out = _first_useful(
+        ide_exec_fallback if ide_active else None,
         enrich.get("executive_summary"),
         ic.get("executive_brief"),
         briefing.get("what_is_happening"),
@@ -184,7 +212,7 @@ def apply_answer_construction_v3(
         limit=8,
     )
     why_out = filter_why_bullets(why, gaps=gaps, limit=12)
-    for bullet in enrich.get("why_bullets") or []:
+    for bullet in list(ide_enrich.get("why_bullets") or []) + list(enrich.get("why_bullets") or []):
         t = _txt(bullet)
         if t and t not in why_out and not looks_like_gate_failure_summary(t):
             why_out.append(t[:420])
@@ -207,6 +235,11 @@ def apply_answer_construction_v3(
         company_name=str(name),
     )
 
+    decision_conclusion = _txt(ide_enrich.get("decision_conclusion")) if ide_active else None
+    if ide_active and decision_conclusion:
+        # Keep Buy/Hold/Sell-style conclusion trailing — never as the lead executive.
+        thesis_out = _first_useful(thesis_out, decision_conclusion)
+
     return {
         "enabled": True,
         "programme": PROGRAMME,
@@ -227,6 +260,13 @@ def apply_answer_construction_v3(
         "why": why_out[:12],
         "knowledge_gaps": gaps,
         "recommendation_status": reco,
-        "answer_policy": "full_institutional_brief_even_when_recommendation_withheld",
+        "decision_engine_active": ide_active,
+        "decision_conclusion": decision_conclusion,
+        "answer_policy": (
+            "multi_layer_investment_decision_never_direct_buy_sell"
+            if ide_active
+            else "full_institutional_brief_even_when_recommendation_withheld"
+        ),
         "never_expose_checklist_keys": True,
+        "decision_last": True if ide_active else None,
     }

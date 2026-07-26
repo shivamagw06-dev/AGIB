@@ -124,21 +124,36 @@ def is_checklist_bullet(text: Any) -> bool:
     s = str(text or "").strip()
     if not s:
         return True
+    low = s.lower()
     if s.lower().startswith("missing:"):
         return True
-    if "recommendation withheld" in s.lower():
+    if "recommendation withheld" in low:
         return True
     if re.search(r"(?i)\b(cid coverage|ecp coverage|research grade|data grade|knowledge grade)\b", s):
         return True
+    if re.search(r"(?i)data confidence grades", s):
+        return True
     if re.search(r"(?i)company analysis readiness .*gate:", s):
         return True
+    if re.search(r"(?i)\b(ecp auto-completed|still missing after ecp|quality gates —)\b", s):
+        return True
+    if re.search(r"(?i)company monitor:\s*\d+\s*change", s):
+        return True
+    if re.search(r"(?i)\d+\s+supporting .* items retrieved", s):
+        return True
+    if re.search(r"(?i)related news items included for freshness", s):
+        return True
+    if "intelligence construction" in low or "academy concepts attached" in low:
+        return True
+    if "living dossier" in low and len(s) < 160:
+        return True
     # Raw snake_case checklist residue
-    snakes = _SNAKE_RE.findall(s.lower())
+    snakes = _SNAKE_RE.findall(low)
     if snakes and any(k in _GAP_MAP for k in snakes) and _CHECKLIST_RE.search(s):
         return True
-    if s.lower().startswith("insufficient evidence"):
+    if low.startswith("insufficient evidence"):
         return True
-    if "insufficient company evidence" in s.lower():
+    if "insufficient company evidence" in low:
         return True
     return False
 

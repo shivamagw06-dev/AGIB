@@ -35,6 +35,7 @@ def package_for_ask_agi(
     evidence_completion: dict[str, Any] | None = None,
     irp: dict[str, Any] | None = None,
     investment_office: dict[str, Any] | None = None,
+    sector_intelligence: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Soft entry used by UiService after CID/CA/Monitor/IRP packages are available."""
     return build_institutional_research_brief(
@@ -50,6 +51,7 @@ def package_for_ask_agi(
         evidence_completion=evidence_completion,
         irp=irp,
         investment_office=investment_office,
+        sector_intelligence=sector_intelligence,
     )
 
 

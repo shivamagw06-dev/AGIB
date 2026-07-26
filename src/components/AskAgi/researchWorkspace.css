@@ -567,3 +567,123 @@
   0% { background-position: 100% 0; }
   100% { background-position: -100% 0; }
 }
+
+.rw-decision-scorecard {
+  display: grid;
+  grid-template-columns: minmax(180px, 240px) 1fr;
+  gap: 16px;
+  align-items: stretch;
+}
+
+@media (max-width: 900px) {
+  .rw-decision-scorecard {
+    grid-template-columns: 1fr;
+  }
+}
+
+.rw-decision-hero {
+  border: 1px solid var(--rw-border);
+  background: linear-gradient(160deg, rgba(59, 130, 246, 0.12), rgba(255, 255, 255, 0.02));
+  border-radius: 14px;
+  padding: 18px 16px;
+}
+
+.rw-decision-score {
+  font-family: var(--rw-serif);
+  font-size: 48px;
+  line-height: 1;
+  font-weight: 700;
+  margin-top: 6px;
+}
+
+.rw-decision-score span {
+  font-size: 18px;
+  color: var(--rw-muted);
+  margin-left: 4px;
+}
+
+.rw-decision-grade {
+  margin-top: 10px;
+  color: var(--rw-soft);
+  font-size: 13px;
+}
+
+.rw-decision-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+@media (max-width: 700px) {
+  .rw-decision-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.rw-preq {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--rw-soft);
+  font-size: 13px;
+  display: grid;
+  gap: 6px;
+}
+
+.rw-stack {
+  display: grid;
+  gap: 12px;
+}
+
+.rw-stack-layer {
+  border: 1px solid var(--rw-border);
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 14px;
+  padding: 14px 16px;
+}
+
+.rw-stack-layer header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.rw-stack-layer h3 {
+  font-family: var(--rw-serif);
+  font-size: 18px;
+  margin: 2px 0 0;
+}
+
+.rw-stack-q {
+  margin-top: 4px;
+  color: var(--rw-muted);
+  font-size: 12px;
+}
+
+.rw-stack-score {
+  text-align: right;
+  min-width: 72px;
+}
+
+.rw-stack-score strong {
+  display: block;
+  font-size: 28px;
+  font-family: var(--rw-serif);
+  line-height: 1;
+}
+
+.rw-stack-score span {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--rw-caption);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.rw-decision-final {
+  border: 1px solid var(--rw-border-strong);
+  background: rgba(59, 130, 246, 0.08);
+  border-radius: 14px;
+  padding: 14px 16px;
+}

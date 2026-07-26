@@ -34,9 +34,26 @@ _ENGINE_LABELS = {
 }
 
 _ENGINE_RE = re.compile(
-    r"(?<![A-Za-z0-9])(E0[1-9]|E1[0-4]|L4|ORCH|CRE|RSP|RMS|KIP|IOC|AWS|AIP)(?![A-Za-z0-9])",
+    r"(?<![A-Za-z0-9])(E0[1-9]|E1[0-4]|L4|ORCH|CRE|RSP|RMS|KIP|IOC|AWS|AIP|CID|IRP|LEO|SIF|ECP|DVC|FAPI|CAE|CMS|FIML|AGIB_INVESTMENT_DECISION_ENGINE)(?![A-Za-z0-9])",
     re.IGNORECASE,
 )
+
+# Drop internal orchestration / gate keys from client SearchView payloads.
+_INTERNAL_CLIENT_KEYS = {
+    "leo_blocked",
+    "sif_blocked",
+    "architecture_status",
+    "concept_ids",
+    "concepts_influencing_answer",
+    "must_have_missing",
+    "missing_leo",
+    "missing_items",
+    "missing_evidence",
+    "ecp_version",
+    "yfp_version",
+    "provider_id",
+    "winning_provider",
+}
 
 # Never expose market-data vendor / API / Yahoo-native terms in client answers.
 _PROVIDER_RE = re.compile(
@@ -95,8 +112,10 @@ def public_label(key: str | None) -> str:
 def scrub_text(value: str | None) -> str | None:
     if value is None:
         return None
-    text = _ENGINE_RE.sub("institutional model", str(value))
+    text = _ENGINE_RE.sub("institutional research", str(value))
     text = _PROVIDER_RE.sub("institutional data", text)
+    # Soften leftover checklist phrasing that can still reach clients
+    text = re.sub(r"(?i)\bIRP\s*V1\b", "Institutional Research", text)
     return text
 
 
@@ -111,8 +130,11 @@ def scrub(obj: Any) -> Any:
     if isinstance(obj, dict):
         out: dict[str, Any] = {}
         for k, v in obj.items():
+            lk = str(k).lower()
+            if lk in _INTERNAL_CLIENT_KEYS:
+                continue
             # Strip provider-native / enrichment provenance keys from client payloads
-            if str(k).lower() in {
+            if lk in {
                 "provider_id",
                 "provider",
                 "winning_provider",
