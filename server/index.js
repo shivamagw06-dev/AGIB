@@ -641,3 +641,5 @@ process.on('SIGTERM', () => {
 });
 
 export default app;
+
+// IAR V1 proxy mounted — force API redeploy
