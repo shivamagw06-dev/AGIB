@@ -3,6 +3,9 @@ import { API_ORIGIN } from '@/config';
 const BASE = API_ORIGIN || '';
 
 async function intelligenceFetch(path, { method = 'GET', body } = {}) {
+  if (!BASE) {
+    throw new Error('API origin is not configured. Set VITE_API_URL to the Render backend.');
+  }
   const url = `${BASE}/api/intelligence${path}`;
   const resp = await fetch(url, {
     method,
@@ -10,11 +13,21 @@ async function intelligenceFetch(path, { method = 'GET', body } = {}) {
     headers: body ? { 'Content-Type': 'application/json' } : undefined,
     body: body ? JSON.stringify(body) : undefined,
   });
-  if (!resp.ok) {
-    const detail = await resp.text().catch(() => '');
-    throw new Error(`Intelligence API error (${resp.status}) ${detail.slice(0, 160)}`);
+  const contentType = resp.headers.get('content-type') || '';
+  const text = await resp.text().catch(() => '');
+  if (!contentType.includes('application/json') || text.trim().startsWith('<')) {
+    throw new Error(
+      `Intelligence API returned HTML instead of JSON for ${path}. Check VITE_API_URL points at Render, not the website.`
+    );
   }
-  return resp.json();
+  if (!resp.ok) {
+    throw new Error(`Intelligence API error (${resp.status}) ${text.slice(0, 160)}`);
+  }
+  try {
+    return text ? JSON.parse(text) : null;
+  } catch {
+    throw new Error(`Intelligence API invalid JSON for ${path}`);
+  }
 }
 
 export const getIntelligenceHealth = () => intelligenceFetch('/health');
