@@ -231,6 +231,72 @@ export const consultIie = (q, limit = 8) => {
   return intelligenceFetch(`/iie/consult?${qs}`);
 };
 
+/** FRE v1 Finance Retrieval Engine — evidence only, never answers */
+export const getFreHealth = () => intelligenceFetch('/fre/health');
+export const getFreDashboard = () => intelligenceFetch('/fre/dashboard');
+export const queryFre = (q, params = {}) => {
+  const qs = new URLSearchParams({
+    q,
+    ...Object.fromEntries(
+      Object.entries(params)
+        .filter(([, v]) => v !== undefined && v !== null && v !== '')
+        .map(([k, v]) => [k, String(v)])
+    ),
+  }).toString();
+  return intelligenceFetch(`/fre/query?${qs}`);
+};
+export const searchFre = (q, params = {}) => {
+  const qs = new URLSearchParams({
+    q,
+    ...Object.fromEntries(
+      Object.entries(params)
+        .filter(([, v]) => v !== undefined && v !== null && v !== '')
+        .map(([k, v]) => [k, String(v)])
+    ),
+  }).toString();
+  return intelligenceFetch(`/fre/search?${qs}`);
+};
+export const getFreCompany = (key, limit = 20) => {
+  const qs = new URLSearchParams({ limit: String(limit) }).toString();
+  return intelligenceFetch(`/fre/company/${encodeURIComponent(key)}?${qs}`);
+};
+export const getFreDocument = (id) => intelligenceFetch(`/fre/document/${encodeURIComponent(id)}`);
+export const getFreEvidence = (params = {}) => {
+  const qs = new URLSearchParams(
+    Object.fromEntries(
+      Object.entries(params)
+        .filter(([, v]) => v !== undefined && v !== null && v !== '')
+        .map(([k, v]) => [k, String(v)])
+    )
+  ).toString();
+  return intelligenceFetch(`/fre/evidence${qs ? `?${qs}` : ''}`);
+};
+export const getFreTimeline = (params = {}) => {
+  const qs = new URLSearchParams(
+    Object.fromEntries(
+      Object.entries(params)
+        .filter(([, v]) => v !== undefined && v !== null && v !== '')
+        .map(([k, v]) => [k, String(v)])
+    )
+  ).toString();
+  return intelligenceFetch(`/fre/timeline${qs ? `?${qs}` : ''}`);
+};
+export const getFreNews = (limit = 20) => {
+  const qs = new URLSearchParams({ limit: String(limit) }).toString();
+  return intelligenceFetch(`/fre/news?${qs}`);
+};
+export const getFreGraph = (entity) => {
+  const qs = entity ? new URLSearchParams({ entity }).toString() : '';
+  return intelligenceFetch(`/fre/graph${qs ? `?${qs}` : ''}`);
+};
+export const ingestFre = (payload) => intelligenceFetch('/fre/ingest', { method: 'POST', body: payload || {} });
+export const runFreJobs = () => intelligenceFetch('/fre/jobs', { method: 'POST', body: {} });
+export const consultFre = (q, limit = 8) => {
+  const qs = new URLSearchParams({ q, limit: String(limit) }).toString();
+  return intelligenceFetch(`/fre/consult?${qs}`);
+};
+export const getFreScheduler = () => intelligenceFetch('/fre/scheduler');
+
 /** FLE v1 Forecasting & Learning */
 export const getFleHealth = () => intelligenceFetch('/fle/health');
 export const getFleDashboard = () => intelligenceFetch('/fle/dashboard');

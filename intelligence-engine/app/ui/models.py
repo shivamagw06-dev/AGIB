@@ -132,6 +132,8 @@ class SearchView(BaseModel):
     knowledge_corpus: dict[str, Any] = Field(default_factory=dict)
     # AOI v1 — public acquisition structured knowledge soft retrieval
     open_intelligence: dict[str, Any] = Field(default_factory=dict)
+    # FRE v1 — Finance Retrieval Engine evidence pack (never answers)
+    finance_retrieval: dict[str, Any] = Field(default_factory=dict)
     # EVE v1 — verified evidence / conflicts / confidence for Ask AGI
     evidence_verification: dict[str, Any] = Field(default_factory=dict)
     # IIE v1 — structured investment intelligence before reasoning

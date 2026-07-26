@@ -91,6 +91,7 @@ class UiService:
         iie: Any | None = None,
         fle: Any | None = None,
         mee: Any | None = None,
+        fre: Any | None = None,
         cae: Any | None = None,
         ib: Any | None = None,
         ve: Any | None = None,
@@ -112,6 +113,7 @@ class UiService:
         self.iie = iie
         self.fle = fle
         self.mee = mee
+        self.fre = fre
         self.cae = cae
         self.ib = ib
         self.ve = ve
@@ -711,6 +713,7 @@ class UiService:
         kf_hits: list[dict[str, Any]] = []
         knowledge_corpus: dict[str, Any] = {}
         open_intelligence: dict[str, Any] = {}
+        finance_retrieval: dict[str, Any] = {}
         evidence_verification: dict[str, Any] = {}
         investment_intelligence: dict[str, Any] = {}
         forecast_learning: dict[str, Any] = {}
@@ -973,6 +976,16 @@ class UiService:
                             detected_ticker = str(co["nse_symbol"]).upper()
                 except Exception:
                     open_intelligence = {}
+            if self.fre and q:
+                try:
+                    finance_retrieval = dump(soft(self.fre.consult, q, limit=8)) or {}
+                    if isinstance(finance_retrieval, dict):
+                        for hit in finance_retrieval.get("hits") or []:
+                            if isinstance(hit, dict) and hit.get("symbol") and not detected_ticker:
+                                detected_ticker = str(hit["symbol"]).upper()
+                                break
+                except Exception:
+                    finance_retrieval = {}
             if self.kc and q:
                 try:
                     knowledge_corpus = dump(soft(self.kc.consult, q, limit=8)) or {}
@@ -991,6 +1004,13 @@ class UiService:
                     if isinstance(hit, dict) and hit.get("kind") == "company" and hit.get("key"):
                         detected_ticker = str(hit["key"]).upper()
                         break
+
+        # FRE soft consult — authoritative evidence pack (CAE path and fallback).
+        if self.fre and q and not finance_retrieval:
+            try:
+                finance_retrieval = dump(soft(self.fre.consult, q, limit=8)) or {}
+            except Exception:
+                finance_retrieval = {}
 
         # VE soft consult — intrinsic value / MoS before reasoning (CAE and fallback paths).
         if self.ve and q:
@@ -2153,6 +2173,17 @@ class UiService:
                 "primary_source_of_truth": "knowledge_objects",
             },
             open_intelligence=scrub(open_intelligence) if open_intelligence else {},
+            finance_retrieval=scrub(finance_retrieval)
+            if finance_retrieval
+            else {
+                "answer_policy": "authoritative_evidence_before_reasoning",
+                "does_not_answer": True,
+                "guidance": {
+                    "use_retrieved_evidence_first": True,
+                    "prefer_tier1_sources": True,
+                    "never_hallucinate_without_provenance": True,
+                },
+            },
             evidence_verification=scrub(evidence_verification)
             if evidence_verification
             else {

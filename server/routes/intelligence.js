@@ -432,6 +432,53 @@ export default function createIntelligenceRouter() {
   router.get('/iie/consult', kfGet('/v1/iie/consult'));
 
   // FLE v1 — Forecasting & Learning Engine (after IIE, before reasoning).
+  // FRE v1 — Finance Retrieval Engine (evidence acquisition; never answers).
+  router.get('/fre/health', kfGet('/v1/fre/health'));
+  router.get('/fre/dashboard', kfGet('/v1/fre/dashboard'));
+  router.get('/fre/query', kfGet('/v1/fre/query'));
+  router.get('/fre/search', kfGet('/v1/fre/search'));
+  router.get('/fre/company/:key', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query).toString();
+      const result = await engineFetch(
+        `/v1/fre/company/${encodeURIComponent(req.params.key)}${qs ? `?${qs}` : ''}`
+      );
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Finance retrieval engine unavailable', detail: error.message });
+    }
+  });
+  router.get('/fre/document/:documentId', async (req, res) => {
+    try {
+      const result = await engineFetch(`/v1/fre/document/${encodeURIComponent(req.params.documentId)}`);
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Finance retrieval engine unavailable', detail: error.message });
+    }
+  });
+  router.get('/fre/evidence', kfGet('/v1/fre/evidence'));
+  router.get('/fre/timeline', kfGet('/v1/fre/timeline'));
+  router.get('/fre/news', kfGet('/v1/fre/news'));
+  router.get('/fre/graph', kfGet('/v1/fre/graph'));
+  router.get('/fre/scheduler', kfGet('/v1/fre/scheduler'));
+  router.get('/fre/consult', kfGet('/v1/fre/consult'));
+  router.post('/fre/ingest', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/fre/ingest', { method: 'POST', body: req.body || {} });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Finance retrieval engine unavailable', detail: error.message });
+    }
+  });
+  router.post('/fre/jobs', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/fre/jobs', { method: 'POST', body: {} });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Finance retrieval engine unavailable', detail: error.message });
+    }
+  });
+
   router.get('/fle/health', kfGet('/v1/fle/health'));
   router.get('/fle/dashboard', kfGet('/v1/fle/dashboard'));
   router.get('/fle/forecast', kfGet('/v1/fle/forecast'));

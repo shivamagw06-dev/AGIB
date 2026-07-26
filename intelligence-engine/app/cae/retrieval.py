@@ -73,6 +73,7 @@ class CaeRetriever:
         iie: Any | None = None,
         fle: Any | None = None,
         mee: Any | None = None,
+        fre: Any | None = None,
         parallel: bool = True,
     ) -> None:
         self.kf = kf
@@ -82,6 +83,7 @@ class CaeRetriever:
         self.iie = iie
         self.fle = fle
         self.mee = mee
+        self.fre = fre
         self.parallel = parallel
 
     def retrieve(self, query: str, engines: list[str], *, limit: int = 8) -> tuple[list[RankedItem], list[EngineContribution]]:
@@ -94,6 +96,7 @@ class CaeRetriever:
             "iie": lambda: self._from_iie(query, limit),
             "fle": lambda: self._from_fle(query, limit),
             "mee": lambda: self._from_mee(query, limit),
+            "fre": lambda: self._from_fre(query, limit),
         }
         for eng in engines:
             if eng in mapping:
@@ -458,3 +461,46 @@ class CaeRetriever:
                         )
                     )
         return items, EngineContribution(engine="mee", requested=True, succeeded=True, item_count=len(items), latency_ms=ms)
+
+    def _from_fre(self, query: str, limit: int) -> tuple[list[RankedItem], EngineContribution]:
+        t0 = time.perf_counter()
+        if not self.fre:
+            return [], EngineContribution(engine="fre", requested=True, succeeded=False, error="unbound")
+        res = _soft(self.fre.consult, query, limit=limit) or {}
+        ms = (time.perf_counter() - t0) * 1000
+        items: list[RankedItem] = []
+        if isinstance(res, dict):
+            for h in res.get("hits") or []:
+                if not isinstance(h, dict):
+                    continue
+                items.append(
+                    _item(
+                        engine="fre",
+                        kind="evidence",
+                        title=str(h.get("label") or h.get("claim") or "evidence"),
+                        content=h,
+                        confidence=float(h.get("score") or h.get("confidence") or 0.55),
+                        freshness=0.8 if (h.get("published_at") or "") >= "2026-01-01" else 0.5,
+                        evidence_quality=float(h.get("score") or h.get("confidence") or 0.55),
+                        source_trust=0.85,
+                        why="Finance Retrieval Engine authoritative evidence",
+                        latency_ms=ms,
+                        dedupe_key=f"fre:{h.get('evidence_id') or h.get('label')}",
+                    )
+                )
+            for s in (res.get("top_sources") or [])[:4]:
+                if isinstance(s, dict):
+                    items.append(
+                        _item(
+                            engine="fre",
+                            kind="evidence",
+                            title=str(s.get("title") or "source"),
+                            content=s,
+                            confidence=0.6,
+                            source_trust=float(s.get("authority") or 6) / 10.0,
+                            why="FRE related source document",
+                            latency_ms=ms,
+                            dedupe_key=f"fre:src:{s.get('title')}",
+                        )
+                    )
+        return items, EngineContribution(engine="fre", requested=True, succeeded=True, item_count=len(items), latency_ms=ms)

@@ -22,21 +22,21 @@ INTENT_LABELS: list[str] = [
 
 # Intent → engines to retrieve from (dynamic retrieval policy)
 INTENT_ENGINES: dict[str, list[str]] = {
-    "company_research": ["mee", "fle", "iie", "eve", "aoi", "kc", "kf"],
-    "sector_research": ["mee", "iie", "fle", "eve", "kf", "kc"],
-    "macro_analysis": ["mee", "fle", "eve", "aoi", "kf"],
-    "portfolio_question": ["fle", "mee", "iie", "eve", "kf"],
-    "forecast": ["fle", "iie", "mee", "eve", "kf"],
-    "risk": ["iie", "mee", "fle", "eve", "kf"],
-    "event": ["mee", "eve", "iie", "fle", "aoi"],
-    "comparison": ["iie", "fle", "eve", "mee", "kf"],
-    "valuation": ["iie", "fle", "eve", "kf", "kc"],
-    "investment_thesis": ["iie", "eve", "fle", "mee", "kf", "kc"],
-    "news": ["mee", "aoi", "eve", "iie"],
-    "monitoring": ["mee", "fle", "iie", "eve"],
-    "education": ["kf", "kc", "iie"],
-    "market_overview": ["mee", "aoi", "fle", "kf"],
-    "mixed_intent": ["mee", "fle", "iie", "eve", "aoi", "kc", "kf"],
+    "company_research": ["fre", "mee", "fle", "iie", "eve", "aoi", "kc", "kf"],
+    "sector_research": ["fre", "mee", "iie", "fle", "eve", "kf", "kc"],
+    "macro_analysis": ["fre", "mee", "fle", "eve", "aoi", "kf"],
+    "portfolio_question": ["fre", "fle", "mee", "iie", "eve", "kf"],
+    "forecast": ["fre", "fle", "iie", "mee", "eve", "kf"],
+    "risk": ["fre", "iie", "mee", "fle", "eve", "kf"],
+    "event": ["fre", "mee", "eve", "iie", "fle", "aoi"],
+    "comparison": ["fre", "iie", "fle", "eve", "mee", "kf"],
+    "valuation": ["fre", "iie", "fle", "eve", "kf", "kc"],
+    "investment_thesis": ["fre", "iie", "eve", "fle", "mee", "kf", "kc"],
+    "news": ["fre", "mee", "aoi", "eve", "iie"],
+    "monitoring": ["fre", "mee", "fle", "iie", "eve"],
+    "education": ["fre", "kf", "kc", "iie"],
+    "market_overview": ["fre", "mee", "aoi", "fle", "kf"],
+    "mixed_intent": ["fre", "mee", "fle", "iie", "eve", "aoi", "kc", "kf"],
 }
 
 INTENT_KEYWORDS: dict[str, list[str]] = {

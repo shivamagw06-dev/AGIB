@@ -253,6 +253,18 @@ class Settings(BaseSettings):
     mee_impact: bool = True
     mee_similar: bool = True
 
+    # Finance Retrieval Engine v1 (intelligence acquisition; evidence only; no core redesign)
+    fre: bool = True
+    fre_query_planner: bool = True
+    fre_acquisition: bool = True
+    fre_hybrid_search: bool = True
+    fre_rerank: bool = True
+    fre_evidence: bool = True
+    fre_graph: bool = True
+    fre_scheduler: bool = True
+    fre_soft_publish_kip: bool = True
+    fre_ask_agi: bool = True
+
     # Context Assembly Engine v1 (Ask AGI orchestration gateway; no core redesign)
     cae: bool = True
     cae_cache: bool = True
