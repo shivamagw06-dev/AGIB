@@ -184,6 +184,8 @@ class SearchView(BaseModel):
     institutional_stack: dict[str, Any] = Field(default_factory=dict)
     # RQ1 Research Ontology — Sprint 1 classify-only constitution (additive; not a layer)
     research_ontology: dict[str, Any] = Field(default_factory=dict)
+    # RQ1 Entity Resolution Engine — Sprint 2 canonical identity (additive; not a layer)
+    entity_resolution: dict[str, Any] = Field(default_factory=dict)
     current_outlook: str | None = None
     key_drivers: list[str] = Field(default_factory=list)
     valuation_perspective: str | None = None

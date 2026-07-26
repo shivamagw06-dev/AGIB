@@ -35,6 +35,7 @@ import {
   Gavel,
   Map,
   BrainCircuit,
+  Fingerprint,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -42,6 +43,7 @@ const navItems = [
   { to: '/admin', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/admin/intelligence-map', label: 'Intelligence Map', icon: Map },
   { to: '/admin/intent-intelligence', label: 'Intent Intelligence', icon: BrainCircuit },
+  { to: '/admin/entity-resolution', label: 'Entity Resolution', icon: Fingerprint },
   { to: '/admin/articles/new', label: 'New Article', icon: Plus },
   { to: '/admin/categories', label: 'Categories', icon: FolderOpen },
   { to: '/admin/knowledge', label: 'Knowledge Corpus', icon: Brain },

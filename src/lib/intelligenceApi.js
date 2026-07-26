@@ -1192,3 +1192,21 @@ export const classifyResearchOntology = (question) =>
     method: 'POST',
     body: { question },
   });
+
+/** RQ1 Entity Resolution Engine — Sprint 2 (never guess; IKG source of truth) */
+export const getEntityResolutionHealth = () => intelligenceFetch('/entity-resolution/health');
+export const getEntityResolutionDashboard = () => intelligenceFetch('/entity-resolution/dashboard');
+export const getEntityResolutionConstitution = () =>
+  intelligenceFetch('/entity-resolution/constitution');
+export const getEntityResolutionQualityGates = () =>
+  intelligenceFetch('/entity-resolution/quality-gates');
+export const resolveEntityResolution = (payload = {}) =>
+  intelligenceFetch('/entity-resolution/resolve', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });
+export const diagnoseEntityResolution = (payload = {}) =>
+  intelligenceFetch('/entity-resolution/diagnostics', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });

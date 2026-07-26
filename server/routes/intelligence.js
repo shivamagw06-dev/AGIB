@@ -1925,5 +1925,33 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // RQ1 Entity Resolution Engine — Sprint 2 identity soft-wire (IKG source of truth)
+  router.get('/entity-resolution/health', kfGet('/v1/entity-resolution/health'));
+  router.get('/entity-resolution/dashboard', kfGet('/v1/entity-resolution/dashboard'));
+  router.get('/entity-resolution/constitution', kfGet('/v1/entity-resolution/constitution'));
+  router.get('/entity-resolution/quality-gates', kfGet('/v1/entity-resolution/quality-gates'));
+  router.post('/entity-resolution/resolve', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/entity-resolution/resolve', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'ERE resolve failed', detail: error.message });
+    }
+  });
+  router.post('/entity-resolution/diagnostics', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/entity-resolution/diagnostics', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'ERE diagnostics failed', detail: error.message });
+    }
+  });
+
   return router;
 }

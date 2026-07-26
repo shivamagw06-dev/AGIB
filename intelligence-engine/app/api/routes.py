@@ -4856,6 +4856,51 @@ async def research_ontology_classify(payload: dict[str, Any] = Body(default={}))
     return classify(payload or {})
 
 
+# --- RQ1 Entity Resolution Engine (Sprint 2 — identity soft-wire; not a top-level layer) ---
+
+
+@router.get("/entity-resolution/health")
+async def entity_resolution_health():
+    from entity_resolution.production import health
+
+    return health()
+
+
+@router.get("/entity-resolution/dashboard")
+async def entity_resolution_dashboard():
+    from entity_resolution.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/entity-resolution/constitution")
+async def entity_resolution_constitution():
+    from entity_resolution.production import constitution
+
+    return constitution()
+
+
+@router.get("/entity-resolution/quality-gates")
+async def entity_resolution_quality_gates():
+    from entity_resolution.production import quality_gates
+
+    return quality_gates()
+
+
+@router.post("/entity-resolution/resolve")
+async def entity_resolution_resolve(payload: dict[str, Any] = Body(default={})):
+    from entity_resolution.production import resolve
+
+    return resolve(payload or {})
+
+
+@router.post("/entity-resolution/diagnostics")
+async def entity_resolution_diagnostics(payload: dict[str, Any] = Body(default={})):
+    from entity_resolution.production import diagnostics
+
+    return diagnostics(payload or {})
+
+
 # --- SIF v1.0 (Sector Intelligence Framework — additive; not an engine) ---
 
 

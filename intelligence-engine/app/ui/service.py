@@ -739,6 +739,24 @@ class UiService:
         except Exception:
             research_ontology = {}
 
+        # RQ1 Sprint 2 — Entity Resolution Engine (canonical identity; metadata soft-wire)
+        entity_resolution: dict[str, Any] = {}
+        try:
+            from entity_resolution.production import soft_slice_for_ask_agi as ere_soft_slice
+
+            entity_resolution = ere_soft_slice(q) or {}
+            # Prefer ERE ticker when clear
+            ere_body = entity_resolution.get("entity_resolution") or {}
+            if (
+                isinstance(ere_body, dict)
+                and not ere_body.get("needs_clarification")
+                and ere_body.get("ticker")
+                and not detected_ticker
+            ):
+                detected_ticker = str(ere_body.get("ticker")).upper()
+        except Exception:
+            entity_resolution = {}
+
         # CAE gateway (preferred) — else MEE→FLE→IIE→EVE→AOI→KCV/KF soft enrichment.
         kf_hits: list[dict[str, Any]] = []
         knowledge_corpus: dict[str, Any] = {}
@@ -2362,6 +2380,7 @@ class UiService:
             if briefing
             else None,
             research_ontology=scrub(research_ontology) if research_ontology else {},
+            entity_resolution=scrub(entity_resolution) if entity_resolution else {},
         )
 
     def timeline(self, entity: str) -> TimelineView:
