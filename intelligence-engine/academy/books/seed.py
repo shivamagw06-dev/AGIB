@@ -156,7 +156,9 @@ def seed_concepts() -> list[BookConcept]:
         BookConcept("seed_c_alloc", "Capital Allocation", "Management choices on reinvestment, payout, leverage and M&A.", "The bridge from ROIC to per-share compounding.", [], ["roic", "roe"], ["seed_f_roic"], ["seed_fw_alloc"], [], ["All"], "corporate_finance", "advanced", 0.94, "seed_investment_frameworks", "Capital Allocation"),
         BookConcept("seed_c_brand", "Brand Power", "Ability of a brand to sustain preference and protect volumes.", "Relevant for staples and discretionary franchises.", [], ["pricing_power", "economic_moat"], [], ["seed_fw_staples"], ["NESTLEIND"], ["FMCG"], "sector_fmcg", "intermediate", 0.9, "seed_investment_frameworks", "Consumer Staples Lens"),
         BookConcept("seed_c_pricing", "Pricing Power", "Ability to raise prices without losing unit demand disproportionately.", "Visible in margin resilience through cost shocks.", [], ["brand_power", "roic"], [], ["seed_fw_staples"], ["NESTLEIND"], ["FMCG"], "sector_fmcg", "intermediate", 0.9, "seed_investment_frameworks", "Consumer Staples Lens"),
-        BookConcept("seed_c_wc", "Working Capital", "Operating liquidity tied in inventory, receivables and payables.", "Staples with negative or tight WC improve cash conversion.", [], ["fcf", "roic"], ["seed_f_fcf"], ["seed_fw_staples"], ["NESTLEIND"], ["FMCG"], "sector_fmcg", "intermediate", 0.88, "seed_investment_frameworks", "Consumer Staples Lens"),
+        BookConcept("seed_c_wc", "Working Capital", "Operating liquidity tied in inventory, receivables and payables.", "Staples with negative or tight WC improve cash conversion.", [], ["fcf", "roic", "cash_conversion"], ["seed_f_fcf"], ["seed_fw_staples"], ["NESTLEIND"], ["FMCG"], "sector_fmcg", "intermediate", 0.88, "seed_investment_frameworks", "Consumer Staples Lens"),
+        BookConcept("seed_c_cash_conversion", "Cash Conversion", "How reliably accounting profits become free cash flow.", "Critical bridge from earnings quality to owner returns.", [], ["working_capital", "fcf", "earnings_quality"], ["seed_f_fcf"], ["seed_fw_staples"], ["NESTLEIND"], ["FMCG"], "sector_fmcg", "intermediate", 0.9, "seed_investment_frameworks", "Consumer Staples Lens"),
+        BookConcept("seed_c_premium_valuation", "Premium Valuation", "Market multiple above peers justified only by durable ROIC, growth and cash conversion.", "Premium without economic advantage is fragile.", [], ["economic_moat", "roic", "pricing_power"], [], ["seed_fw_staples", "seed_fw_moat"], ["NESTLEIND"], ["FMCG"], "valuation", "advanced", 0.9, "seed_investment_frameworks", "Consumer Staples Lens"),
         BookConcept("seed_c_comp_adv", "Competitive Advantage", "Position that enables returns above opportunity cost of capital.", "Must be observable in economics, not only narrative.", [], ["economic_moat", "valuation"], [], ["seed_fw_moat", "seed_fw_five_forces"], [], ["All"], "investment", "intermediate", 0.9, "seed_investment_frameworks", "Economic Moat"),
         BookConcept("seed_c_value", "Value Investing", "Seek securities priced below conservative intrinsic value.", "Requires independent valuation and patience.", [], ["margin_of_safety"], [], ["seed_fw_mos"], [], ["All"], "investment", "intro", 0.88, "seed_investment_frameworks", "Economic Moat"),
         BookConcept("seed_c_quality", "Quality Investing", "Prefer businesses with durable ROIC, clean accounting and disciplined allocation.", "Quality is an economic trait, not a style label alone.", [], ["roic", "economic_moat"], [], ["seed_fw_moat", "seed_fw_alloc"], [], ["All"], "investment", "intermediate", 0.9, "seed_investment_frameworks", "Capital Allocation"),
@@ -185,11 +187,14 @@ def all_seed_concepts() -> list[BookConcept]:
             "brand_power": "seed_c_brand",
             "pricing_power": "seed_c_pricing",
             "working_capital": "seed_c_wc",
+            "cash_conversion": "seed_c_cash_conversion",
             "fcf": "seed_c_fcf",
             "roe": "seed_c_roe",
             "wacc": "seed_c_wacc",
             "accrual_accounting": "seed_c_accruals",
-            "valuation": "seed_c_intrinsic_value",
+            "earnings_quality": "seed_c_earnings_quality",
+            "pricing_power": "seed_c_pricing",
+            "valuation": "seed_c_premium_valuation",
         }
         c.related_concepts = [remap.get(r, r) for r in c.related_concepts]
     return concepts

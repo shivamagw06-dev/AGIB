@@ -26,6 +26,8 @@ class BooksStore:
         self.edges: dict[str, GraphEdge] = {}
         self.versions: dict[str, list[dict[str, Any]]] = {}
         self.usage: dict[str, int] = {}
+        self.spreadsheet_ids: set[str] = set()
+        self.ingestion_reports: list[dict[str, Any]] = []
 
     def reset(self) -> None:
         with self._lock:
@@ -67,6 +69,15 @@ class BooksStore:
         with self._lock:
             self.usage[concept_id] = int(self.usage.get(concept_id) or 0) + 1
 
+    def record_spreadsheet(self, book_id: str) -> None:
+        with self._lock:
+            self.spreadsheet_ids.add(book_id)
+
+    def add_ingestion_report(self, report: dict[str, Any]) -> None:
+        with self._lock:
+            self.ingestion_reports.append(report)
+            self.ingestion_reports = self.ingestion_reports[-50:]
+
     def snapshot(self) -> dict[str, Any]:
         with self._lock:
             return {
@@ -76,6 +87,7 @@ class BooksStore:
                 "formulas": len(self.formulas),
                 "frameworks": len(self.frameworks),
                 "edges": len(self.edges),
+                "spreadsheets": len(self.spreadsheet_ids),
                 "most_used": sorted(self.usage.items(), key=lambda x: -x[1])[:12],
             }
 

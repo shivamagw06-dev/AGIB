@@ -637,6 +637,11 @@ export const packageAcademyBooks = (query, ticker) => {
 };
 export const attachAcademyBooksKf = () =>
   intelligenceFetch('/academy/books/attach-kf', { method: 'POST', body: {} });
+export const getAcademyBooksLibrary = () => intelligenceFetch('/academy/books/library');
+export const getAcademyBooksIngestionReport = () =>
+  intelligenceFetch('/academy/books/ingestion-report');
+export const ingestAcademyBooksLibrary = (body = {}) =>
+  intelligenceFetch('/academy/books/ingest-library', { method: 'POST', body });
 export const getSifHealth = () => intelligenceFetch('/sif/health');
 export const getSifDashboard = () => intelligenceFetch('/sif/dashboard');
 export const getSifFrameworks = () => intelligenceFetch('/sif/frameworks');

@@ -1,41 +1,35 @@
-# AGI Academy Books V1
+# AGI Academy Books V2 — Personal Library Knowledge Ingestion
 
 **Architecture status:** v1.0.1 LOCKED  
-**Role:** Permanent institutional learning layer — not an engine, not an LLM, not a recommender.
+**Role:** Extend Academy Books only — not an engine redesign.
 
 ## Mission
 
-Extend Academy so AGI learns from curated investment books, textbooks, accounting references, valuation guides, economics books and industry handbooks — as **structured knowledge objects**, never as searchable PDFs or copyrighted verbatim text.
+Convert every book / spreadsheet in the configured personal library into **structured institutional knowledge** (concepts, frameworks, formulas, graph). Never build a searchable PDF corpus. Never retain long verbatim copyrighted text.
 
-## Pipeline
+## Library roots (first existing wins)
 
-Books → text extract (transient) → chapter/section detection → concept / framework / formula extraction → knowledge objects → Academy → Knowledge Foundation → CID → IRP → Ask AGI / Research Writer
+1. `ACADEMY_BOOKS_DIR` / settings `academy_books_dir`
+2. `/workspace/books`
+3. `~/Downloads/AGIB/Books`
+4. `/Users/shivamagarwal/Downloads/AGIB/Books`
+
+## Supported formats
+
+- Books: PDF, EPUB, DOCX, Markdown
+- Spreadsheets: XLSX, XLS, ODS, CSV → formulas, variables, templates, named ranges
+
+## APIs
+
+- `GET /v1/academy/books/library` — scan
+- `POST /v1/academy/books/ingest-library` — batch structured ingest + report
+- `GET /v1/academy/books/ingestion-report` — latest validation report
+- Plus V1 health/dashboard/ingest/package/graph endpoints
 
 ## Flags
 
-| Flag | Purpose |
-|------|---------|
-| `ACADEMY` | Master Academy enable |
-| `ACADEMY_BOOKS` | Book ingestion + structured learning |
-| `ACADEMY_FRAMEWORKS` | Framework objects |
-| `ACADEMY_FORMULAS` | Formula objects |
-| `ACADEMY_GRAPH` | Knowledge graph edges |
-
-## Copyright policy
-
-- Never store long verbatim passages
-- Never build a searchable PDF index
-- Store definitions / summaries / formulas / frameworks in AGI's own institutional language
-- Keep source book id + chapter attribution + extraction confidence
-
-## Soft wiring
-
-- **Catalog / FAPI** — book concepts participate in finance reasoning packages
-- **CID** — Nestlé-class dossiers gain sector/valuation/accounting learning blocks
-- **KF** — academy themes soft-attached
-- **Ask AGI** — via FAPI package + answer hints (no book quotes)
-- **Research Writer** — frameworks/terminology/logic hints only
+`ACADEMY`, `ACADEMY_BOOKS`, `ACADEMY_FRAMEWORKS`, `ACADEMY_FORMULAS`, `ACADEMY_GRAPH`, `ACADEMY_SPREADSHEETS`
 
 ## Admin
 
-`/admin/academy` — Books panel (counts, gates, flags, linked companies, most-used concepts)
+`/admin/academy` — Books V2 panel with ingest action, spreadsheet count, ingestion report table.

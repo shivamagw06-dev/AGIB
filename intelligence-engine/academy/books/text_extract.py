@@ -72,14 +72,42 @@ def _pdf_to_text(raw: bytes) -> dict[str, Any]:
         from pypdf import PdfReader
 
         reader = PdfReader(io.BytesIO(raw))
+        n_pages = len(reader.pages)
+        # Cap pages for extraction speed/memory; still report full page count
+        max_pages = min(n_pages, 220)
         parts: list[str] = []
-        for page in reader.pages:
+        for i in range(max_pages):
             try:
-                parts.append(page.extract_text() or "")
+                parts.append(reader.pages[i].extract_text() or "")
             except Exception:
                 continue
+        # Sample tail pages for end-matter keywords if truncated
+        if n_pages > max_pages:
+            for i in range(max(max_pages, n_pages - 15), n_pages):
+                try:
+                    parts.append(reader.pages[i].extract_text() or "")
+                except Exception:
+                    continue
         text = "\n\n".join(parts)
-        return {"text": text, "format": "pdf", "pages_approx": len(reader.pages)}
+        if len(text) > 500_000:
+            text = text[:500_000]
+        meta = {}
+        try:
+            info = reader.metadata or {}
+            meta = {
+                "title": str(getattr(info, "title", None) or info.get("/Title") or "") if info else "",
+                "author": str(getattr(info, "author", None) or info.get("/Author") or "") if info else "",
+                "creator": str(getattr(info, "creator", None) or "") if info else "",
+            }
+        except Exception:
+            meta = {}
+        return {
+            "text": text,
+            "format": "pdf",
+            "pages_approx": n_pages,
+            "pages_processed": max_pages if n_pages > max_pages else n_pages,
+            "metadata": meta,
+        }
     except Exception:
         return {"text": "", "format": "pdf", "pages_approx": 0, "needs_ocr": True}
 

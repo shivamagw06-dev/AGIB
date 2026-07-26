@@ -888,6 +888,19 @@ export default function createIntelligenceRouter() {
       res.status(502).json({ error: err?.message || 'Academy books KF attach failed' });
     }
   });
+  router.get('/academy/books/library', kfGet('/v1/academy/books/library'));
+  router.get('/academy/books/ingestion-report', kfGet('/v1/academy/books/ingestion-report'));
+  router.post('/academy/books/ingest-library', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/academy/books/ingest-library', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err?.message || 'Academy library ingest failed' });
+    }
+  });
   // SIF v1.0 — Sector Intelligence Framework (additive; not an engine)
   router.get('/sif/health', kfGet('/v1/sif/health'));
   router.get('/sif/dashboard', kfGet('/v1/sif/dashboard'));

@@ -291,6 +291,8 @@ class Settings(BaseSettings):
     academy_frameworks: bool = True  # ACADEMY_FRAMEWORKS
     academy_formulas: bool = True  # ACADEMY_FORMULAS
     academy_graph: bool = True  # ACADEMY_GRAPH
+    academy_spreadsheets: bool = True  # ACADEMY_SPREADSHEETS — xlsx/xls/ods/csv models
+    academy_books_dir: str = ""  # ACADEMY_BOOKS_DIR — personal library root
     sif: bool = True  # SIF — Sector Intelligence Framework (additive analysis lens)
     leo: bool = True  # LEO — Live Evidence Orchestrator (additive evidence acquisition)
     cid: bool = True  # CID — Company Intelligence Dossier (permanent institutional memory)

@@ -24,6 +24,10 @@ _RULES: list[tuple[str, tuple[str, ...]]] = [
     ("sector_real_estate", ("real estate", "pre-sales", "rera", "nav")),
     ("sector_telecom", ("telecom", "arpu", "spectrum", "subscriber")),
     ("sector_automobiles", ("auto", "automobile", "ev", "dealer", "asp")),
+    ("sector_metals", ("steel", "metal", "aluminium", "copper", "mining")),
+    ("sector_capital_goods", ("capital goods", "industrial", "machinery", "order book")),
+    ("sector_chemicals", ("chemical", "specialty chemical", "petrochemical")),
+    ("sector_consumer_durables", ("durable", "appliance", "consumer electronics")),
     ("investment", ("invest", "moat", "margin of safety", "compound", "quality", "growth", "value")),
 ]
 

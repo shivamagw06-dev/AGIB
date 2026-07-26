@@ -3311,6 +3311,30 @@ async def academy_books_attach_kf():
     return soft_attach_kf()
 
 
+@router.get("/academy/books/library")
+async def academy_books_library():
+    from academy.books.library import scan_library
+
+    return scan_library()
+
+
+@router.post("/academy/books/ingest-library")
+async def academy_books_ingest_library(payload: dict[str, Any] = Body(default={})):
+    """Batch-ingest personal library into structured Academy knowledge."""
+    from academy.books.production import ingest_library
+
+    root = payload.get("root")
+    limit = payload.get("limit")
+    return ingest_library(root=root, limit=int(limit) if limit is not None else None)
+
+
+@router.get("/academy/books/ingestion-report")
+async def academy_books_ingestion_report():
+    from academy.books.production import ingestion_report
+
+    return ingestion_report()
+
+
 # --- SIF v1.0 (Sector Intelligence Framework — additive; not an engine) ---
 
 

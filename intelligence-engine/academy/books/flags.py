@@ -41,6 +41,11 @@ def flag_graph() -> bool:
     return True if s is None else bool(getattr(s, "academy_graph", True))
 
 
+def flag_spreadsheets() -> bool:
+    s = _settings()
+    return True if s is None else bool(getattr(s, "academy_spreadsheets", True))
+
+
 def flags_dict() -> dict[str, Any]:
     return {
         "ACADEMY": is_academy_enabled(),
@@ -48,4 +53,5 @@ def flags_dict() -> dict[str, Any]:
         "ACADEMY_FRAMEWORKS": flag_frameworks(),
         "ACADEMY_FORMULAS": flag_formulas(),
         "ACADEMY_GRAPH": flag_graph(),
+        "ACADEMY_SPREADSHEETS": flag_spreadsheets(),
     }

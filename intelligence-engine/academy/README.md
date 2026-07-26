@@ -10,9 +10,9 @@ Institutional **multi-course curriculum library** — not an engine and not a su
 
 These three form the intellectual foundation before Investment Valuation.
 
-## Academy Books V1
+## Academy Books V1 / V2
 
-Additive programme under `academy/books/` — curated books / manuals become structured concepts, frameworks and formulas (never searchable PDFs, never long verbatim text). Soft-wires into FAPI, CID, KF, Ask AGI and Research Writer. See `academy/books/README.md`.
+Additive programme under `academy/books/` — personal library (PDF/EPUB/DOCX/MD) + spreadsheets become structured concepts, frameworks and formulas (never searchable PDFs, never long verbatim text). Soft-wires into FAPI, CID, KF, Ask AGI and Research Writer. See `academy/books/README.md`.
 
 ## Mission
 

@@ -8,10 +8,12 @@ from academy.books.flags import (
     flag_formulas,
     flag_frameworks,
     flag_graph,
+    flag_spreadsheets,
     flags_dict,
     is_books_enabled,
 )
 from academy.books.ingest import ensure_seeded
+from academy.books.library import resolve_library_root, scan_library
 from academy.books.schema import BOOKS_VERSION
 from academy.books.store import get_books_store, reset_books_store
 
@@ -30,38 +32,54 @@ def dashboard() -> dict[str, Any]:
     linked_companies = sorted(
         {co.upper() for c in store.concepts.values() for co in c.linked_companies}
     )
+    real_books = [b for b in store.books.values() if b.source_format != "seed"]
+    sectors = sorted(
+        {
+            *(x for c in store.concepts.values() for x in c.linked_industries),
+            *(c.academy.replace("sector_", "") for c in store.concepts.values() if c.academy.startswith("sector_")),
+        }
+    )
+    lib = scan_library()
     return {
         "programme": "AGI_ACADEMY_BOOKS",
         "books_version": BOOKS_VERSION,
         "architecture_status": "v1.0.1 LOCKED",
         "enabled": is_books_enabled(),
         "flags": flags_dict(),
+        "library_root": str(resolve_library_root() or ""),
+        "library_scan": lib.get("counts") or {},
         "books": [b.to_dict() for b in store.books.values()],
+        "books_successfully_ingested": len(real_books),
         "academies": academies,
         "concept_count": snap["concepts"],
         "framework_count": snap["frameworks"] if flag_frameworks() else 0,
         "formula_count": snap["formulas"] if flag_formulas() else 0,
+        "spreadsheet_count": snap.get("spreadsheets") or 0 if flag_spreadsheets() else 0,
         "graph_edges": snap["edges"] if flag_graph() else 0,
         "chapter_count": snap["chapters"],
         "coverage": {
             "academies_populated": len(academies),
-            "books_ingested": snap["books"],
+            "books_ingested": len(real_books),
             "seed_ratio": round(
                 sum(1 for b in store.books.values() if b.source_format == "seed") / max(1, snap["books"]),
                 3,
             ),
+            "library_files_seen": (lib.get("counts") or {}).get("total_supported") or 0,
         },
         "learning_progress": {
             "concepts": snap["concepts"],
             "frameworks": snap["frameworks"],
             "formulas": snap["formulas"],
+            "spreadsheets": snap.get("spreadsheets") or 0,
             "graph": snap["edges"],
         },
         "linked_companies": linked_companies,
+        "sectors_linked": sectors,
         "most_used_concepts": [
             {"concept_id": cid, "uses": n} for cid, n in snap["most_used"]
         ],
         "knowledge_graph": _graph_preview(store) if flag_graph() else {"nodes": [], "edges": []},
+        "latest_ingestion_report": (store.ingestion_reports[-1] if store.ingestion_reports else None),
         "copyright": {
             "verbatim_storage": False,
             "searchable_pdf_index": False,
@@ -183,6 +201,23 @@ def soft_attach_kf() -> dict[str, Any]:
     from academy.books.kf_attach import attach_books_to_kf
 
     return attach_books_to_kf()
+
+
+def ingest_library(*, root: str | None = None, limit: int | None = None) -> dict[str, Any]:
+    from academy.books.batch import ingest_personal_library
+    from academy.books.flags import flag_spreadsheets
+
+    return ingest_personal_library(
+        root=root,
+        limit=limit,
+        include_spreadsheets=flag_spreadsheets(),
+    )
+
+
+def ingestion_report() -> dict[str, Any]:
+    from academy.books.batch import latest_ingestion_report
+
+    return latest_ingestion_report() or {"ok": False, "reason": "no_report"}
 
 
 def research_writer_slice(query: str = "", ticker: str | None = None) -> dict[str, Any]:
