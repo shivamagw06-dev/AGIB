@@ -57,6 +57,12 @@ Cross-book topics (e.g. ROIC) resolve to **one** `InstitutionalKnowledgeObject` 
 
 V2 `package_for_query` soft-wires a `books_v3` block. Business / Financial / Valuation IAI knowledge packs soft-consume analyst bases.
 
+## Academy Validation Suite
+
+Separate soft programme: **demonstrate** institutional knowledge (Levels 1–8), do not merely prove ingest.
+
+See `academy/validation_suite/README.md` and `/v1/academy/validation/*`.
+
 ## Admin
 
 `/admin/academy` — Books V2 panel with ingest action, spreadsheet count, ingestion report table.

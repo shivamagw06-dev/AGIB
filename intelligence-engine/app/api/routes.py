@@ -3591,6 +3591,66 @@ async def academy_books_v3_analyst(analyst: str, question: str = Query(default="
     return analyst_base(analyst, question=question)
 
 
+# --- Academy Validation Suite V1 (demonstrate knowledge, not ingest status) ---
+
+
+@router.get("/academy/validation/health")
+async def academy_validation_health():
+    from academy.validation_suite.production import is_enabled
+    from academy.validation_suite.schema import AVS_VERSION, LEVELS
+
+    return {
+        "status": "ok" if is_enabled() else "disabled",
+        "programme": "AGI_ACADEMY_VALIDATION_SUITE",
+        "version": AVS_VERSION,
+        "architecture_status": "v1.0.1 LOCKED",
+        "question": "Can it demonstrate institutional knowledge?",
+        "not": "Did it ingest the book?",
+        "levels": LEVELS,
+    }
+
+
+@router.get("/academy/validation/dashboard")
+async def academy_validation_dashboard():
+    from academy.validation_suite.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/academy/validation/exams")
+async def academy_validation_exams(level: int | None = Query(default=None)):
+    from academy.validation_suite.production import list_exams
+
+    return list_exams(level=level)
+
+
+@router.post("/academy/validation/run")
+async def academy_validation_run(payload: dict[str, Any] = Body(default={})):
+    from academy.validation_suite.production import run_level, run_suite
+
+    levels = payload.get("levels")
+    if levels is not None and len(list(levels)) == 1:
+        return run_level(int(list(levels)[0]))
+    return run_suite(levels=[int(x) for x in levels] if levels else None)
+
+
+@router.post("/academy/validation/exam/{exam_id}")
+async def academy_validation_exam(exam_id: str):
+    from academy.validation_suite.production import run_exam
+
+    result = run_exam(exam_id)
+    if result.get("reason") == "unknown_exam":
+        raise HTTPException(status_code=404, detail="unknown_exam")
+    return result
+
+
+@router.get("/academy/validation/quality-gates")
+async def academy_validation_quality_gates():
+    from academy.validation_suite.production import quality_gates
+
+    return quality_gates()
+
+
 # --- SIF v1.0 (Sector Intelligence Framework — additive; not an engine) ---
 
 
