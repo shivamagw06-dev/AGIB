@@ -716,3 +716,18 @@ export const completeEcp = (ticker, q = 'Should I buy?') => {
   });
   return intelligenceFetch(`/ecp/complete?${qs}`, { method: 'POST', body: {} });
 };
+
+/** Company Analysis Engine V1 — institutional company-specific reasoning (not Context Assembly) */
+export const getCompanyAnalysisHealth = () => intelligenceFetch('/company-analysis/health');
+export const getCompanyAnalysisDashboard = () => intelligenceFetch('/company-analysis/dashboard');
+export const getCompanyAnalysisQualityGates = () =>
+  intelligenceFetch('/company-analysis/quality-gates');
+export const getCompanyAnalysisReports = (limit = 30) =>
+  intelligenceFetch(`/company-analysis/reports?limit=${limit}`);
+export const getCompanyAnalysisReport = (ticker) =>
+  intelligenceFetch(`/company-analysis/report/${encodeURIComponent(ticker)}`);
+export const analyseCompany = (ticker, query = 'Company analysis') =>
+  intelligenceFetch('/company-analysis/analyse', {
+    method: 'POST',
+    body: { ticker, query },
+  });

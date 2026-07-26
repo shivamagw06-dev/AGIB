@@ -308,6 +308,15 @@ class Settings(BaseSettings):
     ecp_before_irp: bool = True
     ecp_before_gate: bool = True
 
+    # Company Analysis Engine V1 — institutional company-specific reasoning (not Context Assembly)
+    # Master flag COMPANY_ANALYSIS (cae remains Context Assembly). Subflags match programme brief.
+    company_analysis: bool = True
+    cae_financial: bool = True
+    cae_sector: bool = True
+    cae_business: bool = True
+    cae_valuation: bool = True
+    cae_investment_thesis: bool = True
+
 
 @lru_cache
 def get_settings() -> Settings:

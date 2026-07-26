@@ -700,6 +700,7 @@ class UiService:
         company_dossier: dict[str, Any] = {}
         data_validation: dict[str, Any] = {}
         evidence_completion: dict[str, Any] = {}
+        company_analysis: dict[str, Any] = {}
         used_cae = False
 
         # LEO v1.0 — gather / verify / package live evidence BEFORE Academy + SIF + IRP
@@ -973,6 +974,31 @@ class UiService:
                         detected_ticker = str(company_pack["company_symbol"]).upper()
             except Exception:
                 valuation = {}
+
+        # Company Analysis Engine V1 — apply Academy to THIS company before IRP (not Context Assembly)
+        try:
+            from company_analysis.production import package_for_ask_agi as company_analysis_package
+
+            if detected_ticker or q:
+                company_analysis = (
+                    company_analysis_package(
+                        q,
+                        ticker=detected_ticker,
+                        cid=company_dossier if isinstance(company_dossier, dict) else None,
+                        finance_academy=finance_academy if isinstance(finance_academy, dict) else None,
+                        sif_pkg=sector_intelligence if isinstance(sector_intelligence, dict) else None,
+                        leo_pkg=live_evidence if isinstance(live_evidence, dict) else None,
+                        dvc_pkg=data_validation if isinstance(data_validation, dict) else None,
+                        valuation_pack=valuation if isinstance(valuation, dict) else None,
+                        forecast_learning=forecast_learning if isinstance(forecast_learning, dict) else None,
+                        market_events=market_events if isinstance(market_events, dict) else None,
+                    )
+                    or {}
+                )
+                if company_analysis.get("ticker") and not detected_ticker:
+                    detected_ticker = str(company_analysis["ticker"]).upper()
+        except Exception:
+            company_analysis = {}
 
         # IRP V1 — think (intent → entities → plan → retrieve → reason) before answering.
         if self.irp and q:
@@ -1360,6 +1386,25 @@ class UiService:
                         f"Missing: {', '.join((panel.get('missing_items') or panel.get('must_have_missing') or [])[:6]) or 'none'}."
                     )[:360],
                 )
+            why = why[:12]
+
+        # Company Analysis — applied Academy concepts + readiness (never auto-recommend)
+        if isinstance(company_analysis, dict) and company_analysis.get("enabled"):
+            for hint in (company_analysis.get("ask_agi_hints") or [])[:4]:
+                if hint and hint not in why:
+                    why.insert(0, scrub_text(hint)[:400])
+            readiness = company_analysis.get("recommendation_readiness") or {}
+            if readiness.get("overall") is not None:
+                why.insert(
+                    0,
+                    scrub_text(
+                        f"Company Analysis readiness {readiness.get('overall')}% — "
+                        f"gate: {readiness.get('gate')} (not an automatic recommendation)."
+                    )[:320],
+                )
+            bq = (company_analysis.get("business_quality") or {}).get("business_quality_score")
+            if bq is not None:
+                why.insert(0, scrub_text(f"Business quality score: {bq}/100.")[:200])
             why = why[:12]
 
         # LEO hints — live evidence contribution before recommendation
@@ -1885,6 +1930,7 @@ class UiService:
             company_dossier=scrub(company_dossier) if company_dossier else {},
             data_validation=scrub(data_validation) if data_validation else {},
             evidence_completion=scrub(evidence_completion) if evidence_completion else {},
+            company_analysis=scrub(company_analysis) if company_analysis else {},
             institutional_briefing=scrub(briefing) or {},
             # Prefer live SIF/Ask-AGI sector pack; fall back to IRP sector pack
             sector_intelligence=scrub(sector_intelligence)

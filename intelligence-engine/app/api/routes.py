@@ -4018,6 +4018,55 @@ async def ecp_complete(
     )
 
 
+# --- Company Analysis Engine V1 (institutional company reasoning; not Context Assembly) ---
+
+
+@router.get("/company-analysis/health")
+async def company_analysis_health():
+    from company_analysis.production import health
+
+    return health()
+
+
+@router.get("/company-analysis/dashboard")
+async def company_analysis_dashboard():
+    from company_analysis.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/company-analysis/quality-gates")
+async def company_analysis_quality_gates():
+    from company_analysis.production import quality_gates
+
+    return quality_gates()
+
+
+@router.get("/company-analysis/reports")
+async def company_analysis_reports(limit: int = Query(default=30, ge=1, le=100)):
+    from company_analysis import store as ca_store
+
+    return {"reports": ca_store.list_reports(limit=limit)}
+
+
+@router.get("/company-analysis/report/{ticker}")
+async def company_analysis_report(ticker: str):
+    from company_analysis import store as ca_store
+
+    row = ca_store.get_report(ticker)
+    return row or {"ticker": ticker.upper(), "found": False}
+
+
+@router.post("/company-analysis/analyse")
+async def company_analysis_analyse(payload: dict[str, Any] = Body(default={})):
+    """Run institutional company analysis for a ticker/query (admin / Ask AGI soft path)."""
+    from company_analysis.production import analyse
+
+    query = str(payload.get("query") or payload.get("q") or "Company analysis")
+    ticker = payload.get("ticker")
+    return analyse(query, ticker=ticker)
+
+
 @router.get("/features/health")
 async def features_health():
     """WS03 Feature Registry health + cache/metrics."""

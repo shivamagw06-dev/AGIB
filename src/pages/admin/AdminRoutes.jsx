@@ -20,6 +20,7 @@ import CompanyDossiers from '@/pages/admin/CompanyDossiers';
 import YahooProvider from '@/pages/admin/YahooProvider';
 import DataQuality from '@/pages/admin/DataQuality';
 import EvidenceCompletion from '@/pages/admin/EvidenceCompletion';
+import CompanyAnalysis from '@/pages/admin/CompanyAnalysis';
 
 export default function AdminRoutes() {
   return (
@@ -39,6 +40,7 @@ export default function AdminRoutes() {
           <Route path="yahoo-provider" element={<YahooProvider />} />
           <Route path="data-quality" element={<DataQuality />} />
           <Route path="evidence-completion" element={<EvidenceCompletion />} />
+          <Route path="company-analysis" element={<CompanyAnalysis />} />
           <Route path="investment-intelligence" element={<InvestmentIntelligence />} />
           <Route path="forecasting" element={<Forecasting />} />
           <Route path="events" element={<Events />} />

@@ -157,6 +157,8 @@ class SearchView(BaseModel):
     data_validation: dict[str, Any] = Field(default_factory=dict)
     # ECP V1 — Evidence Completion Pipeline (orchestration; additive)
     evidence_completion: dict[str, Any] = Field(default_factory=dict)
+    # Company Analysis Engine V1 — apply Academy to company with evidence (additive; not Context Assembly)
+    company_analysis: dict[str, Any] = Field(default_factory=dict)
     institutional_briefing: dict[str, Any] = Field(default_factory=dict)
     company_intelligence: dict[str, Any] = Field(default_factory=dict)
     current_outlook: str | None = None

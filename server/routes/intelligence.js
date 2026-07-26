@@ -966,5 +966,32 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // Company Analysis Engine V1 — apply Academy to companies (not Context Assembly)
+  router.get('/company-analysis/health', kfGet('/v1/company-analysis/health'));
+  router.get('/company-analysis/dashboard', kfGet('/v1/company-analysis/dashboard'));
+  router.get('/company-analysis/quality-gates', kfGet('/v1/company-analysis/quality-gates'));
+  router.get('/company-analysis/reports', kfGet('/v1/company-analysis/reports'));
+  router.get('/company-analysis/report/:ticker', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/company-analysis/report/${encodeURIComponent(req.params.ticker)}`
+      );
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err?.message || 'Company analysis report failed' });
+    }
+  });
+  router.post('/company-analysis/analyse', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/company-analysis/analyse', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err?.message || 'Company analysis failed' });
+    }
+  });
+
   return router;
 }
