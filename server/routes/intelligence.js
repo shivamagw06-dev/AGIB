@@ -1236,6 +1236,10 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // Institutional Analyst Framework V1 — Answer Construction orchestration (not engines)
+  router.get('/institutional-analysts/health', kfGet('/v1/institutional-analysts/health'));
+  router.get('/institutional-analysts/quality-gates', kfGet('/v1/institutional-analysts/quality-gates'));
+
   // AGIB Intelligence Layer V2 — living institutional research (soft-wire)
   router.get('/ail/health', kfGet('/v1/ail/health'));
   router.get('/ail/dashboard', kfGet('/v1/ail/dashboard'));

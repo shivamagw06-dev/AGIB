@@ -4623,3 +4623,20 @@ async def ail_prediction(prediction_id: str):
         raise HTTPException(status_code=404, detail="prediction_not_found") from exc
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+# --- Institutional Analyst Framework V1 (Answer Construction orchestration only) ---
+
+
+@router.get("/institutional-analysts/health")
+async def institutional_analysts_health():
+    from institutional_analysts.production import health
+
+    return health()
+
+
+@router.get("/institutional-analysts/quality-gates")
+async def institutional_analysts_quality_gates():
+    from institutional_analysts.production import quality_gates
+
+    return quality_gates()

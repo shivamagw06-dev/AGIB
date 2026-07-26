@@ -52,6 +52,28 @@ function Section({ id, kicker, title, children, className = '' }) {
   );
 }
 
+const DEFAULT_OWNER_LABELS = {
+  cio: 'Chief Investment Officer',
+  committee: 'Investment Committee',
+  business: 'Business Analyst',
+  financial: 'Financial Analyst',
+  valuation: 'Valuation Analyst',
+  market: 'Market Analyst',
+  sector: 'Sector Analyst',
+  macro: 'Macro Analyst',
+  risk: 'Risk Analyst',
+  management: 'Management Analyst',
+  ownership: 'Ownership Analyst',
+  recommendation_gate: 'Recommendation Gate',
+};
+
+function ownerKicker(vm, sectionKey, fallback) {
+  if (!vm?.iafEnabled) return fallback;
+  const owner = vm.sectionOwners?.[sectionKey];
+  if (!owner) return fallback;
+  return vm.publicOwnerLabels?.[owner] || DEFAULT_OWNER_LABELS[owner] || fallback;
+}
+
 function pctLabel(value) {
   if (value == null || Number.isNaN(Number(value))) return '—';
   const n = Number(value);
@@ -308,6 +330,7 @@ export default function ResearchWorkspace({
                     <span className="rw-chip blue">{vm.category}</span>
                     {vm.ticker ? <span className="rw-chip muted">{vm.ticker}</span> : null}
                     {vm.acEnabled ? <span className="rw-chip muted">Institutional Brief</span> : null}
+                    {vm.iafEnabled ? <span className="rw-chip muted">Analyst Desk</span> : null}
                     {vm.ideEnabled ? <span className="rw-chip muted">Decision Stack</span> : null}
                   </div>
                   <p className="rw-meta">
@@ -317,10 +340,18 @@ export default function ResearchWorkspace({
                 </div>
 
                 <div className="rw-grid-2">
-                  <Section id="executive" kicker="Section 1" title="Executive Summary">
+                  <Section
+                    id="executive"
+                    kicker={ownerKicker(vm, 'executive_summary', 'Section 1')}
+                    title="Executive Summary"
+                  >
                     <p className="rw-body">{vm.executive || 'Institutional summary assembling…'}</p>
                   </Section>
-                  <Section id="view" kicker="Section 2" title="AGI Institutional View">
+                  <Section
+                    id="view"
+                    kicker={ownerKicker(vm, 'institutional_view', 'Section 2')}
+                    title="Institutional View"
+                  >
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <p className="rw-mini">Current View</p>
@@ -341,9 +372,21 @@ export default function ResearchWorkspace({
                       </div>
                       <div className="col-span-2">
                         <p className="rw-mini">Recommendation Readiness</p>
-                        <p className="font-semibold">{vm.readiness}</p>
+                        <p className="font-semibold">
+                          {vm.institutionalView?.readiness || vm.readiness}
+                        </p>
                       </div>
                     </div>
+                    {vm.institutionalView?.summary ? (
+                      <p className="rw-body mt-4">{vm.institutionalView.summary}</p>
+                    ) : null}
+                    {vm.institutionalView?.agreements?.length ? (
+                      <ul className="mt-3 space-y-1 text-sm text-[var(--rw-muted)]">
+                        {vm.institutionalView.agreements.slice(0, 3).map((a) => (
+                          <li key={a}>• {a}</li>
+                        ))}
+                      </ul>
+                    ) : null}
                   </Section>
                 </div>
 
@@ -413,7 +456,11 @@ export default function ResearchWorkspace({
                 ) : null}
 
                 <div className="rw-grid-2">
-                  <Section id="thesis" kicker="Section 4" title="Investment Thesis">
+                  <Section
+                    id="thesis"
+                    kicker={ownerKicker(vm, 'executive_summary', 'Section 4')}
+                    title="Investment Thesis"
+                  >
                     <p className="rw-body">{vm.thesis}</p>
                     {vm.why.length ? (
                       <ul className="mt-3 space-y-2 text-sm text-[var(--rw-soft)]">
@@ -546,7 +593,11 @@ export default function ResearchWorkspace({
                   )}
                 </Section>
 
-                <Section id="financials" kicker="Section 7" title="Financial Intelligence">
+                <Section
+                  id="financials"
+                  kicker={ownerKicker(vm, 'financial_intelligence', 'Section 7')}
+                  title="Financial Intelligence"
+                >
                   <p className="rw-body mb-4">{vm.financialNarrative}</p>
                   {vm.financialCards?.length ? (
                     <div className="rw-grid-3">
@@ -564,7 +615,11 @@ export default function ResearchWorkspace({
                   ) : null}
                 </Section>
 
-                <Section id="valuation" kicker="Section 8" title="Valuation Intelligence">
+                <Section
+                  id="valuation"
+                  kicker={ownerKicker(vm, 'valuation_intelligence', 'Section 8')}
+                  title="Valuation Intelligence"
+                >
                   <p className="rw-body mb-4">{vm.valuationNarrative}</p>
                   {vm.valuationCards?.length ? (
                     <div className="rw-grid-3 mb-4">
@@ -597,7 +652,11 @@ export default function ResearchWorkspace({
                 </Section>
 
                 <div className="rw-grid-2">
-                  <Section id="business" kicker="Section 9" title="Business Intelligence">
+                  <Section
+                    id="business"
+                    kicker={ownerKicker(vm, 'business_intelligence', 'Section 9')}
+                    title="Business Intelligence"
+                  >
                     <p className="rw-body">
                       {vm.businessModel ||
                         vm.businessIntelligence?.narrative ||
@@ -605,11 +664,9 @@ export default function ResearchWorkspace({
                     </p>
                     <div className="mt-3 grid grid-cols-1 gap-2">
                       {[
-                        ['Industry structure', vm.businessIntelligence?.industry_structure || vm.sectorNarrative],
                         ['Competitive advantages', vm.businessIntelligence?.competitive_advantages],
                         ['Revenue drivers', vm.businessIntelligence?.revenue_drivers],
                         ['Operating metrics', vm.businessIntelligence?.operating_metrics],
-                        ['Risks', vm.businessIntelligence?.risks],
                         ['Long-term growth', vm.businessIntelligence?.long_term_growth],
                       ]
                         .filter(([, text]) => text)
@@ -619,15 +676,13 @@ export default function ResearchWorkspace({
                             <p>{text}</p>
                           </div>
                         ))}
-                      {vm.ownershipNarrative ? (
-                        <div className="rw-why-card">
-                          <h4>Ownership</h4>
-                          <p>{vm.ownershipNarrative}</p>
-                        </div>
-                      ) : null}
                     </div>
                   </Section>
-                  <Section id="market" kicker="Section 10" title="Market Intelligence">
+                  <Section
+                    id="market"
+                    kicker={ownerKicker(vm, 'market_intelligence', 'Section 10')}
+                    title="Market Intelligence"
+                  >
                     <p className="rw-body">
                       {vm.marketNarrative ||
                         'Market context frames entry timing and risk appetite — it does not replace business or valuation analysis.'}
@@ -654,7 +709,11 @@ export default function ResearchWorkspace({
                 </div>
 
                 <div className="rw-grid-2">
-                  <Section id="sector" kicker="Section 11" title="Sector Intelligence">
+                  <Section
+                    id="sector"
+                    kicker={ownerKicker(vm, 'sector_intelligence', 'Section 11')}
+                    title="Sector Intelligence"
+                  >
                     <p className="rw-body">
                       {vm.sectorNarrative ||
                         'Industry structure matters because it shapes pricing power, capital intensity and the durability of returns.'}
@@ -667,8 +726,16 @@ export default function ResearchWorkspace({
                       </ul>
                     ) : null}
                   </Section>
-                  {vm.macroDrivers.length ? (
-                    <Section id="macro" kicker="Section 12" title="Macro Intelligence">
+                  <Section
+                    id="macro"
+                    kicker={ownerKicker(vm, 'macro_intelligence', 'Section 12')}
+                    title="Macro Intelligence"
+                  >
+                    <p className="rw-body mb-3">
+                      {vm.macroNarrative ||
+                        'Macro conditions matter for discount rates, risk appetite and cyclical demand — they should frame the company debate rather than replace it.'}
+                    </p>
+                    {vm.macroDrivers.length ? (
                       <ul className="space-y-2 text-sm text-[var(--rw-soft)]">
                         {vm.macroDrivers.map((d) => (
                           <li key={d} className="border-b border-[var(--rw-border)] pb-2">
@@ -676,16 +743,34 @@ export default function ResearchWorkspace({
                           </li>
                         ))}
                       </ul>
-                    </Section>
-                  ) : (
-                    <Section id="macro" kicker="Section 12" title="Macro Intelligence">
+                    ) : null}
+                  </Section>
+                </div>
+
+                {(vm.managementNarrative || vm.ownershipNarrative) && (
+                  <div className="rw-grid-2">
+                    <Section
+                      id="management"
+                      kicker={ownerKicker(vm, 'management', 'Management')}
+                      title="Management"
+                    >
                       <p className="rw-body">
-                        Macro conditions matter for discount rates, risk appetite and cyclical demand — they should
-                        frame the company debate rather than replace it.
+                        {vm.managementNarrative ||
+                          'Governance, capital allocation and communication consistency determine whether franchise quality converts into owner outcomes.'}
                       </p>
                     </Section>
-                  )}
-                </div>
+                    <Section
+                      id="ownership"
+                      kicker={ownerKicker(vm, 'ownership', 'Ownership')}
+                      title="Ownership"
+                    >
+                      <p className="rw-body">
+                        {vm.ownershipNarrative ||
+                          'Ownership structure and sequential stake changes signal alignment and free-float dynamics.'}
+                      </p>
+                    </Section>
+                  </div>
+                )}
 
                 {vm.leaders.length ? (
                   <Section id="leaders" kicker="Section 13" title="Sector Leaders">
@@ -718,7 +803,11 @@ export default function ResearchWorkspace({
                   </Section>
                 ) : null}
 
-                <Section id="scenarios" kicker="Section 14" title="Bull · Base · Bear">
+                <Section
+                  id="scenarios"
+                  kicker={ownerKicker(vm, 'scenarios', 'Section 14')}
+                  title="Bull · Base · Bear"
+                >
                   <div className="rw-grid-3">
                     {[
                       {
@@ -765,7 +854,7 @@ export default function ResearchWorkspace({
                 </Section>
 
                 <div className="rw-grid-2">
-                  <Section id="risks" kicker="Section 15" title="Top Risks">
+                  <Section id="risks" kicker={ownerKicker(vm, 'risks', 'Section 15')} title="Top Risks">
                     {vm.risks.length ? (
                       <div className="overflow-x-auto">
                         <table className="rw-table">
@@ -913,7 +1002,11 @@ export default function ResearchWorkspace({
                   </Section>
                 ) : null}
 
-                <Section id="conclusion" kicker="Section 19" title="Institutional Conclusion">
+                <Section
+                  id="conclusion"
+                  kicker={ownerKicker(vm, 'conclusion', 'Section 19')}
+                  title="Institutional Conclusion"
+                >
                   <p className="rw-body">{vm.conclusion}</p>
                   {vm.decisionEngine ? (
                     <div className="rw-decision-final mt-4">
@@ -952,7 +1045,11 @@ export default function ResearchWorkspace({
                   </p>
                 </Section>
 
-                <Section id="recommendation-status" kicker="Section 19b" title="Institutional Recommendation Status">
+                <Section
+                  id="recommendation-status"
+                  kicker={ownerKicker(vm, 'recommendation_status', 'Section 19b')}
+                  title="Institutional Recommendation Status"
+                >
                   <p className={`rw-view-value text-[22px] tone-${vm.recommendationStatus.blocked ? 'warn' : 'pos'}`}>
                     {vm.recommendationStatus.status}
                   </p>

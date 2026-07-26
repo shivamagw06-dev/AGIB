@@ -112,6 +112,23 @@ export function mapSearchPack(pack) {
   const ailThesis = ail?.thesis || {};
   const ailForecast = ail?.forecast || {};
   const ailDossier = ail?.dossier || {};
+  const iaf =
+    pack.institutional_analysts?.enabled
+      ? pack.institutional_analysts
+      : ac?.institutional_analysts?.enabled
+        ? ac.institutional_analysts
+        : null;
+  const iafBiz = iaf?.business_intelligence || iaf?.analyst_opinions?.business || null;
+  const iafFin = iaf?.financial_intelligence || iaf?.analyst_opinions?.financial || null;
+  const iafVal = iaf?.valuation_intelligence || iaf?.analyst_opinions?.valuation || null;
+  const iafMkt = iaf?.market_intelligence || iaf?.analyst_opinions?.market || null;
+  const iafSec = iaf?.sector_intelligence_opinion || iaf?.analyst_opinions?.sector || null;
+  const iafMacro = iaf?.macro_intelligence || iaf?.analyst_opinions?.macro || null;
+  const iafRisk = iaf?.risk_intelligence || iaf?.analyst_opinions?.risk || null;
+  const iafMgmt = iaf?.management_intelligence || iaf?.analyst_opinions?.management || null;
+  const iafOwn = iaf?.ownership_intelligence || iaf?.analyst_opinions?.ownership || null;
+  const iafCommittee = iaf?.institutional_view || iaf?.committee || null;
+  const iafCio = iaf?.cio || null;
   const ide = pack.decision_engine?.active ? pack.decision_engine : null;
   const ideSummary = ide?.summary || {};
   const ideLayers = Array.isArray(ide?.layers)
@@ -170,6 +187,7 @@ export function mapSearchPack(pack) {
     (coverage >= 90 ? 'A+' : coverage >= 75 ? 'A' : 'B');
 
   const executive =
+    asText(iafCio?.executive_summary) ||
     asText(ac?.executive) ||
     asText(ide?.answer_enrichment?.executive_framing) ||
     asText(enrich.executive_summary) ||
@@ -427,6 +445,7 @@ export function mapSearchPack(pack) {
       : '',
     executive,
     thesis:
+      asText(iafCio?.investment_thesis) ||
       asText(ac?.thesis) ||
       asText(biz.long_term_growth) ||
       asText(thesis.summary) ||
@@ -440,12 +459,14 @@ export function mapSearchPack(pack) {
     kpis,
     financialCards,
     financialNarrative:
+      asText(iafFin?.headline) ||
       asText(fin.narrative) ||
       asText(biz.operating_metrics) ||
       asText(briefing.financial_intelligence) ||
       'Financial quality should be judged through incremental returns, cash conversion and balance-sheet resilience.',
     valuationCards,
     valuationNarrative:
+      asText(iafVal?.headline) ||
       asText(val.narrative) ||
       asText(pack.valuation_perspective) ||
       asText(briefing.valuation_perspective) ||
@@ -454,30 +475,75 @@ export function mapSearchPack(pack) {
       ? pack.charts.find((c) => Array.isArray(c?.points) && c.points.some((p) => p?.value != null))
       : null,
     marketNarrative:
+      asText(iafMkt?.headline) ||
       asText(marketPack.narrative) ||
       asText(sections.market_performance?.narrative) ||
       asText(briefing.market_performance),
     marketSnapshot: marketSnap,
     marketCards: Array.isArray(marketPack.cards) ? marketPack.cards : [],
-    ownershipNarrative: asText(sections.ownership?.narrative) || asText(briefing.ownership),
-    ownership: sections.ownership?.snapshot || {},
-    businessModel: asText(biz.business_model) || asText(ca.identity?.business_model) || asText(ca.business_overview),
+    ownershipNarrative:
+      asText(iafOwn?.headline) || asText(sections.ownership?.narrative) || asText(briefing.ownership),
+    ownership: sections.ownership?.snapshot || iafOwn?.sections || {},
+    businessModel:
+      asText(iafBiz?.sections?.business_model) ||
+      asText(iafBiz?.headline) ||
+      asText(biz.business_model) ||
+      asText(ca.identity?.business_model) ||
+      asText(ca.business_overview),
     businessIntelligence: biz,
     businessQuality: bq,
     sectorNarrative:
+      asText(iafSec?.headline) ||
       asText(biz.industry_structure) ||
       asText(sector.reasoning || sector.narrative) ||
       asText(sections.sector_intelligence?.narrative),
-    sectorDrivers: asList(pack.sector_drivers || briefing.sector_drivers, 6),
-    macroDrivers: asList(pack.macro_drivers || briefing.macro_drivers, 6),
+    sectorDrivers: asList(
+      iafSec?.sections?.sector_kpis || pack.sector_drivers || briefing.sector_drivers,
+      6
+    ),
+    macroDrivers: asList(
+      iafMacro?.sections?.drivers || pack.macro_drivers || briefing.macro_drivers,
+      6
+    ),
+    macroNarrative: asText(iafMacro?.headline) || asText(briefing.macro_outlook),
+    managementNarrative: asText(iafMgmt?.headline),
+    institutionalView: iafCommittee
+      ? {
+          summary: asText(iafCommittee.committee_summary, ''),
+          consensus: iafCommittee.consensus || {},
+          agreements: asList(iafCommittee.agreements, 4),
+          disagreements: asList(iafCommittee.disagreements, 4),
+          readiness: asText(iafCommittee.recommendation_readiness, ''),
+          confidence: iafCommittee.confidence ?? null,
+        }
+      : null,
     leaders,
-    bull: asList(thesis.bull_case || pack.bull_case || pack.answer?.bull_case || ca.bull_case, 6),
-    base: asList(thesis.neutral_case || ca.base_case, 6),
-    bear: asList(thesis.bear_case || pack.bear_case || pack.answer?.bear_case || ca.bear_case, 6),
-    risks,
-    catalysts,
+    bull: asList(
+      iafCio?.bull_case || ac?.bull || thesis.bull_case || pack.bull_case || pack.answer?.bull_case || ca.bull_case,
+      6
+    ),
+    base: asList(iafCio?.base_case || ac?.base || thesis.neutral_case || ca.base_case, 6),
+    bear: asList(
+      iafCio?.bear_case || ac?.bear || thesis.bear_case || pack.bear_case || pack.answer?.bear_case || ca.bear_case,
+      6
+    ),
+    risks: (() => {
+      const iafRiskLines = iafRisk?.sections?.business_risks || iafCio?.key_risks;
+      if (iafRiskLines) {
+        return asList(iafRiskLines, 8).map((r, i) => ({
+          risk: r,
+          probability: i === 0 ? 'High' : i < 3 ? 'Medium' : 'Low',
+          impact: i < 2 ? 'High' : 'Medium',
+          severity: i === 0 ? 'Critical' : i < 3 ? 'Elevated' : 'Watch',
+          monitoring: 'Active',
+        }));
+      }
+      return risks;
+    })(),
+    catalysts: asList(iafCio?.key_catalysts || catalysts, 8),
     learned,
     conclusion:
+      asText(iafCio?.institutional_conclusion) ||
       asText(ac?.decision_conclusion) ||
       asText(decisionLayer?.reasoning) ||
       asText(ide?.decision?.reasoning) ||
@@ -531,6 +597,10 @@ export function mapSearchPack(pack) {
     icEnabled: Boolean(ic?.enabled),
     acEnabled: Boolean(ac?.enabled),
     ideEnabled: Boolean(ide?.active),
+    iafEnabled: Boolean(iaf?.enabled),
+    sectionOwners: iaf?.section_owners || ac?.section_owners || {},
+    publicOwnerLabels: iaf?.public_owner_labels || {},
+    analystOpinions: iaf?.analyst_opinions || null,
     intelligenceLayer: ail
       ? {
           enabled: true,

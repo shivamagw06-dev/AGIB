@@ -886,6 +886,12 @@ export const analyseCompany = (ticker, query = 'Company analysis') =>
     body: { ticker, query },
   });
 
+/** Institutional Analyst Framework V1 — specialist opinions → committee → CIO */
+export const getInstitutionalAnalystsHealth = () =>
+  intelligenceFetch('/institutional-analysts/health');
+export const getInstitutionalAnalystsQualityGates = () =>
+  intelligenceFetch('/institutional-analysts/quality-gates');
+
 /** AGIB Intelligence Layer V2 — living dossier / thesis / forecast / ledger */
 export const getAilHealth = () => intelligenceFetch('/ail/health');
 export const getAilDashboard = () => intelligenceFetch('/ail/dashboard');

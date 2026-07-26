@@ -173,6 +173,8 @@ class SearchView(BaseModel):
     decision_engine: dict[str, Any] = Field(default_factory=dict)
     # AGIB Intelligence Layer V2 — living dossier / thesis / forecast / ledger (additive)
     intelligence_layer: dict[str, Any] = Field(default_factory=dict)
+    # Institutional Analyst Framework V1 — specialist opinions → committee → CIO (additive)
+    institutional_analysts: dict[str, Any] = Field(default_factory=dict)
     institutional_briefing: dict[str, Any] = Field(default_factory=dict)
     company_intelligence: dict[str, Any] = Field(default_factory=dict)
     current_outlook: str | None = None

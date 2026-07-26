@@ -1735,6 +1735,7 @@ class UiService:
             answer_construction = (
                 ac_package(
                     query=q,
+                    ticker=detected_ticker,
                     executive=executive,
                     thesis=thesis,
                     house_label=house_label,
@@ -1755,6 +1756,13 @@ class UiService:
                     if isinstance(irp_dump, dict)
                     else None,
                     decision_engine=decision_engine if isinstance(decision_engine, dict) else None,
+                    company_monitor=company_monitor if isinstance(company_monitor, dict) else None,
+                    finance_academy=finance_academy if isinstance(finance_academy, dict) else None,
+                    valuation=valuation if isinstance(valuation, dict) else None,
+                    intelligence_layer=intelligence_layer if isinstance(intelligence_layer, dict) else None,
+                    irp=irp_dump if isinstance(irp_dump, dict) else None,
+                    data_validation=data_validation if isinstance(data_validation, dict) else None,
+                    knowledge_foundation={"hits": kf_hits} if kf_hits else None,
                     reco_gate=reco_gate,
                     leo_gate=leo_gate,
                 )
@@ -2283,6 +2291,12 @@ class UiService:
             answer_construction=scrub(answer_construction) if answer_construction else {},
             decision_engine=scrub(decision_engine) if decision_engine else {},
             intelligence_layer=scrub(intelligence_layer) if intelligence_layer else {},
+            institutional_analysts=scrub(
+                (answer_construction or {}).get("institutional_analysts")
+                if isinstance(answer_construction, dict)
+                else {}
+            )
+            or {},
             institutional_briefing=scrub(briefing) or {},
             # Prefer live SIF/Ask-AGI sector pack; fall back to IRP sector pack
             sector_intelligence=scrub(sector_intelligence)

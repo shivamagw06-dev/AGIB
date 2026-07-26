@@ -48,6 +48,7 @@ def apply_answer_construction_v3(
     sector_intelligence: dict[str, Any] | None = None,
     institutional_briefing: dict[str, Any] | None = None,
     decision_engine: dict[str, Any] | None = None,
+    institutional_analysts: dict[str, Any] | None = None,
     reco_gate: dict[str, Any] | None = None,
     leo_gate: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
@@ -58,6 +59,8 @@ def apply_answer_construction_v3(
     becomes a trailing section; checklist language is removed from the lead.
     When the Investment Decision Engine is active, never lead with Buy/Sell —
     frame the executive around the multi-layer stack; decision conclusion trails.
+    When Institutional Analyst Framework is present, CIO owns executive/thesis/
+    scenarios/conclusion and specialist analysts own their sections.
     """
     if not is_enabled():
         return {
@@ -87,11 +90,15 @@ def apply_answer_construction_v3(
     ide = decision_engine if isinstance(decision_engine, dict) else {}
     ide_active = bool(ide.get("active") and ide.get("enabled", True))
     ide_enrich = ide.get("answer_enrichment") if isinstance(ide.get("answer_enrichment"), dict) else {}
+    iaf = institutional_analysts if isinstance(institutional_analysts, dict) else {}
+    iaf_active = bool(iaf.get("enabled"))
+    cio = iaf.get("cio") if isinstance(iaf.get("cio"), dict) else {}
 
     blocked = bool((reco_gate or {}).get("blocked") or (leo_gate or {}).get("blocked"))
 
     name = (
-        ide.get("company_name")
+        iaf.get("company")
+        or ide.get("company_name")
         or ic.get("company_name")
         or (ca.get("identity") or {}).get("company_name")
         or cid.get("ticker")
@@ -129,7 +136,8 @@ def apply_answer_construction_v3(
         )
 
     exec_out = _first_useful(
-        ide_exec_fallback if ide_active else None,
+        cio.get("executive_summary") if iaf_active else None,
+        ide_exec_fallback if ide_active and not iaf_active else None,
         enrich.get("executive_summary"),
         ic.get("executive_brief"),
         briefing.get("what_is_happening"),
@@ -149,6 +157,7 @@ def apply_answer_construction_v3(
     )
 
     thesis_out = _first_useful(
+        cio.get("investment_thesis") if iaf_active else None,
         ca.get("investment_thesis"),
         enrich.get("current_outlook"),
         briefing.get("what_is_happening"),
@@ -173,6 +182,9 @@ def apply_answer_construction_v3(
 
     bull_out = [str(x) for x in (bull or []) if _txt(x) and not looks_like_gate_failure_summary(x)]
     bear_out = [str(x) for x in (bear or []) if _txt(x) and not looks_like_gate_failure_summary(x)]
+    if iaf_active:
+        bull_out = [str(x) for x in (cio.get("bull_case") or bull_out) if _txt(x)][:6] or bull_out
+        bear_out = [str(x) for x in (cio.get("bear_case") or bear_out) if _txt(x)][:6] or bear_out
     if not bull_out:
         bull_out = [str(x) for x in (briefing.get("bull_case") or ca.get("bull_case") or []) if _txt(x)][:6]
     if not bear_out:
@@ -187,6 +199,8 @@ def apply_answer_construction_v3(
         ]
 
     risk_out = [str(x) for x in (risks or []) if _txt(x)][:8]
+    if iaf_active and cio.get("key_risks"):
+        risk_out = [str(x) for x in cio.get("key_risks") if _txt(x)][:8]
     if not risk_out:
         risk_out = [str(x) for x in (briefing.get("risks") or ca.get("risks") or enrich.get("risks") or []) if _txt(x)][:8]
     if not risk_out:
@@ -196,6 +210,8 @@ def apply_answer_construction_v3(
         ]
 
     cat_out = [str(x) for x in (catalysts or []) if _txt(x)][:8]
+    if iaf_active and cio.get("key_catalysts"):
+        cat_out = [str(x) for x in cio.get("key_catalysts") if _txt(x)][:8]
     if not cat_out:
         cat_out = [str(x) for x in (briefing.get("catalysts") or ca.get("catalysts") or enrich.get("catalysts") or []) if _txt(x)][:8]
     if not cat_out:
@@ -212,13 +228,20 @@ def apply_answer_construction_v3(
         limit=8,
     )
     why_out = filter_why_bullets(why, gaps=gaps, limit=12)
+    if iaf_active:
+        for bullet in list(cio.get("why") or []) + list(iaf.get("ask_agi_hints") or []):
+            t = _txt(bullet)
+            if t and t not in why_out and not looks_like_gate_failure_summary(t):
+                why_out.insert(0, t[:420])
+            if len(why_out) >= 12:
+                break
     for bullet in list(ide_enrich.get("why_bullets") or []) + list(enrich.get("why_bullets") or []):
         t = _txt(bullet)
         if t and t not in why_out and not looks_like_gate_failure_summary(t):
             why_out.append(t[:420])
         if len(why_out) >= 12:
             break
-    if business_bits:
+    if business_bits and not iaf_active:
         for b in business_bits:
             if b not in why_out:
                 why_out.insert(0, b[:420])
@@ -235,8 +258,10 @@ def apply_answer_construction_v3(
         company_name=str(name),
     )
 
-    decision_conclusion = _txt(ide_enrich.get("decision_conclusion")) if ide_active else None
-    if ide_active and decision_conclusion:
+    decision_conclusion = _txt(cio.get("institutional_conclusion")) if iaf_active else None
+    if not decision_conclusion:
+        decision_conclusion = _txt(ide_enrich.get("decision_conclusion")) if ide_active else None
+    if ide_active and decision_conclusion and not iaf_active:
         # Keep Buy/Hold/Sell-style conclusion trailing — never as the lead executive.
         thesis_out = _first_useful(thesis_out, decision_conclusion)
 
@@ -254,6 +279,7 @@ def apply_answer_construction_v3(
         "thesis": thesis_out,
         "house_label": label,
         "bull": bull_out[:6],
+        "base": list(cio.get("base_case") or [])[:6] if iaf_active else [],
         "bear": bear_out[:6],
         "risks": risk_out[:8],
         "catalysts": cat_out[:8],
@@ -261,12 +287,19 @@ def apply_answer_construction_v3(
         "knowledge_gaps": gaps,
         "recommendation_status": reco,
         "decision_engine_active": ide_active,
+        "institutional_analysts_active": iaf_active,
         "decision_conclusion": decision_conclusion,
+        "institutional_analysts": iaf if iaf_active else {},
+        "section_owners": iaf.get("section_owners") if iaf_active else {},
         "answer_policy": (
-            "multi_layer_investment_decision_never_direct_buy_sell"
-            if ide_active
-            else "full_institutional_brief_even_when_recommendation_withheld"
+            "institutional_analyst_framework_cio_report"
+            if iaf_active
+            else (
+                "multi_layer_investment_decision_never_direct_buy_sell"
+                if ide_active
+                else "full_institutional_brief_even_when_recommendation_withheld"
+            )
         ),
         "never_expose_checklist_keys": True,
-        "decision_last": True if ide_active else None,
+        "decision_last": True if ide_active or iaf_active else None,
     }

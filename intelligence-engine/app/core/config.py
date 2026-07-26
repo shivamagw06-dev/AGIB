@@ -339,6 +339,10 @@ class Settings(BaseSettings):
     answer_construction_v3: bool = True
     ask_agi_answer_construction_v3: bool = True
 
+    # Institutional Analyst Framework V1 — Answer Construction ownership (not engines)
+    institutional_analysts: bool = True
+    ask_agi_iaf: bool = True
+
     # AGIB Investment Decision Engine — multi-layer investment decisions (soft-wire; not an engine redesign)
     decision_engine: bool = True
     ask_agi_decision_engine: bool = True
