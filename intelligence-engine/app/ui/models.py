@@ -52,6 +52,8 @@ class HomeView(BaseModel):
     newsletter: dict[str, Any] = Field(default_factory=dict)
     market_snapshot: list[dict[str, Any]] = Field(default_factory=list)
     market_session: dict[str, Any] = Field(default_factory=dict)
+    # Investment Office V1 — executive operating cockpit (aggregate only)
+    investment_office: dict[str, Any] = Field(default_factory=dict)
 
 
 class CompanyView(BaseModel):

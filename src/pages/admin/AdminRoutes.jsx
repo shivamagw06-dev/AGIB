@@ -22,6 +22,7 @@ import DataQuality from '@/pages/admin/DataQuality';
 import EvidenceCompletion from '@/pages/admin/EvidenceCompletion';
 import CompanyAnalysis from '@/pages/admin/CompanyAnalysis';
 import CompanyMonitor from '@/pages/admin/CompanyMonitor';
+import InvestmentOfficeAdmin from '@/pages/admin/InvestmentOffice';
 
 export default function AdminRoutes() {
   return (
@@ -43,6 +44,7 @@ export default function AdminRoutes() {
           <Route path="evidence-completion" element={<EvidenceCompletion />} />
           <Route path="company-analysis" element={<CompanyAnalysis />} />
           <Route path="company-monitor" element={<CompanyMonitor />} />
+          <Route path="investment-office" element={<InvestmentOfficeAdmin />} />
           <Route path="investment-intelligence" element={<InvestmentIntelligence />} />
           <Route path="forecasting" element={<Forecasting />} />
           <Route path="events" element={<Events />} />

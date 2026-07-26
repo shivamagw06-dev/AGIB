@@ -488,10 +488,33 @@ class UiService:
         newsletter = default_newsletter()
         newsletter["research_published"] = footer_metrics["research_articles"]
 
+        # Investment Office V1 — executive cockpit aggregate (soft; never empty when enabled)
+        investment_office: dict[str, Any] = {}
+        try:
+            from investment_office.production import package_for_home
+
+            investment_office = (
+                package_for_home(
+                    ui_home={
+                        "hero": hero,
+                        "morning_intelligence": morning_intelligence,
+                        "feeds": feeds,
+                        "calendar": calendar,
+                        "discovery_feeds": feeds,
+                        "research_queue": queue,
+                        "market_dashboard": market_dashboard,
+                    },
+                    ioc_service=self.ioc,
+                )
+                or {}
+            )
+        except Exception:
+            investment_office = {}
+
         return HomeView(
             meta=UiMeta(
                 surface="home",
-                sources=["composite_view", "market_regime", "market_risk", "research_desk", "knowledge", "operations"],
+                sources=["composite_view", "market_regime", "market_risk", "research_desk", "knowledge", "operations", "investment_office"],
             ),
             market_brief=brief,
             composite_view=composite,
@@ -521,6 +544,7 @@ class UiService:
             newsletter=newsletter,
             market_snapshot=[],
             market_session={"status": "live", "label": "Market session"},
+            investment_office=scrub(investment_office) if investment_office else {},
         )
 
     def calendar(self) -> dict[str, Any]:
@@ -1027,6 +1051,18 @@ class UiService:
         except Exception:
             company_monitor = {}
 
+        # Investment Office V1 — executive desk context for Ask AGI (aggregate only)
+        investment_office_pkg: dict[str, Any] = {}
+        try:
+            from investment_office.production import package_for_ask_agi as io_package
+
+            investment_office_pkg = io_package(q, ticker=detected_ticker) or {}
+            for hint in (investment_office_pkg.get("ask_agi_hints") or [])[:3]:
+                # Stash on company_monitor-adjacent path via why later if needed
+                pass
+        except Exception:
+            investment_office_pkg = {}
+
         # IRP V1 — think (intent → entities → plan → retrieve → reason) before answering.
         if self.irp and q:
             try:
@@ -1448,6 +1484,13 @@ class UiService:
                         f"(max significance: {wc.get('max_significance')})."
                     )[:300],
                 )
+            why = why[:12]
+
+        # Investment Office — desk attention / research queue context
+        if isinstance(investment_office_pkg, dict) and investment_office_pkg.get("enabled"):
+            for hint in (investment_office_pkg.get("ask_agi_hints") or [])[:4]:
+                if hint and hint not in why:
+                    why.insert(0, scrub_text(hint)[:400])
             why = why[:12]
 
         # LEO hints — live evidence contribution before recommendation

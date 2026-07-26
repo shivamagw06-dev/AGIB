@@ -717,6 +717,17 @@ export const completeEcp = (ticker, q = 'Should I buy?') => {
   return intelligenceFetch(`/ecp/complete?${qs}`, { method: 'POST', body: {} });
 };
 
+/** Investment Office V1 — executive operating cockpit */
+export const getInvestmentOfficeHealth = () => intelligenceFetch('/investment-office/health');
+export const getInvestmentOfficeDashboard = () => intelligenceFetch('/investment-office/dashboard');
+export const getInvestmentOfficeQualityGates = () =>
+  intelligenceFetch('/investment-office/quality-gates');
+export const packageInvestmentOffice = (query = '', ticker) =>
+  intelligenceFetch('/investment-office/package', {
+    method: 'POST',
+    body: { query, ticker },
+  });
+
 /** Company Monitoring System V1 — continuous living analyst */
 export const getCompanyMonitorHealth = () => intelligenceFetch('/company-monitor/health');
 export const getCompanyMonitorDashboard = () => intelligenceFetch('/company-monitor/dashboard');

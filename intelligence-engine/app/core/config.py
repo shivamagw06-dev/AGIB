@@ -324,6 +324,15 @@ class Settings(BaseSettings):
     cms_research_writer: bool = True
     cms_house_view_hints: bool = True
 
+    # Investment Office V1 — executive operating layer (not an engine)
+    investment_office: bool = True
+    io_morning_brief: bool = True
+    io_analyst_queue: bool = True
+    io_research_queue: bool = True
+    io_coverage: bool = True
+    io_risk_center: bool = True
+    io_executive_copilot: bool = True
+
 
 @lru_cache
 def get_settings() -> Settings:

@@ -966,6 +966,22 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // Investment Office V1 — executive operating cockpit
+  router.get('/investment-office/health', kfGet('/v1/investment-office/health'));
+  router.get('/investment-office/dashboard', kfGet('/v1/investment-office/dashboard'));
+  router.get('/investment-office/quality-gates', kfGet('/v1/investment-office/quality-gates'));
+  router.post('/investment-office/package', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/investment-office/package', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err?.message || 'Investment Office package failed' });
+    }
+  });
+
   // Company Monitoring System V1 — continuous living analyst
   router.get('/company-monitor/health', kfGet('/v1/company-monitor/health'));
   router.get('/company-monitor/dashboard', kfGet('/v1/company-monitor/dashboard'));

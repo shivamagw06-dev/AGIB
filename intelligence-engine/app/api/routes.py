@@ -4018,6 +4018,41 @@ async def ecp_complete(
     )
 
 
+# --- Investment Office V1 (executive operating cockpit; additive aggregate) ---
+
+
+@router.get("/investment-office/health")
+async def investment_office_health():
+    from investment_office.production import health
+
+    return health()
+
+
+@router.get("/investment-office/dashboard")
+async def investment_office_dashboard():
+    from investment_office.production import dashboard
+
+    # Soft aggregate only — do not call UiService.home() (would recurse into IO package)
+    return dashboard(ui_home=None, ioc_service=getattr(_ui, "ioc", None))
+
+
+@router.get("/investment-office/quality-gates")
+async def investment_office_quality_gates():
+    from investment_office.production import quality_gates
+
+    return quality_gates()
+
+
+@router.post("/investment-office/package")
+async def investment_office_package(payload: dict[str, Any] = Body(default={})):
+    from investment_office.production import package_for_ask_agi
+
+    return package_for_ask_agi(
+        str(payload.get("query") or ""),
+        ticker=payload.get("ticker"),
+    )
+
+
 # --- Company Monitoring System V1 (continuous living analyst; additive) ---
 
 
