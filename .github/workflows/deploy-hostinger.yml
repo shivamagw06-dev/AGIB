@@ -133,14 +133,29 @@ jobs:
             echo "Committed and pushed Hostinger root build for Horizons Git sync."
           fi
 
-      - name: Ensure dist/ exists for FTP fallback
+      # Always publish the Hostinger Git root (index.html + /assets). Never FTP an empty
+      # dist/assets tree — that deletes the live /assets folder and leaves the old site stuck.
+      - name: Sync dist/ from Hostinger root artifacts for FTP
         run: |
-          if [ ! -f dist/index.html ]; then
-            mkdir -p dist
-            cp index.html dist/index.html
-            rm -rf dist/assets
-            cp -R assets dist/assets
-            cp .htaccess dist/.htaccess 2>/dev/null || true
+          set -euo pipefail
+          if [ ! -f index.html ] || [ ! -d assets ] || ! ls assets/index-*.js >/dev/null 2>&1; then
+            echo "::error::Hostinger root artifacts missing (index.html / assets/index-*.js)"
+            exit 1
+          fi
+          mkdir -p dist
+          cp index.html dist/index.html
+          rm -rf dist/assets
+          cp -R assets dist/assets
+          cp .htaccess dist/.htaccess 2>/dev/null || true
+          # Drop accidental Hostinger dashboard captures from FTP payload
+          rm -rf "dist/Dashboard _ Hostinger.html" "dist/Dashboard _ Hostinger_files" || true
+          echo "FTP payload ready:"
+          ls -la dist | head
+          asset_count="$(find dist/assets -type f | wc -l | tr -d ' ')"
+          echo "asset count: ${asset_count}"
+          if [ "${asset_count}" -lt 5 ] || ! ls dist/assets/index-*.js >/dev/null 2>&1; then
+            echo "::error::FTP payload missing built assets — refusing to deploy (prevents wiping live /assets)"
+            exit 1
           fi
 
       # FTP remains a secondary publish path (some Hostinger setups also read FTP root).
