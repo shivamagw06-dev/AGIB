@@ -59,18 +59,35 @@ function HomeLayout() {
 function AppShell() {
   const location = useLocation();
   const isAdmin = location.pathname.startsWith('/admin');
+  const isAskWorkspace = location.pathname === '/ask';
 
   useEffect(() => {
-    if (!isAdmin) {
+    if (!isAdmin && !isAskWorkspace) {
       document.documentElement.classList.remove('dark');
     }
-  }, [isAdmin, location.pathname]);
+  }, [isAdmin, isAskWorkspace, location.pathname]);
 
   if (isAdmin) {
     return (
       <Routes>
         <Route path="/admin/*" element={<AdminRoutes />} />
       </Routes>
+    );
+  }
+
+  // Ask AGI is a full-bleed institutional research workspace — no public chrome.
+  if (isAskWorkspace) {
+    return (
+      <MarketDataProvider>
+        <PinGate>
+          <Suspense fallback={<div className="min-h-screen bg-[#0b0e14] p-8 text-center text-slate-300">Loading Ask AGI…</div>}>
+            <Routes>
+              <Route path="/ask" element={<AskAgiPage />} />
+            </Routes>
+          </Suspense>
+          <Toaster />
+        </PinGate>
+      </MarketDataProvider>
     );
   }
 
