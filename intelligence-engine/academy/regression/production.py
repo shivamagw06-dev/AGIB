@@ -156,6 +156,14 @@ def dashboard() -> dict[str, Any]:
         }
         for h in hist
     ]
+    evidence_slice: dict[str, Any] = {}
+    try:
+        from academy.evidence.production import soft_slice_for_irs
+
+        evidence_slice = soft_slice_for_irs()
+    except Exception as exc:
+        evidence_slice = {"evidence_intelligence": {"enabled": False, "soft_error": str(exc)}}
+
     return {
         "programme": "AGIB_INSTITUTIONAL_REGRESSION_SUITE",
         "irs_version": IRS_VERSION,
@@ -175,6 +183,7 @@ def dashboard() -> dict[str, Any]:
         },
         "history_count": len(hist),
         "admin_path": "/admin/regression",
+        **evidence_slice,
     }
 
 

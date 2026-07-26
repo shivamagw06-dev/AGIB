@@ -76,6 +76,13 @@ Final gate: **Did this PR make AGIB smarter?** Frozen golden set, IQ deltas, hal
 
 See `academy/regression/README.md` · `/v1/academy/regression/*` · `/admin/regression`
 
+## Evidence Intelligence Layer (EIL)
+
+Soft layer addressing ACS/IRS evidence quality: named sources, peer/history gaps, explainable confidence, decision triggers.
+
+See `academy/evidence/README.md` · `/v1/academy/evidence/*`  
+Flag: `evidence_intelligence_layer`
+
 ## Admin
 
 `/admin/academy` — Books V2 panel with ingest action, spreadsheet count, ingestion report table.

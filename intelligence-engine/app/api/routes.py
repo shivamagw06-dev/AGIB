@@ -3791,6 +3791,69 @@ async def admin_regression():
     return HTMLResponse(admin_page())
 
 
+# --- Evidence Intelligence Layer V1 (source attribution / peers / confidence) ---
+
+
+@router.get("/academy/evidence/health")
+async def academy_evidence_health():
+    from academy.evidence.production import is_enabled
+    from academy.evidence.schema import EIL_VERSION
+
+    return {
+        "status": "ok" if is_enabled() else "disabled",
+        "programme": "AGIB_EVIDENCE_INTELLIGENCE_LAYER",
+        "version": EIL_VERSION,
+        "architecture_status": "v1.0.1 LOCKED",
+        "primary_weakness_addressed": "Evidence quality / source attribution",
+    }
+
+
+@router.get("/academy/evidence/dashboard")
+async def academy_evidence_dashboard():
+    from academy.evidence.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/academy/evidence/case/{case_id}")
+async def academy_evidence_case(case_id: str):
+    from academy.evidence.production import case_pack
+
+    try:
+        return case_pack(case_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post("/academy/evidence/support")
+async def academy_evidence_support(payload: dict[str, Any] = Body(default={})):
+    from academy.evidence.production import support
+
+    statement = str(payload.get("statement") or "").strip()
+    if not statement:
+        raise HTTPException(status_code=400, detail="statement_required")
+    return support(statement, analyst=payload.get("analyst"))
+
+
+@router.post("/academy/evidence/confidence")
+async def academy_evidence_confidence(payload: dict[str, Any] = Body(default={})):
+    from academy.evidence.production import explain_confidence
+
+    return explain_confidence(
+        evidence=float(payload.get("evidence", 70)),
+        historical=float(payload.get("historical", 50)),
+        peer=float(payload.get("peer", 50)),
+        macro=float(payload.get("macro", 70)),
+    )
+
+
+@router.get("/academy/evidence/quality-gates")
+async def academy_evidence_quality_gates():
+    from academy.evidence.production import quality_gates
+
+    return quality_gates()
+
+
 # --- SIF v1.0 (Sector Intelligence Framework — additive; not an engine) ---
 
 

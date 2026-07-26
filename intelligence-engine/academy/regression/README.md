@@ -30,3 +30,9 @@ Blocked if Overall IQ decreases, core reasoning decreases, critical hallucinatio
 ## Flag
 
 `institutional_regression_suite` / `INSTITUTIONAL_REGRESSION_SUITE`
+
+## Soft-wire: Evidence Intelligence Layer
+
+IRS dashboard includes an additive `evidence_intelligence` block from `academy.evidence.production.soft_slice_for_irs` (no IRS redesign).
+
+See `academy/evidence/README.md` · `/v1/academy/evidence/*`
