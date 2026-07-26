@@ -5081,6 +5081,58 @@ async def layer_router_diagnostics(payload: dict[str, Any] = Body(default={})):
     return diagnostics(payload or {})
 
 
+# --- RQ1 Institutional Acquisition & API Planning Engine (Sprint 7 — acquisition planner soft-wire; not a top-level layer) ---
+
+
+@router.get("/acquisition-planner/health")
+async def acquisition_planner_health():
+    from acquisition_planner.production import health
+
+    return health()
+
+
+@router.get("/acquisition-planner/dashboard")
+async def acquisition_planner_dashboard():
+    from acquisition_planner.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/acquisition-planner/constitution")
+async def acquisition_planner_constitution():
+    from acquisition_planner.production import constitution
+
+    return constitution()
+
+
+@router.get("/acquisition-planner/quality-gates")
+async def acquisition_planner_quality_gates():
+    from acquisition_planner.production import quality_gates
+
+    return quality_gates()
+
+
+@router.post("/acquisition-planner/plan")
+async def acquisition_planner_plan(payload: dict[str, Any] = Body(default={})):
+    from acquisition_planner.production import plan
+
+    return plan(payload or {})
+
+
+@router.post("/acquisition-planner/enrich")
+async def acquisition_planner_enrich(payload: dict[str, Any] = Body(default={})):
+    from acquisition_planner.production import enrich
+
+    return enrich(payload or {})
+
+
+@router.post("/acquisition-planner/diagnostics")
+async def acquisition_planner_diagnostics(payload: dict[str, Any] = Body(default={})):
+    from acquisition_planner.production import diagnostics
+
+    return diagnostics(payload or {})
+
+
 # --- SIF v1.0 (Sector Intelligence Framework — additive; not an engine) ---
 
 

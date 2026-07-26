@@ -1283,3 +1283,19 @@ export const diagnoseLayerRouter = (payload = {}) =>
     method: 'POST',
     body: typeof payload === 'string' ? { question: payload } : payload,
   });
+
+/** RQ1 Institutional Acquisition & API Planning Engine — Sprint 7 */
+export const getAcquisitionPlannerHealth = () => intelligenceFetch('/acquisition-planner/health');
+export const getAcquisitionPlannerDashboard = () => intelligenceFetch('/acquisition-planner/dashboard');
+export const getAcquisitionPlannerConstitution = () => intelligenceFetch('/acquisition-planner/constitution');
+export const getAcquisitionPlannerQualityGates = () => intelligenceFetch('/acquisition-planner/quality-gates');
+export const planAcquisitionPlanner = (payload = {}) =>
+  intelligenceFetch('/acquisition-planner/plan', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });
+export const diagnoseAcquisitionPlanner = (payload = {}) =>
+  intelligenceFetch('/acquisition-planner/diagnostics', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });

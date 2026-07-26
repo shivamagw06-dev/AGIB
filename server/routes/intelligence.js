@@ -2065,5 +2065,44 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // RQ1 Institutional Acquisition & API Planning Engine — Sprint 7 soft-wire
+  router.get('/acquisition-planner/health', kfGet('/v1/acquisition-planner/health'));
+  router.get('/acquisition-planner/dashboard', kfGet('/v1/acquisition-planner/dashboard'));
+  router.get('/acquisition-planner/constitution', kfGet('/v1/acquisition-planner/constitution'));
+  router.get('/acquisition-planner/quality-gates', kfGet('/v1/acquisition-planner/quality-gates'));
+  router.post('/acquisition-planner/plan', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/acquisition-planner/plan', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'IAPE plan failed', detail: error.message });
+    }
+  });
+  router.post('/acquisition-planner/enrich', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/acquisition-planner/enrich', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'IAPE enrich failed', detail: error.message });
+    }
+  });
+  router.post('/acquisition-planner/diagnostics', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/acquisition-planner/diagnostics', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'IAPE diagnostics failed', detail: error.message });
+    }
+  });
+
   return router;
 }

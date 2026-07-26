@@ -810,6 +810,21 @@ class UiService:
         except Exception:
             layer_router = {}
 
+        # RQ1 Sprint 7 — Institutional Acquisition & API Planning Engine (evidence plan; metadata soft-wire)
+        acquisition_planner: dict[str, Any] = {}
+        try:
+            from acquisition_planner.production import soft_slice_for_ask_agi as iape_soft_slice
+
+            iape_payload = {
+                "primary_objective": (research_objective.get("research_objective") or {}).get("primary_objective")
+                or (research_objective.get("primary_objective")),
+                "intent_family": (research_ontology.get("intent_family") or research_ontology.get("family")),
+                "required_layers": (layer_router.get("required_layers") or []),
+            }
+            acquisition_planner = iape_soft_slice(q, iape_payload) or {}
+        except Exception:
+            acquisition_planner = {}
+
         # CAE gateway (preferred) — else MEE→FLE→IIE→EVE→AOI→KCV/KF soft enrichment.
         kf_hits: list[dict[str, Any]] = []
         knowledge_corpus: dict[str, Any] = {}
@@ -2438,6 +2453,7 @@ class UiService:
             context_intelligence=scrub(context_intelligence) if context_intelligence else {},
             analyst_router=scrub(analyst_router) if analyst_router else {},
             layer_router=scrub(layer_router) if layer_router else {},
+            acquisition_planner=scrub(acquisition_planner) if acquisition_planner else {},
         )
 
     def timeline(self, entity: str) -> TimelineView:
