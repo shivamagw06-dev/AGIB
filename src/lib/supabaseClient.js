@@ -4,18 +4,29 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim() || '';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim() || '';
 
-export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
+function looksLikeJwt(value) {
+  if (!value) return false;
+  return value.split('.').length === 3 && value.length >= 100;
+}
 
-if (!isSupabaseConfigured && import.meta.env.DEV) {
+const keyLooksValid = looksLikeJwt(supabaseAnonKey);
+const urlLooksValid =
+  Boolean(supabaseUrl) &&
+  !/placeholder\.supabase\.co/i.test(supabaseUrl) &&
+  /^https:\/\//i.test(supabaseUrl);
+
+export const isSupabaseConfigured = Boolean(urlLooksValid && keyLooksValid);
+
+if (!isSupabaseConfigured) {
   console.warn(
-    'Supabase env vars missing (VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY). CMS and auth features will not work.'
+    'Supabase env vars missing or truncated (VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY). Auth will use branded API fallbacks where possible.'
   );
 }
 
 // Placeholders keep the app from crashing when secrets are missing at build time.
 export const supabase = createClient(
-  supabaseUrl || 'https://placeholder.supabase.co',
-  supabaseAnonKey || 'placeholder-anon-key',
+  urlLooksValid ? supabaseUrl : 'https://placeholder.supabase.co',
+  keyLooksValid ? supabaseAnonKey : 'placeholder-anon-key',
   {
     auth: { persistSession: true, detectSessionInUrl: true, autoRefreshToken: true },
   }

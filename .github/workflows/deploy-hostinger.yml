@@ -35,35 +35,71 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
-      - name: Verify build secrets
-        run: |
-          missing=0
-          for name in VITE_SUPABASE_URL VITE_SUPABASE_ANON_KEY; do
-            if [ -z "${!name}" ]; then
-              echo "::warning::$name is not set — CMS/auth will not work on the live site."
-              missing=1
-            fi
-          done
-          if [ -z "${VITE_ADMIN_ID}" ] && [ -z "${VITE_ADMIN_EMAILS}" ]; then
-            echo "::warning::Neither VITE_ADMIN_ID nor VITE_ADMIN_EMAILS is set — admin CMS/Mission Control may deny access."
-          fi
-          if [ "$missing" -eq 1 ]; then
-            echo "Add missing secrets under GitHub → Settings → Secrets → Actions."
-          fi
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-          VITE_ADMIN_ID: ${{ secrets.VITE_ADMIN_ID }}
-          VITE_ADMIN_EMAILS: ${{ secrets.VITE_ADMIN_EMAILS }}
-
-      - name: Build production site for Hostinger root
-        run: npm run build:hostinger
+      - name: Write production env file (avoid shell/$ truncation of JWT secrets)
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
           VITE_ADMIN_ID: ${{ secrets.VITE_ADMIN_ID }}
           VITE_ADMIN_EMAILS: ${{ secrets.VITE_ADMIN_EMAILS }}
+        run: |
+          python3 <<'PY'
+          import os
+          from pathlib import Path
+          required = ["VITE_SUPABASE_URL", "VITE_SUPABASE_ANON_KEY"]
+          missing = [k for k in required if not (os.environ.get(k) or "").strip()]
+          if missing:
+              raise SystemExit(f"Missing required secrets: {', '.join(missing)}")
+          anon = os.environ["VITE_SUPABASE_ANON_KEY"].strip()
+          if len(anon) < 100 or anon.count(".") != 2:
+              raise SystemExit(
+                  f"VITE_SUPABASE_ANON_KEY looks invalid (len={len(anon)}). "
+                  "Re-paste the full anon JWT in GitHub Actions secrets."
+              )
+          keys = [
+              "VITE_SUPABASE_URL",
+              "VITE_SUPABASE_ANON_KEY",
+              "VITE_API_URL",
+              "VITE_ADMIN_ID",
+              "VITE_ADMIN_EMAILS",
+          ]
+          lines = []
+          for key in keys:
+              val = (os.environ.get(key) or "").strip()
+              if not val:
+                  continue
+              # Quote so dotenv never expands $ inside JWTs / secrets.
+              safe = val.replace("\\", "\\\\").replace('"', '\\"')
+              lines.append(f'{key}="{safe}"')
+          Path(".env.production.local").write_text("\n".join(lines) + "\n")
+          print("Wrote .env.production.local")
+          print("VITE_SUPABASE_URL set:", bool(os.environ.get("VITE_SUPABASE_URL")))
+          print("VITE_SUPABASE_ANON_KEY length:", len(anon))
+          print("VITE_API_URL set:", bool(os.environ.get("VITE_API_URL")))
+          PY
+
+      - name: Build production site for Hostinger root
+        run: npm run build:hostinger
+
+      - name: Verify baked Supabase anon key in bundle
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+          files = sorted(Path("assets").glob("index-*.js"))
+          if not files:
+              raise SystemExit("No assets/index-*.js after build")
+          text = files[-1].read_text(errors="ignore")
+          if "placeholder.supabase.co" in text and "zrvdtpxfmuijhionbaxr.supabase.co" not in text:
+              raise SystemExit("Bundle still points at placeholder Supabase URL")
+          matches = re.findall(r'"(eyJhbGciOiJIUzI1NiIs[^"]+)"', text)
+          if not matches:
+              raise SystemExit("No JWT anon key found in bundle")
+          key = max(matches, key=len)
+          if len(key) < 100 or key.count(".") != 2:
+              raise SystemExit(f"Baked anon key is truncated/invalid (len={len(key)})")
+          print("Bundle anon key OK, length", len(key), "file", files[-1].name)
+          PY
 
       - name: Commit Hostinger root artifacts for Git sync
         run: |
