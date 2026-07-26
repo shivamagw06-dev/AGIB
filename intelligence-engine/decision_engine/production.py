@@ -134,6 +134,7 @@ def package_for_ask_agi(
             "overall_score": assembled.get("overall_score"),
             "investment_grade": assembled.get("investment_grade"),
             "confidence_pct": decision.get("confidence_pct"),
+            "confidence_breakdown": decision.get("confidence_breakdown") or {},
             "expected_return_12m_pct": decision.get("expected_return_12m_pct"),
             "bull_case_pct": decision.get("bull_case_pct"),
             "base_case_pct": decision.get("base_case_pct"),

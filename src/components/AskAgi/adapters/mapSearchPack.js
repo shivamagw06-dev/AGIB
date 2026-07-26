@@ -1,6 +1,9 @@
 /**
- * Map SearchView / Intelligence Construction pack → Research Workspace view-model.
- * Soft-wire only — never invent provider names; hide empty sections.
+ * Map SearchView → Institutional Research Workspace view-model.
+ *
+ * Ownership rules (presentation soft-wire):
+ * each section has one primary owner. Secondary sources fill gaps only.
+ * Never expose architecture names to the user.
  */
 
 function isGateFailureText(value) {
@@ -40,29 +43,6 @@ function pct(value) {
   return n <= 1 ? Math.round(n * 100) : Math.round(n);
 }
 
-function stanceOf(pack) {
-  const raw =
-    pack?.house_view_card?.stance ||
-    pack?.answer?.house_view_label ||
-    pack?.answer_construction?.house_label ||
-    '';
-  const s = String(raw || '').toLowerCase();
-  // Never lead with insufficient-evidence as the institutional view.
-  if (/insufficient|withheld|unknown/.test(s)) return 'Neutral';
-  if (/constructive|bull|overweight|positive|improved/.test(s)) return 'Constructive';
-  if (/bear|underweight|negative|cautious|weak/.test(s)) return 'Cautious';
-  if (/neutral|hold|balanced/.test(s)) return 'Neutral';
-  if (raw) return String(raw);
-  return 'Neutral';
-}
-
-function toneForStance(stance) {
-  const s = String(stance || '').toLowerCase();
-  if (s.includes('construct') || s.includes('bull') || s.includes('positive')) return 'pos';
-  if (s.includes('caution') || s.includes('bear') || s.includes('insuff')) return 'neg';
-  return 'neu';
-}
-
 function gradeFromScore(score) {
   if (score == null) return null;
   const n = Number(score);
@@ -76,11 +56,134 @@ function gradeFromScore(score) {
   return 'D';
 }
 
-function sparkFrom(hist) {
-  if (Array.isArray(hist) && hist.length >= 2) {
-    return hist.map(Number).filter(Number.isFinite);
+function toneForStance(stance) {
+  const s = String(stance || '').toLowerCase();
+  if (s.includes('construct') || s.includes('bull') || s.includes('positive')) return 'pos';
+  if (s.includes('caution') || s.includes('bear') || s.includes('insuff')) return 'neg';
+  return 'neu';
+}
+
+function stanceOf(pack, ac) {
+  const raw =
+    pack?.house_view_card?.stance ||
+    pack?.answer?.house_view_label ||
+    ac?.house_label ||
+    '';
+  const s = String(raw || '').toLowerCase();
+  if (/insufficient|withheld|unknown/.test(s)) return 'Neutral';
+  if (/constructive|bull|overweight|positive|improved/.test(s)) return 'Constructive';
+  if (/bear|underweight|negative|cautious|weak/.test(s)) return 'Cautious';
+  if (/neutral|hold|balanced/.test(s)) return 'Neutral';
+  if (raw) return String(raw);
+  return 'Neutral';
+}
+
+function fmtMetric(value) {
+  if (value == null || value === '') return null;
+  if (typeof value === 'number') {
+    if (Math.abs(value) <= 1.5) return `${(value * 100).toFixed(1)}%`;
+    return Number.isInteger(value) ? String(value) : value.toFixed(1);
   }
-  return null;
+  return String(value);
+}
+
+function humaniseChangeType(type) {
+  const t = String(type || '').toLowerCase();
+  if (!t) return 'Signal';
+  if (t.includes('financial') || t.includes('margin') || t.includes('revenue') || t.includes('roe')) {
+    return 'Financial';
+  }
+  if (t.includes('valuation') || t.includes('pe') || t.includes('multiple')) return 'Valuation';
+  if (t.includes('management') || t.includes('promoter') || t.includes('governance')) {
+    return 'Management';
+  }
+  if (t.includes('ownership') || t.includes('fii') || t.includes('dii') || t.includes('holder')) {
+    return 'Ownership';
+  }
+  if (t.includes('earn') || t.includes('result') || t.includes('guidance')) return 'Earnings';
+  if (t.includes('house') || t.includes('view') || t.includes('stance')) return 'House View';
+  if (t.includes('predict') || t.includes('forecast') || t.includes('accuracy')) {
+    return 'Prediction Accuracy';
+  }
+  if (t.includes('market') || t.includes('price') || t.includes('volume')) return 'Market';
+  return t.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function academyLessons(academy, ca) {
+  const out = [];
+  const push = (v) => {
+    const t = asText(v);
+    if (t && !isGateFailureText(t) && !out.includes(t) && !/^[a-z]+(?:_[a-z0-9]+)+$/.test(t)) {
+      out.push(t);
+    }
+  };
+  for (const hint of academy?.answer_hints || academy?.reasoning_points || []) push(hint);
+  const applied = ca?.academy_application?.applied_concepts || academy?.applied_concepts || [];
+  for (const c of applied) {
+    if (typeof c === 'string') {
+      // Never surface snake_case concept ids — skip unless already prose
+      if (!/^[a-z]+(?:_[a-z0-9]+)+$/.test(c)) push(c);
+      continue;
+    }
+    if (c && typeof c === 'object') {
+      push(c.application || c.why_it_matters || c.what_it_is || c.definition || c.investment_implication);
+    }
+  }
+  return out.slice(0, 6);
+}
+
+function buildMonitorRows(cm, pack) {
+  const rows = [];
+  const summary = cm?.what_changed || {};
+  const changes = summary.changes || summary.items || summary.rows || cm?.changes || [];
+  if (Array.isArray(changes)) {
+    for (const c of changes.slice(0, 12)) {
+      if (typeof c === 'string') {
+        rows.push({
+          category: 'Signal',
+          metric: asText(c, 'Update'),
+          previous: 'Prior',
+          current: 'Updated',
+          change: '→',
+        });
+        continue;
+      }
+      const type = c.change_type || c.type || c.category || c.metric || c.field;
+      rows.push({
+        category: humaniseChangeType(type),
+        metric: asText(c.metric || c.field || c.title || type, 'Signal'),
+        previous: asText(c.previous || c.from || c.prior || 'Prior', 'Prior'),
+        current: asText(c.current || c.to || c.detail || c.value || 'Updated', 'Updated'),
+        change: asText(c.direction || c.significance || c.delta || '→', '→'),
+      });
+    }
+  }
+  if (!rows.length && pack?.whats_changed) {
+    const wc = pack.whats_changed;
+    for (const item of asList(wc.bullets || wc.items || wc.summary, 6)) {
+      rows.push({
+        category: 'Signal',
+        metric: item,
+        previous: 'Prior review',
+        current: 'Current review',
+        change: 'Updated',
+      });
+    }
+  }
+  // Soft group order: Financial → Valuation → Earnings → Ownership → Management → House View → rest
+  const order = [
+    'Financial',
+    'Valuation',
+    'Earnings',
+    'Ownership',
+    'Management',
+    'House View',
+    'Prediction Accuracy',
+    'Market',
+    'Signal',
+  ];
+  rows.sort((a, b) => order.indexOf(a.category) - order.indexOf(b.category));
+  return rows;
 }
 
 export function mapSearchPack(pack) {
@@ -88,241 +191,87 @@ export function mapSearchPack(pack) {
 
   const ic = pack.intelligence_construction?.enabled ? pack.intelligence_construction : null;
   const ac = pack.answer_construction?.enabled ? pack.answer_construction : null;
-  const sections = ic?.sections || {};
-  const enrich = ic?.answer_enrichment || {};
+  const ide = pack.decision_engine?.active ? pack.decision_engine : null;
+  const ideSummary = ide?.summary || {};
   const briefing = pack.institutional_briefing || {};
   const ca = pack.company_analysis || {};
   const cm = pack.company_monitor || {};
-  const fin = ca.financial_intelligence || sections.financial_intelligence || {};
-  const val = ca.valuation_intelligence || sections.valuation || {};
-  const bq = ca.business_quality || sections.business_quality || {};
+  const dossier = pack.company_dossier || {};
+  const sector = pack.sector_intelligence || {};
+  const academy = pack.finance_academy || {};
   const hv = pack.house_view_card || {};
   const thesis = pack.current_thesis || {};
-  const dossier = pack.company_dossier || {};
-  const dvc = pack.data_validation || {};
-  const academy = pack.finance_academy || {};
-  const sector = pack.sector_intelligence || {};
-  const monitor = cm.what_changed || sections.what_changed || pack.whats_changed || {};
   const recoStatus = ac?.recommendation_status || briefing.recommendation_status || {};
-  const knowledgeGaps = asList(
-    recoStatus.knowledge_gaps || ac?.knowledge_gaps || briefing.knowledge_gaps,
-    8
+  const enrich = ic?.answer_enrichment || {};
+  const sections = ic?.sections || {};
+
+  // Primary owners
+  const fin = ca.financial_intelligence || {}; // Financial Intelligence layer (via CA assemble)
+  const val = ca.valuation_intelligence || {};
+  const bq = ca.business_quality || {};
+  const identity = ca.identity || {};
+
+  const stance = stanceOf(pack, ac);
+  const confidence = pct(ideSummary.confidence_pct ?? pack.confidence ?? hv.confidence) ?? null;
+  const coverage = pct(
+    recoStatus.coverage_pct || dossier.coverage_pct || ca.recommendation_readiness?.overall || fin.coverage_pct
   );
-  const ide = pack.decision_engine?.active ? pack.decision_engine : null;
-  const ideSummary = ide?.summary || {};
-  const ideLayers = Array.isArray(ide?.layers)
-    ? ide.layers
-        .filter((layer) => layer && layer.id)
-        .map((layer, idx) => ({
-          id: String(layer.id),
-          index: idx + 1,
-          title: asText(layer.title, String(layer.id).replace(/_/g, ' ')),
-          question: asText(layer.question, ''),
-          score: layer.score == null ? null : Number(layer.score),
-          grade: asText(layer.grade, gradeFromScore(layer.score) || ''),
-          weight: layer.weight == null ? null : Number(layer.weight),
-          status: asText(layer.status, 'partial'),
-          reasoning: asText(layer.reasoning, ''),
-          evidence: asList(layer.evidence, 5),
-          isDecision: String(layer.id) === 'decision',
-          positive: asList(layer.positive, 6),
-          negative: asList(layer.negative, 6),
-          bull: layer.bull || null,
-          base: layer.base || null,
-          bear: layer.bear || null,
-          probabilityWeighted:
-            layer.probability_weighted_return_pct ??
-            ideSummary.probability_weighted_return_pct ??
-            null,
-          riskReward: layer.risk_reward ?? ideSummary.risk_reward ?? null,
-          suitableFor: asList(layer.suitable_for || ideSummary.suitable_for, 6),
-          unsuitableFor: asList(layer.unsuitable_for || ideSummary.unsuitable_for, 6),
-          action: asText(layer.action || ideSummary.action, ''),
-        }))
-    : [];
-  const decisionStackLayers = ideLayers.filter((l) => !l.isDecision);
-  const decisionLayer = ideLayers.find((l) => l.isDecision) || null;
 
-  const stance = stanceOf(pack);
-  const confidence =
-    pct(
-      ideSummary.confidence_pct ??
-        pack.confidence ??
-        hv.confidence ??
-        enrich.confidence
-    ) ?? 72;
-  const coverage =
-    pct(
-      recoStatus.coverage_pct ||
-        dossier.coverage_pct ||
-        ca.recommendation_readiness?.overall ||
-        fin.coverage_pct ||
-        dvc.coverage_pct
-    ) ?? 80;
-  const knowledgeGrade =
-    dvc.knowledge_grade ||
-    dvc.research_grade ||
-    gradeFromScore(bq.business_quality_score) ||
-    (coverage >= 90 ? 'A+' : coverage >= 75 ? 'A' : 'B');
-
+  // Executive Summary — IRP + IC (+ ACV3 framing). Not IDE scores.
   const executive =
     asText(ac?.executive) ||
-    asText(ide?.answer_enrichment?.executive_framing) ||
     asText(enrich.executive_summary) ||
     asText(briefing.executive_summary) ||
+    asText(briefing.what_is_happening) ||
     asText(pack.executive_summary) ||
     asText(pack.answer?.executive_summary) ||
     asText(pack.answer?.summary) ||
     '';
 
-  const biz = sections.business_intelligence || enrich.business_intelligence || {};
-  const marketPack = enrich.market_intelligence || sections.market_performance || {};
-  const marketSnap = {
-    ...(dossier.market_data || {}),
-    ...(sections.market_performance?.snapshot || {}),
-    ...(marketPack.snapshot || {}),
+  // Business Intelligence — Company Analysis primary
+  const business = {
+    model:
+      asText(identity.business_model) ||
+      asText(ca.business_overview) ||
+      asText(sections.business_intelligence?.business_model),
+    industry:
+      asText(identity.industry) ||
+      asText(identity.sector) ||
+      asText(sector.sector_name),
+    moat:
+      asText(bq.moat) ||
+      asText(bq.competitive_advantage) ||
+      asText(bq.competitive_position) ||
+      asText(sections.business_intelligence?.competitive_advantages),
+    revenueDrivers:
+      asText(sections.business_intelligence?.revenue_drivers) ||
+      asList(ca.catalysts, 2).join(' ') ||
+      '',
+    management:
+      asText(bq.dimensions?.management_quality) ||
+      asText(bq.scores?.management) ||
+      asText((bq.dimensions || {}).management) ||
+      '',
+    pricingPower: asText(bq.dimensions?.pricing_power || bq.scores?.pricing_power),
+    qualityScore: bq.business_quality_score ?? null,
+    qualityGrade: asText(bq.grade, gradeFromScore(bq.business_quality_score) || ''),
+    narrative:
+      asText(ca.investment_thesis) ||
+      asText(sections.business_intelligence?.narrative) ||
+      asText(ca.business_overview),
   };
 
-  const whyCards = [
-    {
-      key: 'demand',
-      label: 'Demand',
-      text:
-        asText(biz.revenue_drivers) ||
-        asText(sections.market_performance?.narrative) ||
-        asText(briefing.market_performance) ||
-        asList(pack.key_drivers)[0] ||
-        'Demand should be judged through volume, pricing/mix and adjacency growth — the variables that decide whether the franchise is compounding.',
-    },
-    {
-      key: 'financial',
-      label: 'Financial Quality',
-      text:
-        asText(fin.narrative) ||
-        asText(biz.operating_metrics) ||
-        asText(briefing.financial_intelligence) ||
-        'Financial quality should be judged through incremental returns, cash conversion and balance-sheet resilience — even while statement history is still completing.',
-    },
-    {
-      key: 'valuation',
-      label: 'Valuation',
-      text:
-        asText(val.narrative) ||
-        asText(briefing.valuation_perspective) ||
-        asText(pack.valuation_perspective) ||
-        'Valuation only works when growth durability and competitive position are held constant — multiples without that context mislead.',
-    },
-    {
-      key: 'macro',
-      label: 'Macro',
-      text:
-        asList(pack.macro_drivers)[0] ||
-        asList(briefing.macro_drivers)[0] ||
-        'Macro conditions matter for discount rates, risk appetite and cyclical demand — they should frame, not replace, company analysis.',
-    },
-    {
-      key: 'competition',
-      label: 'Competition',
-      text:
-        asText(biz.competitive_advantages) ||
-        asText(ca.sector_intelligence?.narrative) ||
-        asList(pack.sector_drivers)[0] ||
-        'Competitive position decides whether growth creates value or is competed away through price and capital intensity.',
-    },
-    {
-      key: 'risk',
-      label: 'Risk',
-      text:
-        asText(biz.risks) ||
-        asList(pack.key_risks || ca.risks)[0] ||
-        'Institutional risk framing should emphasise path dependency — what can impair the thesis before the base case arrives.',
-    },
-  ].filter((c) => c.text && !isGateFailureText(c.text));
-
-  const momentumLabel =
-    marketPack.momentum ||
-    (marketSnap.range_position_0_1 != null
-      ? marketSnap.range_position_0_1 >= 0.6
-        ? 'Positive'
-        : marketSnap.range_position_0_1 <= 0.35
-          ? 'Soft'
-          : 'Mixed'
-      : null);
-
-  const kpis = [
-    bq.business_quality_score != null || bq.grade
-      ? {
-          label: 'Business Quality',
-          value: gradeFromScore(bq.business_quality_score) || bq.grade,
-          hint: bq.business_quality_score != null ? `${bq.business_quality_score}/100 quality scaffold` : 'Franchise quality',
-          tone: (bq.business_quality_score || 0) >= 70 ? 'pos' : 'neu',
-          spark: [62, 65, 68, 70, 72, 74, Number(bq.business_quality_score) || 70],
-        }
-      : null,
-    fin.returns != null || (fin.what_improved || []).length
-      ? {
-          label: 'Financial Strength',
-          value: fin.returns != null ? String(fin.returns) : 'Improving',
-          hint: 'Returns and cash quality',
-          tone: 'pos',
-          spark: [40, 45, 48, 52, 55, 58, 60],
-        }
-      : null,
-    val.current_pe != null || val.premium_discount_vs_history_pct != null
-      ? {
-          label: 'Valuation',
-          value: val.current_pe != null ? `${Number(val.current_pe).toFixed(1)}x` : 'Vs history',
-          hint:
-            val.premium_discount_vs_history_pct != null
-              ? `vs hist ${val.premium_discount_vs_history_pct}%`
-              : 'Earnings multiple context',
-          tone: val.premium_discount_vs_history_pct != null && val.premium_discount_vs_history_pct > 15 ? 'warn' : 'neu',
-          spark: [20, 22, 21, 23, 24, 25, Number(val.current_pe) || 22],
-        }
-      : null,
-    fin.growth != null || (fin.what_improved || []).includes('growth') || (fin.what_improved || []).includes('Growth')
-      ? {
-          label: 'Growth',
-          value: fin.growth != null ? String(fin.growth) : 'Improving',
-          hint: 'Top-line / earnings trajectory',
-          tone: 'pos',
-          spark: [8, 9, 10, 11, 10, 12, 11],
-        }
-      : null,
-    {
-      label: 'Risk',
-      value: (pack.key_risks || ca.risks || []).length ? 'Active watch' : 'Medium',
-      hint: 'Thesis path dependency',
-      tone: 'warn',
-      spark: [30, 32, 28, 35, 33, 34, 36],
-    },
-    momentumLabel
-      ? {
-          label: 'Momentum',
-          value: momentumLabel,
-          hint: '52-week range context',
-          tone: momentumLabel === 'Positive' || momentumLabel === 'Constructive' ? 'pos' : 'neu',
-          spark: [50, 52, 55, 58, 60, 62, 65],
-        }
-      : null,
-  ].filter(Boolean);
-
+  // Financial Intelligence — FI metrics primary (not repeated elsewhere)
   const financialCards = [
-    { label: 'Revenue Growth', value: fin.growth, status: 'Improving' },
-    { label: 'Operating Margin', value: fin.margins, status: 'Tracked' },
-    { label: 'Returns (ROE/ROIC)', value: fin.returns, status: 'Tracked' },
-    { label: 'Cash Flow', value: fin.cash_flow, status: 'Tracked' },
-    { label: 'Balance Sheet', value: fin.balance_sheet?.leverage, status: 'Monitored' },
-    { label: 'Capital Allocation', value: fin.capital_allocation, status: 'Tracked' },
-  ]
-    .filter((c) => c.value != null && c.value !== '')
-    .map((c) => ({
-      ...c,
-      display: String(c.value),
-      spark: sparkFrom([10, 12, 11, 13, 14, 13, 15]) || [10, 12, 11, 13, 14, 13, 15],
-      tone: 'neu',
-    }));
+    { label: 'Revenue Growth', value: fmtMetric(fin.growth) },
+    { label: 'Operating Margin', value: fmtMetric(fin.margins) },
+    { label: 'Returns (ROE/ROIC)', value: fmtMetric(fin.returns) },
+    { label: 'Cash Flow', value: fmtMetric(fin.cash_flow) },
+    { label: 'Balance Sheet', value: fmtMetric(fin.balance_sheet?.leverage) },
+    { label: 'Capital Allocation', value: fmtMetric(fin.capital_allocation) },
+  ].filter((c) => c.value != null);
 
+  // Valuation — valuation intelligence primary
   const valuationCards = [
     val.current_pe != null ? { label: 'Current P/E', value: `${Number(val.current_pe).toFixed(1)}x` } : null,
     val.forward_pe != null ? { label: 'Forward P/E', value: `${Number(val.forward_pe).toFixed(1)}x` } : null,
@@ -333,158 +282,141 @@ export function mapSearchPack(pack) {
       ? {
           label: 'Vs History',
           value: `${val.premium_discount_vs_history_pct > 0 ? '+' : ''}${val.premium_discount_vs_history_pct}%`,
-          tone: val.premium_discount_vs_history_pct > 10 ? 'neg' : val.premium_discount_vs_history_pct < -10 ? 'pos' : 'neu',
+          tone:
+            val.premium_discount_vs_history_pct > 10
+              ? 'neg'
+              : val.premium_discount_vs_history_pct < -10
+                ? 'pos'
+                : 'neu',
         }
       : null,
   ].filter(Boolean);
 
-  const leaders = asList(pack.company_leaders || briefing.company_leaders, 8).map((name, idx) => ({
-    company: name,
-    view: stance,
-    financial: gradeFromScore(bq.business_quality_score) || gradeFromScore(fin.coverage_pct) || 'Reviewed',
-    valuation: val.current_pe != null ? `${Number(val.current_pe).toFixed(0)}x` : 'Under review',
-    quality: gradeFromScore(bq.business_quality_score) || 'Reviewed',
-    confidence: Math.max(55, confidence - idx * 3),
-  }));
+  // Market Intelligence — market pack / dossier market data
+  const marketPack =
+    (Array.isArray(pack.market_intelligence) ? null : pack.market_intelligence) ||
+    enrich.market_intelligence ||
+    sections.market_performance ||
+    {};
+  const marketSnap = {
+    ...(dossier.market_data || {}),
+    ...(marketPack.snapshot || {}),
+  };
+  const marketCards = Array.isArray(marketPack.cards)
+    ? marketPack.cards
+    : [
+        marketSnap.current_price != null ? { label: 'Price', value: marketSnap.current_price } : null,
+        marketSnap.market_cap != null ? { label: 'Market Cap', value: marketSnap.market_cap } : null,
+        marketSnap.volume != null ? { label: 'Volume', value: marketSnap.volume } : null,
+        marketSnap.fifty_two_week_high != null
+          ? { label: '52W High', value: marketSnap.fifty_two_week_high }
+          : null,
+        marketSnap.fifty_two_week_low != null
+          ? { label: '52W Low', value: marketSnap.fifty_two_week_low }
+          : null,
+        marketPack.momentum || marketSnap.range_position_0_1 != null
+          ? {
+              label: 'Momentum',
+              value:
+                marketPack.momentum ||
+                (marketSnap.range_position_0_1 >= 0.6
+                  ? 'Positive'
+                  : marketSnap.range_position_0_1 <= 0.35
+                    ? 'Soft'
+                    : 'Mixed'),
+            }
+          : null,
+      ].filter(Boolean);
 
-  const risks = asList(
-    pack.key_risks || ca.risks || sections.risks || enrich.risks || (biz.risks ? [biz.risks] : []),
-    8
-  ).map((r, i) => ({
-    risk: r,
-    probability: i === 0 ? 'High' : i < 3 ? 'Medium' : 'Low',
-    impact: i < 2 ? 'High' : 'Medium',
-    severity: i === 0 ? 'Critical' : i < 3 ? 'Elevated' : 'Watch',
-    monitoring: 'Active',
-  }));
+  // Decision Scorecard — IDE scores only
+  const layerScores = ideSummary.layer_scores || {};
+  const scoreChips = [
+    ['Business', layerScores.company_quality ?? business.qualityScore],
+    ['Financial', layerScores.financial_quality],
+    ['Management', layerScores.management],
+    ['Valuation', layerScores.valuation],
+    ['Macro', layerScores.macro],
+    ['Industry', layerScores.industry],
+    ['Risk', layerScores.risk],
+  ]
+    .filter(([, v]) => v != null && !Number.isNaN(Number(v)))
+    .map(([label, value]) => ({
+      label,
+      value: Math.round(Number(value)),
+      grade: gradeFromScore(value),
+    }));
 
-  const catalysts = asList(pack.key_catalysts || ca.catalysts || sections.catalysts || enrich.catalysts, 8);
+  const confidenceBreakdown = ideSummary.confidence_breakdown || {};
+  const confidenceRows = [
+    ['Business', confidenceBreakdown.business],
+    ['Financial', confidenceBreakdown.financial],
+    ['Management', confidenceBreakdown.management],
+    ['Valuation', confidenceBreakdown.valuation],
+    ['Macro', confidenceBreakdown.macro],
+    ['Industry', confidenceBreakdown.industry],
+    ['Risk', confidenceBreakdown.risk],
+  ]
+    .filter(([, v]) => v != null)
+    .map(([label, value]) => ({ label, value: Math.round(Number(value)) }));
 
-  const learned = asList(
-    enrich.research_takeaways || sections.research_takeaways || academy.reasoning_points || academy.answer_hints,
-    6
-  );
+  // Risks & Catalysts — CA primary
+  const risks = asList(ca.risks || pack.key_risks || [], 8).map((r) => ({ risk: r }));
+  const catalysts = asList(ca.catalysts || pack.key_catalysts || [], 8);
+
+  // Bull/Base/Bear — IRP thesis primary
+  const bull = asList(thesis.bull_case || pack.bull_case || pack.answer?.bull_case || ca.bull_case, 6);
+  const base = asList(thesis.neutral_case || briefing.base_case || ca.base_case, 6);
+  const bear = asList(thesis.bear_case || pack.bear_case || pack.answer?.bear_case || ca.bear_case, 6);
+
+  // Conclusion — IC + IRP (not IDE essay)
+  const conclusion =
+    asText(enrich.current_outlook) ||
+    asText(briefing.current_outlook) ||
+    asText(pack.current_outlook) ||
+    asText(ac?.thesis) ||
+    asText(ca.investment_thesis) ||
+    executive;
 
   const explore = asList(pack.follow_up_questions, 10);
   if (!explore.length) {
     explore.push(
-      'Compare top companies',
-      'Historical valuation',
-      'Latest earnings',
-      'Sector trends',
-      'Risk deep dive',
-      'Macro impact'
+      'Compare peers on valuation',
+      'What changed this quarter?',
+      'Historical valuation range',
+      'Sector demand outlook',
+      'Key risks deep dive'
     );
-  }
-
-  const changedRows = [];
-  const changes = monitor.changes || monitor.items || monitor.rows || [];
-  if (Array.isArray(changes) && changes.length) {
-    for (const c of changes.slice(0, 8)) {
-      if (typeof c === 'string') changedRows.push({ metric: c, previous: '—', current: 'Updated', change: '→' });
-      else {
-        changedRows.push({
-          metric: asText(c.metric || c.field || c.title || c.change_type, 'Signal'),
-          previous: asText(c.previous || c.from || 'Prior', 'Prior'),
-          current: asText(c.current || c.to || c.detail, 'Updated'),
-          change: asText(c.direction || c.significance || '→', '→'),
-        });
-      }
-    }
-  }
-  if (!changedRows.length && pack.whats_changed) {
-    const wc = pack.whats_changed;
-    for (const item of asList(wc.bullets || wc.items || wc.summary, 6)) {
-      changedRows.push({ metric: item, previous: 'Prior review', current: 'Current review', change: 'Updated' });
-    }
   }
 
   return {
     question: asText(pack.question, 'Institutional research question'),
     intent: asText(pack.intent, 'Institutional Research'),
     category: asText(sector.sector_name || sector.sector_id || pack.entities?.sector || 'Markets', 'Markets'),
-    stance,
-    stanceTone: toneForStance(stance),
-    confidence,
-    conviction: confidence >= 80 ? 'High' : confidence >= 60 ? 'Medium' : 'Developing',
-    horizon: asText(hv.investment_horizon || '12–24 Months', '12–24 Months'),
-    changeVsPrevious: asText(monitor.max_significance || pack.whats_changed?.direction || 'Stable', 'Stable'),
-    readiness: recoStatus.blocked ? 'Research note complete' : 'Institutional Grade',
-    coverage,
-    knowledgeGrade,
+    ticker: ca.ticker || dossier.ticker || pack.entities?.primary_ticker || null,
     freshness: (() => {
       const raw = pack.freshness_indicator || '';
       if (!raw || /unknown|n\/a/i.test(raw)) return 'Current';
-      if (/^\d{4}-\d{2}-\d{2}T/.test(String(pack.last_updated || ''))) return 'Current';
       return asText(raw, 'Current');
     })(),
-    lastUpdated: pack.last_updated && !/T\d{2}:/.test(String(pack.last_updated))
-      ? asText(pack.last_updated, '')
-      : '',
+
+    // 1. Executive Summary
     executive,
-    thesis:
-      asText(ac?.thesis) ||
-      asText(biz.long_term_growth) ||
-      asText(thesis.summary) ||
-      asText(pack.answer?.investment_thesis) ||
-      asText(ca.investment_thesis) ||
-      executive,
-    why: asList(ac?.why || enrich.why_bullets || pack.why || pack.answer?.why, 12).filter(
-      (w) => !isGateFailureText(w)
+
+    // 2. Institutional View — IRP / house view
+    stance,
+    stanceTone: toneForStance(stance),
+    confidence,
+    conviction: confidence == null ? 'Developing' : confidence >= 80 ? 'High' : confidence >= 60 ? 'Medium' : 'Developing',
+    horizon: asText(hv.investment_horizon || '12–24 Months', '12–24 Months'),
+    changeVsPrevious: asText(
+      cm?.what_changed?.max_significance || pack.whats_changed?.direction || 'Stable',
+      'Stable'
     ),
-    whyCards,
-    kpis,
-    financialCards,
-    financialNarrative:
-      asText(fin.narrative) ||
-      asText(biz.operating_metrics) ||
-      asText(briefing.financial_intelligence) ||
-      'Financial quality should be judged through incremental returns, cash conversion and balance-sheet resilience.',
-    valuationCards,
-    valuationNarrative:
-      asText(val.narrative) ||
-      asText(pack.valuation_perspective) ||
-      asText(briefing.valuation_perspective) ||
-      'Valuation should be framed against growth durability and competitive position — multiples alone are incomplete.',
-    valuationChart: Array.isArray(pack.charts)
-      ? pack.charts.find((c) => Array.isArray(c?.points) && c.points.some((p) => p?.value != null))
-      : null,
-    marketNarrative:
-      asText(marketPack.narrative) ||
-      asText(sections.market_performance?.narrative) ||
-      asText(briefing.market_performance),
-    marketSnapshot: marketSnap,
-    marketCards: Array.isArray(marketPack.cards) ? marketPack.cards : [],
-    ownershipNarrative: asText(sections.ownership?.narrative) || asText(briefing.ownership),
-    ownership: sections.ownership?.snapshot || {},
-    businessModel: asText(biz.business_model) || asText(ca.identity?.business_model) || asText(ca.business_overview),
-    businessIntelligence: biz,
-    businessQuality: bq,
-    sectorNarrative:
-      asText(biz.industry_structure) ||
-      asText(sector.reasoning || sector.narrative) ||
-      asText(sections.sector_intelligence?.narrative),
-    sectorDrivers: asList(pack.sector_drivers || briefing.sector_drivers, 6),
-    macroDrivers: asList(pack.macro_drivers || briefing.macro_drivers, 6),
-    leaders,
-    bull: asList(thesis.bull_case || pack.bull_case || pack.answer?.bull_case || ca.bull_case, 6),
-    base: asList(thesis.neutral_case || ca.base_case, 6),
-    bear: asList(thesis.bear_case || pack.bear_case || pack.answer?.bear_case || ca.bear_case, 6),
-    risks,
-    catalysts,
-    learned,
-    conclusion:
-      asText(ac?.decision_conclusion) ||
-      asText(decisionLayer?.reasoning) ||
-      asText(ide?.decision?.reasoning) ||
-      asText(enrich.current_outlook) ||
-      asText(biz.long_term_growth) ||
-      asText(briefing.current_outlook) ||
-      asText(pack.current_outlook) ||
-      executive,
-    decisionEngine: ide
+    readiness: recoStatus.blocked ? 'Research note complete' : 'Institutional Grade',
+
+    // 3. Decision Scorecard — IDE scores only
+    decisionScorecard: ide
       ? {
-          active: true,
           overallScore: ideSummary.overall_score ?? ide.overall_score ?? null,
           investmentGrade: asText(
             ideSummary.investment_grade || ide.investment_grade,
@@ -497,16 +429,78 @@ export function mapSearchPack(pack) {
           bearCase: ideSummary.bear_case_pct ?? null,
           probabilityWeighted: ideSummary.probability_weighted_return_pct ?? null,
           riskReward: ideSummary.risk_reward ?? null,
-          action: asText(ideSummary.action || decisionLayer?.action, ''),
-          suitableFor: asList(ideSummary.suitable_for, 6),
-          unsuitableFor: asList(ideSummary.unsuitable_for, 6),
-          layerScores: ideSummary.layer_scores || {},
-          preQuestions: asList(ide.pre_questions, 8),
-          stackLayers: decisionStackLayers,
-          decision: decisionLayer,
+          scoreChips,
+          confidenceRows,
           gateBlocked: Boolean(ideSummary.gate_blocked),
         }
       : null,
+
+    // 4. Business Intelligence — CA
+    business,
+
+    // 5. Financial Intelligence
+    financialNarrative: asText(fin.narrative) || '',
+    financialCards,
+    financialImproved: asList(fin.what_improved, 4).map((x) => String(x).replace(/_/g, ' ')),
+    financialDeteriorated: asList(fin.what_deteriorated, 4).map((x) => String(x).replace(/_/g, ' ')),
+    financialMonitor: asList(fin.what_deserves_monitoring, 5),
+
+    // 6. Valuation Intelligence
+    valuationNarrative: asText(val.narrative) || '',
+    valuationCards,
+    valuationChart: Array.isArray(pack.charts)
+      ? pack.charts.find((c) => Array.isArray(c?.points) && c.points.some((p) => p?.value != null))
+      : null,
+
+    // 7. Market Intelligence
+    marketNarrative: asText(marketPack.narrative) || '',
+    marketCards,
+    marketSnapshot: marketSnap,
+
+    // 8. Sector Intelligence — SIF
+    sectorNarrative:
+      asText(sector.reasoning) ||
+      asText(sector.narrative) ||
+      asText((ca.sector_intelligence || {}).narrative) ||
+      '',
+    sectorDrivers: asList(sector.priority_metrics || pack.sector_drivers || briefing.sector_drivers, 6).map((d) =>
+      String(d).replace(/_/g, ' ')
+    ),
+
+    // 9. Macro Intelligence — IRP
+    macroDrivers: asList(pack.macro_drivers || briefing.macro_drivers, 6),
+
+    // 10. Company Monitor — CMS
+    monitorRows: buildMonitorRows(cm, pack),
+    monitorHints: asList(cm.ask_agi_hints || cm.what_changed?.narrative, 5),
+    houseViewReview: Boolean(cm.house_view_review),
+
+    // 11. Risks & Catalysts — CA
+    risks,
+    catalysts,
+
+    // 12. Bull / Base / Bear — IRP
+    bull,
+    base,
+    bear,
+    scenarioReturns: ide
+      ? {
+          bull: ideSummary.bull_case_pct,
+          base: ideSummary.base_case_pct,
+          bear: ideSummary.bear_case_pct,
+        }
+      : null,
+
+    // 13. Research & Learning — Academy
+    learned: academyLessons(academy, ca),
+
+    // 14. Institutional Conclusion — IC + IRP
+    conclusion,
+    suitableFor: asList(ideSummary.suitable_for, 6),
+    unsuitableFor: asList(ideSummary.unsuitable_for, 6),
+    decisionAction: asText(ideSummary.action, ''),
+
+    // 15. Recommendation Status — Gate / ECP
     recommendationStatus: {
       blocked: Boolean(recoStatus.blocked),
       status: asText(recoStatus.status, recoStatus.blocked ? 'Withheld' : 'Open'),
@@ -517,16 +511,12 @@ export function mapSearchPack(pack) {
           : 'Evidence coverage supports institutional analysis — not an automatic trade instruction.'
       ),
       detail: asText(recoStatus.detail, ''),
-      gaps: knowledgeGaps,
+      gaps: asList(recoStatus.knowledge_gaps || ac?.knowledge_gaps, 8),
+      coverage,
     },
-    knowledgeGaps,
+
     explore,
-    changedRows,
-    supporting: pack.supporting_evidence || [],
-    conflicting: pack.conflicting_evidence || [],
-    icEnabled: Boolean(ic?.enabled),
-    acEnabled: Boolean(ac?.enabled),
     ideEnabled: Boolean(ide?.active),
-    ticker: ca.ticker || dossier.ticker || pack.entities?.primary_ticker || null,
+    acEnabled: Boolean(ac?.enabled),
   };
 }

@@ -613,6 +613,17 @@ def build_decision(
                 if k in layers and layers[k].get("score") is not None
             },
             "confidence_pct": round(_clamp(55 + (overall - 50) * 0.7), 1),
+            "confidence_breakdown": {
+                "business": (layers.get("company_quality") or {}).get("score"),
+                "financial": (layers.get("financial_quality") or {}).get("score"),
+                "management": (layers.get("management") or {}).get("score"),
+                "valuation": (layers.get("valuation") or {}).get("score"),
+                "macro": (layers.get("macro") or {}).get("score"),
+                "industry": (layers.get("industry") or {}).get("score"),
+                "risk": (layers.get("risk") or {}).get("score"),
+                "technical": (layers.get("technical") or {}).get("score"),
+                "expectations": (layers.get("market_expectations") or {}).get("score"),
+            },
             "expected_return_12m_pct": expected_return.get("probability_weighted_return_pct"),
             "bull_case_pct": (layers.get("probability") or {}).get("bull", {}).get("expected_return_pct"),
             "base_case_pct": (layers.get("probability") or {}).get("base", {}).get("expected_return_pct"),

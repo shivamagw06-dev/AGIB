@@ -21,7 +21,6 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import { Line, LineChart as RLineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import Sparkline from '@/office/Sparkline';
 import { mapSearchPack } from '@/components/AskAgi/adapters/mapSearchPack';
 import '@/components/AskAgi/researchWorkspace.css';
 
@@ -52,7 +51,7 @@ function Section({ id, kicker, title, children, className = '' }) {
   );
 }
 
-function Donut({ value = 72 }) {
+function Donut({ value = 0 }) {
   const v = Math.max(0, Math.min(100, Number(value) || 0));
   const r = 54;
   const c = 2 * Math.PI * r;
@@ -74,9 +73,23 @@ function Donut({ value = 72 }) {
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <p className="text-3xl font-bold tabular-nums">{v}%</p>
-        <p className="text-[10px] uppercase tracking-wide text-[var(--rw-caption)]">Overall</p>
+        <p className="text-3xl font-bold tabular-nums">{v || '—'}</p>
+        <p className="text-[10px] uppercase tracking-wide text-[var(--rw-caption)]">Confidence</p>
       </div>
+    </div>
+  );
+}
+
+function MetricGrid({ items }) {
+  if (!items?.length) return null;
+  return (
+    <div className="rw-grid-3">
+      {items.map((c) => (
+        <div key={c.label} className={`rw-kpi tone-${c.tone || 'neu'}`}>
+          <p className="label">{c.label}</p>
+          <p className="value text-[18px]">{c.value}</p>
+        </div>
+      ))}
     </div>
   );
 }
@@ -132,6 +145,8 @@ export default function ResearchWorkspace({
       }))
       .filter((p) => Number.isFinite(p.value));
   }, [vm]);
+
+  const ds = vm?.decisionScorecard;
 
   return (
     <div className="agi-research">
@@ -209,7 +224,7 @@ export default function ResearchWorkspace({
                 <Star size={15} />
                 <span className="label">Bookmark</span>
               </button>
-              <button type="button" className="rw-iconbtn" onClick={exportJson} title="Export PDF">
+              <button type="button" className="rw-iconbtn" onClick={exportJson} title="Export">
                 <FileText size={15} />
                 <span className="label">PDF</span>
               </button>
@@ -237,11 +252,10 @@ export default function ResearchWorkspace({
 
           <div className="rw-content">
             {!question && !loading && (
-              <Section kicker="Ask AGI" title="Institutional Investment Research Workspace">
+              <Section kicker="Ask AGI" title="Institutional Investment Research">
                 <p className="rw-body">
-                  Ask any institutional question. Every answer opens as a research note — executive
-                  summary, house view, financial intelligence, valuation, risks and catalysts —
-                  constructed from AGI&apos;s validated intelligence stack.
+                  Ask any institutional question. Answers open as a single research report — one purpose
+                  per section, one coherent investment voice.
                 </p>
                 <div className="rw-explore mt-4">
                   {[
@@ -293,8 +307,6 @@ export default function ResearchWorkspace({
                     <span className="rw-chip blue">{vm.intent}</span>
                     <span className="rw-chip blue">{vm.category}</span>
                     {vm.ticker ? <span className="rw-chip muted">{vm.ticker}</span> : null}
-                    {vm.acEnabled ? <span className="rw-chip muted">Institutional Brief</span> : null}
-                    {vm.ideEnabled ? <span className="rw-chip muted">Decision Stack</span> : null}
                   </div>
                   <p className="rw-meta">
                     Last research refresh: {vm.freshness}
@@ -303,19 +315,21 @@ export default function ResearchWorkspace({
                 </div>
 
                 <div className="rw-grid-2">
-                  <Section id="executive" kicker="Section 1" title="Executive Summary">
+                  <Section id="executive" kicker="01" title="Executive Summary">
                     <p className="rw-body">{vm.executive || 'Institutional summary assembling…'}</p>
                   </Section>
-                  <Section id="view" kicker="Section 2" title="AGI Institutional View">
+                  <Section id="view" kicker="02" title="Institutional View">
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <p className="rw-mini">Current View</p>
                         <p className={`rw-view-value tone-${vm.stanceTone}`}>{vm.stance}</p>
                       </div>
                       <div>
-                        <p className="rw-mini">Confidence</p>
-                        <p className="rw-view-value">{vm.confidence}%</p>
-                        <p className="rw-mini">{vm.conviction} conviction</p>
+                        <p className="rw-mini">Conviction</p>
+                        <p className="rw-view-value">
+                          {vm.confidence != null ? `${vm.confidence}%` : '—'}
+                        </p>
+                        <p className="rw-mini">{vm.conviction}</p>
                       </div>
                       <div>
                         <p className="rw-mini">Time Horizon</p>
@@ -325,40 +339,35 @@ export default function ResearchWorkspace({
                         <p className="rw-mini">Change vs Previous</p>
                         <p className="font-semibold tone-pos">{vm.changeVsPrevious}</p>
                       </div>
-                      <div className="col-span-2">
-                        <p className="rw-mini">Recommendation Readiness</p>
-                        <p className="font-semibold">{vm.readiness}</p>
-                      </div>
                     </div>
                   </Section>
                 </div>
 
-                {vm.decisionEngine ? (
-                  <Section id="decision-scorecard" kicker="Decision Framework" title="Investment Decision Scorecard">
+                {ds ? (
+                  <Section id="scorecard" kicker="03" title="Decision Scorecard">
                     <p className="rw-body mb-4">
-                      Ownership questions are answered through a layered institutional stack — macro through
-                      expected return — before any investment conclusion. No layer is skipped.
+                      Layered institutional scores only — detailed analysis lives in the sections below.
                     </p>
                     <div className="rw-decision-scorecard">
                       <div className="rw-decision-hero">
                         <p className="rw-mini">Overall Score</p>
                         <p className="rw-decision-score">
-                          {vm.decisionEngine.overallScore != null ? vm.decisionEngine.overallScore : '—'}
+                          {ds.overallScore != null ? ds.overallScore : '—'}
                           <span>/100</span>
                         </p>
                         <p className="rw-decision-grade">
-                          Grade {vm.decisionEngine.investmentGrade || '—'} · Confidence{' '}
-                          {vm.decisionEngine.confidence}%
+                          Grade {ds.investmentGrade || '—'}
+                          {ds.confidence != null ? ` · Confidence ${ds.confidence}%` : ''}
                         </p>
                       </div>
                       <div className="rw-decision-metrics">
                         {[
-                          ['Expected Return (12m)', vm.decisionEngine.expectedReturn12m, '%'],
-                          ['Bull Case', vm.decisionEngine.bullCase, '%'],
-                          ['Base Case', vm.decisionEngine.baseCase, '%'],
-                          ['Bear Case', vm.decisionEngine.bearCase, '%'],
-                          ['Prob. Weighted', vm.decisionEngine.probabilityWeighted, '%'],
-                          ['Risk / Reward', vm.decisionEngine.riskReward, ''],
+                          ['Expected Return (12m)', ds.expectedReturn12m, '%'],
+                          ['Bull', ds.bullCase, '%'],
+                          ['Base', ds.baseCase, '%'],
+                          ['Bear', ds.bearCase, '%'],
+                          ['Prob. Weighted', ds.probabilityWeighted, '%'],
+                          ['Risk / Reward', ds.riskReward, ''],
                         ].map(([label, value, suffix]) => (
                           <div key={label} className="rw-why-card">
                             <h4>{label}</h4>
@@ -371,119 +380,104 @@ export default function ResearchWorkspace({
                         ))}
                       </div>
                     </div>
-                    {vm.decisionEngine.preQuestions?.length ? (
-                      <ol className="rw-preq mt-4">
-                        {vm.decisionEngine.preQuestions.map((q) => (
-                          <li key={q}>{q}</li>
-                        ))}
-                      </ol>
-                    ) : null}
-                  </Section>
-                ) : null}
-
-                {vm.kpis?.length ? (
-                  <Section id="dashboard" kicker="Section 3" title="Executive Dashboard">
-                    <div className="rw-grid-4">
-                      {vm.kpis.map((k) => (
-                        <div key={k.label} className={`rw-kpi tone-${k.tone}`}>
-                          <p className="label">{k.label}</p>
-                          <p className="value">{k.value}</p>
-                          <p className="hint">{k.hint}</p>
-                          <div className="spark">
-                            <Sparkline points={k.spark} up={k.tone !== 'neg'} width={88} height={24} />
+                    {ds.scoreChips?.length ? (
+                      <div className="rw-score-chips mt-4">
+                        {ds.scoreChips.map((chip) => (
+                          <div key={chip.label} className="rw-score-chip">
+                            <span>{chip.label}</span>
+                            <strong>{chip.value}</strong>
+                            <em>{chip.grade}</em>
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  </Section>
-                ) : null}
-
-                <div className="rw-grid-2">
-                  <Section id="thesis" kicker="Section 4" title="Investment Thesis">
-                    <p className="rw-body">{vm.thesis}</p>
-                    {vm.why.length ? (
-                      <ul className="mt-3 space-y-2 text-sm text-[var(--rw-soft)]">
-                        {vm.why.slice(0, 5).map((w) => (
-                          <li key={w} className="border-b border-[var(--rw-border)] pb-2">
-                            {w}
-                          </li>
                         ))}
-                      </ul>
+                      </div>
                     ) : null}
-                  </Section>
-                  <Section id="why" kicker="Section 5" title="Why This View">
-                    <div className="grid grid-cols-2 gap-2">
-                      {vm.whyCards.map((c) => (
-                        <div key={c.key} className="rw-why-card">
-                          <h4>{c.label}</h4>
-                          <p>{c.text}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </Section>
-                </div>
-
-                <Section id="changed" kicker="Section 6" title="What's Changed">
-                  {vm.changedRows.length ? (
-                    <div className="overflow-x-auto">
-                      <table className="rw-table">
-                        <thead>
-                          <tr>
-                            <th>Metric</th>
-                            <th>Previous</th>
-                            <th>Current</th>
-                            <th>Change</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {vm.changedRows.map((r) => (
-                            <tr key={`${r.metric}-${r.current}`}>
-                              <td className="font-semibold text-[var(--rw-ink)]">{r.metric}</td>
-                              <td>{r.previous}</td>
-                              <td>{r.current}</td>
-                              <td className="tone-pos">{r.change}</td>
-                            </tr>
+                    {ds.confidenceRows?.length ? (
+                      <div className="rw-donut-wrap mt-5">
+                        <Donut value={ds.confidence || 0} />
+                        <ul className="space-y-2 text-sm text-[var(--rw-soft)]">
+                          {ds.confidenceRows.map((row) => (
+                            <li
+                              key={row.label}
+                              className="flex justify-between border-b border-[var(--rw-border)] pb-1"
+                            >
+                              <span>{row.label}</span>
+                              <span className="tabular-nums">{row.value}</span>
+                            </li>
                           ))}
-                        </tbody>
-                      </table>
+                        </ul>
+                      </div>
+                    ) : null}
+                  </Section>
+                ) : null}
+
+                <Section id="business" kicker="04" title="Business Intelligence">
+                  <p className="rw-body">
+                    {vm.business?.narrative ||
+                      vm.business?.model ||
+                      'Business quality is assessed through model, moat, management and competitive position.'}
+                  </p>
+                  <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2">
+                    {[
+                      ['Business model', vm.business?.model],
+                      ['Industry', vm.business?.industry],
+                      ['Competitive position', vm.business?.moat],
+                      ['Revenue drivers', vm.business?.revenueDrivers],
+                      ['Management', vm.business?.management],
+                      ['Pricing power', vm.business?.pricingPower],
+                    ]
+                      .filter(([, text]) => text)
+                      .map(([title, text]) => (
+                        <div key={title} className="rw-why-card">
+                          <h4>{title}</h4>
+                          <p>{text}</p>
+                        </div>
+                      ))}
+                  </div>
+                  {vm.business?.qualityScore != null ? (
+                    <p className="rw-mini mt-3">
+                      Business quality {vm.business.qualityScore}/100
+                      {vm.business.qualityGrade ? ` (${vm.business.qualityGrade})` : ''}
+                    </p>
+                  ) : null}
+                </Section>
+
+                <Section id="financials" kicker="05" title="Financial Intelligence">
+                  {vm.financialNarrative ? <p className="rw-body mb-4">{vm.financialNarrative}</p> : null}
+                  <MetricGrid items={vm.financialCards} />
+                  {(vm.financialImproved?.length || vm.financialDeteriorated?.length) && (
+                    <div className="rw-grid-2 mt-4">
+                      {vm.financialImproved?.length ? (
+                        <div>
+                          <p className="rw-mini tone-pos">Improving</p>
+                          <ul className="mt-1 space-y-1 text-sm text-[var(--rw-soft)]">
+                            {vm.financialImproved.map((x) => (
+                              <li key={x}>• {x}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : null}
+                      {vm.financialDeteriorated?.length ? (
+                        <div>
+                          <p className="rw-mini tone-neg">Softening</p>
+                          <ul className="mt-1 space-y-1 text-sm text-[var(--rw-soft)]">
+                            {vm.financialDeteriorated.map((x) => (
+                              <li key={x}>• {x}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : null}
                     </div>
-                  ) : (
-                    <p className="rw-empty">No material period-over-period changes surfaced yet.</p>
                   )}
-                </Section>
-
-                <Section id="financials" kicker="Section 7" title="Financial Intelligence">
-                  <p className="rw-body mb-4">{vm.financialNarrative}</p>
-                  {vm.financialCards?.length ? (
-                    <div className="rw-grid-3">
-                      {vm.financialCards.map((c) => (
-                        <div key={c.label} className={`rw-kpi tone-${c.tone}`}>
-                          <p className="label">{c.label}</p>
-                          <p className="value text-[18px]">{c.display}</p>
-                          <p className="hint">{c.status}</p>
-                          <div className="spark">
-                            <Sparkline points={c.spark} up={c.tone === 'pos'} width={90} height={24} />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                  {!vm.financialCards?.length && !vm.financialNarrative ? (
+                    <p className="rw-empty">Financial coverage is still completing for this name.</p>
                   ) : null}
                 </Section>
 
-                <Section id="valuation" kicker="Section 8" title="Valuation Intelligence">
-                  <p className="rw-body mb-4">{vm.valuationNarrative}</p>
-                  {vm.valuationCards?.length ? (
-                    <div className="rw-grid-3 mb-4">
-                      {vm.valuationCards.map((c) => (
-                        <div key={c.label} className={`rw-kpi tone-${c.tone || 'neu'}`}>
-                          <p className="label">{c.label}</p>
-                          <p className="value text-[18px]">{c.value}</p>
-                        </div>
-                      ))}
-                    </div>
-                  ) : null}
+                <Section id="valuation" kicker="06" title="Valuation Intelligence">
+                  {vm.valuationNarrative ? <p className="rw-body mb-4">{vm.valuationNarrative}</p> : null}
+                  <MetricGrid items={vm.valuationCards} />
                   {chartData.length >= 2 ? (
-                    <div className="h-56 rounded-xl border border-[var(--rw-border)] bg-[var(--rw-panel-2)] p-3">
+                    <div className="h-56 mt-4 rounded-xl border border-[var(--rw-border)] bg-[var(--rw-panel-2)] p-3">
                       <ResponsiveContainer width="100%" height="100%">
                         <RLineChart data={chartData}>
                           <XAxis dataKey="name" hide />
@@ -500,247 +494,175 @@ export default function ResearchWorkspace({
                       </ResponsiveContainer>
                     </div>
                   ) : null}
+                  {!vm.valuationCards?.length && !vm.valuationNarrative ? (
+                    <p className="rw-empty">Valuation multiples will populate as coverage completes.</p>
+                  ) : null}
                 </Section>
 
                 <div className="rw-grid-2">
-                  <Section id="business" kicker="Section 9" title="Business Intelligence">
-                    <p className="rw-body">
-                      {vm.businessModel ||
-                        vm.businessIntelligence?.narrative ||
-                        'The equity debate starts with how the company earns money, where it has advantage, and whether that advantage can compound.'}
-                    </p>
-                    <div className="mt-3 grid grid-cols-1 gap-2">
-                      {[
-                        ['Industry structure', vm.businessIntelligence?.industry_structure || vm.sectorNarrative],
-                        ['Competitive advantages', vm.businessIntelligence?.competitive_advantages],
-                        ['Revenue drivers', vm.businessIntelligence?.revenue_drivers],
-                        ['Operating metrics', vm.businessIntelligence?.operating_metrics],
-                        ['Risks', vm.businessIntelligence?.risks],
-                        ['Long-term growth', vm.businessIntelligence?.long_term_growth],
-                      ]
-                        .filter(([, text]) => text)
-                        .map(([title, text]) => (
-                          <div key={title} className="rw-why-card">
-                            <h4>{title}</h4>
-                            <p>{text}</p>
-                          </div>
-                        ))}
-                      {vm.ownershipNarrative ? (
-                        <div className="rw-why-card">
-                          <h4>Ownership</h4>
-                          <p>{vm.ownershipNarrative}</p>
-                        </div>
-                      ) : null}
-                    </div>
+                  <Section id="market" kicker="07" title="Market Intelligence">
+                    {vm.marketNarrative ? <p className="rw-body mb-3">{vm.marketNarrative}</p> : null}
+                    <MetricGrid
+                      items={(vm.marketCards || []).map((c) => ({
+                        label: c.label,
+                        value: String(c.value),
+                      }))}
+                    />
+                    {!vm.marketCards?.length && !vm.marketNarrative ? (
+                      <p className="rw-empty">Market snapshot pending.</p>
+                    ) : null}
                   </Section>
-                  <Section id="market" kicker="Section 10" title="Market Intelligence">
-                    <p className="rw-body">
-                      {vm.marketNarrative ||
-                        'Market context frames entry timing and risk appetite — it does not replace business or valuation analysis.'}
-                    </p>
-                    <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
-                      {(vm.marketCards?.length
-                        ? vm.marketCards.map((c) => [c.label, c.value])
-                        : [
-                            ['Price', vm.marketSnapshot.current_price],
-                            ['52W High', vm.marketSnapshot.fifty_two_week_high],
-                            ['52W Low', vm.marketSnapshot.fifty_two_week_low],
-                            ['Market Cap', vm.marketSnapshot.market_cap],
-                          ]
-                      )
-                        .filter(([, value]) => value != null && value !== '' && value !== '—')
-                        .map(([label, value]) => (
-                          <div key={label} className="rw-why-card">
-                            <h4>{label}</h4>
-                            <p>{String(value)}</p>
-                          </div>
-                        ))}
-                    </div>
-                  </Section>
-                </div>
-
-                <div className="rw-grid-2">
-                  <Section id="sector" kicker="Section 11" title="Sector Intelligence">
+                  <Section id="sector" kicker="08" title="Sector Intelligence">
                     <p className="rw-body">
                       {vm.sectorNarrative ||
-                        'Industry structure matters because it shapes pricing power, capital intensity and the durability of returns.'}
+                        'Industry structure shapes pricing power, capital intensity and return durability.'}
                     </p>
-                    {vm.sectorDrivers.length ? (
+                    {vm.sectorDrivers?.length ? (
                       <ul className="mt-3 space-y-1 text-sm text-[var(--rw-muted)]">
                         {vm.sectorDrivers.map((d) => (
-                          <li key={d}>• {String(d).replace(/_/g, ' ')}</li>
+                          <li key={d}>• {d}</li>
                         ))}
                       </ul>
                     ) : null}
                   </Section>
-                  {vm.macroDrivers.length ? (
-                    <Section id="macro" kicker="Section 12" title="Macro Intelligence">
-                      <ul className="space-y-2 text-sm text-[var(--rw-soft)]">
-                        {vm.macroDrivers.map((d) => (
-                          <li key={d} className="border-b border-[var(--rw-border)] pb-2">
-                            {d}
-                          </li>
-                        ))}
-                      </ul>
-                    </Section>
-                  ) : (
-                    <Section id="macro" kicker="Section 12" title="Macro Intelligence">
-                      <p className="rw-body">
-                        Macro conditions matter for discount rates, risk appetite and cyclical demand — they should
-                        frame the company debate rather than replace it.
-                      </p>
-                    </Section>
-                  )}
                 </div>
 
-                {vm.leaders.length ? (
-                  <Section id="leaders" kicker="Section 13" title="Sector Leaders">
+                <Section id="macro" kicker="09" title="Macro Intelligence">
+                  {vm.macroDrivers?.length ? (
+                    <ul className="space-y-2 text-sm text-[var(--rw-soft)]">
+                      {vm.macroDrivers.map((d) => (
+                        <li key={d} className="border-b border-[var(--rw-border)] pb-2">
+                          {d}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="rw-body">
+                      Macro conditions matter for discount rates, risk appetite and cyclical demand —
+                      they frame the company debate rather than replace it.
+                    </p>
+                  )}
+                </Section>
+
+                <Section id="monitor" kicker="10" title="Company Monitor">
+                  {vm.houseViewReview ? (
+                    <p className="rw-mini tone-warn mb-3">Material changes — house-view review suggested.</p>
+                  ) : null}
+                  {vm.monitorHints?.length ? (
+                    <ul className="mb-3 space-y-1 text-sm text-[var(--rw-soft)]">
+                      {vm.monitorHints.map((h) => (
+                        <li key={h}>• {h}</li>
+                      ))}
+                    </ul>
+                  ) : null}
+                  {vm.monitorRows?.length ? (
                     <div className="overflow-x-auto">
                       <table className="rw-table">
                         <thead>
                           <tr>
-                            <th>Company</th>
-                            <th>View</th>
-                            <th>Financial</th>
-                            <th>Valuation</th>
-                            <th>Quality</th>
-                            <th>Confidence</th>
+                            <th>Category</th>
+                            <th>Metric</th>
+                            <th>Previous</th>
+                            <th>Current</th>
+                            <th>Change</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {vm.leaders.map((row) => (
-                            <tr key={row.company}>
-                              <td className="font-semibold text-[var(--rw-ink)]">{row.company}</td>
-                              <td className={`tone-${vm.stanceTone}`}>{row.view}</td>
-                              <td>{row.financial}</td>
-                              <td>{row.valuation}</td>
-                              <td>{row.quality}</td>
-                              <td>{row.confidence}%</td>
+                          {vm.monitorRows.map((r) => (
+                            <tr key={`${r.category}-${r.metric}-${r.current}`}>
+                              <td className="rw-mini">{r.category}</td>
+                              <td className="font-semibold text-[var(--rw-ink)]">{r.metric}</td>
+                              <td>{r.previous}</td>
+                              <td>{r.current}</td>
+                              <td className="tone-pos">{r.change}</td>
                             </tr>
                           ))}
                         </tbody>
                       </table>
                     </div>
-                  </Section>
-                ) : null}
-
-                <Section id="scenarios" kicker="Section 14" title="Bull · Base · Bear">
-                  <div className="rw-grid-3">
-                    {[
-                      {
-                        key: 'bull',
-                        title: 'Bull',
-                        items: vm.bull,
-                        prob:
-                          vm.decisionEngine?.bullCase != null
-                            ? `${vm.decisionEngine.bullCase}% ret`
-                            : '35%',
-                      },
-                      {
-                        key: 'base',
-                        title: 'Base',
-                        items: vm.base,
-                        prob:
-                          vm.decisionEngine?.baseCase != null
-                            ? `${vm.decisionEngine.baseCase}% ret`
-                            : '45%',
-                      },
-                      {
-                        key: 'bear',
-                        title: 'Bear',
-                        items: vm.bear,
-                        prob:
-                          vm.decisionEngine?.bearCase != null
-                            ? `${vm.decisionEngine.bearCase}% ret`
-                            : '20%',
-                      },
-                    ].map((s) => (
-                      <div key={s.key} className={`rw-scenario ${s.key}`}>
-                        <div className="flex items-center justify-between">
-                          <h3 className="font-bold">{s.title}</h3>
-                          <span className="rw-mini">Prob {s.prob}</span>
-                        </div>
-                        <ul className="mt-3 space-y-2 text-sm text-[var(--rw-soft)]">
-                          {(s.items.length ? s.items : ['Scenario narrative pending richer evidence.']).map((item) => (
-                            <li key={item}>• {item}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    ))}
-                  </div>
+                  ) : (
+                    <p className="rw-empty">No material monitored changes since the prior review.</p>
+                  )}
                 </Section>
 
                 <div className="rw-grid-2">
-                  <Section id="risks" kicker="Section 15" title="Top Risks">
-                    {vm.risks.length ? (
-                      <div className="overflow-x-auto">
-                        <table className="rw-table">
-                          <thead>
-                            <tr>
-                              <th>Risk</th>
-                              <th>Probability</th>
-                              <th>Impact</th>
-                              <th>Severity</th>
-                              <th>Monitoring</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {vm.risks.map((r) => (
-                              <tr key={r.risk}>
-                                <td className="text-[var(--rw-ink)]">{r.risk}</td>
-                                <td>{r.probability}</td>
-                                <td>{r.impact}</td>
-                                <td className={r.severity === 'Critical' ? 'tone-neg' : 'tone-warn'}>
-                                  {r.severity}
-                                </td>
-                                <td className="tone-pos">{r.monitoring}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    ) : (
-                      <p className="rw-empty">No critical risks listed for this briefing.</p>
-                    )}
+                  <Section id="risks" kicker="11" title="Risks & Catalysts">
+                    <div className="mb-4">
+                      <p className="rw-mini mb-2">Key Risks</p>
+                      {vm.risks?.length ? (
+                        <ul className="space-y-2 text-sm text-[var(--rw-soft)]">
+                          {vm.risks.map((r) => (
+                            <li key={r.risk} className="border-b border-[var(--rw-border)] pb-2">
+                              {r.risk}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="rw-empty">Risk inventory still forming.</p>
+                      )}
+                    </div>
+                    <div>
+                      <p className="rw-mini mb-2">Key Catalysts</p>
+                      {vm.catalysts?.length ? (
+                        <ul className="space-y-2 text-sm text-[var(--rw-soft)]">
+                          {vm.catalysts.map((c) => (
+                            <li key={c} className="border-b border-[var(--rw-border)] pb-2">
+                              {c}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="rw-empty">Catalyst calendar pending corporate events.</p>
+                      )}
+                    </div>
                   </Section>
-                  <Section id="confidence" kicker="Section 17" title="Confidence Assessment">
-                    <div className="rw-donut-wrap">
-                      <Donut value={vm.confidence} />
-                      <ul className="space-y-2 text-sm text-[var(--rw-soft)]">
-                        {[
-                          ['Financials', Math.min(99, vm.confidence + 2)],
-                          ['Business', Math.min(99, vm.confidence - 1)],
-                          ['Valuation', Math.min(99, vm.confidence - 4)],
-                          ['Sector', Math.min(99, vm.confidence)],
-                          ['Knowledge', Math.min(99, vm.coverage)],
-                        ].map(([label, value]) => (
-                          <li key={label} className="flex justify-between border-b border-[var(--rw-border)] pb-1">
-                            <span>{label}</span>
-                            <span className="tabular-nums">{value}%</span>
-                          </li>
-                        ))}
-                      </ul>
+                  <Section id="scenarios" kicker="12" title="Bull · Base · Bear">
+                    <div className="space-y-3">
+                      {[
+                        {
+                          key: 'bull',
+                          title: 'Bull',
+                          items: vm.bull,
+                          ret: vm.scenarioReturns?.bull,
+                        },
+                        {
+                          key: 'base',
+                          title: 'Base',
+                          items: vm.base,
+                          ret: vm.scenarioReturns?.base,
+                        },
+                        {
+                          key: 'bear',
+                          title: 'Bear',
+                          items: vm.bear,
+                          ret: vm.scenarioReturns?.bear,
+                        },
+                      ].map((s) => (
+                        <div key={s.key} className={`rw-scenario ${s.key}`}>
+                          <div className="flex items-center justify-between">
+                            <h3 className="font-bold">{s.title}</h3>
+                            {s.ret != null ? (
+                              <span className="rw-mini">
+                                {Number(s.ret) > 0 ? '+' : ''}
+                                {s.ret}%
+                              </span>
+                            ) : null}
+                          </div>
+                          <ul className="mt-2 space-y-1 text-sm text-[var(--rw-soft)]">
+                            {(s.items?.length ? s.items : ['Scenario narrative pending richer evidence.']).map(
+                              (item) => (
+                                <li key={item}>• {item}</li>
+                              )
+                            )}
+                          </ul>
+                        </div>
+                      ))}
                     </div>
                   </Section>
                 </div>
 
-                <Section id="catalysts" kicker="Section 16" title="Key Catalysts">
-                  {vm.catalysts.length ? (
-                    <div className="rw-timeline">
-                      {vm.catalysts.map((c, idx) => (
-                        <div key={c} className="rw-timeline-item">
-                          <p className="rw-mini">T+{idx + 1}</p>
-                          <p className="mt-1 text-sm font-semibold text-[var(--rw-ink)]">{c}</p>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="rw-empty">Catalyst calendar will populate from corporate and research events.</p>
-                  )}
-                </Section>
-
                 {vm.learned?.length ? (
-                  <Section id="learned" kicker="Section 18" title="Research Takeaways">
+                  <Section id="learned" kicker="13" title="Research & Learning">
                     <ul className="space-y-2 text-sm">
                       {vm.learned.map((item) => (
                         <li key={item} className="flex items-start gap-2 text-[var(--rw-soft)]">
@@ -752,125 +674,65 @@ export default function ResearchWorkspace({
                   </Section>
                 ) : null}
 
-                {vm.decisionEngine?.stackLayers?.length ? (
-                  <Section id="decision-stack" kicker="Decision Stack" title="Layered Investment Analysis">
-                    <p className="rw-body mb-4">
-                      Each layer answers one institutional question with evidence. The investment decision
-                      appears only after this stack is complete.
-                    </p>
-                    <div className="rw-stack">
-                      {vm.decisionEngine.stackLayers.map((layer) => (
-                        <article key={layer.id} className="rw-stack-layer">
-                          <header>
-                            <div>
-                              <p className="rw-mini">
-                                Layer {layer.index}
-                                {layer.weight != null ? ` · Weight ${layer.weight}%` : ''}
-                              </p>
-                              <h3>{layer.title}</h3>
-                              {layer.question ? <p className="rw-stack-q">{layer.question}</p> : null}
-                            </div>
-                            <div className="rw-stack-score">
-                              {layer.score != null ? (
-                                <>
-                                  <strong>{layer.score}</strong>
-                                  <span>{layer.grade || layer.status}</span>
-                                </>
-                              ) : (
-                                <span className="rw-mini">{layer.status}</span>
-                              )}
-                            </div>
-                          </header>
-                          {layer.reasoning ? <p className="rw-body mt-3">{layer.reasoning}</p> : null}
-                          {layer.evidence?.length ? (
-                            <ul className="mt-2 space-y-1 text-sm text-[var(--rw-muted)]">
-                              {layer.evidence.map((e) => (
-                                <li key={e}>• {e}</li>
+                <Section id="conclusion" kicker="14" title="Institutional Conclusion">
+                  <p className="rw-body">{vm.conclusion}</p>
+                  {(vm.suitableFor?.length || vm.unsuitableFor?.length || vm.decisionAction) && (
+                    <div className="rw-decision-final mt-4">
+                      {vm.decisionAction ? (
+                        <>
+                          <p className="rw-mini">Positioning</p>
+                          <p className="rw-view-value text-[20px] mt-1">{vm.decisionAction}</p>
+                        </>
+                      ) : null}
+                      <div className="rw-grid-2 mt-3">
+                        {vm.suitableFor?.length ? (
+                          <div>
+                            <p className="rw-mini tone-pos">Suitable for</p>
+                            <ul className="mt-1 space-y-1 text-sm text-[var(--rw-soft)]">
+                              {vm.suitableFor.map((item) => (
+                                <li key={item}>✔ {item}</li>
                               ))}
                             </ul>
-                          ) : null}
-                          {layer.positive?.length || layer.negative?.length ? (
-                            <div className="rw-grid-2 mt-3">
-                              {layer.positive?.length ? (
-                                <div>
-                                  <p className="rw-mini tone-pos">Positive</p>
-                                  <ul className="mt-1 space-y-1 text-sm text-[var(--rw-soft)]">
-                                    {layer.positive.map((e) => (
-                                      <li key={e}>• {e}</li>
-                                    ))}
-                                  </ul>
-                                </div>
-                              ) : null}
-                              {layer.negative?.length ? (
-                                <div>
-                                  <p className="rw-mini tone-neg">Negative</p>
-                                  <ul className="mt-1 space-y-1 text-sm text-[var(--rw-soft)]">
-                                    {layer.negative.map((e) => (
-                                      <li key={e}>• {e}</li>
-                                    ))}
-                                  </ul>
-                                </div>
-                              ) : null}
-                            </div>
-                          ) : null}
-                        </article>
-                      ))}
-                    </div>
-                  </Section>
-                ) : null}
-
-                <Section id="conclusion" kicker="Section 19" title="Institutional Conclusion">
-                  <p className="rw-body">{vm.conclusion}</p>
-                  {vm.decisionEngine ? (
-                    <div className="rw-decision-final mt-4">
-                      <p className="rw-mini">Layer 13 · Investment Decision</p>
-                      <p className="rw-view-value text-[20px] mt-1">
-                        {vm.decisionEngine.action || 'Committee conclusion pending fuller evidence'}
-                      </p>
-                      <div className="rw-grid-2 mt-3">
-                        <div>
-                          <p className="rw-mini tone-pos">Suitable for</p>
-                          <ul className="mt-1 space-y-1 text-sm text-[var(--rw-soft)]">
-                            {(vm.decisionEngine.suitableFor.length
-                              ? vm.decisionEngine.suitableFor
-                              : ['Watchlist']
-                            ).map((item) => (
-                              <li key={item}>✔ {item}</li>
-                            ))}
-                          </ul>
-                        </div>
-                        <div>
-                          <p className="rw-mini tone-neg">Not suitable for</p>
-                          <ul className="mt-1 space-y-1 text-sm text-[var(--rw-soft)]">
-                            {(vm.decisionEngine.unsuitableFor.length
-                              ? vm.decisionEngine.unsuitableFor
-                              : ['High-Leverage Positions']
-                            ).map((item) => (
-                              <li key={item}>✖ {item}</li>
-                            ))}
-                          </ul>
-                        </div>
+                          </div>
+                        ) : null}
+                        {vm.unsuitableFor?.length ? (
+                          <div>
+                            <p className="rw-mini tone-neg">Not suitable for</p>
+                            <ul className="mt-1 space-y-1 text-sm text-[var(--rw-soft)]">
+                              {vm.unsuitableFor.map((item) => (
+                                <li key={item}>✖ {item}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        ) : null}
                       </div>
                     </div>
-                  ) : null}
+                  )}
                   <p className="rw-mini mt-3">
-                    This briefing is institutional research context — not a brokerage order ticket.
+                    Institutional research context — not a brokerage order ticket.
                   </p>
                 </Section>
 
-                <Section id="recommendation-status" kicker="Section 19b" title="Institutional Recommendation Status">
-                  <p className={`rw-view-value text-[22px] tone-${vm.recommendationStatus.blocked ? 'warn' : 'pos'}`}>
+                <Section id="recommendation-status" kicker="15" title="Recommendation Status">
+                  <p
+                    className={`rw-view-value text-[22px] tone-${
+                      vm.recommendationStatus.blocked ? 'warn' : 'pos'
+                    }`}
+                  >
                     {vm.recommendationStatus.status}
                   </p>
                   <p className="rw-body mt-3">{vm.recommendationStatus.summary}</p>
                   {vm.recommendationStatus.detail ? (
                     <p className="rw-body mt-2">{vm.recommendationStatus.detail}</p>
                   ) : null}
-                  {(vm.knowledgeGaps || []).length ? (
+                  {vm.recommendationStatus.coverage != null ? (
+                    <p className="rw-mini mt-3">Evidence coverage {vm.recommendationStatus.coverage}%</p>
+                  ) : null}
+                  {vm.recommendationStatus.gaps?.length ? (
                     <div className="mt-4">
                       <p className="rw-mini mb-2">Current Knowledge Gaps</p>
                       <ul className="space-y-2 text-sm text-[var(--rw-soft)]">
-                        {vm.knowledgeGaps.map((g) => (
+                        {vm.recommendationStatus.gaps.map((g) => (
                           <li key={g} className="border-b border-[var(--rw-border)] pb-2">
                             {g}
                           </li>
@@ -880,7 +742,7 @@ export default function ResearchWorkspace({
                   ) : null}
                 </Section>
 
-                <Section id="explore" kicker="Section 20" title="Explore Further">
+                <Section id="explore" kicker="16" title="Explore Further">
                   <div className="rw-explore">
                     {vm.explore.map((q) => (
                       <button key={q} type="button" onClick={() => submit(q)}>
@@ -895,7 +757,11 @@ export default function ResearchWorkspace({
                     <Link to="/admin/mission-control">Mission Control</Link>
                     <Link to="/admin/knowledge">Knowledge</Link>
                     <Link to="/research">Research</Link>
-                    <button type="button" className="bg-transparent border-0 text-inherit cursor-pointer p-0" onClick={() => navigate('/markets')}>
+                    <button
+                      type="button"
+                      className="bg-transparent border-0 text-inherit cursor-pointer p-0"
+                      onClick={() => navigate('/markets')}
+                    >
                       Markets
                     </button>
                   </div>

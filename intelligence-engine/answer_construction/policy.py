@@ -128,8 +128,9 @@ def apply_answer_construction_v3(
             )
         )
 
+    # Executive Summary ownership: IRP + Intelligence Construction.
+    # Decision Engine may trail a conclusion — it must not own the lead executive.
     exec_out = _first_useful(
-        ide_exec_fallback if ide_active else None,
         enrich.get("executive_summary"),
         ic.get("executive_brief"),
         briefing.get("what_is_happening"),
@@ -137,6 +138,7 @@ def apply_answer_construction_v3(
         " ".join(business_bits[:3]) if business_bits else None,
         executive if not looks_like_gate_failure_summary(executive) else None,
         thesis if not looks_like_gate_failure_summary(thesis) else None,
+        ide_exec_fallback if ide_active else None,
         fallback=(
             f"Institutional research brief on {name}: synthesising business model, financial quality, "
             "valuation context, sector position, risks and catalysts from AGI's living intelligence stack. "

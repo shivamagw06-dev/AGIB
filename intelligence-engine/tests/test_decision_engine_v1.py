@@ -106,6 +106,7 @@ def test_answer_construction_never_leads_with_buy_when_ide_active():
         gate_blocked=True,
         force=True,
     )
+    assert ide.get("summary", {}).get("confidence_breakdown")
     ac = ac_package(
         query="Should I buy Eternal?",
         executive="Buy Eternal now.",
@@ -116,6 +117,14 @@ def test_answer_construction_never_leads_with_buy_when_ide_active():
         risks=["Competition"],
         catalysts=["Earnings"],
         why=["Quality franchise with growth optionality."],
+        intelligence_construction={
+            "enabled": True,
+            "company_name": "Eternal",
+            "executive_brief": "Eternal is a consumer internet platform combining food delivery and quick commerce.",
+            "answer_enrichment": {
+                "executive_summary": "Eternal is a consumer internet platform combining food delivery and quick commerce.",
+            },
+        },
         company_analysis={
             "identity": {"company_name": "Eternal", "business_model": "Food delivery and quick commerce."},
         },
@@ -128,5 +137,6 @@ def test_answer_construction_never_leads_with_buy_when_ide_active():
     assert ac["decision_last"] is True
     exec_l = str(ac["executive"]).lower()
     assert "buy eternal now" not in exec_l
-    assert "layer" in exec_l or "macro" in exec_l or "decision stack" in exec_l
+    # Executive Summary is owned by IRP/IC — not the Decision Engine stack framing
+    assert "consumer internet" in exec_l
     assert ac.get("decision_conclusion")
