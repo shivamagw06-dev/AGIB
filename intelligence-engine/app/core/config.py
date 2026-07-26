@@ -378,6 +378,14 @@ class Settings(BaseSettings):
     pio_position_sizing: bool = True
     pio_overlap: bool = True
     pio_quality: bool = True
+    causal_intelligence: bool = True  # CIG — why did this happen?
+    cig_transmission: bool = True
+    cig_propagation: bool = True
+    cig_counterfactual: bool = True
+    cig_sector_models: bool = True
+    cig_portfolio_impact: bool = True
+    cig_historical: bool = True
+    cig_confidence: bool = True
     academy_frameworks: bool = True  # ACADEMY_FRAMEWORKS
     academy_formulas: bool = True  # ACADEMY_FORMULAS
     academy_graph: bool = True  # ACADEMY_GRAPH

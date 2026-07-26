@@ -4384,6 +4384,76 @@ async def admin_portfolio_intelligence():
     return HTMLResponse(admin_page())
 
 
+# --- Causal Intelligence Graph V1 (why did this happen?) ---
+
+
+@router.get("/causal-intelligence/health")
+async def causal_intelligence_health():
+    from causal_graph.production import health
+
+    return health()
+
+
+@router.get("/causal-intelligence/dashboard")
+async def causal_intelligence_dashboard():
+    from causal_graph.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/causal-intelligence/graph")
+async def causal_intelligence_graph():
+    from causal_graph.production import graph
+
+    return graph()
+
+
+@router.get("/causal-intelligence/company/{ticker}")
+async def causal_intelligence_company(ticker: str):
+    from causal_graph.production import company
+
+    out = company(ticker)
+    if out.get("enabled") and not out.get("found"):
+        raise HTTPException(status_code=404, detail="company_not_in_causal_graph")
+    return out
+
+
+@router.get("/causal-intelligence/event/{event}")
+async def causal_intelligence_event(event: str):
+    from causal_graph.production import event as event_fn
+
+    out = event_fn(event)
+    if out.get("enabled") and not out.get("found"):
+        raise HTTPException(status_code=404, detail="event_not_found")
+    return out
+
+
+@router.post("/causal-intelligence/analyse")
+async def causal_intelligence_analyse(payload: dict[str, Any] = Body(default={})):
+    from causal_graph.production import analyse
+
+    out = analyse(
+        ticker=payload.get("ticker") or payload.get("company"),
+        event=payload.get("event"),
+        question=payload.get("question") or payload.get("query"),
+    )
+    return out
+
+
+@router.get("/causal-intelligence/quality-gates")
+async def causal_intelligence_quality_gates():
+    from causal_graph.production import quality_gates
+
+    return quality_gates()
+
+
+@router.get("/admin/causal-intelligence", response_class=HTMLResponse)
+async def admin_causal_intelligence():
+    from causal_graph.production import admin_page
+
+    return HTMLResponse(admin_page())
+
+
 # --- SIF v1.0 (Sector Intelligence Framework — additive; not an engine) ---
 
 

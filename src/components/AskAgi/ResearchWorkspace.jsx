@@ -907,6 +907,22 @@ export default function ResearchWorkspace({
                           {vm.institutionalStack.filingFound ? 'Filings present' : 'Sparse'}
                           {vm.institutionalStack.materialChangeSignal ? ' · FDI active' : ''}
                         </p>
+                        <p className="rw-mini mt-2">Causal why</p>
+                        <p className="font-semibold">
+                          {vm.institutionalStack.causalWhy || '—'}
+                          {vm.institutionalStack.causalConfidence != null
+                            ? ` · conf ${vm.institutionalStack.causalConfidence}`
+                            : ''}
+                        </p>
+                        {Array.isArray(vm.institutionalStack.causalUpstream) &&
+                        vm.institutionalStack.causalUpstream.length ? (
+                          <>
+                            <p className="rw-mini mt-2">Upstream drivers</p>
+                            <p className="font-semibold">
+                              {vm.institutionalStack.causalUpstream.slice(0, 4).join(' → ')}
+                            </p>
+                          </>
+                        ) : null}
                       </div>
                     </div>
                     {vm.institutionalStack.openConcerns?.length ? (

@@ -27,6 +27,7 @@ import {
   Bell,
   Landmark,
   Gauge,
+  GitBranch,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -46,6 +47,7 @@ const navItems = [
   { to: '/admin/institutional-stack', label: 'Institutional Stack', icon: Layers },
   { to: '/admin/accounting-intelligence', label: 'Accounting Intel', icon: Scale },
   { to: '/admin/portfolio-intelligence', label: 'Portfolio Intel', icon: Briefcase },
+  { to: '/admin/causal-intelligence', label: 'Causal Intel', icon: GitBranch },
   { to: '/admin/company-monitor', label: 'Company Monitor', icon: Bell },
   { to: '/admin/investment-office', label: 'Investment Office', icon: Landmark },
   { to: '/admin/mission-control', label: 'Mission Control', icon: Gauge },

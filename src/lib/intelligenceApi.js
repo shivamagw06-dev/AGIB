@@ -1030,3 +1030,15 @@ export const getPioScenarios = (id) =>
   intelligenceFetch(`/portfolio-intelligence/scenarios/${encodeURIComponent(id)}`);
 export const analysePio = (payload = {}) =>
   intelligenceFetch('/portfolio-intelligence/analyse', { method: 'POST', body: payload || {} });
+
+/** Causal Intelligence Graph */
+export const getCigHealth = () => intelligenceFetch('/causal-intelligence/health');
+export const getCigDashboard = () => intelligenceFetch('/causal-intelligence/dashboard');
+export const getCigQualityGates = () => intelligenceFetch('/causal-intelligence/quality-gates');
+export const getCigGraph = () => intelligenceFetch('/causal-intelligence/graph');
+export const getCigCompany = (ticker) =>
+  intelligenceFetch(`/causal-intelligence/company/${encodeURIComponent(ticker)}`);
+export const getCigEvent = (event) =>
+  intelligenceFetch(`/causal-intelligence/event/${encodeURIComponent(event)}`);
+export const analyseCig = (payload = {}) =>
+  intelligenceFetch('/causal-intelligence/analyse', { method: 'POST', body: payload || {} });

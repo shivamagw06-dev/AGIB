@@ -258,6 +258,19 @@ export default function CompanyIntelligencePanels({ data }) {
                 </p>
               ) : null}
             </Card>
+            <Card title="Causal Why">
+              {data.institutional_stack?.summary?.causal_why ||
+                data.causal_why?.summary ||
+                (Array.isArray(data.institutional_stack?.summary?.causal_upstream)
+                  ? data.institutional_stack.summary.causal_upstream.slice(0, 3).join(' → ')
+                  : null) ||
+                '—'}
+              {data.institutional_stack?.summary?.causal_confidence != null ? (
+                <p className="text-xs text-[#667085] mt-1">
+                  Confidence {data.institutional_stack.summary.causal_confidence}
+                </p>
+              ) : null}
+            </Card>
           </div>
         </section>
       )}

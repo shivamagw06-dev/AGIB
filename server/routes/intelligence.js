@@ -1617,5 +1617,42 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // Causal Intelligence Graph V1 — why did this happen?
+  router.get('/causal-intelligence/health', kfGet('/v1/causal-intelligence/health'));
+  router.get('/causal-intelligence/dashboard', kfGet('/v1/causal-intelligence/dashboard'));
+  router.get('/causal-intelligence/quality-gates', kfGet('/v1/causal-intelligence/quality-gates'));
+  router.get('/causal-intelligence/graph', kfGet('/v1/causal-intelligence/graph'));
+  router.get('/causal-intelligence/company/:ticker', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/causal-intelligence/company/${encodeURIComponent(req.params.ticker)}`
+      );
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Causal company unavailable', detail: error.message });
+    }
+  });
+  router.get('/causal-intelligence/event/:event', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/causal-intelligence/event/${encodeURIComponent(req.params.event)}`
+      );
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Causal event unavailable', detail: error.message });
+    }
+  });
+  router.post('/causal-intelligence/analyse', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/causal-intelligence/analyse', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Causal intelligence analyse failed', detail: error.message });
+    }
+  });
+
   return router;
 }

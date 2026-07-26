@@ -15,6 +15,7 @@ PIPELINE = [
     "ACI",
     "EIL",
     "PIL",
+    "CAUSAL INTELLIGENCE GRAPH",
     "Institutional Analysts",
     "Investment Committee",
     "PORTFOLIO INTELLIGENCE OFFICE",
@@ -33,6 +34,7 @@ LAYERS = (
     "portfolio_intelligence",
     "evidence_intelligence",
     "peer_intelligence",
+    "causal_intelligence",
 )
 
 DEFAULT_BOOTSTRAP_TICKERS = ("HDFCBANK", "NESTLEIND", "TCS")

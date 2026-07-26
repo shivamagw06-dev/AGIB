@@ -210,15 +210,40 @@ def package_for_ask_agi(
             ctx["management_intelligence_layer"] = layers.get("management_intelligence") or {}
             ctx["accounting_intelligence"] = layers.get("accounting_intelligence") or {}
             ctx["portfolio_intelligence"] = layers.get("portfolio_intelligence") or {}
+            ctx["causal_intelligence"] = layers.get("causal_intelligence") or {}
             ctx["peer_intelligence"] = layers.get("peer_intelligence") or {}
             ctx["evidence_intelligence"] = layers.get("evidence_intelligence") or {}
     except Exception:
         ctx["institutional_stack"] = {}
 
+    # Soft CIG — causal why precedes desk opinions (no redesign of analysts)
+    causal_intelligence: dict[str, Any] = ctx.get("causal_intelligence") or {}
+    try:
+        from causal_graph.production import soft_slice_for_analyst as cig_slice
+
+        if t:
+            causal_intelligence = (cig_slice(t, analyst="committee") or {}).get(
+                "causal_intelligence"
+            ) or causal_intelligence
+            if causal_intelligence:
+                ctx["causal_intelligence"] = causal_intelligence
+    except Exception:
+        pass
+
     planner = plan_research(query, ticker=t)
     opinions: dict[str, dict[str, Any]] = {}
     for role, fn in _ANALYSERS.items():
         try:
+            # Soft desk-specific causal slice when available
+            try:
+                from causal_graph.production import soft_slice_for_analyst as cig_desk
+
+                if t and causal_intelligence:
+                    desk = (cig_desk(t, analyst=role) or {}).get("causal_intelligence") or {}
+                    if desk:
+                        ctx["causal_intelligence"] = {**causal_intelligence, "desk": desk.get("desk")}
+            except Exception:
+                pass
             opinions[role] = fn(ctx)
         except Exception as exc:
             meta = mandate_for(role)
@@ -255,6 +280,17 @@ def package_for_ask_agi(
 
     committee = aggregate(opinions, query=query, company=name, ticker=t)
 
+    # Soft CIG — event propagation map into committee (never redesigns IC)
+    if causal_intelligence:
+        committee = {
+            **committee,
+            "causal_intelligence": causal_intelligence,
+            "event_propagation_map": causal_intelligence.get("propagation_map")
+            or (causal_intelligence.get("committee") or {}).get("event_propagation_map"),
+            "causal_why": causal_intelligence.get("why"),
+            "causal_counterfactuals": causal_intelligence.get("counterfactuals"),
+        }
+
     # Soft PIO — portfolio impact between Committee and CIO (never redesigns either)
     portfolio_intelligence: dict[str, Any] = {}
     try:
@@ -275,6 +311,13 @@ def package_for_ask_agi(
         portfolio_intelligence = ctx.get("portfolio_intelligence") or {}
 
     cio = write_report(committee, query=query, company=name)
+    if causal_intelligence:
+        cio = {
+            **cio,
+            "causal_intelligence": causal_intelligence,
+            "why_markets_moved": causal_intelligence.get("cio_brief")
+            or causal_intelligence.get("why"),
+        }
     if portfolio_intelligence:
         cio = {
             **cio,
@@ -341,6 +384,7 @@ def package_for_ask_agi(
         "institutional_view": committee,
         "institutional_stack": ctx.get("institutional_stack") or {},
         "portfolio_intelligence": portfolio_intelligence,
+        "causal_intelligence": causal_intelligence,
         "ask_agi_hints": [
             f"Specialist analysts contributed structured opinions on {name}",
             f"Committee stance: {committee.get('committee_stance')}",
@@ -365,6 +409,17 @@ def package_for_ask_agi(
             f"net effect {stack_summary.get('portfolio_net_effect')} · "
             f"PQE {stack_summary.get('portfolio_quality')}"
         )
+    if stack_summary.get("causal_why") or causal_intelligence.get("why"):
+        why0 = stack_summary.get("causal_why")
+        if not why0 and isinstance(causal_intelligence.get("why"), list):
+            why0 = (causal_intelligence.get("why") or [None])[0]
+        if why0:
+            base_pack["ask_agi_hints"].append(f"Causal why: {why0}")
+        upstream = stack_summary.get("causal_upstream") or causal_intelligence.get("upstream_drivers")
+        if upstream:
+            base_pack["ask_agi_hints"].append(
+                f"Upstream drivers: {', '.join(str(x) for x in list(upstream)[:4])}"
+            )
 
     # Institutional Research Writer — presentation layer AFTER CIO (never mutates votes/confidence)
     research_writer: dict[str, Any] = {}

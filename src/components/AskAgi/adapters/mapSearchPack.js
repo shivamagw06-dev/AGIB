@@ -605,6 +605,25 @@ export function mapSearchPack(pack) {
             stackSummary.portfolio_fit ||
             stack?.layers?.portfolio_intelligence?.suitability?.portfolio_fit ||
             null,
+          causalConfidence:
+            stackSummary.causal_confidence ??
+            stack?.layers?.causal_intelligence?.confidence ??
+            pack.causal_intelligence?.confidence ??
+            null,
+          causalUpstream:
+            stackSummary.causal_upstream ||
+            stack?.layers?.causal_intelligence?.upstream_drivers ||
+            pack.causal_intelligence?.upstream_drivers ||
+            null,
+          causalWhy:
+            stackSummary.causal_why ||
+            (Array.isArray(stack?.layers?.causal_intelligence?.why)
+              ? stack.layers.causal_intelligence.why[0]
+              : stack?.layers?.causal_intelligence?.why) ||
+            (Array.isArray(pack.causal_intelligence?.why)
+              ? pack.causal_intelligence.why[0]
+              : pack.causal_intelligence?.why) ||
+            null,
           filingFound: stackSummary.filing_found ?? stackFil.found ?? null,
           materialChangeSignal: stackSummary.material_change_signal ?? Boolean(stackFdi.enabled),
           peerEnabled: stackSummary.peer_enabled ?? Boolean(stackPil.enabled),

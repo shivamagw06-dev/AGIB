@@ -112,6 +112,20 @@ def refresh_ticker(ticker: str) -> dict[str, Any]:
     except Exception as exc:
         out["errors"].append(f"pio:{str(exc)[:120]}")
 
+    # CIG — causal why soft slice
+    try:
+        from causal_graph.production import soft_slice_for_analyst as cig_slice
+
+        cig = (cig_slice(t, analyst="committee") or {}).get("causal_intelligence") or {}
+        out["layers"]["causal_intelligence"] = {
+            "found": bool(cig.get("found")),
+            "confidence": cig.get("confidence"),
+            "upstream_drivers": cig.get("upstream_drivers"),
+            "enabled": cig.get("enabled", True),
+        }
+    except Exception as exc:
+        out["errors"].append(f"cig:{str(exc)[:120]}")
+
     # PIL soft refresh (overlay from FIL)
     try:
         from peer_intelligence.production import company as pil_company
@@ -190,6 +204,7 @@ def company_pack(ticker: str, *, analyst: str = "committee") -> dict[str, Any]:
             "ACI",
             "EIL",
             "PIL",
+            "CIG",
             "PIO",
         ],
         "layers": {},
@@ -245,6 +260,14 @@ def company_pack(ticker: str, *, analyst: str = "committee") -> dict[str, Any]:
     except Exception as exc:
         pack["layers"]["peer_intelligence"] = {"enabled": False, "error": str(exc)[:120]}
 
+    # CIG
+    try:
+        from causal_graph.production import soft_slice_for_analyst as cig_slice
+
+        pack["layers"].update(cig_slice(t, analyst=analyst) or {})
+    except Exception as exc:
+        pack["layers"]["causal_intelligence"] = {"enabled": False, "error": str(exc)[:120]}
+
     # EIL (company-agnostic support slice)
     try:
         from academy.evidence.production import soft_slice_for_irs
@@ -259,6 +282,7 @@ def company_pack(ticker: str, *, analyst: str = "committee") -> dict[str, Any]:
     mii = pack["layers"].get("management_intelligence") or {}
     aci = pack["layers"].get("accounting_intelligence") or {}
     pio = pack["layers"].get("portfolio_intelligence") or {}
+    cig = pack["layers"].get("causal_intelligence") or {}
     fdi = pack["layers"].get("filing_diff") or {}
     fil = pack["layers"].get("filing_intelligence") or {}
     pil = pack["layers"].get("peer_intelligence") or {}
@@ -277,12 +301,16 @@ def company_pack(ticker: str, *, analyst: str = "committee") -> dict[str, Any]:
         "portfolio_fit": (pio.get("suitability") or {}).get("portfolio_fit")
         if isinstance(pio.get("suitability"), dict)
         else None,
+        "causal_confidence": cig.get("confidence"),
+        "causal_upstream": cig.get("upstream_drivers"),
+        "causal_why": (cig.get("why") or [None])[0] if isinstance(cig.get("why"), list) else cig.get("why"),
         "filing_found": fil.get("found", bool(fil.get("enabled"))),
         "material_change_signal": bool(fdi.get("committee") or fdi.get("desk") or fdi.get("enabled")),
         "peer_enabled": bool(pil.get("enabled")),
         "primary_question_mii": "Can this management team be trusted to compound shareholder value?",
         "primary_question_aci": "Can the financial statements be trusted?",
         "primary_question_pio": "Does this company improve this specific portfolio?",
+        "primary_question_cig": "Why did this happen?",
         "primary_question_fdi": "What materially changed since the previous filing?",
         "primary_question_fil": "What do the company's own filings actually say?",
         "primary_question_pil": "How does this company compare to the best and most relevant peers?",
