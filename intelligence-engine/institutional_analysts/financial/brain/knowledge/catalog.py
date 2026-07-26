@@ -126,4 +126,21 @@ def knowledge_pack(ticker: str | None = None) -> dict[str, Any]:
                 pack["filing_diff"].update((fdi_slice(ticker, analyst="financial") or {}).get("filing_diff") or {})
     except Exception:
         pass
+    try:
+        from accounting_intelligence.flags import is_enabled as aci_enabled
+
+        if aci_enabled():
+            pack["accounting_intelligence"] = {
+                "enabled": True,
+                "rule": "Full ACI — ask whether reported numbers can be trusted, not what they were",
+                "soft_slice": "accounting_intelligence.production.soft_slice_for_analyst(ticker, analyst='financial')",
+            }
+            if ticker:
+                from accounting_intelligence.production import soft_slice_for_analyst as aci_slice
+
+                pack["accounting_intelligence"].update(
+                    (aci_slice(ticker, analyst="financial") or {}).get("accounting_intelligence") or {}
+                )
+    except Exception:
+        pass
     return pack

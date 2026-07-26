@@ -181,6 +181,17 @@ def analyse_company(
                     "dna": summary.get("management_dna"),
                     "source": "management_intelligence",
                 }
+            if (
+                summary.get("accounting_behaviour")
+                or summary.get("accounting_quality_score") is not None
+            ):
+                report["accounting_trust"] = {
+                    "confidence": summary.get("accounting_confidence"),
+                    "behaviour": summary.get("accounting_behaviour"),
+                    "quality_score": summary.get("accounting_quality_score"),
+                    "manipulation_risk": summary.get("manipulation_risk"),
+                    "source": "accounting_intelligence",
+                }
             # Enrich peer_comparison when PIL present
             pil = ((report["institutional_stack"] or {}).get("layers") or {}).get("peer_intelligence") or {}
             if pil.get("enabled"):

@@ -1006,3 +1006,14 @@ export const getMiiGuidance = (ticker) =>
   intelligenceFetch(`/management-intelligence/guidance/${encodeURIComponent(ticker)}`);
 export const analyseMii = (ticker) =>
   intelligenceFetch('/management-intelligence/analyse', { method: 'POST', body: { ticker } });
+
+/** Accounting Intelligence Engine */
+export const getAciHealth = () => intelligenceFetch('/accounting-intelligence/health');
+export const getAciDashboard = () => intelligenceFetch('/accounting-intelligence/dashboard');
+export const getAciQualityGates = () => intelligenceFetch('/accounting-intelligence/quality-gates');
+export const getAciCompany = (ticker) =>
+  intelligenceFetch(`/accounting-intelligence/company/${encodeURIComponent(ticker)}`);
+export const getAciHistory = (ticker) =>
+  intelligenceFetch(`/accounting-intelligence/history/${encodeURIComponent(ticker)}`);
+export const analyseAci = (ticker) =>
+  intelligenceFetch('/accounting-intelligence/analyse', { method: 'POST', body: { ticker } });

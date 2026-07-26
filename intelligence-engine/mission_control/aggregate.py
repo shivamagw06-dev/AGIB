@@ -211,6 +211,12 @@ def build_mission_control(*, ioc_service: Any | None = None) -> dict[str, Any]:
             details=stack_layers.get("management_intelligence") or {},
         ),
         _platform_card(
+            "Accounting Intelligence",
+            status="Healthy" if (stack_layers.get("accounting_intelligence") or {}).get("enabled", True) else "Offline",
+            dependencies=["FIL", "FDI", "MII"],
+            details=stack_layers.get("accounting_intelligence") or {},
+        ),
+        _platform_card(
             "Peer Intelligence",
             status="Healthy" if (stack_layers.get("peer_intelligence") or {}).get("enabled", True) else "Offline",
             dependencies=["FIL"],
@@ -225,7 +231,7 @@ def build_mission_control(*, ioc_service: Any | None = None) -> dict[str, Any]:
         _platform_card(
             "Institutional Stack",
             status="Healthy" if stack_slice.get("enabled", True) else "Offline",
-            dependencies=["FIL", "FDI", "MII", "EIL", "PIL"],
+            dependencies=["FIL", "FDI", "MII", "ACI", "EIL", "PIL"],
             knowledge_count=stack_slice.get("seed_documents"),
             details=stack_slice,
         ),

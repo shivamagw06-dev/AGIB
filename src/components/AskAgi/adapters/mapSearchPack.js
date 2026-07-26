@@ -576,11 +576,31 @@ export function mapSearchPack(pack) {
           managementDna: stackSummary.management_dna || stackMii.dna || null,
           managementConfidence:
             stackSummary.management_confidence ?? stackMii.confidence ?? null,
+          accountingBehaviour:
+            stackSummary.accounting_behaviour || stack?.layers?.accounting_intelligence?.behaviour || null,
+          accountingQuality:
+            stackSummary.accounting_quality_score ??
+            stack?.layers?.accounting_intelligence?.accounting_quality_score ??
+            null,
+          accountingConfidence:
+            stackSummary.accounting_confidence ??
+            stack?.layers?.accounting_intelligence?.confidence ??
+            null,
+          manipulationRisk:
+            stackSummary.manipulation_risk ||
+            stack?.layers?.accounting_intelligence?.manipulation_risk ||
+            null,
           filingFound: stackSummary.filing_found ?? stackFil.found ?? null,
           materialChangeSignal: stackSummary.material_change_signal ?? Boolean(stackFdi.enabled),
           peerEnabled: stackSummary.peer_enabled ?? Boolean(stackPil.enabled),
           pipeline: stack.pipeline || [],
-          openConcerns: asList(stackMii.open_concerns, 4),
+          openConcerns: asList(
+            [
+              ...(stackMii.open_concerns || []),
+              ...(stack?.layers?.accounting_intelligence?.open_concerns || []),
+            ],
+            6
+          ),
         }
       : null,
     institutionalView: iafCommittee

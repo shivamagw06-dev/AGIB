@@ -12,6 +12,7 @@ PIPELINE = [
     "FIL",
     "FDI",
     "MII",
+    "ACI",
     "EIL",
     "PIL",
     "Institutional Analysts",
@@ -27,6 +28,7 @@ LAYERS = (
     "filing_intelligence",
     "filing_diff",
     "management_intelligence",
+    "accounting_intelligence",
     "evidence_intelligence",
     "peer_intelligence",
 )

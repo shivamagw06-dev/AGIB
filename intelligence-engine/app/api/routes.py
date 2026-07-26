@@ -4254,6 +4254,67 @@ async def admin_institutional_stack():
     return HTMLResponse(admin_page())
 
 
+# --- Accounting Intelligence Engine V1 (can the statements be trusted?) ---
+
+
+@router.get("/accounting-intelligence/health")
+async def accounting_intelligence_health():
+    from accounting_intelligence.production import health
+
+    return health()
+
+
+@router.get("/accounting-intelligence/dashboard")
+async def accounting_intelligence_dashboard():
+    from accounting_intelligence.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/accounting-intelligence/company/{ticker}")
+async def accounting_intelligence_company(ticker: str):
+    from accounting_intelligence.production import company
+
+    out = company(ticker)
+    if out.get("enabled") and not out.get("found"):
+        raise HTTPException(status_code=404, detail="no_accounting_profile")
+    return out
+
+
+@router.get("/accounting-intelligence/history/{ticker}")
+async def accounting_intelligence_history(ticker: str):
+    from accounting_intelligence.production import history
+
+    return history(ticker)
+
+
+@router.post("/accounting-intelligence/analyse")
+async def accounting_intelligence_analyse(payload: dict[str, Any] = Body(default={})):
+    from accounting_intelligence.production import analyse
+
+    ticker = str(payload.get("ticker") or "").strip()
+    if not ticker:
+        raise HTTPException(status_code=400, detail="ticker_required")
+    out = analyse(ticker)
+    if out.get("enabled") and not out.get("found"):
+        raise HTTPException(status_code=404, detail="no_accounting_profile")
+    return out
+
+
+@router.get("/accounting-intelligence/quality-gates")
+async def accounting_intelligence_quality_gates():
+    from accounting_intelligence.production import quality_gates
+
+    return quality_gates()
+
+
+@router.get("/admin/accounting-intelligence", response_class=HTMLResponse)
+async def admin_accounting_intelligence():
+    from accounting_intelligence.production import admin_page
+
+    return HTMLResponse(admin_page())
+
+
 # --- SIF v1.0 (Sector Intelligence Framework — additive; not an engine) ---
 
 

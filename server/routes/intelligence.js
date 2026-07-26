@@ -1535,5 +1535,41 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // Accounting Intelligence Engine
+  router.get('/accounting-intelligence/health', kfGet('/v1/accounting-intelligence/health'));
+  router.get('/accounting-intelligence/dashboard', kfGet('/v1/accounting-intelligence/dashboard'));
+  router.get('/accounting-intelligence/quality-gates', kfGet('/v1/accounting-intelligence/quality-gates'));
+  router.get('/accounting-intelligence/company/:ticker', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/accounting-intelligence/company/${encodeURIComponent(req.params.ticker)}`
+      );
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Accounting intelligence unavailable', detail: error.message });
+    }
+  });
+  router.get('/accounting-intelligence/history/:ticker', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/accounting-intelligence/history/${encodeURIComponent(req.params.ticker)}`
+      );
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Accounting history unavailable', detail: error.message });
+    }
+  });
+  router.post('/accounting-intelligence/analyse', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/accounting-intelligence/analyse', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Accounting intelligence analyse failed', detail: error.message });
+    }
+  });
+
   return router;
 }

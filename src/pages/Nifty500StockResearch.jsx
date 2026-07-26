@@ -66,6 +66,15 @@ export default function Nifty500StockResearch() {
               source: 'management_intelligence',
             }
           : undefined,
+        accounting_trust: stack?.summary
+          ? {
+              behaviour: stack.summary.accounting_behaviour,
+              confidence: stack.summary.accounting_confidence,
+              quality_score: stack.summary.accounting_quality_score,
+              manipulation_risk: stack.summary.manipulation_risk,
+              source: 'accounting_intelligence',
+            }
+          : undefined,
       });
     });
     return () => {

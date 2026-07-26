@@ -859,7 +859,7 @@ export default function ResearchWorkspace({
                   <Section
                     id="institutional-stack"
                     kicker="Institutional Stack"
-                    title="Filing · Diff · Management Trust · Peers"
+                    title="Filing · Diff · Management · Accounting · Peers"
                   >
                     <div className="rw-grid-2">
                       <div>
@@ -867,9 +867,20 @@ export default function ResearchWorkspace({
                         <p className="font-semibold">
                           {vm.institutionalStack.managementDna || '—'}
                         </p>
-                        <p className="rw-mini mt-2">Trust score</p>
+                        <p className="rw-mini mt-2">Management trust</p>
                         <p className="font-semibold">
                           {vm.institutionalStack.managementConfidence ?? '—'}
+                        </p>
+                        <p className="rw-mini mt-2">Accounting behaviour</p>
+                        <p className="font-semibold">
+                          {vm.institutionalStack.accountingBehaviour || '—'}
+                        </p>
+                        <p className="rw-mini mt-2">Accounting quality</p>
+                        <p className="font-semibold">
+                          {vm.institutionalStack.accountingQuality ?? '—'}
+                          {vm.institutionalStack.manipulationRisk
+                            ? ` · manip. ${vm.institutionalStack.manipulationRisk}`
+                            : ''}
                         </p>
                       </div>
                       <div>

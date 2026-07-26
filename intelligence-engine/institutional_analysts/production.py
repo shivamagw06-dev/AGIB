@@ -208,6 +208,7 @@ def package_for_ask_agi(
             ctx["filing_intelligence"] = layers.get("filing_intelligence") or {}
             ctx["filing_diff"] = layers.get("filing_diff") or {}
             ctx["management_intelligence_layer"] = layers.get("management_intelligence") or {}
+            ctx["accounting_intelligence"] = layers.get("accounting_intelligence") or {}
             ctx["peer_intelligence"] = layers.get("peer_intelligence") or {}
             ctx["evidence_intelligence"] = layers.get("evidence_intelligence") or {}
     except Exception:
@@ -322,6 +323,11 @@ def package_for_ask_agi(
         base_pack["ask_agi_hints"].append(
             f"Management DNA: {stack_summary.get('management_dna')} "
             f"(trust score {stack_summary.get('management_confidence')})"
+        )
+    if stack_summary.get("accounting_behaviour"):
+        base_pack["ask_agi_hints"].append(
+            f"Accounting behaviour: {stack_summary.get('accounting_behaviour')} "
+            f"(quality {stack_summary.get('accounting_quality_score')})"
         )
 
     # Institutional Research Writer — presentation layer AFTER CIO (never mutates votes/confidence)

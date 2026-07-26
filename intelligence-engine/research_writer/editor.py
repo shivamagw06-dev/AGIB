@@ -71,10 +71,12 @@ def write_institutional_report(pack: dict[str, Any], *, query: str = "") -> dict
     q = query or pack.get("query") or ""
     report_type = narrative.detect_report_type(q)
 
-    # Soft-wire MII / stack writer blocks when present (additive narrative evidence)
+    # Soft-wire MII / ACI / stack writer blocks when present (additive narrative evidence)
     stack = pack.get("institutional_stack") if isinstance(pack.get("institutional_stack"), dict) else {}
     mii_layer = ((stack.get("layers") or {}).get("management_intelligence") or {})
     mii_writer = (mii_layer.get("writer_blocks") or {}) if isinstance(mii_layer, dict) else {}
+    aci_layer = ((stack.get("layers") or {}).get("accounting_intelligence") or {})
+    aci_writer = (aci_layer.get("writer_blocks") or {}) if isinstance(aci_layer, dict) else {}
     mgmt_opinion = opinions.get("management") or {}
     if mii_writer.get("narrative") and isinstance(mgmt_opinion, dict):
         mgmt_opinion = {
@@ -83,13 +85,24 @@ def write_institutional_report(pack: dict[str, Any], *, query: str = "") -> dict
             "mii_dna": mii_writer.get("dna") or mii_layer.get("dna"),
             "mii_timeline": mii_writer.get("timeline"),
         }
+    fin_opinion = opinions.get("financial") or {}
+    if isinstance(fin_opinion, dict) and (aci_writer or aci_layer):
+        fin_opinion = {
+            **fin_opinion,
+            "aci_narrative": aci_writer.get("narrative") or aci_layer.get("cio_brief"),
+            "aci_behaviour": (aci_writer.get("behaviour") or {}).get("primary")
+            if isinstance(aci_writer.get("behaviour"), dict)
+            else aci_layer.get("behaviour"),
+            "aci_tables": aci_writer.get("tables"),
+            "aci_quality": aci_layer.get("accounting_quality_score"),
+        }
 
     sections: dict[str, str] = {
         "executive_summary": narrative.write_executive(cio=cio, committee=committee, company=company, query=q),
         "institutional_view": narrative.write_institutional_view(committee),
         "investment_thesis": narrative.write_thesis(cio, company=company),
         "business_intelligence": narrative.write_business(opinions.get("business") or {}, company=company),
-        "financial_intelligence": narrative.write_financial(opinions.get("financial") or {}, company=company),
+        "financial_intelligence": narrative.write_financial(fin_opinion or opinions.get("financial") or {}, company=company),
         "valuation_intelligence": narrative.write_valuation(opinions.get("valuation") or {}, company=company),
         "market_intelligence": narrative.write_market(opinions.get("market") or {}, company=company),
         "sector_intelligence": narrative.write_sector(opinions.get("sector") or {}, company=company),

@@ -131,6 +131,14 @@ def flag_institutional_stack() -> bool:
     return bool(getattr(s, "institutional_stack", True))
 
 
+def flag_accounting_intelligence() -> bool:
+    """Accounting Intelligence Engine — can the financial statements be trusted?"""
+    s = _settings()
+    if s is None:
+        return True
+    return bool(getattr(s, "accounting_intelligence", True))
+
+
 def flags_dict() -> dict[str, Any]:
     return {
         "ACADEMY": is_academy_enabled(),
@@ -144,6 +152,7 @@ def flags_dict() -> dict[str, Any]:
         "FILING_INTELLIGENCE": flag_filing_intelligence(),
         "FILING_DIFF_ENGINE": flag_filing_diff_engine(),
         "MANAGEMENT_INTELLIGENCE": flag_management_intelligence(),
+        "ACCOUNTING_INTELLIGENCE": flag_accounting_intelligence(),
         "INSTITUTIONAL_STACK": flag_institutional_stack(),
         "ACADEMY_FRAMEWORKS": flag_frameworks(),
         "ACADEMY_FORMULAS": flag_formulas(),

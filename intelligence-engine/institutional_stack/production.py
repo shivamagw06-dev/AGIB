@@ -63,6 +63,7 @@ def dashboard() -> dict[str, Any]:
         ("filing_intelligence", "filing_intelligence.production"),
         ("filing_diff", "filing_diff.production"),
         ("management_intelligence", "management_intelligence.production"),
+        ("accounting_intelligence", "accounting_intelligence.production"),
         ("peer_intelligence", "peer_intelligence.production"),
         ("evidence_intelligence", "academy.evidence.production"),
     ):
@@ -106,6 +107,7 @@ def dashboard() -> dict[str, Any]:
             "/admin/filing-intelligence",
             "/admin/filing-diff",
             "/admin/management-intelligence",
+            "/admin/accounting-intelligence",
             "/admin/peer-intelligence",
         ],
         "api_prefix": "/v1/institutional-stack",
@@ -192,9 +194,11 @@ def quality_gates() -> dict[str, Any]:
         "fil_present": bool(layers.get("filing_intelligence")),
         "fdi_present": bool(layers.get("filing_diff")),
         "mii_present": bool(layers.get("management_intelligence")),
+        "aci_present": bool(layers.get("accounting_intelligence")),
         "pil_present": bool(layers.get("peer_intelligence")),
         "eil_present": bool(layers.get("evidence_intelligence")),
         "mii_confidence": (layers.get("management_intelligence") or {}).get("confidence") is not None,
+        "aci_confidence": (layers.get("accounting_intelligence") or {}).get("confidence") is not None,
         "no_engine_redesign": True,
     }
     return {

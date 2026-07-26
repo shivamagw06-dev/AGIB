@@ -358,6 +358,16 @@ class Settings(BaseSettings):
     institutional_stack_auto_chain: bool = True
     institutional_stack_ask_agi: bool = True
     institutional_stack_admin: bool = True
+    accounting_intelligence: bool = True  # ACI — can the financial statements be trusted?
+    aci_earnings: bool = True
+    aci_cash: bool = True
+    aci_accruals: bool = True
+    aci_forensics: bool = True
+    aci_revenue: bool = True
+    aci_working_capital: bool = True
+    aci_balance_sheet: bool = True
+    aci_policies: bool = True
+    aci_behaviour: bool = True
     academy_frameworks: bool = True  # ACADEMY_FRAMEWORKS
     academy_formulas: bool = True  # ACADEMY_FORMULAS
     academy_graph: bool = True  # ACADEMY_GRAPH
