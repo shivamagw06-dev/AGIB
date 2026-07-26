@@ -3,6 +3,11 @@
  */
 
 import { Router } from 'express';
+import {
+  cmsLearningStatus,
+  learnCmsArticles,
+  startCmsArticleLearningScheduler,
+} from '../services/cmsArticleLearning.js';
 
 function engineConfig() {
   let baseUrl = (process.env.INTELLIGENCE_ENGINE_URL || 'http://127.0.0.1:8100').replace(/\/$/, '');
@@ -38,6 +43,9 @@ async function engineFetch(path, { method = 'GET', body = null } = {}) {
 
 export default function createIntelligenceRouter() {
   const router = Router();
+
+  // Soft daily CMS → KIP/KF/KC learner (IST learning_date calendar)
+  startCmsArticleLearningScheduler(engineFetch);
 
   router.get('/health', async (_req, res) => {
     try {
@@ -123,6 +131,42 @@ export default function createIntelligenceRouter() {
         error: 'Intelligence ingest unavailable',
         detail: error.message,
         hint: 'Ensure agib-intelligence-engine is live and INTELLIGENCE_ENGINE_URL/TOKEN are set on the API.',
+      });
+    }
+  });
+
+  // CMS bulk learn — read uploaded articles into KIP and stamp learning dates (daily).
+  router.post('/cms/learn-articles', async (req, res) => {
+    try {
+      const body = req.body || {};
+      const result = await learnCmsArticles({
+        engineFetch,
+        limit: body.limit,
+        onlyUnlearned: Boolean(body.only_unlearned ?? body.onlyUnlearned),
+        sinceDate: body.since_date || body.sinceDate || null,
+        mode: body.mode || null,
+        compound: body.compound !== false,
+      });
+      const status = result?.ok ? 200 : result?.skipped ? 503 : 500;
+      return res.status(status).json(result);
+    } catch (error) {
+      return res.status(503).json({
+        error: 'CMS article learning unavailable',
+        detail: error.message,
+      });
+    }
+  });
+
+  router.get('/cms/learning-status', async (req, res) => {
+    try {
+      const days = req.query.days ? Number(req.query.days) : 14;
+      const result = await cmsLearningStatus({ days });
+      const status = result?.ok ? 200 : result?.skipped ? 503 : 500;
+      return res.status(status).json(result);
+    } catch (error) {
+      return res.status(503).json({
+        error: 'CMS learning status unavailable',
+        detail: error.message,
       });
     }
   });
