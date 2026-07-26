@@ -1900,5 +1900,13 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // Soft-wire validation / quality surfaces for Intelligence Map (always probeable)
+  router.get('/academy/certification/health', kfGet('/v1/academy/certification/health'));
+  router.get('/academy/regression/health', kfGet('/v1/academy/regression/health'));
+  router.get('/leo/health', kfGet('/v1/leo/health'));
+  router.get('/dvc/health', kfGet('/v1/dvc/health'));
+  router.get('/company-dossier/health', kfGet('/v1/company-dossier/health'));
+  router.get('/decision-engine/health', kfGet('/v1/decision-engine/health'));
+
   return router;
 }
