@@ -8,9 +8,9 @@ It continuously gathers, validates, structures, indexes and **serves evidence** 
 ## Position (v1.0.1 LOCKED — additive soft-wire)
 
 ```text
-Public sources / AOI
+FAA (Acquire public docs)
         ↓
-       FRE   ← query understanding → multi-task plan → tiered retrieval
+       FRE   ← query understanding → multi-task plan → retrieve/rank evidence
         ↓
  Evidence + provenance + KG links
         ↓
@@ -18,6 +18,8 @@ Public sources / AOI
         ↓
  IRP / RSP / Decision Engine (reasoning — not FRE)
 ```
+
+Live downloading belongs to **FAA**, not FRE. FRE searches/ranks the index FAA fills.
 
 ## Invariants
 

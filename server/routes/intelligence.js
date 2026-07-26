@@ -432,7 +432,35 @@ export default function createIntelligenceRouter() {
   router.get('/iie/consult', kfGet('/v1/iie/consult'));
 
   // FLE v1 — Forecasting & Learning Engine (after IIE, before reasoning).
-  // FRE v1 — Finance Retrieval Engine (evidence acquisition; never answers).
+  // FAA v1 — Finance Acquisition Agent (upstream live acquisition; feeds FRE).
+  router.get('/faa/health', kfGet('/v1/faa/health'));
+  router.get('/faa/dashboard', kfGet('/v1/faa/dashboard'));
+  router.get('/faa/discover', kfGet('/v1/faa/discover'));
+  router.get('/faa/connectors', kfGet('/v1/faa/connectors'));
+  router.get('/faa/scheduler', kfGet('/v1/faa/scheduler'));
+  router.get('/faa/consult', kfGet('/v1/faa/consult'));
+  router.post('/faa/acquire', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query).toString();
+      const result = await engineFetch(`/v1/faa/acquire${qs ? `?${qs}` : ''}`, {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Finance acquisition agent unavailable', detail: error.message });
+    }
+  });
+  router.post('/faa/jobs', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/faa/jobs', { method: 'POST', body: {} });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Finance acquisition agent unavailable', detail: error.message });
+    }
+  });
+
+  // FRE v1 — Finance Retrieval Engine (evidence retrieval & rank; never answers).
   router.get('/fre/health', kfGet('/v1/fre/health'));
   router.get('/fre/dashboard', kfGet('/v1/fre/dashboard'));
   router.get('/fre/query', kfGet('/v1/fre/query'));
@@ -1205,6 +1233,106 @@ export default function createIntelligenceRouter() {
       res.json(result);
     } catch (err) {
       res.status(502).json({ error: err?.message || 'Company analysis failed' });
+    }
+  });
+
+  // AGIB Intelligence Layer V2 — living institutional research (soft-wire)
+  router.get('/ail/health', kfGet('/v1/ail/health'));
+  router.get('/ail/dashboard', kfGet('/v1/ail/dashboard'));
+  router.get('/ail/analyse', kfGet('/v1/ail/analyse'));
+  router.post('/ail/monitor/run', async (req, res) => {
+    try {
+      const qs = new URLSearchParams();
+      if (req.query?.watchlist) qs.set('watchlist', String(req.query.watchlist));
+      const result = await engineFetch(`/v1/ail/monitor/run${qs.toString() ? `?${qs}` : ''}`, {
+        method: 'POST',
+        body: {},
+      });
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err?.message || 'AIL monitor run failed' });
+    }
+  });
+  router.get('/company/:ticker/dossier', async (req, res) => {
+    try {
+      res.json(await engineFetch(`/v1/company/${encodeURIComponent(req.params.ticker)}/dossier`));
+    } catch (err) {
+      res.status(502).json({ error: err?.message || 'Company dossier failed' });
+    }
+  });
+  router.get('/company/:ticker/timeline', async (req, res) => {
+    try {
+      const qs = new URLSearchParams();
+      if (req.query?.limit) qs.set('limit', String(req.query.limit));
+      res.json(
+        await engineFetch(
+          `/v1/company/${encodeURIComponent(req.params.ticker)}/timeline${qs.toString() ? `?${qs}` : ''}`
+        )
+      );
+    } catch (err) {
+      res.status(502).json({ error: err?.message || 'Company timeline failed' });
+    }
+  });
+  router.get('/company/:ticker/events', async (req, res) => {
+    try {
+      const qs = new URLSearchParams();
+      if (req.query?.limit) qs.set('limit', String(req.query.limit));
+      res.json(
+        await engineFetch(
+          `/v1/company/${encodeURIComponent(req.params.ticker)}/events${qs.toString() ? `?${qs}` : ''}`
+        )
+      );
+    } catch (err) {
+      res.status(502).json({ error: err?.message || 'Company events failed' });
+    }
+  });
+  router.get('/company/:ticker/thesis', async (req, res) => {
+    try {
+      res.json(await engineFetch(`/v1/company/${encodeURIComponent(req.params.ticker)}/thesis`));
+    } catch (err) {
+      res.status(502).json({ error: err?.message || 'Company thesis failed' });
+    }
+  });
+  router.get('/company/:ticker/forecast', async (req, res) => {
+    try {
+      res.json(await engineFetch(`/v1/company/${encodeURIComponent(req.params.ticker)}/forecast`));
+    } catch (err) {
+      res.status(502).json({ error: err?.message || 'Company forecast failed' });
+    }
+  });
+  router.get('/company/:ticker/ledger', async (req, res) => {
+    try {
+      res.json(await engineFetch(`/v1/company/${encodeURIComponent(req.params.ticker)}/ledger`));
+    } catch (err) {
+      res.status(502).json({ error: err?.message || 'Company ledger failed' });
+    }
+  });
+  router.get('/company/:ticker/monitor', async (req, res) => {
+    try {
+      res.json(await engineFetch(`/v1/company/${encodeURIComponent(req.params.ticker)}/monitor`));
+    } catch (err) {
+      res.status(502).json({ error: err?.message || 'Company monitor failed' });
+    }
+  });
+  router.get('/event/:id', async (req, res) => {
+    try {
+      res.json(await engineFetch(`/v1/event/${encodeURIComponent(req.params.id)}`));
+    } catch (err) {
+      res.status(502).json({ error: err?.message || 'Event lookup failed' });
+    }
+  });
+  router.get('/evidence/:id', async (req, res) => {
+    try {
+      res.json(await engineFetch(`/v1/evidence/${encodeURIComponent(req.params.id)}`));
+    } catch (err) {
+      res.status(502).json({ error: err?.message || 'Evidence lookup failed' });
+    }
+  });
+  router.get('/prediction/:id', async (req, res) => {
+    try {
+      res.json(await engineFetch(`/v1/prediction/${encodeURIComponent(req.params.id)}`));
+    } catch (err) {
+      res.status(502).json({ error: err?.message || 'Prediction lookup failed' });
     }
   });
 

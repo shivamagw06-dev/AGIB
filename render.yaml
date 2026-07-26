@@ -43,3 +43,23 @@ services:
           name: agib-api
           type: web
           property: host
+      # FAA live public acquisition (set TAVILY_API_KEY in Render dashboard)
+      - key: FAA
+        value: "true"
+      - key: FAA_LIVE_FETCH
+        value: "true"
+      - key: FAA_MAX_WORKERS
+        value: "6"
+      - key: FAA_SEARCH_API
+        value: "true"
+      - key: TAVILY_API_KEY
+        sync: false
+      # AGIB Intelligence Layer V2
+      - key: AIL
+        value: "true"
+      - key: AIL_ASK_AGI
+        value: "true"
+      - key: FRE
+        value: "true"
+      - key: FRE_ASK_AGI
+        value: "true"

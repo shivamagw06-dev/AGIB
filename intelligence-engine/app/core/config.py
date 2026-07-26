@@ -265,6 +265,19 @@ class Settings(BaseSettings):
     fre_soft_publish_kip: bool = True
     fre_ask_agi: bool = True
 
+    # Finance Acquisition Agent v1 (upstream live acquisition; feeds FRE; no core redesign)
+    faa: bool = True
+    faa_discovery: bool = True
+    faa_fetch: bool = True
+    faa_processing: bool = True
+    faa_index: bool = True
+    faa_live_fetch: bool = False
+    faa_search_api: bool = True
+    faa_pdf: bool = True
+    faa_notify_fre: bool = True
+    faa_scheduler: bool = True
+    faa_max_workers: int = 6
+
     # Context Assembly Engine v1 (Ask AGI orchestration gateway; no core redesign)
     cae: bool = True
     cae_cache: bool = True
@@ -364,6 +377,19 @@ class Settings(BaseSettings):
     mission_control_alerts: bool = True
     mission_control_events: bool = True
     mission_control_reports: bool = True
+
+    # AGIB Intelligence Layer V2 — living institutional research (soft-wire; not FAA/FRE/CAE redesign)
+    ail: bool = True
+    ail_cde: bool = True
+    ail_ede: bool = True
+    ail_te: bool = True
+    ail_pe: bool = True
+    ail_cme: bool = True
+    ail_el: bool = True
+    ail_graph: bool = True
+    ail_timeline: bool = True
+    ail_ask_agi: bool = True
+    ail_redis_cache: bool = False
 
 
 @lru_cache

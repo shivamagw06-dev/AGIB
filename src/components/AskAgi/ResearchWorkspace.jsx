@@ -52,6 +52,20 @@ function Section({ id, kicker, title, children, className = '' }) {
   );
 }
 
+function pctLabel(value) {
+  if (value == null || Number.isNaN(Number(value))) return '—';
+  const n = Number(value);
+  const pct = n <= 1 ? n * 100 : n;
+  return `${Math.round(pct)}%`;
+}
+
+function fmtNum(value) {
+  if (value == null || Number.isNaN(Number(value))) return '—';
+  const n = Number(value);
+  if (Math.abs(n) >= 1000) return n.toLocaleString(undefined, { maximumFractionDigits: 1 });
+  return String(Math.round(n * 100) / 100);
+}
+
 function Donut({ value = 72 }) {
   const v = Math.max(0, Math.min(100, Number(value) || 0));
   const r = 54;
@@ -422,6 +436,86 @@ export default function ResearchWorkspace({
                     </div>
                   </Section>
                 </div>
+
+                {vm.intelligenceLayer?.enabled ? (
+                  <Section id="living-intel" kicker="Living Intelligence" title="Company Dossier · Thesis · Forecast">
+                    <div className="rw-grid-3 mb-4">
+                      <div className="rw-kpi tone-neu">
+                        <p className="label">Dossier</p>
+                        <p className="value text-[18px]">
+                          {vm.intelligenceLayer.ticker || '—'}
+                          {vm.intelligenceLayer.dossierVersion != null
+                            ? ` · v${vm.intelligenceLayer.dossierVersion}`
+                            : ''}
+                        </p>
+                        <p className="hint">{vm.intelligenceLayer.company || 'Living institutional dossier'}</p>
+                      </div>
+                      <div className="rw-kpi tone-neu">
+                        <p className="label">Bull / Base / Bear</p>
+                        <p className="value text-[18px]">
+                          {pctLabel(vm.intelligenceLayer.thesis?.bull)} /{' '}
+                          {pctLabel(vm.intelligenceLayer.thesis?.base)} /{' '}
+                          {pctLabel(vm.intelligenceLayer.thesis?.bear)}
+                        </p>
+                        <p className="hint">Explainable thesis probabilities</p>
+                      </div>
+                      <div className="rw-kpi tone-neu">
+                        <p className="label">Forecast confidence</p>
+                        <p className="value text-[18px]">
+                          {pctLabel(vm.intelligenceLayer.forecastConfidence)}
+                        </p>
+                        <p className="hint">
+                          {vm.intelligenceLayer.forecastId
+                            ? `Prediction ${vm.intelligenceLayer.forecastId}`
+                            : 'Distributional forecast'}
+                        </p>
+                      </div>
+                    </div>
+                    {vm.intelligenceLayer.distributions?.length ? (
+                      <div className="overflow-x-auto mb-4">
+                        <table className="rw-table">
+                          <thead>
+                            <tr>
+                              <th>Metric</th>
+                              <th>P10</th>
+                              <th>P50</th>
+                              <th>P90</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {vm.intelligenceLayer.distributions.map((d) => (
+                              <tr key={d.metric}>
+                                <td className="font-semibold text-[var(--rw-ink)]">
+                                  {d.metric}
+                                  {d.unit ? ` (${d.unit})` : ''}
+                                </td>
+                                <td>{fmtNum(d.p10)}</td>
+                                <td>{fmtNum(d.p50)}</td>
+                                <td>{fmtNum(d.p90)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : null}
+                    {vm.intelligenceLayer.hints?.length ? (
+                      <ul className="mb-3 space-y-2 text-sm text-[var(--rw-soft)]">
+                        {vm.intelligenceLayer.hints.map((h) => (
+                          <li key={h} className="border-b border-[var(--rw-border)] pb-2">
+                            {h}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                    <p className="rw-empty">
+                      Evidence IDs: {(vm.intelligenceLayer.supportingEvidenceIds || []).slice(0, 4).join(', ') || '—'}
+                      {vm.intelligenceLayer.auditId ? ` · Audit ${vm.intelligenceLayer.auditId}` : ''}
+                      {vm.intelligenceLayer.graphCount != null
+                        ? ` · Graph links ${vm.intelligenceLayer.graphCount}`
+                        : ''}
+                    </p>
+                  </Section>
+                ) : null}
 
                 <Section id="changed" kicker="Section 6" title="What's Changed">
                   {vm.changedRows.length ? (

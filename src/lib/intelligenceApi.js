@@ -231,6 +231,25 @@ export const consultIie = (q, limit = 8) => {
   return intelligenceFetch(`/iie/consult?${qs}`);
 };
 
+/** FAA v1 Finance Acquisition Agent — gather public docs, feed FRE */
+export const getFaaHealth = () => intelligenceFetch('/faa/health');
+export const getFaaDashboard = () => intelligenceFetch('/faa/dashboard');
+export const discoverFaa = (q, limit = 40) => {
+  const qs = new URLSearchParams({ q, limit: String(limit) }).toString();
+  return intelligenceFetch(`/faa/discover?${qs}`);
+};
+export const acquireFaa = (q, limit = 24) => {
+  const qs = new URLSearchParams({ q, limit: String(limit) }).toString();
+  return intelligenceFetch(`/faa/acquire?${qs}`, { method: 'POST', body: {} });
+};
+export const getFaaConnectors = () => intelligenceFetch('/faa/connectors');
+export const getFaaScheduler = () => intelligenceFetch('/faa/scheduler');
+export const runFaaJobs = () => intelligenceFetch('/faa/jobs', { method: 'POST', body: {} });
+export const consultFaa = (q, limit = 8) => {
+  const qs = new URLSearchParams({ q, limit: String(limit) }).toString();
+  return intelligenceFetch(`/faa/consult?${qs}`);
+};
+
 /** FRE v1 Finance Retrieval Engine — evidence only, never answers */
 export const getFreHealth = () => intelligenceFetch('/fre/health');
 export const getFreDashboard = () => intelligenceFetch('/fre/dashboard');
@@ -866,3 +885,34 @@ export const analyseCompany = (ticker, query = 'Company analysis') =>
     method: 'POST',
     body: { ticker, query },
   });
+
+/** AGIB Intelligence Layer V2 — living dossier / thesis / forecast / ledger */
+export const getAilHealth = () => intelligenceFetch('/ail/health');
+export const getAilDashboard = () => intelligenceFetch('/ail/dashboard');
+export const analyseAil = (q, ticker) => {
+  const qs = new URLSearchParams({ q });
+  if (ticker) qs.set('ticker', ticker);
+  return intelligenceFetch(`/ail/analyse?${qs}`);
+};
+export const runAilMonitor = (watchlist = 'default') =>
+  intelligenceFetch(`/ail/monitor/run?watchlist=${encodeURIComponent(watchlist)}`, {
+    method: 'POST',
+    body: {},
+  });
+export const getCompanyDossierAil = (ticker) =>
+  intelligenceFetch(`/company/${encodeURIComponent(ticker)}/dossier`);
+export const getCompanyTimelineAil = (ticker, limit = 100) =>
+  intelligenceFetch(`/company/${encodeURIComponent(ticker)}/timeline?limit=${limit}`);
+export const getCompanyEventsAil = (ticker, limit = 50) =>
+  intelligenceFetch(`/company/${encodeURIComponent(ticker)}/events?limit=${limit}`);
+export const getCompanyThesisAil = (ticker) =>
+  intelligenceFetch(`/company/${encodeURIComponent(ticker)}/thesis`);
+export const getCompanyForecastAil = (ticker) =>
+  intelligenceFetch(`/company/${encodeURIComponent(ticker)}/forecast`);
+export const getCompanyLedgerAil = (ticker) =>
+  intelligenceFetch(`/company/${encodeURIComponent(ticker)}/ledger`);
+export const getCompanyMonitorAil = (ticker) =>
+  intelligenceFetch(`/company/${encodeURIComponent(ticker)}/monitor`);
+export const getAilEvent = (id) => intelligenceFetch(`/event/${encodeURIComponent(id)}`);
+export const getAilEvidence = (id) => intelligenceFetch(`/evidence/${encodeURIComponent(id)}`);
+export const getAilPrediction = (id) => intelligenceFetch(`/prediction/${encodeURIComponent(id)}`);
