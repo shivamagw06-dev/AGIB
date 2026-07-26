@@ -1032,7 +1032,7 @@ export default function createIntelligenceRouter() {
       if (!result.ok) {
         return res.status(result.status).json(result.data);
       }
-      const desk = result.data && typeof result.data === 'object' ? { ...result.data } : {};
+      let desk = result.data && typeof result.data === 'object' ? { ...result.data } : {};
       // Soft enrich with CMS/KC learning digest — never block cockpit if digest fails
       let learning = null;
       try {
@@ -1065,6 +1065,13 @@ export default function createIntelligenceRouter() {
             ...desk.live_event_stream,
           ].slice(0, 40);
         }
+      }
+      // Soft enrich Groww + full .env API catalogue into API Status
+      try {
+        const { enrichMissionControlApis } = await import('../services/envApiCatalog.js');
+        desk = await enrichMissionControlApis(desk);
+      } catch {
+        // never block Mission Control on provider catalogue
       }
       return res.json(desk);
     } catch (error) {

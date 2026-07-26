@@ -292,7 +292,7 @@ export default function MissionControl() {
               <ul className="space-y-2 max-h-80 overflow-auto">
                 {apis
                   .filter((p) => !query || JSON.stringify(p).toLowerCase().includes(query.toLowerCase()))
-                  .slice(0, 24)
+                  .slice(0, 40)
                   .map((p) => (
                     <li key={p.name} className="border-b border-[var(--io-border)] pb-2 text-sm">
                       <div className="flex items-center justify-between gap-2">
@@ -302,8 +302,13 @@ export default function MissionControl() {
                         </span>
                       </div>
                       <p className="mt-1 text-[11px] text-[var(--io-muted)]">
-                        {p.last_error ? `Last error: ${p.last_error}` : p.provider_confidence || '—'}
+                        {p.last_error
+                          ? `Last error: ${p.last_error}`
+                          : p.note || p.provider_confidence || '—'}
                         {p.circuit_state ? ` · circuit ${p.circuit_state}` : ''}
+                        {Array.isArray(p.env_keys) && p.env_keys.length
+                          ? ` · env ${p.env_keys.slice(0, 3).join(', ')}`
+                          : ''}
                       </p>
                     </li>
                   ))}
