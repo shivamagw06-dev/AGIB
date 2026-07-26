@@ -548,13 +548,20 @@ export const bundleFiml = (body = {}) =>
 export const consumerFiml = (engine, body = {}) =>
   intelligenceFetch(`/fiml/consumer/${encodeURIComponent(engine)}`, { method: 'POST', body });
 
-/** AGI Finance Academy v1 — institutional curriculum library */
+/** AGI Finance Academy v1.1 — institutional multi-course curriculum library */
 export const getAcademyHealth = () => intelligenceFetch('/academy/health');
 export const getAcademyDashboard = () => intelligenceFetch('/academy/dashboard');
-export const getAcademyCourse = () => intelligenceFetch('/academy/course');
-export const getAcademyConcepts = (tag) => {
+export const getAcademyCourses = () => intelligenceFetch('/academy/courses');
+export const getAcademyCourse = (courseId) => {
+  const qs = new URLSearchParams();
+  if (courseId) qs.set('course_id', courseId);
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return intelligenceFetch(`/academy/course${suffix}`);
+};
+export const getAcademyConcepts = (tag, courseId) => {
   const qs = new URLSearchParams();
   if (tag) qs.set('tag', tag);
+  if (courseId) qs.set('course_id', courseId);
   const suffix = qs.toString() ? `?${qs}` : '';
   return intelligenceFetch(`/academy/concepts${suffix}`);
 };
@@ -562,17 +569,44 @@ export const getAcademyConcept = (id) =>
   intelligenceFetch(`/academy/concepts/${encodeURIComponent(id)}`);
 export const teachAcademyConcept = (id) =>
   intelligenceFetch(`/academy/teach/${encodeURIComponent(id)}`);
-export const getAcademyGraph = () => intelligenceFetch('/academy/graph');
+export const getAcademyGraph = (courseId) => {
+  const qs = new URLSearchParams();
+  if (courseId) qs.set('course_id', courseId);
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return intelligenceFetch(`/academy/graph${suffix}`);
+};
 export const getAcademyCausalModels = () => intelligenceFetch('/academy/causal-models');
 export const getAcademyMentalModels = () => intelligenceFetch('/academy/mental-models');
-export const getAcademyQuality = () => intelligenceFetch('/academy/quality');
+export const getAcademyQuality = (courseId) => {
+  const qs = new URLSearchParams();
+  if (courseId) qs.set('course_id', courseId);
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return intelligenceFetch(`/academy/quality${suffix}`);
+};
 export const getAcademyProvenance = () => intelligenceFetch('/academy/provenance');
-export const getAcademyExams = () => intelligenceFetch('/academy/exams');
+export const getAcademyExams = (courseId) => {
+  const qs = new URLSearchParams();
+  if (courseId) qs.set('course_id', courseId);
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return intelligenceFetch(`/academy/exams${suffix}`);
+};
 export const getAcademyExamAnswer = (id) =>
   intelligenceFetch(`/academy/exams/${encodeURIComponent(id)}`);
-export const getAcademyCompletion = () => intelligenceFetch('/academy/completion');
-export const searchAcademy = (q, limit = 20) => {
+export const getAcademyCompletion = (courseId) => {
+  const qs = new URLSearchParams();
+  if (courseId) qs.set('course_id', courseId);
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return intelligenceFetch(`/academy/completion${suffix}`);
+};
+export const getAcademyRedFlags = () => intelligenceFetch('/academy/red-flags');
+export const getAcademyAccounting = () => intelligenceFetch('/academy/accounting');
+export const scoreAcademyEarningsQuality = (body = {}) =>
+  intelligenceFetch('/academy/earnings-quality', { method: 'POST', body });
+export const scoreAcademyRedFlags = (body = {}) =>
+  intelligenceFetch('/academy/red-flags/score', { method: 'POST', body });
+export const searchAcademy = (q, limit = 20, courseId) => {
   const qs = new URLSearchParams({ q, limit: String(limit) });
+  if (courseId) qs.set('course_id', courseId);
   return intelligenceFetch(`/academy/search?${qs}`);
 };
 export const consumerAcademy = (engine, body = {}) =>

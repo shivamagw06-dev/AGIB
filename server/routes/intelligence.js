@@ -777,9 +777,10 @@ export default function createIntelligenceRouter() {
     }
   });
 
-  // AGI Finance Academy v1 — curriculum library (not an engine).
+  // AGI Finance Academy v1.1 — multi-course curriculum library (not an engine).
   router.get('/academy/health', kfGet('/v1/academy/health'));
   router.get('/academy/dashboard', kfGet('/v1/academy/dashboard'));
+  router.get('/academy/courses', kfGet('/v1/academy/courses'));
   router.get('/academy/course', kfGet('/v1/academy/course'));
   router.get('/academy/concepts', kfGet('/v1/academy/concepts'));
   router.get('/academy/concepts/:conceptId', async (req, res) => {
@@ -821,8 +822,32 @@ export default function createIntelligenceRouter() {
     }
   });
   router.get('/academy/search', kfGet('/v1/academy/search'));
+  router.get('/academy/red-flags', kfGet('/v1/academy/red-flags'));
+  router.get('/academy/accounting', kfGet('/v1/academy/accounting'));
   router.get('/academy/completion', kfGet('/v1/academy/completion'));
   router.get('/academy/metrics', kfGet('/v1/academy/metrics'));
+  router.post('/academy/red-flags/score', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/academy/red-flags/score', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Finance Academy unavailable', detail: error.message });
+    }
+  });
+  router.post('/academy/earnings-quality', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/academy/earnings-quality', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Finance Academy unavailable', detail: error.message });
+    }
+  });
   router.post('/academy/consumer/:engine', async (req, res) => {
     try {
       const result = await engineFetch(`/v1/academy/consumer/${encodeURIComponent(req.params.engine)}`, {

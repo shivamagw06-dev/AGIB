@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from academy.knowledge_objects import all_knowledge_objects
+from academy.catalog import all_knowledge_objects
 from academy.schema import KnowledgeObject
 
 
@@ -50,19 +50,21 @@ def review_object(ko: KnowledgeObject) -> dict[str, Any]:
         issues.append("missing_sources")
     if ko.confidence < 0.5:
         issues.append("low_confidence")
+    if not ko.investment_impact:
+        issues.append("missing_investment_implications")
     status = "rejected" if issues else "reviewed"
     return {
         "concept_id": ko.concept_id,
+        "course_id": ko.course_id,
         "status": status,
         "issues": issues,
         "publishable": not issues,
     }
 
 
-def review_corpus(objects: list[KnowledgeObject] | None = None) -> dict[str, Any]:
-    objs = objects or all_knowledge_objects()
+def review_corpus(course_id: str | None = None) -> dict[str, Any]:
+    objs = all_knowledge_objects(course_id)
     reviews = [review_object(o) for o in objs]
-    # duplicate detection by normalised definition / concept name
     by_name: dict[str, list[str]] = {}
     for o in objs:
         key = o.concept.strip().lower()
@@ -76,4 +78,5 @@ def review_corpus(objects: list[KnowledgeObject] | None = None) -> dict[str, Any
         "duplicates": duplicates,
         "passed": not rejected and not duplicates,
         "reviews": reviews,
+        "course_id": course_id or "all",
     }

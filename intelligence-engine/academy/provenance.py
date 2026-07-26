@@ -1,4 +1,4 @@
-"""Optional PDF provenance enrichment — never requires committing the book."""
+"""Optional PDF provenance enrichment — never requires committing books."""
 
 from __future__ import annotations
 
@@ -6,35 +6,67 @@ import os
 from pathlib import Path
 from typing import Any
 
-from academy.curriculum import CHAPTERS, PDF_PAGE_OFFSET, chapter_meta
+from academy.accounting.curriculum import CHAPTERS as ACC_CHAPTERS
+from academy.accounting.curriculum import chapter_meta as acc_chapter_meta
+from academy.curriculum import CHAPTERS as ECO_CHAPTERS
+from academy.curriculum import PDF_PAGE_OFFSET, chapter_meta as eco_chapter_meta
 
 
-DEFAULT_PDF_CANDIDATES = [
+MANKIW_CANDIDATES = [
     Path("/workspace/books/Mankiw_Principles_of_Economics.pdf"),
     Path.home() / "Downloads" / "AGIB" / "books" / "Mankiw_Principles_of_Economics.pdf",
     Path.home() / "Downloads" / "AGIB" / "Books" / "Mankiw_Principles_of_Economics.pdf",
 ]
 
+DAMODARAN_CANDIDATES = [
+    Path("/workspace/books/Damodaran_Understanding_Financial_Statements.pdf"),
+    Path("/workspace/books/Damodaran_Accounting_Prep.pdf"),
+    Path("/workspace/books/Damodaran_Measuring_Earnings.pdf"),
+    Path.home() / "Downloads" / "AGIB" / "books" / "Damodaran_Understanding_Financial_Statements.pdf",
+    Path.home() / "Downloads" / "AGIB" / "Books" / "Minimalist_Accounting.pdf",
+]
 
-def locate_pdf(explicit: str | None = None) -> Path | None:
-    if explicit:
-        p = Path(explicit)
-        return p if p.exists() else None
-    env = os.environ.get("AGI_ACADEMY_MANKIW_PDF")
-    if env and Path(env).exists():
-        return Path(env)
-    for cand in DEFAULT_PDF_CANDIDATES:
-        if cand.exists():
-            return cand
+
+def _first_existing(paths: list[Path]) -> Path | None:
+    for p in paths:
+        if p.exists():
+            return p
     return None
 
 
+def locate_pdf(explicit: str | None = None, *, course: str = "economics") -> Path | None:
+    if explicit:
+        p = Path(explicit)
+        return p if p.exists() else None
+    if course in ("accounting", "damodaran", "minimalist_accounting"):
+        env = os.environ.get("AGI_ACADEMY_DAMODARAN_PDF")
+        if env and Path(env).exists():
+            return Path(env)
+        return _first_existing(DAMODARAN_CANDIDATES)
+    env = os.environ.get("AGI_ACADEMY_MANKIW_PDF")
+    if env and Path(env).exists():
+        return Path(env)
+    return _first_existing(MANKIW_CANDIDATES)
+
+
+def _pdf_meta(path: Path | None) -> dict[str, Any]:
+    if path is None:
+        return {"pdf_found": False, "pdf_path": None, "pdf_pages": None}
+    try:
+        from pypdf import PdfReader
+
+        return {"pdf_found": True, "pdf_path": str(path), "pdf_pages": len(PdfReader(str(path)).pages)}
+    except Exception as exc:  # noqa: BLE001
+        return {"pdf_found": True, "pdf_path": str(path), "pdf_pages": None, "error": str(exc)}
+
+
 def provenance_status(pdf_path: str | None = None) -> dict[str, Any]:
-    path = locate_pdf(pdf_path)
-    chapters = []
-    for row in CHAPTERS:
-        meta = chapter_meta(row["chapter"])
-        chapters.append(
+    eco_path = locate_pdf(pdf_path, course="economics")
+    acc_path = locate_pdf(course="accounting")
+    eco_chapters = []
+    for row in ECO_CHAPTERS:
+        meta = eco_chapter_meta(row["chapter"])
+        eco_chapters.append(
             {
                 "chapter": meta["chapter"],
                 "title": meta["title"],
@@ -42,33 +74,37 @@ def provenance_status(pdf_path: str | None = None) -> dict[str, Any]:
                 "pdf_page_estimate": meta["pdf_page"],
             }
         )
-    page_count = None
-    if path is not None:
-        try:
-            from pypdf import PdfReader
-
-            page_count = len(PdfReader(str(path)).pages)
-        except Exception as exc:  # noqa: BLE001 — soft provenance
-            return {
-                "pdf_found": True,
-                "pdf_path": str(path),
-                "error": str(exc),
-                "pdf_page_offset": PDF_PAGE_OFFSET,
-                "chapters": chapters,
+    acc_chapters = []
+    for row in ACC_CHAPTERS:
+        meta = acc_chapter_meta(row["chapter"])
+        acc_chapters.append(
+            {
+                "chapter": meta["chapter"],
+                "title": meta["title"],
+                "printed_page": meta.get("printed_page"),
+                "pdf_page_estimate": meta.get("pdf_page"),
+                "source": meta.get("source"),
             }
+        )
     return {
-        "pdf_found": path is not None,
-        "pdf_path": str(path) if path else None,
-        "pdf_pages": page_count,
+        "note": "PDFs are gitignored; provenance uses local paths only",
+        "economics": {**_pdf_meta(eco_path), "pdf_page_offset": PDF_PAGE_OFFSET, "chapters": eco_chapters},
+        "accounting": {
+            **_pdf_meta(acc_path),
+            "materials": [str(p) for p in DAMODARAN_CANDIDATES if p.exists()],
+            "chapters": acc_chapters,
+        },
+        # backward-compatible top-level fields (economics)
+        **{f"legacy_{k}" if k in ("pdf_found", "pdf_path", "pdf_pages") else k: v for k, v in _pdf_meta(eco_path).items()},
+        "pdf_found": eco_path is not None or acc_path is not None,
         "pdf_page_offset": PDF_PAGE_OFFSET,
-        "note": "Copyrighted PDFs are gitignored; provenance uses local path only",
-        "chapters": chapters,
+        "chapters": eco_chapters,
     }
 
 
 def enrich_concept_pages(concept_id: str, section_hint: str | None = None) -> dict[str, Any]:
     """Best-effort page hit search inside local PDF; soft-fails if unavailable."""
-    from academy.knowledge_objects import knowledge_by_id
+    from academy.catalog import knowledge_by_id
 
     ko = knowledge_by_id().get(concept_id)
     if not ko:
@@ -77,8 +113,10 @@ def enrich_concept_pages(concept_id: str, section_hint: str | None = None) -> di
         "concept_id": concept_id,
         "sources": [s.to_dict() for s in ko.sources],
         "section_hint": section_hint,
+        "course_id": ko.course_id,
     }
-    path = locate_pdf()
+    course = "accounting" if "accounting" in (ko.course_id or "") or "course:accounting" in ko.tags else "economics"
+    path = locate_pdf(course=course)
     if path is None:
         return {**base, "enriched": False, "reason": "pdf_not_found"}
     try:
@@ -86,9 +124,8 @@ def enrich_concept_pages(concept_id: str, section_hint: str | None = None) -> di
 
         reader = PdfReader(str(path))
         needle = ko.concept.split()[0].lower()
-        # Search near the primary chapter's estimated pdf page
         primary = ko.sources[0]
-        start = max(0, (primary.pdf_page or 40) - 5)
+        start = max(0, (primary.pdf_page or 1) - 2)
         end = min(len(reader.pages), start + 40)
         hits = []
         for i in range(start, end):

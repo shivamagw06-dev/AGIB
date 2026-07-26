@@ -4,30 +4,34 @@ from __future__ import annotations
 
 from typing import Any
 
-from academy.causal_models import all_causal_models
-from academy.knowledge_objects import all_knowledge_objects
-from academy.mental_models import all_mental_models
+from academy.catalog import all_causal_models, all_knowledge_objects, all_mental_models
 
 
-def build_knowledge_graph() -> dict[str, Any]:
-    concepts = all_knowledge_objects()
+def build_knowledge_graph(course_id: str | None = None) -> dict[str, Any]:
+    concepts = all_knowledge_objects(course_id)
     nodes = [
         {
             "id": k.concept_id,
             "label": k.concept,
             "type": "concept",
             "tags": k.tags,
+            "course_id": k.course_id,
             "confidence": k.confidence,
         }
         for k in concepts
     ]
     edges: list[dict[str, str]] = []
     seen: set[tuple[str, str, str]] = set()
+    concept_ids = {k.concept_id for k in concepts}
 
     def add_edge(src: str, dst: str, rel: str) -> None:
         key = (src, dst, rel)
         if src == dst or key in seen:
             return
+        # Keep graph focused on known concept endpoints when possible
+        if rel != "causes" and src not in concept_ids and dst not in concept_ids:
+            if not src.endswith(tuple(concept_ids)) and not any(src.startswith(c) for c in ("repo_", "inflation_", "gdp_")):
+                pass
         seen.add(key)
         edges.append({"from": src, "to": dst, "type": rel})
 
@@ -47,6 +51,9 @@ def build_knowledge_graph() -> dict[str, Any]:
             add_edge(k.concept_id, m, "uses_mental_model")
 
     for cm in all_causal_models():
+        # include causal model if any related concept is in scope
+        if course_id and not any(c in concept_ids for c in cm.related_concepts):
+            continue
         nodes.append({"id": cm.model_id, "label": cm.name, "type": "causal_model"})
         for cid in cm.related_concepts:
             add_edge(cm.model_id, cid, "applies_concept")
@@ -61,6 +68,8 @@ def build_knowledge_graph() -> dict[str, Any]:
             )
 
     for mm in all_mental_models():
+        if course_id and not any(c in concept_ids for c in mm.related_concepts):
+            continue
         nodes.append({"id": mm.model_id, "label": mm.name, "type": "mental_model"})
         for cid in mm.related_concepts:
             add_edge(mm.model_id, cid, "frames")
@@ -72,8 +81,8 @@ def build_knowledge_graph() -> dict[str, Any]:
             "nodes": len(nodes),
             "edges": len(edges),
             "concepts": len(concepts),
-            "causal_models": len(all_causal_models()),
-            "mental_models": len(all_mental_models()),
+            "causal_models": len([n for n in nodes if n.get("type") == "causal_model"]),
+            "mental_models": len([n for n in nodes if n.get("type") == "mental_model"]),
         },
     }
 

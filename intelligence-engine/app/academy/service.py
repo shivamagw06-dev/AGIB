@@ -41,13 +41,17 @@ class AcademyService:
         out["metrics"] = self.store.metrics.model_dump()
         return out
 
-    def course(self) -> dict[str, Any]:
+    def courses(self) -> dict[str, Any]:
         self._require()
-        return self.core.course()
+        return self.core.courses()
 
-    def list_concepts(self, tag: str | None = None) -> dict[str, Any]:
+    def course(self, course_id: str | None = None) -> dict[str, Any]:
         self._require()
-        return self.core.list_concepts(tag=tag)
+        return self.core.course(course_id)
+
+    def list_concepts(self, tag: str | None = None, course_id: str | None = None) -> dict[str, Any]:
+        self._require()
+        return self.core.list_concepts(tag=tag, course_id=course_id)
 
     def get_concept(self, concept_id: str) -> dict[str, Any]:
         self._require()
@@ -61,9 +65,9 @@ class AcademyService:
         self.store.observe("teach", {"concept_id": concept_id})
         return out
 
-    def graph(self) -> dict[str, Any]:
+    def graph(self, course_id: str | None = None) -> dict[str, Any]:
         self._require()
-        return self.core.graph()
+        return self.core.graph(course_id)
 
     def neighborhood(self, concept_id: str) -> dict[str, Any]:
         self._require()
@@ -77,9 +81,9 @@ class AcademyService:
         self._require()
         return self.core.mental_models()
 
-    def quality(self) -> dict[str, Any]:
+    def quality(self, course_id: str | None = None) -> dict[str, Any]:
         self._require()
-        return self.core.quality()
+        return self.core.quality(course_id)
 
     def provenance(self) -> dict[str, Any]:
         self._require()
@@ -91,11 +95,11 @@ class AcademyService:
         self._require()
         return self.core.enrich(concept_id)
 
-    def exams(self) -> dict[str, Any]:
+    def exams(self, course_id: str | None = None) -> dict[str, Any]:
         self._require()
         if not self.flags.academy_exams:
             return {"enabled": False}
-        out = self.core.exams()
+        out = self.core.exams(course_id)
         self.store.observe("exam", {"suite": True})
         return out
 
@@ -111,15 +115,27 @@ class AcademyService:
         self.store.observe("consumer", {"engine": engine})
         return out
 
-    def search(self, q: str, limit: int = 20) -> dict[str, Any]:
+    def search(self, q: str, limit: int = 20, course_id: str | None = None) -> dict[str, Any]:
         self._require()
-        out = self.core.search(q, limit=limit)
+        out = self.core.search(q, limit=limit, course_id=course_id)
         self.store.observe("search", {"q": q})
         return out
 
-    def completion(self) -> dict[str, Any]:
+    def red_flags(self, payload: dict[str, Any] | None = None) -> dict[str, Any]:
         self._require()
-        return self.core.completion()
+        return self.core.red_flags(payload)
+
+    def earnings_quality(self, payload: dict[str, Any] | None = None) -> dict[str, Any]:
+        self._require()
+        return self.core.earnings_quality(payload)
+
+    def accounting(self) -> dict[str, Any]:
+        self._require()
+        return self.core.accounting()
+
+    def completion(self, course_id: str | None = None) -> dict[str, Any]:
+        self._require()
+        return self.core.completion(course_id)
 
     def metrics(self) -> dict[str, Any]:
         self._require()

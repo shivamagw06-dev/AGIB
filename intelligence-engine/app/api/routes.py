@@ -2960,7 +2960,7 @@ async def fiml_graph():
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-# --- AGI Finance Academy v1 (curriculum library; not an engine; no locked-engine redesign) ---
+# --- AGI Finance Academy v1.1 (curriculum library; multi-course; no locked-engine redesign) ---
 
 
 @router.get("/academy/health")
@@ -2976,18 +2976,33 @@ async def academy_dashboard():
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-@router.get("/academy/course")
-async def academy_course():
+@router.get("/academy/courses")
+async def academy_courses():
     try:
-        return _academy.course()
+        return _academy.courses()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/academy/course")
+async def academy_course(course_id: str | None = Query(default=None)):
+    try:
+        return _academy.course(course_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.get("/academy/concepts")
-async def academy_concepts(tag: str | None = Query(default=None)):
+async def academy_concepts(
+    tag: str | None = Query(default=None),
+    course_id: str | None = Query(default=None),
+):
     try:
-        return _academy.list_concepts(tag=tag)
+        return _academy.list_concepts(tag=tag, course_id=course_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -3013,9 +3028,9 @@ async def academy_teach(concept_id: str):
 
 
 @router.get("/academy/graph")
-async def academy_graph():
+async def academy_graph(course_id: str | None = Query(default=None)):
     try:
-        return _academy.graph()
+        return _academy.graph(course_id)
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -3045,9 +3060,9 @@ async def academy_mental_models():
 
 
 @router.get("/academy/quality")
-async def academy_quality():
+async def academy_quality(course_id: str | None = Query(default=None)):
     try:
-        return _academy.quality()
+        return _academy.quality(course_id)
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -3071,9 +3086,9 @@ async def academy_enrich(concept_id: str):
 
 
 @router.get("/academy/exams")
-async def academy_exams():
+async def academy_exams(course_id: str | None = Query(default=None)):
     try:
-        return _academy.exams()
+        return _academy.exams(course_id)
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -3099,17 +3114,53 @@ async def academy_consumer(engine: str, payload: dict[str, Any] = Body(default={
 
 
 @router.get("/academy/search")
-async def academy_search(q: str = Query(...), limit: int = Query(default=20, ge=1, le=100)):
+async def academy_search(
+    q: str = Query(...),
+    limit: int = Query(default=20, ge=1, le=100),
+    course_id: str | None = Query(default=None),
+):
     try:
-        return _academy.search(q, limit=limit)
+        return _academy.search(q, limit=limit, course_id=course_id)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/academy/red-flags")
+async def academy_red_flags():
+    try:
+        return _academy.red_flags()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/academy/red-flags/score")
+async def academy_red_flags_score(payload: dict[str, Any] = Body(default={})):
+    try:
+        return _academy.red_flags(payload or {})
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/academy/earnings-quality")
+async def academy_earnings_quality(payload: dict[str, Any] = Body(default={})):
+    try:
+        return _academy.earnings_quality(payload or {})
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/academy/accounting")
+async def academy_accounting():
+    try:
+        return _academy.accounting()
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.get("/academy/completion")
-async def academy_completion():
+async def academy_completion(course_id: str | None = Query(default=None)):
     try:
-        return _academy.completion()
+        return _academy.completion(course_id)
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

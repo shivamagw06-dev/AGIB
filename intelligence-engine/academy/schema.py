@@ -6,10 +6,14 @@ from dataclasses import asdict, dataclass, field
 from typing import Any
 
 
-ACADEMY_VERSION = "academy-v1.0.0"
+ACADEMY_VERSION = "academy-v1.1.0"
 COURSE_ID = "mankiw_principles_of_economics"
 COURSE_TITLE = "Principles of Economics (Gregory Mankiw)"
 COURSE_EDITION = "7e"
+
+# Multi-course Academy — additional course ids live under academy/<course>/
+ACCOUNTING_COURSE_ID = "damodaran_minimalist_accounting"
+ACCOUNTING_COURSE_TITLE = "Minimalist Accounting (Aswath Damodaran)"
 
 
 INDUSTRIES = [
@@ -103,6 +107,12 @@ class KnowledgeObject:
     status: str = "published"  # draft | reviewed | published | rejected
     mental_models: list[str] = field(default_factory=list)
     tags: list[str] = field(default_factory=list)
+    # Optional multi-course / accounting-curriculum fields (additive; defaults keep v1.0 objects valid)
+    course_id: str = ""
+    business_meaning: str = ""
+    accounting_meaning: str = ""
+    industry_variations: dict[str, str] = field(default_factory=dict)
+    red_flags: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
