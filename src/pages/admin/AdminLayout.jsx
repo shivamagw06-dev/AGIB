@@ -37,7 +37,6 @@ import {
   BrainCircuit,
   Fingerprint,
   ClipboardList,
-  Network,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
