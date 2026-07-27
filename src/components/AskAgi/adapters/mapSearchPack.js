@@ -215,12 +215,20 @@ export function mapSearchPack(pack) {
         ? pack.answer.institutional_answer
         : null;
 
+  // Prefer plain-English editorial rewrite for the lead answer (never Buy/Sell/Hold copy).
+  const editorialExecutive =
+    asText(ac?.editorial?.rewritten_summary) ||
+    asText(ac?.editorial?.executive) ||
+    asText(pack.editorial?.rewritten_summary) ||
+    asText(pack.editorial?.executive) ||
+    asText(ac?.executive) ||
+    '';
   const executive =
+    editorialExecutive ||
     asText(institutionalAnswer?.text) ||
     asText(irw?.executive_summary) ||
     asText(irwReport?.executive_summary) ||
     asText(iafCio?.executive_summary) ||
-    asText(ac?.executive) ||
     asText(ide?.answer_enrichment?.executive_framing) ||
     asText(enrich.executive_summary) ||
     asText(briefing.executive_summary) ||

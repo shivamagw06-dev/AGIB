@@ -21,6 +21,7 @@ SAMPLE = {
     "business_quality": "Excellent",
     "financial_quality": "Stable",
     "valuation": "Attractive",
+    "company": "HDFC Bank",
     "top_reasons": [
         "Strong deposit franchise",
         "Reasonable valuation",
@@ -39,8 +40,8 @@ def test_health_and_gates():
     g = quality_gates()
     assert g["checks"]["never_reads_pdfs"] is True
     assert g["checks"]["never_recommends_actions"] is True
-    assert g["checks"]["word_limits"]["quick_summary"] == 60
-    assert g["checks"]["word_limits"]["quick_analysis"] == 120
+    assert g["checks"]["word_limits"]["quick_summary"] == 80
+    assert g["checks"]["word_limits"]["quick_analysis"] == 150
     assert g["checks"]["word_limits"]["detailed_analysis"] == 400
 
 
@@ -58,13 +59,17 @@ def test_sanitize_drops_forbidden_document_fields():
     assert clean["recommendation"] == "BUY"
 
 
-def test_template_fallback_is_neutral_rewrite():
+def test_template_fallback_is_plain_english_rewrite():
     text = render_template("quick_summary", SAMPLE)
     assert "Recommendation:" not in text
-    assert "deposit franchise" in text.lower()
-    assert "NIM pressure" in text
-    assert "you should" not in text.lower()
-    assert "target price" not in text.lower()
+    lower = text.lower()
+    assert "buy" not in lower.split()  # no action verb as a word lead
+    assert "business strength" in lower or "deposit" in lower
+    assert "interest margin" in lower or "loan quality" in lower or "watch" in lower
+    assert "you should" not in lower
+    assert "target price" not in lower
+    assert "franchise" not in lower
+    assert "nim" not in lower
 
 
 def test_generate_quick_summary_never_emits_advice():
@@ -72,28 +77,32 @@ def test_generate_quick_summary_never_emits_advice():
     assert out["enabled"] is True
     assert out["fallback"] is True
     assert out["mode"] == "quick_summary"
-    assert out["max_words"] == 60
-    assert out["word_count"] <= 60
+    assert out["max_words"] == 80
+    assert out["word_count"] <= 80
     assert "Recommendation:" not in (out.get("rewritten_summary") or "")
+    assert "Recommendation:" not in (out.get("text") or "")
     lower = (out.get("rewritten_summary") or "").lower()
     assert "you should" not in lower
     assert "target price" not in lower
+    # First sentence answers directly
+    assert (out.get("text") or "").startswith("HDFC Bank")
 
 
-def test_generate_recommendation_attaches_agib_action_only():
-    # Editorial rewrite is neutral; AGIB recommendation may be attached for display.
+def test_generate_recommendation_is_plain_summary_not_action():
+    # Legacy name still returns rewrite-only prose — never Recommendation: BUY
     out = generateRecommendation(SAMPLE, question="Should I buy HDFC Bank?")
     assert out["fallback"] is True
-    assert out["text"].startswith("Recommendation: BUY")
+    assert not (out.get("text") or "").startswith("Recommendation:")
     assert "Recommendation:" not in (out.get("rewritten_summary") or "")
     assert out["recommendation_from_agib_only"] is True
+    assert out["never_recommends_actions"] is True
 
 
 def test_generate_quick_analysis_word_limit():
     out = generateQuickAnalysis(SAMPLE, question="Quick view on HDFC Bank")
     assert out["mode"] == "quick_analysis"
-    assert out["max_words"] == 120
-    assert out["word_count"] <= 120
+    assert out["max_words"] == 150
+    assert out["word_count"] <= 150
     assert "Recommendation:" not in out["text"]
 
 
@@ -126,7 +135,6 @@ def test_service_strips_provider_advice(monkeypatch):
     out = service.generateQuickSummary(SAMPLE, question="Should I buy?")
     assert "Recommendation:" not in (out.get("rewritten_summary") or "")
     assert "SELL" not in (out.get("rewritten_summary") or "")
-    assert "deposit franchise" in (out.get("rewritten_summary") or "").lower()
 
 
 def test_cache_identical_summary_requests():
@@ -136,7 +144,7 @@ def test_cache_identical_summary_requests():
     assert cache.get(key)["text"] == "cached"
 
 
-def test_package_for_ask_agi_soft_wire():
+def test_package_for_ask_agi_soft_wire_rewrite_only():
     ac = {
         "enabled": True,
         "house_label": "Constructive",
@@ -160,10 +168,13 @@ def test_package_for_ask_agi_soft_wire():
     )
     assert out["enabled"] is True
     assert out["never_generates_advice"] is True
+    assert out["never_recommends_actions"] is True
     assert out["executive"]
     assert out["structured_intelligence"]["recommendation"] in {"Buy", "BUY"}
     assert out["rewritten_summary"]
     assert "Recommendation:" not in out["rewritten_summary"]
+    assert "Recommendation:" not in (out["executive"] or "")
+    assert not (out["executive"] or "").lower().startswith("recommendation")
 
 
 def test_build_structured_package_from_agib_outputs():

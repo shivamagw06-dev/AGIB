@@ -121,7 +121,8 @@ def test_policy_preserves_brief_when_gated():
     assert out["answer_policy"] == "agib_brain_gemini_editorial_writer"
     assert out.get("editorial", {}).get("enabled") is True
     assert "Eternal" in (out["executive"] or "")
-    assert out["institutional_answer"]["word_count"] <= 60 or len((out["executive"] or "").split()) <= 60
+    # Editorial Quick Summary limit is 80 words; AGIB lead card may still be ≤60.
+    assert out["institutional_answer"]["word_count"] <= 60 or len((out["executive"] or "").split()) <= 80
     assert out["bull"]
     assert out["bear"]
     assert out["risks"]
