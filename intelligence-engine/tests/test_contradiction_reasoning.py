@@ -93,12 +93,15 @@ def test_soft_wire_into_answer_construction():
     assert "NIM" in (out.get("executive") or "") or "Net Interest Margin" in (out.get("executive") or "")
     assert out.get("editorial", {}).get("bypassed") is True
 
-    # Contradiction soft layer still owns executive when no gold pattern matches.
+    # Family or contradiction soft layer owns executive when no gold pattern matches.
     generic_q = (
         "Reported assets rose sharply, but liabilities also rose even faster. "
         "How should this be interpreted?"
     )
     out2 = ac_package(query=generic_q, ticker="HDFCBANK")
-    assert out2.get("contradiction_reasoning", {}).get("enabled") is True
-    assert out2.get("answer_policy") == "contradiction_reasoning_step_by_step"
+    assert out2.get("answer_policy") in {
+        "contradiction_reasoning_step_by_step",
+        "reasoning_family_first_principles",
+    }
     assert out2.get("editorial", {}).get("bypassed") is True
+    assert out2.get("executive")

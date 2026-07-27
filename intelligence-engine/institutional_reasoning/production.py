@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from institutional_reasoning.engine import package_reasoning_answer
 from institutional_reasoning.flags import flags_dict, is_enabled
-from institutional_reasoning.gold_patterns import package_pattern_answer
 from institutional_reasoning.planner import build_reasoning_plan
 from institutional_reasoning.prompt import (
     INSTITUTIONAL_REASONING_SYSTEM_PROMPT,
@@ -32,6 +32,8 @@ def health() -> dict[str, Any]:
         "role": ROLE,
         "top_rule": TOP_RULE,
         "gold_reasoning_patterns": True,
+        "reasoning_families": True,
+        "novelty_score": True,
         "flags": flags_dict(),
     }
 
@@ -50,6 +52,9 @@ def quality_gates() -> dict[str, Any]:
             "conclusions_before_answers": True,
             "never_guess": True,
             "gold_reasoning_patterns": True,
+            "reasoning_families": True,
+            "novelty_score_before_answer": True,
+            "never_force_closest_template_on_novel": True,
             "soft_wire_only": True,
             "not_a_top_level_engine": True,
         },
@@ -67,7 +72,7 @@ def package_for_ask_agi(
     ticker: str | None = None,
     company: str | None = None,
 ) -> dict[str, Any]:
-    """Build the pre-answer reasoning plan and optional gold-pattern executive.
+    """Build the pre-answer reasoning plan and optional family/gold executive.
 
     Never raises. Never invents company facts beyond the supplied question framing.
     """
@@ -80,7 +85,7 @@ def package_for_ask_agi(
         }
     try:
         plan = build_reasoning_plan(query, ticker=ticker, company=company)
-        gold = package_pattern_answer(query, ticker=ticker, company=company)
+        reasoned = package_reasoning_answer(query, ticker=ticker, company=company)
         out = {
             **plan,
             "programme": PROGRAMME,
@@ -93,16 +98,29 @@ def package_for_ask_agi(
             "system_prompt": INSTITUTIONAL_REASONING_SYSTEM_PROMPT,
             "system_prompt_chars": len(INSTITUTIONAL_REASONING_SYSTEM_PROMPT),
             "flags": flags_dict(),
-            "gold_pattern": gold if gold.get("enabled") else {"enabled": False},
+            "reasoning_family": {
+                "family_id": reasoned.get("family_id"),
+                "family_label": reasoned.get("family_label"),
+                "family_confidence": reasoned.get("family_confidence"),
+                "family_habit": reasoned.get("family_habit"),
+                "signals": reasoned.get("family_signals") or [],
+            },
+            "novelty": reasoned.get("novelty") or {},
+            "gold_pattern": reasoned.get("gold_pattern")
+            if reasoned.get("source") == "gold_pattern"
+            else {"enabled": False},
         }
-        if gold.get("enabled") and gold.get("executive"):
-            out["executive"] = gold["executive"]
-            out["answer"] = gold["executive"]
-            out["pattern_id"] = gold.get("pattern_id")
-            out["pattern_level"] = gold.get("level")
-            out["direct_answer"] = gold.get("direct_answer")
+        if reasoned.get("owns_executive") and reasoned.get("executive"):
+            out["executive"] = reasoned["executive"]
+            out["answer"] = reasoned["executive"]
+            out["pattern_id"] = reasoned.get("pattern_id")
+            out["pattern_level"] = reasoned.get("level")
+            out["family_id"] = reasoned.get("family_id")
+            out["direct_answer"] = reasoned.get("direct_answer")
             out["owns_executive"] = True
-            out["answer_policy"] = "gold_reasoning_pattern"
+            out["answer_policy"] = reasoned.get("answer_policy")
+            out["reasoning_source"] = reasoned.get("source")
+            out["decides_winner"] = reasoned.get("decides_winner")
         return out
     except Exception as exc:  # noqa: BLE001
         return {
