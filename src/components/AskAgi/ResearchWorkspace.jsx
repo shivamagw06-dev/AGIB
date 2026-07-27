@@ -343,9 +343,44 @@ export default function ResearchWorkspace({
                   <Section
                     id="executive"
                     kicker={ownerKicker(vm, 'executive_summary', 'Section 1')}
-                    title="Executive Summary"
+                    title={vm.institutionalAnswer ? 'AGIB Institutional Intelligence' : 'Executive Summary'}
                   >
-                    <p className="rw-body">{vm.executive || 'Institutional summary assembling…'}</p>
+                    {vm.institutionalAnswer ? (
+                      <div className="space-y-3">
+                        <p className={`rw-view-value text-[22px] tone-${vm.stanceTone}`}>
+                          Recommendation: {vm.institutionalAnswer.recommendation}
+                          {vm.institutionalAnswer.conviction
+                            ? ` (${vm.institutionalAnswer.conviction})`
+                            : ''}
+                        </p>
+                        {vm.institutionalAnswer.reason ? (
+                          <p className="rw-body">
+                            <span className="rw-mini">Reason</span>
+                            <br />
+                            {vm.institutionalAnswer.reason}
+                          </p>
+                        ) : null}
+                        {vm.institutionalAnswer.risk ? (
+                          <p className="rw-body">
+                            <span className="rw-mini">Risk</span>
+                            <br />
+                            {vm.institutionalAnswer.risk}
+                          </p>
+                        ) : null}
+                        {vm.institutionalAnswer.horizon ? (
+                          <p className="rw-body">
+                            <span className="rw-mini">Investment Horizon</span>
+                            <br />
+                            {vm.institutionalAnswer.horizon}
+                          </p>
+                        ) : null}
+                        {!vm.institutionalAnswer.reason && vm.executive ? (
+                          <p className="rw-body whitespace-pre-line">{vm.executive}</p>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <p className="rw-body">{vm.executive || 'Institutional summary assembling…'}</p>
+                    )}
                   </Section>
                   <Section
                     id="view"

@@ -353,6 +353,7 @@ export function answerIpoQuestion(question, articles = [], ipo = null) {
   const evidence = articles.slice(0, 5);
   const insights = aggregateInsights(articles);
   const panel = intelligencePanel(articles);
+  const reco = /\b(should i buy|buy or sell|worth buying|recommendation)\b/i.test(q);
 
   let primary = [];
   if (/institution|qib|anchor|bullish|why/i.test(lower)) {
@@ -374,13 +375,34 @@ export function answerIpoQuestion(question, articles = [], ipo = null) {
     ].filter(Boolean);
   }
 
+  const reason = primary[0] || 'Evidence remains limited for an ownership call.';
+  const risk = insights.topRisks[0] || primary[1] || 'Offer document and subscription data may still be incomplete.';
+  let recommendation = 'Hold';
+  if (panel.consensus === 'Bullish') recommendation = 'Accumulate';
+  else if (panel.consensus === 'Bearish') recommendation = 'Avoid';
+  if (!articles.length) recommendation = 'Withheld';
+
+  const institutional = reco
+    ? {
+        recommendation,
+        reason,
+        risk,
+        horizon: 'Medium Term',
+        text:
+          recommendation === 'Withheld'
+            ? `Recommendation: Withheld\n\nEvidence is insufficient for an institutional IPO ownership call${ipo?.name ? ` on ${ipo.name}` : ''}. ${reason}`
+            : `Recommendation: ${recommendation}\n\n${reason} ${risk} Suitable for a medium term institutional horizon.`,
+      }
+    : null;
+
   return {
     question: q,
     basedOn: articles.length,
-    primaryReasons: primary,
+    primaryReasons: primary.slice(0, 3),
     evidence: evidence.map((a) => a.publisher),
     consensus: panel.consensus,
     confidence: panel.confidence || 55,
+    institutional,
     askAgiHref: `/ask?q=${encodeURIComponent(ipo?.name ? `${ipo.name} IPO: ${q}` : `IPO: ${q}`)}`,
   };
 }

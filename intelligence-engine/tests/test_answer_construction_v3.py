@@ -114,9 +114,13 @@ def test_policy_preserves_brief_when_gated():
     assert out["gate_blocked"] is True
     assert out["gate_logic_unchanged"] is True
     assert "Insufficient Evidence" not in (out["house_label"] or "")
-    assert "Recommendation withheld" not in (out["executive"] or "")
     assert "financial_statements" not in (out["executive"] or "")
+    assert out["institutional_answer"]["enabled"] is True
+    assert out["institutional_answer"]["recommendation"] == "Withheld"
+    assert out["institutional_answer"]["evidence_insufficient"] is True
+    assert out["answer_policy"] == "agib_institutional_intelligence_concise_recommendation"
     assert "Eternal" in (out["executive"] or "")
+    assert out["institutional_answer"]["word_count"] <= 60
     assert out["bull"]
     assert out["bear"]
     assert out["risks"]
@@ -128,6 +132,53 @@ def test_policy_preserves_brief_when_gated():
     assert reco["knowledge_gaps"]
     assert "financial_statements" not in " ".join(reco["knowledge_gaps"])
 
+
+def test_institutional_recommendation_card_when_open():
+    from answer_construction.institutional_intelligence import (
+        build_institutional_recommendation,
+        is_recommendation_query,
+        word_count,
+    )
+
+    assert is_recommendation_query("Should I buy HDFC Bank?")
+    card = build_institutional_recommendation(
+        query="Should I buy HDFC Bank?",
+        company_name="HDFC Bank",
+        stance="Constructive",
+        blocked=False,
+        reason_candidates=[
+            "Strong business quality and resilient asset quality support long-term compounding."
+        ],
+        risk_candidates=["Near-term NIM pressure may limit earnings recovery."],
+        quality_score=82,
+    )
+    assert card["recommendation"] in {"Buy", "Accumulate"}
+    assert card["horizon"] == "Medium Term"
+    assert word_count(card["text"]) <= 60
+    assert "NIM" in card["risk"] or "risk" in card["risk"].lower() or "NIM" in card["text"]
+
+
+def test_institutional_voice_clamps_non_reco_executive():
+    out = package_for_ask_agi(
+        query="What is the AGI house view on IT services?",
+        executive=(
+            "The institutional house view on IT services remains constructive because demand "
+            "durability, deal pipelines and currency translation continue to support earnings, "
+            "while valuation already discounts a large portion of near-term recovery and "
+            "clients remain selective on discretionary digital programmes across verticals "
+            "with elevated macro sensitivity and slower decision cycles in large enterprises."
+        ),
+        thesis="Constructive on quality franchises.",
+        house_label="Constructive",
+        bull=["Deal pipeline resilient"],
+        bear=["Discretionary spend soft"],
+        risks=["Client delay risk"],
+        catalysts=["Next quarter commentary"],
+        why=["Currency and large-deal conversion matter"],
+    )
+    assert out["enabled"] is True
+    assert len((out["executive"] or "").split()) <= 60
+    assert not out.get("institutional_answer")
 
 def test_filter_why_removes_coverage_spam():
     cleaned = filter_why_bullets(

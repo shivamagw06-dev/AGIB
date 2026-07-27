@@ -2092,6 +2092,7 @@ class UiService:
         except Exception:
             decision_engine = {}
 
+        answer_meta_institutional: dict[str, Any] = {}
         try:
             from answer_construction.production import package_for_ask_agi as ac_package
 
@@ -2140,8 +2141,15 @@ class UiService:
                 risks = list(answer_construction.get("risks") or risks)
                 catalysts = list(answer_construction.get("catalysts") or catalysts)
                 why = list(answer_construction.get("why") or why)
+                if answer_construction.get("institutional_answer"):
+                    answer_meta_institutional = answer_construction.get("institutional_answer")
+                else:
+                    answer_meta_institutional = {}
+            else:
+                answer_meta_institutional = {}
         except Exception:
             answer_construction = {}
+            answer_meta_institutional = {}
             # Legacy soft fallback — still avoid wiping the brief when gated
             if reco_gate.get("blocked") or leo_gate.get("blocked"):
                 if house_label and "insufficient" in str(house_label).lower():
@@ -2174,6 +2182,8 @@ class UiService:
             "key_risks": risks,
             "key_catalysts": catalysts,
             "why": why,
+            "institutional_answer": answer_meta_institutional or None,
+            "voice": "AGIB Institutional Intelligence",
         }
 
         recommendations = {
@@ -2421,12 +2431,19 @@ class UiService:
             },
         }
 
-        if briefing.get("executive_summary"):
+        if briefing.get("executive_summary") and not (
+            isinstance(answer_meta_institutional, dict) and answer_meta_institutional.get("enabled")
+        ):
             executive = scrub_text(briefing["executive_summary"]) or executive
             answer["summary"] = executive
             answer["executive_summary"] = executive
             if house_label:
                 answer["house_view_label"] = house_label
+        elif isinstance(answer_meta_institutional, dict) and answer_meta_institutional.get("enabled"):
+            answer["summary"] = executive
+            answer["executive_summary"] = executive
+            answer["institutional_answer"] = answer_meta_institutional
+            answer["policy"] = "agib_institutional_intelligence_concise_recommendation"
 
         irp_meta = {}
         if isinstance(irp_dump, dict) and irp_dump:
