@@ -18,15 +18,16 @@ _TYPE_TO_CONNECTORS: dict[str, list[str]] = {
     "conference_call": ["company_ir", "search_api"],
     "exchange_filing": ["nse", "bse"],
     "nse_bse_filing": ["nse", "bse"],
-    "news": ["news", "rss", "search_api", "tavily", "serpapi"],
+    "news": ["news", "rss", "search_api", "tavily", "exa", "firecrawl"],
     "government": ["rbi", "sebi", "government", "pib", "mca"],
     "rbi": ["rbi", "rss"],
     "sebi": ["sebi", "rss"],
-    "industry_report": ["search_api", "exa", "tavily"],
-    "research_publication": ["search_api", "exa"],
-    "fred": ["search_api"],
-    "imf": ["search_api"],
-    "world_bank": ["search_api"],
+    # Research path: Exa semantic → Firecrawl deep pages → Tavily coverage
+    "industry_report": ["search_api", "exa", "firecrawl", "tavily"],
+    "research_publication": ["search_api", "exa", "firecrawl"],
+    "fred": ["search_api", "exa"],
+    "imf": ["search_api", "exa"],
+    "world_bank": ["search_api", "exa"],
     "rss": ["rss"],
     "html": ["html_page"],
     "pdf": ["pdf_url"],
@@ -78,6 +79,7 @@ class DiscoveryService:
                 ("rbi", "Government / RBI policy", "government", 4),
                 ("sebi", "SEBI notifications", "government", 4),
                 ("search_api", "Industry / peer / macro context", "industry_report", 5),
+                ("exa", "Semantic research context", "research_publication", 5),
             ]
             for cid, desc, dtype, pri in forced:
                 if cid not in self.connectors:

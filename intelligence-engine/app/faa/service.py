@@ -8,6 +8,7 @@ from app.core.config import get_settings
 from app.faa.cache import DocumentCache
 from app.faa.connectors import build_connectors
 from app.faa.connectors.search_api import available_search_providers
+from app.faa.web_enrichment import enrichment_status
 from app.faa.flags import FaaFlags
 from app.faa.models import FaaMetrics
 from app.faa.pipeline import FaaPipeline
@@ -67,7 +68,7 @@ class FaaService:
             "status": "ok" if self.flags.faa else "disabled",
             "layer": "Finance Acquisition Agent",
             "programme": "FAA",
-            "version": "faa-v1.1.0",
+            "version": "faa-v1.2.0",
             "architecture_status": "v1.0.1 LOCKED",
             "position": "upstream_of_fre",
             "does_not_answer": True,
@@ -86,6 +87,7 @@ class FaaService:
             "flags": self.flags.as_dict(),
             "live_fetch_enabled": self.flags.faa_live_fetch,
             "search_providers_configured": available_search_providers(),
+            "web_enrichment": enrichment_status(),
             "connectors": connector_health,
             "connector_degraded": degraded,
             "queue_depth": self.metrics.queue_size,
@@ -104,7 +106,7 @@ class FaaService:
         return {
             "programme": "FAA",
             "architecture_status": "v1.0.1 LOCKED",
-            "version": "faa-v1.1.0",
+            "version": "faa-v1.2.0",
             "does_not_answer": True,
             "live_fetch_enabled": self.flags.faa_live_fetch,
             "search_providers_configured": available_search_providers(),
@@ -136,7 +138,7 @@ class FaaService:
         return {
             "programme": "FAA",
             "architecture_status": "v1.0.1 LOCKED",
-            "version": "faa-v1.1.0",
+            "version": "faa-v1.2.0",
             "does_not_answer": True,
             "never_reasons": True,
             **payload,
@@ -217,11 +219,18 @@ class FaaService:
             "guidance": {
                 "enable_live_fetch": "Set FAA_LIVE_FETCH=true on intelligence-engine",
                 "optional_search_keys": [
+                    "EXA_API_KEY",
+                    "FIRECRAWL_API_KEY",
+                    "BROWSERBASE_API_KEY",
                     "TAVILY_API_KEY",
                     "SERPAPI_API_KEY",
-                    "EXA_API_KEY",
                     "BING_SEARCH_API_KEY",
                     "GOOGLE_CSE_API_KEY+GOOGLE_CSE_ID",
                 ],
+                "strategy": {
+                    "exa": "Preferred for research / industry / publications",
+                    "firecrawl": "Deep search + URL→markdown enrichment of top hits",
+                    "browserbase": "JS-heavy / exchange / IR fallback fetch",
+                },
             },
         }

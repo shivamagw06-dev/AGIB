@@ -69,7 +69,7 @@ EVIDENCE_CATALOG: dict[str, dict[str, Any]] = {
     },
     "press_flow": {
         "label": "Press / News Flow",
-        "preferred_providers": ["press_releases", "company_ir", "eil"],
+        "preferred_providers": ["press_releases", "company_ir", "eil", "tavily", "exa"],
         "data_types": ["press", "news"],
         "min_tier": 1,
     },
@@ -81,8 +81,14 @@ EVIDENCE_CATALOG: dict[str, dict[str, Any]] = {
     },
     "evidence_corpus": {
         "label": "Evidence Corpus",
-        "preferred_providers": ["eil", "fil", "ilm"],
-        "data_types": ["evidence", "citations"],
+        "preferred_providers": ["eil", "fil", "ilm", "exa", "firecrawl"],
+        "data_types": ["evidence", "citations", "research"],
+        "min_tier": 3,
+    },
+    "web_research": {
+        "label": "Web Research Context",
+        "preferred_providers": ["exa", "firecrawl", "tavily", "browserbase"],
+        "data_types": ["research", "industry_report", "web", "markdown"],
         "min_tier": 3,
     },
 }
@@ -107,8 +113,9 @@ def _needs_from_objective(objective_type: str, intent_family: str) -> list[str]:
             "management_commentary",
             "historical_valuation",
             "portfolio_exposure",
+            "web_research",
         ],
-        "monitoring_update": ["live_prices", "press_flow", "quarterly_results", "evidence_corpus"],
+        "monitoring_update": ["live_prices", "press_flow", "quarterly_results", "evidence_corpus", "web_research"],
     }
     keys = list(mapping.get(objective_type, mapping["decision_support"]))
     if intent_family == "portfolio":

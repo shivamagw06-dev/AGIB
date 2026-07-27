@@ -15,6 +15,7 @@ from app.faa.cache import DocumentCache
 from app.faa.connectors.base import AcquisitionConnector
 from app.faa.http_client import HttpClient
 from app.faa.models import CandidateDocument, FetchedDocument, sha256_bytes, sha256_text, utc_now
+from app.faa.web_enrichment import deepen_search_results, enrich_url, text_is_thin
 
 _TAG_RE = re.compile(r"<[^>]+>")
 _WS_RE = re.compile(r"\s+")
@@ -209,6 +210,18 @@ class FetchService:
         ctype = (resp.header("content-type") or "").lower()
         detected = self._detect_content_type(url, ctype, raw)
         text = self._extract_text(detected, raw, url)
+        enrich_meta: dict[str, Any] = {}
+        # Strategic enrichment: thin / failed extract → Firecrawl → Browserbase
+        min_chars = 800 if detected == "text/html" else 400
+        if resp.status_code >= 400 or text_is_thin(text, min_chars=min_chars):
+            page = enrich_url(self.client, str(resp.url or url))
+            if page and page.get("markdown"):
+                text = page["markdown"]
+                detected = "text/markdown"
+                enrich_meta = {
+                    "enriched_by": page.get("source"),
+                    "enrichment_format": page.get("format") or "markdown",
+                }
         if resp.status_code >= 400 or not text.strip():
             text = text.strip() or (
                 f"Live fetch HTTP {resp.status_code} from {url}. "
@@ -240,6 +253,7 @@ class FetchService:
                 "content_type": ctype,
                 "detected_type": detected,
                 "authority": (candidate.metadata or {}).get("authority"),
+                **enrich_meta,
             },
         )
         if conn:
@@ -353,10 +367,25 @@ class FetchService:
                 metadata=meta,
             )
 
-        provider = (meta.get("providers_available") or ["tavily"])[0]
+        # Prefer provider encoded in search://{provider}?q=...
+        provider = str(meta.get("selected_provider") or "").strip()
+        if not provider:
+            try:
+                from urllib.parse import urlparse
+
+                host = urlparse(candidate.url).netloc or ""
+                path_provider = (urlparse(candidate.url).path or "").strip("/")
+                # search://exa?q=... → netloc=exa
+                provider = host or path_provider.split("?")[0]
+            except Exception:
+                provider = ""
+        if not provider:
+            provider = (meta.get("providers_available") or ["exa", "tavily"])[0]
         query = meta.get("query") or candidate.title
         t0 = time.perf_counter()
         results = self._call_search_provider(provider, str(query))
+        # Deepen top hits with Firecrawl/Browserbase markdown (strategic, capped)
+        results = deepen_search_results(self.client, results, max_pages=3)
         fetch_ms = (time.perf_counter() - t0) * 1000
         self._note_fetch(fetch_ms)
         lines = [f"Search provider: {provider}", f"Query: {query}", ""]
@@ -365,9 +394,18 @@ class FetchService:
             lines.append(f"   URL: {r.get('url')}")
             if r.get("snippet"):
                 lines.append(f"   {r.get('snippet')}")
+            if r.get("enriched_by"):
+                lines.append(f"   enriched_by: {r.get('enriched_by')}")
+            if r.get("markdown"):
+                # Include a bounded body so FRE indexes real page content, not only snippets
+                body = str(r.get("markdown"))[:6_000].strip()
+                if body:
+                    lines.append("   --- page markdown ---")
+                    lines.append(f"   {body}")
             lines.append("")
         text = "\n".join(lines).strip() or f"No results from {provider} for {query}"
         checksum = sha256_text(text)
+        enriched_n = sum(1 for r in results[:8] if r.get("enriched_by") or r.get("markdown"))
         return FetchedDocument(
             candidate_id=candidate.candidate_id,
             title=f"{provider} results — {query}",
@@ -377,13 +415,24 @@ class FetchService:
             company=candidate.company,
             symbol=candidate.symbol,
             organisation=provider,
-            content_type="application/json",
+            content_type="text/markdown" if enriched_n else "application/json",
             content_text=text,
             content_bytes_len=len(text.encode("utf-8")),
             checksum=checksum,
             live_fetch=True,
             fetch_ms=fetch_ms,
-            metadata={"provider": provider, "result_count": len(results), "results": results[:8]},
+            metadata={
+                "provider": provider,
+                "result_count": len(results),
+                "results": [
+                    {
+                        **{k: v for k, v in r.items() if k != "markdown"},
+                        **({"has_markdown": True} if r.get("markdown") else {}),
+                    }
+                    for r in results[:8]
+                ],
+                "pages_enriched": enriched_n,
+            },
         )
 
     def _call_search_provider(self, provider: str, query: str) -> list[dict[str, Any]]:
@@ -429,18 +478,39 @@ class FetchService:
                 return []
             resp = self.client.post_json(
                 "https://api.exa.ai/search",
-                {"query": query, "numResults": 5, "contents": {"text": True}},
+                {
+                    "query": query,
+                    "numResults": 6,
+                    "type": "auto",
+                    "contents": {"text": {"maxCharacters": 1200}},
+                    "useAutoprompt": True,
+                },
                 connector_id="exa",
                 headers={"x-api-key": key},
             )
             if resp.error or not resp.ok:
                 return []
             data = json.loads(resp.text or "{}")
-            return [
-                {"title": r.get("title"), "url": r.get("url"), "snippet": (r.get("text") or "")[:400]}
-                for r in (data.get("results") or [])
-                if isinstance(r, dict)
-            ]
+            out: list[dict[str, Any]] = []
+            for r in data.get("results") or []:
+                if not isinstance(r, dict):
+                    continue
+                snippet = (r.get("text") or "").strip()
+                if not snippet and isinstance(r.get("highlights"), list) and r["highlights"]:
+                    snippet = str(r["highlights"][0])
+                out.append(
+                    {
+                        "title": r.get("title"),
+                        "url": r.get("url"),
+                        "snippet": snippet[:500],
+                    }
+                )
+            return out
+
+        if provider == "firecrawl":
+            from app.faa.web_enrichment import firecrawl_search
+
+            return firecrawl_search(self.client, query, limit=5)
 
         if provider == "bing":
             key = (os.environ.get("BING_SEARCH_API_KEY") or "").strip()
