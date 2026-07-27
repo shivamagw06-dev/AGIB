@@ -2177,5 +2177,33 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // RQ2 Institutional Thesis Construction Engine — Sprint 7 (AFTER BBCE; BEFORE Committee)
+  router.get('/thesis-engine/health', kfGet('/v1/thesis-engine/health'));
+  router.get('/thesis-engine/dashboard', kfGet('/v1/thesis-engine/dashboard'));
+  router.get('/thesis-engine/constitution', kfGet('/v1/thesis-engine/constitution'));
+  router.get('/thesis-engine/quality-gates', kfGet('/v1/thesis-engine/quality-gates'));
+  router.post('/thesis-engine/plan', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/thesis-engine/plan', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'ITCE plan failed', detail: error.message });
+    }
+  });
+  router.post('/thesis-engine/diagnostics', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/thesis-engine/diagnostics', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'ITCE diagnostics failed', detail: error.message });
+    }
+  });
+
   return router;
 }

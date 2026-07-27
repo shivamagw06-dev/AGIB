@@ -1347,3 +1347,19 @@ export const diagnoseBeliefEngine = (payload = {}) =>
     method: 'POST',
     body: typeof payload === 'string' ? { question: payload } : payload,
   });
+
+/** RQ2 Institutional Thesis Construction Engine — Sprint 7 (BEFORE Committee) */
+export const getThesisEngineHealth = () => intelligenceFetch('/thesis-engine/health');
+export const getThesisEngineDashboard = () => intelligenceFetch('/thesis-engine/dashboard');
+export const getThesisEngineConstitution = () => intelligenceFetch('/thesis-engine/constitution');
+export const getThesisEngineQualityGates = () => intelligenceFetch('/thesis-engine/quality-gates');
+export const planThesisEngine = (payload = {}) =>
+  intelligenceFetch('/thesis-engine/plan', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });
+export const diagnoseThesisEngine = (payload = {}) =>
+  intelligenceFetch('/thesis-engine/diagnostics', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });

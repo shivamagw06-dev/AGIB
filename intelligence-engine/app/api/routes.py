@@ -5261,6 +5261,51 @@ async def belief_engine_diagnostics(payload: dict[str, Any] = Body(default={})):
     return diagnostics(payload or {})
 
 
+# --- RQ2 Institutional Thesis Construction Engine (Sprint 7 — soft-wire BEFORE Committee; not a top-level layer) ---
+
+
+@router.get("/thesis-engine/health")
+async def thesis_engine_health():
+    from thesis_engine.production import health
+
+    return health()
+
+
+@router.get("/thesis-engine/dashboard")
+async def thesis_engine_dashboard():
+    from thesis_engine.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/thesis-engine/constitution")
+async def thesis_engine_constitution():
+    from thesis_engine.production import constitution
+
+    return constitution()
+
+
+@router.get("/thesis-engine/quality-gates")
+async def thesis_engine_quality_gates():
+    from thesis_engine.production import quality_gates
+
+    return quality_gates()
+
+
+@router.post("/thesis-engine/plan")
+async def thesis_engine_plan(payload: dict[str, Any] = Body(default={})):
+    from thesis_engine.production import plan
+
+    return plan(payload or {})
+
+
+@router.post("/thesis-engine/diagnostics")
+async def thesis_engine_diagnostics(payload: dict[str, Any] = Body(default={})):
+    from thesis_engine.production import diagnostics
+
+    return diagnostics(payload or {})
+
+
 # --- SIF v1.0 (Sector Intelligence Framework — additive; not an engine) ---
 
 

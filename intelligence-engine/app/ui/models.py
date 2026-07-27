@@ -202,6 +202,8 @@ class SearchView(BaseModel):
     hypothesis_testing: dict[str, Any] = Field(default_factory=dict)
     # RQ2 Bayesian Belief & Confidence Engine — Sprint 6 (additive; after falsification; not a layer)
     belief_engine: dict[str, Any] = Field(default_factory=dict)
+    # RQ2 Institutional Thesis Construction Engine — Sprint 7 (additive; before Committee; not a layer)
+    thesis_engine: dict[str, Any] = Field(default_factory=dict)
     current_outlook: str | None = None
     key_drivers: list[str] = Field(default_factory=list)
     valuation_perspective: str | None = None

@@ -909,6 +909,25 @@ class UiService:
         except Exception:
             belief_engine = {}
 
+        # RQ2 Sprint 7 — Institutional Thesis Construction Engine (AFTER BBCE; BEFORE Investment Committee)
+        thesis_engine: dict[str, Any] = {}
+        try:
+            from thesis_engine.production import soft_slice_for_ask_agi as itce_soft_slice
+
+            itce_payload = {
+                "entity_resolution": entity_resolution,
+                "research_objective": research_objective,
+                "analyst_router": analyst_router,
+                "context_intelligence": context_intelligence,
+                "hypothesis_engine": hypothesis_engine,
+                "research_questions": research_questions,
+                "hypothesis_testing": hypothesis_testing,
+                "belief_engine": belief_engine,
+            }
+            thesis_engine = itce_soft_slice(q, itce_payload) or {}
+        except Exception:
+            thesis_engine = {}
+
         # CAE gateway (preferred) — else MEE→FLE→IIE→EVE→AOI→KCV/KF soft enrichment.
         kf_hits: list[dict[str, Any]] = []
         knowledge_corpus: dict[str, Any] = {}
@@ -2541,6 +2560,7 @@ class UiService:
             research_questions=scrub(research_questions) if research_questions else {},
             hypothesis_testing=scrub(hypothesis_testing) if hypothesis_testing else {},
             belief_engine=scrub(belief_engine) if belief_engine else {},
+            thesis_engine=scrub(thesis_engine) if thesis_engine else {},
         )
 
     def timeline(self, entity: str) -> TimelineView:
