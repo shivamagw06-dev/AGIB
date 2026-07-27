@@ -32,6 +32,18 @@ Dependency chain: `Business Quality → Financial Quality → Valuation → Port
 
 ≥4 supporting pillars · ≥2 major contradictions · ≥3 catalysts · ≥1 thesis-breaking condition
 
+## Committee intelligence extensions
+
+- **Pillar Interaction Matrix** — directed quantified influence (for example Business `+0.60` → Financial, Financial `+0.40` → Valuation)
+- **Thesis Stability** — Stable / Improving / Weakening / Volatile across prior snapshots
+- **Thesis Quality** — evidence, contradiction handling, coverage, calibration, completeness and coherence; separate from conviction
+- **Investment Narratives** — one-sentence, one-paragraph and one-page representations from the same thesis object
+- **Thesis DNA** — durable company traits and current alignment fingerprint
+- **Conviction Waterfall** — exact additive explanation of final conviction
+- **Monitoring Dashboard** — current value, breaking threshold, distance and state per pillar
+- **Thesis Evolution** — versioned ILM-ready history
+- **Thesis Pressure Gauge** — Low / Moderate / High / Critical pressure independent of confidence
+
 ## Admin
 
 `/admin/thesis-construction`

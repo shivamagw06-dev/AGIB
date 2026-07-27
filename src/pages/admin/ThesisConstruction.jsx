@@ -137,6 +137,15 @@ export default function ThesisConstruction() {
   const catalysts = thesis.catalysts || [];
   const timeline = (thesis.timeline || {}).horizons || [];
   const contradictions = thesis.contradictions || {};
+  const quality = thesis.quality || {};
+  const stability = thesis.stability || {};
+  const pressure = thesis.pressure_gauge || {};
+  const waterfall = thesis.conviction_waterfall || {};
+  const interactions = thesis.pillar_interaction_matrix || {};
+  const monitoring = thesis.monitoring || {};
+  const narratives = thesis.narratives || {};
+  const dna = thesis.thesis_dna || {};
+  const evolution = thesis.evolution || {};
 
   return (
     <div className="space-y-6 p-6 lg:p-8 max-w-[1400px]">
@@ -230,6 +239,108 @@ export default function ThesisConstruction() {
               <span className="rounded-md border border-indigo-200 bg-white px-2 py-1">
                 Confidence: <strong>{thesis.confidence_pct}%</strong>
               </span>
+              <span className="rounded-md border border-indigo-200 bg-white px-2 py-1">
+                Quality: <strong>{quality.overall_pct ?? '—'}%</strong>
+              </span>
+              <span className="rounded-md border border-indigo-200 bg-white px-2 py-1">
+                Stability: <strong>{stability.trend || '—'}</strong>
+              </span>
+              <span className="rounded-md border border-indigo-200 bg-white px-2 py-1">
+                Pressure: <strong>{pressure.level || '—'} ({pressure.score ?? '—'})</strong>
+              </span>
+            </div>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-3">
+            <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
+              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                Thesis Quality (separate from conviction)
+              </p>
+              <p className="text-3xl font-semibold text-slate-900">{quality.overall_pct ?? '—'}%</p>
+              <div className="grid grid-cols-2 gap-2 text-xs text-slate-600">
+                {Object.entries(quality.dimension_pct || {}).map(([name, value]) => (
+                  <div key={name} className="rounded-md bg-slate-50 px-2 py-1">
+                    <span className="capitalize">{name.replaceAll('_', ' ')}</span>{' '}
+                    <strong>{value}%</strong>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
+              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                Thesis Stability
+              </p>
+              <p className="text-3xl font-semibold text-slate-900">{stability.score_pct ?? '—'}%</p>
+              <ChipList items={[stability.trend, stability.classification].filter(Boolean)} tone="warn" />
+              <p className="text-xs text-slate-500">
+                Volatility {Math.round(Number(stability.volatility || 0) * 1000) / 10}% · latest
+                change {Math.round(Number(stability.latest_delta || 0) * 1000) / 10} pp
+              </p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
+              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                Thesis Pressure Gauge
+              </p>
+              <p className="text-3xl font-semibold text-slate-900">
+                {pressure.score ?? '—'} <span className="text-base">{pressure.level}</span>
+              </p>
+              <div className="h-3 rounded-full bg-slate-100">
+                <div
+                  className={`h-3 rounded-full ${
+                    pressure.level === 'Low'
+                      ? 'bg-emerald-500'
+                      : pressure.level === 'Moderate'
+                        ? 'bg-amber-500'
+                        : 'bg-rose-500'
+                  }`}
+                  style={{ width: `${Math.min(100, Number(pressure.score || 0))}%` }}
+                />
+              </div>
+              <p className="text-xs text-slate-600">{pressure.message}</p>
+              <div className="space-y-1">
+                {(pressure.pillars || []).map((item) => (
+                  <div key={item.pillar} className="flex justify-between gap-2 text-[10px] text-slate-600">
+                    <span>{item.pillar}</span>
+                    <span>{item.pressure_score} · {item.level}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
+              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                Conviction Waterfall
+              </p>
+              {(waterfall.steps || []).map((step) => (
+                <div key={step.driver} className="flex items-center justify-between gap-3 text-sm">
+                  <span className="text-slate-700">{step.driver}</span>
+                  <span className={step.impact >= 0 ? 'font-semibold text-emerald-700' : 'font-semibold text-rose-700'}>
+                    {step.impact_pp > 0 ? '+' : ''}{step.impact_pp} pp
+                  </span>
+                </div>
+              ))}
+              <div className="border-t border-slate-200 pt-2 flex justify-between text-sm font-bold">
+                <span>Final conviction</span>
+                <span>{waterfall.ending_conviction_pct ?? '—'}%</span>
+              </div>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
+              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                Pillar Interaction Matrix
+              </p>
+              <p className="text-xs text-slate-500">{interactions.example_chain}</p>
+              <div className="space-y-1.5">
+                {(interactions.edges || []).slice(0, 9).map((edge) => (
+                  <div key={`${edge.from}-${edge.to}`} className="flex justify-between gap-3 text-xs">
+                    <span className="text-slate-700">{edge.from} → {edge.to}</span>
+                    <span className="font-semibold text-indigo-700">
+                      {edge.influence > 0 ? '+' : ''}{edge.influence.toFixed(2)}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -301,6 +412,76 @@ export default function ThesisConstruction() {
                   <p className="text-[10px] text-slate-500">{h.window}</p>
                   <p className="mt-1 text-xs text-slate-700">
                     {h.catalyst_count} catalysts · skew {h.skew}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
+              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                Investment Narrative
+              </p>
+              <div>
+                <p className="text-[10px] font-semibold uppercase text-slate-400">One sentence</p>
+                <p className="mt-1 text-sm font-semibold text-slate-900">{narratives.one_sentence}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-semibold uppercase text-slate-400">One paragraph</p>
+                <p className="mt-1 text-xs leading-relaxed text-slate-700">{narratives.one_paragraph}</p>
+              </div>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
+              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                Thesis DNA
+              </p>
+              <p className="text-sm font-semibold text-slate-900">{dna.entity}</p>
+              <ChipList items={dna.persistent_traits || []} tone="good" />
+              <p className="text-xs text-slate-500">
+                DNA alignment {dna.alignment_pct ?? '—'}% · fingerprint {dna.fingerprint || '—'} ·{' '}
+                {dna.source}
+              </p>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                Live Thesis Monitoring
+              </p>
+              <p className="text-xs text-slate-500">
+                {monitoring.healthy_count ?? 0} healthy · {monitoring.pressure_count ?? 0} pressured
+              </p>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {(monitoring.conditions || []).map((condition) => (
+                <div key={condition.metric} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                  <div className="flex justify-between gap-2">
+                    <p className="text-xs font-semibold text-slate-800">{condition.metric}</p>
+                    <span className="text-[10px] uppercase text-slate-500">{condition.status}</span>
+                  </div>
+                  <p className="mt-1 text-xs text-slate-600">
+                    Current {condition.current_pct}% · threshold {condition.threshold_pct}% · distance{' '}
+                    {condition.distance_pp > 0 ? '+' : ''}{condition.distance_pp} pp
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
+            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">
+              Thesis Evolution · v{evolution.current_version || 1}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {(evolution.history || []).map((item) => (
+                <div key={`${item.version}-${item.timestamp}`} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                  <p className="text-xs font-semibold text-slate-800">
+                    v{item.version} · {item.change_type}
+                  </p>
+                  <p className="text-[10px] text-slate-500">
+                    Conviction {item.conviction != null ? `${Math.round(Number(item.conviction) * 100)}%` : '—'} · {item.status}
                   </p>
                 </div>
               ))}

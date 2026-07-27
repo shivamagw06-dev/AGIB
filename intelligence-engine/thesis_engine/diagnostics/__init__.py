@@ -34,6 +34,11 @@ def diagnose(question: str, body: dict[str, Any] | None = None) -> dict[str, Any
         "timeline": (thesis.get("timeline") or {}).get("horizons"),
         "audit": thesis.get("audit"),
         "dependency_propagation": (thesis.get("dependency_graph") or {}).get("propagation"),
+        "pillar_interactions": (thesis.get("pillar_interaction_matrix") or {}).get("edges"),
+        "stability": thesis.get("stability"),
+        "quality": thesis.get("quality"),
+        "pressure_gauge": thesis.get("pressure_gauge"),
+        "evolution": thesis.get("evolution"),
         "metrics": row.get("metrics"),
         "not_a_top_level_intelligence_layer": True,
     }

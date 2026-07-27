@@ -61,6 +61,15 @@ THESIS_STATES: tuple[str, ...] = (
     "Rejected",
 )
 
+STABILITY_STATES: tuple[str, ...] = (
+    "Stable",
+    "Improving",
+    "Weakening",
+    "Volatile",
+)
+
+PRESSURE_LEVELS: tuple[str, ...] = ("Low", "Moderate", "High", "Critical")
+
 CATALYST_POLARITIES: tuple[str, ...] = ("Positive", "Negative", "Neutral")
 
 TIMELINE_HORIZONS: tuple[str, ...] = ("Near Term", "Medium Term", "Long Term")
@@ -104,6 +113,8 @@ def constitution_dict() -> dict[str, Any]:
         "pillars": list(PILLARS),
         "pillar_dependencies": {k: list(v) for k, v in PILLAR_DEPENDENCIES.items()},
         "thesis_states": list(THESIS_STATES),
+        "stability_states": list(STABILITY_STATES),
+        "pressure_levels": list(PRESSURE_LEVELS),
         "catalyst_polarities": list(CATALYST_POLARITIES),
         "timeline_horizons": list(TIMELINE_HORIZONS),
         "quality_rules": {
@@ -120,6 +131,21 @@ def constitution_dict() -> dict[str, Any]:
             "contradiction_handling": 1.0,
             "catalyst_quality": 1.0,
             "conviction_calibration": 1.0,
+            "interaction_quantification": 1.0,
+            "quality_separation": 1.0,
+            "stability_tracking": 1.0,
+            "pressure_monitoring": 1.0,
+        },
+        "world_class_extensions": {
+            "pillar_interaction_matrix": True,
+            "thesis_stability": True,
+            "quality_separate_from_conviction": True,
+            "multi_length_narratives": True,
+            "thesis_dna": True,
+            "conviction_waterfall": True,
+            "threshold_monitoring": True,
+            "versioned_evolution": True,
+            "thesis_pressure_gauge": True,
         },
     }
 

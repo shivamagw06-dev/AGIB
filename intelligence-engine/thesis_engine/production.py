@@ -13,10 +13,17 @@ from typing import Any
 from thesis_engine.catalyst_engine import build_catalysts, catalyst_summary
 from thesis_engine.contradiction_resolver import resolve_contradictions
 from thesis_engine.conviction_engine import compute_conviction, thesis_state
+from thesis_engine.conviction_waterfall import build_conviction_waterfall
 from thesis_engine.dependency_graph import build_dependency_graph
 from thesis_engine.diagnostics import diagnose
+from thesis_engine.evolution_engine import build_evolution
 from thesis_engine.flags import flags_dict, is_enabled
+from thesis_engine.interaction_matrix import build_interaction_matrix
+from thesis_engine.monitoring_engine import build_monitoring_dashboard
+from thesis_engine.narrative_engine import build_narratives
 from thesis_engine.pillar_engine import build_pillars, pillar_summary
+from thesis_engine.pressure_gauge import build_pressure_gauge
+from thesis_engine.quality_score import score_thesis_quality
 from thesis_engine.schema import (
     ARCHITECTURE_STATUS,
     BENCHMARK_MIN_THESES,
@@ -33,9 +40,11 @@ from thesis_engine.schema import (
     constitution_dict,
 )
 from thesis_engine.thesis_builder import build_core_thesis, build_thesis_breaking_conditions
+from thesis_engine.thesis_dna import build_thesis_dna
 from thesis_engine.thesis_quality import audit_thesis
 from thesis_engine.thesis_registry import extract_beliefs, register_thesis
 from thesis_engine.timeline_engine import build_timeline
+from thesis_engine.stability_engine import assess_stability
 
 
 def _ms(started: float) -> float:
@@ -114,6 +123,7 @@ def build_thesis(
     payload = payload or {}
     pillars = build_pillars(beliefs)
     dependency = build_dependency_graph(pillars)  # mutates pillar confidence via propagation
+    interaction_matrix = build_interaction_matrix(pillars)
     contradictions = resolve_contradictions(beliefs, pillars)
 
     core_seed_conviction = compute_conviction(pillars, contradictions=contradictions)
@@ -147,6 +157,49 @@ def build_thesis(
     missing = _safe_list(contradictions.get("missing_evidence"))
     base_conf = sum(float(p["confidence"]) for p in pillars) / max(len(pillars), 1)
     confidence = round(max(0.2, min(0.95, base_conf - min(0.15, 0.02 * len(missing)))), 4)
+    quality = score_thesis_quality(
+        pillars,
+        contradictions,
+        calibration=confidence,
+    )
+    prior_snapshots = _safe_list(
+        payload.get("thesis_history")
+        or _safe_dict(payload.get("institutional_memory")).get("thesis_history")
+    )
+    stability = assess_stability(
+        float(conviction["overall"]),
+        prior_snapshots=prior_snapshots,
+        pillar_strengths=[float(p["strength"]) for p in pillars],
+    )
+    dna = build_thesis_dna(
+        core.get("entity") or "The subject",
+        pillars,
+        thesis_breaking_conditions=breakers,
+    )
+    pressure = build_pressure_gauge(pillars, contradictions)
+    monitoring = build_monitoring_dashboard(pillars, breakers)
+    waterfall = build_conviction_waterfall(
+        pillars,
+        conviction,
+        pressure_penalties={
+            "Contradictions": min(0.08, 0.012 * int(contradictions.get("major_count") or 0)),
+            "Missing Evidence": min(0.05, 0.008 * len(missing)),
+        },
+    )
+    narratives = build_narratives(
+        core,
+        pillars,
+        contradictions,
+        catalysts,
+        conviction,
+        status,
+    )
+    evolution = build_evolution(
+        current_conviction=float(conviction["overall"]),
+        status=status,
+        core_thesis=str(core.get("statement") or ""),
+        prior_snapshots=prior_snapshots,
+    )
 
     risks = [
         {
@@ -164,6 +217,7 @@ def build_thesis(
         "supporting_pillars": pillars,
         "pillar_summary": summary,
         "dependency_graph": dependency,
+        "pillar_interaction_matrix": interaction_matrix,
         "contradictions": contradictions,
         "disconfirming_evidence": contradictions.get("strongest_contradicting_evidence"),
         "catalysts": catalysts,
@@ -174,6 +228,14 @@ def build_thesis(
         "confidence": confidence,
         "confidence_pct": round(confidence * 100),
         "conviction": conviction,
+        "quality": quality,
+        "stability": stability,
+        "narratives": narratives,
+        "thesis_dna": dna,
+        "conviction_waterfall": waterfall,
+        "monitoring": monitoring,
+        "evolution": evolution,
+        "pressure_gauge": pressure,
         "missing_evidence": missing,
         "status": status,
         "committee_handoff": {
@@ -294,6 +356,9 @@ def dashboard() -> dict[str, Any]:
                 "status": t.get("status"),
                 "conviction": (t.get("conviction") or {}).get("overall"),
                 "confidence": t.get("confidence"),
+                "quality": t.get("quality"),
+                "stability": t.get("stability"),
+                "pressure_gauge": t.get("pressure_gauge"),
                 "pillars": [
                     {
                         "pillar": p.get("pillar"),
@@ -305,6 +370,8 @@ def dashboard() -> dict[str, Any]:
                 ],
                 "catalyst_summary": t.get("catalyst_summary"),
                 "timeline": (t.get("timeline") or {}).get("horizons"),
+                "narratives": t.get("narratives"),
+                "thesis_dna": t.get("thesis_dna"),
                 "build_ms": row.get("build_ms"),
             }
         )
@@ -332,6 +399,9 @@ def dashboard() -> dict[str, Any]:
             "timeline": "↓",
             "conviction": "↓",
             "status": "↓",
+            "quality": "↓",
+            "stability": "↓",
+            "pressure": "↓",
         },
         "visual_flow": [
             "Core Thesis",
@@ -344,6 +414,17 @@ def dashboard() -> dict[str, Any]:
         ],
         "law": "Analysts submit one coherent institutional investment thesis.",
         "not_a_top_level_intelligence_layer": True,
+        "world_class_extensions": [
+            "pillar_interaction_matrix",
+            "thesis_stability",
+            "quality_score",
+            "multi_length_narratives",
+            "thesis_dna",
+            "conviction_waterfall",
+            "threshold_monitoring",
+            "versioned_evolution",
+            "thesis_pressure_gauge",
+        ],
     }
 
 
@@ -403,6 +484,7 @@ def quality_gates() -> dict[str, Any]:
     total = BENCHMARK_MIN_THESES
     passed = 0
     construction_ok = consistency_ok = pillar_ok = contra_ok = catalyst_ok = conviction_ok = 0
+    interaction_ok = stability_ok = quality_ok = monitoring_ok = 0
     timed: list[float] = []
     state_counts: dict[str, int] = {}
     failures: list[dict[str, Any]] = []
@@ -449,6 +531,34 @@ def quality_gates() -> dict[str, Any]:
         if not checks.get("min_thesis_breaking_conditions"):
             errs.append("breakers")
 
+        matrix = thesis.get("pillar_interaction_matrix") or {}
+        if len(matrix.get("values") or []) == len(PILLARS) and matrix.get("edges"):
+            interaction_ok += 1
+        else:
+            errs.append("interaction")
+        quality = thesis.get("quality") or {}
+        if quality.get("separate_from_conviction") and quality.get("overall") is not None:
+            quality_ok += 1
+        else:
+            errs.append("quality")
+        stability = thesis.get("stability") or {}
+        if stability.get("trend") in ("Stable", "Improving", "Weakening", "Volatile"):
+            stability_ok += 1
+        else:
+            errs.append("stability")
+        pressure = thesis.get("pressure_gauge") or {}
+        monitoring = thesis.get("monitoring") or {}
+        if (
+            pressure.get("level") in ("Low", "Moderate", "High", "Critical")
+            and monitoring.get("conditions")
+            and thesis.get("conviction_waterfall")
+            and thesis.get("thesis_dna")
+            and thesis.get("evolution")
+        ):
+            monitoring_ok += 1
+        else:
+            errs.append("monitoring")
+
         state_counts[str(thesis.get("status"))] = state_counts.get(str(thesis.get("status")), 0) + 1
 
         if not errs:
@@ -465,6 +575,10 @@ def quality_gates() -> dict[str, Any]:
             and contra_ok / total >= 1.0
             and catalyst_ok / total >= 1.0
             and conviction_ok / total >= 1.0
+            and interaction_ok / total >= 1.0
+            and stability_ok / total >= 1.0
+            and quality_ok / total >= 1.0
+            and monitoring_ok / total >= 1.0
             and passed / total >= 0.99
             and total >= BENCHMARK_MIN_THESES
             and avg_ms <= MAX_BUILD_MS_TARGET
@@ -479,6 +593,10 @@ def quality_gates() -> dict[str, Any]:
         "contradiction_handling": round(contra_ok / total, 4),
         "catalyst_quality": round(catalyst_ok / total, 4),
         "conviction_calibration": round(conviction_ok / total, 4),
+        "interaction_quantification": round(interaction_ok / total, 4),
+        "stability_tracking": round(stability_ok / total, 4),
+        "quality_separation": round(quality_ok / total, 4),
+        "pressure_monitoring": round(monitoring_ok / total, 4),
         "theses_built": total,
         "state_counts": state_counts,
         "avg_build_ms": avg_ms,
@@ -530,6 +648,15 @@ def soft_slice_for_ask_agi(question: str, payload: dict[str, Any] | None = None)
                 "timeline": t.get("timeline"),
                 "confidence": t.get("confidence"),
                 "conviction": t.get("conviction"),
+                "quality": t.get("quality"),
+                "stability": t.get("stability"),
+                "pressure_gauge": t.get("pressure_gauge"),
+                "conviction_waterfall": t.get("conviction_waterfall"),
+                "pillar_interaction_matrix": t.get("pillar_interaction_matrix"),
+                "monitoring": t.get("monitoring"),
+                "evolution": t.get("evolution"),
+                "thesis_dna": t.get("thesis_dna"),
+                "narratives": t.get("narratives"),
                 "missing_evidence": t.get("missing_evidence"),
                 "status": t.get("status"),
                 "committee_handoff": t.get("committee_handoff"),

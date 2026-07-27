@@ -117,6 +117,70 @@ def test_quality_gates_meet_sprint_bar():
     assert gates["contradiction_handling"] >= 1.0
     assert gates["catalyst_quality"] >= 1.0
     assert gates["conviction_calibration"] >= 1.0
+    assert gates["interaction_quantification"] >= 1.0
+    assert gates["stability_tracking"] >= 1.0
+    assert gates["quality_separation"] >= 1.0
+    assert gates["pressure_monitoring"] >= 1.0
     assert gates["avg_build_ms"] < 60
     assert len(gates["state_counts"]) >= 2
     assert gates["ok"] is True
+
+
+def test_world_class_thesis_extensions():
+    thesis = generate_for_question("Should I buy HDFC Bank?", {})["thesis"]
+
+    matrix = thesis["pillar_interaction_matrix"]
+    assert matrix["pillars"] == list(PILLARS)
+    assert len(matrix["values"]) == len(PILLARS)
+    assert all(matrix["values"][i][i] == 1.0 for i in range(len(PILLARS)))
+    assert any(e["influence"] == 0.6 for e in matrix["edges"])
+
+    stability = thesis["stability"]
+    assert 0 <= stability["score"] <= 1
+    assert stability["trend"] in ("Stable", "Improving", "Weakening", "Volatile")
+
+    quality = thesis["quality"]
+    assert quality["separate_from_conviction"] is True
+    assert {"evidence", "contradictions", "coverage", "calibration"} <= set(
+        quality["dimensions"]
+    )
+
+    narratives = thesis["narratives"]
+    assert narratives["one_sentence"]
+    assert narratives["one_paragraph"]
+    assert narratives["one_page"]["investment_case"]
+
+    assert thesis["thesis_dna"]["fingerprint"]
+    assert thesis["thesis_dna"]["persistent_traits"]
+
+
+def test_waterfall_monitoring_evolution_and_pressure():
+    thesis = generate_for_question("Should I buy HDFC Bank?", {})["thesis"]
+    waterfall = thesis["conviction_waterfall"]
+    assert waterfall["reconciles"] is True
+    assert abs(
+        waterfall["starting_conviction"]
+        + sum(step["impact"] for step in waterfall["steps"])
+        - waterfall["ending_conviction"]
+    ) < 0.001
+
+    monitoring = thesis["monitoring"]
+    assert monitoring["conditions"]
+    assert monitoring["next_review_at"]
+    assert all(
+        item["current"] is not None
+        and item["threshold"] is not None
+        and item["distance"] is not None
+        for item in monitoring["conditions"]
+    )
+
+    evolution = thesis["evolution"]
+    assert evolution["current_version"] >= 1
+    assert evolution["history"][-1]["change_type"]
+    assert evolution["ilm_payload"]["feed_into"] == "ILM"
+
+    pressure = thesis["pressure_gauge"]
+    assert 0 <= pressure["score"] <= 100
+    assert pressure["level"] in ("Low", "Moderate", "High", "Critical")
+    assert abs(sum(pressure["components"].values()) - pressure["score"]) < 0.2
+    assert pressure["separate_from_confidence"] is True
