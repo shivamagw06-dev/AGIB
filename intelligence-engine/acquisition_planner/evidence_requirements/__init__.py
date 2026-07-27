@@ -87,7 +87,7 @@ EVIDENCE_CATALOG: dict[str, dict[str, Any]] = {
     },
     "web_research": {
         "label": "Web Research Context",
-        "preferred_providers": ["exa", "firecrawl", "tavily", "browserbase"],
+        "preferred_providers": ["exa", "firecrawl", "playwright", "tavily", "browserbase"],
         "data_types": ["research", "industry_report", "web", "markdown"],
         "min_tier": 3,
     },

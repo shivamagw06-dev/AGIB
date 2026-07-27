@@ -49,7 +49,18 @@ GOOGLE_CSE_ID=
 |----------|------|
 | **Exa** | Preferred for industry / research / publications |
 | **Firecrawl** | Deepen top search hits into LLM-ready markdown; thin-HTML upgrade |
-| **Browserbase** | Fallback for NSE/BSE/IR/JS-heavy pages |
+| **Playwright** | Self-hosted Chromium for JS IR/exchange pages + free DuckDuckGo search |
+| **Browserbase** | Cloud fallback for NSE/BSE/IR/JS-heavy pages |
+
+### Playwright (self-hosted)
+
+```text
+FAA_PLAYWRIGHT=true
+# build / one-time:
+playwright install chromium
+```
+
+Use cases: IR hubs, shareholding tables, NSE/BSE calendars, conference decks, press-release verification after a search hit.
 
 ## Test
 

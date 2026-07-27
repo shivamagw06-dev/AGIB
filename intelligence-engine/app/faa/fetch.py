@@ -512,6 +512,11 @@ class FetchService:
 
             return firecrawl_search(self.client, query, limit=5)
 
+        if provider == "playwright":
+            from app.faa.playwright_browser import web_search as playwright_web_search
+
+            return playwright_web_search(query, limit=5)
+
         if provider == "bing":
             key = (os.environ.get("BING_SEARCH_API_KEY") or "").strip()
             if not key:

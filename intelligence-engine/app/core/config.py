@@ -273,6 +273,7 @@ class Settings(BaseSettings):
     faa_index: bool = True
     faa_live_fetch: bool = False
     faa_search_api: bool = True
+    faa_playwright: bool = False  # headless Chromium for JS pages + free web search
     faa_pdf: bool = True
     faa_notify_fre: bool = True
     faa_scheduler: bool = True
