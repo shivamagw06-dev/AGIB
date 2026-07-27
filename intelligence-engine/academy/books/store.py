@@ -105,3 +105,9 @@ def get_books_store() -> BooksStore:
 def reset_books_store() -> None:
     global _STORE
     _STORE = BooksStore()
+    try:
+        from academy.books.ingest import reset_learned_load_flag
+
+        reset_learned_load_flag()
+    except Exception:
+        pass

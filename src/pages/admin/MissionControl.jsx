@@ -80,7 +80,45 @@ export default function MissionControl() {
         }
       );
     } catch (err) {
-      setError(err?.message || 'Failed to load Mission Control');
+      const msg = String(err?.message || 'Failed to load Mission Control');
+      const cold =
+        /timeout|aborted|504|502|503|cold|unavailable/i.test(msg) ||
+        err?.name === 'TimeoutError' ||
+        err?.name === 'AbortError';
+      setError(
+        cold
+          ? `${msg} — Intelligence engine may be cold-starting on Render. Wait ~30–60s and tap Refresh.`
+          : msg
+      );
+      // Soft fallback: still show health shell if dashboard timed out.
+      try {
+        const h = await getMissionControlHealth();
+        setHealth(h);
+        setDesk((prev) =>
+          prev || {
+            enabled: true,
+            executive_status: {
+              agi_status: h?.status === 'ok' ? 'Waking' : 'Degraded',
+              research_grade: '—',
+              knowledge_grade: '—',
+              data_grade: '—',
+            },
+            platform_status: [],
+            engine_status: [],
+            api_status: [],
+            live_event_stream: [
+              {
+                at: new Date().toISOString(),
+                type: 'system',
+                message: 'Dashboard deferred — showing health fallback while engine wakes.',
+              },
+            ],
+            _fallback: true,
+          }
+        );
+      } catch {
+        /* ignore */
+      }
       setLoading(false);
     }
   }, []);

@@ -39,10 +39,17 @@ def dashboard() -> dict[str, Any]:
             *(c.academy.replace("sector_", "") for c in store.concepts.values() if c.academy.startswith("sector_")),
         }
     )
-    lib = scan_library()
-    from academy.books.library import library_reachability
+    # Library scan is optional for cockpit speed — never block Mission Control on disk walks.
+    lib: dict[str, Any] = {"counts": {}}
+    reach: dict[str, Any] = {}
+    try:
+        lib = scan_library()
+        from academy.books.library import library_reachability
 
-    reach = library_reachability()
+        reach = library_reachability()
+    except Exception as exc:
+        lib = {"counts": {}, "error": str(exc)[:120]}
+        reach = {"ok": False, "error": str(exc)[:120]}
     return {
         "programme": "AGI_ACADEMY_BOOKS",
         "books_version": BOOKS_VERSION,
@@ -52,7 +59,16 @@ def dashboard() -> dict[str, Any]:
         "library_root": str(resolve_library_root() or ""),
         "library_scan": lib.get("counts") or {},
         "library_reachability": reach,
-        "books": [b.to_dict() for b in store.books.values()],
+        # Metadata only — never dump full concept bodies into Mission Control.
+        "books": [
+            {
+                "book_id": b.book_id,
+                "title": b.title,
+                "source_format": b.source_format,
+                "status": b.status,
+            }
+            for b in store.books.values()
+        ],
         "books_successfully_ingested": len(real_books),
         "academies": academies,
         "concept_count": snap["concepts"],
@@ -78,6 +94,7 @@ def dashboard() -> dict[str, Any]:
             "graph": snap["edges"],
         },
         "linked_companies": linked_companies,
+        "sectors": sectors[:40],
         "sectors_linked": sectors,
         "most_used_concepts": [
             {"concept_id": cid, "uses": n} for cid, n in snap["most_used"]

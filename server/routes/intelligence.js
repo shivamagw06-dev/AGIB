@@ -1108,10 +1108,13 @@ export default function createIntelligenceRouter() {
         return res.status(result.status).json(result.data);
       }
       const desk = result.data && typeof result.data === 'object' ? { ...result.data } : {};
-      // Soft enrich with CMS/KC learning digest — never block cockpit if digest fails
+      // Soft enrich with CMS/KC learning digest — never block cockpit if digest is slow.
       let learning = null;
       try {
-        learning = await buildRecentLearningSummary({ engineFetch, days: 5 });
+        learning = await Promise.race([
+          buildRecentLearningSummary({ engineFetch, days: 5 }),
+          new Promise((resolve) => setTimeout(() => resolve(null), 3500)),
+        ]);
       } catch {
         learning = null;
       }
@@ -1140,12 +1143,15 @@ export default function createIntelligenceRouter() {
             ...desk.live_event_stream,
           ].slice(0, 40);
         }
+      } else {
+        desk.learning_enrichment = { deferred: true, reason: 'timeout_or_unavailable' };
       }
       return res.json(desk);
     } catch (error) {
       return res.status(503).json({
         error: 'Mission Control dashboard unavailable',
         detail: error.message,
+        hint: 'Intelligence engine may be cold-starting on Render — retry in 30–60s.',
       });
     }
   });
@@ -1163,6 +1169,12 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // Soft reasoning / editorial health probes (Intelligence Map)
+  router.get('/institutional-reasoning/health', kfGet('/v1/institutional-reasoning/health'));
+  router.get('/answer-construction/health', kfGet('/v1/answer-construction/health'));
+  router.get('/editorial/health', kfGet('/v1/editorial/health'));
+  router.get('/contradiction-reasoning/health', kfGet('/v1/contradiction-reasoning/health'));
+  router.get('/red-team/ecr/health', kfGet('/v1/red-team/ecr/health'));
   // Investment Office V1 — executive operating cockpit
   router.get('/investment-office/health', kfGet('/v1/investment-office/health'));
   router.get('/investment-office/dashboard', kfGet('/v1/investment-office/dashboard'));

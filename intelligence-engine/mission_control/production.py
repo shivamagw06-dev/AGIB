@@ -31,11 +31,14 @@ def dashboard(*, ioc_service: Any | None = None, force: bool = False) -> dict[st
         cached = mc_store.get_dashboard()
         if cached:
             return cached
+        # Prefer a stale desk over a multi-minute cold rebuild under Render sleep.
+        stale = mc_store.get_dashboard(allow_stale=True)
+        if stale:
+            return stale
     desk = build_mission_control(ioc_service=ioc_service)
     if desk.get("enabled"):
         mc_store.put_dashboard(desk)
     return desk
-
 
 def acknowledge_alert(alert_id: str, *, actor: str | None = None) -> dict[str, Any]:
     """Acknowledge only — never mutates research / house views."""

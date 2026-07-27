@@ -20,8 +20,13 @@ from academy.books.seed import (
 from academy.books.store import BooksStore, get_books_store
 from academy.books.text_extract import extract_text
 
+# Load the durable learned snapshot at most once per process.
+# Reloading the multi-MB library on every ensure_seeded() call stalls Mission Control / Ask AGI.
+_LEARNED_LOADED = False
+
 
 def ensure_seeded(store: BooksStore | None = None) -> dict[str, Any]:
+    global _LEARNED_LOADED
     store = store or get_books_store()
     seeded = False
     if not store.books:
@@ -37,18 +42,27 @@ def ensure_seeded(store: BooksStore | None = None) -> dict[str, Any]:
             store.upsert_framework(fw)
         rebuild_graph(store)
         seeded = True
-    learned = {"ok": False}
-    try:
-        from academy.books.persist import load_learned
+    learned = {"ok": False, "skipped": True, "loaded": 0}
+    if not _LEARNED_LOADED:
+        try:
+            from academy.books.persist import load_learned
 
-        # Load durable PDF-learned objects after seed (idempotent upserts).
-        learned = load_learned(store)
-        if learned.get("ok") and int(learned.get("loaded") or 0) > 0:
-            rebuild_graph(store)
-    except Exception as exc:
-        learned = {"ok": False, "error": str(exc)[:160]}
+            # Load durable PDF-learned objects after seed (idempotent upserts).
+            learned = load_learned(store)
+            if learned.get("ok") and int(learned.get("loaded") or 0) > 0:
+                rebuild_graph(store)
+            _LEARNED_LOADED = True
+        except Exception as exc:
+            learned = {"ok": False, "error": str(exc)[:160], "loaded": 0}
+            # Still mark loaded to avoid hammering a broken snapshot on every request.
+            _LEARNED_LOADED = True
     return {"seeded": seeded, "learned": learned, **store.snapshot()}
 
+
+def reset_learned_load_flag() -> None:
+    """Test helper — allow reloading the learned snapshot after store reset."""
+    global _LEARNED_LOADED
+    _LEARNED_LOADED = False
 
 def ingest_book(
     *,

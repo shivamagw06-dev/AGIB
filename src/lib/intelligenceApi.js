@@ -2,7 +2,7 @@ import { API_ORIGIN } from '@/config';
 
 const BASE = API_ORIGIN || '';
 
-async function intelligenceFetch(path, { method = 'GET', body } = {}) {
+async function intelligenceFetch(path, { method = 'GET', body, timeoutMs = 45_000 } = {}) {
   if (!BASE) {
     throw new Error('API origin is not configured. Set VITE_API_URL to the Render backend.');
   }
@@ -12,6 +12,7 @@ async function intelligenceFetch(path, { method = 'GET', body } = {}) {
     credentials: 'include',
     headers: body ? { 'Content-Type': 'application/json' } : undefined,
     body: body ? JSON.stringify(body) : undefined,
+    signal: AbortSignal.timeout(timeoutMs),
   });
   const contentType = resp.headers.get('content-type') || '';
   const text = await resp.text().catch(() => '');
@@ -824,15 +825,19 @@ export const completeEcp = (ticker, q = 'Should I buy?') => {
 };
 
 /** Mission Control V1 — administrator operations centre (read-only) */
-export const getMissionControlHealth = () => intelligenceFetch('/mission-control/health');
-export const getMissionControlDashboard = () => intelligenceFetch('/mission-control/dashboard');
+export const getMissionControlHealth = () =>
+  intelligenceFetch('/mission-control/health', { timeoutMs: 30_000 });
+export const getMissionControlDashboard = () =>
+  intelligenceFetch('/mission-control/dashboard', { timeoutMs: 90_000 });
 export const getMissionControlQualityGates = () =>
-  intelligenceFetch('/mission-control/quality-gates');
-export const getMissionControlReport = () => intelligenceFetch('/mission-control/report');
+  intelligenceFetch('/mission-control/quality-gates', { timeoutMs: 45_000 });
+export const getMissionControlReport = () =>
+  intelligenceFetch('/mission-control/report', { timeoutMs: 90_000 });
 export const acknowledgeMissionControlAlert = (alertId) =>
   intelligenceFetch('/mission-control/acknowledge', {
     method: 'POST',
     body: { alert_id: alertId },
+    timeoutMs: 30_000,
   });
 
 /** Investment Office V1 — executive operating cockpit */
