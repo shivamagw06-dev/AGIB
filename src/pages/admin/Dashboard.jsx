@@ -4,10 +4,14 @@ import { Plus, FileText, Eye, Pencil, Trash2, Clock, Brain } from 'lucide-react'
 import useArticlesAdmin from '@/hooks/useArticlesAdmin';
 import { formatArticleDate } from '@/lib/articleUtils';
 import { getCmsLearningStatus, learnCmsArticles } from '@/lib/intelligenceApi';
+import { useAuth } from '@/contexts/AuthContext';
+import { isAdmin } from '@/lib/adminAuth';
 import { Button } from '@/components/ui/button';
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const admin = isAdmin(user);
   const { articles, loading, deleteArticle, stats } = useArticlesAdmin();
   const [cmsLearn, setCmsLearn] = useState(null);
   const [learnBusy, setLearnBusy] = useState(false);
@@ -60,19 +64,25 @@ export default function AdminDashboard() {
     <div className="p-6 lg:p-8 max-w-7xl">
       <div className="flex flex-wrap items-start justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
-          <p className="text-slate-500 mt-1">Manage your research articles and market updates</p>
+          <h1 className="text-2xl font-bold text-slate-900">{admin ? 'Dashboard' : 'My Articles'}</h1>
+          <p className="text-slate-500 mt-1">
+            {admin
+              ? 'Manage research articles and market updates'
+              : 'Edit and manage articles you uploaded'}
+          </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button
-            variant="outline"
-            disabled={learnBusy}
-            onClick={handleLearnArticles}
-            className="border-slate-300"
-          >
-            <Brain size={16} className="mr-2" />
-            {learnBusy ? 'Intelligence reading…' : 'Ask intelligence to learn articles'}
-          </Button>
+          {admin ? (
+            <Button
+              variant="outline"
+              disabled={learnBusy}
+              onClick={handleLearnArticles}
+              className="border-slate-300"
+            >
+              <Brain size={16} className="mr-2" />
+              {learnBusy ? 'Intelligence reading…' : 'Ask intelligence to learn articles'}
+            </Button>
+          ) : null}
           <Button onClick={() => navigate('/admin/articles/new')} className="bg-blue-700 hover:bg-blue-800">
             <Plus size={16} className="mr-2" />
             New Article
@@ -81,20 +91,33 @@ export default function AdminDashboard() {
       </div>
 
       <div className="mb-6 rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
-        <p className="font-semibold text-slate-900">Two CMS destinations</p>
+        <p className="font-semibold text-slate-900">
+          {admin ? 'Two CMS destinations' : 'Edit your uploads anytime'}
+        </p>
         <p className="mt-1">
-          <span className="font-semibold text-blue-700">Publish to Website</span> — live public research.
-          {' '}
-          <span className="font-semibold text-violet-700">Send to Intelligence</span> — private notes for Ask AGI only (not on the website).
+          {admin ? (
+            <>
+              <span className="font-semibold text-blue-700">Publish to Website</span> — live public research.
+              {' '}
+              <span className="font-semibold text-violet-700">Send to Intelligence</span> — private notes for Ask AGI only (not on the website).
+            </>
+          ) : (
+            <>
+              Open any article below with <span className="font-semibold text-blue-700">Edit</span> to update
+              title, body, cover, or publish status. You can only change articles you uploaded.
+            </>
+          )}
         </p>
-        <p className="mt-2 text-slate-500">
-          Learning calendar today: {cmsLearn?.today || '—'} · pending unread:{' '}
-          {cmsLearn?.pending_count ?? '—'} · last dates:{' '}
-          {(cmsLearn?.learning_calendar || [])
-            .slice(0, 3)
-            .map((d) => `${d.learning_date} (${d.learned})`)
-            .join(' · ') || 'none yet'}
-        </p>
+        {admin ? (
+          <p className="mt-2 text-slate-500">
+            Learning calendar today: {cmsLearn?.today || '—'} · pending unread:{' '}
+            {cmsLearn?.pending_count ?? '—'} · last dates:{' '}
+            {(cmsLearn?.learning_calendar || [])
+              .slice(0, 3)
+              .map((d) => `${d.learning_date} (${d.learned})`)
+              .join(' · ') || 'none yet'}
+          </p>
+        ) : null}
         {learnMsg ? <p className="mt-2 text-emerald-800">{learnMsg}</p> : null}
       </div>
 
@@ -115,16 +138,20 @@ export default function AdminDashboard() {
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
         <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
           <FileText size={18} className="text-slate-400" />
-          <h2 className="font-semibold text-slate-900">Recent Articles</h2>
+          <h2 className="font-semibold text-slate-900">{admin ? 'Recent Articles' : 'Your uploaded articles'}</h2>
         </div>
 
         {loading ? (
           <p className="p-8 text-center text-slate-400">Loading articles…</p>
         ) : articles.length === 0 ? (
           <div className="p-12 text-center">
-            <p className="text-slate-500 mb-4">No articles yet. Write your first market update or research report.</p>
+            <p className="text-slate-500 mb-4">
+              {admin
+                ? 'No articles yet. Write your first market update or research report.'
+                : 'You have not uploaded any articles yet.'}
+            </p>
             <Button onClick={() => navigate('/admin/articles/new')} className="bg-blue-700 hover:bg-blue-800">
-              Create First Article
+              {admin ? 'Create First Article' : 'Upload / Write Article'}
             </Button>
           </div>
         ) : (
@@ -177,32 +204,35 @@ export default function AdminDashboard() {
                           : '—'}
                     </td>
                     <td className="px-5 py-4">
-                      <div className="flex items-center justify-end gap-1">
+                      <div className="flex items-center justify-end gap-2">
                         {article.status === 'published' && (
                           <Link
                             to={`/article/${article.slug}`}
                             target="_blank"
-                            className="p-2 rounded-md text-slate-400 hover:text-blue-600 hover:bg-blue-50"
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium text-slate-600 hover:text-blue-700 hover:bg-blue-50"
                             title="View"
                           >
-                            <Eye size={16} />
+                            <Eye size={14} />
+                            View
                           </Link>
                         )}
                         <button
                           type="button"
-                          onClick={() => navigate(`/admin/articles/edit/${article.slug}`)}
-                          className="p-2 rounded-md text-slate-400 hover:text-blue-600 hover:bg-blue-50"
-                          title="Edit"
+                          onClick={() => navigate(`/admin/articles/edit/${encodeURIComponent(article.slug)}`)}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold text-white bg-blue-700 hover:bg-blue-800"
+                          title="Edit article"
                         >
-                          <Pencil size={16} />
+                          <Pencil size={14} />
+                          Edit
                         </button>
                         <button
                           type="button"
                           onClick={() => handleDelete(article.id, article.title)}
-                          className="p-2 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50"
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium text-slate-500 hover:text-red-700 hover:bg-red-50"
                           title="Delete"
                         >
-                          <Trash2 size={16} />
+                          <Trash2 size={14} />
+                          Delete
                         </button>
                       </div>
                     </td>

@@ -47,9 +47,16 @@ import {
   MessageSquare,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { isAdmin } from '@/lib/adminAuth';
+
+const authorNavItems = [
+  { to: '/admin/articles', label: 'My Articles', icon: FileText },
+  { to: '/admin/articles/new', label: 'New Article', icon: Plus },
+];
 
 const navItems = [
   { to: '/admin', label: 'Dashboard', icon: LayoutDashboard, end: true },
+  { to: '/admin/articles', label: 'All Articles', icon: FileText },
   { to: '/admin/intelligence-map', label: 'Intelligence Map', icon: Map },
   { to: '/admin/intent-intelligence', label: 'Intent Intelligence', icon: BrainCircuit },
   { to: '/admin/entity-resolution', label: 'Entity Resolution', icon: Fingerprint },
@@ -71,6 +78,7 @@ const navItems = [
   { to: '/admin/reasoning-audit', label: 'Reasoning Audit', icon: ClipboardCheck },
   { to: '/admin/articles/new', label: 'New Article', icon: Plus },
   { to: '/admin/categories', label: 'Categories', icon: FolderOpen },
+
   { to: '/admin/knowledge', label: 'Knowledge Corpus', icon: Brain },
   { to: '/admin/open-intelligence', label: 'Open Intelligence', icon: Radar },
   { to: '/admin/evidence', label: 'Evidence', icon: Shield },
@@ -105,18 +113,20 @@ const navItems = [
 export default function AdminLayout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const admin = isAdmin(user);
+  const items = admin ? navItems : authorNavItems;
 
   return (
     <div className="min-h-screen flex bg-slate-100">
       <aside className="w-64 shrink-0 bg-[#0c1220] text-white flex flex-col border-r border-slate-800">
         <div className="px-5 py-6 border-b border-slate-800">
           <p className="text-[10px] uppercase tracking-[0.2em] text-orange-400 font-semibold">AGIB CMS</p>
-          <h1 className="text-lg font-bold mt-1">Content Studio</h1>
+          <h1 className="text-lg font-bold mt-1">{admin ? 'Content Studio' : 'My Articles'}</h1>
           <p className="text-xs text-slate-400 mt-1 truncate">{user?.email}</p>
         </div>
 
         <nav className="flex-1 px-3 py-4 space-y-1">
-          {navItems.map(({ to, label, icon: Icon, end }) => (
+          {items.map(({ to, label, icon: Icon, end }) => (
             <NavLink
               key={to}
               to={to}
@@ -133,15 +143,6 @@ export default function AdminLayout() {
               {label}
             </NavLink>
           ))}
-
-          <button
-            type="button"
-            onClick={() => navigate('/admin/articles')}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition-colors"
-          >
-            <FileText size={18} />
-            All Articles
-          </button>
         </nav>
 
         <div className="px-3 py-4 border-t border-slate-800 space-y-1">
