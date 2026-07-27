@@ -642,7 +642,7 @@ process.on('SIGTERM', () => {
 
 export default app;
 
-// RQ1+RQ2 live integration — force API redeploy (IAPE→IREP + IHG→IRAE)
+// Live intelligence harden — force API redeploy (Ask AGI timeout + Playwright default)
 
 // CIE V1 proxy mounted
 

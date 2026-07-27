@@ -16,7 +16,7 @@ class FaaFlags:
     faa_index: bool = True
     faa_live_fetch: bool = False  # set true in production for real HTTP/PDF downloads
     faa_search_api: bool = True
-    faa_playwright: bool = False  # headless Chromium for JS IR/exchange pages + free search
+    faa_playwright: bool = True  # headless Chromium for JS IR/exchange pages + free search
     faa_pdf: bool = True
     faa_notify_fre: bool = True
     faa_scheduler: bool = True

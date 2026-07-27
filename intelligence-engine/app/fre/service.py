@@ -305,11 +305,23 @@ class FreService:
         }
 
     def consult(self, query: str, *, limit: int = 8) -> dict[str, Any]:
-        """Ask AGI / CAE soft retrieval — evidence only, never a recommendation."""
+        """Ask AGI / CAE soft retrieval — evidence only, never a recommendation.
+
+        Does not run a full FAA live acquire on the hot Ask AGI path (that can
+        exceed 60–90s). Uses the indexed corpus; call /v1/faa/acquire explicitly
+        when a fresh crawl is required.
+        """
         self._require()
         if not self.flags.fre_ask_agi:
             return {"programme": "FRE", "disabled": True, "hits": []}
-        pack = self.query(query, limit=limit)
+        # Soft path: search existing index. Bootstrap acquire only if corpus is empty.
+        need_bootstrap = len(getattr(self.store, "documents", {}) or {}) < 4
+        pack = self.pipeline.run_query(
+            query,
+            limit=limit,
+            acquire=bool(self.flags.fre_acquisition and need_bootstrap),
+            update_kg=False,
+        )
         return {
             "programme": "FRE",
             "architecture_status": "v1.0.1 LOCKED",
