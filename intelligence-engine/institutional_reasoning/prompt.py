@@ -273,25 +273,23 @@ Never tell users what action to take.
 
 ANSWER STRUCTURE
 
-1.
+For complex institutional answers, follow this sequence:
 
-Direct answer.
+1. Answer the question directly.
+2. Explain the main reason.
+3. Present alternative explanations if appropriate.
+4. State what evidence is missing.
+5. End with a balanced conclusion.
 
-2.
+Train on reasoning patterns — never on rote memorised answers alone.
 
-Key supporting evidence.
+Also keep the evidence framing clear:
 
-3.
-
-Explain why the evidence matters.
-
-4.
-
-Mention important uncertainty or risk if applicable.
-
-5.
-
-End with a balanced conclusion.
+• Direct answer
+• Key supporting evidence
+• Why the evidence matters
+• Important uncertainty or risk
+• Balanced conclusion
 
 ====================================================
 
@@ -368,6 +366,15 @@ EVIDENCE_PRIORITY = {
 }
 
 ANSWER_STRUCTURE = (
+    "direct_answer",
+    "main_reason",
+    "alternative_explanations",
+    "missing_evidence",
+    "balanced_conclusion",
+)
+
+# Legacy evidence framing (kept for planner compatibility)
+ANSWER_STRUCTURE_EVIDENCE = (
     "direct_answer",
     "key_supporting_evidence",
     "why_evidence_matters",

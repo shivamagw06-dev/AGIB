@@ -167,64 +167,86 @@ def package_for_ask_agi(**kwargs: Any) -> dict[str, Any]:
                 "steps": irsp.get("reasoning_steps"),
                 "answer_structure": irsp.get("answer_structure"),
                 "contradiction_protocol_required": irsp.get("contradiction_protocol_required"),
+                "pattern_id": irsp.get("pattern_id"),
             }
             # Prefer evidence-first policy unless a later specialist layer overrides.
             if not out.get("answer_policy") or out.get("answer_policy") == "think_then_answer_institutional":
                 out["answer_policy"] = "evidence_then_reason_then_communicate"
+            # Gold reasoning patterns own the executive when matched.
+            if irsp.get("owns_executive") and irsp.get("executive"):
+                out["executive"] = irsp["executive"]
+                out["answer_policy"] = "gold_reasoning_pattern"
+                out["reasoning_pattern"] = {
+                    "enabled": True,
+                    "pattern_id": irsp.get("pattern_id"),
+                    "level": irsp.get("pattern_level"),
+                }
+                ia_out = out.get("institutional_answer")
+                if isinstance(ia_out, dict) and ia_out.get("enabled"):
+                    out["institutional_answer"] = {
+                        **ia_out,
+                        "text": irsp["executive"],
+                        "reason": irsp.get("direct_answer")
+                        or (irsp.get("gold_pattern") or {}).get("direct_answer")
+                        or ia_out.get("reason"),
+                        "gold_reasoning_pattern": True,
+                        "pattern_id": irsp.get("pattern_id"),
+                    }
     except Exception:
         out.setdefault("institutional_reasoning", {"enabled": False, "bypassed": True})
 
     # Contradiction Reasoning Soft Layer — step-by-step conflict answers.
     # Soft-wire only (not a top-level engine; not Continuous Research Evaluation).
     # When active, owns the executive text so answers do not jump to certainty.
-    contradiction_active = False
+    # Skip if a gold reasoning pattern already owns the executive.
+    contradiction_active = bool(out.get("reasoning_pattern", {}).get("enabled"))
     try:
-        from contradiction_reasoning.production import package_for_ask_agi as cxr_package
+        if not contradiction_active:
+            from contradiction_reasoning.production import package_for_ask_agi as cxr_package
 
-        company_name = None
-        if isinstance(out.get("institutional_analysts"), dict):
-            company_name = out["institutional_analysts"].get("company")
-        cxr = cxr_package(
-            query=str(kwargs.get("query") or ""),
-            ticker=kwargs.get("ticker"),
-            company=company_name,
-        )
-        if cxr.get("enabled") and cxr.get("executive"):
-            contradiction_active = True
-            out["contradiction_reasoning"] = cxr
-            out["executive"] = cxr["executive"]
-            out["answer_policy"] = "contradiction_reasoning_step_by_step"
-            out["conflicting_evidence"] = [
-                {"fact": f} for f in (cxr.get("facts") or [])
-            ] + [
-                {"explanation": e, "status": "possible"}
-                for e in (cxr.get("possible_explanations") or [])
-            ]
-            ia_out = out.get("institutional_answer")
-            if isinstance(ia_out, dict) and ia_out.get("enabled"):
-                out["institutional_answer"] = {
-                    **ia_out,
-                    "text": cxr["executive"],
-                    "reason": cxr.get("direct_answer")
-                    or (cxr.get("answer_structure") or {}).get("direct_answer")
-                    or ia_out.get("reason"),
-                    "risk": (
-                        "Evidence is incomplete: "
-                        + "; ".join((cxr.get("missing_evidence") or [])[:2])
-                    )
-                    if cxr.get("missing_evidence")
-                    else ia_out.get("risk"),
-                    "contradiction_reasoning": True,
-                    "contradiction_archetype": cxr.get("archetype"),
-                    "contradiction_confidence": cxr.get("confidence"),
-                }
+            company_name = None
+            if isinstance(out.get("institutional_analysts"), dict):
+                company_name = out["institutional_analysts"].get("company")
+            cxr = cxr_package(
+                query=str(kwargs.get("query") or ""),
+                ticker=kwargs.get("ticker"),
+                company=company_name,
+            )
+            if cxr.get("enabled") and cxr.get("executive"):
+                contradiction_active = True
+                out["contradiction_reasoning"] = cxr
+                out["executive"] = cxr["executive"]
+                out["answer_policy"] = "contradiction_reasoning_step_by_step"
+                out["conflicting_evidence"] = [
+                    {"fact": f} for f in (cxr.get("facts") or [])
+                ] + [
+                    {"explanation": e, "status": "possible"}
+                    for e in (cxr.get("possible_explanations") or [])
+                ]
+                ia_out = out.get("institutional_answer")
+                if isinstance(ia_out, dict) and ia_out.get("enabled"):
+                    out["institutional_answer"] = {
+                        **ia_out,
+                        "text": cxr["executive"],
+                        "reason": cxr.get("direct_answer")
+                        or (cxr.get("answer_structure") or {}).get("direct_answer")
+                        or ia_out.get("reason"),
+                        "risk": (
+                            "Evidence is incomplete: "
+                            + "; ".join((cxr.get("missing_evidence") or [])[:2])
+                        )
+                        if cxr.get("missing_evidence")
+                        else ia_out.get("risk"),
+                        "contradiction_reasoning": True,
+                        "contradiction_archetype": cxr.get("archetype"),
+                        "contradiction_confidence": cxr.get("confidence"),
+                    }
     except Exception:
         out.setdefault("contradiction_reasoning", {"enabled": False, "bypassed": True})
 
     # Editorial Intelligence Layer — Gemini (or future providers) rewrite ONLY.
     # AGIB remains the brain; structured intelligence only; never documents.
-    # Skip editorial override when contradiction reasoning owns the executive —
-    # CRE-style answers must keep uncertainty and alternative explanations intact.
+    # Skip editorial override when contradiction / gold reasoning owns the executive.
     if not contradiction_active:
         try:
             from answer_construction.institutional_intelligence import wants_detailed_analysis
@@ -268,7 +290,7 @@ def package_for_ask_agi(**kwargs: Any) -> dict[str, Any]:
             {
                 "enabled": False,
                 "bypassed": True,
-                "reason": "contradiction_reasoning_owns_executive",
+                "reason": "reasoning_pattern_owns_executive",
             },
         )
 

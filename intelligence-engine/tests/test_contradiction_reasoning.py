@@ -86,9 +86,19 @@ def test_answer_structure_five_parts():
 def test_soft_wire_into_answer_construction():
     from answer_construction.production import package_for_ask_agi as ac_package
 
+    # Gold reasoning patterns take priority over contradiction fallback for known habits.
     out = ac_package(query=T1, ticker="HDFCBANK")
-    assert out.get("contradiction_reasoning", {}).get("enabled") is True
-    assert out.get("answer_policy") == "contradiction_reasoning_step_by_step"
+    assert out.get("answer_policy") == "gold_reasoning_pattern"
+    assert out.get("reasoning_pattern", {}).get("pattern_id") == "profit_vs_nim"
     assert "NIM" in (out.get("executive") or "") or "Net Interest Margin" in (out.get("executive") or "")
-    # Editorial must not override contradiction executive
     assert out.get("editorial", {}).get("bypassed") is True
+
+    # Contradiction soft layer still owns executive when no gold pattern matches.
+    generic_q = (
+        "Reported assets rose sharply, but liabilities also rose even faster. "
+        "How should this be interpreted?"
+    )
+    out2 = ac_package(query=generic_q, ticker="HDFCBANK")
+    assert out2.get("contradiction_reasoning", {}).get("enabled") is True
+    assert out2.get("answer_policy") == "contradiction_reasoning_step_by_step"
+    assert out2.get("editorial", {}).get("bypassed") is True
