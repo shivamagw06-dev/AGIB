@@ -35,6 +35,8 @@ def quality_gates() -> dict[str, Any]:
             "structured_intelligence_only": True,
             "fallback_template_on_failure": True,
             "cache_recommendations_24h": True,
+            "plain_english_glossary": True,
+            "never_assume_finance_knowledge": True,
             "word_limits": {
                 "quick_summary": 80,
                 "quick_analysis": 150,
