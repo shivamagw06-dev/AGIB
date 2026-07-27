@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     # Optional LLMs for Phase 2 CIO synthesis (stub works without them)
     # Prefer Gemini when set; OpenAI remains a soft fallback.
     gemini_api_key: str = ""
-    gemini_model: str = "gemini-2.0-flash"
+    gemini_model: str = "gemini-flash-latest"
     openai_api_key: str = ""
     openai_model: str = "gpt-4.1-mini"
 

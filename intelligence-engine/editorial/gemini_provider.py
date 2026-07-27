@@ -15,7 +15,7 @@ class GeminiProvider(EditorialProvider):
 
     def __init__(self, api_key: str | None = None, model: str | None = None) -> None:
         self.api_key = (api_key or "").strip()
-        self.model = (model or "gemini-2.0-flash").strip() or "gemini-2.0-flash"
+        self.model = (model or "gemini-flash-latest").strip() or "gemini-flash-latest"
 
     def health(self) -> dict[str, Any]:
         return {

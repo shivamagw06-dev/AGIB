@@ -161,7 +161,7 @@ class ChiefInvestmentOfficer(BaseAgent):
             try:
                 import httpx
 
-                model = (settings.gemini_model or "gemini-2.0-flash").strip()
+                model = (settings.gemini_model or "gemini-flash-latest").strip()
                 url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
                 async with httpx.AsyncClient(timeout=30.0) as client:
                     response = await client.post(
