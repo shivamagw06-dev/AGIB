@@ -468,6 +468,9 @@ class Settings(BaseSettings):
     editorial_layer: bool = True
     ask_agi_editorial_layer: bool = True
     editorial_provider: str = "gemini"  # gemini | openai | claude | mistral | deepseek (writer swap)
+    # Contradiction Reasoning Soft Layer — step-by-step conflict answers (not a top-level engine)
+    contradiction_reasoning: bool = True
+    ask_agi_contradiction_reasoning: bool = True
 
     # Institutional Analyst Framework V1 — Answer Construction ownership (not engines)
     institutional_analysts: bool = True

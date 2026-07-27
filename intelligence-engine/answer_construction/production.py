@@ -13,6 +13,7 @@ def health() -> dict[str, Any]:
     iaf_health: dict[str, Any] = {}
     irw_health: dict[str, Any] = {}
     editorial_health: dict[str, Any] = {}
+    cxr_health: dict[str, Any] = {}
     try:
         from institutional_analysts.production import health as iaf_h
 
@@ -31,6 +32,12 @@ def health() -> dict[str, Any]:
         editorial_health = editorial_h()
     except Exception:
         editorial_health = {"status": "unavailable"}
+    try:
+        from contradiction_reasoning.production import health as cxr_h
+
+        cxr_health = cxr_h()
+    except Exception:
+        cxr_health = {"status": "unavailable"}
     return {
         "status": "ok" if is_enabled() else "disabled",
         "programme": PROGRAMME,
@@ -42,6 +49,7 @@ def health() -> dict[str, Any]:
         "institutional_analyst_framework": iaf_health,
         "institutional_research_writer": irw_health,
         "editorial_intelligence_layer": editorial_health,
+        "contradiction_reasoning": cxr_health,
         "flags": flags_dict(),
     }
 
@@ -129,44 +137,103 @@ def package_for_ask_agi(**kwargs: Any) -> dict[str, Any]:
         except Exception:
             pass
 
-    # Editorial Intelligence Layer — Gemini (or future providers) rewrite ONLY.
-    # AGIB remains the brain; structured intelligence only; never documents.
+    # Contradiction Reasoning Soft Layer — step-by-step conflict answers.
+    # Soft-wire only (not a top-level engine; not Continuous Research Evaluation).
+    # When active, owns the executive text so answers do not jump to certainty.
+    contradiction_active = False
     try:
-        from answer_construction.institutional_intelligence import wants_detailed_analysis
-        from editorial.production import package_for_ask_agi as editorial_package
+        from contradiction_reasoning.production import package_for_ask_agi as cxr_package
 
-        editorial = editorial_package(
+        company_name = None
+        if isinstance(out.get("institutional_analysts"), dict):
+            company_name = out["institutional_analysts"].get("company")
+        cxr = cxr_package(
             query=str(kwargs.get("query") or ""),
             ticker=kwargs.get("ticker"),
-            answer_construction=out,
-            company_analysis=kwargs.get("company_analysis")
-            if isinstance(kwargs.get("company_analysis"), dict)
-            else None,
-            institutional_answer=out.get("institutional_answer")
-            if isinstance(out.get("institutional_answer"), dict)
-            else None,
-            company=out.get("institutional_analysts", {}).get("company")
-            if isinstance(out.get("institutional_analysts"), dict)
-            else None,
-            detailed=wants_detailed_analysis(str(kwargs.get("query") or "")),
+            company=company_name,
         )
-        if editorial.get("enabled") and editorial.get("executive"):
-            out["executive"] = editorial["executive"]
-            out["editorial"] = editorial
+        if cxr.get("enabled") and cxr.get("executive"):
+            contradiction_active = True
+            out["contradiction_reasoning"] = cxr
+            out["executive"] = cxr["executive"]
+            out["answer_policy"] = "contradiction_reasoning_step_by_step"
+            out["conflicting_evidence"] = [
+                {"fact": f} for f in (cxr.get("facts") or [])
+            ] + [
+                {"explanation": e, "status": "possible"}
+                for e in (cxr.get("possible_explanations") or [])
+            ]
             ia_out = out.get("institutional_answer")
-            if isinstance(ia_out, dict) and ia_out.get("enabled") and editorial.get("executive"):
-                rewritten = editorial.get("rewritten_summary") or editorial.get("executive")
+            if isinstance(ia_out, dict) and ia_out.get("enabled"):
                 out["institutional_answer"] = {
                     **ia_out,
-                    "text": editorial["executive"],
-                    "reason": rewritten or ia_out.get("reason"),
-                    "editorial_provider": editorial.get("provider"),
-                    "editorial_fallback": editorial.get("fallback"),
-                    "editorial_rewrite_only": True,
+                    "text": cxr["executive"],
+                    "reason": cxr.get("direct_answer")
+                    or (cxr.get("answer_structure") or {}).get("direct_answer")
+                    or ia_out.get("reason"),
+                    "risk": (
+                        "Evidence is incomplete: "
+                        + "; ".join((cxr.get("missing_evidence") or [])[:2])
+                    )
+                    if cxr.get("missing_evidence")
+                    else ia_out.get("risk"),
+                    "contradiction_reasoning": True,
+                    "contradiction_archetype": cxr.get("archetype"),
+                    "contradiction_confidence": cxr.get("confidence"),
                 }
-            out["answer_policy"] = "agib_brain_gemini_editorial_writer"
     except Exception:
-        out.setdefault("editorial", {"enabled": False, "bypassed": True})
+        out.setdefault("contradiction_reasoning", {"enabled": False, "bypassed": True})
+
+    # Editorial Intelligence Layer — Gemini (or future providers) rewrite ONLY.
+    # AGIB remains the brain; structured intelligence only; never documents.
+    # Skip editorial override when contradiction reasoning owns the executive —
+    # CRE-style answers must keep uncertainty and alternative explanations intact.
+    if not contradiction_active:
+        try:
+            from answer_construction.institutional_intelligence import wants_detailed_analysis
+            from editorial.production import package_for_ask_agi as editorial_package
+
+            editorial = editorial_package(
+                query=str(kwargs.get("query") or ""),
+                ticker=kwargs.get("ticker"),
+                answer_construction=out,
+                company_analysis=kwargs.get("company_analysis")
+                if isinstance(kwargs.get("company_analysis"), dict)
+                else None,
+                institutional_answer=out.get("institutional_answer")
+                if isinstance(out.get("institutional_answer"), dict)
+                else None,
+                company=out.get("institutional_analysts", {}).get("company")
+                if isinstance(out.get("institutional_analysts"), dict)
+                else None,
+                detailed=wants_detailed_analysis(str(kwargs.get("query") or "")),
+            )
+            if editorial.get("enabled") and editorial.get("executive"):
+                out["executive"] = editorial["executive"]
+                out["editorial"] = editorial
+                ia_out = out.get("institutional_answer")
+                if isinstance(ia_out, dict) and ia_out.get("enabled") and editorial.get("executive"):
+                    rewritten = editorial.get("rewritten_summary") or editorial.get("executive")
+                    out["institutional_answer"] = {
+                        **ia_out,
+                        "text": editorial["executive"],
+                        "reason": rewritten or ia_out.get("reason"),
+                        "editorial_provider": editorial.get("provider"),
+                        "editorial_fallback": editorial.get("fallback"),
+                        "editorial_rewrite_only": True,
+                    }
+                out["answer_policy"] = "agib_brain_gemini_editorial_writer"
+        except Exception:
+            out.setdefault("editorial", {"enabled": False, "bypassed": True})
+    else:
+        out.setdefault(
+            "editorial",
+            {
+                "enabled": False,
+                "bypassed": True,
+                "reason": "contradiction_reasoning_owns_executive",
+            },
+        )
 
     return out
 
