@@ -370,6 +370,13 @@ export default function ArticleEditor() {
               tags: tagsInput.split(',').map((t) => t.trim()).filter(Boolean),
               status: publishStatus,
               destination: publishStatus === 'published' ? 'website' : 'intelligence',
+              onAttempt: ({ phase, attempt, maxAttempts }) => {
+                if (phase === 'warm') {
+                  setError('Waking intelligence engine…');
+                } else if (attempt > 1) {
+                  setError(`Retrying intelligence ingest (${attempt}/${maxAttempts})…`);
+                }
+              },
             });
 
             if (ingestResult?.id || ingestResult?.document_id) {
@@ -390,6 +397,7 @@ export default function ArticleEditor() {
                 /* optional columns may be missing until migration */
               }
             }
+            setError('');
           } catch (err) {
             // Article is already saved — do not fail the whole CMS action on engine cold-start.
             ingestError = err?.message || 'Intelligence ingest failed';
@@ -423,7 +431,8 @@ export default function ArticleEditor() {
         } else if (!silent && publishStatus === 'intelligence') {
           if (ingestError) {
             alert(
-              `Saved for Intelligence, but engine ingest failed (${ingestError}). Wait ~30s for the engine to wake, then click Send to Intelligence again.`
+              `Saved for Intelligence, but engine ingest failed (${ingestError}). ` +
+                `Your draft is safe. Wait ~30–60s for Render to wake, then click Send to Intelligence again.`
             );
           } else {
             alert('Sent to AGI Intelligence only. This will not appear on the public website.');

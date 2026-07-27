@@ -117,11 +117,47 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function postIngest(base, payload) {
+function isTransientIngestError(err, status) {
+  if ([502, 503, 504].includes(Number(status))) return true;
+  const msg = String(err?.message || err || '');
+  const name = String(err?.name || '');
+  return (
+    name === 'TypeError' ||
+    name === 'AbortError' ||
+    name === 'TimeoutError' ||
+    /failed to fetch|fetch failed|networkerror|network request failed|load failed|timed out|timeout|aborted|502|503|504|unavailable|econnreset|enotfound/i.test(
+      msg
+    )
+  );
+}
+
+/** Soft-wake Node + IE before a write so Render cold starts fail less often. */
+async function warmIntelligence(base) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 25_000);
+  try {
+    await fetch(`${base}/api/health`, {
+      method: 'GET',
+      credentials: 'include',
+      signal: ctrl.signal,
+    }).catch(() => null);
+    await fetch(`${base}/api/intelligence/health`, {
+      method: 'GET',
+      credentials: 'include',
+      signal: ctrl.signal,
+    }).catch(() => null);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function postIngest(base, payload, { timeoutMs = 90_000 } = {}) {
   const resp = await fetch(`${base}/api/intelligence/kip/ingest/agi`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(timeoutMs),
   });
   const text = await resp.text();
   let data = null;
@@ -135,7 +171,8 @@ async function postIngest(base, payload) {
 
 /**
  * Push CMS research into the intelligence engine (KIP).
- * Retries on transient 502/503/504 (Render cold starts).
+ * Retries on transient gateway/engine failures and browser "Failed to fetch"
+ * (common during Render cold starts).
  */
 export async function ingestArticleToIntelligence({
   title,
@@ -146,6 +183,7 @@ export async function ingestArticleToIntelligence({
   tags = [],
   status,
   destination = 'intelligence',
+  onAttempt,
 }) {
   const content = stripHtml(contentHtml);
   if (!title?.trim() || content.length < 40) {
@@ -172,25 +210,35 @@ export async function ingestArticleToIntelligence({
     author: 'AGI Research Desk',
   };
 
+  // Warm first — avoids the first write hitting a sleeping IE with a hard network fail.
+  if (typeof onAttempt === 'function') onAttempt({ phase: 'warm', attempt: 0, maxAttempts: 5 });
+  await warmIntelligence(base);
+
+  const maxAttempts = 5;
+  const backoffs = [0, 3000, 8000, 15000, 25000];
   let lastError = null;
-  for (let attempt = 1; attempt <= 3; attempt += 1) {
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    if (backoffs[attempt - 1]) await sleep(backoffs[attempt - 1]);
+    if (typeof onAttempt === 'function') {
+      onAttempt({ phase: 'ingest', attempt, maxAttempts });
+    }
     try {
       const { resp, data } = await postIngest(base, payload);
       if (resp.ok) return data;
 
-      const detail = data?.error || data?.detail || `Intelligence ingest failed (${resp.status})`;
-      lastError = new Error(detail);
-      // Retry only transient gateway/engine failures.
-      if (![502, 503, 504].includes(resp.status) || attempt === 3) throw lastError;
-      await sleep(1200 * attempt);
+      const detail =
+        data?.detail || data?.error || data?.hint || `Intelligence ingest failed (${resp.status})`;
+      lastError = new Error(String(detail));
+      if (!isTransientIngestError(lastError, resp.status) || attempt === maxAttempts) {
+        throw lastError;
+      }
+      // Re-warm between retries when the engine is clearly cold.
+      await warmIntelligence(base);
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
-      const msg = lastError.message || '';
-      const transient =
-        /502|503|504|fetch failed|timed out|network|unavailable/i.test(msg) ||
-        lastError.name === 'TypeError';
-      if (!transient || attempt === 3) throw lastError;
-      await sleep(1200 * attempt);
+      if (!isTransientIngestError(lastError) || attempt === maxAttempts) throw lastError;
+      await warmIntelligence(base);
     }
   }
 

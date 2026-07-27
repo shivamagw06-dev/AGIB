@@ -125,13 +125,46 @@ export default function createIntelligenceRouter() {
         },
       };
 
-      const result = await engineFetch('/v1/kip/ingest/agi', { method: 'POST', body: payload });
-      return res.status(result.status).json(result.data);
+      // Soft wake + retries — Render free tier often drops the first write during cold start.
+      try {
+        await engineFetch('/v1/health');
+      } catch {
+        /* ignore wake errors */
+      }
+
+      let result = null;
+      let lastErr = null;
+      for (let attempt = 1; attempt <= 4; attempt += 1) {
+        try {
+          result = await engineFetch('/v1/kip/ingest/agi', { method: 'POST', body: payload });
+          if (result.ok || (result.status && result.status < 500 && result.status !== 429)) {
+            return res.status(result.status).json(result.data);
+          }
+          lastErr = result;
+        } catch (error) {
+          lastErr = { ok: false, status: 503, data: { error: error.message } };
+        }
+        if (attempt < 4) {
+          await new Promise((r) => setTimeout(r, 1500 * attempt));
+          try {
+            await engineFetch('/v1/health');
+          } catch {
+            /* ignore */
+          }
+        }
+      }
+
+      return res.status(lastErr?.status || 503).json(
+        lastErr?.data || {
+          error: 'Intelligence ingest unavailable',
+          hint: 'Engine may be cold-starting — retry in ~30s.',
+        }
+      );
     } catch (error) {
       return res.status(503).json({
         error: 'Intelligence ingest unavailable',
         detail: error.message,
-        hint: 'Ensure agib-intelligence-engine is live and INTELLIGENCE_ENGINE_URL/TOKEN are set on the API.',
+        hint: 'Ensure agib-intelligence-engine is live and INTELLIGENCE_ENGINE_URL/TOKEN are set on the API. Retry in ~30s if the engine was sleeping.',
       });
     }
   });
