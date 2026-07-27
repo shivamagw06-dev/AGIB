@@ -16,8 +16,45 @@ export function getIpoSummary() {
   return request('/summary');
 }
 
-export function getIpoPlatform() {
-  return request('/platform');
+function asPlatform(payload = {}) {
+  const active = payload.active || [];
+  const upcoming = payload.upcoming || [];
+  const closed = payload.closed || [];
+  const listed = payload.listed || [];
+  const calendar = payload.calendar || [];
+  return {
+    active,
+    upcoming,
+    closed,
+    listed,
+    calendar,
+    counts: payload.counts || {
+      active: active.length,
+      upcoming: upcoming.length,
+      closed: closed.length,
+      listed: listed.length,
+    },
+    source: payload.source,
+    updatedAt: payload.updatedAt,
+    nextRefreshAt: payload.nextRefreshAt,
+    unavailable: payload.unavailable,
+    disclaimer: payload.disclaimer,
+  };
+}
+
+/** Prefers /platform; soft-falls back to /summary while Render catches up. */
+export async function getIpoPlatform() {
+  try {
+    return asPlatform(await request('/platform'));
+  } catch {
+    const summary = await request('/summary');
+    return asPlatform({
+      ...summary,
+      closed: summary.closed || [],
+      listed: summary.listed || [],
+      calendar: [],
+    });
+  }
 }
 
 export function getIpoDetail(symbol) {
