@@ -57,6 +57,33 @@ def package_reasoning_answer(
                 "company": company,
             }
 
+    # 0a2) Investment-committee / multi-domain case-study habits (soft).
+    try:
+        from institutional_reasoning.ic_case_study import compose_ic_case, detect_ic_case_mode
+
+        ic_mode = detect_ic_case_mode(q)
+        if ic_mode:
+            composed = compose_ic_case(ic_mode, q)
+            if composed.get("enabled") and composed.get("executive"):
+                novelty = score_novelty(
+                    gold_exact=False,
+                    family_id=composed.get("family_id") or "uncertainty",
+                    family_confidence=0.91,
+                    first_principles=True,
+                    adversarial=True,
+                    novelty_band_hint="first_principles_novel",
+                )
+                return {
+                    **composed,
+                    "family_confidence": 0.91,
+                    "family_signals": list(composed.get("families_used") or []),
+                    "novelty": novelty,
+                    "ticker": ticker,
+                    "company": company,
+                }
+    except Exception:
+        pass
+
     # 0b) Adversarial / unknown / cross-family reasoning (Phase 3–8).
     adv_mode = detect_adversarial_mode(q)
     if adv_mode:

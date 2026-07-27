@@ -179,12 +179,17 @@ def detect_adversarial_mode(query: str) -> dict[str, Any] | None:
         }
 
     # Phase 8 consistency — revenue vs cash paraphrases share one habit id.
-    # Keep last so evidence-boundary / dual-hypothesis prompts are not stolen.
+    # Keep last so evidence-boundary / dual-hypothesis / IC case prompts are not stolen.
     if (
         re.search(r"\b(free\s+cash\s+flow|fcf|cash\s+generation|cash\s+fell|cash\s+flow)\b", ql)
         and re.search(r"\b(revenue|sales)\b", ql)
         and re.search(r"\b(fall|fell|weak|declin|despite|even\s+though|but)\b", ql)
-        and not re.search(r"\b(two\s+competing|two\s+explanations|distinguish|cash\s+flow\s+statement)\b", ql)
+        and not re.search(
+            r"\b(two\s+competing|two\s+explanations|distinguish|cash\s+flow\s+statement|"
+            r"executive\s+assessment|investment\s+committee|at\s+least\s+six|"
+            r"rank\s+them|institutional\s+case)\b",
+            ql,
+        )
     ):
         return {
             "mode": "consistency_cash_vs_revenue",
