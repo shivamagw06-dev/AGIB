@@ -195,12 +195,18 @@ def _parse_xlsx(raw: bytes) -> dict[str, Any]:
 
     for sheet_name in sheets[:20]:
         ws = wb[sheet_name]
+        # Skip chart-only sheets (Damodaran workbooks often include Chartsheets).
+        if not hasattr(ws, "iter_rows"):
+            continue
         headers: list[str] = []
         formula_count = 0
         sample_inputs: list[str] = []
         sample_outputs: list[str] = []
         # read limited grid
-        rows_iter = ws.iter_rows(min_row=1, max_row=80, max_col=24, values_only=False)
+        try:
+            rows_iter = ws.iter_rows(min_row=1, max_row=80, max_col=24, values_only=False)
+        except Exception:
+            continue
         for r_i, row in enumerate(rows_iter):
             for cell in row:
                 val = cell.value

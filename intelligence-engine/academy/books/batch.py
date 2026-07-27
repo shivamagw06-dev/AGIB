@@ -62,15 +62,33 @@ def ingest_personal_library(
             continue
 
         if ext in SHEET_EXTS or ext == ".csv":
-            row = ingest_spreadsheet(filename=path.name, content_bytes=raw, title=title, store=store)
+            try:
+                row = ingest_spreadsheet(filename=path.name, content_bytes=raw, title=title, store=store)
+            except Exception as exc:
+                row = {
+                    "ok": False,
+                    "title": title,
+                    "filename": path.name,
+                    "reason": f"spreadsheet_ingest_failed:{exc}",
+                    "extraction_quality": "empty",
+                }
         elif ext in BOOK_EXTS:
-            row = ingest_book(
-                title=title,
-                content_bytes=raw,
-                filename=path.name,
-                store=store,
-            )
-            row = _normalize_book_report(row, title=title, filename=path.name, store=store)
+            try:
+                row = ingest_book(
+                    title=title,
+                    content_bytes=raw,
+                    filename=path.name,
+                    store=store,
+                )
+                row = _normalize_book_report(row, title=title, filename=path.name, store=store)
+            except Exception as exc:
+                row = {
+                    "ok": False,
+                    "title": title,
+                    "filename": path.name,
+                    "reason": f"book_ingest_failed:{exc}",
+                    "extraction_quality": "empty",
+                }
         else:
             row = {"ok": False, "title": title, "filename": path.name, "reason": "unsupported"}
 
