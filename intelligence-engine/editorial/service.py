@@ -9,6 +9,7 @@ from typing import Any
 from editorial.cache import get_cache
 from editorial.flags import is_enabled
 from editorial.gemini_provider import GeminiProvider
+from editorial.glossary import plain_english
 from editorial.logging_util import log_editorial_event
 from editorial.package import sanitize_structured
 from editorial.prompts import EDITORIAL_SYSTEM, word_limit_for
@@ -29,6 +30,7 @@ _IMPERATIVE = re.compile(
     r"\b(you should|investors should|we recommend|recommend buying|recommend selling|"
     r"target price|price target|stop[\s-]?loss|take (profit|position)|"
     r"enter|exit the stock|invest now|add to portfolio|"
+    r"a position is only justified|only justified when|"
     r"upside|downside)\b",
     re.I,
 )
@@ -80,6 +82,8 @@ def strip_advice_language(text: str) -> str:
     cleaned = re.sub(r"(?i)\b(?:upside|downside)\s*(?:of\s*)?[\d.]+%?", "", cleaned)
     cleaned = re.sub(r"[ \t]{2,}", " ", cleaned)
     cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+    # Permanent glossary pass: jargon → plain English; banned investment words → descriptive phrases
+    cleaned = plain_english(cleaned.strip(" \n"))
     return cleaned.strip(" \n")
 
 

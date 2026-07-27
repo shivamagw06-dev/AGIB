@@ -1,31 +1,10 @@
-"""Plain-English editorial templates — never advice, never jargon-heavy."""
+"""Plain-English editorial templates — glossary-backed, never advice."""
 
 from __future__ import annotations
 
-import re
 from typing import Any
 
-_JARGON = (
-    (re.compile(r"\basset quality\b", re.I), "loan quality"),
-    (re.compile(r"\bfinancial performance\b", re.I), "financial health"),
-    (re.compile(r"\bfranchise\b", re.I), "business strength"),
-    (re.compile(r"\bcredit quality\b", re.I), "loan quality"),
-    (re.compile(r"\bvaluation multiple\b", re.I), "current valuation"),
-    (re.compile(r"\bNIM\b"), "interest margin"),
-    (re.compile(r"\bNPA\b"), "bad loans"),
-)
-
-
-def _join(items: list[str], limit: int = 3) -> str:
-    clean = [str(x).strip().rstrip(".") for x in items if str(x).strip()]
-    return "; ".join(clean[:limit]) if clean else ""
-
-
-def simplify_jargon(text: str) -> str:
-    out = str(text or "")
-    for pattern, repl in _JARGON:
-        out = pattern.sub(repl, out)
-    return out
+from editorial.glossary import plain_english, simplify_jargon
 
 
 def _company(structured: dict[str, Any]) -> str:
@@ -37,9 +16,17 @@ def _quality_phrase(structured: dict[str, Any]) -> str:
     fq = structured.get("financial_quality")
     bits = []
     if bq:
-        bits.append("strong business strength" if str(bq).lower() in {"excellent", "strong", "a", "a+", "high"} else f"business strength rated {bq}")
+        bits.append(
+            "strong and reliable business strength"
+            if str(bq).lower() in {"excellent", "strong", "a", "a+", "high"}
+            else f"business strength rated {bq}"
+        )
     if fq:
-        bits.append("stable financial health" if str(fq).lower() in {"stable", "strong", "good"} else f"financial health rated {fq}")
+        bits.append(
+            "stable financial health"
+            if str(fq).lower() in {"stable", "strong", "good"}
+            else f"financial health rated {fq}"
+        )
     if not bits:
         return "steady business and financial health"
     if len(bits) == 1:
@@ -58,7 +45,10 @@ def template_quick_summary(structured: dict[str, Any], question: str | None = No
         evidence = simplify_jargon(str(reasons[0]).rstrip("."))
         s2 = f"{evidence}."
     elif val:
-        s2 = f"Current valuation is described as {val} in the available assessment."
+        s2 = (
+            f"Current market price compared with the company's performance "
+            f"is described as {val} in the available assessment."
+        )
     else:
         s2 = "The available evidence is limited, so the picture is incomplete."
 
@@ -70,7 +60,7 @@ def template_quick_summary(structured: dict[str, Any], question: str | None = No
     else:
         s3 = "Available evidence is insufficient to highlight a clear risk."
 
-    return simplify_jargon(f"{s1} {s2} {s3}".strip())
+    return plain_english(f"{s1} {s2} {s3}".strip())
 
 
 def template_quick_analysis(structured: dict[str, Any], question: str | None = None) -> str:
@@ -79,7 +69,7 @@ def template_quick_analysis(structured: dict[str, Any], question: str | None = N
     extra = ""
     if len(reasons) > 1:
         extra = f" Another supporting point is {simplify_jargon(str(reasons[1]).rstrip('.'))}."
-    return f"{base}{extra}".strip()
+    return plain_english(f"{base}{extra}".strip())
 
 
 def template_detailed_analysis(structured: dict[str, Any], question: str | None = None) -> str:
@@ -92,14 +82,17 @@ def template_detailed_analysis(structured: dict[str, Any], question: str | None 
     extras = []
     if bq or fq:
         extras.append(
-            f"In simple terms, {company}'s business strength"
-            + (f" is {bq}" if bq else "")
+            f"In simple terms, how strong and reliable {company}'s business is"
+            + (f" is rated {bq}" if bq else "")
             + (" and " if bq and fq else " ")
             + (f"financial health is {fq}" if fq else "")
             + "."
         )
     if val:
-        extras.append(f"Current valuation is labelled {val} in the supplied assessment.")
+        extras.append(
+            "Current market price compared with the company's performance "
+            f"is labelled {val} in the supplied assessment."
+        )
     if horizon:
         extras.append(f"The time frame noted in the assessment is {horizon}.")
     reasons = list(structured.get("top_reasons") or [])
@@ -110,9 +103,8 @@ def template_detailed_analysis(structured: dict[str, Any], question: str | None 
         extras.append("A key limitation is " + simplify_jargon(str(risk).rstrip(".")) + ".")
     if not reasons and not risks:
         extras.append("Available evidence is insufficient for a denser explanation.")
-    # Dedupe against base lightly
     body = " ".join(extras)
-    return simplify_jargon(f"{base} {body}".strip())
+    return plain_english(f"{base} {body}".strip())
 
 
 def render_template(mode: str, structured: dict[str, Any], question: str | None = None) -> str:

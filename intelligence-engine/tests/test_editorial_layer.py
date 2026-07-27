@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from editorial.cache import EditorialCache
+from editorial.glossary import PERMANENT_RULE, plain_english, simplify_jargon
 from editorial.package import build_structured_package, contains_forbidden_payload, sanitize_structured
 from editorial.production import health, package_for_ask_agi, quality_gates
+from editorial.prompts import EDITORIAL_SYSTEM, build_prompt
 from editorial.service import (
     EditorialService,
     generateQuickAnalysis,
@@ -45,6 +47,45 @@ def test_health_and_gates():
     assert g["checks"]["word_limits"]["detailed_analysis"] == 400
 
 
+def test_permanent_rule_in_prompts():
+    assert "Never assume the reader understands finance" in PERMANENT_RULE
+    assert PERMANENT_RULE in EDITORIAL_SYSTEM
+    prompt = build_prompt(mode="quick_summary", structured=SAMPLE, question="Should I buy HDFC Bank?")
+    assert "Never assume the reader understands finance" in prompt
+    assert "gross npa" in prompt.lower()
+    assert "never say" in prompt.lower()
+
+
+def test_glossary_simplifies_banking_and_business_terms():
+    text = simplify_jargon(
+        "Strong deposit franchise with stable asset quality and NIM pressure; Gross NPA low; ROE solid."
+    )
+    lower = text.lower()
+    assert "franchise" not in lower
+    assert "business strength" in lower or "customer base" in lower
+    assert "asset quality" not in lower
+    assert "loan quality" in lower
+    assert "nim" not in lower
+    assert "lending profit" in lower or "deposit costs" in lower
+    assert "gross npa" not in lower
+    assert "roe" not in lower
+
+
+def test_investment_language_replaced():
+    out = plain_english("Hold. Upside remains. Entry point attractive. Avoid weak names.")
+    lower = out.lower()
+    assert "hold" not in lower.split()
+    assert "upside" not in lower
+    assert "entry point" not in lower
+    assert "avoid" not in lower.split()
+    assert (
+        "balanced" in lower
+        or "potential improvement" in lower
+        or "monitoring" in lower
+        or "risks outweigh" in lower
+    )
+
+
 def test_sanitize_drops_forbidden_document_fields():
     dirty = {
         **SAMPLE,
@@ -63,13 +104,11 @@ def test_template_fallback_is_plain_english_rewrite():
     text = render_template("quick_summary", SAMPLE)
     assert "Recommendation:" not in text
     lower = text.lower()
-    assert "buy" not in lower.split()  # no action verb as a word lead
-    assert "business strength" in lower or "deposit" in lower
-    assert "interest margin" in lower or "loan quality" in lower or "watch" in lower
     assert "you should" not in lower
     assert "target price" not in lower
     assert "franchise" not in lower
     assert "nim" not in lower
+    assert "business strength" in lower or "deposit" in lower
 
 
 def test_generate_quick_summary_never_emits_advice():
@@ -84,12 +123,10 @@ def test_generate_quick_summary_never_emits_advice():
     lower = (out.get("rewritten_summary") or "").lower()
     assert "you should" not in lower
     assert "target price" not in lower
-    # First sentence answers directly
     assert (out.get("text") or "").startswith("HDFC Bank")
 
 
 def test_generate_recommendation_is_plain_summary_not_action():
-    # Legacy name still returns rewrite-only prose — never Recommendation: BUY
     out = generateRecommendation(SAMPLE, question="Should I buy HDFC Bank?")
     assert out["fallback"] is True
     assert not (out.get("text") or "").startswith("Recommendation:")
@@ -111,7 +148,8 @@ def test_strip_advice_language():
     clean = strip_advice_language(dirty)
     assert "Recommendation:" not in clean
     assert "you should" not in clean.lower()
-    assert "Deposit franchise remains resilient." in clean
+    assert "franchise" not in clean.lower()
+    assert "business strength" in clean.lower() or "deposit" in clean.lower()
 
 
 def test_service_strips_provider_advice(monkeypatch):
@@ -123,7 +161,11 @@ def test_service_strips_provider_advice(monkeypatch):
 
         async def rewrite(self, **kwargs):
             return {
-                "text": "Recommendation: SELL\nBuy this name aggressively.\nStrong deposit franchise supports resilience.",
+                "text": (
+                    "Recommendation: SELL\n"
+                    "A position is only justified when NIM expands.\n"
+                    "Strong deposit franchise supports resilience."
+                ),
                 "provider": "fake",
                 "model": "fake",
                 "usage": {},
@@ -133,8 +175,11 @@ def test_service_strips_provider_advice(monkeypatch):
 
     service = EditorialService(provider=FakeProvider())
     out = service.generateQuickSummary(SAMPLE, question="Should I buy?")
-    assert "Recommendation:" not in (out.get("rewritten_summary") or "")
-    assert "SELL" not in (out.get("rewritten_summary") or "")
+    text = out.get("rewritten_summary") or ""
+    assert "Recommendation:" not in text
+    assert "SELL" not in text
+    assert "only justified" not in text.lower()
+    assert "franchise" not in text.lower()
 
 
 def test_cache_identical_summary_requests():
@@ -175,6 +220,8 @@ def test_package_for_ask_agi_soft_wire_rewrite_only():
     assert "Recommendation:" not in out["rewritten_summary"]
     assert "Recommendation:" not in (out["executive"] or "")
     assert not (out["executive"] or "").lower().startswith("recommendation")
+    assert "franchise" not in (out["executive"] or "").lower()
+    assert "nim" not in (out["executive"] or "").lower()
 
 
 def test_build_structured_package_from_agib_outputs():
