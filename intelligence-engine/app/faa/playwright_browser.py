@@ -148,6 +148,12 @@ def playwright_available() -> bool:
 
 
 def playwright_status(*, probe: bool = False) -> dict[str, Any]:
+    """Status for health endpoints.
+
+    Never launches Chromium unless probe=True. Health must stay cheap; missing
+    binaries are repaired by ensure_chromium_installed() on first real fetch or
+    via the background startup bootstrap.
+    """
     global _INIT_ERROR, _READY
     enabled = playwright_enabled()
     out: dict[str, Any] = {
@@ -172,9 +178,21 @@ def playwright_status(*, probe: bool = False) -> dict[str, Any]:
         out["hint"] = "pip install playwright && playwright install chromium"
         return out
 
-    if not probe and _READY is not None:
-        out["ready"] = bool(_READY)
-        out["error"] = _INIT_ERROR
+    if not probe:
+        if _READY is None:
+            out["ready"] = False
+            out["hint"] = (
+                "Chromium not probed yet — auto-install runs on first JS fetch "
+                "or background bootstrap"
+            )
+        else:
+            out["ready"] = bool(_READY)
+            out["error"] = _INIT_ERROR
+            if not _READY:
+                out["hint"] = (
+                    "Set Render buildCommand to: "
+                    "pip install -r requirements.txt && python -m playwright install chromium"
+                )
         return out
 
     try:
@@ -185,6 +203,12 @@ def playwright_status(*, probe: bool = False) -> dict[str, Any]:
         out["ready"] = True
         out["error"] = None
     except Exception as exc:
+        # Do not poison readiness before auto-install has a chance to run.
+        if not _INSTALL_ATTEMPTED:
+            out["ready"] = False
+            out["error"] = f"probe_failed_pending_install: {exc}"[:240]
+            out["hint"] = "Chromium missing — background/auto install will retry"
+            return out
         _READY = False
         _INIT_ERROR = f"launch_failed: {exc}"
         out["ready"] = False
@@ -194,6 +218,23 @@ def playwright_status(*, probe: bool = False) -> dict[str, Any]:
             "pip install -r requirements.txt && python -m playwright install chromium"
         )
     return out
+
+
+def bootstrap_chromium_background() -> None:
+    """Kick off one-shot Chromium ensure on a daemon thread (startup-safe)."""
+    if not playwright_enabled():
+        return
+
+    def _run() -> None:
+        try:
+            ok = ensure_chromium_installed()
+            log_msg = "playwright_chromium_ready" if ok else "playwright_chromium_install_failed"
+            # Avoid importing app logging here (circular); stdout is enough for Render.
+            print(f"[faa] {log_msg} ready={ok} err={_INSTALL_ERROR or _INIT_ERROR}", flush=True)
+        except Exception as exc:
+            print(f"[faa] playwright_chromium_bootstrap_error {exc}", flush=True)
+
+    threading.Thread(target=_run, name="faa-playwright-bootstrap", daemon=True).start()
 
 
 def _html_to_text(html: str) -> str:

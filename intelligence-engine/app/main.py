@@ -35,6 +35,15 @@ async def lifespan(_app: FastAPI):
             )
     except Exception as exc:
         log.warning("institutional_stack_bootstrap_failed", extra={"error": str(exc)[:160]})
+    # FAA Playwright Chromium — non-blocking; repairs missing browsers after deploy
+    try:
+        from app.faa.playwright_browser import bootstrap_chromium_background, playwright_enabled
+
+        if playwright_enabled():
+            bootstrap_chromium_background()
+            log.info("faa_playwright_chromium_bootstrap_started")
+    except Exception as exc:
+        log.warning("faa_playwright_bootstrap_failed", extra={"error": str(exc)[:160]})
     log.info(
         "intelligence_engine_started",
         extra={"env": settings.app_env, "agib_base": settings.agib_api_base_url},

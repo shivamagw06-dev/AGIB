@@ -123,6 +123,20 @@ def test_ensure_chromium_respects_auto_install_off(monkeypatch):
     assert pb.ensure_chromium_installed() is False
 
 
+def test_playwright_status_does_not_probe_by_default(monkeypatch):
+    from app.faa import playwright_browser as pb
+
+    monkeypatch.setenv("FAA_PLAYWRIGHT", "true")
+    pb._READY = None
+    pb._INIT_ERROR = None
+    pb._INSTALL_ATTEMPTED = False
+    status = pb.playwright_status(probe=False)
+    assert status["enabled"] is True
+    assert status["ready"] is False
+    assert status["error"] is None
+    assert pb._READY is None  # health must not poison readiness
+
+
 def test_unwrap_soft_slice_flattens_named_wrapper():
     from app.ui.service import _unwrap_soft_slice
 
