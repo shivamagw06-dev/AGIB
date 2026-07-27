@@ -142,14 +142,17 @@ def ingest_book(
     # Multi-slice whole-book pass (front / middle / end) for formulas & frameworks
     n = len(text)
     slices = [
-        ("front_matter", text[:16000]),
-        ("mid_matter", text[max(0, n // 2 - 8000) : n // 2 + 8000]),
-        ("end_matter", text[max(0, n - 16000) :]),
+        ("front_matter", text[:20000]),
+        ("mid_matter", text[max(0, n // 2 - 10000) : n // 2 + 10000]),
+        ("end_matter", text[max(0, n - 20000) :]),
     ]
     # Extra evenly spaced slices for long textbooks
-    if n > 80000:
-        for i, start in enumerate(range(20000, max(20000, n - 20000), max(20000, n // 6))):
-            slices.append((f"slice_{i}", text[start : start + 12000]))
+    if n > 60000:
+        step = max(15000, n // 8)
+        for i, start in enumerate(range(15000, max(15000, n - 15000), step)):
+            slices.append((f"slice_{i}", text[start : start + 14000]))
+            if len(slices) >= 14:
+                break
     for label, chunk in slices:
         pack = extract_from_text(book_id=book_id, text=chunk, chapter_title=label)
         for f in pack["formulas"]:

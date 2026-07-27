@@ -74,24 +74,29 @@ def _pdf_to_text(raw: bytes) -> dict[str, Any]:
         reader = PdfReader(io.BytesIO(raw))
         n_pages = len(reader.pages)
         # Cap pages for extraction speed/memory; still report full page count.
-        # Large textbooks (Damodaran / Mankiw) need deeper coverage to learn.
-        max_pages = min(n_pages, 450)
+        # Large textbooks (Damodaran ACF ~981p, Mankiw ~887p) need deep coverage.
+        max_pages = min(n_pages, 900)
         parts: list[str] = []
         for i in range(max_pages):
             try:
                 parts.append(reader.pages[i].extract_text() or "")
             except Exception:
                 continue
-        # Sample tail pages for end-matter keywords if truncated
+        # Sample mid + tail pages if truncated so end-matter is not lost
         if n_pages > max_pages:
-            for i in range(max(max_pages, n_pages - 15), n_pages):
+            mid = n_pages // 2
+            sample_idxs = set(range(max(max_pages, n_pages - 20), n_pages))
+            sample_idxs.update(range(max(0, mid - 5), min(n_pages, mid + 5)))
+            for i in sorted(sample_idxs):
+                if i < max_pages:
+                    continue
                 try:
                     parts.append(reader.pages[i].extract_text() or "")
                 except Exception:
                     continue
         text = "\n\n".join(parts)
-        if len(text) > 500_000:
-            text = text[:500_000]
+        if len(text) > 900_000:
+            text = text[:900_000]
         meta = {}
         try:
             info = reader.metadata or {}
