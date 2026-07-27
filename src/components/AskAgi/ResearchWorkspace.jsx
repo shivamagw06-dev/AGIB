@@ -344,44 +344,19 @@ export default function ResearchWorkspace({
                   <Section
                     id="executive"
                     kicker={ownerKicker(vm, 'executive_summary', 'Section 1')}
-                    title={vm.institutionalAnswer ? 'AGIB Institutional Intelligence' : 'Executive Summary'}
+                    title={vm.editorialEnabled ? 'Plain-English Summary' : 'Executive Summary'}
                   >
-                    {vm.institutionalAnswer ? (
-                      <div className="space-y-3">
-                        <p className={`rw-view-value text-[22px] tone-${vm.stanceTone}`}>
-                          Recommendation: {vm.institutionalAnswer.recommendation}
-                          {vm.institutionalAnswer.conviction
-                            ? ` (${vm.institutionalAnswer.conviction})`
-                            : ''}
-                        </p>
-                        {vm.institutionalAnswer.reason ? (
-                          <p className="rw-body">
-                            <span className="rw-mini">Reason</span>
-                            <br />
-                            {vm.institutionalAnswer.reason}
-                          </p>
-                        ) : null}
-                        {vm.institutionalAnswer.risk ? (
-                          <p className="rw-body">
-                            <span className="rw-mini">Risk</span>
-                            <br />
-                            {vm.institutionalAnswer.risk}
-                          </p>
-                        ) : null}
-                        {vm.institutionalAnswer.horizon ? (
-                          <p className="rw-body">
-                            <span className="rw-mini">Investment Horizon</span>
-                            <br />
-                            {vm.institutionalAnswer.horizon}
-                          </p>
-                        ) : null}
-                        {!vm.institutionalAnswer.reason && vm.executive ? (
-                          <p className="rw-body whitespace-pre-line">{vm.executive}</p>
-                        ) : null}
-                      </div>
-                    ) : (
-                      <p className="rw-body">{vm.executive || 'Institutional summary assembling…'}</p>
-                    )}
+                    <p className="rw-body whitespace-pre-line text-[17px] leading-7">
+                      {vm.executive ||
+                        vm.institutionalAnswer?.reason ||
+                        'Institutional summary assembling…'}
+                    </p>
+                    {vm.editorialEnabled ? (
+                      <p className="rw-mini mt-3">
+                        Editorial rewrite of AGIB intelligence · Not investment advice
+                        {vm.editorialFallback ? ' · template fallback' : ''}
+                      </p>
+                    ) : null}
                   </Section>
                   <Section
                     id="view"
@@ -389,6 +364,23 @@ export default function ResearchWorkspace({
                     title="Institutional View"
                   >
                     <div className="grid grid-cols-2 gap-3">
+                      {vm.institutionalAnswer?.recommendation ? (
+                        <div className="col-span-2">
+                          <p className="rw-mini">AGIB Assessment</p>
+                          <p className={`rw-view-value tone-${vm.stanceTone}`}>
+                            {vm.institutionalAnswer.recommendation}
+                            {vm.institutionalAnswer.conviction
+                              ? ` · ${vm.institutionalAnswer.conviction}`
+                              : ''}
+                          </p>
+                          {vm.institutionalAnswer.horizon ? (
+                            <p className="rw-mini mt-1">Horizon: {vm.institutionalAnswer.horizon}</p>
+                          ) : null}
+                          {vm.institutionalAnswer.risk ? (
+                            <p className="rw-body mt-2">{vm.institutionalAnswer.risk}</p>
+                          ) : null}
+                        </div>
+                      ) : null}
                       <div>
                         <p className="rw-mini">Current View</p>
                         <p className={`rw-view-value tone-${vm.stanceTone}`}>{vm.stance}</p>
@@ -407,7 +399,7 @@ export default function ResearchWorkspace({
                         <p className="font-semibold tone-pos">{vm.changeVsPrevious}</p>
                       </div>
                       <div className="col-span-2">
-                        <p className="rw-mini">Recommendation Readiness</p>
+                        <p className="rw-mini">Assessment Readiness</p>
                         <p className="font-semibold">
                           {vm.institutionalView?.readiness || vm.readiness}
                         </p>

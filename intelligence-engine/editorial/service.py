@@ -18,17 +18,27 @@ from editorial.template_fallback import render_template
 
 _WORD_RE = re.compile(r"\s+")
 _ADVICE_LINE = re.compile(
-    r"(?im)^\s*(recommendation|action|rating|call|target\s*price)\s*:\s*.+$"
+    r"(?im)^\s*(recommendation|action|rating|call|verdict|stance|"
+    r"target\s*price|price\s*target|stop[\s-]?loss|investment\s+advice)\s*:\s*.+$"
 )
 _ADVICE_VERBS = re.compile(
-    r"\b(buy|sell|hold|accumulate|avoid|overweight|underweight)\b",
+    r"\b(buy|sell|hold|accumulate|avoid|overweight|underweight|strong\s+buy)\b",
     re.I,
 )
 _IMPERATIVE = re.compile(
     r"\b(you should|investors should|we recommend|recommend buying|recommend selling|"
-    r"target price|price target|take (profit|position)|enter|exit the stock)\b",
+    r"target price|price target|stop[\s-]?loss|take (profit|position)|"
+    r"enter|exit the stock|invest now|add to portfolio|"
+    r"upside|downside)\b",
     re.I,
 )
+
+_WORD_LIMITS = {
+    "quick_summary": 80,
+    "recommendation": 80,
+    "quick_analysis": 150,
+    "detailed_analysis": 400,
+}
 
 
 def _word_count(text: str) -> int:
@@ -43,7 +53,7 @@ def _clamp_words(text: str, max_words: int) -> str:
 
 
 def strip_advice_language(text: str) -> str:
-    """Remove any advice / recommendation language Gemini may have emitted."""
+    """Remove any advice / recommendation / action language a model may have emitted."""
     if not text:
         return ""
     lines = []
@@ -54,36 +64,23 @@ def strip_advice_language(text: str) -> str:
             continue
         lines.append(line)
     cleaned = "\n".join(lines).strip()
-    # Soften residual action verbs used as advice leads ("Buy this stock…") without
-    # erasing factual quality labels that happen to contain those words elsewhere.
     cleaned = re.sub(
         r"(?i)\b(we|i)\s+(buy|sell|hold|accumulate|avoid)\b",
         "the package notes",
         cleaned,
     )
     cleaned = re.sub(
-        r"(?i)^\s*(buy|sell|hold|accumulate|avoid)\b([\s,:—-]+)",
+        r"(?i)^\s*(buy|sell|hold|accumulate|avoid|strong\s+buy)\b([\s,:—-]+)",
         "Observation: ",
         cleaned,
     )
+    cleaned = re.sub(r"(?i)\btarget\s*(?:price)?\s*[:=]?\s*₹?[\d,.]+\b", "", cleaned)
+    cleaned = re.sub(r"(?i)\b(?:price\s*)?target\s*[:=]?\s*₹?[\d,.]+\b", "", cleaned)
+    cleaned = re.sub(r"(?i)\bstop[\s-]?loss\s*[:=]?\s*₹?[\d,.]+\b", "", cleaned)
+    cleaned = re.sub(r"(?i)\b(?:upside|downside)\s*(?:of\s*)?[\d.]+%?", "", cleaned)
+    cleaned = re.sub(r"[ \t]{2,}", " ", cleaned)
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
     return cleaned.strip(" \n")
-
-
-def compose_with_agib_recommendation(editorial_text: str, structured: dict[str, Any]) -> str:
-    """AGIB owns the recommendation line; editorial supplies rewritten summary only."""
-    reco = str(structured.get("recommendation") or "").strip()
-    if not reco:
-        return editorial_text
-    conviction = str(structured.get("conviction") or "").strip()
-    horizon = str(structured.get("investment_horizon") or "").strip()
-    head = f"Recommendation: {reco}"
-    if conviction:
-        head += f" ({conviction})"
-    body = strip_advice_language(editorial_text)
-    parts = [head, "", body]
-    if horizon and horizon.lower() not in body.lower():
-        parts.append(f"Investment Horizon: {horizon}.")
-    return "\n".join(p for p in parts if p is not None).strip()
 
 
 def resolve_provider(name: str | None = None) -> EditorialProvider:
@@ -133,11 +130,7 @@ class EditorialService:
             "never_recommends_actions": True,
             "provider": self.provider.health(),
             "cache_ttl_hours": 24,
-            "word_limits": {
-                "quick_summary": 60,
-                "quick_analysis": 120,
-                "detailed_analysis": 400,
-            },
+            "word_limits": dict(_WORD_LIMITS),
         }
 
     def _run(
@@ -148,13 +141,12 @@ class EditorialService:
         question: str | None = None,
         max_words: int | None = None,
         use_cache: bool = True,
-        attach_agib_recommendation: bool = False,
     ) -> dict[str, Any]:
         clean = sanitize_structured(structured)
         clean["mode"] = mode
         if question:
             clean["question"] = question
-        limit = max_words or word_limit_for(mode)
+        limit = max_words or word_limit_for(mode) or _WORD_LIMITS.get(mode, 80)
 
         cache_key = self.cache.make_key(mode, clean, question)
         if use_cache:
@@ -186,7 +178,10 @@ class EditorialService:
                     max_words=limit,
                 )
                 text = strip_advice_language(str(result.get("text") or ""))
-                text = _clamp_words(text, limit)
+                # If advice verbs remain after stripping, prefer template.
+                if text and _ADVICE_VERBS.search(text) and _IMPERATIVE.search(text):
+                    text = ""
+                text = _clamp_words(text, limit) if text else None
                 meta = {
                     "provider": result.get("provider") or self.provider.name,
                     "model": result.get("model"),
@@ -207,7 +202,7 @@ class EditorialService:
 
         fallback = False
         if not text:
-            text = render_template(mode, clean)
+            text = render_template(mode, clean, question=question)
             text = strip_advice_language(text)
             text = _clamp_words(text, limit)
             fallback = True
@@ -228,12 +223,8 @@ class EditorialService:
                 error=error,
             )
 
-        rewritten = text
-        display = (
-            compose_with_agib_recommendation(rewritten, clean)
-            if attach_agib_recommendation
-            else rewritten
-        )
+        # Editorial display text is always the rewrite — never "Recommendation: Buy/Sell/Hold"
+        display = text
 
         out = {
             "enabled": True,
@@ -242,13 +233,14 @@ class EditorialService:
             "role": "writer_only",
             "mode": mode,
             "text": display,
-            "rewritten_summary": rewritten,
-            "word_count": _word_count(rewritten),
+            "rewritten_summary": text,
+            "word_count": _word_count(text),
             "max_words": limit,
             "structured_intelligence": clean,
             "recommendation_from_agib_only": True,
             "never_invented_facts": True,
             "never_generates_advice": True,
+            "never_recommends_actions": True,
             "editorial_system": EDITORIAL_SYSTEM[:180],
             "fallback": fallback,
             "cache_hit": False,
@@ -266,13 +258,15 @@ class EditorialService:
         question: str | None = None,
         attach_agib_recommendation: bool = False,
     ) -> dict[str, Any]:
+        # attach_agib_recommendation kept for API compat but ignored —
+        # editorial never emits Recommendation: Buy/Sell/Hold.
+        _ = attach_agib_recommendation
         return self._run(
             mode="quick_summary",
             structured=structured,
             question=question,
-            max_words=60,
+            max_words=_WORD_LIMITS["quick_summary"],
             use_cache=True,
-            attach_agib_recommendation=attach_agib_recommendation,
         )
 
     def generateRecommendation(
@@ -281,12 +275,8 @@ class EditorialService:
         *,
         question: str | None = None,
     ) -> dict[str, Any]:
-        """Legacy name — editorial still only rewrites; AGIB recommendation may be attached."""
-        return self.generateQuickSummary(
-            structured,
-            question=question,
-            attach_agib_recommendation=True,
-        )
+        """Legacy name — still a plain-English Quick Summary, never an action call."""
+        return self.generateQuickSummary(structured, question=question)
 
     def generateQuickAnalysis(
         self,
@@ -298,9 +288,8 @@ class EditorialService:
             mode="quick_analysis",
             structured=structured,
             question=question,
-            max_words=120,
+            max_words=_WORD_LIMITS["quick_analysis"],
             use_cache=True,
-            attach_agib_recommendation=False,
         )
 
     def generateDetailedAnalysis(
@@ -313,9 +302,8 @@ class EditorialService:
             mode="detailed_analysis",
             structured=structured,
             question=question,
-            max_words=400,
+            max_words=_WORD_LIMITS["detailed_analysis"],
             use_cache=False,
-            attach_agib_recommendation=False,
         )
 
 

@@ -35,7 +35,11 @@ def quality_gates() -> dict[str, Any]:
             "structured_intelligence_only": True,
             "fallback_template_on_failure": True,
             "cache_recommendations_24h": True,
-            "word_limits": {"quick_summary": 60, "quick_analysis": 120, "detailed_analysis": 400},
+            "word_limits": {
+                "quick_summary": 80,
+                "quick_analysis": 150,
+                "detailed_analysis": 400,
+            },
         },
         "flags": flags_dict(),
     }
@@ -51,9 +55,10 @@ def package_for_ask_agi(
     company: str | None = None,
     detailed: bool = False,
 ) -> dict[str, Any]:
-    """Soft-wire: take AGIB structured outputs → editorial prose.
+    """Soft-wire: take AGIB structured outputs → plain-English editorial prose.
 
     Returns empty/disabled package when layer is off. Never raises.
+    Editorial never attaches Buy/Sell/Hold — rewrite only.
     """
     if not is_enabled():
         return {
@@ -79,16 +84,13 @@ def package_for_ask_agi(
         if detailed:
             result = service.generateDetailedAnalysis(structured, question=query)
         elif isinstance(ia, dict) and (ia.get("is_recommendation_query") or ia.get("enabled")):
-            # Editorial rewrites summary only; AGIB recommendation is attached separately.
-            result = service.generateQuickSummary(
-                structured,
-                question=query,
-                attach_agib_recommendation=True,
-            )
+            # Plain-English Quick Summary only — no Recommendation: Buy/Sell/Hold prefix.
+            result = service.generateQuickSummary(structured, question=query)
         else:
             result = service.generateQuickAnalysis(structured, question=query)
 
         rewritten = result.get("rewritten_summary") or result.get("text")
+        executive = rewritten  # always rewrite-only for Ask AGI executive text
         return {
             "enabled": True,
             "programme": PROGRAMME,
@@ -97,10 +99,11 @@ def package_for_ask_agi(
             "role": "writer_only",
             "agib_is_brain": True,
             "never_generates_advice": True,
+            "never_recommends_actions": True,
             "flags": flags_dict(),
             "structured_intelligence": structured,
             "editorial": result,
-            "executive": result.get("text"),
+            "executive": executive,
             "rewritten_summary": rewritten,
             "fallback": bool(result.get("fallback")),
             "provider": result.get("provider"),

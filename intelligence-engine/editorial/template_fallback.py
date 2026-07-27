@@ -1,8 +1,19 @@
-"""Internal response templates — neutral rewrite only. Never advice."""
+"""Plain-English editorial templates — never advice, never jargon-heavy."""
 
 from __future__ import annotations
 
+import re
 from typing import Any
+
+_JARGON = (
+    (re.compile(r"\basset quality\b", re.I), "loan quality"),
+    (re.compile(r"\bfinancial performance\b", re.I), "financial health"),
+    (re.compile(r"\bfranchise\b", re.I), "business strength"),
+    (re.compile(r"\bcredit quality\b", re.I), "loan quality"),
+    (re.compile(r"\bvaluation multiple\b", re.I), "current valuation"),
+    (re.compile(r"\bNIM\b"), "interest margin"),
+    (re.compile(r"\bNPA\b"), "bad loans"),
+)
 
 
 def _join(items: list[str], limit: int = 3) -> str:
@@ -10,77 +21,103 @@ def _join(items: list[str], limit: int = 3) -> str:
     return "; ".join(clean[:limit]) if clean else ""
 
 
-def _evidence_note(structured: dict[str, Any]) -> str:
-    reasons = structured.get("top_reasons") if isinstance(structured.get("top_reasons"), list) else []
-    risks = structured.get("top_risks") if isinstance(structured.get("top_risks"), list) else []
-    if not reasons and not risks:
-        return "Available evidence is insufficient for a fuller institutional narrative."
-    return ""
+def simplify_jargon(text: str) -> str:
+    out = str(text or "")
+    for pattern, repl in _JARGON:
+        out = pattern.sub(repl, out)
+    return out
 
 
-def template_quick_summary(structured: dict[str, Any]) -> str:
+def _company(structured: dict[str, Any]) -> str:
+    return str(structured.get("company") or "The company").strip() or "The company"
+
+
+def _quality_phrase(structured: dict[str, Any]) -> str:
+    bq = structured.get("business_quality")
+    fq = structured.get("financial_quality")
+    bits = []
+    if bq:
+        bits.append("strong business strength" if str(bq).lower() in {"excellent", "strong", "a", "a+", "high"} else f"business strength rated {bq}")
+    if fq:
+        bits.append("stable financial health" if str(fq).lower() in {"stable", "strong", "good"} else f"financial health rated {fq}")
+    if not bits:
+        return "steady business and financial health"
+    if len(bits) == 1:
+        return bits[0]
+    return f"{bits[0]} and {bits[1]}"
+
+
+def template_quick_summary(structured: dict[str, Any], question: str | None = None) -> str:
+    company = _company(structured)
+    reasons = list(structured.get("top_reasons") or [])
+    risks = list(structured.get("top_risks") or [])
+    val = structured.get("valuation")
+
+    s1 = f"{company} continues to show {_quality_phrase(structured)}."
+    if reasons:
+        evidence = simplify_jargon(str(reasons[0]).rstrip("."))
+        s2 = f"{evidence}."
+    elif val:
+        s2 = f"Current valuation is described as {val} in the available assessment."
+    else:
+        s2 = "The available evidence is limited, so the picture is incomplete."
+
+    if risks:
+        risk = simplify_jargon(str(risks[0]).rstrip("."))
+        if risk:
+            risk = risk[0].lower() + risk[1:]
+        s3 = f"The main point to watch is {risk}."
+    else:
+        s3 = "Available evidence is insufficient to highlight a clear risk."
+
+    return simplify_jargon(f"{s1} {s2} {s3}".strip())
+
+
+def template_quick_analysis(structured: dict[str, Any], question: str | None = None) -> str:
+    base = template_quick_summary(structured, question=question)
+    reasons = list(structured.get("top_reasons") or [])
+    extra = ""
+    if len(reasons) > 1:
+        extra = f" Another supporting point is {simplify_jargon(str(reasons[1]).rstrip('.'))}."
+    return f"{base}{extra}".strip()
+
+
+def template_detailed_analysis(structured: dict[str, Any], question: str | None = None) -> str:
+    company = _company(structured)
+    base = template_quick_analysis(structured, question=question)
     bq = structured.get("business_quality")
     fq = structured.get("financial_quality")
     val = structured.get("valuation")
-    reasons = _join(list(structured.get("top_reasons") or []), 2)
-    risks = _join(list(structured.get("top_risks") or []), 1)
-    parts: list[str] = []
-    labels = []
-    if bq:
-        labels.append(f"business quality is {bq}")
-    if fq:
-        labels.append(f"financial quality is {fq}")
-    if val:
-        labels.append(f"valuation is {val}")
-    if labels:
-        parts.append("AGIB structured assessment indicates " + ", ".join(labels) + ".")
-    if reasons:
-        parts.append(f"Key observations include {reasons}.")
-    if risks:
-        parts.append(f"Principal risk noted is {risks}.")
-    note = _evidence_note(structured)
-    if note:
-        parts.append(note)
-    return " ".join(parts).strip() or note
-
-
-def template_quick_analysis(structured: dict[str, Any]) -> str:
-    company = structured.get("company") or "The issuer"
-    summary = template_quick_summary(structured)
     horizon = structured.get("investment_horizon")
-    extra = f" {company} is framed over a {horizon} horizon in the supplied package." if horizon else ""
-    return f"{summary}{extra}".strip()
-
-
-def template_detailed_analysis(structured: dict[str, Any]) -> str:
-    company = structured.get("company") or "The issuer"
-    bq = structured.get("business_quality") or "not fully labelled"
-    fq = structured.get("financial_quality") or "not fully labelled"
-    val = structured.get("valuation") or "not fully labelled"
-    reasons = _join(list(structured.get("top_reasons") or []), 3)
-    risks = _join(list(structured.get("top_risks") or []), 2)
-    horizon = structured.get("investment_horizon") or "the supplied horizon"
-    stance = structured.get("stance")
-    parts = [
-        f"{company}: AGIB's structured package characterises business quality as {bq}, "
-        f"financial quality as {fq}, and valuation as {val}."
-    ]
-    if stance:
-        parts.append(f"Analytical stance in the package is {stance}.")
-    if reasons:
-        parts.append(f"Supporting observations: {reasons}.")
-    if risks:
-        parts.append(f"Risk observations: {risks}.")
-    parts.append(f"Investment horizon noted in the package is {horizon}.")
+    extras = []
+    if bq or fq:
+        extras.append(
+            f"In simple terms, {company}'s business strength"
+            + (f" is {bq}" if bq else "")
+            + (" and " if bq and fq else " ")
+            + (f"financial health is {fq}" if fq else "")
+            + "."
+        )
+    if val:
+        extras.append(f"Current valuation is labelled {val} in the supplied assessment.")
+    if horizon:
+        extras.append(f"The time frame noted in the assessment is {horizon}.")
+    reasons = list(structured.get("top_reasons") or [])
+    for reason in reasons[:3]:
+        extras.append(simplify_jargon(str(reason).rstrip(".")) + ".")
+    risks = list(structured.get("top_risks") or [])
+    for risk in risks[:2]:
+        extras.append("A key limitation is " + simplify_jargon(str(risk).rstrip(".")) + ".")
     if not reasons and not risks:
-        parts.append("Available evidence is insufficient for a denser institutional narrative.")
-    return " ".join(parts)
+        extras.append("Available evidence is insufficient for a denser explanation.")
+    # Dedupe against base lightly
+    body = " ".join(extras)
+    return simplify_jargon(f"{base} {body}".strip())
 
 
-def render_template(mode: str, structured: dict[str, Any]) -> str:
+def render_template(mode: str, structured: dict[str, Any], question: str | None = None) -> str:
     if mode == "detailed_analysis":
-        return template_detailed_analysis(structured)
+        return template_detailed_analysis(structured, question=question)
     if mode == "quick_analysis":
-        return template_quick_analysis(structured)
-    # quick_summary and legacy "recommendation" mode
-    return template_quick_summary(structured)
+        return template_quick_analysis(structured, question=question)
+    return template_quick_summary(structured, question=question)
