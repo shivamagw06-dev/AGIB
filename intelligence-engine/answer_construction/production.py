@@ -12,6 +12,7 @@ from answer_construction.schema import AC_VERSION, ARCHITECTURE_STATUS, PROGRAMM
 def health() -> dict[str, Any]:
     iaf_health: dict[str, Any] = {}
     irw_health: dict[str, Any] = {}
+    editorial_health: dict[str, Any] = {}
     try:
         from institutional_analysts.production import health as iaf_h
 
@@ -24,6 +25,12 @@ def health() -> dict[str, Any]:
         irw_health = irw_h()
     except Exception:
         irw_health = {"status": "unavailable"}
+    try:
+        from editorial.production import health as editorial_h
+
+        editorial_health = editorial_h()
+    except Exception:
+        editorial_health = {"status": "unavailable"}
     return {
         "status": "ok" if is_enabled() else "disabled",
         "programme": PROGRAMME,
@@ -34,6 +41,7 @@ def health() -> dict[str, Any]:
         "never_stop_at_first_coverage_check": True,
         "institutional_analyst_framework": iaf_health,
         "institutional_research_writer": irw_health,
+        "editorial_intelligence_layer": editorial_health,
         "flags": flags_dict(),
     }
 
@@ -120,6 +128,43 @@ def package_for_ask_agi(**kwargs: Any) -> dict[str, Any]:
                 out["institutional_stack"] = stack.get("institutional_stack") or stack
         except Exception:
             pass
+
+    # Editorial Intelligence Layer — Gemini (or future providers) rewrite ONLY.
+    # AGIB remains the brain; structured intelligence only; never documents.
+    try:
+        from answer_construction.institutional_intelligence import wants_detailed_analysis
+        from editorial.production import package_for_ask_agi as editorial_package
+
+        editorial = editorial_package(
+            query=str(kwargs.get("query") or ""),
+            ticker=kwargs.get("ticker"),
+            answer_construction=out,
+            company_analysis=kwargs.get("company_analysis")
+            if isinstance(kwargs.get("company_analysis"), dict)
+            else None,
+            institutional_answer=out.get("institutional_answer")
+            if isinstance(out.get("institutional_answer"), dict)
+            else None,
+            company=out.get("institutional_analysts", {}).get("company")
+            if isinstance(out.get("institutional_analysts"), dict)
+            else None,
+            detailed=wants_detailed_analysis(str(kwargs.get("query") or "")),
+        )
+        if editorial.get("enabled") and editorial.get("executive"):
+            out["executive"] = editorial["executive"]
+            out["editorial"] = editorial
+            ia_out = out.get("institutional_answer")
+            if isinstance(ia_out, dict) and ia_out.get("enabled") and editorial.get("executive"):
+                out["institutional_answer"] = {
+                    **ia_out,
+                    "text": editorial["executive"],
+                    "editorial_provider": editorial.get("provider"),
+                    "editorial_fallback": editorial.get("fallback"),
+                }
+            out["answer_policy"] = "agib_brain_gemini_editorial_writer"
+    except Exception:
+        out.setdefault("editorial", {"enabled": False, "bypassed": True})
+
     return out
 
 

@@ -330,6 +330,7 @@ export default function ResearchWorkspace({
                     <span className="rw-chip blue">{vm.category}</span>
                     {vm.ticker ? <span className="rw-chip muted">{vm.ticker}</span> : null}
                     {vm.acEnabled ? <span className="rw-chip muted">Institutional Brief</span> : null}
+                    {vm.editorialEnabled ? <span className="rw-chip muted">Gemini Editorial</span> : null}
                     {vm.iafEnabled ? <span className="rw-chip muted">Analyst Desk</span> : null}
                     {vm.ideEnabled ? <span className="rw-chip muted">Decision Stack</span> : null}
                   </div>
