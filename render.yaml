@@ -20,6 +20,38 @@ services:
         generateValue: true
       - key: CIO_MORNING_SCHEDULER
         value: "true"
+      # embedded = API also runs the ingest worker (default on Free).
+      # Set to external when the dedicated worker below is enabled.
+      - key: CMS_INGEST_WORKER_MODE
+        value: embedded
+
+  # Optional dedicated ingest worker (Starter+). Decouples queue processing from
+  # the HTTP process so deploys/restarts of the API do not drop in-flight work
+  # as long as jobs are persisted in Supabase.
+  - type: worker
+    name: agib-cms-ingest-worker
+    runtime: node
+    rootDir: .
+    plan: starter
+    buildCommand: npm install --no-audit --no-fund --prefix server && npm install --no-audit --no-fund
+    startCommand: CMS_INGEST_IS_WORKER=1 CMS_INGEST_WORKER_MODE=external node server/workers/cmsIngestWorker.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: CMS_INGEST_IS_WORKER
+        value: "1"
+      - key: CMS_INGEST_WORKER_MODE
+        value: external
+      - key: INTELLIGENCE_ENGINE_URL
+        fromService:
+          name: agib-intelligence-engine
+          type: web
+          property: host
+      - key: INTELLIGENCE_ENGINE_TOKEN
+        fromService:
+          name: agib-api
+          type: web
+          envVarKey: INTELLIGENCE_ENGINE_TOKEN
 
   # Python multi-agent Intelligence Engine
   - type: web

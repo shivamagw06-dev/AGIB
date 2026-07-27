@@ -184,10 +184,11 @@ function phaseLabel(job) {
   const status = job?.status;
   const phase = job?.phase;
   if (status === 'completed') return 'completed';
+  if (status === 'failed_permanent' || phase === 'dead_letter') return 'failed_permanent';
   if (status === 'failed') return 'failed';
   if (status === 'waking' || phase === 'waking_engine') return 'waking';
   if (status === 'processing' || phase === 'ingesting') return 'processing';
-  if (phase === 'retry_scheduled') return 'retry';
+  if (phase === 'retry_scheduled' || phase === 'reclaimed_after_stall') return 'retry';
   return 'queued';
 }
 
@@ -306,6 +307,7 @@ export async function ingestArticleToIntelligence({
         retry: `Retry scheduled (attempt ${data.attempt}/${data.max_attempts})…`,
         completed: 'Completed',
         failed: 'Failed',
+        failed_permanent: 'Failed permanently (dead-letter) — edit content and send again',
       };
       const phase = phaseLabel(data);
       if (typeof onAttempt === 'function') {
@@ -318,7 +320,7 @@ export async function ingestArticleToIntelligence({
           job: data,
         });
       }
-      if (data.status === 'completed') {
+      if (data.status === 'completed' || (data.terminal && data.completed)) {
         return {
           ...data,
           document_id: data.document_id,
@@ -327,8 +329,16 @@ export async function ingestArticleToIntelligence({
           completed: true,
         };
       }
-      if (data.status === 'failed') {
-        throw new Error(data.error || 'Intelligence ingest job failed.');
+      if (data.status === 'failed' || data.status === 'failed_permanent' || data.failed_permanent) {
+        throw new Error(
+          data.error ||
+            (data.status === 'failed_permanent'
+              ? 'Intelligence ingest permanently failed (dead-letter).'
+              : 'Intelligence ingest job failed.')
+        );
+      }
+      if (data.terminal) {
+        throw new Error(data.error || `Ingest ended in terminal state: ${data.status}`);
       }
     } catch (err) {
       if (isTransientTransportError(err)) continue;
@@ -336,7 +346,7 @@ export async function ingestArticleToIntelligence({
     }
   }
 
-  // Timed out waiting — job may still complete in background.
+  // Timed out waiting — job may still complete in background (not a user-facing hard fail).
   return {
     ...lastJob,
     job_id: jobId,
@@ -344,6 +354,6 @@ export async function ingestArticleToIntelligence({
     pending: true,
     poll_timeout: true,
     message:
-      'Ingest is still running in the background. Your draft is safe — no need to click Send again.',
+      'Ingest is still running in the background. Your draft is safe — no need to click Send again. Polling stopped after the UI wait budget.',
   };
 }

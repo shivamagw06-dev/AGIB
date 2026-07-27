@@ -12,6 +12,10 @@ import {
 import {
   enqueueCmsIngestJob,
   getIngestJob,
+  getStuckIngestJobs,
+  getWorkerInfo,
+  processIngestQueue,
+  reclaimStalledJobs,
   startCmsIngestJobWorker,
 } from '../services/cmsIngestJobs.js';
 
@@ -133,6 +137,45 @@ export default function createIntelligenceRouter() {
     } catch (error) {
       return res.status(503).json({
         error: 'Unable to read ingest job',
+        detail: error.message,
+      });
+    }
+  });
+
+  // Stuck-job monitor for ops / Mission Control soft wiring.
+  router.get('/cms/ingest-jobs-stuck', async (req, res) => {
+    try {
+      const processingOlderThanMs = req.query.processing_ms
+        ? Number(req.query.processing_ms)
+        : undefined;
+      const queuedOlderThanMs = req.query.queued_ms ? Number(req.query.queued_ms) : undefined;
+      const result = await getStuckIngestJobs({ processingOlderThanMs, queuedOlderThanMs });
+      return res.status(result.alert ? 200 : 200).json({
+        ...result,
+        worker: getWorkerInfo(),
+      });
+    } catch (error) {
+      return res.status(503).json({
+        error: 'Unable to scan stuck ingest jobs',
+        detail: error.message,
+      });
+    }
+  });
+
+  // Manual tick / reclaim (useful after deploys or when using external worker health checks).
+  router.post('/cms/ingest-jobs/tick', async (req, res) => {
+    try {
+      const reclaimed = await reclaimStalledJobs();
+      const processed = await processIngestQueue();
+      return res.status(200).json({
+        ok: true,
+        reclaimed,
+        processed,
+        worker: getWorkerInfo(),
+      });
+    } catch (error) {
+      return res.status(503).json({
+        error: 'Ingest worker tick failed',
         detail: error.message,
       });
     }

@@ -22,14 +22,33 @@ And creates `cms_article_learn_events` with `learning_date` for the daily calend
 
 The ingest-jobs migration creates `cms_intelligence_ingest_jobs` so CMS never waits on Render wake inside the browser request.
 
+Also run the harden migration:
+
+`supabase/migrations/20260727190000_cms_ingest_jobs_harden.sql`
+
+(adds `failed_permanent`, metrics columns, stall indexes).
+
 ## 1b. Send to Intelligence (async job queue)
 
 | Method | Path | Purpose |
 |--------|------|---------|
 | `POST` | `/api/intelligence/kip/ingest/agi` | **Enqueue only** → always `202` + `job_id` |
-| `GET` | `/api/intelligence/cms/ingest-jobs/:jobId` | Poll status: `pending` → `waking` → `processing` → `completed`/`failed` |
+| `GET` | `/api/intelligence/cms/ingest-jobs/:jobId` | Poll status: `pending` → `waking` → `processing` → `completed` / `failed_permanent` |
+| `GET` | `/api/intelligence/cms/ingest-jobs-stuck` | Ops alert: stalled processing (>15m) or queued (>30m) |
+| `POST` | `/api/intelligence/cms/ingest-jobs/tick` | Manual reclaim + process tick (post-deploy rescue) |
 
-Flow: CMS saves article → POST enqueue (idempotent on `article_id` + content hash) → Node worker wakes engine + retries with exponential backoff → browser polls short GETs. Duplicate clicks return the same active job.
+Flow: CMS saves article → POST enqueue (idempotent on `article_id` + content hash) → Node worker wakes engine + retries with exponential backoff → browser polls short GETs until a **terminal** state (then stops). Duplicate clicks return the same active job. **Content change** (new hash) creates a **new version** job.
+
+### Worker modes
+
+- `CMS_INGEST_WORKER_MODE=embedded` (default): API process runs the worker + startup reclaim + stall watchdog.
+- `CMS_INGEST_WORKER_MODE=external` + Render worker `agib-cms-ingest-worker`: API enqueue-only; dedicated process owns processing (`node server/workers/cmsIngestWorker.js`).
+
+### Failure policy
+
+- Retry (transient): 502/503/timeouts/connection errors — up to `max_attempts` (default 6), then **dead-letter** `failed_permanent`.
+- Do not retry (permanent): 400/401/403/404/422, validation, malformed payload → immediate `failed_permanent`.
+- Stall reclaim: jobs in `waking`/`processing` older than 15 minutes return to `pending`.
 
 ## 2. API (Render Node)
 
