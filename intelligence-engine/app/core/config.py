@@ -471,6 +471,9 @@ class Settings(BaseSettings):
     # Contradiction Reasoning Soft Layer — step-by-step conflict answers (not a top-level engine)
     contradiction_reasoning: bool = True
     ask_agi_contradiction_reasoning: bool = True
+    # Institutional Reasoning Soft Policy — how to think before answering
+    institutional_reasoning: bool = True
+    ask_agi_institutional_reasoning: bool = True
 
     # Institutional Analyst Framework V1 — Answer Construction ownership (not engines)
     institutional_analysts: bool = True

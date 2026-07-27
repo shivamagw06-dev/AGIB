@@ -14,6 +14,7 @@ def health() -> dict[str, Any]:
     irw_health: dict[str, Any] = {}
     editorial_health: dict[str, Any] = {}
     cxr_health: dict[str, Any] = {}
+    irsp_health: dict[str, Any] = {}
     try:
         from institutional_analysts.production import health as iaf_h
 
@@ -38,6 +39,12 @@ def health() -> dict[str, Any]:
         cxr_health = cxr_h()
     except Exception:
         cxr_health = {"status": "unavailable"}
+    try:
+        from institutional_reasoning.production import health as irsp_h
+
+        irsp_health = irsp_h()
+    except Exception:
+        irsp_health = {"status": "unavailable"}
     return {
         "status": "ok" if is_enabled() else "disabled",
         "programme": PROGRAMME,
@@ -50,6 +57,7 @@ def health() -> dict[str, Any]:
         "institutional_research_writer": irw_health,
         "editorial_intelligence_layer": editorial_health,
         "contradiction_reasoning": cxr_health,
+        "institutional_reasoning": irsp_health,
         "flags": flags_dict(),
     }
 
@@ -136,6 +144,35 @@ def package_for_ask_agi(**kwargs: Any) -> dict[str, Any]:
                 out["institutional_stack"] = stack.get("institutional_stack") or stack
         except Exception:
             pass
+
+    # Institutional Reasoning Soft Policy — understand first, reason second, communicate last.
+    # Attaches the pre-answer plan + system prompt. Does not invent facts.
+    try:
+        from institutional_reasoning.production import package_for_ask_agi as irsp_package
+
+        company_name = None
+        if isinstance(out.get("institutional_analysts"), dict):
+            company_name = out["institutional_analysts"].get("company")
+        irsp = irsp_package(
+            query=str(kwargs.get("query") or ""),
+            ticker=kwargs.get("ticker"),
+            company=company_name,
+        )
+        if irsp.get("enabled"):
+            out["institutional_reasoning"] = irsp
+            out["reasoning_plan"] = {
+                "top_rule": irsp.get("top_rule"),
+                "question_type": (irsp.get("question_understanding") or {}).get("question_type"),
+                "main_question": irsp.get("main_question"),
+                "steps": irsp.get("reasoning_steps"),
+                "answer_structure": irsp.get("answer_structure"),
+                "contradiction_protocol_required": irsp.get("contradiction_protocol_required"),
+            }
+            # Prefer evidence-first policy unless a later specialist layer overrides.
+            if not out.get("answer_policy") or out.get("answer_policy") == "think_then_answer_institutional":
+                out["answer_policy"] = "evidence_then_reason_then_communicate"
+    except Exception:
+        out.setdefault("institutional_reasoning", {"enabled": False, "bypassed": True})
 
     # Contradiction Reasoning Soft Layer — step-by-step conflict answers.
     # Soft-wire only (not a top-level engine; not Continuous Research Evaluation).
