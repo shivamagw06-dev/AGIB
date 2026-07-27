@@ -27,8 +27,13 @@ services:
     runtime: python
     rootDir: intelligence-engine
     plan: free
-    # Chromium for FAA Playwright JS-render + free web search
-    buildCommand: pip install -r requirements.txt && playwright install chromium
+    # Chromium for FAA Playwright JS-render + free web search.
+    # If the live Render service ignores Blueprint buildCommand, start.sh
+    # and FAA_PLAYWRIGHT_AUTO_INSTALL still attempt a one-shot install.
+    buildCommand: pip install -r requirements.txt && python -m playwright install chromium
+    # Prefer uvicorn for fast health checks. Chromium is installed at build time
+    # when Blueprint syncs; otherwise FAA_PLAYWRIGHT_AUTO_INSTALL installs once
+    # on first JS fetch (see app/faa/playwright_browser.py).
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /v1/health
     envVars:
@@ -55,6 +60,8 @@ services:
       - key: FAA_SEARCH_API
         value: "true"
       - key: FAA_PLAYWRIGHT
+        value: "true"
+      - key: FAA_PLAYWRIGHT_AUTO_INSTALL
         value: "true"
       - key: EXA_API_KEY
         sync: false

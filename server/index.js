@@ -191,6 +191,7 @@ reg('/api/health', (req, res) => res.json({
   ok: true,
   architecture: 'v1.0.1 LOCKED',
   ui_aggregation: true,
+  intelligence_gateway: true,
   commit: process.env.RENDER_GIT_COMMIT || process.env.GIT_COMMIT || null,
 }));
 reg('/api/news/headlines', async (_req, res) => {
