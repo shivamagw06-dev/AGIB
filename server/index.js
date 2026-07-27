@@ -17,6 +17,7 @@ import { getNewsHeadlines } from "./services/newsHeadlinesService.js";
 import { getIpoDetail, getIpoPlatform, getIpoSummary } from "./services/ipoService.js";
 import { getMarketContext } from "./services/marketContextService.js";
 import { startCioMorningScheduler } from "./services/cioMorningScheduler.js";
+import { llmProviderStatus } from "./services/llmClient.js";
 import rateLimit from "express-rate-limit";
 import cors from "cors";
 import dotenv from "dotenv";
@@ -192,6 +193,7 @@ reg('/api/health', (req, res) => res.json({
   architecture: 'v1.0.1 LOCKED',
   ui_aggregation: true,
   intelligence_gateway: true,
+  llm: llmProviderStatus(),
   commit: process.env.RENDER_GIT_COMMIT || process.env.GIT_COMMIT || null,
 }));
 reg('/api/news/headlines', async (_req, res) => {
