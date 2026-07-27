@@ -1,19 +1,38 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import { useAuth } from '@/contexts/AuthContext';
+import { isAdmin } from '@/lib/adminAuth';
 
 export default function useArticlesAdmin() {
+  const { user } = useAuth();
+  const admin = isAdmin(user);
   const [articles, setArticles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   const load = useCallback(async () => {
+    if (!user?.id) {
+      setArticles([]);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
-    const { data, error: fetchError } = await supabase
+    let query = supabase
       .from('articles')
-      .select('id, title, slug, section, excerpt, status, published_at, created_at, cover_url, tags, intelligence_document_id, intelligence_ingested_at, last_learned_at, learn_status, learn_count')
+      .select(
+        'id, title, slug, section, excerpt, status, published_at, created_at, cover_url, tags, author_id, intelligence_document_id, intelligence_ingested_at, last_learned_at, learn_status, learn_count'
+      )
       .order('created_at', { ascending: false });
+
+    // Authors only see articles they uploaded; admins see the full CMS library.
+    if (!isAdmin(user)) {
+      query = query.eq('author_id', user.id);
+    }
+
+    const { data, error: fetchError } = await query;
 
     if (fetchError) {
       setError(fetchError.message);
@@ -22,14 +41,18 @@ export default function useArticlesAdmin() {
       setArticles(data || []);
     }
     setLoading(false);
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     load();
   }, [load]);
 
   const deleteArticle = async (id) => {
-    const { error: deleteError } = await supabase.from('articles').delete().eq('id', id);
+    let query = supabase.from('articles').delete().eq('id', id);
+    if (!admin && user?.id) {
+      query = query.eq('author_id', user.id);
+    }
+    const { error: deleteError } = await query;
     if (deleteError) throw deleteError;
     await load();
   };
