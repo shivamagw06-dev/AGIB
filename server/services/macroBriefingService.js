@@ -527,9 +527,7 @@ function buildThemes(context) {
   ];
 }
 
-async function enrichWithOpenAi(briefing) {
-  const apiKey = (process.env.OPENAI_API_KEY || '').trim();
-  if (!apiKey) return briefing;
+async function enrichWithLlm(briefing) {
   const brief = briefing.chiefEconomistBrief;
   const source = {
     outlook: brief.outlook,
@@ -542,25 +540,14 @@ async function enrichWithOpenAi(briefing) {
     fx: briefing.snapshot.fx,
   };
   try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      signal: AbortSignal.timeout(25_000),
-      body: JSON.stringify({
-        model: process.env.OPENAI_MARKET_BRIEFING_MODEL || 'gpt-4.1-mini',
-        response_format: { type: 'json_object' },
-        messages: [
-          {
-            role: 'system',
-            content: 'You are the Chief Economist of Agarwal Global Investments. Write ONE institutional macro strategy brief. No raw prices or percentage quotes. Every important claim must answer “because what?”. Ban vague phrases like “markets remained cautious” or “conditions remained mixed”. Never give buy/sell recommendations. Return JSON with: executiveThesis (200-300 words), outlook, confidenceRationale, whyReached (array of {title, explanation}), debateVerdict, institutionalQuestions (string array).',
-          },
-          { role: 'user', content: JSON.stringify(source) },
-        ],
-        temperature: 0.25,
-      }),
+    const { completeJson } = await import('./llmClient.js');
+    const generated = await completeJson({
+      system:
+        'You are the Chief Economist of Agarwal Global Investments. Write ONE institutional macro strategy brief. No raw prices or percentage quotes. Every important claim must answer “because what?”. Ban vague phrases like “markets remained cautious” or “conditions remained mixed”. Never give buy/sell recommendations. Return JSON with: executiveThesis (200-300 words), outlook, confidenceRationale, whyReached (array of {title, explanation}), debateVerdict, institutionalQuestions (string array).',
+      user: source,
+      temperature: 0.25,
     });
-    if (!response.ok) throw new Error(`OpenAI macro briefing failed (${response.status})`);
-    const generated = JSON.parse((await response.json())?.choices?.[0]?.message?.content || '{}');
+    if (!generated) return briefing;
     return {
       ...briefing,
       aiGenerated: true,
@@ -632,7 +619,7 @@ export async function getMacroBriefing({ force = false } = {}) {
 
     try {
       const context = await getMacroContext({ force });
-      const briefing = await enrichWithOpenAi(buildBriefing(context));
+      const briefing = await enrichWithLlm(buildBriefing(context));
       const saved = await saveBriefingCache(briefing, {
         ttlMs: CACHE_MS,
         aiGenerated: Boolean(briefing.aiGenerated),
