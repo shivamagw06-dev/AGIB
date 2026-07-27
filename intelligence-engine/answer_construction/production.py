@@ -275,7 +275,23 @@ def package_for_ask_agi(**kwargs: Any) -> dict[str, Any]:
     # Editorial Intelligence Layer — Gemini (or future providers) rewrite ONLY.
     # AGIB remains the brain; structured intelligence only; never documents.
     # Skip editorial override when contradiction / gold reasoning owns the executive.
-    if not contradiction_active:
+    # Also skip inventing valuation prose when framework execution policy withholds narrative.
+    ep = kwargs.get("execution_policy") if isinstance(kwargs.get("execution_policy"), dict) else {}
+    if ep:
+        out["execution_policy"] = {
+            "question_type": ep.get("question_type"),
+            "sufficient": ep.get("sufficient"),
+            "narrative_allowed": ep.get("narrative_allowed"),
+            "missing_evidence": ep.get("missing_evidence") or [],
+            "summary": ep.get("summary"),
+            "results": ep.get("results") or [],
+            "ask_agi_hints": ep.get("ask_agi_hints") or [],
+        }
+        if ep.get("narrative_allowed") is False and ep.get("gate_reason"):
+            out["executive"] = str(ep.get("gate_reason") or out.get("executive") or "")[:800]
+            out["answer_policy"] = "framework_execution_policy_insufficient_evidence"
+
+    if not contradiction_active and ep.get("narrative_allowed") is not False:
         try:
             from answer_construction.institutional_intelligence import wants_detailed_analysis
             from editorial.production import package_for_ask_agi as editorial_package
@@ -294,6 +310,7 @@ def package_for_ask_agi(**kwargs: Any) -> dict[str, Any]:
                 if isinstance(out.get("institutional_analysts"), dict)
                 else None,
                 detailed=wants_detailed_analysis(str(kwargs.get("query") or "")),
+                execution_policy=ep or None,
             )
             if editorial.get("enabled") and editorial.get("executive"):
                 out["executive"] = editorial["executive"]

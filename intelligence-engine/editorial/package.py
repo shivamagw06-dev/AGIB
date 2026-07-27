@@ -71,12 +71,46 @@ def build_structured_package(
     company_analysis: dict[str, Any] | None = None,
     company: str | None = None,
     ticker: str | None = None,
+    execution_policy: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build editorial JSON solely from AGIB structured outputs."""
     ia = institutional_answer if isinstance(institutional_answer, dict) else {}
     ac = answer_construction if isinstance(answer_construction, dict) else {}
     ca = company_analysis if isinstance(company_analysis, dict) else {}
+    ep = execution_policy if isinstance(execution_policy, dict) else {}
     bq = ca.get("business_quality") if isinstance(ca.get("business_quality"), dict) else {}
+
+    valuation_label = (
+        _txt((ca.get("valuation") or {}).get("label"))
+        if isinstance(ca.get("valuation"), dict)
+        else _txt(ca.get("valuation_label"))
+    )
+    # Never allow unsupported fair/expensive labels when policy withholds narrative.
+    if ep and ep.get("narrative_allowed") is False:
+        valuation_label = "Insufficient evidence — frameworks pending"
+    elif ep.get("summary"):
+        # Prefer framework execution summary over vague adjectives when present.
+        if not valuation_label or str(valuation_label).lower() in {
+            "fair",
+            "expensive",
+            "cheap",
+            "neutral",
+            "n/a",
+            "na",
+        }:
+            valuation_label = _txt(ep.get("summary"))
+
+    reasons = (
+        _list([ia.get("reason")], 3)
+        if ia.get("reason")
+        else _list(ac.get("bull") or ac.get("why") or [], 3)
+    )
+    # Prepend framework status lines so editorial cannot ignore execution policy.
+    for hint in (ep.get("ask_agi_hints") or [])[:2]:
+        t = _txt(hint)
+        if t and t not in reasons:
+            reasons.insert(0, t[:240])
+    reasons = reasons[:5]
 
     structured = {
         "question": _txt(question),
@@ -88,14 +122,16 @@ def build_structured_package(
         "financial_quality": _txt((ca.get("financial_quality") or {}).get("label"))
         if isinstance(ca.get("financial_quality"), dict)
         else _txt(ca.get("financial_quality_label")),
-        "valuation": _txt((ca.get("valuation") or {}).get("label"))
-        if isinstance(ca.get("valuation"), dict)
-        else _txt(ca.get("valuation_label")),
-        "top_reasons": (
-            _list([ia.get("reason")], 3)
-            if ia.get("reason")
-            else _list(ac.get("bull") or ac.get("why") or [], 3)
+        "valuation": valuation_label,
+        "valuation_evidence": _txt(ep.get("summary")),
+        "framework_status": _txt(
+            "; ".join(
+                f"{r.get('name')}:{r.get('status')}"
+                for r in (ep.get("results") or [])[:4]
+                if isinstance(r, dict)
+            )
         ),
+        "top_reasons": reasons,
         "top_risks": (
             _list([ia.get("risk")], 3)
             if ia.get("risk")

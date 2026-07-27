@@ -220,6 +220,8 @@ class SearchView(BaseModel):
     decision_readiness: dict[str, Any] = Field(default_factory=dict)
     # RQ2 Institutional Reasoning Audit Engine — Sprint 10 (final certification; not a layer)
     reasoning_audit: dict[str, Any] = Field(default_factory=dict)
+    # Framework Execution Policy — required frameworks must execute or report insufficient (soft-wire)
+    execution_policy: dict[str, Any] = Field(default_factory=dict)
     current_outlook: str | None = None
     key_drivers: list[str] = Field(default_factory=list)
     valuation_perspective: str | None = None

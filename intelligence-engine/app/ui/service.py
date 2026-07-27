@@ -820,6 +820,16 @@ class UiService:
         except Exception:
             layer_router = {}
 
+        # Framework Execution Policy — select required frameworks BEFORE packs run.
+        # Soft-wire only: knowledge is useless unless the planner forces execution.
+        execution_policy: dict[str, Any] = {}
+        try:
+            from institutional_reasoning.execution_policy import soft_slice_for_ask_agi as fep_select
+
+            execution_policy = fep_select(q, ontology=research_ontology) or {}
+        except Exception:
+            execution_policy = {}
+
         # RQ1 Sprint 7 — Institutional Acquisition & API Planning Engine (evidence plan; metadata soft-wire)
         acquisition_planner: dict[str, Any] = {}
         try:
@@ -830,6 +840,11 @@ class UiService:
                 or (research_objective.get("primary_objective")),
                 "intent_family": (research_ontology.get("intent_family") or research_ontology.get("family")),
                 "required_layers": (layer_router.get("required_layers") or []),
+                "required_frameworks": [
+                    f.get("framework_id")
+                    for f in (execution_policy.get("required_frameworks") or [])
+                    if isinstance(f, dict)
+                ],
             }
             acquisition_planner = iape_soft_slice(q, iape_payload) or {}
         except Exception:
@@ -1469,10 +1484,32 @@ class UiService:
 
             investment_office_pkg = io_package(q, ticker=detected_ticker) or {}
             for hint in (investment_office_pkg.get("ask_agi_hints") or [])[:3]:
-                # Stash on company_monitor-adjacent path via why later if needed
-                pass
+                cleaned = scrub_text(hint)
+                if cleaned:
+                    # Collected into why later with other ask_agi_hints
+                    pass
         except Exception:
             investment_office_pkg = {}
+
+        # Finalize execution policy against VE / FRE / CA evidence packs.
+        try:
+            from institutional_reasoning.execution_policy import finalize_for_ask_agi as fep_finalize
+
+            if execution_policy.get("required_frameworks"):
+                execution_policy = fep_finalize(
+                    execution_policy,
+                    valuation=valuation if isinstance(valuation, dict) else None,
+                    company_analysis=company_analysis if isinstance(company_analysis, dict) else None,
+                    finance_retrieval=finance_retrieval if isinstance(finance_retrieval, dict) else None,
+                    sector_intelligence=sector_intelligence if isinstance(sector_intelligence, dict) else None,
+                    live_evidence=live_evidence if isinstance(live_evidence, dict) else None,
+                    decision_engine=None,
+                    peer=(company_analysis or {}).get("peer_intelligence")
+                    if isinstance(company_analysis, dict)
+                    else None,
+                )
+        except Exception:
+            pass
 
         # IRP V1 — think (intent → entities → plan → retrieve → reason) before answering.
         if self.irp and q:
@@ -1867,6 +1904,29 @@ class UiService:
                 why.insert(0, scrub_text(f"Business quality score: {bq}/100.")[:200])
             why = why[:12]
 
+        # Framework Execution Policy — mandatory why bullets (execute or report insufficient).
+        if isinstance(execution_policy, dict) and (
+            execution_policy.get("results") or execution_policy.get("required_frameworks")
+        ):
+            for hint in (execution_policy.get("ask_agi_hints") or [])[:6]:
+                cleaned = scrub_text(hint)[:420]
+                if cleaned and cleaned not in why:
+                    why.insert(0, cleaned)
+            why = why[:16]
+            try:
+                from institutional_reasoning.execution_policy import enforce_valuation_narrative
+
+                enforced = enforce_valuation_narrative(
+                    executive=executive,
+                    house_label=house_label,
+                    report=execution_policy,
+                )
+                if enforced.get("rewritten"):
+                    executive = scrub_text(enforced.get("executive")) or executive
+                    house_label = enforced.get("house_label") or house_label
+            except Exception:
+                pass
+
         # Company Monitor — what changed since prior period
         if isinstance(company_monitor, dict) and company_monitor.get("enabled"):
             for hint in (company_monitor.get("ask_agi_hints") or [])[:5]:
@@ -2151,6 +2211,7 @@ class UiService:
                     knowledge_foundation={"hits": kf_hits} if kf_hits else None,
                     reco_gate=reco_gate,
                     leo_gate=leo_gate,
+                    execution_policy=execution_policy if isinstance(execution_policy, dict) else None,
                 )
                 or {}
             )
@@ -2754,6 +2815,7 @@ class UiService:
             debate_engine=scrub(debate_engine) if debate_engine else {},
             decision_readiness=scrub(decision_readiness) if decision_readiness else {},
             reasoning_audit=scrub(reasoning_audit) if reasoning_audit else {},
+            execution_policy=scrub(execution_policy) if execution_policy else {},
         )
 
     def timeline(self, entity: str) -> TimelineView:

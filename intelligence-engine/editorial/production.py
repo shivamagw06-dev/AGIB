@@ -56,6 +56,7 @@ def package_for_ask_agi(
     institutional_answer: dict[str, Any] | None = None,
     company: str | None = None,
     detailed: bool = False,
+    execution_policy: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Soft-wire: take AGIB structured outputs → plain-English editorial prose.
 
@@ -74,6 +75,7 @@ def package_for_ask_agi(
     try:
         ac = answer_construction if isinstance(answer_construction, dict) else {}
         ia = institutional_answer if isinstance(institutional_answer, dict) else ac.get("institutional_answer")
+        ep = execution_policy if isinstance(execution_policy, dict) else ac.get("execution_policy")
         structured = build_structured_package(
             question=query,
             institutional_answer=ia if isinstance(ia, dict) else None,
@@ -81,7 +83,31 @@ def package_for_ask_agi(
             company_analysis=company_analysis if isinstance(company_analysis, dict) else None,
             company=company,
             ticker=ticker,
+            execution_policy=ep if isinstance(ep, dict) else None,
         )
+        # When framework policy withholds narrative, do not let Gemini invent valuation prose.
+        if isinstance(ep, dict) and ep.get("narrative_allowed") is False:
+            msg = str(
+                (ac or {}).get("executive")
+                or ep.get("gate_reason")
+                or structured.get("valuation")
+                or "Valuation coverage incomplete — required frameworks lack evidence."
+            )
+            return {
+                "enabled": True,
+                "programme": PROGRAMME,
+                "version": EDITORIAL_VERSION,
+                "architecture_status": ARCHITECTURE_STATUS,
+                "role": "writer_only",
+                "agib_is_brain": True,
+                "never_generates_advice": True,
+                "policy_withheld": True,
+                "structured_intelligence": structured,
+                "executive": msg,
+                "rewritten_summary": msg,
+                "provider": "execution_policy",
+                "fallback": False,
+            }
         service = EditorialService()
         if detailed:
             result = service.generateDetailedAnalysis(structured, question=query)

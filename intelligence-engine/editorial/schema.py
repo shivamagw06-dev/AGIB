@@ -18,6 +18,8 @@ ALLOWED_STRUCTURED_KEYS = frozenset(
         "business_quality",
         "financial_quality",
         "valuation",
+        "valuation_evidence",
+        "framework_status",
         "top_reasons",
         "top_risks",
         "investment_horizon",
