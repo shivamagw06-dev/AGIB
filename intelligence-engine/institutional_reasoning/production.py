@@ -35,6 +35,8 @@ def health() -> dict[str, Any]:
         "reasoning_families": True,
         "novelty_score": True,
         "adversarial_unknown_reasoning": True,
+        "bias_defense": True,
+        "evidence_to_conclusion_ratio": True,
         "flags": flags_dict(),
     }
 
@@ -57,6 +59,8 @@ def quality_gates() -> dict[str, Any]:
             "novelty_score_before_answer": True,
             "never_force_closest_template_on_novel": True,
             "adversarial_unknown_reasoning": True,
+            "bias_defense": True,
+            "evidence_to_conclusion_ratio": True,
             "soft_wire_only": True,
             "not_a_top_level_engine": True,
         },
@@ -88,6 +92,12 @@ def package_for_ask_agi(
     try:
         plan = build_reasoning_plan(query, ticker=ticker, company=company)
         reasoned = package_reasoning_answer(query, ticker=ticker, company=company)
+        try:
+            from red_team.ecr import attach_ecr_to_package
+
+            reasoned = attach_ecr_to_package(reasoned)
+        except Exception:
+            pass
         out = {
             **plan,
             "programme": PROGRAMME,
@@ -108,6 +118,7 @@ def package_for_ask_agi(
                 "signals": reasoned.get("family_signals") or [],
             },
             "novelty": reasoned.get("novelty") or {},
+            "ecr": reasoned.get("ecr") or {},
             "gold_pattern": reasoned.get("gold_pattern")
             if reasoned.get("source") == "gold_pattern"
             else {"enabled": False},
@@ -127,6 +138,7 @@ def package_for_ask_agi(
             out["habit_id"] = reasoned.get("habit_id")
             out["consistency_fingerprint"] = reasoned.get("consistency_fingerprint")
             out["families_used"] = reasoned.get("families_used") or reasoned.get("family_signals")
+            out["evidence_to_conclusion_ratio"] = reasoned.get("evidence_to_conclusion_ratio")
             if reasoned.get("decomposed") is not None:
                 out["decomposed"] = reasoned.get("decomposed")
             if isinstance(reasoned.get("structured"), dict) and reasoned["structured"].get("decomposed"):

@@ -12,6 +12,7 @@ from __future__ import annotations
 from typing import Any
 
 from institutional_reasoning.adversarial import compose_adversarial, detect_adversarial_mode
+from institutional_reasoning.bias_defense import compose_bias_defense, detect_bias_defense
 from institutional_reasoning.families import DUAL_HYPOTHESIS, FAMILIES
 from institutional_reasoning.family_classifier import classify_family
 from institutional_reasoning.family_composers import compose_family_answer
@@ -34,9 +35,29 @@ def package_reasoning_answer(
     family_id = family.get("family_id")
     family_conf = float(family.get("confidence") or 0.0)
 
-    # 0) Adversarial / unknown / cross-family reasoning (Phase 3–8).
-    # Runs before gold so multi-horizon, business-vs-valuation, evidence-hierarchy,
-    # and paraphrase-consistency habits are not stolen by narrower templates.
+    # 0a) Bias-defense / cognitive-trap refusals (process integrity).
+    bias = detect_bias_defense(q)
+    if bias:
+        composed = compose_bias_defense(bias, q)
+        if composed.get("enabled") and composed.get("executive"):
+            novelty = score_novelty(
+                gold_exact=False,
+                family_id=composed.get("family_id") or "self_critique",
+                family_confidence=0.93,
+                first_principles=True,
+                adversarial=True,
+                novelty_band_hint=composed.get("novelty_band_hint"),
+            )
+            return {
+                **composed,
+                "family_confidence": 0.93,
+                "family_signals": list(composed.get("families_used") or []),
+                "novelty": novelty,
+                "ticker": ticker,
+                "company": company,
+            }
+
+    # 0b) Adversarial / unknown / cross-family reasoning (Phase 3–8).
     adv_mode = detect_adversarial_mode(q)
     if adv_mode:
         adv = compose_adversarial(adv_mode, q)
