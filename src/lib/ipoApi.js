@@ -16,6 +16,10 @@ export function getIpoSummary() {
   return request('/summary');
 }
 
+export function getIpoPlatform() {
+  return request('/platform');
+}
+
 export function getIpoDetail(symbol) {
   return request(`/${encodeURIComponent(symbol)}`);
 }

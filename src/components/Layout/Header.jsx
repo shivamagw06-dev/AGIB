@@ -25,6 +25,7 @@ const NAV = [
   { name: 'Ask AGI', path: '/ask' },
   { name: 'Macro Intelligence', path: '/macro-intelligence' },
   { name: 'Market Intelligence', path: '/market-intelligence' },
+  { name: 'IPO Intelligence', path: '/ipo-intelligence' },
   { name: 'Predictions', path: '/predictions' },
   { name: 'Research', path: '/research' },
   { name: 'Workspace', path: '/workspace' },
