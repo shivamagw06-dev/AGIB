@@ -5351,6 +5351,51 @@ async def debate_engine_diagnostics(payload: dict[str, Any] = Body(default={})):
     return diagnostics(payload or {})
 
 
+# --- RQ2 Institutional Decision Readiness Engine (Sprint 9 — final pre-Committee quality gate) ---
+
+
+@router.get("/decision-readiness/health")
+async def decision_readiness_health():
+    from decision_readiness.production import health
+
+    return health()
+
+
+@router.get("/decision-readiness/dashboard")
+async def decision_readiness_dashboard():
+    from decision_readiness.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/decision-readiness/constitution")
+async def decision_readiness_constitution():
+    from decision_readiness.production import constitution
+
+    return constitution()
+
+
+@router.get("/decision-readiness/quality-gates")
+async def decision_readiness_quality_gates():
+    from decision_readiness.production import quality_gates
+
+    return quality_gates()
+
+
+@router.post("/decision-readiness/plan")
+async def decision_readiness_plan(payload: dict[str, Any] = Body(default={})):
+    from decision_readiness.production import plan
+
+    return plan(payload or {})
+
+
+@router.post("/decision-readiness/diagnostics")
+async def decision_readiness_diagnostics(payload: dict[str, Any] = Body(default={})):
+    from decision_readiness.production import diagnostics
+
+    return diagnostics(payload or {})
+
+
 # --- SIF v1.0 (Sector Intelligence Framework — additive; not an engine) ---
 
 

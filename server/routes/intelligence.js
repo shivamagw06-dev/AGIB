@@ -2233,5 +2233,33 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // RQ2 Institutional Decision Readiness Engine — Sprint 9 (final pre-Committee gate)
+  router.get('/decision-readiness/health', kfGet('/v1/decision-readiness/health'));
+  router.get('/decision-readiness/dashboard', kfGet('/v1/decision-readiness/dashboard'));
+  router.get('/decision-readiness/constitution', kfGet('/v1/decision-readiness/constitution'));
+  router.get('/decision-readiness/quality-gates', kfGet('/v1/decision-readiness/quality-gates'));
+  router.post('/decision-readiness/plan', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/decision-readiness/plan', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'IDRE plan failed', detail: error.message });
+    }
+  });
+  router.post('/decision-readiness/diagnostics', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/decision-readiness/diagnostics', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'IDRE diagnostics failed', detail: error.message });
+    }
+  });
+
   return router;
 }

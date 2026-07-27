@@ -206,6 +206,8 @@ class SearchView(BaseModel):
     thesis_engine: dict[str, Any] = Field(default_factory=dict)
     # RQ2 Institutional Debate Engine — Sprint 8 (structured pre-Committee debate; not a layer/committee)
     debate_engine: dict[str, Any] = Field(default_factory=dict)
+    # RQ2 Institutional Decision Readiness Engine — Sprint 9 (final pre-Committee gate; not a layer)
+    decision_readiness: dict[str, Any] = Field(default_factory=dict)
     current_outlook: str | None = None
     key_drivers: list[str] = Field(default_factory=list)
     valuation_perspective: str | None = None

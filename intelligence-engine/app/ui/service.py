@@ -947,6 +947,24 @@ class UiService:
         except Exception:
             debate_engine = {}
 
+        # RQ2 Sprint 9 — Institutional Decision Readiness Engine (AFTER IDEB; BEFORE Committee)
+        decision_readiness: dict[str, Any] = {}
+        try:
+            from decision_readiness.production import soft_slice_for_ask_agi as idre_soft_slice
+
+            idre_payload = {
+                "entity_resolution": entity_resolution,
+                "research_objective": research_objective,
+                "analyst_router": analyst_router,
+                "hypothesis_testing": hypothesis_testing,
+                "belief_engine": belief_engine,
+                "thesis_engine": thesis_engine,
+                "debate_engine": debate_engine,
+            }
+            decision_readiness = idre_soft_slice(q, idre_payload) or {}
+        except Exception:
+            decision_readiness = {}
+
         # CAE gateway (preferred) — else MEE→FLE→IIE→EVE→AOI→KCV/KF soft enrichment.
         kf_hits: list[dict[str, Any]] = []
         knowledge_corpus: dict[str, Any] = {}
@@ -2581,6 +2599,7 @@ class UiService:
             belief_engine=scrub(belief_engine) if belief_engine else {},
             thesis_engine=scrub(thesis_engine) if thesis_engine else {},
             debate_engine=scrub(debate_engine) if debate_engine else {},
+            decision_readiness=scrub(decision_readiness) if decision_readiness else {},
         )
 
     def timeline(self, entity: str) -> TimelineView:

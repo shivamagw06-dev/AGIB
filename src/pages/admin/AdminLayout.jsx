@@ -59,6 +59,7 @@ const navItems = [
   { to: '/admin/belief-engine', label: 'Belief Engine', icon: Gauge },
   { to: '/admin/thesis-construction', label: 'Thesis Construction', icon: Landmark },
   { to: '/admin/institutional-debate', label: 'Institutional Debate', icon: MessageSquare },
+  { to: '/admin/decision-readiness', label: 'Decision Readiness', icon: ShieldCheck },
   { to: '/admin/articles/new', label: 'New Article', icon: Plus },
   { to: '/admin/categories', label: 'Categories', icon: FolderOpen },
   { to: '/admin/knowledge', label: 'Knowledge Corpus', icon: Brain },

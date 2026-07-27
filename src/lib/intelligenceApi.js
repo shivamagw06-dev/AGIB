@@ -1379,3 +1379,19 @@ export const diagnoseDebateEngine = (payload = {}) =>
     method: 'POST',
     body: typeof payload === 'string' ? { question: payload } : payload,
   });
+
+/** RQ2 Institutional Decision Readiness Engine — Sprint 9 */
+export const getDecisionReadinessHealth = () => intelligenceFetch('/decision-readiness/health');
+export const getDecisionReadinessDashboard = () => intelligenceFetch('/decision-readiness/dashboard');
+export const getDecisionReadinessConstitution = () => intelligenceFetch('/decision-readiness/constitution');
+export const getDecisionReadinessQualityGates = () => intelligenceFetch('/decision-readiness/quality-gates');
+export const planDecisionReadiness = (payload = {}) =>
+  intelligenceFetch('/decision-readiness/plan', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });
+export const diagnoseDecisionReadiness = (payload = {}) =>
+  intelligenceFetch('/decision-readiness/diagnostics', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });
