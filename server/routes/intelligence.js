@@ -10,12 +10,15 @@ import {
   startCmsArticleLearningScheduler,
 } from '../services/cmsArticleLearning.js';
 import {
+  approveIngestJob,
   enqueueCmsIngestJob,
   getIngestJob,
+  getPipelineBlueprint,
   getStuckIngestJobs,
   getWorkerInfo,
   processIngestQueue,
   reclaimStalledJobs,
+  replayIngestJob,
   startCmsIngestJobWorker,
 } from '../services/cmsIngestJobs.js';
 
@@ -176,6 +179,54 @@ export default function createIntelligenceRouter() {
     } catch (error) {
       return res.status(503).json({
         error: 'Ingest worker tick failed',
+        detail: error.message,
+      });
+    }
+  });
+
+  // Soft pipeline blueprint (existing AGIB layers only — no new engines).
+  router.get('/cms/ingest-pipeline', (_req, res) => {
+    return res.status(200).json({
+      ok: true,
+      worker: getWorkerInfo(),
+      blueprint: getPipelineBlueprint(),
+    });
+  });
+
+  // Replay terminal job with stored payload (optional new embedding_version).
+  router.post('/cms/ingest-jobs/:jobId/replay', async (req, res) => {
+    try {
+      const body = req.body || {};
+      const job = await replayIngestJob(req.params.jobId, {
+        embeddingVersion: body.embedding_version || body.embeddingVersion || null,
+        priority: body.priority ?? null,
+      });
+      return res.status(202).json({
+        ...job,
+        queued: true,
+        architecture: 'async_job_queue',
+        poll: `/api/intelligence/cms/ingest-jobs/${job.job_id || job.id}`,
+      });
+    } catch (error) {
+      const status = error?.status && Number(error.status) >= 400 ? Number(error.status) : 503;
+      return res.status(status).json({
+        error: error.message || 'Replay failed',
+        detail: error.message,
+      });
+    }
+  });
+
+  // Human approval gate for require_approval jobs.
+  router.post('/cms/ingest-jobs/:jobId/approve', async (req, res) => {
+    try {
+      const job = await approveIngestJob(req.params.jobId, {
+        approvedBy: req.body?.approved_by || req.body?.approvedBy || null,
+      });
+      return res.status(200).json(job);
+    } catch (error) {
+      const status = error?.status && Number(error.status) >= 400 ? Number(error.status) : 503;
+      return res.status(status).json({
+        error: error.message || 'Approve failed',
         detail: error.message,
       });
     }

@@ -22,22 +22,41 @@ And creates `cms_article_learn_events` with `learning_date` for the daily calend
 
 The ingest-jobs migration creates `cms_intelligence_ingest_jobs` so CMS never waits on Render wake inside the browser request.
 
-Also run the harden migration:
+Also run the harden + pipeline foundation migrations:
 
-`supabase/migrations/20260727190000_cms_ingest_jobs_harden.sql`
+- `supabase/migrations/20260727190000_cms_ingest_jobs_harden.sql`
+- `supabase/migrations/20260727200000_cms_ingest_pipeline_foundation.sql`
 
-(adds `failed_permanent`, metrics columns, stall indexes).
+(adds `failed_permanent`, metrics, priority, stage_trace, leases, confidence/cost, approval, replay).
 
 ## 1b. Send to Intelligence (async job queue)
 
 | Method | Path | Purpose |
 |--------|------|---------|
 | `POST` | `/api/intelligence/kip/ingest/agi` | **Enqueue only** → always `202` + `job_id` |
-| `GET` | `/api/intelligence/cms/ingest-jobs/:jobId` | Poll status: `pending` → `waking` → `processing` → `completed` / `failed_permanent` |
+| `GET` | `/api/intelligence/cms/ingest-jobs/:jobId` | Poll status + `pipeline_stage` / `stage_trace` / confidence / cost |
 | `GET` | `/api/intelligence/cms/ingest-jobs-stuck` | Ops alert: stalled processing (>15m) or queued (>30m) |
 | `POST` | `/api/intelligence/cms/ingest-jobs/tick` | Manual reclaim + process tick (post-deploy rescue) |
+| `GET` | `/api/intelligence/cms/ingest-pipeline` | Soft stage blueprint (maps to existing KIP/KC — no new engines) |
+| `POST` | `/api/intelligence/cms/ingest-jobs/:jobId/replay` | Replay terminal job payload (optional new `embedding_version`) |
+| `POST` | `/api/intelligence/cms/ingest-jobs/:jobId/approve` | Release `require_approval` jobs to the worker |
 
 Flow: CMS saves article → POST enqueue (idempotent on `article_id` + content hash) → Node worker wakes engine + retries with exponential backoff → browser polls short GETs until a **terminal** state (then stops). Duplicate clicks return the same active job. **Content change** (new hash) creates a **new version** job.
+
+### Pipeline foundation (soft-wire)
+
+Stages over **existing** AGIB layers only:
+
+`queued → wake_engine → kip_ingest → knowledge_compound → [awaiting_approval] → completed`
+
+- **Priority:** 1 market alert → 2 research → 3 default → 4 archive  
+- **Exactly-once stages:** `stage_keys` skip already-completed stages on retry  
+- **Lease tokens:** claim ownership + heartbeat while processing  
+- **Backpressure:** 429 slows the worker (`backpressure_until`, adaptive concurrency)  
+- **Replay:** re-run stored payload with a new embedding version without CMS re-upload  
+- **Human approval:** `require_approval: true` holds the job until `/approve`
+
+Longer-term graph/teach/forecast work stays inside existing soft layers (KIP/KC/FRE/IIE/FLE) — this queue is the entry gate, not a new engine.
 
 ### Worker modes
 
