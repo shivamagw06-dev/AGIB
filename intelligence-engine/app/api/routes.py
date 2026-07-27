@@ -3514,9 +3514,11 @@ async def academy_books_attach_kf():
 
 @router.get("/academy/books/library")
 async def academy_books_library():
-    from academy.books.library import scan_library
+    from academy.books.library import library_reachability, scan_library
 
-    return scan_library()
+    scan = scan_library()
+    scan["library_reachability"] = library_reachability()
+    return scan
 
 
 @router.post("/academy/books/ingest-library")
