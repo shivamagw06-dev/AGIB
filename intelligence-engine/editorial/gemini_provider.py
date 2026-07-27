@@ -5,8 +5,7 @@ from __future__ import annotations
 import time
 from typing import Any
 
-from editorial.logging_util import log_editorial_event
-from editorial.prompts import build_prompt
+from editorial.prompts import EDITORIAL_SYSTEM, build_prompt
 from editorial.provider import EditorialProvider
 
 
@@ -24,6 +23,8 @@ class GeminiProvider(EditorialProvider):
             "available": bool(self.api_key),
             "model": self.model,
             "never_analyses": True,
+            "never_generates_advice": True,
+            "never_recommends_actions": True,
             "never_overrides_recommendation": True,
         }
 
@@ -48,18 +49,7 @@ class GeminiProvider(EditorialProvider):
                 url,
                 params={"key": self.api_key},
                 json={
-                    "systemInstruction": {
-                        "parts": [
-                            {
-                                "text": (
-                                    "You are AGIB's Editorial Intelligence Layer. "
-                                    "You rewrite structured AGIB intelligence into institutional prose. "
-                                    "You do not analyse markets, filings, or valuations. "
-                                    "You never change the recommendation."
-                                )
-                            }
-                        ]
-                    },
+                    "systemInstruction": {"parts": [{"text": EDITORIAL_SYSTEM}]},
                     "contents": [{"role": "user", "parts": [{"text": prompt}]}],
                     "generationConfig": {"temperature": 0.2},
                 },

@@ -29,10 +29,13 @@ def quality_gates() -> dict[str, Any]:
             "enabled": is_enabled(),
             "writer_only": True,
             "never_reads_pdfs": True,
+            "never_generates_advice": True,
+            "never_recommends_actions": True,
             "never_overrides_recommendation": True,
             "structured_intelligence_only": True,
             "fallback_template_on_failure": True,
             "cache_recommendations_24h": True,
+            "word_limits": {"quick_summary": 60, "quick_analysis": 120, "detailed_analysis": 400},
         },
         "flags": flags_dict(),
     }
@@ -76,10 +79,16 @@ def package_for_ask_agi(
         if detailed:
             result = service.generateDetailedAnalysis(structured, question=query)
         elif isinstance(ia, dict) and (ia.get("is_recommendation_query") or ia.get("enabled")):
-            result = service.generateRecommendation(structured, question=query)
+            # Editorial rewrites summary only; AGIB recommendation is attached separately.
+            result = service.generateQuickSummary(
+                structured,
+                question=query,
+                attach_agib_recommendation=True,
+            )
         else:
             result = service.generateQuickAnalysis(structured, question=query)
 
+        rewritten = result.get("rewritten_summary") or result.get("text")
         return {
             "enabled": True,
             "programme": PROGRAMME,
@@ -87,10 +96,12 @@ def package_for_ask_agi(
             "architecture_status": ARCHITECTURE_STATUS,
             "role": "writer_only",
             "agib_is_brain": True,
+            "never_generates_advice": True,
             "flags": flags_dict(),
             "structured_intelligence": structured,
             "editorial": result,
             "executive": result.get("text"),
+            "rewritten_summary": rewritten,
             "fallback": bool(result.get("fallback")),
             "provider": result.get("provider"),
         }
