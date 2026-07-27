@@ -73,8 +73,9 @@ def _pdf_to_text(raw: bytes) -> dict[str, Any]:
 
         reader = PdfReader(io.BytesIO(raw))
         n_pages = len(reader.pages)
-        # Cap pages for extraction speed/memory; still report full page count
-        max_pages = min(n_pages, 220)
+        # Cap pages for extraction speed/memory; still report full page count.
+        # Large textbooks (Damodaran / Mankiw) need deeper coverage to learn.
+        max_pages = min(n_pages, 450)
         parts: list[str] = []
         for i in range(max_pages):
             try:
