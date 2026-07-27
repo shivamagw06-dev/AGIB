@@ -41,6 +41,12 @@ def detect_ic_case_mode(query: str) -> dict[str, Any] | None:
     # Specific intents first — never let a dossier preamble steal the mode.
     checks: list[tuple[str, str, list[str], re.Pattern[str]]] = []
     try:
+        from institutional_reasoning.ic_case_study_depth import depth_detection_checks
+
+        checks.extend(depth_detection_checks())
+    except Exception:
+        pass
+    try:
         from institutional_reasoning.ic_case_study_v2 import v2_detection_checks
 
         checks.extend(v2_detection_checks())
@@ -478,9 +484,9 @@ def _mgmt_q(query: str) -> dict[str, Any]:
 
 def _val_div(query: str) -> dict[str, Any]:
     return _exec(
-        "DCF, relative valuation, residual income and reverse DCF differ because they capitalise different assumptions about cash recovery, peer similarity, clean earnings/book, and what the market price already embeds.",
+        "DCF, comparable / relative valuation, residual income and reverse DCF differ because they capitalise different assumptions about cash recovery, peer similarity, clean earnings/book, and what the market price already embeds.",
         "DCF is driven by explicit FCF path, WACC and terminal assumptions — fragile when FCF is negative. "
-        "Relative multiples assume peer comparability on growth/cash/returns. "
+        "Comparable / relative multiples assume peer comparability on growth/cash/returns. "
         "Residual income depends on clean ROE/ROIC and book quality. "
         "Reverse DCF asks what growth the price implies — here sustained high FCF CAGR despite current cash burn. "
         "Key assumption drivers: WC mean-reversion speed, margin recovery, refinance cost, one-off add-backs, and peer set.",
@@ -766,12 +772,12 @@ def _ev_rank(query: str) -> dict[str, Any]:
         "Bloomberg / terminal market data (prices, yields) — verified market facts",
         "Reuters secondary reporting — useful early, needs filing confirmation",
         "Broker research — opinion; check date vs restatements",
-        "Social media — lowest authority",
+        "Twitter / social media — lowest authority",
     ]
     direct = "Evidence hierarchy ranking: " + "; ".join(f"({i}) {r}" for i, r in enumerate(ranked, 1)) + "."
     return _exec(
         direct,
-        "Quality = authority × verifiability × completeness × conflict-with-incentives. Annual report + audit outrank decks, wires and social posts.",
+        "Quality = authority × verifiability × completeness × conflict-with-incentives. Annual report + audit outrank decks, wires and social posts; Twitter sits at the bottom.",
         [],
         ["Source ledger with dates"],
         "Never let lower-tier evidence overrule audited cash/credit facts without new primary disclosure.",
@@ -862,5 +868,11 @@ try:
     from institutional_reasoning.ic_case_study_v2 import V2_COMPOSERS
 
     _COMPOSERS.update(V2_COMPOSERS)
+except Exception:
+    pass
+try:
+    from institutional_reasoning.ic_case_study_depth import DEPTH_COMPOSERS
+
+    _COMPOSERS.update(DEPTH_COMPOSERS)
 except Exception:
     pass
