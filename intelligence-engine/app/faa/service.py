@@ -68,7 +68,7 @@ class FaaService:
             "status": "ok" if self.flags.faa else "disabled",
             "layer": "Finance Acquisition Agent",
             "programme": "FAA",
-            "version": "faa-v1.3.1",
+            "version": "faa-v1.3.2",
             "architecture_status": "v1.0.1 LOCKED",
             "position": "upstream_of_fre",
             "does_not_answer": True,
@@ -106,7 +106,7 @@ class FaaService:
         return {
             "programme": "FAA",
             "architecture_status": "v1.0.1 LOCKED",
-            "version": "faa-v1.3.1",
+            "version": "faa-v1.3.2",
             "does_not_answer": True,
             "live_fetch_enabled": self.flags.faa_live_fetch,
             "search_providers_configured": available_search_providers(),
@@ -138,7 +138,7 @@ class FaaService:
         return {
             "programme": "FAA",
             "architecture_status": "v1.0.1 LOCKED",
-            "version": "faa-v1.3.1",
+            "version": "faa-v1.3.2",
             "does_not_answer": True,
             "never_reasons": True,
             **payload,
