@@ -2261,5 +2261,33 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // RQ2 Institutional Reasoning Audit Engine — Sprint 10 (final certification)
+  router.get('/reasoning-audit/health', kfGet('/v1/reasoning-audit/health'));
+  router.get('/reasoning-audit/dashboard', kfGet('/v1/reasoning-audit/dashboard'));
+  router.get('/reasoning-audit/constitution', kfGet('/v1/reasoning-audit/constitution'));
+  router.get('/reasoning-audit/quality-gates', kfGet('/v1/reasoning-audit/quality-gates'));
+  router.post('/reasoning-audit/plan', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/reasoning-audit/plan', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'IRAE plan failed', detail: error.message });
+    }
+  });
+  router.post('/reasoning-audit/diagnostics', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/reasoning-audit/diagnostics', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'IRAE diagnostics failed', detail: error.message });
+    }
+  });
+
   return router;
 }

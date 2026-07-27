@@ -965,6 +965,33 @@ class UiService:
         except Exception:
             decision_readiness = {}
 
+        # RQ2 Sprint 10 — Institutional Reasoning Audit Engine (final certification BEFORE Committee)
+        reasoning_audit: dict[str, Any] = {}
+        try:
+            from reasoning_audit.production import soft_slice_for_ask_agi as irae_soft_slice
+
+            irae_payload = {
+                "hypothesis_engine": hypothesis_engine,
+                "research_questions": research_questions,
+                "hypothesis_testing": hypothesis_testing,
+                "belief_engine": belief_engine,
+                "thesis_engine": thesis_engine,
+                "debate_engine": debate_engine,
+                "decision_readiness": decision_readiness,
+            }
+            # Preserve the explicit falsification handoff when RQ2.5 is available.
+            try:
+                from falsification_engine.production import soft_slice_for_ask_agi as ife_soft  # type: ignore
+
+                ife = ife_soft(q, irae_payload) or {}
+                if isinstance(ife, dict):
+                    irae_payload.update(ife)
+            except Exception:
+                pass
+            reasoning_audit = irae_soft_slice(q, irae_payload) or {}
+        except Exception:
+            reasoning_audit = {}
+
         # CAE gateway (preferred) — else MEE→FLE→IIE→EVE→AOI→KCV/KF soft enrichment.
         kf_hits: list[dict[str, Any]] = []
         knowledge_corpus: dict[str, Any] = {}
@@ -2600,6 +2627,7 @@ class UiService:
             thesis_engine=scrub(thesis_engine) if thesis_engine else {},
             debate_engine=scrub(debate_engine) if debate_engine else {},
             decision_readiness=scrub(decision_readiness) if decision_readiness else {},
+            reasoning_audit=scrub(reasoning_audit) if reasoning_audit else {},
         )
 
     def timeline(self, entity: str) -> TimelineView:

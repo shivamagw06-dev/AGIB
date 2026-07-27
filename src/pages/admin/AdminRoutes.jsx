@@ -47,6 +47,7 @@ import BeliefEngine from '@/pages/admin/BeliefEngine';
 import ThesisConstruction from '@/pages/admin/ThesisConstruction';
 import InstitutionalDebate from '@/pages/admin/InstitutionalDebate';
 import DecisionReadiness from '@/pages/admin/DecisionReadiness';
+import ReasoningAudit from '@/pages/admin/ReasoningAudit';
 
 export default function AdminRoutes() {
   return (
@@ -93,6 +94,7 @@ export default function AdminRoutes() {
           <Route path="thesis-construction" element={<ThesisConstruction />} />
           <Route path="institutional-debate" element={<InstitutionalDebate />} />
           <Route path="decision-readiness" element={<DecisionReadiness />} />
+          <Route path="reasoning-audit" element={<ReasoningAudit />} />
           <Route path="system" element={<MissionControl />} />
           <Route path="investment-intelligence" element={<InvestmentIntelligence />} />
           <Route path="forecasting" element={<Forecasting />} />

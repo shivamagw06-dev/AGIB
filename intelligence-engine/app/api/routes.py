@@ -5396,6 +5396,51 @@ async def decision_readiness_diagnostics(payload: dict[str, Any] = Body(default=
     return diagnostics(payload or {})
 
 
+# --- RQ2 Institutional Reasoning Audit Engine (Sprint 10 — final reasoning certification) ---
+
+
+@router.get("/reasoning-audit/health")
+async def reasoning_audit_health():
+    from reasoning_audit.production import health
+
+    return health()
+
+
+@router.get("/reasoning-audit/dashboard")
+async def reasoning_audit_dashboard():
+    from reasoning_audit.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/reasoning-audit/constitution")
+async def reasoning_audit_constitution():
+    from reasoning_audit.production import constitution
+
+    return constitution()
+
+
+@router.get("/reasoning-audit/quality-gates")
+async def reasoning_audit_quality_gates():
+    from reasoning_audit.production import quality_gates
+
+    return quality_gates()
+
+
+@router.post("/reasoning-audit/plan")
+async def reasoning_audit_plan(payload: dict[str, Any] = Body(default={})):
+    from reasoning_audit.production import plan
+
+    return plan(payload or {})
+
+
+@router.post("/reasoning-audit/diagnostics")
+async def reasoning_audit_diagnostics(payload: dict[str, Any] = Body(default={})):
+    from reasoning_audit.production import diagnostics
+
+    return diagnostics(payload or {})
+
+
 # --- SIF v1.0 (Sector Intelligence Framework — additive; not an engine) ---
 
 

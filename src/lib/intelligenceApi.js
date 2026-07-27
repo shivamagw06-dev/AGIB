@@ -1395,3 +1395,19 @@ export const diagnoseDecisionReadiness = (payload = {}) =>
     method: 'POST',
     body: typeof payload === 'string' ? { question: payload } : payload,
   });
+
+/** RQ2 Institutional Reasoning Audit Engine — Sprint 10 */
+export const getReasoningAuditHealth = () => intelligenceFetch('/reasoning-audit/health');
+export const getReasoningAuditDashboard = () => intelligenceFetch('/reasoning-audit/dashboard');
+export const getReasoningAuditConstitution = () => intelligenceFetch('/reasoning-audit/constitution');
+export const getReasoningAuditQualityGates = () => intelligenceFetch('/reasoning-audit/quality-gates');
+export const planReasoningAudit = (payload = {}) =>
+  intelligenceFetch('/reasoning-audit/plan', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });
+export const diagnoseReasoningAudit = (payload = {}) =>
+  intelligenceFetch('/reasoning-audit/diagnostics', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });
