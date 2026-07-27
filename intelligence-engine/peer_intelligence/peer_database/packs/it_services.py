@@ -53,6 +53,12 @@ def series() -> list[MetricSeries]:
         _s("Cash_Conversion", "HCLTECH", "%", {"FY22": 85.0, "FY23": 88.0, "FY24": 90.0, "FY25": 91.0, "FY26": 90.0}),
         _s("Cash_Conversion", "WIPRO", "%", {"FY22": 80.0, "FY23": 82.0, "FY24": 85.0, "FY25": 86.0, "FY26": 85.0}),
         _s("Cash_Conversion", "TECHM", "%", {"FY22": 75.0, "FY23": 78.0, "FY24": 80.0, "FY25": 82.0, "FY26": 81.0}),
+        # Phase 2 — Historical PE panels (institutional seed → PIL overlay)
+        _s("PE", "TCS", "x", {"FY22": 35.0, "FY23": 28.0, "FY24": 27.2, "FY25": 28.5, "FY26": 29.0}),
+        _s("PE", "INFY", "x", {"FY22": 32.1, "FY23": 24.8, "FY24": 23.2, "FY25": 25.1, "FY26": 26.4}),
+        _s("PE", "HCLTECH", "x", {"FY22": 24.5, "FY23": 20.0, "FY24": 21.5, "FY25": 22.8, "FY26": 23.5}),
+        _s("PE", "WIPRO", "x", {"FY22": 24.0, "FY23": 18.5, "FY24": 19.0, "FY25": 20.5, "FY26": 21.0}),
+        _s("PE", "TECHM", "x", {"FY22": 23.0, "FY23": 17.0, "FY24": 18.5, "FY25": 20.0, "FY26": 21.5}),
     ]
 
 

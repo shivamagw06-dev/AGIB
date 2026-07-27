@@ -1518,6 +1518,7 @@ class UiService:
                     "company_dossier": company_dossier if isinstance(company_dossier, dict) else {},
                 },
                 academy=finance_academy if isinstance(finance_academy, dict) else None,
+                build_institutional_evidence=True,
             )
             telemetry = persist_rows(
                 telemetry_rows(execution_governance, answer_id=execution_governance.get("run_id"))

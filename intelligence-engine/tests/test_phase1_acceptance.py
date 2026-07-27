@@ -33,8 +33,10 @@ def _packs(**overrides):
 
 # ---------------------------------------------------------------- Test 1
 def test_1_missing_historical_pe_cannot_determine():
+    # Isolate Phase 1 contract behaviour without Phase 2 pack injection.
     record = govern_answer(
         NIFTY_IT_Q,
+        build_institutional_evidence=False,
         packs=_packs(
             data_validation={
                 "validated": {
@@ -79,6 +81,7 @@ def test_1_missing_historical_pe_cannot_determine():
 def test_2_wrong_entity_blocks_execution():
     record = govern_answer(
         NIFTY_IT_Q,
+        build_institutional_evidence=False,
         packs=_packs(
             valuation={
                 "company": {"company_symbol": "IS"},
@@ -103,6 +106,7 @@ def test_2_wrong_entity_blocks_execution():
 def test_3_placeholder_values_rejected():
     record = govern_answer(
         NIFTY_IT_Q,
+        build_institutional_evidence=False,
         packs=_packs(
             data_validation={
                 "validated": {

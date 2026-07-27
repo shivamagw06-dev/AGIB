@@ -303,6 +303,7 @@ def govern_answer(
     entity_resolution_pack: dict[str, Any] | None = None,
     packs: dict[str, dict[str, Any]] | None = None,
     academy: dict[str, Any] | None = None,
+    build_institutional_evidence: bool = True,
 ) -> dict[str, Any]:
     """Run the full governed pipeline; returns structured governance record."""
     started = time.time()
@@ -363,10 +364,31 @@ def govern_answer(
 
     primary = entities.get("primary") or {}
     entity_id = primary.get("entity_id")
+
+    # Phase 2 — Institutional Evidence Pack binding.
+    # Frameworks consume validated packs; they never fetch.
+    packs = dict(packs or {})
+    if build_institutional_evidence:
+        try:
+            from institutional_reasoning.institutional_evidence.production import (
+                package_for_governance,
+            )
+
+            ie_pkg = package_for_governance(
+                entity_id,
+                entity_name=primary.get("entity_name"),
+                entity_type=primary.get("entity_type"),
+                existing_packs=packs,
+            )
+            if ie_pkg.get("found"):
+                packs["institutional_evidence"] = ie_pkg
+        except Exception:
+            pass
+
     validation = validate_contract(
         question_type=qtype,
         entity_id=entity_id,
-        packs=packs or {},
+        packs=packs,
     )
     specs = select_frameworks_for(qtype)
     results = [
@@ -399,6 +421,7 @@ def govern_answer(
         "narrative_allowed": narrative_allowed,
         "editorial_mode": "explain_only" if narrative_allowed else "report_insufficient",
         "missing_evidence": validation.get("missing") or [],
+        "institutional_evidence": (packs.get("institutional_evidence") or {}),
         "execution_ms": int((time.time() - started) * 1000),
     }
 
