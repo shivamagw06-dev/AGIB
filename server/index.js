@@ -14,7 +14,7 @@ import createUiRouter from "./routes/ui.js";
 import createAuthRouter from "./routes/auth.js";
 import createNewsletterRouter from "./routes/newsletter.js";
 import { getNewsHeadlines } from "./services/newsHeadlinesService.js";
-import { getIpoDetail, getIpoSummary } from "./services/ipoService.js";
+import { getIpoDetail, getIpoPlatform, getIpoSummary } from "./services/ipoService.js";
 import { getMarketContext } from "./services/marketContextService.js";
 import { startCioMorningScheduler } from "./services/cioMorningScheduler.js";
 import rateLimit from "express-rate-limit";
@@ -540,6 +540,11 @@ reg('/api/historical_stats', (req, res) => proxyFetch(res, `${BASE_URL}/historic
 reg('/api/news', (req, res) => proxyFetch(res, `${BASE_URL}/news?${new URLSearchParams(req.query).toString()}`));
 reg('/api/ipo/summary', async (_req, res) => {
   const data = await getIpoSummary();
+  res.set('Cache-Control', 'public, max-age=3600, stale-while-revalidate=300');
+  return res.json(data);
+});
+reg('/api/ipo/platform', async (_req, res) => {
+  const data = await getIpoPlatform();
   res.set('Cache-Control', 'public, max-age=3600, stale-while-revalidate=300');
   return res.json(data);
 });

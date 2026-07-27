@@ -40,6 +40,7 @@ const MacroIntelligence = React.lazy(() => import('@/pages/MacroIntelligence'));
 const PreMarketIntelligence = React.lazy(() => import('@/pages/PreMarketIntelligence'));
 const Nifty500StockResearch = React.lazy(() => import('@/pages/Nifty500StockResearch'));
 const IpoDetailPage = React.lazy(() => import('@/pages/IpoDetailPage'));
+const IpoIntelligencePage = React.lazy(() => import('@/pages/IpoIntelligencePage'));
 const MarketDataCentre = React.lazy(() => import('@/pages/MarketDataCentre'));
 const PortfolioDesk = React.lazy(() => import('@/pages/PortfolioDesk'));
 const ThemeDesk = React.lazy(() => import('@/pages/ThemeDesk'));
@@ -141,6 +142,8 @@ function PublicRoutes() {
       <Route path="/themes" element={<Navigate replace to="/themes/credit_growth" />} />
       <Route path="/sectors/:sectorId" element={<SectorDesk />} />
       <Route path="/research/workflow" element={<ResearchWorkflowDesk />} />
+      <Route path="/ipo-intelligence" element={<IpoIntelligencePage />} />
+      <Route path="/ipos" element={<Navigate replace to="/ipo-intelligence" />} />
       <Route path="/ipos/:symbol" element={<IpoDetailPage />} />
 
       {/* Legacy redirects */}
