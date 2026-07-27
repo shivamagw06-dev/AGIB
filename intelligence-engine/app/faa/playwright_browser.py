@@ -29,8 +29,18 @@ _UA = (
 
 
 def playwright_enabled() -> bool:
+    """Enabled when FAA_PLAYWRIGHT=true, or by default whenever FAA_LIVE_FETCH is on.
+
+    Soft-fails at fetch time if Chromium binaries are missing — production
+    Render services often omit new render.yaml env keys until set manually.
+    """
     raw = (os.environ.get("FAA_PLAYWRIGHT") or os.environ.get("PLAYWRIGHT") or "").strip().lower()
-    return raw in {"1", "true", "yes", "on"}
+    if raw in {"0", "false", "no", "off"}:
+        return False
+    if raw in {"1", "true", "yes", "on"}:
+        return True
+    live = (os.environ.get("FAA_LIVE_FETCH") or "").strip().lower()
+    return live in {"1", "true", "yes", "on"}
 
 
 def playwright_available() -> bool:

@@ -26,7 +26,12 @@ _GENERAL_PREF = ("exa", "tavily", "firecrawl", "playwright", "serpapi", "bing", 
 
 def _playwright_search_ready() -> bool:
     raw = (os.environ.get("FAA_PLAYWRIGHT") or os.environ.get("PLAYWRIGHT") or "").strip().lower()
-    return raw in {"1", "true", "yes", "on"}
+    if raw in {"0", "false", "no", "off"}:
+        return False
+    if raw in {"1", "true", "yes", "on"}:
+        return True
+    live = (os.environ.get("FAA_LIVE_FETCH") or "").strip().lower()
+    return live in {"1", "true", "yes", "on"}
 
 
 def available_search_providers() -> list[str]:
