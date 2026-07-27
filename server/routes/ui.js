@@ -22,7 +22,7 @@ function engineConfig() {
   return { baseUrl, token };
 }
 
-async function engineFetch(path, { method = 'GET', body = null, timeoutMs = 240_000 } = {}) {
+async function engineFetch(path, { method = 'GET', body = null, timeoutMs = 360_000 } = {}) {
   const { baseUrl, token } = engineConfig();
   const response = await fetch(`${baseUrl}${path}`, {
     method,
@@ -466,10 +466,10 @@ export default function createUiRouter() {
       }
       const qs = new URLSearchParams({ question: String(question) });
       if (ticker) qs.set('ticker', String(ticker));
-      // Full RQ1→RQ2 soft-slice stack can exceed 2 minutes on cold free-tier engine.
+      // Full RQ1→RQ2 soft-slice stack can exceed 4 minutes on cold free-tier engine.
       const result = await engineFetch(`/v1/ui/search?${qs.toString()}`, {
         method: 'POST',
-        timeoutMs: 240_000,
+        timeoutMs: 360_000,
       });
       return res.status(result.status).json(result.data);
     } catch (error) {
