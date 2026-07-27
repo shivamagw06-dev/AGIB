@@ -125,7 +125,7 @@ function isTransientIngestError(err, status) {
     name === 'TypeError' ||
     name === 'AbortError' ||
     name === 'TimeoutError' ||
-    /failed to fetch|fetch failed|networkerror|network request failed|load failed|timed out|timeout|aborted|502|503|504|unavailable|econnreset|enotfound/i.test(
+    /failed to fetch|fetch failed|networkerror|network request failed|load failed|timed out|timeout|aborted|502|503|504|unavailable|econnreset|enotfound|cold-start/i.test(
       msg
     )
   );
@@ -134,7 +134,7 @@ function isTransientIngestError(err, status) {
 /** Soft-wake Node + IE before a write so Render cold starts fail less often. */
 async function warmIntelligence(base) {
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 25_000);
+  const timer = setTimeout(() => ctrl.abort(), 20_000);
   try {
     await fetch(`${base}/api/health`, {
       method: 'GET',
@@ -151,7 +151,7 @@ async function warmIntelligence(base) {
   }
 }
 
-async function postIngest(base, payload, { timeoutMs = 90_000 } = {}) {
+async function postIngest(base, payload, { timeoutMs = 45_000 } = {}) {
   const resp = await fetch(`${base}/api/intelligence/kip/ingest/agi`, {
     method: 'POST',
     credentials: 'include',
@@ -171,8 +171,8 @@ async function postIngest(base, payload, { timeoutMs = 90_000 } = {}) {
 
 /**
  * Push CMS research into the intelligence engine (KIP).
- * Retries on transient gateway/engine failures and browser "Failed to fetch"
- * (common during Render cold starts).
+ * Treats 202 queued as success — Node finishes ingest while IE cold-starts.
+ * Retries only on hard transport / gateway failures.
  */
 export async function ingestArticleToIntelligence({
   title,
@@ -210,12 +210,11 @@ export async function ingestArticleToIntelligence({
     author: 'AGI Research Desk',
   };
 
-  // Warm first — avoids the first write hitting a sleeping IE with a hard network fail.
-  if (typeof onAttempt === 'function') onAttempt({ phase: 'warm', attempt: 0, maxAttempts: 5 });
+  if (typeof onAttempt === 'function') onAttempt({ phase: 'warm', attempt: 0, maxAttempts: 4 });
   await warmIntelligence(base);
 
-  const maxAttempts = 5;
-  const backoffs = [0, 3000, 8000, 15000, 25000];
+  const maxAttempts = 4;
+  const backoffs = [0, 2500, 6000, 12000];
   let lastError = null;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
@@ -225,7 +224,14 @@ export async function ingestArticleToIntelligence({
     }
     try {
       const { resp, data } = await postIngest(base, payload);
-      if (resp.ok) return data;
+      // Immediate ingest or accepted background queue — both are success for CMS.
+      if (resp.ok || resp.status === 202 || data?.queued || data?.pending) {
+        return {
+          ...(data && typeof data === 'object' ? data : {}),
+          queued: Boolean(data?.queued || data?.pending || resp.status === 202),
+          pending: Boolean(data?.pending || data?.queued || resp.status === 202),
+        };
+      }
 
       const detail =
         data?.detail || data?.error || data?.hint || `Intelligence ingest failed (${resp.status})`;
@@ -233,7 +239,6 @@ export async function ingestArticleToIntelligence({
       if (!isTransientIngestError(lastError, resp.status) || attempt === maxAttempts) {
         throw lastError;
       }
-      // Re-warm between retries when the engine is clearly cold.
       await warmIntelligence(base);
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));

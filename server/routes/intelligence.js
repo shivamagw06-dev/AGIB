@@ -7,6 +7,7 @@ import {
   buildRecentLearningSummary,
   cmsLearningStatus,
   learnCmsArticles,
+  markArticleIntelligenceIngest,
   startCmsArticleLearningScheduler,
 } from '../services/cmsArticleLearning.js';
 
@@ -19,7 +20,11 @@ function engineConfig() {
   return { baseUrl, token };
 }
 
-async function engineFetch(path, { method = 'GET', body = null } = {}) {
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function engineFetch(path, { method = 'GET', body = null, timeoutMs = 120_000 } = {}) {
   const { baseUrl, token } = engineConfig();
   const response = await fetch(`${baseUrl}${path}`, {
     method,
@@ -30,7 +35,7 @@ async function engineFetch(path, { method = 'GET', body = null } = {}) {
       'X-AGI-Intelligence-Token': token,
     },
     body: body ? JSON.stringify(body) : undefined,
-    signal: AbortSignal.timeout(120_000),
+    signal: AbortSignal.timeout(timeoutMs),
   });
   const text = await response.text();
   let data = null;
@@ -40,6 +45,115 @@ async function engineFetch(path, { method = 'GET', body = null } = {}) {
     data = { raw: text };
   }
   return { ok: response.ok, status: response.status, data };
+}
+
+/**
+ * Free-tier IE cold starts often need 60–90s. Poll health until ready instead of
+ * failing the first write with a gateway 502.
+ */
+async function wakeEngineUntilReady(maxWaitMs = 100_000) {
+  const started = Date.now();
+  let attempt = 0;
+  let last = null;
+  while (Date.now() - started < maxWaitMs) {
+    attempt += 1;
+    try {
+      // Short per-try timeout so a stuck edge 502 does not burn the whole budget.
+      last = await engineFetch('/v1/health', { timeoutMs: 25_000 });
+      if (last.ok && last.data && last.data.ok !== false) {
+        return { ok: true, attempt, waitedMs: Date.now() - started, last };
+      }
+    } catch (error) {
+      last = { ok: false, status: 503, data: { error: error.message } };
+    }
+    const remaining = maxWaitMs - (Date.now() - started);
+    if (remaining <= 0) break;
+    await sleep(Math.min(remaining, Math.min(8_000, 1_500 + attempt * 750)));
+  }
+  return { ok: false, attempt, waitedMs: Date.now() - started, last };
+}
+
+async function ingestAgiWithRetries(payload, { attempts = 6 } = {}) {
+  let lastErr = null;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      const result = await engineFetch('/v1/kip/ingest/agi', {
+        method: 'POST',
+        body: payload,
+        timeoutMs: 120_000,
+      });
+      if (result.ok || (result.status && result.status < 500 && result.status !== 429)) {
+        return result;
+      }
+      lastErr = result;
+    } catch (error) {
+      lastErr = { ok: false, status: 503, data: { error: error.message } };
+    }
+    if (attempt < attempts) {
+      await sleep(2_000 * attempt);
+      await wakeEngineUntilReady(35_000);
+    }
+  }
+  return lastErr || { ok: false, status: 503, data: { error: 'Intelligence ingest unavailable' } };
+}
+
+async function runBackgroundCmsIngest(payload) {
+  try {
+    if (payload.article_id) {
+      await markArticleIntelligenceIngest({
+        articleId: payload.article_id,
+        status: 'pending',
+        error: 'Queued while intelligence engine cold-starts',
+      });
+    }
+    await wakeEngineUntilReady(120_000);
+    const result = await ingestAgiWithRetries(payload, { attempts: 8 });
+    if (result?.ok) {
+      const documentId =
+        result.data?.document_id || result.data?.id || result.data?.document?.id || null;
+      if (payload.article_id) {
+        await markArticleIntelligenceIngest({
+          articleId: payload.article_id,
+          documentId,
+          status: 'learned',
+        });
+      }
+      console.info('[cms-ingest] background ok', {
+        article_id: payload.article_id,
+        document_id: documentId,
+      });
+      return;
+    }
+    const errMsg =
+      result?.data?.error ||
+      result?.data?.detail ||
+      `Ingest failed (${result?.status || 503})`;
+    if (payload.article_id) {
+      await markArticleIntelligenceIngest({
+        articleId: payload.article_id,
+        status: 'failed',
+        error: errMsg,
+      });
+    }
+    console.warn('[cms-ingest] background failed', {
+      article_id: payload.article_id,
+      status: result?.status,
+      error: errMsg,
+    });
+  } catch (error) {
+    console.error('[cms-ingest] background error', error?.message || error);
+    if (payload?.article_id) {
+      try {
+        await markArticleIntelligenceIngest({
+          articleId: payload.article_id,
+          status: 'failed',
+          error: error?.message || String(error),
+        });
+      } catch {
+        /* ignore */
+      }
+    }
+  }
 }
 
 export default function createIntelligenceRouter() {
@@ -125,41 +239,46 @@ export default function createIntelligenceRouter() {
         },
       };
 
-      // Soft wake + retries — Render free tier often drops the first write during cold start.
-      try {
-        await engineFetch('/v1/health');
-      } catch {
-        /* ignore wake errors */
-      }
-
-      let result = null;
-      let lastErr = null;
-      for (let attempt = 1; attempt <= 4; attempt += 1) {
-        try {
-          result = await engineFetch('/v1/kip/ingest/agi', { method: 'POST', body: payload });
-          if (result.ok || (result.status && result.status < 500 && result.status !== 429)) {
-            return res.status(result.status).json(result.data);
+      // Fast path when IE is already warm (~sub-second). Avoid holding the browser
+      // open for a 60–90s Free-tier cold start — that is what surfaces as HTTP 502.
+      const wake = await wakeEngineUntilReady(12_000);
+      if (wake.ok) {
+        const result = await ingestAgiWithRetries(payload, { attempts: 3 });
+        if (result?.ok) {
+          const documentId =
+            result.data?.document_id || result.data?.id || result.data?.document?.id || null;
+          if (payload.article_id && documentId) {
+            try {
+              await markArticleIntelligenceIngest({
+                articleId: payload.article_id,
+                documentId,
+                status: 'learned',
+              });
+            } catch {
+              /* non-fatal */
+            }
           }
-          lastErr = result;
-        } catch (error) {
-          lastErr = { ok: false, status: 503, data: { error: error.message } };
+          return res.status(result.status).json(result.data);
         }
-        if (attempt < 4) {
-          await new Promise((r) => setTimeout(r, 1500 * attempt));
-          try {
-            await engineFetch('/v1/health');
-          } catch {
-            /* ignore */
-          }
+        if (result?.status && result.status < 500 && result.status !== 429) {
+          return res.status(result.status).json(result.data);
         }
       }
 
-      return res.status(lastErr?.status || 503).json(
-        lastErr?.data || {
-          error: 'Intelligence ingest unavailable',
-          hint: 'Engine may be cold-starting — retry in ~30s.',
-        }
-      );
+      // Cold / flaky engine: accept immediately and finish ingest in-process.
+      setImmediate(() => {
+        runBackgroundCmsIngest(payload);
+      });
+
+      return res.status(202).json({
+        queued: true,
+        pending: true,
+        article_id: payload.article_id,
+        message:
+          'Intelligence engine is cold-starting on Render. Draft is safe; ingest continues in the background.',
+        hint: 'No need to click Send again unless Mission Control still shows this article as failed after ~2 minutes.',
+        wake: { ok: wake.ok, waitedMs: wake.waitedMs, attempt: wake.attempt },
+      });
     } catch (error) {
       return res.status(503).json({
         error: 'Intelligence ingest unavailable',

@@ -69,6 +69,65 @@ async function createAdmin() {
   });
 }
 
+/** Stamp CMS article after a successful (or queued) KIP ingest from the Node gateway. */
+export async function markArticleIntelligenceIngest({
+  articleId,
+  documentId = null,
+  status = 'learned',
+  error = null,
+} = {}) {
+  if (!articleId) return { ok: false, skipped: true, reason: 'articleId required' };
+  const admin = await createAdmin();
+  if (!admin) {
+    return {
+      ok: false,
+      skipped: true,
+      reason: 'Supabase admin credentials unavailable on API',
+    };
+  }
+
+  const learnedAt = status === 'learned' ? new Date().toISOString() : null;
+  const patch = {
+    learn_status: status,
+    last_learn_error: error ? String(error).slice(0, 500) : null,
+  };
+  if (documentId) {
+    patch.intelligence_document_id = documentId;
+    patch.intelligence_ingested_at = learnedAt || new Date().toISOString();
+  }
+  if (learnedAt) {
+    patch.last_learned_at = learnedAt;
+  }
+
+  const { error: updateError } = await admin.from('articles').update(patch).eq('id', articleId);
+  if (updateError) return { ok: false, error: updateError.message || String(updateError) };
+
+  if (status === 'learned' && documentId) {
+    try {
+      const { data: row } = await admin
+        .from('articles')
+        .select('title,slug,status')
+        .eq('id', articleId)
+        .maybeSingle();
+      await admin.from('cms_article_learn_events').insert({
+        article_id: articleId,
+        learned_at: learnedAt,
+        learning_date: learningDateIST(),
+        document_id: documentId,
+        status: 'learned',
+        title: row?.title || null,
+        slug: row?.slug || null,
+        destination: row?.status === 'published' ? 'website' : 'intelligence',
+        error: null,
+      });
+    } catch {
+      /* events table optional */
+    }
+  }
+
+  return { ok: true, article_id: articleId, document_id: documentId, status };
+}
+
 /**
  * @param {object} opts
  * @param {(path:string, init?:object)=>Promise<{status:number,data:any}>} opts.engineFetch

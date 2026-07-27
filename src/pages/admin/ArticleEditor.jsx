@@ -396,6 +396,18 @@ export default function ArticleEditor() {
               } catch {
                 /* optional columns may be missing until migration */
               }
+            } else if (ingestResult?.queued || ingestResult?.pending) {
+              try {
+                await supabase
+                  .from('articles')
+                  .update({
+                    learn_status: 'pending',
+                    last_learn_error: 'Queued while intelligence engine cold-starts',
+                  })
+                  .eq('id', data.id);
+              } catch {
+                /* optional */
+              }
             }
             setError('');
           } catch (err) {
@@ -432,7 +444,11 @@ export default function ArticleEditor() {
           if (ingestError) {
             alert(
               `Saved for Intelligence, but engine ingest failed (${ingestError}). ` +
-                `Your draft is safe. Wait ~30–60s for Render to wake, then click Send to Intelligence again.`
+                `Your draft is safe. Wait ~60–90s for Render to wake, then click Send to Intelligence again — or leave it; the daily learner will retry.`
+            );
+          } else if (ingestResult?.queued || ingestResult?.pending) {
+            alert(
+              'Saved for Intelligence. The engine was cold-starting, so ingest is finishing in the background — no need to click Send again.'
             );
           } else {
             alert('Sent to AGI Intelligence only. This will not appear on the public website.');
@@ -444,7 +460,9 @@ export default function ArticleEditor() {
               : '';
           const ingestNote = ingestError
             ? ` Intelligence ingest failed (${ingestError}).`
-            : ' Ingested into AGI Intelligence.';
+            : ingestResult?.queued || ingestResult?.pending
+              ? ' Intelligence ingest queued (engine waking).'
+              : ' Ingested into AGI Intelligence.';
           alert(`Published to website.${ingestNote}${notifyNote}`);
         }
 
