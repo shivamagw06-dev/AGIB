@@ -58,7 +58,11 @@ services:
     name: agib-intelligence-engine
     runtime: python
     rootDir: intelligence-engine
-    plan: free
+    # Starter ($7): required before a persistent disk can attach.
+    # Upgrade order: (1) plan→Starter with NO disk, deploy success
+    #                 (2) attach disk /var/data/kip
+    #                 (3) set KIP_DATA_DIR + optional KIP_REQUIRE_PERSISTENT=1
+    plan: starter
     # Chromium for FAA Playwright JS-render + free web search.
     # If the live Render service ignores Blueprint buildCommand, start.sh
     # and FAA_PLAYWRIGHT_AUTO_INSTALL still attempt a one-shot install.
@@ -71,11 +75,16 @@ services:
     envVars:
       - key: APP_ENV
         value: production
-      # Durable KIP institutional memory — REQUIRED in production (service refuses to start if unset).
-      # Attach a Render persistent disk in the dashboard with mount path /var/data/kip.
-      # Emergency only: KIP_ALLOW_EPHEMERAL=1 bypasses the boot guard (memory unsafe).
+      # Set AFTER the paid disk is attached (mount /var/data/kip).
+      # Leaving this unset during Free→Starter upgrade is OK (warn-only boot).
+      # After disk is live: set KIP_DATA_DIR=/var/data/kip and optionally
+      # KIP_REQUIRE_PERSISTENT=1 to refuse ephemeral boots.
       - key: KIP_DATA_DIR
-        value: /var/data/kip
+        sync: false
+      - key: KIP_REQUIRE_PERSISTENT
+        sync: false
+      - key: KIP_ALLOW_EPHEMERAL
+        sync: false
       - key: INTELLIGENCE_ENGINE_TOKEN
         fromService:
           name: agib-api

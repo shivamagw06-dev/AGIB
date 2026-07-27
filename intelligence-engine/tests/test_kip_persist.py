@@ -94,12 +94,18 @@ def test_enforce_fails_in_production_without_dir(monkeypatch):
 
     monkeypatch.delenv("KIP_DATA_DIR", raising=False)
     monkeypatch.delenv("KIP_ALLOW_EPHEMERAL", raising=False)
-    with pytest.raises(RuntimeError, match="KIP_DATA_DIR is not configured"):
+    monkeypatch.delenv("KIP_REQUIRE_PERSISTENT", raising=False)
+    # Default: warn-only so Free→Starter upgrades can succeed before a disk exists.
+    cfg = persist_mod.enforce_persistent_kip_or_raise(app_env="production")
+    assert cfg["durable"] is False
+
+    monkeypatch.setenv("KIP_REQUIRE_PERSISTENT", "1")
+    with pytest.raises(RuntimeError, match="KIP_REQUIRE_PERSISTENT"):
         persist_mod.enforce_persistent_kip_or_raise(app_env="production")
 
     monkeypatch.setenv("KIP_ALLOW_EPHEMERAL", "1")
-    cfg = persist_mod.enforce_persistent_kip_or_raise(app_env="production")
-    assert cfg["allow_ephemeral"] is True
+    cfg2 = persist_mod.enforce_persistent_kip_or_raise(app_env="production")
+    assert cfg2["allow_ephemeral"] is True
 
 
 def test_legacy_snapshot_migrates_to_durable_dir(monkeypatch, tmp_path: Path):

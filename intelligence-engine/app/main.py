@@ -18,7 +18,8 @@ log = get_logger(__name__)
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     settings = get_settings()
-    # Refuse silent ephemeral KIP in production (unless KIP_ALLOW_EPHEMERAL=1).
+    # Refuse ephemeral KIP only when KIP_REQUIRE_PERSISTENT=1 (after disk is live).
+    # Default is warn-only so Free→Starter upgrades succeed before a paid disk exists.
     from app.kip.persist import enforce_persistent_kip_or_raise
 
     persist_cfg = enforce_persistent_kip_or_raise(app_env=settings.app_env)

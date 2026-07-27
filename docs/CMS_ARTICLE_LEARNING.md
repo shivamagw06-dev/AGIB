@@ -74,7 +74,16 @@ Now:
 
 **Required ops:** attach a Render **persistent disk** to `agib-intelligence-engine` at `/var/data/kip` (matches `KIP_DATA_DIR`), set Supabase service credentials on IE, run `supabase/migrations/20260727210000_kip_snapshots.sql`, redeploy IE + Node from `main`, then re-learn CMS articles.
 
-**Production guard:** if `APP_ENV=production` and `KIP_DATA_DIR` is unset, the Intelligence Engine **refuses to start** (prevents silent ephemeral memory). Escape hatch: `KIP_ALLOW_EPHEMERAL=1` (emergency only). `/v1/kip/integrity` reports `persistence.durable` and a clear `warning` when institutional memory is not durable.
+**Render upgrade order (important — avoids chicken-and-egg):**
+1. Upgrade instance to **Starter ($7) with NO disk** → wait for deploy success (plan change only applies if deploy succeeds).
+2. Then **Add Disk** mount `/var/data/kip` (1 GB is enough) → deploy again.
+3. Set `KIP_DATA_DIR=/var/data/kip` (+ `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY`).
+4. Optional strict mode after disk is live: `KIP_REQUIRE_PERSISTENT=1` (refuse ephemeral boots).
+5. Verify `GET /v1/kip/integrity` counts unchanged across a restart.
+
+Do **not** attach the disk in the same change as Free→Starter if the deploy is failing — remove the disk config, upgrade plan only, then add the disk.
+
+**Boot guard:** by default IE emits a loud WARNING when storage is ephemeral (so upgrades can succeed). Set `KIP_REQUIRE_PERSISTENT=1` after the disk is mounted to refuse unsafe boots. Escape hatch: `KIP_ALLOW_EPHEMERAL=1`. `/v1/kip/integrity` reports `persistence.durable` and `warning`.
 
 Learning is only marked complete after `/v1/kip/verify/{document_id}` succeeds.
 

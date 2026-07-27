@@ -132,17 +132,29 @@ def persistence_config() -> dict[str, Any]:
 
 
 def enforce_persistent_kip_or_raise(*, app_env: str | None = None) -> dict[str, Any]:
-    """In production, refuse to start if KIP_DATA_DIR is not configured.
+    """Warn (and optionally refuse) when KIP is not on durable storage.
 
-    Escape hatch: KIP_ALLOW_EPHEMERAL=1 (emergency only — institutional memory unsafe).
+    Default: loud warning only — so Render Free→Starter upgrades can succeed
+    before a paid disk is attached (disk cannot attach on Free; plan change
+    only applies after a successful deploy).
+
+    Strict mode: set KIP_REQUIRE_PERSISTENT=1 after the disk is mounted to
+    refuse boot when KIP_DATA_DIR is unset / ephemeral.
+    Escape hatch: KIP_ALLOW_EPHEMERAL=1.
     """
     cfg = persistence_config()
     env = (app_env or os.environ.get("APP_ENV") or os.environ.get("ENV") or "development").strip().lower()
     production = env in {"production", "prod", "staging"}
-    if production and not cfg["configured"] and not cfg["allow_ephemeral"]:
+    require = _env_flag("KIP_REQUIRE_PERSISTENT")
+    if (
+        production
+        and require
+        and not cfg["durable"]
+        and not cfg["allow_ephemeral"]
+    ):
         raise RuntimeError(
-            "KIP_DATA_DIR is not configured in production. "
-            "Attach a Render persistent disk (mount /var/data/kip) and set "
+            "KIP_REQUIRE_PERSISTENT=1 but durable KIP storage is not configured. "
+            "Attach a Render persistent disk (mount /var/data/kip), set "
             "KIP_DATA_DIR=/var/data/kip, or set KIP_ALLOW_EPHEMERAL=1 to bypass "
             "(institutional memory will not survive restarts)."
         )
@@ -189,17 +201,47 @@ def export_store(store: KipStore) -> dict[str, Any]:
     }
 
 
+def _legacy_default_snapshot_path() -> Path:
+    return Path(__file__).resolve().parents[2] / "data" / "kip" / "kip_snapshot.json"
+
+
 def save_store(store: KipStore, path: Path | None = None) -> dict[str, Any]:
     target = path or snapshot_path()
-    target.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        # Common during Free→Starter upgrade: KIP_DATA_DIR points at /var/data/kip
+        # before the paid disk is attached / writable.
+        legacy = _legacy_default_snapshot_path()
+        if path is None and target.resolve() != legacy.resolve():
+            legacy.parent.mkdir(parents=True, exist_ok=True)
+            fallback = save_store(store, path=legacy)
+            fallback["ok"] = True
+            fallback["writable"] = False
+            fallback["fallback_reason"] = f"primary_unwritable: {exc}"
+            fallback["requested_path"] = str(target)
+            return fallback
+        raise
     payload = export_store(store)
     tmp = target.with_suffix(target.suffix + ".tmp")
-    tmp.write_text(json.dumps(payload, ensure_ascii=False) + "\n", encoding="utf-8")
-    tmp.replace(target)
+    try:
+        tmp.write_text(json.dumps(payload, ensure_ascii=False) + "\n", encoding="utf-8")
+        tmp.replace(target)
+    except OSError as exc:
+        legacy = _legacy_default_snapshot_path()
+        if path is None and target.resolve() != legacy.resolve():
+            fallback = save_store(store, path=legacy)
+            fallback["ok"] = True
+            fallback["writable"] = False
+            fallback["fallback_reason"] = f"primary_write_failed: {exc}"
+            fallback["requested_path"] = str(target)
+            return fallback
+        raise
     result = {
         "ok": True,
         "path": str(target),
         "bytes": target.stat().st_size,
+        "writable": True,
         **payload["stats"],
         "saved_at": payload["saved_at"],
     }
@@ -208,10 +250,6 @@ def save_store(store: KipStore, path: Path | None = None) -> dict[str, Any]:
     if remote:
         result["supabase"] = remote
     return result
-
-
-def _legacy_default_snapshot_path() -> Path:
-    return Path(__file__).resolve().parents[2] / "data" / "kip" / "kip_snapshot.json"
 
 
 def load_store(store: KipStore, path: Path | None = None) -> dict[str, Any]:
