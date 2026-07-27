@@ -464,6 +464,11 @@ class Settings(BaseSettings):
     answer_construction_v3: bool = True
     ask_agi_answer_construction_v3: bool = True
 
+    # Editorial Intelligence Layer — Gemini is the writer only; AGIB remains the brain.
+    editorial_layer: bool = True
+    ask_agi_editorial_layer: bool = True
+    editorial_provider: str = "gemini"  # gemini | openai | claude | mistral | deepseek (writer swap)
+
     # Institutional Analyst Framework V1 — Answer Construction ownership (not engines)
     institutional_analysts: bool = True
     ask_agi_iaf: bool = True
