@@ -61,8 +61,9 @@ services:
         value: "true"
       - key: FAA_PLAYWRIGHT
         value: "true"
+      # Keep false on free tier — Chromium must come from buildCommand.
       - key: FAA_PLAYWRIGHT_AUTO_INSTALL
-        value: "true"
+        value: "false"
       - key: EXA_API_KEY
         sync: false
       - key: FIRECRAWL_API_KEY

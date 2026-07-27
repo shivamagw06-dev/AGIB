@@ -113,6 +113,16 @@ def test_enrichment_status_includes_playwright_role():
     assert PROVIDERS["playwright"]["env_key"] == "FAA_PLAYWRIGHT"
 
 
+def test_ensure_chromium_defaults_auto_install_off(monkeypatch):
+    from app.faa import playwright_browser as pb
+
+    monkeypatch.setenv("FAA_PLAYWRIGHT", "true")
+    monkeypatch.delenv("FAA_PLAYWRIGHT_AUTO_INSTALL", raising=False)
+    pb._INSTALL_ATTEMPTED = False
+    pb._READY = None
+    assert pb.ensure_chromium_installed() is False
+
+
 def test_ensure_chromium_respects_auto_install_off(monkeypatch):
     from app.faa import playwright_browser as pb
 
