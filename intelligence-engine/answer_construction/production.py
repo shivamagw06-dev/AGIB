@@ -155,11 +155,14 @@ def package_for_ask_agi(**kwargs: Any) -> dict[str, Any]:
             out["editorial"] = editorial
             ia_out = out.get("institutional_answer")
             if isinstance(ia_out, dict) and ia_out.get("enabled") and editorial.get("executive"):
+                rewritten = editorial.get("rewritten_summary") or editorial.get("executive")
                 out["institutional_answer"] = {
                     **ia_out,
                     "text": editorial["executive"],
+                    "reason": rewritten or ia_out.get("reason"),
                     "editorial_provider": editorial.get("provider"),
                     "editorial_fallback": editorial.get("fallback"),
+                    "editorial_rewrite_only": True,
                 }
             out["answer_policy"] = "agib_brain_gemini_editorial_writer"
     except Exception:

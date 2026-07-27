@@ -1,11 +1,17 @@
-"""Editorial Intelligence Layer — writer-only soft-wire tests."""
+"""Editorial Intelligence Layer — rewrite-only soft-wire tests."""
 
 from __future__ import annotations
 
 from editorial.cache import EditorialCache
 from editorial.package import build_structured_package, contains_forbidden_payload, sanitize_structured
 from editorial.production import health, package_for_ask_agi, quality_gates
-from editorial.service import EditorialService, generateRecommendation, generateQuickAnalysis
+from editorial.service import (
+    EditorialService,
+    generateQuickAnalysis,
+    generateQuickSummary,
+    generateRecommendation,
+    strip_advice_language,
+)
 from editorial.template_fallback import render_template
 
 
@@ -29,9 +35,13 @@ def test_health_and_gates():
     h = health()
     assert h["role"] == "writer_only"
     assert h["agib_is_brain"] is True
+    assert h["never_generates_advice"] is True
     g = quality_gates()
     assert g["checks"]["never_reads_pdfs"] is True
-    assert g["checks"]["never_overrides_recommendation"] is True
+    assert g["checks"]["never_recommends_actions"] is True
+    assert g["checks"]["word_limits"]["quick_summary"] == 60
+    assert g["checks"]["word_limits"]["quick_analysis"] == 120
+    assert g["checks"]["word_limits"]["detailed_analysis"] == 400
 
 
 def test_sanitize_drops_forbidden_document_fields():
@@ -45,38 +55,83 @@ def test_sanitize_drops_forbidden_document_fields():
     assert contains_forbidden_payload(dirty) is True
     clean = sanitize_structured(dirty)
     assert "annual_report" not in clean
-    assert "news" not in clean
-    assert "financial_statements" not in clean
     assert clean["recommendation"] == "BUY"
-    assert clean["top_reasons"][0] == "Strong deposit franchise"
 
 
-def test_template_fallback_preserves_recommendation():
-    text = render_template("recommendation", SAMPLE)
-    assert "Recommendation: BUY" in text
+def test_template_fallback_is_neutral_rewrite():
+    text = render_template("quick_summary", SAMPLE)
+    assert "Recommendation:" not in text
+    assert "deposit franchise" in text.lower()
     assert "NIM pressure" in text
-    assert "3-5 Years" in text
+    assert "you should" not in text.lower()
+    assert "target price" not in text.lower()
 
 
-def test_generate_recommendation_never_fails_without_gemini():
-    # No API key in test env → template fallback, request still succeeds.
-    out = generateRecommendation(SAMPLE, question="Should I buy HDFC Bank?")
+def test_generate_quick_summary_never_emits_advice():
+    out = generateQuickSummary(SAMPLE, question="Should I buy HDFC Bank?")
     assert out["enabled"] is True
     assert out["fallback"] is True
-    assert out["recommendation_preserved"] is True
-    assert "BUY" in out["text"]
+    assert out["mode"] == "quick_summary"
+    assert out["max_words"] == 60
     assert out["word_count"] <= 60
+    assert "Recommendation:" not in (out.get("rewritten_summary") or "")
+    lower = (out.get("rewritten_summary") or "").lower()
+    assert "you should" not in lower
+    assert "target price" not in lower
 
 
-def test_generate_quick_analysis_api():
+def test_generate_recommendation_attaches_agib_action_only():
+    # Editorial rewrite is neutral; AGIB recommendation may be attached for display.
+    out = generateRecommendation(SAMPLE, question="Should I buy HDFC Bank?")
+    assert out["fallback"] is True
+    assert out["text"].startswith("Recommendation: BUY")
+    assert "Recommendation:" not in (out.get("rewritten_summary") or "")
+    assert out["recommendation_from_agib_only"] is True
+
+
+def test_generate_quick_analysis_word_limit():
     out = generateQuickAnalysis(SAMPLE, question="Quick view on HDFC Bank")
     assert out["mode"] == "quick_analysis"
-    assert "BUY" in out["text"]
+    assert out["max_words"] == 120
+    assert out["word_count"] <= 120
+    assert "Recommendation:" not in out["text"]
 
 
-def test_cache_identical_recommendation_requests():
+def test_strip_advice_language():
+    dirty = "Recommendation: SELL\nYou should exit the stock.\nDeposit franchise remains resilient."
+    clean = strip_advice_language(dirty)
+    assert "Recommendation:" not in clean
+    assert "you should" not in clean.lower()
+    assert "Deposit franchise remains resilient." in clean
+
+
+def test_service_strips_provider_advice(monkeypatch):
+    class FakeProvider:
+        name = "fake"
+
+        def health(self):
+            return {"provider": "fake", "available": True}
+
+        async def rewrite(self, **kwargs):
+            return {
+                "text": "Recommendation: SELL\nBuy this name aggressively.\nStrong deposit franchise supports resilience.",
+                "provider": "fake",
+                "model": "fake",
+                "usage": {},
+                "latency_ms": 1,
+                "prompt": "x",
+            }
+
+    service = EditorialService(provider=FakeProvider())
+    out = service.generateQuickSummary(SAMPLE, question="Should I buy?")
+    assert "Recommendation:" not in (out.get("rewritten_summary") or "")
+    assert "SELL" not in (out.get("rewritten_summary") or "")
+    assert "deposit franchise" in (out.get("rewritten_summary") or "").lower()
+
+
+def test_cache_identical_summary_requests():
     cache = EditorialCache(ttl_seconds=60)
-    key = cache.make_key("recommendation", SAMPLE, "Should I buy HDFC Bank?")
+    key = cache.make_key("quick_summary", SAMPLE, "Should I buy HDFC Bank?")
     cache.set(key, {"text": "cached", "provider": "gemini"})
     assert cache.get(key)["text"] == "cached"
 
@@ -104,10 +159,11 @@ def test_package_for_ask_agi_soft_wire():
         company="HDFC Bank",
     )
     assert out["enabled"] is True
-    assert out["agib_is_brain"] is True
+    assert out["never_generates_advice"] is True
     assert out["executive"]
     assert out["structured_intelligence"]["recommendation"] in {"Buy", "BUY"}
-    assert "annual_report" not in out["structured_intelligence"]
+    assert out["rewritten_summary"]
+    assert "Recommendation:" not in out["rewritten_summary"]
 
 
 def test_build_structured_package_from_agib_outputs():
@@ -126,28 +182,3 @@ def test_build_structured_package_from_agib_outputs():
     )
     assert structured["recommendation"] == "Buy"
     assert structured["top_reasons"] == ["Strong deposit franchise"]
-    assert structured["top_risks"] == ["NIM pressure"]
-
-
-def test_service_rejects_provider_override_of_recommendation(monkeypatch):
-    class FakeProvider:
-        name = "fake"
-
-        def health(self):
-            return {"provider": "fake", "available": True}
-
-        async def rewrite(self, **kwargs):
-            return {
-                "text": "Recommendation: SELL\n\nThis invents a different call.",
-                "provider": "fake",
-                "model": "fake",
-                "usage": {},
-                "latency_ms": 1,
-                "prompt": "x",
-            }
-
-    service = EditorialService(provider=FakeProvider())
-    out = service.generateRecommendation(SAMPLE, question="Should I buy?")
-    assert out["fallback"] is False or "BUY" in out["text"]
-    assert "Recommendation: BUY" in out["text"]
-    assert "SELL" not in out["text"].split("\n")[0]

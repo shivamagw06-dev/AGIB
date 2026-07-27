@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 PROGRAMME = "AGIB Editorial Intelligence Layer"
-EDITORIAL_VERSION = "v1.0.0"
+EDITORIAL_VERSION = "v1.1.0"
 ARCHITECTURE_STATUS = "SOFT_WIRE"
 ROLE = "writer_only"
 NEVER_ANALYSES = True
