@@ -73,8 +73,10 @@ def ensure_chromium_installed(*, force: bool = False) -> bool:
     global _INSTALL_ATTEMPTED, _INSTALL_ERROR, _INIT_ERROR, _READY
     if not playwright_enabled():
         return False
-    disable = (os.environ.get("FAA_PLAYWRIGHT_AUTO_INSTALL") or "true").strip().lower()
-    if disable in {"0", "false", "no", "off"}:
+    # Default OFF — Chromium download on free-tier Render can freeze the service.
+    # Enable explicitly with FAA_PLAYWRIGHT_AUTO_INSTALL=true when needed.
+    enable_install = (os.environ.get("FAA_PLAYWRIGHT_AUTO_INSTALL") or "false").strip().lower()
+    if enable_install not in {"1", "true", "yes", "on"}:
         return False
     with _INSTALL_LOCK:
         if _READY is True and not force:
