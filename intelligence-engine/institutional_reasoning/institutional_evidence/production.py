@@ -76,6 +76,18 @@ def package_for_governance(
         "sector_pe": pack.get("sector_pe"),
         "roic": pack.get("roic"),
         "operating_margin": pack.get("operating_margin"),
+        "cash_conversion": (pack.get("validated") or {}).get("cash_conversion", {}).get("value")
+        if isinstance((pack.get("validated") or {}).get("cash_conversion"), dict)
+        else None,
+        "leverage": (pack.get("validated") or {}).get("leverage", {}).get("value")
+        if isinstance((pack.get("validated") or {}).get("leverage"), dict)
+        else None,
+        "earnings_quality": (pack.get("validated") or {}).get("earnings_quality", {}).get("value")
+        if isinstance((pack.get("validated") or {}).get("earnings_quality"), dict)
+        else None,
+        "peers": (pack.get("validated") or {}).get("peers", {}).get("value")
+        if isinstance((pack.get("validated") or {}).get("peers"), dict)
+        else None,
         "evidence_score": pack.get("evidence_score"),
         "coverage": pack.get("coverage"),
         "summary": pack.get("summary"),

@@ -112,6 +112,26 @@ def _is_placeholder(value: Any) -> bool:
     return False
 
 
+def _impossible_value(field_name: str, value: Any) -> str | None:
+    """Reject economically impossible metric values for framework execution."""
+    if not isinstance(value, (int, float)):
+        return None
+    pe_fields = {
+        "current_pe",
+        "forward_pe",
+        "historical_pe",
+        "peer_pe",
+        "historical_percentile",
+    }
+    if field_name in pe_fields or field_name.endswith("_pe"):
+        if field_name == "historical_percentile":
+            if value < 0 or value > 100:
+                return "impossible_percentile"
+        elif value < 0:
+            return "impossible_negative_multiple"
+    return None
+
+
 def _parse_ts(raw: Any) -> datetime | None:
     if not raw:
         return None
@@ -226,6 +246,10 @@ def validate_field(
                 continue
             if _is_placeholder(value):
                 best_reject = best_reject or "placeholder_value"
+                continue
+            impossible = _impossible_value(field_name, value)
+            if impossible:
+                best_reject = best_reject or impossible
                 continue
             if entity_id and ent and ent != str(entity_id).upper():
                 best_reject = best_reject or f"entity_mismatch:{ent}"

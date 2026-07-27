@@ -17,6 +17,7 @@ _METRICS = (
     "ROIC",
     "ROE",
     "EBITDA_Margin",
+    "Operating_Margin",
     "Net_Margin",
     "Cash_Conversion",
     "Revenue_Growth",
@@ -73,7 +74,8 @@ def produce_business_quality(entity_id: str) -> dict[str, Any]:
         "summaries": summaries,
         "signals": signals,
         "roic": (summaries.get("ROIC") or {}).get("latest"),
-        "margins": (summaries.get("EBITDA_Margin") or {}).get("latest"),
+        "margins": (summaries.get("EBITDA_Margin") or {}).get("latest")
+        or (summaries.get("Operating_Margin") or {}).get("latest"),
         "revenue_quality": (summaries.get("Revenue_Growth") or {}).get("latest"),
         "competitive_position": (summaries.get("ROIC") or {}).get("latest"),
         "observed_metrics": observed,

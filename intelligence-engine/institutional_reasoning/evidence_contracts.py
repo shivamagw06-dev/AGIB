@@ -160,28 +160,39 @@ _TYPE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
         "investment_decision",
         re.compile(r"\b(should i (buy|sell|invest)|worth buying|good investment|entry point)\b", re.I),
     ),
+        (
+            "valuation",
+            re.compile(
+                r"\b(expensive|cheap|overvalued|undervalued|fair value|intrinsic|"
+                r"p/?e\b|pe ratio|ev/?ebitda|price to book|multiple[s]?\b|percentile|"
+                r"relative valuation|using relative valuation|"
+                r"should dcf|dcf be used|dcf applicable)\b",
+                re.I,
+            ),
+        ),
+    ("comparison", re.compile(r"\b(compare|compared|comparison|versus|vs\.?|against|better than|which is|which multiple)\b", re.I)),
     (
-        "valuation",
+        "business_quality",
         re.compile(
-            r"\b(expensive|cheap|overvalued|undervalued|valuation|fair value|intrinsic|"
-            r"p/?e\b|pe ratio|ev/?ebitda|price to book|multiple[s]?\b|percentile)\b",
+            r"\b(moat|business quality|quality business|competitive|roic|pricing power|"
+            r"market share|capital allocation|reinvestment|franchise)\b",
             re.I,
         ),
     ),
-    ("comparison", re.compile(r"\b(compare|versus|vs\.?|against|better than|which is)\b", re.I)),
-    ("portfolio", re.compile(r"\b(portfolio|allocation|position siz|weight|exposure)\b", re.I)),
+    (
+        "financial_quality",
+        re.compile(
+            r"\b(cash flow|cash conversion|balance sheet|leverage|debt|earnings quality|"
+            r"accruals?|working capital|receivables?|inventory|piotroski|altman|beneish|"
+            r"asset turnover)\b",
+            re.I,
+        ),
+    ),
+    ("portfolio", re.compile(r"\b(portfolio|position siz|weight|exposure)\b", re.I)),
     ("macro", re.compile(r"\b(macro|inflation|gdp|rbi|fed|interest rate|monetary|fiscal|rupee|currency)\b", re.I)),
     ("sector", re.compile(r"\b(sector|industry)\b", re.I)),
     ("risk", re.compile(r"\b(risk|downside|threat|drawdown|vulnerab)\b", re.I)),
     ("forecast", re.compile(r"\b(forecast|outlook|next year|project|estimate|will\b)\b", re.I)),
-    (
-        "financial_quality",
-        re.compile(r"\b(cash flow|balance sheet|leverage|debt|earnings quality|accrual|working capital)\b", re.I),
-    ),
-    (
-        "business_quality",
-        re.compile(r"\b(moat|business quality|competitive|roic|pricing power|market share)\b", re.I),
-    ),
 )
 
 
@@ -235,8 +246,23 @@ _KNOWN_ENTITIES: tuple[tuple[re.Pattern[str], str, str, str], ...] = (
     (re.compile(r"\bwipro\b", re.I), "WIPRO", "Wipro", "Company"),
     (re.compile(r"\bhdfc\s*bank\b", re.I), "HDFCBANK", "HDFC Bank", "Company"),
     (re.compile(r"\bicici\s*bank\b", re.I), "ICICIBANK", "ICICI Bank", "Company"),
+    (re.compile(r"\baxis\s*bank\b", re.I), "AXISBANK", "Axis Bank", "Company"),
+    (re.compile(r"\bkotak(?:\s*bank|\s*mahindra)?\b", re.I), "KOTAKBANK", "Kotak Mahindra Bank", "Company"),
+    (re.compile(r"\bsbi\b|\bstate bank of india\b", re.I), "SBIN", "State Bank of India", "Company"),
     (re.compile(r"\breliance\b", re.I), "RELIANCE", "Reliance Industries", "Company"),
     (re.compile(r"\bzomato\b|\beternal\b", re.I), "ZOMATO", "Zomato", "Company"),
+    (re.compile(r"\bnestle(?:\s*india)?\b", re.I), "NESTLEIND", "Nestlé India", "Company"),
+    (re.compile(r"\bhindustan\s*unilever\b|\bhul\b", re.I), "HINDUNILVR", "Hindustan Unilever", "Company"),
+    (re.compile(r"\bbritannia\b", re.I), "BRITANNIA", "Britannia Industries", "Company"),
+    (re.compile(r"\bdabur\b", re.I), "DABUR", "Dabur India", "Company"),
+    (re.compile(r"\bitc\b", re.I), "ITC", "ITC Limited", "Company"),
+    (re.compile(r"\basian\s*paints\b", re.I), "ASIANPAINT", "Asian Paints", "Company"),
+    (re.compile(r"\bbajaj\s*finance\b", re.I), "BAJFINANCE", "Bajaj Finance", "Company"),
+    (re.compile(r"\btitan\b", re.I), "TITAN", "Titan Company", "Company"),
+    (re.compile(r"\btrent\b", re.I), "TRENT", "Trent", "Company"),
+    (re.compile(r"\btata\s*power\b", re.I), "TATAPOWER", "Tata Power", "Company"),
+    (re.compile(r"\bongc\b", re.I), "ONGC", "ONGC", "Company"),
+    (re.compile(r"\badani\s*green\b", re.I), "ADANIGREEN", "Adani Green", "Company"),
 )
 
 
@@ -246,11 +272,16 @@ def resolve_entities(
     ticker_hint: str | None = None,
     entity_resolution_pack: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Resolve primary entity deterministically; report confidence + candidates."""
+    """Resolve primary entity deterministically; report confidence + candidates.
+
+    When multiple entities appear (e.g. Infosys vs TCS), prefer the earliest
+    mention in the question text — critical for comparison questions.
+    """
     q = str(question or "")
     found: list[dict[str, Any]] = []
     for pattern, entity_id, name, etype in _KNOWN_ENTITIES:
-        if pattern.search(q):
+        m = pattern.search(q)
+        if m:
             found.append(
                 {
                     "entity_id": entity_id,
@@ -258,16 +289,19 @@ def resolve_entities(
                     "entity_type": etype,
                     "confidence": 0.99,
                     "source": "deterministic_map",
+                    "span_start": m.start(),
                 }
             )
-    # de-dupe by entity_id, preserving specificity order
+    # Prefer earliest span; de-dupe by entity_id
+    found.sort(key=lambda f: int(f.get("span_start") or 0))
     seen: set[str] = set()
     unique: list[dict[str, Any]] = []
     for f in found:
         if f["entity_id"] in seen:
             continue
         seen.add(f["entity_id"])
-        unique.append(f)
+        # strip internal span helper
+        unique.append({k: v for k, v in f.items() if k != "span_start"})
 
     if not unique and isinstance(entity_resolution_pack, dict):
         ere = entity_resolution_pack.get("entity_resolution") or entity_resolution_pack

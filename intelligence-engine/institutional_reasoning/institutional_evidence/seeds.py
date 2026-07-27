@@ -88,6 +88,54 @@ NIFTYIT_PE_SERIES: dict[str, float] = {
     "FY26": 29.5,
 }
 
+BANK_PE_SERIES: dict[str, dict[str, float]] = {
+    "HDFCBANK": {
+        "FY17": 22.0,
+        "FY18": 24.5,
+        "FY19": 26.0,
+        "FY20": 20.0,
+        "FY21": 28.0,
+        "FY22": 22.5,
+        "FY23": 19.0,
+        "FY24": 18.5,
+        "FY25": 19.5,
+        "FY26": 20.5,
+    },
+    "ICICIBANK": {
+        "FY17": 18.0,
+        "FY18": 20.0,
+        "FY19": 22.0,
+        "FY20": 16.0,
+        "FY21": 24.0,
+        "FY22": 20.0,
+        "FY23": 17.5,
+        "FY24": 18.0,
+        "FY25": 19.0,
+        "FY26": 19.8,
+    },
+    "AXISBANK": {
+        "FY22": 16.0,
+        "FY23": 14.5,
+        "FY24": 13.5,
+        "FY25": 14.0,
+        "FY26": 14.8,
+    },
+    "KOTAKBANK": {
+        "FY22": 28.0,
+        "FY23": 24.0,
+        "FY24": 22.0,
+        "FY25": 21.0,
+        "FY26": 22.5,
+    },
+    "SBIN": {
+        "FY22": 12.0,
+        "FY23": 10.5,
+        "FY24": 9.5,
+        "FY25": 10.0,
+        "FY26": 10.8,
+    },
+}
+
 # Map index / sector aliases → peer universe pack + subject series key.
 SECTOR_ENTITY_MAP: dict[str, dict[str, Any]] = {
     "NIFTYIT": {
@@ -173,6 +221,13 @@ INFY_EXTRA: dict[str, dict[str, float]] = {
         "FY25": 96.0,
         "FY26": 95.0,
     },
+    "Debt": {
+        "FY22": 0.05,
+        "FY23": 0.04,
+        "FY24": 0.03,
+        "FY25": 0.02,
+        "FY26": 0.02,
+    },
 }
 
 
@@ -180,6 +235,8 @@ def pe_series_for(entity_id: str) -> dict[str, float] | None:
     eid = str(entity_id or "").upper()
     if eid in IT_PE_SERIES:
         return dict(IT_PE_SERIES[eid])
+    if eid in BANK_PE_SERIES:
+        return dict(BANK_PE_SERIES[eid])
     sector = SECTOR_ENTITY_MAP.get(eid)
     if sector and sector.get("pe_series"):
         return dict(sector["pe_series"])

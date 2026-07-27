@@ -78,6 +78,13 @@ FRAMEWORK_REQUIREMENTS: dict[str, dict[str, Any]] = {
         "requires": ("roic", "margins"),
         "produces": ("quality_grade", "confidence"),
     },
+    "accounting_quality_screen": {
+        "name": "Accounting Quality Screen",
+        "author": "Institutional",
+        "version": "1.0.0",
+        "requires": ("cash_conversion", "leverage", "earnings_quality"),
+        "produces": ("accounting_flags", "confidence"),
+    },
 }
 
 FRAMEWORKS_BY_TYPE: dict[str, tuple[str, ...]] = {
@@ -90,7 +97,7 @@ FRAMEWORKS_BY_TYPE: dict[str, tuple[str, ...]] = {
     ),
     "comparison": ("peer_comparison", "rel_val_damodaran"),
     "business_quality": ("business_quality_roic",),
-    "financial_quality": (),
+    "financial_quality": ("accounting_quality_screen",),
     "portfolio": (),
     "macro": (),
     "sector": (),
@@ -190,6 +197,11 @@ def _execute_framework(
         outputs["peer_set_present"] = True
     elif fid == "business_quality_roic":
         outputs["roic"] = num("roic")
+        outputs["margins"] = num("margins")
+    elif fid == "accounting_quality_screen":
+        outputs["cash_conversion"] = num("cash_conversion")
+        outputs["leverage"] = num("leverage")
+        outputs["earnings_quality"] = num("earnings_quality")
 
     return {
         "framework_id": fid,

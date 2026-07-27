@@ -11,7 +11,7 @@ from typing import Any
 
 from institutional_reasoning.institutional_evidence.provenance import metric_provenance, now_iso
 from institutional_reasoning.institutional_evidence.quality import score_metric
-from institutional_reasoning.institutional_evidence.seeds import IT_PE_SERIES, sector_meta
+from institutional_reasoning.institutional_evidence.seeds import IT_PE_SERIES, BANK_PE_SERIES, sector_meta
 
 PEER_VERSION = "peer-intelligence-producer-v1.0.0"
 
@@ -53,9 +53,12 @@ def _universe_for(entity_id: str) -> tuple[list[str], str, str]:
 
 
 def _latest_pe(ticker: str) -> float | None:
-    # Prefer institutional PE seeds (IT), else PIL PE series
+    # Prefer institutional PE seeds (IT / banks), else PIL PE series
     if ticker in IT_PE_SERIES:
         pts = IT_PE_SERIES[ticker]
+        return float(list(pts.values())[-1]) if pts else None
+    if ticker in BANK_PE_SERIES:
+        pts = BANK_PE_SERIES[ticker]
         return float(list(pts.values())[-1]) if pts else None
     try:
         from peer_intelligence.historical.series import history_for
