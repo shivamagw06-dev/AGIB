@@ -27,6 +27,7 @@ def detect_ic_case_mode(query: str) -> dict[str, Any] | None:
 
     # Prefer the trailing question block when a long dossier is prepended.
     focus = ql
+    focus_pinned = False
     for marker in (
         "institutional case question",
         "\nquestion:",
@@ -34,14 +35,18 @@ def detect_ic_case_mode(query: str) -> dict[str, Any] | None:
     ):
         if marker in ql:
             focus = ql.split(marker)[-1]
+            focus_pinned = True
             break
-    # Also prefer text after the last numbered section cue.
-    if "answer with institutional" in focus:
-        # keep focus as the question slice
-        pass
 
     # Specific intents first — never let a dossier preamble steal the mode.
-    checks: list[tuple[str, str, list[str], re.Pattern[str]]] = [
+    checks: list[tuple[str, str, list[str], re.Pattern[str]]] = []
+    try:
+        from institutional_reasoning.ic_case_study_v2 import v2_detection_checks
+
+        checks.extend(v2_detection_checks())
+    except Exception:
+        pass
+    checks.extend([
         (
             "ic_strengths",
             "habit_ic_strengths",
@@ -89,8 +94,9 @@ def detect_ic_case_mode(query: str) -> dict[str, Any] | None:
             "habit_ic_val_divergence",
             ["valuation", "comparison"],
             re.compile(
-                r"\b(dcf|residual\s+income|comparable).{0,100}(different|differ|diverge)\b|"
-                r"\bwhy\s+do\s+(dcf|valuation\s+methods)",
+                r"\b(dcf|residual\s+income|comparable|relative\s+valuation|reverse\s+dcf).{0,100}(different|differ|diverge)\b|"
+                r"\bwhy\s+do\s+(dcf|valuation\s+methods)|"
+                r"\bwhich\s+assumptions?\s+drive\s+each\s+result\b",
                 re.I,
             ),
         ),
@@ -98,7 +104,11 @@ def detect_ic_case_mode(query: str) -> dict[str, Any] | None:
             "ic_valuation_weight",
             "habit_ic_val_weight",
             ["valuation", "uncertainty"],
-            re.compile(r"\bwhich\s+valuation\s+(deserves|should\s+get)\s+most\s+weight\b", re.I),
+            re.compile(
+                r"\bwhich\s+valuation\s+(method\s+)?(deserves|should\s+get)\s+(the\s+)?(most|highest)\s+weight\b|"
+                r"\bhighest\s+weight\s+here\b",
+                re.I,
+            ),
         ),
         (
             "ic_dcf_unreliable",
@@ -241,7 +251,11 @@ def detect_ic_case_mode(query: str) -> dict[str, Any] | None:
             "ic_evidence_rank",
             "habit_ic_evidence_rank",
             ["evidence"],
-            re.compile(r"\b(highest\s+quality|rank\s+all\s+evidence|evidence\s+is\s+highest\s+quality)\b", re.I),
+            re.compile(
+                r"\b(highest\s+quality|rank\s+all\s+evidence|evidence\s+is\s+highest\s+quality|"
+                r"evidence\s+hierarchy)\b",
+                re.I,
+            ),
         ),
         (
             "ic_ignore_evidence",
@@ -271,18 +285,16 @@ def detect_ic_case_mode(query: str) -> dict[str, Any] | None:
                 re.I,
             ),
         ),
-    ]
+    ])
 
     for mode, habit_id, families, pat in checks:
-        if pat.search(focus) or (mode != "ic_executive_assessment" and pat.search(ql)):
-            # For non-executive modes, allow match on full text OR focus.
-            # For executive, only the focus/question slice (avoid dossier preamble).
-            if mode == "ic_executive_assessment":
-                if pat.search(focus):
-                    return {"mode": mode, "habit_id": habit_id, "families": families}
-                continue
-            if pat.search(focus) or pat.search(ql):
-                return {"mode": mode, "habit_id": habit_id, "families": families}
+        # When a dossier + question marker is present, match ONLY the question
+        # slice so preamble keywords (e.g. "capital allocation") cannot steal.
+        haystacks = [focus] if focus_pinned else [focus, ql]
+        if mode == "ic_executive_assessment":
+            haystacks = [focus]
+        if any(pat.search(h) for h in haystacks):
+            return {"mode": mode, "habit_id": habit_id, "families": families}
     return None
 
 
@@ -466,14 +478,15 @@ def _mgmt_q(query: str) -> dict[str, Any]:
 
 def _val_div(query: str) -> dict[str, Any]:
     return _exec(
-        "DCF, residual income and comparables diverge because they capitalise different assumptions about cash, returns and peer similarity.",
-        "DCF (~₹970) embeds explicit FCF forecasts and WACC/terminal assumptions — near the market price only if those cash paths are credible. "
-        "Residual income (~₹880) capitalises earnings vs book and a required return — sensitive to clean ROE and book quality. "
-        "Comparables (~₹810) apply peer multiples — lower when peers trade cheaper and Atlas's margins/cash look worse. "
-        "Reverse DCF showing ~18% FCF growth for 10 years explains why the market multiple is rich relative to current cash.",
+        "DCF, relative valuation, residual income and reverse DCF differ because they capitalise different assumptions about cash recovery, peer similarity, clean earnings/book, and what the market price already embeds.",
+        "DCF is driven by explicit FCF path, WACC and terminal assumptions — fragile when FCF is negative. "
+        "Relative multiples assume peer comparability on growth/cash/returns. "
+        "Residual income depends on clean ROE/ROIC and book quality. "
+        "Reverse DCF asks what growth the price implies — here sustained high FCF CAGR despite current cash burn. "
+        "Key assumption drivers: WC mean-reversion speed, margin recovery, refinance cost, one-off add-backs, and peer set.",
         ["Model error", "Peer set mismatch", "Terminal growth optimism"],
         ["Reconciled FCF forecasts", "WACC build", "Peer ROIC/FCF screen"],
-        "Divergence is informative: methods disagree most when cash quality and growth credibility are contested.",
+        "Divergence is informative when cash quality and growth credibility are contested.",
     )
 
 
@@ -745,24 +758,23 @@ def _behavioural(query: str) -> dict[str, Any]:
 
 def _ev_rank(query: str) -> dict[str, Any]:
     ranked = [
-        "Multi-year financial statements (revenue, margins, FCF, ROIC, debt) — highest",
-        "Quarterly cash, WC, interest and margin bridges",
-        "Market pricing and valuation triangulation (multiples, DCF/RI/comps, reverse DCF)",
-        "Disclosed concentration, patent, pledge, auditor change facts",
-        "Macro prints (oil, FX, rates, PMI, incentives) as context",
-        "Exchange filings (when present)",
-        "Company press / investor presentation claims",
-        "Reuters secondary reporting",
-        "Broker opinions/targets",
-        "Twitter/social rumour — lowest",
+        "Audit report / auditor opinion (incl. emphasis-of-matter) — highest verification",
+        "Audited annual report / financial statements and notes",
+        "Official exchange filings",
+        "Earnings call transcripts (primary but promotional)",
+        "Investor presentation / IR deck — management framing",
+        "Bloomberg / terminal market data (prices, yields) — verified market facts",
+        "Reuters secondary reporting — useful early, needs filing confirmation",
+        "Broker research — opinion; check date vs restatements",
+        "Social media — lowest authority",
     ]
-    direct = "Evidence quality ranking: " + "; ".join(f"({i}) {r}" for i, r in enumerate(ranked, 1)) + "."
+    direct = "Evidence hierarchy ranking: " + "; ".join(f"({i}) {r}" for i, r in enumerate(ranked, 1)) + "."
     return _exec(
         direct,
-        "Quality = authority × verifiability × completeness × conflict-with-incentives.",
+        "Quality = authority × verifiability × completeness × conflict-with-incentives. Annual report + audit outrank decks, wires and social posts.",
         [],
-        ["Source ledger"],
-        "Never let lower-tier evidence overrule higher-tier cash facts without new primary disclosure.",
+        ["Source ledger with dates"],
+        "Never let lower-tier evidence overrule audited cash/credit facts without new primary disclosure.",
     )
 
 
@@ -846,3 +858,9 @@ _COMPOSERS = {
     "ic_cannot_conclude": _cannot,
     "ic_confidence_scores": _confidence,
 }
+try:
+    from institutional_reasoning.ic_case_study_v2 import V2_COMPOSERS
+
+    _COMPOSERS.update(V2_COMPOSERS)
+except Exception:
+    pass
