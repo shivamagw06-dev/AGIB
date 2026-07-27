@@ -208,7 +208,15 @@ export function mapSearchPack(pack) {
     gradeFromScore(bq.business_quality_score) ||
     (coverage >= 90 ? 'A+' : coverage >= 75 ? 'A' : 'B');
 
+  const institutionalAnswer =
+    ac?.institutional_answer?.enabled
+      ? ac.institutional_answer
+      : pack.answer?.institutional_answer?.enabled
+        ? pack.answer.institutional_answer
+        : null;
+
   const executive =
+    asText(institutionalAnswer?.text) ||
     asText(irw?.executive_summary) ||
     asText(irwReport?.executive_summary) ||
     asText(iafCio?.executive_summary) ||
@@ -453,7 +461,10 @@ export function mapSearchPack(pack) {
     stanceTone: toneForStance(stance),
     confidence,
     conviction: confidence >= 80 ? 'High' : confidence >= 60 ? 'Medium' : 'Developing',
-    horizon: asText(hv.investment_horizon || '12–24 Months', '12–24 Months'),
+    horizon: asText(
+      institutionalAnswer?.horizon || hv.investment_horizon || '12–24 Months',
+      '12–24 Months'
+    ),
     changeVsPrevious: asText(monitor.max_significance || pack.whats_changed?.direction || 'Stable', 'Stable'),
     readiness: recoStatus.blocked ? 'Research note complete' : 'Institutional Grade',
     coverage,
@@ -468,6 +479,19 @@ export function mapSearchPack(pack) {
       ? asText(pack.last_updated, '')
       : '',
     executive,
+    institutionalAnswer: institutionalAnswer
+      ? {
+          recommendation: asText(institutionalAnswer.recommendation, ''),
+          conviction: asText(institutionalAnswer.conviction, ''),
+          reason: asText(institutionalAnswer.reason, ''),
+          risk: asText(institutionalAnswer.risk, ''),
+          horizon: asText(institutionalAnswer.horizon, ''),
+          text: asText(institutionalAnswer.text, ''),
+          evidenceInsufficient: Boolean(institutionalAnswer.evidence_insufficient),
+          structured: institutionalAnswer.structured || null,
+          wordCount: institutionalAnswer.word_count || null,
+        }
+      : null,
     thesis:
       asText(irw?.investment_thesis) ||
       asText(iafCio?.investment_thesis) ||

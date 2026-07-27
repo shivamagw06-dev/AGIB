@@ -5,6 +5,11 @@ from __future__ import annotations
 from typing import Any
 
 from answer_construction.flags import flags_dict, is_enabled
+from answer_construction.institutional_intelligence import (
+    apply_concise_voice,
+    build_institutional_recommendation,
+    is_recommendation_query,
+)
 from answer_construction.knowledge_gaps import (
     filter_why_bullets,
     knowledge_gaps_from_sources,
@@ -273,6 +278,65 @@ def apply_answer_construction_v3(
         # Keep Buy/Hold/Sell-style conclusion trailing — never as the lead executive.
         thesis_out = _first_useful(thesis_out, decision_conclusion)
 
+    institutional_answer: dict[str, Any] = {}
+    reco_query = is_recommendation_query(query)
+    if reco_query:
+        quality_score = None
+        for candidate in (
+            (ca.get("business_quality") or {}).get("business_quality_score")
+            if isinstance(ca.get("business_quality"), dict)
+            else None,
+            (ca.get("recommendation_readiness") or {}).get("overall"),
+            (evidence_completion or {}).get("quality_panel", {}).get("coverage_pct")
+            if isinstance(evidence_completion, dict)
+            else None,
+        ):
+            try:
+                if candidate is not None:
+                    quality_score = float(candidate)
+                    break
+            except (TypeError, ValueError):
+                continue
+
+        institutional_answer = build_institutional_recommendation(
+            query=query,
+            company_name=str(name),
+            stance=label,
+            blocked=blocked,
+            reason_candidates=[
+                thesis_out,
+                exec_out,
+                *(bull_out[:2]),
+                *(why_out[:2]),
+            ],
+            risk_candidates=risk_out[:3] or bear_out[:2],
+            quality_score=quality_score,
+        )
+        # Lead answer becomes the concise CIO card; full brief remains in thesis/sections.
+        if institutional_answer.get("text"):
+            exec_out = institutional_answer["text"]
+    else:
+        # Non-recommendation Ask answers stay institutional and concise at the lead.
+        exec_out = apply_concise_voice(exec_out, query=query) or exec_out
+
+    answer_policy = (
+        "agib_institutional_intelligence_concise_recommendation"
+        if reco_query
+        else (
+            "institutional_research_writer_publication_note"
+            if irw_active
+            else (
+                "institutional_analyst_framework_cio_report"
+                if iaf_active
+                else (
+                    "multi_layer_investment_decision_never_direct_buy_sell"
+                    if ide_active
+                    else "full_institutional_brief_even_when_recommendation_withheld"
+                )
+            )
+        )
+    )
+
     return {
         "enabled": True,
         "programme": PROGRAMME,
@@ -298,6 +362,7 @@ def apply_answer_construction_v3(
         "why": why_out[:12],
         "knowledge_gaps": gaps,
         "recommendation_status": reco,
+        "institutional_answer": institutional_answer,
         "decision_engine_active": ide_active,
         "institutional_analysts_active": iaf_active,
         "institutional_research_writer_active": irw_active,
@@ -306,19 +371,9 @@ def apply_answer_construction_v3(
         "research_writer": irw if irw_active else {},
         "institutional_report": irw_report if irw_active else {},
         "section_owners": iaf.get("section_owners") if iaf_active else {},
-        "answer_policy": (
-            "institutional_research_writer_publication_note"
-            if irw_active
-            else (
-                "institutional_analyst_framework_cio_report"
-                if iaf_active
-                else (
-                    "multi_layer_investment_decision_never_direct_buy_sell"
-                    if ide_active
-                    else "full_institutional_brief_even_when_recommendation_withheld"
-                )
-            )
-        ),
+        "answer_policy": answer_policy,
         "never_expose_checklist_keys": True,
         "decision_last": True if ide_active or iaf_active else None,
+        "voice": "AGIB Institutional Intelligence",
+        "max_lead_words": 60,
     }
