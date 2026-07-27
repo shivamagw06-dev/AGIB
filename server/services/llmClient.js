@@ -13,7 +13,7 @@ function openaiKey() {
 }
 
 function geminiModel() {
-  return (process.env.GEMINI_MODEL || process.env.GOOGLE_GEMINI_MODEL || 'gemini-2.0-flash').trim();
+  return (process.env.GEMINI_MODEL || process.env.GOOGLE_GEMINI_MODEL || 'gemini-flash-latest').trim();
 }
 
 function openaiModel() {
