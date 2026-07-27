@@ -150,6 +150,26 @@ export function mapSearchPack(pack) {
         : iaf?.research_writer?.enabled
           ? iaf.research_writer
           : null;
+  const ir =
+    ac?.institutional_reasoning?.enabled !== false &&
+    (ac?.institutional_reasoning || pack.institutional_reasoning)
+      ? ac?.institutional_reasoning || pack.institutional_reasoning
+      : null;
+  const irOwns = Boolean(ir?.owns_executive && (ir?.executive || ir?.answer));
+  const reasoningPattern = ac?.reasoning_pattern || (irOwns ? { enabled: true, source: ir?.reasoning_source } : null);
+  const cxr =
+    ac?.contradiction_reasoning?.enabled
+      ? ac.contradiction_reasoning
+      : pack.contradiction_reasoning?.enabled
+        ? pack.contradiction_reasoning
+        : null;
+  const ecr = ac?.ecr || ir?.ecr || pack.ecr || null;
+  const novelty = ac?.novelty || ir?.novelty || {};
+  const books =
+    (pack.academy_books?.enabled && pack.academy_books) ||
+    (ac?.academy_books?.enabled && ac.academy_books) ||
+    (irw?.academy_books?.enabled && irw.academy_books) ||
+    null;
   const irwReport = irw?.institutional_report || ac?.institutional_report || iaf?.institutional_report || null;
   const ide = pack.decision_engine?.active ? pack.decision_engine : null;
   const ideSummary = ide?.summary || {};
@@ -215,16 +235,20 @@ export function mapSearchPack(pack) {
         ? pack.answer.institutional_answer
         : null;
 
-  // Prefer plain-English editorial rewrite for the lead answer (never Buy/Sell/Hold copy).
+  // Prefer AGIB reasoning executive when it owns the answer; editorial is rewrite-only.
+  const reasoningExecutive = irOwns
+    ? asText(ir?.executive || ir?.answer)
+    : asText(cxr?.executive);
   const editorialExecutive =
     asText(ac?.editorial?.rewritten_summary) ||
     asText(ac?.editorial?.executive) ||
     asText(pack.editorial?.rewritten_summary) ||
     asText(pack.editorial?.executive) ||
-    asText(ac?.executive) ||
     '';
   const executive =
+    reasoningExecutive ||
     editorialExecutive ||
+    asText(ac?.executive) ||
     asText(institutionalAnswer?.text) ||
     asText(irw?.executive_summary) ||
     asText(irwReport?.executive_summary) ||
@@ -423,8 +447,15 @@ export function mapSearchPack(pack) {
   const catalysts = asList(pack.key_catalysts || ca.catalysts || sections.catalysts || enrich.catalysts, 8);
 
   const learned = asList(
-    enrich.research_takeaways || sections.research_takeaways || academy.reasoning_points || academy.answer_hints,
-    6
+    [
+      ...(enrich.research_takeaways || []),
+      ...(sections.research_takeaways || []),
+      ...(academy.reasoning_points || []),
+      ...(academy.answer_hints || []),
+      ...(books?.logic_hints || []),
+      ...(books?.frameworks || []).map((f) => (f ? `Framework: ${f}` : '')),
+    ],
+    8
   );
 
   const explore = asList(pack.follow_up_questions, 10);
@@ -903,6 +934,26 @@ export function mapSearchPack(pack) {
     editorialEnabled: Boolean(ac?.editorial?.enabled || pack.editorial?.enabled),
     editorialProvider: asText(ac?.editorial?.provider || pack.editorial?.provider, ''),
     editorialFallback: Boolean(ac?.editorial?.fallback || pack.editorial?.fallback),
+    reasoningEnabled: Boolean(ir?.enabled || irOwns || reasoningPattern?.enabled),
+    reasoningOwnsExecutive: irOwns || Boolean(cxr?.executive),
+    reasoningSource: asText(
+      ir?.reasoning_source || reasoningPattern?.source || (cxr?.enabled ? 'contradiction_reasoning' : ''),
+      ''
+    ),
+    reasoningFamily: asText(
+      ir?.reasoning_family?.family_label ||
+        ir?.reasoning_family?.family_id ||
+        ir?.family_id ||
+        reasoningPattern?.family_id,
+      ''
+    ),
+    reasoningMode: asText(ir?.adversarial_mode || ir?.habit_id || reasoningPattern?.pattern_id, ''),
+    noveltyBand: asText(novelty?.band || novelty?.novelty_band, ''),
+    noveltyScore: novelty?.novelty_score ?? novelty?.score ?? null,
+    ecrScore: ecr?.ecr ?? ecr?.score ?? ac?.evidence_to_conclusion_ratio ?? null,
+    contradictionEnabled: Boolean(cxr?.enabled),
+    booksEnabled: Boolean(books?.enabled),
+    bookFrameworks: asList(books?.frameworks || academy.book_frameworks, 6),
     ideEnabled: Boolean(ide?.active),
     iafEnabled: Boolean(iaf?.enabled),
     irwEnabled: Boolean(irw?.enabled),

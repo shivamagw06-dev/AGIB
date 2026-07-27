@@ -1087,6 +1087,7 @@ class UiService:
         intelligence_bus: dict[str, Any] = {}
         valuation: dict[str, Any] = {}
         finance_academy: dict[str, Any] = {}
+        academy_books: dict[str, Any] = {}
         sector_intelligence: dict[str, Any] = {}
         live_evidence: dict[str, Any] = {}
         company_dossier: dict[str, Any] = {}
@@ -1133,6 +1134,27 @@ class UiService:
         except Exception:
             finance_academy = {}
             sector_intelligence = {}
+
+        # Academy Books soft slice — frameworks/terminology for IRW + UI (never book text)
+        try:
+            from academy.books.production import research_writer_slice as books_slice_fn
+
+            academy_books = books_slice_fn(q, ticker=detected_ticker) or {}
+            if isinstance(academy_books, dict) and academy_books.get("enabled") and isinstance(finance_academy, dict):
+                hints = list(finance_academy.get("answer_hints") or [])
+                for h in (academy_books.get("logic_hints") or [])[:4]:
+                    if h and h not in hints:
+                        hints.append(h)
+                if hints:
+                    finance_academy = {
+                        **finance_academy,
+                        "answer_hints": hints[:12],
+                        "academy_books_soft": True,
+                        "book_frameworks": list(academy_books.get("frameworks") or [])[:8],
+                    }
+        except Exception:
+            academy_books = {}
+
         if not sector_intelligence or leo_supplied:
             try:
                 from sif.production import analyse_query as sif_analyse
@@ -2661,6 +2683,7 @@ class UiService:
                 },
             },
             finance_academy=scrub(finance_academy) if finance_academy else {},
+            academy_books=scrub(academy_books) if academy_books else {},
             live_evidence=scrub(live_evidence) if live_evidence else {},
             company_dossier=scrub(company_dossier) if company_dossier else {},
             data_validation=scrub(data_validation) if data_validation else {},

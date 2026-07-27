@@ -93,6 +93,22 @@ def package_for_ask_agi(intelligence_pack: dict[str, Any] | None = None, **kwarg
             pack[k] = v
     query = str(pack.get("query") or kwargs.get("query") or "")
 
+    # Soft-wire Academy Books frameworks/terminology (structure only — never book text).
+    books_slice: dict[str, Any] = {}
+    try:
+        from academy.books.production import research_writer_slice
+
+        ticker = None
+        if isinstance(pack.get("ticker"), str):
+            ticker = pack.get("ticker")
+        elif isinstance(pack.get("company_analysis"), dict):
+            ticker = pack["company_analysis"].get("ticker")
+        books_slice = research_writer_slice(query, ticker=ticker) or {}
+        if isinstance(books_slice, dict) and books_slice.get("enabled"):
+            pack = {**pack, "academy_books": books_slice}
+    except Exception:
+        books_slice = {}
+
     try:
         report = write_institutional_report(pack, query=query)
     except Exception as exc:
@@ -103,6 +119,18 @@ def package_for_ask_agi(intelligence_pack: dict[str, Any] | None = None, **kwarg
             "version": IRW_VERSION,
         }
 
+    hints = [
+        f"Institutional Research Writer produced a {report.get('report_type')} note",
+        "Presentation layer only — committee vote and confidence unchanged",
+    ]
+    if isinstance(books_slice, dict) and books_slice.get("enabled"):
+        for h in (books_slice.get("logic_hints") or [])[:3]:
+            if h:
+                hints.append(str(h)[:180])
+        fws = [str(f) for f in (books_slice.get("frameworks") or [])[:3] if f]
+        if fws:
+            hints.append("Academy framework lens: " + "; ".join(fws))
+
     return {
         "enabled": True,
         "programme": PROGRAMME,
@@ -111,6 +139,7 @@ def package_for_ask_agi(intelligence_pack: dict[str, Any] | None = None, **kwarg
         "not_an_engine": True,
         "presentation_writing_layer_only": True,
         "institutional_report": report,
+        "academy_books": books_slice if isinstance(books_slice, dict) else {},
         # Flat presentation fields for AC / UI
         "executive_summary": report.get("executive_summary"),
         "investment_thesis": report.get("investment_thesis"),
@@ -135,8 +164,5 @@ def package_for_ask_agi(intelligence_pack: dict[str, Any] | None = None, **kwarg
         "quality": report.get("quality"),
         # Explicit pass-through of immutable intelligence
         "intelligence_unchanged": report.get("intelligence_unchanged"),
-        "ask_agi_hints": [
-            f"Institutional Research Writer produced a {report.get('report_type')} note",
-            "Presentation layer only — committee vote and confidence unchanged",
-        ],
+        "ask_agi_hints": hints,
     }

@@ -210,6 +210,19 @@ def package_for_ask_agi(**kwargs: Any) -> dict[str, Any]:
     except Exception:
         out.setdefault("institutional_reasoning", {"enabled": False, "bypassed": True})
 
+    # Soft-attach Academy Books slice onto AC pack for IRW / UI provenance.
+    try:
+        from academy.books.production import research_writer_slice as books_slice_fn
+
+        books = books_slice_fn(
+            str(kwargs.get("query") or ""),
+            ticker=kwargs.get("ticker"),
+        )
+        if isinstance(books, dict) and books.get("enabled"):
+            out["academy_books"] = books
+    except Exception:
+        out.setdefault("academy_books", {"enabled": False})
+
     # Contradiction Reasoning Soft Layer — step-by-step conflict answers.
     # Soft-wire only (not a top-level engine; not Continuous Research Evaluation).
     # When active, owns the executive text so answers do not jump to certainty.

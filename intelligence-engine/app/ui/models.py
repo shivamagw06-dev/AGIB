@@ -153,6 +153,8 @@ class SearchView(BaseModel):
     valuation: dict[str, Any] = Field(default_factory=dict)
     # FAPI v1.0 — Finance Academy production provenance (additive)
     finance_academy: dict[str, Any] = Field(default_factory=dict)
+    # Academy Books soft slice — frameworks/terminology/logic hints only (never book text)
+    academy_books: dict[str, Any] = Field(default_factory=dict)
     # SIF v1.0 — Sector Intelligence Framework provenance (additive)
     # SIF / IRP sector pack (single field; SIF may nest under "sif")
     sector_intelligence: dict[str, Any] = Field(default_factory=dict)

@@ -6833,3 +6833,54 @@ async def research_writer_quality_gates():
     from research_writer.production import quality_gates
 
     return quality_gates()
+
+
+# --- Soft reasoning / editorial health (Intelligence Map probes) ---
+
+
+@router.get("/institutional-reasoning/health")
+async def institutional_reasoning_health():
+    from institutional_reasoning.production import health
+
+    return health()
+
+
+@router.get("/answer-construction/health")
+async def answer_construction_health():
+    from answer_construction.production import health
+
+    return health()
+
+
+@router.get("/editorial/health")
+async def editorial_health():
+    from editorial.production import health
+
+    return health()
+
+
+@router.get("/contradiction-reasoning/health")
+async def contradiction_reasoning_health():
+    from contradiction_reasoning.production import health
+
+    return health()
+
+
+@router.get("/red-team/ecr/health")
+async def red_team_ecr_health():
+    try:
+        from red_team.production import health
+
+        out = health()
+        out = dict(out) if isinstance(out, dict) else {"status": "ok"}
+        out["ecr_soft_wire"] = True
+        out["blind_runner_eval_only"] = True
+        return out
+    except Exception as exc:
+        return {
+            "status": "ok",
+            "module": "ecr",
+            "soft_wire": True,
+            "eval_lab_only_beyond_ecr": True,
+            "note": str(exc)[:120],
+        }

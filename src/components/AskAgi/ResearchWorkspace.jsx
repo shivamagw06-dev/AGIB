@@ -330,8 +330,19 @@ export default function ResearchWorkspace({
                     <span className="rw-chip blue">{vm.category}</span>
                     {vm.ticker ? <span className="rw-chip muted">{vm.ticker}</span> : null}
                     {vm.acEnabled ? <span className="rw-chip muted">Institutional Brief</span> : null}
+                    {vm.reasoningEnabled ? (
+                      <span className="rw-chip muted">
+                        {vm.reasoningSource?.includes('ic_case')
+                          ? 'IC Reasoning'
+                          : vm.contradictionEnabled
+                            ? 'Contradiction Desk'
+                            : 'Institutional Reasoning'}
+                      </span>
+                    ) : null}
+                    {vm.booksEnabled ? <span className="rw-chip muted">Academy Books</span> : null}
                     {vm.editorialEnabled ? <span className="rw-chip muted">Gemini Editorial</span> : null}
                     {vm.iafEnabled ? <span className="rw-chip muted">Analyst Desk</span> : null}
+                    {vm.irwEnabled ? <span className="rw-chip muted">Research Note</span> : null}
                     {vm.ideEnabled ? <span className="rw-chip muted">Decision Stack</span> : null}
                   </div>
                   <p className="rw-meta">
@@ -351,6 +362,21 @@ export default function ResearchWorkspace({
                         vm.institutionalAnswer?.reason ||
                         'Institutional summary assembling…'}
                     </p>
+                    {vm.reasoningOwnsExecutive ? (
+                      <p className="rw-mini mt-3">
+                        AGIB reasoning owns this summary
+                        {vm.reasoningFamily ? ` · ${vm.reasoningFamily}` : ''}
+                        {vm.reasoningMode ? ` · ${vm.reasoningMode}` : ''}
+                        {vm.noveltyBand ? ` · novelty ${vm.noveltyBand}` : ''}
+                        {vm.ecrScore != null ? ` · ECR ${vm.ecrScore}` : ''}
+                        {' · Not investment advice'}
+                      </p>
+                    ) : null}
+                    {vm.bookFrameworks?.length ? (
+                      <p className="rw-mini mt-2">
+                        Academy framework lens: {vm.bookFrameworks.slice(0, 4).join(' · ')}
+                      </p>
+                    ) : null}
                     {vm.editorialEnabled ? (
                       <p className="rw-mini mt-3">
                         Editorial rewrite of AGIB intelligence · Not investment advice

@@ -132,6 +132,36 @@ def write_institutional_report(pack: dict[str, Any], *, query: str = "") -> dict
             limit=480,
         )
 
+    # Soft Academy Books framework lens — names only, never verbatim book text.
+    books = pack.get("academy_books") if isinstance(pack.get("academy_books"), dict) else {}
+    if books.get("enabled"):
+        frameworks = [str(f).strip() for f in (books.get("frameworks") or [])[:4] if f]
+        terms = [str(t).strip() for t in (books.get("terminology") or [])[:4] if t]
+        if frameworks and sections.get("valuation_intelligence"):
+            sections["valuation_intelligence"] = scrub_leaks(
+                str(sections["valuation_intelligence"])
+                + " Framework lens: "
+                + "; ".join(frameworks)
+                + ".",
+                limit=560,
+            )
+        elif frameworks and sections.get("financial_intelligence"):
+            sections["financial_intelligence"] = scrub_leaks(
+                str(sections["financial_intelligence"])
+                + " Framework lens: "
+                + "; ".join(frameworks)
+                + ".",
+                limit=560,
+            )
+        if terms and sections.get("investment_thesis"):
+            sections["investment_thesis"] = scrub_leaks(
+                str(sections["investment_thesis"])
+                + " Related institutional concepts: "
+                + "; ".join(terms)
+                + ".",
+                limit=560,
+            )
+
     # Consistency + transitions
     sections = {k: enforce_consistency(v, ctx) for k, v in sections.items()}
     sections = with_transitions(sections, [k for k in SECTION_ORDER if k in sections])
