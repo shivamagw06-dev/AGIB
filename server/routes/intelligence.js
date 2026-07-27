@@ -2205,5 +2205,33 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // RQ2 Institutional Debate Engine — Sprint 8 (structured debate BEFORE Committee)
+  router.get('/debate-engine/health', kfGet('/v1/debate-engine/health'));
+  router.get('/debate-engine/dashboard', kfGet('/v1/debate-engine/dashboard'));
+  router.get('/debate-engine/constitution', kfGet('/v1/debate-engine/constitution'));
+  router.get('/debate-engine/quality-gates', kfGet('/v1/debate-engine/quality-gates'));
+  router.post('/debate-engine/plan', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/debate-engine/plan', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'IDEB plan failed', detail: error.message });
+    }
+  });
+  router.post('/debate-engine/diagnostics', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/debate-engine/diagnostics', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'IDEB diagnostics failed', detail: error.message });
+    }
+  });
+
   return router;
 }

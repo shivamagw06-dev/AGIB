@@ -45,6 +45,7 @@ import ResearchQuestions from '@/pages/admin/ResearchQuestions';
 import HypothesisTesting from '@/pages/admin/HypothesisTesting';
 import BeliefEngine from '@/pages/admin/BeliefEngine';
 import ThesisConstruction from '@/pages/admin/ThesisConstruction';
+import InstitutionalDebate from '@/pages/admin/InstitutionalDebate';
 
 export default function AdminRoutes() {
   return (
@@ -89,6 +90,7 @@ export default function AdminRoutes() {
           <Route path="hypothesis-testing" element={<HypothesisTesting />} />
           <Route path="belief-engine" element={<BeliefEngine />} />
           <Route path="thesis-construction" element={<ThesisConstruction />} />
+          <Route path="institutional-debate" element={<InstitutionalDebate />} />
           <Route path="system" element={<MissionControl />} />
           <Route path="investment-intelligence" element={<InvestmentIntelligence />} />
           <Route path="forecasting" element={<Forecasting />} />

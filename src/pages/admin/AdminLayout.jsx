@@ -40,6 +40,7 @@ import {
   Layers3,
   Lightbulb,
   ListChecks,
+  MessageSquare,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -57,6 +58,7 @@ const navItems = [
   { to: '/admin/hypothesis-testing', label: 'Hypothesis Testing', icon: FlaskConical },
   { to: '/admin/belief-engine', label: 'Belief Engine', icon: Gauge },
   { to: '/admin/thesis-construction', label: 'Thesis Construction', icon: Landmark },
+  { to: '/admin/institutional-debate', label: 'Institutional Debate', icon: MessageSquare },
   { to: '/admin/articles/new', label: 'New Article', icon: Plus },
   { to: '/admin/categories', label: 'Categories', icon: FolderOpen },
   { to: '/admin/knowledge', label: 'Knowledge Corpus', icon: Brain },

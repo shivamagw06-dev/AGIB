@@ -1363,3 +1363,19 @@ export const diagnoseThesisEngine = (payload = {}) =>
     method: 'POST',
     body: typeof payload === 'string' ? { question: payload } : payload,
   });
+
+/** RQ2 Institutional Debate Engine — Sprint 8 (structured pre-Committee debate) */
+export const getDebateEngineHealth = () => intelligenceFetch('/debate-engine/health');
+export const getDebateEngineDashboard = () => intelligenceFetch('/debate-engine/dashboard');
+export const getDebateEngineConstitution = () => intelligenceFetch('/debate-engine/constitution');
+export const getDebateEngineQualityGates = () => intelligenceFetch('/debate-engine/quality-gates');
+export const planDebateEngine = (payload = {}) =>
+  intelligenceFetch('/debate-engine/plan', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });
+export const diagnoseDebateEngine = (payload = {}) =>
+  intelligenceFetch('/debate-engine/diagnostics', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });

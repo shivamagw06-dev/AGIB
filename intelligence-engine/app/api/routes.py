@@ -5306,6 +5306,51 @@ async def thesis_engine_diagnostics(payload: dict[str, Any] = Body(default={})):
     return diagnostics(payload or {})
 
 
+# --- RQ2 Institutional Debate Engine (Sprint 8 — structured pre-Committee debate; not a layer/committee) ---
+
+
+@router.get("/debate-engine/health")
+async def debate_engine_health():
+    from debate_engine.production import health
+
+    return health()
+
+
+@router.get("/debate-engine/dashboard")
+async def debate_engine_dashboard():
+    from debate_engine.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/debate-engine/constitution")
+async def debate_engine_constitution():
+    from debate_engine.production import constitution
+
+    return constitution()
+
+
+@router.get("/debate-engine/quality-gates")
+async def debate_engine_quality_gates():
+    from debate_engine.production import quality_gates
+
+    return quality_gates()
+
+
+@router.post("/debate-engine/plan")
+async def debate_engine_plan(payload: dict[str, Any] = Body(default={})):
+    from debate_engine.production import plan
+
+    return plan(payload or {})
+
+
+@router.post("/debate-engine/diagnostics")
+async def debate_engine_diagnostics(payload: dict[str, Any] = Body(default={})):
+    from debate_engine.production import diagnostics
+
+    return diagnostics(payload or {})
+
+
 # --- SIF v1.0 (Sector Intelligence Framework — additive; not an engine) ---
 
 
