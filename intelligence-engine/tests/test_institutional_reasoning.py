@@ -72,7 +72,7 @@ def test_soft_wire_into_answer_construction():
     assert out.get("reasoning_plan", {}).get("question_type") == "Company Analysis"
 
 
-def test_contradiction_still_owns_executive_with_reasoning_plan():
+def test_gold_reasoning_pattern_owns_executive_with_reasoning_plan():
     from answer_construction.production import package_for_ask_agi as ac_package
 
     q = (
@@ -81,6 +81,7 @@ def test_contradiction_still_owns_executive_with_reasoning_plan():
     )
     out = ac_package(query=q, ticker="HDFCBANK")
     assert out.get("institutional_reasoning", {}).get("enabled") is True
-    assert out.get("contradiction_reasoning", {}).get("enabled") is True
-    assert out.get("answer_policy") == "contradiction_reasoning_step_by_step"
+    assert out.get("answer_policy") == "gold_reasoning_pattern"
+    assert out.get("reasoning_pattern", {}).get("pattern_id") == "profit_vs_nim"
     assert "NIM" in (out.get("executive") or "") or "Net Interest Margin" in (out.get("executive") or "")
+    assert out.get("editorial", {}).get("bypassed") is True
