@@ -68,7 +68,7 @@ class FaaService:
             "status": "ok" if self.flags.faa else "disabled",
             "layer": "Finance Acquisition Agent",
             "programme": "FAA",
-            "version": "faa-v1.2.0",
+            "version": "faa-v1.3.0",
             "architecture_status": "v1.0.1 LOCKED",
             "position": "upstream_of_fre",
             "does_not_answer": True,
@@ -106,7 +106,7 @@ class FaaService:
         return {
             "programme": "FAA",
             "architecture_status": "v1.0.1 LOCKED",
-            "version": "faa-v1.2.0",
+            "version": "faa-v1.3.0",
             "does_not_answer": True,
             "live_fetch_enabled": self.flags.faa_live_fetch,
             "search_providers_configured": available_search_providers(),
@@ -138,7 +138,7 @@ class FaaService:
         return {
             "programme": "FAA",
             "architecture_status": "v1.0.1 LOCKED",
-            "version": "faa-v1.2.0",
+            "version": "faa-v1.3.0",
             "does_not_answer": True,
             "never_reasons": True,
             **payload,
@@ -227,10 +227,16 @@ class FaaService:
                     "BING_SEARCH_API_KEY",
                     "GOOGLE_CSE_API_KEY+GOOGLE_CSE_ID",
                 ],
+                "playwright": {
+                    "enable": "FAA_PLAYWRIGHT=true",
+                    "install": "playwright install chromium",
+                    "role": "JS IR/exchange fetch + free DuckDuckGo web search",
+                },
                 "strategy": {
                     "exa": "Preferred for research / industry / publications",
                     "firecrawl": "Deep search + URL→markdown enrichment of top hits",
-                    "browserbase": "JS-heavy / exchange / IR fallback fetch",
+                    "playwright": "Self-hosted Chromium for JS pages + free web search",
+                    "browserbase": "Cloud JS-heavy / exchange / IR fallback fetch",
                 },
             },
         }

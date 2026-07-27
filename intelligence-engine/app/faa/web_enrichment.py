@@ -1,9 +1,10 @@
-"""Strategic web enrichment — Firecrawl (markdown scrape) + Browserbase (hard-page fetch).
+"""Strategic web enrichment — Firecrawl + Playwright + Browserbase.
 
 Roles (cost-aware):
   • Exa / Tavily — discovery search (handled in search_api + fetch._call_search_provider)
   • Firecrawl   — upgrade thin HTML / deepen top search hits into LLM-ready markdown
-  • Browserbase — fallback fetch for JS-heavy or blocked pages when Firecrawl fails
+  • Playwright  — self-hosted Chromium for JS IR/exchange pages + free DDG search
+  • Browserbase — cloud fallback fetch for JS-heavy / blocked pages
 
 Never answers or reasons — acquisition-only helpers for FAA FetchService.
 """
@@ -17,12 +18,18 @@ from typing import Any
 from urllib.parse import urlparse
 
 from app.faa.http_client import HttpClient
+from app.faa.playwright_browser import (
+    fetch_page as playwright_fetch_page,
+    playwright_available,
+    playwright_enabled,
+    playwright_status,
+)
 
 # Hosts that often need a real browser / proxy path (exchanges, IR portals).
 _HARD_HOST_RE = re.compile(
     r"(nseindia\.com|bseindia\.com|sebi\.gov\.in|mca\.gov\.in|"
     r"moneycontrol\.com|screener\.in|trendlyne\.com|"
-    r"investor\.|ir\.|filings)",
+    r"investor\.|ir\.|filings|shareholding|earnings)",
     re.I,
 )
 
@@ -38,13 +45,18 @@ def browserbase_configured() -> bool:
 
 
 def enrichment_status() -> dict[str, Any]:
+    pw = playwright_status()
     return {
         "firecrawl": firecrawl_configured(),
+        "playwright": bool(pw.get("ready")),
+        "playwright_enabled": playwright_enabled(),
+        "playwright_detail": pw,
         "browserbase": browserbase_configured(),
         "roles": {
             "exa": "semantic research / industry search",
             "firecrawl": "URL → clean markdown enrichment",
-            "browserbase": "JS-heavy / blocked page fallback fetch",
+            "playwright": "self-hosted Chromium for JS IR/exchange + free web search",
+            "browserbase": "cloud JS-heavy / blocked page fallback fetch",
         },
     }
 
@@ -193,23 +205,48 @@ def enrich_url(
     *,
     prefer_browserbase: bool = False,
 ) -> dict[str, Any] | None:
-    """Strategic single-URL enrichment: Firecrawl first, Browserbase on hard hosts / failure."""
+    """Strategic single-URL enrichment.
+
+    Hard hosts (NSE/BSE/IR): Playwright → Firecrawl → Browserbase
+    General thin HTML:       Firecrawl → Playwright → Browserbase
+    """
     if not url or url.startswith("search://"):
         return None
     hard = prefer_browserbase or looks_like_hard_host(url)
 
-    if hard and browserbase_configured():
-        bb = browserbase_fetch(client, url)
-        if bb and not text_is_thin(bb.get("markdown")):
-            return bb
+    def _ok(page: dict[str, Any] | None) -> dict[str, Any] | None:
+        if page and not text_is_thin(page.get("markdown")):
+            return page
+        return None
+
+    if hard:
+        if playwright_available():
+            hit = _ok(playwright_fetch_page(url))
+            if hit:
+                return hit
+        if firecrawl_configured():
+            hit = _ok(firecrawl_scrape(client, url))
+            if hit:
+                return hit
+        if browserbase_configured():
+            return browserbase_fetch(client, url)
+        # Last resort: Playwright even if status probe failed earlier
+        if playwright_enabled():
+            return playwright_fetch_page(url)
+        return None
 
     if firecrawl_configured():
-        fc = firecrawl_scrape(client, url)
-        if fc and not text_is_thin(fc.get("markdown")):
-            return fc
-
+        hit = _ok(firecrawl_scrape(client, url))
+        if hit:
+            return hit
+    if playwright_available():
+        hit = _ok(playwright_fetch_page(url))
+        if hit:
+            return hit
     if browserbase_configured():
         return browserbase_fetch(client, url)
+    if playwright_enabled():
+        return playwright_fetch_page(url)
     return None
 
 
@@ -219,10 +256,10 @@ def deepen_search_results(
     *,
     max_pages: int = 3,
 ) -> list[dict[str, Any]]:
-    """For top search hits, attach Firecrawl/Browserbase markdown when available."""
+    """For top search hits, attach Firecrawl/Playwright/Browserbase content when available."""
     if not results:
         return results
-    if not firecrawl_configured() and not browserbase_configured():
+    if not (firecrawl_configured() or browserbase_configured() or playwright_enabled()):
         return results
 
     deepened: list[dict[str, Any]] = []

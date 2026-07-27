@@ -19,9 +19,14 @@ from app.faa.connectors.base import AcquisitionConnector
 from app.faa.models import CandidateDocument, DiscoveryTask
 
 # Preference order by document class (first configured wins).
-_RESEARCH_PREF = ("exa", "firecrawl", "tavily", "serpapi", "bing", "google_cse")
-_NEWS_PREF = ("tavily", "exa", "firecrawl", "serpapi", "bing", "google_cse")
-_GENERAL_PREF = ("exa", "tavily", "firecrawl", "serpapi", "bing", "google_cse")
+_RESEARCH_PREF = ("exa", "firecrawl", "tavily", "playwright", "serpapi", "bing", "google_cse")
+_NEWS_PREF = ("tavily", "exa", "firecrawl", "playwright", "serpapi", "bing", "google_cse")
+_GENERAL_PREF = ("exa", "tavily", "firecrawl", "playwright", "serpapi", "bing", "google_cse")
+
+
+def _playwright_search_ready() -> bool:
+    raw = (os.environ.get("FAA_PLAYWRIGHT") or os.environ.get("PLAYWRIGHT") or "").strip().lower()
+    return raw in {"1", "true", "yes", "on"}
 
 
 def available_search_providers() -> list[str]:
@@ -33,6 +38,8 @@ def available_search_providers() -> list[str]:
         out.append("tavily")
     if (os.environ.get("FIRECRAWL_API_KEY") or "").strip():
         out.append("firecrawl")
+    if _playwright_search_ready():
+        out.append("playwright")
     if (os.environ.get("SERPAPI_API_KEY") or os.environ.get("SERPAPI_KEY") or "").strip():
         out.append("serpapi")
     if (os.environ.get("BING_SEARCH_API_KEY") or "").strip():
@@ -195,6 +202,79 @@ class FirecrawlSearchConnector(SearchApiConnector):
                 },
             )
         ]
+
+
+class PlaywrightSearchConnector(SearchApiConnector):
+    """Playwright free web search (DuckDuckGo HTML) + JS page fetch capability."""
+
+    connector_id = "playwright"
+    name = "Playwright Web Search"
+    document_types = [
+        "general_web",
+        "industry_report",
+        "research_publication",
+        "news",
+        "investor_relations",
+        "html",
+    ]
+
+    def search(self, task: DiscoveryTask) -> list[CandidateDocument]:
+        if "playwright" not in available_search_providers():
+            return []
+        q = task.query or task.description
+        return [
+            CandidateDocument(
+                title=f"Playwright: {q}",
+                url=f"search://playwright?q={quote_plus(q)}",
+                connector_id=self.connector_id,
+                document_type=task.document_type or "general_web",
+                company=task.company,
+                symbol=task.symbol,
+                organisation="playwright",
+                discovery_task_id=task.task_id,
+                metadata={
+                    "providers_available": ["playwright"],
+                    "selected_provider": "playwright",
+                    "query": q,
+                    "authority": 3,
+                    "strategy": "headless_web_search",
+                },
+            )
+        ]
+
+    def fetch(self, candidate, client):  # type: ignore[no-untyped-def]
+        """JS-render non-search URLs assigned to this connector."""
+        url = (candidate.url or "").strip()
+        if not url or url.startswith("search://"):
+            return None
+        from app.faa.models import FetchedDocument, sha256_text, utc_now
+        from app.faa.playwright_browser import fetch_page
+
+        page = fetch_page(url)
+        if not page or not page.get("markdown"):
+            return None
+        text = str(page["markdown"])
+        return FetchedDocument(
+            candidate_id=candidate.candidate_id,
+            title=page.get("title") or candidate.title,
+            url=str(page.get("url") or url),
+            connector_id=self.connector_id,
+            document_type=candidate.document_type,
+            company=candidate.company,
+            symbol=candidate.symbol,
+            organisation=candidate.organisation or "playwright",
+            published_at=candidate.published_at or utc_now().date().isoformat(),
+            content_type="text/plain",
+            content_text=text[:200_000],
+            content_bytes_len=len(text.encode("utf-8")),
+            checksum=sha256_text(text),
+            live_fetch=True,
+            metadata={
+                "enriched_by": "playwright",
+                "pdf_links": page.get("pdf_links") or [],
+                "authority": (candidate.metadata or {}).get("authority"),
+            },
+        )
 
 
 class SerpApiConnector(SearchApiConnector):

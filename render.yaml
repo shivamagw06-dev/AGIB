@@ -27,7 +27,8 @@ services:
     runtime: python
     rootDir: intelligence-engine
     plan: free
-    buildCommand: pip install -r requirements.txt
+    # Chromium for FAA Playwright JS-render + free web search
+    buildCommand: pip install -r requirements.txt && playwright install chromium
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /v1/health
     envVars:
@@ -52,6 +53,8 @@ services:
       - key: FAA_MAX_WORKERS
         value: "6"
       - key: FAA_SEARCH_API
+        value: "true"
+      - key: FAA_PLAYWRIGHT
         value: "true"
       - key: EXA_API_KEY
         sync: false
