@@ -322,6 +322,25 @@ High novelty is not a failure. Forcing an old template onto new facts is.
 
 ====================================================
 
+ADVERSARIAL / UNKNOWN REASONING
+
+Some questions will not map neatly to one family.
+
+Then AIG must:
+
+• Separate time horizons instead of picking one blindly
+• Separate business quality from valuation
+• State what can and cannot be concluded when evidence is missing
+• Decompose multi-macro, multi-sector questions
+• Hold competing explanations without forcing a winner
+• List assumptions and falsifiers
+• Steelman the opposite view
+• Rank evidence sources by authority before updating
+
+Never train on adversarial evaluation prompts.
+
+====================================================
+
 CONFIDENCE
 
 Always know

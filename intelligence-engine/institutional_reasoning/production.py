@@ -34,6 +34,7 @@ def health() -> dict[str, Any]:
         "gold_reasoning_patterns": True,
         "reasoning_families": True,
         "novelty_score": True,
+        "adversarial_unknown_reasoning": True,
         "flags": flags_dict(),
     }
 
@@ -55,6 +56,7 @@ def quality_gates() -> dict[str, Any]:
             "reasoning_families": True,
             "novelty_score_before_answer": True,
             "never_force_closest_template_on_novel": True,
+            "adversarial_unknown_reasoning": True,
             "soft_wire_only": True,
             "not_a_top_level_engine": True,
         },
@@ -121,6 +123,14 @@ def package_for_ask_agi(
             out["answer_policy"] = reasoned.get("answer_policy")
             out["reasoning_source"] = reasoned.get("source")
             out["decides_winner"] = reasoned.get("decides_winner")
+            out["adversarial_mode"] = reasoned.get("mode")
+            out["habit_id"] = reasoned.get("habit_id")
+            out["consistency_fingerprint"] = reasoned.get("consistency_fingerprint")
+            out["families_used"] = reasoned.get("families_used") or reasoned.get("family_signals")
+            if reasoned.get("decomposed") is not None:
+                out["decomposed"] = reasoned.get("decomposed")
+            if isinstance(reasoned.get("structured"), dict) and reasoned["structured"].get("decomposed"):
+                out["decomposed"] = reasoned["structured"]["decomposed"]
         return out
     except Exception as exc:  # noqa: BLE001
         return {

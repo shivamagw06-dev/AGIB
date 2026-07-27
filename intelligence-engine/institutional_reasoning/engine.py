@@ -1,9 +1,9 @@
 """Reasoning family engine — gold habits + novelty-aware generalisation.
 
 Priority:
-1. Exact gold pattern (seen) → use gold habit
-2. Family match with novel facts → first-principles family compose
-3. Dual-hypothesis hardest cases → two explanations, no decision
+1. Adversarial / unknown / cross-family modes (Phase 3–8)
+2. Exact gold pattern (seen) → use gold habit
+3. Family match with novel facts → first-principles family compose
 4. Else → do not force a template
 """
 
@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from institutional_reasoning.adversarial import compose_adversarial, detect_adversarial_mode
 from institutional_reasoning.families import DUAL_HYPOTHESIS, FAMILIES
 from institutional_reasoning.family_classifier import classify_family
 from institutional_reasoning.family_composers import compose_family_answer
@@ -32,6 +33,30 @@ def package_reasoning_answer(
     family = classify_family(q)
     family_id = family.get("family_id")
     family_conf = float(family.get("confidence") or 0.0)
+
+    # 0) Adversarial / unknown / cross-family reasoning (Phase 3–8).
+    # Runs before gold so multi-horizon, business-vs-valuation, evidence-hierarchy,
+    # and paraphrase-consistency habits are not stolen by narrower templates.
+    adv_mode = detect_adversarial_mode(q)
+    if adv_mode:
+        adv = compose_adversarial(adv_mode, q)
+        if adv.get("enabled") and adv.get("executive"):
+            novelty = score_novelty(
+                gold_exact=False,
+                family_id=adv.get("family_id") or "adversarial",
+                family_confidence=0.92,
+                first_principles=True,
+                adversarial=True,
+                novelty_band_hint=adv.get("novelty_band_hint"),
+            )
+            return {
+                **adv,
+                "family_confidence": 0.92,
+                "family_signals": list(adv_mode.get("families") or []),
+                "novelty": novelty,
+                "ticker": ticker,
+                "company": company,
+            }
 
     # Hard dual-hypothesis benchmarks must not be stolen by narrower gold templates.
     if family_id == DUAL_HYPOTHESIS and family_conf >= 0.85:
@@ -72,7 +97,6 @@ def package_reasoning_answer(
 
     # 1) Exact gold pattern — still attach family/novelty diagnostics.
     if gold.get("enabled") and gold.get("executive"):
-        # Map gold level → family when possible.
         level = str(gold.get("level") or "")
         level_to_family = {
             "contradiction": "contradiction",
@@ -106,6 +130,7 @@ def package_reasoning_answer(
             "answer": gold["executive"],
             "gold_pattern": gold,
             "reasoning_habit": gold.get("reasoning_habit"),
+            "habit_id": gold.get("pattern_id"),
             "ticker": ticker,
             "company": company,
         }

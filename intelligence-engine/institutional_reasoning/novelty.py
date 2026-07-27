@@ -16,6 +16,8 @@ def score_novelty(
     family_id: str | None,
     family_confidence: float,
     first_principles: bool,
+    adversarial: bool = False,
+    novelty_band_hint: str | None = None,
 ) -> dict[str, Any]:
     """Return novelty diagnostics.
 
@@ -23,7 +25,7 @@ def score_novelty(
       ~0.0–0.25  seen exact gold pattern
       ~0.35–0.65  same family, new facts (generalisation)
       ~0.70–0.90  first-principles family compose
-      ~0.90–1.00  hard / dual-hypothesis / unseen structure
+      ~0.90–1.00  hard / dual-hypothesis / adversarial unseen structure
     """
     if gold_exact:
         return {
@@ -33,6 +35,22 @@ def score_novelty(
             "force_closest_template": False,
             "family_id": family_id,
             "note": "Exact gold pattern recognised — apply the trained habit, not rote copy of unrelated cases.",
+        }
+
+    if adversarial:
+        band = novelty_band_hint or "hard_unseen"
+        score = 0.97 if band == "hard_unseen" else 0.78 if band == "first_principles" else 0.55
+        return {
+            "novelty_score": score,
+            "band": band if band in {"hard_unseen", "first_principles", "same_family_new_facts"} else "hard_unseen",
+            "guidance": "reason_from_first_principles",
+            "force_closest_template": False,
+            "family_id": family_id,
+            "adversarial": True,
+            "note": (
+                "Adversarial / unknown structure — decompose, respect evidence boundaries, "
+                "and do not force the closest memorised template."
+            ),
         }
 
     if family_id == "dual_hypothesis":

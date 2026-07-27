@@ -144,13 +144,13 @@ def run_scorecard(limit: int | None = None) -> dict[str, Any]:
             bucket["pass"] += 1
     score = round(100.0 * passed / total, 2) if total else 0.0
     band = (
-        "genuine_reasoning"
-        if score >= 95
-        else "mixed"
-        if score >= 80
-        else "pattern_matching"
-        if score >= 60
-        else "weak"
+        "perfect_on_this_held_out_set"
+        if score >= 99.9
+        else "strong_on_this_held_out_set"
+        if score >= 90
+        else "mixed_on_this_held_out_set"
+        if score >= 70
+        else "weak_on_this_held_out_set"
     )
     return {
         "evaluation_only": True,
@@ -159,6 +159,12 @@ def run_scorecard(limit: int | None = None) -> dict[str, Any]:
         "passed": passed,
         "score_per_100": score,
         "benchmark_band": band,
+        # Legacy key kept for compatibility; do not read as a claim of unbounded reasoning.
+        "legacy_band_alias": band,
+        "interpretation_caution": (
+            "A perfect score demonstrates success on this held-out set only — "
+            "not proof of genuine reasoning in general."
+        ),
         "by_family": by_family,
         "failures": [r for r in rows if not r["passed"]],
         "rows": rows,
