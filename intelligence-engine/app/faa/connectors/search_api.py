@@ -1,4 +1,10 @@
-"""Public search API connectors — Tavily / SerpAPI / Exa / Bing / Google CSE.
+"""Public search API connectors — Exa / Tavily / Firecrawl / SerpAPI / Bing / Google CSE.
+
+Strategic roles:
+  • Exa        — semantic research / industry / publications (preferred for research)
+  • Tavily     — general + news web search
+  • Firecrawl  — deep search that returns page-ready content (when configured)
+  • Others     — fallback coverage
 
 Discovery-only adapters. Actual provider calls run in FetchService when live.
 """
@@ -12,20 +18,46 @@ from urllib.parse import quote_plus
 from app.faa.connectors.base import AcquisitionConnector
 from app.faa.models import CandidateDocument, DiscoveryTask
 
+# Preference order by document class (first configured wins).
+_RESEARCH_PREF = ("exa", "firecrawl", "tavily", "serpapi", "bing", "google_cse")
+_NEWS_PREF = ("tavily", "exa", "firecrawl", "serpapi", "bing", "google_cse")
+_GENERAL_PREF = ("exa", "tavily", "firecrawl", "serpapi", "bing", "google_cse")
+
 
 def available_search_providers() -> list[str]:
-    out = []
-    if (os.environ.get("TAVILY_API_KEY") or "").strip():
-        out.append("tavily")
-    if (os.environ.get("SERPAPI_API_KEY") or os.environ.get("SERPAPI_KEY") or "").strip():
-        out.append("serpapi")
+    """All configured providers (unsorted inventory)."""
+    out: list[str] = []
     if (os.environ.get("EXA_API_KEY") or "").strip():
         out.append("exa")
+    if (os.environ.get("TAVILY_API_KEY") or "").strip():
+        out.append("tavily")
+    if (os.environ.get("FIRECRAWL_API_KEY") or "").strip():
+        out.append("firecrawl")
+    if (os.environ.get("SERPAPI_API_KEY") or os.environ.get("SERPAPI_KEY") or "").strip():
+        out.append("serpapi")
     if (os.environ.get("BING_SEARCH_API_KEY") or "").strip():
         out.append("bing")
     if (os.environ.get("GOOGLE_CSE_ID") or "").strip() and (os.environ.get("GOOGLE_CSE_API_KEY") or "").strip():
         out.append("google_cse")
     return out
+
+
+def prefer_providers_for_document_type(document_type: str | None) -> list[str]:
+    """Return configured providers ordered for the document class."""
+    dt = (document_type or "general_web").lower()
+    if dt in {"industry_report", "research_publication", "fred", "imf", "world_bank", "transcript"}:
+        order = _RESEARCH_PREF
+    elif dt in {"news", "press_release"}:
+        order = _NEWS_PREF
+    else:
+        order = _GENERAL_PREF
+    available = set(available_search_providers())
+    return [p for p in order if p in available]
+
+
+def select_search_provider(document_type: str | None = None) -> str | None:
+    prefs = prefer_providers_for_document_type(document_type)
+    return prefs[0] if prefs else None
 
 
 class SearchApiConnector(AcquisitionConnector):
@@ -36,7 +68,7 @@ class SearchApiConnector(AcquisitionConnector):
     document_types = ["general_web", "news", "industry_report", "research_publication"]
 
     def search(self, task: DiscoveryTask) -> list[CandidateDocument]:
-        providers = available_search_providers()
+        providers = prefer_providers_for_document_type(task.document_type)
         q = task.query or task.description
         if not providers:
             return [
@@ -52,23 +84,32 @@ class SearchApiConnector(AcquisitionConnector):
                     metadata={"providers_available": [], "deferred": True, "authority": 2},
                 )
             ]
+        provider = providers[0]
         return [
             CandidateDocument(
-                title=f"Search: {q}",
-                url=f"search://{providers[0]}?q={quote_plus(q)}",
+                title=f"Search ({provider}): {q}",
+                url=f"search://{provider}?q={quote_plus(q)}",
                 connector_id=self.connector_id,
                 document_type=task.document_type or "general_web",
                 company=task.company,
                 symbol=task.symbol,
-                organisation=providers[0],
+                organisation=provider,
                 discovery_task_id=task.task_id,
-                metadata={"providers_available": providers, "query": q, "authority": 4},
+                metadata={
+                    "providers_available": providers,
+                    "selected_provider": provider,
+                    "query": q,
+                    "authority": 4,
+                    "strategy": "research_first" if provider == "exa" else "coverage",
+                },
             )
         ]
 
     def health(self) -> dict[str, Any]:
         base = super().health()
         base["providers_available"] = available_search_providers()
+        base["research_preference"] = prefer_providers_for_document_type("research_publication")
+        base["news_preference"] = prefer_providers_for_document_type("news")
         return base
 
 
@@ -90,14 +131,14 @@ class TavilyConnector(SearchApiConnector):
                 symbol=task.symbol,
                 organisation="tavily",
                 discovery_task_id=task.task_id,
-                metadata={"providers_available": ["tavily"], "query": q, "authority": 4},
+                metadata={"providers_available": ["tavily"], "selected_provider": "tavily", "query": q, "authority": 4},
             )
         ]
 
 
 class ExaConnector(SearchApiConnector):
     connector_id = "exa"
-    name = "Exa Search"
+    name = "Exa Neural Search"
 
     def search(self, task: DiscoveryTask) -> list[CandidateDocument]:
         if "exa" not in available_search_providers():
@@ -113,7 +154,45 @@ class ExaConnector(SearchApiConnector):
                 symbol=task.symbol,
                 organisation="exa",
                 discovery_task_id=task.task_id,
-                metadata={"providers_available": ["exa"], "query": q, "authority": 4},
+                metadata={
+                    "providers_available": ["exa"],
+                    "selected_provider": "exa",
+                    "query": q,
+                    "authority": 5,
+                    "strategy": "semantic_research",
+                },
+            )
+        ]
+
+
+class FirecrawlSearchConnector(SearchApiConnector):
+    """Firecrawl as a search provider — deep results often include page markdown."""
+
+    connector_id = "firecrawl"
+    name = "Firecrawl Search"
+    document_types = ["general_web", "industry_report", "research_publication", "news"]
+
+    def search(self, task: DiscoveryTask) -> list[CandidateDocument]:
+        if "firecrawl" not in available_search_providers():
+            return []
+        q = task.query or task.description
+        return [
+            CandidateDocument(
+                title=f"Firecrawl: {q}",
+                url=f"search://firecrawl?q={quote_plus(q)}",
+                connector_id=self.connector_id,
+                document_type=task.document_type or "general_web",
+                company=task.company,
+                symbol=task.symbol,
+                organisation="firecrawl",
+                discovery_task_id=task.task_id,
+                metadata={
+                    "providers_available": ["firecrawl"],
+                    "selected_provider": "firecrawl",
+                    "query": q,
+                    "authority": 4,
+                    "strategy": "deep_page_search",
+                },
             )
         ]
 
@@ -136,7 +215,7 @@ class SerpApiConnector(SearchApiConnector):
                 symbol=task.symbol,
                 organisation="serpapi",
                 discovery_task_id=task.task_id,
-                metadata={"providers_available": ["serpapi"], "query": q, "authority": 4},
+                metadata={"providers_available": ["serpapi"], "selected_provider": "serpapi", "query": q, "authority": 4},
             )
         ]
 
@@ -159,7 +238,7 @@ class GoogleCseConnector(SearchApiConnector):
                 symbol=task.symbol,
                 organisation="google_cse",
                 discovery_task_id=task.task_id,
-                metadata={"providers_available": ["google_cse"], "query": q, "authority": 4},
+                metadata={"providers_available": ["google_cse"], "selected_provider": "google_cse", "query": q, "authority": 4},
             )
         ]
 
@@ -182,6 +261,6 @@ class BingConnector(SearchApiConnector):
                 symbol=task.symbol,
                 organisation="bing",
                 discovery_task_id=task.task_id,
-                metadata={"providers_available": ["bing"], "query": q, "authority": 4},
+                metadata={"providers_available": ["bing"], "selected_provider": "bing", "query": q, "authority": 4},
             )
         ]

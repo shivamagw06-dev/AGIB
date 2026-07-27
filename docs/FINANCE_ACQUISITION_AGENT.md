@@ -25,16 +25,31 @@ On Render → `intelligence-engine`:
 FAA_LIVE_FETCH=true
 ```
 
-Optional search providers (any one):
+Strategic search + enrichment providers:
 
 ```text
+# Preferred research search (semantic)
+EXA_API_KEY=
+
+# Deep search + URL → clean markdown enrichment of top hits
+FIRECRAWL_API_KEY=
+
+# JS-heavy / exchange / IR fallback fetch (used when Firecrawl fails or hard hosts)
+BROWSERBASE_API_KEY=
+
+# Optional coverage / news search
 TAVILY_API_KEY=
 SERPAPI_API_KEY=
-EXA_API_KEY=
 BING_SEARCH_API_KEY=
 GOOGLE_CSE_API_KEY=
 GOOGLE_CSE_ID=
 ```
+
+| Provider | Role |
+|----------|------|
+| **Exa** | Preferred for industry / research / publications |
+| **Firecrawl** | Deepen top search hits into LLM-ready markdown; thin-HTML upgrade |
+| **Browserbase** | Fallback for NSE/BSE/IR/JS-heavy pages |
 
 ## Test
 

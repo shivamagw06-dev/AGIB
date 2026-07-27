@@ -20,6 +20,7 @@ from app.faa.connectors.news import NewsConnector, RssConnector
 from app.faa.connectors.search_api import (
     BingConnector,
     ExaConnector,
+    FirecrawlSearchConnector,
     GoogleCseConnector,
     SearchApiConnector,
     SerpApiConnector,
@@ -41,8 +42,9 @@ def build_connectors(*, live_fetch: bool = False) -> dict[str, AcquisitionConnec
         NewsConnector(**args),
         RssConnector(**args),
         SearchApiConnector(**args),
-        TavilyConnector(**args),
         ExaConnector(**args),
+        TavilyConnector(**args),
+        FirecrawlSearchConnector(**args),
         SerpApiConnector(**args),
         GoogleCseConnector(**args),
         BingConnector(**args),
