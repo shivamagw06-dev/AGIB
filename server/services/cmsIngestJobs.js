@@ -163,13 +163,8 @@ function publicJob(job) {
 }
 
 async function createAdmin() {
-  const supabaseUrl = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim();
-  const serviceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
-  if (!supabaseUrl || !serviceKey) return null;
-  const { createClient } = await import('@supabase/supabase-js');
-  return createClient(supabaseUrl, serviceKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
+  const { createSupabaseAdmin } = await import('../lib/supabaseAdmin.js');
+  return createSupabaseAdmin();
 }
 
 function rowToJob(row) {

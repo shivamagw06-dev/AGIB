@@ -53,20 +53,9 @@ function learnedOnISTDate(iso, dateStr) {
   return learningDateIST(new Date(iso)) === dateStr;
 }
 
-function getAdminClient() {
-  const supabaseUrl = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim();
-  const serviceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
-  if (!supabaseUrl || !serviceKey) return null;
-  return { supabaseUrl, serviceKey };
-}
-
 async function createAdmin() {
-  const creds = getAdminClient();
-  if (!creds) return null;
-  const { createClient } = await import('@supabase/supabase-js');
-  return createClient(creds.supabaseUrl, creds.serviceKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
+  const { createSupabaseAdmin } = await import('../lib/supabaseAdmin.js');
+  return createSupabaseAdmin();
 }
 
 /** Stamp CMS article after a successful (or queued) KIP ingest from the Node gateway. */
@@ -414,7 +403,10 @@ export async function cmsLearningStatus({ days = 14 } = {}) {
 }
 
 export function cmsLearningConfigured() {
-  return Boolean(getAdminClient());
+  // Sync check — credentials only (client constructed async elsewhere)
+  const url = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim();
+  const key = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
+  return Boolean(url && key);
 }
 
 /**
