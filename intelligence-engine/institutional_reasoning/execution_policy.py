@@ -238,6 +238,7 @@ def select_frameworks(
         "module": MODULE,
         "version": VERSION,
         "architecture_status": ARCHITECTURE_STATUS,
+        "query": str(query or "")[:500],
         "question_type": qtype,
         "required_frameworks": selected,
         "required_packs": sorted(
@@ -333,16 +334,68 @@ def _has_numeric_signal(blob: dict[str, Any], require_key: str) -> bool:
                 kl = str(k).lower()
                 if any(a in kl for a in wanted):
                     if isinstance(v, (int, float)) and not isinstance(v, bool):
-                        return True
+                        # Zero is commonly a missing-provider placeholder, not a
+                        # usable valuation input (for example NIFTYIT 52w range).
+                        if v != 0:
+                            return True
                     if isinstance(v, str):
                         compact = v.replace(",", "")
-                        if any(ch.isdigit() for ch in compact):
+                        if any(ch.isdigit() for ch in compact) and compact not in {
+                            "0",
+                            "0.0",
+                            "0.00",
+                            "0%",
+                            "0.0%",
+                            "0.00%",
+                        }:
                             return True
                 if isinstance(v, (dict, list)):
                     stack.append(v)
         elif isinstance(cur, list):
             stack.extend(cur[:20])
     return False
+
+
+def _expected_symbols(query: str) -> set[str]:
+    """Canonical entities for known index questions; never use another entity's model."""
+    q = (query or "").lower()
+    expected: set[str] = set()
+    if "nifty it" in q or "niftyit" in q:
+        expected.add("NIFTYIT")
+    if "nifty bank" in q or "bank nifty" in q or "niftybank" in q:
+        expected.add("NIFTYBANK")
+    if "nifty 50" in q or "nifty50" in q:
+        expected.add("NIFTY50")
+    return expected
+
+
+def _valuation_target_mismatch(
+    query: str,
+    valuation: dict[str, Any] | None,
+    company_analysis: dict[str, Any] | None,
+) -> str | None:
+    """Fail closed when the valuation model belongs to a different security."""
+    expected = _expected_symbols(query)
+    if not expected:
+        return None
+    symbols: set[str] = set()
+    val = valuation or {}
+    company = val.get("company") if isinstance(val.get("company"), dict) else {}
+    for candidate in (
+        company.get("company_symbol"),
+        company.get("symbol"),
+        val.get("ticker"),
+    ):
+        if candidate:
+            symbols.add(str(candidate).upper().replace("^", ""))
+    if not symbols:
+        return f"target entity unresolved; expected {', '.join(sorted(expected))}"
+    if not (expected & symbols):
+        return (
+            f"valuation model targets {', '.join(sorted(symbols))}, not "
+            f"{', '.join(sorted(expected))}"
+        )
+    return None
 
 
 def _pack_map(
@@ -392,6 +445,11 @@ def evaluate_frameworks(
         ca_val = company_analysis.get("valuation_intelligence") or company_analysis.get("valuation") or {}
     merged_val = {**(valuation or {}), **(ca_val if isinstance(ca_val, dict) else {})}
     packs["valuation"] = merged_val
+    target_mismatch = _valuation_target_mismatch(
+        str(selection.get("query") or ""),
+        valuation,
+        company_analysis,
+    )
 
     results: list[dict[str, Any]] = []
     missing_all: list[str] = []
@@ -407,6 +465,29 @@ def evaluate_frameworks(
         evidence_blob: dict[str, Any] = {}
         for pn in pack_names:
             evidence_blob.update(packs.get(pn) or {})
+
+        if target_mismatch and fw_id in {
+            "rel_val_damodaran",
+            "hist_multiples",
+            "margin_of_safety",
+            "dcf_damodaran",
+            "expected_return",
+        }:
+            insufficient += 1
+            missing_all.append("target_matched_valuation_evidence")
+            results.append(
+                {
+                    "framework_id": fw_id,
+                    "name": fw.get("name"),
+                    "author": fw.get("author"),
+                    "score": fw.get("score"),
+                    "status": "insufficient_evidence",
+                    "missing": ["target_matched_valuation_evidence"],
+                    "produces": fw.get("produces") or [],
+                    "detail": f"Insufficient evidence: {target_mismatch}.",
+                }
+            )
+            continue
 
         # Applicability reject (e.g. DCF on banks) when signals present
         applicability_fail = False

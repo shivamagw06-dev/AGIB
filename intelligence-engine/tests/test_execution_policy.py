@@ -67,3 +67,42 @@ def test_executed_when_metrics_present():
     executed_ids = {r["framework_id"] for r in report["results"] if r["status"] == "executed"}
     assert "rel_val_damodaran" in executed_ids or "hist_multiples" in executed_ids
     assert report["narrative_allowed"] is True or report["executed"] >= 1
+
+
+def test_rejects_wrong_entity_valuation_model_for_nifty_it():
+    sel = soft_slice_for_ask_agi("Is Nifty IT expensive versus history?")
+    report = evaluate_frameworks(
+        sel,
+        valuation={
+            "company": {"company_symbol": "IS"},
+            # These numbers must not count: they belong to a different entity.
+            "forward_pe": 24.1,
+            "peer_pe": 22.0,
+            "hist_percentile": 78,
+            "growth": 0.12,
+        },
+        company_analysis={"ticker": "NIFTYIT"},
+    )
+    assert report["narrative_allowed"] is False
+    assert "target_matched_valuation_evidence" in report["missing_evidence"]
+    assert all(
+        r["status"] == "insufficient_evidence"
+        for r in report["results"][:2]
+    )
+
+
+def test_zero_valuation_placeholders_do_not_execute_frameworks():
+    sel = soft_slice_for_ask_agi("Is Nifty IT expensive versus history?")
+    report = evaluate_frameworks(
+        sel,
+        valuation={
+            "company": {"company_symbol": "NIFTYIT"},
+            "forward_pe": 0,
+            "peer_pe": 0,
+            "hist_percentile": 0,
+            "growth": 0,
+        },
+        company_analysis={"ticker": "NIFTYIT"},
+    )
+    assert report["narrative_allowed"] is False
+    assert report["executed"] == 0
