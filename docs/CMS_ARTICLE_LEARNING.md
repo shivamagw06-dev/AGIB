@@ -74,6 +74,8 @@ Now:
 
 **Required ops:** attach a Render **persistent disk** to `agib-intelligence-engine` at `/var/data/kip` (matches `KIP_DATA_DIR`), set Supabase service credentials on IE, run `supabase/migrations/20260727210000_kip_snapshots.sql`, redeploy IE + Node from `main`, then re-learn CMS articles.
 
+**Production guard:** if `APP_ENV=production` and `KIP_DATA_DIR` is unset, the Intelligence Engine **refuses to start** (prevents silent ephemeral memory). Escape hatch: `KIP_ALLOW_EPHEMERAL=1` (emergency only). `/v1/kip/integrity` reports `persistence.durable` and a clear `warning` when institutional memory is not durable.
+
 Learning is only marked complete after `/v1/kip/verify/{document_id}` succeeds.
 
 ### Worker modes

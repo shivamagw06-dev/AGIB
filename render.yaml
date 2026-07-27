@@ -71,7 +71,9 @@ services:
     envVars:
       - key: APP_ENV
         value: production
-      # Durable KIP institutional memory (attach a Render disk in dashboard for true survival).
+      # Durable KIP institutional memory — REQUIRED in production (service refuses to start if unset).
+      # Attach a Render persistent disk in the dashboard with mount path /var/data/kip.
+      # Emergency only: KIP_ALLOW_EPHEMERAL=1 bypasses the boot guard (memory unsafe).
       - key: KIP_DATA_DIR
         value: /var/data/kip
       - key: INTELLIGENCE_ENGINE_TOKEN

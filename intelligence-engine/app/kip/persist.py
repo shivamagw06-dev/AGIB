@@ -31,12 +31,18 @@ from app.kip.store import KipStore
 
 SNAPSHOT_VERSION = 1
 
+# Render Free / git deploy paths are wiped on full rebuild. Durable mounts live under /var/data.
+_EPHEMERAL_PATH_MARKERS = (
+    "/opt/render/project/",
+    "/tmp/",
+)
+
 
 def kip_data_dir() -> Path:
     raw = (os.environ.get("KIP_DATA_DIR") or "").strip()
     if raw:
         return Path(raw)
-    # Default: beside the intelligence-engine package root
+    # Default: beside the intelligence-engine package root (ephemeral on Render)
     return Path(__file__).resolve().parents[2] / "data" / "kip"
 
 
@@ -45,6 +51,102 @@ def snapshot_path() -> Path:
     if override:
         return Path(override)
     return kip_data_dir() / "kip_snapshot.json"
+
+
+def _env_flag(name: str, default: bool = False) -> bool:
+    raw = (os.environ.get(name) or "").strip().lower()
+    if not raw:
+        return default
+    return raw in {"1", "true", "yes", "on"}
+
+
+def _is_likely_mount(path: Path) -> bool | None:
+    """Return True/False if /proc/mounts is readable; None if unknown."""
+    try:
+        mounts = Path("/proc/mounts").read_text(encoding="utf-8")
+    except Exception:
+        return None
+    targets = {str(path), str(path.resolve()) if path.exists() else str(path)}
+    for line in mounts.splitlines():
+        parts = line.split()
+        if len(parts) >= 2 and parts[1] in targets:
+            return True
+    return False
+
+
+def persistence_config() -> dict[str, Any]:
+    """Report whether KIP snapshots will survive infrastructure restarts."""
+    configured = bool((os.environ.get("KIP_DATA_DIR") or "").strip())
+    data_dir = kip_data_dir()
+    path_s = str(data_dir)
+    try:
+        resolved = str(data_dir.resolve())
+    except Exception:
+        resolved = path_s
+    default_dir = Path(__file__).resolve().parents[2] / "data" / "kip"
+    try:
+        same_as_default = data_dir.resolve() == default_dir.resolve()
+    except Exception:
+        same_as_default = path_s == str(default_dir)
+
+    looks_ephemeral = (
+        (not configured)
+        or same_as_default
+        or any(m in path_s for m in _EPHEMERAL_PATH_MARKERS)
+        or any(m in resolved for m in _EPHEMERAL_PATH_MARKERS)
+    )
+    mount_status = _is_likely_mount(data_dir) if configured else None
+    supabase_url = bool((os.environ.get("SUPABASE_URL") or "").strip())
+    supabase_key = bool((os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or "").strip())
+    supabase_mirror = supabase_url and supabase_key
+    durable = configured and not looks_ephemeral
+    warning = None
+    if not durable:
+        warning = (
+            "WARNING: Persistent KIP storage is disabled. "
+            "Institutional memory may be lost after restart. "
+            "Attach a Render disk at /var/data/kip and set KIP_DATA_DIR=/var/data/kip."
+        )
+    elif mount_status is False:
+        warning = (
+            "WARNING: KIP_DATA_DIR is set but does not appear to be a mounted volume. "
+            "Confirm the Render persistent disk is attached at this path, or institutional "
+            "memory may still be lost after a full rebuild."
+        )
+    return {
+        "configured": configured,
+        "durable": durable,
+        "looks_ephemeral": looks_ephemeral,
+        "disk_mounted": mount_status,
+        "kip_data_dir": path_s,
+        "snapshot_path": str(snapshot_path()),
+        "supabase_mirror": supabase_mirror,
+        "allow_ephemeral": _env_flag("KIP_ALLOW_EPHEMERAL"),
+        "warning": warning,
+        "hint": (
+            "Attach a Render persistent disk mounted at /var/data/kip, set "
+            "KIP_DATA_DIR=/var/data/kip, and set SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY "
+            "for an optional remote mirror."
+        ),
+    }
+
+
+def enforce_persistent_kip_or_raise(*, app_env: str | None = None) -> dict[str, Any]:
+    """In production, refuse to start if KIP_DATA_DIR is not configured.
+
+    Escape hatch: KIP_ALLOW_EPHEMERAL=1 (emergency only — institutional memory unsafe).
+    """
+    cfg = persistence_config()
+    env = (app_env or os.environ.get("APP_ENV") or os.environ.get("ENV") or "development").strip().lower()
+    production = env in {"production", "prod", "staging"}
+    if production and not cfg["configured"] and not cfg["allow_ephemeral"]:
+        raise RuntimeError(
+            "KIP_DATA_DIR is not configured in production. "
+            "Attach a Render persistent disk (mount /var/data/kip) and set "
+            "KIP_DATA_DIR=/var/data/kip, or set KIP_ALLOW_EPHEMERAL=1 to bypass "
+            "(institutional memory will not survive restarts)."
+        )
+    return cfg
 
 
 def export_store(store: KipStore) -> dict[str, Any]:
@@ -108,16 +210,31 @@ def save_store(store: KipStore, path: Path | None = None) -> dict[str, Any]:
     return result
 
 
+def _legacy_default_snapshot_path() -> Path:
+    return Path(__file__).resolve().parents[2] / "data" / "kip" / "kip_snapshot.json"
+
+
 def load_store(store: KipStore, path: Path | None = None) -> dict[str, Any]:
     target = path or snapshot_path()
     payload: dict[str, Any] | None = None
     source = "none"
+    migrated_from: str | None = None
     if target.exists():
         try:
             payload = json.loads(target.read_text(encoding="utf-8"))
             source = "disk"
         except Exception as exc:
             return {"ok": False, "error": f"disk_load_failed: {exc}", "path": str(target)}
+    if payload is None:
+        # One-time migrate: durable mount empty, but prior ephemeral snapshot still present.
+        legacy = _legacy_default_snapshot_path()
+        if legacy.exists() and legacy.resolve() != target.resolve():
+            try:
+                payload = json.loads(legacy.read_text(encoding="utf-8"))
+                source = "disk_legacy_migrate"
+                migrated_from = str(legacy)
+            except Exception:
+                payload = None
     if payload is None:
         remote = _load_supabase_mirror()
         if remote.get("ok") and remote.get("payload"):
@@ -176,7 +293,7 @@ def load_store(store: KipStore, path: Path | None = None) -> dict[str, Any]:
                 for theme in d.investment.themes:
                     store.themes[theme.lower()].add(d.document_id)
 
-    return {
+    result = {
         "ok": True,
         "loaded": True,
         "source": source,
@@ -184,6 +301,16 @@ def load_store(store: KipStore, path: Path | None = None) -> dict[str, Any]:
         "saved_at": payload.get("saved_at"),
         **store.stats(),
     }
+    if migrated_from:
+        result["migrated_from"] = migrated_from
+        try:
+            saved = save_store(store, path=target)
+            result["migrated_to"] = saved.get("path")
+            result["migrate_saved"] = bool(saved.get("ok"))
+        except Exception as exc:
+            result["migrate_saved"] = False
+            result["migrate_error"] = str(exc)[:160]
+    return result
 
 
 def integrity_report(
@@ -239,17 +366,13 @@ def integrity_report(
         and len(missing_expected) == 0
         and vector_chunks > 0
     )
+    persist_cfg = persistence_config()
     return {
         "ok": True,
         "healthy": healthy,
         "persistence": {
-            "snapshot_path": str(snapshot_path()),
+            **persist_cfg,
             "snapshot_exists": snapshot_path().exists(),
-            "kip_data_dir": str(kip_data_dir()),
-            "hint": (
-                "Attach a Render persistent disk to KIP_DATA_DIR; Free ephemeral disk "
-                "still loses snapshots on full redeploy unless mirrored to Supabase."
-            ),
         },
         "stats": {
             **stats,
@@ -264,7 +387,7 @@ def integrity_report(
         "orphan_chunk_ids": orphan_chunks[:50],
         "expected_missing_ids": missing_expected[:50],
         "sample": sample,
-        "split_brain_risk": (not healthy) or stats["documents"] < 3,
+        "split_brain_risk": (not healthy) or stats["documents"] < 3 or (not persist_cfg.get("durable")),
     }
 
 

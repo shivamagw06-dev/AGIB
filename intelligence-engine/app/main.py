@@ -18,6 +18,33 @@ log = get_logger(__name__)
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     settings = get_settings()
+    # Refuse silent ephemeral KIP in production (unless KIP_ALLOW_EPHEMERAL=1).
+    from app.kip.persist import enforce_persistent_kip_or_raise
+
+    persist_cfg = enforce_persistent_kip_or_raise(app_env=settings.app_env)
+    if persist_cfg.get("warning"):
+        log.warning(
+            "kip_persistence_warning",
+            extra={
+                "durable": persist_cfg.get("durable"),
+                "configured": persist_cfg.get("configured"),
+                "kip_data_dir": persist_cfg.get("kip_data_dir"),
+                "supabase_mirror": persist_cfg.get("supabase_mirror"),
+                "warning": persist_cfg.get("warning"),
+            },
+        )
+        # Also emit plain text so Render logs surface it immediately.
+        print(persist_cfg["warning"], flush=True)
+    else:
+        log.info(
+            "kip_persistence_ok",
+            extra={
+                "durable": True,
+                "kip_data_dir": persist_cfg.get("kip_data_dir"),
+                "supabase_mirror": persist_cfg.get("supabase_mirror"),
+            },
+        )
+
     bootstrap_registry()
     # Reload durable KIP snapshot (disk / optional Supabase) before serving traffic.
     try:

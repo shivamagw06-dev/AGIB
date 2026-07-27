@@ -62,3 +62,65 @@ def test_integrity_detects_missing_doc(tmp_path: Path):
     report = integrity_report(store, expected_document_ids=["doc_missing_xyz"])
     assert report["healthy"] is False
     assert "doc_missing_xyz" in report["expected_missing_ids"]
+
+
+def test_persistence_config_requires_env(monkeypatch, tmp_path: Path):
+    from app.kip import persist as persist_mod
+
+    monkeypatch.delenv("KIP_DATA_DIR", raising=False)
+    monkeypatch.delenv("KIP_ALLOW_EPHEMERAL", raising=False)
+    cfg = persist_mod.persistence_config()
+    assert cfg["configured"] is False
+    assert cfg["durable"] is False
+    assert cfg["warning"] and "Persistent KIP storage is disabled" in cfg["warning"]
+
+    # /var/data/* is the Render durable mount convention (not under /tmp or project src).
+    monkeypatch.setenv("KIP_DATA_DIR", "/var/data/kip")
+    cfg2 = persist_mod.persistence_config()
+    assert cfg2["configured"] is True
+    assert cfg2["durable"] is True
+    assert cfg2["looks_ephemeral"] is False
+
+    # Package-local /tmp-style paths remain ephemeral even if explicitly set.
+    monkeypatch.setenv("KIP_DATA_DIR", str(tmp_path / "kip"))
+    cfg3 = persist_mod.persistence_config()
+    assert cfg3["configured"] is True
+    assert cfg3["durable"] is False
+
+
+def test_enforce_fails_in_production_without_dir(monkeypatch):
+    from app.kip import persist as persist_mod
+    import pytest
+
+    monkeypatch.delenv("KIP_DATA_DIR", raising=False)
+    monkeypatch.delenv("KIP_ALLOW_EPHEMERAL", raising=False)
+    with pytest.raises(RuntimeError, match="KIP_DATA_DIR is not configured"):
+        persist_mod.enforce_persistent_kip_or_raise(app_env="production")
+
+    monkeypatch.setenv("KIP_ALLOW_EPHEMERAL", "1")
+    cfg = persist_mod.enforce_persistent_kip_or_raise(app_env="production")
+    assert cfg["allow_ephemeral"] is True
+
+
+def test_legacy_snapshot_migrates_to_durable_dir(monkeypatch, tmp_path: Path):
+    from app.kip import persist as persist_mod
+
+    legacy_dir = tmp_path / "legacy"
+    durable_dir = tmp_path / "durable"
+    legacy_dir.mkdir()
+    durable_dir.mkdir()
+    legacy_snap = legacy_dir / "kip_snapshot.json"
+
+    store = KipStore()
+    doc_id = _seed(store)
+    save_store(store, path=legacy_snap)
+
+    monkeypatch.setenv("KIP_DATA_DIR", str(durable_dir))
+    monkeypatch.setattr(persist_mod, "_legacy_default_snapshot_path", lambda: legacy_snap)
+
+    restored = KipStore()
+    loaded = load_store(restored)
+    assert loaded["loaded"] is True
+    assert loaded["source"] == "disk_legacy_migrate"
+    assert restored.get_document(doc_id) is not None
+    assert (durable_dir / "kip_snapshot.json").exists()
