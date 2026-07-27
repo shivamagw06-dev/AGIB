@@ -5,6 +5,7 @@ from __future__ import annotations
 import time
 from typing import Any
 
+from editorial.logging_util import log_editorial_event
 from editorial.prompts import EDITORIAL_SYSTEM, build_prompt
 from editorial.provider import EditorialProvider
 
