@@ -40,6 +40,9 @@ def dashboard() -> dict[str, Any]:
         }
     )
     lib = scan_library()
+    from academy.books.library import library_reachability
+
+    reach = library_reachability()
     return {
         "programme": "AGI_ACADEMY_BOOKS",
         "books_version": BOOKS_VERSION,
@@ -48,6 +51,7 @@ def dashboard() -> dict[str, Any]:
         "flags": flags_dict(),
         "library_root": str(resolve_library_root() or ""),
         "library_scan": lib.get("counts") or {},
+        "library_reachability": reach,
         "books": [b.to_dict() for b in store.books.values()],
         "books_successfully_ingested": len(real_books),
         "academies": academies,

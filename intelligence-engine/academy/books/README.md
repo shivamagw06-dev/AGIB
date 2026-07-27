@@ -16,6 +16,38 @@ Convert every book / spreadsheet in the configured personal library into **struc
 5. AGIB project root `Books/` / `books/`
 6. `/workspace/books`
 
+### Cloud agents cannot see your Mac folder
+
+Cursor **cloud** agents do **not** mount `/Users/shivamagarwal/Downloads/AGIB/Books`.
+Only files under the repo (e.g. `books/`, gitignored) are visible there.
+
+**To teach AGIB from your full Mac library, on your Mac run:**
+
+```bash
+bash scripts/sync_mac_books_to_repo.sh --ingest
+```
+
+Or manually:
+
+```bash
+rsync -av --include='*/' --include='*.pdf' --exclude='*' \
+  /Users/shivamagarwal/Downloads/AGIB/Books/ \
+  /path/to/AGIB/books/
+
+cd intelligence-engine
+ACADEMY_BOOKS_DIR=/Users/shivamagarwal/Downloads/AGIB/Books \
+  PYTHONPATH=. python3 -m academy.books.cli ingest
+```
+
+Check reachability:
+
+```bash
+PYTHONPATH=. python3 -m academy.books.cli status
+PYTHONPATH=. python3 -m academy.books.cli scan
+```
+
+Learning is persisted to `academy/books/learned/library_snapshot.json` (AGI-owned objects only — never a searchable PDF corpus).
+
 ## Supported formats
 
 - Books: PDF, EPUB, DOCX, Markdown
