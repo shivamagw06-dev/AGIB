@@ -222,6 +222,8 @@ class SearchView(BaseModel):
     reasoning_audit: dict[str, Any] = Field(default_factory=dict)
     # Framework Execution Policy — required frameworks must execute or report insufficient (soft-wire)
     execution_policy: dict[str, Any] = Field(default_factory=dict)
+    # Phase 1 Evidence-First Execution Governance — contract/validation/committee record (soft-wire)
+    execution_governance: dict[str, Any] = Field(default_factory=dict)
     current_outlook: str | None = None
     key_drivers: list[str] = Field(default_factory=list)
     valuation_perspective: str | None = None

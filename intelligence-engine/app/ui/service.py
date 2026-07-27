@@ -1491,6 +1491,45 @@ class UiService:
         except Exception:
             investment_office_pkg = {}
 
+        # Phase 1 — Evidence-First Execution Governance.
+        # Classification → entity → contract → frameworks → validation → committee.
+        # Editorial may never precede framework execution.
+        execution_governance: dict[str, Any] = {}
+        try:
+            from institutional_reasoning.execution_governance import (
+                enforce_editorial,
+                govern_answer,
+                governed_executive,
+                telemetry_rows,
+            )
+            from institutional_reasoning.telemetry_sink import persist_rows
+
+            execution_governance = govern_answer(
+                q,
+                ticker_hint=detected_ticker,
+                entity_resolution_pack=entity_resolution if isinstance(entity_resolution, dict) else None,
+                packs={
+                    "valuation": valuation if isinstance(valuation, dict) else {},
+                    "company_analysis": company_analysis if isinstance(company_analysis, dict) else {},
+                    "data_validation": data_validation if isinstance(data_validation, dict) else {},
+                    "finance_retrieval": finance_retrieval if isinstance(finance_retrieval, dict) else {},
+                    "sector_intelligence": sector_intelligence if isinstance(sector_intelligence, dict) else {},
+                    "live_evidence": live_evidence if isinstance(live_evidence, dict) else {},
+                    "company_dossier": company_dossier if isinstance(company_dossier, dict) else {},
+                },
+                academy=finance_academy if isinstance(finance_academy, dict) else None,
+            )
+            telemetry = persist_rows(
+                telemetry_rows(execution_governance, answer_id=execution_governance.get("run_id"))
+            )
+            execution_governance["telemetry"] = {
+                "ok": telemetry.get("ok"),
+                "sink": telemetry.get("sink"),
+                "written": telemetry.get("written"),
+            }
+        except Exception:
+            execution_governance = {}
+
         # Finalize execution policy against VE / FRE / CA evidence packs.
         try:
             from institutional_reasoning.execution_policy import finalize_for_ask_agi as fep_finalize
@@ -1903,6 +1942,47 @@ class UiService:
             if bq is not None:
                 why.insert(0, scrub_text(f"Business quality score: {bq}/100.")[:200])
             why = why[:12]
+
+        # Phase 1 governance enforcement — executive/stance derive from framework outputs.
+        if isinstance(execution_governance, dict) and execution_governance.get("run_id"):
+            try:
+                from institutional_reasoning.execution_governance import (
+                    enforce_editorial,
+                    governed_executive,
+                )
+
+                gov_path = execution_governance.get("path")
+                committee_gov = execution_governance.get("committee") or {}
+                if gov_path == "clarification":
+                    executive = scrub_text(governed_executive(execution_governance)) or executive
+                    house_label = "Clarification required"
+                elif gov_path == "research" and not execution_governance.get("narrative_allowed"):
+                    executive = scrub_text(governed_executive(execution_governance)) or executive
+                    house_label = "Insufficient evidence"
+                guarded = enforce_editorial(text=executive, record=execution_governance)
+                if guarded.get("blocked"):
+                    executive = scrub_text(guarded.get("text")) or executive
+                    house_label = "Insufficient evidence"
+                for line in (committee_gov.get("findings") or [])[:4]:
+                    cleaned = scrub_text(line)[:420]
+                    if cleaned and cleaned not in why:
+                        why.insert(0, cleaned)
+                for line in (committee_gov.get("disagreements") or [])[:2]:
+                    cleaned = scrub_text(line)[:420]
+                    if cleaned and cleaned not in why:
+                        why.insert(0, cleaned)
+                missing_gov = execution_governance.get("missing_evidence") or []
+                if missing_gov:
+                    note = scrub_text(
+                        "Evidence contract incomplete — missing "
+                        + ", ".join(str(m) for m in missing_gov[:6])
+                        + "."
+                    )[:420]
+                    if note and note not in why:
+                        why.insert(0, note)
+                why = why[:16]
+            except Exception:
+                pass
 
         # Framework Execution Policy — mandatory why bullets (execute or report insufficient).
         if isinstance(execution_policy, dict) and (
@@ -2816,6 +2896,7 @@ class UiService:
             decision_readiness=scrub(decision_readiness) if decision_readiness else {},
             reasoning_audit=scrub(reasoning_audit) if reasoning_audit else {},
             execution_policy=scrub(execution_policy) if execution_policy else {},
+            execution_governance=scrub(execution_governance) if execution_governance else {},
         )
 
     def timeline(self, entity: str) -> TimelineView:
