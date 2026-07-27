@@ -236,6 +236,21 @@ export async function learnCmsArticles({
         result.data?.document?.id ||
         article.intelligence_document_id ||
         null;
+      if (!documentId) {
+        throw new Error('Ingest returned no document_id');
+      }
+
+      // Do NOT mark learned until the document is retrievable (closes metadata/data split).
+      const verified = await engineFetch(`/v1/kip/verify/${encodeURIComponent(documentId)}`);
+      if (!verified.ok || verified.data?.retrievable === false) {
+        const detail =
+          verified.data?.error ||
+          verified.data?.detail?.error ||
+          verified.data?.detail ||
+          `Document not retrievable (${verified.status})`;
+        throw new Error(`Knowledge validation failed: ${detail}`);
+      }
+
       const learnedAt = new Date().toISOString();
       const nextCount = Number(article.learn_count || 0) + 1;
 
@@ -272,6 +287,7 @@ export async function learnCmsArticles({
         learned_at: learnedAt,
         learning_date: learningDate,
         learn_count: nextCount,
+        verified: true,
       });
     } catch (err) {
       failed += 1;

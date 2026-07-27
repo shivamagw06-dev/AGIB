@@ -845,6 +845,24 @@ async function runOneJob(job, engineFetch) {
     // Upstream already processed this idempotency key — still treat as success.
     const documentId =
       result.data?.document_id || result.data?.id || result.data?.document?.id || null;
+    if (!documentId) {
+      const err = new Error('Ingest returned no document_id');
+      err.status = 502;
+      throw err;
+    }
+    const verified = await engineFetch(`/v1/kip/verify/${encodeURIComponent(documentId)}`, {
+      timeoutMs: 30_000,
+    });
+    if (!verified.ok || verified.data?.retrievable === false) {
+      const detail =
+        verified.data?.error ||
+        verified.data?.detail?.error ||
+        verified.data?.detail ||
+        `Document not retrievable (${verified.status})`;
+      const err = new Error(`Knowledge validation failed: ${detail}`);
+      err.status = 502;
+      throw err;
+    }
     job.document_id = documentId;
     job.stage_keys.kip_ingest = stageKey('kip_ingest');
 
@@ -861,6 +879,7 @@ async function runOneJob(job, engineFetch) {
     await markStage('kip_ingest', 'ok', {
       document_id: documentId,
       latency_ms: job.engine_latency_ms,
+      verified: true,
       skipped_duplicate: Boolean(result.data?.already_processed || result.data?.idempotent),
     });
   }

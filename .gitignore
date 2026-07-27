@@ -1,15 +1,15 @@
-node_modules/
+
+/books/
 dist/
+.DS_Store
 .env
 .env.local
-.DS_Store
-
-
-# Local book PDFs (copyrighted; do not commit) — root corpus only
-/books/
-*.pdf
-# Keep Academy Books programme source (structured knowledge; not PDF corpus)
+.env.production.local
 !intelligence-engine/academy/books/
 !intelligence-engine/academy/books/**
+intelligence-engine/data/
+# Keep Academy Books programme source (structured knowledge; not PDF corpus)
+# Local book PDFs (copyrighted; do not commit) — root corpus only
+node_modules/
+*.pdf
 __pycache__/
-.env.production.local

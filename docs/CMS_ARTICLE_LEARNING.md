@@ -56,7 +56,25 @@ Stages over **existing** AGIB layers only:
 - **Replay:** re-run stored payload with a new embedding version without CMS re-upload  
 - **Human approval:** `require_approval: true` holds the job until `/approve`
 
-Longer-term graph/teach/forecast work stays inside existing soft layers (KIP/KC/FRE/IIE/FLE) — this queue is the entry gate, not a new engine.
+## KIP persistence (institutional memory)
+
+KIP used to be **process-local RAM only**. That caused the split-brain you saw:
+
+- CMS learn ledger: `learned=true`
+- Ask AGI / `GET /v1/kip/document/{id}`: **404** after Render Free restart
+
+Now:
+
+| Path | Purpose |
+|------|---------|
+| `KIP_DATA_DIR/kip_snapshot.json` | Primary durable snapshot (save after every ingest; reload on boot) |
+| `public.kip_snapshots` (optional) | Supabase mirror when `SUPABASE_*` is set on the IE service |
+| `GET /v1/kip/integrity` | Detect missing chunks/embeddings / empty vector plane |
+| `GET /v1/kip/verify/{id}` | Retrieval proof before CMS marks `learned` |
+
+**Required ops:** attach a Render **persistent disk** to `agib-intelligence-engine` at `/var/data/kip` (matches `KIP_DATA_DIR`), set Supabase service credentials on IE, run `supabase/migrations/20260727210000_kip_snapshots.sql`, redeploy IE + Node from `main`, then re-learn CMS articles.
+
+Learning is only marked complete after `/v1/kip/verify/{document_id}` succeeds.
 
 ### Worker modes
 

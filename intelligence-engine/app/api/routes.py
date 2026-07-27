@@ -738,6 +738,34 @@ async def kip_health():
     return _kip.health()
 
 
+@router.get("/kip/integrity")
+async def kip_integrity(expected: str | None = None):
+    """Knowledge integrity checker — detects orphaned metadata / empty vector plane."""
+    expected_ids = [x.strip() for x in (expected or "").split(",") if x.strip()] or None
+    return _kip.integrity(expected_document_ids=expected_ids)
+
+
+@router.get("/kip/verify/{document_id}")
+async def kip_verify(document_id: str):
+    """Verify a document is retrievable (doc + chunks + embeddings) before marking learned."""
+    result = _kip.verify_document(document_id)
+    if not result.get("retrievable"):
+        raise HTTPException(status_code=404, detail=result)
+    return result
+
+
+@router.post("/kip/snapshot/save")
+async def kip_snapshot_save():
+    """Force-persist KIP snapshot to disk (+ optional Supabase mirror)."""
+    return _kip.save_snapshot()
+
+
+@router.post("/kip/snapshot/reload")
+async def kip_snapshot_reload():
+    """Reload KIP snapshot from disk / Supabase into process memory."""
+    return _kip.reload_snapshot()
+
+
 @router.post("/kip/ingest")
 async def kip_ingest(body: IngestRequest):
     """Ingest a document into AGI institutional knowledge."""

@@ -19,6 +19,23 @@ log = get_logger(__name__)
 async def lifespan(_app: FastAPI):
     settings = get_settings()
     bootstrap_registry()
+    # Reload durable KIP snapshot (disk / optional Supabase) before serving traffic.
+    try:
+        from app.api.routes import _kip
+
+        boot = _kip.reload_snapshot()
+        log.info(
+            "kip_snapshot_loaded",
+            extra={
+                "ok": boot.get("ok"),
+                "loaded": boot.get("loaded"),
+                "source": boot.get("source"),
+                "documents": boot.get("documents"),
+                "chunks": boot.get("chunks"),
+            },
+        )
+    except Exception as exc:
+        log.warning("kip_snapshot_load_failed", extra={"error": str(exc)[:160]})
     # Soft-seed Institutional Stack (FIL corpus + FDI/MII refresh) — never blocks startup
     try:
         if getattr(settings, "institutional_stack", True):

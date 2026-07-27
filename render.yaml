@@ -71,6 +71,9 @@ services:
     envVars:
       - key: APP_ENV
         value: production
+      # Durable KIP institutional memory (attach a Render disk in dashboard for true survival).
+      - key: KIP_DATA_DIR
+        value: /var/data/kip
       - key: INTELLIGENCE_ENGINE_TOKEN
         fromService:
           name: agib-api
@@ -81,6 +84,11 @@ services:
           name: agib-api
           type: web
           property: host
+      # Optional: mirror KIP snapshots to Supabase (set in dashboard)
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
       # FAA live public acquisition — search + page enrichment
       # Set EXA / FIRECRAWL / BROWSERBASE / TAVILY keys in Render dashboard
       - key: FAA

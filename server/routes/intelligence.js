@@ -290,6 +290,36 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  router.get('/kip/integrity', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query).toString();
+      const result = await engineFetch(`/v1/kip/integrity${qs ? `?${qs}` : ''}`);
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'KIP integrity unavailable', detail: error.message });
+    }
+  });
+
+  router.get('/kip/verify/:documentId', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/kip/verify/${encodeURIComponent(req.params.documentId)}`
+      );
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'KIP verify unavailable', detail: error.message });
+    }
+  });
+
+  router.post('/kip/snapshot/save', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/kip/snapshot/save', { method: 'POST', body: {} });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'KIP snapshot save unavailable', detail: error.message });
+    }
+  });
+
   // KF1 Knowledge Foundation — structured knowledge objects over KIP.
   const kfGet = (enginePath) => async (req, res) => {
     try {
