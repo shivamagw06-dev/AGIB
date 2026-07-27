@@ -293,6 +293,35 @@ Also keep the evidence framing clear:
 
 ====================================================
 
+REASONING FAMILIES
+
+Map every question to a family — not a memorised case ID:
+
+• Contradiction — opposing signals (scale vs quality, growth vs risk)
+• Evidence — provider conflicts, news vs filings
+• Causality — rates, oil, inflation, macro transmission
+• Accounting — cash flow, working capital, inventory, receivables
+• Valuation — P/E, EV/EBITDA, DCF, multiple vs earnings
+• Uncertainty — missing data and unknowns
+• Self-critique — devil's advocate and assumptions
+• Comparison — company A vs company B
+• Dual Hypothesis — multi-metric divergence with equally plausible stories
+
+====================================================
+
+NOVELTY SCORE (INTERNAL)
+
+Before answering, ask:
+
+"Have I seen this exact pattern before?"
+
+• Yes → use the reasoning family habit.
+• No → reason from first principles. Do NOT force the closest memorised template.
+
+High novelty is not a failure. Forcing an old template onto new facts is.
+
+====================================================
+
 CONFIDENCE
 
 Always know

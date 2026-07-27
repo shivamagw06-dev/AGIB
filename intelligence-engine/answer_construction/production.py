@@ -172,14 +172,21 @@ def package_for_ask_agi(**kwargs: Any) -> dict[str, Any]:
             # Prefer evidence-first policy unless a later specialist layer overrides.
             if not out.get("answer_policy") or out.get("answer_policy") == "think_then_answer_institutional":
                 out["answer_policy"] = "evidence_then_reason_then_communicate"
-            # Gold reasoning patterns own the executive when matched.
+            # Gold patterns / reasoning families own the executive when matched.
             if irsp.get("owns_executive") and irsp.get("executive"):
                 out["executive"] = irsp["executive"]
-                out["answer_policy"] = "gold_reasoning_pattern"
+                out["answer_policy"] = irsp.get("answer_policy") or "gold_reasoning_pattern"
                 out["reasoning_pattern"] = {
                     "enabled": True,
                     "pattern_id": irsp.get("pattern_id"),
                     "level": irsp.get("pattern_level"),
+                    "family_id": irsp.get("family_id"),
+                    "source": irsp.get("reasoning_source"),
+                    "novelty": irsp.get("novelty"),
+                }
+                out["novelty"] = irsp.get("novelty") or {}
+                out["reasoning_family"] = irsp.get("reasoning_family") or {
+                    "family_id": irsp.get("family_id")
                 }
                 ia_out = out.get("institutional_answer")
                 if isinstance(ia_out, dict) and ia_out.get("enabled"):
@@ -189,8 +196,10 @@ def package_for_ask_agi(**kwargs: Any) -> dict[str, Any]:
                         "reason": irsp.get("direct_answer")
                         or (irsp.get("gold_pattern") or {}).get("direct_answer")
                         or ia_out.get("reason"),
-                        "gold_reasoning_pattern": True,
+                        "gold_reasoning_pattern": irsp.get("reasoning_source") == "gold_pattern",
+                        "reasoning_family": irsp.get("family_id"),
                         "pattern_id": irsp.get("pattern_id"),
+                        "novelty_score": (irsp.get("novelty") or {}).get("novelty_score"),
                     }
     except Exception:
         out.setdefault("institutional_reasoning", {"enabled": False, "bypassed": True})
