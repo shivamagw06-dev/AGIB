@@ -68,6 +68,16 @@ from app.ui.sanitize import (
 )
 
 
+def _unwrap_soft_slice(name: str, data: Any) -> dict[str, Any]:
+    """Flatten `{name: {...}}` wrappers so Ask AGI fields stay one level deep."""
+    if not isinstance(data, dict) or not data:
+        return {}
+    inner = data.get(name)
+    if isinstance(inner, dict) and len(data) == 1:
+        return inner
+    return data
+
+
 class UiService:
     """Client facade. Soft-consumes platforms; never calls engines as a product API."""
 
@@ -894,7 +904,9 @@ class UiService:
                 "validation_engine": validation_engine,
                 "research_execution": research_execution,
             }
-            hypothesis_engine = ihg_soft_slice(q, ihg_payload) or {}
+            hypothesis_engine = _unwrap_soft_slice(
+                "hypothesis_engine", ihg_soft_slice(q, ihg_payload) or {}
+            )
         except Exception:
             hypothesis_engine = {}
 
@@ -911,7 +923,9 @@ class UiService:
                 "context_intelligence": context_intelligence,
                 "hypothesis_engine": hypothesis_engine,
             }
-            research_questions = irq_soft_slice(q, irq_payload) or {}
+            research_questions = _unwrap_soft_slice(
+                "research_questions", irq_soft_slice(q, irq_payload) or {}
+            )
         except Exception:
             research_questions = {}
 
@@ -933,7 +947,9 @@ class UiService:
                 "validation_engine": validation_engine,
                 "research_execution": research_execution,
             }
-            hypothesis_testing = ihte_soft_slice(q, ihte_payload) or {}
+            hypothesis_testing = _unwrap_soft_slice(
+                "hypothesis_testing", ihte_soft_slice(q, ihte_payload) or {}
+            )
         except Exception:
             hypothesis_testing = {}
 
@@ -961,7 +977,9 @@ class UiService:
                     bbce_payload.update(ife)
             except Exception:
                 pass
-            belief_engine = bbce_soft_slice(q, bbce_payload) or {}
+            belief_engine = _unwrap_soft_slice(
+                "belief_engine", bbce_soft_slice(q, bbce_payload) or {}
+            )
         except Exception:
             belief_engine = {}
 
@@ -980,7 +998,9 @@ class UiService:
                 "hypothesis_testing": hypothesis_testing,
                 "belief_engine": belief_engine,
             }
-            thesis_engine = itce_soft_slice(q, itce_payload) or {}
+            thesis_engine = _unwrap_soft_slice(
+                "thesis_engine", itce_soft_slice(q, itce_payload) or {}
+            )
         except Exception:
             thesis_engine = {}
 
@@ -999,7 +1019,9 @@ class UiService:
                 "belief_engine": belief_engine,
                 "thesis_engine": thesis_engine,
             }
-            debate_engine = ideb_soft_slice(q, ideb_payload) or {}
+            debate_engine = _unwrap_soft_slice(
+                "debate_engine", ideb_soft_slice(q, ideb_payload) or {}
+            )
         except Exception:
             debate_engine = {}
 
@@ -1017,7 +1039,9 @@ class UiService:
                 "thesis_engine": thesis_engine,
                 "debate_engine": debate_engine,
             }
-            decision_readiness = idre_soft_slice(q, idre_payload) or {}
+            decision_readiness = _unwrap_soft_slice(
+                "decision_readiness", idre_soft_slice(q, idre_payload) or {}
+            )
         except Exception:
             decision_readiness = {}
 
@@ -1044,7 +1068,9 @@ class UiService:
                     irae_payload.update(ife)
             except Exception:
                 pass
-            reasoning_audit = irae_soft_slice(q, irae_payload) or {}
+            reasoning_audit = _unwrap_soft_slice(
+                "reasoning_audit", irae_soft_slice(q, irae_payload) or {}
+            )
         except Exception:
             reasoning_audit = {}
 

@@ -16,15 +16,20 @@ from __future__ import annotations
 
 import os
 import re
+import subprocess
+import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Callable, TypeVar
 from urllib.parse import quote_plus
 
 _LOCK = threading.Lock()
+_INSTALL_LOCK = threading.Lock()
 _POOL = ThreadPoolExecutor(max_workers=1, thread_name_prefix="faa-playwright")
 _INIT_ERROR: str | None = None
 _READY: bool | None = None
+_INSTALL_ATTEMPTED = False
+_INSTALL_ERROR: str | None = None
 
 _UA = (
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
@@ -51,6 +56,73 @@ def _run_in_browser_thread(fn: Callable[[], T], *, timeout: float = 55.0) -> T:
     return fut.result(timeout=timeout)
 
 
+def _probe_chromium() -> None:
+    from playwright.sync_api import sync_playwright
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        browser.close()
+
+
+def ensure_chromium_installed(*, force: bool = False) -> bool:
+    """One-shot Chromium install when buildCommand did not bake browsers into the image.
+
+    Safe on Render free tier: runs at most once per process, never blocks health,
+    and soft-fails when install is disabled or disk/network fails.
+    """
+    global _INSTALL_ATTEMPTED, _INSTALL_ERROR, _INIT_ERROR, _READY
+    if not playwright_enabled():
+        return False
+    disable = (os.environ.get("FAA_PLAYWRIGHT_AUTO_INSTALL") or "true").strip().lower()
+    if disable in {"0", "false", "no", "off"}:
+        return False
+    with _INSTALL_LOCK:
+        if _READY is True and not force:
+            return True
+        if _INSTALL_ATTEMPTED and not force:
+            return _READY is True
+        _INSTALL_ATTEMPTED = True
+        try:
+            try:
+                _run_in_browser_thread(_probe_chromium, timeout=35.0)
+                _READY = True
+                _INIT_ERROR = None
+                _INSTALL_ERROR = None
+                return True
+            except Exception:
+                pass
+
+            cmd = [sys.executable, "-m", "playwright", "install", "chromium"]
+            proc = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=240,
+                check=False,
+            )
+            if proc.returncode != 0:
+                _INSTALL_ERROR = (proc.stderr or proc.stdout or "install_failed")[:240]
+                _INIT_ERROR = f"install_failed: {_INSTALL_ERROR}"
+                _READY = False
+                return False
+            try:
+                _run_in_browser_thread(_probe_chromium, timeout=40.0)
+                _READY = True
+                _INIT_ERROR = None
+                _INSTALL_ERROR = None
+                return True
+            except Exception as exc:
+                _INSTALL_ERROR = str(exc)[:240]
+                _INIT_ERROR = f"launch_failed: {_INSTALL_ERROR}"
+                _READY = False
+                return False
+        except Exception as exc:
+            _INSTALL_ERROR = str(exc)[:240]
+            _INIT_ERROR = f"install_failed: {_INSTALL_ERROR}"
+            _READY = False
+            return False
+
+
 def playwright_available() -> bool:
     """True when enabled and the Playwright package imports.
 
@@ -59,9 +131,13 @@ def playwright_available() -> bool:
     """
     if not playwright_enabled():
         return False
-    if _READY is False and _INIT_ERROR and "asyncio" not in (_INIT_ERROR or ""):
-        # Known missing binary / install failure — don't keep retrying every call.
-        if "launch_failed" in (_INIT_ERROR or "") or "import_failed" in (_INIT_ERROR or ""):
+    if _READY is False and _INSTALL_ATTEMPTED:
+        # Install already tried and failed — don't keep retrying every call.
+        if _INIT_ERROR and (
+            "launch_failed" in _INIT_ERROR
+            or "import_failed" in _INIT_ERROR
+            or "install_failed" in _INIT_ERROR
+        ):
             return False
     try:
         import playwright  # noqa: F401
@@ -79,6 +155,8 @@ def playwright_status(*, probe: bool = False) -> dict[str, Any]:
         "ready": bool(_READY) if _READY is not None else False,
         "role": "js_render_fetch_and_free_web_search",
         "error": _INIT_ERROR,
+        "auto_install_attempted": _INSTALL_ATTEMPTED,
+        "auto_install_error": _INSTALL_ERROR,
     }
     if not enabled:
         out["hint"] = "Set FAA_PLAYWRIGHT=true and run: playwright install chromium"
@@ -99,17 +177,9 @@ def playwright_status(*, probe: bool = False) -> dict[str, Any]:
         out["error"] = _INIT_ERROR
         return out
 
-    def _probe() -> bool:
-        from playwright.sync_api import sync_playwright
-
-        with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
-            browser.close()
-        return True
-
     try:
         with _LOCK:
-            _run_in_browser_thread(_probe, timeout=40.0)
+            _run_in_browser_thread(_probe_chromium, timeout=40.0)
         _READY = True
         _INIT_ERROR = None
         out["ready"] = True
@@ -119,7 +189,10 @@ def playwright_status(*, probe: bool = False) -> dict[str, Any]:
         _INIT_ERROR = f"launch_failed: {exc}"
         out["ready"] = False
         out["error"] = _INIT_ERROR
-        out["hint"] = "playwright install chromium  (or playwright install --with-deps chromium)"
+        out["hint"] = (
+            "Set Render buildCommand to: "
+            "pip install -r requirements.txt && python -m playwright install chromium"
+        )
     return out
 
 
@@ -143,6 +216,10 @@ def fetch_page(
     try:
         from playwright.sync_api import sync_playwright  # noqa: F401
     except Exception:
+        return None
+
+    ensure_chromium_installed()
+    if not playwright_available():
         return None
 
     def _work() -> dict[str, Any] | None:
@@ -215,6 +292,10 @@ def web_search(query: str, *, limit: int = 5) -> list[dict[str, Any]]:
     try:
         from playwright.sync_api import sync_playwright  # noqa: F401
     except Exception:
+        return []
+
+    ensure_chromium_installed()
+    if not playwright_available():
         return []
 
     url = f"https://html.duckduckgo.com/html/?q={quote_plus(q)}"

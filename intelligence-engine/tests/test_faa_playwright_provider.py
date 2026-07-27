@@ -111,3 +111,22 @@ def test_enrichment_status_includes_playwright_role():
     assert "playwright" in status["roles"]
     assert "playwright" in PROVIDERS
     assert PROVIDERS["playwright"]["env_key"] == "FAA_PLAYWRIGHT"
+
+
+def test_ensure_chromium_respects_auto_install_off(monkeypatch):
+    from app.faa import playwright_browser as pb
+
+    monkeypatch.setenv("FAA_PLAYWRIGHT", "true")
+    monkeypatch.setenv("FAA_PLAYWRIGHT_AUTO_INSTALL", "false")
+    pb._INSTALL_ATTEMPTED = False
+    pb._READY = None
+    assert pb.ensure_chromium_installed() is False
+
+
+def test_unwrap_soft_slice_flattens_named_wrapper():
+    from app.ui.service import _unwrap_soft_slice
+
+    nested = {"hypothesis_engine": {"enabled": True, "version": "1.0.0"}}
+    assert _unwrap_soft_slice("hypothesis_engine", nested)["enabled"] is True
+    flat = {"enabled": True, "ok": 1}
+    assert _unwrap_soft_slice("hypothesis_engine", flat) == flat
