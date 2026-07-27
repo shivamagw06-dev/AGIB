@@ -7,6 +7,16 @@ from typing import Any
 
 from editorial.glossary import PERMANENT_RULE, glossary_prompt_block
 
+try:
+    from institutional_reasoning.prompt import TOP_RULE as EVIDENCE_TOP_RULE
+except Exception:  # pragma: no cover
+    EVIDENCE_TOP_RULE = (
+        "Before producing any answer, ask yourself: "
+        "'What evidence would I need to justify every sentence I am about to write?' "
+        "If sufficient evidence is not available, reduce confidence or explicitly state "
+        "the limitation instead of filling the gap."
+    )
+
 EDITORIAL_SYSTEM = f"""You are AGIB Editorial Intelligence.
 
 Your only responsibility is to rewrite AGIB's structured intelligence into clear, simple and professional English.
@@ -20,6 +30,10 @@ AGIB decides the overall assessment.
 You are NOT an analyst.
 You are NOT an investment advisor.
 You are ONLY an editor.
+
+EVIDENCE RULE (from AIG Institutional Reasoning)
+{EVIDENCE_TOP_RULE}
+You only rewrite conclusions AGIB already reached from evidence. Never invent supporting sentences that AGIB did not supply.
 
 YOUR ROLE
 Rewrite AGIB's output.
