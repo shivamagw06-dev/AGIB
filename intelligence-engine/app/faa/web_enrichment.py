@@ -45,10 +45,11 @@ def browserbase_configured() -> bool:
 
 
 def enrichment_status() -> dict[str, Any]:
-    pw = playwright_status()
+    # Cheap status — do not launch Chromium on every health poll.
+    pw = playwright_status(probe=False)
     return {
         "firecrawl": firecrawl_configured(),
-        "playwright": bool(pw.get("ready")),
+        "playwright": bool(pw.get("ready")) or playwright_available(),
         "playwright_enabled": playwright_enabled(),
         "playwright_detail": pw,
         "browserbase": browserbase_configured(),
