@@ -1285,6 +1285,71 @@ export const diagnoseLayerRouter = (payload = {}) =>
   });
 
 /** RQ2 Institutional Hypothesis Generation Engine — Sprint 1 (AFTER IREP) */
+export const getAcquisitionPlannerHealth = () => intelligenceFetch('/acquisition-planner/health');
+export const getAcquisitionPlannerDashboard = () => intelligenceFetch('/acquisition-planner/dashboard');
+export const getAcquisitionPlannerConstitution = () => intelligenceFetch('/acquisition-planner/constitution');
+export const getAcquisitionPlannerQualityGates = () => intelligenceFetch('/acquisition-planner/quality-gates');
+export const planAcquisitionPlanner = (payload = {}) =>
+  intelligenceFetch('/acquisition-planner/plan', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });
+export const diagnoseAcquisitionPlanner = (payload = {}) =>
+  intelligenceFetch('/acquisition-planner/diagnostics', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });
+
+export const getResearchBlueprintHealth = () => intelligenceFetch('/research-blueprint/health');
+export const getResearchBlueprintDashboard = () => intelligenceFetch('/research-blueprint/dashboard');
+export const getResearchBlueprintConstitution = () => intelligenceFetch('/research-blueprint/constitution');
+export const getResearchBlueprintQualityGates = () => intelligenceFetch('/research-blueprint/quality-gates');
+export const planResearchBlueprint = (payload = {}) =>
+  intelligenceFetch('/research-blueprint/plan', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });
+export const diagnoseResearchBlueprint = (payload = {}) =>
+  intelligenceFetch('/research-blueprint/diagnostics', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });
+
+export const getValidationEngineHealth = () => intelligenceFetch('/validation-engine/health');
+export const getValidationEngineDashboard = () => intelligenceFetch('/validation-engine/dashboard');
+export const getValidationEngineConstitution = () => intelligenceFetch('/validation-engine/constitution');
+export const getValidationEngineQualityGates = () => intelligenceFetch('/validation-engine/quality-gates');
+export const validateValidationEngine = (payload = {}) =>
+  intelligenceFetch('/validation-engine/validate', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });
+export const diagnoseValidationEngine = (payload = {}) =>
+  intelligenceFetch('/validation-engine/diagnostics', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });
+
+export const getResearchExecutionHealth = () => intelligenceFetch('/research-execution/health');
+export const getResearchExecutionDashboard = () => intelligenceFetch('/research-execution/dashboard');
+export const getResearchExecutionConstitution = () => intelligenceFetch('/research-execution/constitution');
+export const getResearchExecutionQualityGates = () => intelligenceFetch('/research-execution/quality-gates');
+export const buildResearchExecution = (payload = {}) =>
+  intelligenceFetch('/research-execution/build', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });
+export const exportResearchExecution = (payload = {}) =>
+  intelligenceFetch('/research-execution/export', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload, format: 'markdown' } : payload,
+  });
+export const diagnoseResearchExecution = (payload = {}) =>
+  intelligenceFetch('/research-execution/diagnostics', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });
+
 export const getHypothesisEngineHealth = () => intelligenceFetch('/hypothesis-engine/health');
 export const getHypothesisEngineDashboard = () => intelligenceFetch('/hypothesis-engine/dashboard');
 export const getHypothesisEngineConstitution = () => intelligenceFetch('/hypothesis-engine/constitution');

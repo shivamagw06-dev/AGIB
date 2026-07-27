@@ -810,6 +810,74 @@ class UiService:
         except Exception:
             layer_router = {}
 
+        # RQ1 Sprint 7 — Institutional Acquisition & API Planning Engine (evidence plan; metadata soft-wire)
+        acquisition_planner: dict[str, Any] = {}
+        try:
+            from acquisition_planner.production import soft_slice_for_ask_agi as iape_soft_slice
+
+            iape_payload = {
+                "primary_objective": (research_objective.get("research_objective") or {}).get("primary_objective")
+                or (research_objective.get("primary_objective")),
+                "intent_family": (research_ontology.get("intent_family") or research_ontology.get("family")),
+                "required_layers": (layer_router.get("required_layers") or []),
+            }
+            acquisition_planner = iape_soft_slice(q, iape_payload) or {}
+        except Exception:
+            acquisition_planner = {}
+
+        # RQ1 Sprint 8 — Dynamic Research Blueprint Engine (publication plan; metadata soft-wire)
+        research_blueprint: dict[str, Any] = {}
+        try:
+            from research_blueprint.production import soft_slice_for_ask_agi as drbe_soft_slice
+
+            drbe_payload = {
+                "primary_objective": (research_objective.get("research_objective") or {}).get("primary_objective")
+                or research_objective.get("primary_objective"),
+                "intent_family": (research_ontology.get("intent_family") or research_ontology.get("family")),
+                "required_analysts": (analyst_router.get("required_analysts") or []),
+                "analyst_router": analyst_router,
+            }
+            research_blueprint = drbe_soft_slice(q, drbe_payload) or {}
+        except Exception:
+            research_blueprint = {}
+
+        # RQ1 Sprint 9 — Institutional Validation & Clarification Engine (readiness gate; metadata soft-wire)
+        validation_engine: dict[str, Any] = {}
+        try:
+            from validation_engine.production import soft_slice_for_ask_agi as ivce_soft_slice
+
+            ivce_payload = {
+                "research_ontology": research_ontology,
+                "entity_resolution": entity_resolution,
+                "research_objective": research_objective,
+                "context_intelligence": context_intelligence,
+                "analyst_router": analyst_router,
+                "layer_router": layer_router,
+                "primary_objective": (research_objective.get("research_objective") or {}).get("primary_objective")
+                or research_objective.get("primary_objective"),
+                "intent_family": (research_ontology.get("intent_family") or research_ontology.get("family")),
+            }
+            validation_engine = ivce_soft_slice(q, ivce_payload) or {}
+        except Exception:
+            validation_engine = {}
+
+        # RQ1 Sprint 10 — Institutional Research Execution Package (final immutable planning brief)
+        research_execution: dict[str, Any] = {}
+        try:
+            from research_execution.production import soft_slice_for_ask_agi as irep_soft_slice
+
+            irep_payload = {
+                "research_ontology": research_ontology,
+                "entity_resolution": entity_resolution,
+                "research_objective": research_objective,
+                "context_intelligence": context_intelligence,
+                "analyst_router": analyst_router,
+                "layer_router": layer_router,
+            }
+            research_execution = irep_soft_slice(q, irep_payload) or {}
+        except Exception:
+            research_execution = {}
+
         # RQ2 Sprint 1 — Institutional Hypothesis Generation Engine (AFTER IREP / Layer Router; BEFORE analysts)
         hypothesis_engine: dict[str, Any] = {}
         try:
@@ -821,18 +889,11 @@ class UiService:
                 "analyst_router": analyst_router,
                 "layer_router": layer_router,
                 "context_intelligence": context_intelligence,
+                "acquisition_planner": acquisition_planner,
+                "research_blueprint": research_blueprint,
+                "validation_engine": validation_engine,
+                "research_execution": research_execution,
             }
-            # Soft-import IREP when available (Sprint 10); never hard-depend
-            try:
-                from research_execution.production import soft_slice_for_ask_agi as irep_soft_slice  # type: ignore
-
-                irep_slice = irep_soft_slice(q, ihg_payload) or {}
-                if isinstance(irep_slice, dict) and irep_slice.get("research_execution"):
-                    ihg_payload["research_execution"] = irep_slice.get("research_execution")
-                elif isinstance(irep_slice, dict) and irep_slice.get("ok"):
-                    ihg_payload["research_execution"] = irep_slice
-            except Exception:
-                pass
             hypothesis_engine = ihg_soft_slice(q, ihg_payload) or {}
         except Exception:
             hypothesis_engine = {}
@@ -867,16 +928,11 @@ class UiService:
                 "context_intelligence": context_intelligence,
                 "hypothesis_engine": hypothesis_engine,
                 "research_questions": research_questions,
+                "acquisition_planner": acquisition_planner,
+                "research_blueprint": research_blueprint,
+                "validation_engine": validation_engine,
+                "research_execution": research_execution,
             }
-            # Soft-import evidence / acquisition plan when available
-            try:
-                from acquisition_planner.production import soft_slice_for_ask_agi as iape_soft  # type: ignore
-
-                iape = iape_soft(q, ihte_payload) or {}
-                if isinstance(iape, dict):
-                    ihte_payload.update(iape)
-            except Exception:
-                pass
             hypothesis_testing = ihte_soft_slice(q, ihte_payload) or {}
         except Exception:
             hypothesis_testing = {}
@@ -2620,6 +2676,10 @@ class UiService:
             context_intelligence=scrub(context_intelligence) if context_intelligence else {},
             analyst_router=scrub(analyst_router) if analyst_router else {},
             layer_router=scrub(layer_router) if layer_router else {},
+            acquisition_planner=scrub(acquisition_planner) if acquisition_planner else {},
+            research_blueprint=scrub(research_blueprint) if research_blueprint else {},
+            validation_engine=scrub(validation_engine) if validation_engine else {},
+            research_execution=scrub(research_execution) if research_execution else {},
             hypothesis_engine=scrub(hypothesis_engine) if hypothesis_engine else {},
             research_questions=scrub(research_questions) if research_questions else {},
             hypothesis_testing=scrub(hypothesis_testing) if hypothesis_testing else {},
