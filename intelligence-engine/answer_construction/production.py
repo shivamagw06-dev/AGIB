@@ -188,6 +188,11 @@ def package_for_ask_agi(**kwargs: Any) -> dict[str, Any]:
                 out["reasoning_family"] = irsp.get("reasoning_family") or {
                     "family_id": irsp.get("family_id")
                 }
+                if irsp.get("ecr"):
+                    out["ecr"] = irsp["ecr"]
+                    out["evidence_to_conclusion_ratio"] = irsp.get(
+                        "evidence_to_conclusion_ratio"
+                    ) or (irsp.get("ecr") or {}).get("ecr")
                 ia_out = out.get("institutional_answer")
                 if isinstance(ia_out, dict) and ia_out.get("enabled"):
                     out["institutional_answer"] = {
@@ -200,6 +205,7 @@ def package_for_ask_agi(**kwargs: Any) -> dict[str, Any]:
                         "reasoning_family": irsp.get("family_id"),
                         "pattern_id": irsp.get("pattern_id"),
                         "novelty_score": (irsp.get("novelty") or {}).get("novelty_score"),
+                        "ecr": (irsp.get("ecr") or {}).get("ecr"),
                     }
     except Exception:
         out.setdefault("institutional_reasoning", {"enabled": False, "bypassed": True})

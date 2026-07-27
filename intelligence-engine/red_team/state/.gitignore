@@ -1,0 +1,2 @@
+# Runtime Red Team state (failure logs may be appended locally).
+!capability_gate_registry.json
