@@ -810,6 +810,244 @@ class UiService:
         except Exception:
             layer_router = {}
 
+        # RQ1 Sprint 7 — Institutional Acquisition & API Planning Engine (evidence plan; metadata soft-wire)
+        acquisition_planner: dict[str, Any] = {}
+        try:
+            from acquisition_planner.production import soft_slice_for_ask_agi as iape_soft_slice
+
+            iape_payload = {
+                "primary_objective": (research_objective.get("research_objective") or {}).get("primary_objective")
+                or (research_objective.get("primary_objective")),
+                "intent_family": (research_ontology.get("intent_family") or research_ontology.get("family")),
+                "required_layers": (layer_router.get("required_layers") or []),
+            }
+            acquisition_planner = iape_soft_slice(q, iape_payload) or {}
+        except Exception:
+            acquisition_planner = {}
+
+        # RQ1 Sprint 8 — Dynamic Research Blueprint Engine (publication plan; metadata soft-wire)
+        research_blueprint: dict[str, Any] = {}
+        try:
+            from research_blueprint.production import soft_slice_for_ask_agi as drbe_soft_slice
+
+            drbe_payload = {
+                "primary_objective": (research_objective.get("research_objective") or {}).get("primary_objective")
+                or research_objective.get("primary_objective"),
+                "intent_family": (research_ontology.get("intent_family") or research_ontology.get("family")),
+                "required_analysts": (analyst_router.get("required_analysts") or []),
+                "analyst_router": analyst_router,
+            }
+            research_blueprint = drbe_soft_slice(q, drbe_payload) or {}
+        except Exception:
+            research_blueprint = {}
+
+        # RQ1 Sprint 9 — Institutional Validation & Clarification Engine (readiness gate; metadata soft-wire)
+        validation_engine: dict[str, Any] = {}
+        try:
+            from validation_engine.production import soft_slice_for_ask_agi as ivce_soft_slice
+
+            ivce_payload = {
+                "research_ontology": research_ontology,
+                "entity_resolution": entity_resolution,
+                "research_objective": research_objective,
+                "context_intelligence": context_intelligence,
+                "analyst_router": analyst_router,
+                "layer_router": layer_router,
+                "primary_objective": (research_objective.get("research_objective") or {}).get("primary_objective")
+                or research_objective.get("primary_objective"),
+                "intent_family": (research_ontology.get("intent_family") or research_ontology.get("family")),
+            }
+            validation_engine = ivce_soft_slice(q, ivce_payload) or {}
+        except Exception:
+            validation_engine = {}
+
+        # RQ1 Sprint 10 — Institutional Research Execution Package (final immutable planning brief)
+        research_execution: dict[str, Any] = {}
+        try:
+            from research_execution.production import soft_slice_for_ask_agi as irep_soft_slice
+
+            irep_payload = {
+                "research_ontology": research_ontology,
+                "entity_resolution": entity_resolution,
+                "research_objective": research_objective,
+                "context_intelligence": context_intelligence,
+                "analyst_router": analyst_router,
+                "layer_router": layer_router,
+            }
+            research_execution = irep_soft_slice(q, irep_payload) or {}
+        except Exception:
+            research_execution = {}
+
+        # RQ2 Sprint 1 — Institutional Hypothesis Generation Engine (AFTER IREP / Layer Router; BEFORE analysts)
+        hypothesis_engine: dict[str, Any] = {}
+        try:
+            from hypothesis_engine.production import soft_slice_for_ask_agi as ihg_soft_slice
+
+            ihg_payload = {
+                "entity_resolution": entity_resolution,
+                "research_objective": research_objective,
+                "analyst_router": analyst_router,
+                "layer_router": layer_router,
+                "context_intelligence": context_intelligence,
+                "acquisition_planner": acquisition_planner,
+                "research_blueprint": research_blueprint,
+                "validation_engine": validation_engine,
+                "research_execution": research_execution,
+            }
+            hypothesis_engine = ihg_soft_slice(q, ihg_payload) or {}
+        except Exception:
+            hypothesis_engine = {}
+
+        # RQ2 Sprint 2 — Institutional Research Question Engine (AFTER IHG; BEFORE evidence collection)
+        research_questions: dict[str, Any] = {}
+        try:
+            from research_questions.production import soft_slice_for_ask_agi as irq_soft_slice
+
+            irq_payload = {
+                "entity_resolution": entity_resolution,
+                "research_objective": research_objective,
+                "analyst_router": analyst_router,
+                "layer_router": layer_router,
+                "context_intelligence": context_intelligence,
+                "hypothesis_engine": hypothesis_engine,
+            }
+            research_questions = irq_soft_slice(q, irq_payload) or {}
+        except Exception:
+            research_questions = {}
+
+        # RQ2 Sprint 4 — Institutional Hypothesis Testing Engine (AFTER evidence planning; BEFORE analysts)
+        hypothesis_testing: dict[str, Any] = {}
+        try:
+            from hypothesis_testing.production import soft_slice_for_ask_agi as ihte_soft_slice
+
+            ihte_payload = {
+                "entity_resolution": entity_resolution,
+                "research_objective": research_objective,
+                "analyst_router": analyst_router,
+                "layer_router": layer_router,
+                "context_intelligence": context_intelligence,
+                "hypothesis_engine": hypothesis_engine,
+                "research_questions": research_questions,
+                "acquisition_planner": acquisition_planner,
+                "research_blueprint": research_blueprint,
+                "validation_engine": validation_engine,
+                "research_execution": research_execution,
+            }
+            hypothesis_testing = ihte_soft_slice(q, ihte_payload) or {}
+        except Exception:
+            hypothesis_testing = {}
+
+        # RQ2 Sprint 6 — Bayesian Belief & Confidence Engine (AFTER falsification; BEFORE analyst opinions)
+        belief_engine: dict[str, Any] = {}
+        try:
+            from belief_engine.production import soft_slice_for_ask_agi as bbce_soft_slice
+
+            bbce_payload = {
+                "entity_resolution": entity_resolution,
+                "research_objective": research_objective,
+                "analyst_router": analyst_router,
+                "layer_router": layer_router,
+                "context_intelligence": context_intelligence,
+                "hypothesis_engine": hypothesis_engine,
+                "research_questions": research_questions,
+                "hypothesis_testing": hypothesis_testing,
+            }
+            # Soft-import falsification engine when available (RQ2.5)
+            try:
+                from falsification_engine.production import soft_slice_for_ask_agi as ife_soft  # type: ignore
+
+                ife = ife_soft(q, bbce_payload) or {}
+                if isinstance(ife, dict):
+                    bbce_payload.update(ife)
+            except Exception:
+                pass
+            belief_engine = bbce_soft_slice(q, bbce_payload) or {}
+        except Exception:
+            belief_engine = {}
+
+        # RQ2 Sprint 7 — Institutional Thesis Construction Engine (AFTER BBCE; BEFORE Investment Committee)
+        thesis_engine: dict[str, Any] = {}
+        try:
+            from thesis_engine.production import soft_slice_for_ask_agi as itce_soft_slice
+
+            itce_payload = {
+                "entity_resolution": entity_resolution,
+                "research_objective": research_objective,
+                "analyst_router": analyst_router,
+                "context_intelligence": context_intelligence,
+                "hypothesis_engine": hypothesis_engine,
+                "research_questions": research_questions,
+                "hypothesis_testing": hypothesis_testing,
+                "belief_engine": belief_engine,
+            }
+            thesis_engine = itce_soft_slice(q, itce_payload) or {}
+        except Exception:
+            thesis_engine = {}
+
+        # RQ2 Sprint 8 — Institutional Debate Engine (AFTER ITCE; BEFORE Investment Committee)
+        debate_engine: dict[str, Any] = {}
+        try:
+            from debate_engine.production import soft_slice_for_ask_agi as ideb_soft_slice
+
+            ideb_payload = {
+                "entity_resolution": entity_resolution,
+                "research_objective": research_objective,
+                "analyst_router": analyst_router,
+                "hypothesis_engine": hypothesis_engine,
+                "research_questions": research_questions,
+                "hypothesis_testing": hypothesis_testing,
+                "belief_engine": belief_engine,
+                "thesis_engine": thesis_engine,
+            }
+            debate_engine = ideb_soft_slice(q, ideb_payload) or {}
+        except Exception:
+            debate_engine = {}
+
+        # RQ2 Sprint 9 — Institutional Decision Readiness Engine (AFTER IDEB; BEFORE Committee)
+        decision_readiness: dict[str, Any] = {}
+        try:
+            from decision_readiness.production import soft_slice_for_ask_agi as idre_soft_slice
+
+            idre_payload = {
+                "entity_resolution": entity_resolution,
+                "research_objective": research_objective,
+                "analyst_router": analyst_router,
+                "hypothesis_testing": hypothesis_testing,
+                "belief_engine": belief_engine,
+                "thesis_engine": thesis_engine,
+                "debate_engine": debate_engine,
+            }
+            decision_readiness = idre_soft_slice(q, idre_payload) or {}
+        except Exception:
+            decision_readiness = {}
+
+        # RQ2 Sprint 10 — Institutional Reasoning Audit Engine (final certification BEFORE Committee)
+        reasoning_audit: dict[str, Any] = {}
+        try:
+            from reasoning_audit.production import soft_slice_for_ask_agi as irae_soft_slice
+
+            irae_payload = {
+                "hypothesis_engine": hypothesis_engine,
+                "research_questions": research_questions,
+                "hypothesis_testing": hypothesis_testing,
+                "belief_engine": belief_engine,
+                "thesis_engine": thesis_engine,
+                "debate_engine": debate_engine,
+                "decision_readiness": decision_readiness,
+            }
+            # Preserve the explicit falsification handoff when RQ2.5 is available.
+            try:
+                from falsification_engine.production import soft_slice_for_ask_agi as ife_soft  # type: ignore
+
+                ife = ife_soft(q, irae_payload) or {}
+                if isinstance(ife, dict):
+                    irae_payload.update(ife)
+            except Exception:
+                pass
+            reasoning_audit = irae_soft_slice(q, irae_payload) or {}
+        except Exception:
+            reasoning_audit = {}
+
         # CAE gateway (preferred) — else MEE→FLE→IIE→EVE→AOI→KCV/KF soft enrichment.
         kf_hits: list[dict[str, Any]] = []
         knowledge_corpus: dict[str, Any] = {}
@@ -2438,6 +2676,18 @@ class UiService:
             context_intelligence=scrub(context_intelligence) if context_intelligence else {},
             analyst_router=scrub(analyst_router) if analyst_router else {},
             layer_router=scrub(layer_router) if layer_router else {},
+            acquisition_planner=scrub(acquisition_planner) if acquisition_planner else {},
+            research_blueprint=scrub(research_blueprint) if research_blueprint else {},
+            validation_engine=scrub(validation_engine) if validation_engine else {},
+            research_execution=scrub(research_execution) if research_execution else {},
+            hypothesis_engine=scrub(hypothesis_engine) if hypothesis_engine else {},
+            research_questions=scrub(research_questions) if research_questions else {},
+            hypothesis_testing=scrub(hypothesis_testing) if hypothesis_testing else {},
+            belief_engine=scrub(belief_engine) if belief_engine else {},
+            thesis_engine=scrub(thesis_engine) if thesis_engine else {},
+            debate_engine=scrub(debate_engine) if debate_engine else {},
+            decision_readiness=scrub(decision_readiness) if decision_readiness else {},
+            reasoning_audit=scrub(reasoning_audit) if reasoning_audit else {},
         )
 
     def timeline(self, entity: str) -> TimelineView:

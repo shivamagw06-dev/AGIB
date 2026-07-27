@@ -5081,6 +5081,595 @@ async def layer_router_diagnostics(payload: dict[str, Any] = Body(default={})):
     return diagnostics(payload or {})
 
 
+# --- RQ1 Institutional Acquisition & API Planning Engine (Sprint 7 — acquisition planner soft-wire; not a top-level layer) ---
+
+
+@router.get("/acquisition-planner/health")
+async def acquisition_planner_health():
+    from acquisition_planner.production import health
+
+    return health()
+
+
+@router.get("/acquisition-planner/dashboard")
+async def acquisition_planner_dashboard():
+    from acquisition_planner.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/acquisition-planner/constitution")
+async def acquisition_planner_constitution():
+    from acquisition_planner.production import constitution
+
+    return constitution()
+
+
+@router.get("/acquisition-planner/quality-gates")
+async def acquisition_planner_quality_gates():
+    from acquisition_planner.production import quality_gates
+
+    return quality_gates()
+
+
+@router.post("/acquisition-planner/plan")
+async def acquisition_planner_plan(payload: dict[str, Any] = Body(default={})):
+    from acquisition_planner.production import plan
+
+    return plan(payload or {})
+
+
+@router.post("/acquisition-planner/enrich")
+async def acquisition_planner_enrich(payload: dict[str, Any] = Body(default={})):
+    from acquisition_planner.production import enrich
+
+    return enrich(payload or {})
+
+
+@router.post("/acquisition-planner/diagnostics")
+async def acquisition_planner_diagnostics(payload: dict[str, Any] = Body(default={})):
+    from acquisition_planner.production import diagnostics
+
+    return diagnostics(payload or {})
+
+
+# --- RQ1 Dynamic Research Blueprint Engine (Sprint 8 — publication plan soft-wire; not a top-level layer) ---
+
+
+@router.get("/research-blueprint/health")
+async def research_blueprint_health():
+    from research_blueprint.production import health
+
+    return health()
+
+
+@router.get("/research-blueprint/dashboard")
+async def research_blueprint_dashboard():
+    from research_blueprint.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/research-blueprint/constitution")
+async def research_blueprint_constitution():
+    from research_blueprint.production import constitution
+
+    return constitution()
+
+
+@router.get("/research-blueprint/quality-gates")
+async def research_blueprint_quality_gates():
+    from research_blueprint.production import quality_gates
+
+    return quality_gates()
+
+
+@router.post("/research-blueprint/plan")
+async def research_blueprint_plan(payload: dict[str, Any] = Body(default={})):
+    from research_blueprint.production import plan
+
+    return plan(payload or {})
+
+
+@router.post("/research-blueprint/enrich")
+async def research_blueprint_enrich(payload: dict[str, Any] = Body(default={})):
+    from research_blueprint.production import enrich
+
+    return enrich(payload or {})
+
+
+@router.post("/research-blueprint/diagnostics")
+async def research_blueprint_diagnostics(payload: dict[str, Any] = Body(default={})):
+    from research_blueprint.production import diagnostics
+
+    return diagnostics(payload or {})
+
+
+# --- RQ1 Institutional Validation & Clarification Engine (Sprint 9 — readiness gate soft-wire; not a top-level layer) ---
+
+
+@router.get("/validation-engine/health")
+async def validation_engine_health():
+    from validation_engine.production import health
+
+    return health()
+
+
+@router.get("/validation-engine/dashboard")
+async def validation_engine_dashboard():
+    from validation_engine.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/validation-engine/constitution")
+async def validation_engine_constitution():
+    from validation_engine.production import constitution
+
+    return constitution()
+
+
+@router.get("/validation-engine/quality-gates")
+async def validation_engine_quality_gates():
+    from validation_engine.production import quality_gates
+
+    return quality_gates()
+
+
+@router.post("/validation-engine/validate")
+async def validation_engine_validate(payload: dict[str, Any] = Body(default={})):
+    from validation_engine.production import validate
+
+    return validate(payload or {})
+
+
+@router.post("/validation-engine/plan")
+async def validation_engine_plan(payload: dict[str, Any] = Body(default={})):
+    from validation_engine.production import plan
+
+    return plan(payload or {})
+
+
+@router.post("/validation-engine/enrich")
+async def validation_engine_enrich(payload: dict[str, Any] = Body(default={})):
+    from validation_engine.production import enrich
+
+    return enrich(payload or {})
+
+
+@router.post("/validation-engine/diagnostics")
+async def validation_engine_diagnostics(payload: dict[str, Any] = Body(default={})):
+    from validation_engine.production import diagnostics
+
+    return diagnostics(payload or {})
+
+
+# --- RQ1 Institutional Research Execution Package (Sprint 10 — final RQ1 planning package; not a top-level layer) ---
+
+
+@router.get("/research-execution/health")
+async def research_execution_health():
+    from research_execution.production import health
+
+    return health()
+
+
+@router.get("/research-execution/dashboard")
+async def research_execution_dashboard():
+    from research_execution.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/research-execution/constitution")
+async def research_execution_constitution():
+    from research_execution.production import constitution
+
+    return constitution()
+
+
+@router.get("/research-execution/quality-gates")
+async def research_execution_quality_gates():
+    from research_execution.production import quality_gates
+
+    return quality_gates()
+
+
+@router.post("/research-execution/build")
+async def research_execution_build(payload: dict[str, Any] = Body(default={})):
+    from research_execution.production import build
+
+    return build(payload or {})
+
+
+@router.post("/research-execution/plan")
+async def research_execution_plan(payload: dict[str, Any] = Body(default={})):
+    from research_execution.production import plan
+
+    return plan(payload or {})
+
+
+@router.post("/research-execution/enrich")
+async def research_execution_enrich(payload: dict[str, Any] = Body(default={})):
+    from research_execution.production import enrich
+
+    return enrich(payload or {})
+
+
+@router.post("/research-execution/export")
+async def research_execution_export(payload: dict[str, Any] = Body(default={})):
+    from research_execution.production import export
+
+    return export(payload or {})
+
+
+@router.post("/research-execution/diagnostics")
+async def research_execution_diagnostics(payload: dict[str, Any] = Body(default={})):
+    from research_execution.production import diagnostics
+
+    return diagnostics(payload or {})
+
+
+# --- RQ2 Institutional Hypothesis Generation Engine (Sprint 1 — soft-wire AFTER IREP; not a top-level layer) ---
+
+
+@router.get("/hypothesis-engine/health")
+async def hypothesis_engine_health():
+    from hypothesis_engine.production import health
+
+    return health()
+
+
+@router.get("/hypothesis-engine/dashboard")
+async def hypothesis_engine_dashboard():
+    from hypothesis_engine.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/hypothesis-engine/constitution")
+async def hypothesis_engine_constitution():
+    from hypothesis_engine.production import constitution
+
+    return constitution()
+
+
+@router.get("/hypothesis-engine/quality-gates")
+async def hypothesis_engine_quality_gates():
+    from hypothesis_engine.production import quality_gates
+
+    return quality_gates()
+
+
+@router.post("/hypothesis-engine/plan")
+async def hypothesis_engine_plan(payload: dict[str, Any] = Body(default={})):
+    from hypothesis_engine.production import plan
+
+    return plan(payload or {})
+
+
+@router.post("/hypothesis-engine/diagnostics")
+async def hypothesis_engine_diagnostics(payload: dict[str, Any] = Body(default={})):
+    from hypothesis_engine.production import diagnostics
+
+    return diagnostics(payload or {})
+
+
+# --- RQ2 Institutional Research Question Engine (Sprint 2 — soft-wire AFTER IHG; not a top-level layer) ---
+
+
+@router.get("/research-questions/health")
+async def research_questions_health():
+    from research_questions.production import health
+
+    return health()
+
+
+@router.get("/research-questions/dashboard")
+async def research_questions_dashboard():
+    from research_questions.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/research-questions/constitution")
+async def research_questions_constitution():
+    from research_questions.production import constitution
+
+    return constitution()
+
+
+@router.get("/research-questions/quality-gates")
+async def research_questions_quality_gates():
+    from research_questions.production import quality_gates
+
+    return quality_gates()
+
+
+@router.post("/research-questions/plan")
+async def research_questions_plan(payload: dict[str, Any] = Body(default={})):
+    from research_questions.production import plan
+
+    return plan(payload or {})
+
+
+@router.post("/research-questions/diagnostics")
+async def research_questions_diagnostics(payload: dict[str, Any] = Body(default={})):
+    from research_questions.production import diagnostics
+
+    return diagnostics(payload or {})
+
+
+# --- RQ2 Institutional Hypothesis Testing Engine (Sprint 4 — soft-wire AFTER evidence planning; not a top-level layer) ---
+
+
+@router.get("/hypothesis-testing/health")
+async def hypothesis_testing_health():
+    from hypothesis_testing.production import health
+
+    return health()
+
+
+@router.get("/hypothesis-testing/dashboard")
+async def hypothesis_testing_dashboard():
+    from hypothesis_testing.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/hypothesis-testing/constitution")
+async def hypothesis_testing_constitution():
+    from hypothesis_testing.production import constitution
+
+    return constitution()
+
+
+@router.get("/hypothesis-testing/quality-gates")
+async def hypothesis_testing_quality_gates():
+    from hypothesis_testing.production import quality_gates
+
+    return quality_gates()
+
+
+@router.post("/hypothesis-testing/plan")
+async def hypothesis_testing_plan(payload: dict[str, Any] = Body(default={})):
+    from hypothesis_testing.production import plan
+
+    return plan(payload or {})
+
+
+@router.post("/hypothesis-testing/diagnostics")
+async def hypothesis_testing_diagnostics(payload: dict[str, Any] = Body(default={})):
+    from hypothesis_testing.production import diagnostics
+
+    return diagnostics(payload or {})
+
+
+# --- RQ2 Bayesian Belief & Confidence Engine (Sprint 6 — soft-wire AFTER falsification; not a top-level layer) ---
+
+
+@router.get("/belief-engine/health")
+async def belief_engine_health():
+    from belief_engine.production import health
+
+    return health()
+
+
+@router.get("/belief-engine/dashboard")
+async def belief_engine_dashboard():
+    from belief_engine.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/belief-engine/constitution")
+async def belief_engine_constitution():
+    from belief_engine.production import constitution
+
+    return constitution()
+
+
+@router.get("/belief-engine/quality-gates")
+async def belief_engine_quality_gates():
+    from belief_engine.production import quality_gates
+
+    return quality_gates()
+
+
+@router.post("/belief-engine/plan")
+async def belief_engine_plan(payload: dict[str, Any] = Body(default={})):
+    from belief_engine.production import plan
+
+    return plan(payload or {})
+
+
+@router.post("/belief-engine/diagnostics")
+async def belief_engine_diagnostics(payload: dict[str, Any] = Body(default={})):
+    from belief_engine.production import diagnostics
+
+    return diagnostics(payload or {})
+
+
+# --- RQ2 Institutional Thesis Construction Engine (Sprint 7 — soft-wire BEFORE Committee; not a top-level layer) ---
+
+
+@router.get("/thesis-engine/health")
+async def thesis_engine_health():
+    from thesis_engine.production import health
+
+    return health()
+
+
+@router.get("/thesis-engine/dashboard")
+async def thesis_engine_dashboard():
+    from thesis_engine.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/thesis-engine/constitution")
+async def thesis_engine_constitution():
+    from thesis_engine.production import constitution
+
+    return constitution()
+
+
+@router.get("/thesis-engine/quality-gates")
+async def thesis_engine_quality_gates():
+    from thesis_engine.production import quality_gates
+
+    return quality_gates()
+
+
+@router.post("/thesis-engine/plan")
+async def thesis_engine_plan(payload: dict[str, Any] = Body(default={})):
+    from thesis_engine.production import plan
+
+    return plan(payload or {})
+
+
+@router.post("/thesis-engine/diagnostics")
+async def thesis_engine_diagnostics(payload: dict[str, Any] = Body(default={})):
+    from thesis_engine.production import diagnostics
+
+    return diagnostics(payload or {})
+
+
+# --- RQ2 Institutional Debate Engine (Sprint 8 — structured pre-Committee debate; not a layer/committee) ---
+
+
+@router.get("/debate-engine/health")
+async def debate_engine_health():
+    from debate_engine.production import health
+
+    return health()
+
+
+@router.get("/debate-engine/dashboard")
+async def debate_engine_dashboard():
+    from debate_engine.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/debate-engine/constitution")
+async def debate_engine_constitution():
+    from debate_engine.production import constitution
+
+    return constitution()
+
+
+@router.get("/debate-engine/quality-gates")
+async def debate_engine_quality_gates():
+    from debate_engine.production import quality_gates
+
+    return quality_gates()
+
+
+@router.post("/debate-engine/plan")
+async def debate_engine_plan(payload: dict[str, Any] = Body(default={})):
+    from debate_engine.production import plan
+
+    return plan(payload or {})
+
+
+@router.post("/debate-engine/diagnostics")
+async def debate_engine_diagnostics(payload: dict[str, Any] = Body(default={})):
+    from debate_engine.production import diagnostics
+
+    return diagnostics(payload or {})
+
+
+# --- RQ2 Institutional Decision Readiness Engine (Sprint 9 — final pre-Committee quality gate) ---
+
+
+@router.get("/decision-readiness/health")
+async def decision_readiness_health():
+    from decision_readiness.production import health
+
+    return health()
+
+
+@router.get("/decision-readiness/dashboard")
+async def decision_readiness_dashboard():
+    from decision_readiness.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/decision-readiness/constitution")
+async def decision_readiness_constitution():
+    from decision_readiness.production import constitution
+
+    return constitution()
+
+
+@router.get("/decision-readiness/quality-gates")
+async def decision_readiness_quality_gates():
+    from decision_readiness.production import quality_gates
+
+    return quality_gates()
+
+
+@router.post("/decision-readiness/plan")
+async def decision_readiness_plan(payload: dict[str, Any] = Body(default={})):
+    from decision_readiness.production import plan
+
+    return plan(payload or {})
+
+
+@router.post("/decision-readiness/diagnostics")
+async def decision_readiness_diagnostics(payload: dict[str, Any] = Body(default={})):
+    from decision_readiness.production import diagnostics
+
+    return diagnostics(payload or {})
+
+
+# --- RQ2 Institutional Reasoning Audit Engine (Sprint 10 — final reasoning certification) ---
+
+
+@router.get("/reasoning-audit/health")
+async def reasoning_audit_health():
+    from reasoning_audit.production import health
+
+    return health()
+
+
+@router.get("/reasoning-audit/dashboard")
+async def reasoning_audit_dashboard():
+    from reasoning_audit.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/reasoning-audit/constitution")
+async def reasoning_audit_constitution():
+    from reasoning_audit.production import constitution
+
+    return constitution()
+
+
+@router.get("/reasoning-audit/quality-gates")
+async def reasoning_audit_quality_gates():
+    from reasoning_audit.production import quality_gates
+
+    return quality_gates()
+
+
+@router.post("/reasoning-audit/plan")
+async def reasoning_audit_plan(payload: dict[str, Any] = Body(default={})):
+    from reasoning_audit.production import plan
+
+    return plan(payload or {})
+
+
+@router.post("/reasoning-audit/diagnostics")
+async def reasoning_audit_diagnostics(payload: dict[str, Any] = Body(default={})):
+    from reasoning_audit.production import diagnostics
+
+    return diagnostics(payload or {})
+
+
 # --- SIF v1.0 (Sector Intelligence Framework — additive; not an engine) ---
 
 

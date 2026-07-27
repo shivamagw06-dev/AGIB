@@ -642,7 +642,7 @@ process.on('SIGTERM', () => {
 
 export default app;
 
-// IAR V1 proxy mounted — force API redeploy
+// RQ1+RQ2 live integration — force API redeploy (IAPE→IREP + IHG→IRAE)
 
 // CIE V1 proxy mounted
 

@@ -1283,3 +1283,196 @@ export const diagnoseLayerRouter = (payload = {}) =>
     method: 'POST',
     body: typeof payload === 'string' ? { question: payload } : payload,
   });
+
+/** RQ2 Institutional Hypothesis Generation Engine — Sprint 1 (AFTER IREP) */
+export const getAcquisitionPlannerHealth = () => intelligenceFetch('/acquisition-planner/health');
+export const getAcquisitionPlannerDashboard = () => intelligenceFetch('/acquisition-planner/dashboard');
+export const getAcquisitionPlannerConstitution = () => intelligenceFetch('/acquisition-planner/constitution');
+export const getAcquisitionPlannerQualityGates = () => intelligenceFetch('/acquisition-planner/quality-gates');
+export const planAcquisitionPlanner = (payload = {}) =>
+  intelligenceFetch('/acquisition-planner/plan', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });
+export const diagnoseAcquisitionPlanner = (payload = {}) =>
+  intelligenceFetch('/acquisition-planner/diagnostics', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });
+
+export const getResearchBlueprintHealth = () => intelligenceFetch('/research-blueprint/health');
+export const getResearchBlueprintDashboard = () => intelligenceFetch('/research-blueprint/dashboard');
+export const getResearchBlueprintConstitution = () => intelligenceFetch('/research-blueprint/constitution');
+export const getResearchBlueprintQualityGates = () => intelligenceFetch('/research-blueprint/quality-gates');
+export const planResearchBlueprint = (payload = {}) =>
+  intelligenceFetch('/research-blueprint/plan', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });
+export const diagnoseResearchBlueprint = (payload = {}) =>
+  intelligenceFetch('/research-blueprint/diagnostics', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });
+
+export const getValidationEngineHealth = () => intelligenceFetch('/validation-engine/health');
+export const getValidationEngineDashboard = () => intelligenceFetch('/validation-engine/dashboard');
+export const getValidationEngineConstitution = () => intelligenceFetch('/validation-engine/constitution');
+export const getValidationEngineQualityGates = () => intelligenceFetch('/validation-engine/quality-gates');
+export const validateValidationEngine = (payload = {}) =>
+  intelligenceFetch('/validation-engine/validate', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });
+export const diagnoseValidationEngine = (payload = {}) =>
+  intelligenceFetch('/validation-engine/diagnostics', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });
+
+export const getResearchExecutionHealth = () => intelligenceFetch('/research-execution/health');
+export const getResearchExecutionDashboard = () => intelligenceFetch('/research-execution/dashboard');
+export const getResearchExecutionConstitution = () => intelligenceFetch('/research-execution/constitution');
+export const getResearchExecutionQualityGates = () => intelligenceFetch('/research-execution/quality-gates');
+export const buildResearchExecution = (payload = {}) =>
+  intelligenceFetch('/research-execution/build', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });
+export const exportResearchExecution = (payload = {}) =>
+  intelligenceFetch('/research-execution/export', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload, format: 'markdown' } : payload,
+  });
+export const diagnoseResearchExecution = (payload = {}) =>
+  intelligenceFetch('/research-execution/diagnostics', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });
+
+export const getHypothesisEngineHealth = () => intelligenceFetch('/hypothesis-engine/health');
+export const getHypothesisEngineDashboard = () => intelligenceFetch('/hypothesis-engine/dashboard');
+export const getHypothesisEngineConstitution = () => intelligenceFetch('/hypothesis-engine/constitution');
+export const getHypothesisEngineQualityGates = () => intelligenceFetch('/hypothesis-engine/quality-gates');
+export const planHypothesisEngine = (payload = {}) =>
+  intelligenceFetch('/hypothesis-engine/plan', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });
+export const diagnoseHypothesisEngine = (payload = {}) =>
+  intelligenceFetch('/hypothesis-engine/diagnostics', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });
+
+/** RQ2 Institutional Research Question Engine — Sprint 2 (AFTER IHG) */
+export const getResearchQuestionsHealth = () => intelligenceFetch('/research-questions/health');
+export const getResearchQuestionsDashboard = () => intelligenceFetch('/research-questions/dashboard');
+export const getResearchQuestionsConstitution = () => intelligenceFetch('/research-questions/constitution');
+export const getResearchQuestionsQualityGates = () => intelligenceFetch('/research-questions/quality-gates');
+export const planResearchQuestions = (payload = {}) =>
+  intelligenceFetch('/research-questions/plan', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });
+export const diagnoseResearchQuestions = (payload = {}) =>
+  intelligenceFetch('/research-questions/diagnostics', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });
+
+/** RQ2 Institutional Hypothesis Testing Engine — Sprint 4 (AFTER evidence planning) */
+export const getHypothesisTestingHealth = () => intelligenceFetch('/hypothesis-testing/health');
+export const getHypothesisTestingDashboard = () => intelligenceFetch('/hypothesis-testing/dashboard');
+export const getHypothesisTestingConstitution = () => intelligenceFetch('/hypothesis-testing/constitution');
+export const getHypothesisTestingQualityGates = () => intelligenceFetch('/hypothesis-testing/quality-gates');
+export const planHypothesisTesting = (payload = {}) =>
+  intelligenceFetch('/hypothesis-testing/plan', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });
+export const diagnoseHypothesisTesting = (payload = {}) =>
+  intelligenceFetch('/hypothesis-testing/diagnostics', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });
+
+/** RQ2 Bayesian Belief & Confidence Engine — Sprint 6 (AFTER falsification) */
+export const getBeliefEngineHealth = () => intelligenceFetch('/belief-engine/health');
+export const getBeliefEngineDashboard = () => intelligenceFetch('/belief-engine/dashboard');
+export const getBeliefEngineConstitution = () => intelligenceFetch('/belief-engine/constitution');
+export const getBeliefEngineQualityGates = () => intelligenceFetch('/belief-engine/quality-gates');
+export const planBeliefEngine = (payload = {}) =>
+  intelligenceFetch('/belief-engine/plan', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });
+export const diagnoseBeliefEngine = (payload = {}) =>
+  intelligenceFetch('/belief-engine/diagnostics', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });
+
+/** RQ2 Institutional Thesis Construction Engine — Sprint 7 (BEFORE Committee) */
+export const getThesisEngineHealth = () => intelligenceFetch('/thesis-engine/health');
+export const getThesisEngineDashboard = () => intelligenceFetch('/thesis-engine/dashboard');
+export const getThesisEngineConstitution = () => intelligenceFetch('/thesis-engine/constitution');
+export const getThesisEngineQualityGates = () => intelligenceFetch('/thesis-engine/quality-gates');
+export const planThesisEngine = (payload = {}) =>
+  intelligenceFetch('/thesis-engine/plan', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });
+export const diagnoseThesisEngine = (payload = {}) =>
+  intelligenceFetch('/thesis-engine/diagnostics', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });
+
+/** RQ2 Institutional Debate Engine — Sprint 8 (structured pre-Committee debate) */
+export const getDebateEngineHealth = () => intelligenceFetch('/debate-engine/health');
+export const getDebateEngineDashboard = () => intelligenceFetch('/debate-engine/dashboard');
+export const getDebateEngineConstitution = () => intelligenceFetch('/debate-engine/constitution');
+export const getDebateEngineQualityGates = () => intelligenceFetch('/debate-engine/quality-gates');
+export const planDebateEngine = (payload = {}) =>
+  intelligenceFetch('/debate-engine/plan', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });
+export const diagnoseDebateEngine = (payload = {}) =>
+  intelligenceFetch('/debate-engine/diagnostics', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });
+
+/** RQ2 Institutional Decision Readiness Engine — Sprint 9 */
+export const getDecisionReadinessHealth = () => intelligenceFetch('/decision-readiness/health');
+export const getDecisionReadinessDashboard = () => intelligenceFetch('/decision-readiness/dashboard');
+export const getDecisionReadinessConstitution = () => intelligenceFetch('/decision-readiness/constitution');
+export const getDecisionReadinessQualityGates = () => intelligenceFetch('/decision-readiness/quality-gates');
+export const planDecisionReadiness = (payload = {}) =>
+  intelligenceFetch('/decision-readiness/plan', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });
+export const diagnoseDecisionReadiness = (payload = {}) =>
+  intelligenceFetch('/decision-readiness/diagnostics', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });
+
+/** RQ2 Institutional Reasoning Audit Engine — Sprint 10 */
+export const getReasoningAuditHealth = () => intelligenceFetch('/reasoning-audit/health');
+export const getReasoningAuditDashboard = () => intelligenceFetch('/reasoning-audit/dashboard');
+export const getReasoningAuditConstitution = () => intelligenceFetch('/reasoning-audit/constitution');
+export const getReasoningAuditQualityGates = () => intelligenceFetch('/reasoning-audit/quality-gates');
+export const planReasoningAudit = (payload = {}) =>
+  intelligenceFetch('/reasoning-audit/plan', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });
+export const diagnoseReasoningAudit = (payload = {}) =>
+  intelligenceFetch('/reasoning-audit/diagnostics', {
+    method: 'POST',
+    body: typeof payload === 'string' ? { question: payload } : payload,
+  });

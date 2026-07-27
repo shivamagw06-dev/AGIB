@@ -40,6 +40,18 @@ import ResearchPlanner from '@/pages/admin/ResearchPlanner';
 import AnalystRouter from '@/pages/admin/AnalystRouter';
 import ContextIntelligence from '@/pages/admin/ContextIntelligence';
 import LayerRouter from '@/pages/admin/LayerRouter';
+import AcquisitionPlanner from '@/pages/admin/AcquisitionPlanner';
+import BlueprintEngine from '@/pages/admin/BlueprintEngine';
+import ValidationEngine from '@/pages/admin/ValidationEngine';
+import ResearchExecution from '@/pages/admin/ResearchExecution';
+import HypothesisEngine from '@/pages/admin/HypothesisEngine';
+import ResearchQuestions from '@/pages/admin/ResearchQuestions';
+import HypothesisTesting from '@/pages/admin/HypothesisTesting';
+import BeliefEngine from '@/pages/admin/BeliefEngine';
+import ThesisConstruction from '@/pages/admin/ThesisConstruction';
+import InstitutionalDebate from '@/pages/admin/InstitutionalDebate';
+import DecisionReadiness from '@/pages/admin/DecisionReadiness';
+import ReasoningAudit from '@/pages/admin/ReasoningAudit';
 
 export default function AdminRoutes() {
   return (
@@ -79,6 +91,18 @@ export default function AdminRoutes() {
           <Route path="context-intelligence" element={<ContextIntelligence />} />
           <Route path="analyst-router" element={<AnalystRouter />} />
           <Route path="layer-router" element={<LayerRouter />} />
+          <Route path="acquisition-planner" element={<AcquisitionPlanner />} />
+          <Route path="blueprint-engine" element={<BlueprintEngine />} />
+          <Route path="validation-engine" element={<ValidationEngine />} />
+          <Route path="research-execution" element={<ResearchExecution />} />
+          <Route path="hypothesis-engine" element={<HypothesisEngine />} />
+          <Route path="research-questions" element={<ResearchQuestions />} />
+          <Route path="hypothesis-testing" element={<HypothesisTesting />} />
+          <Route path="belief-engine" element={<BeliefEngine />} />
+          <Route path="thesis-construction" element={<ThesisConstruction />} />
+          <Route path="institutional-debate" element={<InstitutionalDebate />} />
+          <Route path="decision-readiness" element={<DecisionReadiness />} />
+          <Route path="reasoning-audit" element={<ReasoningAudit />} />
           <Route path="system" element={<MissionControl />} />
           <Route path="investment-intelligence" element={<InvestmentIntelligence />} />
           <Route path="forecasting" element={<Forecasting />} />

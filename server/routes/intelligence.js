@@ -2065,5 +2065,419 @@ export default function createIntelligenceRouter() {
     }
   });
 
+
+  // RQ1 Institutional Acquisition & API Planning Engine — Sprint 7 soft-wire
+  router.get('/acquisition-planner/health', kfGet('/v1/acquisition-planner/health'));
+  router.get('/acquisition-planner/dashboard', kfGet('/v1/acquisition-planner/dashboard'));
+  router.get('/acquisition-planner/constitution', kfGet('/v1/acquisition-planner/constitution'));
+  router.get('/acquisition-planner/quality-gates', kfGet('/v1/acquisition-planner/quality-gates'));
+  router.post('/acquisition-planner/plan', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/acquisition-planner/plan', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'IAPE plan failed', detail: error.message });
+    }
+  });
+  router.post('/acquisition-planner/enrich', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/acquisition-planner/enrich', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'IAPE enrich failed', detail: error.message });
+    }
+  });
+  router.post('/acquisition-planner/diagnostics', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/acquisition-planner/diagnostics', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'IAPE diagnostics failed', detail: error.message });
+    }
+  });
+
+  // RQ1 Dynamic Research Blueprint Engine — Sprint 8 soft-wire
+  router.get('/research-blueprint/health', kfGet('/v1/research-blueprint/health'));
+  router.get('/research-blueprint/dashboard', kfGet('/v1/research-blueprint/dashboard'));
+  router.get('/research-blueprint/constitution', kfGet('/v1/research-blueprint/constitution'));
+  router.get('/research-blueprint/quality-gates', kfGet('/v1/research-blueprint/quality-gates'));
+  router.post('/research-blueprint/plan', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/research-blueprint/plan', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'DRBE plan failed', detail: error.message });
+    }
+  });
+  router.post('/research-blueprint/enrich', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/research-blueprint/enrich', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'DRBE enrich failed', detail: error.message });
+    }
+  });
+  router.post('/research-blueprint/diagnostics', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/research-blueprint/diagnostics', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'DRBE diagnostics failed', detail: error.message });
+    }
+  });
+
+  // RQ1 Institutional Validation & Clarification Engine — Sprint 9 soft-wire
+  router.get('/validation-engine/health', kfGet('/v1/validation-engine/health'));
+  router.get('/validation-engine/dashboard', kfGet('/v1/validation-engine/dashboard'));
+  router.get('/validation-engine/constitution', kfGet('/v1/validation-engine/constitution'));
+  router.get('/validation-engine/quality-gates', kfGet('/v1/validation-engine/quality-gates'));
+  router.post('/validation-engine/validate', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/validation-engine/validate', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'IVCE validate failed', detail: error.message });
+    }
+  });
+  router.post('/validation-engine/plan', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/validation-engine/plan', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'IVCE plan failed', detail: error.message });
+    }
+  });
+  router.post('/validation-engine/enrich', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/validation-engine/enrich', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'IVCE enrich failed', detail: error.message });
+    }
+  });
+  router.post('/validation-engine/diagnostics', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/validation-engine/diagnostics', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'IVCE diagnostics failed', detail: error.message });
+    }
+  });
+
+  // RQ1 Institutional Research Execution Package — Sprint 10 soft-wire (final RQ1)
+  router.get('/research-execution/health', kfGet('/v1/research-execution/health'));
+  router.get('/research-execution/dashboard', kfGet('/v1/research-execution/dashboard'));
+  router.get('/research-execution/constitution', kfGet('/v1/research-execution/constitution'));
+  router.get('/research-execution/quality-gates', kfGet('/v1/research-execution/quality-gates'));
+  router.post('/research-execution/build', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/research-execution/build', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'IREP build failed', detail: error.message });
+    }
+  });
+  router.post('/research-execution/plan', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/research-execution/plan', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'IREP plan failed', detail: error.message });
+    }
+  });
+  router.post('/research-execution/enrich', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/research-execution/enrich', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'IREP enrich failed', detail: error.message });
+    }
+  });
+  router.post('/research-execution/export', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/research-execution/export', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'IREP export failed', detail: error.message });
+    }
+  });
+  router.post('/research-execution/diagnostics', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/research-execution/diagnostics', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'IREP diagnostics failed', detail: error.message });
+    }
+  });
+
+  // RQ2 Institutional Hypothesis Generation Engine — Sprint 1 (AFTER IREP; BEFORE analysts)
+  router.get('/hypothesis-engine/health', kfGet('/v1/hypothesis-engine/health'));
+  router.get('/hypothesis-engine/dashboard', kfGet('/v1/hypothesis-engine/dashboard'));
+  router.get('/hypothesis-engine/constitution', kfGet('/v1/hypothesis-engine/constitution'));
+  router.get('/hypothesis-engine/quality-gates', kfGet('/v1/hypothesis-engine/quality-gates'));
+  router.post('/hypothesis-engine/plan', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/hypothesis-engine/plan', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'IHG plan failed', detail: error.message });
+    }
+  });
+  router.post('/hypothesis-engine/diagnostics', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/hypothesis-engine/diagnostics', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'IHG diagnostics failed', detail: error.message });
+    }
+  });
+
+  // RQ2 Institutional Research Question Engine — Sprint 2 (AFTER IHG; BEFORE evidence)
+  router.get('/research-questions/health', kfGet('/v1/research-questions/health'));
+  router.get('/research-questions/dashboard', kfGet('/v1/research-questions/dashboard'));
+  router.get('/research-questions/constitution', kfGet('/v1/research-questions/constitution'));
+  router.get('/research-questions/quality-gates', kfGet('/v1/research-questions/quality-gates'));
+  router.post('/research-questions/plan', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/research-questions/plan', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'IRQ plan failed', detail: error.message });
+    }
+  });
+  router.post('/research-questions/diagnostics', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/research-questions/diagnostics', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'IRQ diagnostics failed', detail: error.message });
+    }
+  });
+
+  // RQ2 Institutional Hypothesis Testing Engine — Sprint 4 (AFTER evidence planning; BEFORE analysts)
+  router.get('/hypothesis-testing/health', kfGet('/v1/hypothesis-testing/health'));
+  router.get('/hypothesis-testing/dashboard', kfGet('/v1/hypothesis-testing/dashboard'));
+  router.get('/hypothesis-testing/constitution', kfGet('/v1/hypothesis-testing/constitution'));
+  router.get('/hypothesis-testing/quality-gates', kfGet('/v1/hypothesis-testing/quality-gates'));
+  router.post('/hypothesis-testing/plan', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/hypothesis-testing/plan', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'IHTE plan failed', detail: error.message });
+    }
+  });
+  router.post('/hypothesis-testing/diagnostics', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/hypothesis-testing/diagnostics', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'IHTE diagnostics failed', detail: error.message });
+    }
+  });
+
+  // RQ2 Bayesian Belief & Confidence Engine — Sprint 6 (AFTER falsification; BEFORE opinions)
+  router.get('/belief-engine/health', kfGet('/v1/belief-engine/health'));
+  router.get('/belief-engine/dashboard', kfGet('/v1/belief-engine/dashboard'));
+  router.get('/belief-engine/constitution', kfGet('/v1/belief-engine/constitution'));
+  router.get('/belief-engine/quality-gates', kfGet('/v1/belief-engine/quality-gates'));
+  router.post('/belief-engine/plan', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/belief-engine/plan', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'BBCE plan failed', detail: error.message });
+    }
+  });
+  router.post('/belief-engine/diagnostics', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/belief-engine/diagnostics', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'BBCE diagnostics failed', detail: error.message });
+    }
+  });
+
+  // RQ2 Institutional Thesis Construction Engine — Sprint 7 (AFTER BBCE; BEFORE Committee)
+  router.get('/thesis-engine/health', kfGet('/v1/thesis-engine/health'));
+  router.get('/thesis-engine/dashboard', kfGet('/v1/thesis-engine/dashboard'));
+  router.get('/thesis-engine/constitution', kfGet('/v1/thesis-engine/constitution'));
+  router.get('/thesis-engine/quality-gates', kfGet('/v1/thesis-engine/quality-gates'));
+  router.post('/thesis-engine/plan', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/thesis-engine/plan', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'ITCE plan failed', detail: error.message });
+    }
+  });
+  router.post('/thesis-engine/diagnostics', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/thesis-engine/diagnostics', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'ITCE diagnostics failed', detail: error.message });
+    }
+  });
+
+  // RQ2 Institutional Debate Engine — Sprint 8 (structured debate BEFORE Committee)
+  router.get('/debate-engine/health', kfGet('/v1/debate-engine/health'));
+  router.get('/debate-engine/dashboard', kfGet('/v1/debate-engine/dashboard'));
+  router.get('/debate-engine/constitution', kfGet('/v1/debate-engine/constitution'));
+  router.get('/debate-engine/quality-gates', kfGet('/v1/debate-engine/quality-gates'));
+  router.post('/debate-engine/plan', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/debate-engine/plan', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'IDEB plan failed', detail: error.message });
+    }
+  });
+  router.post('/debate-engine/diagnostics', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/debate-engine/diagnostics', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'IDEB diagnostics failed', detail: error.message });
+    }
+  });
+
+  // RQ2 Institutional Decision Readiness Engine — Sprint 9 (final pre-Committee gate)
+  router.get('/decision-readiness/health', kfGet('/v1/decision-readiness/health'));
+  router.get('/decision-readiness/dashboard', kfGet('/v1/decision-readiness/dashboard'));
+  router.get('/decision-readiness/constitution', kfGet('/v1/decision-readiness/constitution'));
+  router.get('/decision-readiness/quality-gates', kfGet('/v1/decision-readiness/quality-gates'));
+  router.post('/decision-readiness/plan', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/decision-readiness/plan', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'IDRE plan failed', detail: error.message });
+    }
+  });
+  router.post('/decision-readiness/diagnostics', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/decision-readiness/diagnostics', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'IDRE diagnostics failed', detail: error.message });
+    }
+  });
+
+  // RQ2 Institutional Reasoning Audit Engine — Sprint 10 (final certification)
+  router.get('/reasoning-audit/health', kfGet('/v1/reasoning-audit/health'));
+  router.get('/reasoning-audit/dashboard', kfGet('/v1/reasoning-audit/dashboard'));
+  router.get('/reasoning-audit/constitution', kfGet('/v1/reasoning-audit/constitution'));
+  router.get('/reasoning-audit/quality-gates', kfGet('/v1/reasoning-audit/quality-gates'));
+  router.post('/reasoning-audit/plan', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/reasoning-audit/plan', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'IRAE plan failed', detail: error.message });
+    }
+  });
+  router.post('/reasoning-audit/diagnostics', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/reasoning-audit/diagnostics', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'IRAE diagnostics failed', detail: error.message });
+    }
+  });
+
   return router;
 }
