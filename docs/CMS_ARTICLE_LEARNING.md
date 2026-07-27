@@ -4,13 +4,14 @@ Soft-wire path so AGI **reads uploaded CMS articles** into KIP → KF/KC and **r
 
 Architecture **v1.0.1 LOCKED** — additive only.
 
-## 1. Run the Supabase migration
+## 1. Run the Supabase migrations
 
 Open the project SQL editor and run:
 
-`supabase/migrations/20260726120000_cms_article_learning_dates.sql`
+1. `supabase/migrations/20260726120000_cms_article_learning_dates.sql`
+2. `supabase/migrations/20260727180000_cms_intelligence_ingest_jobs.sql` (async Send-to-Intelligence job queue)
 
-This adds on `articles`:
+Learning migration adds on `articles`:
 
 - `last_learned_at`
 - `learn_status`
@@ -18,6 +19,17 @@ This adds on `articles`:
 - `learn_count`
 
 And creates `cms_article_learn_events` with `learning_date` for the daily calendar.
+
+The ingest-jobs migration creates `cms_intelligence_ingest_jobs` so CMS never waits on Render wake inside the browser request.
+
+## 1b. Send to Intelligence (async job queue)
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| `POST` | `/api/intelligence/kip/ingest/agi` | **Enqueue only** → always `202` + `job_id` |
+| `GET` | `/api/intelligence/cms/ingest-jobs/:jobId` | Poll status: `pending` → `waking` → `processing` → `completed`/`failed` |
+
+Flow: CMS saves article → POST enqueue (idempotent on `article_id` + content hash) → Node worker wakes engine + retries with exponential backoff → browser polls short GETs. Duplicate clicks return the same active job.
 
 ## 2. API (Render Node)
 

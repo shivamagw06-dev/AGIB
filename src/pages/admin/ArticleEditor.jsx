@@ -370,39 +370,50 @@ export default function ArticleEditor() {
               tags: tagsInput.split(',').map((t) => t.trim()).filter(Boolean),
               status: publishStatus,
               destination: publishStatus === 'published' ? 'website' : 'intelligence',
-              onAttempt: ({ phase, attempt, maxAttempts }) => {
-                if (phase === 'warm') {
+              onAttempt: ({ phase, label, attempt, maxAttempts }) => {
+                if (label) {
+                  setError(label);
+                } else if (phase === 'enqueue' || phase === 'queued') {
+                  setError('Creating intelligence ingest job…');
+                } else if (phase === 'waking') {
                   setError('Waking intelligence engine…');
-                } else if (attempt > 1) {
-                  setError(`Retrying intelligence ingest (${attempt}/${maxAttempts})…`);
+                } else if (phase === 'processing') {
+                  setError('Ingesting into institutional memory…');
+                } else if (phase === 'retry') {
+                  setError(`Worker retrying ingest (${attempt}/${maxAttempts})…`);
                 }
               },
             });
 
             if (ingestResult?.id || ingestResult?.document_id) {
-              const docId = ingestResult.id || ingestResult.document_id;
-              const learnedAt = new Date().toISOString();
-              try {
-                await supabase
-                  .from('articles')
-                  .update({
-                    intelligence_document_id: docId,
-                    intelligence_ingested_at: learnedAt,
-                    last_learned_at: learnedAt,
-                    learn_status: 'learned',
-                    last_learn_error: null,
-                  })
-                  .eq('id', data.id);
-              } catch {
-                /* optional columns may be missing until migration */
+              const docId = ingestResult.document_id || ingestResult.id;
+              // Avoid treating job_id as document id
+              if (docId && !String(docId).startsWith('job_')) {
+                const learnedAt = new Date().toISOString();
+                try {
+                  await supabase
+                    .from('articles')
+                    .update({
+                      intelligence_document_id: docId,
+                      intelligence_ingested_at: learnedAt,
+                      last_learned_at: learnedAt,
+                      learn_status: 'learned',
+                      last_learn_error: null,
+                    })
+                    .eq('id', data.id);
+                } catch {
+                  /* optional columns may be missing until migration */
+                }
               }
-            } else if (ingestResult?.queued || ingestResult?.pending) {
+            } else if (ingestResult?.queued || ingestResult?.pending || ingestResult?.poll_timeout) {
               try {
                 await supabase
                   .from('articles')
                   .update({
                     learn_status: 'pending',
-                    last_learn_error: 'Queued while intelligence engine cold-starts',
+                    last_learn_error: ingestResult?.job_id
+                      ? `Queued job ${ingestResult.job_id}`
+                      : 'Queued for background ingest',
                   })
                   .eq('id', data.id);
               } catch {
@@ -443,15 +454,19 @@ export default function ArticleEditor() {
         } else if (!silent && publishStatus === 'intelligence') {
           if (ingestError) {
             alert(
-              `Saved for Intelligence, but engine ingest failed (${ingestError}). ` +
-                `Your draft is safe. Wait ~60–90s for Render to wake, then click Send to Intelligence again — or leave it; the daily learner will retry.`
+              `Saved for Intelligence, but ingest job failed (${ingestError}). ` +
+                `Your draft is safe. The worker will not ask you to click again for the same version — edit and re-send only if you change the article.`
             );
-          } else if (ingestResult?.queued || ingestResult?.pending) {
+          } else if (ingestResult?.poll_timeout || (ingestResult?.pending && !ingestResult?.document_id)) {
             alert(
-              'Saved for Intelligence. The engine was cold-starting, so ingest is finishing in the background — no need to click Send again.'
+              'Saved for Intelligence. Job is still running in the background (engine may be waking). No need to click Send again.'
             );
-          } else {
+          } else if (ingestResult?.document_id) {
             alert('Sent to AGI Intelligence only. This will not appear on the public website.');
+          } else {
+            alert(
+              'Saved for Intelligence and queued. Ingest continues in the background — no need to click Send again.'
+            );
           }
         } else if (!silent && ingest && publishStatus === 'published' && stayInEditor) {
           const notifyNote =
@@ -460,9 +475,9 @@ export default function ArticleEditor() {
               : '';
           const ingestNote = ingestError
             ? ` Intelligence ingest failed (${ingestError}).`
-            : ingestResult?.queued || ingestResult?.pending
-              ? ' Intelligence ingest queued (engine waking).'
-              : ' Ingested into AGI Intelligence.';
+            : ingestResult?.document_id
+              ? ' Ingested into AGI Intelligence.'
+              : ' Intelligence ingest queued (background worker).';
           alert(`Published to website.${ingestNote}${notifyNote}`);
         }
 

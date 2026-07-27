@@ -117,7 +117,7 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function isTransientIngestError(err, status) {
+function isTransientTransportError(err, status) {
   if ([502, 503, 504].includes(Number(status))) return true;
   const msg = String(err?.message || err || '');
   const name = String(err?.name || '');
@@ -125,23 +125,17 @@ function isTransientIngestError(err, status) {
     name === 'TypeError' ||
     name === 'AbortError' ||
     name === 'TimeoutError' ||
-    /failed to fetch|fetch failed|networkerror|network request failed|load failed|timed out|timeout|aborted|502|503|504|unavailable|econnreset|enotfound|cold-start/i.test(
+    /failed to fetch|fetch failed|networkerror|network request failed|load failed|timed out|timeout|aborted|502|503|504|unavailable|econnreset|enotfound/i.test(
       msg
     )
   );
 }
 
-/** Soft-wake Node + IE before a write so Render cold starts fail less often. */
-async function warmIntelligence(base) {
+async function warmNode(base) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 20_000);
   try {
     await fetch(`${base}/api/health`, {
-      method: 'GET',
-      credentials: 'include',
-      signal: ctrl.signal,
-    }).catch(() => null);
-    await fetch(`${base}/api/intelligence/health`, {
       method: 'GET',
       credentials: 'include',
       signal: ctrl.signal,
@@ -151,12 +145,12 @@ async function warmIntelligence(base) {
   }
 }
 
-async function postIngest(base, payload, { timeoutMs = 45_000 } = {}) {
-  const resp = await fetch(`${base}/api/intelligence/kip/ingest/agi`, {
+async function postJson(url, body, { timeoutMs = 30_000 } = {}) {
+  const resp = await fetch(url, {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(body),
     signal: AbortSignal.timeout(timeoutMs),
   });
   const text = await resp.text();
@@ -169,10 +163,37 @@ async function postIngest(base, payload, { timeoutMs = 45_000 } = {}) {
   return { resp, data };
 }
 
+async function getJson(url, { timeoutMs = 20_000 } = {}) {
+  const resp = await fetch(url, {
+    method: 'GET',
+    credentials: 'include',
+    headers: { Accept: 'application/json' },
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+  const text = await resp.text();
+  let data = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = { raw: text };
+  }
+  return { resp, data };
+}
+
+function phaseLabel(job) {
+  const status = job?.status;
+  const phase = job?.phase;
+  if (status === 'completed') return 'completed';
+  if (status === 'failed') return 'failed';
+  if (status === 'waking' || phase === 'waking_engine') return 'waking';
+  if (status === 'processing' || phase === 'ingesting') return 'processing';
+  if (phase === 'retry_scheduled') return 'retry';
+  return 'queued';
+}
+
 /**
- * Push CMS research into the intelligence engine (KIP).
- * Treats 202 queued as success — Node finishes ingest while IE cold-starts.
- * Retries only on hard transport / gateway failures.
+ * Push CMS research into intelligence via async job queue.
+ * POST returns 202 + job_id immediately; client polls until completed/failed.
  */
 export async function ingestArticleToIntelligence({
   title,
@@ -184,6 +205,8 @@ export async function ingestArticleToIntelligence({
   status,
   destination = 'intelligence',
   onAttempt,
+  pollMs = 2_000,
+  maxWaitMs = 180_000,
 }) {
   const content = stripHtml(contentHtml);
   if (!title?.trim() || content.length < 40) {
@@ -210,42 +233,117 @@ export async function ingestArticleToIntelligence({
     author: 'AGI Research Desk',
   };
 
-  if (typeof onAttempt === 'function') onAttempt({ phase: 'warm', attempt: 0, maxAttempts: 4 });
-  await warmIntelligence(base);
+  if (typeof onAttempt === 'function') {
+    onAttempt({ phase: 'enqueue', attempt: 0, maxAttempts: 1, label: 'Creating ingest job…' });
+  }
+  await warmNode(base);
 
-  const maxAttempts = 4;
-  const backoffs = [0, 2500, 6000, 12000];
+  let enqueueData = null;
   let lastError = null;
-
-  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-    if (backoffs[attempt - 1]) await sleep(backoffs[attempt - 1]);
-    if (typeof onAttempt === 'function') {
-      onAttempt({ phase: 'ingest', attempt, maxAttempts });
-    }
+  for (let attempt = 1; attempt <= 4; attempt += 1) {
     try {
-      const { resp, data } = await postIngest(base, payload);
-      // Immediate ingest or accepted background queue — both are success for CMS.
-      if (resp.ok || resp.status === 202 || data?.queued || data?.pending) {
-        return {
-          ...(data && typeof data === 'object' ? data : {}),
-          queued: Boolean(data?.queued || data?.pending || resp.status === 202),
-          pending: Boolean(data?.pending || data?.queued || resp.status === 202),
-        };
+      const { resp, data } = await postJson(`${base}/api/intelligence/kip/ingest/agi`, payload);
+      if (resp.status === 202 || resp.ok || data?.job_id || data?.id) {
+        enqueueData = data;
+        break;
       }
-
       const detail =
-        data?.detail || data?.error || data?.hint || `Intelligence ingest failed (${resp.status})`;
+        data?.detail || data?.error || data?.hint || `Failed to queue ingest (${resp.status})`;
       lastError = new Error(String(detail));
-      if (!isTransientIngestError(lastError, resp.status) || attempt === maxAttempts) {
-        throw lastError;
-      }
-      await warmIntelligence(base);
+      if (!isTransientTransportError(lastError, resp.status) || attempt === 4) throw lastError;
+      await warmNode(base);
+      await sleep(1500 * attempt);
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
-      if (!isTransientIngestError(lastError) || attempt === maxAttempts) throw lastError;
-      await warmIntelligence(base);
+      if (!isTransientTransportError(lastError) || attempt === 4) throw lastError;
+      await warmNode(base);
+      await sleep(1500 * attempt);
     }
   }
 
-  throw lastError || new Error('Intelligence ingest failed.');
+  if (!enqueueData) throw lastError || new Error('Failed to queue intelligence ingest.');
+
+  const jobId = enqueueData.job_id || enqueueData.id;
+  if (!jobId) {
+    // Legacy/partial response — treat queued as soft success.
+    return {
+      ...enqueueData,
+      queued: true,
+      pending: true,
+    };
+  }
+
+  if (typeof onAttempt === 'function') {
+    onAttempt({
+      phase: phaseLabel(enqueueData),
+      attempt: enqueueData.attempt || 1,
+      maxAttempts: enqueueData.max_attempts || 6,
+      jobId,
+      label: enqueueData.already_queued
+        ? 'Already queued — waiting for worker…'
+        : 'Job queued — worker starting…',
+    });
+  }
+
+  const started = Date.now();
+  let lastJob = enqueueData;
+
+  while (Date.now() - started < maxWaitMs) {
+    await sleep(pollMs);
+    try {
+      const { resp, data } = await getJson(
+        `${base}/api/intelligence/cms/ingest-jobs/${encodeURIComponent(jobId)}`
+      );
+      if (!resp.ok) {
+        if (isTransientTransportError(null, resp.status)) continue;
+        throw new Error(data?.error || `Job poll failed (${resp.status})`);
+      }
+      lastJob = data;
+      const labelMap = {
+        queued: 'Queued…',
+        waking: 'Waking intelligence engine…',
+        processing: 'Ingesting into institutional memory…',
+        retry: `Retry scheduled (attempt ${data.attempt}/${data.max_attempts})…`,
+        completed: 'Completed',
+        failed: 'Failed',
+      };
+      const phase = phaseLabel(data);
+      if (typeof onAttempt === 'function') {
+        onAttempt({
+          phase,
+          attempt: data.attempt || 0,
+          maxAttempts: data.max_attempts || 6,
+          jobId,
+          label: labelMap[phase] || data.phase || phase,
+          job: data,
+        });
+      }
+      if (data.status === 'completed') {
+        return {
+          ...data,
+          document_id: data.document_id,
+          queued: false,
+          pending: false,
+          completed: true,
+        };
+      }
+      if (data.status === 'failed') {
+        throw new Error(data.error || 'Intelligence ingest job failed.');
+      }
+    } catch (err) {
+      if (isTransientTransportError(err)) continue;
+      throw err instanceof Error ? err : new Error(String(err));
+    }
+  }
+
+  // Timed out waiting — job may still complete in background.
+  return {
+    ...lastJob,
+    job_id: jobId,
+    queued: true,
+    pending: true,
+    poll_timeout: true,
+    message:
+      'Ingest is still running in the background. Your draft is safe — no need to click Send again.',
+  };
 }
