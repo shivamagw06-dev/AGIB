@@ -19,7 +19,10 @@ class Settings(BaseSettings):
     agib_api_base_url: str = "http://127.0.0.1:3001"
     agib_service_token: str = ""
 
-    # Optional OpenAI for Phase 2 CIO synthesis (stub works without it)
+    # Optional LLMs for Phase 2 CIO synthesis (stub works without them)
+    # Prefer Gemini when set; OpenAI remains a soft fallback.
+    gemini_api_key: str = ""
+    gemini_model: str = "gemini-2.0-flash"
     openai_api_key: str = ""
     openai_model: str = "gpt-4.1-mini"
 

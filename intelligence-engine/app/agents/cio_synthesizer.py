@@ -138,6 +138,46 @@ class ChiefInvestmentOfficer(BaseAgent):
         from app.core.config import get_settings
 
         settings = get_settings()
+        system = (
+            "You are AGI's Chief Investment Officer. Synthesize a 180-260 word institutional thesis. "
+            "Cite reasoning with because-what. Never invent data. Mark scenarios as scenarios. "
+            "No buy/sell recommendations."
+        )
+        user = str(
+            {
+                "draft": thesis,
+                "findings": findings,
+                "debate": debate.model_dump() if debate else None,
+                "confidence": confidence.model_dump(),
+            }
+        )
+
+        gemini_key = (settings.gemini_api_key or "").strip()
+        if gemini_key:
+            try:
+                import httpx
+
+                model = (settings.gemini_model or "gemini-2.0-flash").strip()
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+                async with httpx.AsyncClient(timeout=30.0) as client:
+                    response = await client.post(
+                        url,
+                        params={"key": gemini_key},
+                        json={
+                            "systemInstruction": {"parts": [{"text": system}]},
+                            "contents": [{"role": "user", "parts": [{"text": user}]}],
+                            "generationConfig": {"temperature": 0.2},
+                        },
+                    )
+                if response.is_success:
+                    payload = response.json()
+                    parts = (((payload.get("candidates") or [{}])[0].get("content") or {}).get("parts") or [])
+                    text = "".join(str(part.get("text") or "") for part in parts).strip()
+                    if text:
+                        return text
+            except Exception:
+                pass
+
         if not settings.openai_api_key:
             return None
         try:
@@ -148,25 +188,8 @@ class ChiefInvestmentOfficer(BaseAgent):
                 model=settings.openai_model,
                 temperature=0.2,
                 messages=[
-                    {
-                        "role": "system",
-                        "content": (
-                            "You are AGI's Chief Investment Officer. Synthesize a 180-260 word institutional thesis. "
-                            "Cite reasoning with because-what. Never invent data. Mark scenarios as scenarios. "
-                            "No buy/sell recommendations."
-                        ),
-                    },
-                    {
-                        "role": "user",
-                        "content": str(
-                            {
-                                "draft": thesis,
-                                "findings": findings,
-                                "debate": debate.model_dump() if debate else None,
-                                "confidence": confidence.model_dump(),
-                            }
-                        ),
-                    },
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user},
                 ],
             )
             text = response.choices[0].message.content
