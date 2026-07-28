@@ -286,6 +286,26 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("ask_pipeline")
     except Exception:
         out["ask_pipeline"] = None
+    # AGIB v2.2 Institutional Research Office — soft research desk board.
+    try:
+        from research_office.production import dashboard as ro_dash
+        from research_office.production import health as ro_health
+
+        rd = ro_dash()
+        rh = ro_health()
+        out["research_office"] = {
+            "status": (rh.get("office_status") or {}).get("state"),
+            "ready_for_users": rd.get("ready_for_users"),
+            "morning_publications": len(rd.get("todays_publications") or []),
+            "research_queue_follow_ups": len((rd.get("outstanding_reviews") or [])),
+            "outstanding_research": len(rd.get("outstanding_reviews") or []),
+            "missing_coverage": len(rd.get("missing_evidence") or []),
+            "publication_health": rd.get("validation"),
+            "north_star": rd.get("north_star"),
+        }
+        out["sources"].append("research_office")
+    except Exception:
+        out["research_office"] = None
     try:
         from knowledge_factory.production import historical_depth_coverage
 

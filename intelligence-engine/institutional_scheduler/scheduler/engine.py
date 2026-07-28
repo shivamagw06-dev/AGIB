@@ -220,7 +220,7 @@ class InstitutionalScheduler:
             current_workflow=None,
             system_ready=bool(ready_payload.get("system_ready")),
         )
-        return {
+        result = {
             "status": "ok",
             "run_id": run_id,
             "state": state,
@@ -235,6 +235,25 @@ class InstitutionalScheduler:
             "version": SCHEDULER_VERSION,
             "fabricated": False,
         }
+        # Soft-wire: Institutional Research Office after READY (knowledge-only desk).
+        # Never breaks the scheduler if research_office is unavailable.
+        if result.get("system_ready"):
+            try:
+                from research_office.production import after_scheduler_ready
+
+                result["research_office"] = after_scheduler_ready(result)
+            except Exception as exc:
+                result["research_office"] = {
+                    "status": "error",
+                    "error": str(exc)[:200],
+                    "soft_wire": True,
+                }
+        else:
+            result["research_office"] = {
+                "status": "skipped",
+                "reason": "scheduler_not_ready",
+            }
+        return result
 
     def retry_workflow(
         self,
