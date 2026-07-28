@@ -181,19 +181,19 @@ flowchart TB
 
 ---
 
-## 10. Production readiness score: **72 / 100**
+## 10. Production readiness score: **76 / 100**
 
 | Dimension | Score | Note |
 |-----------|-------|------|
 | Collector isolation | 18/20 | FAA off Ask; bg collector live |
-| Timeout discipline | 14/20 | Soft deps capped; RQ packs still long |
+| Timeout discipline | 15/20 | Soft deps capped; RQ packs still long |
 | Retry/circuit policy | 16/20 | Shared resilience + Yahoo/FAA/Agib |
 | Parallel retrieval | 12/20 | LEO parallel; rest serial |
-| Graceful degradation | 14/20 | SearchView always; UI still generic |
+| Graceful degradation | 16/20 | SearchView always + `ASK_SLIM` |
 | Observability | 8/10 | `/v1/resilience/providers` |
-| Deploy topology | 5/10 | Free Node + starter; upgrade **not** proven necessary |
+| Deploy topology | 6/10 | Live Ask was OOM-killing Starter; slim path required |
 
-**Do not upgrade Render yet** — profile after this ship. If Ask P95 stays high with collectors off and circuits closed, measure RSS/CPU during Ask vs FAA cycle before changing plan.
+**Render upgrade:** Live probes showed health 200 → Ask → HTML 502 → engine restart — classic **memory kill**, not CPU. Prefer `ASK_SLIM=true` first. Upgrade Starter→Standard only if slim Ask still OOMs under concurrent load (measure RSS during Ask).
 
 ---
 
