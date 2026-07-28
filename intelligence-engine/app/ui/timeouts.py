@@ -16,6 +16,19 @@ T = TypeVar("T")
 _POOL = ThreadPoolExecutor(max_workers=4, thread_name_prefix="ask-ext")
 
 
+def ask_slim_enabled() -> bool:
+    """Starter-plan safe Ask path: skip live LEO/ECP/AIL fan-out that OOMs Render.
+
+    Default **on**. Set ``ASK_SLIM=0`` only when profiling proves headroom.
+    """
+    return str(os.environ.get("ASK_SLIM", "1")).strip().lower() not in {
+        "0",
+        "false",
+        "no",
+        "off",
+    }
+
+
 def ask_ext_timeout_sec(default: float = 5.0) -> float:
     raw = (os.environ.get("ASK_EXT_TIMEOUT_SEC") or "").strip()
     if not raw:

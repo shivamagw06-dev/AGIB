@@ -115,9 +115,9 @@ services:
       # Keep false on free tier — Chromium must come from buildCommand.
       - key: FAA_PLAYWRIGHT_AUTO_INSTALL
         value: "false"
-      # Ask desk: keep Investment Office soft-wire on, but do not grow in-memory stores.
+      # Ask desk: offices soft-wire off on Starter (memory); persist always off.
       - key: AGI_V4_OFFICES_IN_ASK
-        value: "1"
+        value: "0"
       - key: AGI_V4_OFFICE_PERSIST
         value: "0"
       # Sprint A — collectors off the Ask path
@@ -129,6 +129,10 @@ services:
         value: "6"
       - key: ASK_EXT_TIMEOUT_SEC
         value: "5"
+      # Starter-safe Ask: skip live LEO/ECP/CAE/AIL fan-out that OOMs under load.
+      # Set ASK_SLIM=0 only after memory profiling proves headroom.
+      - key: ASK_SLIM
+        value: "true"
       - key: EXA_API_KEY
         sync: false
       - key: FIRECRAWL_API_KEY

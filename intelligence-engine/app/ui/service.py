@@ -66,7 +66,7 @@ from app.ui.sanitize import (
     scrub,
     scrub_text,
 )
-from app.ui.timeouts import call_with_timeout
+from app.ui.timeouts import ask_slim_enabled, call_with_timeout
 
 
 def _unwrap_soft_slice(name: str, data: Any) -> dict[str, Any]:
@@ -1158,39 +1158,45 @@ class UiService:
         used_cae = False
 
         # Degradation ledger — optional collectors/deps never block a briefing.
+        slim = ask_slim_enabled()
         degradation: dict[str, Any] = {
             "faa": "background_only",
-            "market_data": "live",
-            "news": "live",
+            "market_data": "cached" if slim else "live",
+            "news": "cached" if slim else "live",
             "reasoning": "pending",
+            "ask_slim": slim,
         }
 
         # LEO v1.0 — gather / verify / package live evidence BEFORE Academy + SIF + IRP
-        # Hard timeout: Ask must not wait on unbounded live fan-out.
-        try:
-            from leo.production import package_for_query as leo_package
-
-            live_evidence, leo_to = call_with_timeout(
-                leo_package,
-                q,
-                ticker=detected_ticker,
-                engine="ask_agi",
-                eve=self.eve,
-                kip=self.kip,
-                aoi=self.aoi,
-                mee=self.mee,
-                timeout_sec=5.0,
-                default={},
-            )
-            live_evidence = live_evidence or {}
-            if leo_to:
-                degradation["live_evidence"] = "timeout_cached"
-                degradation["market_data"] = "cached"
-            if live_evidence.get("ticker") and not detected_ticker:
-                detected_ticker = str(live_evidence["ticker"]).upper()
-        except Exception:
+        # ASK_SLIM skips live fan-out (Render Starter OOM under parallel Yahoo/Agib).
+        if slim:
             live_evidence = {}
-            degradation["live_evidence"] = "unavailable"
+            degradation["live_evidence"] = "skipped_slim"
+        else:
+            try:
+                from leo.production import package_for_query as leo_package
+
+                live_evidence, leo_to = call_with_timeout(
+                    leo_package,
+                    q,
+                    ticker=detected_ticker,
+                    engine="ask_agi",
+                    eve=self.eve,
+                    kip=self.kip,
+                    aoi=self.aoi,
+                    mee=self.mee,
+                    timeout_sec=5.0,
+                    default={},
+                )
+                live_evidence = live_evidence or {}
+                if leo_to:
+                    degradation["live_evidence"] = "timeout_cached"
+                    degradation["market_data"] = "cached"
+                if live_evidence.get("ticker") and not detected_ticker:
+                    detected_ticker = str(live_evidence["ticker"]).upper()
+            except Exception:
+                live_evidence = {}
+                degradation["live_evidence"] = "unavailable"
 
         # FAPI + SIF — sector framework then Finance Academy (consume LEO evidence_supplied)
         leo_supplied = (live_evidence.get("sif_evidence_supplied") or {}) if isinstance(live_evidence, dict) else {}
@@ -1302,12 +1308,17 @@ class UiService:
 
         # ECP V1 — complete missing evidence BEFORE IRP / recommendation gate evaluation
         # Hard timeout: ECP must not stack unbounded MarketData after LEO.
+        if slim:
+            evidence_completion = {}
+            degradation["evidence_completion"] = "skipped_slim"
         try:
             from app.core.config import get_settings
             from ecp.production import soft_complete as ecp_soft_complete
 
-            if bool(getattr(get_settings(), "ecp", True)) and bool(
-                getattr(get_settings(), "ecp_before_irp", True)
+            if (
+                not slim
+                and bool(getattr(get_settings(), "ecp", True))
+                and bool(getattr(get_settings(), "ecp_before_irp", True))
             ):
                 evidence_completion, ecp_to = call_with_timeout(
                     ecp_soft_complete,
@@ -1355,7 +1366,9 @@ class UiService:
             evidence_completion = {}
             degradation["evidence_completion"] = "unavailable"
 
-        if self.cae and q:
+        if slim:
+            degradation["context_assembly"] = "skipped_slim"
+        if self.cae and q and not slim:
             try:
                 assembled = dump(soft(self.cae.assemble_for_ask_agi, q, ticker=detected_ticker)) or {}
                 if isinstance(assembled, dict) and assembled.get("soft_fields"):
@@ -1541,7 +1554,7 @@ class UiService:
                     company_monitor_package(
                         q,
                         ticker=detected_ticker,
-                        run_monitor=True,
+                        run_monitor=not slim,
                         layers={
                             "cid": company_dossier if isinstance(company_dossier, dict) else {},
                             "leo_pkg": live_evidence if isinstance(live_evidence, dict) else {},
@@ -2204,7 +2217,10 @@ class UiService:
 
         # AGIB Intelligence Layer V2 — living dossier/thesis/forecast (soft; no FAA/FRE/CAE redesign)
         try:
-            if self.ail is not None and hasattr(self.ail, "package_for_ask_agi"):
+            if slim:
+                intelligence_layer = {}
+                degradation["intelligence_layer"] = "skipped_slim"
+            elif self.ail is not None and hasattr(self.ail, "package_for_ask_agi"):
                 intelligence_layer, ail_to = call_with_timeout(
                     self.ail.package_for_ask_agi,
                     q,
@@ -2273,7 +2289,8 @@ class UiService:
             reco_gate_pre = (sector_intelligence.get("recommendation_gate") or {})
             leo_gate_pre = (live_evidence.get("quality_gate") or {}) if isinstance(live_evidence, dict) else {}
             if (
-                bool(getattr(get_settings(), "ecp", True))
+                not slim
+                and bool(getattr(get_settings(), "ecp", True))
                 and bool(getattr(get_settings(), "ecp_before_gate", True))
                 and (reco_gate_pre.get("blocked") or leo_gate_pre.get("blocked"))
             ):
