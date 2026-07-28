@@ -23,6 +23,7 @@ CIO frozen exam (post-IMAI): **8.12 / 10**
 | **3.2 RCI** ✅ | Root Cause Intelligence | Top-10 clusters + recommended PRs |
 | **3.3 FO** ✅ | Framework Optimisation + Patch Intelligence | Framework accuracy ≥96% (target 98%) |
 | **3.4 IO** ✅ | Intent Optimisation | Intent accuracy ≥99% (**100.0%**; IEL **98.4%**) |
+| **Release Cert v3.5** ⛔ | Baseline freeze (measure-only) | **NOT CERTIFIED** — future_leakage / replay / intent 99.8% |
 | 3.5 | Evidence Weighting | Explicit source hierarchy in answers |
 | 3.6 | Hypothesis Engine | Multi-hypothesis before conclusion |
 | 3.7 | Contradiction Resolution | Reconcile conflicting signals |
@@ -45,7 +46,9 @@ BSE → RBI → IR Parser → 7-Day Certification
 | Replay correctness | 100% | remaining `future_leakage` RCI cluster |
 | Live collector certification | 100% | pending production track |
 
-**Pause recommendation after 3.4:** re-run IEL 1,025 + frozen CIO-25 before new features. Next depth work is evidence weighting / hypothesis / contradiction — not more routing.
+**Release certification (2026-07-28, commit `581f1363`):** **NOT CERTIFIED**.  
+IEL full 1,025 pass **98.44%**, framework **97.76%**, intent **99.8%**, CIO-25 pass **100%**, but **future_leakage=15** and historical replay **73.21%** block freeze.  
+See `docs/AGIB_RELEASE_CERTIFICATION_v3_5.md`. Do **not** start depth sprints as if the baseline were frozen — clear integrity gates first.
 
 ## Tool roles (when purchased)
 

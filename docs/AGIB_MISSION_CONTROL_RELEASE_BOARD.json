@@ -1,0 +1,35 @@
+{
+  "board": "Mission Control \u2014 Release Board",
+  "programme": "AGIB v3.5",
+  "updated_at": "2026-07-28",
+  "commit": "581f1363",
+  "engineering_baseline_frozen": false,
+  "banner": "RELEASE CERTIFICATION COMPLETE \u2014 NOT CERTIFIED (baseline NOT frozen)",
+  "board_verdict": "NOT CERTIFIED",
+  "failing_gates_priority": [
+    "future_leakage_0",
+    "replay_100",
+    "intent_accuracy_100"
+  ],
+  "scorecard": {
+    "iel_pass_pct": 98.44,
+    "intent_accuracy_pct": 99.8,
+    "framework_accuracy_pct": 97.76,
+    "cio25_pass_pct": 100.0,
+    "future_leakage_count": 15,
+    "hallucinated_evidence": 0
+  },
+  "next_required_before_freeze": [
+    "Clear future_leakage on historical_replay (15 questions)",
+    "Replay accuracy 100% on historical suite",
+    "Intent accuracy 100% on full 1,025 (fix CIO-Q11, CIO-Q16)"
+  ],
+  "artifacts": [
+    "docs/AGIB_RELEASE_CERTIFICATION_v3_5.md",
+    "docs/AGIB_IEL_FROZEN_BASELINE.json",
+    "docs/AGIB_CIO_FROZEN_BASELINE.json",
+    "docs/AGIB_RCI_FROZEN_BASELINE.json",
+    "docs/AGIB_RELEASE_SCORECARD.md",
+    "docs/AGIB_ENGINEERING_BASELINE.md"
+  ]
+}
