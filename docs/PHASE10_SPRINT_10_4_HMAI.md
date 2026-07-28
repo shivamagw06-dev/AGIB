@@ -110,4 +110,4 @@ IFI soft-consumes `forecast_tip()` with `providers_queried: []`. Sprint 10.5 Mac
 | ✅ 10.2 | HMIP | Historical memory |
 | ✅ 10.3 | MRI | Relationships |
 | ✅ 10.4 | HMAI | Analogues |
-| ➡️ 10.5 | MFI | Macro forecast scenarios |
+| ✅ 10.5 | MFI | Macro forecast scenarios |

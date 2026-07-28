@@ -5234,6 +5234,127 @@ async def admin_hmai():
     return HTMLResponse(html)
 
 
+# --- Macroeconomic Forecast Intelligence (MFI) Sprint 10.5 ---
+# Evidence-based Bull/Base/Bear from AGI macro knowledge. Never external providers.
+
+
+@router.get("/mfi/health")
+async def mfi_health():
+    from macroeconomic_forecast_intelligence.production import health
+
+    return health()
+
+
+@router.get("/macro/forecast/india")
+async def mfi_india():
+    from macroeconomic_forecast_intelligence.production import india
+
+    return india()
+
+
+@router.get("/macro/forecast/global")
+async def mfi_global():
+    from macroeconomic_forecast_intelligence.production import global_forecast
+
+    return global_forecast()
+
+
+@router.get("/macro/forecast/report")
+async def mfi_report(persist: bool = Query(False)):
+    from macroeconomic_forecast_intelligence.production import report
+
+    return report(persist=persist)
+
+
+@router.get("/macro/forecast/dashboard")
+async def mfi_dashboard():
+    from macroeconomic_forecast_intelligence.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/macro/forecast/history")
+async def mfi_history(limit: int = Query(20, ge=1, le=100), country: str = Query("India")):
+    from macroeconomic_forecast_intelligence.production import history
+
+    return history(country=country, limit=limit)
+
+
+@router.post("/macro/forecast/run")
+async def mfi_run(payload: dict[str, Any] = Body(default={})):
+    """Ops / scheduler only — never called by Ask."""
+    from macroeconomic_forecast_intelligence.production import run
+
+    return run(
+        country=str(payload.get("country") or "India"),
+        region=str(payload.get("region") or "India"),
+    )
+
+
+@router.get("/macro/forecast")
+async def mfi_forecast(country: str = Query("India")):
+    from macroeconomic_forecast_intelligence.production import forecast
+
+    return forecast(country=country)
+
+
+@router.get("/macro/scenarios")
+async def mfi_scenarios(country: str = Query("India")):
+    from macroeconomic_forecast_intelligence.production import scenarios
+
+    return scenarios(country=country)
+
+
+@router.get("/macro/probability")
+async def mfi_probability(country: str = Query("India")):
+    from macroeconomic_forecast_intelligence.production import probability
+
+    return probability(country=country)
+
+
+@router.get("/admin/macro-forecast", response_class=HTMLResponse)
+async def admin_mfi():
+    from macroeconomic_forecast_intelligence.production import dashboard
+
+    board = dashboard()
+    dist = board.get("probability_distribution") or {}
+    conf = board.get("confidence") or {}
+    rows = "".join(
+        f"<tr><td>{s.get('scenario')}</td><td>{s.get('probability_pct')}</td>"
+        f"<td>{s.get('confidence_pct')}</td><td>{s.get('gdp')}</td>"
+        f"<td>{s.get('inflation')}</td><td>{s.get('repo_rate')}</td></tr>"
+        for s in (board.get("bull_base_bear_scenarios") or [])
+    )
+    html = f"""<!doctype html><html><head><title>Macro Forecast Intelligence</title></head>
+    <body style="font-family:system-ui;max-width:1100px;margin:2rem auto">
+    <h1>Macro Forecast Intelligence — MFI</h1>
+    <p>Evidence-based Bull/Base/Bear. AGI-owned knowledge only. No single-path prediction.</p>
+    <pre>{board.get('principles')}</pre>
+    <h2>Current macro regime</h2>
+    <pre>{board.get('current_macro_regime')}</pre>
+    <h2>Probability distribution</h2>
+    <pre>{dist}</pre>
+    <h2>Confidence</h2>
+    <pre>{conf}</pre>
+    <h2>Bull / Base / Bear</h2>
+    <table border="1" cellpadding="6">
+    <tr><th>Scenario</th><th>Prob %</th><th>Conf %</th><th>GDP</th><th>CPI</th><th>Repo</th></tr>
+    {rows or '<tr><td colspan=6>Run POST /v1/macro/forecast/run</td></tr>'}
+    </table>
+    <h2>Sector impact matrix</h2>
+    <pre>{board.get('sector_impact_matrix')}</pre>
+    <h2>Company impact matrix</h2>
+    <pre>{board.get('company_impact_matrix')}</pre>
+    <h2>Key catalysts</h2>
+    <pre>{board.get('key_macro_catalysts')}</pre>
+    <h2>Upcoming events</h2>
+    <pre>{board.get('upcoming_macro_events')}</pre>
+    <h2>Forecast history</h2>
+    <pre>{board.get('forecast_history')}</pre>
+    </body></html>"""
+    return HTMLResponse(html)
+
+
 # --- Forecast Provider Integration (FPI) — India-first Knowledge Platform path ---
 # Forecast never calls Groww/Yahoo/NSE/BSE directly; stale market snapshot refresh only.
 

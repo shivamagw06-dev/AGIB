@@ -448,6 +448,30 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("historical_macro_analogue_intelligence")
     except Exception:
         out["historical_macro_analogue_intelligence"] = None
+    # Phase 10 Sprint 10.5 — Macroeconomic Forecast Intelligence (soft).
+    try:
+        from macroeconomic_forecast_intelligence.production import dashboard as mfi_dash
+        from macroeconomic_forecast_intelligence.production import health as mfi_health
+
+        fd = mfi_dash()
+        fh = mfi_health()
+        out["macroeconomic_forecast_intelligence"] = {
+            "status": fh.get("status"),
+            "version": fh.get("version"),
+            "ask_triggers_collection": False,
+            "predicts_single_path": False,
+            "probability_distribution": fd.get("probability_distribution"),
+            "confidence_pct": (fd.get("confidence") or {}).get("overall_pct"),
+            "scenarios": len(fd.get("bull_base_bear_scenarios") or []),
+            "sector_impacts": len(fd.get("sector_impact_matrix") or {}),
+            "company_impacts": len(fd.get("company_impact_matrix") or {}),
+            "forecast_history_n": (fd.get("forecast_history") or {}).get("n"),
+            "ingestion_idle": fd.get("ingestion_idle"),
+            "phase": "10.5",
+        }
+        out["sources"].append("macroeconomic_forecast_intelligence")
+    except Exception:
+        out["macroeconomic_forecast_intelligence"] = None
     # AGIB v3.0 LIDI Track 2 — collector certification board (soft).
     try:
         from live_data.production_verify import certification as lidi_cert
