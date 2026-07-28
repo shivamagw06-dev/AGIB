@@ -66,7 +66,10 @@ def package_for_governance(
         # expected_cagr/irr — NOT expected_return (substring-matches alias "pe").
         "expected_cagr": pep.get("expected_return"),
         "irr": pep.get("expected_return"),
-        "risk_drivers": (pep.get("risk") or {}).get("risk_drivers"),
+        # Join list → string so evidence_validation walk binds the field
+        # (bare string lists are not emitted as parent keys by the walker).
+        "risk_drivers": ",".join((pep.get("risk") or {}).get("risk_drivers") or [])
+        or None,
         "portfolio_fit": pep.get("portfolio_fit"),
         "liquidity": pep.get("liquidity"),
         "computable": pep.get("computable"),

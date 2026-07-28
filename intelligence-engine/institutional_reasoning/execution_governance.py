@@ -427,6 +427,7 @@ def govern_answer(
     academy: dict[str, Any] | None = None,
     build_institutional_evidence: bool = True,
     build_portfolio_intelligence: bool = True,
+    build_outcome_intelligence: bool = True,
 ) -> dict[str, Any]:
     """Run the full governed pipeline; returns structured governance record."""
     started = time.time()
@@ -653,9 +654,13 @@ def govern_answer(
                 research_record=record,
                 existing_packs=packs,
                 persist_memory=True,
+                track_outcome=build_outcome_intelligence,
             )
             record["ipi"] = ipi_decision
             record["portfolio_decision_graph"] = ipi_decision.get("portfolio_decision_graph") or {}
+            # Phase 6 — surface outcome lifecycle handle (evaluation is explicit later).
+            if build_outcome_intelligence and (ipi_decision.get("ioi") or {}).get("decision_id"):
+                record["ioi"] = ipi_decision.get("ioi")
             # Portfolio narrative: never Buy/Sell; surface committee conclusion.
             rec = ipi_decision.get("recommendation") or {}
             if rec.get("conclusion"):
@@ -672,6 +677,32 @@ def govern_answer(
         except Exception:
             record.setdefault("ipi", {})
             record.setdefault("portfolio_decision_graph", {})
+
+    try:
+        from institutional_reasoning.observability import record as obs_record
+
+        obs_record(
+            "govern_answer_total",
+            latency_ms=float(record.get("execution_ms") or 0),
+        )
+        if not record.get("narrative_allowed"):
+            obs_record("govern_answer_withheld")
+        else:
+            obs_record("govern_answer_narrative")
+        if record.get("institutional_evidence"):
+            obs_record("evidence_packs_built")
+        if (record.get("institutional_evidence") or {}).get("risk_drivers") or (
+            (record.get("institutional_evidence") or {}).get("institutional_evidence") or {}
+        ).get("risk_drivers"):
+            obs_record("derived_risk_hits")
+        if record.get("ipi"):
+            obs_record("portfolio_decisions")
+            if (record.get("ipi") or {}).get("withheld"):
+                obs_record("portfolio_withheld")
+        if not (record.get("validation") or {}).get("complete", True):
+            obs_record("contract_incomplete")
+    except Exception:
+        pass
 
     return record
 

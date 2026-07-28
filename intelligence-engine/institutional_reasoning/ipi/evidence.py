@@ -68,9 +68,12 @@ def build_portfolio_evidence_pack(
 
     frameworks = research_record.get("frameworks") or []
     executed = [f for f in frameworks if f.get("status") == "executed"]
-    coverage = round(len(executed) / max(1, len(frameworks)), 4) if frameworks else (
-        0.7 if evidence.get("current_pe") is not None else 0.0
-    )
+    # Coverage reflects the evidence actually bound to the candidate, not only
+    # how many frameworks the research question happened to run.
+    core_fields = ("current_pe", "historical_pe", "peer_pe", "sector_pe", "roic")
+    field_coverage = sum(1 for f in core_fields if evidence.get(f) is not None) / len(core_fields)
+    framework_coverage = (len(executed) / len(frameworks)) if frameworks else 0.0
+    coverage = round(max(field_coverage, framework_coverage), 4)
     research_conf = None
     committee = research_record.get("committee") or {}
     if committee.get("confidence") is not None:

@@ -95,8 +95,20 @@ def adapt_task(
 
     `run_question(question)` must return a governance record.
     """
+    ladder = routes_for(missing, rejected)
+    # The full fallback ladder is reported even when an early route succeeds, so
+    # the replan is auditable rather than only showing the winning route.
+    considered = [
+        {
+            "route": r["route"],
+            "question": r["question"].format(name=entity_name),
+            "rationale": r["rationale"],
+            "trigger": r.get("trigger"),
+        }
+        for r in ladder
+    ]
     attempts: list[dict[str, Any]] = []
-    for route in routes_for(missing, rejected):
+    for route in ladder:
         question = route["question"].format(name=entity_name)
         record = run_question(question)
         executed = any(
@@ -119,12 +131,14 @@ def adapt_task(
                 "rationale": route["rationale"],
                 "record": record,
                 "attempts": attempts,
+                "routes_considered": considered,
                 "adaptive_version": ADAPTIVE_VERSION,
             }
     return {
         "adapted": False,
         "reason": "all_alternative_routes_exhausted" if attempts else "no_alternative_route",
         "attempts": attempts,
+        "routes_considered": considered,
         "withhold": True,
         "adaptive_version": ADAPTIVE_VERSION,
     }

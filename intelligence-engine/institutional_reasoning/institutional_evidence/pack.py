@@ -432,6 +432,71 @@ def build_institutional_pack(
             }
             validated_fields["peer_metrics"] = validated_fields["comparable_metrics"]
 
+    # Risk Intelligence — derived VaR/ES/beta/correlation into the evidence pack
+    # so risk contracts bind without waiting for a portfolio decision.
+    try:
+        from institutional_reasoning.fundamentals.risk_derivations import derive_risk_metrics
+
+        risk_m = derive_risk_metrics(eid)
+    except Exception:
+        risk_m = None
+    if risk_m:
+        drivers = risk_m.get("risk_drivers") or {}
+        driver_names = [
+            k
+            for k, v in (
+                ("market_beta", drivers.get("beta_vs_benchmark")),
+                ("volatility", drivers.get("volatility_ann_pct")),
+                ("idiosyncratic_volatility", drivers.get("idiosyncratic_vol_pct")),
+                ("liquidity", drivers.get("liquidity_score")),
+            )
+            if v is not None
+        ] or ["market_beta", "volatility"]
+        rq = score_metric(
+            value=drivers.get("volatility_ann_pct"),
+            entity_id=eid,
+            metric_entity=eid,
+            provider="derived_risk_producer",
+            as_of=as_of,
+            series_n=int(risk_m.get("horizon_months") or 0),
+            expected_n=12,
+            data_class="derived",
+            validated=True,
+            consistency_ok=True,
+        )
+        if rq.get("accept_for_framework"):
+            validated_fields["risk_drivers"] = {
+                "field": "risk_drivers",
+                "value": ",".join(driver_names),
+                "symbol": eid,
+                "entity_id": eid,
+                "provider": "derived_risk_producer",
+                "verified_at": as_of,
+                "as_of": as_of,
+                "validated": True,
+                "winning_provider": "derived_risk_producer",
+                "source": "derived_risk_producer",
+                "detail": drivers,
+                "formulas": risk_m.get("formulas"),
+            }
+            tail = risk_m.get("downside") or {}
+            var95 = tail.get("var_95_monthly_pct")
+            if var95 is not None:
+                validated_fields["downside_case"] = {
+                    "field": "downside_case",
+                    "value": round(-abs(float(var95)) / 100.0, 4),
+                    "symbol": eid,
+                    "entity_id": eid,
+                    "provider": "derived_risk_producer",
+                    "verified_at": as_of,
+                    "as_of": as_of,
+                    "validated": True,
+                    "winning_provider": "derived_risk_producer",
+                    "source": "derived_risk_producer",
+                    "detail": tail,
+                }
+                validated_fields["bear"] = validated_fields["downside_case"]
+
     scores = [
         cur_quality,
         pe_quality,
@@ -490,7 +555,10 @@ def build_institutional_pack(
             "business_quality": bq,
             "accounting_quality": aq,
             "dcf": dcf,
+            "risk": risk_m,
         },
+        "risk_drivers": (validated_fields.get("risk_drivers") or {}).get("value"),
+        "downside_case": (validated_fields.get("downside_case") or {}).get("value"),
         "evidence_score": evidence_score,
         "coverage": coverage,
         "min_framework_score": MIN_FRAMEWORK_SCORE,

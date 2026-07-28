@@ -29,6 +29,7 @@ def decide_portfolio(
     book: dict[str, Any] | None = None,
     proposed_weight: float | None = None,
     persist_memory: bool = True,
+    track_outcome: bool = True,
 ) -> dict[str, Any]:
     """Full Phase 5 pipeline from research context to portfolio decision."""
     run_id = f"ipi_{uuid.uuid4().hex[:16]}"
@@ -110,6 +111,7 @@ def decide_portfolio(
         scenarios=scenarios,
         research_record=research_record,
         downside=downside,
+        portfolio_evidence=pep,
     )
 
     pep["conviction"] = sizing.get("conviction")
@@ -161,4 +163,17 @@ def decide_portfolio(
     decision["portfolio_decision_graph"] = build_portfolio_decision_graph(decision)
     if persist_memory:
         remember(decision)
+    # Phase 6 — register decision lifecycle (measure later; no learning).
+    if track_outcome:
+        try:
+            from institutional_reasoning.ioi.pipeline import track_decision
+
+            tracked = track_decision(decision, research_record=research_record)
+            decision["ioi"] = {
+                "decision_id": tracked.get("decision_id"),
+                "status": tracked.get("status"),
+                "tracked": bool(tracked.get("found")),
+            }
+        except Exception:
+            decision["ioi"] = {"tracked": False}
     return decision
