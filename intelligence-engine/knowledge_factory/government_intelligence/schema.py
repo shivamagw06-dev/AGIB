@@ -9,11 +9,42 @@ from __future__ import annotations
 
 from typing import Any
 
-IGRI_VERSION = "institutional-government-regulatory-intelligence-v2.0.0"
-IGRI_SCHEMA_VERSION = "igri-schema-v2.0.0"
+IGRI_VERSION = "institutional-government-regulatory-intelligence-v2.0.1"
+IGRI_SCHEMA_VERSION = "igri-schema-v2.0.1"
 PROGRAMME = "AGIB v2.0 – Institutional Government & Regulatory Intelligence"
 LAYER = "IGRI"
 ARCHITECTURE_STATUS = "SOFT_GOVERNMENT_REGULATORY_INTELLIGENCE"
+DELIVERY_PHASE = "phase_1_high_impact"
+
+# Sprint 3 Phase 1 — highest-impact institutions only.
+# These six areas drive most material policy effects on listed Indian companies.
+PHASE_1_DOMAINS: tuple[str, ...] = (
+    "rbi",      # monetary policy + banking regulation
+    "budget",   # Union Budget / Finance Ministry
+    "sebi",     # securities markets regulation
+    "gst",      # GST Council
+    "pli",      # Production Linked Incentive schemes
+    "trade",    # import/export duties & trade policy
+)
+
+PHASE_1_BODIES: tuple[str, ...] = (
+    "GOI",
+    "MOF",
+    "RBI",
+    "SEBI",
+    "GST_COUNCIL",
+    "DPIIT",
+    "MEITY",
+    "MOC",
+)
+
+# Architecture stays open — load later without redesign.
+PHASE_2_EXTENSIBLE_DOMAINS: tuple[str, ...] = (
+    "mca",
+    "industry",
+    "state",
+    "ministry",
+)
 
 COVERAGE_LEVELS: dict[int, str] = {
     0: "registry",
@@ -41,18 +72,7 @@ POLICY_TYPES: tuple[str, ...] = (
     "statutory",
 )
 
-DOMAINS: tuple[str, ...] = (
-    "rbi",
-    "budget",
-    "sebi",
-    "mca",
-    "gst",
-    "pli",
-    "trade",
-    "industry",
-    "state",
-    "ministry",
-)
+DOMAINS: tuple[str, ...] = PHASE_1_DOMAINS + PHASE_2_EXTENSIBLE_DOMAINS
 
 FREEZE_LOCKS: dict[str, Any] = {
     "phases_1_7": True,

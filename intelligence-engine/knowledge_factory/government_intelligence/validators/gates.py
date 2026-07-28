@@ -74,10 +74,15 @@ def validate_pack(
     policies: list[dict[str, Any]],
     timeline: dict[str, Any],
 ) -> dict[str, Any]:
-    policy_results = [validate_policy(p) for p in policies]
-    dups = detect_duplicate_policies(policies)
-    order_ok = timeline_order_ok(list(timeline.get("policies") or policies))
-    domains = {str(p.get("domain") or "") for p in policies}
+    from knowledge_factory.government_intelligence.schema import PHASE_1_DOMAINS
+
+    # Phase 1 exit gate evaluates only high-impact domains.
+    phase1 = [p for p in policies if str(p.get("domain") or "") in PHASE_1_DOMAINS]
+    policy_results = [validate_policy(p) for p in phase1]
+    dups = detect_duplicate_policies(phase1)
+    order_ok = timeline_order_ok(list(timeline.get("policies") or phase1))
+    domains = {str(p.get("domain") or "") for p in phase1}
+    phase1_complete = set(PHASE_1_DOMAINS).issubset(domains)
 
     gates = {
         "registry": {"pass": len(bodies) > 0, "reason": None if bodies else "missing_registry"},
@@ -90,6 +95,10 @@ def validate_pack(
         "policies_valid": {
             "pass": all(r["gate_pass"] for r in policy_results) if policy_results else False,
             "reason": None if policy_results and all(r["gate_pass"] for r in policy_results) else "validation_failure",
+        },
+        "phase_1_domains": {
+            "pass": phase1_complete,
+            "reason": None if phase1_complete else f"missing_phase1:{sorted(set(PHASE_1_DOMAINS) - domains)}",
         },
         "domain_rbi": {"pass": "rbi" in domains, "reason": None if "rbi" in domains else "rbi_missing"},
         "domain_budget": {"pass": "budget" in domains, "reason": None if "budget" in domains else "budget_missing"},
@@ -106,9 +115,11 @@ def validate_pack(
         "failed_gates": failed,
         "gate_pass": len(failed) == 0,
         "duplicate_policy_ids": dups,
-        "policies_n": len(policies),
+        "policies_n": len(phase1),
         "bodies_n": len(bodies),
+        "phase_1_domains": list(PHASE_1_DOMAINS),
+        "phase_1_complete": phase1_complete,
         "institutional_ready_policies": ready_n,
-        "institutional_ready": len(failed) == 0 and ready_n == len(policies) and len(policies) > 0,
+        "institutional_ready": len(failed) == 0 and ready_n == len(phase1) and len(phase1) > 0,
         "fabricated": False,
     }

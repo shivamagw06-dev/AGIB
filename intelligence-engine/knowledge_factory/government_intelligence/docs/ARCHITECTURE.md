@@ -1,39 +1,41 @@
 # Institutional Government & Regulatory Intelligence (IGRI) — AGIB v2.0 Sprint 3
 
+## Delivery phase: Phase 1 (high-impact only)
+
+Sprint 3 does **not** model the entire government ecosystem.
+
+### Phase 1 scope (exit gate)
+
+1. **RBI** — monetary policy and banking regulation  
+2. **Union Budget / Finance Ministry**  
+3. **SEBI**  
+4. **GST Council**  
+5. **PLI schemes**  
+6. **Import / export duties** (trade / customs)
+
+These six areas account for most policy changes that materially affect listed Indian companies.
+
+### Phase 2+ (architecture reserved, not required)
+
+- MCA / Companies Act  
+- Other industry regulators (IRDAI, TRAI, power, …)  
+- State government policies  
+
+Declared in registries / `fixtures/extensible_seeds.py`. Load later via `include_extensible=True` without redesign.
+
 ## Role
 
-Soft Knowledge Factory package that maps **Indian government & regulatory policy** to sectors, industries, companies, macro, corporate events, and portfolio context.
+Soft Knowledge Factory package mapping Indian government & regulatory policy → sectors → industries → companies → macro → corporate events → portfolio context.
 
 **Never** political opinion. **Never** policy forecasts. **Never** fabricate.
 
-## Dependency
-
-```
-Company Intelligence → Corporate Events → Government & Regulatory Intelligence → …
-```
-
 ## Freeze locks
 
-Do not modify Phase 1–7 reasoning, framework selection, evidence contracts, committees, governance, learning, Decision Quality, KF architecture, Universe / Company / Corporate Event Intelligence.
-
-## Modules
-
-1. Government Registry (ministries / regulators)
-2. RBI Intelligence
-3. Union Budget
-4. SEBI Intelligence
-5. MCA Intelligence
-6. GST Intelligence
-7. PLI Intelligence
-8. Trade Policy
-9. Industry Regulation
-10. State Government framework (extensible)
+Phase 1–7 reasoning, Company Intelligence, Corporate Events, Decision Quality, KF architecture: frozen.
 
 ## Point-in-time
 
-Every policy stores `announcement_date`, `effective_date`, `available_from`.
-
-Replay: `available_from <= as_of`.
+`announcement_date` / `effective_date` / `available_from`. Replay: `available_from <= as_of`.
 
 ## APIs (read-only)
 

@@ -1,12 +1,16 @@
-"""Authoritative curated Government & Regulatory policy seeds.
+"""Authoritative curated Government & Regulatory policy seeds — Phase 1.
 
-Never infer / fabricate. Only documented institutional knowledge of
-well-known official actions, with provenance to official domains.
+Phase 1 high-impact institutions only:
+  RBI · Union Budget / Finance Ministry · SEBI · GST Council · PLI · Import/export duties
+
+Never infer / fabricate. Phase 2+ domains live in extensible_seeds.py.
 """
 
 from __future__ import annotations
 
 from typing import Any
+
+from knowledge_factory.government_intelligence.schema import PHASE_1_DOMAINS
 
 
 def _p(
@@ -320,31 +324,6 @@ POLICY_SEEDS: list[dict[str, Any]] = [
             "confidence": 0.9,
         },
     ),
-    # ----- MCA -----
-    _p(
-        policy_id="MCA-COMPANIES-ACT-2013",
-        name="Companies Act, 2013",
-        domain="mca",
-        policy_type="corporate_law",
-        government_body="MCA",
-        announcement_date="2013-08-29",
-        effective_date="2014-04-01",
-        source="mca",
-        evidence="COMPANIES-ACT-2013",
-        impact_level="Critical",
-        affected_sectors=["all"],
-        affected_industries=["all_companies"],
-        affected_companies=["INFY", "TCS", "HDFCBANK", "RELIANCE"],
-        transmission={
-            "primary": ["Corporate governance", "Board / auditor duties", "Financial reporting"],
-            "secondary": ["Compliance costs", "Related-party rules"],
-            "beneficiary_industries": [],
-            "adversely_impacted_industries": [],
-            "time_horizon": "structural",
-            "confidence": 0.95,
-        },
-        historical_versions=["COMPANIES-ACT-1956"],
-    ),
     # ----- GST -----
     _p(
         policy_id="GST-LAUNCH-2017",
@@ -535,7 +514,7 @@ POLICY_SEEDS: list[dict[str, Any]] = [
     ),
     _p(
         policy_id="TRADE-CUSTOMS-TARIFF-CORPUS",
-        name="Customs tariff / anti-dumping standing corpus",
+        name="Import / export duties — customs tariff & anti-dumping corpus",
         domain="trade",
         policy_type="trade",
         government_body="MOC",
@@ -548,25 +527,26 @@ POLICY_SEEDS: list[dict[str, Any]] = [
         affected_industries=["metals", "specialty_chem", "electronics"],
         affected_commodities=["steel", "chemicals", "electronics_components"],
         transmission={
-            "primary": ["Import / export duties"],
-            "secondary": ["Domestic price realisation", "Input costs"],
+            "primary": ["Import duties", "Export duties", "Tariffs"],
+            "secondary": ["Domestic price realisation", "Input costs", "Anti-dumping"],
             "beneficiary_industries": ["import_competing_domestic"],
             "adversely_impacted_industries": ["import_dependent_manufacturers"],
             "time_horizon": "ongoing",
             "confidence": 0.8,
         },
+        notes="Phase 1 trade focus: import/export duties material to listed companies.",
     ),
-    # ----- INDUSTRY REGULATION -----
+    # Banking regulation stays under RBI (Phase 1 includes RBI banking regulation).
     _p(
-        policy_id="IND-BANKING-REG-CORPUS",
-        name="Banking industry regulation (RBI-led)",
-        domain="industry",
+        policy_id="RBI-BANKING-REG-CORPUS",
+        name="RBI banking regulation corpus (capital / asset quality / conduct)",
+        domain="rbi",
         policy_type="industry_regulation",
         government_body="RBI",
         announcement_date="2013-01-01",
         effective_date="2013-01-01",
         source="rbi",
-        evidence="BANKING-REG-CORPUS",
+        evidence="RBI-BANKING-REG-CORPUS",
         impact_level="Critical",
         affected_sectors=["banks"],
         affected_industries=["banking"],
@@ -580,125 +560,9 @@ POLICY_SEEDS: list[dict[str, Any]] = [
             "confidence": 0.9,
         },
     ),
-    _p(
-        policy_id="IND-INSURANCE-IRDAI",
-        name="Insurance industry regulation (IRDAI)",
-        domain="industry",
-        policy_type="industry_regulation",
-        government_body="IRDAI",
-        announcement_date="2000-04-19",
-        effective_date="2000-04-19",
-        source="irdai",
-        evidence="IRDAI-REG-CORPUS",
-        impact_level="High",
-        affected_sectors=["insurance"],
-        affected_industries=["insurance"],
-        affected_companies=["SBILIFE", "HDFCLIFE", "ICICIPRULI"],
-        transmission={
-            "primary": ["Solvency / product rules"],
-            "secondary": ["VNB / growth capacity"],
-            "beneficiary_industries": [],
-            "adversely_impacted_industries": [],
-            "time_horizon": "structural",
-            "confidence": 0.85,
-        },
-    ),
-    _p(
-        policy_id="IND-TELECOM-TRAI",
-        name="Telecom regulation (TRAI / DoT policy context)",
-        domain="industry",
-        policy_type="industry_regulation",
-        government_body="TRAI",
-        announcement_date="1997-03-28",
-        effective_date="1997-03-28",
-        source="trai",
-        evidence="TRAI-REG-CORPUS",
-        impact_level="High",
-        affected_sectors=["telecom"],
-        affected_industries=["telecom"],
-        affected_companies=["BHARTIARTL"],
-        transmission={
-            "primary": ["Tariff / QoS / spectrum policy inputs"],
-            "secondary": ["ARPU / capex cycles"],
-            "beneficiary_industries": [],
-            "adversely_impacted_industries": [],
-            "time_horizon": "structural",
-            "confidence": 0.85,
-        },
-    ),
-    _p(
-        policy_id="IND-POWER-POLICY",
-        name="Power sector policy framework",
-        domain="industry",
-        policy_type="industry_regulation",
-        government_body="MOP",
-        announcement_date="2003-06-10",
-        effective_date="2003-06-10",
-        source="ministry_of_power",
-        evidence="ELECTRICITY-ACT-2003-CONTEXT",
-        impact_level="High",
-        affected_sectors=["utilities", "power"],
-        affected_industries=["power_generation", "transmission"],
-        affected_companies=["NTPC", "POWERGRID"],
-        transmission={
-            "primary": ["Tariff / offtake frameworks"],
-            "secondary": ["Capex / renewables transition"],
-            "beneficiary_industries": ["utilities"],
-            "adversely_impacted_industries": [],
-            "time_horizon": "structural",
-            "confidence": 0.8,
-        },
-    ),
-    _p(
-        policy_id="IND-PHARMA-HEALTH",
-        name="Pharma / healthcare regulatory framework",
-        domain="industry",
-        policy_type="industry_regulation",
-        government_body="MOHFW",
-        announcement_date="1940-01-01",
-        effective_date="1940-01-01",
-        source="ministry_of_health",
-        evidence="DRUGS-COSMETICS-ACT-CONTEXT",
-        impact_level="High",
-        affected_sectors=["pharma", "healthcare"],
-        affected_industries=["pharma", "hospitals"],
-        affected_companies=["SUNPHARMA", "CIPLA", "DRREDDY", "APOLLOHOSP"],
-        transmission={
-            "primary": ["Drug approvals / price controls context"],
-            "secondary": ["Export compliance", "Hospital regulation"],
-            "beneficiary_industries": [],
-            "adversely_impacted_industries": [],
-            "time_horizon": "structural",
-            "confidence": 0.8,
-        },
-    ),
-    # ----- STATE (extensible framework seeds) -----
-    _p(
-        policy_id="STATE-FRAMEWORK-INDUSTRIAL-CORRIDORS",
-        name="State / industrial corridor incentive framework (extensible)",
-        domain="state",
-        policy_type="state_policy",
-        government_body="GOI",
-        announcement_date="2011-01-01",
-        effective_date="2011-01-01",
-        source="government_of_india",
-        evidence="INDUSTRIAL-CORRIDORS-FRAMEWORK",
-        impact_level="Medium",
-        affected_sectors=["industrials", "auto", "electronics", "logistics"],
-        affected_industries=["manufacturing", "logistics"],
-        jurisdiction="India (multi-state framework)",
-        transmission={
-            "primary": ["State incentives", "Manufacturing parks", "Investment policies"],
-            "secondary": ["Capex location decisions"],
-            "beneficiary_industries": ["manufacturing"],
-            "adversely_impacted_industries": [],
-            "time_horizon": "long",
-            "confidence": 0.7,
-        },
-        notes="Extensible shell for state-level policies; state-specific rows add without redesign.",
-    ),
 ]
 
 
 def all_policy_seeds() -> list[dict[str, Any]]:
-    return list(POLICY_SEEDS)
+    """Phase 1 seeds only — hard filter on PHASE_1_DOMAINS."""
+    return [p for p in POLICY_SEEDS if str(p.get("domain") or "") in PHASE_1_DOMAINS]

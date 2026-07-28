@@ -8,7 +8,15 @@ from knowledge_factory.government_intelligence import store as igri_store
 from knowledge_factory.government_intelligence.dashboard import government_dashboard
 from knowledge_factory.government_intelligence.objects.compile import compile_government_intelligence
 from knowledge_factory.government_intelligence.pipeline import run_government_intelligence_pipeline
-from knowledge_factory.government_intelligence.schema import FREEZE_LOCKS, IGRI_VERSION, LAYER, PROGRAMME
+from knowledge_factory.government_intelligence.schema import (
+    DELIVERY_PHASE,
+    FREEZE_LOCKS,
+    IGRI_VERSION,
+    LAYER,
+    PHASE_1_DOMAINS,
+    PHASE_2_EXTENSIBLE_DOMAINS,
+    PROGRAMME,
+)
 from knowledge_factory.government_intelligence.timeline.build import replay_as_of
 
 
@@ -23,6 +31,7 @@ def health() -> dict[str, Any]:
         "programme": PROGRAMME,
         "layer": LAYER,
         "version": IGRI_VERSION,
+        "delivery_phase": DELIVERY_PHASE,
         "architecture_status": "SOFT_GOVERNMENT_REGULATORY_INTELLIGENCE",
         "not_a_reasoning_engine": True,
         "not_a_planner": True,
@@ -32,17 +41,24 @@ def health() -> dict[str, Any]:
         "point_in_time_integrity": True,
         "freeze_locks": FREEZE_LOCKS,
         "api_prefix": "/v1/government",
+        "phase_1_modules": [
+            "RBI (monetary policy + banking regulation)",
+            "Union Budget / Finance Ministry",
+            "SEBI",
+            "GST Council",
+            "PLI schemes",
+            "Import / export duties",
+        ],
+        "phase_1_domains": list(PHASE_1_DOMAINS),
+        "phase_2_extensible": list(PHASE_2_EXTENSIBLE_DOMAINS),
         "modules": [
-            "Government Registry",
+            "Phase-1 Government Registry",
             "RBI Intelligence",
             "Union Budget",
             "SEBI Intelligence",
-            "MCA Intelligence",
             "GST Intelligence",
             "PLI Intelligence",
-            "Trade Policy",
-            "Industry Regulation",
-            "State Government Framework",
+            "Trade / Import-Export Duties",
         ],
     }
 

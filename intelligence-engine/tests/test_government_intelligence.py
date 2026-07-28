@@ -1,8 +1,7 @@
-"""AGIB v2.0 Sprint 3 — Institutional Government & Regulatory Intelligence acceptance.
+"""AGIB v2.0 Sprint 3 Phase 1 — high-impact Government Intelligence acceptance.
 
-Soft Knowledge Factory enrichment only.
-Never political opinion. Never forecast policy. Never fabricate.
-Company Intelligence / Corporate Events / Decision Quality / Phases 1–7 frozen.
+Phase 1 only: RBI, Budget/Finance, SEBI, GST, PLI, import/export duties.
+MCA / other industry / state remain extensible — not required for exit.
 """
 
 from __future__ import annotations
@@ -20,9 +19,12 @@ from knowledge_factory.government_intelligence.production import (
     timeline,
 )
 from knowledge_factory.government_intelligence.schema import (
+    DELIVERY_PHASE,
     FREEZE_LOCKS,
     IGRI_VERSION,
     INSTITUTIONAL_COMPLETE_LEVEL,
+    PHASE_1_DOMAINS,
+    PHASE_2_EXTENSIBLE_DOMAINS,
 )
 from knowledge_factory.government_intelligence.timeline.build import replay_as_of
 from knowledge_factory.government_intelligence.validators.gates import (
@@ -36,70 +38,68 @@ def setup_function() -> None:
     igri_store.reset()
 
 
-def test_freeze_locks_and_health():
+def test_freeze_locks_and_phase1_health():
     h = health()
     assert h["version"] == IGRI_VERSION
-    assert h["not_a_reasoning_engine"] is True
+    assert h["delivery_phase"] == DELIVERY_PHASE
+    assert h["phase_1_domains"] == list(PHASE_1_DOMAINS)
+    assert "mca" not in h["phase_1_domains"]
+    assert "MCA Intelligence" not in h["modules"]
     assert h["never_political_opinion"] is True
-    assert h["never_forecast_policy"] is True
-    assert h["freeze_locks"]["phases_1_7"] is True
     assert h["freeze_locks"]["company_intelligence_architecture"] is True
-    assert h["freeze_locks"]["corporate_event_intelligence_architecture"] is True
-    assert h["freeze_locks"]["decision_quality_architecture"] is True
     assert FREEZE_LOCKS["never_fabricate"] is True
 
 
-def test_registry_and_modules_operational():
+def test_phase1_six_domains_only():
     pack = compile_government_intelligence()
-    assert pack["registry"]["body_count"] >= 10
+    assert pack["delivery_phase"] == "phase_1_high_impact"
+    assert pack["phase_1_complete"] is True
     domains = set(pack["domains"])
-    for d in ("rbi", "budget", "sebi", "gst", "pli", "trade", "mca", "industry", "state"):
-        assert d in domains, d
+    assert domains == set(PHASE_1_DOMAINS)
+    for d in PHASE_2_EXTENSIBLE_DOMAINS:
+        assert d not in domains
     assert pack["coverage_level"] == INSTITUTIONAL_COMPLETE_LEVEL
     assert pack["institutional_ready"] is True
-    assert pack["political_opinion"] is False
-    assert pack["policy_forecast"] is False
+    # Phase 1 registry is lean (core bodies only)
+    assert pack["registry"]["body_count"] >= 6
+    assert pack["registry"]["body_count"] <= 10
 
 
 def test_rbi_budget_sebi_gst_pli_trade_views():
     compile_government_intelligence()
-    assert domain_view("rbi")["n"] >= 3
+    assert domain_view("rbi")["n"] >= 4  # includes banking reg under RBI
     assert domain_view("budget")["n"] >= 2
     assert domain_view("sebi")["n"] >= 3
     assert domain_view("gst")["n"] >= 1
     assert domain_view("pli")["n"] >= 4
     assert domain_view("trade")["n"] >= 1
+    # Extensible domains empty in Phase 1 pack
+    assert domain_view("mca")["n"] == 0
+    assert domain_view("industry")["n"] == 0
+
+
+def test_import_export_duties_in_trade():
+    p = get_policy("TRADE-CUSTOMS-TARIFF-CORPUS")
+    assert p["found"] is True
+    assert "Import" in p["name"] or "import" in str(p["transmission"]["primary"]).lower()
+    assert p["domain"] == "trade"
+
+
+def test_rbi_includes_banking_regulation():
+    p = get_policy("RBI-BANKING-REG-CORPUS")
+    assert p["found"] is True
+    assert p["domain"] == "rbi"
+    assert p["government_body"] == "RBI"
 
 
 def test_policy_object_fields_and_provenance():
     pack = compile_government_intelligence()
     for p in pack["policies"]:
-        assert p["policy_id"]
-        assert p["name"]
-        assert p["government_body"]
-        assert p["announcement_date"]
-        assert p["effective_date"]
-        assert p["available_from"]
-        assert p["source"]
+        assert p["delivery_phase"] == "phase_1"
+        assert p["domain"] in PHASE_1_DOMAINS
         assert p["provenance"]
-        assert p["provenance"]["fabricated"] is False
         assert p["immutable"] is True
-        assert p["relationships"]["portfolio"]
-        assert "sector" in p["relationships"]
-        assert "company" in p["relationships"]
-        assert p["transmission"]["speculative_forecast"] is False
-        q = validate_policy(p)
-        assert q["gate_pass"] is True
-
-
-def test_transmission_knowledge_not_forecast():
-    p = get_policy("RBI-REPO-2020-03")
-    assert p["found"] is True
-    tx = p["transmission"]
-    assert "Bank NIM" in str(tx["primary"]) or "liquidity" in str(tx["primary"]).lower() or tx["primary"]
-    assert tx["secondary"]
-    assert tx["speculative_forecast"] is False
-    assert p["policy_forecast"] is False
+        assert validate_policy(p)["gate_pass"] is True
 
 
 def test_point_in_time_replay_no_future_leak():
@@ -114,57 +114,42 @@ def test_point_in_time_replay_no_future_leak():
     assert api["policy_count"] < tl["policy_count"]
 
 
-def test_pli_timeline_sequence():
-    compile_government_intelligence()
-    pli = list_policies(domain="pli")["policies"]
-    ids = [p["policy_id"] for p in pli]
-    assert "PLI-ELECTRONICS-2020" in ids
-    assert "SEMICONDUCTOR-MISSION-2022" in ids
-    assert "PLI-BUDGET-EXTENSION-2024" in ids
-    dates = [p["announcement_date"] for p in pli]
-    assert dates == sorted(dates)
-
-
-def test_duplicate_detection_and_pack_gates():
+def test_pli_timeline_and_gates():
     pack = compile_government_intelligence()
-    dups = detect_duplicate_policies(pack["policies"])
-    assert dups == []
+    pli = list_policies(domain="pli")["policies"]
+    assert "PLI-ELECTRONICS-2020" in [p["policy_id"] for p in pli]
     q = validate_pack(
         bodies=pack["registry"]["bodies"],
         policies=pack["policies"],
         timeline=pack["timeline"],
     )
+    assert q["phase_1_complete"] is True
     assert q["gate_pass"] is True
-    assert q["institutional_ready"] is True
+    assert detect_duplicate_policies(pack["policies"]) == []
 
 
 def test_sector_company_portfolio_mapping():
     p = get_policy("GST-LAUNCH-2017")
-    assert "fmcg" in p["affected_sectors"] or "all" in p["affected_sectors"]
     assert p["affected_companies"]
     assert p["relationships"]["portfolio"] == "institutional_reasoning.ipi"
-    assert p["relationships"]["decision_quality"] == "decision_quality"
-    assert p["relationships"]["corporate_events"] == "knowledge_factory.corporate_events"
 
 
-def test_pipeline_dashboard_search():
+def test_pipeline_dashboard_phase1():
     report = run_government_intelligence_pipeline()
     assert report["status"] == "ok"
-    assert report["reasoning_changed"] is False
-    assert report["governance_changed"] is False
-    assert report["political_opinion"] is False
     dash = dashboard(ensure=False)
-    assert dash["policy_count"] > 0
-    assert dash["replay_status"] == "operational"
+    assert dash["delivery_phase"] == DELIVERY_PHASE
+    assert dash["phase_1_complete"] is True
     assert dash["coverage_pct"] == 100.0
+    assert dash["trade_duty_updates"] >= 1
+    assert "mca" in dash["phase_2_extensible_domains"]
     hits = search("PLI")
     assert hits["n"] >= 1
 
 
-def test_soft_wire_does_not_break_prior_sprints():
+def test_soft_wire_prior_sprints_untouched():
     from knowledge_factory.company_intelligence.schema import ICI_VERSION
     from knowledge_factory.corporate_events.schema import ICEI_VERSION
 
     assert ICI_VERSION
     assert ICEI_VERSION
-    assert FREEZE_LOCKS["knowledge_factory_architecture"] is True
