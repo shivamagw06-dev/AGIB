@@ -1522,6 +1522,7 @@ class UiService:
                 academy=finance_academy if isinstance(finance_academy, dict) else None,
             )
             execution_governance = ask_pipeline_runtime.get("governance") or {}
+            _iere = (ask_pipeline_runtime.get("knowledge") or {}).get("iere") or {}
             execution_governance["ask_pipeline"] = {
                 "pipeline_id": ask_pipeline_runtime.get("pipeline_id"),
                 "replay_id": ask_pipeline_runtime.get("replay_id"),
@@ -1534,7 +1535,11 @@ class UiService:
                 "decision_id": (ask_pipeline_runtime.get("decision_quality") or {}).get("decision_id"),
                 "outcome_decision_id": (ask_pipeline_runtime.get("outcome") or {}).get("decision_id"),
                 "evidence_coverage": (ask_pipeline_runtime.get("evidence") or {}).get("coverage"),
-                "knowledge_primary": "knowledge_factory",
+                "knowledge_primary": (ask_pipeline_runtime.get("knowledge") or {}).get("primary_engine")
+                or "knowledge_factory",
+                "iere_retrieval_id": (ask_pipeline_runtime.get("evidence") or {}).get("iere_retrieval_id")
+                or _iere.get("retrieval_id"),
+                "iere_ranked_count": _iere.get("ranked_count"),
                 "latency_ms": ask_pipeline_runtime.get("latency_ms"),
             }
             telemetry = persist_rows(

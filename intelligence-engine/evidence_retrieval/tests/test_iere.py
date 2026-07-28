@@ -329,3 +329,43 @@ def test_scheduler_compatibility_import() -> None:
 
     assert health()["status"] == "ok"
     assert "north_star" in dashboard() or dashboard().get("version")
+
+
+def test_scheduler_evidence_pack_soft_wire(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "evidence_retrieval.pipeline.discover_candidates",
+        lambda discovery: [i for i in _synth_items() if i["available_from"] <= "2025-01-01"],
+    )
+
+    class _FakeStore:
+        @staticmethod
+        def alert(*_a, **_k):
+            return None
+
+    monkeypatch.setattr(
+        "institutional_scheduler.execution.handlers.store",
+        _FakeStore,
+        raising=False,
+    )
+
+    def _fake_daily(**_kwargs):
+        return {"ok": True, "fabricated": False}
+
+    monkeypatch.setattr(
+        "knowledge_factory.production.run_daily_pipeline",
+        _fake_daily,
+        raising=False,
+    )
+    # Import path used inside handler
+    import knowledge_factory.production as kf_prod
+
+    monkeypatch.setattr(kf_prod, "run_daily_pipeline", _fake_daily, raising=False)
+
+    from institutional_scheduler.execution.handlers import handle_evidence_packs
+
+    out = handle_evidence_packs({"completed": {}})
+    assert out.get("status") in {"ok", "degraded"}
+    assert out.get("evidence_retrieval_soft_wire") is True
+    assert out.get("iere")
+    assert out["iere"].get("ok") is True
+    assert len(out["iere"].get("warmed") or []) == 3
