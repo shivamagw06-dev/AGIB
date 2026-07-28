@@ -26,6 +26,9 @@ def health() -> dict[str, Any]:
         "does_not": list(NO_IFI_JUDGMENT),
         "providers_queried_always": [],
         "hip_bridge_enabled": _ENGINE.hip.enabled,
+        "provider_integration": "fpi",
+        "controlled_refresh": "market_snapshot_when_stale",
+        "forecast_direct_provider_calls": False,
     }
 
 

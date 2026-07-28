@@ -4801,6 +4801,97 @@ async def admin_ipci():
     return HTMLResponse(html)
 
 
+# --- Forecast Provider Integration (FPI) — India-first Knowledge Platform path ---
+# Forecast never calls Groww/Yahoo/NSE/BSE directly; stale market snapshot refresh only.
+
+
+@router.get("/forecast/providers/health")
+async def fpi_provider_health():
+    from forecast_provider_integration.production import provider_health
+
+    return provider_health()
+
+
+@router.get("/forecast/providers/dashboard")
+async def fpi_dashboard():
+    from forecast_provider_integration.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/fpi/health")
+async def fpi_health():
+    from forecast_provider_integration.production import health
+
+    return health()
+
+
+@router.post("/forecast/providers/publish/{entity}")
+async def fpi_publish_company(entity: str, payload: dict[str, Any] = Body(default={})):
+    from forecast_provider_integration.production import publish_company
+
+    return publish_company(entity, catalog_tip=payload.get("catalog_tip"))
+
+
+@router.post("/forecast/providers/snapshot/{entity}")
+async def fpi_refresh_snapshot(
+    entity: str,
+    force: bool = Query(False),
+    scope: str = Query("company"),
+):
+    from forecast_provider_integration.production import refresh_snapshot
+
+    return refresh_snapshot(entity, scope=scope, force=force)
+
+
+@router.get("/forecast/providers/company/{entity}")
+async def fpi_company_knowledge(entity: str):
+    from forecast_provider_integration.production import company_knowledge
+
+    return company_knowledge(entity)
+
+
+@router.get("/admin/forecast-providers", response_class=HTMLResponse)
+async def admin_fpi():
+    from forecast_provider_integration.production import dashboard
+
+    board = dashboard()
+    providers = board.get("providers") or []
+    rows = "".join(
+        f"<tr><td>{p.get('provider')}</td><td>{p.get('status')}</td>"
+        f"<td>{p.get('role')}</td><td>{p.get('connection')}</td>"
+        f"<td>{p.get('detail')}</td></tr>"
+        for p in providers
+    )
+    snaps = board.get("snapshot_freshness") or {}
+    fails = board.get("provider_failover_events") or []
+    fail_rows = "".join(
+        f"<tr><td>{f.get('from_provider')}→{f.get('to_provider')}</td>"
+        f"<td>{f.get('reason')}</td><td>{f.get('entity')}</td></tr>"
+        for f in fails[:15]
+    )
+    html = f"""<!doctype html><html><head><title>Forecast Provider Health</title></head>
+    <body style="font-family:system-ui;max-width:980px;margin:2rem auto">
+    <h1>Forecast Provider Health</h1>
+    <p>India-first: Groww live · Yahoo research · NSE/BSE disclosures · Company IR.</p>
+    <p>Forecast Intelligence never reasons over raw APIs.</p>
+    <pre>{board.get('principles')}</pre>
+    <h2>Providers</h2>
+    <table border="1" cellpadding="6">
+    <tr><th>Provider</th><th>Status</th><th>Role</th><th>Connection</th><th>Detail</th></tr>
+    {rows or '<tr><td colspan=5>No providers</td></tr>'}
+    </table>
+    <h2>Snapshot freshness</h2>
+    <pre>{snaps}</pre>
+    <h2>Failover events</h2>
+    <table border="1" cellpadding="6">
+    <tr><th>Path</th><th>Reason</th><th>Entity</th></tr>
+    {fail_rows or '<tr><td colspan=3>None</td></tr>'}
+    </table>
+    </body></html>"""
+    return HTMLResponse(html)
+
+
 # --- Forecast Validation & Learning (FVL) Sprint 9.5 ---
 # Closes Phase 9: register → validate vs actuals → score → learn (never rewrite history).
 

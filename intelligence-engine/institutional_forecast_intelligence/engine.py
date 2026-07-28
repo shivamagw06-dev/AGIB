@@ -80,18 +80,37 @@ class InstitutionalForecastEngine:
 
     def dashboard(self) -> dict[str, Any]:
         metrics = METRICS.dashboard()
+        provider_board = {}
+        try:
+            from forecast_provider_integration.production import provider_health
+
+            provider_board = provider_health()
+        except Exception:
+            provider_board = {}
         return {
             "board": "Institutional Forecast Intelligence",
             "programme": PROGRAMME,
             "version": IFI_VERSION,
             "principles": {
-                "no_live_providers_on_forecast_path": True,
+                "no_uncontrolled_provider_calls_on_forecast_path": True,
+                "no_live_providers_on_forecast_path": True,  # legacy alias — stale snapshot refresh only
+                "stale_market_snapshot_refresh_only": True,
+                "reasons_over_agi_knowledge": True,
                 "no_price_prediction": True,
                 "no_bull_base_bear_selection": True,
                 "no_probabilities": True,
                 "scenario_engine_consumes_bundles_only": True,
+                "india_first_providers": True,
             },
             **metrics,
+            "provider_health": {
+                "groww": provider_board.get("groww_connection_status"),
+                "yahoo": provider_board.get("yahoo_finance_status"),
+                "nse": provider_board.get("nse_collector_status"),
+                "bse": provider_board.get("bse_collector_status"),
+                "company_ir": provider_board.get("company_ir_collector_status"),
+                "forecast_may_call_providers_directly": False,
+            },
             "retrieval_performance": {"traces": traces.recent(40)},
             "sample_entities": list(COMPANY_KNOWLEDGE.keys()),
         }
@@ -172,8 +191,50 @@ class InstitutionalForecastEngine:
         elif scope == ForecastScope.THEME:
             out.update(self._retrieve_theme(entity))
 
+        # Soft Knowledge Platform enrichment — live snapshot only when stale
+        out = self._enrich_from_knowledge_platform(scope, entity, out)
+
         traces.end(rspan, output={"sources": out.get("sources"), "keys": list(out.keys())})
         return out
+
+    def _enrich_from_knowledge_platform(
+        self,
+        scope: ForecastScope,
+        entity: str,
+        retrieved: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Consume AGI-owned knowledge; never call Groww/Yahoo/NSE/BSE directly here."""
+        try:
+            from forecast_provider_integration.production import enrich_for_forecast
+        except Exception:
+            return retrieved
+
+        tip = enrich_for_forecast(
+            scope=scope.value,
+            entity=entity,
+            catalog_current=retrieved.get("current_knowledge"),
+            catalog_market=retrieved.get("market_intelligence"),
+        )
+        sources = list(retrieved.get("sources") or [])
+        for s in tip.get("sources_added") or []:
+            if s not in sources:
+                sources.append(s)
+        merged = {
+            **retrieved,
+            "current_knowledge": tip.get("current_knowledge") or retrieved.get("current_knowledge"),
+            "market_intelligence": tip.get("market_intelligence") or retrieved.get("market_intelligence"),
+            "market_snapshot": tip.get("market_snapshot"),
+            "company_knowledge_object": tip.get("company_knowledge_object"),
+            "providers_queried": [],  # forecast path never records raw provider calls
+            "sources": sources,
+            "provider_refresh": tip.get("refresh"),
+            "forbidden_direct_calls": tip.get("forbidden_direct_calls") or [],
+        }
+        # Merge freshness tips
+        kf = dict(retrieved.get("knowledge_freshness") or {})
+        kf.update(tip.get("knowledge_freshness") or {})
+        merged["knowledge_freshness"] = kf
+        return merged
 
     def _retrieve_company(self, ticker: str, *, question: str | None) -> dict[str, Any]:
         current = dict(COMPANY_KNOWLEDGE.get(ticker) or {"ticker": ticker, "missing": True})
@@ -410,8 +471,10 @@ class InstitutionalForecastEngine:
         freshness = {
             "catalog": "institutional_seed",
             "hip_enriched": "hip_hko" in (retrieved.get("sources") or []),
+            "knowledge_platform": "agi_knowledge_platform" in (retrieved.get("sources") or []),
             "current_as_of": "bundle_preparation_time",
             "monitoring": "current" if retrieved.get("monitoring_events") else "missing",
+            **(retrieved.get("knowledge_freshness") or {}),
         }
         confidence_inputs = {
             "completeness_score": completeness.score,
@@ -435,6 +498,7 @@ class InstitutionalForecastEngine:
                 "score": completeness.score,
             },
             "confidence_inputs": confidence_inputs,
+            "market_snapshot": retrieved.get("market_snapshot"),
         }
         traces.end(
             pspan,
@@ -464,6 +528,11 @@ class InstitutionalForecastEngine:
         elif scope == ForecastScope.THEME:
             label = ((prepared.get("theme") or {}).get("theme")) or entity
 
+        # Embed market snapshot inside market_intelligence / current_knowledge (bundle contract)
+        market_intel = dict(prepared.get("market_intelligence") or {})
+        if prepared.get("market_snapshot") and "live_snapshot" not in market_intel:
+            market_intel["live_snapshot"] = prepared.get("market_snapshot")
+
         bundle = ForecastBundle(
             scope=scope,
             entity=entity,
@@ -475,7 +544,7 @@ class InstitutionalForecastEngine:
             pattern_intelligence=prepared.get("pattern_intelligence") or {},
             research_intelligence=prepared.get("research_intelligence") or {},
             sector_intelligence=prepared.get("sector_intelligence") or {},
-            market_intelligence=prepared.get("market_intelligence") or {},
+            market_intelligence=market_intel,
             macro_intelligence=prepared.get("macro_intelligence") or {},
             monitoring_events=list(prepared.get("monitoring_events") or []),
             catalysts=list(prepared.get("catalysts") or []),
@@ -493,6 +562,10 @@ class InstitutionalForecastEngine:
                 "sources": prepared.get("sources") or ["agi_knowledge_catalog"],
                 "providers_hidden": True,
                 "scenario_selection": False,
+                "provider_architecture": "india_first",
+                "controlled_refresh": "market_snapshot_when_stale",
+                "forecast_direct_provider_calls": False,
+                "provider_refresh": prepared.get("provider_refresh"),
             },
             providers_queried=[],
         )
