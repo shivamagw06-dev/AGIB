@@ -1,4 +1,4 @@
-"""Sprint 6.1 success criterion: Yahoo Infosys → CompanyProfile published & retrievable."""
+"""Sprint 6.1/6.2 success path: Yahoo Infosys → institutional CompanyProfile published."""
 
 from __future__ import annotations
 
@@ -47,11 +47,11 @@ INFY_DAY2 = {
         "exchange": "NSI",
         "website": "https://www.infosys.com",
         "marketCap": 6550000000000,
-        "trailingPE": 24.2,  # immaterial PE tick — should NOT learn
+        "trailingPE": 24.2,
         "priceToBook": 7.25,
-        "regularMarketPrice": 1560.0,  # ~0.65% — below default 3% threshold
+        "regularMarketPrice": 1560.0,
         "regularMarketVolume": 4300000,
-        "revenueGrowth": 0.28,  # 18% → 28% — material learning event
+        "revenueGrowth": 0.28,
         "earningsGrowth": 0.15,
     },
 }
@@ -67,42 +67,32 @@ def test_infosys_yahoo_to_published_company_profile(tmp_path: Path) -> None:
         pe_material_abs=1.0,
         revenue_growth_material_pp=5.0,
         price_material_pct=3.0,
-        duplicate_window_seconds=0,  # allow day2 distinct checksum through
+        duplicate_window_seconds=0,
     )
     store = KaipStore(db_path)
     pipeline = AcquisitionPipeline(store, settings)
 
-    # Day 1
-    c1 = YahooCollector(
-        symbols=["INFY"],
-        live=False,
-        fixture_payloads={"INFY": INFY_DAY1},
-    )
+    c1 = YahooCollector(symbols=["INFY"], live=False, fixture_payloads={"INFY": INFY_DAY1})
     r1 = pipeline.run_collector(c1)
     assert len(r1.accepted) == 1
     assert any(ko.object_type == KnowledgeObjectType.COMPANY_PROFILE for ko in r1.knowledge_objects)
     profile = store.get_company_profile("INFY")
     assert profile is not None
-    assert profile["payload"]["company_name"] == "Infosys Limited"
-    assert profile["entity_refs"]["sector"] == "Technology"
+    assert profile["knowledge"]["company"] == "Infosys Limited"
+    assert profile["knowledge"]["business"]["sector"] == "Technology"
     assert "NIFTY50" in profile["entity_refs"]["indexes"]
-    # provider keys must not leak
-    assert "marketCap" not in profile["payload"]
-    assert "longName" not in profile["payload"]
+    assert "marketCap" not in profile["knowledge"]
+    assert "longName" not in profile["knowledge"]
+    assert profile["metadata"]["source"] == "yahoo"
 
-    # Day 2 — material revenue growth, immaterial PE
-    c2 = YahooCollector(
-        symbols=["INFY"],
-        live=False,
-        fixture_payloads={"INFY": INFY_DAY2},
-    )
+    c2 = YahooCollector(symbols=["INFY"], live=False, fixture_payloads={"INFY": INFY_DAY2})
     r2 = pipeline.run_collector(c2)
     assert len(r2.accepted) == 1
     learning_fields = {le.field_name for le in r2.learning_events}
     assert "revenue_growth" in learning_fields
-    assert "pe_ratio" not in learning_fields  # 24.1 → 24.2 ignored
+    assert "pe_ratio" not in learning_fields
+    assert "pe" not in learning_fields
 
-    # Intelligence Engine retrieval surface (internal API)
     app = create_app(
         Settings(
             db_path=db_path,
@@ -117,7 +107,7 @@ def test_infosys_yahoo_to_published_company_profile(tmp_path: Path) -> None:
         body = resp.json()
         assert body["object_type"] == "CompanyProfile"
         assert body["payload"]["company_symbol"] == "INFY"
-        assert body["entity_refs"]["company_name"] in {"Infosys Limited", "Infosys Ltd"}
+        assert body["company_knowledge"]["Company"] in {"Infosys Limited", "Infosys Ltd", "Infosys"}
 
         market = client.get("/v1/knowledge/market/INFY")
         assert market.status_code == 200
@@ -146,9 +136,9 @@ def test_scheduler_is_finance_agnostic_registration() -> None:
 
 
 def test_canonical_field_mapping() -> None:
+    from app.collectors.base import checksum_payload
     from app.contracts.models import RawEvent, Source
     from app.normalizers.canonical import CanonicalNormalizer
-    from app.collectors.base import checksum_payload
 
     event = RawEvent(
         source=Source.YAHOO,

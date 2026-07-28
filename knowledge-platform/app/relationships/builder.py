@@ -1,4 +1,4 @@
-"""Relationship Builder — Company → Sector → Industry → Index → Peers."""
+"""Relationship Builder — Company → Industry → Sector → Index → Peers → Clients."""
 
 from __future__ import annotations
 
@@ -11,29 +11,81 @@ class RelationshipBuilder:
         self.store = store
 
     def apply(self, ko: KnowledgeObject) -> EntityRefs:
-        """Update entity relationships from a knowledge object and return fresh refs."""
-        payload = ko.payload
-        sector = payload.get("sector")
-        industry = payload.get("industry")
-        indexes = payload.get("indexes")
-        peers = payload.get("peers")
+        knowledge = ko.knowledge or ko.payload
+        business = knowledge.get("business") if isinstance(knowledge.get("business"), dict) else {}
+        sector = business.get("sector") or knowledge.get("sector")
+        industry = business.get("industry") or knowledge.get("industry")
+        clients = knowledge.get("customers") or business.get("customers") or []
 
-        if ko.object_type == KnowledgeObjectType.COMPANY_PROFILE:
+        if ko.object_type == KnowledgeObjectType.COMPANY_PROFILE and ko.company_symbol:
             updated = self.store.update_entity_relationships(
                 ko.company_symbol,
                 sector=sector,
                 industry=industry,
-                indexes=indexes if isinstance(indexes, list) else None,
-                peers=peers if isinstance(peers, list) else None,
+                clients=clients if isinstance(clients, list) else None,
             )
             if updated:
-                # Keep KO entity_refs aligned with registry
                 ko.entity_refs = updated
+                self._write_edges(updated)
                 return updated
 
-        # Non-profile objects still refresh peer/index graph from registry
-        current = self.store.get_entity(ko.company_symbol)
-        if current:
-            ko.entity_refs = current
-            return current
+        if ko.company_symbol:
+            current = self.store.get_entity(ko.company_symbol)
+            if current:
+                ko.entity_refs = current
+                self._write_edges(current)
+                return current
         return ko.entity_refs
+
+    def _write_edges(self, refs: EntityRefs) -> None:
+        symbol = refs.company_symbol
+        if not symbol:
+            return
+        if refs.industry:
+            self.store.upsert_relationship_edge(
+                from_type="Company",
+                from_key=symbol,
+                edge_type="IN_INDUSTRY",
+                to_type="Industry",
+                to_key=refs.industry,
+            )
+            if refs.sector:
+                self.store.upsert_relationship_edge(
+                    from_type="Industry",
+                    from_key=refs.industry,
+                    edge_type="IN_SECTOR",
+                    to_type="Sector",
+                    to_key=refs.sector,
+                )
+        if refs.sector:
+            self.store.upsert_relationship_edge(
+                from_type="Company",
+                from_key=symbol,
+                edge_type="IN_SECTOR",
+                to_type="Sector",
+                to_key=refs.sector,
+            )
+        for index in refs.indexes:
+            self.store.upsert_relationship_edge(
+                from_type="Company",
+                from_key=symbol,
+                edge_type="IN_INDEX",
+                to_type="Index",
+                to_key=index,
+            )
+        for peer in refs.peers:
+            self.store.upsert_relationship_edge(
+                from_type="Company",
+                from_key=symbol,
+                edge_type="PEER_OF",
+                to_type="Company",
+                to_key=peer,
+            )
+        for client in refs.clients:
+            self.store.upsert_relationship_edge(
+                from_type="Company",
+                from_key=symbol,
+                edge_type="HAS_CLIENT",
+                to_type="Client",
+                to_key=str(client),
+            )

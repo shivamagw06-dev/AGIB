@@ -48,7 +48,22 @@ class KaipClient:
         return data
 
     def get_company_profile(self, symbol: str) -> dict[str, Any]:
+        """Return institutional CompanyProfile (includes company_knowledge view)."""
         return self._get(f"/v1/knowledge/company/{symbol.upper()}")
+
+    def get_company_knowledge(self, symbol: str) -> dict[str, Any]:
+        """Convenience: Company Knowledge projection only (never provider JSON)."""
+        profile = self.get_company_profile(symbol)
+        view = profile.get("company_knowledge")
+        if not isinstance(view, dict):
+            raise KaipClientError("kaip_missing_company_knowledge")
+        return view
+
+    def get_relationships(self, symbol: str) -> dict[str, Any]:
+        return self._get(f"/v1/knowledge/relationships/{symbol.upper()}")
+
+    def get_sector_knowledge(self, sector_key: str) -> dict[str, Any]:
+        return self._get(f"/v1/knowledge/sector/{sector_key}")
 
     def get_market_snapshot(self, symbol: str) -> dict[str, Any]:
         return self._get(f"/v1/knowledge/market/{symbol.upper()}")
