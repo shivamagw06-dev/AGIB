@@ -4484,31 +4484,157 @@ async def admin_causal_intelligence():
     return HTMLResponse(admin_page())
 
 
-# --- Forecast Intelligence Engine V1 (what future paths are plausible?) ---
+# --- Institutional Forecast Intelligence (IFI) Sprint 9.1 — Forecast Bundles ---
+# Preparation only: no Bull/Base/Bear, no probabilities, no price prediction.
 
 
 @router.get("/forecast/health")
 async def forecast_intelligence_health():
-    from forecast_intelligence.production import health
+    """Combined health: IFI preparation layer + legacy FIE scenario engine."""
+    from forecast_intelligence.production import health as fie_health
+    from institutional_forecast_intelligence.production import health as ifi_health
 
-    return health()
+    return {
+        "ifi": ifi_health(),
+        "fie": fie_health(),
+        "note": "Sprint 9.1 IFI prepares Forecast Bundles; FIE scenarios remain on /forecast/scenarios/{ticker}",
+    }
 
 
 @router.get("/forecast/dashboard")
 async def forecast_intelligence_dashboard():
-    from forecast_intelligence.production import dashboard
+    from institutional_forecast_intelligence.production import dashboard as ifi_dashboard
+
+    return ifi_dashboard()
+
+
+@router.get("/ifi/health")
+async def ifi_health():
+    from institutional_forecast_intelligence.production import health
+
+    return health()
+
+
+@router.get("/ifi/dashboard")
+async def ifi_dashboard():
+    from institutional_forecast_intelligence.production import dashboard
 
     return dashboard()
 
 
 @router.get("/forecast/company/{ticker}")
-async def forecast_intelligence_company(ticker: str):
-    from forecast_intelligence.production import company
+async def forecast_intelligence_company(
+    ticker: str,
+    mode: str = Query(default="bundle", description="bundle (IFI 9.1) | fie (legacy scenarios)"),
+    question: str | None = None,
+):
+    """Sprint 9.1 default: Institutional Forecast Bundle (preparation only)."""
+    if mode.lower() in {"fie", "scenarios", "legacy"}:
+        from forecast_intelligence.production import company
 
-    out = company(ticker)
-    if out.get("enabled") and not out.get("found"):
-        raise HTTPException(status_code=404, detail="company_forecast_not_found")
-    return out
+        out = company(ticker)
+        if out.get("enabled") and not out.get("found"):
+            raise HTTPException(status_code=404, detail="company_forecast_not_found")
+        return out
+
+    from institutional_forecast_intelligence.production import company as ifi_company
+
+    return ifi_company(ticker, question=question)
+
+
+@router.get("/ifi/company/{ticker}")
+async def ifi_company(ticker: str, question: str | None = None):
+    from institutional_forecast_intelligence.production import company
+
+    return company(ticker, question=question)
+
+
+@router.get("/forecast/sector/{sector}")
+async def forecast_sector(sector: str, question: str | None = None):
+    from institutional_forecast_intelligence.production import sector as ifi_sector
+
+    return ifi_sector(sector, question=question)
+
+
+@router.get("/ifi/sector/{sector}")
+async def ifi_sector_route(sector: str, question: str | None = None):
+    from institutional_forecast_intelligence.production import sector as ifi_sector
+
+    return ifi_sector(sector, question=question)
+
+
+@router.get("/forecast/market")
+async def forecast_market(question: str | None = None):
+    from institutional_forecast_intelligence.production import market
+
+    return market(question=question)
+
+
+@router.get("/ifi/market")
+async def ifi_market(question: str | None = None):
+    from institutional_forecast_intelligence.production import market
+
+    return market(question=question)
+
+
+@router.get("/forecast/macro")
+async def forecast_macro(question: str | None = None):
+    from institutional_forecast_intelligence.production import macro
+
+    return macro(question=question)
+
+
+@router.get("/ifi/macro")
+async def ifi_macro(question: str | None = None):
+    from institutional_forecast_intelligence.production import macro
+
+    return macro(question=question)
+
+
+@router.get("/forecast/theme")
+async def forecast_theme(
+    theme: str = Query(default="artificial_intelligence"),
+    question: str | None = None,
+):
+    from institutional_forecast_intelligence.production import theme as ifi_theme
+
+    return ifi_theme(theme, question=question)
+
+
+@router.get("/ifi/theme")
+async def ifi_theme_route(
+    theme: str = Query(default="artificial_intelligence"),
+    question: str | None = None,
+):
+    from institutional_forecast_intelligence.production import theme as ifi_theme
+
+    return ifi_theme(theme, question=question)
+
+
+@router.post("/forecast/bundle")
+async def forecast_bundle(payload: dict[str, Any] = Body(default={})):
+    """Assemble a Forecast Bundle for Scenario Engine consumption (no judgment)."""
+    from institutional_forecast_intelligence.production import bundle
+
+    return bundle(
+        scope=str(payload.get("scope") or "company"),
+        entity=payload.get("entity") or payload.get("ticker") or payload.get("sector") or payload.get("theme"),
+        question=payload.get("question"),
+    )
+
+
+@router.post("/ifi/bundle")
+async def ifi_bundle(payload: dict[str, Any] = Body(default={})):
+    from institutional_forecast_intelligence.production import bundle
+
+    return bundle(
+        scope=str(payload.get("scope") or "company"),
+        entity=payload.get("entity") or payload.get("ticker") or payload.get("sector") or payload.get("theme"),
+        question=payload.get("question"),
+    )
+
+
+# --- Forecast Intelligence Engine V1 (scenario layer — consumes bundles in 9.2) ---
 
 
 @router.get("/forecast/scenarios/{ticker}")
@@ -4553,6 +4679,29 @@ async def admin_forecast_intelligence():
     from forecast_intelligence.production import admin_page
 
     return HTMLResponse(admin_page())
+
+
+@router.get("/admin/institutional-forecast-intelligence", response_class=HTMLResponse)
+async def admin_ifi():
+    from institutional_forecast_intelligence.production import dashboard
+
+    board = dashboard()
+    rows = "".join(
+        f"<tr><td>{r.get('scope')}</td><td>{r.get('entity')}</td>"
+        f"<td>{r.get('completeness_score')}</td><td>{r.get('latency_ms')}</td></tr>"
+        for r in (board.get("recent") or [])
+    )
+    html = f"""<!doctype html><html><head><title>IFI Mission Control</title></head>
+    <body style="font-family:system-ui;max-width:960px;margin:2rem auto">
+    <h1>Institutional Forecast Intelligence</h1>
+    <p>Preparation only — no Bull/Base/Bear, no price prediction.</p>
+    <pre>{board.get('principles')}</pre>
+    <h2>Recent bundle generations</h2>
+    <table border="1" cellpadding="6"><tr><th>Scope</th><th>Entity</th><th>Completeness</th><th>Latency ms</th></tr>
+    {rows or '<tr><td colspan=4>No generations yet</td></tr>'}
+    </table>
+    </body></html>"""
+    return HTMLResponse(html)
 
 
 # --- Institutional Knowledge Graph V1 (what is connected?) ---
