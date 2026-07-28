@@ -662,6 +662,32 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("institutional_hypothesis_evaluation")
     except Exception:
         out["institutional_hypothesis_evaluation"] = None
+    # AGI Phase 4 Sprint 4.4 — Institutional Committee Reasoning (ICR)
+    try:
+        from institutional_committee_reasoning.production import dashboard as icr_dashboard
+        from institutional_committee_reasoning.production import status as icr_status
+
+        ch = icr_status()
+        cd = icr_dashboard()
+        out["institutional_committee_reasoning"] = {
+            "company": ch.get("company"),
+            "status": ch.get("status"),
+            "version": ch.get("version"),
+            "committee_version": cd.get("committee_version"),
+            "bull_base_bear_distribution": cd.get("bull_base_bear_distribution"),
+            "average_confidence": cd.get("average_confidence"),
+            "probability_distribution": cd.get("probability_distribution"),
+            "unresolved_disagreements": cd.get("unresolved_disagreements"),
+            "missing_evidence": cd.get("missing_evidence"),
+            "dominant_assumptions": cd.get("dominant_assumptions"),
+            "historical_analogue_usage": cd.get("historical_analogue_usage"),
+            "preferred_case": cd.get("preferred_case"),
+            "voting_engine": False,
+            "llm_used": False,
+        }
+        out["sources"].append("institutional_committee_reasoning")
+    except Exception:
+        out["institutional_committee_reasoning"] = None
     try:
         from knowledge_factory.production import historical_depth_coverage
 

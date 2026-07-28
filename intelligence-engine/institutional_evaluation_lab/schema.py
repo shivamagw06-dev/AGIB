@@ -60,8 +60,8 @@ JUDGE_DIMENSIONS: tuple[str, ...] = (
     "hallucinated_evidence",
 )
 
-# Independent Phase 4 metric (not in DIMENSION_WEIGHTS — does not move CIO)
-INDEPENDENT_METRICS: tuple[str, ...] = ("hypothesis_quality",)
+# Independent Phase 4 metrics (not in DIMENSION_WEIGHTS — do not move CIO)
+INDEPENDENT_METRICS: tuple[str, ...] = ("hypothesis_quality", "committee_quality")
 
 # Weighted contribution to per-question score (0–100)
 DIMENSION_WEIGHTS: dict[str, float] = {

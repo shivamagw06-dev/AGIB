@@ -10,31 +10,34 @@ UPDATED: 2026-07-28
 |--------|------|--------|------------------:|
 | **4.1** | Institutional Evidence Weighting (IEW) | ✓ Frozen v1.0.0 | +0.0 |
 | **4.2** | Institutional Hypothesis Generation (IHG) | ✓ Frozen v1.0.0 | +0.0 |
-| **4.3** | **Institutional Hypothesis Evaluation (IHE)** | ✓ Implemented v1.0.0 | **+0.5 to +0.8** |
-| **4.4** | Committee Reasoning | ← Next | +0.3 |
-| **4.5** | Confidence Calibration | Planned | +0.2 |
+| **4.3** | Institutional Hypothesis Evaluation (IHE) | ✓ Frozen v1.0.0 | +0.5 to +0.8 |
+| **4.4** | **Institutional Committee Reasoning (ICR)** | ✓ Implemented v1.0.0 | **+0.3** |
+| **4.5** | Confidence Calibration | ← Next | +0.2 |
 
-## Rename note
+## Design note (Sprint 4.4)
 
-Sprint 4.3 was previously scoped as “Contradiction Resolution.”
+ICR is **not a voting engine**.
 
-It is renamed to **Institutional Hypothesis Evaluation Engine (IHE)** because the job is:
+Bull / Base / Bear are **roles within the committee**:
 
-* compare hypotheses (pros / cons)
-* score contradictions
-* identify missing evidence
-* reject weak explanations
-* detect mutually exclusive explanations
-* calculate confidence before reasoning concludes
+* **Bull** — strongest evidence-supported upside interpretation
+* **Base** — best supported by the current balance of evidence
+* **Bear** — strongest evidence-supported downside interpretation
 
-That is hypothesis **evaluation**, not mere contradiction listing.
+Reasoning consumes an `InstitutionalCommitteeReport`, not raw hypothesis reports alone.
 
 ## Measurement
 
-Before IHE lands, IEL reports **Hypothesis Quality Score (HQS)** — independent of CIO / overall pass weights — so Phase 4 judgment quality can be steered without conflating it with answer score.
+IEL reports:
+
+* **HQS** — Hypothesis Quality Score (independent of CIO)
+* **CQS** — Committee Quality Score (independent of CIO and HQS)
+
+so Phase 4 judgment quality can be steered without conflating answer score.
 
 ## Do not
 
-* Optimise frozen IEW / IHG profiles for benchmark chasing
+* Optimise frozen IEW / IHG / IHE profiles for benchmark chasing
 * Replace reasoning internals
-* Skip Hypothesis Space (Evidence → Conclusion is forbidden for analytical questions)
+* Fabricate consensus or force three cases when evidence does not support them
+* Treat probabilities as forecasts (they are relative support)

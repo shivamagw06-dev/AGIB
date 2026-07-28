@@ -808,6 +808,115 @@ def run_complete_ask(
         "plural": hypothesis_evaluation.get("plural"),
     }
 
+    # ------------------------------------------------------------------
+    # AGI Phase 4 Sprint 4.4 — Institutional Committee Reasoning (ICR)
+    # Soft-wire only: Bull/Base/Bear roles from IHE before Reasoning.
+    # Not a voting engine — competing cases, then convergence.
+    # Frozen IEW / IHG / IHE / frameworks / reasoning untouched.
+    # ------------------------------------------------------------------
+    from institutional_committee_reasoning.production import (
+        apply_committee_reasoning as icr_apply,
+    )
+    from institutional_committee_reasoning.schema import COMMITTEE_VERSION, ICR_VERSION
+
+    _icr_meta = {
+        "question_id": (context.get("question_id") or session_id or conversation_id),
+        "intent": irl.get("intent") or intent_rec.get("intent_v2") or intent_rec.get("intent"),
+        "framework": (framework_selection.get("framework_ids") or [None])[0],
+        "playbook": playbook_selection.get("playbook_id"),
+        "weight_version": evidence_weighting.get("weight_version") or WEIGHT_VERSION,
+        "hypothesis_version": hypothesis_generation.get("hypothesis_version") or HYPOTHESIS_VERSION,
+        "evaluation_version": hypothesis_evaluation.get("evaluation_version") or EVALUATION_VERSION,
+        "committee_version": COMMITTEE_VERSION,
+        "reasoning_version": "frozen",
+        "replay_mode": bool(irl.get("as_of")),
+    }
+    with trace_span(
+        "committee_deliberation",
+        run_type="chain",
+        inputs={
+            "question": question,
+            "ihe_outcome": hypothesis_evaluation.get("outcome"),
+            "n_evaluated": hypothesis_evaluation.get("n_evaluated"),
+            "committee_version": COMMITTEE_VERSION,
+        },
+        tags=["ask", "icr", "committee_deliberation"],
+        metadata=_icr_meta,
+    ) as _csp:
+        _icr = icr_apply(
+            question=question,
+            hypothesis_evaluation=hypothesis_evaluation,
+            institutional_memory=institutional_memory,
+            framework_selection=framework_selection,
+            framework_ids=list(framework_selection.get("framework_ids") or []),
+            evidence_weighting=evidence_weighting,
+            as_of=irl.get("as_of"),
+            metadata=_icr_meta,
+        )
+        for _role in ("bull", "base", "bear"):
+            _case = ((_icr.get("pack") or {}).get("cases") or {}).get(_role)
+            if not _case:
+                continue
+            with trace_span(
+                "committee_deliberation.case",
+                run_type="tool",
+                inputs={
+                    "case_type": _role,
+                    "hypothesis_id": _case.get("hypothesis_id"),
+                    "case_name": _case.get("case_name"),
+                },
+                tags=["ask", "icr", "committee_case"],
+                metadata={
+                    **_icr_meta,
+                    "case_type": _role,
+                    "probability": _case.get("probability"),
+                    "probability_pct": _case.get("probability_pct"),
+                    "confidence": _case.get("confidence"),
+                    "support": _case.get("support_score"),
+                    "conflict": _case.get("conflict_score"),
+                    "assumptions": _case.get("underlying_assumptions"),
+                    "risks": _case.get("key_risks"),
+                    "catalysts": _case.get("key_catalysts"),
+                    "missing_evidence": _case.get("missing_evidence"),
+                    "committee_version": COMMITTEE_VERSION,
+                },
+            ) as _case_sp:
+                _case_sp.end(
+                    outputs={
+                        "case_type": _role,
+                        "probability_pct": _case.get("probability_pct"),
+                        "confidence": _case.get("confidence"),
+                        "invalidation_conditions": _case.get("invalidation_conditions"),
+                        "role_definition": _case.get("role_definition"),
+                    }
+                )
+        _csp.end(outputs=_icr.get("report"))
+    committee_reasoning = _icr.get("pack") or {}
+    stages["committee_reasoning"] = {
+        "status": "executed",
+        "icr_version": committee_reasoning.get("icr_version") or ICR_VERSION,
+        "committee_version": committee_reasoning.get("committee_version") or COMMITTEE_VERSION,
+        "outcome": (committee_reasoning.get("report") or {}).get("outcome"),
+        "n_cases": committee_reasoning.get("n_cases"),
+        "preferred_case": committee_reasoning.get("preferred_case"),
+        "probability_distribution": committee_reasoning.get("probability_distribution"),
+        "probability_sum": committee_reasoning.get("probability_sum"),
+        "voting_engine": False,
+        "guides_committee": True,
+        "reasoning_changed": False,
+        "framework_changed": False,
+        "communication_changed": False,
+        "llm_used": False,
+        "fabricated": False,
+    }
+    context["committee_reasoning"] = {
+        "icr_version": committee_reasoning.get("icr_version") or ICR_VERSION,
+        "committee_version": committee_reasoning.get("committee_version") or COMMITTEE_VERSION,
+        "preferred_case": committee_reasoning.get("preferred_case"),
+        "n_cases": committee_reasoning.get("n_cases"),
+        "outcome": (committee_reasoning.get("report") or {}).get("outcome"),
+    }
+
     # S07 Planner — no ticker in Concept Mode
     planner = run_planner(question, ticker_hint=hint, policy=policy)
     stages["planner"] = planner
@@ -941,6 +1050,24 @@ def run_complete_ask(
         "guides_judgment": True,
         "reasoning_changed": False,
         "framework_changed": False,
+        "llm_used": False,
+        "fabricated": False,
+        "deterministic": True,
+    }
+    # Soft overlay — InstitutionalCommitteeReport for reasoning (not raw hypothesis alone)
+    packs["committee_reasoning"] = {
+        "icr_version": committee_reasoning.get("icr_version") or ICR_VERSION,
+        "committee_version": committee_reasoning.get("committee_version") or COMMITTEE_VERSION,
+        "report": committee_reasoning.get("report"),
+        "cases": committee_reasoning.get("cases"),
+        "preferred_case": committee_reasoning.get("preferred_case"),
+        "probability_distribution": committee_reasoning.get("probability_distribution"),
+        "n_cases": committee_reasoning.get("n_cases"),
+        "voting_engine": False,
+        "guides_committee": True,
+        "reasoning_changed": False,
+        "framework_changed": False,
+        "communication_changed": False,
         "llm_used": False,
         "fabricated": False,
         "deterministic": True,
