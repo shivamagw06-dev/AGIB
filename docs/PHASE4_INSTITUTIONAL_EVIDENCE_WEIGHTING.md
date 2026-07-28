@@ -65,6 +65,12 @@ Versioned profiles under
 `intelligence-engine/institutional_evidence_weighting/config/profiles/`.
 Tune weights by adding a new profile version — do not change reasoning code.
 
+## Freeze
+
+**IEW v1.0.0 is FROZEN.** Do not optimise weight profiles for benchmark chasing.
+See `docs/PHASE4_IEW_IHG_FREEZE.md`.
+
 ## Contradictions
 
-IEW **identifies** higher / lower / equal weight only. Resolution is Sprint 4.3.
+IEW **identifies** higher / lower / equal weight only.
+Hypothesis comparison / evaluation is Sprint **4.3 IHE** (Institutional Hypothesis Evaluation).
