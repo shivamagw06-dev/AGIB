@@ -1491,24 +1491,26 @@ class UiService:
         except Exception:
             investment_office_pkg = {}
 
-        # Phase 1 — Evidence-First Execution Governance.
-        # Classification → entity → contract → frameworks → validation → committee.
-        # Editorial may never precede framework execution.
+        # AGIB v2.1 — Complete Ask Pipeline (soft-wire).
+        # Context → Intent → Entities → KF retrieval → Evidence → IRO plan → DAG
+        # → existing govern_answer (Phase 1–7) → DQ record → IOI register → telemetry.
+        # Does not redesign reasoning / KF / governance internals.
         execution_governance: dict[str, Any] = {}
+        ask_pipeline_runtime: dict[str, Any] = {}
         try:
             from institutional_reasoning.execution_governance import (
                 enforce_editorial,
-                govern_answer,
                 governed_executive,
                 telemetry_rows,
             )
             from institutional_reasoning.telemetry_sink import persist_rows
+            from ask_pipeline.pipeline import run_complete_ask
 
-            execution_governance = govern_answer(
+            ask_pipeline_runtime = run_complete_ask(
                 q,
                 ticker_hint=detected_ticker,
                 entity_resolution_pack=entity_resolution if isinstance(entity_resolution, dict) else None,
-                packs={
+                extra_packs={
                     "valuation": valuation if isinstance(valuation, dict) else {},
                     "company_analysis": company_analysis if isinstance(company_analysis, dict) else {},
                     "data_validation": data_validation if isinstance(data_validation, dict) else {},
@@ -1518,8 +1520,23 @@ class UiService:
                     "company_dossier": company_dossier if isinstance(company_dossier, dict) else {},
                 },
                 academy=finance_academy if isinstance(finance_academy, dict) else None,
-                build_institutional_evidence=True,
             )
+            execution_governance = ask_pipeline_runtime.get("governance") or {}
+            execution_governance["ask_pipeline"] = {
+                "pipeline_id": ask_pipeline_runtime.get("pipeline_id"),
+                "replay_id": ask_pipeline_runtime.get("replay_id"),
+                "pipeline_version": ask_pipeline_runtime.get("pipeline_version"),
+                "intent": (ask_pipeline_runtime.get("intent") or {}).get("intent"),
+                "institutionally_complete": ask_pipeline_runtime.get("institutionally_complete"),
+                "quality_gates": ask_pipeline_runtime.get("quality_gates"),
+                "modules_executed": (ask_pipeline_runtime.get("telemetry") or {}).get("modules_executed"),
+                "modules_skipped": (ask_pipeline_runtime.get("telemetry") or {}).get("modules_skipped"),
+                "decision_id": (ask_pipeline_runtime.get("decision_quality") or {}).get("decision_id"),
+                "outcome_decision_id": (ask_pipeline_runtime.get("outcome") or {}).get("decision_id"),
+                "evidence_coverage": (ask_pipeline_runtime.get("evidence") or {}).get("coverage"),
+                "knowledge_primary": "knowledge_factory",
+                "latency_ms": ask_pipeline_runtime.get("latency_ms"),
+            }
             telemetry = persist_rows(
                 telemetry_rows(execution_governance, answer_id=execution_governance.get("run_id"))
             )
@@ -1527,9 +1544,11 @@ class UiService:
                 "ok": telemetry.get("ok"),
                 "sink": telemetry.get("sink"),
                 "written": telemetry.get("written"),
+                "ask_pipeline": ask_pipeline_runtime.get("telemetry"),
             }
         except Exception:
             execution_governance = {}
+            ask_pipeline_runtime = {}
 
         # Finalize execution policy against VE / FRE / CA evidence packs.
         try:
