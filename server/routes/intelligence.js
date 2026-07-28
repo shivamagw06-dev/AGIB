@@ -1700,6 +1700,28 @@ export default function createIntelligenceRouter() {
       res.status(502).json({ error: err?.message || 'expectations gap proxy failed' });
     }
   });
+  // AGIB v2.0 — Unified Institutional Knowledge Stack
+  router.get('/institutional-knowledge/health', kfGet('/v1/institutional-knowledge/health'));
+  router.get('/institutional-knowledge/dashboard', async (req, res) => {
+    try {
+      const q = req.query.ensure ? '?ensure=true' : '';
+      const result = await engineFetch(`/v1/institutional-knowledge/dashboard${q}`);
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err?.message || 'institutional-knowledge dashboard proxy failed' });
+    }
+  });
+  router.post('/institutional-knowledge/run', kfPost('/v1/institutional-knowledge/run'));
+  router.get('/institutional-knowledge/company/:ticker', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/institutional-knowledge/company/${encodeURIComponent(req.params.ticker)}`
+      );
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err?.message || 'institutional-knowledge company proxy failed' });
+    }
+  });
   router.post('/knowledge-factory/run-daily', kfPost('/v1/knowledge-factory/run-daily'));
   router.get('/knowledge-factory/historical-depth', kfGet('/v1/knowledge-factory/historical-depth'));
   router.post('/knowledge-factory/historical-depth/run', kfPost('/v1/knowledge-factory/historical-depth/run'));

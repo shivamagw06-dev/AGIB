@@ -1,15 +1,20 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Activity, AlertTriangle, RefreshCw, Trophy } from 'lucide-react';
 import {
+  getAlternativeDataDashboard,
   getDecisionQualityDashboard,
   getDecisionQualityHall,
+  getExpectationsDashboard,
   getHistoricalDepthDashboard,
+  getInstitutionalKnowledgeDashboard,
   getKnowledgeFactoryDailyHealth,
   getMacroIntelligenceDashboard,
+  getRelationshipDashboard,
   getSectorIntelligenceDashboard,
   getUniverseIntelligenceDashboard,
   runDecisionQuality,
   runHistoricalDepth,
+  runInstitutionalKnowledgeStack,
   runMacroIntelligence,
   runSectorIntelligence,
   runUniverseIntelligence,
@@ -32,6 +37,20 @@ function pct(v) {
   return n <= 1 && n >= 0 ? `${Math.round(n * 1000) / 10}%` : `${Math.round(n * 10) / 10}`;
 }
 
+function LayerChip({ name, status }) {
+  const ok = status === 'ok';
+  return (
+    <span
+      className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${
+        ok ? 'bg-emerald-50 text-emerald-800' : 'bg-slate-100 text-slate-600'
+      }`}
+    >
+      {name}
+      <span className="ml-1 opacity-70">{ok ? 'ready' : status || '—'}</span>
+    </span>
+  );
+}
+
 export default function InstitutionalIntelligence() {
   const [health, setHealth] = useState(null);
   const [hd, setHd] = useState(null);
@@ -40,6 +59,10 @@ export default function InstitutionalIntelligence() {
   const [idq, setIdq] = useState(null);
   const [hall, setHall] = useState(null);
   const [iui, setIui] = useState(null);
+  const [iks, setIks] = useState(null);
+  const [ieri, setIeri] = useState(null);
+  const [iadi, setIadi] = useState(null);
+  const [imei, setImei] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
@@ -48,7 +71,7 @@ export default function InstitutionalIntelligence() {
     setLoading(true);
     setError('');
     try {
-      const [h, d, s, m, q, hallRes, u] = await Promise.all([
+      const [h, d, s, m, q, hallRes, u, stack, rel, alt, exp] = await Promise.all([
         getKnowledgeFactoryDailyHealth(),
         getHistoricalDepthDashboard(),
         getSectorIntelligenceDashboard(),
@@ -56,6 +79,10 @@ export default function InstitutionalIntelligence() {
         getDecisionQualityDashboard(),
         getDecisionQualityHall(),
         getUniverseIntelligenceDashboard('NIFTY_500'),
+        getInstitutionalKnowledgeDashboard(false),
+        getRelationshipDashboard(),
+        getAlternativeDataDashboard(),
+        getExpectationsDashboard(),
       ]);
       setHealth(h);
       setHd(d);
@@ -64,6 +91,10 @@ export default function InstitutionalIntelligence() {
       setIdq(q);
       setHall(hallRes);
       setIui(u);
+      setIks(stack);
+      setIeri(rel);
+      setIadi(alt);
+      setImei(exp);
     } catch (err) {
       setError(err?.message || 'Failed to load Institutional Intelligence');
     } finally {
@@ -85,6 +116,7 @@ export default function InstitutionalIntelligence() {
         runSectorIntelligence(),
         runMacroIntelligence(),
         runDecisionQuality(),
+        runInstitutionalKnowledgeStack({ ensure_only_missing: true }),
       ]);
       await load();
     } catch (err) {
@@ -101,21 +133,27 @@ export default function InstitutionalIntelligence() {
   const shame = hall?.hall_of_shame || [];
   const iuiCov = iui?.coverage || health?.universe_intelligence || {};
   const leaders = iui?.ici_leaders || [];
+  const summary = iks?.summary || {};
+  const reality = iks?.reality || {};
+  const expectations = iks?.expectations || {};
+  const relCov = ieri?.economic_relationship_coverage || {};
+  const altCov = iadi?.alternative_data_coverage || {};
+  const expCov = imei?.expectation_dashboard || {};
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-[10px] uppercase tracking-[0.2em] text-slate-700 font-semibold">
-            AGIB v1.2 · Institutional Universe Intelligence
+            AGIB v2.0 · Institutional Knowledge Stack
           </p>
           <h1 className="text-2xl font-bold text-slate-900 mt-1 flex items-center gap-2">
             <Activity className="h-6 w-6 text-slate-800" />
             Institutional Intelligence
           </h1>
           <p className="text-sm text-slate-500 mt-1 max-w-2xl">
-            Universe Registry → Membership (PIT) → Company Registry → Knowledge Factory → Evidence.
-            ICI is the operational north star. Phases 1–7 remain frozen.
+            Reality (companies → industries → relationships → alt data) + Expectations (guidance,
+            revisions, surprises). Soft Knowledge Factory only — Phases 1–7 frozen.
           </p>
         </div>
         <div className="flex gap-2">
@@ -124,7 +162,7 @@ export default function InstitutionalIntelligence() {
             Refresh
           </Button>
           <Button onClick={runAll} disabled={!!busy || loading}>
-            {busy ? 'Running…' : 'Prime / Run pipelines'}
+            {busy ? 'Running…' : 'Prime / Run stack'}
           </Button>
         </div>
       </div>
@@ -135,6 +173,45 @@ export default function InstitutionalIntelligence() {
           <span>{error}</span>
         </div>
       ) : null}
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Stat
+          label="Knowledge Stack"
+          value={
+            summary.stack_complete
+              ? 'Complete'
+              : `${summary.reality_layers_ok ?? '—'}/${7}R · ${summary.expectation_layers_ok ?? '—'}/1E`
+          }
+          hint="Reality + Expectations"
+        />
+        <Stat
+          label="Relationships"
+          value={relCov.relationships ?? '—'}
+          hint={`${relCov.commodities ?? '—'} commodities`}
+        />
+        <Stat
+          label="Alt-Data Datasets"
+          value={altCov.datasets ?? '—'}
+          hint={`${altCov.observations ?? '—'} observations`}
+        />
+        <Stat
+          label="Expectation Surprises"
+          value={expCov.surprises ?? '—'}
+          hint={`${expCov.narratives ?? '—'} narratives`}
+        />
+      </div>
+
+      <div className="bg-white rounded-xl border border-slate-200 p-5">
+        <h2 className="text-sm font-semibold text-slate-800 mb-3">Stack layers</h2>
+        <div className="flex flex-wrap gap-2">
+          {Object.entries(reality).map(([k, v]) => (
+            <LayerChip key={k} name={k} status={v?.status} />
+          ))}
+          {Object.entries(expectations).map(([k, v]) => (
+            <LayerChip key={`e-${k}`} name={`expectations:${k}`} status={v?.status} />
+          ))}
+        </div>
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Stat
@@ -223,11 +300,12 @@ export default function InstitutionalIntelligence() {
       <div className="bg-white rounded-xl border border-slate-200 p-5 text-sm text-slate-600">
         <p>
           Roadmap next:{' '}
-          <span className="font-semibold text-slate-900">{health?.roadmap_next || '—'}</span>
+          <span className="font-semibold text-slate-900">
+            {iks?.roadmap_next || health?.roadmap_next || '—'}
+          </span>
         </p>
         <p className="mt-1 text-xs text-slate-400">
-          Soft Universe Registry only. Reasoning, Knowledge Factory architecture, and Decision
-          Quality remain frozen.
+          Soft Knowledge Factory stack. Reasoning, governance, and planners remain frozen.
         </p>
       </div>
     </div>

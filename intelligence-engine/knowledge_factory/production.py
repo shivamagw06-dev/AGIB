@@ -114,7 +114,31 @@ def run_daily_pipeline(**kwargs: Any) -> dict[str, Any]:
             result = {**result, "historical_depth": hd}
         except Exception as exc:  # never break Track-1 on HD failure
             result = {**result, "historical_depth": {"status": "error", "error": str(exc)}}
+    # AGIB v2.0 — optional Institutional Knowledge Stack soft-run (default off).
+    if bool(kwargs.get("institutional_knowledge", False)):
+        try:
+            from knowledge_factory.institutional_knowledge_stack.production import run_stack
+
+            iks = run_stack(ensure_only_missing=bool(kwargs.get("ensure_only_missing", True)))
+            result = {**result, "institutional_knowledge_stack": iks}
+        except Exception as exc:
+            result = {
+                **result,
+                "institutional_knowledge_stack": {"status": "error", "error": str(exc)},
+            }
     return result
+
+
+def run_institutional_knowledge_stack(**kwargs: Any) -> dict[str, Any]:
+    from knowledge_factory.institutional_knowledge_stack.production import run_stack
+
+    return run_stack(**kwargs)
+
+
+def institutional_knowledge_coverage() -> dict[str, Any]:
+    from knowledge_factory.institutional_knowledge_stack.production import dashboard
+
+    return dashboard(ensure=False)
 
 
 def run_historical_depth_pipeline(**kwargs: Any) -> dict[str, Any]:

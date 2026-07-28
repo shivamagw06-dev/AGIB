@@ -7800,6 +7800,37 @@ async def expectations_phase2_consensus():
     return phase2_consensus_status()
 
 
+# ---------------------------------------------------------------------------
+# AGIB v2.0 — Unified Institutional Knowledge Stack (Sprints 1–7 soft orchestration)
+# ---------------------------------------------------------------------------
+@router.get("/institutional-knowledge/health")
+async def institutional_knowledge_health():
+    from knowledge_factory.institutional_knowledge_stack.production import health as iks_health
+
+    return iks_health()
+
+
+@router.get("/institutional-knowledge/dashboard")
+async def institutional_knowledge_dashboard(ensure: bool = False):
+    from knowledge_factory.institutional_knowledge_stack.production import dashboard
+
+    return dashboard(ensure=ensure)
+
+
+@router.post("/institutional-knowledge/run")
+async def institutional_knowledge_run(payload: dict[str, Any] = Body(default={})):
+    from knowledge_factory.institutional_knowledge_stack.production import run_stack
+
+    return run_stack(ensure_only_missing=bool((payload or {}).get("ensure_only_missing")))
+
+
+@router.get("/institutional-knowledge/company/{ticker}")
+async def institutional_knowledge_company(ticker: str):
+    from knowledge_factory.institutional_knowledge_stack.production import company_bundle
+
+    return company_bundle(ticker)
+
+
 @router.get("/knowledge-factory/historical-depth")
 async def knowledge_factory_historical_depth():
     """Historical Depth Coverage dashboard (Sprint 4 north-star KPI)."""

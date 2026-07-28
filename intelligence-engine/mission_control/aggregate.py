@@ -227,6 +227,27 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
             out["roadmap_next"] = "knowledge_stack_complete"
     except Exception:
         out["market_expectations_intelligence"] = None
+    # Unified Institutional Knowledge Stack board (soft orchestration).
+    try:
+        from knowledge_factory.institutional_knowledge_stack.production import dashboard as iks_dash
+
+        iks = iks_dash(ensure=False)
+        out["institutional_knowledge_stack"] = {
+            "summary": iks.get("summary"),
+            "reality": {
+                k: {"status": v.get("status")} for k, v in (iks.get("reality") or {}).items()
+            },
+            "expectations": {
+                k: {"status": v.get("status")} for k, v in (iks.get("expectations") or {}).items()
+            },
+            "roadmap_next": iks.get("roadmap_next"),
+            "north_star": iks.get("north_star"),
+        }
+        out["sources"].append("institutional_knowledge_stack")
+        if (iks.get("summary") or {}).get("stack_complete"):
+            out["roadmap_next"] = "knowledge_stack_complete"
+    except Exception:
+        out["institutional_knowledge_stack"] = None
     try:
         from knowledge_factory.production import historical_depth_coverage
 
