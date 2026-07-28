@@ -9,6 +9,7 @@ from institutional_reasoning.cal.learning_suite import run_learning_suite
 from institutional_reasoning.cal.overlays import (
     applicability_rules,
     confidence_for,
+    contextual_confidence,
     planner_weights,
     policy_overlay,
 )
@@ -68,6 +69,18 @@ def quality_gates() -> dict[str, Any]:
 
 def soft_confidence(framework_id: str, *, regime: str | None = None) -> dict[str, Any]:
     return confidence_for(framework_id, regime=regime)
+
+
+def soft_contextual_confidence(
+    framework_id: str,
+    *,
+    sector: str | None = None,
+    regime: str | None = None,
+    horizon: str | None = None,
+) -> dict[str, Any]:
+    return contextual_confidence(
+        framework_id, sector=sector, regime=regime, horizon=horizon
+    )
 
 
 def soft_applicability_rules(**kwargs: Any) -> list[dict[str, Any]]:

@@ -116,7 +116,30 @@ def attribute_outcome(
             }
         )
 
-    # Always attribute macro / scenario / policy / sizing / evidence
+    # Timing: wrong if entry near local high and large negative alpha
+    entry_timing = lifecycle.get("entry_timing") or {}
+    timing_ok = True
+    if entry_timing.get("near_high") and alpha <= -0.08:
+        timing_ok = False
+    if force_wrong.get("timing"):
+        timing_ok = False
+
+    # Execution: wrong if slippage / partial fill drove gap vs thesis
+    execution = lifecycle.get("execution") or {}
+    execution_ok = True
+    if _f(execution.get("slippage_bps")) >= 40 and err >= 0.05:
+        execution_ok = False
+    if execution.get("partial_fill") and abs(actual - expected) >= 0.06:
+        execution_ok = False
+    if force_wrong.get("execution"):
+        execution_ok = False
+
+    # Framework channel aggregate (distinct from per-framework rows)
+    framework_ok = valuation_ok and bq_ok
+    if force_wrong.get("framework"):
+        framework_ok = False
+
+    # Always attribute macro / scenario / policy / sizing / evidence / timing / execution
     components.extend(
         [
             {
@@ -149,6 +172,24 @@ def attribute_outcome(
                 "kind": "evidence",
                 "verdict": _verdict(bool(lifecycle.get("research_djg"))),
             },
+            {
+                "component": "framework",
+                "label": "Framework Channel",
+                "kind": "framework",
+                "verdict": _verdict(framework_ok),
+            },
+            {
+                "component": "timing",
+                "label": "Entry Timing",
+                "kind": "timing",
+                "verdict": _verdict(timing_ok),
+            },
+            {
+                "component": "execution",
+                "label": "Execution Quality",
+                "kind": "execution",
+                "verdict": _verdict(execution_ok),
+            },
         ]
     )
 
@@ -158,8 +199,19 @@ def attribute_outcome(
     # Primary attribution — prefer non-valuation when valuation is correct
     primary = None
     if wrong:
-        # Prefer macro/scenario/sizing/policy over valuation if mixed
-        priority = {"macro": 0, "scenario": 1, "sizing": 2, "policy": 3, "business_quality": 4, "valuation": 5}
+        # Prefer macro/scenario/sizing/policy/timing/execution over valuation if mixed
+        priority = {
+            "macro": 0,
+            "scenario": 1,
+            "timing": 2,
+            "execution": 3,
+            "sizing": 4,
+            "policy": 5,
+            "framework": 6,
+            "business_quality": 7,
+            "valuation": 8,
+            "evidence": 9,
+        }
         wrong_sorted = sorted(wrong, key=lambda c: priority.get(c["kind"], 9))
         primary = wrong_sorted[0]
     elif err > 0.05:
@@ -178,16 +230,42 @@ def attribute_outcome(
     failure = err > 0.08 or (evaluation.get("grade") in {"D", "F"}) or alpha <= -0.10
     unattributed = bool(failure and not wrong)
 
+    channels = {
+        "evidence": _verdict(bool(lifecycle.get("research_djg"))),
+        "framework": _verdict(framework_ok),
+        "macro": _verdict(macro_ok),
+        "scenario": _verdict(scenario_ok),
+        "sizing": _verdict(sizing_ok),
+        "timing": _verdict(timing_ok),
+        "execution": _verdict(execution_ok),
+        "policy": _verdict(policy_ok),
+        "valuation": _verdict(valuation_ok),
+    }
+
     return {
         "attribution_version": ATTRIBUTION_VERSION,
         "components": components,
         "correct": [c["component"] for c in correct],
         "wrong": [c["component"] for c in wrong],
         "primary_failure": primary,
+        "channels": channels,
         "summary": {
             c["label"]: c["verdict"]
             for c in components
-            if c["kind"] in {"valuation", "business_quality", "macro", "scenario", "policy", "sizing", "evidence", "assumption"}
+            if c["kind"]
+            in {
+                "valuation",
+                "business_quality",
+                "macro",
+                "scenario",
+                "policy",
+                "sizing",
+                "evidence",
+                "framework",
+                "timing",
+                "execution",
+                "assumption",
+            }
         },
         "failure": failure,
         "unattributed": unattributed,

@@ -54,7 +54,9 @@ def score_metric(
     now = datetime.now(timezone.utc)
     if ts is None:
         # Seed panels without live timestamps get partial freshness credit
-        components["freshness"] = 12.0 if data_class in {"seed_panel", "institutional_seed"} else 0.0
+        components["freshness"] = (
+            12.0 if data_class in {"seed_panel", "institutional_seed", "derived"} else 0.0
+        )
     else:
         age = now - ts
         if age <= timedelta(days=7):
@@ -88,7 +90,7 @@ def score_metric(
     # Validation (0–10)
     if validated or data_class in {"filing", "dvc", "live"}:
         components["validation"] = 10.0
-    elif data_class in {"seed_panel", "institutional_seed"}:
+    elif data_class in {"seed_panel", "institutional_seed", "derived"}:
         components["validation"] = 8.0
     else:
         components["validation"] = 3.0

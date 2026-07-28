@@ -41,10 +41,32 @@ def confidence_for(framework_id: str, *, regime: str | None = None) -> dict[str,
         "live": live.get("value"),
         "dynamic": value,
         "regime": live.get("regime") or regime,
-        "sector_specific": None,
+        "sector_specific": live.get("sector"),
+        "horizon": live.get("horizon"),
         "overlay_version": state.get("framework_overlay_version"),
         "source": "cal_overlay" if live else "ies_seed",
     }
+
+
+def contextual_confidence(
+    framework_id: str,
+    *,
+    sector: str | None = None,
+    regime: str | None = None,
+    horizon: str | None = None,
+    market: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    from institutional_reasoning.cal.contextual_confidence import (
+        contextual_confidence as _contextual,
+    )
+
+    return _contextual(
+        framework_id,
+        sector=sector,
+        regime=regime,
+        horizon=horizon,
+        market=market,
+    )
 
 
 def policy_overlay() -> dict[str, Any]:
