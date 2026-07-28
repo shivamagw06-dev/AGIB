@@ -7323,6 +7323,83 @@ async def patch_intelligence_queue(top_n: int = 10):
     return from_latest_rci(top_n=top_n)
 
 
+# ---------------------------------------------------------------------------
+# AGI Phase 3 Sprint 3.5 — Temporal Integrity & Replay Certification (TIRC)
+# ---------------------------------------------------------------------------
+@router.get("/temporal-integrity/health")
+async def temporal_integrity_health():
+    from temporal_integrity.production import status
+
+    return status()
+
+
+@router.get("/temporal-integrity/dashboard")
+async def temporal_integrity_dashboard():
+    from temporal_integrity.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/temporal-integrity/replay")
+async def temporal_integrity_replay(as_of: str | None = None):
+    """Replay guard health for a given as_of (empty graph/memory probe)."""
+    from temporal_integrity.production import guard
+
+    return guard(as_of=as_of, evidence_graph={"nodes": [], "edges": [], "surface_bullets": []}, stage="pre_analog")
+
+
+@router.post("/temporal-integrity/validation")
+async def temporal_integrity_validation(payload: dict):
+    from temporal_integrity.production import validate_object
+
+    return validate_object(dict(payload.get("object") or payload), as_of=payload.get("as_of"))
+
+
+@router.get("/temporal-integrity/rejected")
+async def temporal_integrity_rejected(limit: int = 50):
+    from temporal_integrity.production import rejected
+
+    return rejected(limit=limit)
+
+
+@router.get("/temporal-integrity/certification")
+async def temporal_integrity_certification():
+    from temporal_integrity.production import certification
+
+    return certification()
+
+
+@router.get("/temporal-integrity/telemetry")
+async def temporal_integrity_telemetry():
+    from temporal_integrity.production import telemetry
+
+    return telemetry()
+
+
+# ---------------------------------------------------------------------------
+# AGI Observability — LangSmith tracing (observability only; never changes answers)
+# ---------------------------------------------------------------------------
+@router.get("/observability/health")
+async def observability_health():
+    from observability.production import status
+
+    return status()
+
+
+@router.get("/observability/langsmith")
+async def observability_langsmith():
+    from observability.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/observability/langsmith/verify")
+async def observability_langsmith_verify():
+    from observability.production import verify
+
+    return verify()
+
+
 @router.get("/prediction/{prediction_id}")
 async def ail_prediction(prediction_id: str):
     try:
