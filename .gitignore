@@ -8,6 +8,8 @@ dist/
 !intelligence-engine/academy/books/
 !intelligence-engine/academy/books/**
 intelligence-engine/data/
+knowledge-platform/data/
+knowledge-platform/.venv/
 # Keep Academy Books programme source (structured knowledge; not PDF corpus)
 # Local book PDFs (copyrighted; do not commit) — root corpus only
 node_modules/
