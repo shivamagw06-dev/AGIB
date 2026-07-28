@@ -7377,6 +7377,65 @@ async def temporal_integrity_telemetry():
 
 
 # ---------------------------------------------------------------------------
+# AGI Phase 4 Sprint 4.2 — Institutional Hypothesis Generation Engine (IHG)
+# ---------------------------------------------------------------------------
+@router.get("/hypothesis/health")
+async def hypothesis_health():
+    from institutional_hypothesis_generation.production import status
+
+    return status()
+
+
+@router.get("/hypothesis/dashboard")
+async def hypothesis_dashboard():
+    from institutional_hypothesis_generation.production import dashboard
+
+    return dashboard()
+
+
+@router.post("/hypothesis/generate")
+async def hypothesis_generate(payload: dict):
+    from institutional_hypothesis_generation.production import generate
+
+    return generate(payload)
+
+
+@router.post("/hypothesis/rank")
+async def hypothesis_rank(payload: dict):
+    from institutional_hypothesis_generation.production import rank
+
+    return rank(payload)
+
+
+@router.post("/hypothesis/explain")
+async def hypothesis_explain(payload: dict):
+    from institutional_hypothesis_generation.production import explain
+
+    return explain(payload)
+
+
+@router.get("/hypothesis/telemetry")
+async def hypothesis_telemetry():
+    from institutional_hypothesis_generation.production import telemetry
+
+    return telemetry()
+
+
+@router.get("/hypothesis/history")
+async def hypothesis_history(limit: int = 20):
+    from institutional_hypothesis_generation.production import history
+
+    return history(limit=limit)
+
+
+@router.get("/hypothesis/configuration")
+async def hypothesis_configuration():
+    from institutional_hypothesis_generation.production import configuration
+
+    return configuration()
+
+
+# ---------------------------------------------------------------------------
 # AGI Phase 4 Sprint 4.1 — Institutional Evidence Weighting Engine (IEW)
 # ---------------------------------------------------------------------------
 @router.get("/evidence-weighting/health")

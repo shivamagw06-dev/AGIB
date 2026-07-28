@@ -611,6 +611,31 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("institutional_evidence_weighting")
     except Exception:
         out["institutional_evidence_weighting"] = None
+    # AGI Phase 4 Sprint 4.2 — Institutional Hypothesis Generation Engine
+    try:
+        from institutional_hypothesis_generation.production import dashboard as ihg_dashboard
+        from institutional_hypothesis_generation.production import status as ihg_status
+
+        hh = ihg_status()
+        hd = ihg_dashboard()
+        out["institutional_hypothesis_generation"] = {
+            "company": hh.get("company"),
+            "status": hh.get("status"),
+            "version": hh.get("version"),
+            "hypothesis_version": hd.get("hypothesis_version"),
+            "average_hypotheses": hd.get("average_hypotheses"),
+            "rejected_hypotheses": hd.get("rejected_hypotheses"),
+            "winning_hypothesis": hd.get("winning_hypothesis"),
+            "hypothesis_confidence": hd.get("hypothesis_confidence"),
+            "evidence_support": hd.get("evidence_support"),
+            "conflict_score": hd.get("conflict_score"),
+            "plural": hd.get("plural"),
+            "forced_single_winner": False,
+            "llm_used": False,
+        }
+        out["sources"].append("institutional_hypothesis_generation")
+    except Exception:
+        out["institutional_hypothesis_generation"] = None
     try:
         from knowledge_factory.production import historical_depth_coverage
 
