@@ -7376,6 +7376,30 @@ async def temporal_integrity_telemetry():
     return telemetry()
 
 
+# ---------------------------------------------------------------------------
+# AGI Observability — LangSmith tracing (observability only; never changes answers)
+# ---------------------------------------------------------------------------
+@router.get("/observability/health")
+async def observability_health():
+    from observability.production import status
+
+    return status()
+
+
+@router.get("/observability/langsmith")
+async def observability_langsmith():
+    from observability.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/observability/langsmith/verify")
+async def observability_langsmith_verify():
+    from observability.production import verify
+
+    return verify()
+
+
 @router.get("/prediction/{prediction_id}")
 async def ail_prediction(prediction_id: str):
     try:
