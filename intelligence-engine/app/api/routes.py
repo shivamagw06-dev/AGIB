@@ -4848,6 +4848,107 @@ async def admin_decision_engine_v2():
     return HTMLResponse(admin_page())
 
 
+# --- Institutional Decision Quality (Sprint 7 — observability only; never reasons) ---
+
+
+@router.get("/decision-quality/health")
+async def decision_quality_health():
+    from decision_quality.production import health
+
+    return health()
+
+
+@router.get("/decision-quality/dashboard")
+async def decision_quality_dashboard():
+    from decision_quality.production import dashboard
+
+    return dashboard()
+
+
+@router.post("/decision-quality/run")
+async def decision_quality_run():
+    from decision_quality.production import run_pipeline
+
+    return run_pipeline()
+
+
+@router.get("/decision-quality/quality-gates")
+async def decision_quality_gates():
+    from decision_quality.production import quality_gates
+
+    return quality_gates()
+
+
+@router.get("/decision-quality/decisions")
+async def decision_quality_list():
+    from decision_quality.production import list_decisions
+
+    return list_decisions()
+
+
+@router.get("/decision-quality/decisions/{decision_id}")
+async def decision_quality_decision(decision_id: str):
+    from decision_quality.production import get_decision
+
+    return get_decision(decision_id)
+
+
+@router.get("/decision-quality/replay/{decision_id}")
+async def decision_quality_replay(decision_id: str, as_of: str | None = None):
+    from decision_quality.production import replay
+
+    return replay(decision_id, as_of=as_of)
+
+
+@router.get("/decision-quality/scorecards/framework")
+async def decision_quality_framework_scorecards():
+    from decision_quality.production import framework_scorecards
+
+    return framework_scorecards()
+
+
+@router.get("/decision-quality/scorecards/sector")
+async def decision_quality_sector_scorecards():
+    from decision_quality.production import sector_scorecards
+
+    return sector_scorecards()
+
+
+@router.get("/decision-quality/scorecards/macro")
+async def decision_quality_macro_scorecards():
+    from decision_quality.production import macro_scorecards
+
+    return macro_scorecards()
+
+
+@router.get("/decision-quality/scorecards/portfolio")
+async def decision_quality_portfolio_scorecard():
+    from decision_quality.production import portfolio_scorecard
+
+    return portfolio_scorecard()
+
+
+@router.get("/decision-quality/calibration")
+async def decision_quality_calibration():
+    from decision_quality.production import calibration
+
+    return calibration()
+
+
+@router.get("/decision-quality/hall")
+async def decision_quality_hall(category: str | None = None, which: str | None = None):
+    from decision_quality.production import hall
+
+    return hall(category=category, which=which)
+
+
+@router.get("/decision-quality/missing-outcome")
+async def decision_quality_missing_outcome(decision_id: str = "dec_tcs_open_no_outcome"):
+    from decision_quality.production import outcome_missing
+
+    return outcome_missing(decision_id)
+
+
 # --- RQ1 Research Ontology (Sprint 1 — classify-only constitution; not a top-level layer) ---
 
 
