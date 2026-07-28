@@ -82,7 +82,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         store = KaipStore(settings.db_path)
         pipeline = AcquisitionPipeline(store, settings)
         collectors = build_collectors(settings)
-        gateway = KnowledgeRetrievalGateway(store)
+        gateway = KnowledgeRetrievalGateway(store, hip_base_url=settings.hip_base_url)
 
         ako: AdaptiveKnowledgeOrchestrator | None = None
         scheduler: AcquisitionScheduler | AdaptiveKnowledgeOrchestrator

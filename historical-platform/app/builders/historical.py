@@ -13,7 +13,14 @@ from app.contracts.models import (
     Source,
     utc_now,
 )
+from app.hko.shape import (
+    shape_historical_action,
+    shape_historical_event,
+    shape_historical_financial,
+    shape_historical_price,
+)
 from app.storage.db import HipStore
+from app.timeline import traces
 
 
 class HistoricalKnowledgeBuilder:
@@ -29,15 +36,19 @@ class HistoricalKnowledgeBuilder:
         collector_id: str,
         ingestion_run_id: str | None = None,
     ) -> HistoricalKnowledgeObject | None:
+        span = traces.begin("historical_normalization", meta={"object_type": canonical.get("object_type")})
         try:
             object_type = HistoricalObjectType(canonical["object_type"])
         except Exception:
+            traces.end(span, ok=False)
             return None
         symbol = (canonical.get("company_symbol") or entity_refs.company_symbol or "").upper()
         if not symbol:
+            traces.end(span, ok=False)
             return None
         effective_date = str(canonical.get("effective_date") or "")
         if not effective_date:
+            traces.end(span, ok=False)
             return None
         try:
             period_kind = PeriodKind(canonical.get("period_kind") or PeriodKind.POINT_IN_TIME.value)
@@ -47,9 +58,6 @@ class HistoricalKnowledgeBuilder:
         subject_key = symbol
         version = self.store.latest_version(object_type, subject_key, effective_date) + 1
         previous_id = None
-        if version > 1:
-            # prior version retained; we don't fetch id for brevity — version chain is sufficient
-            previous_id = None
 
         now = utc_now()
         provenance = HistoricalProvenance(
@@ -62,12 +70,10 @@ class HistoricalKnowledgeBuilder:
             source_event_ids=[canonical["source_event_id"]] if canonical.get("source_event_id") else [],
             ingestion_run_id=ingestion_run_id,
         )
-        knowledge = dict(canonical.get("knowledge") or {})
-        # Ensure IR reports land in reports mirror
-        if knowledge.get("report_type"):
-            pass
+        raw_knowledge = dict(canonical.get("knowledge") or {})
+        knowledge = self._institutional_knowledge(object_type, raw_knowledge, symbol, effective_date, source)
 
-        return HistoricalKnowledgeObject(
+        ko = HistoricalKnowledgeObject(
             object_type=object_type,
             company_symbol=symbol,
             subject_key=subject_key,
@@ -80,3 +86,37 @@ class HistoricalKnowledgeBuilder:
             provenance=provenance,
             created_at=now,
         )
+        traces.end(span, output={"object_type": object_type.value, "version": version})
+        return ko
+
+    @staticmethod
+    def _institutional_knowledge(
+        object_type: HistoricalObjectType,
+        knowledge: dict[str, Any],
+        symbol: str,
+        effective_date: str,
+        source: Source,
+    ) -> dict[str, Any]:
+        """Embed Sprint 8.2 HKO shaped view alongside raw metrics (immutable facts)."""
+        out = dict(knowledge)
+        if object_type == HistoricalObjectType.PRICE_HISTORY:
+            out["hko"] = shape_historical_price(knowledge, company=symbol, date=effective_date, source=source)
+        elif object_type == HistoricalObjectType.FINANCIAL_STATEMENT:
+            out["hko"] = shape_historical_financial(
+                knowledge, company=symbol, period=effective_date, source=source
+            )
+        elif object_type == HistoricalObjectType.CORPORATE_EVENT:
+            out["hko"] = shape_historical_event(
+                knowledge, company=symbol, date=effective_date, source=source
+            )
+        elif object_type in {
+            HistoricalObjectType.CORPORATE_ACTION,
+            HistoricalObjectType.DIVIDEND_HISTORY,
+        }:
+            payload = dict(knowledge)
+            if object_type == HistoricalObjectType.DIVIDEND_HISTORY:
+                payload.setdefault("action_type", "dividend")
+            out["hko"] = shape_historical_action(
+                payload, company=symbol, date=effective_date, source=source
+            )
+        return out

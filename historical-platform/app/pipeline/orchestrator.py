@@ -18,6 +18,7 @@ from app.contracts.models import (
 from app.entity_resolution.resolver import HistoricalEntityResolver
 from app.normalizers.canonical import HistoricalNormalizer
 from app.storage.db import HipStore
+from app.timeline import traces
 from app.validators.gates import HistoricalValidationGate
 
 logger = logging.getLogger("hip.pipeline")
@@ -48,6 +49,10 @@ class HistoricalAcquisitionPipeline:
         mode: str = "bootstrap",
         symbols: list[str] | None = None,
     ) -> HistoricalPipelineResult:
+        span = traces.begin(
+            "historical_ingestion",
+            meta={"collector_id": collector.collector_id, "mode": mode, "symbols": symbols or []},
+        )
         run = IngestionRun(
             mode=mode,
             collector_id=collector.collector_id,
@@ -68,6 +73,15 @@ class HistoricalAcquisitionPipeline:
         }
         self.store.finish_run(run)
         result.run_id = run.run_id
+        traces.end(
+            span,
+            output={
+                "run_id": result.run_id,
+                "accepted": len(result.accepted),
+                "objects": len(result.objects),
+                "duplicates": len(result.duplicates),
+            },
+        )
         return result
 
     def ingest_events(
@@ -127,10 +141,15 @@ class HistoricalAcquisitionPipeline:
                     )
         return result
 
-    def bootstrap_all(self, collectors: dict[str, BaseHistoricalCollector]) -> dict[str, Any]:
+    def bootstrap_all(
+        self,
+        collectors: dict[str, BaseHistoricalCollector],
+        *,
+        symbols: list[str] | None = None,
+    ) -> dict[str, Any]:
         summary = {}
         for cid, collector in collectors.items():
-            res = self.run_collector(collector, mode="bootstrap")
+            res = self.run_collector(collector, mode="bootstrap", symbols=symbols)
             summary[cid] = {
                 "run_id": res.run_id,
                 "accepted": len(res.accepted),

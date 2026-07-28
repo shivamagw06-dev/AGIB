@@ -28,6 +28,8 @@ class Source(str, Enum):
 
 class HistoricalObjectType(str, Enum):
     PRICE_HISTORY = "HistoricalPriceHistory"
+    # Sprint 8.2 canonical alias used in HKO views
+    PRICE = "HistoricalPrice"
     FINANCIAL_STATEMENT = "HistoricalFinancialStatement"
     BALANCE_SHEET = "HistoricalBalanceSheet"
     CASH_FLOW = "HistoricalCashFlow"
@@ -38,6 +40,21 @@ class HistoricalObjectType(str, Enum):
     MARKET_SNAPSHOT = "HistoricalMarketSnapshot"
     COMPANY_PROFILE = "HistoricalCompanyProfile"
     NEWS_EVENT = "HistoricalNewsEvent"
+    TIMELINE_EVENT = "HistoricalTimelineEvent"
+
+
+class TimelineScope(str, Enum):
+    COMPANY = "company"
+    SECTOR = "sector"
+    MARKET = "market"
+    MACRO = "macro"
+
+
+class TimelineImportance(str, Enum):
+    CRITICAL = "Critical"
+    HIGH = "High"
+    MEDIUM = "Medium"
+    LOW = "Low"
 
 
 class ValidationStatus(str, Enum):
@@ -135,3 +152,31 @@ class CoverageStatus(str, Enum):
     PARTIAL = "Partial"
     SPARSE = "Sparse"
     MISSING = "Missing"
+
+
+class TimelineLink(BaseModel):
+    """Causal / narrative link between timeline events or entities."""
+
+    from_key: str
+    to_key: str
+    relation: str  # e.g. caused | affected | transmitted_to
+    note: str | None = None
+
+
+class TimelineEvent(BaseModel):
+    """Chronological narrative node — Sprint 8.2 Timeline Intelligence."""
+
+    event_id: str = Field(default_factory=new_id)
+    scope: TimelineScope
+    subject_key: str  # INFY | information_technology | nifty | india
+    year: int
+    date: str | None = None  # ISO when known
+    title: str
+    description: str | None = None
+    importance: TimelineImportance = TimelineImportance.HIGH
+    event_type: str = "institutional"
+    source: Source = Source.DERIVED
+    links: list[TimelineLink] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    version: int = 1
+    created_at: datetime = Field(default_factory=utc_now)

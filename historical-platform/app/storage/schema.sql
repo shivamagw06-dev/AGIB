@@ -197,3 +197,37 @@ CREATE TABLE IF NOT EXISTS historical_entities (
     index_membership_json TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
+
+-- Sprint 8.2 Timeline Intelligence (append-only narrative nodes)
+CREATE TABLE IF NOT EXISTS historical_timelines (
+    event_id TEXT PRIMARY KEY,
+    scope TEXT NOT NULL,
+    subject_key TEXT NOT NULL,
+    year INTEGER NOT NULL,
+    date TEXT,
+    title TEXT NOT NULL,
+    description TEXT,
+    importance TEXT NOT NULL,
+    event_type TEXT NOT NULL,
+    source TEXT NOT NULL,
+    links_json TEXT NOT NULL,
+    evidence_refs_json TEXT NOT NULL,
+    version INTEGER NOT NULL,
+    created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_timelines_scope_subject_year
+    ON historical_timelines(scope, subject_key, year ASC, version DESC);
+
+CREATE TABLE IF NOT EXISTS historical_timeline_links (
+    link_id TEXT PRIMARY KEY,
+    from_key TEXT NOT NULL,
+    to_key TEXT NOT NULL,
+    relation TEXT NOT NULL,
+    note TEXT,
+    subject_key TEXT,
+    created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_timeline_links_subject
+    ON historical_timeline_links(subject_key, from_key, to_key);

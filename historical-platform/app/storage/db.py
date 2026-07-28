@@ -643,6 +643,168 @@ class HipStore:
             self._conn.execute("SELECT COUNT(*) AS c FROM historical_knowledge_objects").fetchone()["c"]
         )
 
+    def list_entity_symbols(self) -> list[str]:
+        rows = self._conn.execute(
+            "SELECT company_symbol FROM historical_entities ORDER BY company_symbol"
+        ).fetchall()
+        return [str(r["company_symbol"]) for r in rows]
+
+    # ----- Sprint 8.2 timelines -----
+
+    def replace_timeline(self, scope: str, subject_key: str, events: list[Any]) -> None:
+        """Replace timeline nodes for a subject (narrative rebuild; HKO remain immutable)."""
+        self._conn.execute(
+            "DELETE FROM historical_timelines WHERE scope = ? AND subject_key = ?",
+            (scope, subject_key),
+        )
+        # Narrative edges for this subject are rebuilt with the timeline
+        self._conn.execute(
+            "DELETE FROM historical_timeline_links WHERE subject_key = ?",
+            (subject_key,),
+        )
+        now = _iso(datetime.now(timezone.utc))
+        for ev in events:
+            self._conn.execute(
+                """
+                INSERT INTO historical_timelines (
+                    event_id, scope, subject_key, year, date, title, description,
+                    importance, event_type, source, links_json, evidence_refs_json,
+                    version, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    ev.event_id,
+                    ev.scope.value if hasattr(ev.scope, "value") else ev.scope,
+                    ev.subject_key,
+                    ev.year,
+                    ev.date,
+                    ev.title,
+                    ev.description,
+                    ev.importance.value if hasattr(ev.importance, "value") else ev.importance,
+                    ev.event_type,
+                    ev.source.value if hasattr(ev.source, "value") else ev.source,
+                    json.dumps([lnk.model_dump() if hasattr(lnk, "model_dump") else lnk for lnk in (ev.links or [])]),
+                    json.dumps(list(ev.evidence_refs or [])),
+                    ev.version,
+                    now,
+                ),
+            )
+        self._conn.commit()
+
+    def get_timeline(self, scope: str, subject_key: str) -> list[dict[str, Any]]:
+        rows = self._conn.execute(
+            """
+            SELECT * FROM historical_timelines
+            WHERE scope = ? AND subject_key = ?
+            ORDER BY year ASC, title ASC
+            """,
+            (scope, subject_key),
+        ).fetchall()
+        out = []
+        for r in rows:
+            d = dict(r)
+            d["links"] = json.loads(d.pop("links_json") or "[]")
+            d["evidence_refs"] = json.loads(d.pop("evidence_refs_json") or "[]")
+            out.append(d)
+        return out
+
+    def insert_timeline_link(
+        self,
+        *,
+        from_key: str,
+        to_key: str,
+        relation: str,
+        note: str | None = None,
+        subject_key: str | None = None,
+    ) -> None:
+        from uuid import uuid4
+
+        self._conn.execute(
+            """
+            INSERT INTO historical_timeline_links (
+                link_id, from_key, to_key, relation, note, subject_key, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                str(uuid4()),
+                from_key,
+                to_key,
+                relation,
+                note,
+                subject_key,
+                _iso(datetime.now(timezone.utc)),
+            ),
+        )
+        self._conn.commit()
+
+    def list_timeline_links(self, subject_key: str | None = None, limit: int = 200) -> list[dict[str, Any]]:
+        if subject_key:
+            rows = self._conn.execute(
+                """
+                SELECT * FROM historical_timeline_links
+                WHERE subject_key = ?
+                ORDER BY created_at DESC
+                LIMIT ?
+                """,
+                (subject_key, limit),
+            ).fetchall()
+        else:
+            rows = self._conn.execute(
+                "SELECT * FROM historical_timeline_links ORDER BY created_at DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    def timeline_completeness(self, symbol: str) -> dict[str, Any]:
+        symbol = symbol.upper()
+        events = self.get_timeline("company", symbol)
+        years = sorted({int(e["year"]) for e in events}) if events else []
+        # Expected narrative anchors for institutional completeness
+        expected_anchors = {"IPO", "Global Financial Crisis", "COVID", "AI Transformation", "Leadership Change", "Margin Compression"}
+        titles = {e["title"] for e in events}
+        present_anchors = expected_anchors.intersection(titles)
+        # Years coverage from financials
+        fins = self.list_financials(symbol, period_kind="annual", limit=50)
+        fin_years = sorted(
+            {
+                int(str(f["effective_date"])[2:6])
+                for f in fins
+                if str(f.get("effective_date") or "").startswith("FY")
+                and len(str(f.get("effective_date"))) >= 6
+            }
+        )
+        missing_periods = []
+        if fin_years:
+            for y in range(fin_years[0], fin_years[-1] + 1):
+                if y not in fin_years:
+                    missing_periods.append(f"FY{y}")
+        ratio = (len(present_anchors) / max(1, len(expected_anchors))) if events else 0.0
+        # Non-seed companies: completeness from having chronological events
+        if symbol not in {"INFY", "TCS", "HDFCBANK", "RELIANCE"}:
+            ratio = min(1.0, len(events) / 6.0) if events else 0.0
+        status = (
+            "Complete"
+            if ratio >= 0.8
+            else "Partial"
+            if ratio >= 0.4
+            else "Sparse"
+            if events
+            else "Missing"
+        )
+        return {
+            "company_symbol": symbol,
+            "timeline_events": len(events),
+            "years_span": {"min": years[0], "max": years[-1]} if years else None,
+            "years_ingested": years,
+            "anchor_completeness": round(ratio, 4),
+            "status": status,
+            "financial_years": fin_years,
+            "missing_periods": missing_periods,
+        }
+
+    def count_timeline_events(self) -> int:
+        return int(self._conn.execute("SELECT COUNT(*) AS c FROM historical_timelines").fetchone()["c"])
+
     @staticmethod
     def _row_knowledge(row: sqlite3.Row) -> dict[str, Any]:
         d = dict(row)

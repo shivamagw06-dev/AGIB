@@ -13,6 +13,7 @@ from app.contracts.models import Source
 from app.krig.bundle import KnowledgeBundle, empty_section_flags
 from app.kce.engine import KnowledgeConfidenceEngine
 from app.kfe.engine import KnowledgeFreshnessEngine
+from app.krig.historical_bridge import HistoricalKnowledgeBridge
 from app.krig.policies import BundleSection, QueryType, policy_for
 from app.krig.query import KnowledgeQuery, classify_query
 from app.storage.db import KaipStore
@@ -43,10 +44,11 @@ DEFAULT_MACRO: dict[str, Any] = {
 
 
 class KnowledgeRetrievalGateway:
-    def __init__(self, store: KaipStore) -> None:
+    def __init__(self, store: KaipStore, *, hip_base_url: str | None = None) -> None:
         self.store = store
         self.freshness = KnowledgeFreshnessEngine()
         self.confidence = KnowledgeConfidenceEngine()
+        self.historical = HistoricalKnowledgeBridge(hip_base_url)
 
     def retrieve(
         self,
@@ -225,6 +227,15 @@ class KnowledgeRetrievalGateway:
 
         if BundleSection.TIMELINE in sections:
             timeline = self.store.list_timeline(symbol, limit=50)
+            # Sprint 8.2 — prefer HIP narrative timeline when Historical Intelligence is configured
+            hip_timeline = self.historical.fetch_timeline(symbol) if self.historical.enabled else []
+            if hip_timeline:
+                timeline = hip_timeline
+                bundle.provenance = {
+                    **bundle.provenance,
+                    "historical_source": "hip_hko",
+                    "providers_hidden": True,
+                }
             bundle.timeline = timeline
             flags[BundleSection.TIMELINE.value] = bool(timeline)
 
