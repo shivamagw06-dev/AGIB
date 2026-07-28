@@ -149,6 +149,8 @@ def _retrieve_iere(
         return {
             "retrieval_id": out.get("retrieval_id"),
             "ask_envelope": out.get("ask_envelope"),
+            # Full ranked list for Track B Answer Assembly (structured only)
+            "ranked_evidence": list(out.get("ranked") or []),
             "pack_ids": out.get("pack_ids") or [],
             "ranked_count": out.get("ranked_count"),
             "quality_gates": out.get("quality_gates"),

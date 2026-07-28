@@ -392,6 +392,26 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("evidence_retrieval")
     except Exception:
         out["evidence_retrieval"] = None
+    # AGIB v3.4 Track C — IFSE soft board
+    try:
+        from framework_selection.production import dashboard as ifse_dash
+        from framework_selection.production import health as ifse_health
+
+        fh = ifse_health()
+        fd = ifse_dash()
+        out["framework_selection"] = {
+            "status": fh.get("status"),
+            "version": fh.get("ifse_version"),
+            "selection_count": fd.get("selection_count"),
+            "wrong_framework_rate": fd.get("wrong_framework_rate"),
+            "multi_framework_usage": fd.get("multi_framework_usage"),
+            "confidence_distribution": fd.get("confidence_distribution"),
+            "framework_coverage": fd.get("framework_coverage"),
+            "framework_accuracy": fd.get("framework_accuracy"),
+        }
+        out["sources"].append("framework_selection")
+    except Exception:
+        out["framework_selection"] = None
     try:
         from knowledge_factory.production import historical_depth_coverage
 
