@@ -534,6 +534,24 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("root_cause_intelligence")
     except Exception:
         out["root_cause_intelligence"] = None
+    # Patch Intelligence — human-in-the-loop briefs
+    try:
+        from patch_intelligence.production import status as pi_status
+        from root_cause_intelligence import store as rci_store
+
+        ph = pi_status()
+        latest = rci_store.latest() or {}
+        pi = latest.get("patch_intelligence") or {}
+        out["patch_intelligence"] = {
+            "status": ph.get("status"),
+            "version": ph.get("version"),
+            "n_briefs": pi.get("n_briefs"),
+            "highest_roi": (pi.get("highest_roi") or {}).get("recommended_title"),
+            "never_writes_code_automatically": True,
+        }
+        out["sources"].append("patch_intelligence")
+    except Exception:
+        out["patch_intelligence"] = None
     try:
         from knowledge_factory.production import historical_depth_coverage
 

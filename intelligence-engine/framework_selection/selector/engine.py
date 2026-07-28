@@ -7,6 +7,7 @@ from typing import Any
 from framework_selection.confidence.scorer import score_confidence
 from framework_selection.explanation.builder import build_explanation, evidence_union
 from framework_selection.mappings.companies import sector_for_company
+from framework_selection.mappings.cues import cue_overlays, sector_enrichment
 from framework_selection.mappings.questions import INTENT_FRAMEWORKS, QUESTION_TYPE_FRAMEWORKS
 from framework_selection.mappings.sectors import SECTOR_FRAMEWORKS, SECTOR_KEYWORDS
 from framework_selection.registry.frameworks import get_framework, registry_index
@@ -80,6 +81,12 @@ def select_frameworks(
         if sector in {"banks", "nbfc", "insurance"}:
             _add("FW_ROE", "supporting", "cue:valuation_language")
             _add("FW_MACRO_TRANSMISSION", "supporting", "cue:valuation_language")
+
+    # Sprint 3.3 — question-cue overlays (risk / documents / ops) + sector enrichment
+    for fid, role, src in cue_overlays(question or ""):
+        _add(fid, role, src)
+    for fid, role, src in sector_enrichment(sector):
+        _add(fid, role, src)
 
     selected = sorted(
         composed.values(),

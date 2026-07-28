@@ -250,3 +250,69 @@ def test_no_llm_and_freeze_locks() -> None:
                 assert node.func.id not in {"eval", "exec"}
     meta = get_framework("FW_PB")
     assert meta and meta["replay_compatibility"] is True
+
+
+# ---------------------------------------------------------------------------
+# Sprint 3.3 — Framework Optimisation (cue overlays + sector enrichment)
+# ---------------------------------------------------------------------------
+
+
+def test_bank_risk_question_includes_risk_framework() -> None:
+    sel = select_frameworks(
+        question="Identify the top institutional risks for HDFCBANK that could invalidate a bullish thesis.",
+        intent_v2="Analyse",
+        ticker_hint="HDFCBANK",
+    )
+    ids = _ids(sel)
+    assert sel["sector"] == "banks"
+    assert "FW_RISK" in ids
+    assert "FW_SCENARIO" in ids
+    assert "FW_PB" in ids or "FW_RESIDUAL_INCOME" in ids
+    assert "FW_EV_EBITDA" not in ids
+
+
+def test_document_question_includes_governance() -> None:
+    sel = select_frameworks(
+        question="Using HDFCBANK's institutional documents, how would you use the MD&A to identify emerging risks?",
+        intent_v2="Explain",
+        ticker_hint="HDFCBANK",
+    )
+    ids = _ids(sel)
+    assert "FW_CORPORATE_GOVERNANCE" in ids or "FW_RISK" in ids
+    assert "FW_EV_EBITDA" not in ids
+
+
+def test_it_services_enriched_composition() -> None:
+    sel = select_frameworks(
+        question="Which valuation frameworks are most appropriate for INFY (IT services) and why?",
+        intent_v2="Explain",
+        ticker_hint="INFY",
+    )
+    ids = _ids(sel)
+    assert sel["sector"] == "it_services"
+    assert "FW_DCF" in ids
+    assert "FW_EV_EBITDA" in ids
+    assert "FW_CASH_FLOW_QUALITY" in ids or "FW_BUSINESS_QUALITY" in ids
+
+
+def test_nbfc_includes_risk_framework() -> None:
+    sel = select_frameworks(
+        question="Construct a risk checklist for regulatory action affecting BAJFINANCE.",
+        intent_v2="Analyse",
+        ticker_hint="BAJFINANCE",
+    )
+    ids = _ids(sel)
+    assert sel["sector"] == "nbfc"
+    assert "FW_RISK" in ids
+    assert "FW_PB" in ids or "FW_RESIDUAL_INCOME" in ids
+
+
+def test_airlines_fuel_yield_cues() -> None:
+    sel = select_frameworks(
+        question="How do ATF fuel cost and load factor affect Indigo airline operating leverage and competition?",
+        intent_v2="Analyse",
+        ticker_hint="INDIGO",
+    )
+    ids = _ids(sel)
+    assert "FW_AVIATION_OPS" in ids
+    assert "FW_EV_EBITDAR" in ids or "FW_MACRO_TRANSMISSION" in ids

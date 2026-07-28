@@ -107,6 +107,14 @@ def analyze_iel_run(
         "reasoning_changed": False,
         "fabricated": False,
     }
+    # Soft-wire Patch Intelligence briefs (never auto-codes)
+    try:
+        from patch_intelligence.production import from_rci
+
+        out["patch_intelligence"] = from_rci(out, top_n=10)
+    except Exception as exc:
+        out["patch_intelligence"] = {"status": "error", "error": str(exc)[:160]}
+
     if persist:
         store.record(out)
     return out
