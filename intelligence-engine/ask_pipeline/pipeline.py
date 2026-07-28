@@ -1005,387 +1005,197 @@ def run_complete_ask(
     }
 
     # ------------------------------------------------------------------
-    # AGI v4.0 Phase 5 Sprint 5.1 — Institutional Investment Thesis (ITE)
-    # Soft-wire only: persist living thesis from frozen v3.6 judgment packs.
-    # Analysis only — no BUY/SELL (Decision Engine is Sprint 5.2).
+    # AGI v4.0 Investment Office OS (5.1–5.5) — soft-wire, never fail Ask.
+    # Offices are best-effort; desk briefing must survive office errors/OOM.
     # ------------------------------------------------------------------
-    from institutional_investment_thesis.production import (
-        apply_investment_thesis as ite_apply,
-    )
-    from institutional_investment_thesis.schema import ITE_VERSION, THESIS_SCHEMA_VERSION
+    import os as _os
 
-    _ite_meta = {
-        "question_id": (context.get("question_id") or session_id or conversation_id),
-        "intent": irl.get("intent") or intent_rec.get("intent_v2") or intent_rec.get("intent"),
-        "ticker": hint,
-        "confidence_version": confidence_calibration.get("confidence_version") or CONFIDENCE_VERSION,
-        "committee_version": committee_reasoning.get("committee_version") or COMMITTEE_VERSION,
-        "thesis_schema_version": THESIS_SCHEMA_VERSION,
-        "replay_mode": bool(irl.get("as_of")),
+    investment_thesis: dict[str, Any] = {}
+    decision_office: dict[str, Any] = {}
+    portfolio_office: dict[str, Any] = {}
+    monitoring_office: dict[str, Any] = {}
+    learning_office: dict[str, Any] = {}
+    _v4_persist = str(_os.environ.get("AGI_V4_OFFICE_PERSIST", "0")).lower() in {
+        "1",
+        "true",
+        "yes",
     }
-    with trace_span(
-        "investment_thesis",
-        run_type="chain",
-        inputs={
-            "question": question,
-            "ticker": hint,
-            "icc_confidence": confidence_calibration.get("overall_confidence"),
-            "icr_n_cases": committee_reasoning.get("n_cases"),
-        },
-        tags=["ask", "ite", "investment_thesis", "v4"],
-        metadata=_ite_meta,
-    ) as _ite_sp:
-        _ite = ite_apply(
-            question=question,
-            ticker=hint,
-            company=hint,
-            evidence_weighting=evidence_weighting,
-            hypothesis_generation=hypothesis_generation,
-            hypothesis_evaluation=hypothesis_evaluation,
-            committee_reasoning=committee_reasoning,
-            confidence_calibration=confidence_calibration,
-            institutional_memory=institutional_memory,
-            evidence_graph=evidence_graph,
-            framework_selection=framework_selection,
-            as_of=irl.get("as_of"),
-            metadata=_ite_meta,
-            persist=True,
-        )
-        _ite_thesis = (_ite.get("pack") or {}).get("thesis") or {}
-        _ite_sp.end(
-            outputs={
-                "thesis_id": _ite_thesis.get("thesis_id"),
-                "company": _ite_thesis.get("company"),
-                "lifecycle": _ite_thesis.get("lifecycle"),
-                "decision_status": _ite_thesis.get("decision_status"),
-                "confidence": _ite_thesis.get("confidence"),
-                "version": _ite_thesis.get("version"),
-                "buy_sell_emitted": False,
-                "ite_version": ITE_VERSION,
+    _v4_enabled = str(_os.environ.get("AGI_V4_OFFICES_IN_ASK", "1")).lower() not in {
+        "0",
+        "false",
+        "no",
+    }
+    if _v4_enabled:
+        try:
+            from institutional_investment_thesis.production import (
+                apply_investment_thesis as ite_apply,
+            )
+            from institutional_investment_thesis.schema import ITE_VERSION
+            from institutional_decision_office.production import (
+                apply_decision_office as ido_apply,
+            )
+            from institutional_decision_office.schema import IDO_VERSION
+            from institutional_portfolio_office.production import (
+                apply_portfolio_office as ipo_apply,
+            )
+            from institutional_portfolio_office.schema import IPO_VERSION
+            from institutional_monitoring_office.production import (
+                apply_monitoring_office as imo_apply,
+            )
+            from institutional_monitoring_office.schema import IMO_VERSION
+            from institutional_learning_office.production import (
+                apply_learning_office as ilo_apply,
+            )
+            from institutional_learning_office.schema import ILO_VERSION
+
+            _ite = ite_apply(
+                question=question,
+                ticker=hint,
+                company=hint,
+                evidence_weighting=evidence_weighting,
+                hypothesis_generation=hypothesis_generation,
+                hypothesis_evaluation=hypothesis_evaluation,
+                committee_reasoning=committee_reasoning,
+                confidence_calibration=confidence_calibration,
+                institutional_memory=institutional_memory,
+                evidence_graph=evidence_graph,
+                framework_selection=framework_selection,
+                as_of=irl.get("as_of"),
+                metadata={"question_id": context.get("question_id"), "ticker": hint},
+                persist=_v4_persist,
+            )
+            investment_thesis = _ite.get("pack") or {}
+            stages["investment_thesis"] = {
+                "status": "executed",
+                "ite_version": investment_thesis.get("ite_version") or ITE_VERSION,
+                "thesis_id": (investment_thesis.get("thesis") or {}).get("thesis_id"),
+                "persisted": _v4_persist,
             }
-        )
-    investment_thesis = _ite.get("pack") or {}
-    stages["investment_thesis"] = {
-        "status": "executed",
-        "ite_version": investment_thesis.get("ite_version") or ITE_VERSION,
-        "thesis_id": (investment_thesis.get("thesis") or {}).get("thesis_id"),
-        "lifecycle": (investment_thesis.get("thesis") or {}).get("lifecycle"),
-        "decision_status": (investment_thesis.get("thesis") or {}).get("decision_status"),
-        "confidence": (investment_thesis.get("thesis") or {}).get("confidence"),
-        "version": (investment_thesis.get("thesis") or {}).get("version"),
-        "buy_sell_emitted": False,
-        "guides_thesis": True,
-        "reasoning_changed": False,
-        "judgment_changed": False,
-        "llm_used": False,
-        "fabricated": False,
-    }
-    context["investment_thesis"] = {
-        "ite_version": investment_thesis.get("ite_version") or ITE_VERSION,
-        "thesis_id": (investment_thesis.get("thesis") or {}).get("thesis_id"),
-        "decision_status": (investment_thesis.get("thesis") or {}).get("decision_status"),
-        "lifecycle": (investment_thesis.get("thesis") or {}).get("lifecycle"),
-    }
-
-    # ------------------------------------------------------------------
-    # AGI v4.0 Phase 5 Sprint 5.2 — Institutional Decision Office (IDO)
-    # Soft-wire only: separate Analysis (thesis) from Decision.
-    # Process decisions only — never orders / BUY / SELL execution.
-    # ------------------------------------------------------------------
-    from institutional_decision_office.production import (
-        apply_decision_office as ido_apply,
-    )
-    from institutional_decision_office.schema import DECISION_SCHEMA_VERSION, IDO_VERSION
-
-    _ido_meta = {
-        "question_id": (context.get("question_id") or session_id or conversation_id),
-        "thesis_id": (investment_thesis.get("thesis") or {}).get("thesis_id"),
-        "thesis_version": (investment_thesis.get("thesis") or {}).get("version"),
-        "decision_schema_version": DECISION_SCHEMA_VERSION,
-        "replay_mode": bool(irl.get("as_of")),
-    }
-    with trace_span(
-        "decision_office",
-        run_type="chain",
-        inputs={
-            "question": question,
-            "thesis_id": _ido_meta["thesis_id"],
-            "thesis_confidence": (investment_thesis.get("thesis") or {}).get("confidence"),
-        },
-        tags=["ask", "ido", "decision_office", "v4"],
-        metadata=_ido_meta,
-    ) as _ido_sp:
-        _ido = ido_apply(
-            question=question,
-            investment_thesis=investment_thesis,
-            committee_reasoning=committee_reasoning,
-            confidence_calibration=confidence_calibration,
-            hypothesis_evaluation=hypothesis_evaluation,
-            as_of=irl.get("as_of"),
-            metadata=_ido_meta,
-            persist=True,
-        )
-        _ido_dec = (_ido.get("pack") or {}).get("decision") or {}
-        _ido_sp.end(
-            outputs={
-                "decision_id": _ido_dec.get("decision_id"),
-                "decision": _ido_dec.get("decision"),
-                "status": _ido_dec.get("status"),
-                "review_trigger": _ido_dec.get("review_trigger"),
-                "review_date": _ido_dec.get("review_date"),
-                "confidence": _ido_dec.get("confidence"),
-                "orders_emitted": False,
-                "buy_sell_emitted": False,
-                "ido_version": IDO_VERSION,
+            context["investment_thesis"] = {
+                "ite_version": investment_thesis.get("ite_version") or ITE_VERSION,
+                "thesis_id": (investment_thesis.get("thesis") or {}).get("thesis_id"),
+                "decision_status": (investment_thesis.get("thesis") or {}).get("decision_status"),
+                "lifecycle": (investment_thesis.get("thesis") or {}).get("lifecycle"),
             }
-        )
-    decision_office = _ido.get("pack") or {}
-    stages["decision_office"] = {
-        "status": "executed",
-        "ido_version": decision_office.get("ido_version") or IDO_VERSION,
-        "decision_id": (decision_office.get("decision") or {}).get("decision_id"),
-        "decision": (decision_office.get("decision") or {}).get("decision"),
-        "lifecycle": (decision_office.get("decision") or {}).get("status"),
-        "orders_emitted": False,
-        "buy_sell_emitted": False,
-        "guides_decision": True,
-        "reasoning_changed": False,
-        "judgment_changed": False,
-        "thesis_changed": False,
-        "llm_used": False,
-        "fabricated": False,
-    }
-    context["decision_office"] = {
-        "ido_version": decision_office.get("ido_version") or IDO_VERSION,
-        "decision_id": (decision_office.get("decision") or {}).get("decision_id"),
-        "decision": (decision_office.get("decision") or {}).get("decision"),
-        "status": (decision_office.get("decision") or {}).get("status"),
-    }
 
-    # ------------------------------------------------------------------
-    # AGI v4.0 Phase 5 Sprint 5.3 — Institutional Portfolio Office (IPO)
-    # Soft-wire only: relative Portfolio Ideas — never positions/orders.
-    # ------------------------------------------------------------------
-    from institutional_portfolio_office.production import (
-        apply_portfolio_office as ipo_apply,
-    )
-    from institutional_portfolio_office.schema import IDEA_SCHEMA_VERSION, IPO_VERSION
-
-    _ipo_meta = {
-        "question_id": (context.get("question_id") or session_id or conversation_id),
-        "thesis_id": (investment_thesis.get("thesis") or {}).get("thesis_id"),
-        "decision_id": (decision_office.get("decision") or {}).get("decision_id"),
-        "idea_schema_version": IDEA_SCHEMA_VERSION,
-        "replay_mode": bool(irl.get("as_of")),
-    }
-    with trace_span(
-        "portfolio_office",
-        run_type="chain",
-        inputs={
-            "question": question,
-            "thesis_id": _ipo_meta["thesis_id"],
-            "decision": (decision_office.get("decision") or {}).get("decision"),
-        },
-        tags=["ask", "ipo", "portfolio_office", "v4"],
-        metadata=_ipo_meta,
-    ) as _ipo_sp:
-        _ipo = ipo_apply(
-            question=question,
-            investment_thesis=investment_thesis,
-            decision_office=decision_office,
-            committee_reasoning=committee_reasoning,
-            confidence_calibration=confidence_calibration,
-            as_of=irl.get("as_of"),
-            metadata=_ipo_meta,
-            persist=True,
-        )
-        _ipo_idea = (_ipo.get("pack") or {}).get("idea") or {}
-        _ipo_sp.end(
-            outputs={
-                "idea_id": _ipo_idea.get("idea_id"),
-                "sector": _ipo_idea.get("sector"),
-                "expected_role": _ipo_idea.get("expected_role"),
-                "relative_rank": _ipo_idea.get("relative_rank"),
-                "conviction": _ipo_idea.get("conviction"),
-                "status": _ipo_idea.get("status"),
-                "positions_emitted": False,
-                "ipo_version": IPO_VERSION,
+            _ido = ido_apply(
+                question=question,
+                investment_thesis=investment_thesis,
+                committee_reasoning=committee_reasoning,
+                confidence_calibration=confidence_calibration,
+                hypothesis_evaluation=hypothesis_evaluation,
+                as_of=irl.get("as_of"),
+                metadata={"thesis_id": (investment_thesis.get("thesis") or {}).get("thesis_id")},
+                persist=_v4_persist,
+            )
+            decision_office = _ido.get("pack") or {}
+            stages["decision_office"] = {
+                "status": "executed",
+                "ido_version": decision_office.get("ido_version") or IDO_VERSION,
+                "decision_id": (decision_office.get("decision") or {}).get("decision_id"),
+                "decision": (decision_office.get("decision") or {}).get("decision"),
+                "persisted": _v4_persist,
             }
-        )
-    portfolio_office = _ipo.get("pack") or {}
-    stages["portfolio_office"] = {
-        "status": "executed",
-        "ipo_version": portfolio_office.get("ipo_version") or IPO_VERSION,
-        "idea_id": (portfolio_office.get("idea") or {}).get("idea_id"),
-        "sector": (portfolio_office.get("idea") or {}).get("sector"),
-        "relative_rank": (portfolio_office.get("idea") or {}).get("relative_rank"),
-        "expected_role": (portfolio_office.get("idea") or {}).get("expected_role"),
-        "positions_emitted": False,
-        "orders_emitted": False,
-        "guides_portfolio": True,
-        "reasoning_changed": False,
-        "judgment_changed": False,
-        "llm_used": False,
-        "fabricated": False,
-    }
-    context["portfolio_office"] = {
-        "ipo_version": portfolio_office.get("ipo_version") or IPO_VERSION,
-        "idea_id": (portfolio_office.get("idea") or {}).get("idea_id"),
-        "relative_rank": (portfolio_office.get("idea") or {}).get("relative_rank"),
-        "expected_role": (portfolio_office.get("idea") or {}).get("expected_role"),
-    }
-
-    # ------------------------------------------------------------------
-    # AGI v4.0 Phase 5 Sprint 5.4 — Institutional Monitoring Office (IMO)
-    # Soft-wire only: MonitoringEvents recommend review — never mutate.
-    # ------------------------------------------------------------------
-    from institutional_monitoring_office.production import (
-        apply_monitoring_office as imo_apply,
-    )
-    from institutional_monitoring_office.schema import EVENT_SCHEMA_VERSION, IMO_VERSION
-
-    _imo_meta = {
-        "question_id": (context.get("question_id") or session_id or conversation_id),
-        "idea_id": (portfolio_office.get("idea") or {}).get("idea_id"),
-        "thesis_id": (investment_thesis.get("thesis") or {}).get("thesis_id"),
-        "decision_id": (decision_office.get("decision") or {}).get("decision_id"),
-        "event_schema_version": EVENT_SCHEMA_VERSION,
-        "replay_mode": bool(irl.get("as_of")),
-    }
-    with trace_span(
-        "monitoring_office",
-        run_type="chain",
-        inputs={
-            "question": question,
-            "idea_id": _imo_meta["idea_id"],
-            "thesis_id": _imo_meta["thesis_id"],
-        },
-        tags=["ask", "imo", "monitoring_office", "v4"],
-        metadata=_imo_meta,
-    ) as _imo_sp:
-        _imo = imo_apply(
-            question=question,
-            portfolio_office=portfolio_office,
-            investment_thesis=investment_thesis,
-            decision_office=decision_office,
-            confidence_calibration=confidence_calibration,
-            hypothesis_evaluation=hypothesis_evaluation,
-            committee_reasoning=committee_reasoning,
-            as_of=irl.get("as_of"),
-            metadata=_imo_meta,
-            persist=True,
-        )
-        _imo_pack = _imo.get("pack") or {}
-        _imo_sp.end(
-            outputs={
-                "portfolio_idea": _imo_pack.get("portfolio_idea"),
-                "n_events": _imo_pack.get("n_events"),
-                "requires_review": _imo_pack.get("requires_review"),
-                "event_ids": _imo_pack.get("event_ids"),
-                "mutates_thesis": False,
-                "imo_version": IMO_VERSION,
+            context["decision_office"] = {
+                "ido_version": decision_office.get("ido_version") or IDO_VERSION,
+                "decision_id": (decision_office.get("decision") or {}).get("decision_id"),
+                "decision": (decision_office.get("decision") or {}).get("decision"),
+                "status": (decision_office.get("decision") or {}).get("status"),
             }
-        )
-    monitoring_office = _imo.get("pack") or {}
-    stages["monitoring_office"] = {
-        "status": "executed",
-        "imo_version": monitoring_office.get("imo_version") or IMO_VERSION,
-        "portfolio_idea": monitoring_office.get("portfolio_idea"),
-        "n_events": monitoring_office.get("n_events"),
-        "requires_review": monitoring_office.get("requires_review"),
-        "mutates_thesis": False,
-        "mutates_decision": False,
-        "mutates_portfolio": False,
-        "positions_emitted": False,
-        "orders_emitted": False,
-        "reasoning_changed": False,
-        "judgment_changed": False,
-        "llm_used": False,
-        "fabricated": False,
-    }
-    context["monitoring_office"] = {
-        "imo_version": monitoring_office.get("imo_version") or IMO_VERSION,
-        "portfolio_idea": monitoring_office.get("portfolio_idea"),
-        "n_events": monitoring_office.get("n_events"),
-        "requires_review": monitoring_office.get("requires_review"),
-    }
 
-    # ------------------------------------------------------------------
-    # AGI v4.0 Phase 5 Sprint 5.5 — Institutional Learning Office (ILO)
-    # Soft-wire only: process memory — never Knowledge Factory / mutations.
-    # Final Office module — no Sprint 5.6.
-    # ------------------------------------------------------------------
-    from institutional_learning_office.production import (
-        apply_learning_office as ilo_apply,
-    )
-    from institutional_learning_office.schema import ILO_VERSION, LEARNING_SCHEMA_VERSION
-
-    _ilo_meta = {
-        "question_id": (context.get("question_id") or session_id or conversation_id),
-        "thesis_id": (investment_thesis.get("thesis") or {}).get("thesis_id"),
-        "decision_id": (decision_office.get("decision") or {}).get("decision_id"),
-        "idea_id": (portfolio_office.get("idea") or {}).get("idea_id"),
-        "learning_schema_version": LEARNING_SCHEMA_VERSION,
-        "replay_mode": bool(irl.get("as_of")),
-    }
-    with trace_span(
-        "learning_office",
-        run_type="chain",
-        inputs={
-            "question": question,
-            "thesis_id": _ilo_meta["thesis_id"],
-            "portfolio_idea": monitoring_office.get("portfolio_idea"),
-        },
-        tags=["ask", "ilo", "learning_office", "v4"],
-        metadata=_ilo_meta,
-    ) as _ilo_sp:
-        _ilo = ilo_apply(
-            question=question,
-            investment_thesis=investment_thesis,
-            decision_office=decision_office,
-            portfolio_office=portfolio_office,
-            monitoring_office=monitoring_office,
-            confidence_calibration=confidence_calibration,
-            as_of=irl.get("as_of"),
-            metadata=_ilo_meta,
-            persist=True,
-        )
-        _ilo_pack = _ilo.get("pack") or {}
-        _ilo_learning = _ilo_pack.get("learning") or {}
-        _ilo_sp.end(
-            outputs={
-                "learning_id": _ilo_learning.get("learning_id"),
-                "outcome": _ilo_learning.get("outcome"),
-                "category": _ilo_learning.get("category"),
-                "root_cause": _ilo_learning.get("root_cause"),
-                "knowledge_factory_updated": False,
-                "process_memory": True,
-                "ilo_version": ILO_VERSION,
+            _ipo = ipo_apply(
+                question=question,
+                investment_thesis=investment_thesis,
+                decision_office=decision_office,
+                committee_reasoning=committee_reasoning,
+                confidence_calibration=confidence_calibration,
+                as_of=irl.get("as_of"),
+                metadata={"decision_id": (decision_office.get("decision") or {}).get("decision_id")},
+                persist=_v4_persist,
+            )
+            portfolio_office = _ipo.get("pack") or {}
+            stages["portfolio_office"] = {
+                "status": "executed",
+                "ipo_version": portfolio_office.get("ipo_version") or IPO_VERSION,
+                "idea_id": (portfolio_office.get("idea") or {}).get("idea_id"),
+                "relative_rank": (portfolio_office.get("idea") or {}).get("relative_rank"),
+                "expected_role": (portfolio_office.get("idea") or {}).get("expected_role"),
+                "persisted": _v4_persist,
             }
-        )
-    learning_office = _ilo.get("pack") or {}
-    stages["learning_office"] = {
-        "status": "executed",
-        "ilo_version": learning_office.get("ilo_version") or ILO_VERSION,
-        "learning_id": (learning_office.get("learning") or {}).get("learning_id"),
-        "outcome": (learning_office.get("learning") or {}).get("outcome"),
-        "category": (learning_office.get("learning") or {}).get("category"),
-        "knowledge_factory_updated": False,
-        "process_memory": True,
-        "mutates_thesis": False,
-        "positions_emitted": False,
-        "orders_emitted": False,
-        "reasoning_changed": False,
-        "judgment_changed": False,
-        "llm_used": False,
-        "fabricated": False,
-    }
-    context["learning_office"] = {
-        "ilo_version": learning_office.get("ilo_version") or ILO_VERSION,
-        "learning_id": (learning_office.get("learning") or {}).get("learning_id"),
-        "outcome": (learning_office.get("learning") or {}).get("outcome"),
-        "category": (learning_office.get("learning") or {}).get("category"),
-    }
+            context["portfolio_office"] = {
+                "ipo_version": portfolio_office.get("ipo_version") or IPO_VERSION,
+                "idea_id": (portfolio_office.get("idea") or {}).get("idea_id"),
+                "relative_rank": (portfolio_office.get("idea") or {}).get("relative_rank"),
+                "expected_role": (portfolio_office.get("idea") or {}).get("expected_role"),
+            }
+
+            _imo = imo_apply(
+                question=question,
+                portfolio_office=portfolio_office,
+                investment_thesis=investment_thesis,
+                decision_office=decision_office,
+                confidence_calibration=confidence_calibration,
+                hypothesis_evaluation=hypothesis_evaluation,
+                committee_reasoning=committee_reasoning,
+                as_of=irl.get("as_of"),
+                metadata={"idea_id": (portfolio_office.get("idea") or {}).get("idea_id")},
+                persist=_v4_persist,
+            )
+            monitoring_office = _imo.get("pack") or {}
+            stages["monitoring_office"] = {
+                "status": "executed",
+                "imo_version": monitoring_office.get("imo_version") or IMO_VERSION,
+                "portfolio_idea": monitoring_office.get("portfolio_idea"),
+                "n_events": monitoring_office.get("n_events"),
+                "requires_review": monitoring_office.get("requires_review"),
+                "persisted": _v4_persist,
+            }
+            context["monitoring_office"] = {
+                "imo_version": monitoring_office.get("imo_version") or IMO_VERSION,
+                "portfolio_idea": monitoring_office.get("portfolio_idea"),
+                "n_events": monitoring_office.get("n_events"),
+                "requires_review": monitoring_office.get("requires_review"),
+            }
+
+            _ilo = ilo_apply(
+                question=question,
+                investment_thesis=investment_thesis,
+                decision_office=decision_office,
+                portfolio_office=portfolio_office,
+                monitoring_office=monitoring_office,
+                confidence_calibration=confidence_calibration,
+                as_of=irl.get("as_of"),
+                metadata={"idea_id": (portfolio_office.get("idea") or {}).get("idea_id")},
+                persist=_v4_persist,
+            )
+            learning_office = _ilo.get("pack") or {}
+            stages["learning_office"] = {
+                "status": "executed",
+                "ilo_version": learning_office.get("ilo_version") or ILO_VERSION,
+                "learning_id": (learning_office.get("learning") or {}).get("learning_id"),
+                "outcome": (learning_office.get("learning") or {}).get("outcome"),
+                "category": (learning_office.get("learning") or {}).get("category"),
+                "persisted": _v4_persist,
+            }
+            context["learning_office"] = {
+                "ilo_version": learning_office.get("ilo_version") or ILO_VERSION,
+                "learning_id": (learning_office.get("learning") or {}).get("learning_id"),
+                "outcome": (learning_office.get("learning") or {}).get("outcome"),
+                "category": (learning_office.get("learning") or {}).get("category"),
+            }
+        except Exception as _v4_exc:
+            stages["investment_office_os"] = {
+                "status": "soft_failed",
+                "error": str(_v4_exc)[:200],
+                "reasoning_changed": False,
+            }
+            context.setdefault("investment_thesis", {})
+            context.setdefault("decision_office", {})
+            context.setdefault("portfolio_office", {})
+            context.setdefault("monitoring_office", {})
+            context.setdefault("learning_office", {})
+    else:
+        stages["investment_office_os"] = {"status": "skipped_by_env", "reasoning_changed": False}
 
     # S07 Planner — no ticker in Concept Mode
     planner = run_planner(question, ticker_hint=hint, policy=policy)
@@ -1561,8 +1371,8 @@ def run_complete_ask(
     }
     # Soft overlay — living Investment Thesis (v4.0); analysis only, no BUY/SELL
     packs["investment_thesis"] = {
-        "ite_version": investment_thesis.get("ite_version") or ITE_VERSION,
-        "schema_version": investment_thesis.get("schema_version") or THESIS_SCHEMA_VERSION,
+        "ite_version": investment_thesis.get("ite_version"),
+        "schema_version": investment_thesis.get("schema_version"),
         "thesis": investment_thesis.get("thesis"),
         "thesis_id": (investment_thesis.get("thesis") or {}).get("thesis_id"),
         "persisted": investment_thesis.get("persisted"),
@@ -1576,8 +1386,8 @@ def run_complete_ask(
     }
     # Soft overlay — Institutional Decision Office (process decision ≠ trade)
     packs["decision_office"] = {
-        "ido_version": decision_office.get("ido_version") or IDO_VERSION,
-        "schema_version": decision_office.get("schema_version") or DECISION_SCHEMA_VERSION,
+        "ido_version": decision_office.get("ido_version"),
+        "schema_version": decision_office.get("schema_version"),
         "decision": decision_office.get("decision"),
         "decision_id": (decision_office.get("decision") or {}).get("decision_id"),
         "persisted": decision_office.get("persisted"),
@@ -1593,8 +1403,8 @@ def run_complete_ask(
     }
     # Soft overlay — Institutional Portfolio Office (ideas ≠ positions)
     packs["portfolio_office"] = {
-        "ipo_version": portfolio_office.get("ipo_version") or IPO_VERSION,
-        "schema_version": portfolio_office.get("schema_version") or IDEA_SCHEMA_VERSION,
+        "ipo_version": portfolio_office.get("ipo_version"),
+        "schema_version": portfolio_office.get("schema_version"),
         "idea": portfolio_office.get("idea"),
         "idea_id": (portfolio_office.get("idea") or {}).get("idea_id"),
         "peer_ranking": portfolio_office.get("peer_ranking")
@@ -1611,8 +1421,8 @@ def run_complete_ask(
     }
     # Soft overlay — Institutional Monitoring Office (events recommend review)
     packs["monitoring_office"] = {
-        "imo_version": monitoring_office.get("imo_version") or IMO_VERSION,
-        "schema_version": monitoring_office.get("schema_version") or EVENT_SCHEMA_VERSION,
+        "imo_version": monitoring_office.get("imo_version"),
+        "schema_version": monitoring_office.get("schema_version"),
         "portfolio_idea": monitoring_office.get("portfolio_idea"),
         "events": monitoring_office.get("events"),
         "event_ids": monitoring_office.get("event_ids"),
@@ -1634,8 +1444,8 @@ def run_complete_ask(
     }
     # Soft overlay — Institutional Learning Office (process memory; final Office)
     packs["learning_office"] = {
-        "ilo_version": learning_office.get("ilo_version") or ILO_VERSION,
-        "schema_version": learning_office.get("schema_version") or LEARNING_SCHEMA_VERSION,
+        "ilo_version": learning_office.get("ilo_version"),
+        "schema_version": learning_office.get("schema_version"),
         "learning": learning_office.get("learning"),
         "learning_id": (learning_office.get("learning") or {}).get("learning_id"),
         "n_learnings": learning_office.get("n_learnings"),

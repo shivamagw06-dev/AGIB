@@ -6073,10 +6073,24 @@ async def ui_search(
     question: str = Query(...),
     ticker: str | None = Query(default=None),
 ):
+    """Run sync UiService.search off the event loop so health checks stay responsive."""
+    from starlette.concurrency import run_in_threadpool
+
     try:
-        return _ui.search(question, ticker=ticker).model_dump(mode="json")
+        view = await run_in_threadpool(_ui.search, question, ticker=ticker)
+        return view.model_dump(mode="json")
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        # Never leak HTML 502 to the desk — return a structured retryable error.
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "error": "research_desk_unavailable",
+                "retryable": True,
+                "message": str(exc)[:240],
+            },
+        ) from exc
 
 
 @router.get("/ui/autocomplete")

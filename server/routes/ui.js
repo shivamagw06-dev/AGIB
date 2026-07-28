@@ -490,14 +490,34 @@ export default function createUiRouter() {
       }
       const qs = new URLSearchParams({ question: String(question) });
       if (ticker) qs.set('ticker', String(ticker));
-      // Full RQ1→RQ2 soft-slice stack can exceed 4 minutes on cold free-tier engine.
-      const result = await engineFetch(`/v1/ui/search?${qs.toString()}`, {
+      const path = `/v1/ui/search?${qs.toString()}`;
+      // Keep under Render free-tier request budgets (~50s). Client retries a fresh request.
+      const result = await engineFetch(path, {
         method: 'POST',
-        timeoutMs: 360_000,
+        timeoutMs: 90_000,
       });
+      const html502 =
+        typeof result.data?.raw === 'string' && result.data.raw.trim().startsWith('<');
+      if (html502 || result.status === 502 || result.status === 503) {
+        // Best-effort wake so the client's automatic retry hits a warm engine.
+        try {
+          await engineFetch('/v1/health', { timeoutMs: 12_000 });
+        } catch {
+          /* wake best-effort */
+        }
+        return res.status(503).json({
+          error: 'research_desk_unavailable',
+          retryable: true,
+          detail: 'Intelligence engine timed out or restarted. Please try again.',
+        });
+      }
       return res.status(result.status).json(result.data);
     } catch (error) {
-      return res.status(503).json({ error: 'UI aggregation unavailable', detail: error.message });
+      return res.status(503).json({
+        error: 'research_desk_unavailable',
+        retryable: true,
+        detail: error.message,
+      });
     }
   });
 

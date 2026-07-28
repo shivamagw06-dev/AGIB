@@ -115,6 +115,11 @@ services:
       # Keep false on free tier — Chromium must come from buildCommand.
       - key: FAA_PLAYWRIGHT_AUTO_INSTALL
         value: "false"
+      # Ask desk: keep Investment Office soft-wire on, but do not grow in-memory stores.
+      - key: AGI_V4_OFFICES_IN_ASK
+        value: "1"
+      - key: AGI_V4_OFFICE_PERSIST
+        value: "0"
       - key: EXA_API_KEY
         sync: false
       - key: FIRECRAWL_API_KEY
