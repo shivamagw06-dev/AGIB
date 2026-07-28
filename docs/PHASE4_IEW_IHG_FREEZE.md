@@ -35,10 +35,11 @@ Do **not** tune IEW caps or IHG catalogs to chase IEL/CIO points.
 Evolve judgment in:
 
 1. **HQS** measurement (IEL independent metric)
-2. **Sprint 4.3 — Institutional Hypothesis Evaluation Engine (IHE)**
+2. **IHE** (now frozen v1.0.0) + **CQS** / **ICR** (Sprint 4.4)
+3. **Sprint 4.5 — Confidence Calibration**
 
 ## Pipeline (frozen segment)
 
 ```text
-… → IEW (frozen) → IHG (frozen) → [IHE next] → Reasoning → ICE
+… → IEW (frozen) → IHG (frozen) → IHE (frozen) → ICR → Reasoning → ICE
 ```
