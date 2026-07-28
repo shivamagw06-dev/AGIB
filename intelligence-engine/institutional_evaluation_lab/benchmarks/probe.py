@@ -182,6 +182,26 @@ def probe_question(
         replay_integrity=True,
         as_of=_as_of,
     )
+    # AGI ITE — Investment Thesis (soft probe mirrors Ask pipeline; persist living object)
+    from institutional_investment_thesis.production import (
+        apply_investment_thesis as ite_apply,
+    )
+
+    _ite = ite_apply(
+        question=text,
+        ticker=str(question.get("ticker_hint") or "") or None,
+        company=str(question.get("ticker_hint") or "") or None,
+        evidence_weighting=_iew.get("pack") or {},
+        hypothesis_generation=_ihg.get("pack") or {},
+        hypothesis_evaluation=_ihe.get("pack") or {},
+        committee_reasoning=_icr.get("pack") or {},
+        confidence_calibration=_icc.get("pack") or {},
+        institutional_memory=im,
+        evidence_graph=eg,
+        framework_selection=fs,
+        as_of=_as_of,
+        persist=True,
+    )
     return {
         "mode": "soft",
         "question_id": question.get("question_id"),
@@ -195,6 +215,7 @@ def probe_question(
         "hypothesis_evaluation": _ihe.get("pack") or {},
         "committee_reasoning": _icr.get("pack") or {},
         "confidence_calibration": _icc.get("pack") or {},
+        "investment_thesis": _ite.get("pack") or {},
         "temporal_integrity": {
             "pre_analog": _pre.get("report"),
             "post_analog": _post.get("report"),

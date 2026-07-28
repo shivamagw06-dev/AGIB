@@ -717,6 +717,33 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("institutional_confidence_calibration")
     except Exception:
         out["institutional_confidence_calibration"] = None
+    # AGI v4.0 Phase 5 Sprint 5.1 — Institutional Investment Thesis Engine
+    try:
+        from institutional_investment_thesis.production import dashboard as ite_dashboard
+        from institutional_investment_thesis.production import status as ite_status
+
+        th = ite_status()
+        td = ite_dashboard()
+        out["institutional_investment_thesis"] = {
+            "company": th.get("company"),
+            "status": th.get("status"),
+            "version": th.get("version"),
+            "release": th.get("release"),
+            "n_theses": td.get("n_theses"),
+            "n_active": td.get("n_active"),
+            "n_watch": td.get("n_watch"),
+            "lifecycle_distribution": td.get("lifecycle_distribution"),
+            "decision_distribution": td.get("decision_distribution"),
+            "average_confidence_active": td.get("average_confidence_active"),
+            "waiting_for_earnings_review": td.get("waiting_for_earnings_review"),
+            "confidence_dropped_gt_10": td.get("confidence_dropped_gt_10"),
+            "buy_sell": False,
+            "judgment_stack_modified": False,
+            "llm_used": False,
+        }
+        out["sources"].append("institutional_investment_thesis")
+    except Exception:
+        out["institutional_investment_thesis"] = None
     try:
         from knowledge_factory.production import historical_depth_coverage
 

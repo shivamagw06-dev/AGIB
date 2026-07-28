@@ -1004,6 +1004,89 @@ def run_complete_ask(
         "confidence_level": confidence_calibration.get("confidence_level"),
     }
 
+    # ------------------------------------------------------------------
+    # AGI v4.0 Phase 5 Sprint 5.1 — Institutional Investment Thesis (ITE)
+    # Soft-wire only: persist living thesis from frozen v3.6 judgment packs.
+    # Analysis only — no BUY/SELL (Decision Engine is Sprint 5.2).
+    # ------------------------------------------------------------------
+    from institutional_investment_thesis.production import (
+        apply_investment_thesis as ite_apply,
+    )
+    from institutional_investment_thesis.schema import ITE_VERSION, THESIS_SCHEMA_VERSION
+
+    _ite_meta = {
+        "question_id": (context.get("question_id") or session_id or conversation_id),
+        "intent": irl.get("intent") or intent_rec.get("intent_v2") or intent_rec.get("intent"),
+        "ticker": hint,
+        "confidence_version": confidence_calibration.get("confidence_version") or CONFIDENCE_VERSION,
+        "committee_version": committee_reasoning.get("committee_version") or COMMITTEE_VERSION,
+        "thesis_schema_version": THESIS_SCHEMA_VERSION,
+        "replay_mode": bool(irl.get("as_of")),
+    }
+    with trace_span(
+        "investment_thesis",
+        run_type="chain",
+        inputs={
+            "question": question,
+            "ticker": hint,
+            "icc_confidence": confidence_calibration.get("overall_confidence"),
+            "icr_n_cases": committee_reasoning.get("n_cases"),
+        },
+        tags=["ask", "ite", "investment_thesis", "v4"],
+        metadata=_ite_meta,
+    ) as _ite_sp:
+        _ite = ite_apply(
+            question=question,
+            ticker=hint,
+            company=hint,
+            evidence_weighting=evidence_weighting,
+            hypothesis_generation=hypothesis_generation,
+            hypothesis_evaluation=hypothesis_evaluation,
+            committee_reasoning=committee_reasoning,
+            confidence_calibration=confidence_calibration,
+            institutional_memory=institutional_memory,
+            evidence_graph=evidence_graph,
+            framework_selection=framework_selection,
+            as_of=irl.get("as_of"),
+            metadata=_ite_meta,
+            persist=True,
+        )
+        _ite_thesis = (_ite.get("pack") or {}).get("thesis") or {}
+        _ite_sp.end(
+            outputs={
+                "thesis_id": _ite_thesis.get("thesis_id"),
+                "company": _ite_thesis.get("company"),
+                "lifecycle": _ite_thesis.get("lifecycle"),
+                "decision_status": _ite_thesis.get("decision_status"),
+                "confidence": _ite_thesis.get("confidence"),
+                "version": _ite_thesis.get("version"),
+                "buy_sell_emitted": False,
+                "ite_version": ITE_VERSION,
+            }
+        )
+    investment_thesis = _ite.get("pack") or {}
+    stages["investment_thesis"] = {
+        "status": "executed",
+        "ite_version": investment_thesis.get("ite_version") or ITE_VERSION,
+        "thesis_id": (investment_thesis.get("thesis") or {}).get("thesis_id"),
+        "lifecycle": (investment_thesis.get("thesis") or {}).get("lifecycle"),
+        "decision_status": (investment_thesis.get("thesis") or {}).get("decision_status"),
+        "confidence": (investment_thesis.get("thesis") or {}).get("confidence"),
+        "version": (investment_thesis.get("thesis") or {}).get("version"),
+        "buy_sell_emitted": False,
+        "guides_thesis": True,
+        "reasoning_changed": False,
+        "judgment_changed": False,
+        "llm_used": False,
+        "fabricated": False,
+    }
+    context["investment_thesis"] = {
+        "ite_version": investment_thesis.get("ite_version") or ITE_VERSION,
+        "thesis_id": (investment_thesis.get("thesis") or {}).get("thesis_id"),
+        "decision_status": (investment_thesis.get("thesis") or {}).get("decision_status"),
+        "lifecycle": (investment_thesis.get("thesis") or {}).get("lifecycle"),
+    }
+
     # S07 Planner — no ticker in Concept Mode
     planner = run_planner(question, ticker_hint=hint, policy=policy)
     stages["planner"] = planner
@@ -1173,6 +1256,21 @@ def run_complete_ask(
         "communication_changed": False,
         "llm_used": False,
         "manually_assigned": False,
+        "fabricated": False,
+        "deterministic": True,
+    }
+    # Soft overlay — living Investment Thesis (v4.0); analysis only, no BUY/SELL
+    packs["investment_thesis"] = {
+        "ite_version": investment_thesis.get("ite_version") or ITE_VERSION,
+        "schema_version": investment_thesis.get("schema_version") or THESIS_SCHEMA_VERSION,
+        "thesis": investment_thesis.get("thesis"),
+        "thesis_id": (investment_thesis.get("thesis") or {}).get("thesis_id"),
+        "persisted": investment_thesis.get("persisted"),
+        "buy_sell_emitted": False,
+        "guides_thesis": True,
+        "reasoning_changed": False,
+        "judgment_changed": False,
+        "llm_used": False,
         "fabricated": False,
         "deterministic": True,
     }

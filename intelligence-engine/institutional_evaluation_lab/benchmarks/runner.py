@@ -102,17 +102,20 @@ def run_benchmark(
             )
 
     agg = aggregate_suite(scored)
-    # Phase 4 — HQS / CQS / CFQS (independent of CIO / overall weights)
+    # Phase 4/5 — HQS / CQS / CFQS / ITQS (independent of CIO / overall weights)
     from institutional_evaluation_lab.judges.committee_quality import aggregate_cqs
     from institutional_evaluation_lab.judges.confidence_quality import aggregate_cfqs
     from institutional_evaluation_lab.judges.hypothesis_quality import aggregate_hqs
+    from institutional_evaluation_lab.judges.thesis_quality import aggregate_itqs
 
     hqs_summary = aggregate_hqs(scored)
     cqs_summary = aggregate_cqs(scored)
     cfqs_summary = aggregate_cfqs(scored)
+    itqs_summary = aggregate_itqs(scored)
     agg["hypothesis_quality"] = hqs_summary
     agg["committee_quality"] = cqs_summary
     agg["confidence_quality"] = cfqs_summary
+    agg["thesis_quality"] = itqs_summary
     clusters = cluster_failures(scored)
     run_id = f"iel-run-{uuid4().hex[:10]}"
     commit = _git_commit()
@@ -154,6 +157,7 @@ def run_benchmark(
         "hypothesis_quality_score": hqs_summary,
         "committee_quality_score": cqs_summary,
         "confidence_quality_score": cfqs_summary,
+        "thesis_quality_score": itqs_summary,
         "failure_clusters": clusters,
         "regression": regression,
         "targets": targets,

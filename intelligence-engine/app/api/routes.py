@@ -7377,6 +7377,66 @@ async def temporal_integrity_telemetry():
 
 
 # ---------------------------------------------------------------------------
+# AGI v4.0 Phase 5 Sprint 5.1 — Institutional Investment Thesis Engine (ITE)
+# Static paths before /thesis/{thesis_id}
+# ---------------------------------------------------------------------------
+@router.get("/thesis/health")
+async def thesis_health():
+    from institutional_investment_thesis.production import status
+
+    return status()
+
+
+@router.get("/thesis/dashboard")
+async def thesis_dashboard():
+    from institutional_investment_thesis.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/thesis/telemetry")
+async def thesis_telemetry():
+    from institutional_investment_thesis.production import telemetry
+
+    return telemetry()
+
+
+@router.get("/thesis/history")
+async def thesis_history(limit: int = 20):
+    from institutional_investment_thesis.production import history
+
+    return history(limit=limit)
+
+
+@router.post("/thesis/create")
+async def thesis_create(payload: dict):
+    from institutional_investment_thesis.production import create_api
+
+    return create_api(payload)
+
+
+@router.post("/thesis/list")
+async def thesis_list(payload: dict):
+    from institutional_investment_thesis.production import list_api
+
+    return list_api(payload)
+
+
+@router.get("/thesis/{thesis_id}/versions")
+async def thesis_versions(thesis_id: str):
+    from institutional_investment_thesis.production import versions_api
+
+    return versions_api(thesis_id)
+
+
+@router.get("/thesis/{thesis_id}")
+async def thesis_get(thesis_id: str):
+    from institutional_investment_thesis.production import get_thesis
+
+    return get_thesis(thesis_id)
+
+
+# ---------------------------------------------------------------------------
 # AGI Phase 4 Sprint 4.5 — Institutional Confidence Calibration (ICC)
 # ---------------------------------------------------------------------------
 @router.get("/confidence/health")

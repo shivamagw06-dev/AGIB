@@ -7,7 +7,8 @@ SPRINT: 5.1
 MODULE: ITE
 PRIORITY: Highest
 FOUNDATION: AGI v3.6 (frozen) — consume only
-STATUS: Brief ready — not yet implemented
+STATUS: Implemented v1.0.0 — see PHASE5_INSTITUTIONAL_INVESTMENT_THESIS.md
+RELEASE: AGI v4.0
 ```
 
 ## Objective
