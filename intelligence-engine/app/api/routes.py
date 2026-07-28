@@ -7377,6 +7377,306 @@ async def temporal_integrity_telemetry():
 
 
 # ---------------------------------------------------------------------------
+# AGI v4.0 Phase 5 Sprint 5.3 — Institutional Portfolio Office (IPO)
+# Static paths before /portfolio/{idea_id}
+# ---------------------------------------------------------------------------
+@router.get("/portfolio/health")
+async def portfolio_health():
+    from institutional_portfolio_office.production import status
+
+    return status()
+
+
+@router.get("/portfolio/dashboard")
+async def portfolio_dashboard():
+    from institutional_portfolio_office.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/portfolio/telemetry")
+async def portfolio_telemetry():
+    from institutional_portfolio_office.production import telemetry
+
+    return telemetry()
+
+
+@router.get("/portfolio/history")
+async def portfolio_history(limit: int = 20):
+    from institutional_portfolio_office.production import history
+
+    return history(limit=limit)
+
+
+@router.post("/portfolio/create")
+async def portfolio_create(payload: dict):
+    from institutional_portfolio_office.production import create_api
+
+    return create_api(payload)
+
+
+@router.post("/portfolio/list")
+async def portfolio_list(payload: dict):
+    from institutional_portfolio_office.production import list_api
+
+    return list_api(payload)
+
+
+@router.post("/portfolio/ranking")
+async def portfolio_ranking(payload: dict):
+    from institutional_portfolio_office.production import ranking_api
+
+    return ranking_api(payload)
+
+
+@router.get("/portfolio/{idea_id}/versions")
+async def portfolio_versions(idea_id: str):
+    from institutional_portfolio_office.production import versions_api
+
+    return versions_api(idea_id)
+
+
+@router.get("/portfolio/{idea_id}")
+async def portfolio_get(idea_id: str):
+    from institutional_portfolio_office.production import get_idea
+
+    return get_idea(idea_id)
+
+
+# ---------------------------------------------------------------------------
+# AGI v4.0 Phase 5 Sprint 5.4 — Institutional Monitoring Office (IMO)
+# Static paths before /monitoring/{event_id}
+# ---------------------------------------------------------------------------
+@router.get("/monitoring/health")
+async def monitoring_health():
+    from institutional_monitoring_office.production import status
+
+    return status()
+
+
+@router.get("/monitoring/dashboard")
+async def monitoring_dashboard():
+    from institutional_monitoring_office.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/monitoring/telemetry")
+async def monitoring_telemetry():
+    from institutional_monitoring_office.production import telemetry
+
+    return telemetry()
+
+
+@router.get("/monitoring/history")
+async def monitoring_history(limit: int = 20):
+    from institutional_monitoring_office.production import history
+
+    return history(limit=limit)
+
+
+@router.post("/monitoring/create")
+async def monitoring_create(payload: dict):
+    from institutional_monitoring_office.production import create_api
+
+    return create_api(payload)
+
+
+@router.post("/monitoring/list")
+async def monitoring_list(payload: dict):
+    from institutional_monitoring_office.production import list_api
+
+    return list_api(payload)
+
+
+@router.post("/monitoring/review-queue")
+async def monitoring_review_queue(payload: dict):
+    from institutional_monitoring_office.production import review_queue_api
+
+    return review_queue_api(payload)
+
+
+@router.get("/monitoring/{event_id}")
+async def monitoring_get(event_id: str):
+    from institutional_monitoring_office.production import get_event
+
+    return get_event(event_id)
+
+
+# ---------------------------------------------------------------------------
+# AGI v4.0 Phase 5 Sprint 5.5 — Institutional Learning Office (ILO)
+# Static paths before /learning/{learning_id} — FINAL Office module
+# ---------------------------------------------------------------------------
+@router.get("/learning/health")
+async def learning_health():
+    from institutional_learning_office.production import status
+
+    return status()
+
+
+@router.get("/learning/dashboard")
+async def learning_dashboard():
+    from institutional_learning_office.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/learning/telemetry")
+async def learning_telemetry():
+    from institutional_learning_office.production import telemetry
+
+    return telemetry()
+
+
+@router.get("/learning/history")
+async def learning_history(limit: int = 20):
+    from institutional_learning_office.production import history
+
+    return history(limit=limit)
+
+
+@router.post("/learning/create")
+async def learning_create(payload: dict):
+    from institutional_learning_office.production import create_api
+
+    return create_api(payload)
+
+
+@router.post("/learning/list")
+async def learning_list(payload: dict):
+    from institutional_learning_office.production import list_api
+
+    return list_api(payload)
+
+
+@router.get("/learning/{learning_id}")
+async def learning_get(learning_id: str):
+    from institutional_learning_office.production import get_learning
+
+    return get_learning(learning_id)
+
+
+# ---------------------------------------------------------------------------
+# AGI v4.0 Phase 5 Sprint 5.2 — Institutional Decision Office (IDO)
+# Static paths before /decision/{decision_id}
+# ---------------------------------------------------------------------------
+@router.get("/decision/health")
+async def decision_health():
+    from institutional_decision_office.production import status
+
+    return status()
+
+
+@router.get("/decision/dashboard")
+async def decision_dashboard():
+    from institutional_decision_office.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/decision/telemetry")
+async def decision_telemetry():
+    from institutional_decision_office.production import telemetry
+
+    return telemetry()
+
+
+@router.get("/decision/history")
+async def decision_history(limit: int = 20):
+    from institutional_decision_office.production import history
+
+    return history(limit=limit)
+
+
+@router.post("/decision/deliberate")
+async def decision_deliberate(payload: dict):
+    from institutional_decision_office.production import deliberate_api
+
+    return deliberate_api(payload)
+
+
+@router.post("/decision/list")
+async def decision_list(payload: dict):
+    from institutional_decision_office.production import list_api
+
+    return list_api(payload)
+
+
+@router.get("/decision/{decision_id}/versions")
+async def decision_versions(decision_id: str):
+    from institutional_decision_office.production import versions_api
+
+    return versions_api(decision_id)
+
+
+@router.get("/decision/{decision_id}")
+async def decision_get(decision_id: str):
+    from institutional_decision_office.production import get_decision
+
+    return get_decision(decision_id)
+
+
+# ---------------------------------------------------------------------------
+# AGI v4.0 Phase 5 Sprint 5.1 — Institutional Investment Thesis Engine (ITE)
+# Static paths before /thesis/{thesis_id}
+# ---------------------------------------------------------------------------
+@router.get("/thesis/health")
+async def thesis_health():
+    from institutional_investment_thesis.production import status
+
+    return status()
+
+
+@router.get("/thesis/dashboard")
+async def thesis_dashboard():
+    from institutional_investment_thesis.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/thesis/telemetry")
+async def thesis_telemetry():
+    from institutional_investment_thesis.production import telemetry
+
+    return telemetry()
+
+
+@router.get("/thesis/history")
+async def thesis_history(limit: int = 20):
+    from institutional_investment_thesis.production import history
+
+    return history(limit=limit)
+
+
+@router.post("/thesis/create")
+async def thesis_create(payload: dict):
+    from institutional_investment_thesis.production import create_api
+
+    return create_api(payload)
+
+
+@router.post("/thesis/list")
+async def thesis_list(payload: dict):
+    from institutional_investment_thesis.production import list_api
+
+    return list_api(payload)
+
+
+@router.get("/thesis/{thesis_id}/versions")
+async def thesis_versions(thesis_id: str):
+    from institutional_investment_thesis.production import versions_api
+
+    return versions_api(thesis_id)
+
+
+@router.get("/thesis/{thesis_id}")
+async def thesis_get(thesis_id: str):
+    from institutional_investment_thesis.production import get_thesis
+
+    return get_thesis(thesis_id)
+
+
+# ---------------------------------------------------------------------------
 # AGI Phase 4 Sprint 4.5 — Institutional Confidence Calibration (ICC)
 # ---------------------------------------------------------------------------
 @router.get("/confidence/health")

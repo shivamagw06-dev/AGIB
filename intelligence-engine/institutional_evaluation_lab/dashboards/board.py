@@ -32,6 +32,16 @@ def build_board() -> dict[str, Any]:
             or ((latest or {}).get("aggregate") or {}).get("committee_quality"),
             "confidence_quality_score": (latest or {}).get("confidence_quality_score")
             or ((latest or {}).get("aggregate") or {}).get("confidence_quality"),
+            "thesis_quality_score": (latest or {}).get("thesis_quality_score")
+            or ((latest or {}).get("aggregate") or {}).get("thesis_quality"),
+            "decision_quality_score": (latest or {}).get("decision_quality_score")
+            or ((latest or {}).get("aggregate") or {}).get("decision_quality"),
+            "portfolio_quality_score": (latest or {}).get("portfolio_quality_score")
+            or ((latest or {}).get("aggregate") or {}).get("portfolio_quality"),
+            "monitoring_quality_score": (latest or {}).get("monitoring_quality_score")
+            or ((latest or {}).get("aggregate") or {}).get("monitoring_quality"),
+            "learning_quality_score": (latest or {}).get("learning_quality_score")
+            or ((latest or {}).get("aggregate") or {}).get("learning_quality"),
             "regression": (latest or {}).get("regression"),
             "top_root_causes": ((latest or {}).get("aggregate") or {}).get("top_root_causes"),
         }
@@ -55,6 +65,26 @@ def build_board() -> dict[str, Any]:
                     ((r.get("confidence_quality_score") or {}).get("mean_cfqs"))
                     or ((r.get("aggregate") or {}).get("confidence_quality") or {}).get("mean_cfqs")
                 ),
+                "mean_itqs": (
+                    ((r.get("thesis_quality_score") or {}).get("mean_itqs"))
+                    or ((r.get("aggregate") or {}).get("thesis_quality") or {}).get("mean_itqs")
+                ),
+                "mean_dqs": (
+                    ((r.get("decision_quality_score") or {}).get("mean_dqs"))
+                    or ((r.get("aggregate") or {}).get("decision_quality") or {}).get("mean_dqs")
+                ),
+                "mean_pqs": (
+                    ((r.get("portfolio_quality_score") or {}).get("mean_pqs"))
+                    or ((r.get("aggregate") or {}).get("portfolio_quality") or {}).get("mean_pqs")
+                ),
+                "mean_mqs": (
+                    ((r.get("monitoring_quality_score") or {}).get("mean_mqs"))
+                    or ((r.get("aggregate") or {}).get("monitoring_quality") or {}).get("mean_mqs")
+                ),
+                "mean_lqs": (
+                    ((r.get("learning_quality_score") or {}).get("mean_lqs"))
+                    or ((r.get("aggregate") or {}).get("learning_quality") or {}).get("mean_lqs")
+                ),
                 "commit": r.get("commit"),
             }
             for r in runs[:8]
@@ -68,6 +98,9 @@ def build_board() -> dict[str, Any]:
             "Hypothesis Quality Score",
             "Committee Quality Score",
             "Confidence Quality Score",
+            "Investment Thesis Quality Score",
+            "Decision Quality Score",
+            "Portfolio Quality Score",
             "Root Cause",
             "Dashboard",
         ],

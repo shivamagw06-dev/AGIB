@@ -182,6 +182,85 @@ def probe_question(
         replay_integrity=True,
         as_of=_as_of,
     )
+    # AGI ITE — Investment Thesis (soft probe mirrors Ask pipeline; persist living object)
+    from institutional_investment_thesis.production import (
+        apply_investment_thesis as ite_apply,
+    )
+
+    _ite = ite_apply(
+        question=text,
+        ticker=str(question.get("ticker_hint") or "") or None,
+        company=str(question.get("ticker_hint") or "") or None,
+        evidence_weighting=_iew.get("pack") or {},
+        hypothesis_generation=_ihg.get("pack") or {},
+        hypothesis_evaluation=_ihe.get("pack") or {},
+        committee_reasoning=_icr.get("pack") or {},
+        confidence_calibration=_icc.get("pack") or {},
+        institutional_memory=im,
+        evidence_graph=eg,
+        framework_selection=fs,
+        as_of=_as_of,
+        persist=True,
+    )
+    # AGI IDO — Decision Office (soft probe mirrors Ask pipeline)
+    from institutional_decision_office.production import (
+        apply_decision_office as ido_apply,
+    )
+
+    _ido = ido_apply(
+        question=text,
+        investment_thesis=_ite.get("pack") or {},
+        committee_reasoning=_icr.get("pack") or {},
+        confidence_calibration=_icc.get("pack") or {},
+        hypothesis_evaluation=_ihe.get("pack") or {},
+        as_of=_as_of,
+        persist=True,
+    )
+    # AGI IPO — Portfolio Office (soft probe mirrors Ask pipeline)
+    from institutional_portfolio_office.production import (
+        apply_portfolio_office as ipo_apply,
+    )
+
+    _ipo = ipo_apply(
+        question=text,
+        investment_thesis=_ite.get("pack") or {},
+        decision_office=_ido.get("pack") or {},
+        committee_reasoning=_icr.get("pack") or {},
+        confidence_calibration=_icc.get("pack") or {},
+        as_of=_as_of,
+        persist=True,
+    )
+    # AGI IMO — Monitoring Office (soft probe mirrors Ask pipeline)
+    from institutional_monitoring_office.production import (
+        apply_monitoring_office as imo_apply,
+    )
+
+    _imo = imo_apply(
+        question=text,
+        portfolio_office=_ipo.get("pack") or {},
+        investment_thesis=_ite.get("pack") or {},
+        decision_office=_ido.get("pack") or {},
+        confidence_calibration=_icc.get("pack") or {},
+        hypothesis_evaluation=_ihe.get("pack") or {},
+        committee_reasoning=_icr.get("pack") or {},
+        as_of=_as_of,
+        persist=True,
+    )
+    # AGI ILO — Learning Office (soft probe mirrors Ask pipeline; final Office)
+    from institutional_learning_office.production import (
+        apply_learning_office as ilo_apply,
+    )
+
+    _ilo = ilo_apply(
+        question=text,
+        investment_thesis=_ite.get("pack") or {},
+        decision_office=_ido.get("pack") or {},
+        portfolio_office=_ipo.get("pack") or {},
+        monitoring_office=_imo.get("pack") or {},
+        confidence_calibration=_icc.get("pack") or {},
+        as_of=_as_of,
+        persist=True,
+    )
     return {
         "mode": "soft",
         "question_id": question.get("question_id"),
@@ -195,6 +274,11 @@ def probe_question(
         "hypothesis_evaluation": _ihe.get("pack") or {},
         "committee_reasoning": _icr.get("pack") or {},
         "confidence_calibration": _icc.get("pack") or {},
+        "investment_thesis": _ite.get("pack") or {},
+        "decision_office": _ido.get("pack") or {},
+        "portfolio_office": _ipo.get("pack") or {},
+        "monitoring_office": _imo.get("pack") or {},
+        "learning_office": _ilo.get("pack") or {},
         "temporal_integrity": {
             "pre_analog": _pre.get("report"),
             "post_analog": _post.get("report"),

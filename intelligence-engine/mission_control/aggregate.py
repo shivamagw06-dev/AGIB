@@ -717,6 +717,145 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("institutional_confidence_calibration")
     except Exception:
         out["institutional_confidence_calibration"] = None
+    # AGI v4.0 Phase 5 Sprint 5.1 — Institutional Investment Thesis Engine
+    try:
+        from institutional_investment_thesis.production import dashboard as ite_dashboard
+        from institutional_investment_thesis.production import status as ite_status
+
+        th = ite_status()
+        td = ite_dashboard()
+        out["institutional_investment_thesis"] = {
+            "company": th.get("company"),
+            "status": th.get("status"),
+            "version": th.get("version"),
+            "release": th.get("release"),
+            "n_theses": td.get("n_theses"),
+            "n_active": td.get("n_active"),
+            "n_watch": td.get("n_watch"),
+            "lifecycle_distribution": td.get("lifecycle_distribution"),
+            "decision_distribution": td.get("decision_distribution"),
+            "average_confidence_active": td.get("average_confidence_active"),
+            "waiting_for_earnings_review": td.get("waiting_for_earnings_review"),
+            "confidence_dropped_gt_10": td.get("confidence_dropped_gt_10"),
+            "buy_sell": False,
+            "judgment_stack_modified": False,
+            "llm_used": False,
+        }
+        out["sources"].append("institutional_investment_thesis")
+    except Exception:
+        out["institutional_investment_thesis"] = None
+    # AGI v4.0 Phase 5 Sprint 5.2 — Institutional Decision Office
+    try:
+        from institutional_decision_office.production import dashboard as ido_dashboard
+        from institutional_decision_office.production import status as ido_status
+
+        dh = ido_status()
+        dd = ido_dashboard()
+        out["institutional_decision_office"] = {
+            "company": dh.get("company"),
+            "status": dh.get("status"),
+            "version": dh.get("version"),
+            "release": dh.get("release"),
+            "n_decisions": dd.get("n_decisions"),
+            "decision_distribution": dd.get("decision_distribution"),
+            "lifecycle_distribution": dd.get("lifecycle_distribution"),
+            "n_wait": dd.get("n_wait"),
+            "n_monitor": dd.get("n_monitor"),
+            "n_approve": dd.get("n_approve"),
+            "n_escalate": dd.get("n_escalate"),
+            "review_after_earnings": dd.get("review_after_earnings"),
+            "orders": False,
+            "buy_sell": False,
+            "execution": False,
+            "judgment_stack_modified": False,
+            "llm_used": False,
+        }
+        out["sources"].append("institutional_decision_office")
+    except Exception:
+        out["institutional_decision_office"] = None
+    # AGI v4.0 Phase 5 Sprint 5.3 — Institutional Portfolio Office
+    try:
+        from institutional_portfolio_office.production import dashboard as ipo_dashboard
+        from institutional_portfolio_office.production import status as ipo_status
+
+        ph = ipo_status()
+        pd = ipo_dashboard()
+        out["institutional_portfolio_office"] = {
+            "company": ph.get("company"),
+            "status": ph.get("status"),
+            "version": ph.get("version"),
+            "release": ph.get("release"),
+            "n_ideas": pd.get("n_ideas"),
+            "role_distribution": pd.get("role_distribution"),
+            "sector_distribution": pd.get("sector_distribution"),
+            "status_distribution": pd.get("status_distribution"),
+            "it_services_relative_ranking": pd.get("it_services_relative_ranking"),
+            "positions": False,
+            "orders": False,
+            "execution": False,
+            "judgment_stack_modified": False,
+            "llm_used": False,
+        }
+        out["sources"].append("institutional_portfolio_office")
+    except Exception:
+        out["institutional_portfolio_office"] = None
+    # AGI v4.0 Phase 5 Sprint 5.4 — Institutional Monitoring Office
+    try:
+        from institutional_monitoring_office.production import dashboard as imo_dashboard
+        from institutional_monitoring_office.production import status as imo_status
+
+        mh = imo_status()
+        md = imo_dashboard()
+        out["institutional_monitoring_office"] = {
+            "company": mh.get("company"),
+            "status": mh.get("status"),
+            "version": mh.get("version"),
+            "release": mh.get("release"),
+            "n_events": md.get("n_events"),
+            "requires_review": md.get("requires_review"),
+            "ideas_covered": md.get("ideas_covered"),
+            "by_severity": md.get("by_severity"),
+            "by_recommended_action": md.get("by_recommended_action"),
+            "domains_monitored": md.get("domains_monitored"),
+            "mutates_thesis": False,
+            "positions": False,
+            "orders": False,
+            "execution": False,
+            "judgment_stack_modified": False,
+            "llm_used": False,
+        }
+        out["sources"].append("institutional_monitoring_office")
+    except Exception:
+        out["institutional_monitoring_office"] = None
+    # AGI v4.0 Phase 5 Sprint 5.5 — Institutional Learning Office (final Office)
+    try:
+        from institutional_learning_office.production import dashboard as ilo_dashboard
+        from institutional_learning_office.production import status as ilo_status
+
+        lh = ilo_status()
+        ld = ilo_dashboard()
+        out["institutional_learning_office"] = {
+            "company": lh.get("company"),
+            "status": lh.get("status"),
+            "version": lh.get("version"),
+            "release": lh.get("release"),
+            "final_office_module": True,
+            "n_learnings": ld.get("n_learnings"),
+            "by_category": ld.get("by_category"),
+            "by_outcome": ld.get("by_outcome"),
+            "theses_covered": ld.get("theses_covered"),
+            "knowledge_factory_updated": False,
+            "process_memory_only": True,
+            "mutates_thesis": False,
+            "positions": False,
+            "orders": False,
+            "execution": False,
+            "judgment_stack_modified": False,
+            "llm_used": False,
+        }
+        out["sources"].append("institutional_learning_office")
+    except Exception:
+        out["institutional_learning_office"] = None
     try:
         from knowledge_factory.production import historical_depth_coverage
 

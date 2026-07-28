@@ -102,17 +102,32 @@ def run_benchmark(
             )
 
     agg = aggregate_suite(scored)
-    # Phase 4 — HQS / CQS / CFQS (independent of CIO / overall weights)
+    # Phase 4/5 — HQS / CQS / CFQS / ITQS / DQS / PQS / MQS / LQS (independent of CIO)
     from institutional_evaluation_lab.judges.committee_quality import aggregate_cqs
     from institutional_evaluation_lab.judges.confidence_quality import aggregate_cfqs
+    from institutional_evaluation_lab.judges.decision_quality import aggregate_dqs
     from institutional_evaluation_lab.judges.hypothesis_quality import aggregate_hqs
+    from institutional_evaluation_lab.judges.learning_quality import aggregate_lqs
+    from institutional_evaluation_lab.judges.monitoring_quality import aggregate_mqs
+    from institutional_evaluation_lab.judges.portfolio_quality import aggregate_pqs
+    from institutional_evaluation_lab.judges.thesis_quality import aggregate_itqs
 
     hqs_summary = aggregate_hqs(scored)
     cqs_summary = aggregate_cqs(scored)
     cfqs_summary = aggregate_cfqs(scored)
+    itqs_summary = aggregate_itqs(scored)
+    dqs_summary = aggregate_dqs(scored)
+    pqs_summary = aggregate_pqs(scored)
+    mqs_summary = aggregate_mqs(scored)
+    lqs_summary = aggregate_lqs(scored)
     agg["hypothesis_quality"] = hqs_summary
     agg["committee_quality"] = cqs_summary
     agg["confidence_quality"] = cfqs_summary
+    agg["thesis_quality"] = itqs_summary
+    agg["decision_quality"] = dqs_summary
+    agg["portfolio_quality"] = pqs_summary
+    agg["monitoring_quality"] = mqs_summary
+    agg["learning_quality"] = lqs_summary
     clusters = cluster_failures(scored)
     run_id = f"iel-run-{uuid4().hex[:10]}"
     commit = _git_commit()
@@ -154,6 +169,11 @@ def run_benchmark(
         "hypothesis_quality_score": hqs_summary,
         "committee_quality_score": cqs_summary,
         "confidence_quality_score": cfqs_summary,
+        "thesis_quality_score": itqs_summary,
+        "decision_quality_score": dqs_summary,
+        "portfolio_quality_score": pqs_summary,
+        "monitoring_quality_score": mqs_summary,
+        "learning_quality_score": lqs_summary,
         "failure_clusters": clusters,
         "regression": regression,
         "targets": targets,

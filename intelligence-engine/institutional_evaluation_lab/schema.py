@@ -60,11 +60,16 @@ JUDGE_DIMENSIONS: tuple[str, ...] = (
     "hallucinated_evidence",
 )
 
-# Independent Phase 4 metrics (not in DIMENSION_WEIGHTS — do not move CIO)
+# Independent Phase 4/5 metrics (not in DIMENSION_WEIGHTS — do not move CIO)
 INDEPENDENT_METRICS: tuple[str, ...] = (
     "hypothesis_quality",
     "committee_quality",
     "confidence_quality",
+    "thesis_quality",
+    "decision_quality",
+    "portfolio_quality",
+    "monitoring_quality",
+    "learning_quality",
 )
 
 # Weighted contribution to per-question score (0–100)
