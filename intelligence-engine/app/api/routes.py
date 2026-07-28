@@ -7306,6 +7306,23 @@ async def root_cause_intelligence_report():
     return report()
 
 
+# ---------------------------------------------------------------------------
+# AGIB Phase 3 — Patch Intelligence (briefs only; never auto-codes)
+# ---------------------------------------------------------------------------
+@router.get("/patch-intelligence/health")
+async def patch_intelligence_health():
+    from patch_intelligence.production import status
+
+    return status()
+
+
+@router.get("/patch-intelligence/queue")
+async def patch_intelligence_queue(top_n: int = 10):
+    from patch_intelligence.production import from_latest_rci
+
+    return from_latest_rci(top_n=top_n)
+
+
 @router.get("/prediction/{prediction_id}")
 async def ail_prediction(prediction_id: str):
     try:

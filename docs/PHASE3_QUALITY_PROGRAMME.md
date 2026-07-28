@@ -20,8 +20,8 @@ CIO frozen exam (post-IMAI): **8.12 / 10**
 | Sprint | Capability | Exit metric |
 |--------|------------|-------------|
 | **3.1 IEL** ✅ | Institutional Evaluation Lab | 1000+ Q suite + nightly judge + dashboard |
-| **3.2 RCI** | Root Cause Intelligence | Top-10 clusters + recommended PRs |
-| 3.3 | Framework Optimisation | Framework accuracy ≥98% |
+| **3.2 RCI** ✅ | Root Cause Intelligence | Top-10 clusters + recommended PRs |
+| **3.3 FO** ✅ | Framework Optimisation + Patch Intelligence | Framework accuracy ≥96% (target 98%) |
 | 3.4 | Intent Optimisation | Intent accuracy ≥99% |
 | 3.5 | Evidence Weighting | Explicit source hierarchy in answers |
 | 3.6 | Hypothesis Engine | Multi-hypothesis before conclusion |
