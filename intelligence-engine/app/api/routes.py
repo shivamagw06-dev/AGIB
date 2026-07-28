@@ -4801,6 +4801,118 @@ async def admin_ipci():
     return HTMLResponse(html)
 
 
+# --- Continuous Macroeconomic Knowledge Platform (CMKP) Sprint 10.1 ---
+# Background ingestion only. Ask / Research / Forecast never trigger collectors.
+
+
+@router.get("/cmkp/health")
+async def cmkp_health():
+    from continuous_macro_knowledge.production import health
+
+    return health()
+
+
+@router.get("/macro/dashboard")
+async def cmkp_dashboard():
+    from continuous_macro_knowledge.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/macro/india")
+async def cmkp_india(limit: int = Query(100, ge=1, le=500)):
+    from continuous_macro_knowledge.production import india
+
+    return india(limit=limit)
+
+
+@router.get("/macro/global")
+async def cmkp_global(limit: int = Query(100, ge=1, le=500)):
+    from continuous_macro_knowledge.production import global_macro
+
+    return global_macro(limit=limit)
+
+
+@router.get("/macro/indicator/{indicator}")
+async def cmkp_indicator(indicator: str, country: str | None = None):
+    from continuous_macro_knowledge.production import indicator as get_indicator
+
+    return get_indicator(indicator, country=country)
+
+
+@router.get("/macro/releases")
+async def cmkp_releases(limit: int = Query(50, ge=1, le=200)):
+    from continuous_macro_knowledge.production import releases
+
+    return releases(limit=limit)
+
+
+@router.get("/macro/calendar")
+async def cmkp_calendar(limit: int = Query(50, ge=1, le=200)):
+    from continuous_macro_knowledge.production import release_calendar
+
+    return release_calendar(limit=limit)
+
+
+@router.post("/macro/run")
+async def cmkp_run(payload: dict[str, Any] = Body(default={})):
+    """Ops / scheduler only — never called by Ask."""
+    from continuous_macro_knowledge.production import run
+
+    sources = payload.get("sources")
+    if sources is not None and not isinstance(sources, list):
+        raise HTTPException(status_code=400, detail="sources must be a list")
+    return run(sources=sources)
+
+
+@router.get("/admin/macro-operations", response_class=HTMLResponse)
+async def admin_cmkp():
+    from continuous_macro_knowledge.production import dashboard
+
+    board = dashboard()
+    health_rows = "".join(
+        f"<tr><td>{s}</td><td>{h.get('ok')}</td><td>{h.get('success_count')}</td>"
+        f"<td>{h.get('failure_count')}</td></tr>"
+        for s, h in (board.get("collector_health") or {}).items()
+    )
+    release_rows = "".join(
+        f"<tr><td>{r.get('country')}</td><td>{r.get('indicator')}</td>"
+        f"<td>{r.get('current_value')}</td><td>{r.get('materiality_tier')}</td>"
+        f"<td>{r.get('source')}</td></tr>"
+        for r in (board.get("latest_releases") or [])
+    )
+    learn_rows = "".join(
+        f"<tr><td>{l.get('topic')}</td><td>{l.get('materiality_tier')}</td>"
+        f"<td>{l.get('future_guidance')}</td></tr>"
+        for l in (board.get("learning_events") or [])
+    )
+    html = f"""<!doctype html><html><head><title>Macro Operations</title></head>
+    <body style="font-family:system-ui;max-width:1000px;margin:2rem auto">
+    <h1>Macro Operations — CMKP</h1>
+    <p>Continuous background ingestion. Ask never fetches macro data.</p>
+    <pre>{board.get('principles')}</pre>
+    <p>Coverage: {board.get('knowledge_coverage')}</p>
+    <h2>Collector health</h2>
+    <table border="1" cellpadding="6">
+    <tr><th>Source</th><th>OK</th><th>Success</th><th>Failure</th></tr>
+    {health_rows or '<tr><td colspan=4>No collector ticks — run POST /v1/macro/run</td></tr>'}
+    </table>
+    <h2>Latest releases</h2>
+    <table border="1" cellpadding="6">
+    <tr><th>Country</th><th>Indicator</th><th>Value</th><th>Materiality</th><th>Source</th></tr>
+    {release_rows or '<tr><td colspan=5>None published</td></tr>'}
+    </table>
+    <h2>Learning events</h2>
+    <table border="1" cellpadding="6">
+    <tr><th>Topic</th><th>Tier</th><th>Guidance</th></tr>
+    {learn_rows or '<tr><td colspan=3>No material learning yet</td></tr>'}
+    </table>
+    <h2>Upcoming</h2>
+    <pre>{board.get('upcoming_releases')}</pre>
+    </body></html>"""
+    return HTMLResponse(html)
+
+
 # --- Forecast Provider Integration (FPI) — India-first Knowledge Platform path ---
 # Forecast never calls Groww/Yahoo/NSE/BSE directly; stale market snapshot refresh only.
 

@@ -353,6 +353,29 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("forecast_provider_integration")
     except Exception:
         out["forecast_provider_integration"] = None
+    # Phase 10 Sprint 10.1 — Continuous Macroeconomic Knowledge Platform (soft).
+    try:
+        from continuous_macro_knowledge.production import dashboard as cmkp_dash
+        from continuous_macro_knowledge.production import health as cmkp_health
+
+        cd = cmkp_dash()
+        ch = cmkp_health()
+        cov = cd.get("knowledge_coverage") or {}
+        out["continuous_macro_knowledge"] = {
+            "status": ch.get("status"),
+            "version": ch.get("version"),
+            "ask_triggers_collection": False,
+            "published_objects": cov.get("published_objects"),
+            "unique_indicators": cov.get("unique_indicators"),
+            "learning_events": cov.get("learning_events"),
+            "collectors": len(cd.get("collector_health") or {}),
+            "missing_indicators": len(cd.get("missing_indicators") or []),
+            "ingestion_idle": cd.get("ingestion_idle"),
+            "phase": "10.1",
+        }
+        out["sources"].append("continuous_macro_knowledge")
+    except Exception:
+        out["continuous_macro_knowledge"] = None
     # AGIB v3.0 LIDI Track 2 — collector certification board (soft).
     try:
         from live_data.production_verify import certification as lidi_cert

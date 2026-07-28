@@ -371,6 +371,12 @@ class InstitutionalForecastEngine:
 
     def _retrieve_macro(self) -> dict[str, Any]:
         macro = dict(MACRO_INTELLIGENCE)
+        sources = ["agi_knowledge_catalog"]
+        # Soft consume published CMKP knowledge — never collect
+        cmkp_tip = self._soft_cmkp_macro()
+        if cmkp_tip:
+            macro = {**macro, "cmkp_published": cmkp_tip}
+            sources.append("cmkp_macro_knowledge_store")
         return {
             "current_knowledge": {"region": "India"},
             "macro_intelligence": macro,
@@ -400,9 +406,31 @@ class InstitutionalForecastEngine:
             "risks": [{"risk": "Inflation surprise", "severity": "High"}],
             "pattern_intelligence": {"deferred": True, "sprint": "8.5"},
             "outlook_dimensions": list(macro.get("outlook_dimensions") or []),
-            "sources": ["agi_knowledge_catalog"],
+            "sources": sources,
             "providers_queried": [],
         }
+
+    def _soft_cmkp_macro(self) -> dict[str, Any] | None:
+        """Read-only CMKP gateway — never triggers collectors."""
+        try:
+            from continuous_macro_knowledge.production import india as cmkp_india
+            from continuous_macro_knowledge.production import indicator as cmkp_indicator
+
+            bundle = cmkp_india(limit=40)
+            if not bundle.get("n"):
+                return None
+            repo = cmkp_indicator("Repo Rate", country="India")
+            cpi = cmkp_indicator("CPI", country="India")
+            return {
+                "published_count": bundle.get("n"),
+                "by_category": {k: len(v) for k, v in (bundle.get("by_category") or {}).items()},
+                "repo_rate": (repo.get("latest") or {}).get("current_value") if repo.get("found") else None,
+                "cpi": (cpi.get("latest") or {}).get("current_value") if cpi.get("found") else None,
+                "collected_on_request": False,
+                "gateway": "CMKP_KRIG",
+            }
+        except Exception:
+            return None
 
     def _retrieve_theme(self, theme_key: str) -> dict[str, Any]:
         base = THEME_INTELLIGENCE.get(theme_key) or THEME_INTELLIGENCE["artificial_intelligence"]
