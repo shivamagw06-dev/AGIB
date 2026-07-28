@@ -11,6 +11,11 @@ from ask_pipeline.entities import resolve_ask_entities
 from ask_pipeline.evidence import assemble_evidence
 from ask_pipeline.gates import evaluate_gates
 from ask_pipeline.intent import detect_intent
+from ask_pipeline.answer_assembly import (
+    AAE_VERSION,
+    assemble_answer_plan,
+    bind_reasoning_to_answer,
+)
 from ask_pipeline.intent_resolution import resolve_intent
 from ask_pipeline.knowledge import retrieve_knowledge
 from ask_pipeline.planner import run_planner
@@ -165,6 +170,33 @@ def run_complete_ask(
     )
     stages["evidence"] = evidence
 
+    # ------------------------------------------------------------------
+    # AGIB v3.4 Track B — Answer Assembly (AFTER evidence, BEFORE reasoning)
+    # Classify → Order → Gaps → Skeleton → Confidence → Citations
+    # Deterministic plan only — no LLM synthesis.
+    # ------------------------------------------------------------------
+    answer_assembly = assemble_answer_plan(
+        question=question,
+        intent_v2=str(irl.get("intent") or intent_rec.get("intent_v2") or "Unknown"),
+        evidence=evidence,
+        knowledge=knowledge,
+        intent_resolution=irl,
+    )
+    stages["answer_assembly"] = {
+        "status": "executed",
+        "aae_version": answer_assembly.get("aae_version") or AAE_VERSION,
+        "intent_v2": answer_assembly.get("intent_v2"),
+        "item_count": (answer_assembly.get("metrics") or {}).get("item_count"),
+        "gap_count": (answer_assembly.get("metrics") or {}).get("gap_count"),
+        "confidence_band": (answer_assembly.get("confidence") or {}).get("band"),
+        "coverage": (answer_assembly.get("gaps") or {}).get("coverage"),
+        "section_order": (answer_assembly.get("skeleton") or {}).get("section_order"),
+        "tell_reasoning": (answer_assembly.get("gaps") or {}).get("tell_reasoning"),
+        "llm_used": False,
+        "fabricated": False,
+    }
+    context["answer_plan"] = answer_assembly.get("answer_plan")
+
     # S07 Planner — no ticker in Concept Mode
     hint = None if irl.get("concept_mode") else (
         (primary.get("entity_id") if primary else None)
@@ -232,6 +264,19 @@ def run_complete_ask(
             "status": "skipped_by_policy" if not policy.get("run_portfolio") else "error",
             "error": str(exc)[:120],
         }
+
+    # Track B — bind existing reasoning into the assembly skeleton (no new facts)
+    bound = bind_reasoning_to_answer(answer_assembly, governance=governance)
+    institutional_answer = bound.get("institutional_answer") or {}
+    stages["answer_binding"] = {
+        "status": "executed",
+        "governance_bound": bool(bound.get("governance_bound")),
+        "governance_path": bound.get("governance_path"),
+        "confidence_band": (institutional_answer.get("confidence") or {}).get("band"),
+        "generic": bool(institutional_answer.get("generic")),
+        "llm_used": False,
+        "fabricated": False,
+    }
 
     # S11 DQ record
     dq = record_decision_quality(
@@ -309,6 +354,8 @@ def run_complete_ask(
         "policy": policy,
         "knowledge": knowledge,
         "evidence": evidence,
+        "answer_assembly": answer_assembly,
+        "institutional_answer": institutional_answer,
         "planner": planner,
         "dag": dag,
         "governance": governance,
@@ -334,6 +381,9 @@ def run_complete_ask(
         "policy": policy,
         "knowledge": knowledge,
         "evidence": evidence,
+        "answer_assembly": answer_assembly,
+        "answer_assembly_version": AAE_VERSION,
+        "institutional_answer": institutional_answer,
         "planner": planner,
         "dag": dag,
         "governance": governance,
@@ -349,4 +399,5 @@ def run_complete_ask(
         "fabricated": False,
         "reasoning_changed": False,
         "knowledge_factory_changed": False,
+        "llm_synthesis_used": False,
     }
