@@ -329,6 +329,27 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("live_institutional_data")
     except Exception:
         out["live_institutional_data"] = None
+    # AGIB v3.0 LIDI Track 2 — collector certification board (soft).
+    try:
+        from live_data.production_verify import certification as lidi_cert
+        from live_data.production_verify import health_dashboard as lidi_health_dash
+        from live_data.production_verify import report_status as lidi_report_status
+
+        cert = lidi_cert()
+        hd = lidi_health_dash()
+        rs = lidi_report_status()
+        out["live_collector_activation"] = {
+            "version": cert.get("version"),
+            "certification_summary": cert.get("summary"),
+            "dashboard_rows": len(hd.get("rows") or []),
+            "readiness_score": (rs.get("readiness") or {}).get("score"),
+            "last_verification_run_id": rs.get("last_run_id"),
+            "north_star": hd.get("north_star"),
+            "all_certified": (cert.get("summary") or {}).get("all_certified"),
+        }
+        out["sources"].append("live_collector_activation")
+    except Exception:
+        out["live_collector_activation"] = None
     try:
         from knowledge_factory.production import historical_depth_coverage
 

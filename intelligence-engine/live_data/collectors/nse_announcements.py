@@ -7,7 +7,13 @@ from pathlib import Path
 from typing import Any
 
 from live_data import store
-from live_data.collectors.base import collector_envelope, fallback_to_snapshot, http_get, run_with_retry
+from live_data.collectors.base import (
+    collector_envelope,
+    fallback_to_snapshot,
+    http_get,
+    nse_session_opener,
+    run_with_retry,
+)
 from live_data.schema import DEFAULT_RETRY
 
 COLLECTOR_ID = "lidi_nse_announcements_v1"
@@ -44,6 +50,7 @@ def collect_nse_announcements(
             def _fetch() -> bytes:
                 nonlocal url_used
                 last = None
+                opener = nse_session_opener()
                 for url in ANNOUNCEMENT_URLS:
                     try:
                         data = http_get(
@@ -54,6 +61,7 @@ def collect_nse_announcements(
                                 "Referer": "https://www.nseindia.com/companies-listing/corporate-filings-announcements",
                             },
                             timeout=25,
+                            opener=opener,
                         )
                         url_used = url
                         return data
@@ -103,7 +111,12 @@ def collect_nse_announcements(
 
         assert payload_obj is not None and raw_bytes is not None
         events = _normalize_events(payload_obj)
-        effective = payload_obj.get("effective_date") or (events[0].get("effective_date") if events else None)
+        if isinstance(payload_obj, dict):
+            effective = payload_obj.get("effective_date") or (events[0].get("effective_date") if events else None)
+        else:
+            effective = events[0].get("effective_date") if events else store.utc_now()[:10]
+        if not events and mode == "live":
+            raise RuntimeError("nse_announcements_empty_or_unparseable_payload")
         file_rec = store.put_raw_file(SOURCE_ID, "announcements.json", raw_bytes, meta={"mode": mode, "url": url_used})
         env = collector_envelope(
             collector_id=COLLECTOR_ID,
@@ -154,27 +167,53 @@ def collect_nse_announcements(
         }
 
 
-def _normalize_events(obj: dict[str, Any]) -> list[dict[str, Any]]:
-    raw_events = obj.get("events") or obj.get("data") or obj.get("Table") or []
+def _normalize_events(obj: dict[str, Any] | list[Any]) -> list[dict[str, Any]]:
     if isinstance(obj, list):
         raw_events = obj
+        default_eff = None
+    elif isinstance(obj, dict):
+        raw_events = obj.get("events") or obj.get("data") or obj.get("Table") or obj.get("announcements") or []
+        default_eff = obj.get("effective_date")
+    else:
+        return []
     out = []
     for e in raw_events if isinstance(raw_events, list) else []:
         if not isinstance(e, dict):
             continue
-        sym = (e.get("symbol") or e.get("symbol") or e.get("SYMBOL") or "").upper()
+        sym = (e.get("symbol") or e.get("SYMBOL") or e.get("sm_name") or "").upper()
         if not sym:
             continue
+        raw_dt = e.get("an_dt") or e.get("datetime") or e.get("sort_date") or e.get("date") or ""
+        eff = _coerce_date(raw_dt) or default_eff
         out.append(
             {
                 "symbol": sym,
                 "headline": e.get("headline") or e.get("desc") or e.get("subject") or e.get("TITLE"),
                 "category": e.get("category") or e.get("desc") or e.get("an_tt"),
                 "subcategory": e.get("subcategory") or e.get("an_sub"),
-                "effective_date": (e.get("an_dt") or e.get("datetime") or e.get("sort_date") or "")[:10]
-                or obj.get("effective_date"),
+                "effective_date": eff,
                 "description": e.get("desc") or e.get("description"),
                 "attachment": e.get("attchmntFile") or e.get("attchmntText"),
             }
         )
     return out
+
+
+def _coerce_date(value: Any) -> str | None:
+    from datetime import datetime
+
+    s = str(value or "").strip()
+    if not s:
+        return None
+    # ISO / NSE styles
+    for cand in (s[:10], s.split("T")[0], s.split(" ")[0]):
+        try:
+            return datetime.fromisoformat(cand).date().isoformat()
+        except Exception:
+            pass
+    for fmt in ("%d-%b-%Y", "%d-%b-%y", "%d/%m/%Y", "%d-%m-%Y"):
+        try:
+            return datetime.strptime(s[:11].strip(), fmt).date().isoformat()
+        except Exception:
+            continue
+    return None

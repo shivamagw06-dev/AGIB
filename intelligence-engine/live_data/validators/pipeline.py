@@ -74,10 +74,22 @@ def validate_live_dataset(
             sym = str(row.get(row_ticker_field) or "").upper()
             if sym and not _TICKER.match(sym):
                 failures.append("invalid_ticker")
-            key = (sym, row.get("date") or row.get("effective_date") or row.get("series"))
+            # Events may share ticker+date; include headline/purpose for uniqueness.
+            key = (
+                sym,
+                row.get("date") or row.get("effective_date") or row.get("ex_date") or row.get("series"),
+                row.get("headline") or row.get("purpose") or row.get("action_type") or row.get("metric"),
+            )
             if key in seen:
                 failures.append("duplicate")
             seen.add(key)
+        # soft per-row date check (do not hard-fail whole batch on one bad row)
+        row_date = row.get("date") or row.get("effective_date") or row.get("ex_date") or row.get("as_of")
+        if row_date:
+            try:
+                datetime.fromisoformat(str(row_date)[:10])
+            except Exception:
+                failures.append("invalid_date")
         # price outlier guard
         for px in ("close", "open", "high", "low", "prev_close"):
             if px in row and row[px] is not None:

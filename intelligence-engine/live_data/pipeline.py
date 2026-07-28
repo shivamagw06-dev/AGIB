@@ -106,6 +106,8 @@ def run_live_ingestion(
         "row_count": ((bhav_val.get("payload") or {}).get("row_count")),
         "effective_date": bhav_val.get("effective_date"),
         "fixture": bhav_val.get("fixture"),
+        "reason": bhav_val.get("reason"),
+        "error": bhav_val.get("error"),
     }
     if not bhav_val.get("ok"):
         quality_failures.append("nse_bhavcopy")
@@ -130,6 +132,8 @@ def run_live_ingestion(
         "validation": ann_val.get("validation"),
         "event_count": ((ann_val.get("payload") or {}).get("event_count")),
         "fixture": ann_val.get("fixture"),
+        "reason": ann_val.get("reason"),
+        "error": ann_val.get("error"),
     }
     if not ann_val.get("ok"):
         quality_failures.append("nse_announcements")
@@ -152,6 +156,8 @@ def run_live_ingestion(
         "validation": bse_val.get("validation"),
         "action_count": ((bse_val.get("payload") or {}).get("action_count")),
         "fixture": bse_val.get("fixture"),
+        "reason": bse_val.get("reason"),
+        "error": bse_val.get("error"),
     }
     if not bse_val.get("ok"):
         quality_failures.append("bse_corporate_actions")
@@ -179,6 +185,8 @@ def run_live_ingestion(
         "validation": rbi_val.get("validation"),
         "series_count": len((rbi_val.get("payload") or {}).get("series") or []),
         "fixture": rbi_val.get("fixture"),
+        "reason": rbi_val.get("reason"),
+        "error": rbi_val.get("error"),
     }
     if not rbi_val.get("ok"):
         quality_failures.append("rbi_dbie")
@@ -211,6 +219,8 @@ def run_live_ingestion(
         "validation": ir_val.get("validation"),
         "document_count": ((ir_val.get("payload") or {}).get("document_count")),
         "fixture": ir_val.get("fixture"),
+        "reason": ir_val.get("reason"),
+        "error": ir_val.get("error"),
     }
     if not ir_val.get("ok"):
         quality_failures.append("company_ir")
