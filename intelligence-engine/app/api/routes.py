@@ -5111,6 +5111,129 @@ async def admin_mri():
     return HTMLResponse(html)
 
 
+# --- Historical Macro Analogue Intelligence (HMAI) Sprint 10.4 ---
+# Deterministic, explainable historical macro regime analogues. Never collects on Ask.
+
+
+@router.get("/hmai/health")
+async def hmai_health():
+    from historical_macro_analogue_intelligence.production import health
+
+    return health()
+
+
+@router.get("/macro/analogues")
+async def hmai_analogues(
+    limit: int = Query(20, ge=1, le=100),
+    country: str | None = None,
+):
+    from historical_macro_analogue_intelligence.production import analogues
+
+    return analogues(country=country, limit=limit)
+
+
+@router.get("/macro/analogues/search")
+async def hmai_search(
+    q: str | None = None,
+    question: str | None = None,
+    country: str = Query("India"),
+    target_period: str | None = None,
+    top_k: int = Query(5, ge=1, le=20),
+    min_score: float = Query(0.0, ge=0.0, le=100.0),
+):
+    from historical_macro_analogue_intelligence.production import search
+
+    return search(
+        country=country,
+        question=question or q,
+        target_period=target_period,
+        top_k=top_k,
+        min_score=min_score,
+    )
+
+
+@router.get("/macro/analogues/dashboard")
+async def hmai_dashboard():
+    from historical_macro_analogue_intelligence.production import dashboard
+
+    return dashboard()
+
+
+@router.post("/macro/analogues/run")
+async def hmai_run(payload: dict[str, Any] = Body(default={})):
+    """Ops / scheduler only — never called by Ask."""
+    from historical_macro_analogue_intelligence.production import run
+
+    return run(
+        country=str(payload.get("country") or "India"),
+        enrich_hmip=bool(payload.get("enrich_hmip", True)),
+        top_k=int(payload.get("top_k") or 10),
+    )
+
+
+@router.get("/macro/analogues/{country}")
+async def hmai_country(country: str, limit: int = Query(20, ge=1, le=100)):
+    from historical_macro_analogue_intelligence.production import analogues_for_country
+
+    return analogues_for_country(country, limit=limit)
+
+
+@router.get("/macro/regime/current")
+async def hmai_regime_current(country: str = Query("India")):
+    from historical_macro_analogue_intelligence.production import current_regime
+
+    return current_regime(country=country)
+
+
+@router.get("/macro/regime/history")
+async def hmai_regime_history(
+    country: str = Query("India"),
+    limit: int = Query(50, ge=1, le=200),
+):
+    from historical_macro_analogue_intelligence.production import regime_history
+
+    return regime_history(country=country, limit=limit)
+
+
+@router.get("/admin/macro-analogues", response_class=HTMLResponse)
+async def admin_hmai():
+    from historical_macro_analogue_intelligence.production import dashboard
+
+    board = dashboard()
+    cur = board.get("current_macro_regime") or {}
+    dist = board.get("similarity_distribution") or {}
+    rows = "".join(
+        f"<tr><td>{a.get('rank')}</td><td>{a.get('matched_period')}</td>"
+        f"<td>{a.get('matched_label')}</td><td>{a.get('similarity_score')}</td>"
+        f"<td>{a.get('confidence')}</td>"
+        f"<td>{', '.join(a.get('matching_dimensions') or [])}</td></tr>"
+        for a in (board.get("top_analogue_matches") or [])
+    )
+    html = f"""<!doctype html><html><head><title>Historical Macro Analogue</title></head>
+    <body style="font-family:system-ui;max-width:1000px;margin:2rem auto">
+    <h1>Historical Macro Analogue Intelligence — HMAI</h1>
+    <p>Deterministic multi-dimension similarity. Ask never fetches. No forecasting in 10.4.</p>
+    <pre>{board.get('principles')}</pre>
+    <h2>Current macro regime</h2>
+    <pre>Period: {cur.get('period')} · {cur.get('label')}</pre>
+    <pre>{cur.get('features')}</pre>
+    <h2>Similarity distribution</h2>
+    <pre>{dist}</pre>
+    <h2>Confidence</h2>
+    <pre>{board.get('confidence_distribution')}</pre>
+    <h2>Historical coverage</h2>
+    <pre>{board.get('historical_coverage')}</pre>
+    <h2>Analogue freshness</h2>
+    <pre>{board.get('analogue_freshness')}</pre>
+    <h2>Top analogue matches</h2>
+    <table border="1" cellpadding="6">
+    <tr><th>Rank</th><th>Period</th><th>Label</th><th>Similarity</th><th>Confidence</th><th>Matching</th></tr>
+    {rows or '<tr><td colspan=6>Run POST /v1/macro/analogues/run</td></tr>'}
+    </table>
+    </body></html>"""
+    return HTMLResponse(html)
+
+
 # --- Forecast Provider Integration (FPI) — India-first Knowledge Platform path ---
 # Forecast never calls Groww/Yahoo/NSE/BSE directly; stale market snapshot refresh only.
 

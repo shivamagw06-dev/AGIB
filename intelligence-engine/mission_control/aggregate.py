@@ -424,6 +424,30 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("macroeconomic_relationship_intelligence")
     except Exception:
         out["macroeconomic_relationship_intelligence"] = None
+    # Phase 10 Sprint 10.4 — Historical Macro Analogue Intelligence (soft).
+    try:
+        from historical_macro_analogue_intelligence.production import dashboard as hmai_dash
+        from historical_macro_analogue_intelligence.production import health as hmai_health
+
+        ad = hmai_dash()
+        ah = hmai_health()
+        cov = ad.get("historical_coverage") or {}
+        out["historical_macro_analogue_intelligence"] = {
+            "status": ah.get("status"),
+            "version": ah.get("version"),
+            "ask_triggers_collection": False,
+            "current_regime": (ad.get("current_macro_regime") or {}).get("period"),
+            "top_matches": len(ad.get("top_analogue_matches") or []),
+            "similarity_distribution": ad.get("similarity_distribution"),
+            "confidence_distribution": ad.get("confidence_distribution"),
+            "historical_coverage": cov,
+            "analogue_freshness": ad.get("analogue_freshness"),
+            "ingestion_idle": ad.get("ingestion_idle"),
+            "phase": "10.4",
+        }
+        out["sources"].append("historical_macro_analogue_intelligence")
+    except Exception:
+        out["historical_macro_analogue_intelligence"] = None
     # AGIB v3.0 LIDI Track 2 — collector certification board (soft).
     try:
         from live_data.production_verify import certification as lidi_cert
