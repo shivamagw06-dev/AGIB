@@ -1027,6 +1027,38 @@ export const getCompanyMonitorAil = (ticker) =>
   intelligenceFetch(`/company/${encodeURIComponent(ticker)}/monitor`);
 export const getAilEvent = (id) => intelligenceFetch(`/event/${encodeURIComponent(id)}`);
 export const getAilEvidence = (id) => intelligenceFetch(`/evidence/${encodeURIComponent(id)}`);
+
+/** AGIB v3.2 IERE — Institutional Evidence Retrieval Engine */
+export const getEvidenceHealth = () => intelligenceFetch('/evidence/health', { timeoutMs: 30_000 });
+export const getEvidenceDashboard = () =>
+  intelligenceFetch('/evidence/dashboard', { timeoutMs: 60_000 });
+export const searchEvidence = (q, { ticker, asOf } = {}) => {
+  const qs = new URLSearchParams({ q: String(q || '') });
+  if (ticker) qs.set('ticker', ticker);
+  if (asOf) qs.set('as_of', asOf);
+  return intelligenceFetch(`/evidence/search?${qs}`, { timeoutMs: 90_000 });
+};
+export const getCompanyEvidence = (ticker, asOf) => {
+  const qs = new URLSearchParams();
+  if (asOf) qs.set('as_of', asOf);
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return intelligenceFetch(`/evidence/company/${encodeURIComponent(ticker)}${suffix}`, {
+    timeoutMs: 90_000,
+  });
+};
+export const getDocumentEvidence = (docId) =>
+  intelligenceFetch(`/evidence/document/${encodeURIComponent(docId)}`, { timeoutMs: 60_000 });
+export const getEvidenceGraph = (graphId) => {
+  const qs = new URLSearchParams();
+  if (graphId) qs.set('graph_id', graphId);
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return intelligenceFetch(`/evidence/graph${suffix}`, { timeoutMs: 60_000 });
+};
+export const replayEvidence = (q, asOf, ticker) => {
+  const qs = new URLSearchParams({ q: String(q || ''), as_of: String(asOf || '') });
+  if (ticker) qs.set('ticker', ticker);
+  return intelligenceFetch(`/evidence/replay?${qs}`, { timeoutMs: 90_000 });
+};
 export const getAilPrediction = (id) => intelligenceFetch(`/prediction/${encodeURIComponent(id)}`);
 
 /** Institutional Intelligence Stack — FIL → FDI → MII → EIL → PIL */

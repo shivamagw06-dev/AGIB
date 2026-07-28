@@ -160,6 +160,10 @@ export default function MissionControl() {
   const knowledge = desk?.knowledge_growth || {};
   const learning5d = desk?.learning_last_5_days || null;
   const coverage = desk?.coverage_dashboard || {};
+  const institutional = coverage?.institutional_intelligence || {};
+  const evidenceRetrieval = institutional?.evidence_retrieval || null;
+  const institutionalDocs = institutional?.institutional_documents || null;
+  const liveDataBoard = institutional?.live_institutional_data || null;
   const monitor = desk?.company_monitor || {};
   const pipeline = desk?.research_pipeline || {};
   const preds = desk?.prediction_intelligence || {};
@@ -473,6 +477,95 @@ export default function MissionControl() {
                   <li className="text-[var(--io-muted)]">No below-threshold rows surfaced.</li>
                 ) : null}
               </ul>
+            </Glass>
+          </div>
+        </section>
+
+        {/* SECTION 6b · Institutional Evidence Retrieval (IERE) */}
+        <section className="space-y-3">
+          <Kicker>Section 6b · Evidence Retrieval (IERE)</Kicker>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+            <Stat
+              label="Status"
+              value={evidenceRetrieval?.status || '—'}
+              status={evidenceRetrieval?.status}
+            />
+            <Stat
+              label="Evidence Coverage"
+              value={
+                evidenceRetrieval?.evidence_coverage?.ranked_count != null
+                  ? evidenceRetrieval.evidence_coverage.ranked_count
+                  : '—'
+              }
+              hint="Ranked items (last run)"
+            />
+            <Stat
+              label="Freshness"
+              value={
+                evidenceRetrieval?.evidence_freshness != null
+                  ? evidenceRetrieval.evidence_freshness
+                  : '—'
+              }
+            />
+            <Stat
+              label="Latency"
+              value={
+                evidenceRetrieval?.retrieval_latency_ms != null
+                  ? `${evidenceRetrieval.retrieval_latency_ms} ms`
+                  : '—'
+              }
+            />
+            <Stat
+              label="Citation Coverage"
+              value={
+                evidenceRetrieval?.citation_coverage != null
+                  ? `${Math.round(Number(evidenceRetrieval.citation_coverage) * 100)}%`
+                  : '—'
+              }
+            />
+            <Stat
+              label="Replay Health"
+              value={
+                evidenceRetrieval?.replay_health?.ok === false
+                  ? 'Leak'
+                  : evidenceRetrieval?.replay_health?.ok
+                    ? 'OK'
+                    : '—'
+              }
+              status={evidenceRetrieval?.replay_health?.ok ? 'Healthy' : evidenceRetrieval ? 'Warning' : undefined}
+            />
+            <Stat
+              label="Confidence"
+              value={
+                evidenceRetrieval?.evidence_confidence != null
+                  ? evidenceRetrieval.evidence_confidence
+                  : '—'
+              }
+            />
+          </div>
+          <div className="grid gap-3 md:grid-cols-3">
+            <Glass>
+              <p className="text-[11px] uppercase text-[var(--io-caption)]">Documents (IDI)</p>
+              <p className="mt-2 text-sm text-[var(--io-ink-soft)]">
+                {institutionalDocs
+                  ? `${institutionalDocs.documents ?? '—'} docs · ${institutionalDocs.knowledge_objects_created ?? '—'} objects`
+                  : 'Unavailable'}
+              </p>
+            </Glass>
+            <Glass>
+              <p className="text-[11px] uppercase text-[var(--io-caption)]">Live Data (LIDI)</p>
+              <p className="mt-2 text-sm text-[var(--io-ink-soft)]">
+                {liveDataBoard
+                  ? `${liveDataBoard.collectors_operational ?? '—'}/${liveDataBoard.collectors_total ?? '—'} collectors · ${liveDataBoard.state || '—'}`
+                  : 'Unavailable'}
+              </p>
+            </Glass>
+            <Glass>
+              <p className="text-[11px] uppercase text-[var(--io-caption)]">North star</p>
+              <p className="mt-2 text-sm text-[var(--io-ink-soft)]">
+                {evidenceRetrieval?.north_star ||
+                  'Every AGIB question retrieves ranked institutional evidence packs'}
+              </p>
             </Glass>
           </div>
         </section>

@@ -2022,6 +2022,58 @@ export default function createIntelligenceRouter() {
       res.status(502).json({ error: err?.message || 'Event lookup failed' });
     }
   });
+  // AGIB v3.2 IERE — Institutional Evidence Retrieval Engine
+  // Static paths MUST be registered before /evidence/:id.
+  router.get('/evidence/health', kfGet('/v1/evidence/health'));
+  router.get('/evidence/dashboard', kfGet('/v1/evidence/dashboard'));
+  router.get('/evidence/search', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query).toString();
+      const result = await engineFetch(`/v1/evidence/search${qs ? `?${qs}` : ''}`);
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Evidence search unavailable', detail: error.message });
+    }
+  });
+  router.get('/evidence/company/:ticker', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query).toString();
+      const result = await engineFetch(
+        `/v1/evidence/company/${encodeURIComponent(req.params.ticker)}${qs ? `?${qs}` : ''}`
+      );
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Company evidence unavailable', detail: error.message });
+    }
+  });
+  router.get('/evidence/document/:docId', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/evidence/document/${encodeURIComponent(req.params.docId)}`
+      );
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Document evidence unavailable', detail: error.message });
+    }
+  });
+  router.get('/evidence/graph', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query).toString();
+      const result = await engineFetch(`/v1/evidence/graph${qs ? `?${qs}` : ''}`);
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Evidence graph unavailable', detail: error.message });
+    }
+  });
+  router.get('/evidence/replay', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query).toString();
+      const result = await engineFetch(`/v1/evidence/replay${qs ? `?${qs}` : ''}`);
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Evidence replay unavailable', detail: error.message });
+    }
+  });
   router.get('/evidence/:id', async (req, res) => {
     try {
       res.json(await engineFetch(`/v1/evidence/${encodeURIComponent(req.params.id)}`));

@@ -791,8 +791,10 @@ def build_mission_control(*, ioc_service: Any | None = None) -> dict[str, Any]:
             "sector_intelligence",
             "macro_intelligence",
             "decision_quality",
+            "evidence_retrieval",
         ],
         "institutional_intelligence": institutional,
+        "evidence_retrieval": institutional.get("evidence_retrieval"),
     }
 
     # SECTION 7 — Company Monitor
@@ -996,6 +998,13 @@ def build_mission_control(*, ioc_service: Any | None = None) -> dict[str, Any]:
         "LEO": _status_norm(leo_h.get("status") or "soft"),
         "CID": "Healthy" if cid_h else "Warning",
         "Knowledge Foundation": _status_norm((ioc.get("platform_status") or {}).get("kip")),
+        "Evidence Retrieval": (
+            "Healthy"
+            if (institutional.get("evidence_retrieval") or {}).get("status") == "ok"
+            else "Warning"
+            if institutional.get("evidence_retrieval")
+            else "Unknown"
+        ),
         "Academy": "Healthy" if books.get("enabled", True) else "Offline",
         "Financial Intelligence": "soft",
         "Company Analysis": "Healthy" if ca.get("enabled", True) else "Offline",
