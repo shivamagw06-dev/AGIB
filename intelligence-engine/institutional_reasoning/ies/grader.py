@@ -243,6 +243,14 @@ def grade_case(case: Case) -> dict[str, Any]:
     executed = [f for f in (record.get("frameworks") or []) if f.get("status") == "executed"]
     selected = [f.get("framework_id") for f in (record.get("frameworks") or [])]
 
+    # Every governed answer must carry a valid Decision Justification Graph.
+    djg = record.get("justification_graph") or {}
+    djg_integrity = (djg.get("integrity") or {}) if djg else {}
+    ok("justification_graph", bool(djg) and djg_integrity.get("valid") is True, str(djg_integrity.get("problems"))[:120])
+    passed = all(c["passed"] for c in checks) if checks else False
+    executed = [f for f in (record.get("frameworks") or []) if f.get("status") == "executed"]
+    selected = [f.get("framework_id") for f in (record.get("frameworks") or [])]
+
     # Wrong entity execution signal
     wrong_entity = False
     if gold.entity_id and executed:
@@ -282,4 +290,6 @@ def grade_case(case: Case) -> dict[str, Any]:
         "evidence_provenance_ok": any(c["check"] == "provenance" and c["passed"] for c in checks)
         if gold.require_provenance
         else None,
+        "justification_graph_valid": bool(djg) and djg_integrity.get("valid") is True,
+        "justification_graph_nodes": (djg.get("counts") or {}).get("nodes"),
     }

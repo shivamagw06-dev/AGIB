@@ -29,6 +29,17 @@ from institutional_reasoning.evidence_validation import VALIDATION_VERSION, vali
 
 GOVERNANCE_VERSION = "execution-governance-v1.0.0"
 
+
+def _attach_justification(record: dict[str, Any]) -> dict[str, Any]:
+    """Every governed answer carries its own reasoning graph (for AGIB itself)."""
+    try:
+        from institutional_reasoning.justification_graph import build_justification_graph
+
+        record["justification_graph"] = build_justification_graph(record)
+    except Exception:
+        record["justification_graph"] = {}
+    return record
+
 # Framework requirement → contract evidence field (single source of truth).
 FRAMEWORK_REQUIREMENTS: dict[str, dict[str, Any]] = {
     "rel_val_damodaran": {
@@ -425,23 +436,25 @@ def govern_answer(
 
     # Education path bypasses evidence contract + frameworks + committee.
     if qtype in EDUCATION_TYPES:
-        return {
-            "run_id": run_id,
-            "governance_version": GOVERNANCE_VERSION,
-            "question": str(question or "")[:500],
-            "question_type": qtype,
-            "classification": classification,
-            "path": "education",
-            "entity": None,
-            "contract": contract.to_dict(),
-            "validation": None,
-            "frameworks": [],
-            "committee": None,
-            "narrative_allowed": True,
-            "editorial_mode": "explain_academy",
-            "academy_available": bool(academy),
-            "execution_ms": int((time.time() - started) * 1000),
-        }
+        return _attach_justification(
+            {
+                "run_id": run_id,
+                "governance_version": GOVERNANCE_VERSION,
+                "question": str(question or "")[:500],
+                "question_type": qtype,
+                "classification": classification,
+                "path": "education",
+                "entity": None,
+                "contract": contract.to_dict(),
+                "validation": None,
+                "frameworks": [],
+                "committee": None,
+                "narrative_allowed": True,
+                "editorial_mode": "explain_academy",
+                "academy_available": bool(academy),
+                "execution_ms": int((time.time() - started) * 1000),
+            }
+        )
 
     entities = resolve_entities(
         question,
@@ -450,28 +463,30 @@ def govern_answer(
     )
     clarify = clarification_required(classification, entities)
     if clarify.get("required"):
-        return {
-            "run_id": run_id,
-            "governance_version": GOVERNANCE_VERSION,
-            "question": str(question or "")[:500],
-            "question_type": qtype,
-            "classification": classification,
-            "path": "clarification",
-            "entity": entities.get("primary"),
-            "entity_resolution": entities,
-            "contract": contract.to_dict(),
-            "validation": None,
-            "frameworks": [],
-            "committee": {
-                "stance": "Clarification required",
-                "conclusion": clarify.get("message"),
-                "can_conclude": False,
-            },
-            "narrative_allowed": False,
-            "editorial_mode": "clarify_only",
-            "clarification": clarify,
-            "execution_ms": int((time.time() - started) * 1000),
-        }
+        return _attach_justification(
+            {
+                "run_id": run_id,
+                "governance_version": GOVERNANCE_VERSION,
+                "question": str(question or "")[:500],
+                "question_type": qtype,
+                "classification": classification,
+                "path": "clarification",
+                "entity": entities.get("primary"),
+                "entity_resolution": entities,
+                "contract": contract.to_dict(),
+                "validation": None,
+                "frameworks": [],
+                "committee": {
+                    "stance": "Clarification required",
+                    "conclusion": clarify.get("message"),
+                    "can_conclude": False,
+                },
+                "narrative_allowed": False,
+                "editorial_mode": "clarify_only",
+                "clarification": clarify,
+                "execution_ms": int((time.time() - started) * 1000),
+            }
+        )
 
     primary = entities.get("primary") or {}
     entity_id = primary.get("entity_id")
@@ -564,7 +579,7 @@ def govern_answer(
         committee["stance"] = "Insufficient evidence"
         narrative_allowed = False
 
-    return {
+    record = {
         "run_id": run_id,
         "governance_version": GOVERNANCE_VERSION,
         "question": str(question or "")[:500],
@@ -586,6 +601,7 @@ def govern_answer(
         "iki": iki_plan,
         "execution_ms": int((time.time() - started) * 1000),
     }
+    return _attach_justification(record)
 
 
 def governed_executive(record: dict[str, Any]) -> str:
@@ -646,6 +662,14 @@ def telemetry_rows(record: dict[str, Any], *, answer_id: str | None = None) -> l
         "governance_version": record.get("governance_version"),
         "path": record.get("path"),
     }
+    djg = record.get("justification_graph") or {}
+    if djg:
+        try:
+            from institutional_reasoning.justification_graph import graph_telemetry_row
+
+            base["justification_graph"] = graph_telemetry_row(djg, run_id=record.get("run_id"))
+        except Exception:
+            pass
     if not frameworks:
         rows.append(
             {

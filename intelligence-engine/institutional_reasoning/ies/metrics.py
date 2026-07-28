@@ -84,6 +84,9 @@ def aggregate(results: list[dict[str, Any]]) -> dict[str, Any]:
             "unsupported_conclusions": sum(int(r.get("unsupported_conclusions") or 0) for r in results),
             "editorial_violations": sum(int(r.get("editorial_violations") or 0) for r in results),
             "wrong_entity_execution": sum(1 for r in results if r.get("wrong_entity_execution")),
+            "justification_graph_valid_pct": _pct(
+                sum(1 for r in results if r.get("justification_graph_valid")), len(results)
+            ),
         },
         "performance": {
             "avg_latency_ms": round(
@@ -124,6 +127,7 @@ def aggregate(results: list[dict[str, Any]]) -> dict[str, Any]:
         <= PHASE2_TARGETS["wrong_entity_execution"],
         "framework_execution_success": avg_exec >= PHASE2_TARGETS["framework_execution_success"]
         or val_framework_execution >= PHASE2_TARGETS["framework_execution_success"],
+        "justification_graphs_valid": metrics["governance"]["justification_graph_valid_pct"] >= 100.0,
     }
     if metrics["evidence"]["provenance_pct"] is not None:
         gate_checks["evidence_provenance"] = (
