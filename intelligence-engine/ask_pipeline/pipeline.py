@@ -495,6 +495,100 @@ def run_complete_ask(
         "imai_version": institutional_memory.get("imai_version") or IMAI_VERSION,
     }
 
+    # ------------------------------------------------------------------
+    # AGI Phase 4 Sprint 4.1 — Institutional Evidence Weighting (IEW)
+    # Soft-wire only: deterministic ranking between Memory and Reasoning.
+    # Never uses an LLM; never changes reasoning / framework / ICE / TIRC.
+    # ------------------------------------------------------------------
+    from institutional_evidence_weighting.production import apply_weighting as iew_apply
+    from institutional_evidence_weighting.schema import IEW_VERSION, WEIGHT_VERSION
+
+    _iew_meta = {
+        "question_id": (context.get("question_id") or session_id or conversation_id),
+        "intent": irl.get("intent") or intent_rec.get("intent_v2") or intent_rec.get("intent"),
+        "framework": (framework_selection.get("framework_ids") or [None])[0],
+        "playbook": playbook_selection.get("playbook_id"),
+        "replay_mode": bool(irl.get("as_of")),
+        "weight_version": WEIGHT_VERSION,
+        "reasoning_version": "frozen",
+    }
+    with trace_span(
+        "evidence_weighting",
+        run_type="chain",
+        inputs={
+            "as_of": irl.get("as_of"),
+            "n_graph_nodes": evidence_graph.get("n_nodes") or len(evidence_graph.get("nodes") or []),
+            "have_memory": bool(institutional_memory.get("have_we_seen_this_before")),
+            "weight_version": WEIGHT_VERSION,
+        },
+        tags=["ask", "iew", "evidence_weighting"],
+        metadata=_iew_meta,
+    ) as _sp:
+        _iew = iew_apply(
+            as_of=irl.get("as_of"),
+            evidence_graph=evidence_graph,
+            institutional_memory=institutional_memory,
+            evidence=evidence,
+            question_id=str(_iew_meta.get("question_id") or "") or None,
+            intent=str(_iew_meta.get("intent") or "") or None,
+            framework=str(_iew_meta.get("framework") or "") or None,
+            playbook=str(_iew_meta.get("playbook") or "") or None,
+            replay_mode=bool(_iew_meta.get("replay_mode")),
+            metadata=_iew_meta,
+        )
+        # Per-evidence decision traces (mandatory observability)
+        for _row in (_iew.get("pack") or {}).get("weighted_evidence") or []:
+            with trace_span(
+                "evidence_weighting.score",
+                run_type="tool",
+                inputs={
+                    "evidence_id": _row.get("evidence_id"),
+                    "source": _row.get("source"),
+                },
+                tags=["ask", "iew", "weight_decision"],
+                metadata={
+                    **_iew_meta,
+                    "ranking_position": _row.get("ranking_position"),
+                    "exclusion_reason": _row.get("exclusion_reason"),
+                    "weight_breakdown": _row.get("weight_breakdown"),
+                },
+            ) as _esp:
+                _esp.end(
+                    outputs={
+                        "weight_score": _row.get("weight_score"),
+                        "raw_breakdown": _row.get("weight_breakdown"),
+                        "ranking_position": _row.get("ranking_position"),
+                        "exclusion_reason": _row.get("exclusion_reason"),
+                        "reason": _row.get("reason"),
+                        "eligible": _row.get("eligible"),
+                    }
+                )
+        _sp.end(outputs=_iew.get("report"))
+    evidence_graph = _iew.get("evidence_graph") or evidence_graph
+    institutional_memory = _iew.get("institutional_memory") or institutional_memory
+    evidence_weighting = _iew.get("pack") or {}
+    stages["evidence_weighting"] = {
+        "status": "executed",
+        "iew_version": evidence_weighting.get("iew_version") or IEW_VERSION,
+        "weight_version": evidence_weighting.get("weight_version") or WEIGHT_VERSION,
+        "n_candidates": evidence_weighting.get("n_candidates"),
+        "n_eligible": evidence_weighting.get("n_eligible"),
+        "n_excluded": evidence_weighting.get("n_excluded"),
+        "n_conflicts": evidence_weighting.get("n_conflicts"),
+        "top_evidence_id": (_iew.get("report") or {}).get("top_evidence_id"),
+        "average_weight": (_iew.get("report") or {}).get("average_weight"),
+        "guides_evidence_priority": True,
+        "reasoning_changed": False,
+        "llm_used": False,
+        "fabricated": False,
+        "contradictions_resolved": False,
+    }
+    context["evidence_weighting"] = {
+        "iew_version": evidence_weighting.get("iew_version") or IEW_VERSION,
+        "weight_version": evidence_weighting.get("weight_version") or WEIGHT_VERSION,
+        "top_evidence_ids": [w.get("evidence_id") for w in (evidence_weighting.get("top_weighted") or [])[:5]],
+    }
+
     # S07 Planner — no ticker in Concept Mode
     planner = run_planner(question, ticker_hint=hint, policy=policy)
     stages["planner"] = planner
@@ -583,6 +677,22 @@ def run_complete_ask(
         "reasoning_changed": False,
         "invented_analogues": False,
         "fabricated": False,
+    }
+    # Soft overlay — ordered weighted evidence for reasoning input priority
+    packs["evidence_weighting"] = {
+        "iew_version": evidence_weighting.get("iew_version") or IEW_VERSION,
+        "weight_version": evidence_weighting.get("weight_version") or WEIGHT_VERSION,
+        "ordered_evidence": evidence_weighting.get("ordered_evidence"),
+        "top_weighted": evidence_weighting.get("top_weighted"),
+        "conflicts": evidence_weighting.get("conflicts"),
+        "n_eligible": evidence_weighting.get("n_eligible"),
+        "n_excluded": evidence_weighting.get("n_excluded"),
+        "guides_evidence_priority": True,
+        "contradictions_resolved": False,
+        "reasoning_changed": False,
+        "llm_used": False,
+        "fabricated": False,
+        "deterministic": True,
     }
 
     # S09 Reasoning (+ S10 portfolio via flags)
