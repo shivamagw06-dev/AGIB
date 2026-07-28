@@ -55,8 +55,22 @@ def _pil_points(entity_id: str, metric: str) -> tuple[dict[str, float] | None, s
     return None, ""
 
 
+def _kf_points(entity_id: str, metric: str) -> tuple[dict[str, float] | None, str, str, dict[str, Any]]:
+    """Soft feed from Knowledge Factory validated objects (never raw APIs)."""
+    try:
+        from knowledge_factory.adapter import historical_points_from_kf
+
+        return historical_points_from_kf(entity_id, metric)
+    except Exception:
+        return None, "", "", {}
+
+
 def _derived_points(entity_id: str, metric: str) -> tuple[dict[str, float] | None, str, str, dict[str, Any]]:
     """Preferred source: metrics computed from primitives, with audit trail."""
+    # Knowledge Factory validated objects first (Track 1 soft feed).
+    pts, provider, data_class, meta = _kf_points(entity_id, metric)
+    if pts and len(pts) >= 1:
+        return pts, provider or "knowledge_factory", data_class or "derived", meta
     try:
         from institutional_reasoning.fundamentals.derivations import derive_series
         from institutional_reasoning.iki.applicability import infer_sector
