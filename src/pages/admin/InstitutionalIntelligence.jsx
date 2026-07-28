@@ -99,15 +99,15 @@ export default function InstitutionalIntelligence() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-[10px] uppercase tracking-[0.2em] text-slate-700 font-semibold">
-            Sprints 1–7 · Coverage → Historical → Sector → Macro → Decision Quality
+            Track 1 · Universe Tiers · Infosys-class institutional depth
           </p>
           <h1 className="text-2xl font-bold text-slate-900 mt-1 flex items-center gap-2">
             <Activity className="h-6 w-6 text-slate-800" />
             Institutional Intelligence
           </h1>
           <p className="text-sm text-slate-500 mt-1 max-w-2xl">
-            Live Decision Coverage, Historical Depth, Sector/Macro knowledge factories, and
-            Decision Quality observability. Phases 1–7 remain frozen.
+            Institutional Decision Coverage across Nifty 500 with Historical Depth, Sector/Macro
+            links, Evidence Packs, and Decision Quality. Phases 1–7 remain frozen.
           </p>
         </div>
         <div className="flex gap-2">
@@ -129,10 +129,18 @@ export default function InstitutionalIntelligence() {
       ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Stat label="Target-20 Decision Coverage" value={pct(dc.target_20)} hint="Sprint 1" />
-        <Stat label="Nifty 50 Decision Coverage" value={pct(dc.nifty_50)} hint="Sprint 2" />
-        <Stat label="Nifty 100 Decision Coverage" value={pct(dc.nifty_100)} hint="Sprint 3 north star" />
-        <Stat label="Nifty 500 (honest)" value={pct(dc.nifty_500)} hint="100/500 until scale-out" />
+        <Stat label="Nifty 100 (Tier 1)" value={pct(dc.nifty_100)} hint="Institutional depth complete" />
+        <Stat
+          label="Nifty 500 Decision Coverage"
+          value={pct(dc.nifty_500)}
+          hint={dc.nifty_500_note || 'Tier 2'}
+        />
+        <Stat
+          label="Institutional Decision Coverage"
+          value={pct(dc.institutional_decision_coverage ?? health?.north_star?.value_pct)}
+          hint={dc.institutional_decision_coverage_note || 'Infosys-class depth / 500'}
+        />
+        <Stat label="Evidence Quality" value={pct(health?.evidence_quality)} hint="Avg pack quality" />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

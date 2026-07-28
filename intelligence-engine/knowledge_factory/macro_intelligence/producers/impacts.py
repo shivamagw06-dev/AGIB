@@ -44,6 +44,71 @@ _REL: dict[str, dict[str, dict[str, Any]]] = {
     },
 }
 
+# Track 1 — expand affinity sectors used by Nifty 500 company macro links.
+for _macro, _extra in {
+    "interest_rates": {
+        "industrials": {"direction": -1, "strength": 1, "confidence": 0.75, "note": "capex / WACC"},
+        "pharma": {"direction": 0, "strength": 0, "confidence": 0.7},
+        "chemicals": {"direction": -1, "strength": 1, "confidence": 0.7},
+        "logistics": {"direction": -1, "strength": 1, "confidence": 0.75},
+        "cement": {"direction": -1, "strength": 2, "confidence": 0.8},
+        "telecom": {"direction": -1, "strength": 1, "confidence": 0.75},
+        "healthcare": {"direction": -1, "strength": 1, "confidence": 0.7},
+        "retail": {"direction": -1, "strength": 1, "confidence": 0.75},
+        "internet": {"direction": -1, "strength": 1, "confidence": 0.7},
+        "infrastructure": {"direction": -1, "strength": 2, "confidence": 0.8},
+    },
+    "oil": {
+        "industrials": {"direction": -1, "strength": 1, "confidence": 0.7},
+        "pharma": {"direction": -1, "strength": 1, "confidence": 0.65},
+        "logistics": {"direction": -1, "strength": 2, "confidence": 0.9},
+        "utilities": {"direction": -1, "strength": 1, "confidence": 0.7},
+        "cement": {"direction": -1, "strength": 1, "confidence": 0.7},
+        "retail": {"direction": -1, "strength": 1, "confidence": 0.65},
+        "internet": {"direction": 0, "strength": 0, "confidence": 0.7},
+        "healthcare": {"direction": 0, "strength": 0, "confidence": 0.65},
+        "infrastructure": {"direction": -1, "strength": 1, "confidence": 0.7},
+        "telecom": {"direction": 0, "strength": 0, "confidence": 0.65},
+    },
+    "inflation": {
+        "industrials": {"direction": -1, "strength": 1, "confidence": 0.7},
+        "pharma": {"direction": 0, "strength": 0, "confidence": 0.7},
+        "chemicals": {"direction": -1, "strength": 1, "confidence": 0.75},
+        "logistics": {"direction": -1, "strength": 1, "confidence": 0.7},
+        "banks": {"direction": 0, "strength": 0, "confidence": 0.7},
+        "nbfc": {"direction": -1, "strength": 1, "confidence": 0.7},
+        "insurance": {"direction": 0, "strength": 0, "confidence": 0.65},
+        "utilities": {"direction": 0, "strength": 0, "confidence": 0.65},
+        "real_estate": {"direction": 0, "strength": 0, "confidence": 0.65},
+        "cement": {"direction": 1, "strength": 1, "confidence": 0.7},
+        "retail": {"direction": -1, "strength": 1, "confidence": 0.75},
+        "internet": {"direction": -1, "strength": 1, "confidence": 0.7},
+        "healthcare": {"direction": -1, "strength": 1, "confidence": 0.7},
+        "infrastructure": {"direction": -1, "strength": 1, "confidence": 0.7},
+        "telecom": {"direction": 0, "strength": 0, "confidence": 0.65},
+    },
+    "usd": {
+        "industrials": {"direction": 0, "strength": 0, "confidence": 0.65},
+        "chemicals": {"direction": -1, "strength": 1, "confidence": 0.7},
+        "logistics": {"direction": -1, "strength": 1, "confidence": 0.7},
+        "banks": {"direction": 0, "strength": 0, "confidence": 0.65},
+        "nbfc": {"direction": 0, "strength": 0, "confidence": 0.65},
+        "insurance": {"direction": 0, "strength": 0, "confidence": 0.65},
+        "fmcg": {"direction": 0, "strength": 0, "confidence": 0.65},
+        "auto": {"direction": -1, "strength": 1, "confidence": 0.7},
+        "utilities": {"direction": 0, "strength": 0, "confidence": 0.65},
+        "real_estate": {"direction": 0, "strength": 0, "confidence": 0.65},
+        "consumer": {"direction": 0, "strength": 0, "confidence": 0.65},
+        "cement": {"direction": 0, "strength": 0, "confidence": 0.65},
+        "retail": {"direction": 0, "strength": 0, "confidence": 0.65},
+        "internet": {"direction": 0, "strength": 0, "confidence": 0.65},
+        "healthcare": {"direction": 0, "strength": 0, "confidence": 0.65},
+        "infrastructure": {"direction": 0, "strength": 0, "confidence": 0.65},
+        "telecom": {"direction": 0, "strength": 0, "confidence": 0.65},
+    },
+}.items():
+    _REL.setdefault(_macro, {}).update(_extra)
+
 
 def relationship(macro: str, sector: str) -> dict[str, Any]:
     m = macro.lower().replace(" ", "_")

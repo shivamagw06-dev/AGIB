@@ -1232,6 +1232,18 @@ export default function createIntelligenceRouter() {
   router.get('/knowledge-factory/decision-coverage', kfGet('/v1/knowledge-factory/decision-coverage'));
   router.get('/knowledge-factory/dimensions', kfGet('/v1/knowledge-factory/dimensions'));
   router.get('/knowledge-factory/daily-health', kfGet('/v1/knowledge-factory/daily-health'));
+  router.get('/knowledge-factory/institutional-depth', kfGet('/v1/knowledge-factory/institutional-depth'));
+  router.get('/knowledge-factory/institutional-depth/:ticker', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/knowledge-factory/institutional-depth/${encodeURIComponent(req.params.ticker)}`
+      );
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err?.message || 'institutional-depth proxy failed' });
+    }
+  });
+  router.get('/knowledge-factory/universe-tiers', kfGet('/v1/knowledge-factory/universe-tiers'));
   router.post('/knowledge-factory/run-daily', kfPost('/v1/knowledge-factory/run-daily'));
   router.get('/knowledge-factory/historical-depth', kfGet('/v1/knowledge-factory/historical-depth'));
   router.post('/knowledge-factory/historical-depth/run', kfPost('/v1/knowledge-factory/historical-depth/run'));

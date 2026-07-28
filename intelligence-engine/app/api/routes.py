@@ -7080,6 +7080,34 @@ async def knowledge_factory_daily_health():
     return daily_health_scorecard()
 
 
+@router.get("/knowledge-factory/institutional-depth")
+async def knowledge_factory_institutional_depth():
+    """Track 1 — Institutional Decision Coverage (Infosys-class depth / Nifty 500)."""
+    from knowledge_factory.coverage import NIFTY_500
+    from knowledge_factory.institutional_depth import institutional_decision_coverage
+
+    return institutional_decision_coverage(NIFTY_500)
+
+
+@router.get("/knowledge-factory/institutional-depth/{ticker}")
+async def knowledge_factory_institutional_depth_ticker(ticker: str):
+    """Per-company Infosys-class depth checklist + onboarding acceptance tests."""
+    from knowledge_factory.institutional_depth import acceptance_for_company, institutional_depth_checklist
+
+    return {
+        "checklist": institutional_depth_checklist(ticker),
+        "acceptance": acceptance_for_company(ticker),
+    }
+
+
+@router.get("/knowledge-factory/universe-tiers")
+async def knowledge_factory_universe_tiers():
+    """Universe Tier board — quality before breadth."""
+    from institutional_reasoning.fundamentals.universe import universe_tiers
+
+    return universe_tiers()
+
+
 @router.get("/knowledge-factory/historical-depth")
 async def knowledge_factory_historical_depth():
     """Historical Depth Coverage dashboard (Sprint 4 north-star KPI)."""

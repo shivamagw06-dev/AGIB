@@ -55,20 +55,34 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         "sources": [],
     }
     try:
-        from knowledge_factory.coverage import decision_coverage, NIFTY_100, TARGET_20
+        from knowledge_factory.coverage import decision_coverage, NIFTY_100, NIFTY_500, TARGET_20
         from institutional_reasoning.fundamentals.universe import NIFTY_50
 
         t20 = decision_coverage(TARGET_20)
         n50 = decision_coverage(NIFTY_50)
         n100 = decision_coverage(NIFTY_100)
+        n500 = decision_coverage(NIFTY_500)
+        idc_pct = n500.get("decision_coverage_pct")
+        try:
+            from knowledge_factory.institutional_depth import institutional_decision_coverage
+
+            idc = institutional_decision_coverage(NIFTY_500)
+            idc_pct = idc.get("institutional_decision_coverage_pct")
+        except Exception:
+            pass
         out["decision_coverage"] = {
             "target_20": t20.get("decision_coverage_pct"),
             "nifty_50": n50.get("decision_coverage_pct"),
             "nifty_100": n100.get("decision_coverage_pct"),
-            "nifty_500": round(100.0 * (n100.get("decision_ready") or 0) / 500, 2),
+            "nifty_500": n500.get("decision_coverage_pct"),
+            "institutional_decision_coverage": idc_pct,
         }
         out["sources"].append("knowledge_factory.coverage")
-        out["roadmap_next"] = "nifty_500"
+        out["roadmap_next"] = (
+            "tier_3_midcap_thematic"
+            if (n500.get("decision_coverage_pct") or 0) >= 100
+            else "nifty_500"
+        )
     except Exception:
         pass
     try:

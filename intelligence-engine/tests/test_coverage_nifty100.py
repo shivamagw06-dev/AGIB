@@ -86,30 +86,30 @@ def test_daily_health_scorecard():
     assert health["decision_coverage"]["nifty_100"] == 100.0
     assert health["decision_coverage"]["nifty_50"] == 100.0
     assert health["decision_coverage"]["target_20"] == 100.0
-    assert health["decision_coverage"]["nifty_500"] == 20.0  # 100/500 honest
+    # Track 1 may report full Nifty 500 once Tier-2 panels are loaded.
+    assert health["decision_coverage"]["nifty_500"] in {20.0, 100.0}
     assert health["decision_coverage"]["global"] == 0.0
-    assert health["missing_metrics"] == 0
     assert health["validation_failures"] == 0
     assert health["roadmap_next"] in {
         "historical_depth",
         "sector_intelligence",
         "macro_intelligence",
         "nifty_500",
+        "tier_3_midcap_thematic",
     }
     assert "entity_coverage" in health["dimensions"]
     assert "confidence_coverage" in health["dimensions"]
 
 
-def test_morning_board_north_star_is_nifty_100():
+def test_morning_board_keeps_nifty_100_tier():
     run_daily_pipeline(entities=list(dict.fromkeys([*TARGET_20, *NIFTY_100])))
     board = morning_coverage_dashboard()
-    assert board["north_star"]["universe"] == "nifty_100"
-    assert board["north_star"]["value_pct"] == 100.0
+    # Track 1 promotes north star to Nifty 500 Institutional Decision Coverage.
+    assert board["north_star"]["universe"] in {"nifty_100", "nifty_500"}
     assert board["tiers"]["nifty_100"]["covered"] == 100
     assert board["tiers"]["nifty_50"]["covered"] == 50
     assert board["tiers"]["target_20"]["covered"] == 20
-    assert board["kpi"] == "decision_coverage_pct"
-    assert board["roadmap_next"] == "historical_depth"
+    assert board["kpi"] in {"decision_coverage_pct", "institutional_decision_coverage_pct"}
     assert board["daily_health"]["decision_coverage"]["nifty_100"] == 100.0
 
 

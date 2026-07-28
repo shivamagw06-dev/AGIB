@@ -533,6 +533,9 @@ _MONTHLY_RETURNS: dict[str, list[float]] = {
     t: _mix(_BENCHMARK, idio, beta) for t, (beta, idio) in _IDIO.items()
 }
 
+# Track 1 — parametric returns for remaining Nifty 500 (Tier 2).
+from institutional_reasoning.fundamentals import coverage_returns_nifty500 as _nifty500_returns  # noqa: E402,F401
+
 
 def monthly_returns(ticker: str) -> list[float] | None:
     key = ticker.upper()
