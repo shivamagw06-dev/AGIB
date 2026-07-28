@@ -7377,6 +7377,73 @@ async def temporal_integrity_telemetry():
 
 
 # ---------------------------------------------------------------------------
+# AGI v4.0 Phase 5 Sprint 5.3 — Institutional Portfolio Office (IPO)
+# Static paths before /portfolio/{idea_id}
+# ---------------------------------------------------------------------------
+@router.get("/portfolio/health")
+async def portfolio_health():
+    from institutional_portfolio_office.production import status
+
+    return status()
+
+
+@router.get("/portfolio/dashboard")
+async def portfolio_dashboard():
+    from institutional_portfolio_office.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/portfolio/telemetry")
+async def portfolio_telemetry():
+    from institutional_portfolio_office.production import telemetry
+
+    return telemetry()
+
+
+@router.get("/portfolio/history")
+async def portfolio_history(limit: int = 20):
+    from institutional_portfolio_office.production import history
+
+    return history(limit=limit)
+
+
+@router.post("/portfolio/create")
+async def portfolio_create(payload: dict):
+    from institutional_portfolio_office.production import create_api
+
+    return create_api(payload)
+
+
+@router.post("/portfolio/list")
+async def portfolio_list(payload: dict):
+    from institutional_portfolio_office.production import list_api
+
+    return list_api(payload)
+
+
+@router.post("/portfolio/ranking")
+async def portfolio_ranking(payload: dict):
+    from institutional_portfolio_office.production import ranking_api
+
+    return ranking_api(payload)
+
+
+@router.get("/portfolio/{idea_id}/versions")
+async def portfolio_versions(idea_id: str):
+    from institutional_portfolio_office.production import versions_api
+
+    return versions_api(idea_id)
+
+
+@router.get("/portfolio/{idea_id}")
+async def portfolio_get(idea_id: str):
+    from institutional_portfolio_office.production import get_idea
+
+    return get_idea(idea_id)
+
+
+# ---------------------------------------------------------------------------
 # AGI v4.0 Phase 5 Sprint 5.2 — Institutional Decision Office (IDO)
 # Static paths before /decision/{decision_id}
 # ---------------------------------------------------------------------------

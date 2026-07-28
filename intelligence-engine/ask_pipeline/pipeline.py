@@ -1162,6 +1162,79 @@ def run_complete_ask(
         "status": (decision_office.get("decision") or {}).get("status"),
     }
 
+    # ------------------------------------------------------------------
+    # AGI v4.0 Phase 5 Sprint 5.3 — Institutional Portfolio Office (IPO)
+    # Soft-wire only: relative Portfolio Ideas — never positions/orders.
+    # ------------------------------------------------------------------
+    from institutional_portfolio_office.production import (
+        apply_portfolio_office as ipo_apply,
+    )
+    from institutional_portfolio_office.schema import IDEA_SCHEMA_VERSION, IPO_VERSION
+
+    _ipo_meta = {
+        "question_id": (context.get("question_id") or session_id or conversation_id),
+        "thesis_id": (investment_thesis.get("thesis") or {}).get("thesis_id"),
+        "decision_id": (decision_office.get("decision") or {}).get("decision_id"),
+        "idea_schema_version": IDEA_SCHEMA_VERSION,
+        "replay_mode": bool(irl.get("as_of")),
+    }
+    with trace_span(
+        "portfolio_office",
+        run_type="chain",
+        inputs={
+            "question": question,
+            "thesis_id": _ipo_meta["thesis_id"],
+            "decision": (decision_office.get("decision") or {}).get("decision"),
+        },
+        tags=["ask", "ipo", "portfolio_office", "v4"],
+        metadata=_ipo_meta,
+    ) as _ipo_sp:
+        _ipo = ipo_apply(
+            question=question,
+            investment_thesis=investment_thesis,
+            decision_office=decision_office,
+            committee_reasoning=committee_reasoning,
+            confidence_calibration=confidence_calibration,
+            as_of=irl.get("as_of"),
+            metadata=_ipo_meta,
+            persist=True,
+        )
+        _ipo_idea = (_ipo.get("pack") or {}).get("idea") or {}
+        _ipo_sp.end(
+            outputs={
+                "idea_id": _ipo_idea.get("idea_id"),
+                "sector": _ipo_idea.get("sector"),
+                "expected_role": _ipo_idea.get("expected_role"),
+                "relative_rank": _ipo_idea.get("relative_rank"),
+                "conviction": _ipo_idea.get("conviction"),
+                "status": _ipo_idea.get("status"),
+                "positions_emitted": False,
+                "ipo_version": IPO_VERSION,
+            }
+        )
+    portfolio_office = _ipo.get("pack") or {}
+    stages["portfolio_office"] = {
+        "status": "executed",
+        "ipo_version": portfolio_office.get("ipo_version") or IPO_VERSION,
+        "idea_id": (portfolio_office.get("idea") or {}).get("idea_id"),
+        "sector": (portfolio_office.get("idea") or {}).get("sector"),
+        "relative_rank": (portfolio_office.get("idea") or {}).get("relative_rank"),
+        "expected_role": (portfolio_office.get("idea") or {}).get("expected_role"),
+        "positions_emitted": False,
+        "orders_emitted": False,
+        "guides_portfolio": True,
+        "reasoning_changed": False,
+        "judgment_changed": False,
+        "llm_used": False,
+        "fabricated": False,
+    }
+    context["portfolio_office"] = {
+        "ipo_version": portfolio_office.get("ipo_version") or IPO_VERSION,
+        "idea_id": (portfolio_office.get("idea") or {}).get("idea_id"),
+        "relative_rank": (portfolio_office.get("idea") or {}).get("relative_rank"),
+        "expected_role": (portfolio_office.get("idea") or {}).get("expected_role"),
+    }
+
     # S07 Planner — no ticker in Concept Mode
     planner = run_planner(question, ticker_hint=hint, policy=policy)
     stages["planner"] = planner
@@ -1362,6 +1435,24 @@ def run_complete_ask(
         "reasoning_changed": False,
         "judgment_changed": False,
         "thesis_changed": False,
+        "llm_used": False,
+        "fabricated": False,
+        "deterministic": True,
+    }
+    # Soft overlay — Institutional Portfolio Office (ideas ≠ positions)
+    packs["portfolio_office"] = {
+        "ipo_version": portfolio_office.get("ipo_version") or IPO_VERSION,
+        "schema_version": portfolio_office.get("schema_version") or IDEA_SCHEMA_VERSION,
+        "idea": portfolio_office.get("idea"),
+        "idea_id": (portfolio_office.get("idea") or {}).get("idea_id"),
+        "peer_ranking": portfolio_office.get("peer_ranking")
+        or (portfolio_office.get("idea") or {}).get("peer_ranking"),
+        "persisted": portfolio_office.get("persisted"),
+        "positions_emitted": False,
+        "orders_emitted": False,
+        "guides_portfolio": True,
+        "reasoning_changed": False,
+        "judgment_changed": False,
         "llm_used": False,
         "fabricated": False,
         "deterministic": True,
