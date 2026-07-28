@@ -204,6 +204,7 @@ def handle_expectations() -> dict[str, Any]:
 
 def handle_evidence_packs(ctx: dict[str, Any]) -> dict[str, Any]:
     """Regenerate evidence using Track-1 daily soft path; tolerate missing layers."""
+    iere_report: dict[str, Any] | None = None
     try:
         from knowledge_factory.production import run_daily_pipeline
 
@@ -213,12 +214,56 @@ def handle_evidence_packs(ctx: dict[str, Any]) -> dict[str, Any]:
             if st == "error"
         ]
         report = run_daily_pipeline(historical_depth=False, institutional_knowledge=False)
+        # Soft-wire IERE — warm ranked institutional evidence packs (never changes KF report).
+        try:
+            from evidence_retrieval.production import company as iere_company
+            from evidence_retrieval.production import health as iere_health
+
+            warmed = []
+            for ticker in ("INFY", "TCS", "RELIANCE"):
+                out = iere_company(ticker)
+                warmed.append(
+                    {
+                        "ticker": ticker,
+                        "retrieval_id": out.get("retrieval_id"),
+                        "ranked_count": out.get("ranked_count"),
+                        "pack_ids": out.get("pack_ids") or [],
+                    }
+                )
+            iere_report = {
+                "ok": True,
+                "health": iere_health(),
+                "warmed": warmed,
+                "fabricated": False,
+                "reasoning_changed": False,
+            }
+        except Exception as iere_exc:  # noqa: BLE001
+            iere_report = {
+                "ok": False,
+                "error": str(iere_exc)[:200],
+                "transparent_insufficiency": True,
+                "fabricated": False,
+            }
+            store.alert(
+                "warning",
+                f"IERE evidence retrieval soft-wire unavailable: {iere_exc}"[:200],
+                workflow_id="evidence_pack_generation",
+            )
         return _ok(
             report,
             regenerated_without=unavailable,
             transparent_insufficiency=bool(unavailable),
+            iere=iere_report,
+            evidence_retrieval_soft_wire=True,
         )
     except Exception as exc:
+        if iere_report and iere_report.get("ok"):
+            return _ok(
+                {"knowledge_factory": "unavailable", "iere": iere_report},
+                degraded=True,
+                iere=iere_report,
+                evidence_retrieval_soft_wire=True,
+            )
         return _err(exc)
 
 

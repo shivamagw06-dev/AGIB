@@ -31,6 +31,7 @@ ARCHITECTURE_NODES = (
     "LEO",
     "CID",
     "Knowledge Foundation",
+    "Evidence Retrieval",
     "Academy",
     "Financial Intelligence",
     "Company Analysis",
