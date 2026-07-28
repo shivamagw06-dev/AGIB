@@ -1,0 +1,44 @@
+{
+  "run_id": "iel-run-fb9575a6fb",
+  "suite": "smoke",
+  "pass_pct": 50.0,
+  "mean_score": 76.51,
+  "n": 10,
+  "iel_version": "institutional-evaluation-lab-v1.0.0",
+  "commit": "952904bd",
+  "aggregate": {
+    "n": 10,
+    "pass_pct": 50.0,
+    "mean_score": 76.51,
+    "by_category": {
+      "accounting": {
+        "n": 6,
+        "mean_score": 69.33
+      },
+      "company": {
+        "n": 3,
+        "mean_score": 86.43
+      },
+      "valuation": {
+        "n": 1,
+        "mean_score": 89.87
+      }
+    },
+    "by_verdict": {
+      "PASS": 5,
+      "PARTIAL": 5
+    },
+    "top_root_causes": [
+      {
+        "cause": "intent_mismatch",
+        "count": 5
+      },
+      {
+        "cause": "playbook_mismatch",
+        "count": 2
+      }
+    ],
+    "passed": 5,
+    "failed": 5
+  }
+}

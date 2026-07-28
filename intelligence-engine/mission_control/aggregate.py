@@ -492,6 +492,27 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("institutional_analog_intelligence")
     except Exception:
         out["institutional_analog_intelligence"] = None
+    # AGIB Phase 3 Sprint 3.1 — IEL soft board
+    try:
+        from institutional_evaluation_lab.production import board as iel_board
+        from institutional_evaluation_lab.production import status as iel_status
+
+        ih = iel_status()
+        idash = iel_board()
+        latest = idash.get("latest_run") or {}
+        out["institutional_evaluation_lab"] = {
+            "status": ih.get("status"),
+            "version": ih.get("version"),
+            "catalogue_all": (ih.get("catalogue") or {}).get("all"),
+            "meets_1000_plus": (ih.get("catalogue") or {}).get("meets_1000_plus"),
+            "latest_pass_pct": latest.get("pass_pct"),
+            "latest_mean_score": latest.get("mean_score"),
+            "quality_targets": ih.get("quality_targets"),
+            "measurement_only": True,
+        }
+        out["sources"].append("institutional_evaluation_lab")
+    except Exception:
+        out["institutional_evaluation_lab"] = None
     try:
         from knowledge_factory.production import historical_depth_coverage
 

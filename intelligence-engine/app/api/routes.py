@@ -7191,6 +7191,71 @@ async def institutional_analog_intelligence_audits(limit: int = 50):
     return {"n": limit, "rows": audits(limit=limit), "fabricated": False}
 
 
+# ---------------------------------------------------------------------------
+# AGIB Phase 3 Sprint 3.1 — Institutional Evaluation Lab (IEL)
+# Measurement-only quality engineering; reasoning frozen.
+# ---------------------------------------------------------------------------
+@router.get("/institutional-evaluation-lab/health")
+async def institutional_evaluation_lab_health():
+    from institutional_evaluation_lab.production import status
+
+    return status()
+
+
+@router.get("/institutional-evaluation-lab/dashboard")
+async def institutional_evaluation_lab_dashboard():
+    from institutional_evaluation_lab.production import board
+
+    return board()
+
+
+@router.get("/institutional-evaluation-lab/catalog")
+async def institutional_evaluation_lab_catalog(suite: str = "institutional_1000", limit: int = 50):
+    from institutional_evaluation_lab.production import catalog
+
+    return catalog(suite=suite, limit=limit)
+
+
+@router.get("/institutional-evaluation-lab/question/{question_id}")
+async def institutional_evaluation_lab_question(question_id: str):
+    from institutional_evaluation_lab.production import question
+
+    row = question(question_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="question_not_found")
+    return row
+
+
+@router.get("/institutional-evaluation-lab/run")
+async def institutional_evaluation_lab_run(
+    suite: str = "smoke",
+    mode: str = "soft",
+    limit: int | None = None,
+    persist_baseline: bool = False,
+):
+    from institutional_evaluation_lab.production import run
+
+    summary = run(suite=suite, mode=mode, limit=limit, persist_baseline=persist_baseline)
+    # Avoid huge payloads by default
+    light = {k: v for k, v in summary.items() if k != "rows"}
+    light["rows_sample"] = (summary.get("rows") or [])[:20]
+    return light
+
+
+@router.get("/institutional-evaluation-lab/nightly")
+async def institutional_evaluation_lab_nightly():
+    from institutional_evaluation_lab.production import nightly
+
+    return nightly()
+
+
+@router.get("/institutional-evaluation-lab/history")
+async def institutional_evaluation_lab_history(limit: int = 20):
+    from institutional_evaluation_lab.production import history
+
+    return history(limit=limit)
+
+
 @router.get("/prediction/{prediction_id}")
 async def ail_prediction(prediction_id: str):
     try:
