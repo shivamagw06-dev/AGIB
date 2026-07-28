@@ -295,6 +295,47 @@ def ako_telemetry(request: Request) -> dict:
     return _require_ako(request).telemetry.snapshot()
 
 
+@router.get("/v1/ako/freshness")
+def ako_freshness(request: Request) -> dict:
+    """Mission Control — Knowledge Freshness Engine portfolio view."""
+    snap = _require_ako(request).mission_control_snapshot()
+    return {"freshness": snap.get("freshness"), "session": snap.get("session")}
+
+
+@router.get("/v1/ako/confidence")
+def ako_confidence(request: Request) -> dict:
+    """Mission Control — Knowledge Confidence Engine portfolio view."""
+    snap = _require_ako(request).mission_control_snapshot()
+    return {"confidence": snap.get("confidence"), "session": snap.get("session")}
+
+
+@router.get("/v1/knowledge/freshness/{object_type}/{subject_key}")
+def get_object_freshness(object_type: str, subject_key: str, request: Request) -> dict:
+    """Per-object freshness: age, status, current-as-of statement."""
+    from app.kfe.engine import KnowledgeFreshnessEngine
+
+    store = _app_state(request).store
+    engine = KnowledgeFreshnessEngine()
+    row = store.get_freshness(object_type=object_type, subject_key=subject_key)
+    report = engine.object_report(
+        object_type,
+        updated_at=(row or {}).get("updated_at"),
+        present=row is not None,
+        subject=subject_key,
+    )
+    return {"object_type": object_type, "subject_key": subject_key, "freshness": report, "registry": row}
+
+
+@router.get("/v1/knowledge/confidence/{object_type}/{subject_key}")
+def get_object_confidence(object_type: str, subject_key: str, request: Request) -> dict:
+    """Per-object confidence: trust score from multi-source agreement."""
+    store = _app_state(request).store
+    row = store.get_confidence(object_type=object_type, subject_key=subject_key)
+    if not row:
+        raise HTTPException(status_code=404, detail="confidence_not_found")
+    return {"object_type": object_type, "subject_key": subject_key, "confidence": row}
+
+
 @router.post("/v1/ako/tick")
 def ako_tick(request: Request) -> dict:
     """Ops-only: force one AKO evaluation cycle (does not serve Ask)."""

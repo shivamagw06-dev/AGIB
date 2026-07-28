@@ -28,6 +28,8 @@ class AdaptiveKnowledgeOrchestrator:
         calendar: EventCalendar | None = None,
         tick_seconds: float = 1.0,
         system_load_high: bool = False,
+        store: Any | None = None,
+        watchlist: tuple[str, ...] = (),
     ) -> None:
         self.calendar = calendar or EventCalendar()
         self.schedule_engine = ScheduleEngine(self.calendar)
@@ -37,6 +39,8 @@ class AdaptiveKnowledgeOrchestrator:
         self.dispatcher = CollectorDispatcher(self.telemetry)
         self.tick_seconds = tick_seconds
         self.system_load_high = system_load_high
+        self.store = store
+        self.watchlist = watchlist
         self._profiles: dict[str, ScheduleProfile] = dict(PROFILES)
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
@@ -322,11 +326,36 @@ class AdaptiveKnowledgeOrchestrator:
                 for d in self.dispatcher.dead_letters[-20:]
             ],
             "telemetry": tel,
+            "freshness": self._freshness_snapshot(),
+            "confidence": self._confidence_snapshot(),
             "principles": {
                 "ask_never_triggers_collectors": True,
                 "ie_consumes_published_knowledge_only": True,
                 "adaptive_not_fixed": True,
+                "kfe_enabled": True,
+                "kce_enabled": True,
             },
+        }
+
+    def _freshness_snapshot(self) -> dict[str, Any]:
+        if self.store is None:
+            return {"status": "store_unavailable"}
+        from app.kfe.engine import KnowledgeFreshnessEngine
+
+        return KnowledgeFreshnessEngine().portfolio_snapshot(self.store, watchlist=self.watchlist)
+
+    def _confidence_snapshot(self) -> dict[str, Any]:
+        if self.store is None:
+            return {"status": "store_unavailable"}
+        rows = self.store.list_confidence(limit=50)
+        if not rows:
+            return {"tracked": 0, "average_pct": None, "samples": []}
+        avg = round(sum(float(r.get("confidence_pct") or 0) for r in rows) / len(rows), 1)
+        return {
+            "tracked": len(rows),
+            "average_pct": avg,
+            "low_confidence_count": sum(1 for r in rows if float(r.get("confidence_pct") or 0) < 60),
+            "samples": rows[:10],
         }
 
     def register_event(self, **kwargs) -> dict:

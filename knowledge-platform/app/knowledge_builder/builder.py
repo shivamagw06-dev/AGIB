@@ -6,7 +6,6 @@ from typing import Any
 
 from app.contracts.iko import shape_institutional_knowledge
 from app.contracts.models import (
-    Confidence,
     EntityRefs,
     KnowledgeMetadata,
     KnowledgeObject,
@@ -14,6 +13,7 @@ from app.contracts.models import (
     Source,
     utc_now,
 )
+from app.kce.engine import KnowledgeConfidenceEngine
 from app.storage.db import KaipStore
 
 ALLOWED_TYPES = set(KnowledgeObjectType)
@@ -34,22 +34,10 @@ def _diff_fields(previous: dict[str, Any] | None, current: dict[str, Any], prefi
     return changed
 
 
-def _confidence_for(source: Source, knowledge: dict[str, Any]) -> Confidence:
-    if source in {Source.NSE, Source.BSE}:
-        return Confidence.HIGH
-    if source == Source.YAHOO:
-        # Rich institutional sections → higher confidence
-        if knowledge.get("business") or knowledge.get("valuation"):
-            return Confidence.HIGH
-        return Confidence.MEDIUM
-    if source == Source.COMPANY_IR:
-        return Confidence.MEDIUM
-    return Confidence.LOW
-
-
 class KnowledgeObjectBuilder:
     def __init__(self, store: KaipStore) -> None:
         self.store = store
+        self.confidence_engine = KnowledgeConfidenceEngine()
 
     def build(
         self,
@@ -101,9 +89,19 @@ class KnowledgeObjectBuilder:
             change_summary = f"Initial {object_type.value}"
 
         now = utc_now()
+        confidence_report = self.confidence_engine.score_from_events(
+            self.store,
+            object_type=object_type,
+            primary_source=source,
+            source_event_ids=source_event_ids,
+            subject_key=subject_key,
+            knowledge=knowledge,
+        )
         metadata = KnowledgeMetadata(
             source=source,
-            confidence=_confidence_for(source, knowledge),
+            confidence=confidence_report.label,
+            confidence_pct=confidence_report.confidence_pct,
+            confidence_detail=confidence_report.to_dict(),
             updated_at=now,
             version=version,
             verified=True,

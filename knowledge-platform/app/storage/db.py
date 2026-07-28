@@ -50,7 +50,36 @@ class KaipStore:
     def _init_schema(self) -> None:
         sql = SCHEMA_PATH.read_text(encoding="utf-8")
         self._conn.executescript(sql)
+        self._migrate_operate_columns()
         self._conn.commit()
+
+    def _migrate_operate_columns(self) -> None:
+        """Additive migrations for Sprint 6.5 KFE/KCE on existing DBs."""
+        freshness_cols = {
+            row[1] for row in self._conn.execute("PRAGMA table_info(freshness_registry)").fetchall()
+        }
+        for col, decl in (
+            ("status", "TEXT"),
+            ("age_seconds", "INTEGER"),
+            ("sla_label", "TEXT"),
+            ("current_as_of", "TEXT"),
+        ):
+            if col not in freshness_cols:
+                self._conn.execute(f"ALTER TABLE freshness_registry ADD COLUMN {col} {decl}")
+        self._conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS confidence_registry (
+                object_type TEXT NOT NULL,
+                subject_key TEXT NOT NULL,
+                confidence_pct REAL NOT NULL,
+                label TEXT NOT NULL,
+                sources_json TEXT NOT NULL,
+                reasons_json TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                PRIMARY KEY (object_type, subject_key)
+            )
+            """
+        )
 
     def close(self) -> None:
         self._conn.close()
@@ -1110,16 +1139,133 @@ class KaipStore:
         )
         self._conn.commit()
 
-    def upsert_freshness(self, *, object_type: str, subject_key: str, updated_at: str) -> None:
+    def sources_for_event_ids(self, event_ids: list[str]) -> list[str]:
+        if not event_ids:
+            return []
+        placeholders = ",".join("?" for _ in event_ids)
+        rows = self._conn.execute(
+            f"SELECT DISTINCT source FROM raw_events WHERE event_id IN ({placeholders})",
+            tuple(event_ids),
+        ).fetchall()
+        return [str(r["source"]) for r in rows if r["source"]]
+
+    def upsert_freshness(
+        self,
+        *,
+        object_type: str,
+        subject_key: str,
+        updated_at: str,
+        status: str | None = None,
+        age_seconds: int | None = None,
+        sla_label: str | None = None,
+        current_as_of: str | None = None,
+    ) -> None:
         self._conn.execute(
             """
-            INSERT INTO freshness_registry (object_type, subject_key, updated_at)
-            VALUES (?, ?, ?)
-            ON CONFLICT(object_type, subject_key) DO UPDATE SET updated_at = excluded.updated_at
+            INSERT INTO freshness_registry (
+                object_type, subject_key, updated_at, status, age_seconds, sla_label, current_as_of
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(object_type, subject_key) DO UPDATE SET
+                updated_at = excluded.updated_at,
+                status = excluded.status,
+                age_seconds = excluded.age_seconds,
+                sla_label = excluded.sla_label,
+                current_as_of = excluded.current_as_of
             """,
-            (object_type, subject_key, updated_at),
+            (object_type, subject_key, updated_at, status, age_seconds, sla_label, current_as_of),
         )
         self._conn.commit()
+
+    def get_freshness(self, *, object_type: str, subject_key: str) -> dict[str, Any] | None:
+        row = self._conn.execute(
+            """
+            SELECT * FROM freshness_registry
+            WHERE object_type = ? AND subject_key = ?
+            """,
+            (object_type, subject_key),
+        ).fetchone()
+        if not row:
+            return None
+        return dict(row)
+
+    def list_freshness(self, *, limit: int = 100) -> list[dict[str, Any]]:
+        rows = self._conn.execute(
+            """
+            SELECT * FROM freshness_registry
+            ORDER BY updated_at DESC
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def upsert_confidence(
+        self,
+        *,
+        object_type: str,
+        subject_key: str,
+        confidence_pct: float,
+        label: str,
+        sources: list[str],
+        reasons: list[str],
+    ) -> None:
+        self._conn.execute(
+            """
+            INSERT INTO confidence_registry (
+                object_type, subject_key, confidence_pct, label, sources_json, reasons_json, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(object_type, subject_key) DO UPDATE SET
+                confidence_pct = excluded.confidence_pct,
+                label = excluded.label,
+                sources_json = excluded.sources_json,
+                reasons_json = excluded.reasons_json,
+                updated_at = excluded.updated_at
+            """,
+            (
+                object_type,
+                subject_key,
+                float(confidence_pct),
+                label,
+                json.dumps(sources),
+                json.dumps(reasons),
+                _iso(datetime.now(timezone.utc)),
+            ),
+        )
+        self._conn.commit()
+
+    def get_confidence(self, *, object_type: str, subject_key: str) -> dict[str, Any] | None:
+        row = self._conn.execute(
+            """
+            SELECT * FROM confidence_registry
+            WHERE object_type = ? AND subject_key = ?
+            """,
+            (object_type, subject_key),
+        ).fetchone()
+        if not row:
+            return None
+        data = dict(row)
+        data["sources"] = json.loads(data.pop("sources_json") or "[]")
+        data["reasons"] = json.loads(data.pop("reasons_json") or "[]")
+        return data
+
+    def list_confidence(self, *, limit: int = 100) -> list[dict[str, Any]]:
+        rows = self._conn.execute(
+            """
+            SELECT * FROM confidence_registry
+            ORDER BY confidence_pct DESC
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+        out = []
+        for r in rows:
+            data = dict(r)
+            data["sources"] = json.loads(data.pop("sources_json") or "[]")
+            data["reasons"] = json.loads(data.pop("reasons_json") or "[]")
+            out.append(data)
+        return out
 
     def upsert_knowledge_dependencies(self, *, subject: str, depends_on: list[str]) -> None:
         self._conn.execute(

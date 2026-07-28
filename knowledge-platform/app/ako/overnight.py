@@ -6,8 +6,7 @@ import logging
 from typing import Any, Callable
 
 from app.ile.engine import InstitutionalLearningEngine
-from app.krig.freshness import FreshnessEngine, evaluate_freshness
-from app.krig.policies import BundleSection
+from app.kfe.engine import KnowledgeFreshnessEngine
 from app.storage.db import KaipStore
 
 logger = logging.getLogger("ako.overnight")
@@ -19,7 +18,7 @@ def build_overnight_handlers(
     watchlist: tuple[str, ...] = (),
 ) -> dict[str, Callable[[], Any]]:
     ile = InstitutionalLearningEngine(store)
-    freshness = FreshnessEngine()
+    freshness = KnowledgeFreshnessEngine()
     symbols = tuple(s.upper() for s in watchlist) or ("INFY", "RELIANCE", "TCS", "HDFCBANK")
 
     def rebuild_company_knowledge() -> dict[str, Any]:
@@ -45,8 +44,6 @@ def build_overnight_handlers(
         return {"relationship_edges": edges, "status": "ok"}
 
     def learning_event_generation() -> dict[str, Any]:
-        # Overnight pulse: ensure ILE is wired; material learning comes from
-        # acquisition change detection, not Ask-triggered collection.
         _ = ile
         learning_rows = 0
         for symbol in symbols:
@@ -67,30 +64,17 @@ def build_overnight_handlers(
         return {"status": "ok", "market_knowledge_present": bool(market)}
 
     def knowledge_health_verification() -> dict[str, Any]:
-        reports: dict[str, Any] = {}
-        for symbol in symbols[:4]:
-            profile = store.get_company_profile(symbol)
-            updated = (profile or {}).get("updated_at") or (profile or {}).get("as_of")
-            reports[symbol] = freshness.section_report(
-                BundleSection.COMPANY,
-                updated_at=updated,
-                present=profile is not None,
-            )
-        market = store.get_latest_market(symbols[0])
-        reports["market_snapshot"] = evaluate_freshness(
-            BundleSection.MARKET,
-            updated_at=(market or {}).get("as_of") or (market or {}).get("updated_at"),
-            present=market is not None,
-        )
-        stale = sum(
-            1
-            for r in reports.values()
-            if isinstance(r, dict) and r.get("needs_refresh")
-        )
+        portfolio = freshness.portfolio_snapshot(store, watchlist=symbols)
+        confidence_rows = store.list_confidence(limit=50)
+        low_conf = [c for c in confidence_rows if float(c.get("confidence_pct") or 0) < 60]
         return {
             "status": "ok",
-            "sections": reports,
-            "stale_count": stale,
+            "freshness": portfolio,
+            "confidence": {
+                "tracked": len(confidence_rows),
+                "low_confidence_count": len(low_conf),
+                "samples_low": low_conf[:10],
+            },
             "raw_events": store.count_raw_events(),
             "published_kos": store.count_published_kos(),
         }

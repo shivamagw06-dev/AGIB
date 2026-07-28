@@ -1,49 +1,54 @@
-# Sprint 6.5 — Adaptive Knowledge Orchestrator (AKO)
+# Sprint 6.5 — Operate: AKO + KFE + KCE
 
 ## Mission
 
-Make the Knowledge Platform an **event-driven institutional learning system**.
+Close Phase 6 with a production-ready **continuous knowledge operating system**:
 
-AKO is the operating system of continuous knowledge acquisition: it schedules, prioritises, monitors and coordinates collectors — it does **not** collect, parse, or reason.
+```text
+Acquire → Structure → Learn → Serve → Operate
+  6.1      6.2        6.3     6.4     6.5
+```
+
+Sprint 6.5 is one coherent Operate sprint:
+
+1. **AKO** — Adaptive Knowledge Orchestrator  
+2. **KFE** — Knowledge Freshness Engine  
+3. **KCE** — Knowledge Confidence Engine  
 
 ```text
 AGI should continuously learn from the market,
 not continuously research for the user.
 ```
 
-## Contract
+## Contracts
 
-`knowledge-platform/docs/AKO_PLATFORM_CONTRACT.md`
+- `knowledge-platform/docs/AKO_PLATFORM_CONTRACT.md`
+- `knowledge-platform/docs/KFE_KCE_OPERATE_CONTRACT.md`
 
 ## What shipped
 
-- Market Clock + Session State (`PRE_MARKET` … `HOLIDAY`)
-- Schedule Engine (session + event + load adaptive intervals)
-- Priority Engine (institutional-critical jobs first)
-- Event Engine + seed calendar (earnings, RBI policy)
-- Collector Dispatcher (retry, backoff, dead-letter)
-- Overnight rebuild hooks (published-knowledge only)
-- Telemetry hub (every decision + execution observable)
-- Mission Control soft APIs under `/v1/ako/*`
-- Primary orchestrator via `KAIP_AKO=true` (default); fixed scheduler fallback
+### AKO
+- Market sessions, adaptive schedules, event boosts, overnight rebuilds
+- Retry / backoff / DLQ, Mission Control telemetry
+- Primary orchestrator (`KAIP_AKO=true`)
+
+### KFE
+- Per-object freshness: age, `Fresh` / `Needs Refresh`, `current_as_of`
+- `freshness_registry` written on publish
+- KRIG bundle freshness + overnight / Mission Control portfolio health
+
+### KCE
+- Multi-source confidence scores (e.g. financials ~99% when Yahoo+NSE+IR agree; news ~58% single Yahoo)
+- `confidence_registry` written on publish
+- KRIG bundle confidence for IE evidence weighting before IEW
 
 ## Ask separation
 
 ```text
-User Question → KRIG → Knowledge Store → Judgment → Answer
+User Question → KRIG (freshness + confidence) → Judgment → Answer
 ```
 
-Ask / IE never call collectors. Ops-only `/v1/internal/run/{id}` remains Mission Control.
-
-## Success path
-
-```text
-Infosys Earnings Today
-  → AKO boosts Yahoo / NSE / Company IR polling
-  → KAIP publishes updated Company Knowledge
-  → Overnight rebuild refreshes learning / health
-  → Ask retrieves via KRIG (no live collect)
-```
+Collectors remain background-only. Freshness “Needs Refresh” is an ops signal for AKO — not an Ask trigger.
 
 ## Verification
 
@@ -51,15 +56,13 @@ Infosys Earnings Today
 cd knowledge-platform && pytest -q
 ```
 
-## Env
+## Phase 6 complete when
 
-| Variable | Default | Meaning |
-|---|---|---|
-| `KAIP_AKO` | `true` | Use Adaptive Knowledge Orchestrator |
-| `KAIP_AKO_TICK_SECONDS` | `1` | Evaluation loop cadence |
-| `KAIP_SCHEDULER` | `true` | Start background orchestration |
-| `KAIP_LIVE_COLLECTORS` | `true` | Allow external HTTP in collectors |
+- Continuous ingestion ✔  
+- Continuous learning ✔  
+- Continuous updating ✔  
+- Continuous publishing ✔  
+- Continuous retrieval ✔  
+- Freshness + confidence on every KO ✔  
 
-## Next
-
-Sprint 6.6 — Knowledge Operations polish / Mission Control UI depth (optional), or Phase 7 reasoning integration against continuously refreshed knowledge.
+Next: Phase 7 research-generation capabilities against this continuously refreshed knowledge base.

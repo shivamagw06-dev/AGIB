@@ -88,7 +88,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         scheduler: AcquisitionScheduler | AdaptiveKnowledgeOrchestrator
 
         if settings.ako_enabled:
-            ako = AdaptiveKnowledgeOrchestrator(tick_seconds=settings.ako_tick_seconds)
+            ako = AdaptiveKnowledgeOrchestrator(
+                tick_seconds=settings.ako_tick_seconds,
+                store=store,
+                watchlist=settings.watchlist,
+            )
             for collector in collectors.values():
                 profile = PROFILES.get(collector.collector_id)
                 ako.register_collector(

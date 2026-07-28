@@ -11,7 +11,8 @@ from typing import Any
 from app.contracts.iko import company_knowledge_view
 from app.contracts.models import Source
 from app.krig.bundle import KnowledgeBundle, empty_section_flags
-from app.krig.freshness import FreshnessEngine
+from app.kce.engine import KnowledgeConfidenceEngine
+from app.kfe.engine import KnowledgeFreshnessEngine
 from app.krig.policies import BundleSection, QueryType, policy_for
 from app.krig.query import KnowledgeQuery, classify_query
 from app.storage.db import KaipStore
@@ -44,7 +45,8 @@ DEFAULT_MACRO: dict[str, Any] = {
 class KnowledgeRetrievalGateway:
     def __init__(self, store: KaipStore) -> None:
         self.store = store
-        self.freshness = FreshnessEngine()
+        self.freshness = KnowledgeFreshnessEngine()
+        self.confidence = KnowledgeConfidenceEngine()
 
     def retrieve(
         self,
@@ -248,6 +250,13 @@ class KnowledgeRetrievalGateway:
 
         bundle.sections_present = flags
         bundle.freshness = freshness
+        bundle.confidence = self._confidence_summary(symbol, profile, bundle)
+        if profile and profile.get("updated_at"):
+            bundle.provenance = {
+                **bundle.provenance,
+                "current_as_of": (freshness.get("company") or {}).get("current_as_of"),
+                "operate": {"kfe": True, "kce": True},
+            }
         self._register_dependencies(symbol, sector_key)
         return bundle
 
@@ -428,11 +437,60 @@ class KnowledgeRetrievalGateway:
                 {
                     "type": "freshness",
                     "company_symbol": symbol,
-                    "note": "Stale sections detected.",
+                    "note": "Sections need refresh.",
                     "sections": stale,
                 }
             )
         return tips
+
+    def _confidence_summary(
+        self,
+        symbol: str,
+        profile: dict[str, Any] | None,
+        bundle: KnowledgeBundle,
+    ) -> dict[str, Any]:
+        """KCE surface for IE evidence weighting before IEW."""
+        objects: dict[str, Any] = {}
+        meta = (profile or {}).get("metadata") or {}
+        if profile:
+            stored = self.store.get_confidence(
+                object_type="CompanyProfile", subject_key=symbol.upper()
+            )
+            if stored:
+                objects["company"] = stored
+            elif meta.get("confidence_pct") is not None or meta.get("confidence_detail"):
+                objects["company"] = meta.get("confidence_detail") or {
+                    "confidence_pct": meta.get("confidence_pct"),
+                    "label": meta.get("confidence"),
+                    "sources": [meta.get("source")],
+                }
+            else:
+                report = self.confidence.score(
+                    object_type="CompanyProfile",
+                    primary_source=meta.get("source") or "derived",
+                    subject_key=symbol.upper(),
+                    knowledge=(profile or {}).get("knowledge") or {},
+                )
+                objects["company"] = report.to_dict()
+
+        if bundle.financials:
+            fin_conf = self.store.get_confidence(
+                object_type="FinancialStatement", subject_key=symbol.upper()
+            )
+            if fin_conf:
+                objects["financials"] = fin_conf
+
+        pcts = [
+            float(v["confidence_pct"])
+            for v in objects.values()
+            if isinstance(v, dict) and v.get("confidence_pct") is not None
+        ]
+        overall = round(sum(pcts) / len(pcts), 1) if pcts else None
+        return {
+            "overall_pct": overall,
+            "objects": objects,
+            "note": "Confidence reflects source agreement before IE evidence weighting.",
+        }
 
     def _evidence_links(self, symbol: str, bundle: KnowledgeBundle) -> list[dict[str, Any]]:
         links = [

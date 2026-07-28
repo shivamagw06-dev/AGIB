@@ -376,6 +376,21 @@ CREATE TABLE IF NOT EXISTS freshness_registry (
     object_type TEXT NOT NULL,
     subject_key TEXT NOT NULL,
     updated_at TEXT NOT NULL,
+    status TEXT,
+    age_seconds INTEGER,
+    sla_label TEXT,
+    current_as_of TEXT,
+    PRIMARY KEY (object_type, subject_key)
+);
+
+CREATE TABLE IF NOT EXISTS confidence_registry (
+    object_type TEXT NOT NULL,
+    subject_key TEXT NOT NULL,
+    confidence_pct REAL NOT NULL,
+    label TEXT NOT NULL,
+    sources_json TEXT NOT NULL,
+    reasons_json TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
     PRIMARY KEY (object_type, subject_key)
 );
 

@@ -163,7 +163,18 @@ Mission Control surface (KAIP internal):
 
 ---
 
-## 10. Success criteria
+## 10. Operate extensions (KFE + KCE)
+
+Sprint 6.5 Operate also includes:
+
+- **KFE** — every Knowledge Object reports age, `Fresh` / `Needs Refresh`, and a `current_as_of` statement  
+- **KCE** — every Knowledge Object reports trust (`confidence_pct`) from multi-source agreement  
+
+See [`KFE_KCE_OPERATE_CONTRACT.md`](KFE_KCE_OPERATE_CONTRACT.md).
+
+---
+
+## 11. Success criteria
 
 - Market session transitions are automatic  
 - Schedules are adaptive, not fixed  
@@ -173,10 +184,11 @@ Mission Control surface (KAIP internal):
 - IE consumes only published knowledge  
 - Every scheduling decision is observable  
 - Freshness SLOs met without unnecessary polling  
+- Published KOs carry freshness + confidence for IE weighting  
 
 ---
 
-## 11. Non-goals
+## 12. Non-goals
 
 - New collectors  
 - Reasoning / LLM  
