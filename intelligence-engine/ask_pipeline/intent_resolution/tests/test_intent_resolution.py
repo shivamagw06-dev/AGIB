@@ -279,9 +279,11 @@ def test_sprint34_mixed_and_ambiguous_intent() -> None:
         "Portfolio decision: quality premium vs value trap. What macro and risk evidence before rebalancing?"
     )
     assert mixed["intent"] == "Portfolio"
-    assert mixed.get("secondary_intent") in {"Analyse", "Compare", "Macro", "Risk", "CrossDomain", None} or True
+    assert mixed.get("primary_intent") == "Portfolio"
+    assert mixed.get("intent_confidence", 0) >= 0.7
     amb = resolve_intent(
         "How would you investigate inventory days spike at TITAN? Which statements and notes matter most?"
     )
     assert amb["intent"] == "Accounting"
-    assert "Explain" in (amb.get("rejected_intents") or []) or amb.get("secondary_intent") != "Accounting"
+    assert amb.get("secondary_intent") in {"Analyse", "Documents", "Explain", "Portfolio", None}
+    assert amb.get("intent_why_won")
