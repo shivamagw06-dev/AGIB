@@ -452,6 +452,24 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("institutional_playbooks")
     except Exception:
         out["institutional_playbooks"] = None
+    # AGIB v3.6 Phase 2 — IEG soft board
+    try:
+        from institutional_evidence_graph.production import dashboard as ieg_dash
+        from institutional_evidence_graph.production import health as ieg_health
+
+        eh = ieg_health()
+        edash = ieg_dash()
+        out["institutional_evidence_graph"] = {
+            "status": eh.get("status"),
+            "version": eh.get("ieg_version"),
+            "n_domains": edash.get("n_domains"),
+            "avg_domain_coverage_pct": edash.get("avg_domain_coverage_pct"),
+            "recent_n": edash.get("recent_n"),
+            "guides_evidence": True,
+        }
+        out["sources"].append("institutional_evidence_graph")
+    except Exception:
+        out["institutional_evidence_graph"] = None
     try:
         from knowledge_factory.production import historical_depth_coverage
 

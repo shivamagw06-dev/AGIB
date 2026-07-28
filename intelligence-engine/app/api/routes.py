@@ -7087,6 +7087,57 @@ async def institutional_playbooks_history(limit: int = 50):
     return history(limit=limit)
 
 
+# ---------------------------------------------------------------------------
+# AGIB v3.6 Phase 2 Sprint 2.1 — Institutional Evidence Graph (IEG)
+# Entity-centric relationships soft-read from IERE/IERI; reasoning frozen.
+# ---------------------------------------------------------------------------
+@router.get("/institutional-evidence-graph/health")
+async def institutional_evidence_graph_health():
+    from institutional_evidence_graph.production import health
+
+    return health()
+
+
+@router.get("/institutional-evidence-graph/dashboard")
+async def institutional_evidence_graph_dashboard():
+    from institutional_evidence_graph.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/institutional-evidence-graph/company/{ticker}")
+async def institutional_evidence_graph_company(ticker: str, as_of: str | None = None):
+    from institutional_evidence_graph.production import company
+
+    return company(ticker, as_of=as_of)
+
+
+@router.get("/institutional-evidence-graph/build")
+async def institutional_evidence_graph_build(
+    question: str,
+    ticker: str | None = None,
+    as_of: str | None = None,
+    concept_mode: bool = False,
+):
+    from institutional_evidence_graph.production import build
+
+    entities = [{"type": "company", "id": ticker, "confidence": 0.99}] if ticker else []
+    return build(
+        question=question,
+        entities=entities,
+        ticker_hint=ticker,
+        as_of=as_of,
+        concept_mode=concept_mode,
+    )
+
+
+@router.get("/institutional-evidence-graph/history")
+async def institutional_evidence_graph_history(limit: int = 50):
+    from institutional_evidence_graph.production import history
+
+    return history(limit=limit)
+
+
 @router.get("/prediction/{prediction_id}")
 async def ail_prediction(prediction_id: str):
     try:

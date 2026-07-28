@@ -150,6 +150,11 @@ def render_communication(institutional_answer: dict[str, Any]) -> dict[str, Any]
         "framework_visible": bool((sections_out.get("framework_used") or {}).get("framework_ids")),
         "playbook_visible": bool(playbook.get("playbook_id")),
         "playbook_id": playbook.get("playbook_id"),
+        "evidence_graph_visible": bool(
+            ((institutional_answer.get("evidence_graph") or {}).get("graph_id"))
+            or ((institutional_answer.get("evidence_graph") or {}).get("n_nodes"))
+        ),
+        "evidence_graph_id": (institutional_answer.get("evidence_graph") or {}).get("graph_id"),
         "citation_density": plan.get("citation_density"),
         "narrative_style": plan.get("narrative_style"),
         "consumes_institutional_answer": True,

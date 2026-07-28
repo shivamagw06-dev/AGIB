@@ -1525,6 +1525,7 @@ class UiService:
             _iere = (ask_pipeline_runtime.get("knowledge") or {}).get("iere") or {}
             _ice = ask_pipeline_runtime.get("communication") or {}
             _pb = ask_pipeline_runtime.get("playbook_selection") or {}
+            _eg = ask_pipeline_runtime.get("evidence_graph") or {}
             execution_governance["ask_pipeline"] = {
                 "pipeline_id": ask_pipeline_runtime.get("pipeline_id"),
                 "replay_id": ask_pipeline_runtime.get("replay_id"),
@@ -1554,6 +1555,11 @@ class UiService:
                 or ask_pipeline_runtime.get("playbook_selection_version"),
                 "iap_playbook_id": (_pb.get("playbook_id") if isinstance(_pb, dict) else None),
                 "iap_category": (_pb.get("category") if isinstance(_pb, dict) else None),
+                "ieg_version": (_eg.get("ieg_version") if isinstance(_eg, dict) else None)
+                or ask_pipeline_runtime.get("evidence_graph_version"),
+                "ieg_graph_id": (_eg.get("graph_id") if isinstance(_eg, dict) else None),
+                "ieg_domain_coverage_pct": (_eg.get("domain_coverage_pct") if isinstance(_eg, dict) else None),
+                "ieg_n_nodes": (_eg.get("n_nodes") if isinstance(_eg, dict) else None),
             }
             execution_governance["institutional_communication"] = {
                 "template": _ice.get("template"),
@@ -1569,6 +1575,15 @@ class UiService:
                     "category": _pb.get("category"),
                     "iap_version": _pb.get("iap_version"),
                     "guides_reasoning": True,
+                }
+            if isinstance(_eg, dict) and _eg.get("graph_id"):
+                execution_governance["evidence_graph"] = {
+                    "graph_id": _eg.get("graph_id"),
+                    "entities": _eg.get("entities"),
+                    "n_nodes": _eg.get("n_nodes"),
+                    "domain_coverage_pct": _eg.get("domain_coverage_pct"),
+                    "ieg_version": _eg.get("ieg_version"),
+                    "guides_evidence": True,
                 }
             telemetry = persist_rows(
                 telemetry_rows(execution_governance, answer_id=execution_governance.get("run_id"))
@@ -2641,6 +2656,23 @@ class UiService:
                     "iap_version": _pb_view.get("iap_version"),
                     "procedure": (_pb_view.get("procedure") or {}).get("arrow_text"),
                     "guides_reasoning": True,
+                }
+            _eg_view = (ask_pipeline_runtime or {}).get("evidence_graph") or {}
+            if isinstance(_eg_view, dict) and _eg_view.get("graph_id"):
+                answer["evidence_graph"] = {
+                    "graph_id": _eg_view.get("graph_id"),
+                    "entities": _eg_view.get("entities"),
+                    "n_nodes": _eg_view.get("n_nodes"),
+                    "domain_coverage_pct": _eg_view.get("domain_coverage_pct"),
+                    "chains": (_eg_view.get("chain_bullets") or [])[:6],
+                    "ieg_version": _eg_view.get("ieg_version"),
+                    "guides_evidence": True,
+                }
+            if isinstance(_ice_view, dict):
+                answer["institutional_communication"] = {
+                    **(answer.get("institutional_communication") or {}),
+                    "evidence_graph_visible": _ice_view.get("evidence_graph_visible"),
+                    "evidence_graph_id": _ice_view.get("evidence_graph_id"),
                 }
 
         neutral_case = list(briefing.get("neutral_case") or [])
