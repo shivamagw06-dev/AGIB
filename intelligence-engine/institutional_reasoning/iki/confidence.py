@@ -39,14 +39,31 @@ def confidence_for(framework_id: str) -> dict[str, Any]:
     ies = float(p.get("ies_accuracy") or 80.0)
     live = p.get("live_success")
     live_f = float(live) if live is not None else None
+    # Phase 7 — soft overlay from approved CAL versions (never rewrites profiles).
+    cal_note = "Live success reserved for continuous learning phases."
+    try:
+        from institutional_reasoning.cal.overlays import confidence_for as cal_confidence
+
+        overlay = cal_confidence(framework_id)
+        if overlay.get("live") is not None:
+            live_f = float(overlay["live"]) * 100.0
+            cal_note = "Dynamic confidence from approved CAL overlay."
+        if overlay.get("source") == "cal_overlay" and overlay.get("dynamic") is not None:
+            # Blend IES with approved live overlay for weight multiplier only
+            dynamic = float(overlay["dynamic"])
+            weight = round((0.7 * (ies / 100.0) + 0.3 * dynamic), 3)
+        else:
+            weight = round(ies / 100.0, 3)
+    except Exception:
+        weight = round(ies / 100.0, 3)
     return {
         "framework_id": framework_id,
         "ies_accuracy": ies,
         "live_success": live_f,
         "band": _band(ies, live_f),
-        "weight_multiplier": round(ies / 100.0, 3),
+        "weight_multiplier": weight,
         "calibration_version": CALIBRATION_VERSION,
-        "note": "Live success reserved for continuous learning phases.",
+        "note": cal_note,
     }
 
 

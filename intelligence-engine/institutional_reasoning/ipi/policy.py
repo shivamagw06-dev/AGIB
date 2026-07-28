@@ -24,6 +24,16 @@ def evaluate_policy(
     book = book or default_book()
     policy = dict(DEFAULT_POLICY.to_dict())
     policy.update(book.get("policy") or {})
+    # Phase 7 — approved policy overlays (versioned; never silent rewrite of defaults).
+    try:
+        from institutional_reasoning.cal.overlays import policy_overlay
+
+        overlay = policy_overlay().get("policy") or {}
+        for key in ("max_stock_weight", "max_sector_weight"):
+            if key in overlay:
+                policy[key] = float(overlay[key])
+    except Exception:
+        pass
     symbol = str(entity_id or "").upper()
     exposure = exposure or {}
     risk = risk or {}
