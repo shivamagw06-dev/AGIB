@@ -346,6 +346,16 @@ def _publish(
         publication_type=publication_type,
         covered_entities=covered_entities or [],
     )
+    # AGIB v3.4 Track D — soft-wire ICE template render into body.communication
+    ice = _render_publication_communication(
+        title=title,
+        publication_type=publication_type,
+        covered_entities=covered_entities or [],
+        fw_meta=fw_meta,
+        sections=sections,
+    )
+    if ice:
+        body = {**body, "communication": ice}
     return register_publication(
         title=title,
         publication_type=publication_type,
@@ -411,3 +421,100 @@ def _select_publication_frameworks(
             "framework_version": None,
             "framework_explanation": None,
         }
+
+
+def _render_publication_communication(
+    *,
+    title: str,
+    publication_type: str,
+    covered_entities: list[str],
+    fw_meta: dict[str, Any],
+    sections: dict[str, Any],
+) -> dict[str, Any] | None:
+    """Soft-wire ICE — publication logic unchanged; add communication render."""
+    try:
+        from institutional_communication.production import communicate
+        from institutional_communication.schema import ICE_VERSION
+
+        intent_map = {
+            "macro_intelligence_brief": "Macro",
+            "government_intelligence_brief": "Government",
+            "sector_intelligence_report": "Industry",
+            "industry_intelligence_report": "Industry",
+            "company_research_note": "Analyse",
+            "market_morning_brief": "CrossDomain",
+            "corporate_events_report": "CorporateEvents",
+            "alternative_data_report": "Analyse",
+            "market_expectations_report": "Analyse",
+        }
+        intent = intent_map.get(publication_type, "Analyse")
+        ia = {
+            "format": "institutional_answer_v1",
+            "question": title,
+            "intent_v2": intent,
+            "question_type": publication_type,
+            "concept_mode": not bool(covered_entities),
+            "as_of": None,
+            "sections": {
+                "executive_summary": {
+                    "bullets": list((sections.get("summary") or [])[:4]),
+                    "evidence_ids": [],
+                },
+                "evidence": {
+                    "bullets": list((sections.get("evidence") or [])[:8]),
+                    "evidence_ids": [],
+                },
+                "analysis": {
+                    "bullets": list((sections.get("summary") or [])[:4]),
+                    "evidence_ids": [],
+                },
+                "risks": {
+                    "bullets": list((sections.get("transparent_insufficiency") or ["none"])[:4]),
+                    "evidence_ids": [],
+                },
+                "confidence": {"bullets": [], "evidence_ids": []},
+                "sources": {"bullets": [], "evidence_ids": []},
+                "framework": {"bullets": [], "evidence_ids": []},
+                "conclusion": {"bullets": [], "evidence_ids": []},
+            },
+            "evidence": {"items": [], "pack_names": [], "iere_ranked_count": 0},
+            "frameworks": {
+                "framework_ids": fw_meta.get("framework_used") or [],
+                "selected": [
+                    {"framework_id": fid, "name": fid, "role": "primary"}
+                    for fid in (fw_meta.get("framework_used") or [])[:3]
+                ],
+                "primary": [
+                    {"framework_id": fid, "name": fid, "role": "primary"}
+                    for fid in (fw_meta.get("framework_used") or [])[:2]
+                ],
+                "secondary": [],
+                "supporting": [],
+                "forbidden_rejected": [],
+                "explanation": fw_meta.get("framework_explanation") or {},
+                "confidence": fw_meta.get("framework_confidence") or {},
+            },
+            "gaps": {"missing_domains": [], "coverage": 0.5, "tell_reasoning": "Publication soft-wire"},
+            "confidence": fw_meta.get("framework_confidence") or {"band": "Moderate", "score": 0.65},
+            "citations": {},
+            "risk_signals": {
+                "missing_domains": [],
+                "tell_reasoning": "Publication soft-wire",
+                "disagreements": [],
+            },
+            "replay": {},
+            "fabricated": False,
+        }
+        out = communicate(ia)
+        return {
+            "ice_version": out.get("ice_version") or ICE_VERSION,
+            "template": out.get("template"),
+            "executive_summary": out.get("executive_summary"),
+            "section_order": out.get("section_order"),
+            "framework_visible": out.get("framework_visible"),
+            "validation": out.get("validation"),
+            "llm_used": False,
+            "fabricated": False,
+        }
+    except Exception:
+        return None

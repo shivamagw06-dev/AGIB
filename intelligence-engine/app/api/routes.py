@@ -7002,6 +7002,31 @@ async def framework_selection_history(limit: int = 50):
     return history(limit=limit)
 
 
+# ---------------------------------------------------------------------------
+# AGIB v3.4 Track D — Institutional Communication Engine (ICE)
+# Deterministic renderer of InstitutionalAnswer. Reasoning frozen.
+# ---------------------------------------------------------------------------
+@router.get("/institutional-communication/health")
+async def institutional_communication_health():
+    from institutional_communication.production import health
+
+    return health()
+
+
+@router.get("/institutional-communication/dashboard")
+async def institutional_communication_dashboard():
+    from institutional_communication.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/institutional-communication/history")
+async def institutional_communication_history(limit: int = 50):
+    from institutional_communication.production import history
+
+    return history(limit=limit)
+
+
 @router.get("/prediction/{prediction_id}")
 async def ail_prediction(prediction_id: str):
     try:

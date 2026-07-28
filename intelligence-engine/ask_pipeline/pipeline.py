@@ -19,6 +19,7 @@ from ask_pipeline.answer_assembly import (
 from ask_pipeline.intent_resolution import resolve_intent
 from framework_selection import IFSE_VERSION, select_frameworks
 from framework_selection import store as ifse_store
+from institutional_communication import ICE_VERSION, communicate_from_ask
 from ask_pipeline.knowledge import retrieve_knowledge
 from ask_pipeline.planner import run_planner
 from ask_pipeline.policy import execution_policy
@@ -342,6 +343,49 @@ def run_complete_ask(
         "fabricated": False,
     }
 
+    # ------------------------------------------------------------------
+    # AGIB v3.4 Track D — Institutional Communication Engine (ICE)
+    # Deterministic renderer of InstitutionalAnswer — no new reasoning.
+    # ------------------------------------------------------------------
+    communication = communicate_from_ask(
+        question=question,
+        intent_resolution=irl,
+        answer_assembly=answer_assembly,
+        framework_selection=framework_selection,
+        institutional_answer=institutional_answer,
+        governance=governance,
+        evidence=evidence,
+        knowledge=knowledge,
+        replay_id=context.get("replay_id"),
+    )
+    stages["institutional_communication"] = {
+        "status": "executed",
+        "ice_version": communication.get("ice_version") or ICE_VERSION,
+        "template": communication.get("template"),
+        "framework_visible": communication.get("framework_visible"),
+        "citation_density": communication.get("citation_density"),
+        "narrative_style": communication.get("narrative_style"),
+        "validation_passed": (communication.get("validation") or {}).get("passed"),
+        "narrative_completeness": (communication.get("validation") or {}).get(
+            "narrative_completeness"
+        ),
+        "generic_template": communication.get("generic_template"),
+        "llm_used": False,
+        "fabricated": False,
+        "reasoning_changed": False,
+    }
+    # Prefer ICE text on the institutional answer surface
+    institutional_answer = {
+        **institutional_answer,
+        "communication": {
+            "template": communication.get("template"),
+            "executive_summary": communication.get("executive_summary"),
+            "section_order": communication.get("section_order"),
+            "framework_visible": communication.get("framework_visible"),
+            "ice_version": communication.get("ice_version"),
+        },
+    }
+
     # S11 DQ record
     dq = record_decision_quality(
         context=context,
@@ -421,6 +465,7 @@ def run_complete_ask(
         "answer_assembly": answer_assembly,
         "framework_selection": framework_selection,
         "institutional_answer": institutional_answer,
+        "communication": communication,
         "planner": planner,
         "dag": dag,
         "governance": governance,
@@ -451,6 +496,19 @@ def run_complete_ask(
         "framework_selection": framework_selection,
         "framework_selection_version": IFSE_VERSION,
         "institutional_answer": institutional_answer,
+        "communication": communication,
+        "institutional_communication_version": ICE_VERSION,
+        "answer": {
+            "summary": communication.get("executive_summary"),
+            "executive_summary": communication.get("executive_summary"),
+            "why": communication.get("why") or [],
+            "prose": communication.get("prose"),
+            "template": communication.get("template"),
+            "sections": communication.get("sections"),
+            "source": "institutional_communication",
+            "fabricated": False,
+            "llm_used": False,
+        },
         "planner": planner,
         "dag": dag,
         "governance": governance,
