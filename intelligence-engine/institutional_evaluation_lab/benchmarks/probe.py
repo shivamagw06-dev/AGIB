@@ -246,6 +246,21 @@ def probe_question(
         as_of=_as_of,
         persist=True,
     )
+    # AGI ILO — Learning Office (soft probe mirrors Ask pipeline; final Office)
+    from institutional_learning_office.production import (
+        apply_learning_office as ilo_apply,
+    )
+
+    _ilo = ilo_apply(
+        question=text,
+        investment_thesis=_ite.get("pack") or {},
+        decision_office=_ido.get("pack") or {},
+        portfolio_office=_ipo.get("pack") or {},
+        monitoring_office=_imo.get("pack") or {},
+        confidence_calibration=_icc.get("pack") or {},
+        as_of=_as_of,
+        persist=True,
+    )
     return {
         "mode": "soft",
         "question_id": question.get("question_id"),
@@ -263,6 +278,7 @@ def probe_question(
         "decision_office": _ido.get("pack") or {},
         "portfolio_office": _ipo.get("pack") or {},
         "monitoring_office": _imo.get("pack") or {},
+        "learning_office": _ilo.get("pack") or {},
         "temporal_integrity": {
             "pre_analog": _pre.get("report"),
             "post_analog": _post.get("report"),

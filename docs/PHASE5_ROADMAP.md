@@ -4,7 +4,7 @@
 COMPANY: AGI
 RELEASE: AGI v4.0
 FOUNDATION: AGI v3.6 Institutional Judgment (FROZEN)
-STATUS: Sprint 5.4 IMO implemented
+STATUS: COMPLETE — Sprint 5.5 ILO implemented (final Office)
 UPDATED: 2026-07-28
 ```
 
@@ -24,7 +24,7 @@ Thesis Decision Portfolio
 Monitoring (IMO)
         │
         ▼
-Learning (5.5)
+Learning (ILO)   ← FINAL Office
 ```
 
 ## Sprint sequence
@@ -34,22 +34,28 @@ Learning (5.5)
 | 5.1 | Investment Thesis (ITE) | ✓ |
 | 5.2 | Decision Office (IDO) | ✓ |
 | 5.3 | Portfolio Office (IPO) | ✓ |
-| **5.4** | **Institutional Monitoring Office (IMO)** | ✓ v1.0.0 |
-| 5.5 | Institutional Learning Office | ← Next |
+| 5.4 | Institutional Monitoring Office (IMO) | ✓ |
+| **5.5** | **Institutional Learning Office (ILO)** | ✓ v1.0.0 FINAL |
+| 5.6 | — | **Do not invent** |
 
-## Independent metrics
+## Independent metrics (complete)
 
-IEL → HQS → CQS → CFQS → ITQS → DQS → PQS → **MQS**
+IEL → HQS → CQS → CFQS → ITQS → DQS → PQS → MQS → **LQS**
 
 ## Hard rules
 
 * Consume v3.6 judgment — do not modify it  
 * Ideas ≠ positions ≠ orders ≠ execution  
 * MonitoringEvents recommend review — they do not mutate thesis/decision/portfolio  
+* Learning = process memory — does not update Knowledge Factory  
 * Relative ranking over absolute “good company” calls  
+* **No further Office modules in this train**
 
 ## After Sprint 5.5
 
-Declare **AGI v4.0 Investment Office** complete and spend a release cycle on
-performance, UX, live integrations, observability, production hardening, and
-institutional workflow validation — before adding more conceptual Office layers.
+**AGI v4.0 Investment Office is complete.**
+
+Next investment of effort: live data, performance, UI/UX, real-world validation,
+observability, and continuous evaluation — not new conceptual layers.
+
+See `docs/AGI_V4_0_INVESTMENT_OFFICE_COMPLETE.md`.

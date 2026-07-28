@@ -7504,6 +7504,59 @@ async def monitoring_get(event_id: str):
 
 
 # ---------------------------------------------------------------------------
+# AGI v4.0 Phase 5 Sprint 5.5 — Institutional Learning Office (ILO)
+# Static paths before /learning/{learning_id} — FINAL Office module
+# ---------------------------------------------------------------------------
+@router.get("/learning/health")
+async def learning_health():
+    from institutional_learning_office.production import status
+
+    return status()
+
+
+@router.get("/learning/dashboard")
+async def learning_dashboard():
+    from institutional_learning_office.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/learning/telemetry")
+async def learning_telemetry():
+    from institutional_learning_office.production import telemetry
+
+    return telemetry()
+
+
+@router.get("/learning/history")
+async def learning_history(limit: int = 20):
+    from institutional_learning_office.production import history
+
+    return history(limit=limit)
+
+
+@router.post("/learning/create")
+async def learning_create(payload: dict):
+    from institutional_learning_office.production import create_api
+
+    return create_api(payload)
+
+
+@router.post("/learning/list")
+async def learning_list(payload: dict):
+    from institutional_learning_office.production import list_api
+
+    return list_api(payload)
+
+
+@router.get("/learning/{learning_id}")
+async def learning_get(learning_id: str):
+    from institutional_learning_office.production import get_learning
+
+    return get_learning(learning_id)
+
+
+# ---------------------------------------------------------------------------
 # AGI v4.0 Phase 5 Sprint 5.2 — Institutional Decision Office (IDO)
 # Static paths before /decision/{decision_id}
 # ---------------------------------------------------------------------------
