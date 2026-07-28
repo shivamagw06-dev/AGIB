@@ -7257,6 +7257,67 @@ async def company_intelligence_ticker(ticker: str, refresh: bool = False):
     return get_company(ticker, refresh=refresh)
 
 
+# ---------------------------------------------------------------------------
+# AGIB v2.0 Sprint 2 — Institutional Corporate Event Intelligence (soft KF)
+# Immutable timelines + point-in-time replay. Reasoning frozen.
+# ---------------------------------------------------------------------------
+@router.get("/corporate-events/health")
+async def corporate_events_health():
+    from knowledge_factory.corporate_events.production import health as icei_health
+
+    return icei_health()
+
+
+@router.get("/corporate-events/dashboard")
+async def corporate_events_dashboard_route():
+    from knowledge_factory.corporate_events.production import dashboard
+
+    return dashboard()
+
+
+@router.post("/corporate-events/run")
+async def corporate_events_run(body: dict | None = None):
+    from knowledge_factory.corporate_events.production import run_pipeline
+
+    body = body or {}
+    return run_pipeline(tickers=body.get("tickers"))
+
+
+@router.get("/corporate-events/search")
+async def corporate_events_search(q: str = "", limit: int = 25):
+    from knowledge_factory.corporate_events.production import search
+
+    return search(q, limit=limit)
+
+
+@router.get("/corporate-events/{ticker}")
+async def corporate_events_ticker(ticker: str, refresh: bool = False):
+    from knowledge_factory.corporate_events.production import get_company_events
+
+    return get_company_events(ticker, refresh=refresh)
+
+
+@router.get("/company-timeline/{ticker}")
+async def company_timeline_ticker(ticker: str, as_of: str | None = None, refresh: bool = False):
+    from knowledge_factory.corporate_events.production import get_company_timeline
+
+    return get_company_timeline(ticker, as_of=as_of, refresh=refresh)
+
+
+@router.get("/events/today")
+async def events_today_route():
+    from knowledge_factory.corporate_events.production import events_today
+
+    return events_today()
+
+
+@router.get("/events/critical")
+async def events_critical_route(limit: int = 50):
+    from knowledge_factory.corporate_events.production import events_critical
+
+    return events_critical(limit=limit)
+
+
 @router.get("/knowledge-factory/historical-depth")
 async def knowledge_factory_historical_depth():
     """Historical Depth Coverage dashboard (Sprint 4 north-star KPI)."""

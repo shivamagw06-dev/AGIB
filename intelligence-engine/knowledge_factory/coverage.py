@@ -527,6 +527,23 @@ def daily_health_scorecard(*, ensure_pipeline: bool = True) -> dict[str, Any]:
             scorecard["roadmap_next"] = "company_intelligence_depth_enrichment"
     except Exception:
         scorecard["company_intelligence"] = None
+    # AGIB v2.0 Sprint 2 — soft-read Corporate Event Intelligence (never invent / never mutate).
+    try:
+        from knowledge_factory.corporate_events.dashboard import corporate_events_dashboard
+
+        ce = corporate_events_dashboard(ensure=False)
+        scorecard["corporate_events"] = {
+            "coverage_pct": ce.get("coverage_pct"),
+            "corporate_events": ce.get("corporate_events"),
+            "critical_events": ce.get("critical_events"),
+            "timeline_completeness_avg": ce.get("timeline_completeness_avg"),
+            "pending_validation": ce.get("pending_validation"),
+            "north_star": ce.get("north_star"),
+        }
+        if (ce.get("coverage_pct") or 0) >= 100:
+            scorecard["roadmap_next"] = "government_regulatory_intelligence"
+    except Exception:
+        scorecard["corporate_events"] = None
     store.put_report("daily_health", scorecard)
     return scorecard
 

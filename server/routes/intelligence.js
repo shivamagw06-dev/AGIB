@@ -1325,6 +1325,49 @@ export default function createIntelligenceRouter() {
       res.status(502).json({ error: err?.message || 'company-intelligence proxy failed' });
     }
   });
+  // AGIB v2.0 Sprint 2 — Institutional Corporate Event Intelligence (soft KF)
+  router.get('/corporate-events/health', kfGet('/v1/corporate-events/health'));
+  router.get('/corporate-events/dashboard', kfGet('/v1/corporate-events/dashboard'));
+  router.post('/corporate-events/run', kfPost('/v1/corporate-events/run'));
+  router.get('/corporate-events/search', async (req, res) => {
+    try {
+      const q = new URLSearchParams({
+        q: String(req.query.q || ''),
+        limit: String(req.query.limit || '25'),
+      }).toString();
+      const result = await engineFetch(`/v1/corporate-events/search?${q}`);
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err?.message || 'corporate-events search proxy failed' });
+    }
+  });
+  router.get('/corporate-events/:ticker', async (req, res) => {
+    try {
+      const q = req.query.refresh ? '?refresh=true' : '';
+      const result = await engineFetch(
+        `/v1/corporate-events/${encodeURIComponent(req.params.ticker)}${q}`
+      );
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err?.message || 'corporate-events proxy failed' });
+    }
+  });
+  router.get('/company-timeline/:ticker', async (req, res) => {
+    try {
+      const params = new URLSearchParams();
+      if (req.query.as_of) params.set('as_of', String(req.query.as_of));
+      if (req.query.refresh) params.set('refresh', 'true');
+      const q = params.toString() ? `?${params}` : '';
+      const result = await engineFetch(
+        `/v1/company-timeline/${encodeURIComponent(req.params.ticker)}${q}`
+      );
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err?.message || 'company-timeline proxy failed' });
+    }
+  });
+  router.get('/events/today', kfGet('/v1/events/today'));
+  router.get('/events/critical', kfGet('/v1/events/critical'));
   router.post('/knowledge-factory/run-daily', kfPost('/v1/knowledge-factory/run-daily'));
   router.get('/knowledge-factory/historical-depth', kfGet('/v1/knowledge-factory/historical-depth'));
   router.post('/knowledge-factory/historical-depth/run', kfPost('/v1/knowledge-factory/historical-depth/run'));

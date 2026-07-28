@@ -207,6 +207,24 @@ def company_intelligence_coverage() -> dict[str, Any]:
     return company_intelligence_dashboard(ensure=False)
 
 
+def run_corporate_events_pipeline(**kwargs: Any) -> dict[str, Any]:
+    from knowledge_factory.corporate_events.pipeline import run_corporate_events_pipeline as _run
+
+    return _run(**kwargs)
+
+
+def corporate_events_coverage() -> dict[str, Any]:
+    from knowledge_factory.corporate_events.dashboard import corporate_events_dashboard
+    from knowledge_factory.corporate_events import store as icei_store
+
+    if icei_store.timeline_count() == 0:
+        try:
+            run_corporate_events_pipeline()
+        except Exception:
+            pass
+    return corporate_events_dashboard(ensure=False)
+
+
 def company_object(entity: str) -> dict[str, Any] | None:
     return store.get_object("company", entity)
 
@@ -218,6 +236,7 @@ def evidence_feed(entity: str) -> dict[str, Any] | None:
     hd_pack = None
     hd_obj = None
     company_intelligence = None
+    corporate_events = None
     try:
         from knowledge_factory.historical_depth import store as hd_store
 
@@ -232,7 +251,14 @@ def evidence_feed(entity: str) -> dict[str, Any] | None:
         company_intelligence = ici_store.get(entity)
     except Exception:
         company_intelligence = None
-    if not pack and not obj and not hd_pack and not hd_obj and not company_intelligence:
+    # Soft-read Corporate Event Intelligence timeline (optional; never invent here).
+    try:
+        from knowledge_factory.corporate_events import store as icei_store
+
+        corporate_events = icei_store.get_timeline(entity)
+    except Exception:
+        corporate_events = None
+    if not pack and not obj and not hd_pack and not hd_obj and not company_intelligence and not corporate_events:
         return None
     return {
         "source": "knowledge_factory",
@@ -242,5 +268,6 @@ def evidence_feed(entity: str) -> dict[str, Any] | None:
         "historical_pack": hd_pack,
         "historical_company_object": hd_obj,
         "company_intelligence": company_intelligence,
+        "corporate_events": corporate_events,
         "raw_api": False,
     }

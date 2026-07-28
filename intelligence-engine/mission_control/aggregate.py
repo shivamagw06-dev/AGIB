@@ -118,6 +118,22 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
     except Exception:
         out["company_intelligence"] = None
     try:
+        from knowledge_factory.corporate_events.dashboard import corporate_events_dashboard
+
+        ce = corporate_events_dashboard(ensure=False)
+        out["corporate_events"] = {
+            "coverage_pct": ce.get("coverage_pct"),
+            "corporate_events": ce.get("corporate_events"),
+            "critical_events": ce.get("critical_events"),
+            "timeline_completeness_avg": ce.get("timeline_completeness_avg"),
+            "north_star": ce.get("north_star"),
+        }
+        out["sources"].append("corporate_events")
+        if (ce.get("coverage_pct") or 0) >= 100:
+            out["roadmap_next"] = "government_regulatory_intelligence"
+    except Exception:
+        out["corporate_events"] = None
+    try:
         from knowledge_factory.production import historical_depth_coverage
 
         hd = historical_depth_coverage()

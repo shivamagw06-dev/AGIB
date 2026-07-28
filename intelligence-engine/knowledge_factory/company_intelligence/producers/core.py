@@ -482,6 +482,7 @@ def produce_knowledge_links(ctx: dict[str, Any]) -> dict[str, Any]:
         "decision_quality": "decision_quality",
         "universe_intelligence": f"universe_intelligence.company:{t}",
         "management_intelligence": f"management_intelligence.profiles:{t}",
+        "corporate_events": f"knowledge_factory.corporate_events.timeline:{t}",
     }
     fields = {
         k: _f(v, source="knowledge_reference", collector=collector, confidence=0.9 if v != UNKNOWN else 0.0, derived_from=["soft_link"])
