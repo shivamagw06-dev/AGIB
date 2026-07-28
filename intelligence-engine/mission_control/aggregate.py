@@ -688,6 +688,35 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("institutional_committee_reasoning")
     except Exception:
         out["institutional_committee_reasoning"] = None
+    # AGI Phase 4 Sprint 4.5 — Institutional Confidence Calibration (ICC)
+    try:
+        from institutional_confidence_calibration.production import dashboard as icc_dashboard
+        from institutional_confidence_calibration.production import status as icc_status
+
+        fh = icc_status()
+        fd = icc_dashboard()
+        out["institutional_confidence_calibration"] = {
+            "company": fh.get("company"),
+            "status": fh.get("status"),
+            "version": fh.get("version"),
+            "confidence_version": fd.get("confidence_version"),
+            "average_confidence": fd.get("average_confidence"),
+            "confidence_distribution": fd.get("confidence_distribution"),
+            "top_uncertainty_drivers": fd.get("top_uncertainty_drivers"),
+            "evidence_penalties": fd.get("evidence_penalties"),
+            "committee_agreement": fd.get("committee_agreement"),
+            "missing_evidence": fd.get("missing_evidence"),
+            "historical_analogue_quality": fd.get("historical_analogue_quality"),
+            "framework_consistency": fd.get("framework_consistency"),
+            "latest_confidence": fd.get("latest_confidence"),
+            "latest_reason": fd.get("latest_reason"),
+            "llm_used": False,
+            "manually_assigned": False,
+            "phase4_complete": True,
+        }
+        out["sources"].append("institutional_confidence_calibration")
+    except Exception:
+        out["institutional_confidence_calibration"] = None
     try:
         from knowledge_factory.production import historical_depth_coverage
 

@@ -79,6 +79,7 @@ def dashboard() -> dict[str, Any]:
         "hypothesis_evaluation.hypothesis",
         "committee_deliberation",
         "committee_deliberation.case",
+        "confidence_calibration",
         "reasoning.governance",
         "institutional_communication",
         "llm:gemini",
