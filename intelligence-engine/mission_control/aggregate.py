@@ -590,6 +590,27 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("observability")
     except Exception:
         out["observability"] = None
+    # AGI Phase 4 Sprint 4.1 — Institutional Evidence Weighting Engine
+    try:
+        from institutional_evidence_weighting.production import dashboard as iew_dashboard
+        from institutional_evidence_weighting.production import status as iew_status
+
+        ih = iew_status()
+        idash = iew_dashboard()
+        out["institutional_evidence_weighting"] = {
+            "company": ih.get("company"),
+            "status": ih.get("status"),
+            "version": ih.get("version"),
+            "weight_version": idash.get("weight_version"),
+            "average_weight": idash.get("average_weight"),
+            "dominant_sources": idash.get("dominant_sources"),
+            "n_recent_runs": idash.get("n_recent_runs"),
+            "replay_status": idash.get("replay_status"),
+            "llm_used": False,
+        }
+        out["sources"].append("institutional_evidence_weighting")
+    except Exception:
+        out["institutional_evidence_weighting"] = None
     try:
         from knowledge_factory.production import historical_depth_coverage
 

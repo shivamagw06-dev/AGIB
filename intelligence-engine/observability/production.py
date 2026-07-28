@@ -70,6 +70,8 @@ def dashboard() -> dict[str, Any]:
         "evidence_graph",
         "temporal_integrity.replay_guard",
         "institutional_analog_intelligence",
+        "evidence_weighting",
+        "evidence_weighting.score",
         "reasoning.governance",
         "institutional_communication",
         "llm:gemini",

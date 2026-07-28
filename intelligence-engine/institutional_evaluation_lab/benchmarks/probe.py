@@ -102,6 +102,21 @@ def probe_question(
     )
     _post = tirc_guard(as_of=_as_of, institutional_memory=im, stage="post_analog")
     im = _post.get("institutional_memory") or im
+    # AGI IEW — Evidence Weighting (soft probe mirrors Ask pipeline)
+    from institutional_evidence_weighting.production import apply_weighting as iew_apply
+
+    _iew = iew_apply(
+        as_of=_as_of,
+        evidence_graph=eg,
+        institutional_memory=im,
+        question_id=str(question.get("question_id") or "") or None,
+        intent=str(irl.get("intent") or "") or None,
+        framework=(list(fs.get("framework_ids") or []) or [None])[0],
+        playbook=pb.get("playbook_id"),
+        replay_mode=bool(_as_of),
+    )
+    eg = _iew.get("evidence_graph") or eg
+    im = _iew.get("institutional_memory") or im
     return {
         "mode": "soft",
         "question_id": question.get("question_id"),
@@ -110,6 +125,7 @@ def probe_question(
         "playbook_selection": pb,
         "evidence_graph": eg,
         "institutional_memory": im,
+        "evidence_weighting": _iew.get("pack") or {},
         "temporal_integrity": {
             "pre_analog": _pre.get("report"),
             "post_analog": _post.get("report"),

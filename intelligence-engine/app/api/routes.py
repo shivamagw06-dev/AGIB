@@ -7377,6 +7377,58 @@ async def temporal_integrity_telemetry():
 
 
 # ---------------------------------------------------------------------------
+# AGI Phase 4 Sprint 4.1 — Institutional Evidence Weighting Engine (IEW)
+# ---------------------------------------------------------------------------
+@router.get("/evidence-weighting/health")
+async def evidence_weighting_health():
+    from institutional_evidence_weighting.production import status
+
+    return status()
+
+
+@router.get("/evidence-weighting/dashboard")
+async def evidence_weighting_dashboard():
+    from institutional_evidence_weighting.production import dashboard
+
+    return dashboard()
+
+
+@router.post("/evidence-weighting/ranking")
+async def evidence_weighting_ranking(payload: dict):
+    from institutional_evidence_weighting.production import ranking
+
+    return ranking(payload)
+
+
+@router.post("/evidence-weighting/score")
+async def evidence_weighting_score(payload: dict):
+    from institutional_evidence_weighting.production import score
+
+    return score(payload)
+
+
+@router.post("/evidence-weighting/explain")
+async def evidence_weighting_explain(payload: dict):
+    from institutional_evidence_weighting.production import explain
+
+    return explain(payload)
+
+
+@router.get("/evidence-weighting/telemetry")
+async def evidence_weighting_telemetry():
+    from institutional_evidence_weighting.production import telemetry
+
+    return telemetry()
+
+
+@router.get("/evidence-weighting/configuration")
+async def evidence_weighting_configuration(profile_id: str | None = None):
+    from institutional_evidence_weighting.production import configuration
+
+    return configuration(profile_id)
+
+
+# ---------------------------------------------------------------------------
 # AGI Observability — LangSmith tracing (observability only; never changes answers)
 # ---------------------------------------------------------------------------
 @router.get("/observability/health")
