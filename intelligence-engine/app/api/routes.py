@@ -4555,6 +4555,90 @@ async def admin_forecast_intelligence():
     return HTMLResponse(admin_page())
 
 
+# --- Phase 9 Sprint 9.3: Catalyst & Trigger Intelligence (CTI) ---
+
+
+@router.get("/catalysts/company/{ticker}")
+async def cti_company_catalysts(ticker: str):
+    """Company catalysts — what could change the institutional view."""
+    from catalyst_trigger_intelligence.production import company_catalysts_api
+
+    return company_catalysts_api(ticker)
+
+
+@router.get("/catalysts/sector/{sector}")
+async def cti_sector_catalysts(sector: str):
+    from catalyst_trigger_intelligence.production import sector_catalysts_api
+
+    return sector_catalysts_api(sector)
+
+
+@router.get("/catalysts/market")
+async def cti_market_catalysts():
+    from catalyst_trigger_intelligence.production import market_catalysts_api
+
+    return market_catalysts_api()
+
+
+@router.get("/triggers/company/{ticker}")
+async def cti_company_triggers(ticker: str):
+    """Deterministic triggers with lifecycle state for a company."""
+    from catalyst_trigger_intelligence.production import company_triggers_api
+
+    return company_triggers_api(ticker)
+
+
+@router.get("/triggers/report")
+async def cti_triggers_report(ticker: str | None = None):
+    """Trigger matrix report (Trigger → Effect) for Mission Control / IC."""
+    from catalyst_trigger_intelligence.production import triggers_report_api
+
+    return triggers_report_api(ticker)
+
+
+@router.post("/triggers/evaluate")
+async def cti_triggers_evaluate(payload: dict[str, Any] = Body(default={})):
+    """Evaluate trigger(s) against observations — scenario impact only, no thesis rewrite."""
+    from catalyst_trigger_intelligence.production import evaluate_api
+
+    return evaluate_api(payload)
+
+
+@router.get("/cti/health")
+async def cti_health():
+    from catalyst_trigger_intelligence.production import health
+
+    return health()
+
+
+@router.get("/cti/dashboard")
+async def cti_dashboard():
+    from catalyst_trigger_intelligence.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/cti/monitoring/{ticker}")
+async def cti_monitoring(ticker: str):
+    from catalyst_trigger_intelligence.production import monitoring_api
+
+    return monitoring_api(ticker)
+
+
+@router.post("/cti/monitoring/{ticker}")
+async def cti_monitoring_post(ticker: str, payload: dict[str, Any] = Body(default={})):
+    from catalyst_trigger_intelligence.production import monitoring_api
+
+    return monitoring_api(ticker, payload)
+
+
+@router.get("/admin/catalyst-trigger-intelligence")
+async def admin_cti():
+    from catalyst_trigger_intelligence.production import admin_page
+
+    return admin_page()
+
+
 # --- Institutional Knowledge Graph V1 (what is connected?) ---
 
 
