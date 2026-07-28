@@ -6979,6 +6979,64 @@ async def knowledge_factory_daily_health():
     return daily_health_scorecard()
 
 
+@router.get("/knowledge-factory/historical-depth")
+async def knowledge_factory_historical_depth():
+    """Historical Depth Coverage dashboard (Sprint 4 north-star KPI)."""
+    from knowledge_factory.production import historical_depth_coverage
+
+    return historical_depth_coverage()
+
+
+@router.post("/knowledge-factory/historical-depth/run")
+async def knowledge_factory_historical_depth_run():
+    from knowledge_factory.production import run_historical_depth_pipeline
+
+    return run_historical_depth_pipeline()
+
+
+@router.get("/knowledge-factory/historical-depth/as-of/{ticker}")
+async def knowledge_factory_historical_as_of(ticker: str, as_of: str):
+    """Point-in-time company state — no future leakage past as_of."""
+    from knowledge_factory.historical_depth.time_travel import state_as_of
+
+    return state_as_of(ticker, as_of)
+
+
+@router.get("/knowledge-factory/historical-depth/compare/{ticker}")
+async def knowledge_factory_historical_compare(ticker: str, date_a: str, date_b: str):
+    from knowledge_factory.historical_depth.time_travel import compare_as_of
+
+    return compare_as_of(ticker, date_a, date_b)
+
+
+@router.get("/knowledge-factory/historical-depth/query/{ticker}/valuation/{year}")
+async def knowledge_factory_historical_valuation_year(ticker: str, year: int):
+    from knowledge_factory.historical_depth.queries import valuation_during
+
+    return valuation_during(ticker, year)
+
+
+@router.get("/knowledge-factory/historical-depth/query/{ticker}/pe-percentile")
+async def knowledge_factory_pe_percentile(ticker: str, percentile: float = 90.0):
+    from knowledge_factory.historical_depth.queries import pe_above_percentile
+
+    return pe_above_percentile(ticker, percentile)
+
+
+@router.get("/knowledge-factory/historical-depth/query/{ticker}/crisis-drawdown")
+async def knowledge_factory_crisis_drawdown(ticker: str):
+    from knowledge_factory.historical_depth.queries import largest_crisis_drawdown
+
+    return largest_crisis_drawdown(ticker)
+
+
+@router.get("/knowledge-factory/historical-depth/query/{ticker}/rate-hiking-cycles")
+async def knowledge_factory_rate_hiking(ticker: str):
+    from knowledge_factory.historical_depth.queries import performance_across_rate_hiking_cycles
+
+    return performance_across_rate_hiking_cycles(ticker)
+
+
 @router.get("/knowledge-factory/quality-gates")
 async def knowledge_factory_quality_gates():
     from knowledge_factory.production import quality_gates
