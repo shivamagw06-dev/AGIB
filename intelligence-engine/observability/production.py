@@ -83,6 +83,7 @@ def dashboard() -> dict[str, Any]:
         "investment_thesis",
         "decision_office",
         "portfolio_office",
+        "monitoring_office",
         "reasoning.governance",
         "institutional_communication",
         "llm:gemini",
