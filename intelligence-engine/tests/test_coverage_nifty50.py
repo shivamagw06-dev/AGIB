@@ -39,12 +39,14 @@ def test_target_20_still_complete():
     assert dc["decision_coverage_pct"] == 100.0
 
 
-def test_morning_board_north_star_is_nifty_50():
-    run_daily_pipeline(entities=list(NIFTY_50))
+def test_morning_board_keeps_nifty_50_complete():
+    # Sprint 3: north star is Nifty 100; Nifty 50 remains a complete tier.
+    from knowledge_factory.coverage import NIFTY_100, TARGET_20
+
+    run_daily_pipeline(entities=list(dict.fromkeys([*TARGET_20, *NIFTY_100])))
     board = morning_coverage_dashboard()
-    assert board["north_star"]["universe"] == "nifty_50"
-    assert board["north_star"]["value_pct"] == 100.0
     assert board["tiers"]["nifty_50"]["covered"] == 50
+    assert board["tiers"]["nifty_50"]["coverage_pct"] == 100.0
     assert board["tiers"]["target_20"]["covered"] == 20
     assert board["evidence_packs"] >= 50
     assert board["kpi"] == "decision_coverage_pct"

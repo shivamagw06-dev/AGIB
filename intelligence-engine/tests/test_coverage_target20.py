@@ -31,13 +31,15 @@ def test_target_20_decision_coverage_100():
 
 
 def test_morning_board_shows_north_star():
-    # Sprint 2: north star is Nifty 50 Decision Coverage; Target-20 remains a tier.
-    from institutional_reasoning.fundamentals.universe import NIFTY_50
+    # Sprint 3: north star is Nifty 100 Decision Coverage; Target-20 remains a tier.
+    from knowledge_factory.coverage import NIFTY_100
 
-    run_daily_pipeline(entities=list(NIFTY_50))
+    run_daily_pipeline(entities=list(dict.fromkeys([*TARGET_20, *NIFTY_100])))
     board = morning_coverage_dashboard()
+    assert board["north_star"]["universe"] == "nifty_100"
     assert board["north_star"]["value_pct"] == 100.0
     assert board["tiers"]["target_20"]["covered"] == 20
     assert board["tiers"]["nifty_50"]["covered"] == 50
+    assert board["tiers"]["nifty_100"]["covered"] == 100
     assert board["evidence_packs"] >= 20
     assert board["kpi"] == "decision_coverage_pct"
