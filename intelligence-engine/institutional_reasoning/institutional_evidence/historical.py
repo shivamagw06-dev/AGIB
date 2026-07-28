@@ -55,8 +55,36 @@ def _pil_points(entity_id: str, metric: str) -> tuple[dict[str, float] | None, s
     return None, ""
 
 
+def _derived_points(entity_id: str, metric: str) -> tuple[dict[str, float] | None, str, str, dict[str, Any]]:
+    """Preferred source: metrics computed from primitives, with audit trail."""
+    try:
+        from institutional_reasoning.fundamentals.derivations import derive_series
+        from institutional_reasoning.iki.applicability import infer_sector
+
+        series = derive_series(entity_id, metric, sector=infer_sector(entity_id, None))
+        if series.get("found") and series.get("points"):
+            return (
+                {str(k): float(v) for k, v in series["points"].items()},
+                "derived_producer",
+                "derived",
+                {
+                    "formula": series.get("formula"),
+                    "derived_from": series.get("derived_from"),
+                    "audit": series.get("audit"),
+                    "rejected_periods": series.get("rejected_periods"),
+                    "reproducible": True,
+                },
+            )
+    except Exception:
+        pass
+    return None, "", "", {}
+
+
 def _resolve_pe_points(entity_id: str) -> tuple[dict[str, float] | None, str, str]:
-    """Return (points, provider, data_class)."""
+    """Return (points, provider, data_class). Derived first, then packs, then seeds."""
+    pts, provider, data_class, _ = _derived_points(entity_id, "PE")
+    if pts and len(pts) >= 3:
+        return pts, provider, data_class
     pts, src = _pil_points(entity_id, "PE")
     if pts and len(pts) >= 3:
         return pts, src or "peer_intelligence", "seed_panel"
@@ -77,18 +105,26 @@ def produce_metric_history(
     provider = "institutional_seed"
     data_class = "institutional_seed"
     points: dict[str, float] | None = None
+    derivation: dict[str, Any] = {}
 
     if metric == "PE":
         points, provider, data_class = _resolve_pe_points(eid)
+        if data_class == "derived":
+            _, _, _, derivation = _derived_points(eid, "PE")
     else:
-        pts, src = _pil_points(eid, metric)
+        # Derived producers take precedence over any stored panel.
+        pts, prov, dclass, deriv = _derived_points(eid, metric)
         if pts:
-            points, provider, data_class = pts, src or "peer_intelligence", "seed_panel"
-        elif eid == "INFY" and metric in INFY_EXTRA:
-            points = dict(INFY_EXTRA[metric])
-        elif eid == "INFY" and metric == "FCF":
-            # Map FCF_Margin seed as FCF proxy series for coverage
-            points = dict(INFY_EXTRA.get("FCF_Margin") or {})
+            points, provider, data_class, derivation = pts, prov, dclass, deriv
+        else:
+            pts, src = _pil_points(eid, metric)
+            if pts:
+                points, provider, data_class = pts, src or "peer_intelligence", "seed_panel"
+            elif eid == "INFY" and metric in INFY_EXTRA:
+                points = dict(INFY_EXTRA[metric])
+            elif eid == "INFY" and metric == "FCF":
+                # Map FCF_Margin seed as FCF proxy series for coverage
+                points = dict(INFY_EXTRA.get("FCF_Margin") or {})
 
     analytics = analyse_series(points, current=current)
     as_of = now_iso()
@@ -145,6 +181,8 @@ def produce_metric_history(
         "historical_percentile": pctile,
         "historical_version": HISTORICAL_VERSION,
         "sector_meta": sector_meta(eid),
+        "derivation": derivation,
+        "derived": data_class == "derived",
     }
 
 

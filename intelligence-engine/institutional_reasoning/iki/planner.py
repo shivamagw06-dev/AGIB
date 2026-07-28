@@ -39,6 +39,14 @@ def plan(
         entity_type=entity_type,
     )
     # Execution order: applicable first by score, then high-priority rejected for explicit N/A records
+    # Phase 7 — soft planner overlay may re-rank without rewriting framework source.
+    cal_weights: dict[str, float] = {}
+    try:
+        from institutional_reasoning.cal.overlays import planner_weights as cal_planner_weights
+
+        cal_weights = dict((cal_planner_weights().get("weights") or {}))
+    except Exception:
+        cal_weights = {}
     to_run: list[dict[str, Any]] = []
     seen: set[str] = set()
     for row in applicability.get("applicable") or []:
@@ -49,6 +57,9 @@ def plan(
         if not spec:
             continue
         seen.add(fid)
+        base_score = float(row.get("score") or 0)
+        overlay_w = float(cal_weights.get(fid) or 0) or None
+        ranked = base_score * (overlay_w if overlay_w is not None else 1.0)
         to_run.append(
             {
                 "framework_id": fid,
@@ -59,6 +70,8 @@ def plan(
                 "produces": list(spec.produces),
                 "priority": spec.priority,
                 "applicability_score": row.get("score"),
+                "planner_overlay_weight": overlay_w,
+                "ranked_score": ranked,
                 "applicability_reasons": row.get("reasons"),
                 "confidence": confidence_for(fid),
                 "invalid_for_entity_types": list(spec.not_applicable_entity_types),
@@ -68,6 +81,8 @@ def plan(
                 "alternative_frameworks": list(spec.alternative_frameworks),
             }
         )
+    if cal_weights:
+        to_run.sort(key=lambda r: float(r.get("ranked_score") or 0), reverse=True)
     # Always surface key rejected frameworks (DCF on banks, Graham on Zomato) for explainability
     for row in applicability.get("rejected") or []:
         fid = row["framework_id"]

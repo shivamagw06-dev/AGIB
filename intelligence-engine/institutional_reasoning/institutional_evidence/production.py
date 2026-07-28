@@ -88,6 +88,19 @@ def package_for_governance(
         "peers": (pack.get("validated") or {}).get("peers", {}).get("value")
         if isinstance((pack.get("validated") or {}).get("peers"), dict)
         else None,
+        "risk_drivers": pack.get("risk_drivers")
+        or (
+            (pack.get("validated") or {}).get("risk_drivers", {}).get("value")
+            if isinstance((pack.get("validated") or {}).get("risk_drivers"), dict)
+            else None
+        ),
+        "downside_case": pack.get("downside_case")
+        if pack.get("downside_case") is not None
+        else (
+            (pack.get("validated") or {}).get("downside_case", {}).get("value")
+            if isinstance((pack.get("validated") or {}).get("downside_case"), dict)
+            else None
+        ),
         "evidence_score": pack.get("evidence_score"),
         "coverage": pack.get("coverage"),
         "summary": pack.get("summary"),
