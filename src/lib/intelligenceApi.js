@@ -856,6 +856,25 @@ export const getDecisionQualityHall = (params = {}) => {
 export const getDecisionQualityCalibration = () =>
   intelligenceFetch('/decision-quality/calibration', { timeoutMs: 60_000 });
 
+/** AGIB v1.2 — Institutional Universe Intelligence (soft registry) */
+export const getUniverseIntelligenceHealth = () =>
+  intelligenceFetch('/universe-intelligence/health', { timeoutMs: 30_000 });
+export const getUniverseIntelligenceDashboard = (universeId = 'NIFTY_500') =>
+  intelligenceFetch(
+    `/universe-intelligence/dashboard?universe_id=${encodeURIComponent(universeId)}`,
+    { timeoutMs: 180_000 }
+  );
+export const runUniverseIntelligence = (body = {}) =>
+  intelligenceFetch('/universe-intelligence/run', {
+    method: 'POST',
+    body: body || {},
+    timeoutMs: 300_000,
+  });
+export const getUniverseIntelligenceIci = (ticker) =>
+  intelligenceFetch(`/universe-intelligence/ici/${encodeURIComponent(ticker)}`, {
+    timeoutMs: 60_000,
+  });
+
 /** Mission Control V1 — administrator operations centre (read-only) */
 export const getMissionControlHealth = () =>
   intelligenceFetch('/mission-control/health', { timeoutMs: 30_000 });

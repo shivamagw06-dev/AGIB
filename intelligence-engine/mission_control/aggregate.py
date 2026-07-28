@@ -86,6 +86,22 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
     except Exception:
         pass
     try:
+        from universe_intelligence.dashboard import universe_health
+
+        uh = universe_health(universe_id="NIFTY_500", ensure=False)
+        out["universe_intelligence"] = {
+            "avg_ici": (uh.get("coverage") or {}).get("avg_ici"),
+            "institutional_coverage_pct": (uh.get("coverage") or {}).get("institutional_coverage_pct"),
+            "failure_count": uh.get("failure_count"),
+            "stale_count": uh.get("stale_count"),
+            "north_star": uh.get("north_star"),
+        }
+        out["sources"].append("universe_intelligence")
+        if (uh.get("coverage") or {}).get("institutional_coverage_pct") == 100.0:
+            out["roadmap_next"] = "tier_3_midcap_thematic"
+    except Exception:
+        out["universe_intelligence"] = None
+    try:
         from knowledge_factory.production import historical_depth_coverage
 
         hd = historical_depth_coverage()

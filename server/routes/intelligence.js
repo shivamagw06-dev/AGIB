@@ -1244,6 +1244,58 @@ export default function createIntelligenceRouter() {
     }
   });
   router.get('/knowledge-factory/universe-tiers', kfGet('/v1/knowledge-factory/universe-tiers'));
+  // AGIB v1.2 — Institutional Universe Intelligence (soft registry)
+  router.get('/universe-intelligence/health', kfGet('/v1/universe-intelligence/health'));
+  router.get('/universe-intelligence/dashboard', kfGet('/v1/universe-intelligence/dashboard'));
+  router.post('/universe-intelligence/run', kfPost('/v1/universe-intelligence/run'));
+  router.get('/universe-intelligence/universes', kfGet('/v1/universe-intelligence/universes'));
+  router.get('/universe-intelligence/tree', kfGet('/v1/universe-intelligence/tree'));
+  router.get('/universe-intelligence/quality-gates', kfGet('/v1/universe-intelligence/quality-gates'));
+  router.get('/universe-intelligence/membership', async (req, res) => {
+    try {
+      const q = new URLSearchParams({
+        ticker: String(req.query.ticker || ''),
+        universe_id: String(req.query.universe_id || ''),
+        as_of: String(req.query.as_of || ''),
+      }).toString();
+      const result = await engineFetch(`/v1/universe-intelligence/membership?${q}`);
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err?.message || 'universe membership proxy failed' });
+    }
+  });
+  router.get('/universe-intelligence/memberships/:ticker', async (req, res) => {
+    try {
+      const q = req.query.as_of ? `?as_of=${encodeURIComponent(String(req.query.as_of))}` : '';
+      const result = await engineFetch(
+        `/v1/universe-intelligence/memberships/${encodeURIComponent(req.params.ticker)}${q}`
+      );
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err?.message || 'universe memberships proxy failed' });
+    }
+  });
+  router.get('/universe-intelligence/company/:ticker', async (req, res) => {
+    try {
+      const q = req.query.refresh ? '?refresh=true' : '';
+      const result = await engineFetch(
+        `/v1/universe-intelligence/company/${encodeURIComponent(req.params.ticker)}${q}`
+      );
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err?.message || 'universe company proxy failed' });
+    }
+  });
+  router.get('/universe-intelligence/ici/:ticker', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/universe-intelligence/ici/${encodeURIComponent(req.params.ticker)}`
+      );
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err?.message || 'ICI proxy failed' });
+    }
+  });
   router.post('/knowledge-factory/run-daily', kfPost('/v1/knowledge-factory/run-daily'));
   router.get('/knowledge-factory/historical-depth', kfGet('/v1/knowledge-factory/historical-depth'));
   router.post('/knowledge-factory/historical-depth/run', kfPost('/v1/knowledge-factory/historical-depth/run'));

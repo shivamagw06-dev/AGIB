@@ -7108,6 +7108,100 @@ async def knowledge_factory_universe_tiers():
     return universe_tiers()
 
 
+# ---------------------------------------------------------------------------
+# AGIB v1.2 — Institutional Universe Intelligence (soft registry layer)
+# ---------------------------------------------------------------------------
+@router.get("/universe-intelligence/health")
+async def universe_intelligence_health():
+    from universe_intelligence.production import health as iui_health
+
+    return iui_health()
+
+
+@router.get("/universe-intelligence/dashboard")
+async def universe_intelligence_dashboard(universe_id: str = "NIFTY_500"):
+    """Universe Health ops heartbeat — coverage, failures, stale, new/removed, ICI."""
+    from universe_intelligence.production import dashboard
+
+    return dashboard(universe_id=universe_id)
+
+
+@router.post("/universe-intelligence/run")
+async def universe_intelligence_run(body: dict | None = None):
+    from universe_intelligence.production import run_pipeline
+
+    body = body or {}
+    return run_pipeline(
+        universe_id=str(body.get("universe_id") or "NIFTY_500"),
+        force_full=bool(body.get("force_full") or False),
+        ensure_kf=bool(body.get("ensure_kf", True)),
+    )
+
+
+@router.get("/universe-intelligence/universes")
+async def universe_intelligence_universes(family: str | None = None, status: str | None = None):
+    from universe_intelligence.production import list_universes
+
+    return list_universes(family=family, status=status)
+
+
+@router.get("/universe-intelligence/universes/{universe_id}")
+async def universe_intelligence_universe(universe_id: str):
+    from universe_intelligence.production import get_universe
+
+    return get_universe(universe_id)
+
+
+@router.get("/universe-intelligence/membership")
+async def universe_intelligence_membership(ticker: str, universe_id: str, as_of: str):
+    """Point-in-time: was ticker a member of universe as of date?"""
+    from universe_intelligence.production import was_member
+
+    return was_member(ticker=ticker, universe_id=universe_id, as_of=as_of)
+
+
+@router.get("/universe-intelligence/memberships/{ticker}")
+async def universe_intelligence_memberships(ticker: str, as_of: str | None = None):
+    from universe_intelligence.production import memberships_for_company
+
+    return memberships_for_company(ticker, as_of=as_of)
+
+
+@router.get("/universe-intelligence/company/{ticker}")
+async def universe_intelligence_company(ticker: str, refresh: bool = False):
+    from universe_intelligence.production import get_company
+
+    return get_company(ticker, refresh=refresh)
+
+
+@router.get("/universe-intelligence/ici/{ticker}")
+async def universe_intelligence_ici(ticker: str):
+    from universe_intelligence.production import institutional_coverage_index
+
+    return institutional_coverage_index(ticker)
+
+
+@router.get("/universe-intelligence/coverage-level/{ticker}")
+async def universe_intelligence_coverage_level(ticker: str):
+    from universe_intelligence.production import coverage_level_for
+
+    return coverage_level_for(ticker)
+
+
+@router.get("/universe-intelligence/quality-gates")
+async def universe_intelligence_quality_gates(universe_id: str = "NIFTY_500"):
+    from universe_intelligence.production import quality_gates_summary
+
+    return quality_gates_summary(universe_id)
+
+
+@router.get("/universe-intelligence/tree")
+async def universe_intelligence_tree():
+    from universe_intelligence.production import universe_tree
+
+    return universe_tree()
+
+
 @router.get("/knowledge-factory/historical-depth")
 async def knowledge_factory_historical_depth():
     """Historical Depth Coverage dashboard (Sprint 4 north-star KPI)."""

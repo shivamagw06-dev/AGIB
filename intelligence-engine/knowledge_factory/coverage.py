@@ -486,6 +486,27 @@ def daily_health_scorecard(*, ensure_pipeline: bool = True) -> dict[str, Any]:
         )
     if n500["decision_coverage_pct"] >= 100 and idc_pct >= 100:
         scorecard["roadmap_next"] = "tier_3_midcap_thematic"
+    # AGIB v1.2 — soft-read Institutional Universe Intelligence (never mutate IUI here).
+    try:
+        from universe_intelligence.dashboard import universe_health
+
+        uh = universe_health(universe_id="NIFTY_500", ensure=False)
+        scorecard["universe_intelligence"] = {
+            "avg_ici": (uh.get("coverage") or {}).get("avg_ici"),
+            "institutional_coverage_pct": (uh.get("coverage") or {}).get("institutional_coverage_pct"),
+            "institutional_coverage_n": (uh.get("coverage") or {}).get("institutional_coverage"),
+            "decision_ready": (uh.get("coverage") or {}).get("decision_ready"),
+            "failure_count": uh.get("failure_count"),
+            "stale_count": uh.get("stale_count"),
+            "missing_count": uh.get("missing_count"),
+            "new": uh.get("new"),
+            "removed": uh.get("removed"),
+            "north_star": uh.get("north_star"),
+        }
+        if (uh.get("coverage") or {}).get("institutional_coverage_pct") == 100.0:
+            scorecard["roadmap_next"] = "tier_3_midcap_thematic"
+    except Exception:
+        scorecard["universe_intelligence"] = None
     store.put_report("daily_health", scorecard)
     return scorecard
 
