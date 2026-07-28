@@ -10,8 +10,8 @@ UPDATED: 2026-07-28
 |--------|------|--------|------------------:|
 | **4.1** | Institutional Evidence Weighting (IEW) | ✓ Frozen v1.0.0 | +0.0 |
 | **4.2** | Institutional Hypothesis Generation (IHG) | ✓ Frozen v1.0.0 | +0.0 |
-| **4.3** | **Institutional Hypothesis Evaluation (IHE)** | ← Next | **+0.5 to +0.8** |
-| **4.4** | Committee Reasoning | Planned | +0.3 |
+| **4.3** | **Institutional Hypothesis Evaluation (IHE)** | ✓ Implemented v1.0.0 | **+0.5 to +0.8** |
+| **4.4** | Committee Reasoning | ← Next | +0.3 |
 | **4.5** | Confidence Calibration | Planned | +0.2 |
 
 ## Rename note
