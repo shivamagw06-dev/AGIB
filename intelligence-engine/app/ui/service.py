@@ -1526,6 +1526,7 @@ class UiService:
             _ice = ask_pipeline_runtime.get("communication") or {}
             _pb = ask_pipeline_runtime.get("playbook_selection") or {}
             _eg = ask_pipeline_runtime.get("evidence_graph") or {}
+            _im = ask_pipeline_runtime.get("institutional_memory") or {}
             execution_governance["ask_pipeline"] = {
                 "pipeline_id": ask_pipeline_runtime.get("pipeline_id"),
                 "replay_id": ask_pipeline_runtime.get("replay_id"),
@@ -1560,6 +1561,12 @@ class UiService:
                 "ieg_graph_id": (_eg.get("graph_id") if isinstance(_eg, dict) else None),
                 "ieg_domain_coverage_pct": (_eg.get("domain_coverage_pct") if isinstance(_eg, dict) else None),
                 "ieg_n_nodes": (_eg.get("n_nodes") if isinstance(_eg, dict) else None),
+                "imai_version": (_im.get("imai_version") if isinstance(_im, dict) else None)
+                or ask_pipeline_runtime.get("institutional_memory_version"),
+                "imai_have_we_seen_this_before": (
+                    _im.get("have_we_seen_this_before") if isinstance(_im, dict) else None
+                ),
+                "imai_top_memory_ids": (_im.get("top_memory_ids") if isinstance(_im, dict) else None),
             }
             execution_governance["institutional_communication"] = {
                 "template": _ice.get("template"),
@@ -1584,6 +1591,15 @@ class UiService:
                     "domain_coverage_pct": _eg.get("domain_coverage_pct"),
                     "ieg_version": _eg.get("ieg_version"),
                     "guides_evidence": True,
+                }
+            if isinstance(_im, dict) and (_im.get("top_memory_ids") or _im.get("have_we_seen_this_before")):
+                execution_governance["institutional_memory"] = {
+                    "imai_version": _im.get("imai_version"),
+                    "have_we_seen_this_before": _im.get("have_we_seen_this_before"),
+                    "top_memory_ids": _im.get("top_memory_ids"),
+                    "regimes": _im.get("regimes"),
+                    "guides_memory": True,
+                    "invented_analogues": False,
                 }
             telemetry = persist_rows(
                 telemetry_rows(execution_governance, answer_id=execution_governance.get("run_id"))
@@ -2668,11 +2684,26 @@ class UiService:
                     "ieg_version": _eg_view.get("ieg_version"),
                     "guides_evidence": True,
                 }
+            _im_view = (ask_pipeline_runtime or {}).get("institutional_memory") or {}
+            if isinstance(_im_view, dict) and (
+                _im_view.get("have_we_seen_this_before") or _im_view.get("top_memory_ids")
+            ):
+                answer["institutional_memory"] = {
+                    "imai_version": _im_view.get("imai_version"),
+                    "have_we_seen_this_before": _im_view.get("have_we_seen_this_before"),
+                    "top_memory_ids": _im_view.get("top_memory_ids"),
+                    "surface_bullets": (_im_view.get("surface_bullets") or [])[:5],
+                    "regimes": _im_view.get("regimes"),
+                    "guides_memory": True,
+                }
             if isinstance(_ice_view, dict):
                 answer["institutional_communication"] = {
                     **(answer.get("institutional_communication") or {}),
                     "evidence_graph_visible": _ice_view.get("evidence_graph_visible"),
                     "evidence_graph_id": _ice_view.get("evidence_graph_id"),
+                    "institutional_memory_visible": _ice_view.get("institutional_memory_visible"),
+                    "have_we_seen_this_before": _ice_view.get("have_we_seen_this_before"),
+                    "top_memory_ids": _ice_view.get("top_memory_ids"),
                 }
 
         neutral_case = list(briefing.get("neutral_case") or [])

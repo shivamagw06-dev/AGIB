@@ -85,6 +85,23 @@ def render_communication(institutional_answer: dict[str, Any]) -> dict[str, Any]
             "playbook_id": playbook.get("playbook_id"),
         }
 
+    # AGIB v3.6 Sprint 2.2 — Historical Analogues section (validated memories only)
+    im = institutional_answer.get("institutional_memory") or {}
+    analog_bullets = _analog_bullets(im)
+    if analog_bullets:
+        sections_out["historical_analogues"] = {
+            "section": "historical_analogues",
+            "title": "Historical Analogues",
+            "bullets": analog_bullets[:12],
+            "visible": True,
+            "top_memory_ids": im.get("top_memory_ids") or [],
+            "have_we_seen_this_before": True,
+        }
+        # Prefetch analog lessons into analysis when thin
+        if len(analysis_bullets) <= 3:
+            analysis_bullets = analog_bullets[:4] + analysis_bullets
+            sections_out["analysis"]["bullets"] = analysis_bullets[:18]
+
     # Executive summary — framework-first / evidence-first per template lead
     exec_lines = _executive_summary(institutional_answer, plan, template, sections_out)
     sections_out["executive_summary"] = {
@@ -105,6 +122,12 @@ def render_communication(institutional_answer: dict[str, Any]) -> dict[str, Any]
             section_names.insert(idx, "analytical_checklist")
         else:
             section_names.insert(0, "analytical_checklist")
+    if "historical_analogues" in sections_out and "historical_analogues" not in section_names:
+        if "evidence" in section_names:
+            idx = section_names.index("evidence") + 1
+            section_names.insert(idx, "historical_analogues")
+        else:
+            section_names.append("historical_analogues")
 
     ordered_sections = []
     for name in section_names:
@@ -125,7 +148,15 @@ def render_communication(institutional_answer: dict[str, Any]) -> dict[str, Any]
         if b
     )
     why = []
-    for name in ("framework_used", "analytical_checklist", "evidence", "analysis", "risks", "confidence"):
+    for name in (
+        "framework_used",
+        "analytical_checklist",
+        "evidence",
+        "historical_analogues",
+        "analysis",
+        "risks",
+        "confidence",
+    ):
         for b in (sections_out.get(name) or {}).get("bullets") or []:
             why.append(b.lstrip("- ").strip())
             if len(why) >= 14:
@@ -155,6 +186,9 @@ def render_communication(institutional_answer: dict[str, Any]) -> dict[str, Any]
             or ((institutional_answer.get("evidence_graph") or {}).get("n_nodes"))
         ),
         "evidence_graph_id": (institutional_answer.get("evidence_graph") or {}).get("graph_id"),
+        "institutional_memory_visible": bool(analog_bullets),
+        "top_memory_ids": im.get("top_memory_ids") or [],
+        "have_we_seen_this_before": bool(im.get("have_we_seen_this_before")),
         "citation_density": plan.get("citation_density"),
         "narrative_style": plan.get("narrative_style"),
         "consumes_institutional_answer": True,
@@ -165,6 +199,22 @@ def render_communication(institutional_answer: dict[str, Any]) -> dict[str, Any]
         "governance_changed": False,
         "freeze_locks": FREEZE_LOCKS,
     }
+
+
+def _analog_bullets(institutional_memory: dict[str, Any]) -> list[str]:
+    if not institutional_memory or not institutional_memory.get("have_we_seen_this_before"):
+        return []
+    lines: list[str] = [
+        bullet("Have we seen this before? — validated historical analogues (IMAI)")
+    ]
+    for b in (institutional_memory.get("surface_bullets") or [])[:5]:
+        lines.append(bullet(clean_line(str(b), max_len=280)))
+    comp = institutional_memory.get("comparison") or {}
+    for lesson in (comp.get("similarities") or [])[:3]:
+        lines.append(bullet(clean_line(f"Lesson from history: {lesson}", max_len=240)))
+    for diff in (comp.get("differences") or [])[:2]:
+        lines.append(bullet(clean_line(f"Difference vs today: {diff}", max_len=220)))
+    return lines
 
 
 def _playbook_analysis_bullets(playbook: dict[str, Any]) -> list[str]:
@@ -215,6 +265,18 @@ def _executive_summary(
                 clean_line(
                     f"Playbook: {pb.get('playbook_name') or pb.get('playbook_id')} "
                     f"— reasoning follows the analytical checklist.",
+                    max_len=260,
+                )
+            )
+        )
+
+    im = institutional_answer.get("institutional_memory") or {}
+    if im.get("have_we_seen_this_before") and (im.get("top_memory_ids") or im.get("surface_bullets")):
+        n_mem = len(im.get("top_memory_ids") or im.get("surface_bullets") or [])
+        lines.append(
+            bullet(
+                clean_line(
+                    f"Have we seen this before? — {n_mem} validated historical analogue(s) ranked by similarity.",
                     max_len=260,
                 )
             )

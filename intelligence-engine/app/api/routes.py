@@ -7138,6 +7138,59 @@ async def institutional_evidence_graph_history(limit: int = 50):
     return history(limit=limit)
 
 
+# ---------------------------------------------------------------------------
+# AGIB v3.6 Phase 2 Sprint 2.2 — Institutional Memory & Analog Intelligence
+# Soft-wire only; distinct from ILM; reasoning frozen.
+# ---------------------------------------------------------------------------
+@router.get("/institutional-analog-intelligence/health")
+async def institutional_analog_intelligence_health():
+    from institutional_analog_intelligence.production import status
+
+    return status()
+
+
+@router.get("/institutional-analog-intelligence/dashboard")
+async def institutional_analog_intelligence_dashboard():
+    from institutional_analog_intelligence.production import board
+
+    return board()
+
+
+@router.get("/institutional-analog-intelligence/retrieve")
+async def institutional_analog_intelligence_retrieve(
+    question: str,
+    as_of: str | None = None,
+    top_k: int = 5,
+):
+    from institutional_analog_intelligence.production import retrieve
+
+    return retrieve(question=question, as_of=as_of, top_k=top_k)
+
+
+@router.get("/institutional-analog-intelligence/catalog")
+async def institutional_analog_intelligence_catalog(limit: int = 100):
+    from institutional_analog_intelligence.production import catalog
+
+    return {"n": limit, "memories": catalog(limit=limit), "fabricated": False}
+
+
+@router.get("/institutional-analog-intelligence/memory/{memory_id}")
+async def institutional_analog_intelligence_memory(memory_id: str):
+    from institutional_analog_intelligence.production import memory
+
+    row = memory(memory_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="memory_not_found")
+    return row
+
+
+@router.get("/institutional-analog-intelligence/audits")
+async def institutional_analog_intelligence_audits(limit: int = 50):
+    from institutional_analog_intelligence.production import audits
+
+    return {"n": limit, "rows": audits(limit=limit), "fabricated": False}
+
+
 @router.get("/prediction/{prediction_id}")
 async def ail_prediction(prediction_id: str):
     try:

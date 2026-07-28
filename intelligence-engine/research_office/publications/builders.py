@@ -30,6 +30,53 @@ def _evidence_present(sources: list[dict[str, Any]], payloads: list[dict[str, An
     return any(not (p or {}).get("unavailable") for p in payloads)
 
 
+def _historical_analogues_section(
+    *,
+    title: str,
+    covered_entities: list[str] | None = None,
+) -> dict[str, Any]:
+    """Soft-wire IMAI — only when validated historical memories exist."""
+    try:
+        from institutional_analog_intelligence.production import retrieve
+
+        pack = retrieve(
+            question=title,
+            playbook=None,
+            evidence_graph={
+                "entities": list(covered_entities or []),
+                "chain_bullets": [],
+            },
+            as_of=None,
+            top_k=4,
+        )
+        if not pack.get("have_we_seen_this_before"):
+            return {
+                "historical_analogues": [],
+                "previous_comparable_events": [],
+                "lessons_from_history": [],
+                "imai_version": pack.get("imai_version"),
+                "omitted_no_evidence": True,
+            }
+        return {
+            "historical_analogues": list(pack.get("surface_bullets") or [])[:5],
+            "previous_comparable_events": [
+                f"{m.get('memory_id')}: {m.get('title')}" for m in (pack.get("memories") or [])[:4]
+            ],
+            "lessons_from_history": list((pack.get("comparison") or {}).get("similarities") or [])[:4],
+            "imai_version": pack.get("imai_version"),
+            "top_memory_ids": pack.get("top_memory_ids") or [],
+            "omitted_no_evidence": False,
+            "invented_analogues": False,
+        }
+    except Exception:
+        return {
+            "historical_analogues": [],
+            "previous_comparable_events": [],
+            "lessons_from_history": [],
+            "omitted_no_evidence": True,
+        }
+
+
 def build_all_morning_publications(*, scheduler_run_id: str | None = None) -> list[dict[str, Any]]:
     versions = kn.knowledge_versions()
     # Soft-wire IERE — retrieve best evidence before publication generation (no pub logic change).
@@ -318,6 +365,18 @@ def _publish(
     evidence_pack_versions: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     sources = [kn.source_ref(n, p) for n, p in source_names]
+    # Soft-wire IMAI historical analogues — only when evidence/memories exist
+    analog_sec = _historical_analogues_section(
+        title=title,
+        covered_entities=covered_entities,
+    )
+    if not analog_sec.get("omitted_no_evidence"):
+        sections = {
+            **sections,
+            "historical_analogues": analog_sec.get("historical_analogues") or [],
+            "previous_comparable_events": analog_sec.get("previous_comparable_events") or [],
+            "lessons_from_history": analog_sec.get("lessons_from_history") or [],
+        }
     body = {
         "as_of": store.utc_now(),
         "snapshot": {
@@ -325,6 +384,8 @@ def _publish(
             "scheduler_run_id": scheduler_run_id,
             "knowledge_version": versions["knowledge_version"],
             "evidence_version": versions["evidence_version"],
+            "imai_version": analog_sec.get("imai_version"),
+            "imai_top_memory_ids": analog_sec.get("top_memory_ids") or [],
         },
         "sections": sections,
         "recommendation": None,
@@ -528,6 +589,16 @@ def _render_publication_communication(
                 "confidence": fw_meta.get("framework_confidence") or {},
             },
             "playbook": fw_meta.get("playbook_selection") or {},
+            "institutional_memory": {
+                "have_we_seen_this_before": bool(sections.get("historical_analogues")),
+                "surface_bullets": list(sections.get("historical_analogues") or [])[:5],
+                "top_memory_ids": [],
+                "comparison": {
+                    "similarities": list(sections.get("lessons_from_history") or [])[:4],
+                },
+                "guides_memory": True,
+                "invented_analogues": False,
+            },
             "gaps": {"missing_domains": [], "coverage": 0.5, "tell_reasoning": "Publication soft-wire"},
             "confidence": fw_meta.get("framework_confidence") or {"band": "Moderate", "score": 0.65},
             "citations": {},
