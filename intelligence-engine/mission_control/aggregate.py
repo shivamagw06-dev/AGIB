@@ -306,6 +306,29 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("research_office")
     except Exception:
         out["research_office"] = None
+    # AGIB v3.0 LIDI — live institutional data soft board.
+    try:
+        from live_data.production import dashboard as lidi_dash
+        from live_data.production import health as lidi_health
+        from live_data.production import status as lidi_status
+
+        ls = lidi_status()
+        ld = lidi_dash()
+        lh = lidi_health()
+        out["live_institutional_data"] = {
+            "state": ls.get("state"),
+            "collectors_operational": ls.get("collectors_operational"),
+            "collectors_total": ls.get("collectors_total"),
+            "validation_failures": ld.get("validation_failures"),
+            "fallback_usage": ld.get("fallback_usage"),
+            "missing_data": ld.get("missing_data"),
+            "fixture_collectors_disabled": ls.get("fixture_collectors_disabled"),
+            "north_star": ld.get("north_star"),
+            "health": lh.get("status"),
+        }
+        out["sources"].append("live_institutional_data")
+    except Exception:
+        out["live_institutional_data"] = None
     try:
         from knowledge_factory.production import historical_depth_coverage
 

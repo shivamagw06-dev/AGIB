@@ -29,19 +29,56 @@ def handle_universe() -> dict[str, Any]:
 
 
 def handle_historical() -> dict[str, Any]:
+    # LIDI soft-wire: live collectors → validate → derive → knowledge/packs before KF path.
+    # Never silent fixture fallback; recorded samples only via explicit env in non-prod.
+    lidi_report: dict[str, Any] | None = None
+    try:
+        from live_data.production import run_morning_live_ingestion
+
+        lidi_report = run_morning_live_ingestion()
+    except Exception as lidi_exc:  # noqa: BLE001
+        lidi_report = {
+            "ok": False,
+            "error": str(lidi_exc)[:240],
+            "transparent_insufficiency": True,
+            "fixture": False,
+        }
+        store.alert(
+            "warning",
+            f"LIDI ingestion unavailable — continuing with transparent insufficiency: {lidi_exc}"[:200],
+            workflow_id="historical_update",
+        )
+
     try:
         from knowledge_factory.production import run_daily_pipeline
 
         # Track-1 + optional HD; IKS layers run as separate workflows
         report = run_daily_pipeline(historical_depth=True, institutional_knowledge=False)
-        return _ok(report)
+        return _ok(
+            report,
+            lidi=lidi_report,
+            live_data_preferred=True,
+            fixture_collectors_disabled_for_lidi=bool((lidi_report or {}).get("ok")),
+        )
     except Exception as exc:
         # Soft: try HD alone
         try:
             from knowledge_factory.production import run_historical_depth_pipeline
 
-            return _ok(run_historical_depth_pipeline(), degraded=True)
+            return _ok(
+                run_historical_depth_pipeline(),
+                degraded=True,
+                lidi=lidi_report,
+                live_data_preferred=True,
+            )
         except Exception as exc2:
+            if lidi_report and lidi_report.get("ok"):
+                return _ok(
+                    {"knowledge_factory": "unavailable", "lidi": lidi_report},
+                    degraded=True,
+                    lidi=lidi_report,
+                    live_data_preferred=True,
+                )
             return _err(exc2 if str(exc2) else exc)
 
 
@@ -55,11 +92,26 @@ def handle_company() -> dict[str, Any]:
 
 
 def handle_corporate_events() -> dict[str, Any]:
+    lidi_packs = None
+    try:
+        from live_data import store as lidi_store
+
+        last = lidi_store.get_last_run() or {}
+        lidi_packs = (last.get("publish") or {}).get("pack_ids")
+    except Exception:
+        lidi_packs = None
     try:
         from knowledge_factory.corporate_events.pipeline import run_corporate_events_pipeline
 
-        return _ok(run_corporate_events_pipeline())
+        return _ok(run_corporate_events_pipeline(), lidi_pack_ids=lidi_packs, live_data_preferred=True)
     except Exception as exc:
+        if lidi_packs:
+            return _ok(
+                {"corporate_events": "kf_unavailable", "lidi_pack_ids": lidi_packs},
+                degraded=True,
+                lidi_pack_ids=lidi_packs,
+                live_data_preferred=True,
+            )
         return _err(exc)
 
 

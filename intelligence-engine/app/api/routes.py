@@ -7879,6 +7879,71 @@ async def scheduler_dashboard():
 
 
 # ---------------------------------------------------------------------------
+# AGIB v3.0 — Live Institutional Data Ingestion (LIDI)
+# ---------------------------------------------------------------------------
+@router.get("/live-data/status")
+async def live_data_status():
+    from live_data.production import status
+
+    return status()
+
+
+@router.get("/live-data/sources")
+async def live_data_sources():
+    from live_data.production import sources
+
+    return sources()
+
+
+@router.get("/live-data/freshness")
+async def live_data_freshness():
+    from live_data.production import freshness
+
+    return freshness()
+
+
+@router.get("/live-data/collectors")
+async def live_data_collectors():
+    from live_data.production import collectors
+
+    return collectors()
+
+
+@router.get("/live-data/validation")
+async def live_data_validation():
+    from live_data.production import validation
+
+    return validation()
+
+
+@router.get("/live-data/fallback")
+async def live_data_fallback():
+    from live_data.production import fallback
+
+    return fallback()
+
+
+@router.get("/live-data/dashboard")
+async def live_data_dashboard():
+    from live_data.production import dashboard
+
+    return dashboard()
+
+
+@router.post("/live-data/run")
+async def live_data_run(payload: dict[str, Any] = Body(default={})):
+    from live_data.production import run_morning_live_ingestion
+
+    body = payload or {}
+    return run_morning_live_ingestion(
+        as_of=body.get("as_of"),
+        allow_recorded_sample=body.get("allow_recorded_sample"),
+        ir_ticker=str(body.get("ir_ticker") or "INFY"),
+        stop_after=body.get("stop_after"),
+    )
+
+
+# ---------------------------------------------------------------------------
 # AGIB v2.1 — Complete Ask Pipeline (read-only observability + sample runner)
 # ---------------------------------------------------------------------------
 @router.get("/ask/pipeline")
