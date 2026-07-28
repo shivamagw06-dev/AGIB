@@ -1,4 +1,4 @@
--- KAIP Sprint 6.1 storage — keep it small.
+-- KAIP / IKO storage — Sprint 6.2 institutional knowledge model.
 
 CREATE TABLE IF NOT EXISTS raw_events (
     event_id TEXT PRIMARY KEY,
@@ -20,9 +20,17 @@ CREATE INDEX IF NOT EXISTS idx_raw_events_source_checksum
 CREATE TABLE IF NOT EXISTS knowledge_objects (
     object_id TEXT PRIMARY KEY,
     object_type TEXT NOT NULL,
-    company_symbol TEXT NOT NULL,
+    subject_key TEXT NOT NULL,
+    company_symbol TEXT,
+    sector_key TEXT,
+    market_key TEXT,
     version INTEGER NOT NULL,
+    previous_object_id TEXT,
+    changed_fields_json TEXT NOT NULL DEFAULT '[]',
+    change_summary TEXT,
+    knowledge_json TEXT NOT NULL,
     payload_json TEXT NOT NULL,
+    metadata_json TEXT NOT NULL,
     entity_refs_json TEXT NOT NULL,
     source_event_ids_json TEXT NOT NULL,
     published_at TEXT,
@@ -30,13 +38,18 @@ CREATE TABLE IF NOT EXISTS knowledge_objects (
     updated_at TEXT NOT NULL
 );
 
+CREATE INDEX IF NOT EXISTS idx_ko_subject_type_version
+    ON knowledge_objects(object_type, subject_key, version DESC);
+
 CREATE INDEX IF NOT EXISTS idx_ko_symbol_type
     ON knowledge_objects(company_symbol, object_type, version DESC);
 
 CREATE TABLE IF NOT EXISTS company_profiles (
     company_symbol TEXT PRIMARY KEY,
     object_id TEXT NOT NULL,
+    knowledge_json TEXT NOT NULL,
     payload_json TEXT NOT NULL,
+    metadata_json TEXT NOT NULL,
     entity_refs_json TEXT NOT NULL,
     version INTEGER NOT NULL,
     updated_at TEXT NOT NULL
@@ -46,7 +59,9 @@ CREATE TABLE IF NOT EXISTS market_snapshots (
     snapshot_id TEXT PRIMARY KEY,
     company_symbol TEXT NOT NULL,
     object_id TEXT NOT NULL,
+    knowledge_json TEXT NOT NULL,
     payload_json TEXT NOT NULL,
+    metadata_json TEXT NOT NULL,
     as_of TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
@@ -58,7 +73,9 @@ CREATE TABLE IF NOT EXISTS corporate_events (
     event_object_id TEXT PRIMARY KEY,
     company_symbol TEXT NOT NULL,
     object_id TEXT NOT NULL,
+    knowledge_json TEXT NOT NULL,
     payload_json TEXT NOT NULL,
+    metadata_json TEXT NOT NULL,
     event_date TEXT,
     updated_at TEXT NOT NULL
 );
@@ -70,7 +87,9 @@ CREATE TABLE IF NOT EXISTS corporate_actions (
     action_object_id TEXT PRIMARY KEY,
     company_symbol TEXT NOT NULL,
     object_id TEXT NOT NULL,
+    knowledge_json TEXT NOT NULL,
     payload_json TEXT NOT NULL,
+    metadata_json TEXT NOT NULL,
     ex_date TEXT,
     updated_at TEXT NOT NULL
 );
@@ -84,22 +103,87 @@ CREATE TABLE IF NOT EXISTS financial_statements (
     object_id TEXT NOT NULL,
     statement_type TEXT NOT NULL,
     period_end TEXT,
+    knowledge_json TEXT NOT NULL,
     payload_json TEXT NOT NULL,
+    metadata_json TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_financials_symbol
     ON financial_statements(company_symbol, statement_type, period_end DESC);
 
+CREATE TABLE IF NOT EXISTS ownership (
+    ownership_id TEXT PRIMARY KEY,
+    company_symbol TEXT NOT NULL,
+    object_id TEXT NOT NULL,
+    knowledge_json TEXT NOT NULL,
+    metadata_json TEXT NOT NULL,
+    as_of TEXT,
+    version INTEGER NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_ownership_symbol
+    ON ownership(company_symbol, version DESC);
+
+CREATE TABLE IF NOT EXISTS analyst_consensus (
+    consensus_id TEXT PRIMARY KEY,
+    company_symbol TEXT NOT NULL,
+    object_id TEXT NOT NULL,
+    knowledge_json TEXT NOT NULL,
+    metadata_json TEXT NOT NULL,
+    version INTEGER NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_analyst_symbol
+    ON analyst_consensus(company_symbol, version DESC);
+
+CREATE TABLE IF NOT EXISTS news_events (
+    news_id TEXT PRIMARY KEY,
+    company_symbol TEXT,
+    object_id TEXT NOT NULL,
+    knowledge_json TEXT NOT NULL,
+    metadata_json TEXT NOT NULL,
+    event_date TEXT,
+    updated_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_news_symbol
+    ON news_events(company_symbol, event_date DESC);
+
+CREATE TABLE IF NOT EXISTS sector_knowledge (
+    sector_key TEXT PRIMARY KEY,
+    object_id TEXT NOT NULL,
+    knowledge_json TEXT NOT NULL,
+    metadata_json TEXT NOT NULL,
+    version INTEGER NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS market_knowledge (
+    market_key TEXT PRIMARY KEY,
+    object_id TEXT NOT NULL,
+    knowledge_json TEXT NOT NULL,
+    metadata_json TEXT NOT NULL,
+    version INTEGER NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS learning_events (
     learning_id TEXT PRIMARY KEY,
-    company_symbol TEXT NOT NULL,
+    company_symbol TEXT,
+    sector_key TEXT,
+    market_key TEXT,
+    category TEXT NOT NULL,
+    importance TEXT NOT NULL,
     field_name TEXT NOT NULL,
     previous_value_json TEXT,
     new_value_json TEXT,
     delta_json TEXT,
     materiality TEXT NOT NULL,
     reason TEXT NOT NULL,
+    affected_json TEXT NOT NULL DEFAULT '[]',
     object_type TEXT,
     object_id TEXT,
     source_event_ids_json TEXT NOT NULL,
@@ -110,6 +194,19 @@ CREATE TABLE IF NOT EXISTS learning_events (
 CREATE INDEX IF NOT EXISTS idx_learning_symbol
     ON learning_events(company_symbol, created_at DESC);
 
+CREATE TABLE IF NOT EXISTS relationship_edges (
+    edge_id TEXT PRIMARY KEY,
+    from_type TEXT NOT NULL,
+    from_key TEXT NOT NULL,
+    edge_type TEXT NOT NULL,
+    to_type TEXT NOT NULL,
+    to_key TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_edges_from
+    ON relationship_edges(from_type, from_key);
+
 CREATE TABLE IF NOT EXISTS entity_registry (
     company_symbol TEXT PRIMARY KEY,
     company_id TEXT NOT NULL,
@@ -118,6 +215,7 @@ CREATE TABLE IF NOT EXISTS entity_registry (
     industry TEXT,
     indexes_json TEXT NOT NULL DEFAULT '[]',
     peers_json TEXT NOT NULL DEFAULT '[]',
+    clients_json TEXT NOT NULL DEFAULT '[]',
     aliases_json TEXT NOT NULL DEFAULT '[]',
     updated_at TEXT NOT NULL
 );
@@ -129,4 +227,10 @@ CREATE TABLE IF NOT EXISTS scheduler_runs (
     finished_at TEXT,
     status TEXT NOT NULL,
     detail_json TEXT NOT NULL DEFAULT '{}'
+);
+
+CREATE TABLE IF NOT EXISTS publication_log (
+    publication_id TEXT PRIMARY KEY,
+    envelope_json TEXT NOT NULL,
+    published_at TEXT NOT NULL
 );

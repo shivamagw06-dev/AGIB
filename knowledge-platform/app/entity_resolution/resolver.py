@@ -73,12 +73,13 @@ class EntityResolver:
             # Enrich from canonical hints without wiping seed relationships
             return self.store.upsert_entity(
                 company_symbol=symbol,
-                company_id=existing.company_id,
-                company_name=hints.get("company_name") or existing.company_name,
+                company_id=existing.company_id or f"co_{symbol.lower()}",
+                company_name=hints.get("company_name") or existing.company_name or symbol,
                 sector=hints.get("sector") or existing.sector,
                 industry=hints.get("industry") or existing.industry,
                 indexes=existing.indexes,
                 peers=existing.peers,
+                clients=existing.clients,
             )
 
         seed = SEED_ENTITIES.get(symbol, {})

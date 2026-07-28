@@ -1,4 +1,4 @@
-"""SQLite storage for KAIP Sprint 6.1 — append-only raw events + KO tables."""
+"""SQLite storage for KAIP/IKO — append-only versions, never overwrite history."""
 
 from __future__ import annotations
 
@@ -7,14 +7,19 @@ import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 from app.contracts.models import (
+    Confidence,
     EntityRefs,
+    KnowledgeMetadata,
     KnowledgeObject,
     KnowledgeObjectType,
+    LearningCategory,
     LearningEvent,
-    RawEvent,
-    ValidationStatus,
+    Importance,
+    PublicationEnvelope,
+    Source,
 )
 
 SCHEMA_PATH = Path(__file__).with_name("schema.sql")
@@ -52,7 +57,7 @@ class KaipStore:
 
     # ----- raw events -----
 
-    def insert_raw_event(self, event: RawEvent) -> None:
+    def insert_raw_event(self, event) -> None:
         now = _iso(datetime.now(timezone.utc))
         self._conn.execute(
             """
@@ -78,7 +83,7 @@ class KaipStore:
         )
         self._conn.commit()
 
-    def update_raw_validation(self, event: RawEvent) -> None:
+    def update_raw_validation(self, event) -> None:
         self._conn.execute(
             """
             UPDATE raw_events
@@ -103,7 +108,6 @@ class KaipStore:
         now: datetime | None = None,
     ) -> bool:
         now = now or datetime.now(timezone.utc)
-        # Compare in Python for timezone-safe windowing
         rows = self._conn.execute(
             """
             SELECT timestamp FROM raw_events
@@ -135,6 +139,7 @@ class KaipStore:
         industry: str | None,
         indexes: list[str],
         peers: list[str],
+        clients: list[str] | None = None,
         aliases: list[str] | None = None,
     ) -> EntityRefs:
         now = _iso(datetime.now(timezone.utc))
@@ -142,8 +147,8 @@ class KaipStore:
             """
             INSERT INTO entity_registry (
                 company_symbol, company_id, company_name, sector, industry,
-                indexes_json, peers_json, aliases_json, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                indexes_json, peers_json, clients_json, aliases_json, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(company_symbol) DO UPDATE SET
                 company_id = excluded.company_id,
                 company_name = excluded.company_name,
@@ -151,6 +156,7 @@ class KaipStore:
                 industry = excluded.industry,
                 indexes_json = excluded.indexes_json,
                 peers_json = excluded.peers_json,
+                clients_json = excluded.clients_json,
                 aliases_json = excluded.aliases_json,
                 updated_at = excluded.updated_at
             """,
@@ -162,6 +168,7 @@ class KaipStore:
                 industry,
                 json.dumps(indexes),
                 json.dumps(peers),
+                json.dumps(clients or []),
                 json.dumps(aliases or []),
                 now,
             ),
@@ -175,6 +182,8 @@ class KaipStore:
             industry=industry,
             indexes=indexes,
             peers=peers,
+            clients=list(clients or []),
+            sector_key=(sector.lower().replace(" ", "_") if sector else None),
         )
 
     def get_entity(self, company_symbol: str) -> EntityRefs | None:
@@ -184,6 +193,11 @@ class KaipStore:
         ).fetchone()
         if not row:
             return None
+        clients = []
+        try:
+            clients = json.loads(row["clients_json"] or "[]")
+        except (KeyError, TypeError, json.JSONDecodeError):
+            clients = []
         return EntityRefs(
             company_id=row["company_id"],
             company_name=row["company_name"],
@@ -192,6 +206,8 @@ class KaipStore:
             industry=row["industry"],
             indexes=json.loads(row["indexes_json"] or "[]"),
             peers=json.loads(row["peers_json"] or "[]"),
+            clients=clients,
+            sector_key=(row["sector"].lower().replace(" ", "_") if row["sector"] else None),
         )
 
     def update_entity_relationships(
@@ -202,50 +218,134 @@ class KaipStore:
         industry: str | None = None,
         indexes: list[str] | None = None,
         peers: list[str] | None = None,
+        clients: list[str] | None = None,
     ) -> EntityRefs | None:
         current = self.get_entity(company_symbol)
         if not current:
             return None
         return self.upsert_entity(
-            company_symbol=current.company_symbol,
-            company_id=current.company_id,
-            company_name=current.company_name,
+            company_symbol=current.company_symbol or company_symbol,
+            company_id=current.company_id or f"co_{company_symbol.lower()}",
+            company_name=current.company_name or company_symbol,
             sector=sector if sector is not None else current.sector,
             industry=industry if industry is not None else current.industry,
             indexes=indexes if indexes is not None else current.indexes,
             peers=peers if peers is not None else current.peers,
+            clients=clients if clients is not None else current.clients,
         )
+
+    def upsert_relationship_edge(
+        self,
+        *,
+        from_type: str,
+        from_key: str,
+        edge_type: str,
+        to_type: str,
+        to_key: str,
+    ) -> None:
+        now = _iso(datetime.now(timezone.utc))
+        edge_id = f"{from_type}:{from_key}:{edge_type}:{to_type}:{to_key}"
+        self._conn.execute(
+            """
+            INSERT INTO relationship_edges (
+                edge_id, from_type, from_key, edge_type, to_type, to_key, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(edge_id) DO UPDATE SET updated_at = excluded.updated_at
+            """,
+            (edge_id, from_type, from_key, edge_type, to_type, to_key, now),
+        )
+        self._conn.commit()
+
+    def list_relationships(self, from_type: str, from_key: str) -> list[dict[str, Any]]:
+        rows = self._conn.execute(
+            """
+            SELECT * FROM relationship_edges
+            WHERE from_type = ? AND from_key = ?
+            ORDER BY edge_type, to_key
+            """,
+            (from_type, from_key),
+        ).fetchall()
+        return [dict(r) for r in rows]
 
     # ----- knowledge objects -----
 
-    def latest_ko(self, object_type: KnowledgeObjectType, symbol: str) -> KnowledgeObject | None:
+    def latest_ko(self, object_type: KnowledgeObjectType, subject_key: str) -> KnowledgeObject | None:
         row = self._conn.execute(
             """
             SELECT * FROM knowledge_objects
-            WHERE object_type = ? AND company_symbol = ?
+            WHERE object_type = ? AND subject_key = ?
             ORDER BY version DESC
             LIMIT 1
             """,
-            (object_type.value, symbol.upper()),
+            (object_type.value, subject_key.upper() if object_type not in {
+                KnowledgeObjectType.SECTOR_KNOWLEDGE,
+                KnowledgeObjectType.MARKET_KNOWLEDGE,
+            } else subject_key),
         ).fetchone()
+        if not row:
+            # fallback for company symbols stored uppercased
+            row = self._conn.execute(
+                """
+                SELECT * FROM knowledge_objects
+                WHERE object_type = ? AND (subject_key = ? OR company_symbol = ?)
+                ORDER BY version DESC
+                LIMIT 1
+                """,
+                (object_type.value, subject_key, subject_key.upper()),
+            ).fetchone()
         if not row:
             return None
         return self._row_to_ko(row)
 
+    def list_versions(self, object_type: KnowledgeObjectType, subject_key: str) -> list[dict[str, Any]]:
+        rows = self._conn.execute(
+            """
+            SELECT object_id, version, previous_object_id, changed_fields_json,
+                   change_summary, created_at, published_at
+            FROM knowledge_objects
+            WHERE object_type = ? AND (subject_key = ? OR company_symbol = ?)
+            ORDER BY version ASC
+            """,
+            (object_type.value, subject_key, subject_key.upper()),
+        ).fetchall()
+        return [
+            {
+                "object_id": r["object_id"],
+                "version": r["version"],
+                "previous_object_id": r["previous_object_id"],
+                "changed_fields": json.loads(r["changed_fields_json"] or "[]"),
+                "change_summary": r["change_summary"],
+                "created_at": r["created_at"],
+                "published_at": r["published_at"],
+            }
+            for r in rows
+        ]
+
     def insert_knowledge_object(self, ko: KnowledgeObject) -> None:
+        knowledge = ko.knowledge or ko.payload
         self._conn.execute(
             """
             INSERT INTO knowledge_objects (
-                object_id, object_type, company_symbol, version, payload_json,
-                entity_refs_json, source_event_ids_json, published_at, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                object_id, object_type, subject_key, company_symbol, sector_key, market_key,
+                version, previous_object_id, changed_fields_json, change_summary,
+                knowledge_json, payload_json, metadata_json, entity_refs_json,
+                source_event_ids_json, published_at, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 ko.object_id,
                 ko.object_type.value,
-                ko.company_symbol.upper(),
+                ko.subject_key,
+                ko.company_symbol.upper() if ko.company_symbol else None,
+                ko.sector_key,
+                ko.market_key,
                 ko.version,
-                json.dumps(ko.payload, default=str),
+                ko.previous_object_id,
+                json.dumps(ko.changed_fields),
+                ko.change_summary,
+                json.dumps(knowledge, default=str),
+                json.dumps(knowledge, default=str),
+                ko.metadata.model_dump_json(),
                 ko.entity_refs.model_dump_json(),
                 json.dumps(ko.source_event_ids),
                 _iso(ko.published_at),
@@ -264,99 +364,180 @@ class KaipStore:
         self._conn.commit()
 
     def _mirror_typed(self, ko: KnowledgeObject) -> None:
-        payload = json.dumps(ko.payload, default=str)
+        knowledge = ko.knowledge or ko.payload
+        blob = json.dumps(knowledge, default=str)
+        meta = ko.metadata.model_dump_json()
         refs = ko.entity_refs.model_dump_json()
         now = _iso(ko.updated_at)
-        symbol = ko.company_symbol.upper()
-        if ko.object_type == KnowledgeObjectType.COMPANY_PROFILE:
+        symbol = ko.company_symbol.upper() if ko.company_symbol else None
+
+        if ko.object_type == KnowledgeObjectType.COMPANY_PROFILE and symbol:
             self._conn.execute(
                 """
                 INSERT INTO company_profiles (
-                    company_symbol, object_id, payload_json, entity_refs_json, version, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?)
+                    company_symbol, object_id, knowledge_json, payload_json, metadata_json,
+                    entity_refs_json, version, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(company_symbol) DO UPDATE SET
                     object_id = excluded.object_id,
+                    knowledge_json = excluded.knowledge_json,
                     payload_json = excluded.payload_json,
+                    metadata_json = excluded.metadata_json,
                     entity_refs_json = excluded.entity_refs_json,
                     version = excluded.version,
                     updated_at = excluded.updated_at
                 """,
-                (symbol, ko.object_id, payload, refs, ko.version, now),
+                (symbol, ko.object_id, blob, blob, meta, refs, ko.version, now),
             )
-        elif ko.object_type == KnowledgeObjectType.MARKET_SNAPSHOT:
+        elif ko.object_type == KnowledgeObjectType.MARKET_SNAPSHOT and symbol:
             self._conn.execute(
                 """
                 INSERT INTO market_snapshots (
-                    snapshot_id, company_symbol, object_id, payload_json, as_of, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?)
+                    snapshot_id, company_symbol, object_id, knowledge_json, payload_json,
+                    metadata_json, as_of, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     ko.object_id,
                     symbol,
                     ko.object_id,
-                    payload,
-                    ko.payload.get("as_of") or now,
+                    blob,
+                    blob,
+                    meta,
+                    knowledge.get("as_of") or now,
                     now,
                 ),
             )
-        elif ko.object_type == KnowledgeObjectType.CORPORATE_EVENT:
+        elif ko.object_type == KnowledgeObjectType.CORPORATE_EVENT and symbol:
             self._conn.execute(
                 """
                 INSERT INTO corporate_events (
-                    event_object_id, company_symbol, object_id, payload_json, event_date, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?)
+                    event_object_id, company_symbol, object_id, knowledge_json, payload_json,
+                    metadata_json, event_date, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (
-                    ko.object_id,
-                    symbol,
-                    ko.object_id,
-                    payload,
-                    ko.payload.get("event_date"),
-                    now,
-                ),
+                (ko.object_id, symbol, ko.object_id, blob, blob, meta, knowledge.get("event_date"), now),
             )
-        elif ko.object_type == KnowledgeObjectType.CORPORATE_ACTION:
+        elif ko.object_type == KnowledgeObjectType.CORPORATE_ACTION and symbol:
             self._conn.execute(
                 """
                 INSERT INTO corporate_actions (
-                    action_object_id, company_symbol, object_id, payload_json, ex_date, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?)
+                    action_object_id, company_symbol, object_id, knowledge_json, payload_json,
+                    metadata_json, ex_date, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (ko.object_id, symbol, ko.object_id, blob, blob, meta, knowledge.get("ex_date"), now),
+            )
+        elif ko.object_type == KnowledgeObjectType.FINANCIAL_STATEMENT and symbol:
+            self._conn.execute(
+                """
+                INSERT INTO financial_statements (
+                    statement_id, company_symbol, object_id, statement_type, period_end,
+                    knowledge_json, payload_json, metadata_json, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     ko.object_id,
                     symbol,
                     ko.object_id,
-                    payload,
-                    ko.payload.get("ex_date"),
+                    knowledge.get("statement_type") or "unknown",
+                    knowledge.get("period_end"),
+                    blob,
+                    blob,
+                    meta,
                     now,
                 ),
             )
-        elif ko.object_type == KnowledgeObjectType.FINANCIAL_STATEMENT:
+        elif ko.object_type == KnowledgeObjectType.OWNERSHIP and symbol:
             self._conn.execute(
                 """
-                INSERT INTO financial_statements (
-                    statement_id, company_symbol, object_id, statement_type,
-                    period_end, payload_json, updated_at
+                INSERT INTO ownership (
+                    ownership_id, company_symbol, object_id, knowledge_json, metadata_json,
+                    as_of, version, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (ko.object_id, symbol, ko.object_id, blob, meta, knowledge.get("as_of"), ko.version, now),
+            )
+        elif ko.object_type == KnowledgeObjectType.ANALYST_CONSENSUS and symbol:
+            self._conn.execute(
+                """
+                INSERT INTO analyst_consensus (
+                    consensus_id, company_symbol, object_id, knowledge_json, metadata_json,
+                    version, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (ko.object_id, symbol, ko.object_id, blob, meta, ko.version, now),
+            )
+        elif ko.object_type == KnowledgeObjectType.NEWS_EVENT:
+            self._conn.execute(
+                """
+                INSERT INTO news_events (
+                    news_id, company_symbol, object_id, knowledge_json, metadata_json,
+                    event_date, updated_at
                 ) VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     ko.object_id,
                     symbol,
                     ko.object_id,
-                    ko.payload.get("statement_type") or "unknown",
-                    ko.payload.get("period_end"),
-                    payload,
+                    blob,
+                    meta,
+                    knowledge.get("event_date"),
                     now,
                 ),
             )
+        elif ko.object_type == KnowledgeObjectType.SECTOR_KNOWLEDGE and ko.sector_key:
+            self._conn.execute(
+                """
+                INSERT INTO sector_knowledge (
+                    sector_key, object_id, knowledge_json, metadata_json, version, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(sector_key) DO UPDATE SET
+                    object_id = excluded.object_id,
+                    knowledge_json = excluded.knowledge_json,
+                    metadata_json = excluded.metadata_json,
+                    version = excluded.version,
+                    updated_at = excluded.updated_at
+                """,
+                (ko.sector_key, ko.object_id, blob, meta, ko.version, now),
+            )
+        elif ko.object_type == KnowledgeObjectType.MARKET_KNOWLEDGE and ko.market_key:
+            self._conn.execute(
+                """
+                INSERT INTO market_knowledge (
+                    market_key, object_id, knowledge_json, metadata_json, version, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(market_key) DO UPDATE SET
+                    object_id = excluded.object_id,
+                    knowledge_json = excluded.knowledge_json,
+                    metadata_json = excluded.metadata_json,
+                    version = excluded.version,
+                    updated_at = excluded.updated_at
+                """,
+                (ko.market_key, ko.object_id, blob, meta, ko.version, now),
+            )
 
     def _row_to_ko(self, row: sqlite3.Row) -> KnowledgeObject:
+        knowledge = json.loads(row["knowledge_json"] if "knowledge_json" in row.keys() and row["knowledge_json"] else row["payload_json"])
+        meta_raw = row["metadata_json"] if "metadata_json" in row.keys() and row["metadata_json"] else None
+        if meta_raw:
+            metadata = KnowledgeMetadata.model_validate_json(meta_raw)
+        else:
+            metadata = KnowledgeMetadata(source=Source.DERIVED, version=row["version"])
         return KnowledgeObject(
             object_id=row["object_id"],
             object_type=KnowledgeObjectType(row["object_type"]),
-            company_symbol=row["company_symbol"],
+            company_symbol=row["company_symbol"] if "company_symbol" in row.keys() else None,
+            sector_key=row["sector_key"] if "sector_key" in row.keys() else None,
+            market_key=row["market_key"] if "market_key" in row.keys() else None,
+            subject_key=row["subject_key"] if "subject_key" in row.keys() else (row["company_symbol"] or "unknown"),
             version=row["version"],
-            payload=json.loads(row["payload_json"]),
+            previous_object_id=row["previous_object_id"] if "previous_object_id" in row.keys() else None,
+            changed_fields=json.loads(row["changed_fields_json"] or "[]") if "changed_fields_json" in row.keys() else [],
+            change_summary=row["change_summary"] if "change_summary" in row.keys() else None,
+            knowledge=knowledge,
+            payload=knowledge,
+            metadata=metadata,
             entity_refs=EntityRefs.model_validate_json(row["entity_refs_json"]),
             source_event_ids=json.loads(row["source_event_ids_json"] or "[]"),
             published_at=_parse_dt(row["published_at"]),
@@ -371,11 +552,15 @@ class KaipStore:
         ).fetchone()
         if not row:
             return None
+        knowledge = json.loads(row["knowledge_json"] if row["knowledge_json"] else row["payload_json"])
+        meta = json.loads(row["metadata_json"]) if row["metadata_json"] else {}
         return {
             "object_id": row["object_id"],
             "company_symbol": row["company_symbol"],
             "version": row["version"],
-            "payload": json.loads(row["payload_json"]),
+            "knowledge": knowledge,
+            "payload": knowledge,
+            "metadata": meta,
             "entity_refs": json.loads(row["entity_refs_json"]),
             "updated_at": row["updated_at"],
         }
@@ -392,10 +577,13 @@ class KaipStore:
         ).fetchone()
         if not row:
             return None
+        knowledge = json.loads(row["knowledge_json"] if row["knowledge_json"] else row["payload_json"])
         return {
             "object_id": row["object_id"],
             "company_symbol": row["company_symbol"],
-            "payload": json.loads(row["payload_json"]),
+            "knowledge": knowledge,
+            "payload": knowledge,
+            "metadata": json.loads(row["metadata_json"]) if row["metadata_json"] else {},
             "as_of": row["as_of"],
             "updated_at": row["updated_at"],
         }
@@ -414,7 +602,9 @@ class KaipStore:
             {
                 "object_id": r["object_id"],
                 "company_symbol": r["company_symbol"],
-                "payload": json.loads(r["payload_json"]),
+                "knowledge": json.loads(r["knowledge_json"] if r["knowledge_json"] else r["payload_json"]),
+                "payload": json.loads(r["knowledge_json"] if r["knowledge_json"] else r["payload_json"]),
+                "metadata": json.loads(r["metadata_json"]) if r["metadata_json"] else {},
                 "event_date": r["event_date"],
                 "updated_at": r["updated_at"],
             }
@@ -437,30 +627,70 @@ class KaipStore:
                 "company_symbol": r["company_symbol"],
                 "statement_type": r["statement_type"],
                 "period_end": r["period_end"],
-                "payload": json.loads(r["payload_json"]),
+                "knowledge": json.loads(r["knowledge_json"] if r["knowledge_json"] else r["payload_json"]),
+                "payload": json.loads(r["knowledge_json"] if r["knowledge_json"] else r["payload_json"]),
+                "metadata": json.loads(r["metadata_json"]) if r["metadata_json"] else {},
                 "updated_at": r["updated_at"],
             }
             for r in rows
         ]
 
+    def get_sector_knowledge(self, sector_key: str) -> dict[str, Any] | None:
+        row = self._conn.execute(
+            "SELECT * FROM sector_knowledge WHERE sector_key = ?",
+            (sector_key,),
+        ).fetchone()
+        if not row:
+            return None
+        return {
+            "object_id": row["object_id"],
+            "sector_key": row["sector_key"],
+            "version": row["version"],
+            "knowledge": json.loads(row["knowledge_json"]),
+            "metadata": json.loads(row["metadata_json"]),
+            "updated_at": row["updated_at"],
+        }
+
+    def get_market_knowledge(self, market_key: str = "india_equity") -> dict[str, Any] | None:
+        row = self._conn.execute(
+            "SELECT * FROM market_knowledge WHERE market_key = ?",
+            (market_key,),
+        ).fetchone()
+        if not row:
+            return None
+        return {
+            "object_id": row["object_id"],
+            "market_key": row["market_key"],
+            "version": row["version"],
+            "knowledge": json.loads(row["knowledge_json"]),
+            "metadata": json.loads(row["metadata_json"]),
+            "updated_at": row["updated_at"],
+        }
+
     def insert_learning_event(self, event: LearningEvent) -> None:
         self._conn.execute(
             """
             INSERT INTO learning_events (
-                learning_id, company_symbol, field_name, previous_value_json,
-                new_value_json, delta_json, materiality, reason, object_type,
-                object_id, source_event_ids_json, created_at, published_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                learning_id, company_symbol, sector_key, market_key, category, importance,
+                field_name, previous_value_json, new_value_json, delta_json, materiality,
+                reason, affected_json, object_type, object_id, source_event_ids_json,
+                created_at, published_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 event.learning_id,
-                event.company_symbol.upper(),
+                event.company_symbol.upper() if event.company_symbol else None,
+                event.sector_key,
+                event.market_key,
+                event.category.value,
+                event.importance.value,
                 event.field_name,
                 json.dumps(event.previous_value, default=str),
                 json.dumps(event.new_value, default=str),
                 json.dumps(event.delta, default=str),
                 event.materiality,
                 event.reason,
+                json.dumps(event.affected),
                 event.object_type.value if event.object_type else None,
                 event.object_id,
                 json.dumps(event.source_event_ids),
@@ -491,12 +721,15 @@ class KaipStore:
             {
                 "learning_id": r["learning_id"],
                 "company_symbol": r["company_symbol"],
+                "category": r["category"],
+                "importance": r["importance"],
                 "field_name": r["field_name"],
                 "previous_value": json.loads(r["previous_value_json"]) if r["previous_value_json"] else None,
                 "new_value": json.loads(r["new_value_json"]) if r["new_value_json"] else None,
                 "delta": json.loads(r["delta_json"]) if r["delta_json"] else None,
                 "materiality": r["materiality"],
                 "reason": r["reason"],
+                "affected": json.loads(r["affected_json"] or "[]"),
                 "object_type": r["object_type"],
                 "object_id": r["object_id"],
                 "created_at": r["created_at"],
@@ -504,6 +737,16 @@ class KaipStore:
             }
             for r in rows
         ]
+
+    def log_publication(self, envelope: PublicationEnvelope) -> None:
+        self._conn.execute(
+            """
+            INSERT INTO publication_log (publication_id, envelope_json, published_at)
+            VALUES (?, ?, ?)
+            """,
+            (str(uuid4()), envelope.model_dump_json(), _iso(envelope.published_at)),
+        )
+        self._conn.commit()
 
     def count_raw_events(self) -> int:
         return int(self._conn.execute("SELECT COUNT(*) AS c FROM raw_events").fetchone()["c"])

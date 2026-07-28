@@ -1,9 +1,11 @@
 # KAIP Platform Contract — Sprint 6.1
 
 **Service:** AGI Knowledge Acquisition Platform (KAIP)  
-**Version:** 0.1.0  
-**Status:** Foundation (Sprint 6.1)  
-**Boundary:** Acquisition only. No reasoning, no LLM, no embeddings, no portfolio/monitoring updates.
+**Version:** 0.2.0  
+**Status:** Foundation (Sprint 6.1) + Institutional Knowledge Model (Sprint 6.2)  
+**Boundary:** Acquisition + knowledge modeling only. No reasoning, no LLM, no embeddings, no portfolio/monitoring updates.
+
+> Sprint 6.2 knowledge contract: [`IKO_PLATFORM_CONTRACT.md`](IKO_PLATFORM_CONTRACT.md)
 
 ---
 

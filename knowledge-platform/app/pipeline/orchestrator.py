@@ -1,4 +1,4 @@
-"""End-to-end KAIP acquisition pipeline (no reasoning)."""
+"""End-to-end KAIP acquisition → Institutional Knowledge pipeline (no reasoning)."""
 
 from __future__ import annotations
 
@@ -9,6 +9,7 @@ from typing import Any
 from app.collectors.base import BaseCollector
 from app.config.settings import Settings
 from app.contracts.models import (
+    EntityRefs,
     KnowledgeObject,
     KnowledgeObjectType,
     LearningEvent,
@@ -57,7 +58,6 @@ class AcquisitionPipeline:
         learning: list[LearningEvent] = []
 
         for event in events:
-            # Always persist raw first (append-only), then validate
             self.store.insert_raw_event(event)
             validated = self.validator.validate(event)
             self.store.update_raw_validation(validated)
@@ -70,27 +70,20 @@ class AcquisitionPipeline:
                 continue
 
             result.accepted.append(validated)
-            canonical_items = self.normalizer.normalize(validated)
-            for canonical in canonical_items:
-                entity = self.resolver.resolve(
-                    canonical.get("company_symbol") or validated.company_symbol or "",
-                    hints={
-                        "company_name": canonical.get("company_name"),
-                        "sector": canonical.get("sector"),
-                        "industry": canonical.get("industry"),
-                    },
-                )
-                previous = None
+            for canonical in self.normalizer.normalize(validated):
                 try:
-                    ot = KnowledgeObjectType(canonical.get("object_type"))
-                    previous = self.store.latest_ko(ot, entity.company_symbol)
+                    object_type = KnowledgeObjectType(canonical.get("object_type"))
                 except Exception:
-                    previous = None
+                    continue
 
+                entity, subject = self._resolve_subject(object_type, canonical, validated)
+                previous = self.store.latest_ko(object_type, subject)
                 ko = self.builder.build(
                     canonical=canonical,
                     entity_refs=entity,
                     source_event_ids=[validated.event_id],
+                    source=validated.source,
+                    collector_id=validated.collector_id,
                 )
                 if ko is None:
                     continue
@@ -107,10 +100,34 @@ class AcquisitionPipeline:
             result.learning_events = learning
         return result
 
+    def _resolve_subject(
+        self,
+        object_type: KnowledgeObjectType,
+        canonical: dict[str, Any],
+        event: RawEvent,
+    ) -> tuple[EntityRefs, str]:
+        if object_type == KnowledgeObjectType.SECTOR_KNOWLEDGE:
+            sector = canonical.get("sector") or "Unknown"
+            sector_key = canonical.get("sector_key") or sector.lower().replace(" ", "_")
+            return EntityRefs(sector=sector, sector_key=sector_key), sector_key
+        if object_type == KnowledgeObjectType.MARKET_KNOWLEDGE:
+            market_key = canonical.get("market_key") or "india_equity"
+            return EntityRefs(market_key=market_key), market_key
+
+        entity = self.resolver.resolve(
+            canonical.get("company_symbol") or event.company_symbol or "",
+            hints={
+                "company_name": canonical.get("company_name"),
+                "sector": canonical.get("sector"),
+                "industry": canonical.get("industry"),
+            },
+        )
+        subject = entity.company_symbol or canonical.get("company_symbol") or ""
+        return entity, subject
+
     def run_collector(self, collector: BaseCollector) -> PipelineResult:
         logger.info("collecting collector_id=%s", collector.collector_id)
-        events = collector.collect()
-        return self.ingest_events(events)
+        return self.ingest_events(collector.collect())
 
     def status(self) -> dict[str, Any]:
         return {

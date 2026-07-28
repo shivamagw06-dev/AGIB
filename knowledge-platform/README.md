@@ -2,11 +2,12 @@
 
 Standalone always-on service that continuously ingests institutional data, converts it into AGI’s canonical knowledge model, and publishes Knowledge Objects to the Intelligence Engine.
 
-**Sprint 6.1** establishes the platform contract and supply chain. KAIP does **not** perform reasoning.
+**Sprint 6.1** established acquisition. **Sprint 6.2** defines Institutional Knowledge Objects — what AGI learns. KAIP does **not** perform reasoning.
 
-## Platform contract
+## Platform contracts
 
-See [`docs/KAIP_PLATFORM_CONTRACT.md`](docs/KAIP_PLATFORM_CONTRACT.md).
+- Acquisition: [`docs/KAIP_PLATFORM_CONTRACT.md`](docs/KAIP_PLATFORM_CONTRACT.md)
+- Knowledge model: [`docs/IKO_PLATFORM_CONTRACT.md`](docs/IKO_PLATFORM_CONTRACT.md)
 
 ## Pipeline
 
@@ -24,9 +25,9 @@ Sources → Scheduler → Collectors → Raw Event Store → Validation
 - `BSECorporateActionCollector` (daily)
 - `CompanyIRCollector` (daily)
 
-## Knowledge Objects (only five)
+## Institutional Knowledge Objects (ten)
 
-`CompanyProfile` · `MarketSnapshot` · `CorporateEvent` · `CorporateAction` · `FinancialStatement`
+`CompanyProfile` · `MarketSnapshot` · `FinancialStatement` · `CorporateEvent` · `CorporateAction` · `Ownership` · `AnalystConsensus` · `NewsEvent` · `SectorKnowledge` · `MarketKnowledge`
 
 ## Internal APIs
 
