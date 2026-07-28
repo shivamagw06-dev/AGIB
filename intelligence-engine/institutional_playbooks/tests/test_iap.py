@@ -151,6 +151,27 @@ def test_ice_surfaces_playbook_checklist() -> None:
     assert "analytical_checklist" in (comm.get("sections") or {})
 
 
+def test_cue_repo_does_not_match_report() -> None:
+    """Regression: single-token cue 'repo' must not fire inside 'report'."""
+    sel = select_playbook(
+        question="How would you detect inconsistencies between an investor presentation and the audited annual report?",
+        intent_v2="Analyse",
+        sector="it_services",
+        framework_ids=["FW_DCF", "FW_EV_EBITDA", "FW_HISTORICAL_VALUATION"],
+    )
+    assert sel["playbook_id"] == "PB_DOC_ANNUAL_REPORT"
+    assert sel["playbook_id"] != "PB_MACRO_RATE_TRANSMISSION"
+
+
+def test_initiate_coverage_cue() -> None:
+    sel = select_playbook(
+        question="What evidence should AGIB gather before recommending that an analyst initiate research coverage on a newly listed Indian company?",
+        intent_v2="Assess",
+        question_type="IC",
+    )
+    assert sel["playbook_id"] == "PB_IC_INITIATE_COVERAGE"
+
+
 def test_no_llm_imports_in_iap_package() -> None:
     banned = ("openai", "anthropic", "litellm", "langchain")
     for path in ROOT.rglob("*.py"):

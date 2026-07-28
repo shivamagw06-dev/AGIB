@@ -10,7 +10,17 @@ PLAYBOOKS = [
         name="IC Initiate / Fresh Coverage",
         category="investment_committee",
         question_types=["Analyse", "Assess", "IC", "Recommend"],
-        cues=["initiate coverage", "should we buy", "new position", "fresh look", "investment case"],
+        cues=[
+            "initiate coverage",
+            "initiate research",
+            "research coverage",
+            "newly listed",
+            "should we buy",
+            "new position",
+            "fresh look",
+            "investment case",
+            "before recommending that an analyst",
+        ],
         frameworks=["FW_DCF", "FW_PEER_COMPARISON", "FW_MOAT", "FW_GOVERNANCE"],
         checklist=[
             "Business quality",

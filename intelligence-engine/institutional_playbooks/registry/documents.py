@@ -12,11 +12,15 @@ PLAYBOOKS = [
         question_types=["Analyse", "Explain", "Document"],
         cues=[
             "annual report",
+            "audited annual report",
             "read the annual report",
             "how to analyse annual",
+            "sections of an annual",
             "md&a",
             "yearbook",
             "ar review",
+            "investor presentation",
+            "inconsistencies between",
         ],
         frameworks=["FW_ACCOUNTING", "FW_GOVERNANCE", "FW_EARNINGS_QUALITY", "FW_CAPITAL_ALLOCATION"],
         checklist=[

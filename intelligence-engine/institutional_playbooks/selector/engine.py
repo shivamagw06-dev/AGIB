@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from institutional_playbooks.checklist.expand import expand_checklist, guided_procedure
@@ -10,6 +11,19 @@ from institutional_playbooks.quality.gates import validate_selection
 from institutional_playbooks.registry.index import get_playbook, list_playbooks
 from institutional_playbooks.replay.filter import filter_by_as_of
 from institutional_playbooks.schema import FREEZE_LOCKS, IAP_VERSION, MODULE_CODE, PROGRAMME
+
+
+def _cue_match(cue: str, question_low: str) -> bool:
+    """Match multi-word cues as substrings; single tokens as word boundaries.
+
+    Prevents false hits like cue 'repo' matching inside 'report'.
+    """
+    cue = (cue or "").strip().lower()
+    if not cue:
+        return False
+    if " " in cue or "/" in cue or "-" in cue:
+        return cue in question_low
+    return re.search(rf"(?<![a-z0-9]){re.escape(cue)}(?![a-z0-9])", question_low) is not None
 
 
 def select_playbook(
@@ -159,9 +173,9 @@ def _score_playbook(
     score = 0
     reasons: list[str] = []
 
-    # Cue matches (strong)
+    # Cue matches (strong) — word-safe for single tokens
     for cue in pb.get("cues") or []:
-        if cue and cue in question_low:
+        if _cue_match(str(cue), question_low):
             score += 25
             reasons.append(f"cue:{cue}")
             if score >= 75:

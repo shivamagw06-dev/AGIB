@@ -13,11 +13,14 @@ PLAYBOOKS = [
         cues=[
             "premium multiple",
             "premium valuation",
+            "deserves a premium",
             "expensive stock",
             "why premium",
             "trades at a premium",
             "rich valuation",
             "overvalued",
+            "twice the valuation",
+            "identical revenue growth",
         ],
         frameworks=["FW_DCF", "FW_HISTORICAL_VALUATION", "FW_ROIC", "FW_PEER_COMPARISON"],
         checklist=[
