@@ -507,6 +507,26 @@ def daily_health_scorecard(*, ensure_pipeline: bool = True) -> dict[str, Any]:
             scorecard["roadmap_next"] = "tier_3_midcap_thematic"
     except Exception:
         scorecard["universe_intelligence"] = None
+    # AGIB v2.0 — soft-read Institutional Company Intelligence (never mutate ICI / reasoning).
+    try:
+        from knowledge_factory.company_intelligence.dashboard import company_intelligence_dashboard
+
+        ci = company_intelligence_dashboard(ensure=False)
+        scorecard["company_intelligence"] = {
+            "institutional_company_coverage_pct": ci.get("institutional_company_coverage_pct"),
+            "business_model_coverage_pct": ci.get("business_model_coverage_pct"),
+            "management_coverage_pct": ci.get("management_coverage_pct"),
+            "ownership_coverage_pct": ci.get("ownership_coverage_pct"),
+            "average_intelligence_score": ci.get("average_intelligence_score"),
+            "unknown_fields": ci.get("unknown_fields"),
+            "validation_failures": ci.get("validation_failures"),
+            "north_star": ci.get("north_star"),
+            "layer_label": ci.get("layer_label"),
+        }
+        if (ci.get("institutional_company_coverage_pct") or 0) >= 100:
+            scorecard["roadmap_next"] = "company_intelligence_depth_enrichment"
+    except Exception:
+        scorecard["company_intelligence"] = None
     store.put_report("daily_health", scorecard)
     return scorecard
 

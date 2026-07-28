@@ -189,6 +189,24 @@ def macro_intelligence_coverage() -> dict[str, Any]:
     return dash
 
 
+def run_company_intelligence_pipeline(**kwargs: Any) -> dict[str, Any]:
+    from knowledge_factory.company_intelligence.pipeline import run_company_intelligence_pipeline as _run
+
+    return _run(**kwargs)
+
+
+def company_intelligence_coverage() -> dict[str, Any]:
+    from knowledge_factory.company_intelligence.dashboard import company_intelligence_dashboard
+    from knowledge_factory.company_intelligence import store as ici_store
+
+    if ici_store.count() == 0:
+        try:
+            run_company_intelligence_pipeline()
+        except Exception:
+            pass
+    return company_intelligence_dashboard(ensure=False)
+
+
 def company_object(entity: str) -> dict[str, Any] | None:
     return store.get_object("company", entity)
 
@@ -199,6 +217,7 @@ def evidence_feed(entity: str) -> dict[str, Any] | None:
     obj = store.get_object("company", entity)
     hd_pack = None
     hd_obj = None
+    company_intelligence = None
     try:
         from knowledge_factory.historical_depth import store as hd_store
 
@@ -206,7 +225,14 @@ def evidence_feed(entity: str) -> dict[str, Any] | None:
         hd_obj = hd_store.get_object("company", entity)
     except Exception:
         pass
-    if not pack and not obj and not hd_pack and not hd_obj:
+    # Soft-read Institutional Company Intelligence (optional enrichment; never required).
+    try:
+        from knowledge_factory.company_intelligence import store as ici_store
+
+        company_intelligence = ici_store.get(entity)
+    except Exception:
+        company_intelligence = None
+    if not pack and not obj and not hd_pack and not hd_obj and not company_intelligence:
         return None
     return {
         "source": "knowledge_factory",
@@ -215,5 +241,6 @@ def evidence_feed(entity: str) -> dict[str, Any] | None:
         "company_object": obj,
         "historical_pack": hd_pack,
         "historical_company_object": hd_obj,
+        "company_intelligence": company_intelligence,
         "raw_api": False,
     }

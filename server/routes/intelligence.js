@@ -1296,6 +1296,35 @@ export default function createIntelligenceRouter() {
       res.status(502).json({ error: err?.message || 'ICI proxy failed' });
     }
   });
+  // AGIB v2.0 Sprint 1 — Institutional Company Intelligence (soft KF; read-only)
+  router.get('/company-intelligence/health', kfGet('/v1/company-intelligence/health'));
+  router.get('/company-intelligence/dashboard', kfGet('/v1/company-intelligence/dashboard'));
+  router.post('/company-intelligence/run', kfPost('/v1/company-intelligence/run'));
+  router.get('/company-intelligence/coverage', kfGet('/v1/company-intelligence/coverage'));
+  router.get('/company-intelligence/quality', kfGet('/v1/company-intelligence/quality'));
+  router.get('/company-intelligence/search', async (req, res) => {
+    try {
+      const q = new URLSearchParams({
+        q: String(req.query.q || ''),
+        limit: String(req.query.limit || '25'),
+      }).toString();
+      const result = await engineFetch(`/v1/company-intelligence/search?${q}`);
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err?.message || 'company-intelligence search proxy failed' });
+    }
+  });
+  router.get('/company-intelligence/:ticker', async (req, res) => {
+    try {
+      const q = req.query.refresh ? '?refresh=true' : '';
+      const result = await engineFetch(
+        `/v1/company-intelligence/${encodeURIComponent(req.params.ticker)}${q}`
+      );
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err?.message || 'company-intelligence proxy failed' });
+    }
+  });
   router.post('/knowledge-factory/run-daily', kfPost('/v1/knowledge-factory/run-daily'));
   router.get('/knowledge-factory/historical-depth', kfGet('/v1/knowledge-factory/historical-depth'));
   router.post('/knowledge-factory/historical-depth/run', kfPost('/v1/knowledge-factory/historical-depth/run'));

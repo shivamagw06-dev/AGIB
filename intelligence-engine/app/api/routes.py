@@ -7202,6 +7202,61 @@ async def universe_intelligence_tree():
     return universe_tree()
 
 
+# ---------------------------------------------------------------------------
+# AGIB v2.0 Sprint 1 — Institutional Company Intelligence (soft KF enrichment)
+# Read-only surface. Reasoning / governance / IUI / IDQ frozen.
+# ---------------------------------------------------------------------------
+@router.get("/company-intelligence/health")
+async def company_intelligence_health():
+    from knowledge_factory.company_intelligence.production import health as ici_health
+
+    return ici_health()
+
+
+@router.get("/company-intelligence/dashboard")
+async def company_intelligence_dashboard_route():
+    from knowledge_factory.company_intelligence.production import dashboard
+
+    return dashboard()
+
+
+@router.post("/company-intelligence/run")
+async def company_intelligence_run(body: dict | None = None):
+    from knowledge_factory.company_intelligence.production import run_pipeline
+
+    body = body or {}
+    tickers = body.get("tickers")
+    return run_pipeline(tickers=tickers)
+
+
+@router.get("/company-intelligence/coverage")
+async def company_intelligence_coverage():
+    from knowledge_factory.company_intelligence.production import coverage_summary
+
+    return coverage_summary()
+
+
+@router.get("/company-intelligence/quality")
+async def company_intelligence_quality():
+    from knowledge_factory.company_intelligence.production import quality_summary
+
+    return quality_summary()
+
+
+@router.get("/company-intelligence/search")
+async def company_intelligence_search(q: str = "", limit: int = 25):
+    from knowledge_factory.company_intelligence.production import search
+
+    return search(q, limit=limit)
+
+
+@router.get("/company-intelligence/{ticker}")
+async def company_intelligence_ticker(ticker: str, refresh: bool = False):
+    from knowledge_factory.company_intelligence.production import get_company
+
+    return get_company(ticker, refresh=refresh)
+
+
 @router.get("/knowledge-factory/historical-depth")
 async def knowledge_factory_historical_depth():
     """Historical Depth Coverage dashboard (Sprint 4 north-star KPI)."""

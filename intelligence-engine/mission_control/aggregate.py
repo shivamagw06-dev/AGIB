@@ -102,6 +102,22 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
     except Exception:
         out["universe_intelligence"] = None
     try:
+        from knowledge_factory.company_intelligence.dashboard import company_intelligence_dashboard
+
+        ci = company_intelligence_dashboard(ensure=False)
+        out["company_intelligence"] = {
+            "institutional_company_coverage_pct": ci.get("institutional_company_coverage_pct"),
+            "average_intelligence_score": ci.get("average_intelligence_score"),
+            "unknown_fields": ci.get("unknown_fields"),
+            "north_star": ci.get("north_star"),
+            "layer_label": ci.get("layer_label"),
+        }
+        out["sources"].append("company_intelligence")
+        if (ci.get("institutional_company_coverage_pct") or 0) >= 100:
+            out["roadmap_next"] = "company_intelligence_depth_enrichment"
+    except Exception:
+        out["company_intelligence"] = None
+    try:
         from knowledge_factory.production import historical_depth_coverage
 
         hd = historical_depth_coverage()
