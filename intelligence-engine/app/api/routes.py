@@ -7501,6 +7501,136 @@ async def industry_by_name(name: str, refresh: bool = False):
     return get_industry(name, refresh=refresh)
 
 
+# ---------------------------------------------------------------------------
+# AGIB v2.0 Sprint 5 — Institutional Economic Relationship Intelligence (IERI)
+# Soft KF knowledge only. Graph = implementation detail. No reasoning / planner.
+# ---------------------------------------------------------------------------
+@router.get("/relationship/health")
+async def relationship_health():
+    from knowledge_factory.economic_relationship_intelligence.production import health as ieri_health
+
+    return ieri_health()
+
+
+@router.get("/relationship/dashboard")
+async def relationship_dashboard_route():
+    from knowledge_factory.economic_relationship_intelligence.production import dashboard
+
+    return dashboard()
+
+
+@router.post("/relationship/run")
+async def relationship_run():
+    from knowledge_factory.economic_relationship_intelligence.production import run_pipeline
+
+    return run_pipeline()
+
+
+@router.get("/relationship/registry")
+async def relationship_registry():
+    from knowledge_factory.economic_relationship_intelligence.production import registry
+
+    return registry()
+
+
+@router.get("/relationship/search")
+async def relationship_search(
+    q: str = "",
+    semantics: str | None = None,
+    relationship_type: str | None = None,
+    limit: int = 50,
+    as_of: str | None = None,
+):
+    from knowledge_factory.economic_relationship_intelligence.production import search
+
+    return search(
+        q,
+        semantics=semantics,
+        relationship_type=relationship_type,
+        limit=limit,
+        as_of=as_of,
+    )
+
+
+@router.get("/relationship/path")
+async def relationship_path(
+    source: str,
+    target: str | None = None,
+    max_depth: int = 3,
+    semantics: str | None = None,
+    relationship_type: str | None = None,
+    as_of: str | None = None,
+    limit: int = 25,
+):
+    from knowledge_factory.economic_relationship_intelligence.production import path_query
+
+    return path_query(
+        source=source,
+        target=target,
+        max_depth=max_depth,
+        semantics=semantics,
+        relationship_type=relationship_type,
+        as_of=as_of,
+        limit=limit,
+    )
+
+
+@router.get("/relationship/replay")
+async def relationship_replay(as_of: str):
+    from knowledge_factory.economic_relationship_intelligence.production import replay
+
+    return replay(as_of=as_of)
+
+
+@router.get("/relationship/shock/{entity}")
+async def relationship_shock(entity: str, direction: str | None = None, max_order: int = 3, as_of: str | None = None):
+    from knowledge_factory.economic_relationship_intelligence.production import shock_impact
+
+    return shock_impact(entity, direction=direction, max_order=max_order, as_of=as_of)
+
+
+@router.get("/relationship/company/{ticker}")
+async def relationship_company(ticker: str, as_of: str | None = None):
+    from knowledge_factory.economic_relationship_intelligence.production import company
+
+    return company(ticker, as_of=as_of)
+
+
+@router.get("/relationship/industry/{industry}")
+async def relationship_industry(industry: str, as_of: str | None = None):
+    from knowledge_factory.economic_relationship_intelligence.production import industry as industry_view
+
+    return industry_view(industry, as_of=as_of)
+
+
+@router.get("/relationship/commodity/{commodity}")
+async def relationship_commodity(commodity: str, as_of: str | None = None):
+    from knowledge_factory.economic_relationship_intelligence.production import commodity as commodity_view
+
+    return commodity_view(commodity, as_of=as_of)
+
+
+@router.get("/relationship/policy/{policy}")
+async def relationship_policy(policy: str, as_of: str | None = None):
+    from knowledge_factory.economic_relationship_intelligence.production import policy as policy_view
+
+    return policy_view(policy, as_of=as_of)
+
+
+@router.get("/relationship/macro/{macro}")
+async def relationship_macro(macro: str, as_of: str | None = None):
+    from knowledge_factory.economic_relationship_intelligence.production import macro as macro_view
+
+    return macro_view(macro, as_of=as_of)
+
+
+@router.get("/relationship/network/{entity}")
+async def relationship_network(entity: str, depth: int = 2, as_of: str | None = None):
+    from knowledge_factory.economic_relationship_intelligence.production import network
+
+    return network(entity, depth=depth, as_of=as_of)
+
+
 @router.get("/knowledge-factory/historical-depth")
 async def knowledge_factory_historical_depth():
     """Historical Depth Coverage dashboard (Sprint 4 north-star KPI)."""

@@ -575,9 +575,32 @@ def daily_health_scorecard(*, ensure_pipeline: bool = True) -> dict[str, Any]:
             "future_roadmap": ind.get("future_roadmap"),
         }
         if (ind.get("institutional_ready_pct") or 0) >= 100 and (ind.get("companies_mapped") or 0) >= 500:
-            scorecard["roadmap_next"] = "economic_network_graph"
+            scorecard["roadmap_next"] = "economic_relationship_intelligence"
     except Exception:
         scorecard["industry_intelligence"] = None
+    # AGIB v2.0 Sprint 5 — soft-read Economic Relationship Intelligence (IERI).
+    try:
+        from knowledge_factory.economic_relationship_intelligence.dashboards import (
+            relationship_dashboard,
+        )
+
+        rel = relationship_dashboard(ensure=False)
+        cov = rel.get("economic_relationship_coverage") or {}
+        scorecard["economic_relationship_intelligence"] = {
+            "relationships": cov.get("relationships"),
+            "commodities": cov.get("commodities"),
+            "institutional_ready_pct": cov.get("institutional_ready_pct"),
+            "company_relationships": rel.get("company_relationships"),
+            "industry_relationships": rel.get("industry_relationships"),
+            "government_links": rel.get("government_links"),
+            "macro_links": rel.get("macro_links"),
+            "relationship_confidence": rel.get("relationship_confidence"),
+            "north_star": rel.get("north_star"),
+        }
+        if (cov.get("institutional_ready_pct") or 0) >= 100 and (cov.get("relationships") or 0) >= 50:
+            scorecard["roadmap_next"] = "portfolio_relationship_intelligence"
+    except Exception:
+        scorecard["economic_relationship_intelligence"] = None
     store.put_report("daily_health", scorecard)
     return scorecard
 

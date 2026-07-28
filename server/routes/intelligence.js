@@ -1447,6 +1447,83 @@ export default function createIntelligenceRouter() {
       res.status(502).json({ error: err?.message || 'industry company proxy failed' });
     }
   });
+  // AGIB v2.0 Sprint 5 — Institutional Economic Relationship Intelligence (IERI)
+  router.get('/relationship/health', kfGet('/v1/relationship/health'));
+  router.get('/relationship/dashboard', kfGet('/v1/relationship/dashboard'));
+  router.post('/relationship/run', kfPost('/v1/relationship/run'));
+  router.get('/relationship/registry', kfGet('/v1/relationship/registry'));
+  router.get('/relationship/search', async (req, res) => {
+    try {
+      const q = new URLSearchParams({
+        q: String(req.query.q || ''),
+        limit: String(req.query.limit || '50'),
+      });
+      if (req.query.semantics) q.set('semantics', String(req.query.semantics));
+      if (req.query.relationship_type) q.set('relationship_type', String(req.query.relationship_type));
+      if (req.query.as_of) q.set('as_of', String(req.query.as_of));
+      const result = await engineFetch(`/v1/relationship/search?${q.toString()}`);
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err?.message || 'relationship search proxy failed' });
+    }
+  });
+  router.get('/relationship/path', async (req, res) => {
+    try {
+      const q = new URLSearchParams({
+        source: String(req.query.source || ''),
+        max_depth: String(req.query.max_depth || '3'),
+        limit: String(req.query.limit || '25'),
+      });
+      if (req.query.target) q.set('target', String(req.query.target));
+      if (req.query.semantics) q.set('semantics', String(req.query.semantics));
+      if (req.query.relationship_type) q.set('relationship_type', String(req.query.relationship_type));
+      if (req.query.as_of) q.set('as_of', String(req.query.as_of));
+      const result = await engineFetch(`/v1/relationship/path?${q.toString()}`);
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err?.message || 'relationship path proxy failed' });
+    }
+  });
+  router.get('/relationship/replay', async (req, res) => {
+    try {
+      const q = new URLSearchParams({ as_of: String(req.query.as_of || '') }).toString();
+      const result = await engineFetch(`/v1/relationship/replay?${q}`);
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err?.message || 'relationship replay proxy failed' });
+    }
+  });
+  router.get('/relationship/shock/:entity', async (req, res) => {
+    try {
+      const q = new URLSearchParams();
+      if (req.query.direction) q.set('direction', String(req.query.direction));
+      if (req.query.max_order) q.set('max_order', String(req.query.max_order));
+      if (req.query.as_of) q.set('as_of', String(req.query.as_of));
+      const qs = q.toString();
+      const result = await engineFetch(
+        `/v1/relationship/shock/${encodeURIComponent(req.params.entity)}${qs ? `?${qs}` : ''}`
+      );
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err?.message || 'relationship shock proxy failed' });
+    }
+  });
+  for (const kind of ['company', 'industry', 'commodity', 'policy', 'macro', 'network']) {
+    router.get(`/relationship/${kind}/:id`, async (req, res) => {
+      try {
+        const q = new URLSearchParams();
+        if (req.query.as_of) q.set('as_of', String(req.query.as_of));
+        if (req.query.depth) q.set('depth', String(req.query.depth));
+        const qs = q.toString();
+        const result = await engineFetch(
+          `/v1/relationship/${kind}/${encodeURIComponent(req.params.id)}${qs ? `?${qs}` : ''}`
+        );
+        res.json(result);
+      } catch (err) {
+        res.status(502).json({ error: err?.message || `relationship ${kind} proxy failed` });
+      }
+    });
+  }
   router.get('/industry/:name', async (req, res) => {
     try {
       const q = req.query.refresh ? '?refresh=true' : '';

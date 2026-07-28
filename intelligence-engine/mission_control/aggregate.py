@@ -163,9 +163,28 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         }
         out["sources"].append("industry_intelligence")
         if (ind.get("institutional_ready_pct") or 0) >= 100 and (ind.get("companies_mapped") or 0) >= 500:
-            out["roadmap_next"] = "economic_network_graph"
+            out["roadmap_next"] = "economic_relationship_intelligence"
     except Exception:
         out["industry_intelligence"] = None
+    try:
+        from knowledge_factory.economic_relationship_intelligence.dashboards import (
+            relationship_dashboard,
+        )
+
+        rel = relationship_dashboard(ensure=False)
+        cov = rel.get("economic_relationship_coverage") or {}
+        out["economic_relationship_intelligence"] = {
+            "relationships": cov.get("relationships"),
+            "commodities": cov.get("commodities"),
+            "institutional_ready_pct": cov.get("institutional_ready_pct"),
+            "company_relationships": rel.get("company_relationships"),
+            "north_star": rel.get("north_star"),
+        }
+        out["sources"].append("economic_relationship_intelligence")
+        if (cov.get("institutional_ready_pct") or 0) >= 100 and (cov.get("relationships") or 0) >= 50:
+            out["roadmap_next"] = "portfolio_relationship_intelligence"
+    except Exception:
+        out["economic_relationship_intelligence"] = None
     try:
         from knowledge_factory.production import historical_depth_coverage
 

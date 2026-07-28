@@ -261,6 +261,28 @@ def industry_intelligence_coverage() -> dict[str, Any]:
     return industry_dashboard(ensure=False)
 
 
+def run_economic_relationship_pipeline(**kwargs: Any) -> dict[str, Any]:
+    from knowledge_factory.economic_relationship_intelligence.pipeline import (
+        run_economic_relationship_pipeline as _run,
+    )
+
+    return _run()
+
+
+def economic_relationship_coverage() -> dict[str, Any]:
+    from knowledge_factory.economic_relationship_intelligence.dashboards import (
+        relationship_dashboard,
+    )
+    from knowledge_factory.economic_relationship_intelligence import store as ieri_store
+
+    if ieri_store.relationship_count() == 0:
+        try:
+            run_economic_relationship_pipeline()
+        except Exception:
+            pass
+    return relationship_dashboard(ensure=False)
+
+
 def company_object(entity: str) -> dict[str, Any] | None:
     return store.get_object("company", entity)
 
@@ -275,6 +297,7 @@ def evidence_feed(entity: str) -> dict[str, Any] | None:
     corporate_events = None
     government_policies = None
     industry_intelligence = None
+    economic_relationships = None
     try:
         from knowledge_factory.historical_depth import store as hd_store
 
@@ -314,6 +337,13 @@ def evidence_feed(entity: str) -> dict[str, Any] | None:
         industry_intelligence = iivi_store.get_industry(iid) if iid else None
     except Exception:
         industry_intelligence = None
+    # Soft-read Economic Relationship Intelligence links for the entity.
+    try:
+        from knowledge_factory.economic_relationship_intelligence import store as ieri_store
+
+        economic_relationships = ieri_store.list_relationships(entity=entity)
+    except Exception:
+        economic_relationships = None
     if (
         not pack
         and not obj
@@ -323,6 +353,7 @@ def evidence_feed(entity: str) -> dict[str, Any] | None:
         and not corporate_events
         and not government_policies
         and not industry_intelligence
+        and not economic_relationships
     ):
         return None
     return {
@@ -336,5 +367,6 @@ def evidence_feed(entity: str) -> dict[str, Any] | None:
         "corporate_events": corporate_events,
         "government_policies": government_policies,
         "industry_intelligence": industry_intelligence,
+        "economic_relationships": economic_relationships,
         "raw_api": False,
     }
