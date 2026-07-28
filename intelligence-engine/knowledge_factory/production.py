@@ -129,6 +129,18 @@ def historical_depth_coverage() -> dict[str, Any]:
     return historical_depth_dashboard()
 
 
+def run_sector_intelligence_pipeline(**kwargs: Any) -> dict[str, Any]:
+    from knowledge_factory.sector_intelligence.pipeline import run_sector_intelligence_pipeline as _run
+
+    return _run(**kwargs)
+
+
+def sector_intelligence_coverage() -> dict[str, Any]:
+    from knowledge_factory.sector_intelligence.dashboard import sector_intelligence_dashboard
+
+    return sector_intelligence_dashboard()
+
+
 def company_object(entity: str) -> dict[str, Any] | None:
     return store.get_object("company", entity)
 

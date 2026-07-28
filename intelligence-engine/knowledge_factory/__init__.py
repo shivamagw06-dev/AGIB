@@ -21,6 +21,8 @@ from knowledge_factory.production import (
     quality_gates,
     run_daily_pipeline,
     run_historical_depth_pipeline,
+    run_sector_intelligence_pipeline,
+    sector_intelligence_coverage,
 )
 
 KF_VERSION = "knowledge-factory-v1.0.0"
@@ -43,4 +45,6 @@ __all__ = [
     "quality_gates",
     "run_daily_pipeline",
     "run_historical_depth_pipeline",
+    "run_sector_intelligence_pipeline",
+    "sector_intelligence_coverage",
 ]

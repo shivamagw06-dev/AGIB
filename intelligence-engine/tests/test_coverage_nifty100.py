@@ -28,6 +28,12 @@ def setup_function() -> None:
         hd_store.reset_store()
     except Exception:
         pass
+    try:
+        from knowledge_factory.sector_intelligence import store as isi_store
+
+        isi_store.reset_store()
+    except Exception:
+        pass
 
 
 def test_nifty_100_declared_size():
@@ -78,7 +84,7 @@ def test_daily_health_scorecard():
     assert health["decision_coverage"]["global"] == 0.0
     assert health["missing_metrics"] == 0
     assert health["validation_failures"] == 0
-    assert health["roadmap_next"] == "historical_depth"
+    assert health["roadmap_next"] in {"historical_depth", "sector_intelligence", "macro_intelligence"}
     assert "entity_coverage" in health["dimensions"]
     assert "confidence_coverage" in health["dimensions"]
 

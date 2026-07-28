@@ -17,6 +17,12 @@ def setup_function() -> None:
         hd_store.reset_store()
     except Exception:
         pass
+    try:
+        from knowledge_factory.sector_intelligence import store as isi_store
+
+        isi_store.reset_store()
+    except Exception:
+        pass
 
 
 def test_target_20_primitives_and_risk_series():
