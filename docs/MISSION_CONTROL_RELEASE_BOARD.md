@@ -30,8 +30,8 @@
 |--------|--------|--------|
 | 4.1 | IEW v1.0.0 | **FROZEN** |
 | 4.2 | IHG v1.0.0 | **FROZEN** |
-| 4.3 | **IHE** (Hypothesis Evaluation) | Next |
-| 4.4 | Committee Reasoning | Planned |
+| 4.3 | IHE v1.0.0 (Hypothesis Evaluation) | **Implemented** |
+| 4.4 | Committee Reasoning | Next |
 | 4.5 | Confidence Calibration | Planned |
 
 IEL now reports **Hypothesis Quality Score (HQS)** independently of CIO.

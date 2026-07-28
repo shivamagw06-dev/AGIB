@@ -68,12 +68,7 @@ def _score_plausibility(pack: dict[str, Any]) -> tuple[float, str]:
 def _score_coverage_quality(question: dict[str, Any], pack: dict[str, Any], ihe: dict[str, Any]) -> tuple[float, str]:
     if pack.get("insufficient_evidence"):
         return 85.0, "coverage_n_a_insufficient"
-    # Prefer IHE coverage scores when present
-    evaluated = [h for h in (ihe.get("evaluated_hypotheses") or []) if isinstance(h, dict)]
-    if evaluated:
-        avg = sum(float(h.get("coverage_score") or 0) for h in evaluated) / len(evaluated)
-        # coverage_score capped at 16 in IHE → map to 0..100
-        return round(min(100.0, (avg / 16.0) * 100.0), 1), "ihe_coverage"
+    # Family coverage (generation) + IHE coverage (evaluation)
     q = str(question.get("question") or "").lower()
     hyps = pack.get("hypotheses") or []
     keys = {str(h.get("template_key") or "") for h in hyps if isinstance(h, dict)}
@@ -84,20 +79,28 @@ def _score_coverage_quality(question: dict[str, Any], pack: dict[str, Any], ihe:
         expected_keys = ["guidance_disappointment", "valuation_rich", "margin_concern"]
     elif "premium" in q:
         expected_keys = ["higher_roe", "asset_quality", "deposit_franchise"]
-    if not expected_keys:
+    if expected_keys:
+        family = round(100.0 * sum(1 for k in expected_keys if k in keys) / max(1, len(expected_keys)), 1)
+    else:
         cats = {str(h.get("category")) for h in hyps if isinstance(h, dict)}
-        return (100.0 if len(cats) >= 2 or len(hyps) >= 2 else 60.0), "generic_category_spread"
-    hits = sum(1 for k in expected_keys if k in keys)
-    return round(100.0 * hits / max(1, len(expected_keys)), 1), f"coverage_hits={hits}/{len(expected_keys)}"
+        family = 100.0 if len(cats) >= 2 or len(hyps) >= 2 else 60.0
+
+    evaluated = [h for h in (ihe.get("evaluated_hypotheses") or []) if isinstance(h, dict)]
+    if evaluated:
+        # Soft map IHE coverage (cap 16): prefer top viable hypothesis, not mean of rejects
+        viable = [h for h in evaluated if h.get("status") != "Rejected"] or evaluated
+        top = max(viable, key=lambda h: float(h.get("coverage_score") or 0))
+        cov = float(top.get("coverage_score") or 0)
+        # 0→50, 4→75, 8→100 (evidence sets are large; absolute fraction is naturally low)
+        ihe_cov = round(min(100.0, 50.0 + (cov / 8.0) * 50.0), 1)
+        score = round(0.55 * family + 0.45 * ihe_cov, 1)
+        return score, f"family={family},ihe_cov={ihe_cov}"
+    return family, "family_only"
 
 
 def _score_support_quality(pack: dict[str, Any], ihe: dict[str, Any]) -> tuple[float, str]:
     if pack.get("insufficient_evidence"):
         return 100.0, "refused_to_invent"
-    evaluated = [h for h in (ihe.get("evaluated_hypotheses") or []) if isinstance(h, dict)]
-    if evaluated:
-        avg = sum(float(h.get("support_score") or 0) for h in evaluated) / len(evaluated)
-        return round(min(100.0, (avg / 22.0) * 100.0), 1), "ihe_support"
     hyps = [h for h in (pack.get("hypotheses") or []) if isinstance(h, dict)]
     unsupported = [
         h
@@ -106,6 +109,14 @@ def _score_support_quality(pack: dict[str, Any], ihe: dict[str, Any]) -> tuple[f
     ]
     if unsupported:
         return 20.0, f"unsupported_count={len(unsupported)}"
+    evaluated = [h for h in (ihe.get("evaluated_hypotheses") or []) if isinstance(h, dict)]
+    if evaluated:
+        viable = [h for h in evaluated if h.get("status") != "Rejected"] or evaluated
+        top = max(viable, key=lambda h: float(h.get("support_score") or 0))
+        sup = float(top.get("support_score") or 0)
+        # 0→55, 11→80, 22→100
+        ihe_sup = round(min(100.0, 55.0 + (sup / 22.0) * 45.0), 1)
+        return ihe_sup, "ihe_support_top_viable"
     return 100.0, "all_supported"
 
 
