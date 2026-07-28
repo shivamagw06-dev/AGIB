@@ -31,18 +31,20 @@ def communicate_from_ask(
     intent_resolution: dict[str, Any] | None = None,
     answer_assembly: dict[str, Any] | None = None,
     framework_selection: dict[str, Any] | None = None,
+    playbook_selection: dict[str, Any] | None = None,
     institutional_answer: dict[str, Any] | None = None,
     governance: dict[str, Any] | None = None,
     evidence: dict[str, Any] | None = None,
     knowledge: dict[str, Any] | None = None,
     replay_id: str | None = None,
 ) -> dict[str, Any]:
-    """Primary Ask soft-wire entry — consume B/C objects only."""
+    """Primary Ask soft-wire entry — consume B/C/IAP objects only."""
     ia = build_institutional_answer(
         question=question,
         intent_resolution=intent_resolution,
         answer_assembly=answer_assembly,
         framework_selection=framework_selection,
+        playbook_selection=playbook_selection,
         institutional_answer=institutional_answer,
         governance=governance,
         evidence=evidence,
