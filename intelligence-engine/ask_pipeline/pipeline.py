@@ -33,8 +33,11 @@ from ask_pipeline.recording import record_decision_quality, register_outcome
 from ask_pipeline.schema import FREEZE_LOCKS, PIPELINE_VERSION, PROGRAMME
 from ask_pipeline import store
 from ask_pipeline.telemetry import build_telemetry
+from observability.tracing import span as trace_span
+from observability.tracing import traced as trace_run
 
 
+@trace_run("agi.ask_pipeline", run_type="chain", tags=["agi", "ask_pipeline"])
 def run_complete_ask(
     question: str,
     *,
@@ -72,7 +75,23 @@ def run_complete_ask(
     # AGIB v3.4 Track A — Intent Resolution Layer (BEFORE IERE)
     # Language → Intent → Entities → Temporal → Question Type → Requirements
     # ------------------------------------------------------------------
-    irl = resolve_intent(question, ticker_hint=ticker_hint or context.get("ticker_hint"))
+    with trace_span(
+        "intent_resolution",
+        inputs={"question": question, "ticker_hint": ticker_hint},
+        tags=["ask", "intent"],
+    ) as _sp:
+        irl = resolve_intent(question, ticker_hint=ticker_hint or context.get("ticker_hint"))
+        _sp.end(
+            outputs={
+                "intent": irl.get("intent"),
+                "confidence": irl.get("intent_confidence"),
+                "question_type": irl.get("question_type"),
+                "as_of": irl.get("as_of"),
+                "concept_mode": irl.get("concept_mode"),
+                "secondary_intent": irl.get("secondary_intent"),
+                "rejected_intents": irl.get("rejected_intents"),
+            }
+        )
     stages["intent_resolution"] = {"status": "executed", **irl}
     context["intent_resolution"] = {
         "intent": irl.get("intent"),
@@ -161,22 +180,41 @@ def run_complete_ask(
     stages["policy"] = {"status": "executed", **policy}
 
     # S05 Knowledge (+ IERE) — inherits as_of + concept_mode
-    knowledge = retrieve_knowledge(
-        intent=intent_rec["intent"],
-        entities=context["entities"],
-        soft_tags=entities_rec.get("soft_tags"),
-        question=question,
-        as_of=irl.get("as_of"),
-        concept_mode=bool(irl.get("concept_mode")),
-    )
+    with trace_span(
+        "knowledge_retrieval",
+        run_type="retriever",
+        inputs={"intent": intent_rec["intent"], "as_of": irl.get("as_of")},
+        tags=["ask", "knowledge"],
+    ) as _sp:
+        knowledge = retrieve_knowledge(
+            intent=intent_rec["intent"],
+            entities=context["entities"],
+            soft_tags=entities_rec.get("soft_tags"),
+            question=question,
+            as_of=irl.get("as_of"),
+            concept_mode=bool(irl.get("concept_mode")),
+        )
+        _sp.end(
+            outputs={
+                "ranked_evidence": len(((knowledge.get("iere") or {}).get("ranked_evidence") or [])),
+                "as_of": knowledge.get("as_of"),
+            }
+        )
     stages["knowledge"] = knowledge
 
     # S06 Evidence — prefers IERE Evidence Packs when available; reasoning unchanged
-    evidence = assemble_evidence(
-        knowledge,
-        intent=intent_rec["intent"],
-        entities=context["entities"],
-    )
+    with trace_span(
+        "evidence_assembly",
+        run_type="retriever",
+        inputs={"intent": intent_rec["intent"]},
+        tags=["ask", "evidence"],
+    ) as _sp:
+        evidence = assemble_evidence(
+            knowledge,
+            intent=intent_rec["intent"],
+            entities=context["entities"],
+        )
+        _sp.end(outputs={"packs": sorted((evidence.get("governance_packs") or {}).keys())})
     stages["evidence"] = evidence
 
     # ------------------------------------------------------------------
@@ -214,17 +252,32 @@ def run_complete_ask(
     for item in ((knowledge.get("iere") or {}).get("ranked_evidence") or []):
         if isinstance(item, dict) and item.get("evidence_type"):
             evidence_types_present.append(str(item["evidence_type"]))
-    framework_selection = select_frameworks(
-        question=question,
-        intent_v2=str(irl.get("intent") or intent_rec.get("intent_v2") or "Unknown"),
-        question_type=question_type,
-        entities=list(entities_rec.get("entities") or []),
-        ticker_hint=None if irl.get("concept_mode") else ticker_hint,
-        concept_mode=bool(irl.get("concept_mode")),
-        as_of=irl.get("as_of"),
-        answer_assembly=answer_assembly,
-        evidence_types_present=evidence_types_present,
-    )
+    with trace_span(
+        "framework_selection",
+        inputs={
+            "intent_v2": str(irl.get("intent") or intent_rec.get("intent_v2") or "Unknown"),
+            "question_type": question_type,
+        },
+        tags=["ask", "framework"],
+    ) as _sp:
+        framework_selection = select_frameworks(
+            question=question,
+            intent_v2=str(irl.get("intent") or intent_rec.get("intent_v2") or "Unknown"),
+            question_type=question_type,
+            entities=list(entities_rec.get("entities") or []),
+            ticker_hint=None if irl.get("concept_mode") else ticker_hint,
+            concept_mode=bool(irl.get("concept_mode")),
+            as_of=irl.get("as_of"),
+            answer_assembly=answer_assembly,
+            evidence_types_present=evidence_types_present,
+        )
+        _sp.end(
+            outputs={
+                "framework_ids": framework_selection.get("framework_ids"),
+                "sector": framework_selection.get("sector"),
+                "confidence": (framework_selection.get("confidence") or {}).get("band"),
+            }
+        )
     ifse_store.record_selection(framework_selection)
     stages["framework_selection"] = {
         "status": "executed",
@@ -249,18 +302,29 @@ def run_complete_ask(
     # AGIB v3.5 — Institutional Analytical Playbooks (IAP)
     # AFTER framework selection, BEFORE reasoning. Guides reasoning; does not replace it.
     # ------------------------------------------------------------------
-    playbook_selection = select_playbook(
-        question=question,
-        intent_v2=str(irl.get("intent") or intent_rec.get("intent_v2") or "Unknown"),
-        question_type=question_type,
-        entities=list(entities_rec.get("entities") or []),
-        sector=framework_selection.get("sector"),
-        framework_ids=list(framework_selection.get("framework_ids") or []),
-        framework_selection=framework_selection,
-        concept_mode=bool(irl.get("concept_mode")),
-        as_of=irl.get("as_of"),
-        answer_assembly=answer_assembly,
-    )
+    with trace_span(
+        "playbook_selection",
+        inputs={"sector": framework_selection.get("sector")},
+        tags=["ask", "playbook"],
+    ) as _sp:
+        playbook_selection = select_playbook(
+            question=question,
+            intent_v2=str(irl.get("intent") or intent_rec.get("intent_v2") or "Unknown"),
+            question_type=question_type,
+            entities=list(entities_rec.get("entities") or []),
+            sector=framework_selection.get("sector"),
+            framework_ids=list(framework_selection.get("framework_ids") or []),
+            framework_selection=framework_selection,
+            concept_mode=bool(irl.get("concept_mode")),
+            as_of=irl.get("as_of"),
+            answer_assembly=answer_assembly,
+        )
+        _sp.end(
+            outputs={
+                "playbook_id": playbook_selection.get("playbook_id"),
+                "category": playbook_selection.get("category"),
+            }
+        )
     iap_store.record_selection(playbook_selection)
     stages["playbook_selection"] = {
         "status": "executed",
@@ -291,18 +355,31 @@ def run_complete_ask(
         (primary.get("entity_id") if primary else None)
         or (ticker_hint if not irl.get("entity_pollution_blocked") else None)
     )
-    evidence_graph = build_evidence_graph(
-        question=question,
-        entities=list(entities_rec.get("entities") or []),
-        ticker_hint=hint,
-        concept_mode=bool(irl.get("concept_mode")),
-        as_of=irl.get("as_of"),
-        evidence=evidence,
-        knowledge=knowledge,
-        playbook_selection=playbook_selection,
-        framework_selection=framework_selection,
-        intent_v2=str(irl.get("intent") or intent_rec.get("intent_v2") or "Unknown"),
-    )
+    with trace_span(
+        "evidence_graph",
+        run_type="retriever",
+        inputs={"ticker_hint": hint, "as_of": irl.get("as_of")},
+        tags=["ask", "evidence_graph"],
+    ) as _sp:
+        evidence_graph = build_evidence_graph(
+            question=question,
+            entities=list(entities_rec.get("entities") or []),
+            ticker_hint=hint,
+            concept_mode=bool(irl.get("concept_mode")),
+            as_of=irl.get("as_of"),
+            evidence=evidence,
+            knowledge=knowledge,
+            playbook_selection=playbook_selection,
+            framework_selection=framework_selection,
+            intent_v2=str(irl.get("intent") or intent_rec.get("intent_v2") or "Unknown"),
+        )
+        _sp.end(
+            outputs={
+                "n_nodes": evidence_graph.get("n_nodes"),
+                "n_edges": evidence_graph.get("n_edges"),
+                "domain_coverage_pct": evidence_graph.get("domain_coverage_pct"),
+            }
+        )
     ieg_store.record(evidence_graph)
 
     # ------------------------------------------------------------------
@@ -311,11 +388,17 @@ def run_complete_ask(
     # ------------------------------------------------------------------
     from temporal_integrity.production import guard as tirc_guard
 
-    _tirc_pre = tirc_guard(
-        as_of=irl.get("as_of"),
-        evidence_graph=evidence_graph,
-        stage="pre_analog",
-    )
+    with trace_span(
+        "temporal_integrity.replay_guard.pre_analog",
+        inputs={"as_of": irl.get("as_of")},
+        tags=["ask", "tirc", "replay_guard"],
+    ) as _sp:
+        _tirc_pre = tirc_guard(
+            as_of=irl.get("as_of"),
+            evidence_graph=evidence_graph,
+            stage="pre_analog",
+        )
+        _sp.end(outputs=_tirc_pre.get("report"))
     evidence_graph = _tirc_pre.get("evidence_graph") or evidence_graph
 
     stages["evidence_graph"] = {
@@ -346,20 +429,39 @@ def run_complete_ask(
     # AFTER Evidence Graph, BEFORE reasoning. "Have we seen this before?"
     # Soft-wire only — never fabricates analogues; never replaces reasoning.
     # ------------------------------------------------------------------
-    institutional_memory = retrieve_institutional_memory(
-        question=question,
-        evidence_graph=evidence_graph,
-        playbook=playbook_selection,
-        as_of=irl.get("as_of"),
-        top_k=5,
-    )
+    with trace_span(
+        "institutional_analog_intelligence",
+        run_type="retriever",
+        inputs={"as_of": irl.get("as_of"), "top_k": 5},
+        tags=["ask", "imai"],
+    ) as _sp:
+        institutional_memory = retrieve_institutional_memory(
+            question=question,
+            evidence_graph=evidence_graph,
+            playbook=playbook_selection,
+            as_of=irl.get("as_of"),
+            top_k=5,
+        )
+        _sp.end(
+            outputs={
+                "have_we_seen_this_before": institutional_memory.get("have_we_seen_this_before"),
+                "top_memory_ids": institutional_memory.get("top_memory_ids"),
+                "regimes": institutional_memory.get("regimes"),
+            }
+        )
 
     # TIRC Replay Guard — post-analog surface / period integrity
-    _tirc_post = tirc_guard(
-        as_of=irl.get("as_of"),
-        institutional_memory=institutional_memory,
-        stage="post_analog",
-    )
+    with trace_span(
+        "temporal_integrity.replay_guard.post_analog",
+        inputs={"as_of": irl.get("as_of")},
+        tags=["ask", "tirc", "replay_guard"],
+    ) as _sp:
+        _tirc_post = tirc_guard(
+            as_of=irl.get("as_of"),
+            institutional_memory=institutional_memory,
+            stage="post_analog",
+        )
+        _sp.end(outputs=_tirc_post.get("report"))
     institutional_memory = _tirc_post.get("institutional_memory") or institutional_memory
     stages["temporal_integrity"] = {
         "status": "executed",
@@ -488,17 +590,35 @@ def run_complete_ask(
     try:
         from institutional_reasoning.execution_governance import govern_answer
 
-        governance = govern_answer(
-            question,
-            ticker_hint=hint,
-            entity_resolution_pack=None if irl.get("concept_mode") else entity_resolution_pack,
-            packs=packs,
-            academy=academy,
-            build_institutional_evidence=bool(policy.get("build_institutional_evidence")),
-            build_portfolio_intelligence=bool(policy.get("build_portfolio_intelligence")),
-            build_outcome_intelligence=bool(policy.get("build_outcome_intelligence")),
-            question_type_override=question_type,
-        )
+        with trace_span(
+            "reasoning.governance",
+            inputs={
+                "question_type": question_type,
+                "packs": sorted(packs.keys()),
+                "build_institutional_evidence": bool(policy.get("build_institutional_evidence")),
+            },
+            tags=["ask", "reasoning"],
+        ) as _sp:
+            governance = govern_answer(
+                question,
+                ticker_hint=hint,
+                entity_resolution_pack=None if irl.get("concept_mode") else entity_resolution_pack,
+                packs=packs,
+                academy=academy,
+                build_institutional_evidence=bool(policy.get("build_institutional_evidence")),
+                build_portfolio_intelligence=bool(policy.get("build_portfolio_intelligence")),
+                build_outcome_intelligence=bool(policy.get("build_outcome_intelligence")),
+                question_type_override=question_type,
+            )
+            _sp.end(
+                outputs={
+                    "path": governance.get("path"),
+                    "question_type": governance.get("question_type"),
+                    "narrative_allowed": governance.get("narrative_allowed"),
+                    "frameworks": len(governance.get("frameworks") or []),
+                    "execution_ms": governance.get("execution_ms"),
+                }
+            )
         stages["governance"] = {
             "status": "executed",
             "run_id": governance.get("run_id"),
@@ -589,20 +709,32 @@ def run_complete_ask(
     # AGIB v3.4 Track D — Institutional Communication Engine (ICE)
     # Deterministic renderer of InstitutionalAnswer — no new reasoning.
     # ------------------------------------------------------------------
-    communication = communicate_from_ask(
-        question=question,
-        intent_resolution=irl,
-        answer_assembly=answer_assembly,
-        framework_selection=framework_selection,
-        playbook_selection=playbook_selection,
-        evidence_graph=evidence_graph,
-        institutional_memory=institutional_memory,
-        institutional_answer=institutional_answer,
-        governance=governance,
-        evidence=evidence,
-        knowledge=knowledge,
-        replay_id=context.get("replay_id"),
-    )
+    with trace_span(
+        "institutional_communication",
+        inputs={"intent": irl.get("intent"), "path": governance.get("path")},
+        tags=["ask", "ice"],
+    ) as _sp:
+        communication = communicate_from_ask(
+            question=question,
+            intent_resolution=irl,
+            answer_assembly=answer_assembly,
+            framework_selection=framework_selection,
+            playbook_selection=playbook_selection,
+            evidence_graph=evidence_graph,
+            institutional_memory=institutional_memory,
+            institutional_answer=institutional_answer,
+            governance=governance,
+            evidence=evidence,
+            knowledge=knowledge,
+            replay_id=context.get("replay_id"),
+        )
+        _sp.end(
+            outputs={
+                "template": communication.get("template"),
+                "executive_summary": communication.get("executive_summary"),
+                "answer_source": communication.get("answer_source"),
+            }
+        )
     stages["institutional_communication"] = {
         "status": "executed",
         "ice_version": communication.get("ice_version") or ICE_VERSION,
