@@ -456,6 +456,8 @@ _register(
 from institutional_reasoning.fundamentals import coverage_panels_nifty50 as _nifty50_panels  # noqa: E402,F401
 # Sprint 3 — Nifty 100 panels (side-effect registration).
 from institutional_reasoning.fundamentals import coverage_panels_nifty100 as _nifty100_panels  # noqa: E402,F401
+# Track 1 — Nifty 500 Tier-2 parametric panels (Infosys-class depth target).
+from institutional_reasoning.fundamentals import coverage_panels_nifty500 as _nifty500_panels  # noqa: E402,F401
 
 
 def has_primitives(entity_id: str | None) -> bool:

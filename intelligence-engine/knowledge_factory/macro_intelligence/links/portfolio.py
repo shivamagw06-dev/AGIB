@@ -28,7 +28,13 @@ def _map_macro_bucket(macro: str) -> str | None:
 
 
 def portfolio_macro_exposure(symbols: list[str] | None = None) -> dict[str, Any]:
-    symbols = symbols or list(COMPANY_SECTOR.keys())
+    if symbols is None:
+        try:
+            from knowledge_factory.nifty500_universe import NIFTY_500
+
+            symbols = list(NIFTY_500)
+        except Exception:
+            symbols = list(COMPANY_SECTOR.keys())
     buckets = {
         k: {"net_direction_score": 0.0, "contributors": []}
         for k in ("interest_rates", "inflation", "fx", "commodity", "liquidity", "gdp")
