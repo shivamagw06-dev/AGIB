@@ -412,6 +412,146 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("framework_selection")
     except Exception:
         out["framework_selection"] = None
+    # AGIB v3.4 Track D — ICE soft board
+    try:
+        from institutional_communication.production import dashboard as ice_dash
+        from institutional_communication.production import health as ice_health
+
+        ih = ice_health()
+        idash = ice_dash()
+        out["institutional_communication"] = {
+            "status": ih.get("status"),
+            "version": ih.get("ice_version"),
+            "communication_style": idash.get("communication_style"),
+            "template_used": idash.get("template_used"),
+            "framework_visibility": idash.get("framework_visibility"),
+            "citation_density": idash.get("citation_density"),
+            "narrative_completeness": idash.get("narrative_completeness"),
+            "confidence_quality": idash.get("confidence_quality"),
+            "generic_template_rate": idash.get("generic_template_rate"),
+        }
+        out["sources"].append("institutional_communication")
+    except Exception:
+        out["institutional_communication"] = None
+    # AGIB v3.5 — IAP soft board
+    try:
+        from institutional_playbooks.production import dashboard as iap_dash
+        from institutional_playbooks.production import health as iap_health
+
+        ph = iap_health()
+        pdash = iap_dash()
+        out["institutional_playbooks"] = {
+            "status": ph.get("status"),
+            "version": ph.get("iap_version"),
+            "registry_n": pdash.get("registry_n"),
+            "category_counts": pdash.get("category_counts"),
+            "target_met": pdash.get("target_met"),
+            "recent_n": pdash.get("recent_n"),
+            "guides_reasoning": True,
+        }
+        out["sources"].append("institutional_playbooks")
+    except Exception:
+        out["institutional_playbooks"] = None
+    # AGIB v3.6 Phase 2 — IEG soft board
+    try:
+        from institutional_evidence_graph.production import dashboard as ieg_dash
+        from institutional_evidence_graph.production import health as ieg_health
+
+        eh = ieg_health()
+        edash = ieg_dash()
+        out["institutional_evidence_graph"] = {
+            "status": eh.get("status"),
+            "version": eh.get("ieg_version"),
+            "n_domains": edash.get("n_domains"),
+            "avg_domain_coverage_pct": edash.get("avg_domain_coverage_pct"),
+            "recent_n": edash.get("recent_n"),
+            "guides_evidence": True,
+        }
+        out["sources"].append("institutional_evidence_graph")
+    except Exception:
+        out["institutional_evidence_graph"] = None
+    # AGIB v3.6 Phase 2 Sprint 2.2 — IMAI soft board
+    try:
+        from institutional_analog_intelligence.production import board as imai_board
+        from institutional_analog_intelligence.production import status as imai_status
+
+        mh = imai_status()
+        mdash = imai_board()
+        out["institutional_analog_intelligence"] = {
+            "status": mh.get("status"),
+            "version": mh.get("version"),
+            "memory_count": mh.get("memory_count"),
+            "memory_hits": mdash.get("memory_hits"),
+            "analog_accuracy": mdash.get("analog_accuracy"),
+            "regime_coverage": mdash.get("regime_coverage"),
+            "historical_coverage": mdash.get("historical_coverage"),
+            "replay_coverage": mdash.get("replay_coverage"),
+            "guides_memory": True,
+            "distinct_from_ilm": True,
+        }
+        out["sources"].append("institutional_analog_intelligence")
+    except Exception:
+        out["institutional_analog_intelligence"] = None
+    # AGIB Phase 3 Sprint 3.1 — IEL soft board
+    try:
+        from institutional_evaluation_lab.production import board as iel_board
+        from institutional_evaluation_lab.production import status as iel_status
+
+        ih = iel_status()
+        idash = iel_board()
+        latest = idash.get("latest_run") or {}
+        out["institutional_evaluation_lab"] = {
+            "status": ih.get("status"),
+            "version": ih.get("version"),
+            "catalogue_all": (ih.get("catalogue") or {}).get("all"),
+            "meets_1000_plus": (ih.get("catalogue") or {}).get("meets_1000_plus"),
+            "latest_pass_pct": latest.get("pass_pct"),
+            "latest_mean_score": latest.get("mean_score"),
+            "quality_targets": ih.get("quality_targets"),
+            "measurement_only": True,
+        }
+        out["sources"].append("institutional_evaluation_lab")
+    except Exception:
+        out["institutional_evaluation_lab"] = None
+    # AGIB Phase 3 Sprint 3.2 — RCI soft board
+    try:
+        from root_cause_intelligence.production import board as rci_board
+        from root_cause_intelligence.production import status as rci_status
+
+        rh = rci_status()
+        rdash = rci_board()
+        out["root_cause_intelligence"] = {
+            "status": rh.get("status"),
+            "version": rh.get("version"),
+            "n_failures": rdash.get("n_failures"),
+            "n_clusters": rdash.get("n_clusters"),
+            "iel_pass_pct": rdash.get("iel_pass_pct"),
+            "top_cluster": ((rdash.get("top_10") or [{}])[0]).get("impact_statement"),
+            "recommended_pr_count": len(rdash.get("recommended_prs") or []),
+            "gaps": rdash.get("gaps"),
+            "measurement_driven": True,
+        }
+        out["sources"].append("root_cause_intelligence")
+    except Exception:
+        out["root_cause_intelligence"] = None
+    # Patch Intelligence — human-in-the-loop briefs
+    try:
+        from patch_intelligence.production import status as pi_status
+        from root_cause_intelligence import store as rci_store
+
+        ph = pi_status()
+        latest = rci_store.latest() or {}
+        pi = latest.get("patch_intelligence") or {}
+        out["patch_intelligence"] = {
+            "status": ph.get("status"),
+            "version": ph.get("version"),
+            "n_briefs": pi.get("n_briefs"),
+            "highest_roi": (pi.get("highest_roi") or {}).get("recommended_title"),
+            "never_writes_code_automatically": True,
+        }
+        out["sources"].append("patch_intelligence")
+    except Exception:
+        out["patch_intelligence"] = None
     try:
         from knowledge_factory.production import historical_depth_coverage
 

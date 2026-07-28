@@ -25,19 +25,31 @@ _VALUATION = re.compile(
     r"residual income|sotp|sum[- ]of[- ]the[- ]parts|multiple|overvalued|undervalued|expensive|cheap)\b",
     re.I,
 )
+# Portfolio / allocation / rebalancing — exclude bare "capital allocation" (company governance).
 _PORTFOLIO = re.compile(
-    r"\b(should i invest|should we invest|portfolio|position size|allocation|buy |sell |recommend)\b",
+    r"\b(should i invest|should we invest|portfolio decision|portfolio review|"
+    r"portfolio construction|portfolio risk|portfolio\b|position siz(?:e|ing)|"
+    r"rebalanc(?:e|ing|ed)|watchlist|overweight|underweight|pair trade|"
+    r"sector allocation|asset allocation|(?<!capital )allocation|"
+    r"buy |sell |recommend)\b",
     re.I,
 )
-_RISK = re.compile(r"\b(risk|drawdown|downside|volatility|var\b|tail risk)\b", re.I)
+_RISK = re.compile(
+    r"\b(risk review|risk checklist|risk|drawdown|downside|volatility|var\b|tail risk)\b",
+    re.I,
+)
 _ACCOUNTING = re.compile(
     r"\b(accounting|cash flow|operating cash|accrual|earnings quality|working capital|"
-    r"revenue growth|cash conversion|balance sheet)\b",
+    r"revenue growth|cash conversion|balance sheet|revenue recognition|npa|"
+    r"inventory days|capitali[sz]ed costs?|deferred tax|promoter pledg|"
+    r"statements? and notes|notes to accounts|lease capitali)\b",
     re.I,
 )
 _INDUSTRY = re.compile(
     r"\b(industry|sector|cement|steel|software|fmcg|hospitals?|pharmaceutical|"
-    r"it services|psu banks?|value chain|peers?)\b",
+    r"it services|psu banks?|value chain|peers?|"
+    r"indian (?:airlines?|auto|paints?|metals?|telecom|nbfc|banks?|industrials?|"
+    r"utilities|consumer|cement|steel|pharma|fmcg|it services|real estate))\b",
     re.I,
 )
 _MACRO = re.compile(
@@ -60,7 +72,8 @@ _DOCUMENTS = re.compile(
 )
 _REPLAY = re.compile(
     r"\b(replay|point[- ]in[- ]time|as of|available on that date|future (?:information )?leakage|"
-    r"before covid|fy\s?\d{2,4})\b",
+    r"before covid|fy\s?\d{2,4}|institutional memory|historical analogues?|"
+    r"have we seen this before)\b",
     re.I,
 )
 _CROSS = re.compile(
@@ -68,30 +81,54 @@ _CROSS = re.compile(
     r"investment committee|evidence package|evidence pack)\b",
     re.I,
 )
+_PORTFOLIO_STRONG = re.compile(
+    r"\b(portfolio decision|portfolio review|portfolio construction|rebalanc(?:e|ing|ed)|"
+    r"watchlist|overweight|underweight|pair trade|sector allocation|asset allocation|"
+    r"position siz(?:e|ing)|portfolio risk review)\b",
+    re.I,
+)
+_FRAMEWORK_EXPLAIN = re.compile(
+    r"\b(when is .+ (?:correct|appropriate|misleading)|correct primary framework|"
+    r"when would it be misleading)\b",
+    re.I,
+)
 
 
 def analyse_language(question: str) -> dict[str, Any]:
     q = str(question or "").strip()
     ql = q.lower()
+    # "capital allocation" is company governance — not portfolio allocation intent.
+    capital_alloc = bool(re.search(r"\bcapital allocation\b", ql))
+    portfolio_hit = bool(_PORTFOLIO.search(ql)) and not (
+        capital_alloc and not _PORTFOLIO_STRONG.search(ql) and "portfolio" not in ql
+    )
     cues = {
         "explain": bool(_EXPLAIN.search(ql)),
         "compare": bool(_COMPARE.search(ql)),
         "analyse": bool(_ANALYSE.search(ql)),
         "education": bool(_EDUCATION.search(ql)),
         "valuation_lexicon": bool(_VALUATION.search(ql)),
-        "portfolio": bool(_PORTFOLIO.search(ql)),
+        "portfolio": portfolio_hit,
+        "portfolio_strong": bool(_PORTFOLIO_STRONG.search(ql)),
         "risk": bool(_RISK.search(ql)),
         "accounting": bool(_ACCOUNTING.search(ql)),
         "industry": bool(_INDUSTRY.search(ql)),
         "macro": bool(_MACRO.search(ql)),
         "government": bool(_GOVERNMENT.search(ql)),
         "corporate_events": bool(_EVENTS.search(ql)),
-        "documents": bool(_DOCUMENTS.search(ql)),
+        "documents": bool(_DOCUMENTS.search(ql))
+        or bool(re.search(r"\b(statements? and notes|notes to accounts)\b", ql)),
+        "documents_primary": bool(
+            re.search(r"\b(institutional documents?|using .+ documents|annual report)\b", ql)
+        ),
         "historical_replay": bool(_REPLAY.search(ql)),
         "cross_domain": bool(_CROSS.search(ql)),
+        "framework_explain": bool(_FRAMEWORK_EXPLAIN.search(ql)),
         "why_question": ql.strip().startswith("why") or " why " in f" {ql}",
         "how_would_you": "how would you" in ql or "how should" in ql,
         "list_request": bool(re.search(r"\b(list|enumerate|name every|every evidence)\b", ql)),
+        "investment_committee": bool(re.search(r"\binvestment committee\b", ql)),
+        "risk_review": bool(re.search(r"\b(risk checklist|risk review|falsify complacency)\b", ql)),
     }
     cue_count = sum(1 for v in cues.values() if v)
     return {

@@ -1523,6 +1523,10 @@ class UiService:
             )
             execution_governance = ask_pipeline_runtime.get("governance") or {}
             _iere = (ask_pipeline_runtime.get("knowledge") or {}).get("iere") or {}
+            _ice = ask_pipeline_runtime.get("communication") or {}
+            _pb = ask_pipeline_runtime.get("playbook_selection") or {}
+            _eg = ask_pipeline_runtime.get("evidence_graph") or {}
+            _im = ask_pipeline_runtime.get("institutional_memory") or {}
             execution_governance["ask_pipeline"] = {
                 "pipeline_id": ask_pipeline_runtime.get("pipeline_id"),
                 "replay_id": ask_pipeline_runtime.get("replay_id"),
@@ -1541,7 +1545,62 @@ class UiService:
                 or _iere.get("retrieval_id"),
                 "iere_ranked_count": _iere.get("ranked_count"),
                 "latency_ms": ask_pipeline_runtime.get("latency_ms"),
+                # AGIB v3.4 Track D — ICE metadata (soft)
+                "ice_version": _ice.get("ice_version")
+                or ask_pipeline_runtime.get("institutional_communication_version"),
+                "ice_template": _ice.get("template"),
+                "ice_framework_visible": _ice.get("framework_visible"),
+                "ice_validation_passed": (_ice.get("validation") or {}).get("passed"),
+                # AGIB v3.5 — IAP metadata (soft)
+                "iap_version": (_pb.get("iap_version") if isinstance(_pb, dict) else None)
+                or ask_pipeline_runtime.get("playbook_selection_version"),
+                "iap_playbook_id": (_pb.get("playbook_id") if isinstance(_pb, dict) else None),
+                "iap_category": (_pb.get("category") if isinstance(_pb, dict) else None),
+                "ieg_version": (_eg.get("ieg_version") if isinstance(_eg, dict) else None)
+                or ask_pipeline_runtime.get("evidence_graph_version"),
+                "ieg_graph_id": (_eg.get("graph_id") if isinstance(_eg, dict) else None),
+                "ieg_domain_coverage_pct": (_eg.get("domain_coverage_pct") if isinstance(_eg, dict) else None),
+                "ieg_n_nodes": (_eg.get("n_nodes") if isinstance(_eg, dict) else None),
+                "imai_version": (_im.get("imai_version") if isinstance(_im, dict) else None)
+                or ask_pipeline_runtime.get("institutional_memory_version"),
+                "imai_have_we_seen_this_before": (
+                    _im.get("have_we_seen_this_before") if isinstance(_im, dict) else None
+                ),
+                "imai_top_memory_ids": (_im.get("top_memory_ids") if isinstance(_im, dict) else None),
             }
+            execution_governance["institutional_communication"] = {
+                "template": _ice.get("template"),
+                "ice_version": _ice.get("ice_version"),
+                "framework_visible": _ice.get("framework_visible"),
+                "section_order": _ice.get("section_order"),
+                "validation": _ice.get("validation"),
+            }
+            if isinstance(_pb, dict) and _pb.get("playbook_id"):
+                execution_governance["playbook_selection"] = {
+                    "playbook_id": _pb.get("playbook_id"),
+                    "playbook_name": _pb.get("playbook_name"),
+                    "category": _pb.get("category"),
+                    "iap_version": _pb.get("iap_version"),
+                    "guides_reasoning": True,
+                }
+            if isinstance(_eg, dict) and _eg.get("graph_id"):
+                execution_governance["evidence_graph"] = {
+                    "graph_id": _eg.get("graph_id"),
+                    "entities": _eg.get("entities"),
+                    "n_nodes": _eg.get("n_nodes"),
+                    "domain_coverage_pct": _eg.get("domain_coverage_pct"),
+                    "ieg_version": _eg.get("ieg_version"),
+                    "guides_evidence": True,
+                }
+            if isinstance(_im, dict) and (_im.get("top_memory_ids") or _im.get("have_we_seen_this_before")):
+                execution_governance["institutional_memory"] = {
+                    "imai_version": _im.get("imai_version"),
+                    "have_we_seen_this_before": _im.get("have_we_seen_this_before"),
+                    "top_memory_ids": _im.get("top_memory_ids"),
+                    "regimes": _im.get("regimes"),
+                    "guides_memory": True,
+                    "invented_analogues": False,
+                }
             telemetry = persist_rows(
                 telemetry_rows(execution_governance, answer_id=execution_governance.get("run_id"))
             )
@@ -2577,6 +2636,76 @@ class UiService:
                 briefing["knowledge_gaps"] = reco_status.get("knowledge_gaps") or answer_construction.get(
                     "knowledge_gaps"
                 )
+
+        # AGIB v3.4 Track D — Institutional Communication Engine wins over generic templates.
+        # Soft-wire only: bind InstitutionalAnswer render; do not re-run reasoning.
+        _ice_view = (ask_pipeline_runtime or {}).get("communication") or {}
+        if isinstance(_ice_view, dict) and _ice_view.get("executive_summary"):
+            ice_exec = scrub_text(_ice_view.get("executive_summary"))
+            if ice_exec:
+                executive = ice_exec
+                answer["executive_summary"] = executive
+                answer["summary"] = executive
+                answer["communication_template"] = _ice_view.get("template")
+                answer["communication_sections"] = _ice_view.get("sections")
+                answer["source"] = "institutional_communication"
+                briefing["executive_summary"] = executive
+            ice_why = _ice_view.get("why") or []
+            if isinstance(ice_why, list) and ice_why:
+                why = [scrub_text(x) or str(x) for x in ice_why if x][:16]
+            answer["institutional_communication"] = {
+                "ice_version": _ice_view.get("ice_version"),
+                "template": _ice_view.get("template"),
+                "framework_visible": _ice_view.get("framework_visible"),
+                "playbook_visible": _ice_view.get("playbook_visible"),
+                "playbook_id": _ice_view.get("playbook_id"),
+                "validation": _ice_view.get("validation"),
+                "consumes_institutional_answer": True,
+                "llm_used": False,
+            }
+            _pb_view = (ask_pipeline_runtime or {}).get("playbook_selection") or {}
+            if isinstance(_pb_view, dict) and _pb_view.get("playbook_id"):
+                answer["playbook_selection"] = {
+                    "playbook_id": _pb_view.get("playbook_id"),
+                    "playbook_name": _pb_view.get("playbook_name"),
+                    "category": _pb_view.get("category"),
+                    "iap_version": _pb_view.get("iap_version"),
+                    "procedure": (_pb_view.get("procedure") or {}).get("arrow_text"),
+                    "guides_reasoning": True,
+                }
+            _eg_view = (ask_pipeline_runtime or {}).get("evidence_graph") or {}
+            if isinstance(_eg_view, dict) and _eg_view.get("graph_id"):
+                answer["evidence_graph"] = {
+                    "graph_id": _eg_view.get("graph_id"),
+                    "entities": _eg_view.get("entities"),
+                    "n_nodes": _eg_view.get("n_nodes"),
+                    "domain_coverage_pct": _eg_view.get("domain_coverage_pct"),
+                    "chains": (_eg_view.get("chain_bullets") or [])[:6],
+                    "ieg_version": _eg_view.get("ieg_version"),
+                    "guides_evidence": True,
+                }
+            _im_view = (ask_pipeline_runtime or {}).get("institutional_memory") or {}
+            if isinstance(_im_view, dict) and (
+                _im_view.get("have_we_seen_this_before") or _im_view.get("top_memory_ids")
+            ):
+                answer["institutional_memory"] = {
+                    "imai_version": _im_view.get("imai_version"),
+                    "have_we_seen_this_before": _im_view.get("have_we_seen_this_before"),
+                    "top_memory_ids": _im_view.get("top_memory_ids"),
+                    "surface_bullets": (_im_view.get("surface_bullets") or [])[:5],
+                    "regimes": _im_view.get("regimes"),
+                    "guides_memory": True,
+                }
+            if isinstance(_ice_view, dict):
+                answer["institutional_communication"] = {
+                    **(answer.get("institutional_communication") or {}),
+                    "evidence_graph_visible": _ice_view.get("evidence_graph_visible"),
+                    "evidence_graph_id": _ice_view.get("evidence_graph_id"),
+                    "institutional_memory_visible": _ice_view.get("institutional_memory_visible"),
+                    "have_we_seen_this_before": _ice_view.get("have_we_seen_this_before"),
+                    "top_memory_ids": _ice_view.get("top_memory_ids"),
+                }
+
         neutral_case = list(briefing.get("neutral_case") or [])
         if not neutral_case:
             if hv_card.get("stance") == "Neutral":
