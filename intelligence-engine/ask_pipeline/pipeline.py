@@ -19,6 +19,9 @@ from ask_pipeline.answer_assembly import (
 from ask_pipeline.intent_resolution import resolve_intent
 from framework_selection import IFSE_VERSION, select_frameworks
 from framework_selection import store as ifse_store
+from institutional_playbooks import IAP_VERSION, select_playbook
+from institutional_playbooks import store as iap_store
+from institutional_communication import ICE_VERSION, communicate_from_ask
 from ask_pipeline.knowledge import retrieve_knowledge
 from ask_pipeline.planner import run_planner
 from ask_pipeline.policy import execution_policy
@@ -238,6 +241,44 @@ def run_complete_ask(
         "confidence_pct": (framework_selection.get("confidence") or {}).get("pct"),
     }
 
+    # ------------------------------------------------------------------
+    # AGIB v3.5 — Institutional Analytical Playbooks (IAP)
+    # AFTER framework selection, BEFORE reasoning. Guides reasoning; does not replace it.
+    # ------------------------------------------------------------------
+    playbook_selection = select_playbook(
+        question=question,
+        intent_v2=str(irl.get("intent") or intent_rec.get("intent_v2") or "Unknown"),
+        question_type=question_type,
+        entities=list(entities_rec.get("entities") or []),
+        sector=framework_selection.get("sector"),
+        framework_ids=list(framework_selection.get("framework_ids") or []),
+        framework_selection=framework_selection,
+        concept_mode=bool(irl.get("concept_mode")),
+        as_of=irl.get("as_of"),
+        answer_assembly=answer_assembly,
+    )
+    iap_store.record_selection(playbook_selection)
+    stages["playbook_selection"] = {
+        "status": "executed",
+        "iap_version": playbook_selection.get("iap_version") or IAP_VERSION,
+        "playbook_id": playbook_selection.get("playbook_id"),
+        "category": playbook_selection.get("category"),
+        "checklist_steps": ((playbook_selection.get("checklist") or {}).get("n_steps")),
+        "procedure_steps": ((playbook_selection.get("procedure") or {}).get("n_steps")),
+        "confidence_band": (playbook_selection.get("confidence") or {}).get("band"),
+        "confidence_pct": (playbook_selection.get("confidence") or {}).get("pct"),
+        "validation_passed": (playbook_selection.get("validation") or {}).get("passed"),
+        "guides_reasoning": True,
+        "reasoning_changed": False,
+        "llm_used": False,
+        "fabricated": False,
+    }
+    context["playbook_selection"] = {
+        "playbook_id": playbook_selection.get("playbook_id"),
+        "category": playbook_selection.get("category"),
+        "confidence_pct": (playbook_selection.get("confidence") or {}).get("pct"),
+    }
+
     # S07 Planner — no ticker in Concept Mode
     hint = None if irl.get("concept_mode") else (
         (primary.get("entity_id") if primary else None)
@@ -275,6 +316,23 @@ def run_complete_ask(
         "validation": framework_selection.get("validation"),
         "fabricated": False,
         "reasoning_changed": False,
+    }
+    # Soft overlay — checklist/procedure guide reasoning; governance may ignore
+    packs["playbook_selection"] = {
+        "iap_version": playbook_selection.get("iap_version"),
+        "playbook_id": playbook_selection.get("playbook_id"),
+        "playbook_name": playbook_selection.get("playbook_name"),
+        "category": playbook_selection.get("category"),
+        "checklist": playbook_selection.get("checklist"),
+        "procedure": playbook_selection.get("procedure"),
+        "common_mistakes": playbook_selection.get("common_mistakes"),
+        "output_structure": playbook_selection.get("output_structure"),
+        "evidence_required": playbook_selection.get("evidence_required"),
+        "explanation": playbook_selection.get("explanation"),
+        "confidence": playbook_selection.get("confidence"),
+        "guides_reasoning": True,
+        "reasoning_changed": False,
+        "fabricated": False,
     }
 
     # S09 Reasoning (+ S10 portfolio via flags)
@@ -331,6 +389,19 @@ def run_complete_ask(
             "confidence": framework_selection.get("confidence"),
             "ifse_version": framework_selection.get("ifse_version"),
         },
+        "playbook_selection": {
+            "playbook_id": playbook_selection.get("playbook_id"),
+            "playbook_name": playbook_selection.get("playbook_name"),
+            "category": playbook_selection.get("category"),
+            "checklist": playbook_selection.get("checklist"),
+            "procedure": playbook_selection.get("procedure"),
+            "common_mistakes": playbook_selection.get("common_mistakes"),
+            "output_structure": playbook_selection.get("output_structure"),
+            "explanation": playbook_selection.get("explanation"),
+            "confidence": playbook_selection.get("confidence"),
+            "iap_version": playbook_selection.get("iap_version"),
+            "guides_reasoning": True,
+        },
     }
     stages["answer_binding"] = {
         "status": "executed",
@@ -340,6 +411,50 @@ def run_complete_ask(
         "generic": bool(institutional_answer.get("generic")),
         "llm_used": False,
         "fabricated": False,
+    }
+
+    # ------------------------------------------------------------------
+    # AGIB v3.4 Track D — Institutional Communication Engine (ICE)
+    # Deterministic renderer of InstitutionalAnswer — no new reasoning.
+    # ------------------------------------------------------------------
+    communication = communicate_from_ask(
+        question=question,
+        intent_resolution=irl,
+        answer_assembly=answer_assembly,
+        framework_selection=framework_selection,
+        playbook_selection=playbook_selection,
+        institutional_answer=institutional_answer,
+        governance=governance,
+        evidence=evidence,
+        knowledge=knowledge,
+        replay_id=context.get("replay_id"),
+    )
+    stages["institutional_communication"] = {
+        "status": "executed",
+        "ice_version": communication.get("ice_version") or ICE_VERSION,
+        "template": communication.get("template"),
+        "framework_visible": communication.get("framework_visible"),
+        "citation_density": communication.get("citation_density"),
+        "narrative_style": communication.get("narrative_style"),
+        "validation_passed": (communication.get("validation") or {}).get("passed"),
+        "narrative_completeness": (communication.get("validation") or {}).get(
+            "narrative_completeness"
+        ),
+        "generic_template": communication.get("generic_template"),
+        "llm_used": False,
+        "fabricated": False,
+        "reasoning_changed": False,
+    }
+    # Prefer ICE text on the institutional answer surface
+    institutional_answer = {
+        **institutional_answer,
+        "communication": {
+            "template": communication.get("template"),
+            "executive_summary": communication.get("executive_summary"),
+            "section_order": communication.get("section_order"),
+            "framework_visible": communication.get("framework_visible"),
+            "ice_version": communication.get("ice_version"),
+        },
     }
 
     # S11 DQ record
@@ -420,7 +535,9 @@ def run_complete_ask(
         "evidence": evidence,
         "answer_assembly": answer_assembly,
         "framework_selection": framework_selection,
+        "playbook_selection": playbook_selection,
         "institutional_answer": institutional_answer,
+        "communication": communication,
         "planner": planner,
         "dag": dag,
         "governance": governance,
@@ -450,7 +567,22 @@ def run_complete_ask(
         "answer_assembly_version": AAE_VERSION,
         "framework_selection": framework_selection,
         "framework_selection_version": IFSE_VERSION,
+        "playbook_selection": playbook_selection,
+        "playbook_selection_version": IAP_VERSION,
         "institutional_answer": institutional_answer,
+        "communication": communication,
+        "institutional_communication_version": ICE_VERSION,
+        "answer": {
+            "summary": communication.get("executive_summary"),
+            "executive_summary": communication.get("executive_summary"),
+            "why": communication.get("why") or [],
+            "prose": communication.get("prose"),
+            "template": communication.get("template"),
+            "sections": communication.get("sections"),
+            "source": "institutional_communication",
+            "fabricated": False,
+            "llm_used": False,
+        },
         "planner": planner,
         "dag": dag,
         "governance": governance,

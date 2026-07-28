@@ -7002,6 +7002,91 @@ async def framework_selection_history(limit: int = 50):
     return history(limit=limit)
 
 
+# ---------------------------------------------------------------------------
+# AGIB v3.4 Track D — Institutional Communication Engine (ICE)
+# Deterministic renderer of InstitutionalAnswer. Reasoning frozen.
+# ---------------------------------------------------------------------------
+@router.get("/institutional-communication/health")
+async def institutional_communication_health():
+    from institutional_communication.production import health
+
+    return health()
+
+
+@router.get("/institutional-communication/dashboard")
+async def institutional_communication_dashboard():
+    from institutional_communication.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/institutional-communication/history")
+async def institutional_communication_history(limit: int = 50):
+    from institutional_communication.production import history
+
+    return history(limit=limit)
+
+
+# ---------------------------------------------------------------------------
+# AGIB v3.5 — Institutional Analytical Playbooks (IAP)
+# Registry + selector between Framework Selection and Reasoning.
+# ---------------------------------------------------------------------------
+@router.get("/institutional-playbooks/health")
+async def institutional_playbooks_health():
+    from institutional_playbooks.production import health
+
+    return health()
+
+
+@router.get("/institutional-playbooks/dashboard")
+async def institutional_playbooks_dashboard():
+    from institutional_playbooks.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/institutional-playbooks/registry")
+async def institutional_playbooks_registry():
+    from institutional_playbooks.production import registry
+
+    return registry()
+
+
+@router.get("/institutional-playbooks/playbook/{playbook_id}")
+async def institutional_playbooks_playbook(playbook_id: str):
+    from institutional_playbooks.production import playbook
+
+    return playbook(playbook_id)
+
+
+@router.get("/institutional-playbooks/select")
+async def institutional_playbooks_select(
+    question: str,
+    intent_v2: str | None = None,
+    question_type: str | None = None,
+    sector: str | None = None,
+    concept_mode: bool = False,
+    as_of: str | None = None,
+):
+    from institutional_playbooks.production import select
+
+    return select(
+        question=question,
+        intent_v2=intent_v2,
+        question_type=question_type,
+        sector=sector,
+        concept_mode=concept_mode,
+        as_of=as_of,
+    )
+
+
+@router.get("/institutional-playbooks/history")
+async def institutional_playbooks_history(limit: int = 50):
+    from institutional_playbooks.production import history
+
+    return history(limit=limit)
+
+
 @router.get("/prediction/{prediction_id}")
 async def ail_prediction(prediction_id: str):
     try:

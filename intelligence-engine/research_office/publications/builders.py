@@ -346,6 +346,16 @@ def _publish(
         publication_type=publication_type,
         covered_entities=covered_entities or [],
     )
+    # AGIB v3.4 Track D — soft-wire ICE template render into body.communication
+    ice = _render_publication_communication(
+        title=title,
+        publication_type=publication_type,
+        covered_entities=covered_entities or [],
+        fw_meta=fw_meta,
+        sections=sections,
+    )
+    if ice:
+        body = {**body, "communication": ice}
     return register_publication(
         title=title,
         publication_type=publication_type,
@@ -390,19 +400,51 @@ def _select_publication_frameworks(
         entities = (
             [{"type": "company", "id": ticker, "confidence": 0.99}] if ticker else []
         )
+        intent_v2 = intent_map.get(publication_type, "Analyse")
         sel = select_frameworks(
             question=title,
-            intent_v2=intent_map.get(publication_type, "Analyse"),
+            intent_v2=intent_v2,
             entities=entities,
             ticker_hint=ticker,
             concept_mode=not bool(ticker),
         )
         ifse_store.record_selection(sel)
+        # AGIB v3.5 — soft-wire IAP after frameworks
+        playbook_meta: dict[str, Any] = {}
+        try:
+            from institutional_playbooks import IAP_VERSION, select_playbook
+            from institutional_playbooks import store as iap_store
+
+            pb = select_playbook(
+                question=title,
+                intent_v2=intent_v2,
+                sector=sel.get("sector"),
+                framework_ids=list(sel.get("framework_ids") or []),
+                framework_selection=sel,
+                concept_mode=not bool(ticker),
+            )
+            iap_store.record_selection(pb)
+            playbook_meta = {
+                "playbook_id": pb.get("playbook_id"),
+                "playbook_name": pb.get("playbook_name"),
+                "category": pb.get("category"),
+                "checklist": pb.get("checklist"),
+                "procedure": pb.get("procedure"),
+                "common_mistakes": pb.get("common_mistakes"),
+                "output_structure": pb.get("output_structure"),
+                "explanation": pb.get("explanation"),
+                "confidence": pb.get("confidence"),
+                "iap_version": pb.get("iap_version") or IAP_VERSION,
+                "guides_reasoning": True,
+            }
+        except Exception:
+            playbook_meta = {}
         return {
             "framework_used": list(sel.get("framework_ids") or []),
             "framework_confidence": sel.get("confidence") or {},
             "framework_version": sel.get("ifse_version") or IFSE_VERSION,
             "framework_explanation": sel.get("explanation"),
+            "playbook_selection": playbook_meta,
         }
     except Exception as exc:
         return {
@@ -410,4 +452,105 @@ def _select_publication_frameworks(
             "framework_confidence": {"error": str(exc)[:120]},
             "framework_version": None,
             "framework_explanation": None,
+            "playbook_selection": {},
         }
+
+
+def _render_publication_communication(
+    *,
+    title: str,
+    publication_type: str,
+    covered_entities: list[str],
+    fw_meta: dict[str, Any],
+    sections: dict[str, Any],
+) -> dict[str, Any] | None:
+    """Soft-wire ICE — publication logic unchanged; add communication render."""
+    try:
+        from institutional_communication.production import communicate
+        from institutional_communication.schema import ICE_VERSION
+
+        intent_map = {
+            "macro_intelligence_brief": "Macro",
+            "government_intelligence_brief": "Government",
+            "sector_intelligence_report": "Industry",
+            "industry_intelligence_report": "Industry",
+            "company_research_note": "Analyse",
+            "market_morning_brief": "CrossDomain",
+            "corporate_events_report": "CorporateEvents",
+            "alternative_data_report": "Analyse",
+            "market_expectations_report": "Analyse",
+        }
+        intent = intent_map.get(publication_type, "Analyse")
+        ia = {
+            "format": "institutional_answer_v1",
+            "question": title,
+            "intent_v2": intent,
+            "question_type": publication_type,
+            "concept_mode": not bool(covered_entities),
+            "as_of": None,
+            "sections": {
+                "executive_summary": {
+                    "bullets": list((sections.get("summary") or [])[:4]),
+                    "evidence_ids": [],
+                },
+                "evidence": {
+                    "bullets": list((sections.get("evidence") or [])[:8]),
+                    "evidence_ids": [],
+                },
+                "analysis": {
+                    "bullets": list((sections.get("summary") or [])[:4]),
+                    "evidence_ids": [],
+                },
+                "risks": {
+                    "bullets": list((sections.get("transparent_insufficiency") or ["none"])[:4]),
+                    "evidence_ids": [],
+                },
+                "confidence": {"bullets": [], "evidence_ids": []},
+                "sources": {"bullets": [], "evidence_ids": []},
+                "framework": {"bullets": [], "evidence_ids": []},
+                "conclusion": {"bullets": [], "evidence_ids": []},
+            },
+            "evidence": {"items": [], "pack_names": [], "iere_ranked_count": 0},
+            "frameworks": {
+                "framework_ids": fw_meta.get("framework_used") or [],
+                "selected": [
+                    {"framework_id": fid, "name": fid, "role": "primary"}
+                    for fid in (fw_meta.get("framework_used") or [])[:3]
+                ],
+                "primary": [
+                    {"framework_id": fid, "name": fid, "role": "primary"}
+                    for fid in (fw_meta.get("framework_used") or [])[:2]
+                ],
+                "secondary": [],
+                "supporting": [],
+                "forbidden_rejected": [],
+                "explanation": fw_meta.get("framework_explanation") or {},
+                "confidence": fw_meta.get("framework_confidence") or {},
+            },
+            "playbook": fw_meta.get("playbook_selection") or {},
+            "gaps": {"missing_domains": [], "coverage": 0.5, "tell_reasoning": "Publication soft-wire"},
+            "confidence": fw_meta.get("framework_confidence") or {"band": "Moderate", "score": 0.65},
+            "citations": {},
+            "risk_signals": {
+                "missing_domains": [],
+                "tell_reasoning": "Publication soft-wire",
+                "disagreements": [],
+            },
+            "replay": {},
+            "fabricated": False,
+        }
+        out = communicate(ia)
+        return {
+            "ice_version": out.get("ice_version") or ICE_VERSION,
+            "template": out.get("template"),
+            "executive_summary": out.get("executive_summary"),
+            "section_order": out.get("section_order"),
+            "framework_visible": out.get("framework_visible"),
+            "playbook_visible": out.get("playbook_visible"),
+            "playbook_id": out.get("playbook_id"),
+            "validation": out.get("validation"),
+            "llm_used": False,
+            "fabricated": False,
+        }
+    except Exception:
+        return None

@@ -412,6 +412,46 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("framework_selection")
     except Exception:
         out["framework_selection"] = None
+    # AGIB v3.4 Track D — ICE soft board
+    try:
+        from institutional_communication.production import dashboard as ice_dash
+        from institutional_communication.production import health as ice_health
+
+        ih = ice_health()
+        idash = ice_dash()
+        out["institutional_communication"] = {
+            "status": ih.get("status"),
+            "version": ih.get("ice_version"),
+            "communication_style": idash.get("communication_style"),
+            "template_used": idash.get("template_used"),
+            "framework_visibility": idash.get("framework_visibility"),
+            "citation_density": idash.get("citation_density"),
+            "narrative_completeness": idash.get("narrative_completeness"),
+            "confidence_quality": idash.get("confidence_quality"),
+            "generic_template_rate": idash.get("generic_template_rate"),
+        }
+        out["sources"].append("institutional_communication")
+    except Exception:
+        out["institutional_communication"] = None
+    # AGIB v3.5 — IAP soft board
+    try:
+        from institutional_playbooks.production import dashboard as iap_dash
+        from institutional_playbooks.production import health as iap_health
+
+        ph = iap_health()
+        pdash = iap_dash()
+        out["institutional_playbooks"] = {
+            "status": ph.get("status"),
+            "version": ph.get("iap_version"),
+            "registry_n": pdash.get("registry_n"),
+            "category_counts": pdash.get("category_counts"),
+            "target_met": pdash.get("target_met"),
+            "recent_n": pdash.get("recent_n"),
+            "guides_reasoning": True,
+        }
+        out["sources"].append("institutional_playbooks")
+    except Exception:
+        out["institutional_playbooks"] = None
     try:
         from knowledge_factory.production import historical_depth_coverage
 
