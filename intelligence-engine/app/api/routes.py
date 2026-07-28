@@ -7879,6 +7879,51 @@ async def scheduler_dashboard():
 
 
 # ---------------------------------------------------------------------------
+# AGIB v2.1 — Complete Ask Pipeline (read-only observability + sample runner)
+# ---------------------------------------------------------------------------
+@router.get("/ask/pipeline")
+async def ask_pipeline_board():
+    from ask_pipeline.production import dashboard, health
+
+    return {"health": health(), "dashboard": dashboard()}
+
+
+@router.get("/ask/context")
+async def ask_pipeline_context(pipeline_id: str):
+    from ask_pipeline.production import get_context
+
+    return get_context(pipeline_id)
+
+
+@router.get("/ask/execution")
+async def ask_pipeline_execution(pipeline_id: str):
+    from ask_pipeline.production import get_execution
+
+    return get_execution(pipeline_id)
+
+
+@router.get("/ask/telemetry")
+async def ask_pipeline_telemetry(pipeline_id: str | None = None):
+    from ask_pipeline.production import get_telemetry
+
+    return get_telemetry(pipeline_id)
+
+
+@router.get("/ask/replay")
+async def ask_pipeline_replay(replay_id: str):
+    from ask_pipeline.production import get_replay
+
+    return get_replay(replay_id)
+
+
+@router.get("/ask/quality-gates")
+async def ask_pipeline_quality_gates():
+    from ask_pipeline.production import quality_gates_sample
+
+    return quality_gates_sample()
+
+
+# ---------------------------------------------------------------------------
 # AGIB v2.0 — Unified Institutional Knowledge Stack (Sprints 1–7 soft orchestration)
 # ---------------------------------------------------------------------------
 @router.get("/institutional-knowledge/health")
