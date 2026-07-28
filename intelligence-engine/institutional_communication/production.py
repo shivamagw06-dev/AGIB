@@ -33,13 +33,14 @@ def communicate_from_ask(
     framework_selection: dict[str, Any] | None = None,
     playbook_selection: dict[str, Any] | None = None,
     evidence_graph: dict[str, Any] | None = None,
+    institutional_memory: dict[str, Any] | None = None,
     institutional_answer: dict[str, Any] | None = None,
     governance: dict[str, Any] | None = None,
     evidence: dict[str, Any] | None = None,
     knowledge: dict[str, Any] | None = None,
     replay_id: str | None = None,
 ) -> dict[str, Any]:
-    """Primary Ask soft-wire entry — consume B/C/IAP/IEG objects only."""
+    """Primary Ask soft-wire entry — consume B/C/IAP/IEG/IMAI objects only."""
     ia = build_institutional_answer(
         question=question,
         intent_resolution=intent_resolution,
@@ -47,6 +48,7 @@ def communicate_from_ask(
         framework_selection=framework_selection,
         playbook_selection=playbook_selection,
         evidence_graph=evidence_graph,
+        institutional_memory=institutional_memory,
         institutional_answer=institutional_answer,
         governance=governance,
         evidence=evidence,

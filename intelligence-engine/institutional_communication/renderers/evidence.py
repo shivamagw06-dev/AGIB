@@ -68,11 +68,27 @@ def render_evidence_section(institutional_answer: dict[str, Any]) -> dict[str, A
         else:
             lines = lines[:4] + graph_lines + lines[4:]
 
+    # AGIB v3.6 Sprint 2.2 — Historical Analogues (IMAI) — only when evidence exists
+    im = institutional_answer.get("institutional_memory") or {}
+    memory_lines: list[str] = []
+    if im.get("have_we_seen_this_before") and (im.get("surface_bullets") or im.get("memories")):
+        memory_lines.append(
+            bullet("Have we seen this before? — Institutional Memory & Analog Intelligence")
+        )
+        for b in (im.get("surface_bullets") or [])[:5]:
+            memory_lines.append(bullet(clean_line(str(b), max_len=260)))
+        comp = im.get("comparison") or {}
+        for lesson in (comp.get("similarities") or [])[:2]:
+            memory_lines.append(bullet(clean_line(f"Lesson from history: {lesson}", max_len=240)))
+        if memory_lines:
+            lines = lines[:6] + memory_lines + lines[6:]
+
     return {
         "section": "evidence",
         "title": "Evidence",
-        "bullets": lines[:18],
+        "bullets": lines[:22],
         "bindings": bindings,
         "visible": True,
         "evidence_graph_id": eg.get("graph_id"),
+        "institutional_memory_ids": im.get("top_memory_ids") or [],
     }

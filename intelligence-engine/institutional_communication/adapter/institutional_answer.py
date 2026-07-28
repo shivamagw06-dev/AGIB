@@ -13,6 +13,7 @@ def build_institutional_answer(
     framework_selection: dict[str, Any] | None = None,
     playbook_selection: dict[str, Any] | None = None,
     evidence_graph: dict[str, Any] | None = None,
+    institutional_memory: dict[str, Any] | None = None,
     institutional_answer: dict[str, Any] | None = None,
     governance: dict[str, Any] | None = None,
     evidence: dict[str, Any] | None = None,
@@ -26,6 +27,7 @@ def build_institutional_answer(
     ia = institutional_answer or {}
     ps = playbook_selection or ia_playbook(ia)
     eg = evidence_graph or ia_evidence_graph(ia)
+    im = institutional_memory or ia_institutional_memory(ia)
     gov = governance or {}
     kn = knowledge or {}
     iere = kn.get("iere") if isinstance(kn.get("iere"), dict) else {}
@@ -153,6 +155,18 @@ def build_institutional_answer(
             "ieg_version": eg.get("ieg_version"),
             "guides_evidence": True,
         },
+        "institutional_memory": {
+            "imai_version": im.get("imai_version") or im.get("version"),
+            "have_we_seen_this_before": bool(im.get("have_we_seen_this_before")),
+            "top_memory_ids": im.get("top_memory_ids") or [],
+            "memories": im.get("memories") or [],
+            "surface_bullets": im.get("surface_bullets") or [],
+            "comparison": im.get("comparison") or {},
+            "regimes": im.get("regimes") or [],
+            "as_of": im.get("as_of"),
+            "guides_memory": True,
+            "invented_analogues": False,
+        },
         "gaps": gaps,
         "confidence": conf,
         "citations": aa.get("citations") or {},
@@ -175,6 +189,7 @@ def build_institutional_answer(
             "has_framework_selection": bool(fs),
             "has_playbook_selection": bool(ps),
             "has_evidence_graph": bool(eg),
+            "has_institutional_memory": bool(im.get("top_memory_ids") or im.get("memories")),
             "has_institutional_answer": bool(ia),
             "has_governance": bool(gov),
         },
@@ -196,3 +211,10 @@ def ia_evidence_graph(institutional_answer: dict[str, Any] | None) -> dict[str, 
         return {}
     eg = institutional_answer.get("evidence_graph")
     return eg if isinstance(eg, dict) else {}
+
+
+def ia_institutional_memory(institutional_answer: dict[str, Any] | None) -> dict[str, Any]:
+    if not isinstance(institutional_answer, dict):
+        return {}
+    im = institutional_answer.get("institutional_memory")
+    return im if isinstance(im, dict) else {}

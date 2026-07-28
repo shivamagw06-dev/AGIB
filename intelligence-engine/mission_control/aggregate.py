@@ -470,6 +470,28 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("institutional_evidence_graph")
     except Exception:
         out["institutional_evidence_graph"] = None
+    # AGIB v3.6 Phase 2 Sprint 2.2 — IMAI soft board
+    try:
+        from institutional_analog_intelligence.production import board as imai_board
+        from institutional_analog_intelligence.production import status as imai_status
+
+        mh = imai_status()
+        mdash = imai_board()
+        out["institutional_analog_intelligence"] = {
+            "status": mh.get("status"),
+            "version": mh.get("version"),
+            "memory_count": mh.get("memory_count"),
+            "memory_hits": mdash.get("memory_hits"),
+            "analog_accuracy": mdash.get("analog_accuracy"),
+            "regime_coverage": mdash.get("regime_coverage"),
+            "historical_coverage": mdash.get("historical_coverage"),
+            "replay_coverage": mdash.get("replay_coverage"),
+            "guides_memory": True,
+            "distinct_from_ilm": True,
+        }
+        out["sources"].append("institutional_analog_intelligence")
+    except Exception:
+        out["institutional_analog_intelligence"] = None
     try:
         from knowledge_factory.production import historical_depth_coverage
 

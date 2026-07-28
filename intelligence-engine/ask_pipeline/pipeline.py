@@ -23,6 +23,8 @@ from institutional_playbooks import IAP_VERSION, select_playbook
 from institutional_playbooks import store as iap_store
 from institutional_evidence_graph import IEG_VERSION, build_evidence_graph
 from institutional_evidence_graph import store as ieg_store
+from institutional_analog_intelligence import IMAI_VERSION
+from institutional_analog_intelligence.production import retrieve as retrieve_institutional_memory
 from institutional_communication import ICE_VERSION, communicate_from_ask
 from ask_pipeline.knowledge import retrieve_knowledge
 from ask_pipeline.planner import run_planner
@@ -324,6 +326,39 @@ def run_complete_ask(
         "n_nodes": evidence_graph.get("n_nodes"),
     }
 
+    # ------------------------------------------------------------------
+    # AGIB v3.6 Phase 2 Sprint 2.2 — Institutional Memory & Analog Intelligence
+    # AFTER Evidence Graph, BEFORE reasoning. "Have we seen this before?"
+    # Soft-wire only — never fabricates analogues; never replaces reasoning.
+    # ------------------------------------------------------------------
+    institutional_memory = retrieve_institutional_memory(
+        question=question,
+        evidence_graph=evidence_graph,
+        playbook=playbook_selection,
+        as_of=irl.get("as_of"),
+        top_k=5,
+    )
+    stages["institutional_memory"] = {
+        "status": "executed",
+        "imai_version": institutional_memory.get("imai_version") or IMAI_VERSION,
+        "have_we_seen_this_before": institutional_memory.get("have_we_seen_this_before"),
+        "top_memory_ids": institutional_memory.get("top_memory_ids"),
+        "scored_count": institutional_memory.get("scored_count"),
+        "regimes": institutional_memory.get("regimes"),
+        "quality_status": (institutional_memory.get("quality") or {}).get("status"),
+        "as_of": institutional_memory.get("as_of"),
+        "guides_memory": True,
+        "reasoning_changed": False,
+        "llm_used": False,
+        "fabricated": False,
+        "invented_analogues": False,
+    }
+    context["institutional_memory"] = {
+        "top_memory_ids": institutional_memory.get("top_memory_ids"),
+        "have_we_seen_this_before": institutional_memory.get("have_we_seen_this_before"),
+        "imai_version": institutional_memory.get("imai_version") or IMAI_VERSION,
+    }
+
     # S07 Planner — no ticker in Concept Mode
     planner = run_planner(question, ticker_hint=hint, policy=policy)
     stages["planner"] = planner
@@ -396,6 +431,21 @@ def run_complete_ask(
         "missing_evidence_required": evidence_graph.get("missing_evidence_required"),
         "guides_evidence": True,
         "reasoning_changed": False,
+        "fabricated": False,
+    }
+    packs["institutional_memory"] = {
+        "imai_version": institutional_memory.get("imai_version") or IMAI_VERSION,
+        "have_we_seen_this_before": institutional_memory.get("have_we_seen_this_before"),
+        "top_memory_ids": institutional_memory.get("top_memory_ids"),
+        "memories": institutional_memory.get("memories"),
+        "surface_bullets": institutional_memory.get("surface_bullets"),
+        "comparison": institutional_memory.get("comparison"),
+        "regimes": institutional_memory.get("regimes"),
+        "as_of": institutional_memory.get("as_of"),
+        "quality": institutional_memory.get("quality"),
+        "guides_memory": True,
+        "reasoning_changed": False,
+        "invented_analogues": False,
         "fabricated": False,
     }
 
@@ -478,6 +528,18 @@ def run_complete_ask(
             "ieg_version": evidence_graph.get("ieg_version"),
             "guides_evidence": True,
         },
+        "institutional_memory": {
+            "imai_version": institutional_memory.get("imai_version") or IMAI_VERSION,
+            "have_we_seen_this_before": institutional_memory.get("have_we_seen_this_before"),
+            "top_memory_ids": institutional_memory.get("top_memory_ids"),
+            "memories": institutional_memory.get("memories"),
+            "surface_bullets": institutional_memory.get("surface_bullets"),
+            "comparison": institutional_memory.get("comparison"),
+            "regimes": institutional_memory.get("regimes"),
+            "as_of": institutional_memory.get("as_of"),
+            "guides_memory": True,
+            "invented_analogues": False,
+        },
     }
     stages["answer_binding"] = {
         "status": "executed",
@@ -500,6 +562,7 @@ def run_complete_ask(
         framework_selection=framework_selection,
         playbook_selection=playbook_selection,
         evidence_graph=evidence_graph,
+        institutional_memory=institutional_memory,
         institutional_answer=institutional_answer,
         governance=governance,
         evidence=evidence,
@@ -614,6 +677,7 @@ def run_complete_ask(
         "framework_selection": framework_selection,
         "playbook_selection": playbook_selection,
         "evidence_graph": evidence_graph,
+        "institutional_memory": institutional_memory,
         "institutional_answer": institutional_answer,
         "communication": communication,
         "planner": planner,
@@ -649,6 +713,8 @@ def run_complete_ask(
         "playbook_selection_version": IAP_VERSION,
         "evidence_graph": evidence_graph,
         "evidence_graph_version": IEG_VERSION,
+        "institutional_memory": institutional_memory,
+        "institutional_memory_version": IMAI_VERSION,
         "institutional_answer": institutional_answer,
         "communication": communication,
         "institutional_communication_version": ICE_VERSION,
