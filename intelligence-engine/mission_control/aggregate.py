@@ -134,6 +134,22 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
     except Exception:
         out["corporate_events"] = None
     try:
+        from knowledge_factory.government_intelligence.dashboard import government_dashboard
+
+        gov = government_dashboard(ensure=False)
+        out["government_intelligence"] = {
+            "coverage_pct": gov.get("coverage_pct"),
+            "policy_count": gov.get("policy_count"),
+            "high_impact_policies": gov.get("high_impact_policies"),
+            "replay_status": gov.get("replay_status"),
+            "north_star": gov.get("north_star"),
+        }
+        out["sources"].append("government_intelligence")
+        if (gov.get("coverage_pct") or 0) >= 100:
+            out["roadmap_next"] = "industry_intelligence"
+    except Exception:
+        out["government_intelligence"] = None
+    try:
         from knowledge_factory.production import historical_depth_coverage
 
         hd = historical_depth_coverage()

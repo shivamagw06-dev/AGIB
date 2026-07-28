@@ -1368,6 +1368,48 @@ export default function createIntelligenceRouter() {
   });
   router.get('/events/today', kfGet('/v1/events/today'));
   router.get('/events/critical', kfGet('/v1/events/critical'));
+  // AGIB v2.0 Sprint 3 — Institutional Government & Regulatory Intelligence
+  router.get('/government/health', kfGet('/v1/government/health'));
+  router.get('/government/dashboard', kfGet('/v1/government/dashboard'));
+  router.post('/government/run', kfPost('/v1/government/run'));
+  router.get('/government/policies', kfGet('/v1/government/policies'));
+  router.get('/government/search', async (req, res) => {
+    try {
+      const q = new URLSearchParams({
+        q: String(req.query.q || ''),
+        limit: String(req.query.limit || '25'),
+      }).toString();
+      const result = await engineFetch(`/v1/government/search?${q}`);
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err?.message || 'government search proxy failed' });
+    }
+  });
+  router.get('/government/rbi', kfGet('/v1/government/rbi'));
+  router.get('/government/sebi', kfGet('/v1/government/sebi'));
+  router.get('/government/budget', kfGet('/v1/government/budget'));
+  router.get('/government/gst', kfGet('/v1/government/gst'));
+  router.get('/government/pli', kfGet('/v1/government/pli'));
+  router.get('/government/trade', kfGet('/v1/government/trade'));
+  router.get('/government/timeline', async (req, res) => {
+    try {
+      const q = req.query.as_of ? `?as_of=${encodeURIComponent(String(req.query.as_of))}` : '';
+      const result = await engineFetch(`/v1/government/timeline${q}`);
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err?.message || 'government timeline proxy failed' });
+    }
+  });
+  router.get('/government/policy/:policyId', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/government/policy/${encodeURIComponent(req.params.policyId)}`
+      );
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err?.message || 'government policy proxy failed' });
+    }
+  });
   router.post('/knowledge-factory/run-daily', kfPost('/v1/knowledge-factory/run-daily'));
   router.get('/knowledge-factory/historical-depth', kfGet('/v1/knowledge-factory/historical-depth'));
   router.post('/knowledge-factory/historical-depth/run', kfPost('/v1/knowledge-factory/historical-depth/run'));

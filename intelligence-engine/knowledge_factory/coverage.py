@@ -544,6 +544,22 @@ def daily_health_scorecard(*, ensure_pipeline: bool = True) -> dict[str, Any]:
             scorecard["roadmap_next"] = "government_regulatory_intelligence"
     except Exception:
         scorecard["corporate_events"] = None
+    # AGIB v2.0 Sprint 3 — soft-read Government & Regulatory Intelligence.
+    try:
+        from knowledge_factory.government_intelligence.dashboard import government_dashboard
+
+        gov = government_dashboard(ensure=False)
+        scorecard["government_intelligence"] = {
+            "coverage_pct": gov.get("coverage_pct"),
+            "policy_count": gov.get("policy_count"),
+            "high_impact_policies": gov.get("high_impact_policies"),
+            "replay_status": gov.get("replay_status"),
+            "north_star": gov.get("north_star"),
+        }
+        if (gov.get("coverage_pct") or 0) >= 100:
+            scorecard["roadmap_next"] = "industry_intelligence"
+    except Exception:
+        scorecard["government_intelligence"] = None
     store.put_report("daily_health", scorecard)
     return scorecard
 

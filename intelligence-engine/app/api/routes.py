@@ -7318,6 +7318,101 @@ async def events_critical_route(limit: int = 50):
     return events_critical(limit=limit)
 
 
+# ---------------------------------------------------------------------------
+# AGIB v2.0 Sprint 3 — Institutional Government & Regulatory Intelligence
+# Soft KF knowledge only. No political opinion / policy forecasts.
+# ---------------------------------------------------------------------------
+@router.get("/government/health")
+async def government_health():
+    from knowledge_factory.government_intelligence.production import health as igri_health
+
+    return igri_health()
+
+
+@router.get("/government/dashboard")
+async def government_dashboard_route():
+    from knowledge_factory.government_intelligence.production import dashboard
+
+    return dashboard()
+
+
+@router.post("/government/run")
+async def government_run():
+    from knowledge_factory.government_intelligence.production import run_pipeline
+
+    return run_pipeline()
+
+
+@router.get("/government/policies")
+async def government_policies(domain: str | None = None):
+    from knowledge_factory.government_intelligence.production import list_policies
+
+    return list_policies(domain=domain)
+
+
+@router.get("/government/policy/{policy_id}")
+async def government_policy(policy_id: str):
+    from knowledge_factory.government_intelligence.production import get_policy
+
+    return get_policy(policy_id)
+
+
+@router.get("/government/search")
+async def government_search(q: str = "", limit: int = 25):
+    from knowledge_factory.government_intelligence.production import search
+
+    return search(q, limit=limit)
+
+
+@router.get("/government/rbi")
+async def government_rbi():
+    from knowledge_factory.government_intelligence.production import domain_view
+
+    return domain_view("rbi")
+
+
+@router.get("/government/sebi")
+async def government_sebi():
+    from knowledge_factory.government_intelligence.production import domain_view
+
+    return domain_view("sebi")
+
+
+@router.get("/government/budget")
+async def government_budget():
+    from knowledge_factory.government_intelligence.production import domain_view
+
+    return domain_view("budget")
+
+
+@router.get("/government/gst")
+async def government_gst():
+    from knowledge_factory.government_intelligence.production import domain_view
+
+    return domain_view("gst")
+
+
+@router.get("/government/pli")
+async def government_pli():
+    from knowledge_factory.government_intelligence.production import domain_view
+
+    return domain_view("pli")
+
+
+@router.get("/government/trade")
+async def government_trade():
+    from knowledge_factory.government_intelligence.production import domain_view
+
+    return domain_view("trade")
+
+
+@router.get("/government/timeline")
+async def government_timeline(as_of: str | None = None):
+    from knowledge_factory.government_intelligence.production import timeline
+
+    return timeline(as_of=as_of)
+
+
 @router.get("/knowledge-factory/historical-depth")
 async def knowledge_factory_historical_depth():
     """Historical Depth Coverage dashboard (Sprint 4 north-star KPI)."""

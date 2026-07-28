@@ -225,6 +225,24 @@ def corporate_events_coverage() -> dict[str, Any]:
     return corporate_events_dashboard(ensure=False)
 
 
+def run_government_intelligence_pipeline(**kwargs: Any) -> dict[str, Any]:
+    from knowledge_factory.government_intelligence.pipeline import run_government_intelligence_pipeline as _run
+
+    return _run()
+
+
+def government_intelligence_coverage() -> dict[str, Any]:
+    from knowledge_factory.government_intelligence.dashboard import government_dashboard
+    from knowledge_factory.government_intelligence import store as igri_store
+
+    if igri_store.policy_count() == 0:
+        try:
+            run_government_intelligence_pipeline()
+        except Exception:
+            pass
+    return government_dashboard(ensure=False)
+
+
 def company_object(entity: str) -> dict[str, Any] | None:
     return store.get_object("company", entity)
 
@@ -237,6 +255,7 @@ def evidence_feed(entity: str) -> dict[str, Any] | None:
     hd_obj = None
     company_intelligence = None
     corporate_events = None
+    government_policies = None
     try:
         from knowledge_factory.historical_depth import store as hd_store
 
@@ -258,7 +277,25 @@ def evidence_feed(entity: str) -> dict[str, Any] | None:
         corporate_events = icei_store.get_timeline(entity)
     except Exception:
         corporate_events = None
-    if not pack and not obj and not hd_pack and not hd_obj and not company_intelligence and not corporate_events:
+    # Soft-read Government policies that list this company (optional; no inference).
+    try:
+        from knowledge_factory.government_intelligence import store as igri_store
+
+        t = entity.upper()
+        government_policies = [
+            p for p in igri_store.list_policies() if t in (p.get("affected_companies") or [])
+        ]
+    except Exception:
+        government_policies = None
+    if (
+        not pack
+        and not obj
+        and not hd_pack
+        and not hd_obj
+        and not company_intelligence
+        and not corporate_events
+        and not government_policies
+    ):
         return None
     return {
         "source": "knowledge_factory",
@@ -269,5 +306,6 @@ def evidence_feed(entity: str) -> dict[str, Any] | None:
         "historical_company_object": hd_obj,
         "company_intelligence": company_intelligence,
         "corporate_events": corporate_events,
+        "government_policies": government_policies,
         "raw_api": False,
     }
