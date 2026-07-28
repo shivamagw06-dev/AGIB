@@ -108,6 +108,7 @@ FRAMEWORKS_BY_TYPE: dict[str, tuple[str, ...]] = {
 
 
 def select_frameworks_for(question_type: str) -> list[dict[str, Any]]:
+    """Legacy fixed map — retained for compatibility; prefer IKI planner."""
     ids = FRAMEWORKS_BY_TYPE.get(str(question_type or "").lower(), ())
     out: list[dict[str, Any]] = []
     for fid in ids:
@@ -116,6 +117,16 @@ def select_frameworks_for(question_type: str) -> list[dict[str, Any]]:
             continue
         out.append({"framework_id": fid, **spec})
     return out
+
+
+def _sector_of(entity: dict[str, Any] | None) -> str | None:
+    try:
+        from institutional_reasoning.iki.applicability import infer_sector
+
+        ent = entity or {}
+        return infer_sector(ent.get("entity_id"), ent.get("entity_type"))
+    except Exception:
+        return None
 
 
 def _execute_framework(
@@ -129,6 +140,26 @@ def _execute_framework(
     observed = set(validation.get("observed") or [])
     rejected = validation.get("rejected") or {}
     entity_type = str((entity or {}).get("entity_type") or "")
+    sector = _sector_of(entity)
+
+    # Phase 3 pre-rejection from applicability engine
+    if spec.get("pre_rejected"):
+        return {
+            "framework_id": fid,
+            "name": spec.get("name"),
+            "author": spec.get("author"),
+            "framework_version": spec.get("version"),
+            "status": "not_applicable",
+            "outputs": {
+                "applicable": False,
+                "reason": "; ".join(spec.get("pre_reject_reasons") or ["applicability rejected"]),
+                "alternatives": spec.get("alternatives") or spec.get("alternative_frameworks") or [],
+                "applicability_score": spec.get("applicability_score"),
+            },
+            "required_evidence": list(spec.get("requires") or ()),
+            "missing_evidence": [],
+            "confidence": None,
+        }
 
     # Applicability first — a rejected method must not be forced.
     invalid_types = tuple(spec.get("invalid_for_entity_types") or ())
@@ -145,6 +176,26 @@ def _execute_framework(
             "confidence": None,
         }
 
+    invalid_sectors = tuple(spec.get("invalid_for_sectors") or ())
+    if sector and sector in invalid_sectors:
+        alts = list(spec.get("alternative_frameworks") or [])
+        reason = f"{spec.get('name')} invalid for sector '{sector}'"
+        if fid in {"dcf_applicability", "dcf_fcff"} and sector in {"bank", "insurance", "nbfc"}:
+            reason = "Financial institution — DCF is the wrong primary model"
+            if "residual_income" not in alts:
+                alts = ["residual_income"] + alts
+        return {
+            "framework_id": fid,
+            "name": spec.get("name"),
+            "author": spec.get("author"),
+            "framework_version": spec.get("version"),
+            "status": "not_applicable",
+            "outputs": {"applicable": False, "reason": reason, "alternatives": alts},
+            "required_evidence": list(spec.get("requires") or ()),
+            "missing_evidence": [],
+            "confidence": None,
+        }
+
     required = tuple(spec.get("requires") or ())
     missing = [r for r in required if r not in observed]
     if missing:
@@ -154,7 +205,10 @@ def _execute_framework(
             "author": spec.get("author"),
             "framework_version": spec.get("version"),
             "status": "insufficient_evidence",
-            "outputs": {},
+            "outputs": {
+                "applicability_score": spec.get("applicability_score"),
+                "confidence_band": (spec.get("confidence") or {}).get("band"),
+            },
             "required_evidence": list(required),
             "missing_evidence": missing,
             "rejection_reasons": {m: rejected.get(m, "not_found") for m in missing},
@@ -164,6 +218,9 @@ def _execute_framework(
     verdict_map = {v["field"]: v for v in validation.get("field_verdicts") or []}
     outputs: dict[str, Any] = {}
     confidence = 0.6 + 0.1 * min(len(required), 3)
+    cal = spec.get("confidence") or {}
+    if cal.get("weight_multiplier"):
+        confidence = min(0.95, confidence * float(cal["weight_multiplier"]) / 0.9)
 
     def num(field_name: str) -> float | None:
         v = (verdict_map.get(field_name) or {}).get("value")
@@ -193,15 +250,32 @@ def _execute_framework(
     elif fid == "dcf_applicability":
         outputs["applicable"] = True
         outputs["reason"] = "cash-flow forecastable entity"
+    elif fid == "dcf_fcff":
+        outputs["status"] = "ready_or_insufficient"
+        outputs["note"] = "Full DCF requires complete FCF/WACC pack"
+        outputs["confidence_band"] = cal.get("band") or "Medium"
+    elif fid == "residual_income":
+        outputs["preferred_for"] = sector or "financials"
+        outputs["roe"] = num("roe")
+        outputs["note"] = "Residual income path for financial institutions"
     elif fid == "peer_comparison":
         outputs["peer_set_present"] = True
     elif fid == "business_quality_roic":
         outputs["roic"] = num("roic")
         outputs["margins"] = num("margins")
+    elif fid == "buffett_quality":
+        outputs["roic"] = num("roic")
+        outputs["margins"] = num("margins")
+        outputs["stance"] = "supports" if (num("roic") or 0) > 20 else "conditional"
+    elif fid == "graham_net_net":
+        outputs["signal"] = "asset_floor_check"
     elif fid == "accounting_quality_screen":
         outputs["cash_conversion"] = num("cash_conversion")
         outputs["leverage"] = num("leverage")
         outputs["earnings_quality"] = num("earnings_quality")
+
+    outputs["applicability_score"] = spec.get("applicability_score")
+    outputs["confidence_band"] = cal.get("band")
 
     return {
         "framework_id": fid,
@@ -217,7 +291,7 @@ def _execute_framework(
     }
 
 
-def _committee(results: list[dict[str, Any]], *, question_type: str) -> dict[str, Any]:
+def _committee(results: list[dict[str, Any]], *, question_type: str, debate: dict[str, Any] | None = None) -> dict[str, Any]:
     """Committee consumes only framework outputs; cannot invent or override."""
     executed = [r for r in results if r["status"] == "executed"]
     insufficient = [r for r in results if r["status"] == "insufficient_evidence"]
@@ -269,6 +343,13 @@ def _committee(results: list[dict[str, Any]], *, question_type: str) -> dict[str
     for r in not_applicable:
         findings.append(f"{r['name']}: not applicable — {r['outputs'].get('reason')}.")
 
+    # Phase 3 debate / decision-policy resolution
+    if debate:
+        for c in debate.get("conflicts") or []:
+            disagreements.append(str(c.get("explanation") or ""))
+        if debate.get("resolution"):
+            findings.append(str(debate["resolution"]))
+
     contract = contract_for(question_type)
     can_conclude = bool(executed) and not insufficient
     partial = bool(executed) and bool(insufficient)
@@ -279,6 +360,22 @@ def _committee(results: list[dict[str, Any]], *, question_type: str) -> dict[str
             "No valuation, quality or decision conclusion is issued."
         )
         stance = "Insufficient evidence"
+        # Applicability-only conclusions reserved for explicit applicability questions
+        # (e.g. "Should DCF be used for banks?") — never for ordinary valuation asks.
+        applicability_question = bool(debate and debate.get("resolution")) and any(
+            f["framework_id"] in {"dcf_applicability", "dcf_fcff", "residual_income"}
+            and f["status"] == "not_applicable"
+            for f in not_applicable
+        )
+        # Only elevate stance when committee was asked about method choice via debate resolution
+        # AND at least one method reject is explanatory (handled by caller via question type hints).
+        if applicability_question and debate.get("resolution") and "residual" in str(
+            debate.get("resolution") or ""
+        ).lower():
+            # Soft signal — caller still gates narrative on question intent
+            findings.append(str(debate["resolution"]))
+            conclusion = " ".join(findings)
+            stance = "Applicability-resolved"
     elif partial:
         missing_names = sorted({m for r in insufficient for m in r["missing_evidence"]})
         conclusion = (
@@ -305,6 +402,8 @@ def _committee(results: list[dict[str, Any]], *, question_type: str) -> dict[str
         "not_applicable_count": len(not_applicable),
         "can_conclude": can_conclude,
         "forbidden_claims": list(contract.forbidden_claims),
+        "dominant_framework": (debate or {}).get("dominant_framework"),
+        "decision_policy": (debate or {}).get("policy"),
     }
 
 
@@ -402,11 +501,39 @@ def govern_answer(
         entity_id=entity_id,
         packs=packs,
     )
-    specs = select_frameworks_for(qtype)
+
+    # Phase 3 — Institutional Knowledge Intelligence planner.
+    # Applicability scoring → execution order → debate (not fixed type maps).
+    iki_plan: dict[str, Any] = {}
+    evidence_for_iki = packs.get("institutional_evidence") or {}
+    try:
+        from institutional_reasoning.iki.planner import finalize_with_debate, plan as iki_plan_fn
+
+        iki_plan = iki_plan_fn(
+            question=question,
+            question_type=qtype,
+            entity=primary,
+            evidence=evidence_for_iki,
+        )
+        specs = list(iki_plan.get("execution_order") or [])
+    except Exception:
+        specs = select_frameworks_for(qtype)
+
     results = [
         _execute_framework(spec, validation=validation, entity=primary) for spec in specs
     ]
-    committee = _committee(results, question_type=qtype)
+    if iki_plan:
+        try:
+            from institutional_reasoning.iki.planner import finalize_with_debate
+
+            iki_plan = finalize_with_debate(
+                iki_plan, framework_results=results, evidence=evidence_for_iki
+            )
+        except Exception:
+            pass
+    committee = _committee(
+        results, question_type=qtype, debate=(iki_plan or {}).get("debate")
+    )
 
     executed_any = any(r["status"] == "executed" for r in results)
     # Contract completeness governs narrative permission for gated types.
@@ -414,6 +541,28 @@ def govern_answer(
     if not specs:
         # Types without executable frameworks yet: allow narrative only with contract coverage
         narrative_allowed = bool(validation.get("complete"))
+    # Applicability-only answers (e.g. DCF rejected for banks) may narrate the rejection
+    # only when the question is about method applicability — not ordinary valuation asks.
+    q_l = str(question or "").lower()
+    applicability_intent = any(
+        k in q_l
+        for k in (
+            "should dcf",
+            "dcf be used",
+            "dcf applicable",
+            "is dcf",
+            "dcf wrong",
+            "invalidates dcf",
+            "which framework",
+            "framework dominate",
+        )
+    )
+    if (committee or {}).get("stance") == "Applicability-resolved" and applicability_intent:
+        narrative_allowed = True
+    elif (committee or {}).get("stance") == "Applicability-resolved" and not applicability_intent:
+        # Downgrade — do not leak narrative on wrong-entity / placeholder valuation asks
+        committee["stance"] = "Insufficient evidence"
+        narrative_allowed = False
 
     return {
         "run_id": run_id,
@@ -434,6 +583,7 @@ def govern_answer(
         "editorial_mode": "explain_only" if narrative_allowed else "report_insufficient",
         "missing_evidence": validation.get("missing") or [],
         "institutional_evidence": (packs.get("institutional_evidence") or {}),
+        "iki": iki_plan,
         "execution_ms": int((time.time() - started) * 1000),
     }
 

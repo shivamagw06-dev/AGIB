@@ -160,22 +160,32 @@ _TYPE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
         "investment_decision",
         re.compile(r"\b(should i (buy|sell|invest)|worth buying|good investment|entry point)\b", re.I),
     ),
-        (
-            "valuation",
-            re.compile(
-                r"\b(expensive|cheap|overvalued|undervalued|fair value|intrinsic|"
-                r"p/?e\b|pe ratio|ev/?ebitda|price to book|multiple[s]?\b|percentile|"
-                r"relative valuation|using relative valuation|"
-                r"should dcf|dcf be used|dcf applicable)\b",
-                re.I,
-            ),
+    (
+        "valuation",
+        re.compile(
+            r"\b(expensive|cheap|overvalued|undervalued|fair value|intrinsic|"
+            r"p/?e\b|pe ratio|ev/?ebitda|price to book|multiple[s]?\b|percentile|"
+            r"relative valuation|using relative valuation|"
+            r"should dcf|dcf be used|dcf applicable|dcf wrong|invalidates dcf|"
+            r"which framework dominates|framework dominate)\b|"
+            r"^\s*value\b",
+            re.I,
         ),
-    ("comparison", re.compile(r"\b(compare|compared|comparison|versus|vs\.?|against|better than|which is|which multiple)\b", re.I)),
+    ),
+    (
+        "comparison",
+        re.compile(
+            r"\b(compare|compared|comparison|versus|vs\.?|against|better than|which is|which multiple|"
+            r"graham vs|buffett and damodaran|disagreement)\b",
+            re.I,
+        ),
+    ),
     (
         "business_quality",
         re.compile(
             r"\b(moat|business quality|quality business|competitive|roic|pricing power|"
-            r"market share|capital allocation|reinvestment|franchise)\b",
+            r"market share|capital allocation|reinvestment|franchise|"
+            r"buffett reject|wonderful business)\b",
             re.I,
         ),
     ),

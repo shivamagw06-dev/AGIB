@@ -92,6 +92,14 @@ EDGE_TYPES = (
     "member_of",
     "thesis_of",
     "decided_on",
+    # Phase 3 IKI soft expansion (in-process framework judgement graph)
+    "REQUIRES",
+    "SUPPORTED_BY",
+    "CONFLICTS_WITH",
+    "APPLIES_TO",
+    "INVALIDATED_BY",
+    "COMPETES_WITH",
+    "ALTERNATIVE_TO",
 )
 
 NO_REDESIGN = (

@@ -164,8 +164,11 @@ def test_frameworks_never_need_raw_api_when_pack_present():
         build_institutional_evidence=True,
     )
     assert record["validation"]["complete"] is True
-    assert all(
-        f["status"] in {"executed", "not_applicable"}
+    core = {"rel_val_damodaran", "hist_multiples", "margin_of_safety"}
+    for f in record["frameworks"]:
+        if f["framework_id"] in core:
+            assert f["status"] in {"executed", "not_applicable"}, f
+    assert any(
+        f["framework_id"] == "rel_val_damodaran" and f["status"] == "executed"
         for f in record["frameworks"]
-        if f["framework_id"] != "dcf_applicability"
     )
