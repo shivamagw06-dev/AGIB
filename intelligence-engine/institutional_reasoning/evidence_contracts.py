@@ -158,7 +158,11 @@ _EDU_PATTERNS = (
 _TYPE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     (
         "investment_decision",
-        re.compile(r"\b(should i (buy|sell|invest)|worth buying|good investment|entry point)\b", re.I),
+        re.compile(
+            r"\b(should (i|we) (buy|sell|invest)|worth buying|good investment|entry point|"
+            r"invest [£$₹]|£[\d,]+|million in)\b",
+            re.I,
+        ),
     ),
     (
         "valuation",
