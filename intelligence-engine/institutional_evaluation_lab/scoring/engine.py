@@ -28,14 +28,24 @@ def score_question(
     )
     return {
         "question_id": question.get("question_id"),
+        "question": question.get("question"),
         "category": question.get("category"),
         "difficulty": question.get("difficulty"),
+        "sector": question.get("sector"),
         "suite": question.get("suite"),
+        "ticker_hint": question.get("ticker_hint"),
         "overall": overall,
         "passed": passed,
         "dimensions": {d: by_dim.get(d, {}) for d in DIMENSION_WEIGHTS},
         "root_causes": failures,
         "verdict": "PASS" if passed else ("PARTIAL" if overall >= 55 else "FAIL"),
+        # Expected labels for Root Cause Intelligence (Sprint 3.2)
+        "expected_intent": list(question.get("intent") or []),
+        "expected_framework": list(question.get("framework") or []),
+        "expected_playbook": list(question.get("expected_playbook") or []),
+        "expected_evidence": list(question.get("expected_evidence") or []),
+        "expected_reasoning": list(question.get("expected_reasoning") or []),
+        "tags": list(question.get("tags") or []),
     }
 
 

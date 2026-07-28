@@ -513,6 +513,27 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("institutional_evaluation_lab")
     except Exception:
         out["institutional_evaluation_lab"] = None
+    # AGIB Phase 3 Sprint 3.2 — RCI soft board
+    try:
+        from root_cause_intelligence.production import board as rci_board
+        from root_cause_intelligence.production import status as rci_status
+
+        rh = rci_status()
+        rdash = rci_board()
+        out["root_cause_intelligence"] = {
+            "status": rh.get("status"),
+            "version": rh.get("version"),
+            "n_failures": rdash.get("n_failures"),
+            "n_clusters": rdash.get("n_clusters"),
+            "iel_pass_pct": rdash.get("iel_pass_pct"),
+            "top_cluster": ((rdash.get("top_10") or [{}])[0]).get("impact_statement"),
+            "recommended_pr_count": len(rdash.get("recommended_prs") or []),
+            "gaps": rdash.get("gaps"),
+            "measurement_driven": True,
+        }
+        out["sources"].append("root_cause_intelligence")
+    except Exception:
+        out["root_cause_intelligence"] = None
     try:
         from knowledge_factory.production import historical_depth_coverage
 

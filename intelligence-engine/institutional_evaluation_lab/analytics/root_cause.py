@@ -37,5 +37,5 @@ def cluster_failures(scored_rows: list[dict[str, Any]]) -> dict[str, Any]:
         "n_failures": len(failures),
         "n_clusters": len(ranked),
         "top_20": ranked[:20],
-        "note": "Sprint 3.2 expands this into persistent failure intelligence store.",
+        "note": "Legacy IEL cause tally — prefer root_cause_intelligence (RCI) for clustered fixes.",
     }

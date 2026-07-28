@@ -58,10 +58,32 @@ def run_benchmark(
             row = score_question(q, judgments)
             row["probe_mode"] = probe.get("mode")
             row["intent_observed"] = (probe.get("intent_resolution") or {}).get("intent")
+            row["actual_intent"] = (probe.get("intent_resolution") or {}).get("intent")
             row["playbook_id"] = (probe.get("playbook_selection") or {}).get("playbook_id")
+            row["actual_playbook"] = (probe.get("playbook_selection") or {}).get("playbook_id")
             row["framework_ids"] = (probe.get("framework_selection") or {}).get("framework_ids")
+            row["actual_framework"] = list(
+                (probe.get("framework_selection") or {}).get("framework_ids") or []
+            )
             row["imai_hit"] = (probe.get("institutional_memory") or {}).get("have_we_seen_this_before")
             row["ieg_nodes"] = (probe.get("evidence_graph") or {}).get("n_nodes")
+            row["evidence_present"] = {
+                "n_nodes": (probe.get("evidence_graph") or {}).get("n_nodes"),
+                "entities": (probe.get("evidence_graph") or {}).get("entities"),
+                "domain_coverage_pct": (probe.get("evidence_graph") or {}).get("domain_coverage_pct"),
+                "surface_bullets": ((probe.get("evidence_graph") or {}).get("surface_bullets") or [])[:4],
+            }
+            row["reasoning_path"] = {
+                "governance_path": ((probe.get("governance") or {}).get("path")),
+                "mode": probe.get("mode"),
+                "reasoning_changed": probe.get("reasoning_changed"),
+            }
+            row["communication"] = {
+                "template": (probe.get("communication") or {}).get("template"),
+                "institutional_memory_visible": (probe.get("communication") or {}).get(
+                    "institutional_memory_visible"
+                ),
+            }
             scored.append(row)
         except Exception as exc:
             scored.append(
@@ -126,6 +148,26 @@ def run_benchmark(
         "fabricated": False,
         "rows": scored,
     }
+    # Soft-wire RCI (Sprint 3.2) — engineering brain; does not change product reasoning
+    try:
+        from root_cause_intelligence.analyze import analyze_iel_run
+
+        rci = analyze_iel_run(summary, persist=True)
+        summary["root_cause_intelligence"] = {
+            "analysis_id": rci.get("analysis_id"),
+            "n_failures": rci.get("n_failures"),
+            "n_clusters": rci.get("n_clusters"),
+            "top_10_clusters": rci.get("top_10_clusters"),
+            "recommended_prs": rci.get("recommended_prs"),
+            "kpi_proxies": rci.get("kpi_proxies"),
+            "gaps": rci.get("gaps"),
+            "version": rci.get("version"),
+        }
+    except Exception as exc:
+        summary["root_cause_intelligence"] = {
+            "status": "error",
+            "error": str(exc)[:200],
+        }
     store.record_run(summary)
     if persist_baseline or (baseline is None and suite in {"institutional_1000", "cio_frozen_25", "smoke"}):
         # Auto-establish baseline on first meaningful run; explicit flag overwrites

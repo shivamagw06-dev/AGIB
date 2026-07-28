@@ -7256,6 +7256,56 @@ async def institutional_evaluation_lab_history(limit: int = 20):
     return history(limit=limit)
 
 
+# ---------------------------------------------------------------------------
+# AGIB Phase 3 Sprint 3.2 — Root Cause Intelligence (RCI)
+# Engineering brain: failures → clusters → recommended PRs. Reasoning frozen.
+# ---------------------------------------------------------------------------
+@router.get("/root-cause-intelligence/health")
+async def root_cause_intelligence_health():
+    from root_cause_intelligence.production import status
+
+    return status()
+
+
+@router.get("/root-cause-intelligence/dashboard")
+async def root_cause_intelligence_dashboard():
+    from root_cause_intelligence.production import board
+
+    return board()
+
+
+@router.get("/root-cause-intelligence/nightly")
+async def root_cause_intelligence_nightly():
+    from root_cause_intelligence.production import nightly
+
+    return nightly()
+
+
+@router.get("/root-cause-intelligence/analyze")
+async def root_cause_intelligence_analyze(
+    suite: str = "smoke",
+    mode: str = "soft",
+    limit: int | None = 50,
+):
+    from root_cause_intelligence.production import analyze_from_iel_run
+
+    return analyze_from_iel_run(suite=suite, mode=mode, limit=limit)
+
+
+@router.get("/root-cause-intelligence/history")
+async def root_cause_intelligence_history(limit: int = 20):
+    from root_cause_intelligence.production import history
+
+    return history(limit=limit)
+
+
+@router.get("/root-cause-intelligence/report")
+async def root_cause_intelligence_report():
+    from root_cause_intelligence.production import report
+
+    return report()
+
+
 @router.get("/prediction/{prediction_id}")
 async def ail_prediction(prediction_id: str):
     try:
