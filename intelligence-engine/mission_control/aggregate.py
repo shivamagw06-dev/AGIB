@@ -573,6 +573,23 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("temporal_integrity")
     except Exception:
         out["temporal_integrity"] = None
+    # AGI Observability — LangSmith tracing status (read-only)
+    try:
+        from observability.production import dashboard as obs_dashboard
+
+        od = obs_dashboard()
+        out["observability"] = {
+            "provider": "langsmith",
+            "enabled": od.get("enabled"),
+            "project": od.get("project"),
+            "api_key_present": od.get("api_key_present"),
+            "sdk_available": od.get("sdk_available"),
+            "traced_stages": od.get("n_traced_stages"),
+            "observability_only": True,
+        }
+        out["sources"].append("observability")
+    except Exception:
+        out["observability"] = None
     try:
         from knowledge_factory.production import historical_depth_coverage
 

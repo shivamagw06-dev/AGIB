@@ -8,6 +8,7 @@ from typing import Any
 from editorial.logging_util import log_editorial_event
 from editorial.prompts import EDITORIAL_SYSTEM, build_prompt
 from editorial.provider import EditorialProvider
+from observability.tracing import llm_span
 
 
 class GeminiProvider(EditorialProvider):
@@ -45,16 +46,28 @@ class GeminiProvider(EditorialProvider):
         prompt = build_prompt(mode=mode, structured=structured, question=question, max_words=max_words)
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent"
         started = time.perf_counter()
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(
-                url,
-                params={"key": self.api_key},
-                json={
-                    "systemInstruction": {"parts": [{"text": EDITORIAL_SYSTEM}]},
-                    "contents": [{"role": "user", "parts": [{"text": prompt}]}],
-                    "generationConfig": {"temperature": 0.2},
-                },
-            )
+        with llm_span(
+            provider="gemini",
+            model=self.model,
+            prompt=prompt,
+            system=EDITORIAL_SYSTEM,
+            tags=["editorial", "writer_only"],
+            metadata={"mode": mode, "max_words": max_words},
+        ) as _llm:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(
+                    url,
+                    params={"key": self.api_key},
+                    json={
+                        "systemInstruction": {"parts": [{"text": EDITORIAL_SYSTEM}]},
+                        "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+                        "generationConfig": {"temperature": 0.2},
+                    },
+                )
+            if response.is_success:
+                _llm.end(outputs={"status_code": response.status_code})
+            else:
+                _llm.end(error=f"gemini_http_{response.status_code}: {response.text[:200]}")
         latency_ms = round((time.perf_counter() - started) * 1000, 1)
         if not response.is_success:
             detail = response.text[:300]
