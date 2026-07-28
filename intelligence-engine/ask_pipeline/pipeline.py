@@ -589,6 +589,118 @@ def run_complete_ask(
         "top_evidence_ids": [w.get("evidence_id") for w in (evidence_weighting.get("top_weighted") or [])[:5]],
     }
 
+    # ------------------------------------------------------------------
+    # AGI Phase 4 Sprint 4.2 — Institutional Hypothesis Generation (IHG)
+    # Soft-wire only: Hypothesis Space after IEW, before Reasoning.
+    # Deterministic, no LLM, no fabrication, no forced single winner.
+    # ------------------------------------------------------------------
+    from institutional_hypothesis_generation.production import (
+        apply_hypothesis_generation as ihg_apply,
+    )
+    from institutional_hypothesis_generation.schema import HYPOTHESIS_VERSION, IHG_VERSION
+
+    _ihg_meta = {
+        "question_id": (context.get("question_id") or session_id or conversation_id),
+        "intent": irl.get("intent") or intent_rec.get("intent_v2") or intent_rec.get("intent"),
+        "framework": (framework_selection.get("framework_ids") or [None])[0],
+        "playbook": playbook_selection.get("playbook_id"),
+        "weight_version": evidence_weighting.get("weight_version") or WEIGHT_VERSION,
+        "hypothesis_version": HYPOTHESIS_VERSION,
+        "reasoning_version": "frozen",
+        "replay_mode": bool(irl.get("as_of")),
+    }
+    with trace_span(
+        "hypothesis_generation",
+        run_type="chain",
+        inputs={
+            "question": question,
+            "n_weighted": evidence_weighting.get("n_eligible"),
+            "weight_version": _ihg_meta["weight_version"],
+            "hypothesis_version": HYPOTHESIS_VERSION,
+        },
+        tags=["ask", "ihg", "hypothesis"],
+        metadata=_ihg_meta,
+    ) as _sp:
+        _ihg = ihg_apply(
+            question=question,
+            evidence_weighting=evidence_weighting,
+            framework_ids=list(framework_selection.get("framework_ids") or []),
+            intent=str(_ihg_meta.get("intent") or "") or None,
+            playbook_id=str(_ihg_meta.get("playbook") or "") or None,
+            as_of=irl.get("as_of"),
+            weight_version=str(_ihg_meta.get("weight_version") or "") or None,
+            metadata=_ihg_meta,
+        )
+        with trace_span(
+            "hypothesis_generation.score",
+            run_type="tool",
+            inputs={"n_hypotheses": (_ihg.get("pack") or {}).get("n_hypotheses")},
+            tags=["ask", "ihg", "hypothesis_score"],
+            metadata=_ihg_meta,
+        ) as _ssp:
+            _ssp.end(
+                outputs={
+                    "outcome": (_ihg.get("report") or {}).get("outcome"),
+                    "winning_hypothesis_ids": (_ihg.get("report") or {}).get("winning_hypothesis_ids"),
+                    "plural": (_ihg.get("report") or {}).get("plural"),
+                    "forced_single_winner": False,
+                }
+            )
+        for _h in (_ihg.get("pack") or {}).get("hypotheses") or []:
+            with trace_span(
+                "hypothesis_generation.hypothesis",
+                run_type="tool",
+                inputs={
+                    "hypothesis_id": _h.get("hypothesis_id"),
+                    "hypothesis": _h.get("hypothesis"),
+                },
+                tags=["ask", "ihg", "hypothesis_decision"],
+                metadata={
+                    **_ihg_meta,
+                    "status": _h.get("status"),
+                    "share": _h.get("share"),
+                    "support_score": _h.get("support_score"),
+                    "conflict_score": _h.get("conflict_score"),
+                },
+            ) as _hsp:
+                _hsp.end(
+                    outputs={
+                        "status": _h.get("status"),
+                        "priority": _h.get("priority"),
+                        "share": _h.get("share"),
+                        "overall_score": _h.get("overall_score"),
+                        "confidence": _h.get("confidence"),
+                        "reason": _h.get("reason"),
+                        "supporting_evidence": _h.get("supporting_evidence"),
+                        "contradicting_evidence": _h.get("contradicting_evidence"),
+                    }
+                )
+        _sp.end(outputs=_ihg.get("report"))
+    hypothesis_generation = _ihg.get("pack") or {}
+    stages["hypothesis_generation"] = {
+        "status": "executed",
+        "ihg_version": hypothesis_generation.get("ihg_version") or IHG_VERSION,
+        "hypothesis_version": hypothesis_generation.get("hypothesis_version") or HYPOTHESIS_VERSION,
+        "outcome": hypothesis_generation.get("outcome"),
+        "n_hypotheses": hypothesis_generation.get("n_hypotheses"),
+        "n_rejected": hypothesis_generation.get("n_rejected"),
+        "plural": hypothesis_generation.get("plural"),
+        "forced_single_winner": False,
+        "insufficient_evidence": hypothesis_generation.get("insufficient_evidence"),
+        "winning_hypothesis_ids": hypothesis_generation.get("winning_hypothesis_ids"),
+        "guides_hypothesis_space": True,
+        "reasoning_changed": False,
+        "llm_used": False,
+        "fabricated": False,
+    }
+    context["hypothesis_generation"] = {
+        "ihg_version": hypothesis_generation.get("ihg_version") or IHG_VERSION,
+        "hypothesis_version": hypothesis_generation.get("hypothesis_version") or HYPOTHESIS_VERSION,
+        "outcome": hypothesis_generation.get("outcome"),
+        "winning_hypothesis_ids": hypothesis_generation.get("winning_hypothesis_ids"),
+        "plural": hypothesis_generation.get("plural"),
+    }
+
     # S07 Planner — no ticker in Concept Mode
     planner = run_planner(question, ticker_hint=hint, policy=policy)
     stages["planner"] = planner
@@ -689,6 +801,22 @@ def run_complete_ask(
         "n_excluded": evidence_weighting.get("n_excluded"),
         "guides_evidence_priority": True,
         "contradictions_resolved": False,
+        "reasoning_changed": False,
+        "llm_used": False,
+        "fabricated": False,
+        "deterministic": True,
+    }
+    # Soft overlay — Hypothesis Space before conclusion (no forced single winner)
+    packs["hypothesis_generation"] = {
+        "ihg_version": hypothesis_generation.get("ihg_version") or IHG_VERSION,
+        "hypothesis_version": hypothesis_generation.get("hypothesis_version") or HYPOTHESIS_VERSION,
+        "hypotheses": hypothesis_generation.get("hypotheses"),
+        "outcome": hypothesis_generation.get("outcome"),
+        "winning_hypothesis_ids": hypothesis_generation.get("winning_hypothesis_ids"),
+        "plural": hypothesis_generation.get("plural"),
+        "forced_single_winner": False,
+        "insufficient_evidence": hypothesis_generation.get("insufficient_evidence"),
+        "guides_hypothesis_space": True,
         "reasoning_changed": False,
         "llm_used": False,
         "fabricated": False,

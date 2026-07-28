@@ -117,6 +117,20 @@ def probe_question(
     )
     eg = _iew.get("evidence_graph") or eg
     im = _iew.get("institutional_memory") or im
+    # AGI IHG — Hypothesis Space (soft probe mirrors Ask pipeline)
+    from institutional_hypothesis_generation.production import (
+        apply_hypothesis_generation as ihg_apply,
+    )
+
+    _ihg = ihg_apply(
+        question=text,
+        evidence_weighting=_iew.get("pack") or {},
+        framework_ids=list(fs.get("framework_ids") or []),
+        intent=str(irl.get("intent") or "") or None,
+        playbook_id=pb.get("playbook_id"),
+        as_of=_as_of,
+        weight_version=(_iew.get("pack") or {}).get("weight_version"),
+    )
     return {
         "mode": "soft",
         "question_id": question.get("question_id"),
@@ -126,6 +140,7 @@ def probe_question(
         "evidence_graph": eg,
         "institutional_memory": im,
         "evidence_weighting": _iew.get("pack") or {},
+        "hypothesis_generation": _ihg.get("pack") or {},
         "temporal_integrity": {
             "pre_analog": _pre.get("report"),
             "post_analog": _post.get("report"),
