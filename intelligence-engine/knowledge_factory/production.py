@@ -141,6 +141,18 @@ def sector_intelligence_coverage() -> dict[str, Any]:
     return sector_intelligence_dashboard()
 
 
+def run_macro_intelligence_pipeline(**kwargs: Any) -> dict[str, Any]:
+    from knowledge_factory.macro_intelligence.pipeline import run_macro_intelligence_pipeline as _run
+
+    return _run(**kwargs)
+
+
+def macro_intelligence_coverage() -> dict[str, Any]:
+    from knowledge_factory.macro_intelligence.dashboard import macro_intelligence_dashboard
+
+    return macro_intelligence_dashboard()
+
+
 def company_object(entity: str) -> dict[str, Any] | None:
     return store.get_object("company", entity)
 

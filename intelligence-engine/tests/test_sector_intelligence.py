@@ -44,6 +44,12 @@ SEED_FOR_HD = [
 def setup_function() -> None:
     isi_store.reset_store()
     hd_store.reset_store()
+    try:
+        from knowledge_factory.macro_intelligence import store as imi_store
+
+        imi_store.reset_store()
+    except Exception:
+        pass
 
 
 def _prime():

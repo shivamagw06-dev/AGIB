@@ -7113,6 +7113,106 @@ async def knowledge_factory_sector_object(sector: str):
     return {"found": True, "sector": key, "object": obj}
 
 
+@router.get("/knowledge-factory/macro-intelligence")
+async def knowledge_factory_macro_intelligence():
+    """Institutional Macro Intelligence Coverage dashboard."""
+    from knowledge_factory.production import macro_intelligence_coverage
+
+    return macro_intelligence_coverage()
+
+
+@router.post("/knowledge-factory/macro-intelligence/run")
+async def knowledge_factory_macro_intelligence_run():
+    from knowledge_factory.production import run_macro_intelligence_pipeline
+
+    return run_macro_intelligence_pipeline()
+
+
+@router.get("/knowledge-factory/macro-intelligence/query/regime")
+async def knowledge_factory_macro_regime():
+    from knowledge_factory.macro_intelligence.queries import current_regime
+
+    return current_regime()
+
+
+@router.get("/knowledge-factory/macro-intelligence/query/similar")
+async def knowledge_factory_macro_similar():
+    from knowledge_factory.macro_intelligence.queries import most_similar_historical_regime
+
+    return most_similar_historical_regime()
+
+
+@router.get("/knowledge-factory/macro-intelligence/query/falling-rates")
+async def knowledge_factory_macro_falling_rates():
+    from knowledge_factory.macro_intelligence.queries import sectors_benefit_falling_rates
+
+    return sectors_benefit_falling_rates()
+
+
+@router.get("/knowledge-factory/macro-intelligence/query/oil-shock")
+async def knowledge_factory_macro_oil_shock(pct: float = 0.30):
+    from knowledge_factory.macro_intelligence.queries import oil_shock_impacts
+
+    return oil_shock_impacts(pct=pct)
+
+
+@router.get("/knowledge-factory/macro-intelligence/query/usd-it")
+async def knowledge_factory_macro_usd_it():
+    from knowledge_factory.macro_intelligence.queries import usd_strength_it
+
+    return usd_strength_it()
+
+
+@router.get("/knowledge-factory/macro-intelligence/query/replay/covid")
+async def knowledge_factory_macro_replay_covid():
+    from knowledge_factory.macro_intelligence.queries import replay_covid
+
+    return replay_covid()
+
+
+@router.get("/knowledge-factory/macro-intelligence/query/replay/2008")
+async def knowledge_factory_macro_replay_2008():
+    from knowledge_factory.macro_intelligence.queries import replay_2008
+
+    return replay_2008()
+
+
+@router.get("/knowledge-factory/macro-intelligence/query/unavailable")
+async def knowledge_factory_macro_unavailable(as_of: str = "1990-01-01"):
+    from knowledge_factory.macro_intelligence.queries import macro_unavailable
+
+    return macro_unavailable(as_of=as_of)
+
+
+@router.get("/knowledge-factory/macro-intelligence/query/replay/{as_of}")
+async def knowledge_factory_macro_replay(as_of: str):
+    from knowledge_factory.macro_intelligence.queries import replay_macro
+
+    return replay_macro(as_of=as_of)
+
+
+@router.get("/knowledge-factory/macro-intelligence/playbook/{regime}")
+async def knowledge_factory_macro_playbook(regime: str):
+    from knowledge_factory.macro_intelligence.queries import get_playbook
+
+    return get_playbook(regime)
+
+
+@router.get("/knowledge-factory/macro-intelligence/{macro_id}")
+async def knowledge_factory_macro_object(macro_id: str):
+    from knowledge_factory.macro_intelligence import store as imi_store
+
+    obj = imi_store.get_object(macro_id)
+    if not obj:
+        return {
+            "found": False,
+            "macro_id": macro_id,
+            "reason": "macro_history_unavailable",
+            "fabricated": False,
+        }
+    return {"found": True, "macro_id": macro_id, "object": obj}
+
+
 @router.get("/knowledge-factory/quality-gates")
 async def knowledge_factory_quality_gates():
     from knowledge_factory.production import quality_gates

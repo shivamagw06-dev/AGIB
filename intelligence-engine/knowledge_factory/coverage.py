@@ -391,7 +391,8 @@ def daily_health_scorecard(*, ensure_pipeline: bool = True) -> dict[str, Any]:
         "roadmap_next": "historical_depth",
         "roadmap_note": (
             "After Nifty 100 Decision Coverage = 100%: Historical Depth → "
-            "Sector Intelligence → Macro Intelligence → Nifty 500 → Global."
+            "Sector Intelligence → Macro Intelligence → Nifty 500 → Global. "
+            "IMI is Knowledge Factory only; Phases 1–7 frozen."
         ),
     }
     # Surface Historical Depth Coverage when the HD store is populated.
@@ -426,6 +427,23 @@ def daily_health_scorecard(*, ensure_pipeline: bool = True) -> dict[str, Any]:
             scorecard["roadmap_next"] = "macro_intelligence"
     except Exception:
         scorecard["sector_intelligence"] = None
+    try:
+        from knowledge_factory.macro_intelligence.dashboard import macro_intelligence_dashboard
+
+        imi = macro_intelligence_dashboard()
+        kpi = imi.get("kpi") or {}
+        scorecard["macro_intelligence"] = {
+            "coverage": kpi.get("coverage"),
+            "macro_objects": (kpi.get("counts") or {}).get("macro_objects"),
+            "regime_coverage": kpi.get("regime_coverage"),
+            "decision_matrix_coverage": kpi.get("decision_matrix_coverage"),
+            "evidence_quality": kpi.get("evidence_quality"),
+            "status": imi.get("status"),
+        }
+        if float(kpi.get("coverage") or 0) >= 0.7 and imi.get("status") == "operational":
+            scorecard["roadmap_next"] = "nifty_500"
+    except Exception:
+        scorecard["macro_intelligence"] = None
     store.put_report("daily_health", scorecard)
     return scorecard
 

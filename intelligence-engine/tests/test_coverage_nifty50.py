@@ -24,6 +24,12 @@ def setup_function() -> None:
         isi_store.reset_store()
     except Exception:
         pass
+    try:
+        from knowledge_factory.macro_intelligence import store as imi_store
+
+        imi_store.reset_store()
+    except Exception:
+        pass
 
 
 def test_nifty_50_primitives_and_risk_series():
