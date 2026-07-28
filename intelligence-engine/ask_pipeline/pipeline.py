@@ -11,6 +11,7 @@ from ask_pipeline.entities import resolve_ask_entities
 from ask_pipeline.evidence import assemble_evidence
 from ask_pipeline.gates import evaluate_gates
 from ask_pipeline.intent import detect_intent
+from ask_pipeline.intent_resolution import resolve_intent
 from ask_pipeline.knowledge import retrieve_knowledge
 from ask_pipeline.planner import run_planner
 from ask_pipeline.policy import execution_policy
@@ -53,52 +54,106 @@ def run_complete_ask(
     )
     stages["context"] = {"status": "executed", "pipeline_id": context["pipeline_id"]}
 
-    # S02 Intent
-    intent_rec = detect_intent(question)
+    # ------------------------------------------------------------------
+    # AGIB v3.4 Track A — Intent Resolution Layer (BEFORE IERE)
+    # Language → Intent → Entities → Temporal → Question Type → Requirements
+    # ------------------------------------------------------------------
+    irl = resolve_intent(question, ticker_hint=ticker_hint or context.get("ticker_hint"))
+    stages["intent_resolution"] = {"status": "executed", **irl}
+    context["intent_resolution"] = {
+        "intent": irl.get("intent"),
+        "question_type": irl.get("question_type"),
+        "concept_mode": irl.get("concept_mode"),
+        "as_of": irl.get("as_of"),
+        "legacy_intent": irl.get("legacy_intent"),
+    }
+    context["as_of"] = irl.get("as_of")
+    context["concept_mode"] = bool(irl.get("concept_mode"))
+
+    # S02 Intent — prefer IRL; keep legacy detector as soft telemetry only
+    legacy_intent = detect_intent(question)
+    intent_rec = {
+        "intent": irl.get("legacy_intent") or legacy_intent.get("intent") or "Unknown",
+        "intent_v2": irl.get("intent"),
+        "confidence": irl.get("intent_confidence"),
+        "reasons": irl.get("intent_reasons") or [],
+        "question_type_hint": irl.get("question_type"),
+        "investment_recommendation": bool(irl.get("investment_recommendation")),
+        "legacy_detector": legacy_intent,
+        "source": "intent_resolution_layer",
+    }
     context["intent"] = intent_rec["intent"]
+    context["intent_v2"] = irl.get("intent")
     stages["intent"] = {"status": "executed", **intent_rec}
 
-    # S03 Entities
-    entities_rec = resolve_ask_entities(
-        question,
-        ticker_hint=ticker_hint or context.get("ticker_hint"),
-        entity_resolution_pack=entity_resolution_pack,
-    )
+    # S03 Entities — Concept Mode clears pollution; else soft-merge IRL + legacy
+    if irl.get("concept_mode"):
+        entities_rec = {
+            "primary": None,
+            "entities": [],
+            "soft_tags": irl.get("soft_tags") or [],
+            "concept_mode": True,
+            "count": 0,
+            "entity_pollution_blocked": irl.get("entity_pollution_blocked"),
+            "ignored_ticker_hint": irl.get("ignored_ticker_hint"),
+            "source": "intent_resolution_layer",
+        }
+    else:
+        entities_rec = resolve_ask_entities(
+            question,
+            ticker_hint=ticker_hint or context.get("ticker_hint"),
+            entity_resolution_pack=entity_resolution_pack,
+        )
+        # Prefer IRL primary when present
+        if irl.get("primary"):
+            entities_rec["primary"] = irl["primary"]
+            # Ensure IRL entities are present
+            for e in irl.get("entities") or []:
+                if not any(x.get("id") == e.get("id") for x in (entities_rec.get("entities") or [])):
+                    entities_rec.setdefault("entities", []).append(e)
+        entities_rec["concept_mode"] = False
+        entities_rec["source"] = "intent_resolution_layer+legacy"
     context["entities"] = entities_rec.get("entities") or []
     stages["entities"] = {"status": "executed", **entities_rec}
 
-    # S04 Query classification (align + prefer live contract classifier)
-    question_type = intent_rec.get("question_type_hint") or "valuation"
+    # S04 Query classification — IRL OVERRIDES classify_question (Track A exit gate)
+    question_type = irl.get("question_type") or "education"
+    legacy_cls: dict[str, Any] = {}
     try:
         from institutional_reasoning.evidence_contracts import classify_question
 
-        cls = classify_question(question)
-        if cls.get("question_type"):
-            question_type = cls["question_type"]
-        stages["query_classification"] = {"status": "executed", **cls, "intent_hint": intent_rec.get("question_type_hint")}
+        legacy_cls = classify_question(question)
     except Exception as exc:
-        stages["query_classification"] = {
-            "status": "degraded",
-            "question_type": question_type,
-            "error": str(exc)[:120],
-        }
+        legacy_cls = {"error": str(exc)[:120]}
+    stages["query_classification"] = {
+        "status": "executed",
+        "question_type": question_type,
+        "source": "intent_resolution_layer",
+        "overrides_classify_question": True,
+        "legacy_classify_question": legacy_cls,
+        "intent_v2": irl.get("intent"),
+    }
 
     primary = entities_rec.get("primary") or {}
-    has_entity = bool(primary.get("entity_id") or context.get("ticker_hint"))
+    has_entity = bool(primary.get("entity_id")) and not irl.get("concept_mode")
     policy = execution_policy(
-        intent=intent_rec["intent"],
+        intent=str(irl.get("intent") or intent_rec["intent"]),
         investment_recommendation=bool(intent_rec.get("investment_recommendation")),
         has_entity=has_entity,
         question_type=question_type,
+        concept_mode=bool(irl.get("concept_mode")),
+        as_of=irl.get("as_of"),
     )
     stages["policy"] = {"status": "executed", **policy}
 
-    # S05 Knowledge (+ soft-wire IERE evidence retrieval)
+    # S05 Knowledge (+ IERE) — inherits as_of + concept_mode
     knowledge = retrieve_knowledge(
         intent=intent_rec["intent"],
         entities=context["entities"],
         soft_tags=entities_rec.get("soft_tags"),
         question=question,
+        as_of=irl.get("as_of"),
+        concept_mode=bool(irl.get("concept_mode")),
     )
     stages["knowledge"] = knowledge
 
@@ -110,8 +165,11 @@ def run_complete_ask(
     )
     stages["evidence"] = evidence
 
-    # S07 Planner
-    hint = ticker_hint or primary.get("entity_id") or context.get("ticker_hint")
+    # S07 Planner — no ticker in Concept Mode
+    hint = None if irl.get("concept_mode") else (
+        (primary.get("entity_id") if primary else None)
+        or (ticker_hint if not irl.get("entity_pollution_blocked") else None)
+    )
     planner = run_planner(question, ticker_hint=hint, policy=policy)
     stages["planner"] = planner
 
@@ -142,12 +200,13 @@ def run_complete_ask(
         governance = govern_answer(
             question,
             ticker_hint=hint,
-            entity_resolution_pack=entity_resolution_pack,
+            entity_resolution_pack=None if irl.get("concept_mode") else entity_resolution_pack,
             packs=packs,
             academy=academy,
             build_institutional_evidence=bool(policy.get("build_institutional_evidence")),
             build_portfolio_intelligence=bool(policy.get("build_portfolio_intelligence")),
             build_outcome_intelligence=bool(policy.get("build_outcome_intelligence")),
+            question_type_override=question_type,
         )
         stages["governance"] = {
             "status": "executed",
@@ -240,6 +299,12 @@ def run_complete_ask(
         "pipeline_id": context["pipeline_id"],
         "context": context,
         "intent": intent_rec,
+        "intent_resolution": {
+            "intent": irl.get("intent"),
+            "question_type": irl.get("question_type"),
+            "concept_mode": irl.get("concept_mode"),
+            "as_of": irl.get("as_of"),
+        },
         "entities": entities_rec,
         "policy": policy,
         "knowledge": knowledge,
@@ -263,6 +328,7 @@ def run_complete_ask(
         "pipeline_id": context["pipeline_id"],
         "replay_id": context["replay_id"],
         "context": context,
+        "intent_resolution": irl,
         "intent": intent_rec,
         "entities": entities_rec,
         "policy": policy,
@@ -277,6 +343,8 @@ def run_complete_ask(
         "quality_gates": gates,
         "institutionally_complete": bool(gates.get("institutionally_complete")),
         "latency_ms": total_ms,
+        "as_of": irl.get("as_of"),
+        "concept_mode": bool(irl.get("concept_mode")),
         "freeze_locks": FREEZE_LOCKS,
         "fabricated": False,
         "reasoning_changed": False,

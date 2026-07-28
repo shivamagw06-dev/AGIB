@@ -428,11 +428,25 @@ def govern_answer(
     build_institutional_evidence: bool = True,
     build_portfolio_intelligence: bool = True,
     build_outcome_intelligence: bool = True,
+    question_type_override: str | None = None,
 ) -> dict[str, Any]:
-    """Run the full governed pipeline; returns structured governance record."""
+    """Run the full governed pipeline; returns structured governance record.
+
+    Soft-wire: `question_type_override` lets Ask Pipeline 2.0 Intent Resolution
+    select education / non-valuation paths without rewriting contract tables.
+    """
     started = time.time()
     run_id = f"fer_{uuid.uuid4().hex[:16]}"
     classification = classify_question(question)
+    if question_type_override:
+        classification = {
+            **classification,
+            "question_type": str(question_type_override).lower(),
+            "confidence": max(float(classification.get("confidence") or 0), 0.95),
+            "reason": "ask_pipeline_intent_resolution_override",
+            "overridden": True,
+            "legacy_question_type": classification.get("question_type"),
+        }
     qtype = classification["question_type"]
     contract = contract_for(qtype)
 
