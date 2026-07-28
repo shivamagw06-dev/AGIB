@@ -44,10 +44,35 @@ def render_evidence_section(institutional_answer: dict[str, Any]) -> dict[str, A
     if ranked is not None:
         lines.insert(0, bullet(f"IERE ranked evidence count: {ranked}"))
 
+    # AGIB v3.6 — Institutional Evidence Graph relationships / domain coverage
+    eg = institutional_answer.get("evidence_graph") or {}
+    graph_lines: list[str] = []
+    if eg.get("graph_id") or eg.get("n_nodes"):
+        graph_lines.append(
+            bullet(
+                clean_line(
+                    f"Evidence graph: {eg.get('n_nodes') or 0} nodes · "
+                    f"{eg.get('n_edges') or 0} edges · "
+                    f"domain coverage {eg.get('domain_coverage_pct')}%.",
+                    max_len=220,
+                )
+            )
+        )
+        for b in (eg.get("surface_bullets") or [])[:6]:
+            graph_lines.append(bullet(clean_line(str(b), max_len=240)))
+        for b in (eg.get("chain_bullets") or [])[:4]:
+            graph_lines.append(bullet(clean_line(str(b), max_len=240)))
+        # Prefetch graph lines before isolated facts when ranked evidence is thin
+        if ranked in (None, 0) or len(items) < 3:
+            lines = graph_lines + lines
+        else:
+            lines = lines[:4] + graph_lines + lines[4:]
+
     return {
         "section": "evidence",
         "title": "Evidence",
-        "bullets": lines,
+        "bullets": lines[:18],
         "bindings": bindings,
         "visible": True,
+        "evidence_graph_id": eg.get("graph_id"),
     }

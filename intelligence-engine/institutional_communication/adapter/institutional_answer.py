@@ -12,6 +12,7 @@ def build_institutional_answer(
     answer_assembly: dict[str, Any] | None = None,
     framework_selection: dict[str, Any] | None = None,
     playbook_selection: dict[str, Any] | None = None,
+    evidence_graph: dict[str, Any] | None = None,
     institutional_answer: dict[str, Any] | None = None,
     governance: dict[str, Any] | None = None,
     evidence: dict[str, Any] | None = None,
@@ -24,6 +25,7 @@ def build_institutional_answer(
     fs = framework_selection or {}
     ia = institutional_answer or {}
     ps = playbook_selection or ia_playbook(ia)
+    eg = evidence_graph or ia_evidence_graph(ia)
     gov = governance or {}
     kn = knowledge or {}
     iere = kn.get("iere") if isinstance(kn.get("iere"), dict) else {}
@@ -138,6 +140,19 @@ def build_institutional_answer(
             "iap_version": ps.get("iap_version"),
             "guides_reasoning": True,
         },
+        "evidence_graph": {
+            "graph_id": eg.get("graph_id"),
+            "entities": eg.get("entities") or [],
+            "n_nodes": eg.get("n_nodes"),
+            "n_edges": eg.get("n_edges"),
+            "domain_coverage_pct": eg.get("domain_coverage_pct"),
+            "chains": eg.get("chains") or [],
+            "chain_bullets": eg.get("chain_bullets") or [],
+            "surface_bullets": eg.get("surface_bullets") or [],
+            "as_of": eg.get("as_of"),
+            "ieg_version": eg.get("ieg_version"),
+            "guides_evidence": True,
+        },
         "gaps": gaps,
         "confidence": conf,
         "citations": aa.get("citations") or {},
@@ -159,6 +174,7 @@ def build_institutional_answer(
             "has_answer_assembly": bool(aa),
             "has_framework_selection": bool(fs),
             "has_playbook_selection": bool(ps),
+            "has_evidence_graph": bool(eg),
             "has_institutional_answer": bool(ia),
             "has_governance": bool(gov),
         },
@@ -173,3 +189,10 @@ def ia_playbook(institutional_answer: dict[str, Any] | None) -> dict[str, Any]:
         return {}
     ps = institutional_answer.get("playbook_selection")
     return ps if isinstance(ps, dict) else {}
+
+
+def ia_evidence_graph(institutional_answer: dict[str, Any] | None) -> dict[str, Any]:
+    if not isinstance(institutional_answer, dict):
+        return {}
+    eg = institutional_answer.get("evidence_graph")
+    return eg if isinstance(eg, dict) else {}

@@ -21,6 +21,8 @@ from framework_selection import IFSE_VERSION, select_frameworks
 from framework_selection import store as ifse_store
 from institutional_playbooks import IAP_VERSION, select_playbook
 from institutional_playbooks import store as iap_store
+from institutional_evidence_graph import IEG_VERSION, build_evidence_graph
+from institutional_evidence_graph import store as ieg_store
 from institutional_communication import ICE_VERSION, communicate_from_ask
 from ask_pipeline.knowledge import retrieve_knowledge
 from ask_pipeline.planner import run_planner
@@ -279,11 +281,50 @@ def run_complete_ask(
         "confidence_pct": (playbook_selection.get("confidence") or {}).get("pct"),
     }
 
-    # S07 Planner — no ticker in Concept Mode
+    # ------------------------------------------------------------------
+    # AGIB v3.6 Phase 2 Sprint 2.1 — Institutional Evidence Graph (IEG)
+    # AFTER playbook, BEFORE reasoning. Relationships over isolated facts.
+    # ------------------------------------------------------------------
     hint = None if irl.get("concept_mode") else (
         (primary.get("entity_id") if primary else None)
         or (ticker_hint if not irl.get("entity_pollution_blocked") else None)
     )
+    evidence_graph = build_evidence_graph(
+        question=question,
+        entities=list(entities_rec.get("entities") or []),
+        ticker_hint=hint,
+        concept_mode=bool(irl.get("concept_mode")),
+        as_of=irl.get("as_of"),
+        evidence=evidence,
+        knowledge=knowledge,
+        playbook_selection=playbook_selection,
+        framework_selection=framework_selection,
+        intent_v2=str(irl.get("intent") or intent_rec.get("intent_v2") or "Unknown"),
+    )
+    ieg_store.record(evidence_graph)
+    stages["evidence_graph"] = {
+        "status": "executed",
+        "ieg_version": evidence_graph.get("ieg_version") or IEG_VERSION,
+        "graph_id": evidence_graph.get("graph_id"),
+        "entities": evidence_graph.get("entities"),
+        "n_nodes": evidence_graph.get("n_nodes"),
+        "n_edges": evidence_graph.get("n_edges"),
+        "n_chains": len(evidence_graph.get("chains") or []),
+        "domain_coverage_pct": evidence_graph.get("domain_coverage_pct"),
+        "validation_passed": (evidence_graph.get("validation") or {}).get("passed"),
+        "as_of": evidence_graph.get("as_of"),
+        "guides_evidence": True,
+        "reasoning_changed": False,
+        "llm_used": False,
+        "fabricated": False,
+    }
+    context["evidence_graph"] = {
+        "graph_id": evidence_graph.get("graph_id"),
+        "domain_coverage_pct": evidence_graph.get("domain_coverage_pct"),
+        "n_nodes": evidence_graph.get("n_nodes"),
+    }
+
+    # S07 Planner — no ticker in Concept Mode
     planner = run_planner(question, ticker_hint=hint, policy=policy)
     stages["planner"] = planner
 
@@ -331,6 +372,29 @@ def run_complete_ask(
         "explanation": playbook_selection.get("explanation"),
         "confidence": playbook_selection.get("confidence"),
         "guides_reasoning": True,
+        "reasoning_changed": False,
+        "fabricated": False,
+    }
+    packs["evidence_graph"] = {
+        "ieg_version": evidence_graph.get("ieg_version"),
+        "graph_id": evidence_graph.get("graph_id"),
+        "entities": evidence_graph.get("entities"),
+        "n_nodes": evidence_graph.get("n_nodes"),
+        "n_edges": evidence_graph.get("n_edges"),
+        "chains": evidence_graph.get("chains"),
+        "chain_bullets": evidence_graph.get("chain_bullets"),
+        "surface_bullets": evidence_graph.get("surface_bullets"),
+        "entity_trees": {
+            k: {
+                "coverage": v.get("coverage"),
+                "filled_domains": (v.get("coverage") or {}).get("filled_domains"),
+            }
+            for k, v in (evidence_graph.get("entity_trees") or {}).items()
+        },
+        "domain_coverage_pct": evidence_graph.get("domain_coverage_pct"),
+        "as_of": evidence_graph.get("as_of"),
+        "missing_evidence_required": evidence_graph.get("missing_evidence_required"),
+        "guides_evidence": True,
         "reasoning_changed": False,
         "fabricated": False,
     }
@@ -402,6 +466,18 @@ def run_complete_ask(
             "iap_version": playbook_selection.get("iap_version"),
             "guides_reasoning": True,
         },
+        "evidence_graph": {
+            "graph_id": evidence_graph.get("graph_id"),
+            "entities": evidence_graph.get("entities"),
+            "n_nodes": evidence_graph.get("n_nodes"),
+            "n_edges": evidence_graph.get("n_edges"),
+            "domain_coverage_pct": evidence_graph.get("domain_coverage_pct"),
+            "chains": evidence_graph.get("chains"),
+            "surface_bullets": evidence_graph.get("surface_bullets"),
+            "as_of": evidence_graph.get("as_of"),
+            "ieg_version": evidence_graph.get("ieg_version"),
+            "guides_evidence": True,
+        },
     }
     stages["answer_binding"] = {
         "status": "executed",
@@ -423,6 +499,7 @@ def run_complete_ask(
         answer_assembly=answer_assembly,
         framework_selection=framework_selection,
         playbook_selection=playbook_selection,
+        evidence_graph=evidence_graph,
         institutional_answer=institutional_answer,
         governance=governance,
         evidence=evidence,
@@ -536,6 +613,7 @@ def run_complete_ask(
         "answer_assembly": answer_assembly,
         "framework_selection": framework_selection,
         "playbook_selection": playbook_selection,
+        "evidence_graph": evidence_graph,
         "institutional_answer": institutional_answer,
         "communication": communication,
         "planner": planner,
@@ -569,6 +647,8 @@ def run_complete_ask(
         "framework_selection_version": IFSE_VERSION,
         "playbook_selection": playbook_selection,
         "playbook_selection_version": IAP_VERSION,
+        "evidence_graph": evidence_graph,
+        "evidence_graph_version": IEG_VERSION,
         "institutional_answer": institutional_answer,
         "communication": communication,
         "institutional_communication_version": ICE_VERSION,
