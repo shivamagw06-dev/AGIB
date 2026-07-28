@@ -87,13 +87,21 @@ def probe_question(
         framework_selection=fs,
         intent_v2=str(irl.get("intent") or "Unknown"),
     )
+    # AGI TIRC — Replay Guard (soft probe mirrors Ask pipeline)
+    from temporal_integrity.production import guard as tirc_guard
+
+    _as_of = irl.get("as_of") or as_of
+    _pre = tirc_guard(as_of=_as_of, evidence_graph=eg, stage="pre_analog")
+    eg = _pre.get("evidence_graph") or eg
     im = retrieve_memory(
         question=text,
         evidence_graph=eg,
         playbook=pb,
-        as_of=irl.get("as_of") or as_of,
+        as_of=_as_of,
         top_k=5,
     )
+    _post = tirc_guard(as_of=_as_of, institutional_memory=im, stage="post_analog")
+    im = _post.get("institutional_memory") or im
     return {
         "mode": "soft",
         "question_id": question.get("question_id"),
@@ -102,6 +110,10 @@ def probe_question(
         "playbook_selection": pb,
         "evidence_graph": eg,
         "institutional_memory": im,
+        "temporal_integrity": {
+            "pre_analog": _pre.get("report"),
+            "post_analog": _post.get("report"),
+        },
         "communication": {},
         "governance": {},
         "latency_ms": None,

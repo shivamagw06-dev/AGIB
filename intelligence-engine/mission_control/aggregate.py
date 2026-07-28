@@ -552,6 +552,27 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("patch_intelligence")
     except Exception:
         out["patch_intelligence"] = None
+    # AGI Phase 3 Sprint 3.5 — Temporal Integrity & Replay Certification
+    try:
+        from temporal_integrity.production import dashboard as tirc_dashboard
+        from temporal_integrity.production import status as tirc_status
+
+        th = tirc_status()
+        td = tirc_dashboard()
+        out["temporal_integrity"] = {
+            "company": th.get("company"),
+            "status": th.get("status"),
+            "version": th.get("version"),
+            "replay_health": td.get("replay_health"),
+            "certification_status": td.get("certification_status"),
+            "future_leakage_count": td.get("future_leakage_count"),
+            "replay_accuracy_pct": td.get("replay_accuracy_pct"),
+            "objects_rejected": td.get("objects_rejected"),
+            "institutional_guarantee": td.get("institutional_guarantee"),
+        }
+        out["sources"].append("temporal_integrity")
+    except Exception:
+        out["temporal_integrity"] = None
     try:
         from knowledge_factory.production import historical_depth_coverage
 
