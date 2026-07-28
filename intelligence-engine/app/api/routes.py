@@ -7377,6 +7377,66 @@ async def temporal_integrity_telemetry():
 
 
 # ---------------------------------------------------------------------------
+# AGI v4.0 Phase 5 Sprint 5.2 — Institutional Decision Office (IDO)
+# Static paths before /decision/{decision_id}
+# ---------------------------------------------------------------------------
+@router.get("/decision/health")
+async def decision_health():
+    from institutional_decision_office.production import status
+
+    return status()
+
+
+@router.get("/decision/dashboard")
+async def decision_dashboard():
+    from institutional_decision_office.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/decision/telemetry")
+async def decision_telemetry():
+    from institutional_decision_office.production import telemetry
+
+    return telemetry()
+
+
+@router.get("/decision/history")
+async def decision_history(limit: int = 20):
+    from institutional_decision_office.production import history
+
+    return history(limit=limit)
+
+
+@router.post("/decision/deliberate")
+async def decision_deliberate(payload: dict):
+    from institutional_decision_office.production import deliberate_api
+
+    return deliberate_api(payload)
+
+
+@router.post("/decision/list")
+async def decision_list(payload: dict):
+    from institutional_decision_office.production import list_api
+
+    return list_api(payload)
+
+
+@router.get("/decision/{decision_id}/versions")
+async def decision_versions(decision_id: str):
+    from institutional_decision_office.production import versions_api
+
+    return versions_api(decision_id)
+
+
+@router.get("/decision/{decision_id}")
+async def decision_get(decision_id: str):
+    from institutional_decision_office.production import get_decision
+
+    return get_decision(decision_id)
+
+
+# ---------------------------------------------------------------------------
 # AGI v4.0 Phase 5 Sprint 5.1 — Institutional Investment Thesis Engine (ITE)
 # Static paths before /thesis/{thesis_id}
 # ---------------------------------------------------------------------------

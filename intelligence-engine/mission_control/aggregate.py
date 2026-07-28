@@ -744,6 +744,35 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("institutional_investment_thesis")
     except Exception:
         out["institutional_investment_thesis"] = None
+    # AGI v4.0 Phase 5 Sprint 5.2 — Institutional Decision Office
+    try:
+        from institutional_decision_office.production import dashboard as ido_dashboard
+        from institutional_decision_office.production import status as ido_status
+
+        dh = ido_status()
+        dd = ido_dashboard()
+        out["institutional_decision_office"] = {
+            "company": dh.get("company"),
+            "status": dh.get("status"),
+            "version": dh.get("version"),
+            "release": dh.get("release"),
+            "n_decisions": dd.get("n_decisions"),
+            "decision_distribution": dd.get("decision_distribution"),
+            "lifecycle_distribution": dd.get("lifecycle_distribution"),
+            "n_wait": dd.get("n_wait"),
+            "n_monitor": dd.get("n_monitor"),
+            "n_approve": dd.get("n_approve"),
+            "n_escalate": dd.get("n_escalate"),
+            "review_after_earnings": dd.get("review_after_earnings"),
+            "orders": False,
+            "buy_sell": False,
+            "execution": False,
+            "judgment_stack_modified": False,
+            "llm_used": False,
+        }
+        out["sources"].append("institutional_decision_office")
+    except Exception:
+        out["institutional_decision_office"] = None
     try:
         from knowledge_factory.production import historical_depth_coverage
 

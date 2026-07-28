@@ -13,7 +13,7 @@ FROZEN FOUNDATION: AGI v3.6 Institutional Judgment
 | v3.1 | Institutional Intelligence | ✅ Complete |
 | v3.2 | Evaluation & Quality | ✅ Complete |
 | v3.6 | Institutional Judgment | ✅ Frozen |
-| **v4.0** | **Institutional Investment Office** | 🚀 Sprint 5.1 ITE live |
+| **v4.0** | **Institutional Investment Office** | 🚀 ITE + IDO live; Portfolio next |
 
 | Phase | Name | Status |
 |------:|------|--------|

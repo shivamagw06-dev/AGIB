@@ -34,6 +34,8 @@ def build_board() -> dict[str, Any]:
             or ((latest or {}).get("aggregate") or {}).get("confidence_quality"),
             "thesis_quality_score": (latest or {}).get("thesis_quality_score")
             or ((latest or {}).get("aggregate") or {}).get("thesis_quality"),
+            "decision_quality_score": (latest or {}).get("decision_quality_score")
+            or ((latest or {}).get("aggregate") or {}).get("decision_quality"),
             "regression": (latest or {}).get("regression"),
             "top_root_causes": ((latest or {}).get("aggregate") or {}).get("top_root_causes"),
         }
@@ -61,6 +63,10 @@ def build_board() -> dict[str, Any]:
                     ((r.get("thesis_quality_score") or {}).get("mean_itqs"))
                     or ((r.get("aggregate") or {}).get("thesis_quality") or {}).get("mean_itqs")
                 ),
+                "mean_dqs": (
+                    ((r.get("decision_quality_score") or {}).get("mean_dqs"))
+                    or ((r.get("aggregate") or {}).get("decision_quality") or {}).get("mean_dqs")
+                ),
                 "commit": r.get("commit"),
             }
             for r in runs[:8]
@@ -75,6 +81,7 @@ def build_board() -> dict[str, Any]:
             "Committee Quality Score",
             "Confidence Quality Score",
             "Investment Thesis Quality Score",
+            "Decision Quality Score",
             "Root Cause",
             "Dashboard",
         ],

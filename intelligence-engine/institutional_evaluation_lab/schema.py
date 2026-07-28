@@ -66,6 +66,7 @@ INDEPENDENT_METRICS: tuple[str, ...] = (
     "committee_quality",
     "confidence_quality",
     "thesis_quality",
+    "decision_quality",
 )
 
 # Weighted contribution to per-question score (0–100)
