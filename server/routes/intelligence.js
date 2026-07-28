@@ -1846,6 +1846,136 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // AGI v4.0 Investment Office OS — Thesis / Decision / Portfolio / Monitoring / Learning
+  // Static paths before dynamic :id routes. Ideas ≠ positions; events recommend review only.
+  const v4Get = (enginePath) => async (_req, res) => {
+    try {
+      const result = await engineFetch(enginePath);
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'Investment Office GET failed' });
+    }
+  };
+  const v4Post = (enginePath) => async (req, res) => {
+    try {
+      const result = await engineFetch(enginePath, { method: 'POST', body: req.body || {} });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'Investment Office POST failed' });
+    }
+  };
+
+  router.get('/thesis/health', v4Get('/v1/thesis/health'));
+  router.get('/thesis/dashboard', v4Get('/v1/thesis/dashboard'));
+  router.get('/thesis/telemetry', v4Get('/v1/thesis/telemetry'));
+  router.get('/thesis/history', v4Get('/v1/thesis/history'));
+  router.post('/thesis/create', v4Post('/v1/thesis/create'));
+  router.post('/thesis/list', v4Post('/v1/thesis/list'));
+  router.get('/thesis/:thesisId/versions', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/thesis/${encodeURIComponent(req.params.thesisId)}/versions`
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'Thesis versions failed' });
+    }
+  });
+  router.get('/thesis/:thesisId', async (req, res) => {
+    try {
+      const result = await engineFetch(`/v1/thesis/${encodeURIComponent(req.params.thesisId)}`);
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'Thesis get failed' });
+    }
+  });
+
+  router.get('/decision/health', v4Get('/v1/decision/health'));
+  router.get('/decision/dashboard', v4Get('/v1/decision/dashboard'));
+  router.get('/decision/telemetry', v4Get('/v1/decision/telemetry'));
+  router.get('/decision/history', v4Get('/v1/decision/history'));
+  router.post('/decision/deliberate', v4Post('/v1/decision/deliberate'));
+  router.post('/decision/list', v4Post('/v1/decision/list'));
+  router.get('/decision/:decisionId/versions', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/decision/${encodeURIComponent(req.params.decisionId)}/versions`
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'Decision versions failed' });
+    }
+  });
+  router.get('/decision/:decisionId', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/decision/${encodeURIComponent(req.params.decisionId)}`
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'Decision get failed' });
+    }
+  });
+
+  router.get('/portfolio/health', v4Get('/v1/portfolio/health'));
+  router.get('/portfolio/dashboard', v4Get('/v1/portfolio/dashboard'));
+  router.get('/portfolio/telemetry', v4Get('/v1/portfolio/telemetry'));
+  router.get('/portfolio/history', v4Get('/v1/portfolio/history'));
+  router.post('/portfolio/create', v4Post('/v1/portfolio/create'));
+  router.post('/portfolio/list', v4Post('/v1/portfolio/list'));
+  router.post('/portfolio/ranking', v4Post('/v1/portfolio/ranking'));
+  router.get('/portfolio/:ideaId/versions', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/portfolio/${encodeURIComponent(req.params.ideaId)}/versions`
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'Portfolio idea versions failed' });
+    }
+  });
+  router.get('/portfolio/:ideaId', async (req, res) => {
+    try {
+      const result = await engineFetch(`/v1/portfolio/${encodeURIComponent(req.params.ideaId)}`);
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'Portfolio idea get failed' });
+    }
+  });
+
+  router.get('/monitoring/health', v4Get('/v1/monitoring/health'));
+  router.get('/monitoring/dashboard', v4Get('/v1/monitoring/dashboard'));
+  router.get('/monitoring/telemetry', v4Get('/v1/monitoring/telemetry'));
+  router.get('/monitoring/history', v4Get('/v1/monitoring/history'));
+  router.post('/monitoring/create', v4Post('/v1/monitoring/create'));
+  router.post('/monitoring/list', v4Post('/v1/monitoring/list'));
+  router.post('/monitoring/review-queue', v4Post('/v1/monitoring/review-queue'));
+  router.get('/monitoring/:eventId', async (req, res) => {
+    try {
+      const result = await engineFetch(`/v1/monitoring/${encodeURIComponent(req.params.eventId)}`);
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'Monitoring event get failed' });
+    }
+  });
+
+  router.get('/learning/health', v4Get('/v1/learning/health'));
+  router.get('/learning/dashboard', v4Get('/v1/learning/dashboard'));
+  router.get('/learning/telemetry', v4Get('/v1/learning/telemetry'));
+  router.get('/learning/history', v4Get('/v1/learning/history'));
+  router.post('/learning/create', v4Post('/v1/learning/create'));
+  router.post('/learning/list', v4Post('/v1/learning/list'));
+  router.get('/learning/:learningId', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/learning/${encodeURIComponent(req.params.learningId)}`
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'Learning get failed' });
+    }
+  });
+
   // Company Monitoring System V1 — continuous living analyst
   router.get('/company-monitor/health', kfGet('/v1/company-monitor/health'));
   router.get('/company-monitor/dashboard', kfGet('/v1/company-monitor/dashboard'));

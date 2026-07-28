@@ -543,6 +543,63 @@ export default function ResearchWorkspace({
                   </Section>
                 </div>
 
+                {vm.investmentOfficeOs ? (
+                  <Section
+                    id="investment-office-os"
+                    kicker="AGI v4.0"
+                    title="Investment Office"
+                  >
+                    <p className="rw-mini mb-3">
+                      {vm.investmentOfficeOs.release} · Thesis → Decision → Portfolio Idea → Monitoring →
+                      Learning · Ideas are not positions
+                    </p>
+                    <div className="grid grid-cols-2 gap-3 text-sm md:grid-cols-5">
+                      <div className="rw-why-card">
+                        <h4>Thesis</h4>
+                        <p>{vm.investmentOfficeOs.thesisId || '—'}</p>
+                      </div>
+                      <div className="rw-why-card">
+                        <h4>Decision</h4>
+                        <p>
+                          {vm.investmentOfficeOs.decision || '—'}
+                          {vm.investmentOfficeOs.decisionStatus
+                            ? ` · ${vm.investmentOfficeOs.decisionStatus}`
+                            : ''}
+                        </p>
+                      </div>
+                      <div className="rw-why-card">
+                        <h4>Portfolio idea</h4>
+                        <p>
+                          {vm.investmentOfficeOs.expectedRole || '—'}
+                          {vm.investmentOfficeOs.relativeRank != null
+                            ? ` · rank ${vm.investmentOfficeOs.relativeRank}`
+                            : ''}
+                        </p>
+                      </div>
+                      <div className="rw-why-card">
+                        <h4>Monitoring</h4>
+                        <p>
+                          {vm.investmentOfficeOs.monitoringEvents != null
+                            ? `${vm.investmentOfficeOs.monitoringEvents} events`
+                            : '—'}
+                          {vm.investmentOfficeOs.requiresReview != null
+                            ? ` · ${vm.investmentOfficeOs.requiresReview} review`
+                            : ''}
+                        </p>
+                      </div>
+                      <div className="rw-why-card">
+                        <h4>Learning</h4>
+                        <p>
+                          {vm.investmentOfficeOs.learningOutcome || '—'}
+                          {vm.investmentOfficeOs.learningCategory
+                            ? ` · ${vm.investmentOfficeOs.learningCategory}`
+                            : ''}
+                        </p>
+                      </div>
+                    </div>
+                  </Section>
+                ) : null}
+
                 {vm.decisionEngine ? (
                   <Section id="decision-scorecard" kicker="Decision Framework" title="Investment Decision Scorecard">
                     <p className="rw-body mb-4">

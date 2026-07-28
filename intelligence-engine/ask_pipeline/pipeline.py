@@ -1982,4 +1982,16 @@ def run_complete_ask(
         "reasoning_changed": False,
         "knowledge_factory_changed": False,
         "llm_synthesis_used": False,
+        # AGI v4.0 Investment Office soft surface (thin; full packs in store/context)
+        "investment_office_os": {
+            "release": "AGI v4.0",
+            "investment_thesis": (context.get("investment_thesis") or {}),
+            "decision_office": (context.get("decision_office") or {}),
+            "portfolio_office": (context.get("portfolio_office") or {}),
+            "monitoring_office": (context.get("monitoring_office") or {}),
+            "learning_office": (context.get("learning_office") or {}),
+            "positions": False,
+            "orders": False,
+            "execution": False,
+        },
     }

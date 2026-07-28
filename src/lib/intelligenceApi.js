@@ -932,6 +932,36 @@ export const packageInvestmentOffice = (query = '', ticker) =>
     body: { query, ticker },
   });
 
+/** AGI v4.0 Investment Office OS — Thesis → Decision → Portfolio → Monitoring → Learning */
+export const getThesisHealth = () => intelligenceFetch('/thesis/health');
+export const getThesisDashboard = () => intelligenceFetch('/thesis/dashboard');
+export const listTheses = (body = {}) =>
+  intelligenceFetch('/thesis/list', { method: 'POST', body });
+
+export const getDecisionHealth = () => intelligenceFetch('/decision/health');
+export const getDecisionDashboard = () => intelligenceFetch('/decision/dashboard');
+export const listDecisions = (body = {}) =>
+  intelligenceFetch('/decision/list', { method: 'POST', body });
+
+export const getPortfolioIdeaHealth = () => intelligenceFetch('/portfolio/health');
+export const getPortfolioIdeaDashboard = () => intelligenceFetch('/portfolio/dashboard');
+export const listPortfolioIdeas = (body = {}) =>
+  intelligenceFetch('/portfolio/list', { method: 'POST', body });
+export const rankPortfolioIdeas = (body = {}) =>
+  intelligenceFetch('/portfolio/ranking', { method: 'POST', body });
+
+export const getMonitoringHealth = () => intelligenceFetch('/monitoring/health');
+export const getMonitoringDashboard = () => intelligenceFetch('/monitoring/dashboard');
+export const listMonitoringEvents = (body = {}) =>
+  intelligenceFetch('/monitoring/list', { method: 'POST', body });
+export const getMonitoringReviewQueue = (body = {}) =>
+  intelligenceFetch('/monitoring/review-queue', { method: 'POST', body });
+
+export const getLearningHealth = () => intelligenceFetch('/learning/health');
+export const getLearningDashboard = () => intelligenceFetch('/learning/dashboard');
+export const listLearnings = (body = {}) =>
+  intelligenceFetch('/learning/list', { method: 'POST', body });
+
 /** Company Monitoring System V1 — continuous living analyst */
 export const getCompanyMonitorHealth = () => intelligenceFetch('/company-monitor/health');
 export const getCompanyMonitorDashboard = () => intelligenceFetch('/company-monitor/dashboard');

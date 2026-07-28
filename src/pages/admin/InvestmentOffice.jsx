@@ -1,9 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Landmark, AlertTriangle, RefreshCw } from 'lucide-react';
 import {
+  getDecisionDashboard,
   getInvestmentOfficeDashboard,
   getInvestmentOfficeHealth,
   getInvestmentOfficeQualityGates,
+  getLearningDashboard,
+  getMonitoringDashboard,
+  getPortfolioIdeaDashboard,
+  getThesisDashboard,
 } from '@/lib/intelligenceApi';
 import { Button } from '@/components/ui/button';
 
@@ -21,6 +26,7 @@ export default function InvestmentOfficeAdmin() {
   const [health, setHealth] = useState(null);
   const [dashboard, setDashboard] = useState(null);
   const [gates, setGates] = useState(null);
+  const [v4, setV4] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -36,6 +42,20 @@ export default function InvestmentOfficeAdmin() {
       setHealth(h);
       setDashboard(d);
       setGates(g);
+      const offices = await Promise.allSettled([
+        getThesisDashboard(),
+        getDecisionDashboard(),
+        getPortfolioIdeaDashboard(),
+        getMonitoringDashboard(),
+        getLearningDashboard(),
+      ]);
+      setV4({
+        thesis: offices[0].status === 'fulfilled' ? offices[0].value : null,
+        decision: offices[1].status === 'fulfilled' ? offices[1].value : null,
+        portfolio: offices[2].status === 'fulfilled' ? offices[2].value : null,
+        monitoring: offices[3].status === 'fulfilled' ? offices[3].value : null,
+        learning: offices[4].status === 'fulfilled' ? offices[4].value : null,
+      });
     } catch (err) {
       setError(err?.message || 'Failed to load Investment Office');
     } finally {
@@ -59,15 +79,15 @@ export default function InvestmentOfficeAdmin() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-[10px] uppercase tracking-[0.2em] text-amber-700 font-semibold">
-            Investment Office v1.0 · Executive cockpit
+            AGI v4.0 Investment Office · Executive cockpit
           </p>
           <h1 className="text-2xl font-bold text-slate-900 mt-1 flex items-center gap-2">
             <Landmark className="h-6 w-6 text-amber-700" />
             Investment Office
           </h1>
           <p className="text-sm text-slate-500 mt-1 max-w-2xl">
-            Aggregates CMS, Company Analysis, Academy, IOC and UI home into the daily CIO desk. Not an
-            engine. Not a recommendation engine.
+            Thesis → Decision → Portfolio Idea → Monitoring → Learning. Ideas are not positions.
+            Monitoring recommends review. Learning is process memory — not Knowledge Factory facts.
           </p>
         </div>
         <Button variant="outline" onClick={load} disabled={loading}>
@@ -90,6 +110,44 @@ export default function InvestmentOfficeAdmin() {
         <Stat label="Coverage" value={coverage.coverage_pct != null ? `${coverage.coverage_pct}%` : '—'} />
         <Stat label="HV reviews" value={(preds.house_view_reviews_required || []).length} />
         <Stat label="Gates" value={gates?.passed ? 'PASS' : gates ? 'FAIL' : '—'} />
+      </div>
+
+      <div className="bg-white rounded-xl border border-amber-200 p-5">
+        <h2 className="text-lg font-semibold mb-1">v4.0 Office OS</h2>
+        <p className="text-xs text-slate-500 mb-4">
+          Soft-wired institutional objects · no positions · no orders · no Knowledge Factory mutation
+        </p>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <Stat
+            label="Theses"
+            value={v4?.thesis?.n_theses ?? v4?.thesis?.active_theses ?? '—'}
+            hint={v4?.thesis?.version || 'ITE'}
+          />
+          <Stat
+            label="Decisions"
+            value={v4?.decision?.n_decisions ?? v4?.decision?.decisions ?? '—'}
+            hint={v4?.decision?.version || 'IDO'}
+          />
+          <Stat
+            label="Portfolio ideas"
+            value={v4?.portfolio?.n_ideas ?? '—'}
+            hint={v4?.portfolio?.positions === false ? 'ideas only' : 'IPO'}
+          />
+          <Stat
+            label="Monitoring"
+            value={v4?.monitoring?.n_events ?? '—'}
+            hint={
+              v4?.monitoring?.requires_review != null
+                ? `${v4.monitoring.requires_review} need review`
+                : 'IMO'
+            }
+          />
+          <Stat
+            label="Learnings"
+            value={v4?.learning?.n_learnings ?? '—'}
+            hint={v4?.learning?.process_memory_only ? 'process memory' : 'ILO'}
+          />
+        </div>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">

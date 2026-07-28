@@ -164,6 +164,14 @@ export default function MissionControl() {
   const evidenceRetrieval = institutional?.evidence_retrieval || null;
   const institutionalDocs = institutional?.institutional_documents || null;
   const liveDataBoard = institutional?.live_institutional_data || null;
+  const v4Office = {
+    thesis: desk?.institutional_investment_thesis || null,
+    decision: desk?.institutional_decision_office || null,
+    portfolio: desk?.institutional_portfolio_office || null,
+    monitoring: desk?.institutional_monitoring_office || null,
+    learning: desk?.institutional_learning_office || null,
+  };
+  const v4Present = Object.values(v4Office).some(Boolean);
   const monitor = desk?.company_monitor || {};
   const pipeline = desk?.research_pipeline || {};
   const preds = desk?.prediction_intelligence || {};
@@ -268,6 +276,43 @@ export default function MissionControl() {
             <Stat label="Branch" value={deploy.current_branch || '—'} />
           </div>
         </section>
+
+        {v4Present ? (
+          <section className="space-y-3">
+            <Kicker>AGI v4.0 · Investment Office OS</Kicker>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+              <Stat
+                label="Thesis Office"
+                value={v4Office.thesis?.status || (v4Office.thesis ? 'ready' : '—')}
+                hint={v4Office.thesis?.version || 'ITE'}
+              />
+              <Stat
+                label="Decision Office"
+                value={v4Office.decision?.status || (v4Office.decision ? 'ready' : '—')}
+                hint={v4Office.decision?.version || 'IDO'}
+              />
+              <Stat
+                label="Portfolio Ideas"
+                value={v4Office.portfolio?.n_ideas ?? (v4Office.portfolio ? 'ready' : '—')}
+                hint="ideas ≠ positions"
+              />
+              <Stat
+                label="Monitoring"
+                value={v4Office.monitoring?.n_events ?? (v4Office.monitoring ? 'ready' : '—')}
+                hint={
+                  v4Office.monitoring?.requires_review != null
+                    ? `${v4Office.monitoring.requires_review} review`
+                    : 'events recommend review'
+                }
+              />
+              <Stat
+                label="Learning"
+                value={v4Office.learning?.n_learnings ?? (v4Office.learning ? 'ready' : '—')}
+                hint="process memory"
+              />
+            </div>
+          </section>
+        ) : null}
 
         {/* SECTION 2 */}
         <section className="space-y-3">

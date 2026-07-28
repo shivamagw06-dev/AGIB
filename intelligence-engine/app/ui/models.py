@@ -220,6 +220,8 @@ class SearchView(BaseModel):
     decision_readiness: dict[str, Any] = Field(default_factory=dict)
     # RQ2 Institutional Reasoning Audit Engine — Sprint 10 (final certification; not a layer)
     reasoning_audit: dict[str, Any] = Field(default_factory=dict)
+    # AGI v4.0 Investment Office OS — Thesis→Decision→Portfolio→Monitoring→Learning (additive)
+    investment_office_os: dict[str, Any] = Field(default_factory=dict)
     # Framework Execution Policy — required frameworks must execute or report insufficient (soft-wire)
     execution_policy: dict[str, Any] = Field(default_factory=dict)
     # Phase 1 Evidence-First Execution Governance — contract/validation/committee record (soft-wire)

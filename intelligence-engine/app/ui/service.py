@@ -2989,6 +2989,36 @@ class UiService:
             answer_construction=scrub(answer_construction) if answer_construction else {},
             decision_engine=scrub(decision_engine) if decision_engine else {},
             intelligence_layer=scrub(intelligence_layer) if intelligence_layer else {},
+            investment_office_os=scrub(
+                (ask_pipeline_runtime or {}).get("investment_office_os")
+                or {
+                    "release": "AGI v4.0",
+                    "investment_thesis": ((ask_pipeline_runtime or {}).get("context") or {}).get(
+                        "investment_thesis"
+                    )
+                    or {},
+                    "decision_office": ((ask_pipeline_runtime or {}).get("context") or {}).get(
+                        "decision_office"
+                    )
+                    or {},
+                    "portfolio_office": ((ask_pipeline_runtime or {}).get("context") or {}).get(
+                        "portfolio_office"
+                    )
+                    or {},
+                    "monitoring_office": ((ask_pipeline_runtime or {}).get("context") or {}).get(
+                        "monitoring_office"
+                    )
+                    or {},
+                    "learning_office": ((ask_pipeline_runtime or {}).get("context") or {}).get(
+                        "learning_office"
+                    )
+                    or {},
+                    "positions": False,
+                    "orders": False,
+                    "execution": False,
+                }
+            )
+            or {},
             institutional_analysts=scrub(
                 (answer_construction or {}).get("institutional_analysts")
                 if isinstance(answer_construction, dict)

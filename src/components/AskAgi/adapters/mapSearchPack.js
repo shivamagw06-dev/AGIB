@@ -86,6 +86,40 @@ function sparkFrom(hist) {
 export function mapSearchPack(pack) {
   if (!pack || typeof pack !== 'object') return null;
 
+  const ios = pack.investment_office_os && typeof pack.investment_office_os === 'object'
+    ? pack.investment_office_os
+    : null;
+  const iosThesis = ios?.investment_thesis || {};
+  const iosDecision = ios?.decision_office || {};
+  const iosPortfolio = ios?.portfolio_office || {};
+  const iosMonitoring = ios?.monitoring_office || {};
+  const iosLearning = ios?.learning_office || {};
+  const investmentOfficeOs =
+    ios &&
+    (iosThesis.thesis_id ||
+      iosDecision.decision_id ||
+      iosPortfolio.idea_id ||
+      iosMonitoring.portfolio_idea ||
+      iosLearning.learning_id)
+      ? {
+          release: asText(ios.release, 'AGI v4.0'),
+          thesisId: asText(iosThesis.thesis_id, ''),
+          decisionId: asText(iosDecision.decision_id, ''),
+          decision: asText(iosDecision.decision, ''),
+          decisionStatus: asText(iosDecision.status, ''),
+          ideaId: asText(iosPortfolio.idea_id, ''),
+          relativeRank: iosPortfolio.relative_rank ?? null,
+          expectedRole: asText(iosPortfolio.expected_role, ''),
+          monitoringEvents: iosMonitoring.n_events ?? null,
+          requiresReview: iosMonitoring.requires_review ?? null,
+          learningId: asText(iosLearning.learning_id, ''),
+          learningOutcome: asText(iosLearning.outcome, ''),
+          learningCategory: asText(iosLearning.category, ''),
+          positions: false,
+          orders: false,
+        }
+      : null;
+
   const ic = pack.intelligence_construction?.enabled ? pack.intelligence_construction : null;
   const ac = pack.answer_construction?.enabled ? pack.answer_construction : null;
   const sections = ic?.sections || {};
@@ -1004,5 +1038,6 @@ export function mapSearchPack(pack) {
         }
       : null,
     ticker: ca.ticker || dossier.ticker || ail?.ticker || pack.entities?.primary_ticker || null,
+    investmentOfficeOs,
   };
 }
