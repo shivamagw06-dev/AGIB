@@ -66,6 +66,7 @@ from app.ui.sanitize import (
     scrub,
     scrub_text,
 )
+from app.ui.timeouts import call_with_timeout
 
 
 def _unwrap_soft_slice(name: str, data: Any) -> dict[str, Any]:
@@ -1116,26 +1117,40 @@ class UiService:
         intelligence_layer: dict[str, Any] = {}
         used_cae = False
 
+        # Degradation ledger — optional collectors/deps never block a briefing.
+        degradation: dict[str, Any] = {
+            "faa": "background_only",
+            "market_data": "live",
+            "news": "live",
+            "reasoning": "pending",
+        }
+
         # LEO v1.0 — gather / verify / package live evidence BEFORE Academy + SIF + IRP
+        # Hard timeout: Ask must not wait on unbounded live fan-out.
         try:
             from leo.production import package_for_query as leo_package
 
-            live_evidence = (
-                leo_package(
-                    q,
-                    ticker=detected_ticker,
-                    engine="ask_agi",
-                    eve=self.eve,
-                    kip=self.kip,
-                    aoi=self.aoi,
-                    mee=self.mee,
-                )
-                or {}
+            live_evidence, leo_to = call_with_timeout(
+                leo_package,
+                q,
+                ticker=detected_ticker,
+                engine="ask_agi",
+                eve=self.eve,
+                kip=self.kip,
+                aoi=self.aoi,
+                mee=self.mee,
+                timeout_sec=5.0,
+                default={},
             )
+            live_evidence = live_evidence or {}
+            if leo_to:
+                degradation["live_evidence"] = "timeout_cached"
+                degradation["market_data"] = "cached"
             if live_evidence.get("ticker") and not detected_ticker:
                 detected_ticker = str(live_evidence["ticker"]).upper()
         except Exception:
             live_evidence = {}
+            degradation["live_evidence"] = "unavailable"
 
         # FAPI + SIF — sector framework then Finance Academy (consume LEO evidence_supplied)
         leo_supplied = (live_evidence.get("sif_evidence_supplied") or {}) if isinstance(live_evidence, dict) else {}
@@ -1381,7 +1396,16 @@ class UiService:
                     open_intelligence = {}
             if self.fre and q:
                 try:
-                    finance_retrieval = dump(soft(self.fre.consult, q, limit=8)) or {}
+                    finance_retrieval, fre_to = call_with_timeout(
+                        self.fre.consult,
+                        q,
+                        limit=8,
+                        timeout_sec=3.0,
+                        default={},
+                    )
+                    finance_retrieval = dump(finance_retrieval) or {}
+                    if fre_to:
+                        degradation["finance_retrieval"] = "timeout_cached"
                     if isinstance(finance_retrieval, dict):
                         for hit in finance_retrieval.get("hits") or []:
                             if isinstance(hit, dict) and hit.get("symbol") and not detected_ticker:
@@ -1408,12 +1432,24 @@ class UiService:
                         detected_ticker = str(hit["key"]).upper()
                         break
 
-        # FRE soft consult — authoritative evidence pack (CAE path and fallback).
+        # FRE soft consult — indexed/seed corpus only (never faa.acquire on Ask).
         if self.fre and q and not finance_retrieval:
             try:
-                finance_retrieval = dump(soft(self.fre.consult, q, limit=8)) or {}
+                finance_retrieval, fre_to = call_with_timeout(
+                    self.fre.consult,
+                    q,
+                    limit=8,
+                    timeout_sec=3.0,
+                    default={},
+                )
+                finance_retrieval = dump(finance_retrieval) or {}
+                if fre_to:
+                    degradation["finance_retrieval"] = "timeout_cached"
+                else:
+                    degradation["finance_retrieval"] = "cached_index"
             except Exception:
                 finance_retrieval = {}
+                degradation["finance_retrieval"] = "unavailable"
 
         # VE soft consult — intrinsic value / MoS before reasoning (CAE and fallback paths).
         if self.ve and q:
@@ -2124,9 +2160,18 @@ class UiService:
         # AGIB Intelligence Layer V2 — living dossier/thesis/forecast (soft; no FAA/FRE/CAE redesign)
         try:
             if self.ail is not None and hasattr(self.ail, "package_for_ask_agi"):
-                intelligence_layer = (
-                    self.ail.package_for_ask_agi(q, ticker=detected_ticker) or {}
+                intelligence_layer, ail_to = call_with_timeout(
+                    self.ail.package_for_ask_agi,
+                    q,
+                    ticker=detected_ticker,
+                    timeout_sec=4.0,
+                    default={},
                 )
+                intelligence_layer = intelligence_layer or {}
+                if ail_to:
+                    degradation["intelligence_layer"] = "timeout_cached"
+                else:
+                    degradation["intelligence_layer"] = "cached_snapshot"
                 if intelligence_layer.get("enabled") and intelligence_layer.get("ticker"):
                     detected_ticker = detected_ticker or str(intelligence_layer.get("ticker")).upper()
                     for hint in (intelligence_layer.get("ask_agi_hints") or [])[:4]:
@@ -2820,12 +2865,20 @@ class UiService:
             except Exception:
                 intelligence_bus = {}
 
+        degradation["reasoning"] = "completed"
+        desk_status = "degraded" if any(
+            str(v).endswith("timeout_cached") or v == "unavailable"
+            for v in degradation.values()
+        ) else "ok"
+
         return SearchView(
             meta=UiMeta(
                 surface="search",
                 sources=["knowledge", "research_committee", "composite_view", "model_portfolio", "irp"],
             ),
             question=q,
+            status=desk_status,
+            degradation=degradation,
             intent=(irp_dump or {}).get("intent") or (client or {}).get("intent"),
             entities={
                 "ticker": detected_ticker,

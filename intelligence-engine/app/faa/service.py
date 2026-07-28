@@ -196,6 +196,35 @@ class FaaService:
             "versions": self.store.snapshot(),
         }
 
+    def refresh_snapshots(self, *, limit_per_query: int = 6) -> dict[str, Any]:
+        """Background collector cycle — fills FRE/FAA snapshot store off the Ask path."""
+        self._require()
+        runs: list[dict[str, Any]] = []
+        errors: list[str] = []
+        # Keep cycles bounded so starter-plan memory/CPU survive.
+        for q in WATCHLIST_QUERIES[:4]:
+            try:
+                runs.append(self.acquire(q, limit=limit_per_query))
+            except Exception as exc:  # noqa: BLE001
+                errors.append(f"{q[:48]}: {str(exc)[:120]}")
+                runs.append({"query": q, "error": str(exc)[:160]})
+        self.scheduler.mark_run(
+            "background_collector",
+            queries=len(runs),
+            errors=len(errors),
+        )
+        return {
+            "ok": not errors,
+            "programme": "FAA",
+            "mode": "background_collector",
+            "queries": len(runs),
+            "runs": runs,
+            "errors": errors,
+            "scheduler": self.scheduler.status(),
+            "cache": self.cache.snapshot(),
+            "versions": self.store.snapshot(),
+        }
+
     def consult(self, query: str, *, limit: int = 8) -> dict[str, Any]:
         """Observability path only — acquisition summary, never an answer."""
         self._require()

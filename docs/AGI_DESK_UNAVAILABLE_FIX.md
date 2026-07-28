@@ -31,6 +31,6 @@ Contributing factors:
 | `AGI_V4_OFFICE_PERSIST` | `0` | Do not persist office objects on Ask path |
 | `AIL_LIVE_FAA` | `0` | When off, Ask/AIL skips unbound `faa.acquire` (Playwright hang) |
 
-## Follow-up root cause
+## Follow-up root cause (architecture)
 
-Even with JSON 503 + retries, Ask still timed out at 90s because AIL’s Ask soft-wire called `faa.acquire` with live fetch + Playwright and no deadline. Fix: `package_for_ask_agi` passes `pull_faa=False`; optional `AIL_LIVE_FAA=1` re-enables a 12s capped acquire.
+Even with JSON 503 + retries, Ask timed out because collectors sat on the request path. Sprint A removes `faa.acquire` from Ask entirely and moves FAA to a background collector — see `docs/AGI_ASK_NO_FAA_ARCHITECTURE.md`.

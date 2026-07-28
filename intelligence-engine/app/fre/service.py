@@ -307,19 +307,23 @@ class FreService:
     def consult(self, query: str, *, limit: int = 8) -> dict[str, Any]:
         """Ask AGI / CAE soft retrieval — evidence only, never a recommendation.
 
-        Does not run a full FAA live acquire on the hot Ask AGI path (that can
-        exceed 60–90s). Uses the indexed corpus; call /v1/faa/acquire explicitly
-        when a fresh crawl is required.
+        Architecture rule: Ask never calls ``faa.acquire``. This path reads the
+        seeded/indexed corpus (and snapshots filled by the FAA background
+        collector). Use ``POST /v1/faa/acquire`` or the background collector for
+        live crawls — never the Ask request path.
         """
         self._require()
         if not self.flags.fre_ask_agi:
             return {"programme": "FRE", "disabled": True, "hits": []}
-        # Soft path: search existing index. Bootstrap acquire only if corpus is empty.
-        need_bootstrap = len(getattr(self.store, "documents", {}) or {}) < 4
+        # Seed corpus if empty — never FAA/Playwright on Ask.
+        try:
+            self.pipeline.ensure_seed()
+        except Exception:
+            pass
         pack = self.pipeline.run_query(
             query,
             limit=limit,
-            acquire=bool(self.flags.fre_acquisition and need_bootstrap),
+            acquire=False,
             update_kg=False,
         )
         return {
@@ -327,6 +331,8 @@ class FreService:
             "architecture_status": "v1.0.1 LOCKED",
             "does_not_answer": True,
             "query": query,
+            "acquisition_mode": "index_only",
+            "live_faa_acquire": False,
             "understanding": pack.get("understanding"),
             "plan_tasks": [t.get("description") for t in (pack.get("plan") or {}).get("tasks", [])][:12],
             "hits": [
@@ -357,7 +363,11 @@ class FreService:
             ],
             "confidence": pack.get("confidence"),
             "knowledge_graph": pack.get("knowledge_graph"),
-            "invariants": ["never_answer_user", "evidence_requires_provenance"],
+            "invariants": [
+                "never_answer_user",
+                "evidence_requires_provenance",
+                "never_faa_acquire_on_ask",
+            ],
         }
 
     def _authority_mix(self) -> dict[str, int]:

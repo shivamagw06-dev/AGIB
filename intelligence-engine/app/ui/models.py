@@ -83,6 +83,9 @@ class SearchView(BaseModel):
 
     meta: UiMeta
     question: str
+    # ok | degraded — Ask always returns a briefing when possible; optional deps may time out.
+    status: str = "ok"
+    degradation: dict[str, Any] = Field(default_factory=dict)
     intent: str | None = None
     entities: dict[str, Any] = Field(default_factory=dict)
     answer: dict[str, Any] = Field(default_factory=dict)

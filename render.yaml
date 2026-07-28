@@ -120,6 +120,15 @@ services:
         value: "1"
       - key: AGI_V4_OFFICE_PERSIST
         value: "0"
+      # Sprint A — collectors off the Ask path
+      - key: FAA_BACKGROUND_COLLECTOR
+        value: "true"
+      - key: FAA_COLLECTOR_INTERVAL_SEC
+        value: "300"
+      - key: FAA_COLLECTOR_LIMIT
+        value: "6"
+      - key: ASK_EXT_TIMEOUT_SEC
+        value: "5"
       - key: EXA_API_KEY
         sync: false
       - key: FIRECRAWL_API_KEY

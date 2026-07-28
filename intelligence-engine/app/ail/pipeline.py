@@ -94,56 +94,69 @@ class AilPipeline:
         *,
         pull_faa: bool = False,
     ) -> list[EvidenceRecord]:
-        """Soft-consume FAA/FRE evidence when bound — never fail hard.
+        """Soft-consume cached FAA/FRE evidence — never call ``faa.acquire``.
 
-        FAA acquire is opt-in (`pull_faa` / env ``AIL_LIVE_FAA``). Unbounded
-        live FAA + Playwright on the Ask path was causing Render HTML 502s.
+        ``pull_faa`` is ignored (kept for API compatibility). Live acquisition
+        belongs exclusively to the FAA background collector / ``/v1/faa/*``.
         """
-        import os
-        from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
-
+        del pull_faa  # Ask path must never trigger live FAA/Playwright.
         out: list[EvidenceRecord] = []
-        live_faa = pull_faa or str(os.environ.get("AIL_LIVE_FAA", "0")).lower() in {
-            "1",
-            "true",
-            "yes",
-        }
-        if self.faa is not None and live_faa:
+
+        # Read-only FAA snapshot (filled by background collector) — no acquire.
+        if self.faa is not None:
             try:
-                # Hard ceiling — never let Chromium/search stack block Ask.
-                with ThreadPoolExecutor(max_workers=1) as pool:
-                    fut = pool.submit(lambda: self.faa.acquire(query, limit=8))
-                    acq = fut.result(timeout=12)
-                for d in (acq.get("documents") or [])[:8]:
-                    claim = (d.get("title") or d.get("raw_text") or "")[:280]
+                snap = {}
+                if hasattr(self.faa, "store") and hasattr(self.faa.store, "snapshot"):
+                    snap = self.faa.store.snapshot() or {}
+                for d in (snap.get("latest") or [])[:8]:
+                    if not isinstance(d, dict):
+                        continue
+                    claim = str(d.get("title") or d.get("claim") or d.get("url") or "")[:280]
                     if not claim:
                         continue
                     out.append(
                         self.ledger.register(
                             claim=claim,
-                            source=str(d.get("source") or "faa"),
+                            source=str(d.get("connector_id") or d.get("source") or "faa_snapshot"),
                             url=d.get("url"),
                             company=d.get("company") or COMPANIES.get(ticker, {}).get("company"),
                             ticker=ticker,
-                            section=(d.get("metadata") or {}).get("reporting_period") or d.get("document_type"),
-                            connector=str((d.get("metadata") or {}).get("faa_connector") or d.get("source") or "faa"),
-                            authority_score=int(d.get("authority") or 7),
-                            confidence=0.75,
-                            document_version=(d.get("metadata") or {}).get("faa_fetch_id"),
-                            metadata={"upstream": "faa", "document_type": d.get("document_type")},
+                            section=d.get("document_type") or d.get("section"),
+                            connector="faa_snapshot",
+                            authority_score=int(d.get("authority") or 6),
+                            confidence=0.6,
+                            document_version=d.get("document_id") or d.get("checksum"),
+                            metadata={"upstream": "faa_snapshot", "live_acquire": False},
                         )
                     )
-            except FuturesTimeout:
-                pass
             except Exception:
                 pass
-        if self.fre is not None and not out:
+
+        # FRE index/search only (acquire=False). Never fre.query (that can FAA-acquire).
+        if self.fre is not None:
             try:
-                pack = self.fre.query(query, limit=8) if hasattr(self.fre, "query") else {}
-                for e in (pack.get("top_evidence") or pack.get("evidence") or [])[:8]:
+                if hasattr(self.fre, "search"):
+                    pack = self.fre.search(query, limit=8) or {}
+                elif hasattr(self.fre, "consult"):
+                    pack = self.fre.consult(query, limit=8) or {}
+                else:
+                    pack = {}
+                evidence_rows = (
+                    pack.get("evidence")
+                    or pack.get("top_evidence")
+                    or pack.get("hits")
+                    or []
+                )
+                for e in evidence_rows[:8]:
                     if not isinstance(e, dict):
                         continue
-                    claim = str(e.get("claim") or e.get("text") or e.get("title") or "")[:280]
+                    claim = str(
+                        e.get("claim")
+                        or e.get("label")
+                        or e.get("text")
+                        or e.get("title")
+                        or ""
+                    )[:280]
                     if not claim:
                         continue
                     out.append(
@@ -157,8 +170,8 @@ class AilPipeline:
                             section=e.get("section") or e.get("heading"),
                             connector=str(e.get("source") or "fre"),
                             authority_score=int(e.get("authority") or 6),
-                            confidence=float(e.get("confidence") or 0.65),
-                            metadata={"upstream": "fre", "evidence_ref": e.get("evidence_id") or e.get("id")},
+                            confidence=float(e.get("confidence") or e.get("score") or 0.65),
+                            metadata={"upstream": "fre_index", "evidence_ref": e.get("evidence_id") or e.get("id")},
                         )
                     )
             except Exception:

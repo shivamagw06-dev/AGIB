@@ -80,6 +80,18 @@ async def lifespan(_app: FastAPI):
             )
     except Exception as exc:
         log.warning("institutional_stack_bootstrap_failed", extra={"error": str(exc)[:160]})
+    # FAA background collector — fills snapshot/index off the Ask path.
+    # Ask must never call faa.acquire; this thread is the only auto live crawl.
+    stop_faa_collector = None
+    try:
+        from app.api.routes import _faa
+        from app.faa.background import start_background_collector, stop_background_collector
+
+        boot_faa = start_background_collector(lambda: _faa)
+        stop_faa_collector = stop_background_collector
+        log.info("faa_background_collector", extra=boot_faa)
+    except Exception as exc:
+        log.warning("faa_background_collector_failed", extra={"error": str(exc)[:160]})
     # NOTE: Do not auto-download Chromium at startup on free-tier Render — the
     # install can starve CPU/RAM and make /v1/health time out. Bake browsers via
     # buildCommand (`python -m playwright install chromium`) or set
@@ -89,6 +101,11 @@ async def lifespan(_app: FastAPI):
         extra={"env": settings.app_env, "agib_base": settings.agib_api_base_url},
     )
     yield
+    try:
+        if stop_faa_collector is not None:
+            stop_faa_collector()
+    except Exception:
+        pass
     log.info("intelligence_engine_stopped")
 
 
