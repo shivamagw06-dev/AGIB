@@ -6873,6 +6873,64 @@ async def institutional_reasoning_health():
     return health()
 
 
+@router.get("/institutional-reasoning/evidence/{ticker}")
+async def institutional_evidence_pack(ticker: str):
+    from institutional_reasoning.interrogate import evidence_pack
+
+    return evidence_pack(ticker)
+
+
+@router.get("/institutional-reasoning/portfolio/{ticker}")
+async def institutional_portfolio_view(ticker: str):
+    from institutional_reasoning.interrogate import portfolio_view
+
+    return portfolio_view(ticker)
+
+
+@router.get("/institutional-reasoning/graphs")
+async def institutional_decision_graphs(q: str, ticker: str | None = None):
+    from institutional_reasoning.interrogate import decision_graphs
+
+    return decision_graphs(q, ticker=ticker)
+
+
+@router.get("/institutional-reasoning/universe")
+async def institutional_universe(tier: str = "nifty_50"):
+    from institutional_reasoning.fundamentals.universe import tier_report
+
+    return tier_report(tier)
+
+
+@router.get("/institutional-reasoning/observability")
+async def institutional_observability():
+    from institutional_reasoning.observability import health as obs_health
+
+    return obs_health()
+
+
+@router.get("/institutional-reasoning/baselines")
+async def institutional_baselines(ticker: str | None = None):
+    from institutional_reasoning.baselines import compare_entity, run_baseline_suite
+
+    if ticker:
+        return compare_entity(ticker)
+    return run_baseline_suite()
+
+
+@router.get("/institutional-reasoning/adversarial")
+async def institutional_adversarial():
+    from institutional_reasoning.adversarial_suite import run_adversarial_suite
+
+    return run_adversarial_suite()
+
+
+@router.get("/institutional-reasoning/stack")
+async def institutional_stack_surface(ticker: str = "INFY", tier: str = "nifty_50"):
+    from institutional_reasoning.interrogate import stack_surface
+
+    return stack_surface(ticker=ticker, tier=tier)
+
+
 @router.get("/answer-construction/health")
 async def answer_construction_health():
     from answer_construction.production import health

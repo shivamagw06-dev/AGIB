@@ -210,6 +210,21 @@ def _walk(
                             str(v.get("verified_at") or cur_as_of or ""),
                         )
                     )
+                # Scalar lists (e.g. risk_drivers) — bind under the parent key.
+                elif (
+                    isinstance(v, list)
+                    and v
+                    and all(not isinstance(x, (dict, list)) for x in v)
+                ):
+                    out.append(
+                        (
+                            str(k),
+                            v,
+                            cur_entity,
+                            str(cur_prov) if cur_prov else None,
+                            str(cur_as_of) if cur_as_of else None,
+                        )
+                    )
             else:
                 out.append(
                     (

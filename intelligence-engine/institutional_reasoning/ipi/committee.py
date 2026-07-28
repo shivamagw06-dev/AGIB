@@ -20,9 +20,22 @@ def convene_portfolio_committee(
     scenarios: dict[str, Any],
     research_record: dict[str, Any] | None = None,
     downside: dict[str, Any] | None = None,
+    portfolio_evidence: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     research_record = research_record or {}
     downside = downside or {}
+    portfolio_evidence = portfolio_evidence or {}
+
+    # Portfolio-typed questions run no valuation frameworks of their own; the
+    # valuation member then votes on the validated evidence pack instead of
+    # withholding as though no valuation work existed.
+    ev_fields = portfolio_evidence.get("evidence_fields") or {}
+    valuation_evidence = [
+        k for k in ("current_pe", "historical_pe", "peer_pe", "sector_pe") if ev_fields.get(k) is not None
+    ]
+    framework_executed = any(
+        f.get("status") == "executed" for f in (research_record.get("frameworks") or [])
+    )
     members = {
         "research": {
             "stance": (research_record.get("committee") or {}).get("stance") or "Research",
@@ -30,9 +43,9 @@ def convene_portfolio_committee(
         },
         "valuation": {
             "stance": "valuation",
-            "vote": "support"
-            if any(f.get("status") == "executed" for f in (research_record.get("frameworks") or []))
-            else "withhold",
+            "vote": "support" if (framework_executed or len(valuation_evidence) >= 3) else "withhold",
+            "basis": "frameworks" if framework_executed else ("evidence_pack" if valuation_evidence else "none"),
+            "evidence_fields": valuation_evidence,
         },
         "risk": {
             "stance": "risk_budget",

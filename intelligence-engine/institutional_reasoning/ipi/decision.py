@@ -111,6 +111,7 @@ def decide_portfolio(
         scenarios=scenarios,
         research_record=research_record,
         downside=downside,
+        portfolio_evidence=pep,
     )
 
     pep["conviction"] = sizing.get("conviction")

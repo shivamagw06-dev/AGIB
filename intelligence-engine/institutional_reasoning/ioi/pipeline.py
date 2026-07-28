@@ -47,6 +47,7 @@ def evaluate_decision(
     scenario_realised: str | None = None,
     force_wrong: dict[str, bool] | None = None,
     persist: bool = True,
+    propose_learning: bool = True,
 ) -> dict[str, Any]:
     """Full review: market → evaluate → attribute → calibrate → review → OG."""
     life = get_decision(decision_id)
@@ -96,6 +97,22 @@ def evaluate_decision(
         "learning_applied": False,
     }
     record["outcome_graph"] = build_outcome_graph(record)
+
+    # Phase 7 — Learning Governance: generate proposals only (never auto-deploy here).
+    if propose_learning:
+        try:
+            from institutional_reasoning.cal.governance import propose_from_outcome
+
+            learning = propose_from_outcome(record)
+            record["learning_proposals"] = {
+                "count": learning.get("count"),
+                "regime": learning.get("regime"),
+                "proposal_ids": [p.get("proposal_id") for p in (learning.get("proposals") or [])],
+                "auto_deployed": False,
+                "note": "Proposals require Simulation → Approval → Version before production overlays.",
+            }
+        except Exception:
+            record["learning_proposals"] = {"count": 0, "auto_deployed": False}
 
     update_decision(
         decision_id,

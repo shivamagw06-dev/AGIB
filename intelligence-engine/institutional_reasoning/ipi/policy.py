@@ -24,6 +24,20 @@ def evaluate_policy(
     book = book or default_book()
     policy = dict(DEFAULT_POLICY.to_dict())
     policy.update(book.get("policy") or {})
+    # Phase 7 — approved policy overlays (versioned; never silent rewrite of defaults).
+    # A learned overlay may only ever TIGHTEN a limit. The mandate stated by the
+    # book is a hard ceiling: learning must never widen a client constraint.
+    try:
+        from institutional_reasoning.cal.overlays import policy_overlay
+
+        overlay = policy_overlay().get("policy") or {}
+        for key in ("max_stock_weight", "max_sector_weight", "max_country_weight", "max_theme_weight"):
+            if key in overlay and key in policy:
+                policy[key] = min(float(policy[key]), float(overlay[key]))
+            elif key in overlay:
+                policy[key] = float(overlay[key])
+    except Exception:
+        pass
     symbol = str(entity_id or "").upper()
     exposure = exposure or {}
     risk = risk or {}
