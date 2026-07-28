@@ -350,6 +350,26 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("live_collector_activation")
     except Exception:
         out["live_collector_activation"] = None
+    # AGIB v3.1 IDI — institutional documents soft board.
+    try:
+        from knowledge_factory.institutional_documents.production import dashboard as idi_dash
+        from knowledge_factory.institutional_documents.production import health as idi_health
+
+        idh = idi_health()
+        idd = idi_dash()
+        out["institutional_documents"] = {
+            "status": idh.get("status"),
+            "version": idh.get("version"),
+            "documents": idd.get("documents"),
+            "companies_updated": len(idd.get("companies_updated") or []),
+            "knowledge_objects_created": idd.get("knowledge_objects_created"),
+            "validation_failures": idd.get("validation_failures"),
+            "replay_status": idd.get("replay_status"),
+            "north_star": idd.get("north_star"),
+        }
+        out["sources"].append("institutional_documents")
+    except Exception:
+        out["institutional_documents"] = None
     try:
         from knowledge_factory.production import historical_depth_coverage
 

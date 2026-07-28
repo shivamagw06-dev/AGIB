@@ -7203,6 +7203,73 @@ async def universe_intelligence_tree():
 
 
 # ---------------------------------------------------------------------------
+# AGIB v3.1 Track 4 — Institutional Documents Intelligence (IDI)
+# Document evidence layer only. No reasoning / summarisation / recommendations.
+# ---------------------------------------------------------------------------
+@router.get("/documents/health")
+async def documents_health():
+    from knowledge_factory.institutional_documents.production import health
+
+    return health()
+
+
+@router.get("/documents/dashboard")
+async def documents_dashboard_route():
+    from knowledge_factory.institutional_documents.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/documents/company/{ticker}")
+async def documents_company(ticker: str):
+    from knowledge_factory.institutional_documents.production import company
+
+    return company(ticker)
+
+
+@router.get("/documents/report/{doc_id}")
+async def documents_report(doc_id: str):
+    from knowledge_factory.institutional_documents.production import report
+
+    return report(doc_id)
+
+
+@router.get("/documents/search")
+async def documents_search(
+    q: str | None = None,
+    ticker: str | None = None,
+    doc_type: str | None = None,
+    limit: int = 50,
+):
+    from knowledge_factory.institutional_documents.production import search
+
+    return search(q=q, ticker=ticker, doc_type=doc_type, limit=limit)
+
+
+@router.get("/documents/replay")
+async def documents_replay(
+    as_of: str | None = None,
+    ticker: str | None = None,
+    document_id: str | None = None,
+):
+    from knowledge_factory.institutional_documents.production import replay
+
+    return replay(as_of=as_of or "2099-01-01", ticker=ticker, document_id=document_id)
+
+
+@router.post("/documents/run")
+async def documents_run(payload: dict[str, Any] = Body(default={})):
+    from knowledge_factory.institutional_documents.production import run_pipeline
+
+    body = payload or {}
+    return run_pipeline(
+        tickers=body.get("tickers"),
+        allow_samples=bool(body.get("allow_samples", True)),
+        as_of=body.get("as_of"),
+    )
+
+
+# ---------------------------------------------------------------------------
 # AGIB v2.0 Sprint 1 — Institutional Company Intelligence (soft KF enrichment)
 # Read-only surface. Reasoning / governance / IUI / IDQ frozen.
 # ---------------------------------------------------------------------------
