@@ -7377,6 +7377,51 @@ async def temporal_integrity_telemetry():
 
 
 # ---------------------------------------------------------------------------
+# AGI Phase 4 Sprint 4.5 — Institutional Confidence Calibration (ICC)
+# ---------------------------------------------------------------------------
+@router.get("/confidence/health")
+async def confidence_health():
+    from institutional_confidence_calibration.production import status
+
+    return status()
+
+
+@router.get("/confidence/dashboard")
+async def confidence_dashboard():
+    from institutional_confidence_calibration.production import dashboard
+
+    return dashboard()
+
+
+@router.post("/confidence/calculate")
+async def confidence_calculate(payload: dict):
+    from institutional_confidence_calibration.production import calculate_api
+
+    return calculate_api(payload)
+
+
+@router.post("/confidence/report")
+async def confidence_report(payload: dict):
+    from institutional_confidence_calibration.production import report
+
+    return report(payload)
+
+
+@router.get("/confidence/telemetry")
+async def confidence_telemetry():
+    from institutional_confidence_calibration.production import telemetry
+
+    return telemetry()
+
+
+@router.get("/confidence/history")
+async def confidence_history(limit: int = 20):
+    from institutional_confidence_calibration.production import history
+
+    return history(limit=limit)
+
+
+# ---------------------------------------------------------------------------
 # AGI Phase 4 Sprint 4.4 — Institutional Committee Reasoning (ICR)
 # ---------------------------------------------------------------------------
 @router.get("/committee/health")

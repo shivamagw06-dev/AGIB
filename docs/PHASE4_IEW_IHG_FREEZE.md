@@ -34,12 +34,12 @@ Do **not** tune IEW caps or IHG catalogs to chase IEL/CIO points.
 
 Evolve judgment in:
 
-1. **HQS** measurement (IEL independent metric)
-2. **IHE** (now frozen v1.0.0) + **CQS** / **ICR** (Sprint 4.4)
-3. **Sprint 4.5 — Confidence Calibration**
+1. **HQS / CQS / CFQS** (IEL independent metrics)
+2. Frozen stack: **IEW · IHG · IHE · ICR · ICC** (Phase 4 complete after ICC certification)
 
 ## Pipeline (frozen segment)
 
 ```text
-… → IEW (frozen) → IHG (frozen) → IHE (frozen) → ICR → Reasoning → ICE
+… → IEW → IHG → IHE → ICR → ICC → Reasoning → ICE
+     (all Phase 4 modules frozen at v1.0.0 after certification)
 ```

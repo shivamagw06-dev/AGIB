@@ -161,6 +161,27 @@ def probe_question(
         evidence_weighting=_iew.get("pack") or {},
         as_of=_as_of,
     )
+    # AGI ICC — Confidence Calibration (soft probe mirrors Ask pipeline)
+    from institutional_confidence_calibration.production import (
+        apply_confidence_calibration as icc_apply,
+    )
+
+    _icc = icc_apply(
+        question=text,
+        evidence_weighting=_iew.get("pack") or {},
+        hypothesis_generation=_ihg.get("pack") or {},
+        hypothesis_evaluation=_ihe.get("pack") or {},
+        committee_reasoning=_icr.get("pack") or {},
+        institutional_memory=im,
+        framework_selection=fs,
+        temporal_integrity={
+            "pre_analog": _pre.get("report"),
+            "post_analog": _post.get("report"),
+            "temporal_ok": True,
+        },
+        replay_integrity=True,
+        as_of=_as_of,
+    )
     return {
         "mode": "soft",
         "question_id": question.get("question_id"),
@@ -173,6 +194,7 @@ def probe_question(
         "hypothesis_generation": _ihg.get("pack") or {},
         "hypothesis_evaluation": _ihe.get("pack") or {},
         "committee_reasoning": _icr.get("pack") or {},
+        "confidence_calibration": _icc.get("pack") or {},
         "temporal_integrity": {
             "pre_analog": _pre.get("report"),
             "post_analog": _post.get("report"),

@@ -917,6 +917,93 @@ def run_complete_ask(
         "outcome": (committee_reasoning.get("report") or {}).get("outcome"),
     }
 
+    # ------------------------------------------------------------------
+    # AGI Phase 4 Sprint 4.5 — Institutional Confidence Calibration (ICC)
+    # Soft-wire only: emergent confidence from IEW→IHG→IHE→ICR before Reasoning.
+    # Never a manual label; never raised by an LLM; fixtures never increase it.
+    # Frozen IEW / IHG / IHE / ICR / frameworks / reasoning untouched.
+    # ------------------------------------------------------------------
+    from institutional_confidence_calibration.production import (
+        apply_confidence_calibration as icc_apply,
+    )
+    from institutional_confidence_calibration.schema import CONFIDENCE_VERSION, ICC_VERSION
+
+    _icc_meta = {
+        "question_id": (context.get("question_id") or session_id or conversation_id),
+        "intent": irl.get("intent") or intent_rec.get("intent_v2") or intent_rec.get("intent"),
+        "framework": (framework_selection.get("framework_ids") or [None])[0],
+        "playbook": playbook_selection.get("playbook_id"),
+        "weight_version": evidence_weighting.get("weight_version") or WEIGHT_VERSION,
+        "hypothesis_version": hypothesis_generation.get("hypothesis_version") or HYPOTHESIS_VERSION,
+        "evaluation_version": hypothesis_evaluation.get("evaluation_version") or EVALUATION_VERSION,
+        "committee_version": committee_reasoning.get("committee_version") or COMMITTEE_VERSION,
+        "confidence_version": CONFIDENCE_VERSION,
+        "reasoning_version": "frozen",
+        "replay_mode": bool(irl.get("as_of")),
+    }
+    with trace_span(
+        "confidence_calibration",
+        run_type="chain",
+        inputs={
+            "question": question,
+            "ihe_outcome": hypothesis_evaluation.get("outcome"),
+            "icr_n_cases": committee_reasoning.get("n_cases"),
+            "confidence_version": CONFIDENCE_VERSION,
+        },
+        tags=["ask", "icc", "confidence_calibration"],
+        metadata=_icc_meta,
+    ) as _conf_sp:
+        _icc = icc_apply(
+            question=question,
+            evidence_weighting=evidence_weighting,
+            hypothesis_generation=hypothesis_generation,
+            hypothesis_evaluation=hypothesis_evaluation,
+            committee_reasoning=committee_reasoning,
+            institutional_memory=institutional_memory,
+            framework_selection=framework_selection,
+            temporal_integrity={
+                "temporal_ok": True,
+                "as_of": irl.get("as_of"),
+            },
+            replay_integrity=True,
+            as_of=irl.get("as_of"),
+            metadata=_icc_meta,
+        )
+        _icc_report = (_icc.get("pack") or {}).get("report") or {}
+        _conf_sp.end(
+            outputs={
+                "overall_confidence": _icc_report.get("overall_confidence"),
+                "confidence_level": _icc_report.get("confidence_level"),
+                "confidence_reason": _icc_report.get("confidence_reason"),
+                "components": _icc_report.get("components"),
+                "penalties": _icc_report.get("penalties"),
+                "confidence_version": CONFIDENCE_VERSION,
+                "temporal_integrity": _icc_report.get("temporal_integrity"),
+                "replay_integrity": _icc_report.get("replay_integrity"),
+            }
+        )
+    confidence_calibration = _icc.get("pack") or {}
+    stages["confidence_calibration"] = {
+        "status": "executed",
+        "icc_version": confidence_calibration.get("icc_version") or ICC_VERSION,
+        "confidence_version": confidence_calibration.get("confidence_version") or CONFIDENCE_VERSION,
+        "overall_confidence": confidence_calibration.get("overall_confidence"),
+        "confidence_level": confidence_calibration.get("confidence_level"),
+        "guides_confidence": True,
+        "reasoning_changed": False,
+        "framework_changed": False,
+        "communication_changed": False,
+        "llm_used": False,
+        "manually_assigned": False,
+        "fabricated": False,
+    }
+    context["confidence_calibration"] = {
+        "icc_version": confidence_calibration.get("icc_version") or ICC_VERSION,
+        "confidence_version": confidence_calibration.get("confidence_version") or CONFIDENCE_VERSION,
+        "overall_confidence": confidence_calibration.get("overall_confidence"),
+        "confidence_level": confidence_calibration.get("confidence_level"),
+    }
+
     # S07 Planner — no ticker in Concept Mode
     planner = run_planner(question, ticker_hint=hint, policy=policy)
     stages["planner"] = planner
@@ -1069,6 +1156,23 @@ def run_complete_ask(
         "framework_changed": False,
         "communication_changed": False,
         "llm_used": False,
+        "fabricated": False,
+        "deterministic": True,
+    }
+    # Soft overlay — InstitutionalConfidenceReport (emergent trustworthiness, not optimism)
+    packs["confidence_calibration"] = {
+        "icc_version": confidence_calibration.get("icc_version") or ICC_VERSION,
+        "confidence_version": confidence_calibration.get("confidence_version") or CONFIDENCE_VERSION,
+        "report": confidence_calibration.get("report"),
+        "overall_confidence": confidence_calibration.get("overall_confidence"),
+        "confidence_level": confidence_calibration.get("confidence_level"),
+        "confidence_reason": confidence_calibration.get("confidence_reason"),
+        "guides_confidence": True,
+        "reasoning_changed": False,
+        "framework_changed": False,
+        "communication_changed": False,
+        "llm_used": False,
+        "manually_assigned": False,
         "fabricated": False,
         "deterministic": True,
     }
