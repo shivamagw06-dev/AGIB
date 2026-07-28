@@ -77,6 +77,36 @@ def get_learning(symbol: str, request: Request) -> dict:
     return {"company_symbol": symbol.upper(), "items": items}
 
 
+@router.get("/v1/knowledge/memory/{symbol}")
+def get_memory(symbol: str, request: Request) -> dict:
+    items = _app_state(request).store.list_memory(symbol)
+    return {"company_symbol": symbol.upper(), "items": items}
+
+
+@router.get("/v1/knowledge/timeline/{symbol}")
+def get_timeline(symbol: str, request: Request) -> dict:
+    items = _app_state(request).store.list_timeline(symbol)
+    return {"company_symbol": symbol.upper(), "items": items}
+
+
+@router.get("/v1/knowledge/conflicts/{symbol}")
+def get_conflicts(symbol: str, request: Request) -> dict:
+    items = _app_state(request).store.list_conflicts(symbol)
+    return {"company_symbol": symbol.upper(), "items": items}
+
+
+@router.get("/v1/knowledge/sector-learning/{sector_key}")
+def get_sector_learning(sector_key: str, request: Request) -> dict:
+    items = _app_state(request).store.list_sector_learning(sector_key)
+    return {"sector_key": sector_key, "items": items}
+
+
+@router.get("/v1/knowledge/market-learning")
+def get_market_learning(request: Request) -> dict:
+    items = _app_state(request).store.list_market_learning()
+    return {"items": items}
+
+
 @router.get("/v1/knowledge/sector/{sector_key}")
 def get_sector(sector_key: str, request: Request) -> dict:
     item = _app_state(request).store.get_sector_knowledge(sector_key)

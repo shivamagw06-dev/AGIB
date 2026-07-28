@@ -176,13 +176,18 @@ CREATE TABLE IF NOT EXISTS learning_events (
     sector_key TEXT,
     market_key TEXT,
     category TEXT NOT NULL,
+    category_label TEXT,
     importance TEXT NOT NULL,
+    confidence TEXT,
     field_name TEXT NOT NULL,
     previous_value_json TEXT,
     new_value_json TEXT,
     delta_json TEXT,
     materiality TEXT NOT NULL,
+    materiality_score REAL NOT NULL DEFAULT 0,
     reason TEXT NOT NULL,
+    observation TEXT,
+    evidence TEXT,
     affected_json TEXT NOT NULL DEFAULT '[]',
     object_type TEXT,
     object_id TEXT,
@@ -234,3 +239,114 @@ CREATE TABLE IF NOT EXISTS publication_log (
     envelope_json TEXT NOT NULL,
     published_at TEXT NOT NULL
 );
+
+-- Sprint 6.3 Institutional Learning Engine collections
+
+CREATE TABLE IF NOT EXISTS sector_learning (
+    learning_id TEXT PRIMARY KEY,
+    sector TEXT NOT NULL,
+    sector_key TEXT NOT NULL,
+    observation TEXT NOT NULL,
+    supporting_companies_json TEXT NOT NULL,
+    field_name TEXT,
+    importance TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    published_at TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_sector_learning_key
+    ON sector_learning(sector_key, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS market_learning (
+    learning_id TEXT PRIMARY KEY,
+    theme TEXT NOT NULL,
+    observation TEXT NOT NULL,
+    beneficiaries_json TEXT NOT NULL,
+    supporting_sectors_json TEXT NOT NULL,
+    historical_confidence TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    published_at TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_market_learning_theme
+    ON market_learning(theme, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS relationship_changes (
+    change_id TEXT PRIMARY KEY,
+    company_symbol TEXT NOT NULL,
+    field_name TEXT NOT NULL,
+    detail_json TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_rel_changes_symbol
+    ON relationship_changes(company_symbol, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS knowledge_conflicts (
+    conflict_id TEXT PRIMARY KEY,
+    company_symbol TEXT,
+    status TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    previous_assumption TEXT NOT NULL,
+    new_observation TEXT NOT NULL,
+    field_name TEXT NOT NULL,
+    previous_value_json TEXT,
+    new_value_json TEXT,
+    object_id TEXT,
+    created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_conflicts_symbol
+    ON knowledge_conflicts(company_symbol, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS learning_timeline (
+    entry_id TEXT PRIMARY KEY,
+    company_symbol TEXT NOT NULL,
+    year INTEGER NOT NULL,
+    label TEXT NOT NULL,
+    detail TEXT NOT NULL,
+    field_name TEXT NOT NULL,
+    importance TEXT NOT NULL,
+    object_id TEXT,
+    created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_timeline_symbol_year
+    ON learning_timeline(company_symbol, year, created_at);
+
+CREATE TABLE IF NOT EXISTS institutional_memory (
+    memory_id TEXT PRIMARY KEY,
+    company_symbol TEXT NOT NULL,
+    narrative TEXT NOT NULL,
+    category TEXT NOT NULL,
+    importance TEXT NOT NULL,
+    source_learning_fields_json TEXT NOT NULL,
+    object_id TEXT,
+    created_at TEXT NOT NULL,
+    published_at TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_memory_symbol
+    ON institutional_memory(company_symbol, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS sector_signals (
+    signal_id TEXT PRIMARY KEY,
+    sector_key TEXT NOT NULL,
+    field_name TEXT NOT NULL,
+    direction INTEGER NOT NULL,
+    company_symbol TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_sector_signals
+    ON sector_signals(sector_key, field_name, direction, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS market_theme_signals (
+    signal_id TEXT PRIMARY KEY,
+    theme TEXT NOT NULL,
+    sector TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_market_theme_signals
+    ON market_theme_signals(theme, created_at DESC);

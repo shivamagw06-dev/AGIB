@@ -102,6 +102,8 @@ class CanonicalNormalizer:
                         "eps": _num(info.get("trailingEps") or info.get("eps")),
                         "cash": _num(info.get("totalCash") or info.get("cash")),
                         "debt": _num(info.get("totalDebt") or info.get("debt")),
+                        "pat_margin": _num(info.get("pat_margin") or info.get("profitMargins")),
+                        "ebitda_margin": _num(info.get("ebitda_margin") or info.get("ebitdaMargins")),
                     }
                 )
             # Optional ownership / analyst facets when present in fixture/live payload

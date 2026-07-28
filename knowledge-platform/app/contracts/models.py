@@ -137,13 +137,18 @@ class LearningEvent(BaseModel):
     sector_key: str | None = None
     market_key: str | None = None
     category: LearningCategory = LearningCategory.FINANCIAL
+    category_label: str = "Financial Performance"
     importance: Importance = Importance.MEDIUM
+    confidence: Confidence = Confidence.MEDIUM
     field_name: str
     previous_value: Any = None
     new_value: Any = None
     delta: Any = None
     materiality: str = "material"
+    materiality_score: float = 0.0
     reason: str
+    observation: str = ""
+    evidence: str = ""
     affected: list[str] = Field(default_factory=list)
     object_type: KnowledgeObjectType | None = None
     object_id: str | None = None
@@ -159,6 +164,11 @@ class PublicationEnvelope(BaseModel):
     sector_knowledge: list[KnowledgeObject] = Field(default_factory=list)
     market_knowledge: list[KnowledgeObject] = Field(default_factory=list)
     learning_events: list[LearningEvent] = Field(default_factory=list)
+    sector_learning: list[dict[str, Any]] = Field(default_factory=list)
+    market_learning: list[dict[str, Any]] = Field(default_factory=list)
+    institutional_memory: list[dict[str, Any]] = Field(default_factory=list)
+    learning_timeline: list[dict[str, Any]] = Field(default_factory=list)
+    knowledge_conflicts: list[dict[str, Any]] = Field(default_factory=list)
     evidence_graph_ready: bool = True
     institutional_memory_ready: bool = True
     published_at: datetime = Field(default_factory=utc_now)
@@ -168,3 +178,4 @@ class PublishedBundle(BaseModel):
     knowledge_objects: list[KnowledgeObject] = Field(default_factory=list)
     learning_events: list[LearningEvent] = Field(default_factory=list)
     envelope: PublicationEnvelope | None = None
+    ile: dict[str, Any] = Field(default_factory=dict)
