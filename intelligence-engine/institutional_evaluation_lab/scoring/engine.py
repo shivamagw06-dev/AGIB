@@ -26,6 +26,14 @@ def score_question(
     passed = overall >= 70.0 and not any(
         f in failures for f in ("fabricated_or_invented", "future_leakage", "quality_gate_fail")
     )
+    dimensions = {d: by_dim.get(d, {}) for d in DIMENSION_WEIGHTS}
+    # Independent Phase 4 metric — never weighted into overall / CIO
+    if "hypothesis_quality" in by_dim:
+        dimensions["hypothesis_quality"] = by_dim["hypothesis_quality"]
+    hqs_val = None
+    hq = dimensions.get("hypothesis_quality") or {}
+    if hq and not hq.get("n_a"):
+        hqs_val = hq.get("hqs") if hq.get("hqs") is not None else hq.get("score")
     return {
         "question_id": question.get("question_id"),
         "question": question.get("question"),
@@ -36,7 +44,8 @@ def score_question(
         "ticker_hint": question.get("ticker_hint"),
         "overall": overall,
         "passed": passed,
-        "dimensions": {d: by_dim.get(d, {}) for d in DIMENSION_WEIGHTS},
+        "dimensions": dimensions,
+        "hqs": hqs_val,
         "root_causes": failures,
         "verdict": "PASS" if passed else ("PARTIAL" if overall >= 55 else "FAIL"),
         # Expected labels for Root Cause Intelligence (Sprint 3.2)

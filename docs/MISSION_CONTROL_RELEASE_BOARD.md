@@ -24,8 +24,18 @@
 | CIO-25 pass | 100% |
 | TIRC status | CERTIFIED |
 
-## Next phase
+## Phase 4 — Institutional Judgment
 
-Phase 4 — Institutional Judgment (evidence weighting, hypothesis, contradiction, committee reasoning) on the frozen baseline.
+| Sprint | Module | Status |
+|--------|--------|--------|
+| 4.1 | IEW v1.0.0 | **FROZEN** |
+| 4.2 | IHG v1.0.0 | **FROZEN** |
+| 4.3 | **IHE** (Hypothesis Evaluation) | Next |
+| 4.4 | Committee Reasoning | Planned |
+| 4.5 | Confidence Calibration | Planned |
+
+IEL now reports **Hypothesis Quality Score (HQS)** independently of CIO.
+
+See `docs/PHASE4_ROADMAP.md`, `docs/PHASE4_IEW_IHG_FREEZE.md`, `docs/AGI_HYPOTHESIS_QUALITY_SCORE.md`.
 
 Machine-readable: `docs/AGIB_MISSION_CONTROL_RELEASE_BOARD.json`

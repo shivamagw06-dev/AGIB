@@ -26,6 +26,8 @@ def build_board() -> dict[str, Any]:
             "pass_pct": ((latest or {}).get("aggregate") or {}).get("pass_pct"),
             "mean_score": ((latest or {}).get("aggregate") or {}).get("mean_score"),
             "n": ((latest or {}).get("aggregate") or {}).get("n"),
+            "hypothesis_quality_score": (latest or {}).get("hypothesis_quality_score")
+            or ((latest or {}).get("aggregate") or {}).get("hypothesis_quality"),
             "regression": (latest or {}).get("regression"),
             "top_root_causes": ((latest or {}).get("aggregate") or {}).get("top_root_causes"),
         }
@@ -37,6 +39,10 @@ def build_board() -> dict[str, Any]:
                 "suite": r.get("suite"),
                 "pass_pct": (r.get("aggregate") or {}).get("pass_pct"),
                 "mean_score": (r.get("aggregate") or {}).get("mean_score"),
+                "mean_hqs": (
+                    ((r.get("hypothesis_quality_score") or {}).get("mean_hqs"))
+                    or ((r.get("aggregate") or {}).get("hypothesis_quality") or {}).get("mean_hqs")
+                ),
                 "commit": r.get("commit"),
             }
             for r in runs[:8]
@@ -47,12 +53,15 @@ def build_board() -> dict[str, Any]:
             "AGIB soft probe",
             "Deterministic Judge",
             "Score",
+            "Hypothesis Quality Score",
             "Root Cause",
             "Dashboard",
         ],
         "freeze": {
             "reasoning_engine": "frozen",
             "knowledge_factory": "frozen",
+            "iew_v1": "frozen",
+            "ihg_v1": "frozen",
             "measurement_only": True,
         },
     }

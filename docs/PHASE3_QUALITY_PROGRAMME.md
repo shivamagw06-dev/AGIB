@@ -29,7 +29,10 @@ CIO frozen exam (post-IMAI): **8.12 / 10**
 | **Release Cert #234** ⛔ | Baseline freeze attempt | NOT CERTIFIED (leakage/replay) |
 | **3.5 TIRC** ✅ | Temporal Integrity & Replay Certification | Future leakage **0**; replay **100%** |
 | **Release Cert (post-TIRC)** ✅ | Baseline freeze | **CERTIFIED** — IEL **99.9%** |
-| 4.x | Evidence Weighting / Hypothesis / Contradiction | Phase 4 Institutional Judgment |
+| 4.1 | Evidence Weighting (IEW) — FROZEN v1.0.0 | Phase 4 Institutional Judgment |
+| 4.2 | Hypothesis Generation (IHG) — FROZEN v1.0.0 | Phase 4 Institutional Judgment |
+| 4.3 | Hypothesis Evaluation (IHE) — next | Phase 4 Institutional Judgment |
+| 4.4–4.5 | Committee Reasoning / Confidence Calibration | Phase 4 Institutional Judgment |
 
 ## Parallel production track
 

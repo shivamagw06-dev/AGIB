@@ -48,3 +48,11 @@ KF, LIDI, IDI, IERE, IEG, IMAI, IEW, Frameworks, Reasoning, ICE, TIRC, IEL, RCI.
 ## APIs
 
 `/v1/hypothesis/{health,dashboard,generate,rank,explain,telemetry,history,configuration}`
+
+## Freeze
+
+**IHG v1.0.0 is FROZEN.** Do not optimise the catalog for benchmark chasing.
+See `docs/PHASE4_IEW_IHG_FREEZE.md`.
+
+Next: Sprint **4.3 — Institutional Hypothesis Evaluation Engine (IHE)**.
+IEL metric for this layer: **HQS** (`docs/AGI_HYPOTHESIS_QUALITY_SCORE.md`).
