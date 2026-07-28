@@ -103,6 +103,7 @@ def _run_task(
     missing = list(validation.get("missing") or [])
     rejected = dict(validation.get("rejected") or {})
     adaptations: list[dict[str, Any]] = []
+    routes_considered: list[dict[str, Any]] = []
 
     # A task is only satisfied when the evidence its own deliverable needs is present.
     task_required = tuple(task.get("required_evidence") or ())
@@ -124,6 +125,7 @@ def _run_task(
             run_question=run,
         )
         adaptations = adaptation.get("attempts") or []
+        routes_considered = adaptation.get("routes_considered") or []
         if adaptation.get("adapted"):
             record = adaptation["record"]
             status = "adapted"
@@ -151,6 +153,7 @@ def _run_task(
     result["optional"] = bool(task.get("optional"))
     result["committee_stance"] = (record.get("committee") or {}).get("stance")
     result["narrative_allowed"] = record.get("narrative_allowed")
+    result["routes_considered"] = routes_considered
     return result
 
 

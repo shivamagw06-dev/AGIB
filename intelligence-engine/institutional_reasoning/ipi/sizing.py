@@ -78,15 +78,16 @@ def size_position(
     capped = float(policy_eval.get("capped_weight") or target)
     target = min(target, capped, max_stock)
 
-    # Sector breach → reduce toward room
-    for b in policy_eval.get("breaches") or exposure.get("breaches") or []:
-        if b.get("kind") == "sector":
-            limit = float(b.get("limit") or 0.25)
-            after = float(b.get("projected") or limit)
-            overflow = max(0.0, after - limit)
-            target = max(0.0, target - overflow)
+    # Bucket headroom is a hard ceiling: a position may never push its sector,
+    # country, or theme past the mandate limit.
+    headroom = exposure.get("max_allowed_weight")
+    if headroom is None:
+        headroom = (exposure.get("exposure") or {}).get("max_allowed_weight")
+    if headroom is not None:
+        target = min(target, max(0.0, float(headroom)))
 
-    max_w = min(max_stock, round(target + 0.01, 4))
+    ceiling = min(max_stock, float(headroom)) if headroom is not None else max_stock
+    max_w = min(ceiling, round(target + 0.01, 4))
     min_w = round(max(0.0, target * 0.7 if target > 0 else 0.0), 4)
     target = round(target, 4)
 

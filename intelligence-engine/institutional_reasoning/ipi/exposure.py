@@ -135,6 +135,21 @@ def compute_exposure(
             }
         )
 
+    # Headroom the candidate may occupy before breaching each bucket limit.
+    sector_headroom = max(0.0, round(float(policy.get("max_sector_weight") or 0.25) - (sector_now - current_w), 6))
+    country_headroom = max(0.0, round(float(policy.get("max_country_weight") or 0.90) - (country_now - current_w), 6))
+    theme_headroom = (
+        max(0.0, round(float(policy.get("max_theme_weight") or 0.30) - (theme_now - current_w), 6))
+        if theme
+        else None
+    )
+    max_allowed_weight = min(
+        float(policy.get("max_stock_weight") or 0.07),
+        sector_headroom,
+        country_headroom,
+        theme_headroom if theme_headroom is not None else float("inf"),
+    )
+
     exposure_payload = {
         "symbol": symbol or None,
         "weight": target_w,
@@ -150,6 +165,10 @@ def compute_exposure(
         "sector_weight_after": sector_after,
         "country_weight_after": country_after,
         "theme_weight_after": theme_after,
+        "sector_headroom": sector_headroom,
+        "country_headroom": country_headroom,
+        "theme_headroom": theme_headroom,
+        "max_allowed_weight": round(max_allowed_weight, 6),
         "factors": factor_tilt,
         "sector_buckets": _bucket_weights(holdings, "sector"),
         "country_buckets": _bucket_weights(holdings, "country"),
@@ -162,6 +181,8 @@ def compute_exposure(
         "exposure": exposure_payload,
         "weight": target_w,
         "allocation": target_w,
+        "max_allowed_weight": round(max_allowed_weight, 6),
+        "sector_headroom": sector_headroom,
         "breaches": breaches,
         "rejected": bool(breaches),
         "portfolio_fit": 1.0 - min(1.0, 0.25 * len(breaches)),

@@ -343,9 +343,14 @@ def resolve_entities(
         )
 
     primary = unique[0] if unique else None
+    # Comparison questions name two sides; expose the counterparty explicitly so
+    # downstream consumers do not have to re-parse the candidate list.
+    secondary = unique[1] if len(unique) > 1 else None
     return {
         "resolved": bool(primary),
         "primary": primary,
+        "secondary": secondary,
+        "counterparties": unique[1:6],
         "candidates": unique[:6],
         "ambiguous": len(unique) > 1,
         "confidence": float(primary.get("confidence")) if primary else 0.0,
