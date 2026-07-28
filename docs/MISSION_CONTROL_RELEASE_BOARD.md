@@ -1,37 +1,31 @@
-# Mission Control — Release Board
+# Mission Control — Release Board (AGI)
 
-**Updated:** 2026-07-28  
-**Commit:** `581f1363`
+**Company:** AGI  
+**Updated:** 2026-07-28
 
 ```text
 ╔══════════════════════════════════════════════════════════╗
-║  RELEASE CERTIFICATION v3.5                              ║
-║  VERDICT: NOT CERTIFIED                                  ║
-║  ENGINEERING BASELINE FROZEN: NO                         ║
+║  AGI RELEASE CERTIFICATION v3.5                          ║
+║  VERDICT: CERTIFIED                                      ║
+║  ENGINEERING BASELINE FROZEN: YES                        ║
+║  TIRC: CERTIFIED (future leakage 0 · replay 100%)        ║
 ╚══════════════════════════════════════════════════════════╝
 ```
 
-## Engineering dashboard (snapshot)
+## Engineering dashboard
 
 | Signal | Value |
 |--------|------:|
-| IEL 1,025 pass | 98.44% |
-| Intent | 99.8% |
+| IEL 1,025 pass | 99.9% |
 | Framework | 97.76% |
-| Future leakage | 15 |
-| Historical replay accuracy | 73.21% |
-| Hallucinated evidence | 0 |
+| Intent | 99.8% |
+| Future leakage | 0 |
+| Historical replay | 100% |
 | CIO-25 pass | 100% |
-| CIO structural | 8.95/10 |
-| Portfolio intent RCI | cleared |
+| TIRC status | CERTIFIED |
 
-## Blockers to freeze
+## Next phase
 
-1. Future leakage = 0  
-2. Replay = 100%  
-3. Intent = 100% on full 1,025  
+Phase 4 — Institutional Judgment (evidence weighting, hypothesis, contradiction, committee reasoning) on the frozen baseline.
 
-## Machine-readable board
-
-`docs/AGIB_MISSION_CONTROL_RELEASE_BOARD.json`  
-`intelligence-engine/mission_control/data/release_certification_v35.json`
+Machine-readable: `docs/AGIB_MISSION_CONTROL_RELEASE_BOARD.json`

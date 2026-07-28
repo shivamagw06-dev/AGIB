@@ -304,6 +304,20 @@ def run_complete_ask(
         intent_v2=str(irl.get("intent") or intent_rec.get("intent_v2") or "Unknown"),
     )
     ieg_store.record(evidence_graph)
+
+    # ------------------------------------------------------------------
+    # AGI v3.5 Phase 3 Sprint 3.5 — Temporal Integrity Replay Guard (pre-analog)
+    # AFTER Evidence Graph, BEFORE IMAI / reasoning. Soft-wire only.
+    # ------------------------------------------------------------------
+    from temporal_integrity.production import guard as tirc_guard
+
+    _tirc_pre = tirc_guard(
+        as_of=irl.get("as_of"),
+        evidence_graph=evidence_graph,
+        stage="pre_analog",
+    )
+    evidence_graph = _tirc_pre.get("evidence_graph") or evidence_graph
+
     stages["evidence_graph"] = {
         "status": "executed",
         "ieg_version": evidence_graph.get("ieg_version") or IEG_VERSION,
@@ -319,6 +333,7 @@ def run_complete_ask(
         "reasoning_changed": False,
         "llm_used": False,
         "fabricated": False,
+        "temporal_integrity": (_tirc_pre.get("report") or {}),
     }
     context["evidence_graph"] = {
         "graph_id": evidence_graph.get("graph_id"),
@@ -338,6 +353,24 @@ def run_complete_ask(
         as_of=irl.get("as_of"),
         top_k=5,
     )
+
+    # TIRC Replay Guard — post-analog surface / period integrity
+    _tirc_post = tirc_guard(
+        as_of=irl.get("as_of"),
+        institutional_memory=institutional_memory,
+        stage="post_analog",
+    )
+    institutional_memory = _tirc_post.get("institutional_memory") or institutional_memory
+    stages["temporal_integrity"] = {
+        "status": "executed",
+        "tirc_version": (_tirc_post.get("tirc_version") or _tirc_pre.get("tirc_version")),
+        "pre_analog": _tirc_pre.get("report"),
+        "post_analog": _tirc_post.get("report"),
+        "reasoning_changed": False,
+        "knowledge_factory_changed": False,
+        "fabricated": False,
+    }
+
     stages["institutional_memory"] = {
         "status": "executed",
         "imai_version": institutional_memory.get("imai_version") or IMAI_VERSION,
@@ -352,6 +385,7 @@ def run_complete_ask(
         "llm_used": False,
         "fabricated": False,
         "invented_analogues": False,
+        "temporal_integrity": (_tirc_post.get("report") or {}),
     }
     context["institutional_memory"] = {
         "top_memory_ids": institutional_memory.get("top_memory_ids"),

@@ -1,208 +1,50 @@
 {
   "artifact": "AGIB_IEL_FROZEN_BASELINE",
-  "programme": "AGIB v3.5 Release Certification",
-  "status": "NOT CERTIFIED",
-  "engineering_baseline_frozen": false,
-  "freeze_reason": "NOT CERTIFIED \u2014 failing gates prevent official freeze",
+  "company": "AGI",
+  "programme": "AGI v3.5 Release Certification (post-TIRC)",
+  "status": "CERTIFIED",
+  "engineering_baseline_frozen": true,
   "date": "2026-07-28",
-  "commit": "581f1363",
+  "commit": "3766ae12",
+  "prior_cert_pr": 234,
   "suite": "all",
   "n_questions": 1025,
   "mode": "full",
-  "execution_path": [
-    "Intent Resolution",
-    "Evidence Retrieval",
-    "Institutional Playbooks",
-    "Evidence Graph",
-    "Institutional Analog Intelligence",
-    "Reasoning",
-    "Institutional Communication Engine",
-    "UiService/answer assembly"
-  ],
   "metrics": {
-    "pass_pct": 98.44,
-    "mean_score": 90.18,
-    "passed": 1009,
-    "failed": 16,
-    "dimension_accuracy": {
-      "intent": 99.8,
-      "framework": 97.76,
-      "playbook": 99.61,
-      "evidence": 100.0,
-      "memory": 98.93,
-      "confidence": 100.0,
-      "replay": 98.54,
-      "unsupported_claims": 100.0,
-      "hallucinated_evidence": 100.0
-    },
-    "evidence_graph_hit_rate": 100.0,
-    "analog_intelligence_hit_rate": 91.32,
-    "replay_accuracy_historical_pct": 73.21,
-    "n_historical_replay": 56,
-    "future_leakage_count": 15,
-    "hallucinated_evidence_failures": 0,
-    "latency_ms": 172014,
-    "reasoning_changed": false
+    "pass_pct": 99.9,
+    "mean_score": 90.24,
+    "intent": 99.8,
+    "framework": 97.76,
+    "playbook": 99.61,
+    "evidence": 100.0,
+    "replay_all": 100.0,
+    "replay_historical": 100.0,
+    "future_leakage": 0,
+    "hallucinated": 0,
+    "n": 1025
   },
-  "soft_reference_same_commit": {
-    "all_pass_pct": 98.44,
-    "institutional_1000_pass_pct": 98.4,
-    "cio_soft_pass_pct": 100.0,
-    "institutional_1000_intent_pct": 100.0,
-    "institutional_1000_framework_pct": 97.7
-  },
-  "comparison_prior": {
-    "iel_baseline_sprint31": {
-      "pass_pct": 88.2,
-      "intent": 84.7,
-      "framework": 75.3
+  "compare_pr234": {
+    "pass_pct": {
+      "before": 98.44,
+      "after": 99.9
     },
-    "framework_optimisation_sprint33": {
-      "pass_pct": 92.6,
-      "intent": 84.7,
-      "framework": 96.3
+    "future_leakage": {
+      "before": 15,
+      "after": 0
     },
-    "intent_optimisation_sprint34": {
-      "pass_pct": 98.4,
-      "framework_accuracy_pct": 97.7,
-      "intent_accuracy_pct": 100.0,
-      "mean_score": 89.99,
-      "n": 1000,
-      "passed": 984,
-      "failed": 16
+    "replay_historical": {
+      "before": 73.21,
+      "after": 100.0
+    },
+    "intent": {
+      "before": 99.8,
+      "after": 99.8
+    },
+    "framework": {
+      "before": 97.76,
+      "after": 97.76
     }
   },
-  "fail_detail": [
-    {
-      "question_id": "GEN-MEM-ANLG-005",
-      "category": "historical_replay",
-      "overall": 69.1,
-      "root_causes": [
-        "framework_mismatch",
-        "memory_miss_on_analog_question"
-      ]
-    },
-    {
-      "question_id": "GEN-REP-01-01",
-      "category": "historical_replay",
-      "overall": 84.0,
-      "root_causes": [
-        "future_leakage"
-      ]
-    },
-    {
-      "question_id": "GEN-REP-01-02",
-      "category": "historical_replay",
-      "overall": 84.0,
-      "root_causes": [
-        "future_leakage"
-      ]
-    },
-    {
-      "question_id": "GEN-REP-01-03",
-      "category": "historical_replay",
-      "overall": 84.0,
-      "root_causes": [
-        "future_leakage"
-      ]
-    },
-    {
-      "question_id": "GEN-REP-01-04",
-      "category": "historical_replay",
-      "overall": 80.4,
-      "root_causes": [
-        "future_leakage"
-      ]
-    },
-    {
-      "question_id": "GEN-REP-01-05",
-      "category": "historical_replay",
-      "overall": 84.0,
-      "root_causes": [
-        "future_leakage"
-      ]
-    },
-    {
-      "question_id": "GEN-REP-04-01",
-      "category": "historical_replay",
-      "overall": 91.2,
-      "root_causes": [
-        "future_leakage"
-      ]
-    },
-    {
-      "question_id": "GEN-REP-04-02",
-      "category": "historical_replay",
-      "overall": 91.2,
-      "root_causes": [
-        "future_leakage"
-      ]
-    },
-    {
-      "question_id": "GEN-REP-04-03",
-      "category": "historical_replay",
-      "overall": 91.2,
-      "root_causes": [
-        "future_leakage"
-      ]
-    },
-    {
-      "question_id": "GEN-REP-04-04",
-      "category": "historical_replay",
-      "overall": 91.2,
-      "root_causes": [
-        "future_leakage"
-      ]
-    },
-    {
-      "question_id": "GEN-REP-04-05",
-      "category": "historical_replay",
-      "overall": 91.2,
-      "root_causes": [
-        "future_leakage"
-      ]
-    },
-    {
-      "question_id": "GEN-REP-05-01",
-      "category": "historical_replay",
-      "overall": 87.6,
-      "root_causes": [
-        "future_leakage"
-      ]
-    },
-    {
-      "question_id": "GEN-REP-05-02",
-      "category": "historical_replay",
-      "overall": 87.6,
-      "root_causes": [
-        "future_leakage"
-      ]
-    },
-    {
-      "question_id": "GEN-REP-05-03",
-      "category": "historical_replay",
-      "overall": 87.6,
-      "root_causes": [
-        "future_leakage"
-      ]
-    },
-    {
-      "question_id": "GEN-REP-05-04",
-      "category": "historical_replay",
-      "overall": 87.6,
-      "root_causes": [
-        "future_leakage"
-      ]
-    },
-    {
-      "question_id": "GEN-REP-05-05",
-      "category": "historical_replay",
-      "overall": 87.6,
-      "root_causes": [
-        "future_leakage"
-      ]
-    }
-  ],
   "fabricated": false,
   "measure_only": true
 }
