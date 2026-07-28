@@ -174,7 +174,7 @@ def generate_institutional_library(*, target: int = 1000) -> list[dict[str, Any]
             ),
             (
                 f"If {ticker} misses earnings expectations, what historical analogues should Institutional Memory retrieve?",
-                ["Analyse", "HistoricalReplay"],
+                ["HistoricalReplay", "Analyse", "CorporateEvents"],
                 ["FW_EXPECTATIONS", "FW_PEER_COMPARISON"],
                 ["earnings", "guidance", "historical_events"],
                 "hard",
@@ -208,20 +208,21 @@ def generate_institutional_library(*, target: int = 1000) -> list[dict[str, Any]
 
     # --- Industry ---
     for ind, kpi_a, kpi_b in INDUSTRIES:
+        ind_label = ind.replace("_", " ")
         for i, (text, intent, fws) in enumerate(
             [
                 (
-                    f"Which KPIs matter most for the Indian {ind} industry and why ({kpi_a}, {kpi_b})?",
+                    f"Which KPIs matter most for the Indian {ind_label} industry and why ({kpi_a}, {kpi_b})?",
                     ["Industry", "Explain"],
                     ["FW_INDUSTRY_STRUCTURE", "FW_KPI"],
                 ),
                 (
-                    f"Explain the current cycle position of Indian {ind} using utilisation, pricing, and competitive structure.",
+                    f"Explain the current cycle position of Indian {ind_label} using utilisation, pricing, and competitive structure.",
                     ["Industry", "Analyse"],
                     ["FW_INDUSTRY_STRUCTURE", "FW_SCENARIO"],
                 ),
                 (
-                    f"How should AGIB compare leaders vs laggards within Indian {ind}?",
+                    f"How should AGIB compare leaders vs laggards within Indian {ind_label}?",
                     ["Compare", "Industry"],
                     ["FW_PEER_COMPARISON", "FW_INDUSTRY_STRUCTURE"],
                 ),
@@ -295,7 +296,7 @@ def generate_institutional_library(*, target: int = 1000) -> list[dict[str, Any]
                     f"Institutional Memory retrieve for {beneficiaries[0]} and {beneficiaries[1]}?"
                 ),
                 category="historical_replay",
-                intent=["HistoricalReplay", "Macro", "Analyse"],
+                intent=["HistoricalReplay", "Macro", "Analyse", "Government"],
                 frameworks=["FW_MACRO_TRANSMISSION", "FW_SCENARIO"],
                 expected_evidence=["historical", regime, "analog"],
                 expected_playbook=["PB_MACRO_", "PB_REPLAY"],
@@ -315,7 +316,7 @@ def generate_institutional_library(*, target: int = 1000) -> list[dict[str, Any]
                     f"GEN-VAL-{i:02d}-{j:02d}",
                     text=f"When is {frame} the correct primary framework for {ticker}? When would it be misleading?",
                     category="valuation",
-                    intent=["Explain", "Accounting"],
+                    intent=["Explain", "Accounting", "Valuation"],
                     frameworks=list(fws) + ["FW_FRAMEWORK_EXPLANATION"],
                     expected_evidence=["valuation", "accounting", sector],
                     expected_playbook=["PB_VAL_", "PB_FRAMEWORK"],
@@ -382,7 +383,7 @@ def generate_institutional_library(*, target: int = 1000) -> list[dict[str, Any]
                     f"GEN-RSK-{i:02d}-{j:02d}",
                     text=f"Construct a risk checklist for {theme} affecting {ticker}. What evidence would falsify complacency?",
                     category="risk",
-                    intent=["Analyse", "Explain"],
+                    intent=["Risk", "Analyse", "Explain"],
                     frameworks=["FW_RISK", "FW_SCENARIO", "FW_CREDIT_CYCLE"],
                     expected_evidence=["risk", "evidence", "falsify"],
                     expected_playbook=["PB_RISK_", "PB_COMPANY_"],
@@ -406,7 +407,7 @@ def generate_institutional_library(*, target: int = 1000) -> list[dict[str, Any]
                         f"must AGIB assemble before sizing the position? (variant {j})"
                     ),
                     category="portfolio",
-                    intent=["Analyse", "CrossDomain", "Macro"],
+                    intent=["Portfolio", "Analyse", "CrossDomain", "Macro"],
                     frameworks=["FW_PORTFOLIO", "FW_MACRO_TRANSMISSION", "FW_RISK"],
                     expected_evidence=["portfolio", "macro", "risk", sector],
                     expected_playbook=["PB_PORTFOLIO_", "PB_MACRO_", "PB_IC_"],

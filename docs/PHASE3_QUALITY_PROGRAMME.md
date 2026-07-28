@@ -22,7 +22,7 @@ CIO frozen exam (post-IMAI): **8.12 / 10**
 | **3.1 IEL** ✅ | Institutional Evaluation Lab | 1000+ Q suite + nightly judge + dashboard |
 | **3.2 RCI** ✅ | Root Cause Intelligence | Top-10 clusters + recommended PRs |
 | **3.3 FO** ✅ | Framework Optimisation + Patch Intelligence | Framework accuracy ≥96% (target 98%) |
-| 3.4 | Intent Optimisation | Intent accuracy ≥99% |
+| **3.4 IO** ✅ | Intent Optimisation | Intent accuracy ≥99% (**100.0%**; IEL **98.4%**) |
 | 3.5 | Evidence Weighting | Explicit source hierarchy in answers |
 | 3.6 | Hypothesis Engine | Multi-hypothesis before conclusion |
 | 3.7 | Contradiction Resolution | Reconcile conflicting signals |
@@ -35,15 +35,17 @@ BSE → RBI → IR Parser → 7-Day Certification
 
 ## Stopping condition (not “all modules done”)
 
-| Metric | Target |
-|--------|-------:|
-| CIO benchmark | ≥9.0/10 |
-| IEL 1,025-question pass rate | ≥95% |
-| Framework accuracy | ≥98% |
-| Intent accuracy | ≥99% |
-| Hallucinated evidence | 0 |
-| Replay correctness | 100% |
-| Live collector certification | 100% |
+| Metric | Target | Latest (post Sprint 3.4 soft) |
+|--------|-------:|------------------------------:|
+| CIO benchmark | ≥9.0/10 | 8.12 (frozen exam; routing soft 100%) |
+| IEL 1,025-question pass rate | ≥95% | **98.4%** |
+| Framework accuracy | ≥98% | 97.7% |
+| Intent accuracy | ≥99% | **100.0%** |
+| Hallucinated evidence | 0 | 0 |
+| Replay correctness | 100% | remaining `future_leakage` RCI cluster |
+| Live collector certification | 100% | pending production track |
+
+**Pause recommendation after 3.4:** re-run IEL 1,025 + frozen CIO-25 before new features. Next depth work is evidence weighting / hypothesis / contradiction — not more routing.
 
 ## Tool roles (when purchased)
 

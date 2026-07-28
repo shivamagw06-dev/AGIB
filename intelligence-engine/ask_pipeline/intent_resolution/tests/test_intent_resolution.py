@@ -205,3 +205,85 @@ def test_no_kf_mutation_in_irl_ast() -> None:
                 assert node.func.id not in banned
             if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
                 assert node.func.attr not in banned
+
+
+# ---------------------------------------------------------------------------
+# Sprint 3.4 — Intent Optimisation (RCI portfolio / allocation clusters)
+# ---------------------------------------------------------------------------
+PORTFOLIO_CLUSTER_CASES = [
+    (
+        "portfolio_decision",
+        "Portfolio decision: overweight private banks vs PSU banks. What macro, industry, and company evidence must AGIB assemble before sizing the position?",
+        "Portfolio",
+    ),
+    (
+        "allocation",
+        "Portfolio decision: defensive tilt into staples. What evidence before sector allocation?",
+        "Portfolio",
+    ),
+    (
+        "rebalancing",
+        "Should we rebalance the portfolio away from high-beta cyclicals into a hike cycle?",
+        "Portfolio",
+    ),
+    (
+        "sector_allocation",
+        "Portfolio decision: infrastructure beneficiaries of budget capex. Assemble evidence before sector allocation and position sizing.",
+        "Portfolio",
+    ),
+    (
+        "risk_review",
+        "Construct a risk checklist for asset quality deterioration affecting HDFCBANK. What evidence would falsify complacency?",
+        "Risk",
+    ),
+    (
+        "watchlist",
+        "Add exporters to the watchlist on INR weakness before any portfolio decision.",
+        "Portfolio",
+    ),
+    (
+        "investment_committee",
+        "Imagine you are presenting Reliance Industries to an Investment Committee. Construct the institutional evidence package before valuation.",
+        "CrossDomain",
+    ),
+    (
+        "accounting_investigation",
+        "How would you investigate revenue recognition aggressiveness at INFY? Which statements and notes matter most?",
+        "Accounting",
+    ),
+    (
+        "capital_allocation_not_portfolio",
+        "How would you evaluate capital allocation quality at ASIANPAINT over the last five years?",
+        "Analyse",
+    ),
+    (
+        "pair_trade_stays_portfolio",
+        "Portfolio decision: pair trade IT vs metals. What evidence before sizing the position?",
+        "Portfolio",
+    ),
+]
+
+
+@pytest.mark.parametrize("case_id,question,expected", PORTFOLIO_CLUSTER_CASES)
+def test_sprint34_portfolio_intent_clusters(case_id: str, question: str, expected: str) -> None:
+    irl = resolve_intent(question)
+    assert irl["intent"] == expected, f"{case_id}: got {irl['intent']} scores={irl.get('intent_scores')}"
+    assert irl.get("primary_intent") == expected
+    assert irl.get("intent_why_won"), "confidence must explain why intent won"
+    # Must not collapse portfolio clusters into Generic/Unknown
+    assert irl["intent"] != "Unknown"
+
+
+def test_sprint34_mixed_and_ambiguous_intent() -> None:
+    mixed = resolve_intent(
+        "Portfolio decision: quality premium vs value trap. What macro and risk evidence before rebalancing?"
+    )
+    assert mixed["intent"] == "Portfolio"
+    assert mixed.get("primary_intent") == "Portfolio"
+    assert mixed.get("intent_confidence", 0) >= 0.7
+    amb = resolve_intent(
+        "How would you investigate inventory days spike at TITAN? Which statements and notes matter most?"
+    )
+    assert amb["intent"] == "Accounting"
+    assert amb.get("secondary_intent") in {"Analyse", "Documents", "Explain", "Portfolio", None}
+    assert amb.get("intent_why_won")
