@@ -284,6 +284,9 @@ def build_justification_graph(record: dict[str, Any]) -> dict[str, Any]:
             dominant_framework=debate.get("dominant_framework"),
         )
     )
+    # Spine edge: the policy always descends from applicability, so the
+    # conclusion stays traceable to the question even when no framework ran.
+    edges.append(_edge(app_id, "WEIGHTED_BY", p_id, reason="policy_applies_to_scored_frameworks"))
     for n in list(nodes):
         if n["kind"] == "conflict":
             edges.append(_edge(n["id"], "WEIGHTED_BY", p_id))
