@@ -1225,6 +1225,45 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // Knowledge Factory — Decision Coverage / Historical / Sector / Macro (Sprints 1–6)
+  router.get('/knowledge-factory/health', kfGet('/v1/knowledge-factory/health'));
+  router.get('/knowledge-factory/dashboard', kfGet('/v1/knowledge-factory/dashboard'));
+  router.get('/knowledge-factory/coverage', kfGet('/v1/knowledge-factory/coverage'));
+  router.get('/knowledge-factory/decision-coverage', kfGet('/v1/knowledge-factory/decision-coverage'));
+  router.get('/knowledge-factory/dimensions', kfGet('/v1/knowledge-factory/dimensions'));
+  router.get('/knowledge-factory/daily-health', kfGet('/v1/knowledge-factory/daily-health'));
+  router.post('/knowledge-factory/run-daily', kfPost('/v1/knowledge-factory/run-daily'));
+  router.get('/knowledge-factory/historical-depth', kfGet('/v1/knowledge-factory/historical-depth'));
+  router.post('/knowledge-factory/historical-depth/run', kfPost('/v1/knowledge-factory/historical-depth/run'));
+  router.get('/knowledge-factory/sector-intelligence', kfGet('/v1/knowledge-factory/sector-intelligence'));
+  router.post('/knowledge-factory/sector-intelligence/run', kfPost('/v1/knowledge-factory/sector-intelligence/run'));
+  router.get('/knowledge-factory/macro-intelligence', kfGet('/v1/knowledge-factory/macro-intelligence'));
+  router.post('/knowledge-factory/macro-intelligence/run', kfPost('/v1/knowledge-factory/macro-intelligence/run'));
+
+  // Institutional Decision Quality (Sprint 7 — observability only)
+  router.get('/decision-quality/health', kfGet('/v1/decision-quality/health'));
+  router.get('/decision-quality/dashboard', kfGet('/v1/decision-quality/dashboard'));
+  router.post('/decision-quality/run', kfPost('/v1/decision-quality/run'));
+  router.get('/decision-quality/quality-gates', kfGet('/v1/decision-quality/quality-gates'));
+  router.get('/decision-quality/scorecards/framework', kfGet('/v1/decision-quality/scorecards/framework'));
+  router.get('/decision-quality/scorecards/sector', kfGet('/v1/decision-quality/scorecards/sector'));
+  router.get('/decision-quality/scorecards/macro', kfGet('/v1/decision-quality/scorecards/macro'));
+  router.get('/decision-quality/scorecards/portfolio', kfGet('/v1/decision-quality/scorecards/portfolio'));
+  router.get('/decision-quality/calibration', kfGet('/v1/decision-quality/calibration'));
+  router.get('/decision-quality/hall', kfGet('/v1/decision-quality/hall'));
+  router.get('/decision-quality/replay/:decisionId', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query).toString();
+      const suffix = qs ? `?${qs}` : '';
+      const result = await engineFetch(
+        `/v1/decision-quality/replay/${encodeURIComponent(req.params.decisionId)}${suffix}`
+      );
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Decision Quality unavailable', detail: error.message });
+    }
+  });
+
   // Mission Control V1 — administrator operations centre (read-only)
   router.get('/mission-control/health', kfGet('/v1/mission-control/health'));
   router.get('/mission-control/dashboard', async (_req, res) => {

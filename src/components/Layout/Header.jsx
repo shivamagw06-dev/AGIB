@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Search, Menu, X, User, LogOut, Edit2, Shield, Briefcase, LayoutDashboard, Gauge } from 'lucide-react';
+import { Search, Menu, X, User, LogOut, Edit2, Shield, Briefcase, LayoutDashboard, Gauge, Activity } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -187,6 +187,9 @@ export default function Header() {
                       <>
                         <DropdownMenuItem onClick={() => go('/admin')}>
                           <Edit2 className="w-4 h-4 mr-2" /> CMS
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => go('/admin/institutional-intelligence')}>
+                          <Activity className="w-4 h-4 mr-2" /> Institutional Intelligence
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => go('/admin/mission-control')}>
                           <Gauge className="w-4 h-4 mr-2" /> Mission Control

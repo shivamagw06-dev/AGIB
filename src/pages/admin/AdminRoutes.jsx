@@ -33,6 +33,7 @@ import KnowledgeGraph from '@/pages/admin/KnowledgeGraph';
 import InstitutionalMemory from '@/pages/admin/InstitutionalMemory';
 import SimulationLab from '@/pages/admin/SimulationLab';
 import DecisionEngineV2 from '@/pages/admin/DecisionEngineV2';
+import InstitutionalIntelligence from '@/pages/admin/InstitutionalIntelligence';
 import IntelligenceMap from '@/pages/admin/IntelligenceMap';
 import IntentIntelligence from '@/pages/admin/IntentIntelligence';
 import EntityResolution from '@/pages/admin/EntityResolution';
@@ -81,6 +82,7 @@ export default function AdminRoutes() {
           <Route path="institutional-memory" element={<InstitutionalMemory />} />
           <Route path="simulation-lab" element={<SimulationLab />} />
           <Route path="decision-engine-v2" element={<DecisionEngineV2 />} />
+          <Route path="institutional-intelligence" element={<InstitutionalIntelligence />} />
           <Route path="company-monitor" element={<CompanyMonitor />} />
           <Route path="investment-office" element={<InvestmentOfficeAdmin />} />
           <Route path="mission-control" element={<MissionControl />} />

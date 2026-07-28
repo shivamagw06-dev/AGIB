@@ -125,7 +125,20 @@ def run_historical_depth_pipeline(**kwargs: Any) -> dict[str, Any]:
 
 def historical_depth_coverage() -> dict[str, Any]:
     from knowledge_factory.historical_depth.dashboard import historical_depth_dashboard
+    from knowledge_factory.historical_depth import store as hd_store
 
+    # Live ops: prime a core universe once if the HD store is empty.
+    try:
+        existing = hd_store.list_objects("company")
+    except Exception:
+        existing = []
+    if not existing:
+        try:
+            run_historical_depth_pipeline(
+                entities=["INFY", "TCS", "HDFCBANK", "ICICIBANK", "RELIANCE", "WIPRO", "HCLTECH", "SBIN"]
+            )
+        except Exception:
+            pass
     return historical_depth_dashboard()
 
 
@@ -137,8 +150,23 @@ def run_sector_intelligence_pipeline(**kwargs: Any) -> dict[str, Any]:
 
 def sector_intelligence_coverage() -> dict[str, Any]:
     from knowledge_factory.sector_intelligence.dashboard import sector_intelligence_dashboard
+    from knowledge_factory.sector_intelligence import store as isi_store
 
-    return sector_intelligence_dashboard()
+    dash = sector_intelligence_dashboard()
+    if not isi_store.list_objects():
+        try:
+            # Soft-prime HD then ISI for live dashboard
+            try:
+                run_historical_depth_pipeline(
+                    entities=["INFY", "TCS", "HDFCBANK", "ICICIBANK", "RELIANCE", "WIPRO", "HCLTECH", "SBIN", "MARUTI", "HINDUNILVR", "ITC", "NTPC", "POWERGRID", "TATAMOTORS", "AXISBANK"]
+                )
+            except Exception:
+                pass
+            run_sector_intelligence_pipeline()
+            dash = sector_intelligence_dashboard()
+        except Exception:
+            pass
+    return dash
 
 
 def run_macro_intelligence_pipeline(**kwargs: Any) -> dict[str, Any]:
@@ -149,8 +177,16 @@ def run_macro_intelligence_pipeline(**kwargs: Any) -> dict[str, Any]:
 
 def macro_intelligence_coverage() -> dict[str, Any]:
     from knowledge_factory.macro_intelligence.dashboard import macro_intelligence_dashboard
+    from knowledge_factory.macro_intelligence import store as imi_store
 
-    return macro_intelligence_dashboard()
+    dash = macro_intelligence_dashboard()
+    if not imi_store.list_objects():
+        try:
+            run_macro_intelligence_pipeline()
+            dash = macro_intelligence_dashboard()
+        except Exception:
+            pass
+    return dash
 
 
 def company_object(entity: str) -> dict[str, Any] | None:

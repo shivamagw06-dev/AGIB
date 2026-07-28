@@ -33,6 +33,13 @@ def health() -> dict[str, Any]:
 
 
 def dashboard() -> dict[str, Any]:
+    # Live ops: auto-prime fixture corpus when store is empty so the website
+    # shows operational Decision Quality without a separate cron step.
+    if not idq_store.list_decisions():
+        try:
+            run_decision_quality_pipeline(use_fixtures=True)
+        except Exception:
+            pass
     return decision_quality_dashboard()
 
 

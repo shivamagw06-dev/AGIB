@@ -43,6 +43,88 @@ def _soft(fn, default=None):
         return default if default is not None else {}
 
 
+def _soft_institutional_intelligence() -> dict[str, Any]:
+    """Soft-read Sprints 1–7 KPIs for Mission Control. Never mutates KF/IDQ stores here."""
+    out: dict[str, Any] = {
+        "decision_coverage": {},
+        "historical_depth": None,
+        "sector_intelligence": None,
+        "macro_intelligence": None,
+        "decision_quality": None,
+        "roadmap_next": None,
+        "sources": [],
+    }
+    try:
+        from knowledge_factory.coverage import decision_coverage, NIFTY_100, TARGET_20
+        from institutional_reasoning.fundamentals.universe import NIFTY_50
+
+        t20 = decision_coverage(TARGET_20)
+        n50 = decision_coverage(NIFTY_50)
+        n100 = decision_coverage(NIFTY_100)
+        out["decision_coverage"] = {
+            "target_20": t20.get("decision_coverage_pct"),
+            "nifty_50": n50.get("decision_coverage_pct"),
+            "nifty_100": n100.get("decision_coverage_pct"),
+            "nifty_500": round(100.0 * (n100.get("decision_ready") or 0) / 500, 2),
+        }
+        out["sources"].append("knowledge_factory.coverage")
+        out["roadmap_next"] = "nifty_500"
+    except Exception:
+        pass
+    try:
+        from knowledge_factory.production import historical_depth_coverage
+
+        hd = historical_depth_coverage()
+        out["historical_depth"] = {
+            "average_history_years": hd.get("average_history_years"),
+            "companies_gt_20y_pct": hd.get("companies_gt_20y_pct"),
+            "point_in_time_integrity": hd.get("point_in_time_integrity"),
+        }
+        out["sources"].append("historical_depth")
+    except Exception:
+        pass
+    try:
+        from knowledge_factory.production import sector_intelligence_coverage
+
+        isi = sector_intelligence_coverage()
+        out["sector_intelligence"] = {
+            "sector_coverage_pct": isi.get("sector_coverage_pct"),
+            "playbook_coverage_pct": isi.get("playbook_coverage_pct"),
+            "status": isi.get("status"),
+        }
+        out["sources"].append("sector_intelligence")
+    except Exception:
+        pass
+    try:
+        from knowledge_factory.production import macro_intelligence_coverage
+
+        imi = macro_intelligence_coverage()
+        kpi = imi.get("kpi") or imi
+        out["macro_intelligence"] = {
+            "coverage": kpi.get("coverage"),
+            "status": imi.get("status"),
+            "regime_coverage": kpi.get("regime_coverage"),
+        }
+        out["sources"].append("macro_intelligence")
+    except Exception:
+        pass
+    try:
+        from decision_quality.production import dashboard as idq_dashboard
+
+        idq = idq_dashboard()
+        kpi = idq.get("kpi") or {}
+        out["decision_quality"] = {
+            "coverage": kpi.get("coverage") or kpi.get("institutional_decision_quality"),
+            "status": idq.get("status"),
+            "hall_fame": (kpi.get("counts") or {}).get("hall_fame"),
+            "hall_shame": (kpi.get("counts") or {}).get("hall_shame"),
+        }
+        out["sources"].append("decision_quality")
+    except Exception:
+        pass
+    return out
+
+
 def _platform_card(name: str, *, status: str = "Unknown", **extra: Any) -> dict[str, Any]:
     return {
         "name": name,
@@ -356,22 +438,40 @@ def build_mission_control(*, ioc_service: Any | None = None) -> dict[str, Any]:
         "sources": ["academy.books", "company_monitor", "investment_office", "cms_article_learning"],
     }
 
-    # SECTION 6 — Coverage
+    # SECTION 6 — Coverage (+ soft Institutional Intelligence from Sprints 1–7)
+    institutional = _soft_institutional_intelligence()
+    dc = institutional.get("decision_coverage") or {}
     coverage_dash = {
-        "overall_coverage": coverage.get("coverage_pct") or exec_status["coverage"],
-        "nifty_50": None,
+        "overall_coverage": dc.get("nifty_100") or coverage.get("coverage_pct") or exec_status["coverage"],
+        "nifty_50": dc.get("nifty_50"),
         "nifty_next_50": None,
-        "nifty_500": None,
+        "nifty_100": dc.get("nifty_100"),
+        "nifty_500": dc.get("nifty_500"),
+        "target_20": dc.get("target_20"),
         "us_coverage": None,
-        "sector_coverage": coverage.get("sector_coverage"),
+        "sector_coverage": (institutional.get("sector_intelligence") or {}).get("sector_coverage_pct")
+        or coverage.get("sector_coverage"),
         "company_coverage": exec_status["companies_covered"],
         "research_coverage": coverage.get("research_coverage"),
         "academy_coverage": coverage.get("academy_coverage"),
         "financial_coverage": coverage.get("financial_coverage") or (cms.get("coverage") or {}).get("financial_channel_pct"),
         "valuation_coverage": coverage.get("valuation_coverage"),
         "prediction_coverage": None,
+        "historical_depth": institutional.get("historical_depth"),
+        "macro_intelligence": institutional.get("macro_intelligence"),
+        "decision_quality": institutional.get("decision_quality"),
+        "roadmap_next": institutional.get("roadmap_next"),
         "below_threshold": coverage.get("below_threshold") or cms_reviews[:10],
-        "sources": ["investment_office", "company_monitor"],
+        "sources": [
+            "investment_office",
+            "company_monitor",
+            "knowledge_factory.coverage",
+            "historical_depth",
+            "sector_intelligence",
+            "macro_intelligence",
+            "decision_quality",
+        ],
+        "institutional_intelligence": institutional,
     }
 
     # SECTION 7 — Company Monitor

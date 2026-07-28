@@ -824,6 +824,38 @@ export const completeEcp = (ticker, q = 'Should I buy?') => {
   return intelligenceFetch(`/ecp/complete?${qs}`, { method: 'POST', body: {} });
 };
 
+/** Knowledge Factory — Decision Coverage / HD / ISI / IMI */
+export const getKnowledgeFactoryDailyHealth = () =>
+  intelligenceFetch('/knowledge-factory/daily-health', { timeoutMs: 120_000 });
+export const getKnowledgeFactoryDecisionCoverage = () =>
+  intelligenceFetch('/knowledge-factory/decision-coverage', { timeoutMs: 90_000 });
+export const getHistoricalDepthDashboard = () =>
+  intelligenceFetch('/knowledge-factory/historical-depth', { timeoutMs: 120_000 });
+export const runHistoricalDepth = () =>
+  intelligenceFetch('/knowledge-factory/historical-depth/run', { method: 'POST', body: {}, timeoutMs: 180_000 });
+export const getSectorIntelligenceDashboard = () =>
+  intelligenceFetch('/knowledge-factory/sector-intelligence', { timeoutMs: 120_000 });
+export const runSectorIntelligence = () =>
+  intelligenceFetch('/knowledge-factory/sector-intelligence/run', { method: 'POST', body: {}, timeoutMs: 180_000 });
+export const getMacroIntelligenceDashboard = () =>
+  intelligenceFetch('/knowledge-factory/macro-intelligence', { timeoutMs: 120_000 });
+export const runMacroIntelligence = () =>
+  intelligenceFetch('/knowledge-factory/macro-intelligence/run', { method: 'POST', body: {}, timeoutMs: 180_000 });
+
+/** Institutional Decision Quality (observability) */
+export const getDecisionQualityHealth = () =>
+  intelligenceFetch('/decision-quality/health', { timeoutMs: 30_000 });
+export const getDecisionQualityDashboard = () =>
+  intelligenceFetch('/decision-quality/dashboard', { timeoutMs: 120_000 });
+export const runDecisionQuality = () =>
+  intelligenceFetch('/decision-quality/run', { method: 'POST', body: {}, timeoutMs: 120_000 });
+export const getDecisionQualityHall = (params = {}) => {
+  const qs = new URLSearchParams(params).toString();
+  return intelligenceFetch(`/decision-quality/hall${qs ? `?${qs}` : ''}`, { timeoutMs: 60_000 });
+};
+export const getDecisionQualityCalibration = () =>
+  intelligenceFetch('/decision-quality/calibration', { timeoutMs: 60_000 });
+
 /** Mission Control V1 — administrator operations centre (read-only) */
 export const getMissionControlHealth = () =>
   intelligenceFetch('/mission-control/health', { timeoutMs: 30_000 });
