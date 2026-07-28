@@ -83,11 +83,36 @@ def handle_historical() -> dict[str, Any]:
 
 
 def handle_company() -> dict[str, Any]:
+    idi_report: dict[str, Any] | None = None
+    try:
+        from knowledge_factory.institutional_documents.production import run_pipeline as run_idi
+
+        # Soft-wire: institutional documents update with company intelligence (evidence only).
+        idi_report = run_idi(tickers=["INFY", "TCS", "RELIANCE"], allow_samples=True)
+    except Exception as idi_exc:  # noqa: BLE001
+        idi_report = {
+            "ok": False,
+            "error": str(idi_exc)[:200],
+            "transparent_insufficiency": True,
+            "fabricated": False,
+        }
+        store.alert(
+            "warning",
+            f"IDI document ingestion soft-wire unavailable: {idi_exc}"[:200],
+            workflow_id="company_intelligence",
+        )
     try:
         from knowledge_factory.company_intelligence.pipeline import run_company_intelligence_pipeline
 
-        return _ok(run_company_intelligence_pipeline())
+        return _ok(run_company_intelligence_pipeline(), idi=idi_report, documents_soft_wire=True)
     except Exception as exc:
+        if idi_report and (idi_report.get("ingested_ok") or idi_report.get("status") == "ok"):
+            return _ok(
+                {"company_intelligence": "unavailable", "idi": idi_report},
+                degraded=True,
+                idi=idi_report,
+                documents_soft_wire=True,
+            )
         return _err(exc)
 
 
