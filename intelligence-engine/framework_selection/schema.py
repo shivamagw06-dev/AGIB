@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-IFSE_VERSION = "framework-selection-v1.0.0"
+IFSE_VERSION = "framework-selection-v1.1.0"  # Sprint 3.3 cue overlays + sector enrichment
 PROGRAMME = "AGIB v3.4 – Institutional Answer Excellence · Track C Framework Selection"
 MODULE_CODE = "IFSE"
 

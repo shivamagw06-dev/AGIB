@@ -7002,6 +7002,327 @@ async def framework_selection_history(limit: int = 50):
     return history(limit=limit)
 
 
+# ---------------------------------------------------------------------------
+# AGIB v3.4 Track D — Institutional Communication Engine (ICE)
+# Deterministic renderer of InstitutionalAnswer. Reasoning frozen.
+# ---------------------------------------------------------------------------
+@router.get("/institutional-communication/health")
+async def institutional_communication_health():
+    from institutional_communication.production import health
+
+    return health()
+
+
+@router.get("/institutional-communication/dashboard")
+async def institutional_communication_dashboard():
+    from institutional_communication.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/institutional-communication/history")
+async def institutional_communication_history(limit: int = 50):
+    from institutional_communication.production import history
+
+    return history(limit=limit)
+
+
+# ---------------------------------------------------------------------------
+# AGIB v3.5 — Institutional Analytical Playbooks (IAP)
+# Registry + selector between Framework Selection and Reasoning.
+# ---------------------------------------------------------------------------
+@router.get("/institutional-playbooks/health")
+async def institutional_playbooks_health():
+    from institutional_playbooks.production import health
+
+    return health()
+
+
+@router.get("/institutional-playbooks/dashboard")
+async def institutional_playbooks_dashboard():
+    from institutional_playbooks.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/institutional-playbooks/registry")
+async def institutional_playbooks_registry():
+    from institutional_playbooks.production import registry
+
+    return registry()
+
+
+@router.get("/institutional-playbooks/playbook/{playbook_id}")
+async def institutional_playbooks_playbook(playbook_id: str):
+    from institutional_playbooks.production import playbook
+
+    return playbook(playbook_id)
+
+
+@router.get("/institutional-playbooks/select")
+async def institutional_playbooks_select(
+    question: str,
+    intent_v2: str | None = None,
+    question_type: str | None = None,
+    sector: str | None = None,
+    concept_mode: bool = False,
+    as_of: str | None = None,
+):
+    from institutional_playbooks.production import select
+
+    return select(
+        question=question,
+        intent_v2=intent_v2,
+        question_type=question_type,
+        sector=sector,
+        concept_mode=concept_mode,
+        as_of=as_of,
+    )
+
+
+@router.get("/institutional-playbooks/history")
+async def institutional_playbooks_history(limit: int = 50):
+    from institutional_playbooks.production import history
+
+    return history(limit=limit)
+
+
+# ---------------------------------------------------------------------------
+# AGIB v3.6 Phase 2 Sprint 2.1 — Institutional Evidence Graph (IEG)
+# Entity-centric relationships soft-read from IERE/IERI; reasoning frozen.
+# ---------------------------------------------------------------------------
+@router.get("/institutional-evidence-graph/health")
+async def institutional_evidence_graph_health():
+    from institutional_evidence_graph.production import health
+
+    return health()
+
+
+@router.get("/institutional-evidence-graph/dashboard")
+async def institutional_evidence_graph_dashboard():
+    from institutional_evidence_graph.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/institutional-evidence-graph/company/{ticker}")
+async def institutional_evidence_graph_company(ticker: str, as_of: str | None = None):
+    from institutional_evidence_graph.production import company
+
+    return company(ticker, as_of=as_of)
+
+
+@router.get("/institutional-evidence-graph/build")
+async def institutional_evidence_graph_build(
+    question: str,
+    ticker: str | None = None,
+    as_of: str | None = None,
+    concept_mode: bool = False,
+):
+    from institutional_evidence_graph.production import build
+
+    entities = [{"type": "company", "id": ticker, "confidence": 0.99}] if ticker else []
+    return build(
+        question=question,
+        entities=entities,
+        ticker_hint=ticker,
+        as_of=as_of,
+        concept_mode=concept_mode,
+    )
+
+
+@router.get("/institutional-evidence-graph/history")
+async def institutional_evidence_graph_history(limit: int = 50):
+    from institutional_evidence_graph.production import history
+
+    return history(limit=limit)
+
+
+# ---------------------------------------------------------------------------
+# AGIB v3.6 Phase 2 Sprint 2.2 — Institutional Memory & Analog Intelligence
+# Soft-wire only; distinct from ILM; reasoning frozen.
+# ---------------------------------------------------------------------------
+@router.get("/institutional-analog-intelligence/health")
+async def institutional_analog_intelligence_health():
+    from institutional_analog_intelligence.production import status
+
+    return status()
+
+
+@router.get("/institutional-analog-intelligence/dashboard")
+async def institutional_analog_intelligence_dashboard():
+    from institutional_analog_intelligence.production import board
+
+    return board()
+
+
+@router.get("/institutional-analog-intelligence/retrieve")
+async def institutional_analog_intelligence_retrieve(
+    question: str,
+    as_of: str | None = None,
+    top_k: int = 5,
+):
+    from institutional_analog_intelligence.production import retrieve
+
+    return retrieve(question=question, as_of=as_of, top_k=top_k)
+
+
+@router.get("/institutional-analog-intelligence/catalog")
+async def institutional_analog_intelligence_catalog(limit: int = 100):
+    from institutional_analog_intelligence.production import catalog
+
+    return {"n": limit, "memories": catalog(limit=limit), "fabricated": False}
+
+
+@router.get("/institutional-analog-intelligence/memory/{memory_id}")
+async def institutional_analog_intelligence_memory(memory_id: str):
+    from institutional_analog_intelligence.production import memory
+
+    row = memory(memory_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="memory_not_found")
+    return row
+
+
+@router.get("/institutional-analog-intelligence/audits")
+async def institutional_analog_intelligence_audits(limit: int = 50):
+    from institutional_analog_intelligence.production import audits
+
+    return {"n": limit, "rows": audits(limit=limit), "fabricated": False}
+
+
+# ---------------------------------------------------------------------------
+# AGIB Phase 3 Sprint 3.1 — Institutional Evaluation Lab (IEL)
+# Measurement-only quality engineering; reasoning frozen.
+# ---------------------------------------------------------------------------
+@router.get("/institutional-evaluation-lab/health")
+async def institutional_evaluation_lab_health():
+    from institutional_evaluation_lab.production import status
+
+    return status()
+
+
+@router.get("/institutional-evaluation-lab/dashboard")
+async def institutional_evaluation_lab_dashboard():
+    from institutional_evaluation_lab.production import board
+
+    return board()
+
+
+@router.get("/institutional-evaluation-lab/catalog")
+async def institutional_evaluation_lab_catalog(suite: str = "institutional_1000", limit: int = 50):
+    from institutional_evaluation_lab.production import catalog
+
+    return catalog(suite=suite, limit=limit)
+
+
+@router.get("/institutional-evaluation-lab/question/{question_id}")
+async def institutional_evaluation_lab_question(question_id: str):
+    from institutional_evaluation_lab.production import question
+
+    row = question(question_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="question_not_found")
+    return row
+
+
+@router.get("/institutional-evaluation-lab/run")
+async def institutional_evaluation_lab_run(
+    suite: str = "smoke",
+    mode: str = "soft",
+    limit: int | None = None,
+    persist_baseline: bool = False,
+):
+    from institutional_evaluation_lab.production import run
+
+    summary = run(suite=suite, mode=mode, limit=limit, persist_baseline=persist_baseline)
+    # Avoid huge payloads by default
+    light = {k: v for k, v in summary.items() if k != "rows"}
+    light["rows_sample"] = (summary.get("rows") or [])[:20]
+    return light
+
+
+@router.get("/institutional-evaluation-lab/nightly")
+async def institutional_evaluation_lab_nightly():
+    from institutional_evaluation_lab.production import nightly
+
+    return nightly()
+
+
+@router.get("/institutional-evaluation-lab/history")
+async def institutional_evaluation_lab_history(limit: int = 20):
+    from institutional_evaluation_lab.production import history
+
+    return history(limit=limit)
+
+
+# ---------------------------------------------------------------------------
+# AGIB Phase 3 Sprint 3.2 — Root Cause Intelligence (RCI)
+# Engineering brain: failures → clusters → recommended PRs. Reasoning frozen.
+# ---------------------------------------------------------------------------
+@router.get("/root-cause-intelligence/health")
+async def root_cause_intelligence_health():
+    from root_cause_intelligence.production import status
+
+    return status()
+
+
+@router.get("/root-cause-intelligence/dashboard")
+async def root_cause_intelligence_dashboard():
+    from root_cause_intelligence.production import board
+
+    return board()
+
+
+@router.get("/root-cause-intelligence/nightly")
+async def root_cause_intelligence_nightly():
+    from root_cause_intelligence.production import nightly
+
+    return nightly()
+
+
+@router.get("/root-cause-intelligence/analyze")
+async def root_cause_intelligence_analyze(
+    suite: str = "smoke",
+    mode: str = "soft",
+    limit: int | None = 50,
+):
+    from root_cause_intelligence.production import analyze_from_iel_run
+
+    return analyze_from_iel_run(suite=suite, mode=mode, limit=limit)
+
+
+@router.get("/root-cause-intelligence/history")
+async def root_cause_intelligence_history(limit: int = 20):
+    from root_cause_intelligence.production import history
+
+    return history(limit=limit)
+
+
+@router.get("/root-cause-intelligence/report")
+async def root_cause_intelligence_report():
+    from root_cause_intelligence.production import report
+
+    return report()
+
+
+# ---------------------------------------------------------------------------
+# AGIB Phase 3 — Patch Intelligence (briefs only; never auto-codes)
+# ---------------------------------------------------------------------------
+@router.get("/patch-intelligence/health")
+async def patch_intelligence_health():
+    from patch_intelligence.production import status
+
+    return status()
+
+
+@router.get("/patch-intelligence/queue")
+async def patch_intelligence_queue(top_n: int = 10):
+    from patch_intelligence.production import from_latest_rci
+
+    return from_latest_rci(top_n=top_n)
+
+
 @router.get("/prediction/{prediction_id}")
 async def ail_prediction(prediction_id: str):
     try:
