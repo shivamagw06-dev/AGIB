@@ -488,6 +488,8 @@ def _resolve_companies(
 
 
 def _resolve_industries(*, question: str) -> list[str]:
+    import re
+
     low = (question or "").lower()
     mapping = [
         ("cement", "cement"),
@@ -501,13 +503,14 @@ def _resolve_industries(*, question: str) -> list[str]:
         ("it services", "it_services"),
         ("nbfc", "nbfc"),
         ("real estate", "real_estate"),
-        ("bank", "banks"),
+        ("banks", "banks"),
         ("insurance", "insurance"),
         ("crude oil", "crude_oil"),
         ("oil price", "crude_oil"),
+        ("oil prices", "crude_oil"),
         ("inflation", "inflation"),
         ("interest rate", "interest_rates"),
-        ("repo", "interest_rates"),
+        ("repo rate", "interest_rates"),
         ("rupee", "fx"),
         ("currency", "fx"),
         ("gst", "fiscal"),
@@ -515,8 +518,16 @@ def _resolve_industries(*, question: str) -> list[str]:
     ]
     out: list[str] = []
     for cue, ind in mapping:
-        if cue in low and ind not in out:
+        if " " in cue:
+            hit = cue in low
+        else:
+            # Word-boundary: prevent 'repo' matching inside 'report'
+            hit = re.search(rf"(?<![a-z0-9]){re.escape(cue)}(?![a-z0-9])", low) is not None
+        if hit and ind not in out:
             out.append(ind)
+    # Single 'bank' token (not 'banks') — only when not already covered
+    if "banks" not in out and re.search(r"(?<![a-z0-9])bank(?![a-z0-9])", low):
+        out.append("banks")
     return out[:4]
 
 
