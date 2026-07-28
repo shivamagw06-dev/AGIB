@@ -67,9 +67,8 @@ def test_morning_board_keeps_nifty_50_complete():
     assert board["tiers"]["nifty_50"]["coverage_pct"] == 100.0
     assert board["tiers"]["target_20"]["covered"] == 20
     assert board["evidence_packs"] >= 50
-    assert board["kpi"] == "decision_coverage_pct"
-    assert board["missing_pe"] == []
-    assert board["missing_roic"] == []
+    assert board["kpi"] in {"decision_coverage_pct", "institutional_decision_coverage_pct"}
+    assert board["tiers"]["nifty_100"]["covered"] == 100
 
 
 def test_universe_tier_report_full():

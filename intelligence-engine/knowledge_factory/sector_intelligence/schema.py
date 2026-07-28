@@ -79,6 +79,7 @@ SECTOR_ALIASES: dict[str, str] = {
     "aviation": "logistics",
     "conglomerate": "industrials",
     "diversified": "industrials",
+    "capital_markets": "nbfc",
 }
 
 CYCLE_STATES = (

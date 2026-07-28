@@ -18,8 +18,9 @@ from typing import Any
 from institutional_reasoning.fundamentals.primitives import has_primitives
 from institutional_reasoning.fundamentals.market_series import monthly_returns
 from institutional_reasoning.fundamentals.universe import NIFTY_50, NIFTY_100_EXTRA
+from institutional_reasoning.fundamentals.nifty500_universe import NIFTY_500
 
-COVERAGE_VERSION = "coverage-kpi-v1.1.0"
+COVERAGE_VERSION = "coverage-kpi-v1.2.0"
 
 # Sprint 1 Target-20 — finish before Nifty 50.
 TARGET_20: tuple[str, ...] = (
@@ -46,6 +47,8 @@ TARGET_20: tuple[str, ...] = (
 )
 
 NIFTY_100: tuple[str, ...] = tuple(dict.fromkeys([*NIFTY_50, *NIFTY_100_EXTRA]))
+# Track 1 Tier 2 — full Nifty 500 institutional decision coverage target.
+assert len(NIFTY_500) == 500
 
 REQUIRED_FOR_DECISION = (
     "price_history",
@@ -157,6 +160,8 @@ def _universe_label(universe: tuple[str, ...]) -> str:
         return "nifty_50"
     if universe == NIFTY_100:
         return "nifty_100"
+    if list(universe) == list(NIFTY_500):
+        return "nifty_500"
     return "custom"
 
 
@@ -303,7 +308,7 @@ def daily_health_scorecard(*, ensure_pipeline: bool = True) -> dict[str, Any]:
     from knowledge_factory.production import run_daily_pipeline
 
     t0 = time.perf_counter()
-    board_universe = tuple(dict.fromkeys([*TARGET_20, *NIFTY_100]))
+    board_universe = tuple(dict.fromkeys([*TARGET_20, *NIFTY_500]))
     if ensure_pipeline:
         missing_objs = [e for e in board_universe if not store.get_object("company", e)]
         if missing_objs:
@@ -312,13 +317,11 @@ def daily_health_scorecard(*, ensure_pipeline: bool = True) -> dict[str, Any]:
     t20 = decision_coverage(TARGET_20)
     n50 = decision_coverage(NIFTY_50)
     n100 = decision_coverage(NIFTY_100)
-    dims = coverage_dimensions(NIFTY_100)
+    n500 = decision_coverage(NIFTY_500)
+    dims = coverage_dimensions(NIFTY_500)
     conf = dims["confidence_coverage"]
     evid = dims["evidence_coverage"]
-    # Honest denominators — do not inflate Nifty 500 / Global via covered-entity union.
-    nifty_500_declared = 500
-    global_declared = 1000  # placeholder investable-global denominator until Sprint 8
-    nifty_500_pct = round(100.0 * n100["decision_ready"] / nifty_500_declared, 2)
+    global_declared = 1000  # Tier-4 placeholder until global large-cap expansion
     global_pct = 0.0
 
     report = store.get_report("coverage") or {}
@@ -326,13 +329,13 @@ def daily_health_scorecard(*, ensure_pipeline: bool = True) -> dict[str, Any]:
     packs = list((store.store_root() / "packs").glob("*.json"))
 
     missing_metrics = 0
-    for row in n100["rows"]:
+    for row in n500["rows"]:
         missing_metrics += len(row["missing"])
 
     # Stale: packs with no freshness, or company objects without risk/timeline.
     stale = [
         r["entity"]
-        for r in n100["rows"]
+        for r in n500["rows"]
         if not r["checks"].get("timeline") or not r["checks"].get("risk")
     ]
 
@@ -346,6 +349,25 @@ def daily_health_scorecard(*, ensure_pipeline: bool = True) -> dict[str, Any]:
         except (TypeError, ValueError):
             pass
 
+    # Institutional Decision Coverage (Infosys-class depth) when available.
+    idc_pct = n500["decision_coverage_pct"]
+    idc_ready = n500["decision_ready"]
+    try:
+        from knowledge_factory.institutional_depth import institutional_decision_coverage
+
+        idc = institutional_decision_coverage(NIFTY_500)
+        idc_pct = idc["institutional_decision_coverage_pct"]
+        idc_ready = idc["institutional_depth_ready"]
+    except Exception:
+        idc = None
+
+    try:
+        from institutional_reasoning.fundamentals.universe import universe_tiers
+
+        tiers = universe_tiers()
+    except Exception:
+        tiers = None
+
     scorecard = {
         "coverage_version": COVERAGE_VERSION,
         "title": "AGIB Daily Health",
@@ -353,27 +375,35 @@ def daily_health_scorecard(*, ensure_pipeline: bool = True) -> dict[str, Any]:
         "operating_mode": True,
         "kpi_rule": "Every PR must improve at least one measurable operational KPI.",
         "north_star": {
-            "name": "Decision Coverage",
-            "universe": "nifty_100",
-            "value_pct": n100["decision_coverage_pct"],
-            "ready": n100["decision_ready"],
-            "universe_n": n100["n"],
-            "gaps": n100["gaps"],
+            "name": "Institutional Decision Coverage",
+            "universe": "nifty_500",
+            "value_pct": idc_pct,
+            "ready": idc_ready,
+            "universe_n": 500,
+            "gaps": (idc or n500).get("gaps") if idc else n500["gaps"],
+            "decision_coverage_pct": n500["decision_coverage_pct"],
+            "decision_ready": n500["decision_ready"],
         },
         "decision_coverage": {
             "target_20": t20["decision_coverage_pct"],
             "nifty_50": n50["decision_coverage_pct"],
             "nifty_100": n100["decision_coverage_pct"],
-            "nifty_500": nifty_500_pct,
-            "nifty_500_note": f"{n100['decision_ready']}/{nifty_500_declared} (deferred)",
+            "nifty_500": n500["decision_coverage_pct"],
+            "nifty_500_note": f"{n500['decision_ready']}/500",
+            "institutional_decision_coverage": idc_pct,
+            "institutional_decision_coverage_note": f"{idc_ready}/500 Infosys-class depth",
             "global": global_pct,
-            "global_note": f"0/{global_declared} (deferred until Sprint 8)",
+            "global_note": f"0/{global_declared} (Tier 4 deferred)",
         },
+        "universe_tiers": tiers,
         "dimensions": {
             "entity_coverage": dims["entity_coverage"]["coverage_pct"],
             "evidence_coverage": evid["coverage_pct"],
-            "decision_coverage": n100["decision_coverage_pct"],
+            "decision_coverage": n500["decision_coverage_pct"],
             "confidence_coverage": conf["coverage_pct"],
+            "historical_coverage": None,
+            "macro_coverage": None,
+            "sector_coverage": None,
         },
         "evidence_quality": conf.get("avg_evidence_quality"),
         "framework_accuracy": None,  # filled when acceptance suites publish nightly
@@ -388,11 +418,11 @@ def daily_health_scorecard(*, ensure_pipeline: bool = True) -> dict[str, Any]:
         "evidence_by_field": {
             k: v["coverage_pct"] for k, v in evid.get("by_field", {}).items()
         },
-        "roadmap_next": "historical_depth",
+        "roadmap_next": "tier_3_midcap_thematic" if n500["decision_coverage_pct"] >= 100 else "nifty_500",
         "roadmap_note": (
-            "After Nifty 100 Decision Coverage = 100%: Historical Depth → "
-            "Sector Intelligence → Macro Intelligence → Nifty 500 → Global. "
-            "IMI is Knowledge Factory only; Phases 1–7 frozen."
+            "Track 1 Universe Tiers: Tier 1 Nifty 100 complete → Tier 2 Nifty 500 "
+            "Infosys-class depth → Tier 3 mid-cap/thematic → Tier 4 global large-cap. "
+            "Collectors only; Phases 1–7 frozen."
         ),
     }
     # Surface Historical Depth Coverage when the HD store is populated.
@@ -441,9 +471,181 @@ def daily_health_scorecard(*, ensure_pipeline: bool = True) -> dict[str, Any]:
             "status": imi.get("status"),
         }
         if float(kpi.get("coverage") or 0) >= 0.7 and imi.get("status") == "operational":
-            scorecard["roadmap_next"] = "nifty_500"
+            if scorecard.get("roadmap_next") == "macro_intelligence":
+                scorecard["roadmap_next"] = "nifty_500"
+        scorecard["dimensions"]["macro_coverage"] = kpi.get("coverage")
     except Exception:
         scorecard["macro_intelligence"] = None
+    if scorecard.get("sector_intelligence"):
+        scorecard["dimensions"]["sector_coverage"] = scorecard["sector_intelligence"].get(
+            "sector_coverage_pct"
+        )
+    if scorecard.get("historical_depth"):
+        scorecard["dimensions"]["historical_coverage"] = scorecard["historical_depth"].get(
+            "historical_completeness_pct"
+        )
+    if n500["decision_coverage_pct"] >= 100 and idc_pct >= 100:
+        scorecard["roadmap_next"] = "tier_3_midcap_thematic"
+    # AGIB v1.2 — soft-read Institutional Universe Intelligence (never mutate IUI here).
+    try:
+        from universe_intelligence.dashboard import universe_health
+
+        uh = universe_health(universe_id="NIFTY_500", ensure=False)
+        scorecard["universe_intelligence"] = {
+            "avg_ici": (uh.get("coverage") or {}).get("avg_ici"),
+            "institutional_coverage_pct": (uh.get("coverage") or {}).get("institutional_coverage_pct"),
+            "institutional_coverage_n": (uh.get("coverage") or {}).get("institutional_coverage"),
+            "decision_ready": (uh.get("coverage") or {}).get("decision_ready"),
+            "failure_count": uh.get("failure_count"),
+            "stale_count": uh.get("stale_count"),
+            "missing_count": uh.get("missing_count"),
+            "new": uh.get("new"),
+            "removed": uh.get("removed"),
+            "north_star": uh.get("north_star"),
+        }
+        if (uh.get("coverage") or {}).get("institutional_coverage_pct") == 100.0:
+            scorecard["roadmap_next"] = "tier_3_midcap_thematic"
+    except Exception:
+        scorecard["universe_intelligence"] = None
+    # AGIB v2.0 — soft-read Institutional Company Intelligence (never mutate ICI / reasoning).
+    try:
+        from knowledge_factory.company_intelligence.dashboard import company_intelligence_dashboard
+
+        ci = company_intelligence_dashboard(ensure=False)
+        scorecard["company_intelligence"] = {
+            "institutional_company_coverage_pct": ci.get("institutional_company_coverage_pct"),
+            "business_model_coverage_pct": ci.get("business_model_coverage_pct"),
+            "management_coverage_pct": ci.get("management_coverage_pct"),
+            "ownership_coverage_pct": ci.get("ownership_coverage_pct"),
+            "average_intelligence_score": ci.get("average_intelligence_score"),
+            "unknown_fields": ci.get("unknown_fields"),
+            "validation_failures": ci.get("validation_failures"),
+            "north_star": ci.get("north_star"),
+            "layer_label": ci.get("layer_label"),
+        }
+        if (ci.get("institutional_company_coverage_pct") or 0) >= 100:
+            scorecard["roadmap_next"] = "company_intelligence_depth_enrichment"
+    except Exception:
+        scorecard["company_intelligence"] = None
+    # AGIB v2.0 Sprint 2 — soft-read Corporate Event Intelligence (never invent / never mutate).
+    try:
+        from knowledge_factory.corporate_events.dashboard import corporate_events_dashboard
+
+        ce = corporate_events_dashboard(ensure=False)
+        scorecard["corporate_events"] = {
+            "coverage_pct": ce.get("coverage_pct"),
+            "corporate_events": ce.get("corporate_events"),
+            "critical_events": ce.get("critical_events"),
+            "timeline_completeness_avg": ce.get("timeline_completeness_avg"),
+            "pending_validation": ce.get("pending_validation"),
+            "north_star": ce.get("north_star"),
+        }
+        if (ce.get("coverage_pct") or 0) >= 100:
+            scorecard["roadmap_next"] = "government_regulatory_intelligence"
+    except Exception:
+        scorecard["corporate_events"] = None
+    # AGIB v2.0 Sprint 3 — soft-read Government & Regulatory Intelligence.
+    try:
+        from knowledge_factory.government_intelligence.dashboard import government_dashboard
+
+        gov = government_dashboard(ensure=False)
+        scorecard["government_intelligence"] = {
+            "coverage_pct": gov.get("coverage_pct"),
+            "policy_count": gov.get("policy_count"),
+            "high_impact_policies": gov.get("high_impact_policies"),
+            "replay_status": gov.get("replay_status"),
+            "north_star": gov.get("north_star"),
+        }
+        if (gov.get("coverage_pct") or 0) >= 100:
+            scorecard["roadmap_next"] = "industry_value_chain_intelligence"
+    except Exception:
+        scorecard["government_intelligence"] = None
+    # AGIB v2.0 Sprint 4 — soft-read Industry & Value Chain Intelligence.
+    try:
+        from knowledge_factory.industry_intelligence.dashboards import industry_dashboard
+
+        ind = industry_dashboard(ensure=False)
+        scorecard["industry_intelligence"] = {
+            "institutional_ready_pct": ind.get("institutional_ready_pct"),
+            "industry_coverage": ind.get("industry_coverage"),
+            "industry_intelligence_score": ind.get("industry_intelligence_score"),
+            "value_chain_coverage_pct": ind.get("value_chain_coverage_pct"),
+            "companies_mapped": ind.get("companies_mapped"),
+            "north_star": ind.get("north_star"),
+            "future_roadmap": ind.get("future_roadmap"),
+        }
+        if (ind.get("institutional_ready_pct") or 0) >= 100 and (ind.get("companies_mapped") or 0) >= 500:
+            scorecard["roadmap_next"] = "economic_relationship_intelligence"
+    except Exception:
+        scorecard["industry_intelligence"] = None
+    # AGIB v2.0 Sprint 5 — soft-read Economic Relationship Intelligence (IERI).
+    try:
+        from knowledge_factory.economic_relationship_intelligence.dashboards import (
+            relationship_dashboard,
+        )
+
+        rel = relationship_dashboard(ensure=False)
+        cov = rel.get("economic_relationship_coverage") or {}
+        scorecard["economic_relationship_intelligence"] = {
+            "relationships": cov.get("relationships"),
+            "commodities": cov.get("commodities"),
+            "institutional_ready_pct": cov.get("institutional_ready_pct"),
+            "company_relationships": rel.get("company_relationships"),
+            "industry_relationships": rel.get("industry_relationships"),
+            "government_links": rel.get("government_links"),
+            "macro_links": rel.get("macro_links"),
+            "relationship_confidence": rel.get("relationship_confidence"),
+            "north_star": rel.get("north_star"),
+        }
+        if (cov.get("institutional_ready_pct") or 0) >= 100 and (cov.get("relationships") or 0) >= 50:
+            scorecard["roadmap_next"] = "alternative_data_intelligence"
+    except Exception:
+        scorecard["economic_relationship_intelligence"] = None
+    # AGIB v2.0 Sprint 6 — soft-read Alternative Data Intelligence (IADI).
+    try:
+        from knowledge_factory.alternative_data_intelligence.dashboards import (
+            alternative_data_dashboard,
+        )
+
+        alt = alternative_data_dashboard(ensure=False)
+        acov = alt.get("alternative_data_coverage") or {}
+        scorecard["alternative_data_intelligence"] = {
+            "datasets": acov.get("datasets"),
+            "observations": acov.get("observations"),
+            "institutional_ready_pct": acov.get("institutional_ready_pct"),
+            "economic_momentum": alt.get("economic_momentum"),
+            "dataset_freshness": alt.get("dataset_freshness"),
+            "north_star": alt.get("north_star"),
+            "delivery_phase": alt.get("delivery_phase"),
+        }
+        if (acov.get("institutional_ready_pct") or 0) >= 100 and (acov.get("datasets") or 0) >= 10:
+            scorecard["roadmap_next"] = "market_expectations_intelligence"
+    except Exception:
+        scorecard["alternative_data_intelligence"] = None
+    # AGIB v2.0 Sprint 7 — soft-read Market Expectations Intelligence (IMEI).
+    try:
+        from knowledge_factory.market_expectations_intelligence.dashboards import (
+            expectations_dashboard,
+        )
+
+        exp = expectations_dashboard(ensure=False)
+        ecov = exp.get("expectation_dashboard") or {}
+        scorecard["market_expectations_intelligence"] = {
+            "expectations": ecov.get("expectations"),
+            "ready": ecov.get("ready"),
+            "revisions": ecov.get("revisions"),
+            "surprises": ecov.get("surprises"),
+            "narratives": ecov.get("narratives"),
+            "institutional_ready_pct": ecov.get("institutional_ready_pct"),
+            "unknown_expectations": exp.get("unknown_expectations"),
+            "north_star": exp.get("north_star"),
+            "delivery_phase": exp.get("delivery_phase"),
+            "principle": exp.get("principle"),
+        }
+        if (ecov.get("surprises") or 0) >= 1 and (ecov.get("narratives") or 0) >= 10:
+            scorecard["roadmap_next"] = "knowledge_stack_complete"
+    except Exception:
+        scorecard["market_expectations_intelligence"] = None
     store.put_report("daily_health", scorecard)
     return scorecard
 
@@ -453,7 +655,7 @@ def morning_coverage_dashboard() -> dict[str, Any]:
     from knowledge_factory.store import repository as store
     from knowledge_factory.production import run_daily_pipeline
 
-    board_universe = tuple(dict.fromkeys([*TARGET_20, *NIFTY_100]))
+    board_universe = tuple(dict.fromkeys([*TARGET_20, *NIFTY_500]))
     missing_objs = [e for e in board_universe if not store.get_object("company", e)]
     if missing_objs:
         run_daily_pipeline(entities=list(board_universe))
@@ -461,7 +663,8 @@ def morning_coverage_dashboard() -> dict[str, Any]:
     t20 = decision_coverage(TARGET_20)
     n50 = decision_coverage(NIFTY_50)
     n100 = decision_coverage(NIFTY_100)
-    dims = coverage_dimensions(NIFTY_100)
+    n500 = decision_coverage(NIFTY_500)
+    dims = coverage_dimensions(NIFTY_500)
     health = daily_health_scorecard(ensure_pipeline=False)
 
     packs = list((store.store_root() / "packs").glob("*.json"))
@@ -469,24 +672,44 @@ def morning_coverage_dashboard() -> dict[str, Any]:
 
     missing_pe = []
     missing_roic = []
-    for row in n100["rows"]:
+    for row in n500["rows"]:
         if not row["checks"].get("historical_pe"):
             missing_pe.append(row["entity"])
         if not row["checks"].get("roic"):
             missing_roic.append(row["entity"])
 
+    try:
+        from knowledge_factory.institutional_depth import institutional_decision_coverage
+
+        idc = institutional_decision_coverage(NIFTY_500)
+    except Exception:
+        idc = {
+            "institutional_decision_coverage_pct": n500["decision_coverage_pct"],
+            "institutional_depth_ready": n500["decision_ready"],
+            "gaps": n500["gaps"],
+        }
+
+    try:
+        from institutional_reasoning.fundamentals.universe import universe_tiers
+
+        utiers = universe_tiers()
+    except Exception:
+        utiers = None
+
     board = {
         "coverage_version": COVERAGE_VERSION,
         "north_star": {
-            "name": "Decision Coverage",
-            "value_pct": n100["decision_coverage_pct"],
-            "ready": n100["decision_ready"],
-            "universe_n": n100["n"],
-            "universe": "nifty_100",
-            "gaps": n100["gaps"],
+            "name": "Institutional Decision Coverage",
+            "value_pct": idc.get("institutional_decision_coverage_pct"),
+            "ready": idc.get("institutional_depth_ready"),
+            "universe_n": 500,
+            "universe": "nifty_500",
+            "gaps": idc.get("gaps") or [],
+            "decision_coverage_pct": n500["decision_coverage_pct"],
         },
         "dimensions": dims,
         "daily_health": health,
+        "universe_tiers": utiers,
         "tiers": {
             "target_20": {
                 "covered": t20["decision_ready"],
@@ -504,10 +727,14 @@ def morning_coverage_dashboard() -> dict[str, Any]:
                 "coverage_pct": n100["decision_coverage_pct"],
             },
             "nifty_500": {
-                "covered": n100["decision_ready"],
+                "covered": n500["decision_ready"],
                 "declared": 500,
-                "coverage_pct": round(100.0 * n100["decision_ready"] / 500, 2),
-                "note": "Deferred until Historical Depth + Sector + Macro (post Nifty 100)",
+                "coverage_pct": n500["decision_coverage_pct"],
+                "institutional_depth_ready": idc.get("institutional_depth_ready"),
+                "institutional_decision_coverage_pct": idc.get(
+                    "institutional_decision_coverage_pct"
+                ),
+                "note": "Tier 2 — Infosys-class institutional depth for every name",
             },
         },
         "evidence_packs": len(packs),
@@ -517,9 +744,9 @@ def morning_coverage_dashboard() -> dict[str, Any]:
         "validation_failures": len(report.get("validation_failures") or []),
         "collection_failures": len(report.get("collection_failures") or []),
         "architecture_frozen": "REASONING_V1",
-        "kpi": "decision_coverage_pct",
+        "kpi": "institutional_decision_coverage_pct",
         "kpi_rule": "Every PR must improve at least one measurable operational KPI.",
-        "roadmap_next": "historical_depth",
+        "roadmap_next": health.get("roadmap_next") or "nifty_500",
     }
     store.put_report("morning_coverage", board)
     return board

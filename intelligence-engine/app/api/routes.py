@@ -7080,6 +7080,757 @@ async def knowledge_factory_daily_health():
     return daily_health_scorecard()
 
 
+@router.get("/knowledge-factory/institutional-depth")
+async def knowledge_factory_institutional_depth():
+    """Track 1 — Institutional Decision Coverage (Infosys-class depth / Nifty 500)."""
+    from knowledge_factory.coverage import NIFTY_500
+    from knowledge_factory.institutional_depth import institutional_decision_coverage
+
+    return institutional_decision_coverage(NIFTY_500)
+
+
+@router.get("/knowledge-factory/institutional-depth/{ticker}")
+async def knowledge_factory_institutional_depth_ticker(ticker: str):
+    """Per-company Infosys-class depth checklist + onboarding acceptance tests."""
+    from knowledge_factory.institutional_depth import acceptance_for_company, institutional_depth_checklist
+
+    return {
+        "checklist": institutional_depth_checklist(ticker),
+        "acceptance": acceptance_for_company(ticker),
+    }
+
+
+@router.get("/knowledge-factory/universe-tiers")
+async def knowledge_factory_universe_tiers():
+    """Universe Tier board — quality before breadth."""
+    from institutional_reasoning.fundamentals.universe import universe_tiers
+
+    return universe_tiers()
+
+
+# ---------------------------------------------------------------------------
+# AGIB v1.2 — Institutional Universe Intelligence (soft registry layer)
+# ---------------------------------------------------------------------------
+@router.get("/universe-intelligence/health")
+async def universe_intelligence_health():
+    from universe_intelligence.production import health as iui_health
+
+    return iui_health()
+
+
+@router.get("/universe-intelligence/dashboard")
+async def universe_intelligence_dashboard(universe_id: str = "NIFTY_500"):
+    """Universe Health ops heartbeat — coverage, failures, stale, new/removed, ICI."""
+    from universe_intelligence.production import dashboard
+
+    return dashboard(universe_id=universe_id)
+
+
+@router.post("/universe-intelligence/run")
+async def universe_intelligence_run(body: dict | None = None):
+    from universe_intelligence.production import run_pipeline
+
+    body = body or {}
+    return run_pipeline(
+        universe_id=str(body.get("universe_id") or "NIFTY_500"),
+        force_full=bool(body.get("force_full") or False),
+        ensure_kf=bool(body.get("ensure_kf", True)),
+    )
+
+
+@router.get("/universe-intelligence/universes")
+async def universe_intelligence_universes(family: str | None = None, status: str | None = None):
+    from universe_intelligence.production import list_universes
+
+    return list_universes(family=family, status=status)
+
+
+@router.get("/universe-intelligence/universes/{universe_id}")
+async def universe_intelligence_universe(universe_id: str):
+    from universe_intelligence.production import get_universe
+
+    return get_universe(universe_id)
+
+
+@router.get("/universe-intelligence/membership")
+async def universe_intelligence_membership(ticker: str, universe_id: str, as_of: str):
+    """Point-in-time: was ticker a member of universe as of date?"""
+    from universe_intelligence.production import was_member
+
+    return was_member(ticker=ticker, universe_id=universe_id, as_of=as_of)
+
+
+@router.get("/universe-intelligence/memberships/{ticker}")
+async def universe_intelligence_memberships(ticker: str, as_of: str | None = None):
+    from universe_intelligence.production import memberships_for_company
+
+    return memberships_for_company(ticker, as_of=as_of)
+
+
+@router.get("/universe-intelligence/company/{ticker}")
+async def universe_intelligence_company(ticker: str, refresh: bool = False):
+    from universe_intelligence.production import get_company
+
+    return get_company(ticker, refresh=refresh)
+
+
+@router.get("/universe-intelligence/ici/{ticker}")
+async def universe_intelligence_ici(ticker: str):
+    from universe_intelligence.production import institutional_coverage_index
+
+    return institutional_coverage_index(ticker)
+
+
+@router.get("/universe-intelligence/coverage-level/{ticker}")
+async def universe_intelligence_coverage_level(ticker: str):
+    from universe_intelligence.production import coverage_level_for
+
+    return coverage_level_for(ticker)
+
+
+@router.get("/universe-intelligence/quality-gates")
+async def universe_intelligence_quality_gates(universe_id: str = "NIFTY_500"):
+    from universe_intelligence.production import quality_gates_summary
+
+    return quality_gates_summary(universe_id)
+
+
+@router.get("/universe-intelligence/tree")
+async def universe_intelligence_tree():
+    from universe_intelligence.production import universe_tree
+
+    return universe_tree()
+
+
+# ---------------------------------------------------------------------------
+# AGIB v2.0 Sprint 1 — Institutional Company Intelligence (soft KF enrichment)
+# Read-only surface. Reasoning / governance / IUI / IDQ frozen.
+# ---------------------------------------------------------------------------
+@router.get("/company-intelligence/health")
+async def company_intelligence_health():
+    from knowledge_factory.company_intelligence.production import health as ici_health
+
+    return ici_health()
+
+
+@router.get("/company-intelligence/dashboard")
+async def company_intelligence_dashboard_route():
+    from knowledge_factory.company_intelligence.production import dashboard
+
+    return dashboard()
+
+
+@router.post("/company-intelligence/run")
+async def company_intelligence_run(body: dict | None = None):
+    from knowledge_factory.company_intelligence.production import run_pipeline
+
+    body = body or {}
+    tickers = body.get("tickers")
+    return run_pipeline(tickers=tickers)
+
+
+@router.get("/company-intelligence/coverage")
+async def company_intelligence_coverage():
+    from knowledge_factory.company_intelligence.production import coverage_summary
+
+    return coverage_summary()
+
+
+@router.get("/company-intelligence/quality")
+async def company_intelligence_quality():
+    from knowledge_factory.company_intelligence.production import quality_summary
+
+    return quality_summary()
+
+
+@router.get("/company-intelligence/search")
+async def company_intelligence_search(q: str = "", limit: int = 25):
+    from knowledge_factory.company_intelligence.production import search
+
+    return search(q, limit=limit)
+
+
+@router.get("/company-intelligence/{ticker}")
+async def company_intelligence_ticker(ticker: str, refresh: bool = False):
+    from knowledge_factory.company_intelligence.production import get_company
+
+    return get_company(ticker, refresh=refresh)
+
+
+# ---------------------------------------------------------------------------
+# AGIB v2.0 Sprint 2 — Institutional Corporate Event Intelligence (soft KF)
+# Immutable timelines + point-in-time replay. Reasoning frozen.
+# ---------------------------------------------------------------------------
+@router.get("/corporate-events/health")
+async def corporate_events_health():
+    from knowledge_factory.corporate_events.production import health as icei_health
+
+    return icei_health()
+
+
+@router.get("/corporate-events/dashboard")
+async def corporate_events_dashboard_route():
+    from knowledge_factory.corporate_events.production import dashboard
+
+    return dashboard()
+
+
+@router.post("/corporate-events/run")
+async def corporate_events_run(body: dict | None = None):
+    from knowledge_factory.corporate_events.production import run_pipeline
+
+    body = body or {}
+    return run_pipeline(tickers=body.get("tickers"))
+
+
+@router.get("/corporate-events/search")
+async def corporate_events_search(q: str = "", limit: int = 25):
+    from knowledge_factory.corporate_events.production import search
+
+    return search(q, limit=limit)
+
+
+@router.get("/corporate-events/{ticker}")
+async def corporate_events_ticker(ticker: str, refresh: bool = False):
+    from knowledge_factory.corporate_events.production import get_company_events
+
+    return get_company_events(ticker, refresh=refresh)
+
+
+@router.get("/company-timeline/{ticker}")
+async def company_timeline_ticker(ticker: str, as_of: str | None = None, refresh: bool = False):
+    from knowledge_factory.corporate_events.production import get_company_timeline
+
+    return get_company_timeline(ticker, as_of=as_of, refresh=refresh)
+
+
+@router.get("/events/today")
+async def events_today_route():
+    from knowledge_factory.corporate_events.production import events_today
+
+    return events_today()
+
+
+@router.get("/events/critical")
+async def events_critical_route(limit: int = 50):
+    from knowledge_factory.corporate_events.production import events_critical
+
+    return events_critical(limit=limit)
+
+
+# ---------------------------------------------------------------------------
+# AGIB v2.0 Sprint 3 — Institutional Government & Regulatory Intelligence
+# Soft KF knowledge only. No political opinion / policy forecasts.
+# ---------------------------------------------------------------------------
+@router.get("/government/health")
+async def government_health():
+    from knowledge_factory.government_intelligence.production import health as igri_health
+
+    return igri_health()
+
+
+@router.get("/government/dashboard")
+async def government_dashboard_route():
+    from knowledge_factory.government_intelligence.production import dashboard
+
+    return dashboard()
+
+
+@router.post("/government/run")
+async def government_run():
+    from knowledge_factory.government_intelligence.production import run_pipeline
+
+    return run_pipeline()
+
+
+@router.get("/government/policies")
+async def government_policies(domain: str | None = None):
+    from knowledge_factory.government_intelligence.production import list_policies
+
+    return list_policies(domain=domain)
+
+
+@router.get("/government/policy/{policy_id}")
+async def government_policy(policy_id: str):
+    from knowledge_factory.government_intelligence.production import get_policy
+
+    return get_policy(policy_id)
+
+
+@router.get("/government/search")
+async def government_search(q: str = "", limit: int = 25):
+    from knowledge_factory.government_intelligence.production import search
+
+    return search(q, limit=limit)
+
+
+@router.get("/government/rbi")
+async def government_rbi():
+    from knowledge_factory.government_intelligence.production import domain_view
+
+    return domain_view("rbi")
+
+
+@router.get("/government/sebi")
+async def government_sebi():
+    from knowledge_factory.government_intelligence.production import domain_view
+
+    return domain_view("sebi")
+
+
+@router.get("/government/budget")
+async def government_budget():
+    from knowledge_factory.government_intelligence.production import domain_view
+
+    return domain_view("budget")
+
+
+@router.get("/government/gst")
+async def government_gst():
+    from knowledge_factory.government_intelligence.production import domain_view
+
+    return domain_view("gst")
+
+
+@router.get("/government/pli")
+async def government_pli():
+    from knowledge_factory.government_intelligence.production import domain_view
+
+    return domain_view("pli")
+
+
+@router.get("/government/trade")
+async def government_trade():
+    from knowledge_factory.government_intelligence.production import domain_view
+
+    return domain_view("trade")
+
+
+@router.get("/government/timeline")
+async def government_timeline(as_of: str | None = None):
+    from knowledge_factory.government_intelligence.production import timeline
+
+    return timeline(as_of=as_of)
+
+
+# ---------------------------------------------------------------------------
+# AGIB v2.0 Sprint 4 — Institutional Industry & Value Chain Intelligence
+# Soft KF knowledge only. Economic Network Graph = later sprint.
+# ---------------------------------------------------------------------------
+@router.get("/industry/health")
+async def industry_health():
+    from knowledge_factory.industry_intelligence.production import health as iivi_health
+
+    return iivi_health()
+
+
+@router.get("/industry/dashboard")
+async def industry_dashboard_route():
+    from knowledge_factory.industry_intelligence.production import dashboard
+
+    return dashboard()
+
+
+@router.post("/industry/run")
+async def industry_run():
+    from knowledge_factory.industry_intelligence.production import run_pipeline
+
+    return run_pipeline()
+
+
+@router.get("/industry/search")
+async def industry_search(q: str = "", limit: int = 25):
+    from knowledge_factory.industry_intelligence.production import search
+
+    return search(q, limit=limit)
+
+
+@router.get("/industry/playbook")
+async def industry_playbook(name: str):
+    from knowledge_factory.industry_intelligence.production import playbook
+
+    return playbook(name)
+
+
+@router.get("/industry/value-chain")
+async def industry_value_chain(name: str):
+    from knowledge_factory.industry_intelligence.production import value_chain
+
+    return value_chain(name)
+
+
+@router.get("/industry/accounting")
+async def industry_accounting(name: str):
+    from knowledge_factory.industry_intelligence.production import accounting
+
+    return accounting(name)
+
+
+@router.get("/industry/valuation")
+async def industry_valuation_route(name: str):
+    from knowledge_factory.industry_intelligence.production import valuation
+
+    return valuation(name)
+
+
+@router.get("/industry/cycles")
+async def industry_cycles(name: str):
+    from knowledge_factory.industry_intelligence.production import cycles
+
+    return cycles(name)
+
+
+@router.get("/industry/kpis")
+async def industry_kpis(name: str):
+    from knowledge_factory.industry_intelligence.production import kpis
+
+    return kpis(name)
+
+
+@router.get("/industry/company/{ticker}")
+async def industry_company(ticker: str):
+    from knowledge_factory.industry_intelligence.production import company_industry
+
+    return company_industry(ticker)
+
+
+@router.get("/industry/{name}")
+async def industry_by_name(name: str, refresh: bool = False):
+    from knowledge_factory.industry_intelligence.production import get_industry
+
+    return get_industry(name, refresh=refresh)
+
+
+# ---------------------------------------------------------------------------
+# AGIB v2.0 Sprint 5 — Institutional Economic Relationship Intelligence (IERI)
+# Soft KF knowledge only. Graph = implementation detail. No reasoning / planner.
+# ---------------------------------------------------------------------------
+@router.get("/relationship/health")
+async def relationship_health():
+    from knowledge_factory.economic_relationship_intelligence.production import health as ieri_health
+
+    return ieri_health()
+
+
+@router.get("/relationship/dashboard")
+async def relationship_dashboard_route():
+    from knowledge_factory.economic_relationship_intelligence.production import dashboard
+
+    return dashboard()
+
+
+@router.post("/relationship/run")
+async def relationship_run():
+    from knowledge_factory.economic_relationship_intelligence.production import run_pipeline
+
+    return run_pipeline()
+
+
+@router.get("/relationship/registry")
+async def relationship_registry():
+    from knowledge_factory.economic_relationship_intelligence.production import registry
+
+    return registry()
+
+
+@router.get("/relationship/search")
+async def relationship_search(
+    q: str = "",
+    semantics: str | None = None,
+    relationship_type: str | None = None,
+    limit: int = 50,
+    as_of: str | None = None,
+):
+    from knowledge_factory.economic_relationship_intelligence.production import search
+
+    return search(
+        q,
+        semantics=semantics,
+        relationship_type=relationship_type,
+        limit=limit,
+        as_of=as_of,
+    )
+
+
+@router.get("/relationship/path")
+async def relationship_path(
+    source: str,
+    target: str | None = None,
+    max_depth: int = 3,
+    semantics: str | None = None,
+    relationship_type: str | None = None,
+    as_of: str | None = None,
+    limit: int = 25,
+):
+    from knowledge_factory.economic_relationship_intelligence.production import path_query
+
+    return path_query(
+        source=source,
+        target=target,
+        max_depth=max_depth,
+        semantics=semantics,
+        relationship_type=relationship_type,
+        as_of=as_of,
+        limit=limit,
+    )
+
+
+@router.get("/relationship/replay")
+async def relationship_replay(as_of: str):
+    from knowledge_factory.economic_relationship_intelligence.production import replay
+
+    return replay(as_of=as_of)
+
+
+@router.get("/relationship/shock/{entity}")
+async def relationship_shock(entity: str, direction: str | None = None, max_order: int = 3, as_of: str | None = None):
+    from knowledge_factory.economic_relationship_intelligence.production import shock_impact
+
+    return shock_impact(entity, direction=direction, max_order=max_order, as_of=as_of)
+
+
+@router.get("/relationship/company/{ticker}")
+async def relationship_company(ticker: str, as_of: str | None = None):
+    from knowledge_factory.economic_relationship_intelligence.production import company
+
+    return company(ticker, as_of=as_of)
+
+
+@router.get("/relationship/industry/{industry}")
+async def relationship_industry(industry: str, as_of: str | None = None):
+    from knowledge_factory.economic_relationship_intelligence.production import industry as industry_view
+
+    return industry_view(industry, as_of=as_of)
+
+
+@router.get("/relationship/commodity/{commodity}")
+async def relationship_commodity(commodity: str, as_of: str | None = None):
+    from knowledge_factory.economic_relationship_intelligence.production import commodity as commodity_view
+
+    return commodity_view(commodity, as_of=as_of)
+
+
+@router.get("/relationship/policy/{policy}")
+async def relationship_policy(policy: str, as_of: str | None = None):
+    from knowledge_factory.economic_relationship_intelligence.production import policy as policy_view
+
+    return policy_view(policy, as_of=as_of)
+
+
+@router.get("/relationship/macro/{macro}")
+async def relationship_macro(macro: str, as_of: str | None = None):
+    from knowledge_factory.economic_relationship_intelligence.production import macro as macro_view
+
+    return macro_view(macro, as_of=as_of)
+
+
+@router.get("/relationship/network/{entity}")
+async def relationship_network(entity: str, depth: int = 2, as_of: str | None = None):
+    from knowledge_factory.economic_relationship_intelligence.production import network
+
+    return network(entity, depth=depth, as_of=as_of)
+
+
+# ---------------------------------------------------------------------------
+# AGIB v2.0 Sprint 6 — Institutional Alternative Data Intelligence (IADI)
+# Soft KF knowledge only. Phase-1 high-signal datasets. No prediction engine.
+# ---------------------------------------------------------------------------
+@router.get("/alternative-data/health")
+async def alternative_data_health():
+    from knowledge_factory.alternative_data_intelligence.production import health as iadi_health
+
+    return iadi_health()
+
+
+@router.get("/alternative-data/dashboard")
+async def alternative_data_dashboard_route():
+    from knowledge_factory.alternative_data_intelligence.production import dashboard
+
+    return dashboard()
+
+
+@router.post("/alternative-data/run")
+async def alternative_data_run():
+    from knowledge_factory.alternative_data_intelligence.production import run_pipeline
+
+    return run_pipeline()
+
+
+@router.get("/alternative-data/registry")
+async def alternative_data_registry():
+    from knowledge_factory.alternative_data_intelligence.production import registry
+
+    return registry()
+
+
+@router.get("/alternative-data/search")
+async def alternative_data_search(q: str = "", limit: int = 25):
+    from knowledge_factory.alternative_data_intelligence.production import search
+
+    return search(q, limit=limit)
+
+
+@router.get("/alternative-data/trends")
+async def alternative_data_trends(dataset: str | None = None, as_of: str | None = None):
+    from knowledge_factory.alternative_data_intelligence.production import trends
+
+    return trends(dataset=dataset, as_of=as_of)
+
+
+@router.get("/alternative-data/replay")
+async def alternative_data_replay(as_of: str, dataset: str | None = None):
+    from knowledge_factory.alternative_data_intelligence.production import replay
+
+    return replay(as_of=as_of, dataset=dataset)
+
+
+@router.get("/alternative-data/dataset/{name}")
+async def alternative_data_dataset(name: str, as_of: str | None = None):
+    from knowledge_factory.alternative_data_intelligence.production import get_dataset
+
+    return get_dataset(name, as_of=as_of)
+
+
+@router.get("/alternative-data/company/{ticker}")
+async def alternative_data_company(ticker: str):
+    from knowledge_factory.alternative_data_intelligence.production import company
+
+    return company(ticker)
+
+
+@router.get("/alternative-data/industry/{industry}")
+async def alternative_data_industry(industry: str):
+    from knowledge_factory.alternative_data_intelligence.production import industry as industry_view
+
+    return industry_view(industry)
+
+
+@router.get("/alternative-data/beneficiaries/{dataset}")
+async def alternative_data_beneficiaries(dataset: str):
+    from knowledge_factory.alternative_data_intelligence.production import beneficiaries
+
+    return beneficiaries(dataset)
+
+
+# ---------------------------------------------------------------------------
+# AGIB v2.0 Sprint 7 — Institutional Market Expectations Intelligence (IMEI)
+# Soft KF knowledge only. Phase-1 public/auditable. Phase-2 consensus modular.
+# ---------------------------------------------------------------------------
+@router.get("/expectations/health")
+async def expectations_health():
+    from knowledge_factory.market_expectations_intelligence.production import health as imei_health
+
+    return imei_health()
+
+
+@router.get("/expectations/dashboard")
+async def expectations_dashboard_route():
+    from knowledge_factory.market_expectations_intelligence.production import dashboard
+
+    return dashboard()
+
+
+@router.post("/expectations/run")
+async def expectations_run():
+    from knowledge_factory.market_expectations_intelligence.production import run_pipeline
+
+    return run_pipeline()
+
+
+@router.get("/expectations/registry")
+async def expectations_registry():
+    from knowledge_factory.market_expectations_intelligence.production import registry
+
+    return registry()
+
+
+@router.get("/expectations/search")
+async def expectations_search(q: str = "", limit: int = 25):
+    from knowledge_factory.market_expectations_intelligence.production import search
+
+    return search(q, limit=limit)
+
+
+@router.get("/expectations/revisions")
+async def expectations_revisions(entity: str | None = None, as_of: str | None = None):
+    from knowledge_factory.market_expectations_intelligence.production import revisions
+
+    return revisions(entity=entity, as_of=as_of)
+
+
+@router.get("/expectations/surprises")
+async def expectations_surprises(entity: str | None = None, as_of: str | None = None):
+    from knowledge_factory.market_expectations_intelligence.production import surprises
+
+    return surprises(entity=entity, as_of=as_of)
+
+
+@router.get("/expectations/narratives")
+async def expectations_narratives(narrative_id: str | None = None):
+    from knowledge_factory.market_expectations_intelligence.production import narratives
+
+    return narratives(narrative_id)
+
+
+@router.get("/expectations/replay")
+async def expectations_replay(as_of: str, entity: str | None = None):
+    from knowledge_factory.market_expectations_intelligence.production import replay
+
+    return replay(as_of=as_of, entity=entity)
+
+
+@router.get("/expectations/company/{ticker}")
+async def expectations_company(ticker: str, as_of: str | None = None):
+    from knowledge_factory.market_expectations_intelligence.production import company
+
+    return company(ticker, as_of=as_of)
+
+
+@router.get("/expectations/gap/{ticker}")
+async def expectations_gap(ticker: str, as_of: str | None = None):
+    from knowledge_factory.market_expectations_intelligence.production import gap
+
+    return gap(ticker, as_of=as_of)
+
+
+@router.get("/expectations/phase2-consensus")
+async def expectations_phase2_consensus():
+    from knowledge_factory.market_expectations_intelligence.production import phase2_consensus_status
+
+    return phase2_consensus_status()
+
+
+# ---------------------------------------------------------------------------
+# AGIB v2.0 — Unified Institutional Knowledge Stack (Sprints 1–7 soft orchestration)
+# ---------------------------------------------------------------------------
+@router.get("/institutional-knowledge/health")
+async def institutional_knowledge_health():
+    from knowledge_factory.institutional_knowledge_stack.production import health as iks_health
+
+    return iks_health()
+
+
+@router.get("/institutional-knowledge/dashboard")
+async def institutional_knowledge_dashboard(ensure: bool = False):
+    from knowledge_factory.institutional_knowledge_stack.production import dashboard
+
+    return dashboard(ensure=ensure)
+
+
+@router.post("/institutional-knowledge/run")
+async def institutional_knowledge_run(payload: dict[str, Any] = Body(default={})):
+    from knowledge_factory.institutional_knowledge_stack.production import run_stack
+
+    return run_stack(ensure_only_missing=bool((payload or {}).get("ensure_only_missing")))
+
+
+@router.get("/institutional-knowledge/company/{ticker}")
+async def institutional_knowledge_company(ticker: str):
+    from knowledge_factory.institutional_knowledge_stack.production import company_bundle
+
+    return company_bundle(ticker)
+
+
 @router.get("/knowledge-factory/historical-depth")
 async def knowledge_factory_historical_depth():
     """Historical Depth Coverage dashboard (Sprint 4 north-star KPI)."""

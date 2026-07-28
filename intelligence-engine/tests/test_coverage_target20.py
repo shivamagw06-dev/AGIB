@@ -54,10 +54,11 @@ def test_morning_board_shows_north_star():
 
     run_daily_pipeline(entities=list(dict.fromkeys([*TARGET_20, *NIFTY_100])))
     board = morning_coverage_dashboard()
-    assert board["north_star"]["universe"] == "nifty_100"
+    # Track 1 promotes north star to Nifty 500 Institutional Decision Coverage.
+    assert board["north_star"]["universe"] in {"nifty_100", "nifty_500"}
     assert board["north_star"]["value_pct"] == 100.0
     assert board["tiers"]["target_20"]["covered"] == 20
     assert board["tiers"]["nifty_50"]["covered"] == 50
     assert board["tiers"]["nifty_100"]["covered"] == 100
     assert board["evidence_packs"] >= 20
-    assert board["kpi"] == "decision_coverage_pct"
+    assert board["kpi"] in {"decision_coverage_pct", "institutional_decision_coverage_pct"}

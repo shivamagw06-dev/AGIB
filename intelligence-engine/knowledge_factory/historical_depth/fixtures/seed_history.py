@@ -507,8 +507,13 @@ def macro_history() -> list[dict[str, Any]]:
 
 def seed_universe() -> list[str]:
     try:
-        from knowledge_factory.coverage import NIFTY_100
+        from knowledge_factory.coverage import NIFTY_500
 
-        return list(NIFTY_100)
+        return list(NIFTY_500)
     except Exception:
-        return ["INFY", "HDFCBANK", "TCS", "RELIANCE", "ICICIBANK"]
+        try:
+            from knowledge_factory.coverage import NIFTY_100
+
+            return list(NIFTY_100)
+        except Exception:
+            return ["INFY", "HDFCBANK", "TCS", "RELIANCE", "ICICIBANK"]

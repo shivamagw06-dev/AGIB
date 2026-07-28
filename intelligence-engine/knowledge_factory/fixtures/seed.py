@@ -47,7 +47,8 @@ def price_series(entity: str) -> list[dict[str, Any]]:
 
 
 def sector_map() -> dict[str, str]:
-    return {
+    """Company → sector affinity. Tier-2 Nifty 500 merged over Tier-1 seed."""
+    base = {
         "ABB": "industrials",
         "ADANIENT": "conglomerate",
         "ADANIGREEN": "utilities",
@@ -149,6 +150,13 @@ def sector_map() -> dict[str, str]:
         "ZOMATO": "consumer_internet",
         "ZYDUSLIFE": "pharma",
     }
+    try:
+        from knowledge_factory.nifty500_universe import NIFTY_500_SECTOR
+
+        # Tier-2 overlays — same Infosys-class sector affinity for all 500.
+        return {**base, **NIFTY_500_SECTOR}
+    except Exception:
+        return base
 
 def macro_fixture() -> dict[str, Any]:
     return {

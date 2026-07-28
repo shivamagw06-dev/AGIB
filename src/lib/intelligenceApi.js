@@ -856,6 +856,55 @@ export const getDecisionQualityHall = (params = {}) => {
 export const getDecisionQualityCalibration = () =>
   intelligenceFetch('/decision-quality/calibration', { timeoutMs: 60_000 });
 
+/** AGIB v1.2 — Institutional Universe Intelligence (soft registry) */
+export const getUniverseIntelligenceHealth = () =>
+  intelligenceFetch('/universe-intelligence/health', { timeoutMs: 30_000 });
+export const getUniverseIntelligenceDashboard = (universeId = 'NIFTY_500') =>
+  intelligenceFetch(
+    `/universe-intelligence/dashboard?universe_id=${encodeURIComponent(universeId)}`,
+    { timeoutMs: 180_000 }
+  );
+export const runUniverseIntelligence = (body = {}) =>
+  intelligenceFetch('/universe-intelligence/run', {
+    method: 'POST',
+    body: body || {},
+    timeoutMs: 300_000,
+  });
+export const getUniverseIntelligenceIci = (ticker) =>
+  intelligenceFetch(`/universe-intelligence/ici/${encodeURIComponent(ticker)}`, {
+    timeoutMs: 60_000,
+  });
+
+/** AGIB v2.0 — Unified Institutional Knowledge Stack (Sprints 1–7) */
+export const getInstitutionalKnowledgeHealth = () =>
+  intelligenceFetch('/institutional-knowledge/health', { timeoutMs: 30_000 });
+export const getInstitutionalKnowledgeDashboard = (ensure = false) =>
+  intelligenceFetch(`/institutional-knowledge/dashboard${ensure ? '?ensure=true' : ''}`, {
+    timeoutMs: 180_000,
+  });
+export const runInstitutionalKnowledgeStack = (body = {}) =>
+  intelligenceFetch('/institutional-knowledge/run', {
+    method: 'POST',
+    body: body || {},
+    timeoutMs: 600_000,
+  });
+export const getInstitutionalKnowledgeCompany = (ticker) =>
+  intelligenceFetch(`/institutional-knowledge/company/${encodeURIComponent(ticker)}`, {
+    timeoutMs: 120_000,
+  });
+export const getCompanyIntelligenceDashboard = () =>
+  intelligenceFetch('/company-intelligence/dashboard', { timeoutMs: 120_000 });
+export const getRelationshipDashboard = () =>
+  intelligenceFetch('/relationship/dashboard', { timeoutMs: 120_000 });
+export const getAlternativeDataDashboard = () =>
+  intelligenceFetch('/alternative-data/dashboard', { timeoutMs: 120_000 });
+export const getExpectationsDashboard = () =>
+  intelligenceFetch('/expectations/dashboard', { timeoutMs: 120_000 });
+export const getIndustryDashboard = () =>
+  intelligenceFetch('/industry/dashboard', { timeoutMs: 120_000 });
+export const getGovernmentDashboard = () =>
+  intelligenceFetch('/government/dashboard', { timeoutMs: 120_000 });
+
 /** Mission Control V1 — administrator operations centre (read-only) */
 export const getMissionControlHealth = () =>
   intelligenceFetch('/mission-control/health', { timeoutMs: 30_000 });

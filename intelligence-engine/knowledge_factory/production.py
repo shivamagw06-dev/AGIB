@@ -114,7 +114,31 @@ def run_daily_pipeline(**kwargs: Any) -> dict[str, Any]:
             result = {**result, "historical_depth": hd}
         except Exception as exc:  # never break Track-1 on HD failure
             result = {**result, "historical_depth": {"status": "error", "error": str(exc)}}
+    # AGIB v2.0 — optional Institutional Knowledge Stack soft-run (default off).
+    if bool(kwargs.get("institutional_knowledge", False)):
+        try:
+            from knowledge_factory.institutional_knowledge_stack.production import run_stack
+
+            iks = run_stack(ensure_only_missing=bool(kwargs.get("ensure_only_missing", True)))
+            result = {**result, "institutional_knowledge_stack": iks}
+        except Exception as exc:
+            result = {
+                **result,
+                "institutional_knowledge_stack": {"status": "error", "error": str(exc)},
+            }
     return result
+
+
+def run_institutional_knowledge_stack(**kwargs: Any) -> dict[str, Any]:
+    from knowledge_factory.institutional_knowledge_stack.production import run_stack
+
+    return run_stack(**kwargs)
+
+
+def institutional_knowledge_coverage() -> dict[str, Any]:
+    from knowledge_factory.institutional_knowledge_stack.production import dashboard
+
+    return dashboard(ensure=False)
 
 
 def run_historical_depth_pipeline(**kwargs: Any) -> dict[str, Any]:
@@ -189,6 +213,144 @@ def macro_intelligence_coverage() -> dict[str, Any]:
     return dash
 
 
+def run_company_intelligence_pipeline(**kwargs: Any) -> dict[str, Any]:
+    from knowledge_factory.company_intelligence.pipeline import run_company_intelligence_pipeline as _run
+
+    return _run(**kwargs)
+
+
+def company_intelligence_coverage() -> dict[str, Any]:
+    from knowledge_factory.company_intelligence.dashboard import company_intelligence_dashboard
+    from knowledge_factory.company_intelligence import store as ici_store
+
+    if ici_store.count() == 0:
+        try:
+            run_company_intelligence_pipeline()
+        except Exception:
+            pass
+    return company_intelligence_dashboard(ensure=False)
+
+
+def run_corporate_events_pipeline(**kwargs: Any) -> dict[str, Any]:
+    from knowledge_factory.corporate_events.pipeline import run_corporate_events_pipeline as _run
+
+    return _run(**kwargs)
+
+
+def corporate_events_coverage() -> dict[str, Any]:
+    from knowledge_factory.corporate_events.dashboard import corporate_events_dashboard
+    from knowledge_factory.corporate_events import store as icei_store
+
+    if icei_store.timeline_count() == 0:
+        try:
+            run_corporate_events_pipeline()
+        except Exception:
+            pass
+    return corporate_events_dashboard(ensure=False)
+
+
+def run_government_intelligence_pipeline(**kwargs: Any) -> dict[str, Any]:
+    from knowledge_factory.government_intelligence.pipeline import run_government_intelligence_pipeline as _run
+
+    return _run()
+
+
+def government_intelligence_coverage() -> dict[str, Any]:
+    from knowledge_factory.government_intelligence.dashboard import government_dashboard
+    from knowledge_factory.government_intelligence import store as igri_store
+
+    if igri_store.policy_count() == 0:
+        try:
+            run_government_intelligence_pipeline()
+        except Exception:
+            pass
+    return government_dashboard(ensure=False)
+
+
+def run_industry_intelligence_pipeline(**kwargs: Any) -> dict[str, Any]:
+    from knowledge_factory.industry_intelligence.pipeline import run_industry_intelligence_pipeline as _run
+
+    return _run()
+
+
+def industry_intelligence_coverage() -> dict[str, Any]:
+    from knowledge_factory.industry_intelligence.dashboards import industry_dashboard
+    from knowledge_factory.industry_intelligence import store as iivi_store
+
+    if iivi_store.industry_count() == 0:
+        try:
+            run_industry_intelligence_pipeline()
+        except Exception:
+            pass
+    return industry_dashboard(ensure=False)
+
+
+def run_economic_relationship_pipeline(**kwargs: Any) -> dict[str, Any]:
+    from knowledge_factory.economic_relationship_intelligence.pipeline import (
+        run_economic_relationship_pipeline as _run,
+    )
+
+    return _run()
+
+
+def economic_relationship_coverage() -> dict[str, Any]:
+    from knowledge_factory.economic_relationship_intelligence.dashboards import (
+        relationship_dashboard,
+    )
+    from knowledge_factory.economic_relationship_intelligence import store as ieri_store
+
+    if ieri_store.relationship_count() == 0:
+        try:
+            run_economic_relationship_pipeline()
+        except Exception:
+            pass
+    return relationship_dashboard(ensure=False)
+
+
+def run_alternative_data_pipeline(**kwargs: Any) -> dict[str, Any]:
+    from knowledge_factory.alternative_data_intelligence.pipeline import (
+        run_alternative_data_pipeline as _run,
+    )
+
+    return _run()
+
+
+def alternative_data_coverage() -> dict[str, Any]:
+    from knowledge_factory.alternative_data_intelligence.dashboards import (
+        alternative_data_dashboard,
+    )
+    from knowledge_factory.alternative_data_intelligence import store as iadi_store
+
+    if iadi_store.dataset_count() == 0:
+        try:
+            run_alternative_data_pipeline()
+        except Exception:
+            pass
+    return alternative_data_dashboard(ensure=False)
+
+
+def run_market_expectations_pipeline(**kwargs: Any) -> dict[str, Any]:
+    from knowledge_factory.market_expectations_intelligence.pipeline import (
+        run_market_expectations_pipeline as _run,
+    )
+
+    return _run()
+
+
+def market_expectations_coverage() -> dict[str, Any]:
+    from knowledge_factory.market_expectations_intelligence.dashboards import (
+        expectations_dashboard,
+    )
+    from knowledge_factory.market_expectations_intelligence import store as imei_store
+
+    if imei_store.expectation_count() == 0:
+        try:
+            run_market_expectations_pipeline()
+        except Exception:
+            pass
+    return expectations_dashboard(ensure=False)
+
+
 def company_object(entity: str) -> dict[str, Any] | None:
     return store.get_object("company", entity)
 
@@ -199,6 +361,13 @@ def evidence_feed(entity: str) -> dict[str, Any] | None:
     obj = store.get_object("company", entity)
     hd_pack = None
     hd_obj = None
+    company_intelligence = None
+    corporate_events = None
+    government_policies = None
+    industry_intelligence = None
+    economic_relationships = None
+    alternative_data = None
+    market_expectations = None
     try:
         from knowledge_factory.historical_depth import store as hd_store
 
@@ -206,7 +375,76 @@ def evidence_feed(entity: str) -> dict[str, Any] | None:
         hd_obj = hd_store.get_object("company", entity)
     except Exception:
         pass
-    if not pack and not obj and not hd_pack and not hd_obj:
+    # Soft-read Institutional Company Intelligence (optional enrichment; never required).
+    try:
+        from knowledge_factory.company_intelligence import store as ici_store
+
+        company_intelligence = ici_store.get(entity)
+    except Exception:
+        company_intelligence = None
+    # Soft-read Corporate Event Intelligence timeline (optional; never invent here).
+    try:
+        from knowledge_factory.corporate_events import store as icei_store
+
+        corporate_events = icei_store.get_timeline(entity)
+    except Exception:
+        corporate_events = None
+    # Soft-read Government policies that list this company (optional; no inference).
+    try:
+        from knowledge_factory.government_intelligence import store as igri_store
+
+        t = entity.upper()
+        government_policies = [
+            p for p in igri_store.list_policies() if t in (p.get("affected_companies") or [])
+        ]
+    except Exception:
+        government_policies = None
+    # Soft-read Industry & Value Chain Intelligence for the company's industry.
+    try:
+        from knowledge_factory.industry_intelligence import store as iivi_store
+
+        iid = iivi_store.get_company_industry(entity)
+        industry_intelligence = iivi_store.get_industry(iid) if iid else None
+    except Exception:
+        industry_intelligence = None
+    # Soft-read Economic Relationship Intelligence links for the entity.
+    try:
+        from knowledge_factory.economic_relationship_intelligence import store as ieri_store
+
+        economic_relationships = ieri_store.list_relationships(entity=entity)
+    except Exception:
+        economic_relationships = None
+    # Soft-read Alternative Data Intelligence datasets linked to the company.
+    try:
+        from knowledge_factory.alternative_data_intelligence.links.connect import (
+            company_dataset_view,
+        )
+
+        alternative_data = company_dataset_view(entity)
+    except Exception:
+        alternative_data = None
+    # Soft-read Market Expectations Intelligence (expectation vs reality).
+    try:
+        from knowledge_factory.market_expectations_intelligence.expectations.views import (
+            company_expectations,
+        )
+
+        market_expectations = company_expectations(entity)
+    except Exception:
+        market_expectations = None
+    if (
+        not pack
+        and not obj
+        and not hd_pack
+        and not hd_obj
+        and not company_intelligence
+        and not corporate_events
+        and not government_policies
+        and not industry_intelligence
+        and not economic_relationships
+        and not (alternative_data and alternative_data.get("n"))
+        and not (market_expectations and market_expectations.get("n_expectations"))
+    ):
         return None
     return {
         "source": "knowledge_factory",
@@ -215,5 +453,12 @@ def evidence_feed(entity: str) -> dict[str, Any] | None:
         "company_object": obj,
         "historical_pack": hd_pack,
         "historical_company_object": hd_obj,
+        "company_intelligence": company_intelligence,
+        "corporate_events": corporate_events,
+        "government_policies": government_policies,
+        "industry_intelligence": industry_intelligence,
+        "economic_relationships": economic_relationships,
+        "alternative_data": alternative_data,
+        "market_expectations": market_expectations,
         "raw_api": False,
     }

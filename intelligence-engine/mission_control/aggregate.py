@@ -55,22 +55,199 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         "sources": [],
     }
     try:
-        from knowledge_factory.coverage import decision_coverage, NIFTY_100, TARGET_20
+        from knowledge_factory.coverage import decision_coverage, NIFTY_100, NIFTY_500, TARGET_20
         from institutional_reasoning.fundamentals.universe import NIFTY_50
 
         t20 = decision_coverage(TARGET_20)
         n50 = decision_coverage(NIFTY_50)
         n100 = decision_coverage(NIFTY_100)
+        n500 = decision_coverage(NIFTY_500)
+        idc_pct = n500.get("decision_coverage_pct")
+        try:
+            from knowledge_factory.institutional_depth import institutional_decision_coverage
+
+            idc = institutional_decision_coverage(NIFTY_500)
+            idc_pct = idc.get("institutional_decision_coverage_pct")
+        except Exception:
+            pass
         out["decision_coverage"] = {
             "target_20": t20.get("decision_coverage_pct"),
             "nifty_50": n50.get("decision_coverage_pct"),
             "nifty_100": n100.get("decision_coverage_pct"),
-            "nifty_500": round(100.0 * (n100.get("decision_ready") or 0) / 500, 2),
+            "nifty_500": n500.get("decision_coverage_pct"),
+            "institutional_decision_coverage": idc_pct,
         }
         out["sources"].append("knowledge_factory.coverage")
-        out["roadmap_next"] = "nifty_500"
+        out["roadmap_next"] = (
+            "tier_3_midcap_thematic"
+            if (n500.get("decision_coverage_pct") or 0) >= 100
+            else "nifty_500"
+        )
     except Exception:
         pass
+    try:
+        from universe_intelligence.dashboard import universe_health
+
+        uh = universe_health(universe_id="NIFTY_500", ensure=False)
+        out["universe_intelligence"] = {
+            "avg_ici": (uh.get("coverage") or {}).get("avg_ici"),
+            "institutional_coverage_pct": (uh.get("coverage") or {}).get("institutional_coverage_pct"),
+            "failure_count": uh.get("failure_count"),
+            "stale_count": uh.get("stale_count"),
+            "north_star": uh.get("north_star"),
+        }
+        out["sources"].append("universe_intelligence")
+        if (uh.get("coverage") or {}).get("institutional_coverage_pct") == 100.0:
+            out["roadmap_next"] = "tier_3_midcap_thematic"
+    except Exception:
+        out["universe_intelligence"] = None
+    try:
+        from knowledge_factory.company_intelligence.dashboard import company_intelligence_dashboard
+
+        ci = company_intelligence_dashboard(ensure=False)
+        out["company_intelligence"] = {
+            "institutional_company_coverage_pct": ci.get("institutional_company_coverage_pct"),
+            "average_intelligence_score": ci.get("average_intelligence_score"),
+            "unknown_fields": ci.get("unknown_fields"),
+            "north_star": ci.get("north_star"),
+            "layer_label": ci.get("layer_label"),
+        }
+        out["sources"].append("company_intelligence")
+        if (ci.get("institutional_company_coverage_pct") or 0) >= 100:
+            out["roadmap_next"] = "company_intelligence_depth_enrichment"
+    except Exception:
+        out["company_intelligence"] = None
+    try:
+        from knowledge_factory.corporate_events.dashboard import corporate_events_dashboard
+
+        ce = corporate_events_dashboard(ensure=False)
+        out["corporate_events"] = {
+            "coverage_pct": ce.get("coverage_pct"),
+            "corporate_events": ce.get("corporate_events"),
+            "critical_events": ce.get("critical_events"),
+            "timeline_completeness_avg": ce.get("timeline_completeness_avg"),
+            "north_star": ce.get("north_star"),
+        }
+        out["sources"].append("corporate_events")
+        if (ce.get("coverage_pct") or 0) >= 100:
+            out["roadmap_next"] = "government_regulatory_intelligence"
+    except Exception:
+        out["corporate_events"] = None
+    try:
+        from knowledge_factory.government_intelligence.dashboard import government_dashboard
+
+        gov = government_dashboard(ensure=False)
+        out["government_intelligence"] = {
+            "coverage_pct": gov.get("coverage_pct"),
+            "policy_count": gov.get("policy_count"),
+            "high_impact_policies": gov.get("high_impact_policies"),
+            "replay_status": gov.get("replay_status"),
+            "north_star": gov.get("north_star"),
+        }
+        out["sources"].append("government_intelligence")
+        if (gov.get("coverage_pct") or 0) >= 100:
+            out["roadmap_next"] = "industry_value_chain_intelligence"
+    except Exception:
+        out["government_intelligence"] = None
+    try:
+        from knowledge_factory.industry_intelligence.dashboards import industry_dashboard
+
+        ind = industry_dashboard(ensure=False)
+        out["industry_intelligence"] = {
+            "institutional_ready_pct": ind.get("institutional_ready_pct"),
+            "industry_coverage": ind.get("industry_coverage"),
+            "industry_intelligence_score": ind.get("industry_intelligence_score"),
+            "companies_mapped": ind.get("companies_mapped"),
+            "north_star": ind.get("north_star"),
+            "future_roadmap": ind.get("future_roadmap"),
+        }
+        out["sources"].append("industry_intelligence")
+        if (ind.get("institutional_ready_pct") or 0) >= 100 and (ind.get("companies_mapped") or 0) >= 500:
+            out["roadmap_next"] = "economic_relationship_intelligence"
+    except Exception:
+        out["industry_intelligence"] = None
+    try:
+        from knowledge_factory.economic_relationship_intelligence.dashboards import (
+            relationship_dashboard,
+        )
+
+        rel = relationship_dashboard(ensure=False)
+        cov = rel.get("economic_relationship_coverage") or {}
+        out["economic_relationship_intelligence"] = {
+            "relationships": cov.get("relationships"),
+            "commodities": cov.get("commodities"),
+            "institutional_ready_pct": cov.get("institutional_ready_pct"),
+            "company_relationships": rel.get("company_relationships"),
+            "north_star": rel.get("north_star"),
+        }
+        out["sources"].append("economic_relationship_intelligence")
+        if (cov.get("institutional_ready_pct") or 0) >= 100 and (cov.get("relationships") or 0) >= 50:
+            out["roadmap_next"] = "alternative_data_intelligence"
+    except Exception:
+        out["economic_relationship_intelligence"] = None
+    try:
+        from knowledge_factory.alternative_data_intelligence.dashboards import (
+            alternative_data_dashboard,
+        )
+
+        alt = alternative_data_dashboard(ensure=False)
+        acov = alt.get("alternative_data_coverage") or {}
+        out["alternative_data_intelligence"] = {
+            "datasets": acov.get("datasets"),
+            "observations": acov.get("observations"),
+            "institutional_ready_pct": acov.get("institutional_ready_pct"),
+            "economic_momentum": alt.get("economic_momentum"),
+            "north_star": alt.get("north_star"),
+            "delivery_phase": alt.get("delivery_phase"),
+        }
+        out["sources"].append("alternative_data_intelligence")
+        if (acov.get("institutional_ready_pct") or 0) >= 100 and (acov.get("datasets") or 0) >= 10:
+            out["roadmap_next"] = "market_expectations_intelligence"
+    except Exception:
+        out["alternative_data_intelligence"] = None
+    try:
+        from knowledge_factory.market_expectations_intelligence.dashboards import (
+            expectations_dashboard,
+        )
+
+        exp = expectations_dashboard(ensure=False)
+        ecov = exp.get("expectation_dashboard") or {}
+        out["market_expectations_intelligence"] = {
+            "expectations": ecov.get("expectations"),
+            "revisions": ecov.get("revisions"),
+            "surprises": ecov.get("surprises"),
+            "narratives": ecov.get("narratives"),
+            "institutional_ready_pct": ecov.get("institutional_ready_pct"),
+            "north_star": exp.get("north_star"),
+            "delivery_phase": exp.get("delivery_phase"),
+            "principle": exp.get("principle"),
+        }
+        out["sources"].append("market_expectations_intelligence")
+        if (ecov.get("surprises") or 0) >= 1 and (ecov.get("narratives") or 0) >= 10:
+            out["roadmap_next"] = "knowledge_stack_complete"
+    except Exception:
+        out["market_expectations_intelligence"] = None
+    # Unified Institutional Knowledge Stack board (soft orchestration).
+    try:
+        from knowledge_factory.institutional_knowledge_stack.production import dashboard as iks_dash
+
+        iks = iks_dash(ensure=False)
+        out["institutional_knowledge_stack"] = {
+            "summary": iks.get("summary"),
+            "reality": {
+                k: {"status": v.get("status")} for k, v in (iks.get("reality") or {}).items()
+            },
+            "expectations": {
+                k: {"status": v.get("status")} for k, v in (iks.get("expectations") or {}).items()
+            },
+            "roadmap_next": iks.get("roadmap_next"),
+            "north_star": iks.get("north_star"),
+        }
+        out["sources"].append("institutional_knowledge_stack")
+        if (iks.get("summary") or {}).get("stack_complete"):
+            out["roadmap_next"] = "knowledge_stack_complete"
+    except Exception:
+        out["institutional_knowledge_stack"] = None
     try:
         from knowledge_factory.production import historical_depth_coverage
 
