@@ -202,9 +202,10 @@ _TYPE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
             re.I,
         ),
     ),
-    ("portfolio", re.compile(r"\b(portfolio|position siz|weight|exposure)\b", re.I)),
+    ("portfolio", re.compile(r"\b(portfolio|position siz|weight|exposure|allocation|overweight|underweight)\b", re.I)),
     ("macro", re.compile(r"\b(macro|inflation|gdp|rbi|fed|interest rate|monetary|fiscal|rupee|currency)\b", re.I)),
-    ("sector", re.compile(r"\b(sector|industry)\b", re.I)),
+    # "sector cap"/"sector limit" is a portfolio constraint, not sector research.
+    ("sector", re.compile(r"\b(?!sector\s+(cap|limit|constraint|exposure|weight))(sector|industry)\b", re.I)),
     ("risk", re.compile(r"\b(risk|downside|threat|drawdown|vulnerab)\b", re.I)),
     ("forecast", re.compile(r"\b(forecast|outlook|next year|project|estimate|will\b)\b", re.I)),
 )
