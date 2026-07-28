@@ -77,3 +77,13 @@ Read APIs never collect. `POST /v1/macro/run` is the only ingestion entrypoint.
 
 - Mission Control: `continuous_macro_knowledge` board
 - IFI macro bundles: consume published CMKP via gateway when present (`providers_queried` stays empty)
+
+## Phase 10 progress
+
+| Sprint | Module | Status |
+|---|---|---|
+| ✅ 10.1 | CMKP | This sprint |
+| ➡️ 10.2 | HMIP | Historical macro memory — see `PHASE10_SPRINT_10_2_HMIP.md` |
+| 10.3 | MRI | Macro relationships |
+| 10.4 | HMAI | Macro analogues |
+| 10.5 | MFI | Macro forecast scenarios |

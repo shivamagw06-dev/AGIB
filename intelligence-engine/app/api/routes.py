@@ -4913,6 +4913,111 @@ async def admin_cmkp():
     return HTMLResponse(html)
 
 
+# --- Historical Macroeconomic Intelligence Platform (HMIP) Sprint 10.2 ---
+# Immutable decades-scale macro memory. Analysis never calls external providers.
+
+
+@router.get("/hmip/health")
+async def hmip_health():
+    from historical_macro_intelligence.production import health
+
+    return health()
+
+
+@router.get("/macro/history")
+async def hmip_history(limit: int = Query(200, ge=1, le=1000), country: str | None = None):
+    from historical_macro_intelligence.production import history
+
+    return history(limit=limit, country=country)
+
+
+@router.get("/macro/history/dashboard")
+async def hmip_dashboard():
+    from historical_macro_intelligence.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/macro/history/timeline")
+async def hmip_timeline(indicator: str | None = None, country: str = Query("India")):
+    from historical_macro_intelligence.production import timeline
+
+    return timeline(indicator=indicator, country=country)
+
+
+@router.get("/macro/history/search")
+async def hmip_search(
+    q: str | None = None,
+    category: str | None = None,
+    country: str | None = None,
+    namespace: str | None = None,
+    limit: int = Query(100, ge=1, le=500),
+):
+    from historical_macro_intelligence.production import search
+
+    return search(q=q, category=category, country=country, namespace=namespace, limit=limit)
+
+
+@router.post("/macro/history/run")
+async def hmip_run(payload: dict[str, Any] = Body(default={})):
+    """Ops / scheduler only — never called by Ask."""
+    from historical_macro_intelligence.production import run
+
+    sources = payload.get("sources")
+    if sources is not None and not isinstance(sources, list):
+        raise HTTPException(status_code=400, detail="sources must be a list")
+    return run(sources=sources)
+
+
+@router.get("/macro/history/country/{country}")
+async def hmip_country(country: str, limit: int = Query(300, ge=1, le=1000)):
+    from historical_macro_intelligence.production import country as get_country
+
+    return get_country(country, limit=limit)
+
+
+@router.get("/macro/history/{indicator}")
+async def hmip_indicator(indicator: str, country: str = Query("India")):
+    from historical_macro_intelligence.production import indicator as get_indicator
+
+    return get_indicator(indicator, country=country)
+
+
+@router.get("/admin/historical-macro", response_class=HTMLResponse)
+async def admin_hmip():
+    from historical_macro_intelligence.production import dashboard
+
+    board = dashboard()
+    cov = board.get("historical_coverage") or {}
+    tl_rows = "".join(
+        f"<tr><td>{s.get('country')}</td><td>{s.get('indicator')}</td>"
+        f"<td>{s.get('completeness_pct')}</td><td>{s.get('nodes')}</td>"
+        f"<td>{s.get('years_span')}</td></tr>"
+        for s in ((board.get("timeline_completeness") or {}).get("sample") or [])
+    )
+    miss = board.get("missing_periods") or []
+    html = f"""<!doctype html><html><head><title>Historical Macro</title></head>
+    <body style="font-family:system-ui;max-width:1000px;margin:2rem auto">
+    <h1>Historical Macro — HMIP</h1>
+    <p>Immutable decades-scale memory. Never overwritten. Ask never fetches.</p>
+    <pre>{board.get('principles')}</pre>
+    <p>Observations: {cov.get('total_observations')} · Indicators: {cov.get('unique_indicators')} ·
+    Years: {cov.get('year_span')}</p>
+    <h2>Timeline completeness</h2>
+    <table border="1" cellpadding="6">
+    <tr><th>Country</th><th>Indicator</th><th>Completeness %</th><th>Nodes</th><th>Span</th></tr>
+    {tl_rows or '<tr><td colspan=5>Run POST /v1/macro/history/run</td></tr>'}
+    </table>
+    <h2>Missing periods</h2>
+    <pre>{miss[:15]}</pre>
+    <h2>Storage by namespace</h2>
+    <pre>{cov.get('by_namespace')}</pre>
+    <h2>Revision history</h2>
+    <pre>{board.get('revision_history')}</pre>
+    </body></html>"""
+    return HTMLResponse(html)
+
+
 # --- Forecast Provider Integration (FPI) — India-first Knowledge Platform path ---
 # Forecast never calls Groww/Yahoo/NSE/BSE directly; stale market snapshot refresh only.
 
