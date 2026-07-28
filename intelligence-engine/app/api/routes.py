@@ -6931,12 +6931,62 @@ async def institutional_stack_surface(ticker: str = "INFY", tier: str = "nifty_5
     return stack_surface(ticker=ticker, tier=tier)
 
 
+# --- Knowledge Factory (Track 1) — soft data layer; Phases 1–7 frozen ---
+
+
+@router.get("/knowledge-factory/health")
+async def knowledge_factory_health():
+    from knowledge_factory.production import health
+
+    return health()
+
+
+@router.get("/knowledge-factory/dashboard")
+async def knowledge_factory_dashboard():
+    from knowledge_factory.production import coverage_dashboard
+
+    return coverage_dashboard()
+
+
+@router.get("/knowledge-factory/quality-gates")
+async def knowledge_factory_quality_gates():
+    from knowledge_factory.production import quality_gates
+
+    return quality_gates()
+
+
+@router.post("/knowledge-factory/run-daily")
+async def knowledge_factory_run_daily():
+    from knowledge_factory.production import run_daily_pipeline
+
+    return run_daily_pipeline()
+
+
+@router.get("/knowledge-factory/company/{ticker}")
+async def knowledge_factory_company(ticker: str):
+    from knowledge_factory.production import company_object
+
+    obj = company_object(ticker)
+    if not obj:
+        return {"found": False, "ticker": ticker.upper()}
+    return {"found": True, "ticker": ticker.upper(), "object": obj}
+
+
+@router.get("/knowledge-factory/evidence/{ticker}")
+async def knowledge_factory_evidence(ticker: str):
+    from knowledge_factory.production import evidence_feed
+
+    feed = evidence_feed(ticker)
+    if not feed:
+        return {"found": False, "ticker": ticker.upper(), "raw_api": False}
+    return {"found": True, **feed}
+
+
 @router.get("/answer-construction/health")
 async def answer_construction_health():
     from answer_construction.production import health
 
     return health()
-
 
 @router.get("/editorial/health")
 async def editorial_health():
