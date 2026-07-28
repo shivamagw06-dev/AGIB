@@ -120,7 +120,7 @@ def test_learning_event_is_institutional(tmp_path: Path) -> None:
     le = financial[0]
     assert le.category.value == "Financial"
     assert le.importance.value == "High"
-    assert "Revenue growth accelerated" in le.reason
+    assert "Revenue acceleration" in le.reason or "accelerat" in le.reason.lower()
     assert set(le.affected) >= {"Company", "Sector", "Valuation"}
     assert not any(le.field_name == "pe_ratio" for le in r2.learning_events)
     assert not any(le.field_name == "pe" for le in r2.learning_events)

@@ -65,6 +65,21 @@ class KaipClient:
     def get_sector_knowledge(self, sector_key: str) -> dict[str, Any]:
         return self._get(f"/v1/knowledge/sector/{sector_key}")
 
+    def get_memory(self, symbol: str) -> dict[str, Any]:
+        return self._get(f"/v1/knowledge/memory/{symbol.upper()}")
+
+    def get_timeline(self, symbol: str) -> dict[str, Any]:
+        return self._get(f"/v1/knowledge/timeline/{symbol.upper()}")
+
+    def get_conflicts(self, symbol: str) -> dict[str, Any]:
+        return self._get(f"/v1/knowledge/conflicts/{symbol.upper()}")
+
+    def get_sector_learning(self, sector_key: str) -> dict[str, Any]:
+        return self._get(f"/v1/knowledge/sector-learning/{sector_key}")
+
+    def get_market_learning(self) -> dict[str, Any]:
+        return self._get("/v1/knowledge/market-learning")
+
     def get_market_snapshot(self, symbol: str) -> dict[str, Any]:
         return self._get(f"/v1/knowledge/market/{symbol.upper()}")
 

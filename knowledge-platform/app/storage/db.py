@@ -671,11 +671,12 @@ class KaipStore:
         self._conn.execute(
             """
             INSERT INTO learning_events (
-                learning_id, company_symbol, sector_key, market_key, category, importance,
-                field_name, previous_value_json, new_value_json, delta_json, materiality,
-                reason, affected_json, object_type, object_id, source_event_ids_json,
+                learning_id, company_symbol, sector_key, market_key, category, category_label,
+                importance, confidence, field_name, previous_value_json, new_value_json,
+                delta_json, materiality, materiality_score, reason, observation, evidence,
+                affected_json, object_type, object_id, source_event_ids_json,
                 created_at, published_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 event.learning_id,
@@ -683,13 +684,18 @@ class KaipStore:
                 event.sector_key,
                 event.market_key,
                 event.category.value,
+                event.category_label,
                 event.importance.value,
+                event.confidence.value,
                 event.field_name,
                 json.dumps(event.previous_value, default=str),
                 json.dumps(event.new_value, default=str),
                 json.dumps(event.delta, default=str),
                 event.materiality,
+                float(event.materiality_score or 0),
                 event.reason,
+                event.observation or event.reason,
+                event.evidence,
                 json.dumps(event.affected),
                 event.object_type.value if event.object_type else None,
                 event.object_id,
@@ -717,23 +723,326 @@ class KaipStore:
             """,
             (symbol.upper(), limit),
         ).fetchall()
+        out = []
+        for r in rows:
+            keys = r.keys()
+            out.append(
+                {
+                    "learning_id": r["learning_id"],
+                    "company_symbol": r["company_symbol"],
+                    "category": r["category"],
+                    "category_label": r["category_label"] if "category_label" in keys else r["category"],
+                    "importance": r["importance"],
+                    "confidence": r["confidence"] if "confidence" in keys else None,
+                    "field_name": r["field_name"],
+                    "previous_value": json.loads(r["previous_value_json"]) if r["previous_value_json"] else None,
+                    "new_value": json.loads(r["new_value_json"]) if r["new_value_json"] else None,
+                    "delta": json.loads(r["delta_json"]) if r["delta_json"] else None,
+                    "materiality": r["materiality"],
+                    "materiality_score": r["materiality_score"] if "materiality_score" in keys else None,
+                    "reason": r["reason"],
+                    "observation": r["observation"] if "observation" in keys else r["reason"],
+                    "evidence": r["evidence"] if "evidence" in keys else None,
+                    "affected": json.loads(r["affected_json"] or "[]"),
+                    "object_type": r["object_type"],
+                    "object_id": r["object_id"],
+                    "created_at": r["created_at"],
+                    "published_at": r["published_at"],
+                }
+            )
+        return out
+
+    def insert_relationship_change(self, *, company_symbol: str, field_name: str, detail: dict) -> None:
+        self._conn.execute(
+            """
+            INSERT INTO relationship_changes (change_id, company_symbol, field_name, detail_json, created_at)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (str(uuid4()), company_symbol.upper(), field_name, json.dumps(detail, default=str), _iso(datetime.now(timezone.utc))),
+        )
+        self._conn.commit()
+
+    def record_sector_signal(
+        self, *, sector_key: str, field_name: str, direction: int, company_symbol: str
+    ) -> None:
+        self._conn.execute(
+            """
+            INSERT INTO sector_signals (signal_id, sector_key, field_name, direction, company_symbol, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                str(uuid4()),
+                sector_key,
+                field_name,
+                int(direction),
+                company_symbol.upper(),
+                _iso(datetime.now(timezone.utc)),
+            ),
+        )
+        self._conn.commit()
+
+    def sector_signal_supporters(
+        self, *, sector_key: str, field_name: str, direction: int, limit: int = 10
+    ) -> list[str]:
+        rows = self._conn.execute(
+            """
+            SELECT DISTINCT company_symbol FROM sector_signals
+            WHERE sector_key = ? AND field_name = ? AND direction = ?
+            ORDER BY created_at DESC
+            LIMIT ?
+            """,
+            (sector_key, field_name, int(direction), limit),
+        ).fetchall()
+        return [r["company_symbol"] for r in rows]
+
+    def insert_sector_learning(self, item) -> None:
+        self._conn.execute(
+            """
+            INSERT INTO sector_learning (
+                learning_id, sector, sector_key, observation, supporting_companies_json,
+                field_name, importance, created_at, published_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                item.learning_id,
+                item.sector,
+                item.sector_key,
+                item.observation,
+                json.dumps(item.supporting_companies),
+                item.field_name,
+                item.importance,
+                item.created_at,
+                None,
+            ),
+        )
+        self._conn.commit()
+
+    def list_sector_learning(self, sector_key: str, limit: int = 50) -> list[dict[str, Any]]:
+        rows = self._conn.execute(
+            """
+            SELECT * FROM sector_learning
+            WHERE sector_key = ?
+            ORDER BY created_at DESC
+            LIMIT ?
+            """,
+            (sector_key, limit),
+        ).fetchall()
         return [
             {
                 "learning_id": r["learning_id"],
-                "company_symbol": r["company_symbol"],
-                "category": r["category"],
+                "sector": r["sector"],
+                "sector_key": r["sector_key"],
+                "observation": r["observation"],
+                "supporting_companies": json.loads(r["supporting_companies_json"] or "[]"),
+                "field_name": r["field_name"],
                 "importance": r["importance"],
+                "created_at": r["created_at"],
+            }
+            for r in rows
+        ]
+
+    def record_market_theme_signal(self, *, theme: str, sector: str) -> None:
+        self._conn.execute(
+            """
+            INSERT INTO market_theme_signals (signal_id, theme, sector, created_at)
+            VALUES (?, ?, ?, ?)
+            """,
+            (str(uuid4()), theme, sector, _iso(datetime.now(timezone.utc))),
+        )
+        self._conn.commit()
+
+    def market_theme_sectors(self, theme: str) -> list[str]:
+        rows = self._conn.execute(
+            """
+            SELECT DISTINCT sector FROM market_theme_signals
+            WHERE theme = ?
+            ORDER BY created_at DESC
+            """,
+            (theme,),
+        ).fetchall()
+        return [r["sector"] for r in rows]
+
+    def insert_market_learning(self, item) -> None:
+        self._conn.execute(
+            """
+            INSERT INTO market_learning (
+                learning_id, theme, observation, beneficiaries_json, supporting_sectors_json,
+                historical_confidence, created_at, published_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                item.learning_id,
+                item.theme,
+                item.observation,
+                json.dumps(item.beneficiaries),
+                json.dumps(item.supporting_sectors),
+                item.historical_confidence,
+                item.created_at,
+                None,
+            ),
+        )
+        self._conn.commit()
+
+    def list_market_learning(self, limit: int = 50) -> list[dict[str, Any]]:
+        rows = self._conn.execute(
+            """
+            SELECT * FROM market_learning
+            ORDER BY created_at DESC
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+        return [
+            {
+                "learning_id": r["learning_id"],
+                "theme": r["theme"],
+                "observation": r["observation"],
+                "beneficiaries": json.loads(r["beneficiaries_json"] or "[]"),
+                "supporting_sectors": json.loads(r["supporting_sectors_json"] or "[]"),
+                "historical_confidence": r["historical_confidence"],
+                "created_at": r["created_at"],
+            }
+            for r in rows
+        ]
+
+    def insert_knowledge_conflict(self, conflict) -> None:
+        self._conn.execute(
+            """
+            INSERT INTO knowledge_conflicts (
+                conflict_id, company_symbol, status, reason, previous_assumption,
+                new_observation, field_name, previous_value_json, new_value_json,
+                object_id, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                conflict.conflict_id,
+                conflict.company_symbol.upper() if conflict.company_symbol else None,
+                conflict.status,
+                conflict.reason,
+                conflict.previous_assumption,
+                conflict.new_observation,
+                conflict.field_name,
+                json.dumps(conflict.previous_value, default=str),
+                json.dumps(conflict.new_value, default=str),
+                conflict.object_id,
+                _iso(datetime.now(timezone.utc)),
+            ),
+        )
+        self._conn.commit()
+
+    def list_conflicts(self, symbol: str, limit: int = 50) -> list[dict[str, Any]]:
+        rows = self._conn.execute(
+            """
+            SELECT * FROM knowledge_conflicts
+            WHERE company_symbol = ?
+            ORDER BY created_at DESC
+            LIMIT ?
+            """,
+            (symbol.upper(), limit),
+        ).fetchall()
+        return [
+            {
+                "conflict_id": r["conflict_id"],
+                "company_symbol": r["company_symbol"],
+                "status": r["status"],
+                "reason": r["reason"],
+                "previous_assumption": r["previous_assumption"],
+                "new_observation": r["new_observation"],
                 "field_name": r["field_name"],
                 "previous_value": json.loads(r["previous_value_json"]) if r["previous_value_json"] else None,
                 "new_value": json.loads(r["new_value_json"]) if r["new_value_json"] else None,
-                "delta": json.loads(r["delta_json"]) if r["delta_json"] else None,
-                "materiality": r["materiality"],
-                "reason": r["reason"],
-                "affected": json.loads(r["affected_json"] or "[]"),
-                "object_type": r["object_type"],
-                "object_id": r["object_id"],
                 "created_at": r["created_at"],
-                "published_at": r["published_at"],
+            }
+            for r in rows
+        ]
+
+    def insert_institutional_memory(self, mem) -> None:
+        self._conn.execute(
+            """
+            INSERT INTO institutional_memory (
+                memory_id, company_symbol, narrative, category, importance,
+                source_learning_fields_json, object_id, created_at, published_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                mem.memory_id,
+                mem.company_symbol.upper(),
+                mem.narrative,
+                mem.category,
+                mem.importance,
+                json.dumps(mem.source_learning_fields),
+                mem.object_id,
+                mem.created_at,
+                None,
+            ),
+        )
+        self._conn.commit()
+
+    def list_memory(self, symbol: str, limit: int = 50) -> list[dict[str, Any]]:
+        rows = self._conn.execute(
+            """
+            SELECT * FROM institutional_memory
+            WHERE company_symbol = ?
+            ORDER BY created_at DESC
+            LIMIT ?
+            """,
+            (symbol.upper(), limit),
+        ).fetchall()
+        return [
+            {
+                "memory_id": r["memory_id"],
+                "company_symbol": r["company_symbol"],
+                "narrative": r["narrative"],
+                "category": r["category"],
+                "importance": r["importance"],
+                "source_learning_fields": json.loads(r["source_learning_fields_json"] or "[]"),
+                "created_at": r["created_at"],
+            }
+            for r in rows
+        ]
+
+    def insert_timeline_entry(self, entry) -> None:
+        self._conn.execute(
+            """
+            INSERT INTO learning_timeline (
+                entry_id, company_symbol, year, label, detail, field_name,
+                importance, object_id, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                entry.entry_id,
+                entry.company_symbol.upper(),
+                entry.year,
+                entry.label,
+                entry.detail,
+                entry.field_name,
+                entry.importance,
+                entry.object_id,
+                entry.created_at,
+            ),
+        )
+        self._conn.commit()
+
+    def list_timeline(self, symbol: str, limit: int = 100) -> list[dict[str, Any]]:
+        rows = self._conn.execute(
+            """
+            SELECT * FROM learning_timeline
+            WHERE company_symbol = ?
+            ORDER BY year ASC, created_at ASC
+            LIMIT ?
+            """,
+            (symbol.upper(), limit),
+        ).fetchall()
+        return [
+            {
+                "entry_id": r["entry_id"],
+                "company_symbol": r["company_symbol"],
+                "year": r["year"],
+                "label": r["label"],
+                "detail": r["detail"],
+                "field_name": r["field_name"],
+                "importance": r["importance"],
+                "created_at": r["created_at"],
             }
             for r in rows
         ]

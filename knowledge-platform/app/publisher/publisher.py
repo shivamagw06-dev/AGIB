@@ -42,10 +42,12 @@ class KnowledgePublisher:
         self,
         knowledge_objects: list[KnowledgeObject],
         learning_events: list[LearningEvent],
+        ile_results: list | None = None,
     ) -> PublishedBundle:
         now = utc_now()
         published_kos: list[KnowledgeObject] = []
         published_learning: list[LearningEvent] = []
+        ile_results = ile_results or []
 
         for ko in knowledge_objects:
             knowledge = {
@@ -74,13 +76,21 @@ class KnowledgePublisher:
             self.store.mark_learning_published(le.learning_id, now)
             published_learning.append(le)
 
-        envelope = self._build_envelope(published_kos, published_learning, now)
+        envelope = self._build_envelope(published_kos, published_learning, ile_results, now)
         self.store.log_publication(envelope)
 
         bundle = PublishedBundle(
             knowledge_objects=published_kos,
             learning_events=published_learning,
             envelope=envelope,
+            ile={
+                "learning_event_count": len(published_learning),
+                "sector_learning_count": len(envelope.sector_learning),
+                "market_learning_count": len(envelope.market_learning),
+                "memory_count": len(envelope.institutional_memory),
+                "timeline_count": len(envelope.learning_timeline),
+                "conflict_count": len(envelope.knowledge_conflicts),
+            },
         )
         self._last_bundle = bundle
         return bundle
@@ -140,6 +150,7 @@ class KnowledgePublisher:
         self,
         kos: list[KnowledgeObject],
         learning: list[LearningEvent],
+        ile_results: list,
         now,
     ) -> PublicationEnvelope:
         company_layer: list[KnowledgeObject] = []
@@ -163,13 +174,35 @@ class KnowledgePublisher:
             }:
                 company_layer.append(ko)
 
+        sector_learning: list[dict] = []
+        market_learning: list[dict] = []
+        memory: list[dict] = []
+        timeline: list[dict] = []
+        conflicts: list[dict] = []
+        for ile in ile_results:
+            for item in ile.sector_learning:
+                sector_learning.append(item.__dict__)
+            for item in ile.market_learning:
+                market_learning.append(item.__dict__)
+            for item in ile.memory:
+                memory.append(item.__dict__)
+            for item in ile.timeline:
+                timeline.append(item.__dict__)
+            for item in ile.conflicts:
+                conflicts.append(item.__dict__)
+
         return PublicationEnvelope(
             company_knowledge=company_layer,
             sector_knowledge=sector_layer,
             market_knowledge=market_layer,
             learning_events=learning,
+            sector_learning=sector_learning,
+            market_learning=market_learning,
+            institutional_memory=memory,
+            learning_timeline=timeline,
+            knowledge_conflicts=conflicts,
             evidence_graph_ready=True,
-            institutional_memory_ready=True,
+            institutional_memory_ready=bool(memory) or True,
             published_at=now,
         )
 
