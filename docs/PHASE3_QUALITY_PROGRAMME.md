@@ -1,4 +1,6 @@
-# AGIB Phase 3 — Quality Programme Roadmap
+# AGI Phase 3 — Quality Programme Roadmap
+
+**Company:** AGI
 
 Operating rule: **no features because they sound useful**.  
 Every sprint starts with a measured weakness and ends with a measurable improvement.
@@ -11,9 +13,10 @@ Every sprint starts with a measured weakness and ends with a measurable improvem
 | Knowledge | Knowledge Factory domains | ✓ |
 | Evidence | IERE + Evidence Graph | ✓ |
 | Communication | ICE + Playbooks + Memory | ✓ |
-| **Quality Engineering** | Evaluation → reasoning depth | **In progress** |
+| **Quality Engineering** | Evaluation → temporal integrity | **Baseline frozen** |
 
-CIO frozen exam (post-IMAI): **8.12 / 10**
+CIO frozen exam (post-IMAI): **8.12 / 10**  
+**AGI v3.5 engineering baseline:** **FROZEN / CERTIFIED** (post-TIRC)
 
 ## Sprint sequence
 
@@ -23,11 +26,10 @@ CIO frozen exam (post-IMAI): **8.12 / 10**
 | **3.2 RCI** ✅ | Root Cause Intelligence | Top-10 clusters + recommended PRs |
 | **3.3 FO** ✅ | Framework Optimisation + Patch Intelligence | Framework accuracy ≥96% (target 98%) |
 | **3.4 IO** ✅ | Intent Optimisation | Intent accuracy ≥99% (**100.0%**; IEL **98.4%**) |
-| 3.5 | Evidence Weighting | Explicit source hierarchy in answers |
-| 3.6 | Hypothesis Engine | Multi-hypothesis before conclusion |
-| 3.7 | Contradiction Resolution | Reconcile conflicting signals |
-| 3.8 | Committee Reasoning | Bull / Base / Bear on important Qs |
-| 3.9 | Production Certification | Live collectors 100% / 7-day cert |
+| **Release Cert #234** ⛔ | Baseline freeze attempt | NOT CERTIFIED (leakage/replay) |
+| **3.5 TIRC** ✅ | Temporal Integrity & Replay Certification | Future leakage **0**; replay **100%** |
+| **Release Cert (post-TIRC)** ✅ | Baseline freeze | **CERTIFIED** — IEL **99.9%** |
+| 4.x | Evidence Weighting / Hypothesis / Contradiction | Phase 4 Institutional Judgment |
 
 ## Parallel production track
 
@@ -35,17 +37,19 @@ BSE → RBI → IR Parser → 7-Day Certification
 
 ## Stopping condition (not “all modules done”)
 
-| Metric | Target | Latest (post Sprint 3.4 soft) |
-|--------|-------:|------------------------------:|
-| CIO benchmark | ≥9.0/10 | 8.12 (frozen exam; routing soft 100%) |
-| IEL 1,025-question pass rate | ≥95% | **98.4%** |
-| Framework accuracy | ≥98% | 97.7% |
-| Intent accuracy | ≥99% | **100.0%** |
-| Hallucinated evidence | 0 | 0 |
-| Replay correctness | 100% | remaining `future_leakage` RCI cluster |
+| Metric | Target | Frozen baseline (post-TIRC full) |
+|--------|-------:|----------------------------------:|
+| CIO benchmark | ≥9.0/10 | 8.12 examiner / CIO-25 IEL 100% |
+| IEL 1,025-question pass rate | ≥95% | **99.9%** |
+| Framework accuracy | ≥98% | 97.76% |
+| Intent accuracy | ≥99% | 99.8% (inst. 1000 soft 100%) |
+| Hallucinated evidence | 0 | **0** |
+| Replay correctness | 100% | **100%** |
+| Future leakage | 0 | **0** |
 | Live collector certification | 100% | pending production track |
 
-**Pause recommendation after 3.4:** re-run IEL 1,025 + frozen CIO-25 before new features. Next depth work is evidence weighting / hypothesis / contradiction — not more routing.
+**Release certification (post-TIRC):** **CERTIFIED** — engineering baseline frozen.  
+See `docs/AGIB_RELEASE_CERTIFICATION_v3_5.md`. Phase 4 analytical depth may begin on this foundation.
 
 ## Tool roles (when purchased)
 

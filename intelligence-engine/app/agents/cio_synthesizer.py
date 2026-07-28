@@ -4,6 +4,7 @@ from typing import Any
 
 from app.agents.base import BaseAgent
 from app.agents.registry import register_agent
+from observability.tracing import llm_span, wrap_openai
 from app.schemas.models import (
     AgentOutput,
     ConfidenceBreakdown,
@@ -163,16 +164,27 @@ class ChiefInvestmentOfficer(BaseAgent):
 
                 model = (settings.gemini_model or "gemini-flash-latest").strip()
                 url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
-                async with httpx.AsyncClient(timeout=30.0) as client:
-                    response = await client.post(
-                        url,
-                        params={"key": gemini_key},
-                        json={
-                            "systemInstruction": {"parts": [{"text": system}]},
-                            "contents": [{"role": "user", "parts": [{"text": user}]}],
-                            "generationConfig": {"temperature": 0.2},
-                        },
-                    )
+                with llm_span(
+                    provider="gemini",
+                    model=model,
+                    prompt=user,
+                    system=system,
+                    tags=["cio_synthesis"],
+                ) as _llm:
+                    async with httpx.AsyncClient(timeout=30.0) as client:
+                        response = await client.post(
+                            url,
+                            params={"key": gemini_key},
+                            json={
+                                "systemInstruction": {"parts": [{"text": system}]},
+                                "contents": [{"role": "user", "parts": [{"text": user}]}],
+                                "generationConfig": {"temperature": 0.2},
+                            },
+                        )
+                    if response.is_success:
+                        _llm.end(outputs={"status_code": response.status_code})
+                    else:
+                        _llm.end(error=f"gemini_http_{response.status_code}")
                 if response.is_success:
                     payload = response.json()
                     parts = (((payload.get("candidates") or [{}])[0].get("content") or {}).get("parts") or [])
@@ -187,7 +199,7 @@ class ChiefInvestmentOfficer(BaseAgent):
         try:
             from openai import AsyncOpenAI
 
-            client = AsyncOpenAI(api_key=settings.openai_api_key)
+            client = wrap_openai(AsyncOpenAI(api_key=settings.openai_api_key))
             response = await client.chat.completions.create(
                 model=settings.openai_model,
                 temperature=0.2,
