@@ -129,6 +129,46 @@ def read_evidence_feed(ticker: str) -> dict[str, Any]:
     return feed if isinstance(feed, dict) else {"unavailable": True, "fabricated": False}
 
 
+def read_best_evidence(
+    ticker: str | None = None,
+    *,
+    question: str | None = None,
+) -> dict[str, Any]:
+    """Soft-wire IERE — ranked institutional evidence before publication generation."""
+    try:
+        from evidence_retrieval.production import company as iere_company
+        from evidence_retrieval.production import search as iere_search
+
+        if question:
+            out = iere_search(question, ticker=ticker)
+        elif ticker:
+            out = iere_company(ticker)
+        else:
+            out = iere_search("What institutional evidence is available for the market morning brief?")
+        return {
+            "retrieval_id": out.get("retrieval_id"),
+            "ranked_count": out.get("ranked_count"),
+            "pack_ids": out.get("pack_ids") or [],
+            "top_evidence": (out.get("ranked") or [])[:10],
+            "citations": [
+                r.get("citation") for r in (out.get("ranked") or [])[:10] if r.get("citation")
+            ],
+            "ask_envelope": out.get("ask_envelope"),
+            "quality_gates": out.get("quality_gates"),
+            "source": "evidence_retrieval",
+            "fabricated": False,
+            "reasoning_changed": False,
+        }
+    except Exception as exc:
+        return {
+            "unavailable": True,
+            "error": str(exc)[:160],
+            "as_of": store.utc_now(),
+            "fabricated": False,
+            "insufficient": True,
+        }
+
+
 def source_ref(name: str, payload: dict[str, Any]) -> dict[str, Any]:
     return {
         "name": name,

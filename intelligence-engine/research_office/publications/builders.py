@@ -32,6 +32,10 @@ def _evidence_present(sources: list[dict[str, Any]], payloads: list[dict[str, An
 
 def build_all_morning_publications(*, scheduler_run_id: str | None = None) -> list[dict[str, Any]]:
     versions = kn.knowledge_versions()
+    # Soft-wire IERE — retrieve best evidence before publication generation (no pub logic change).
+    best_evidence = kn.read_best_evidence(
+        question="What institutional evidence supports today's research office publications?"
+    )
     sched = kn.read_scheduler_context()
     iks = kn.read_iks_dashboard()
     coverage = kn.read_coverage()
@@ -55,14 +59,16 @@ def build_all_morning_publications(*, scheduler_run_id: str | None = None) -> li
                 "todays_agenda": _obs(sched, "scheduler"),
                 "major_overnight_developments": _obs(events, "corporate_events"),
                 "key_events": _obs(gov, "government"),
+                "ranked_evidence": _obs(best_evidence, "evidence_retrieval"),
             },
-            payloads=[iks, macro, sched, events, gov],
+            payloads=[iks, macro, sched, events, gov, best_evidence],
             source_names=[
                 ("iks", iks),
                 ("macro", macro),
                 ("scheduler", sched),
                 ("corporate_events", events),
                 ("government", gov),
+                ("evidence_retrieval", best_evidence),
             ],
             coverage={"morning": coverage, "fabricated": False},
             versions=versions,
@@ -239,6 +245,8 @@ def build_company_note(
 ) -> dict[str, Any]:
     versions = kn.knowledge_versions()
     t = str(ticker or "").upper()
+    # Soft-wire IERE ranked evidence for company notes (publication body unchanged).
+    best_evidence = kn.read_best_evidence(t)
     bundle = kn.read_company_bundle(t)
     feed = kn.read_evidence_feed(t)
     gov = kn.read_government()
@@ -267,6 +275,7 @@ def build_company_note(
             "company": t,
             "summary": [f"Evidence-triggered note ({trigger_reason}) — no recommendation"],
             "evidence": _obs(feed, "evidence_feed"),
+            "ranked_evidence": _obs(best_evidence, "evidence_retrieval"),
             "historical_context": ["Historical: from bundle/HD when present"],
             "sector_context": _obs(industry, "industry"),
             "macro_context": _obs(macro, "macro"),
@@ -276,10 +285,11 @@ def build_company_note(
             "transparent_insufficiency": insufficient or ["none_declared"],
             "bundle_keys": list(bundle.keys())[:20],
         },
-        payloads=[bundle, feed, macro, gov, alt, exp, industry],
+        payloads=[bundle, feed, best_evidence, macro, gov, alt, exp, industry],
         source_names=[
             ("company_bundle", bundle),
             ("evidence_feed", feed),
+            ("evidence_retrieval", best_evidence),
             ("macro", macro),
             ("government", gov),
             ("alternative_data", alt),

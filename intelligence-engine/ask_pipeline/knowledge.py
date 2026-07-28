@@ -35,6 +35,7 @@ def retrieve_knowledge(
     intent: str,
     entities: list[dict[str, Any]],
     soft_tags: list[dict[str, Any]] | None = None,
+    question: str | None = None,
 ) -> dict[str, Any]:
     started = time.time()
     selection = dict(KNOWLEDGE_SELECTION.get(intent) or KNOWLEDGE_SELECTION["Unknown"])
@@ -81,6 +82,10 @@ def retrieve_knowledge(
         if obj not in selection:
             bag["skipped_objects"].append({"object": obj, "reason": "intent_not_applicable"})
 
+    # Soft-wire IERE — ranked Evidence Packs (never PDFs / never raw APIs).
+    iere = _retrieve_iere(question=question, company_ids=company_ids)
+    primary = "evidence_retrieval" if iere and not iere.get("unavailable") else "knowledge_factory"
+
     return {
         "stage": "knowledge_retrieval",
         "status": "executed",
@@ -88,11 +93,36 @@ def retrieve_knowledge(
         "selection": selection,
         "company_ids": company_ids,
         "bag": bag,
-        "primary_engine": "knowledge_factory",
+        "iere": iere,
+        "primary_engine": primary,
         "duration_ms": int((time.time() - started) * 1000),
         "provenance": _prov("ask_pipeline.knowledge.retrieve_knowledge"),
         "fabricated": False,
     }
+
+
+def _retrieve_iere(*, question: str | None, company_ids: list[str]) -> dict[str, Any]:
+    try:
+        from evidence_retrieval.production import search as iere_search
+
+        q = (question or "").strip()
+        if not q:
+            ticker = company_ids[0] if company_ids else "INFY"
+            q = f"What institutional evidence is available for {ticker}?"
+        out = iere_search(q, ticker=company_ids[0] if company_ids else None)
+        return {
+            "retrieval_id": out.get("retrieval_id"),
+            "ask_envelope": out.get("ask_envelope"),
+            "pack_ids": out.get("pack_ids") or [],
+            "ranked_count": out.get("ranked_count"),
+            "quality_gates": out.get("quality_gates"),
+            "latency_ms": out.get("latency_ms"),
+            "unavailable": False,
+            "fabricated": False,
+            "reasoning_changed": False,
+        }
+    except Exception as exc:
+        return {"unavailable": True, "error": str(exc)[:160], "fabricated": False}
 
 
 def _retrieve_object(obj: str, company_ids: list[str]) -> dict[str, Any]:

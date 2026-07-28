@@ -6871,6 +6871,68 @@ async def ail_event(event_id: str):
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+# ---------------------------------------------------------------------------
+# AGIB v3.2 Track 5 — Institutional Evidence Retrieval Engine (IERE)
+# Static paths MUST be registered before /evidence/{evidence_id}.
+# Ranked structured evidence packs only. Reasoning / governance frozen.
+# ---------------------------------------------------------------------------
+@router.get("/evidence/health")
+async def evidence_health():
+    from evidence_retrieval.production import health
+
+    return health()
+
+
+@router.get("/evidence/dashboard")
+async def evidence_dashboard_route():
+    from evidence_retrieval.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/evidence/search")
+async def evidence_search(
+    q: str = Query(..., description="User question"),
+    ticker: str | None = None,
+    as_of: str | None = None,
+):
+    from evidence_retrieval.production import search
+
+    return search(q, ticker=ticker, as_of=as_of)
+
+
+@router.get("/evidence/company/{ticker}")
+async def evidence_company(ticker: str, as_of: str | None = None):
+    from evidence_retrieval.production import company
+
+    return company(ticker, as_of=as_of)
+
+
+@router.get("/evidence/document/{doc_id}")
+async def evidence_document(doc_id: str):
+    from evidence_retrieval.production import document
+
+    return document(doc_id)
+
+
+@router.get("/evidence/graph")
+async def evidence_graph(graph_id: str | None = None):
+    from evidence_retrieval.production import graph
+
+    return graph(graph_id)
+
+
+@router.get("/evidence/replay")
+async def evidence_replay(
+    q: str = Query(..., description="User question"),
+    as_of: str = Query(..., description="Point-in-time date YYYY-MM-DD"),
+    ticker: str | None = None,
+):
+    from evidence_retrieval.production import replay
+
+    return replay(question=q, as_of=as_of, ticker=ticker)
+
+
 @router.get("/evidence/{evidence_id}")
 async def ail_evidence(evidence_id: str):
     try:
