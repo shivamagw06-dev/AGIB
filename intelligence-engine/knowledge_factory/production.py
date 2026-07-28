@@ -305,6 +305,28 @@ def alternative_data_coverage() -> dict[str, Any]:
     return alternative_data_dashboard(ensure=False)
 
 
+def run_market_expectations_pipeline(**kwargs: Any) -> dict[str, Any]:
+    from knowledge_factory.market_expectations_intelligence.pipeline import (
+        run_market_expectations_pipeline as _run,
+    )
+
+    return _run()
+
+
+def market_expectations_coverage() -> dict[str, Any]:
+    from knowledge_factory.market_expectations_intelligence.dashboards import (
+        expectations_dashboard,
+    )
+    from knowledge_factory.market_expectations_intelligence import store as imei_store
+
+    if imei_store.expectation_count() == 0:
+        try:
+            run_market_expectations_pipeline()
+        except Exception:
+            pass
+    return expectations_dashboard(ensure=False)
+
+
 def company_object(entity: str) -> dict[str, Any] | None:
     return store.get_object("company", entity)
 
@@ -321,6 +343,7 @@ def evidence_feed(entity: str) -> dict[str, Any] | None:
     industry_intelligence = None
     economic_relationships = None
     alternative_data = None
+    market_expectations = None
     try:
         from knowledge_factory.historical_depth import store as hd_store
 
@@ -376,6 +399,15 @@ def evidence_feed(entity: str) -> dict[str, Any] | None:
         alternative_data = company_dataset_view(entity)
     except Exception:
         alternative_data = None
+    # Soft-read Market Expectations Intelligence (expectation vs reality).
+    try:
+        from knowledge_factory.market_expectations_intelligence.expectations.views import (
+            company_expectations,
+        )
+
+        market_expectations = company_expectations(entity)
+    except Exception:
+        market_expectations = None
     if (
         not pack
         and not obj
@@ -387,6 +419,7 @@ def evidence_feed(entity: str) -> dict[str, Any] | None:
         and not industry_intelligence
         and not economic_relationships
         and not (alternative_data and alternative_data.get("n"))
+        and not (market_expectations and market_expectations.get("n_expectations"))
     ):
         return None
     return {
@@ -402,5 +435,6 @@ def evidence_feed(entity: str) -> dict[str, Any] | None:
         "industry_intelligence": industry_intelligence,
         "economic_relationships": economic_relationships,
         "alternative_data": alternative_data,
+        "market_expectations": market_expectations,
         "raw_api": False,
     }

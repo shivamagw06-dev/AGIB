@@ -619,9 +619,33 @@ def daily_health_scorecard(*, ensure_pipeline: bool = True) -> dict[str, Any]:
             "delivery_phase": alt.get("delivery_phase"),
         }
         if (acov.get("institutional_ready_pct") or 0) >= 100 and (acov.get("datasets") or 0) >= 10:
-            scorecard["roadmap_next"] = "alternative_data_phase_2_expansion"
+            scorecard["roadmap_next"] = "market_expectations_intelligence"
     except Exception:
         scorecard["alternative_data_intelligence"] = None
+    # AGIB v2.0 Sprint 7 — soft-read Market Expectations Intelligence (IMEI).
+    try:
+        from knowledge_factory.market_expectations_intelligence.dashboards import (
+            expectations_dashboard,
+        )
+
+        exp = expectations_dashboard(ensure=False)
+        ecov = exp.get("expectation_dashboard") or {}
+        scorecard["market_expectations_intelligence"] = {
+            "expectations": ecov.get("expectations"),
+            "ready": ecov.get("ready"),
+            "revisions": ecov.get("revisions"),
+            "surprises": ecov.get("surprises"),
+            "narratives": ecov.get("narratives"),
+            "institutional_ready_pct": ecov.get("institutional_ready_pct"),
+            "unknown_expectations": exp.get("unknown_expectations"),
+            "north_star": exp.get("north_star"),
+            "delivery_phase": exp.get("delivery_phase"),
+            "principle": exp.get("principle"),
+        }
+        if (ecov.get("surprises") or 0) >= 1 and (ecov.get("narratives") or 0) >= 10:
+            scorecard["roadmap_next"] = "knowledge_stack_complete"
+    except Exception:
+        scorecard["market_expectations_intelligence"] = None
     store.put_report("daily_health", scorecard)
     return scorecard
 

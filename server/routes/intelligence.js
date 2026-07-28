@@ -1615,6 +1615,91 @@ export default function createIntelligenceRouter() {
       res.status(502).json({ error: err?.message || 'alternative-data beneficiaries proxy failed' });
     }
   });
+  // AGIB v2.0 Sprint 7 — Institutional Market Expectations Intelligence (IMEI)
+  router.get('/expectations/health', kfGet('/v1/expectations/health'));
+  router.get('/expectations/dashboard', kfGet('/v1/expectations/dashboard'));
+  router.post('/expectations/run', kfPost('/v1/expectations/run'));
+  router.get('/expectations/registry', kfGet('/v1/expectations/registry'));
+  router.get('/expectations/phase2-consensus', kfGet('/v1/expectations/phase2-consensus'));
+  router.get('/expectations/search', async (req, res) => {
+    try {
+      const q = new URLSearchParams({
+        q: String(req.query.q || ''),
+        limit: String(req.query.limit || '25'),
+      }).toString();
+      const result = await engineFetch(`/v1/expectations/search?${q}`);
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err?.message || 'expectations search proxy failed' });
+    }
+  });
+  router.get('/expectations/revisions', async (req, res) => {
+    try {
+      const q = new URLSearchParams();
+      if (req.query.entity) q.set('entity', String(req.query.entity));
+      if (req.query.as_of) q.set('as_of', String(req.query.as_of));
+      const qs = q.toString();
+      const result = await engineFetch(`/v1/expectations/revisions${qs ? `?${qs}` : ''}`);
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err?.message || 'expectations revisions proxy failed' });
+    }
+  });
+  router.get('/expectations/surprises', async (req, res) => {
+    try {
+      const q = new URLSearchParams();
+      if (req.query.entity) q.set('entity', String(req.query.entity));
+      if (req.query.as_of) q.set('as_of', String(req.query.as_of));
+      const qs = q.toString();
+      const result = await engineFetch(`/v1/expectations/surprises${qs ? `?${qs}` : ''}`);
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err?.message || 'expectations surprises proxy failed' });
+    }
+  });
+  router.get('/expectations/narratives', async (req, res) => {
+    try {
+      const q = new URLSearchParams();
+      if (req.query.narrative_id) q.set('narrative_id', String(req.query.narrative_id));
+      const qs = q.toString();
+      const result = await engineFetch(`/v1/expectations/narratives${qs ? `?${qs}` : ''}`);
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err?.message || 'expectations narratives proxy failed' });
+    }
+  });
+  router.get('/expectations/replay', async (req, res) => {
+    try {
+      const q = new URLSearchParams({ as_of: String(req.query.as_of || '') });
+      if (req.query.entity) q.set('entity', String(req.query.entity));
+      const result = await engineFetch(`/v1/expectations/replay?${q.toString()}`);
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err?.message || 'expectations replay proxy failed' });
+    }
+  });
+  router.get('/expectations/company/:ticker', async (req, res) => {
+    try {
+      const q = req.query.as_of ? `?as_of=${encodeURIComponent(String(req.query.as_of))}` : '';
+      const result = await engineFetch(
+        `/v1/expectations/company/${encodeURIComponent(req.params.ticker)}${q}`
+      );
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err?.message || 'expectations company proxy failed' });
+    }
+  });
+  router.get('/expectations/gap/:ticker', async (req, res) => {
+    try {
+      const q = req.query.as_of ? `?as_of=${encodeURIComponent(String(req.query.as_of))}` : '';
+      const result = await engineFetch(
+        `/v1/expectations/gap/${encodeURIComponent(req.params.ticker)}${q}`
+      );
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err?.message || 'expectations gap proxy failed' });
+    }
+  });
   router.post('/knowledge-factory/run-daily', kfPost('/v1/knowledge-factory/run-daily'));
   router.get('/knowledge-factory/historical-depth', kfGet('/v1/knowledge-factory/historical-depth'));
   router.post('/knowledge-factory/historical-depth/run', kfPost('/v1/knowledge-factory/historical-depth/run'));
