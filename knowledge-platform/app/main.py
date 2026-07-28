@@ -1,4 +1,4 @@
-"""KAIP service entrypoint — Knowledge Acquisition Platform (Sprint 6.1)."""
+"""KAIP service entrypoint — Knowledge Acquisition Platform + AKO (Sprint 6.5)."""
 
 from __future__ import annotations
 
@@ -8,6 +8,9 @@ from typing import Any
 
 from fastapi import FastAPI
 
+from app.ako.orchestrator import AdaptiveKnowledgeOrchestrator
+from app.ako.overnight import run_overnight_pipeline
+from app.ako.schedule_profiles import PROFILES
 from app.api.routes import router
 from app.collectors.bse.corporate_actions import BSECorporateActionCollector
 from app.collectors.company_ir.collector import CompanyIRCollector
@@ -54,6 +57,23 @@ def build_collectors(settings: Settings) -> dict[str, Any]:
     return {c.collector_id: c for c in collectors}
 
 
+def _make_runner(pipeline: AcquisitionPipeline, collectors: dict[str, Any], collector_id: str):
+    def _run() -> Any:
+        collector = collectors[collector_id]
+        result = pipeline.run_collector(collector)
+        METRICS.record_run(
+            collector_id,
+            accepted=len(result.accepted),
+            rejected=len(result.rejected),
+            duplicates=len(result.duplicates),
+            published=len(result.knowledge_objects),
+            learning=len(result.learning_events),
+        )
+        return result
+
+    return _run
+
+
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or get_settings()
 
@@ -62,40 +82,66 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         store = KaipStore(settings.db_path)
         pipeline = AcquisitionPipeline(store, settings)
         collectors = build_collectors(settings)
-        scheduler = AcquisitionScheduler()
+        gateway = KnowledgeRetrievalGateway(store)
 
-        def make_runner(collector_id: str):
-            def _run() -> None:
-                collector = collectors[collector_id]
-                result = pipeline.run_collector(collector)
-                METRICS.record_run(
-                    collector_id,
-                    accepted=len(result.accepted),
-                    rejected=len(result.rejected),
-                    duplicates=len(result.duplicates),
-                    published=len(result.knowledge_objects),
-                    learning=len(result.learning_events),
+        ako: AdaptiveKnowledgeOrchestrator | None = None
+        scheduler: AcquisitionScheduler | AdaptiveKnowledgeOrchestrator
+
+        if settings.ako_enabled:
+            ako = AdaptiveKnowledgeOrchestrator(
+                tick_seconds=settings.ako_tick_seconds,
+                store=store,
+                watchlist=settings.watchlist,
+            )
+            for collector in collectors.values():
+                profile = PROFILES.get(collector.collector_id)
+                ako.register_collector(
+                    collector.collector_id,
+                    _make_runner(pipeline, collectors, collector.collector_id),
+                    profile=profile,
                 )
 
-            return _run
+            # Overnight rebuild — no external collect; published-knowledge only.
+            def _overnight() -> dict[str, Any]:
+                return run_overnight_pipeline(store, watchlist=settings.watchlist)
 
-        for collector in collectors.values():
-            scheduler.register(collector, make_runner(collector.collector_id))
-
-        gateway = KnowledgeRetrievalGateway(store)
+            ako.register_collector(
+                "OvernightKnowledgeRebuild",
+                _overnight,
+                profile=PROFILES["OvernightKnowledgeRebuild"],
+            )
+            ako.register_overnight_hook(_overnight)
+            scheduler = ako
+            if settings.scheduler_enabled:
+                ako.start()
+                logger.info(
+                    "AKO started watchlist=%s tick=%ss",
+                    list(settings.watchlist),
+                    settings.ako_tick_seconds,
+                )
+        else:
+            legacy = AcquisitionScheduler()
+            for collector in collectors.values():
+                legacy.register(collector, _make_runner(pipeline, collectors, collector.collector_id))
+            scheduler = legacy
+            if settings.scheduler_enabled:
+                legacy.start()
+                logger.info("KAIP fixed scheduler started watchlist=%s", list(settings.watchlist))
 
         app.state.settings = settings
         app.state.store = store
         app.state.pipeline = pipeline
         app.state.collectors = collectors
         app.state.scheduler = scheduler
+        app.state.ako = ako
         app.state.gateway = gateway
 
-        if settings.scheduler_enabled:
-            scheduler.start()
-            logger.info("KAIP scheduler started watchlist=%s", list(settings.watchlist))
         yield
-        scheduler.stop()
+
+        if ako is not None:
+            ako.stop()
+        elif isinstance(scheduler, AcquisitionScheduler):
+            scheduler.stop()
         store.close()
 
     app = FastAPI(

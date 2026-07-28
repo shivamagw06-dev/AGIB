@@ -102,6 +102,9 @@ class KnowledgeMetadata(BaseModel):
 
     source: Source
     confidence: Confidence = Confidence.MEDIUM
+    # Sprint 6.5 KCE — numeric trust for IE evidence weighting
+    confidence_pct: float | None = None
+    confidence_detail: dict[str, Any] | None = None
     updated_at: datetime = Field(default_factory=utc_now)
     version: int = 1
     verified: bool = True

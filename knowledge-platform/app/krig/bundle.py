@@ -37,13 +37,15 @@ class KnowledgeBundle(BaseModel):
     conflicts: list[dict[str, Any]] = Field(default_factory=list)
     comparison: dict[str, Any] | None = None
     freshness: dict[str, Any] = Field(default_factory=dict)
+    confidence: dict[str, Any] = Field(default_factory=dict)
     cache: dict[str, Any] = Field(default_factory=dict)
     sections_present: dict[str, bool] = Field(default_factory=dict)
     provenance: dict[str, Any] = Field(
         default_factory=lambda: {
             "gateway": "KRIG",
-            "version": "0.4.0",
+            "version": "0.5.0",
             "providers_hidden": True,
+            "operate": {"kfe": True, "kce": True},
         }
     )
     assembled_at: datetime = Field(default_factory=utc_now)

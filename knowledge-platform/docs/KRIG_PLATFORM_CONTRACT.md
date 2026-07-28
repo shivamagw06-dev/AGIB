@@ -100,7 +100,8 @@ Each section in a bundle reports:
 
 ```yaml
 Financials:
-  status: Fresh | Stale | Missing
+  status: Fresh | Needs Refresh | Missing | Unknown
+  # (status_legacy retains Stale for older consumers)
   sla: Quarterly
   updated: <ISO>
   age_seconds: N

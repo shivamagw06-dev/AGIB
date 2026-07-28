@@ -15,6 +15,8 @@ from app.contracts.models import (
     Source,
     utc_now,
 )
+from app.kce.engine import KnowledgeConfidenceEngine
+from app.kfe.engine import KnowledgeFreshnessEngine
 from app.storage.db import KaipStore
 
 PROVIDER_LEAK_KEYS = {
@@ -37,6 +39,8 @@ class KnowledgePublisher:
     def __init__(self, store: KaipStore) -> None:
         self.store = store
         self._last_bundle: PublishedBundle | None = None
+        self.freshness = KnowledgeFreshnessEngine()
+        self.confidence = KnowledgeConfidenceEngine()
 
     def publish(
         self,
@@ -61,6 +65,7 @@ class KnowledgePublisher:
             ko.updated_at = now
             self.store.insert_knowledge_object(ko)
             self.store.mark_published(ko.object_id, now)
+            self._register_operate_metadata(ko, now)
             published_kos.append(ko)
 
         # Derive sector knowledge tips from company profiles (publication layer)
@@ -68,6 +73,7 @@ class KnowledgePublisher:
         for sko in derived_sector:
             self.store.insert_knowledge_object(sko)
             self.store.mark_published(sko.object_id, now)
+            self._register_operate_metadata(sko, now)
             published_kos.append(sko)
 
         for le in learning_events:
@@ -94,6 +100,42 @@ class KnowledgePublisher:
         )
         self._last_bundle = bundle
         return bundle
+
+    def _register_operate_metadata(self, ko: KnowledgeObject, now) -> None:
+        """Persist KFE + KCE registries at publish time (Operate layer)."""
+        updated = now.isoformat() if hasattr(now, "isoformat") else str(now)
+        self.freshness.register(
+            self.store,
+            object_type=ko.object_type.value,
+            subject_key=ko.subject_key,
+            updated_at=updated,
+        )
+        detail = (ko.metadata.confidence_detail if ko.metadata else None) or {}
+        if ko.metadata and ko.metadata.confidence_pct is not None:
+            from app.kce.engine import ConfidenceReport
+            from app.contracts.models import Confidence as ConfEnum
+
+            report = ConfidenceReport(
+                confidence_pct=float(ko.metadata.confidence_pct),
+                label=ko.metadata.confidence if isinstance(ko.metadata.confidence, ConfEnum) else ConfEnum.MEDIUM,
+                sources=tuple(detail.get("sources") or [ko.metadata.source.value]),
+                corroborating_sources=tuple(detail.get("corroborating_sources") or []),
+                reasons=tuple(detail.get("reasons") or []),
+                agreement_bonus=float(detail.get("agreement_bonus") or 0.0),
+                object_type=ko.object_type.value,
+                subject_key=ko.subject_key,
+            )
+            self.confidence.register(self.store, report)
+        else:
+            report = self.confidence.score_from_events(
+                self.store,
+                object_type=ko.object_type,
+                primary_source=ko.metadata.source if ko.metadata else Source.DERIVED,
+                source_event_ids=list(ko.source_event_ids or []),
+                subject_key=ko.subject_key,
+                knowledge=ko.knowledge or ko.payload,
+            )
+            self.confidence.register(self.store, report)
 
     def _derive_sector_knowledge(
         self, kos: list[KnowledgeObject], now
