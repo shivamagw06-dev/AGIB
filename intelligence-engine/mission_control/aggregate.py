@@ -202,9 +202,31 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         }
         out["sources"].append("alternative_data_intelligence")
         if (acov.get("institutional_ready_pct") or 0) >= 100 and (acov.get("datasets") or 0) >= 10:
-            out["roadmap_next"] = "alternative_data_phase_2_expansion"
+            out["roadmap_next"] = "market_expectations_intelligence"
     except Exception:
         out["alternative_data_intelligence"] = None
+    try:
+        from knowledge_factory.market_expectations_intelligence.dashboards import (
+            expectations_dashboard,
+        )
+
+        exp = expectations_dashboard(ensure=False)
+        ecov = exp.get("expectation_dashboard") or {}
+        out["market_expectations_intelligence"] = {
+            "expectations": ecov.get("expectations"),
+            "revisions": ecov.get("revisions"),
+            "surprises": ecov.get("surprises"),
+            "narratives": ecov.get("narratives"),
+            "institutional_ready_pct": ecov.get("institutional_ready_pct"),
+            "north_star": exp.get("north_star"),
+            "delivery_phase": exp.get("delivery_phase"),
+            "principle": exp.get("principle"),
+        }
+        out["sources"].append("market_expectations_intelligence")
+        if (ecov.get("surprises") or 0) >= 1 and (ecov.get("narratives") or 0) >= 10:
+            out["roadmap_next"] = "knowledge_stack_complete"
+    except Exception:
+        out["market_expectations_intelligence"] = None
     try:
         from knowledge_factory.production import historical_depth_coverage
 

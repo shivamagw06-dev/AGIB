@@ -7712,6 +7712,94 @@ async def alternative_data_beneficiaries(dataset: str):
     return beneficiaries(dataset)
 
 
+# ---------------------------------------------------------------------------
+# AGIB v2.0 Sprint 7 — Institutional Market Expectations Intelligence (IMEI)
+# Soft KF knowledge only. Phase-1 public/auditable. Phase-2 consensus modular.
+# ---------------------------------------------------------------------------
+@router.get("/expectations/health")
+async def expectations_health():
+    from knowledge_factory.market_expectations_intelligence.production import health as imei_health
+
+    return imei_health()
+
+
+@router.get("/expectations/dashboard")
+async def expectations_dashboard_route():
+    from knowledge_factory.market_expectations_intelligence.production import dashboard
+
+    return dashboard()
+
+
+@router.post("/expectations/run")
+async def expectations_run():
+    from knowledge_factory.market_expectations_intelligence.production import run_pipeline
+
+    return run_pipeline()
+
+
+@router.get("/expectations/registry")
+async def expectations_registry():
+    from knowledge_factory.market_expectations_intelligence.production import registry
+
+    return registry()
+
+
+@router.get("/expectations/search")
+async def expectations_search(q: str = "", limit: int = 25):
+    from knowledge_factory.market_expectations_intelligence.production import search
+
+    return search(q, limit=limit)
+
+
+@router.get("/expectations/revisions")
+async def expectations_revisions(entity: str | None = None, as_of: str | None = None):
+    from knowledge_factory.market_expectations_intelligence.production import revisions
+
+    return revisions(entity=entity, as_of=as_of)
+
+
+@router.get("/expectations/surprises")
+async def expectations_surprises(entity: str | None = None, as_of: str | None = None):
+    from knowledge_factory.market_expectations_intelligence.production import surprises
+
+    return surprises(entity=entity, as_of=as_of)
+
+
+@router.get("/expectations/narratives")
+async def expectations_narratives(narrative_id: str | None = None):
+    from knowledge_factory.market_expectations_intelligence.production import narratives
+
+    return narratives(narrative_id)
+
+
+@router.get("/expectations/replay")
+async def expectations_replay(as_of: str, entity: str | None = None):
+    from knowledge_factory.market_expectations_intelligence.production import replay
+
+    return replay(as_of=as_of, entity=entity)
+
+
+@router.get("/expectations/company/{ticker}")
+async def expectations_company(ticker: str, as_of: str | None = None):
+    from knowledge_factory.market_expectations_intelligence.production import company
+
+    return company(ticker, as_of=as_of)
+
+
+@router.get("/expectations/gap/{ticker}")
+async def expectations_gap(ticker: str, as_of: str | None = None):
+    from knowledge_factory.market_expectations_intelligence.production import gap
+
+    return gap(ticker, as_of=as_of)
+
+
+@router.get("/expectations/phase2-consensus")
+async def expectations_phase2_consensus():
+    from knowledge_factory.market_expectations_intelligence.production import phase2_consensus_status
+
+    return phase2_consensus_status()
+
+
 @router.get("/knowledge-factory/historical-depth")
 async def knowledge_factory_historical_depth():
     """Historical Depth Coverage dashboard (Sprint 4 north-star KPI)."""
