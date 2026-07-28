@@ -3,38 +3,35 @@
 ```text
 COMPANY: AGI
 BASELINE: v3.5 CERTIFIED (frozen)
+RELEASE: AGI v3.6 Institutional Judgment Release (FROZEN)
 UPDATED: 2026-07-28
+STATUS: COMPLETE — no further judgment layers
 ```
 
 | Sprint | Name | Status | Expected CIO lift |
 |--------|------|--------|------------------:|
 | **4.1** | Institutional Evidence Weighting (IEW) | ✓ Frozen v1.0.0 | +0.0 |
 | **4.2** | Institutional Hypothesis Generation (IHG) | ✓ Frozen v1.0.0 | +0.0 |
-| **4.3** | **Institutional Hypothesis Evaluation (IHE)** | ✓ Implemented v1.0.0 | **+0.5 to +0.8** |
-| **4.4** | Committee Reasoning | ← Next | +0.3 |
-| **4.5** | Confidence Calibration | Planned | +0.2 |
+| **4.3** | Institutional Hypothesis Evaluation (IHE) | ✓ Frozen v1.0.0 | +0.5 to +0.8 |
+| **4.4** | Institutional Committee Reasoning (ICR) | ✓ Frozen v1.0.0 | +0.3 |
+| **4.5** | Institutional Confidence Calibration (ICC) | ✓ Frozen v1.0.0 | +0.2 |
 
-## Rename note
+## Frozen judgment stack
 
-Sprint 4.3 was previously scoped as “Contradiction Resolution.”
+```text
+Evidence → Weighting → Hypotheses → Evaluation → Committee → Confidence → Reasoning → ICE
+```
 
-It is renamed to **Institutional Hypothesis Evaluation Engine (IHE)** because the job is:
+## Independent metrics (not in CIO weights)
 
-* compare hypotheses (pros / cons)
-* score contradictions
-* identify missing evidence
-* reject weak explanations
-* detect mutually exclusive explanations
-* calculate confidence before reasoning concludes
+| Metric | Measures |
+|--------|----------|
+| **HQS** | Hypothesis generation + evaluation quality |
+| **CQS** | Committee deliberation quality |
+| **CFQS** | Confidence calibration quality |
 
-That is hypothesis **evaluation**, not mere contradiction listing.
+## Exit
 
-## Measurement
+Phase 4 is complete. See `docs/AGI_V3_6_INSTITUTIONAL_JUDGMENT_RELEASE.md`.
 
-Before IHE lands, IEL reports **Hypothesis Quality Score (HQS)** — independent of CIO / overall pass weights — so Phase 4 judgment quality can be steered without conflating it with answer score.
-
-## Do not
-
-* Optimise frozen IEW / IHG profiles for benchmark chasing
-* Replace reasoning internals
-* Skip Hypothesis Space (Evidence → Conclusion is forbidden for analytical questions)
+**Do not add Sprint 4.6.** Begin Phase 5 — `docs/PHASE5_ROADMAP.md`.

@@ -1,9 +1,9 @@
-# Phase 4 Freeze — IEW v1.0.0 + IHG v1.0.0
+# Phase 4 Freeze — Judgment Stack (superseded by AGI v3.6 release)
 
 ```text
 COMPANY: AGI
 DATE: 2026-07-28
-STATUS: FROZEN — do not optimise
+STATUS: FROZEN — see docs/AGI_V3_6_INSTITUTIONAL_JUDGMENT_RELEASE.md
 ```
 
 ## Frozen modules
@@ -34,11 +34,12 @@ Do **not** tune IEW caps or IHG catalogs to chase IEL/CIO points.
 
 Evolve judgment in:
 
-1. **HQS** measurement (IEL independent metric)
-2. **Sprint 4.3 — Institutional Hypothesis Evaluation Engine (IHE)**
+1. **HQS / CQS / CFQS** (IEL independent metrics)
+2. Frozen stack: **IEW · IHG · IHE · ICR · ICC** (Phase 4 complete after ICC certification)
 
 ## Pipeline (frozen segment)
 
 ```text
-… → IEW (frozen) → IHG (frozen) → [IHE next] → Reasoning → ICE
+… → IEW → IHG → IHE → ICR → ICC → Reasoning → ICE
+     (all Phase 4 modules frozen at v1.0.0 after certification)
 ```

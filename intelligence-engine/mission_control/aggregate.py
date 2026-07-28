@@ -662,6 +662,61 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("institutional_hypothesis_evaluation")
     except Exception:
         out["institutional_hypothesis_evaluation"] = None
+    # AGI Phase 4 Sprint 4.4 — Institutional Committee Reasoning (ICR)
+    try:
+        from institutional_committee_reasoning.production import dashboard as icr_dashboard
+        from institutional_committee_reasoning.production import status as icr_status
+
+        ch = icr_status()
+        cd = icr_dashboard()
+        out["institutional_committee_reasoning"] = {
+            "company": ch.get("company"),
+            "status": ch.get("status"),
+            "version": ch.get("version"),
+            "committee_version": cd.get("committee_version"),
+            "bull_base_bear_distribution": cd.get("bull_base_bear_distribution"),
+            "average_confidence": cd.get("average_confidence"),
+            "probability_distribution": cd.get("probability_distribution"),
+            "unresolved_disagreements": cd.get("unresolved_disagreements"),
+            "missing_evidence": cd.get("missing_evidence"),
+            "dominant_assumptions": cd.get("dominant_assumptions"),
+            "historical_analogue_usage": cd.get("historical_analogue_usage"),
+            "preferred_case": cd.get("preferred_case"),
+            "voting_engine": False,
+            "llm_used": False,
+        }
+        out["sources"].append("institutional_committee_reasoning")
+    except Exception:
+        out["institutional_committee_reasoning"] = None
+    # AGI Phase 4 Sprint 4.5 — Institutional Confidence Calibration (ICC)
+    try:
+        from institutional_confidence_calibration.production import dashboard as icc_dashboard
+        from institutional_confidence_calibration.production import status as icc_status
+
+        fh = icc_status()
+        fd = icc_dashboard()
+        out["institutional_confidence_calibration"] = {
+            "company": fh.get("company"),
+            "status": fh.get("status"),
+            "version": fh.get("version"),
+            "confidence_version": fd.get("confidence_version"),
+            "average_confidence": fd.get("average_confidence"),
+            "confidence_distribution": fd.get("confidence_distribution"),
+            "top_uncertainty_drivers": fd.get("top_uncertainty_drivers"),
+            "evidence_penalties": fd.get("evidence_penalties"),
+            "committee_agreement": fd.get("committee_agreement"),
+            "missing_evidence": fd.get("missing_evidence"),
+            "historical_analogue_quality": fd.get("historical_analogue_quality"),
+            "framework_consistency": fd.get("framework_consistency"),
+            "latest_confidence": fd.get("latest_confidence"),
+            "latest_reason": fd.get("latest_reason"),
+            "llm_used": False,
+            "manually_assigned": False,
+            "phase4_complete": True,
+        }
+        out["sources"].append("institutional_confidence_calibration")
+    except Exception:
+        out["institutional_confidence_calibration"] = None
     try:
         from knowledge_factory.production import historical_depth_coverage
 
