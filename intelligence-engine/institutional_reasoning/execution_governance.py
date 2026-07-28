@@ -426,6 +426,7 @@ def govern_answer(
     packs: dict[str, dict[str, Any]] | None = None,
     academy: dict[str, Any] | None = None,
     build_institutional_evidence: bool = True,
+    build_portfolio_intelligence: bool = True,
 ) -> dict[str, Any]:
     """Run the full governed pipeline; returns structured governance record."""
     started = time.time()
@@ -511,6 +512,25 @@ def govern_answer(
         except Exception:
             pass
 
+    # Phase 5 — Institutional Portfolio Intelligence pack binding.
+    # Fills exposure / risk_contribution / downside_case / expected_return
+    # so portfolio & investment_decision contracts can execute without redesign.
+    if build_portfolio_intelligence and entity_id:
+        try:
+            from institutional_reasoning.ipi.production import (
+                package_for_governance as ipi_package_for_governance,
+            )
+
+            ipi_pkg = ipi_package_for_governance(
+                entity_id,
+                entity_name=primary.get("entity_name"),
+                existing_packs=packs,
+            )
+            if ipi_pkg.get("found"):
+                packs["institutional_portfolio"] = ipi_pkg
+        except Exception:
+            pass
+
     validation = validate_contract(
         question_type=qtype,
         entity_id=entity_id,
@@ -554,8 +574,9 @@ def govern_answer(
     # Contract completeness governs narrative permission for gated types.
     narrative_allowed = bool(executed_any and validation.get("complete"))
     if not specs:
-        # Types without executable frameworks yet: allow narrative only with contract coverage
-        narrative_allowed = bool(validation.get("complete"))
+        # Types without executable frameworks: keep research narrative gated.
+        # Phase 5 portfolio decisions are issued via IPI/PDG, not an ungated DJG.
+        narrative_allowed = False
     # Applicability-only answers (e.g. DCF rejected for banks) may narrate the rejection
     # only when the question is about method applicability — not ordinary valuation asks.
     q_l = str(question or "").lower()
@@ -598,10 +619,61 @@ def govern_answer(
         "editorial_mode": "explain_only" if narrative_allowed else "report_insufficient",
         "missing_evidence": validation.get("missing") or [],
         "institutional_evidence": (packs.get("institutional_evidence") or {}),
+        "institutional_portfolio": (packs.get("institutional_portfolio") or {}),
         "iki": iki_plan,
         "execution_ms": int((time.time() - started) * 1000),
     }
-    return _attach_justification(record)
+    record = _attach_justification(record)
+
+    # Phase 5 — Portfolio decision (research package → IPI → PDG).
+    # Soft-wire: portfolio / investment_decision / risk questions, or when
+    # the question explicitly asks about weights / investable amounts.
+    q_l2 = str(question or "").lower()
+    wants_portfolio = qtype in {"portfolio", "investment_decision", "risk"} or any(
+        k in q_l2
+        for k in (
+            "invest £",
+            "invest $",
+            "invest ₹",
+            "position siz",
+            "portfolio",
+            "weight",
+            "exposure impact",
+            "should we invest",
+            "should i invest",
+        )
+    )
+    if build_portfolio_intelligence and entity_id and wants_portfolio:
+        try:
+            from institutional_reasoning.ipi.decision import decide_portfolio
+
+            ipi_decision = decide_portfolio(
+                entity_id=entity_id,
+                entity_name=primary.get("entity_name"),
+                research_record=record,
+                existing_packs=packs,
+                persist_memory=True,
+            )
+            record["ipi"] = ipi_decision
+            record["portfolio_decision_graph"] = ipi_decision.get("portfolio_decision_graph") or {}
+            # Portfolio narrative: never Buy/Sell; surface committee conclusion.
+            rec = ipi_decision.get("recommendation") or {}
+            if rec.get("conclusion"):
+                record["portfolio_recommendation"] = rec
+                if qtype in {"portfolio", "investment_decision"}:
+                    # Prefer portfolio committee language over research Buy/Sell leakage
+                    if record.get("committee") and not record["committee"].get("can_conclude"):
+                        record["committee"] = {
+                            **record["committee"],
+                            "stance": rec.get("action") or "Withhold",
+                            "conclusion": rec.get("conclusion"),
+                            "can_conclude": bool((ipi_decision.get("committee") or {}).get("can_recommend")),
+                        }
+        except Exception:
+            record.setdefault("ipi", {})
+            record.setdefault("portfolio_decision_graph", {})
+
+    return record
 
 
 def governed_executive(record: dict[str, Any]) -> str:
