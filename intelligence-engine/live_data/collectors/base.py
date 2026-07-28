@@ -37,6 +37,27 @@ def http_get(
         return resp.read()
 
 
+def nse_session_opener() -> urllib.request.OpenerDirector:
+    """Bootstrap NSE cookie jar via homepage — required for many JSON APIs."""
+    import http.cookiejar
+
+    jar = http.cookiejar.CookieJar()
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
+    try:
+        http_get(
+            "https://www.nseindia.com/",
+            headers={
+                "User-Agent": "Mozilla/5.0 (compatible; AGIB-LIDI/1.0)",
+                "Accept": "text/html,*/*",
+            },
+            timeout=15,
+            opener=opener,
+        )
+    except Exception:
+        pass
+    return opener
+
+
 def run_with_retry(fn, *, retry_policy: dict[str, Any] | None = None) -> Any:
     policy = {**DEFAULT_RETRY, **(retry_policy or {})}
     attempts = int(policy.get("max_attempts") or 1)

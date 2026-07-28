@@ -7944,6 +7944,71 @@ async def live_data_run(payload: dict[str, Any] = Body(default={})):
 
 
 # ---------------------------------------------------------------------------
+# AGIB v3.0 — LIDI Track 2: Live Collector Activation & Production Verification
+# ---------------------------------------------------------------------------
+@router.get("/live-data/verification/status")
+async def live_data_verification_status():
+    from live_data.production_verify import status
+
+    return status()
+
+
+@router.post("/live-data/verification/run")
+async def live_data_verification_run(payload: dict[str, Any] = Body(default={})):
+    from live_data.production_verify import verify
+
+    body = payload or {}
+    return verify(
+        allow_recorded_sample=body.get("allow_recorded_sample"),
+        skip_live_probes=bool(body.get("skip_live_probes", False)),
+        skip_ingestion=bool(body.get("skip_ingestion", False)),
+        morning_dry_run=bool(body.get("morning_dry_run", True)),
+    )
+
+
+@router.get("/live-data/verification/dashboard")
+async def live_data_verification_dashboard():
+    from live_data.production_verify import health_dashboard
+
+    return health_dashboard()
+
+
+@router.get("/live-data/verification/certification")
+async def live_data_verification_certification():
+    from live_data.production_verify import certification
+
+    return certification()
+
+
+@router.get("/live-data/verification/telemetry")
+async def live_data_verification_telemetry(limit: int = 100, source_id: str | None = None):
+    from live_data.production_verify import telemetry
+
+    return telemetry(limit=limit, source_id=source_id)
+
+
+@router.get("/live-data/verification/probes")
+async def live_data_verification_probes():
+    from live_data.production_verify import probes
+
+    return probes()
+
+
+@router.get("/live-data/verification/report")
+async def live_data_verification_report():
+    from live_data.production_verify import report_status
+
+    return report_status()
+
+
+@router.post("/live-data/verification/report/generate")
+async def live_data_verification_report_generate():
+    from live_data.production_verify import generate_report
+
+    return generate_report()
+
+
+# ---------------------------------------------------------------------------
 # AGIB v2.1 — Complete Ask Pipeline (read-only observability + sample runner)
 # ---------------------------------------------------------------------------
 @router.get("/ask/pipeline")
