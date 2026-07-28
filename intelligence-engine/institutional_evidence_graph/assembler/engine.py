@@ -48,6 +48,7 @@ def build_evidence_graph(
         concept_mode=concept_mode,
         question=question,
     )
+    industry_ids = _resolve_industries(question=question) if not company_ids else []
 
     ranked = _ranked_evidence(knowledge=knowledge, evidence=evidence)
     nodes: list[dict[str, Any]] = []
@@ -273,6 +274,95 @@ def build_evidence_graph(
         )
         all_chains.extend(chains)
 
+    # Concept / industry questions without tickers — soft industry/commodity graph
+    if not company_ids and industry_ids and ieri_ok:
+        for ind in industry_ids:
+            en = entity_node(ind, kind="industry")
+            nodes.append(en)
+            edges.append(
+                edge(q_node["node_id"], en["node_id"], relationship="asks_about", weight=1.0, confidence=0.9)
+            )
+            tree = empty_domain_tree(ind)
+            try:
+                from knowledge_factory.economic_relationship_intelligence.production import (
+                    industry as ieri_industry,
+                    search as ieri_search,
+                )
+
+                ind_view = ieri_industry(ind, as_of=as_of)
+                rows = []
+                if isinstance(ind_view, dict):
+                    for bucket_rows in (ind_view.get("relationships") or {}).values():
+                        if isinstance(bucket_rows, list):
+                            rows.extend(bucket_rows)
+                if not rows:
+                    search_hits = ieri_search(ind, as_of=as_of, limit=40)
+                    rows = [
+                        {
+                            "counterpart": h.get("target") if h.get("source") == ind else h.get("source"),
+                            "relationship_type": h.get("relationship_type"),
+                            "confidence": h.get("confidence"),
+                            "available_from": "2015-01-01",
+                            "evidence": h.get("relationship_type"),
+                            "relationship_id": h.get("relationship_id"),
+                            "shock_direction": h.get("shock_direction"),
+                            "transmission_order": h.get("transmission_order"),
+                        }
+                        for h in (search_hits.get("results") or [])
+                    ]
+                for row in rows[:20]:
+                    domain = "macro_exposure"
+                    rtype = str(row.get("relationship_type") or "")
+                    if "competitor" in rtype:
+                        domain = "competitors"
+                    elif "supplier" in rtype or "customer" in rtype:
+                        domain = "suppliers" if "supplier" in rtype else "customers"
+                    node = evidence_node(
+                        entity=ind,
+                        domain=domain,
+                        source="ieri",
+                        available_from=row.get("available_from") or "2015-01-01",
+                        confidence=float(row.get("confidence") or 0.7),
+                        relationship=rtype or "related_to",
+                        title=f"{ind} · {rtype} · {row.get('counterpart')}",
+                        counterpart=str(row.get("counterpart")) if row.get("counterpart") else None,
+                        evidence_id=row.get("relationship_id"),
+                        kind="relationship",
+                    )
+                    nodes.append(node)
+                    # ensure domain node exists
+                    dn_id = f"domain:{ind}:{domain}"
+                    if not any(n.get("node_id") == dn_id for n in nodes):
+                        nodes.append(domain_node(ind, domain, label=DOMAIN_LABELS.get(domain, domain)))
+                        edges.append(
+                            edge(en["node_id"], dn_id, relationship="has_domain", weight=1.0, confidence=1.0)
+                        )
+                    edges.append(
+                        edge(
+                            dn_id,
+                            node["node_id"],
+                            relationship=rtype or "related_to",
+                            weight=0.75,
+                            confidence=float(row.get("confidence") or 0.7),
+                            available_from=row.get("available_from"),
+                        )
+                    )
+                    tree["domains"][domain]["node_ids"].append(node["node_id"])
+            except Exception:
+                pass
+            for domain, meta in tree["domains"].items():
+                uniq_ids = list(dict.fromkeys(meta["node_ids"]))
+                meta["node_ids"] = uniq_ids
+                meta["n_nodes"] = len(uniq_ids)
+                meta["coverage"] = "filled" if uniq_ids else "empty"
+            entity_trees[ind] = {**tree, "coverage": domain_coverage(tree)}
+            if ieri_transmission is not None:
+                try:
+                    tx = ieri_transmission(ind, as_of=as_of, max_order=3, limit=30)
+                    all_chains.extend(build_chains(entity=ind, transmission=tx, relationship_buckets={}))
+                except Exception:
+                    pass
+
     # Point-in-time filter
     nodes = filter_nodes(nodes, as_of=as_of)
     node_ids = {n["node_id"] for n in nodes}
@@ -302,7 +392,7 @@ def build_evidence_graph(
             missing_required.append(req)
 
     bullets = _surface_bullets(
-        company_ids=company_ids,
+        company_ids=list(entity_trees.keys()) or company_ids or industry_ids,
         entity_trees=entity_trees,
         chains=all_chains,
         as_of=as_of,
@@ -323,7 +413,7 @@ def build_evidence_graph(
         "intent_v2": intent_v2,
         "as_of": as_of,
         "concept_mode": bool(concept_mode),
-        "entities": company_ids,
+        "entities": company_ids or industry_ids,
         "sector": (framework_selection or {}).get("sector"),
         "playbook_id": (playbook_selection or {}).get("playbook_id"),
         "nodes": nodes,
@@ -383,6 +473,8 @@ def _resolve_companies(
         "asian paints": "ASIANPAINT",
         "titan": "TITAN",
         "maruti": "MARUTI",
+        "banks and insurance": "HDFCBANK",
+        "for banks": "HDFCBANK",
     }
     for name, ticker in alias.items():
         if name in low:
@@ -392,8 +484,40 @@ def _resolve_companies(
     for x in ids:
         if x not in out:
             out.append(x)
-    # Concept-mode macro/industry questions may have no company — still OK
     return out[:6]
+
+
+def _resolve_industries(*, question: str) -> list[str]:
+    low = (question or "").lower()
+    mapping = [
+        ("cement", "cement"),
+        ("steel", "steel"),
+        ("airline", "airlines"),
+        ("aviation", "airlines"),
+        ("hospital", "hospitals"),
+        ("pharmaceutical", "pharma"),
+        ("fmcg", "fmcg"),
+        ("software", "it_services"),
+        ("it services", "it_services"),
+        ("nbfc", "nbfc"),
+        ("real estate", "real_estate"),
+        ("bank", "banks"),
+        ("insurance", "insurance"),
+        ("crude oil", "crude_oil"),
+        ("oil price", "crude_oil"),
+        ("inflation", "inflation"),
+        ("interest rate", "interest_rates"),
+        ("repo", "interest_rates"),
+        ("rupee", "fx"),
+        ("currency", "fx"),
+        ("gst", "fiscal"),
+        ("import dut", "trade_policy"),
+    ]
+    out: list[str] = []
+    for cue, ind in mapping:
+        if cue in low and ind not in out:
+            out.append(ind)
+    return out[:4]
 
 
 def _ranked_evidence(
