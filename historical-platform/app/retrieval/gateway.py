@@ -7,6 +7,7 @@ from typing import Any
 from app.config.settings import Settings
 from app.coverage.policy import policy_snapshot
 from app.hko.shape import shape_hko_view
+from app.hri.engine import HistoricalRelationshipEngine
 from app.storage.db import HipStore
 from app.timeline import traces
 from app.timeline.builder import TimelineBuilder
@@ -18,6 +19,7 @@ class HistoricalRetrievalGateway:
         self.store = store
         self.settings = settings
         self.timelines = TimelineBuilder(store)
+        self.relationships = HistoricalRelationshipEngine(store)
 
     def company_history(self, symbol: str) -> dict[str, Any]:
         span = traces.begin("historical_retrieval", meta={"symbol": symbol, "kind": "company"})
@@ -229,6 +231,7 @@ class HistoricalRetrievalGateway:
             cov = self.store.coverage_report(symbol, self.settings)
             tl = self.store.timeline_completeness(symbol)
             years = tl.get("years_ingested") or []
+            rel_n = len(self.store.list_relationships(company_symbol=symbol))
             rows.append(
                 {
                     "company_symbol": symbol,
@@ -240,9 +243,11 @@ class HistoricalRetrievalGateway:
                     "years_ingested": years,
                     "years_span": tl.get("years_span"),
                     "missing_periods": tl.get("missing_periods"),
+                    "relationship_count": rel_n,
                 }
             )
         runs = self.store.list_runs(limit=10)
+        hri = self.store.relationship_dashboard()
         return {
             "board": "Historical Intelligence",
             "version": self.settings.version,
@@ -251,13 +256,19 @@ class HistoricalRetrievalGateway:
             "historical_objects": self.store.count_objects(),
             "raw_archive": self.store.count_raw(),
             "ingestion_progress": runs,
+            "relationships": hri,
+            "relationship_board": {
+                "title": "Historical Relationship Intelligence",
+                **hri,
+            },
             "retrieval_performance": {
                 "providers_queried_always": [],
-                "traces": traces.recent(20),
+                "traces": traces.recent(80),
             },
             "principles": {
                 "immutable_history": True,
                 "providers_never_on_ask_path": True,
                 "narratives_not_rows": True,
+                "no_relationship_without_evidence": True,
             },
         }

@@ -1,7 +1,7 @@
-"""Soft bridge from KRIG → HIP Timeline Intelligence (Sprint 8.2).
+"""Soft bridge from KRIG → HIP Timeline + Relationship Intelligence (Sprints 8.2–8.3).
 
 Ask / IE never call Yahoo/NSE/BSE. When HIP is configured, KRIG composes
-historical timelines and compare bundles from the Historical Knowledge Store.
+historical timelines, relationships and compare bundles from the store.
 """
 
 from __future__ import annotations
@@ -34,6 +34,23 @@ class HistoricalKnowledgeBridge:
         return self._post(
             "/v1/history/compare",
             {"symbol": symbol.upper(), "as_of_period": as_of_period},
+        )
+
+    def fetch_company_relationships(self, symbol: str) -> list[dict[str, Any]]:
+        body = self._get(f"/v1/history/relationships/company/{symbol.upper()}")
+        if not body:
+            return []
+        return list(body.get("relationships") or [])
+
+    def fetch_macro_relationships(self, event: str) -> dict[str, Any] | None:
+        key = event.strip().replace(" ", "_")
+        return self._get(f"/v1/history/relationships/macro/{key}")
+
+    def explain_relationship(self, *, source: str, target: str) -> dict[str, Any] | None:
+        """e.g. source='RBI Rate Cut', target='HDFCBANK'."""
+        return self._post(
+            "/v1/history/relationships/explain",
+            {"source": source, "target": target},
         )
 
     def _get(self, path: str) -> dict[str, Any] | None:
