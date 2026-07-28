@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-IRL_VERSION = "intent-resolution-v1.0.0"
+IRL_VERSION = "intent-resolution-v1.1.0"
 PROGRAMME = "AGIB v3.4 – Institutional Answer Excellence · Track A Ask Pipeline 2.0"
 MODULE_CODE = "IRL"
 
