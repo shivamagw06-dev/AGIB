@@ -6943,6 +6943,65 @@ async def ail_evidence(evidence_id: str):
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+# ---------------------------------------------------------------------------
+# AGIB v3.4 Track C — Institutional Framework Selection Engine (IFSE)
+# Soft-wire only. Reasoning / governance / KF frozen.
+# ---------------------------------------------------------------------------
+@router.get("/framework-selection/health")
+async def framework_selection_health():
+    from framework_selection.production import health
+
+    return health()
+
+
+@router.get("/framework-selection/dashboard")
+async def framework_selection_dashboard():
+    from framework_selection.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/framework-selection/registry")
+async def framework_selection_registry():
+    from framework_selection.production import registry
+
+    return registry()
+
+
+@router.get("/framework-selection/framework/{framework_id}")
+async def framework_selection_framework(framework_id: str):
+    from framework_selection.production import framework
+
+    return framework(framework_id)
+
+
+@router.get("/framework-selection/select")
+async def framework_selection_select(
+    q: str = Query(..., description="User question"),
+    intent_v2: str | None = None,
+    ticker: str | None = None,
+    as_of: str | None = None,
+    concept_mode: bool = False,
+):
+    from framework_selection.production import select
+
+    return select(
+        question=q,
+        intent_v2=intent_v2,
+        ticker_hint=ticker,
+        as_of=as_of,
+        concept_mode=concept_mode,
+        entities=[{"type": "company", "id": ticker, "confidence": 0.99}] if ticker else [],
+    )
+
+
+@router.get("/framework-selection/history")
+async def framework_selection_history(limit: int = 50):
+    from framework_selection.production import history
+
+    return history(limit=limit)
+
+
 @router.get("/prediction/{prediction_id}")
 async def ail_prediction(prediction_id: str):
     try:

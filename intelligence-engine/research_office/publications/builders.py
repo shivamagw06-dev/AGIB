@@ -340,6 +340,12 @@ def _publish(
         coverage=coverage,
         evidence_present=evidence_present,
     )
+    # AGIB v3.4 Track C — soft-wire IFSE metadata (publication body unchanged)
+    fw_meta = _select_publication_frameworks(
+        title=title,
+        publication_type=publication_type,
+        covered_entities=covered_entities or [],
+    )
     return register_publication(
         title=title,
         publication_type=publication_type,
@@ -352,4 +358,56 @@ def _publish(
         sources=sources,
         validation=validation,
         scheduler_run_id=scheduler_run_id,
+        framework_used=fw_meta.get("framework_used"),
+        framework_confidence=fw_meta.get("framework_confidence"),
+        framework_version=fw_meta.get("framework_version"),
+        framework_explanation=fw_meta.get("framework_explanation"),
     )
+
+
+def _select_publication_frameworks(
+    *,
+    title: str,
+    publication_type: str,
+    covered_entities: list[str],
+) -> dict[str, Any]:
+    try:
+        from framework_selection import IFSE_VERSION, select_frameworks
+        from framework_selection import store as ifse_store
+
+        intent_map = {
+            "macro_intelligence_brief": "Macro",
+            "government_intelligence_brief": "Government",
+            "sector_intelligence_report": "Industry",
+            "industry_intelligence_report": "Industry",
+            "company_research_note": "Analyse",
+            "market_morning_brief": "CrossDomain",
+            "corporate_events_report": "CorporateEvents",
+            "alternative_data_report": "Analyse",
+            "market_expectations_report": "Analyse",
+        }
+        ticker = covered_entities[0] if covered_entities else None
+        entities = (
+            [{"type": "company", "id": ticker, "confidence": 0.99}] if ticker else []
+        )
+        sel = select_frameworks(
+            question=title,
+            intent_v2=intent_map.get(publication_type, "Analyse"),
+            entities=entities,
+            ticker_hint=ticker,
+            concept_mode=not bool(ticker),
+        )
+        ifse_store.record_selection(sel)
+        return {
+            "framework_used": list(sel.get("framework_ids") or []),
+            "framework_confidence": sel.get("confidence") or {},
+            "framework_version": sel.get("ifse_version") or IFSE_VERSION,
+            "framework_explanation": sel.get("explanation"),
+        }
+    except Exception as exc:
+        return {
+            "framework_used": [],
+            "framework_confidence": {"error": str(exc)[:120]},
+            "framework_version": None,
+            "framework_explanation": None,
+        }

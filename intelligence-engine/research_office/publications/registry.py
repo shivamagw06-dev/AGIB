@@ -22,6 +22,10 @@ def register_publication(
     sources: list[dict[str, Any]] | None = None,
     validation: dict[str, Any] | None = None,
     scheduler_run_id: str | None = None,
+    framework_used: list[str] | None = None,
+    framework_confidence: dict[str, Any] | None = None,
+    framework_version: str | None = None,
+    framework_explanation: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     pub_id = f"pub_{uuid.uuid4().hex[:14]}"
     created = store.utc_now()
@@ -41,6 +45,11 @@ def register_publication(
         "generator_version": RO_VERSION,
         "validation": validation or {"ok": False, "reason": "ungated"},
         "status": "draft",
+        # AGIB v3.4 Track C — IFSE metadata on every publication
+        "framework_used": list(framework_used or []),
+        "framework_confidence": framework_confidence or {},
+        "framework_version": framework_version,
+        "framework_explanation": framework_explanation,
         "historical_replay": {
             "replay_id": replay_id,
             "point_in_time": True,
