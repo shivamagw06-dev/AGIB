@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
-PIPELINE_VERSION = "ask-pipeline-v1.0.0"
-PROGRAMME = "AGIB v2.1 – Complete Ask Pipeline"
+PIPELINE_VERSION = "ask-pipeline-v2.0.0"
+PROGRAMME = "AGIB v3.4 – Ask Pipeline 2.0 (Intent Resolution)"
 MODULE_CODE = "ASKP"
 
 INTENTS: tuple[str, ...] = (

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from datetime import datetime, timezone
 from typing import Any
 
 from ask_pipeline.schema import KNOWLEDGE_SELECTION
@@ -36,9 +37,17 @@ def retrieve_knowledge(
     entities: list[dict[str, Any]],
     soft_tags: list[dict[str, Any]] | None = None,
     question: str | None = None,
+    as_of: str | None = None,
+    concept_mode: bool = False,
 ) -> dict[str, Any]:
     started = time.time()
     selection = dict(KNOWLEDGE_SELECTION.get(intent) or KNOWLEDGE_SELECTION["Unknown"])
+    # Track A Concept Mode — never force company objects / Infosys defaults
+    if concept_mode:
+        selection = {k: v for k, v in selection.items() if k != "company"}
+        selection.setdefault("macro", "optional")
+        selection.setdefault("industry", "optional")
+        selection.setdefault("government", "optional")
     # Soft tags may add optional object types
     for tag in soft_tags or []:
         t = tag.get("type")
@@ -55,7 +64,11 @@ def retrieve_knowledge(
         elif t == "portfolio":
             selection.setdefault("decision_memory", "optional")
 
-    company_ids = [str(e["id"]).upper() for e in entities if e.get("type") == "company" and e.get("id")]
+    company_ids = []
+    if not concept_mode:
+        company_ids = [
+            str(e["id"]).upper() for e in entities if e.get("type") == "company" and e.get("id")
+        ]
     bag: dict[str, Any] = {"objects": {}, "skipped_objects": [], "errors": []}
 
     for obj, mode in selection.items():
@@ -83,7 +96,12 @@ def retrieve_knowledge(
             bag["skipped_objects"].append({"object": obj, "reason": "intent_not_applicable"})
 
     # Soft-wire IERE — ranked Evidence Packs (never PDFs / never raw APIs).
-    iere = _retrieve_iere(question=question, company_ids=company_ids)
+    iere = _retrieve_iere(
+        question=question,
+        company_ids=company_ids,
+        as_of=as_of,
+        concept_mode=concept_mode,
+    )
     primary = "evidence_retrieval" if iere and not iere.get("unavailable") else "knowledge_factory"
 
     return {
@@ -92,6 +110,8 @@ def retrieve_knowledge(
         "intent": intent,
         "selection": selection,
         "company_ids": company_ids,
+        "concept_mode": concept_mode,
+        "as_of": as_of,
         "bag": bag,
         "iere": iere,
         "primary_engine": primary,
@@ -101,15 +121,31 @@ def retrieve_knowledge(
     }
 
 
-def _retrieve_iere(*, question: str | None, company_ids: list[str]) -> dict[str, Any]:
+def _retrieve_iere(
+    *,
+    question: str | None,
+    company_ids: list[str],
+    as_of: str | None = None,
+    concept_mode: bool = False,
+) -> dict[str, Any]:
     try:
+        from evidence_retrieval.production import replay as iere_replay
         from evidence_retrieval.production import search as iere_search
 
         q = (question or "").strip()
         if not q:
-            ticker = company_ids[0] if company_ids else "INFY"
-            q = f"What institutional evidence is available for {ticker}?"
-        out = iere_search(q, ticker=company_ids[0] if company_ids else None)
+            if concept_mode or not company_ids:
+                q = "What institutional evidence supports this conceptual question?"
+            else:
+                q = f"What institutional evidence is available for {company_ids[0]}?"
+        ticker = None if concept_mode else (company_ids[0] if company_ids else None)
+        # Point-in-time replay only when as_of is an explicit historical bound
+        today = datetime.now(timezone.utc).date().isoformat()
+        use_replay = bool(as_of) and str(as_of)[:10] < today
+        if use_replay:
+            out = iere_replay(question=q, as_of=as_of, ticker=ticker)
+        else:
+            out = iere_search(q, ticker=ticker, as_of=as_of)
         return {
             "retrieval_id": out.get("retrieval_id"),
             "ask_envelope": out.get("ask_envelope"),
@@ -117,6 +153,9 @@ def _retrieve_iere(*, question: str | None, company_ids: list[str]) -> dict[str,
             "ranked_count": out.get("ranked_count"),
             "quality_gates": out.get("quality_gates"),
             "latency_ms": out.get("latency_ms"),
+            "as_of": as_of,
+            "concept_mode": concept_mode,
+            "replay": out.get("replay"),
             "unavailable": False,
             "fabricated": False,
             "reasoning_changed": False,
