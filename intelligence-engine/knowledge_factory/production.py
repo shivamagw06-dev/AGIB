@@ -40,8 +40,20 @@ def coverage_dashboard() -> dict[str, Any]:
         obj = store.get_object("company", e) or {}
         qualities.append(float(obj.get("quality_score") or 0))
         missing.extend(obj.get("missing_fields") or [])
+    # North Star + morning board (Coverage is the only KPI that matters now)
+    from knowledge_factory.coverage import decision_coverage, morning_coverage_dashboard
+
+    try:
+        morning = morning_coverage_dashboard()
+        decision = morning.get("north_star") or decision_coverage()
+    except Exception:
+        morning = {}
+        decision = decision_coverage()
     return {
         "version": KF_VERSION,
+        "north_star": "decision_coverage",
+        "decision_coverage": decision,
+        "morning": morning,
         "companies_covered": len(companies),
         "sector_coverage": len(store.list_objects("sector")),
         "macro_coverage": 1 if store.get_object("macro", "GLOBAL") else 0,
@@ -57,6 +69,7 @@ def coverage_dashboard() -> dict[str, Any]:
             "low": sum(1 for q in qualities if q < 60),
         },
         "report": report,
+        "architecture_frozen": "REASONING_V1",
     }
 
 

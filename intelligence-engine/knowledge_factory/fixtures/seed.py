@@ -55,8 +55,19 @@ def sector_map() -> dict[str, str]:
         "TECHM": "it_services",
         "HDFCBANK": "banks",
         "ICICIBANK": "banks",
+        "SBIN": "banks",
         "RELIANCE": "energy_conglomerate",
         "ZOMATO": "consumer_internet",
+        "SUNPHARMA": "pharma",
+        "DRREDDY": "pharma",
+        "CIPLA": "pharma",
+        "LT": "industrials",
+        "SIEMENS": "industrials",
+        "BEL": "industrials",
+        "MARUTI": "auto",
+        "TATAMOTORS": "auto",
+        "ASIANPAINT": "fmcg",
+        "HINDUNILVR": "fmcg",
     }
 
 

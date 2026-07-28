@@ -6948,6 +6948,20 @@ async def knowledge_factory_dashboard():
     return coverage_dashboard()
 
 
+@router.get("/knowledge-factory/coverage")
+async def knowledge_factory_morning_coverage():
+    """Morning coverage board + Decision Coverage north star."""
+    from knowledge_factory.coverage import morning_coverage_dashboard
+
+    return morning_coverage_dashboard()
+
+
+@router.get("/knowledge-factory/decision-coverage")
+async def knowledge_factory_decision_coverage():
+    from knowledge_factory.coverage import decision_coverage
+
+    return decision_coverage()
+
 @router.get("/knowledge-factory/quality-gates")
 async def knowledge_factory_quality_gates():
     from knowledge_factory.production import quality_gates

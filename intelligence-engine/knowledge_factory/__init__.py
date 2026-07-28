@@ -8,6 +8,7 @@ NOT a top-level reasoning engine. Phases 1–7 remain frozen.
 
 from __future__ import annotations
 
+from knowledge_factory.coverage import decision_coverage, morning_coverage_dashboard
 from knowledge_factory.production import (
     coverage_dashboard,
     health,
@@ -26,7 +27,9 @@ __all__ = [
     "MODULE_CODE",
     "PROGRAMME",
     "coverage_dashboard",
+    "decision_coverage",
     "health",
+    "morning_coverage_dashboard",
     "quality_gates",
     "run_daily_pipeline",
 ]
