@@ -452,6 +452,9 @@ _register(
     },
 )
 
+# Sprint 2 — remaining Nifty 50 panels (side-effect registration).
+from institutional_reasoning.fundamentals import coverage_panels_nifty50 as _nifty50_panels  # noqa: E402,F401
+
 
 def has_primitives(entity_id: str | None) -> bool:
     return str(entity_id or "").upper() in _PANEL

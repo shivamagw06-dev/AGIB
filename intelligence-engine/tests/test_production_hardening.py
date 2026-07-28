@@ -51,10 +51,14 @@ def test_risk_contract_complete_with_derived_packs():
 
 
 def test_universe_coverage_reports_gaps():
+    # Sprint 2: Nifty 50 is fully panelled; honesty remains on Nifty 500 / global.
     report = tier_report("nifty_50")
     assert report["declared"] == 50
-    assert report["by_level"]["uncovered"] > 0
+    assert report["by_level"]["full"] == 50
+    assert report["by_level"]["uncovered"] == 0
     assert report["honest_gap"]["nifty_500_full_panel"] is False
+    n500 = tier_report("nifty_500")
+    assert n500["honest_gap"]["nifty_500_full_panel"] is False
 
 
 def test_contextual_confidence_sector_regime_horizon():
