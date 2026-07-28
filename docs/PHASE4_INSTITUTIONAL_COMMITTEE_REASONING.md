@@ -5,7 +5,7 @@ COMPANY: AGI
 MODULE: ICR
 VERSION: institutional-committee-reasoning-v1.0.0
 PROFILE: icr-committee-profile-v1.0.0
-STATUS: soft-wired after IHE / before Reasoning
+STATUS: FROZEN v1.0.0 — part of AGI v3.6 Institutional Judgment Release
 ```
 
 ## Purpose

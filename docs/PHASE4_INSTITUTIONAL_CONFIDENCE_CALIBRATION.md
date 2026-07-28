@@ -5,8 +5,8 @@ COMPANY: AGI
 MODULE: ICC
 VERSION: institutional-confidence-calibration-v1.0.0
 PROFILE: icc-confidence-profile-v1.0.0
-STATUS: soft-wired after ICR / before Reasoning
-PHASE: 4 COMPLETE (judgment stack)
+STATUS: FROZEN v1.0.0 — part of AGI v3.6 Institutional Judgment Release
+PHASE: 4 COMPLETE (judgment stack frozen)
 ```
 
 ## Purpose
