@@ -248,6 +248,26 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
             out["roadmap_next"] = "knowledge_stack_complete"
     except Exception:
         out["institutional_knowledge_stack"] = None
+    # AGIB v2.1 Institutional Scheduler — soft ops heartbeat.
+    try:
+        from institutional_scheduler.production import dashboard as sched_dash
+        from institutional_scheduler.production import status as sched_status
+
+        st = sched_status()
+        dash = sched_dash()
+        out["institutional_scheduler"] = {
+            "state": st.get("state"),
+            "system_ready": st.get("system_ready"),
+            "current_workflow": st.get("current_workflow"),
+            "current_run_id": st.get("current_run_id"),
+            "ready_status": (dash.get("ready_status") or {}),
+            "mission_control_ops": dash.get("mission_control_ops"),
+            "north_star": dash.get("north_star"),
+        }
+        out["sources"].append("institutional_scheduler")
+        out["system_ready"] = bool(st.get("system_ready"))
+    except Exception:
+        out["institutional_scheduler"] = None
     # AGIB v2.1 Ask Pipeline board (soft observability).
     try:
         from ask_pipeline.production import dashboard as ask_dash
