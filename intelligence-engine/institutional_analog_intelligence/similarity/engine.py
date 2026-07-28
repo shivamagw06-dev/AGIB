@@ -84,15 +84,46 @@ def score_similarity(
             reasons.append("playbook_bank_val")
 
     # Financial / valuation profile soft match via question language
+    # Do not let bare "banks" inflate P/B·RI analogs on rate-transmission questions.
+    # Avoid substring traps (e.g. "repo" inside "reports").
+    rate_tx = any(
+        _cue_hit(k, low)
+        for k in (
+            "rate cut",
+            "rate cuts",
+            "repo rate",
+            "repo cut",
+            "transmission",
+            "basis point",
+            "basis points",
+            "nbfc",
+            "easing",
+            "rbi",
+        )
+    )
     if memory.get("valuation_profile") == "pb_roe" and any(
-        k in low for k in ("p/b", "price to book", "residual income", "banks")
+        k in low for k in ("p/b", "price to book", "residual income")
     ):
         parts["valuation_profile"] = max(parts["valuation_profile"], 0.85)
         parts["financial_profile"] = max(parts["financial_profile"], 0.7)
+    elif (
+        memory.get("valuation_profile") == "pb_roe"
+        and "bank" in low
+        and not rate_tx
+    ):
+        parts["valuation_profile"] = max(parts["valuation_profile"], 0.55)
+        parts["financial_profile"] = max(parts["financial_profile"], 0.45)
     if memory.get("valuation_profile") == "quality_premium" and any(
         k in low for k in ("premium", "expensive", "quality")
     ):
         parts["valuation_profile"] = max(parts["valuation_profile"], 0.8)
+
+    # Prefer rate-cycle memories when question is about cuts/hikes
+    if rate_tx and mtype in {"previous_rate_cycle", "liquidity_cycle", "credit_cycle"}:
+        parts["policy_regime"] = max(parts["policy_regime"], 0.95)
+        parts["macro_regime"] = max(parts["macro_regime"], 0.85)
+        parts["historical_behaviour"] = max(parts["historical_behaviour"], 0.7)
+        reasons.append("rate_transmission_analog")
 
     # Risk profile
     if memory.get("risk_profile") and any(
