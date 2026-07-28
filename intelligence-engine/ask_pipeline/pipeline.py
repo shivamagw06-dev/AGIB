@@ -93,15 +93,16 @@ def run_complete_ask(
     )
     stages["policy"] = {"status": "executed", **policy}
 
-    # S05 Knowledge
+    # S05 Knowledge (+ soft-wire IERE evidence retrieval)
     knowledge = retrieve_knowledge(
         intent=intent_rec["intent"],
         entities=context["entities"],
         soft_tags=entities_rec.get("soft_tags"),
+        question=question,
     )
     stages["knowledge"] = knowledge
 
-    # S06 Evidence
+    # S06 Evidence — prefers IERE Evidence Packs when available; reasoning unchanged
     evidence = assemble_evidence(
         knowledge,
         intent=intent_rec["intent"],

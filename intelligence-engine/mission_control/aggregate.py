@@ -370,6 +370,28 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("institutional_documents")
     except Exception:
         out["institutional_documents"] = None
+    # AGIB v3.2 IERE — institutional evidence retrieval soft board.
+    try:
+        from evidence_retrieval.production import dashboard as iere_dash
+        from evidence_retrieval.production import health as iere_health
+
+        ih = iere_health()
+        idash = iere_dash()
+        out["evidence_retrieval"] = {
+            "status": ih.get("status"),
+            "version": ih.get("version"),
+            "evidence_coverage": idash.get("evidence_coverage"),
+            "evidence_freshness": idash.get("evidence_freshness"),
+            "retrieval_latency_ms": idash.get("retrieval_latency_ms"),
+            "citation_coverage": idash.get("citation_coverage"),
+            "replay_health": idash.get("replay_health"),
+            "knowledge_completeness": idash.get("knowledge_completeness"),
+            "evidence_confidence": idash.get("evidence_confidence"),
+            "north_star": idash.get("north_star"),
+        }
+        out["sources"].append("evidence_retrieval")
+    except Exception:
+        out["evidence_retrieval"] = None
     try:
         from knowledge_factory.production import historical_depth_coverage
 

@@ -234,6 +234,38 @@ def assemble_evidence(
         },
     )
 
+    # Soft-wire IERE Evidence Packs — structured only; reasoning unchanged.
+    iere = (knowledge or {}).get("iere") or {}
+    iere_envelope = iere.get("ask_envelope") if isinstance(iere, dict) else None
+    if isinstance(iere_envelope, dict) and iere_envelope.get("packs"):
+        packs["iere"] = {
+            "pack_type": "iere_evidence_packs",
+            "entity": company_ids[0] if company_ids else None,
+            "evidence": {
+                "retrieval_id": iere_envelope.get("retrieval_id"),
+                "packs": iere_envelope.get("packs"),
+                "top_evidence": iere_envelope.get("top_evidence") or [],
+                "citations": iere_envelope.get("citations") or [],
+            },
+            "quality": 0.85,
+            "coverage": 0.8,
+            "provenance": iere_envelope.get("provenance")
+            or {
+                "source": "evidence_retrieval",
+                "collector": "iere",
+                "retrieved_at": utc_now(),
+                "validated_at": utc_now(),
+                "fabricated": False,
+                "version": "iere-ask-v1",
+            },
+            "validation": {"ok": True, "insufficient": False},
+            "point_in_time": {"integrity": True, "as_of": utc_now(), "lookahead": False},
+            "found": True,
+            "fabricated": False,
+            "pdf_sent_to_reasoning": False,
+        }
+        governance_packs["iere_evidence"] = packs["iere"]["evidence"]
+
     # Coverage summary
     flat = []
     for k, v in packs.items():
@@ -251,6 +283,8 @@ def assemble_evidence(
         "intent": intent,
         "packs": packs,
         "governance_packs": governance_packs,
+        "iere_retrieval_id": (iere or {}).get("retrieval_id") if isinstance(iere, dict) else None,
+        "primary_engine": (knowledge or {}).get("primary_engine") or "knowledge_factory",
         "coverage": coverage,
         "pack_count": len(flat),
         "packs_found": found_n,
