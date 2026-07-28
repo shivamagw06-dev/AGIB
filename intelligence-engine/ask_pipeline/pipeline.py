@@ -1310,6 +1310,83 @@ def run_complete_ask(
         "requires_review": monitoring_office.get("requires_review"),
     }
 
+    # ------------------------------------------------------------------
+    # AGI v4.0 Phase 5 Sprint 5.5 — Institutional Learning Office (ILO)
+    # Soft-wire only: process memory — never Knowledge Factory / mutations.
+    # Final Office module — no Sprint 5.6.
+    # ------------------------------------------------------------------
+    from institutional_learning_office.production import (
+        apply_learning_office as ilo_apply,
+    )
+    from institutional_learning_office.schema import ILO_VERSION, LEARNING_SCHEMA_VERSION
+
+    _ilo_meta = {
+        "question_id": (context.get("question_id") or session_id or conversation_id),
+        "thesis_id": (investment_thesis.get("thesis") or {}).get("thesis_id"),
+        "decision_id": (decision_office.get("decision") or {}).get("decision_id"),
+        "idea_id": (portfolio_office.get("idea") or {}).get("idea_id"),
+        "learning_schema_version": LEARNING_SCHEMA_VERSION,
+        "replay_mode": bool(irl.get("as_of")),
+    }
+    with trace_span(
+        "learning_office",
+        run_type="chain",
+        inputs={
+            "question": question,
+            "thesis_id": _ilo_meta["thesis_id"],
+            "portfolio_idea": monitoring_office.get("portfolio_idea"),
+        },
+        tags=["ask", "ilo", "learning_office", "v4"],
+        metadata=_ilo_meta,
+    ) as _ilo_sp:
+        _ilo = ilo_apply(
+            question=question,
+            investment_thesis=investment_thesis,
+            decision_office=decision_office,
+            portfolio_office=portfolio_office,
+            monitoring_office=monitoring_office,
+            confidence_calibration=confidence_calibration,
+            as_of=irl.get("as_of"),
+            metadata=_ilo_meta,
+            persist=True,
+        )
+        _ilo_pack = _ilo.get("pack") or {}
+        _ilo_learning = _ilo_pack.get("learning") or {}
+        _ilo_sp.end(
+            outputs={
+                "learning_id": _ilo_learning.get("learning_id"),
+                "outcome": _ilo_learning.get("outcome"),
+                "category": _ilo_learning.get("category"),
+                "root_cause": _ilo_learning.get("root_cause"),
+                "knowledge_factory_updated": False,
+                "process_memory": True,
+                "ilo_version": ILO_VERSION,
+            }
+        )
+    learning_office = _ilo.get("pack") or {}
+    stages["learning_office"] = {
+        "status": "executed",
+        "ilo_version": learning_office.get("ilo_version") or ILO_VERSION,
+        "learning_id": (learning_office.get("learning") or {}).get("learning_id"),
+        "outcome": (learning_office.get("learning") or {}).get("outcome"),
+        "category": (learning_office.get("learning") or {}).get("category"),
+        "knowledge_factory_updated": False,
+        "process_memory": True,
+        "mutates_thesis": False,
+        "positions_emitted": False,
+        "orders_emitted": False,
+        "reasoning_changed": False,
+        "judgment_changed": False,
+        "llm_used": False,
+        "fabricated": False,
+    }
+    context["learning_office"] = {
+        "ilo_version": learning_office.get("ilo_version") or ILO_VERSION,
+        "learning_id": (learning_office.get("learning") or {}).get("learning_id"),
+        "outcome": (learning_office.get("learning") or {}).get("outcome"),
+        "category": (learning_office.get("learning") or {}).get("category"),
+    }
+
     # S07 Planner — no ticker in Concept Mode
     planner = run_planner(question, ticker_hint=hint, policy=policy)
     stages["planner"] = planner
@@ -1544,6 +1621,29 @@ def run_complete_ask(
         "review_queue": monitoring_office.get("review_queue"),
         "domains_covered": monitoring_office.get("domains_covered"),
         "persisted": monitoring_office.get("persisted"),
+        "mutates_thesis": False,
+        "mutates_decision": False,
+        "mutates_portfolio": False,
+        "positions_emitted": False,
+        "orders_emitted": False,
+        "reasoning_changed": False,
+        "judgment_changed": False,
+        "llm_used": False,
+        "fabricated": False,
+        "deterministic": True,
+    }
+    # Soft overlay — Institutional Learning Office (process memory; final Office)
+    packs["learning_office"] = {
+        "ilo_version": learning_office.get("ilo_version") or ILO_VERSION,
+        "schema_version": learning_office.get("schema_version") or LEARNING_SCHEMA_VERSION,
+        "learning": learning_office.get("learning"),
+        "learning_id": (learning_office.get("learning") or {}).get("learning_id"),
+        "n_learnings": learning_office.get("n_learnings"),
+        "outcome": learning_office.get("outcome"),
+        "category": learning_office.get("category"),
+        "persisted": learning_office.get("persisted"),
+        "knowledge_factory_updated": False,
+        "process_memory": True,
         "mutates_thesis": False,
         "mutates_decision": False,
         "mutates_portfolio": False,

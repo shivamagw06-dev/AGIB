@@ -42,6 +42,8 @@ def score_question(
         dimensions["portfolio_quality"] = by_dim["portfolio_quality"]
     if "monitoring_quality" in by_dim:
         dimensions["monitoring_quality"] = by_dim["monitoring_quality"]
+    if "learning_quality" in by_dim:
+        dimensions["learning_quality"] = by_dim["learning_quality"]
     hqs_val = None
     hq = dimensions.get("hypothesis_quality") or {}
     if hq and not hq.get("n_a"):
@@ -70,6 +72,10 @@ def score_question(
     mq = dimensions.get("monitoring_quality") or {}
     if mq and not mq.get("n_a"):
         mqs_val = mq.get("mqs") if mq.get("mqs") is not None else mq.get("score")
+    lqs_val = None
+    lq = dimensions.get("learning_quality") or {}
+    if lq and not lq.get("n_a"):
+        lqs_val = lq.get("lqs") if lq.get("lqs") is not None else lq.get("score")
     return {
         "question_id": question.get("question_id"),
         "question": question.get("question"),
@@ -88,6 +94,7 @@ def score_question(
         "dqs": dqs_val,
         "pqs": pqs_val,
         "mqs": mqs_val,
+        "lqs": lqs_val,
         "root_causes": failures,
         "verdict": "PASS" if passed else ("PARTIAL" if overall >= 55 else "FAIL"),
         # Expected labels for Root Cause Intelligence (Sprint 3.2)
