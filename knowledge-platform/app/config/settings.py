@@ -27,7 +27,7 @@ def _env_float(name: str, default: float) -> float:
 @dataclass(frozen=True)
 class Settings:
     service_name: str = "kaip"
-    version: str = "0.4.0"
+    version: str = "0.5.0"
     host: str = field(default_factory=lambda: os.getenv("KAIP_HOST", "0.0.0.0"))
     port: int = field(default_factory=lambda: int(os.getenv("KAIP_PORT", "8091")))
     db_path: Path = field(
@@ -72,6 +72,10 @@ class Settings:
         default_factory=lambda: _env_bool("KAIP_LIVE_COLLECTORS", True)
     )
     scheduler_enabled: bool = field(default_factory=lambda: _env_bool("KAIP_SCHEDULER", True))
+    # Sprint 6.5 — Adaptive Knowledge Orchestrator (primary). Set KAIP_AKO=false
+    # to fall back to the fixed AcquisitionScheduler.
+    ako_enabled: bool = field(default_factory=lambda: _env_bool("KAIP_AKO", True))
+    ako_tick_seconds: float = field(default_factory=lambda: _env_float("KAIP_AKO_TICK_SECONDS", 1.0))
     duplicate_window_seconds: int = field(
         default_factory=lambda: int(os.getenv("KAIP_DUPLICATE_WINDOW_SECONDS", "300"))
     )

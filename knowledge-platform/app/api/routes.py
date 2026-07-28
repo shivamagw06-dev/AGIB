@@ -216,9 +216,99 @@ def metrics(request: Request) -> dict:
     return METRICS.snapshot()
 
 
+# ----- Sprint 6.5 AKO (Mission Control soft surface) -----
+
+class AkoEventRequest(BaseModel):
+    kind: str
+    title: str
+    event_date: str  # YYYY-MM-DD
+    symbols: list[str] = Field(default_factory=list)
+    boost_multiplier: float = 2.0
+    priority: int = 80
+
+
+def _require_ako(request: Request):
+    ako = getattr(_app_state(request), "ako", None)
+    if ako is None:
+        raise HTTPException(status_code=503, detail="ako_disabled")
+    return ako
+
+
+@router.get("/v1/ako/mission-control")
+def ako_mission_control(request: Request) -> dict:
+    """Mission Control: collector health, intervals, queue, freshness, events."""
+    return _require_ako(request).mission_control_snapshot()
+
+
+@router.get("/v1/ako/session")
+def ako_session(request: Request) -> dict:
+    from app.ako.sessions import next_session_boundary, resolve_session
+
+    session = resolve_session()
+    return {
+        "current": session.session.value,
+        "label": session.label,
+        "as_of_ist": session.as_of_ist.isoformat(),
+        "is_trading_day": session.is_trading_day,
+        "allow_live_polling": session.allow_live_polling,
+        "allow_heavy_rebuild": session.allow_heavy_rebuild,
+        "next_boundary_ist": next_session_boundary(session.as_of_ist).isoformat(),
+    }
+
+
+@router.get("/v1/ako/events")
+def ako_events(request: Request) -> dict:
+    return _require_ako(request).event_engine.snapshot()
+
+
+@router.post("/v1/ako/events")
+def ako_register_event(request: Request, body: AkoEventRequest) -> dict:
+    from datetime import date as date_cls
+
+    try:
+        event_date = date_cls.fromisoformat(body.event_date)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="invalid_event_date") from exc
+    return _require_ako(request).register_event(
+        kind=body.kind,
+        title=body.title,
+        event_date=event_date,
+        symbols=body.symbols,
+        boost_multiplier=body.boost_multiplier,
+        priority=body.priority,
+    )
+
+
+@router.get("/v1/ako/jobs")
+def ako_jobs(request: Request) -> dict:
+    snap = _require_ako(request).mission_control_snapshot()
+    return {
+        "session": snap["session"],
+        "jobs": snap["jobs"],
+        "queue_depth": snap["queue_depth"],
+        "dead_letter_count": snap["dead_letter_count"],
+    }
+
+
+@router.get("/v1/ako/telemetry")
+def ako_telemetry(request: Request) -> dict:
+    return _require_ako(request).telemetry.snapshot()
+
+
+@router.post("/v1/ako/tick")
+def ako_tick(request: Request) -> dict:
+    """Ops-only: force one AKO evaluation cycle (does not serve Ask)."""
+    executed = _require_ako(request).tick_once()
+    return {"executed": executed, "count": len(executed)}
+
+
 @router.post("/v1/internal/run/{collector_id}")
 def run_collector(collector_id: str, request: Request) -> dict:
-    """Ops-only: run one registered collector immediately."""
+    """Ops-only: run one registered collector immediately.
+
+    Hard boundary: this endpoint is for Mission Control / ops — never called
+    by Ask or the Intelligence Engine judgment path.
+    """
     state = _app_state(request)
     collectors = state.collectors
     collector = collectors.get(collector_id)
