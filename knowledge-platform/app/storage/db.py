@@ -1066,3 +1066,114 @@ class KaipStore:
                 "SELECT COUNT(*) AS c FROM knowledge_objects WHERE published_at IS NOT NULL"
             ).fetchone()["c"]
         )
+
+    # ----- Sprint 6.4 KRIG -----
+
+    def put_bundle_cache(self, cache_key: str, bundle: dict[str, Any], *, ttl_seconds: int) -> None:
+        now = datetime.now(timezone.utc)
+        expires = now.timestamp() + ttl_seconds
+        expires_at = datetime.fromtimestamp(expires, tz=timezone.utc).isoformat()
+        self._conn.execute(
+            """
+            INSERT INTO knowledge_bundle_cache (cache_key, bundle_json, expires_at, created_at)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(cache_key) DO UPDATE SET
+                bundle_json = excluded.bundle_json,
+                expires_at = excluded.expires_at,
+                created_at = excluded.created_at
+            """,
+            (cache_key, json.dumps(bundle, default=str), expires_at, _iso(now)),
+        )
+        self._conn.commit()
+
+    def get_bundle_cache(self, cache_key: str) -> dict[str, Any] | None:
+        row = self._conn.execute(
+            "SELECT bundle_json, expires_at FROM knowledge_bundle_cache WHERE cache_key = ?",
+            (cache_key,),
+        ).fetchone()
+        if not row:
+            return None
+        exp = _parse_dt(row["expires_at"])
+        if exp is None or exp < datetime.now(timezone.utc):
+            self._conn.execute("DELETE FROM knowledge_bundle_cache WHERE cache_key = ?", (cache_key,))
+            self._conn.commit()
+            return None
+        return json.loads(row["bundle_json"])
+
+    def insert_retrieval_log(self, detail: dict[str, Any]) -> None:
+        self._conn.execute(
+            """
+            INSERT INTO retrieval_logs (log_id, detail_json, created_at)
+            VALUES (?, ?, ?)
+            """,
+            (str(uuid4()), json.dumps(detail, default=str), _iso(datetime.now(timezone.utc))),
+        )
+        self._conn.commit()
+
+    def upsert_freshness(self, *, object_type: str, subject_key: str, updated_at: str) -> None:
+        self._conn.execute(
+            """
+            INSERT INTO freshness_registry (object_type, subject_key, updated_at)
+            VALUES (?, ?, ?)
+            ON CONFLICT(object_type, subject_key) DO UPDATE SET updated_at = excluded.updated_at
+            """,
+            (object_type, subject_key, updated_at),
+        )
+        self._conn.commit()
+
+    def upsert_knowledge_dependencies(self, *, subject: str, depends_on: list[str]) -> None:
+        self._conn.execute(
+            """
+            INSERT INTO knowledge_dependencies (subject, depends_on_json, updated_at)
+            VALUES (?, ?, ?)
+            ON CONFLICT(subject) DO UPDATE SET
+                depends_on_json = excluded.depends_on_json,
+                updated_at = excluded.updated_at
+            """,
+            (subject, json.dumps(depends_on), _iso(datetime.now(timezone.utc))),
+        )
+        self._conn.commit()
+
+    def increment_retrieval_metric(self, *, query_type: str, cache_hit: bool, latency_ms: float) -> None:
+        key = f"krig:{query_type}"
+        row = self._conn.execute(
+            "SELECT hits, misses, total_latency_ms FROM retrieval_metrics WHERE metric_key = ?",
+            (key,),
+        ).fetchone()
+        hits = int(row["hits"]) if row else 0
+        misses = int(row["misses"]) if row else 0
+        total = float(row["total_latency_ms"]) if row else 0.0
+        if cache_hit:
+            hits += 1
+        else:
+            misses += 1
+        total += float(latency_ms)
+        self._conn.execute(
+            """
+            INSERT INTO retrieval_metrics (metric_key, query_type, hits, misses, total_latency_ms, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(metric_key) DO UPDATE SET
+                hits = excluded.hits,
+                misses = excluded.misses,
+                total_latency_ms = excluded.total_latency_ms,
+                updated_at = excluded.updated_at
+            """,
+            (key, query_type, hits, misses, total, _iso(datetime.now(timezone.utc))),
+        )
+        self._conn.commit()
+
+    def retrieval_metrics_snapshot(self) -> list[dict[str, Any]]:
+        rows = self._conn.execute("SELECT * FROM retrieval_metrics ORDER BY query_type").fetchall()
+        out = []
+        for r in rows:
+            total_calls = int(r["hits"]) + int(r["misses"])
+            out.append(
+                {
+                    "query_type": r["query_type"],
+                    "hits": r["hits"],
+                    "misses": r["misses"],
+                    "avg_latency_ms": round(float(r["total_latency_ms"]) / total_calls, 2) if total_calls else 0,
+                    "updated_at": r["updated_at"],
+                }
+            )
+        return out

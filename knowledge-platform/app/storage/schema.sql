@@ -350,3 +350,46 @@ CREATE TABLE IF NOT EXISTS market_theme_signals (
 
 CREATE INDEX IF NOT EXISTS idx_market_theme_signals
     ON market_theme_signals(theme, created_at DESC);
+
+-- Sprint 6.4 KRIG storage
+
+CREATE TABLE IF NOT EXISTS knowledge_bundle_cache (
+    cache_key TEXT PRIMARY KEY,
+    bundle_json TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_bundle_cache_expires
+    ON knowledge_bundle_cache(expires_at);
+
+CREATE TABLE IF NOT EXISTS retrieval_logs (
+    log_id TEXT PRIMARY KEY,
+    detail_json TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_retrieval_logs_created
+    ON retrieval_logs(created_at DESC);
+
+CREATE TABLE IF NOT EXISTS freshness_registry (
+    object_type TEXT NOT NULL,
+    subject_key TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY (object_type, subject_key)
+);
+
+CREATE TABLE IF NOT EXISTS knowledge_dependencies (
+    subject TEXT PRIMARY KEY,
+    depends_on_json TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS retrieval_metrics (
+    metric_key TEXT PRIMARY KEY,
+    query_type TEXT NOT NULL,
+    hits INTEGER NOT NULL DEFAULT 0,
+    misses INTEGER NOT NULL DEFAULT 0,
+    total_latency_ms REAL NOT NULL DEFAULT 0,
+    updated_at TEXT NOT NULL
+);

@@ -15,6 +15,7 @@ from app.collectors.nse.announcements import NSEAnnouncementCollector
 from app.collectors.nse.bhavcopy import NSEBhavcopyCollector
 from app.collectors.yahoo.collector import YahooCollector
 from app.config.settings import Settings, get_settings
+from app.krig.gateway import KnowledgeRetrievalGateway
 from app.metrics.metrics import METRICS
 from app.pipeline.orchestrator import AcquisitionPipeline
 from app.scheduler.scheduler import AcquisitionScheduler
@@ -81,11 +82,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         for collector in collectors.values():
             scheduler.register(collector, make_runner(collector.collector_id))
 
+        gateway = KnowledgeRetrievalGateway(store)
+
         app.state.settings = settings
         app.state.store = store
         app.state.pipeline = pipeline
         app.state.collectors = collectors
         app.state.scheduler = scheduler
+        app.state.gateway = gateway
 
         if settings.scheduler_enabled:
             scheduler.start()

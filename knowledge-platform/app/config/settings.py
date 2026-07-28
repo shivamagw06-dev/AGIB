@@ -27,7 +27,7 @@ def _env_float(name: str, default: float) -> float:
 @dataclass(frozen=True)
 class Settings:
     service_name: str = "kaip"
-    version: str = "0.3.0"
+    version: str = "0.4.0"
     host: str = field(default_factory=lambda: os.getenv("KAIP_HOST", "0.0.0.0"))
     port: int = field(default_factory=lambda: int(os.getenv("KAIP_PORT", "8091")))
     db_path: Path = field(

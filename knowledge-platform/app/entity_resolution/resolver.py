@@ -41,6 +41,14 @@ SEED_ENTITIES: dict[str, dict[str, Any]] = {
         "peers": ["ICICIBANK", "KOTAKBANK", "AXISBANK", "SBIN"],
         "aliases": ["HDFCBANK.NS", "HDFCBANK.BO"],
     },
+    "ICICIBANK": {
+        "company_name": "ICICI Bank Ltd",
+        "sector": "Financials",
+        "industry": "Private Sector Bank",
+        "indexes": ["NIFTY50", "NIFTYBANK"],
+        "peers": ["HDFCBANK", "KOTAKBANK", "AXISBANK", "SBIN"],
+        "aliases": ["ICICIBANK.NS", "ICICIBANK.BO", "ICICI"],
+    },
 }
 
 

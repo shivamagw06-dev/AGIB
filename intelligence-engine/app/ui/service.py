@@ -781,6 +781,8 @@ class UiService:
         irp_pkg = None
         irp_dump: dict[str, Any] = {}
 
+        knowledge_bundle: dict[str, Any] = {}
+
         # RQ1 Sprint 1 — classify research type first (metadata only; does not block layers yet)
         research_ontology: dict[str, Any] = {}
         try:
@@ -1166,6 +1168,32 @@ class UiService:
             "reasoning": "pending",
             "ask_slim": slim,
         }
+
+        # Sprint 6.4 KRIG — Knowledge Bundle soft-wire (IE never discovers Yahoo/NSE/BSE).
+        # Soft / timed: Ask must not block if Knowledge Platform is down.
+        try:
+            from app.kaip_client import KrigClient
+
+            def _krig_pull() -> dict[str, Any]:
+                client = KrigClient(timeout_seconds=2.5)
+                symbols = [detected_ticker] if detected_ticker else ([ticker.upper()] if ticker else None)
+                return client.retrieve_bundle(question=q, symbols=symbols) or {}
+
+            krig_result, krig_timed_out = call_with_timeout(
+                _krig_pull,
+                timeout_sec=3.0,
+                default={},
+            )
+            knowledge_bundle = krig_result if isinstance(krig_result, dict) else {}
+            if krig_timed_out:
+                degradation["krig"] = "timeout_cached"
+            elif knowledge_bundle:
+                degradation["krig"] = "ok"
+            else:
+                degradation["krig"] = "empty"
+        except Exception:
+            knowledge_bundle = {}
+            degradation["krig"] = "unavailable"
 
         # LEO v1.0 — gather / verify / package live evidence BEFORE Academy + SIF + IRP
         # ASK_SLIM skips live fan-out (Render Starter OOM under parallel Yahoo/Agib).
@@ -3008,6 +3036,7 @@ class UiService:
                 "hits": scrub(kf_hits)[:8],
                 "count": len(kf_hits),
             },
+            knowledge_bundle=scrub(knowledge_bundle) if knowledge_bundle else {},
             knowledge_corpus=scrub(knowledge_corpus)
             if knowledge_corpus
             else {

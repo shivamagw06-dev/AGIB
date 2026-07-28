@@ -1,13 +1,27 @@
-"""Internal KAIP APIs — Institutional Knowledge Objects only. No public endpoints."""
+"""Internal KAIP APIs — Institutional Knowledge Objects + KRIG. No public endpoints."""
 
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Request
+from pydantic import BaseModel, Field
 
 from app.contracts.iko import company_knowledge_view
 from app.contracts.models import KnowledgeObjectType, Source
 
 router = APIRouter()
+
+
+class BundleRequest(BaseModel):
+    question: str | None = None
+    symbols: list[str] | None = None
+    sector_key: str | None = None
+    query_type: str | None = None
+    use_cache: bool = True
+
+
+class CompareRequest(BaseModel):
+    symbols: list[str] = Field(default_factory=list)
+    question: str | None = None
 
 
 def _app_state(request: Request):
@@ -132,6 +146,61 @@ def get_relationships(symbol: str, request: Request) -> dict:
         "entity": entity.model_dump() if entity else None,
         "edges": edges,
     }
+
+
+# ----- Sprint 6.4 KRIG -----
+
+@router.post("/v1/knowledge/bundle")
+def post_bundle(request: Request, body: BundleRequest | None = None) -> dict:
+    """Assemble a Knowledge Bundle by retrieval policy."""
+    payload = body or BundleRequest()
+    gateway = _app_state(request).gateway
+    bundle = gateway.retrieve(
+        question=payload.question,
+        symbols=payload.symbols,
+        sector_key=payload.sector_key,
+        query_type=payload.query_type,
+        use_cache=payload.use_cache,
+    )
+    return bundle.to_public_dict()
+
+
+@router.get("/v1/knowledge/bundle/company/{symbol}")
+def get_company_bundle(symbol: str, request: Request, question: str | None = None) -> dict:
+    gateway = _app_state(request).gateway
+    return gateway.company_bundle(symbol, question=question).to_public_dict()
+
+
+@router.get("/v1/knowledge/bundle/sector/{sector_key}")
+def get_sector_bundle(sector_key: str, request: Request, question: str | None = None) -> dict:
+    gateway = _app_state(request).gateway
+    return gateway.sector_bundle(sector_key, question=question).to_public_dict()
+
+
+@router.get("/v1/knowledge/macro")
+def get_macro_bundle(request: Request, question: str | None = None) -> dict:
+    gateway = _app_state(request).gateway
+    return gateway.macro_bundle(question=question).to_public_dict()
+
+
+@router.get("/v1/knowledge/market")
+def get_market_bundle(request: Request, question: str | None = None) -> dict:
+    gateway = _app_state(request).gateway
+    return gateway.retrieve(query_type="market", question=question).to_public_dict()
+
+
+@router.post("/v1/knowledge/compare")
+def post_compare(request: Request, body: CompareRequest | None = None) -> dict:
+    payload = body or CompareRequest()
+    if len(payload.symbols) < 2:
+        raise HTTPException(status_code=400, detail="compare_requires_two_symbols")
+    gateway = _app_state(request).gateway
+    return gateway.compare_bundle(payload.symbols, question=payload.question).to_public_dict()
+
+
+@router.get("/v1/internal/krig/metrics")
+def krig_metrics(request: Request) -> dict:
+    return {"metrics": _app_state(request).store.retrieval_metrics_snapshot()}
 
 
 @router.get("/v1/internal/jobs")
