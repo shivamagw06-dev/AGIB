@@ -123,6 +123,17 @@ services:
         sync: false
       - key: TAVILY_API_KEY
         sync: false
+      # AGI Observability — LangSmith tracing (observability only).
+      # Set LANGSMITH_API_KEY in the Render dashboard for THIS service; tracing
+      # turns on automatically when the key is present. No key = silent no-op.
+      - key: LANGSMITH_API_KEY
+        sync: false
+      - key: LANGSMITH_TRACING
+        value: "true"
+      - key: LANGSMITH_PROJECT
+        value: agi-intelligence-engine
+      - key: LANGSMITH_WORKSPACE_ID
+        sync: false
       # AGIB Intelligence Layer V2
       - key: AIL
         value: "true"

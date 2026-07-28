@@ -65,6 +65,32 @@ langsmith trace list --min-latency 5 --include-metadata --api-key $LANGSMITH_API
 langsmith trace export /tmp/traces --limit 20 --full --api-key $LANGSMITH_API_KEY
 ```
 
+## Render deployment
+
+The key belongs to the **`agib-intelligence-engine`** service (Python) — that is where the tracing code lives. Setting it on `agib-api` (Node) has no effect, because the Node LLM client (`server/services/llmClient.js`) is not instrumented.
+
+`render.yaml` now declares for that service:
+
+| Key | Source |
+|-----|--------|
+| `LANGSMITH_API_KEY` | `sync: false` → set in Render dashboard |
+| `LANGSMITH_TRACING` | `"true"` |
+| `LANGSMITH_PROJECT` | `agi-intelligence-engine` |
+| `LANGSMITH_WORKSPACE_ID` | `sync: false` (org-scoped keys only) |
+
+`langsmith` is in `requirements.txt`, and the service `buildCommand` already runs `pip install -r requirements.txt`, so a redeploy installs the SDK.
+
+**Tracing only begins once this branch is merged and deployed.** As of this commit the live engine still runs an older revision — `/v1/observability/health` and `/v1/temporal-integrity/health` both return 404 there, while `/v1/health` returns 200.
+
+Confirm after deploy:
+
+```bash
+curl -s https://agib-intelligence-engine.onrender.com/v1/observability/health | jq .tracing_state
+# expect: "tracing"
+curl -s https://agib-intelligence-engine.onrender.com/v1/observability/langsmith/verify
+# emits run "agi.observability.verify"
+```
+
 ## Verification performed
 
 A local fake ingest endpoint (`LANGSMITH_ENDPOINT=http://127.0.0.1:8124`) captured a real Ask run and confirmed 13 distinct run names posted to `/runs/multipart`, including `agi.ask_pipeline`, both replay-guard spans, and every stage above.
