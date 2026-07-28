@@ -1087,6 +1087,81 @@ def run_complete_ask(
         "lifecycle": (investment_thesis.get("thesis") or {}).get("lifecycle"),
     }
 
+    # ------------------------------------------------------------------
+    # AGI v4.0 Phase 5 Sprint 5.2 — Institutional Decision Office (IDO)
+    # Soft-wire only: separate Analysis (thesis) from Decision.
+    # Process decisions only — never orders / BUY / SELL execution.
+    # ------------------------------------------------------------------
+    from institutional_decision_office.production import (
+        apply_decision_office as ido_apply,
+    )
+    from institutional_decision_office.schema import DECISION_SCHEMA_VERSION, IDO_VERSION
+
+    _ido_meta = {
+        "question_id": (context.get("question_id") or session_id or conversation_id),
+        "thesis_id": (investment_thesis.get("thesis") or {}).get("thesis_id"),
+        "thesis_version": (investment_thesis.get("thesis") or {}).get("version"),
+        "decision_schema_version": DECISION_SCHEMA_VERSION,
+        "replay_mode": bool(irl.get("as_of")),
+    }
+    with trace_span(
+        "decision_office",
+        run_type="chain",
+        inputs={
+            "question": question,
+            "thesis_id": _ido_meta["thesis_id"],
+            "thesis_confidence": (investment_thesis.get("thesis") or {}).get("confidence"),
+        },
+        tags=["ask", "ido", "decision_office", "v4"],
+        metadata=_ido_meta,
+    ) as _ido_sp:
+        _ido = ido_apply(
+            question=question,
+            investment_thesis=investment_thesis,
+            committee_reasoning=committee_reasoning,
+            confidence_calibration=confidence_calibration,
+            hypothesis_evaluation=hypothesis_evaluation,
+            as_of=irl.get("as_of"),
+            metadata=_ido_meta,
+            persist=True,
+        )
+        _ido_dec = (_ido.get("pack") or {}).get("decision") or {}
+        _ido_sp.end(
+            outputs={
+                "decision_id": _ido_dec.get("decision_id"),
+                "decision": _ido_dec.get("decision"),
+                "status": _ido_dec.get("status"),
+                "review_trigger": _ido_dec.get("review_trigger"),
+                "review_date": _ido_dec.get("review_date"),
+                "confidence": _ido_dec.get("confidence"),
+                "orders_emitted": False,
+                "buy_sell_emitted": False,
+                "ido_version": IDO_VERSION,
+            }
+        )
+    decision_office = _ido.get("pack") or {}
+    stages["decision_office"] = {
+        "status": "executed",
+        "ido_version": decision_office.get("ido_version") or IDO_VERSION,
+        "decision_id": (decision_office.get("decision") or {}).get("decision_id"),
+        "decision": (decision_office.get("decision") or {}).get("decision"),
+        "lifecycle": (decision_office.get("decision") or {}).get("status"),
+        "orders_emitted": False,
+        "buy_sell_emitted": False,
+        "guides_decision": True,
+        "reasoning_changed": False,
+        "judgment_changed": False,
+        "thesis_changed": False,
+        "llm_used": False,
+        "fabricated": False,
+    }
+    context["decision_office"] = {
+        "ido_version": decision_office.get("ido_version") or IDO_VERSION,
+        "decision_id": (decision_office.get("decision") or {}).get("decision_id"),
+        "decision": (decision_office.get("decision") or {}).get("decision"),
+        "status": (decision_office.get("decision") or {}).get("status"),
+    }
+
     # S07 Planner — no ticker in Concept Mode
     planner = run_planner(question, ticker_hint=hint, policy=policy)
     stages["planner"] = planner
@@ -1270,6 +1345,23 @@ def run_complete_ask(
         "guides_thesis": True,
         "reasoning_changed": False,
         "judgment_changed": False,
+        "llm_used": False,
+        "fabricated": False,
+        "deterministic": True,
+    }
+    # Soft overlay — Institutional Decision Office (process decision ≠ trade)
+    packs["decision_office"] = {
+        "ido_version": decision_office.get("ido_version") or IDO_VERSION,
+        "schema_version": decision_office.get("schema_version") or DECISION_SCHEMA_VERSION,
+        "decision": decision_office.get("decision"),
+        "decision_id": (decision_office.get("decision") or {}).get("decision_id"),
+        "persisted": decision_office.get("persisted"),
+        "orders_emitted": False,
+        "buy_sell_emitted": False,
+        "guides_decision": True,
+        "reasoning_changed": False,
+        "judgment_changed": False,
+        "thesis_changed": False,
         "llm_used": False,
         "fabricated": False,
         "deterministic": True,

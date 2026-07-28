@@ -247,13 +247,14 @@ ALL_JUDGES = [
 
 
 def judge_all(question: dict[str, Any], probe: dict[str, Any]) -> list[dict[str, Any]]:
-    """Run structural judges + independent HQS + CQS + CFQS + ITQS.
+    """Run structural judges + independent HQS/CQS/CFQS/ITQS/DQS.
 
     Independent scores are measurement-only — not in DIMENSION_WEIGHTS and
     must not move CIO / overall IEL pass scoring.
     """
     from institutional_evaluation_lab.judges.committee_quality import judge_committee_quality
     from institutional_evaluation_lab.judges.confidence_quality import judge_confidence_quality
+    from institutional_evaluation_lab.judges.decision_quality import judge_decision_quality
     from institutional_evaluation_lab.judges.hypothesis_quality import judge_hypothesis_quality
     from institutional_evaluation_lab.judges.thesis_quality import judge_thesis_quality
 
@@ -262,4 +263,5 @@ def judge_all(question: dict[str, Any], probe: dict[str, Any]) -> list[dict[str,
     judgments.append(judge_committee_quality(question, probe))
     judgments.append(judge_confidence_quality(question, probe))
     judgments.append(judge_thesis_quality(question, probe))
+    judgments.append(judge_decision_quality(question, probe))
     return judgments
