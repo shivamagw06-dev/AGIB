@@ -146,9 +146,26 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         }
         out["sources"].append("government_intelligence")
         if (gov.get("coverage_pct") or 0) >= 100:
-            out["roadmap_next"] = "industry_intelligence"
+            out["roadmap_next"] = "industry_value_chain_intelligence"
     except Exception:
         out["government_intelligence"] = None
+    try:
+        from knowledge_factory.industry_intelligence.dashboards import industry_dashboard
+
+        ind = industry_dashboard(ensure=False)
+        out["industry_intelligence"] = {
+            "institutional_ready_pct": ind.get("institutional_ready_pct"),
+            "industry_coverage": ind.get("industry_coverage"),
+            "industry_intelligence_score": ind.get("industry_intelligence_score"),
+            "companies_mapped": ind.get("companies_mapped"),
+            "north_star": ind.get("north_star"),
+            "future_roadmap": ind.get("future_roadmap"),
+        }
+        out["sources"].append("industry_intelligence")
+        if (ind.get("institutional_ready_pct") or 0) >= 100 and (ind.get("companies_mapped") or 0) >= 500:
+            out["roadmap_next"] = "economic_network_graph"
+    except Exception:
+        out["industry_intelligence"] = None
     try:
         from knowledge_factory.production import historical_depth_coverage
 

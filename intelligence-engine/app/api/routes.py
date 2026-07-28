@@ -7413,6 +7413,94 @@ async def government_timeline(as_of: str | None = None):
     return timeline(as_of=as_of)
 
 
+# ---------------------------------------------------------------------------
+# AGIB v2.0 Sprint 4 — Institutional Industry & Value Chain Intelligence
+# Soft KF knowledge only. Economic Network Graph = later sprint.
+# ---------------------------------------------------------------------------
+@router.get("/industry/health")
+async def industry_health():
+    from knowledge_factory.industry_intelligence.production import health as iivi_health
+
+    return iivi_health()
+
+
+@router.get("/industry/dashboard")
+async def industry_dashboard_route():
+    from knowledge_factory.industry_intelligence.production import dashboard
+
+    return dashboard()
+
+
+@router.post("/industry/run")
+async def industry_run():
+    from knowledge_factory.industry_intelligence.production import run_pipeline
+
+    return run_pipeline()
+
+
+@router.get("/industry/search")
+async def industry_search(q: str = "", limit: int = 25):
+    from knowledge_factory.industry_intelligence.production import search
+
+    return search(q, limit=limit)
+
+
+@router.get("/industry/playbook")
+async def industry_playbook(name: str):
+    from knowledge_factory.industry_intelligence.production import playbook
+
+    return playbook(name)
+
+
+@router.get("/industry/value-chain")
+async def industry_value_chain(name: str):
+    from knowledge_factory.industry_intelligence.production import value_chain
+
+    return value_chain(name)
+
+
+@router.get("/industry/accounting")
+async def industry_accounting(name: str):
+    from knowledge_factory.industry_intelligence.production import accounting
+
+    return accounting(name)
+
+
+@router.get("/industry/valuation")
+async def industry_valuation_route(name: str):
+    from knowledge_factory.industry_intelligence.production import valuation
+
+    return valuation(name)
+
+
+@router.get("/industry/cycles")
+async def industry_cycles(name: str):
+    from knowledge_factory.industry_intelligence.production import cycles
+
+    return cycles(name)
+
+
+@router.get("/industry/kpis")
+async def industry_kpis(name: str):
+    from knowledge_factory.industry_intelligence.production import kpis
+
+    return kpis(name)
+
+
+@router.get("/industry/company/{ticker}")
+async def industry_company(ticker: str):
+    from knowledge_factory.industry_intelligence.production import company_industry
+
+    return company_industry(ticker)
+
+
+@router.get("/industry/{name}")
+async def industry_by_name(name: str, refresh: bool = False):
+    from knowledge_factory.industry_intelligence.production import get_industry
+
+    return get_industry(name, refresh=refresh)
+
+
 @router.get("/knowledge-factory/historical-depth")
 async def knowledge_factory_historical_depth():
     """Historical Depth Coverage dashboard (Sprint 4 north-star KPI)."""

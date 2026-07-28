@@ -243,6 +243,24 @@ def government_intelligence_coverage() -> dict[str, Any]:
     return government_dashboard(ensure=False)
 
 
+def run_industry_intelligence_pipeline(**kwargs: Any) -> dict[str, Any]:
+    from knowledge_factory.industry_intelligence.pipeline import run_industry_intelligence_pipeline as _run
+
+    return _run()
+
+
+def industry_intelligence_coverage() -> dict[str, Any]:
+    from knowledge_factory.industry_intelligence.dashboards import industry_dashboard
+    from knowledge_factory.industry_intelligence import store as iivi_store
+
+    if iivi_store.industry_count() == 0:
+        try:
+            run_industry_intelligence_pipeline()
+        except Exception:
+            pass
+    return industry_dashboard(ensure=False)
+
+
 def company_object(entity: str) -> dict[str, Any] | None:
     return store.get_object("company", entity)
 
@@ -256,6 +274,7 @@ def evidence_feed(entity: str) -> dict[str, Any] | None:
     company_intelligence = None
     corporate_events = None
     government_policies = None
+    industry_intelligence = None
     try:
         from knowledge_factory.historical_depth import store as hd_store
 
@@ -287,6 +306,14 @@ def evidence_feed(entity: str) -> dict[str, Any] | None:
         ]
     except Exception:
         government_policies = None
+    # Soft-read Industry & Value Chain Intelligence for the company's industry.
+    try:
+        from knowledge_factory.industry_intelligence import store as iivi_store
+
+        iid = iivi_store.get_company_industry(entity)
+        industry_intelligence = iivi_store.get_industry(iid) if iid else None
+    except Exception:
+        industry_intelligence = None
     if (
         not pack
         and not obj
@@ -295,6 +322,7 @@ def evidence_feed(entity: str) -> dict[str, Any] | None:
         and not company_intelligence
         and not corporate_events
         and not government_policies
+        and not industry_intelligence
     ):
         return None
     return {
@@ -307,5 +335,6 @@ def evidence_feed(entity: str) -> dict[str, Any] | None:
         "company_intelligence": company_intelligence,
         "corporate_events": corporate_events,
         "government_policies": government_policies,
+        "industry_intelligence": industry_intelligence,
         "raw_api": False,
     }

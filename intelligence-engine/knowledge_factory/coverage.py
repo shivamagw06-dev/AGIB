@@ -557,9 +557,27 @@ def daily_health_scorecard(*, ensure_pipeline: bool = True) -> dict[str, Any]:
             "north_star": gov.get("north_star"),
         }
         if (gov.get("coverage_pct") or 0) >= 100:
-            scorecard["roadmap_next"] = "industry_intelligence"
+            scorecard["roadmap_next"] = "industry_value_chain_intelligence"
     except Exception:
         scorecard["government_intelligence"] = None
+    # AGIB v2.0 Sprint 4 — soft-read Industry & Value Chain Intelligence.
+    try:
+        from knowledge_factory.industry_intelligence.dashboards import industry_dashboard
+
+        ind = industry_dashboard(ensure=False)
+        scorecard["industry_intelligence"] = {
+            "institutional_ready_pct": ind.get("institutional_ready_pct"),
+            "industry_coverage": ind.get("industry_coverage"),
+            "industry_intelligence_score": ind.get("industry_intelligence_score"),
+            "value_chain_coverage_pct": ind.get("value_chain_coverage_pct"),
+            "companies_mapped": ind.get("companies_mapped"),
+            "north_star": ind.get("north_star"),
+            "future_roadmap": ind.get("future_roadmap"),
+        }
+        if (ind.get("institutional_ready_pct") or 0) >= 100 and (ind.get("companies_mapped") or 0) >= 500:
+            scorecard["roadmap_next"] = "economic_network_graph"
+    except Exception:
+        scorecard["industry_intelligence"] = None
     store.put_report("daily_health", scorecard)
     return scorecard
 

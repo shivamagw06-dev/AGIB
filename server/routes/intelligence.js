@@ -1410,6 +1410,54 @@ export default function createIntelligenceRouter() {
       res.status(502).json({ error: err?.message || 'government policy proxy failed' });
     }
   });
+  // AGIB v2.0 Sprint 4 — Institutional Industry & Value Chain Intelligence
+  router.get('/industry/health', kfGet('/v1/industry/health'));
+  router.get('/industry/dashboard', kfGet('/v1/industry/dashboard'));
+  router.post('/industry/run', kfPost('/v1/industry/run'));
+  router.get('/industry/search', async (req, res) => {
+    try {
+      const q = new URLSearchParams({
+        q: String(req.query.q || ''),
+        limit: String(req.query.limit || '25'),
+      }).toString();
+      const result = await engineFetch(`/v1/industry/search?${q}`);
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err?.message || 'industry search proxy failed' });
+    }
+  });
+  for (const mod of ['playbook', 'value-chain', 'accounting', 'valuation', 'cycles', 'kpis']) {
+    router.get(`/industry/${mod}`, async (req, res) => {
+      try {
+        const q = new URLSearchParams({ name: String(req.query.name || '') }).toString();
+        const result = await engineFetch(`/v1/industry/${mod}?${q}`);
+        res.json(result);
+      } catch (err) {
+        res.status(502).json({ error: err?.message || `industry ${mod} proxy failed` });
+      }
+    });
+  }
+  router.get('/industry/company/:ticker', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/industry/company/${encodeURIComponent(req.params.ticker)}`
+      );
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err?.message || 'industry company proxy failed' });
+    }
+  });
+  router.get('/industry/:name', async (req, res) => {
+    try {
+      const q = req.query.refresh ? '?refresh=true' : '';
+      const result = await engineFetch(
+        `/v1/industry/${encodeURIComponent(req.params.name)}${q}`
+      );
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err?.message || 'industry proxy failed' });
+    }
+  });
   router.post('/knowledge-factory/run-daily', kfPost('/v1/knowledge-factory/run-daily'));
   router.get('/knowledge-factory/historical-depth', kfGet('/v1/knowledge-factory/historical-depth'));
   router.post('/knowledge-factory/historical-depth/run', kfPost('/v1/knowledge-factory/historical-depth/run'));
