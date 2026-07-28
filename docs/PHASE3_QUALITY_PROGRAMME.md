@@ -19,12 +19,15 @@ CIO frozen exam (post-IMAI): **8.12 / 10**
 
 | Sprint | Capability | Exit metric |
 |--------|------------|-------------|
-| **3.1 IEL** | Institutional Evaluation Lab | 1000+ Q suite + nightly judge + dashboard |
-| 3.2 | Failure Intelligence | Clustered failures → top-20 causes |
-| 3.3 | Hypothesis Engine | Multi-hypothesis before conclusion |
-| 3.4 | Evidence Weighting | Explicit source hierarchy in answers |
-| 3.5 | Contradiction Engine | Reconcile conflicting signals |
-| 3.6 | IC Simulator | Bull / Base / Bear on important Qs |
+| **3.1 IEL** ✅ | Institutional Evaluation Lab | 1000+ Q suite + nightly judge + dashboard |
+| **3.2 RCI** | Root Cause Intelligence | Top-10 clusters + recommended PRs |
+| 3.3 | Framework Optimisation | Framework accuracy ≥98% |
+| 3.4 | Intent Optimisation | Intent accuracy ≥99% |
+| 3.5 | Evidence Weighting | Explicit source hierarchy in answers |
+| 3.6 | Hypothesis Engine | Multi-hypothesis before conclusion |
+| 3.7 | Contradiction Resolution | Reconcile conflicting signals |
+| 3.8 | Committee Reasoning | Bull / Base / Bear on important Qs |
+| 3.9 | Production Certification | Live collectors 100% / 7-day cert |
 
 ## Parallel production track
 
@@ -35,11 +38,11 @@ BSE → RBI → IR Parser → 7-Day Certification
 | Metric | Target |
 |--------|-------:|
 | CIO benchmark | ≥9.0/10 |
-| 1,000-question benchmark | ≥90% |
-| Replay accuracy | 100% |
-| Framework selection | ≥98% |
-| Unsupported claims | 0 |
+| IEL 1,025-question pass rate | ≥95% |
+| Framework accuracy | ≥98% |
+| Intent accuracy | ≥99% |
 | Hallucinated evidence | 0 |
+| Replay correctness | 100% |
 | Live collector certification | 100% |
 
 ## Tool roles (when purchased)

@@ -146,8 +146,52 @@ def test_analyze_api() -> None:
     assert "top_10_clusters" in out
     assert "recommended_prs" in out
     assert out["reasoning_changed"] is False
+    assert "n_hard_failures" in out
+    assert "n_dimension_misses" in out
     b = board()
     assert b["module"] == "RCI"
+
+
+def test_dimension_misses_surface_framework_clusters() -> None:
+    """Framework dimension fails should cluster even when overall score still passes."""
+    rows = []
+    for i in range(8):
+        rows.append(
+            {
+                "question_id": f"SOFT-{i}",
+                "question": "Bank valuation framework?",
+                "passed": True,
+                "overall": 78.0,
+                "verdict": "PASS",
+                "root_causes": [],
+                "category": "valuation",
+                "sector": "banks",
+                "expected_intent": ["Explain"],
+                "actual_intent": "Explain",
+                "expected_framework": ["FW_PB", "FW_RESIDUAL_INCOME"],
+                "actual_framework": ["FW_PE"],
+                "expected_playbook": ["PB_VAL_BANK"],
+                "actual_playbook": "PB_VAL_BANK_PB_RI",
+                "expected_evidence": [],
+                "evidence_present": {},
+                "reasoning_path": {"mode": "soft"},
+                "communication": {},
+                "dimensions": {
+                    "framework": {
+                        "passed": False,
+                        "score": 40.0,
+                        "root_cause": "framework_mismatch",
+                    },
+                    "intent": {"passed": True, "score": 100.0, "root_cause": None},
+                },
+            }
+        )
+    failures = extract_failures(rows, include_dimension_misses=True)
+    assert len(failures) == 8
+    assert all(f.get("failure_class") == "dimension_miss" for f in failures)
+    clustered = cluster_failures(failures)
+    assert clustered["top_10"][0]["root_cause"] == "framework_mismatch"
+    assert clustered["top_10"][0]["count"] == 8
 
 
 def test_no_llm_imports() -> None:

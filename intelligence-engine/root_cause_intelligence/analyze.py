@@ -25,7 +25,8 @@ def analyze_iel_run(
     """
     t0 = time.time()
     rows = list(iel_summary.get("rows") or [])
-    failures = extract_failures(rows)
+    hard_failures = extract_failures(rows, include_dimension_misses=False)
+    failures = extract_failures(rows, include_dimension_misses=True)
     clustered = cluster_failures(failures)
     recommendations = recommend_prs(clustered.get("top_20") or [], top_n=10)
 
@@ -64,7 +65,9 @@ def analyze_iel_run(
         "iel_pass_pct": (iel_summary.get("aggregate") or {}).get("pass_pct"),
         "iel_mean_score": (iel_summary.get("aggregate") or {}).get("mean_score"),
         "n_questions": len(rows),
+        "n_hard_failures": len(hard_failures),
         "n_failures": len(failures),
+        "n_dimension_misses": max(0, len(failures) - len(hard_failures)),
         "n_clusters": clustered.get("n_clusters"),
         "top_10_clusters": top10,
         "recommended_prs": recommendations,
