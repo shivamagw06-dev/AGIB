@@ -400,19 +400,51 @@ def _select_publication_frameworks(
         entities = (
             [{"type": "company", "id": ticker, "confidence": 0.99}] if ticker else []
         )
+        intent_v2 = intent_map.get(publication_type, "Analyse")
         sel = select_frameworks(
             question=title,
-            intent_v2=intent_map.get(publication_type, "Analyse"),
+            intent_v2=intent_v2,
             entities=entities,
             ticker_hint=ticker,
             concept_mode=not bool(ticker),
         )
         ifse_store.record_selection(sel)
+        # AGIB v3.5 — soft-wire IAP after frameworks
+        playbook_meta: dict[str, Any] = {}
+        try:
+            from institutional_playbooks import IAP_VERSION, select_playbook
+            from institutional_playbooks import store as iap_store
+
+            pb = select_playbook(
+                question=title,
+                intent_v2=intent_v2,
+                sector=sel.get("sector"),
+                framework_ids=list(sel.get("framework_ids") or []),
+                framework_selection=sel,
+                concept_mode=not bool(ticker),
+            )
+            iap_store.record_selection(pb)
+            playbook_meta = {
+                "playbook_id": pb.get("playbook_id"),
+                "playbook_name": pb.get("playbook_name"),
+                "category": pb.get("category"),
+                "checklist": pb.get("checklist"),
+                "procedure": pb.get("procedure"),
+                "common_mistakes": pb.get("common_mistakes"),
+                "output_structure": pb.get("output_structure"),
+                "explanation": pb.get("explanation"),
+                "confidence": pb.get("confidence"),
+                "iap_version": pb.get("iap_version") or IAP_VERSION,
+                "guides_reasoning": True,
+            }
+        except Exception:
+            playbook_meta = {}
         return {
             "framework_used": list(sel.get("framework_ids") or []),
             "framework_confidence": sel.get("confidence") or {},
             "framework_version": sel.get("ifse_version") or IFSE_VERSION,
             "framework_explanation": sel.get("explanation"),
+            "playbook_selection": playbook_meta,
         }
     except Exception as exc:
         return {
@@ -420,6 +452,7 @@ def _select_publication_frameworks(
             "framework_confidence": {"error": str(exc)[:120]},
             "framework_version": None,
             "framework_explanation": None,
+            "playbook_selection": {},
         }
 
 
@@ -494,6 +527,7 @@ def _render_publication_communication(
                 "explanation": fw_meta.get("framework_explanation") or {},
                 "confidence": fw_meta.get("framework_confidence") or {},
             },
+            "playbook": fw_meta.get("playbook_selection") or {},
             "gaps": {"missing_domains": [], "coverage": 0.5, "tell_reasoning": "Publication soft-wire"},
             "confidence": fw_meta.get("framework_confidence") or {"band": "Moderate", "score": 0.65},
             "citations": {},
@@ -512,6 +546,8 @@ def _render_publication_communication(
             "executive_summary": out.get("executive_summary"),
             "section_order": out.get("section_order"),
             "framework_visible": out.get("framework_visible"),
+            "playbook_visible": out.get("playbook_visible"),
+            "playbook_id": out.get("playbook_id"),
             "validation": out.get("validation"),
             "llm_used": False,
             "fabricated": False,

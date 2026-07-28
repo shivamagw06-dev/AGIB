@@ -433,6 +433,25 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("institutional_communication")
     except Exception:
         out["institutional_communication"] = None
+    # AGIB v3.5 — IAP soft board
+    try:
+        from institutional_playbooks.production import dashboard as iap_dash
+        from institutional_playbooks.production import health as iap_health
+
+        ph = iap_health()
+        pdash = iap_dash()
+        out["institutional_playbooks"] = {
+            "status": ph.get("status"),
+            "version": ph.get("iap_version"),
+            "registry_n": pdash.get("registry_n"),
+            "category_counts": pdash.get("category_counts"),
+            "target_met": pdash.get("target_met"),
+            "recent_n": pdash.get("recent_n"),
+            "guides_reasoning": True,
+        }
+        out["sources"].append("institutional_playbooks")
+    except Exception:
+        out["institutional_playbooks"] = None
     try:
         from knowledge_factory.production import historical_depth_coverage
 

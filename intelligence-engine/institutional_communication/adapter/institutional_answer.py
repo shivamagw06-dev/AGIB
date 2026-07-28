@@ -11,6 +11,7 @@ def build_institutional_answer(
     intent_resolution: dict[str, Any] | None = None,
     answer_assembly: dict[str, Any] | None = None,
     framework_selection: dict[str, Any] | None = None,
+    playbook_selection: dict[str, Any] | None = None,
     institutional_answer: dict[str, Any] | None = None,
     governance: dict[str, Any] | None = None,
     evidence: dict[str, Any] | None = None,
@@ -22,6 +23,7 @@ def build_institutional_answer(
     aa = answer_assembly or {}
     fs = framework_selection or {}
     ia = institutional_answer or {}
+    ps = playbook_selection or ia_playbook(ia)
     gov = governance or {}
     kn = knowledge or {}
     iere = kn.get("iere") if isinstance(kn.get("iere"), dict) else {}
@@ -123,6 +125,19 @@ def build_institutional_answer(
             "sector": fs.get("sector"),
             "ifse_version": fs.get("ifse_version"),
         },
+        "playbook": {
+            "playbook_id": ps.get("playbook_id"),
+            "playbook_name": ps.get("playbook_name") or (ps.get("primary") or {}).get("name"),
+            "category": ps.get("category"),
+            "checklist": ps.get("checklist") or {},
+            "procedure": ps.get("procedure") or {},
+            "common_mistakes": ps.get("common_mistakes") or [],
+            "output_structure": ps.get("output_structure") or [],
+            "explanation": ps.get("explanation") or {},
+            "confidence": ps.get("confidence") or {},
+            "iap_version": ps.get("iap_version"),
+            "guides_reasoning": True,
+        },
         "gaps": gaps,
         "confidence": conf,
         "citations": aa.get("citations") or {},
@@ -143,6 +158,7 @@ def build_institutional_answer(
         "source_objects": {
             "has_answer_assembly": bool(aa),
             "has_framework_selection": bool(fs),
+            "has_playbook_selection": bool(ps),
             "has_institutional_answer": bool(ia),
             "has_governance": bool(gov),
         },
@@ -150,3 +166,10 @@ def build_institutional_answer(
         "llm_used": False,
         "reasoning_changed": False,
     }
+
+
+def ia_playbook(institutional_answer: dict[str, Any] | None) -> dict[str, Any]:
+    if not isinstance(institutional_answer, dict):
+        return {}
+    ps = institutional_answer.get("playbook_selection")
+    return ps if isinstance(ps, dict) else {}
