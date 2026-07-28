@@ -53,6 +53,27 @@ class HistoricalKnowledgeBridge:
             {"source": source, "target": target},
         )
 
+    def search_analogues(
+        self,
+        *,
+        scope: str = "company",
+        entity: str | None = None,
+        question: str | None = None,
+        situation: str | None = None,
+        top_k: int = 5,
+    ) -> dict[str, Any] | None:
+        """Sprint 8.4 — Have we ever seen this before?"""
+        return self._post(
+            "/v1/history/analogues/search",
+            {
+                "scope": scope,
+                "entity": entity,
+                "question": question,
+                "situation": situation,
+                "top_k": top_k,
+            },
+        )
+
     def _get(self, path: str) -> dict[str, Any] | None:
         if not self.base_url:
             return None

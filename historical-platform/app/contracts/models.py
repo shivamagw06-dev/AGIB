@@ -264,3 +264,61 @@ class HistoricalRelationship(BaseModel):
     status: str = "draft"  # draft | published | stale
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
+
+
+# ----- Sprint 8.4 Historical Analogue Intelligence -----
+
+
+class AnalogueScope(str, Enum):
+    COMPANY = "company"
+    SECTOR = "sector"
+    MARKET = "market"
+    MACRO = "macro"
+
+
+class AnalogueConfidence(str, Enum):
+    HIGH = "High"
+    MEDIUM = "Medium"
+    LOW = "Low"
+
+
+class AnalogueDimensionScore(BaseModel):
+    dimension: str
+    current_value: float | str | None = None
+    historical_value: float | str | None = None
+    score: float  # 0-100
+    matched: bool = True
+
+
+class HistoricalAnalogue(BaseModel):
+    """Ranked historically similar situation with explainable similarity."""
+
+    analogue_id: str = Field(default_factory=new_id)
+    scope: AnalogueScope
+    current_entity: str
+    matched_period: str
+    matched_label: str | None = None
+    similarity_score: float  # 0-100
+    confidence: AnalogueConfidence = AnalogueConfidence.MEDIUM
+    matching_dimensions: list[str] = Field(default_factory=list)
+    non_matching_dimensions: list[str] = Field(default_factory=list)
+    dimension_scores: list[AnalogueDimensionScore] = Field(default_factory=list)
+    historical_outcome: str | None = None
+    supporting_evidence: list[dict[str, Any]] = Field(default_factory=list)
+    timeline_refs: list[str] = Field(default_factory=list)
+    relationship_refs: list[str] = Field(default_factory=list)
+    features: dict[str, Any] = Field(default_factory=dict)
+    version: int = 1
+    created_at: datetime = Field(default_factory=utc_now)
+
+
+class AnalogueQuery(BaseModel):
+    """Structured analogue search request produced by Analogue Query Builder."""
+
+    scope: AnalogueScope
+    entity_key: str
+    question: str | None = None
+    as_of_period: str | None = None
+    situation: str | None = None  # e.g. slowdown | margin_compression | rate_cut
+    features: dict[str, float] = Field(default_factory=dict)
+    top_k: int = 5

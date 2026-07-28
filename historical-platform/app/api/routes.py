@@ -134,6 +134,90 @@ def history_relationships_explain(body: ExplainRelationshipRequest, request: Req
     return _state(request).gateway.relationships.explain(source=body.source, target=body.target)
 
 
+# ----- Sprint 8.4 Historical Analogue Intelligence -----
+
+
+@router.get("/v1/history/analogues/company/{symbol}")
+def history_analogues_company(
+    symbol: str,
+    request: Request,
+    question: str | None = None,
+    as_of_period: str | None = None,
+    situation: str | None = None,
+    top_k: int = 5,
+) -> dict:
+    return _state(request).gateway.analogues.company_analogues(
+        symbol,
+        question=question,
+        as_of_period=as_of_period,
+        situation=situation,
+        top_k=top_k,
+    )
+
+
+@router.get("/v1/history/analogues/sector/{sector}")
+def history_analogues_sector(
+    sector: str,
+    request: Request,
+    question: str | None = None,
+    situation: str | None = None,
+    top_k: int = 5,
+) -> dict:
+    return _state(request).gateway.analogues.sector_analogues(
+        sector, question=question, situation=situation, top_k=top_k
+    )
+
+
+@router.get("/v1/history/analogues/market")
+def history_analogues_market(
+    request: Request,
+    question: str | None = None,
+    situation: str | None = None,
+    top_k: int = 5,
+) -> dict:
+    return _state(request).gateway.analogues.market_analogues(
+        question=question, situation=situation, top_k=top_k
+    )
+
+
+@router.get("/v1/history/analogues/macro")
+def history_analogues_macro(
+    request: Request,
+    question: str | None = None,
+    situation: str | None = None,
+    top_k: int = 5,
+) -> dict:
+    return _state(request).gateway.analogues.macro_analogues(
+        question=question, situation=situation, top_k=top_k
+    )
+
+
+class AnalogueSearchRequest(BaseModel):
+    scope: str = Field(..., examples=["company"])
+    entity: str | None = Field(default=None, examples=["INFY"])
+    question: str | None = Field(
+        default=None, examples=["Has Infosys experienced this type of slowdown before?"]
+    )
+    situation: str | None = None
+    as_of_period: str | None = None
+    top_k: int = 5
+    features: dict[str, float] | None = None
+
+
+@router.post("/v1/history/analogues/search")
+def history_analogues_search(body: AnalogueSearchRequest, request: Request) -> dict:
+    """Success path: Has Infosys experienced this type of slowdown before?"""
+    return _state(request).gateway.analogues.search(
+        scope=body.scope,
+        entity=body.entity,
+        question=body.question,
+        situation=body.situation,
+        as_of_period=body.as_of_period,
+        top_k=body.top_k,
+        features=body.features,
+    )
+
+
 # ----- Sprint 8.1 legacy historical paths -----
 
 

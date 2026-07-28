@@ -239,6 +239,32 @@ class KnowledgeRetrievalGateway:
             bundle.timeline = timeline
             flags[BundleSection.TIMELINE.value] = bool(timeline)
 
+        # Sprint 8.4 — historical analogues for "have we seen this before?" questions
+        if self.historical.enabled and BundleSection.LEARNING in sections:
+            q = (kq.question or "").lower()
+            if any(tok in q for tok in ("before", "similar", "analogue", "analog", "slowdown", "ever seen")):
+                analogues = self.historical.search_analogues(
+                    scope="company",
+                    entity=symbol,
+                    question=kq.question,
+                    top_k=5,
+                )
+                if analogues and analogues.get("analogues"):
+                    bundle.learning = list(bundle.learning or []) + [
+                        {
+                            "kind": "historical_analogue",
+                            "source": "hip_hai",
+                            "analogues": analogues.get("analogues"),
+                            "bundle": analogues.get("bundle"),
+                        }
+                    ]
+                    flags[BundleSection.LEARNING.value] = True
+                    bundle.provenance = {
+                        **bundle.provenance,
+                        "historical_analogues": "hip_hai",
+                        "providers_hidden": True,
+                    }
+
         if BundleSection.CONFLICTS in sections:
             conflicts = self.store.list_conflicts(symbol, limit=25)
             bundle.conflicts = conflicts

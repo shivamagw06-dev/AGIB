@@ -24,13 +24,31 @@ def default_yahoo_fixture(symbol: str) -> dict[str, Any]:
         "HDFCBANK": ("HDFC Bank", "Financials", "Private Sector Bank", "NIFTY50"),
     }
     name, sector, industry, index = names.get(symbol, (symbol, "Unknown", "Unknown", "NIFTY50"))
-    # Synthetic but coherent revenue path for Infosys FY2015–FY2025
+    # Synthetic but coherent revenue path — INFY includes slowdown years for analogue search
     base_rev = 50000.0 if symbol == "INFY" else 40000.0
     financials = []
+    rev = base_rev
     for i, fy in enumerate(_fy_periods()):
-        rev = round(base_rev * ((1.12) ** i), 2)
-        ni = round(rev * 0.21, 2)
-        pe = round(18.0 + i * 0.7, 2)
+        year = 2015 + i
+        # Default ~12% growth; inject institutional slowdown / recovery episodes
+        if symbol == "INFY":
+            if year == 2020:
+                growth = 1.04  # COVID demand mix / growth air-pocket
+            elif year == 2022:
+                growth = 1.05  # margin compression / deal slowdown
+            elif year == 2023:
+                growth = 1.07  # early recovery
+            else:
+                growth = 1.12
+            margin = 0.18 if year in {2020, 2022} else 0.21
+            pe = 16.5 if year == 2020 else (17.0 if year == 2022 else round(18.0 + i * 0.7, 2))
+        else:
+            growth = 1.12
+            margin = 0.21
+            pe = round(18.0 + i * 0.7, 2)
+        if i > 0:
+            rev = round(rev * growth, 2)
+        ni = round(rev * margin, 2)
         financials.append(
             {
                 "period": fy,
@@ -39,6 +57,7 @@ def default_yahoo_fixture(symbol: str) -> dict[str, Any]:
                 "net_income": ni,
                 "pe": pe,
                 "valuation": {"pe": pe, "earnings_cycle": fy},
+                "margins": {"pat_margin": margin},
             }
         )
     # also a few quarters

@@ -17,7 +17,11 @@ Shape HKO views and build company / sector / market / macro **timelines** so Ask
 
 ## Sprint 8.3 — Historical Relationship Intelligence (HRI)
 
-Evidence-backed **cause-and-effect** graph across companies, sectors, macro and market — before any pattern engine.
+Evidence-backed **cause-and-effect** graph across companies, sectors, macro and market.
+
+## Sprint 8.4 — Historical Analogue Intelligence (HAI)
+
+**Crown jewel:** answer *“Have we ever seen this before?”* with ranked, explainable historical analogues.
 
 Ask / Intelligence Engine must retrieve history **without** calling Yahoo, NSE, BSE, or Company IR.
 
@@ -27,7 +31,8 @@ Ask / Intelligence Engine must retrieve history **without** calling Yahoo, NSE, 
 - [`docs/HISTORICAL_COVERAGE_POLICY.md`](docs/HISTORICAL_COVERAGE_POLICY.md)
 - [`docs/HKO_TIMELINE_CONTRACT.md`](docs/HKO_TIMELINE_CONTRACT.md)
 - [`docs/HRI_CONTRACT.md`](docs/HRI_CONTRACT.md)
-- Programme notes: [`../docs/HIP_SPRINT_8_2.md`](../docs/HIP_SPRINT_8_2.md), [`../docs/HIP_SPRINT_8_3.md`](../docs/HIP_SPRINT_8_3.md)
+- [`docs/HAI_CONTRACT.md`](docs/HAI_CONTRACT.md)
+- Programme notes: [`../docs/HIP_SPRINT_8_2.md`](../docs/HIP_SPRINT_8_2.md), [`../docs/HIP_SPRINT_8_3.md`](../docs/HIP_SPRINT_8_3.md), [`../docs/HIP_SPRINT_8_4.md`](../docs/HIP_SPRINT_8_4.md)
 
 ## Pipeline
 
@@ -45,7 +50,7 @@ Sources → Historical Collectors → Raw Historical Archive
 - `BSEHistoricalCollector` — announcements, corporate actions  
 - `CompanyIRHistoricalCollector` — annual/quarterly reports, presentations, transcripts, ESG, governance  
 
-## History APIs (8.2 + 8.3)
+## History APIs (8.2–8.4)
 
 ```text
 GET  /v1/history/company/{symbol}
@@ -59,6 +64,11 @@ GET  /v1/history/relationships/sector/{sector}
 GET  /v1/history/relationships/macro/{event}
 GET  /v1/history/relationships/market
 POST /v1/history/relationships/explain
+GET  /v1/history/analogues/company/{symbol}
+GET  /v1/history/analogues/sector/{sector}
+GET  /v1/history/analogues/market
+GET  /v1/history/analogues/macro
+POST /v1/history/analogues/search
 ```
 
 ## Run locally
@@ -81,6 +91,9 @@ curl -X POST http://127.0.0.1:8092/v1/history/compare \
 curl -X POST http://127.0.0.1:8092/v1/history/relationships/explain \
   -H 'content-type: application/json' \
   -d '{"source":"RBI Rate Cut","target":"HDFCBANK"}'
+curl -X POST http://127.0.0.1:8092/v1/history/analogues/search \
+  -H 'content-type: application/json' \
+  -d '{"scope":"company","entity":"INFY","question":"Has Infosys experienced this type of slowdown before?","top_k":5}'
 ```
 
 ## Tests
