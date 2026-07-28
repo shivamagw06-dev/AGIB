@@ -230,6 +230,22 @@ def probe_question(
         as_of=_as_of,
         persist=True,
     )
+    # AGI IMO — Monitoring Office (soft probe mirrors Ask pipeline)
+    from institutional_monitoring_office.production import (
+        apply_monitoring_office as imo_apply,
+    )
+
+    _imo = imo_apply(
+        question=text,
+        portfolio_office=_ipo.get("pack") or {},
+        investment_thesis=_ite.get("pack") or {},
+        decision_office=_ido.get("pack") or {},
+        confidence_calibration=_icc.get("pack") or {},
+        hypothesis_evaluation=_ihe.get("pack") or {},
+        committee_reasoning=_icr.get("pack") or {},
+        as_of=_as_of,
+        persist=True,
+    )
     return {
         "mode": "soft",
         "question_id": question.get("question_id"),
@@ -246,6 +262,7 @@ def probe_question(
         "investment_thesis": _ite.get("pack") or {},
         "decision_office": _ido.get("pack") or {},
         "portfolio_office": _ipo.get("pack") or {},
+        "monitoring_office": _imo.get("pack") or {},
         "temporal_integrity": {
             "pre_analog": _pre.get("report"),
             "post_analog": _post.get("report"),

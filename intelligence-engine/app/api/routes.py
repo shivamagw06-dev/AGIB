@@ -7444,6 +7444,66 @@ async def portfolio_get(idea_id: str):
 
 
 # ---------------------------------------------------------------------------
+# AGI v4.0 Phase 5 Sprint 5.4 — Institutional Monitoring Office (IMO)
+# Static paths before /monitoring/{event_id}
+# ---------------------------------------------------------------------------
+@router.get("/monitoring/health")
+async def monitoring_health():
+    from institutional_monitoring_office.production import status
+
+    return status()
+
+
+@router.get("/monitoring/dashboard")
+async def monitoring_dashboard():
+    from institutional_monitoring_office.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/monitoring/telemetry")
+async def monitoring_telemetry():
+    from institutional_monitoring_office.production import telemetry
+
+    return telemetry()
+
+
+@router.get("/monitoring/history")
+async def monitoring_history(limit: int = 20):
+    from institutional_monitoring_office.production import history
+
+    return history(limit=limit)
+
+
+@router.post("/monitoring/create")
+async def monitoring_create(payload: dict):
+    from institutional_monitoring_office.production import create_api
+
+    return create_api(payload)
+
+
+@router.post("/monitoring/list")
+async def monitoring_list(payload: dict):
+    from institutional_monitoring_office.production import list_api
+
+    return list_api(payload)
+
+
+@router.post("/monitoring/review-queue")
+async def monitoring_review_queue(payload: dict):
+    from institutional_monitoring_office.production import review_queue_api
+
+    return review_queue_api(payload)
+
+
+@router.get("/monitoring/{event_id}")
+async def monitoring_get(event_id: str):
+    from institutional_monitoring_office.production import get_event
+
+    return get_event(event_id)
+
+
+# ---------------------------------------------------------------------------
 # AGI v4.0 Phase 5 Sprint 5.2 — Institutional Decision Office (IDO)
 # Static paths before /decision/{decision_id}
 # ---------------------------------------------------------------------------

@@ -38,6 +38,8 @@ def build_board() -> dict[str, Any]:
             or ((latest or {}).get("aggregate") or {}).get("decision_quality"),
             "portfolio_quality_score": (latest or {}).get("portfolio_quality_score")
             or ((latest or {}).get("aggregate") or {}).get("portfolio_quality"),
+            "monitoring_quality_score": (latest or {}).get("monitoring_quality_score")
+            or ((latest or {}).get("aggregate") or {}).get("monitoring_quality"),
             "regression": (latest or {}).get("regression"),
             "top_root_causes": ((latest or {}).get("aggregate") or {}).get("top_root_causes"),
         }
@@ -72,6 +74,10 @@ def build_board() -> dict[str, Any]:
                 "mean_pqs": (
                     ((r.get("portfolio_quality_score") or {}).get("mean_pqs"))
                     or ((r.get("aggregate") or {}).get("portfolio_quality") or {}).get("mean_pqs")
+                ),
+                "mean_mqs": (
+                    ((r.get("monitoring_quality_score") or {}).get("mean_mqs"))
+                    or ((r.get("aggregate") or {}).get("monitoring_quality") or {}).get("mean_mqs")
                 ),
                 "commit": r.get("commit"),
             }

@@ -1235,6 +1235,81 @@ def run_complete_ask(
         "expected_role": (portfolio_office.get("idea") or {}).get("expected_role"),
     }
 
+    # ------------------------------------------------------------------
+    # AGI v4.0 Phase 5 Sprint 5.4 — Institutional Monitoring Office (IMO)
+    # Soft-wire only: MonitoringEvents recommend review — never mutate.
+    # ------------------------------------------------------------------
+    from institutional_monitoring_office.production import (
+        apply_monitoring_office as imo_apply,
+    )
+    from institutional_monitoring_office.schema import EVENT_SCHEMA_VERSION, IMO_VERSION
+
+    _imo_meta = {
+        "question_id": (context.get("question_id") or session_id or conversation_id),
+        "idea_id": (portfolio_office.get("idea") or {}).get("idea_id"),
+        "thesis_id": (investment_thesis.get("thesis") or {}).get("thesis_id"),
+        "decision_id": (decision_office.get("decision") or {}).get("decision_id"),
+        "event_schema_version": EVENT_SCHEMA_VERSION,
+        "replay_mode": bool(irl.get("as_of")),
+    }
+    with trace_span(
+        "monitoring_office",
+        run_type="chain",
+        inputs={
+            "question": question,
+            "idea_id": _imo_meta["idea_id"],
+            "thesis_id": _imo_meta["thesis_id"],
+        },
+        tags=["ask", "imo", "monitoring_office", "v4"],
+        metadata=_imo_meta,
+    ) as _imo_sp:
+        _imo = imo_apply(
+            question=question,
+            portfolio_office=portfolio_office,
+            investment_thesis=investment_thesis,
+            decision_office=decision_office,
+            confidence_calibration=confidence_calibration,
+            hypothesis_evaluation=hypothesis_evaluation,
+            committee_reasoning=committee_reasoning,
+            as_of=irl.get("as_of"),
+            metadata=_imo_meta,
+            persist=True,
+        )
+        _imo_pack = _imo.get("pack") or {}
+        _imo_sp.end(
+            outputs={
+                "portfolio_idea": _imo_pack.get("portfolio_idea"),
+                "n_events": _imo_pack.get("n_events"),
+                "requires_review": _imo_pack.get("requires_review"),
+                "event_ids": _imo_pack.get("event_ids"),
+                "mutates_thesis": False,
+                "imo_version": IMO_VERSION,
+            }
+        )
+    monitoring_office = _imo.get("pack") or {}
+    stages["monitoring_office"] = {
+        "status": "executed",
+        "imo_version": monitoring_office.get("imo_version") or IMO_VERSION,
+        "portfolio_idea": monitoring_office.get("portfolio_idea"),
+        "n_events": monitoring_office.get("n_events"),
+        "requires_review": monitoring_office.get("requires_review"),
+        "mutates_thesis": False,
+        "mutates_decision": False,
+        "mutates_portfolio": False,
+        "positions_emitted": False,
+        "orders_emitted": False,
+        "reasoning_changed": False,
+        "judgment_changed": False,
+        "llm_used": False,
+        "fabricated": False,
+    }
+    context["monitoring_office"] = {
+        "imo_version": monitoring_office.get("imo_version") or IMO_VERSION,
+        "portfolio_idea": monitoring_office.get("portfolio_idea"),
+        "n_events": monitoring_office.get("n_events"),
+        "requires_review": monitoring_office.get("requires_review"),
+    }
+
     # S07 Planner — no ticker in Concept Mode
     planner = run_planner(question, ticker_hint=hint, policy=policy)
     stages["planner"] = planner
@@ -1451,6 +1526,29 @@ def run_complete_ask(
         "positions_emitted": False,
         "orders_emitted": False,
         "guides_portfolio": True,
+        "reasoning_changed": False,
+        "judgment_changed": False,
+        "llm_used": False,
+        "fabricated": False,
+        "deterministic": True,
+    }
+    # Soft overlay — Institutional Monitoring Office (events recommend review)
+    packs["monitoring_office"] = {
+        "imo_version": monitoring_office.get("imo_version") or IMO_VERSION,
+        "schema_version": monitoring_office.get("schema_version") or EVENT_SCHEMA_VERSION,
+        "portfolio_idea": monitoring_office.get("portfolio_idea"),
+        "events": monitoring_office.get("events"),
+        "event_ids": monitoring_office.get("event_ids"),
+        "n_events": monitoring_office.get("n_events"),
+        "requires_review": monitoring_office.get("requires_review"),
+        "review_queue": monitoring_office.get("review_queue"),
+        "domains_covered": monitoring_office.get("domains_covered"),
+        "persisted": monitoring_office.get("persisted"),
+        "mutates_thesis": False,
+        "mutates_decision": False,
+        "mutates_portfolio": False,
+        "positions_emitted": False,
+        "orders_emitted": False,
         "reasoning_changed": False,
         "judgment_changed": False,
         "llm_used": False,

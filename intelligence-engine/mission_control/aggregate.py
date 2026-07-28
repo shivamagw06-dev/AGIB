@@ -799,6 +799,34 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("institutional_portfolio_office")
     except Exception:
         out["institutional_portfolio_office"] = None
+    # AGI v4.0 Phase 5 Sprint 5.4 — Institutional Monitoring Office
+    try:
+        from institutional_monitoring_office.production import dashboard as imo_dashboard
+        from institutional_monitoring_office.production import status as imo_status
+
+        mh = imo_status()
+        md = imo_dashboard()
+        out["institutional_monitoring_office"] = {
+            "company": mh.get("company"),
+            "status": mh.get("status"),
+            "version": mh.get("version"),
+            "release": mh.get("release"),
+            "n_events": md.get("n_events"),
+            "requires_review": md.get("requires_review"),
+            "ideas_covered": md.get("ideas_covered"),
+            "by_severity": md.get("by_severity"),
+            "by_recommended_action": md.get("by_recommended_action"),
+            "domains_monitored": md.get("domains_monitored"),
+            "mutates_thesis": False,
+            "positions": False,
+            "orders": False,
+            "execution": False,
+            "judgment_stack_modified": False,
+            "llm_used": False,
+        }
+        out["sources"].append("institutional_monitoring_office")
+    except Exception:
+        out["institutional_monitoring_office"] = None
     try:
         from knowledge_factory.production import historical_depth_coverage
 
