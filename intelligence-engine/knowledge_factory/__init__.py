@@ -17,8 +17,10 @@ from knowledge_factory.coverage import (
 from knowledge_factory.production import (
     coverage_dashboard,
     health,
+    historical_depth_coverage,
     quality_gates,
     run_daily_pipeline,
+    run_historical_depth_pipeline,
 )
 
 KF_VERSION = "knowledge-factory-v1.0.0"
@@ -36,7 +38,9 @@ __all__ = [
     "daily_health_scorecard",
     "decision_coverage",
     "health",
+    "historical_depth_coverage",
     "morning_coverage_dashboard",
     "quality_gates",
     "run_daily_pipeline",
+    "run_historical_depth_pipeline",
 ]

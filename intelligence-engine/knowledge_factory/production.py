@@ -100,7 +100,33 @@ def quality_gates() -> dict[str, Any]:
 
 
 def run_daily_pipeline(**kwargs: Any) -> dict[str, Any]:
-    return run_daily(**kwargs)
+    """Track-1 daily pipeline. Optionally enrich Historical Depth afterward."""
+    result = run_daily(**kwargs)
+    # Sprint 4 — Historical Depth is a KF enrichment only (Phases 1–7 untouched).
+    # Default off so Track-1 coverage/regression stays lean; nightly ops pass historical_depth=True.
+    run_hd = bool(kwargs.get("historical_depth", False))
+    entities = kwargs.get("entities")
+    if run_hd:
+        try:
+            from knowledge_factory.historical_depth.pipeline import run_historical_pipeline
+
+            hd = run_historical_pipeline(entities=list(entities) if entities else None)
+            result = {**result, "historical_depth": hd}
+        except Exception as exc:  # never break Track-1 on HD failure
+            result = {**result, "historical_depth": {"status": "error", "error": str(exc)}}
+    return result
+
+
+def run_historical_depth_pipeline(**kwargs: Any) -> dict[str, Any]:
+    from knowledge_factory.historical_depth.pipeline import run_historical_pipeline
+
+    return run_historical_pipeline(**kwargs)
+
+
+def historical_depth_coverage() -> dict[str, Any]:
+    from knowledge_factory.historical_depth.dashboard import historical_depth_dashboard
+
+    return historical_depth_dashboard()
 
 
 def company_object(entity: str) -> dict[str, Any] | None:
@@ -111,12 +137,23 @@ def evidence_feed(entity: str) -> dict[str, Any] | None:
     """Soft feed for Institutional Evidence Producers — never raw APIs."""
     pack = store.get_pack(entity)
     obj = store.get_object("company", entity)
-    if not pack and not obj:
+    hd_pack = None
+    hd_obj = None
+    try:
+        from knowledge_factory.historical_depth import store as hd_store
+
+        hd_pack = hd_store.get_pack(entity)
+        hd_obj = hd_store.get_object("company", entity)
+    except Exception:
+        pass
+    if not pack and not obj and not hd_pack and not hd_obj:
         return None
     return {
         "source": "knowledge_factory",
         "entity": entity.upper(),
         "pack": pack,
         "company_object": obj,
+        "historical_pack": hd_pack,
+        "historical_company_object": hd_obj,
         "raw_api": False,
     }

@@ -11,6 +11,12 @@ from institutional_reasoning.fundamentals.market_series import monthly_returns
 
 def setup_function() -> None:
     store.reset_store()
+    try:
+        from knowledge_factory.historical_depth import store as hd_store
+
+        hd_store.reset_store()
+    except Exception:
+        pass
 
 
 def test_target_20_primitives_and_risk_series():

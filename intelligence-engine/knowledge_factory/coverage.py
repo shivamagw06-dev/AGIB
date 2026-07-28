@@ -394,6 +394,23 @@ def daily_health_scorecard(*, ensure_pipeline: bool = True) -> dict[str, Any]:
             "Sector Intelligence → Macro Intelligence → Nifty 500 → Global."
         ),
     }
+    # Surface Historical Depth Coverage when the HD store is populated.
+    try:
+        from knowledge_factory.historical_depth.dashboard import historical_depth_dashboard
+
+        hd = historical_depth_dashboard()
+        scorecard["historical_depth"] = {
+            "average_history_years": hd.get("average_history_years"),
+            "companies_gt_10y_pct": hd.get("companies_gt_10y_pct"),
+            "companies_gt_20y_pct": hd.get("companies_gt_20y_pct"),
+            "historical_completeness_pct": hd.get("historical_completeness_pct"),
+            "historical_evidence_quality": hd.get("historical_evidence_quality"),
+            "point_in_time_integrity": hd.get("point_in_time_integrity"),
+        }
+        if (hd.get("companies_gt_20y_pct") or 0) >= 100:
+            scorecard["roadmap_next"] = "sector_intelligence"
+    except Exception:
+        scorecard["historical_depth"] = None
     store.put_report("daily_health", scorecard)
     return scorecard
 

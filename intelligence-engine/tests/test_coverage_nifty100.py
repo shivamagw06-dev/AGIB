@@ -22,6 +22,12 @@ from institutional_reasoning.fundamentals.universe import NIFTY_50, tier_report
 
 def setup_function() -> None:
     store.reset_store()
+    try:
+        from knowledge_factory.historical_depth import store as hd_store
+
+        hd_store.reset_store()
+    except Exception:
+        pass
 
 
 def test_nifty_100_declared_size():
