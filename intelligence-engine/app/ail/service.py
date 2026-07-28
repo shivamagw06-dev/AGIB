@@ -87,7 +87,8 @@ class AilService:
     def package_for_ask_agi(self, question: str, *, ticker: str | None = None) -> dict[str, Any]:
         if not self.flags.ail or not self.flags.ail_ask_agi:
             return {"enabled": False, "bypassed": True}
-        pack = self.analyse(question, ticker=ticker)
+        # Never unbound-acquire FAA/Playwright on the Ask desk path.
+        pack = self.analyse(question, ticker=ticker, pull_faa=False)
         if pack.get("error"):
             return {"enabled": True, "error": pack.get("error"), "programme": "AIL"}
         return {

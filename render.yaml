@@ -144,6 +144,9 @@ services:
         value: "true"
       - key: AIL_ASK_AGI
         value: "true"
+      # Ask must not call unbound faa.acquire (Playwright / live search hangs >90s).
+      - key: AIL_LIVE_FAA
+        value: "false"
       - key: FRE
         value: "true"
       - key: FRE_ASK_AGI

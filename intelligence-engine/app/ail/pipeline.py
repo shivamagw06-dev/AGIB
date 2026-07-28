@@ -87,13 +87,34 @@ class AilPipeline:
         self.graph.ensure_company(t, evidence_ids=eids)
         return registered
 
-    def soft_pull_upstream(self, query: str, ticker: str) -> list[EvidenceRecord]:
-        """Soft-consume FAA/FRE evidence when bound — never fail hard."""
+    def soft_pull_upstream(
+        self,
+        query: str,
+        ticker: str,
+        *,
+        pull_faa: bool = False,
+    ) -> list[EvidenceRecord]:
+        """Soft-consume FAA/FRE evidence when bound — never fail hard.
+
+        FAA acquire is opt-in (`pull_faa` / env ``AIL_LIVE_FAA``). Unbounded
+        live FAA + Playwright on the Ask path was causing Render HTML 502s.
+        """
+        import os
+        from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
+
         out: list[EvidenceRecord] = []
-        if self.faa is not None:
+        live_faa = pull_faa or str(os.environ.get("AIL_LIVE_FAA", "0")).lower() in {
+            "1",
+            "true",
+            "yes",
+        }
+        if self.faa is not None and live_faa:
             try:
-                acq = self.faa.acquire(query, limit=12)
-                for d in (acq.get("documents") or [])[:12]:
+                # Hard ceiling — never let Chromium/search stack block Ask.
+                with ThreadPoolExecutor(max_workers=1) as pool:
+                    fut = pool.submit(lambda: self.faa.acquire(query, limit=8))
+                    acq = fut.result(timeout=12)
+                for d in (acq.get("documents") or [])[:8]:
                     claim = (d.get("title") or d.get("raw_text") or "")[:280]
                     if not claim:
                         continue
@@ -112,6 +133,8 @@ class AilPipeline:
                             metadata={"upstream": "faa", "document_type": d.get("document_type")},
                         )
                     )
+            except FuturesTimeout:
+                pass
             except Exception:
                 pass
         if self.fre is not None and not out:
@@ -194,7 +217,13 @@ class AilPipeline:
             "prediction_id": pred.prediction_id,
         }
 
-    def analyse(self, query: str, *, ticker: str | None = None) -> dict[str, Any]:
+    def analyse(
+        self,
+        query: str,
+        *,
+        ticker: str | None = None,
+        pull_faa: bool = False,
+    ) -> dict[str, Any]:
         t = (ticker or resolve_ticker(query) or "").upper()
         if not t:
             return {
@@ -215,7 +244,7 @@ class AilPipeline:
             boot = existing
             ingest_meta = {"events": [], "thesis_id": None, "prediction_id": None}
 
-        upstream = self.soft_pull_upstream(query, t)
+        upstream = self.soft_pull_upstream(query, t, pull_faa=pull_faa)
         if upstream:
             ingest_meta = self.ingest_evidence_records(t, upstream)
 
