@@ -6962,6 +6962,23 @@ async def knowledge_factory_decision_coverage():
 
     return decision_coverage()
 
+
+@router.get("/knowledge-factory/dimensions")
+async def knowledge_factory_coverage_dimensions():
+    """Four coverage dimensions: entity / evidence / decision / confidence."""
+    from knowledge_factory.coverage import coverage_dimensions
+
+    return coverage_dimensions()
+
+
+@router.get("/knowledge-factory/daily-health")
+async def knowledge_factory_daily_health():
+    """AGIB Daily Health scorecard — one operational morning screen."""
+    from knowledge_factory.coverage import daily_health_scorecard
+
+    return daily_health_scorecard()
+
+
 @router.get("/knowledge-factory/quality-gates")
 async def knowledge_factory_quality_gates():
     from knowledge_factory.production import quality_gates
