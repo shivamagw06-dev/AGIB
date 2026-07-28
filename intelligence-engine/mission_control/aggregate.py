@@ -773,6 +773,32 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("institutional_decision_office")
     except Exception:
         out["institutional_decision_office"] = None
+    # AGI v4.0 Phase 5 Sprint 5.3 — Institutional Portfolio Office
+    try:
+        from institutional_portfolio_office.production import dashboard as ipo_dashboard
+        from institutional_portfolio_office.production import status as ipo_status
+
+        ph = ipo_status()
+        pd = ipo_dashboard()
+        out["institutional_portfolio_office"] = {
+            "company": ph.get("company"),
+            "status": ph.get("status"),
+            "version": ph.get("version"),
+            "release": ph.get("release"),
+            "n_ideas": pd.get("n_ideas"),
+            "role_distribution": pd.get("role_distribution"),
+            "sector_distribution": pd.get("sector_distribution"),
+            "status_distribution": pd.get("status_distribution"),
+            "it_services_relative_ranking": pd.get("it_services_relative_ranking"),
+            "positions": False,
+            "orders": False,
+            "execution": False,
+            "judgment_stack_modified": False,
+            "llm_used": False,
+        }
+        out["sources"].append("institutional_portfolio_office")
+    except Exception:
+        out["institutional_portfolio_office"] = None
     try:
         from knowledge_factory.production import historical_depth_coverage
 

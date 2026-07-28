@@ -3,50 +3,38 @@
 ```text
 COMPANY: AGI
 RELEASE: AGI v4.0
-FOUNDATION: AGI v3.6 Institutional Judgment Release (FROZEN)
-STATUS: Sprint 5.2 IDO implemented
+FOUNDATION: AGI v3.6 Institutional Judgment (FROZEN)
+STATUS: Sprint 5.3 IPO implemented
 UPDATED: 2026-07-28
 ```
-
-## Version map
-
-| Version | Focus | Status |
-|---------|-------|--------|
-| v3.0–v3.2 | Knowledge → Quality | ✅ Complete |
-| v3.6 | Institutional Judgment | ✅ Frozen |
-| **v4.0** | **Institutional Investment Office** | 🚀 ITE + IDO live |
 
 ## Architecture
 
 ```text
-Intelligence + Judgment (frozen v3.6)
-        ↓
-Investment Thesis (living)              ← 5.1 ITE ✓
-        ↓
-Decision Office (process decisions)     ← 5.2 IDO ✓
-        ↓
-Portfolio (relative)                    ← 5.3
-        ↓
-Monitoring                              ← 5.4
-        ↓
-Decision Learning                       ← 5.5
+Judgment (frozen v3.6)
+  → Investment Thesis (5.1 ✓)
+  → Decision Office (5.2 ✓)
+  → Portfolio Office (5.3 ✓)   ← ideas, not positions
+  → Monitoring Office (5.4)
+  → Decision Learning Office (5.5)
 ```
 
 ## Sprint sequence
 
 | Sprint | Module | Status |
 |--------|--------|--------|
-| **5.1** | Institutional Investment Thesis Engine (ITE) | ✓ v1.0.0 |
-| **5.2** | **Institutional Decision Office (IDO)** | ✓ v1.0.0 |
-| **5.3** | Portfolio Intelligence Office | ← Next |
-| **5.4** | Monitoring & Catalyst Engine | Planned |
-| **5.5** | Decision Learning Engine | Planned |
+| 5.1 | Investment Thesis (ITE) | ✓ |
+| 5.2 | Decision Office (IDO) | ✓ |
+| **5.3** | **Portfolio Office (IPO)** | ✓ v1.0.0 |
+| 5.4 | Monitoring Office | ← Next |
+| 5.5 | Decision Learning Office | Planned |
 
 ## Independent metrics
 
-IEL → HQS → CQS → CFQS → ITQS → **DQS**
+IEL → HQS → CQS → CFQS → ITQS → DQS → **PQS**
 
-## Hard rule
+## Hard rules
 
-Phase 5 consumes v3.6 judgment. Does not modify IEW / IHG / IHE / ICR / ICC.  
-IDO does not emit orders or BUY/SELL execution.
+* Consume v3.6 judgment — do not modify it  
+* Ideas ≠ positions ≠ orders ≠ execution  
+* Relative ranking over absolute “good company” calls  
