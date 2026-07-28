@@ -40,8 +40,20 @@ def coverage_dashboard() -> dict[str, Any]:
         obj = store.get_object("company", e) or {}
         qualities.append(float(obj.get("quality_score") or 0))
         missing.extend(obj.get("missing_fields") or [])
+    # North Star + morning board (Coverage is the only KPI that matters now)
+    from knowledge_factory.coverage import decision_coverage, morning_coverage_dashboard
+
+    try:
+        morning = morning_coverage_dashboard()
+        decision = morning.get("north_star") or decision_coverage()
+    except Exception:
+        morning = {}
+        decision = decision_coverage()
     return {
         "version": KF_VERSION,
+        "north_star": "decision_coverage",
+        "decision_coverage": decision,
+        "morning": morning,
         "companies_covered": len(companies),
         "sector_coverage": len(store.list_objects("sector")),
         "macro_coverage": 1 if store.get_object("macro", "GLOBAL") else 0,
@@ -57,6 +69,7 @@ def coverage_dashboard() -> dict[str, Any]:
             "low": sum(1 for q in qualities if q < 60),
         },
         "report": report,
+        "architecture_frozen": "REASONING_V1",
     }
 
 
@@ -87,7 +100,57 @@ def quality_gates() -> dict[str, Any]:
 
 
 def run_daily_pipeline(**kwargs: Any) -> dict[str, Any]:
-    return run_daily(**kwargs)
+    """Track-1 daily pipeline. Optionally enrich Historical Depth afterward."""
+    result = run_daily(**kwargs)
+    # Sprint 4 — Historical Depth is a KF enrichment only (Phases 1–7 untouched).
+    # Default off so Track-1 coverage/regression stays lean; nightly ops pass historical_depth=True.
+    run_hd = bool(kwargs.get("historical_depth", False))
+    entities = kwargs.get("entities")
+    if run_hd:
+        try:
+            from knowledge_factory.historical_depth.pipeline import run_historical_pipeline
+
+            hd = run_historical_pipeline(entities=list(entities) if entities else None)
+            result = {**result, "historical_depth": hd}
+        except Exception as exc:  # never break Track-1 on HD failure
+            result = {**result, "historical_depth": {"status": "error", "error": str(exc)}}
+    return result
+
+
+def run_historical_depth_pipeline(**kwargs: Any) -> dict[str, Any]:
+    from knowledge_factory.historical_depth.pipeline import run_historical_pipeline
+
+    return run_historical_pipeline(**kwargs)
+
+
+def historical_depth_coverage() -> dict[str, Any]:
+    from knowledge_factory.historical_depth.dashboard import historical_depth_dashboard
+
+    return historical_depth_dashboard()
+
+
+def run_sector_intelligence_pipeline(**kwargs: Any) -> dict[str, Any]:
+    from knowledge_factory.sector_intelligence.pipeline import run_sector_intelligence_pipeline as _run
+
+    return _run(**kwargs)
+
+
+def sector_intelligence_coverage() -> dict[str, Any]:
+    from knowledge_factory.sector_intelligence.dashboard import sector_intelligence_dashboard
+
+    return sector_intelligence_dashboard()
+
+
+def run_macro_intelligence_pipeline(**kwargs: Any) -> dict[str, Any]:
+    from knowledge_factory.macro_intelligence.pipeline import run_macro_intelligence_pipeline as _run
+
+    return _run(**kwargs)
+
+
+def macro_intelligence_coverage() -> dict[str, Any]:
+    from knowledge_factory.macro_intelligence.dashboard import macro_intelligence_dashboard
+
+    return macro_intelligence_dashboard()
 
 
 def company_object(entity: str) -> dict[str, Any] | None:
@@ -98,12 +161,23 @@ def evidence_feed(entity: str) -> dict[str, Any] | None:
     """Soft feed for Institutional Evidence Producers — never raw APIs."""
     pack = store.get_pack(entity)
     obj = store.get_object("company", entity)
-    if not pack and not obj:
+    hd_pack = None
+    hd_obj = None
+    try:
+        from knowledge_factory.historical_depth import store as hd_store
+
+        hd_pack = hd_store.get_pack(entity)
+        hd_obj = hd_store.get_object("company", entity)
+    except Exception:
+        pass
+    if not pack and not obj and not hd_pack and not hd_obj:
         return None
     return {
         "source": "knowledge_factory",
         "entity": entity.upper(),
         "pack": pack,
         "company_object": obj,
+        "historical_pack": hd_pack,
+        "historical_company_object": hd_obj,
         "raw_api": False,
     }

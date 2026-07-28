@@ -15,6 +15,24 @@ from knowledge_factory.validators.pipeline import dedupe_filings, validate_datas
 
 def setup_function() -> None:
     store.reset_store()
+    try:
+        from knowledge_factory.historical_depth import store as hd_store
+
+        hd_store.reset_store()
+    except Exception:
+        pass
+    try:
+        from knowledge_factory.sector_intelligence import store as isi_store
+
+        isi_store.reset_store()
+    except Exception:
+        pass
+    try:
+        from knowledge_factory.macro_intelligence import store as imi_store
+
+        imi_store.reset_store()
+    except Exception:
+        pass
 
 
 def test_health_and_not_engine():
@@ -109,7 +127,7 @@ def test_soft_adapter_never_raw_api():
     run_daily(entities=["INFY"])
     pts, provider, data_class, meta = historical_points_from_kf("INFY", "PE")
     assert pts
-    assert provider == "knowledge_factory"
+    assert provider in {"knowledge_factory", "knowledge_factory_historical_depth"}
     assert meta.get("raw_api") is False
 
 

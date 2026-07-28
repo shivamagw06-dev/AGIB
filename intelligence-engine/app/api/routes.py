@@ -4848,6 +4848,107 @@ async def admin_decision_engine_v2():
     return HTMLResponse(admin_page())
 
 
+# --- Institutional Decision Quality (Sprint 7 — observability only; never reasons) ---
+
+
+@router.get("/decision-quality/health")
+async def decision_quality_health():
+    from decision_quality.production import health
+
+    return health()
+
+
+@router.get("/decision-quality/dashboard")
+async def decision_quality_dashboard():
+    from decision_quality.production import dashboard
+
+    return dashboard()
+
+
+@router.post("/decision-quality/run")
+async def decision_quality_run():
+    from decision_quality.production import run_pipeline
+
+    return run_pipeline()
+
+
+@router.get("/decision-quality/quality-gates")
+async def decision_quality_gates():
+    from decision_quality.production import quality_gates
+
+    return quality_gates()
+
+
+@router.get("/decision-quality/decisions")
+async def decision_quality_list():
+    from decision_quality.production import list_decisions
+
+    return list_decisions()
+
+
+@router.get("/decision-quality/decisions/{decision_id}")
+async def decision_quality_decision(decision_id: str):
+    from decision_quality.production import get_decision
+
+    return get_decision(decision_id)
+
+
+@router.get("/decision-quality/replay/{decision_id}")
+async def decision_quality_replay(decision_id: str, as_of: str | None = None):
+    from decision_quality.production import replay
+
+    return replay(decision_id, as_of=as_of)
+
+
+@router.get("/decision-quality/scorecards/framework")
+async def decision_quality_framework_scorecards():
+    from decision_quality.production import framework_scorecards
+
+    return framework_scorecards()
+
+
+@router.get("/decision-quality/scorecards/sector")
+async def decision_quality_sector_scorecards():
+    from decision_quality.production import sector_scorecards
+
+    return sector_scorecards()
+
+
+@router.get("/decision-quality/scorecards/macro")
+async def decision_quality_macro_scorecards():
+    from decision_quality.production import macro_scorecards
+
+    return macro_scorecards()
+
+
+@router.get("/decision-quality/scorecards/portfolio")
+async def decision_quality_portfolio_scorecard():
+    from decision_quality.production import portfolio_scorecard
+
+    return portfolio_scorecard()
+
+
+@router.get("/decision-quality/calibration")
+async def decision_quality_calibration():
+    from decision_quality.production import calibration
+
+    return calibration()
+
+
+@router.get("/decision-quality/hall")
+async def decision_quality_hall(category: str | None = None, which: str | None = None):
+    from decision_quality.production import hall
+
+    return hall(category=category, which=which)
+
+
+@router.get("/decision-quality/missing-outcome")
+async def decision_quality_missing_outcome(decision_id: str = "dec_tcs_open_no_outcome"):
+    from decision_quality.production import outcome_missing
+
+    return outcome_missing(decision_id)
+
+
 # --- RQ1 Research Ontology (Sprint 1 — classify-only constitution; not a top-level layer) ---
 
 
@@ -6946,6 +7047,271 @@ async def knowledge_factory_dashboard():
     from knowledge_factory.production import coverage_dashboard
 
     return coverage_dashboard()
+
+
+@router.get("/knowledge-factory/coverage")
+async def knowledge_factory_morning_coverage():
+    """Morning coverage board + Decision Coverage north star."""
+    from knowledge_factory.coverage import morning_coverage_dashboard
+
+    return morning_coverage_dashboard()
+
+
+@router.get("/knowledge-factory/decision-coverage")
+async def knowledge_factory_decision_coverage():
+    from knowledge_factory.coverage import decision_coverage
+
+    return decision_coverage()
+
+
+@router.get("/knowledge-factory/dimensions")
+async def knowledge_factory_coverage_dimensions():
+    """Four coverage dimensions: entity / evidence / decision / confidence."""
+    from knowledge_factory.coverage import coverage_dimensions
+
+    return coverage_dimensions()
+
+
+@router.get("/knowledge-factory/daily-health")
+async def knowledge_factory_daily_health():
+    """AGIB Daily Health scorecard — one operational morning screen."""
+    from knowledge_factory.coverage import daily_health_scorecard
+
+    return daily_health_scorecard()
+
+
+@router.get("/knowledge-factory/historical-depth")
+async def knowledge_factory_historical_depth():
+    """Historical Depth Coverage dashboard (Sprint 4 north-star KPI)."""
+    from knowledge_factory.production import historical_depth_coverage
+
+    return historical_depth_coverage()
+
+
+@router.post("/knowledge-factory/historical-depth/run")
+async def knowledge_factory_historical_depth_run():
+    from knowledge_factory.production import run_historical_depth_pipeline
+
+    return run_historical_depth_pipeline()
+
+
+@router.get("/knowledge-factory/historical-depth/as-of/{ticker}")
+async def knowledge_factory_historical_as_of(ticker: str, as_of: str):
+    """Point-in-time company state — no future leakage past as_of."""
+    from knowledge_factory.historical_depth.time_travel import state_as_of
+
+    return state_as_of(ticker, as_of)
+
+
+@router.get("/knowledge-factory/historical-depth/compare/{ticker}")
+async def knowledge_factory_historical_compare(ticker: str, date_a: str, date_b: str):
+    from knowledge_factory.historical_depth.time_travel import compare_as_of
+
+    return compare_as_of(ticker, date_a, date_b)
+
+
+@router.get("/knowledge-factory/historical-depth/query/{ticker}/valuation/{year}")
+async def knowledge_factory_historical_valuation_year(ticker: str, year: int):
+    from knowledge_factory.historical_depth.queries import valuation_during
+
+    return valuation_during(ticker, year)
+
+
+@router.get("/knowledge-factory/historical-depth/query/{ticker}/pe-percentile")
+async def knowledge_factory_pe_percentile(ticker: str, percentile: float = 90.0):
+    from knowledge_factory.historical_depth.queries import pe_above_percentile
+
+    return pe_above_percentile(ticker, percentile)
+
+
+@router.get("/knowledge-factory/historical-depth/query/{ticker}/crisis-drawdown")
+async def knowledge_factory_crisis_drawdown(ticker: str):
+    from knowledge_factory.historical_depth.queries import largest_crisis_drawdown
+
+    return largest_crisis_drawdown(ticker)
+
+
+@router.get("/knowledge-factory/historical-depth/query/{ticker}/rate-hiking-cycles")
+async def knowledge_factory_rate_hiking(ticker: str):
+    from knowledge_factory.historical_depth.queries import performance_across_rate_hiking_cycles
+
+    return performance_across_rate_hiking_cycles(ticker)
+
+
+@router.get("/knowledge-factory/sector-intelligence")
+async def knowledge_factory_sector_intelligence():
+    """Institutional Sector Intelligence Coverage dashboard."""
+    from knowledge_factory.production import sector_intelligence_coverage
+
+    return sector_intelligence_coverage()
+
+
+@router.post("/knowledge-factory/sector-intelligence/run")
+async def knowledge_factory_sector_intelligence_run():
+    from knowledge_factory.production import run_sector_intelligence_pipeline
+
+    return run_sector_intelligence_pipeline()
+
+
+@router.get("/knowledge-factory/sector-intelligence/query/expensive/{ticker}")
+async def knowledge_factory_sector_expensive(ticker: str):
+    from knowledge_factory.sector_intelligence.queries import is_expensive_vs_sector_history
+
+    return is_expensive_vs_sector_history(ticker)
+
+
+@router.get("/knowledge-factory/sector-intelligence/query/framework/{ticker}")
+async def knowledge_factory_sector_framework(ticker: str):
+    from knowledge_factory.sector_intelligence.queries import should_use_dcf
+
+    return should_use_dcf(ticker)
+
+
+@router.get("/knowledge-factory/sector-intelligence/query/rates-fall")
+async def knowledge_factory_sectors_rates_fall():
+    from knowledge_factory.sector_intelligence.queries import sectors_outperform_when_rates_fall
+
+    return sectors_outperform_when_rates_fall()
+
+
+@router.get("/knowledge-factory/sector-intelligence/query/valuation/{sector}/{year}")
+async def knowledge_factory_sector_valuation_year(sector: str, year: int):
+    from knowledge_factory.sector_intelligence.queries import sector_valuation_during
+
+    return sector_valuation_during(sector, year)
+
+
+@router.get("/knowledge-factory/sector-intelligence/query/strongest-roic")
+async def knowledge_factory_strongest_roic():
+    from knowledge_factory.sector_intelligence.queries import strongest_roic_sector
+
+    return strongest_roic_sector()
+
+
+@router.get("/knowledge-factory/sector-intelligence/query/regime/{regime_id}")
+async def knowledge_factory_sector_regime(regime_id: str):
+    from knowledge_factory.sector_intelligence.queries import sectors_resembling_regime
+
+    return sectors_resembling_regime(regime_id)
+
+
+@router.get("/knowledge-factory/sector-intelligence/{sector}/playbook")
+async def knowledge_factory_sector_playbook(sector: str):
+    from knowledge_factory.sector_intelligence.queries import get_playbook
+
+    return get_playbook(sector)
+
+
+@router.get("/knowledge-factory/sector-intelligence/{sector}")
+async def knowledge_factory_sector_object(sector: str):
+    from knowledge_factory.sector_intelligence import store as isi_store
+    from knowledge_factory.sector_intelligence.schema import canonicalize
+
+    key = canonicalize(sector) or sector
+    obj = isi_store.get_object(key)
+    if not obj:
+        return {"found": False, "sector": key, "reason": "sector_history_unavailable", "fabricated": False}
+    return {"found": True, "sector": key, "object": obj}
+
+
+@router.get("/knowledge-factory/macro-intelligence")
+async def knowledge_factory_macro_intelligence():
+    """Institutional Macro Intelligence Coverage dashboard."""
+    from knowledge_factory.production import macro_intelligence_coverage
+
+    return macro_intelligence_coverage()
+
+
+@router.post("/knowledge-factory/macro-intelligence/run")
+async def knowledge_factory_macro_intelligence_run():
+    from knowledge_factory.production import run_macro_intelligence_pipeline
+
+    return run_macro_intelligence_pipeline()
+
+
+@router.get("/knowledge-factory/macro-intelligence/query/regime")
+async def knowledge_factory_macro_regime():
+    from knowledge_factory.macro_intelligence.queries import current_regime
+
+    return current_regime()
+
+
+@router.get("/knowledge-factory/macro-intelligence/query/similar")
+async def knowledge_factory_macro_similar():
+    from knowledge_factory.macro_intelligence.queries import most_similar_historical_regime
+
+    return most_similar_historical_regime()
+
+
+@router.get("/knowledge-factory/macro-intelligence/query/falling-rates")
+async def knowledge_factory_macro_falling_rates():
+    from knowledge_factory.macro_intelligence.queries import sectors_benefit_falling_rates
+
+    return sectors_benefit_falling_rates()
+
+
+@router.get("/knowledge-factory/macro-intelligence/query/oil-shock")
+async def knowledge_factory_macro_oil_shock(pct: float = 0.30):
+    from knowledge_factory.macro_intelligence.queries import oil_shock_impacts
+
+    return oil_shock_impacts(pct=pct)
+
+
+@router.get("/knowledge-factory/macro-intelligence/query/usd-it")
+async def knowledge_factory_macro_usd_it():
+    from knowledge_factory.macro_intelligence.queries import usd_strength_it
+
+    return usd_strength_it()
+
+
+@router.get("/knowledge-factory/macro-intelligence/query/replay/covid")
+async def knowledge_factory_macro_replay_covid():
+    from knowledge_factory.macro_intelligence.queries import replay_covid
+
+    return replay_covid()
+
+
+@router.get("/knowledge-factory/macro-intelligence/query/replay/2008")
+async def knowledge_factory_macro_replay_2008():
+    from knowledge_factory.macro_intelligence.queries import replay_2008
+
+    return replay_2008()
+
+
+@router.get("/knowledge-factory/macro-intelligence/query/unavailable")
+async def knowledge_factory_macro_unavailable(as_of: str = "1990-01-01"):
+    from knowledge_factory.macro_intelligence.queries import macro_unavailable
+
+    return macro_unavailable(as_of=as_of)
+
+
+@router.get("/knowledge-factory/macro-intelligence/query/replay/{as_of}")
+async def knowledge_factory_macro_replay(as_of: str):
+    from knowledge_factory.macro_intelligence.queries import replay_macro
+
+    return replay_macro(as_of=as_of)
+
+
+@router.get("/knowledge-factory/macro-intelligence/playbook/{regime}")
+async def knowledge_factory_macro_playbook(regime: str):
+    from knowledge_factory.macro_intelligence.queries import get_playbook
+
+    return get_playbook(regime)
+
+
+@router.get("/knowledge-factory/macro-intelligence/{macro_id}")
+async def knowledge_factory_macro_object(macro_id: str):
+    from knowledge_factory.macro_intelligence import store as imi_store
+
+    obj = imi_store.get_object(macro_id)
+    if not obj:
+        return {
+            "found": False,
+            "macro_id": macro_id,
+            "reason": "macro_history_unavailable",
+            "fabricated": False,
+        }
+    return {"found": True, "macro_id": macro_id, "object": obj}
 
 
 @router.get("/knowledge-factory/quality-gates")
