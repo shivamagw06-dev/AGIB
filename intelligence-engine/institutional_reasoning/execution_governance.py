@@ -427,6 +427,7 @@ def govern_answer(
     academy: dict[str, Any] | None = None,
     build_institutional_evidence: bool = True,
     build_portfolio_intelligence: bool = True,
+    build_outcome_intelligence: bool = True,
 ) -> dict[str, Any]:
     """Run the full governed pipeline; returns structured governance record."""
     started = time.time()
@@ -653,9 +654,13 @@ def govern_answer(
                 research_record=record,
                 existing_packs=packs,
                 persist_memory=True,
+                track_outcome=build_outcome_intelligence,
             )
             record["ipi"] = ipi_decision
             record["portfolio_decision_graph"] = ipi_decision.get("portfolio_decision_graph") or {}
+            # Phase 6 — surface outcome lifecycle handle (evaluation is explicit later).
+            if build_outcome_intelligence and (ipi_decision.get("ioi") or {}).get("decision_id"):
+                record["ioi"] = ipi_decision.get("ioi")
             # Portfolio narrative: never Buy/Sell; surface committee conclusion.
             rec = ipi_decision.get("recommendation") or {}
             if rec.get("conclusion"):
