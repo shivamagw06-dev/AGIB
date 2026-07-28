@@ -7924,6 +7924,65 @@ async def ask_pipeline_quality_gates():
 
 
 # ---------------------------------------------------------------------------
+# AGIB v2.2 — Institutional Research Office (knowledge-only publications)
+# ---------------------------------------------------------------------------
+@router.get("/research-office/dashboard")
+async def research_office_dashboard():
+    from research_office.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/research-office/publications")
+async def research_office_publications(limit: int = 100, pub_type: str | None = None):
+    from research_office.production import publications
+
+    return publications(limit=limit, pub_type=pub_type)
+
+
+@router.get("/research-office/watchlists")
+async def research_office_watchlists():
+    from research_office.production import watchlists
+
+    return watchlists()
+
+
+@router.get("/research-office/queue")
+async def research_office_queue():
+    from research_office.production import queue
+
+    return queue()
+
+
+@router.get("/research-office/company/{ticker}")
+async def research_office_company(ticker: str, generate: bool = False):
+    from research_office.production import company
+
+    return company(ticker, generate=generate)
+
+
+@router.get("/research-office/history")
+async def research_office_history(limit: int = 50):
+    from research_office.production import history
+
+    return history(limit=limit)
+
+
+@router.get("/research-office/replay")
+async def research_office_replay(replay_id: str):
+    from research_office.production import replay
+
+    return replay(replay_id)
+
+
+@router.get("/research-office/health")
+async def research_office_health():
+    from research_office.production import health
+
+    return health()
+
+
+# ---------------------------------------------------------------------------
 # AGIB v2.0 — Unified Institutional Knowledge Stack (Sprints 1–7 soft orchestration)
 # ---------------------------------------------------------------------------
 @router.get("/institutional-knowledge/health")
