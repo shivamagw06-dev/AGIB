@@ -3,11 +3,81 @@
 from __future__ import annotations
 
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
+
+from app.resilience.circuit_breaker import get_provider_circuits
 
 
 def _ms(start: float) -> float:
     return round((time.perf_counter() - start) * 1000.0, 2)
+
+
+def _fetch_one_source(
+    src: dict[str, Any],
+    ticker: str | None,
+    *,
+    eve: Any | None,
+    kip: Any | None,
+    aoi: Any | None,
+    mee: Any | None,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Fetch a single source; returns (items, call_log_row)."""
+    sid = src["source_id"]
+    circuits = get_provider_circuits()
+    t0 = time.perf_counter()
+    if not circuits.allow(f"leo:{sid}"):
+        return [], {
+            "source_id": sid,
+            "status": "circuit_open",
+            "latency_ms": _ms(t0),
+            "items": 0,
+            "via": src.get("via"),
+            "called": False,
+        }
+    try:
+        if sid in {"nse", "bse", "company_ir", "rbi"}:
+            items = _fetch_aoi(sid, ticker, aoi=aoi)
+            status = "ok" if items else "empty"
+        elif sid in {"indianapi", "finnhub", "fmp", "yahoo"}:
+            items = _fetch_market_data(sid, ticker)
+            status = "ok" if items else "empty_or_unconfigured"
+        elif sid in {"groww", "twelve_data", "fred", "alphavantage", "newsapi"}:
+            items = _fetch_agib(sid, ticker)
+            status = "ok" if items else "empty_or_unreachable"
+        elif sid == "internal_research":
+            items = _fetch_internal(ticker, eve=eve, kip=kip, mee=mee)
+            status = "ok" if items else "empty"
+        else:
+            items = []
+            status = "skipped"
+        latency = _ms(t0)
+        if status == "ok":
+            circuits.success(f"leo:{sid}")
+        elif status in {"empty_or_unconfigured", "empty_or_unreachable"}:
+            circuits.failure(f"leo:{sid}", error=status)
+        row = {
+            "source_id": sid,
+            "status": status,
+            "latency_ms": latency,
+            "items": len(items),
+            "via": src.get("via"),
+            "called": status
+            in {"ok", "empty", "empty_or_unconfigured", "empty_or_unreachable"},
+            "parallel": True,
+        }
+        return items, row
+    except Exception as exc:  # noqa: BLE001
+        circuits.failure(f"leo:{sid}", error=str(exc)[:200])
+        return [], {
+            "source_id": sid,
+            "status": "error",
+            "latency_ms": _ms(t0),
+            "error": str(exc)[:240],
+            "items": 0,
+            "called": True,
+            "parallel": True,
+        }
 
 
 def fetch_for_plan(
@@ -19,56 +89,59 @@ def fetch_for_plan(
     aoi: Any | None = None,
     mee: Any | None = None,
 ) -> dict[str, Any]:
-    """Execute source fetches; return raw bundles + call log."""
+    """Execute source fetches in parallel; return raw bundles + call log."""
     ticker = (plan.get("ticker") or "").upper() or None
     call_log: list[dict[str, Any]] = []
     bundles: list[dict[str, Any]] = []
 
-    for src in sources:
-        sid = src["source_id"]
-        t0 = time.perf_counter()
-        try:
-            if sid in {"nse", "bse", "company_ir", "rbi"}:
-                items = _fetch_aoi(sid, ticker, aoi=aoi)
-                status = "ok" if items else "empty"
-            elif sid in {"indianapi", "finnhub", "fmp", "yahoo"}:
-                items = _fetch_market_data(sid, ticker)
-                status = "ok" if items else "empty_or_unconfigured"
-            elif sid in {"groww", "twelve_data", "fred", "alphavantage", "newsapi"}:
-                items = _fetch_agib(sid, ticker)
-                status = "ok" if items else "empty_or_unreachable"
-            elif sid == "internal_research":
-                items = _fetch_internal(ticker, eve=eve, kip=kip, mee=mee)
-                status = "ok" if items else "empty"
-            else:
-                items = []
-                status = "skipped"
-            latency = _ms(t0)
-            call_log.append(
-                {
-                    "source_id": sid,
-                    "status": status,
-                    "latency_ms": latency,
-                    "items": len(items),
-                    "via": src.get("via"),
-                    "called": status in {"ok", "empty", "empty_or_unconfigured", "empty_or_unreachable"},
-                }
+    if not sources:
+        return {"bundles": bundles, "api_calls": call_log, "ticker": ticker, "parallel": True}
+
+    workers = min(6, max(1, len(sources)))
+    with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="leo-src") as pool:
+        futures = [
+            pool.submit(
+                _fetch_one_source,
+                src,
+                ticker,
+                eve=eve,
+                kip=kip,
+                aoi=aoi,
+                mee=mee,
             )
+            for src in sources
+        ]
+        for fut in as_completed(futures):
+            try:
+                items, row = fut.result()
+            except Exception as exc:  # noqa: BLE001
+                call_log.append(
+                    {
+                        "source_id": "unknown",
+                        "status": "error",
+                        "latency_ms": 0,
+                        "error": str(exc)[:240],
+                        "items": 0,
+                        "called": True,
+                        "parallel": True,
+                    }
+                )
+                continue
+            call_log.append(row)
+            latency = float(row.get("latency_ms") or 0)
+            sid = row.get("source_id")
             for it in items:
                 bundles.append({**it, "source_id": sid, "fetch_latency_ms": latency})
-        except Exception as exc:  # noqa: BLE001
-            call_log.append(
-                {
-                    "source_id": sid,
-                    "status": "error",
-                    "latency_ms": _ms(t0),
-                    "error": str(exc)[:240],
-                    "items": 0,
-                    "called": True,
-                }
-            )
 
-    return {"bundles": bundles, "api_calls": call_log, "ticker": ticker}
+    # Stable order for downstream determinism
+    call_log.sort(key=lambda r: str(r.get("source_id") or ""))
+    return {
+        "bundles": bundles,
+        "api_calls": call_log,
+        "ticker": ticker,
+        "parallel": True,
+        "workers": workers,
+    }
 
 
 def _fetch_aoi(source_id: str, ticker: str | None, *, aoi: Any | None = None) -> list[dict[str, Any]]:

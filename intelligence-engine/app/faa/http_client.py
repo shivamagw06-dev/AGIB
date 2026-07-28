@@ -124,7 +124,17 @@ class HttpClient:
                 with self._lock:
                     self.requests_total += 1
                 headers_out = {k: v for k, v in resp.headers.items()}
-                # Retry on 429 / 5xx
+                # Never retry permanent failures (401/402/403/404).
+                if resp.status_code in {401, 402, 403, 404}:
+                    return HttpResponse(
+                        status_code=resp.status_code,
+                        content=resp.content or b"",
+                        headers=headers_out,
+                        url=str(resp.url),
+                        elapsed_ms=elapsed,
+                        attempts=attempt,
+                    )
+                # Retry only transient: 429 / 5xx
                 if resp.status_code in {429, 500, 502, 503, 504} and attempt < self.max_retries:
                     self._backoff(attempt)
                     continue
@@ -181,13 +191,23 @@ class HttpClient:
                 elapsed = (time.perf_counter() - t0) * 1000
                 with self._lock:
                     self.requests_total += 1
+                headers_out = {k: v for k, v in resp.headers.items()}
+                if resp.status_code in {401, 402, 403, 404}:
+                    return HttpResponse(
+                        status_code=resp.status_code,
+                        content=resp.content or b"",
+                        headers=headers_out,
+                        url=str(resp.url),
+                        elapsed_ms=elapsed,
+                        attempts=attempt,
+                    )
                 if resp.status_code in {429, 500, 502, 503, 504} and attempt < self.max_retries:
                     self._backoff(attempt)
                     continue
                 return HttpResponse(
                     status_code=resp.status_code,
                     content=resp.content or b"",
-                    headers={k: v for k, v in resp.headers.items()},
+                    headers=headers_out,
                     url=str(resp.url),
                     elapsed_ms=elapsed,
                     attempts=attempt,

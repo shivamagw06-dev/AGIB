@@ -1,6 +1,7 @@
 """Phase 1 — Immutable telemetry sink (Supabase append-only + local fallback).
 
 Never raises into the answer path. Never updates existing rows.
+Ask path buffers in memory and flushes Supabase/disk asynchronously.
 Architecture v1.0.1 LOCKED — soft helper under institutional_reasoning.
 """
 
@@ -38,19 +39,10 @@ def _supabase_client():
         return None
 
 
-def persist_rows(rows: list[dict[str, Any]]) -> dict[str, Any]:
-    """Append telemetry rows. Returns a soft status; never raises."""
-    if not rows:
+def _flush_external(stamped: list[dict[str, Any]]) -> dict[str, Any]:
+    """Write already-stamped rows to Supabase or disk. Does not touch memory buffer."""
+    if not stamped:
         return {"ok": True, "written": 0, "sink": "noop"}
-
-    stamped = [
-        {**r, "recorded_at": datetime.now(timezone.utc).isoformat()} for r in rows
-    ]
-
-    with _LOCK:
-        _MEMORY.extend(stamped)
-        if len(_MEMORY) > _MEMORY_LIMIT:
-            del _MEMORY[: len(_MEMORY) - _MEMORY_LIMIT]
 
     client = _supabase_client()
     if client is not None:
@@ -65,7 +57,6 @@ def persist_rows(rows: list[dict[str, Any]]) -> dict[str, Any]:
     else:
         supabase_error = "no_supabase_credentials"
 
-    # Local append-only fallback so telemetry is never silently lost.
     try:
         path = _fallback_path()
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -87,6 +78,28 @@ def persist_rows(rows: list[dict[str, Any]]) -> dict[str, Any]:
             "error": str(exc)[:200],
             "supabase_error": supabase_error,
         }
+
+
+def persist_rows(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """Ask-safe: buffer in memory immediately, flush Supabase/disk off the request path."""
+    if not rows:
+        return {"ok": True, "written": 0, "sink": "noop"}
+
+    stamped = [
+        {**r, "recorded_at": datetime.now(timezone.utc).isoformat()} for r in rows
+    ]
+    with _LOCK:
+        _MEMORY.extend(stamped)
+        if len(_MEMORY) > _MEMORY_LIMIT:
+            del _MEMORY[: len(_MEMORY) - _MEMORY_LIMIT]
+
+    threading.Thread(
+        target=_flush_external,
+        args=(list(stamped),),
+        name="telemetry-persist",
+        daemon=True,
+    ).start()
+    return {"ok": True, "written": len(stamped), "sink": "async_buffer"}
 
 
 def recent(limit: int = 50) -> list[dict[str, Any]]:

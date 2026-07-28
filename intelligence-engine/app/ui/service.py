@@ -733,6 +733,46 @@ class UiService:
         )
 
     def search(self, question: str, *, ticker: str | None = None) -> SearchView:
+        """Ask desk entry — always returns a SearchView when possible (never blank 503)."""
+        q = (question or "").strip()
+        try:
+            return self._search_unguarded(question, ticker=ticker)
+        except Exception as exc:  # noqa: BLE001 — desk must degrade, not disappear
+            import logging
+
+            logging.getLogger("agi.ui.search").exception("ask_search_failed q=%r", q[:120])
+            return SearchView(
+                meta=UiMeta(
+                    surface="search",
+                    sources=["degraded_fallback"],
+                ),
+                question=q or "Ask AGI",
+                status="degraded",
+                degradation={
+                    "desk": "exception",
+                    "error": type(exc).__name__,
+                    "faa": "background_only",
+                    "reasoning": "unavailable",
+                    "detail": str(exc)[:200],
+                },
+                answer={
+                    "summary": (
+                        "The research desk returned a partial response. "
+                        "Cached institutional context was insufficient for a full briefing — please try again."
+                    ),
+                    "stance": "Neutral",
+                },
+                executive_summary=(
+                    "A full briefing could not be completed on this attempt. "
+                    "Your question was preserved — retry in a moment for the complete desk view."
+                ),
+                follow_up_questions=[
+                    q[:120] if q else "What is moving Indian markets today?",
+                    "What is the outlook for Nifty?",
+                ],
+            )
+
+    def _search_unguarded(self, question: str, *, ticker: str | None = None) -> SearchView:
         self._require()
         q = (question or "").strip()
         client = None
@@ -1261,6 +1301,7 @@ class UiService:
             data_validation = {}
 
         # ECP V1 — complete missing evidence BEFORE IRP / recommendation gate evaluation
+        # Hard timeout: ECP must not stack unbounded MarketData after LEO.
         try:
             from app.core.config import get_settings
             from ecp.production import soft_complete as ecp_soft_complete
@@ -1268,19 +1309,22 @@ class UiService:
             if bool(getattr(get_settings(), "ecp", True)) and bool(
                 getattr(get_settings(), "ecp_before_irp", True)
             ):
-                evidence_completion = (
-                    ecp_soft_complete(
-                        query=q,
-                        ticker=detected_ticker,
-                        leo_pkg=live_evidence if isinstance(live_evidence, dict) else {},
-                        cid=company_dossier if isinstance(company_dossier, dict) else {},
-                        sif_pkg=sector_intelligence if isinstance(sector_intelligence, dict) else {},
-                        dvc_pkg=data_validation if isinstance(data_validation, dict) else {},
-                        kip=self.kip,
-                        kf=self.kf,
-                    )
-                    or {}
+                evidence_completion, ecp_to = call_with_timeout(
+                    ecp_soft_complete,
+                    query=q,
+                    ticker=detected_ticker,
+                    leo_pkg=live_evidence if isinstance(live_evidence, dict) else {},
+                    cid=company_dossier if isinstance(company_dossier, dict) else {},
+                    sif_pkg=sector_intelligence if isinstance(sector_intelligence, dict) else {},
+                    dvc_pkg=data_validation if isinstance(data_validation, dict) else {},
+                    kip=self.kip,
+                    kf=self.kf,
+                    timeout_sec=4.0,
+                    default={},
                 )
+                evidence_completion = evidence_completion or {}
+                if ecp_to:
+                    degradation["evidence_completion"] = "timeout_cached"
                 leo_delta = evidence_completion.get("leo_delta") or {}
                 if leo_delta:
                     live_evidence = {**live_evidence, **leo_delta}
@@ -1309,6 +1353,7 @@ class UiService:
                     }
         except Exception:
             evidence_completion = {}
+            degradation["evidence_completion"] = "unavailable"
 
         if self.cae and q:
             try:
@@ -2232,20 +2277,23 @@ class UiService:
                 and bool(getattr(get_settings(), "ecp_before_gate", True))
                 and (reco_gate_pre.get("blocked") or leo_gate_pre.get("blocked"))
             ):
-                pass2 = (
-                    ecp_soft_complete(
-                        query=q,
-                        ticker=detected_ticker,
-                        leo_pkg=live_evidence if isinstance(live_evidence, dict) else {},
-                        cid=company_dossier if isinstance(company_dossier, dict) else {},
-                        sif_pkg=sector_intelligence if isinstance(sector_intelligence, dict) else {},
-                        dvc_pkg=data_validation if isinstance(data_validation, dict) else {},
-                        kip=self.kip,
-                        kf=self.kf,
-                        force=True,
-                    )
-                    or {}
+                pass2, ecp2_to = call_with_timeout(
+                    ecp_soft_complete,
+                    query=q,
+                    ticker=detected_ticker,
+                    leo_pkg=live_evidence if isinstance(live_evidence, dict) else {},
+                    cid=company_dossier if isinstance(company_dossier, dict) else {},
+                    sif_pkg=sector_intelligence if isinstance(sector_intelligence, dict) else {},
+                    dvc_pkg=data_validation if isinstance(data_validation, dict) else {},
+                    kip=self.kip,
+                    kf=self.kf,
+                    force=True,
+                    timeout_sec=3.0,
+                    default={},
                 )
+                pass2 = pass2 or {}
+                if ecp2_to:
+                    degradation["evidence_completion_pass2"] = "timeout_cached"
                 if pass2.get("leo_delta"):
                     live_evidence = {**live_evidence, **(pass2.get("leo_delta") or {})}
                 if pass2.get("cid_delta"):

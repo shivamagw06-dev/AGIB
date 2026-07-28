@@ -6073,7 +6073,10 @@ async def ui_search(
     question: str = Query(...),
     ticker: str | None = Query(default=None),
 ):
-    """Run sync UiService.search off the event loop so health checks stay responsive."""
+    """Run sync UiService.search off the event loop so health checks stay responsive.
+
+    Prefer a degraded SearchView over research_desk_unavailable whenever possible.
+    """
     from starlette.concurrency import run_in_threadpool
 
     try:
@@ -6082,7 +6085,12 @@ async def ui_search(
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
-        # Never leak HTML 502 to the desk — return a structured retryable error.
+        # Last-resort structured error — UiService.search should already degrade.
+        import logging
+
+        logging.getLogger("agi.ui.search").exception(
+            "ui_search_unhandled q=%r", str(question)[:120]
+        )
         raise HTTPException(
             status_code=503,
             detail={
@@ -6091,6 +6099,22 @@ async def ui_search(
                 "message": str(exc)[:240],
             },
         ) from exc
+
+
+@router.get("/resilience/providers")
+async def resilience_providers():
+    """Circuit-breaker / provider health snapshot for Mission Control."""
+    from app.resilience import get_provider_circuits
+
+    return {
+        "programme": "provider_resilience",
+        "circuits": get_provider_circuits().status(),
+        "policy": {
+            "never_retry": [401, 402, 403, 404],
+            "retry_transient": [429, 500, 502, 503, 504],
+            "circuit_cooldown_sec": 900,
+        },
+    }
 
 
 @router.get("/ui/autocomplete")
