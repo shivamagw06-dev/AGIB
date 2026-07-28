@@ -7801,6 +7801,84 @@ async def expectations_phase2_consensus():
 
 
 # ---------------------------------------------------------------------------
+# AGIB v2.1 — Institutional Scheduler & Morning Operations
+# ---------------------------------------------------------------------------
+@router.get("/scheduler/status")
+async def scheduler_status():
+    from institutional_scheduler.production import status
+
+    return status()
+
+
+@router.post("/scheduler/run")
+async def scheduler_run(payload: dict[str, Any] = Body(default={})):
+    from institutional_scheduler.production import run_morning
+
+    body = payload or {}
+    return run_morning(
+        dry_run=bool(body.get("dry_run", False)),
+        parallel=bool(body.get("parallel", True)),
+        manual_override=bool(body.get("manual_override", False)),
+        skip=list(body.get("skip") or []),
+        operator_notes=body.get("operator_notes"),
+    )
+
+
+@router.get("/scheduler/history")
+async def scheduler_history(limit: int = 50):
+    from institutional_scheduler.production import history
+
+    return history(limit=limit)
+
+
+@router.get("/scheduler/workflows")
+async def scheduler_workflows():
+    from institutional_scheduler.production import workflows
+
+    return workflows()
+
+
+@router.post("/scheduler/retry")
+async def scheduler_retry(payload: dict[str, Any] = Body(default={})):
+    from institutional_scheduler.production import retry
+
+    body = payload or {}
+    return retry(
+        str(body.get("workflow_id") or ""),
+        run_id=body.get("run_id"),
+        dry_run=bool(body.get("dry_run", False)),
+    )
+
+
+@router.get("/scheduler/health")
+async def scheduler_health():
+    from institutional_scheduler.production import health
+
+    return health()
+
+
+@router.get("/scheduler/reports")
+async def scheduler_reports(run_id: str | None = None):
+    from institutional_scheduler.production import reports
+
+    return reports(run_id)
+
+
+@router.get("/scheduler/telemetry")
+async def scheduler_telemetry(limit: int = 100):
+    from institutional_scheduler.production import telemetry
+
+    return telemetry(limit=limit)
+
+
+@router.get("/scheduler/dashboard")
+async def scheduler_dashboard():
+    from institutional_scheduler.production import dashboard
+
+    return dashboard()
+
+
+# ---------------------------------------------------------------------------
 # AGIB v2.0 — Unified Institutional Knowledge Stack (Sprints 1–7 soft orchestration)
 # ---------------------------------------------------------------------------
 @router.get("/institutional-knowledge/health")
