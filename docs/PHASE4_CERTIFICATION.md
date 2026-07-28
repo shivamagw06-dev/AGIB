@@ -3,11 +3,11 @@
 ```text
 COMPANY: AGI
 PROGRAMME: Phase 4 Analytical Depth
-STATUS: Ready for certification freeze after ICC merge
+STATUS: CERTIFIED / FROZEN as AGI v3.6
 DATE: 2026-07-28
 ```
 
-## Judgment stack (freeze as v1.0.0 after certification)
+## Judgment stack — frozen v1.0.0
 
 | Module | Version | Role |
 |--------|---------|------|
@@ -21,16 +21,7 @@ DATE: 2026-07-28
 Evidence → Weighting → Hypotheses → Evaluation → Committee → Confidence → Reasoning → ICE
 ```
 
-## Certification programme
-
-1. IEL institutional_1000 (soft + hard as available)
-2. Frozen CIO-25
-3. HQS · CQS · CFQS (independent)
-4. Root Cause Intelligence cluster review
-5. LangSmith end-to-end trace review
-6. Replay / temporal integrity regression
-
-## Soft baseline at ICC landing
+## Soft certification results
 
 | Metric | Value |
 |--------|------:|
@@ -45,4 +36,5 @@ Evidence → Weighting → Hypotheses → Evaluation → Committee → Confidenc
 
 **Do not add more judgment layers.**
 
-Phase 5 shifts from *how AGI thinks* to *how AGI makes and manages investment decisions over time*.
+Official release document: `docs/AGI_V3_6_INSTITUTIONAL_JUDGMENT_RELEASE.md`  
+Next programme: `docs/PHASE5_ROADMAP.md` (Sprint 5.1 ITE).

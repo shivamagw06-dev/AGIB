@@ -1,9 +1,9 @@
-# Phase 4 Freeze — IEW v1.0.0 + IHG v1.0.0
+# Phase 4 Freeze — Judgment Stack (superseded by AGI v3.6 release)
 
 ```text
 COMPANY: AGI
 DATE: 2026-07-28
-STATUS: FROZEN — do not optimise
+STATUS: FROZEN — see docs/AGI_V3_6_INSTITUTIONAL_JUDGMENT_RELEASE.md
 ```
 
 ## Frozen modules
