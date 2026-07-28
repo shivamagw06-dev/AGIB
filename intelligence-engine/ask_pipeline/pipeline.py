@@ -17,6 +17,8 @@ from ask_pipeline.answer_assembly import (
     bind_reasoning_to_answer,
 )
 from ask_pipeline.intent_resolution import resolve_intent
+from framework_selection import IFSE_VERSION, select_frameworks
+from framework_selection import store as ifse_store
 from ask_pipeline.knowledge import retrieve_knowledge
 from ask_pipeline.planner import run_planner
 from ask_pipeline.policy import execution_policy
@@ -197,6 +199,45 @@ def run_complete_ask(
     }
     context["answer_plan"] = answer_assembly.get("answer_plan")
 
+    # ------------------------------------------------------------------
+    # AGIB v3.4 Track C — Framework Selection (AFTER assembly, BEFORE reasoning)
+    # Deterministic multi-framework composition. Reasoning unchanged.
+    # ------------------------------------------------------------------
+    evidence_types_present: list[str] = []
+    for item in ((knowledge.get("iere") or {}).get("ranked_evidence") or []):
+        if isinstance(item, dict) and item.get("evidence_type"):
+            evidence_types_present.append(str(item["evidence_type"]))
+    framework_selection = select_frameworks(
+        question=question,
+        intent_v2=str(irl.get("intent") or intent_rec.get("intent_v2") or "Unknown"),
+        question_type=question_type,
+        entities=list(entities_rec.get("entities") or []),
+        ticker_hint=None if irl.get("concept_mode") else ticker_hint,
+        concept_mode=bool(irl.get("concept_mode")),
+        as_of=irl.get("as_of"),
+        answer_assembly=answer_assembly,
+        evidence_types_present=evidence_types_present,
+    )
+    ifse_store.record_selection(framework_selection)
+    stages["framework_selection"] = {
+        "status": "executed",
+        "ifse_version": framework_selection.get("ifse_version") or IFSE_VERSION,
+        "sector": framework_selection.get("sector"),
+        "framework_ids": framework_selection.get("framework_ids"),
+        "multi_framework": framework_selection.get("multi_framework"),
+        "confidence_band": (framework_selection.get("confidence") or {}).get("band"),
+        "confidence_pct": (framework_selection.get("confidence") or {}).get("pct"),
+        "validation_passed": (framework_selection.get("validation") or {}).get("passed"),
+        "forbidden_rejected": framework_selection.get("forbidden_rejected"),
+        "llm_used": False,
+        "fabricated": False,
+    }
+    context["framework_selection"] = {
+        "framework_ids": framework_selection.get("framework_ids"),
+        "sector": framework_selection.get("sector"),
+        "confidence_pct": (framework_selection.get("confidence") or {}).get("pct"),
+    }
+
     # S07 Planner — no ticker in Concept Mode
     hint = None if irl.get("concept_mode") else (
         (primary.get("entity_id") if primary else None)
@@ -223,6 +264,18 @@ def run_complete_ask(
             # Prefer KF provenance markers alongside existing soft packs
             if isinstance(packs[k], dict) and isinstance(v, dict):
                 packs[k] = {**packs[k], "knowledge_factory_overlay": v}
+    # Soft overlay — reasoning may ignore; does not change governance internals
+    packs["framework_selection"] = {
+        "ifse_version": framework_selection.get("ifse_version"),
+        "framework_ids": framework_selection.get("framework_ids"),
+        "selected": framework_selection.get("selected"),
+        "explanation": framework_selection.get("explanation"),
+        "confidence": framework_selection.get("confidence"),
+        "sector": framework_selection.get("sector"),
+        "validation": framework_selection.get("validation"),
+        "fabricated": False,
+        "reasoning_changed": False,
+    }
 
     # S09 Reasoning (+ S10 portfolio via flags)
     governance: dict[str, Any] = {}
@@ -268,6 +321,17 @@ def run_complete_ask(
     # Track B — bind existing reasoning into the assembly skeleton (no new facts)
     bound = bind_reasoning_to_answer(answer_assembly, governance=governance)
     institutional_answer = bound.get("institutional_answer") or {}
+    # Attach Framework Explanation Object (auditable; not shown by default)
+    institutional_answer = {
+        **institutional_answer,
+        "framework_selection": {
+            "framework_ids": framework_selection.get("framework_ids"),
+            "selected": framework_selection.get("selected"),
+            "explanation": framework_selection.get("explanation"),
+            "confidence": framework_selection.get("confidence"),
+            "ifse_version": framework_selection.get("ifse_version"),
+        },
+    }
     stages["answer_binding"] = {
         "status": "executed",
         "governance_bound": bool(bound.get("governance_bound")),
@@ -355,6 +419,7 @@ def run_complete_ask(
         "knowledge": knowledge,
         "evidence": evidence,
         "answer_assembly": answer_assembly,
+        "framework_selection": framework_selection,
         "institutional_answer": institutional_answer,
         "planner": planner,
         "dag": dag,
@@ -383,6 +448,8 @@ def run_complete_ask(
         "evidence": evidence,
         "answer_assembly": answer_assembly,
         "answer_assembly_version": AAE_VERSION,
+        "framework_selection": framework_selection,
+        "framework_selection_version": IFSE_VERSION,
         "institutional_answer": institutional_answer,
         "planner": planner,
         "dag": dag,
