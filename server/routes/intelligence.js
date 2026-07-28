@@ -1535,6 +1535,86 @@ export default function createIntelligenceRouter() {
       res.status(502).json({ error: err?.message || 'industry proxy failed' });
     }
   });
+  // AGIB v2.0 Sprint 6 — Institutional Alternative Data Intelligence (IADI)
+  router.get('/alternative-data/health', kfGet('/v1/alternative-data/health'));
+  router.get('/alternative-data/dashboard', kfGet('/v1/alternative-data/dashboard'));
+  router.post('/alternative-data/run', kfPost('/v1/alternative-data/run'));
+  router.get('/alternative-data/registry', kfGet('/v1/alternative-data/registry'));
+  router.get('/alternative-data/search', async (req, res) => {
+    try {
+      const q = new URLSearchParams({
+        q: String(req.query.q || ''),
+        limit: String(req.query.limit || '25'),
+      }).toString();
+      const result = await engineFetch(`/v1/alternative-data/search?${q}`);
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err?.message || 'alternative-data search proxy failed' });
+    }
+  });
+  router.get('/alternative-data/trends', async (req, res) => {
+    try {
+      const q = new URLSearchParams();
+      if (req.query.dataset) q.set('dataset', String(req.query.dataset));
+      if (req.query.as_of) q.set('as_of', String(req.query.as_of));
+      const qs = q.toString();
+      const result = await engineFetch(`/v1/alternative-data/trends${qs ? `?${qs}` : ''}`);
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err?.message || 'alternative-data trends proxy failed' });
+    }
+  });
+  router.get('/alternative-data/replay', async (req, res) => {
+    try {
+      const q = new URLSearchParams({ as_of: String(req.query.as_of || '') });
+      if (req.query.dataset) q.set('dataset', String(req.query.dataset));
+      const result = await engineFetch(`/v1/alternative-data/replay?${q.toString()}`);
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err?.message || 'alternative-data replay proxy failed' });
+    }
+  });
+  router.get('/alternative-data/dataset/:name', async (req, res) => {
+    try {
+      const q = req.query.as_of ? `?as_of=${encodeURIComponent(String(req.query.as_of))}` : '';
+      const result = await engineFetch(
+        `/v1/alternative-data/dataset/${encodeURIComponent(req.params.name)}${q}`
+      );
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err?.message || 'alternative-data dataset proxy failed' });
+    }
+  });
+  router.get('/alternative-data/company/:ticker', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/alternative-data/company/${encodeURIComponent(req.params.ticker)}`
+      );
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err?.message || 'alternative-data company proxy failed' });
+    }
+  });
+  router.get('/alternative-data/industry/:industry', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/alternative-data/industry/${encodeURIComponent(req.params.industry)}`
+      );
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err?.message || 'alternative-data industry proxy failed' });
+    }
+  });
+  router.get('/alternative-data/beneficiaries/:dataset', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/alternative-data/beneficiaries/${encodeURIComponent(req.params.dataset)}`
+      );
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err?.message || 'alternative-data beneficiaries proxy failed' });
+    }
+  });
   router.post('/knowledge-factory/run-daily', kfPost('/v1/knowledge-factory/run-daily'));
   router.get('/knowledge-factory/historical-depth', kfGet('/v1/knowledge-factory/historical-depth'));
   router.post('/knowledge-factory/historical-depth/run', kfPost('/v1/knowledge-factory/historical-depth/run'));

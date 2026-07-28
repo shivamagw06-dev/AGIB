@@ -7631,6 +7631,87 @@ async def relationship_network(entity: str, depth: int = 2, as_of: str | None = 
     return network(entity, depth=depth, as_of=as_of)
 
 
+# ---------------------------------------------------------------------------
+# AGIB v2.0 Sprint 6 — Institutional Alternative Data Intelligence (IADI)
+# Soft KF knowledge only. Phase-1 high-signal datasets. No prediction engine.
+# ---------------------------------------------------------------------------
+@router.get("/alternative-data/health")
+async def alternative_data_health():
+    from knowledge_factory.alternative_data_intelligence.production import health as iadi_health
+
+    return iadi_health()
+
+
+@router.get("/alternative-data/dashboard")
+async def alternative_data_dashboard_route():
+    from knowledge_factory.alternative_data_intelligence.production import dashboard
+
+    return dashboard()
+
+
+@router.post("/alternative-data/run")
+async def alternative_data_run():
+    from knowledge_factory.alternative_data_intelligence.production import run_pipeline
+
+    return run_pipeline()
+
+
+@router.get("/alternative-data/registry")
+async def alternative_data_registry():
+    from knowledge_factory.alternative_data_intelligence.production import registry
+
+    return registry()
+
+
+@router.get("/alternative-data/search")
+async def alternative_data_search(q: str = "", limit: int = 25):
+    from knowledge_factory.alternative_data_intelligence.production import search
+
+    return search(q, limit=limit)
+
+
+@router.get("/alternative-data/trends")
+async def alternative_data_trends(dataset: str | None = None, as_of: str | None = None):
+    from knowledge_factory.alternative_data_intelligence.production import trends
+
+    return trends(dataset=dataset, as_of=as_of)
+
+
+@router.get("/alternative-data/replay")
+async def alternative_data_replay(as_of: str, dataset: str | None = None):
+    from knowledge_factory.alternative_data_intelligence.production import replay
+
+    return replay(as_of=as_of, dataset=dataset)
+
+
+@router.get("/alternative-data/dataset/{name}")
+async def alternative_data_dataset(name: str, as_of: str | None = None):
+    from knowledge_factory.alternative_data_intelligence.production import get_dataset
+
+    return get_dataset(name, as_of=as_of)
+
+
+@router.get("/alternative-data/company/{ticker}")
+async def alternative_data_company(ticker: str):
+    from knowledge_factory.alternative_data_intelligence.production import company
+
+    return company(ticker)
+
+
+@router.get("/alternative-data/industry/{industry}")
+async def alternative_data_industry(industry: str):
+    from knowledge_factory.alternative_data_intelligence.production import industry as industry_view
+
+    return industry_view(industry)
+
+
+@router.get("/alternative-data/beneficiaries/{dataset}")
+async def alternative_data_beneficiaries(dataset: str):
+    from knowledge_factory.alternative_data_intelligence.production import beneficiaries
+
+    return beneficiaries(dataset)
+
+
 @router.get("/knowledge-factory/historical-depth")
 async def knowledge_factory_historical_depth():
     """Historical Depth Coverage dashboard (Sprint 4 north-star KPI)."""

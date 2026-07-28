@@ -283,6 +283,28 @@ def economic_relationship_coverage() -> dict[str, Any]:
     return relationship_dashboard(ensure=False)
 
 
+def run_alternative_data_pipeline(**kwargs: Any) -> dict[str, Any]:
+    from knowledge_factory.alternative_data_intelligence.pipeline import (
+        run_alternative_data_pipeline as _run,
+    )
+
+    return _run()
+
+
+def alternative_data_coverage() -> dict[str, Any]:
+    from knowledge_factory.alternative_data_intelligence.dashboards import (
+        alternative_data_dashboard,
+    )
+    from knowledge_factory.alternative_data_intelligence import store as iadi_store
+
+    if iadi_store.dataset_count() == 0:
+        try:
+            run_alternative_data_pipeline()
+        except Exception:
+            pass
+    return alternative_data_dashboard(ensure=False)
+
+
 def company_object(entity: str) -> dict[str, Any] | None:
     return store.get_object("company", entity)
 
@@ -298,6 +320,7 @@ def evidence_feed(entity: str) -> dict[str, Any] | None:
     government_policies = None
     industry_intelligence = None
     economic_relationships = None
+    alternative_data = None
     try:
         from knowledge_factory.historical_depth import store as hd_store
 
@@ -344,6 +367,15 @@ def evidence_feed(entity: str) -> dict[str, Any] | None:
         economic_relationships = ieri_store.list_relationships(entity=entity)
     except Exception:
         economic_relationships = None
+    # Soft-read Alternative Data Intelligence datasets linked to the company.
+    try:
+        from knowledge_factory.alternative_data_intelligence.links.connect import (
+            company_dataset_view,
+        )
+
+        alternative_data = company_dataset_view(entity)
+    except Exception:
+        alternative_data = None
     if (
         not pack
         and not obj
@@ -354,6 +386,7 @@ def evidence_feed(entity: str) -> dict[str, Any] | None:
         and not government_policies
         and not industry_intelligence
         and not economic_relationships
+        and not (alternative_data and alternative_data.get("n"))
     ):
         return None
     return {
@@ -368,5 +401,6 @@ def evidence_feed(entity: str) -> dict[str, Any] | None:
         "government_policies": government_policies,
         "industry_intelligence": industry_intelligence,
         "economic_relationships": economic_relationships,
+        "alternative_data": alternative_data,
         "raw_api": False,
     }

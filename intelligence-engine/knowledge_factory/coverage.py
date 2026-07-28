@@ -598,9 +598,30 @@ def daily_health_scorecard(*, ensure_pipeline: bool = True) -> dict[str, Any]:
             "north_star": rel.get("north_star"),
         }
         if (cov.get("institutional_ready_pct") or 0) >= 100 and (cov.get("relationships") or 0) >= 50:
-            scorecard["roadmap_next"] = "portfolio_relationship_intelligence"
+            scorecard["roadmap_next"] = "alternative_data_intelligence"
     except Exception:
         scorecard["economic_relationship_intelligence"] = None
+    # AGIB v2.0 Sprint 6 — soft-read Alternative Data Intelligence (IADI).
+    try:
+        from knowledge_factory.alternative_data_intelligence.dashboards import (
+            alternative_data_dashboard,
+        )
+
+        alt = alternative_data_dashboard(ensure=False)
+        acov = alt.get("alternative_data_coverage") or {}
+        scorecard["alternative_data_intelligence"] = {
+            "datasets": acov.get("datasets"),
+            "observations": acov.get("observations"),
+            "institutional_ready_pct": acov.get("institutional_ready_pct"),
+            "economic_momentum": alt.get("economic_momentum"),
+            "dataset_freshness": alt.get("dataset_freshness"),
+            "north_star": alt.get("north_star"),
+            "delivery_phase": alt.get("delivery_phase"),
+        }
+        if (acov.get("institutional_ready_pct") or 0) >= 100 and (acov.get("datasets") or 0) >= 10:
+            scorecard["roadmap_next"] = "alternative_data_phase_2_expansion"
+    except Exception:
+        scorecard["alternative_data_intelligence"] = None
     store.put_report("daily_health", scorecard)
     return scorecard
 

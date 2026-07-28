@@ -182,9 +182,29 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         }
         out["sources"].append("economic_relationship_intelligence")
         if (cov.get("institutional_ready_pct") or 0) >= 100 and (cov.get("relationships") or 0) >= 50:
-            out["roadmap_next"] = "portfolio_relationship_intelligence"
+            out["roadmap_next"] = "alternative_data_intelligence"
     except Exception:
         out["economic_relationship_intelligence"] = None
+    try:
+        from knowledge_factory.alternative_data_intelligence.dashboards import (
+            alternative_data_dashboard,
+        )
+
+        alt = alternative_data_dashboard(ensure=False)
+        acov = alt.get("alternative_data_coverage") or {}
+        out["alternative_data_intelligence"] = {
+            "datasets": acov.get("datasets"),
+            "observations": acov.get("observations"),
+            "institutional_ready_pct": acov.get("institutional_ready_pct"),
+            "economic_momentum": alt.get("economic_momentum"),
+            "north_star": alt.get("north_star"),
+            "delivery_phase": alt.get("delivery_phase"),
+        }
+        out["sources"].append("alternative_data_intelligence")
+        if (acov.get("institutional_ready_pct") or 0) >= 100 and (acov.get("datasets") or 0) >= 10:
+            out["roadmap_next"] = "alternative_data_phase_2_expansion"
+    except Exception:
+        out["alternative_data_intelligence"] = None
     try:
         from knowledge_factory.production import historical_depth_coverage
 
