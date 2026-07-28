@@ -248,6 +248,24 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
             out["roadmap_next"] = "knowledge_stack_complete"
     except Exception:
         out["institutional_knowledge_stack"] = None
+    # AGIB v2.1 Ask Pipeline board (soft observability).
+    try:
+        from ask_pipeline.production import dashboard as ask_dash
+
+        ad = ask_dash()
+        out["ask_pipeline"] = {
+            "questions_today": ad.get("questions_today"),
+            "average_latency_ms": ad.get("average_latency_ms"),
+            "pipeline_coverage": ad.get("pipeline_coverage"),
+            "evidence_coverage_avg": ad.get("evidence_coverage_avg"),
+            "decision_records": ad.get("decision_records"),
+            "outcome_registered": ad.get("outcome_registered"),
+            "replay_ready": ad.get("replay_ready"),
+            "north_star": ad.get("north_star"),
+        }
+        out["sources"].append("ask_pipeline")
+    except Exception:
+        out["ask_pipeline"] = None
     try:
         from knowledge_factory.production import historical_depth_coverage
 
