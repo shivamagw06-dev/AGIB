@@ -4801,6 +4801,167 @@ async def admin_ipci():
     return HTMLResponse(html)
 
 
+# --- Forecast Validation & Learning (FVL) Sprint 9.5 ---
+# Closes Phase 9: register → validate vs actuals → score → learn (never rewrite history).
+
+
+@router.get("/fvl/health")
+async def fvl_health():
+    from forecast_validation_learning.production import health
+
+    return health()
+
+
+@router.get("/forecast/validation/dashboard")
+async def fvl_dashboard():
+    from forecast_validation_learning.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/forecast/validation/{forecast_id}")
+async def fvl_get_validation(forecast_id: str):
+    from forecast_validation_learning.production import get_validation
+
+    try:
+        return get_validation(forecast_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post("/forecast/validation/{forecast_id}")
+async def fvl_post_validation(forecast_id: str, payload: dict[str, Any] = Body(default={})):
+    from forecast_validation_learning.production import validate
+
+    try:
+        return validate(
+            forecast_id,
+            actual_outcome=payload.get("actual_outcome"),
+            generate_learning=bool(payload.get("generate_learning", True)),
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/forecast/register")
+async def fvl_register(payload: dict[str, Any] = Body(default={})):
+    from forecast_validation_learning.production import register
+
+    try:
+        return register(
+            entity=payload.get("entity") or payload.get("ticker"),
+            scope=str(payload.get("scope") or "company"),
+            question=payload.get("question"),
+            assessment=payload.get("assessment"),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/forecast/validate")
+async def fvl_validate_entity(payload: dict[str, Any] = Body(default={})):
+    from forecast_validation_learning.production import validate_entity
+
+    entity = payload.get("entity") or payload.get("ticker")
+    if not entity:
+        raise HTTPException(status_code=400, detail="entity required")
+    try:
+        return validate_entity(
+            str(entity),
+            scope=str(payload.get("scope") or "company"),
+            question=payload.get("question"),
+            actual_outcome=payload.get("actual_outcome"),
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/forecast/learning")
+async def fvl_learning(limit: int = Query(50, ge=1, le=200), category: str | None = None):
+    from forecast_validation_learning.production import learning
+
+    return learning(limit=limit, category=category)
+
+
+@router.get("/forecast/performance")
+async def fvl_performance(scope: str | None = None):
+    from forecast_validation_learning.production import performance
+
+    return performance(scope=scope)
+
+
+@router.get("/forecast/calibration")
+async def fvl_calibration():
+    from forecast_validation_learning.production import calibration
+
+    return calibration()
+
+
+@router.get("/forecast/history")
+async def fvl_history(
+    entity: str | None = None,
+    scope: str = Query("company"),
+    limit: int = Query(50, ge=1, le=200),
+):
+    from forecast_validation_learning.production import history
+
+    return history(entity=entity, scope=scope, limit=limit)
+
+
+@router.get("/admin/forecast-validation", response_class=HTMLResponse)
+async def admin_fvl():
+    from forecast_validation_learning.production import dashboard
+
+    board = dashboard()
+    score = board.get("forecast_score") or {}
+    biases = board.get("bias_indicators") or []
+    learnings = board.get("recent_learnings") or []
+    rows = "".join(
+        f"<tr><td>{v.get('entity')}</td><td>{v.get('validation_status')}</td>"
+        f"<td>{(v.get('score') or {}).get('overall')}</td>"
+        f"<td>{(v.get('difference') or {}).get('summary')}</td></tr>"
+        for v in (board.get("recent_validations") or [])
+    )
+    learn_rows = "".join(
+        f"<tr><td>{l.get('topic')}</td><td>{l.get('category')}</td>"
+        f"<td>{l.get('future_guidance')}</td></tr>"
+        for l in learnings
+    )
+    bias_rows = "".join(
+        f"<tr><td>{b.get('label')}</td><td>{b.get('severity')}</td>"
+        f"<td>{b.get('evidence_count')}</td></tr>"
+        for b in biases
+    )
+    html = f"""<!doctype html><html><head><title>FVL Mission Control</title></head>
+    <body style="font-family:system-ui;max-width:980px;margin:2rem auto">
+    <h1>Forecast Validation &amp; Learning</h1>
+    <p>Were we right? History is never rewritten. Phase 9 closed-loop forecasting.</p>
+    <pre>{board.get('principles')}</pre>
+    <p>Active: {board.get('active_forecasts')} · Validated: {board.get('validated_forecasts')} ·
+    Accuracy: {board.get('validation_accuracy')}% · Learnings: {board.get('learning_generated')}</p>
+    <h2>Forecast score</h2>
+    <pre>{score}</pre>
+    <h2>Recent validations</h2>
+    <table border="1" cellpadding="6">
+    <tr><th>Entity</th><th>Status</th><th>Score</th><th>Difference</th></tr>
+    {rows or '<tr><td colspan=4>No validations yet</td></tr>'}
+    </table>
+    <h2>Bias indicators</h2>
+    <table border="1" cellpadding="6">
+    <tr><th>Bias</th><th>Severity</th><th>Evidence</th></tr>
+    {bias_rows or '<tr><td colspan=3>No recurring biases yet</td></tr>'}
+    </table>
+    <h2>Learning generated</h2>
+    <table border="1" cellpadding="6">
+    <tr><th>Topic</th><th>Category</th><th>Future guidance</th></tr>
+    {learn_rows or '<tr><td colspan=3>No learnings yet</td></tr>'}
+    </table>
+    </body></html>"""
+    return HTMLResponse(html)
+
+
 # --- Legacy FIE scenario surface (pre-ISI) — prefer /scenarios/* for Investment Office ---
 
 

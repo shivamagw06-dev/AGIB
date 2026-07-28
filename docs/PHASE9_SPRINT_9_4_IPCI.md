@@ -70,4 +70,4 @@ GET  /v1/probability/dashboard
 | ✅ 9.2 | ISI | Scenarios |
 | ✅ 9.3 | CTI | Catalysts / triggers (soft-consumed) |
 | ✅ 9.4 | IPCI | This sprint |
-| ➡️ 9.5 | FVL | Validate vs outcomes & learn |
+| ✅ 9.5 | FVL | Validate vs outcomes & learn — see `PHASE9_SPRINT_9_5_FVL.md` |
