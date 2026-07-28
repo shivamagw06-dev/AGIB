@@ -20,6 +20,10 @@ PLAYBOOKS = [
             "fresh look",
             "investment case",
             "before recommending that an analyst",
+            "investment committee",
+            "evidence package",
+            "before anyone begins valuation",
+            "presenting",
         ],
         frameworks=["FW_DCF", "FW_PEER_COMPARISON", "FW_MOAT", "FW_GOVERNANCE"],
         checklist=[

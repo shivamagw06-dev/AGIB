@@ -67,7 +67,7 @@ PLAYBOOKS = [
         name="Union Budget / Fiscal Read",
         category="government",
         question_types=["Explain", "Analyse", "Government"],
-        cues=["budget", "union budget", "fiscal deficit", "capex push", "tax change"],
+        cues=["budget", "union budget", "fiscal deficit", "capex push", "tax change", "gst collections", "gst"],
         frameworks=["FW_GOVERNMENT_POLICY", "FW_MACRO_TRANSMISSION"],
         checklist=[
             "Deficit / glide path",
@@ -123,7 +123,7 @@ PLAYBOOKS = [
         name="Sector-Specific Policy Lens",
         category="government",
         question_types=["Explain", "Analyse", "Government"],
-        cues=["plis", "production linked", "import duty", "subsidy", "sector policy"],
+        cues=["plis", "production linked", "import duty", "import duties", "subsidy", "sector policy", "doubles import"],
         frameworks=["FW_GOVERNMENT_POLICY", "FW_INDUSTRY_STRUCTURE", "FW_MOAT"],
         checklist=[
             "Instrument type (PLI/duty/subsidy)",
