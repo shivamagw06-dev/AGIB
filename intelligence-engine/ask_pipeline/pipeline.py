@@ -701,6 +701,113 @@ def run_complete_ask(
         "plural": hypothesis_generation.get("plural"),
     }
 
+    # ------------------------------------------------------------------
+    # AGI Phase 4 Sprint 4.3 — Institutional Hypothesis Evaluation (IHE)
+    # Soft-wire only: evaluate Hypothesis Space before Reasoning.
+    # Deterministic judgment — no LLM, no forced single winner.
+    # Frozen IEW / IHG / frameworks / reasoning untouched.
+    # ------------------------------------------------------------------
+    from institutional_hypothesis_evaluation.production import (
+        apply_hypothesis_evaluation as ihe_apply,
+    )
+    from institutional_hypothesis_evaluation.schema import EVALUATION_VERSION, IHE_VERSION
+
+    _ihe_meta = {
+        "question_id": (context.get("question_id") or session_id or conversation_id),
+        "intent": irl.get("intent") or intent_rec.get("intent_v2") or intent_rec.get("intent"),
+        "framework": (framework_selection.get("framework_ids") or [None])[0],
+        "playbook": playbook_selection.get("playbook_id"),
+        "weight_version": evidence_weighting.get("weight_version") or WEIGHT_VERSION,
+        "hypothesis_version": hypothesis_generation.get("hypothesis_version") or HYPOTHESIS_VERSION,
+        "evaluation_version": EVALUATION_VERSION,
+        "reasoning_version": "frozen",
+        "replay_mode": bool(irl.get("as_of")),
+    }
+    with trace_span(
+        "hypothesis_evaluation",
+        run_type="chain",
+        inputs={
+            "question": question,
+            "n_hypotheses": hypothesis_generation.get("n_hypotheses"),
+            "evaluation_version": EVALUATION_VERSION,
+        },
+        tags=["ask", "ihe", "hypothesis_evaluation"],
+        metadata=_ihe_meta,
+    ) as _sp:
+        _ihe = ihe_apply(
+            question=question,
+            hypothesis_generation=hypothesis_generation,
+            evidence_weighting=evidence_weighting,
+            institutional_memory=institutional_memory,
+            framework_selection=framework_selection,
+            framework_ids=list(framework_selection.get("framework_ids") or []),
+            playbook_selection=playbook_selection,
+            evidence_graph=evidence_graph,
+            as_of=irl.get("as_of"),
+            metadata=_ihe_meta,
+        )
+        for _eh in (_ihe.get("pack") or {}).get("evaluated_hypotheses") or []:
+            with trace_span(
+                "hypothesis_evaluation.hypothesis",
+                run_type="tool",
+                inputs={
+                    "hypothesis_id": _eh.get("hypothesis_id"),
+                    "hypothesis": _eh.get("hypothesis"),
+                },
+                tags=["ask", "ihe", "evaluation_decision"],
+                metadata={
+                    **_ihe_meta,
+                    "support_score": _eh.get("support_score"),
+                    "conflict_score": _eh.get("conflict_score"),
+                    "coverage_score": _eh.get("coverage_score"),
+                    "historical_score": _eh.get("historical_score"),
+                    "framework_score": _eh.get("framework_score"),
+                    "confidence": _eh.get("confidence"),
+                    "preferred": _eh.get("preferred"),
+                    "rejected_reason": _eh.get("rejected_reason"),
+                    "missing_evidence": _eh.get("missing_evidence"),
+                    "evaluation_version": EVALUATION_VERSION,
+                },
+            ) as _esp:
+                _esp.end(
+                    outputs={
+                        "status": _eh.get("status"),
+                        "evaluation_score": _eh.get("evaluation_score"),
+                        "evaluation_breakdown": _eh.get("evaluation_breakdown"),
+                        "confidence": _eh.get("confidence"),
+                        "preferred": _eh.get("preferred"),
+                        "rejected_reason": _eh.get("rejected_reason"),
+                        "evaluation_reason": _eh.get("evaluation_reason"),
+                    }
+                )
+        _sp.end(outputs=_ihe.get("report"))
+    hypothesis_evaluation = _ihe.get("pack") or {}
+    stages["hypothesis_evaluation"] = {
+        "status": "executed",
+        "ihe_version": hypothesis_evaluation.get("ihe_version") or IHE_VERSION,
+        "evaluation_version": hypothesis_evaluation.get("evaluation_version") or EVALUATION_VERSION,
+        "outcome": hypothesis_evaluation.get("outcome"),
+        "n_evaluated": hypothesis_evaluation.get("n_evaluated"),
+        "n_preferred": hypothesis_evaluation.get("n_preferred"),
+        "n_rejected": hypothesis_evaluation.get("n_rejected"),
+        "n_indeterminate": hypothesis_evaluation.get("n_indeterminate"),
+        "plural": hypothesis_evaluation.get("plural"),
+        "forced_single_winner": False,
+        "preferred_hypothesis_id": (_ihe.get("report") or {}).get("preferred_hypothesis_id"),
+        "guides_judgment": True,
+        "reasoning_changed": False,
+        "framework_changed": False,
+        "llm_used": False,
+        "fabricated": False,
+    }
+    context["hypothesis_evaluation"] = {
+        "ihe_version": hypothesis_evaluation.get("ihe_version") or IHE_VERSION,
+        "evaluation_version": hypothesis_evaluation.get("evaluation_version") or EVALUATION_VERSION,
+        "outcome": hypothesis_evaluation.get("outcome"),
+        "preferred_hypothesis_id": (_ihe.get("report") or {}).get("preferred_hypothesis_id"),
+        "plural": hypothesis_evaluation.get("plural"),
+    }
+
     # S07 Planner — no ticker in Concept Mode
     planner = run_planner(question, ticker_hint=hint, policy=policy)
     stages["planner"] = planner
@@ -818,6 +925,22 @@ def run_complete_ask(
         "insufficient_evidence": hypothesis_generation.get("insufficient_evidence"),
         "guides_hypothesis_space": True,
         "reasoning_changed": False,
+        "llm_used": False,
+        "fabricated": False,
+        "deterministic": True,
+    }
+    # Soft overlay — evaluated judgment entering reasoning (pros/cons/missing/confidence)
+    packs["hypothesis_evaluation"] = {
+        "ihe_version": hypothesis_evaluation.get("ihe_version") or IHE_VERSION,
+        "evaluation_version": hypothesis_evaluation.get("evaluation_version") or EVALUATION_VERSION,
+        "report": hypothesis_evaluation.get("report"),
+        "evaluated_hypotheses": hypothesis_evaluation.get("evaluated_hypotheses"),
+        "outcome": hypothesis_evaluation.get("outcome"),
+        "plural": hypothesis_evaluation.get("plural"),
+        "forced_single_winner": False,
+        "guides_judgment": True,
+        "reasoning_changed": False,
+        "framework_changed": False,
         "llm_used": False,
         "fabricated": False,
         "deterministic": True,

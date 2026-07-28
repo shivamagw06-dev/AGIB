@@ -7377,6 +7377,58 @@ async def temporal_integrity_telemetry():
 
 
 # ---------------------------------------------------------------------------
+# AGI Phase 4 Sprint 4.3 — Institutional Hypothesis Evaluation Engine (IHE)
+# ---------------------------------------------------------------------------
+@router.get("/hypothesis-evaluation/health")
+async def hypothesis_evaluation_health():
+    from institutional_hypothesis_evaluation.production import status
+
+    return status()
+
+
+@router.get("/hypothesis-evaluation/dashboard")
+async def hypothesis_evaluation_dashboard():
+    from institutional_hypothesis_evaluation.production import dashboard
+
+    return dashboard()
+
+
+@router.post("/hypothesis-evaluation/evaluate")
+async def hypothesis_evaluation_evaluate(payload: dict):
+    from institutional_hypothesis_evaluation.production import evaluate
+
+    return evaluate(payload)
+
+
+@router.post("/hypothesis-evaluation/report")
+async def hypothesis_evaluation_report(payload: dict):
+    from institutional_hypothesis_evaluation.production import report
+
+    return report(payload)
+
+
+@router.post("/hypothesis-evaluation/ranking")
+async def hypothesis_evaluation_ranking(payload: dict):
+    from institutional_hypothesis_evaluation.production import ranking
+
+    return ranking(payload)
+
+
+@router.get("/hypothesis-evaluation/telemetry")
+async def hypothesis_evaluation_telemetry():
+    from institutional_hypothesis_evaluation.production import telemetry
+
+    return telemetry()
+
+
+@router.get("/hypothesis-evaluation/history")
+async def hypothesis_evaluation_history(limit: int = 20):
+    from institutional_hypothesis_evaluation.production import history
+
+    return history(limit=limit)
+
+
+# ---------------------------------------------------------------------------
 # AGI Phase 4 Sprint 4.2 — Institutional Hypothesis Generation Engine (IHG)
 # ---------------------------------------------------------------------------
 @router.get("/hypothesis/health")
