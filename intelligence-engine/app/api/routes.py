@@ -5018,6 +5018,99 @@ async def admin_hmip():
     return HTMLResponse(html)
 
 
+# --- Macroeconomic Relationship Intelligence (MRI) Sprint 10.3 ---
+# Evidence-backed macro relationships. Never inferred without historical support.
+
+
+@router.get("/mri/health")
+async def mri_health():
+    from macroeconomic_relationship_intelligence.production import health
+
+    return health()
+
+
+@router.get("/macro/relationships")
+async def mri_relationships(limit: int = Query(200, ge=1, le=1000)):
+    from macroeconomic_relationship_intelligence.production import relationships
+
+    return relationships(limit=limit)
+
+
+@router.get("/macro/relationships/graph")
+async def mri_graph():
+    from macroeconomic_relationship_intelligence.production import graph
+
+    return graph()
+
+
+@router.get("/macro/relationships/dashboard")
+async def mri_dashboard():
+    from macroeconomic_relationship_intelligence.production import dashboard
+
+    return dashboard()
+
+
+@router.post("/macro/relationships/run")
+async def mri_run(payload: dict[str, Any] = Body(default={})):
+    """Ops / scheduler only — never called by Ask."""
+    from macroeconomic_relationship_intelligence.production import run
+
+    return run(enrich_hmip=bool(payload.get("enrich_hmip", True)))
+
+
+@router.get("/macro/relationships/company/{ticker}")
+async def mri_company(ticker: str, limit: int = Query(100, ge=1, le=500)):
+    from macroeconomic_relationship_intelligence.production import for_company
+
+    return for_company(ticker, limit=limit)
+
+
+@router.get("/macro/relationships/sector/{sector}")
+async def mri_sector(sector: str, limit: int = Query(100, ge=1, le=500)):
+    from macroeconomic_relationship_intelligence.production import for_sector
+
+    return for_sector(sector, limit=limit)
+
+
+@router.get("/macro/relationships/{indicator}")
+async def mri_indicator(indicator: str, limit: int = Query(100, ge=1, le=500)):
+    from macroeconomic_relationship_intelligence.production import for_indicator
+
+    return for_indicator(indicator, limit=limit)
+
+
+@router.get("/admin/macro-relationships", response_class=HTMLResponse)
+async def admin_mri():
+    from macroeconomic_relationship_intelligence.production import dashboard
+
+    board = dashboard()
+    dist = board.get("relationship_confidence_distribution") or {}
+    rows = "".join(
+        f"<tr><td>{r.get('source')}</td><td>{r.get('target')}</td>"
+        f"<td>{r.get('relationship')}</td><td>{r.get('confidence_pct')}</td>"
+        f"<td>{r.get('average_lag')}</td></tr>"
+        for r in (board.get("recently_validated_relationships") or [])
+    )
+    html = f"""<!doctype html><html><head><title>Macro Relationship Intelligence</title></head>
+    <body style="font-family:system-ui;max-width:1000px;margin:2rem auto">
+    <h1>Macro Relationship Intelligence — MRI</h1>
+    <p>Evidence-backed only. Versioned graph. Ask never fetches.</p>
+    <pre>{board.get('principles')}</pre>
+    <p>Total: {board.get('total_relationships')} · High confidence: {board.get('high_confidence')} ·
+    Distribution: {dist}</p>
+    <h2>Coverage</h2>
+    <pre>{board.get('coverage_by_indicator_sector_company')}</pre>
+    <h2>Recently validated</h2>
+    <table border="1" cellpadding="6">
+    <tr><th>Source</th><th>Target</th><th>Relationship</th><th>Confidence</th><th>Lag</th></tr>
+    {rows or '<tr><td colspan=5>Run POST /v1/macro/relationships/run</td></tr>'}
+    </table>
+    <h2>Stale</h2>
+    <pre>{len(board.get('stale_relationships') or [])} stale relationships</pre>
+    </body></html>"""
+    return HTMLResponse(html)
+
+
 # --- Forecast Provider Integration (FPI) — India-first Knowledge Platform path ---
 # Forecast never calls Groww/Yahoo/NSE/BSE directly; stale market snapshot refresh only.
 

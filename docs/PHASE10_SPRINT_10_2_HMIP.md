@@ -70,6 +70,6 @@ GET  /v1/admin/historical-macro
 |---|---|---|
 | ✅ 10.1 | CMKP | Continuous macro ingestion |
 | ✅ 10.2 | HMIP | Historical macro memory |
-| ➡️ 10.3 | MRI | Macro relationships |
-| 10.4 | HMAI | Macro analogues |
+| ✅ 10.3 | MRI | Macro relationships — see `PHASE10_SPRINT_10_3_MRI.md` |
+| ➡️ 10.4 | HMAI | Macro analogues |
 | 10.5 | MFI | Macro forecast scenarios |

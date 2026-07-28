@@ -455,7 +455,32 @@ class InstitutionalForecastEngine:
                     }
             except Exception:
                 pass
-            return tip if tip.get("published_count") or tip.get("historical_repo_timeline") else None
+            # Soft relationship tip from MRI (store-only)
+            try:
+                from macroeconomic_relationship_intelligence.production import (
+                    for_indicator as mri_for_indicator,
+                )
+
+                mri_repo = mri_for_indicator("Repo Rate")
+                if mri_repo.get("n"):
+                    tip["macro_relationships"] = {
+                        "indicator": "Repo Rate",
+                        "n": mri_repo.get("n"),
+                        "sample_targets": [
+                            r.get("target") for r in (mri_repo.get("relationships") or [])[:5]
+                        ],
+                        "gateway": "MRI_KRIG",
+                        "providers_queried": [],
+                    }
+            except Exception:
+                pass
+            return (
+                tip
+                if tip.get("published_count")
+                or tip.get("historical_repo_timeline")
+                or tip.get("macro_relationships")
+                else None
+            )
         except Exception:
             return None
 
