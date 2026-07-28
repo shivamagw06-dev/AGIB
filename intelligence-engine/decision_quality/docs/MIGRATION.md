@@ -15,3 +15,4 @@ Additive top-level package `decision_quality/`. No Phase 1–7, KF, HD, ISI, or 
 ## Rollback
 
 Delete IDQ store directory and disable `/v1/decision-quality/*` routes. Reasoning and KF unchanged.
+
