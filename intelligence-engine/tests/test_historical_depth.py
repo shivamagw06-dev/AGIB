@@ -21,6 +21,12 @@ CORE = ["INFY", "HDFCBANK", "TCS", "RELIANCE", "ICICIBANK"]
 
 def setup_function() -> None:
     hd_store.reset_store()
+    try:
+        from knowledge_factory.sector_intelligence import store as isi_store
+
+        isi_store.reset_store()
+    except Exception:
+        pass
 
 
 def test_historical_collectors_and_objects_operational():

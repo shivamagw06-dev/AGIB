@@ -7037,6 +7037,82 @@ async def knowledge_factory_rate_hiking(ticker: str):
     return performance_across_rate_hiking_cycles(ticker)
 
 
+@router.get("/knowledge-factory/sector-intelligence")
+async def knowledge_factory_sector_intelligence():
+    """Institutional Sector Intelligence Coverage dashboard."""
+    from knowledge_factory.production import sector_intelligence_coverage
+
+    return sector_intelligence_coverage()
+
+
+@router.post("/knowledge-factory/sector-intelligence/run")
+async def knowledge_factory_sector_intelligence_run():
+    from knowledge_factory.production import run_sector_intelligence_pipeline
+
+    return run_sector_intelligence_pipeline()
+
+
+@router.get("/knowledge-factory/sector-intelligence/query/expensive/{ticker}")
+async def knowledge_factory_sector_expensive(ticker: str):
+    from knowledge_factory.sector_intelligence.queries import is_expensive_vs_sector_history
+
+    return is_expensive_vs_sector_history(ticker)
+
+
+@router.get("/knowledge-factory/sector-intelligence/query/framework/{ticker}")
+async def knowledge_factory_sector_framework(ticker: str):
+    from knowledge_factory.sector_intelligence.queries import should_use_dcf
+
+    return should_use_dcf(ticker)
+
+
+@router.get("/knowledge-factory/sector-intelligence/query/rates-fall")
+async def knowledge_factory_sectors_rates_fall():
+    from knowledge_factory.sector_intelligence.queries import sectors_outperform_when_rates_fall
+
+    return sectors_outperform_when_rates_fall()
+
+
+@router.get("/knowledge-factory/sector-intelligence/query/valuation/{sector}/{year}")
+async def knowledge_factory_sector_valuation_year(sector: str, year: int):
+    from knowledge_factory.sector_intelligence.queries import sector_valuation_during
+
+    return sector_valuation_during(sector, year)
+
+
+@router.get("/knowledge-factory/sector-intelligence/query/strongest-roic")
+async def knowledge_factory_strongest_roic():
+    from knowledge_factory.sector_intelligence.queries import strongest_roic_sector
+
+    return strongest_roic_sector()
+
+
+@router.get("/knowledge-factory/sector-intelligence/query/regime/{regime_id}")
+async def knowledge_factory_sector_regime(regime_id: str):
+    from knowledge_factory.sector_intelligence.queries import sectors_resembling_regime
+
+    return sectors_resembling_regime(regime_id)
+
+
+@router.get("/knowledge-factory/sector-intelligence/{sector}/playbook")
+async def knowledge_factory_sector_playbook(sector: str):
+    from knowledge_factory.sector_intelligence.queries import get_playbook
+
+    return get_playbook(sector)
+
+
+@router.get("/knowledge-factory/sector-intelligence/{sector}")
+async def knowledge_factory_sector_object(sector: str):
+    from knowledge_factory.sector_intelligence import store as isi_store
+    from knowledge_factory.sector_intelligence.schema import canonicalize
+
+    key = canonicalize(sector) or sector
+    obj = isi_store.get_object(key)
+    if not obj:
+        return {"found": False, "sector": key, "reason": "sector_history_unavailable", "fabricated": False}
+    return {"found": True, "sector": key, "object": obj}
+
+
 @router.get("/knowledge-factory/quality-gates")
 async def knowledge_factory_quality_gates():
     from knowledge_factory.production import quality_gates

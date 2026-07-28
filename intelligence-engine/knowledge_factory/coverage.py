@@ -411,6 +411,21 @@ def daily_health_scorecard(*, ensure_pipeline: bool = True) -> dict[str, Any]:
             scorecard["roadmap_next"] = "sector_intelligence"
     except Exception:
         scorecard["historical_depth"] = None
+    try:
+        from knowledge_factory.sector_intelligence.dashboard import sector_intelligence_dashboard
+
+        isi = sector_intelligence_dashboard()
+        scorecard["sector_intelligence"] = {
+            "sector_coverage_pct": isi.get("sector_coverage_pct"),
+            "sector_dna_completeness": isi.get("sector_dna_completeness"),
+            "playbook_coverage_pct": isi.get("playbook_coverage_pct"),
+            "framework_coverage_pct": isi.get("framework_coverage_pct"),
+            "average_evidence_quality": isi.get("average_evidence_quality"),
+        }
+        if (isi.get("sector_coverage_pct") or 0) >= 100 and (isi.get("playbook_coverage_pct") or 0) >= 100:
+            scorecard["roadmap_next"] = "macro_intelligence"
+    except Exception:
+        scorecard["sector_intelligence"] = None
     store.put_report("daily_health", scorecard)
     return scorecard
 
