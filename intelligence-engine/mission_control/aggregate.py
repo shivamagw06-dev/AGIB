@@ -329,6 +329,30 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("live_institutional_data")
     except Exception:
         out["live_institutional_data"] = None
+    # Phase 9 Forecast Provider Integration — India-first soft board.
+    try:
+        from forecast_provider_integration.production import dashboard as fpi_dash
+        from forecast_provider_integration.production import health as fpi_mod_health
+
+        fd = fpi_dash()
+        fh = fpi_mod_health()
+        out["forecast_provider_integration"] = {
+            "status": fh.get("status"),
+            "primary_live_market": fh.get("primary_live_market"),
+            "primary_research": fh.get("primary_research"),
+            "groww": fd.get("groww_connection_status"),
+            "yahoo": fd.get("yahoo_finance_status"),
+            "nse": fd.get("nse_collector_status"),
+            "bse": fd.get("bse_collector_status"),
+            "company_ir": fd.get("company_ir_collector_status"),
+            "snapshot_freshness": fd.get("snapshot_freshness"),
+            "failover_events": len(fd.get("provider_failover_events") or []),
+            "forecast_direct_provider_calls": False,
+            "controlled_refresh": fh.get("controlled_refresh"),
+        }
+        out["sources"].append("forecast_provider_integration")
+    except Exception:
+        out["forecast_provider_integration"] = None
     # AGIB v3.0 LIDI Track 2 — collector certification board (soft).
     try:
         from live_data.production_verify import certification as lidi_cert
@@ -1172,8 +1196,62 @@ def build_mission_control(*, ioc_service: Any | None = None) -> dict[str, Any]:
         )
     # Ensure named providers appear even if IOC sparse
     known = {p["name"].lower() for p in providers}
+    # Soft overlay: Forecast Provider Integration (India-first) health
+    fpi_rows: list[dict[str, Any]] = []
+    try:
+        from forecast_provider_integration.production import provider_health as fpi_health
+
+        fpi = fpi_health()
+        for row in fpi.get("providers") or []:
+            name = str(row.get("provider") or "").lower()
+            label_map = {
+                "groww": "Groww",
+                "yahoo": "Yahoo Finance",
+                "nse": "NSE",
+                "bse": "BSE",
+                "company_ir": "Company IR",
+            }
+            label = label_map.get(name, name.title())
+            st = _status_norm(row.get("status"))
+            colour = "Green" if st == "Healthy" else "Yellow" if st in {"Warning", "Degraded"} else "Red"
+            fpi_rows.append(
+                {
+                    "name": label,
+                    "status": st if st != "Degraded" else "Warning",
+                    "colour": colour if st != "Degraded" else "Yellow",
+                    "latency": row.get("latency_ms") or row.get("websocket_latency_ms"),
+                    "last_error": None,
+                    "provider_confidence": "configured" if row.get("configured") else "seeded",
+                    "capabilities": [row.get("role")] if row.get("role") else [],
+                    "note": row.get("detail"),
+                    "snapshot_freshness_sec": row.get("snapshot_freshness_sec"),
+                    "source": "forecast_provider_integration",
+                }
+            )
+    except Exception:
+        fpi_rows = []
+
+    for row in fpi_rows:
+        lname = row["name"].lower()
+        # Replace placeholder / update existing
+        replaced = False
+        for i, p in enumerate(providers):
+            if p["name"].lower() == lname or (
+                lname == "yahoo finance" and "yahoo" in p["name"].lower()
+            ):
+                providers[i] = {**p, **row}
+                replaced = True
+                break
+        if not replaced:
+            providers.append(row)
+            known.add(lname)
+
     for label in (
+        "Groww",
         "Yahoo Finance",
+        "NSE",
+        "BSE",
+        "Company IR",
         "Indian API",
         "Finnhub",
         "FMP",
