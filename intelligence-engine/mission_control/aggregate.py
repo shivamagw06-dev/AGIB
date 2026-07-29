@@ -619,6 +619,29 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("continuous_market_knowledge")
     except Exception:
         out["continuous_market_knowledge"] = None
+    # Phase 12 Sprint 12.2 — Historical Market Intelligence Platform (soft).
+    try:
+        from historical_market_intelligence.production import dashboard as hmkip_dash
+        from historical_market_intelligence.production import health as hmkip_health
+
+        hd = hmkip_dash()
+        hh = hmkip_health()
+        out["historical_market_intelligence"] = {
+            "status": hh.get("status"),
+            "version": hh.get("version"),
+            "ask_triggers_collection": False,
+            "immutable_store": True,
+            "historical_coverage": hd.get("historical_coverage"),
+            "timeline_completeness": (hd.get("timeline_completeness") or {}).get(
+                "average_completeness_pct"
+            ),
+            "years_available": hd.get("years_available"),
+            "ingestion_idle": hd.get("ingestion_idle"),
+            "phase": "12.2",
+        }
+        out["sources"].append("historical_market_intelligence")
+    except Exception:
+        out["historical_market_intelligence"] = None
     # AGIB v3.0 LIDI Track 2 — collector certification board (soft).
     try:
         from live_data.production_verify import certification as lidi_cert

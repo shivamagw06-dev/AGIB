@@ -5980,6 +5980,164 @@ async def admin_cmktp():
     return HTMLResponse(html)
 
 
+# --- Historical Market Intelligence Platform (HMKIP) Sprint 12.2 ---
+# Immutable Historical Market Knowledge Objects. Ask never collects.
+# Programme short HMKIP avoids collision with Historical Macro Intelligence (HMIP).
+
+
+@router.get("/hmkip/health")
+async def hmkip_health():
+    from historical_market_intelligence.production import health
+
+    return health()
+
+
+@router.get("/market/history")
+async def hmkip_history(
+    limit: int = Query(200, ge=1, le=2000),
+    market: str | None = Query(None),
+):
+    from historical_market_intelligence.production import history
+
+    return history(limit=limit, market=market)
+
+
+@router.get("/market/history/timeline")
+async def hmkip_timeline(
+    market: str | None = Query(None),
+    indicator: str | None = Query(None),
+):
+    from historical_market_intelligence.production import timeline
+
+    return timeline(market=market, indicator=indicator)
+
+
+@router.get("/market/history/regimes")
+async def hmkip_regimes(
+    market: str | None = Query(None),
+    limit: int = Query(100, ge=1, le=1000),
+):
+    from historical_market_intelligence.production import regimes
+
+    return regimes(market=market, limit=limit)
+
+
+@router.get("/market/history/breadth")
+async def hmkip_breadth(
+    market: str | None = Query(None),
+    limit: int = Query(100, ge=1, le=1000),
+):
+    from historical_market_intelligence.production import breadth
+
+    return breadth(market=market, limit=limit)
+
+
+@router.get("/market/history/liquidity")
+async def hmkip_liquidity(
+    market: str | None = Query(None),
+    limit: int = Query(100, ge=1, le=1000),
+):
+    from historical_market_intelligence.production import liquidity
+
+    return liquidity(market=market, limit=limit)
+
+
+@router.get("/market/history/volatility")
+async def hmkip_volatility(
+    market: str | None = Query(None),
+    limit: int = Query(100, ge=1, le=1000),
+):
+    from historical_market_intelligence.production import volatility
+
+    return volatility(market=market, limit=limit)
+
+
+@router.get("/market/history/flows")
+async def hmkip_flows(
+    market: str | None = Query(None),
+    limit: int = Query(100, ge=1, le=1000),
+):
+    from historical_market_intelligence.production import flows
+
+    return flows(market=market, limit=limit)
+
+
+@router.get("/market/history/search")
+async def hmkip_search(
+    q: str | None = Query(None),
+    category: str | None = Query(None),
+    market: str | None = Query(None),
+    namespace: str | None = Query(None),
+    limit: int = Query(100, ge=1, le=1000),
+):
+    from historical_market_intelligence.production import search
+
+    return search(q=q, category=category, market=market, namespace=namespace, limit=limit)
+
+
+@router.post("/market/history/run")
+async def hmkip_run(payload: dict[str, Any] = Body(default={})):
+    """Ops / backfill only — never called by Ask."""
+    from historical_market_intelligence.production import run
+
+    sources = payload.get("sources")
+    if isinstance(sources, str):
+        sources = [s.strip() for s in sources.split(",") if s.strip()]
+    markets = payload.get("markets")
+    if isinstance(markets, str):
+        markets = [m.strip() for m in markets.split(",") if m.strip()]
+    return run(
+        sources=sources if isinstance(sources, list) else None,
+        markets=markets if isinstance(markets, list) else None,
+    )
+
+
+@router.get("/market/history/{market}")
+async def hmkip_market(market: str, limit: int = Query(300, ge=1, le=1000)):
+    from historical_market_intelligence.production import market as get_market
+
+    return get_market(market, limit=limit)
+
+
+@router.get("/admin/historical-market", response_class=HTMLResponse)
+async def admin_hmkip():
+    from historical_market_intelligence.production import dashboard
+
+    board = dashboard()
+    rows = "".join(
+        f"<tr><td>{r.get('market')}</td><td>{r.get('indicator')}</td>"
+        f"<td>{r.get('completeness_pct')}</td></tr>"
+        for r in ((board.get("timeline_completeness") or {}).get("sample") or [])
+    )
+    html = f"""<!doctype html><html><head><title>Historical Market Operations</title></head>
+    <body style="font-family:system-ui;max-width:1100px;margin:2rem auto">
+    <h1>Historical Market Intelligence — HMKIP</h1>
+    <p>Immutable institutional market memory. Ask never fetches. No external providers on read.</p>
+    <pre>{board.get('principles')}</pre>
+    <h2>Historical coverage</h2>
+    <pre>{board.get('historical_coverage')}</pre>
+    <h2>Timeline completeness</h2>
+    <table border=1 cellpadding=6><tr><th>Market</th><th>Indicator</th><th>Completeness %</th></tr>
+    {rows or '<tr><td colspan=3>Run POST /v1/market/history/run</td></tr>'}
+    </table>
+    <h2>Regime history</h2>
+    <pre>{board.get('regime_history')}</pre>
+    <h2>Breadth / Liquidity / Volatility / Flows</h2>
+    <pre>{board.get('breadth_history')}</pre>
+    <pre>{board.get('liquidity_history')}</pre>
+    <pre>{board.get('volatility_history')}</pre>
+    <pre>{board.get('flow_history')}</pre>
+    <h2>Cross-asset</h2>
+    <pre>{board.get('cross_asset_history')}</pre>
+    <h2>Missing periods</h2>
+    <pre>{board.get('missing_periods')}</pre>
+    <h2>Data quality / freshness</h2>
+    <pre>{board.get('data_quality')}</pre>
+    <pre>{board.get('knowledge_freshness')}</pre>
+    </body></html>"""
+    return HTMLResponse(html)
+
+
 @router.post("/sector/run")
 async def cskp_run(payload: dict[str, Any] = Body(default={})):
     """Ops / event-driven only — never called by Ask."""
