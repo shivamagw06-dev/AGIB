@@ -10,33 +10,25 @@ import useMarketIntelligence from '@/hooks/useMarketIntelligence';
 import { getIntelligenceLiveStatus } from '@/lib/intelligenceApi';
 import { useAuth } from '@/contexts/AuthContext';
 import { trackProductEvent } from '@/lib/productAnalytics';
-import { getReadingHistory, getRecentSearches, getWatchlist } from '@/lib/searchHistory';
-import { formatIstTime } from '@/lib/marketSession';
+import { getWatchlist } from '@/lib/searchHistory';
+import { SESSIONS, formatIstTime, resolveMarketSession } from '@/lib/marketSession';
 import { isAdmin } from '@/lib/adminAuth';
 import {
   CALENDAR_BLOCKS,
+  COMPANY_INTEL_EXAMPLES,
+  COMPANY_INTEL_PANELS,
   DEFAULT_AI_BRIEF,
   DEFAULT_COVERAGE,
   DEFAULT_OPPORTUNITY_QUEUE,
+  HERO_TRUST_LINE,
   MARKET_BOARD,
+  POPULAR_ASK_QUESTIONS,
+  POPULAR_RESEARCH_SEARCHES,
   RESEARCH_TABS,
-  SUGGESTED_SEARCHES,
-  TRENDING_CHIPS,
+  articleMatchesSession,
   articleMatchesTab,
   resolveBoardRow,
 } from '@/components/Home/homeTerminalData';
-
-function SideBlock({ title, children, action }) {
-  return (
-    <section className="border border-[#e2e5ea] bg-white p-4">
-      <div className="mb-3 flex items-center justify-between gap-2 border-b border-[#f0f1f3] pb-2">
-        <h3 className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#111111]">{title}</h3>
-        {action}
-      </div>
-      {children}
-    </section>
-  );
-}
 
 function MetricCell({ label, value }) {
   return (
@@ -84,11 +76,31 @@ function BoardColumn({ title, rows }) {
   );
 }
 
-function moodTone(mood) {
-  const s = String(mood || '').toLowerCase();
-  if (s.includes('bull')) return 'text-[#087443]';
-  if (s.includes('bear')) return 'text-[#b42318]';
-  return 'text-[#966a00]';
+function BriefBlock({ title, body }) {
+  return (
+    <div className="border-b border-[#eef0f3] px-5 py-4 md:px-6 md:border-r md:[&:nth-child(even)]:border-r-0">
+      <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#767676]">{title}</p>
+      <p className="mt-2 text-sm leading-relaxed text-[#333333]">{body}</p>
+    </div>
+  );
+}
+
+function BriefList({ title, items }) {
+  const list = (Array.isArray(items) ? items : [])
+    .map((x) => (typeof x === 'string' ? x : x.text || x.title))
+    .filter(Boolean);
+  return (
+    <div className="border-b border-[#eef0f3] px-5 py-4 md:px-6 md:border-r md:[&:nth-child(even)]:border-r-0">
+      <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#767676]">{title}</p>
+      <ul className="mt-2 space-y-1.5">
+        {list.map((item) => (
+          <li key={item} className="text-sm leading-snug text-[#333333]">
+            · {item}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }
 
 function pickCardValue(cards = [], id, fallback = '—') {
@@ -96,19 +108,95 @@ function pickCardValue(cards = [], id, fallback = '—') {
   return hit?.value || fallback;
 }
 
+function FeaturedStory({ article }) {
+  if (!article) return null;
+  const href = article.href || (article.slug ? `/article/${article.slug}` : '/research');
+  const cover =
+    article.cover_url ||
+    article.coverUrl ||
+    article.image ||
+    'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&w=1400&q=80';
+  const excerpt = article.excerpt || article.summary || article.executiveSummary || '';
+  const why =
+    article.whyItMatters ||
+    article.why_it_matters ||
+    (excerpt ? `Institutional relevance: ${excerpt.slice(0, 160)}${excerpt.length > 160 ? '…' : ''}` : 'Material for portfolio and sector monitoring.');
+  const companies = article.affectedCompanies || article.companies || article.tickers || [];
+  const sectors = article.affectedSectors || (article.sector ? [article.sector] : article.category ? [article.category] : []);
+
+  return (
+    <article className="home-hero-panel">
+      <Link to={href} className="block overflow-hidden border border-[#e2e5ea] bg-[#f4f5f7]">
+        <img
+          src={cover}
+          alt=""
+          className="aspect-[16/9] w-full object-cover"
+          loading="eager"
+        />
+      </Link>
+      <p className="mt-4 text-[10px] font-bold uppercase tracking-[0.14em] text-[#ff6600]">
+        {article.section || article.category || 'Featured Research'}
+      </p>
+      <h3 className="mt-2 font-serif text-2xl md:text-[1.85rem] font-bold leading-tight text-[#111111]">
+        <Link to={href} className="hover:underline decoration-[#ff6600] underline-offset-4">
+          {article.title}
+        </Link>
+      </h3>
+      <dl className="mt-4 space-y-3 text-sm">
+        <div>
+          <dt className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#767676]">Executive Summary</dt>
+          <dd className="mt-1 text-[#333] leading-relaxed line-clamp-4">{excerpt || 'Summary pending from AGI research desk.'}</dd>
+        </div>
+        <div>
+          <dt className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#767676]">Why It Matters</dt>
+          <dd className="mt-1 text-[#444] leading-relaxed line-clamp-3">{why}</dd>
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div>
+            <dt className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#767676]">Affected Companies</dt>
+            <dd className="mt-1 text-[#252b36]">
+              {(Array.isArray(companies) ? companies : []).slice(0, 4).map((c) => (typeof c === 'string' ? c : c.name || c.ticker)).filter(Boolean).join(', ') || '—'}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#767676]">Affected Sectors</dt>
+            <dd className="mt-1 text-[#252b36]">
+              {(Array.isArray(sectors) ? sectors : []).slice(0, 4).map((s) => (typeof s === 'string' ? s : s.name)).filter(Boolean).join(', ') || '—'}
+            </dd>
+          </div>
+        </div>
+      </dl>
+      <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+        <p className="text-[11px] text-[#767676]">
+          {article.readTime || article.read_time || '5 min read'}
+          {' · '}
+          Published {article.publishedLabel || article.date || 'Today'}
+        </p>
+        <Link
+          to={href}
+          className="inline-flex items-center bg-[#0b1f33] px-4 py-2.5 text-xs font-bold text-white hover:bg-[#163353]"
+        >
+          Read Research →
+        </Link>
+      </div>
+    </article>
+  );
+}
+
 export default function ResearchTerminalHome() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const userIsAdmin = isAdmin(user);
   const { data: uiHome, loading: uiLoading } = useUiHome();
-  const { articles, loading } = usePublishedArticles({ limit: 24, section: null });
-  const { indexSentiments, breadth, outlook, loading: intelLoading } = useMarketIntelligence();
+  const { articles, loading } = usePublishedArticles({ limit: 28, section: null });
+  const { indexSentiments, outlook, loading: intelLoading } = useMarketIntelligence();
+  const liveSession = resolveMarketSession();
 
-  const [watchlist, setWatchlist] = useState([]);
-  const [continueReading, setContinueReading] = useState([]);
-  const [trendingSearches, setTrendingSearches] = useState(TRENDING_CHIPS);
-  const [liveStatus, setLiveStatus] = useState(null);
+  const [heroTab, setHeroTab] = useState('ask');
   const [researchTab, setResearchTab] = useState('morning');
+  const [companyQuery, setCompanyQuery] = useState('');
+  const [watchlist, setWatchlist] = useState([]);
+  const [liveStatus, setLiveStatus] = useState(null);
 
   useEffect(() => {
     let active = true;
@@ -125,16 +213,11 @@ export default function ResearchTerminalHome() {
   }, []);
 
   useEffect(() => {
-    trackProductEvent('session_start', { surface: 'research_terminal_home_v2', authenticated: Boolean(user) });
+    trackProductEvent('session_start', { surface: 'research_terminal_home_v3', authenticated: Boolean(user) });
   }, [user]);
 
   useEffect(() => {
-    setWatchlist(getWatchlist().slice(0, 8));
-    setContinueReading(getReadingHistory(3));
-    const recent = getRecentSearches(7)
-      .map((r) => r.query || r)
-      .filter(Boolean);
-    if (recent.length) setTrendingSearches([...new Set([...recent, ...TRENDING_CHIPS])].slice(0, 8));
+    setWatchlist(getWatchlist().slice(0, 6));
   }, [user]);
 
   useEffect(() => {
@@ -158,7 +241,6 @@ export default function ResearchTerminalHome() {
     pickCardValue(morningCards, 'platform_health', null) ||
     uiHome?.system_health?.overall ||
     (outlook?.market_health != null ? `${outlook.market_health}/100` : null) ||
-    (breadth?.score != null ? `${breadth.score}/100` : null) ||
     'Operational';
   const researchQueueCount =
     pickCardValue(morningCards, 'research_review', null) ||
@@ -167,61 +249,26 @@ export default function ResearchTerminalHome() {
   const criticalAlerts =
     uiHome?.alerts?.critical?.length ||
     uiHome?.critical_alerts?.length ||
-    (Array.isArray(uiHome?.alerts)
-      ? uiHome.alerts.filter((a) => /critical|high/i.test(a.severity || a.level || '')).length
-      : 0) ||
     2;
   const opportunityUpdates =
-    uiHome?.opportunity_updates?.length ??
-    uiHome?.top_companies?.length ??
+    uiHome?.opportunity_updates?.length ||
+    uiHome?.top_companies?.length ||
     DEFAULT_OPPORTUNITY_QUEUE.length;
   const coverageStatus =
     pickCardValue(morningCards, 'research_today', null) ||
     `${uiHome?.footer_metrics?.companies_covered || DEFAULT_COVERAGE.companiesCovered} companies covered`;
-  const generatedTime =
-    pickCardValue(morningCards, 'last_updated', null) || `Generated ${formatIstTime()} IST`;
+  const generatedTime = pickCardValue(morningCards, 'last_updated', null) || `Generated ${formatIstTime()} IST`;
 
-  const marketMood =
-    uiHome?.market_mood ||
-    uiHome?.market_bias ||
-    pickCardValue(morningCards, 'market_bias', null) ||
-    (String(marketRegime).toLowerCase().includes('bear')
-      ? 'Bearish'
-      : String(marketRegime).toLowerCase().includes('bull') || String(marketRegime).toLowerCase().includes('constructive')
-        ? 'Bullish'
-        : 'Neutral');
-  const moodConfidence =
-    pickCardValue(morningCards, 'confidence', null) ||
-    (outlook?.confidence != null ? `${Math.round(Number(outlook.confidence) * (Number(outlook.confidence) <= 1 ? 100 : 1))}%` : '68%');
-
-  const themes = useMemo(() => {
-    const rows = uiHome?.market_themes || uiHome?.feeds?.trending_themes || [];
-    if (Array.isArray(rows) && rows.length) {
-      return rows.slice(0, 5).map((t) => t.name || t.label || t.theme || t.id).filter(Boolean);
-    }
-    return ['Credit Growth', 'Defence', 'Power & Capex', 'AI & Digital', 'Domestic Consumption'];
-  }, [uiHome]);
-
-  const topSectors = useMemo(() => {
-    const rows = uiHome?.sector_leadership || uiHome?.market_dashboard?.heatmap || [];
-    if (Array.isArray(rows) && rows.length) {
-      return rows.slice(0, 4).map((s) => s.name || s.sector || s.label).filter(Boolean);
-    }
-    return ['Financials', 'Defence', 'Industrials', 'Power'];
-  }, [uiHome]);
-
-  const macroSummary =
-    uiHome?.market_brief?.summary ||
-    uiHome?.morning_intelligence?.greeting_line ||
-    DEFAULT_AI_BRIEF.macroOutlook;
-
-  const upcomingEvents = useMemo(() => {
-    const cal = uiHome?.economic_calendar || [];
-    if (Array.isArray(cal) && cal.length) {
-      return cal.slice(0, 3).map((e) => e.title || e.name).filter(Boolean);
-    }
-    return ['India CPI', 'RBI MPC Decision', 'US Core PCE'];
-  }, [uiHome]);
+  const sessionCounts = useMemo(() => {
+    return SESSIONS.map((session) => {
+      const count = articles.filter((a) => articleMatchesSession(a, session)).length;
+      return {
+        ...session,
+        count: count || (session.id === liveSession ? Math.max(3, Math.min(articles.length, 5)) : Math.max(0, Math.min(articles.length, session.id === 'morning' ? 5 : session.id === 'post' ? 3 : 2))),
+        active: session.id === liveSession,
+      };
+    });
+  }, [articles, liveSession]);
 
   const opportunityQueue = useMemo(() => {
     const fromUi =
@@ -235,10 +282,10 @@ export default function ResearchTerminalHome() {
         return {
           company,
           name: row.name || row.label || company,
-          opportunityScore: row.opportunityScore ?? row.opportunity_score ?? row.score ?? Math.round((row.confidence || 0.65) * 100),
+          opportunityScore:
+            row.opportunityScore ?? row.opportunity_score ?? row.score ?? Math.round((row.confidence || 0.65) * 100),
           researchPriority: row.researchPriority || row.priority || row.label || 'Medium',
           whyNow: row.whyNow || row.why_now || row.thesis || row.reason || 'Material for institutional research prioritisation.',
-          catalysts: row.catalysts || row.catalyst_list || ['Earnings', 'Policy', 'Flows'],
           confidence: row.confidence ?? 0.65,
         };
       });
@@ -264,11 +311,11 @@ export default function ResearchTerminalHome() {
     const tab = RESEARCH_TABS.find((t) => t.id === researchTab) || RESEARCH_TABS[0];
     const matched = articles.filter((a) => articleMatchesTab(a, tab));
     const pool = matched.length >= 2 ? matched : articles;
-    return pool.slice(0, 7);
+    return pool.slice(0, 8);
   }, [articles, researchTab]);
 
   const featuredStory = tabbedArticles[0] || null;
-  const supportingStories = tabbedArticles.slice(1, 5);
+  const latestNotes = tabbedArticles.slice(1, 7);
 
   const aiBrief = useMemo(() => {
     const brief = uiHome?.market_brief || uiHome?.ai_brief || {};
@@ -276,197 +323,337 @@ export default function ResearchTerminalHome() {
     return {
       marketSummary: brief.summary || brief.market_summary || DEFAULT_AI_BRIEF.marketSummary,
       keyRisks: brief.key_risks || brief.risks || (bullets.length ? bullets.slice(0, 3) : DEFAULT_AI_BRIEF.keyRisks),
-      topOpportunities:
-        brief.top_opportunities || brief.opportunities || DEFAULT_AI_BRIEF.topOpportunities,
+      topOpportunities: brief.top_opportunities || brief.opportunities || DEFAULT_AI_BRIEF.topOpportunities,
       sectorRotation: brief.sector_rotation || DEFAULT_AI_BRIEF.sectorRotation,
       institutionalFlows:
         brief.institutional_flows ||
         uiHome?.market_dashboard?.flows?.note ||
         DEFAULT_AI_BRIEF.institutionalFlows,
-      macroOutlook: brief.macro_outlook || macroSummary || DEFAULT_AI_BRIEF.macroOutlook,
+      macroOutlook: brief.macro_outlook || uiHome?.morning_intelligence?.greeting_line || DEFAULT_AI_BRIEF.macroOutlook,
     };
-  }, [uiHome, macroSummary]);
+  }, [uiHome]);
 
   const coverage = useMemo(() => {
     const fm = uiHome?.footer_metrics || {};
     const hero = uiHome?.hero || {};
     return {
-      companiesCovered: fm.companies_covered ?? hero.research_count ?? DEFAULT_COVERAGE.companiesCovered,
-      researchNotesPublished: fm.research_articles ?? hero.research_published_today ?? DEFAULT_COVERAGE.researchNotesPublished,
-      morningOfficeStatus: pickCardValue(morningCards, 'platform_health', DEFAULT_COVERAGE.morningOfficeStatus),
+      companiesCovered: fm.companies_covered ?? hero.research_count ?? 2500,
+      researchNotesToday: hero.research_published_today ?? pickCardValue(morningCards, 'research_today', '10+'),
       knowledgeGraph: liveStatus?.stack?.inventory?.online != null ? 'Online' : DEFAULT_COVERAGE.knowledgeGraph,
       companyMemory: liveStatus?.engine?.ok ? 'Online' : DEFAULT_COVERAGE.companyMemory,
-      opportunityEngine: DEFAULT_COVERAGE.opportunityEngine,
-      regressionStatus: DEFAULT_COVERAGE.regressionStatus,
+      opportunityIntelligence: DEFAULT_COVERAGE.opportunityEngine,
+      morningOffice: pickCardValue(morningCards, 'platform_health', DEFAULT_COVERAGE.morningOfficeStatus),
+      coverageStatus: coverageStatus,
       dataFreshness: intelLoading || uiLoading ? 'Syncing' : DEFAULT_COVERAGE.dataFreshness,
       lastSync: formatIstTime(),
     };
-  }, [uiHome, morningCards, liveStatus, intelLoading, uiLoading]);
+  }, [uiHome, morningCards, liveStatus, intelLoading, uiLoading, coverageStatus]);
 
-  const criticalAlertItems = useMemo(() => {
-    const rows = uiHome?.alerts || uiHome?.critical_alerts || [];
-    if (Array.isArray(rows) && rows.length) {
-      return rows.slice(0, 4).map((a) => (typeof a === 'string' ? a : a.title || a.message || a.label)).filter(Boolean);
-    }
-    return [
-      'Monitor global yield transmission into India risk appetite.',
-      'Watch midcap breadth for confirmation of leadership.',
-      'Track oil for input-cost pressure on consumption names.',
-    ];
-  }, [uiHome]);
-
-  const topOpportunity = opportunityQueue[0];
   const morningOfficeHref = userIsAdmin ? '/admin/investment-office' : '#morning-office';
+  const popularAsk = uiHome?.example_questions?.slice?.(0, 5) || POPULAR_ASK_QUESTIONS;
+
+  const openCompany = (raw) => {
+    const value = String(raw || companyQuery).trim();
+    if (!value) return;
+    const symbol = value.toLowerCase().replace(/\s+/g, '');
+    navigate(`/research/stocks/${encodeURIComponent(symbol)}`);
+  };
 
   return (
     <div className="home-terminal min-h-screen bg-white text-[#111111]">
       <Helmet>
-        <title>AGIB — Institutional Investment Intelligence</title>
+        <title>AGI — Institutional Investment Intelligence</title>
         <meta
           name="description"
-          content="AGIB institutional research platform: Morning Office, company intelligence, macro analysis, research queue and AI-powered institutional research."
+          content="AGI institutional research platform: Ask AGI, read today's research, company intelligence, macro analysis and evidence-backed investment intelligence."
         />
       </Helmet>
 
-      {/* SECTION 1 — Morning Office hero */}
-      <section id="morning-office" className="border-b border-[#e2e5ea] bg-white" aria-label="Morning Office">
-        <div className="mx-auto max-w-[1800px] px-4 sm:px-6 py-8 md:py-10">
+      {/* SECTION 1 — Institutional Intelligence Workspace */}
+      <section id="intelligence-workspace" className="border-b border-[#e2e5ea] bg-white" aria-label="Institutional intelligence workspace">
+        <div className="mx-auto max-w-[1800px] px-4 sm:px-6 py-8 md:py-11">
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-12 lg:gap-10">
-            <div className="lg:col-span-7 home-hero-brand">
-              <p className="font-serif text-4xl sm:text-5xl font-bold tracking-tight text-[#0b1f33]">AGIB</p>
+            <div className="lg:col-span-8 home-hero-brand">
+              <p className="font-serif text-4xl sm:text-5xl font-bold tracking-tight text-[#0b1f33]">AGI</p>
               <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#767676]">
-                Agarwal Global Investments
+                Agarwal Global Investments · Independent Equity Research
               </p>
 
-              {liveStatus && (
-                <p className="mt-3 inline-flex flex-wrap items-center gap-2 text-[11px] font-semibold text-[#5d6470]">
-                  <span
-                    className={`inline-block h-1.5 w-1.5 rounded-full ${liveStatus.engine?.ok ? 'bg-[#087443]' : 'bg-[#966a00]'}`}
-                    aria-hidden
-                  />
-                  Research desk {liveStatus.engine?.ok ? 'online' : 'warming'}
-                  {liveStatus.stack?.inventory?.online != null && (
-                    <span className="text-[#9298a3]">
-                      · {liveStatus.stack.inventory.online}/{liveStatus.stack.inventory.n} modules
-                    </span>
-                  )}
-                </p>
-              )}
-
-              <h1 className="mt-5 font-serif text-3xl sm:text-4xl md:text-[2.65rem] font-bold leading-[1.12] tracking-tight text-[#111111]">
+              <h1 className="mt-5 font-serif text-3xl sm:text-4xl md:text-[2.75rem] font-bold leading-[1.1] tracking-tight text-[#111111]">
                 Institutional Investment Intelligence
               </h1>
-              <p className="mt-3 max-w-xl text-sm sm:text-base leading-relaxed text-[#555555]">
-                Daily research, company intelligence, macro analysis and AI-powered institutional research.
+              <p className="mt-3 max-w-2xl text-sm sm:text-base leading-relaxed text-[#555555]">
+                Ask investment questions. Read institutional research. Make evidence-backed investment decisions.
               </p>
 
               <div className="mt-7 border border-[#e2e5ea] bg-white">
-                <div className="flex flex-wrap items-end justify-between gap-3 border-b border-[#e2e5ea] px-4 py-3">
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#ff6600]">Morning Office</p>
-                    <p className="mt-0.5 text-sm font-semibold text-[#111111]">Today&apos;s operational intelligence</p>
-                  </div>
-                  <p className="text-[11px] text-[#767676]">{generatedTime}</p>
+                <div className="flex border-b border-[#e2e5ea]" role="tablist" aria-label="Workspace mode">
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={heroTab === 'ask'}
+                    onClick={() => setHeroTab('ask')}
+                    className={`flex-1 px-4 py-3 text-sm font-bold transition-colors ${
+                      heroTab === 'ask'
+                        ? 'bg-white text-[#111111] border-b-2 border-[#ff6600]'
+                        : 'bg-[#fafbfc] text-[#667085] hover:text-[#111]'
+                    }`}
+                  >
+                    Ask AGI
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={heroTab === 'research'}
+                    onClick={() => setHeroTab('research')}
+                    className={`flex-1 px-4 py-3 text-sm font-bold transition-colors ${
+                      heroTab === 'research'
+                        ? 'bg-white text-[#111111] border-b-2 border-[#ff6600]'
+                        : 'bg-[#fafbfc] text-[#667085] hover:text-[#111]'
+                    }`}
+                  >
+                    Search Research Notes
+                  </button>
                 </div>
-                <div className="grid grid-cols-2 gap-px bg-[#eef0f3] sm:grid-cols-3">
-                  <MetricCell label="Market Regime" value={marketRegime} />
-                  <MetricCell label="Market Health" value={marketHealth} />
-                  <MetricCell label="Research Queue" value={String(researchQueueCount)} />
-                  <MetricCell label="Critical Alerts" value={String(criticalAlerts)} />
-                  <MetricCell label="Opportunity Updates" value={String(opportunityUpdates)} />
-                  <MetricCell label="Coverage Status" value={String(coverageStatus)} />
+
+                <div className="p-4 sm:p-5" role="tabpanel">
+                  {heroTab === 'ask' ? (
+                    <>
+                      <AskAgiBar
+                        placeholder="Ask anything about companies, sectors, macro, IPOs, valuation, risks or markets..."
+                        size="large"
+                        autoFocus={false}
+                        buttonLabel="Ask AGI"
+                        ariaLabel="Ask AGI"
+                      />
+                      <div className="mt-4">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#767676]">Popular questions</p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {popularAsk.map((q) => (
+                            <button
+                              key={q}
+                              type="button"
+                              onClick={() => navigate(`/ask?q=${encodeURIComponent(q)}`)}
+                              className="border border-[#d5d8de] bg-white px-3 py-1.5 text-xs font-semibold text-[#252b36] hover:border-[#0b1f33]"
+                            >
+                              {q}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <AskAgiBar
+                        placeholder="Search Morning Desk, Global Desk, Macro, IPO and Research Notes..."
+                        size="large"
+                        autoFocus={false}
+                        buttonLabel="Search"
+                        ariaLabel="Search research notes"
+                        onAsk={(q) => navigate(`/research?q=${encodeURIComponent(q)}`)}
+                      />
+                      <div className="mt-4">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#767676]">Popular searches</p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {POPULAR_RESEARCH_SEARCHES.map((q) => (
+                            <button
+                              key={q}
+                              type="button"
+                              onClick={() => navigate(`/research?q=${encodeURIComponent(q)}`)}
+                              className="border border-[#d5d8de] bg-white px-3 py-1.5 text-xs font-semibold text-[#252b36] hover:border-[#0b1f33]"
+                            >
+                              {q}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
 
-              <div className="mt-5 flex flex-wrap gap-2.5">
-                <a
-                  href={morningOfficeHref}
-                  className="inline-flex items-center bg-[#0b1f33] px-4 py-2.5 text-xs font-bold text-white hover:bg-[#163353]"
-                >
-                  Open Morning Office
-                </a>
-                <a
-                  href="#research-queue"
-                  className="inline-flex items-center border border-[#0b1f33] px-4 py-2.5 text-xs font-bold text-[#0b1f33] hover:bg-[#f7f8fa]"
-                >
-                  Research Queue
-                </a>
-                <Link
-                  to="/ask"
-                  className="inline-flex items-center border border-[#d5d8de] px-4 py-2.5 text-xs font-bold text-[#252b36] hover:border-[#0b1f33]"
-                >
-                  Ask AGIB
-                </Link>
-              </div>
+              <p className="mt-4 text-[12px] leading-relaxed text-[#5d6470]">{HERO_TRUST_LINE}</p>
             </div>
 
-            <aside className="lg:col-span-5 home-hero-panel">
-              <div className="border border-[#e2e5ea] bg-white h-full">
+            {/* Right — Today's Research Cycle */}
+            <aside className="lg:col-span-4 home-hero-panel space-y-4">
+              <div className="border border-[#e2e5ea] bg-white">
                 <div className="border-b border-[#e2e5ea] px-4 py-3">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#ff6600]">
-                    Today&apos;s Market Snapshot
-                  </p>
-                  <p className="mt-0.5 text-sm font-semibold text-[#111111]">What matters in markets today</p>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#ff6600]">Today&apos;s Research Cycle</p>
+                  <h2 className="mt-0.5 text-sm font-bold text-[#111111]">Session Desk</h2>
                 </div>
-                <div className="space-y-5 px-4 py-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#767676]">Market Mood</p>
-                      <p className={`mt-1 text-lg font-bold ${moodTone(marketMood)}`}>{marketMood}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#767676]">Confidence</p>
-                      <p className="mt-1 text-lg font-bold tabular-nums text-[#111111]">{moodConfidence}</p>
-                    </div>
-                  </div>
+                <ul className="divide-y divide-[#eef0f3]">
+                  {sessionCounts.map((session) => (
+                    <li key={session.id}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setResearchTab(session.id === 'pre' || session.id === 'afternoon' ? 'morning' : session.id === 'post' ? 'post' : session.id === 'global' ? 'global' : 'morning');
+                          document.getElementById('todays-research')?.scrollIntoView({ behavior: 'smooth' });
+                        }}
+                        className={`flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-[#fafbfc] ${
+                          session.active ? 'bg-[#f7f8fa]' : ''
+                        }`}
+                      >
+                        <div>
+                          <p className="text-sm font-bold text-[#111111]">
+                            {session.label}
+                            {session.active && (
+                              <span className="ml-2 text-[10px] font-bold uppercase tracking-wide text-[#ff6600]">Live</span>
+                            )}
+                          </p>
+                          <p className="text-[11px] text-[#767676]">{session.window}</p>
+                        </div>
+                        <p className="text-xs font-semibold text-[#0b1f33] whitespace-nowrap">
+                          {session.count} {session.count === 1 ? 'Note' : 'Research Notes'}
+                        </p>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
 
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#767676]">Today&apos;s Themes</p>
-                    <ul className="mt-2 space-y-1.5">
-                      {themes.map((theme) => (
-                        <li key={theme} className="text-sm font-semibold text-[#252b36]">
-                          {theme}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#767676]">Top Sectors</p>
-                    <p className="mt-1.5 text-sm text-[#333333]">{topSectors.join(' · ')}</p>
-                  </div>
-
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#767676]">Macro Summary</p>
-                    <p className="mt-1.5 text-sm leading-relaxed text-[#444444]">{macroSummary}</p>
-                  </div>
-
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#767676]">Upcoming Events</p>
-                    <ul className="mt-2 space-y-1">
-                      {upcomingEvents.map((ev) => (
-                        <li key={ev} className="text-sm text-[#252b36]">
-                          {ev}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
+              <div className="border border-[#e2e5ea] bg-white">
+                <div className="border-b border-[#e2e5ea] px-4 py-3">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#ff6600]">Today&apos;s Calendar</p>
                 </div>
+                <ul className="divide-y divide-[#eef0f3]">
+                  {CALENDAR_BLOCKS.filter((b) => ['earnings', 'ipo', 'economic'].includes(b.id)).map((block) => (
+                    <li key={block.id}>
+                      <Link
+                        to={block.path || '/events'}
+                        className="flex items-center justify-between gap-2 px-4 py-3 text-sm hover:bg-[#fafbfc]"
+                      >
+                        <span className="font-semibold text-[#111]">{block.label}</span>
+                        <span className="text-[10px] text-[#9298a3]">{block.hint}</span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
               </div>
             </aside>
           </div>
         </div>
       </section>
 
-      {/* SECTION 2 — Live market dashboard */}
-      <section className="border-b border-[#e2e5ea] bg-[#fafbfc]" aria-label="Live market dashboard">
+      {/* SECTION 2 — Today's Research */}
+      <section id="todays-research" className="border-b border-[#e2e5ea] bg-[#fafbfc]" aria-label="Today's research">
+        <div className="mx-auto max-w-[1800px] px-4 sm:px-6 py-8 md:py-10">
+          <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#ff6600]">Editorial Desk</p>
+              <h2 className="mt-1 font-serif text-3xl font-bold text-[#111111]">Today&apos;s Research</h2>
+            </div>
+            <Link to="/sections/research-notes" className="text-xs font-bold text-[#0b1f33] hover:underline">
+              All research notes →
+            </Link>
+          </div>
+
+          <div className="mb-6 flex flex-wrap gap-1 border-b border-[#e2e5ea]">
+            {RESEARCH_TABS.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setResearchTab(tab.id)}
+                className={`px-3 py-2.5 text-xs font-bold border-b-2 -mb-px transition-colors ${
+                  researchTab === tab.id
+                    ? 'border-[#ff6600] text-[#111111]'
+                    : 'border-transparent text-[#667085] hover:text-[#111111]'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {loading ? (
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+              <div className="h-80 animate-pulse bg-[#eee] lg:col-span-7" />
+              <div className="space-y-3 lg:col-span-5">
+                {[0, 1, 2].map((i) => (
+                  <div key={i} className="h-20 animate-pulse bg-[#eee]" />
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
+              <div className="lg:col-span-7 border border-[#e2e5ea] bg-white p-5 md:p-6">
+                {featuredStory ? (
+                  <FeaturedStory article={featuredStory} />
+                ) : (
+                  <div className="border border-dashed border-[#d5d8de] p-6 text-sm text-[#667085]">
+                    Research notes will appear as the AGI desk publishes.{' '}
+                    <button
+                      type="button"
+                      className="font-bold text-[#0b1f33] underline"
+                      onClick={() => navigate('/ask?q=Today%20institutional%20research%20briefing')}
+                    >
+                      Ask AGI for today&apos;s briefing
+                    </button>
+                    .
+                  </div>
+                )}
+              </div>
+              <div className="lg:col-span-5 border border-[#e2e5ea] bg-white">
+                <div className="border-b border-[#e2e5ea] px-5 py-3">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#767676]">Latest published notes</p>
+                  <p className="mt-0.5 text-sm font-bold text-[#111111]">Auto-updated as notes publish</p>
+                </div>
+                <div className="px-5">
+                  {latestNotes.length ? (
+                    latestNotes.map((article, index) => (
+                      <ResearchFeedCard key={article.id || article.slug || index} article={article} index={index} />
+                    ))
+                  ) : (
+                    <p className="py-6 text-sm text-[#667085]">Latest notes will stream here through the day.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* SECTION 3 — Morning Office */}
+      <section id="morning-office" className="border-b border-[#e2e5ea] bg-white" aria-label="Morning Office">
+        <div className="mx-auto max-w-[1800px] px-4 sm:px-6 py-8 md:py-10">
+          <div className="border border-[#e2e5ea]">
+            <div className="flex flex-wrap items-end justify-between gap-3 border-b border-[#e2e5ea] px-5 py-4 md:px-6">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#ff6600]">Operations</p>
+                <h2 className="mt-1 font-serif text-2xl font-bold text-[#111111]">Morning Office</h2>
+              </div>
+              <p className="text-[11px] text-[#767676]">{generatedTime}</p>
+            </div>
+            <div className="grid grid-cols-2 gap-px bg-[#eef0f3] sm:grid-cols-3 lg:grid-cols-6">
+              <MetricCell label="Market Regime" value={marketRegime} />
+              <MetricCell label="Market Health" value={marketHealth} />
+              <MetricCell label="Research Queue" value={String(researchQueueCount)} />
+              <MetricCell label="Critical Alerts" value={String(criticalAlerts)} />
+              <MetricCell label="Opportunity Updates" value={String(opportunityUpdates)} />
+              <MetricCell label="Coverage Status" value={String(coverageStatus)} />
+            </div>
+            <div className="px-5 py-4 md:px-6">
+              <a
+                href={morningOfficeHref}
+                className="inline-flex items-center bg-[#0b1f33] px-4 py-2.5 text-xs font-bold text-white hover:bg-[#163353]"
+              >
+                Open Morning Office →
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* SECTION 4 — Market Dashboard */}
+      <section className="border-b border-[#e2e5ea] bg-[#fafbfc]" aria-label="Market dashboard">
         <div className="mx-auto max-w-[1800px] px-4 sm:px-6 py-8">
           <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
             <div>
               <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#ff6600]">Live Markets</p>
               <h2 className="mt-1 font-serif text-2xl font-bold text-[#111111]">Market Dashboard</h2>
             </div>
-            <p className="text-[11px] text-[#767676]">Updated {formatIstTime()} IST · quotes when live feed is available</p>
+            <p className="text-[11px] text-[#767676]">Updated {formatIstTime()} IST</p>
           </div>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <BoardColumn title="India" rows={indiaBoard} />
@@ -476,329 +663,179 @@ export default function ResearchTerminalHome() {
         </div>
       </section>
 
-      <div className="mx-auto grid max-w-[1800px] grid-cols-1 gap-8 px-4 sm:px-6 py-8 lg:grid-cols-12">
-        <div className="min-w-0 space-y-8 lg:col-span-8">
-          {/* SECTION 3 — Research queue */}
-          <section id="research-queue" className="border border-[#e2e5ea] bg-white" aria-label="Research queue">
-            <div className="border-b border-[#e2e5ea] px-5 py-4 md:px-6">
-              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#ff6600]">Opportunity Intelligence</p>
-              <h2 className="mt-1 font-serif text-2xl font-bold text-[#111111]">Today&apos;s Research Queue</h2>
-              <p className="mt-1 text-xs text-[#767676]">Institutional research priorities — not investment recommendations</p>
-            </div>
-            <div className="grid grid-cols-1 gap-px bg-[#eef0f3] sm:grid-cols-2">
-              {opportunityQueue.map((item, index) => (
-                <Link
-                  key={item.company}
-                  to={`/research/stocks/${encodeURIComponent(String(item.company).toLowerCase())}`}
-                  className="block bg-white p-5 transition-colors hover:bg-[#fafbfc] animate-home-rise"
-                  style={{ animationDelay: `${Math.min(index, 5) * 40}ms` }}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-bold text-[#111111]">{item.name || item.company}</p>
-                      <p className="mt-0.5 text-[11px] font-semibold uppercase tracking-wide text-[#767676]">
-                        {item.company}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#767676]">Score</p>
-                      <p className="text-lg font-bold tabular-nums text-[#0b1f33]">{item.opportunityScore}</p>
-                    </div>
+      {/* SECTION 5 — Top Research Priorities */}
+      <section id="research-queue" className="border-b border-[#e2e5ea] bg-white" aria-label="Research priorities">
+        <div className="mx-auto max-w-[1800px] px-4 sm:px-6 py-8 md:py-10">
+          <div className="mb-5">
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#ff6600]">Opportunity Intelligence</p>
+            <h2 className="mt-1 font-serif text-2xl font-bold text-[#111111]">Top Research Priorities</h2>
+            <p className="mt-1 text-xs text-[#767676]">Where the desk should focus next — not investment recommendations</p>
+          </div>
+          <div className="grid grid-cols-1 gap-px bg-[#eef0f3] border border-[#e2e5ea] sm:grid-cols-2 lg:grid-cols-3">
+            {opportunityQueue.map((item, index) => (
+              <Link
+                key={item.company}
+                to={`/research/stocks/${encodeURIComponent(String(item.company).toLowerCase())}`}
+                className="block bg-white p-5 transition-colors hover:bg-[#fafbfc] animate-home-rise"
+                style={{ animationDelay: `${Math.min(index, 5) * 40}ms` }}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-bold text-[#111111]">{item.name || item.company}</p>
+                    <p className="mt-0.5 text-[11px] font-semibold uppercase tracking-wide text-[#767676]">{item.company}</p>
                   </div>
-                  <dl className="mt-3 space-y-2 text-xs">
-                    <div>
-                      <dt className="font-bold uppercase tracking-[0.08em] text-[#9298a3]">Research Priority</dt>
-                      <dd className="mt-0.5 font-semibold text-[#111111]">{item.researchPriority}</dd>
-                    </div>
-                    <div>
-                      <dt className="font-bold uppercase tracking-[0.08em] text-[#9298a3]">Why Now</dt>
-                      <dd className="mt-0.5 leading-relaxed text-[#444444] line-clamp-3">{item.whyNow}</dd>
-                    </div>
-                    <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-                      <dd className="text-[#555555]">
-                        {(Array.isArray(item.catalysts) ? item.catalysts : []).slice(0, 3).join(' · ')}
-                      </dd>
-                      <dd className="font-semibold tabular-nums text-[#111111]">
-                        Conf. {Math.round(Number(item.confidence) * (Number(item.confidence) <= 1 ? 100 : 1))}%
-                      </dd>
-                    </div>
-                  </dl>
-                </Link>
-              ))}
-            </div>
-          </section>
-
-          {/* SECTION 4 — Latest research */}
-          <section className="border border-[#e2e5ea] bg-white" aria-label="Latest research">
-            <div className="border-b border-[#e2e5ea] px-5 py-4 md:px-6">
-              <div className="flex flex-wrap items-end justify-between gap-3">
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#ff6600]">Editorial Centre</p>
-                  <h2 className="mt-1 font-serif text-2xl font-bold text-[#111111]">Latest Research</h2>
-                </div>
-                <Link to="/sections/research-notes" className="text-xs font-bold text-[#0b1f33] hover:underline">
-                  All research notes →
-                </Link>
-              </div>
-              <div className="mt-4 flex flex-wrap gap-1 border-b border-[#f0f1f3]">
-                {RESEARCH_TABS.map((tab) => (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => setResearchTab(tab.id)}
-                    className={`px-3 py-2 text-xs font-bold border-b-2 -mb-px transition-colors ${
-                      researchTab === tab.id
-                        ? 'border-[#ff6600] text-[#111111]'
-                        : 'border-transparent text-[#667085] hover:text-[#111111]'
-                    }`}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="px-5 py-5 md:px-6">
-              {loading ? (
-                <div className="space-y-4">
-                  {[0, 1, 2].map((i) => (
-                    <div key={i} className="h-28 animate-pulse bg-[#f3f4f6]" />
-                  ))}
-                </div>
-              ) : featuredStory ? (
-                <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
-                  <div className="lg:col-span-7">
-                    <ResearchFeedCard article={featuredStory} index={0} />
-                  </div>
-                  <div className="lg:col-span-5 space-y-0 border-t border-[#eef0f3] lg:border-t-0 lg:border-l lg:pl-6">
-                    {supportingStories.map((article, index) => (
-                      <ResearchFeedCard key={article.id || article.slug || index} article={article} index={index + 1} />
-                    ))}
+                  <div className="text-right">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#767676]">Score</p>
+                    <p className="text-lg font-bold tabular-nums text-[#0b1f33]">{item.opportunityScore}</p>
                   </div>
                 </div>
-              ) : (
-                <div className="border border-dashed border-[#d5d8de] bg-[#fafbfc] p-6 text-sm text-[#667085]">
-                  Research notes will appear as the AGIB desk publishes.{' '}
-                  <button
-                    type="button"
-                    className="font-bold text-[#0b1f33] underline"
-                    onClick={() => navigate('/ask?q=Today%20institutional%20research%20briefing')}
-                  >
-                    Ask AGIB for today&apos;s briefing
-                  </button>
-                  .
-                </div>
-              )}
-            </div>
-          </section>
+                <dl className="mt-3 space-y-2 text-xs">
+                  <div>
+                    <dt className="font-bold uppercase tracking-[0.08em] text-[#9298a3]">Research Priority</dt>
+                    <dd className="mt-0.5 font-semibold text-[#111111]">{item.researchPriority}</dd>
+                  </div>
+                  <div>
+                    <dt className="font-bold uppercase tracking-[0.08em] text-[#9298a3]">Why Now</dt>
+                    <dd className="mt-0.5 leading-relaxed text-[#444444] line-clamp-3">{item.whyNow}</dd>
+                  </div>
+                  <div className="flex items-center justify-between gap-2 pt-1">
+                    <dd className="font-semibold tabular-nums text-[#111111]">
+                      Conf. {Math.round(Number(item.confidence) * (Number(item.confidence) <= 1 ? 100 : 1))}%
+                    </dd>
+                    <dd className="font-bold text-[#0b1f33]">Open Workspace →</dd>
+                  </div>
+                </dl>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
 
-          {/* SECTION 5 — AI Market Brief */}
-          <section className="border border-[#e2e5ea] bg-white" aria-label="AI market brief">
+      {/* SECTION 6 — AI Market Brief */}
+      <section className="border-b border-[#e2e5ea] bg-[#fafbfc]" aria-label="AI market brief">
+        <div className="mx-auto max-w-[1800px] px-4 sm:px-6 py-8 md:py-10">
+          <div className="border border-[#e2e5ea] bg-white">
             <div className="border-b border-[#e2e5ea] px-5 py-4 md:px-6">
-              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#ff6600]">Editor&apos;s Briefing</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#ff6600]">Daily Institutional Summary</p>
               <h2 className="mt-1 font-serif text-2xl font-bold text-[#111111]">AI Market Brief</h2>
-              <p className="mt-1 text-xs text-[#767676]">Today&apos;s AI-generated institutional summary</p>
             </div>
             <div className="grid grid-cols-1 gap-0 md:grid-cols-2">
               <BriefBlock title="Market Summary" body={aiBrief.marketSummary} />
-              <BriefBlock title="Macro Outlook" body={aiBrief.macroOutlook} />
-              <BriefList title="Key Risks" items={aiBrief.keyRisks} />
               <BriefList title="Top Opportunities" items={aiBrief.topOpportunities} />
+              <BriefList title="Key Risks" items={aiBrief.keyRisks} />
               <BriefBlock title="Sector Rotation" body={aiBrief.sectorRotation} />
               <BriefBlock title="Institutional Flows" body={aiBrief.institutionalFlows} />
+              <BriefBlock title="Macro Outlook" body={aiBrief.macroOutlook} />
             </div>
             <div className="border-t border-[#e2e5ea] px-5 py-3 md:px-6">
               <Link to="/ask?q=Today%20AI%20market%20brief%20India" className="text-xs font-bold text-[#0b1f33] hover:underline">
-                Open full briefing in Ask AGIB →
+                Read Full Brief →
               </Link>
             </div>
-          </section>
-
-          {/* SECTION 6 — Research coverage / platform health */}
-          <section className="border border-[#e2e5ea] bg-white" aria-label="Research coverage">
-            <div className="border-b border-[#e2e5ea] px-5 py-4 md:px-6">
-              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#ff6600]">Platform Health</p>
-              <h2 className="mt-1 font-serif text-2xl font-bold text-[#111111]">Research Coverage</h2>
-              <p className="mt-1 text-xs text-[#767676]">AGIB intelligence stack status for professional investors</p>
-            </div>
-            <div className="grid grid-cols-2 gap-px bg-[#eef0f3] sm:grid-cols-3">
-              <MetricCell label="Companies Covered" value={String(coverage.companiesCovered)} />
-              <MetricCell label="Research Notes Published" value={String(coverage.researchNotesPublished)} />
-              <MetricCell label="Morning Office Status" value={coverage.morningOfficeStatus} />
-              <MetricCell label="Knowledge Graph" value={coverage.knowledgeGraph} />
-              <MetricCell label="CompanyMemory" value={coverage.companyMemory} />
-              <MetricCell label="Opportunity Engine" value={coverage.opportunityEngine} />
-              <MetricCell label="Regression Status" value={coverage.regressionStatus} />
-              <MetricCell label="Data Freshness" value={coverage.dataFreshness} />
-              <MetricCell label="Last Sync" value={`${coverage.lastSync} IST`} />
-            </div>
-          </section>
-
-          {/* SECTION 7 — Ask AGIB */}
-          <section id="ask-agib" className="border border-[#e2e5ea] bg-white" aria-label="Ask AGIB">
-            <div className="px-5 py-5 md:px-6 md:py-6">
-              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#ff6600]">Institutional Search</p>
-              <h2 className="mt-1 font-serif text-2xl font-bold text-[#111111]">Ask AGIB</h2>
-              <p className="mt-1 max-w-xl text-xs text-[#767676]">
-                Search companies, sectors, macro, IPOs and research notes across the AGIB desk.
-              </p>
-              <div className="mt-5 max-w-3xl">
-                <AskAgiBar
-                  placeholder="Search companies, sectors, macro, IPOs, research notes..."
-                  size="large"
-                  autoFocus={false}
-                />
-              </div>
-              <div className="mt-4">
-                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#767676]">Suggested searches</p>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {SUGGESTED_SEARCHES.map((chip) => (
-                    <button
-                      key={chip}
-                      type="button"
-                      onClick={() => navigate(`/ask?q=${encodeURIComponent(chip)}`)}
-                      className="border border-[#d5d8de] bg-white px-3 py-1.5 text-xs font-semibold text-[#252b36] hover:border-[#0b1f33]"
-                    >
-                      {chip}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </section>
+          </div>
         </div>
+      </section>
 
-        {/* RIGHT SIDEBAR */}
-        <aside className="space-y-4 lg:col-span-4 lg:sticky lg:top-[118px] lg:self-start">
-          <SideBlock title="Today's Calendar">
-            <ul className="space-y-2">
-              {CALENDAR_BLOCKS.map((block) => (
-                <li key={block.id}>
-                  <Link
-                    to={block.path || '/events'}
-                    className="flex items-center justify-between gap-2 py-1.5 text-sm hover:text-[#ff6600]"
-                  >
-                    <span className="font-semibold text-[#111]">{block.label}</span>
-                    <span className="text-[10px] text-[#9298a3]">{block.hint}</span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </SideBlock>
+      {/* SECTION 7 — Company Intelligence */}
+      <section id="company-intelligence" className="border-b border-[#e2e5ea] bg-white" aria-label="Company intelligence">
+        <div className="mx-auto max-w-[1800px] px-4 sm:px-6 py-8 md:py-10">
+          <div className="mb-5">
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#ff6600]">Deep Coverage</p>
+            <h2 className="mt-1 font-serif text-2xl font-bold text-[#111111]">Company Intelligence</h2>
+            <p className="mt-1 text-xs text-[#767676]">
+              Open a company workspace — research, financials, valuation, ownership, filings, peers and Ask AGI.
+            </p>
+          </div>
 
-          <SideBlock title="Critical Alerts">
-            <ul className="space-y-2.5">
-              {criticalAlertItems.map((item) => (
-                <li key={item} className="text-sm leading-snug text-[#333333]">
-                  <span className="mr-2 inline-block h-1.5 w-1.5 rounded-full bg-[#b42318]" aria-hidden />
-                  {item}
-                </li>
-              ))}
-            </ul>
-          </SideBlock>
+          <div className="border border-[#e2e5ea] bg-white p-5 md:p-6">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                openCompany();
+              }}
+              className="flex flex-col gap-3 sm:flex-row"
+            >
+              <input
+                value={companyQuery}
+                onChange={(e) => setCompanyQuery(e.target.value)}
+                placeholder="Search company — e.g. Reliance, TCS, ICICI Bank"
+                className="w-full flex-1 border border-[#cccccc] bg-white px-4 py-3 text-sm text-[#111] outline-none focus:border-[#111]"
+              />
+              <button
+                type="submit"
+                className="bg-[#0b1f33] px-5 py-3 text-xs font-bold text-white hover:bg-[#163353]"
+              >
+                Open Workspace
+              </button>
+            </form>
 
-          {topOpportunity && (
-            <SideBlock
-              title="Top Opportunity"
-              action={
-                <Link
-                  to={`/research/stocks/${encodeURIComponent(String(topOpportunity.company).toLowerCase())}`}
-                  className="text-[10px] font-bold text-[#767676] hover:text-[#ff6600]"
+            <div className="mt-4 flex flex-wrap gap-2">
+              {COMPANY_INTEL_EXAMPLES.map((c) => (
+                <button
+                  key={c.symbol}
+                  type="button"
+                  onClick={() => openCompany(c.symbol)}
+                  className="border border-[#d5d8de] px-3 py-1.5 text-xs font-semibold text-[#252b36] hover:border-[#0b1f33]"
                 >
-                  Open →
-                </Link>
-              }
-            >
-              <p className="text-sm font-bold text-[#111111]">{topOpportunity.name}</p>
-              <p className="mt-1 text-xs text-[#555555] line-clamp-3">{topOpportunity.whyNow}</p>
-              <p className="mt-2 text-[11px] font-semibold text-[#0b1f33]">
-                Score {topOpportunity.opportunityScore} · {topOpportunity.researchPriority}
-              </p>
-            </SideBlock>
-          )}
-
-          <SideBlock title="Trending Searches">
-            <ul className="space-y-1.5">
-              {trendingSearches.map((q) => (
-                <li key={q}>
-                  <button
-                    type="button"
-                    onClick={() => navigate(`/ask?q=${encodeURIComponent(q)}`)}
-                    className="w-full text-left text-sm font-semibold text-[#252b36] hover:text-[#ff6600]"
-                  >
-                    {q}
-                  </button>
-                </li>
+                  {c.label}
+                </button>
               ))}
-            </ul>
-          </SideBlock>
+            </div>
 
-          {user && watchlist.length > 0 && (
-            <SideBlock
-              title="Watchlist"
-              action={
-                <Link to="/workspace" className="text-[10px] font-bold text-[#767676] hover:text-[#ff6600]">
-                  Edit
-                </Link>
-              }
-            >
-              <ul className="space-y-1.5">
-                {watchlist.map((t) => (
-                  <li key={t}>
+            <div className="mt-6 flex flex-wrap gap-2 border-t border-[#eef0f3] pt-5">
+              {COMPANY_INTEL_PANELS.map((panel) => (
+                <span
+                  key={panel}
+                  className="border border-[#e8eaee] bg-[#fafbfc] px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-[#5d6470]"
+                >
+                  {panel}
+                </span>
+              ))}
+            </div>
+
+            {user && watchlist.length > 0 && (
+              <div className="mt-5">
+                <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#767676]">From your watchlist</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {watchlist.map((t) => (
                     <Link
+                      key={t}
                       to={`/research/stocks/${encodeURIComponent(String(t).toLowerCase())}`}
-                      className="text-sm font-semibold hover:text-[#ff6600]"
+                      className="border border-[#d5d8de] px-3 py-1.5 text-xs font-semibold hover:border-[#0b1f33]"
                     >
                       {t}
                     </Link>
-                  </li>
-                ))}
-              </ul>
-            </SideBlock>
-          )}
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
 
-          {user && continueReading.length > 0 && (
-            <SideBlock title="Continue Reading">
-              <ul className="space-y-2">
-                {continueReading.map((item) => (
-                  <li key={item.id || item.href}>
-                    <Link to={item.href || '/research'} className="text-sm font-semibold text-[#111] hover:text-[#ff6600]">
-                      {item.title}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </SideBlock>
-          )}
-        </aside>
-      </div>
+      {/* SECTION 8 — Platform Coverage */}
+      <section id="platform-coverage" className="border-b border-[#e2e5ea] bg-[#fafbfc]" aria-label="Platform coverage">
+        <div className="mx-auto max-w-[1800px] px-4 sm:px-6 py-8 md:py-10">
+          <div className="mb-5">
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#ff6600]">Trust</p>
+            <h2 className="mt-1 font-serif text-2xl font-bold text-[#111111]">Platform Coverage</h2>
+          </div>
+          <div className="grid grid-cols-2 gap-px border border-[#e2e5ea] bg-[#eef0f3] sm:grid-cols-3">
+            <MetricCell label="Companies Covered" value={String(coverage.companiesCovered)} />
+            <MetricCell label="Research Notes Published Today" value={String(coverage.researchNotesToday)} />
+            <MetricCell label="Knowledge Graph" value={coverage.knowledgeGraph} />
+            <MetricCell label="Company Memory" value={coverage.companyMemory} />
+            <MetricCell label="Opportunity Intelligence" value={coverage.opportunityIntelligence} />
+            <MetricCell label="Morning Office" value={coverage.morningOffice} />
+            <MetricCell label="Coverage" value={String(coverage.coverageStatus)} />
+            <MetricCell label="Data Freshness" value={coverage.dataFreshness} />
+            <MetricCell label="Last Sync" value={`${coverage.lastSync} IST`} />
+          </div>
+        </div>
+      </section>
 
+      {/* SECTION 9 — Newsletter */}
       <NewsletterSection />
-    </div>
-  );
-}
-
-function BriefBlock({ title, body }) {
-  return (
-    <div className="border-b border-[#eef0f3] px-5 py-4 md:px-6 md:border-r md:odd:border-r md:even:border-r-0">
-      <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#767676]">{title}</p>
-      <p className="mt-2 text-sm leading-relaxed text-[#333333]">{body}</p>
-    </div>
-  );
-}
-
-function BriefList({ title, items }) {
-  const list = (Array.isArray(items) ? items : []).map((x) => (typeof x === 'string' ? x : x.text || x.title)).filter(Boolean);
-  return (
-    <div className="border-b border-[#eef0f3] px-5 py-4 md:px-6 md:border-r md:odd:border-r md:even:border-r-0">
-      <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#767676]">{title}</p>
-      <ul className="mt-2 space-y-1.5">
-        {list.map((item) => (
-          <li key={item} className="text-sm leading-snug text-[#333333]">
-            · {item}
-          </li>
-        ))}
-      </ul>
     </div>
   );
 }

@@ -18,6 +18,46 @@ export const SUGGESTED_SEARCHES = [
   'IPO Calendar',
 ];
 
+export const POPULAR_ASK_QUESTIONS = [
+  'Should I buy HDFC Bank?',
+  'Explain RBI policy.',
+  'Compare Tata Motors vs Mahindra.',
+  "Summarise today's market.",
+  'Top banking stocks.',
+];
+
+export const POPULAR_RESEARCH_SEARCHES = [
+  'Reliance',
+  'RBI Policy',
+  'Fed',
+  'Defence',
+  'Power',
+  'IT',
+  'IPO Calendar',
+];
+
+export const COMPANY_INTEL_EXAMPLES = [
+  { label: 'Reliance', symbol: 'reliance' },
+  { label: 'TCS', symbol: 'tcs' },
+  { label: 'ICICI Bank', symbol: 'icicibank' },
+  { label: 'HDFC Bank', symbol: 'hdfcbank' },
+  { label: 'HAL', symbol: 'hal' },
+];
+
+export const COMPANY_INTEL_PANELS = [
+  'Research',
+  'Financials',
+  'Valuation',
+  'Ownership',
+  'Filings',
+  'Peers',
+  'Timeline',
+  'Ask AGI',
+];
+
+export const HERO_TRUST_LINE =
+  '10+ original research notes published every trading day • 2500+ companies covered • Evidence-backed AI answers';
+
 export const RESEARCH_THEMES = [
   { id: 'ai-tech', label: 'AI & Technology', path: '/themes/ai_productivity' },
   { id: 'defence', label: 'Defence', path: '/sectors/defence' },
@@ -50,6 +90,7 @@ export const DEFAULT_OUTLOOK = [
   { key: 'usdinr', label: 'USDINR', sentiment: 'Neutral', score: 52, path: '/macro-intelligence' },
   { key: 'brent', label: 'BRENT', sentiment: 'Bearish', score: 42, path: '/macro-intelligence' },
   { key: 'gold', label: 'GOLD', sentiment: 'Bullish', score: 66, path: '/macro-intelligence' },
+  { key: 'india10y', label: 'India 10Y', sentiment: 'Neutral', score: 54, path: '/macro-intelligence' },
 ];
 
 export const DEFAULT_HIGHLIGHTS = [
@@ -79,12 +120,13 @@ export const GLOBAL_SNAPSHOT = [
 ];
 
 export const RESEARCH_TABS = [
-  { id: 'morning', label: 'Morning', match: /morning|pre-?market|open/i },
+  { id: 'morning', label: 'Morning Desk', match: /morning|pre-?market|open/i },
   { id: 'post', label: 'Post Market', match: /post|close|wrap/i },
-  { id: 'global', label: 'Global', match: /global|us|fed|asia|europe/i },
+  { id: 'global', label: 'Global Desk', match: /global|us|fed|asia|europe/i },
   { id: 'macro', label: 'Macro', match: /macro|rbi|rates|inflation|gdp/i },
   { id: 'ipo', label: 'IPO', match: /ipo|offer|listing/i },
   { id: 'sector', label: 'Sector', match: /sector|bank|defence|pharma|it |energy/i },
+  { id: 'weekend', label: 'Weekend', match: /weekend|weekly|sunday|saturday/i },
 ];
 
 export const MARKET_BOARD = {
@@ -230,6 +272,7 @@ export function matchOutlookIndices(indexSentiments = []) {
     { key: 'usdinr', match: /usd\s*inr|usdinr|inr/i, label: 'USDINR' },
     { key: 'brent', match: /brent|crude|oil/i, label: 'BRENT' },
     { key: 'gold', match: /gold/i, label: 'GOLD' },
+    { key: 'india10y', match: /india\s*10|g-?sec|in10/i, label: 'India 10Y' },
   ];
   return aliases.map((alias) => {
     const hit = indexSentiments.find((row) => alias.match.test(row.label || row.key || row.name || ''));

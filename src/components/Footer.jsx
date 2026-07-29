@@ -6,26 +6,25 @@ const COLUMNS = [
     title: 'Research',
     links: [
       { label: 'Research', to: '/sections/research-notes' },
+      { label: 'Companies', to: '/company-updates' },
       { label: 'Markets', to: '/markets' },
-      { label: 'Company Intelligence', to: '/company-updates' },
-      { label: 'Morning Office', to: '/#morning-office' },
-      { label: 'Ask AGIB', to: '/ask' },
+      { label: 'Macro', to: '/macro-intelligence' },
+      { label: 'IPO', to: '/ipo-intelligence' },
     ],
   },
   {
     title: 'Platform',
     links: [
-      { label: 'Macro', to: '/macro-intelligence' },
-      { label: 'IPO', to: '/ipo-intelligence' },
-      { label: 'Global', to: '/global' },
-      { label: 'API', to: '/contact' },
-      { label: 'Documentation', to: '/contact' },
+      { label: 'Ask AGI', to: '/ask' },
+      { label: 'Portfolio', to: '/portfolio' },
+      { label: 'Academy', to: '/admin/academy' },
+      { label: 'About AGI', to: '/about' },
+      { label: 'Contact', to: '/contact' },
     ],
   },
   {
     title: 'Legal',
     links: [
-      { label: 'About', to: '/about' },
       { label: 'Privacy', to: '/privacy' },
       { label: 'Terms', to: '/terms' },
       { label: 'Disclaimer', to: '/disclaimer' },
@@ -42,16 +41,9 @@ export default function Footer() {
           <div>
             <Logo compact className="mb-3 brightness-0 invert" />
             <p className="mt-3 max-w-sm text-xs leading-relaxed text-white/65">
-              AGIB institutional investment intelligence for professional investors. Informational research only — not investment advice.
+              AGI combines AI-powered investment intelligence, original institutional research and deep company
+              intelligence into one professional research platform. Informational only — not investment advice.
             </p>
-            <a
-              href="https://www.linkedin.com"
-              target="_blank"
-              rel="noreferrer"
-              className="mt-4 inline-block text-xs font-bold text-[#ffb366] hover:text-white"
-            >
-              LinkedIn →
-            </a>
           </div>
 
           {COLUMNS.map((col) => (

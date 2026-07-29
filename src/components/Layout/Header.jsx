@@ -21,14 +21,14 @@ import ResearchSearch from '@/components/Search/ResearchSearch';
 
 const NAV = [
   { name: 'Home', path: '/' },
-  { name: 'Morning Office', path: '/#morning-office' },
   { name: 'Research', path: '/sections/research-notes' },
-  { name: 'Company Intelligence', path: '/company-updates' },
+  { name: 'Companies', path: '/company-updates' },
   { name: 'Markets', path: '/markets' },
   { name: 'Macro', path: '/macro-intelligence' },
   { name: 'IPO', path: '/ipo-intelligence' },
-  { name: 'Global', path: '/global' },
-  { name: 'Ask AGIB', path: '/ask' },
+  { name: 'Portfolio', path: '/portfolio' },
+  { name: 'Academy', path: '/admin/academy' },
+  { name: 'Ask AGI', path: '/ask' },
 ];
 
 export default function Header() {
@@ -242,10 +242,10 @@ export default function Header() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => go('/login?mode=signup')}
+                    onClick={() => go('/#newsletter')}
                     className="hidden sm:block bg-[#0b1f33] text-white text-sm font-bold px-4 py-1.5 hover:bg-[#163353]"
                   >
-                    Sign Up
+                    Subscribe
                   </button>
                 </>
               )}
@@ -300,10 +300,10 @@ export default function Header() {
               </button>
               <button
                 type="button"
-                onClick={() => go('/login?mode=signup')}
+                onClick={() => go('/#newsletter')}
                 className="min-h-[44px] bg-[#0b1f33] px-3 text-sm font-bold text-white"
               >
-                Sign Up
+                Subscribe
               </button>
             </div>
           ) : (

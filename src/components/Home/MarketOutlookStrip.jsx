@@ -41,7 +41,7 @@ export default function MarketOutlookStrip() {
       <div className="mx-auto flex max-w-[1800px] items-stretch overflow-x-auto">
         <div className="hidden shrink-0 items-center border-r border-[#dfe3e8] bg-[#0b1f33] px-4 text-white md:flex">
           <div>
-            <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-white/60">AGIB</p>
+            <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-white/60">AGI</p>
             <p className="text-[11px] font-semibold leading-tight">Market Strip</p>
           </div>
         </div>
