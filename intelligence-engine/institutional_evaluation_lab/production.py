@@ -33,8 +33,27 @@ def board() -> dict[str, Any]:
 
 
 def catalog(*, suite: str = "institutional_1000", limit: int = 50) -> dict[str, Any]:
+    if suite in {"phase1_golden_200", "phase1_golden"}:
+        from institutional_evaluation_lab.datasets.phase1_golden_universe import universe_board
+
+        board = universe_board()
+        rows = load_suite(suite)[: max(1, min(int(limit), 200))]
+        return {
+            "suite": "phase1_golden_200",
+            "kind": "universe",
+            "n": board.get("n"),
+            "companies": rows,
+            "board": board,
+            "stats": catalog_stats(),
+        }
     rows = load_suite(suite)[: max(1, min(int(limit), 200))]
     return {"suite": suite, "n": len(rows), "questions": rows, "stats": catalog_stats()}
+
+
+def phase1_golden_universe() -> dict[str, Any]:
+    from institutional_evaluation_lab.datasets.phase1_golden_universe import universe_board
+
+    return universe_board()
 
 
 def question(question_id: str) -> dict[str, Any] | None:

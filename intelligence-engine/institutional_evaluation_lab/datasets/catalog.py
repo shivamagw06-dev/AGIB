@@ -1,4 +1,4 @@
-"""Unified question catalog — CIO gold + institutional 1000+."""
+"""Unified question catalog — CIO gold + institutional 1000+ + Phase 1 universe."""
 
 from __future__ import annotations
 
@@ -6,6 +6,10 @@ from typing import Any
 
 from institutional_evaluation_lab.datasets.cio_frozen_25 import CIO_FROZEN_25
 from institutional_evaluation_lab.datasets.generator import generate_institutional_library
+from institutional_evaluation_lab.datasets.phase1_golden_universe import (
+    load_universe as load_phase1_universe,
+    universe_board as phase1_universe_board,
+)
 
 _CACHE: dict[str, list[dict[str, Any]]] = {}
 
@@ -17,6 +21,8 @@ def load_suite(suite: str = "institutional_1000") -> list[dict[str, Any]]:
         rows = list(CIO_FROZEN_25)
     elif suite == "smoke":
         rows = list(CIO_FROZEN_25[:5]) + generate_institutional_library(target=20)[:15]
+    elif suite in {"phase1_golden_200", "phase1_golden"}:
+        rows = load_phase1_universe()
     elif suite in {"institutional_1000", "all"}:
         gen = generate_institutional_library(target=1000)
         if suite == "all":
@@ -33,6 +39,7 @@ def catalog_stats() -> dict[str, Any]:
     cio = load_suite("cio_frozen_25")
     inst = load_suite("institutional_1000")
     all_rows = load_suite("all")
+    phase1 = phase1_universe_board()
     by_cat: dict[str, int] = {}
     for r in all_rows:
         by_cat[str(r.get("category"))] = by_cat.get(str(r.get("category")), 0) + 1
@@ -40,6 +47,9 @@ def catalog_stats() -> dict[str, Any]:
         "cio_frozen_25": len(cio),
         "institutional_1000": len(inst),
         "all": len(all_rows),
+        "phase1_golden_200": phase1.get("n"),
+        "phase1_golden_valid": phase1.get("valid"),
+        "phase1_bucket_counts": (phase1.get("summary") or {}).get("bucket_counts"),
         "by_category": by_cat,
         "min_required": 1000,
         "meets_1000_plus": len(inst) >= 1000,

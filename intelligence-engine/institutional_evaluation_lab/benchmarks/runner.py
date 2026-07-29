@@ -46,6 +46,25 @@ def run_benchmark(
     mode: soft (nightly default) | full (sample)
     """
     t0 = time.time()
+    if suite in {"phase1_golden_200", "phase1_golden"}:
+        from institutional_evaluation_lab.datasets.phase1_golden_universe import universe_board
+
+        board = universe_board()
+        return {
+            "module": MODULE_CODE,
+            "version": IEL_VERSION,
+            "suite": "phase1_golden_200",
+            "kind": "universe",
+            "mode": mode,
+            "n": board.get("n"),
+            "valid": board.get("valid"),
+            "summary": board.get("summary"),
+            "buckets": board.get("buckets"),
+            "elapsed_ms": int((time.time() - t0) * 1000),
+            "note": "Phase 1 golden set is a company universe, not a question suite.",
+            "fabricated": False,
+        }
+
     questions = load_suite(suite)
     if limit is not None:
         questions = questions[: max(1, int(limit))]
