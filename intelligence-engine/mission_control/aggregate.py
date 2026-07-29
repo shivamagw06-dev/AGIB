@@ -306,6 +306,29 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("research_office")
     except Exception:
         out["research_office"] = None
+    # AGIB v4.0 — Research Intelligence Hub (soft).
+    try:
+        from research_intelligence_hub.production import dashboard as rih_dash
+        from research_intelligence_hub.production import health as rih_health
+
+        hd = rih_dash()
+        hh = rih_health()
+        out["research_intelligence_hub"] = {
+            "status": hh.get("status"),
+            "version": hh.get("version"),
+            "programme_short": hh.get("programme_short"),
+            "ask_triggers_collection": False,
+            "is_intelligence_hub": True,
+            "primary_knowledge_object": hh.get("primary_knowledge_object"),
+            "hub_count": hd.get("hub_count"),
+            "link_coverage": hd.get("link_coverage"),
+            "current_hub": hd.get("current_hub"),
+            "ingestion_idle": hd.get("ingestion_idle"),
+            "phase": "4.0",
+        }
+        out["sources"].append("research_intelligence_hub")
+    except Exception:
+        out["research_intelligence_hub"] = None
     # AGIB v3.0 LIDI — live institutional data soft board.
     try:
         from live_data.production import dashboard as lidi_dash

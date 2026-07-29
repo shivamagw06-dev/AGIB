@@ -11689,6 +11689,119 @@ async def research_office_health():
 
 
 # ---------------------------------------------------------------------------
+# AGIB v4.0 — Research Intelligence Hub (research notes as Intelligence Objects)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/rih/health")
+async def rih_health():
+    from research_intelligence_hub.production import health
+
+    return health()
+
+
+@router.get("/research/hub")
+async def rih_list(limit: int = Query(50, ge=1, le=200)):
+    from research_intelligence_hub.production import list_hubs
+
+    return list_hubs(limit=limit)
+
+
+@router.get("/research/hub/dashboard")
+async def rih_dashboard():
+    from research_intelligence_hub.production import dashboard
+
+    return dashboard()
+
+
+@router.post("/research/hub/run")
+async def rih_run(payload: dict[str, Any] = Body(default={})):
+    """Ops / scheduler only — never called by Ask."""
+    from research_intelligence_hub.production import run
+
+    return run(note_id=payload.get("note_id"))
+
+
+@router.post("/research/hub/build")
+async def rih_build(payload: dict[str, Any] = Body(default={})):
+    """Build (and optionally publish) a hub from article metadata. Ops / CMS soft-wire."""
+    from research_intelligence_hub.production import build
+
+    headline = payload.get("headline") or payload.get("title")
+    if not headline:
+        raise HTTPException(status_code=400, detail="headline required")
+    tickers = payload.get("tickers") or payload.get("companies") or []
+    if isinstance(tickers, str):
+        tickers = [t.strip() for t in tickers.split(",") if t.strip()]
+    return build(
+        note_id=payload.get("note_id") or payload.get("id") or payload.get("article_id"),
+        headline=str(headline),
+        body=str(payload.get("body") or payload.get("content") or ""),
+        publication_date=payload.get("publication_date"),
+        session=payload.get("session"),
+        tickers=list(tickers) if isinstance(tickers, list) else None,
+        importance_score=int(payload.get("importance_score") or 50),
+        persist=bool(payload.get("persist")),
+    )
+
+
+@router.get("/research/hub/{note_id}/graph")
+async def rih_graph(note_id: str):
+    from research_intelligence_hub.production import graph
+
+    return graph(note_id)
+
+
+@router.get("/research/hub/{note_id}/history")
+async def rih_history(note_id: str, limit: int = Query(20, ge=1, le=100)):
+    from research_intelligence_hub.production import history
+
+    return history(note_id, limit=limit)
+
+
+@router.get("/research/hub/{note_id}")
+async def rih_hub(note_id: str):
+    from research_intelligence_hub.production import hub
+
+    return hub(note_id)
+
+
+@router.get("/admin/research-intelligence-hub", response_class=HTMLResponse)
+async def admin_rih():
+    from research_intelligence_hub.production import dashboard
+
+    board = dashboard()
+    rows = "".join(
+        f"<tr><td>{h.get('id')}</td><td>{h.get('headline')}</td>"
+        f"<td>{h.get('session')}</td><td>{h.get('importance_score')}</td>"
+        f"<td>{', '.join(h.get('companies') or [])}</td>"
+        f"<td>{(h.get('probability_distribution') or {})}</td></tr>"
+        for h in (board.get("hubs") or [])
+    )
+    html = f"""<!doctype html><html><head><title>Research Intelligence Hub</title></head>
+    <body style="font-family:system-ui;max-width:1100px;margin:2rem auto">
+    <h1>Research Intelligence Hub — RIH</h1>
+    <p>Every research note is an Intelligence Object. AGI-owned knowledge only. Ask never fetches.</p>
+    <pre>{board.get('design_principle')}</pre>
+    <pre>{board.get('principles')}</pre>
+    <h2>Current hub</h2>
+    <pre>{board.get('current_hub')}</pre>
+    <h2>Link coverage</h2>
+    <pre>{board.get('link_coverage')}</pre>
+    <h2>Hubs</h2>
+    <table border="1" cellpadding="6">
+    <tr><th>ID</th><th>Headline</th><th>Session</th><th>Importance</th><th>Companies</th><th>Forecast</th></tr>
+    {rows or '<tr><td colspan=6>Run POST /v1/research/hub/run</td></tr>'}
+    </table>
+    <h2>Forecast attachment</h2>
+    <pre>{board.get('forecast_attachment')}</pre>
+    <h2>Navigation</h2>
+    <pre>{board.get('navigation')}</pre>
+    </body></html>"""
+    return HTMLResponse(html)
+
+
+# ---------------------------------------------------------------------------
 # AGIB v2.0 — Unified Institutional Knowledge Stack (Sprints 1–7 soft orchestration)
 # ---------------------------------------------------------------------------
 @router.get("/institutional-knowledge/health")

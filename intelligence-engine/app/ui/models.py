@@ -271,6 +271,8 @@ class ArticleView(BaseModel):
     latest_news: list[dict[str, Any]] = Field(default_factory=list)
     discovery: dict[str, Any] = Field(default_factory=dict)
     follow_up_questions: list[str] = Field(default_factory=list)
+    # AGIB v4.0 — Research Intelligence Hub (soft)
+    intelligence_hub: dict[str, Any] = Field(default_factory=dict)
 
 
 class AutocompleteView(BaseModel):

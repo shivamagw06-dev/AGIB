@@ -3337,30 +3337,83 @@ class UiService:
             else None,
             recent_research_titles=[str(x.get("title")) for x in previous[:3] if isinstance(x, dict)],
         )
+        # AGIB v4.0 — soft-assemble Research Intelligence Hub (never rebuilds stores)
+        intelligence_hub: dict[str, Any] = {}
+        try:
+            from research_intelligence_hub.production import build as rih_build
+            from research_intelligence_hub.production import hub as rih_hub
+
+            existing = rih_hub(aid)
+            if existing.get("mode") == "published" or existing.get("companies"):
+                intelligence_hub = existing
+            else:
+                headline = (
+                    scrub_text(current.get("title"))
+                    or scrub_text(research.get("title"))
+                    or aid
+                )
+                body = scrub_text(current.get("draft_body") or current.get("idea_summary") or "")
+                intelligence_hub = rih_build(
+                    note_id=aid,
+                    headline=str(headline),
+                    body=str(body),
+                    tickers=[str(t).upper() for t in tickers],
+                    persist=False,
+                )
+        except Exception:
+            intelligence_hub = {}
+
+        hub_companies = [
+            str(c.get("id")).upper()
+            for c in (intelligence_hub.get("companies") or [])
+            if c.get("id")
+        ]
+        related_companies = list(
+            dict.fromkeys([str(t).upper() for t in tickers] + hub_companies)
+        )
+        hub_evidence = [
+            {
+                "id": e.get("kind"),
+                "title": e.get("summary"),
+                "refs": e.get("refs"),
+            }
+            for e in (intelligence_hub.get("supporting_evidence") or [])
+        ]
+
         return ArticleView(
-            meta=UiMeta(surface="article", sources=["knowledge", "research_desk", "research_committee"]),
+            meta=UiMeta(
+                surface="article",
+                sources=["knowledge", "research_desk", "research_committee", "research_intelligence_hub"],
+            ),
             article_id=aid,
-            related_companies=[str(t).upper() for t in tickers],
+            related_companies=related_companies,
             related_themes=[str(t) for t in themes],
             knowledge_graph=graph if isinstance(graph, dict) else None,
             research_timeline=timeline if isinstance(timeline, list) else [],
             previous_agi_articles=previous if isinstance(previous, list) else [],
             house_view=house if isinstance(house, dict) else None,
-            confidence=float(conf) if conf is not None else None,
+            confidence=float(conf) if conf is not None else (
+                float((intelligence_hub.get("confidence") or {}).get("overall_pct") or 0) / 100.0
+                if (intelligence_hub.get("confidence") or {}).get("overall_pct") is not None
+                else None
+            ),
             latest_updates=updates,
-            supporting_evidence=_as_docs(scrub(research.get("supporting_documents") or []))[:20],
+            supporting_evidence=(
+                _as_docs(scrub(research.get("supporting_documents") or []))[:20] or hub_evidence
+            ),
             whats_changed_since_publication=status.get("whats_changed_since_publication") or [],
             thesis_still_holds=status.get("thesis_still_holds"),
             thesis_status=status,
             prediction_status=preds[:8],
             latest_news=updates,
             discovery=discovery_pack(
-                companies=[str(t).upper() for t in tickers],
+                companies=related_companies,
                 themes=[str(t) for t in themes],
                 research=previous,
                 questions=qs,
             ),
             follow_up_questions=qs,
+            intelligence_hub=intelligence_hub if isinstance(intelligence_hub, dict) else {},
         )
 
     def research(self, research_id: str) -> ResearchView:
