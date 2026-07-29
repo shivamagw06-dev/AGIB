@@ -68,8 +68,20 @@ ENGINE_CONTRACTS: dict[str, dict[str, Any]] = {
     "valuation_intelligence": {
         "id": "P2.2",
         "engine_name": "Valuation Intelligence",
-        "inputs": ["company_pack", "earnings_intelligence", "sector_playbook", "live_data"],
-        "dependencies": ["earnings_intelligence", "sector_intelligence_playbooks", "peer_intelligence"],
+        "inputs": [
+            "company_pack",
+            "earnings_intelligence",
+            "ownership_intelligence",
+            "live_market_context",
+            "valuation_peer_registry",
+            "peer_intelligence",
+        ],
+        "dependencies": [
+            "earnings_intelligence",
+            "ownership_intelligence",
+            "live_market_context",
+            "peer_intelligence",
+        ],
         "score_field": "valuation_confidence",
         "freshness_sla_days": 14,
         "runtime_budget_s": 3.0,

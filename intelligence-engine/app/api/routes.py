@@ -10104,6 +10104,60 @@ async def ownership_intelligence_post(payload: dict[str, Any] = Body(default={})
     )
 
 
+@router.get("/valuation-intelligence/health")
+async def valuation_intelligence_health():
+    """P2.2 Valuation Intelligence — peer-relative + historical synthesis (no BUY/SELL)."""
+    from valuation_intelligence.production import health
+
+    return health()
+
+
+@router.get("/valuation-intelligence/{ticker}")
+async def valuation_intelligence_ticker(
+    ticker: str,
+    force: bool = False,
+    max_peers: int = 5,
+    include_secondary: bool = False,
+):
+    from valuation_intelligence.production import analyse
+
+    return analyse(
+        ticker,
+        force=force,
+        max_peers=max(1, min(int(max_peers), 12)),
+        include_secondary=bool(include_secondary),
+        persist=False,
+    )
+
+
+@router.post("/valuation-intelligence")
+async def valuation_intelligence_post(payload: dict[str, Any] = Body(default={})):
+    from valuation_intelligence.production import analyse
+
+    body = payload or {}
+    ticker = str(body.get("ticker") or "").strip()
+    if not ticker:
+        raise HTTPException(status_code=400, detail="ticker_required")
+    try:
+        mp = max(1, min(int(body.get("max_peers", 5)), 12))
+    except (TypeError, ValueError):
+        mp = 5
+    return analyse(
+        ticker,
+        force=bool(body.get("force")),
+        max_peers=mp,
+        include_secondary=bool(body.get("include_secondary")),
+        persist=bool(body.get("persist", False)),
+    )
+
+
+@router.get("/valuation-intelligence-ic10")
+async def valuation_intelligence_ic10(max_peers: int = 3):
+    from valuation_intelligence.production import ic10_smoke
+
+    return ic10_smoke(max_peers=max(1, min(int(max_peers), 8)))
+
+
 @router.get("/institutional-evaluation-lab/question/{question_id}")
 async def institutional_evaluation_lab_question(question_id: str):
     from institutional_evaluation_lab.production import question
