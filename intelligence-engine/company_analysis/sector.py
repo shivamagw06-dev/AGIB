@@ -37,7 +37,7 @@ def analyse_sector(
     reasoning: list[str] = []
     if "bank" in sk:
         reasoning = [
-            "Banking analysis prioritises CASA, NIM, credit cost, GNPA/NNPA, loan & deposit growth, liquidity and capital.",
+            "Banking analysis prioritises CASA, NIM, credit cost, GNPA/NNPA, PCR, loan & deposit growth, liquidity and capital.",
             "ROE is an outcome — only durable if funding advantage and credit costs remain controlled.",
             "Liquidity and CET1 constrain growth optionality in stress.",
         ]
@@ -48,8 +48,48 @@ def analyse_sector(
         ]
     elif "it" in sk:
         reasoning = [
-            "IT services analysis prioritises utilisation, deal pipeline, pricing, attrition and margin trajectory.",
+            "IT services analysis prioritises utilisation, deal pipeline / TCV, pricing, attrition, AI revenue mix and margin trajectory.",
             "Large-deal ramps can depress near-term margins while supporting medium-term growth.",
+        ]
+    elif "pharma" in sk or "health" in sk:
+        reasoning = [
+            "Pharma analysis prioritises US exposure, ANDA pipeline, inspection outcomes, specialty mix and API/formulation balance.",
+            "Margin durability depends on product concentration, price erosion and regulatory cadence.",
+        ]
+    elif "cement" in sk or "material" in sk:
+        reasoning = [
+            "Cement analysis prioritises capacity, utilisation, fuel/petcoke costs, realisations and regional pricing power.",
+            "Volume recovery without pricing discipline rarely sustains ROCE through the cycle.",
+        ]
+    elif "power" in sk or "utilit" in sk:
+        reasoning = [
+            "Power analysis prioritises PLF, generation mix, regulated returns, capex cycle and receivable quality.",
+            "Thermal vs renewable mix shapes fuel risk and long-term cash conversion.",
+        ]
+    elif "auto" in sk or "automob" in sk:
+        reasoning = [
+            "Auto analysis prioritises volumes, mix (PV/CV), EV trajectory, exports and dealer inventory.",
+            "Margin resilience depends on commodity costs, model cadence and premium/EV mix shift.",
+        ]
+    elif "paint" in sk or "decor" in sk:
+        reasoning = [
+            "Paints analysis prioritises decorative volume, realisations, gross margin, distributor reach and rural mix.",
+            "Premium brand strength must show up in pricing power and ROIC, not only top-line growth.",
+        ]
+    elif "defence" in sk or "defense" in sk or "aerospace" in sk:
+        reasoning = [
+            "Defence OEM analysis prioritises order book, execution, indigenisation content and government budget cadence.",
+            "Working-capital and milestone billing drive cash conversion more than headline order wins.",
+        ]
+    elif "energy" in sk or "oil" in sk or "refin" in sk:
+        reasoning = [
+            "Integrated energy analysis prioritises refining cracks, petchem spreads, retail/Jio-style consumer cash flows and upstream linkages.",
+            "Conglomerate valuation requires segment-level evidence rather than a single group multiple.",
+        ]
+    elif "internet" in sk or "consumer" in sk:
+        reasoning = [
+            "Consumer-internet analysis prioritises GMV, take rate, contribution margin, cohort retention and path to cash profits.",
+            "Growth without unit-economic improvement is not an institutional compounding case.",
         ]
     else:
         reasoning = [

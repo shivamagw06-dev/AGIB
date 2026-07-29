@@ -10158,6 +10158,46 @@ async def valuation_intelligence_ic10(max_peers: int = 3):
     return ic10_smoke(max_peers=max(1, min(int(max_peers), 8)))
 
 
+@router.get("/committee-certification-v2/health")
+async def committee_certification_v2_health():
+    """IC-10 Institutional Committee Certification v2.0 — health / universe map."""
+    from committee_certification_v2.production import health
+
+    return health()
+
+
+@router.get("/committee-certification-v2/run")
+async def committee_certification_v2_run(
+    runs: int = 1,
+    max_peers: int = 3,
+    force: bool = False,
+    persist: bool = True,
+):
+    """Run IC-10 Committee Certification v2.0 (live evidence + governance checks)."""
+    from committee_certification_v2.production import run_certification
+
+    return run_certification(
+        robustness_runs=max(1, min(int(runs), 3)),
+        max_peers=max(1, min(int(max_peers), 8)),
+        force=bool(force),
+        persist=bool(persist),
+    )
+
+
+@router.get("/committee-certification-v2/latest")
+async def committee_certification_v2_latest():
+    from pathlib import Path
+    import json
+
+    path = Path("committee_certification_v2/results/latest.json")
+    if not path.exists():
+        # package-relative
+        path = Path(__file__).resolve().parents[2] / "committee_certification_v2" / "results" / "latest.json"
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="no_certification_result")
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
 @router.get("/institutional-evaluation-lab/question/{question_id}")
 async def institutional_evaluation_lab_question(question_id: str):
     from institutional_evaluation_lab.production import question

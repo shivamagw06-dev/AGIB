@@ -102,6 +102,9 @@ def resolve_peers(ticker: str) -> dict[str, Any]:
     key = (ticker or "").upper().replace(".NS", "").replace(".BO", "")
     if key == "ZOMATO":
         key = "ETERNAL"
+    if key == "TATAMOTORS":
+        # NSE/Yahoo quote symbol for the passenger-vehicles franchise is TMPV
+        key = "TMPV"
     row = PEER_REGISTRY.get(key)
     source = "valuation_peer_registry"
     if row:
