@@ -28,6 +28,11 @@ def status() -> dict[str, Any]:
         "status": "ready",
         "catalogue": stats,
         "golden_universe_evaluation": golden,
+        "governance_spec": {
+            "active": "v1.0",
+            "frozen": True,
+            "phase6": "execute GOV-001…GOV-008 against results/{release}/*.json",
+        },
         "quality_targets": QUALITY_TARGETS,
         "freeze_locks": dict(FREEZE_LOCKS),
         "nightly_default": {"suite": "institutional_1000", "mode": "soft"},
@@ -161,6 +166,35 @@ def golden_replay(*, release_id: str, ticker: str | None = None, limit: int | No
     if ticker:
         return replay_ticker(release_id=release_id, ticker=ticker)
     return replay_release(release_id=release_id, limit=limit)
+
+
+def phase6_governance(
+    *,
+    release_id: str,
+    spec_version: str | None = "v1.0",
+    limit: int | None = None,
+    persist: bool = True,
+) -> dict[str, Any]:
+    """Phase 6 — execute frozen Governance Spec against Evaluation Lab JSON results."""
+    from governance_spec.phase6 import run_phase6
+    from institutional_evaluation_lab.golden_universe import store as golden_store
+
+    report = run_phase6(release_id=release_id, spec_version=spec_version, limit=limit)
+    if persist and not report.get("error"):
+        try:
+            import json
+            from pathlib import Path
+
+            out_dir = Path(golden_store.release_dir(release_id))
+            out_dir.mkdir(parents=True, exist_ok=True)
+            light = {k: v for k, v in report.items() if k != "ticker_results"}
+            (out_dir / "_phase6_governance.json").write_text(
+                json.dumps(light, indent=2, default=str), encoding="utf-8"
+            )
+            report["report_path"] = str(out_dir / "_phase6_governance.json")
+        except Exception as exc:
+            report["persist_error"] = str(exc)[:160]
+    return report
 
 
 def question(question_id: str) -> dict[str, Any] | None:
