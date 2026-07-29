@@ -114,5 +114,5 @@ market_retrieval
 | ✅ 12.1 | CMKTP | Continuous Market Knowledge Platform |
 | ✅ 12.2 | HMKIP | Historical Market Intelligence Platform |
 | ✅ 12.3 | MKRI | Market Relationship Intelligence |
-| 12.4 | — | Historical Market Analogues |
+| ✅ 12.4 | HMKAI | Historical Market Analogue Intelligence |
 | 12.5 | — | Market Forecast Intelligence |

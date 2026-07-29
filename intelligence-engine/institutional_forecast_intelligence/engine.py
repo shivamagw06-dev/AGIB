@@ -601,13 +601,22 @@ class InstitutionalForecastEngine:
                 mkri_tip.get("relationships") or relationship_intelligence
             )
             sources.append("mkri_market_relationship_store")
+        historical_analogues: list[dict[str, Any]] = [
+            {
+                "matched_period": "2021 Liquidity Rally",
+                "similarity_score": 76.0,
+                "label": "Liquidity abundant",
+            }
+        ]
+        hmkai_tip = self._soft_hmkai_analogues()
+        if hmkai_tip and hmkai_tip.get("top_analogues"):
+            historical_analogues = list(hmkai_tip["top_analogues"])
+            sources.append("hmkai_market_analogue_store")
         return {
             "current_knowledge": {"market": "NIFTY"},
             "market_intelligence": market,
             "historical_intelligence": historical,
-            "historical_analogues": [
-                {"matched_period": "2021 Liquidity Rally", "similarity_score": 76.0, "label": "Liquidity abundant"}
-            ],
+            "historical_analogues": historical_analogues,
             "relationship_intelligence": relationship_intelligence,
             "macro_intelligence": dict(MACRO_INTELLIGENCE),
             "sector_intelligence": {"note": "Cross-sector breadth mixed"},
@@ -693,6 +702,21 @@ class InstitutionalForecastEngine:
                     "collected_on_request": False,
                     "providers_queried": [],
                 }
+            return None
+        except Exception:
+            return None
+
+    def _soft_hmkai_analogues(self) -> dict[str, Any] | None:
+        """Read-only HMKAI gateway — never rebuilds analogue catalogues."""
+        try:
+            from historical_market_analogue_intelligence.production import forecast_tip
+
+            tip = forecast_tip(market="India", top_k=5)
+            if tip.get("n"):
+                tip["gateway"] = "HMKAI_KRIG"
+                tip["collected_on_request"] = False
+                tip["providers_queried"] = []
+                return tip
             return None
         except Exception:
             return None
