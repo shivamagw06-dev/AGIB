@@ -523,6 +523,30 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("historical_sector_intelligence")
     except Exception:
         out["historical_sector_intelligence"] = None
+    # Phase 11 Sprint 11.3 — Sector Relationship Intelligence (soft).
+    try:
+        from sector_relationship_intelligence.production import dashboard as sri_dash
+        from sector_relationship_intelligence.production import health as sri_health
+
+        sd = sri_dash()
+        sh = sri_health()
+        out["sector_relationship_intelligence"] = {
+            "status": sh.get("status"),
+            "version": sh.get("version"),
+            "ask_triggers_collection": False,
+            "evidence_backed_only": True,
+            "total_relationships": sd.get("total_relationships"),
+            "active_relationships": sd.get("active_relationships"),
+            "confidence_distribution": sd.get("confidence_distribution"),
+            "high_confidence": sd.get("high_confidence"),
+            "by_kind": sd.get("by_kind"),
+            "validation_failures": len(sd.get("validation_failures") or []),
+            "ingestion_idle": sd.get("ingestion_idle"),
+            "phase": "11.3",
+        }
+        out["sources"].append("sector_relationship_intelligence")
+    except Exception:
+        out["sector_relationship_intelligence"] = None
     # AGIB v3.0 LIDI Track 2 — collector certification board (soft).
     try:
         from live_data.production_verify import certification as lidi_cert
