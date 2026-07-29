@@ -10002,9 +10002,51 @@ async def live_market_context_post(payload: dict[str, Any] = Body(default={})):
     return analyse(ticker, force=bool(body.get("force")), intrinsic_value=intrinsic_f)
 
 
+@router.get("/financial-statements/health")
+async def financial_statements_health():
+    """FSE-01 Financial Statements Engine — canonical financial warehouse."""
+    from financial_statements_engine.production import health
+
+    return health()
+
+
+@router.get("/financial-statements/dashboard")
+async def financial_statements_dashboard():
+    from financial_statements_engine.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/financial-statements/{ticker}")
+async def financial_statements_ticker(ticker: str):
+    from financial_statements_engine.production import get_statements
+
+    return get_statements(ticker)
+
+
+@router.post("/financial-statements/ingest")
+async def financial_statements_ingest(payload: dict[str, Any] = Body(default={})):
+    from financial_statements_engine.production import ingest_and_publish
+
+    body = payload or {}
+    ticker = str(body.get("ticker") or "").strip()
+    if not ticker:
+        raise HTTPException(status_code=400, detail="ticker_required")
+    try:
+        max_periods = max(0, min(int(body.get("max_periods", 8)), 40))
+    except (TypeError, ValueError):
+        max_periods = 8
+    return ingest_and_publish(
+        ticker,
+        publish=bool(body.get("publish", True)),
+        allow_flagged=bool(body.get("allow_flagged", True)),
+        max_periods=max_periods,
+    )
+
+
 @router.get("/earnings-intelligence/health")
 async def earnings_intelligence_health():
-    """P2.1 Financial Statements & Earnings Intelligence — NSE IND-AS XBRL."""
+    """P2.1 Financial Statements & Earnings Intelligence — NSE XBRL extraction adapter under FSE-01."""
     from earnings_intelligence.production import health
 
     return health()

@@ -1,5 +1,8 @@
 # P2.1 — Financial Statements & Earnings Intelligence (NSE XBRL)
 
+> **Canonical warehouse architecture:** [FSE-01](../../docs/FSE_01_FINANCIAL_STATEMENTS_ENGINE.md)  
+> This package is the NSE XBRL **extraction adapter** under FSE. New consumers must read financials via `financial_statements_engine`, not by bypassing to parsers.
+
 Programme workstream **P2.1**. Same evidence-layer pattern as P2.3 Ownership:
 
 ```text
