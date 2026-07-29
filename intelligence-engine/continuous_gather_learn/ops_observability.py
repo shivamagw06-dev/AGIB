@@ -370,6 +370,30 @@ def ops_dashboard() -> dict[str, Any]:
     except Exception:
         audit = None
     degraded = [c for c in collectors if c.get("success") in {"warn", "error"}]
+
+    institutional: dict[str, Any] = {}
+    try:
+        from institutional_data.production import dashboard as id_dash
+
+        institutional = id_dash()
+    except Exception as exc:  # noqa: BLE001
+        institutional = {"ok": False, "error": str(exc)[:160]}
+
+    # Prefer rolling reliability trends when present
+    rel_trends = institutional.get("source_reliability_trends") or []
+    if rel_trends:
+        sources = [
+            {
+                "source": r.get("source"),
+                "reliability_pct": r.get("availability_pct"),
+                "failure_pct": r.get("failure_pct"),
+                "latency_ms_avg": r.get("latency_ms_avg"),
+                "coverage_pct_avg": r.get("coverage_pct_avg"),
+                "samples_7d": r.get("samples_7d"),
+            }
+            for r in rel_trends
+        ] or sources
+
     return {
         "ops_version": OPS_VERSION,
         "generated_at": _now(),
@@ -380,6 +404,24 @@ def ops_dashboard() -> dict[str, Any]:
         "backfill_throughput": throughput,
         "coverage_audit": audit,
         "degraded_collectors": len(degraded),
+        "financial_coverage": institutional.get("financial_coverage"),
+        "shareholding_coverage": institutional.get("shareholding_coverage"),
+        "ir_coverage": institutional.get("ir_coverage"),
+        "checkpoint_status": institutional.get("checkpoint_status"),
+        "storage_usage": (institutional.get("checkpoint_status") or {}).get("storage"),
+        "persistent_queue": institutional.get("persistent_queue"),
+        "repair_queue": ((institutional.get("kpis") or {}).get("repair_queue_size")),
+        "kpis": institutional.get("kpis"),
+        "living_universe_ops": institutional.get("living_universe"),
+        "recovery": institutional.get("recovery"),
+        "historical_depth": {
+            "average_years": (institutional.get("kpis") or {}).get("average_historical_years"),
+            "completeness_pct": (institutional.get("kpis") or {}).get("historical_completeness_pct"),
+        },
+        "knowledge_density": {
+            "extracts": (institutional.get("kpis") or {}).get("knowledge_extracts"),
+            "embeddings": (institutional.get("kpis") or {}).get("embeddings"),
+        },
         "north_star": "Operate and validate historical coverage under real workloads",
-        "focus": "building → operating",
+        "focus": "production-grade institutional historical data",
     }

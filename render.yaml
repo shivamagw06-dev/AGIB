@@ -165,9 +165,24 @@ services:
         value: "2"
       - key: KF_HD_TARGET_YEARS
         value: "15"
-      # Optional: set CGL_STORE_ROOT=/var/data/kip/continuous_gather_learn after disk attach.
+      # Durable roots — set AFTER disk /var/data/kip is attached:
+      #   KIP_DATA_DIR=/var/data/kip
+      #   CGL_STORE_ROOT=/var/data/kip/continuous_gather_learn
+      #   KF_HD_STORE_ROOT=/var/data/kip/historical_depth
+      #   LIDI_STORE_ROOT=/var/data/kip/live_data
       - key: CGL_STORE_ROOT
         sync: false
+      - key: KF_HD_STORE_ROOT
+        sync: false
+      - key: LIDI_STORE_ROOT
+        sync: false
+      # Never pad production financials with fixtures.
+      - key: KF_HD_FIXTURE_QUARTERLY
+        value: "false"
+      - key: INSTITUTIONAL_DATA_CONNECTORS
+        value: "true"
+      - key: KF_HD_CHUNK_YEARS
+        value: "5"
       # FAA background collector — Ask-isolated. Conservative limits on Starter.
       - key: FAA_BACKGROUND_COLLECTOR
         value: "true"

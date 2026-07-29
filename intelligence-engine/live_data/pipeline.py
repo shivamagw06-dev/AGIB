@@ -143,12 +143,28 @@ def run_live_ingestion(
     if stop_after == "nse_announcements":
         return _finalize(started, stages, derived, quality_failures, publish=False)
 
-    # 3) BSE Corporate Actions
+    # 3) BSE Corporate Actions — legacy collector, then multi-strategy connector recovery
     bse_env = collect_bse_corporate_actions(
         injected_csv=inj.get("bse_corporate_actions"),
         allow_recorded_sample=samples,
     )
     bse_val = _validate_and_store(bse_env, entity="LATEST", row_ticker_field="symbol")
+    if not bse_val.get("ok") and not inj.get("bse_corporate_actions"):
+        try:
+            from institutional_data.connectors.registry import get_connector
+
+            bse_c = get_connector("bse_corporate_actions").run(allow_recorded_sample=samples)
+            if bse_c.ok:
+                bse_val = {
+                    "ok": True,
+                    "mode": bse_c.mode,
+                    "payload": {"actions": bse_c.normalized or bse_c.records, "action_count": len(bse_c.records)},
+                    "fixture": False,
+                    "connector_recovery": True,
+                }
+                stages.setdefault("bse_corporate_actions", {})["connector_recovery"] = True
+        except Exception:
+            pass
     stages["bse_corporate_actions"] = {
         "ok": bse_val.get("ok"),
         "mode": bse_val.get("mode"),
@@ -158,6 +174,7 @@ def run_live_ingestion(
         "fixture": bse_val.get("fixture"),
         "reason": bse_val.get("reason"),
         "error": bse_val.get("error"),
+        "connector_recovery": bool(bse_val.get("connector_recovery")),
     }
     if not bse_val.get("ok"):
         quality_failures.append("bse_corporate_actions")
@@ -167,7 +184,7 @@ def run_live_ingestion(
     if stop_after == "bse_corporate_actions":
         return _finalize(started, stages, derived, quality_failures, publish=False)
 
-    # 4) RBI DBIE
+    # 4) RBI DBIE — structured connector recovery on empty series
     rbi_env = collect_rbi_dbie(
         injected_json=inj.get("rbi_dbie"),
         allow_recorded_sample=samples,
@@ -178,6 +195,21 @@ def run_live_ingestion(
         row_ticker_field=None,
         required_payload_fields=("series",),
     )
+    if not rbi_val.get("ok") and not inj.get("rbi_dbie"):
+        try:
+            from institutional_data.connectors.registry import get_connector
+
+            rbi_c = get_connector("rbi_dbie").run(allow_recorded_sample=samples)
+            if rbi_c.ok:
+                rbi_val = {
+                    "ok": True,
+                    "mode": rbi_c.mode,
+                    "payload": {"series": rbi_c.normalized or rbi_c.records},
+                    "fixture": False,
+                    "connector_recovery": True,
+                }
+        except Exception:
+            pass
     stages["rbi_dbie"] = {
         "ok": rbi_val.get("ok"),
         "mode": rbi_val.get("mode"),
@@ -187,6 +219,7 @@ def run_live_ingestion(
         "fixture": rbi_val.get("fixture"),
         "reason": rbi_val.get("reason"),
         "error": rbi_val.get("error"),
+        "connector_recovery": bool(rbi_val.get("connector_recovery")),
     }
     if not rbi_val.get("ok"):
         quality_failures.append("rbi_dbie")
@@ -196,12 +229,31 @@ def run_live_ingestion(
     if stop_after == "rbi_dbie":
         return _finalize(started, stages, derived, quality_failures, publish=False)
 
-    # 5) Company IR
+    # 5) Company IR — discovery engine expands beyond hardcoded hubs
     ir_env = collect_company_ir(
         ticker=ir_ticker,
         injected_json=inj.get("company_ir"),
         allow_recorded_sample=samples,
     )
+    if (not ir_env.get("ok") or not ((ir_env.get("payload") or {}).get("documents"))) and not inj.get("company_ir"):
+        try:
+            from institutional_data.connectors.registry import get_connector
+
+            ir_c = get_connector("company_ir").run(entity=ir_ticker, download_files=True, max_downloads=4)
+            if ir_c.ok:
+                ir_env = {
+                    "ok": True,
+                    "mode": ir_c.mode,
+                    "payload": {
+                        "ticker": ir_ticker,
+                        "documents": ir_c.normalized or ir_c.records,
+                        "document_count": len(ir_c.records),
+                    },
+                    "fixture": False,
+                    "connector_recovery": True,
+                }
+        except Exception:
+            pass
     allow_empty_ir = bool(
         ((ir_env.get("payload") or {}).get("structured_filings") == "UNKNOWN")
         or ((ir_env.get("payload") or {}).get("document_count") == 0 and ir_env.get("mode") == "live_probe")

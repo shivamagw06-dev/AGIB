@@ -50,6 +50,15 @@ def run_historical_backfill(*, batch_size: int | None = None, max_batches: int |
             "last": single,
         }
 
+    # Crash-safe resume — never restart historical backfill from zero
+    recovery = None
+    try:
+        from institutional_data.persistence.resume import ResumeManager
+
+        recovery = ResumeManager().recover()
+    except Exception as exc:  # noqa: BLE001
+        recovery = {"ok": False, "error": str(exc)[:160]}
+
     progress = coverage_progress()
     # Weekly coverage audit → repair queue (at most once per 7 days)
     audit = None
@@ -78,6 +87,7 @@ def run_historical_backfill(*, batch_size: int | None = None, max_batches: int |
                 "generated_at": (audit or {}).get("generated_at"),
                 "counts": (audit or {}).get("counts"),
             },
+            "recovery": recovery,
         },
     )
     # Surface extracts from last batch rows when available
@@ -96,6 +106,7 @@ def run_historical_backfill(*, batch_size: int | None = None, max_batches: int |
         "backfill": budget,
         "knowledge_extracts": extracts,
         "progress": progress,
+        "recovery": recovery,
         "resumable": True,
         "continues_until_complete": bool(progress.get("continues_until_complete")),
         "maintenance_only": bool(progress.get("maintenance_only")),

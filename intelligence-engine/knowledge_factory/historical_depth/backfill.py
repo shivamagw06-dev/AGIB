@@ -82,47 +82,86 @@ def pending_entities(entities: list[str] | None = None, *, target_years: float =
 
 
 def _enrich_entity(entity: str, *, maintenance: bool) -> dict[str, Any]:
-    """Collect → validate → derive → extract hooks for one company."""
+    """Collect → validate → derive → extract hooks for one company.
+
+    Uses institutional connectors (financials, shareholding, IR discovery) and
+    chunked checkpoints when INSTITUTIONAL_DATA_CONNECTORS is enabled (default on).
+    """
     e = entity.upper()
-    # Prefer live only when explicitly enabled — never mutate process env (pollutes tests/prod).
+    use_connectors = str(os.getenv("INSTITUTIONAL_DATA_CONNECTORS", "true")).lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
     live_on = str(os.getenv("KF_HD_LIVE_COLLECTORS", "false")).lower() in {"1", "true", "yes", "on"}
+
+    if use_connectors and live_on:
+        try:
+            from institutional_data.backfill.chunked import ChunkedBackfillEngine
+
+            row = ChunkedBackfillEngine().enrich_company_chunked(e, maintenance=maintenance)
+            # Derived packs still run for Ask/KF consumers
+            produce_derived(e)
+            compile_historical_company(e)
+            build_historical_pack(e)
+            actions = hd_store.get_series("corporate_actions", e) or {}
+            record_attempt(
+                e,
+                "corporate_actions",
+                status="complete" if (actions.get("records")) else "empty",
+                detail=f"n={len(actions.get('records') or [])}",
+            )
+            record_attempt(e, "historical_news", status="n_a", detail="exchange_snapshot_soft")
+            record_attempt(e, "announcements", status="n_a", detail="exchange_snapshot_soft")
+            record_attempt(e, "_wave", status="complete", detail="connector_suite")
+            return row
+        except Exception as exc:  # noqa: BLE001
+            # Soft fall through to legacy path
+            _ = exc
+
     prefer_live = live_on
     if maintenance:
         ev = evaluate_completion(e)
         if ev.get("dimensions", {}).get("ohlcv", {}).get("status") == "complete":
-            prefer_live = False  # do not redownload full history in maintenance
+            prefer_live = False
     row = collect_entity_history(e, prefer_live=prefer_live)
 
-    # Soft IR discovery for names with entrypoints (live only — avoid blocking offline/fixture runs)
-    live_ir = str(os.getenv("KF_HD_LIVE_COLLECTORS", "false")).lower() in {"1", "true", "yes", "on"}
+    # Connector-backed IR / shareholding / financials even in legacy path when offline-safe
     try:
-        from live_data.collectors.company_ir import IR_ENTRYPOINTS, collect_company_ir
+        from institutional_data.connectors.registry import get_connector
 
-        if live_ir and e in IR_ENTRYPOINTS:
-            ir = collect_company_ir(ticker=e, download_files=True, max_downloads=4)
-            docs = (ir.get("payload") or {}).get("documents") or []
+        if live_on:
+            ir = get_connector("company_ir").run(entity=e, download_files=True, max_downloads=4)
+            docs = ir.normalized or ir.records
             types = {str(d.get("doc_type")) for d in docs}
             record_attempt(e, "annual_reports", status="complete" if "annual_report" in types else "empty")
             record_attempt(
                 e, "investor_presentations", status="complete" if "investor_presentation" in types else "empty"
             )
-            record_attempt(
-                e, "earnings_transcripts", status="complete" if "earnings_transcript" in types else "n_a"
-            )
+            record_attempt(e, "earnings_transcripts", status="complete" if "earnings_transcript" in types else "n_a")
             record_attempt(e, "esg_reports", status="complete" if "esg_report" in types else "n_a")
+            sh = get_connector("shareholding").run(entity=e)
+            record_attempt(
+                e,
+                "shareholding",
+                status="complete" if sh.ok else "n_a",
+                detail=sh.error or f"n={len(sh.records)}",
+            )
+            get_connector("financial_statements").run(entity=e)
         else:
-            # Offline / no entrypoint: soft N/A — never permanently block on missing IR artefacts
             record_attempt(e, "annual_reports", status="n_a", detail="ir_deferred_or_offline")
             record_attempt(e, "investor_presentations", status="n_a", detail="ir_deferred_or_offline")
             record_attempt(e, "earnings_transcripts", status="n_a", detail="ir_deferred_or_offline")
             record_attempt(e, "esg_reports", status="n_a", detail="ir_deferred_or_offline")
+            record_attempt(e, "shareholding", status="n_a", detail="offline")
     except Exception as exc:  # noqa: BLE001
         record_attempt(e, "annual_reports", status="n_a", detail=str(exc)[:120])
         record_attempt(e, "investor_presentations", status="n_a", detail=str(exc)[:120])
         record_attempt(e, "earnings_transcripts", status="n_a", detail=str(exc)[:120])
         record_attempt(e, "esg_reports", status="n_a", detail=str(exc)[:120])
+        record_attempt(e, "shareholding", status="n_a", detail=str(exc)[:120])
 
-    # Corporate actions / news / shareholding attempts (hard shareholding may be N/A after attempt)
     actions = hd_store.get_series("corporate_actions", e) or {}
     record_attempt(
         e,
@@ -132,7 +171,6 @@ def _enrich_entity(entity: str, *, maintenance: bool) -> dict[str, Any]:
     )
     record_attempt(e, "historical_news", status="n_a", detail="exchange_snapshot_soft")
     record_attempt(e, "announcements", status="n_a", detail="exchange_snapshot_soft")
-    record_attempt(e, "shareholding", status="n_a", detail="collector_pending_or_unavailable")
     record_attempt(e, "_wave", status="complete", detail="soft_dims_attempted")
 
     validation_failures = []
@@ -146,7 +184,6 @@ def _enrich_entity(entity: str, *, maintenance: bool) -> dict[str, Any]:
     compile_historical_company(e)
     build_historical_pack(e)
 
-    # Knowledge extract + embedding
     extract = None
     embedding = None
     try:

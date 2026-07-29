@@ -629,6 +629,57 @@ export default function MissionControl() {
                     </p>
                   </Glass>
                 ) : null}
+
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <Stat
+                    label="Financial Coverage"
+                    value={
+                      continuousGatherLearn.ops.financial_coverage?.coverage_pct != null
+                        ? `${continuousGatherLearn.ops.financial_coverage.coverage_pct}%`
+                        : '—'
+                    }
+                    hint="Institutional statements"
+                  />
+                  <Stat
+                    label="Shareholding Coverage"
+                    value={
+                      continuousGatherLearn.ops.shareholding_coverage?.coverage_pct != null
+                        ? `${continuousGatherLearn.ops.shareholding_coverage.coverage_pct}%`
+                        : '—'
+                    }
+                    hint="Promoter/FII/DII"
+                  />
+                  <Stat
+                    label="IR Coverage"
+                    value={
+                      continuousGatherLearn.ops.ir_coverage?.coverage_pct != null
+                        ? `${continuousGatherLearn.ops.ir_coverage.coverage_pct}%`
+                        : '—'
+                    }
+                    hint="Discovered documents"
+                  />
+                  <Stat
+                    label="Repair Queue"
+                    value={continuousGatherLearn.ops.repair_queue ?? continuousGatherLearn.ops.kpis?.repair_queue_size ?? '—'}
+                    hint="Auto-heal backlog"
+                  />
+                </div>
+
+                <Glass className="text-xs text-[var(--io-muted)]">
+                  <p className="font-semibold text-[var(--io-ink)]">Persistence & checkpoints</p>
+                  <p className="mt-1">
+                    Queue {continuousGatherLearn.ops.persistent_queue ? 'durable' : '—'} · Checkpoints{' '}
+                    {continuousGatherLearn.ops.checkpoint_status?.checkpoints?.length ?? 0} · Storage{' '}
+                    {continuousGatherLearn.ops.storage_usage?.mb != null
+                      ? `${continuousGatherLearn.ops.storage_usage.mb} MB`
+                      : '—'}{' '}
+                    · Recovered stuck{' '}
+                    {continuousGatherLearn.ops.recovery?.stuck_running_reset ?? 0}
+                    {continuousGatherLearn.ops.living_universe_ops?.new_listings != null
+                      ? ` · New listings ${Array.isArray(continuousGatherLearn.ops.living_universe_ops.new_listings) ? continuousGatherLearn.ops.living_universe_ops.new_listings.length : continuousGatherLearn.ops.living_universe_ops.new_listings}`
+                      : ''}
+                  </p>
+                </Glass>
               </div>
             ) : null}
           </section>

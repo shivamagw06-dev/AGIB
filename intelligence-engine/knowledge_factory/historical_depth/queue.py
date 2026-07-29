@@ -73,7 +73,15 @@ def save_queue(payload: dict[str, Any]) -> dict[str, Any]:
         "coverage_finished": False,
         "always_ready": True,
     }
-    hd_store.put_report(QUEUE_REPORT, body)
+    # Crash-safe durable mirror + locked write
+    try:
+        from institutional_data.persistence.queue_persistence import QueuePersistence
+
+        QueuePersistence().save_queue(body)
+    except Exception:
+        hd_store.put_report(QUEUE_REPORT, body)
+    else:
+        hd_store.put_report(QUEUE_REPORT, body)
     return body
 
 

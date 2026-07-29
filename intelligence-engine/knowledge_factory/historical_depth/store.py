@@ -14,21 +14,24 @@ from typing import Any
 from knowledge_factory.historical_depth.schema import HD_VERSION
 
 _LOCK = threading.Lock()
-_DEFAULT = Path(
-    os.environ.get(
-        "KF_HD_STORE_ROOT",
-        str(Path(__file__).resolve().parents[2] / "data" / "knowledge_factory" / "historical"),
-    )
-)
 
 
 def hd_root() -> Path:
-    root = Path(_DEFAULT)
+    """Durable root — prefers KF_HD_STORE_ROOT, else KIP_DATA_DIR/historical_depth."""
+    raw = (os.environ.get("KF_HD_STORE_ROOT") or "").strip()
+    if not raw:
+        kip = (os.environ.get("KIP_DATA_DIR") or "").strip()
+        if kip:
+            raw = str(Path(kip) / "historical_depth")
+        else:
+            raw = str(Path(__file__).resolve().parents[2] / "data" / "knowledge_factory" / "historical")
+    root = Path(raw)
     for sub in (
         "prices",
         "financials_annual",
         "financials_quarterly",
         "corporate_actions",
+        "shareholding",
         "timeline",
         "regimes",
         "macro",
@@ -43,9 +46,16 @@ def hd_root() -> Path:
 
 def _write(path: Path, payload: dict[str, Any] | list[Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    tmp.write_text(json.dumps(payload, indent=2, default=str, sort_keys=True), encoding="utf-8")
-    tmp.replace(path)
+    try:
+        from institutional_data.persistence.atomic import atomic_write_json, file_lock
+
+        with file_lock(path):
+            atomic_write_json(path, payload)
+        return
+    except Exception:
+        tmp = path.with_suffix(path.suffix + ".tmp")
+        tmp.write_text(json.dumps(payload, indent=2, default=str, sort_keys=True), encoding="utf-8")
+        tmp.replace(path)
 
 
 def _read(path: Path) -> Any | None:
