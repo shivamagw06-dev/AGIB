@@ -5624,6 +5624,126 @@ async def admin_sri():
     return HTMLResponse(html)
 
 
+# --- Historical Sector Analogue Intelligence (HSAI) Sprint 11.4 ---
+# Deterministic, explainable historical sector regime analogues. Ask never collects.
+
+
+@router.get("/hsai/health")
+async def hsai_health():
+    from historical_sector_analogue_intelligence.production import health
+
+    return health()
+
+
+@router.get("/sector/analogues")
+async def hsai_analogues(
+    sector: str | None = None,
+    limit: int = Query(20, ge=1, le=200),
+):
+    from historical_sector_analogue_intelligence.production import analogues
+
+    return analogues(sector=sector, limit=limit)
+
+
+@router.get("/sector/analogues/search")
+async def hsai_search(
+    q: str | None = None,
+    question: str | None = None,
+    sector: str | None = None,
+    target_period: str | None = None,
+    top_k: int = Query(5, ge=1, le=20),
+    min_score: float = Query(0.0, ge=0.0, le=100.0),
+):
+    from historical_sector_analogue_intelligence.production import search
+
+    return search(
+        sector=sector,
+        question=question or q,
+        target_period=target_period,
+        top_k=top_k,
+        min_score=min_score,
+    )
+
+
+@router.get("/sector/analogues/dashboard")
+async def hsai_dashboard():
+    from historical_sector_analogue_intelligence.production import dashboard
+
+    return dashboard()
+
+
+@router.post("/sector/analogues/run")
+async def hsai_run(payload: dict[str, Any] = Body(default={})):
+    """Ops / scheduler only — never called by Ask."""
+    from historical_sector_analogue_intelligence.production import run
+
+    return run(
+        sector=payload.get("sector"),
+        enrich_hsip=bool(payload.get("enrich_hsip", True)),
+        enrich_cskp=bool(payload.get("enrich_cskp", True)),
+        top_k=int(payload.get("top_k", 10)),
+    )
+
+
+@router.get("/sector/analogues/{sector}")
+async def hsai_sector(sector: str, limit: int = Query(20, ge=1, le=200)):
+    from historical_sector_analogue_intelligence.production import analogues_for_sector
+
+    return analogues_for_sector(sector, limit=limit)
+
+
+@router.get("/sector/regime/current")
+async def hsai_regime_current(sector: str = Query("Banking")):
+    from historical_sector_analogue_intelligence.production import current_regime
+
+    return current_regime(sector=sector)
+
+
+@router.get("/sector/regime/history")
+async def hsai_regime_history(
+    sector: str = Query("Banking"),
+    limit: int = Query(50, ge=1, le=200),
+):
+    from historical_sector_analogue_intelligence.production import regime_history
+
+    return regime_history(sector=sector, limit=limit)
+
+
+@router.get("/admin/sector-analogues", response_class=HTMLResponse)
+async def admin_hsai():
+    from historical_sector_analogue_intelligence.production import dashboard
+
+    board = dashboard()
+    dist = board.get("similarity_distribution") or {}
+    rows = "".join(
+        f"<tr><td>{r.get('sector')}</td><td>{r.get('matched_period')}</td>"
+        f"<td>{r.get('matched_label')}</td><td>{r.get('similarity_score')}</td>"
+        f"<td>{r.get('confidence')}</td></tr>"
+        for r in (board.get("top_analogue_matches") or [])
+    )
+    html = f"""<!doctype html><html><head><title>Historical Sector Analogue</title></head>
+    <body style="font-family:system-ui;max-width:1100px;margin:2rem auto">
+    <h1>Historical Sector Analogue Intelligence — HSAI</h1>
+    <p>Deterministic similarity. Evidence-linked. Ask never fetches.</p>
+    <pre>{board.get('principles')}</pre>
+    <h2>Current sector regime</h2>
+    <pre>{board.get('current_sector_regime')}</pre>
+    <p>Similarity distribution: {dist} · Confidence: {board.get('confidence_distribution')}</p>
+    <h2>Coverage by sector</h2>
+    <pre>{board.get('coverage_by_sector')}</pre>
+    <h2>Top analogue matches</h2>
+    <table border="1" cellpadding="6">
+    <tr><th>Sector</th><th>Period</th><th>Label</th><th>Similarity</th><th>Confidence</th></tr>
+    {rows or '<tr><td colspan=5>Run POST /v1/sector/analogues/run</td></tr>'}
+    </table>
+    <h2>Historical coverage</h2>
+    <pre>{board.get('historical_coverage')}</pre>
+    <h2>Freshness</h2>
+    <pre>{board.get('analogue_freshness')}</pre>
+    </body></html>"""
+    return HTMLResponse(html)
+
+
 @router.post("/sector/run")
 async def cskp_run(payload: dict[str, Any] = Body(default={})):
     """Ops / event-driven only — never called by Ask."""

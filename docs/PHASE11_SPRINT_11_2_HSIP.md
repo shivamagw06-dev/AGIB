@@ -72,5 +72,5 @@ GET  /v1/admin/historical-sector
 | ✅ 11.1 | CSKP | Continuous sector knowledge |
 | ✅ 11.2 | HSIP | Historical sector memory |
 | ✅ 11.3 | SRI | Sector relationship intelligence |
-| 11.4 | HSAI | Sector analogues |
+| ✅ 11.4 | HSAI | Historical sector analogue intelligence |
 | 11.5 | SFI | Sector forecast scenarios |

@@ -330,6 +330,19 @@ class InstitutionalForecastEngine:
         if sri_tip:
             relationship_intelligence = list(sri_tip.get("relationships") or relationship_intelligence)
             sources.append("sri_sector_relationship_store")
+        hsai_tip = self._soft_hsai_analogues(sector_key)
+        historical_analogues: list[dict[str, Any]] = [
+            {
+                "matched_period": "2022-2023",
+                "label": "Post-pandemic demand air-pocket",
+                "similarity_score": 80.0,
+            }
+        ] if sector_key == "information_technology" else [
+            {"matched_period": "2020", "label": "COVID credit cycle", "similarity_score": 78.0}
+        ]
+        if hsai_tip and hsai_tip.get("top_analogues"):
+            historical_analogues = list(hsai_tip["top_analogues"])
+            sources.append("hsai_sector_analogue_store")
         return {
             "current_knowledge": {
                 "sector_key": sector_key,
@@ -337,11 +350,7 @@ class InstitutionalForecastEngine:
             },
             "sector_intelligence": sector,
             "historical_intelligence": historical,
-            "historical_analogues": [
-                {"matched_period": "2022-2023", "label": "Post-pandemic demand air-pocket", "similarity_score": 80.0}
-            ]
-            if sector_key == "information_technology"
-            else [{"matched_period": "2020", "label": "COVID credit cycle", "similarity_score": 78.0}],
+            "historical_analogues": historical_analogues,
             "relationship_intelligence": relationship_intelligence,
             "market_intelligence": dict(MARKET_INTELLIGENCE),
             "macro_intelligence": dict(MACRO_INTELLIGENCE),
@@ -453,6 +462,31 @@ class InstitutionalForecastEngine:
                     "collected_on_request": False,
                     "providers_queried": [],
                 }
+            return None
+        except Exception:
+            return None
+
+    def _soft_hsai_analogues(self, sector_key: str) -> dict[str, Any] | None:
+        """Read-only HSAI gateway — never rebuilds analogue rankings."""
+        try:
+            from historical_sector_analogue_intelligence.production import forecast_tip
+
+            alias = {
+                "information_technology": "IT Services",
+                "financials": "Banking",
+                "energy": "Oil & Gas",
+                "consumer_staples": "FMCG",
+                "automobiles": "Auto",
+                "industrials": "Capital Goods",
+                "health_care": "Pharma",
+                "pharmaceuticals": "Pharma",
+            }.get(sector_key, sector_key.replace("_", " ").title())
+            tip = forecast_tip(sector=alias, top_k=5)
+            if tip.get("n"):
+                tip = dict(tip)
+                tip["collected_on_request"] = False
+                tip["providers_queried"] = []
+                return tip
             return None
         except Exception:
             return None
