@@ -9787,6 +9787,51 @@ async def institutional_evaluation_lab_golden_replay(payload: dict[str, Any] = B
     )
 
 
+@router.get("/governance-spec")
+@router.get("/governance-spec/health")
+async def governance_spec_health():
+    """Governance Spec v1.0 — constitutional rule catalogue."""
+    from governance_spec.registry import list_specs
+    from governance_spec.v1_0.rules import spec_board
+
+    return {
+        "status": "ok",
+        "active": "v1.0",
+        "specs": list_specs(),
+        "board": spec_board(),
+    }
+
+
+@router.get("/governance-spec/v1.0")
+async def governance_spec_v1():
+    from governance_spec.v1_0.rules import spec_board
+
+    return spec_board()
+
+
+@router.post("/institutional-evaluation-lab/phase6")
+@router.post("/governance-spec/phase6")
+async def governance_spec_phase6(payload: dict[str, Any] = Body(default={})):
+    """Phase 6 — assert Evaluation Lab JSON against Governance Spec rule IDs."""
+    from institutional_evaluation_lab.production import phase6_governance
+
+    body = payload or {}
+    release_id = str(body.get("release_id") or body.get("release") or "").strip()
+    if not release_id:
+        raise HTTPException(status_code=400, detail="release_id_required")
+    report = phase6_governance(
+        release_id=release_id,
+        spec_version=body.get("spec_version") or "v1.0",
+        limit=body.get("limit"),
+        persist=bool(body.get("persist", True)),
+    )
+    if report.get("error") == "release_not_found":
+        raise HTTPException(status_code=404, detail="release_not_found")
+    light = {k: v for k, v in report.items() if k != "ticker_results"}
+    light["ticker_results_sample"] = (report.get("ticker_results") or [])[:15]
+    return light
+
+
 @router.get("/institutional-evaluation-lab/question/{question_id}")
 async def institutional_evaluation_lab_question(question_id: str):
     from institutional_evaluation_lab.production import question
