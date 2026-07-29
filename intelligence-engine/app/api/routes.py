@@ -4634,7 +4634,174 @@ async def ifi_bundle(payload: dict[str, Any] = Body(default={})):
     )
 
 
-# --- Forecast Intelligence Engine V1 (scenario layer — consumes bundles in 9.2) ---
+# --- Institutional Scenario Intelligence (ISI) Sprint 9.2 — Bull / Base / Bear ---
+# Consumes IFI Forecast Bundles. No probabilities (9.4), no BUY/SELL/target prices.
+
+
+@router.get("/scenarios/health")
+async def isi_health():
+    from institutional_scenario_intelligence.production import health
+
+    return health()
+
+
+@router.get("/scenarios/dashboard")
+async def isi_dashboard():
+    from institutional_scenario_intelligence.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/scenarios/company/{ticker}")
+async def isi_company(ticker: str, question: str | None = None):
+    from institutional_scenario_intelligence.production import company
+
+    return company(ticker, question=question)
+
+
+@router.get("/scenarios/sector/{sector}")
+async def isi_sector(sector: str, question: str | None = None):
+    from institutional_scenario_intelligence.production import sector as isi_sector_fn
+
+    return isi_sector_fn(sector, question=question)
+
+
+@router.get("/scenarios/market")
+async def isi_market(question: str | None = None):
+    from institutional_scenario_intelligence.production import market
+
+    return market(question=question)
+
+
+@router.get("/scenarios/macro")
+async def isi_macro(question: str | None = None):
+    from institutional_scenario_intelligence.production import macro
+
+    return macro(question=question)
+
+
+@router.post("/scenarios/report")
+async def isi_report(payload: dict[str, Any] = Body(default={})):
+    """Produce a Scenario Report from scope/entity or an explicit Forecast Bundle."""
+    from institutional_scenario_intelligence.production import report
+
+    return report(
+        scope=str(payload.get("scope") or "company"),
+        entity=payload.get("entity") or payload.get("ticker") or payload.get("sector"),
+        question=payload.get("question"),
+        forecast_bundle=payload.get("forecast_bundle"),
+    )
+
+
+@router.get("/admin/institutional-scenario-intelligence", response_class=HTMLResponse)
+async def admin_isi():
+    from institutional_scenario_intelligence.production import dashboard
+
+    board = dashboard()
+    rows = "".join(
+        f"<tr><td>{r.get('scope')}</td><td>{r.get('entity')}</td>"
+        f"<td>{', '.join(r.get('scenario_types') or [])}</td>"
+        f"<td>{r.get('contradictions')}</td></tr>"
+        for r in (board.get("recent") or [])
+    )
+    html = f"""<!doctype html><html><head><title>ISI Mission Control</title></head>
+    <body style="font-family:system-ui;max-width:960px;margin:2rem auto">
+    <h1>Institutional Scenario Intelligence</h1>
+    <p>Plausible outcomes — Bull / Base / Bear. No BUY/SELL. No probabilities yet.</p>
+    <pre>{board.get('principles')}</pre>
+    <h2>Recent scenario reports</h2>
+    <table border="1" cellpadding="6">
+    <tr><th>Scope</th><th>Entity</th><th>Coverage</th><th>Contradictions</th></tr>
+    {rows or '<tr><td colspan=4>No reports yet</td></tr>'}
+    </table>
+    </body></html>"""
+    return HTMLResponse(html)
+
+
+# --- Institutional Probability & Confidence Intelligence (IPCI) Sprint 9.4 ---
+# Probability ≠ Confidence. Probabilities sum to 100%. No trading recommendations.
+
+
+@router.get("/probability/health")
+async def ipci_health():
+    from institutional_probability_confidence.production import health
+
+    return health()
+
+
+@router.get("/probability/dashboard")
+async def ipci_dashboard():
+    from institutional_probability_confidence.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/probability/company/{ticker}")
+async def ipci_probability_company(ticker: str, question: str | None = None):
+    from institutional_probability_confidence.production import probability_company
+
+    return probability_company(ticker, question=question)
+
+
+@router.get("/probability/sector/{sector}")
+async def ipci_probability_sector(sector: str, question: str | None = None):
+    from institutional_probability_confidence.production import probability_sector
+
+    return probability_sector(sector, question=question)
+
+
+@router.get("/confidence/company/{ticker}")
+async def ipci_confidence_company(ticker: str, question: str | None = None):
+    from institutional_probability_confidence.production import confidence_company
+
+    return confidence_company(ticker, question=question)
+
+
+@router.get("/forecast/assessment/{ticker}")
+async def ipci_forecast_assessment(ticker: str, question: str | None = None):
+    from institutional_probability_confidence.production import assessment
+
+    return assessment(ticker, scope="company", question=question)
+
+
+@router.post("/forecast/assessment")
+async def ipci_forecast_assessment_post(payload: dict[str, Any] = Body(default={})):
+    from institutional_probability_confidence.production import assessment
+
+    return assessment(
+        ticker=payload.get("ticker"),
+        scope=str(payload.get("scope") or "company"),
+        entity=payload.get("entity") or payload.get("ticker") or payload.get("sector"),
+        question=payload.get("question"),
+        scenario_report=payload.get("scenario_report"),
+    )
+
+
+@router.get("/admin/institutional-probability-confidence", response_class=HTMLResponse)
+async def admin_ipci():
+    from institutional_probability_confidence.production import dashboard
+
+    board = dashboard()
+    rows = "".join(
+        f"<tr><td>{r.get('entity')}</td><td>{r.get('distribution')}</td>"
+        f"<td>{r.get('overall_confidence')}</td><td>{r.get('forecast_quality')}</td></tr>"
+        for r in (board.get("recent") or [])
+    )
+    html = f"""<!doctype html><html><head><title>IPCI Mission Control</title></head>
+    <body style="font-family:system-ui;max-width:960px;margin:2rem auto">
+    <h1>Institutional Probability &amp; Confidence Intelligence</h1>
+    <p>Probability ≠ Confidence. Always sums to 100%. No BUY/SELL.</p>
+    <pre>{board.get('principles')}</pre>
+    <h2>Recent assessments</h2>
+    <table border="1" cellpadding="6">
+    <tr><th>Entity</th><th>Distribution</th><th>Confidence</th><th>Quality</th></tr>
+    {rows or '<tr><td colspan=4>No assessments yet</td></tr>'}
+    </table>
+    </body></html>"""
+    return HTMLResponse(html)
+
+
+# --- Legacy FIE scenario surface (pre-ISI) — prefer /scenarios/* for Investment Office ---
 
 
 @router.get("/forecast/scenarios/{ticker}")
