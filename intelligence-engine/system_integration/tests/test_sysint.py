@@ -9,7 +9,7 @@ def test_inventory_lists_core_programmes() -> None:
     inv = inventory()
     assert inv["n"] >= 8
     shorts = {p["short"] for p in inv["programmes"]}
-    for required in ("CMKTP", "MKFI", "SFI", "MFI", "RIH"):
+    for required in ("CMKTP", "MKFI", "SFI", "MFI", "RIH", "IIEX"):
         assert required in shorts
     assert inv["primary_knowledge_object"] == "ResearchObject"
     assert inv["providers_queried"] == []

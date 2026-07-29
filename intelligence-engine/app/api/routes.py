@@ -12157,3 +12157,65 @@ async def red_team_ecr_health():
             "eval_lab_only_beyond_ecr": True,
             "note": str(exc)[:120],
         }
+
+
+# ---------------------------------------------------------------------------
+# AGI Institutional Intelligence Examination (IIEX) v1.0
+# CIO Investment Committee Assessment — AGIB platform only; no internet.
+# MODULE_CODE IIEX avoids collision with Investment Intelligence Engine (app/iie).
+# ---------------------------------------------------------------------------
+@router.get("/institutional-intelligence-examination/health")
+@router.get("/iiex/health")
+async def iiex_health():
+    from institutional_intelligence_examination.production import health as _h
+
+    return _h()
+
+
+@router.get("/institutional-intelligence-examination/dashboard")
+@router.get("/iiex/dashboard")
+async def iiex_dashboard():
+    from institutional_intelligence_examination.production import dashboard as _d
+
+    return _d()
+
+
+@router.get("/institutional-intelligence-examination/questions")
+@router.get("/iiex/questions")
+async def iiex_questions():
+    from institutional_intelligence_examination.production import questions as _q
+
+    return _q()
+
+
+@router.post("/institutional-intelligence-examination/run")
+@router.post("/iiex/run")
+async def iiex_run(body: dict | None = None):
+    from institutional_intelligence_examination.production import run as _run
+
+    body = body or {}
+    return _run(question_ids=body.get("question_ids"))
+
+
+@router.get("/institutional-intelligence-examination/report")
+@router.get("/iiex/report")
+async def iiex_report(run_id: str | None = None):
+    from institutional_intelligence_examination.production import report as _r
+
+    return _r(run_id=run_id)
+
+
+@router.get("/institutional-intelligence-examination/grades")
+@router.get("/iiex/grades")
+async def iiex_grades(run_id: str | None = None):
+    from institutional_intelligence_examination.production import grades as _g
+
+    return _g(run_id=run_id)
+
+
+@router.get("/institutional-intelligence-examination/history")
+@router.get("/iiex/history")
+async def iiex_history(limit: int = 20):
+    from institutional_intelligence_examination.production import history as _h
+
+    return _h(limit=limit)

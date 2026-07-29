@@ -921,6 +921,31 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("institutional_evaluation_lab")
     except Exception:
         out["institutional_evaluation_lab"] = None
+    # AGI Institutional Intelligence Examination (IIEX) — CIO soft board
+    try:
+        from institutional_intelligence_examination.production import dashboard as iiex_dash
+        from institutional_intelligence_examination.production import health as iiex_health
+
+        ihx = iiex_health()
+        idx = iiex_dash()
+        out["institutional_intelligence_examination"] = {
+            "status": ihx.get("status"),
+            "module_code": ihx.get("module_code"),
+            "version": ihx.get("version"),
+            "phase": idx.get("phase"),
+            "questions": ihx.get("questions"),
+            "pass_marks": ihx.get("pass_marks"),
+            "normalized_total": ihx.get("normalized_total"),
+            "latest_run_id": idx.get("latest_run_id"),
+            "latest_normalized_500": idx.get("latest_normalized_500"),
+            "latest_certification": idx.get("latest_certification"),
+            "latest_passed": idx.get("latest_passed"),
+            "purpose": "CIO Investment Committee Assessment — AGIB platform only",
+            "providers_queried": [],
+        }
+        out["sources"].append("institutional_intelligence_examination")
+    except Exception:
+        out["institutional_intelligence_examination"] = None
     # AGIB Phase 3 Sprint 3.2 — RCI soft board
     try:
         from root_cause_intelligence.production import board as rci_board
@@ -1970,6 +1995,13 @@ def build_mission_control(*, ioc_service: Any | None = None) -> dict[str, Any]:
             if (institutional.get("research_intelligence_hub") or {}).get("status") == "ok"
             else "Warning"
             if institutional.get("research_intelligence_hub")
+            else "Unknown"
+        ),
+        "Institutional Intelligence Examination": (
+            "Healthy"
+            if (institutional.get("institutional_intelligence_examination") or {}).get("status") == "ok"
+            else "Warning"
+            if institutional.get("institutional_intelligence_examination")
             else "Unknown"
         ),
         "Academy": "Healthy" if books.get("enabled", True) else "Offline",

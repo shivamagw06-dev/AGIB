@@ -22,6 +22,12 @@ PROGRAMMES: tuple[dict[str, Any], ...] = (
         "role": "research_intelligence_hub",
         "primary_knowledge_object": True,
     },
+    {
+        "phase": "IIEX",
+        "short": "IIEX",
+        "module": "institutional_intelligence_examination",
+        "role": "cio_investment_committee_assessment",
+    },
 )
 
 
@@ -103,6 +109,7 @@ def health() -> dict[str, Any]:
             "mkfi": "/v1/market/forecast",
             "sfi": "/v1/sector/forecast",
             "mfi": "/v1/macro/forecast",
+            "iiex": "/v1/iiex/dashboard",
             "mission_control": "/v1/mission-control/dashboard",
         },
     }
