@@ -292,6 +292,50 @@ def get_or_build(
     except Exception:
         pass
 
+    # P4.5 Opportunity Intelligence — research prioritisation (never BUY/SELL; DE unchanged)
+    try:
+        from opportunity_intelligence.enrich import merge_opportunity_into_dossier
+        from opportunity_intelligence.production import analyse as opportunity_analyse
+        from cid.store import get_cid_store
+
+        already_oie = (
+            isinstance(dossier.get("opportunity_intelligence"), dict)
+            and dossier["opportunity_intelligence"].get("ok")
+        )
+        if not already_oie:
+            # Prefer memory already on dossier / compiled via delta path
+            injected = None
+            if isinstance(dossier.get("memory"), dict) and dossier.get("company_memory", {}).get("ok"):
+                injected = {
+                    "ok": True,
+                    "entity": t,
+                    "confidence": (dossier.get("company_memory") or {}).get("confidence"),
+                    "compiled_at": (dossier.get("company_memory") or {}).get("compiled_at"),
+                    "memory_version": (dossier.get("company_memory") or {}).get("memory_version"),
+                    "memory_delta": (dossier.get("company_memory") or {}).get("memory_delta"),
+                    "financial_history": (dossier.get("memory") or {}).get("financial_history"),
+                    "ownership_history": (dossier.get("memory") or {}).get("ownership_history"),
+                    "valuation_history": (dossier.get("memory") or {}).get("valuation_history"),
+                    "corporate_history": (dossier.get("memory") or {}).get("corporate_history"),
+                    "sector_history": (dossier.get("memory") or {}).get("sector_history"),
+                    "event_timeline": (dossier.get("memory") or {}).get("event_timeline"),
+                    "price_intelligence": (dossier.get("memory") or {}).get("price_intelligence"),
+                    "risk_history": (dossier.get("memory") or {}).get("risk_history"),
+                    "competitive_position": (dossier.get("memory") or {}).get("competitive_position"),
+                    "business_model": (dossier.get("memory") or {}).get("business_model"),
+                }
+            oie = opportunity_analyse(
+                t,
+                injected_memory=injected,
+                compile_if_missing=injected is None,
+                persist_memory=False,
+            )
+            if oie.get("ok"):
+                dossier = merge_opportunity_into_dossier(dossier, oie)
+                dossier = get_cid_store().put(dossier)
+    except Exception:
+        pass
+
     return {
         **dossier,
         "enabled": True,
