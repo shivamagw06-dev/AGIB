@@ -321,6 +321,15 @@ class InstitutionalForecastEngine:
         if hsip_tip:
             historical = {**historical, "hsip_timeline": hsip_tip}
             sources.append("hsip_sector_history_store")
+        sri_tip = self._soft_sri_sector(sector_key)
+        relationship_intelligence: list[dict[str, Any]] = [
+            {"source": sector_key, "target": "USDINR", "type": "Revenue Sensitivity"}
+        ] if sector_key == "information_technology" else [
+            {"source": "rbi_rate_cut", "target": "banks", "type": "Positive Historical Impact"}
+        ]
+        if sri_tip:
+            relationship_intelligence = list(sri_tip.get("relationships") or relationship_intelligence)
+            sources.append("sri_sector_relationship_store")
         return {
             "current_knowledge": {
                 "sector_key": sector_key,
@@ -333,11 +342,7 @@ class InstitutionalForecastEngine:
             ]
             if sector_key == "information_technology"
             else [{"matched_period": "2020", "label": "COVID credit cycle", "similarity_score": 78.0}],
-            "relationship_intelligence": [
-                {"source": sector_key, "target": "USDINR", "type": "Revenue Sensitivity"}
-            ]
-            if sector_key == "information_technology"
-            else [{"source": "rbi_rate_cut", "target": "banks", "type": "Positive Historical Impact"}],
+            "relationship_intelligence": relationship_intelligence,
             "market_intelligence": dict(MARKET_INTELLIGENCE),
             "macro_intelligence": dict(MACRO_INTELLIGENCE),
             "research_intelligence": {
@@ -408,6 +413,45 @@ class InstitutionalForecastEngine:
                     "collected_on_request": False,
                     "providers_queried": [],
                     "immutable": True,
+                }
+            return None
+        except Exception:
+            return None
+
+    def _soft_sri_sector(self, sector_key: str) -> dict[str, Any] | None:
+        """Read-only SRI gateway — never rebuilds the relationship graph."""
+        try:
+            from continuous_sector_knowledge.schema import canonicalize
+            from sector_relationship_intelligence.production import for_sector as sri_for_sector
+
+            alias = {
+                "information_technology": "IT Services",
+                "financials": "Banking",
+                "energy": "Oil & Gas",
+            }.get(sector_key)
+            if not alias:
+                key = canonicalize(sector_key) or sector_key
+                alias = key.replace("_", " ").title()
+            pack = sri_for_sector(alias, limit=20)
+            if pack.get("n"):
+                return {
+                    "sector": alias,
+                    "n": pack.get("n"),
+                    "relationships": [
+                        {
+                            "source": r.get("source"),
+                            "target": r.get("target"),
+                            "type": r.get("relationship"),
+                            "direction": r.get("direction"),
+                            "confidence_pct": r.get("confidence_pct"),
+                            "average_lag": r.get("average_lag"),
+                            "kind": r.get("kind"),
+                        }
+                        for r in (pack.get("relationships") or [])[:8]
+                    ],
+                    "gateway": "SRI_KRIG",
+                    "collected_on_request": False,
+                    "providers_queried": [],
                 }
             return None
         except Exception:

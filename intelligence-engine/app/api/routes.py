@@ -5514,6 +5514,116 @@ async def admin_hsip():
     return HTMLResponse(html)
 
 
+# --- Sector Relationship Intelligence (SRI) Sprint 11.3 ---
+# Evidence-backed sector relationship graph. Ask never collects or rebuilds.
+
+
+@router.get("/sri/health")
+async def sri_health():
+    from sector_relationship_intelligence.production import health
+
+    return health()
+
+
+@router.get("/sector/relationships")
+async def sri_relationships(limit: int = Query(200, ge=1, le=1000)):
+    from sector_relationship_intelligence.production import relationships
+
+    return relationships(limit=limit)
+
+
+@router.get("/sector/relationships/graph")
+async def sri_graph(
+    start: str | None = None,
+    end: str | None = None,
+):
+    from sector_relationship_intelligence.production import graph
+
+    return graph(start=start, end=end)
+
+
+@router.get("/sector/relationships/search")
+async def sri_search(
+    q: str | None = None,
+    kind: str | None = None,
+    source: str | None = None,
+    target: str | None = None,
+    limit: int = Query(100, ge=1, le=500),
+):
+    from sector_relationship_intelligence.production import search
+
+    return search(q=q, kind=kind, source=source, target=target, limit=limit)
+
+
+@router.get("/sector/relationships/dashboard")
+async def sri_dashboard():
+    from sector_relationship_intelligence.production import dashboard
+
+    return dashboard()
+
+
+@router.post("/sector/relationships/run")
+async def sri_run(payload: dict[str, Any] = Body(default={})):
+    """Ops / scheduler only — never called by Ask."""
+    from sector_relationship_intelligence.production import run
+
+    return run(
+        enrich_hsip=bool(payload.get("enrich_hsip", True)),
+        enrich_hmip=bool(payload.get("enrich_hmip", True)),
+        enrich_mri=bool(payload.get("enrich_mri", True)),
+    )
+
+
+@router.get("/sector/relationships/company/{ticker}")
+async def sri_company(ticker: str, limit: int = Query(100, ge=1, le=500)):
+    from sector_relationship_intelligence.production import for_company
+
+    return for_company(ticker, limit=limit)
+
+
+@router.get("/sector/relationships/{sector}")
+async def sri_sector(sector: str, limit: int = Query(100, ge=1, le=500)):
+    from sector_relationship_intelligence.production import for_sector
+
+    return for_sector(sector, limit=limit)
+
+
+@router.get("/admin/sector-relationships", response_class=HTMLResponse)
+async def admin_sri():
+    from sector_relationship_intelligence.production import dashboard
+
+    board = dashboard()
+    dist = board.get("confidence_distribution") or {}
+    rows = "".join(
+        f"<tr><td>{r.get('source')}</td><td>{r.get('target')}</td>"
+        f"<td>{r.get('relationship')}</td><td>{r.get('confidence_pct')}</td>"
+        f"<td>{r.get('average_lag')}</td><td>{r.get('kind')}</td></tr>"
+        for r in (board.get("recently_validated_relationships") or [])
+    )
+    html = f"""<!doctype html><html><head><title>Sector Relationship Intelligence</title></head>
+    <body style="font-family:system-ui;max-width:1100px;margin:2rem auto">
+    <h1>Sector Relationship Intelligence — SRI</h1>
+    <p>Evidence-backed only. Versioned graph. Ask never fetches.</p>
+    <pre>{board.get('principles')}</pre>
+    <p>Total: {board.get('total_relationships')} · Active: {board.get('active_relationships')} ·
+    High confidence: {board.get('high_confidence')} · Distribution: {dist}</p>
+    <h2>Coverage by sector</h2>
+    <pre>{board.get('relationship_coverage_by_sector')}</pre>
+    <h2>Freshness</h2>
+    <pre>{board.get('relationship_freshness')}</pre>
+    <h2>Recently validated</h2>
+    <table border="1" cellpadding="6">
+    <tr><th>Source</th><th>Target</th><th>Relationship</th><th>Confidence</th><th>Lag</th><th>Kind</th></tr>
+    {rows or '<tr><td colspan=6>Run POST /v1/sector/relationships/run</td></tr>'}
+    </table>
+    <h2>Validation failures</h2>
+    <pre>{board.get('validation_failures')}</pre>
+    <h2>By kind</h2>
+    <pre>{board.get('by_kind')}</pre>
+    </body></html>"""
+    return HTMLResponse(html)
+
+
 @router.post("/sector/run")
 async def cskp_run(payload: dict[str, Any] = Body(default={})):
     """Ops / event-driven only — never called by Ask."""
