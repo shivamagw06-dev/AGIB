@@ -79,6 +79,11 @@ class Settings:
     duplicate_window_seconds: int = field(
         default_factory=lambda: int(os.getenv("KAIP_DUPLICATE_WINDOW_SECONDS", "300"))
     )
+    # Sprint 8.2 — soft bridge to HIP Timeline Intelligence (store-only history)
+    hip_base_url: str | None = field(
+        default_factory=lambda: (os.getenv("KAIP_HIP_BASE_URL") or os.getenv("HIP_BASE_URL") or "").strip()
+        or None
+    )
 
 
 def get_settings() -> Settings:

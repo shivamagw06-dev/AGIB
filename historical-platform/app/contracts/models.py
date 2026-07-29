@@ -28,6 +28,8 @@ class Source(str, Enum):
 
 class HistoricalObjectType(str, Enum):
     PRICE_HISTORY = "HistoricalPriceHistory"
+    # Sprint 8.2 canonical alias used in HKO views
+    PRICE = "HistoricalPrice"
     FINANCIAL_STATEMENT = "HistoricalFinancialStatement"
     BALANCE_SHEET = "HistoricalBalanceSheet"
     CASH_FLOW = "HistoricalCashFlow"
@@ -38,6 +40,21 @@ class HistoricalObjectType(str, Enum):
     MARKET_SNAPSHOT = "HistoricalMarketSnapshot"
     COMPANY_PROFILE = "HistoricalCompanyProfile"
     NEWS_EVENT = "HistoricalNewsEvent"
+    TIMELINE_EVENT = "HistoricalTimelineEvent"
+
+
+class TimelineScope(str, Enum):
+    COMPANY = "company"
+    SECTOR = "sector"
+    MARKET = "market"
+    MACRO = "macro"
+
+
+class TimelineImportance(str, Enum):
+    CRITICAL = "Critical"
+    HIGH = "High"
+    MEDIUM = "Medium"
+    LOW = "Low"
 
 
 class ValidationStatus(str, Enum):
@@ -135,3 +152,115 @@ class CoverageStatus(str, Enum):
     PARTIAL = "Partial"
     SPARSE = "Sparse"
     MISSING = "Missing"
+
+
+class TimelineLink(BaseModel):
+    """Causal / narrative link between timeline events or entities."""
+
+    from_key: str
+    to_key: str
+    relation: str  # e.g. caused | affected | transmitted_to
+    note: str | None = None
+
+
+class TimelineEvent(BaseModel):
+    """Chronological narrative node — Sprint 8.2 Timeline Intelligence."""
+
+    event_id: str = Field(default_factory=new_id)
+    scope: TimelineScope
+    subject_key: str  # INFY | information_technology | nifty | india
+    year: int
+    date: str | None = None  # ISO when known
+    title: str
+    description: str | None = None
+    importance: TimelineImportance = TimelineImportance.HIGH
+    event_type: str = "institutional"
+    source: Source = Source.DERIVED
+    links: list[TimelineLink] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    version: int = 1
+    created_at: datetime = Field(default_factory=utc_now)
+
+
+# ----- Sprint 8.3 Historical Relationship Intelligence -----
+
+
+class RelationshipDomain(str, Enum):
+    COMPANY = "company"
+    SECTOR = "sector"
+    MACRO = "macro"
+    MARKET = "market"
+
+
+class RelationshipType(str, Enum):
+    # Company
+    COMPETITOR = "Competitor"
+    SUPPLIER = "Supplier"
+    CUSTOMER = "Customer"
+    PARENT = "Parent"
+    SUBSIDIARY = "Subsidiary"
+    JOINT_VENTURE = "Joint Venture"
+    ACQUISITION_TARGET = "Acquisition Target"
+    GLOBAL_PEER = "Global Peer"
+    REVENUE_SENSITIVITY = "Revenue Sensitivity"
+    DEMAND_DRIVER = "Demand Driver"
+    # Sector
+    SECTOR_LEADER = "Sector Leader"
+    SECTOR_PEER = "Sector Peer"
+    SECTOR_BENEFICIARY = "Sector Beneficiary"
+    SECTOR_UNDER_PRESSURE = "Sector Under Pressure"
+    # Macro / market causal
+    POSITIVE_HISTORICAL_IMPACT = "Positive Historical Impact"
+    NEGATIVE_HISTORICAL_IMPACT = "Negative Historical Impact"
+    TRANSMISSION = "Transmission"
+    CAUSED = "Caused"
+    AFFECTED = "Affected"
+    BENEFICIARY = "Beneficiary"
+    UNDER_PRESSURE = "Under Pressure"
+
+
+class RelationshipConfidence(str, Enum):
+    HIGH = "High"
+    MEDIUM = "Medium"
+    LOW = "Low"
+
+
+class RelationshipDirection(str, Enum):
+    DIRECTED = "directed"
+    BIDIRECTIONAL = "bidirectional"
+
+
+class RelationshipEvidence(BaseModel):
+    """Traceable supporting evidence — required before publication."""
+
+    evidence_id: str = Field(default_factory=new_id)
+    kind: str  # historical_cycle | timeline_link | financial_period | institutional_catalog
+    summary: str
+    period: str | None = None
+    source_refs: list[str] = Field(default_factory=list)
+    weight: float = 1.0
+
+
+class HistoricalRelationship(BaseModel):
+    """Evidence-backed historical cause-and-effect / structural link."""
+
+    relationship_id: str = Field(default_factory=new_id)
+    domain: RelationshipDomain
+    source_key: str
+    source_label: str
+    target_key: str
+    target_label: str
+    relationship_type: RelationshipType
+    direction: RelationshipDirection = RelationshipDirection.DIRECTED
+    confidence: RelationshipConfidence = RelationshipConfidence.MEDIUM
+    occurrences: int = 1
+    average_delay: str | None = None  # e.g. "3 Trading Days"
+    first_observed: str | None = None
+    last_confirmed: str | None = None
+    evidence: list[RelationshipEvidence] = Field(default_factory=list)
+    chain: list[str] = Field(default_factory=list)  # intermediate transmission nodes
+    version: int = 1
+    published: bool = False
+    status: str = "draft"  # draft | published | stale
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)

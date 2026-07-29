@@ -1,4 +1,4 @@
-"""HIP service entrypoint — Historical Acquisition Platform (Sprint 8.1)."""
+"""HIP service entrypoint — Historical Relationship Intelligence (Sprint 8.3)."""
 
 from __future__ import annotations
 
@@ -13,9 +13,11 @@ from app.collectors.company_ir.historical import CompanyIRHistoricalCollector
 from app.collectors.nse.historical import NSEHistoricalCollector
 from app.collectors.yahoo.historical import YahooHistoricalCollector
 from app.config.settings import Settings, get_settings
+from app.hri.engine import HistoricalRelationshipEngine
 from app.pipeline.orchestrator import HistoricalAcquisitionPipeline
 from app.retrieval.gateway import HistoricalRetrievalGateway
 from app.storage.db import HipStore
+from app.timeline.builder import TimelineBuilder
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 logger = logging.getLogger("hip")
@@ -42,17 +44,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         pipeline = HistoricalAcquisitionPipeline(store)
         collectors = build_collectors(settings)
         gateway = HistoricalRetrievalGateway(store, settings)
+        timelines = TimelineBuilder(store)
+        relationships = HistoricalRelationshipEngine(store)
 
         app.state.settings = settings
         app.state.store = store
         app.state.pipeline = pipeline
         app.state.collectors = collectors
         app.state.gateway = gateway
+        app.state.timelines = timelines
+        app.state.relationships = relationships
 
         logger.info(
-            "HIP/HAP ready watchlist=%s live=%s",
+            "HIP/HRI ready watchlist=%s live=%s version=%s",
             list(settings.watchlist),
             settings.live_collectors_enabled,
+            settings.version,
         )
         yield
         store.close()

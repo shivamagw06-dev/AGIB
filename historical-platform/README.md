@@ -11,20 +11,31 @@
 
 Bulk historical ingestion → validate → normalize → resolve → versioned Historical Knowledge Store → retrieval APIs.
 
+## Sprint 8.2 — Historical Knowledge Objects & Timeline Intelligence
+
+Shape HKO views and build company / sector / market / macro **timelines** so Ask retrieves historical narratives, not rows.
+
+## Sprint 8.3 — Historical Relationship Intelligence (HRI)
+
+Evidence-backed **cause-and-effect** graph across companies, sectors, macro and market — before any pattern engine.
+
 Ask / Intelligence Engine must retrieve history **without** calling Yahoo, NSE, BSE, or Company IR.
 
 ## Contracts
 
 - [`docs/HAP_PLATFORM_CONTRACT.md`](docs/HAP_PLATFORM_CONTRACT.md)
 - [`docs/HISTORICAL_COVERAGE_POLICY.md`](docs/HISTORICAL_COVERAGE_POLICY.md)
+- [`docs/HKO_TIMELINE_CONTRACT.md`](docs/HKO_TIMELINE_CONTRACT.md)
+- [`docs/HRI_CONTRACT.md`](docs/HRI_CONTRACT.md)
+- Programme notes: [`../docs/HIP_SPRINT_8_2.md`](../docs/HIP_SPRINT_8_2.md), [`../docs/HIP_SPRINT_8_3.md`](../docs/HIP_SPRINT_8_3.md)
 
 ## Pipeline
 
 ```text
 Sources → Historical Collectors → Raw Historical Archive
 → Validation → Canonical Normalizer → Entity Resolution
-→ Historical Knowledge Builder → Historical Knowledge Store
-→ Historical Retrieval API
+→ Historical Knowledge Builder (HKO) → Timeline Builder
+→ Historical Knowledge Store → Historical Retrieval API
 ```
 
 ## Collectors
@@ -34,9 +45,21 @@ Sources → Historical Collectors → Raw Historical Archive
 - `BSEHistoricalCollector` — announcements, corporate actions  
 - `CompanyIRHistoricalCollector` — annual/quarterly reports, presentations, transcripts, ESG, governance  
 
-## Coverage policy
+## History APIs (8.2 + 8.3)
 
-Explicit targets (daily OHLCV max history, quarterly/annual financials max history, full corporate actions, retain every IR report, …). Completeness scored per company/category.
+```text
+GET  /v1/history/company/{symbol}
+GET  /v1/history/timeline/{symbol}
+GET  /v1/history/financials/{symbol}
+GET  /v1/history/events/{symbol}
+POST /v1/history/compare
+GET  /v1/history/mission-control
+GET  /v1/history/relationships/company/{symbol}
+GET  /v1/history/relationships/sector/{sector}
+GET  /v1/history/relationships/macro/{event}
+GET  /v1/history/relationships/market
+POST /v1/history/relationships/explain
+```
 
 ## Run locally
 
@@ -47,11 +70,17 @@ pip install -r requirements.txt
 HIP_LIVE_COLLECTORS=false uvicorn app.main:app --port 8092
 ```
 
-Bootstrap (ops only):
+Bootstrap (ops only — rebuilds timelines):
 
 ```bash
 curl -X POST http://127.0.0.1:8092/v1/internal/bootstrap
-curl 'http://127.0.0.1:8092/v1/historical/company/INFY/revenue?from_period=FY2015&to_period=FY2025'
+curl http://127.0.0.1:8092/v1/history/timeline/INFY
+curl -X POST http://127.0.0.1:8092/v1/history/compare \
+  -H 'content-type: application/json' \
+  -d '{"symbol":"INFY","as_of_period":"FY2018"}'
+curl -X POST http://127.0.0.1:8092/v1/history/relationships/explain \
+  -H 'content-type: application/json' \
+  -d '{"source":"RBI Rate Cut","target":"HDFCBANK"}'
 ```
 
 ## Tests
@@ -62,4 +91,4 @@ cd historical-platform && pytest -q
 
 ## Boundary
 
-Historical store is append-only and separate from live KAIP. Corrections create new versions. Retrieval APIs always return `providers_queried: []`.
+Historical store is append-only and separate from live KAIP. Corrections create new versions. Timeline narratives may be regenerated; HKO facts are never overwritten. Retrieval APIs always return `providers_queried: []`.

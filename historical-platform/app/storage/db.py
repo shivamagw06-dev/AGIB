@@ -643,6 +643,484 @@ class HipStore:
             self._conn.execute("SELECT COUNT(*) AS c FROM historical_knowledge_objects").fetchone()["c"]
         )
 
+    def list_entity_symbols(self) -> list[str]:
+        rows = self._conn.execute(
+            "SELECT company_symbol FROM historical_entities ORDER BY company_symbol"
+        ).fetchall()
+        return [str(r["company_symbol"]) for r in rows]
+
+    # ----- Sprint 8.2 timelines -----
+
+    def replace_timeline(self, scope: str, subject_key: str, events: list[Any]) -> None:
+        """Replace timeline nodes for a subject (narrative rebuild; HKO remain immutable)."""
+        self._conn.execute(
+            "DELETE FROM historical_timelines WHERE scope = ? AND subject_key = ?",
+            (scope, subject_key),
+        )
+        # Narrative edges for this subject are rebuilt with the timeline
+        self._conn.execute(
+            "DELETE FROM historical_timeline_links WHERE subject_key = ?",
+            (subject_key,),
+        )
+        now = _iso(datetime.now(timezone.utc))
+        for ev in events:
+            self._conn.execute(
+                """
+                INSERT INTO historical_timelines (
+                    event_id, scope, subject_key, year, date, title, description,
+                    importance, event_type, source, links_json, evidence_refs_json,
+                    version, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    ev.event_id,
+                    ev.scope.value if hasattr(ev.scope, "value") else ev.scope,
+                    ev.subject_key,
+                    ev.year,
+                    ev.date,
+                    ev.title,
+                    ev.description,
+                    ev.importance.value if hasattr(ev.importance, "value") else ev.importance,
+                    ev.event_type,
+                    ev.source.value if hasattr(ev.source, "value") else ev.source,
+                    json.dumps([lnk.model_dump() if hasattr(lnk, "model_dump") else lnk for lnk in (ev.links or [])]),
+                    json.dumps(list(ev.evidence_refs or [])),
+                    ev.version,
+                    now,
+                ),
+            )
+        self._conn.commit()
+
+    def get_timeline(self, scope: str, subject_key: str) -> list[dict[str, Any]]:
+        rows = self._conn.execute(
+            """
+            SELECT * FROM historical_timelines
+            WHERE scope = ? AND subject_key = ?
+            ORDER BY year ASC, title ASC
+            """,
+            (scope, subject_key),
+        ).fetchall()
+        out = []
+        for r in rows:
+            d = dict(r)
+            d["links"] = json.loads(d.pop("links_json") or "[]")
+            d["evidence_refs"] = json.loads(d.pop("evidence_refs_json") or "[]")
+            out.append(d)
+        return out
+
+    def insert_timeline_link(
+        self,
+        *,
+        from_key: str,
+        to_key: str,
+        relation: str,
+        note: str | None = None,
+        subject_key: str | None = None,
+    ) -> None:
+        from uuid import uuid4
+
+        self._conn.execute(
+            """
+            INSERT INTO historical_timeline_links (
+                link_id, from_key, to_key, relation, note, subject_key, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                str(uuid4()),
+                from_key,
+                to_key,
+                relation,
+                note,
+                subject_key,
+                _iso(datetime.now(timezone.utc)),
+            ),
+        )
+        self._conn.commit()
+
+    def list_timeline_links(self, subject_key: str | None = None, limit: int = 200) -> list[dict[str, Any]]:
+        if subject_key:
+            rows = self._conn.execute(
+                """
+                SELECT * FROM historical_timeline_links
+                WHERE subject_key = ?
+                ORDER BY created_at DESC
+                LIMIT ?
+                """,
+                (subject_key, limit),
+            ).fetchall()
+        else:
+            rows = self._conn.execute(
+                "SELECT * FROM historical_timeline_links ORDER BY created_at DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    def timeline_completeness(self, symbol: str) -> dict[str, Any]:
+        symbol = symbol.upper()
+        events = self.get_timeline("company", symbol)
+        years = sorted({int(e["year"]) for e in events}) if events else []
+        # Expected narrative anchors for institutional completeness
+        expected_anchors = {"IPO", "Global Financial Crisis", "COVID", "AI Transformation", "Leadership Change", "Margin Compression"}
+        titles = {e["title"] for e in events}
+        present_anchors = expected_anchors.intersection(titles)
+        # Years coverage from financials
+        fins = self.list_financials(symbol, period_kind="annual", limit=50)
+        fin_years = sorted(
+            {
+                int(str(f["effective_date"])[2:6])
+                for f in fins
+                if str(f.get("effective_date") or "").startswith("FY")
+                and len(str(f.get("effective_date"))) >= 6
+            }
+        )
+        missing_periods = []
+        if fin_years:
+            for y in range(fin_years[0], fin_years[-1] + 1):
+                if y not in fin_years:
+                    missing_periods.append(f"FY{y}")
+        ratio = (len(present_anchors) / max(1, len(expected_anchors))) if events else 0.0
+        # Non-seed companies: completeness from having chronological events
+        if symbol not in {"INFY", "TCS", "HDFCBANK", "RELIANCE"}:
+            ratio = min(1.0, len(events) / 6.0) if events else 0.0
+        status = (
+            "Complete"
+            if ratio >= 0.8
+            else "Partial"
+            if ratio >= 0.4
+            else "Sparse"
+            if events
+            else "Missing"
+        )
+        return {
+            "company_symbol": symbol,
+            "timeline_events": len(events),
+            "years_span": {"min": years[0], "max": years[-1]} if years else None,
+            "years_ingested": years,
+            "anchor_completeness": round(ratio, 4),
+            "status": status,
+            "financial_years": fin_years,
+            "missing_periods": missing_periods,
+        }
+
+    def count_timeline_events(self) -> int:
+        return int(self._conn.execute("SELECT COUNT(*) AS c FROM historical_timelines").fetchone()["c"])
+
+    # ----- Sprint 8.3 Historical Relationship Intelligence -----
+
+    def clear_relationship_graph(self) -> None:
+        """Ops rebuild helper — clears published graph tables (not HKO facts)."""
+        for table in (
+            "relationship_evidence",
+            "relationship_versions",
+            "company_relationships",
+            "sector_relationships",
+            "macro_relationships",
+            "market_relationships",
+            "historical_relationships",
+        ):
+            self._conn.execute(f"DELETE FROM {table}")
+        self._conn.commit()
+
+    def upsert_relationship(self, rel: Any) -> None:
+        """Insert/replace a validated relationship + evidence + version snapshot."""
+        from uuid import uuid4
+
+        now = _iso(datetime.now(timezone.utc))
+        self._conn.execute(
+            """
+            INSERT INTO historical_relationships (
+                relationship_id, domain, source_key, source_label, target_key, target_label,
+                relationship_type, direction, confidence, occurrences, average_delay,
+                first_observed, last_confirmed, chain_json, version, published, status,
+                created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(relationship_id) DO UPDATE SET
+                confidence=excluded.confidence,
+                occurrences=excluded.occurrences,
+                average_delay=excluded.average_delay,
+                last_confirmed=excluded.last_confirmed,
+                chain_json=excluded.chain_json,
+                version=excluded.version,
+                published=excluded.published,
+                status=excluded.status,
+                updated_at=excluded.updated_at
+            """,
+            (
+                rel.relationship_id,
+                rel.domain.value if hasattr(rel.domain, "value") else rel.domain,
+                rel.source_key,
+                rel.source_label,
+                rel.target_key,
+                rel.target_label,
+                rel.relationship_type.value
+                if hasattr(rel.relationship_type, "value")
+                else rel.relationship_type,
+                rel.direction.value if hasattr(rel.direction, "value") else rel.direction,
+                rel.confidence.value if hasattr(rel.confidence, "value") else rel.confidence,
+                rel.occurrences,
+                rel.average_delay,
+                rel.first_observed,
+                rel.last_confirmed,
+                json.dumps(list(rel.chain or [])),
+                rel.version,
+                1 if rel.published else 0,
+                rel.status,
+                _iso(rel.created_at) if getattr(rel, "created_at", None) else now,
+                now,
+            ),
+        )
+        domain = rel.domain.value if hasattr(rel.domain, "value") else rel.domain
+        known_symbols = {"INFY", "TCS", "HDFCBANK", "RELIANCE"}
+        known_sectors = {
+            "information_technology",
+            "financials",
+            "energy",
+            "autos",
+            "housing",
+            "capital_goods",
+            "railways",
+            "infrastructure",
+            "banks",
+            "paints",
+            "airlines",
+            "omcs",
+            "upstream_energy",
+            "real_estate",
+            "consumption",
+            "private_banks",
+        }
+
+        keys = {rel.source_key, rel.target_key, *(rel.chain or [])}
+        for key in keys:
+            if not key:
+                continue
+            ku = str(key).upper()
+            kl = str(key).lower().replace(" ", "_")
+            if ku in known_symbols:
+                self._conn.execute(
+                    """
+                    INSERT OR IGNORE INTO company_relationships (relationship_id, company_symbol)
+                    VALUES (?, ?)
+                    """,
+                    (rel.relationship_id, ku),
+                )
+            if kl in known_sectors:
+                self._conn.execute(
+                    """
+                    INSERT OR IGNORE INTO sector_relationships (relationship_id, sector_key)
+                    VALUES (?, ?)
+                    """,
+                    (rel.relationship_id, kl),
+                )
+
+        if domain == "macro":
+            macro_keys = {str(rel.source_key).lower().replace(" ", "_")}
+            if ":" in str(rel.source_key):
+                macro_keys.add(str(rel.source_key).split(":")[0].lower())
+            # Alias common event names for retrieval
+            label = str(rel.source_label or "").lower()
+            if "rbi" in label or "rate cut" in label:
+                macro_keys.update({"rbi", "rbi_rate_cut", "rate_cut"})
+            if "crude" in label or "oil" in label:
+                macro_keys.update({"crude", "higher_crude_oil", "oil"})
+            for mk in macro_keys:
+                self._conn.execute(
+                    """
+                    INSERT OR IGNORE INTO macro_relationships (relationship_id, macro_event_key)
+                    VALUES (?, ?)
+                    """,
+                    (rel.relationship_id, mk),
+                )
+        elif domain == "market":
+            self._conn.execute(
+                """
+                INSERT OR IGNORE INTO market_relationships (relationship_id, market_key)
+                VALUES (?, ?)
+                """,
+                (rel.relationship_id, "nifty"),
+            )
+
+        # Evidence rows
+        self._conn.execute(
+            "DELETE FROM relationship_evidence WHERE relationship_id = ?",
+            (rel.relationship_id,),
+        )
+        for ev in rel.evidence or []:
+            self._conn.execute(
+                """
+                INSERT INTO relationship_evidence (
+                    evidence_id, relationship_id, kind, summary, period,
+                    source_refs_json, weight, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    ev.evidence_id,
+                    rel.relationship_id,
+                    ev.kind,
+                    ev.summary,
+                    ev.period,
+                    json.dumps(list(ev.source_refs or [])),
+                    float(ev.weight),
+                    now,
+                ),
+            )
+
+        # Version snapshot (append-only)
+        snap = rel.model_dump(mode="json") if hasattr(rel, "model_dump") else dict(rel)
+        self._conn.execute(
+            """
+            INSERT INTO relationship_versions (
+                version_id, relationship_id, version, snapshot_json, created_at
+            ) VALUES (?, ?, ?, ?, ?)
+            """,
+            (str(uuid4()), rel.relationship_id, rel.version, json.dumps(snap, default=str), now),
+        )
+        self._conn.commit()
+
+    def list_relationships(
+        self,
+        *,
+        domain: str | None = None,
+        company_symbol: str | None = None,
+        sector_key: str | None = None,
+        macro_event: str | None = None,
+        market: bool = False,
+        published_only: bool = True,
+        limit: int = 200,
+    ) -> list[dict[str, Any]]:
+        ids: list[str] | None = None
+        if company_symbol:
+            rows = self._conn.execute(
+                "SELECT relationship_id FROM company_relationships WHERE company_symbol = ?",
+                (company_symbol.upper(),),
+            ).fetchall()
+            ids = [r["relationship_id"] for r in rows]
+        elif sector_key:
+            sk = sector_key.lower().replace(" ", "_")
+            rows = self._conn.execute(
+                "SELECT relationship_id FROM sector_relationships WHERE sector_key = ? OR sector_key LIKE ?",
+                (sk, f"%{sk}%"),
+            ).fetchall()
+            ids = [r["relationship_id"] for r in rows]
+        elif macro_event:
+            key = macro_event.lower().replace(" ", "_")
+            rows = self._conn.execute(
+                """
+                SELECT relationship_id FROM macro_relationships
+                WHERE macro_event_key = ? OR macro_event_key LIKE ?
+                """,
+                (key, f"%{key}%"),
+            ).fetchall()
+            # Also match historical_relationships source/target labels
+            rows2 = self._conn.execute(
+                """
+                SELECT relationship_id FROM historical_relationships
+                WHERE domain = 'macro'
+                  AND (lower(source_key) LIKE ? OR lower(source_label) LIKE ?
+                       OR lower(target_key) LIKE ? OR lower(target_label) LIKE ?)
+                """,
+                (f"%{key}%", f"%{key}%", f"%{key}%", f"%{key}%"),
+            ).fetchall()
+            ids = list({r["relationship_id"] for r in rows} | {r["relationship_id"] for r in rows2})
+        elif market:
+            rows = self._conn.execute(
+                "SELECT relationship_id FROM market_relationships WHERE market_key = 'nifty'"
+            ).fetchall()
+            ids = [r["relationship_id"] for r in rows]
+
+        sql = "SELECT * FROM historical_relationships WHERE 1=1"
+        params: list[Any] = []
+        if domain:
+            sql += " AND domain = ?"
+            params.append(domain)
+        if published_only:
+            sql += " AND published = 1"
+        if ids is not None:
+            if not ids:
+                return []
+            placeholders = ",".join("?" for _ in ids)
+            sql += f" AND relationship_id IN ({placeholders})"
+            params.extend(ids)
+        sql += " ORDER BY confidence DESC, occurrences DESC LIMIT ?"
+        params.append(limit)
+        rows = self._conn.execute(sql, params).fetchall()
+        out = []
+        for r in rows:
+            d = dict(r)
+            d["chain"] = json.loads(d.pop("chain_json") or "[]")
+            d["published"] = bool(d.get("published"))
+            d["evidence"] = self.list_relationship_evidence(d["relationship_id"])
+            out.append(d)
+        return out
+
+    def list_relationship_evidence(self, relationship_id: str) -> list[dict[str, Any]]:
+        rows = self._conn.execute(
+            "SELECT * FROM relationship_evidence WHERE relationship_id = ? ORDER BY weight DESC",
+            (relationship_id,),
+        ).fetchall()
+        out = []
+        for r in rows:
+            d = dict(r)
+            d["source_refs"] = json.loads(d.pop("source_refs_json") or "[]")
+            out.append(d)
+        return out
+
+    def count_relationships(self, *, published_only: bool = True) -> int:
+        if published_only:
+            return int(
+                self._conn.execute(
+                    "SELECT COUNT(*) AS c FROM historical_relationships WHERE published = 1"
+                ).fetchone()["c"]
+            )
+        return int(self._conn.execute("SELECT COUNT(*) AS c FROM historical_relationships").fetchone()["c"])
+
+    def relationship_dashboard(self) -> dict[str, Any]:
+        total = self.count_relationships(published_only=False)
+        published = self.count_relationships(published_only=True)
+        conf = self._conn.execute(
+            """
+            SELECT confidence, COUNT(*) AS c FROM historical_relationships
+            WHERE published = 1 GROUP BY confidence
+            """
+        ).fetchall()
+        domains = self._conn.execute(
+            """
+            SELECT domain, COUNT(*) AS c FROM historical_relationships
+            WHERE published = 1 GROUP BY domain
+            """
+        ).fetchall()
+        stale = self._conn.execute(
+            "SELECT COUNT(*) AS c FROM historical_relationships WHERE status = 'stale'"
+        ).fetchone()["c"]
+        # Evidence strength: avg evidence rows per published relationship
+        ev_count = self._conn.execute("SELECT COUNT(*) AS c FROM relationship_evidence").fetchone()["c"]
+        strength = round(float(ev_count) / max(1, published), 2)
+        recent = self._conn.execute(
+            """
+            SELECT relationship_id, source_label, target_label, relationship_type, confidence, created_at
+            FROM historical_relationships
+            WHERE published = 1
+            ORDER BY created_at DESC LIMIT 15
+            """
+        ).fetchall()
+        company_cov = self._conn.execute(
+            """
+            SELECT company_symbol, COUNT(*) AS c FROM company_relationships
+            GROUP BY company_symbol ORDER BY c DESC
+            """
+        ).fetchall()
+        return {
+            "relationship_count": published,
+            "draft_count": total - published,
+            "evidence_strength": strength,
+            "evidence_rows": ev_count,
+            "confidence_distribution": {r["confidence"]: r["c"] for r in conf},
+            "domain_distribution": {r["domain"]: r["c"] for r in domains},
+            "newly_discovered": [dict(r) for r in recent],
+            "stale_relationships": int(stale),
+            "coverage_by_company": {r["company_symbol"]: r["c"] for r in company_cov},
+        }
+
     @staticmethod
     def _row_knowledge(row: sqlite3.Row) -> dict[str, Any]:
         d = dict(row)

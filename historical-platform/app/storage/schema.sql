@@ -197,3 +197,124 @@ CREATE TABLE IF NOT EXISTS historical_entities (
     index_membership_json TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
+
+-- Sprint 8.2 Timeline Intelligence (append-only narrative nodes)
+CREATE TABLE IF NOT EXISTS historical_timelines (
+    event_id TEXT PRIMARY KEY,
+    scope TEXT NOT NULL,
+    subject_key TEXT NOT NULL,
+    year INTEGER NOT NULL,
+    date TEXT,
+    title TEXT NOT NULL,
+    description TEXT,
+    importance TEXT NOT NULL,
+    event_type TEXT NOT NULL,
+    source TEXT NOT NULL,
+    links_json TEXT NOT NULL,
+    evidence_refs_json TEXT NOT NULL,
+    version INTEGER NOT NULL,
+    created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_timelines_scope_subject_year
+    ON historical_timelines(scope, subject_key, year ASC, version DESC);
+
+CREATE TABLE IF NOT EXISTS historical_timeline_links (
+    link_id TEXT PRIMARY KEY,
+    from_key TEXT NOT NULL,
+    to_key TEXT NOT NULL,
+    relation TEXT NOT NULL,
+    note TEXT,
+    subject_key TEXT,
+    created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_timeline_links_subject
+    ON historical_timeline_links(subject_key, from_key, to_key);
+
+-- Sprint 8.3 Historical Relationship Intelligence (evidence-backed graph)
+CREATE TABLE IF NOT EXISTS historical_relationships (
+    relationship_id TEXT PRIMARY KEY,
+    domain TEXT NOT NULL,
+    source_key TEXT NOT NULL,
+    source_label TEXT NOT NULL,
+    target_key TEXT NOT NULL,
+    target_label TEXT NOT NULL,
+    relationship_type TEXT NOT NULL,
+    direction TEXT NOT NULL,
+    confidence TEXT NOT NULL,
+    occurrences INTEGER NOT NULL,
+    average_delay TEXT,
+    first_observed TEXT,
+    last_confirmed TEXT,
+    chain_json TEXT NOT NULL,
+    version INTEGER NOT NULL,
+    published INTEGER NOT NULL,
+    status TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_hri_domain_source
+    ON historical_relationships(domain, source_key);
+CREATE INDEX IF NOT EXISTS idx_hri_domain_target
+    ON historical_relationships(domain, target_key);
+CREATE INDEX IF NOT EXISTS idx_hri_type
+    ON historical_relationships(relationship_type, confidence);
+
+CREATE TABLE IF NOT EXISTS company_relationships (
+    relationship_id TEXT PRIMARY KEY,
+    company_symbol TEXT NOT NULL,
+    FOREIGN KEY(relationship_id) REFERENCES historical_relationships(relationship_id)
+);
+CREATE INDEX IF NOT EXISTS idx_company_rel_symbol
+    ON company_relationships(company_symbol, relationship_id);
+
+CREATE TABLE IF NOT EXISTS sector_relationships (
+    relationship_id TEXT PRIMARY KEY,
+    sector_key TEXT NOT NULL,
+    FOREIGN KEY(relationship_id) REFERENCES historical_relationships(relationship_id)
+);
+CREATE INDEX IF NOT EXISTS idx_sector_rel_key
+    ON sector_relationships(sector_key, relationship_id);
+
+CREATE TABLE IF NOT EXISTS macro_relationships (
+    relationship_id TEXT PRIMARY KEY,
+    macro_event_key TEXT NOT NULL,
+    FOREIGN KEY(relationship_id) REFERENCES historical_relationships(relationship_id)
+);
+CREATE INDEX IF NOT EXISTS idx_macro_rel_key
+    ON macro_relationships(macro_event_key, relationship_id);
+
+CREATE TABLE IF NOT EXISTS market_relationships (
+    relationship_id TEXT PRIMARY KEY,
+    market_key TEXT NOT NULL,
+    FOREIGN KEY(relationship_id) REFERENCES historical_relationships(relationship_id)
+);
+CREATE INDEX IF NOT EXISTS idx_market_rel_key
+    ON market_relationships(market_key, relationship_id);
+
+CREATE TABLE IF NOT EXISTS relationship_evidence (
+    evidence_id TEXT PRIMARY KEY,
+    relationship_id TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    summary TEXT NOT NULL,
+    period TEXT,
+    source_refs_json TEXT NOT NULL,
+    weight REAL NOT NULL,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY(relationship_id) REFERENCES historical_relationships(relationship_id)
+);
+CREATE INDEX IF NOT EXISTS idx_rel_evidence_rel
+    ON relationship_evidence(relationship_id);
+
+CREATE TABLE IF NOT EXISTS relationship_versions (
+    version_id TEXT PRIMARY KEY,
+    relationship_id TEXT NOT NULL,
+    version INTEGER NOT NULL,
+    snapshot_json TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY(relationship_id) REFERENCES historical_relationships(relationship_id)
+);
+CREATE INDEX IF NOT EXISTS idx_rel_versions
+    ON relationship_versions(relationship_id, version DESC);

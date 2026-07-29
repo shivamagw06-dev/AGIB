@@ -16,8 +16,8 @@ def _env_bool(name: str, default: bool) -> bool:
 
 @dataclass(frozen=True)
 class Settings:
-    service_name: str = "hip-hap"
-    version: str = "0.1.0"
+    service_name: str = "hip-hri"
+    version: str = "0.3.0"
     host: str = field(default_factory=lambda: os.getenv("HIP_HOST", "0.0.0.0"))
     port: int = field(default_factory=lambda: int(os.getenv("HIP_PORT", "8092")))
     db_path: Path = field(
