@@ -14,15 +14,27 @@ from knowledge_factory.historical_depth import store as hd_store
 
 TARGET_YEARS = float(os.getenv("KF_HD_TARGET_YEARS") or "15")
 
-# Hard — company may enter maintenance only when these pass.
+# Hard — company may enter maintenance only when these pass (evidence-based).
+# Order matches Mission Control evidence checklist.
 HARD_DIMS = (
     "ohlcv",
-    "corporate_actions",
     "financial_statements",
+    "corporate_actions",
     "shareholding",
+    "ir_docs",
     "embeddings",
     "qa",
 )
+
+EVIDENCE_LABELS = {
+    "ohlcv": "OHLCV",
+    "financial_statements": "Financials",
+    "corporate_actions": "Corporate Actions",
+    "shareholding": "Shareholding",
+    "ir_docs": "IR Docs",
+    "embeddings": "Embeddings",
+    "qa": "QA",
+}
 
 # Soft — measured for richness; N/A or missing does not block maintenance forever.
 SOFT_DIMS = (
@@ -121,14 +133,18 @@ def record_attempt(entity: str, dimension: str, *, status: str, detail: str | No
     hd_store.put_report(f"backfill_attempts_{e}", meta)
 
 
-def _score(dims: dict[str, Any], keys: tuple[str, ...]) -> float:
-    """Percent complete among keys. Soft N/A counts as complete for soft score."""
+def _score(dims: dict[str, Any], keys: tuple[str, ...], *, count_n_a: bool = True) -> float:
+    """Percent complete among keys.
+
+    Hard coverage must use count_n_a=False — only stored evidence counts.
+    Soft N/A may count as satisfied for soft score.
+    """
     if not keys:
         return 0.0
     ok = 0
     for k in keys:
         st = (dims.get(k) or {}).get("status")
-        if st in {"complete", "n_a"}:
+        if st == "complete" or (count_n_a and st == "n_a"):
             ok += 1
     return round(100.0 * ok / len(keys), 2)
 
@@ -331,20 +347,23 @@ def evaluate_completion(entity: str, *, target_years: float | None = None) -> di
             return _dim(False, n_a=True, detail="unavailable_or_not_published")
         return _dim(False, detail="missing")
 
+    ir_docs_ok = len(docs) > 0
+
     dims = {
         "ohlcv": _dim(ohlcv_ok, detail=f"years={years:.2f} target={eff:.2f}"),
+        "financial_statements": _dim(
+            financials_ok, detail=f"annual={ann_n} quarterly={q_n} institutional_only=true"
+        ),
         "corporate_actions": _dim(
             ca_ok,
             detail=f"n={ca_n}" + (f" attempt={ca_attempt.get('status')}" if not ca_ok else ""),
-        ),
-        "financial_statements": _dim(
-            financials_ok, detail=f"annual={ann_n} quarterly={q_n} institutional_only=true"
         ),
         "shareholding": _dim(
             sh_ok,
             detail="shareholding"
             + (f" attempt={sh_attempt.get('status')}" if not sh_ok and sh_attempt else ""),
         ),
+        "ir_docs": _dim(ir_docs_ok, detail=f"n={len(docs)}"),
         "embeddings": _dim(_has_embedding(e) and _has_extract(e)),
         "qa": _dim(qa_ok, detail="price_qa"),
         "investor_presentations": _soft_dim(ip_ok, "investor_presentations"),
@@ -354,8 +373,9 @@ def evaluate_completion(entity: str, *, target_years: float | None = None) -> di
         "esg_reports": _soft_dim(esg_ok, "esg_reports"),
     }
 
-    hard_pct = _score(dims, HARD_DIMS)
-    soft_pct = _score(dims, SOFT_DIMS)
+    # Hard % = verified stored evidence only (never n_a / empty attempts).
+    hard_pct = _score(dims, HARD_DIMS, count_n_a=False)
+    soft_pct = _score(dims, SOFT_DIMS, count_n_a=True)
     overall_pct = round((hard_pct * 0.7 + soft_pct * 0.3), 2)
 
     # Hard gate: every hard dim must be verified complete (stored data). n_a never completes hard.
@@ -369,6 +389,7 @@ def evaluate_completion(entity: str, *, target_years: float | None = None) -> di
         "fully_backfilled": hard_ok,
         "hard_ok": hard_ok,
         "verified_data_plane": True,
+        "evidence_based": True,
         "soft_ok": soft_pct >= 99.9,  # informational
         "hard_pct": hard_pct,
         "soft_pct": soft_pct,
@@ -385,20 +406,85 @@ def evaluate_completion(entity: str, *, target_years: float | None = None) -> di
     }
 
 
+def evidence_based_completion(entity: str, *, target_years: float | None = None) -> dict[str, Any]:
+    """Completion as an evidence checklist — not a queue boolean.
+
+    Example shape:
+      RELIANCE
+      OHLCV ✓  Financials ✓  …  Shareholding ✗  …
+      Hard Coverage: 86%
+      Complete: NO
+      Why: Missing Shareholding
+    """
+    ev = evaluate_completion(entity, target_years=target_years)
+    dims = ev.get("dimensions") or {}
+    checklist: list[dict[str, Any]] = []
+    missing: list[str] = []
+    for key in HARD_DIMS:
+        row = dims.get(key) or {}
+        present = row.get("status") == "complete"
+        label = EVIDENCE_LABELS.get(key, key)
+        checklist.append(
+            {
+                "key": key,
+                "label": label,
+                "present": present,
+                "mark": "✓" if present else "✗",
+                "status": row.get("status") or "missing",
+                "detail": row.get("detail") or "",
+            }
+        )
+        if not present:
+            missing.append(key)
+
+    hard_pct = float(ev.get("hard_pct") or 0.0)
+    complete = not missing and bool(ev.get("hard_ok"))
+    missing_labels = [EVIDENCE_LABELS.get(m, m) for m in missing]
+    if complete:
+        why = None
+    elif missing_labels:
+        why = "Missing " + ", ".join(missing_labels)
+    else:
+        why = "Incomplete evidence"
+
+    return {
+        "company": entity.upper(),
+        "checklist": checklist,
+        "evidence": {c["label"]: c["mark"] for c in checklist},
+        "hard_coverage_pct": hard_pct,
+        "complete": complete,
+        "missing": missing,
+        "missing_labels": missing_labels,
+        "why_incomplete": why,
+        "why_in_backlog": why,  # Mission Control alias
+        "years": ev.get("history_years"),
+        "mode": "maintenance" if complete else "backfill",
+        "authority": "evidence_based_completion",
+        "evaluation": ev,
+    }
+
+
 def company_scorecard(entity: str) -> dict[str, Any]:
-    """Compact Mission Control row: Hard / Soft / Overall + density."""
-    ev = evaluate_completion(entity)
+    """Compact Mission Control row: Hard / Soft / Overall + density + evidence why."""
+    evidence = evidence_based_completion(entity)
+    ev = evidence.get("evaluation") or {}
     dens = ev.get("density") or {}
     return {
         "company": entity.upper(),
-        "hard_pct": ev.get("hard_pct"),
+        "hard_pct": evidence.get("hard_coverage_pct"),
         "soft_pct": ev.get("soft_pct"),
         "overall_pct": ev.get("overall_pct"),
-        "years": ev.get("history_years"),
+        "years": evidence.get("years"),
         "documents": dens.get("documents"),
         "extracts": dens.get("extracts"),
         "embeddings": dens.get("embeddings"),
         "density": dens.get("density"),
         "density_score": dens.get("density_score"),
-        "mode": ev.get("mode"),
+        "mode": evidence.get("mode"),
+        "complete": evidence.get("complete"),
+        "missing": evidence.get("missing"),
+        "missing_labels": evidence.get("missing_labels"),
+        "why_incomplete": evidence.get("why_incomplete"),
+        "evidence": evidence.get("evidence"),
+        "checklist": evidence.get("checklist"),
     }

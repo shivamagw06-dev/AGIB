@@ -12,11 +12,14 @@ from typing import Any
 
 from knowledge_factory.historical_depth import queue as bf_queue
 from knowledge_factory.historical_depth import store as hd_store
-from knowledge_factory.historical_depth.completion import evaluate_completion, history_years
+from knowledge_factory.historical_depth.completion import (
+    evidence_based_completion,
+    history_years,
+)
 from knowledge_factory.historical_depth.universe_priority import prioritised_universe
 
 RECONCILE_REPORT = "coverage_reconciliation"
-RECONCILE_VERSION = "coverage-reconcile-v1.0.0"
+RECONCILE_VERSION = "coverage-reconcile-v1.1.0"
 
 # Universe hard-coverage threshold before maintenance is allowed.
 MAINTENANCE_HARD_COVERAGE_PCT = float(os.getenv("KF_HD_MAINTENANCE_HARD_COVERAGE_PCT") or "95")
@@ -29,23 +32,26 @@ def _now() -> str:
 
 
 def verify_company(entity: str) -> dict[str, Any]:
-    """Strict verified-coverage check used for backlog + maintenance gates."""
-    ev = evaluate_completion(entity)
-    dims = ev.get("dimensions") or {}
-    missing: list[str] = []
-    for key in ("ohlcv", "corporate_actions", "financial_statements", "shareholding", "embeddings", "qa"):
-        st = (dims.get(key) or {}).get("status")
-        # Verified data only — n_a / empty attempts do NOT count as complete for hard gate
-        if st != "complete":
-            missing.append(key)
-    verified_ok = not missing
+    """Evidence-based verified-coverage check for backlog + maintenance gates."""
+    evidence = evidence_based_completion(entity)
+    missing = list(evidence.get("missing") or [])
+    verified_ok = bool(evidence.get("complete"))
     return {
         "company": entity.upper(),
         "verified_ok": verified_ok,
+        "complete": verified_ok,
         "missing": missing,
-        "years": ev.get("history_years") or 0.0,
-        "hard_pct": ev.get("hard_pct"),
-        "evaluation": ev,
+        "missing_labels": evidence.get("missing_labels") or [],
+        "why_incomplete": evidence.get("why_incomplete"),
+        "why_in_backlog": evidence.get("why_in_backlog"),
+        "checklist": evidence.get("checklist") or [],
+        "evidence": evidence.get("evidence") or {},
+        "years": evidence.get("years") or 0.0,
+        "hard_pct": evidence.get("hard_coverage_pct"),
+        "hard_coverage_pct": evidence.get("hard_coverage_pct"),
+        "authority": "evidence_based_completion",
+        "evaluation": evidence.get("evaluation"),
+        "evidence_card": evidence,
     }
 
 
@@ -116,18 +122,38 @@ def reconcile_universe(
     for e in universe:
         v = verify_company(e)
         if v["verified_ok"]:
-            complete.append({"company": e, "years": v["years"], "hard_pct": v["hard_pct"]})
+            complete.append(
+                {
+                    "company": e,
+                    "years": v["years"],
+                    "hard_pct": v["hard_pct"],
+                    "hard_coverage_pct": v.get("hard_coverage_pct"),
+                    "complete": True,
+                    "evidence": v.get("evidence"),
+                }
+            )
         else:
             incomplete.append(
                 {
                     "company": e,
                     "missing": v["missing"],
+                    "missing_labels": v.get("missing_labels") or [],
+                    "why_incomplete": v.get("why_incomplete"),
+                    "why_in_backlog": v.get("why_in_backlog") or v.get("why_incomplete"),
+                    "checklist": v.get("checklist") or [],
+                    "evidence": v.get("evidence") or {},
                     "years": v["years"],
                     "hard_pct": v["hard_pct"],
+                    "hard_coverage_pct": v.get("hard_coverage_pct"),
+                    "complete": False,
                 }
             )
             if enqueue:
-                bf_queue.enqueue_company(e, reason="coverage_reconcile:" + ",".join(v["missing"][:4]))
+                reason_bits = v.get("missing") or ["incomplete"]
+                bf_queue.enqueue_company(
+                    e,
+                    reason="evidence:" + ",".join(reason_bits[:5]),
+                )
                 # Force out of false maintenance
                 try:
                     q = bf_queue.load_queue()
@@ -141,6 +167,9 @@ def reconcile_universe(
                                 row["mode"] = "backfill"
                                 row["reconcile_reopened"] = True
                                 row["missing"] = v["missing"]
+                                row["why_incomplete"] = v.get("why_incomplete")
+                                row["hard_coverage_pct"] = v.get("hard_coverage_pct")
+                                row["evidence"] = v.get("evidence")
                             break
                     bf_queue.save_queue(q)
                 except Exception:
@@ -226,13 +255,18 @@ def reconcile_universe(
             "min_avg_years": MAINTENANCE_MIN_AVG_YEARS,
         },
         "incomplete_preview": incomplete[:40],
+        "evidence_backlog": incomplete[:40],
         "requeued_preview": requeued[:40],
         "engine": {
             "mode": engine.get("mode"),
             "maintenance_only": engine.get("maintenance_only"),
         },
-        "authority": "data_plane_coverage",
-        "note": "Queue is derived from verified coverage; never authoritative for maintenance",
+        "authority": "evidence_based_completion",
+        "note": (
+            "Completion is evidence-based: each company carries a checklist "
+            "(OHLCV/Financials/CA/Shareholding/IR/Embeddings/QA). "
+            "Queue is derived from missing evidence; never authoritative for maintenance."
+        ),
     }
     hd_store.put_report(RECONCILE_REPORT, report)
     # Repair queue mirror

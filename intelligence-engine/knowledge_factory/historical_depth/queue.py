@@ -390,7 +390,9 @@ def backlog_stats() -> dict[str, Any]:
         "companies_processed_today": int(state.get("companies_processed_today") or 0),
         "coverage_finished": False,
         "queue_always_ready": True,
-        "authority": "data_plane_coverage" if verified else "queue_state",
+        "authority": (
+            (verified.get("authority") or "evidence_based_completion") if verified else "queue_state"
+        ),
         "dataset_coverage": (verified.get("dataset_coverage") if verified else None),
         "maintenance_allowed": verified.get("maintenance_allowed") if verified else None,
     }

@@ -60,6 +60,7 @@ def collect_entity_history(entity: str, *, prefer_live: bool | None = None) -> d
         hd_store.put_series("corporate_actions", e, actions)
         # Offline/tests only — production never seeds ownership fixtures
         hd_store.put_series("shareholding", e, shareholding_records(e))
+        _seed_ir_fixture(e)
     # Production: never pad with fixture quarterlies. Dev/tests may opt-in.
     env = (os.getenv("APP_ENV") or os.getenv("AGIB_ENV") or "").strip().lower()
     fixture_default = "false" if env in {"production", "prod"} else "true"
@@ -81,6 +82,38 @@ def collect_entity_history(entity: str, *, prefer_live: bool | None = None) -> d
         "live": live_row,
         "status": "ok" if (live_ok or years > 0) else "error",
     }
+
+
+def _seed_ir_fixture(entity: str) -> None:
+    """Minimal IR document evidence for offline/tests (never production)."""
+    try:
+        from live_data import store as lidi_store
+
+        e = entity.upper()
+        existing = lidi_store.get_object("company_ir", e) or {}
+        if existing.get("documents"):
+            return
+        lidi_store.put_object(
+            "company_ir",
+            e,
+            {
+                "documents": [
+                    {
+                        "doc_type": "annual_report",
+                        "title": f"{e} Annual Report (fixture)",
+                        "url": f"fixture://{e}/annual-report.pdf",
+                    },
+                    {
+                        "doc_type": "quarterly_results",
+                        "title": f"{e} Quarterly Results (fixture)",
+                        "url": f"fixture://{e}/results.pdf",
+                    },
+                ],
+                "source": "fixture",
+            },
+        )
+    except Exception:
+        pass
 
 
 def _price_years(series: dict[str, Any]) -> float:
