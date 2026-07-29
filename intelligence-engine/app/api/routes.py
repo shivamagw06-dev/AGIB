@@ -10351,6 +10351,96 @@ async def opportunity_intelligence_ticker(ticker: str):
     return analyse(ticker, persist_memory=False)
 
 
+@router.get("/investment-operations/health")
+async def investment_operations_health():
+    """P5 Investment Operations Layer — orchestration façade (not an intelligence engine)."""
+    from investment_operations.production import health
+
+    return health()
+
+
+@router.get("/investment-operations/morning-office")
+async def investment_operations_morning_office(holdings: str | None = None):
+    from investment_operations.production import morning_office
+
+    h = [x.strip().upper() for x in (holdings or "").split(",") if x.strip()] or None
+    return morning_office(holdings=h, include_soft_reasoning=False)
+
+
+@router.get("/investment-operations/research-queue")
+async def investment_operations_research_queue(holdings: str | None = None, limit: int = 25):
+    from investment_operations.production import research_queue
+
+    h = [x.strip().upper() for x in (holdings or "").split(",") if x.strip()] or None
+    return research_queue(holdings=h, include_soft_reasoning=False)
+
+
+@router.get("/investment-operations/portfolio")
+async def investment_operations_portfolio(holdings: str | None = None):
+    from investment_operations.production import portfolio
+
+    h = [x.strip().upper() for x in (holdings or "").split(",") if x.strip()] or None
+    return portfolio(holdings=h, include_soft_reasoning=False)
+
+
+@router.get("/investment-operations/alerts")
+async def investment_operations_alerts(holdings: str | None = None):
+    from investment_operations.production import alerts
+
+    h = [x.strip().upper() for x in (holdings or "").split(",") if x.strip()] or None
+    return alerts(holdings=h, include_soft_reasoning=False)
+
+
+@router.get("/investment-operations/catalysts")
+async def investment_operations_catalysts():
+    from investment_operations.production import catalysts
+
+    return catalysts(include_soft_reasoning=False)
+
+
+@router.get("/investment-operations/daily-brief")
+async def investment_operations_daily_brief(brief_type: str = "morning", holdings: str | None = None):
+    from investment_operations.production import daily_brief
+
+    h = [x.strip().upper() for x in (holdings or "").split(",") if x.strip()] or None
+    return daily_brief(brief_type=brief_type, holdings=h, include_soft_reasoning=False)
+
+
+@router.get("/investment-operations/metrics")
+async def investment_operations_metrics():
+    from investment_operations.production import metrics
+
+    return metrics(include_soft_reasoning=False)
+
+
+@router.get("/investment-operations/workspace/{ticker}")
+async def investment_operations_workspace(ticker: str):
+    from investment_operations.production import workspace
+
+    return workspace(ticker, include_soft_reasoning=True)
+
+
+@router.get("/investment-operations/decision-replay/{ticker}")
+async def investment_operations_decision_replay(ticker: str, version: int | None = None):
+    from investment_operations.production import decision_replay
+
+    return decision_replay(ticker, version=version)
+
+
+@router.get("/investment-operations/monitoring")
+async def investment_operations_monitoring():
+    from investment_operations.production import monitoring
+
+    return monitoring(include_soft_reasoning=False)
+
+
+@router.get("/investment-operations-ic10")
+async def investment_operations_ic10():
+    from investment_operations.production import ic10_smoke
+
+    return ic10_smoke()
+
+
 @router.get("/committee-certification-v2/health")
 async def committee_certification_v2_health():
     """IC-10 Institutional Committee Certification v2.0 — health / universe map."""
