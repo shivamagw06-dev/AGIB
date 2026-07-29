@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import ResearchWorkspace from '@/components/AskAgi/ResearchWorkspace';
+import InstitutionalChatWorkspace from '@/components/AskAgi/InstitutionalChatWorkspace';
 import { postUiSearch } from '@/lib/uiApi';
 import { pushSearch, saveAnswer, saveSearch } from '@/lib/searchHistory';
 import { trackProductEvent } from '@/lib/productAnalytics';
@@ -61,13 +61,17 @@ export default function AskAgiPage() {
   return (
     <>
       <Helmet>
-        <title>{question ? `${question} | Ask AGI` : 'Ask AGI | Agarwal Global Investments'}</title>
+        <title>{question ? `${question} | Ask AGIB` : 'Ask AGIB | Agarwal Global Investments'}</title>
         <meta
           name="description"
-          content="Ask AGI — institutional investment research workspace powered by AGI intelligence."
+          content="Ask AGIB — AI-native institutional research workspace. Concise answers first, deeper intelligence on demand."
+        />
+        <link
+          href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,500;8..60,700&display=swap"
+          rel="stylesheet"
         />
       </Helmet>
-      <ResearchWorkspace
+      <InstitutionalChatWorkspace
         pack={state.pack}
         loading={Boolean(question && state.loading)}
         error={state.error}

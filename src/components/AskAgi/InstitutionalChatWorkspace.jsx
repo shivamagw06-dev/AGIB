@@ -1,0 +1,475 @@
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import {
+  Bell,
+  Bookmark,
+  Building2,
+  CandlestickChart,
+  Globe2,
+  Home,
+  Layers3,
+  LineChart,
+  MessageSquarePlus,
+  Newspaper,
+  Search,
+  Settings,
+  Sparkles,
+  User,
+  Briefcase,
+  Eye,
+} from 'lucide-react';
+import { mapChatAnswer } from '@/components/AskAgi/adapters/mapChatAnswer';
+import { getRecentSearches } from '@/lib/searchHistory';
+import '@/components/AskAgi/institutionalChat.css';
+
+const NAV = [
+  { label: 'Home', path: '/', icon: Home },
+  { label: 'Research', path: '/sections/research-notes', icon: Newspaper },
+  { label: 'Companies', path: '/company-updates', icon: Building2 },
+  { label: 'Markets', path: '/market-intelligence', icon: CandlestickChart },
+  { label: 'Sectors', path: '/sectors/banks', icon: Layers3 },
+  { label: 'Macro', path: '/macro-intelligence', icon: Globe2 },
+  { label: 'IPO', path: '/ipo-intelligence', icon: LineChart },
+  { label: 'Portfolio', path: '/portfolio', icon: Briefcase },
+  { label: 'Watchlist', path: '/workspace', icon: Eye },
+  { label: 'Intelligence Hub', path: '/admin/mission-control', icon: Sparkles },
+  { label: 'Saved Research', path: '/workspace', icon: Bookmark },
+  { label: 'Settings', path: '/account/security', icon: Settings },
+];
+
+const STARTERS = [
+  'Should I buy Eternal?',
+  'RBI outlook',
+  'Compare HDFC vs ICICI',
+  'Market outlook tomorrow',
+];
+
+function viewClass(tone) {
+  if (tone === 'pos') return 'ac-view-pos';
+  if (tone === 'neg') return 'ac-view-neg';
+  return 'ac-view-neu';
+}
+
+function deepText(answer, chipId) {
+  const d = answer?.deep || {};
+  switch (chipId) {
+    case 'company':
+      return d.thesis || answer?.thesisCards?.find((c) => c.id === 'business')?.body;
+    case 'research':
+      return [d.thesis, ...(d.why || [])].filter(Boolean).join('\n\n');
+    case 'financial':
+      return d.financialNarrative;
+    case 'sector':
+      return d.sectorNarrative;
+    case 'market':
+      return d.marketNarrative;
+    case 'macro':
+      return d.macroNarrative;
+    case 'historical':
+      return (d.whatChanged || []).join(' · ') || 'Historical context refreshes with the research desk.';
+    case 'forecast':
+      return ['Bull: ' + (d.bull || [])[0], 'Base: ' + (d.base || [])[0], 'Bear: ' + (d.bear || [])[0]]
+        .filter((x) => !x.endsWith('undefined'))
+        .join('\n');
+    default:
+      return '';
+  }
+}
+
+function AnswerTurn({ answer, onAsk }) {
+  const [openChip, setOpenChip] = useState(null);
+  if (!answer) return null;
+
+  return (
+    <div className="ac-msg ac-msg-agi">
+      <div className="ac-label">AGIB</div>
+
+      <div className="ac-direct">
+        <p className="ac-direct-text">{answer.directAnswer}</p>
+        <div className="ac-meta-row">
+          <div>
+            <span>Investment Horizon</span>
+            <strong>{answer.horizon}</strong>
+          </div>
+          <div>
+            <span>Confidence</span>
+            <strong>{answer.confidence}%</strong>
+          </div>
+          <div>
+            <span>Institutional View</span>
+            <strong className={viewClass(answer.stanceTone)}>{answer.institutionalView}</strong>
+          </div>
+        </div>
+        {answer.deep?.degraded && (
+          <div className="ac-degraded">
+            Research desk is warming — this answer uses live institutional context while the full engine recovers.
+          </div>
+        )}
+      </div>
+
+      <section className="ac-block">
+        <h2>Investment Thesis</h2>
+        <div className="ac-thesis">
+          {answer.thesisCards.map((card) => (
+            <details key={card.id} className="ac-thesis-card">
+              <summary>
+                <span>{card.title}</span>
+                <span className={`ac-impact ${card.tone}`}>{card.impact}</span>
+              </summary>
+              <p>{card.body}</p>
+            </details>
+          ))}
+        </div>
+      </section>
+
+      <section className="ac-block">
+        <h2>What Would Change AGIB&apos;s View?</h2>
+        <div className="ac-change">
+          <div className="ac-change-col bull">
+            <h3>More Bullish</h3>
+            <ul>
+              {answer.moreBullish.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          </div>
+          <div className="ac-change-col bear">
+            <h3>More Bearish</h3>
+            <ul>
+              {answer.moreBearish.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section className="ac-block">
+        <h2>Supporting Intelligence</h2>
+        <div className="ac-chips">
+          {answer.intelligenceChips.map((chip) => (
+            <button
+              key={chip.id}
+              type="button"
+              className={openChip === chip.id ? 'active' : ''}
+              onClick={() => setOpenChip((prev) => (prev === chip.id ? null : chip.id))}
+            >
+              {chip.label}
+            </button>
+          ))}
+        </div>
+        {openChip && (
+          <div className="ac-chip-panel">
+            {deepText(answer, openChip) || 'Detailed evidence for this layer will appear as coverage completes.'}
+          </div>
+        )}
+      </section>
+
+      <section className="ac-block">
+        <h2>Continue the conversation</h2>
+        <div className="ac-follows">
+          {answer.followUps.map((q) => (
+            <button key={q} type="button" onClick={() => onAsk(q)}>
+              {q}
+            </button>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+export default function InstitutionalChatWorkspace({
+  pack,
+  loading,
+  error,
+  question,
+  onAsk,
+  onSave,
+  savedFlash,
+}) {
+  const navigate = useNavigate();
+  const answer = useMemo(() => (pack ? mapChatAnswer(pack) : null), [pack]);
+  const [draft, setDraft] = useState('');
+  const [topQ, setTopQ] = useState('');
+  const [recents, setRecents] = useState([]);
+  const threadRef = useRef(null);
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    setRecents(getRecentSearches(8));
+  }, [question, pack]);
+
+  useEffect(() => {
+    if (threadRef.current && (answer || loading)) {
+      threadRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
+  }, [answer, loading, question]);
+
+  const submit = (value) => {
+    const q = String(value || draft || topQ).trim();
+    if (!q) return;
+    setDraft('');
+    setTopQ('');
+    onAsk(q);
+  };
+
+  const newChat = () => {
+    navigate('/ask');
+    setDraft('');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    inputRef.current?.focus();
+  };
+
+  return (
+    <div className="agib-chat">
+      <aside className="ac-sidebar" aria-label="AGIB navigation">
+        <Link to="/" className="ac-brand">
+          <span className="ac-brand-mark">AGI</span>
+          <span className="ac-brand-text">
+            AGIB
+            <span className="ac-brand-sub">Institutional Research</span>
+          </span>
+        </Link>
+
+        <button type="button" className="ac-new-chat" onClick={newChat}>
+          <MessageSquarePlus size={16} style={{ display: 'inline', marginRight: 8, verticalAlign: -3 }} />
+          New Chat
+        </button>
+
+        <nav className="ac-nav">
+          <button type="button" className="active" onClick={() => navigate('/ask')}>
+            <Sparkles size={16} />
+            <span>Ask AGIB</span>
+          </button>
+          {NAV.map((item) => {
+            const Icon = item.icon;
+            return (
+              <Link key={item.label} to={item.path}>
+                <Icon size={16} />
+                <span>{item.label}</span>
+              </Link>
+            );
+          })}
+
+          <div className="ac-nav-label">Recent Chats</div>
+          <div className="ac-recent">
+            {recents.length ? (
+              recents.map((q) => (
+                <button key={q} type="button" onClick={() => onAsk(q)} title={q}>
+                  {q}
+                </button>
+              ))
+            ) : (
+              <button type="button" disabled style={{ opacity: 0.45 }}>
+                No recent chats yet
+              </button>
+            )}
+          </div>
+        </nav>
+
+        <div className="ac-side-foot">
+          <button type="button" className="ac-upgrade" onClick={() => navigate('/#newsletter')}>
+            Upgrade Plan
+          </button>
+          <div className="ac-user">
+            <span className="ac-avatar">
+              <User size={14} />
+            </span>
+            Institutional desk
+          </div>
+        </div>
+      </aside>
+
+      <div className="ac-main">
+        <header className="ac-topbar">
+          <form
+            className="ac-top-search"
+            onSubmit={(e) => {
+              e.preventDefault();
+              submit(topQ);
+            }}
+          >
+            <Search size={16} color="#6b7280" />
+            <input
+              value={topQ}
+              onChange={(e) => setTopQ(e.target.value)}
+              placeholder="Ask AGIB anything..."
+              aria-label="Ask AGIB"
+            />
+          </form>
+          <div className="ac-top-actions">
+            <button type="button" className="ac-icon-btn" aria-label="Notifications" onClick={() => navigate('/workspace')}>
+              <Bell size={17} />
+            </button>
+            <button type="button" className="ac-icon-btn" aria-label="Save research" onClick={onSave} title="Save">
+              <Bookmark size={17} />
+            </button>
+            <button type="button" className="ac-icon-btn" aria-label="Workspace" onClick={() => navigate('/workspace')}>
+              <Briefcase size={17} />
+            </button>
+          </div>
+        </header>
+
+        <div className="ac-workspace">
+          <div className="ac-thread">
+            {!question && !loading && (
+              <div className="ac-empty">
+                <h1>What would you like to analyse?</h1>
+                <p>
+                  Ask AGIB in plain English. Receive a concise institutional answer first — then open deeper thesis,
+                  evidence and intelligence layers on demand.
+                </p>
+                <div className="ac-starters">
+                  {STARTERS.map((q) => (
+                    <button key={q} type="button" onClick={() => onAsk(q)}>
+                      {q}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {question && (
+              <div className="ac-msg ac-msg-user">
+                <div className="ac-bubble-user">{question}</div>
+              </div>
+            )}
+
+            {loading && (
+              <div className="ac-msg ac-msg-agi">
+                <div className="ac-label">AGIB</div>
+                <div className="ac-loading" aria-live="polite">
+                  <div className="ac-skel" />
+                  <div className="ac-skel" style={{ height: '7rem' }} />
+                  <div className="ac-skel" style={{ height: '3rem' }} />
+                </div>
+              </div>
+            )}
+
+            {error && !loading && (
+              <div className="ac-msg ac-msg-agi">
+                <div className="ac-label">AGIB</div>
+                <div className="ac-direct">
+                  <p className="ac-direct-text">
+                    The research desk is momentarily unavailable. Please retry — AGIB will resume institutional analysis
+                    as soon as the engine is warm.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {!loading && answer && <AnswerTurn answer={answer} onAsk={onAsk} />}
+
+            {savedFlash && (
+              <p style={{ color: '#0f6b4c', fontSize: '0.82rem', fontWeight: 650 }}>Saved to your research workspace.</p>
+            )}
+
+            <div ref={threadRef} />
+          </div>
+
+          <aside className="ac-rail" aria-label="Conviction rail">
+            <div className="ac-rail-card">
+              <h3>Company</h3>
+              <p className="ac-rail-company">{answer?.company || answer?.ticker || 'AGIB Desk'}</p>
+              <p className="ac-rail-ticker">{answer?.ticker || 'Ask a company or market question'}</p>
+
+              <div style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#6b7280' }}>
+                Current View
+              </div>
+              <div style={{ fontSize: '1.05rem', fontWeight: 750, marginTop: 4 }} className={viewClass(answer?.stanceTone)}>
+                {answer?.institutionalView || '—'}
+              </div>
+
+              <div style={{ marginTop: '0.9rem', fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#6b7280' }}>
+                Confidence
+              </div>
+              <div style={{ fontSize: '1.1rem', fontWeight: 750 }}>{answer ? `${answer.confidence}%` : '—'}</div>
+              <div className="ac-gauge" aria-hidden>
+                <i style={{ width: `${Math.min(100, answer?.confidence || 0)}%` }} />
+              </div>
+
+              <div className="ac-score-grid">
+                <div>
+                  <span>Investment Horizon</span>
+                  <strong>{answer?.horizon || '—'}</strong>
+                </div>
+                <div>
+                  <span>Business Quality</span>
+                  <strong>{answer?.scores?.business || '—'}</strong>
+                </div>
+                <div>
+                  <span>Financial Quality</span>
+                  <strong>{answer?.scores?.financial || '—'}</strong>
+                </div>
+                <div>
+                  <span>Growth Score</span>
+                  <strong>{answer?.scores?.growth || '—'}</strong>
+                </div>
+                <div>
+                  <span>Valuation Score</span>
+                  <strong>{answer?.scores?.valuation || '—'}</strong>
+                </div>
+                <div>
+                  <span>Risk</span>
+                  <strong>{answer?.scores?.risk || '—'}</strong>
+                </div>
+                <div>
+                  <span>Overall Conviction</span>
+                  <strong>{answer?.scores?.conviction || '—'}</strong>
+                </div>
+              </div>
+            </div>
+
+            <div className="ac-rail-card">
+              <h3>Latest Research Refresh</h3>
+              <p style={{ margin: 0, fontSize: '0.84rem', color: '#3a4450' }}>
+                {answer?.lastUpdated || answer?.freshness || 'Live AGIB intelligence cycle'}
+              </p>
+            </div>
+
+            <div className="ac-rail-card">
+              <h3>Recent Research</h3>
+              <ul className="ac-rail-list">
+                {(answer?.recentResearch || ['Internal AGIB', 'Exchange Filing']).map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </div>
+          </aside>
+        </div>
+
+        <div className="ac-composer-wrap">
+          <form
+            className="ac-composer"
+            onSubmit={(e) => {
+              e.preventDefault();
+              submit(draft);
+            }}
+          >
+            <textarea
+              ref={inputRef}
+              rows={1}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  submit(draft);
+                }
+              }}
+              placeholder="Ask AGIB anything about markets, companies, macro or your portfolio..."
+              aria-label="Message AGIB"
+            />
+            <button type="submit" disabled={!draft.trim() || loading}>
+              Ask
+            </button>
+          </form>
+          <p className="ac-composer-note">
+            AGIB provides institutional research context — not personalised investment advice.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
