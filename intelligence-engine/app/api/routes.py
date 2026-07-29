@@ -9832,6 +9832,37 @@ async def governance_spec_phase6(payload: dict[str, Any] = Body(default={})):
     return light
 
 
+@router.get("/institutional-evaluation-lab/drift/health")
+async def institutional_evaluation_lab_drift_health():
+    from institutional_evaluation_lab.drift.production import health
+
+    return health()
+
+
+@router.post("/institutional-evaluation-lab/drift/compare")
+async def institutional_evaluation_lab_drift_compare(payload: dict[str, Any] = Body(default={})):
+    """PR #308 — compare two releases with reason codes, budget, review queue, release notes."""
+    from institutional_evaluation_lab.production import recommendation_drift
+
+    body = payload or {}
+    previous = str(body.get("previous_release") or body.get("previous") or "").strip()
+    current = str(body.get("current_release") or body.get("current") or "").strip()
+    if not previous or not current:
+        raise HTTPException(status_code=400, detail="previous_release_and_current_release_required")
+    report = recommendation_drift(
+        previous_release=previous,
+        current_release=current,
+        governance_failures=body.get("governance_failures"),
+        persist=bool(body.get("persist", True)),
+        hints=body.get("hints") if isinstance(body.get("hints"), dict) else None,
+    )
+    if report.get("error"):
+        raise HTTPException(status_code=404, detail=report.get("error"))
+    light = {k: v for k, v in report.items() if k not in {"rows", "changed_rows"}}
+    light["changed_sample"] = (report.get("changed_rows") or [])[:25]
+    return light
+
+
 @router.get("/institutional-evaluation-lab/question/{question_id}")
 async def institutional_evaluation_lab_question(question_id: str):
     from institutional_evaluation_lab.production import question

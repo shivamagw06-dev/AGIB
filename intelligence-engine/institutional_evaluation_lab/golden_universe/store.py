@@ -79,7 +79,9 @@ def ticker_result_payload(
     versions: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Canonical per-ticker JSON written to results/{release}/{TICKER}.json."""
-    versions = versions or {}
+    # Prefer per-ticker version stamps when present (needed for MODEL drift classification)
+    row_versions = row.get("versions") if isinstance(row.get("versions"), dict) else {}
+    versions = {**(versions or {}), **row_versions}
     return {
         "ticker": row.get("ticker"),
         "company_name": row.get("company_name"),
