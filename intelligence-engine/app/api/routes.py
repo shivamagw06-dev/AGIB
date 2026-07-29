@@ -10025,6 +10025,68 @@ async def financial_statements_cfdm_health():
     return health()
 
 
+@router.get("/financial-statements/parsing/health")
+async def financial_statements_parsing_health():
+    """FSE-04 Parsing & Normalization Engine."""
+    from financial_statements_engine.parsing.production import health
+
+    return health()
+
+
+@router.get("/financial-statements/parsing/dashboard")
+async def financial_statements_parsing_dashboard():
+    from financial_statements_engine.parsing.production import dashboard
+
+    return dashboard()
+
+
+@router.post("/financial-statements/parsing/run")
+async def financial_statements_parsing_run(payload: dict[str, Any] = Body(default={})):
+    from financial_statements_engine.parsing.production import parse_bytes
+    import base64
+
+    body = payload or {}
+    ticker = str(body.get("ticker") or "").strip()
+    if not ticker:
+        raise HTTPException(status_code=400, detail="ticker_required")
+    raw_b64 = body.get("bytes_b64")
+    if not raw_b64:
+        raise HTTPException(status_code=400, detail="bytes_b64_required")
+    try:
+        data = base64.b64decode(str(raw_b64))
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"invalid_bytes_b64:{exc}") from exc
+    return parse_bytes(
+        ticker,
+        data,
+        document_type=str(body.get("document_type") or "xbrl"),
+        period_end=body.get("period_end"),
+        period_type=body.get("period_type"),
+        consolidation_type=str(body.get("consolidation_type") or "consolidated"),
+        source=str(body.get("source") or "nse_xbrl"),
+        evidence_id=body.get("evidence_id"),
+    )
+
+
+@router.get("/financial-statements/schema-evolution/health")
+async def financial_statements_schema_evolution_health():
+    from financial_statements_engine.schema_evolution.production import health
+
+    return health()
+
+
+@router.get("/financial-statements/schema-evolution/resolve")
+async def financial_statements_schema_evolution_resolve(
+    label: str,
+    as_of: str | None = None,
+    reporting_standard: str = "IND_AS",
+    taxonomy: str | None = None,
+):
+    from financial_statements_engine.schema_evolution.production import resolve_payload
+
+    return resolve_payload(label, as_of=as_of, reporting_standard=reporting_standard, taxonomy=taxonomy)
+
+
 @router.get("/financial-statements/metrics")
 async def financial_statements_metrics(category: str | None = None, appendix_only: bool = False):
     from financial_statements_engine.metric_registry.production import metrics_payload

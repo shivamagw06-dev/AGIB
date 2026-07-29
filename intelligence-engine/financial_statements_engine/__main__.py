@@ -21,6 +21,8 @@ def main(argv: list[str] | None = None) -> int:
             "usage: python -m financial_statements_engine "
             "--health|--dashboard|--coverage|--registry|"
             "--cfdm-health|--metric-registry|--resolve-metric NAME|"
+            "--parsing-health|--parsing-dashboard|--parse-bytes TICKER --format FMT --file PATH|"
+            "--schema-evolution-health|--schema-resolve LABEL|"
             "--collection-health|--collection-dashboard|"
             "--collect TICKER [--mode live|historical]|TICKER [--publish]"
         )
@@ -59,6 +61,62 @@ def main(argv: list[str] | None = None) -> int:
             print("metric name required", file=sys.stderr)
             return 2
         print(json.dumps(resolve_payload(" ".join(args[1:])), indent=2, default=str))
+        return 0
+    if cmd == "--parsing-health":
+        from financial_statements_engine.parsing.production import health as parsing_health
+
+        print(json.dumps(parsing_health(), indent=2, default=str))
+        return 0
+    if cmd == "--parsing-dashboard":
+        from financial_statements_engine.parsing.production import dashboard as parsing_dashboard
+
+        print(json.dumps(parsing_dashboard(), indent=2, default=str))
+        return 0
+    if cmd == "--parse-bytes":
+        from financial_statements_engine.parsing.production import parse_file
+
+        if len(args) < 2:
+            print("ticker required", file=sys.stderr)
+            return 2
+        ticker = args[1].upper()
+        fmt = "xbrl"
+        path = None
+        period_end = None
+        if "--format" in args:
+            i = args.index("--format")
+            if i + 1 < len(args):
+                fmt = args[i + 1]
+        if "--file" in args:
+            i = args.index("--file")
+            if i + 1 < len(args):
+                path = args[i + 1]
+        if "--period-end" in args:
+            i = args.index("--period-end")
+            if i + 1 < len(args):
+                period_end = args[i + 1]
+        if not path:
+            print("--file PATH required", file=sys.stderr)
+            return 2
+        print(
+            json.dumps(
+                parse_file(ticker, path, document_type=fmt, period_end=period_end, period_type="annual"),
+                indent=2,
+                default=str,
+            )
+        )
+        return 0
+    if cmd == "--schema-evolution-health":
+        from financial_statements_engine.schema_evolution.production import health as se_health
+
+        print(json.dumps(se_health(), indent=2, default=str))
+        return 0
+    if cmd == "--schema-resolve":
+        from financial_statements_engine.schema_evolution.production import resolve_payload as se_resolve
+
+        if len(args) < 2:
+            print("label required", file=sys.stderr)
+            return 2
+        print(json.dumps(se_resolve(" ".join(args[1:])), indent=2, default=str))
         return 0
 
     if cmd == "--collection-health":

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from financial_statements_engine.events import EVENT_TYPES as _SHARED_EVENTS
+
 WORKSTREAM_ID = "FSE-02"
 SUBSYSTEM = "collection"
 VERSION = "fse-02-v1.0.0"
@@ -31,15 +33,8 @@ DOCUMENT_TYPES = ("xbrl", "pdf", "html", "xlsx", "zip", "unknown")
 PERIOD_TYPES = ("annual", "quarterly", "unknown")
 MODES = ("live", "historical")
 
-EVENT_TYPES = (
-    "discovery.filing_found",
-    "discovery.filing_updated",
-    "evidence.stored",
-    "evidence.duplicate_skipped",
-    "evidence.restatement_candidate",
-    "collection.job_failed",
-    "collection.job_completed",
-)
+# Shared allow-list (collection + parse events)
+EVENT_TYPES = _SHARED_EVENTS
 
 RETRYABLE_HTTP = frozenset({408, 429, 500, 502, 503, 504})
 NON_RETRYABLE_HTTP = frozenset({400, 401, 403, 404, 410})

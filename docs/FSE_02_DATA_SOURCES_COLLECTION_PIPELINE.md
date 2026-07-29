@@ -21,7 +21,7 @@
 | FSE-01 | Architecture & Principles | What the architecture is |
 | **FSE-02** | **Data Sources & Collection Pipeline** | **How data enters the architecture** |
 | FSE-03 | [Canonical Financial Data Model & Schema](FSE_03_CANONICAL_FINANCIAL_DATA_MODEL.md) | Authoritative financial representation |
-| FSE-04 | Parsing & Normalization Engine | Extract → normalize |
+| FSE-04 | [Parsing & Normalization Engine](FSE_04_PARSING_NORMALIZATION_ENGINE.md) | Raw evidence → canonical statement drafts |
 | FSE-05 | Validation & Quality Engine | Quality gates |
 | FSE-06 | Versioning & Restatement Engine | History & revisions |
 | FSE-07 | Historical Backfill Engine | Depth after coverage |
