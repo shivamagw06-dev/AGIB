@@ -5,10 +5,10 @@ import { matchOutlookIndices } from '@/components/Home/homeTerminalData';
 
 function tone(sentiment) {
   const s = String(sentiment).toLowerCase();
-  if (s.includes('bull')) return { dot: 'bg-[#087443]', text: 'text-[#087443]', ring: 'border-[#087443]/20' };
-  if (s.includes('bear')) return { dot: 'bg-[#b42318]', text: 'text-[#b42318]', ring: 'border-[#b42318]/20' };
-  if (s.includes('sync')) return { dot: 'bg-[#9298a3]', text: 'text-[#5d6470]', ring: 'border-[#dfe3e8]' };
-  return { dot: 'bg-[#966a00]', text: 'text-[#966a00]', ring: 'border-[#966a00]/20' };
+  if (s.includes('bull')) return { dot: 'bg-[#087443]', text: 'text-[#087443]' };
+  if (s.includes('bear')) return { dot: 'bg-[#b42318]', text: 'text-[#b42318]' };
+  if (s.includes('sync')) return { dot: 'bg-[#9298a3]', text: 'text-[#5d6470]' };
+  return { dot: 'bg-[#966a00]', text: 'text-[#966a00]' };
 }
 
 function IndexChip({ item }) {
@@ -16,7 +16,7 @@ function IndexChip({ item }) {
   return (
     <Link
       to={item.path || '/market-intelligence'}
-      className={`group flex min-w-[118px] flex-col gap-0.5 border-r border-[#e6e8ec] px-4 py-2.5 last:border-r-0 hover:bg-white/70 transition-colors ${t.ring}`}
+      className="group flex min-w-[108px] flex-col gap-0.5 border-r border-[#e6e8ec] px-3.5 py-2.5 last:border-r-0 hover:bg-[#fafbfc] transition-colors"
     >
       <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.08em] text-[#5d6470]">
         <span className={`inline-block h-1.5 w-1.5 rounded-full ${t.dot}`} aria-hidden />
@@ -37,11 +37,11 @@ export default function MarketOutlookStrip() {
     Math.round(indices.reduce((sum, row) => sum + (row.score || 0), 0) / Math.max(1, indices.length));
 
   return (
-    <div className="border-b border-[#dfe3e8] bg-[#f4f6f8]/95 backdrop-blur-md">
+    <div className="border-b border-[#dfe3e8] bg-[#fafbfc]">
       <div className="mx-auto flex max-w-[1800px] items-stretch overflow-x-auto">
         <div className="hidden shrink-0 items-center border-r border-[#dfe3e8] bg-[#0b1f33] px-4 text-white md:flex">
           <div>
-            <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-white/60">AGIB Outlook</p>
+            <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-white/60">AGIB</p>
             <p className="text-[11px] font-semibold leading-tight">Market Strip</p>
           </div>
         </div>
@@ -52,7 +52,7 @@ export default function MarketOutlookStrip() {
           ))}
         </div>
 
-        <div className="hidden shrink-0 items-center gap-5 border-l border-[#dfe3e8] bg-white/80 px-4 lg:flex">
+        <div className="hidden shrink-0 items-center gap-5 border-l border-[#dfe3e8] bg-white px-4 lg:flex">
           <div>
             <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-[#767676]">Market Health</p>
             <p className="text-sm font-bold tabular-nums text-[#111111]">

@@ -5,31 +5,31 @@ const COLUMNS = [
   {
     title: 'Research',
     links: [
-      { label: 'Research Notes', to: '/sections/research-notes' },
-      { label: 'Markets', to: '/market-intelligence' },
-      { label: 'Companies', to: '/company-updates' },
-      { label: 'IPO', to: '/ipo-intelligence' },
-      { label: 'Global', to: '/global' },
+      { label: 'Research', to: '/sections/research-notes' },
+      { label: 'Markets', to: '/markets' },
+      { label: 'Company Intelligence', to: '/company-updates' },
+      { label: 'Morning Office', to: '/#morning-office' },
+      { label: 'Ask AGIB', to: '/ask' },
     ],
   },
   {
-    title: 'Product',
+    title: 'Platform',
     links: [
-      { label: 'About', to: '/about' },
-      { label: 'Pricing', to: '/#newsletter' },
-      { label: 'Newsletter', to: '/#newsletter' },
+      { label: 'Macro', to: '/macro-intelligence' },
+      { label: 'IPO', to: '/ipo-intelligence' },
+      { label: 'Global', to: '/global' },
       { label: 'API', to: '/contact' },
-      { label: 'Support', to: '/contact' },
+      { label: 'Documentation', to: '/contact' },
     ],
   },
   {
     title: 'Legal',
     links: [
-      { label: 'Terms', to: '/terms' },
+      { label: 'About', to: '/about' },
       { label: 'Privacy', to: '/privacy' },
+      { label: 'Terms', to: '/terms' },
       { label: 'Disclaimer', to: '/disclaimer' },
       { label: 'SEBI Disclosure', to: '/sebi-disclosure' },
-      { label: 'Contact', to: '/contact' },
     ],
   },
 ];
@@ -42,7 +42,7 @@ export default function Footer() {
           <div>
             <Logo compact className="mb-3 brightness-0 invert" />
             <p className="mt-3 max-w-sm text-xs leading-relaxed text-white/65">
-              AGIB institutional research terminal for Indian investors. Informational only — not investment advice.
+              AGIB institutional investment intelligence for professional investors. Informational research only — not investment advice.
             </p>
             <a
               href="https://www.linkedin.com"

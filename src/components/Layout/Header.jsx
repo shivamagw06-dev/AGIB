@@ -21,10 +21,14 @@ import ResearchSearch from '@/components/Search/ResearchSearch';
 
 const NAV = [
   { name: 'Home', path: '/' },
+  { name: 'Morning Office', path: '/#morning-office' },
+  { name: 'Research', path: '/sections/research-notes' },
   { name: 'Company Intelligence', path: '/company-updates' },
-  { name: 'Research Notes', path: '/sections/research-notes' },
+  { name: 'Markets', path: '/markets' },
+  { name: 'Macro', path: '/macro-intelligence' },
   { name: 'IPO', path: '/ipo-intelligence' },
   { name: 'Global', path: '/global' },
+  { name: 'Ask AGIB', path: '/ask' },
 ];
 
 export default function Header() {
@@ -72,13 +76,26 @@ export default function Header() {
 
   const isActive = (path) => {
     if (path === '/') return location.pathname === '/';
+    if (path.startsWith('/#')) return location.pathname === '/' && location.hash === path.slice(1);
     return location.pathname === path || location.pathname.startsWith(`${path}/`);
   };
 
   const go = (path) => {
-    navigate(path);
     setMobileOpen(false);
     setSearchOpen(false);
+    if (path.startsWith('/#')) {
+      const hash = path.slice(1);
+      if (location.pathname === '/') {
+        const el = document.querySelector(hash);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          return;
+        }
+      }
+      navigate({ pathname: '/', hash: hash.slice(1) });
+      return;
+    }
+    navigate(path);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -115,7 +132,7 @@ export default function Header() {
                   key={item.path}
                   type="button"
                   onClick={() => go(item.path)}
-                  className={`h-full px-3.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                  className={`h-full px-2.5 xl:px-3 text-[13px] font-medium border-b-2 transition-colors whitespace-nowrap ${
                     isActive(item.path)
                       ? 'text-[#111111] border-[#ff6600]'
                       : 'text-[#444444] border-transparent hover:text-[#111111] hover:border-[#cccccc]'

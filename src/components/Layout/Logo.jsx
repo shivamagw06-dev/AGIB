@@ -24,7 +24,7 @@ export default function Logo({ compact = false, className = '' }) {
             Agarwal Global Investments
           </span>
           <span className="text-[9px] tracking-wide text-[#767676] mt-0.5">
-            Independent Equity Research
+            Institutional Investment Intelligence
           </span>
         </span>
       )}
