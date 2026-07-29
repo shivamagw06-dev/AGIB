@@ -33,6 +33,11 @@ def status() -> dict[str, Any]:
             "frozen": True,
             "phase6": "execute GOV-001…GOV-008 against results/{release}/*.json",
         },
+        "recommendation_drift": {
+            "version": "recommendation-drift-v1.0.0",
+            "reason_codes": ["DATA", "MARKET", "MODEL", "GOVERNANCE", "BUGFIX", "UNKNOWN"],
+            "unknown_is_regression": True,
+        },
         "quality_targets": QUALITY_TARGETS,
         "freeze_locks": dict(FREEZE_LOCKS),
         "nightly_default": {"suite": "institutional_1000", "mode": "soft"},
@@ -195,6 +200,26 @@ def phase6_governance(
         except Exception as exc:
             report["persist_error"] = str(exc)[:160]
     return report
+
+
+def recommendation_drift(
+    *,
+    previous_release: str,
+    current_release: str,
+    governance_failures: int | None = None,
+    persist: bool = True,
+    hints: dict[str, str] | None = None,
+) -> dict[str, Any]:
+    """PR #308 — controlled, explainable recommendation drift across releases."""
+    from institutional_evaluation_lab.drift.production import compare_releases
+
+    return compare_releases(
+        previous_release=previous_release,
+        current_release=current_release,
+        governance_failures=governance_failures,
+        persist=persist,
+        hints=hints,
+    )
 
 
 def question(question_id: str) -> dict[str, Any] | None:
