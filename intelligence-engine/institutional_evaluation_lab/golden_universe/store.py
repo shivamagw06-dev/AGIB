@@ -71,8 +71,15 @@ def latest_path() -> Path:
     return _LATEST_PATH
 
 
-def ticker_result_payload(row: dict[str, Any], *, release_id: str, run_id: str | None = None) -> dict[str, Any]:
+def ticker_result_payload(
+    row: dict[str, Any],
+    *,
+    release_id: str,
+    run_id: str | None = None,
+    versions: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """Canonical per-ticker JSON written to results/{release}/{TICKER}.json."""
+    versions = versions or {}
     return {
         "ticker": row.get("ticker"),
         "company_name": row.get("company_name"),
@@ -80,6 +87,7 @@ def ticker_result_payload(row: dict[str, Any], *, release_id: str, run_id: str |
         "bucket": row.get("bucket"),
         "release_id": release_id,
         "run_id": run_id,
+        "status": row.get("status") or ("COMPLETED" if row.get("ok") else "FAILED"),
         "company_quality": row.get("company_quality"),
         "financial_quality": row.get("financial_quality"),
         "valuation": row.get("valuation"),
@@ -97,17 +105,71 @@ def ticker_result_payload(row: dict[str, Any], *, release_id: str, run_id: str |
         "gate_status": row.get("gate_status"),
         "evidence_class": row.get("evidence_class"),
         "runtime_ms": row.get("runtime_ms"),
+        "timing": row.get("timing") or {},
         "live_price": row.get("live_price"),
         "price_available": row.get("price_available"),
         "price_ltp": row.get("price_ltp"),
         "price_source": row.get("price_source"),
         "price_stale": row.get("price_stale"),
         "pack_present": row.get("pack_present"),
+        "knowledge_snapshot": row.get("knowledge_snapshot"),
+        "market_snapshot": row.get("market_snapshot"),
+        "failure": row.get("failure"),
         "qa_passed": row.get("qa_passed"),
         "qa": row.get("qa"),
         "pipeline": row.get("pipeline"),
+        "replay_inputs": row.get("replay_inputs"),
+        "versions": versions,
         "errors": row.get("errors") or [],
         "ok": row.get("ok"),
+    }
+
+
+def release_health(rows: list[dict[str, Any]], coverage: dict[str, Any] | None = None) -> dict[str, Any]:
+    """At-a-glance release quality metrics for _summary.json."""
+    n = len(rows)
+    completed = sum(1 for r in rows if str(r.get("status") or "").upper() == "COMPLETED" or r.get("ok"))
+    failed = n - completed
+    readiness = []
+    runtimes = []
+    evidence_conf = []
+    for r in rows:
+        if r.get("recommendation_readiness") is not None:
+            try:
+                readiness.append(float(r["recommendation_readiness"]))
+            except (TypeError, ValueError):
+                pass
+        t = (r.get("timing") or {}).get("total_ms")
+        if t is None:
+            t = r.get("runtime_ms")
+        if t is not None:
+            try:
+                runtimes.append(float(t))
+            except (TypeError, ValueError):
+                pass
+        # evidence confidence ≈ readiness when diagnostic gate not present
+        if r.get("recommendation_readiness") is not None:
+            try:
+                evidence_conf.append(float(r["recommendation_readiness"]) / 100.0)
+            except (TypeError, ValueError):
+                pass
+    cov = coverage or {}
+    gate_pass_rate = cov.get("gate_pass_rate_pct")
+    if gate_pass_rate is not None:
+        try:
+            gate_pass_rate = round(float(gate_pass_rate) / 100.0, 4)
+        except (TypeError, ValueError):
+            gate_pass_rate = None
+    return {
+        "companies": n,
+        "completed": completed,
+        "failed": failed,
+        "gate_pass_rate": gate_pass_rate,
+        "average_readiness": round((sum(readiness) / len(readiness)) / 100.0, 4) if readiness else None,
+        "average_runtime_ms": int(sum(runtimes) / len(runtimes)) if runtimes else None,
+        "average_evidence_confidence": round(sum(evidence_conf) / len(evidence_conf), 4)
+        if evidence_conf
+        else None,
     }
 
 
@@ -123,9 +185,15 @@ def save_release_results(summary: dict[str, Any]) -> dict[str, Any]:
             _summary.json
             _manifest.json
     """
+    from datetime import datetime, timezone
+
+    from institutional_evaluation_lab.golden_universe.schema import collect_version_metadata
+
     release = sanitize_release_id(str(summary.get("release_id") or summary.get("run_id") or "run"))
     out_dir = release_dir(release)
     out_dir.mkdir(parents=True, exist_ok=True)
+    versions = summary.get("versions") or collect_version_metadata()
+    timestamp = summary.get("timestamp") or datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
     written: list[str] = []
     rows = [r for r in (summary.get("rows") or []) if isinstance(r, dict) and r.get("ticker")]
@@ -136,20 +204,36 @@ def save_release_results(summary: dict[str, Any]) -> dict[str, Any]:
             row,
             release_id=release,
             run_id=summary.get("run_id"),
+            versions=versions,
         )
         path.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
         written.append(ticker)
 
+    market_snaps = [r.get("market_snapshot") for r in rows if r.get("market_snapshot")]
+    knowledge_snaps = [r.get("knowledge_snapshot") for r in rows if r.get("knowledge_snapshot")]
+    health = release_health(rows, summary.get("coverage"))
+
     manifest = {
         "release_id": release,
+        "timestamp": timestamp,
+        "git_commit": summary.get("commit"),
         "run_id": summary.get("run_id"),
-        "commit": summary.get("commit"),
+        "constitution_version": versions.get("constitution_version"),
+        "decision_engine_version": versions.get("decision_engine_version"),
+        "readiness_gate_version": versions.get("readiness_gate_version"),
+        "knowledge_snapshot": knowledge_snaps[0] if knowledge_snaps else None,
+        "market_snapshot": market_snaps[0] if market_snaps else None,
+        "golden_set_version": versions.get("golden_set_version"),
+        "golden_universe_version": versions.get("golden_universe_version"),
+        "golden_composition_sha256": versions.get("golden_composition_sha256"),
+        "runner_version": versions.get("runner_version"),
+        "eval_version": versions.get("eval_version") or summary.get("version"),
         "suite": summary.get("suite"),
-        "version": summary.get("version"),
         "n": len(written),
         "tickers": written,
         "results_dir": str(out_dir),
         "layout": "results/{release_id}/{TICKER}.json",
+        "health": health,
     }
     (out_dir / "_manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
 
@@ -158,8 +242,13 @@ def save_release_results(summary: dict[str, Any]) -> dict[str, Any]:
         for k, v in summary.items()
         if k not in {"rows", "drift_table"}
     }
+    light_summary["timestamp"] = timestamp
+    light_summary["versions"] = versions
     light_summary["results_dir"] = str(out_dir)
     light_summary["ticker_files"] = len(written)
+    light_summary.update(health)
+    # Keep nested health for consumers that prefer the block
+    light_summary["health"] = health
     (out_dir / "_summary.json").write_text(
         json.dumps(light_summary, indent=2, default=str), encoding="utf-8"
     )
@@ -171,6 +260,7 @@ def save_release_results(summary: dict[str, Any]) -> dict[str, Any]:
         "tickers": written,
         "manifest_path": str(out_dir / "_manifest.json"),
         "summary_path": str(out_dir / "_summary.json"),
+        "health": health,
     }
 
 

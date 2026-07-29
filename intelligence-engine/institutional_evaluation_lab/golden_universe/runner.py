@@ -19,9 +19,15 @@ from institutional_evaluation_lab.golden_universe.qa_governance import suite_qa_
 from institutional_evaluation_lab.golden_universe.recommendation_drift import (
     compare_recommendation_drift,
 )
-from institutional_evaluation_lab.golden_universe.schema import GOLDEN_EVAL_VERSION, PROGRAMME, SUITE_ID
+from institutional_evaluation_lab.golden_universe.schema import (
+    GOLDEN_EVAL_VERSION,
+    PROGRAMME,
+    SUITE_ID,
+    collect_version_metadata,
+)
 from institutional_evaluation_lab.golden_universe.scorecard import release_scorecard
 from institutional_evaluation_lab.golden_universe import store as golden_store
+from datetime import datetime, timezone
 
 
 def _git_commit() -> str | None:
@@ -107,13 +113,19 @@ def run_golden_evaluation(
         current_label=cur_label,
     )
 
+    versions = collect_version_metadata()
+    timestamp = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    health = golden_store.release_health(rows, coverage)
+
     summary: dict[str, Any] = {
         "run_id": run_id,
         "release_id": release,
+        "timestamp": timestamp,
         "commit": _git_commit(),
         "programme": PROGRAMME,
         "suite": SUITE_ID,
         "version": GOLDEN_EVAL_VERSION,
+        "versions": versions,
         "kind": "golden_universe_evaluation",
         "n": len(rows),
         "bucket_filter": bucket,
@@ -122,6 +134,14 @@ def run_golden_evaluation(
         "sector": sector,
         "buckets": buckets,
         "qa": qa,
+        "health": health,
+        "companies": health.get("companies"),
+        "completed": health.get("completed"),
+        "failed": health.get("failed"),
+        "gate_pass_rate": health.get("gate_pass_rate"),
+        "average_readiness": health.get("average_readiness"),
+        "average_runtime_ms": health.get("average_runtime_ms"),
+        "average_evidence_confidence": health.get("average_evidence_confidence"),
         "drift": {
             **{k: v for k, v in drift.items() if k != "rows"},
             "rows_sample": (drift.get("rows") or [])[:30],
@@ -172,5 +192,6 @@ def health() -> dict[str, Any]:
             "PR307": "phase6_governance_tests_against_results",
             "PR308": "recommendation_drift_across_releases",
             "PR309": "institutional_scorecard_dashboard",
+            "PR310": "continuous_evaluation_ci",
         },
     }

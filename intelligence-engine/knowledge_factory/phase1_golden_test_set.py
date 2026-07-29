@@ -13,13 +13,19 @@ decision-engine, and evaluation-lab regression — not a claim of live coverage.
 
 from __future__ import annotations
 
+import hashlib
 from typing import Any
 
 from app.kc.universes import NIFTY_50 as _KC_NIFTY_50
 from app.kc.universes import NIFTY_NEXT_50 as _KC_NIFTY_NEXT_50
 
 PHASE1_VERSION = "phase1-golden-test-set-v1.0.0"
+# Human-facing frozen benchmark tag — bump only via an explicit v1.1 module/PR.
+GOLDEN_UNIVERSE_VERSION = "v1.0"
+FROZEN = True
 PHASE1_TARGET_N = 200
+# Pin composition — silently editing v1.0 tickers must fail validation/tests.
+FROZEN_COMPOSITION_SHA256 = "776b04f31bf754b25d8b281f8e352871db03ff73a3664a52723a514a0f3b5a26"
 
 BUCKETS = (
     "nifty_50",
@@ -264,6 +270,12 @@ PHASE1_GOLDEN_ROWS: list[dict[str, Any]] = all_rows()
 PHASE1_GOLDEN_200: tuple[str, ...] = tuple(r["ticker"] for r in PHASE1_GOLDEN_ROWS)
 
 
+def composition_fingerprint(tickers_seq: tuple[str, ...] | list[str] | None = None) -> str:
+    """Stable SHA-256 over the ordered ticker list — freeze guard for v1.0."""
+    seq = tuple(tickers_seq) if tickers_seq is not None else PHASE1_GOLDEN_200
+    return hashlib.sha256("\n".join(seq).encode("utf-8")).hexdigest()
+
+
 def tickers(*, bucket: str | None = None) -> tuple[str, ...]:
     if not bucket:
         return PHASE1_GOLDEN_200
@@ -297,8 +309,12 @@ def summary() -> dict[str, Any]:
     buckets = by_bucket()
     counts = {b: len(buckets.get(b) or []) for b in BUCKETS}
     sectors = by_sector()
+    fp = composition_fingerprint()
     return {
         "version": PHASE1_VERSION,
+        "golden_universe_version": GOLDEN_UNIVERSE_VERSION,
+        "frozen": FROZEN,
+        "composition_sha256": fp,
         "programme": "AGIB_PHASE1_GOLDEN_TEST_SET",
         "target_n": PHASE1_TARGET_N,
         "n": len(PHASE1_GOLDEN_ROWS),
@@ -315,8 +331,9 @@ def summary() -> dict[str, Any]:
         "sectors": {k: len(v) for k, v in sorted(sectors.items())},
         "tickers": list(PHASE1_GOLDEN_200),
         "note": (
-            "Benchmark universe for institutional evaluation — broad sector and "
-            "company-profile coverage. Membership is not a claim of evidence completeness."
+            f"Frozen benchmark {GOLDEN_UNIVERSE_VERSION} — do not silently edit composition. "
+            "Ship an explicit v1.1 (new version + fingerprint) to change membership. "
+            "Membership is not a claim of evidence completeness."
         ),
     }
 
@@ -344,8 +361,15 @@ def validate_universe() -> dict[str, Any]:
             hit = sorted(sets[a] & sets[b])
             if hit:
                 overlaps.append(f"{a}∩{b}:{','.join(hit[:8])}")
+    fp = composition_fingerprint()
+    frozen_ok = (not FROZEN) or fp == FROZEN_COMPOSITION_SHA256
     return {
         "version": PHASE1_VERSION,
+        "golden_universe_version": GOLDEN_UNIVERSE_VERSION,
+        "frozen": FROZEN,
+        "composition_sha256": fp,
+        "frozen_composition_sha256": FROZEN_COMPOSITION_SHA256,
+        "frozen_ok": frozen_ok,
         "n": len(rows),
         "unique": len(set(tickers_list)),
         "duplicates": dupes,
@@ -356,5 +380,9 @@ def validate_universe() -> dict[str, Any]:
             and not dupes
             and all(bucket_ok.values())
             and not overlaps
+            and frozen_ok
+        ),
+        "immutability_note": (
+            "Golden Universe v1.0 is frozen. Create Golden Universe v1.1 for composition changes."
         ),
     }

@@ -155,6 +155,14 @@ def golden_load_release(release_id: str) -> dict[str, Any]:
     }
 
 
+def golden_replay(*, release_id: str, ticker: str | None = None, limit: int | None = None) -> dict[str, Any]:
+    from institutional_evaluation_lab.replay.engine import replay_release, replay_ticker
+
+    if ticker:
+        return replay_ticker(release_id=release_id, ticker=ticker)
+    return replay_release(release_id=release_id, limit=limit)
+
+
 def question(question_id: str) -> dict[str, Any] | None:
     return get_question(question_id)
 

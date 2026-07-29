@@ -9771,6 +9771,22 @@ async def institutional_evaluation_lab_golden_release(release_id: str):
     return row
 
 
+@router.post("/institutional-evaluation-lab/golden/replay")
+async def institutional_evaluation_lab_golden_replay(payload: dict[str, Any] = Body(default={})):
+    """Deterministic replay of a stored release result (regression if mismatch)."""
+    from institutional_evaluation_lab.production import golden_replay
+
+    body = payload or {}
+    release_id = str(body.get("release_id") or body.get("release") or "").strip()
+    if not release_id:
+        raise HTTPException(status_code=400, detail="release_id_required")
+    return golden_replay(
+        release_id=release_id,
+        ticker=body.get("ticker"),
+        limit=body.get("limit"),
+    )
+
+
 @router.get("/institutional-evaluation-lab/question/{question_id}")
 async def institutional_evaluation_lab_question(question_id: str):
     from institutional_evaluation_lab.production import question

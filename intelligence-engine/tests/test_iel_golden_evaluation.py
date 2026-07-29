@@ -104,6 +104,32 @@ def test_extract_metrics_shape():
     assert row["decision"] in {"Constructive", "High Conviction"}
 
 
+def test_structured_failure_shareholding_missing():
+    from institutional_evaluation_lab.golden_universe.failures import classify_failure
+
+    fail = classify_failure(
+        pack_present=True,
+        price_pkg={"snapshot": {"ltp": 100}},
+        cid={},
+        company_analysis={},
+        ide_pkg={
+            "institutional_readiness_gate": {
+                "status": "FAILED",
+                "missing": ["Shareholding"],
+                "diagnostic_cards": [
+                    {"key": "ownership", "present": False, "label": "Current shareholding"}
+                ],
+            }
+        },
+        metrics={"gate": "FAIL"},
+        errors=[],
+    )
+    assert fail is not None
+    assert fail["reason"] == "SHAREHOLDING_MISSING"
+    assert fail["stage"] == "Ownership Intelligence"
+    assert fail["retryable"] is True
+
+
 def test_qa_blocks_high_conviction_on_low_readiness():
     bad = {
         "ticker": "PAYTM",
@@ -233,27 +259,61 @@ def test_run_golden_evaluation_smoke(monkeypatch, tmp_path):
     assert out["rows"][0]["pipeline"]["decision_engine"] is True
 
     # Primary PR #306 artifact: results/PR306/{TICKER}.json
+    import json
     from pathlib import Path
 
     from institutional_evaluation_lab.golden_universe import store as golden_store
+    from institutional_evaluation_lab.replay.engine import replay_ticker
 
     results = out["results"]
     results_dir = Path(results["results_dir"])
     assert results_dir.name == "PR306"
     assert (results_dir / "_manifest.json").exists()
     assert (results_dir / "_summary.json").exists()
+    manifest = json.loads((results_dir / "_manifest.json").read_text())
+    assert manifest["release_id"] == "PR306"
+    assert manifest["timestamp"]
+    assert manifest["git_commit"] or manifest["git_commit"] is None
+    assert manifest["constitution_version"] == "v1.4"
+    assert manifest["decision_engine_version"]
+    assert manifest["golden_universe_version"] == "v1.0"
+    assert manifest["runner_version"] == "1.0.0"
+    assert "health" in manifest
+    summary_disk = json.loads((results_dir / "_summary.json").read_text())
+    assert summary_disk["companies"] == 5
+    assert "completed" in summary_disk
+    assert "average_runtime_ms" in summary_disk
+    assert "gate_pass_rate" in summary_disk
+
     ticker_files = sorted(p.name for p in results_dir.glob("*.json") if not p.name.startswith("_"))
     assert len(ticker_files) == 5
     sample = ticker_files[0]
-    payload = __import__("json").loads((results_dir / sample).read_text())
+    payload = json.loads((results_dir / sample).read_text())
     assert payload["ticker"] == sample.replace(".json", "")
     assert "recommendation_readiness" in payload
     assert "decision" in payload
     assert "runtime_ms" in payload
+    assert "timing" in payload
+    assert "company_pack_ms" in payload["timing"]
+    assert "groww_price_ms" in payload["timing"]
+    assert "decision_engine_ms" in payload["timing"]
+    assert "total_ms" in payload["timing"]
     assert "gate" in payload
+    assert payload.get("status") in {"COMPLETED", "FAILED"}
+    if payload["status"] == "FAILED":
+        assert payload.get("failure", {}).get("reason")
     loaded = golden_store.load_release_results("PR306")
     assert loaded is not None
     assert loaded["n"] == 5
+
+    # Deterministic replay with stored price snapshot + same IDE stub
+    replay = replay_ticker(
+        release_id="PR306",
+        ticker=payload["ticker"],
+        ide_runner=_fake_ide,
+    )
+    assert replay["ok"] is True
+    assert replay["regression"] is False
 
     # Second run vs baseline → drift report
     out2 = run_golden_evaluation(
