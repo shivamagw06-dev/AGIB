@@ -13,12 +13,6 @@ from pathlib import Path
 from typing import Any
 
 _LOCK = threading.Lock()
-_DEFAULT = Path(
-    os.environ.get(
-        "LIDI_STORE_ROOT",
-        str(Path(__file__).resolve().parents[1] / "data" / "live_data"),
-    )
-)
 
 _HEALTH: dict[str, dict[str, Any]] = {}
 _VALIDATION_LOG: list[dict[str, Any]] = []
@@ -39,7 +33,14 @@ def utc_now() -> str:
 
 
 def store_root() -> Path:
-    root = Path(os.environ.get("LIDI_STORE_ROOT", str(_DEFAULT)))
+    raw = (os.environ.get("LIDI_STORE_ROOT") or "").strip()
+    if not raw:
+        kip = (os.environ.get("KIP_DATA_DIR") or "").strip()
+        if kip:
+            raw = str(Path(kip) / "live_data")
+        else:
+            raw = str(Path(__file__).resolve().parents[1] / "data" / "live_data")
+    root = Path(raw)
     for sub in ("raw", "validated", "snapshots", "objects", "packs", "files", "reports", "health"):
         (root / sub).mkdir(parents=True, exist_ok=True)
     return root
@@ -47,9 +48,16 @@ def store_root() -> Path:
 
 def _write(path: Path, payload: dict[str, Any] | list[Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    tmp.write_text(json.dumps(payload, indent=2, default=str, sort_keys=True), encoding="utf-8")
-    tmp.replace(path)
+    try:
+        from institutional_data.persistence.atomic import atomic_write_json, file_lock
+
+        with file_lock(path):
+            atomic_write_json(path, payload)
+        return
+    except Exception:
+        tmp = path.with_suffix(path.suffix + ".tmp")
+        tmp.write_text(json.dumps(payload, indent=2, default=str, sort_keys=True), encoding="utf-8")
+        tmp.replace(path)
 
 
 def _read(path: Path) -> dict[str, Any] | None:

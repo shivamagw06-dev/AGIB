@@ -38,9 +38,16 @@ def _now() -> str:
 
 
 def _write_json(path: Path, payload: Any) -> None:
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    tmp.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
-    tmp.replace(path)
+    try:
+        from institutional_data.persistence.atomic import atomic_write_json, file_lock
+
+        with file_lock(path):
+            atomic_write_json(path, payload)
+        return
+    except Exception:
+        tmp = path.with_suffix(path.suffix + ".tmp")
+        tmp.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
+        tmp.replace(path)
 
 
 def _read_json(path: Path, default: Any = None) -> Any:

@@ -51,13 +51,16 @@ def collect_entity_history(entity: str, *, prefer_live: bool | None = None) -> d
     # with short fixture panels on a second write — put_series won't overwrite keys, but
     # fixture periods differ so they would inflate counts incorrectly).
     live_ok = bool(live_row and live_row.get("status") in {"ok", "degraded"} and (live_row.get("price_points") or 0) > 0)
-    if not live_ok:
+    env = (os.getenv("APP_ENV") or os.getenv("AGIB_ENV") or "").strip().lower()
+    allow_fixture_seed = env not in {"production", "prod"}
+    if not live_ok and allow_fixture_seed:
         hd_store.put_series("financials_annual", e, annual)
         hd_store.put_series("prices", e, prices)
         hd_store.put_series("corporate_actions", e, actions)
-    # Quarterly + timeline often absent from Yahoo chart — always merge fixtures for depth demos
-    # unless explicitly disabled.
-    if str(os.getenv("KF_HD_FIXTURE_QUARTERLY", "true")).lower() in {"1", "true", "yes", "on"}:
+    # Production: never pad with fixture quarterlies. Dev/tests may opt-in.
+    env = (os.getenv("APP_ENV") or os.getenv("AGIB_ENV") or "").strip().lower()
+    fixture_default = "false" if env in {"production", "prod"} else "true"
+    if str(os.getenv("KF_HD_FIXTURE_QUARTERLY", fixture_default)).lower() in {"1", "true", "yes", "on"}:
         hd_store.put_series("financials_quarterly", e, quarterly)
         hd_store.put_series("timeline", e, timeline)
 
