@@ -115,9 +115,11 @@ def test_soft_missing_does_not_block_when_hard_data_verified(monkeypatch):
             )
         ],
     )
+    # Soft presentations may be absent — IR docs fixture still satisfies hard ir_docs
     record_attempt("INFY", "_wave", status="complete")
     # No presentations / transcripts on purpose — soft only
     ev = evaluate_completion("INFY", target_years=10)
+    assert ev["dimensions"]["ir_docs"]["status"] == "complete"
     assert ev["hard_ok"] is True
     assert ev["dimensions"]["investor_presentations"]["status"] in {"missing", "n_a"}
     assert ev["complete"] is True
