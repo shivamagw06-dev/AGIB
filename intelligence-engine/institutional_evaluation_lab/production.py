@@ -14,12 +14,20 @@ from institutional_evaluation_lab import store
 
 def status() -> dict[str, Any]:
     stats = catalog_stats()
+    golden = None
+    try:
+        from institutional_evaluation_lab.golden_universe.runner import health as golden_health
+
+        golden = golden_health()
+    except Exception:
+        golden = {"status": "unavailable"}
     return {
         "module": MODULE_CODE,
         "version": IEL_VERSION,
         "programme": PROGRAMME,
         "status": "ready",
         "catalogue": stats,
+        "golden_universe_evaluation": golden,
         "quality_targets": QUALITY_TARGETS,
         "freeze_locks": dict(FREEZE_LOCKS),
         "nightly_default": {"suite": "institutional_1000", "mode": "soft"},
@@ -54,6 +62,70 @@ def phase1_golden_universe() -> dict[str, Any]:
     from institutional_evaluation_lab.datasets.phase1_golden_universe import universe_board
 
     return universe_board()
+
+
+def golden_evaluation_health() -> dict[str, Any]:
+    from institutional_evaluation_lab.golden_universe.runner import health
+
+    return health()
+
+
+def run_golden_evaluation(
+    *,
+    limit: int | None = None,
+    bucket: str | None = None,
+    force_price_refresh: bool = False,
+    persist: bool = True,
+    persist_baseline: bool = False,
+    compare_previous: bool = True,
+    release_id: str | None = None,
+) -> dict[str, Any]:
+    """Evaluation Runner — full institutional pipeline over Phase 1 golden universe."""
+    from institutional_evaluation_lab.golden_universe.runner import run_golden_evaluation as _run
+
+    return _run(
+        limit=limit,
+        bucket=bucket,
+        force_price_refresh=force_price_refresh,
+        persist=persist,
+        persist_baseline=persist_baseline,
+        compare_previous=compare_previous,
+        release_id=release_id,
+    )
+
+
+def golden_scorecard() -> dict[str, Any]:
+    from institutional_evaluation_lab.golden_universe import store as golden_store
+
+    latest = golden_store.load_latest()
+    if not latest:
+        return {"found": False, "note": "No golden evaluation run yet."}
+    return {
+        "found": True,
+        "scorecard": latest.get("scorecard"),
+        "coverage": latest.get("coverage"),
+        "run_id": latest.get("run_id"),
+        "release_id": latest.get("release_id"),
+    }
+
+
+def golden_drift_report() -> dict[str, Any]:
+    from institutional_evaluation_lab.golden_universe import store as golden_store
+    from institutional_evaluation_lab.golden_universe.recommendation_drift import (
+        compare_recommendation_drift,
+    )
+
+    latest = golden_store.load_latest()
+    baseline = golden_store.load_baseline()
+    if not latest:
+        return {"found": False, "note": "No latest golden run."}
+    drift = compare_recommendation_drift(
+        latest.get("rows") or [],
+        (baseline or {}).get("rows") if baseline else None,
+        previous_label=str((baseline or {}).get("release_id") or "previous"),
+        current_label=str(latest.get("release_id") or "current"),
+    )
+    return {"found": True, "drift": drift, "baseline_run_id": (baseline or {}).get("run_id")}
 
 
 def question(question_id: str) -> dict[str, Any] | None:
