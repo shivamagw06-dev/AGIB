@@ -3437,5 +3437,78 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // IIEX — Institutional Intelligence Examination (CIO assessment)
+  router.get('/iiex/health', kfGet('/v1/iiex/health'));
+  router.get('/iiex/dashboard', kfGet('/v1/iiex/dashboard'));
+  router.get('/iiex/questions', kfGet('/v1/iiex/questions'));
+  router.get('/iiex/report', kfGet('/v1/iiex/report'));
+  router.get('/iiex/grades', kfGet('/v1/iiex/grades'));
+  router.get('/iiex/history', kfGet('/v1/iiex/history'));
+  router.get('/institutional-intelligence-examination/health', kfGet('/v1/institutional-intelligence-examination/health'));
+  router.get('/institutional-intelligence-examination/dashboard', kfGet('/v1/institutional-intelligence-examination/dashboard'));
+  router.post('/iiex/run', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/iiex/run', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'IIEX unavailable', detail: error.message });
+    }
+  });
+
+  // MKFI — Market Forecast Intelligence
+  router.get('/mkfi/health', kfGet('/v1/mkfi/health'));
+  router.get('/mkfi/dashboard', kfGet('/v1/mkfi/dashboard'));
+  router.get('/market/forecast', kfGet('/v1/market/forecast'));
+  router.get('/market/forecast/dashboard', kfGet('/v1/market/forecast/dashboard'));
+
+  // Live status for public/admin surfaces (soft — never hard-fails the site)
+  router.get('/live-status', async (_req, res) => {
+    const out = {
+      ok: true,
+      surface: 'live-status',
+      generated_at: new Date().toISOString(),
+      gateway: 'agi-node',
+      engine: { ok: false },
+      stack: null,
+      iiex: null,
+      mkfi: null,
+      providers_queried: [],
+    };
+    try {
+      const health = await engineFetch('/v1/health');
+      out.engine = {
+        ok: health.status < 400 && Boolean(health.data?.ok || health.data?.status === 'ok'),
+        status: health.status,
+        service: health.data?.service,
+      };
+    } catch (error) {
+      out.engine = { ok: false, error: String(error.message || error).slice(0, 160) };
+    }
+    if (out.engine.ok) {
+      try {
+        const stack = await engineFetch('/v1/system/intelligence-stack');
+        out.stack = stack.data;
+      } catch {
+        out.stack = null;
+      }
+      try {
+        const iiex = await engineFetch('/v1/iiex/health');
+        out.iiex = iiex.data;
+      } catch {
+        out.iiex = null;
+      }
+      try {
+        const mkfi = await engineFetch('/v1/mkfi/health');
+        out.mkfi = mkfi.data;
+      } catch {
+        out.mkfi = null;
+      }
+    }
+    return res.status(200).json(out);
+  });
+
   return router;
 }

@@ -482,42 +482,46 @@ export default function createUiRouter() {
   }
 
   router.post('/search', async (req, res) => {
-    try {
-      const question = req.body?.question || req.query.question;
-      const ticker = req.body?.ticker || req.query.ticker;
-      if (!question) {
-        return res.status(400).json({ error: 'question is required' });
+    const question = req.body?.question || req.query.question;
+    const ticker = req.body?.ticker || req.query.ticker;
+    if (!question) {
+      return res.status(400).json({ error: 'question is required' });
+    }
+
+    const serveFallback = async (detail) => {
+      try {
+        const { buildAskDeskFallback } = await import('../services/askDeskFallback.js');
+        const pack = await buildAskDeskFallback(question);
+        pack.detail = detail;
+        // Best-effort wake for the next client retry.
+        engineFetch('/v1/health', { timeoutMs: 8_000 }).catch(() => {});
+        return res.status(200).json(pack);
+      } catch (fallbackError) {
+        return res.status(503).json({
+          error: 'research_desk_unavailable',
+          retryable: true,
+          detail: detail || fallbackError.message,
+        });
       }
+    };
+
+    try {
       const qs = new URLSearchParams({ question: String(question) });
       if (ticker) qs.set('ticker', String(ticker));
       const path = `/v1/ui/search?${qs.toString()}`;
-      // Keep under Render free-tier request budgets (~50s). Client retries a fresh request.
+      // Keep under Render request budgets. Client may retry a fresh request.
       const result = await engineFetch(path, {
         method: 'POST',
         timeoutMs: 90_000,
       });
       const html502 =
         typeof result.data?.raw === 'string' && result.data.raw.trim().startsWith('<');
-      if (html502 || result.status === 502 || result.status === 503) {
-        // Best-effort wake so the client's automatic retry hits a warm engine.
-        try {
-          await engineFetch('/v1/health', { timeoutMs: 12_000 });
-        } catch {
-          /* wake best-effort */
-        }
-        return res.status(503).json({
-          error: 'research_desk_unavailable',
-          retryable: true,
-          detail: 'Intelligence engine timed out or restarted. Please try again.',
-        });
+      if (html502 || result.status === 502 || result.status === 503 || result.status >= 500) {
+        return serveFallback('Intelligence engine timed out or restarted — serving Node desk fallback.');
       }
       return res.status(result.status).json(result.data);
     } catch (error) {
-      return res.status(503).json({
-        error: 'research_desk_unavailable',
-        retryable: true,
-        detail: error.message,
-      });
+      return serveFallback(error.message);
     }
   });
 

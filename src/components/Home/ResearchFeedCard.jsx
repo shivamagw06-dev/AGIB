@@ -22,6 +22,7 @@ function ChipList({ items }) {
 export default function ResearchFeedCard({ article, index = 0 }) {
   const row = enrichResearchCard(article);
   if (!row) return null;
+  const href = row.href || (row.slug ? `/article/${row.slug}` : '/research');
 
   return (
     <article
@@ -40,7 +41,7 @@ export default function ResearchFeedCard({ article, index = 0 }) {
       </div>
 
       <h3 className="font-serif text-xl md:text-[1.35rem] font-bold leading-snug text-[#111111]">
-        <Link to={`/article/${row.slug}`} className="hover:underline decoration-[#ff6600] underline-offset-4">
+        <Link to={href} className="hover:underline decoration-[#ff6600] underline-offset-4">
           {row.title}
         </Link>
       </h3>
@@ -81,7 +82,7 @@ export default function ResearchFeedCard({ article, index = 0 }) {
           </span>
         </div>
         <Link
-          to={`/article/${row.slug}`}
+          to={href}
           className="inline-flex items-center gap-1 text-xs font-bold text-[#0b1f33] group-hover:text-[#ff6600] transition-colors"
         >
           Read <ArrowRight className="h-3.5 w-3.5" />
