@@ -51,10 +51,15 @@ Schedules (IST):
 | `CONTINUOUS_FAA_REFRESH` | `true` | FAA refresh in post-market/overnight |
 | `CONTINUOUS_LEARNING_LOOP` | `true` | FVL/FLE/ILO/CAL cycle |
 | `CONTINUOUS_DIRECTOR_LEARNING` | `true` | Inject memory into ResearchDirector |
-| `CONTINUOUS_HISTORICAL_BACKFILL` | `true` | Resumable Yahoo→HD batch backfill (post/overnight) |
+| `CONTINUOUS_HISTORICAL_BACKFILL` | `true` | Resumable Yahoo→HD batch backfill |
+| `CONTINUOUS_BACKFILL_UNTIL_COMPLETE` | `true` | Keep draining until remaining=0, then maintenance |
+| `CONTINUOUS_BACKFILL_ACTIVE_INTERVAL_SEC` | `300` | Faster CGL interval while backlog remains |
 | `KF_HD_LIVE_COLLECTORS` | `true` | Live Yahoo OHLCV / corporate actions into HD |
-| `KF_HD_BACKFILL_BATCH` | `12` | Entities processed per backfill cycle |
+| `KF_HD_BACKFILL_BATCH` | `12` | Entities processed per backfill batch |
+| `KF_HD_BACKFILL_BATCHES_PER_CYCLE` | `3` | Batches drained per CGL wake |
 | `KF_HD_TARGET_YEARS` | `15` | Completion threshold for an entity |
+
+See also: [AGIB_CONTINUOUS_BACKFILL_UNTIL_COMPLETE.md](./AGIB_CONTINUOUS_BACKFILL_UNTIL_COMPLETE.md).
 | `FAA_BACKGROUND_COLLECTOR` | `true` | Dedicated FAA thread (limit 2 / 900s) |
 | `ASK_SLIM` | `true` | Ask still skips heavy live fan-out |
 | `AIL_LIVE_FAA` | `false` | Ask never calls unbound FAA acquire |

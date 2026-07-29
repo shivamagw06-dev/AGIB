@@ -339,13 +339,27 @@ export default function MissionControl() {
                 hint="Durable FVL/ILO archive"
               />
               <Stat
-                label="Historical Coverage"
+                label="Listed Universe"
+                value={continuousGatherLearn.current_listed_universe ?? continuousGatherLearn.total_companies ?? '—'}
+                hint={`Covered ${continuousGatherLearn.covered_companies ?? continuousGatherLearn.companies_fully_backfilled ?? '—'}`}
+              />
+              <Stat
+                label="Coverage %"
                 value={
                   continuousGatherLearn.historical_coverage_pct != null
                     ? `${continuousGatherLearn.historical_coverage_pct}%`
                     : '—'
                 }
-                hint="vs 20y completeness target"
+                hint="Living universe — never permanently finished"
+              />
+              <Stat
+                label="Hard / Soft"
+                value={
+                  continuousGatherLearn.hard_coverage_pct != null
+                    ? `${continuousGatherLearn.hard_coverage_pct}% / ${continuousGatherLearn.soft_coverage_pct ?? '—'}%`
+                    : '—'
+                }
+                hint="Hard gates maintenance; soft is richness"
               />
               <Stat
                 label="Avg History / Co"
@@ -357,41 +371,266 @@ export default function MissionControl() {
                 hint="Price + annual depth"
               />
               <Stat
-                label="Fully Backfilled"
-                value={continuousGatherLearn.companies_fully_backfilled ?? '—'}
-                hint={`Backlog ${continuousGatherLearn.remaining_backlog ?? '—'}`}
+                label="Queue Length"
+                value={continuousGatherLearn.queue_length ?? continuousGatherLearn.remaining_backlog ?? '—'}
+                hint={`Today ${continuousGatherLearn.companies_processed_today ?? 0} · ready for new listings`}
               />
               <Stat
-                label="IR Documents"
-                value={continuousGatherLearn.documents_downloaded ?? '—'}
-                hint={`AR ${continuousGatherLearn.annual_reports ?? 0} · QR ${continuousGatherLearn.quarterly_results ?? 0}`}
+                label="New / IPO / Delist"
+                value={`${continuousGatherLearn.new_listings_count ?? 0} / ${continuousGatherLearn.pending_ipos_count ?? 0} / ${continuousGatherLearn.delisted_count ?? 0}`}
+                hint="Auto-enqueue on IPO list"
               />
               <Stat
-                label="Collector Success"
+                label="Embeddings"
+                value={continuousGatherLearn.embeddings_total ?? '—'}
+                hint={`Extracts ${continuousGatherLearn.knowledge_extracts_total ?? continuousGatherLearn.metrics?.knowledge_extracts_total ?? '—'} · Docs ${continuousGatherLearn.documents_downloaded ?? '—'}`}
+              />
+              <Stat
+                label="Backfill Mode"
                 value={
-                  continuousGatherLearn.collector_success_rate != null
-                    ? `${continuousGatherLearn.collector_success_rate}%`
-                    : '—'
+                  continuousGatherLearn.maintenance_only
+                    ? 'maintenance'
+                    : continuousGatherLearn.backfill_mode || (continuousGatherLearn.continues_until_complete ? 'deep' : '—')
                 }
+                status={continuousGatherLearn.maintenance_only ? 'healthy' : 'warn'}
                 hint={
                   continuousGatherLearn.estimated_completion_days != null
                     ? `ETA ~${continuousGatherLearn.estimated_completion_days}d`
-                    : 'LIDI + KF HD + backfill'
+                    : 'Queue always ready'
                 }
               />
             </div>
+            {Array.isArray(continuousGatherLearn.company_scorecards) && continuousGatherLearn.company_scorecards.length > 0 ? (
+              <Glass className="overflow-x-auto">
+                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--io-caption)]">
+                  Knowledge density · Hard / Soft / Overall
+                </p>
+                <table className="w-full min-w-[640px] text-left text-xs text-[var(--io-ink)]">
+                  <thead className="text-[var(--io-muted)]">
+                    <tr>
+                      <th className="py-1 pr-3 font-medium">Company</th>
+                      <th className="py-1 pr-3 font-medium">Years</th>
+                      <th className="py-1 pr-3 font-medium">Hard</th>
+                      <th className="py-1 pr-3 font-medium">Soft</th>
+                      <th className="py-1 pr-3 font-medium">Overall</th>
+                      <th className="py-1 pr-3 font-medium">Docs</th>
+                      <th className="py-1 pr-3 font-medium">Extracts</th>
+                      <th className="py-1 pr-3 font-medium">Embeds</th>
+                      <th className="py-1 font-medium">Density</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {continuousGatherLearn.company_scorecards.slice(0, 8).map((row) => (
+                      <tr key={row.company} className="border-t border-[var(--io-line)]/40">
+                        <td className="py-1.5 pr-3 font-semibold">{row.company}</td>
+                        <td className="py-1.5 pr-3">{row.years ?? '—'}</td>
+                        <td className="py-1.5 pr-3">{row.hard_pct != null ? `${row.hard_pct}%` : '—'}</td>
+                        <td className="py-1.5 pr-3">{row.soft_pct != null ? `${row.soft_pct}%` : '—'}</td>
+                        <td className="py-1.5 pr-3">{row.overall_pct != null ? `${row.overall_pct}%` : '—'}</td>
+                        <td className="py-1.5 pr-3">{row.documents ?? '—'}</td>
+                        <td className="py-1.5 pr-3">{row.extracts ?? '—'}</td>
+                        <td className="py-1.5 pr-3">{row.embeddings ?? '—'}</td>
+                        <td className="py-1.5">{row.density ?? '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </Glass>
+            ) : null}
             <Glass className="text-xs text-[var(--io-muted)]">
               <p>
-                Autonomous loop: Collect → Validate → Clean → Store → Extract → Update knowledge →
-                Signals → Evaluate forecasts → Learn → Update confidence → Archive. Ask-isolated · no LLM retrain.
+                Living universe: backlog may be empty but is never retired — new IPOs/listings auto-enqueue and
+                reopen deep backfill. Soft gaps (transcripts, ESG) do not permanently mark a company incomplete.
               </p>
               <p className="mt-1 text-[11px] text-[var(--io-caption)]">
                 Freshness LIDI {continuousGatherLearn.freshness?.lidi || '—'} · KF HD{' '}
-                {continuousGatherLearn.freshness?.kf_hd || '—'} · Cycles{' '}
-                {continuousGatherLearn.metrics?.cycles_total ?? '—'} · Growth/day{' '}
-                {continuousGatherLearn.historical_growth_per_day ?? '—'} cos
+                {continuousGatherLearn.freshness?.kf_hd || '—'} · Remaining{' '}
+                {continuousGatherLearn.companies_remaining ?? continuousGatherLearn.remaining_backlog ?? '—'} ·
+                Collector success{' '}
+                {continuousGatherLearn.collector_success_rate != null
+                  ? `${continuousGatherLearn.collector_success_rate}%`
+                  : '—'}
               </p>
             </Glass>
+
+            {continuousGatherLearn.ops ? (
+              <div className="space-y-3 pt-1">
+                <Kicker>Historical Ops · Validate under load</Kicker>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <Stat
+                    label="Completed Today"
+                    value={continuousGatherLearn.ops.backfill_throughput?.companies_completed_today ?? '—'}
+                    hint={`Years added ${continuousGatherLearn.ops.backfill_throughput?.average_years_added_today ?? '—'}`}
+                  />
+                  <Stat
+                    label="Docs / Extracts Today"
+                    value={`${continuousGatherLearn.ops.backfill_throughput?.documents_downloaded_today ?? 0} / ${continuousGatherLearn.ops.backfill_throughput?.knowledge_extracts_today ?? 0}`}
+                    hint="Throughput"
+                  />
+                  <Stat
+                    label="ETA"
+                    value={
+                      continuousGatherLearn.ops.backfill_throughput?.estimated_completion_days != null
+                        ? `${continuousGatherLearn.ops.backfill_throughput.estimated_completion_days}d`
+                        : '—'
+                    }
+                    hint={`Backlog ${continuousGatherLearn.ops.backfill_throughput?.remaining_backlog ?? '—'}`}
+                  />
+                  <Stat
+                    label="Degraded Collectors"
+                    value={continuousGatherLearn.ops.degraded_collectors ?? '—'}
+                    status={
+                      (continuousGatherLearn.ops.degraded_collectors || 0) > 0 ? 'warn' : 'healthy'
+                    }
+                    hint="Error rate ≥5% or fallback"
+                  />
+                </div>
+
+                {Array.isArray(continuousGatherLearn.ops.collector_health) &&
+                continuousGatherLearn.ops.collector_health.length > 0 ? (
+                  <Glass className="overflow-x-auto">
+                    <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--io-caption)]">
+                      Collector health
+                    </p>
+                    <table className="w-full min-w-[720px] text-left text-xs text-[var(--io-ink)]">
+                      <thead className="text-[var(--io-muted)]">
+                        <tr>
+                          <th className="py-1 pr-3 font-medium">Collector</th>
+                          <th className="py-1 pr-3 font-medium">Success</th>
+                          <th className="py-1 pr-3 font-medium">Last Run</th>
+                          <th className="py-1 pr-3 font-medium">Latency</th>
+                          <th className="py-1 pr-3 font-medium">Queue</th>
+                          <th className="py-1 font-medium">Error Rate</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {continuousGatherLearn.ops.collector_health.map((row) => (
+                          <tr key={row.collector} className="border-t border-[var(--io-line)]/40">
+                            <td className="py-1.5 pr-3 font-semibold">{row.collector}</td>
+                            <td className="py-1.5 pr-3">
+                              {row.success === 'ok' ? 'OK' : row.success === 'warn' ? 'Warn' : row.success === 'error' ? 'Fail' : '—'}
+                            </td>
+                            <td className="py-1.5 pr-3">
+                              {row.last_run ? String(row.last_run).slice(11, 16) || String(row.last_run).slice(0, 16) : '—'}
+                            </td>
+                            <td className="py-1.5 pr-3">
+                              {row.latency_s != null ? `${row.latency_s}s` : '—'}
+                            </td>
+                            <td className="py-1.5 pr-3">{row.queue ?? 0}</td>
+                            <td className="py-1.5">{row.error_rate_pct != null ? `${row.error_rate_pct}%` : '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </Glass>
+                ) : null}
+
+                <div className="grid gap-3 lg:grid-cols-3">
+                  {Array.isArray(continuousGatherLearn.ops.coverage_heat_map) &&
+                  continuousGatherLearn.ops.coverage_heat_map.length > 0 ? (
+                    <Glass className="overflow-x-auto lg:col-span-1">
+                      <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--io-caption)]">
+                        Coverage heat map
+                      </p>
+                      <table className="w-full text-left text-xs text-[var(--io-ink)]">
+                        <thead className="text-[var(--io-muted)]">
+                          <tr>
+                            <th className="py-1 pr-3 font-medium">Dataset</th>
+                            <th className="py-1 font-medium">Coverage</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {continuousGatherLearn.ops.coverage_heat_map.map((row) => (
+                            <tr key={row.dataset} className="border-t border-[var(--io-line)]/40">
+                              <td className="py-1.5 pr-3">{row.dataset}</td>
+                              <td className="py-1.5 font-semibold">{row.coverage_pct}%</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </Glass>
+                  ) : null}
+
+                  {Array.isArray(continuousGatherLearn.ops.source_reliability) &&
+                  continuousGatherLearn.ops.source_reliability.length > 0 ? (
+                    <Glass className="overflow-x-auto lg:col-span-1">
+                      <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--io-caption)]">
+                        Source reliability
+                      </p>
+                      <table className="w-full text-left text-xs text-[var(--io-ink)]">
+                        <thead className="text-[var(--io-muted)]">
+                          <tr>
+                            <th className="py-1 pr-3 font-medium">Source</th>
+                            <th className="py-1 font-medium">Reliability</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {continuousGatherLearn.ops.source_reliability.map((row) => (
+                            <tr key={row.source} className="border-t border-[var(--io-line)]/40">
+                              <td className="py-1.5 pr-3">{row.source}</td>
+                              <td className="py-1.5 font-semibold">
+                                {row.reliability_pct != null ? `${row.reliability_pct}%` : '—'}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </Glass>
+                  ) : null}
+
+                  {Array.isArray(continuousGatherLearn.ops.coverage_by_index) &&
+                  continuousGatherLearn.ops.coverage_by_index.length > 0 ? (
+                    <Glass className="overflow-x-auto lg:col-span-1">
+                      <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--io-caption)]">
+                        Coverage by index
+                      </p>
+                      <table className="w-full text-left text-xs text-[var(--io-ink)]">
+                        <thead className="text-[var(--io-muted)]">
+                          <tr>
+                            <th className="py-1 pr-3 font-medium">Index</th>
+                            <th className="py-1 font-medium">Coverage</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {continuousGatherLearn.ops.coverage_by_index
+                            .filter((row) => (row.universe || 0) > 0 || row.index?.startsWith('NIFTY'))
+                            .map((row) => (
+                              <tr key={row.index} className="border-t border-[var(--io-line)]/40">
+                                <td className="py-1.5 pr-3">{row.index}</td>
+                                <td className="py-1.5 font-semibold">
+                                  {row.coverage_pct}%{' '}
+                                  <span className="font-normal text-[var(--io-muted)]">
+                                    ({row.covered}/{row.universe})
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                        </tbody>
+                      </table>
+                    </Glass>
+                  ) : null}
+                </div>
+
+                {continuousGatherLearn.ops.coverage_audit?.counts ? (
+                  <Glass className="text-xs text-[var(--io-muted)]">
+                    <p className="font-semibold text-[var(--io-ink)]">Weekly coverage audit</p>
+                    <p className="mt-1">
+                      Missing periods {continuousGatherLearn.ops.coverage_audit.counts.missing_historical_periods ?? 0} ·
+                      Incomplete financials{' '}
+                      {continuousGatherLearn.ops.coverage_audit.counts.incomplete_financials ?? 0} · Missing
+                      embeddings {continuousGatherLearn.ops.coverage_audit.counts.missing_embeddings ?? 0} · QA
+                      failures {continuousGatherLearn.ops.coverage_audit.counts.qa_failures ?? 0} · Repair queue{' '}
+                      {continuousGatherLearn.ops.coverage_audit.counts.repair_queue ?? 0}
+                      {continuousGatherLearn.ops.coverage_audit.skipped
+                        ? ' · fresh (<7d)'
+                        : continuousGatherLearn.ops.coverage_audit.generated_at
+                          ? ` · ${String(continuousGatherLearn.ops.coverage_audit.generated_at).slice(0, 10)}`
+                          : ''}
+                    </p>
+                  </Glass>
+                ) : null}
+              </div>
+            ) : null}
           </section>
         ) : null}
 

@@ -129,14 +129,22 @@ def test_hd_backfill_checkpoint_resume(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("KF_HD_LIVE_COLLECTORS", "false")
     monkeypatch.setenv("KF_HD_TARGET_YEARS", "10")
     monkeypatch.setenv("CGL_STORE_ROOT", str(tmp_path / "cgl"))
+    monkeypatch.setenv("LIDI_STORE_ROOT", str(tmp_path / "lidi"))
     from knowledge_factory.historical_depth.backfill import (
         is_complete,
         pending_entities,
         run_backfill_batch,
     )
     from knowledge_factory.historical_depth import store as hd_store
+    from knowledge_factory.historical_depth import queue as bf_queue
 
     hd_store.reset_store()
+    monkeypatch.setattr(bf_queue, "supported_universe", lambda: ["INFY", "TCS"])
+    monkeypatch.setattr(
+        "knowledge_factory.historical_depth.universe_priority.supported_universe",
+        lambda: ["INFY", "TCS"],
+    )
+    bf_queue.ensure_queue(force_refresh=True)
     report = run_backfill_batch(entities=["INFY", "TCS"], batch_size=2, target_years=10, derive=True)
     assert report["ok"] is True
     assert report["processed"] == 2

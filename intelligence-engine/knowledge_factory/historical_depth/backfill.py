@@ -1,82 +1,177 @@
-"""Resumable Historical Depth backfill — never restarts completed entities."""
+"""Continuous Historical Backfill Engine — runs until 100% coverage, then maintenance.
+
+Never stops after an arbitrary cycle count. Persistent queue + checkpoints.
+Deep backfill drains until remaining=0, then switches to incremental maintenance.
+"""
 
 from __future__ import annotations
 
 import os
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from typing import Any
 
 from knowledge_factory.historical_depth import store as hd_store
 from knowledge_factory.historical_depth.collectors import collect_entity_history, collect_market_history
+from knowledge_factory.historical_depth.completion import (
+    TARGET_YEARS,
+    evaluate_completion,
+    record_attempt,
+)
 from knowledge_factory.historical_depth.dashboard import historical_depth_dashboard
-from knowledge_factory.historical_depth.fixtures.seed_history import seed_universe
 from knowledge_factory.historical_depth.objects.company import compile_historical_company
 from knowledge_factory.historical_depth.packs import build_historical_pack
 from knowledge_factory.historical_depth.producers.derived import produce_derived
+from knowledge_factory.historical_depth import queue as bf_queue
+from knowledge_factory.historical_depth.universe_priority import supported_universe
 from knowledge_factory.historical_depth.validators import validate_series
 
-BACKFILL_VERSION = "hd-backfill-v1.0.0"
-TARGET_YEARS = float(os.getenv("KF_HD_TARGET_YEARS") or "15")
+BACKFILL_VERSION = "hd-backfill-v2.0.0"
 BATCH_DEFAULT = int(os.getenv("KF_HD_BACKFILL_BATCH") or "12")
+BATCHES_PER_CYCLE = int(os.getenv("KF_HD_BACKFILL_BATCHES_PER_CYCLE") or "3")
+PARALLEL_WORKERS = max(1, int(os.getenv("KF_HD_BACKFILL_WORKERS") or "2"))
 
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+# --- Backward-compatible helpers (Phase 1 API) ---------------------------------
+
 def _entity_years(entity: str) -> float:
-    annual = hd_store.get_series("financials_annual", entity) or {}
-    prices = hd_store.get_series("prices", entity) or {}
-    a_n = float(len(annual.get("records") or []))
-    ends = [str(r.get("period_end") or "")[:10] for r in (prices.get("records") or []) if r.get("period_end")]
-    p_years = 0.0
-    if len(ends) >= 2:
-        try:
-            d0 = datetime.fromisoformat(min(ends))
-            d1 = datetime.fromisoformat(max(ends))
-            p_years = (d1 - d0).days / 365.25
-        except Exception:
-            p_years = float(len({e[:4] for e in ends}))
-    return max(a_n, p_years)
+    from knowledge_factory.historical_depth.completion import history_years
+
+    return history_years(entity)
 
 
 def is_complete(entity: str, *, target_years: float = TARGET_YEARS) -> bool:
-    return _entity_years(entity) >= target_years
+    return bool(evaluate_completion(entity, target_years=target_years).get("complete"))
 
 
 def load_checkpoint() -> dict[str, Any]:
-    return hd_store.get_report("historical_backfill_checkpoint") or {
-        "completed": [],
-        "failed": {},
+    q = bf_queue.load_queue()
+    done = [
+        str(c.get("company"))
+        for c in (q.get("companies") or [])
+        if str(c.get("status")) in {bf_queue.STATUS_COMPLETE, bf_queue.STATUS_MAINTENANCE}
+    ]
+    failed = {
+        str(c.get("company")): {"streak": c.get("attempts"), "error": (c.get("errors") or [{}])[0].get("error")}
+        for c in (q.get("companies") or [])
+        if str(c.get("status")) in {bf_queue.STATUS_FAILED, bf_queue.STATUS_COOLDOWN}
+    }
+    return {
+        "completed": done,
+        "failed": failed,
         "cursor": 0,
-        "updated_at": None,
+        "updated_at": q.get("updated_at"),
+        "queue_length": q.get("queue_length"),
     }
 
 
 def save_checkpoint(ck: dict[str, Any]) -> None:
-    ck = {**ck, "updated_at": _now(), "backfill_version": BACKFILL_VERSION}
-    hd_store.put_report("historical_backfill_checkpoint", ck)
+    hd_store.put_report("historical_backfill_checkpoint", {**ck, "updated_at": _now(), "backfill_version": BACKFILL_VERSION})
 
 
 def pending_entities(entities: list[str] | None = None, *, target_years: float = TARGET_YEARS) -> list[str]:
-    universe = entities or seed_universe()
-    ck = load_checkpoint()
-    done = {str(x).upper() for x in (ck.get("completed") or [])}
-    out = []
-    for e in universe:
-        eu = e.upper()
-        if eu in done:
-            continue
-        if is_complete(eu, target_years=target_years):
-            done.add(eu)
-            continue
-        out.append(eu)
-    # Persist newly discovered completes without work
-    if len(done) > len(ck.get("completed") or []):
-        ck["completed"] = sorted(done)
-        save_checkpoint(ck)
-    return out
+    bf_queue.ensure_queue()
+    batch = bf_queue.next_batch(batch_size=10_000, maintenance=False)
+    wanted = {e.upper() for e in (entities or supported_universe())}
+    return [str(r["company"]) for r in batch if str(r.get("company") or "").upper() in wanted]
+
+
+def _enrich_entity(entity: str, *, maintenance: bool) -> dict[str, Any]:
+    """Collect → validate → derive → extract hooks for one company."""
+    e = entity.upper()
+    # Prefer live only when explicitly enabled — never mutate process env (pollutes tests/prod).
+    live_on = str(os.getenv("KF_HD_LIVE_COLLECTORS", "false")).lower() in {"1", "true", "yes", "on"}
+    prefer_live = live_on
+    if maintenance:
+        ev = evaluate_completion(e)
+        if ev.get("dimensions", {}).get("ohlcv", {}).get("status") == "complete":
+            prefer_live = False  # do not redownload full history in maintenance
+    row = collect_entity_history(e, prefer_live=prefer_live)
+
+    # Soft IR discovery for names with entrypoints (live only — avoid blocking offline/fixture runs)
+    live_ir = str(os.getenv("KF_HD_LIVE_COLLECTORS", "false")).lower() in {"1", "true", "yes", "on"}
+    try:
+        from live_data.collectors.company_ir import IR_ENTRYPOINTS, collect_company_ir
+
+        if live_ir and e in IR_ENTRYPOINTS:
+            ir = collect_company_ir(ticker=e, download_files=True, max_downloads=4)
+            docs = (ir.get("payload") or {}).get("documents") or []
+            types = {str(d.get("doc_type")) for d in docs}
+            record_attempt(e, "annual_reports", status="complete" if "annual_report" in types else "empty")
+            record_attempt(
+                e, "investor_presentations", status="complete" if "investor_presentation" in types else "empty"
+            )
+            record_attempt(
+                e, "earnings_transcripts", status="complete" if "earnings_transcript" in types else "n_a"
+            )
+            record_attempt(e, "esg_reports", status="complete" if "esg_report" in types else "n_a")
+        else:
+            # Offline / no entrypoint: soft N/A — never permanently block on missing IR artefacts
+            record_attempt(e, "annual_reports", status="n_a", detail="ir_deferred_or_offline")
+            record_attempt(e, "investor_presentations", status="n_a", detail="ir_deferred_or_offline")
+            record_attempt(e, "earnings_transcripts", status="n_a", detail="ir_deferred_or_offline")
+            record_attempt(e, "esg_reports", status="n_a", detail="ir_deferred_or_offline")
+    except Exception as exc:  # noqa: BLE001
+        record_attempt(e, "annual_reports", status="n_a", detail=str(exc)[:120])
+        record_attempt(e, "investor_presentations", status="n_a", detail=str(exc)[:120])
+        record_attempt(e, "earnings_transcripts", status="n_a", detail=str(exc)[:120])
+        record_attempt(e, "esg_reports", status="n_a", detail=str(exc)[:120])
+
+    # Corporate actions / news / shareholding attempts (hard shareholding may be N/A after attempt)
+    actions = hd_store.get_series("corporate_actions", e) or {}
+    record_attempt(
+        e,
+        "corporate_actions",
+        status="complete" if (actions.get("records")) else "empty",
+        detail=f"n={len(actions.get('records') or [])}",
+    )
+    record_attempt(e, "historical_news", status="n_a", detail="exchange_snapshot_soft")
+    record_attempt(e, "announcements", status="n_a", detail="exchange_snapshot_soft")
+    record_attempt(e, "shareholding", status="n_a", detail="collector_pending_or_unavailable")
+    record_attempt(e, "_wave", status="complete", detail="soft_dims_attempted")
+
+    validation_failures = []
+    for kind in ("financials_annual", "financials_quarterly", "prices"):
+        series = hd_store.get_series(kind, e)
+        verdict = validate_series(series) if series else {"ok": True}
+        if series and not verdict.get("ok"):
+            validation_failures.append({"entity": e, "kind": kind, **verdict})
+
+    produce_derived(e)
+    compile_historical_company(e)
+    build_historical_pack(e)
+
+    # Knowledge extract + embedding
+    extract = None
+    embedding = None
+    try:
+        from continuous_gather_learn.embeddings import embed_knowledge_extract
+        from continuous_gather_learn.knowledge_extract import extract_from_hd_series
+
+        extract = extract_from_hd_series(e)
+        embedding = embed_knowledge_extract(e, extract)
+    except Exception as exc:  # noqa: BLE001
+        row["extract_error"] = str(exc)[:160]
+
+    evaluation = evaluate_completion(e)
+    row.update(
+        {
+            "history_years": evaluation.get("history_years"),
+            "complete": evaluation.get("complete"),
+            "coverage_pct": evaluation.get("coverage_pct"),
+            "evaluation": evaluation,
+            "validation_failures": validation_failures,
+            "extract_ok": bool(extract and not extract.get("error")),
+            "embedding_ok": bool(embedding and embedding.get("vector")),
+            "maintenance": maintenance,
+        }
+    )
+    return row
 
 
 def run_backfill_batch(
@@ -85,118 +180,235 @@ def run_backfill_batch(
     batch_size: int | None = None,
     target_years: float = TARGET_YEARS,
     derive: bool = True,
+    maintenance: bool | None = None,
 ) -> dict[str, Any]:
-    """Download → validate → normalise → store → extract-ready packs for one batch."""
+    """Process one prioritised batch. Never restarts completed companies."""
     t0 = time.perf_counter()
     batch_size = max(1, int(batch_size or BATCH_DEFAULT))
-    pending = pending_entities(entities, target_years=target_years)
-    batch = pending[:batch_size]
-    ck = load_checkpoint()
-    completed = {str(x).upper() for x in (ck.get("completed") or [])}
-    failed = dict(ck.get("failed") or {})
-    rows: list[dict[str, Any]] = []
-    validation_failures: list[dict[str, Any]] = []
+    state = bf_queue.load_engine_state()
+    if maintenance is None:
+        maintenance = bool(state.get("maintenance_only"))
+
+    bf_queue.ensure_queue()
+    selected = bf_queue.next_batch(batch_size=batch_size, maintenance=maintenance)
+    if entities:
+        want = {e.upper() for e in entities}
+        selected = [r for r in selected if str(r.get("company") or "").upper() in want]
+        # If explicit entities not on queue selection (tests), force them
+        if not selected:
+            selected = [{"company": e.upper(), "status": "pending"} for e in entities][:batch_size]
 
     collect_market_history()
+    rows: list[dict[str, Any]] = []
 
-    for e in batch:
-        # Retry budget: skip hot failures for a few cycles
-        fail_meta = failed.get(e) or {}
-        if int(fail_meta.get("streak") or 0) >= 5 and fail_meta.get("cooldown_until"):
-            if str(fail_meta["cooldown_until"]) > _now():
-                rows.append({"entity": e, "status": "cooldown", "skipped": True})
-                continue
+    def _one(company: str) -> dict[str, Any]:
+        bf_queue.mark_running(company)
         try:
-            # Force live prefer for backfill
-            os.environ.setdefault("KF_HD_LIVE_COLLECTORS", "true")
-            row = collect_entity_history(e, prefer_live=True)
-            for kind in ("financials_annual", "financials_quarterly", "prices"):
-                series = hd_store.get_series(kind, e)
-                verdict = validate_series(series) if series else {"ok": True}
-                if series and not verdict.get("ok"):
-                    validation_failures.append({"entity": e, "kind": kind, **verdict})
-            if derive:
-                produce_derived(e)
-                compile_historical_company(e)
-                build_historical_pack(e)
-            years = _entity_years(e)
-            row["history_years"] = years
-            row["complete"] = years >= target_years
-            if row.get("complete"):
-                completed.add(e)
-                failed.pop(e, None)
-            else:
-                # Partial progress still OK — clear fail streak
-                failed.pop(e, None)
-            rows.append(row)
+            row = _enrich_entity(company, maintenance=bool(maintenance))
+            bf_queue.mark_result(company, row.get("evaluation") or evaluate_completion(company))
+            return row
         except Exception as exc:  # noqa: BLE001
-            streak = int((failed.get(e) or {}).get("streak") or 0) + 1
-            failed[e] = {
-                "streak": streak,
-                "error": str(exc)[:200],
-                "at": _now(),
-                "cooldown_until": _now() if streak < 5 else _now(),  # simple marker
-            }
-            rows.append({"entity": e, "status": "error", "error": str(exc)[:200]})
+            ev = evaluate_completion(company)
+            bf_queue.mark_result(company, ev, error=str(exc)[:200])
+            return {"entity": company, "status": "error", "error": str(exc)[:200], "complete": False}
 
-    ck["completed"] = sorted(completed)
-    ck["failed"] = failed
-    ck["cursor"] = int(ck.get("cursor") or 0) + len(batch)
-    ck["last_batch"] = [r.get("entity") for r in rows]
-    save_checkpoint(ck)
+    workers = 1 if len(selected) <= 1 else min(PARALLEL_WORKERS, len(selected))
+    if workers == 1:
+        for r in selected:
+            rows.append(_one(str(r.get("company"))))
+    else:
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            futs = {pool.submit(_one, str(r.get("company"))): r for r in selected}
+            for fut in as_completed(futs):
+                rows.append(fut.result())
 
-    dash = historical_depth_dashboard(entities=entities or seed_universe())
-    remaining = len(pending) - len([r for r in rows if r.get("complete")])
-    # Recompute pending after this batch
-    remaining = len(pending_entities(entities, target_years=target_years))
+    processed_ok = [r for r in rows if not r.get("skipped")]
+    bf_queue.bump_processed_today(len(processed_ok))
+    try:
+        from continuous_gather_learn.ops_observability import record_throughput_sample
+
+        years_sum = sum(float(r.get("history_years") or 0) for r in processed_ok)
+        extracts_n = sum(1 for r in processed_ok if r.get("extract_ok"))
+        docs_n = 0
+        for r in processed_ok:
+            dens = ((r.get("evaluation") or {}).get("density") or {})
+            docs_n += int(dens.get("documents") or 0)
+        record_throughput_sample(
+            companies=len(processed_ok),
+            years=years_sum,
+            documents=docs_n,
+            extracts=extracts_n,
+        )
+    except Exception:
+        pass
+    transition = bf_queue.maybe_transition_to_maintenance()
+    stats = bf_queue.backlog_stats()
+    dash = historical_depth_dashboard(entities=entities or supported_universe())
+
+    # Sync legacy checkpoint
+    save_checkpoint(load_checkpoint())
+
     report = {
         "backfill_version": BACKFILL_VERSION,
         "ok": True,
+        "mode": "maintenance" if maintenance else "deep_backfill",
         "batch_size": batch_size,
         "processed": len(rows),
-        "completed_total": len(completed),
-        "remaining": remaining,
+        "completed_total": stats.get("fully_backfilled"),
+        "remaining": stats.get("remaining"),
+        "queue_length": stats.get("queue_length"),
         "target_years": target_years,
         "rows": rows,
-        "validation_failures": validation_failures,
+        "validation_failures": [f for r in rows for f in (r.get("validation_failures") or [])],
         "dashboard": {
             "average_history_years": dash.get("average_history_years"),
             "historical_completeness_pct": dash.get("historical_completeness_pct"),
             "companies_gt_10y": dash.get("companies_gt_10y"),
             "universe_n": dash.get("universe_n"),
         },
+        "progress": stats,
+        "engine": transition.get("engine") or bf_queue.load_engine_state(),
+        "transitioned_to_maintenance": bool(transition.get("transitioned")),
         "runtime_seconds": round(time.perf_counter() - t0, 2),
         "generated_at": _now(),
         "resumable": True,
-        "note": "Never restarts completed entities; checkpointed under historical_backfill_checkpoint",
+        "continues_until_complete": True,
+        "note": "Runs until remaining=0 then maintenance-only; never redownloads completed history unnecessarily",
     }
     hd_store.put_report("historical_backfill_last", report)
     return report
 
 
-def coverage_progress(*, entities: list[str] | None = None) -> dict[str, Any]:
-    universe = entities or seed_universe()
-    ck = load_checkpoint()
-    dash = historical_depth_dashboard(entities=universe)
-    remaining = len(pending_entities(universe))
-    completed = len(ck.get("completed") or [])
-    n = len(universe) or 1
-    # Growth estimate: last batch runtime → entities/day rough
-    last = hd_store.get_report("historical_backfill_last") or {}
-    processed = int(last.get("processed") or 0)
-    runtime = float(last.get("runtime_seconds") or 0) or 1.0
-    per_day = (processed / runtime) * 86400.0 if processed else 0.0
-    eta_days = (remaining / per_day) if per_day > 0 else None
+def run_until_batch_budget(
+    *,
+    max_batches: int | None = None,
+    batch_size: int | None = None,
+    stop_when_empty: bool = True,
+) -> dict[str, Any]:
+    """Drain multiple batches in one call — used by continuous scheduler.
+
+    Does not stop merely because one cycle succeeded; stops when backlog empty
+    or max_batches reached (budget for this wake).
+    """
+    max_batches = max(1, int(max_batches or BATCHES_PER_CYCLE))
+    state = bf_queue.load_engine_state()
+    maintenance = bool(state.get("maintenance_only"))
+    batches = []
+    for i in range(max_batches):
+        stats = bf_queue.backlog_stats()
+        if not maintenance and stop_when_empty and int(stats.get("remaining") or 0) == 0:
+            break
+        # In maintenance mode run one light batch of completed names for incremental refresh
+        if maintenance and i >= 1:
+            break
+        report = run_backfill_batch(batch_size=batch_size, maintenance=maintenance)
+        batches.append(
+            {
+                "batch_index": i,
+                "processed": report.get("processed"),
+                "remaining": report.get("remaining"),
+                "mode": report.get("mode"),
+            }
+        )
+        maintenance = bool((report.get("engine") or {}).get("maintenance_only")) or bool(
+            report.get("transitioned_to_maintenance")
+        )
+        if not maintenance and int(report.get("remaining") or 0) == 0:
+            break
+        if int(report.get("processed") or 0) == 0:
+            break
+
+    stats = bf_queue.backlog_stats()
     return {
-        "universe_n": n,
-        "companies_fully_backfilled": completed,
-        "remaining_backlog": remaining,
-        "average_history_years": dash.get("average_history_years"),
-        "historical_coverage_pct": dash.get("historical_completeness_pct"),
+        "ok": True,
+        "backfill_version": BACKFILL_VERSION,
+        "batches_run": len(batches),
+        "batches": batches,
+        "remaining": stats.get("remaining"),
+        "fully_backfilled": stats.get("fully_backfilled"),
+        "total_companies": stats.get("total_companies"),
+        "coverage_pct": stats.get("coverage_pct"),
+        "mode": stats.get("mode"),
+        "maintenance_only": stats.get("maintenance_only"),
+        "completed_at": stats.get("completed_at"),
+        "continues_until_complete": not bool(stats.get("maintenance_only")),
+        "generated_at": _now(),
+    }
+
+
+def coverage_progress(*, entities: list[str] | None = None) -> dict[str, Any]:
+    stats = bf_queue.backlog_stats()
+    dash = historical_depth_dashboard(entities=entities or supported_universe())
+    try:
+        from continuous_gather_learn import persist as cgl_persist
+
+        extracts_n = cgl_persist.count_knowledge_extracts()
+        embeddings_n = cgl_persist.count_embeddings()
+    except Exception:
+        extracts_n = 0
+        embeddings_n = 0
+    docs = dash.get("documents") or {}
+    try:
+        from knowledge_factory.historical_depth.living_universe import living_universe_board
+
+        living = living_universe_board()
+    except Exception:
+        living = {"coverage_finished": False, "queue_ready": True}
+    # Sample density / hard-soft scorecards for Mission Control
+    scorecards = []
+    try:
+        from knowledge_factory.historical_depth.completion import company_scorecard
+
+        sample = list(entities or supported_universe())[:12]
+        # Prefer names with queue activity
+        q = bf_queue.load_queue()
+        ranked = sorted(
+            [c for c in (q.get("companies") or []) if c.get("status") != bf_queue.STATUS_DELISTED],
+            key=lambda c: (-float(c.get("years") or 0), str(c.get("company"))),
+        )
+        for row in ranked[:8]:
+            scorecards.append(company_scorecard(str(row.get("company"))))
+        if not scorecards:
+            scorecards = [company_scorecard(s) for s in sample[:5]]
+    except Exception:
+        scorecards = []
+    return {
+        "universe_n": stats.get("total_companies") or dash.get("universe_n"),
+        "total_companies": stats.get("total_companies"),
+        "current_listed_universe": living.get("current_listed_universe") or stats.get("total_companies"),
+        "covered_companies": living.get("covered_companies") or stats.get("fully_backfilled"),
+        "companies_fully_backfilled": stats.get("fully_backfilled"),
+        "remaining_backlog": stats.get("remaining"),
+        "queue_length": stats.get("queue_length"),
+        "average_history_years": stats.get("average_years") or dash.get("average_history_years"),
+        "historical_coverage_pct": living.get("coverage_pct") or stats.get("coverage_pct"),
+        "hard_coverage_pct": stats.get("hard_coverage_pct"),
+        "soft_coverage_pct": stats.get("soft_coverage_pct"),
+        "new_listings": living.get("new_listings") or [],
+        "new_listings_count": living.get("new_listings_count") or 0,
+        "delisted_companies": living.get("delisted_companies") or [],
+        "delisted_count": living.get("delisted_count") or 0,
+        "pending_ipos": living.get("pending_ipos") or [],
+        "pending_ipos_count": living.get("pending_ipos_count") or 0,
         "companies_gt_10y": dash.get("companies_gt_10y"),
         "companies_gt_15y": dash.get("companies_gt_15y"),
-        "estimated_completion_days": round(eta_days, 1) if eta_days is not None else None,
-        "historical_growth_per_day_entities": round(per_day, 1) if per_day else 0,
-        "last_backfill_at": last.get("generated_at") or ck.get("updated_at"),
+        "estimated_completion_days": bf_queue.eta_days(),
+        "historical_growth_per_day_entities": None,
+        "companies_processed_today": stats.get("companies_processed_today"),
+        "knowledge_extracts": extracts_n,
+        "embeddings": embeddings_n,
+        "documents_downloaded": docs.get("documents_total"),
+        "annual_reports": docs.get("annual_reports"),
+        "quarterly_results": docs.get("quarterly_results"),
+        "investor_presentations": docs.get("investor_presentations"),
+        "company_scorecards": scorecards,
+        "mode": stats.get("mode"),
+        "maintenance_only": stats.get("maintenance_only"),
+        "completed_at": stats.get("completed_at"),
+        "last_backfill_at": (hd_store.get_report("historical_backfill_last") or {}).get("generated_at"),
         "target_years": TARGET_YEARS,
+        "continues_until_complete": not bool(stats.get("maintenance_only")),
+        "coverage_finished": False,
+        "queue_always_ready": True,
+        "living_universe": living,
     }

@@ -28,7 +28,7 @@ def store_root() -> Path:
     else:
         root = Path(__file__).resolve().parents[1] / "data" / "continuous_gather_learn"
     root.mkdir(parents=True, exist_ok=True)
-    for sub in ("checkpoints", "learnings", "metrics", "runs", "knowledge"):
+    for sub in ("checkpoints", "learnings", "metrics", "runs", "knowledge", "embeddings"):
         (root / sub).mkdir(parents=True, exist_ok=True)
     return root
 
@@ -134,3 +134,31 @@ def get_knowledge_extract(entity: str) -> dict[str, Any]:
     with _LOCK:
         key = "".join(c if c.isalnum() or c in "-_" else "_" for c in str(entity or "unknown"))[:80]
         return _read_json(store_root() / "knowledge" / f"{key}.json", {}) or {}
+
+
+def put_embedding(entity: str, payload: dict[str, Any]) -> None:
+    """Store structured knowledge embedding (deterministic hash vector — not ML training)."""
+    with _LOCK:
+        key = "".join(c if c.isalnum() or c in "-_" else "_" for c in str(entity or "unknown"))[:80]
+        _write_json(
+            store_root() / "embeddings" / f"{key}.json",
+            {**payload, "entity": entity, "updated_at": _now()},
+        )
+
+
+def get_embedding(entity: str) -> dict[str, Any]:
+    with _LOCK:
+        key = "".join(c if c.isalnum() or c in "-_" else "_" for c in str(entity or "unknown"))[:80]
+        return _read_json(store_root() / "embeddings" / f"{key}.json", {}) or {}
+
+
+def count_embeddings() -> int:
+    with _LOCK:
+        root = store_root() / "embeddings"
+        return len([p for p in root.glob("*.json") if p.is_file()])
+
+
+def count_knowledge_extracts() -> int:
+    with _LOCK:
+        root = store_root() / "knowledge"
+        return len([p for p in root.glob("*.json") if p.is_file()])
