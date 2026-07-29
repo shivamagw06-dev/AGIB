@@ -292,12 +292,64 @@
   padding: 1.25rem 1.35rem 1.15rem;
   box-shadow: var(--ac-shadow);
 }
+.ac-kicker {
+  margin: 0 0 0.45rem;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ac-muted);
+}
 .ac-direct-text {
   font-family: var(--ac-serif);
   font-size: 1.12rem;
   line-height: 1.55;
   color: var(--ac-ink);
   margin: 0 0 1.1rem;
+}
+.ac-confidence-why {
+  margin: 0.85rem 0 0;
+  padding-top: 0.85rem;
+  border-top: 1px dashed var(--ac-line);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--ac-soft);
+}
+.ac-why-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.65rem;
+}
+.ac-why-list li {
+  background: var(--ac-panel);
+  border: 1px solid var(--ac-line);
+  border-radius: 0.85rem;
+  padding: 0.9rem 1rem;
+  font-size: 0.94rem;
+  line-height: 1.55;
+  color: var(--ac-ink);
+}
+.ac-case-lead {
+  margin: -0.15rem 0 0.55rem;
+  font-size: 0.78rem;
+  color: var(--ac-muted);
+  font-weight: 600;
+}
+.ac-bottom-line {
+  background: linear-gradient(180deg, #f3f6fa 0%, #eef3f8 100%);
+  border: 1px solid var(--ac-line);
+  border-radius: 1rem;
+  padding: 1.1rem 1.25rem 1.2rem;
+}
+.ac-bottom-line h2 { margin-bottom: 0.55rem; }
+.ac-bottom-line p {
+  margin: 0;
+  font-family: var(--ac-serif);
+  font-size: 1.05rem;
+  line-height: 1.55;
+  color: var(--ac-navy);
 }
 .ac-meta-row {
   display: grid;

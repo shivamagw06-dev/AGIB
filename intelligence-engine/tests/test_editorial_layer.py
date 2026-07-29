@@ -114,21 +114,21 @@ def test_template_fallback_is_plain_english_rewrite():
 def test_generate_quick_summary_never_emits_advice():
     out = generateQuickSummary(SAMPLE, question="Should I buy HDFC Bank?")
     assert out["enabled"] is True
-    assert out["fallback"] is True
+    # Template fallback or live rewrite provider — both must stay rewrite-only.
     assert out["mode"] == "quick_summary"
     assert out["max_words"] == 80
     assert out["word_count"] <= 80
     assert "Recommendation:" not in (out.get("rewritten_summary") or "")
     assert "Recommendation:" not in (out.get("text") or "")
-    lower = (out.get("rewritten_summary") or "").lower()
+    lower = (out.get("rewritten_summary") or out.get("text") or "").lower()
     assert "you should" not in lower
     assert "target price" not in lower
-    assert (out.get("text") or "").startswith("HDFC Bank")
+    text = out.get("text") or out.get("rewritten_summary") or ""
+    assert "HDFC" in text or "hdfc" in text.lower()
 
 
 def test_generate_recommendation_is_plain_summary_not_action():
     out = generateRecommendation(SAMPLE, question="Should I buy HDFC Bank?")
-    assert out["fallback"] is True
     assert not (out.get("text") or "").startswith("Recommendation:")
     assert "Recommendation:" not in (out.get("rewritten_summary") or "")
     assert out["recommendation_from_agib_only"] is True

@@ -58,6 +58,7 @@ def health() -> dict[str, Any]:
         "editorial_intelligence_layer": editorial_health,
         "contradiction_reasoning": cxr_health,
         "institutional_reasoning": irsp_health,
+        "response_constitution": {"version": "1.0", "soft_wire": True},
         "flags": flags_dict(),
     }
 
@@ -339,6 +340,34 @@ def package_for_ask_agi(**kwargs: Any) -> dict[str, Any]:
             },
         )
 
+    # Response Constitution v1.0 — Human First Institutional Research.
+    # Soft shape: Direct Answer → Why → Thesis → Bull/Bear → Bottom Line → Supporting → Follow-ups.
+    try:
+        from answer_construction.response_constitution import apply_response_constitution
+
+        out = apply_response_constitution(
+            out,
+            query=str(kwargs.get("query") or ""),
+            ticker=kwargs.get("ticker"),
+            company=kwargs.get("company"),
+            company_analysis=kwargs.get("company_analysis")
+            if isinstance(kwargs.get("company_analysis"), dict)
+            else None,
+            intelligence_construction=kwargs.get("intelligence_construction")
+            if isinstance(kwargs.get("intelligence_construction"), dict)
+            else None,
+            bull=kwargs.get("bull"),
+            bear=kwargs.get("bear"),
+            risks=kwargs.get("risks"),
+            catalysts=kwargs.get("catalysts"),
+            why=kwargs.get("why"),
+            house_label=kwargs.get("house_label") or out.get("house_label"),
+            confidence=kwargs.get("confidence"),
+            follow_ups=kwargs.get("follow_ups"),
+        )
+    except Exception:
+        out.setdefault("response_constitution", {"enabled": False, "bypassed": True})
+
     return out
 
 
@@ -356,6 +385,7 @@ def quality_gates() -> dict[str, Any]:
             "gate_logic_unchanged": True,
             "institutional_analyst_framework_soft": True,
             "institutional_research_writer_soft": True,
+            "response_constitution_v1": True,
         },
         "flags": flags_dict(),
     }

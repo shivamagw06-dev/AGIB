@@ -2530,6 +2530,15 @@ class UiService:
                     answer_meta_institutional = answer_construction.get("institutional_answer")
                 else:
                     answer_meta_institutional = {}
+                # Soft-apply Response Constitution confidence when Ask pack lacks a score.
+                rc = answer_construction.get("response_constitution")
+                if isinstance(rc, dict) and rc.get("enabled") and conf is None:
+                    score = (rc.get("confidence") or {}).get("score")
+                    if score is not None:
+                        try:
+                            conf = float(score)
+                        except (TypeError, ValueError):
+                            pass
             else:
                 answer_meta_institutional = {}
         except Exception:
@@ -2556,6 +2565,11 @@ class UiService:
         # Follow-ups assembled after IAX graph/evidence enrichment below.
         followups: list[str] = []
 
+        _rc = (
+            answer_construction.get("response_constitution")
+            if isinstance(answer_construction, dict)
+            else None
+        )
         answer = {
             "policy": "evidence_pack_not_direct_advice",
             "summary": executive,
@@ -2569,6 +2583,29 @@ class UiService:
             "why": why,
             "institutional_answer": answer_meta_institutional or None,
             "voice": "AGIB Institutional Intelligence",
+            "bottom_line": (
+                (answer_construction or {}).get("bottom_line")
+                if isinstance(answer_construction, dict)
+                else None
+            )
+            or ((_rc or {}).get("bottom_line") if isinstance(_rc, dict) else None),
+            "confidence_explanation": (
+                (answer_construction or {}).get("confidence_explanation")
+                if isinstance(answer_construction, dict)
+                else None
+            )
+            or (
+                ((_rc or {}).get("confidence") or {}).get("explanation")
+                if isinstance(_rc, dict)
+                else None
+            ),
+            "response_constitution": _rc if isinstance(_rc, dict) else None,
+            "answer_structure": (
+                (answer_construction or {}).get("answer_structure")
+                if isinstance(answer_construction, dict)
+                else None
+            )
+            or "response_constitution_v1",
         }
 
         recommendations = {

@@ -910,7 +910,27 @@ export function mapSearchPack(pack) {
     })(),
     catalysts: asList(iafCio?.key_catalysts || catalysts, 8),
     learned,
+    responseConstitution:
+      ac?.response_constitution?.enabled
+        ? ac.response_constitution
+        : pack.answer?.response_constitution?.enabled
+          ? pack.answer.response_constitution
+          : null,
+    bottomLine:
+      asText(ac?.bottom_line) ||
+      asText(ac?.response_constitution?.bottom_line) ||
+      asText(pack.answer?.bottom_line) ||
+      asText(pack.answer?.response_constitution?.bottom_line) ||
+      '',
+    confidenceExplanation:
+      asText(ac?.confidence_explanation) ||
+      asText(ac?.response_constitution?.confidence?.explanation) ||
+      asText(pack.answer?.confidence_explanation) ||
+      asText(pack.answer?.response_constitution?.confidence?.explanation) ||
+      '',
     conclusion:
+      asText(ac?.bottom_line) ||
+      asText(ac?.response_constitution?.bottom_line) ||
       asText(irw?.institutional_conclusion) ||
       asText(iafCio?.institutional_conclusion) ||
       asText(ac?.decision_conclusion) ||
