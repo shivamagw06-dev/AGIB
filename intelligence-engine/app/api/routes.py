@@ -10158,6 +10158,38 @@ async def valuation_intelligence_ic10(max_peers: int = 3):
     return ic10_smoke(max_peers=max(1, min(int(max_peers), 8)))
 
 
+@router.get("/company-memory/health")
+async def company_memory_health():
+    """Company Memory Knowledge Compiler — persistent institutional intelligence."""
+    from company_memory.production import health
+
+    return health()
+
+
+@router.get("/company-memory/{ticker}")
+async def company_memory_ticker(
+    ticker: str,
+    force: bool = False,
+    cache: bool = False,
+    persist: bool = True,
+):
+    from company_memory.production import compile as memory_compile
+
+    return memory_compile(
+        ticker,
+        force=force,
+        use_cache=bool(cache),
+        persist=bool(persist),
+    )
+
+
+@router.get("/company-memory-ic10")
+async def company_memory_ic10(persist: bool = False):
+    from company_memory.production import ic10_compile
+
+    return ic10_compile(persist=bool(persist))
+
+
 @router.get("/committee-certification-v2/health")
 async def committee_certification_v2_health():
     """IC-10 Institutional Committee Certification v2.0 — health / universe map."""
