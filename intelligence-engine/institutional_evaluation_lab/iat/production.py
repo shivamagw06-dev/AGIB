@@ -15,6 +15,12 @@ from institutional_evaluation_lab.iat.areas import (
     evaluate_universe,
 )
 from institutional_evaluation_lab.iat.freeze import freeze_baseline
+from institutional_evaluation_lab.iat.protocol import (
+    PROTOCOL_VERSION,
+    build_protocol_report_for_release,
+    format_protocol_text,
+    protocol_pack,
+)
 from institutional_evaluation_lab.iat.report import format_institutional_evaluation_report
 from institutional_evaluation_lab.iat.schema import (
     ARCHITECTURE_VERSION,
@@ -31,10 +37,13 @@ def health() -> dict[str, Any]:
         "status": "ok",
         "programme": PROGRAMME,
         "version": IAT_VERSION,
+        "protocol_version": PROTOCOL_VERSION,
         "architecture_version": ARCHITECTURE_VERSION,
         "scope_locks": dict(SCOPE_LOCKS),
         "question": "Is AGIB ready to become the baseline architecture?",
+        "objective": "Determine whether AGIB today performs like an institutional research platform.",
         "thresholds": dict(THRESHOLDS),
+        "protocol_parts": ["A", "B", "C", "D", "E", "F", "G"],
         "consumes": [
             "golden_universe_results",
             "phase6_governance",
@@ -42,7 +51,51 @@ def health() -> dict[str, Any]:
             "release_observability",
         ],
         "acceptance_exam_only": True,
+        "doc": "docs/AGIB_IAT_BASELINE_V1_PROTOCOL.md",
     }
+
+
+def protocol() -> dict[str, Any]:
+    """Parts A–G protocol declaration (Baseline v1.0)."""
+    return protocol_pack()
+
+
+def protocol_report(*, release_id: str | None = None, run_iat_first: bool = False) -> dict[str, Any]:
+    """Protocol workbook + optional automated IAT status for a release."""
+    iat_pack = None
+    if release_id and run_iat_first:
+        iat_pack = run_iat(release_id=release_id, freeze=False, persist=False, require_full_universe=True)
+    elif release_id:
+        # Attach prior automated IAT artifact if present
+        try:
+            from pathlib import Path
+
+            from institutional_evaluation_lab.golden_universe import store as golden_store
+
+            path = Path(golden_store.release_dir(release_id)) / "_iat_report.json"
+            if path.exists():
+                import json
+
+                iat_pack = json.loads(path.read_text(encoding="utf-8"))
+                iat_pack["found"] = True
+        except Exception:
+            iat_pack = None
+    pack = build_protocol_report_for_release(release_id or "UNASSIGNED", iat_pack=iat_pack)
+    if release_id and iat_pack and iat_pack.get("found"):
+        try:
+            import json
+            from pathlib import Path
+
+            from institutional_evaluation_lab.golden_universe import store as golden_store
+
+            root = Path(golden_store.release_dir(release_id))
+            root.mkdir(parents=True, exist_ok=True)
+            (root / "_iat_protocol.json").write_text(json.dumps(pack, indent=2, default=str), encoding="utf-8")
+            (root / "_iat_protocol.md").write_text(pack["report_text"] + "\n", encoding="utf-8")
+            pack["protocol_path"] = str(root / "_iat_protocol.json")
+        except Exception:
+            pass
+    return pack
 
 
 def run_iat(
