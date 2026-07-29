@@ -507,9 +507,13 @@ def _coverage_snapshot() -> dict[str, Any]:
         prog = coverage_progress()
         return {
             "total_companies": prog.get("total_companies") or dash.get("universe_n"),
+            "current_listed_universe": prog.get("current_listed_universe"),
+            "covered_companies": prog.get("covered_companies"),
             "historical_coverage_pct": prog.get("historical_coverage_pct")
             or dash.get("historical_coverage_pct")
             or dash.get("historical_completeness_pct"),
+            "hard_coverage_pct": prog.get("hard_coverage_pct"),
+            "soft_coverage_pct": prog.get("soft_coverage_pct"),
             "average_history_years": prog.get("average_history_years")
             or dash.get("average_history_years"),
             "companies_fully_backfilled": prog.get("companies_fully_backfilled")
@@ -518,6 +522,11 @@ def _coverage_snapshot() -> dict[str, Any]:
             "queue_length": prog.get("queue_length"),
             "companies_processed_today": prog.get("companies_processed_today"),
             "companies_remaining": prog.get("remaining_backlog"),
+            "new_listings_count": prog.get("new_listings_count"),
+            "delisted_count": prog.get("delisted_count"),
+            "pending_ipos_count": prog.get("pending_ipos_count"),
+            "pending_ipos": prog.get("pending_ipos"),
+            "company_scorecards": prog.get("company_scorecards"),
             "knowledge_extracts": prog.get("knowledge_extracts"),
             "embeddings": prog.get("embeddings"),
             "documents": dash.get("documents"),
@@ -531,6 +540,9 @@ def _coverage_snapshot() -> dict[str, Any]:
             "maintenance_only": prog.get("maintenance_only"),
             "completed_at": prog.get("completed_at"),
             "continues_until_complete": prog.get("continues_until_complete"),
+            "coverage_finished": False,
+            "queue_always_ready": True,
+            "living_universe": prog.get("living_universe"),
         }
     except Exception as exc:  # noqa: BLE001
         return {"error": str(exc)[:160]}

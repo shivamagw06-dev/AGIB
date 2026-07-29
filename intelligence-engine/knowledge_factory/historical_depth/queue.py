@@ -24,6 +24,7 @@ STATUS_COMPLETE = "complete"
 STATUS_FAILED = "failed"
 STATUS_COOLDOWN = "cooldown"
 STATUS_MAINTENANCE = "maintenance"
+STATUS_DELISTED = "delisted"
 
 
 def _now() -> datetime:
@@ -54,12 +55,23 @@ def load_queue() -> dict[str, Any]:
 
 
 def save_queue(payload: dict[str, Any]) -> dict[str, Any]:
+    companies = list(payload.get("companies") or [])
+    pending_like = {
+        STATUS_PENDING,
+        STATUS_RUNNING,
+        STATUS_FAILED,
+        STATUS_COOLDOWN,
+    }
     body = {
         **payload,
         "queue_version": QUEUE_VERSION,
         "updated_at": _now_iso(),
-        "queue_length": len([c for c in (payload.get("companies") or []) if c.get("status") != STATUS_COMPLETE]),
-        "completed_count": len([c for c in (payload.get("companies") or []) if c.get("status") in {STATUS_COMPLETE, STATUS_MAINTENANCE}]),
+        "queue_length": len([c for c in companies if str(c.get("status")) in pending_like]),
+        "completed_count": len(
+            [c for c in companies if str(c.get("status")) in {STATUS_COMPLETE, STATUS_MAINTENANCE}]
+        ),
+        "coverage_finished": False,
+        "always_ready": True,
     }
     hd_store.put_report(QUEUE_REPORT, body)
     return body
@@ -82,22 +94,107 @@ def save_engine_state(state: dict[str, Any]) -> dict[str, Any]:
     return body
 
 
+def enqueue_company(
+    symbol: str,
+    *,
+    reason: str = "manual",
+    listing_date: str | None = None,
+) -> dict[str, Any]:
+    """Add or reopen a company on the backlog (e.g. new IPO / listing)."""
+    e = symbol.upper().strip()
+    q = load_queue()
+    companies = list(q.get("companies") or [])
+    found = None
+    for row in companies:
+        if str(row.get("company") or "").upper() == e:
+            found = row
+            break
+    if found is None:
+        found = {
+            "company": e,
+            "priority": priority_tier(e),
+            "tier": tier_label(priority_tier(e)),
+            "status": STATUS_PENDING,
+            "attempts": 0,
+            "last_run": None,
+            "coverage": 0.0,
+            "years": history_years(e),
+            "errors": [],
+            "mode": "backfill",
+            "listing_date": listing_date,
+            "enqueued_reason": reason,
+            "enqueued_at": _now_iso(),
+        }
+        companies.append(found)
+    else:
+        # Reopen from maintenance/delisted into backfill for listing-date history
+        if str(found.get("status")) in {STATUS_MAINTENANCE, STATUS_COMPLETE, STATUS_DELISTED}:
+            found["status"] = STATUS_PENDING
+            found["mode"] = "backfill"
+            found["enqueued_reason"] = reason
+            found["enqueued_at"] = _now_iso()
+            found["listing_date"] = listing_date or found.get("listing_date")
+            found.pop("cooldown_until", None)
+    companies.sort(
+        key=lambda c: (int(c.get("priority") or 99), float(c.get("years") or 0.0), str(c.get("company")))
+    )
+    q["companies"] = companies
+    save_queue(q)
+    # Reopen deep mode if we were in maintenance-only
+    state = load_engine_state()
+    if state.get("maintenance_only"):
+        save_engine_state(
+            {
+                **state,
+                "mode": "deep_backfill",
+                "deep_backfill_enabled": True,
+                "maintenance_only": False,
+                "reopened_at": _now_iso(),
+                "reopen_reason": reason,
+                "note": "New listing/IPO enqueued — deep backfill reopened; coverage never permanently finished",
+            }
+        )
+    return found
+
+
+def mark_delisted(symbol: str) -> None:
+    e = symbol.upper()
+    q = load_queue()
+    for row in q.get("companies") or []:
+        if str(row.get("company") or "").upper() == e:
+            row["status"] = STATUS_DELISTED
+            row["mode"] = "delisted"
+            row["delisted_at"] = _now_iso()
+            break
+    save_queue(q)
+
+
 def ensure_queue(*, force_refresh: bool = False) -> dict[str, Any]:
-    """Ensure every supported listed company is on the queue."""
+    """Ensure every supported listed company is on the queue.
+
+    Also soft-syncs the living universe so new listings/IPOs are auto-enqueued.
+    The queue may be empty of pending work but is never retired.
+    """
+    # Living universe sync (lazy) — detects IPO listings / delists
+    try:
+        from knowledge_factory.historical_depth.living_universe import sync_listed_universe
+
+        sync_listed_universe()
+    except Exception:
+        pass
+
     q = load_queue()
     existing = {str(c.get("company") or "").upper(): c for c in (q.get("companies") or [])}
     years_map = {s: history_years(s) for s in supported_universe()}
     ordered = prioritised_universe(coverage_years=years_map)
-    changed = False
     for s in ordered:
-        if s in existing and not force_refresh:
-            # Refresh coverage/years/priority fields
+        if s in existing:
             row = existing[s]
+            if str(row.get("status")) == STATUS_DELISTED:
+                continue
             row["years"] = years_map.get(s, 0.0)
             row["priority"] = priority_tier(s)
             row["tier"] = tier_label(priority_tier(s))
-            continue
-        if s in existing:
             continue
         existing[s] = {
             "company": s,
@@ -111,13 +208,13 @@ def ensure_queue(*, force_refresh: bool = False) -> dict[str, Any]:
             "errors": [],
             "mode": "backfill",
         }
-        changed = True
     companies = list(existing.values())
-    # Re-sort
-    companies.sort(key=lambda c: (int(c.get("priority") or 99), float(c.get("years") or 0.0), str(c.get("company"))))
+    companies.sort(
+        key=lambda c: (int(c.get("priority") or 99), float(c.get("years") or 0.0), str(c.get("company")))
+    )
     q["companies"] = companies
-    if changed or force_refresh or not q.get("updated_at"):
-        return save_queue(q)
+    q["always_ready"] = True
+    q["coverage_finished"] = False
     return save_queue(q)
 
 
@@ -146,6 +243,8 @@ def next_batch(*, batch_size: int = 12, maintenance: bool = False) -> list[dict[
         if len(selected) >= batch_size:
             break
         status = str(row.get("status") or STATUS_PENDING)
+        if status == STATUS_DELISTED:
+            continue
         if maintenance:
             if status not in {STATUS_COMPLETE, STATUS_MAINTENANCE}:
                 continue
@@ -184,17 +283,25 @@ def mark_result(company: str, evaluation: dict[str, Any], *, error: str | None =
             row["status"] = STATUS_COOLDOWN
             row["cooldown_until"] = (_now() + timedelta(seconds=delay)).isoformat()
             row["mode"] = "backfill"
-        elif evaluation.get("complete"):
+        elif evaluation.get("hard_ok") or evaluation.get("complete"):
+            # Hard requirements gate maintenance; soft % is informational only
             row["status"] = STATUS_MAINTENANCE
             row["mode"] = "maintenance"
             row["completed_at"] = row.get("completed_at") or _now_iso()
+            row["hard_pct"] = evaluation.get("hard_pct")
+            row["soft_pct"] = evaluation.get("soft_pct")
+            row["overall_pct"] = evaluation.get("overall_pct")
+            row["density"] = (evaluation.get("density") or {}).get("density")
             row["errors"] = []
             row.pop("cooldown_until", None)
         else:
             row["status"] = STATUS_PENDING
             row["mode"] = "backfill"
+            row["hard_pct"] = evaluation.get("hard_pct")
+            row["soft_pct"] = evaluation.get("soft_pct")
+            row["overall_pct"] = evaluation.get("overall_pct")
             # Light backoff even on partial progress to rotate fairly
-            if int(row["attempts"]) > 3 and float(row.get("coverage") or 0) < 50:
+            if int(row["attempts"]) > 3 and float(row.get("hard_pct") or row.get("coverage") or 0) < 50:
                 delay = _backoff_seconds(int(row["attempts"]) // 2)
                 row["status"] = STATUS_COOLDOWN
                 row["cooldown_until"] = (_now() + timedelta(seconds=delay)).isoformat()
@@ -218,30 +325,43 @@ def _update_row(company: str, **fields: Any) -> None:
 def backlog_stats() -> dict[str, Any]:
     q = ensure_queue()
     companies = list(q.get("companies") or [])
+    active = [c for c in companies if str(c.get("status")) != STATUS_DELISTED]
     remaining = [
         c
-        for c in companies
+        for c in active
         if str(c.get("status")) not in {STATUS_COMPLETE, STATUS_MAINTENANCE}
     ]
-    done = [c for c in companies if str(c.get("status")) in {STATUS_COMPLETE, STATUS_MAINTENANCE}]
-    years = [float(c.get("years") or 0.0) for c in companies] or [0.0]
+    done = [c for c in active if str(c.get("status")) in {STATUS_COMPLETE, STATUS_MAINTENANCE}]
+    years = [float(c.get("years") or 0.0) for c in active] or [0.0]
     state = load_engine_state()
+    hard_avg = 0.0
+    soft_avg = 0.0
+    hard_vals = [float(c.get("hard_pct") or 0) for c in active if c.get("hard_pct") is not None]
+    soft_vals = [float(c.get("soft_pct") or 0) for c in active if c.get("soft_pct") is not None]
+    if hard_vals:
+        hard_avg = round(sum(hard_vals) / len(hard_vals), 2)
+    if soft_vals:
+        soft_avg = round(sum(soft_vals) / len(soft_vals), 2)
     return {
-        "total_companies": len(companies),
+        "total_companies": len(active),
         "fully_backfilled": len(done),
         "remaining": len(remaining),
         "queue_length": len(remaining),
         "average_years": round(sum(years) / max(1, len(years)), 2),
-        "coverage_pct": round(100.0 * len(done) / max(1, len(companies)), 2),
+        "coverage_pct": round(100.0 * len(done) / max(1, len(active)), 2),
+        "hard_coverage_pct": hard_avg,
+        "soft_coverage_pct": soft_avg,
         "mode": state.get("mode") or "deep_backfill",
         "maintenance_only": bool(state.get("maintenance_only")),
         "completed_at": state.get("completed_at"),
         "companies_processed_today": int(state.get("companies_processed_today") or 0),
+        "coverage_finished": False,
+        "queue_always_ready": True,
     }
 
 
 def maybe_transition_to_maintenance() -> dict[str, Any]:
-    """When remaining=0, disable deep backfill and enable maintenance-only forever."""
+    """When remaining=0, switch to maintenance — queue stays ready for new listings/IPOs."""
     stats = backlog_stats()
     state = load_engine_state()
     if int(stats.get("remaining") or 0) == 0 and int(stats.get("total_companies") or 0) > 0:
@@ -253,13 +373,15 @@ def maybe_transition_to_maintenance() -> dict[str, Any]:
                     "deep_backfill_enabled": False,
                     "maintenance_only": True,
                     "completed_at": state.get("completed_at") or _now_iso(),
-                    "note": "Coverage target reached — incremental maintenance only",
+                    "coverage_finished": False,
+                    "note": (
+                        "Backlog empty — maintenance-only for covered names. "
+                        "Queue remains ready; new IPOs/listings auto-enqueue and reopen deep backfill."
+                    ),
                 }
             )
         return {**stats, "transitioned": True, "engine": state}
-    # Still in deep mode
     if state.get("maintenance_only") and int(stats.get("remaining") or 0) > 0:
-        # New companies added — reopen deep backfill
         state = save_engine_state(
             {
                 **state,
@@ -267,6 +389,7 @@ def maybe_transition_to_maintenance() -> dict[str, Any]:
                 "deep_backfill_enabled": True,
                 "maintenance_only": False,
                 "reopened_at": _now_iso(),
+                "note": "Backlog non-empty (new listing or incomplete hard dims) — deep backfill active",
             }
         )
     else:
@@ -275,6 +398,7 @@ def maybe_transition_to_maintenance() -> dict[str, Any]:
                 **state,
                 "mode": "deep_backfill" if not state.get("maintenance_only") else "maintenance",
                 "deep_backfill_enabled": not bool(state.get("maintenance_only")),
+                "coverage_finished": False,
             }
         )
     return {**stats, "transitioned": False, "engine": state}

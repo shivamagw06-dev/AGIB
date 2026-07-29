@@ -72,8 +72,10 @@ def test_enrich_marks_complete_and_maintenance(monkeypatch):
     assert report["processed"] == 2
     ev = evaluate_completion("INFY", target_years=10)
     assert ev["complete"] is True
-    assert ev["dimensions"]["knowledge_extract"]["status"] == "complete"
+    assert ev["hard_ok"] is True
+    assert ev["hard_pct"] == 100.0
     assert ev["dimensions"]["embeddings"]["status"] == "complete"
+    assert ev["dimensions"]["ohlcv"]["status"] == "complete"
     # Queue should move to maintenance
     q = bf_queue.load_queue()
     statuses = {c["company"]: c["status"] for c in q["companies"]}

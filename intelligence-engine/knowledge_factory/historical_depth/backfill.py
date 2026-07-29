@@ -109,17 +109,20 @@ def _enrich_entity(entity: str, *, maintenance: bool) -> dict[str, Any]:
             record_attempt(
                 e, "earnings_transcripts", status="complete" if "earnings_transcript" in types else "n_a"
             )
+            record_attempt(e, "esg_reports", status="complete" if "esg_report" in types else "n_a")
         else:
-            # Offline / no entrypoint: transparent N/A so soft dims do not block forever
+            # Offline / no entrypoint: soft N/A — never permanently block on missing IR artefacts
             record_attempt(e, "annual_reports", status="n_a", detail="ir_deferred_or_offline")
             record_attempt(e, "investor_presentations", status="n_a", detail="ir_deferred_or_offline")
             record_attempt(e, "earnings_transcripts", status="n_a", detail="ir_deferred_or_offline")
+            record_attempt(e, "esg_reports", status="n_a", detail="ir_deferred_or_offline")
     except Exception as exc:  # noqa: BLE001
         record_attempt(e, "annual_reports", status="n_a", detail=str(exc)[:120])
         record_attempt(e, "investor_presentations", status="n_a", detail=str(exc)[:120])
         record_attempt(e, "earnings_transcripts", status="n_a", detail=str(exc)[:120])
+        record_attempt(e, "esg_reports", status="n_a", detail=str(exc)[:120])
 
-    # Corporate actions / announcements / shareholding attempts
+    # Corporate actions / news / shareholding attempts (hard shareholding may be N/A after attempt)
     actions = hd_store.get_series("corporate_actions", e) or {}
     record_attempt(
         e,
@@ -127,8 +130,9 @@ def _enrich_entity(entity: str, *, maintenance: bool) -> dict[str, Any]:
         status="complete" if (actions.get("records")) else "empty",
         detail=f"n={len(actions.get('records') or [])}",
     )
+    record_attempt(e, "historical_news", status="n_a", detail="exchange_snapshot_soft")
     record_attempt(e, "announcements", status="n_a", detail="exchange_snapshot_soft")
-    record_attempt(e, "shareholding", status="n_a", detail="collector_pending")
+    record_attempt(e, "shareholding", status="n_a", detail="collector_pending_or_unavailable")
     record_attempt(e, "_wave", status="complete", detail="soft_dims_attempted")
 
     validation_failures = []
@@ -326,14 +330,48 @@ def coverage_progress(*, entities: list[str] | None = None) -> dict[str, Any]:
         extracts_n = 0
         embeddings_n = 0
     docs = dash.get("documents") or {}
+    try:
+        from knowledge_factory.historical_depth.living_universe import living_universe_board
+
+        living = living_universe_board()
+    except Exception:
+        living = {"coverage_finished": False, "queue_ready": True}
+    # Sample density / hard-soft scorecards for Mission Control
+    scorecards = []
+    try:
+        from knowledge_factory.historical_depth.completion import company_scorecard
+
+        sample = list(entities or supported_universe())[:12]
+        # Prefer names with queue activity
+        q = bf_queue.load_queue()
+        ranked = sorted(
+            [c for c in (q.get("companies") or []) if c.get("status") != bf_queue.STATUS_DELISTED],
+            key=lambda c: (-float(c.get("years") or 0), str(c.get("company"))),
+        )
+        for row in ranked[:8]:
+            scorecards.append(company_scorecard(str(row.get("company"))))
+        if not scorecards:
+            scorecards = [company_scorecard(s) for s in sample[:5]]
+    except Exception:
+        scorecards = []
     return {
         "universe_n": stats.get("total_companies") or dash.get("universe_n"),
         "total_companies": stats.get("total_companies"),
+        "current_listed_universe": living.get("current_listed_universe") or stats.get("total_companies"),
+        "covered_companies": living.get("covered_companies") or stats.get("fully_backfilled"),
         "companies_fully_backfilled": stats.get("fully_backfilled"),
         "remaining_backlog": stats.get("remaining"),
         "queue_length": stats.get("queue_length"),
         "average_history_years": stats.get("average_years") or dash.get("average_history_years"),
-        "historical_coverage_pct": stats.get("coverage_pct"),
+        "historical_coverage_pct": living.get("coverage_pct") or stats.get("coverage_pct"),
+        "hard_coverage_pct": stats.get("hard_coverage_pct"),
+        "soft_coverage_pct": stats.get("soft_coverage_pct"),
+        "new_listings": living.get("new_listings") or [],
+        "new_listings_count": living.get("new_listings_count") or 0,
+        "delisted_companies": living.get("delisted_companies") or [],
+        "delisted_count": living.get("delisted_count") or 0,
+        "pending_ipos": living.get("pending_ipos") or [],
+        "pending_ipos_count": living.get("pending_ipos_count") or 0,
         "companies_gt_10y": dash.get("companies_gt_10y"),
         "companies_gt_15y": dash.get("companies_gt_15y"),
         "estimated_completion_days": bf_queue.eta_days(),
@@ -345,10 +383,14 @@ def coverage_progress(*, entities: list[str] | None = None) -> dict[str, Any]:
         "annual_reports": docs.get("annual_reports"),
         "quarterly_results": docs.get("quarterly_results"),
         "investor_presentations": docs.get("investor_presentations"),
+        "company_scorecards": scorecards,
         "mode": stats.get("mode"),
         "maintenance_only": stats.get("maintenance_only"),
         "completed_at": stats.get("completed_at"),
         "last_backfill_at": (hd_store.get_report("historical_backfill_last") or {}).get("generated_at"),
         "target_years": TARGET_YEARS,
         "continues_until_complete": not bool(stats.get("maintenance_only")),
+        "coverage_finished": False,
+        "queue_always_ready": True,
+        "living_universe": living,
     }

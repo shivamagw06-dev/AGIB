@@ -1,46 +1,84 @@
-# Continuous Historical Backfill Until 100% Coverage
+# Continuous Historical Backfill Until Coverage Stabilises
 
-The historical backfill engine **does not stop after a fixed number of cycles**. It keeps draining a persistent company queue until every supported listed company is fully backfilled, then automatically switches to **maintenance-only** mode.
+The historical backfill engine **keeps draining a persistent company queue** until hard requirements are met for every currently listed company, then switches to **maintenance-only**. Coverage is **never permanently finished** — the listed universe changes over time.
+
+## Living universe
+
+Mission Control tracks:
+
+| Metric | Meaning |
+|--------|---------|
+| Current Listed Universe | Active supported listings |
+| Covered Companies | Hard-complete / maintenance |
+| Coverage % | Covered ÷ listed |
+| New Listings | Diff vs prior snapshot (auto-enqueued) |
+| Delisted Companies | Removed from active listed set |
+| Pending IPOs | Registered pre-listing names |
+
+### IPO path
+
+```text
+IPO detected / registered
+→ Automatically create/enqueue company
+→ Historical backfill from listing date
+→ Hard-complete → maintenance mode
+```
+
+The queue may be **empty of pending work**, but it is **always ready** to accept new listings without manual intervention.
+
+## Hard vs soft completion
+
+| Hard (gates maintenance) | Soft (richness only) |
+|--------------------------|----------------------|
+| OHLCV | Investor presentations |
+| Corporate actions | Earnings transcripts |
+| Financial statements | IR PDFs |
+| Shareholding | Historical news |
+| Embeddings | ESG reports |
+| QA | |
+
+Soft gaps (e.g. no 2011 transcripts) **do not** permanently mark a company incomplete.
+
+Mission Control scorecard example:
+
+```text
+RELIANCE   Hard 100%   Soft 83%   Overall 96%
+```
+
+## Knowledge density
+
+Per company:
+
+`Years · Documents · Extracts · Embeddings · Density (Excellent / Good / Moderate / Thin)`
+
+Density measures how rich the intelligence is — not only whether the name was processed.
 
 ## Modes
 
 | Mode | When | Behaviour |
 |------|------|-----------|
-| `deep_backfill` | `remaining > 0` | Prioritised batches every CGL slot; faster loop interval (default 300s) |
-| `maintenance` | `remaining = 0` | Incremental refresh only; no full-history redownload; deep backfill disabled |
-
-## Completion criteria
-
-A company is **Fully Backfilled** only when hard dimensions pass (and soft dimensions are complete or transparently N/A after attempt):
-
-- OHLCV depth ≥ target years (or listing age if newer)
-- Corporate actions attempted / stored
-- Annual + quarterly financials
-- Knowledge extract + embeddings
-- QA on prices
-- Soft: announcements, AR / presentations / transcripts, shareholding, macro link
-
-## Queue
-
-Persistent under KF HD reports (`historical_backfill_queue`):
-
-`company · priority · status · attempts · last_run · coverage · years · errors`
-
-Priority: Nifty 50 → Next 50 → Nifty 500 → residual. Lowest coverage first. Failed names use exponential backoff.
+| `deep_backfill` | pending hard backlog > 0 | Prioritised batches; faster CGL interval |
+| `maintenance` | hard backlog = 0 | Incremental refresh; queue stays ready for IPOs |
 
 ## Flags
 
 | Flag | Default | Meaning |
 |------|---------|---------|
 | `CONTINUOUS_HISTORICAL_BACKFILL` | true | Master backfill switch |
-| `CONTINUOUS_BACKFILL_UNTIL_COMPLETE` | true | Keep draining until backlog=0 |
-| `CONTINUOUS_BACKFILL_ACTIVE_INTERVAL_SEC` | 300 | CGL interval while backlog remains |
+| `CONTINUOUS_BACKFILL_UNTIL_COMPLETE` | true | Drain until hard backlog empty |
+| `CONTINUOUS_BACKFILL_ACTIVE_INTERVAL_SEC` | 300 | Faster interval while backlog remains |
 | `KF_HD_BACKFILL_BATCH` | 12 | Companies per batch |
 | `KF_HD_BACKFILL_BATCHES_PER_CYCLE` | 3 | Batches per CGL wake |
-| `KF_HD_BACKFILL_WORKERS` | 2 | Parallel workers |
 | `KF_HD_TARGET_YEARS` | 15 | Depth target |
 | `KF_HD_LIVE_COLLECTORS` | true (Render) | Yahoo live OHLCV |
 
-## Mission Control
+## Operational verification (days/weeks)
 
-Shows total / fully backfilled / remaining / queue length / avg years / coverage % / ETA / processed today / extracts / embeddings / documents / backfill mode.
+Watch Mission Control for:
+
+1. Backlog steadily shrinking  
+2. Coverage % rising  
+3. Average historical depth increasing  
+4. Knowledge extracts + embeddings growing  
+5. Collector error rates staying low  
+6. Newly listed companies appearing on the queue automatically  

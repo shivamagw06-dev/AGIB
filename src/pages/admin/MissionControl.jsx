@@ -339,13 +339,27 @@ export default function MissionControl() {
                 hint="Durable FVL/ILO archive"
               />
               <Stat
-                label="Historical Coverage"
+                label="Listed Universe"
+                value={continuousGatherLearn.current_listed_universe ?? continuousGatherLearn.total_companies ?? '—'}
+                hint={`Covered ${continuousGatherLearn.covered_companies ?? continuousGatherLearn.companies_fully_backfilled ?? '—'}`}
+              />
+              <Stat
+                label="Coverage %"
                 value={
                   continuousGatherLearn.historical_coverage_pct != null
                     ? `${continuousGatherLearn.historical_coverage_pct}%`
                     : '—'
                 }
-                hint="vs 20y completeness target"
+                hint="Living universe — never permanently finished"
+              />
+              <Stat
+                label="Hard / Soft"
+                value={
+                  continuousGatherLearn.hard_coverage_pct != null
+                    ? `${continuousGatherLearn.hard_coverage_pct}% / ${continuousGatherLearn.soft_coverage_pct ?? '—'}%`
+                    : '—'
+                }
+                hint="Hard gates maintenance; soft is richness"
               />
               <Stat
                 label="Avg History / Co"
@@ -357,24 +371,19 @@ export default function MissionControl() {
                 hint="Price + annual depth"
               />
               <Stat
-                label="Fully Backfilled"
-                value={continuousGatherLearn.companies_fully_backfilled ?? '—'}
-                hint={`of ${continuousGatherLearn.total_companies ?? '—'} · backlog ${continuousGatherLearn.remaining_backlog ?? continuousGatherLearn.companies_remaining ?? '—'}`}
-              />
-              <Stat
                 label="Queue Length"
                 value={continuousGatherLearn.queue_length ?? continuousGatherLearn.remaining_backlog ?? '—'}
-                hint={`Today ${continuousGatherLearn.companies_processed_today ?? 0} processed`}
+                hint={`Today ${continuousGatherLearn.companies_processed_today ?? 0} · ready for new listings`}
               />
               <Stat
-                label="IR Documents"
-                value={continuousGatherLearn.documents_downloaded ?? '—'}
-                hint={`AR ${continuousGatherLearn.annual_reports ?? 0} · QR ${continuousGatherLearn.quarterly_results ?? 0}`}
+                label="New / IPO / Delist"
+                value={`${continuousGatherLearn.new_listings_count ?? 0} / ${continuousGatherLearn.pending_ipos_count ?? 0} / ${continuousGatherLearn.delisted_count ?? 0}`}
+                hint="Auto-enqueue on IPO list"
               />
               <Stat
                 label="Embeddings"
                 value={continuousGatherLearn.embeddings_total ?? '—'}
-                hint={`Extracts ${continuousGatherLearn.knowledge_extracts_total ?? continuousGatherLearn.metrics?.knowledge_extracts_total ?? '—'}`}
+                hint={`Extracts ${continuousGatherLearn.knowledge_extracts_total ?? continuousGatherLearn.metrics?.knowledge_extracts_total ?? '—'} · Docs ${continuousGatherLearn.documents_downloaded ?? '—'}`}
               />
               <Stat
                 label="Backfill Mode"
@@ -387,32 +396,60 @@ export default function MissionControl() {
                 hint={
                   continuousGatherLearn.estimated_completion_days != null
                     ? `ETA ~${continuousGatherLearn.estimated_completion_days}d`
-                    : continuousGatherLearn.backfill_completed_at
-                      ? `Done ${String(continuousGatherLearn.backfill_completed_at).slice(0, 10)}`
-                      : 'Until remaining=0'
+                    : 'Queue always ready'
                 }
-              />
-              <Stat
-                label="Collector Success"
-                value={
-                  continuousGatherLearn.collector_success_rate != null
-                    ? `${continuousGatherLearn.collector_success_rate}%`
-                    : '—'
-                }
-                hint="LIDI + KF HD + backfill"
               />
             </div>
+            {Array.isArray(continuousGatherLearn.company_scorecards) && continuousGatherLearn.company_scorecards.length > 0 ? (
+              <Glass className="overflow-x-auto">
+                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--io-caption)]">
+                  Knowledge density · Hard / Soft / Overall
+                </p>
+                <table className="w-full min-w-[640px] text-left text-xs text-[var(--io-ink)]">
+                  <thead className="text-[var(--io-muted)]">
+                    <tr>
+                      <th className="py-1 pr-3 font-medium">Company</th>
+                      <th className="py-1 pr-3 font-medium">Years</th>
+                      <th className="py-1 pr-3 font-medium">Hard</th>
+                      <th className="py-1 pr-3 font-medium">Soft</th>
+                      <th className="py-1 pr-3 font-medium">Overall</th>
+                      <th className="py-1 pr-3 font-medium">Docs</th>
+                      <th className="py-1 pr-3 font-medium">Extracts</th>
+                      <th className="py-1 pr-3 font-medium">Embeds</th>
+                      <th className="py-1 font-medium">Density</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {continuousGatherLearn.company_scorecards.slice(0, 8).map((row) => (
+                      <tr key={row.company} className="border-t border-[var(--io-line)]/40">
+                        <td className="py-1.5 pr-3 font-semibold">{row.company}</td>
+                        <td className="py-1.5 pr-3">{row.years ?? '—'}</td>
+                        <td className="py-1.5 pr-3">{row.hard_pct != null ? `${row.hard_pct}%` : '—'}</td>
+                        <td className="py-1.5 pr-3">{row.soft_pct != null ? `${row.soft_pct}%` : '—'}</td>
+                        <td className="py-1.5 pr-3">{row.overall_pct != null ? `${row.overall_pct}%` : '—'}</td>
+                        <td className="py-1.5 pr-3">{row.documents ?? '—'}</td>
+                        <td className="py-1.5 pr-3">{row.extracts ?? '—'}</td>
+                        <td className="py-1.5 pr-3">{row.embeddings ?? '—'}</td>
+                        <td className="py-1.5">{row.density ?? '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </Glass>
+            ) : null}
             <Glass className="text-xs text-[var(--io-muted)]">
               <p>
-                Autonomous loop: Collect → Validate → Clean → Store → Extract → Update knowledge →
-                Signals → Evaluate forecasts → Learn → Update confidence → Archive. Ask-isolated · no LLM retrain.
-                Historical backfill continues until every listed company is fully backfilled, then switches to maintenance-only.
+                Living universe: backlog may be empty but is never retired — new IPOs/listings auto-enqueue and
+                reopen deep backfill. Soft gaps (transcripts, ESG) do not permanently mark a company incomplete.
               </p>
               <p className="mt-1 text-[11px] text-[var(--io-caption)]">
                 Freshness LIDI {continuousGatherLearn.freshness?.lidi || '—'} · KF HD{' '}
-                {continuousGatherLearn.freshness?.kf_hd || '—'} · Cycles{' '}
-                {continuousGatherLearn.metrics?.cycles_total ?? '—'} · Remaining{' '}
-                {continuousGatherLearn.companies_remaining ?? continuousGatherLearn.remaining_backlog ?? '—'}
+                {continuousGatherLearn.freshness?.kf_hd || '—'} · Remaining{' '}
+                {continuousGatherLearn.companies_remaining ?? continuousGatherLearn.remaining_backlog ?? '—'} ·
+                Collector success{' '}
+                {continuousGatherLearn.collector_success_rate != null
+                  ? `${continuousGatherLearn.collector_success_rate}%`
+                  : '—'}
               </p>
             </Glass>
           </section>

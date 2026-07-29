@@ -1,4 +1,8 @@
-"""Multi-dimension completion criteria for institutional historical backfill."""
+"""Hard vs soft completion + knowledge density for institutional historical backfill.
+
+Hard requirements gate maintenance eligibility.
+Soft requirements never permanently block a company (e.g. missing 2011 transcripts).
+"""
 
 from __future__ import annotations
 
@@ -10,25 +14,23 @@ from knowledge_factory.historical_depth import store as hd_store
 
 TARGET_YEARS = float(os.getenv("KF_HD_TARGET_YEARS") or "15")
 
-# Hard gates — company cannot leave backlog until these pass (or N/A with attempt).
+# Hard — company may enter maintenance only when these pass.
 HARD_DIMS = (
     "ohlcv",
     "corporate_actions",
-    "financials_annual",
-    "financials_quarterly",
-    "knowledge_extract",
+    "financial_statements",
+    "shareholding",
     "embeddings",
     "qa",
 )
 
-# Soft gates — attempt recorded OR present; transparent unavailability does not block forever.
+# Soft — measured for richness; N/A or missing does not block maintenance forever.
 SOFT_DIMS = (
-    "announcements",
-    "annual_reports",
     "investor_presentations",
     "earnings_transcripts",
-    "shareholding",
-    "macro_linked",
+    "ir_pdfs",
+    "historical_news",
+    "esg_reports",
 )
 
 
@@ -62,8 +64,10 @@ def _effective_target(entity: str, target_years: float) -> float:
         return target_years
     try:
         listed = datetime.fromisoformat(min(ends))
-        span = max(0.5, (datetime.now(timezone.utc).replace(tzinfo=None) - listed.replace(tzinfo=None)).days / 365.25)
-        # If Yahoo returned full history and span < target, company is "as complete as listing allows"
+        span = max(
+            0.5,
+            (datetime.now(timezone.utc).replace(tzinfo=None) - listed.replace(tzinfo=None)).days / 365.25,
+        )
         return min(target_years, max(span, 1.0))
     except Exception:
         return target_years
@@ -117,8 +121,83 @@ def record_attempt(entity: str, dimension: str, *, status: str, detail: str | No
     hd_store.put_report(f"backfill_attempts_{e}", meta)
 
 
+def _score(dims: dict[str, Any], keys: tuple[str, ...]) -> float:
+    """Percent complete among keys. Soft N/A counts as complete for soft score."""
+    if not keys:
+        return 0.0
+    ok = 0
+    for k in keys:
+        st = (dims.get(k) or {}).get("status")
+        if st in {"complete", "n_a"}:
+            ok += 1
+    return round(100.0 * ok / len(keys), 2)
+
+
+def knowledge_density(entity: str) -> dict[str, Any]:
+    """How rich the intelligence is — not just whether the company was processed."""
+    e = entity.upper()
+    years = history_years(e)
+    docs = _ir_docs(e)
+    doc_n = len(docs)
+    extracts_n = 0
+    metrics_n = 0
+    try:
+        from continuous_gather_learn import persist as cgl_persist
+
+        ex = cgl_persist.get_knowledge_extract(e) or {}
+        if ex:
+            extracts_n = 1
+            metrics_n = len(ex.get("metrics") or {})
+            # Approximate "facts" from themes/risks/catalysts + metrics
+            extracts_n = metrics_n + len(ex.get("themes") or []) + len(ex.get("risks") or []) + len(
+                ex.get("catalysts") or []
+            )
+        emb = cgl_persist.get_embedding(e) or {}
+        emb_n = 1 if emb.get("vector") else 0
+        # Scale embeddings notionally with vector dims presence; keep count simple
+        if emb.get("vector"):
+            emb_n = max(1, int(len(emb.get("vector") or []) // 4))
+    except Exception:
+        emb_n = 0
+
+    annual_n = len((hd_store.get_series("financials_annual", e) or {}).get("records") or [])
+    q_n = len((hd_store.get_series("financials_quarterly", e) or {}).get("records") or [])
+    price_n = len((hd_store.get_series("prices", e) or {}).get("records") or [])
+    action_n = len((hd_store.get_series("corporate_actions", e) or {}).get("records") or [])
+
+    # Composite density score (0–100)
+    score = 0.0
+    score += min(30.0, years * 2.0)  # up to 30 for depth
+    score += min(20.0, doc_n * 2.0)  # docs
+    score += min(20.0, extracts_n * 1.5)  # extracts/facts
+    score += min(15.0, emb_n * 2.0)  # embeddings
+    score += min(15.0, (annual_n + q_n / 4.0 + min(price_n, 120) / 12.0 + action_n) * 0.5)
+
+    if score >= 75:
+        label = "Excellent"
+    elif score >= 55:
+        label = "Good"
+    elif score >= 30:
+        label = "Moderate"
+    else:
+        label = "Thin"
+
+    return {
+        "entity": e,
+        "years": round(years, 2),
+        "documents": doc_n,
+        "extracts": extracts_n,
+        "embeddings": emb_n,
+        "financial_periods": annual_n + q_n,
+        "price_points": price_n,
+        "corporate_actions": action_n,
+        "density_score": round(score, 1),
+        "density": label,
+    }
+
+
 def evaluate_completion(entity: str, *, target_years: float | None = None) -> dict[str, Any]:
-    """Return per-dimension status and whether company is Fully Backfilled."""
+    """Per-dimension status with hard/soft/overall percentages."""
     e = entity.upper()
     target = float(target_years if target_years is not None else TARGET_YEARS)
     eff = _effective_target(e, target)
@@ -139,8 +218,6 @@ def evaluate_completion(entity: str, *, target_years: float | None = None) -> di
             return {"status": "n_a", "detail": detail}
         return {"status": "missing", "detail": detail}
 
-    # QA on prices
-    qa_ok = True
     try:
         from live_data.qa import qa_price_points
 
@@ -150,111 +227,126 @@ def evaluate_completion(entity: str, *, target_years: float | None = None) -> di
         qa_ok = bool(prices.get("records"))
 
     ohlcv_ok = years + 1e-9 >= eff and len(prices.get("records") or []) >= 12
-    # Corporate actions: present OR attempted empty (valid for some names)
     ca_n = len(actions.get("records") or [])
     ca_attempt = attempts.get("corporate_actions") or {}
     ca_ok = ca_n > 0 or ca_attempt.get("status") in {"complete", "empty", "n_a"}
 
     ann_n = len(annual.get("records") or [])
-    # Annual: prefer real financials; price-proxy annual counts toward depth
-    annual_ok = ann_n >= max(3, int(min(eff, target))) or (ohlcv_ok and ann_n >= int(eff * 0.5))
-
     q_n = len(quarterly.get("records") or [])
-    q_need = max(4, int(min(eff, target) * 4 * 0.5))  # 50% of expected quarters
+    annual_ok = ann_n >= max(3, int(min(eff, target))) or (ohlcv_ok and ann_n >= int(eff * 0.5))
+    q_need = max(4, int(min(eff, target) * 4 * 0.5))
     quarterly_ok = q_n >= min(q_need, 8) or (eff < 2 and q_n >= 2)
+    financials_ok = annual_ok and quarterly_ok
 
-    ar_ok = "annual_report" in doc_types or (attempts.get("annual_reports") or {}).get("status") in {
+    # Shareholding — hard: present OR attempted empty/n_a (many names lack public history APIs yet)
+    sh_series = hd_store.get_series("shareholding", e)
+    sh_attempt = attempts.get("shareholding") or {}
+    sh_ok = bool(sh_series and (sh_series.get("records") or [])) or sh_attempt.get("status") in {
         "complete",
-        "n_a",
         "empty",
+        "n_a",
     }
-    ip_ok = "investor_presentation" in doc_types or (attempts.get("investor_presentations") or {}).get(
-        "status"
-    ) in {"complete", "n_a", "empty"}
-    tr_ok = "earnings_transcript" in doc_types or (attempts.get("earnings_transcripts") or {}).get(
-        "status"
-    ) in {"complete", "n_a", "empty"}
-    sh_ok = (attempts.get("shareholding") or {}).get("status") in {"complete", "n_a", "empty"} or bool(
-        hd_store.get_series("shareholding", e)
+
+    # Soft dims
+    ip_ok = "investor_presentation" in doc_types
+    tr_ok = "earnings_transcript" in doc_types
+    ir_ok = "annual_report" in doc_types or any(
+        t in doc_types for t in ("quarterly_results", "press_release", "other")
     )
-    ann_ex_ok = (attempts.get("announcements") or {}).get("status") in {"complete", "n_a", "empty"}
+    esg_ok = "esg_report" in doc_types
+    news_ok = False
     try:
         from live_data import store as lidi_store
 
         snap = lidi_store.get_latest_snapshot("nse_announcements", "LATEST") or {}
         events = (snap.get("payload") or {}).get("events") or []
-        if any(str(ev.get("symbol") or "").upper() == e for ev in events if isinstance(ev, dict)):
-            ann_ex_ok = True
+        news_ok = any(str(ev.get("symbol") or "").upper() == e for ev in events if isinstance(ev, dict))
     except Exception:
-        pass
+        news_ok = False
+    if (attempts.get("historical_news") or attempts.get("announcements") or {}).get("status") in {
+        "complete",
+        "empty",
+        "n_a",
+    }:
+        # Attempt recorded — soft N/A allowed
+        news_na = not news_ok
+    else:
+        news_na = False
 
-    macro_ok = False
-    try:
-        macro_ok = len(hd_store.get_macro_history() or []) > 0
-    except Exception:
-        macro_ok = False
+    def _soft_dim(present: bool, attempt_key: str) -> dict[str, Any]:
+        att = attempts.get(attempt_key) or {}
+        if present:
+            return _dim(True)
+        if att.get("status") in {"n_a", "empty", "complete"} or attempts.get("_wave"):
+            return _dim(False, n_a=True, detail="unavailable_or_not_published")
+        return _dim(False, detail="missing")
 
     dims = {
         "ohlcv": _dim(ohlcv_ok, detail=f"years={years:.2f} target={eff:.2f}"),
         "corporate_actions": _dim(ca_ok, n_a=ca_attempt.get("status") == "n_a", detail=f"n={ca_n}"),
-        "announcements": _dim(ann_ex_ok, n_a=True if not ann_ex_ok else False, detail="exchange"),
-        "financials_annual": _dim(annual_ok, detail=f"n={ann_n}"),
-        "financials_quarterly": _dim(quarterly_ok, detail=f"n={q_n}"),
-        "annual_reports": _dim(ar_ok, n_a=(attempts.get("annual_reports") or {}).get("status") == "n_a"),
-        "investor_presentations": _dim(
-            ip_ok, n_a=(attempts.get("investor_presentations") or {}).get("status") == "n_a"
+        "financial_statements": _dim(
+            financials_ok, detail=f"annual={ann_n} quarterly={q_n}"
         ),
-        "earnings_transcripts": _dim(
-            tr_ok, n_a=(attempts.get("earnings_transcripts") or {}).get("status") == "n_a"
-        ),
-        "shareholding": _dim(sh_ok, n_a=True),
-        "macro_linked": _dim(macro_ok, detail="global_macro"),
-        "knowledge_extract": _dim(_has_extract(e)),
-        "embeddings": _dim(_has_embedding(e)),
+        "shareholding": _dim(sh_ok, n_a=sh_attempt.get("status") == "n_a", detail="shareholding"),
+        "embeddings": _dim(_has_embedding(e) and _has_extract(e)),
         "qa": _dim(qa_ok, detail="price_qa"),
+        "investor_presentations": _soft_dim(ip_ok, "investor_presentations"),
+        "earnings_transcripts": _soft_dim(tr_ok, "earnings_transcripts"),
+        "ir_pdfs": _soft_dim(ir_ok, "annual_reports"),
+        "historical_news": _dim(news_ok, n_a=news_na, detail="announcements_news"),
+        "esg_reports": _soft_dim(esg_ok, "esg_reports"),
     }
 
-    # Soft dims: missing without attempt → still blocks; n_a or complete → ok
-    def _passes(name: str, soft: bool) -> bool:
-        st = dims[name]["status"]
-        if st == "complete":
-            return True
-        if soft and st == "n_a":
-            return True
-        return False
+    hard_pct = _score(dims, HARD_DIMS)
+    soft_pct = _score(dims, SOFT_DIMS)
+    overall_pct = round((hard_pct * 0.7 + soft_pct * 0.3), 2)
 
-    hard_ok = all(_passes(d, soft=False) for d in HARD_DIMS)
-    # Soft: treat missing as auto n_a after first full attempt wave (recorded)
-    soft_ok = True
-    for d in SOFT_DIMS:
-        st = dims[d]["status"]
-        if st == "complete":
-            continue
-        if st == "n_a":
-            continue
-        # Allow soft missing if we've recorded an attempt for this entity overall
-        if attempts.get(d) or attempts.get("_wave"):
-            dims[d] = _dim(False, n_a=True, detail="attempted_unavailable")
-            continue
-        soft_ok = False
+    # Hard gate: core dims must be complete; shareholding may be n_a after explicit attempt
+    hard_ok = True
+    for d in ("ohlcv", "corporate_actions", "financial_statements", "embeddings", "qa"):
+        if dims[d]["status"] != "complete":
+            hard_ok = False
+            break
+    if dims["shareholding"]["status"] not in {"complete", "n_a"}:
+        hard_ok = False
 
-    complete = hard_ok and soft_ok
-    coverage = round(
-        100.0
-        * sum(1 for d in (*HARD_DIMS, *SOFT_DIMS) if dims[d]["status"] in {"complete", "n_a"})
-        / max(1, len(HARD_DIMS) + len(SOFT_DIMS)),
-        2,
-    )
+    density = knowledge_density(e)
+
     return {
         "entity": e,
-        "complete": complete,
-        "fully_backfilled": complete,
+        "complete": hard_ok,  # maintenance eligibility = hard requirements
+        "fully_backfilled": hard_ok,
+        "hard_ok": hard_ok,
+        "soft_ok": soft_pct >= 99.9,  # informational
+        "hard_pct": hard_pct,
+        "soft_pct": soft_pct,
+        "overall_pct": overall_pct,
         "history_years": round(years, 2),
         "effective_target_years": round(eff, 2),
         "configured_target_years": target,
-        "coverage_pct": coverage,
+        "coverage_pct": overall_pct,
         "dimensions": dims,
-        "hard_ok": hard_ok,
-        "soft_ok": soft_ok,
-        "mode": "maintenance" if complete else "backfill",
+        "hard_dimensions": HARD_DIMS,
+        "soft_dimensions": SOFT_DIMS,
+        "density": density,
+        "mode": "maintenance" if hard_ok else "backfill",
+    }
+
+
+def company_scorecard(entity: str) -> dict[str, Any]:
+    """Compact Mission Control row: Hard / Soft / Overall + density."""
+    ev = evaluate_completion(entity)
+    dens = ev.get("density") or {}
+    return {
+        "company": entity.upper(),
+        "hard_pct": ev.get("hard_pct"),
+        "soft_pct": ev.get("soft_pct"),
+        "overall_pct": ev.get("overall_pct"),
+        "years": ev.get("history_years"),
+        "documents": dens.get("documents"),
+        "extracts": dens.get("extracts"),
+        "embeddings": dens.get("embeddings"),
+        "density": dens.get("density"),
+        "density_score": dens.get("density_score"),
+        "mode": ev.get("mode"),
     }
