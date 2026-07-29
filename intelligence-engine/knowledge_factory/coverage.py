@@ -19,8 +19,9 @@ from institutional_reasoning.fundamentals.primitives import has_primitives
 from institutional_reasoning.fundamentals.market_series import monthly_returns
 from institutional_reasoning.fundamentals.universe import NIFTY_50, NIFTY_100_EXTRA
 from institutional_reasoning.fundamentals.nifty500_universe import NIFTY_500
+from knowledge_factory.phase1_golden_test_set import PHASE1_GOLDEN_200, summary as phase1_summary
 
-COVERAGE_VERSION = "coverage-kpi-v1.2.0"
+COVERAGE_VERSION = "coverage-kpi-v1.3.0"
 
 # Sprint 1 Target-20 — finish before Nifty 50.
 TARGET_20: tuple[str, ...] = (
@@ -160,6 +161,8 @@ def _universe_label(universe: tuple[str, ...]) -> str:
         return "nifty_50"
     if universe == NIFTY_100:
         return "nifty_100"
+    if universe == PHASE1_GOLDEN_200 or list(universe) == list(PHASE1_GOLDEN_200):
+        return "phase1_golden_200"
     if list(universe) == list(NIFTY_500):
         return "nifty_500"
     return "custom"
@@ -710,6 +713,7 @@ def morning_coverage_dashboard() -> dict[str, Any]:
         "dimensions": dims,
         "daily_health": health,
         "universe_tiers": utiers,
+        "phase1_golden_test_set": phase1_summary(),
         "tiers": {
             "target_20": {
                 "covered": t20["decision_ready"],
@@ -725,6 +729,11 @@ def morning_coverage_dashboard() -> dict[str, Any]:
                 "covered": n100["decision_ready"],
                 "declared": n100["n"],
                 "coverage_pct": n100["decision_coverage_pct"],
+            },
+            "phase1_golden_200": {
+                "declared": len(PHASE1_GOLDEN_200),
+                "composition": phase1_summary().get("bucket_counts"),
+                "note": "Benchmark universe — run decision_coverage(PHASE1_GOLDEN_200) for readiness.",
             },
             "nifty_500": {
                 "covered": n500["decision_ready"],

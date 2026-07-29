@@ -9702,6 +9702,14 @@ async def institutional_evaluation_lab_catalog(suite: str = "institutional_1000"
     return catalog(suite=suite, limit=limit)
 
 
+@router.get("/institutional-evaluation-lab/phase1-golden-universe")
+async def institutional_evaluation_lab_phase1_golden_universe():
+    """Phase 1 Golden Test Set — 200-stock institutional benchmark universe."""
+    from institutional_evaluation_lab.production import phase1_golden_universe
+
+    return phase1_golden_universe()
+
+
 @router.get("/institutional-evaluation-lab/question/{question_id}")
 async def institutional_evaluation_lab_question(question_id: str):
     from institutional_evaluation_lab.production import question
@@ -10627,6 +10635,35 @@ async def knowledge_factory_decision_coverage():
     from knowledge_factory.coverage import decision_coverage
 
     return decision_coverage()
+
+
+@router.get("/knowledge-factory/phase1-golden-test-set")
+async def knowledge_factory_phase1_golden_test_set(bucket: str | None = None):
+    """Phase 1 Golden Test Set (200): Nifty50 + Next50 + mid + small + special."""
+    from knowledge_factory.phase1_golden_test_set import (
+        PHASE1_GOLDEN_ROWS,
+        by_bucket,
+        summary,
+        tickers,
+        validate_universe,
+    )
+
+    if bucket:
+        rows = [r for r in PHASE1_GOLDEN_ROWS if r["bucket"] == bucket]
+        return {
+            "bucket": bucket,
+            "n": len(rows),
+            "tickers": tickers(bucket=bucket),
+            "rows": rows,
+            "summary": summary(),
+            "validation": validate_universe(),
+        }
+    return {
+        "summary": summary(),
+        "validation": validate_universe(),
+        "buckets": {k: [r["ticker"] for r in v] for k, v in by_bucket().items()},
+        "rows": PHASE1_GOLDEN_ROWS,
+    }
 
 
 @router.get("/knowledge-factory/dimensions")
