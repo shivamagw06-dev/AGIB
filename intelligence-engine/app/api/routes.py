@@ -10190,6 +10190,117 @@ async def company_memory_ic10(persist: bool = False):
     return ic10_compile(persist=bool(persist))
 
 
+@router.get("/knowledge-delta-engine/health")
+async def knowledge_delta_engine_health():
+    """P3.1 Knowledge Delta Engine — incremental CompanyMemory compilation."""
+    from knowledge_delta_engine.production import health
+
+    return health()
+
+
+@router.get("/knowledge-delta-engine/{ticker}")
+async def knowledge_delta_engine_compile(
+    ticker: str,
+    force: bool = False,
+    persist: bool = True,
+):
+    from knowledge_delta_engine.production import compile_incremental
+
+    return compile_incremental(ticker, force=bool(force), persist=bool(persist))
+
+
+@router.post("/knowledge-delta-engine")
+async def knowledge_delta_engine_post(payload: dict[str, Any] = Body(default={})):
+    from knowledge_delta_engine.production import compile_incremental
+
+    body = payload or {}
+    ticker = str(body.get("ticker") or "").strip()
+    if not ticker:
+        raise HTTPException(status_code=400, detail="ticker_required")
+    return compile_incremental(
+        ticker,
+        force=bool(body.get("force")),
+        persist=bool(body.get("persist", True)),
+        reason=body.get("reason"),
+    )
+
+
+@router.get("/knowledge-delta-engine/{ticker}/versions")
+async def knowledge_delta_engine_versions(ticker: str):
+    from knowledge_delta_engine.production import versions
+
+    return versions(ticker)
+
+
+@router.get("/knowledge-delta-engine/{ticker}/versions/{ver}")
+async def knowledge_delta_engine_version(ticker: str, ver: int):
+    from knowledge_delta_engine.production import version
+
+    return version(ticker, int(ver))
+
+
+@router.get("/knowledge-delta-engine/{ticker}/ledger")
+async def knowledge_delta_engine_ledger(ticker: str):
+    from knowledge_delta_engine.production import ledger
+
+    return ledger(ticker)
+
+
+@router.get("/knowledge-delta-engine/{ticker}/explain")
+async def knowledge_delta_engine_explain(
+    ticker: str,
+    topic: str = "management_confidence",
+):
+    from knowledge_delta_engine.production import explain
+
+    return explain(ticker, topic=topic)
+
+
+@router.get("/investment-knowledge-graph/health")
+async def investment_knowledge_graph_health():
+    """P3.2 Investment Knowledge Graph — relationship intelligence façade."""
+    from investment_knowledge_graph.production import health
+
+    return health()
+
+
+@router.get("/investment-knowledge-graph/theme/{name}")
+async def investment_knowledge_graph_theme(name: str):
+    from investment_knowledge_graph.production import theme
+
+    return theme(name)
+
+
+@router.get("/investment-knowledge-graph/macro")
+async def investment_knowledge_graph_macro(chain_id: str | None = None):
+    from investment_knowledge_graph.production import macro
+
+    return macro(chain_id)
+
+
+@router.get("/investment-knowledge-graph/{ticker}/retrieve")
+async def investment_knowledge_graph_retrieve(
+    ticker: str,
+    include_cid: bool = False,
+    persist_delta: bool = False,
+):
+    from investment_knowledge_graph.production import retrieve
+
+    return retrieve(
+        ticker,
+        include_cid=bool(include_cid),
+        compile_delta=True,
+        persist_delta=bool(persist_delta),
+    )
+
+
+@router.get("/investment-knowledge-graph/{ticker}")
+async def investment_knowledge_graph_analyse(ticker: str):
+    from investment_knowledge_graph.production import analyse
+
+    return analyse(ticker)
+
+
 @router.get("/committee-certification-v2/health")
 async def committee_certification_v2_health():
     """IC-10 Institutional Committee Certification v2.0 — health / universe map."""
