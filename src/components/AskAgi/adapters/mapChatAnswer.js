@@ -1,35 +1,56 @@
 /**
  * Project mapSearchPack → chat-first AGIB answer model.
- * Direct answer first; deeper layers on demand.
+ * Follows Response Constitution v1.0:
+ * Direct Answer → Why → Thesis → Bull/Bear → Bottom Line → Supporting → Follow-ups.
  */
 
 import { mapSearchPack } from './mapSearchPack';
 
 function asList(v, n = 8) {
   if (!Array.isArray(v)) return [];
-  return v.map((x) => (typeof x === 'string' ? x : x?.text || x?.title || x?.label || '')).filter(Boolean).slice(0, n);
+  return v
+    .map((x) => (typeof x === 'string' ? x : x?.text || x?.title || x?.label || x?.risk || ''))
+    .filter(Boolean)
+    .slice(0, n);
 }
 
 function impactFromLabel(label = '', text = '') {
   const blob = `${label} ${text}`.toLowerCase();
-  if (/risk|bear|weak|pressure|concern|negative|impair/.test(blob)) return 'Medium';
-  if (/neutral|mixed|watch|monitor/.test(blob)) return 'Neutral';
-  if (/positive|bull|strong|growth|quality|catalyst|expand/.test(blob)) return 'Positive';
-  return 'Neutral';
+  if (/risk|bear|weak|pressure|concern|negative|impair|cautious/.test(blob)) return 'Watch';
+  if (/neutral|mixed|watch|monitor|balanced/.test(blob)) return 'Balanced';
+  if (/positive|bull|strong|growth|quality|catalyst|expand|constructive/.test(blob)) return 'Supportive';
+  return 'Balanced';
 }
 
 function institutionalViewLabel(stance = '', recommendation = '') {
   const s = `${stance} ${recommendation}`.toLowerCase();
   if (/buy|overweight|constructive|bullish|accumulate/.test(s)) return 'Constructive';
   if (/sell|underweight|cautious|bearish|avoid|reduce/.test(s)) return 'Cautious';
-  if (/monitor|hold|neutral|selective|watch/.test(s)) return 'Monitoring';
+  if (/monitor|hold|neutral|selective|watch|withheld|insufficient/.test(s)) return 'Monitoring';
   return stance || 'Monitoring';
 }
 
 function scoreTone(impact) {
-  if (impact === 'Positive') return 'pos';
-  if (impact === 'Medium' || impact === 'Negative') return 'neg';
+  if (impact === 'Supportive' || impact === 'Positive') return 'pos';
+  if (impact === 'Watch' || impact === 'Medium' || impact === 'Negative') return 'neg';
   return 'neu';
+}
+
+function explainConfidenceFallback(confidence, view) {
+  const pct = Number(confidence);
+  if (!Number.isFinite(pct)) {
+    return 'AGIB confidence is still forming because coverage and valuation evidence are incomplete for a firmer view.';
+  }
+  if (pct >= 80) {
+    return `AGIB has high confidence (${pct}%) because the business picture is relatively clear and the main risks are identifiable.`;
+  }
+  if (pct >= 60) {
+    return `AGIB has moderate confidence (${pct}%) because the business fundamentals are readable, but future earnings and valuation still leave room for surprise.`;
+  }
+  if (pct >= 40) {
+    return `AGIB has limited confidence (${pct}%) because some important evidence is still thin or conflicting — current view: ${view}.`;
+  }
+  return `AGIB has low confidence (${pct}%) because validated coverage is insufficient for a firm institutional view.`;
 }
 
 /**
@@ -39,97 +60,101 @@ export function mapChatAnswer(pack) {
   const vm = mapSearchPack(pack || {});
   if (!vm) return null;
 
+  const rc = vm.responseConstitution || pack?.answer_construction?.response_constitution || null;
   const view = institutionalViewLabel(
     vm.stance || vm.institutionalView?.stance || '',
     vm.institutionalAnswer?.recommendation || vm.decisionEngine?.action || ''
   );
 
+  const thesisSrc = rc?.investment_thesis || {};
   const thesisCards = [
     {
       id: 'business',
-      title: 'Business Quality',
+      title: 'Business',
       body:
+        thesisSrc.business ||
         asList([vm.businessQuality, vm.businessModel, vm.whyCards?.find((c) => c.key === 'demand')?.text])[0] ||
         vm.why?.[0] ||
-        'Business quality is assessed through franchise durability, incremental returns and competitive position.',
-      impact: impactFromLabel('business', vm.businessQuality || ''),
+        'What the company does, why customers choose it, and whether that advantage can last.',
+      impact: impactFromLabel('business', thesisSrc.business || vm.businessQuality || ''),
     },
     {
       id: 'growth',
-      title: 'Growth Outlook',
+      title: 'Growth',
       body:
+        thesisSrc.growth ||
         asList([vm.whyCards?.find((c) => c.key === 'demand')?.text, vm.sectorNarrative, vm.macroNarrative])[0] ||
-        'Growth should be judged through volume, pricing/mix and adjacency — not headline revenue alone.',
-      impact: impactFromLabel('growth', vm.sectorNarrative || ''),
+        'Where future growth could come from — and what could slow it down.',
+      impact: impactFromLabel('growth', thesisSrc.growth || vm.sectorNarrative || ''),
     },
     {
       id: 'financial',
       title: 'Financial Quality',
       body:
+        thesisSrc.financial_quality ||
         asList([vm.financialNarrative, vm.whyCards?.find((c) => c.key === 'financial')?.text])[0] ||
-        'Financial quality emphasises cash conversion, incremental returns and balance-sheet resilience.',
-      impact: impactFromLabel('financial', vm.financialNarrative || ''),
+        'Whether the company is making real cash and whether its balance sheet can handle stress.',
+      impact: impactFromLabel('financial', thesisSrc.financial_quality || vm.financialNarrative || ''),
     },
     {
       id: 'valuation',
       title: 'Valuation',
       body:
+        thesisSrc.valuation ||
         asList([vm.valuationNarrative, vm.whyCards?.find((c) => c.key === 'valuation')?.text])[0] ||
-        'Valuation only works when growth durability and competitive position are held constant.',
-      impact: impactFromLabel('valuation', vm.valuationNarrative || 'neutral'),
-    },
-    {
-      id: 'competition',
-      title: 'Competition',
-      body:
-        asList([vm.whyCards?.find((c) => c.key === 'competition')?.text, vm.sectorDrivers?.[0]])[0] ||
-        'Competitive position decides whether growth creates value or is competed away.',
-      impact: impactFromLabel('competition', ''),
+        'Whether the share price already assumes strong future results — and compared with what.',
+      impact: impactFromLabel('valuation', thesisSrc.valuation || vm.valuationNarrative || 'neutral'),
     },
     {
       id: 'risk',
-      title: 'Risk',
+      title: 'Risks',
       body:
+        thesisSrc.risks ||
         asList([vm.risks?.[0]?.risk, vm.whyCards?.find((c) => c.key === 'risk')?.text])[0] ||
-        'Institutional risk framing emphasises what can impair the thesis before the base case arrives.',
-      impact: 'Medium',
+        'What could make this investment go wrong — and why those risks matter.',
+      impact: 'Watch',
     },
     {
       id: 'catalysts',
       title: 'Catalysts',
       body:
+        thesisSrc.catalysts ||
         asList(vm.catalysts)[0] ||
         asList(vm.bull)[0] ||
-        'Catalysts are the observable events that would raise or reduce conviction.',
-      impact: 'Positive',
+        'Upcoming events that could raise or reduce AGIB’s conviction — explained in plain English.',
+      impact: 'Supportive',
     },
   ].map((c) => ({ ...c, tone: scoreTone(c.impact) }));
 
   const moreBullish = asList(
     [
+      ...(rc?.bull_vs_bear?.bull_case || []),
       ...(vm.bull || []),
       ...(vm.catalysts || []),
-      'Margin expansion',
-      'Cash generation',
-      'Lower valuation',
-      'Better execution',
-      'Stronger guidance',
     ],
     6
   );
+  if (!moreBullish.length) {
+    moreBullish.push(
+      'Demand keeps compounding without needing ever-higher spending to win customers',
+      'Cash generation improves so the company depends less on external capital'
+    );
+  }
 
   const moreBearish = asList(
     [
+      ...(rc?.bull_vs_bear?.bear_case || []),
       ...(vm.bear || []),
       ...(vm.risks || []).map((r) => (typeof r === 'string' ? r : r.risk)),
-      'Margin pressure',
-      'Weak demand',
-      'Regulatory risk',
-      'Competition',
-      'Capital allocation concerns',
     ],
     6
   );
+  if (!moreBearish.length) {
+    moreBearish.push(
+      'Investors already expect a lot — so a small disappointment could pressure the share price',
+      'Competition or regulation could slow growth faster than the business can adapt'
+    );
+  }
 
   const intelligenceChips = [
     { id: 'company', label: 'Company Intelligence', section: 'business' },
@@ -153,16 +178,16 @@ export function mapChatAnswer(pack) {
 
   const followUps = asList(
     [
+      ...(rc?.suggested_follow_ups || []),
       ...(vm.explore || []),
       `Why ${view}?`,
       vm.ticker ? `Compare ${vm.ticker} with peers` : 'Show peer comparison',
-      'Show valuation',
+      'Explain the valuation in plain English',
       'Show financials',
       'Latest earnings',
       'What changed?',
       'Bull vs Bear case',
       'Show risks',
-      'Portfolio impact',
     ],
     10
   );
@@ -177,20 +202,38 @@ export function mapChatAnswer(pack) {
   );
 
   const directAnswer =
+    rc?.direct_answer ||
     vm.institutionalAnswer?.text ||
     vm.executive ||
     vm.conclusion ||
     'AGIB is assembling institutional intelligence for this question.';
 
+  const whyAgib = asList(rc?.why_agib_thinks_this?.length ? rc.why_agib_thinks_this : vm.why, 5);
+
+  const bottomLine =
+    rc?.bottom_line ||
+    vm.bottomLine ||
+    vm.conclusion ||
+    directAnswer;
+
+  const confidence = vm.confidence ?? rc?.confidence?.score ?? 72;
+  const confidenceExplanation =
+    rc?.confidence?.explanation ||
+    vm.confidenceExplanation ||
+    explainConfidenceFallback(confidence, view);
+
   return {
     question: vm.question,
     ticker: vm.ticker,
-    company: vm.intelligenceLayer?.company || vm.ticker || null,
+    company: vm.intelligenceLayer?.company || vm.ticker || rc?.company || null,
     intent: vm.intent,
     category: vm.category,
     directAnswer,
+    whyAgib,
+    bottomLine,
     horizon: vm.horizon || vm.institutionalAnswer?.horizon || '12–24 Months',
-    confidence: vm.confidence ?? 72,
+    confidence,
+    confidenceExplanation,
     institutionalView: view,
     stanceTone: vm.stanceTone || (view === 'Constructive' ? 'pos' : view === 'Cautious' ? 'neg' : 'neu'),
     thesisCards,
@@ -202,21 +245,21 @@ export function mapChatAnswer(pack) {
     recentResearch,
     freshness: vm.freshness,
     lastUpdated: vm.lastUpdated,
-    // deep layers for progressive disclosure
+    constitutionVersion: rc?.version || '1.0',
     deep: {
       thesis: vm.thesis,
-      why: vm.why,
+      why: whyAgib,
       financialNarrative: vm.financialNarrative,
       valuationNarrative: vm.valuationNarrative,
       sectorNarrative: vm.sectorNarrative,
       macroNarrative: vm.macroNarrative,
       marketNarrative: vm.marketNarrative,
-      bull: vm.bull,
+      bull: moreBullish,
       base: vm.base,
-      bear: vm.bear,
+      bear: moreBearish,
       risks: vm.risks,
       catalysts: vm.catalysts,
-      conclusion: vm.conclusion,
+      conclusion: bottomLine,
       whatChanged: vm.whatChanged,
       recommendationStatus: vm.recommendationStatus,
       askSlim: pack?.degradation?.ask_slim,

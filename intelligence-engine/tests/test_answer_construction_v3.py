@@ -179,7 +179,10 @@ def test_institutional_voice_clamps_non_reco_executive():
         why=["Currency and large-deal conversion matter"],
     )
     assert out["enabled"] is True
-    assert len((out["executive"] or "").split()) <= 60
+    # Concise CIO clamp (60) applies before editorial/constitution. Direct Answer may then
+    # expand slightly under Response Constitution / editorial rewrite (≤120 words).
+    assert len((out["executive"] or "").split()) <= 120
+    assert out.get("response_constitution", {}).get("enabled") is True
     assert not out.get("institutional_answer")
 
 def test_filter_why_removes_coverage_spam():

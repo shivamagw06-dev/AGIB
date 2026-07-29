@@ -84,7 +84,9 @@ function AnswerTurn({ answer, onAsk }) {
     <div className="ac-msg ac-msg-agi">
       <div className="ac-label">AGIB</div>
 
+      {/* 1. Direct Answer */}
       <div className="ac-direct">
+        <p className="ac-kicker">Direct Answer</p>
         <p className="ac-direct-text">{answer.directAnswer}</p>
         <div className="ac-meta-row">
           <div>
@@ -100,6 +102,9 @@ function AnswerTurn({ answer, onAsk }) {
             <strong className={viewClass(answer.stanceTone)}>{answer.institutionalView}</strong>
           </div>
         </div>
+        {answer.confidenceExplanation && (
+          <p className="ac-confidence-why">{answer.confidenceExplanation}</p>
+        )}
         {answer.deep?.degraded && (
           <div className="ac-degraded">
             Research desk is warming — this answer uses live institutional context while the full engine recovers.
@@ -107,6 +112,19 @@ function AnswerTurn({ answer, onAsk }) {
         )}
       </div>
 
+      {/* 2. Why AGIB thinks this */}
+      {answer.whyAgib?.length > 0 && (
+        <section className="ac-block">
+          <h2>Why AGIB thinks this</h2>
+          <ul className="ac-why-list">
+            {answer.whyAgib.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {/* 3. Investment Thesis */}
       <section className="ac-block">
         <h2>Investment Thesis</h2>
         <div className="ac-thesis">
@@ -122,11 +140,13 @@ function AnswerTurn({ answer, onAsk }) {
         </div>
       </section>
 
+      {/* 4. Bull vs Bear Case */}
       <section className="ac-block">
-        <h2>What Would Change AGIB&apos;s View?</h2>
+        <h2>Bull vs Bear Case</h2>
         <div className="ac-change">
           <div className="ac-change-col bull">
-            <h3>More Bullish</h3>
+            <h3>Bull Case</h3>
+            <p className="ac-case-lead">Why someone would buy</p>
             <ul>
               {answer.moreBullish.map((item) => (
                 <li key={item}>{item}</li>
@@ -134,7 +154,8 @@ function AnswerTurn({ answer, onAsk }) {
             </ul>
           </div>
           <div className="ac-change-col bear">
-            <h3>More Bearish</h3>
+            <h3>Bear Case</h3>
+            <p className="ac-case-lead">Why someone would avoid it</p>
             <ul>
               {answer.moreBearish.map((item) => (
                 <li key={item}>{item}</li>
@@ -144,6 +165,15 @@ function AnswerTurn({ answer, onAsk }) {
         </div>
       </section>
 
+      {/* 5. Bottom Line */}
+      {answer.bottomLine && (
+        <section className="ac-block ac-bottom-line">
+          <h2>Bottom Line</h2>
+          <p>{answer.bottomLine}</p>
+        </section>
+      )}
+
+      {/* 6. Supporting Intelligence */}
       <section className="ac-block">
         <h2>Supporting Intelligence</h2>
         <div className="ac-chips">
@@ -165,8 +195,9 @@ function AnswerTurn({ answer, onAsk }) {
         )}
       </section>
 
+      {/* 7. Suggested Follow-up Questions */}
       <section className="ac-block">
-        <h2>Continue the conversation</h2>
+        <h2>Suggested Follow-up Questions</h2>
         <div className="ac-follows">
           {answer.followUps.map((q) => (
             <button key={q} type="button" onClick={() => onAsk(q)}>
