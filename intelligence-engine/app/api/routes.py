@@ -9902,6 +9902,36 @@ async def institutional_evaluation_lab_observability(payload: dict[str, Any] = B
     return pack
 
 
+@router.get("/institutional-evaluation-lab/iat/health")
+async def institutional_evaluation_lab_iat_health():
+    from institutional_evaluation_lab.iat.production import health
+
+    return health()
+
+
+@router.post("/institutional-evaluation-lab/iat")
+async def institutional_evaluation_lab_iat(payload: dict[str, Any] = Body(default={})):
+    """Phase 1 Institutional Acceptance Test — baseline qualification exam."""
+    from institutional_evaluation_lab.production import institutional_acceptance_test
+
+    body = payload or {}
+    release_id = str(body.get("release_id") or body.get("release") or "").strip()
+    if not release_id:
+        raise HTTPException(status_code=400, detail="release_id_required")
+    pack = institutional_acceptance_test(
+        release_id=release_id,
+        previous_release=(str(body["previous_release"]).strip() if body.get("previous_release") else None),
+        persist=bool(body.get("persist", True)),
+        freeze=bool(body.get("freeze", False)),
+        require_full_universe=bool(body.get("require_full_universe", True)),
+    )
+    if not pack.get("found"):
+        raise HTTPException(status_code=404, detail="release_not_found")
+    # Keep response light
+    light = {k: v for k, v in pack.items() if k not in {"thresholds"}}
+    return light
+
+
 @router.get("/institutional-evaluation-lab/question/{question_id}")
 async def institutional_evaluation_lab_question(question_id: str):
     from institutional_evaluation_lab.production import question
