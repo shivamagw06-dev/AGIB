@@ -120,6 +120,27 @@ def package_for_ask_agi(
 
     gate_blocked_out = bool(assembled.get("gate_blocked") or readiness.get("hard_fail") or blocked)
 
+    # IROS governance — lineage, engine confidence, drift/delta, audit, re-eval queue
+    governance: dict[str, Any] = {}
+    try:
+        from decision_engine.governance.production import package_governance
+
+        governance = package_governance(
+            query=query,
+            ticker=assembled.get("ticker") or ticker,
+            company_name=assembled.get("company_name"),
+            readiness_gate=readiness,
+            decision=decision,
+            layers=assembled.get("layers_by_id") or assembled.get("layers"),
+            company_analysis=company_analysis if isinstance(company_analysis, dict) else None,
+            cid=cid if isinstance(cid, dict) else None,
+            live_evidence=leo,
+            valuation_pack=valuation_pack if isinstance(valuation_pack, dict) else None,
+            persist=True,
+        )
+    except Exception:
+        governance = {"enabled": False, "bypassed": True}
+
     return {
         "enabled": True,
         "active": True,
@@ -135,6 +156,7 @@ def package_for_ask_agi(
         "investment_grade": assembled.get("investment_grade"),
         "layers": assembled.get("layers"),
         "institutional_readiness_gate": readiness,
+        "governance": governance,
         "summary": {
             "overall_score": assembled.get("overall_score"),
             "investment_grade": assembled.get("investment_grade"),
@@ -169,6 +191,9 @@ def package_for_ask_agi(
             "gate_blocked": gate_blocked_out,
             "readiness_band": readiness.get("band"),
             "overall_coverage_pct": readiness.get("overall_coverage_pct"),
+            "recommendation_id": (governance.get("audit") or {}).get("recommendation_id"),
+            "thesis_drift": (governance.get("thesis_drift") or {}).get("thesis_drift"),
+            "weakest_engine": (governance.get("engine_confidence") or {}).get("weakest_engine"),
         },
         "pre_questions": decision.get("pre_questions") or [],
         "decision": decision,
@@ -177,7 +202,7 @@ def package_for_ask_agi(
         "answer_enrichment": {
             "executive_framing": (
                 f"Investment decision stack for {assembled.get('company_name')}: "
-                "readiness gate → macro → industry → company → financials → management → valuation → "
+                "governance → readiness gate → macro → industry → company → financials → management → valuation → "
                 "expectations → technical → risk → catalysts → probability → expected return → conclusion. "
                 "No layer is skipped. Data completeness is never treated as company quality."
             ),
@@ -188,6 +213,10 @@ def package_for_ask_agi(
             ][:6],
             "decision_conclusion": decision.get("reasoning"),
             "readiness_summary": (readiness.get("summary_for_user") or {}).get("reason"),
+            "critical_missing": [
+                f"{x.get('rank')}. {x.get('label')} (Impact: {x.get('impact')})"
+                for x in ((governance.get("critical_missing_evidence") or {}).get("items") or [])[:4]
+            ],
         },
         "fiml_soft_consult": {
             "used": bool(fiml_hint),
@@ -200,6 +229,7 @@ def package_for_ask_agi(
         "decision_last": True,
         "never_expose_framework_names": True,
         "never_conflate_data_with_quality": True,
+        "never_recommend_on_stale_data": True,
     }
 
 
