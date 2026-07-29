@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
-IEL_VERSION = "institutional-evaluation-lab-v1.0.0"
-PROGRAMME = "AGIB v3.6 – Phase 3 Quality Programme · Sprint 3.1 Institutional Evaluation Lab"
+IEL_VERSION = "institutional-evaluation-lab-v1.1.0"
+PROGRAMME = "AGIB v3.6 – Phase 3 Quality Programme · Institutional Evaluation Lab"
 MODULE_CODE = "IEL"
 
 FREEZE_LOCKS: dict[str, Any] = {
@@ -30,6 +30,10 @@ QUALITY_TARGETS: dict[str, Any] = {
     "unsupported_claims": 0,
     "hallucinated_evidence": 0,
     "live_collector_certification_pct": 100.0,
+    "phase1_golden_n": 200,
+    "golden_gate_pass_pct": 80.0,
+    "golden_qa_pass_pct": 95.0,
+    "golden_unexpected_drift_max": 5,
 }
 
 CATEGORIES: tuple[str, ...] = (

@@ -9710,6 +9710,83 @@ async def institutional_evaluation_lab_phase1_golden_universe():
     return phase1_golden_universe()
 
 
+@router.get("/institutional-evaluation-lab/golden/health")
+async def institutional_evaluation_lab_golden_health():
+    from institutional_evaluation_lab.production import golden_evaluation_health
+
+    return golden_evaluation_health()
+
+
+@router.post("/institutional-evaluation-lab/golden/run")
+async def institutional_evaluation_lab_golden_run(payload: dict[str, Any] = Body(default={})):
+    """Evaluation Runner — pack → Groww price → freshness → Decision Engine → report."""
+    from institutional_evaluation_lab.production import run_golden_evaluation
+
+    body = payload or {}
+    summary = run_golden_evaluation(
+        limit=body.get("limit"),
+        bucket=body.get("bucket"),
+        force_price_refresh=bool(body.get("force_price_refresh", False)),
+        persist=bool(body.get("persist", True)),
+        persist_baseline=bool(body.get("persist_baseline", False)),
+        compare_previous=bool(body.get("compare_previous", True)),
+        release_id=body.get("release_id"),
+    )
+    light = {k: v for k, v in summary.items() if k not in {"rows", "drift_table"}}
+    light["rows_sample"] = (summary.get("rows") or [])[:20]
+    light["drift_sample"] = (summary.get("drift_table") or [])[:20]
+    return light
+
+
+@router.get("/institutional-evaluation-lab/golden/scorecard")
+async def institutional_evaluation_lab_golden_scorecard():
+    from institutional_evaluation_lab.production import golden_scorecard
+
+    return golden_scorecard()
+
+
+@router.get("/institutional-evaluation-lab/golden/drift")
+async def institutional_evaluation_lab_golden_drift():
+    from institutional_evaluation_lab.production import golden_drift_report
+
+    return golden_drift_report()
+
+
+@router.get("/institutional-evaluation-lab/golden/releases")
+async def institutional_evaluation_lab_golden_releases():
+    """List Evaluation Lab result trees under results/{release_id}/."""
+    from institutional_evaluation_lab.production import golden_list_releases
+
+    return golden_list_releases()
+
+
+@router.get("/institutional-evaluation-lab/golden/releases/{release_id}")
+async def institutional_evaluation_lab_golden_release(release_id: str):
+    """Load a release artifact tree (Phase 6+ tests consume this)."""
+    from institutional_evaluation_lab.production import golden_load_release
+
+    row = golden_load_release(release_id)
+    if not row.get("found"):
+        raise HTTPException(status_code=404, detail="release_not_found")
+    return row
+
+
+@router.post("/institutional-evaluation-lab/golden/replay")
+async def institutional_evaluation_lab_golden_replay(payload: dict[str, Any] = Body(default={})):
+    """Deterministic replay of a stored release result (regression if mismatch)."""
+    from institutional_evaluation_lab.production import golden_replay
+
+    body = payload or {}
+    release_id = str(body.get("release_id") or body.get("release") or "").strip()
+    if not release_id:
+        raise HTTPException(status_code=400, detail="release_id_required")
+    return golden_replay(
+        release_id=release_id,
+        ticker=body.get("ticker"),
+        limit=body.get("limit"),
+    )
+
+
 @router.get("/institutional-evaluation-lab/question/{question_id}")
 async def institutional_evaluation_lab_question(question_id: str):
     from institutional_evaluation_lab.production import question

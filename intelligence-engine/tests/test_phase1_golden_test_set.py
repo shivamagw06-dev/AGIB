@@ -19,9 +19,18 @@ from knowledge_factory.phase1_golden_test_set import (
 
 
 def test_phase1_composition_exact():
+    from knowledge_factory.phase1_golden_test_set import (
+        FROZEN,
+        FROZEN_COMPOSITION_SHA256,
+        GOLDEN_UNIVERSE_VERSION,
+        composition_fingerprint,
+    )
+
     s = summary()
     assert s["n"] == PHASE1_TARGET_N == 200
     assert s["meets_target"] is True
+    assert s["golden_universe_version"] == GOLDEN_UNIVERSE_VERSION == "v1.0"
+    assert s["frozen"] is True
     assert s["bucket_counts"] == {
         "nifty_50": 50,
         "nifty_next_50": 50,
@@ -31,6 +40,9 @@ def test_phase1_composition_exact():
     }
     v = validate_universe()
     assert v["valid"] is True
+    assert v["frozen_ok"] is True
+    assert FROZEN is True
+    assert composition_fingerprint() == FROZEN_COMPOSITION_SHA256
     assert not v["duplicates"]
     assert not v["overlaps"]
 
