@@ -564,12 +564,37 @@ class InstitutionalForecastEngine:
 
     def _retrieve_market(self) -> dict[str, Any]:
         market = dict(MARKET_INTELLIGENCE)
+        sources = ["agi_knowledge_catalog"]
+        cmktp_tip = self._soft_cmktp_market()
+        if cmktp_tip:
+            market = {**market, "cmktp_published": cmktp_tip}
+            sources.append("cmktp_market_knowledge_store")
+            if cmktp_tip.get("market_regime"):
+                market["regime"] = cmktp_tip["market_regime"]
+            if cmktp_tip.get("risk_sentiment"):
+                market["risk_sentiment"] = cmktp_tip["risk_sentiment"]
+            if cmktp_tip.get("health_score") is not None:
+                market["health_score"] = cmktp_tip["health_score"]
+            if cmktp_tip.get("breadth"):
+                market["breadth"] = cmktp_tip["breadth"]
+            if cmktp_tip.get("leadership"):
+                market["leadership"] = cmktp_tip["leadership"]
+        historical = {
+            "regimes": [
+                "2016 Demonetisation",
+                "2020 COVID Crash",
+                "2021 Liquidity Rally",
+                "2022 Inflation",
+            ]
+        }
+        hmkip_tip = self._soft_hmkip_market()
+        if hmkip_tip:
+            historical = {**historical, "hmkip_timeline": hmkip_tip}
+            sources.append("hmkip_market_history_store")
         return {
             "current_knowledge": {"market": "NIFTY"},
             "market_intelligence": market,
-            "historical_intelligence": {
-                "regimes": ["2016 Demonetisation", "2020 COVID Crash", "2021 Liquidity Rally", "2022 Inflation"]
-            },
+            "historical_intelligence": historical,
             "historical_analogues": [
                 {"matched_period": "2021 Liquidity Rally", "similarity_score": 76.0, "label": "Liquidity abundant"}
             ],
@@ -585,9 +610,53 @@ class InstitutionalForecastEngine:
             "risks": [{"risk": "Valuation compression", "severity": "High"}],
             "pattern_intelligence": {"deferred": True, "sprint": "8.5"},
             "outlook_dimensions": list(market.get("outlook_dimensions") or []),
-            "sources": ["agi_knowledge_catalog"],
+            "sources": sources,
             "providers_queried": [],
         }
+
+    def _soft_cmktp_market(self) -> dict[str, Any] | None:
+        """Read-only CMKTP gateway — never triggers market builders or live feeds."""
+        try:
+            from continuous_market_knowledge.production import market as cmktp_market
+
+            pack = cmktp_market()
+            if pack.get("found") and pack.get("market"):
+                tip = dict(pack["market"])
+                tip["gateway"] = "CMKTP_KRIG"
+                tip["collected_on_request"] = False
+                tip["constructed_on_request"] = False
+                tip["providers_queried"] = []
+                return tip
+            return None
+        except Exception:
+            return None
+
+    def _soft_hmkip_market(self) -> dict[str, Any] | None:
+        """Read-only HMKIP gateway — never triggers historical collectors."""
+        try:
+            from historical_market_intelligence.production import market as hmkip_market
+
+            pack = hmkip_market("india_equity", limit=40)
+            if pack.get("found"):
+                return {
+                    "market": pack.get("market"),
+                    "n": pack.get("n"),
+                    "timeline": pack.get("timeline"),
+                    "sample_events": [
+                        {
+                            "period": o.get("period"),
+                            "regime": o.get("market_regime"),
+                            "events": o.get("major_events"),
+                        }
+                        for o in (pack.get("observations") or [])[:8]
+                    ],
+                    "gateway": "HMKIP_KRIG",
+                    "collected_on_request": False,
+                    "providers_queried": [],
+                }
+            return None
+        except Exception:
+            return None
 
     def _retrieve_macro(self) -> dict[str, Any]:
         macro = dict(MACRO_INTELLIGENCE)
