@@ -32,7 +32,9 @@ def compute_derived(statement: dict[str, Any]) -> dict[str, Any]:
             metrics.update(part.get("metrics") or {})
 
     revenue = _v(metrics, "revenue")
-    pat = _v(metrics, "pat")
+    net_income = _v(metrics, "net_income")
+    if net_income is None:
+        net_income = _v(metrics, "pat")
     ebit = _v(metrics, "ebit")
     ebitda = _v(metrics, "ebitda")
     equity = _v(metrics, "total_equity")
@@ -40,12 +42,14 @@ def compute_derived(statement: dict[str, Any]) -> dict[str, Any]:
     ocf = _v(metrics, "operating_cash_flow")
 
     derived = {
-        "pat_margin": _safe_div(pat, revenue),
+        "net_income_margin": _safe_div(net_income, revenue),
+        "pat_margin": _safe_div(net_income, revenue),  # alias
         "ebit_margin": _safe_div(ebit, revenue),
         "ebitda_margin": _safe_div(ebitda, revenue),
-        "roe": _safe_div(pat, equity),
-        "roa": _safe_div(pat, assets),
-        "ocf_to_pat": _safe_div(ocf, pat),
+        "roe": _safe_div(net_income, equity),
+        "roa": _safe_div(net_income, assets),
+        "ocf_to_net_income": _safe_div(ocf, net_income),
+        "ocf_to_pat": _safe_div(ocf, net_income),  # alias
     }
     return {
         "ticker": statement.get("ticker"),

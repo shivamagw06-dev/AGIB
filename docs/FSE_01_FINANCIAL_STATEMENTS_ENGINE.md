@@ -20,7 +20,7 @@
 | --- | --- | --- |
 | **FSE-01** | **Architecture & Principles** | **What the architecture is** |
 | FSE-02 | [Data Sources & Collection Pipeline](FSE_02_DATA_SOURCES_COLLECTION_PIPELINE.md) | How data enters the architecture |
-| FSE-03 | Canonical Financial Schema | Canonical metrics & statement shapes |
+| FSE-03 | [Canonical Financial Data Model & Schema](FSE_03_CANONICAL_FINANCIAL_DATA_MODEL.md) | Authoritative financial representation |
 | FSE-04 | Parsing & Normalization Engine | Extract → normalize |
 | FSE-05 | Validation & Quality Engine | Quality gates |
 | FSE-06 | Versioning & Restatement Engine | History & revisions |
@@ -596,11 +596,14 @@ The Financial Statements Engine is considered production-ready only when:
 
 # 16. Canonical Metric Registry (v1)
 
-Authoritative module: `financial_statements_engine/registry.py`.
+**Authoritative service (FSE-03):** `financial_statements_engine/metric_registry/`  
+Compatibility façade: `financial_statements_engine/registry.py` (do not add new metrics here).
+
+See [FSE-03](FSE_03_CANONICAL_FINANCIAL_DATA_MODEL.md) for the full CFDM and Appendix A dictionary.
 
 ### Income statement (canonical)
 
-`revenue`, `other_income`, `total_income`, `expenses`, `employee_benefit_expense`, `finance_costs`, `depreciation`, `ebitda`, `ebit`, `pbt`, `tax_expense`, `pat`, `pat_owners`, `eps_basic`, `eps_diluted`
+`revenue`, `other_income`, `total_income`, `cogs`, `employee_cost`, `operating_expenses`, `finance_cost`, `depreciation`, `ebitda`, `ebit`, `profit_before_tax`, `tax_expense`, `net_income`, `pat_owners`, `eps_basic`, `eps_diluted`
 
 ### Balance sheet (canonical)
 
@@ -608,13 +611,14 @@ Authoritative module: `financial_statements_engine/registry.py`.
 
 ### Cash flow (canonical)
 
-`operating_cash_flow`, `investing_cash_flow`, `financing_cash_flow`, `free_cash_flow`, `capex`, `net_change_in_cash`
+`operating_cash_flow`, `investing_cash_flow`, `financing_cash_flow`, `free_cash_flow`, `capex`, `net_cash_change`
 
 ### Synonym policy
 
-* Registry maps extractor-local and legacy pack keys → canonical
+* Metric Registry maps extractor-local and legacy pack keys → canonical
 * Legacy P2.1 key `revenue_from_operations` **must** map to `revenue`
-* Adding a new synonym requires a registry PR; ad-hoc aliases in consumers are forbidden
+* Legacy `pat` / `pbt` map to `net_income` / `profit_before_tax`
+* Adding a new synonym requires a Metric Registry version bump; ad-hoc aliases in consumers are forbidden
 
 ---
 

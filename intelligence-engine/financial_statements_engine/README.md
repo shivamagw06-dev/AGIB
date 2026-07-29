@@ -21,7 +21,7 @@ Official Sources → Collection (FSE-02) → Raw Evidence → Evidence Event Bus
 P2.1 `earnings_intelligence` is the NSE XBRL **extraction adapter** during migration.
 New consumers must read through FSE — not bypass to parsers.
 
-Specs: [FSE-01](../../docs/FSE_01_FINANCIAL_STATEMENTS_ENGINE.md) · [FSE-02](../../docs/FSE_02_DATA_SOURCES_COLLECTION_PIPELINE.md)
+Specs: [FSE-01](../../docs/FSE_01_FINANCIAL_STATEMENTS_ENGINE.md) · [FSE-02](../../docs/FSE_02_DATA_SOURCES_COLLECTION_PIPELINE.md) · [FSE-03](../../docs/FSE_03_CANONICAL_FINANCIAL_DATA_MODEL.md)
 
 ## CLI
 
@@ -31,6 +31,9 @@ python -m financial_statements_engine --health
 python -m financial_statements_engine --dashboard
 python -m financial_statements_engine --registry
 python -m financial_statements_engine --collection-health
+python -m financial_statements_engine --cfdm-health
+python -m financial_statements_engine --metric-registry
+python -m financial_statements_engine --resolve-metric "Revenue From Operations"
 python -m financial_statements_engine --collect TCS --mode live
 python -m financial_statements_engine TCS
 python -m financial_statements_engine TCS --publish
@@ -42,6 +45,10 @@ python -m financial_statements_engine TCS --publish
 - `GET /v1/financial-statements/dashboard`
 - `GET /v1/financial-statements/{ticker}`
 - `POST /v1/financial-statements/ingest`
+- `GET /v1/financial-statements/cfdm/health`
+- `GET /v1/financial-statements/metrics`
+- `GET /v1/financial-statements/metrics/resolve?name=`
+- `GET /v1/financial-statements/metrics/{metric}`
 - `GET /v1/financial-statements/collection/health`
 - `GET /v1/financial-statements/collection/dashboard`
 - `GET /v1/financial-statements/collection/events`

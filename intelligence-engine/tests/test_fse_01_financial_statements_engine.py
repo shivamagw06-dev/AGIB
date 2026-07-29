@@ -38,8 +38,13 @@ def test_registry_unique_and_revenue_synonym():
     assert resolve("revenue_from_operations") == "revenue"
     assert resolve("RevenueFromOperations") == "revenue"
     assert resolve("revenue") == "revenue"
+    assert resolve("pat") == "net_income"
     m = registry_manifest()
-    assert m["canonical_count"] == len(set(m["income"] + m["balance_sheet"] + m["cash_flow"]))
+    assert m["authority"] == "metric_registry"
+    assert m["canonical_count"] >= len(set(m["income"] + m["balance_sheet"] + m["cash_flow"]))
+    assert len(m["income"] + m["balance_sheet"] + m["cash_flow"]) == len(
+        set(m["income"] + m["balance_sheet"] + m["cash_flow"])
+    )
 
 
 def test_normalize_maps_legacy_keys():
@@ -87,7 +92,7 @@ def test_version_preserves_history(fse_tmp):
                     "unit_scale": "ones",
                     "evidence_id": "sha256:abc",
                 },
-                "pat": {
+                "net_income": {
                     "value_inr": rev / 10,
                     "reported_value": rev / 10,
                     "unit_scale": "ones",

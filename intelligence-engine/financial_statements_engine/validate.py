@@ -6,7 +6,7 @@ from typing import Any
 
 from financial_statements_engine.registry import BALANCE_CANONICAL, CASHFLOW_CANONICAL, INCOME_CANONICAL
 
-_CORE_INCOME = ("revenue", "pat")
+_CORE_INCOME = ("revenue", "net_income")
 _CORE_BALANCE = ("total_assets", "total_equity")
 _CORE_CASH = ("operating_cash_flow",)
 _TOL = 0.05  # 5% relative tolerance for soft accounting identities
@@ -74,10 +74,14 @@ def validate_statement(statement: dict[str, Any]) -> dict[str, Any]:
             issues.append({"code": "TRACE_EVIDENCE", "metric": key, "severity": "error"})
 
     if st == "income_statement":
-        pbt, tax, pat = _num(metrics, "pbt"), _num(metrics, "tax_expense"), _num(metrics, "pat")
-        if pbt is not None and tax is not None and pat is not None:
-            if not _close(pat, pbt - tax):
-                issues.append({"code": "ACCT_IS_IDENTITY", "severity": "warning", "detail": "pat !~ pbt - tax"})
+        pbt = _num(metrics, "profit_before_tax")
+        tax = _num(metrics, "tax_expense")
+        net_income = _num(metrics, "net_income")
+        if pbt is not None and tax is not None and net_income is not None:
+            if not _close(net_income, pbt - tax):
+                issues.append(
+                    {"code": "ACCT_IS_IDENTITY", "severity": "warning", "detail": "net_income !~ profit_before_tax - tax"}
+                )
 
     if st == "balance_sheet":
         assets = _num(metrics, "total_assets")
@@ -91,7 +95,9 @@ def validate_statement(statement: dict[str, Any]) -> dict[str, Any]:
         ocf = _num(metrics, "operating_cash_flow")
         icf = _num(metrics, "investing_cash_flow")
         fcf = _num(metrics, "financing_cash_flow")
-        net = _num(metrics, "net_change_in_cash")
+        net = _num(metrics, "net_cash_change")
+        if net is None:
+            net = _num(metrics, "net_change_in_cash")  # legacy synonym key if present pre-normalize
         if None not in (ocf, icf, fcf, net):
             if not _close(ocf + icf + fcf, net):  # type: ignore[operator]
                 issues.append({"code": "ACCT_CF_BRIDGE", "severity": "warning", "detail": "OCF+ICF+FCF !~ net change"})

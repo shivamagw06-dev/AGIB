@@ -10017,6 +10017,45 @@ async def financial_statements_dashboard():
     return dashboard()
 
 
+@router.get("/financial-statements/cfdm/health")
+async def financial_statements_cfdm_health():
+    """FSE-03 Canonical Financial Data Model + Metric Registry."""
+    from financial_statements_engine.cfdm.production import health
+
+    return health()
+
+
+@router.get("/financial-statements/metrics")
+async def financial_statements_metrics(category: str | None = None, appendix_only: bool = False):
+    from financial_statements_engine.metric_registry.production import metrics_payload
+
+    return metrics_payload(category=category, appendix_only=bool(appendix_only))
+
+
+@router.get("/financial-statements/metrics/resolve")
+async def financial_statements_metrics_resolve(name: str):
+    from financial_statements_engine.metric_registry.production import resolve_payload
+
+    return resolve_payload(name)
+
+
+@router.get("/financial-statements/metrics/{metric}")
+async def financial_statements_metric_get(metric: str):
+    from financial_statements_engine.metric_registry.service import get_metric
+    from financial_statements_engine.metric_registry.schema import REGISTRY_VERSION, WORKSTREAM_ID
+
+    rec = get_metric(metric)
+    if not rec:
+        raise HTTPException(status_code=404, detail="metric_not_found")
+    return {
+        "ok": True,
+        "metric": rec,
+        "registry_version": REGISTRY_VERSION,
+        "workstream_id": WORKSTREAM_ID,
+        "issues_recommendations": False,
+    }
+
+
 @router.get("/financial-statements/collection/health")
 async def financial_statements_collection_health():
     """FSE-02 Data Sources & Collection Pipeline."""

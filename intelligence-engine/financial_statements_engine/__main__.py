@@ -20,6 +20,7 @@ def main(argv: list[str] | None = None) -> int:
         print(
             "usage: python -m financial_statements_engine "
             "--health|--dashboard|--coverage|--registry|"
+            "--cfdm-health|--metric-registry|--resolve-metric NAME|"
             "--collection-health|--collection-dashboard|"
             "--collect TICKER [--mode live|historical]|TICKER [--publish]"
         )
@@ -40,6 +41,24 @@ def main(argv: list[str] | None = None) -> int:
         from financial_statements_engine.registry import registry_manifest
 
         print(json.dumps(registry_manifest(), indent=2, default=str))
+        return 0
+    if cmd == "--cfdm-health":
+        from financial_statements_engine.cfdm.production import health as cfdm_health
+
+        print(json.dumps(cfdm_health(), indent=2, default=str))
+        return 0
+    if cmd == "--metric-registry":
+        from financial_statements_engine.metric_registry.production import health as mr_health
+
+        print(json.dumps(mr_health(), indent=2, default=str))
+        return 0
+    if cmd == "--resolve-metric":
+        from financial_statements_engine.metric_registry.production import resolve_payload
+
+        if len(args) < 2:
+            print("metric name required", file=sys.stderr)
+            return 2
+        print(json.dumps(resolve_payload(" ".join(args[1:])), indent=2, default=str))
         return 0
 
     if cmd == "--collection-health":
