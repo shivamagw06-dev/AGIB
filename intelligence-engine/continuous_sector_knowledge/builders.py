@@ -64,8 +64,11 @@ def _soft_company_tips(leaders: list[str]) -> list[dict[str, Any]]:
 
 
 def _soft_market_tip(sector_key: str, label: str) -> dict[str, Any]:
-    return {
-        "sector_index": f"NIFTY {label.upper()}" if sector_key in {"banking", "it_services", "auto", "pharma", "fmcg", "metals"} else None,
+    """Soft-read CMKTP when published; fallback catalog tip — never collects live."""
+    tip: dict[str, Any] = {
+        "sector_index": f"NIFTY {label.upper()}"
+        if sector_key in {"banking", "it_services", "auto", "pharma", "fmcg", "metals"}
+        else None,
         "relative_performance": "Watching",
         "valuation_spread": "vs NIFTY",
         "breadth": "Mixed",
@@ -73,6 +76,28 @@ def _soft_market_tip(sector_key: str, label: str) -> dict[str, Any]:
         "gateway": "Market_Knowledge_Tip",
         "providers_queried": [],
     }
+    try:
+        from continuous_market_knowledge.production import market as cmktp_market
+
+        pack = cmktp_market()
+        if pack.get("found") and pack.get("market"):
+            m = pack["market"]
+            tip.update(
+                {
+                    "market_regime": m.get("market_regime"),
+                    "breadth": m.get("breadth") or tip["breadth"],
+                    "liquidity": (m.get("liquidity") or {}).get("trading_volume")
+                    or tip["liquidity"],
+                    "risk_sentiment": m.get("risk_sentiment"),
+                    "health_score": m.get("health_score"),
+                    "leadership": m.get("leadership"),
+                    "gateway": "CMKTP_KRIG",
+                    "collected_on_request": False,
+                }
+            )
+    except Exception:
+        pass
+    return tip
 
 
 def _soft_events(sector_key: str, label: str) -> list[dict[str, Any]]:

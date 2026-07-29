@@ -564,6 +564,21 @@ class InstitutionalForecastEngine:
 
     def _retrieve_market(self) -> dict[str, Any]:
         market = dict(MARKET_INTELLIGENCE)
+        sources = ["agi_knowledge_catalog"]
+        cmktp_tip = self._soft_cmktp_market()
+        if cmktp_tip:
+            market = {**market, "cmktp_published": cmktp_tip}
+            sources.append("cmktp_market_knowledge_store")
+            if cmktp_tip.get("market_regime"):
+                market["regime"] = cmktp_tip["market_regime"]
+            if cmktp_tip.get("risk_sentiment"):
+                market["risk_sentiment"] = cmktp_tip["risk_sentiment"]
+            if cmktp_tip.get("health_score") is not None:
+                market["health_score"] = cmktp_tip["health_score"]
+            if cmktp_tip.get("breadth"):
+                market["breadth"] = cmktp_tip["breadth"]
+            if cmktp_tip.get("leadership"):
+                market["leadership"] = cmktp_tip["leadership"]
         return {
             "current_knowledge": {"market": "NIFTY"},
             "market_intelligence": market,
@@ -585,9 +600,26 @@ class InstitutionalForecastEngine:
             "risks": [{"risk": "Valuation compression", "severity": "High"}],
             "pattern_intelligence": {"deferred": True, "sprint": "8.5"},
             "outlook_dimensions": list(market.get("outlook_dimensions") or []),
-            "sources": ["agi_knowledge_catalog"],
+            "sources": sources,
             "providers_queried": [],
         }
+
+    def _soft_cmktp_market(self) -> dict[str, Any] | None:
+        """Read-only CMKTP gateway — never triggers market builders or live feeds."""
+        try:
+            from continuous_market_knowledge.production import market as cmktp_market
+
+            pack = cmktp_market()
+            if pack.get("found") and pack.get("market"):
+                tip = dict(pack["market"])
+                tip["gateway"] = "CMKTP_KRIG"
+                tip["collected_on_request"] = False
+                tip["constructed_on_request"] = False
+                tip["providers_queried"] = []
+                return tip
+            return None
+        except Exception:
+            return None
 
     def _retrieve_macro(self) -> dict[str, Any]:
         macro = dict(MACRO_INTELLIGENCE)

@@ -5855,6 +5855,131 @@ async def admin_sfi():
     return HTMLResponse(html)
 
 
+# --- Continuous Market Knowledge Platform (CMKTP) Sprint 12.1 ---
+# Institutional Market Knowledge Objects. Not a market data service. Ask never collects.
+
+
+@router.get("/cmktp/health")
+async def cmktp_health():
+    from continuous_market_knowledge.production import health
+
+    return health()
+
+
+@router.get("/market/dashboard")
+async def cmktp_dashboard():
+    from continuous_market_knowledge.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/market/regime")
+async def cmktp_regime():
+    from continuous_market_knowledge.production import regime
+
+    return regime()
+
+
+@router.get("/market/breadth")
+async def cmktp_breadth():
+    from continuous_market_knowledge.production import breadth
+
+    return breadth()
+
+
+@router.get("/market/liquidity")
+async def cmktp_liquidity():
+    from continuous_market_knowledge.production import liquidity
+
+    return liquidity()
+
+
+@router.get("/market/leadership")
+async def cmktp_leadership():
+    from continuous_market_knowledge.production import leadership
+
+    return leadership()
+
+
+@router.get("/market/flows")
+async def cmktp_flows():
+    from continuous_market_knowledge.production import flows
+
+    return flows()
+
+
+@router.get("/market/volatility")
+async def cmktp_volatility():
+    from continuous_market_knowledge.production import volatility
+
+    return volatility()
+
+
+@router.get("/market/health")
+async def cmktp_market_health():
+    from continuous_market_knowledge.production import market_health
+
+    return market_health()
+
+
+@router.post("/market/run")
+async def cmktp_run(payload: dict[str, Any] = Body(default={})):
+    """Ops / event-driven only — never called by Ask."""
+    from continuous_market_knowledge.production import run
+
+    domains = payload.get("domains")
+    if isinstance(domains, str):
+        domains = [d.strip() for d in domains.split(",") if d.strip()]
+    return run(
+        domains=domains if isinstance(domains, list) else None,
+        trigger=payload.get("trigger"),
+    )
+
+
+@router.get("/market")
+async def cmktp_market():
+    from continuous_market_knowledge.production import market
+
+    return market()
+
+
+@router.get("/admin/market-operations", response_class=HTMLResponse)
+async def admin_cmktp():
+    from continuous_market_knowledge.production import dashboard
+
+    board = dashboard()
+    html = f"""<!doctype html><html><head><title>Market Intelligence Operations</title></head>
+    <body style="font-family:system-ui;max-width:1100px;margin:2rem auto">
+    <h1>Market Intelligence Operations — CMKTP</h1>
+    <p>Not a market data service. Higher-order knowledge only. Ask never fetches.</p>
+    <pre>{board.get('principles')}</pre>
+    <h2>Current market regime</h2>
+    <pre>{board.get('current_market_regime')}</pre>
+    <h2>Market health score</h2>
+    <pre>{board.get('market_health_score')}</pre>
+    <h2>Breadth</h2>
+    <pre>{board.get('breadth_dashboard')}</pre>
+    <h2>Liquidity</h2>
+    <pre>{board.get('liquidity_dashboard')}</pre>
+    <h2>Institutional flows</h2>
+    <pre>{board.get('institutional_flows')}</pre>
+    <h2>Sector leadership</h2>
+    <pre>{board.get('sector_leadership')}</pre>
+    <h2>Cross-asset</h2>
+    <pre>{board.get('cross_asset_dashboard')}</pre>
+    <h2>Risk sentiment</h2>
+    <pre>{board.get('risk_sentiment')}</pre>
+    <h2>Latest material events</h2>
+    <pre>{board.get('latest_material_events')}</pre>
+    <h2>Knowledge freshness</h2>
+    <pre>{board.get('knowledge_freshness')}</pre>
+    <h2>Collection / publication</h2>
+    <pre>{board.get('collection_status')}</pre>
+    <pre>{board.get('publication_status')}</pre>
+    </body></html>"""
+    return HTMLResponse(html)
+
+
 @router.post("/sector/run")
 async def cskp_run(payload: dict[str, Any] = Body(default={})):
     """Ops / event-driven only — never called by Ask."""
