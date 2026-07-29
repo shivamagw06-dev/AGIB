@@ -305,8 +305,17 @@ class InstitutionalForecastEngine:
 
     def _retrieve_sector(self, sector_key: str) -> dict[str, Any]:
         sector = dict(SECTOR_INTELLIGENCE.get(sector_key) or {"sector_key": sector_key, "missing": True})
+        sources = ["agi_knowledge_catalog"]
+        # Soft consume published CSKP knowledge — never construct / collect
+        cskp_tip = self._soft_cskp_sector(sector_key)
+        if cskp_tip:
+            sector = {**sector, "cskp_published": cskp_tip}
+            sources.append("cskp_sector_knowledge_store")
         return {
-            "current_knowledge": {"sector_key": sector_key, "label": sector.get("label")},
+            "current_knowledge": {
+                "sector_key": sector_key,
+                "label": sector.get("label") or (cskp_tip or {}).get("label"),
+            },
             "sector_intelligence": sector,
             "historical_intelligence": {
                 "sector_learning": sector.get("sector_learning"),
@@ -327,7 +336,8 @@ class InstitutionalForecastEngine:
             "market_intelligence": dict(MARKET_INTELLIGENCE),
             "macro_intelligence": dict(MACRO_INTELLIGENCE),
             "research_intelligence": {
-                "sector_research_office": sector.get("outlook"),
+                "sector_research_office": sector.get("outlook")
+                or (cskp_tip or {}).get("current_outlook"),
                 "macro_research_office": MACRO_INTELLIGENCE.get("rbi"),
             },
             "monitoring_events": [{"event": "Sector earnings season", "status": "Watching"}],
@@ -338,9 +348,34 @@ class InstitutionalForecastEngine:
                 sector.get("outlook_dimensions")
                 or ["Growth Outlook", "Margin Outlook", "Valuation Outlook"]
             ),
-            "sources": ["agi_knowledge_catalog"],
+            "sources": sources,
             "providers_queried": [],
         }
+
+    def _soft_cskp_sector(self, sector_key: str) -> dict[str, Any] | None:
+        """Read-only CSKP gateway — never triggers builders."""
+        try:
+            from continuous_sector_knowledge.production import sector as cskp_sector
+            from continuous_sector_knowledge.schema import canonicalize
+
+            # Map IFI keys → CSKP keys
+            alias = {
+                "information_technology": "it_services",
+                "financials": "banking",
+                "energy": "oil_gas",
+            }.get(sector_key, sector_key)
+            key = canonicalize(alias) or alias
+            pack = cskp_sector(key)
+            if pack.get("found") and pack.get("latest"):
+                tip = dict(pack["latest"])
+                tip["gateway"] = "CSKP_KRIG"
+                tip["collected_on_request"] = False
+                tip["constructed_on_request"] = False
+                tip["providers_queried"] = []
+                return tip
+            return None
+        except Exception:
+            return None
 
     def _retrieve_market(self) -> dict[str, Any]:
         market = dict(MARKET_INTELLIGENCE)

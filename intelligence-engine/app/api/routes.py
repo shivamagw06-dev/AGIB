@@ -5355,6 +5355,113 @@ async def admin_mfi():
     return HTMLResponse(html)
 
 
+# --- Continuous Sector Knowledge Platform (CSKP) Sprint 11.1 ---
+# Event-driven derived sector knowledge. Ask never constructs or collects.
+
+
+@router.get("/cskp/health")
+async def cskp_health():
+    from continuous_sector_knowledge.production import health
+
+    return health()
+
+
+@router.get("/sector/dashboard")
+async def cskp_dashboard():
+    from continuous_sector_knowledge.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/sector/leaders")
+async def cskp_leaders(limit: int = Query(50, ge=1, le=200)):
+    from continuous_sector_knowledge.production import leaders
+
+    return leaders(limit=limit)
+
+
+@router.get("/sector/comparison")
+async def cskp_comparison(sectors: str | None = None):
+    from continuous_sector_knowledge.production import comparison
+
+    keys = [s.strip() for s in sectors.split(",")] if sectors else None
+    return comparison(sectors=keys)
+
+
+@router.get("/sector/calendar")
+async def cskp_calendar(limit: int = Query(50, ge=1, le=200)):
+    from continuous_sector_knowledge.production import calendar
+
+    return calendar(limit=limit)
+
+
+@router.post("/sector/run")
+async def cskp_run(payload: dict[str, Any] = Body(default={})):
+    """Ops / event-driven only — never called by Ask."""
+    from continuous_sector_knowledge.production import run
+
+    sectors = payload.get("sectors")
+    if isinstance(sectors, str):
+        sectors = [s.strip() for s in sectors.split(",") if s.strip()]
+    return run(
+        sectors=sectors if isinstance(sectors, list) else None,
+        trigger=payload.get("trigger"),
+    )
+
+
+@router.get("/sector")
+async def cskp_sectors(limit: int = Query(100, ge=1, le=500)):
+    from continuous_sector_knowledge.production import sectors as list_sectors
+
+    return list_sectors(limit=limit)
+
+
+@router.get("/sector/{sector}")
+async def cskp_sector(sector: str):
+    from continuous_sector_knowledge.production import sector as get_sector
+
+    return get_sector(sector)
+
+
+@router.get("/admin/sector-operations", response_class=HTMLResponse)
+async def admin_cskp():
+    from continuous_sector_knowledge.production import dashboard
+
+    board = dashboard()
+    health = board.get("sector_health") or {}
+    rows = "".join(
+        f"<tr><td>{s.get('sector')}</td><td>{s.get('outlook')}</td>"
+        f"<td>{s.get('trigger')}</td><td>{s.get('version')}</td></tr>"
+        for s in (board.get("latest_sector_events") or [])
+    )
+    html = f"""<!doctype html><html><head><title>Sector Operations</title></head>
+    <body style="font-family:system-ui;max-width:1100px;margin:2rem auto">
+    <h1>Sector Operations — CSKP</h1>
+    <p>Event-driven derived sector knowledge. Ask never constructs.</p>
+    <pre>{board.get('principles')}</pre>
+    <h2>Sector health</h2>
+    <pre>{health}</pre>
+    <h2>Coverage</h2>
+    <pre>{board.get('knowledge_coverage')}</pre>
+    <h2>Knowledge freshness</h2>
+    <pre>{board.get('knowledge_freshness')}</pre>
+    <h2>Latest sector events</h2>
+    <table border="1" cellpadding="6">
+    <tr><th>Sector</th><th>Outlook</th><th>Trigger</th><th>Version</th></tr>
+    {rows or '<tr><td colspan=4>Run POST /v1/sector/run</td></tr>'}
+    </table>
+    <h2>Learning events</h2>
+    <pre>{board.get('learning_events')}</pre>
+    <h2>Company coverage by sector</h2>
+    <pre>{board.get('company_coverage_by_sector')}</pre>
+    <h2>Material updates</h2>
+    <pre>{board.get('material_updates')}</pre>
+    <h2>Research coverage</h2>
+    <pre>{board.get('research_coverage')}</pre>
+    </body></html>"""
+    return HTMLResponse(html)
+
+
 # --- Forecast Provider Integration (FPI) — India-first Knowledge Platform path ---
 # Forecast never calls Groww/Yahoo/NSE/BSE directly; stale market snapshot refresh only.
 

@@ -472,6 +472,31 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("macroeconomic_forecast_intelligence")
     except Exception:
         out["macroeconomic_forecast_intelligence"] = None
+    # Phase 11 Sprint 11.1 — Continuous Sector Knowledge Platform (soft).
+    try:
+        from continuous_sector_knowledge.production import dashboard as cskp_dash
+        from continuous_sector_knowledge.production import health as cskp_health
+
+        sd = cskp_dash()
+        sh = cskp_health()
+        health = sd.get("sector_health") or {}
+        cov = sd.get("knowledge_coverage") or {}
+        out["continuous_sector_knowledge"] = {
+            "status": sh.get("status"),
+            "version": sh.get("version"),
+            "ask_triggers_collection": False,
+            "ask_never_constructs": True,
+            "published_sectors": health.get("published"),
+            "universe": health.get("universe"),
+            "coverage_pct": health.get("coverage_pct"),
+            "learning_events": cov.get("learning_events"),
+            "company_coverage_total": cov.get("company_coverage_total"),
+            "ingestion_idle": sd.get("ingestion_idle"),
+            "phase": "11.1",
+        }
+        out["sources"].append("continuous_sector_knowledge")
+    except Exception:
+        out["continuous_sector_knowledge"] = None
     # AGIB v3.0 LIDI Track 2 — collector certification board (soft).
     try:
         from live_data.production_verify import certification as lidi_cert
