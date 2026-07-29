@@ -591,6 +591,16 @@ class InstitutionalForecastEngine:
         if hmkip_tip:
             historical = {**historical, "hmkip_timeline": hmkip_tip}
             sources.append("hmkip_market_history_store")
+        relationship_intelligence: list[dict[str, Any]] = [
+            {"source": "RBI", "target": "Liquidity", "type": "Transmission"},
+            {"source": "Liquidity", "target": "Banks", "type": "Positive Historical Impact"},
+        ]
+        mkri_tip = self._soft_mkri_market()
+        if mkri_tip:
+            relationship_intelligence = list(
+                mkri_tip.get("relationships") or relationship_intelligence
+            )
+            sources.append("mkri_market_relationship_store")
         return {
             "current_knowledge": {"market": "NIFTY"},
             "market_intelligence": market,
@@ -598,10 +608,7 @@ class InstitutionalForecastEngine:
             "historical_analogues": [
                 {"matched_period": "2021 Liquidity Rally", "similarity_score": 76.0, "label": "Liquidity abundant"}
             ],
-            "relationship_intelligence": [
-                {"source": "RBI", "target": "Liquidity", "type": "Transmission"},
-                {"source": "Liquidity", "target": "Banks", "type": "Positive Historical Impact"},
-            ],
+            "relationship_intelligence": relationship_intelligence,
             "macro_intelligence": dict(MACRO_INTELLIGENCE),
             "sector_intelligence": {"note": "Cross-sector breadth mixed"},
             "research_intelligence": {"market_research_office": "Regime watch — valuation elevated"},
@@ -651,6 +658,38 @@ class InstitutionalForecastEngine:
                         for o in (pack.get("observations") or [])[:8]
                     ],
                     "gateway": "HMKIP_KRIG",
+                    "collected_on_request": False,
+                    "providers_queried": [],
+                }
+            return None
+        except Exception:
+            return None
+
+    def _soft_mkri_market(self) -> dict[str, Any] | None:
+        """Read-only MKRI gateway — never rebuilds the market relationship graph."""
+        try:
+            from market_relationship_intelligence.production import for_indicator
+            from market_relationship_intelligence.production import relationships as mkri_all
+
+            pack = for_indicator("Repo Rate", limit=20)
+            if not pack.get("n"):
+                pack = mkri_all(limit=20)
+            if pack.get("n"):
+                return {
+                    "n": pack.get("n"),
+                    "relationships": [
+                        {
+                            "source": r.get("source"),
+                            "target": r.get("target"),
+                            "type": r.get("relationship"),
+                            "direction": r.get("direction"),
+                            "confidence_pct": r.get("confidence_pct"),
+                            "average_lag": r.get("average_lag"),
+                            "kind": r.get("kind"),
+                        }
+                        for r in (pack.get("relationships") or [])[:20]
+                    ],
+                    "gateway": "MKRI_KRIG",
                     "collected_on_request": False,
                     "providers_queried": [],
                 }

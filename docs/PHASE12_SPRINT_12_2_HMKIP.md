@@ -103,6 +103,6 @@ historical_market_retrieval
 |---|---|---|
 | ✅ 12.1 | CMKTP — Continuous Market Knowledge | Complete |
 | ✅ 12.2 | HMKIP — Historical Market Intelligence | Complete |
-| 12.3 | Market Relationship Intelligence (MRI) | Next |
-| 12.4 | Historical Market Analogue Intelligence (HMAI) | Planned |
+| ✅ 12.3 | MKRI — Market Relationship Intelligence | Complete |
+| 12.4 | Historical Market Analogue Intelligence (HMAI) | Next |
 | 12.5 | Market Forecast Intelligence (MFI) | Planned |
