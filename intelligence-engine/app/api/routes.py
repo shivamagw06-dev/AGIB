@@ -10301,6 +10301,56 @@ async def investment_knowledge_graph_analyse(ticker: str):
     return analyse(ticker)
 
 
+@router.get("/opportunity-intelligence/health")
+async def opportunity_intelligence_health():
+    """P4.5 Opportunity Intelligence — institutional research prioritisation (no BUY/SELL)."""
+    from opportunity_intelligence.production import health
+
+    return health()
+
+
+@router.get("/opportunity-intelligence/top")
+async def opportunity_intelligence_top(limit: int = 10):
+    from opportunity_intelligence.production import top
+
+    return top(limit=max(1, min(int(limit), 50)))
+
+
+@router.get("/opportunity-intelligence/watchlist")
+async def opportunity_intelligence_watchlist():
+    from opportunity_intelligence.production import watchlist
+
+    return watchlist()
+
+
+@router.get("/opportunity-intelligence/catalysts")
+async def opportunity_intelligence_catalysts():
+    from opportunity_intelligence.production import catalysts
+
+    return catalysts()
+
+
+@router.get("/opportunity-intelligence/research-priority")
+async def opportunity_intelligence_research_priority():
+    from opportunity_intelligence.production import research_priority_board
+
+    return research_priority_board()
+
+
+@router.get("/opportunity-intelligence-ic10")
+async def opportunity_intelligence_ic10():
+    from opportunity_intelligence.production import ic10_smoke
+
+    return ic10_smoke()
+
+
+@router.get("/opportunity-intelligence/{ticker}")
+async def opportunity_intelligence_ticker(ticker: str):
+    from opportunity_intelligence.production import analyse
+
+    return analyse(ticker, persist_memory=False)
+
+
 @router.get("/committee-certification-v2/health")
 async def committee_certification_v2_health():
     """IC-10 Institutional Committee Certification v2.0 — health / universe map."""
