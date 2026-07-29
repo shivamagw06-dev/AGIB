@@ -6259,6 +6259,131 @@ async def admin_mkri():
     return HTMLResponse(html)
 
 
+# --- Historical Market Analogue Intelligence (HMKAI) Sprint 12.4 ---
+# Deterministic market analogues. Ask never rebuilds catalogues.
+# Programme short HMKAI avoids collision with Historical Macro Analogue Intelligence (HMAI).
+
+
+@router.get("/hmkai/health")
+async def hmkai_health():
+    from historical_market_analogue_intelligence.production import health
+
+    return health()
+
+
+@router.get("/market/analogues")
+async def hmkai_analogues(
+    market: str | None = Query(None),
+    limit: int = Query(20, ge=1, le=200),
+):
+    from historical_market_analogue_intelligence.production import analogues
+
+    return analogues(market=market, limit=limit)
+
+
+@router.get("/market/analogues/search")
+async def hmkai_search(
+    market: str | None = Query(None),
+    question: str | None = Query(None),
+    target_period: str | None = Query(None),
+    top_k: int = Query(5, ge=1, le=50),
+):
+    from historical_market_analogue_intelligence.production import search
+
+    return search(market=market, question=question, target_period=target_period, top_k=top_k)
+
+
+@router.get("/market/analogues/report")
+async def hmkai_report(
+    market: str = Query("India"),
+    top_k: int = Query(5, ge=1, le=50),
+):
+    from historical_market_analogue_intelligence.production import report
+
+    return report(market=market, top_k=top_k)
+
+
+@router.get("/market/analogues/dashboard")
+async def hmkai_dashboard():
+    from historical_market_analogue_intelligence.production import dashboard
+
+    return dashboard()
+
+
+@router.post("/market/analogues/run")
+async def hmkai_run(payload: dict[str, Any] = Body(default={})):
+    """Ops / scheduler only — never called by Ask."""
+    from historical_market_analogue_intelligence.production import run
+
+    return run(
+        market=payload.get("market"),
+        enrich_hmkip=bool(payload.get("enrich_hmkip", True)),
+        enrich_cmktp=bool(payload.get("enrich_cmktp", True)),
+        top_k=int(payload.get("top_k") or 10),
+    )
+
+
+@router.get("/market/regime/current")
+async def hmkai_regime_current(market: str = Query("India")):
+    from historical_market_analogue_intelligence.production import current_regime
+
+    return current_regime(market=market)
+
+
+@router.get("/market/regime/history")
+async def hmkai_regime_history(
+    market: str = Query("India"),
+    limit: int = Query(50, ge=1, le=200),
+):
+    from historical_market_analogue_intelligence.production import regime_history
+
+    return regime_history(market=market, limit=limit)
+
+
+@router.get("/market/analogues/{market}")
+async def hmkai_market(market: str, limit: int = Query(20, ge=1, le=200)):
+    from historical_market_analogue_intelligence.production import analogues_for_market
+
+    return analogues_for_market(market, limit=limit)
+
+
+@router.get("/admin/historical-market-analogues", response_class=HTMLResponse)
+async def admin_hmkai():
+    from historical_market_analogue_intelligence.production import dashboard
+
+    board = dashboard()
+    rows = "".join(
+        f"<tr><td>{r.get('matched_period')}</td><td>{r.get('matched_label')}</td>"
+        f"<td>{r.get('similarity_score')}</td><td>{r.get('confidence')}</td>"
+        f"<td>{', '.join(r.get('matching_dimensions') or [])}</td></tr>"
+        for r in (board.get("top_analogue_matches") or [])
+    )
+    html = f"""<!doctype html><html><head><title>Historical Market Analogues</title></head>
+    <body style="font-family:system-ui;max-width:1100px;margin:2rem auto">
+    <h1>Historical Market Analogue Intelligence — HMKAI</h1>
+    <p>Deterministic similarity. Explainable scores. Ask never fetches. (Short HMKAI avoids Macro HMAI.)</p>
+    <pre>{board.get('principles')}</pre>
+    <h2>Current market regime</h2>
+    <pre>{board.get('current_market_regime')}</pre>
+    <h2>Top analogue matches</h2>
+    <table border="1" cellpadding="6">
+    <tr><th>Period</th><th>Label</th><th>Similarity</th><th>Confidence</th><th>Matching dims</th></tr>
+    {rows or '<tr><td colspan=5>Run POST /v1/market/analogues/run</td></tr>'}
+    </table>
+    <h2>Similarity / confidence</h2>
+    <pre>{board.get('similarity_distribution')}</pre>
+    <pre>{board.get('confidence_distribution')}</pre>
+    <h2>Historical outcomes</h2>
+    <pre>{board.get('historical_outcomes_sample')}</pre>
+    <h2>Key differences</h2>
+    <pre>{board.get('key_differences_sample')}</pre>
+    <h2>Freshness / coverage</h2>
+    <pre>{board.get('analogue_freshness')}</pre>
+    <pre>{board.get('historical_coverage')}</pre>
+    </body></html>"""
+    return HTMLResponse(html)
+
+
 @router.post("/sector/run")
 async def cskp_run(payload: dict[str, Any] = Body(default={})):
     """Ops / event-driven only — never called by Ask."""
