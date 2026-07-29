@@ -1,8 +1,10 @@
-"""Shareholding connector — historical ownership (Promoter/FII/DII/MF/Public/Pledged)."""
+"""Shareholding connector — historical ownership (Promoter/FII/DII/MF/Public/Pledged).
+
+P2.3: Correct NSE Master field mapping (pr_and_prgrp / public_val) + optional XBRL enrich.
+"""
 
 from __future__ import annotations
 
-import json
 import re
 import time
 from datetime import datetime, timezone
@@ -20,16 +22,22 @@ class ShareholdingConnector(Connector):
         entity = str(kwargs.get("entity") or kwargs.get("ticker") or "").upper()
         t0 = time.time()
         if not entity:
-            return ConnectorResult(ok=False, connector_id=self.connector_id, source_id=self.source_id, error="entity_required")
+            return ConnectorResult(
+                ok=False, connector_id=self.connector_id, source_id=self.source_id, error="entity_required"
+            )
 
         records: list[dict[str, Any]] = []
         errors: list[str] = []
         mode = "live"
         path = None
 
-        # Primary: NSE corporate shareholding API
+        # Primary: NSE corporate shareholding API (correct field map via ownership_intelligence)
         try:
-            rows, path = self._nse_shareholding(entity)
+            rows, path = self._nse_shareholding(
+                entity,
+                enrich_xbrl=bool(kwargs.get("enrich_xbrl", False)),
+                xbrl_quarters=int(kwargs.get("xbrl_quarters") or 1),
+            )
             records.extend(rows)
         except Exception as exc:  # noqa: BLE001
             errors.append(f"nse:{str(exc)[:120]}")
@@ -56,7 +64,12 @@ class ShareholdingConnector(Connector):
             records=records,
             mode=mode,
             error=None if ok else (errors[0] if errors else "shareholding_unavailable"),
-            diagnostics={"entity": entity, "errors": errors, "parse_path": path, "latency_ms": int((time.time() - t0) * 1000)},
+            diagnostics={
+                "entity": entity,
+                "errors": errors,
+                "parse_path": path,
+                "latency_ms": int((time.time() - t0) * 1000),
+            },
             coverage_pct=100.0 if ok else 0.0,
             repair_items=[]
             if ok
@@ -68,30 +81,54 @@ class ShareholdingConnector(Connector):
             return {"ok": False, "reason": "empty"}
         bad = []
         for r in records:
+            # Public already includes FII/DII/MF — never sum public with institutions.
+            prom = float(r.get("promoter") or 0)
+            pub = float(r.get("public") or 0)
+            emp = float(r.get("employee_trusts") or 0)
+            if r.get("promoter") is not None and r.get("public") is not None:
+                master_total = prom + pub + emp
+                if master_total > 105 or master_total < 80:
+                    bad.append(
+                        {
+                            "period": r.get("period"),
+                            "total": master_total,
+                            "reason": "promoter_public_sum_out_of_range",
+                        }
+                    )
+                continue
+            # Fallback: promoter + institutional buckets when public missing
             total = sum(
-                float(r.get(k) or 0)
-                for k in ("promoter", "fii", "dii", "mutual_funds", "public")
+                float(r.get(k) or 0) for k in ("promoter", "fii", "dii", "mutual_funds", "public")
             )
-            # Allow rounding slack; pledged is subset of promoter often
             if total > 105 or total < 80:
                 bad.append({"period": r.get("period"), "total": total, "reason": "ownership_sum_out_of_range"})
-        return {"ok": len(bad) == 0, "rejected": len(bad), "accepted": len(records) - len(bad), "failures": bad[:20]}
+        return {
+            "ok": len(bad) == 0,
+            "rejected": len(bad),
+            "accepted": len(records) - len(bad),
+            "failures": bad[:20],
+        }
 
     def normalize(self, records: list[dict[str, Any]], **kwargs: Any) -> list[dict[str, Any]]:
         out = []
         for r in records:
+            period_end = _period_end(r)
             out.append(
                 {
                     "entity": str(r.get("entity") or kwargs.get("entity") or "").upper(),
-                    "period": str(r.get("period")),
-                    "period_end": str(r.get("period_end") or r.get("period"))[:10],
+                    "period": str(r.get("period") or period_end),
+                    "period_end": period_end,
                     "promoter": _pct(r.get("promoter")),
                     "fii": _pct(r.get("fii") or r.get("fpi")),
                     "dii": _pct(r.get("dii")),
                     "mutual_funds": _pct(r.get("mutual_funds") or r.get("mf")),
+                    "insurance": _pct(r.get("insurance")),
                     "public": _pct(r.get("public")),
-                    "pledged": _pct(r.get("pledged") or r.get("promoter_pledged")),
+                    "pledged": _pct(r.get("pledged") or r.get("promoter_pledged") or r.get("promoter_pledge_pct")),
+                    "promoter_pledge": r.get("promoter_pledge"),
+                    "employee_trusts": _pct(r.get("employee_trusts")),
                     "source": r.get("source") or "shareholding_connector",
+                    "raw": r.get("raw"),
                 }
             )
         return out
@@ -116,8 +153,11 @@ class ShareholdingConnector(Connector):
                         "fii": r.get("fii"),
                         "dii": r.get("dii"),
                         "mutual_funds": r.get("mutual_funds"),
+                        "insurance": r.get("insurance"),
                         "public": r.get("public"),
                         "pledged": r.get("pledged"),
+                        "promoter_pledge": r.get("promoter_pledge"),
+                        "employee_trusts": r.get("employee_trusts"),
                     },
                     source="shareholding_connector",
                     confidence=0.9,
@@ -133,65 +173,51 @@ class ShareholdingConnector(Connector):
         u = kwargs.get("entities") or supported_universe()
         n = len(u) or 1
         covered = sum(1 for e in u if (hd_store.get_series("shareholding", e) or {}).get("records"))
-        return {"connector_id": self.connector_id, "coverage_pct": round(100.0 * covered / n, 1), "covered": covered, "universe": n}
+        return {
+            "connector_id": self.connector_id,
+            "coverage_pct": round(100.0 * covered / n, 1),
+            "covered": covered,
+            "universe": n,
+        }
 
-    def _nse_shareholding(self, entity: str) -> tuple[list[dict[str, Any]], str]:
-        from live_data.collectors.base import nse_session_opener
-        from urllib.request import Request
+    def _nse_shareholding(
+        self,
+        entity: str,
+        *,
+        enrich_xbrl: bool = False,
+        xbrl_quarters: int = 1,
+    ) -> tuple[list[dict[str, Any]], str]:
+        from ownership_intelligence.master import quarter_timeline
+        from ownership_intelligence.xbrl import enrich_quarter_with_xbrl
 
-        opener = nse_session_opener()
-        url = f"https://www.nseindia.com/api/corporate-share-holdings-master?index=equities&symbol={entity}"
-        req = Request(
-            url,
-            headers={
-                "User-Agent": "Mozilla/5.0 (compatible; AGIB-LIDI/1.0)",
-                "Accept": "application/json",
-                "Referer": f"https://www.nseindia.com/get-quotes/equity?symbol={entity}",
-            },
-        )
-        with opener.open(req, timeout=30) as resp:
-            raw = resp.read()
-        data = json.loads(raw.decode("utf-8"))
-        rows = data if isinstance(data, list) else (data.get("data") or data.get("shareholding") or [])
-        out = []
-        for r in rows if isinstance(rows, list) else []:
-            if not isinstance(r, dict):
-                continue
-            period = r.get("date") or r.get("period") or r.get("asOnDate") or ""
+        tl = quarter_timeline(entity)
+        rows = list(tl.get("quarters") or [])
+        out: list[dict[str, Any]] = []
+        for i, q in enumerate(rows):
+            row = dict(q)
+            if enrich_xbrl and i < max(0, int(xbrl_quarters)):
+                row = enrich_quarter_with_xbrl(row)
             out.append(
                 {
                     "entity": entity,
-                    "period": str(period)[:10],
-                    "period_end": str(period)[:10],
-                    "promoter": r.get("promoterPledgedPercentage") and r.get("totalPromoterHolding") or r.get("promoter") or r.get("totalPromoterHolding"),
-                    "fii": r.get("fii") or r.get("foreignInstitutions") or r.get("FII"),
-                    "dii": r.get("dii") or r.get("domesticInstitutions") or r.get("DII"),
-                    "mutual_funds": r.get("mutualFunds") or r.get("mf"),
-                    "public": r.get("public") or r.get("retailAndOthers"),
-                    "pledged": r.get("promoterPledgedPercentage") or r.get("pledged"),
-                    "source": "nse_api",
+                    "period": row.get("period_end") or row.get("period_raw"),
+                    "period_end": row.get("period_end"),
+                    "period_raw": row.get("period_raw"),
+                    "promoter": row.get("promoter"),
+                    "fii": row.get("fii"),
+                    "dii": row.get("dii"),
+                    "mutual_funds": row.get("mutual_funds"),
+                    "insurance": row.get("insurance"),
+                    "public": row.get("public"),
+                    "pledged": row.get("promoter_pledge_pct"),
+                    "promoter_pledge": row.get("promoter_pledge"),
+                    "employee_trusts": row.get("employee_trusts"),
+                    "xbrl_url": row.get("xbrl_url"),
+                    "filing_date": row.get("filing_date"),
+                    "source": row.get("detail_source") or "nse_master",
+                    "raw": row.get("raw"),
                 }
             )
-        # Alternate NSE endpoint shape
-        if not out and isinstance(data, dict):
-            for key in ("promoterHolding", "publicHolding", "institutionalHolding"):
-                if key in data:
-                    # Single snapshot
-                    out.append(
-                        {
-                            "entity": entity,
-                            "period": datetime.now(timezone.utc).date().isoformat(),
-                            "period_end": datetime.now(timezone.utc).date().isoformat(),
-                            "promoter": _dig(data, "promoterHolding", "total"),
-                            "fii": _dig(data, "institutionalHolding", "fii"),
-                            "dii": _dig(data, "institutionalHolding", "dii"),
-                            "mutual_funds": _dig(data, "institutionalHolding", "mf"),
-                            "public": _dig(data, "publicHolding", "total"),
-                            "pledged": _dig(data, "promoterHolding", "pledged"),
-                            "source": "nse_api_alt",
-                        }
-                    )
-                    break
         return out, "nse_api"
 
     def _bse_shareholding(self, entity: str) -> tuple[list[dict[str, Any]], str]:
@@ -202,11 +228,13 @@ class ShareholdingConnector(Connector):
         try:
             raw = http_get(
                 url,
-                headers={"User-Agent": "Mozilla/5.0 (compatible; AGIB-LIDI/1.0)", "Referer": "https://www.bseindia.com/"},
+                headers={
+                    "User-Agent": "Mozilla/5.0 (compatible; AGIB-LIDI/1.0)",
+                    "Referer": "https://www.bseindia.com/",
+                },
                 timeout=25,
             )
         except Exception:
-            # Generic corporate page
             raw = http_get(
                 "https://www.bseindia.com/corporates/Sharehold_Searchnew.aspx",
                 headers={"User-Agent": "Mozilla/5.0 (compatible; AGIB-LIDI/1.0)"},
@@ -250,6 +278,16 @@ def _pct(v: Any) -> float | None:
         return None
 
 
+def _period_end(r: dict[str, Any]) -> str:
+    from ownership_intelligence.dates import parse_nse_date
+
+    for key in ("period_end", "period", "period_raw", "date"):
+        pe = parse_nse_date(r.get(key))
+        if pe:
+            return pe
+    return str(r.get("period_end") or r.get("period") or "")[:10]
+
+
 def _find_pct(text: str, pattern: str) -> float | None:
     m = re.search(pattern, text, re.I)
     if not m:
@@ -258,12 +296,3 @@ def _find_pct(text: str, pattern: str) -> float | None:
         return float(m.group(1))
     except Exception:
         return None
-
-
-def _dig(d: dict[str, Any], *keys: str) -> Any:
-    cur: Any = d
-    for k in keys:
-        if not isinstance(cur, dict):
-            return None
-        cur = cur.get(k)
-    return cur

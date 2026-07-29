@@ -45,8 +45,8 @@ ENGINE_CONTRACTS: dict[str, dict[str, Any]] = {
     "ownership_intelligence": {
         "id": "P2.3",
         "engine_name": "Ownership Intelligence",
-        "inputs": ["company_pack", "live_data", "knowledge_graph"],
-        "dependencies": ["knowledge_factory", "live_market_context", "filing_intelligence"],
+        "inputs": ["company_pack", "live_data", "nse_shareholding_master", "nse_shp_xbrl"],
+        "dependencies": ["institutional_data.shareholding", "live_data.nse_session"],
         "score_field": "ownership_quality",
         "freshness_sla_days": 45,
         "runtime_budget_s": 2.0,
