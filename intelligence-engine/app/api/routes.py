@@ -9909,6 +9909,25 @@ async def institutional_evaluation_lab_iat_health():
     return health()
 
 
+@router.get("/institutional-evaluation-lab/iat/protocol")
+async def institutional_evaluation_lab_iat_protocol():
+    """Baseline v1.0 IAT Protocol — Parts A–G."""
+    from institutional_evaluation_lab.iat.production import protocol
+
+    return protocol()
+
+
+@router.post("/institutional-evaluation-lab/iat/protocol-report")
+async def institutional_evaluation_lab_iat_protocol_report(payload: dict[str, Any] = Body(default={})):
+    from institutional_evaluation_lab.iat.production import protocol_report
+
+    body = payload or {}
+    return protocol_report(
+        release_id=(str(body["release_id"]).strip() if body.get("release_id") else None),
+        run_iat_first=bool(body.get("run_iat_first", False)),
+    )
+
+
 @router.post("/institutional-evaluation-lab/iat")
 async def institutional_evaluation_lab_iat(payload: dict[str, Any] = Body(default={})):
     """Phase 1 Institutional Acceptance Test — baseline qualification exam."""
