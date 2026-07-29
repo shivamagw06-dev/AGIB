@@ -15,12 +15,17 @@ def merge_memory_into_dossier(dossier: dict[str, Any], memory: dict[str, Any]) -
         "ok": True,
         "engine": memory.get("engine"),
         "version": memory.get("version"),
+        "memory_version": memory.get("memory_version"),
         "entity": memory.get("entity"),
         "display": memory.get("display"),
         "coverage": memory.get("coverage"),
         "confidence": memory.get("confidence"),
         "compiled_at": memory.get("compiled_at"),
         "recommendation_policy": memory.get("recommendation_policy"),
+        "noop": memory.get("noop"),
+        "incremental": memory.get("incremental"),
+        "memory_delta": memory.get("memory_delta"),
+        "delta_engine": memory.get("delta_engine"),
     }
 
     # Structured sections for retrieval / Decision Engine consumers

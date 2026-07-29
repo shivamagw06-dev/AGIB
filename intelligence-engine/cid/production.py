@@ -239,17 +239,17 @@ def get_or_build(
     except Exception:
         pass
 
-    # Company Memory Knowledge Compiler — persistent derived intelligence (not raw rediscovery)
+    # P3.1 Knowledge Delta Engine — incremental CompanyMemory (never silent overwrite)
     try:
         from company_memory.enrich import merge_memory_into_dossier
         from company_memory.from_dossier import injected_from_dossier
-        from company_memory.production import compile as memory_compile
+        from knowledge_delta_engine.compile import incremental_compile
         from cid.store import get_cid_store
 
         already_mem = isinstance(dossier.get("company_memory"), dict) and dossier["company_memory"].get("ok")
         if not already_mem:
             injected = injected_from_dossier(dossier)
-            mem = memory_compile(
+            mem = incremental_compile(
                 t,
                 injected=injected,
                 persist=True,
@@ -257,10 +257,37 @@ def get_or_build(
                 allow_live_prices=True,
             )
             if not mem.get("ok"):
-                # Fallback: full compile once (cold memory)
-                mem = memory_compile(t, persist=True, use_cache=True)
+                # Fallback: full incremental compile once (cold memory)
+                mem = incremental_compile(t, persist=True)
             if mem.get("ok"):
                 dossier = merge_memory_into_dossier(dossier, mem)
+                dossier = get_cid_store().put(dossier)
+    except Exception:
+        pass
+
+    # P3.2 Investment Knowledge Graph — relationship context (Decision Engine still CID-only)
+    try:
+        from investment_knowledge_graph.build import build_company_graph
+        from investment_knowledge_graph.enrich import merge_graph_into_dossier
+        from cid.store import get_cid_store
+
+        already_kg = (
+            isinstance(dossier.get("investment_knowledge_graph"), dict)
+            and dossier["investment_knowledge_graph"].get("ok")
+        )
+        if not already_kg:
+            mem_for_graph = None
+            if isinstance(dossier.get("memory"), dict):
+                mem_for_graph = {
+                    "ok": True,
+                    "entity": t,
+                    "ownership_history": (dossier.get("memory") or {}).get("ownership_history"),
+                    "sector_history": (dossier.get("memory") or {}).get("sector_history"),
+                    "event_timeline": (dossier.get("memory") or {}).get("event_timeline"),
+                }
+            graph = build_company_graph(t, memory=mem_for_graph)
+            if graph.get("n_nodes"):
+                dossier = merge_graph_into_dossier(dossier, graph)
                 dossier = get_cid_store().put(dossier)
     except Exception:
         pass

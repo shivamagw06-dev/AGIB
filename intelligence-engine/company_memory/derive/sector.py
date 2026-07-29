@@ -7,7 +7,7 @@ from typing import Any
 from company_memory.schema import SECTOR_KPI_KEYS
 
 
-def _sector_key_for(entity: str) -> str:
+def sector_key_for(entity: str) -> str:
     try:
         from valuation_intelligence.peers import resolve_peers
 
@@ -42,7 +42,7 @@ def _sector_key_for(entity: str) -> str:
 
 def derive_sector_history(entity: str) -> dict[str, Any]:
     key = entity.upper()
-    sector_key = _sector_key_for(key)
+    sector_key = sector_key_for(key)
     wanted = set(SECTOR_KPI_KEYS.get(sector_key, ()))
     bank_core = {"CASA", "NIM", "GNPA", "NNPA", "PCR", "CET1", "ROE", "Deposit_Growth"}
     series_out: dict[str, Any] = {}
