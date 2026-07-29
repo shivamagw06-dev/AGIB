@@ -268,6 +268,33 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["system_ready"] = bool(st.get("system_ready"))
     except Exception:
         out["institutional_scheduler"] = None
+    # Continuous Gather → Learn — autonomous historical collection + knowledge loop.
+    try:
+        from continuous_gather_learn.production import dashboard as cgl_dash
+        from continuous_gather_learn.production import health as cgl_health
+
+        ch = cgl_health()
+        cd = cgl_dash()
+        out["continuous_gather_learn"] = {
+            "status": ch.get("status"),
+            "enabled": ch.get("enabled"),
+            "version": ch.get("version"),
+            "current_slot": cd.get("current_slot"),
+            "latest_run": cd.get("latest_run"),
+            "metrics": cd.get("metrics"),
+            "freshness": cd.get("freshness"),
+            "knowledge_growth": cd.get("knowledge_growth"),
+            "archived_learnings": cd.get("archived_learnings"),
+            "background": cd.get("background"),
+            "flags": cd.get("flags"),
+            "loop": cd.get("loop"),
+            "ask_isolated": True,
+            "ml_retrain": False,
+            "north_star": cd.get("north_star"),
+        }
+        out["sources"].append("continuous_gather_learn")
+    except Exception:
+        out["continuous_gather_learn"] = None
     # AGIB v2.1 Ask Pipeline board (soft observability).
     try:
         from ask_pipeline.production import dashboard as ask_dash
@@ -2155,6 +2182,7 @@ def build_mission_control(*, ioc_service: Any | None = None) -> dict[str, Any]:
         "alerts_centre": alerts[:60],
         "deployment_centre": deployment,
         "performance_analytics": performance,
+        "continuous_gather_learn": (institutional or {}).get("continuous_gather_learn"),
         "answer_policy": "mission_control_read_only_diagnostics",
     }
     return desk

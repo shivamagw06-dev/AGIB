@@ -92,6 +92,18 @@ async def lifespan(_app: FastAPI):
         log.info("faa_background_collector", extra=boot_faa)
     except Exception as exc:
         log.warning("faa_background_collector_failed", extra={"error": str(exc)[:160]})
+    # Continuous Gather → Learn — autonomous historical collection + knowledge loop.
+    # Never on the Ask path; failures never block request serving.
+    stop_cgl = None
+    try:
+        from continuous_gather_learn.production import start as start_cgl
+        from continuous_gather_learn.production import stop as stop_cgl_fn
+
+        boot_cgl = start_cgl()
+        stop_cgl = stop_cgl_fn
+        log.info("continuous_gather_learn", extra=boot_cgl)
+    except Exception as exc:
+        log.warning("continuous_gather_learn_failed", extra={"error": str(exc)[:160]})
     # NOTE: Do not auto-download Chromium at startup on free-tier Render — the
     # install can starve CPU/RAM and make /v1/health time out. Bake browsers via
     # buildCommand (`python -m playwright install chromium`) or set
@@ -101,6 +113,11 @@ async def lifespan(_app: FastAPI):
         extra={"env": settings.app_env, "agib_base": settings.agib_api_base_url},
     )
     yield
+    try:
+        if stop_cgl is not None:
+            stop_cgl()
+    except Exception:
+        pass
     try:
         if stop_faa_collector is not None:
             stop_faa_collector()

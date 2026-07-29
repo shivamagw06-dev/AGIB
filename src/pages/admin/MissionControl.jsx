@@ -167,6 +167,7 @@ export default function MissionControl() {
   const evidenceRetrieval = institutional?.evidence_retrieval || null;
   const institutionalDocs = institutional?.institutional_documents || null;
   const liveDataBoard = institutional?.live_institutional_data || null;
+  const continuousGatherLearn = institutional?.continuous_gather_learn || desk?.continuous_gather_learn || null;
   const researchHub = institutional?.research_intelligence_hub || null;
   const marketForecast = institutional?.market_forecast_intelligence || null;
   const sectorForecast = institutional?.sector_forecast_intelligence || null;
@@ -292,6 +293,65 @@ export default function MissionControl() {
             <Stat label="Branch" value={deploy.current_branch || '—'} />
           </div>
         </section>
+
+        {continuousGatherLearn ? (
+          <section className="space-y-3">
+            <Kicker>Continuous Gather → Learn</Kicker>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
+              <Stat
+                label="Loop Status"
+                value={continuousGatherLearn.enabled ? continuousGatherLearn.status || 'ok' : 'off'}
+                status={continuousGatherLearn.enabled ? 'healthy' : 'offline'}
+                hint={continuousGatherLearn.version || 'cgl'}
+              />
+              <Stat
+                label="Current Slot"
+                value={continuousGatherLearn.current_slot || '—'}
+                hint="IST pre/intra/post/overnight"
+              />
+              <Stat
+                label="Last Cycle"
+                value={continuousGatherLearn.latest_run?.ok == null ? '—' : continuousGatherLearn.latest_run.ok ? 'OK' : 'Degraded'}
+                status={continuousGatherLearn.latest_run?.ok ? 'healthy' : 'warn'}
+                hint={continuousGatherLearn.latest_run?.run_id || continuousGatherLearn.background?.run_id || '—'}
+              />
+              <Stat
+                label="Latency"
+                value={
+                  continuousGatherLearn.latest_run?.latency_ms != null
+                    ? `${Math.round(continuousGatherLearn.latest_run.latency_ms / 1000)}s`
+                    : '—'
+                }
+                hint="Last gather→learn cycle"
+              />
+              <Stat
+                label="Knowledge Extracts"
+                value={
+                  continuousGatherLearn.metrics?.knowledge_extracts_total ??
+                  continuousGatherLearn.knowledge_growth?.extracts ??
+                  '—'
+                }
+                hint="Structured facts (not ML training)"
+              />
+              <Stat
+                label="Learnings Archived"
+                value={continuousGatherLearn.archived_learnings ?? continuousGatherLearn.metrics?.learnings_archived_total ?? '—'}
+                hint="Durable FVL/ILO archive"
+              />
+            </div>
+            <Glass className="text-xs text-[var(--io-muted)]">
+              <p>
+                Autonomous loop: Collect → Validate → Clean → Store → Extract → Update knowledge →
+                Signals → Evaluate forecasts → Learn → Update confidence → Archive. Ask-isolated · no LLM retrain.
+              </p>
+              <p className="mt-1 text-[11px] text-[var(--io-caption)]">
+                Freshness LIDI {continuousGatherLearn.freshness?.lidi || '—'} · KF HD{' '}
+                {continuousGatherLearn.freshness?.kf_hd || '—'} · Cycles{' '}
+                {continuousGatherLearn.metrics?.cycles_total ?? '—'}
+              </p>
+            </Glass>
+          </section>
+        ) : null}
 
         {v4Present ? (
           <section className="space-y-3">

@@ -479,6 +479,27 @@ _CATALOG: list[dict[str, Any]] = [
         "module": "institutional_learning_office.production",
         "ask_flag": "AGI_V4_OFFICES_IN_ASK",
     },
+    {
+        "id": "continuous_gather_learn",
+        "name": "Continuous Gather → Learn",
+        "group": "ops",
+        "responsibility": (
+            "Autonomous Collect→Validate→Store→Extract→Evaluate→Learn loop "
+            "using LIDI, KF HD, FAA, Scheduler, FVL, FLE, ILO, CAL."
+        ),
+        "sources": [
+            "LIDI",
+            "Knowledge Factory Historical Depth",
+            "FAA",
+            "Institutional Scheduler",
+            "FVL",
+            "FLE",
+            "ILO",
+            "CAL",
+        ],
+        "kind": "cgl",
+        "module": "continuous_gather_learn.production",
+    },
     # —— Learning / eval ——
     {
         "id": "forecast_validation_learning",
@@ -652,19 +673,27 @@ def _resolve_status(item: dict[str, Any]) -> tuple[str, str, dict[str, Any]]:
     if kind == "faa_bg":
         if _env_truthy("FAA_BACKGROUND_COLLECTOR", "false"):
             return "working", "Background collector enabled.", {}
-        return "off", "FAA_BACKGROUND_COLLECTOR=false (Starter memory protection).", {}
+        if _env_truthy("CONTINUOUS_FAA_REFRESH", "true"):
+            return "soft", "FAA refresh runs inside CGL post-market/overnight phases (Ask-isolated).", {
+                "CONTINUOUS_FAA_REFRESH": True
+            }
+        return "off", "FAA_BACKGROUND_COLLECTOR=false (enable flag or CONTINUOUS_FAA_REFRESH).", {}
 
     if kind == "lidi":
         mod = str(item.get("module") or "")
         ok, err = _probe_import(mod)
         if not ok:
             return "orphan", err or "Collector module missing.", {}
+        if _env_truthy("CONTINUOUS_GATHER_LEARN", "true") and _env_truthy("CONTINUOUS_LIDI", "true"):
+            return "working", "LIDI activated via Continuous Gather→Learn (Ask-isolated).", {
+                "CONTINUOUS_LIDI": True
+            }
         ask_slim = _env_truthy("ASK_SLIM", "true")
         if ask_slim:
             return "soft", "Collector code live-capable; Ask slim skips live fan-out. Ops/scheduler can still run.", {
                 "ASK_SLIM": True
             }
-        return "soft", "Live-capable collector soft-wired; not a certified continuous prod loop.", {}
+        return "soft", "Live-capable collector soft-wired; enable CONTINUOUS_GATHER_LEARN for autonomous loop.", {}
 
     if kind == "kf_client":
         mod = str(item.get("module") or "")
@@ -701,6 +730,9 @@ def _resolve_status(item: dict[str, Any]) -> tuple[str, str, dict[str, Any]]:
 
     if kind == "learning":
         mod = str(item.get("module") or "")
+        cgl_learn = _env_truthy("CONTINUOUS_GATHER_LEARN", "true") and _env_truthy(
+            "CONTINUOUS_LEARNING_LOOP", "true"
+        )
         if item["id"] == "fle":
             ok, err = _probe_import(mod, "FleService") if mod else (False, "missing")
             # FleService class name may differ — try module only
@@ -709,12 +741,16 @@ def _resolve_status(item: dict[str, Any]) -> tuple[str, str, dict[str, Any]]:
             ask_slim = _env_truthy("ASK_SLIM", "true")
             if not ok:
                 return "orphan", err or "FLE missing.", {}
+            if cgl_learn:
+                return "working", "FLE activated in Continuous Gather→Learn cycle.", {"ASK_SLIM": ask_slim}
             return (
                 "soft",
                 "FLE consult soft-wired; Ask slim may skip heavy fan-out.",
                 {"ASK_SLIM": ask_slim},
             )
         st, body = _probe_health(mod) if mod else ("off", {})
+        if cgl_learn and (st in {"working", "soft"} or (mod and _probe_import(mod)[0])):
+            return "working", "Learning loop activated via Continuous Gather→Learn (durable archive).", body
         if st == "working":
             st = "soft"
         if st in {"off", "degraded"} and mod and _probe_import(mod)[0]:
@@ -743,6 +779,16 @@ def _resolve_status(item: dict[str, Any]) -> tuple[str, str, dict[str, Any]]:
         if mod and _probe_import(mod)[0] and st == "off":
             return "soft", "Planner soft-wire importable.", body
         return st if st != "working" else "soft", "Planner soft-wire.", body
+
+    if kind == "cgl":
+        if not _env_truthy("CONTINUOUS_GATHER_LEARN", "true"):
+            return "off", "CONTINUOUS_GATHER_LEARN=false.", {}
+        st, body = _probe_health("continuous_gather_learn.production")
+        if st in {"working", "soft"}:
+            return "working", "Continuous gather→learn loop enabled (Ask-isolated).", body
+        if _probe_import("continuous_gather_learn.production")[0]:
+            return "working", "CGL package available; background starts with engine lifespan.", body
+        return "orphan", "CGL package missing.", body
 
     if kind == "ops_flag":
         env_name = str(item.get("env") or "")

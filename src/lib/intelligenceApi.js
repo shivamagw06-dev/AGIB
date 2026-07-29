@@ -912,6 +912,16 @@ export const getMissionControlDashboard = () =>
   intelligenceFetch('/mission-control/dashboard', { timeoutMs: 90_000 });
 export const getMissionControlAgentMap = () =>
   intelligenceFetch('/mission-control/agent-map', { timeoutMs: 60_000 });
+export const getContinuousGatherLearnHealth = () =>
+  intelligenceFetch('/continuous-gather-learn/health', { timeoutMs: 30_000 });
+export const getContinuousGatherLearnDashboard = () =>
+  intelligenceFetch('/continuous-gather-learn/dashboard', { timeoutMs: 60_000 });
+export const runContinuousGatherLearn = (body = {}) =>
+  intelligenceFetch('/continuous-gather-learn/run', {
+    method: 'POST',
+    body,
+    timeoutMs: 300_000,
+  });
 export const getMissionControlQualityGates = () =>
   intelligenceFetch('/mission-control/quality-gates', { timeoutMs: 45_000 });
 export const getMissionControlReport = () =>

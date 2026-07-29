@@ -20,6 +20,15 @@ services:
         generateValue: true
       - key: CIO_MORNING_SCHEDULER
         value: "true"
+      # Wake Continuous Gather→Learn + morning DAG across Render sleeps (Ask-isolated).
+      - key: CONTINUOUS_GATHER_LEARN_SCHEDULER
+        value: "true"
+      - key: CONTINUOUS_GATHER_LEARN_NODE_INTERVAL_MS
+        value: "1800000"
+      - key: CONTINUOUS_MORNING_DAG
+        value: "true"
+      - key: CONTINUOUS_FAA_REFRESH
+        value: "true"
       # embedded = API also runs the ingest worker (default on Free).
       # Set to external when the dedicated worker below is enabled.
       - key: CMS_INGEST_WORKER_MODE
@@ -120,15 +129,34 @@ services:
         value: "0"
       - key: AGI_V4_OFFICE_PERSIST
         value: "0"
-      # Sprint A — collectors off the Ask path
-      # Collector off by default on Starter — Playwright fan-out OOMs the Ask desk.
-      # Enable only after memory headroom is proven in the Render metrics.
+      # Continuous Gather → Learn — autonomous historical collection + knowledge loop.
+      # Runs off the Ask path; failures never block Ask. Not ML retraining.
+      - key: CONTINUOUS_GATHER_LEARN
+        value: "true"
+      - key: CONTINUOUS_GATHER_LEARN_INTERVAL_SEC
+        value: "1800"
+      - key: CONTINUOUS_MORNING_DAG
+        value: "true"
+      - key: CONTINUOUS_LIDI
+        value: "true"
+      - key: CONTINUOUS_KF_HD
+        value: "true"
+      - key: CONTINUOUS_FAA_REFRESH
+        value: "true"
+      - key: CONTINUOUS_LEARNING_LOOP
+        value: "true"
+      - key: CONTINUOUS_DIRECTOR_LEARNING
+        value: "true"
+      # Optional: set CGL_STORE_ROOT=/var/data/kip/continuous_gather_learn after disk attach.
+      - key: CGL_STORE_ROOT
+        sync: false
+      # FAA background collector — Ask-isolated. Conservative limits on Starter.
       - key: FAA_BACKGROUND_COLLECTOR
-        value: "false"
+        value: "true"
       - key: FAA_COLLECTOR_INTERVAL_SEC
-        value: "600"
+        value: "900"
       - key: FAA_COLLECTOR_LIMIT
-        value: "3"
+        value: "2"
       - key: ASK_EXT_TIMEOUT_SEC
         value: "5"
       # Starter-safe Ask: skip live LEO/ECP/CAE/AIL fan-out that OOMs under load.

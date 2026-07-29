@@ -8939,6 +8939,35 @@ async def mission_control_dashboard():
     return dashboard(ioc_service=getattr(_ui, "ioc", None) or _ioc)
 
 
+# --- Continuous Gather → Learn (autonomous; never on Ask path) ---
+
+
+@router.get("/continuous-gather-learn/health")
+async def continuous_gather_learn_health():
+    from continuous_gather_learn.production import health
+
+    return health()
+
+
+@router.get("/continuous-gather-learn/dashboard")
+async def continuous_gather_learn_dashboard():
+    from continuous_gather_learn.production import dashboard
+
+    return dashboard()
+
+
+@router.post("/continuous-gather-learn/run")
+async def continuous_gather_learn_run(payload: dict[str, Any] = Body(default={})):
+    """Ops-only: run one gather→learn cycle. Failures never affect Ask."""
+    from continuous_gather_learn.production import run as cgl_run
+
+    return cgl_run(
+        slot=payload.get("slot"),
+        force_morning_dag=bool(payload.get("force_morning_dag")),
+        include_faa=payload.get("include_faa"),
+    )
+
+
 @router.get("/system/intelligence-stack")
 async def system_intelligence_stack():
     """Inventory of integrated Macro / Sector / Market / Research programmes."""

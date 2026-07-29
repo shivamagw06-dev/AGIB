@@ -1863,6 +1863,24 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // Continuous Gather → Learn (Ask-isolated autonomous loop)
+  router.get('/continuous-gather-learn/health', kfGet('/v1/continuous-gather-learn/health'));
+  router.get('/continuous-gather-learn/dashboard', kfGet('/v1/continuous-gather-learn/dashboard'));
+  router.post('/continuous-gather-learn/run', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/continuous-gather-learn/run', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({
+        error: 'Continuous Gather→Learn unavailable',
+        detail: error.message,
+      });
+    }
+  });
+
   // Mission Control V1 — administrator operations centre (read-only)
   router.get('/mission-control/health', kfGet('/v1/mission-control/health'));
   router.get('/mission-control/agent-map', async (_req, res) => {
