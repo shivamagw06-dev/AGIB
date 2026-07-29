@@ -31,16 +31,47 @@ def analyse_valuation(
     val = normalise_valuation(cid)
     ve = valuation_pack or {}
     company_ve = ve.get("company") if isinstance(ve.get("company"), dict) else {}
+    # Prefer P2.2 Valuation Intelligence soft-attached on CID (synthesis layer)
+    p22 = cid.get("valuation_intelligence") if isinstance(cid.get("valuation_intelligence"), dict) else {}
+    p22_summary = p22.get("cid_summary") if isinstance(p22.get("cid_summary"), dict) else {}
+    p22_current = p22_summary.get("current_multiples") if isinstance(p22_summary.get("current_multiples"), dict) else {}
+    p22_peers = p22_summary.get("peer_multiples") if isinstance(p22_summary.get("peer_multiples"), dict) else {}
+    p22_hist = p22_summary.get("historical_bands") if isinstance(p22_summary.get("historical_bands"), dict) else {}
     validated = unwrap_validated((dvc_pkg or {}).get("validated_fields") or cid.get("validated_fields") or {})
 
-    pe = _num(val.get("pe") or val.get("trailing_pe") or validated.get("pe") or validated.get("trailing_pe") or company_ve.get("pe") or company_ve.get("trailing_pe"))
-    pb = _num(val.get("pb") or val.get("price_to_book") or validated.get("pb") or validated.get("price_to_book") or company_ve.get("pb"))
-    forward_pe = _num(val.get("forward_pe") or validated.get("forward_pe"))
-    peg = _num(val.get("peg") or validated.get("peg"))
-    ev_ebitda = _num(val.get("ev_ebitda") or validated.get("ev_ebitda"))
-    hist_pe = _num(val.get("historical_pe") or val.get("pe_median") or val.get("avg_pe"))
-    peer_pe = _num(val.get("peer_pe") or val.get("sector_pe"))
-    expected_growth = val.get("expected_growth") or company_ve.get("growth") or validated.get("earnings_growth") or validated.get("revenue_growth")
+    pe = _num(
+        p22_current.get("pe")
+        or val.get("pe")
+        or val.get("trailing_pe")
+        or validated.get("pe")
+        or validated.get("trailing_pe")
+        or company_ve.get("pe")
+        or company_ve.get("trailing_pe")
+    )
+    pb = _num(
+        p22_current.get("pb")
+        or val.get("pb")
+        or val.get("price_to_book")
+        or validated.get("pb")
+        or validated.get("price_to_book")
+        or company_ve.get("pb")
+    )
+    forward_pe = _num(p22_current.get("forward_pe") or val.get("forward_pe") or validated.get("forward_pe"))
+    peg = _num(p22_current.get("peg") or val.get("peg") or validated.get("peg"))
+    ev_ebitda = _num(p22_current.get("ev_ebitda") or val.get("ev_ebitda") or validated.get("ev_ebitda"))
+    hist_pe = _num(
+        ((p22_hist.get("pe") or {}) if isinstance(p22_hist.get("pe"), dict) else {}).get("median")
+        or val.get("historical_pe")
+        or val.get("pe_median")
+        or val.get("avg_pe")
+    )
+    peer_pe = _num(p22_peers.get("median_pe") or val.get("peer_pe") or val.get("sector_pe"))
+    expected_growth = (
+        val.get("expected_growth")
+        or company_ve.get("growth")
+        or validated.get("earnings_growth")
+        or validated.get("revenue_growth")
+    )
     intrinsic = company_ve.get("intrinsic_value") or val.get("intrinsic_value")
     mos = company_ve.get("margin_of_safety") or val.get("margin_of_safety")
     dividend_yield = _num(val.get("dividend_yield"))
@@ -107,10 +138,24 @@ def analyse_valuation(
     if "fmcg" in sector or "staple" in sector:
         implication.append("For premium FMCG, PE premium must be earned by ROIC durability, pricing power and cash conversion.")
 
+    # Fold P2.2 observations (never BUY/SELL) ahead of interpretive implications
+    p22_obs = list(p22.get("observations") or [])
+    if p22_obs:
+        implication = [str(x) for x in p22_obs if x] + implication
+
     coverage = 0
     for v in (pe, hist_pe, peer_pe, intrinsic, mos, forward_pe, ev_ebitda):
         if v is not None:
             coverage += 15
+    if p22.get("ok"):
+        coverage = max(coverage, int(float(p22.get("coverage_pct") or 0)))
+
+    peer_universe = identity.get("peers") or (p22.get("peer_universe") or {}).get("primary_peers") or []
+    premium_vs_peers = None
+    if isinstance(p22_summary.get("premium_discount"), dict):
+        premium_vs_peers = p22_summary["premium_discount"].get("pe_premium_pct")
+    elif pe is not None and peer_pe not in (None, 0):
+        premium_vs_peers = round((pe / peer_pe - 1.0) * 100.0, 1)
 
     return {
         "enabled": True,
@@ -121,15 +166,25 @@ def analyse_valuation(
         "peg": peg,
         "ev_ebitda": ev_ebitda,
         "dividend_yield": dividend_yield,
-        "enterprise_value": val.get("enterprise_value"),
+        "enterprise_value": val.get("enterprise_value") or p22_current.get("enterprise_value"),
         "premium_discount_vs_history_pct": premium_discount,
+        "premium_discount_vs_peers_pct": premium_vs_peers,
         "expected_growth": expected_growth,
-        "embedded_expectations": implication[:4],
-        "peer_valuation": {"peer_pe": peer_pe, "peers": identity.get("peers") or []},
-        "historical_valuation_range": val.get("pe_range") or val.get("historical_range"),
+        "embedded_expectations": implication[:6],
+        "peer_valuation": {
+            "peer_pe": peer_pe,
+            "peers": peer_universe,
+            "median_pb": p22_peers.get("median_pb"),
+            "median_ev_ebitda": p22_peers.get("median_ev_ebitda"),
+        },
+        "historical_valuation_range": val.get("pe_range")
+        or val.get("historical_range")
+        or p22_hist.get("pe"),
         "intrinsic_value": intrinsic,
         "margin_of_safety": mos,
         "narrative": " ".join(implication),
+        "stance": p22.get("stance") or (p22.get("cid_summary") or {}).get("narrative_stance"),
         "coverage_pct": min(100, coverage),
-        "sources": ["cid.valuation", "cid.market_data", "dvc.validated_fields", "ve.consult"],
+        "sources": ["valuation_intelligence", "cid.valuation", "cid.market_data", "dvc.validated_fields", "ve.consult"],
+        "p22_attached": bool(p22.get("ok")),
     }

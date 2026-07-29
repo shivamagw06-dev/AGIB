@@ -207,6 +207,38 @@ def get_or_build(
     except Exception:
         pass
 
+    # P2.2 Valuation Intelligence — synthesise peers + multiples + history (no BUY/SELL)
+    try:
+        from valuation_intelligence.enrich import merge_valuation_into_dossier
+        from valuation_intelligence.production import analyse as valuation_analyse
+        from cid.coverage import compute_coverage
+        from cid.store import get_cid_store
+
+        existing_val = dossier.get("valuation") if isinstance(dossier.get("valuation"), dict) else {}
+        already_val = existing_val.get("engine") == "valuation_intelligence" or (
+            existing_val.get("pe") is not None
+            and existing_val.get("peer_pe") is not None
+            and existing_val.get("placeholder") is not True
+        )
+        vi = dossier.get("valuation_intelligence") if isinstance(dossier.get("valuation_intelligence"), dict) else {}
+        already_vi = bool(vi.get("ok") and float(vi.get("coverage_pct") or 0) >= 40)
+        if not already_val and not already_vi:
+            vpack = valuation_analyse(t, max_peers=4, persist=False)
+            if vpack.get("ok"):
+                dossier = merge_valuation_into_dossier(dossier, vpack)
+                cov = compute_coverage(dossier)
+                dossier.update(
+                    {
+                        "coverage": cov["coverage"],
+                        "coverage_score": cov["coverage_score"],
+                        "coverage_grade": cov["coverage_grade"],
+                        "missing_evidence": cov["missing_evidence"],
+                    }
+                )
+                dossier = get_cid_store().put(dossier)
+    except Exception:
+        pass
+
     return {
         **dossier,
         "enabled": True,

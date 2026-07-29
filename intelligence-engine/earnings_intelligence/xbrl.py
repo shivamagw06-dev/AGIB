@@ -32,8 +32,13 @@ INCOME_MAP = {
     "ProfitOrLossAttributableToOwnersOfParent": "pat_owners",
     "BasicEarningsLossPerShareFromContinuingAndDiscontinuedOperations": "eps_basic",
     "BasicEarningsLossPerShareFromContinuingOperations": "eps_basic_cont",
+    # Banking XBRL EPS aliases
+    "BasicEarningsPerShareAfterExtraordinaryItems": "eps_basic",
+    "BasicEarningsPerShareBeforeExtraordinaryItems": "eps_basic",
     "DilutedEarningsLossPerShareFromContinuingAndDiscontinuedOperations": "eps_diluted",
     "DilutedEarningsLossPerShareFromContinuingOperations": "eps_diluted_cont",
+    "DilutedEarningsPerShareAfterExtraordinaryItems": "eps_diluted",
+    "DilutedEarningsPerShareBeforeExtraordinaryItems": "eps_diluted",
 }
 
 BALANCE_MAP = {
@@ -42,18 +47,23 @@ BALANCE_MAP = {
     "NonCurrentAssets": "non_current_assets",
     "CashAndCashEquivalents": "cash",
     "Equity": "total_equity",
-    "Capital": "total_equity",  # bank filings
+    # Note: bank "Capital" is ambiguous (share capital vs capital+liabilities) — do not map to equity.
     "CapitalAndLiabilities": "equity_and_liabilities",
     "EquityAndLiabilities": "equity_and_liabilities",
     "EquityShareCapital": "equity_share_capital",
+    "PaidUpValueOfEquityShareCapital": "equity_share_capital",
+    "FaceValueOfEquityShareCapital": "face_value",
     "EquityAttributableToOwnersOfParent": "equity_owners",
     "OtherEquity": "reserves",
+    "ReservesAndSurplus": "reserves",
+    "ReserveExcludingRevaluationReserves": "reserves",
     "Liabilities": "total_liabilities",
     "CurrentLiabilities": "current_liabilities",
     "NonCurrentLiabilities": "non_current_liabilities",
     "Borrowings": "borrowings",
     "CurrentBorrowings": "current_borrowings",
     "NonCurrentBorrowings": "non_current_borrowings",
+    "Deposits": "deposits",
 }
 
 CASHFLOW_MAP = {
@@ -159,10 +169,33 @@ def _derive_balance(bal: dict[str, Any]) -> dict[str, Any]:
             bal["total_debt"] = float(bal["borrowings"])
         else:
             bal["total_debt"] = round(sum(nums), 2)
+    # Banking: reconstruct book equity from paid-up capital + reserves
+    esc = bal.get("equity_share_capital")
+    reserves = bal.get("reserves")
+    if bal.get("total_equity") is None and esc is not None and reserves is not None:
+        bal["total_equity"] = round(float(esc) + float(reserves), 2)
     if bal.get("total_equity") is None and bal.get("equity_owners") is not None:
         bal["total_equity"] = bal["equity_owners"]
+    # Reject mis-mapped "Capital" share-capital-as-equity when assets dwarf equity
+    assets = bal.get("total_assets")
+    te = bal.get("total_equity")
+    if (
+        te is not None
+        and assets not in (None, 0)
+        and float(te) / float(assets) < 0.005
+        and esc is not None
+        and reserves is not None
+    ):
+        bal["total_equity"] = round(float(esc) + float(reserves), 2)
     if bal.get("reserves") is None and bal.get("total_equity") is not None and bal.get("equity_share_capital") is not None:
         bal["reserves"] = round(float(bal["total_equity"]) - float(bal["equity_share_capital"]), 2)
+    # Shares outstanding ≈ paid-up / face value
+    face = bal.get("face_value")
+    if bal.get("shares_outstanding") is None and esc not in (None, 0) and face not in (None, 0):
+        try:
+            bal["shares_outstanding"] = round(float(esc) / float(face), 2)
+        except (TypeError, ValueError, ZeroDivisionError):
+            pass
     return bal
 
 
@@ -241,7 +274,7 @@ def parse_financial_xbrl(raw: bytes | str) -> dict[str, Any]:
     income = _derive_income(_map_block(one if one else four, INCOME_MAP))
     ytd_income = _derive_income(_map_block(four, INCOME_MAP)) if four else {}
     # Balance sheet is point-in-time → instant contexts
-    balance = _derive_balance(_map_block(_merge_facts(one_i, four_i, one), BALANCE_MAP))
+    balance = _derive_balance(_map_block(_merge_facts(one_i, four_i, one, four), BALANCE_MAP))
     # Cash flow: period on OneD; annual totals often only on FourD
     cashflow = _derive_cashflow(_map_block(_merge_facts(one, four), CASHFLOW_MAP))
     segments = _parse_segments(text)
