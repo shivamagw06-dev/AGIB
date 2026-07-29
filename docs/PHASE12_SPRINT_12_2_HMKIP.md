@@ -105,4 +105,4 @@ historical_market_retrieval
 | ✅ 12.2 | HMKIP — Historical Market Intelligence | Complete |
 | ✅ 12.3 | MKRI — Market Relationship Intelligence | Complete |
 | ✅ 12.4 | HMKAI — Historical Market Analogue Intelligence | Complete |
-| 12.5 | Market Forecast Intelligence (MFI) | Next |
+| ✅ 12.5 | MKFI — Market Forecast Intelligence | Complete |

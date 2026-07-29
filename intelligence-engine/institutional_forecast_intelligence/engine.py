@@ -612,18 +612,41 @@ class InstitutionalForecastEngine:
         if hmkai_tip and hmkai_tip.get("top_analogues"):
             historical_analogues = list(hmkai_tip["top_analogues"])
             sources.append("hmkai_market_analogue_store")
+        mkfi_tip = self._soft_mkfi_forecast()
+        forecast_intelligence: dict[str, Any] | None = None
+        if mkfi_tip:
+            forecast_intelligence = mkfi_tip
+            sources.append("mkfi_market_forecast_store")
+            if mkfi_tip.get("scenarios"):
+                catalysts = [
+                    c
+                    for s in mkfi_tip["scenarios"]
+                    for c in (s.get("catalysts") or [])
+                ][:6] or [{"catalyst": "Policy liquidity impulse", "polarity": "positive"}]
+                risks = [
+                    r
+                    for s in mkfi_tip["scenarios"]
+                    for r in (s.get("risks") or [])
+                ][:6] or [{"risk": "Valuation compression", "severity": "High"}]
+            else:
+                catalysts = [{"catalyst": "Policy liquidity impulse", "polarity": "positive"}]
+                risks = [{"risk": "Valuation compression", "severity": "High"}]
+        else:
+            catalysts = [{"catalyst": "Policy liquidity impulse", "polarity": "positive"}]
+            risks = [{"risk": "Valuation compression", "severity": "High"}]
         return {
             "current_knowledge": {"market": "NIFTY"},
             "market_intelligence": market,
             "historical_intelligence": historical,
             "historical_analogues": historical_analogues,
             "relationship_intelligence": relationship_intelligence,
+            "forecast_intelligence": forecast_intelligence,
             "macro_intelligence": dict(MACRO_INTELLIGENCE),
             "sector_intelligence": {"note": "Cross-sector breadth mixed"},
             "research_intelligence": {"market_research_office": "Regime watch — valuation elevated"},
             "monitoring_events": [{"event": "FII flows / liquidity", "status": "Watching"}],
-            "catalysts": [{"catalyst": "Policy liquidity impulse", "polarity": "positive"}],
-            "risks": [{"risk": "Valuation compression", "severity": "High"}],
+            "catalysts": catalysts,
+            "risks": risks,
             "pattern_intelligence": {"deferred": True, "sprint": "8.5"},
             "outlook_dimensions": list(market.get("outlook_dimensions") or []),
             "sources": sources,
@@ -717,6 +740,47 @@ class InstitutionalForecastEngine:
                 tip["collected_on_request"] = False
                 tip["providers_queried"] = []
                 return tip
+            return None
+        except Exception:
+            return None
+
+    def _soft_mkfi_forecast(self) -> dict[str, Any] | None:
+        """Read-only MKFI gateway — never rebuilds market forecast reports."""
+        try:
+            from market_forecast_intelligence.production import forecast as mkfi_forecast
+
+            pack = mkfi_forecast(market="India", horizon="6 Months")
+            if pack.get("scenarios"):
+                return {
+                    "market": pack.get("market") or "India",
+                    "horizon": pack.get("horizon") or "6 Months",
+                    "probability_distribution": pack.get("probability_distribution"),
+                    "confidence": pack.get("confidence"),
+                    "current_outlook": pack.get("current_outlook"),
+                    "scenarios": [
+                        {
+                            "scenario": s.get("scenario"),
+                            "probability_pct": s.get("probability_pct"),
+                            "confidence_pct": s.get("confidence_pct"),
+                            "market_direction": s.get("market_direction"),
+                            "breadth": s.get("breadth"),
+                            "liquidity": s.get("liquidity"),
+                            "volatility": s.get("volatility"),
+                            "sector_leadership": s.get("sector_leadership"),
+                            "catalysts": s.get("catalysts"),
+                            "risks": s.get("risks"),
+                            "invalidators": s.get("invalidators"),
+                            "narrative": (s.get("narrative") or [])[:3],
+                        }
+                        for s in (pack.get("scenarios") or [])
+                    ],
+                    "sector_leadership_forecast": pack.get("sector_leadership_forecast"),
+                    "macro_inheritance": pack.get("macro_inheritance"),
+                    "gateway": "MKFI_KRIG",
+                    "collected_on_request": False,
+                    "providers_queried": [],
+                    "predicts_single_path": False,
+                }
             return None
         except Exception:
             return None

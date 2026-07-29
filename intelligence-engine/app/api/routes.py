@@ -6384,6 +6384,180 @@ async def admin_hmkai():
     return HTMLResponse(html)
 
 
+# --- Market Forecast Intelligence (MKFI) Sprint 12.5 ---
+# Evidence-based Bull/Base/Bear market scenarios. Ask never collects.
+# Programme short MKFI avoids collision with Macroeconomic Forecast Intelligence (MFI).
+
+
+@router.get("/mkfi/health")
+async def mkfi_health():
+    from market_forecast_intelligence.production import health
+
+    return health()
+
+
+@router.get("/market/forecast")
+async def mkfi_forecast_all(
+    market: str | None = Query(None),
+    horizon: str = Query("6 Months"),
+    limit: int = Query(20, ge=1, le=50),
+):
+    from market_forecast_intelligence.production import forecast, forecast_all
+
+    if market:
+        return forecast(market=market, horizon=horizon)
+    return forecast_all(limit=limit)
+
+
+@router.get("/market/forecast/india")
+async def mkfi_forecast_india(horizon: str = Query("6 Months")):
+    from market_forecast_intelligence.production import forecast
+
+    return forecast(market="India", horizon=horizon)
+
+
+@router.get("/market/forecast/report")
+async def mkfi_report(
+    market: str = Query("India"),
+    horizon: str = Query("6 Months"),
+    persist: bool = Query(False),
+):
+    from market_forecast_intelligence.production import report
+
+    return report(market=market, horizon=horizon, persist=persist)
+
+
+@router.get("/market/forecast/history")
+async def mkfi_history(
+    market: str | None = Query(None),
+    horizon: str | None = Query(None),
+    limit: int = Query(20, ge=1, le=100),
+):
+    from market_forecast_intelligence.production import history
+
+    return history(market=market, horizon=horizon, limit=limit)
+
+
+@router.get("/market/forecast/dashboard")
+async def mkfi_dashboard():
+    from market_forecast_intelligence.production import dashboard
+
+    return dashboard()
+
+
+@router.post("/market/forecast/run")
+async def mkfi_run(payload: dict[str, Any] = Body(default={})):
+    """Ops / scheduler only — never called by Ask."""
+    from market_forecast_intelligence.production import run
+
+    markets = payload.get("markets")
+    if isinstance(markets, str):
+        markets = [m.strip() for m in markets.split(",") if m.strip()]
+    horizons = payload.get("horizons")
+    if isinstance(horizons, str):
+        horizons = [h.strip() for h in horizons.split(",") if h.strip()]
+    return run(
+        market=payload.get("market"),
+        horizon=payload.get("horizon"),
+        country=payload.get("country"),
+        markets=markets if isinstance(markets, list) else None,
+        horizons=horizons if isinstance(horizons, list) else None,
+    )
+
+
+@router.get("/market/scenarios")
+async def mkfi_scenarios(
+    market: str = Query("India"),
+    horizon: str = Query("6 Months"),
+):
+    from market_forecast_intelligence.production import scenarios
+
+    return scenarios(market=market, horizon=horizon)
+
+
+@router.get("/market/probability")
+async def mkfi_probability(
+    market: str = Query("India"),
+    horizon: str = Query("6 Months"),
+):
+    from market_forecast_intelligence.production import probability
+
+    return probability(market=market, horizon=horizon)
+
+
+@router.get("/market/catalysts")
+async def mkfi_catalysts(
+    market: str = Query("India"),
+    horizon: str = Query("6 Months"),
+):
+    from market_forecast_intelligence.production import catalysts
+
+    return catalysts(market=market, horizon=horizon)
+
+
+@router.get("/market/risks")
+async def mkfi_risks(
+    market: str = Query("India"),
+    horizon: str = Query("6 Months"),
+):
+    from market_forecast_intelligence.production import risks
+
+    return risks(market=market, horizon=horizon)
+
+
+@router.get("/market/forecast/{market}")
+async def mkfi_forecast_market(
+    market: str,
+    horizon: str = Query("6 Months"),
+):
+    from market_forecast_intelligence.production import forecast
+
+    return forecast(market=market, horizon=horizon)
+
+
+@router.get("/admin/market-forecast", response_class=HTMLResponse)
+async def admin_mkfi():
+    from market_forecast_intelligence.production import dashboard
+
+    board = dashboard()
+    dist = board.get("probability_distribution") or {}
+    rows = "".join(
+        f"<tr><td>{s.get('scenario')}</td><td>{s.get('probability_pct')}</td>"
+        f"<td>{s.get('confidence_pct')}</td><td>{s.get('market_direction')}</td>"
+        f"<td>{s.get('breadth')}</td><td>{s.get('liquidity')}</td></tr>"
+        for s in (board.get("bull_base_bear_scenarios") or [])
+    )
+    html = f"""<!doctype html><html><head><title>Market Forecast Intelligence</title></head>
+    <body style="font-family:system-ui;max-width:1100px;margin:2rem auto">
+    <h1>Market Forecast Intelligence — MKFI</h1>
+    <p>Bull/Base/Bear market pathways. AGI-owned knowledge only. Ask never fetches. (Short MKFI avoids Macro MFI.)</p>
+    <pre>{board.get('principles')}</pre>
+    <h2>Current market outlook</h2>
+    <pre>{board.get('current_market_outlook')}</pre>
+    <p>Probability: {dist} · Confidence: {board.get('confidence')}</p>
+    <h2>Bull / Base / Bear</h2>
+    <table border="1" cellpadding="6">
+    <tr><th>Scenario</th><th>Probability</th><th>Confidence</th><th>Direction</th><th>Breadth</th><th>Liquidity</th></tr>
+    {rows or '<tr><td colspan=6>Run POST /v1/market/forecast/run</td></tr>'}
+    </table>
+    <h2>Forecast horizons</h2>
+    <pre>{board.get('forecast_horizons')}</pre>
+    <h2>Key catalysts</h2>
+    <pre>{board.get('key_catalysts')}</pre>
+    <h2>Major risks / invalidators</h2>
+    <pre>{board.get('major_risks')}</pre>
+    <pre>{board.get('invalidation_alerts')}</pre>
+    <h2>Sector leadership forecast</h2>
+    <pre>{board.get('sector_leadership_forecast')}</pre>
+    <h2>Macro / sector inheritance</h2>
+    <pre>{board.get('macro_inheritance')}</pre>
+    <pre>{board.get('sector_inheritance')}</pre>
+    <h2>Accuracy tracking</h2>
+    <pre>{board.get('accuracy_tracking')}</pre>
+    </body></html>"""
+    return HTMLResponse(html)
+
+
 @router.post("/sector/run")
 async def cskp_run(payload: dict[str, Any] = Body(default={})):
     """Ops / event-driven only — never called by Ask."""
