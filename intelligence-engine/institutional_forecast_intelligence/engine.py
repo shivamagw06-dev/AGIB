@@ -311,18 +311,23 @@ class InstitutionalForecastEngine:
         if cskp_tip:
             sector = {**sector, "cskp_published": cskp_tip}
             sources.append("cskp_sector_knowledge_store")
+        hsip_tip = self._soft_hsip_sector(sector_key)
+        historical = {
+            "sector_learning": sector.get("sector_learning"),
+            "cycles": ["crisis", "digital", "covid_surge", "ai_boom"]
+            if sector_key == "information_technology"
+            else ["credit", "rate", "liquidity"],
+        }
+        if hsip_tip:
+            historical = {**historical, "hsip_timeline": hsip_tip}
+            sources.append("hsip_sector_history_store")
         return {
             "current_knowledge": {
                 "sector_key": sector_key,
                 "label": sector.get("label") or (cskp_tip or {}).get("label"),
             },
             "sector_intelligence": sector,
-            "historical_intelligence": {
-                "sector_learning": sector.get("sector_learning"),
-                "cycles": ["crisis", "digital", "covid_surge", "ai_boom"]
-                if sector_key == "information_technology"
-                else ["credit", "rate", "liquidity"],
-            },
+            "historical_intelligence": historical,
             "historical_analogues": [
                 {"matched_period": "2022-2023", "label": "Post-pandemic demand air-pocket", "similarity_score": 80.0}
             ]
@@ -373,6 +378,37 @@ class InstitutionalForecastEngine:
                 tip["constructed_on_request"] = False
                 tip["providers_queried"] = []
                 return tip
+            return None
+        except Exception:
+            return None
+
+    def _soft_hsip_sector(self, sector_key: str) -> dict[str, Any] | None:
+        """Read-only HSIP gateway — never triggers historical collectors."""
+        try:
+            from continuous_sector_knowledge.schema import canonicalize
+            from historical_sector_intelligence.production import sector as hsip_sector
+
+            alias = {
+                "information_technology": "it_services",
+                "financials": "banking",
+                "energy": "oil_gas",
+            }.get(sector_key, sector_key)
+            key = canonicalize(alias) or alias
+            pack = hsip_sector(key, limit=40)
+            if pack.get("found"):
+                return {
+                    "sector": key,
+                    "n": pack.get("n"),
+                    "timeline": pack.get("timeline"),
+                    "valuation_timeline": pack.get("valuation_timeline"),
+                    "sample_periods": [
+                        o.get("period") for o in (pack.get("observations") or [])[:8]
+                    ],
+                    "gateway": "HSIP_KRIG",
+                    "collected_on_request": False,
+                    "providers_queried": [],
+                    "immutable": True,
+                }
             return None
         except Exception:
             return None
