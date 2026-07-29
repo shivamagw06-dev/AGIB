@@ -239,6 +239,32 @@ def get_or_build(
     except Exception:
         pass
 
+    # Company Memory Knowledge Compiler — persistent derived intelligence (not raw rediscovery)
+    try:
+        from company_memory.enrich import merge_memory_into_dossier
+        from company_memory.from_dossier import injected_from_dossier
+        from company_memory.production import compile as memory_compile
+        from cid.store import get_cid_store
+
+        already_mem = isinstance(dossier.get("company_memory"), dict) and dossier["company_memory"].get("ok")
+        if not already_mem:
+            injected = injected_from_dossier(dossier)
+            mem = memory_compile(
+                t,
+                injected=injected,
+                persist=True,
+                skip_live=True,
+                allow_live_prices=True,
+            )
+            if not mem.get("ok"):
+                # Fallback: full compile once (cold memory)
+                mem = memory_compile(t, persist=True, use_cache=True)
+            if mem.get("ok"):
+                dossier = merge_memory_into_dossier(dossier, mem)
+                dossier = get_cid_store().put(dossier)
+    except Exception:
+        pass
+
     return {
         **dossier,
         "enabled": True,
