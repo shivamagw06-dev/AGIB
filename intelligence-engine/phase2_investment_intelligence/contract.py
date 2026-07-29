@@ -53,9 +53,14 @@ ENGINE_CONTRACTS: dict[str, dict[str, Any]] = {
     },
     "earnings_intelligence": {
         "id": "P2.1",
-        "engine_name": "Earnings Intelligence",
-        "inputs": ["company_pack", "live_data", "knowledge_graph", "filings"],
-        "dependencies": ["knowledge_factory", "forecast_intelligence", "filing_intelligence"],
+        "engine_name": "Financial Statements & Earnings Intelligence",
+        "inputs": [
+            "company_pack",
+            "nse_integrated_filings",
+            "nse_corporates_financial_results",
+            "nse_indas_xbrl",
+        ],
+        "dependencies": ["institutional_data.financials", "live_data.nse_session"],
         "score_field": "forecast_confidence",
         "freshness_sla_days": 14,
         "runtime_budget_s": 2.5,
