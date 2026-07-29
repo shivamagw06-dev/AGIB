@@ -10017,6 +10017,42 @@ async def financial_statements_dashboard():
     return dashboard()
 
 
+@router.get("/financial-statements/collection/health")
+async def financial_statements_collection_health():
+    """FSE-02 Data Sources & Collection Pipeline."""
+    from financial_statements_engine.collection.production import health
+
+    return health()
+
+
+@router.get("/financial-statements/collection/dashboard")
+async def financial_statements_collection_dashboard():
+    from financial_statements_engine.collection.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/financial-statements/collection/events")
+async def financial_statements_collection_events(limit: int = 50):
+    from financial_statements_engine.collection.production import recent_events
+
+    return recent_events(max(1, min(int(limit), 500)))
+
+
+@router.post("/financial-statements/collection/run")
+async def financial_statements_collection_run(payload: dict[str, Any] = Body(default={})):
+    from financial_statements_engine.collection.production import collect_ticker
+
+    body = payload or {}
+    ticker = str(body.get("ticker") or "").strip()
+    if not ticker:
+        raise HTTPException(status_code=400, detail="ticker_required")
+    mode = str(body.get("mode") or "live")
+    if mode not in ("live", "historical"):
+        mode = "live"
+    return collect_ticker(ticker, mode=mode)
+
+
 @router.get("/financial-statements/{ticker}")
 async def financial_statements_ticker(ticker: str):
     from financial_statements_engine.production import get_statements

@@ -19,7 +19,9 @@ def main(argv: list[str] | None = None) -> int:
     if not args or args[0] in ("-h", "--help"):
         print(
             "usage: python -m financial_statements_engine "
-            "--health|--dashboard|--coverage|--registry|TICKER [--publish]"
+            "--health|--dashboard|--coverage|--registry|"
+            "--collection-health|--collection-dashboard|"
+            "--collect TICKER [--mode live|historical]|TICKER [--publish]"
         )
         return 0
 
@@ -38,6 +40,42 @@ def main(argv: list[str] | None = None) -> int:
         from financial_statements_engine.registry import registry_manifest
 
         print(json.dumps(registry_manifest(), indent=2, default=str))
+        return 0
+
+    if cmd == "--collection-health":
+        from financial_statements_engine.collection.production import health as collection_health
+
+        print(json.dumps(collection_health(), indent=2, default=str))
+        return 0
+    if cmd == "--collection-dashboard":
+        from financial_statements_engine.collection.production import dashboard as collection_dashboard
+
+        print(json.dumps(collection_dashboard(), indent=2, default=str))
+        return 0
+    if cmd == "--collect":
+        from financial_statements_engine.collection.production import collect_ticker
+
+        if len(args) < 2:
+            print("ticker required", file=sys.stderr)
+            return 2
+        ticker = args[1].upper()
+        mode = "live"
+        if "--mode" in args:
+            i = args.index("--mode")
+            if i + 1 < len(args):
+                mode = args[i + 1]
+        print(json.dumps(collect_ticker(ticker, mode=mode), indent=2, default=str))
+        return 0
+    if cmd == "--collect-universe":
+        from financial_statements_engine.collection.production import run_universe
+
+        universe = args[1] if len(args) > 1 else "gold"
+        mode = "live"
+        if "--mode" in args:
+            i = args.index("--mode")
+            if i + 1 < len(args):
+                mode = args[i + 1]
+        print(json.dumps(run_universe(universe, mode=mode), indent=2, default=str))
         return 0
 
     ticker = cmd.lstrip("-").upper()

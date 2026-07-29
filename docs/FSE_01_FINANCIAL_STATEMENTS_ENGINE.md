@@ -14,6 +14,21 @@
 | **Predecessor** | P2.1 `earnings_intelligence` (becomes Extraction adapter, not a parallel warehouse) |
 | **Frozen surfaces** | Constitution · Governance Spec · Decision Engine formulas · Institutional Gate · Evaluation Lab · IAT · Mission Control contracts |
 
+### Document series
+
+| ID | Document | Role |
+| --- | --- | --- |
+| **FSE-01** | **Architecture & Principles** | **What the architecture is** |
+| FSE-02 | [Data Sources & Collection Pipeline](FSE_02_DATA_SOURCES_COLLECTION_PIPELINE.md) | How data enters the architecture |
+| FSE-03 | Canonical Financial Schema | Canonical metrics & statement shapes |
+| FSE-04 | Parsing & Normalization Engine | Extract → normalize |
+| FSE-05 | Validation & Quality Engine | Quality gates |
+| FSE-06 | Versioning & Restatement Engine | History & revisions |
+| FSE-07 | Historical Backfill Engine | Depth after coverage |
+| FSE-08 | Mission Control & Observability | Ops surfaces |
+| FSE-09 | Public APIs & Consumers | Read contracts |
+| FSE-10 | Testing, QA & Production Readiness | Release gates |
+
 ---
 
 # 1. Purpose
@@ -179,9 +194,11 @@ Persistence targets:
 Every financial document follows the same lifecycle.
 
 ```text
-Discover → Download → Verify → Store Raw → Extract → Normalize
-  → Validate → Version → Publish → Index → Consume
+Discover → Download → Verify → Store Raw → Evidence Event Bus
+  → Extract → Normalize → Validate → Version → Publish → Index → Consume
 ```
+
+Collection (FSE-02) stops at **Store Raw + Event Bus**. Downstream processors subscribe to evidence events and must not be invoked inline by collectors.
 
 Every stage is independently testable and retryable.
 

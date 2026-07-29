@@ -13,12 +13,15 @@ Institutional financial data platform — acquire, validate, normalize, version,
 ## Architecture
 
 ```text
-Official Sources → Raw Evidence → Extraction → Normalization
-  → Canonical → Validation → Version Control → Warehouse → Derived → Consumers
+Official Sources → Collection (FSE-02) → Raw Evidence → Evidence Event Bus
+  → Extraction → Normalization → Canonical → Validation → Version Control
+  → Warehouse → Derived → Consumers
 ```
 
 P2.1 `earnings_intelligence` is the NSE XBRL **extraction adapter** during migration.
 New consumers must read through FSE — not bypass to parsers.
+
+Specs: [FSE-01](../../docs/FSE_01_FINANCIAL_STATEMENTS_ENGINE.md) · [FSE-02](../../docs/FSE_02_DATA_SOURCES_COLLECTION_PIPELINE.md)
 
 ## CLI
 
@@ -27,6 +30,8 @@ export PYTHONPATH=.
 python -m financial_statements_engine --health
 python -m financial_statements_engine --dashboard
 python -m financial_statements_engine --registry
+python -m financial_statements_engine --collection-health
+python -m financial_statements_engine --collect TCS --mode live
 python -m financial_statements_engine TCS
 python -m financial_statements_engine TCS --publish
 ```
@@ -37,6 +42,10 @@ python -m financial_statements_engine TCS --publish
 - `GET /v1/financial-statements/dashboard`
 - `GET /v1/financial-statements/{ticker}`
 - `POST /v1/financial-statements/ingest`
+- `GET /v1/financial-statements/collection/health`
+- `GET /v1/financial-statements/collection/dashboard`
+- `GET /v1/financial-statements/collection/events`
+- `POST /v1/financial-statements/collection/run`
 
 ## Frozen surfaces
 

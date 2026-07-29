@@ -39,6 +39,8 @@ def store_raw(
     eid = f"sha256:{digest}"
     t = ticker.upper().strip()
     p = paths_for(t)
+    p["raw"].mkdir(parents=True, exist_ok=True)
+    p["raw_meta"].mkdir(parents=True, exist_ok=True)
     suffix = ext or ("xbrl" if document_type == "xbrl" else document_type)
     blob_path = p["raw"] / f"{digest}.{suffix}"
     meta_path = p["raw_meta"] / f"{digest}.json"
