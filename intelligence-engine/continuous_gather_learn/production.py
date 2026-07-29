@@ -110,6 +110,7 @@ def dashboard() -> dict[str, Any]:
         "collector_success_rate": _collector_success_rate(metrics),
         "estimated_completion_days": coverage.get("estimated_completion_days"),
         "historical_growth_per_day": coverage.get("historical_growth_per_day_entities"),
+        "ops": _ops_board(),
         "flags": flags_dict(),
         "loop": [
             "Collect",
@@ -135,6 +136,15 @@ def _collector_success_rate(metrics: dict[str, Any]) -> float | None:
     if n <= 0:
         return None
     return round(100.0 * ok / n, 2)
+
+
+def _ops_board() -> dict[str, Any]:
+    try:
+        from continuous_gather_learn.ops_observability import ops_dashboard
+
+        return ops_dashboard()
+    except Exception as exc:  # noqa: BLE001
+        return {"ok": False, "error": str(exc)[:160]}
 
 
 def run(**kwargs: Any) -> dict[str, Any]:

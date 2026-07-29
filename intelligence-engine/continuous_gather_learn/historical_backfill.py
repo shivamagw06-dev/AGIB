@@ -51,6 +51,14 @@ def run_historical_backfill(*, batch_size: int | None = None, max_batches: int |
         }
 
     progress = coverage_progress()
+    # Weekly coverage audit → repair queue (at most once per 7 days)
+    audit = None
+    try:
+        from knowledge_factory.historical_depth.coverage_audit import maybe_run_weekly_audit
+
+        audit = maybe_run_weekly_audit()
+    except Exception as exc:  # noqa: BLE001
+        audit = {"ok": False, "error": str(exc)[:160]}
     cgl_persist.put_checkpoint(
         "historical_backfill",
         {
@@ -65,6 +73,11 @@ def run_historical_backfill(*, batch_size: int | None = None, max_batches: int |
             "completed_at": progress.get("completed_at"),
             "progress": progress,
             "engine": bf_queue.load_engine_state(),
+            "coverage_audit": {
+                "skipped": (audit or {}).get("skipped"),
+                "generated_at": (audit or {}).get("generated_at"),
+                "counts": (audit or {}).get("counts"),
+            },
         },
     )
     # Surface extracts from last batch rows when available

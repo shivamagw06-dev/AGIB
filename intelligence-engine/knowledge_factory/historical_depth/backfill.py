@@ -222,7 +222,25 @@ def run_backfill_batch(
             for fut in as_completed(futs):
                 rows.append(fut.result())
 
-    bf_queue.bump_processed_today(len([r for r in rows if not r.get("skipped")]))
+    processed_ok = [r for r in rows if not r.get("skipped")]
+    bf_queue.bump_processed_today(len(processed_ok))
+    try:
+        from continuous_gather_learn.ops_observability import record_throughput_sample
+
+        years_sum = sum(float(r.get("history_years") or 0) for r in processed_ok)
+        extracts_n = sum(1 for r in processed_ok if r.get("extract_ok"))
+        docs_n = 0
+        for r in processed_ok:
+            dens = ((r.get("evaluation") or {}).get("density") or {})
+            docs_n += int(dens.get("documents") or 0)
+        record_throughput_sample(
+            companies=len(processed_ok),
+            years=years_sum,
+            documents=docs_n,
+            extracts=extracts_n,
+        )
+    except Exception:
+        pass
     transition = bf_queue.maybe_transition_to_maintenance()
     stats = bf_queue.backlog_stats()
     dash = historical_depth_dashboard(entities=entities or supported_universe())

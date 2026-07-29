@@ -452,6 +452,185 @@ export default function MissionControl() {
                   : '—'}
               </p>
             </Glass>
+
+            {continuousGatherLearn.ops ? (
+              <div className="space-y-3 pt-1">
+                <Kicker>Historical Ops · Validate under load</Kicker>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <Stat
+                    label="Completed Today"
+                    value={continuousGatherLearn.ops.backfill_throughput?.companies_completed_today ?? '—'}
+                    hint={`Years added ${continuousGatherLearn.ops.backfill_throughput?.average_years_added_today ?? '—'}`}
+                  />
+                  <Stat
+                    label="Docs / Extracts Today"
+                    value={`${continuousGatherLearn.ops.backfill_throughput?.documents_downloaded_today ?? 0} / ${continuousGatherLearn.ops.backfill_throughput?.knowledge_extracts_today ?? 0}`}
+                    hint="Throughput"
+                  />
+                  <Stat
+                    label="ETA"
+                    value={
+                      continuousGatherLearn.ops.backfill_throughput?.estimated_completion_days != null
+                        ? `${continuousGatherLearn.ops.backfill_throughput.estimated_completion_days}d`
+                        : '—'
+                    }
+                    hint={`Backlog ${continuousGatherLearn.ops.backfill_throughput?.remaining_backlog ?? '—'}`}
+                  />
+                  <Stat
+                    label="Degraded Collectors"
+                    value={continuousGatherLearn.ops.degraded_collectors ?? '—'}
+                    status={
+                      (continuousGatherLearn.ops.degraded_collectors || 0) > 0 ? 'warn' : 'healthy'
+                    }
+                    hint="Error rate ≥5% or fallback"
+                  />
+                </div>
+
+                {Array.isArray(continuousGatherLearn.ops.collector_health) &&
+                continuousGatherLearn.ops.collector_health.length > 0 ? (
+                  <Glass className="overflow-x-auto">
+                    <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--io-caption)]">
+                      Collector health
+                    </p>
+                    <table className="w-full min-w-[720px] text-left text-xs text-[var(--io-ink)]">
+                      <thead className="text-[var(--io-muted)]">
+                        <tr>
+                          <th className="py-1 pr-3 font-medium">Collector</th>
+                          <th className="py-1 pr-3 font-medium">Success</th>
+                          <th className="py-1 pr-3 font-medium">Last Run</th>
+                          <th className="py-1 pr-3 font-medium">Latency</th>
+                          <th className="py-1 pr-3 font-medium">Queue</th>
+                          <th className="py-1 font-medium">Error Rate</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {continuousGatherLearn.ops.collector_health.map((row) => (
+                          <tr key={row.collector} className="border-t border-[var(--io-line)]/40">
+                            <td className="py-1.5 pr-3 font-semibold">{row.collector}</td>
+                            <td className="py-1.5 pr-3">
+                              {row.success === 'ok' ? 'OK' : row.success === 'warn' ? 'Warn' : row.success === 'error' ? 'Fail' : '—'}
+                            </td>
+                            <td className="py-1.5 pr-3">
+                              {row.last_run ? String(row.last_run).slice(11, 16) || String(row.last_run).slice(0, 16) : '—'}
+                            </td>
+                            <td className="py-1.5 pr-3">
+                              {row.latency_s != null ? `${row.latency_s}s` : '—'}
+                            </td>
+                            <td className="py-1.5 pr-3">{row.queue ?? 0}</td>
+                            <td className="py-1.5">{row.error_rate_pct != null ? `${row.error_rate_pct}%` : '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </Glass>
+                ) : null}
+
+                <div className="grid gap-3 lg:grid-cols-3">
+                  {Array.isArray(continuousGatherLearn.ops.coverage_heat_map) &&
+                  continuousGatherLearn.ops.coverage_heat_map.length > 0 ? (
+                    <Glass className="overflow-x-auto lg:col-span-1">
+                      <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--io-caption)]">
+                        Coverage heat map
+                      </p>
+                      <table className="w-full text-left text-xs text-[var(--io-ink)]">
+                        <thead className="text-[var(--io-muted)]">
+                          <tr>
+                            <th className="py-1 pr-3 font-medium">Dataset</th>
+                            <th className="py-1 font-medium">Coverage</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {continuousGatherLearn.ops.coverage_heat_map.map((row) => (
+                            <tr key={row.dataset} className="border-t border-[var(--io-line)]/40">
+                              <td className="py-1.5 pr-3">{row.dataset}</td>
+                              <td className="py-1.5 font-semibold">{row.coverage_pct}%</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </Glass>
+                  ) : null}
+
+                  {Array.isArray(continuousGatherLearn.ops.source_reliability) &&
+                  continuousGatherLearn.ops.source_reliability.length > 0 ? (
+                    <Glass className="overflow-x-auto lg:col-span-1">
+                      <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--io-caption)]">
+                        Source reliability
+                      </p>
+                      <table className="w-full text-left text-xs text-[var(--io-ink)]">
+                        <thead className="text-[var(--io-muted)]">
+                          <tr>
+                            <th className="py-1 pr-3 font-medium">Source</th>
+                            <th className="py-1 font-medium">Reliability</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {continuousGatherLearn.ops.source_reliability.map((row) => (
+                            <tr key={row.source} className="border-t border-[var(--io-line)]/40">
+                              <td className="py-1.5 pr-3">{row.source}</td>
+                              <td className="py-1.5 font-semibold">
+                                {row.reliability_pct != null ? `${row.reliability_pct}%` : '—'}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </Glass>
+                  ) : null}
+
+                  {Array.isArray(continuousGatherLearn.ops.coverage_by_index) &&
+                  continuousGatherLearn.ops.coverage_by_index.length > 0 ? (
+                    <Glass className="overflow-x-auto lg:col-span-1">
+                      <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--io-caption)]">
+                        Coverage by index
+                      </p>
+                      <table className="w-full text-left text-xs text-[var(--io-ink)]">
+                        <thead className="text-[var(--io-muted)]">
+                          <tr>
+                            <th className="py-1 pr-3 font-medium">Index</th>
+                            <th className="py-1 font-medium">Coverage</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {continuousGatherLearn.ops.coverage_by_index
+                            .filter((row) => (row.universe || 0) > 0 || row.index?.startsWith('NIFTY'))
+                            .map((row) => (
+                              <tr key={row.index} className="border-t border-[var(--io-line)]/40">
+                                <td className="py-1.5 pr-3">{row.index}</td>
+                                <td className="py-1.5 font-semibold">
+                                  {row.coverage_pct}%{' '}
+                                  <span className="font-normal text-[var(--io-muted)]">
+                                    ({row.covered}/{row.universe})
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                        </tbody>
+                      </table>
+                    </Glass>
+                  ) : null}
+                </div>
+
+                {continuousGatherLearn.ops.coverage_audit?.counts ? (
+                  <Glass className="text-xs text-[var(--io-muted)]">
+                    <p className="font-semibold text-[var(--io-ink)]">Weekly coverage audit</p>
+                    <p className="mt-1">
+                      Missing periods {continuousGatherLearn.ops.coverage_audit.counts.missing_historical_periods ?? 0} ·
+                      Incomplete financials{' '}
+                      {continuousGatherLearn.ops.coverage_audit.counts.incomplete_financials ?? 0} · Missing
+                      embeddings {continuousGatherLearn.ops.coverage_audit.counts.missing_embeddings ?? 0} · QA
+                      failures {continuousGatherLearn.ops.coverage_audit.counts.qa_failures ?? 0} · Repair queue{' '}
+                      {continuousGatherLearn.ops.coverage_audit.counts.repair_queue ?? 0}
+                      {continuousGatherLearn.ops.coverage_audit.skipped
+                        ? ' · fresh (<7d)'
+                        : continuousGatherLearn.ops.coverage_audit.generated_at
+                          ? ` · ${String(continuousGatherLearn.ops.coverage_audit.generated_at).slice(0, 10)}`
+                          : ''}
+                    </p>
+                  </Glass>
+                ) : null}
+              </div>
+            ) : null}
           </section>
         ) : null}
 
