@@ -8924,6 +8924,14 @@ async def mission_control_health():
     return health()
 
 
+@router.get("/mission-control/agent-map")
+async def mission_control_agent_map():
+    """Read-only inventory of AGIB agents + working/soft/off status."""
+    from mission_control.production import agent_map
+
+    return agent_map()
+
+
 @router.get("/mission-control/dashboard")
 async def mission_control_dashboard():
     from mission_control.production import dashboard

@@ -910,6 +910,8 @@ export const getMissionControlHealth = () =>
   intelligenceFetch('/mission-control/health', { timeoutMs: 30_000 });
 export const getMissionControlDashboard = () =>
   intelligenceFetch('/mission-control/dashboard', { timeoutMs: 90_000 });
+export const getMissionControlAgentMap = () =>
+  intelligenceFetch('/mission-control/agent-map', { timeoutMs: 60_000 });
 export const getMissionControlQualityGates = () =>
   intelligenceFetch('/mission-control/quality-gates', { timeoutMs: 45_000 });
 export const getMissionControlReport = () =>

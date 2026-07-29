@@ -1865,6 +1865,82 @@ export default function createIntelligenceRouter() {
 
   // Mission Control V1 — administrator operations centre (read-only)
   router.get('/mission-control/health', kfGet('/v1/mission-control/health'));
+  router.get('/mission-control/agent-map', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/mission-control/agent-map');
+      if (!result.ok) {
+        return res.status(result.status).json(result.data);
+      }
+      const map = result.data && typeof result.data === 'object' ? { ...result.data } : {};
+      // Enrich Node-only ops flags the engine process may not see.
+      const flags = {
+        ...(map.production_flags || {}),
+        CIO_MORNING_SCHEDULER: process.env.CIO_MORNING_SCHEDULER || null,
+        CMS_INGEST_WORKER_MODE: process.env.CMS_INGEST_WORKER_MODE || null,
+        NODE_ENRICHED: true,
+      };
+      map.production_flags = flags;
+      if (Array.isArray(map.agents)) {
+        map.agents = map.agents.map((a) => {
+          if (!a || typeof a !== 'object') return a;
+          if (a.id === 'cio_morning_scheduler') {
+            const on = String(process.env.CIO_MORNING_SCHEDULER || '').toLowerCase() === 'true';
+            return {
+              ...a,
+              status: on ? 'working' : a.status,
+              working: on,
+              detail: on
+                ? 'Node CIO morning scheduler enabled (CIO_MORNING_SCHEDULER=true).'
+                : a.detail,
+              probe: { ...(a.probe || {}), CIO_MORNING_SCHEDULER: process.env.CIO_MORNING_SCHEDULER || null },
+            };
+          }
+          if (a.id === 'cms_ingest_worker') {
+            const mode = String(process.env.CMS_INGEST_WORKER_MODE || 'embedded').toLowerCase();
+            const on = mode === 'embedded' || mode === 'external' || mode === 'true' || mode === '1';
+            return {
+              ...a,
+              status: on ? 'working' : a.status,
+              working: on,
+              detail: on
+                ? `CMS ingest worker mode=${mode} on Node API.`
+                : a.detail,
+              probe: { ...(a.probe || {}), CMS_INGEST_WORKER_MODE: mode },
+            };
+          }
+          return a;
+        });
+        // Recompute summary counts after Node enrichment.
+        const counts = { working: 0, soft: 0, off: 0, orphan: 0, degraded: 0, unknown: 0 };
+        for (const a of map.agents) {
+          const st = a?.status || 'unknown';
+          counts[st] = (counts[st] || 0) + 1;
+        }
+        map.summary = {
+          ...(map.summary || {}),
+          total: map.agents.length,
+          ...counts,
+          working_or_soft: (counts.working || 0) + (counts.soft || 0),
+          headline: `${counts.working || 0} working · ${counts.soft || 0} soft-wire · ${counts.off || 0} off · ${counts.orphan || 0} orphan`,
+        };
+        if (Array.isArray(map.groups)) {
+          map.groups = map.groups.map((g) => {
+            const agents = (map.agents || []).filter((a) => a.group === g.id);
+            const gc = { working: 0, soft: 0, off: 0, orphan: 0, degraded: 0, unknown: 0 };
+            for (const a of agents) gc[a.status] = (gc[a.status] || 0) + 1;
+            return { ...g, agents, counts: gc };
+          });
+        }
+      }
+      return res.json(map);
+    } catch (error) {
+      return res.status(503).json({
+        error: 'Agent Map unavailable',
+        detail: error.message,
+        hint: 'Intelligence engine may be cold-starting — retry in 30–60s.',
+      });
+    }
+  });
   router.get('/mission-control/dashboard', async (_req, res) => {
     try {
       const result = await engineFetch('/v1/mission-control/dashboard');
