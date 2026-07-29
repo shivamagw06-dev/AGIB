@@ -1,5 +1,4 @@
-import { Link } from 'react-router-dom';
-import { Search, Menu, X, User, LogOut, Edit2, Shield, Briefcase, LayoutDashboard, Gauge, Activity } from 'lucide-react';
+import { Search, Menu, X, User, LogOut, Edit2, Shield, Briefcase, LayoutDashboard, Gauge, Activity, Bell, Bookmark, CreditCard, Settings, Newspaper, ListChecks } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -17,20 +16,15 @@ import { supabase } from '@/lib/supabaseClient';
 import { isAdmin } from '@/lib/adminAuth';
 import { firstNameFromUser } from '@/lib/authValidation';
 import Logo from '@/components/Layout/Logo';
-import AgiInsightStrip from '@/components/Layout/AgiInsightStrip';
+import MarketOutlookStrip from '@/components/Home/MarketOutlookStrip';
 import ResearchSearch from '@/components/Search/ResearchSearch';
 
 const NAV = [
   { name: 'Home', path: '/' },
-  { name: 'Ask AGI', path: '/ask' },
-  { name: 'Macro Intelligence', path: '/macro-intelligence' },
-  { name: 'Market Intelligence', path: '/market-intelligence' },
-  { name: 'IPO Intelligence', path: '/ipo-intelligence' },
-  { name: 'Predictions', path: '/predictions' },
-  { name: 'Research', path: '/research' },
-  { name: 'Workspace', path: '/workspace' },
-  { name: 'Pre-Market', path: '/pre-market' },
-  { name: 'Company Updates', path: '/company-updates' },
+  { name: 'Company Intelligence', path: '/company-updates' },
+  { name: 'Research Notes', path: '/sections/research-notes' },
+  { name: 'IPO', path: '/ipo-intelligence' },
+  { name: 'Global', path: '/global' },
 ];
 
 export default function Header() {
@@ -110,21 +104,6 @@ export default function Header() {
 
   return (
     <header className="sticky top-0 z-50 bg-white shadow-sm">
-      <div className="bg-[#001e44] text-white text-[11px]">
-        <div className="max-w-[1800px] mx-auto px-4 sm:px-6 py-1.5 flex items-center justify-between gap-4">
-          <span className="truncate opacity-90">
-            Independent equity research · Updated every trading day
-          </span>
-          <button
-            type="button"
-            onClick={() => go('/research')}
-            className="shrink-0 font-semibold hover:underline hidden sm:inline text-[11px]"
-          >
-            Explore research →
-          </button>
-        </div>
-      </div>
-
       <div className="border-b border-[#dddddd]">
         <div className="max-w-[1800px] mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between h-[58px] gap-4">
@@ -152,59 +131,89 @@ export default function Header() {
                 type="button"
                 onClick={() => setSearchOpen(true)}
                 className="p-2 text-[#111111] hover:bg-[#f5f5f5] rounded-sm"
-                aria-label="Search research"
+                aria-label="Universal search"
               >
                 <Search className="w-5 h-5" />
               </button>
 
               {user ? (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="hidden sm:flex h-8 text-xs text-[#111111]">
-                      <User className="w-4 h-4 mr-1" />
-                      {firstName}
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56">
-                    <DropdownMenuLabel className="font-normal">
-                      <div className="text-sm font-semibold text-[#111]">{firstName}</div>
-                      <div className="truncate text-[11px] text-[#767676]">{user.email}</div>
-                    </DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => go('/workspace')}>
-                      <Briefcase className="w-4 h-4 mr-2" /> Personal workspace
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => go('/profile/edit')}>
-                      <User className="w-4 h-4 mr-2" /> Edit profile
-                    </DropdownMenuItem>
-                    {handle && (
-                      <DropdownMenuItem onClick={() => go(`/u/${handle}`)}>Public profile</DropdownMenuItem>
-                    )}
-                    <DropdownMenuItem onClick={() => go('/account/security')}>
-                      <Shield className="w-4 h-4 mr-2" /> Security &amp; PIN
-                    </DropdownMenuItem>
-                    {userIsAdmin && (
-                      <>
-                        <DropdownMenuItem onClick={() => go('/admin')}>
-                          <Edit2 className="w-4 h-4 mr-2" /> CMS
+                <>
+                  <button
+                    type="button"
+                    onClick={() => go('/workspace')}
+                    className="hidden sm:inline-flex p-2 text-[#111111] hover:bg-[#f5f5f5]"
+                    aria-label="Notifications"
+                    title="Notifications"
+                  >
+                    <Bell className="w-5 h-5" />
+                  </button>
+
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" className="hidden sm:flex h-8 text-xs text-[#111111]">
+                        <User className="w-4 h-4 mr-1" />
+                        Account
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-56">
+                      <DropdownMenuLabel className="font-normal">
+                        <div className="text-sm font-semibold text-[#111]">{firstName}</div>
+                        <div className="truncate text-[11px] text-[#767676]">{user.email}</div>
+                      </DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => go('/workspace')}>
+                        <LayoutDashboard className="w-4 h-4 mr-2" /> Dashboard
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => go('/workspace')}>
+                        <Bookmark className="w-4 h-4 mr-2" /> Saved Articles
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => go('/workspace')}>
+                        <ListChecks className="w-4 h-4 mr-2" /> Watchlist
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => go('/#newsletter')}>
+                        <Newspaper className="w-4 h-4 mr-2" /> Newsletter
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => go('/profile/edit')}>
+                        <Settings className="w-4 h-4 mr-2" /> Settings
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => go('/#newsletter')}>
+                        <Briefcase className="w-4 h-4 mr-2" /> Subscription
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => go('/account/security')}>
+                        <CreditCard className="w-4 h-4 mr-2" /> Billing
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => go('/account/security')}>
+                        <Shield className="w-4 h-4 mr-2" /> Security &amp; PIN
+                      </DropdownMenuItem>
+                      {handle && (
+                        <DropdownMenuItem onClick={() => go(`/u/${handle}`)}>
+                          <User className="w-4 h-4 mr-2" /> Public profile
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => go('/admin/institutional-intelligence')}>
-                          <Activity className="w-4 h-4 mr-2" /> Institutional Intelligence
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => go('/admin/mission-control')}>
-                          <Gauge className="w-4 h-4 mr-2" /> Mission Control
-                        </DropdownMenuItem>
-                      </>
-                    )}
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={handleLogout}>
-                      <LogOut className="w-4 h-4 mr-2" /> Sign out
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={handleLogoutAll}>
-                      <LayoutDashboard className="w-4 h-4 mr-2" /> Sign out all devices
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                      )}
+                      {userIsAdmin && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => go('/admin')}>
+                            <Edit2 className="w-4 h-4 mr-2" /> CMS
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => go('/admin/institutional-intelligence')}>
+                            <Activity className="w-4 h-4 mr-2" /> Institutional Intelligence
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => go('/admin/mission-control')}>
+                            <Gauge className="w-4 h-4 mr-2" /> Mission Control
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={handleLogout}>
+                        <LogOut className="w-4 h-4 mr-2" /> Logout
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleLogoutAll}>
+                        Sign out all devices
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </>
               ) : (
                 <>
                   <button
@@ -212,28 +221,19 @@ export default function Header() {
                     onClick={() => go('/login?mode=signin')}
                     className="hidden sm:block text-sm font-medium text-[#111111] hover:underline px-2"
                   >
-                    Sign in
+                    Sign In
                   </button>
                   <button
                     type="button"
                     onClick={() => go('/login?mode=signup')}
-                    className="hidden sm:block bg-[#111111] text-white text-sm font-bold px-4 py-1.5 hover:bg-[#333]"
+                    className="hidden sm:block bg-[#0b1f33] text-white text-sm font-bold px-4 py-1.5 hover:bg-[#163353]"
                   >
-                    Create account
+                    Sign Up
                   </button>
                 </>
               )}
 
               {userIsAdmin && (
-                <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="hidden md:flex h-8 text-xs border-[#ddd]"
-                  onClick={() => go('/admin')}
-                >
-                  CMS
-                </Button>
                 <Button
                   variant="outline"
                   size="sm"
@@ -243,7 +243,6 @@ export default function Header() {
                   <Gauge className="w-3.5 h-3.5 mr-1" />
                   Mission Control
                 </Button>
-                </>
               )}
 
               <button
@@ -280,37 +279,37 @@ export default function Header() {
                 onClick={() => go('/login?mode=signin')}
                 className="min-h-[44px] border border-[#111111] px-3 text-sm font-bold text-[#111111]"
               >
-                Sign in
+                Sign In
               </button>
               <button
                 type="button"
                 onClick={() => go('/login?mode=signup')}
-                className="min-h-[44px] bg-[#111111] px-3 text-sm font-bold text-white"
+                className="min-h-[44px] bg-[#0b1f33] px-3 text-sm font-bold text-white"
               >
-                Create account
+                Sign Up
               </button>
             </div>
           ) : (
             <div className="space-y-1 border-t border-[#eee] py-3">
               <p className="px-1 pb-2 text-xs text-[#767676]">Signed in as {firstName}</p>
               <button type="button" onClick={() => go('/workspace')} className="block w-full py-2.5 text-left text-sm font-medium">
-                Personal workspace
+                Dashboard
               </button>
-              <button type="button" onClick={() => go('/account/security')} className="block w-full py-2.5 text-left text-sm font-medium">
-                Security &amp; PIN
+              <button type="button" onClick={() => go('/workspace')} className="block w-full py-2.5 text-left text-sm font-medium">
+                Watchlist
               </button>
               <button type="button" onClick={() => go('/profile/edit')} className="block w-full py-2.5 text-left text-sm font-medium">
-                Edit profile
+                Settings
               </button>
               <button type="button" onClick={handleLogout} className="block w-full py-2.5 text-left text-sm font-medium text-[#b42318]">
-                Sign out
+                Logout
               </button>
             </div>
           )}
         </nav>
       )}
 
-      <AgiInsightStrip />
+      <MarketOutlookStrip />
 
       {searchOpen && <ResearchSearch onClose={() => setSearchOpen(false)} />}
     </header>

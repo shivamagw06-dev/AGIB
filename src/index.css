@@ -346,4 +346,34 @@
 .tiptap-img-full { max-width: 100%; height: auto; display: block; margin: 1rem auto; }
 .tiptap-img-small { max-width: 320px; height: auto; display: block; margin: 1rem auto; }
 
+/* Research terminal homepage motion */
+.home-terminal .home-hero-brand {
+  animation: home-brand-in 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.home-terminal .home-hero-search {
+  animation: home-search-in 800ms 120ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.home-terminal .animate-home-rise {
+  animation: home-rise 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes home-brand-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes home-search-in {
+  from { opacity: 0; transform: translateY(18px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes home-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .home-terminal .home-hero-brand,
+  .home-terminal .home-hero-search,
+  .home-terminal .animate-home-rise {
+    animation: none;
+  }
+}
+
 /* End of file */

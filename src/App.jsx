@@ -49,12 +49,11 @@ const ResearchWorkflowDesk = React.lazy(() => import('@/pages/ResearchWorkflowDe
 const AskAgiPage = React.lazy(() => import('@/pages/AskAgiPage'));
 const PredictionCentre = React.lazy(() => import('@/pages/PredictionCentre'));
 const PersonalWorkspace = React.lazy(() => import('@/pages/PersonalWorkspace'));
-const EditorialHome = React.lazy(() => import('@/components/Home/EditorialHome'));
+const ResearchTerminalHome = React.lazy(() => import('@/components/Home/ResearchTerminalHome'));
 
 function HomeLayout() {
-  // Public site home — do not replace with Investment Office / Mission Control shells.
-  // Those remain administrator-only under /admin/*.
-  return <EditorialHome />;
+  // Public research-terminal homepage — admin shells stay under /admin/*.
+  return <ResearchTerminalHome />;
 }
 
 function AppShell() {
@@ -132,6 +131,8 @@ function PublicRoutes() {
       <Route path="/sections/markets" element={<Navigate replace to="/markets" />} />
       <Route path="/market-intelligence" element={<MarketIntelligence />} />
       <Route path="/macro-intelligence" element={<MacroIntelligence />} />
+      <Route path="/global" element={<MacroIntelligence />} />
+      <Route path="/global-intelligence" element={<Navigate replace to="/global" />} />
       <Route path="/economy" element={<Navigate replace to="/macro-intelligence" />} />
       <Route path="/pre-market" element={<PreMarketIntelligence />} />
       <Route path="/updates/pre-market" element={<Navigate replace to="/pre-market" />} />
