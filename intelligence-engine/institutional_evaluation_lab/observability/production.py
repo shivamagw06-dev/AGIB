@@ -17,7 +17,13 @@ from institutional_evaluation_lab.observability.boards import (
     sector_dashboard,
 )
 from institutional_evaluation_lab.observability.loaders import load_release_bundle
-from institutional_evaluation_lab.observability.schema import OBSERVABILITY_VERSION, PROGRAMME, SCOPE_LOCKS
+from institutional_evaluation_lab.observability.schema import (
+    GOVERNANCE_PROGRAMME_STATUS,
+    OBSERVABILITY_VERSION,
+    POST_GOVERNANCE_ROADMAP,
+    PROGRAMME,
+    SCOPE_LOCKS,
+)
 
 
 def build_release_dashboard(
@@ -154,7 +160,9 @@ def health() -> dict[str, Any]:
         "status": "ok",
         "programme": PROGRAMME,
         "version": OBSERVABILITY_VERSION,
+        "governance_programme_status": GOVERNANCE_PROGRAMME_STATUS,
         "scope_locks": dict(SCOPE_LOCKS),
         "presentation_only": True,
         "consumes": ["evaluation_lab_results", "phase6_governance", "recommendation_drift"],
+        "post_governance_roadmap": list(POST_GOVERNANCE_ROADMAP),
     }

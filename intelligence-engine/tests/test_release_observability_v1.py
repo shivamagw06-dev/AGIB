@@ -13,9 +13,13 @@ from institutional_evaluation_lab.observability.schema import SCOPE_LOCKS
 def test_scope_locks_presentation_only():
     h = health()
     assert h["presentation_only"] is True
+    assert h["governance_programme_status"] == "frozen_after_pr309"
+    assert h["post_governance_roadmap"][0] == "earnings_intelligence"
     assert SCOPE_LOCKS["decision_engine"] == "read_only"
     assert SCOPE_LOCKS["governance_spec"] == "read_only"
     assert SCOPE_LOCKS["scoring"] == "read_only"
+    assert SCOPE_LOCKS["valuation_models"] == "read_only"
+    assert SCOPE_LOCKS["technical_models"] == "read_only"
 
 
 def test_release_dashboard_consumes_artifacts(monkeypatch, tmp_path):
