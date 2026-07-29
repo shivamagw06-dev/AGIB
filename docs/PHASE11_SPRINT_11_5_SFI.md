@@ -147,4 +147,4 @@ Company, Macro and Sector domains now share the same lifecycle.
 
 ### After Phase 11
 
-**Phase 12: Market Intelligence Platform** — market regimes, breadth, liquidity, volatility, leadership/rotation, cross-asset relationships and institutional positioning.
+**Phase 12: Market Intelligence Platform** — market regimes, breadth, liquidity, volatility, leadership/rotation, cross-asset relationships and institutional positioning. Sprint **12.1 CMKTP** is documented in `docs/PHASE12_SPRINT_12_1_CMKTP.md`.
