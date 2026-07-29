@@ -41,7 +41,7 @@ export default function NewsletterSection({ initialSelected = null }) {
   };
 
   return (
-    <section className="py-12 border-t border-[#dddddd] bg-[#fafafa]" aria-labelledby="agi-letters-heading">
+    <section id="newsletter" className="py-12 border-t border-[#dddddd] bg-[#fafafa]" aria-labelledby="agi-letters-heading">
       <div className="max-w-[1600px] mx-auto px-4 sm:px-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start border border-[#dddddd] bg-white p-6 md:p-10">
           <div>
