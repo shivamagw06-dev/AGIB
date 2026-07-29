@@ -144,6 +144,9 @@ def run_golden_evaluation(
     if persist:
         golden_store.record_run(summary)
         golden_store.save_latest(summary)
+        # Primary artifact: results/{release_id}/{TICKER}.json
+        summary["results"] = golden_store.save_release_results(summary)
+        summary["results_dir"] = summary["results"].get("results_dir")
     if persist_baseline:
         golden_store.save_baseline(summary)
 
@@ -161,4 +164,13 @@ def health() -> dict[str, Any]:
         "universe": universe_summary(),
         "baseline_present": golden_store.load_baseline() is not None,
         "latest_present": golden_store.load_latest() is not None,
+        "results_root": str(golden_store.results_root()),
+        "releases": golden_store.list_releases()[:20],
+        "artifact_layout": "results/{release_id}/{TICKER}.json",
+        "roadmap": {
+            "PR306": "evaluation_runner_results_tree",
+            "PR307": "phase6_governance_tests_against_results",
+            "PR308": "recommendation_drift_across_releases",
+            "PR309": "institutional_scorecard_dashboard",
+        },
     }

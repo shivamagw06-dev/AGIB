@@ -214,12 +214,13 @@ def test_coverage_and_sector_dashboards():
 
 def test_run_golden_evaluation_smoke(monkeypatch, tmp_path):
     monkeypatch.setenv("IEL_GOLDEN_STORE_ROOT", str(tmp_path / "golden"))
+    monkeypatch.setenv("IEL_GOLDEN_RESULTS_ROOT", str(tmp_path / "results"))
     out = run_golden_evaluation(
         limit=5,
         persist=True,
         persist_baseline=True,
         compare_previous=False,
-        release_id="PR306-test",
+        release_id="PR306",
         ide_runner=_fake_ide,
         price_runner=_fake_price,
     )
@@ -231,6 +232,29 @@ def test_run_golden_evaluation_smoke(monkeypatch, tmp_path):
     assert len(out["rows"]) == 5
     assert out["rows"][0]["pipeline"]["decision_engine"] is True
 
+    # Primary PR #306 artifact: results/PR306/{TICKER}.json
+    from pathlib import Path
+
+    from institutional_evaluation_lab.golden_universe import store as golden_store
+
+    results = out["results"]
+    results_dir = Path(results["results_dir"])
+    assert results_dir.name == "PR306"
+    assert (results_dir / "_manifest.json").exists()
+    assert (results_dir / "_summary.json").exists()
+    ticker_files = sorted(p.name for p in results_dir.glob("*.json") if not p.name.startswith("_"))
+    assert len(ticker_files) == 5
+    sample = ticker_files[0]
+    payload = __import__("json").loads((results_dir / sample).read_text())
+    assert payload["ticker"] == sample.replace(".json", "")
+    assert "recommendation_readiness" in payload
+    assert "decision" in payload
+    assert "runtime_ms" in payload
+    assert "gate" in payload
+    loaded = golden_store.load_release_results("PR306")
+    assert loaded is not None
+    assert loaded["n"] == 5
+
     # Second run vs baseline → drift report
     out2 = run_golden_evaluation(
         limit=5,
@@ -238,7 +262,7 @@ def test_run_golden_evaluation_smoke(monkeypatch, tmp_path):
         persist_baseline=False,
         compare_previous=True,
         release_id="PR306-test-2",
-        previous_label="PR306-test",
+        previous_label="PR306",
         current_label="PR306-test-2",
         ide_runner=_fake_ide,
         price_runner=_fake_price,
@@ -246,6 +270,7 @@ def test_run_golden_evaluation_smoke(monkeypatch, tmp_path):
     assert "by_class" in out2["drift"]
     card = release_scorecard(out2)
     assert card["companies"] == 5
+    assert Path(out2["results"]["results_dir"]).name == "PR306-test-2"
 
 
 def test_production_health_exposes_golden():

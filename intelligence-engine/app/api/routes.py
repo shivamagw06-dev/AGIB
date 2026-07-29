@@ -9752,6 +9752,25 @@ async def institutional_evaluation_lab_golden_drift():
     return golden_drift_report()
 
 
+@router.get("/institutional-evaluation-lab/golden/releases")
+async def institutional_evaluation_lab_golden_releases():
+    """List Evaluation Lab result trees under results/{release_id}/."""
+    from institutional_evaluation_lab.production import golden_list_releases
+
+    return golden_list_releases()
+
+
+@router.get("/institutional-evaluation-lab/golden/releases/{release_id}")
+async def institutional_evaluation_lab_golden_release(release_id: str):
+    """Load a release artifact tree (Phase 6+ tests consume this)."""
+    from institutional_evaluation_lab.production import golden_load_release
+
+    row = golden_load_release(release_id)
+    if not row.get("found"):
+        raise HTTPException(status_code=404, detail="release_not_found")
+    return row
+
+
 @router.get("/institutional-evaluation-lab/question/{question_id}")
 async def institutional_evaluation_lab_question(question_id: str):
     from institutional_evaluation_lab.production import question

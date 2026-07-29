@@ -128,6 +128,33 @@ def golden_drift_report() -> dict[str, Any]:
     return {"found": True, "drift": drift, "baseline_run_id": (baseline or {}).get("run_id")}
 
 
+def golden_list_releases() -> dict[str, Any]:
+    from institutional_evaluation_lab.golden_universe import store as golden_store
+
+    return {
+        "results_root": str(golden_store.results_root()),
+        "releases": golden_store.list_releases(),
+        "layout": "results/{release_id}/{TICKER}.json",
+    }
+
+
+def golden_load_release(release_id: str) -> dict[str, Any]:
+    from institutional_evaluation_lab.golden_universe import store as golden_store
+
+    packed = golden_store.load_release_results(release_id)
+    if not packed:
+        return {"found": False, "release_id": release_id}
+    return {
+        "found": True,
+        "release_id": packed.get("release_id"),
+        "results_dir": packed.get("results_dir"),
+        "n": packed.get("n"),
+        "manifest": packed.get("manifest"),
+        "summary": packed.get("summary"),
+        "rows_sample": (packed.get("rows") or [])[:20],
+    }
+
+
 def question(question_id: str) -> dict[str, Any] | None:
     return get_question(question_id)
 
