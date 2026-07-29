@@ -9956,12 +9956,50 @@ async def phase2_investment_intelligence_scorecard():
     return scorecard()
 
 
+@router.get("/phase2/milestones")
+async def phase2_investment_intelligence_milestones():
+    from phase2_investment_intelligence.milestones import milestones_board
+
+    return milestones_board()
+
+
 @router.get("/phase2/workstreams")
 @router.get("/phase2/programme")
 async def phase2_investment_intelligence_programme():
     from phase2_investment_intelligence.production import programme
 
     return programme()
+
+
+@router.get("/live-market-context/health")
+async def live_market_context_health():
+    """P2.6 Live Market Context — Phase 2.1 Sprint 1."""
+    from live_market_context.production import health
+
+    return health()
+
+
+@router.get("/live-market-context/{ticker}")
+async def live_market_context_ticker(ticker: str, force: bool = False, intrinsic_value: float | None = None):
+    from live_market_context.production import analyse
+
+    return analyse(ticker, force=force, intrinsic_value=intrinsic_value)
+
+
+@router.post("/live-market-context")
+async def live_market_context_post(payload: dict[str, Any] = Body(default={})):
+    from live_market_context.production import analyse
+
+    body = payload or {}
+    ticker = str(body.get("ticker") or "").strip()
+    if not ticker:
+        raise HTTPException(status_code=400, detail="ticker_required")
+    intrinsic = body.get("intrinsic_value")
+    try:
+        intrinsic_f = float(intrinsic) if intrinsic is not None else None
+    except (TypeError, ValueError):
+        intrinsic_f = None
+    return analyse(ticker, force=bool(body.get("force")), intrinsic_value=intrinsic_f)
 
 
 @router.get("/institutional-evaluation-lab/question/{question_id}")

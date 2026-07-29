@@ -16,12 +16,17 @@ from phase2_investment_intelligence.schema import (
     PROGRAMME_VERSION,
     SUCCESS_CRITERIA,
 )
+from phase2_investment_intelligence.milestones import (
+    IMPLEMENTATION_PR_CHECKLIST,
+    milestones_board,
+)
 from phase2_investment_intelligence.scorecard import DEFINITION_OF_DONE, programme_scorecard_board
 from phase2_investment_intelligence.workstreams import workstream_board
 
 
 def health() -> dict[str, Any]:
     board = workstream_board()
+    milestones = milestones_board()
     return {
         "status": "ok",
         "programme": PROGRAMME,
@@ -34,15 +39,20 @@ def health() -> dict[str, Any]:
         "standard_engine_contract": True,
         "intelligence_scorecard": True,
         "definition_of_done": list(DEFINITION_OF_DONE),
+        "implementation_pr_checklist": list(IMPLEMENTATION_PR_CHECKLIST),
+        "milestones": milestones,
         "workstreams": board,
         "doc": DOC_PATH,
         "extends_intelligence": True,
         "replaces_baseline": False,
+        "architecture_complete": True,
         "recommended_first_build": board.get("recommended_first_build"),
+        "active_milestone": milestones.get("active"),
         "note": (
             "Phase 2 is an investment intelligence programme. "
-            "It must not modify Constitution, Governance Spec, Decision Engine contracts, "
-            "Institutional Gate, Evaluation Lab, Drift Engine, or IAT."
+            "Architectural design is complete — implement engines under milestones "
+            "Phase 2.1 → 2.2 → 2.3. Do not modify Constitution, Governance Spec, "
+            "Decision Engine contracts, Institutional Gate, Evaluation Lab, Drift, or IAT."
         ),
     }
 
@@ -80,6 +90,7 @@ def programme() -> dict[str, Any]:
         ],
         "contracts": contracts(),
         "intelligence_scorecard_board": scorecard(),
+        "milestones_board": milestones_board(),
         "prohibited": [
             "redesign_constitution",
             "redesign_governance",

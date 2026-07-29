@@ -128,6 +128,34 @@ P2.4 Catalyst Intelligence
 
 Starting with **P2.6 + P2.3** improves evidence quality without changing the governance framework.
 
+### 1.3b Capability milestones (preferred naming)
+
+Rather than a monolithic “Phase 2”, deliver capability milestones. Each ends with a full Evaluation Lab run + IAT.
+
+| Milestone | Name | Workstreams |
+| --- | --- | --- |
+| **Phase 2.1** | Market & Ownership Intelligence | P2.6 → P2.3 |
+| **Phase 2.2** | Earnings & Valuation Intelligence | P2.1 → P2.2 |
+| **Phase 2.3** | Sector & Catalyst Intelligence | P2.5 → P2.4 |
+
+**Sprint 1 (Phase 2.1):** P2.6 Live Market Context — market-aware recommendations; fail-closed quotes; no governance changes.  
+**Sprint 2 (Phase 2.1):** P2.3 Ownership Intelligence — reduce deferrals from missing ownership packs.  
+**Then:** P2.1 Earnings Intelligence (largest effort; benefits from market + ownership).
+
+Architectural design is **complete**. Highest-value work is implementing engines, measuring impact, and proving improvement vs Baseline v1.0.
+
+### 1.3c Implementation PR checklist (mandatory)
+
+Every implementation PR must answer:
+
+1. What intelligence did we add?
+2. What measurable metric improved?
+3. What metric stayed unchanged?
+4. Did IAT still pass?
+5. Did UNKNOWN drift remain zero?
+
+If those answers are not clear, the implementation is **not ready to merge**.
+
 ### 1.4 Standard engine contract (mandatory)
 
 Every Phase 2 engine **must** expose the same interface so Integration Lab, Decision Engine soft slices, and IAT can treat engines uniformly.
