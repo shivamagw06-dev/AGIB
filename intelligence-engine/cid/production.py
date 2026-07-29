@@ -162,6 +162,22 @@ def get_or_build(
     except Exception:
         pass
 
+    # P2.3 Ownership Intelligence — NSE Master + XBRL (fill ownership evidence; never fabricate)
+    try:
+        from ownership_intelligence.enrich import merge_ownership_into_dossier
+        from ownership_intelligence.production import analyse as ownership_analyse
+        from cid.store import get_cid_store
+
+        existing = dossier.get("ownership") if isinstance(dossier.get("ownership"), dict) else {}
+        already = existing.get("fii") is not None or existing.get("promoter") is not None
+        if not already:
+            opack = ownership_analyse(t, xbrl_quarters=1, persist=False)
+            if opack.get("ok"):
+                dossier = merge_ownership_into_dossier(dossier, opack)
+                dossier = get_cid_store().put(dossier)
+    except Exception:
+        pass
+
     return {
         **dossier,
         "enabled": True,

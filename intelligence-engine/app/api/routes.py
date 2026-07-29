@@ -10002,6 +10002,54 @@ async def live_market_context_post(payload: dict[str, Any] = Body(default={})):
     return analyse(ticker, force=bool(body.get("force")), intrinsic_value=intrinsic_f)
 
 
+@router.get("/ownership-intelligence/health")
+async def ownership_intelligence_health():
+    """P2.3 Ownership Intelligence — NSE Master + XBRL evidence layer."""
+    from ownership_intelligence.production import health
+
+    return health()
+
+
+@router.get("/ownership-intelligence/{ticker}")
+async def ownership_intelligence_ticker(
+    ticker: str,
+    force: bool = False,
+    xbrl_quarters: int = 2,
+    skip_xbrl: bool = False,
+):
+    from ownership_intelligence.production import analyse
+
+    return analyse(
+        ticker,
+        force=force,
+        xbrl_quarters=max(0, min(int(xbrl_quarters), 8)),
+        skip_xbrl=bool(skip_xbrl),
+        persist=False,
+    )
+
+
+@router.post("/ownership-intelligence")
+async def ownership_intelligence_post(payload: dict[str, Any] = Body(default={})):
+    from ownership_intelligence.production import analyse
+
+    body = payload or {}
+    ticker = str(body.get("ticker") or "").strip()
+    if not ticker:
+        raise HTTPException(status_code=400, detail="ticker_required")
+    xq = body.get("xbrl_quarters", 2)
+    try:
+        xq_i = max(0, min(int(xq), 8))
+    except (TypeError, ValueError):
+        xq_i = 2
+    return analyse(
+        ticker,
+        force=bool(body.get("force")),
+        xbrl_quarters=xq_i,
+        skip_xbrl=bool(body.get("skip_xbrl")),
+        persist=bool(body.get("persist", False)),
+    )
+
+
 @router.get("/institutional-evaluation-lab/question/{question_id}")
 async def institutional_evaluation_lab_question(question_id: str):
     from institutional_evaluation_lab.production import question
