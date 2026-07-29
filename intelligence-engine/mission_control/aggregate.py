@@ -547,6 +547,56 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("sector_relationship_intelligence")
     except Exception:
         out["sector_relationship_intelligence"] = None
+    # Phase 11 Sprint 11.4 — Historical Sector Analogue Intelligence (soft).
+    try:
+        from historical_sector_analogue_intelligence.production import dashboard as hsai_dash
+        from historical_sector_analogue_intelligence.production import health as hsai_health
+
+        ad = hsai_dash()
+        ah = hsai_health()
+        cov = ad.get("historical_coverage") or {}
+        out["historical_sector_analogue_intelligence"] = {
+            "status": ah.get("status"),
+            "version": ah.get("version"),
+            "ask_triggers_collection": False,
+            "current_regime": (ad.get("current_sector_regime") or {}).get("period"),
+            "current_sector": (ad.get("current_sector_regime") or {}).get("sector"),
+            "top_matches": len(ad.get("top_analogue_matches") or []),
+            "similarity_distribution": ad.get("similarity_distribution"),
+            "confidence_distribution": ad.get("confidence_distribution"),
+            "coverage_by_sector": ad.get("coverage_by_sector"),
+            "historical_coverage": cov,
+            "analogue_freshness": ad.get("analogue_freshness"),
+            "ingestion_idle": ad.get("ingestion_idle"),
+            "phase": "11.4",
+        }
+        out["sources"].append("historical_sector_analogue_intelligence")
+    except Exception:
+        out["historical_sector_analogue_intelligence"] = None
+    # Phase 11 Sprint 11.5 — Sector Forecast Intelligence (soft).
+    try:
+        from sector_forecast_intelligence.production import dashboard as sfi_dash
+        from sector_forecast_intelligence.production import health as sfi_health
+
+        fd = sfi_dash()
+        fh = sfi_health()
+        out["sector_forecast_intelligence"] = {
+            "status": fh.get("status"),
+            "version": fh.get("version"),
+            "ask_triggers_collection": False,
+            "predicts_single_path": False,
+            "inherits_macro_from": fh.get("inherits_macro_from"),
+            "probability_distribution": fd.get("probability_distribution"),
+            "confidence_pct": (fd.get("confidence") or {}).get("overall_pct"),
+            "scenarios": len(fd.get("bull_base_bear_scenarios") or []),
+            "company_impacts": len(fd.get("company_impact_summaries") or {}),
+            "forecast_history_n": (fd.get("forecast_revisions") or {}).get("n"),
+            "ingestion_idle": fd.get("ingestion_idle"),
+            "phase": "11.5",
+        }
+        out["sources"].append("sector_forecast_intelligence")
+    except Exception:
+        out["sector_forecast_intelligence"] = None
     # AGIB v3.0 LIDI Track 2 — collector certification board (soft).
     try:
         from live_data.production_verify import certification as lidi_cert
