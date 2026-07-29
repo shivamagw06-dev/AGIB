@@ -219,58 +219,99 @@ def score_company_quality(*, ca: dict, cid: dict, ticker: str | None) -> dict[st
         evidence.append(model)
     if bq.get("grade"):
         evidence.append(f"Business quality grade {bq.get('grade')}.")
+    strengths = [str(x).replace("_", " ").strip().capitalize() for x in (bq.get("strengths") or [])[:5]]
+    weaknesses = [str(x).replace("_", " ").strip().capitalize() for x in (bq.get("weaknesses") or [])[:5]]
+    if model and not strengths:
+        strengths.append(model[:140])
+    if not weaknesses and status != "complete":
+        weaknesses.append("Business-quality evidence still forming")
     reasoning = (
         f"Company quality asks whether {name} is a high-quality franchise — business model, moat, pricing power and "
         f"operating leverage. Current business quality score: {round(score)}/100 ({_grade(score)}). "
         "Quality matters because valuation and leverage only work when excess returns can persist."
     )
+    if strengths:
+        reasoning += " Strengths: " + "; ".join(strengths[:3]) + "."
+    if weaknesses:
+        reasoning += " Watch items: " + "; ".join(weaknesses[:3]) + "."
     return _layer(
         "company_quality",
         score=score,
         status=status if score is not None else "incomplete",
         reasoning=reasoning,
         evidence=evidence,
-        extras={"grade": _grade(score)},
+        extras={
+            "grade": _grade(score),
+            "strengths": strengths[:5],
+            "weaknesses": weaknesses[:5],
+            "company_quality_score": round(float(score), 1),
+        },
     )
 
 
 def score_financial(*, ca: dict) -> dict[str, Any]:
+    """Company financial quality is separate from evidence/data completeness.
+
+    Never blend coverage into the company-quality score — thin packs must not
+    look like weak businesses.
+    """
     fin = ca.get("financial_intelligence") or {}
     cov = _pct(fin.get("coverage_pct"), None)
-    score = 50.0
+    company_score = 55.0
     status = "incomplete"
     evidence: list[str] = []
+    strengths: list[str] = []
+    weaknesses: list[str] = []
     if fin.get("narrative"):
         evidence.append(_txt(fin.get("narrative"), 220) or "")
         status = "partial"
-        score = 60
+        company_score = 62
     improved = [str(x).replace("_", " ") for x in (fin.get("what_improved") or [])[:4]]
     deteriorated = [str(x).replace("_", " ") for x in (fin.get("what_deteriorated") or [])[:4]]
     if improved:
-        score += 8 * min(3, len(improved))
+        company_score += 8 * min(3, len(improved))
         evidence.extend([f"Improving: {x}." for x in improved])
+        strengths.extend([x.capitalize() for x in improved])
         status = "complete" if cov and cov >= 40 else "partial"
     if deteriorated:
-        score -= 7 * min(3, len(deteriorated))
+        company_score -= 7 * min(3, len(deteriorated))
         evidence.extend([f"Softening: {x}." for x in deteriorated])
-    if cov is not None:
-        score = 0.6 * score + 0.4 * cov
-        status = "complete" if cov >= 40 else status
-    score = _clamp(score)
+        weaknesses.extend([x.capitalize() for x in deteriorated])
+    company_score = _clamp(company_score)
+    evidence_quality = _clamp(cov if cov is not None else (35.0 if status != "incomplete" else 20.0))
     if status == "incomplete":
         reasoning = (
-            "Financial quality still has incomplete statement history, but the committee must still ask whether "
-            "growth, returns and cash conversion are strengthening. Incomplete numbers do not end the analysis — "
-            "they lower confidence and raise the bar for position size."
+            f"Financial company quality is provisional ({round(company_score)}/100) because statement history is thin. "
+            f"Evidence quality is {round(evidence_quality)}/100 — incomplete data lowers confidence, not an automatic "
+            "judgement that the franchise is weak."
         )
-        score = 48
+        # Keep company score neutral-provisional; do not crush it with coverage
+        company_score = 58.0 if fin.get("enabled") else 52.0
     else:
         reasoning = (
-            f"Financial quality score {round(score)}/100 asks whether the business is getting stronger through "
-            "growth, margins, returns and free cash flow. Financial trends matter because they validate or refute "
-            "the business-quality thesis in cash."
+            f"Financial company quality {round(company_score)}/100 asks whether growth, margins, returns and cash "
+            f"conversion are strengthening. Evidence quality {round(evidence_quality)}/100 is reported separately — "
+            "thin coverage must not be read as a weak business."
         )
-    return _layer("financial_quality", score=score, status=status, reasoning=reasoning, evidence=[e for e in evidence if e])
+    if not strengths and status != "incomplete":
+        strengths.append("Financial narrative available for trend reading")
+    if evidence_quality < 60:
+        weaknesses.append("Latest statement reconciliation incomplete")
+    return _layer(
+        "financial_quality",
+        score=company_score,
+        status=status,
+        reasoning=reasoning,
+        evidence=[e for e in evidence if e],
+        extras={
+            "company_quality_score": round(company_score, 1),
+            "evidence_quality_score": round(evidence_quality, 1),
+            "coverage_pct": round(evidence_quality, 1),
+            "strengths": strengths[:5],
+            "weaknesses": weaknesses[:5],
+            "never_conflate_data_with_quality": True,
+        },
+    )
 
 
 def score_management(*, ca: dict, iie: dict) -> dict[str, Any]:
@@ -554,34 +595,47 @@ def build_decision(
     expected_return: dict,
     gate_blocked: bool,
     name: str,
+    readiness_gate: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     grade = _grade(overall)
+    gate = readiness_gate if isinstance(readiness_gate, dict) else {}
+    evidence_conf = float(gate.get("evidence_confidence_pct") or 0)
+    band = str(gate.get("band") or "")
+    hard_fail = bool(gate.get("hard_fail")) or band == "deferred"
+    soft_watch = band == "watchlist"
+    quality_blocked = hard_fail or soft_watch or gate_blocked
+
     suitable = []
     unsuitable = []
-    if overall >= 75 and not gate_blocked:
+    if overall >= 75 and not quality_blocked and evidence_conf >= 80:
         suitable = ["Long Term", "Core Portfolio", "SIP"]
         unsuitable = ["Short-Term Trading", "High-Leverage Positions"]
         stance = "Constructive accumulation case"
-    elif overall >= 60:
+    elif overall >= 60 and not hard_fail:
         suitable = ["Long Term", "Watchlist / staged entry"]
         unsuitable = ["High-Leverage Positions"]
         stance = "Selective / wait for better entry or evidence"
     else:
         suitable = ["Watchlist"]
         unsuitable = ["Core Portfolio", "High-Leverage Positions", "Short-Term Trading"]
-        stance = "Cautious — evidence or quality bar not yet met"
+        stance = "Inconclusive — evidence bar not met (not a negative company view)"
 
-    if gate_blocked:
+    if quality_blocked:
+        missing = gate.get("additional_evidence_required") or gate.get("missing") or []
+        miss_txt = "; ".join(str(m) for m in missing[:4]) if missing else "validated coverage incomplete"
         conclusion = (
-            f"Institutional investment conclusion for {name}: the layered decision stack is complete, but a formal "
-            f"Buy/Hold/Sell recommendation remains deferred until validated evidence coverage clears the institutional bar. "
-            f"Overall decision score {round(overall)}/100 (grade {grade}). Read the layer scores as the committee case — "
-            "not as a trade ticket."
+            f"Investment thesis for {name}: INCONCLUSIVE. "
+            f"Current evidence is insufficient for an institutional-level recommendation "
+            f"(evidence confidence {evidence_conf:.0f}% vs required {gate.get('required_confidence_pct', 80)}%). "
+            f"This should not be interpreted as a negative view of the company. "
+            f"Additional evidence required: {miss_txt}. "
+            f"Layered decision score {round(overall)}/100 (grade {grade}) remains analytical context — not a trade ticket."
         )
-        action = "Recommendation deferred"
+        action = "Recommendation deferred — evidence insufficient"
+        investment_thesis_status = "INCONCLUSIVE"
     else:
         er = (expected_return.get("probability_weighted_return_pct") or 0)
-        if overall >= 80 and er >= 12:
+        if overall >= 80 and er >= 12 and evidence_conf >= 80:
             action = "Constructive — suitable for long-term accumulation"
         elif overall >= 65 and er >= 6:
             action = "Selective — staged entry / hold bias"
@@ -591,20 +645,30 @@ def build_decision(
             action = "Watch — require better valuation or evidence"
         conclusion = (
             f"Institutional investment conclusion for {name}: overall score {round(overall)}/100 (grade {grade}). "
-            f"{action}. This is an investment-committee style conclusion — not a brokerage order ticket."
+            f"{action}. Evidence confidence {evidence_conf:.0f}%. "
+            "This is an investment-committee style conclusion — not a brokerage order ticket."
         )
+        investment_thesis_status = "FORMED"
 
     reasoning = conclusion + " " + stance + "."
+    # Confidence reported to users = evidence confidence when gated; else blended
+    confidence_pct = (
+        evidence_conf
+        if quality_blocked and evidence_conf
+        else round(_clamp(55 + (overall - 50) * 0.7), 1)
+    )
     return _layer(
         "decision",
         score=overall,
         status="complete",
         reasoning=reasoning,
-        evidence=[],
+        evidence=list(gate.get("available") or [])[:6],
         extras={
             "overall_score": round(overall, 1),
             "investment_grade": grade,
             "action": action,
+            "investment_thesis_status": investment_thesis_status,
+            "not_a_negative_view": investment_thesis_status == "INCONCLUSIVE",
             "suitable_for": suitable,
             "unsuitable_for": unsuitable,
             "layer_scores": {
@@ -612,14 +676,18 @@ def build_decision(
                 for k in LAYER_WEIGHTS
                 if k in layers and layers[k].get("score") is not None
             },
-            "confidence_pct": round(_clamp(55 + (overall - 50) * 0.7), 1),
+            "company_quality_10": gate.get("company_quality_10"),
+            "market_opportunity_10": gate.get("market_opportunity_10"),
+            "evidence_confidence_pct": evidence_conf or None,
+            "confidence_pct": confidence_pct,
             "expected_return_12m_pct": expected_return.get("probability_weighted_return_pct"),
             "bull_case_pct": (layers.get("probability") or {}).get("bull", {}).get("expected_return_pct"),
             "base_case_pct": (layers.get("probability") or {}).get("base", {}).get("expected_return_pct"),
             "bear_case_pct": (layers.get("probability") or {}).get("bear", {}).get("expected_return_pct"),
             "probability_weighted_return_pct": expected_return.get("probability_weighted_return_pct"),
             "risk_reward": expected_return.get("risk_reward"),
-            "gate_blocked": gate_blocked,
+            "gate_blocked": quality_blocked,
+            "readiness_band": band or None,
             "pre_questions": [
                 "Is this an excellent business?",
                 "Is management trustworthy and capable?",
@@ -649,6 +717,7 @@ def assemble_layers(
     institutional_briefing: dict | None = None,
     intelligence_construction: dict | None = None,
     aws_macro: dict | None = None,
+    irp: dict | None = None,
     gate_blocked: bool = False,
 ) -> dict[str, Any]:
     ca = company_analysis if isinstance(company_analysis, dict) else {}
@@ -677,7 +746,7 @@ def assemble_layers(
     layers["technical"] = score_technical(market=market if isinstance(market, dict) else {})
     layers["risk"] = score_risk(ca=ca, briefing=briefing, iie=iie)
 
-    # Weighted overall from scoring layers only
+    # Weighted overall from scoring layers only (company/market quality — not coverage)
     weighted = 0.0
     wsum = 0.0
     for key, weight in LAYER_WEIGHTS.items():
@@ -687,6 +756,20 @@ def assemble_layers(
         weighted += float(sc) * weight
         wsum += weight
     overall = weighted / wsum if wsum else 55.0
+
+    from decision_engine.readiness_gate import evaluate_readiness_gate
+
+    readiness = evaluate_readiness_gate(
+        layers=layers,
+        company_analysis=ca,
+        cid=cid,
+        live_evidence=live_evidence,
+        evidence_completion=evidence_completion,
+        valuation_pack=ve,
+        irp=irp if isinstance(irp, dict) else None,
+        external_gate_blocked=gate_blocked,
+        name=name,
+    )
 
     layers["catalysts"] = build_catalysts(ca=ca, briefing=briefing, iie=iie)
     layers["probability"] = build_probability(ca=ca, iie=iie, overall=overall)
@@ -701,6 +784,7 @@ def assemble_layers(
         expected_return=layers["expected_return"],
         gate_blocked=gate_blocked,
         name=name,
+        readiness_gate=readiness,
     )
 
     ordered = [layers[k] for k in LAYER_ORDER if k in layers]
@@ -711,7 +795,9 @@ def assemble_layers(
         "investment_grade": _grade(overall),
         "company_name": name,
         "ticker": ticker or cid.get("ticker"),
-        "gate_blocked": gate_blocked,
+        "gate_blocked": bool(readiness.get("hard_fail") or gate_blocked),
+        "institutional_readiness_gate": readiness,
         "never_skip_layer": True,
         "decision_last": True,
+        "never_conflate_data_with_quality": True,
     }

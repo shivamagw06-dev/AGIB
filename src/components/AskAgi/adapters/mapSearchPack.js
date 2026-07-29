@@ -235,6 +235,12 @@ export function mapSearchPack(pack) {
           suitableFor: asList(layer.suitable_for || ideSummary.suitable_for, 6),
           unsuitableFor: asList(layer.unsuitable_for || ideSummary.unsuitable_for, 6),
           action: asText(layer.action || ideSummary.action, ''),
+          strengths: asList(layer.strengths, 5),
+          weaknesses: asList(layer.weaknesses, 5),
+          evidence_quality_score:
+            layer.evidence_quality_score == null ? null : Number(layer.evidence_quality_score),
+          company_quality_score:
+            layer.company_quality_score == null ? null : Number(layer.company_quality_score),
         }))
     : [];
   const decisionStackLayers = ideLayers.filter((l) => !l.isDecision);
@@ -950,6 +956,25 @@ export function mapSearchPack(pack) {
             gradeFromScore(ideSummary.overall_score ?? ide.overall_score) || ''
           ),
           confidence: pct(ideSummary.confidence_pct) ?? confidence,
+          evidenceConfidence: pct(
+            ideSummary.evidence_confidence_pct ??
+              ide?.institutional_readiness_gate?.evidence_confidence_pct
+          ),
+          companyQuality10:
+            ideSummary.company_quality_10 ??
+            ide?.institutional_readiness_gate?.company_quality_10 ??
+            null,
+          marketOpportunity10:
+            ideSummary.market_opportunity_10 ??
+            ide?.institutional_readiness_gate?.market_opportunity_10 ??
+            null,
+          investmentThesisStatus: asText(
+            ideSummary.investment_thesis_status || decisionLayer?.investment_thesis_status,
+            ''
+          ),
+          notANegativeView: Boolean(
+            ideSummary.not_a_negative_view ?? decisionLayer?.not_a_negative_view
+          ),
           expectedReturn12m: ideSummary.expected_return_12m_pct ?? null,
           bullCase: ideSummary.bull_case_pct ?? null,
           baseCase: ideSummary.base_case_pct ?? null,
@@ -964,6 +989,7 @@ export function mapSearchPack(pack) {
           stackLayers: decisionStackLayers,
           decision: decisionLayer,
           gateBlocked: Boolean(ideSummary.gate_blocked),
+          readinessGate: ide.institutional_readiness_gate || null,
         }
       : null,
     recommendationStatus: {
@@ -972,11 +998,22 @@ export function mapSearchPack(pack) {
       summary: asText(
         recoStatus.summary,
         recoStatus.blocked
-          ? 'Institutional recommendation is withheld until validated evidence coverage clears the bar.'
+          ? 'Investment thesis INCONCLUSIVE — evidence insufficient, not a negative company view.'
           : 'Evidence coverage supports institutional analysis — not an automatic trade instruction.'
       ),
       detail: asText(recoStatus.detail, ''),
       gaps: knowledgeGaps,
+      evidenceConfidence: pct(recoStatus.evidence_confidence_pct),
+      requiredConfidence: pct(recoStatus.required_confidence_pct) ?? 80,
+      companyQuality10: recoStatus.company_quality_10 ?? null,
+      marketOpportunity10: recoStatus.market_opportunity_10 ?? null,
+      coverage: recoStatus.coverage || null,
+      checklist: Array.isArray(recoStatus.checklist) ? recoStatus.checklist : [],
+      additionalEvidenceRequired: asList(recoStatus.additional_evidence_required, 8),
+      investmentThesisStatus: asText(recoStatus.investment_thesis_status, ''),
+      notANegativeView: Boolean(recoStatus.not_a_negative_view),
+      readinessBand: asText(recoStatus.readiness_band || recoStatus.readiness_label, ''),
+      gateSummary: recoStatus.gate_summary || {},
     },
     knowledgeGaps,
     explore,

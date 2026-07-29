@@ -118,11 +118,15 @@ def test_policy_preserves_brief_when_gated():
     assert out["institutional_answer"]["enabled"] is True
     assert out["institutional_answer"]["recommendation"] == "Withheld"
     assert out["institutional_answer"]["evidence_insufficient"] is True
-    assert out["answer_policy"] == "agib_brain_gemini_editorial_writer"
-    assert out.get("editorial", {}).get("enabled") is True
-    assert "Eternal" in (out["executive"] or "")
-    # Editorial Quick Summary limit is 80 words; AGIB lead card may still be ≤60.
-    assert out["institutional_answer"]["word_count"] <= 60 or len((out["executive"] or "").split()) <= 80
+    assert out["institutional_answer"].get("investment_thesis_status") == "INCONCLUSIVE"
+    assert out["institutional_answer"].get("not_a_negative_view") is True
+    # Readiness gate owns the lead — editorial must not rewrite away INCONCLUSIVE
+    assert out["answer_policy"] == "institutional_readiness_gate_inconclusive"
+    assert out.get("editorial", {}).get("bypassed") is True
+    exec_l = (out["executive"] or "").lower()
+    assert "inconclusive" in exec_l or "insufficient" in exec_l
+    assert "eternal" in exec_l
+    assert out["institutional_answer"]["word_count"] <= 80
     assert out["bull"]
     assert out["bear"]
     assert out["risks"]
@@ -131,6 +135,8 @@ def test_policy_preserves_brief_when_gated():
     reco = out["recommendation_status"]
     assert reco["blocked"] is True
     assert reco["placement"] == "conclusion_only"
+    assert reco.get("investment_thesis_status") == "INCONCLUSIVE"
+    assert reco.get("not_a_negative_view") is True
     assert reco["knowledge_gaps"]
     assert "financial_statements" not in " ".join(reco["knowledge_gaps"])
 

@@ -147,7 +147,10 @@ MODE_INSTRUCTIONS = {
     "recommendation": (
         "Produce a Quick Summary ({min_words}-{max_words} words). "
         "Answer the question in sentence 1 without using Buy/Sell/Hold/Recommendation. "
-        "Describe how strong and reliable the business is, financial health, and the main risk in plain English."
+        "If structured intelligence marks evidence_insufficient or investment_thesis_status=INCONCLUSIVE, "
+        "sentence 1 must say the thesis is inconclusive because evidence is incomplete, "
+        "and explicitly state this is not a negative view of the company. "
+        "Otherwise describe business quality, financial health, and the main risk in plain English."
     ),
 }
 

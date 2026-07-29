@@ -267,6 +267,7 @@ def apply_answer_construction_v3(
         company_analysis=company_analysis,
         sector_intelligence=sector_intelligence,
         company_name=str(name),
+        decision_engine=ide,
     )
 
     decision_conclusion = _txt(irw.get("institutional_conclusion")) if irw_active else None
