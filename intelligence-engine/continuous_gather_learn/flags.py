@@ -39,6 +39,10 @@ def director_learning_inject() -> bool:
     return _truthy("CONTINUOUS_DIRECTOR_LEARNING", "true")
 
 
+def historical_backfill_enabled() -> bool:
+    return is_enabled() and _truthy("CONTINUOUS_HISTORICAL_BACKFILL", "true")
+
+
 def interval_sec() -> float:
     try:
         return max(120.0, float(os.getenv("CONTINUOUS_GATHER_LEARN_INTERVAL_SEC") or "1800"))
@@ -55,6 +59,8 @@ def flags_dict() -> dict[str, bool | float]:
         "CONTINUOUS_FAA_REFRESH": faa_in_loop_enabled(),
         "CONTINUOUS_LEARNING_LOOP": learning_loop_enabled(),
         "CONTINUOUS_DIRECTOR_LEARNING": director_learning_inject(),
+        "CONTINUOUS_HISTORICAL_BACKFILL": historical_backfill_enabled(),
         "CONTINUOUS_GATHER_LEARN_INTERVAL_SEC": interval_sec(),
         "FAA_BACKGROUND_COLLECTOR": _truthy("FAA_BACKGROUND_COLLECTOR", "false"),
+        "KF_HD_LIVE_COLLECTORS": _truthy("KF_HD_LIVE_COLLECTORS", "false"),
     }

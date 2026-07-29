@@ -147,6 +147,15 @@ services:
         value: "true"
       - key: CONTINUOUS_DIRECTOR_LEARNING
         value: "true"
+      - key: CONTINUOUS_HISTORICAL_BACKFILL
+        value: "true"
+      # Knowledge Factory Historical Depth — live Yahoo OHLCV/actions backfill.
+      - key: KF_HD_LIVE_COLLECTORS
+        value: "true"
+      - key: KF_HD_BACKFILL_BATCH
+        value: "12"
+      - key: KF_HD_TARGET_YEARS
+        value: "15"
       # Optional: set CGL_STORE_ROOT=/var/data/kip/continuous_gather_learn after disk attach.
       - key: CGL_STORE_ROOT
         sync: false
