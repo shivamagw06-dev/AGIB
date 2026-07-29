@@ -10441,6 +10441,96 @@ async def investment_operations_ic10():
     return ic10_smoke()
 
 
+@router.get("/autonomous-research/health")
+async def autonomous_research_health():
+    """P6 Autonomous Research Office — continuous research workflows (no BUY/SELL)."""
+    from autonomous_research.production import health
+
+    return health()
+
+
+@router.get("/autonomous-research/status")
+async def autonomous_research_status(holdings: str | None = None):
+    from autonomous_research.production import status
+
+    h = [x.strip().upper() for x in (holdings or "").split(",") if x.strip()] or None
+    return status(holdings=h)
+
+
+@router.get("/autonomous-research/planner")
+async def autonomous_research_planner(holdings: str | None = None):
+    from autonomous_research.production import planner
+
+    h = [x.strip().upper() for x in (holdings or "").split(",") if x.strip()] or None
+    return planner(holdings=h)
+
+
+@router.get("/autonomous-research/tasks")
+async def autonomous_research_tasks(holdings: str | None = None):
+    from autonomous_research.production import tasks
+
+    h = [x.strip().upper() for x in (holdings or "").split(",") if x.strip()] or None
+    return tasks(holdings=h)
+
+
+@router.get("/autonomous-research/watchlists")
+async def autonomous_research_watchlists(holdings: str | None = None):
+    from autonomous_research.production import watchlists
+
+    h = [x.strip().upper() for x in (holdings or "").split(",") if x.strip()] or None
+    return watchlists(holdings=h)
+
+
+@router.get("/autonomous-research/themes")
+async def autonomous_research_themes():
+    from autonomous_research.production import themes
+
+    return themes()
+
+
+@router.get("/autonomous-research/coverage")
+async def autonomous_research_coverage():
+    from autonomous_research.production import coverage
+
+    return coverage()
+
+
+@router.get("/autonomous-research/research/{ticker}")
+async def autonomous_research_ticker(ticker: str):
+    from autonomous_research.production import research
+
+    return research(ticker)
+
+
+@router.get("/autonomous-research/publications")
+async def autonomous_research_publications(holdings: str | None = None):
+    from autonomous_research.production import publications
+
+    h = [x.strip().upper() for x in (holdings or "").split(",") if x.strip()] or None
+    return publications(holdings=h)
+
+
+@router.get("/autonomous-research/qa")
+async def autonomous_research_qa():
+    from autonomous_research.production import qa
+
+    return qa()
+
+
+@router.get("/autonomous-research/learning")
+async def autonomous_research_learning():
+    from autonomous_research.production import learning
+
+    return learning()
+
+
+@router.get("/autonomous-research-ic10")
+async def autonomous_research_ic10():
+    from autonomous_research.production import ic10_smoke
+
+    return ic10_smoke()
+
+
 @router.get("/committee-certification-v2/health")
 async def committee_certification_v2_health():
     """IC-10 Institutional Committee Certification v2.0 — health / universe map."""
