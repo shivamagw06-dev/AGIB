@@ -320,6 +320,46 @@ export async function learnCmsArticles({
     }
   }
 
+  // Soft-wire Research Intelligence Hub — learned articles become Intelligence Objects.
+  let researchHubResult = null;
+  if (learned > 0) {
+    const hubBuilds = [];
+    for (const row of results.filter((r) => r.status === 'learned').slice(0, 25)) {
+      try {
+        const article = rows.find((a) => a.id === row.article_id) || {};
+        const hub = await engineFetch('/v1/research/hub/build', {
+          method: 'POST',
+          body: {
+            note_id: String(row.article_id),
+            headline: row.title || article.title || String(row.article_id),
+            body: String(article.content || article.body || article.markdown || ''),
+            publication_date: article.published_at || article.publication_date || null,
+            persist: true,
+            importance_score: 70,
+          },
+        });
+        hubBuilds.push({
+          article_id: row.article_id,
+          ok: hub.status < 400,
+          hub_id: hub.data?.id || row.article_id,
+          status: hub.status,
+        });
+      } catch (err) {
+        hubBuilds.push({
+          article_id: row.article_id,
+          ok: false,
+          error: err?.message || String(err),
+        });
+      }
+    }
+    researchHubResult = {
+      attempted: hubBuilds.length,
+      ok: hubBuilds.filter((h) => h.ok).length,
+      failed: hubBuilds.filter((h) => !h.ok).length,
+      builds: hubBuilds,
+    };
+  }
+
   return {
     ok: true,
     learning_date: learningDate,
@@ -330,9 +370,10 @@ export async function learnCmsArticles({
     failed,
     skipped,
     compound: compoundResult,
+    research_hub: researchHubResult,
     results,
     architecture_status: 'v1.0.1 LOCKED',
-    note: 'Soft-wire CMS → KIP → KF/KC. Re-run daily so learning_date stays current.',
+    note: 'Soft-wire CMS → KIP → KF/KC → RIH. Every learned article becomes an Intelligence Hub.',
   };
 }
 

@@ -897,6 +897,52 @@ async function runOneJob(job, engineFetch) {
     }
   }
 
+  // Soft optional Research Intelligence Hub — every article becomes an Intelligence Object.
+  await markStage('research_hub', 'started');
+  if (!job.stage_keys.research_hub) {
+    try {
+      const payload = job.payload || {};
+      const meta = payload.metadata || {};
+      const noteId =
+        payload.article_id ||
+        meta.article_id ||
+        job.article_id ||
+        job.document_id ||
+        job.id;
+      const headline = payload.title || payload.headline || meta.title || String(noteId);
+      const body = payload.text || payload.content || payload.body || payload.markdown || '';
+      const tickers = payload.tickers || meta.tickers || [];
+      const hub = await engineFetch('/v1/research/hub/build', {
+        method: 'POST',
+        body: {
+          note_id: String(noteId),
+          headline: String(headline),
+          body: String(body),
+          publication_date: payload.publication_date || meta.publication_date || null,
+          session: payload.session || meta.session || null,
+          tickers: Array.isArray(tickers) ? tickers : [],
+          persist: true,
+          importance_score: Number(meta.importance_score || 70) || 70,
+        },
+        timeoutMs: 45_000,
+      });
+      if (!hub.ok) {
+        throw new Error(hub.data?.error || hub.data?.detail || `RIH build failed (${hub.status})`);
+      }
+      job.stage_keys.research_hub = stageKey('research_hub');
+      job.research_hub_id = hub.data?.id || noteId;
+      await markStage('research_hub', 'ok', {
+        note_id: hub.data?.id || noteId,
+        companies: (hub.data?.companies || []).length,
+        gateway: hub.data?.gateway || 'RIH_KRIG',
+      });
+    } catch (error) {
+      await markStage('research_hub', 'skipped', {
+        error: error?.message || String(error),
+      });
+    }
+  }
+
   if (job.require_approval && job.approval_status !== 'approved') {
     job.status = 'pending';
     job.approval_status = 'pending_review';

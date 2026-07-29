@@ -164,6 +164,11 @@ export default function MissionControl() {
   const evidenceRetrieval = institutional?.evidence_retrieval || null;
   const institutionalDocs = institutional?.institutional_documents || null;
   const liveDataBoard = institutional?.live_institutional_data || null;
+  const researchHub = institutional?.research_intelligence_hub || null;
+  const marketForecast = institutional?.market_forecast_intelligence || null;
+  const sectorForecast = institutional?.sector_forecast_intelligence || null;
+  const marketKnowledge = institutional?.continuous_market_knowledge || null;
+  const marketAnalogues = institutional?.historical_market_analogue_intelligence || null;
   const v4Office = {
     thesis: desk?.institutional_investment_thesis || null,
     decision: desk?.institutional_decision_office || null,
@@ -610,6 +615,64 @@ export default function MissionControl() {
               <p className="mt-2 text-sm text-[var(--io-ink-soft)]">
                 {evidenceRetrieval?.north_star ||
                   'Every AGIB question retrieves ranked institutional evidence packs'}
+              </p>
+            </Glass>
+          </div>
+        </section>
+
+        {/* Research-centric intelligence stack (Phases 10–12 + RIH v4.0) */}
+        <section className="space-y-3">
+          <Kicker>Intelligence Stack · Research-Centric Graph</Kicker>
+          <p className="text-sm text-[var(--io-muted)]">
+            Research notes are the primary knowledge object. Market / Sector / Macro intelligence
+            soft-wire into every Intelligence Hub.
+          </p>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+            <Glass>
+              <p className="text-[11px] uppercase text-[var(--io-caption)]">Research Hub (RIH)</p>
+              <p className={`mt-2 text-sm font-semibold ${statusColour(researchHub?.status)}`}>
+                {researchHub?.status || 'Unavailable'}
+              </p>
+              <p className="mt-1 text-[11px] text-[var(--io-muted)]">
+                Hubs {researchHub?.hub_count ?? '—'} · phase {researchHub?.phase || '4.0'}
+              </p>
+            </Glass>
+            <Glass>
+              <p className="text-[11px] uppercase text-[var(--io-caption)]">Market Forecast (MKFI)</p>
+              <p className={`mt-2 text-sm font-semibold ${statusColour(marketForecast?.status)}`}>
+                {marketForecast?.status || 'Unavailable'}
+              </p>
+              <p className="mt-1 text-[11px] text-[var(--io-muted)]">
+                Scenarios {marketForecast?.scenarios ?? '—'} · conf{' '}
+                {marketForecast?.confidence_pct ?? '—'}%
+              </p>
+            </Glass>
+            <Glass>
+              <p className="text-[11px] uppercase text-[var(--io-caption)]">Sector Forecast (SFI)</p>
+              <p className={`mt-2 text-sm font-semibold ${statusColour(sectorForecast?.status)}`}>
+                {sectorForecast?.status || 'Unavailable'}
+              </p>
+              <p className="mt-1 text-[11px] text-[var(--io-muted)]">
+                Scenarios {sectorForecast?.scenarios ?? '—'} · phase {sectorForecast?.phase || '11.5'}
+              </p>
+            </Glass>
+            <Glass>
+              <p className="text-[11px] uppercase text-[var(--io-caption)]">Market Knowledge (CMKTP)</p>
+              <p className={`mt-2 text-sm font-semibold ${statusColour(marketKnowledge?.status)}`}>
+                {marketKnowledge?.status || 'Unavailable'}
+              </p>
+              <p className="mt-1 text-[11px] text-[var(--io-muted)]">
+                Regime {marketKnowledge?.current_market_regime || '—'} · health{' '}
+                {marketKnowledge?.market_health_score ?? '—'}
+              </p>
+            </Glass>
+            <Glass>
+              <p className="text-[11px] uppercase text-[var(--io-caption)]">Market Analogues (HMKAI)</p>
+              <p className={`mt-2 text-sm font-semibold ${statusColour(marketAnalogues?.status)}`}>
+                {marketAnalogues?.status || 'Unavailable'}
+              </p>
+              <p className="mt-1 text-[11px] text-[var(--io-muted)]">
+                Matches {marketAnalogues?.top_matches ?? '—'} · phase {marketAnalogues?.phase || '12.4'}
               </p>
             </Glass>
           </div>

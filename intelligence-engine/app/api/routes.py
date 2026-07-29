@@ -8931,6 +8931,25 @@ async def mission_control_dashboard():
     return dashboard(ioc_service=getattr(_ui, "ioc", None) or _ioc)
 
 
+@router.get("/system/intelligence-stack")
+async def system_intelligence_stack():
+    """Inventory of integrated Macro / Sector / Market / Research programmes."""
+    from system_integration.production import health, inventory
+
+    return {**health(), "detail": inventory()}
+
+
+@router.post("/system/intelligence-stack/bootstrap")
+async def system_intelligence_stack_bootstrap(payload: dict[str, Any] = Body(default={})):
+    """Ops only — soft-publish catalog RIH hubs (and optional MKFI). Never Ask."""
+    from system_integration.production import bootstrap
+
+    return bootstrap(
+        publish_rih=bool(payload.get("publish_rih", True)),
+        publish_mkfi=bool(payload.get("publish_mkfi", False)),
+    )
+
+
 @router.get("/mission-control/quality-gates")
 async def mission_control_quality_gates():
     from mission_control.production import quality_gates

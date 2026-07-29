@@ -1682,11 +1682,20 @@ def build_mission_control(*, ioc_service: Any | None = None) -> dict[str, Any]:
         "last_5_days_summary": None,
         "last_5_days_highlights": [],
         "last_5_days": [],
-        "sources": ["academy.books", "company_monitor", "investment_office", "cms_article_learning"],
+        "sources": [
+            "academy.books",
+            "company_monitor",
+            "investment_office",
+            "cms_article_learning",
+            "research_intelligence_hub",
+        ],
     }
 
     # SECTION 6 — Coverage (+ soft Institutional Intelligence from Sprints 1–7)
     institutional = _soft_institutional_intelligence()
+    rih_board = institutional.get("research_intelligence_hub") or {}
+    if rih_board.get("hub_count") is not None:
+        knowledge_growth["research_notes"] = rih_board.get("hub_count")
     dc = institutional.get("decision_coverage") or {}
     coverage_dash = {
         "overall_coverage": dc.get("nifty_100") or coverage.get("coverage_pct") or exec_status["coverage"],
@@ -1929,6 +1938,38 @@ def build_mission_control(*, ioc_service: Any | None = None) -> dict[str, Any]:
             if (institutional.get("evidence_retrieval") or {}).get("status") == "ok"
             else "Warning"
             if institutional.get("evidence_retrieval")
+            else "Unknown"
+        ),
+        "Macro Intelligence": (
+            "Healthy"
+            if (institutional.get("macroeconomic_forecast_intelligence") or {}).get("status") == "ok"
+            or (institutional.get("continuous_macro_knowledge") or {}).get("status") == "ok"
+            else "Warning"
+            if institutional.get("macroeconomic_forecast_intelligence")
+            or institutional.get("continuous_macro_knowledge")
+            else "Unknown"
+        ),
+        "Sector Intelligence": (
+            "Healthy"
+            if (institutional.get("sector_forecast_intelligence") or {}).get("status") == "ok"
+            else "Warning"
+            if institutional.get("sector_forecast_intelligence")
+            else "Unknown"
+        ),
+        "Market Intelligence": (
+            "Healthy"
+            if (institutional.get("market_forecast_intelligence") or {}).get("status") == "ok"
+            or (institutional.get("continuous_market_knowledge") or {}).get("status") == "ok"
+            else "Warning"
+            if institutional.get("market_forecast_intelligence")
+            or institutional.get("continuous_market_knowledge")
+            else "Unknown"
+        ),
+        "Research Intelligence Hub": (
+            "Healthy"
+            if (institutional.get("research_intelligence_hub") or {}).get("status") == "ok"
+            else "Warning"
+            if institutional.get("research_intelligence_hub")
             else "Unknown"
         ),
         "Academy": "Healthy" if books.get("enabled", True) else "Offline",

@@ -108,6 +108,28 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // System integration inventory (Macro / Sector / Market / Research stack)
+  router.get('/system/intelligence-stack', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/system/intelligence-stack');
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Intelligence engine unavailable', detail: error.message });
+    }
+  });
+
+  router.post('/system/intelligence-stack/bootstrap', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/system/intelligence-stack/bootstrap', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Intelligence engine unavailable', detail: error.message });
+    }
+  });
+
   // AGIB v4.0 — Research Intelligence Hub (research notes as Intelligence Objects)
   router.get('/rih/health', async (_req, res) => {
     try {

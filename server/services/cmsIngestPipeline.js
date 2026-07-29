@@ -1,6 +1,7 @@
 /**
  * Soft pipeline foundation for CMS → Intelligence ingest.
- * Architecture v1.0.1 LOCKED — maps stages onto existing layers (KIP/KC), no new engines.
+ * Architecture v1.0.1 LOCKED — maps stages onto existing AGIB layers.
+ * research_hub soft-wires RIH after KIP/KC so every article becomes an Intelligence Object.
  */
 
 /** Ordered soft stages. Prerequisites are previous stages in this list. */
@@ -9,6 +10,7 @@ export const PIPELINE_STAGES = [
   'wake_engine',
   'kip_ingest', // existing IE /v1/kip/ingest/agi (extract/chunk/embed inside KIP)
   'knowledge_compound', // optional soft KC populate — never blocks terminal success
+  'research_hub', // optional soft RIH Intelligence Hub build — never blocks terminal success
   'awaiting_approval', // optional human gate
   'completed',
 ];
@@ -50,7 +52,7 @@ export function appendStageTrace(trace = [], { stage, status, at = new Date().to
 export function pipelineBlueprint() {
   return {
     architecture_status: 'v1.0.1 LOCKED',
-    note: 'Stages soft-wire existing AGIB layers — no new top-level engines.',
+    note: 'Stages soft-wire existing AGIB layers (KIP/KC/RIH). research_hub never blocks ingest success.',
     stages: PIPELINE_STAGES.map((stage, idx) => ({
       stage,
       order: idx,
@@ -60,11 +62,13 @@ export function pipelineBlueprint() {
           ? 'IE KIP /v1/kip/ingest/agi'
           : stage === 'knowledge_compound'
             ? 'IE KC /v1/kc/populate (soft, optional)'
+            : stage === 'research_hub'
+              ? 'IE RIH /v1/research/hub/build (soft, optional)'
             : stage === 'wake_engine'
               ? 'IE /v1/health'
               : 'Node CMS ingest worker',
     })),
     longer_term:
-      'Extraction→chunk→embed→graph→reasoning remain inside existing KIP/KC/FRE/IIE soft layers; this queue is the entry gate.',
+      'CMS articles become Research Intelligence Hubs; extraction→chunk→embed remain inside KIP/KC soft layers.',
   };
 }
