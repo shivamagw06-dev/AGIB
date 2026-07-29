@@ -59,6 +59,17 @@ class CanonicalNormalizer:
                 "currency": info.get("currency") or "INR",
                 "website": info.get("website"),
                 "summary": info.get("longBusinessSummary"),
+                # Enrich Company Knowledge with valuation + growth facets
+                "pe_ratio": _num(info.get("trailingPE") or info.get("pe_ratio")),
+                "pb_ratio": _num(info.get("priceToBook") or info.get("pb_ratio")),
+                "market_cap": _num(info.get("marketCap") or info.get("market_cap")),
+                "dividend_yield": _num(info.get("dividendYield")),
+                "revenue_growth": _num(info.get("revenueGrowth") or info.get("revenue_growth")),
+                "earnings_growth": _num(info.get("earningsGrowth") or info.get("earnings_growth")),
+                "products": info.get("products") or [],
+                "geography": info.get("geography") or [],
+                "customers": info.get("customers") or [],
+                "management": info.get("management") or [],
             }
             market = {
                 "object_type": KnowledgeObjectType.MARKET_SNAPSHOT.value,
@@ -70,6 +81,9 @@ class CanonicalNormalizer:
                 "pb_ratio": _num(info.get("priceToBook") or info.get("pb_ratio")),
                 "dividend_yield": _num(info.get("dividendYield")),
                 "volume": _num(info.get("regularMarketVolume") or info.get("volume")),
+                "daily_move_pct": _num(info.get("regularMarketChangePercent") or info.get("daily_move_pct")),
+                "week_52_low": _num(info.get("fiftyTwoWeekLow") or info.get("week_52_low")),
+                "week_52_high": _num(info.get("fiftyTwoWeekHigh") or info.get("week_52_high")),
                 "currency": info.get("currency") or "INR",
             }
             out = [profile, market]
@@ -82,6 +96,38 @@ class CanonicalNormalizer:
                         "period_end": payload.get("period_end") or datetime.now(timezone.utc).date().isoformat(),
                         "revenue_growth": _num(info.get("revenueGrowth") or info.get("revenue_growth")),
                         "earnings_growth": _num(info.get("earningsGrowth") or info.get("earnings_growth")),
+                        "revenue": _num(info.get("totalRevenue") or info.get("revenue")),
+                        "ebitda": _num(info.get("ebitda")),
+                        "pat": _num(info.get("netIncomeToCommon") or info.get("pat")),
+                        "eps": _num(info.get("trailingEps") or info.get("eps")),
+                        "cash": _num(info.get("totalCash") or info.get("cash")),
+                        "debt": _num(info.get("totalDebt") or info.get("debt")),
+                        "pat_margin": _num(info.get("pat_margin") or info.get("profitMargins")),
+                        "ebitda_margin": _num(info.get("ebitda_margin") or info.get("ebitdaMargins")),
+                    }
+                )
+            # Optional ownership / analyst facets when present in fixture/live payload
+            if any(k in info for k in ("promoters_pct", "fii_pct", "dii_pct", "mutual_funds_pct", "promoter_holding")):
+                out.append(
+                    {
+                        "object_type": KnowledgeObjectType.OWNERSHIP.value,
+                        "company_symbol": symbol,
+                        "as_of": payload.get("as_of"),
+                        "promoters_pct": _num(info.get("promoters_pct") or info.get("promoter_holding")),
+                        "fii_pct": _num(info.get("fii_pct") or info.get("foreign_institutions")),
+                        "dii_pct": _num(info.get("dii_pct") or info.get("domestic_institutions")),
+                        "mutual_funds_pct": _num(info.get("mutual_funds_pct") or info.get("mutual_funds")),
+                    }
+                )
+            if info.get("targetMeanPrice") is not None or info.get("target_price") is not None or info.get("recommendationKey"):
+                out.append(
+                    {
+                        "object_type": KnowledgeObjectType.ANALYST_CONSENSUS.value,
+                        "company_symbol": symbol,
+                        "as_of": payload.get("as_of"),
+                        "target_price": _num(info.get("targetMeanPrice") or info.get("target_price")),
+                        "recommendation": info.get("recommendationKey") or info.get("recommendation"),
+                        "number_of_analysts": _num(info.get("numberOfAnalystOpinions") or info.get("number_of_analysts")),
                     }
                 )
             return out
@@ -103,6 +149,9 @@ class CanonicalNormalizer:
                 return node.get(key, node.get("fmt"))
             return node
 
+        pe = _num(raw(summary.get("trailingPE")) or raw(stats.get("trailingPE")))
+        mcap = _num(raw(price.get("marketCap")) or raw(summary.get("marketCap")))
+        rev_growth = raw(financial.get("revenueGrowth"))
         profile = {
             "object_type": KnowledgeObjectType.COMPANY_PROFILE.value,
             "company_symbol": symbol,
@@ -114,21 +163,28 @@ class CanonicalNormalizer:
             "website": asset.get("website"),
             "summary": asset.get("longBusinessSummary"),
             "employees": asset.get("fullTimeEmployees"),
+            "pe_ratio": pe,
+            "pb_ratio": _num(raw(stats.get("priceToBook"))),
+            "market_cap": mcap,
+            "dividend_yield": _num(raw(summary.get("dividendYield"))),
+            "revenue_growth": _num(rev_growth),
+            "earnings_growth": _num(raw(financial.get("earningsGrowth"))),
         }
         market = {
             "object_type": KnowledgeObjectType.MARKET_SNAPSHOT.value,
             "company_symbol": symbol,
             "as_of": datetime.now(timezone.utc).isoformat(),
             "last_price": _num(meta.get("regularMarketPrice") or raw(price.get("regularMarketPrice"))),
-            "market_cap": _num(raw(price.get("marketCap")) or raw(summary.get("marketCap"))),
-            "pe_ratio": _num(raw(summary.get("trailingPE")) or raw(stats.get("trailingPE"))),
+            "market_cap": mcap,
+            "pe_ratio": pe,
             "pb_ratio": _num(raw(stats.get("priceToBook"))),
             "dividend_yield": _num(raw(summary.get("dividendYield"))),
             "volume": _num(meta.get("regularMarketVolume") or raw(price.get("regularMarketVolume"))),
+            "week_52_low": _num(raw(summary.get("fiftyTwoWeekLow"))),
+            "week_52_high": _num(raw(summary.get("fiftyTwoWeekHigh"))),
             "currency": meta.get("currency") or "INR",
         }
         out = [profile, market]
-        rev_growth = raw(financial.get("revenueGrowth"))
         if rev_growth is not None:
             out.append(
                 {
@@ -139,6 +195,11 @@ class CanonicalNormalizer:
                     "revenue_growth": _num(rev_growth),
                     "earnings_growth": _num(raw(financial.get("earningsGrowth"))),
                     "total_revenue": _num(raw(financial.get("totalRevenue"))),
+                    "ebitda": _num(raw(financial.get("ebitda"))),
+                    "pat": _num(raw(financial.get("netIncomeToCommon"))),
+                    "eps": _num(raw(stats.get("trailingEps"))),
+                    "cash": _num(raw(financial.get("totalCash"))),
+                    "debt": _num(raw(financial.get("totalDebt"))),
                 }
             )
         return out

@@ -306,6 +306,29 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("research_office")
     except Exception:
         out["research_office"] = None
+    # AGIB v4.0 — Research Intelligence Hub (soft).
+    try:
+        from research_intelligence_hub.production import dashboard as rih_dash
+        from research_intelligence_hub.production import health as rih_health
+
+        hd = rih_dash()
+        hh = rih_health()
+        out["research_intelligence_hub"] = {
+            "status": hh.get("status"),
+            "version": hh.get("version"),
+            "programme_short": hh.get("programme_short"),
+            "ask_triggers_collection": False,
+            "is_intelligence_hub": True,
+            "primary_knowledge_object": hh.get("primary_knowledge_object"),
+            "hub_count": hd.get("hub_count"),
+            "link_coverage": hd.get("link_coverage"),
+            "current_hub": hd.get("current_hub"),
+            "ingestion_idle": hd.get("ingestion_idle"),
+            "phase": "4.0",
+        }
+        out["sources"].append("research_intelligence_hub")
+    except Exception:
+        out["research_intelligence_hub"] = None
     # AGIB v3.0 LIDI — live institutional data soft board.
     try:
         from live_data.production import dashboard as lidi_dash
@@ -329,6 +352,391 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("live_institutional_data")
     except Exception:
         out["live_institutional_data"] = None
+    # Phase 9 Forecast Provider Integration — India-first soft board.
+    try:
+        from forecast_provider_integration.production import dashboard as fpi_dash
+        from forecast_provider_integration.production import health as fpi_mod_health
+
+        fd = fpi_dash()
+        fh = fpi_mod_health()
+        out["forecast_provider_integration"] = {
+            "status": fh.get("status"),
+            "primary_live_market": fh.get("primary_live_market"),
+            "primary_research": fh.get("primary_research"),
+            "groww": fd.get("groww_connection_status"),
+            "yahoo": fd.get("yahoo_finance_status"),
+            "nse": fd.get("nse_collector_status"),
+            "bse": fd.get("bse_collector_status"),
+            "company_ir": fd.get("company_ir_collector_status"),
+            "snapshot_freshness": fd.get("snapshot_freshness"),
+            "failover_events": len(fd.get("provider_failover_events") or []),
+            "forecast_direct_provider_calls": False,
+            "controlled_refresh": fh.get("controlled_refresh"),
+        }
+        out["sources"].append("forecast_provider_integration")
+    except Exception:
+        out["forecast_provider_integration"] = None
+    # Phase 10 Sprint 10.1 — Continuous Macroeconomic Knowledge Platform (soft).
+    try:
+        from continuous_macro_knowledge.production import dashboard as cmkp_dash
+        from continuous_macro_knowledge.production import health as cmkp_health
+
+        cd = cmkp_dash()
+        ch = cmkp_health()
+        cov = cd.get("knowledge_coverage") or {}
+        out["continuous_macro_knowledge"] = {
+            "status": ch.get("status"),
+            "version": ch.get("version"),
+            "ask_triggers_collection": False,
+            "published_objects": cov.get("published_objects"),
+            "unique_indicators": cov.get("unique_indicators"),
+            "learning_events": cov.get("learning_events"),
+            "collectors": len(cd.get("collector_health") or {}),
+            "missing_indicators": len(cd.get("missing_indicators") or []),
+            "ingestion_idle": cd.get("ingestion_idle"),
+            "phase": "10.1",
+        }
+        out["sources"].append("continuous_macro_knowledge")
+    except Exception:
+        out["continuous_macro_knowledge"] = None
+    # Phase 10 Sprint 10.2 — Historical Macroeconomic Intelligence (soft).
+    try:
+        from historical_macro_intelligence.production import dashboard as hmip_dash
+        from historical_macro_intelligence.production import health as hmip_health
+
+        hd = hmip_dash()
+        hh = hmip_health()
+        cov = hd.get("historical_coverage") or {}
+        out["historical_macro_intelligence"] = {
+            "status": hh.get("status"),
+            "version": hh.get("version"),
+            "ask_triggers_collection": False,
+            "immutable_store": True,
+            "total_observations": cov.get("total_observations"),
+            "unique_indicators": cov.get("unique_indicators"),
+            "years_available": cov.get("years_available"),
+            "timelines": (hd.get("timeline_completeness") or {}).get("timelines"),
+            "average_completeness_pct": (hd.get("timeline_completeness") or {}).get(
+                "average_completeness_pct"
+            ),
+            "ingestion_idle": hd.get("ingestion_idle"),
+            "phase": "10.2",
+        }
+        out["sources"].append("historical_macro_intelligence")
+    except Exception:
+        out["historical_macro_intelligence"] = None
+    # Phase 10 Sprint 10.3 — Macroeconomic Relationship Intelligence (soft).
+    try:
+        from macroeconomic_relationship_intelligence.production import dashboard as mri_dash
+        from macroeconomic_relationship_intelligence.production import health as mri_health
+
+        md = mri_dash()
+        mh = mri_health()
+        out["macroeconomic_relationship_intelligence"] = {
+            "status": mh.get("status"),
+            "version": mh.get("version"),
+            "ask_triggers_collection": False,
+            "total_relationships": md.get("total_relationships"),
+            "high_confidence": md.get("high_confidence"),
+            "confidence_distribution": md.get("relationship_confidence_distribution"),
+            "coverage": md.get("coverage_by_indicator_sector_company"),
+            "stale": len(md.get("stale_relationships") or []),
+            "ingestion_idle": md.get("ingestion_idle"),
+            "phase": "10.3",
+        }
+        out["sources"].append("macroeconomic_relationship_intelligence")
+    except Exception:
+        out["macroeconomic_relationship_intelligence"] = None
+    # Phase 10 Sprint 10.4 — Historical Macro Analogue Intelligence (soft).
+    try:
+        from historical_macro_analogue_intelligence.production import dashboard as hmai_dash
+        from historical_macro_analogue_intelligence.production import health as hmai_health
+
+        ad = hmai_dash()
+        ah = hmai_health()
+        cov = ad.get("historical_coverage") or {}
+        out["historical_macro_analogue_intelligence"] = {
+            "status": ah.get("status"),
+            "version": ah.get("version"),
+            "ask_triggers_collection": False,
+            "current_regime": (ad.get("current_macro_regime") or {}).get("period"),
+            "top_matches": len(ad.get("top_analogue_matches") or []),
+            "similarity_distribution": ad.get("similarity_distribution"),
+            "confidence_distribution": ad.get("confidence_distribution"),
+            "historical_coverage": cov,
+            "analogue_freshness": ad.get("analogue_freshness"),
+            "ingestion_idle": ad.get("ingestion_idle"),
+            "phase": "10.4",
+        }
+        out["sources"].append("historical_macro_analogue_intelligence")
+    except Exception:
+        out["historical_macro_analogue_intelligence"] = None
+    # Phase 10 Sprint 10.5 — Macroeconomic Forecast Intelligence (soft).
+    try:
+        from macroeconomic_forecast_intelligence.production import dashboard as mfi_dash
+        from macroeconomic_forecast_intelligence.production import health as mfi_health
+
+        fd = mfi_dash()
+        fh = mfi_health()
+        out["macroeconomic_forecast_intelligence"] = {
+            "status": fh.get("status"),
+            "version": fh.get("version"),
+            "ask_triggers_collection": False,
+            "predicts_single_path": False,
+            "probability_distribution": fd.get("probability_distribution"),
+            "confidence_pct": (fd.get("confidence") or {}).get("overall_pct"),
+            "scenarios": len(fd.get("bull_base_bear_scenarios") or []),
+            "sector_impacts": len(fd.get("sector_impact_matrix") or {}),
+            "company_impacts": len(fd.get("company_impact_matrix") or {}),
+            "forecast_history_n": (fd.get("forecast_history") or {}).get("n"),
+            "ingestion_idle": fd.get("ingestion_idle"),
+            "phase": "10.5",
+        }
+        out["sources"].append("macroeconomic_forecast_intelligence")
+    except Exception:
+        out["macroeconomic_forecast_intelligence"] = None
+    # Phase 11 Sprint 11.1 — Continuous Sector Knowledge Platform (soft).
+    try:
+        from continuous_sector_knowledge.production import dashboard as cskp_dash
+        from continuous_sector_knowledge.production import health as cskp_health
+
+        sd = cskp_dash()
+        sh = cskp_health()
+        health = sd.get("sector_health") or {}
+        cov = sd.get("knowledge_coverage") or {}
+        out["continuous_sector_knowledge"] = {
+            "status": sh.get("status"),
+            "version": sh.get("version"),
+            "ask_triggers_collection": False,
+            "ask_never_constructs": True,
+            "published_sectors": health.get("published"),
+            "universe": health.get("universe"),
+            "coverage_pct": health.get("coverage_pct"),
+            "learning_events": cov.get("learning_events"),
+            "company_coverage_total": cov.get("company_coverage_total"),
+            "ingestion_idle": sd.get("ingestion_idle"),
+            "phase": "11.1",
+        }
+        out["sources"].append("continuous_sector_knowledge")
+    except Exception:
+        out["continuous_sector_knowledge"] = None
+    # Phase 11 Sprint 11.2 — Historical Sector Intelligence (soft).
+    try:
+        from historical_sector_intelligence.production import dashboard as hsip_dash
+        from historical_sector_intelligence.production import health as hsip_health
+
+        hd = hsip_dash()
+        hh = hsip_health()
+        cov = hd.get("historical_coverage") or {}
+        out["historical_sector_intelligence"] = {
+            "status": hh.get("status"),
+            "version": hh.get("version"),
+            "ask_triggers_collection": False,
+            "immutable_store": True,
+            "total_observations": cov.get("total_observations"),
+            "unique_sectors": cov.get("unique_sectors"),
+            "years_available": cov.get("years_available"),
+            "timelines": (hd.get("timeline_completeness") or {}).get("timelines"),
+            "average_completeness_pct": (hd.get("timeline_completeness") or {}).get(
+                "average_completeness_pct"
+            ),
+            "ingestion_idle": hd.get("ingestion_idle"),
+            "phase": "11.2",
+        }
+        out["sources"].append("historical_sector_intelligence")
+    except Exception:
+        out["historical_sector_intelligence"] = None
+    # Phase 11 Sprint 11.3 — Sector Relationship Intelligence (soft).
+    try:
+        from sector_relationship_intelligence.production import dashboard as sri_dash
+        from sector_relationship_intelligence.production import health as sri_health
+
+        sd = sri_dash()
+        sh = sri_health()
+        out["sector_relationship_intelligence"] = {
+            "status": sh.get("status"),
+            "version": sh.get("version"),
+            "ask_triggers_collection": False,
+            "evidence_backed_only": True,
+            "total_relationships": sd.get("total_relationships"),
+            "active_relationships": sd.get("active_relationships"),
+            "confidence_distribution": sd.get("confidence_distribution"),
+            "high_confidence": sd.get("high_confidence"),
+            "by_kind": sd.get("by_kind"),
+            "validation_failures": len(sd.get("validation_failures") or []),
+            "ingestion_idle": sd.get("ingestion_idle"),
+            "phase": "11.3",
+        }
+        out["sources"].append("sector_relationship_intelligence")
+    except Exception:
+        out["sector_relationship_intelligence"] = None
+    # Phase 11 Sprint 11.4 — Historical Sector Analogue Intelligence (soft).
+    try:
+        from historical_sector_analogue_intelligence.production import dashboard as hsai_dash
+        from historical_sector_analogue_intelligence.production import health as hsai_health
+
+        ad = hsai_dash()
+        ah = hsai_health()
+        cov = ad.get("historical_coverage") or {}
+        out["historical_sector_analogue_intelligence"] = {
+            "status": ah.get("status"),
+            "version": ah.get("version"),
+            "ask_triggers_collection": False,
+            "current_regime": (ad.get("current_sector_regime") or {}).get("period"),
+            "current_sector": (ad.get("current_sector_regime") or {}).get("sector"),
+            "top_matches": len(ad.get("top_analogue_matches") or []),
+            "similarity_distribution": ad.get("similarity_distribution"),
+            "confidence_distribution": ad.get("confidence_distribution"),
+            "coverage_by_sector": ad.get("coverage_by_sector"),
+            "historical_coverage": cov,
+            "analogue_freshness": ad.get("analogue_freshness"),
+            "ingestion_idle": ad.get("ingestion_idle"),
+            "phase": "11.4",
+        }
+        out["sources"].append("historical_sector_analogue_intelligence")
+    except Exception:
+        out["historical_sector_analogue_intelligence"] = None
+    # Phase 11 Sprint 11.5 — Sector Forecast Intelligence (soft).
+    try:
+        from sector_forecast_intelligence.production import dashboard as sfi_dash
+        from sector_forecast_intelligence.production import health as sfi_health
+
+        fd = sfi_dash()
+        fh = sfi_health()
+        out["sector_forecast_intelligence"] = {
+            "status": fh.get("status"),
+            "version": fh.get("version"),
+            "ask_triggers_collection": False,
+            "predicts_single_path": False,
+            "inherits_macro_from": fh.get("inherits_macro_from"),
+            "probability_distribution": fd.get("probability_distribution"),
+            "confidence_pct": (fd.get("confidence") or {}).get("overall_pct"),
+            "scenarios": len(fd.get("bull_base_bear_scenarios") or []),
+            "company_impacts": len(fd.get("company_impact_summaries") or {}),
+            "forecast_history_n": (fd.get("forecast_revisions") or {}).get("n"),
+            "ingestion_idle": fd.get("ingestion_idle"),
+            "phase": "11.5",
+        }
+        out["sources"].append("sector_forecast_intelligence")
+    except Exception:
+        out["sector_forecast_intelligence"] = None
+    # Phase 12 Sprint 12.1 — Continuous Market Knowledge Platform (soft).
+    try:
+        from continuous_market_knowledge.production import dashboard as cmktp_dash
+        from continuous_market_knowledge.production import health as cmktp_health
+
+        md = cmktp_dash()
+        mh = cmktp_health()
+        out["continuous_market_knowledge"] = {
+            "status": mh.get("status"),
+            "version": mh.get("version"),
+            "ask_triggers_collection": False,
+            "not_a_market_data_service": True,
+            "current_market_regime": md.get("current_market_regime"),
+            "market_health_score": md.get("market_health_score"),
+            "risk_sentiment": md.get("risk_sentiment"),
+            "domains_published": (md.get("publication_status") or {}).get("published_domains"),
+            "ingestion_idle": md.get("ingestion_idle"),
+            "phase": "12.1",
+        }
+        out["sources"].append("continuous_market_knowledge")
+    except Exception:
+        out["continuous_market_knowledge"] = None
+    # Phase 12 Sprint 12.2 — Historical Market Intelligence Platform (soft).
+    try:
+        from historical_market_intelligence.production import dashboard as hmkip_dash
+        from historical_market_intelligence.production import health as hmkip_health
+
+        hd = hmkip_dash()
+        hh = hmkip_health()
+        out["historical_market_intelligence"] = {
+            "status": hh.get("status"),
+            "version": hh.get("version"),
+            "ask_triggers_collection": False,
+            "immutable_store": True,
+            "historical_coverage": hd.get("historical_coverage"),
+            "timeline_completeness": (hd.get("timeline_completeness") or {}).get(
+                "average_completeness_pct"
+            ),
+            "years_available": hd.get("years_available"),
+            "ingestion_idle": hd.get("ingestion_idle"),
+            "phase": "12.2",
+        }
+        out["sources"].append("historical_market_intelligence")
+    except Exception:
+        out["historical_market_intelligence"] = None
+    # Phase 12 Sprint 12.3 — Market Relationship Intelligence (soft).
+    try:
+        from market_relationship_intelligence.production import dashboard as mkri_dash
+        from market_relationship_intelligence.production import health as mkri_health
+
+        md = mkri_dash()
+        mh = mkri_health()
+        out["market_relationship_intelligence"] = {
+            "status": mh.get("status"),
+            "version": mh.get("version"),
+            "programme_short": mh.get("programme_short"),
+            "ask_triggers_collection": False,
+            "total_relationships": md.get("total_relationships"),
+            "active_relationships": md.get("active_relationships"),
+            "confidence_distribution": md.get("confidence_distribution"),
+            "graph_health": md.get("graph_health"),
+            "ingestion_idle": md.get("ingestion_idle"),
+            "phase": "12.3",
+        }
+        out["sources"].append("market_relationship_intelligence")
+    except Exception:
+        out["market_relationship_intelligence"] = None
+    # Phase 12 Sprint 12.4 — Historical Market Analogue Intelligence (soft).
+    try:
+        from historical_market_analogue_intelligence.production import dashboard as hmkai_dash
+        from historical_market_analogue_intelligence.production import health as hmkai_health
+
+        ad = hmkai_dash()
+        ah = hmkai_health()
+        out["historical_market_analogue_intelligence"] = {
+            "status": ah.get("status"),
+            "version": ah.get("version"),
+            "programme_short": ah.get("programme_short"),
+            "ask_triggers_collection": False,
+            "current_market_regime": ad.get("current_market_regime"),
+            "top_matches": len(ad.get("top_analogue_matches") or []),
+            "similarity_distribution": ad.get("similarity_distribution"),
+            "confidence_distribution": ad.get("confidence_distribution"),
+            "ingestion_idle": ad.get("ingestion_idle"),
+            "phase": "12.4",
+        }
+        out["sources"].append("historical_market_analogue_intelligence")
+    except Exception:
+        out["historical_market_analogue_intelligence"] = None
+    # Phase 12 Sprint 12.5 — Market Forecast Intelligence (soft).
+    # Programme short MKFI avoids collision with Macroeconomic Forecast Intelligence (MFI).
+    try:
+        from market_forecast_intelligence.production import dashboard as mkfi_dash
+        from market_forecast_intelligence.production import health as mkfi_health
+
+        fd = mkfi_dash()
+        fh = mkfi_health()
+        out["market_forecast_intelligence"] = {
+            "status": fh.get("status"),
+            "version": fh.get("version"),
+            "programme_short": fh.get("programme_short"),
+            "ask_triggers_collection": False,
+            "predicts_single_path": False,
+            "inherits_macro_from": fh.get("inherits_macro_from"),
+            "probability_distribution": fd.get("probability_distribution"),
+            "confidence_pct": (fd.get("confidence") or {}).get("overall_pct"),
+            "scenarios": len(fd.get("bull_base_bear_scenarios") or []),
+            "forecast_horizons": fd.get("forecast_horizons"),
+            "sector_leadership": fd.get("sector_leadership_forecast"),
+            "invalidation_alerts": len(fd.get("invalidation_alerts") or []),
+            "forecast_history_n": (fd.get("forecast_revisions") or {}).get("n"),
+            "ingestion_idle": fd.get("ingestion_idle"),
+            "phase": "12.5",
+        }
+        out["sources"].append("market_forecast_intelligence")
+    except Exception:
+        out["market_forecast_intelligence"] = None
     # AGIB v3.0 LIDI Track 2 — collector certification board (soft).
     try:
         from live_data.production_verify import certification as lidi_cert
@@ -1172,8 +1580,62 @@ def build_mission_control(*, ioc_service: Any | None = None) -> dict[str, Any]:
         )
     # Ensure named providers appear even if IOC sparse
     known = {p["name"].lower() for p in providers}
+    # Soft overlay: Forecast Provider Integration (India-first) health
+    fpi_rows: list[dict[str, Any]] = []
+    try:
+        from forecast_provider_integration.production import provider_health as fpi_health
+
+        fpi = fpi_health()
+        for row in fpi.get("providers") or []:
+            name = str(row.get("provider") or "").lower()
+            label_map = {
+                "groww": "Groww",
+                "yahoo": "Yahoo Finance",
+                "nse": "NSE",
+                "bse": "BSE",
+                "company_ir": "Company IR",
+            }
+            label = label_map.get(name, name.title())
+            st = _status_norm(row.get("status"))
+            colour = "Green" if st == "Healthy" else "Yellow" if st in {"Warning", "Degraded"} else "Red"
+            fpi_rows.append(
+                {
+                    "name": label,
+                    "status": st if st != "Degraded" else "Warning",
+                    "colour": colour if st != "Degraded" else "Yellow",
+                    "latency": row.get("latency_ms") or row.get("websocket_latency_ms"),
+                    "last_error": None,
+                    "provider_confidence": "configured" if row.get("configured") else "seeded",
+                    "capabilities": [row.get("role")] if row.get("role") else [],
+                    "note": row.get("detail"),
+                    "snapshot_freshness_sec": row.get("snapshot_freshness_sec"),
+                    "source": "forecast_provider_integration",
+                }
+            )
+    except Exception:
+        fpi_rows = []
+
+    for row in fpi_rows:
+        lname = row["name"].lower()
+        # Replace placeholder / update existing
+        replaced = False
+        for i, p in enumerate(providers):
+            if p["name"].lower() == lname or (
+                lname == "yahoo finance" and "yahoo" in p["name"].lower()
+            ):
+                providers[i] = {**p, **row}
+                replaced = True
+                break
+        if not replaced:
+            providers.append(row)
+            known.add(lname)
+
     for label in (
+        "Groww",
         "Yahoo Finance",
+        "NSE",
+        "BSE",
+        "Company IR",
         "Indian API",
         "Finnhub",
         "FMP",

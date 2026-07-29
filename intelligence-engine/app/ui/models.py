@@ -134,6 +134,8 @@ class SearchView(BaseModel):
     irp: dict[str, Any] = Field(default_factory=dict)
     # KF1 — Knowledge Foundation objects resolved before documents
     knowledge_foundation: dict[str, Any] = Field(default_factory=dict)
+    # KRIG Sprint 6.4 — institutional Knowledge Bundle from Knowledge Platform (never provider feeds)
+    knowledge_bundle: dict[str, Any] = Field(default_factory=dict)
     # KCV1 — Knowledge Corpus consult (primary source of truth before documents)
     knowledge_corpus: dict[str, Any] = Field(default_factory=dict)
     # AOI v1 — public acquisition structured knowledge soft retrieval
@@ -269,6 +271,8 @@ class ArticleView(BaseModel):
     latest_news: list[dict[str, Any]] = Field(default_factory=list)
     discovery: dict[str, Any] = Field(default_factory=dict)
     follow_up_questions: list[str] = Field(default_factory=list)
+    # AGIB v4.0 — Research Intelligence Hub (soft)
+    intelligence_hub: dict[str, Any] = Field(default_factory=dict)
 
 
 class AutocompleteView(BaseModel):

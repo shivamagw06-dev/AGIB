@@ -4484,31 +4484,2400 @@ async def admin_causal_intelligence():
     return HTMLResponse(admin_page())
 
 
-# --- Forecast Intelligence Engine V1 (what future paths are plausible?) ---
+# --- Institutional Forecast Intelligence (IFI) Sprint 9.1 — Forecast Bundles ---
+# Preparation only: no Bull/Base/Bear, no probabilities, no price prediction.
 
 
 @router.get("/forecast/health")
 async def forecast_intelligence_health():
-    from forecast_intelligence.production import health
+    """Combined health: IFI preparation layer + legacy FIE scenario engine."""
+    from forecast_intelligence.production import health as fie_health
+    from institutional_forecast_intelligence.production import health as ifi_health
 
-    return health()
+    return {
+        "ifi": ifi_health(),
+        "fie": fie_health(),
+        "note": "Sprint 9.1 IFI prepares Forecast Bundles; FIE scenarios remain on /forecast/scenarios/{ticker}",
+    }
 
 
 @router.get("/forecast/dashboard")
 async def forecast_intelligence_dashboard():
-    from forecast_intelligence.production import dashboard
+    from institutional_forecast_intelligence.production import dashboard as ifi_dashboard
+
+    return ifi_dashboard()
+
+
+@router.get("/ifi/health")
+async def ifi_health():
+    from institutional_forecast_intelligence.production import health
+
+    return health()
+
+
+@router.get("/ifi/dashboard")
+async def ifi_dashboard():
+    from institutional_forecast_intelligence.production import dashboard
 
     return dashboard()
 
 
 @router.get("/forecast/company/{ticker}")
-async def forecast_intelligence_company(ticker: str):
-    from forecast_intelligence.production import company
+async def forecast_intelligence_company(
+    ticker: str,
+    mode: str = Query(default="bundle", description="bundle (IFI 9.1) | fie (legacy scenarios)"),
+    question: str | None = None,
+):
+    """Sprint 9.1 default: Institutional Forecast Bundle (preparation only)."""
+    if mode.lower() in {"fie", "scenarios", "legacy"}:
+        from forecast_intelligence.production import company
 
-    out = company(ticker)
-    if out.get("enabled") and not out.get("found"):
-        raise HTTPException(status_code=404, detail="company_forecast_not_found")
-    return out
+        out = company(ticker)
+        if out.get("enabled") and not out.get("found"):
+            raise HTTPException(status_code=404, detail="company_forecast_not_found")
+        return out
+
+    from institutional_forecast_intelligence.production import company as ifi_company
+
+    return ifi_company(ticker, question=question)
+
+
+@router.get("/ifi/company/{ticker}")
+async def ifi_company(ticker: str, question: str | None = None):
+    from institutional_forecast_intelligence.production import company
+
+    return company(ticker, question=question)
+
+
+@router.get("/forecast/sector/{sector}")
+async def forecast_sector(sector: str, question: str | None = None):
+    from institutional_forecast_intelligence.production import sector as ifi_sector
+
+    return ifi_sector(sector, question=question)
+
+
+@router.get("/ifi/sector/{sector}")
+async def ifi_sector_route(sector: str, question: str | None = None):
+    from institutional_forecast_intelligence.production import sector as ifi_sector
+
+    return ifi_sector(sector, question=question)
+
+
+@router.get("/forecast/market")
+async def forecast_market(question: str | None = None):
+    from institutional_forecast_intelligence.production import market
+
+    return market(question=question)
+
+
+@router.get("/ifi/market")
+async def ifi_market(question: str | None = None):
+    from institutional_forecast_intelligence.production import market
+
+    return market(question=question)
+
+
+@router.get("/forecast/macro")
+async def forecast_macro(question: str | None = None):
+    from institutional_forecast_intelligence.production import macro
+
+    return macro(question=question)
+
+
+@router.get("/ifi/macro")
+async def ifi_macro(question: str | None = None):
+    from institutional_forecast_intelligence.production import macro
+
+    return macro(question=question)
+
+
+@router.get("/forecast/theme")
+async def forecast_theme(
+    theme: str = Query(default="artificial_intelligence"),
+    question: str | None = None,
+):
+    from institutional_forecast_intelligence.production import theme as ifi_theme
+
+    return ifi_theme(theme, question=question)
+
+
+@router.get("/ifi/theme")
+async def ifi_theme_route(
+    theme: str = Query(default="artificial_intelligence"),
+    question: str | None = None,
+):
+    from institutional_forecast_intelligence.production import theme as ifi_theme
+
+    return ifi_theme(theme, question=question)
+
+
+@router.post("/forecast/bundle")
+async def forecast_bundle(payload: dict[str, Any] = Body(default={})):
+    """Assemble a Forecast Bundle for Scenario Engine consumption (no judgment)."""
+    from institutional_forecast_intelligence.production import bundle
+
+    return bundle(
+        scope=str(payload.get("scope") or "company"),
+        entity=payload.get("entity") or payload.get("ticker") or payload.get("sector") or payload.get("theme"),
+        question=payload.get("question"),
+    )
+
+
+@router.post("/ifi/bundle")
+async def ifi_bundle(payload: dict[str, Any] = Body(default={})):
+    from institutional_forecast_intelligence.production import bundle
+
+    return bundle(
+        scope=str(payload.get("scope") or "company"),
+        entity=payload.get("entity") or payload.get("ticker") or payload.get("sector") or payload.get("theme"),
+        question=payload.get("question"),
+    )
+
+
+# --- Institutional Scenario Intelligence (ISI) Sprint 9.2 — Bull / Base / Bear ---
+# Consumes IFI Forecast Bundles. No probabilities (9.4), no BUY/SELL/target prices.
+
+
+@router.get("/scenarios/health")
+async def isi_health():
+    from institutional_scenario_intelligence.production import health
+
+    return health()
+
+
+@router.get("/scenarios/dashboard")
+async def isi_dashboard():
+    from institutional_scenario_intelligence.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/scenarios/company/{ticker}")
+async def isi_company(ticker: str, question: str | None = None):
+    from institutional_scenario_intelligence.production import company
+
+    return company(ticker, question=question)
+
+
+@router.get("/scenarios/sector/{sector}")
+async def isi_sector(sector: str, question: str | None = None):
+    from institutional_scenario_intelligence.production import sector as isi_sector_fn
+
+    return isi_sector_fn(sector, question=question)
+
+
+@router.get("/scenarios/market")
+async def isi_market(question: str | None = None):
+    from institutional_scenario_intelligence.production import market
+
+    return market(question=question)
+
+
+@router.get("/scenarios/macro")
+async def isi_macro(question: str | None = None):
+    from institutional_scenario_intelligence.production import macro
+
+    return macro(question=question)
+
+
+@router.post("/scenarios/report")
+async def isi_report(payload: dict[str, Any] = Body(default={})):
+    """Produce a Scenario Report from scope/entity or an explicit Forecast Bundle."""
+    from institutional_scenario_intelligence.production import report
+
+    return report(
+        scope=str(payload.get("scope") or "company"),
+        entity=payload.get("entity") or payload.get("ticker") or payload.get("sector"),
+        question=payload.get("question"),
+        forecast_bundle=payload.get("forecast_bundle"),
+    )
+
+
+@router.get("/admin/institutional-scenario-intelligence", response_class=HTMLResponse)
+async def admin_isi():
+    from institutional_scenario_intelligence.production import dashboard
+
+    board = dashboard()
+    rows = "".join(
+        f"<tr><td>{r.get('scope')}</td><td>{r.get('entity')}</td>"
+        f"<td>{', '.join(r.get('scenario_types') or [])}</td>"
+        f"<td>{r.get('contradictions')}</td></tr>"
+        for r in (board.get("recent") or [])
+    )
+    html = f"""<!doctype html><html><head><title>ISI Mission Control</title></head>
+    <body style="font-family:system-ui;max-width:960px;margin:2rem auto">
+    <h1>Institutional Scenario Intelligence</h1>
+    <p>Plausible outcomes — Bull / Base / Bear. No BUY/SELL. No probabilities yet.</p>
+    <pre>{board.get('principles')}</pre>
+    <h2>Recent scenario reports</h2>
+    <table border="1" cellpadding="6">
+    <tr><th>Scope</th><th>Entity</th><th>Coverage</th><th>Contradictions</th></tr>
+    {rows or '<tr><td colspan=4>No reports yet</td></tr>'}
+    </table>
+    </body></html>"""
+    return HTMLResponse(html)
+
+
+# --- Institutional Probability & Confidence Intelligence (IPCI) Sprint 9.4 ---
+# Probability ≠ Confidence. Probabilities sum to 100%. No trading recommendations.
+
+
+@router.get("/probability/health")
+async def ipci_health():
+    from institutional_probability_confidence.production import health
+
+    return health()
+
+
+@router.get("/probability/dashboard")
+async def ipci_dashboard():
+    from institutional_probability_confidence.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/probability/company/{ticker}")
+async def ipci_probability_company(ticker: str, question: str | None = None):
+    from institutional_probability_confidence.production import probability_company
+
+    return probability_company(ticker, question=question)
+
+
+@router.get("/probability/sector/{sector}")
+async def ipci_probability_sector(sector: str, question: str | None = None):
+    from institutional_probability_confidence.production import probability_sector
+
+    return probability_sector(sector, question=question)
+
+
+@router.get("/confidence/company/{ticker}")
+async def ipci_confidence_company(ticker: str, question: str | None = None):
+    from institutional_probability_confidence.production import confidence_company
+
+    return confidence_company(ticker, question=question)
+
+
+@router.get("/forecast/assessment/{ticker}")
+async def ipci_forecast_assessment(ticker: str, question: str | None = None):
+    from institutional_probability_confidence.production import assessment
+
+    return assessment(ticker, scope="company", question=question)
+
+
+@router.post("/forecast/assessment")
+async def ipci_forecast_assessment_post(payload: dict[str, Any] = Body(default={})):
+    from institutional_probability_confidence.production import assessment
+
+    return assessment(
+        ticker=payload.get("ticker"),
+        scope=str(payload.get("scope") or "company"),
+        entity=payload.get("entity") or payload.get("ticker") or payload.get("sector"),
+        question=payload.get("question"),
+        scenario_report=payload.get("scenario_report"),
+    )
+
+
+@router.get("/admin/institutional-probability-confidence", response_class=HTMLResponse)
+async def admin_ipci():
+    from institutional_probability_confidence.production import dashboard
+
+    board = dashboard()
+    rows = "".join(
+        f"<tr><td>{r.get('entity')}</td><td>{r.get('distribution')}</td>"
+        f"<td>{r.get('overall_confidence')}</td><td>{r.get('forecast_quality')}</td></tr>"
+        for r in (board.get("recent") or [])
+    )
+    html = f"""<!doctype html><html><head><title>IPCI Mission Control</title></head>
+    <body style="font-family:system-ui;max-width:960px;margin:2rem auto">
+    <h1>Institutional Probability &amp; Confidence Intelligence</h1>
+    <p>Probability ≠ Confidence. Always sums to 100%. No BUY/SELL.</p>
+    <pre>{board.get('principles')}</pre>
+    <h2>Recent assessments</h2>
+    <table border="1" cellpadding="6">
+    <tr><th>Entity</th><th>Distribution</th><th>Confidence</th><th>Quality</th></tr>
+    {rows or '<tr><td colspan=4>No assessments yet</td></tr>'}
+    </table>
+    </body></html>"""
+    return HTMLResponse(html)
+
+
+# --- Continuous Macroeconomic Knowledge Platform (CMKP) Sprint 10.1 ---
+# Background ingestion only. Ask / Research / Forecast never trigger collectors.
+
+
+@router.get("/cmkp/health")
+async def cmkp_health():
+    from continuous_macro_knowledge.production import health
+
+    return health()
+
+
+@router.get("/macro/dashboard")
+async def cmkp_dashboard():
+    from continuous_macro_knowledge.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/macro/india")
+async def cmkp_india(limit: int = Query(100, ge=1, le=500)):
+    from continuous_macro_knowledge.production import india
+
+    return india(limit=limit)
+
+
+@router.get("/macro/global")
+async def cmkp_global(limit: int = Query(100, ge=1, le=500)):
+    from continuous_macro_knowledge.production import global_macro
+
+    return global_macro(limit=limit)
+
+
+@router.get("/macro/indicator/{indicator}")
+async def cmkp_indicator(indicator: str, country: str | None = None):
+    from continuous_macro_knowledge.production import indicator as get_indicator
+
+    return get_indicator(indicator, country=country)
+
+
+@router.get("/macro/releases")
+async def cmkp_releases(limit: int = Query(50, ge=1, le=200)):
+    from continuous_macro_knowledge.production import releases
+
+    return releases(limit=limit)
+
+
+@router.get("/macro/calendar")
+async def cmkp_calendar(limit: int = Query(50, ge=1, le=200)):
+    from continuous_macro_knowledge.production import release_calendar
+
+    return release_calendar(limit=limit)
+
+
+@router.post("/macro/run")
+async def cmkp_run(payload: dict[str, Any] = Body(default={})):
+    """Ops / scheduler only — never called by Ask."""
+    from continuous_macro_knowledge.production import run
+
+    sources = payload.get("sources")
+    if sources is not None and not isinstance(sources, list):
+        raise HTTPException(status_code=400, detail="sources must be a list")
+    return run(sources=sources)
+
+
+@router.get("/admin/macro-operations", response_class=HTMLResponse)
+async def admin_cmkp():
+    from continuous_macro_knowledge.production import dashboard
+
+    board = dashboard()
+    health_rows = "".join(
+        f"<tr><td>{s}</td><td>{h.get('ok')}</td><td>{h.get('success_count')}</td>"
+        f"<td>{h.get('failure_count')}</td></tr>"
+        for s, h in (board.get("collector_health") or {}).items()
+    )
+    release_rows = "".join(
+        f"<tr><td>{r.get('country')}</td><td>{r.get('indicator')}</td>"
+        f"<td>{r.get('current_value')}</td><td>{r.get('materiality_tier')}</td>"
+        f"<td>{r.get('source')}</td></tr>"
+        for r in (board.get("latest_releases") or [])
+    )
+    learn_rows = "".join(
+        f"<tr><td>{l.get('topic')}</td><td>{l.get('materiality_tier')}</td>"
+        f"<td>{l.get('future_guidance')}</td></tr>"
+        for l in (board.get("learning_events") or [])
+    )
+    html = f"""<!doctype html><html><head><title>Macro Operations</title></head>
+    <body style="font-family:system-ui;max-width:1000px;margin:2rem auto">
+    <h1>Macro Operations — CMKP</h1>
+    <p>Continuous background ingestion. Ask never fetches macro data.</p>
+    <pre>{board.get('principles')}</pre>
+    <p>Coverage: {board.get('knowledge_coverage')}</p>
+    <h2>Collector health</h2>
+    <table border="1" cellpadding="6">
+    <tr><th>Source</th><th>OK</th><th>Success</th><th>Failure</th></tr>
+    {health_rows or '<tr><td colspan=4>No collector ticks — run POST /v1/macro/run</td></tr>'}
+    </table>
+    <h2>Latest releases</h2>
+    <table border="1" cellpadding="6">
+    <tr><th>Country</th><th>Indicator</th><th>Value</th><th>Materiality</th><th>Source</th></tr>
+    {release_rows or '<tr><td colspan=5>None published</td></tr>'}
+    </table>
+    <h2>Learning events</h2>
+    <table border="1" cellpadding="6">
+    <tr><th>Topic</th><th>Tier</th><th>Guidance</th></tr>
+    {learn_rows or '<tr><td colspan=3>No material learning yet</td></tr>'}
+    </table>
+    <h2>Upcoming</h2>
+    <pre>{board.get('upcoming_releases')}</pre>
+    </body></html>"""
+    return HTMLResponse(html)
+
+
+# --- Historical Macroeconomic Intelligence Platform (HMIP) Sprint 10.2 ---
+# Immutable decades-scale macro memory. Analysis never calls external providers.
+
+
+@router.get("/hmip/health")
+async def hmip_health():
+    from historical_macro_intelligence.production import health
+
+    return health()
+
+
+@router.get("/macro/history")
+async def hmip_history(limit: int = Query(200, ge=1, le=1000), country: str | None = None):
+    from historical_macro_intelligence.production import history
+
+    return history(limit=limit, country=country)
+
+
+@router.get("/macro/history/dashboard")
+async def hmip_dashboard():
+    from historical_macro_intelligence.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/macro/history/timeline")
+async def hmip_timeline(indicator: str | None = None, country: str = Query("India")):
+    from historical_macro_intelligence.production import timeline
+
+    return timeline(indicator=indicator, country=country)
+
+
+@router.get("/macro/history/search")
+async def hmip_search(
+    q: str | None = None,
+    category: str | None = None,
+    country: str | None = None,
+    namespace: str | None = None,
+    limit: int = Query(100, ge=1, le=500),
+):
+    from historical_macro_intelligence.production import search
+
+    return search(q=q, category=category, country=country, namespace=namespace, limit=limit)
+
+
+@router.post("/macro/history/run")
+async def hmip_run(payload: dict[str, Any] = Body(default={})):
+    """Ops / scheduler only — never called by Ask."""
+    from historical_macro_intelligence.production import run
+
+    sources = payload.get("sources")
+    if sources is not None and not isinstance(sources, list):
+        raise HTTPException(status_code=400, detail="sources must be a list")
+    return run(sources=sources)
+
+
+@router.get("/macro/history/country/{country}")
+async def hmip_country(country: str, limit: int = Query(300, ge=1, le=1000)):
+    from historical_macro_intelligence.production import country as get_country
+
+    return get_country(country, limit=limit)
+
+
+@router.get("/macro/history/{indicator}")
+async def hmip_indicator(indicator: str, country: str = Query("India")):
+    from historical_macro_intelligence.production import indicator as get_indicator
+
+    return get_indicator(indicator, country=country)
+
+
+@router.get("/admin/historical-macro", response_class=HTMLResponse)
+async def admin_hmip():
+    from historical_macro_intelligence.production import dashboard
+
+    board = dashboard()
+    cov = board.get("historical_coverage") or {}
+    tl_rows = "".join(
+        f"<tr><td>{s.get('country')}</td><td>{s.get('indicator')}</td>"
+        f"<td>{s.get('completeness_pct')}</td><td>{s.get('nodes')}</td>"
+        f"<td>{s.get('years_span')}</td></tr>"
+        for s in ((board.get("timeline_completeness") or {}).get("sample") or [])
+    )
+    miss = board.get("missing_periods") or []
+    html = f"""<!doctype html><html><head><title>Historical Macro</title></head>
+    <body style="font-family:system-ui;max-width:1000px;margin:2rem auto">
+    <h1>Historical Macro — HMIP</h1>
+    <p>Immutable decades-scale memory. Never overwritten. Ask never fetches.</p>
+    <pre>{board.get('principles')}</pre>
+    <p>Observations: {cov.get('total_observations')} · Indicators: {cov.get('unique_indicators')} ·
+    Years: {cov.get('year_span')}</p>
+    <h2>Timeline completeness</h2>
+    <table border="1" cellpadding="6">
+    <tr><th>Country</th><th>Indicator</th><th>Completeness %</th><th>Nodes</th><th>Span</th></tr>
+    {tl_rows or '<tr><td colspan=5>Run POST /v1/macro/history/run</td></tr>'}
+    </table>
+    <h2>Missing periods</h2>
+    <pre>{miss[:15]}</pre>
+    <h2>Storage by namespace</h2>
+    <pre>{cov.get('by_namespace')}</pre>
+    <h2>Revision history</h2>
+    <pre>{board.get('revision_history')}</pre>
+    </body></html>"""
+    return HTMLResponse(html)
+
+
+# --- Macroeconomic Relationship Intelligence (MRI) Sprint 10.3 ---
+# Evidence-backed macro relationships. Never inferred without historical support.
+
+
+@router.get("/mri/health")
+async def mri_health():
+    from macroeconomic_relationship_intelligence.production import health
+
+    return health()
+
+
+@router.get("/macro/relationships")
+async def mri_relationships(limit: int = Query(200, ge=1, le=1000)):
+    from macroeconomic_relationship_intelligence.production import relationships
+
+    return relationships(limit=limit)
+
+
+@router.get("/macro/relationships/graph")
+async def mri_graph():
+    from macroeconomic_relationship_intelligence.production import graph
+
+    return graph()
+
+
+@router.get("/macro/relationships/dashboard")
+async def mri_dashboard():
+    from macroeconomic_relationship_intelligence.production import dashboard
+
+    return dashboard()
+
+
+@router.post("/macro/relationships/run")
+async def mri_run(payload: dict[str, Any] = Body(default={})):
+    """Ops / scheduler only — never called by Ask."""
+    from macroeconomic_relationship_intelligence.production import run
+
+    return run(enrich_hmip=bool(payload.get("enrich_hmip", True)))
+
+
+@router.get("/macro/relationships/company/{ticker}")
+async def mri_company(ticker: str, limit: int = Query(100, ge=1, le=500)):
+    from macroeconomic_relationship_intelligence.production import for_company
+
+    return for_company(ticker, limit=limit)
+
+
+@router.get("/macro/relationships/sector/{sector}")
+async def mri_sector(sector: str, limit: int = Query(100, ge=1, le=500)):
+    from macroeconomic_relationship_intelligence.production import for_sector
+
+    return for_sector(sector, limit=limit)
+
+
+@router.get("/macro/relationships/{indicator}")
+async def mri_indicator(indicator: str, limit: int = Query(100, ge=1, le=500)):
+    from macroeconomic_relationship_intelligence.production import for_indicator
+
+    return for_indicator(indicator, limit=limit)
+
+
+@router.get("/admin/macro-relationships", response_class=HTMLResponse)
+async def admin_mri():
+    from macroeconomic_relationship_intelligence.production import dashboard
+
+    board = dashboard()
+    dist = board.get("relationship_confidence_distribution") or {}
+    rows = "".join(
+        f"<tr><td>{r.get('source')}</td><td>{r.get('target')}</td>"
+        f"<td>{r.get('relationship')}</td><td>{r.get('confidence_pct')}</td>"
+        f"<td>{r.get('average_lag')}</td></tr>"
+        for r in (board.get("recently_validated_relationships") or [])
+    )
+    html = f"""<!doctype html><html><head><title>Macro Relationship Intelligence</title></head>
+    <body style="font-family:system-ui;max-width:1000px;margin:2rem auto">
+    <h1>Macro Relationship Intelligence — MRI</h1>
+    <p>Evidence-backed only. Versioned graph. Ask never fetches.</p>
+    <pre>{board.get('principles')}</pre>
+    <p>Total: {board.get('total_relationships')} · High confidence: {board.get('high_confidence')} ·
+    Distribution: {dist}</p>
+    <h2>Coverage</h2>
+    <pre>{board.get('coverage_by_indicator_sector_company')}</pre>
+    <h2>Recently validated</h2>
+    <table border="1" cellpadding="6">
+    <tr><th>Source</th><th>Target</th><th>Relationship</th><th>Confidence</th><th>Lag</th></tr>
+    {rows or '<tr><td colspan=5>Run POST /v1/macro/relationships/run</td></tr>'}
+    </table>
+    <h2>Stale</h2>
+    <pre>{len(board.get('stale_relationships') or [])} stale relationships</pre>
+    </body></html>"""
+    return HTMLResponse(html)
+
+
+# --- Historical Macro Analogue Intelligence (HMAI) Sprint 10.4 ---
+# Deterministic, explainable historical macro regime analogues. Never collects on Ask.
+
+
+@router.get("/hmai/health")
+async def hmai_health():
+    from historical_macro_analogue_intelligence.production import health
+
+    return health()
+
+
+@router.get("/macro/analogues")
+async def hmai_analogues(
+    limit: int = Query(20, ge=1, le=100),
+    country: str | None = None,
+):
+    from historical_macro_analogue_intelligence.production import analogues
+
+    return analogues(country=country, limit=limit)
+
+
+@router.get("/macro/analogues/search")
+async def hmai_search(
+    q: str | None = None,
+    question: str | None = None,
+    country: str = Query("India"),
+    target_period: str | None = None,
+    top_k: int = Query(5, ge=1, le=20),
+    min_score: float = Query(0.0, ge=0.0, le=100.0),
+):
+    from historical_macro_analogue_intelligence.production import search
+
+    return search(
+        country=country,
+        question=question or q,
+        target_period=target_period,
+        top_k=top_k,
+        min_score=min_score,
+    )
+
+
+@router.get("/macro/analogues/dashboard")
+async def hmai_dashboard():
+    from historical_macro_analogue_intelligence.production import dashboard
+
+    return dashboard()
+
+
+@router.post("/macro/analogues/run")
+async def hmai_run(payload: dict[str, Any] = Body(default={})):
+    """Ops / scheduler only — never called by Ask."""
+    from historical_macro_analogue_intelligence.production import run
+
+    return run(
+        country=str(payload.get("country") or "India"),
+        enrich_hmip=bool(payload.get("enrich_hmip", True)),
+        top_k=int(payload.get("top_k") or 10),
+    )
+
+
+@router.get("/macro/analogues/{country}")
+async def hmai_country(country: str, limit: int = Query(20, ge=1, le=100)):
+    from historical_macro_analogue_intelligence.production import analogues_for_country
+
+    return analogues_for_country(country, limit=limit)
+
+
+@router.get("/macro/regime/current")
+async def hmai_regime_current(country: str = Query("India")):
+    from historical_macro_analogue_intelligence.production import current_regime
+
+    return current_regime(country=country)
+
+
+@router.get("/macro/regime/history")
+async def hmai_regime_history(
+    country: str = Query("India"),
+    limit: int = Query(50, ge=1, le=200),
+):
+    from historical_macro_analogue_intelligence.production import regime_history
+
+    return regime_history(country=country, limit=limit)
+
+
+@router.get("/admin/macro-analogues", response_class=HTMLResponse)
+async def admin_hmai():
+    from historical_macro_analogue_intelligence.production import dashboard
+
+    board = dashboard()
+    cur = board.get("current_macro_regime") or {}
+    dist = board.get("similarity_distribution") or {}
+    rows = "".join(
+        f"<tr><td>{a.get('rank')}</td><td>{a.get('matched_period')}</td>"
+        f"<td>{a.get('matched_label')}</td><td>{a.get('similarity_score')}</td>"
+        f"<td>{a.get('confidence')}</td>"
+        f"<td>{', '.join(a.get('matching_dimensions') or [])}</td></tr>"
+        for a in (board.get("top_analogue_matches") or [])
+    )
+    html = f"""<!doctype html><html><head><title>Historical Macro Analogue</title></head>
+    <body style="font-family:system-ui;max-width:1000px;margin:2rem auto">
+    <h1>Historical Macro Analogue Intelligence — HMAI</h1>
+    <p>Deterministic multi-dimension similarity. Ask never fetches. No forecasting in 10.4.</p>
+    <pre>{board.get('principles')}</pre>
+    <h2>Current macro regime</h2>
+    <pre>Period: {cur.get('period')} · {cur.get('label')}</pre>
+    <pre>{cur.get('features')}</pre>
+    <h2>Similarity distribution</h2>
+    <pre>{dist}</pre>
+    <h2>Confidence</h2>
+    <pre>{board.get('confidence_distribution')}</pre>
+    <h2>Historical coverage</h2>
+    <pre>{board.get('historical_coverage')}</pre>
+    <h2>Analogue freshness</h2>
+    <pre>{board.get('analogue_freshness')}</pre>
+    <h2>Top analogue matches</h2>
+    <table border="1" cellpadding="6">
+    <tr><th>Rank</th><th>Period</th><th>Label</th><th>Similarity</th><th>Confidence</th><th>Matching</th></tr>
+    {rows or '<tr><td colspan=6>Run POST /v1/macro/analogues/run</td></tr>'}
+    </table>
+    </body></html>"""
+    return HTMLResponse(html)
+
+
+# --- Macroeconomic Forecast Intelligence (MFI) Sprint 10.5 ---
+# Evidence-based Bull/Base/Bear from AGI macro knowledge. Never external providers.
+
+
+@router.get("/mfi/health")
+async def mfi_health():
+    from macroeconomic_forecast_intelligence.production import health
+
+    return health()
+
+
+@router.get("/macro/forecast/india")
+async def mfi_india():
+    from macroeconomic_forecast_intelligence.production import india
+
+    return india()
+
+
+@router.get("/macro/forecast/global")
+async def mfi_global():
+    from macroeconomic_forecast_intelligence.production import global_forecast
+
+    return global_forecast()
+
+
+@router.get("/macro/forecast/report")
+async def mfi_report(persist: bool = Query(False)):
+    from macroeconomic_forecast_intelligence.production import report
+
+    return report(persist=persist)
+
+
+@router.get("/macro/forecast/dashboard")
+async def mfi_dashboard():
+    from macroeconomic_forecast_intelligence.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/macro/forecast/history")
+async def mfi_history(limit: int = Query(20, ge=1, le=100), country: str = Query("India")):
+    from macroeconomic_forecast_intelligence.production import history
+
+    return history(country=country, limit=limit)
+
+
+@router.post("/macro/forecast/run")
+async def mfi_run(payload: dict[str, Any] = Body(default={})):
+    """Ops / scheduler only — never called by Ask."""
+    from macroeconomic_forecast_intelligence.production import run
+
+    return run(
+        country=str(payload.get("country") or "India"),
+        region=str(payload.get("region") or "India"),
+    )
+
+
+@router.get("/macro/forecast")
+async def mfi_forecast(country: str = Query("India")):
+    from macroeconomic_forecast_intelligence.production import forecast
+
+    return forecast(country=country)
+
+
+@router.get("/macro/scenarios")
+async def mfi_scenarios(country: str = Query("India")):
+    from macroeconomic_forecast_intelligence.production import scenarios
+
+    return scenarios(country=country)
+
+
+@router.get("/macro/probability")
+async def mfi_probability(country: str = Query("India")):
+    from macroeconomic_forecast_intelligence.production import probability
+
+    return probability(country=country)
+
+
+@router.get("/admin/macro-forecast", response_class=HTMLResponse)
+async def admin_mfi():
+    from macroeconomic_forecast_intelligence.production import dashboard
+
+    board = dashboard()
+    dist = board.get("probability_distribution") or {}
+    conf = board.get("confidence") or {}
+    rows = "".join(
+        f"<tr><td>{s.get('scenario')}</td><td>{s.get('probability_pct')}</td>"
+        f"<td>{s.get('confidence_pct')}</td><td>{s.get('gdp')}</td>"
+        f"<td>{s.get('inflation')}</td><td>{s.get('repo_rate')}</td></tr>"
+        for s in (board.get("bull_base_bear_scenarios") or [])
+    )
+    html = f"""<!doctype html><html><head><title>Macro Forecast Intelligence</title></head>
+    <body style="font-family:system-ui;max-width:1100px;margin:2rem auto">
+    <h1>Macro Forecast Intelligence — MFI</h1>
+    <p>Evidence-based Bull/Base/Bear. AGI-owned knowledge only. No single-path prediction.</p>
+    <pre>{board.get('principles')}</pre>
+    <h2>Current macro regime</h2>
+    <pre>{board.get('current_macro_regime')}</pre>
+    <h2>Probability distribution</h2>
+    <pre>{dist}</pre>
+    <h2>Confidence</h2>
+    <pre>{conf}</pre>
+    <h2>Bull / Base / Bear</h2>
+    <table border="1" cellpadding="6">
+    <tr><th>Scenario</th><th>Prob %</th><th>Conf %</th><th>GDP</th><th>CPI</th><th>Repo</th></tr>
+    {rows or '<tr><td colspan=6>Run POST /v1/macro/forecast/run</td></tr>'}
+    </table>
+    <h2>Sector impact matrix</h2>
+    <pre>{board.get('sector_impact_matrix')}</pre>
+    <h2>Company impact matrix</h2>
+    <pre>{board.get('company_impact_matrix')}</pre>
+    <h2>Key catalysts</h2>
+    <pre>{board.get('key_macro_catalysts')}</pre>
+    <h2>Upcoming events</h2>
+    <pre>{board.get('upcoming_macro_events')}</pre>
+    <h2>Forecast history</h2>
+    <pre>{board.get('forecast_history')}</pre>
+    </body></html>"""
+    return HTMLResponse(html)
+
+
+# --- Continuous Sector Knowledge Platform (CSKP) Sprint 11.1 ---
+# Event-driven derived sector knowledge. Ask never constructs or collects.
+
+
+@router.get("/cskp/health")
+async def cskp_health():
+    from continuous_sector_knowledge.production import health
+
+    return health()
+
+
+@router.get("/sector/dashboard")
+async def cskp_dashboard():
+    from continuous_sector_knowledge.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/sector/leaders")
+async def cskp_leaders(limit: int = Query(50, ge=1, le=200)):
+    from continuous_sector_knowledge.production import leaders
+
+    return leaders(limit=limit)
+
+
+@router.get("/sector/comparison")
+async def cskp_comparison(sectors: str | None = None):
+    from continuous_sector_knowledge.production import comparison
+
+    keys = [s.strip() for s in sectors.split(",")] if sectors else None
+    return comparison(sectors=keys)
+
+
+@router.get("/sector/calendar")
+async def cskp_calendar(limit: int = Query(50, ge=1, le=200)):
+    from continuous_sector_knowledge.production import calendar
+
+    return calendar(limit=limit)
+
+
+# --- Historical Sector Intelligence Platform (HSIP) Sprint 11.2 ---
+# Immutable historical sector memory. Ask never collects.
+
+
+@router.get("/hsip/health")
+async def hsip_health():
+    from historical_sector_intelligence.production import health
+
+    return health()
+
+
+@router.get("/sector/history")
+async def hsip_history(
+    limit: int = Query(200, ge=1, le=1000),
+    sector: str | None = None,
+):
+    from historical_sector_intelligence.production import history
+
+    return history(limit=limit, sector=sector)
+
+
+@router.get("/sector/history/timeline")
+async def hsip_timeline(
+    sector: str | None = None,
+    indicator: str | None = None,
+):
+    from historical_sector_intelligence.production import timeline
+
+    return timeline(sector=sector, indicator=indicator)
+
+
+@router.get("/sector/history/search")
+async def hsip_search(
+    q: str | None = None,
+    category: str | None = None,
+    sector: str | None = None,
+    namespace: str | None = None,
+    limit: int = Query(100, ge=1, le=500),
+):
+    from historical_sector_intelligence.production import search
+
+    return search(q=q, category=category, sector=sector, namespace=namespace, limit=limit)
+
+
+@router.get("/sector/history/events")
+async def hsip_events(
+    sector: str | None = None,
+    limit: int = Query(100, ge=1, le=500),
+):
+    from historical_sector_intelligence.production import events
+
+    return events(sector=sector, limit=limit)
+
+
+@router.get("/sector/history/dashboard")
+async def hsip_dashboard():
+    from historical_sector_intelligence.production import dashboard
+
+    return dashboard()
+
+
+@router.post("/sector/history/run")
+async def hsip_run(payload: dict[str, Any] = Body(default={})):
+    """Ops / scheduler only — never called by Ask."""
+    from historical_sector_intelligence.production import run
+
+    sources = payload.get("sources")
+    if isinstance(sources, str):
+        sources = [s.strip() for s in sources.split(",") if s.strip()]
+    return run(sources=sources if isinstance(sources, list) else None)
+
+
+@router.get("/sector/history/{sector}")
+async def hsip_sector(sector: str, limit: int = Query(300, ge=1, le=1000)):
+    from historical_sector_intelligence.production import sector as get_sector
+
+    return get_sector(sector, limit=limit)
+
+
+@router.get("/admin/historical-sector", response_class=HTMLResponse)
+async def admin_hsip():
+    from historical_sector_intelligence.production import dashboard
+
+    board = dashboard()
+    cov = board.get("historical_coverage") or {}
+    tl = board.get("timeline_completeness") or {}
+    rows = "".join(
+        f"<tr><td>{e.get('sector')}</td><td>{e.get('period')}</td>"
+        f"<td>{e.get('events')}</td></tr>"
+        for e in (board.get("historical_events") or [])[:20]
+    )
+    html = f"""<!doctype html><html><head><title>Historical Sector</title></head>
+    <body style="font-family:system-ui;max-width:1100px;margin:2rem auto">
+    <h1>Historical Sector Intelligence — HSIP</h1>
+    <p>Immutable institutional sector memory. Ask never fetches.</p>
+    <pre>{board.get('principles')}</pre>
+    <h2>Historical coverage</h2>
+    <pre>{cov}</pre>
+    <h2>Years available</h2>
+    <pre>{board.get('years_available')}</pre>
+    <h2>Timeline completeness</h2>
+    <pre>{tl}</pre>
+    <h2>Historical events</h2>
+    <table border="1" cellpadding="6">
+    <tr><th>Sector</th><th>Period</th><th>Events</th></tr>
+    {rows or '<tr><td colspan=3>Run POST /v1/sector/history/run</td></tr>'}
+    </table>
+    <h2>Policy history</h2>
+    <pre>{board.get('policy_history')}</pre>
+    <h2>Valuation history</h2>
+    <pre>{board.get('valuation_history')}</pre>
+    <h2>Missing periods</h2>
+    <pre>{board.get('missing_periods')}</pre>
+    <h2>Data quality</h2>
+    <pre>{board.get('data_quality')}</pre>
+    </body></html>"""
+    return HTMLResponse(html)
+
+
+# --- Sector Relationship Intelligence (SRI) Sprint 11.3 ---
+# Evidence-backed sector relationship graph. Ask never collects or rebuilds.
+
+
+@router.get("/sri/health")
+async def sri_health():
+    from sector_relationship_intelligence.production import health
+
+    return health()
+
+
+@router.get("/sector/relationships")
+async def sri_relationships(limit: int = Query(200, ge=1, le=1000)):
+    from sector_relationship_intelligence.production import relationships
+
+    return relationships(limit=limit)
+
+
+@router.get("/sector/relationships/graph")
+async def sri_graph(
+    start: str | None = None,
+    end: str | None = None,
+):
+    from sector_relationship_intelligence.production import graph
+
+    return graph(start=start, end=end)
+
+
+@router.get("/sector/relationships/search")
+async def sri_search(
+    q: str | None = None,
+    kind: str | None = None,
+    source: str | None = None,
+    target: str | None = None,
+    limit: int = Query(100, ge=1, le=500),
+):
+    from sector_relationship_intelligence.production import search
+
+    return search(q=q, kind=kind, source=source, target=target, limit=limit)
+
+
+@router.get("/sector/relationships/dashboard")
+async def sri_dashboard():
+    from sector_relationship_intelligence.production import dashboard
+
+    return dashboard()
+
+
+@router.post("/sector/relationships/run")
+async def sri_run(payload: dict[str, Any] = Body(default={})):
+    """Ops / scheduler only — never called by Ask."""
+    from sector_relationship_intelligence.production import run
+
+    return run(
+        enrich_hsip=bool(payload.get("enrich_hsip", True)),
+        enrich_hmip=bool(payload.get("enrich_hmip", True)),
+        enrich_mri=bool(payload.get("enrich_mri", True)),
+    )
+
+
+@router.get("/sector/relationships/company/{ticker}")
+async def sri_company(ticker: str, limit: int = Query(100, ge=1, le=500)):
+    from sector_relationship_intelligence.production import for_company
+
+    return for_company(ticker, limit=limit)
+
+
+@router.get("/sector/relationships/{sector}")
+async def sri_sector(sector: str, limit: int = Query(100, ge=1, le=500)):
+    from sector_relationship_intelligence.production import for_sector
+
+    return for_sector(sector, limit=limit)
+
+
+@router.get("/admin/sector-relationships", response_class=HTMLResponse)
+async def admin_sri():
+    from sector_relationship_intelligence.production import dashboard
+
+    board = dashboard()
+    dist = board.get("confidence_distribution") or {}
+    rows = "".join(
+        f"<tr><td>{r.get('source')}</td><td>{r.get('target')}</td>"
+        f"<td>{r.get('relationship')}</td><td>{r.get('confidence_pct')}</td>"
+        f"<td>{r.get('average_lag')}</td><td>{r.get('kind')}</td></tr>"
+        for r in (board.get("recently_validated_relationships") or [])
+    )
+    html = f"""<!doctype html><html><head><title>Sector Relationship Intelligence</title></head>
+    <body style="font-family:system-ui;max-width:1100px;margin:2rem auto">
+    <h1>Sector Relationship Intelligence — SRI</h1>
+    <p>Evidence-backed only. Versioned graph. Ask never fetches.</p>
+    <pre>{board.get('principles')}</pre>
+    <p>Total: {board.get('total_relationships')} · Active: {board.get('active_relationships')} ·
+    High confidence: {board.get('high_confidence')} · Distribution: {dist}</p>
+    <h2>Coverage by sector</h2>
+    <pre>{board.get('relationship_coverage_by_sector')}</pre>
+    <h2>Freshness</h2>
+    <pre>{board.get('relationship_freshness')}</pre>
+    <h2>Recently validated</h2>
+    <table border="1" cellpadding="6">
+    <tr><th>Source</th><th>Target</th><th>Relationship</th><th>Confidence</th><th>Lag</th><th>Kind</th></tr>
+    {rows or '<tr><td colspan=6>Run POST /v1/sector/relationships/run</td></tr>'}
+    </table>
+    <h2>Validation failures</h2>
+    <pre>{board.get('validation_failures')}</pre>
+    <h2>By kind</h2>
+    <pre>{board.get('by_kind')}</pre>
+    </body></html>"""
+    return HTMLResponse(html)
+
+
+# --- Historical Sector Analogue Intelligence (HSAI) Sprint 11.4 ---
+# Deterministic, explainable historical sector regime analogues. Ask never collects.
+
+
+@router.get("/hsai/health")
+async def hsai_health():
+    from historical_sector_analogue_intelligence.production import health
+
+    return health()
+
+
+@router.get("/sector/analogues")
+async def hsai_analogues(
+    sector: str | None = None,
+    limit: int = Query(20, ge=1, le=200),
+):
+    from historical_sector_analogue_intelligence.production import analogues
+
+    return analogues(sector=sector, limit=limit)
+
+
+@router.get("/sector/analogues/search")
+async def hsai_search(
+    q: str | None = None,
+    question: str | None = None,
+    sector: str | None = None,
+    target_period: str | None = None,
+    top_k: int = Query(5, ge=1, le=20),
+    min_score: float = Query(0.0, ge=0.0, le=100.0),
+):
+    from historical_sector_analogue_intelligence.production import search
+
+    return search(
+        sector=sector,
+        question=question or q,
+        target_period=target_period,
+        top_k=top_k,
+        min_score=min_score,
+    )
+
+
+@router.get("/sector/analogues/dashboard")
+async def hsai_dashboard():
+    from historical_sector_analogue_intelligence.production import dashboard
+
+    return dashboard()
+
+
+@router.post("/sector/analogues/run")
+async def hsai_run(payload: dict[str, Any] = Body(default={})):
+    """Ops / scheduler only — never called by Ask."""
+    from historical_sector_analogue_intelligence.production import run
+
+    return run(
+        sector=payload.get("sector"),
+        enrich_hsip=bool(payload.get("enrich_hsip", True)),
+        enrich_cskp=bool(payload.get("enrich_cskp", True)),
+        top_k=int(payload.get("top_k", 10)),
+    )
+
+
+@router.get("/sector/analogues/{sector}")
+async def hsai_sector(sector: str, limit: int = Query(20, ge=1, le=200)):
+    from historical_sector_analogue_intelligence.production import analogues_for_sector
+
+    return analogues_for_sector(sector, limit=limit)
+
+
+@router.get("/sector/regime/current")
+async def hsai_regime_current(sector: str = Query("Banking")):
+    from historical_sector_analogue_intelligence.production import current_regime
+
+    return current_regime(sector=sector)
+
+
+@router.get("/sector/regime/history")
+async def hsai_regime_history(
+    sector: str = Query("Banking"),
+    limit: int = Query(50, ge=1, le=200),
+):
+    from historical_sector_analogue_intelligence.production import regime_history
+
+    return regime_history(sector=sector, limit=limit)
+
+
+@router.get("/admin/sector-analogues", response_class=HTMLResponse)
+async def admin_hsai():
+    from historical_sector_analogue_intelligence.production import dashboard
+
+    board = dashboard()
+    dist = board.get("similarity_distribution") or {}
+    rows = "".join(
+        f"<tr><td>{r.get('sector')}</td><td>{r.get('matched_period')}</td>"
+        f"<td>{r.get('matched_label')}</td><td>{r.get('similarity_score')}</td>"
+        f"<td>{r.get('confidence')}</td></tr>"
+        for r in (board.get("top_analogue_matches") or [])
+    )
+    html = f"""<!doctype html><html><head><title>Historical Sector Analogue</title></head>
+    <body style="font-family:system-ui;max-width:1100px;margin:2rem auto">
+    <h1>Historical Sector Analogue Intelligence — HSAI</h1>
+    <p>Deterministic similarity. Evidence-linked. Ask never fetches.</p>
+    <pre>{board.get('principles')}</pre>
+    <h2>Current sector regime</h2>
+    <pre>{board.get('current_sector_regime')}</pre>
+    <p>Similarity distribution: {dist} · Confidence: {board.get('confidence_distribution')}</p>
+    <h2>Coverage by sector</h2>
+    <pre>{board.get('coverage_by_sector')}</pre>
+    <h2>Top analogue matches</h2>
+    <table border="1" cellpadding="6">
+    <tr><th>Sector</th><th>Period</th><th>Label</th><th>Similarity</th><th>Confidence</th></tr>
+    {rows or '<tr><td colspan=5>Run POST /v1/sector/analogues/run</td></tr>'}
+    </table>
+    <h2>Historical coverage</h2>
+    <pre>{board.get('historical_coverage')}</pre>
+    <h2>Freshness</h2>
+    <pre>{board.get('analogue_freshness')}</pre>
+    </body></html>"""
+    return HTMLResponse(html)
+
+
+# --- Sector Forecast Intelligence (SFI) Sprint 11.5 ---
+# Evidence-based Bull/Base/Bear sector scenarios. Ask never collects. Inherits MFI.
+
+
+@router.get("/sfi/health")
+async def sfi_health():
+    from sector_forecast_intelligence.production import health
+
+    return health()
+
+
+@router.get("/sector/forecast")
+async def sfi_forecast_all(limit: int = Query(20, ge=1, le=50)):
+    from sector_forecast_intelligence.production import forecast_all
+
+    return forecast_all(limit=limit)
+
+
+@router.get("/sector/forecast/report")
+async def sfi_report(
+    sector: str = Query("Banking"),
+    persist: bool = Query(False),
+):
+    from sector_forecast_intelligence.production import report
+
+    return report(sector=sector, persist=persist)
+
+
+@router.get("/sector/forecast/dashboard")
+async def sfi_dashboard():
+    from sector_forecast_intelligence.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/sector/forecast/history")
+async def sfi_history(
+    sector: str | None = None,
+    limit: int = Query(20, ge=1, le=100),
+):
+    from sector_forecast_intelligence.production import history
+
+    return history(sector=sector, limit=limit)
+
+
+@router.post("/sector/forecast/run")
+async def sfi_run(payload: dict[str, Any] = Body(default={})):
+    """Ops / scheduler only — never called by Ask."""
+    from sector_forecast_intelligence.production import run
+
+    return run(sector=payload.get("sector"), country=payload.get("country") or "India")
+
+
+@router.get("/sector/forecast/{sector}")
+async def sfi_forecast_sector(sector: str):
+    from sector_forecast_intelligence.production import forecast
+
+    return forecast(sector=sector)
+
+
+@router.get("/sector/scenarios")
+async def sfi_scenarios(sector: str = Query("Banking")):
+    from sector_forecast_intelligence.production import scenarios
+
+    return scenarios(sector=sector)
+
+
+@router.get("/sector/probability")
+async def sfi_probability(sector: str = Query("Banking")):
+    from sector_forecast_intelligence.production import probability
+
+    return probability(sector=sector)
+
+
+@router.get("/admin/sector-forecast", response_class=HTMLResponse)
+async def admin_sfi():
+    from sector_forecast_intelligence.production import dashboard
+
+    board = dashboard()
+    dist = board.get("probability_distribution") or {}
+    rows = "".join(
+        f"<tr><td>{s.get('scenario')}</td><td>{s.get('probability_pct')}</td>"
+        f"<td>{s.get('confidence_pct')}</td><td>{s.get('revenue_growth')}</td>"
+        f"<td>{s.get('expected_relative_performance')}</td></tr>"
+        for s in (board.get("bull_base_bear_scenarios") or [])
+    )
+    html = f"""<!doctype html><html><head><title>Sector Forecast Intelligence</title></head>
+    <body style="font-family:system-ui;max-width:1100px;margin:2rem auto">
+    <h1>Sector Forecast Intelligence — SFI</h1>
+    <p>Bull/Base/Bear pathways. AGI-owned knowledge only. Ask never fetches. Inherits MFI.</p>
+    <pre>{board.get('principles')}</pre>
+    <h2>Current sector outlook</h2>
+    <pre>{board.get('current_sector_outlook')}</pre>
+    <p>Probability: {dist} · Confidence: {board.get('confidence')}</p>
+    <h2>Bull / Base / Bear</h2>
+    <table border="1" cellpadding="6">
+    <tr><th>Scenario</th><th>Probability</th><th>Confidence</th><th>Rev Growth</th><th>Rel Perf</th></tr>
+    {rows or '<tr><td colspan=5>Run POST /v1/sector/forecast/run</td></tr>'}
+    </table>
+    <h2>Key catalysts</h2>
+    <pre>{board.get('key_catalysts')}</pre>
+    <h2>Major risks</h2>
+    <pre>{board.get('major_risks')}</pre>
+    <h2>Company impacts</h2>
+    <pre>{board.get('company_impact_summaries')}</pre>
+    <h2>Macro inheritance</h2>
+    <pre>{board.get('macro_inheritance')}</pre>
+    </body></html>"""
+    return HTMLResponse(html)
+
+
+# --- Continuous Market Knowledge Platform (CMKTP) Sprint 12.1 ---
+# Institutional Market Knowledge Objects. Not a market data service. Ask never collects.
+
+
+@router.get("/cmktp/health")
+async def cmktp_health():
+    from continuous_market_knowledge.production import health
+
+    return health()
+
+
+@router.get("/market/dashboard")
+async def cmktp_dashboard():
+    from continuous_market_knowledge.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/market/regime")
+async def cmktp_regime():
+    from continuous_market_knowledge.production import regime
+
+    return regime()
+
+
+@router.get("/market/breadth")
+async def cmktp_breadth():
+    from continuous_market_knowledge.production import breadth
+
+    return breadth()
+
+
+@router.get("/market/liquidity")
+async def cmktp_liquidity():
+    from continuous_market_knowledge.production import liquidity
+
+    return liquidity()
+
+
+@router.get("/market/leadership")
+async def cmktp_leadership():
+    from continuous_market_knowledge.production import leadership
+
+    return leadership()
+
+
+@router.get("/market/flows")
+async def cmktp_flows():
+    from continuous_market_knowledge.production import flows
+
+    return flows()
+
+
+@router.get("/market/volatility")
+async def cmktp_volatility():
+    from continuous_market_knowledge.production import volatility
+
+    return volatility()
+
+
+@router.get("/market/health")
+async def cmktp_market_health():
+    from continuous_market_knowledge.production import market_health
+
+    return market_health()
+
+
+@router.post("/market/run")
+async def cmktp_run(payload: dict[str, Any] = Body(default={})):
+    """Ops / event-driven only — never called by Ask."""
+    from continuous_market_knowledge.production import run
+
+    domains = payload.get("domains")
+    if isinstance(domains, str):
+        domains = [d.strip() for d in domains.split(",") if d.strip()]
+    return run(
+        domains=domains if isinstance(domains, list) else None,
+        trigger=payload.get("trigger"),
+    )
+
+
+@router.get("/market")
+async def cmktp_market():
+    from continuous_market_knowledge.production import market
+
+    return market()
+
+
+@router.get("/admin/market-operations", response_class=HTMLResponse)
+async def admin_cmktp():
+    from continuous_market_knowledge.production import dashboard
+
+    board = dashboard()
+    html = f"""<!doctype html><html><head><title>Market Intelligence Operations</title></head>
+    <body style="font-family:system-ui;max-width:1100px;margin:2rem auto">
+    <h1>Market Intelligence Operations — CMKTP</h1>
+    <p>Not a market data service. Higher-order knowledge only. Ask never fetches.</p>
+    <pre>{board.get('principles')}</pre>
+    <h2>Current market regime</h2>
+    <pre>{board.get('current_market_regime')}</pre>
+    <h2>Market health score</h2>
+    <pre>{board.get('market_health_score')}</pre>
+    <h2>Breadth</h2>
+    <pre>{board.get('breadth_dashboard')}</pre>
+    <h2>Liquidity</h2>
+    <pre>{board.get('liquidity_dashboard')}</pre>
+    <h2>Institutional flows</h2>
+    <pre>{board.get('institutional_flows')}</pre>
+    <h2>Sector leadership</h2>
+    <pre>{board.get('sector_leadership')}</pre>
+    <h2>Cross-asset</h2>
+    <pre>{board.get('cross_asset_dashboard')}</pre>
+    <h2>Risk sentiment</h2>
+    <pre>{board.get('risk_sentiment')}</pre>
+    <h2>Latest material events</h2>
+    <pre>{board.get('latest_material_events')}</pre>
+    <h2>Knowledge freshness</h2>
+    <pre>{board.get('knowledge_freshness')}</pre>
+    <h2>Collection / publication</h2>
+    <pre>{board.get('collection_status')}</pre>
+    <pre>{board.get('publication_status')}</pre>
+    </body></html>"""
+    return HTMLResponse(html)
+
+
+# --- Historical Market Intelligence Platform (HMKIP) Sprint 12.2 ---
+# Immutable Historical Market Knowledge Objects. Ask never collects.
+# Programme short HMKIP avoids collision with Historical Macro Intelligence (HMIP).
+
+
+@router.get("/hmkip/health")
+async def hmkip_health():
+    from historical_market_intelligence.production import health
+
+    return health()
+
+
+@router.get("/market/history")
+async def hmkip_history(
+    limit: int = Query(200, ge=1, le=2000),
+    market: str | None = Query(None),
+):
+    from historical_market_intelligence.production import history
+
+    return history(limit=limit, market=market)
+
+
+@router.get("/market/history/timeline")
+async def hmkip_timeline(
+    market: str | None = Query(None),
+    indicator: str | None = Query(None),
+):
+    from historical_market_intelligence.production import timeline
+
+    return timeline(market=market, indicator=indicator)
+
+
+@router.get("/market/history/regimes")
+async def hmkip_regimes(
+    market: str | None = Query(None),
+    limit: int = Query(100, ge=1, le=1000),
+):
+    from historical_market_intelligence.production import regimes
+
+    return regimes(market=market, limit=limit)
+
+
+@router.get("/market/history/breadth")
+async def hmkip_breadth(
+    market: str | None = Query(None),
+    limit: int = Query(100, ge=1, le=1000),
+):
+    from historical_market_intelligence.production import breadth
+
+    return breadth(market=market, limit=limit)
+
+
+@router.get("/market/history/liquidity")
+async def hmkip_liquidity(
+    market: str | None = Query(None),
+    limit: int = Query(100, ge=1, le=1000),
+):
+    from historical_market_intelligence.production import liquidity
+
+    return liquidity(market=market, limit=limit)
+
+
+@router.get("/market/history/volatility")
+async def hmkip_volatility(
+    market: str | None = Query(None),
+    limit: int = Query(100, ge=1, le=1000),
+):
+    from historical_market_intelligence.production import volatility
+
+    return volatility(market=market, limit=limit)
+
+
+@router.get("/market/history/flows")
+async def hmkip_flows(
+    market: str | None = Query(None),
+    limit: int = Query(100, ge=1, le=1000),
+):
+    from historical_market_intelligence.production import flows
+
+    return flows(market=market, limit=limit)
+
+
+@router.get("/market/history/search")
+async def hmkip_search(
+    q: str | None = Query(None),
+    category: str | None = Query(None),
+    market: str | None = Query(None),
+    namespace: str | None = Query(None),
+    limit: int = Query(100, ge=1, le=1000),
+):
+    from historical_market_intelligence.production import search
+
+    return search(q=q, category=category, market=market, namespace=namespace, limit=limit)
+
+
+@router.post("/market/history/run")
+async def hmkip_run(payload: dict[str, Any] = Body(default={})):
+    """Ops / backfill only — never called by Ask."""
+    from historical_market_intelligence.production import run
+
+    sources = payload.get("sources")
+    if isinstance(sources, str):
+        sources = [s.strip() for s in sources.split(",") if s.strip()]
+    markets = payload.get("markets")
+    if isinstance(markets, str):
+        markets = [m.strip() for m in markets.split(",") if m.strip()]
+    return run(
+        sources=sources if isinstance(sources, list) else None,
+        markets=markets if isinstance(markets, list) else None,
+    )
+
+
+@router.get("/market/history/{market}")
+async def hmkip_market(market: str, limit: int = Query(300, ge=1, le=1000)):
+    from historical_market_intelligence.production import market as get_market
+
+    return get_market(market, limit=limit)
+
+
+@router.get("/admin/historical-market", response_class=HTMLResponse)
+async def admin_hmkip():
+    from historical_market_intelligence.production import dashboard
+
+    board = dashboard()
+    rows = "".join(
+        f"<tr><td>{r.get('market')}</td><td>{r.get('indicator')}</td>"
+        f"<td>{r.get('completeness_pct')}</td></tr>"
+        for r in ((board.get("timeline_completeness") or {}).get("sample") or [])
+    )
+    html = f"""<!doctype html><html><head><title>Historical Market Operations</title></head>
+    <body style="font-family:system-ui;max-width:1100px;margin:2rem auto">
+    <h1>Historical Market Intelligence — HMKIP</h1>
+    <p>Immutable institutional market memory. Ask never fetches. No external providers on read.</p>
+    <pre>{board.get('principles')}</pre>
+    <h2>Historical coverage</h2>
+    <pre>{board.get('historical_coverage')}</pre>
+    <h2>Timeline completeness</h2>
+    <table border=1 cellpadding=6><tr><th>Market</th><th>Indicator</th><th>Completeness %</th></tr>
+    {rows or '<tr><td colspan=3>Run POST /v1/market/history/run</td></tr>'}
+    </table>
+    <h2>Regime history</h2>
+    <pre>{board.get('regime_history')}</pre>
+    <h2>Breadth / Liquidity / Volatility / Flows</h2>
+    <pre>{board.get('breadth_history')}</pre>
+    <pre>{board.get('liquidity_history')}</pre>
+    <pre>{board.get('volatility_history')}</pre>
+    <pre>{board.get('flow_history')}</pre>
+    <h2>Cross-asset</h2>
+    <pre>{board.get('cross_asset_history')}</pre>
+    <h2>Missing periods</h2>
+    <pre>{board.get('missing_periods')}</pre>
+    <h2>Data quality / freshness</h2>
+    <pre>{board.get('data_quality')}</pre>
+    <pre>{board.get('knowledge_freshness')}</pre>
+    </body></html>"""
+    return HTMLResponse(html)
+
+
+# --- Market Relationship Intelligence (MKRI) Sprint 12.3 ---
+# Evidence-backed market relationship graph. Ask never collects or rebuilds.
+# Programme short MKRI avoids collision with Macroeconomic Relationship Intelligence (MRI).
+
+
+@router.get("/mkri/health")
+async def mkri_health():
+    from market_relationship_intelligence.production import health
+
+    return health()
+
+
+@router.get("/market/relationships")
+async def mkri_relationships(limit: int = Query(200, ge=1, le=1000)):
+    from market_relationship_intelligence.production import relationships
+
+    return relationships(limit=limit)
+
+
+@router.get("/market/relationships/graph")
+async def mkri_graph(
+    start: str | None = None,
+    end: str | None = None,
+):
+    from market_relationship_intelligence.production import graph
+
+    return graph(start=start, end=end)
+
+
+@router.get("/market/relationships/search")
+async def mkri_search(
+    q: str | None = None,
+    kind: str | None = None,
+    source: str | None = None,
+    target: str | None = None,
+    limit: int = Query(100, ge=1, le=500),
+):
+    from market_relationship_intelligence.production import search
+
+    return search(q=q, kind=kind, source=source, target=target, limit=limit)
+
+
+@router.get("/market/relationships/dashboard")
+async def mkri_dashboard():
+    from market_relationship_intelligence.production import dashboard
+
+    return dashboard()
+
+
+@router.post("/market/relationships/run")
+async def mkri_run(payload: dict[str, Any] = Body(default={})):
+    """Ops / scheduler only — never called by Ask."""
+    from market_relationship_intelligence.production import run
+
+    return run(
+        enrich_hmkip=bool(payload.get("enrich_hmkip", True)),
+        enrich_hmip=bool(payload.get("enrich_hmip", True)),
+        enrich_hsip=bool(payload.get("enrich_hsip", True)),
+        enrich_macro_mri=bool(payload.get("enrich_macro_mri", True)),
+    )
+
+
+@router.get("/market/relationships/sector/{sector}")
+async def mkri_sector(sector: str, limit: int = Query(100, ge=1, le=500)):
+    from market_relationship_intelligence.production import for_sector
+
+    return for_sector(sector, limit=limit)
+
+
+@router.get("/market/relationships/company/{ticker}")
+async def mkri_company(ticker: str, limit: int = Query(100, ge=1, le=500)):
+    from market_relationship_intelligence.production import for_company
+
+    return for_company(ticker, limit=limit)
+
+
+@router.get("/market/relationships/{indicator}")
+async def mkri_indicator(indicator: str, limit: int = Query(100, ge=1, le=500)):
+    from market_relationship_intelligence.production import for_indicator
+
+    return for_indicator(indicator, limit=limit)
+
+
+@router.get("/admin/market-relationships", response_class=HTMLResponse)
+async def admin_mkri():
+    from market_relationship_intelligence.production import dashboard
+
+    board = dashboard()
+    dist = board.get("confidence_distribution") or {}
+    rows = "".join(
+        f"<tr><td>{r.get('source')}</td><td>{r.get('target')}</td>"
+        f"<td>{r.get('relationship')}</td><td>{r.get('confidence_pct')}</td>"
+        f"<td>{r.get('average_lag')}</td><td>{r.get('kind')}</td></tr>"
+        for r in (board.get("recently_validated_relationships") or [])
+    )
+    html = f"""<!doctype html><html><head><title>Market Relationship Intelligence</title></head>
+    <body style="font-family:system-ui;max-width:1100px;margin:2rem auto">
+    <h1>Market Relationship Intelligence — MKRI</h1>
+    <p>Evidence-backed only. Versioned graph. Ask never fetches. (Short MKRI avoids Macro MRI.)</p>
+    <pre>{board.get('principles')}</pre>
+    <p>Total: {board.get('total_relationships')} · Active: {board.get('active_relationships')} ·
+    High confidence: {board.get('high_confidence')} · Distribution: {dist}</p>
+    <h2>Coverage</h2>
+    <pre>{board.get('relationship_coverage')}</pre>
+    <h2>Graph health</h2>
+    <pre>{board.get('graph_health')}</pre>
+    <h2>Freshness</h2>
+    <pre>{board.get('relationship_freshness')}</pre>
+    <h2>Recently validated</h2>
+    <table border="1" cellpadding="6">
+    <tr><th>Source</th><th>Target</th><th>Relationship</th><th>Confidence</th><th>Lag</th><th>Kind</th></tr>
+    {rows or '<tr><td colspan=6>Run POST /v1/market/relationships/run</td></tr>'}
+    </table>
+    <h2>Validation failures</h2>
+    <pre>{board.get('validation_failures')}</pre>
+    <h2>By kind</h2>
+    <pre>{board.get('by_kind')}</pre>
+    </body></html>"""
+    return HTMLResponse(html)
+
+
+# --- Historical Market Analogue Intelligence (HMKAI) Sprint 12.4 ---
+# Deterministic market analogues. Ask never rebuilds catalogues.
+# Programme short HMKAI avoids collision with Historical Macro Analogue Intelligence (HMAI).
+
+
+@router.get("/hmkai/health")
+async def hmkai_health():
+    from historical_market_analogue_intelligence.production import health
+
+    return health()
+
+
+@router.get("/market/analogues")
+async def hmkai_analogues(
+    market: str | None = Query(None),
+    limit: int = Query(20, ge=1, le=200),
+):
+    from historical_market_analogue_intelligence.production import analogues
+
+    return analogues(market=market, limit=limit)
+
+
+@router.get("/market/analogues/search")
+async def hmkai_search(
+    market: str | None = Query(None),
+    question: str | None = Query(None),
+    target_period: str | None = Query(None),
+    top_k: int = Query(5, ge=1, le=50),
+):
+    from historical_market_analogue_intelligence.production import search
+
+    return search(market=market, question=question, target_period=target_period, top_k=top_k)
+
+
+@router.get("/market/analogues/report")
+async def hmkai_report(
+    market: str = Query("India"),
+    top_k: int = Query(5, ge=1, le=50),
+):
+    from historical_market_analogue_intelligence.production import report
+
+    return report(market=market, top_k=top_k)
+
+
+@router.get("/market/analogues/dashboard")
+async def hmkai_dashboard():
+    from historical_market_analogue_intelligence.production import dashboard
+
+    return dashboard()
+
+
+@router.post("/market/analogues/run")
+async def hmkai_run(payload: dict[str, Any] = Body(default={})):
+    """Ops / scheduler only — never called by Ask."""
+    from historical_market_analogue_intelligence.production import run
+
+    return run(
+        market=payload.get("market"),
+        enrich_hmkip=bool(payload.get("enrich_hmkip", True)),
+        enrich_cmktp=bool(payload.get("enrich_cmktp", True)),
+        top_k=int(payload.get("top_k") or 10),
+    )
+
+
+@router.get("/market/regime/current")
+async def hmkai_regime_current(market: str = Query("India")):
+    from historical_market_analogue_intelligence.production import current_regime
+
+    return current_regime(market=market)
+
+
+@router.get("/market/regime/history")
+async def hmkai_regime_history(
+    market: str = Query("India"),
+    limit: int = Query(50, ge=1, le=200),
+):
+    from historical_market_analogue_intelligence.production import regime_history
+
+    return regime_history(market=market, limit=limit)
+
+
+@router.get("/market/analogues/{market}")
+async def hmkai_market(market: str, limit: int = Query(20, ge=1, le=200)):
+    from historical_market_analogue_intelligence.production import analogues_for_market
+
+    return analogues_for_market(market, limit=limit)
+
+
+@router.get("/admin/historical-market-analogues", response_class=HTMLResponse)
+async def admin_hmkai():
+    from historical_market_analogue_intelligence.production import dashboard
+
+    board = dashboard()
+    rows = "".join(
+        f"<tr><td>{r.get('matched_period')}</td><td>{r.get('matched_label')}</td>"
+        f"<td>{r.get('similarity_score')}</td><td>{r.get('confidence')}</td>"
+        f"<td>{', '.join(r.get('matching_dimensions') or [])}</td></tr>"
+        for r in (board.get("top_analogue_matches") or [])
+    )
+    html = f"""<!doctype html><html><head><title>Historical Market Analogues</title></head>
+    <body style="font-family:system-ui;max-width:1100px;margin:2rem auto">
+    <h1>Historical Market Analogue Intelligence — HMKAI</h1>
+    <p>Deterministic similarity. Explainable scores. Ask never fetches. (Short HMKAI avoids Macro HMAI.)</p>
+    <pre>{board.get('principles')}</pre>
+    <h2>Current market regime</h2>
+    <pre>{board.get('current_market_regime')}</pre>
+    <h2>Top analogue matches</h2>
+    <table border="1" cellpadding="6">
+    <tr><th>Period</th><th>Label</th><th>Similarity</th><th>Confidence</th><th>Matching dims</th></tr>
+    {rows or '<tr><td colspan=5>Run POST /v1/market/analogues/run</td></tr>'}
+    </table>
+    <h2>Similarity / confidence</h2>
+    <pre>{board.get('similarity_distribution')}</pre>
+    <pre>{board.get('confidence_distribution')}</pre>
+    <h2>Historical outcomes</h2>
+    <pre>{board.get('historical_outcomes_sample')}</pre>
+    <h2>Key differences</h2>
+    <pre>{board.get('key_differences_sample')}</pre>
+    <h2>Freshness / coverage</h2>
+    <pre>{board.get('analogue_freshness')}</pre>
+    <pre>{board.get('historical_coverage')}</pre>
+    </body></html>"""
+    return HTMLResponse(html)
+
+
+# --- Market Forecast Intelligence (MKFI) Sprint 12.5 ---
+# Evidence-based Bull/Base/Bear market scenarios. Ask never collects.
+# Programme short MKFI avoids collision with Macroeconomic Forecast Intelligence (MFI).
+
+
+@router.get("/mkfi/health")
+async def mkfi_health():
+    from market_forecast_intelligence.production import health
+
+    return health()
+
+
+@router.get("/market/forecast")
+async def mkfi_forecast_all(
+    market: str | None = Query(None),
+    horizon: str = Query("6 Months"),
+    limit: int = Query(20, ge=1, le=50),
+):
+    from market_forecast_intelligence.production import forecast, forecast_all
+
+    if market:
+        return forecast(market=market, horizon=horizon)
+    return forecast_all(limit=limit)
+
+
+@router.get("/market/forecast/india")
+async def mkfi_forecast_india(horizon: str = Query("6 Months")):
+    from market_forecast_intelligence.production import forecast
+
+    return forecast(market="India", horizon=horizon)
+
+
+@router.get("/market/forecast/report")
+async def mkfi_report(
+    market: str = Query("India"),
+    horizon: str = Query("6 Months"),
+    persist: bool = Query(False),
+):
+    from market_forecast_intelligence.production import report
+
+    return report(market=market, horizon=horizon, persist=persist)
+
+
+@router.get("/market/forecast/history")
+async def mkfi_history(
+    market: str | None = Query(None),
+    horizon: str | None = Query(None),
+    limit: int = Query(20, ge=1, le=100),
+):
+    from market_forecast_intelligence.production import history
+
+    return history(market=market, horizon=horizon, limit=limit)
+
+
+@router.get("/market/forecast/dashboard")
+async def mkfi_dashboard():
+    from market_forecast_intelligence.production import dashboard
+
+    return dashboard()
+
+
+@router.post("/market/forecast/run")
+async def mkfi_run(payload: dict[str, Any] = Body(default={})):
+    """Ops / scheduler only — never called by Ask."""
+    from market_forecast_intelligence.production import run
+
+    markets = payload.get("markets")
+    if isinstance(markets, str):
+        markets = [m.strip() for m in markets.split(",") if m.strip()]
+    horizons = payload.get("horizons")
+    if isinstance(horizons, str):
+        horizons = [h.strip() for h in horizons.split(",") if h.strip()]
+    return run(
+        market=payload.get("market"),
+        horizon=payload.get("horizon"),
+        country=payload.get("country"),
+        markets=markets if isinstance(markets, list) else None,
+        horizons=horizons if isinstance(horizons, list) else None,
+    )
+
+
+@router.get("/market/scenarios")
+async def mkfi_scenarios(
+    market: str = Query("India"),
+    horizon: str = Query("6 Months"),
+):
+    from market_forecast_intelligence.production import scenarios
+
+    return scenarios(market=market, horizon=horizon)
+
+
+@router.get("/market/probability")
+async def mkfi_probability(
+    market: str = Query("India"),
+    horizon: str = Query("6 Months"),
+):
+    from market_forecast_intelligence.production import probability
+
+    return probability(market=market, horizon=horizon)
+
+
+@router.get("/market/catalysts")
+async def mkfi_catalysts(
+    market: str = Query("India"),
+    horizon: str = Query("6 Months"),
+):
+    from market_forecast_intelligence.production import catalysts
+
+    return catalysts(market=market, horizon=horizon)
+
+
+@router.get("/market/risks")
+async def mkfi_risks(
+    market: str = Query("India"),
+    horizon: str = Query("6 Months"),
+):
+    from market_forecast_intelligence.production import risks
+
+    return risks(market=market, horizon=horizon)
+
+
+@router.get("/market/forecast/{market}")
+async def mkfi_forecast_market(
+    market: str,
+    horizon: str = Query("6 Months"),
+):
+    from market_forecast_intelligence.production import forecast
+
+    return forecast(market=market, horizon=horizon)
+
+
+@router.get("/admin/market-forecast", response_class=HTMLResponse)
+async def admin_mkfi():
+    from market_forecast_intelligence.production import dashboard
+
+    board = dashboard()
+    dist = board.get("probability_distribution") or {}
+    rows = "".join(
+        f"<tr><td>{s.get('scenario')}</td><td>{s.get('probability_pct')}</td>"
+        f"<td>{s.get('confidence_pct')}</td><td>{s.get('market_direction')}</td>"
+        f"<td>{s.get('breadth')}</td><td>{s.get('liquidity')}</td></tr>"
+        for s in (board.get("bull_base_bear_scenarios") or [])
+    )
+    html = f"""<!doctype html><html><head><title>Market Forecast Intelligence</title></head>
+    <body style="font-family:system-ui;max-width:1100px;margin:2rem auto">
+    <h1>Market Forecast Intelligence — MKFI</h1>
+    <p>Bull/Base/Bear market pathways. AGI-owned knowledge only. Ask never fetches. (Short MKFI avoids Macro MFI.)</p>
+    <pre>{board.get('principles')}</pre>
+    <h2>Current market outlook</h2>
+    <pre>{board.get('current_market_outlook')}</pre>
+    <p>Probability: {dist} · Confidence: {board.get('confidence')}</p>
+    <h2>Bull / Base / Bear</h2>
+    <table border="1" cellpadding="6">
+    <tr><th>Scenario</th><th>Probability</th><th>Confidence</th><th>Direction</th><th>Breadth</th><th>Liquidity</th></tr>
+    {rows or '<tr><td colspan=6>Run POST /v1/market/forecast/run</td></tr>'}
+    </table>
+    <h2>Forecast horizons</h2>
+    <pre>{board.get('forecast_horizons')}</pre>
+    <h2>Key catalysts</h2>
+    <pre>{board.get('key_catalysts')}</pre>
+    <h2>Major risks / invalidators</h2>
+    <pre>{board.get('major_risks')}</pre>
+    <pre>{board.get('invalidation_alerts')}</pre>
+    <h2>Sector leadership forecast</h2>
+    <pre>{board.get('sector_leadership_forecast')}</pre>
+    <h2>Macro / sector inheritance</h2>
+    <pre>{board.get('macro_inheritance')}</pre>
+    <pre>{board.get('sector_inheritance')}</pre>
+    <h2>Accuracy tracking</h2>
+    <pre>{board.get('accuracy_tracking')}</pre>
+    </body></html>"""
+    return HTMLResponse(html)
+
+
+@router.post("/sector/run")
+async def cskp_run(payload: dict[str, Any] = Body(default={})):
+    """Ops / event-driven only — never called by Ask."""
+    from continuous_sector_knowledge.production import run
+
+    sectors = payload.get("sectors")
+    if isinstance(sectors, str):
+        sectors = [s.strip() for s in sectors.split(",") if s.strip()]
+    return run(
+        sectors=sectors if isinstance(sectors, list) else None,
+        trigger=payload.get("trigger"),
+    )
+
+
+@router.get("/sector")
+async def cskp_sectors(limit: int = Query(100, ge=1, le=500)):
+    from continuous_sector_knowledge.production import sectors as list_sectors
+
+    return list_sectors(limit=limit)
+
+
+@router.get("/sector/{sector}")
+async def cskp_sector(sector: str):
+    from continuous_sector_knowledge.production import sector as get_sector
+
+    return get_sector(sector)
+
+
+@router.get("/admin/sector-operations", response_class=HTMLResponse)
+async def admin_cskp():
+    from continuous_sector_knowledge.production import dashboard
+
+    board = dashboard()
+    health = board.get("sector_health") or {}
+    rows = "".join(
+        f"<tr><td>{s.get('sector')}</td><td>{s.get('outlook')}</td>"
+        f"<td>{s.get('trigger')}</td><td>{s.get('version')}</td></tr>"
+        for s in (board.get("latest_sector_events") or [])
+    )
+    html = f"""<!doctype html><html><head><title>Sector Operations</title></head>
+    <body style="font-family:system-ui;max-width:1100px;margin:2rem auto">
+    <h1>Sector Operations — CSKP</h1>
+    <p>Event-driven derived sector knowledge. Ask never constructs.</p>
+    <pre>{board.get('principles')}</pre>
+    <h2>Sector health</h2>
+    <pre>{health}</pre>
+    <h2>Coverage</h2>
+    <pre>{board.get('knowledge_coverage')}</pre>
+    <h2>Knowledge freshness</h2>
+    <pre>{board.get('knowledge_freshness')}</pre>
+    <h2>Latest sector events</h2>
+    <table border="1" cellpadding="6">
+    <tr><th>Sector</th><th>Outlook</th><th>Trigger</th><th>Version</th></tr>
+    {rows or '<tr><td colspan=4>Run POST /v1/sector/run</td></tr>'}
+    </table>
+    <h2>Learning events</h2>
+    <pre>{board.get('learning_events')}</pre>
+    <h2>Company coverage by sector</h2>
+    <pre>{board.get('company_coverage_by_sector')}</pre>
+    <h2>Material updates</h2>
+    <pre>{board.get('material_updates')}</pre>
+    <h2>Research coverage</h2>
+    <pre>{board.get('research_coverage')}</pre>
+    </body></html>"""
+    return HTMLResponse(html)
+
+
+# --- Forecast Provider Integration (FPI) — India-first Knowledge Platform path ---
+# Forecast never calls Groww/Yahoo/NSE/BSE directly; stale market snapshot refresh only.
+
+
+@router.get("/forecast/providers/health")
+async def fpi_provider_health():
+    from forecast_provider_integration.production import provider_health
+
+    return provider_health()
+
+
+@router.get("/forecast/providers/dashboard")
+async def fpi_dashboard():
+    from forecast_provider_integration.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/fpi/health")
+async def fpi_health():
+    from forecast_provider_integration.production import health
+
+    return health()
+
+
+@router.post("/forecast/providers/publish/{entity}")
+async def fpi_publish_company(entity: str, payload: dict[str, Any] = Body(default={})):
+    from forecast_provider_integration.production import publish_company
+
+    return publish_company(entity, catalog_tip=payload.get("catalog_tip"))
+
+
+@router.post("/forecast/providers/snapshot/{entity}")
+async def fpi_refresh_snapshot(
+    entity: str,
+    force: bool = Query(False),
+    scope: str = Query("company"),
+):
+    from forecast_provider_integration.production import refresh_snapshot
+
+    return refresh_snapshot(entity, scope=scope, force=force)
+
+
+@router.get("/forecast/providers/company/{entity}")
+async def fpi_company_knowledge(entity: str):
+    from forecast_provider_integration.production import company_knowledge
+
+    return company_knowledge(entity)
+
+
+@router.get("/admin/forecast-providers", response_class=HTMLResponse)
+async def admin_fpi():
+    from forecast_provider_integration.production import dashboard
+
+    board = dashboard()
+    providers = board.get("providers") or []
+    rows = "".join(
+        f"<tr><td>{p.get('provider')}</td><td>{p.get('status')}</td>"
+        f"<td>{p.get('role')}</td><td>{p.get('connection')}</td>"
+        f"<td>{p.get('detail')}</td></tr>"
+        for p in providers
+    )
+    snaps = board.get("snapshot_freshness") or {}
+    fails = board.get("provider_failover_events") or []
+    fail_rows = "".join(
+        f"<tr><td>{f.get('from_provider')}→{f.get('to_provider')}</td>"
+        f"<td>{f.get('reason')}</td><td>{f.get('entity')}</td></tr>"
+        for f in fails[:15]
+    )
+    html = f"""<!doctype html><html><head><title>Forecast Provider Health</title></head>
+    <body style="font-family:system-ui;max-width:980px;margin:2rem auto">
+    <h1>Forecast Provider Health</h1>
+    <p>India-first: Groww live · Yahoo research · NSE/BSE disclosures · Company IR.</p>
+    <p>Forecast Intelligence never reasons over raw APIs.</p>
+    <pre>{board.get('principles')}</pre>
+    <h2>Providers</h2>
+    <table border="1" cellpadding="6">
+    <tr><th>Provider</th><th>Status</th><th>Role</th><th>Connection</th><th>Detail</th></tr>
+    {rows or '<tr><td colspan=5>No providers</td></tr>'}
+    </table>
+    <h2>Snapshot freshness</h2>
+    <pre>{snaps}</pre>
+    <h2>Failover events</h2>
+    <table border="1" cellpadding="6">
+    <tr><th>Path</th><th>Reason</th><th>Entity</th></tr>
+    {fail_rows or '<tr><td colspan=3>None</td></tr>'}
+    </table>
+    </body></html>"""
+    return HTMLResponse(html)
+
+
+# --- Forecast Validation & Learning (FVL) Sprint 9.5 ---
+# Closes Phase 9: register → validate vs actuals → score → learn (never rewrite history).
+
+
+@router.get("/fvl/health")
+async def fvl_health():
+    from forecast_validation_learning.production import health
+
+    return health()
+
+
+@router.get("/forecast/validation/dashboard")
+async def fvl_dashboard():
+    from forecast_validation_learning.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/forecast/validation/{forecast_id}")
+async def fvl_get_validation(forecast_id: str):
+    from forecast_validation_learning.production import get_validation
+
+    try:
+        return get_validation(forecast_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post("/forecast/validation/{forecast_id}")
+async def fvl_post_validation(forecast_id: str, payload: dict[str, Any] = Body(default={})):
+    from forecast_validation_learning.production import validate
+
+    try:
+        return validate(
+            forecast_id,
+            actual_outcome=payload.get("actual_outcome"),
+            generate_learning=bool(payload.get("generate_learning", True)),
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/forecast/register")
+async def fvl_register(payload: dict[str, Any] = Body(default={})):
+    from forecast_validation_learning.production import register
+
+    try:
+        return register(
+            entity=payload.get("entity") or payload.get("ticker"),
+            scope=str(payload.get("scope") or "company"),
+            question=payload.get("question"),
+            assessment=payload.get("assessment"),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/forecast/validate")
+async def fvl_validate_entity(payload: dict[str, Any] = Body(default={})):
+    from forecast_validation_learning.production import validate_entity
+
+    entity = payload.get("entity") or payload.get("ticker")
+    if not entity:
+        raise HTTPException(status_code=400, detail="entity required")
+    try:
+        return validate_entity(
+            str(entity),
+            scope=str(payload.get("scope") or "company"),
+            question=payload.get("question"),
+            actual_outcome=payload.get("actual_outcome"),
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/forecast/learning")
+async def fvl_learning(limit: int = Query(50, ge=1, le=200), category: str | None = None):
+    from forecast_validation_learning.production import learning
+
+    return learning(limit=limit, category=category)
+
+
+@router.get("/forecast/performance")
+async def fvl_performance(scope: str | None = None):
+    from forecast_validation_learning.production import performance
+
+    return performance(scope=scope)
+
+
+@router.get("/forecast/calibration")
+async def fvl_calibration():
+    from forecast_validation_learning.production import calibration
+
+    return calibration()
+
+
+@router.get("/forecast/history")
+async def fvl_history(
+    entity: str | None = None,
+    scope: str = Query("company"),
+    limit: int = Query(50, ge=1, le=200),
+):
+    from forecast_validation_learning.production import history
+
+    return history(entity=entity, scope=scope, limit=limit)
+
+
+@router.get("/admin/forecast-validation", response_class=HTMLResponse)
+async def admin_fvl():
+    from forecast_validation_learning.production import dashboard
+
+    board = dashboard()
+    score = board.get("forecast_score") or {}
+    biases = board.get("bias_indicators") or []
+    learnings = board.get("recent_learnings") or []
+    rows = "".join(
+        f"<tr><td>{v.get('entity')}</td><td>{v.get('validation_status')}</td>"
+        f"<td>{(v.get('score') or {}).get('overall')}</td>"
+        f"<td>{(v.get('difference') or {}).get('summary')}</td></tr>"
+        for v in (board.get("recent_validations") or [])
+    )
+    learn_rows = "".join(
+        f"<tr><td>{l.get('topic')}</td><td>{l.get('category')}</td>"
+        f"<td>{l.get('future_guidance')}</td></tr>"
+        for l in learnings
+    )
+    bias_rows = "".join(
+        f"<tr><td>{b.get('label')}</td><td>{b.get('severity')}</td>"
+        f"<td>{b.get('evidence_count')}</td></tr>"
+        for b in biases
+    )
+    html = f"""<!doctype html><html><head><title>FVL Mission Control</title></head>
+    <body style="font-family:system-ui;max-width:980px;margin:2rem auto">
+    <h1>Forecast Validation &amp; Learning</h1>
+    <p>Were we right? History is never rewritten. Phase 9 closed-loop forecasting.</p>
+    <pre>{board.get('principles')}</pre>
+    <p>Active: {board.get('active_forecasts')} · Validated: {board.get('validated_forecasts')} ·
+    Accuracy: {board.get('validation_accuracy')}% · Learnings: {board.get('learning_generated')}</p>
+    <h2>Forecast score</h2>
+    <pre>{score}</pre>
+    <h2>Recent validations</h2>
+    <table border="1" cellpadding="6">
+    <tr><th>Entity</th><th>Status</th><th>Score</th><th>Difference</th></tr>
+    {rows or '<tr><td colspan=4>No validations yet</td></tr>'}
+    </table>
+    <h2>Bias indicators</h2>
+    <table border="1" cellpadding="6">
+    <tr><th>Bias</th><th>Severity</th><th>Evidence</th></tr>
+    {bias_rows or '<tr><td colspan=3>No recurring biases yet</td></tr>'}
+    </table>
+    <h2>Learning generated</h2>
+    <table border="1" cellpadding="6">
+    <tr><th>Topic</th><th>Category</th><th>Future guidance</th></tr>
+    {learn_rows or '<tr><td colspan=3>No learnings yet</td></tr>'}
+    </table>
+    </body></html>"""
+    return HTMLResponse(html)
+
+
+# --- Legacy FIE scenario surface (pre-ISI) — prefer /scenarios/* for Investment Office ---
 
 
 @router.get("/forecast/scenarios/{ticker}")
@@ -4553,6 +6922,29 @@ async def admin_forecast_intelligence():
     from forecast_intelligence.production import admin_page
 
     return HTMLResponse(admin_page())
+
+
+@router.get("/admin/institutional-forecast-intelligence", response_class=HTMLResponse)
+async def admin_ifi():
+    from institutional_forecast_intelligence.production import dashboard
+
+    board = dashboard()
+    rows = "".join(
+        f"<tr><td>{r.get('scope')}</td><td>{r.get('entity')}</td>"
+        f"<td>{r.get('completeness_score')}</td><td>{r.get('latency_ms')}</td></tr>"
+        for r in (board.get("recent") or [])
+    )
+    html = f"""<!doctype html><html><head><title>IFI Mission Control</title></head>
+    <body style="font-family:system-ui;max-width:960px;margin:2rem auto">
+    <h1>Institutional Forecast Intelligence</h1>
+    <p>Preparation only — no Bull/Base/Bear, no price prediction.</p>
+    <pre>{board.get('principles')}</pre>
+    <h2>Recent bundle generations</h2>
+    <table border="1" cellpadding="6"><tr><th>Scope</th><th>Entity</th><th>Completeness</th><th>Latency ms</th></tr>
+    {rows or '<tr><td colspan=4>No generations yet</td></tr>'}
+    </table>
+    </body></html>"""
+    return HTMLResponse(html)
 
 
 # --- Institutional Knowledge Graph V1 (what is connected?) ---
@@ -9294,6 +11686,119 @@ async def research_office_health():
     from research_office.production import health
 
     return health()
+
+
+# ---------------------------------------------------------------------------
+# AGIB v4.0 — Research Intelligence Hub (research notes as Intelligence Objects)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/rih/health")
+async def rih_health():
+    from research_intelligence_hub.production import health
+
+    return health()
+
+
+@router.get("/research/hub")
+async def rih_list(limit: int = Query(50, ge=1, le=200)):
+    from research_intelligence_hub.production import list_hubs
+
+    return list_hubs(limit=limit)
+
+
+@router.get("/research/hub/dashboard")
+async def rih_dashboard():
+    from research_intelligence_hub.production import dashboard
+
+    return dashboard()
+
+
+@router.post("/research/hub/run")
+async def rih_run(payload: dict[str, Any] = Body(default={})):
+    """Ops / scheduler only — never called by Ask."""
+    from research_intelligence_hub.production import run
+
+    return run(note_id=payload.get("note_id"))
+
+
+@router.post("/research/hub/build")
+async def rih_build(payload: dict[str, Any] = Body(default={})):
+    """Build (and optionally publish) a hub from article metadata. Ops / CMS soft-wire."""
+    from research_intelligence_hub.production import build
+
+    headline = payload.get("headline") or payload.get("title")
+    if not headline:
+        raise HTTPException(status_code=400, detail="headline required")
+    tickers = payload.get("tickers") or payload.get("companies") or []
+    if isinstance(tickers, str):
+        tickers = [t.strip() for t in tickers.split(",") if t.strip()]
+    return build(
+        note_id=payload.get("note_id") or payload.get("id") or payload.get("article_id"),
+        headline=str(headline),
+        body=str(payload.get("body") or payload.get("content") or ""),
+        publication_date=payload.get("publication_date"),
+        session=payload.get("session"),
+        tickers=list(tickers) if isinstance(tickers, list) else None,
+        importance_score=int(payload.get("importance_score") or 50),
+        persist=bool(payload.get("persist")),
+    )
+
+
+@router.get("/research/hub/{note_id}/graph")
+async def rih_graph(note_id: str):
+    from research_intelligence_hub.production import graph
+
+    return graph(note_id)
+
+
+@router.get("/research/hub/{note_id}/history")
+async def rih_history(note_id: str, limit: int = Query(20, ge=1, le=100)):
+    from research_intelligence_hub.production import history
+
+    return history(note_id, limit=limit)
+
+
+@router.get("/research/hub/{note_id}")
+async def rih_hub(note_id: str):
+    from research_intelligence_hub.production import hub
+
+    return hub(note_id)
+
+
+@router.get("/admin/research-intelligence-hub", response_class=HTMLResponse)
+async def admin_rih():
+    from research_intelligence_hub.production import dashboard
+
+    board = dashboard()
+    rows = "".join(
+        f"<tr><td>{h.get('id')}</td><td>{h.get('headline')}</td>"
+        f"<td>{h.get('session')}</td><td>{h.get('importance_score')}</td>"
+        f"<td>{', '.join(h.get('companies') or [])}</td>"
+        f"<td>{(h.get('probability_distribution') or {})}</td></tr>"
+        for h in (board.get("hubs") or [])
+    )
+    html = f"""<!doctype html><html><head><title>Research Intelligence Hub</title></head>
+    <body style="font-family:system-ui;max-width:1100px;margin:2rem auto">
+    <h1>Research Intelligence Hub — RIH</h1>
+    <p>Every research note is an Intelligence Object. AGI-owned knowledge only. Ask never fetches.</p>
+    <pre>{board.get('design_principle')}</pre>
+    <pre>{board.get('principles')}</pre>
+    <h2>Current hub</h2>
+    <pre>{board.get('current_hub')}</pre>
+    <h2>Link coverage</h2>
+    <pre>{board.get('link_coverage')}</pre>
+    <h2>Hubs</h2>
+    <table border="1" cellpadding="6">
+    <tr><th>ID</th><th>Headline</th><th>Session</th><th>Importance</th><th>Companies</th><th>Forecast</th></tr>
+    {rows or '<tr><td colspan=6>Run POST /v1/research/hub/run</td></tr>'}
+    </table>
+    <h2>Forecast attachment</h2>
+    <pre>{board.get('forecast_attachment')}</pre>
+    <h2>Navigation</h2>
+    <pre>{board.get('navigation')}</pre>
+    </body></html>"""
+    return HTMLResponse(html)
 
 
 # ---------------------------------------------------------------------------

@@ -108,6 +108,93 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // AGIB v4.0 — Research Intelligence Hub (research notes as Intelligence Objects)
+  router.get('/rih/health', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/rih/health');
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Intelligence engine unavailable', detail: error.message });
+    }
+  });
+
+  router.get('/research/hub', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query).toString();
+      const result = await engineFetch(`/v1/research/hub${qs ? `?${qs}` : ''}`);
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Intelligence engine unavailable', detail: error.message });
+    }
+  });
+
+  router.get('/research/hub/dashboard', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/research/hub/dashboard');
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Intelligence engine unavailable', detail: error.message });
+    }
+  });
+
+  router.post('/research/hub/run', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/research/hub/run', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Intelligence engine unavailable', detail: error.message });
+    }
+  });
+
+  router.post('/research/hub/build', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/research/hub/build', {
+        method: 'POST',
+        body: req.body || {},
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Intelligence engine unavailable', detail: error.message });
+    }
+  });
+
+  router.get('/research/hub/:noteId/graph', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/research/hub/${encodeURIComponent(req.params.noteId)}/graph`
+      );
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Intelligence engine unavailable', detail: error.message });
+    }
+  });
+
+  router.get('/research/hub/:noteId/history', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query).toString();
+      const result = await engineFetch(
+        `/v1/research/hub/${encodeURIComponent(req.params.noteId)}/history${qs ? `?${qs}` : ''}`
+      );
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Intelligence engine unavailable', detail: error.message });
+    }
+  });
+
+  router.get('/research/hub/:noteId', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/research/hub/${encodeURIComponent(req.params.noteId)}`
+      );
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Intelligence engine unavailable', detail: error.message });
+    }
+  });
+
   // CMS → KIP: enqueue only. Never wait on Render wake inside the request.
   router.post('/kip/ingest/agi', async (req, res) => {
     try {
