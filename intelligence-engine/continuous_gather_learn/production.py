@@ -42,6 +42,15 @@ def health() -> dict[str, Any]:
 def dashboard() -> dict[str, Any]:
     metrics = cgl_persist.get_metrics()
     latest = cgl_persist.get_latest_run()
+    coverage = metrics.get("historical_coverage") or {}
+    if not coverage:
+        try:
+            from continuous_gather_learn.orchestrator import _coverage_snapshot
+
+            coverage = _coverage_snapshot()
+        except Exception:
+            coverage = {}
+    docs = (coverage.get("documents") or {}) if isinstance(coverage, dict) else {}
     return {
         "enabled": is_enabled(),
         "programme": PROGRAMME,
@@ -60,12 +69,25 @@ def dashboard() -> dict[str, Any]:
         "checkpoints": {
             "lidi": cgl_persist.get_checkpoint("lidi"),
             "kf_hd": cgl_persist.get_checkpoint("kf_hd"),
+            "historical_backfill": cgl_persist.get_checkpoint("historical_backfill"),
             "analyst_accuracy_memory": cgl_persist.get_checkpoint("analyst_accuracy_memory"),
         },
         "background": last_status(),
         "knowledge_growth": metrics.get("knowledge_growth") or {},
         "freshness": (metrics.get("freshness") or {}),
         "archived_learnings": len(cgl_persist.list_archived_learnings(limit=2000)),
+        "historical_coverage": coverage,
+        "historical_coverage_pct": coverage.get("historical_coverage_pct"),
+        "average_history_years": coverage.get("average_history_years"),
+        "companies_fully_backfilled": coverage.get("companies_fully_backfilled"),
+        "remaining_backlog": coverage.get("remaining_backlog"),
+        "documents_downloaded": docs.get("documents_total"),
+        "annual_reports": docs.get("annual_reports"),
+        "quarterly_results": docs.get("quarterly_results"),
+        "investor_presentations": docs.get("investor_presentations"),
+        "collector_success_rate": _collector_success_rate(metrics),
+        "estimated_completion_days": coverage.get("estimated_completion_days"),
+        "historical_growth_per_day": coverage.get("historical_growth_per_day_entities"),
         "flags": flags_dict(),
         "loop": [
             "Collect",
@@ -82,6 +104,15 @@ def dashboard() -> dict[str, Any]:
         ],
         "north_star": "Continuously gather historical data and improve institutional knowledge without user interaction.",
     }
+
+
+def _collector_success_rate(metrics: dict[str, Any]) -> float | None:
+    ok = int(metrics.get("collectors_ok_total") or 0)
+    fail = int(metrics.get("collectors_failed_total") or 0)
+    n = ok + fail
+    if n <= 0:
+        return None
+    return round(100.0 * ok / n, 2)
 
 
 def run(**kwargs: Any) -> dict[str, Any]:

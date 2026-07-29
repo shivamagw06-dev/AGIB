@@ -291,6 +291,18 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
             "ask_isolated": True,
             "ml_retrain": False,
             "north_star": cd.get("north_star"),
+            "historical_coverage": cd.get("historical_coverage"),
+            "historical_coverage_pct": cd.get("historical_coverage_pct"),
+            "average_history_years": cd.get("average_history_years"),
+            "companies_fully_backfilled": cd.get("companies_fully_backfilled"),
+            "remaining_backlog": cd.get("remaining_backlog"),
+            "documents_downloaded": cd.get("documents_downloaded"),
+            "annual_reports": cd.get("annual_reports"),
+            "quarterly_results": cd.get("quarterly_results"),
+            "investor_presentations": cd.get("investor_presentations"),
+            "collector_success_rate": cd.get("collector_success_rate"),
+            "estimated_completion_days": cd.get("estimated_completion_days"),
+            "historical_growth_per_day": cd.get("historical_growth_per_day"),
         }
         out["sources"].append("continuous_gather_learn")
     except Exception:

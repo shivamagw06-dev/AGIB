@@ -338,6 +338,47 @@ export default function MissionControl() {
                 value={continuousGatherLearn.archived_learnings ?? continuousGatherLearn.metrics?.learnings_archived_total ?? '—'}
                 hint="Durable FVL/ILO archive"
               />
+              <Stat
+                label="Historical Coverage"
+                value={
+                  continuousGatherLearn.historical_coverage_pct != null
+                    ? `${continuousGatherLearn.historical_coverage_pct}%`
+                    : '—'
+                }
+                hint="vs 20y completeness target"
+              />
+              <Stat
+                label="Avg History / Co"
+                value={
+                  continuousGatherLearn.average_history_years != null
+                    ? `${continuousGatherLearn.average_history_years}y`
+                    : '—'
+                }
+                hint="Price + annual depth"
+              />
+              <Stat
+                label="Fully Backfilled"
+                value={continuousGatherLearn.companies_fully_backfilled ?? '—'}
+                hint={`Backlog ${continuousGatherLearn.remaining_backlog ?? '—'}`}
+              />
+              <Stat
+                label="IR Documents"
+                value={continuousGatherLearn.documents_downloaded ?? '—'}
+                hint={`AR ${continuousGatherLearn.annual_reports ?? 0} · QR ${continuousGatherLearn.quarterly_results ?? 0}`}
+              />
+              <Stat
+                label="Collector Success"
+                value={
+                  continuousGatherLearn.collector_success_rate != null
+                    ? `${continuousGatherLearn.collector_success_rate}%`
+                    : '—'
+                }
+                hint={
+                  continuousGatherLearn.estimated_completion_days != null
+                    ? `ETA ~${continuousGatherLearn.estimated_completion_days}d`
+                    : 'LIDI + KF HD + backfill'
+                }
+              />
             </div>
             <Glass className="text-xs text-[var(--io-muted)]">
               <p>
@@ -347,7 +388,8 @@ export default function MissionControl() {
               <p className="mt-1 text-[11px] text-[var(--io-caption)]">
                 Freshness LIDI {continuousGatherLearn.freshness?.lidi || '—'} · KF HD{' '}
                 {continuousGatherLearn.freshness?.kf_hd || '—'} · Cycles{' '}
-                {continuousGatherLearn.metrics?.cycles_total ?? '—'}
+                {continuousGatherLearn.metrics?.cycles_total ?? '—'} · Growth/day{' '}
+                {continuousGatherLearn.historical_growth_per_day ?? '—'} cos
               </p>
             </Glass>
           </section>

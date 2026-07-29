@@ -19,6 +19,7 @@ from typing import Any, Callable
 from continuous_gather_learn import persist as cgl_persist
 from continuous_gather_learn.flags import (
     faa_in_loop_enabled,
+    historical_backfill_enabled,
     is_enabled,
     kf_hd_enabled,
     learning_loop_enabled,
@@ -284,7 +285,13 @@ def run_cycle(
     t0 = time.time()
     phases: dict[str, Any] = {p: {"status": "pending"} for p in PHASES}
     errors: list[str] = []
-    volumes = {"collectors_ok": 0, "collectors_failed": 0, "knowledge_extracts": 0, "learnings_archived": 0}
+    volumes = {
+        "collectors_ok": 0,
+        "collectors_failed": 0,
+        "knowledge_extracts": 0,
+        "learnings_archived": 0,
+        "backfill_extracts": 0,
+    }
 
     # 1. Collect
     collect_payload: dict[str, Any] = {"slot": slot, "steps": {}}
@@ -313,6 +320,23 @@ def run_cycle(
             if kf.get("ok") and not (kf.get("result") or {}).get("skipped"):
                 volumes["collectors_ok"] += 1
             elif not (kf.get("result") or {}).get("skipped"):
+                volumes["collectors_failed"] += 1
+
+        # Dedicated resumable historical backfill (Yahoo → HD) on deep slots
+        if historical_backfill_enabled() and slot in {"post_market", "overnight"}:
+            def _bf() -> dict[str, Any]:
+                from continuous_gather_learn.historical_backfill import run_historical_backfill
+
+                return run_historical_backfill()
+
+            bf = _soft(_bf, label="historical_backfill")
+            collect_payload["steps"]["historical_backfill"] = bf
+            if bf.get("ok") and not (bf.get("result") or {}).get("skipped"):
+                volumes["collectors_ok"] += 1
+                volumes["backfill_extracts"] = len(
+                    ((bf.get("result") or {}).get("knowledge_extracts") or [])
+                )
+            elif not (bf.get("result") or {}).get("skipped"):
                 volumes["collectors_failed"] += 1
 
     do_faa = faa_in_loop_enabled() if include_faa is None else include_faa
@@ -352,8 +376,13 @@ def run_cycle(
         if isinstance(report, dict) and report.get("payload"):
             report = report.get("payload") or report
         extracts = extract_batch_from_daily_report(report if isinstance(report, dict) else {})
-        volumes["knowledge_extracts"] = len(extracts)
-        phases["embed_extract"] = {"status": "ok", "n": len(extracts)}
+        volumes["knowledge_extracts"] = len(extracts) + int(volumes.get("backfill_extracts") or 0)
+        phases["embed_extract"] = {
+            "status": "ok",
+            "n": volumes["knowledge_extracts"],
+            "from_report": len(extracts),
+            "from_backfill": int(volumes.get("backfill_extracts") or 0),
+        }
         phases["update_knowledge"] = {
             "status": "ok",
             "n": len(extracts),
@@ -444,9 +473,35 @@ def run_cycle(
                 "extracts": volumes["knowledge_extracts"],
                 "archived_learnings": volumes["learnings_archived"],
             },
+            "historical_coverage": _coverage_snapshot(),
         }
     )
     return run
+
+
+def _coverage_snapshot() -> dict[str, Any]:
+    try:
+        from knowledge_factory.historical_depth.backfill import coverage_progress
+        from knowledge_factory.historical_depth.dashboard import historical_depth_dashboard
+
+        dash = historical_depth_dashboard()
+        prog = coverage_progress()
+        return {
+            "historical_coverage_pct": dash.get("historical_coverage_pct")
+            or dash.get("historical_completeness_pct"),
+            "average_history_years": dash.get("average_history_years"),
+            "companies_fully_backfilled": dash.get("companies_fully_backfilled")
+            or prog.get("companies_fully_backfilled"),
+            "remaining_backlog": prog.get("remaining_backlog"),
+            "documents": dash.get("documents"),
+            "corporate_actions_coverage_pct": dash.get("corporate_actions_coverage_pct"),
+            "macro_series_points": dash.get("macro_series_points"),
+            "estimated_completion_days": prog.get("estimated_completion_days"),
+            "historical_growth_per_day_entities": prog.get("historical_growth_per_day_entities"),
+            "companies_gt_10y": dash.get("companies_gt_10y"),
+        }
+    except Exception as exc:  # noqa: BLE001
+        return {"error": str(exc)[:160]}
 
 
 def learning_for_director(*, query: str = "", limit: int = 8) -> dict[str, Any]:
