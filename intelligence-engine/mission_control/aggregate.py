@@ -324,6 +324,7 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
             "collector_success_rate": cd.get("collector_success_rate"),
             "estimated_completion_days": cd.get("estimated_completion_days"),
             "historical_growth_per_day": cd.get("historical_growth_per_day"),
+            "ops": cd.get("ops"),
         }
         out["sources"].append("continuous_gather_learn")
     except Exception:
