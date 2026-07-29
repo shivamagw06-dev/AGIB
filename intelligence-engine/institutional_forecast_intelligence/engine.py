@@ -377,16 +377,24 @@ class InstitutionalForecastEngine:
         if cmkp_tip:
             macro = {**macro, "cmkp_published": cmkp_tip}
             sources.append("cmkp_macro_knowledge_store")
+        # Soft consume HMAI analogue bundle — never collect / no external APIs
+        hmai_tip = self._soft_hmai_analogues()
+        analogues = [
+            {"matched_period": "2015-2017 easing", "similarity_score": 84.0},
+            {"matched_period": "2025 Rate-Cut Optionality", "similarity_score": 90.0},
+        ]
+        if hmai_tip and hmai_tip.get("top_analogues"):
+            analogues = list(hmai_tip["top_analogues"])
+            sources.append("hmai_macro_analogue_store")
+            macro = {**macro, "hmai_analogues": hmai_tip}
         return {
             "current_knowledge": {"region": "India"},
             "macro_intelligence": macro,
             "historical_intelligence": {
-                "cycles": ["RBI easing", "Inflation shock 2022", "COVID policy response"]
+                "cycles": ["RBI easing", "Inflation shock 2022", "COVID policy response"],
+                "current_regime": (hmai_tip or {}).get("current_regime"),
             },
-            "historical_analogues": [
-                {"matched_period": "2015-2017 easing", "similarity_score": 84.0},
-                {"matched_period": "2025 Rate-Cut Optionality", "similarity_score": 90.0},
-            ],
+            "historical_analogues": analogues,
             "relationship_intelligence": [
                 {
                     "source": "RBI Rate Cut",
@@ -409,6 +417,18 @@ class InstitutionalForecastEngine:
             "sources": sources,
             "providers_queried": [],
         }
+
+    def _soft_hmai_analogues(self) -> dict[str, Any] | None:
+        """Read-only HMAI gateway — never triggers collectors or external APIs."""
+        try:
+            from historical_macro_analogue_intelligence.production import forecast_tip
+
+            tip = forecast_tip(country="India", top_k=5)
+            if tip.get("n"):
+                return tip
+            return None
+        except Exception:
+            return None
 
     def _soft_cmkp_macro(self) -> dict[str, Any] | None:
         """Read-only CMKP + HMIP gateways — never triggers collectors."""
