@@ -94,12 +94,14 @@ def package_for_ask_agi(
         or ((irp_pkg.get("institutional_briefing") if isinstance(irp_pkg, dict) else None)),
         intelligence_construction=intelligence_construction,
         aws_macro=aws_macro,
+        irp=irp_pkg,
         gate_blocked=bool(blocked),
     )
 
     decision = (assembled.get("layers_by_id") or {}).get("decision") or {}
     expected = (assembled.get("layers_by_id") or {}).get("expected_return") or {}
     probability = (assembled.get("layers_by_id") or {}).get("probability") or {}
+    readiness = assembled.get("institutional_readiness_gate") or {}
 
     # Soft optional FIML consult — never required
     fiml_hint = None
@@ -116,6 +118,8 @@ def package_for_ask_agi(
     except Exception:
         fiml_hint = None
 
+    gate_blocked_out = bool(assembled.get("gate_blocked") or readiness.get("hard_fail") or blocked)
+
     return {
         "enabled": True,
         "active": True,
@@ -130,10 +134,18 @@ def package_for_ask_agi(
         "overall_score": assembled.get("overall_score"),
         "investment_grade": assembled.get("investment_grade"),
         "layers": assembled.get("layers"),
+        "institutional_readiness_gate": readiness,
         "summary": {
             "overall_score": assembled.get("overall_score"),
             "investment_grade": assembled.get("investment_grade"),
             "confidence_pct": decision.get("confidence_pct"),
+            "evidence_confidence_pct": readiness.get("evidence_confidence_pct")
+            or decision.get("evidence_confidence_pct"),
+            "company_quality_10": readiness.get("company_quality_10") or decision.get("company_quality_10"),
+            "market_opportunity_10": readiness.get("market_opportunity_10")
+            or decision.get("market_opportunity_10"),
+            "investment_thesis_status": decision.get("investment_thesis_status"),
+            "not_a_negative_view": decision.get("not_a_negative_view"),
             "expected_return_12m_pct": decision.get("expected_return_12m_pct"),
             "bull_case_pct": decision.get("bull_case_pct"),
             "base_case_pct": decision.get("base_case_pct"),
@@ -144,7 +156,9 @@ def package_for_ask_agi(
             "suitable_for": decision.get("suitable_for") or [],
             "unsuitable_for": decision.get("unsuitable_for") or [],
             "layer_scores": decision.get("layer_scores") or {},
-            "gate_blocked": bool(blocked),
+            "gate_blocked": gate_blocked_out,
+            "readiness_band": readiness.get("band"),
+            "overall_coverage_pct": readiness.get("overall_coverage_pct"),
         },
         "pre_questions": decision.get("pre_questions") or [],
         "decision": decision,
@@ -153,9 +167,9 @@ def package_for_ask_agi(
         "answer_enrichment": {
             "executive_framing": (
                 f"Investment decision stack for {assembled.get('company_name')}: "
-                "macro → industry → company → financials → management → valuation → "
+                "readiness gate → macro → industry → company → financials → management → valuation → "
                 "expectations → technical → risk → catalysts → probability → expected return → conclusion. "
-                "No layer is skipped."
+                "No layer is skipped. Data completeness is never treated as company quality."
             ),
             "why_bullets": [
                 lyr.get("reasoning")
@@ -163,6 +177,7 @@ def package_for_ask_agi(
                 if lyr.get("id") != "decision" and lyr.get("reasoning")
             ][:6],
             "decision_conclusion": decision.get("reasoning"),
+            "readiness_summary": (readiness.get("summary_for_user") or {}).get("reason"),
         },
         "fiml_soft_consult": {
             "used": bool(fiml_hint),
@@ -174,6 +189,7 @@ def package_for_ask_agi(
         "never_skip_layer": True,
         "decision_last": True,
         "never_expose_framework_names": True,
+        "never_conflate_data_with_quality": True,
     }
 
 

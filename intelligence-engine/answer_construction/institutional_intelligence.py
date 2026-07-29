@@ -183,15 +183,17 @@ def build_institutional_recommendation(
 
     if action == "Withheld":
         reason = reason or (
-            f"Validated coverage for {name} is insufficient for an institutional ownership call."
+            f"Validated coverage for {name} is insufficient for an institutional ownership call. "
+            "This is not a negative view of the company."
         )
         risk = risk or "Acting without fuller financial and valuation evidence."
         body = (
-            f"Recommendation: Withheld\n\n"
-            f"Evidence is insufficient for an institutional Buy / Hold / Sell call on {name}. "
-            f"{clamp_words(reason, max_words=24)} "
-            f"Risk: {clamp_words(risk, max_words=16)} "
-            f"Investment Horizon: {horizon}."
+            f"Investment Thesis: INCONCLUSIVE\n\n"
+            f"Evidence is insufficient for an institutional recommendation on {name}. "
+            f"This should not be read as a negative company view. "
+            f"{clamp_words(reason, max_words=28)} "
+            f"Watch items: {clamp_words(risk, max_words=16)} "
+            f"Horizon: {horizon}."
         )
         text = clamp_words(body, max_words=max_words)
         return {
@@ -199,8 +201,10 @@ def build_institutional_recommendation(
             "voice": VOICE_NAME,
             "is_recommendation_query": True,
             "recommendation": "Withheld",
+            "investment_thesis_status": "INCONCLUSIVE",
+            "not_a_negative_view": True,
             "conviction": None,
-            "reason": clamp_words(reason, max_words=24),
+            "reason": clamp_words(reason, max_words=28),
             "risk": clamp_words(risk, max_words=16),
             "horizon": horizon,
             "text": text,

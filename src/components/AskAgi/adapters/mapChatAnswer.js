@@ -262,6 +262,16 @@ export function mapChatAnswer(pack) {
       conclusion: bottomLine,
       whatChanged: vm.whatChanged,
       recommendationStatus: vm.recommendationStatus,
+      readinessGate: vm.decisionEngine?.readinessGate || null,
+      companyQuality10: vm.decisionEngine?.companyQuality10 ?? vm.recommendationStatus?.companyQuality10,
+      marketOpportunity10:
+        vm.decisionEngine?.marketOpportunity10 ?? vm.recommendationStatus?.marketOpportunity10,
+      evidenceConfidence:
+        vm.decisionEngine?.evidenceConfidence ?? vm.recommendationStatus?.evidenceConfidence,
+      investmentThesisStatus:
+        vm.decisionEngine?.investmentThesisStatus ||
+        vm.recommendationStatus?.investmentThesisStatus ||
+        '',
       askSlim: pack?.degradation?.ask_slim,
       degraded: Boolean(pack?.degraded || pack?.mode === 'node_desk_fallback'),
     },

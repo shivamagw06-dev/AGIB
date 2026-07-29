@@ -292,7 +292,25 @@ def package_for_ask_agi(**kwargs: Any) -> dict[str, Any]:
             out["executive"] = str(ep.get("gate_reason") or out.get("executive") or "")[:800]
             out["answer_policy"] = "framework_execution_policy_insufficient_evidence"
 
-    if not contradiction_active and ep.get("narrative_allowed") is not False:
+    ia_gate = out.get("institutional_answer") if isinstance(out.get("institutional_answer"), dict) else {}
+    evidence_gate_owns_lead = bool(
+        ia_gate.get("evidence_insufficient")
+        or ia_gate.get("investment_thesis_status") == "INCONCLUSIVE"
+        or (out.get("recommendation_status") or {}).get("investment_thesis_status") == "INCONCLUSIVE"
+    )
+
+    if evidence_gate_owns_lead:
+        # Never let prose rewrite erase Institutional Readiness Gate / INCONCLUSIVE status.
+        out.setdefault(
+            "editorial",
+            {
+                "enabled": False,
+                "bypassed": True,
+                "reason": "institutional_readiness_gate_owns_executive",
+            },
+        )
+        out["answer_policy"] = "institutional_readiness_gate_inconclusive"
+    elif not contradiction_active and ep.get("narrative_allowed") is not False:
         try:
             from answer_construction.institutional_intelligence import wants_detailed_analysis
             from editorial.production import package_for_ask_agi as editorial_package

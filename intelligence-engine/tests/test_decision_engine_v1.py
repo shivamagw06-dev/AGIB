@@ -128,5 +128,16 @@ def test_answer_construction_never_leads_with_buy_when_ide_active():
     assert ac["decision_last"] is True
     exec_l = str(ac["executive"]).lower()
     assert "buy eternal now" not in exec_l
-    assert "layer" in exec_l or "macro" in exec_l or "decision stack" in exec_l
+    # Lead may be readiness-gated INCONCLUSIVE card or layered framing — never a binary buy tip
+    assert (
+        "layer" in exec_l
+        or "macro" in exec_l
+        or "decision stack" in exec_l
+        or "inconclusive" in exec_l
+        or "insufficient" in exec_l
+        or "withheld" in exec_l
+    )
     assert ac.get("decision_conclusion")
+    reco = ac.get("recommendation_status") or {}
+    assert reco.get("investment_thesis_status") == "INCONCLUSIVE" or reco.get("blocked") is True
+    assert reco.get("not_a_negative_view") is True or reco.get("blocked") is True

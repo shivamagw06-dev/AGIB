@@ -600,11 +600,95 @@ export default function ResearchWorkspace({
                   </Section>
                 ) : null}
 
+                {vm.decisionEngine?.readinessGate || vm.recommendationStatus?.blocked ? (
+                  <Section
+                    id="institutional-gate"
+                    kicker="Institutional Gate"
+                    title="Evidence Readiness"
+                  >
+                    <p className="rw-body mb-3">
+                      {(vm.decisionEngine?.readinessGate?.status_mark ||
+                        (vm.recommendationStatus?.blocked ? '❌ FAILED' : '✓ PASSED')) +
+                        ' · ' +
+                        (vm.decisionEngine?.investmentThesisStatus ||
+                          vm.recommendationStatus?.investmentThesisStatus ||
+                          (vm.recommendationStatus?.blocked ? 'INCONCLUSIVE' : 'FORMED'))}
+                    </p>
+                    <p className="rw-body mb-4 text-[var(--rw-soft)]">
+                      {vm.decisionEngine?.readinessGate?.reason ||
+                        vm.recommendationStatus?.summary ||
+                        'Evidence coverage decides whether a conviction call is allowed.'}
+                      {vm.decisionEngine?.notANegativeView || vm.recommendationStatus?.notANegativeView
+                        ? ' This is not a negative view of the company.'
+                        : ''}
+                    </p>
+                    <div className="rw-grid-3 mb-4">
+                      {[
+                        ['Company Quality', vm.decisionEngine?.companyQuality10, '/10'],
+                        ['Market Opportunity', vm.decisionEngine?.marketOpportunity10, '/10'],
+                        [
+                          'Evidence Confidence',
+                          vm.decisionEngine?.evidenceConfidence ??
+                            vm.recommendationStatus?.evidenceConfidence,
+                          '%',
+                        ],
+                      ].map(([label, value, suffix]) => (
+                        <div key={label} className="rw-why-card">
+                          <h4>{label}</h4>
+                          <p className="tabular-nums text-[var(--rw-ink)] font-semibold">
+                            {value == null || Number.isNaN(Number(value))
+                              ? '—'
+                              : `${value}${suffix}`}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                    {vm.decisionEngine?.readinessGate?.coverage ||
+                    vm.recommendationStatus?.coverage ? (
+                      <div className="rw-decision-metrics mb-4">
+                        {Object.entries(
+                          vm.decisionEngine?.readinessGate?.coverage ||
+                            vm.recommendationStatus?.coverage ||
+                            {}
+                        ).map(([k, v]) => (
+                          <div key={k} className="rw-why-card">
+                            <h4>{k.replace(/_/g, ' ')}</h4>
+                            <p className="tabular-nums text-[var(--rw-ink)] font-semibold">{v}%</p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                    {(vm.decisionEngine?.readinessGate?.checklist ||
+                      vm.recommendationStatus?.checklist ||
+                      []).length ? (
+                      <ul className="mt-2 space-y-1 text-sm text-[var(--rw-soft)]">
+                        {(
+                          vm.decisionEngine?.readinessGate?.checklist ||
+                          vm.recommendationStatus?.checklist ||
+                          []
+                        ).map((c) => (
+                          <li key={c.label || c}>
+                            {c.mark || (c.present ? '✓' : '⚠')} {c.label || c}
+                            {c.detail ? ` — ${c.detail}` : ''}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                    {(vm.recommendationStatus?.additionalEvidenceRequired || []).length ? (
+                      <p className="rw-body mt-3 text-[var(--rw-soft)]">
+                        Additional evidence required:{' '}
+                        {vm.recommendationStatus.additionalEvidenceRequired.join('; ')}.
+                      </p>
+                    ) : null}
+                  </Section>
+                ) : null}
+
                 {vm.decisionEngine ? (
                   <Section id="decision-scorecard" kicker="Decision Framework" title="Investment Decision Scorecard">
                     <p className="rw-body mb-4">
                       Ownership questions are answered through a layered institutional stack — macro through
-                      expected return — before any investment conclusion. No layer is skipped.
+                      expected return — before any investment conclusion. No layer is skipped. Data
+                      completeness is never treated as company quality.
                     </p>
                     <div className="rw-decision-scorecard">
                       <div className="rw-decision-hero">
@@ -614,9 +698,14 @@ export default function ResearchWorkspace({
                           <span>/100</span>
                         </p>
                         <p className="rw-decision-grade">
-                          Grade {vm.decisionEngine.investmentGrade || '—'} · Confidence{' '}
-                          {vm.decisionEngine.confidence}%
+                          Grade {vm.decisionEngine.investmentGrade || '—'} · Evidence{' '}
+                          {vm.decisionEngine.evidenceConfidence != null
+                            ? `${vm.decisionEngine.evidenceConfidence}%`
+                            : `${vm.decisionEngine.confidence ?? '—'}%`}
                         </p>
+                        {vm.decisionEngine.action ? (
+                          <p className="rw-body mt-2 text-[var(--rw-soft)]">{vm.decisionEngine.action}</p>
+                        ) : null}
                       </div>
                       <div className="rw-decision-metrics">
                         {[
@@ -638,6 +727,41 @@ export default function ResearchWorkspace({
                         ))}
                       </div>
                     </div>
+                    {vm.decisionEngine.stackLayers?.length ? (
+                      <div className="mt-4 space-y-3">
+                        {vm.decisionEngine.stackLayers
+                          .filter((l) => l.id !== 'decision')
+                          .slice(0, 4)
+                          .map((layer) => (
+                            <div key={layer.id} className="rw-why-card">
+                              <h4>
+                                {layer.title}{' '}
+                                {layer.score != null ? (
+                                  <span className="tabular-nums font-semibold">
+                                    {layer.score}/100
+                                  </span>
+                                ) : null}
+                              </h4>
+                              {(layer.strengths || []).length ? (
+                                <p className="text-sm text-[var(--rw-soft)]">
+                                  Strengths: {(layer.strengths || []).slice(0, 3).join(' · ')}
+                                </p>
+                              ) : null}
+                              {(layer.weaknesses || []).length ? (
+                                <p className="text-sm text-[var(--rw-soft)]">
+                                  Watch: {(layer.weaknesses || []).slice(0, 3).join(' · ')}
+                                </p>
+                              ) : null}
+                              {layer.evidence_quality_score != null ? (
+                                <p className="text-sm text-[var(--rw-soft)]">
+                                  Evidence quality {layer.evidence_quality_score}/100 (separate from
+                                  company quality)
+                                </p>
+                              ) : null}
+                            </div>
+                          ))}
+                      </div>
+                    ) : null}
                     {vm.decisionEngine.preQuestions?.length ? (
                       <ol className="rw-preq mt-4">
                         {vm.decisionEngine.preQuestions.map((q) => (
