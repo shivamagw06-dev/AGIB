@@ -134,29 +134,48 @@ class GrowwMarketGateway:
         }
 
     def fetch_snapshot(self, entity: str, *, scope: str = "company") -> MarketSnapshot:
-        """Return a market snapshot. Prefer seeded AGI knowledge; soft-live only if forced."""
+        """Return a market snapshot. Prefer seeded AGI knowledge; soft-live only if forced.
+
+        Fail-closed for unknown equities: never attach the NIFTY seed LTP to a
+        non-index ticker (Phase 2.1 / P2.6 honesty rule).
+        """
         key = entity.upper()
         t0 = time.perf_counter()
         live_forced = (os.environ.get("FPI_GROWW_LIVE") or "").strip() in {"1", "true", "yes"}
         used_live = False
-        payload = dict(_SEEDED.get(key) or _SEEDED.get("NIFTY") or {})
+        index_symbols = {"NIFTY", "BANKNIFTY", "SENSEX", "INDIAVIX"}
+        seeded = _SEEDED.get(key)
+        if seeded is not None:
+            payload = dict(seeded)
+            missing_equity_seed = False
+        elif key in index_symbols:
+            payload = dict(_SEEDED.get("NIFTY") or {})
+            missing_equity_seed = False
+        else:
+            # Unknown equity — do NOT fall back to NIFTY LTP
+            payload = {}
+            missing_equity_seed = True
 
         if live_forced and _configured():
             # Soft attempt via Agib Node ticker — never raise into forecast path
             try:
                 live = self._soft_node_ticker(key)
-                if live:
+                if live and live.get("ltp") is not None:
                     payload = {**payload, **live}
                     used_live = True
+                    missing_equity_seed = False
             except Exception:
                 used_live = False
 
         latency = round((time.perf_counter() - t0) * 1000, 2)
         now = utc_now()
+        ltp = payload.get("ltp")
+        # Fail closed: no honest quote available
+        no_quote = ltp is None and missing_equity_seed and not used_live
         return MarketSnapshot(
             entity=key,
             scope=scope if key != "NIFTY" else "market",
-            ltp=payload.get("ltp"),
+            ltp=ltp,
             change_pct=payload.get("change_pct"),
             open=payload.get("open"),
             high=payload.get("high"),
@@ -174,12 +193,16 @@ class GrowwMarketGateway:
             published_at=now,
             as_of=now,
             freshness_sec=0,
-            stale=False,
+            stale=bool(no_quote),
             websocket=bool(used_live and self.supports_websocket),
             note=(
                 "Live Groww refresh via controlled gateway"
                 if used_live
-                else "AGI seeded Groww-shaped market snapshot"
+                else (
+                    "No Groww seed for equity — fail closed (no NIFTY LTP attach)"
+                    if no_quote
+                    else "AGI seeded Groww-shaped market snapshot"
+                )
             ),
         )
 

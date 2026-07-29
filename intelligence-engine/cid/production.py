@@ -162,6 +162,180 @@ def get_or_build(
     except Exception:
         pass
 
+    # P2.3 Ownership Intelligence — NSE Master + XBRL (fill ownership evidence; never fabricate)
+    try:
+        from ownership_intelligence.enrich import merge_ownership_into_dossier
+        from ownership_intelligence.production import analyse as ownership_analyse
+        from cid.store import get_cid_store
+
+        existing = dossier.get("ownership") if isinstance(dossier.get("ownership"), dict) else {}
+        already = existing.get("fii") is not None or existing.get("promoter") is not None
+        if not already:
+            opack = ownership_analyse(t, xbrl_quarters=1, persist=False)
+            if opack.get("ok"):
+                dossier = merge_ownership_into_dossier(dossier, opack)
+                dossier = get_cid_store().put(dossier)
+    except Exception:
+        pass
+
+    # P2.1 Earnings / Financial Statements — NSE integrated + IND-AS XBRL
+    try:
+        from earnings_intelligence.enrich import merge_financials_into_dossier
+        from earnings_intelligence.production import analyse as earnings_analyse
+        from cid.coverage import compute_coverage
+        from cid.store import get_cid_store
+
+        fs = dossier.get("financial_statements") or {}
+        inc = fs.get("income_statement") or {}
+        already_fs = bool((inc.get("quarterly") or []) or (inc.get("annual") or []))
+        fin = dossier.get("financials") if isinstance(dossier.get("financials"), dict) else {}
+        already_fin = fin.get("revenue") is not None or float(fin.get("coverage_pct") or 0) >= 80
+        if not already_fs and not already_fin:
+            epack = earnings_analyse(t, quarterly_xbrl=4, annual_xbrl=2, persist=False)
+            if epack.get("ok"):
+                dossier = merge_financials_into_dossier(dossier, epack)
+                cov = compute_coverage(dossier)
+                dossier.update(
+                    {
+                        "coverage": cov["coverage"],
+                        "coverage_score": cov["coverage_score"],
+                        "coverage_grade": cov["coverage_grade"],
+                        "missing_evidence": cov["missing_evidence"],
+                    }
+                )
+                dossier = get_cid_store().put(dossier)
+    except Exception:
+        pass
+
+    # P2.2 Valuation Intelligence — synthesise peers + multiples + history (no BUY/SELL)
+    try:
+        from valuation_intelligence.enrich import merge_valuation_into_dossier
+        from valuation_intelligence.production import analyse as valuation_analyse
+        from cid.coverage import compute_coverage
+        from cid.store import get_cid_store
+
+        existing_val = dossier.get("valuation") if isinstance(dossier.get("valuation"), dict) else {}
+        already_val = existing_val.get("engine") == "valuation_intelligence" or (
+            existing_val.get("pe") is not None
+            and existing_val.get("peer_pe") is not None
+            and existing_val.get("placeholder") is not True
+        )
+        vi = dossier.get("valuation_intelligence") if isinstance(dossier.get("valuation_intelligence"), dict) else {}
+        already_vi = bool(vi.get("ok") and float(vi.get("coverage_pct") or 0) >= 40)
+        if not already_val and not already_vi:
+            vpack = valuation_analyse(t, max_peers=4, persist=False)
+            if vpack.get("ok"):
+                dossier = merge_valuation_into_dossier(dossier, vpack)
+                cov = compute_coverage(dossier)
+                dossier.update(
+                    {
+                        "coverage": cov["coverage"],
+                        "coverage_score": cov["coverage_score"],
+                        "coverage_grade": cov["coverage_grade"],
+                        "missing_evidence": cov["missing_evidence"],
+                    }
+                )
+                dossier = get_cid_store().put(dossier)
+    except Exception:
+        pass
+
+    # P3.1 Knowledge Delta Engine — incremental CompanyMemory (never silent overwrite)
+    try:
+        from company_memory.enrich import merge_memory_into_dossier
+        from company_memory.from_dossier import injected_from_dossier
+        from knowledge_delta_engine.compile import incremental_compile
+        from cid.store import get_cid_store
+
+        already_mem = isinstance(dossier.get("company_memory"), dict) and dossier["company_memory"].get("ok")
+        if not already_mem:
+            injected = injected_from_dossier(dossier)
+            mem = incremental_compile(
+                t,
+                injected=injected,
+                persist=True,
+                skip_live=True,
+                allow_live_prices=True,
+            )
+            if not mem.get("ok"):
+                # Fallback: full incremental compile once (cold memory)
+                mem = incremental_compile(t, persist=True)
+            if mem.get("ok"):
+                dossier = merge_memory_into_dossier(dossier, mem)
+                dossier = get_cid_store().put(dossier)
+    except Exception:
+        pass
+
+    # P3.2 Investment Knowledge Graph — relationship context (Decision Engine still CID-only)
+    try:
+        from investment_knowledge_graph.build import build_company_graph
+        from investment_knowledge_graph.enrich import merge_graph_into_dossier
+        from cid.store import get_cid_store
+
+        already_kg = (
+            isinstance(dossier.get("investment_knowledge_graph"), dict)
+            and dossier["investment_knowledge_graph"].get("ok")
+        )
+        if not already_kg:
+            mem_for_graph = None
+            if isinstance(dossier.get("memory"), dict):
+                mem_for_graph = {
+                    "ok": True,
+                    "entity": t,
+                    "ownership_history": (dossier.get("memory") or {}).get("ownership_history"),
+                    "sector_history": (dossier.get("memory") or {}).get("sector_history"),
+                    "event_timeline": (dossier.get("memory") or {}).get("event_timeline"),
+                }
+            graph = build_company_graph(t, memory=mem_for_graph)
+            if graph.get("n_nodes"):
+                dossier = merge_graph_into_dossier(dossier, graph)
+                dossier = get_cid_store().put(dossier)
+    except Exception:
+        pass
+
+    # P4.5 Opportunity Intelligence — research prioritisation (never BUY/SELL; DE unchanged)
+    try:
+        from opportunity_intelligence.enrich import merge_opportunity_into_dossier
+        from opportunity_intelligence.production import analyse as opportunity_analyse
+        from cid.store import get_cid_store
+
+        already_oie = (
+            isinstance(dossier.get("opportunity_intelligence"), dict)
+            and dossier["opportunity_intelligence"].get("ok")
+        )
+        if not already_oie:
+            # Prefer memory already on dossier / compiled via delta path
+            injected = None
+            if isinstance(dossier.get("memory"), dict) and dossier.get("company_memory", {}).get("ok"):
+                injected = {
+                    "ok": True,
+                    "entity": t,
+                    "confidence": (dossier.get("company_memory") or {}).get("confidence"),
+                    "compiled_at": (dossier.get("company_memory") or {}).get("compiled_at"),
+                    "memory_version": (dossier.get("company_memory") or {}).get("memory_version"),
+                    "memory_delta": (dossier.get("company_memory") or {}).get("memory_delta"),
+                    "financial_history": (dossier.get("memory") or {}).get("financial_history"),
+                    "ownership_history": (dossier.get("memory") or {}).get("ownership_history"),
+                    "valuation_history": (dossier.get("memory") or {}).get("valuation_history"),
+                    "corporate_history": (dossier.get("memory") or {}).get("corporate_history"),
+                    "sector_history": (dossier.get("memory") or {}).get("sector_history"),
+                    "event_timeline": (dossier.get("memory") or {}).get("event_timeline"),
+                    "price_intelligence": (dossier.get("memory") or {}).get("price_intelligence"),
+                    "risk_history": (dossier.get("memory") or {}).get("risk_history"),
+                    "competitive_position": (dossier.get("memory") or {}).get("competitive_position"),
+                    "business_model": (dossier.get("memory") or {}).get("business_model"),
+                }
+            oie = opportunity_analyse(
+                t,
+                injected_memory=injected,
+                compile_if_missing=injected is None,
+                persist_memory=False,
+            )
+            if oie.get("ok"):
+                dossier = merge_opportunity_into_dossier(dossier, oie)
+                dossier = get_cid_store().put(dossier)
+    except Exception:
+        pass
+
     return {
         **dossier,
         "enabled": True,

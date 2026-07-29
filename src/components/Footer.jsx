@@ -5,31 +5,30 @@ const COLUMNS = [
   {
     title: 'Research',
     links: [
-      { label: 'Research Notes', to: '/sections/research-notes' },
-      { label: 'Markets', to: '/market-intelligence' },
+      { label: 'Research', to: '/sections/research-notes' },
       { label: 'Companies', to: '/company-updates' },
+      { label: 'Markets', to: '/markets' },
+      { label: 'Macro', to: '/macro-intelligence' },
       { label: 'IPO', to: '/ipo-intelligence' },
-      { label: 'Global', to: '/global' },
     ],
   },
   {
-    title: 'Product',
+    title: 'Platform',
     links: [
-      { label: 'About', to: '/about' },
-      { label: 'Pricing', to: '/#newsletter' },
-      { label: 'Newsletter', to: '/#newsletter' },
-      { label: 'API', to: '/contact' },
-      { label: 'Support', to: '/contact' },
+      { label: 'Ask AGI', to: '/ask' },
+      { label: 'Portfolio', to: '/portfolio' },
+      { label: 'Academy', to: '/admin/academy' },
+      { label: 'About AGI', to: '/about' },
+      { label: 'Contact', to: '/contact' },
     ],
   },
   {
     title: 'Legal',
     links: [
-      { label: 'Terms', to: '/terms' },
       { label: 'Privacy', to: '/privacy' },
+      { label: 'Terms', to: '/terms' },
       { label: 'Disclaimer', to: '/disclaimer' },
       { label: 'SEBI Disclosure', to: '/sebi-disclosure' },
-      { label: 'Contact', to: '/contact' },
     ],
   },
 ];
@@ -42,16 +41,9 @@ export default function Footer() {
           <div>
             <Logo compact className="mb-3 brightness-0 invert" />
             <p className="mt-3 max-w-sm text-xs leading-relaxed text-white/65">
-              AGIB institutional research terminal for Indian investors. Informational only — not investment advice.
+              AGI combines AI-powered investment intelligence, original institutional research and deep company
+              intelligence into one professional research platform. Informational only — not investment advice.
             </p>
-            <a
-              href="https://www.linkedin.com"
-              target="_blank"
-              rel="noreferrer"
-              className="mt-4 inline-block text-xs font-bold text-[#ffb366] hover:text-white"
-            >
-              LinkedIn →
-            </a>
           </div>
 
           {COLUMNS.map((col) => (

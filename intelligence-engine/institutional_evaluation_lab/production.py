@@ -38,6 +38,17 @@ def status() -> dict[str, Any]:
             "reason_codes": ["DATA", "MARKET", "MODEL", "GOVERNANCE", "BUGFIX", "UNKNOWN"],
             "unknown_is_regression": True,
         },
+        "release_observability": {
+            "version": "release-observability-v1.0.0",
+            "presentation_only": True,
+            "consumes": ["evaluation_lab", "phase6_governance", "recommendation_drift"],
+        },
+        "institutional_acceptance_test": {
+            "version": "institutional-acceptance-test-v1.0.0",
+            "question": "Is AGIB ready to become the baseline architecture?",
+            "universe_n": 200,
+            "acceptance_exam_only": True,
+        },
         "quality_targets": QUALITY_TARGETS,
         "freeze_locks": dict(FREEZE_LOCKS),
         "nightly_default": {"suite": "institutional_1000", "mode": "soft"},
@@ -219,6 +230,42 @@ def recommendation_drift(
         governance_failures=governance_failures,
         persist=persist,
         hints=hints,
+    )
+
+
+def release_observability(
+    *,
+    release_id: str,
+    previous_releases: list[str] | None = None,
+    persist: bool = True,
+) -> dict[str, Any]:
+    """PR #309 — pure observability dashboards over #306–#308 artifacts."""
+    from institutional_evaluation_lab.observability.production import build_release_dashboard
+
+    return build_release_dashboard(
+        release_id,
+        previous_releases=previous_releases,
+        persist=persist,
+    )
+
+
+def institutional_acceptance_test(
+    *,
+    release_id: str,
+    previous_release: str | None = None,
+    persist: bool = True,
+    freeze: bool = False,
+    require_full_universe: bool = True,
+) -> dict[str, Any]:
+    """Phase 1 IAT — final exam for baseline architecture qualification."""
+    from institutional_evaluation_lab.iat.production import run_iat
+
+    return run_iat(
+        release_id=release_id,
+        previous_release=previous_release,
+        persist=persist,
+        freeze=freeze,
+        require_full_universe=require_full_universe,
     )
 
 

@@ -84,9 +84,11 @@ def ticker_result_payload(
     versions = {**(versions or {}), **row_versions}
     return {
         "ticker": row.get("ticker"),
-        "company_name": row.get("company_name"),
+        "company_name": row.get("company_name") or row.get("name"),
         "sector": row.get("sector"),
         "bucket": row.get("bucket"),
+        "investment_opportunity": row.get("investment_opportunity") or row.get("market_opportunity"),
+        "analytical_confidence": row.get("analytical_confidence"),
         "release_id": release_id,
         "run_id": run_id,
         "status": row.get("status") or ("COMPLETED" if row.get("ok") else "FAILED"),

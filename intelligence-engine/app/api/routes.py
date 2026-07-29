@@ -9863,6 +9863,792 @@ async def institutional_evaluation_lab_drift_compare(payload: dict[str, Any] = B
     return light
 
 
+@router.get("/institutional-evaluation-lab/observability/health")
+async def institutional_evaluation_lab_observability_health():
+    from institutional_evaluation_lab.observability.production import health
+
+    return health()
+
+
+@router.get("/institutional-evaluation-lab/observability/{release_id}")
+async def institutional_evaluation_lab_observability_release(release_id: str, persist: bool = True):
+    """PR #309 — executive / sector / governance / drift / performance / coverage dashboards."""
+    from institutional_evaluation_lab.production import release_observability
+
+    pack = release_observability(release_id=release_id, persist=persist)
+    if not pack.get("found"):
+        raise HTTPException(status_code=404, detail="release_not_found")
+    return pack
+
+
+@router.post("/institutional-evaluation-lab/observability")
+async def institutional_evaluation_lab_observability(payload: dict[str, Any] = Body(default={})):
+    from institutional_evaluation_lab.production import release_observability
+
+    body = payload or {}
+    release_id = str(body.get("release_id") or body.get("release") or "").strip()
+    if not release_id:
+        raise HTTPException(status_code=400, detail="release_id_required")
+    history = body.get("previous_releases") or body.get("history") or []
+    if isinstance(history, str):
+        history = [x.strip() for x in history.split(",") if x.strip()]
+    pack = release_observability(
+        release_id=release_id,
+        previous_releases=list(history) if history else None,
+        persist=bool(body.get("persist", True)),
+    )
+    if not pack.get("found"):
+        raise HTTPException(status_code=404, detail="release_not_found")
+    return pack
+
+
+@router.get("/institutional-evaluation-lab/iat/health")
+async def institutional_evaluation_lab_iat_health():
+    from institutional_evaluation_lab.iat.production import health
+
+    return health()
+
+
+@router.post("/institutional-evaluation-lab/iat")
+async def institutional_evaluation_lab_iat(payload: dict[str, Any] = Body(default={})):
+    """Phase 1 Institutional Acceptance Test — baseline qualification exam."""
+    from institutional_evaluation_lab.production import institutional_acceptance_test
+
+    body = payload or {}
+    release_id = str(body.get("release_id") or body.get("release") or "").strip()
+    if not release_id:
+        raise HTTPException(status_code=400, detail="release_id_required")
+    pack = institutional_acceptance_test(
+        release_id=release_id,
+        previous_release=(str(body["previous_release"]).strip() if body.get("previous_release") else None),
+        persist=bool(body.get("persist", True)),
+        freeze=bool(body.get("freeze", False)),
+        require_full_universe=bool(body.get("require_full_universe", True)),
+    )
+    if not pack.get("found"):
+        raise HTTPException(status_code=404, detail="release_not_found")
+    # Keep response light
+    light = {k: v for k, v in pack.items() if k not in {"thresholds"}}
+    return light
+
+
+@router.get("/phase2/health")
+async def phase2_investment_intelligence_health():
+    """Phase 2 programme registry — extends Baseline v1.0; does not replace it."""
+    from phase2_investment_intelligence.production import health
+
+    return health()
+
+
+@router.get("/phase2/contracts")
+async def phase2_investment_intelligence_contracts():
+    """Standard engine contract for every Phase 2 workstream."""
+    from phase2_investment_intelligence.production import contracts
+
+    return contracts()
+
+
+@router.get("/phase2/scorecard")
+async def phase2_investment_intelligence_scorecard():
+    """Intelligence Scorecard templates — Phase 2 measurement frame."""
+    from phase2_investment_intelligence.production import scorecard
+
+    return scorecard()
+
+
+@router.get("/phase2/milestones")
+async def phase2_investment_intelligence_milestones():
+    from phase2_investment_intelligence.milestones import milestones_board
+
+    return milestones_board()
+
+
+@router.get("/phase2/workstreams")
+@router.get("/phase2/programme")
+async def phase2_investment_intelligence_programme():
+    from phase2_investment_intelligence.production import programme
+
+    return programme()
+
+
+@router.get("/live-market-context/health")
+async def live_market_context_health():
+    """P2.6 Live Market Context — Phase 2.1 Sprint 1."""
+    from live_market_context.production import health
+
+    return health()
+
+
+@router.get("/live-market-context/{ticker}")
+async def live_market_context_ticker(ticker: str, force: bool = False, intrinsic_value: float | None = None):
+    from live_market_context.production import analyse
+
+    return analyse(ticker, force=force, intrinsic_value=intrinsic_value)
+
+
+@router.post("/live-market-context")
+async def live_market_context_post(payload: dict[str, Any] = Body(default={})):
+    from live_market_context.production import analyse
+
+    body = payload or {}
+    ticker = str(body.get("ticker") or "").strip()
+    if not ticker:
+        raise HTTPException(status_code=400, detail="ticker_required")
+    intrinsic = body.get("intrinsic_value")
+    try:
+        intrinsic_f = float(intrinsic) if intrinsic is not None else None
+    except (TypeError, ValueError):
+        intrinsic_f = None
+    return analyse(ticker, force=bool(body.get("force")), intrinsic_value=intrinsic_f)
+
+
+@router.get("/earnings-intelligence/health")
+async def earnings_intelligence_health():
+    """P2.1 Financial Statements & Earnings Intelligence — NSE IND-AS XBRL."""
+    from earnings_intelligence.production import health
+
+    return health()
+
+
+@router.get("/earnings-intelligence/{ticker}")
+async def earnings_intelligence_ticker(
+    ticker: str,
+    force: bool = False,
+    quarterly_xbrl: int = 4,
+    annual_xbrl: int = 2,
+    skip_xbrl: bool = False,
+):
+    from earnings_intelligence.production import analyse
+
+    return analyse(
+        ticker,
+        force=force,
+        quarterly_xbrl=max(0, min(int(quarterly_xbrl), 20)),
+        annual_xbrl=max(0, min(int(annual_xbrl), 15)),
+        skip_xbrl=bool(skip_xbrl),
+        persist=False,
+    )
+
+
+@router.post("/earnings-intelligence")
+async def earnings_intelligence_post(payload: dict[str, Any] = Body(default={})):
+    from earnings_intelligence.production import analyse
+
+    body = payload or {}
+    ticker = str(body.get("ticker") or "").strip()
+    if not ticker:
+        raise HTTPException(status_code=400, detail="ticker_required")
+    try:
+        q = max(0, min(int(body.get("quarterly_xbrl", 4)), 20))
+    except (TypeError, ValueError):
+        q = 4
+    try:
+        a = max(0, min(int(body.get("annual_xbrl", 2)), 15))
+    except (TypeError, ValueError):
+        a = 2
+    return analyse(
+        ticker,
+        force=bool(body.get("force")),
+        quarterly_xbrl=q,
+        annual_xbrl=a,
+        skip_xbrl=bool(body.get("skip_xbrl")),
+        persist=bool(body.get("persist", False)),
+    )
+
+
+@router.get("/ownership-intelligence/health")
+async def ownership_intelligence_health():
+    """P2.3 Ownership Intelligence — NSE Master + XBRL evidence layer."""
+    from ownership_intelligence.production import health
+
+    return health()
+
+
+@router.get("/ownership-intelligence/{ticker}")
+async def ownership_intelligence_ticker(
+    ticker: str,
+    force: bool = False,
+    xbrl_quarters: int = 2,
+    skip_xbrl: bool = False,
+):
+    from ownership_intelligence.production import analyse
+
+    return analyse(
+        ticker,
+        force=force,
+        xbrl_quarters=max(0, min(int(xbrl_quarters), 8)),
+        skip_xbrl=bool(skip_xbrl),
+        persist=False,
+    )
+
+
+@router.post("/ownership-intelligence")
+async def ownership_intelligence_post(payload: dict[str, Any] = Body(default={})):
+    from ownership_intelligence.production import analyse
+
+    body = payload or {}
+    ticker = str(body.get("ticker") or "").strip()
+    if not ticker:
+        raise HTTPException(status_code=400, detail="ticker_required")
+    xq = body.get("xbrl_quarters", 2)
+    try:
+        xq_i = max(0, min(int(xq), 8))
+    except (TypeError, ValueError):
+        xq_i = 2
+    return analyse(
+        ticker,
+        force=bool(body.get("force")),
+        xbrl_quarters=xq_i,
+        skip_xbrl=bool(body.get("skip_xbrl")),
+        persist=bool(body.get("persist", False)),
+    )
+
+
+@router.get("/valuation-intelligence/health")
+async def valuation_intelligence_health():
+    """P2.2 Valuation Intelligence — peer-relative + historical synthesis (no BUY/SELL)."""
+    from valuation_intelligence.production import health
+
+    return health()
+
+
+@router.get("/valuation-intelligence/{ticker}")
+async def valuation_intelligence_ticker(
+    ticker: str,
+    force: bool = False,
+    max_peers: int = 5,
+    include_secondary: bool = False,
+):
+    from valuation_intelligence.production import analyse
+
+    return analyse(
+        ticker,
+        force=force,
+        max_peers=max(1, min(int(max_peers), 12)),
+        include_secondary=bool(include_secondary),
+        persist=False,
+    )
+
+
+@router.post("/valuation-intelligence")
+async def valuation_intelligence_post(payload: dict[str, Any] = Body(default={})):
+    from valuation_intelligence.production import analyse
+
+    body = payload or {}
+    ticker = str(body.get("ticker") or "").strip()
+    if not ticker:
+        raise HTTPException(status_code=400, detail="ticker_required")
+    try:
+        mp = max(1, min(int(body.get("max_peers", 5)), 12))
+    except (TypeError, ValueError):
+        mp = 5
+    return analyse(
+        ticker,
+        force=bool(body.get("force")),
+        max_peers=mp,
+        include_secondary=bool(body.get("include_secondary")),
+        persist=bool(body.get("persist", False)),
+    )
+
+
+@router.get("/valuation-intelligence-ic10")
+async def valuation_intelligence_ic10(max_peers: int = 3):
+    from valuation_intelligence.production import ic10_smoke
+
+    return ic10_smoke(max_peers=max(1, min(int(max_peers), 8)))
+
+
+@router.get("/company-memory/health")
+async def company_memory_health():
+    """Company Memory Knowledge Compiler — persistent institutional intelligence."""
+    from company_memory.production import health
+
+    return health()
+
+
+@router.get("/company-memory/{ticker}")
+async def company_memory_ticker(
+    ticker: str,
+    force: bool = False,
+    cache: bool = False,
+    persist: bool = True,
+):
+    from company_memory.production import compile as memory_compile
+
+    return memory_compile(
+        ticker,
+        force=force,
+        use_cache=bool(cache),
+        persist=bool(persist),
+    )
+
+
+@router.get("/company-memory-ic10")
+async def company_memory_ic10(persist: bool = False):
+    from company_memory.production import ic10_compile
+
+    return ic10_compile(persist=bool(persist))
+
+
+@router.get("/knowledge-delta-engine/health")
+async def knowledge_delta_engine_health():
+    """P3.1 Knowledge Delta Engine — incremental CompanyMemory compilation."""
+    from knowledge_delta_engine.production import health
+
+    return health()
+
+
+@router.get("/knowledge-delta-engine/{ticker}")
+async def knowledge_delta_engine_compile(
+    ticker: str,
+    force: bool = False,
+    persist: bool = True,
+):
+    from knowledge_delta_engine.production import compile_incremental
+
+    return compile_incremental(ticker, force=bool(force), persist=bool(persist))
+
+
+@router.post("/knowledge-delta-engine")
+async def knowledge_delta_engine_post(payload: dict[str, Any] = Body(default={})):
+    from knowledge_delta_engine.production import compile_incremental
+
+    body = payload or {}
+    ticker = str(body.get("ticker") or "").strip()
+    if not ticker:
+        raise HTTPException(status_code=400, detail="ticker_required")
+    return compile_incremental(
+        ticker,
+        force=bool(body.get("force")),
+        persist=bool(body.get("persist", True)),
+        reason=body.get("reason"),
+    )
+
+
+@router.get("/knowledge-delta-engine/{ticker}/versions")
+async def knowledge_delta_engine_versions(ticker: str):
+    from knowledge_delta_engine.production import versions
+
+    return versions(ticker)
+
+
+@router.get("/knowledge-delta-engine/{ticker}/versions/{ver}")
+async def knowledge_delta_engine_version(ticker: str, ver: int):
+    from knowledge_delta_engine.production import version
+
+    return version(ticker, int(ver))
+
+
+@router.get("/knowledge-delta-engine/{ticker}/ledger")
+async def knowledge_delta_engine_ledger(ticker: str):
+    from knowledge_delta_engine.production import ledger
+
+    return ledger(ticker)
+
+
+@router.get("/knowledge-delta-engine/{ticker}/explain")
+async def knowledge_delta_engine_explain(
+    ticker: str,
+    topic: str = "management_confidence",
+):
+    from knowledge_delta_engine.production import explain
+
+    return explain(ticker, topic=topic)
+
+
+@router.get("/investment-knowledge-graph/health")
+async def investment_knowledge_graph_health():
+    """P3.2 Investment Knowledge Graph — relationship intelligence façade."""
+    from investment_knowledge_graph.production import health
+
+    return health()
+
+
+@router.get("/investment-knowledge-graph/theme/{name}")
+async def investment_knowledge_graph_theme(name: str):
+    from investment_knowledge_graph.production import theme
+
+    return theme(name)
+
+
+@router.get("/investment-knowledge-graph/macro")
+async def investment_knowledge_graph_macro(chain_id: str | None = None):
+    from investment_knowledge_graph.production import macro
+
+    return macro(chain_id)
+
+
+@router.get("/investment-knowledge-graph/{ticker}/retrieve")
+async def investment_knowledge_graph_retrieve(
+    ticker: str,
+    include_cid: bool = False,
+    persist_delta: bool = False,
+):
+    from investment_knowledge_graph.production import retrieve
+
+    return retrieve(
+        ticker,
+        include_cid=bool(include_cid),
+        compile_delta=True,
+        persist_delta=bool(persist_delta),
+    )
+
+
+@router.get("/investment-knowledge-graph/{ticker}")
+async def investment_knowledge_graph_analyse(ticker: str):
+    from investment_knowledge_graph.production import analyse
+
+    return analyse(ticker)
+
+
+@router.get("/opportunity-intelligence/health")
+async def opportunity_intelligence_health():
+    """P4.5 Opportunity Intelligence — institutional research prioritisation (no BUY/SELL)."""
+    from opportunity_intelligence.production import health
+
+    return health()
+
+
+@router.get("/opportunity-intelligence/top")
+async def opportunity_intelligence_top(limit: int = 10):
+    from opportunity_intelligence.production import top
+
+    return top(limit=max(1, min(int(limit), 50)))
+
+
+@router.get("/opportunity-intelligence/watchlist")
+async def opportunity_intelligence_watchlist():
+    from opportunity_intelligence.production import watchlist
+
+    return watchlist()
+
+
+@router.get("/opportunity-intelligence/catalysts")
+async def opportunity_intelligence_catalysts():
+    from opportunity_intelligence.production import catalysts
+
+    return catalysts()
+
+
+@router.get("/opportunity-intelligence/research-priority")
+async def opportunity_intelligence_research_priority():
+    from opportunity_intelligence.production import research_priority_board
+
+    return research_priority_board()
+
+
+@router.get("/opportunity-intelligence-ic10")
+async def opportunity_intelligence_ic10():
+    from opportunity_intelligence.production import ic10_smoke
+
+    return ic10_smoke()
+
+
+@router.get("/opportunity-intelligence/{ticker}")
+async def opportunity_intelligence_ticker(ticker: str):
+    from opportunity_intelligence.production import analyse
+
+    return analyse(ticker, persist_memory=False)
+
+
+@router.get("/investment-operations/health")
+async def investment_operations_health():
+    """P5 Investment Operations Layer — orchestration façade (not an intelligence engine)."""
+    from investment_operations.production import health
+
+    return health()
+
+
+@router.get("/investment-operations/morning-office")
+async def investment_operations_morning_office(holdings: str | None = None):
+    from investment_operations.production import morning_office
+
+    h = [x.strip().upper() for x in (holdings or "").split(",") if x.strip()] or None
+    return morning_office(holdings=h, include_soft_reasoning=False)
+
+
+@router.get("/investment-operations/research-queue")
+async def investment_operations_research_queue(holdings: str | None = None, limit: int = 25):
+    from investment_operations.production import research_queue
+
+    h = [x.strip().upper() for x in (holdings or "").split(",") if x.strip()] or None
+    return research_queue(holdings=h, include_soft_reasoning=False)
+
+
+@router.get("/investment-operations/portfolio")
+async def investment_operations_portfolio(holdings: str | None = None):
+    from investment_operations.production import portfolio
+
+    h = [x.strip().upper() for x in (holdings or "").split(",") if x.strip()] or None
+    return portfolio(holdings=h, include_soft_reasoning=False)
+
+
+@router.get("/investment-operations/alerts")
+async def investment_operations_alerts(holdings: str | None = None):
+    from investment_operations.production import alerts
+
+    h = [x.strip().upper() for x in (holdings or "").split(",") if x.strip()] or None
+    return alerts(holdings=h, include_soft_reasoning=False)
+
+
+@router.get("/investment-operations/catalysts")
+async def investment_operations_catalysts():
+    from investment_operations.production import catalysts
+
+    return catalysts(include_soft_reasoning=False)
+
+
+@router.get("/investment-operations/daily-brief")
+async def investment_operations_daily_brief(brief_type: str = "morning", holdings: str | None = None):
+    from investment_operations.production import daily_brief
+
+    h = [x.strip().upper() for x in (holdings or "").split(",") if x.strip()] or None
+    return daily_brief(brief_type=brief_type, holdings=h, include_soft_reasoning=False)
+
+
+@router.get("/investment-operations/metrics")
+async def investment_operations_metrics():
+    from investment_operations.production import metrics
+
+    return metrics(include_soft_reasoning=False)
+
+
+@router.get("/investment-operations/workspace/{ticker}")
+async def investment_operations_workspace(ticker: str):
+    from investment_operations.production import workspace
+
+    return workspace(ticker, include_soft_reasoning=True)
+
+
+@router.get("/investment-operations/decision-replay/{ticker}")
+async def investment_operations_decision_replay(ticker: str, version: int | None = None):
+    from investment_operations.production import decision_replay
+
+    return decision_replay(ticker, version=version)
+
+
+@router.get("/investment-operations/monitoring")
+async def investment_operations_monitoring():
+    from investment_operations.production import monitoring
+
+    return monitoring(include_soft_reasoning=False)
+
+
+@router.get("/investment-operations-ic10")
+async def investment_operations_ic10():
+    from investment_operations.production import ic10_smoke
+
+    return ic10_smoke()
+
+
+@router.get("/autonomous-research/health")
+async def autonomous_research_health():
+    """P6 Autonomous Research Office — continuous research workflows (no BUY/SELL)."""
+    from autonomous_research.production import health
+
+    return health()
+
+
+@router.get("/autonomous-research/status")
+async def autonomous_research_status(holdings: str | None = None):
+    from autonomous_research.production import status
+
+    h = [x.strip().upper() for x in (holdings or "").split(",") if x.strip()] or None
+    return status(holdings=h)
+
+
+@router.get("/autonomous-research/planner")
+async def autonomous_research_planner(holdings: str | None = None):
+    from autonomous_research.production import planner
+
+    h = [x.strip().upper() for x in (holdings or "").split(",") if x.strip()] or None
+    return planner(holdings=h)
+
+
+@router.get("/autonomous-research/tasks")
+async def autonomous_research_tasks(holdings: str | None = None):
+    from autonomous_research.production import tasks
+
+    h = [x.strip().upper() for x in (holdings or "").split(",") if x.strip()] or None
+    return tasks(holdings=h)
+
+
+@router.get("/autonomous-research/watchlists")
+async def autonomous_research_watchlists(holdings: str | None = None):
+    from autonomous_research.production import watchlists
+
+    h = [x.strip().upper() for x in (holdings or "").split(",") if x.strip()] or None
+    return watchlists(holdings=h)
+
+
+@router.get("/autonomous-research/themes")
+async def autonomous_research_themes():
+    from autonomous_research.production import themes
+
+    return themes()
+
+
+@router.get("/autonomous-research/coverage")
+async def autonomous_research_coverage():
+    from autonomous_research.production import coverage
+
+    return coverage()
+
+
+@router.get("/autonomous-research/research/{ticker}")
+async def autonomous_research_ticker(ticker: str):
+    from autonomous_research.production import research
+
+    return research(ticker)
+
+
+@router.get("/autonomous-research/publications")
+async def autonomous_research_publications(holdings: str | None = None):
+    from autonomous_research.production import publications
+
+    h = [x.strip().upper() for x in (holdings or "").split(",") if x.strip()] or None
+    return publications(holdings=h)
+
+
+@router.get("/autonomous-research/qa")
+async def autonomous_research_qa():
+    from autonomous_research.production import qa
+
+    return qa()
+
+
+@router.get("/autonomous-research/learning")
+async def autonomous_research_learning():
+    from autonomous_research.production import learning
+
+    return learning()
+
+
+@router.get("/autonomous-research-ic10")
+async def autonomous_research_ic10():
+    from autonomous_research.production import ic10_smoke
+
+    return ic10_smoke()
+
+
+@router.get("/production-hardening/health")
+async def production_hardening_health():
+    """Production Hardening — scale, observability, gold regression, DQ, performance."""
+    from production_hardening.production import health
+
+    return health()
+
+
+@router.get("/production-hardening/dashboard")
+async def production_hardening_dashboard():
+    from production_hardening.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/production-hardening/regression")
+async def production_hardening_regression():
+    from production_hardening.production import regression
+
+    return regression(update_baseline=False)
+
+
+@router.post("/production-hardening/regression/baseline")
+async def production_hardening_regression_baseline():
+    from production_hardening.production import regression
+
+    return regression(update_baseline=True)
+
+
+@router.get("/production-hardening/scale")
+async def production_hardening_scale(
+    preset: str = "smoke",
+    limit: int | None = None,
+    mode: str = "opportunity",
+):
+    from production_hardening.production import scale
+
+    return scale(preset=preset, limit=limit, mode=mode)
+
+
+@router.get("/production-hardening/data-quality")
+async def production_hardening_data_quality():
+    from production_hardening.production import data_quality
+
+    return data_quality()
+
+
+@router.get("/production-hardening/performance")
+async def production_hardening_performance():
+    from production_hardening.production import performance
+
+    return performance()
+
+
+@router.get("/production-hardening/suite")
+async def production_hardening_suite(
+    scale_preset: str = "smoke",
+    update_baseline: bool = False,
+):
+    from production_hardening.production import run_hardening_suite
+
+    return run_hardening_suite(scale_preset=scale_preset, update_baseline=bool(update_baseline))
+
+
+@router.get("/production-hardening/universe")
+async def production_hardening_universe(preset: str = "smoke", limit: int | None = None):
+    from production_hardening.production import universe_info
+
+    return universe_info(preset=preset, limit=limit)
+
+
+@router.get("/production-hardening/history")
+async def production_hardening_history(limit: int = 20):
+    from production_hardening.production import history
+
+    return history(limit=max(1, min(int(limit), 200)))
+
+
+@router.get("/committee-certification-v2/health")
+async def committee_certification_v2_health():
+    """IC-10 Institutional Committee Certification v2.0 — health / universe map."""
+    from committee_certification_v2.production import health
+
+    return health()
+
+
+@router.get("/committee-certification-v2/run")
+async def committee_certification_v2_run(
+    runs: int = 1,
+    max_peers: int = 3,
+    force: bool = False,
+    persist: bool = True,
+):
+    """Run IC-10 Committee Certification v2.0 (live evidence + governance checks)."""
+    from committee_certification_v2.production import run_certification
+
+    return run_certification(
+        robustness_runs=max(1, min(int(runs), 3)),
+        max_peers=max(1, min(int(max_peers), 8)),
+        force=bool(force),
+        persist=bool(persist),
+    )
+
+
+@router.get("/committee-certification-v2/latest")
+async def committee_certification_v2_latest():
+    from pathlib import Path
+    import json
+
+    path = Path("committee_certification_v2/results/latest.json")
+    if not path.exists():
+        # package-relative
+        path = Path(__file__).resolve().parents[2] / "committee_certification_v2" / "results" / "latest.json"
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="no_certification_result")
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
 @router.get("/institutional-evaluation-lab/question/{question_id}")
 async def institutional_evaluation_lab_question(question_id: str):
     from institutional_evaluation_lab.production import question

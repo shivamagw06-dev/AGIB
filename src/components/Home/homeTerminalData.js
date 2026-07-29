@@ -3,13 +3,60 @@
 export const TRENDING_CHIPS = [
   'Reliance',
   'HDFC Bank',
-  'RBI Policy',
   'Defence',
-  'NIFTY Outlook',
+  'RBI Policy',
   'Gold',
   'IPO Calendar',
-  'Fed',
 ];
+
+export const SUGGESTED_SEARCHES = [
+  'Reliance',
+  'HDFC Bank',
+  'Defence',
+  'RBI Policy',
+  'Gold',
+  'IPO Calendar',
+];
+
+export const POPULAR_ASK_QUESTIONS = [
+  'Should I buy HDFC Bank?',
+  'Explain RBI policy.',
+  'Compare Tata Motors vs Mahindra.',
+  "Summarise today's market.",
+  'Top banking stocks.',
+];
+
+export const POPULAR_RESEARCH_SEARCHES = [
+  'Reliance',
+  'RBI Policy',
+  'Fed',
+  'Defence',
+  'Power',
+  'IT',
+  'IPO Calendar',
+];
+
+export const COMPANY_INTEL_EXAMPLES = [
+  { label: 'Reliance', symbol: 'reliance' },
+  { label: 'TCS', symbol: 'tcs' },
+  { label: 'ICICI Bank', symbol: 'icicibank' },
+  { label: 'HDFC Bank', symbol: 'hdfcbank' },
+  { label: 'HAL', symbol: 'hal' },
+];
+
+export const COMPANY_INTEL_PANELS = [
+  'Research',
+  'Financials',
+  'Valuation',
+  'Ownership',
+  'Filings',
+  'Peers',
+  'Timeline',
+  'Ask AGI',
+];
+
+export const HERO_TRUST_LINE =
+  '10+ original research notes published every trading day • 2500+ companies covered • Evidence-backed AI answers';
 
 export const RESEARCH_THEMES = [
   { id: 'ai-tech', label: 'AI & Technology', path: '/themes/ai_productivity' },
@@ -36,28 +83,31 @@ export const FEATURED_LANES = [
 
 export const DEFAULT_OUTLOOK = [
   { key: 'nifty50', label: 'NIFTY 50', sentiment: 'Bullish', score: 72, path: '/market-intelligence' },
-  { key: 'next50', label: 'NIFTY NEXT 50', sentiment: 'Bullish', score: 68, path: '/market-intelligence' },
+  { key: 'sensex', label: 'SENSEX', sentiment: 'Bullish', score: 70, path: '/market-intelligence' },
   { key: 'banknifty', label: 'BANK NIFTY', sentiment: 'Neutral', score: 55, path: '/market-intelligence' },
   { key: 'midcap', label: 'MIDCAP', sentiment: 'Bearish', score: 38, path: '/market-intelligence' },
   { key: 'smallcap', label: 'SMALLCAP', sentiment: 'Bullish', score: 64, path: '/market-intelligence' },
-  { key: 'sensex', label: 'SENSEX', sentiment: 'Bullish', score: 70, path: '/market-intelligence' },
+  { key: 'usdinr', label: 'USDINR', sentiment: 'Neutral', score: 52, path: '/macro-intelligence' },
+  { key: 'brent', label: 'BRENT', sentiment: 'Bearish', score: 42, path: '/macro-intelligence' },
+  { key: 'gold', label: 'GOLD', sentiment: 'Bullish', score: 66, path: '/macro-intelligence' },
+  { key: 'india10y', label: 'India 10Y', sentiment: 'Neutral', score: 54, path: '/macro-intelligence' },
 ];
 
 export const DEFAULT_HIGHLIGHTS = [
   'RBI commentary improves banking outlook.',
   'Defence sector continues to outperform.',
-  'FIIs bought ₹2,800 crore.',
-  'Oil down 3%.',
-  'AI upgrades Larsen & Toubro.',
+  'Domestic institutions remain constructive on financials.',
+  'Oil softness eases input-cost pressure.',
+  'Capex and order-book visibility stay institutional themes.',
 ];
 
 export const CALENDAR_BLOCKS = [
-  { id: 'earnings', label: 'Earnings', hint: 'Results desk' },
-  { id: 'ipo', label: 'IPO', hint: 'Offer calendar' },
-  { id: 'economic', label: 'Economic Events', hint: 'Macro releases' },
-  { id: 'rbi', label: 'RBI Events', hint: 'Policy & speeches' },
-  { id: 'fed', label: 'Fed', hint: 'Global policy' },
-  { id: 'results', label: 'Results Today', hint: 'Live board' },
+  { id: 'earnings', label: 'Upcoming Earnings', hint: 'Results desk', path: '/events' },
+  { id: 'economic', label: 'Economic Events', hint: 'Macro releases', path: '/macro-intelligence' },
+  { id: 'ipo', label: 'IPO Calendar', hint: 'Offer calendar', path: '/ipo-intelligence' },
+  { id: 'global', label: 'Global Events', hint: 'World desk', path: '/global' },
+  { id: 'rbi', label: 'RBI Events', hint: 'Policy & speeches', path: '/macro-intelligence' },
+  { id: 'fed', label: 'Fed', hint: 'Global policy', path: '/macro-intelligence' },
 ];
 
 export const GLOBAL_SNAPSHOT = [
@@ -68,6 +118,130 @@ export const GLOBAL_SNAPSHOT = [
   { id: 'commodities', label: 'Commodities', path: '/global' },
   { id: 'bonds', label: 'Bond Yields', path: '/global' },
 ];
+
+export const RESEARCH_TABS = [
+  { id: 'morning', label: 'Morning Desk', match: /morning|pre-?market|open/i },
+  { id: 'post', label: 'Post Market', match: /post|close|wrap/i },
+  { id: 'global', label: 'Global Desk', match: /global|us|fed|asia|europe/i },
+  { id: 'macro', label: 'Macro', match: /macro|rbi|rates|inflation|gdp/i },
+  { id: 'ipo', label: 'IPO', match: /ipo|offer|listing/i },
+  { id: 'sector', label: 'Sector', match: /sector|bank|defence|pharma|it |energy/i },
+  { id: 'weekend', label: 'Weekend', match: /weekend|weekly|sunday|saturday/i },
+];
+
+export const MARKET_BOARD = {
+  india: [
+    { key: 'nifty', label: 'NIFTY', match: /nifty(?!\s*next)|nifty\s*50/i },
+    { key: 'banknifty', label: 'BANK NIFTY', match: /bank/i },
+    { key: 'midcap', label: 'MIDCAP', match: /midcap|mid\s*cap/i },
+    { key: 'smallcap', label: 'SMALLCAP', match: /smallcap|small\s*cap/i },
+    { key: 'sensex', label: 'SENSEX', match: /sensex/i },
+  ],
+  global: [
+    { key: 'sp500', label: 'S&P500', match: /s&p|spx|s\s*&\s*p/i },
+    { key: 'nasdaq', label: 'NASDAQ', match: /nasdaq/i },
+    { key: 'dow', label: 'DOW', match: /dow/i },
+    { key: 'ftse', label: 'FTSE', match: /ftse/i },
+    { key: 'nikkei', label: 'NIKKEI', match: /nikkei/i },
+    { key: 'hangseng', label: 'HANG SENG', match: /hang\s*seng|hsi/i },
+  ],
+  macro: [
+    { key: 'usdinr', label: 'USDINR', match: /usd\s*inr|usdinr|inr/i },
+    { key: 'dxy', label: 'DXY', match: /dxy|dollar\s*index/i },
+    { key: 'brent', label: 'BRENT', match: /brent|crude|oil/i },
+    { key: 'gold', label: 'GOLD', match: /gold/i },
+    { key: 'us10y', label: 'US10Y', match: /us\s*10|ust\s*10|treasury/i },
+    { key: 'india10y', label: 'India 10Y', match: /india\s*10|g-?sec|in10/i },
+    { key: 'vix', label: 'VIX', match: /vix/i },
+  ],
+};
+
+export const DEFAULT_OPPORTUNITY_QUEUE = [
+  {
+    company: 'HDFCBANK',
+    name: 'HDFC Bank',
+    opportunityScore: 78,
+    researchPriority: 'High',
+    whyNow: 'Deposit franchise and loan growth commentary remains the swing factor for private banks.',
+    catalysts: ['Earnings', 'NIM trajectory', 'Deposit costs'],
+    confidence: 0.74,
+  },
+  {
+    company: 'RELIANCE',
+    name: 'Reliance Industries',
+    opportunityScore: 74,
+    researchPriority: 'High',
+    whyNow: 'Retail and digital cash-flow visibility keeps the conglomerate on the institutional watchlist.',
+    catalysts: ['Jio / Retail updates', 'Energy margin'],
+    confidence: 0.7,
+  },
+  {
+    company: 'HAL',
+    name: 'Hindustan Aeronautics',
+    opportunityScore: 81,
+    researchPriority: 'Critical',
+    whyNow: 'Defence order-book conversion and export optionality keep visibility elevated.',
+    catalysts: ['Order inflow', 'Export pipeline'],
+    confidence: 0.76,
+  },
+  {
+    company: 'TCS',
+    name: 'Tata Consultancy Services',
+    opportunityScore: 66,
+    researchPriority: 'Medium',
+    whyNow: 'Deal pipeline quality supports selective IT coverage if pricing pressure eases.',
+    catalysts: ['Large deals', 'Pricing commentary'],
+    confidence: 0.62,
+  },
+  {
+    company: 'NTPC',
+    name: 'NTPC',
+    opportunityScore: 71,
+    researchPriority: 'High',
+    whyNow: 'Power and capex cycle remain constructive for regulated cash-flow compounders.',
+    catalysts: ['Capacity updates', 'Thermal / RE mix'],
+    confidence: 0.68,
+  },
+  {
+    company: 'SUNPHARMA',
+    name: 'Sun Pharma',
+    opportunityScore: 64,
+    researchPriority: 'Medium',
+    whyNow: 'Specialty franchise and US portfolio updates warrant continued research coverage.',
+    catalysts: ['US specialty', 'Guidance'],
+    confidence: 0.61,
+  },
+];
+
+export const DEFAULT_AI_BRIEF = {
+  marketSummary:
+    'Indian equities trade in a selective risk-on regime. Financials and defence retain institutional attention while midcap breadth stays mixed.',
+  keyRisks: [
+    'Global yield volatility transmitting into domestic risk appetite',
+    'Oil price rebound compressing consumption margins',
+    'Earnings misses among rate-sensitive names',
+  ],
+  topOpportunities: [
+    'Private banks with deposit franchise strength',
+    'Defence names with order-book visibility',
+    'Power / capex beneficiaries with regulated cash flows',
+  ],
+  sectorRotation: 'Leadership remains concentrated in financials, defence and selective industrials; IT stays watch-list selective.',
+  institutionalFlows: 'Domestic institutions remain constructive; foreign flows stay selective across large-caps.',
+  macroOutlook: 'Policy tone, real rates and USDINR remain the primary macro swing factors for the next research window.',
+};
+
+export const DEFAULT_COVERAGE = {
+  companiesCovered: 120,
+  researchNotesPublished: 186,
+  morningOfficeStatus: 'Operational',
+  knowledgeGraph: 'Online',
+  companyMemory: 'Online',
+  opportunityEngine: 'Online',
+  regressionStatus: 'Passing',
+  dataFreshness: 'Intraday',
+  lastSync: null,
+};
 
 export function scoreFromSentiment(sentiment = '', strength = '') {
   const s = String(sentiment).toLowerCase();
@@ -90,26 +264,62 @@ export function normalizeSentiment(sentiment = '') {
 
 export function matchOutlookIndices(indexSentiments = []) {
   const aliases = [
-    { key: 'nifty50', match: /nifty\s*50(?!\s*next)/i, label: 'NIFTY 50' },
-    { key: 'next50', match: /next\s*50/i, label: 'NIFTY NEXT 50' },
+    { key: 'nifty50', match: /nifty\s*50(?!\s*next)|^nifty$/i, label: 'NIFTY 50' },
+    { key: 'sensex', match: /sensex/i, label: 'SENSEX' },
     { key: 'banknifty', match: /bank/i, label: 'BANK NIFTY' },
     { key: 'midcap', match: /midcap|mid\s*cap/i, label: 'MIDCAP' },
     { key: 'smallcap', match: /smallcap|small\s*cap/i, label: 'SMALLCAP' },
-    { key: 'sensex', match: /sensex/i, label: 'SENSEX' },
+    { key: 'usdinr', match: /usd\s*inr|usdinr|inr/i, label: 'USDINR' },
+    { key: 'brent', match: /brent|crude|oil/i, label: 'BRENT' },
+    { key: 'gold', match: /gold/i, label: 'GOLD' },
+    { key: 'india10y', match: /india\s*10|g-?sec|in10/i, label: 'India 10Y' },
   ];
   return aliases.map((alias) => {
-    const hit = indexSentiments.find((row) => alias.match.test(row.label || row.key || ''));
+    const hit = indexSentiments.find((row) => alias.match.test(row.label || row.key || row.name || ''));
     const fallback = DEFAULT_OUTLOOK.find((d) => d.key === alias.key);
     if (!hit) return { ...fallback };
-    const sentiment = normalizeSentiment(hit.sentiment);
+    const sentiment = normalizeSentiment(hit.sentiment || hit.mood || hit.direction);
     return {
       key: alias.key,
       label: alias.label,
       sentiment,
-      score: scoreFromSentiment(hit.sentiment, hit.strength),
-      path: '/market-intelligence',
+      score: scoreFromSentiment(hit.sentiment, hit.strength || hit.score),
+      path: fallback?.path || '/market-intelligence',
     };
   });
+}
+
+export function resolveBoardRow(defs, snapshot = [], sentiments = []) {
+  return defs.map((def) => {
+    const fromSnap = snapshot.find((row) => def.match.test(row.name || row.label || row.key || ''));
+    const fromSent = sentiments.find((row) => def.match.test(row.label || row.key || row.name || ''));
+    const price = fromSnap?.price ?? fromSnap?.last ?? fromSnap?.value ?? null;
+    const pct = fromSnap?.percentChange ?? fromSnap?.change_pct ?? fromSnap?.pct ?? null;
+    const sentiment = normalizeSentiment(fromSent?.sentiment || fromSnap?.session || '');
+    return {
+      key: def.key,
+      label: def.label,
+      price,
+      pct,
+      sentiment: sentiment === 'Syncing' ? '—' : sentiment,
+      session: fromSnap?.session || null,
+    };
+  });
+}
+
+export function articleMatchesTab(article, tab) {
+  if (!article || !tab) return false;
+  const blob = [
+    article.title,
+    article.excerpt,
+    article.section,
+    article.category,
+    ...(Array.isArray(article.tags) ? article.tags : []),
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+  return tab.match.test(blob);
 }
 
 export function articleMatchesSession(article, session) {
@@ -140,7 +350,9 @@ export function enrichResearchCard(article) {
     whyItMatters:
       article.whyItMatters ||
       article.why_it_matters ||
-      (excerpt ? `Institutional relevance: ${excerpt.slice(0, 140)}${excerpt.length > 140 ? '…' : ''}` : 'Material for portfolio and sector monitoring.'),
+      (excerpt
+        ? `Institutional relevance: ${excerpt.slice(0, 140)}${excerpt.length > 140 ? '…' : ''}`
+        : 'Material for portfolio and sector monitoring.'),
     affectedCompanies: article.affectedCompanies || article.companies || article.tickers || [],
     affectedSectors: article.affectedSectors || (article.sector ? [article.sector] : article.category ? [article.category] : []),
     marketImpact: article.marketImpact || article.market_impact || 'Monitor positioning and relative performance.',

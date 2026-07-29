@@ -85,7 +85,7 @@ export default function ResearchFeedCard({ article, index = 0 }) {
           to={href}
           className="inline-flex items-center gap-1 text-xs font-bold text-[#0b1f33] group-hover:text-[#ff6600] transition-colors"
         >
-          Read <ArrowRight className="h-3.5 w-3.5" />
+          Read Research <ArrowRight className="h-3.5 w-3.5" />
         </Link>
       </div>
     </article>
