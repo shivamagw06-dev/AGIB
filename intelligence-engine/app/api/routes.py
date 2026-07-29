@@ -5744,6 +5744,117 @@ async def admin_hsai():
     return HTMLResponse(html)
 
 
+# --- Sector Forecast Intelligence (SFI) Sprint 11.5 ---
+# Evidence-based Bull/Base/Bear sector scenarios. Ask never collects. Inherits MFI.
+
+
+@router.get("/sfi/health")
+async def sfi_health():
+    from sector_forecast_intelligence.production import health
+
+    return health()
+
+
+@router.get("/sector/forecast")
+async def sfi_forecast_all(limit: int = Query(20, ge=1, le=50)):
+    from sector_forecast_intelligence.production import forecast_all
+
+    return forecast_all(limit=limit)
+
+
+@router.get("/sector/forecast/report")
+async def sfi_report(
+    sector: str = Query("Banking"),
+    persist: bool = Query(False),
+):
+    from sector_forecast_intelligence.production import report
+
+    return report(sector=sector, persist=persist)
+
+
+@router.get("/sector/forecast/dashboard")
+async def sfi_dashboard():
+    from sector_forecast_intelligence.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/sector/forecast/history")
+async def sfi_history(
+    sector: str | None = None,
+    limit: int = Query(20, ge=1, le=100),
+):
+    from sector_forecast_intelligence.production import history
+
+    return history(sector=sector, limit=limit)
+
+
+@router.post("/sector/forecast/run")
+async def sfi_run(payload: dict[str, Any] = Body(default={})):
+    """Ops / scheduler only — never called by Ask."""
+    from sector_forecast_intelligence.production import run
+
+    return run(sector=payload.get("sector"), country=payload.get("country") or "India")
+
+
+@router.get("/sector/forecast/{sector}")
+async def sfi_forecast_sector(sector: str):
+    from sector_forecast_intelligence.production import forecast
+
+    return forecast(sector=sector)
+
+
+@router.get("/sector/scenarios")
+async def sfi_scenarios(sector: str = Query("Banking")):
+    from sector_forecast_intelligence.production import scenarios
+
+    return scenarios(sector=sector)
+
+
+@router.get("/sector/probability")
+async def sfi_probability(sector: str = Query("Banking")):
+    from sector_forecast_intelligence.production import probability
+
+    return probability(sector=sector)
+
+
+@router.get("/admin/sector-forecast", response_class=HTMLResponse)
+async def admin_sfi():
+    from sector_forecast_intelligence.production import dashboard
+
+    board = dashboard()
+    dist = board.get("probability_distribution") or {}
+    rows = "".join(
+        f"<tr><td>{s.get('scenario')}</td><td>{s.get('probability_pct')}</td>"
+        f"<td>{s.get('confidence_pct')}</td><td>{s.get('revenue_growth')}</td>"
+        f"<td>{s.get('expected_relative_performance')}</td></tr>"
+        for s in (board.get("bull_base_bear_scenarios") or [])
+    )
+    html = f"""<!doctype html><html><head><title>Sector Forecast Intelligence</title></head>
+    <body style="font-family:system-ui;max-width:1100px;margin:2rem auto">
+    <h1>Sector Forecast Intelligence — SFI</h1>
+    <p>Bull/Base/Bear pathways. AGI-owned knowledge only. Ask never fetches. Inherits MFI.</p>
+    <pre>{board.get('principles')}</pre>
+    <h2>Current sector outlook</h2>
+    <pre>{board.get('current_sector_outlook')}</pre>
+    <p>Probability: {dist} · Confidence: {board.get('confidence')}</p>
+    <h2>Bull / Base / Bear</h2>
+    <table border="1" cellpadding="6">
+    <tr><th>Scenario</th><th>Probability</th><th>Confidence</th><th>Rev Growth</th><th>Rel Perf</th></tr>
+    {rows or '<tr><td colspan=5>Run POST /v1/sector/forecast/run</td></tr>'}
+    </table>
+    <h2>Key catalysts</h2>
+    <pre>{board.get('key_catalysts')}</pre>
+    <h2>Major risks</h2>
+    <pre>{board.get('major_risks')}</pre>
+    <h2>Company impacts</h2>
+    <pre>{board.get('company_impact_summaries')}</pre>
+    <h2>Macro inheritance</h2>
+    <pre>{board.get('macro_inheritance')}</pre>
+    </body></html>"""
+    return HTMLResponse(html)
+
+
 @router.post("/sector/run")
 async def cskp_run(payload: dict[str, Any] = Body(default={})):
     """Ops / event-driven only — never called by Ask."""
