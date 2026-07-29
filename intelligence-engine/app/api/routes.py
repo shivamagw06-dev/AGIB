@@ -10531,6 +10531,84 @@ async def autonomous_research_ic10():
     return ic10_smoke()
 
 
+@router.get("/production-hardening/health")
+async def production_hardening_health():
+    """Production Hardening — scale, observability, gold regression, DQ, performance."""
+    from production_hardening.production import health
+
+    return health()
+
+
+@router.get("/production-hardening/dashboard")
+async def production_hardening_dashboard():
+    from production_hardening.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/production-hardening/regression")
+async def production_hardening_regression():
+    from production_hardening.production import regression
+
+    return regression(update_baseline=False)
+
+
+@router.post("/production-hardening/regression/baseline")
+async def production_hardening_regression_baseline():
+    from production_hardening.production import regression
+
+    return regression(update_baseline=True)
+
+
+@router.get("/production-hardening/scale")
+async def production_hardening_scale(
+    preset: str = "smoke",
+    limit: int | None = None,
+    mode: str = "opportunity",
+):
+    from production_hardening.production import scale
+
+    return scale(preset=preset, limit=limit, mode=mode)
+
+
+@router.get("/production-hardening/data-quality")
+async def production_hardening_data_quality():
+    from production_hardening.production import data_quality
+
+    return data_quality()
+
+
+@router.get("/production-hardening/performance")
+async def production_hardening_performance():
+    from production_hardening.production import performance
+
+    return performance()
+
+
+@router.get("/production-hardening/suite")
+async def production_hardening_suite(
+    scale_preset: str = "smoke",
+    update_baseline: bool = False,
+):
+    from production_hardening.production import run_hardening_suite
+
+    return run_hardening_suite(scale_preset=scale_preset, update_baseline=bool(update_baseline))
+
+
+@router.get("/production-hardening/universe")
+async def production_hardening_universe(preset: str = "smoke", limit: int | None = None):
+    from production_hardening.production import universe_info
+
+    return universe_info(preset=preset, limit=limit)
+
+
+@router.get("/production-hardening/history")
+async def production_hardening_history(limit: int = 20):
+    from production_hardening.production import history
+
+    return history(limit=max(1, min(int(limit), 200)))
+
+
 @router.get("/committee-certification-v2/health")
 async def committee_certification_v2_health():
     """IC-10 Institutional Committee Certification v2.0 — health / universe map."""
