@@ -9932,6 +9932,22 @@ async def institutional_evaluation_lab_iat(payload: dict[str, Any] = Body(defaul
     return light
 
 
+@router.get("/phase2/health")
+async def phase2_investment_intelligence_health():
+    """Phase 2 programme registry — extends Baseline v1.0; does not replace it."""
+    from phase2_investment_intelligence.production import health
+
+    return health()
+
+
+@router.get("/phase2/workstreams")
+@router.get("/phase2/programme")
+async def phase2_investment_intelligence_programme():
+    from phase2_investment_intelligence.production import programme
+
+    return programme()
+
+
 @router.get("/institutional-evaluation-lab/question/{question_id}")
 async def institutional_evaluation_lab_question(question_id: str):
     from institutional_evaluation_lab.production import question
