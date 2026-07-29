@@ -112,7 +112,7 @@ market_retrieval
 | Sprint | Module | Status |
 |---|---|---|
 | ✅ 12.1 | CMKTP | Continuous Market Knowledge Platform |
-| 12.2 | — | Historical Market Intelligence (next) |
+| ✅ 12.2 | HMKIP | Historical Market Intelligence Platform |
 | 12.3 | — | Market Relationship Intelligence |
 | 12.4 | — | Historical Market Analogues |
 | 12.5 | — | Market Forecast Intelligence |
