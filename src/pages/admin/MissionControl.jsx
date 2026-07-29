@@ -536,6 +536,85 @@ export default function MissionControl() {
                   />
                 </div>
 
+                {Array.isArray(
+                  continuousGatherLearn.ops.evidence_backlog ||
+                    continuousGatherLearn.ops.evidence_based_completion?.backlog ||
+                    continuousGatherLearn.ops.coverage_reconcile?.evidence_backlog ||
+                    continuousGatherLearn.ops.coverage_reconcile?.incomplete_preview
+                ) &&
+                (
+                  continuousGatherLearn.ops.evidence_backlog ||
+                  continuousGatherLearn.ops.evidence_based_completion?.backlog ||
+                  continuousGatherLearn.ops.coverage_reconcile?.evidence_backlog ||
+                  continuousGatherLearn.ops.coverage_reconcile?.incomplete_preview ||
+                  []
+                ).length > 0 ? (
+                  <Glass className="overflow-x-auto">
+                    <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--io-caption)]">
+                      Evidence-based completion · why still in backlog
+                    </p>
+                    <p className="mb-2 text-[11px] text-[var(--io-muted)]">
+                      Completion is derived from stored evidence (not queue state). Hard coverage is the
+                      share of required datasets present.
+                    </p>
+                    <table className="w-full min-w-[860px] text-left text-xs text-[var(--io-ink)]">
+                      <thead className="text-[var(--io-muted)]">
+                        <tr>
+                          <th className="py-1 pr-3 font-medium">Company</th>
+                          <th className="py-1 pr-3 font-medium">Hard %</th>
+                          <th className="py-1 pr-3 font-medium">Complete</th>
+                          <th className="py-1 pr-3 font-medium">Evidence</th>
+                          <th className="py-1 font-medium">Why in backlog</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(
+                          continuousGatherLearn.ops.evidence_backlog ||
+                          continuousGatherLearn.ops.evidence_based_completion?.backlog ||
+                          continuousGatherLearn.ops.coverage_reconcile?.evidence_backlog ||
+                          continuousGatherLearn.ops.coverage_reconcile?.incomplete_preview ||
+                          []
+                        )
+                          .slice(0, 24)
+                          .map((row) => {
+                            const evidence = row.evidence || {};
+                            const checklist = Array.isArray(row.checklist) ? row.checklist : [];
+                            const marks =
+                              checklist.length > 0
+                                ? checklist.map((c) => `${c.label} ${c.mark}`).join(' · ')
+                                : Object.keys(evidence).length
+                                  ? Object.entries(evidence)
+                                      .map(([k, v]) => `${k} ${v}`)
+                                      .join(' · ')
+                                  : (row.missing_labels || row.missing || []).join(', ') || '—';
+                            return (
+                              <tr
+                                key={row.company || marks}
+                                className="border-t border-[var(--io-line)]/40 align-top"
+                              >
+                                <td className="py-1.5 pr-3 font-semibold">{row.company || '—'}</td>
+                                <td className="py-1.5 pr-3 tabular-nums">
+                                  {row.hard_coverage_pct != null
+                                    ? `${row.hard_coverage_pct}%`
+                                    : row.hard_pct != null
+                                      ? `${row.hard_pct}%`
+                                      : '—'}
+                                </td>
+                                <td className="py-1.5 pr-3 font-semibold text-amber-300">
+                                  {row.complete ? 'YES' : 'NO'}
+                                </td>
+                                <td className="py-1.5 pr-3 text-[11px] text-[var(--io-muted)]">{marks}</td>
+                                <td className="py-1.5 text-[11px]">
+                                  {row.why_in_backlog || row.why_incomplete || 'Incomplete evidence'}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                      </tbody>
+                    </table>
+                  </Glass>
+                ) : null}
+
                 {Array.isArray(continuousGatherLearn.ops.collector_health) &&
                 continuousGatherLearn.ops.collector_health.length > 0 ? (
                   <Glass className="overflow-x-auto">

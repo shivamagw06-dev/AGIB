@@ -403,6 +403,9 @@ def ops_dashboard() -> dict[str, Any]:
         reconcile = None
 
     dataset = (reconcile or {}).get("dataset_coverage") or {}
+    evidence_backlog = (reconcile or {}).get("evidence_backlog") or (
+        reconcile or {}
+    ).get("incomplete_preview") or []
     # Prefer heat map / connector coverage for data-plane truth
     hist_coverage = {
         "ohlcv_pct": dataset.get("ohlcv_pct")
@@ -419,7 +422,7 @@ def ops_dashboard() -> dict[str, Any]:
         "average_years": (reconcile or {}).get("average_history_years")
         or (institutional.get("kpis") or {}).get("average_historical_years"),
         "incomplete": (reconcile or {}).get("incomplete"),
-        "authority": (reconcile or {}).get("authority") or "data_plane_coverage",
+        "authority": (reconcile or {}).get("authority") or "evidence_based_completion",
     }
 
     scheduler_status = "healthy"
@@ -444,6 +447,14 @@ def ops_dashboard() -> dict[str, Any]:
         "backfill_throughput": throughput,
         "coverage_audit": audit,
         "coverage_reconcile": reconcile,
+        "evidence_backlog": evidence_backlog,
+        "evidence_based_completion": {
+            "authority": "evidence_based_completion",
+            "incomplete": (reconcile or {}).get("incomplete"),
+            "verified_complete": (reconcile or {}).get("verified_complete"),
+            "backlog": evidence_backlog,
+            "note": "Each company shows evidence checklist + hard coverage % + why incomplete",
+        },
         "degraded_collectors": len(degraded),
         "financial_coverage": institutional.get("financial_coverage"),
         "shareholding_coverage": institutional.get("shareholding_coverage"),
@@ -472,11 +483,12 @@ def ops_dashboard() -> dict[str, Any]:
             },
             "historical_coverage": hist_coverage,
             "maintenance_allowed": (reconcile or {}).get("maintenance_allowed"),
+            "evidence_backlog_size": len(evidence_backlog),
         },
         "knowledge_density": {
             "extracts": (institutional.get("kpis") or {}).get("knowledge_extracts"),
             "embeddings": (institutional.get("kpis") or {}).get("embeddings"),
         },
-        "north_star": "Verified data-plane coverage — not queue state",
+        "north_star": "Evidence-based completion — checklist from stored datasets, not queue state",
         "focus": "control-plane vs data-plane honesty",
     }
