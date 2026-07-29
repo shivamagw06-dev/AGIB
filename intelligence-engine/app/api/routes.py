@@ -9863,6 +9863,45 @@ async def institutional_evaluation_lab_drift_compare(payload: dict[str, Any] = B
     return light
 
 
+@router.get("/institutional-evaluation-lab/observability/health")
+async def institutional_evaluation_lab_observability_health():
+    from institutional_evaluation_lab.observability.production import health
+
+    return health()
+
+
+@router.get("/institutional-evaluation-lab/observability/{release_id}")
+async def institutional_evaluation_lab_observability_release(release_id: str, persist: bool = True):
+    """PR #309 — executive / sector / governance / drift / performance / coverage dashboards."""
+    from institutional_evaluation_lab.production import release_observability
+
+    pack = release_observability(release_id=release_id, persist=persist)
+    if not pack.get("found"):
+        raise HTTPException(status_code=404, detail="release_not_found")
+    return pack
+
+
+@router.post("/institutional-evaluation-lab/observability")
+async def institutional_evaluation_lab_observability(payload: dict[str, Any] = Body(default={})):
+    from institutional_evaluation_lab.production import release_observability
+
+    body = payload or {}
+    release_id = str(body.get("release_id") or body.get("release") or "").strip()
+    if not release_id:
+        raise HTTPException(status_code=400, detail="release_id_required")
+    history = body.get("previous_releases") or body.get("history") or []
+    if isinstance(history, str):
+        history = [x.strip() for x in history.split(",") if x.strip()]
+    pack = release_observability(
+        release_id=release_id,
+        previous_releases=list(history) if history else None,
+        persist=bool(body.get("persist", True)),
+    )
+    if not pack.get("found"):
+        raise HTTPException(status_code=404, detail="release_not_found")
+    return pack
+
+
 @router.get("/institutional-evaluation-lab/question/{question_id}")
 async def institutional_evaluation_lab_question(question_id: str):
     from institutional_evaluation_lab.production import question

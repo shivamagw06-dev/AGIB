@@ -38,6 +38,11 @@ def status() -> dict[str, Any]:
             "reason_codes": ["DATA", "MARKET", "MODEL", "GOVERNANCE", "BUGFIX", "UNKNOWN"],
             "unknown_is_regression": True,
         },
+        "release_observability": {
+            "version": "release-observability-v1.0.0",
+            "presentation_only": True,
+            "consumes": ["evaluation_lab", "phase6_governance", "recommendation_drift"],
+        },
         "quality_targets": QUALITY_TARGETS,
         "freeze_locks": dict(FREEZE_LOCKS),
         "nightly_default": {"suite": "institutional_1000", "mode": "soft"},
@@ -219,6 +224,22 @@ def recommendation_drift(
         governance_failures=governance_failures,
         persist=persist,
         hints=hints,
+    )
+
+
+def release_observability(
+    *,
+    release_id: str,
+    previous_releases: list[str] | None = None,
+    persist: bool = True,
+) -> dict[str, Any]:
+    """PR #309 — pure observability dashboards over #306–#308 artifacts."""
+    from institutional_evaluation_lab.observability.production import build_release_dashboard
+
+    return build_release_dashboard(
+        release_id,
+        previous_releases=previous_releases,
+        persist=persist,
     )
 
 
