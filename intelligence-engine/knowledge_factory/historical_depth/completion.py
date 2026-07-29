@@ -196,6 +196,58 @@ def knowledge_density(entity: str) -> dict[str, Any]:
     }
 
 
+def _record_is_institutional_statement(r: dict[str, Any]) -> bool:
+    """Reject price-proxy annuals; require statement-like payloads."""
+    src = str(r.get("source") or "")
+    payload = r.get("payload") or {}
+    if src in {"financial_connector", "fixture"} and (
+        payload.get("revenue") is not None
+        or payload.get("net_income") is not None
+        or payload.get("statement")
+        or (payload.get("accounts") or {}).get("revenue") is not None
+        or (payload.get("accounts") or {}).get("total_revenue") is not None
+    ):
+        return True
+    if payload.get("statement") in {"income", "balance", "cashflow"}:
+        return True
+    if payload.get("revenue") is not None or payload.get("net_income") is not None:
+        return True
+    accounts = payload.get("accounts") or {}
+    if accounts.get("revenue") is not None or accounts.get("total_revenue") is not None:
+        return True
+    # Yahoo price-derived proxies typically only carry price/close — reject those
+    if set(payload.keys()) <= {"price", "close", "adj_close", "open", "high", "low", "volume"}:
+        return False
+    if src == "yahoo_live" and payload.get("revenue") is None and not payload.get("statement"):
+        return False
+    return False
+
+
+def _institutional_annual_ok(annual: dict[str, Any], *, eff: float, target: float) -> bool:
+    recs = [r for r in (annual.get("records") or []) if _record_is_institutional_statement(r)]
+    need = max(3, int(min(eff, target) * 0.5))
+    return len(recs) >= min(need, 3)
+
+
+def _institutional_quarterly_ok(quarterly: dict[str, Any], *, q_need: int, eff: float) -> bool:
+    recs = list(quarterly.get("records") or [])
+    if not recs:
+        return False
+    # Prefer institutional; allow fixture quarterlies in non-prod only when they carry statement fields
+    inst = [r for r in recs if _record_is_institutional_statement(r)]
+    if len(inst) >= min(q_need, 4):
+        return True
+    if eff < 2 and len(inst) >= 2:
+        return True
+    # Generic quarterly records with any financial payload keys (not prices)
+    soft = [
+        r
+        for r in recs
+        if any(k in (r.get("payload") or {}) for k in ("revenue", "net_income", "ebitda", "eps", "accounts"))
+    ]
+    return len(soft) >= min(q_need, 4)
+
+
 def evaluate_completion(entity: str, *, target_years: float | None = None) -> dict[str, Any]:
     """Per-dimension status with hard/soft/overall percentages."""
     e = entity.upper()
@@ -229,23 +281,21 @@ def evaluate_completion(entity: str, *, target_years: float | None = None) -> di
     ohlcv_ok = years + 1e-9 >= eff and len(prices.get("records") or []) >= 12
     ca_n = len(actions.get("records") or [])
     ca_attempt = attempts.get("corporate_actions") or {}
-    ca_ok = ca_n > 0 or ca_attempt.get("status") in {"complete", "empty", "n_a"}
+    # Hard CA requires stored records. Empty/n_a attempts never inflate coverage.
+    ca_ok = ca_n > 0
 
     ann_n = len(annual.get("records") or [])
     q_n = len(quarterly.get("records") or [])
-    annual_ok = ann_n >= max(3, int(min(eff, target))) or (ohlcv_ok and ann_n >= int(eff * 0.5))
+    # Institutional financials only — price-proxy annuals do not count as statements.
+    annual_ok = _institutional_annual_ok(annual, eff=eff, target=target)
     q_need = max(4, int(min(eff, target) * 4 * 0.5))
-    quarterly_ok = q_n >= min(q_need, 8) or (eff < 2 and q_n >= 2)
+    quarterly_ok = _institutional_quarterly_ok(quarterly, q_need=q_need, eff=eff)
     financials_ok = annual_ok and quarterly_ok
 
-    # Shareholding — hard: present OR attempted empty/n_a (many names lack public history APIs yet)
+    # Shareholding hard: must have stored ownership history (n_a does not complete).
     sh_series = hd_store.get_series("shareholding", e)
     sh_attempt = attempts.get("shareholding") or {}
-    sh_ok = bool(sh_series and (sh_series.get("records") or [])) or sh_attempt.get("status") in {
-        "complete",
-        "empty",
-        "n_a",
-    }
+    sh_ok = bool(sh_series and (sh_series.get("records") or []))
 
     # Soft dims
     ip_ok = "investor_presentation" in doc_types
@@ -283,11 +333,18 @@ def evaluate_completion(entity: str, *, target_years: float | None = None) -> di
 
     dims = {
         "ohlcv": _dim(ohlcv_ok, detail=f"years={years:.2f} target={eff:.2f}"),
-        "corporate_actions": _dim(ca_ok, n_a=ca_attempt.get("status") == "n_a", detail=f"n={ca_n}"),
-        "financial_statements": _dim(
-            financials_ok, detail=f"annual={ann_n} quarterly={q_n}"
+        "corporate_actions": _dim(
+            ca_ok,
+            detail=f"n={ca_n}" + (f" attempt={ca_attempt.get('status')}" if not ca_ok else ""),
         ),
-        "shareholding": _dim(sh_ok, n_a=sh_attempt.get("status") == "n_a", detail="shareholding"),
+        "financial_statements": _dim(
+            financials_ok, detail=f"annual={ann_n} quarterly={q_n} institutional_only=true"
+        ),
+        "shareholding": _dim(
+            sh_ok,
+            detail="shareholding"
+            + (f" attempt={sh_attempt.get('status')}" if not sh_ok and sh_attempt else ""),
+        ),
         "embeddings": _dim(_has_embedding(e) and _has_extract(e)),
         "qa": _dim(qa_ok, detail="price_qa"),
         "investor_presentations": _soft_dim(ip_ok, "investor_presentations"),
@@ -301,22 +358,17 @@ def evaluate_completion(entity: str, *, target_years: float | None = None) -> di
     soft_pct = _score(dims, SOFT_DIMS)
     overall_pct = round((hard_pct * 0.7 + soft_pct * 0.3), 2)
 
-    # Hard gate: core dims must be complete; shareholding may be n_a after explicit attempt
-    hard_ok = True
-    for d in ("ohlcv", "corporate_actions", "financial_statements", "embeddings", "qa"):
-        if dims[d]["status"] != "complete":
-            hard_ok = False
-            break
-    if dims["shareholding"]["status"] not in {"complete", "n_a"}:
-        hard_ok = False
+    # Hard gate: every hard dim must be verified complete (stored data). n_a never completes hard.
+    hard_ok = all(dims[d]["status"] == "complete" for d in HARD_DIMS)
 
     density = knowledge_density(e)
 
     return {
         "entity": e,
-        "complete": hard_ok,  # maintenance eligibility = hard requirements
+        "complete": hard_ok,  # maintenance eligibility = verified hard requirements
         "fully_backfilled": hard_ok,
         "hard_ok": hard_ok,
+        "verified_data_plane": True,
         "soft_ok": soft_pct >= 99.9,  # informational
         "hard_pct": hard_pct,
         "soft_pct": soft_pct,

@@ -14,6 +14,7 @@ from knowledge_factory.historical_depth.fixtures.seed_history import (
     monthly_prices,
     quarterly_records,
     seed_universe,
+    shareholding_records,
     timeline_records,
 )
 
@@ -57,6 +58,8 @@ def collect_entity_history(entity: str, *, prefer_live: bool | None = None) -> d
         hd_store.put_series("financials_annual", e, annual)
         hd_store.put_series("prices", e, prices)
         hd_store.put_series("corporate_actions", e, actions)
+        # Offline/tests only — production never seeds ownership fixtures
+        hd_store.put_series("shareholding", e, shareholding_records(e))
     # Production: never pad with fixture quarterlies. Dev/tests may opt-in.
     env = (os.getenv("APP_ENV") or os.getenv("AGIB_ENV") or "").strip().lower()
     fixture_default = "false" if env in {"production", "prod"} else "true"

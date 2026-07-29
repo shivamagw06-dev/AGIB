@@ -88,20 +88,56 @@ def test_ipo_auto_enqueues_and_reopens_maintenance(monkeypatch):
     assert live["pending_ipos_count"] == 0  # promoted to listed
 
 
-def test_soft_missing_does_not_block_maintenance(monkeypatch):
+def test_soft_missing_does_not_block_when_hard_data_verified(monkeypatch):
     from knowledge_factory.historical_depth.completion import evaluate_completion, record_attempt
     from knowledge_factory.historical_depth.collectors import collect_entity_history
+    from knowledge_factory.historical_depth import store as hd_store
+    from knowledge_factory.historical_depth.schema import pit_record
     from continuous_gather_learn.embeddings import embed_knowledge_extract
     from continuous_gather_learn.knowledge_extract import extract_from_hd_series
 
     collect_entity_history("INFY", prefer_live=False)
     extract_from_hd_series("INFY")
     embed_knowledge_extract("INFY")
-    record_attempt("INFY", "corporate_actions", status="empty")
-    record_attempt("INFY", "shareholding", status="n_a")
+    # Verified shareholding required for hard_ok (n_a no longer completes)
+    hd_store.put_series(
+        "shareholding",
+        "INFY",
+        [
+            pit_record(
+                entity="INFY",
+                kind="shareholding",
+                period="2024-03-31",
+                period_end="2024-03-31",
+                available_from="2024-03-31",
+                payload={"promoter": 14.0, "fii": 33.0, "dii": 25.0, "mutual_funds": 12.0, "public": 16.0, "pledged": 0.0},
+                source="shareholding_connector",
+            )
+        ],
+    )
     record_attempt("INFY", "_wave", status="complete")
-    # No presentations / transcripts on purpose
+    # No presentations / transcripts on purpose — soft only
     ev = evaluate_completion("INFY", target_years=10)
     assert ev["hard_ok"] is True
-    assert ev["soft_pct"] < 100.0 or ev["soft_pct"] == 100.0  # n_a counts toward soft
+    assert ev["dimensions"]["investor_presentations"]["status"] in {"missing", "n_a"}
     assert ev["complete"] is True
+
+
+def test_empty_attempt_does_not_inflate_hard_coverage(tmp_path):
+    from knowledge_factory.historical_depth.completion import evaluate_completion, record_attempt
+    from knowledge_factory.historical_depth.collectors import collect_entity_history
+    from knowledge_factory.historical_depth import store as hd_store
+    from continuous_gather_learn.embeddings import embed_knowledge_extract
+    from continuous_gather_learn.knowledge_extract import extract_from_hd_series
+
+    collect_entity_history("TCS", prefer_live=False)
+    extract_from_hd_series("TCS")
+    embed_knowledge_extract("TCS")
+    # Remove verified shareholding — n_a attempt must not complete hard dim
+    sh_path = hd_store.hd_root() / "shareholding" / "TCS.json"
+    if sh_path.exists():
+        sh_path.unlink()
+    record_attempt("TCS", "shareholding", status="n_a")
+    ev = evaluate_completion("TCS", target_years=10)
+    assert ev["dimensions"]["shareholding"]["status"] != "complete"
+    assert ev["hard_ok"] is False
