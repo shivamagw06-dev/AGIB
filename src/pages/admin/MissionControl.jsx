@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
+  Bot,
   Download,
   RefreshCw,
   Search,
@@ -14,6 +15,7 @@ import {
   getMissionControlReport,
 } from '@/lib/intelligenceApi';
 import { Button } from '@/components/ui/button';
+import AgentMapPanel from '@/pages/admin/AgentMapPanel';
 import '@/office/theme.css';
 
 function statusColour(status) {
@@ -61,6 +63,7 @@ export default function MissionControl() {
   const [query, setQuery] = useState('');
   const [selectedPlatform, setSelectedPlatform] = useState(null);
   const [selectedNode, setSelectedNode] = useState(null);
+  const [agentMapOpen, setAgentMapOpen] = useState(false);
 
   const load = useCallback(async () => {
     setError('');
@@ -241,6 +244,14 @@ export default function MissionControl() {
                 className="w-56 rounded-xl border border-[var(--io-border)] bg-[rgba(255,255,255,0.03)] py-2 pl-9 pr-3 text-sm text-[var(--io-ink)] outline-none focus:border-[var(--io-gold)]"
               />
             </div>
+            <Button
+              variant="outline"
+              onClick={() => setAgentMapOpen(true)}
+              className="border-[var(--io-gold)]/50 text-[var(--io-ink)]"
+            >
+              <Bot className="h-4 w-4 mr-2 text-[var(--io-gold)]" />
+              Agent Map
+            </Button>
             <Button variant="outline" onClick={load} disabled={loading} className="border-[var(--io-border)] text-[var(--io-ink)]">
               <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
               Refresh
@@ -853,6 +864,24 @@ export default function MissionControl() {
           </div>
         </section>
 
+        <section className="space-y-3">
+          <Kicker>Agents · Working status</Kicker>
+          <Glass className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-sm text-[var(--io-ink)]">
+                Inventory of CIO desk agents, IAF specialists, FAA / LIDI collectors, offices, and learning modules.
+              </p>
+              <p className="mt-1 text-[11px] text-[var(--io-caption)]">
+                Shows whether each agent is working, soft-wire, off, or orphan — plus data sources.
+              </p>
+            </div>
+            <Button onClick={() => setAgentMapOpen(true)} className="bg-[var(--io-gold)] text-black hover:bg-[var(--io-gold)]/90">
+              <Bot className="h-4 w-4 mr-2" />
+              Open Agent Map
+            </Button>
+          </Glass>
+        </section>
+
         {/* SECTION 18–20 */}
         <section className="grid gap-4 lg:grid-cols-3">
           <div className="space-y-3">
@@ -907,6 +936,8 @@ export default function MissionControl() {
           </div>
         </section>
       </div>
+
+      <AgentMapPanel open={agentMapOpen} onClose={() => setAgentMapOpen(false)} />
     </div>
   );
 }

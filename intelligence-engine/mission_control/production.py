@@ -23,7 +23,15 @@ def health() -> dict[str, Any]:
         "never_modifies_research": True,
         "flags": flags_dict(),
         "enabled": is_enabled(),
+        "agent_map": "GET /v1/mission-control/agent-map",
     }
+
+
+def agent_map() -> dict[str, Any]:
+    """Read-only inventory of AGIB agents + working/soft/off status."""
+    from mission_control.agent_map import build_agent_map
+
+    return build_agent_map()
 
 
 def dashboard(*, ioc_service: Any | None = None, force: bool = False) -> dict[str, Any]:
