@@ -103,21 +103,100 @@ Institutional Acceptance Test
 
 ### 1.3 Dependency order (implementation)
 
+| Priority | Workstream | Why first? | Expected impact |
+| ---: | --- | --- | --- |
+| 1 | **P2.6 Live Market Context** | Accurate current market context without changing research | High |
+| 2 | **P2.3 Ownership Intelligence** | Addresses a top cause of Institutional Readiness failures | Very High |
+| 3 | **P2.1 Earnings Intelligence** | Forward-looking analysis; thesis quality | Very High |
+| 4 | **P2.2 Valuation Intelligence** | Sector-appropriate intrinsic value | High |
+| 5 | **P2.5 Sector Playbooks** | Sector-specific consistency | Medium–High |
+| 6 | **P2.4 Catalyst Intelligence** | What could change the thesis | Medium |
+
 ```text
-P2.6 Live Market Context     (thin; unblocks price honesty)
+P2.6 Live Market Context
         │
-P2.1 Earnings Intelligence   (highest investment impact)
+P2.3 Ownership Intelligence
         │
-P2.3 Ownership Intelligence  (unblocks Eternal-class gate misses)
+P2.1 Earnings Intelligence
         │
-P2.2 Valuation Intelligence  (needs earnings + sector)
+P2.2 Valuation Intelligence
         │
-P2.5 Sector Intelligence     (playbooks drive P2.2/P2.1 metrics)
+P2.5 Sector Intelligence
         │
-P2.4 Catalyst Intelligence   (consumes earnings/macro/events)
+P2.4 Catalyst Intelligence
 ```
 
-P2.5 playbook *scaffolds* may land early (sector KPI catalogs) even if full automation follows P2.1/P2.2.
+Starting with **P2.6 + P2.3** improves evidence quality without changing the governance framework.
+
+### 1.4 Standard engine contract (mandatory)
+
+Every Phase 2 engine **must** expose the same interface so Integration Lab, Decision Engine soft slices, and IAT can treat engines uniformly.
+
+```text
+Engine Name
+    <e.g. Ownership Intelligence>
+
+Version
+    v1.0
+
+Inputs
+    Company Pack
+    Live Data
+    Knowledge Graph
+    (+ module-specific)
+
+Outputs
+    Score / Outlook (engine-specific)
+    Evidence
+    Confidence
+    Freshness
+    Lineage
+
+Consumers
+    Decision Engine
+    Evaluation Lab
+
+Dependencies
+    Knowledge Factory
+    Market Context
+    (+ module-specific)
+
+Failure Mode
+    Degrade gracefully
+    Do not block unrelated engines
+```
+
+**Machine contract** (see `phase2_investment_intelligence/contract.py`):
+
+```json
+{
+  "engine": "ownership_intelligence",
+  "version": "p2.3-v1.0.0",
+  "inputs": ["company_pack", "live_data", "knowledge_graph"],
+  "outputs": {
+    "score": null,
+    "evidence": [],
+    "confidence": 0.0,
+    "freshness": {"age_days": null, "stale": false, "sla_days": null},
+    "lineage": []
+  },
+  "consumers": ["decision_engine", "evaluation_lab"],
+  "dependencies": ["knowledge_factory", "live_market_context"],
+  "failure_mode": {
+    "strategy": "degrade_gracefully",
+    "block_unrelated_engines": false,
+    "fabricated": false
+  },
+  "baseline_compatible": true
+}
+```
+
+Rules:
+
+1. Missing inputs → return `enabled=true` with empty/partial outputs + low confidence — **never** raise into Ask AGI.
+2. `fabricated` must be `false`; inventing ownership or earnings is a Phase 1 violation.
+3. Engines may improve *evidence* that feeds the frozen gate; they must not change gate thresholds.
+4. Unit tests assert the standard envelope keys on every `package_for_ask_agi` / `analyse` response.
 
 ---
 
@@ -339,6 +418,8 @@ All under Intelligence Engine `/v1`. Soft, read-oriented; never mutate gate thre
 | Method | Path | Module |
 | --- | --- | --- |
 | GET | `/phase2/health` | Programme registry |
+| GET | `/phase2/contracts` | Standard engine contracts |
+| GET | `/phase2/scorecard` | Intelligence Scorecard templates |
 | GET | `/phase2/workstreams` | Catalogue + status |
 | GET | `/earnings-intelligence/health` | P2.1 |
 | GET/POST | `/earnings-intelligence/{ticker}` | Outlook pack |
@@ -591,7 +672,38 @@ Any PR touching forbidden paths fails CI unless labelled `baseline-amendment` **
 
 ## 10. Evaluation methodology
 
-Every Phase 2 sprint publishes a **Baseline Delta Report** against AGIB Institutional Baseline v1.0:
+Phase 1 measured **governance**. Phase 2 measures **intelligence** — while re-checking that governance never regresses.
+
+### 10.1 Intelligence Scorecard (per workstream)
+
+Every workstream release must publish an Intelligence Scorecard:
+
+| Metric | Target | Notes |
+| --- | --- | --- |
+| Coverage | ≥95% | Share of Golden 200 with usable engine output |
+| Freshness | Within SLA | Per-engine SLA (e.g. ownership ≤ 45d, price = live/session) |
+| Confidence | Reported | Always present; never silently omitted |
+| Explainability | Present | Evidence + lineage non-empty when score present |
+| IAT regressions | 0 | Full IAT still PASS |
+| UNKNOWN drift | 0 | Drift budget vs prior release |
+| Average runtime | Within budget | Per-engine budget (default ≤ 2.0s p50 on pack path) |
+
+Scorecard artifact:
+
+```text
+results/{release}/_intelligence_scorecard_{workstream}.json
+results/{release}/_intelligence_scorecard_{workstream}.md
+```
+
+Programme roll-up:
+
+```text
+results/{release}/_phase2_intelligence_scorecard.json
+```
+
+### 10.2 Baseline delta (still required)
+
+Every Phase 2 sprint also publishes a **Baseline Delta Report** against AGIB Institutional Baseline v1.0:
 
 | Metric | Direction | Source |
 | --- | --- | --- |
@@ -606,8 +718,28 @@ Every Phase 2 sprint publishes a **Baseline Delta Report** against AGIB Institut
 | UNKNOWN drift | = 0 | Drift engine |
 | IAT overall | PASS | IAT |
 
-**Definition of done for a workstream:**  
-Delta report shows improvement on its primary metrics **and** IAT PASS **and** UNKNOWN drift = 0.
+### 10.3 Definition of Done (every workstream)
+
+A Phase 2 module is **complete** only when **all** of the following are true:
+
+| # | Requirement |
+| --: | --- |
+| 1 | Architecture implemented (standard engine contract) |
+| 2 | Unit and integration tests passing |
+| 3 | Evaluation Lab integrated (soft consumption + scorecard) |
+| 4 | No governance regressions (Phase 6 critical fails = 0) |
+| 5 | UNKNOWN drift remains 0 |
+| 6 | Institutional Acceptance Test still PASS |
+| 7 | Demonstrable improvement on ≥1 defined intelligence metric |
+
+Examples for #7:
+
+- **P2.3** — fewer recommendation deferrals / readiness fails due to missing shareholding; ownership coverage ≥95% on Golden 200
+- **P2.6** — zero false seed LTPs; live/failover price coverage ≥95%
+- **P2.1** — forecast completeness / confidence reported for ≥95% of names with financials
+- **P2.2** — valuation completeness (intrinsic or explicit inconclusive + confidence) ≥95%
+
+Incomplete modules stay `status: specified | in_progress` in the programme registry and remain feature-flagged **off** in production Ask AGI.
 
 ---
 
@@ -674,15 +806,16 @@ Phase 2 extends intelligence. Phase 2 does not replace the baseline.
 | # | Deliverable | Location |
 | --: | --- | --- |
 | 1 | Architecture | §1 |
+| 1a | Standard engine contract | §1.4 · `contract.py` |
 | 2 | Module specifications | §2 |
 | 3 | Folder structure | §3 |
-| 4 | APIs | §4 |
+| 4 | APIs | §4 · `/phase2/contracts` · `/phase2/scorecard` |
 | 5 | Data models | §5 |
 | 6 | Database schema | §6 |
 | 7 | Interfaces with existing engines | §7 |
 | 8 | Integration points | §8 |
 | 9 | Test strategy | §9 |
-| 10 | Evaluation methodology | §10 |
+| 10 | Evaluation methodology + Intelligence Scorecard + DoD | §10 |
 | 11 | Migration plan | §11 |
 | 12 | Rollout plan | §12 |
 | — | Machine-readable registry | `intelligence-engine/phase2_investment_intelligence/` |

@@ -9940,6 +9940,22 @@ async def phase2_investment_intelligence_health():
     return health()
 
 
+@router.get("/phase2/contracts")
+async def phase2_investment_intelligence_contracts():
+    """Standard engine contract for every Phase 2 workstream."""
+    from phase2_investment_intelligence.production import contracts
+
+    return contracts()
+
+
+@router.get("/phase2/scorecard")
+async def phase2_investment_intelligence_scorecard():
+    """Intelligence Scorecard templates — Phase 2 measurement frame."""
+    from phase2_investment_intelligence.production import scorecard
+
+    return scorecard()
+
+
 @router.get("/phase2/workstreams")
 @router.get("/phase2/programme")
 async def phase2_investment_intelligence_programme():
