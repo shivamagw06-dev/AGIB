@@ -36,6 +36,7 @@ ARCHITECTURE_NODES = (
     "Sector Intelligence",
     "Market Intelligence",
     "Research Intelligence Hub",
+    "Institutional Intelligence Examination",
     "Academy",
     "Financial Intelligence",
     "Company Analysis",
