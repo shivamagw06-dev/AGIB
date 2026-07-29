@@ -8,6 +8,7 @@ import NewsletterSection from '@/components/Home/NewsletterSection';
 import IpoMonitorPreview from '@/components/Home/IpoMonitorPreview';
 import usePublishedArticles from '@/hooks/usePublishedArticles';
 import useUiHome from '@/hooks/useUiHome';
+import { getIntelligenceLiveStatus } from '@/lib/intelligenceApi';
 import { useAuth } from '@/contexts/AuthContext';
 import { trackProductEvent } from '@/lib/productAnalytics';
 import { getReadingHistory, getRecentSearches, getWatchlist } from '@/lib/searchHistory';
@@ -126,6 +127,21 @@ export default function ResearchTerminalHome() {
   const [recentlyViewed, setRecentlyViewed] = useState([]);
   const [continueReading, setContinueReading] = useState([]);
   const [trendingSearches, setTrendingSearches] = useState(TRENDING_CHIPS);
+  const [liveStatus, setLiveStatus] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    getIntelligenceLiveStatus()
+      .then((data) => {
+        if (active) setLiveStatus(data);
+      })
+      .catch(() => {
+        if (active) setLiveStatus(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     trackProductEvent('session_start', { surface: 'research_terminal_home', authenticated: Boolean(user) });
@@ -146,13 +162,24 @@ export default function ResearchTerminalHome() {
   }, [articles, session]);
 
   const mostRead = useMemo(() => articles.slice(0, 6), [articles]);
-  const featured = useMemo(() => articles.slice(0, 4), [articles]);
 
   const highlights = useMemo(() => {
-    const fromUi = uiHome?.highlights || uiHome?.ai_highlights || uiHome?.brief?.bullets;
+    const morning = uiHome?.morning_intelligence || {};
+    const brief = uiHome?.market_brief || {};
+    const fromUi =
+      uiHome?.highlights ||
+      uiHome?.ai_highlights ||
+      morning.bullets ||
+      morning.highlights ||
+      brief.bullets ||
+      uiHome?.brief?.bullets;
     if (Array.isArray(fromUi) && fromUi.length) {
-      return fromUi.map((x) => (typeof x === 'string' ? x : x.text || x.title)).filter(Boolean).slice(0, 5);
+      return fromUi.map((x) => (typeof x === 'string' ? x : x.text || x.title || x.headline)).filter(Boolean).slice(0, 5);
     }
+    const narrative = [morning.summary, brief.summary, uiHome?.market_regime?.label]
+      .map((x) => (typeof x === 'string' ? x : null))
+      .filter(Boolean);
+    if (narrative.length) return [...narrative, ...DEFAULT_HIGHLIGHTS].slice(0, 5);
     if (articles[0]?.title) {
       return [
         articles[0].title,
@@ -163,6 +190,28 @@ export default function ResearchTerminalHome() {
     }
     return DEFAULT_HIGHLIGHTS;
   }, [uiHome, articles]);
+
+  const featuredFromDesk = useMemo(() => {
+    const rows = uiHome?.featured_research || uiHome?.feeds?.research || [];
+    if (!Array.isArray(rows) || !rows.length) return [];
+    return rows.slice(0, 4).map((row, i) => ({
+      id: row.id || `desk-${i}`,
+      slug: row.slug || row.id || `desk-${i}`,
+      title: row.title,
+      excerpt: row.summary || row.excerpt || row.executive_summary,
+      section: row.category || row.section || 'Institutional Research',
+      readTime: row.read_time || row.readTime || '5 min read',
+      publishedLabel: row.as_of || row.published_at || row.date,
+      href: row.href,
+      premium: true,
+    }));
+  }, [uiHome]);
+
+  const featured = useMemo(() => {
+    if (featuredFromDesk.length) return featuredFromDesk;
+    return articles.slice(0, 4);
+  }, [featuredFromDesk, articles]);
+
 
   return (
     <div className="home-terminal min-h-screen bg-[#f4f6f8] text-[#111111]">
@@ -187,6 +236,18 @@ export default function ResearchTerminalHome() {
           <p className="home-hero-brand font-serif text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight text-[#0b1f33]">
             AGI
           </p>
+          {liveStatus && (
+            <p className="mt-3 inline-flex flex-wrap items-center gap-2 text-[11px] font-semibold text-[#5d6470]">
+              <span className={`inline-block h-2 w-2 rounded-full ${liveStatus.engine?.ok ? 'bg-[#087443]' : 'bg-[#966a00]'}`} aria-hidden />
+              Intelligence stack {liveStatus.engine?.ok ? 'online' : 'warming'}
+              {liveStatus.stack?.inventory?.online != null && (
+                <span className="text-[#9298a3]">
+                  · {liveStatus.stack.inventory.online}/{liveStatus.stack.inventory.n} modules
+                </span>
+              )}
+              {liveStatus.iiex?.status === 'ok' && <span className="text-[#9298a3]">· IIEX ready</span>}
+            </p>
+          )}
           <h1 className="mt-4 max-w-2xl font-serif text-2xl sm:text-3xl font-bold leading-tight text-[#1a1a1a]">
             What would you like to analyse today?
           </h1>

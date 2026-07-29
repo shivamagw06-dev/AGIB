@@ -921,6 +921,12 @@ export const acknowledgeMissionControlAlert = (alertId) =>
     timeoutMs: 30_000,
   });
 
+/** Soft public/admin live inventory — never throws to callers if wrapped. */
+export const getIntelligenceLiveStatus = () => intelligenceFetch('/live-status');
+export const getIntelligenceStack = () => intelligenceFetch('/system/intelligence-stack');
+export const getIiexHealth = () => intelligenceFetch('/iiex/health');
+export const getMkfiHealth = () => intelligenceFetch('/mkfi/health');
+
 /** Investment Office V1 — executive operating cockpit */
 export const getInvestmentOfficeHealth = () => intelligenceFetch('/investment-office/health');
 export const getInvestmentOfficeDashboard = () => intelligenceFetch('/investment-office/dashboard');

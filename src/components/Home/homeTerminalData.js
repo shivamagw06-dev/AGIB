@@ -135,6 +135,7 @@ export function enrichResearchCard(article) {
   const excerpt = article.excerpt || article.summary || '';
   return {
     ...article,
+    href: article.href || null,
     executiveSummary: article.executiveSummary || excerpt,
     whyItMatters:
       article.whyItMatters ||
