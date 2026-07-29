@@ -455,7 +455,57 @@ export default function MissionControl() {
 
             {continuousGatherLearn.ops ? (
               <div className="space-y-3 pt-1">
-                <Kicker>Historical Ops · Validate under load</Kicker>
+                <Kicker>Historical Ops · Data plane (verified)</Kicker>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <Stat
+                    label="Scheduler"
+                    value={continuousGatherLearn.ops.operational_status?.scheduler ?? '—'}
+                    status={
+                      continuousGatherLearn.ops.operational_status?.scheduler === 'misaligned'
+                        ? 'warn'
+                        : 'healthy'
+                    }
+                    hint={
+                      continuousGatherLearn.ops.operational_status?.maintenance_allowed
+                        ? 'Maintenance allowed'
+                        : 'Deep backfill required'
+                    }
+                  />
+                  <Stat
+                    label="Verified Hard Coverage"
+                    value={
+                      continuousGatherLearn.ops.historical_coverage_verified?.verified_hard_coverage_pct !=
+                      null
+                        ? `${continuousGatherLearn.ops.historical_coverage_verified.verified_hard_coverage_pct}%`
+                        : continuousGatherLearn.ops.historical_depth?.completeness_pct != null
+                          ? `${continuousGatherLearn.ops.historical_depth.completeness_pct}%`
+                          : '—'
+                    }
+                    hint="From stored datasets — not queue"
+                  />
+                  <Stat
+                    label="OHLCV / Financials"
+                    value={`${continuousGatherLearn.ops.historical_coverage_verified?.ohlcv_pct ?? '—'}% / ${
+                      continuousGatherLearn.ops.historical_coverage_verified?.financials_pct ??
+                      continuousGatherLearn.ops.financial_coverage?.coverage_pct ??
+                      '—'
+                    }%`}
+                    hint="Data-plane coverage"
+                  />
+                  <Stat
+                    label="Shareholding / IR"
+                    value={`${
+                      continuousGatherLearn.ops.historical_coverage_verified?.shareholding_pct ??
+                      continuousGatherLearn.ops.shareholding_coverage?.coverage_pct ??
+                      '—'
+                    }% / ${
+                      continuousGatherLearn.ops.historical_coverage_verified?.ir_pct ??
+                      continuousGatherLearn.ops.ir_coverage?.coverage_pct ??
+                      '—'
+                    }%`}
+                    hint="Required institutional sets"
+                  />
+                </div>
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                   <Stat
                     label="Completed Today"
@@ -468,13 +518,13 @@ export default function MissionControl() {
                     hint="Throughput"
                   />
                   <Stat
-                    label="ETA"
+                    label="Verified Incomplete"
                     value={
-                      continuousGatherLearn.ops.backfill_throughput?.estimated_completion_days != null
-                        ? `${continuousGatherLearn.ops.backfill_throughput.estimated_completion_days}d`
-                        : '—'
+                      continuousGatherLearn.ops.historical_coverage_verified?.incomplete ??
+                      continuousGatherLearn.ops.coverage_reconcile?.incomplete ??
+                      '—'
                     }
-                    hint={`Backlog ${continuousGatherLearn.ops.backfill_throughput?.remaining_backlog ?? '—'}`}
+                    hint={`Repair ${continuousGatherLearn.ops.repair_queue ?? '—'}`}
                   />
                   <Stat
                     label="Degraded Collectors"
@@ -482,7 +532,7 @@ export default function MissionControl() {
                     status={
                       (continuousGatherLearn.ops.degraded_collectors || 0) > 0 ? 'warn' : 'healthy'
                     }
-                    hint="Error rate ≥5% or fallback"
+                    hint="Collector plane"
                   />
                 </div>
 

@@ -331,6 +331,11 @@ def _update_row(company: str, **fields: Any) -> None:
 
 
 def backlog_stats() -> dict[str, Any]:
+    """Queue-plane stats + verified data-plane coverage when available.
+
+    Coverage / remaining prefer reconciliation so an empty queue never
+    masquerades as historical completeness.
+    """
     q = ensure_queue()
     companies = list(q.get("companies") or [])
     active = [c for c in companies if str(c.get("status")) != STATUS_DELISTED]
@@ -350,13 +355,33 @@ def backlog_stats() -> dict[str, Any]:
         hard_avg = round(sum(hard_vals) / len(hard_vals), 2)
     if soft_vals:
         soft_avg = round(sum(soft_vals) / len(soft_vals), 2)
+
+    queue_remaining = len(remaining)
+    queue_done = len(done)
+    verified = hd_store.get_report("coverage_reconciliation") or {}
+    if verified.get("incomplete") is not None:
+        remaining_n = int(verified.get("incomplete") or 0)
+        done_n = int(verified.get("verified_complete") or 0)
+        total_n = int(verified.get("universe_scanned") or len(active) or 1)
+        coverage_pct = float(verified.get("verified_hard_coverage_pct") or 0)
+        avg_years = float(verified.get("average_history_years") or (sum(years) / max(1, len(years))))
+        if verified.get("verified_hard_coverage_pct") is not None:
+            hard_avg = coverage_pct
+    else:
+        remaining_n = queue_remaining
+        done_n = queue_done
+        total_n = len(active)
+        coverage_pct = round(100.0 * done_n / max(1, total_n), 2)
+        avg_years = round(sum(years) / max(1, len(years)), 2)
+
     return {
-        "total_companies": len(active),
-        "fully_backfilled": len(done),
-        "remaining": len(remaining),
-        "queue_length": len(remaining),
-        "average_years": round(sum(years) / max(1, len(years)), 2),
-        "coverage_pct": round(100.0 * len(done) / max(1, len(active)), 2),
+        "total_companies": total_n if verified else len(active),
+        "fully_backfilled": done_n,
+        "remaining": remaining_n,
+        "queue_length": queue_remaining,
+        "queue_fully_backfilled": queue_done,
+        "average_years": avg_years,
+        "coverage_pct": coverage_pct,
         "hard_coverage_pct": hard_avg,
         "soft_coverage_pct": soft_avg,
         "mode": state.get("mode") or "deep_backfill",
@@ -365,14 +390,33 @@ def backlog_stats() -> dict[str, Any]:
         "companies_processed_today": int(state.get("companies_processed_today") or 0),
         "coverage_finished": False,
         "queue_always_ready": True,
+        "authority": "data_plane_coverage" if verified else "queue_state",
+        "dataset_coverage": (verified.get("dataset_coverage") if verified else None),
+        "maintenance_allowed": verified.get("maintenance_allowed") if verified else None,
     }
 
 
 def maybe_transition_to_maintenance() -> dict[str, Any]:
-    """When remaining=0, switch to maintenance — queue stays ready for new listings/IPOs."""
+    """Maintenance only when verified coverage thresholds pass — never from empty queue alone."""
+    # Refresh data-plane reconciliation (throttled inside helper)
+    try:
+        from knowledge_factory.historical_depth.coverage_reconcile import maybe_reconcile
+
+        maybe_reconcile(enqueue=True)
+    except Exception:
+        try:
+            from knowledge_factory.historical_depth.coverage_reconcile import reconcile_universe
+
+            reconcile_universe(enqueue=True)
+        except Exception:
+            pass
+
     stats = backlog_stats()
     state = load_engine_state()
-    if int(stats.get("remaining") or 0) == 0 and int(stats.get("total_companies") or 0) > 0:
+    verified = hd_store.get_report("coverage_reconciliation") or {}
+    allowed = bool(verified.get("maintenance_allowed")) if verified else False
+
+    if allowed and int(stats.get("remaining") or 0) == 0 and int(stats.get("total_companies") or 0) > 0:
         if not state.get("maintenance_only"):
             state = save_engine_state(
                 {
@@ -382,13 +426,30 @@ def maybe_transition_to_maintenance() -> dict[str, Any]:
                     "maintenance_only": True,
                     "completed_at": state.get("completed_at") or _now_iso(),
                     "coverage_finished": False,
+                    "verified_gate": True,
                     "note": (
-                        "Backlog empty — maintenance-only for covered names. "
+                        "Verified data-plane coverage thresholds met — maintenance-only. "
                         "Queue remains ready; new IPOs/listings auto-enqueue and reopen deep backfill."
                     ),
                 }
             )
-        return {**stats, "transitioned": True, "engine": state}
+        return {**stats, "transitioned": True, "engine": state, "verified_gate": True}
+
+    # Empty queue is NOT enough — reopen when verification fails
+    if state.get("maintenance_only") and not allowed:
+        state = save_engine_state(
+            {
+                **state,
+                "mode": "deep_backfill",
+                "deep_backfill_enabled": True,
+                "maintenance_only": False,
+                "reopened_at": _now_iso(),
+                "verified_gate": False,
+                "note": "Reopened: verified coverage below maintenance thresholds",
+            }
+        )
+        return {**stats, "transitioned": False, "reopened": True, "engine": state, "verified_gate": False}
+
     if state.get("maintenance_only") and int(stats.get("remaining") or 0) > 0:
         state = save_engine_state(
             {
@@ -400,16 +461,18 @@ def maybe_transition_to_maintenance() -> dict[str, Any]:
                 "note": "Backlog non-empty (new listing or incomplete hard dims) — deep backfill active",
             }
         )
-    else:
-        state = save_engine_state(
-            {
-                **state,
-                "mode": "deep_backfill" if not state.get("maintenance_only") else "maintenance",
-                "deep_backfill_enabled": not bool(state.get("maintenance_only")),
-                "coverage_finished": False,
-            }
-        )
-    return {**stats, "transitioned": False, "engine": state}
+        return {**stats, "transitioned": False, "reopened": True, "engine": state}
+
+    state = save_engine_state(
+        {
+            **state,
+            "mode": "deep_backfill" if not state.get("maintenance_only") else "maintenance",
+            "deep_backfill_enabled": not bool(state.get("maintenance_only")),
+            "coverage_finished": False,
+            "verified_gate": allowed,
+        }
+    )
+    return {**stats, "transitioned": False, "engine": state, "verified_gate": allowed}
 
 
 def bump_processed_today(n: int = 1) -> None:

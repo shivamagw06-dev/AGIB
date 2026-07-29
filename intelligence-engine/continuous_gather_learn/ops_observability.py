@@ -394,6 +394,46 @@ def ops_dashboard() -> dict[str, Any]:
             for r in rel_trends
         ] or sources
 
+    reconcile = None
+    try:
+        from knowledge_factory.historical_depth.coverage_reconcile import latest_reconciliation
+
+        reconcile = latest_reconciliation()
+    except Exception:
+        reconcile = None
+
+    dataset = (reconcile or {}).get("dataset_coverage") or {}
+    # Prefer heat map / connector coverage for data-plane truth
+    hist_coverage = {
+        "ohlcv_pct": dataset.get("ohlcv_pct")
+        if dataset.get("ohlcv_pct") is not None
+        else next((r.get("coverage_pct") for r in heat if r.get("dataset") == "OHLCV"), None),
+        "financials_pct": (institutional.get("financial_coverage") or {}).get("coverage_pct")
+        if institutional.get("financial_coverage")
+        else dataset.get("financials_pct"),
+        "shareholding_pct": (institutional.get("shareholding_coverage") or {}).get("coverage_pct")
+        if institutional.get("shareholding_coverage")
+        else dataset.get("shareholding_pct"),
+        "ir_pct": (institutional.get("ir_coverage") or {}).get("coverage_pct"),
+        "verified_hard_coverage_pct": (reconcile or {}).get("verified_hard_coverage_pct"),
+        "average_years": (reconcile or {}).get("average_history_years")
+        or (institutional.get("kpis") or {}).get("average_historical_years"),
+        "incomplete": (reconcile or {}).get("incomplete"),
+        "authority": (reconcile or {}).get("authority") or "data_plane_coverage",
+    }
+
+    scheduler_status = "healthy"
+    try:
+        from knowledge_factory.historical_depth import queue as bf_queue
+
+        eng = bf_queue.load_engine_state()
+        if eng.get("maintenance_only") and not (reconcile or {}).get("maintenance_allowed"):
+            scheduler_status = "misaligned"  # control plane claims maintenance; data plane disagrees
+        elif eng.get("mode") == "deep_backfill":
+            scheduler_status = "backfilling"
+    except Exception:
+        pass
+
     return {
         "ops_version": OPS_VERSION,
         "generated_at": _now(),
@@ -403,6 +443,7 @@ def ops_dashboard() -> dict[str, Any]:
         "coverage_by_index": by_index,
         "backfill_throughput": throughput,
         "coverage_audit": audit,
+        "coverage_reconcile": reconcile,
         "degraded_collectors": len(degraded),
         "financial_coverage": institutional.get("financial_coverage"),
         "shareholding_coverage": institutional.get("shareholding_coverage"),
@@ -410,18 +451,32 @@ def ops_dashboard() -> dict[str, Any]:
         "checkpoint_status": institutional.get("checkpoint_status"),
         "storage_usage": (institutional.get("checkpoint_status") or {}).get("storage"),
         "persistent_queue": institutional.get("persistent_queue"),
-        "repair_queue": ((institutional.get("kpis") or {}).get("repair_queue_size")),
+        "repair_queue": ((institutional.get("kpis") or {}).get("repair_queue_size"))
+        or len(((reconcile or {}).get("incomplete_preview") or [])),
         "kpis": institutional.get("kpis"),
         "living_universe_ops": institutional.get("living_universe"),
         "recovery": institutional.get("recovery"),
         "historical_depth": {
-            "average_years": (institutional.get("kpis") or {}).get("average_historical_years"),
-            "completeness_pct": (institutional.get("kpis") or {}).get("historical_completeness_pct"),
+            "average_years": hist_coverage.get("average_years"),
+            "completeness_pct": hist_coverage.get("verified_hard_coverage_pct"),
+        },
+        "historical_coverage_verified": hist_coverage,
+        "operational_status": {
+            "scheduler": scheduler_status,
+            "collectors": {
+                "degraded": len(degraded),
+                "rows": [
+                    {"collector": c.get("collector"), "success": c.get("success"), "error_rate_pct": c.get("error_rate_pct")}
+                    for c in collectors
+                ],
+            },
+            "historical_coverage": hist_coverage,
+            "maintenance_allowed": (reconcile or {}).get("maintenance_allowed"),
         },
         "knowledge_density": {
             "extracts": (institutional.get("kpis") or {}).get("knowledge_extracts"),
             "embeddings": (institutional.get("kpis") or {}).get("embeddings"),
         },
-        "north_star": "Operate and validate historical coverage under real workloads",
-        "focus": "production-grade institutional historical data",
+        "north_star": "Verified data-plane coverage — not queue state",
+        "focus": "control-plane vs data-plane honesty",
     }

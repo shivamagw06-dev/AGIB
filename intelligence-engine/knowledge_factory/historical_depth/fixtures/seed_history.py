@@ -383,6 +383,41 @@ def corporate_action_records(entity: str) -> list[dict[str, Any]]:
     ]
 
 
+def shareholding_records(entity: str) -> list[dict[str, Any]]:
+    """Offline/dev fixture only — never used in production APP_ENV."""
+    e = entity.upper()
+    # Deterministic synthetic ownership panel for tests
+    h = abs(hash(e)) % 7
+    promoter = 20.0 + h
+    fii = 25.0 + (h % 5)
+    dii = 20.0
+    mf = 15.0
+    public = max(5.0, 100.0 - promoter - fii - dii - mf)
+    out = []
+    for year, month in ((2022, 3), (2023, 3), (2024, 3), (2025, 3)):
+        pe = f"{year}-{month:02d}-31" if month != 3 else f"{year}-03-31"
+        out.append(
+            pit_record(
+                entity=e,
+                kind="shareholding",
+                period=pe,
+                period_end=pe,
+                available_from=pe,
+                payload={
+                    "promoter": promoter,
+                    "fii": fii,
+                    "dii": dii,
+                    "mutual_funds": mf,
+                    "public": round(public, 2),
+                    "pledged": float(h % 3),
+                },
+                source="fixture",
+                confidence=0.7,
+            )
+        )
+    return out
+
+
 def market_regimes() -> list[dict[str, Any]]:
     return [
         regime_record(

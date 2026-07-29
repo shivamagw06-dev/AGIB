@@ -121,6 +121,14 @@ def test_cgl_historical_backfill_wrapper(monkeypatch):
         "knowledge_factory.historical_depth.universe_priority.supported_universe",
         lambda: ["INFY"],
     )
+    monkeypatch.setattr(
+        "knowledge_factory.historical_depth.universe_priority.prioritised_universe",
+        lambda **kwargs: ["INFY"],
+    )
+    monkeypatch.setattr(
+        "knowledge_factory.historical_depth.coverage_reconcile.prioritised_universe",
+        lambda **kwargs: ["INFY"],
+    )
     bf_queue.ensure_queue(force_refresh=True)
     result = run_historical_backfill(batch_size=1, max_batches=2)
     assert result["ok"] is True
