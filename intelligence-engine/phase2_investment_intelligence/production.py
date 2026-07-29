@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from phase2_investment_intelligence.contract import ENGINE_CONTRACTS, build_engine_contract
 from phase2_investment_intelligence.schema import (
     ARCHITECTURE_TARGET,
     BASELINE_NAME,
@@ -15,6 +16,7 @@ from phase2_investment_intelligence.schema import (
     PROGRAMME_VERSION,
     SUCCESS_CRITERIA,
 )
+from phase2_investment_intelligence.scorecard import DEFINITION_OF_DONE, programme_scorecard_board
 from phase2_investment_intelligence.workstreams import workstream_board
 
 
@@ -29,16 +31,35 @@ def health() -> dict[str, Any]:
         "primary_objective": PRIMARY_OBJECTIVE,
         "frozen_baseline_locks": dict(FROZEN_BASELINE_LOCKS),
         "success_criteria": list(SUCCESS_CRITERIA),
+        "standard_engine_contract": True,
+        "intelligence_scorecard": True,
+        "definition_of_done": list(DEFINITION_OF_DONE),
         "workstreams": board,
         "doc": DOC_PATH,
         "extends_intelligence": True,
         "replaces_baseline": False,
+        "recommended_first_build": board.get("recommended_first_build"),
         "note": (
             "Phase 2 is an investment intelligence programme. "
             "It must not modify Constitution, Governance Spec, Decision Engine contracts, "
             "Institutional Gate, Evaluation Lab, Drift Engine, or IAT."
         ),
     }
+
+
+def contracts() -> dict[str, Any]:
+    """Standard contract declarations for all Phase 2 engines."""
+    return {
+        "standard_contract": True,
+        "engines": {code: build_engine_contract(code) for code in ENGINE_CONTRACTS},
+        "failure_mode_rule": "degrade_gracefully_do_not_block_unrelated_engines",
+        "consumers": ["decision_engine", "evaluation_lab"],
+    }
+
+
+def scorecard() -> dict[str, Any]:
+    """Intelligence Scorecard templates (Phase 2 measurement frame)."""
+    return programme_scorecard_board()
 
 
 def programme() -> dict[str, Any]:
@@ -57,6 +78,8 @@ def programme() -> dict[str, Any]:
             "Drift Engine",
             "Institutional Acceptance Test",
         ],
+        "contracts": contracts(),
+        "intelligence_scorecard_board": scorecard(),
         "prohibited": [
             "redesign_constitution",
             "redesign_governance",
