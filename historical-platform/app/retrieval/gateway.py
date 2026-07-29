@@ -7,6 +7,7 @@ from typing import Any
 from app.config.settings import Settings
 from app.coverage.policy import policy_snapshot
 from app.hko.shape import shape_hko_view
+from app.hai.engine import HistoricalAnalogueEngine
 from app.hri.engine import HistoricalRelationshipEngine
 from app.storage.db import HipStore
 from app.timeline import traces
@@ -20,6 +21,7 @@ class HistoricalRetrievalGateway:
         self.settings = settings
         self.timelines = TimelineBuilder(store)
         self.relationships = HistoricalRelationshipEngine(store)
+        self.analogues = HistoricalAnalogueEngine(store)
 
     def company_history(self, symbol: str) -> dict[str, Any]:
         span = traces.begin("historical_retrieval", meta={"symbol": symbol, "kind": "company"})
@@ -248,6 +250,7 @@ class HistoricalRetrievalGateway:
             )
         runs = self.store.list_runs(limit=10)
         hri = self.store.relationship_dashboard()
+        hai = self.store.analogue_dashboard()
         return {
             "board": "Historical Intelligence",
             "version": self.settings.version,
@@ -261,6 +264,10 @@ class HistoricalRetrievalGateway:
                 "title": "Historical Relationship Intelligence",
                 **hri,
             },
+            "analogue_board": {
+                "title": "Historical Analogue Intelligence",
+                **hai,
+            },
             "retrieval_performance": {
                 "providers_queried_always": [],
                 "traces": traces.recent(80),
@@ -270,5 +277,6 @@ class HistoricalRetrievalGateway:
                 "providers_never_on_ask_path": True,
                 "narratives_not_rows": True,
                 "no_relationship_without_evidence": True,
+                "no_analogue_without_explainable_score": True,
             },
         }

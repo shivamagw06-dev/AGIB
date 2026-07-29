@@ -1121,6 +1121,111 @@ class HipStore:
             "coverage_by_company": {r["company_symbol"]: r["c"] for r in company_cov},
         }
 
+    # ----- Sprint 8.4 Historical Analogue Intelligence -----
+
+    def insert_analogue_search(
+        self,
+        *,
+        search_id: str,
+        scope: str,
+        entity_key: str,
+        question: str | None,
+        situation: str | None,
+        as_of_period: str | None,
+        features: dict[str, Any],
+        top_k: int,
+        result_count: int,
+        avg_similarity: float | None,
+        latency_ms: float,
+        results: list[dict[str, Any]],
+    ) -> None:
+        now = _iso(datetime.now(timezone.utc))
+        self._conn.execute(
+            """
+            INSERT INTO analogue_searches (
+                search_id, scope, entity_key, question, situation, as_of_period,
+                features_json, top_k, result_count, avg_similarity, latency_ms, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                search_id,
+                scope,
+                entity_key,
+                question,
+                situation,
+                as_of_period,
+                json.dumps(features or {}),
+                top_k,
+                result_count,
+                avg_similarity,
+                latency_ms,
+                now,
+            ),
+        )
+        for i, row in enumerate(results, start=1):
+            self._conn.execute(
+                """
+                INSERT INTO analogue_results (
+                    result_id, search_id, analogue_id, rank, matched_period,
+                    similarity_score, confidence, payload_json, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    f"{search_id}:{i}",
+                    search_id,
+                    row.get("analogue_id") or f"{search_id}-a{i}",
+                    i,
+                    row.get("matched_period"),
+                    float(row.get("similarity_score") or 0),
+                    row.get("confidence") or "Medium",
+                    json.dumps(row, default=str),
+                    now,
+                ),
+            )
+        self._conn.commit()
+
+    def analogue_dashboard(self) -> dict[str, Any]:
+        total = int(self._conn.execute("SELECT COUNT(*) AS c FROM analogue_searches").fetchone()["c"])
+        avg_sim = self._conn.execute(
+            "SELECT AVG(avg_similarity) AS a FROM analogue_searches WHERE avg_similarity IS NOT NULL"
+        ).fetchone()["a"]
+        avg_lat = self._conn.execute(
+            "SELECT AVG(latency_ms) AS a FROM analogue_searches WHERE latency_ms IS NOT NULL"
+        ).fetchone()["a"]
+        by_company = self._conn.execute(
+            """
+            SELECT entity_key, COUNT(*) AS c FROM analogue_searches
+            WHERE scope = 'company' GROUP BY entity_key ORDER BY c DESC
+            """
+        ).fetchall()
+        by_sector = self._conn.execute(
+            """
+            SELECT entity_key, COUNT(*) AS c FROM analogue_searches
+            WHERE scope = 'sector' GROUP BY entity_key ORDER BY c DESC
+            """
+        ).fetchall()
+        conf = self._conn.execute(
+            """
+            SELECT confidence, COUNT(*) AS c FROM analogue_results
+            GROUP BY confidence
+            """
+        ).fetchall()
+        recent = self._conn.execute(
+            """
+            SELECT search_id, scope, entity_key, question, avg_similarity, latency_ms, created_at
+            FROM analogue_searches ORDER BY created_at DESC LIMIT 15
+            """
+        ).fetchall()
+        return {
+            "analogue_searches_executed": total,
+            "average_similarity_score": round(float(avg_sim or 0), 2),
+            "average_retrieval_latency_ms": round(float(avg_lat or 0), 2),
+            "coverage_by_company": {r["entity_key"]: r["c"] for r in by_company},
+            "coverage_by_sector": {r["entity_key"]: r["c"] for r in by_sector},
+            "confidence_distribution": {r["confidence"]: r["c"] for r in conf},
+            "recent_searches": [dict(r) for r in recent],
+        }
+
     @staticmethod
     def _row_knowledge(row: sqlite3.Row) -> dict[str, Any]:
         d = dict(row)

@@ -82,6 +82,16 @@ class HistoricalNormalizer:
                         "net_income": row.get("net_income"),
                         "pe": row.get("pe"),
                         "valuation": row.get("valuation") or {"pe": row.get("pe")},
+                        "margins": row.get("margins")
+                        or (
+                            {
+                                "pat_margin": round(
+                                    float(row["net_income"]) / float(row["revenue"]), 4
+                                )
+                            }
+                            if row.get("revenue") and row.get("net_income")
+                            else {}
+                        ),
                     },
                     "source_event_id": event.event_id,
                 }

@@ -169,5 +169,5 @@ def test_mission_control_historical_board(tmp_path: Path) -> None:
 def test_service_version_hko(tmp_path: Path) -> None:
     with TestClient(create_app(_settings(tmp_path))) as client:
         health = client.get("/healthz").json()
-        assert health["service"] == "hip-hri"
-        assert health["version"] == "0.3.0"
+        assert health["service"] == "hip-hai"
+        assert health["version"] == "0.4.0"

@@ -318,3 +318,36 @@ CREATE TABLE IF NOT EXISTS relationship_versions (
 );
 CREATE INDEX IF NOT EXISTS idx_rel_versions
     ON relationship_versions(relationship_id, version DESC);
+
+-- Sprint 8.4 Historical Analogue Intelligence
+CREATE TABLE IF NOT EXISTS analogue_searches (
+    search_id TEXT PRIMARY KEY,
+    scope TEXT NOT NULL,
+    entity_key TEXT NOT NULL,
+    question TEXT,
+    situation TEXT,
+    as_of_period TEXT,
+    features_json TEXT NOT NULL,
+    top_k INTEGER NOT NULL,
+    result_count INTEGER NOT NULL,
+    avg_similarity REAL,
+    latency_ms REAL,
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_analogue_searches_entity
+    ON analogue_searches(scope, entity_key, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS analogue_results (
+    result_id TEXT PRIMARY KEY,
+    search_id TEXT NOT NULL,
+    analogue_id TEXT NOT NULL,
+    rank INTEGER NOT NULL,
+    matched_period TEXT NOT NULL,
+    similarity_score REAL NOT NULL,
+    confidence TEXT NOT NULL,
+    payload_json TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY(search_id) REFERENCES analogue_searches(search_id)
+);
+CREATE INDEX IF NOT EXISTS idx_analogue_results_search
+    ON analogue_results(search_id, rank ASC);
