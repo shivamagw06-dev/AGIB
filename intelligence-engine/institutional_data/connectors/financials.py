@@ -28,7 +28,7 @@ def fixtures_allowed() -> bool:
 class FinancialStatementsConnector(Connector):
     connector_id = "hd_financial_statements_v1"
     source_id = "financial_statements"
-    official_source = "Yahoo Finance quoteSummary / exchange filings"
+    official_source = "NSE IND-AS XBRL (primary) / Yahoo Finance quoteSummary (failover)"
 
     def collect(self, **kwargs: Any) -> ConnectorResult:
         entity = str(kwargs.get("entity") or kwargs.get("ticker") or "").upper()
@@ -44,27 +44,49 @@ class FinancialStatementsConnector(Connector):
         records: list[dict[str, Any]] = []
         errors: list[str] = []
         mode = "live"
-        try:
-            annual = self._fetch_modules(
-                ysym,
-                [
-                    "incomeStatementHistory",
-                    "balanceSheetHistory",
-                    "cashflowStatementHistory",
-                ],
-            )
-            quarterly = self._fetch_modules(
-                ysym,
-                [
-                    "incomeStatementHistoryQuarterly",
-                    "balanceSheetHistoryQuarterly",
-                    "cashflowStatementHistoryQuarterly",
-                ],
-            )
-            records.extend(self._extract_statements(annual, entity=entity, frequency="annual"))
-            records.extend(self._extract_statements(quarterly, entity=entity, frequency="quarterly"))
-        except Exception as exc:  # noqa: BLE001
-            errors.append(str(exc)[:200])
+        parse_path = None
+
+        # Injected for tests
+        if kwargs.get("injected"):
+            mode = "injected"
+            records = list(kwargs["injected"])
+            parse_path = "injected"
+        else:
+            # Primary: NSE integrated + corporates financial results XBRL (P2.1)
+            try:
+                nse_records, parse_path = self._nse_financials(
+                    entity,
+                    quarterly_xbrl=int(kwargs.get("quarterly_xbrl") or 4),
+                    annual_xbrl=int(kwargs.get("annual_xbrl") or 2),
+                )
+                records.extend(nse_records)
+            except Exception as exc:  # noqa: BLE001
+                errors.append(f"nse:{str(exc)[:160]}")
+
+            # Failover: Yahoo quoteSummary
+            if not records:
+                try:
+                    annual = self._fetch_modules(
+                        ysym,
+                        [
+                            "incomeStatementHistory",
+                            "balanceSheetHistory",
+                            "cashflowStatementHistory",
+                        ],
+                    )
+                    quarterly = self._fetch_modules(
+                        ysym,
+                        [
+                            "incomeStatementHistoryQuarterly",
+                            "balanceSheetHistoryQuarterly",
+                            "cashflowStatementHistoryQuarterly",
+                        ],
+                    )
+                    records.extend(self._extract_statements(annual, entity=entity, frequency="annual"))
+                    records.extend(self._extract_statements(quarterly, entity=entity, frequency="quarterly"))
+                    parse_path = parse_path or "yahoo_quotesummary"
+                except Exception as exc:  # noqa: BLE001
+                    errors.append(f"yahoo:{str(exc)[:160]}")
 
         # Production: never pad with fixtures. Dev may opt-in.
         if not records and fixtures_allowed():
@@ -85,6 +107,7 @@ class FinancialStatementsConnector(Connector):
                 "entity": entity,
                 "yahoo_symbol": ysym,
                 "errors": errors,
+                "parse_path": parse_path,
                 "latency_ms": int((time.time() - t0) * 1000),
                 "annual_count": sum(1 for r in records if r.get("frequency") == "annual"),
                 "quarterly_count": sum(1 for r in records if r.get("frequency") == "quarterly"),
@@ -96,6 +119,126 @@ class FinancialStatementsConnector(Connector):
             if ok
             else [{"company": entity, "reason": "incomplete_financials", "connector": self.connector_id, "priority": 2}],
         )
+
+    def _nse_financials(
+        self,
+        entity: str,
+        *,
+        quarterly_xbrl: int = 4,
+        annual_xbrl: int = 2,
+    ) -> tuple[list[dict[str, Any]], str]:
+        from earnings_intelligence.production import analyse
+
+        pack = analyse(
+            entity,
+            quarterly_xbrl=quarterly_xbrl,
+            annual_xbrl=annual_xbrl,
+            persist=False,
+        )
+        if not pack.get("ok"):
+            return [], "nse_earnings_empty"
+        out: list[dict[str, Any]] = []
+        for row in pack.get("quarter_history") or []:
+            inc = row.get("income_statement") or {}
+            if not inc:
+                continue
+            out.append(
+                {
+                    "entity": entity,
+                    "statement": "income",
+                    "frequency": "quarterly",
+                    "period": row.get("quarter_label") or row.get("period_end"),
+                    "period_end": row.get("period_end"),
+                    "available_from": row.get("filing_date") or row.get("period_end"),
+                    "accounts": {
+                        "revenue": inc.get("revenue_from_operations"),
+                        "total_revenue": inc.get("revenue_from_operations"),
+                        "ebitda": inc.get("ebitda"),
+                        "ebit": inc.get("ebit"),
+                        "net_income": inc.get("pat_owners") or inc.get("pat"),
+                        "eps": inc.get("eps_basic"),
+                    },
+                    "metadata": {"source": "earnings_intelligence", "xbrl_url": row.get("xbrl_url")},
+                    "ttm": False,
+                    "quality_score": 0.9,
+                    "restatement": False,
+                    "version": 1,
+                }
+            )
+        for row in pack.get("annual_history") or []:
+            pe = row.get("period_end")
+            af = row.get("filing_date") or pe
+            inc = row.get("income_statement") or {}
+            bal = row.get("balance_sheet") or {}
+            cf = row.get("cash_flow") or {}
+            if inc:
+                out.append(
+                    {
+                        "entity": entity,
+                        "statement": "income",
+                        "frequency": "annual",
+                        "period": row.get("fiscal_year_label") or pe,
+                        "period_end": pe,
+                        "available_from": af,
+                        "accounts": {
+                            "revenue": inc.get("revenue_from_operations"),
+                            "total_revenue": inc.get("revenue_from_operations"),
+                            "ebitda": inc.get("ebitda"),
+                            "ebit": inc.get("ebit"),
+                            "net_income": inc.get("pat_owners") or inc.get("pat"),
+                            "eps": inc.get("eps_basic"),
+                        },
+                        "metadata": {"source": "earnings_intelligence", "xbrl_url": row.get("xbrl_url")},
+                        "ttm": False,
+                        "quality_score": 0.9,
+                        "restatement": False,
+                        "version": 1,
+                    }
+                )
+            if bal:
+                out.append(
+                    {
+                        "entity": entity,
+                        "statement": "balance",
+                        "frequency": "annual",
+                        "period": row.get("fiscal_year_label") or pe,
+                        "period_end": pe,
+                        "available_from": af,
+                        "accounts": {
+                            "total_debt": bal.get("total_debt"),
+                            "cash": bal.get("cash"),
+                            "equity": bal.get("total_equity"),
+                            "shares": None,
+                        },
+                        "metadata": {"source": "earnings_intelligence", "xbrl_url": row.get("xbrl_url")},
+                        "ttm": False,
+                        "quality_score": 0.9,
+                        "restatement": False,
+                        "version": 1,
+                    }
+                )
+            if cf:
+                out.append(
+                    {
+                        "entity": entity,
+                        "statement": "cashflow",
+                        "frequency": "annual",
+                        "period": row.get("fiscal_year_label") or pe,
+                        "period_end": pe,
+                        "available_from": af,
+                        "accounts": {
+                            "ocf": cf.get("operating_cash_flow"),
+                            "fcf": cf.get("free_cash_flow"),
+                            "capex": cf.get("capex"),
+                        },
+                        "metadata": {"source": "earnings_intelligence", "xbrl_url": row.get("xbrl_url")},
+                        "ttm": False,
+                        "quality_score": 0.9,
+                        "restatement": False,
+                        "version": 1,
+                    }
+                )
+        return out, "nse_earnings_intelligence"
 
     def validate(self, records: list[dict[str, Any]], **kwargs: Any) -> dict[str, Any]:
         failures = []

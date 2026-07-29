@@ -178,6 +178,35 @@ def get_or_build(
     except Exception:
         pass
 
+    # P2.1 Earnings / Financial Statements — NSE integrated + IND-AS XBRL
+    try:
+        from earnings_intelligence.enrich import merge_financials_into_dossier
+        from earnings_intelligence.production import analyse as earnings_analyse
+        from cid.coverage import compute_coverage
+        from cid.store import get_cid_store
+
+        fs = dossier.get("financial_statements") or {}
+        inc = fs.get("income_statement") or {}
+        already_fs = bool((inc.get("quarterly") or []) or (inc.get("annual") or []))
+        fin = dossier.get("financials") if isinstance(dossier.get("financials"), dict) else {}
+        already_fin = fin.get("revenue") is not None or float(fin.get("coverage_pct") or 0) >= 80
+        if not already_fs and not already_fin:
+            epack = earnings_analyse(t, quarterly_xbrl=4, annual_xbrl=2, persist=False)
+            if epack.get("ok"):
+                dossier = merge_financials_into_dossier(dossier, epack)
+                cov = compute_coverage(dossier)
+                dossier.update(
+                    {
+                        "coverage": cov["coverage"],
+                        "coverage_score": cov["coverage_score"],
+                        "coverage_grade": cov["coverage_grade"],
+                        "missing_evidence": cov["missing_evidence"],
+                    }
+                )
+                dossier = get_cid_store().put(dossier)
+    except Exception:
+        pass
+
     return {
         **dossier,
         "enabled": True,

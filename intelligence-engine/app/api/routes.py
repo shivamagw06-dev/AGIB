@@ -10002,6 +10002,60 @@ async def live_market_context_post(payload: dict[str, Any] = Body(default={})):
     return analyse(ticker, force=bool(body.get("force")), intrinsic_value=intrinsic_f)
 
 
+@router.get("/earnings-intelligence/health")
+async def earnings_intelligence_health():
+    """P2.1 Financial Statements & Earnings Intelligence — NSE IND-AS XBRL."""
+    from earnings_intelligence.production import health
+
+    return health()
+
+
+@router.get("/earnings-intelligence/{ticker}")
+async def earnings_intelligence_ticker(
+    ticker: str,
+    force: bool = False,
+    quarterly_xbrl: int = 4,
+    annual_xbrl: int = 2,
+    skip_xbrl: bool = False,
+):
+    from earnings_intelligence.production import analyse
+
+    return analyse(
+        ticker,
+        force=force,
+        quarterly_xbrl=max(0, min(int(quarterly_xbrl), 20)),
+        annual_xbrl=max(0, min(int(annual_xbrl), 15)),
+        skip_xbrl=bool(skip_xbrl),
+        persist=False,
+    )
+
+
+@router.post("/earnings-intelligence")
+async def earnings_intelligence_post(payload: dict[str, Any] = Body(default={})):
+    from earnings_intelligence.production import analyse
+
+    body = payload or {}
+    ticker = str(body.get("ticker") or "").strip()
+    if not ticker:
+        raise HTTPException(status_code=400, detail="ticker_required")
+    try:
+        q = max(0, min(int(body.get("quarterly_xbrl", 4)), 20))
+    except (TypeError, ValueError):
+        q = 4
+    try:
+        a = max(0, min(int(body.get("annual_xbrl", 2)), 15))
+    except (TypeError, ValueError):
+        a = 2
+    return analyse(
+        ticker,
+        force=bool(body.get("force")),
+        quarterly_xbrl=q,
+        annual_xbrl=a,
+        skip_xbrl=bool(body.get("skip_xbrl")),
+        persist=bool(body.get("persist", False)),
+    )
+
+
 @router.get("/ownership-intelligence/health")
 async def ownership_intelligence_health():
     """P2.3 Ownership Intelligence — NSE Master + XBRL evidence layer."""
