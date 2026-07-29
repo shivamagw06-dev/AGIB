@@ -246,6 +246,28 @@ class KnowledgeRetrievalGateway:
 
         if BundleSection.RELATIONSHIPS in sections:
             edges = self.store.list_relationships("Company", symbol)
+            # Sprint 8.3 — prefer HIP Historical Relationship Intelligence when configured
+            if self.historical.enabled:
+                hip_edges = self.historical.fetch_company_relationships(symbol)
+                q = (kq.question or "").lower()
+                if any(tok in q for tok in ("rbi", "rate cut", "historically affected", "crude")):
+                    # Macro→company explain path for cause-and-effect questions
+                    source = "RBI Rate Cut" if "rbi" in q or "rate" in q else ("Higher Crude Oil" if "crude" in q else "RBI Rate Cut")
+                    explained = self.historical.explain_relationship(source=source, target=symbol)
+                    if explained and explained.get("relationships"):
+                        hip_edges = list(explained.get("relationships") or []) + list(hip_edges or [])
+                        bundle.provenance = {
+                            **bundle.provenance,
+                            "historical_relationships": "hip_hri",
+                            "providers_hidden": True,
+                        }
+                if hip_edges:
+                    edges = hip_edges
+                    bundle.provenance = {
+                        **bundle.provenance,
+                        "historical_relationships": "hip_hri",
+                        "providers_hidden": True,
+                    }
             bundle.relationships = edges
             flags[BundleSection.RELATIONSHIPS.value] = bool(edges)
 

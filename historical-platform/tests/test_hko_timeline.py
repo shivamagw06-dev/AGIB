@@ -155,9 +155,13 @@ def test_mission_control_historical_board(tmp_path: Path) -> None:
         infy = next(c for c in body["companies"] if c["company_symbol"] == "INFY")
         assert infy["timeline_events"] > 0
         assert infy["years_ingested"]
-        # Trace names from Sprint 8.2 contract
+        # Trace names from Sprint 8.2 / 8.3 contracts
         names = {t["name"] for t in body["retrieval_performance"]["traces"]}
-        assert "historical_ingestion" in names or "timeline_generation" in names
+        assert (
+            "historical_ingestion" in names
+            or "timeline_generation" in names
+            or "historical_relationship_builder" in names
+        )
     finally:
         client.__exit__(None, None, None)
 
@@ -165,5 +169,5 @@ def test_mission_control_historical_board(tmp_path: Path) -> None:
 def test_service_version_hko(tmp_path: Path) -> None:
     with TestClient(create_app(_settings(tmp_path))) as client:
         health = client.get("/healthz").json()
-        assert health["service"] == "hip-hko"
-        assert health["version"] == "0.2.0"
+        assert health["service"] == "hip-hri"
+        assert health["version"] == "0.3.0"

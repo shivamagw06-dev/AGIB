@@ -15,6 +15,10 @@ Bulk historical ingestion → validate → normalize → resolve → versioned H
 
 Shape HKO views and build company / sector / market / macro **timelines** so Ask retrieves historical narratives, not rows.
 
+## Sprint 8.3 — Historical Relationship Intelligence (HRI)
+
+Evidence-backed **cause-and-effect** graph across companies, sectors, macro and market — before any pattern engine.
+
 Ask / Intelligence Engine must retrieve history **without** calling Yahoo, NSE, BSE, or Company IR.
 
 ## Contracts
@@ -22,7 +26,8 @@ Ask / Intelligence Engine must retrieve history **without** calling Yahoo, NSE, 
 - [`docs/HAP_PLATFORM_CONTRACT.md`](docs/HAP_PLATFORM_CONTRACT.md)
 - [`docs/HISTORICAL_COVERAGE_POLICY.md`](docs/HISTORICAL_COVERAGE_POLICY.md)
 - [`docs/HKO_TIMELINE_CONTRACT.md`](docs/HKO_TIMELINE_CONTRACT.md)
-- Programme note: [`../docs/HIP_SPRINT_8_2.md`](../docs/HIP_SPRINT_8_2.md)
+- [`docs/HRI_CONTRACT.md`](docs/HRI_CONTRACT.md)
+- Programme notes: [`../docs/HIP_SPRINT_8_2.md`](../docs/HIP_SPRINT_8_2.md), [`../docs/HIP_SPRINT_8_3.md`](../docs/HIP_SPRINT_8_3.md)
 
 ## Pipeline
 
@@ -40,7 +45,7 @@ Sources → Historical Collectors → Raw Historical Archive
 - `BSEHistoricalCollector` — announcements, corporate actions  
 - `CompanyIRHistoricalCollector` — annual/quarterly reports, presentations, transcripts, ESG, governance  
 
-## History APIs (8.2)
+## History APIs (8.2 + 8.3)
 
 ```text
 GET  /v1/history/company/{symbol}
@@ -49,6 +54,11 @@ GET  /v1/history/financials/{symbol}
 GET  /v1/history/events/{symbol}
 POST /v1/history/compare
 GET  /v1/history/mission-control
+GET  /v1/history/relationships/company/{symbol}
+GET  /v1/history/relationships/sector/{sector}
+GET  /v1/history/relationships/macro/{event}
+GET  /v1/history/relationships/market
+POST /v1/history/relationships/explain
 ```
 
 ## Run locally
@@ -68,6 +78,9 @@ curl http://127.0.0.1:8092/v1/history/timeline/INFY
 curl -X POST http://127.0.0.1:8092/v1/history/compare \
   -H 'content-type: application/json' \
   -d '{"symbol":"INFY","as_of_period":"FY2018"}'
+curl -X POST http://127.0.0.1:8092/v1/history/relationships/explain \
+  -H 'content-type: application/json' \
+  -d '{"source":"RBI Rate Cut","target":"HDFCBANK"}'
 ```
 
 ## Tests
