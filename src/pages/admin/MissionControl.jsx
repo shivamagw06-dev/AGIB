@@ -359,12 +359,38 @@ export default function MissionControl() {
               <Stat
                 label="Fully Backfilled"
                 value={continuousGatherLearn.companies_fully_backfilled ?? '—'}
-                hint={`Backlog ${continuousGatherLearn.remaining_backlog ?? '—'}`}
+                hint={`of ${continuousGatherLearn.total_companies ?? '—'} · backlog ${continuousGatherLearn.remaining_backlog ?? continuousGatherLearn.companies_remaining ?? '—'}`}
+              />
+              <Stat
+                label="Queue Length"
+                value={continuousGatherLearn.queue_length ?? continuousGatherLearn.remaining_backlog ?? '—'}
+                hint={`Today ${continuousGatherLearn.companies_processed_today ?? 0} processed`}
               />
               <Stat
                 label="IR Documents"
                 value={continuousGatherLearn.documents_downloaded ?? '—'}
                 hint={`AR ${continuousGatherLearn.annual_reports ?? 0} · QR ${continuousGatherLearn.quarterly_results ?? 0}`}
+              />
+              <Stat
+                label="Embeddings"
+                value={continuousGatherLearn.embeddings_total ?? '—'}
+                hint={`Extracts ${continuousGatherLearn.knowledge_extracts_total ?? continuousGatherLearn.metrics?.knowledge_extracts_total ?? '—'}`}
+              />
+              <Stat
+                label="Backfill Mode"
+                value={
+                  continuousGatherLearn.maintenance_only
+                    ? 'maintenance'
+                    : continuousGatherLearn.backfill_mode || (continuousGatherLearn.continues_until_complete ? 'deep' : '—')
+                }
+                status={continuousGatherLearn.maintenance_only ? 'healthy' : 'warn'}
+                hint={
+                  continuousGatherLearn.estimated_completion_days != null
+                    ? `ETA ~${continuousGatherLearn.estimated_completion_days}d`
+                    : continuousGatherLearn.backfill_completed_at
+                      ? `Done ${String(continuousGatherLearn.backfill_completed_at).slice(0, 10)}`
+                      : 'Until remaining=0'
+                }
               />
               <Stat
                 label="Collector Success"
@@ -373,23 +399,20 @@ export default function MissionControl() {
                     ? `${continuousGatherLearn.collector_success_rate}%`
                     : '—'
                 }
-                hint={
-                  continuousGatherLearn.estimated_completion_days != null
-                    ? `ETA ~${continuousGatherLearn.estimated_completion_days}d`
-                    : 'LIDI + KF HD + backfill'
-                }
+                hint="LIDI + KF HD + backfill"
               />
             </div>
             <Glass className="text-xs text-[var(--io-muted)]">
               <p>
                 Autonomous loop: Collect → Validate → Clean → Store → Extract → Update knowledge →
                 Signals → Evaluate forecasts → Learn → Update confidence → Archive. Ask-isolated · no LLM retrain.
+                Historical backfill continues until every listed company is fully backfilled, then switches to maintenance-only.
               </p>
               <p className="mt-1 text-[11px] text-[var(--io-caption)]">
                 Freshness LIDI {continuousGatherLearn.freshness?.lidi || '—'} · KF HD{' '}
                 {continuousGatherLearn.freshness?.kf_hd || '—'} · Cycles{' '}
-                {continuousGatherLearn.metrics?.cycles_total ?? '—'} · Growth/day{' '}
-                {continuousGatherLearn.historical_growth_per_day ?? '—'} cos
+                {continuousGatherLearn.metrics?.cycles_total ?? '—'} · Remaining{' '}
+                {continuousGatherLearn.companies_remaining ?? continuousGatherLearn.remaining_backlog ?? '—'}
               </p>
             </Glass>
           </section>

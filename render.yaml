@@ -149,11 +149,20 @@ services:
         value: "true"
       - key: CONTINUOUS_HISTORICAL_BACKFILL
         value: "true"
+      # Keep draining backlog until every listed company is fully backfilled, then maintenance-only.
+      - key: CONTINUOUS_BACKFILL_UNTIL_COMPLETE
+        value: "true"
+      - key: CONTINUOUS_BACKFILL_ACTIVE_INTERVAL_SEC
+        value: "300"
       # Knowledge Factory Historical Depth — live Yahoo OHLCV/actions backfill.
       - key: KF_HD_LIVE_COLLECTORS
         value: "true"
       - key: KF_HD_BACKFILL_BATCH
         value: "12"
+      - key: KF_HD_BACKFILL_BATCHES_PER_CYCLE
+        value: "3"
+      - key: KF_HD_BACKFILL_WORKERS
+        value: "2"
       - key: KF_HD_TARGET_YEARS
         value: "15"
       # Optional: set CGL_STORE_ROOT=/var/data/kip/continuous_gather_learn after disk attach.

@@ -322,22 +322,23 @@ def run_cycle(
             elif not (kf.get("result") or {}).get("skipped"):
                 volumes["collectors_failed"] += 1
 
-        # Dedicated resumable historical backfill (Yahoo → HD) on deep slots
-        if historical_backfill_enabled() and slot in {"post_market", "overnight"}:
-            def _bf() -> dict[str, Any]:
-                from continuous_gather_learn.historical_backfill import run_historical_backfill
+    # Continuous historical backfill — drain until remaining=0, then maintenance.
+    # Outside morning-DAG branch so backlog keeps moving every cycle.
+    if historical_backfill_enabled() and _should_run_backfill(slot):
+        def _bf() -> dict[str, Any]:
+            from continuous_gather_learn.historical_backfill import run_historical_backfill
 
-                return run_historical_backfill()
+            return run_historical_backfill()
 
-            bf = _soft(_bf, label="historical_backfill")
-            collect_payload["steps"]["historical_backfill"] = bf
-            if bf.get("ok") and not (bf.get("result") or {}).get("skipped"):
-                volumes["collectors_ok"] += 1
-                volumes["backfill_extracts"] = len(
-                    ((bf.get("result") or {}).get("knowledge_extracts") or [])
-                )
-            elif not (bf.get("result") or {}).get("skipped"):
-                volumes["collectors_failed"] += 1
+        bf = _soft(_bf, label="historical_backfill")
+        collect_payload["steps"]["historical_backfill"] = bf
+        if bf.get("ok") and not (bf.get("result") or {}).get("skipped"):
+            volumes["collectors_ok"] += 1
+            volumes["backfill_extracts"] = len(
+                ((bf.get("result") or {}).get("knowledge_extracts") or [])
+            )
+        elif not (bf.get("result") or {}).get("skipped"):
+            volumes["collectors_failed"] += 1
 
     do_faa = faa_in_loop_enabled() if include_faa is None else include_faa
     if do_faa and slot in {"post_market", "overnight"}:
@@ -479,6 +480,24 @@ def run_cycle(
     return run
 
 
+def _should_run_backfill(slot: str) -> bool:
+    """While backlog > 0, run every slot; in maintenance, deep slots only."""
+    try:
+        from continuous_gather_learn.historical_backfill import until_complete_enabled
+        from knowledge_factory.historical_depth import queue as bf_queue
+
+        state = bf_queue.load_engine_state()
+        if state.get("maintenance_only"):
+            return slot in {"post_market", "overnight"}
+        if until_complete_enabled():
+            stats = bf_queue.backlog_stats()
+            if int(stats.get("remaining") or 0) > 0:
+                return True
+        return slot in {"post_market", "overnight"}
+    except Exception:
+        return slot in {"post_market", "overnight"}
+
+
 def _coverage_snapshot() -> dict[str, Any]:
     try:
         from knowledge_factory.historical_depth.backfill import coverage_progress
@@ -487,18 +506,31 @@ def _coverage_snapshot() -> dict[str, Any]:
         dash = historical_depth_dashboard()
         prog = coverage_progress()
         return {
-            "historical_coverage_pct": dash.get("historical_coverage_pct")
+            "total_companies": prog.get("total_companies") or dash.get("universe_n"),
+            "historical_coverage_pct": prog.get("historical_coverage_pct")
+            or dash.get("historical_coverage_pct")
             or dash.get("historical_completeness_pct"),
-            "average_history_years": dash.get("average_history_years"),
-            "companies_fully_backfilled": dash.get("companies_fully_backfilled")
-            or prog.get("companies_fully_backfilled"),
+            "average_history_years": prog.get("average_history_years")
+            or dash.get("average_history_years"),
+            "companies_fully_backfilled": prog.get("companies_fully_backfilled")
+            or dash.get("companies_fully_backfilled"),
             "remaining_backlog": prog.get("remaining_backlog"),
+            "queue_length": prog.get("queue_length"),
+            "companies_processed_today": prog.get("companies_processed_today"),
+            "companies_remaining": prog.get("remaining_backlog"),
+            "knowledge_extracts": prog.get("knowledge_extracts"),
+            "embeddings": prog.get("embeddings"),
             "documents": dash.get("documents"),
+            "documents_downloaded": prog.get("documents_downloaded"),
             "corporate_actions_coverage_pct": dash.get("corporate_actions_coverage_pct"),
             "macro_series_points": dash.get("macro_series_points"),
             "estimated_completion_days": prog.get("estimated_completion_days"),
             "historical_growth_per_day_entities": prog.get("historical_growth_per_day_entities"),
             "companies_gt_10y": dash.get("companies_gt_10y"),
+            "mode": prog.get("mode"),
+            "maintenance_only": prog.get("maintenance_only"),
+            "completed_at": prog.get("completed_at"),
+            "continues_until_complete": prog.get("continues_until_complete"),
         }
     except Exception as exc:  # noqa: BLE001
         return {"error": str(exc)[:160]}
