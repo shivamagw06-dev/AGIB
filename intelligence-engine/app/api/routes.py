@@ -5395,6 +5395,125 @@ async def cskp_calendar(limit: int = Query(50, ge=1, le=200)):
     return calendar(limit=limit)
 
 
+# --- Historical Sector Intelligence Platform (HSIP) Sprint 11.2 ---
+# Immutable historical sector memory. Ask never collects.
+
+
+@router.get("/hsip/health")
+async def hsip_health():
+    from historical_sector_intelligence.production import health
+
+    return health()
+
+
+@router.get("/sector/history")
+async def hsip_history(
+    limit: int = Query(200, ge=1, le=1000),
+    sector: str | None = None,
+):
+    from historical_sector_intelligence.production import history
+
+    return history(limit=limit, sector=sector)
+
+
+@router.get("/sector/history/timeline")
+async def hsip_timeline(
+    sector: str | None = None,
+    indicator: str | None = None,
+):
+    from historical_sector_intelligence.production import timeline
+
+    return timeline(sector=sector, indicator=indicator)
+
+
+@router.get("/sector/history/search")
+async def hsip_search(
+    q: str | None = None,
+    category: str | None = None,
+    sector: str | None = None,
+    namespace: str | None = None,
+    limit: int = Query(100, ge=1, le=500),
+):
+    from historical_sector_intelligence.production import search
+
+    return search(q=q, category=category, sector=sector, namespace=namespace, limit=limit)
+
+
+@router.get("/sector/history/events")
+async def hsip_events(
+    sector: str | None = None,
+    limit: int = Query(100, ge=1, le=500),
+):
+    from historical_sector_intelligence.production import events
+
+    return events(sector=sector, limit=limit)
+
+
+@router.get("/sector/history/dashboard")
+async def hsip_dashboard():
+    from historical_sector_intelligence.production import dashboard
+
+    return dashboard()
+
+
+@router.post("/sector/history/run")
+async def hsip_run(payload: dict[str, Any] = Body(default={})):
+    """Ops / scheduler only — never called by Ask."""
+    from historical_sector_intelligence.production import run
+
+    sources = payload.get("sources")
+    if isinstance(sources, str):
+        sources = [s.strip() for s in sources.split(",") if s.strip()]
+    return run(sources=sources if isinstance(sources, list) else None)
+
+
+@router.get("/sector/history/{sector}")
+async def hsip_sector(sector: str, limit: int = Query(300, ge=1, le=1000)):
+    from historical_sector_intelligence.production import sector as get_sector
+
+    return get_sector(sector, limit=limit)
+
+
+@router.get("/admin/historical-sector", response_class=HTMLResponse)
+async def admin_hsip():
+    from historical_sector_intelligence.production import dashboard
+
+    board = dashboard()
+    cov = board.get("historical_coverage") or {}
+    tl = board.get("timeline_completeness") or {}
+    rows = "".join(
+        f"<tr><td>{e.get('sector')}</td><td>{e.get('period')}</td>"
+        f"<td>{e.get('events')}</td></tr>"
+        for e in (board.get("historical_events") or [])[:20]
+    )
+    html = f"""<!doctype html><html><head><title>Historical Sector</title></head>
+    <body style="font-family:system-ui;max-width:1100px;margin:2rem auto">
+    <h1>Historical Sector Intelligence — HSIP</h1>
+    <p>Immutable institutional sector memory. Ask never fetches.</p>
+    <pre>{board.get('principles')}</pre>
+    <h2>Historical coverage</h2>
+    <pre>{cov}</pre>
+    <h2>Years available</h2>
+    <pre>{board.get('years_available')}</pre>
+    <h2>Timeline completeness</h2>
+    <pre>{tl}</pre>
+    <h2>Historical events</h2>
+    <table border="1" cellpadding="6">
+    <tr><th>Sector</th><th>Period</th><th>Events</th></tr>
+    {rows or '<tr><td colspan=3>Run POST /v1/sector/history/run</td></tr>'}
+    </table>
+    <h2>Policy history</h2>
+    <pre>{board.get('policy_history')}</pre>
+    <h2>Valuation history</h2>
+    <pre>{board.get('valuation_history')}</pre>
+    <h2>Missing periods</h2>
+    <pre>{board.get('missing_periods')}</pre>
+    <h2>Data quality</h2>
+    <pre>{board.get('data_quality')}</pre>
+    </body></html>"""
+    return HTMLResponse(html)
+
+
 @router.post("/sector/run")
 async def cskp_run(payload: dict[str, Any] = Body(default={})):
     """Ops / event-driven only — never called by Ask."""

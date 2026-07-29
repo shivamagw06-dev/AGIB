@@ -497,6 +497,32 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("continuous_sector_knowledge")
     except Exception:
         out["continuous_sector_knowledge"] = None
+    # Phase 11 Sprint 11.2 — Historical Sector Intelligence (soft).
+    try:
+        from historical_sector_intelligence.production import dashboard as hsip_dash
+        from historical_sector_intelligence.production import health as hsip_health
+
+        hd = hsip_dash()
+        hh = hsip_health()
+        cov = hd.get("historical_coverage") or {}
+        out["historical_sector_intelligence"] = {
+            "status": hh.get("status"),
+            "version": hh.get("version"),
+            "ask_triggers_collection": False,
+            "immutable_store": True,
+            "total_observations": cov.get("total_observations"),
+            "unique_sectors": cov.get("unique_sectors"),
+            "years_available": cov.get("years_available"),
+            "timelines": (hd.get("timeline_completeness") or {}).get("timelines"),
+            "average_completeness_pct": (hd.get("timeline_completeness") or {}).get(
+                "average_completeness_pct"
+            ),
+            "ingestion_idle": hd.get("ingestion_idle"),
+            "phase": "11.2",
+        }
+        out["sources"].append("historical_sector_intelligence")
+    except Exception:
+        out["historical_sector_intelligence"] = None
     # AGIB v3.0 LIDI Track 2 — collector certification board (soft).
     try:
         from live_data.production_verify import certification as lidi_cert

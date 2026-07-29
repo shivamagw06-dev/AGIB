@@ -85,7 +85,7 @@ GET  /v1/admin/sector-operations
 | Sprint | Module | Status |
 |---|---|---|
 | ✅ 11.1 | CSKP | Continuous sector knowledge |
-| ➡️ 11.2 | HSIP | Historical sector memory |
-| 11.3 | SRI | Sector relationships |
+| ✅ 11.2 | HSIP | Historical sector memory |
+| ➡️ 11.3 | SRI | Sector relationships |
 | 11.4 | HSAI | Sector analogues |
 | 11.5 | SFI | Sector forecast scenarios |
