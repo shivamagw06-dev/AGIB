@@ -411,24 +411,51 @@ class InstitutionalForecastEngine:
         }
 
     def _soft_cmkp_macro(self) -> dict[str, Any] | None:
-        """Read-only CMKP gateway — never triggers collectors."""
+        """Read-only CMKP + HMIP gateways — never triggers collectors."""
         try:
             from continuous_macro_knowledge.production import india as cmkp_india
             from continuous_macro_knowledge.production import indicator as cmkp_indicator
 
             bundle = cmkp_india(limit=40)
-            if not bundle.get("n"):
-                return None
-            repo = cmkp_indicator("Repo Rate", country="India")
-            cpi = cmkp_indicator("CPI", country="India")
-            return {
-                "published_count": bundle.get("n"),
-                "by_category": {k: len(v) for k, v in (bundle.get("by_category") or {}).items()},
-                "repo_rate": (repo.get("latest") or {}).get("current_value") if repo.get("found") else None,
-                "cpi": (cpi.get("latest") or {}).get("current_value") if cpi.get("found") else None,
+            tip: dict[str, Any] = {
                 "collected_on_request": False,
                 "gateway": "CMKP_KRIG",
             }
+            if bundle.get("n"):
+                repo = cmkp_indicator("Repo Rate", country="India")
+                cpi = cmkp_indicator("CPI", country="India")
+                tip.update(
+                    {
+                        "published_count": bundle.get("n"),
+                        "by_category": {
+                            k: len(v) for k, v in (bundle.get("by_category") or {}).items()
+                        },
+                        "repo_rate": (repo.get("latest") or {}).get("current_value")
+                        if repo.get("found")
+                        else None,
+                        "cpi": (cpi.get("latest") or {}).get("current_value")
+                        if cpi.get("found")
+                        else None,
+                    }
+                )
+            # Soft historical memory tip from HMIP (store-only)
+            try:
+                from historical_macro_intelligence.production import indicator as hmip_indicator
+
+                hist_repo = hmip_indicator("Repo Rate", country="India")
+                if hist_repo.get("found"):
+                    tip["historical_repo_timeline"] = {
+                        "n": hist_repo.get("n"),
+                        "completeness_pct": (hist_repo.get("timeline") or {}).get(
+                            "completeness_pct"
+                        ),
+                        "years_span": (hist_repo.get("timeline") or {}).get("years_span"),
+                        "gateway": "HMIP_KRIG",
+                        "providers_queried": [],
+                    }
+            except Exception:
+                pass
+            return tip if tip.get("published_count") or tip.get("historical_repo_timeline") else None
         except Exception:
             return None
 
