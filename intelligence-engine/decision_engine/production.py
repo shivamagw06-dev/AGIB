@@ -139,13 +139,23 @@ def package_for_ask_agi(
             "overall_score": assembled.get("overall_score"),
             "investment_grade": assembled.get("investment_grade"),
             "confidence_pct": decision.get("confidence_pct"),
-            "evidence_confidence_pct": readiness.get("evidence_confidence_pct")
+            "institutional_readiness_pct": readiness.get("institutional_readiness_pct")
+            or readiness.get("overall_coverage_pct"),
+            "recommendation_readiness_pct": readiness.get("recommendation_readiness_pct")
+            or readiness.get("evidence_confidence_pct")
             or decision.get("evidence_confidence_pct"),
+            "evidence_confidence_pct": readiness.get("recommendation_readiness_pct")
+            or readiness.get("evidence_confidence_pct")
+            or decision.get("evidence_confidence_pct"),
+            "analytical_confidence": readiness.get("analytical_confidence_display")
+            or (readiness.get("analytical_confidence") or {}).get("display"),
+            "analytical_confidence_explanation": readiness.get("analytical_confidence_explanation"),
             "company_quality_10": readiness.get("company_quality_10") or decision.get("company_quality_10"),
             "market_opportunity_10": readiness.get("market_opportunity_10")
             or decision.get("market_opportunity_10"),
             "investment_thesis_status": decision.get("investment_thesis_status"),
             "not_a_negative_view": decision.get("not_a_negative_view"),
+            "decision_line": readiness.get("decision_line"),
             "expected_return_12m_pct": decision.get("expected_return_12m_pct"),
             "bull_case_pct": decision.get("bull_case_pct"),
             "base_case_pct": decision.get("base_case_pct"),

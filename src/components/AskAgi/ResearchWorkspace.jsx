@@ -604,7 +604,7 @@ export default function ResearchWorkspace({
                   <Section
                     id="institutional-gate"
                     kicker="Institutional Gate"
-                    title="Evidence Readiness"
+                    title="Recommendation Readiness"
                   >
                     <p className="rw-body mb-3">
                       {(vm.decisionEngine?.readinessGate?.status_mark ||
@@ -615,9 +615,11 @@ export default function ResearchWorkspace({
                           (vm.recommendationStatus?.blocked ? 'INCONCLUSIVE' : 'FORMED'))}
                     </p>
                     <p className="rw-body mb-4 text-[var(--rw-soft)]">
-                      {vm.decisionEngine?.readinessGate?.reason ||
+                      {vm.decisionEngine?.decisionLine ||
+                        vm.recommendationStatus?.decisionLine ||
+                        vm.decisionEngine?.readinessGate?.reason ||
                         vm.recommendationStatus?.summary ||
-                        'Evidence coverage decides whether a conviction call is allowed.'}
+                        'Coverage and freshness decide whether a conviction call is allowed.'}
                       {vm.decisionEngine?.notANegativeView || vm.recommendationStatus?.notANegativeView
                         ? ' This is not a negative view of the company.'
                         : ''}
@@ -625,10 +627,17 @@ export default function ResearchWorkspace({
                     <div className="rw-grid-3 mb-4">
                       {[
                         ['Company Quality', vm.decisionEngine?.companyQuality10, '/10'],
-                        ['Market Opportunity', vm.decisionEngine?.marketOpportunity10, '/10'],
                         [
-                          'Evidence Confidence',
-                          vm.decisionEngine?.evidenceConfidence ??
+                          'Investment Opportunity',
+                          vm.decisionEngine?.marketOpportunity10 ??
+                            vm.recommendationStatus?.marketOpportunity10,
+                          '/10',
+                        ],
+                        [
+                          'Recommendation Readiness',
+                          vm.decisionEngine?.recommendationReadiness ??
+                            vm.recommendationStatus?.recommendationReadiness ??
+                            vm.decisionEngine?.evidenceConfidence ??
                             vm.recommendationStatus?.evidenceConfidence,
                           '%',
                         ],
@@ -643,42 +652,93 @@ export default function ResearchWorkspace({
                         </div>
                       ))}
                     </div>
-                    {vm.decisionEngine?.readinessGate?.coverage ||
-                    vm.recommendationStatus?.coverage ? (
-                      <div className="rw-decision-metrics mb-4">
-                        {Object.entries(
-                          vm.decisionEngine?.readinessGate?.coverage ||
-                            vm.recommendationStatus?.coverage ||
-                            {}
-                        ).map(([k, v]) => (
-                          <div key={k} className="rw-why-card">
-                            <h4>{k.replace(/_/g, ' ')}</h4>
-                            <p className="tabular-nums text-[var(--rw-ink)] font-semibold">{v}%</p>
-                          </div>
-                        ))}
+                    <div className="rw-grid-2 mb-4">
+                      <div className="rw-why-card">
+                        <h4>Institutional Readiness</h4>
+                        <p className="tabular-nums text-[var(--rw-ink)] font-semibold">
+                          {vm.decisionEngine?.institutionalReadiness ??
+                            vm.recommendationStatus?.institutionalReadiness ??
+                            '—'}
+                          %
+                        </p>
+                        <p className="text-sm text-[var(--rw-soft)] mt-1">
+                          Completeness of required institutional datasets.
+                        </p>
+                        {(vm.recommendationStatus?.reasonBullets ||
+                          vm.decisionEngine?.readinessGate?.reason_bullets ||
+                          []).length ? (
+                          <ul className="mt-2 space-y-1 text-sm text-[var(--rw-soft)]">
+                            {(
+                              vm.recommendationStatus?.reasonBullets ||
+                              vm.decisionEngine?.readinessGate?.reason_bullets ||
+                              []
+                            )
+                              .slice(0, 5)
+                              .map((b) => (
+                                <li key={b}>• {b}</li>
+                              ))}
+                          </ul>
+                        ) : null}
                       </div>
-                    ) : null}
-                    {(vm.decisionEngine?.readinessGate?.checklist ||
+                      <div className="rw-why-card">
+                        <h4>Analytical Confidence</h4>
+                        <p className="text-[var(--rw-ink)] font-semibold">
+                          {vm.decisionEngine?.analyticalConfidence ||
+                            vm.recommendationStatus?.analyticalConfidence ||
+                            '—'}
+                        </p>
+                        <p className="text-sm text-[var(--rw-soft)] mt-1">
+                          {vm.decisionEngine?.analyticalConfidenceExplanation ||
+                            vm.recommendationStatus?.analyticalConfidenceExplanation ||
+                            'Reliability of the evidence that is already available — separate from coverage.'}
+                        </p>
+                      </div>
+                    </div>
+                    {(vm.decisionEngine?.readinessGate?.diagnostic_cards ||
+                      vm.recommendationStatus?.diagnosticCards ||
+                      vm.decisionEngine?.readinessGate?.checklist ||
                       vm.recommendationStatus?.checklist ||
                       []).length ? (
-                      <ul className="mt-2 space-y-1 text-sm text-[var(--rw-soft)]">
+                      <div className="space-y-3">
                         {(
+                          vm.decisionEngine?.readinessGate?.diagnostic_cards ||
+                          vm.recommendationStatus?.diagnosticCards ||
                           vm.decisionEngine?.readinessGate?.checklist ||
                           vm.recommendationStatus?.checklist ||
                           []
-                        ).map((c) => (
-                          <li key={c.label || c}>
-                            {c.mark || (c.present ? '✓' : '⚠')} {c.label || c}
-                            {c.detail ? ` — ${c.detail}` : ''}
-                          </li>
-                        ))}
-                      </ul>
-                    ) : null}
-                    {(vm.recommendationStatus?.additionalEvidenceRequired || []).length ? (
-                      <p className="rw-body mt-3 text-[var(--rw-soft)]">
-                        Additional evidence required:{' '}
-                        {vm.recommendationStatus.additionalEvidenceRequired.join('; ')}.
-                      </p>
+                        )
+                          .filter((c) => !c.present)
+                          .slice(0, 6)
+                          .map((c) => (
+                            <div key={c.key || c.label} className="rw-why-card">
+                              <h4>
+                                {c.mark || '❌'} {c.label}
+                                {c.status ? (
+                                  <span className="font-normal text-[var(--rw-soft)]">
+                                    {' '}
+                                    · {String(c.status).replace(/_/g, ' ')}
+                                  </span>
+                                ) : null}
+                              </h4>
+                              {c.latest_available ? (
+                                <p className="text-sm text-[var(--rw-soft)]">
+                                  Latest available: {c.latest_available}
+                                  {c.age_days != null ? ` (${c.age_days}d old)` : ''}
+                                </p>
+                              ) : null}
+                              {(c.required || []).length ? (
+                                <p className="text-sm text-[var(--rw-soft)]">
+                                  Required: {(c.required || []).join(' · ')}
+                                </p>
+                              ) : null}
+                              {c.expected_impact ? (
+                                <p className="text-sm text-[var(--rw-soft)]">
+                                  Expected impact: {c.expected_impact}
+                                </p>
+                              ) : null}
+                            </div>
+                          ))}
+                      </div>
                     ) : null}
                   </Section>
                 ) : null}

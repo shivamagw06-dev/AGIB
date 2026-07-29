@@ -112,6 +112,9 @@ def test_financial_layer_separates_company_and_evidence_quality():
 
 
 def test_high_coverage_allows_formed_thesis():
+    from datetime import datetime, timezone
+
+    now = datetime.now(timezone.utc).isoformat()
     out = package_for_ask_agi(
         "Should I buy TCS?",
         ticker="TCS",
@@ -133,6 +136,7 @@ def test_high_coverage_allows_formed_thesis():
                 "what_improved": ["growth", "margins", "fcf"],
                 "what_deteriorated": [],
                 "enabled": True,
+                "as_of": now,
             },
             "valuation_intelligence": {
                 "coverage_pct": 92,
@@ -142,6 +146,8 @@ def test_high_coverage_allows_formed_thesis():
                 "premium_discount_vs_history_pct": -5,
                 "peer_comparison": {"ok": True},
                 "narrative": "Near history.",
+                "as_of": now,
+                "price_as_of": now,
             },
             "recommendation_readiness": {
                 "scores": {
@@ -157,26 +163,36 @@ def test_high_coverage_allows_formed_thesis():
             },
             "risks": ["Deal cyclicality"],
             "catalysts": ["Next earnings"],
+            "generated_at": now,
         },
         cid={
-            "shareholding": {"promoter": 72, "fii": 12, "dii": 10, "records": [{"period": "2026-03-31"}]},
-            "filings": [{"id": "1"}],
-            "evidence_timeline": [{"id": "e1"}],
+            "shareholding": {
+                "promoter": 72,
+                "fii": 12,
+                "dii": 10,
+                "as_of": now,
+                "records": [{"period": now[:10], "period_end": now[:10]}],
+            },
+            "filings": [{"id": "1", "as_of": now}],
+            "evidence_timeline": [{"id": "e1", "as_of": now}],
+            "updated_at": now,
         },
         live_evidence={
+            "generated_at": now,
+            "quote": {"as_of": now},
             "evidence_objects": [
-                {"kind": "quarterly_results"},
-                {"kind": "corporate_announcement"},
-                {"kind": "annual_report"},
-            ]
+                {"kind": "quarterly_results", "as_of": now},
+                {"kind": "corporate_announcement", "as_of": now},
+                {"kind": "annual_report", "as_of": now},
+            ],
         },
         evidence_completion={"quality_panel": {"coverage_pct": 93}},
         gate_blocked=False,
         force=True,
     )
     gate = out["institutional_readiness_gate"]
-    assert gate["overall_coverage_pct"] >= 80
+    assert gate["institutional_readiness_pct"] >= 80
     assert gate["band"] in {"moderate_conviction", "high_conviction_allowed"}
     assert out["summary"]["investment_thesis_status"] in {"FORMED", "INCONCLUSIVE"}
-    # With rich packs, should not hard-defer solely from empty technicals
-    assert gate["evidence_confidence_pct"] >= 60
+    # With rich + fresh packs, recommendation readiness should clear watchlist floor
+    assert gate["recommendation_readiness_pct"] >= 60
