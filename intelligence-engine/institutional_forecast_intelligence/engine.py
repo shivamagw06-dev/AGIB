@@ -343,6 +343,28 @@ class InstitutionalForecastEngine:
         if hsai_tip and hsai_tip.get("top_analogues"):
             historical_analogues = list(hsai_tip["top_analogues"])
             sources.append("hsai_sector_analogue_store")
+        sfi_tip = self._soft_sfi_forecast(sector_key)
+        forecast_intelligence: dict[str, Any] | None = None
+        if sfi_tip:
+            forecast_intelligence = sfi_tip
+            sources.append("sfi_sector_forecast_store")
+            if sfi_tip.get("scenarios"):
+                catalysts = [
+                    c
+                    for s in sfi_tip["scenarios"]
+                    for c in (s.get("catalysts") or [])
+                ][:6] or [{"catalyst": "Demand inflection", "polarity": "mixed"}]
+                risks = [
+                    r
+                    for s in sfi_tip["scenarios"]
+                    for r in (s.get("risks") or [])
+                ][:6] or [{"risk": "Global demand shock", "severity": "High"}]
+            else:
+                catalysts = [{"catalyst": "Demand inflection", "polarity": "mixed"}]
+                risks = [{"risk": "Global demand shock", "severity": "High"}]
+        else:
+            catalysts = [{"catalyst": "Demand inflection", "polarity": "mixed"}]
+            risks = [{"risk": "Global demand shock", "severity": "High"}]
         return {
             "current_knowledge": {
                 "sector_key": sector_key,
@@ -352,6 +374,7 @@ class InstitutionalForecastEngine:
             "historical_intelligence": historical,
             "historical_analogues": historical_analogues,
             "relationship_intelligence": relationship_intelligence,
+            "forecast_intelligence": forecast_intelligence,
             "market_intelligence": dict(MARKET_INTELLIGENCE),
             "macro_intelligence": dict(MACRO_INTELLIGENCE),
             "research_intelligence": {
@@ -360,8 +383,8 @@ class InstitutionalForecastEngine:
                 "macro_research_office": MACRO_INTELLIGENCE.get("rbi"),
             },
             "monitoring_events": [{"event": "Sector earnings season", "status": "Watching"}],
-            "catalysts": [{"catalyst": "Demand inflection", "polarity": "mixed"}],
-            "risks": [{"risk": "Global demand shock", "severity": "High"}],
+            "catalysts": catalysts,
+            "risks": risks,
             "pattern_intelligence": {"deferred": True, "sprint": "8.5"},
             "outlook_dimensions": list(
                 sector.get("outlook_dimensions")
@@ -487,6 +510,54 @@ class InstitutionalForecastEngine:
                 tip["collected_on_request"] = False
                 tip["providers_queried"] = []
                 return tip
+            return None
+        except Exception:
+            return None
+
+    def _soft_sfi_forecast(self, sector_key: str) -> dict[str, Any] | None:
+        """Read-only SFI gateway — never rebuilds forecast reports."""
+        try:
+            from sector_forecast_intelligence.production import forecast as sfi_forecast
+
+            alias = {
+                "information_technology": "IT Services",
+                "financials": "Banking",
+                "energy": "Oil & Gas",
+                "consumer_staples": "FMCG",
+                "automobiles": "Auto",
+                "industrials": "Capital Goods",
+                "health_care": "Pharma",
+                "pharmaceuticals": "Pharma",
+            }.get(sector_key, sector_key.replace("_", " ").title())
+            pack = sfi_forecast(sector=alias)
+            if pack.get("scenarios"):
+                return {
+                    "sector": alias,
+                    "probability_distribution": pack.get("probability_distribution"),
+                    "confidence": pack.get("confidence"),
+                    "scenarios": [
+                        {
+                            "scenario": s.get("scenario"),
+                            "probability_pct": s.get("probability_pct"),
+                            "confidence_pct": s.get("confidence_pct"),
+                            "revenue_growth": s.get("revenue_growth"),
+                            "earnings_growth": s.get("earnings_growth"),
+                            "expected_relative_performance": s.get(
+                                "expected_relative_performance"
+                            ),
+                            "catalysts": s.get("catalysts"),
+                            "risks": s.get("risks"),
+                            "narrative": (s.get("narrative") or [])[:3],
+                        }
+                        for s in (pack.get("scenarios") or [])
+                    ],
+                    "company_impact_matrix": pack.get("company_impact_matrix"),
+                    "macro_inheritance": pack.get("macro_inheritance"),
+                    "gateway": "SFI_KRIG",
+                    "collected_on_request": False,
+                    "providers_queried": [],
+                    "predicts_single_path": False,
+                }
             return None
         except Exception:
             return None
