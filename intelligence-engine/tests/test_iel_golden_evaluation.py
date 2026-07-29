@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from institutional_evaluation_lab.golden_universe.dashboards import coverage_dashboard, sector_dashboard
 from institutional_evaluation_lab.golden_universe.metrics import extract_metrics
-from institutional_evaluation_lab.golden_universe.qa_governance import run_qa_checks, suite_qa_summary
+from institutional_evaluation_lab.golden_universe.qa_governance import run_qa_checks
 from institutional_evaluation_lab.golden_universe.recommendation_drift import (
     compare_recommendation_drift,
 )
