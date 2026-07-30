@@ -173,6 +173,9 @@ export default function MissionControl() {
   const sectorForecast = institutional?.sector_forecast_intelligence || null;
   const marketKnowledge = institutional?.continuous_market_knowledge || null;
   const marketAnalogues = institutional?.historical_market_analogue_intelligence || null;
+  const fdoBoard = institutional?.financial_data_operations || null;
+  const fseBoard = institutional?.financial_statements_engine || null;
+  const fseSourceBoard = institutional?.fse_source_coverage || null;
   const v4Office = {
     thesis: desk?.institutional_investment_thesis || null,
     decision: desk?.institutional_decision_office || null,
@@ -1147,6 +1150,66 @@ export default function MissionControl() {
               <p className="mt-2 text-sm text-[var(--io-ink-soft)]">
                 {evidenceRetrieval?.north_star ||
                   'Every AGIB question retrieves ranked institutional evidence packs'}
+              </p>
+            </Glass>
+          </div>
+        </section>
+
+        {/* Financial Statements Engine · FDO ops */}
+        <section className="space-y-3">
+          <Kicker>Financial Statements · Data Operations (FDO)</Kicker>
+          <p className="text-sm text-[var(--io-muted)]">
+            Soft-wire coverage, completeness, throughput and source health over the existing FSE
+            pipeline. Success = coverage · freshness · reliability — not new engines.
+          </p>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+            <Glass>
+              <p className="text-[11px] uppercase text-[var(--io-caption)]">FSE</p>
+              <p className={`mt-2 text-sm font-semibold ${statusColour(fseBoard?.status)}`}>
+                {fseBoard?.status || 'Unavailable'}
+              </p>
+              <p className="mt-1 text-[11px] text-[var(--io-muted)]">
+                {fseBoard?.version || 'financial_statements_engine'}
+              </p>
+            </Glass>
+            <Glass>
+              <p className="text-[11px] uppercase text-[var(--io-caption)]">Coverage %</p>
+              <p className="mt-2 text-2xl font-semibold text-[var(--io-ink)]">
+                {fdoBoard?.coverage_pct ?? '—'}
+              </p>
+              <p className="mt-1 text-[11px] text-[var(--io-muted)]">
+                Completeness {fdoBoard?.completeness_pct ?? '—'}%
+              </p>
+            </Glass>
+            <Glass>
+              <p className="text-[11px] uppercase text-[var(--io-caption)]">Queue / DLQ</p>
+              <p className="mt-2 text-2xl font-semibold text-[var(--io-ink)]">
+                {fdoBoard?.queue_depth ?? '—'} / {fdoBoard?.dlq_size ?? '—'}
+              </p>
+              <p className="mt-1 text-[11px] text-[var(--io-muted)]">
+                Throughput {fdoBoard?.workflow_throughput ?? '—'}
+              </p>
+            </Glass>
+            <Glass>
+              <p className="text-[11px] uppercase text-[var(--io-caption)]">Raw evidence</p>
+              <p className="mt-2 text-2xl font-semibold text-[var(--io-ink)]">
+                {fdoBoard?.raw_evidence_files ?? '—'}
+              </p>
+              <p className="mt-1 text-[11px] text-[var(--io-muted)]">
+                Annual {fdoBoard?.annual_filings ?? '—'} · Qtr {fdoBoard?.quarterly_filings ?? '—'}
+              </p>
+            </Glass>
+            <Glass>
+              <p className="text-[11px] uppercase text-[var(--io-caption)]">Sources / alerts</p>
+              <p className={`mt-2 text-sm font-semibold ${statusColour(fseSourceBoard?.status)}`}>
+                {fseSourceBoard?.sources_n ?? '—'} sources
+              </p>
+              <p className="mt-1 text-[11px] text-[var(--io-muted)]">
+                Alerts {fdoBoard?.alerts_n ?? '—'} ·{' '}
+                {(fdoBoard?.top_missing_companies || [])
+                  .slice(0, 2)
+                  .map((c) => c.ticker)
+                  .join(', ') || 'no gaps listed'}
               </p>
             </Glass>
           </div>

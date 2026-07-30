@@ -1401,6 +1401,63 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("decision_quality")
     except Exception:
         pass
+    # FSE + FDO Phase 1 — Financial Statements Engine ops (soft-wire only).
+    try:
+        from financial_statements_engine.fdo.production import dashboard as fdo_dash
+        from financial_statements_engine.fdo.production import health as fdo_health
+
+        fh = fdo_health()
+        fd = fdo_dash("gold")
+        growth = fd.get("raw_evidence_growth") or {}
+        out["financial_data_operations"] = {
+            "status": fh.get("status"),
+            "workstream_id": fh.get("workstream_id") or fd.get("workstream_id"),
+            "version": fh.get("version") or fd.get("version"),
+            "phase": fh.get("phase") or fd.get("phase"),
+            "coverage_pct": fd.get("coverage_pct"),
+            "completeness_pct": fd.get("completeness_pct"),
+            "workflow_throughput": fd.get("workflow_throughput"),
+            "queue_depth": fd.get("queue_depth"),
+            "dlq_size": fd.get("dlq_size"),
+            "average_workflow_duration_ms": fd.get("average_workflow_duration_ms"),
+            "raw_evidence_files": growth.get("files"),
+            "raw_storage_mb": growth.get("storage_mb"),
+            "annual_filings": growth.get("annual_filings"),
+            "quarterly_filings": growth.get("quarterly_filings"),
+            "top_missing_companies": (fd.get("top_missing_companies") or [])[:5],
+            "alerts_n": len(fd.get("alerts") or []),
+            "redesigns_engines": False,
+            "bypasses_fse": False,
+            "issues_recommendations": False,
+        }
+        out["sources"].append("financial_data_operations")
+    except Exception:
+        out["financial_data_operations"] = None
+    try:
+        from financial_statements_engine.production import health as fse_health
+
+        fseh = fse_health()
+        out["financial_statements_engine"] = {
+            "status": fseh.get("status"),
+            "version": fseh.get("version"),
+            "programme": fseh.get("programme"),
+            "soft_wire": True,
+        }
+        out["sources"].append("financial_statements_engine")
+    except Exception:
+        out["financial_statements_engine"] = None
+    try:
+        from financial_statements_engine.collection.production import source_coverage
+
+        sc = source_coverage()
+        out["fse_source_coverage"] = {
+            "status": sc.get("status") or "ok",
+            "sources_n": sc.get("n") or len(sc.get("sources") or []),
+            "summary": sc.get("summary"),
+        }
+        out["sources"].append("fse_source_coverage")
+    except Exception:
+        out["fse_source_coverage"] = None
     return out
 
 
@@ -1774,6 +1831,7 @@ def build_mission_control(*, ioc_service: Any | None = None) -> dict[str, Any]:
             "investment_office",
             "cms_article_learning",
             "research_intelligence_hub",
+            "financial_data_operations",
         ],
     }
 
@@ -1782,6 +1840,9 @@ def build_mission_control(*, ioc_service: Any | None = None) -> dict[str, Any]:
     rih_board = institutional.get("research_intelligence_hub") or {}
     if rih_board.get("hub_count") is not None:
         knowledge_growth["research_notes"] = rih_board.get("hub_count")
+    fdo_board = institutional.get("financial_data_operations") or {}
+    if fdo_board.get("raw_evidence_files") is not None:
+        knowledge_growth["financial_statements_updated"] = fdo_board.get("raw_evidence_files")
     dc = institutional.get("decision_coverage") or {}
     coverage_dash = {
         "overall_coverage": dc.get("nifty_100") or coverage.get("coverage_pct") or exec_status["coverage"],

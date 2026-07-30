@@ -500,6 +500,30 @@ _CATALOG: list[dict[str, Any]] = [
         "kind": "cgl",
         "module": "continuous_gather_learn.production",
     },
+    {
+        "id": "financial_statements_engine",
+        "name": "Financial Statements Engine",
+        "group": "ops",
+        "responsibility": (
+            "Canonical financial statements pipeline — ingest → raw evidence → "
+            "orchestrator → parse → validate → warehouse → DME."
+        ),
+        "sources": ["NSE", "BSE", "MCA", "Company IR", "FSE Raw Evidence"],
+        "kind": "office",
+        "module": "financial_statements_engine.production",
+    },
+    {
+        "id": "financial_data_operations",
+        "name": "Financial Data Operations (FDO)",
+        "group": "ops",
+        "responsibility": (
+            "Coverage, completeness, gap scheduling, ingestion/source metrics, "
+            "and FDO Mission Control over the existing FSE pipeline."
+        ),
+        "sources": ["FSE Raw Evidence", "Orchestrator", "Collection metrics"],
+        "kind": "office",
+        "module": "financial_statements_engine.fdo.production",
+    },
     # —— Learning / eval ——
     {
         "id": "forecast_validation_learning",

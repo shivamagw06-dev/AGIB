@@ -2587,6 +2587,97 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // Financial Statements Engine + FDO (soft-wire ops)
+  router.get('/financial-statements/health', kfGet('/v1/financial-statements/health'));
+  router.get('/financial-statements/dashboard', kfGet('/v1/financial-statements/dashboard'));
+  router.get('/financial-statements/fdo/dashboard', async (req, res) => {
+    try {
+      const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+      const result = await engineFetch(`/v1/financial-statements/fdo/dashboard${q}`);
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'FDO dashboard unavailable', detail: error.message });
+    }
+  });
+  router.get('/financial-statements/fdo/schedule', async (req, res) => {
+    try {
+      const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+      const result = await engineFetch(`/v1/financial-statements/fdo/schedule${q}`);
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'FDO schedule unavailable', detail: error.message });
+    }
+  });
+  router.get('/financial-statements/fdo/alerts', async (req, res) => {
+    try {
+      const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+      const result = await engineFetch(`/v1/financial-statements/fdo/alerts${q}`);
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'FDO alerts unavailable', detail: error.message });
+    }
+  });
+  router.get('/financial-statements/coverage', async (req, res) => {
+    try {
+      const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+      const result = await engineFetch(`/v1/financial-statements/coverage${q}`);
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'FSE coverage unavailable', detail: error.message });
+    }
+  });
+  router.get('/financial-statements/coverage/:company', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/financial-statements/coverage/${encodeURIComponent(req.params.company)}`
+      );
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'FSE company coverage unavailable', detail: error.message });
+    }
+  });
+  router.get('/financial-statements/source-health', kfGet('/v1/financial-statements/source-health'));
+  router.get(
+    '/financial-statements/collection/health',
+    kfGet('/v1/financial-statements/collection/health')
+  );
+  router.get(
+    '/financial-statements/collection/dashboard',
+    kfGet('/v1/financial-statements/collection/dashboard')
+  );
+  router.get(
+    '/financial-statements/collection/source-coverage',
+    kfGet('/v1/financial-statements/collection/source-coverage')
+  );
+  router.get(
+    '/financial-statements/collection/source-registry',
+    kfGet('/v1/financial-statements/collection/source-registry')
+  );
+  router.get(
+    '/financial-statements/orchestrator/health',
+    kfGet('/v1/financial-statements/orchestrator/health')
+  );
+  router.get(
+    '/financial-statements/orchestrator/dashboard',
+    kfGet('/v1/financial-statements/orchestrator/dashboard')
+  );
+  router.get(
+    '/financial-statements/warehouse/health',
+    kfGet('/v1/financial-statements/warehouse/health')
+  );
+  router.get(
+    '/financial-statements/warehouse/dashboard',
+    kfGet('/v1/financial-statements/warehouse/dashboard')
+  );
+  router.get(
+    '/financial-statements/verification/dashboard',
+    kfGet('/v1/financial-statements/verification/dashboard')
+  );
+  router.get(
+    '/financial-statements/evidence-coverage/dashboard',
+    kfGet('/v1/financial-statements/evidence-coverage/dashboard')
+  );
+
   // Accounting Intelligence Engine
   router.get('/accounting-intelligence/health', kfGet('/v1/accounting-intelligence/health'));
   router.get('/accounting-intelligence/dashboard', kfGet('/v1/accounting-intelligence/dashboard'));
