@@ -1,8 +1,6 @@
-"""Continuous Learning — evidence learning, not model training.
+"""Continuous Learning — evidence learning via KIL (not model training).
 
-New filing / transcript / guidance / corp action / rating change →
-Acquire → Normalize → Update Memory → Recompute KG → Refresh FI →
-Refresh Watchlists → Invalidate stale research → Notify analysts.
+CGL gathers. KIL integrates. This module triggers KIL on evidence events.
 """
 
 from __future__ import annotations
@@ -13,12 +11,14 @@ from typing import Any, Dict, List
 
 def learning_pipeline() -> List[str]:
     return [
-        "Acquire",
-        "Normalize",
+        "CGL Acquire",
+        "KIL Normalize",
+        "Publish Canonical Evidence",
         "Update Company Memory",
         "Recompute Knowledge Graph",
         "Refresh Financial Intelligence",
-        "Refresh Watchlists",
+        "Update Decision Eligibility",
+        "Refresh Research Readiness",
         "Invalidate stale research",
         "Notify analysts",
     ]
@@ -30,58 +30,55 @@ def on_evidence_event(
     event_type: str = "new_filing",
     force_ingest: bool = False,
 ) -> Dict[str, Any]:
-    from ..orchestrator.workflow import orchestrate_company_research
-    from ..lifecycle.research_object import mark_stale_for_ticker
+    from ..integration.layer import integrate_company
+    from ..integration.events.bus import emit_cgl_events
     from ..entity.resolve import resolve_entity
 
     t = str(ticker or "").upper().strip()
     resolved = resolve_entity(t)
-    steps: List[Dict[str, Any]] = []
     now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
-    steps.append({"step": "event_received", "event_type": event_type, "at": now})
+    # Optional: nudge CGL/FSE gather first
+    cgl_nudge = None
+    if force_ingest:
+        try:
+            from continuous_gather_learn.knowledge_extract import extract_from_hd_series
 
-    # Acquire → Normalize → Memory → FI via orchestrator
-    orch = orchestrate_company_research(t, generate_research=False, force_ingest=force_ingest)
-    steps.append({"step": "acquire_normalize_memory_fi", "ok": orch.get("ok")})
+            cgl_nudge = extract_from_hd_series(t)
+        except Exception as exc:
+            cgl_nudge = {"ok": False, "error": str(exc)[:160]}
 
-    # Soft KG recompute
-    try:
-        from institutional_knowledge_graph.production import refresh_company  # type: ignore
-
-        refresh_company(t)
-        steps.append({"step": "recompute_knowledge_graph", "ok": True})
-    except Exception as exc:
-        steps.append({"step": "recompute_knowledge_graph", "ok": False, "error": str(exc)[:160]})
-
-    # Soft watchlist refresh
-    try:
-        from company_monitor.production import refresh_watchlist  # type: ignore
-
-        refresh_watchlist(t)
-        steps.append({"step": "refresh_watchlists", "ok": True})
-    except Exception as exc:
-        steps.append({"step": "refresh_watchlists", "ok": False, "soft": True, "error": str(exc)[:120]})
-
-    stale = mark_stale_for_ticker(t, reason=f"evidence_event:{event_type}")
-    steps.append({"step": "invalidate_stale_research", "result": stale})
+    fake_run = {
+        "ok": True,
+        "run_id": f"evt_{event_type}_{t}",
+        "slot": "event",
+        "volumes": {"knowledge_extracts": 1 if cgl_nudge else 0},
+        "phases": [{"name": event_type}],
+    }
+    events = emit_cgl_events(fake_run, companies_updated=[t])
+    integ = integrate_company(t, events=events, trigger_repair=True)
 
     notify = {
         "channel": "analyst_notifications",
-        "message": f"{t}: new {event_type} — company memory/research may need refresh",
+        "message": (
+            f"{t}: {event_type} — knowledge version "
+            f"{integ.get('knowledge_version')} — "
+            f"coverage={((integ.get('coverage_state') or {}).get('coverage_state'))}"
+        ),
         "entity_id": resolved.get("entity_id"),
-        "delivered": False,
         "queued": True,
+        "delivered": False,
     }
-    steps.append({"step": "notify_analysts", "notification": notify})
 
     return {
         "ok": True,
         "ticker": t,
         "entity_id": resolved.get("entity_id"),
         "event_type": event_type,
+        "at": now,
         "pipeline": learning_pipeline(),
-        "steps": steps,
-        "research_pack_claim_safe": (orch.get("research_pack") or {}).get("claim_safe"),
-        "rule": "Evidence learning — not model training",
+        "events": events,
+        "integration": integ,
+        "notification": notify,
+        "rule": "Evidence learning via KIL — CGL gathers, KIL integrates, IEP preserves",
     }

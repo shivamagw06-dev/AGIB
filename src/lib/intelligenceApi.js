@@ -1606,6 +1606,48 @@ export const getIepCompanyResource = (companyRef, resource) =>
     { timeoutMs: 120_000 }
   );
 
+/** KIL-01 — Knowledge Integration Layer (AGI v1.1.2) */
+export const getKilHealth = () =>
+  intelligenceFetch('/iep/kil/health', { timeoutMs: 30_000 });
+export const runKilIntegrate = (body = {}) =>
+  intelligenceFetch('/iep/kil/integrate', {
+    method: 'POST',
+    body: body || {},
+    timeoutMs: 180_000,
+  });
+export const runKilIntegrateCompany = (ticker, body = {}) =>
+  intelligenceFetch(`/iep/kil/integrate/${encodeURIComponent(ticker)}`, {
+    method: 'POST',
+    body: body || {},
+    timeoutMs: 120_000,
+  });
+export const getKnowledgeHealth = () =>
+  intelligenceFetch('/iep/knowledge-health', { timeoutMs: 180_000 });
+export const getKnowledgeConfidence = (ticker) =>
+  intelligenceFetch(`/iep/knowledge-confidence/${encodeURIComponent(ticker)}`, {
+    timeoutMs: 60_000,
+  });
+export const getCoverageState = (ticker) =>
+  intelligenceFetch(`/iep/coverage-state/${encodeURIComponent(ticker)}`, { timeoutMs: 90_000 });
+export const getKnowledgeSnapshots = () =>
+  intelligenceFetch('/iep/snapshots', { timeoutMs: 30_000 });
+export const getKilEvents = () =>
+  intelligenceFetch('/iep/events', { timeoutMs: 30_000 });
+export const orchestrateIepAsk = (ticker, body = {}) =>
+  intelligenceFetch(`/iep/ask/${encodeURIComponent(ticker)}`, {
+    method: 'POST',
+    body: body || {},
+    timeoutMs: 120_000,
+  });
+export const getIepExpansion = () =>
+  intelligenceFetch('/iep/expansion', { timeoutMs: 120_000 });
+export const enqueueNifty500Expansion = (body = {}) =>
+  intelligenceFetch('/iep/expansion/nifty500', {
+    method: 'POST',
+    body: body || {},
+    timeoutMs: 120_000,
+  });
+
 export const getLaunchHealth = () =>
   intelligenceFetch('/launch/health', { timeoutMs: 30_000 });
 export const getLaunchMetrics = () =>

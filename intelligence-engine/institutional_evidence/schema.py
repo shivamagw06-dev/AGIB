@@ -8,13 +8,13 @@ from __future__ import annotations
 
 IEP_WORKSTREAM_ID = "IEP-01"
 IEP_PRODUCT = "Institutional Evidence Platform"
-IEP_VERSION = "iep-01-v1.1.1"
+IEP_VERSION = "iep-01-v1.1.2"
 IEP_SPEC = "docs/AGI_IEP_01_INSTITUTIONAL_EVIDENCE_PLATFORM.md"
 IEP_ROLE = "institutional_knowledge_os"
 
 ADDS_INTELLIGENCE_ENGINES = False
 ARCHITECTURE_FROZEN = True  # engines frozen; evidence/knowledge plane expands
-AGI_PLATFORM_VERSION = "1.1.1-iep"
+AGI_PLATFORM_VERSION = "1.1.2-kil"
 
 MISSION_STATEMENT = (
     "AGI is an Institutional Knowledge Platform that continuously acquires, "

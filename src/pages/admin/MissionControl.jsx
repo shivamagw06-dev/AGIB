@@ -226,6 +226,11 @@ export default function MissionControl() {
     institutional?.institutional_acceptance || desk?.institutional_acceptance || null;
   const evidenceCenter =
     institutional?.institutional_evidence || desk?.institutional_evidence || null;
+  const knowledgeHealth =
+    institutional?.knowledge_health ||
+    desk?.knowledge_health ||
+    evidenceCenter?.knowledge_health ||
+    null;
   const pipeline = desk?.research_pipeline || {};
   const preds = desk?.prediction_intelligence || {};
   const dq = desk?.data_quality || {};
@@ -1561,14 +1566,82 @@ export default function MissionControl() {
           </Glass>
         </section>
 
+        {/* Knowledge Health — KIL-01 */}
+        <section className="space-y-3">
+          <Kicker>Knowledge Health · KIL-01</Kicker>
+          <p className="text-sm text-[var(--io-muted)] max-w-3xl">
+            Knowledge Integration Layer — AGI v1.1.2. CGL gathers; KIL transforms into canonical
+            evidence; IEP validates and versions. One institutional knowledge pipeline. Nifty 500
+            expansion unlocks only after Top-20 Institutional Coverage Complete.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
+            <Stat
+              label="Knowledge ver"
+              value={
+                knowledgeHealth?.latest_knowledge_version ||
+                evidenceCenter?.latest_knowledge_version ||
+                '—'
+              }
+              status={knowledgeHealth?.status || evidenceCenter?.status}
+            />
+            <Stat
+              label="CGL coverage"
+              value={
+                knowledgeHealth?.cgl?.hard_coverage_pct != null
+                  ? `${knowledgeHealth.cgl.hard_coverage_pct}%`
+                  : '—'
+              }
+            />
+            <Stat
+              label="CGL covered"
+              value={
+                knowledgeHealth?.cgl?.covered_companies != null &&
+                knowledgeHealth?.cgl?.total_companies != null
+                  ? `${knowledgeHealth.cgl.covered_companies}/${knowledgeHealth.cgl.total_companies}`
+                  : '—'
+              }
+            />
+            <Stat
+              label="Collector OK"
+              value={
+                knowledgeHealth?.cgl?.collector_success != null
+                  ? `${knowledgeHealth.cgl.collector_success}%`
+                  : '—'
+              }
+            />
+            <Stat
+              label="Demo set"
+              value={
+                Array.isArray(knowledgeHealth?.phase1_demo)
+                  ? `${knowledgeHealth.phase1_demo.length}`
+                  : '5'
+              }
+            />
+            <Stat label="KIL" value={knowledgeHealth?.version || 'kil-01'} />
+          </div>
+          <Glass>
+            <p className="text-[11px] uppercase text-[var(--io-caption)]">
+              CGL → KIL → Canonical Evidence → Registry → Memory → Eligibility → Research Pack
+            </p>
+            <p className="mt-2 text-xs text-[var(--io-ink-soft)]">
+              {knowledgeHealth?.kil?.mission ||
+                evidenceCenter?.mission ||
+                'Research is generated from continuously maintained institutional knowledge.'}
+            </p>
+            {!knowledgeHealth && !evidenceCenter ? (
+              <p className="mt-2 text-xs text-[var(--io-muted)]">
+                Knowledge Health soft slice unavailable.
+              </p>
+            ) : null}
+          </Glass>
+        </section>
+
         {/* Evidence Center — IEP-01 */}
         <section className="space-y-3">
           <Kicker>Evidence Center · IEP-01</Kicker>
           <p className="text-sm text-[var(--io-muted)] max-w-3xl">
-            Institutional Knowledge OS — AGI v1.1.1. Layer-0 governance, canonical domain models,
-            quality scoring, entity IDs, timelines, claims, and decision eligibility. Intelligence
-            engines consume durable knowledge; they do not substitute for it. Phase-1 requires
-            Institutional Coverage Complete on Top-20 before any Nifty 500 scale-up.
+            Institutional Knowledge OS — validates, versions, and preserves canonical knowledge from
+            KIL. Intelligence engines consume durable knowledge; they do not substitute for it.
           </p>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
             <Stat
