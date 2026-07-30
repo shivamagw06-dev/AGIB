@@ -14182,6 +14182,53 @@ async def production_hardening_universe(preset: str = "smoke", limit: int | None
     return universe_info(preset=preset, limit=limit)
 
 
+@router.get("/trading-universe/health")
+async def trading_universe_health():
+    """NSE EQUITY_L — all cash equities available for trading."""
+    from trading_universe.production import health
+
+    return health()
+
+
+@router.get("/trading-universe/dashboard")
+async def trading_universe_dashboard():
+    from trading_universe.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/trading-universe/symbols")
+async def trading_universe_symbols(limit: int | None = None, series: str | None = None):
+    from trading_universe.production import list_symbols
+
+    symbols = list_symbols(limit=limit, series=series)
+    return {
+        "ok": True,
+        "count": len(symbols),
+        "series": series,
+        "symbols": symbols,
+        "role": "all_equity_stocks_available_for_trading",
+    }
+
+
+@router.get("/trading-universe/search")
+async def trading_universe_search(q: str = "", limit: int = 25):
+    from trading_universe.production import search
+
+    hits = search(q, limit=limit)
+    return {"ok": True, "query": q, "count": len(hits), "results": hits}
+
+
+@router.get("/trading-universe/symbol/{symbol}")
+async def trading_universe_symbol(symbol: str):
+    from trading_universe.production import get_symbol
+
+    row = get_symbol(symbol)
+    if not row:
+        return {"ok": False, "error": "not_in_trading_universe", "symbol": symbol.upper()}
+    return {"ok": True, **row}
+
+
 @router.get("/production-hardening/history")
 async def production_hardening_history(limit: int = 20):
     from production_hardening.production import history

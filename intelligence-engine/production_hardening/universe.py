@@ -10,9 +10,14 @@ from production_hardening.schema import GOLD_REGRESSION_UNIVERSE
 
 
 def nifty500_path() -> Path:
-    # Repo root Nifty500.csv
+    # Prefer full NSE trading book (NIFTYstocks from EQUITY_L); fall back to Nifty500.
     here = Path(__file__).resolve()
     candidates = [
+        Path("/workspace/NIFTYstocks.csv"),
+        here.parents[2] / "NIFTYstocks.csv",
+        here.parents[3] / "NIFTYstocks.csv",
+        Path.cwd() / "NIFTYstocks.csv",
+        Path.cwd().parent / "NIFTYstocks.csv",
         Path("/workspace/Nifty500.csv"),
         here.parents[2] / "Nifty500.csv",
         here.parents[3] / "Nifty500.csv",
@@ -26,6 +31,7 @@ def nifty500_path() -> Path:
 
 
 def load_nifty500_symbols(*, limit: int | None = None) -> list[str]:
+    """Load symbols from NIFTYstocks (full trading universe) or Nifty500 fallback."""
     path = nifty500_path()
     if not path.exists():
         # Fallback to opportunity IC-10
@@ -78,11 +84,23 @@ def resolve_universe(
             out = out[: max(0, int(limit))]
         return {"source": "ic10" if p == "ic10" else "ic10_smoke", "n": len(out), "symbols": out, "preset": p}
 
+    if p in {"all", "nse", "equity", "equity_l", "trading", "niftystocks"}:
+        out = load_nifty500_symbols(limit=limit)
+        return {
+            "source": "nse_trading_universe",
+            "preset": p,
+            "file": str(nifty500_path()),
+            "n": len(out),
+            "symbols": out,
+            "role": "all_equity_stocks_available_for_trading",
+        }
+
     preset_limit = SCALE_PRESETS.get(p, SCALE_PRESETS["sample_100"])
     effective = limit if limit is not None else preset_limit
     out = load_nifty500_symbols(limit=effective)
+    source_name = "niftystocks" if "NIFTYstocks" in str(nifty500_path()) else "nifty500"
     return {
-        "source": f"nifty500:{p}",
+        "source": f"{source_name}:{p}",
         "preset": p,
         "limit": effective,
         "file": str(nifty500_path()),
