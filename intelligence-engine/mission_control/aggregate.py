@@ -1562,6 +1562,14 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("watchlist_office")
     except Exception:
         out["watchlist_office"] = None
+    # CW-01 — Company Workspace UX (soft board; presentation only; additive).
+    try:
+        from company_workspace.production import soft_slice_mission_control as cw01_soft
+
+        out["company_workspace"] = cw01_soft()
+        out["sources"].append("company_workspace")
+    except Exception:
+        out["company_workspace"] = None
     return out
 
 

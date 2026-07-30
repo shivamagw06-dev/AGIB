@@ -1043,6 +1043,43 @@ export const removeWatchlistOfficeCompany = (watchlistId, ticker) =>
     { method: 'DELETE' }
   );
 
+/** CW-01 — Company Workspace (primary company UX; presentation only) */
+export const getCompanyWorkspaceHealth = () => intelligenceFetch('/company-workspace/health');
+export const getCompanyWorkspaceDashboard = () =>
+  intelligenceFetch('/company-workspace/dashboard');
+export const getCompanyWorkspace = (ticker, params = {}) => {
+  const qs = new URLSearchParams();
+  if (params.q) qs.set('q', String(params.q));
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return intelligenceFetch(`/company-workspace/${encodeURIComponent(ticker)}${suffix}`);
+};
+export const getCompanyWorkspaceTimeline = (ticker, params = {}) => {
+  const qs = new URLSearchParams();
+  if (params.event_type) qs.set('event_type', String(params.event_type));
+  if (params.source) qs.set('source', String(params.source));
+  if (params.q) qs.set('q', String(params.q));
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return intelligenceFetch(
+    `/company-workspace/${encodeURIComponent(ticker)}/timeline${suffix}`
+  );
+};
+export const getCompanyWorkspaceResearch = (ticker) =>
+  intelligenceFetch(`/company-workspace/${encodeURIComponent(ticker)}/research`);
+export const getCompanyWorkspaceEvidence = (ticker, params = {}) => {
+  const qs = new URLSearchParams();
+  if (params.q) qs.set('q', String(params.q));
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return intelligenceFetch(
+    `/company-workspace/${encodeURIComponent(ticker)}/evidence${suffix}`
+  );
+};
+export const searchCompanyWorkspace = (ticker, q, scope = 'all') => {
+  const qs = new URLSearchParams({ q: String(q || ''), scope: String(scope || 'all') });
+  return intelligenceFetch(
+    `/company-workspace/${encodeURIComponent(ticker)}/search?${qs}`
+  );
+};
+
 /** AGI v4.0 Investment Office OS — Thesis → Decision → Portfolio → Monitoring → Learning */
 export const getThesisHealth = () => intelligenceFetch('/thesis/health');
 export const getThesisDashboard = () => intelligenceFetch('/thesis/dashboard');
