@@ -980,6 +980,17 @@ export const postComparativeIntelligenceQuery = (body) =>
     body: body || {},
   });
 
+/** Office SDK — shared application office contract */
+export const getOfficeSdkHealth = () => intelligenceFetch('/office-sdk/health');
+export const getOfficeSdkDashboard = () => intelligenceFetch('/office-sdk/dashboard');
+export const getOfficeSdkCatalog = () => intelligenceFetch('/office-sdk/catalog');
+export const getOfficeSdkDomains = () => intelligenceFetch('/office-sdk/domains');
+export const postOfficeSdkInvoke = (body) =>
+  intelligenceFetch('/office-sdk/invoke', {
+    method: 'POST',
+    body: body || {},
+  });
+
 /** AGI v4.0 Investment Office OS — Thesis → Decision → Portfolio → Monitoring → Learning */
 export const getThesisHealth = () => intelligenceFetch('/thesis/health');
 export const getThesisDashboard = () => intelligenceFetch('/thesis/dashboard');

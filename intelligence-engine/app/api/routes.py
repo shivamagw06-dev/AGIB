@@ -9444,6 +9444,57 @@ async def admin_comparative_intelligence():
     return HTMLResponse(admin_page())
 
 
+# --- Office SDK — shared application office contract (additive) ---
+
+
+@router.get("/office-sdk/health")
+async def office_sdk_health():
+    from office_sdk.production import health
+
+    return health()
+
+
+@router.get("/office-sdk/dashboard")
+async def office_sdk_dashboard():
+    from office_sdk.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/office-sdk/catalog")
+async def office_sdk_catalog():
+    from office_sdk.production import office_catalog
+
+    return office_catalog()
+
+
+@router.get("/office-sdk/domains")
+async def office_sdk_domains():
+    from office_sdk.production import domains
+
+    return domains()
+
+
+@router.post("/office-sdk/invoke")
+async def office_sdk_invoke(payload: dict[str, Any] = Body(default={})):
+    """Dispatch a shared OfficeRequest to a live office (io-01 / cio-01)."""
+    from office_sdk.production import invoke
+
+    result = invoke(payload or {})
+    if result.get("ok") is False and result.get("error"):
+        # Keep 200 for planned/unknown offices with structured error; 400 for missing office_id shape
+        if "not dispatchable" in str(result.get("error")):
+            raise HTTPException(status_code=400, detail=result["error"])
+    return result
+
+
+@router.get("/admin/office-sdk", response_class=HTMLResponse)
+async def admin_office_sdk():
+    from office_sdk.production import admin_page
+
+    return HTMLResponse(admin_page())
+
+
 # --- Company Monitoring System V1 (continuous living analyst; additive) ---
 
 

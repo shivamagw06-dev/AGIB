@@ -199,6 +199,17 @@ def query(
     )
 
 
+def as_office_response(
+    pack: dict[str, Any],
+    *,
+    request: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Wrap a native IO pack in the shared OfficeResponse contract."""
+    from office_sdk.adapters import wrap_io_response
+
+    return wrap_io_response(pack, request=request)
+
+
 def soft_slice_mission_control(ticker: str | None = None) -> dict[str, Any]:
     """Mission Control soft board for IO-01 orchestration metrics (additive)."""
     metrics = io_store.irp_metrics()

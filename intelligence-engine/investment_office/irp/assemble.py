@@ -89,15 +89,31 @@ def make_block(
     confidence: float,
     reporting_period: Optional[str] = None,
     kind: str = "narrative",
+    tickers: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
-    return {
-        "text": text,
-        "module": module,
-        "evidence_ids": list(evidence_ids),
-        "confidence": float(confidence),
-        "reporting_period": reporting_period,
-        "kind": kind,
-    }
+    """Build a provenance block via Office SDK EvidenceBlock (soft shared contract)."""
+    try:
+        from office_sdk.contracts import evidence_block
+
+        return evidence_block(
+            text,
+            module=module,
+            evidence_ids=evidence_ids,
+            confidence=confidence,
+            reporting_period=reporting_period,
+            tickers=tickers,
+            kind=kind,
+        )
+    except Exception:  # noqa: BLE001 — never break IO if SDK unavailable
+        return {
+            "text": text,
+            "module": module,
+            "evidence_ids": list(evidence_ids),
+            "confidence": float(confidence),
+            "reporting_period": reporting_period,
+            "kind": kind,
+            "tickers": list(tickers or []),
+        }
 
 
 def _dedupe_blocks(blocks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:

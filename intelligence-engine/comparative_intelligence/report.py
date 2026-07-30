@@ -22,15 +22,29 @@ def _block(
     tickers: Optional[List[str]] = None,
     kind: str = "comparison",
 ) -> Dict[str, Any]:
-    return {
-        "text": text,
-        "module": module,
-        "evidence_ids": list(evidence_ids_list),
-        "confidence": float(confidence),
-        "reporting_period": reporting_period,
-        "tickers": list(tickers or []),
-        "kind": kind,
-    }
+    """Build a provenance block via Office SDK EvidenceBlock (soft shared contract)."""
+    try:
+        from office_sdk.contracts import evidence_block
+
+        return evidence_block(
+            text,
+            module=module,
+            evidence_ids=evidence_ids_list,
+            confidence=confidence,
+            reporting_period=reporting_period,
+            tickers=tickers,
+            kind=kind,
+        )
+    except Exception:  # noqa: BLE001 — never break CIO if SDK unavailable
+        return {
+            "text": text,
+            "module": module,
+            "evidence_ids": list(evidence_ids_list),
+            "confidence": float(confidence),
+            "reporting_period": reporting_period,
+            "tickers": list(tickers or []),
+            "kind": kind,
+        }
 
 
 def _section(key: str, blocks: List[Dict[str, Any]], *, order: int, board: Any = None) -> Dict[str, Any]:
