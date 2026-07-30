@@ -206,6 +206,7 @@ def get_evidence_center_board() -> Dict[str, Any]:
 def soft_slice_mission_control() -> Dict[str, Any]:
     """Mission Control Evidence Center soft slice — cheap; never scans Top-20 live."""
     try:
+        kh = soft_slice_knowledge_health()
         return {
             "status": "ok" if is_iep_enabled() else "disabled",
             "workstream_id": IEP_WORKSTREAM_ID,
@@ -223,7 +224,9 @@ def soft_slice_mission_control() -> Dict[str, Any]:
             "mission": MISSION_STATEMENT,
             "board": "Evidence Center",
             "knowledge_os": True,
-            "note": "Call /api/intelligence/iep/phase1 or /iep/observability for live coverage",
+            "knowledge_health": kh,
+            "latest_knowledge_version": kh.get("latest_knowledge_version"),
+            "note": "Call /api/intelligence/iep/knowledge-health or /iep/phase1 for live coverage",
             "flags": iep_flags(),
         }
     except Exception as exc:
@@ -236,6 +239,129 @@ def soft_slice_mission_control() -> Dict[str, Any]:
 
 def health() -> Dict[str, Any]:
     return get_iep_status()
+
+
+# --- v1.1.2 KIL façades ---
+
+
+def get_kil_status() -> Dict[str, Any]:
+    from .integration.layer import kil_status
+
+    return kil_status()
+
+
+def run_kil_integration(
+    cgl_run: Optional[Dict[str, Any]] = None,
+    *,
+    companies: Optional[list] = None,
+) -> Dict[str, Any]:
+    from .integration.layer import integrate_cgl_run
+
+    return integrate_cgl_run(cgl_run, companies=companies)
+
+
+def integrate_company_knowledge(ticker: str, **kwargs: Any) -> Dict[str, Any]:
+    from .integration.layer import integrate_company
+
+    return integrate_company(ticker, **kwargs)
+
+
+def get_knowledge_health() -> Dict[str, Any]:
+    from .integration.health.dashboard import knowledge_health_board
+
+    return knowledge_health_board(demo_only=True)
+
+
+def get_knowledge_confidence(ticker: str) -> Dict[str, Any]:
+    from .integration.confidence.score import compute_knowledge_confidence
+    from .integration.layer import get_integrated_company
+
+    integ = get_integrated_company(ticker)
+    if integ and integ.get("knowledge_confidence"):
+        return integ["knowledge_confidence"]
+    return compute_knowledge_confidence(ticker)
+
+
+def get_coverage_state(ticker: str) -> Dict[str, Any]:
+    from .integration.layer import integrate_company, get_integrated_company
+
+    integ = get_integrated_company(ticker) or integrate_company(ticker, trigger_repair=False)
+    return integ.get("coverage_state") or {}
+
+
+def get_knowledge_snapshots() -> Dict[str, Any]:
+    from .integration.versioning.snapshots import list_snapshots
+
+    return list_snapshots()
+
+
+def get_kil_events() -> Dict[str, Any]:
+    from .integration.events.bus import list_events
+
+    return list_events()
+
+
+def orchestrate_ask(ticker: str, **kwargs: Any) -> Dict[str, Any]:
+    from .integration.orchestrate_ask import orchestrate_ask_research
+
+    return orchestrate_ask_research(ticker, **kwargs)
+
+
+def get_expansion_status() -> Dict[str, Any]:
+    from .integration.expansion import expansion_status, maybe_enqueue_next_500
+    from .phase1_acceptance import evaluate_institutional_coverage
+
+    complete = 0
+    for c in PHASE1_TOP20:
+        try:
+            if evaluate_institutional_coverage(c["ticker"]).get("institutional_coverage_complete"):
+                complete += 1
+        except Exception:
+            pass
+    status = expansion_status(top20_complete_count=complete, top20_total=len(PHASE1_TOP20))
+    return {**status, "enqueue_preview": maybe_enqueue_next_500.__doc__}
+
+
+def enqueue_nifty_500_expansion(*, force: bool = False) -> Dict[str, Any]:
+    from .integration.expansion import maybe_enqueue_next_500
+
+    return maybe_enqueue_next_500(force=force)
+
+
+def soft_slice_knowledge_health() -> Dict[str, Any]:
+    """Cheap Mission Control Knowledge Health slice."""
+    try:
+        from .integration.layer import kil_status
+        from .integration.versioning.snapshots import get_latest_snapshot
+        from .integration.schema import KIL_PHASE1_DEMO, KIL_VERSION, KIL_WORKSTREAM_ID
+
+        snap = get_latest_snapshot()
+        cgl_cov = None
+        try:
+            from continuous_gather_learn.production import dashboard as cgl_dash
+
+            d = cgl_dash()
+            cgl_cov = {
+                "hard_coverage_pct": d.get("hard_coverage_pct"),
+                "covered_companies": d.get("covered_companies"),
+                "total_companies": d.get("total_companies"),
+                "collector_success": d.get("collector_success_rate"),
+            }
+        except Exception:
+            pass
+        return {
+            "status": "ok",
+            "board": "Knowledge Health",
+            "workstream_id": KIL_WORKSTREAM_ID,
+            "version": KIL_VERSION,
+            "kil": kil_status(),
+            "latest_knowledge_version": (snap or {}).get("knowledge_version"),
+            "phase1_demo": list(KIL_PHASE1_DEMO),
+            "cgl": cgl_cov,
+            "note": "Call /api/intelligence/iep/knowledge-health for live demo metrics",
+        }
+    except Exception as exc:
+        return {"status": "error", "error": str(exc)[:240]}
 
 
 # --- v1.1.1 façades ---

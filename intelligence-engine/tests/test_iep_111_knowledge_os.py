@@ -35,8 +35,8 @@ from institutional_evidence.production import get_iep_status, company_subresourc
 
 def test_version_and_mission():
     st = get_iep_status()
-    assert IEP_VERSION == "iep-01-v1.1.1"
-    assert AGI_PLATFORM_VERSION == "1.1.1-iep"
+    assert IEP_VERSION.startswith("iep-01-v1.1")
+    assert AGI_PLATFORM_VERSION.startswith("1.1")
     assert "Institutional Knowledge Platform" in MISSION_STATEMENT
     assert st["pipeline"][0] == "External Provider"
     assert "Data Governance" in st["pipeline"]

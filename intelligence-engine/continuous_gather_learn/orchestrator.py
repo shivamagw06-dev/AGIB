@@ -477,6 +477,25 @@ def run_cycle(
             "historical_coverage": _coverage_snapshot(),
         }
     )
+
+    # KIL-01 — Knowledge Integration Layer soft-wire (CGL gathers; KIL integrates)
+    try:
+        from institutional_evidence.integration.layer import integrate_cgl_run
+
+        kil = integrate_cgl_run(run)
+        run["kil_integration"] = {
+            "ok": bool(kil.get("ok")),
+            "knowledge_version": (kil.get("snapshot") or {}).get("knowledge_version"),
+            "summary": kil.get("summary"),
+        }
+        cgl_persist.put_run(run)
+    except Exception as exc:  # noqa: BLE001
+        run["kil_integration"] = {"ok": False, "error": str(exc)[:200]}
+        try:
+            cgl_persist.put_run(run)
+        except Exception:
+            pass
+
     return run
 
 
