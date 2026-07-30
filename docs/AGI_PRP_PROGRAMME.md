@@ -24,11 +24,14 @@ Intelligence          ███████████████████�
 Investment Office     ██████████████████████████████ 100%
 Experience            ██████████████████████████████ 100%
 Platform              ██████████████████████████████ 100%
-Production Readiness  ████░░░░░░░░░░░░░░░░░░░░░░░░░░  PRP-01 · PRP-02
+Production Readiness  ██████░░░░░░░░░░░░░░░░░░░░░░░░  PRP-01 · PRP-02 · PRP-03
 ```
 
 ## Principle
 
 > Freeze the architecture. Ship the platform.
 
-Security decides who. Intelligence decides what.
+- Security decides who. Intelligence decides what.
+- Observability explains behavior. It never changes it.
+
+Production foundation (fast · secure · operable) is complete with PRP-03.

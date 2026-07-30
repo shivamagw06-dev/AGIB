@@ -110,24 +110,43 @@ def ask(payload: Optional[dict[str, Any]] = None) -> dict[str, Any]:
 
     t0 = time.perf_counter()
     body = dict(payload or {})
+    # PRP-03: Observability middleware — observe only; never changes behavior
+    try:
+        from institutional_observability.production import maybe_begin, maybe_end
+
+        maybe_begin(body, name="uag.ask")
+    except Exception:
+        pass
+
     # PRP-02: Security Gateway — authorize before orchestration (engines stay unaware)
     try:
         from institutional_security.production import finalize_with_security, maybe_gate_ask
 
         denied = maybe_gate_ask(body)
         if denied is not None:
-            return denied
+            try:
+                from institutional_observability.production import maybe_end
+
+                return maybe_end(body, denied, component="uag.ask")
+            except Exception:
+                return denied
     except Exception:
         pass
 
     question = str(body.get("question") or body.get("query") or body.get("q") or "").strip()
     if not question:
-        return {
+        early = {
             "ok": False,
             "rejected": True,
             "workstream_id": UAG_WORKSTREAM_ID,
             "validation_errors": ["question required"],
         }
+        try:
+            from institutional_observability.production import maybe_end
+
+            return maybe_end(body, early, component="uag.ask")
+        except Exception:
+            return early
 
     portfolio_id = str(body.get("portfolio_id") or body.get("portfolio") or "agi-core-equity")
     policy = str(body.get("policy") or "family_office")
@@ -164,7 +183,12 @@ def ask(payload: Optional[dict[str, Any]] = None) -> dict[str, Any]:
                 out["cached"] = True
                 out["cache_layer"] = "PRP-01"
                 out["latency_ms"] = round(elapsed * 1000.0, 2)
-                return out
+                try:
+                    from institutional_observability.production import maybe_end
+
+                    return maybe_end(body, out, component="uag.ask")
+                except Exception:
+                    return out
         except Exception:
             pass
 
@@ -251,7 +275,7 @@ def ask(payload: Optional[dict[str, Any]] = None) -> dict[str, Any]:
             record_op_latency("ask", time.perf_counter() - t0, cached=False)
         except Exception:
             pass
-        return {
+        rejected = {
             "ok": False,
             "rejected": True,
             "workstream_id": UAG_WORKSTREAM_ID,
@@ -266,6 +290,18 @@ def ask(payload: Optional[dict[str, Any]] = None) -> dict[str, Any]:
             "generates_recommendations": False,
             "owns_business_state": False,
         }
+        try:
+            from institutional_security.production import finalize_with_security
+
+            rejected = finalize_with_security(rejected, body)
+        except Exception:
+            pass
+        try:
+            from institutional_observability.production import maybe_end
+
+            return maybe_end(body, rejected, component="uag.ask")
+        except Exception:
+            return rejected
 
     result = {
         "ok": True,
@@ -300,6 +336,12 @@ def ask(payload: Optional[dict[str, Any]] = None) -> dict[str, Any]:
         from institutional_security.production import finalize_with_security
 
         result = finalize_with_security(result, body)
+    except Exception:
+        pass
+    try:
+        from institutional_observability.production import maybe_end
+
+        result = maybe_end(body, result, component="uag.ask")
     except Exception:
         pass
     return result

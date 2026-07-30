@@ -926,6 +926,24 @@ _CATALOG: list[dict[str, Any]] = [
         "module": "institutional_security.production",
     },
     {
+        "id": "institutional_observability",
+        "name": "Observability & Operations (PRP-03)",
+        "group": "platform",
+        "responsibility": (
+            "Production Readiness Programme — distributed tracing, metrics, structured logs, "
+            "health checks, alerting, dependency monitoring, and Operations Center. "
+            "Explains platform behavior; never changes it. Complements Execution + Security contexts."
+        ),
+        "sources": [
+            "InstitutionalObservabilityContext",
+            "InstitutionalTrace / Metric / Health",
+            "Correlation ID (PRP-02)",
+            "Performance + Security gauges",
+        ],
+        "kind": "production_readiness",
+        "module": "institutional_observability.production",
+    },
+    {
         "id": "ite_thesis",
         "name": "Investment Thesis Office",
         "group": "offices",

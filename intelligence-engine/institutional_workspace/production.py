@@ -88,13 +88,26 @@ def get_company_workspace(
     if not is_enabled():
         return {"ok": False, "enabled": False, "workstream_id": RW_WORKSTREAM_ID}
     sec_body = dict(security or {})
+    # PRP-03: Observability middleware — observe only
+    try:
+        from institutional_observability.production import maybe_begin
+
+        maybe_begin(sec_body, name="rw.workspace")
+    except Exception:
+        pass
+
     # PRP-02: Security Gateway before workspace assemble
     try:
         from institutional_security.production import finalize_with_security, maybe_gate_workspace
 
         denied = maybe_gate_workspace(sec_body)
         if denied is not None:
-            return denied
+            try:
+                from institutional_observability.production import maybe_end
+
+                return maybe_end(sec_body, denied, component="rw.workspace")
+            except Exception:
+                return denied
     except Exception:
         pass
 
@@ -117,7 +130,14 @@ def get_company_workspace(
             try:
                 from institutional_security.production import finalize_with_security
 
-                return finalize_with_security(out, sec_body)
+                out = finalize_with_security(out, sec_body)
+            except Exception:
+                pass
+            try:
+                from institutional_observability.production import maybe_end, record_workspace_load
+
+                record_workspace_load(elapsed * 1000.0)
+                return maybe_end(sec_body, out, component="rw.workspace")
             except Exception:
                 return out
     except Exception:
@@ -147,7 +167,14 @@ def get_company_workspace(
     try:
         from institutional_security.production import finalize_with_security
 
-        return finalize_with_security(result, sec_body)
+        result = finalize_with_security(result, sec_body)
+    except Exception:
+        pass
+    try:
+        from institutional_observability.production import maybe_end, record_workspace_load
+
+        record_workspace_load(float(result.get("latency_ms") or 0))
+        return maybe_end(sec_body, result, component="rw.workspace")
     except Exception:
         return result
 

@@ -1755,6 +1755,15 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("institutional_security")
     except Exception:
         out["institutional_security"] = None
+
+    # PRP-03 — Observability & Operations (Operations Center).
+    try:
+        from institutional_observability.production import soft_slice_mission_control as obs_soft
+
+        out["institutional_observability"] = obs_soft()
+        out["sources"].append("institutional_observability")
+    except Exception:
+        out["institutional_observability"] = None
     return out
 
 

@@ -106,6 +106,14 @@ def generate(payload: Optional[dict[str, Any]] = None) -> dict[str, Any]:
 
     t0 = time.perf_counter()
     body = dict(payload or {})
+    # PRP-03: Observability middleware — observe only
+    try:
+        from institutional_observability.production import maybe_begin, maybe_end
+
+        maybe_begin(body, name="pub.generate")
+    except Exception:
+        pass
+
     # PRP-02: Security Gateway — authorize before compose (PUB still never analyzes)
     try:
         from institutional_security.production import (
@@ -115,7 +123,12 @@ def generate(payload: Optional[dict[str, Any]] = None) -> dict[str, Any]:
 
         denied = maybe_gate_publication(body)
         if denied is not None:
-            return denied
+            try:
+                from institutional_observability.production import maybe_end
+
+                return maybe_end(body, denied, component="pub.generate")
+            except Exception:
+                return denied
     except Exception:
         pass
 
@@ -128,7 +141,17 @@ def generate(payload: Optional[dict[str, Any]] = None) -> dict[str, Any]:
             try:
                 from institutional_security.production import finalize_with_security
 
-                return finalize_with_security(queued, body)
+                queued = finalize_with_security(queued, body)
+            except Exception:
+                pass
+            try:
+                from institutional_observability.production import (
+                    maybe_end,
+                    record_background_job,
+                )
+
+                record_background_job()
+                return maybe_end(body, queued, component="pub.generate")
             except Exception:
                 return queued
     except Exception:
@@ -273,7 +296,14 @@ def generate(payload: Optional[dict[str, Any]] = None) -> dict[str, Any]:
     try:
         from institutional_security.production import finalize_with_security
 
-        return finalize_with_security(result, body)
+        result = finalize_with_security(result, body)
+    except Exception:
+        pass
+    try:
+        from institutional_observability.production import maybe_end, record_publication_duration
+
+        record_publication_duration(latency)
+        return maybe_end(body, result, component="pub.generate")
     except Exception:
         return result
 

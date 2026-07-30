@@ -3527,6 +3527,80 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // PRP-03 — Observability & Operations
+  router.get('/ops/health', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/ops/health', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'ops health failed' });
+    }
+  });
+  router.get('/observability/health', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/observability/health', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'observability health failed' });
+    }
+  });
+  router.get('/ops/metrics', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/ops/metrics', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'ops metrics failed' });
+    }
+  });
+  router.get('/ops/traces/:traceId', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/ops/traces/${encodeURIComponent(req.params.traceId)}`,
+        { timeoutMs: 20_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'ops trace failed' });
+    }
+  });
+  router.get('/ops/service-map', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/ops/service-map', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'ops service-map failed' });
+    }
+  });
+  router.get('/ops/alerts', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/ops/alerts', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'ops alerts failed' });
+    }
+  });
+  router.get('/ops/dependencies', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/ops/dependencies', { timeoutMs: 30_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'ops dependencies failed' });
+    }
+  });
+  router.get('/ops/logs', async (req, res) => {
+    try {
+      const qs = new URLSearchParams();
+      for (const k of ['limit', 'severity', 'correlation_id', 'component']) {
+        if (req.query[k]) qs.set(k, String(req.query[k]));
+      }
+      const suffix = qs.toString() ? `?${qs}` : '';
+      const result = await engineFetch(`/v1/ops/logs${suffix}`, { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'ops logs failed' });
+    }
+  });
+
   // ICE-01 — Investment Committee Engine
   router.get('/committee-engine/health', async (_req, res) => {
     try {

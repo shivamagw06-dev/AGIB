@@ -10827,6 +10827,77 @@ async def security_tenants():
     return tenants_api()
 
 
+# --- PRP-03 Observability & Operations (tracing / metrics / health / alerts) ---
+
+
+@router.get("/ops/health")
+async def ops_health():
+    from institutional_observability.production import ops_health as _ops_health
+
+    return _ops_health()
+
+
+@router.get("/observability/health")
+async def observability_health():
+    from institutional_observability.production import health
+
+    return health()
+
+
+@router.get("/ops/metrics")
+async def ops_metrics():
+    from institutional_observability.production import ops_metrics as _ops_metrics
+
+    return _ops_metrics()
+
+
+@router.get("/ops/traces/{trace_id}")
+async def ops_trace(trace_id: str):
+    from institutional_observability.production import ops_trace as _ops_trace
+
+    return _ops_trace(trace_id)
+
+
+@router.get("/ops/service-map")
+async def ops_service_map():
+    from institutional_observability.production import ops_service_map as _ops_map
+
+    return _ops_map()
+
+
+@router.get("/ops/alerts")
+async def ops_alerts():
+    from institutional_observability.production import ops_alerts as _ops_alerts
+
+    return _ops_alerts()
+
+
+@router.get("/ops/dependencies")
+async def ops_dependencies():
+    from institutional_observability.production import ops_dependencies as _ops_deps
+
+    return _ops_deps()
+
+
+@router.get("/ops/logs")
+async def ops_logs(
+    limit: int = 50,
+    severity: str = "",
+    correlation_id: str = "",
+    component: str = "",
+):
+    from institutional_observability.production import ops_logs as _ops_logs
+
+    return _ops_logs(
+        {
+            "limit": limit,
+            "severity": severity,
+            "correlation_id": correlation_id,
+            "component": component,
+        }
+    )
+
+
 # --- Company Monitoring System V1 (continuous living analyst; additive) ---
 
 

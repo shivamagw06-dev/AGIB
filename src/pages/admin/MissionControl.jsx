@@ -214,6 +214,8 @@ export default function MissionControl() {
     institutional?.institutional_performance || desk?.institutional_performance || null;
   const securityCenter =
     institutional?.institutional_security || desk?.institutional_security || null;
+  const operationsCenter =
+    institutional?.institutional_observability || desk?.institutional_observability || null;
   const pipeline = desk?.research_pipeline || {};
   const preds = desk?.prediction_intelligence || {};
   const dq = desk?.data_quality || {};
@@ -1497,6 +1499,98 @@ export default function MissionControl() {
               ) : null}
             </ul>
           </Glass>
+        </section>
+
+        {/* Operations Center — PRP-03 */}
+        <section className="space-y-3">
+          <Kicker>Operations Center · PRP-03</Kicker>
+          <p className="text-sm text-[var(--io-muted)] max-w-3xl">
+            End-to-end operability — live request rate, active traces, P95/P99 latency, error rate,
+            queue/cache health, worker utilization, dependency status, and alert timeline.
+            Observability explains behavior; it never changes it.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
+            <Stat
+              label="Req / min"
+              value={operationsCenter?.live_request_rate ?? '—'}
+              status={operationsCenter?.status || operationsCenter?.overall_health}
+            />
+            <Stat label="Active traces" value={operationsCenter?.active_traces ?? '—'} />
+            <Stat
+              label="P95"
+              value={
+                operationsCenter?.p95_latency_ms != null
+                  ? `${operationsCenter.p95_latency_ms}ms`
+                  : '—'
+              }
+            />
+            <Stat
+              label="P99"
+              value={
+                operationsCenter?.p99_latency_ms != null
+                  ? `${operationsCenter.p99_latency_ms}ms`
+                  : '—'
+              }
+            />
+            <Stat
+              label="Error rate"
+              value={
+                operationsCenter?.error_rate != null
+                  ? `${Math.round(Number(operationsCenter.error_rate) * 100)}%`
+                  : '—'
+              }
+            />
+            <Stat
+              label="Queue"
+              value={operationsCenter?.queue_health?.depth ?? '—'}
+              hint={operationsCenter?.queue_health?.status}
+            />
+            <Stat
+              label="Cache hit"
+              value={
+                operationsCenter?.cache_health?.hit_rate != null
+                  ? `${Math.round(Number(operationsCenter.cache_health.hit_rate) * 100)}%`
+                  : '—'
+              }
+            />
+            <Stat
+              label="Workers"
+              value={
+                operationsCenter?.worker_utilization != null
+                  ? `${Math.round(Number(operationsCenter.worker_utilization) * 100)}%`
+                  : '—'
+              }
+            />
+          </div>
+          <div className="grid gap-3 lg:grid-cols-2">
+            <Glass>
+              <p className="text-[11px] uppercase text-[var(--io-caption)]">Alert timeline</p>
+              <ul className="mt-2 space-y-1 text-xs max-h-36 overflow-auto text-[var(--io-ink-soft)]">
+                {(operationsCenter?.alert_timeline || []).slice(0, 6).map((a) => (
+                  <li key={a.alert_id}>
+                    [{a.severity}] {a.rule}: {a.message}
+                  </li>
+                ))}
+                {!operationsCenter ? <li>Operations Center soft slice unavailable.</li> : null}
+                {operationsCenter && !(operationsCenter.alert_timeline || []).length ? (
+                  <li>No alerts — platform metrics within thresholds.</li>
+                ) : null}
+              </ul>
+            </Glass>
+            <Glass>
+              <p className="text-[11px] uppercase text-[var(--io-caption)]">Service topology</p>
+              <ul className="mt-2 space-y-1 text-xs max-h-36 overflow-auto text-[var(--io-ink-soft)]">
+                {(operationsCenter?.service_topology?.nodes || []).slice(0, 10).map((n) => (
+                  <li key={n.id}>
+                    {n.id} · {n.status || 'unknown'} · {n.kind || 'service'}
+                  </li>
+                ))}
+                {operationsCenter && !(operationsCenter.service_topology?.nodes || []).length ? (
+                  <li>Service map empty.</li>
+                ) : null}
+              </ul>
+            </Glass>
+          </div>
         </section>
 
         {/* Security Center — PRP-02 */}

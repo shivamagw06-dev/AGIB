@@ -1464,6 +1464,31 @@ export const listSecurityPermissions = () =>
 export const listSecurityTenants = () =>
   intelligenceFetch('/security/tenants', { timeoutMs: 30_000 });
 
+/** PRP-03 — Observability & Operations */
+export const getOpsHealth = () =>
+  intelligenceFetch('/ops/health', { timeoutMs: 30_000 });
+export const getObservabilityHealth = () =>
+  intelligenceFetch('/observability/health', { timeoutMs: 30_000 });
+export const getOpsMetrics = () =>
+  intelligenceFetch('/ops/metrics', { timeoutMs: 30_000 });
+export const getOpsTrace = (traceId) =>
+  intelligenceFetch(`/ops/traces/${encodeURIComponent(traceId)}`, { timeoutMs: 30_000 });
+export const getOpsServiceMap = () =>
+  intelligenceFetch('/ops/service-map', { timeoutMs: 30_000 });
+export const getOpsAlerts = () =>
+  intelligenceFetch('/ops/alerts', { timeoutMs: 30_000 });
+export const getOpsDependencies = () =>
+  intelligenceFetch('/ops/dependencies', { timeoutMs: 30_000 });
+export const getOpsLogs = (params = {}) => {
+  const qs = new URLSearchParams();
+  if (params.limit) qs.set('limit', String(params.limit));
+  if (params.severity) qs.set('severity', params.severity);
+  if (params.correlationId) qs.set('correlation_id', params.correlationId);
+  if (params.component) qs.set('component', params.component);
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return intelligenceFetch(`/ops/logs${suffix}`, { timeoutMs: 30_000 });
+};
+
 /** ICE-01 — Investment Committee Engine */
 export const getCommitteeEngineHealth = () =>
   intelligenceFetch('/committee-engine/health', { timeoutMs: 30_000 });
