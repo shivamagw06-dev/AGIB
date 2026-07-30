@@ -9,7 +9,7 @@ import { getTickerData } from '../services/marketDataService.js';
 import { MARKET_REFRESH_MS } from '../config/marketRefresh.js';
 import { getGrowwHealth } from '../services/growwHealth.js';
 import { getMarketBriefing, startMarketBriefingScheduler } from '../services/marketBriefingService.js';
-import { getMacroBriefing, startMacroBriefingScheduler } from '../services/macroBriefingService.js';
+import { getMacroBriefing, askMacroEconomist, startMacroBriefingScheduler } from '../services/macroBriefingService.js';
 import { getPreMarketBriefing, startPreMarketBriefingScheduler } from '../services/preMarketBriefingService.js';
 
 const CACHE_CONTROL = `public, max-age=${Math.floor(MARKET_REFRESH_MS / 1000)}, stale-while-revalidate=60`;
@@ -116,6 +116,17 @@ export default function createMarketRouter(env = {}) {
     const data = await getMacroBriefing();
     res.set('Cache-Control', 'public, max-age=300, stale-while-revalidate=1800');
     return res.status(200).json(data);
+  });
+
+  router.post('/macro-ask', async (req, res) => {
+    try {
+      const data = await askMacroEconomist(req.body?.query || req.body?.question || '');
+      res.set('Cache-Control', 'no-store');
+      return res.status(200).json(data);
+    } catch (error) {
+      const status = error.status || 500;
+      return res.status(status).json({ error: error.message || 'Macro ask failed' });
+    }
   });
 
   router.get('/pre-market-briefing', async (_req, res) => {

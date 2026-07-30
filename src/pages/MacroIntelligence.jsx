@@ -1453,7 +1453,7 @@ export default function MacroIntelligence() {
                 className="inline-flex items-center gap-2 rounded-xl bg-[#1d4f91] px-4 py-2.5 text-sm font-semibold text-white"
               >
                 <Sparkles className="h-4 w-4" />
-                Ask AGI Economist
+                {askLoading ? 'Asking…' : 'Ask AGI Economist'}
               </button>
               <button type="button" onClick={() => go('watchlist')} className="rounded-xl border border-[#e7eaf0] p-2.5 text-[#667085]" aria-label="Watchlist">
                 <Bell className="h-4 w-4" />
