@@ -28,7 +28,8 @@ const NAV = [
   { name: 'IPO', path: '/ipo-intelligence' },
   { name: 'Portfolio', path: '/portfolio' },
   { name: 'Academy', path: '/admin/academy' },
-  { name: 'Ask AGI', path: '/ask' },
+  { name: 'Ask AGI', path: '/agi/ask' },
+  { name: 'Platform', path: '/agi' },
 ];
 
 export default function Header() {

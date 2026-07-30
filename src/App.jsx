@@ -47,6 +47,7 @@ const ThemeDesk = React.lazy(() => import('@/pages/ThemeDesk'));
 const SectorDesk = React.lazy(() => import('@/pages/SectorDesk'));
 const ResearchWorkflowDesk = React.lazy(() => import('@/pages/ResearchWorkflowDesk'));
 const AskAgiPage = React.lazy(() => import('@/pages/AskAgiPage'));
+const AgiRoutes = React.lazy(() => import('@/pages/agi/AgiRoutes'));
 const PredictionCentre = React.lazy(() => import('@/pages/PredictionCentre'));
 const PersonalWorkspace = React.lazy(() => import('@/pages/PersonalWorkspace'));
 const ResearchTerminalHome = React.lazy(() => import('@/components/Home/ResearchTerminalHome'));
@@ -60,6 +61,7 @@ function AppShell() {
   const location = useLocation();
   const isAdmin = location.pathname.startsWith('/admin');
   const isAskWorkspace = location.pathname === '/ask';
+  const isAgiProduct = location.pathname === '/agi' || location.pathname.startsWith('/agi/');
 
   useEffect(() => {
     if (!isAdmin && !isAskWorkspace) {
@@ -72,6 +74,22 @@ function AppShell() {
       <Routes>
         <Route path="/admin/*" element={<AdminRoutes />} />
       </Routes>
+    );
+  }
+
+  // Phase 2 AGI product shell — full-bleed institutional workflow (no public chrome).
+  if (isAgiProduct) {
+    return (
+      <MarketDataProvider>
+        <PinGate>
+          <Suspense fallback={<div className="min-h-screen bg-[#f6f7f9] p-8 text-center text-slate-600">Loading AGI…</div>}>
+            <Routes>
+              <Route path="/agi/*" element={<AgiRoutes />} />
+            </Routes>
+          </Suspense>
+          <Toaster />
+        </PinGate>
+      </MarketDataProvider>
     );
   }
 

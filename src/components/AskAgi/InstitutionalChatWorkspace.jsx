@@ -82,7 +82,7 @@ function AnswerTurn({ answer, onAsk }) {
 
   return (
     <div className="ac-msg ac-msg-agi">
-      <div className="ac-label">AGIB</div>
+      <div className="ac-label">AGI</div>
 
       {/* 1. Direct Answer */}
       <div className="ac-direct">
@@ -112,10 +112,10 @@ function AnswerTurn({ answer, onAsk }) {
         )}
       </div>
 
-      {/* 2. Why AGIB thinks this */}
+      {/* 2. Why AGI thinks this */}
       {answer.whyAgib?.length > 0 && (
         <section className="ac-block">
-          <h2>Why AGIB thinks this</h2>
+          <h2>Why AGI thinks this</h2>
           <ul className="ac-why-list">
             {answer.whyAgib.map((item) => (
               <li key={item}>{item}</li>
@@ -218,6 +218,8 @@ export default function InstitutionalChatWorkspace({
   onAsk,
   onSave,
   savedFlash,
+  embedded = false,
+  basePath = '/ask',
 }) {
   const navigate = useNavigate();
   const answer = useMemo(() => (pack ? mapChatAnswer(pack) : null), [pack]);
@@ -226,6 +228,7 @@ export default function InstitutionalChatWorkspace({
   const [recents, setRecents] = useState([]);
   const threadRef = useRef(null);
   const inputRef = useRef(null);
+  const askHome = basePath || '/ask';
 
   useEffect(() => {
     setRecents(getRecentSearches(8));
@@ -246,19 +249,20 @@ export default function InstitutionalChatWorkspace({
   };
 
   const newChat = () => {
-    navigate('/ask');
+    navigate(askHome);
     setDraft('');
     window.scrollTo({ top: 0, behavior: 'smooth' });
     inputRef.current?.focus();
   };
 
   return (
-    <div className="agib-chat">
-      <aside className="ac-sidebar" aria-label="AGIB navigation">
+    <div className={`agib-chat${embedded ? ' agib-chat-embedded' : ''}`}>
+      {!embedded && (
+      <aside className="ac-sidebar" aria-label="AGI navigation">
         <Link to="/" className="ac-brand">
           <span className="ac-brand-mark">AGI</span>
           <span className="ac-brand-text">
-            AGIB
+            AGI
             <span className="ac-brand-sub">Institutional Research</span>
           </span>
         </Link>
@@ -269,9 +273,9 @@ export default function InstitutionalChatWorkspace({
         </button>
 
         <nav className="ac-nav">
-          <button type="button" className="active" onClick={() => navigate('/ask')}>
+          <button type="button" className="active" onClick={() => navigate(askHome)}>
             <Sparkles size={16} />
-            <span>Ask AGIB</span>
+            <span>Ask AGI</span>
           </button>
           {NAV.map((item) => {
             const Icon = item.icon;
@@ -311,6 +315,7 @@ export default function InstitutionalChatWorkspace({
           </div>
         </div>
       </aside>
+      )}
 
       <div className="ac-main">
         <header className="ac-topbar">
@@ -325,18 +330,23 @@ export default function InstitutionalChatWorkspace({
             <input
               value={topQ}
               onChange={(e) => setTopQ(e.target.value)}
-              placeholder="Ask AGIB anything..."
-              aria-label="Ask AGIB"
+              placeholder="Ask AGI anything..."
+              aria-label="Ask AGI"
             />
           </form>
           <div className="ac-top-actions">
-            <button type="button" className="ac-icon-btn" aria-label="Notifications" onClick={() => navigate('/workspace')}>
+            {embedded && (
+              <button type="button" className="ac-icon-btn" aria-label="New chat" onClick={newChat} title="New chat">
+                <MessageSquarePlus size={17} />
+              </button>
+            )}
+            <button type="button" className="ac-icon-btn" aria-label="Notifications" onClick={() => navigate(embedded ? '/agi/alerts' : '/workspace')}>
               <Bell size={17} />
             </button>
             <button type="button" className="ac-icon-btn" aria-label="Save research" onClick={onSave} title="Save">
               <Bookmark size={17} />
             </button>
-            <button type="button" className="ac-icon-btn" aria-label="Workspace" onClick={() => navigate('/workspace')}>
+            <button type="button" className="ac-icon-btn" aria-label="Workspace" onClick={() => navigate(embedded ? '/agi' : '/workspace')}>
               <Briefcase size={17} />
             </button>
           </div>
@@ -348,7 +358,7 @@ export default function InstitutionalChatWorkspace({
               <div className="ac-empty">
                 <h1>What would you like to analyse?</h1>
                 <p>
-                  Ask AGIB in plain English. Receive a concise institutional answer first — then open deeper thesis,
+                  Ask AGI in plain English. Receive a concise institutional answer first — then open deeper thesis,
                   evidence and intelligence layers on demand.
                 </p>
                 <div className="ac-starters">
@@ -369,7 +379,7 @@ export default function InstitutionalChatWorkspace({
 
             {loading && (
               <div className="ac-msg ac-msg-agi">
-                <div className="ac-label">AGIB</div>
+                <div className="ac-label">AGI</div>
                 <div className="ac-loading" aria-live="polite">
                   <div className="ac-skel" />
                   <div className="ac-skel" style={{ height: '7rem' }} />
@@ -380,10 +390,10 @@ export default function InstitutionalChatWorkspace({
 
             {error && !loading && (
               <div className="ac-msg ac-msg-agi">
-                <div className="ac-label">AGIB</div>
+                <div className="ac-label">AGI</div>
                 <div className="ac-direct">
                   <p className="ac-direct-text">
-                    The research desk is momentarily unavailable. Please retry — AGIB will resume institutional analysis
+                    The research desk is momentarily unavailable. Please retry — AGI will resume institutional analysis
                     as soon as the engine is warm.
                   </p>
                 </div>
@@ -402,7 +412,7 @@ export default function InstitutionalChatWorkspace({
           <aside className="ac-rail" aria-label="Conviction rail">
             <div className="ac-rail-card">
               <h3>Company</h3>
-              <p className="ac-rail-company">{answer?.company || answer?.ticker || 'AGIB Desk'}</p>
+              <p className="ac-rail-company">{answer?.company || answer?.ticker || 'AGI Desk'}</p>
               <p className="ac-rail-ticker">{answer?.ticker || 'Ask a company or market question'}</p>
 
               <div style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#6b7280' }}>
@@ -455,14 +465,14 @@ export default function InstitutionalChatWorkspace({
             <div className="ac-rail-card">
               <h3>Latest Research Refresh</h3>
               <p style={{ margin: 0, fontSize: '0.84rem', color: '#3a4450' }}>
-                {answer?.lastUpdated || answer?.freshness || 'Live AGIB intelligence cycle'}
+                {answer?.lastUpdated || answer?.freshness || 'Live AGI intelligence cycle'}
               </p>
             </div>
 
             <div className="ac-rail-card">
               <h3>Recent Research</h3>
               <ul className="ac-rail-list">
-                {(answer?.recentResearch || ['Internal AGIB', 'Exchange Filing']).map((item) => (
+                {(answer?.recentResearch || ['Internal AGI', 'Exchange Filing']).map((item) => (
                   <li key={item}>{item}</li>
                 ))}
               </ul>
@@ -489,15 +499,15 @@ export default function InstitutionalChatWorkspace({
                   submit(draft);
                 }
               }}
-              placeholder="Ask AGIB anything about markets, companies, macro or your portfolio..."
-              aria-label="Message AGIB"
+              placeholder="Ask AGI anything about markets, companies, macro or your portfolio..."
+              aria-label="Message AGI"
             />
             <button type="submit" disabled={!draft.trim() || loading}>
               Ask
             </button>
           </form>
           <p className="ac-composer-note">
-            AGIB provides institutional research context — not personalised investment advice.
+            AGI provides institutional research context — not personalised investment advice.
           </p>
         </div>
       </div>
