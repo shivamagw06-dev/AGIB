@@ -5,15 +5,9 @@
 
 import { isGrowwConfigured, fetchGrowwTicker } from '../providers/groww.js';
 import { fetchNseIndices, fetchCommodities, fetchTrending } from '../providers/fallback.js';
-import { MARKET_REFRESH_MS } from '../config/marketRefresh.js';
+import { oncePerMarketCycle } from '../config/marketRefresh.js';
 import { computeMarketOutlook, computeMarketPulse } from './marketOutlookEngine.js';
 
-const CACHE = { ticker: null, tickerExpiry: 0, dashboard: null, dashboardExpiry: 0 };
-const TICKER_TTL = MARKET_REFRESH_MS;
-const DASHBOARD_TTL = MARKET_REFRESH_MS;
-
-let tickerInflight = null;
-let dashboardInflight = null;
 let growwBackoffUntil = 0;
 
 function findIndex(rows, ...names) {
@@ -31,14 +25,7 @@ function normalizeTrendingRow(row) {
 }
 
 export async function getTickerData(env = {}) {
-  const now = Date.now();
-  if (CACHE.ticker && now < CACHE.tickerExpiry) return CACHE.ticker;
-  if (tickerInflight) return tickerInflight;
-
-  tickerInflight = fetchTickerData(env).finally(() => {
-    tickerInflight = null;
-  });
-  return tickerInflight;
+  return oncePerMarketCycle('market-ticker', () => fetchTickerData(env));
 }
 
 async function fetchTickerData(env = {}) {
@@ -51,7 +38,10 @@ async function fetchTickerData(env = {}) {
 
   if (growwAllowed) {
     try {
-      rows = await fetchGrowwTicker();
+      rows = (await fetchGrowwTicker()).filter((row) => {
+        const price = Number(row?.price);
+        return Number.isFinite(price) && price > 0;
+      });
     } catch (err) {
       const msg = String(err?.message || err);
       console.warn('[marketData] Groww ticker failed:', msg);
@@ -61,12 +51,20 @@ async function fetchTickerData(env = {}) {
     }
   }
 
-  if (rows.length < 2) {
-    const nseRows = await fetchNseIndices().catch(() => []);
-    rows = [
-      ...nseRows,
-      ...rows.filter((r) => !nseRows.some((n) => n.name === r.name)),
-    ];
+  // Always merge NSE so mid/small-cap and any missing cash indices are available.
+  // Groww remains preferred when both return the same name.
+  const nseRows = await fetchNseIndices().catch(() => []);
+  if (nseRows.length) {
+    const prefer = new Map();
+    for (const row of rows) {
+      const key = String(row?.name || '').trim().toUpperCase();
+      if (key) prefer.set(key, row);
+    }
+    for (const row of nseRows) {
+      const key = String(row?.name || '').trim().toUpperCase();
+      if (key && !prefer.has(key)) prefer.set(key, row);
+    }
+    rows = [...prefer.values()];
   }
 
   const commodities = await fetchCommodities(apiKey, baseUrl).catch(() => []);
@@ -87,26 +85,15 @@ async function fetchTickerData(env = {}) {
     else rows.push(extra);
   }
 
-  const result = {
+  return {
     items: rows,
     source: isGrowwConfigured() ? 'groww+fallback' : 'fallback',
     updatedAt: new Date().toISOString(),
   };
-
-  CACHE.ticker = result;
-  CACHE.tickerExpiry = Date.now() + TICKER_TTL;
-  return result;
 }
 
 export async function getDashboardData(env = {}) {
-  const now = Date.now();
-  if (CACHE.dashboard && now < CACHE.dashboardExpiry) return CACHE.dashboard;
-  if (dashboardInflight) return dashboardInflight;
-
-  dashboardInflight = fetchDashboardData(env).finally(() => {
-    dashboardInflight = null;
-  });
-  return dashboardInflight;
+  return oncePerMarketCycle('market-dashboard', () => fetchDashboardData(env));
 }
 
 async function fetchDashboardData(env = {}) {
@@ -167,7 +154,5 @@ async function fetchDashboardData(env = {}) {
     updatedAt: new Date().toISOString(),
   };
 
-  CACHE.dashboard = result;
-  CACHE.dashboardExpiry = Date.now() + DASHBOARD_TTL;
   return result;
 }

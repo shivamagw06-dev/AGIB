@@ -198,40 +198,24 @@ function buildWorkspace(context, morningNote, marketBriefing) {
   };
 }
 
-async function enrichWithOpenAi(briefing) {
-  const apiKey = (process.env.OPENAI_API_KEY || '').trim();
-  if (!apiKey) return briefing;
+async function enrichWithLlm(briefing) {
   const note = briefing.morningNote;
   try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      signal: AbortSignal.timeout(25_000),
-      body: JSON.stringify({
-        model: process.env.OPENAI_MARKET_BRIEFING_MODEL || 'gpt-4.1-mini',
-        response_format: { type: 'json_object' },
-        messages: [
-          {
-            role: 'system',
-            content: 'You are AGI’s Chief Investment Strategist writing a Pre-Market Morning Investment Committee Note for India-focused institutions. Return JSON with: executiveThesis (180-280 words), outlook, baseCase, bullCase, bearCase, threeThingsToWatch (string array), questions (string array). Never invent exact live prices. You may discuss directional global moves already provided. Never give buy/sell recommendations. Every important claim must answer “because what?”. Ban vague phrases like “markets may remain positive”.',
-          },
-          {
-            role: 'user',
-            content: JSON.stringify({
-              outlook: note.outlook,
-              evidence: note.evidence,
-              globalMarkets: briefing.workspace.globalMarkets,
-              drivers: briefing.workspace.drivers,
-              heatMap: briefing.workspace.heatMap,
-              scenarios: note.scenarios,
-            }),
-          },
-        ],
-        temperature: 0.25,
-      }),
+    const { completeJson } = await import('./llmClient.js');
+    const generated = await completeJson({
+      system:
+        'You are AGI’s Chief Investment Strategist writing a Pre-Market Morning Investment Committee Note for India-focused institutions. Return JSON with: executiveThesis (180-280 words), outlook, baseCase, bullCase, bearCase, threeThingsToWatch (string array), questions (string array). Never invent exact live prices. You may discuss directional global moves already provided. Never give buy/sell recommendations. Every important claim must answer “because what?”. Ban vague phrases like “markets may remain positive”.',
+      user: {
+        outlook: note.outlook,
+        evidence: note.evidence,
+        globalMarkets: briefing.workspace.globalMarkets,
+        drivers: briefing.workspace.drivers,
+        heatMap: briefing.workspace.heatMap,
+        scenarios: note.scenarios,
+      },
+      temperature: 0.25,
     });
-    if (!response.ok) throw new Error(`OpenAI pre-market note failed (${response.status})`);
-    const generated = JSON.parse((await response.json())?.choices?.[0]?.message?.content || '{}');
+    if (!generated) return briefing;
     return {
       ...briefing,
       aiGenerated: true,
@@ -307,7 +291,7 @@ export async function getPreMarketBriefing({ force = false } = {}) {
         getPreMarketContext({ force }),
         getMarketBriefing().catch(() => null),
       ]);
-      const briefing = await enrichWithOpenAi(assembleBriefing(context, marketBriefing));
+      const briefing = await enrichWithLlm(assembleBriefing(context, marketBriefing));
       const saved = await saveDataset('pre_market_briefing', briefing, {
         source: 'agi-premarket-engine',
         ttlMs: CACHE_MS,

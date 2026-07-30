@@ -2,24 +2,183 @@
 
 from __future__ import annotations
 
+import html
+import re
 from typing import Any
 
 from app.ui.sanitize import pick_label, pick_number, public_source, scrub, scrub_text
 
+_STANCE_BULL_RE = re.compile(r"\b(bullish|overweight|upgrade|buy)\b", re.I)
+_STANCE_BEAR_RE = re.compile(r"\b(bearish|underweight|downgrade|sell)\b", re.I)
+_CAUTIOUS_RE = re.compile(
+    r"weak growth|slow(?:er)? growth|slower deal|macro challenge|headwind|"
+    r"demand weakness|muted|soft demand|productivity (?:pressure|demands)|"
+    r"\bpressure\b|\bunderweight\b|\bdowngrade\b",
+    re.I,
+)
+_CONSTRUCTIVE_RE = re.compile(
+    r"\bupgrade\b|\boverweight\b|acceleration|strong demand|reacceleration|\bbeats?\b",
+    re.I,
+)
 
-def normalize_stance(label: str | None) -> str:
-    if not label:
+
+def normalize_stance(label: Any = None) -> str:
+    """Return Bullish / Neutral / Bearish — never treat field names like bull_case as stance."""
+    if label is None or label == "":
         return "Neutral"
-    t = str(label).lower()
-    if "strong" in t and "bull" in t:
+    if isinstance(label, dict):
+        return stance_from_historical(label)
+    t = str(label).strip()
+    # Stringified HistoricalView / object dumps must not be parsed via substring "bull".
+    if t.startswith("{") or "document_id" in t or "bull_case" in t or "bear_case" in t:
+        thesis_m = re.search(r"['\"]thesis['\"]\s*:\s*['\"](.+?)['\"]", t)
+        blob = thesis_m.group(1) if thesis_m else t
+        return stance_from_text(html.unescape(blob))
+    low = t.lower()
+    if low in {"bull", "bullish", "overweight", "buy", "strong buy", "strongly bullish"}:
         return "Bullish"
-    if "strong" in t and "bear" in t:
+    if low in {"bear", "bearish", "underweight", "sell", "strong sell", "strongly bearish"}:
         return "Bearish"
-    if "bull" in t:
+    if low in {"neutral", "hold", "market perform", "equal weight"}:
+        return "Neutral"
+    if _STANCE_BEAR_RE.search(t) and not _STANCE_BULL_RE.search(t):
+        return "Bearish"
+    if _STANCE_BULL_RE.search(t) and not _STANCE_BEAR_RE.search(t):
         return "Bullish"
-    if "bear" in t:
+    return stance_from_text(t)
+
+
+def stance_from_text(text: str | None) -> str:
+    blob = html.unescape(text or "")
+    if not blob.strip():
+        return "Neutral"
+    cautious = bool(_CAUTIOUS_RE.search(blob))
+    constructive = bool(_CONSTRUCTIVE_RE.search(blob))
+    if cautious and not constructive:
         return "Bearish"
+    if constructive and not cautious:
+        return "Bullish"
     return "Neutral"
+
+
+def stance_from_historical(view: dict[str, Any] | None) -> str:
+    """Infer institutional stance from a HistoricalView-shaped dict / thesis text."""
+    if not isinstance(view, dict):
+        return "Neutral"
+    bulls = [str(x) for x in (view.get("bull_case") or []) if x]
+    bears = [str(x) for x in (view.get("bear_case") or []) if x]
+    if bears and not bulls:
+        return "Bearish"
+    if bulls and not bears:
+        return "Bullish"
+    blob = " ".join(
+        [
+            str(view.get("thesis") or ""),
+            " ".join(bulls),
+            " ".join(bears),
+        ]
+    )
+    return stance_from_text(blob)
+
+
+def synthesize_thesis_points(thesis: str | None) -> dict[str, list[str]]:
+    """Build bull/bear/risk/catalyst bullets from free-text sector notes when structured cases are empty."""
+    text = html.unescape(re.sub(r"\s+", " ", thesis or "")).strip()
+    if not text:
+        return {"bull_case": [], "bear_case": [], "risks": [], "catalysts": []}
+    parts = [p.strip(" -•\t") for p in re.split(r"(?<=[.:;])\s+|\n+", text) if p and len(p.strip()) > 25]
+    bull: list[str] = []
+    bear: list[str] = []
+    risks: list[str] = []
+    catalysts: list[str] = []
+    for part in parts:
+        low = part.lower()
+        if any(w in low for w in ("risk", "concern", "freeze", "cut")):
+            risks.append(part[:220])
+        if any(w in low for w in ("catalyst", "guidance", "trigger", "reaccel")):
+            catalysts.append(part[:220])
+        if _CAUTIOUS_RE.search(part) or any(
+            w in low for w in ("muted", "weakness", "challenge", "slower", "soft")
+        ):
+            bear.append(part[:220])
+        elif _CONSTRUCTIVE_RE.search(part) or any(
+            w in low for w in ("improve", "pipeline", "intact", "resilien", "better performance")
+        ):
+            bull.append(part[:220])
+    return {
+        "bull_case": _uniq_points(bull)[:4],
+        "bear_case": _uniq_points(bear)[:4],
+        "risks": _uniq_points(risks)[:4],
+        "catalysts": _uniq_points(catalysts)[:4],
+    }
+
+
+def _uniq_points(items: list[str]) -> list[str]:
+    out: list[str] = []
+    seen: set[str] = set()
+    for item in items:
+        key = item.strip().lower()
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        out.append(item.strip())
+    return out
+
+
+def clean_thesis_text(value: Any) -> str | None:
+    if value is None:
+        return None
+    if isinstance(value, dict):
+        value = value.get("thesis") or value.get("summary") or ""
+    text = html.unescape(str(value or "")).strip()
+    text = re.sub(r"\s+", " ", text)
+    return text or None
+
+
+def flatten_house_view(house: dict[str, Any] | None) -> dict[str, Any]:
+    """Expose thesis / cases / stance at top-level for IAX cards."""
+    if not isinstance(house, dict):
+        return {}
+    out = dict(house)
+    cv = house.get("current_view")
+    if isinstance(cv, dict):
+        thesis = clean_thesis_text(cv.get("thesis") or "")
+        out["thesis"] = thesis or out.get("thesis") or ""
+        out["summary"] = out.get("thesis") or ""
+        out["bull_case"] = [str(x) for x in (cv.get("bull_case") or out.get("bull_case") or []) if x]
+        out["bear_case"] = [str(x) for x in (cv.get("bear_case") or out.get("bear_case") or []) if x]
+        out.setdefault("valuation", cv.get("valuation") or "")
+        out.setdefault("target_prices", list(cv.get("target_prices") or []))
+        # Prefer thesis-derived stance over any leaked object/label.
+        out["stance"] = stance_from_historical(
+            {
+                "thesis": out.get("thesis"),
+                "bull_case": out.get("bull_case"),
+                "bear_case": out.get("bear_case"),
+            }
+        )
+        out["label"] = out["stance"]
+        out["current_view_label"] = out["stance"]
+    elif isinstance(cv, str):
+        out["stance"] = normalize_stance(house.get("stance") or cv)
+        out["label"] = out["stance"]
+        out["current_view_label"] = out["stance"]
+    else:
+        if out.get("thesis"):
+            out["thesis"] = clean_thesis_text(out.get("thesis")) or ""
+            out["stance"] = stance_from_text(out.get("thesis"))
+        else:
+            out["stance"] = normalize_stance(house.get("stance") or house.get("label"))
+        out["label"] = out["stance"]
+        out["current_view_label"] = out["stance"]
+    if out.get("confidence") is None and house.get("research_confidence") is not None:
+        out["confidence"] = house.get("research_confidence")
+    # Never leave nested objects in fields the UI may stringify.
+    if not isinstance(out.get("stance"), str):
+        out["stance"] = "Neutral"
+        out["label"] = "Neutral"
+        out["current_view_label"] = "Neutral"
+    return out
 
 
 def evidence_items(raw_items: list[Any], *, default_type: str = "research") -> list[dict[str, Any]]:
@@ -55,7 +214,40 @@ def evidence_items(raw_items: list[Any], *, default_type: str = "research") -> l
                 "summary": scrub_text(item.get("snippet") or item.get("summary") or item.get("title")),
                 "confidence": item.get("confidence") or item.get("score"),
                 "href": item.get("href") or item.get("url"),
-                "tickers": item.get("tickers") or [],
+                "tickers": [
+                    str(t).upper()
+                    for t in (item.get("tickers") or [])
+                    if str(t).upper().endswith("BANK")
+                    or (
+                        2 <= len(str(t)) <= 12
+                        and str(t).upper().isalpha()
+                        and str(t).upper()
+                        not in {
+                            "SERVICES",
+                            "GLOBAL",
+                            "UPDATE",
+                            "OUTLOOK",
+                            "REVIEW",
+                            "EARNINGS",
+                            "CONTINUES",
+                            "RESEARCH",
+                            "INDIA",
+                            "INDIAN",
+                            "MARKET",
+                            "SECTOR",
+                            "GROWTH",
+                            "WEEK",
+                            "NOTE",
+                            "AMP",
+                            "HIS",
+                            "IMPLICATIONS",
+                            "TAKEAWAYS",
+                            "PRESSURE",
+                            "DEMAND",
+                            "MACRO",
+                        }
+                    )
+                ][:8],
             }
         )
     return out[:20]
@@ -81,12 +273,16 @@ def whats_changed(
     thesis: str | None = None,
 ) -> dict[str, Any]:
     """Compare current institutional view vs previous — never make users hunt for deltas."""
-    house = house or {}
-    prior = prior_house or {}
+    house = flatten_house_view(house)
+    prior = flatten_house_view(prior_house)
     changes: list[dict[str, str]] = []
 
-    cur_stance = normalize_stance(house.get("current_view") or house.get("stance") or house.get("label"))
-    prior_stance = normalize_stance(prior.get("current_view") or prior.get("stance") or prior.get("label"))
+    cur_stance = normalize_stance(
+        house.get("stance") or house.get("current_view_label") or house.get("label")
+    )
+    prior_stance = normalize_stance(
+        prior.get("stance") or prior.get("current_view_label") or prior.get("label")
+    )
     if prior and cur_stance != prior_stance:
         changes.append(
             {
@@ -353,19 +549,25 @@ def knowledge_graph_view(graph: dict[str, Any] | None, ticker: str | None) -> di
 
 
 def house_view_card(house: dict[str, Any] | None, conf: float | None) -> dict[str, Any]:
-    house = house or {}
-    stance = normalize_stance(house.get("current_view") or house.get("stance") or house.get("label"))
+    house = flatten_house_view(house)
+    stance = normalize_stance(
+        house.get("stance")
+        or house.get("current_view_label")
+        or house.get("label")
+        or (house.get("current_view") if isinstance(house.get("current_view"), str) else None)
+    )
+    conf_val = conf if conf is not None else house.get("confidence")
     return {
         "stance": stance,
         "bullish": stance == "Bullish",
         "neutral": stance == "Neutral",
         "bearish": stance == "Bearish",
-        "confidence": conf if conf is not None else house.get("confidence"),
+        "confidence": conf_val,
         "investment_horizon": house.get("horizon") or house.get("investment_horizon") or "medium-term",
-        "conviction": house.get("conviction") or _conviction(conf),
+        "conviction": house.get("conviction") or _conviction(conf_val if isinstance(conf_val, (int, float)) else conf),
         "change_since_last_update": house.get("change_since_last_update")
         or (house.get("thesis_evolution") or [None])[0],
-        "label": house.get("current_view") or house.get("stance") or house.get("label") or stance,
+        "label": stance,
     }
 
 

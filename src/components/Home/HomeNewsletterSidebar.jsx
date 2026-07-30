@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Mail, Loader2 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
-import { supabase } from '@/lib/supabaseClient';
+import { subscribeNewsletter } from '@/lib/subscribeNewsletter';
 
 export default function HomeNewsletterSidebar() {
   const [email, setEmail] = useState('');
@@ -12,13 +12,8 @@ export default function HomeNewsletterSidebar() {
     e.preventDefault();
     setLoading(true);
     try {
-      const { error } = await supabase.from('subscribers').insert({ email: email.trim() });
-      if (error) {
-        throw new Error(
-          error.message?.includes('duplicate') ? 'Already subscribed.' : error.message
-        );
-      }
-      toast({ title: 'Subscribed', description: 'Check your inbox for updates.' });
+      await subscribeNewsletter(email);
+      toast({ title: 'Subscribed', description: 'Check your inbox for a welcome email.' });
       setEmail('');
     } catch (err) {
       toast({

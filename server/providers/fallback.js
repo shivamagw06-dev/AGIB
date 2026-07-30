@@ -3,7 +3,19 @@
  * Used when Groww is unavailable or for instruments Groww doesn't cover.
  */
 
-const INDEX_NAMES = ['NIFTY 50', 'NIFTY BANK', 'INDIA VIX'];
+const INDEX_NAMES = [
+  'NIFTY 50',
+  'NIFTY BANK',
+  'INDIA VIX',
+  'NIFTY MIDCAP 100',
+  'NIFTY MIDCAP 50',
+  'NIFTY NEXT 50',
+  'NIFTY SMALLCAP 100',
+  'NIFTY SMALLCAP 50',
+];
+
+const NSE_UA =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
 async function ensureFetch() {
   if (typeof globalThis.fetch === 'function') return globalThis.fetch.bind(globalThis);
@@ -11,14 +23,47 @@ async function ensureFetch() {
   return mod.default;
 }
 
+function collectCookies(resp) {
+  const raw =
+    typeof resp.headers.getSetCookie === 'function'
+      ? resp.headers.getSetCookie()
+      : resp.headers.get('set-cookie')
+        ? [resp.headers.get('set-cookie')]
+        : [];
+  return raw
+    .map((c) => String(c).split(';')[0].trim())
+    .filter(Boolean)
+    .join('; ');
+}
+
+async function nseSession(fetchFn) {
+  try {
+    const home = await fetchFn('https://www.nseindia.com/', {
+      method: 'GET',
+      headers: {
+        Accept: 'text/html,application/xhtml+xml',
+        'User-Agent': NSE_UA,
+      },
+      signal: AbortSignal.timeout(10_000),
+      redirect: 'follow',
+    });
+    return collectCookies(home);
+  } catch {
+    return '';
+  }
+}
+
 export async function fetchNseIndices() {
   const fetchFn = await ensureFetch();
+  const cookie = await nseSession(fetchFn);
   const resp = await fetchFn('https://www.nseindia.com/api/allIndices', {
     headers: {
       Accept: 'application/json',
-      'User-Agent': 'Mozilla/5.0 (compatible; AGIB-Proxy/1.0)',
+      'User-Agent': NSE_UA,
       Referer: 'https://www.nseindia.com/',
+      ...(cookie ? { Cookie: cookie } : {}),
     },
+    signal: AbortSignal.timeout(12_000),
   });
   const text = await resp.text().catch(() => '');
   if (!resp.ok || !text) return [];

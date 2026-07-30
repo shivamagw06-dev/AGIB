@@ -40,11 +40,80 @@ KNOWN_TICKERS = {
     "MARUTI",
     "TATAMOTORS",
     "HINDUNILVR",
+    "HCLTECH",
+    "TECHM",
+    "LTIM",
+    "LTTS",
+    "PERSISTENT",
+    "COFORGE",
+    "MPHASIS",
+    "OFSS",
     "AAPL",
     "MSFT",
     "GOOGL",
     "AMZN",
     "NVDA",
+}
+
+# Common English / research words that look like tickers when uppercased.
+TICKER_STOPWORDS = {
+    "THE",
+    "AND",
+    "FOR",
+    "WITH",
+    "FROM",
+    "THIS",
+    "THAT",
+    "HAVE",
+    "WILL",
+    "INTO",
+    "OVER",
+    "UNDER",
+    "INDIA",
+    "INDIAN",
+    "MARKET",
+    "MARKETS",
+    "STOCK",
+    "STOCKS",
+    "SECTOR",
+    "UPDATE",
+    "OUTLOOK",
+    "REVIEW",
+    "GROWTH",
+    "WEAK",
+    "DEAL",
+    "DEALS",
+    "SERVICE",
+    "SERVICES",
+    "GLOBAL",
+    "RESEARCH",
+    "NOTE",
+    "WEEK",
+    "THIS",
+    "CONTINUES",
+    "EARNINGS",
+    "PRESSURE",
+    "DEMAND",
+    "MACRO",
+    "KEY",
+    "TAKEAWAYS",
+    "AMP",
+    "HIS",
+    "IMPLICATIONS",
+    "IPO",
+    "USD",
+    "INR",
+    "CEO",
+    "GDP",
+    "RBI",
+    "AGI",
+    "CMS",
+    "QOQ",
+    "YOY",
+    "FY",
+    "Q1FY",
+    "AI",
+    "IT",
 }
 
 SECTOR_MAP = {
@@ -53,6 +122,9 @@ SECTOR_MAP = {
     "nbfc": "Financials",
     "insurance": "Financials",
     "it services": "Information Technology",
+    "indian it": "Information Technology",
+    "india it": "Information Technology",
+    "it sector": "Information Technology",
     "software": "Information Technology",
     "pharma": "Healthcare",
     "oil": "Energy",
@@ -65,6 +137,25 @@ SECTOR_MAP = {
     "realty": "Real Estate",
     "infra": "Industrials",
 }
+
+
+def sanitize_tickers(tickers: list[str] | None) -> list[str]:
+    """Keep only plausible equity tickers; drop research prose tokens."""
+    out: list[str] = []
+    seen: set[str] = set()
+    for raw in tickers or []:
+        tok = re.sub(r"[^A-Za-z0-9.]", "", str(raw or "")).upper()
+        tok = tok.replace(".NS", "").replace(".BO", "")
+        if not tok or tok in seen:
+            continue
+        if tok in TICKER_STOPWORDS:
+            continue
+        if len(tok) < 2 or len(tok) > 12:
+            continue
+        if tok in KNOWN_TICKERS or tok.endswith("BANK"):
+            out.append(tok)
+            seen.add(tok)
+    return out
 
 THEME_KEYWORDS = {
     "rate_cut": ["rate cut", "easing cycle", "lower rates", "repo cut"],
@@ -159,9 +250,11 @@ def extract_investment_metadata(
     sectors: list[str] | None = None,
 ) -> InvestmentMetadata:
     text = content or ""
-    found = set(t.upper() for t in (tickers or []))
+    found = set(sanitize_tickers(tickers))
     for m in _TICKER_RE.finditer(text):
         tok = m.group(1).upper()
+        if tok in TICKER_STOPWORDS:
+            continue
         if tok in KNOWN_TICKERS or tok.endswith("BANK"):
             found.add(tok)
     lower = text.lower()

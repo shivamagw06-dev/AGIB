@@ -127,6 +127,20 @@ class ResearchDirector:
         debate = self.debate_engine.debate(outputs, evidence)
         run.debate = debate
 
+        # Continuous Gather→Learn: soft historical accuracy memory before CIO synthesis.
+        # Does not change Ask API; never blocks the desk if CGL/ILO/FLE are unavailable.
+        historical_learning: dict = {}
+        try:
+            from continuous_gather_learn.flags import director_learning_inject
+            from continuous_gather_learn.production import director_learning
+
+            if director_learning_inject():
+                historical_learning = director_learning(query=str(run.query or ""), limit=8) or {}
+                context["historical_learning"] = historical_learning
+        except Exception as exc:
+            run.errors.append(f"historical_learning: {exc}")
+            historical_learning = {}
+
         try:
             report = await self.cio.synthesize(
                 {
@@ -136,6 +150,8 @@ class ResearchDirector:
                     "confidence": confidence,
                     "evidence": evidence,
                     "query": run.query,
+                    "historical_learning": historical_learning,
+                    "opinion_weights": (historical_learning or {}).get("opinion_weights") or [],
                 }
             )
             citations = self.citation_engine.build_citation_map(outputs, evidence)

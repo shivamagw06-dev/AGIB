@@ -197,6 +197,174 @@ export default function CompanyIntelligencePanels({ data }) {
         </section>
       )}
 
+      {(data.institutional_stack || data.management_trust || data.accounting_trust) && (
+        <section>
+          <h2 className="text-sm font-bold text-[#18202b] mb-3">Institutional Intelligence</h2>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <Card title="Management Trust">
+              {data.management_trust?.dna ||
+                data.institutional_stack?.summary?.management_dna ||
+                '—'}
+              {(data.management_trust?.confidence ??
+                data.institutional_stack?.summary?.management_confidence) != null ? (
+                <p className="text-xs text-[#667085] mt-1">
+                  Score{' '}
+                  {data.management_trust?.confidence ??
+                    data.institutional_stack?.summary?.management_confidence}
+                </p>
+              ) : null}
+            </Card>
+            <Card title="Accounting Trust">
+              {data.accounting_trust?.behaviour ||
+                data.institutional_stack?.summary?.accounting_behaviour ||
+                '—'}
+              {(data.accounting_trust?.quality_score ??
+                data.institutional_stack?.summary?.accounting_quality_score) != null ? (
+                <p className="text-xs text-[#667085] mt-1">
+                  Quality{' '}
+                  {data.accounting_trust?.quality_score ??
+                    data.institutional_stack?.summary?.accounting_quality_score}
+                  {(data.accounting_trust?.manipulation_risk ||
+                    data.institutional_stack?.summary?.manipulation_risk)
+                    ? ` · ${
+                        data.accounting_trust?.manipulation_risk ||
+                        data.institutional_stack?.summary?.manipulation_risk
+                      }`
+                    : ''}
+                </p>
+              ) : null}
+            </Card>
+            <Card title="Filing Memory">
+              {data.institutional_stack?.summary?.filing_found ? 'Official filings loaded' : 'Building'}
+            </Card>
+            <Card title="What Changed">
+              {data.institutional_stack?.summary?.material_change_signal
+                ? 'Material change signal active'
+                : 'No material FDI signal'}
+            </Card>
+            <Card title="Portfolio Fit">
+              {data.institutional_stack?.summary?.portfolio_net_effect ||
+                data.portfolio_fit?.net_effect ||
+                '—'}
+              {(data.institutional_stack?.summary?.portfolio_quality ??
+                data.portfolio_fit?.portfolio_quality) != null ? (
+                <p className="text-xs text-[#667085] mt-1">
+                  PQE{' '}
+                  {data.institutional_stack?.summary?.portfolio_quality ??
+                    data.portfolio_fit?.portfolio_quality}
+                  {data.institutional_stack?.summary?.portfolio_grade
+                    ? ` · grade ${data.institutional_stack.summary.portfolio_grade}`
+                    : ''}
+                </p>
+              ) : null}
+            </Card>
+            <Card title="Causal Why">
+              {data.institutional_stack?.summary?.causal_why ||
+                data.causal_why?.summary ||
+                (Array.isArray(data.institutional_stack?.summary?.causal_upstream)
+                  ? data.institutional_stack.summary.causal_upstream.slice(0, 3).join(' → ')
+                  : null) ||
+                '—'}
+              {data.institutional_stack?.summary?.causal_confidence != null ? (
+                <p className="text-xs text-[#667085] mt-1">
+                  Confidence {data.institutional_stack.summary.causal_confidence}
+                </p>
+              ) : null}
+            </Card>
+            <Card title="Forecast Path">
+              {data.institutional_stack?.summary?.forecast_most_likely ||
+                data.forecast_path?.most_likely ||
+                '—'}
+              {(data.institutional_stack?.summary?.forecast_confidence ??
+                data.forecast_path?.confidence) != null ? (
+                <p className="text-xs text-[#667085] mt-1">
+                  Confidence{' '}
+                  {data.institutional_stack?.summary?.forecast_confidence ??
+                    data.forecast_path?.confidence}
+                  {' · not a price target'}
+                </p>
+              ) : null}
+            </Card>
+            <Card title="Connected To">
+              {data.institutional_stack?.summary?.knowledge_relationship_count != null
+                ? `${data.institutional_stack.summary.knowledge_relationship_count} links`
+                : data.knowledge_links?.count != null
+                  ? `${data.knowledge_links.count} links`
+                  : '—'}
+              {(data.institutional_stack?.summary?.knowledge_confidence ??
+                data.knowledge_links?.confidence) != null ? (
+                <p className="text-xs text-[#667085] mt-1">
+                  Confidence{' '}
+                  {data.institutional_stack?.summary?.knowledge_confidence ??
+                    data.knowledge_links?.confidence}
+                </p>
+              ) : null}
+            </Card>
+            <Card title="What We Learned">
+              {data.institutional_stack?.summary?.memory_lesson_count != null
+                ? `${data.institutional_stack.summary.memory_lesson_count} lessons`
+                : data.institutional_learning?.lesson_count != null
+                  ? `${data.institutional_learning.lesson_count} lessons`
+                  : '—'}
+              {(data.institutional_stack?.summary?.memory_mistake_count ??
+                data.institutional_learning?.mistake_count) != null ? (
+                <p className="text-xs text-[#667085] mt-1">
+                  {data.institutional_stack?.summary?.memory_mistake_count ??
+                    data.institutional_learning?.mistake_count}{' '}
+                  classified mistakes
+                  {(data.institutional_stack?.summary?.memory_thinking_improved ??
+                    data.institutional_learning?.thinking_improved) != null
+                    ? ` · thinking ${
+                        (
+                          data.institutional_stack?.summary?.memory_thinking_improved ??
+                          data.institutional_learning?.thinking_improved
+                        )
+                          ? 'improved'
+                          : 'not yet'
+                      }`
+                    : ''}
+                </p>
+              ) : null}
+            </Card>
+            <Card title="If We Decide">
+              {data.institutional_stack?.summary?.simulation_scenario_id ||
+                data.simulation_lab?.scenario_id ||
+                '—'}
+              {(data.institutional_stack?.summary?.simulation_expected_return ??
+                data.simulation_lab?.expected_return) != null ? (
+                <p className="text-xs text-[#667085] mt-1">
+                  E[r]{' '}
+                  {data.institutional_stack?.summary?.simulation_expected_return ??
+                    data.simulation_lab?.expected_return}
+                  {(data.institutional_stack?.summary?.simulation_confidence ??
+                    data.simulation_lab?.confidence) != null
+                    ? ` · conf ${
+                        data.institutional_stack?.summary?.simulation_confidence ??
+                        data.simulation_lab?.confidence
+                      }`
+                    : ''}
+                  {' · experiment first'}
+                </p>
+              ) : null}
+            </Card>
+            <Card title="Decision Readiness">
+              {data.institutional_stack?.summary?.decision_status ||
+                data.decision_engine_v2?.recommendation_status ||
+                '—'}
+              {(data.institutional_stack?.summary?.decision_confidence ??
+                data.decision_engine_v2?.confidence) != null ? (
+                <p className="text-xs text-[#667085] mt-1">
+                  Confidence{' '}
+                  {data.institutional_stack?.summary?.decision_confidence ??
+                    data.decision_engine_v2?.confidence}
+                  {' · constitutional · not a trade ticket'}
+                </p>
+              ) : null}
+            </Card>
+          </div>
+        </section>
+      )}
+
       <section>
         <h2 className="text-sm font-bold text-[#18202b] mb-3">Research</h2>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">

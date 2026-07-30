@@ -85,10 +85,32 @@ async function quoteTwelveData(symbol, apiKey) {
   };
 }
 
+async function quoteYahoo(symbol) {
+  const { fetchYahooSymbol } = await import('../providers/yahooIndices.js');
+  const quote = await fetchYahooSymbol(symbol);
+  if (!quote?.price) throw new Error(`Yahoo empty quote for ${symbol}`);
+  return {
+    price: quote.price,
+    previousClose: quote.previousClose,
+    changePct: quote.changePct,
+    asOf: quote.asOf,
+    source: 'Yahoo',
+  };
+}
+
 async function resolveQuote(instrument) {
   const finnhubKey = (process.env.FINNHUB_API_KEY || '').trim();
   const twelveKey = (process.env.TWELVE_DATA_API_KEY || '').trim();
   const errors = [];
+
+  // Prefer Yahoo cash/futures symbols when configured — avoids showing SPY/QQQ/DIA as index levels.
+  if (instrument.yahoo) {
+    try {
+      return { ...instrument, ...(await quoteYahoo(instrument.yahoo)) };
+    } catch (error) {
+      errors.push(error.message);
+    }
+  }
 
   if (finnhubKey && instrument.finnhub) {
     try {
@@ -111,7 +133,8 @@ const GLOBAL_INSTRUMENTS = [
   {
     id: 'spx',
     label: 'S&P 500',
-    group: 'US Futures / Cash proxy',
+    group: 'US cash',
+    yahoo: '^GSPC',
     finnhub: 'SPY',
     twelve: 'SPY',
     note: 'US large-cap risk appetite overnight.',
@@ -119,7 +142,8 @@ const GLOBAL_INSTRUMENTS = [
   {
     id: 'ndx',
     label: 'NASDAQ',
-    group: 'US Futures / Cash proxy',
+    group: 'US cash',
+    yahoo: '^IXIC',
     finnhub: 'QQQ',
     twelve: 'QQQ',
     note: 'Growth and AI-sensitive overnight tone.',
@@ -127,7 +151,8 @@ const GLOBAL_INSTRUMENTS = [
   {
     id: 'dji',
     label: 'Dow',
-    group: 'US Futures / Cash proxy',
+    group: 'US cash',
+    yahoo: '^DJI',
     finnhub: 'DIA',
     twelve: 'DIA',
     note: 'Cyclical / industrial overnight tone.',
@@ -136,6 +161,7 @@ const GLOBAL_INSTRUMENTS = [
     id: 'ftse',
     label: 'FTSE',
     group: 'Europe',
+    yahoo: '^FTSE',
     finnhub: 'EWU',
     twelve: 'EWU',
     note: 'UK risk appetite proxy.',
@@ -144,6 +170,7 @@ const GLOBAL_INSTRUMENTS = [
     id: 'dax',
     label: 'DAX',
     group: 'Europe',
+    yahoo: '^GDAXI',
     finnhub: 'EWG',
     twelve: 'EWG',
     note: 'Euro-area industrial / ECB-sensitive tone.',
@@ -152,6 +179,7 @@ const GLOBAL_INSTRUMENTS = [
     id: 'nikkei',
     label: 'Nikkei',
     group: 'Asia',
+    yahoo: '^N225',
     finnhub: 'EWJ',
     twelve: 'EWJ',
     note: 'Japan exporters and yen-sensitive risk.',
@@ -160,6 +188,7 @@ const GLOBAL_INSTRUMENTS = [
     id: 'hangseng',
     label: 'Hang Seng',
     group: 'Asia',
+    yahoo: '^HSI',
     finnhub: 'EWH',
     twelve: 'EWH',
     note: 'China / HK risk and property sensitivity.',
@@ -167,12 +196,12 @@ const GLOBAL_INSTRUMENTS = [
 ];
 
 const DRIVER_INSTRUMENTS = [
-  { id: 'oil', label: 'Oil', finnhub: 'USO', twelve: 'USO', indiaImpactDefault: 'Airlines · Paint · Auto' },
-  { id: 'dollar', label: 'Dollar (DXY proxy)', finnhub: 'UUP', twelve: 'UUP', indiaImpactDefault: 'IT · Metals · Importers' },
-  { id: 'treasury', label: 'US Treasury', finnhub: 'TLT', twelve: 'TLT', indiaImpactDefault: 'Banks · NBFCs · Duration' },
-  { id: 'gold', label: 'Gold', finnhub: 'GLD', twelve: 'GLD', indiaImpactDefault: 'Jewellery · Mining' },
-  { id: 'copper', label: 'Copper', finnhub: 'CPER', twelve: 'CPER', indiaImpactDefault: 'Metals · Capital Goods' },
-  { id: 'bitcoin', label: 'Bitcoin', finnhub: 'BINANCE:BTCUSDT', twelve: 'BTC/USD', indiaImpactDefault: 'Risk appetite · Fintech' },
+  { id: 'oil', label: 'Oil', yahoo: 'CL=F', finnhub: 'USO', twelve: 'USO', indiaImpactDefault: 'Airlines · Paint · Auto' },
+  { id: 'dollar', label: 'Dollar (DXY proxy)', yahoo: 'DX-Y.NYB', finnhub: 'UUP', twelve: 'UUP', indiaImpactDefault: 'IT · Metals · Importers' },
+  { id: 'treasury', label: 'US Treasury', yahoo: '^TNX', finnhub: 'TLT', twelve: 'TLT', indiaImpactDefault: 'Banks · NBFCs · Duration' },
+  { id: 'gold', label: 'Gold', yahoo: 'GC=F', finnhub: 'GLD', twelve: 'GLD', indiaImpactDefault: 'Jewellery · Mining' },
+  { id: 'copper', label: 'Copper', yahoo: 'HG=F', finnhub: 'CPER', twelve: 'CPER', indiaImpactDefault: 'Metals · Capital Goods' },
+  { id: 'bitcoin', label: 'Bitcoin', yahoo: 'BTC-USD', finnhub: 'BINANCE:BTCUSDT', twelve: 'BTC/USD', indiaImpactDefault: 'Risk appetite · Fintech' },
 ];
 
 function mapInstrument(raw) {
@@ -190,14 +219,16 @@ function mapInstrument(raw) {
     sparkline: sparkFromPct(changePct),
     source: raw.source,
     asOf: raw.asOf,
-    symbolUsed: raw.finnhub || raw.twelve,
-    redistributionNote: 'Licensed/redistribution-friendly market-data API proxy (ETF/crypto). Not an exchange-owned NSE/BSE quote.',
+    symbolUsed: raw.yahoo || raw.finnhub || raw.twelve,
+    redistributionNote:
+      'Global cash/futures quote via Yahoo (preferred) or licensed API fallback. Not an exchange-owned NSE/BSE quote.',
   };
 }
 
 async function loadGlobalIndices() {
+  // v2 = cash/futures Yahoo symbols (not SPY/QQQ/DIA ETF proxies)
   return getOrFetchDataset(
-    'global_indices',
+    'global_indices_v2',
     async () => {
       const results = [];
       for (const instrument of GLOBAL_INSTRUMENTS) {
@@ -227,7 +258,7 @@ async function loadGlobalIndices() {
       return { instruments: results };
     },
     {
-      source: 'Finnhub/Twelve Data',
+      source: 'Yahoo/Finnhub/Twelve Data',
       ttlMs: MACRO_REFRESH_MS.global_indices,
       refreshPolicy: '20m pre-market',
     },
@@ -235,8 +266,9 @@ async function loadGlobalIndices() {
 }
 
 async function loadGlobalDrivers() {
+  // v2 = futures/cash Yahoo symbols (not USO/GLD/UUP ETF proxies as primary)
   return getOrFetchDataset(
-    'global_drivers',
+    'global_drivers_v2',
     async () => {
       const drivers = [];
       for (const instrument of DRIVER_INSTRUMENTS) {
@@ -420,7 +452,7 @@ export async function getPreMarketContext({ force = false } = {}) {
     stale: datasetStatus.some((item) => item.stale && item.fromCache && item.fetchedAt),
     compliance: {
       indianQuotes: 'AGI does not display raw NSE/BSE real-time quotes on this page.',
-      globalQuotes: 'Global levels use redistribution-friendly API proxies (ETFs/crypto), not scraped exchange terminals.',
+      globalQuotes: 'Global levels prefer Yahoo cash/futures prints; licensed ETF APIs remain fallback only.',
     },
   };
 }
