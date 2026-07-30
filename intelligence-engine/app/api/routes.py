@@ -9383,6 +9383,67 @@ async def investment_office_query(payload: dict[str, Any] = Body(default={})):
     )
 
 
+# --- CIO-01 Comparative Intelligence Office (cross-company orchestration; additive) ---
+
+
+@router.get("/comparative-intelligence/health")
+async def comparative_intelligence_health():
+    from comparative_intelligence.production import health
+
+    return health()
+
+
+@router.get("/comparative-intelligence/dashboard")
+async def comparative_intelligence_dashboard():
+    from comparative_intelligence.production import dashboard
+
+    return dashboard()
+
+
+@router.post("/comparative-intelligence/compare")
+async def comparative_intelligence_compare(payload: dict[str, Any] = Body(default={})):
+    """CIO-01: side-by-side Institutional Comparison Report from FIRE outputs."""
+    from comparative_intelligence.production import compare_companies
+
+    tickers = payload.get("tickers") or payload.get("companies") or []
+    if isinstance(tickers, str):
+        tickers = [t.strip() for t in tickers.replace(",", " ").split() if t.strip()]
+    if not isinstance(tickers, list) or len(tickers) < 2:
+        raise HTTPException(status_code=400, detail="tickers requires at least two symbols")
+    return compare_companies(
+        [str(t) for t in tickers],
+        question=payload.get("question"),
+        comparison_type=payload.get("comparison_type") or payload.get("type"),
+        modules=payload.get("modules"),
+    )
+
+
+@router.post("/comparative-intelligence/query")
+async def comparative_intelligence_query(payload: dict[str, Any] = Body(default={})):
+    """CIO-01: route a comparative question and assemble ICR."""
+    from comparative_intelligence.production import query
+
+    tickers = payload.get("tickers") or payload.get("companies")
+    if isinstance(tickers, str):
+        tickers = [t.strip() for t in tickers.replace(",", " ").split() if t.strip()]
+    try:
+        return query(
+            tickers=list(tickers) if isinstance(tickers, list) else None,
+            question=str(payload.get("question") or ""),
+            comparison_type=payload.get("comparison_type") or payload.get("type"),
+            modules=payload.get("modules"),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/admin/comparative-intelligence", response_class=HTMLResponse)
+async def admin_comparative_intelligence():
+    from comparative_intelligence.production import admin_page
+
+    return HTMLResponse(admin_page())
+
+
 # --- Company Monitoring System V1 (continuous living analyst; additive) ---
 
 

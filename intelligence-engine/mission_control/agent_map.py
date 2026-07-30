@@ -466,6 +466,27 @@ _CATALOG: list[dict[str, Any]] = [
         "module": "investment_office.production",
     },
     {
+        "id": "comparative_intelligence",
+        "name": "Comparative Intelligence (CIO-01)",
+        "group": "ops",
+        "responsibility": (
+            "Cross-company side-by-side Institutional Comparison Reports from existing FIRE "
+            "outputs — comparison only; never recalculates or invents conclusions (no BUY/SELL)."
+        ),
+        "sources": [
+            "FIRE-01",
+            "FIRE-02",
+            "FIRE-03",
+            "FIRE-04",
+            "FIRE-05",
+            "FIRE-06",
+            "IO-01 collectors",
+            "FKB",
+        ],
+        "kind": "office",
+        "module": "comparative_intelligence.production",
+    },
+    {
         "id": "ite_thesis",
         "name": "Investment Thesis Office",
         "group": "offices",
