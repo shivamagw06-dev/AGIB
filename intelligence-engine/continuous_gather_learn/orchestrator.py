@@ -496,6 +496,22 @@ def run_cycle(
         except Exception:
             pass
 
+    # IO V1.3.1 — Morning Snapshot Builder (soft). Never blocks CGL/Ask.
+    try:
+        from investment_office.morning_snapshot import after_cgl_cycle
+
+        run["investment_office_snapshot"] = after_cgl_cycle(run)
+        try:
+            cgl_persist.put_run(run)
+        except Exception:
+            pass
+    except Exception as exc:  # noqa: BLE001
+        run["investment_office_snapshot"] = {
+            "ok": False,
+            "error": str(exc)[:200],
+            "soft_wire": True,
+        }
+
     return run
 
 

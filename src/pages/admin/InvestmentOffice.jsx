@@ -127,22 +127,33 @@ export default function InvestmentOfficeAdmin() {
     return () => clearInterval(id);
   }, []);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async ({ silent } = {}) => {
+    if (!silent) setLoading(true);
     setError('');
     try {
       const data = await getInvestmentOfficeOverview();
       setDesk(data);
+      return data;
     } catch (err) {
       setError(err?.message || 'Failed to load Investment Office');
+      return null;
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  // While snapshot is building, poll the fast overview (no heavy recompute on server).
+  useEffect(() => {
+    if (!desk?.building) return undefined;
+    const id = setInterval(() => {
+      load({ silent: true });
+    }, 4000);
+    return () => clearInterval(id);
+  }, [desk?.building, load]);
 
   const header = desk?.header || {};
   const date = header.date || {};
@@ -181,8 +192,14 @@ export default function InvestmentOfficeAdmin() {
     setBusy('refresh');
     setError('');
     try {
-      const res = await refreshInvestmentOfficeMorning();
-      setDesk(res?.overview || (await getInvestmentOfficeOverview()));
+      const res = await refreshInvestmentOfficeMorning({ wait: false });
+      // Keep serving current snapshot; mark building so poll picks up the new one.
+      setDesk((prev) => ({
+        ...(res?.overview || prev || {}),
+        building: true,
+        refresh_job: { job_id: res?.job_id, status: res?.status },
+      }));
+      setTimeout(() => load({ silent: true }), 2500);
     } catch (err) {
       setError(err?.message || 'Refresh failed');
     } finally {
@@ -197,11 +214,13 @@ export default function InvestmentOfficeAdmin() {
       const res = await generateInvestmentOfficeMorningBrief();
       setDesk((prev) => ({
         ...(prev || {}),
+        building: true,
         executive_brief: res.executive_brief || prev?.executive_brief,
         ai_summary: res.ai_summary || prev?.ai_summary,
         priorities: res.priorities || prev?.priorities,
         top_summary: res.top_summary || prev?.top_summary,
       }));
+      setTimeout(() => load({ silent: true }), 2500);
     } catch (err) {
       setError(err?.message || 'Brief generation failed');
     } finally {
@@ -309,6 +328,13 @@ export default function InvestmentOfficeAdmin() {
           <div className="io-section flex items-start gap-2 border-[var(--io-red)] bg-[var(--io-red-bg)] text-sm text-[var(--io-red)]">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
             <span>{error}</span>
+          </div>
+        ) : null}
+
+        {desk?.building ? (
+          <div className="io-section text-sm text-[var(--io-muted)]">
+            Preparing morning snapshot in the background (ICF/IEP/CGL off the request path). This page
+            will update automatically.
           </div>
         ) : null}
 

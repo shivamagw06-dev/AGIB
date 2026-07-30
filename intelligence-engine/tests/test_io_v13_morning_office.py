@@ -1,4 +1,4 @@
-"""AGI V1.3 — Institutional Morning Office tests."""
+"""AGI V1.3 / V1.3.1 — Institutional Morning Office tests (snapshot hot path)."""
 
 from __future__ import annotations
 
@@ -18,6 +18,7 @@ from investment_office.v13_schema import (
     POLICY,
     RESEARCH_QUEUE_STAGES,
 )
+from investment_office.morning_snapshot import put_snapshot, reset_for_tests
 from investment_office.production import (
     calendar_v13,
     daily_brief,
@@ -29,6 +30,68 @@ from investment_office.production import (
     research_queue_v13,
     soft_slice_morning_office,
 )
+
+
+def setup_module():
+    reset_for_tests()
+    put_snapshot(
+        {
+            "ok": True,
+            "enabled": True,
+            "admin_only": True,
+            "workstream_id": IO_V13_WORKSTREAM_ID,
+            "product": IO_V13_PRODUCT,
+            "platform": IO_V13_PLATFORM,
+            "version": IO_V13_VERSION,
+            "mission": MISSION,
+            "role": "desk",
+            "policy": POLICY,
+            "generated_at": "2026-07-30T00:00:00Z",
+            "header": {
+                "greeting": "Good Morning",
+                "title": "Investment Office",
+                "subtitle": "Institutional Daily Briefing",
+                "date": {"weekday": "Thursday"},
+                "research_queue_count": 2,
+            },
+            "top_summary": {
+                "market_mood": "Neutral",
+                "global_risk": "Moderate",
+                "research_queue": 2,
+                "companies_updated_overnight": 1,
+                "reports_refreshed": 0,
+                "critical_alerts": 0,
+                "macro_events_today": 0,
+                "earnings_today": 0,
+                "research_ready": None,
+                "institutional_coverage_complete": 1,
+            },
+            "executive_brief": {"narrative": "Seeded brief", "bullets": ["a"]},
+            "priorities": [],
+            "overnight_activity": [],
+            "research_queue": {
+                "count": 2,
+                "stages": {s: 0 for s in RESEARCH_QUEUE_STAGES},
+                "items": [],
+            },
+            "opportunities": [],
+            "market_summary": {},
+            "macro": {"todays_events": []},
+            "calendar": {"earnings_today": []},
+            "portfolio_monitor": {},
+            "sector_monitor": [],
+            "metrics": {},
+            "analyst_workspace": {"assigned_companies": [], "pending_reviews": []},
+            "investment_calendar": {"today": [], "this_week": [], "macro": []},
+            "ai_summary": {"text": "Seeded", "issues_recommendations": False},
+            "actions": ["refresh_morning_office", "open_knowledge_operations"],
+            "links": {
+                "knowledge_operations": "/admin/knowledge-operations",
+                "research_queue": "/admin/investment-office#research-queue",
+            },
+        },
+        trigger="test_suite",
+    )
 
 
 def test_io_v13_identity():
@@ -43,6 +106,7 @@ def test_io_v13_identity():
     assert overview["policy"]["issues_recommendations"] is False
     assert "Morning Office" in MISSION or "morning" in MISSION.lower()
     assert POLICY["monitoring_only"] is True
+    assert overview.get("building") is not True
 
 
 def test_overview_has_required_surfaces():
@@ -86,6 +150,7 @@ def test_overview_has_required_surfaces():
     assert overview["header"]["title"] == "Investment Office"
     assert overview["links"]["knowledge_operations"] == "/admin/knowledge-operations"
     assert "open_knowledge_operations" in overview["actions"]
+    assert overview.get("cache", {}).get("source") == "morning_snapshot"
 
 
 def test_research_queue_stages():
@@ -118,9 +183,9 @@ def test_morning_slices_and_mutations():
     assert cal["ok"] is True
     assert "earnings_today" in cal
 
-    refreshed = refresh_morning_office()
+    refreshed = refresh_morning_office(wait=False)
     assert refreshed["ok"] is True
-    assert "overview" in refreshed
+    assert refreshed.get("status") in {"queued", "already_running", "running", "completed"}
 
     gen = generate_morning_brief()
     assert gen["ok"] is True

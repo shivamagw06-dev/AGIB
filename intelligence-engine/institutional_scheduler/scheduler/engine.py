@@ -248,6 +248,17 @@ class InstitutionalScheduler:
                     "error": str(exc)[:200],
                     "soft_wire": True,
                 }
+            # Soft-wire: Investment Office morning snapshot for interactive desk.
+            try:
+                from investment_office.morning_snapshot import after_scheduler_ready as io_after_ready
+
+                result["investment_office_snapshot"] = io_after_ready(result)
+            except Exception as exc:
+                result["investment_office_snapshot"] = {
+                    "ok": False,
+                    "error": str(exc)[:200],
+                    "soft_wire": True,
+                }
         else:
             result["research_office"] = {
                 "status": "skipped",

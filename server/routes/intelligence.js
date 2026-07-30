@@ -2164,21 +2164,24 @@ export default function createIntelligenceRouter() {
       return res.status(502).json({ error: err?.message || 'Investment Office action failed' });
     }
   };
-  router.get('/investment-office/overview', ioMorningGet('/v1/investment-office/overview'));
-  router.get('/investment-office/morning-office', ioMorningGet('/v1/investment-office/morning-office'));
-  router.get('/investment-office/daily-brief', ioMorningGet('/v1/investment-office/daily-brief'));
-  router.get('/investment-office/research-queue', ioMorningGet('/v1/investment-office/research-queue', 120_000));
-  router.get('/investment-office/opportunities', ioMorningGet('/v1/investment-office/opportunities', 120_000));
-  router.get('/investment-office/market-summary', ioMorningGet('/v1/investment-office/market-summary', 90_000));
-  router.get('/investment-office/macro', ioMorningGet('/v1/investment-office/macro', 90_000));
-  router.get('/investment-office/calendar', ioMorningGet('/v1/investment-office/calendar', 90_000));
-  router.get('/investment-office/portfolio-monitor', ioMorningGet('/v1/investment-office/portfolio-monitor', 120_000));
-  router.get('/investment-office/sector-monitor', ioMorningGet('/v1/investment-office/sector-monitor', 90_000));
-  router.get('/investment-office/metrics', ioMorningGet('/v1/investment-office/metrics', 90_000));
-  router.post('/investment-office/refresh', ioMorningPost('/v1/investment-office/refresh'));
+  // V1.3.1 — overview is snapshot-backed (fast). Heavy rebuilds via POST /refresh (async).
+  router.get('/investment-office/overview', ioMorningGet('/v1/investment-office/overview', 30_000));
+  router.get('/investment-office/morning-office', ioMorningGet('/v1/investment-office/morning-office', 30_000));
+  router.get('/investment-office/daily-brief', ioMorningGet('/v1/investment-office/daily-brief', 30_000));
+  router.get('/investment-office/research-queue', ioMorningGet('/v1/investment-office/research-queue', 30_000));
+  router.get('/investment-office/opportunities', ioMorningGet('/v1/investment-office/opportunities', 30_000));
+  router.get('/investment-office/market-summary', ioMorningGet('/v1/investment-office/market-summary', 30_000));
+  router.get('/investment-office/macro', ioMorningGet('/v1/investment-office/macro', 30_000));
+  router.get('/investment-office/calendar', ioMorningGet('/v1/investment-office/calendar', 30_000));
+  router.get('/investment-office/portfolio-monitor', ioMorningGet('/v1/investment-office/portfolio-monitor', 30_000));
+  router.get('/investment-office/sector-monitor', ioMorningGet('/v1/investment-office/sector-monitor', 30_000));
+  router.get('/investment-office/metrics', ioMorningGet('/v1/investment-office/metrics', 30_000));
+  router.get('/investment-office/snapshot', ioMorningGet('/v1/investment-office/snapshot', 15_000));
+  router.get('/investment-office/system-health', ioMorningGet('/v1/investment-office/system-health', 15_000));
+  router.post('/investment-office/refresh', ioMorningPost('/v1/investment-office/refresh', 60_000));
   router.post(
     '/investment-office/generate-morning-brief',
-    ioMorningPost('/v1/investment-office/generate-morning-brief')
+    ioMorningPost('/v1/investment-office/generate-morning-brief', 60_000)
   );
 
   // CIO-01 — Comparative Intelligence Office (cross-company orchestration)

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import time
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
 from copy import deepcopy
@@ -42,11 +43,15 @@ def _soft(fn, default=None):
 
 
 def _soft_timeout(fn, default=None, timeout_s: float = 8.0):
-    """Run soft dependency with a hard wall-clock bound (cold engines / heavy IOL)."""
+    """Run soft dependency with a hard wall-clock bound (cold engines / heavy IOL).
+
+    Important: on timeout we must not block in ThreadPoolExecutor.__exit__
+    (default shutdown waits for the hung worker).
+    """
+    pool = ThreadPoolExecutor(max_workers=1)
     try:
-        with ThreadPoolExecutor(max_workers=1) as pool:
-            fut = pool.submit(fn)
-            return fut.result(timeout=timeout_s)
+        fut = pool.submit(fn)
+        return fut.result(timeout=timeout_s)
     except FuturesTimeout:
         if default is not None:
             return default
@@ -55,6 +60,8 @@ def _soft_timeout(fn, default=None, timeout_s: float = 8.0):
         if default is not None:
             return default
         return {"_ok": False, "error": str(exc)[:200]}
+    finally:
+        pool.shutdown(wait=False, cancel_futures=True)
 
 
 def _weekday_date(dt: Optional[datetime] = None) -> Dict[str, str]:
@@ -459,8 +466,37 @@ def _metrics(desk: Dict[str, Any], knowledge: Dict[str, Any], queue: Dict[str, A
     }
 
 
-def build_morning_overview(*, force: bool = False) -> Dict[str, Any]:
+def build_morning_overview(
+    *,
+    force: bool = False,
+    persist_snapshot: bool = True,
+    allow_live_rebuild: bool = False,
+) -> Dict[str, Any]:
+    """Morning Office aggregate.
+
+    Hot path (force=False): return durable/warm precomputed snapshot only.
+    Cold first-boot without a snapshot: optional soft live rebuild (allow_live_rebuild)
+    or a lightweight building placeholder — never block the UI on ICF/IEP/CGL.
+    """
     if not force:
+        try:
+            from investment_office.morning_snapshot import get_snapshot
+
+            snap = get_snapshot()
+            if isinstance(snap, dict) and snap.get("ok"):
+                out = deepcopy(snap)
+                out["cache"] = {
+                    "hit": True,
+                    "source": "morning_snapshot",
+                    "ttl_s": _OVERVIEW_CACHE_TTL_S,
+                }
+                out["delivery"] = out.get("delivery") or {
+                    "mode": "snapshot",
+                    "class": "morning_brief",
+                }
+                return out
+        except Exception:
+            pass
         with _OVERVIEW_CACHE_LOCK:
             payload = _OVERVIEW_CACHE.get("payload")
             at = float(_OVERVIEW_CACHE.get("at") or 0.0)
@@ -470,20 +506,110 @@ def build_morning_overview(*, force: bool = False) -> Dict[str, Any]:
                     "hit": True,
                     "age_s": round(time.time() - at, 2),
                     "ttl_s": _OVERVIEW_CACHE_TTL_S,
+                    "source": "process_ttl",
                 }
                 return cached
+        if not allow_live_rebuild:
+            # Kick an async rebuild and return a fast placeholder for first paint.
+            # Skip auto-enqueue under pytest to keep unit tests deterministic/fast.
+            if not os.getenv("PYTEST_CURRENT_TEST") and os.getenv("IO_AUTO_SNAPSHOT", "1") != "0":
+                try:
+                    from investment_office.morning_snapshot import enqueue_refresh
+
+                    enqueue_refresh(trigger="overview_miss", wait=False)
+                except Exception:
+                    pass
+            date_info = _weekday_date()
+            return {
+                "ok": True,
+                "enabled": True,
+                "admin_only": True,
+                "building": True,
+                "workstream_id": IO_V13_WORKSTREAM_ID,
+                "product": IO_V13_PRODUCT,
+                "platform": IO_V13_PLATFORM,
+                "version": IO_V13_VERSION,
+                "spec": IO_V13_SPEC,
+                "mission": MISSION,
+                "role": ROLE,
+                "policy": POLICY,
+                "generated_at": _now(),
+                "header": {
+                    "greeting": "Good Morning",
+                    "date": date_info,
+                    "title": "Investment Office",
+                    "subtitle": "Institutional Daily Briefing",
+                    "current_time": _now(),
+                    "market_countdown": None,
+                    "next_event": None,
+                    "research_queue_count": 0,
+                },
+                "top_summary": {
+                    "market_mood": "—",
+                    "global_risk": "—",
+                    "research_queue": 0,
+                    "companies_updated_overnight": 0,
+                    "reports_refreshed": 0,
+                    "critical_alerts": 0,
+                    "macro_events_today": 0,
+                    "earnings_today": 0,
+                    "research_ready": None,
+                    "institutional_coverage_complete": None,
+                },
+                "executive_brief": {
+                    "title": "Morning Executive Brief",
+                    "narrative": "Preparing institutional morning snapshot — overnight pipeline may still be warming.",
+                    "bullets": [
+                        "Snapshot rebuild queued.",
+                        "Heavy ICF/IEP/CGL scans run off the request path.",
+                    ],
+                    "estimated_workload_hours": None,
+                },
+                "priorities": [],
+                "overnight_activity": [],
+                "research_queue": {"count": 0, "stages": {s: 0 for s in RESEARCH_QUEUE_STAGES}, "items": []},
+                "opportunities": [],
+                "market_summary": {},
+                "macro": {"todays_events": [], "sources": []},
+                "calendar": {"earnings_today": []},
+                "portfolio_monitor": {"issues_recommendations": False},
+                "sector_monitor": [],
+                "metrics": {},
+                "analyst_workspace": {"assigned_companies": [], "pending_reviews": []},
+                "investment_calendar": {"today": [], "this_week": [], "macro": []},
+                "ai_summary": {
+                    "text": "Morning snapshot is building. Refresh in a moment.",
+                    "issues_recommendations": False,
+                },
+                "actions": [
+                    "refresh_morning_office",
+                    "open_knowledge_operations",
+                ],
+                "links": {
+                    "knowledge_operations": "/admin/knowledge-operations",
+                    "research_queue": "/admin/investment-office#research-queue",
+                    "macro": "/macro-intelligence",
+                    "portfolio": "/portfolio",
+                },
+                "delivery": {"mode": "building_placeholder", "class": "morning_brief"},
+                "cache": {"hit": False, "source": "placeholder"},
+            }
 
     desk = _soft(_io_desk, default={})
     if not isinstance(desk, dict):
         desk = {}
-    # Parallelize the three slow soft deps when cache misses.
-    with ThreadPoolExecutor(max_workers=3) as pool:
+    # Parallelize the three slow soft deps (builder / force path only).
+    # Do not wait on hung workers at shutdown — same contract as _soft_timeout.
+    pool = ThreadPoolExecutor(max_workers=3)
+    try:
         fut_iol = pool.submit(_iol_morning)
         fut_cgl = pool.submit(_cgl)
         fut_knowledge = pool.submit(_knowledge_kpis)
         iol = fut_iol.result()
         cgl = fut_cgl.result()
         knowledge = fut_knowledge.result()
+    finally:
+        pool.shutdown(wait=False, cancel_futures=True)
     if not isinstance(iol, dict):
         iol = {}
     if not isinstance(cgl, dict):
@@ -604,12 +730,21 @@ def build_morning_overview(*, force: bool = False) -> Dict[str, Any]:
         },
         "iol_available": not bool(iol.get("error")),
         "desk_enabled": bool(desk.get("enabled")),
-        "cache": {"hit": False, "ttl_s": _OVERVIEW_CACHE_TTL_S},
+        "building": False,
+        "delivery": {"mode": "live_rebuild", "class": "morning_brief"},
+        "cache": {"hit": False, "ttl_s": _OVERVIEW_CACHE_TTL_S, "source": "live_rebuild"},
     }
 
     with _OVERVIEW_CACHE_LOCK:
         _OVERVIEW_CACHE["at"] = time.time()
         _OVERVIEW_CACHE["payload"] = deepcopy(out)
+    if persist_snapshot:
+        try:
+            from investment_office.morning_snapshot import put_snapshot
+
+            put_snapshot(out, trigger="live_rebuild" if force else "cold_bootstrap")
+        except Exception:
+            pass
     return out
 
 
@@ -686,33 +821,40 @@ def slice_overview(key: str) -> Dict[str, Any]:
     return mapping[key]
 
 
-def refresh_morning_office() -> Dict[str, Any]:
-    """Force rebuild of the morning desk aggregate."""
-    try:
-        from investment_office.production import dashboard
+def refresh_morning_office(*, wait: bool = False) -> Dict[str, Any]:
+    """Queue (default) or wait for morning snapshot rebuild — never blocks UI by default.
 
-        dashboard(ui_home=None)
-    except Exception:
-        pass
-    overview = build_morning_overview(force=True)
+    Does not run IO desk / ICF / IEP / CGL on the request path. The snapshot builder
+    pulls those soft deps when the background job (or wait=True) runs.
+    """
+    from investment_office.morning_snapshot import enqueue_refresh, get_snapshot
+
+    result = enqueue_refresh(trigger="admin_refresh", wait=wait)
     return {
-        "ok": True,
+        **result,
         "refreshed_at": _now(),
-        "overview": overview,
-        "message": "Morning Office refreshed",
+        "overview": get_snapshot() if not wait else result.get("overview") or get_snapshot(),
+        "message": result.get("message")
+        or ("Morning snapshot rebuilt" if wait else "Morning snapshot rebuild queued"),
     }
 
 
 def generate_morning_brief() -> Dict[str, Any]:
-    """Regenerate executive + AI morning brief narratives."""
-    overview = build_morning_overview(force=True)
+    """Regenerate executive + AI morning brief into a new snapshot (async-friendly)."""
+    from investment_office.morning_snapshot import enqueue_refresh, get_snapshot
+
+    result = enqueue_refresh(trigger="generate_morning_brief", wait=False)
+    snap = get_snapshot() or {}
     return {
         "ok": True,
         "generated_at": _now(),
-        "executive_brief": overview.get("executive_brief"),
-        "ai_summary": overview.get("ai_summary"),
-        "priorities": overview.get("priorities"),
-        "top_summary": overview.get("top_summary"),
+        "status": result.get("status"),
+        "job_id": result.get("job_id"),
+        "executive_brief": snap.get("executive_brief"),
+        "ai_summary": snap.get("ai_summary"),
+        "priorities": snap.get("priorities"),
+        "top_summary": snap.get("top_summary"),
         "policy": POLICY,
         "issues_recommendations": False,
+        "message": "Brief regeneration queued against morning snapshot pipeline",
     }
