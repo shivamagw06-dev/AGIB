@@ -10183,6 +10183,38 @@ async def institutional_portfolio_object_get(portfolio_id: str):
     return get_institutional_portfolio(portfolio_id)
 
 
+# --- CIO-01 Institutional Portfolio Decision System (referential; no company mutation) ---
+
+
+@router.get("/portfolio-decision/health")
+async def institutional_portfolio_decision_health():
+    from institutional_portfolio_decision.production import health
+
+    return health()
+
+
+@router.post("/portfolio-decision")
+async def institutional_portfolio_decision_post(payload: dict[str, Any] = Body(default={})):
+    from institutional_portfolio_decision.production import decide_portfolio
+
+    return decide_portfolio(payload or {})
+
+
+@router.get("/portfolio-decision/{portfolio_id}")
+async def institutional_portfolio_decision_get(
+    portfolio_id: str,
+    refresh: bool = True,
+    include_history: bool = False,
+):
+    from institutional_portfolio_decision.production import get_portfolio_decision
+
+    return get_portfolio_decision(
+        portfolio_id,
+        refresh=refresh,
+        include_history=include_history,
+    )
+
+
 # --- Company Monitoring System V1 (continuous living analyst; additive) ---
 
 

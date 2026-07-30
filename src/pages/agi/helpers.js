@@ -4,7 +4,7 @@ export const NAV_ITEMS = [
   { to: '/agi', label: 'Dashboard', end: true },
   { to: '/agi/ask', label: 'Ask AGI' },
   { to: '/agi/companies', label: 'Companies' },
-  { to: '/agi/portfolio', label: 'Portfolio' },
+  { to: '/agi/portfolio', label: 'Investment Office' },
   { to: '/agi/markets', label: 'Markets' },
   { to: '/agi/research', label: 'Research' },
   { to: '/agi/watchlists', label: 'Watchlists' },

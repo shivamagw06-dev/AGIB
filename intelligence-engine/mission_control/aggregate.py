@@ -1656,6 +1656,15 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("institutional_portfolio")
     except Exception:
         out["institutional_portfolio"] = None
+
+    # CIO-01 — Institutional Portfolio Decision System (Portfolio Command Center).
+    try:
+        from institutional_portfolio_decision.production import soft_slice_mission_control as cio_soft
+
+        out["institutional_portfolio_decision"] = cio_soft()
+        out["sources"].append("institutional_portfolio_decision")
+    except Exception:
+        out["institutional_portfolio_decision"] = None
     return out
 
 

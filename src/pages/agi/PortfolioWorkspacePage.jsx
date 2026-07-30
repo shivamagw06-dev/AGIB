@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   createPortfolioOfficePortfolio,
+  getPortfolioDecision,
   getPortfolioGraph,
   getPortfolioOfficeDashboard,
   getPortfolioOfficeHoldings,
@@ -27,6 +28,7 @@ export default function PortfolioWorkspacePage() {
   const [holdings, setHoldings] = useState(DEMO_HOLDINGS);
   const [meta, setMeta] = useState({ name: 'AGI Desk Demo', health: 'Calm', coverage: '—' });
   const [portfolioGraph, setPortfolioGraph] = useState(null);
+  const [portfolioDecision, setPortfolioDecision] = useState(null);
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -74,10 +76,13 @@ export default function PortfolioWorkspacePage() {
           coverage: `${holds.length || DEMO_HOLDINGS.length} names`,
         });
 
-        const graph = await getPortfolioGraph('agi-core-equity', {
-          includeCompanyGraphs: true,
-        }).catch(() => null);
-        if (active) setPortfolioGraph(graph && graph.ok !== false ? graph : null);
+        const [graph, decision] = await Promise.all([
+          getPortfolioGraph('agi-core-equity', { includeCompanyGraphs: true }).catch(() => null),
+          getPortfolioDecision('agi-core-equity', { refresh: true }).catch(() => null),
+        ]);
+        if (!active) return;
+        setPortfolioGraph(graph && graph.ok !== false ? graph : null);
+        setPortfolioDecision(decision && decision.ok !== false ? decision : null);
       } catch (err) {
         if (active) setError(err?.message || 'Portfolio unavailable — showing desk demo');
       }
@@ -91,26 +96,35 @@ export default function PortfolioWorkspacePage() {
   const largest = concentration.largest_position || {};
   const sectorExposures = (portfolioGraph?.exposures || []).filter((e) => e.dimension === 'sector');
   const risks = portfolioGraph?.risks || [];
+  const decision = portfolioDecision?.decision || null;
+  const scorecard = decision?.scorecard || {};
+  const monitoring = decision?.monitoring_plan || {};
 
   return (
     <div>
-      <h1 className="agi-greeting">Portfolio</h1>
+      <h1 className="agi-greeting">Investment Office</h1>
       <p className="agi-lede">
-        Think like a CIO — overall quality, exposure, research coverage, and the portfolio knowledge
-        graph that connects holdings to company decisions.
+        Portfolio decisioning — what should change, which allocations move, and which holdings
+        require review. Company recommendations stay immutable; the portfolio decides separately.
       </p>
 
       {error && <div className="agi-error">{error}</div>}
 
       <div className="agi-stat-row">
         <div className="agi-stat">
-          <div className="agi-stat-label">Portfolio Health</div>
-          <div className="agi-stat-value">{meta.health}</div>
+          <div className="agi-stat-label">Recommendation</div>
+          <div className="agi-stat-value" style={{ fontSize: '1.05rem' }}>
+            {decision?.recommendation || meta.health}
+          </div>
         </div>
         <div className="agi-stat">
-          <div className="agi-stat-label">Research Coverage</div>
-          <div className="agi-stat-value" style={{ fontSize: '1.15rem' }}>
-            {meta.coverage}
+          <div className="agi-stat-label">Confidence</div>
+          <div className="agi-stat-value">{decision?.confidence ?? '—'}</div>
+        </div>
+        <div className="agi-stat">
+          <div className="agi-stat-label">Posture</div>
+          <div className="agi-stat-value" style={{ fontSize: '1.05rem' }}>
+            {decision?.investment_posture || '—'}
           </div>
         </div>
         <div className="agi-stat">
@@ -119,15 +133,104 @@ export default function PortfolioWorkspacePage() {
             {concentration.hhi != null ? Number(concentration.hhi).toFixed(2) : '—'}
           </div>
         </div>
-        <div className="agi-stat">
-          <div className="agi-stat-label">Avg correlation</div>
-          <div className="agi-stat-value" style={{ fontSize: '1.15rem' }}>
-            {portfolioGraph?.correlations?.average != null
-              ? Number(portfolioGraph.correlations.average).toFixed(2)
-              : '—'}
-          </div>
-        </div>
       </div>
+
+      <section className="agi-section" style={{ marginTop: '1.5rem' }}>
+        <div className="agi-section-head">
+          <h2>Portfolio Decision</h2>
+          <span className="agi-list-meta">CIO-01 · referential company decisions</span>
+        </div>
+        {!decision ? (
+          <div className="agi-empty">Portfolio decision unavailable.</div>
+        ) : (
+          <>
+            <p className="agi-list-meta" style={{ marginBottom: '0.75rem' }}>
+              {(decision.lineage || []).join(' → ')}
+              {decision.mutates_company_decisions === false
+                ? ' · company decisions immutable'
+                : ''}
+            </p>
+
+            <h3 style={{ fontFamily: 'var(--agi-display)', fontSize: '1.1rem' }}>
+              Allocation changes
+            </h3>
+            <ul className="agi-list" style={{ marginTop: '0.5rem' }}>
+              {(decision.allocation_actions || []).length ? (
+                (decision.allocation_actions || []).map((a) => (
+                  <li key={`${a.ticker}-${a.from_weight}-${a.to_weight}`}>
+                    <div className="agi-list-title">
+                      {a.ticker}: {formatPct(a.from_weight)} → {formatPct(a.to_weight)}
+                    </div>
+                    <div className="agi-list-meta">{a.reason}</div>
+                  </li>
+                ))
+              ) : (
+                <li>
+                  <div className="agi-list-meta">No allocation changes required.</div>
+                </li>
+              )}
+            </ul>
+
+            <h3 style={{ fontFamily: 'var(--agi-display)', fontSize: '1.1rem', marginTop: '1rem' }}>
+              Exposure changes
+            </h3>
+            <ul className="agi-list" style={{ marginTop: '0.5rem' }}>
+              {(decision.exposure_actions || []).map((a) => (
+                <li key={`${a.dimension}-${a.name}-${a.action}`}>
+                  <div className="agi-list-title">
+                    [{a.action}] {a.dimension}/{a.name}: {formatPct(a.from_weight)} →{' '}
+                    {formatPct(a.to_weight)}
+                  </div>
+                  <div className="agi-list-meta">{a.reason}</div>
+                </li>
+              ))}
+            </ul>
+
+            <h3 style={{ fontFamily: 'var(--agi-display)', fontSize: '1.1rem', marginTop: '1rem' }}>
+              Decision scorecard
+            </h3>
+            <div className="agi-stat-row" style={{ marginTop: '0.5rem' }}>
+              {[
+                ['Diversification', scorecard.sector_diversification],
+                ['Allocation', scorecard.allocation_balance],
+                ['Risk', scorecard.risk],
+                ['Agreement', scorecard.decision_agreement],
+                ['Coverage', scorecard.coverage],
+              ].map(([label, value]) => (
+                <div key={label} className="agi-stat">
+                  <div className="agi-stat-label">{label}</div>
+                  <div className="agi-stat-value" style={{ fontSize: '1.1rem' }}>
+                    {value ?? '—'}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <h3 style={{ fontFamily: 'var(--agi-display)', fontSize: '1.1rem', marginTop: '1rem' }}>
+              Monitoring plan
+            </h3>
+            <ul className="agi-list" style={{ marginTop: '0.5rem' }}>
+              {(monitoring.required_reviews || []).map((item) => (
+                <li key={`rev-${item}`}>
+                  <div className="agi-list-title">{item}</div>
+                </li>
+              ))}
+              {(monitoring.committee_items || []).map((item) => (
+                <li key={`com-${item}`}>
+                  <div className="agi-list-title">{item}</div>
+                  <div className="agi-list-meta">Committee</div>
+                </li>
+              ))}
+              {!(monitoring.required_reviews || []).length &&
+              !(monitoring.committee_items || []).length ? (
+                <li>
+                  <div className="agi-list-meta">No pending reviews.</div>
+                </li>
+              ) : null}
+            </ul>
+          </>
+        )}
+      </section>
 
       <div className="agi-grid-2" style={{ marginTop: '1.5rem' }}>
         <section className="agi-section">

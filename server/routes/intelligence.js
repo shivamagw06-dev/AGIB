@@ -2731,6 +2731,46 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // CIO-01 — Institutional Portfolio Decision System
+  router.get('/portfolio-decision/health', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/portfolio-decision/health', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'portfolio decision health failed' });
+    }
+  });
+  router.post('/portfolio-decision', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/portfolio-decision', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 60_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'portfolio decision failed' });
+    }
+  });
+  router.get('/portfolio-decision/:portfolioId', async (req, res) => {
+    try {
+      const qs = new URLSearchParams();
+      if (req.query?.refresh !== undefined) qs.set('refresh', String(req.query.refresh));
+      if (req.query?.include_history !== undefined) {
+        qs.set('include_history', String(req.query.include_history));
+      }
+      const suffix = qs.toString() ? `?${qs}` : '';
+      const result = await engineFetch(
+        `/v1/portfolio-decision/${encodeURIComponent(req.params.portfolioId)}${suffix}`,
+        { timeoutMs: 60_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'portfolio decision get failed' });
+    }
+  });
+
   // IDS-02 — Decision Calibration & Explainability
   router.get('/calibration/health', async (_req, res) => {
     try {

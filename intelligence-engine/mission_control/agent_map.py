@@ -719,6 +719,24 @@ _CATALOG: list[dict[str, Any]] = [
         "module": "institutional_portfolio.production",
     },
     {
+        "id": "institutional_portfolio_decision",
+        "name": "Institutional Portfolio Decision System (CIO-01)",
+        "group": "publication",
+        "responsibility": (
+            "Phase 4.2 — Deterministic InstitutionalPortfolioDecision from portfolio graph + "
+            "referential company decisions. Allocation/exposure actions, portfolio calibration, "
+            "monitoring plan. Never mutates company decisions. No LLM / no trade execution."
+        ),
+        "sources": [
+            "InstitutionalPortfolio",
+            "Company InstitutionalDecision (referential)",
+            "Portfolio risks",
+            "Exposures",
+        ],
+        "kind": "portfolio_decision",
+        "module": "institutional_portfolio_decision.production",
+    },
+    {
         "id": "ite_thesis",
         "name": "Investment Thesis Office",
         "group": "offices",

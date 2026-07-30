@@ -1220,6 +1220,24 @@ export const getInstitutionalPortfolioObject = (portfolioId = 'agi-core-equity')
     timeoutMs: 60_000,
   });
 
+/** CIO-01 — Institutional Portfolio Decision System */
+export const getPortfolioDecisionHealth = () =>
+  intelligenceFetch('/portfolio-decision/health', { timeoutMs: 30_000 });
+export const composePortfolioDecision = (body = {}) =>
+  intelligenceFetch('/portfolio-decision', { method: 'POST', body: body || {}, timeoutMs: 60_000 });
+export const getPortfolioDecision = (
+  portfolioId = 'agi-core-equity',
+  { refresh = true, includeHistory = false } = {}
+) => {
+  const qs = new URLSearchParams();
+  if (refresh) qs.set('refresh', 'true');
+  if (includeHistory) qs.set('include_history', 'true');
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return intelligenceFetch(`/portfolio-decision/${encodeURIComponent(portfolioId)}${suffix}`, {
+    timeoutMs: 60_000,
+  });
+};
+
 /** FG-01 — Forecast & Scenario Graph */
 export const getInstitutionalScenarioHealth = () =>
   intelligenceFetch('/scenario/health', { timeoutMs: 30_000 });

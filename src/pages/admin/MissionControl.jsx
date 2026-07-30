@@ -190,6 +190,10 @@ export default function MissionControl() {
   const monitor = desk?.company_monitor || {};
   const portfolioKnowledge =
     institutional?.institutional_portfolio || desk?.institutional_portfolio || null;
+  const portfolioCommand =
+    institutional?.institutional_portfolio_decision ||
+    desk?.institutional_portfolio_decision ||
+    null;
   const pipeline = desk?.research_pipeline || {};
   const preds = desk?.prediction_intelligence || {};
   const dq = desk?.data_quality || {};
@@ -1307,6 +1311,54 @@ export default function MissionControl() {
               </p>
             </Glass>
           </div>
+        </section>
+
+        {/* Portfolio Command Center — CIO-01 */}
+        <section className="space-y-3">
+          <Kicker>Portfolio Command Center · CIO-01</Kicker>
+          <p className="text-sm text-[var(--io-muted)] max-w-3xl">
+            Deterministic portfolio decisions — allocation drift, exposure drift, critical holdings,
+            and upcoming reviews. Company decisions remain immutable references.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            <Stat
+              label="Decision"
+              value={portfolioCommand?.portfolio_decision?.recommendation || '—'}
+              status={portfolioCommand?.status}
+              hint={
+                portfolioCommand?.portfolio_decision?.confidence != null
+                  ? `Confidence ${portfolioCommand.portfolio_decision.confidence}`
+                  : 'No decision cached'
+              }
+            />
+            <Stat label="Allocation drift" value={portfolioCommand?.allocation_drift ?? '—'} />
+            <Stat label="Exposure drift" value={portfolioCommand?.exposure_drift ?? '—'} />
+            <Stat
+              label="Critical holdings"
+              value={(portfolioCommand?.critical_holdings || []).length || '—'}
+            />
+            <Stat
+              label="Upcoming reviews"
+              value={(portfolioCommand?.upcoming_reviews || []).length || '—'}
+            />
+          </div>
+          <Glass>
+            <p className="text-[11px] uppercase text-[var(--io-caption)]">Critical holdings / reviews</p>
+            <ul className="mt-2 space-y-1 text-xs max-h-36 overflow-auto text-[var(--io-ink-soft)]">
+              {(portfolioCommand?.critical_holdings || []).slice(0, 6).map((t) => (
+                <li key={`ch-${t}`}>Holding: {t}</li>
+              ))}
+              {(portfolioCommand?.upcoming_reviews || []).slice(0, 6).map((t) => (
+                <li key={`ur-${t}`}>Review: {t}</li>
+              ))}
+              {!portfolioCommand ? <li>Portfolio Command Center soft slice unavailable.</li> : null}
+              {portfolioCommand &&
+              !(portfolioCommand.critical_holdings || []).length &&
+              !(portfolioCommand.upcoming_reviews || []).length ? (
+                <li>Run a portfolio decision to populate the command center.</li>
+              ) : null}
+            </ul>
+          </Glass>
         </section>
 
         {/* Portfolio Knowledge Graph — PKG-01 / Phase 4.1 */}
