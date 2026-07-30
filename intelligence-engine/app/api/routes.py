@@ -10618,6 +10618,86 @@ async def multi_portfolio_ask(payload: dict[str, Any] = Body(default={})):
     return ask_scoped(payload or {})
 
 
+# --- PRP-01 Performance & Scale (cache / queue / metrics / Performance Center) ---
+
+
+@router.get("/performance/health")
+async def performance_health():
+    from institutional_performance.production import health
+
+    return health()
+
+
+@router.get("/performance/metrics")
+async def performance_metrics():
+    from institutional_performance.production import metrics_api
+
+    return metrics_api()
+
+
+@router.get("/performance/cache")
+async def performance_cache_stats():
+    from institutional_performance.production import cache_stats
+
+    return cache_stats()
+
+
+@router.post("/performance/cache/get")
+async def performance_cache_get(payload: dict[str, Any] = Body(default={})):
+    from institutional_performance.production import cache_get_api
+
+    return cache_get_api(payload or {})
+
+
+@router.post("/performance/cache/set")
+async def performance_cache_set(payload: dict[str, Any] = Body(default={})):
+    from institutional_performance.production import cache_set_api
+
+    return cache_set_api(payload or {})
+
+
+@router.get("/performance/queue")
+async def performance_queue():
+    from institutional_performance.production import queue_stats_api
+
+    return queue_stats_api()
+
+
+@router.post("/performance/jobs")
+async def performance_enqueue(payload: dict[str, Any] = Body(default={})):
+    from institutional_performance.production import enqueue_job
+
+    return enqueue_job(payload or {})
+
+
+@router.get("/performance/jobs")
+async def performance_list_jobs(limit: int = 40):
+    from institutional_performance.production import list_jobs_api
+
+    return list_jobs_api(limit=limit)
+
+
+@router.get("/performance/jobs/{job_id}")
+async def performance_job(job_id: str):
+    from institutional_performance.production import get_job
+
+    return get_job(job_id)
+
+
+@router.post("/performance/graph/incremental")
+async def performance_graph_incremental(payload: dict[str, Any] = Body(default={})):
+    from institutional_performance.production import graph_incremental_api
+
+    return graph_incremental_api(payload or {})
+
+
+@router.post("/performance/parallel")
+async def performance_parallel(payload: dict[str, Any] = Body(default={})):
+    from institutional_performance.production import parallel_demo
+
+    return parallel_demo(payload or {})
+
+
 # --- Company Monitoring System V1 (continuous living analyst; additive) ---
 
 

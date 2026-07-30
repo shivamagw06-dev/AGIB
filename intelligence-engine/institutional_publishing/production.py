@@ -106,6 +106,16 @@ def generate(payload: Optional[dict[str, Any]] = None) -> dict[str, Any]:
 
     t0 = time.perf_counter()
     body = dict(payload or {})
+    # PRP-01: async publication generation via background job queue
+    try:
+        from institutional_performance.production import maybe_enqueue_publication
+
+        queued = maybe_enqueue_publication(body)
+        if queued is not None:
+            return queued
+    except Exception:
+        pass
+
     # MPC-01: explicit execution context scopes portfolio — compose still never analyzes
     execution_context = body.get("execution_context") or {}
     if not isinstance(execution_context, dict):

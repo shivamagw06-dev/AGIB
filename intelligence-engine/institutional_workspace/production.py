@@ -83,32 +83,93 @@ def get_company_workspace(ticker: str, *, focus: str = "overview") -> dict[str, 
     if not is_enabled():
         return {"ok": False, "enabled": False, "workstream_id": RW_WORKSTREAM_ID}
     t0 = time.perf_counter()
+    # PRP-01: workspace cache (target < 1s)
+    try:
+        from institutional_performance.production import (
+            maybe_get_workspace_cache,
+            record_op_latency,
+        )
+
+        cached = maybe_get_workspace_cache("company", str(ticker).upper(), focus)
+        if isinstance(cached, dict) and cached.get("ok"):
+            elapsed = time.perf_counter() - t0
+            record_op_latency("workspace", elapsed, cached=True)
+            out = dict(cached)
+            out["cached"] = True
+            out["cache_layer"] = "PRP-01"
+            out["latency_ms"] = round(elapsed * 1000.0, 2)
+            return out
+    except Exception:
+        pass
+
     ws = assemble_company_workspace(ticker, focus=focus)
     _CACHE[ws.workspace_id] = ws
-    return {
+    result = {
         "ok": True,
         "workstream_id": RW_WORKSTREAM_ID,
         "workspace": ws.to_dict(),
         "latency_ms": round((time.perf_counter() - t0) * 1000.0, 2),
         "mutates_system_intelligence": False,
         "presentation_only": True,
+        "cached": False,
     }
+    try:
+        from institutional_performance.production import (
+            maybe_set_workspace_cache,
+            record_op_latency,
+        )
+
+        record_op_latency("workspace", time.perf_counter() - t0, cached=False)
+        maybe_set_workspace_cache("company", str(ticker).upper(), focus, value=result)
+    except Exception:
+        pass
+    return result
 
 
 def get_portfolio_workspace(portfolio_id: str = "agi-core-equity", *, focus: str = "overview") -> dict[str, Any]:
     if not is_enabled():
         return {"ok": False, "enabled": False, "workstream_id": RW_WORKSTREAM_ID}
     t0 = time.perf_counter()
+    try:
+        from institutional_performance.production import (
+            maybe_get_workspace_cache,
+            record_op_latency,
+        )
+
+        cached = maybe_get_workspace_cache("portfolio", str(portfolio_id), focus)
+        if isinstance(cached, dict) and cached.get("ok"):
+            elapsed = time.perf_counter() - t0
+            record_op_latency("workspace", elapsed, cached=True)
+            out = dict(cached)
+            out["cached"] = True
+            out["cache_layer"] = "PRP-01"
+            out["latency_ms"] = round(elapsed * 1000.0, 2)
+            return out
+    except Exception:
+        pass
+
     ws = assemble_portfolio_workspace(portfolio_id, focus=focus)
     _CACHE[ws.workspace_id] = ws
-    return {
+    result = {
         "ok": True,
         "workstream_id": RW_WORKSTREAM_ID,
         "workspace": ws.to_dict(),
         "latency_ms": round((time.perf_counter() - t0) * 1000.0, 2),
         "mutates_system_intelligence": False,
         "presentation_only": True,
+        "cached": False,
     }
+    try:
+        from institutional_performance.production import (
+            maybe_set_workspace_cache,
+            record_op_latency,
+        )
+
+        record_op_latency("workspace", time.perf_counter() - t0, cached=False)
+        maybe_set_workspace_cache("portfolio", str(portfolio_id), focus, value=result)
+    except Exception:
+        pass
+    return result
 
 
 def get_committee_workspace() -> dict[str, Any]:

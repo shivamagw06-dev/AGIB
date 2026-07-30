@@ -3255,6 +3255,127 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // PRP-01 — Performance & Scale
+  router.get('/performance/health', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/performance/health', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'performance health failed' });
+    }
+  });
+  router.get('/performance/metrics', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/performance/metrics', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'performance metrics failed' });
+    }
+  });
+  router.get('/performance/cache', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/performance/cache', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'performance cache failed' });
+    }
+  });
+  router.post('/performance/cache/get', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/performance/cache/get', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 20_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'performance cache get failed' });
+    }
+  });
+  router.post('/performance/cache/set', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/performance/cache/set', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 20_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'performance cache set failed' });
+    }
+  });
+  router.get('/performance/queue', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/performance/queue', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'performance queue failed' });
+    }
+  });
+  router.get('/performance/jobs', async (req, res) => {
+    try {
+      const qs = new URLSearchParams();
+      if (req.query.limit) qs.set('limit', String(req.query.limit));
+      const suffix = qs.toString() ? `?${qs}` : '';
+      const result = await engineFetch(`/v1/performance/jobs${suffix}`, { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'performance jobs list failed' });
+    }
+  });
+  router.post('/performance/jobs', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/performance/jobs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 30_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'performance job enqueue failed' });
+    }
+  });
+  router.get('/performance/jobs/:jobId', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/performance/jobs/${encodeURIComponent(req.params.jobId)}`,
+        { timeoutMs: 20_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'performance job get failed' });
+    }
+  });
+  router.post('/performance/graph/incremental', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/performance/graph/incremental', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 30_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'graph incremental failed' });
+    }
+  });
+  router.post('/performance/parallel', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/performance/parallel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 30_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'performance parallel failed' });
+    }
+  });
+
   // ICE-01 — Investment Committee Engine
   router.get('/committee-engine/health', async (_req, res) => {
     try {

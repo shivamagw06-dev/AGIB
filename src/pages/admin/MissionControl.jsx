@@ -210,6 +210,8 @@ export default function MissionControl() {
     institutional?.institutional_publishing || desk?.institutional_publishing || null;
   const platformOps =
     institutional?.institutional_multi_portfolio || desk?.institutional_multi_portfolio || null;
+  const performanceCenter =
+    institutional?.institutional_performance || desk?.institutional_performance || null;
   const pipeline = desk?.research_pipeline || {};
   const preds = desk?.prediction_intelligence || {};
   const dq = desk?.data_quality || {};
@@ -1490,6 +1492,66 @@ export default function MissionControl() {
               {!orchestrationCenter ? <li>Orchestration Center soft slice unavailable.</li> : null}
               {orchestrationCenter && !(orchestrationCenter.recent_queries || []).length ? (
                 <li>Run a Universal Ask query to populate the center.</li>
+              ) : null}
+            </ul>
+          </Glass>
+        </section>
+
+        {/* Performance Center — PRP-01 */}
+        <section className="space-y-3">
+          <Kicker>Performance Center · PRP-01</Kicker>
+          <p className="text-sm text-[var(--io-muted)] max-w-3xl">
+            Production readiness — cache hit rate, P95 latency, slow queries, queue depth, and active
+            workers. Targets: Ask AGI &lt; 2s cached, workspace &lt; 1s, async publications. No new
+            intelligence engines; AGIB v1.0 architecture is frozen.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+            <Stat
+              label="Cache hit rate"
+              value={
+                performanceCenter?.cache_hit_rate != null
+                  ? `${Math.round(Number(performanceCenter.cache_hit_rate) * 100)}%`
+                  : '—'
+              }
+              status={performanceCenter?.status}
+            />
+            <Stat
+              label="P95 latency"
+              value={
+                performanceCenter?.p95_latency_seconds != null
+                  ? `${performanceCenter.p95_latency_seconds}s`
+                  : '—'
+              }
+            />
+            <Stat
+              label="Slow queries"
+              value={(performanceCenter?.slow_queries || []).length}
+            />
+            <Stat label="Queue depth" value={performanceCenter?.queue_depth ?? '—'} />
+            <Stat label="Active workers" value={performanceCenter?.active_workers ?? '—'} />
+            <Stat
+              label="Jobs done"
+              value={performanceCenter?.jobs_completed ?? '—'}
+              hint={
+                performanceCenter?.redis_enabled
+                  ? 'Redis connected'
+                  : performanceCenter
+                    ? 'Memory cache'
+                    : undefined
+              }
+            />
+          </div>
+          <Glass>
+            <p className="text-[11px] uppercase text-[var(--io-caption)]">Slow queries</p>
+            <ul className="mt-2 space-y-1 text-xs max-h-36 overflow-auto text-[var(--io-ink-soft)]">
+              {(performanceCenter?.slow_queries || []).slice(0, 6).map((q, i) => (
+                <li key={`${q.operation}-${q.ts || i}`}>
+                  [{q.operation}] {q.seconds}s{q.cached ? ' (cached)' : ''}
+                </li>
+              ))}
+              {!performanceCenter ? <li>Performance Center soft slice unavailable.</li> : null}
+              {performanceCenter && !(performanceCenter.slow_queries || []).length ? (
+                <li>No slow queries recorded yet — run Ask or workspace loads to sample latency.</li>
               ) : null}
             </ul>
           </Glass>

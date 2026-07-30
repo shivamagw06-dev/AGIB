@@ -889,6 +889,24 @@ _CATALOG: list[dict[str, Any]] = [
         "module": "institutional_multi_portfolio.production",
     },
     {
+        "id": "institutional_performance",
+        "name": "Performance & Scale (PRP-01)",
+        "group": "platform",
+        "responsibility": (
+            "Production Readiness Programme — distributed cache, query/workspace caches, "
+            "parallel orchestration, async publication jobs, incremental graph updates, "
+            "streaming, and Performance Center metrics. No new intelligence engines."
+        ),
+        "sources": [
+            "Redis / in-memory cache",
+            "Background job queue",
+            "Latency samples",
+            "UAG / RW / PUB soft hooks",
+        ],
+        "kind": "production_readiness",
+        "module": "institutional_performance.production",
+    },
+    {
         "id": "ite_thesis",
         "name": "Investment Thesis Office",
         "group": "offices",

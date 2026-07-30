@@ -131,6 +131,33 @@ def ask(payload: Optional[dict[str, Any]] = None) -> dict[str, Any]:
             policy = str(execution_context.get("policy_profile"))
     entities_override = body.get("entities")
 
+    # PRP-01: query cache (Ask AGI < 2s cached)
+    skip_cache = bool(body.get("bypass_cache") or body.get("no_cache"))
+    cache_parts = (
+        question.lower(),
+        portfolio_id,
+        policy,
+        json_safe_entities(entities_override),
+    )
+    if not skip_cache:
+        try:
+            from institutional_performance.production import (
+                maybe_get_query_cache,
+                record_op_latency,
+            )
+
+            cached = maybe_get_query_cache(*cache_parts)
+            if isinstance(cached, dict) and cached.get("ok"):
+                elapsed = time.perf_counter() - t0
+                record_op_latency("ask_cached", elapsed, cached=True)
+                out = dict(cached)
+                out["cached"] = True
+                out["cache_layer"] = "PRP-01"
+                out["latency_ms"] = round(elapsed * 1000.0, 2)
+                return out
+        except Exception:
+            pass
+
     intent_info = classify_intent(question)
     intent = str(intent_info.get("intent") or "Search")
     entities = (
@@ -208,6 +235,12 @@ def ask(payload: Optional[dict[str, Any]] = None) -> dict[str, Any]:
     ctx_out = execution_context if isinstance(execution_context, dict) else None
 
     if not ok:
+        try:
+            from institutional_performance.production import record_op_latency
+
+            record_op_latency("ask", time.perf_counter() - t0, cached=False)
+        except Exception:
+            pass
         return {
             "ok": False,
             "rejected": True,
@@ -224,7 +257,7 @@ def ask(payload: Optional[dict[str, Any]] = None) -> dict[str, Any]:
             "owns_business_state": False,
         }
 
-    return {
+    result = {
         "ok": True,
         "rejected": False,
         "workstream_id": UAG_WORKSTREAM_ID,
@@ -239,7 +272,30 @@ def ask(payload: Optional[dict[str, Any]] = None) -> dict[str, Any]:
         "generates_recommendations": False,
         "owns_business_state": False,
         "stateless": True,
+        "cached": False,
     }
+    try:
+        from institutional_performance.production import (
+            maybe_set_query_cache,
+            record_op_latency,
+        )
+
+        elapsed = time.perf_counter() - t0
+        record_op_latency("ask", elapsed, cached=False)
+        if not skip_cache:
+            maybe_set_query_cache(*cache_parts, value=result)
+    except Exception:
+        pass
+    return result
+
+
+def json_safe_entities(entities_override: Any) -> str:
+    if not entities_override:
+        return ""
+    try:
+        return ",".join(sorted(str(e).upper() for e in entities_override))
+    except Exception:
+        return str(entities_override)
 
 
 def ask_stream(payload: Optional[dict[str, Any]] = None) -> Iterator[dict[str, Any]]:

@@ -1404,6 +1404,38 @@ export const resolvePlatformContext = (body = {}) =>
 export const platformAsk = (body = {}) =>
   intelligenceFetch('/platform/ask', { method: 'POST', body: body || {}, timeoutMs: 90_000 });
 
+/** PRP-01 — Performance & Scale */
+export const getPerformanceHealth = () =>
+  intelligenceFetch('/performance/health', { timeoutMs: 30_000 });
+export const getPerformanceMetrics = () =>
+  intelligenceFetch('/performance/metrics', { timeoutMs: 30_000 });
+export const getPerformanceCache = () =>
+  intelligenceFetch('/performance/cache', { timeoutMs: 30_000 });
+export const getPerformanceQueue = () =>
+  intelligenceFetch('/performance/queue', { timeoutMs: 30_000 });
+export const listPerformanceJobs = (limit = 40) => {
+  const qs = new URLSearchParams();
+  if (limit) qs.set('limit', String(limit));
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return intelligenceFetch(`/performance/jobs${suffix}`, { timeoutMs: 30_000 });
+};
+export const enqueuePerformanceJob = (body = {}) =>
+  intelligenceFetch('/performance/jobs', { method: 'POST', body: body || {}, timeoutMs: 30_000 });
+export const getPerformanceJob = (jobId) =>
+  intelligenceFetch(`/performance/jobs/${encodeURIComponent(jobId)}`, { timeoutMs: 30_000 });
+export const runGraphIncremental = (body = {}) =>
+  intelligenceFetch('/performance/graph/incremental', {
+    method: 'POST',
+    body: body || {},
+    timeoutMs: 30_000,
+  });
+export const runPerformanceParallel = (body = {}) =>
+  intelligenceFetch('/performance/parallel', {
+    method: 'POST',
+    body: body || {},
+    timeoutMs: 30_000,
+  });
+
 /** ICE-01 — Investment Committee Engine */
 export const getCommitteeEngineHealth = () =>
   intelligenceFetch('/committee-engine/health', { timeoutMs: 30_000 });

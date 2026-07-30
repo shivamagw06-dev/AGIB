@@ -1737,6 +1737,15 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("institutional_multi_portfolio")
     except Exception:
         out["institutional_multi_portfolio"] = None
+
+    # PRP-01 — Performance & Scale (Performance Center).
+    try:
+        from institutional_performance.production import soft_slice_mission_control as prp_soft
+
+        out["institutional_performance"] = prp_soft()
+        out["sources"].append("institutional_performance")
+    except Exception:
+        out["institutional_performance"] = None
     return out
 
 
