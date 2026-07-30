@@ -1374,6 +1374,36 @@ export const getPublication = (publicationId) =>
 export const exportPublication = (body = {}) =>
   intelligenceFetch('/publications/export', { method: 'POST', body: body || {}, timeoutMs: 90_000 });
 
+/** MPC-01 — Multi-Portfolio & Client Platform */
+export const getPlatformHealth = () =>
+  intelligenceFetch('/platform/health', { timeoutMs: 30_000 });
+export const listPlatformPortfolios = () =>
+  intelligenceFetch('/portfolios', { timeoutMs: 30_000 });
+export const createPlatformPortfolio = (body = {}) =>
+  intelligenceFetch('/portfolios', { method: 'POST', body: body || {}, timeoutMs: 30_000 });
+export const listPlatformClients = () =>
+  intelligenceFetch('/clients', { timeoutMs: 30_000 });
+export const createPlatformClient = (body = {}) =>
+  intelligenceFetch('/clients', { method: 'POST', body: body || {}, timeoutMs: 30_000 });
+export const resolvePlatformWorkspace = (body = {}) =>
+  intelligenceFetch('/workspaces/resolve', { method: 'POST', body: body || {}, timeoutMs: 30_000 });
+export const getPlatformWorkspace = (workspaceId, params = {}) => {
+  const qs = new URLSearchParams();
+  if (params.portfolioId) qs.set('portfolio_id', params.portfolioId);
+  if (params.clientId) qs.set('client_id', params.clientId);
+  if (params.roleId) qs.set('role_id', params.roleId);
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return intelligenceFetch(`/workspaces/${encodeURIComponent(workspaceId)}${suffix}`, {
+    timeoutMs: 30_000,
+  });
+};
+export const setPlatformPermissions = (body = {}) =>
+  intelligenceFetch('/permissions', { method: 'POST', body: body || {}, timeoutMs: 30_000 });
+export const resolvePlatformContext = (body = {}) =>
+  intelligenceFetch('/platform/context', { method: 'POST', body: body || {}, timeoutMs: 30_000 });
+export const platformAsk = (body = {}) =>
+  intelligenceFetch('/platform/ask', { method: 'POST', body: body || {}, timeoutMs: 90_000 });
+
 /** ICE-01 — Investment Committee Engine */
 export const getCommitteeEngineHealth = () =>
   intelligenceFetch('/committee-engine/health', { timeoutMs: 30_000 });

@@ -7,7 +7,9 @@ import {
   getPublication,
   getResearchWorkspaceCompany,
   getResearchWorkspacePortfolio,
+  listPlatformPortfolios,
   listPublications,
+  resolvePlatformWorkspace,
   searchResearchWorkspace,
 } from '@/lib/intelligenceApi';
 
@@ -37,12 +39,15 @@ export default function ResearchWorkspacePage() {
   const context = (params.get('context') || 'company').toLowerCase();
   const ticker = (params.get('ticker') || 'AXISBANK').toUpperCase();
   const portfolioId = params.get('portfolio') || 'agi-core-equity';
+  const clientId = params.get('client') || '';
   const tab = (params.get('tab') || 'Overview').replace(/_/g, ' ');
   const [workspace, setWorkspace] = useState(null);
   const [relationships, setRelationships] = useState(null);
   const [publications, setPublications] = useState([]);
   const [activePub, setActivePub] = useState(null);
   const [pubBusy, setPubBusy] = useState(false);
+  const [platformPortfolios, setPlatformPortfolios] = useState([]);
+  const [platformWorkspace, setPlatformWorkspace] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [query, setQuery] = useState('');
@@ -65,8 +70,18 @@ export default function ResearchWorkspacePage() {
       context === 'company'
         ? getCompanyRelationships(ticker).catch(() => null)
         : Promise.resolve(null);
-    Promise.all([load, relLoad, listPublications({ limit: 12 }).catch(() => null)])
-      .then(([res, rel, pubs]) => {
+    const platformLoad = Promise.all([
+      listPlatformPortfolios().catch(() => null),
+      context === 'portfolio'
+        ? resolvePlatformWorkspace({
+            portfolio_id: portfolioId,
+            role_id: 'portfolio_manager',
+            client_id: clientId,
+          }).catch(() => null)
+        : Promise.resolve(null),
+    ]);
+    Promise.all([load, relLoad, listPublications({ limit: 12 }).catch(() => null), platformLoad])
+      .then(([res, rel, pubs, platform]) => {
         if (!active) return;
         if (!res || res.ok === false) {
           setError(res?.error || 'Workspace unavailable');
@@ -76,6 +91,9 @@ export default function ResearchWorkspacePage() {
         }
         setRelationships(rel && rel.ok !== false ? rel : null);
         setPublications(pubs?.publications || []);
+        const [plist, pws] = platform || [];
+        setPlatformPortfolios(plist?.portfolios || []);
+        setPlatformWorkspace(pws && pws.ok !== false ? pws.workspace || pws : null);
         setLoading(false);
       })
       .catch((err) => {
@@ -86,7 +104,7 @@ export default function ResearchWorkspacePage() {
     return () => {
       active = false;
     };
-  }, [context, ticker, portfolioId]);
+  }, [context, ticker, portfolioId, clientId]);
 
   const onGeneratePublication = async (publicationType) => {
     setPubBusy(true);
@@ -97,6 +115,13 @@ export default function ResearchWorkspacePage() {
         portfolio_id: portfolioId,
         renderer: 'markdown',
         distribute_to: 'workspace',
+        scope: clientId ? 'client' : 'portfolio',
+        client_id: clientId || undefined,
+        execution_context: platformWorkspace?.execution_context || {
+          portfolio_id: portfolioId,
+          client_id: clientId,
+          role_id: 'portfolio_manager',
+        },
       });
       if (res?.ok) {
         setActivePub(res.publication || null);
@@ -161,6 +186,39 @@ export default function ResearchWorkspacePage() {
           </button>
         ))}
       </div>
+
+      {context === 'portfolio' && platformPortfolios.length ? (
+        <div className="agi-tabs" role="tablist" aria-label="Platform portfolios">
+          {platformPortfolios.slice(0, 8).map((p) => (
+            <button
+              key={p.portfolio_id}
+              type="button"
+              className={portfolioId === p.portfolio_id ? 'active' : undefined}
+              onClick={() => {
+                const next = new URLSearchParams(params);
+                next.set('context', 'portfolio');
+                next.set('portfolio', p.portfolio_id);
+                setParams(next, { replace: true });
+              }}
+            >
+              {p.name || p.portfolio_id}
+            </button>
+          ))}
+        </div>
+      ) : null}
+
+      {platformWorkspace ? (
+        <p className="agi-list-meta" style={{ marginBottom: '0.75rem' }}>
+          MPC-01 · mandate {platformWorkspace.mandate} · policy {platformWorkspace.policy_profile} ·
+          role {platformWorkspace.role_id || '—'} · intelligence global
+          {platformWorkspace.ask_deep_link ? (
+            <>
+              {' · '}
+              <Link to={platformWorkspace.ask_deep_link}>Ask in context</Link>
+            </>
+          ) : null}
+        </p>
+      ) : null}
 
       <div className="agi-meta-row" style={{ marginBottom: '0.75rem' }}>
         <span className="agi-chip">{context === 'portfolio' ? portfolioId : ticker}</span>

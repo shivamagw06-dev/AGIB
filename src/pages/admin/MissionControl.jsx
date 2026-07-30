@@ -208,6 +208,8 @@ export default function MissionControl() {
     institutional?.institutional_cross_company || desk?.institutional_cross_company || null;
   const publicationCenter =
     institutional?.institutional_publishing || desk?.institutional_publishing || null;
+  const platformOps =
+    institutional?.institutional_multi_portfolio || desk?.institutional_multi_portfolio || null;
   const pipeline = desk?.research_pipeline || {};
   const preds = desk?.prediction_intelligence || {};
   const dq = desk?.data_quality || {};
@@ -1488,6 +1490,50 @@ export default function MissionControl() {
               {!orchestrationCenter ? <li>Orchestration Center soft slice unavailable.</li> : null}
               {orchestrationCenter && !(orchestrationCenter.recent_queries || []).length ? (
                 <li>Run a Universal Ask query to populate the center.</li>
+              ) : null}
+            </ul>
+          </Glass>
+        </section>
+
+        {/* Platform Operations Center — MPC-01 */}
+        <section className="space-y-3">
+          <Kicker>Platform Operations · MPC-01</Kicker>
+          <p className="text-sm text-[var(--io-muted)] max-w-3xl">
+            Multi-portfolio tenancy — active workspaces, portfolio/client counts, publication queue,
+            permission changes, workspace health, distribution status, and audit events. Intelligence
+            stays global; mandates and permissions are local.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+            <Stat
+              label="Workspaces"
+              value={platformOps?.active_workspaces ?? '—'}
+              status={platformOps?.status}
+            />
+            <Stat label="Portfolios" value={platformOps?.portfolio_count ?? '—'} />
+            <Stat label="Clients" value={platformOps?.client_count ?? '—'} />
+            <Stat label="Pub queue" value={platformOps?.publication_queue ?? '—'} />
+            <Stat label="Perm changes" value={platformOps?.permission_changes ?? '—'} />
+            <Stat
+              label="Workspace health"
+              value={platformOps?.workspace_health ?? '—'}
+              hint={
+                platformOps?.audit_events != null
+                  ? `${platformOps.audit_events} audit events`
+                  : undefined
+              }
+            />
+          </div>
+          <Glass>
+            <p className="text-[11px] uppercase text-[var(--io-caption)]">Recent audit</p>
+            <ul className="mt-2 space-y-1 text-xs max-h-36 overflow-auto text-[var(--io-ink-soft)]">
+              {(platformOps?.recent_audit || []).slice(0, 6).map((a) => (
+                <li key={a.event_id}>
+                  [{a.kind}] {a.detail}
+                </li>
+              ))}
+              {!platformOps ? <li>Platform Operations soft slice unavailable.</li> : null}
+              {platformOps && !(platformOps.recent_audit || []).length ? (
+                <li>Resolve a workspace or grant permissions to populate audit.</li>
               ) : null}
             </ul>
           </Glass>

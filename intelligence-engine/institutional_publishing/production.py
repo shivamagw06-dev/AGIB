@@ -106,12 +106,22 @@ def generate(payload: Optional[dict[str, Any]] = None) -> dict[str, Any]:
 
     t0 = time.perf_counter()
     body = dict(payload or {})
+    # MPC-01: explicit execution context scopes portfolio — compose still never analyzes
+    execution_context = body.get("execution_context") or {}
+    if not isinstance(execution_context, dict):
+        execution_context = {}
     ptype = resolve_type_from_request(body)
     ticker = str(body.get("ticker") or "").upper()
-    portfolio_id = str(body.get("portfolio_id") or body.get("portfolio") or "agi-core-equity")
+    portfolio_id = str(
+        execution_context.get("portfolio_id")
+        or body.get("portfolio_id")
+        or body.get("portfolio")
+        or "agi-core-equity"
+    )
     query = str(body.get("query") or body.get("question") or body.get("q") or "")
     renderer = str(body.get("renderer") or "markdown").lower()
     distribute_to = str(body.get("distribute_to") or body.get("target") or "").lower()
+    publication_scope = str(body.get("scope") or execution_context.get("scope") or "").lower()
 
     plan = plan_publication(
         ptype,
@@ -190,6 +200,30 @@ def generate(payload: Optional[dict[str, Any]] = None) -> dict[str, Any]:
             stored["status"] = "exported" if distribute_to in {"export", "archive"} else stored["status"]
             stored["distribution"] = distribution
 
+    # Soft MPC scope (same publication object; different destinations)
+    scoped = None
+    if publication_scope:
+        try:
+            from institutional_multi_portfolio.production import distribute_publication as mpc_dist
+
+            scoped = mpc_dist(
+                {
+                    "publication_id": publication.publication_id,
+                    "scope": publication_scope,
+                    "portfolio_id": portfolio_id,
+                    "client_id": str(
+                        execution_context.get("client_id") or body.get("client_id") or ""
+                    ),
+                    "role_id": str(
+                        execution_context.get("role_id") or body.get("role_id") or "portfolio_manager"
+                    ),
+                    "user_id": str(execution_context.get("user_id") or body.get("user_id") or ""),
+                }
+            )
+            stored["publication_scope"] = scoped
+        except Exception:
+            scoped = None
+
     return {
         "ok": True,
         "workstream_id": PUB_WORKSTREAM_ID,
@@ -200,6 +234,8 @@ def generate(payload: Optional[dict[str, Any]] = None) -> dict[str, Any]:
         "plan": plan.to_dict(),
         "render": stored.get("render"),
         "distribution": distribution,
+        "publication_scope": scoped,
+        "execution_context": execution_context or None,
         "version_record": version_record(stored),
         "analyzes": False,
         "generates_recommendations": False,

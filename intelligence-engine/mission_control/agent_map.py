@@ -870,6 +870,25 @@ _CATALOG: list[dict[str, Any]] = [
         "module": "institutional_publishing.production",
     },
     {
+        "id": "institutional_multi_portfolio",
+        "name": "Multi-Portfolio & Client Platform (MPC-01)",
+        "group": "publication",
+        "responsibility": (
+            "Phase 5.5 — Tenancy and workflow for multiple portfolios, clients, and teams. "
+            "Intelligence remains global; mandates, permissions, and workspaces are local. "
+            "Explicit InstitutionalExecutionContext flows through orchestration."
+        ),
+        "sources": [
+            "Portfolio registry",
+            "Client registry",
+            "Mandate → PCE policy profile",
+            "Role permissions",
+            "Workspace resolver",
+        ],
+        "kind": "multi_portfolio_platform",
+        "module": "institutional_multi_portfolio.production",
+    },
+    {
         "id": "ite_thesis",
         "name": "Investment Thesis Office",
         "group": "offices",

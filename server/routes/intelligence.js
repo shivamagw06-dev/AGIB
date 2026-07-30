@@ -3135,6 +3135,126 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // MPC-01 — Multi-Portfolio & Client Platform
+  router.get('/platform/health', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/platform/health', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'platform health failed' });
+    }
+  });
+  router.get('/portfolios', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/portfolios', { timeoutMs: 30_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'portfolios list failed' });
+    }
+  });
+  router.post('/portfolios', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/portfolios', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 30_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'portfolio create failed' });
+    }
+  });
+  router.get('/clients', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/clients', { timeoutMs: 30_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'clients list failed' });
+    }
+  });
+  router.post('/clients', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/clients', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 30_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'client create failed' });
+    }
+  });
+  router.get('/workspaces/:id', async (req, res) => {
+    try {
+      const qs = new URLSearchParams();
+      for (const k of ['portfolio_id', 'client_id', 'role_id', 'user_id', 'mandate_id']) {
+        if (req.query[k]) qs.set(k, String(req.query[k]));
+      }
+      const suffix = qs.toString() ? `?${qs}` : '';
+      const result = await engineFetch(
+        `/v1/workspaces/${encodeURIComponent(req.params.id)}${suffix}`,
+        { timeoutMs: 30_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'workspace get failed' });
+    }
+  });
+  router.post('/workspaces/resolve', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/workspaces/resolve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 30_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'workspace resolve failed' });
+    }
+  });
+  router.post('/permissions', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/permissions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 30_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'permissions failed' });
+    }
+  });
+  router.post('/platform/context', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/platform/context', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 30_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'platform context failed' });
+    }
+  });
+  router.post('/platform/ask', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/platform/ask', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 90_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'platform ask failed' });
+    }
+  });
+
   // ICE-01 — Investment Committee Engine
   router.get('/committee-engine/health', async (_req, res) => {
     try {

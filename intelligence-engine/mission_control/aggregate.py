@@ -1728,6 +1728,15 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("institutional_publishing")
     except Exception:
         out["institutional_publishing"] = None
+
+    # MPC-01 — Multi-Portfolio & Client Platform (Platform Operations Center).
+    try:
+        from institutional_multi_portfolio.production import soft_slice_mission_control as mpc_soft
+
+        out["institutional_multi_portfolio"] = mpc_soft()
+        out["sources"].append("institutional_multi_portfolio")
+    except Exception:
+        out["institutional_multi_portfolio"] = None
     return out
 
 

@@ -10523,6 +10523,101 @@ async def institutional_publications_export(payload: dict[str, Any] = Body(defau
     return export_publication(payload or {})
 
 
+# --- MPC-01 Multi-Portfolio & Client Platform (tenancy/workflow; intelligence global) ---
+
+
+@router.get("/platform/health")
+async def multi_portfolio_platform_health():
+    from institutional_multi_portfolio.production import health
+
+    return health()
+
+
+@router.get("/portfolios")
+async def multi_portfolio_list():
+    from institutional_multi_portfolio.production import list_portfolios_api
+
+    return list_portfolios_api()
+
+
+@router.post("/portfolios")
+async def multi_portfolio_create(payload: dict[str, Any] = Body(default={})):
+    from institutional_multi_portfolio.production import create_portfolio
+
+    return create_portfolio(payload or {})
+
+
+@router.get("/clients")
+async def multi_portfolio_clients():
+    from institutional_multi_portfolio.production import list_clients_api
+
+    return list_clients_api()
+
+
+@router.post("/clients")
+async def multi_portfolio_client_create(payload: dict[str, Any] = Body(default={})):
+    from institutional_multi_portfolio.production import create_client
+
+    return create_client(payload or {})
+
+
+@router.get("/workspaces/{workspace_id}")
+async def multi_portfolio_workspace_get(
+    workspace_id: str,
+    portfolio_id: str = "",
+    client_id: str = "",
+    role_id: str = "analyst",
+    user_id: str = "",
+    mandate_id: str = "",
+):
+    from institutional_multi_portfolio.production import get_workspace
+
+    return get_workspace(
+        workspace_id,
+        portfolio_id=portfolio_id,
+        client_id=client_id,
+        role_id=role_id,
+        user_id=user_id,
+        mandate_id=mandate_id,
+    )
+
+
+@router.post("/workspaces/resolve")
+async def multi_portfolio_workspace_resolve(payload: dict[str, Any] = Body(default={})):
+    from institutional_multi_portfolio.production import get_workspace
+
+    body = payload or {}
+    return get_workspace(
+        str(body.get("workspace_id") or ""),
+        portfolio_id=str(body.get("portfolio_id") or body.get("portfolio") or ""),
+        client_id=str(body.get("client_id") or ""),
+        role_id=str(body.get("role_id") or "analyst"),
+        user_id=str(body.get("user_id") or ""),
+        mandate_id=str(body.get("mandate_id") or ""),
+    )
+
+
+@router.post("/permissions")
+async def multi_portfolio_permissions(payload: dict[str, Any] = Body(default={})):
+    from institutional_multi_portfolio.production import set_permissions
+
+    return set_permissions(payload or {})
+
+
+@router.post("/platform/context")
+async def multi_portfolio_context(payload: dict[str, Any] = Body(default={})):
+    from institutional_multi_portfolio.production import resolve_context
+
+    return resolve_context(payload or {})
+
+
+@router.post("/platform/ask")
+async def multi_portfolio_ask(payload: dict[str, Any] = Body(default={})):
+    from institutional_multi_portfolio.production import ask_scoped
+
+    return ask_scoped(payload or {})
+
+
 # --- Company Monitoring System V1 (continuous living analyst; additive) ---
 
 

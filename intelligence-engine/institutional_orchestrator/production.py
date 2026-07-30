@@ -121,6 +121,14 @@ def ask(payload: Optional[dict[str, Any]] = None) -> dict[str, Any]:
 
     portfolio_id = str(body.get("portfolio_id") or body.get("portfolio") or "agi-core-equity")
     policy = str(body.get("policy") or "family_office")
+    # MPC-01: explicit execution context scopes retrieval — does not change company truth
+    execution_context = body.get("execution_context") or body.get("context")
+    if isinstance(execution_context, dict):
+        portfolio_id = str(
+            execution_context.get("portfolio_id") or portfolio_id
+        )
+        if execution_context.get("policy_profile"):
+            policy = str(execution_context.get("policy_profile"))
     entities_override = body.get("entities")
 
     intent_info = classify_intent(question)
@@ -197,6 +205,8 @@ def ask(payload: Optional[dict[str, Any]] = None) -> dict[str, Any]:
     except Exception:
         workspace_link = {}
 
+    ctx_out = execution_context if isinstance(execution_context, dict) else None
+
     if not ok:
         return {
             "ok": False,
@@ -207,6 +217,7 @@ def ask(payload: Optional[dict[str, Any]] = None) -> dict[str, Any]:
             "query": query.to_dict(),
             "response": response.to_dict(),
             "workspace": workspace_link,
+            "execution_context": ctx_out,
             "diagnostics": diag,
             "llm": False,
             "generates_recommendations": False,
@@ -222,6 +233,7 @@ def ask(payload: Optional[dict[str, Any]] = None) -> dict[str, Any]:
         "query": query.to_dict(),
         "response": response.to_dict(),
         "workspace": workspace_link,
+        "execution_context": ctx_out,
         "diagnostics": diag,
         "llm": False,
         "generates_recommendations": False,
