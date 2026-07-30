@@ -1152,9 +1152,34 @@ export const getInstitutionalDecisionHealth = () =>
   intelligenceFetch('/decision/health', { timeoutMs: 30_000 });
 export const composeInstitutionalDecision = (body = {}) =>
   intelligenceFetch('/decision/company', { method: 'POST', body: body || {}, timeoutMs: 60_000 });
-export const getInstitutionalDecision = (ticker, { includeHistory = false } = {}) => {
-  const qs = includeHistory ? '?include_history=true' : '';
-  return intelligenceFetch(`/decision/company/${encodeURIComponent(ticker)}${qs}`, {
+export const getInstitutionalDecision = (
+  ticker,
+  { includeHistory = false, includeCalibration = true, includeDrift = true } = {}
+) => {
+  const qs = new URLSearchParams();
+  if (includeHistory) qs.set('include_history', 'true');
+  if (includeCalibration) qs.set('include_calibration', 'true');
+  if (includeDrift) qs.set('include_drift', 'true');
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return intelligenceFetch(`/decision/company/${encodeURIComponent(ticker)}${suffix}`, {
+    timeoutMs: 60_000,
+  });
+};
+
+/** IDS-02 — Decision Calibration & Explainability */
+export const getInstitutionalCalibrationHealth = () =>
+  intelligenceFetch('/calibration/health', { timeoutMs: 30_000 });
+export const composeInstitutionalCalibration = (body = {}) =>
+  intelligenceFetch('/calibration/company', { method: 'POST', body: body || {}, timeoutMs: 60_000 });
+export const getInstitutionalCalibration = (
+  ticker,
+  { includeCalibration = true, includeDrift = true } = {}
+) => {
+  const qs = new URLSearchParams();
+  if (includeCalibration) qs.set('include_calibration', 'true');
+  if (includeDrift) qs.set('include_drift', 'true');
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return intelligenceFetch(`/calibration/company/${encodeURIComponent(ticker)}${suffix}`, {
     timeoutMs: 60_000,
   });
 };

@@ -62,6 +62,12 @@ class InstitutionalDecision:
     rule_path: str = ""
     score: int = 0
     llm: bool = False
+    # IDS-02 — calibrated confidence (computed; never manually assigned)
+    calibrated: bool = False
+    calibration_version: str = ""
+    calibration_profile_version: str = ""
+    calibration_engine_version: str = ""
+    calibration: Any = None  # institutional_calibration.models.Calibration | dict | None
 
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)
@@ -75,6 +81,10 @@ class InstitutionalDecision:
         data["llm"] = False
         if self.decision_graph is not None:
             data["decision_graph"] = self.decision_graph.to_dict()
+        if self.calibration is not None and hasattr(self.calibration, "to_dict"):
+            data["calibration"] = self.calibration.to_dict()
+        elif self.calibration is not None:
+            data["calibration"] = self.calibration
         return data
 
     @classmethod
@@ -112,6 +122,11 @@ class InstitutionalDecision:
             rule_path=str(body.get("rule_path") or "").strip(),
             score=int(body.get("score") or 0),
             llm=False,
+            calibrated=bool(body.get("calibrated") or False),
+            calibration_version=str(body.get("calibration_version") or "").strip(),
+            calibration_profile_version=str(body.get("calibration_profile_version") or "").strip(),
+            calibration_engine_version=str(body.get("calibration_engine_version") or "").strip(),
+            calibration=body.get("calibration"),
         )
 
 

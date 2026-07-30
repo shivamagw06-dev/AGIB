@@ -54,6 +54,10 @@ BFF: `/api/intelligence/decision/*`
 `compose_report()` calls IDS, then renders the `InstitutionalDecision`.  
 Fixture recommendation fields are **not** the source of truth.
 
+## Calibration (IDS-02)
+
+After IDS-01 produces a decision, IDS-02 computes calibrated confidence from a versioned `CalibrationProfile`. See `docs/AGI_IDS_02_DECISION_CALIBRATION.md`.
+
 ## Out of scope
 
 Phrase bank, grammar engines, LLM polish, market/portfolio/macro decisions.

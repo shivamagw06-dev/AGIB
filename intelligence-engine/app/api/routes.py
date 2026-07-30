@@ -10034,10 +10034,49 @@ async def institutional_decision_company(payload: dict[str, Any] = Body(default=
 async def institutional_decision_company_ticker(
     ticker: str,
     include_history: bool = False,
+    include_calibration: bool = True,
+    include_drift: bool = True,
 ):
     from institutional_decision.production import get_company_decision
 
-    return get_company_decision(ticker, include_history=include_history)
+    return get_company_decision(
+        ticker,
+        include_history=include_history,
+        include_calibration=include_calibration,
+        include_drift=include_drift,
+    )
+
+
+# --- IDS-02 Decision Calibration & Explainability ---
+
+
+@router.get("/calibration/health")
+async def institutional_calibration_health():
+    from institutional_calibration.production import health
+
+    return health()
+
+
+@router.post("/calibration/company")
+async def institutional_calibration_company(payload: dict[str, Any] = Body(default={})):
+    from institutional_calibration.production import calibrate_company
+
+    return calibrate_company(payload or {})
+
+
+@router.get("/calibration/company/{ticker}")
+async def institutional_calibration_company_ticker(
+    ticker: str,
+    include_calibration: bool = True,
+    include_drift: bool = True,
+):
+    from institutional_calibration.production import get_calibrated_decision
+
+    return get_calibrated_decision(
+        ticker,
+        include_calibration=include_calibration,
+        include_drift=include_drift,
+    )
 
 
 # --- Company Monitoring System V1 (continuous living analyst; additive) ---

@@ -660,6 +660,18 @@ _CATALOG: list[dict[str, Any]] = [
         "module": "institutional_decision.production",
     },
     {
+        "id": "institutional_calibration",
+        "name": "Decision Calibration & Explainability (IDS-02)",
+        "group": "publication",
+        "responsibility": (
+            "Computes calibrated confidence from a versioned CalibrationProfile — "
+            "scorecard, contributors, drift, and full evidence lineage. No LLM."
+        ),
+        "sources": ["InstitutionalDecision", "Reason graph", "Evidence snapshot", "CalibrationProfile"],
+        "kind": "decision",
+        "module": "institutional_calibration.production",
+    },
+    {
         "id": "ite_thesis",
         "name": "Investment Thesis Office",
         "group": "offices",
