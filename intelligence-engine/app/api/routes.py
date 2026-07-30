@@ -9383,6 +9383,104 @@ async def investment_office_query(payload: dict[str, Any] = Body(default={})):
     )
 
 
+# --- AGI V1.3 Institutional Morning Office (admin desk; monitoring only) ---
+
+
+@router.get("/investment-office/overview")
+async def investment_office_overview_v13():
+    from investment_office.production import morning_overview
+
+    return morning_overview()
+
+
+@router.get("/investment-office/morning-office")
+async def investment_office_morning_office_v13():
+    from investment_office.production import morning_office
+
+    return morning_office()
+
+
+@router.get("/investment-office/daily-brief")
+async def investment_office_daily_brief_v13():
+    from investment_office.production import daily_brief
+
+    return daily_brief()
+
+
+@router.get("/investment-office/research-queue")
+async def investment_office_research_queue_v13():
+    from investment_office.production import research_queue_v13
+
+    return research_queue_v13()
+
+
+@router.get("/investment-office/opportunities")
+async def investment_office_opportunities_v13():
+    from investment_office.production import opportunities_v13
+
+    return opportunities_v13()
+
+
+@router.get("/investment-office/market-summary")
+async def investment_office_market_summary_v13():
+    from investment_office.production import market_summary_v13
+
+    return market_summary_v13()
+
+
+@router.get("/investment-office/macro")
+async def investment_office_macro_v13():
+    from investment_office.production import macro_v13
+
+    return macro_v13()
+
+
+@router.get("/investment-office/calendar")
+async def investment_office_calendar_v13():
+    from investment_office.production import calendar_v13
+
+    return calendar_v13()
+
+
+@router.get("/investment-office/portfolio-monitor")
+async def investment_office_portfolio_monitor_v13():
+    from investment_office.production import portfolio_monitor_v13
+
+    return portfolio_monitor_v13()
+
+
+@router.get("/investment-office/sector-monitor")
+async def investment_office_sector_monitor_v13():
+    from investment_office.production import sector_monitor_v13
+
+    return sector_monitor_v13()
+
+
+@router.get("/investment-office/metrics")
+async def investment_office_metrics_v13():
+    from investment_office.production import metrics_v13
+
+    return metrics_v13()
+
+
+@router.post("/investment-office/refresh")
+async def investment_office_refresh_v13(payload: dict[str, Any] = Body(default={})):
+    from investment_office.production import refresh_morning_office
+
+    _ = payload
+    return refresh_morning_office()
+
+
+@router.post("/investment-office/generate-morning-brief")
+async def investment_office_generate_morning_brief_v13(
+    payload: dict[str, Any] = Body(default={}),
+):
+    from investment_office.production import generate_morning_brief
+
+    _ = payload
+    return generate_morning_brief()
+
+
 # --- CIO-01 Comparative Intelligence Office (cross-company orchestration; additive) ---
 
 

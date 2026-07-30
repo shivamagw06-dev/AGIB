@@ -976,6 +976,40 @@ export const packageInvestmentOffice = (query = '', ticker) =>
     body: { query, ticker },
   });
 
+/** AGI V1.3 — Institutional Morning Office (admin desk) */
+export const getInvestmentOfficeOverview = () =>
+  intelligenceFetch('/investment-office/overview');
+export const getInvestmentOfficeMorningOffice = () =>
+  intelligenceFetch('/investment-office/morning-office');
+export const getInvestmentOfficeDailyBrief = () =>
+  intelligenceFetch('/investment-office/daily-brief');
+export const getInvestmentOfficeResearchQueue = () =>
+  intelligenceFetch('/investment-office/research-queue');
+export const getInvestmentOfficeOpportunities = () =>
+  intelligenceFetch('/investment-office/opportunities');
+export const getInvestmentOfficeMarketSummary = () =>
+  intelligenceFetch('/investment-office/market-summary');
+export const getInvestmentOfficeMacro = () =>
+  intelligenceFetch('/investment-office/macro');
+export const getInvestmentOfficeCalendar = () =>
+  intelligenceFetch('/investment-office/calendar');
+export const getInvestmentOfficePortfolioMonitor = () =>
+  intelligenceFetch('/investment-office/portfolio-monitor');
+export const getInvestmentOfficeSectorMonitor = () =>
+  intelligenceFetch('/investment-office/sector-monitor');
+export const getInvestmentOfficeMetrics = () =>
+  intelligenceFetch('/investment-office/metrics');
+export const refreshInvestmentOfficeMorning = (body = {}) =>
+  intelligenceFetch('/investment-office/refresh', {
+    method: 'POST',
+    body: body || {},
+  });
+export const generateInvestmentOfficeMorningBrief = (body = {}) =>
+  intelligenceFetch('/investment-office/generate-morning-brief', {
+    method: 'POST',
+    body: body || {},
+  });
+
 /** CIO-01 — Comparative Intelligence Office */
 export const getComparativeIntelligenceHealth = () =>
   intelligenceFetch('/comparative-intelligence/health');

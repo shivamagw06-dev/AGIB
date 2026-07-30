@@ -2075,6 +2075,47 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // AGI V1.3 — Institutional Morning Office (admin desk; monitoring only)
+  const ioMorningGet = (enginePath, timeoutMs = 180_000) => async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query).toString();
+      const suffix = qs ? `?${qs}` : '';
+      const result = await engineFetch(`${enginePath}${suffix}`, { timeoutMs });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'Investment Office unavailable' });
+    }
+  };
+  const ioMorningPost = (enginePath, timeoutMs = 180_000) => async (req, res) => {
+    try {
+      const result = await engineFetch(enginePath, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'Investment Office action failed' });
+    }
+  };
+  router.get('/investment-office/overview', ioMorningGet('/v1/investment-office/overview'));
+  router.get('/investment-office/morning-office', ioMorningGet('/v1/investment-office/morning-office'));
+  router.get('/investment-office/daily-brief', ioMorningGet('/v1/investment-office/daily-brief'));
+  router.get('/investment-office/research-queue', ioMorningGet('/v1/investment-office/research-queue', 120_000));
+  router.get('/investment-office/opportunities', ioMorningGet('/v1/investment-office/opportunities', 120_000));
+  router.get('/investment-office/market-summary', ioMorningGet('/v1/investment-office/market-summary', 90_000));
+  router.get('/investment-office/macro', ioMorningGet('/v1/investment-office/macro', 90_000));
+  router.get('/investment-office/calendar', ioMorningGet('/v1/investment-office/calendar', 90_000));
+  router.get('/investment-office/portfolio-monitor', ioMorningGet('/v1/investment-office/portfolio-monitor', 120_000));
+  router.get('/investment-office/sector-monitor', ioMorningGet('/v1/investment-office/sector-monitor', 90_000));
+  router.get('/investment-office/metrics', ioMorningGet('/v1/investment-office/metrics', 90_000));
+  router.post('/investment-office/refresh', ioMorningPost('/v1/investment-office/refresh'));
+  router.post(
+    '/investment-office/generate-morning-brief',
+    ioMorningPost('/v1/investment-office/generate-morning-brief')
+  );
+
   // CIO-01 — Comparative Intelligence Office (cross-company orchestration)
   router.get('/comparative-intelligence/health', kfGet('/v1/comparative-intelligence/health'));
   router.get('/comparative-intelligence/dashboard', kfGet('/v1/comparative-intelligence/dashboard'));
