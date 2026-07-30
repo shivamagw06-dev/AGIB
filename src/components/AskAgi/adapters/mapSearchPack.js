@@ -956,9 +956,38 @@ export function mapSearchPack(pack) {
             gradeFromScore(ideSummary.overall_score ?? ide.overall_score) || ''
           ),
           confidence: pct(ideSummary.confidence_pct) ?? confidence,
-          evidenceConfidence: pct(
-            ideSummary.evidence_confidence_pct ??
+          institutionalReadiness: pct(
+            ideSummary.institutional_readiness_pct ??
+              ide?.institutional_readiness_gate?.institutional_readiness_pct ??
+              ide?.institutional_readiness_gate?.overall_coverage_pct
+          ),
+          recommendationReadiness: pct(
+            ideSummary.recommendation_readiness_pct ??
+              ide?.institutional_readiness_gate?.recommendation_readiness_pct ??
+              ideSummary.evidence_confidence_pct ??
               ide?.institutional_readiness_gate?.evidence_confidence_pct
+          ),
+          evidenceConfidence: pct(
+            ideSummary.recommendation_readiness_pct ??
+              ideSummary.evidence_confidence_pct ??
+              ide?.institutional_readiness_gate?.recommendation_readiness_pct ??
+              ide?.institutional_readiness_gate?.evidence_confidence_pct
+          ),
+          analyticalConfidence: asText(
+            ideSummary.analytical_confidence ||
+              ide?.institutional_readiness_gate?.analytical_confidence_display ||
+              ide?.institutional_readiness_gate?.analytical_confidence?.display,
+            ''
+          ),
+          analyticalConfidenceExplanation: asText(
+            ideSummary.analytical_confidence_explanation ||
+              ide?.institutional_readiness_gate?.analytical_confidence_explanation ||
+              ide?.institutional_readiness_gate?.analytical_confidence?.explanation,
+            ''
+          ),
+          decisionLine: asText(
+            ideSummary.decision_line || ide?.institutional_readiness_gate?.decision_line,
+            ''
           ),
           companyQuality10:
             ideSummary.company_quality_10 ??
@@ -1003,12 +1032,28 @@ export function mapSearchPack(pack) {
       ),
       detail: asText(recoStatus.detail, ''),
       gaps: knowledgeGaps,
-      evidenceConfidence: pct(recoStatus.evidence_confidence_pct),
+      institutionalReadiness: pct(recoStatus.institutional_readiness_pct ?? recoStatus.coverage_pct),
+      recommendationReadiness: pct(
+        recoStatus.recommendation_readiness_pct ?? recoStatus.evidence_confidence_pct
+      ),
+      evidenceConfidence: pct(
+        recoStatus.recommendation_readiness_pct ?? recoStatus.evidence_confidence_pct
+      ),
+      analyticalConfidence: asText(recoStatus.analytical_confidence, ''),
+      analyticalConfidenceExplanation: asText(recoStatus.analytical_confidence_explanation, ''),
       requiredConfidence: pct(recoStatus.required_confidence_pct) ?? 80,
       companyQuality10: recoStatus.company_quality_10 ?? null,
       marketOpportunity10: recoStatus.market_opportunity_10 ?? null,
       coverage: recoStatus.coverage || null,
       checklist: Array.isArray(recoStatus.checklist) ? recoStatus.checklist : [],
+      diagnosticCards: Array.isArray(recoStatus.diagnostic_cards)
+        ? recoStatus.diagnostic_cards
+        : Array.isArray(recoStatus.checklist)
+          ? recoStatus.checklist
+          : [],
+      reasonBullets: asList(recoStatus.reason_bullets, 8),
+      freshness: recoStatus.freshness || {},
+      decisionLine: asText(recoStatus.decision_line, ''),
       additionalEvidenceRequired: asList(recoStatus.additional_evidence_required, 8),
       investmentThesisStatus: asText(recoStatus.investment_thesis_status, ''),
       notANegativeView: Boolean(recoStatus.not_a_negative_view),

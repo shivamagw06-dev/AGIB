@@ -8462,6 +8462,54 @@ async def decision_readiness_diagnostics(payload: dict[str, Any] = Body(default=
     return diagnostics(payload or {})
 
 
+# --- IROS Governance Layer (evidence lineage / audit / re-evaluation) ---
+
+
+@router.get("/iros/health")
+async def iros_governance_health():
+    from decision_engine.governance.production import health
+
+    return health()
+
+
+@router.post("/iros/package")
+async def iros_governance_package(payload: dict[str, Any] = Body(default={})):
+    """Build governance package (lineage, engine confidence, drift, delta, audit, re-eval)."""
+    from decision_engine.governance.production import package_governance
+
+    body = payload or {}
+    return package_governance(
+        query=str(body.get("query") or ""),
+        ticker=body.get("ticker"),
+        company_name=body.get("company_name"),
+        readiness_gate=body.get("readiness_gate") or body.get("institutional_readiness_gate"),
+        decision=body.get("decision"),
+        layers=body.get("layers"),
+        company_analysis=body.get("company_analysis"),
+        cid=body.get("cid"),
+        live_evidence=body.get("live_evidence"),
+        valuation_pack=body.get("valuation_pack"),
+        persist=bool(body.get("persist", True)),
+    )
+
+
+@router.get("/iros/audit/{recommendation_id}")
+async def iros_governance_audit(recommendation_id: str):
+    from decision_engine.governance.production import get_recommendation_audit
+
+    row = get_recommendation_audit(recommendation_id)
+    if not row:
+        return {"found": False, "recommendation_id": recommendation_id}
+    return {"found": True, "audit": row}
+
+
+@router.get("/iros/reeval-queue")
+async def iros_reeval_queue(limit: int = 50):
+    from decision_engine.governance.production import reevaluation_queue
+
+    return reevaluation_queue(limit=limit)
+
+
 # --- RQ2 Institutional Reasoning Audit Engine (Sprint 10 — final reasoning certification) ---
 
 

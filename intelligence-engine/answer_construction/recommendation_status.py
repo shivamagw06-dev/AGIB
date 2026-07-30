@@ -34,7 +34,9 @@ def build_recommendation_status(
     ide = decision_engine if isinstance(decision_engine, dict) else {}
     gate = ide.get("institutional_readiness_gate") or {}
 
-    coverage = gate.get("overall_coverage_pct")
+    coverage = gate.get("institutional_readiness_pct")
+    if coverage is None:
+        coverage = gate.get("overall_coverage_pct")
     if coverage is None:
         coverage = panel.get("coverage_pct")
     if coverage is None:
@@ -43,9 +45,14 @@ def build_recommendation_status(
         coverage = company_dossier.get("coverage_score") or company_dossier.get("coverage_pct")
 
     name = company_name or (company_dossier or {}).get("ticker") or "this company"
-    evidence_conf = gate.get("evidence_confidence_pct")
+    reco_ready = gate.get("recommendation_readiness_pct")
+    if reco_ready is None:
+        reco_ready = gate.get("evidence_confidence_pct")
     required = gate.get("required_confidence_pct") or 80
     missing = gate.get("additional_evidence_required") or gate.get("missing") or gaps
+    analytical = gate.get("analytical_confidence") or {}
+    analytical_display = gate.get("analytical_confidence_display") or analytical.get("display")
+    analytical_explain = gate.get("analytical_confidence_explanation") or analytical.get("explanation")
 
     if blocked or gate.get("hard_fail") or gate.get("band") in {"deferred", "watchlist"}:
         status = "Withheld"
@@ -55,9 +62,12 @@ def build_recommendation_status(
             "This should not be interpreted as a negative view of the company."
         )
         detail = (
-            f"Evidence confidence {evidence_conf if evidence_conf is not None else 'n/a'}% "
+            f"Institutional readiness {coverage if coverage is not None else 'n/a'}% · "
+            f"Recommendation readiness {reco_ready if reco_ready is not None else 'n/a'}% "
             f"(required {required}% for high conviction). "
-            "Additional evidence required: "
+            f"Analytical confidence: {analytical_display or 'n/a'}. "
+            + (f"{analytical_explain} " if analytical_explain else "")
+            + "Additional evidence required: "
             + (
                 "; ".join(str(m) for m in list(missing)[:5])
                 if missing
@@ -75,6 +85,8 @@ def build_recommendation_status(
             "This is not an automatic Buy / Hold / Sell instruction."
         )
         detail = (
+            f"Recommendation readiness {reco_ready if reco_ready is not None else 'n/a'}% · "
+            f"Analytical confidence: {analytical_display or 'n/a'}. "
             "Use the house view, financial intelligence, valuation discussion and risks above as "
             "the decision frame. Position sizing remains discretionary."
         )
@@ -89,15 +101,29 @@ def build_recommendation_status(
         "summary": summary,
         "detail": detail,
         "coverage_pct": coverage,
-        "evidence_confidence_pct": evidence_conf,
+        "institutional_readiness_pct": coverage,
+        "recommendation_readiness_pct": reco_ready,
+        "evidence_confidence_pct": reco_ready,  # legacy alias → recommendation readiness
         "required_confidence_pct": required,
+        "analytical_confidence": analytical_display,
+        "analytical_confidence_explanation": analytical_explain,
+        "analytical_confidence_detail": analytical,
         "company_quality_10": gate.get("company_quality_10"),
         "market_opportunity_10": gate.get("market_opportunity_10"),
         "coverage": gate.get("coverage"),
         "checklist": gate.get("checklist") or [],
+        "diagnostic_cards": gate.get("diagnostic_cards") or gate.get("checklist") or [],
+        "reason_bullets": gate.get("reason_bullets") or [],
+        "freshness": gate.get("freshness") or {},
         "additional_evidence_required": list(missing)[:8] if isinstance(missing, list) else [],
         "investment_thesis_status": thesis_status,
         "not_a_negative_view": not_negative,
+        "decision_line": gate.get("decision_line")
+        or (
+            "Institutional recommendation withheld."
+            if thesis_status == "INCONCLUSIVE"
+            else "Institutional recommendation pathway open."
+        ),
         "readiness_label": readiness_label,
         "readiness_band": gate.get("band"),
         "gate_summary": gate.get("summary_for_user") or {},
@@ -106,4 +132,5 @@ def build_recommendation_status(
         "never_lead_answer": True,
         "not_a_trade_instruction": True,
         "never_conflate_data_with_quality": True,
+        "never_recommend_on_stale_data": True,
     }

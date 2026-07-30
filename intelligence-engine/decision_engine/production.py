@@ -161,13 +161,23 @@ def package_for_ask_agi(
             "overall_score": assembled.get("overall_score"),
             "investment_grade": assembled.get("investment_grade"),
             "confidence_pct": decision.get("confidence_pct"),
-            "evidence_confidence_pct": readiness.get("evidence_confidence_pct")
+            "institutional_readiness_pct": readiness.get("institutional_readiness_pct")
+            or readiness.get("overall_coverage_pct"),
+            "recommendation_readiness_pct": readiness.get("recommendation_readiness_pct")
+            or readiness.get("evidence_confidence_pct")
             or decision.get("evidence_confidence_pct"),
+            "evidence_confidence_pct": readiness.get("recommendation_readiness_pct")
+            or readiness.get("evidence_confidence_pct")
+            or decision.get("evidence_confidence_pct"),
+            "analytical_confidence": readiness.get("analytical_confidence_display")
+            or (readiness.get("analytical_confidence") or {}).get("display"),
+            "analytical_confidence_explanation": readiness.get("analytical_confidence_explanation"),
             "company_quality_10": readiness.get("company_quality_10") or decision.get("company_quality_10"),
             "market_opportunity_10": readiness.get("market_opportunity_10")
             or decision.get("market_opportunity_10"),
             "investment_thesis_status": decision.get("investment_thesis_status"),
             "not_a_negative_view": decision.get("not_a_negative_view"),
+            "decision_line": readiness.get("decision_line"),
             "expected_return_12m_pct": decision.get("expected_return_12m_pct"),
             "bull_case_pct": decision.get("bull_case_pct"),
             "base_case_pct": decision.get("base_case_pct"),
@@ -181,6 +191,9 @@ def package_for_ask_agi(
             "gate_blocked": gate_blocked_out,
             "readiness_band": readiness.get("band"),
             "overall_coverage_pct": readiness.get("overall_coverage_pct"),
+            "recommendation_id": (governance.get("audit") or {}).get("recommendation_id"),
+            "thesis_drift": (governance.get("thesis_drift") or {}).get("thesis_drift"),
+            "weakest_engine": (governance.get("engine_confidence") or {}).get("weakest_engine"),
         },
         "pre_questions": decision.get("pre_questions") or [],
         "decision": decision,
@@ -189,7 +202,7 @@ def package_for_ask_agi(
         "answer_enrichment": {
             "executive_framing": (
                 f"Investment decision stack for {assembled.get('company_name')}: "
-                "readiness gate → macro → industry → company → financials → management → valuation → "
+                "governance → readiness gate → macro → industry → company → financials → management → valuation → "
                 "expectations → technical → risk → catalysts → probability → expected return → conclusion. "
                 "No layer is skipped. Data completeness is never treated as company quality."
             ),
@@ -200,6 +213,10 @@ def package_for_ask_agi(
             ][:6],
             "decision_conclusion": decision.get("reasoning"),
             "readiness_summary": (readiness.get("summary_for_user") or {}).get("reason"),
+            "critical_missing": [
+                f"{x.get('rank')}. {x.get('label')} (Impact: {x.get('impact')})"
+                for x in ((governance.get("critical_missing_evidence") or {}).get("items") or [])[:4]
+            ],
         },
         "fiml_soft_consult": {
             "used": bool(fiml_hint),
@@ -212,6 +229,7 @@ def package_for_ask_agi(
         "decision_last": True,
         "never_expose_framework_names": True,
         "never_conflate_data_with_quality": True,
+        "never_recommend_on_stale_data": True,
     }
 
 
