@@ -1801,6 +1801,15 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
     except Exception:
         out["institutional_acceptance"] = None
 
+    # IB-01 — AGIB Institutional Benchmark (Benchmark Center).
+    try:
+        from institutional_grade_benchmark.production import soft_slice_mission_control as ib_soft
+
+        out["institutional_grade_benchmark"] = ib_soft()
+        out["sources"].append("institutional_grade_benchmark")
+    except Exception:
+        out["institutional_grade_benchmark"] = None
+
     return out
 
 

@@ -3885,6 +3885,111 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // IB-01 — AGIB Institutional Benchmark (competitive intelligence)
+  router.get('/benchmark/ib/health', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/benchmark/ib/health', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'IB-01 health failed' });
+    }
+  });
+  router.post('/benchmark/ib/run', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/benchmark/ib/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 180_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'IB-01 run failed' });
+    }
+  });
+  router.get('/benchmark/ib/report', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/benchmark/ib/report', { timeoutMs: 180_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'IB-01 report failed' });
+    }
+  });
+  router.get('/benchmark/ib/section/:section', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/benchmark/ib/section/${encodeURIComponent(req.params.section)}`,
+        { timeoutMs: 90_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'IB-01 section failed' });
+    }
+  });
+  router.post('/benchmark/ib/section/:section', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/benchmark/ib/section/${encodeURIComponent(req.params.section)}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(req.body || {}),
+          timeoutMs: 90_000,
+        }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'IB-01 section run failed' });
+    }
+  });
+  router.post('/benchmark/ib/blind-vote', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/benchmark/ib/blind-vote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 20_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'IB-01 blind vote failed' });
+    }
+  });
+  router.post('/benchmark/ib/productivity', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/benchmark/ib/productivity', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 20_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'IB-01 productivity failed' });
+    }
+  });
+  router.post('/benchmark/ib/manual-score', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/benchmark/ib/manual-score', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 20_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'IB-01 manual score failed' });
+    }
+  });
+  router.get('/benchmark/ib/diagnostics', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/benchmark/ib/diagnostics', { timeoutMs: 30_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'IB-01 diagnostics failed' });
+    }
+  });
+
   // ICE-01 — Investment Committee Engine
   router.get('/committee-engine/health', async (_req, res) => {
     try {

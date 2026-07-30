@@ -1508,6 +1508,35 @@ export const getArchitectureViolations = () =>
   intelligenceFetch('/architecture/violations', { timeoutMs: 90_000 });
 
 /** L-01 — Launch Phase */
+export const getInstitutionalBenchmarkHealth = () =>
+  intelligenceFetch('/benchmark/ib/health', { timeoutMs: 30_000 });
+export const runInstitutionalBenchmark = (body = {}) =>
+  intelligenceFetch('/benchmark/ib/run', {
+    method: 'POST',
+    body: body || {},
+    timeoutMs: 180_000,
+  });
+export const getInstitutionalBenchmarkReport = () =>
+  intelligenceFetch('/benchmark/ib/report', { timeoutMs: 180_000 });
+export const getInstitutionalBenchmarkSection = (section) =>
+  intelligenceFetch(`/benchmark/ib/section/${encodeURIComponent(section)}`, {
+    timeoutMs: 90_000,
+  });
+export const submitInstitutionalBenchmarkBlindVote = (body = {}) =>
+  intelligenceFetch('/benchmark/ib/blind-vote', {
+    method: 'POST',
+    body: body || {},
+    timeoutMs: 20_000,
+  });
+export const submitInstitutionalBenchmarkProductivity = (body = {}) =>
+  intelligenceFetch('/benchmark/ib/productivity', {
+    method: 'POST',
+    body: body || {},
+    timeoutMs: 20_000,
+  });
+export const getInstitutionalBenchmarkDiagnostics = () =>
+  intelligenceFetch('/benchmark/ib/diagnostics', { timeoutMs: 30_000 });
+
 export const getAcceptanceHealth = () =>
   intelligenceFetch('/acceptance/health', { timeoutMs: 30_000 });
 export const runAcceptance = (body = {}) =>

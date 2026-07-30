@@ -224,6 +224,10 @@ export default function MissionControl() {
     institutional?.institutional_launch || desk?.institutional_launch || null;
   const acceptanceCenter =
     institutional?.institutional_acceptance || desk?.institutional_acceptance || null;
+  const benchmarkCenter =
+    institutional?.institutional_grade_benchmark ||
+    desk?.institutional_grade_benchmark ||
+    null;
   const pipeline = desk?.research_pipeline || {};
   const preds = desk?.prediction_intelligence || {};
   const dq = desk?.data_quality || {};
@@ -1554,6 +1558,78 @@ export default function MissionControl() {
               {!orchestrationCenter ? <li>Orchestration Center soft slice unavailable.</li> : null}
               {orchestrationCenter && !(orchestrationCenter.recent_queries || []).length ? (
                 <li>Run a Universal Ask query to populate the center.</li>
+              ) : null}
+            </ul>
+          </Glass>
+        </section>
+
+        {/* Benchmark Center — IB-01 */}
+        <section className="space-y-3">
+          <Kicker>Benchmark Center · IB-01</Kicker>
+          <p className="text-sm text-[var(--io-muted)] max-w-3xl">
+            Can AGIB produce institutional-grade research comparable to Bloomberg, Capital IQ,
+            FactSet, AlphaSense, and sell-side? PAT proves the software works — IB-01 proves the
+            intelligence is competitive.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
+            <Stat
+              label="Overall"
+              value={
+                benchmarkCenter?.total_score != null
+                  ? `${Math.round(Number(benchmarkCenter.total_score))}/${benchmarkCenter.total_max || 1000}`
+                  : '—'
+              }
+              status={benchmarkCenter?.status}
+            />
+            <Stat
+              label="Pass ≥"
+              value={benchmarkCenter?.pass_threshold ?? 900}
+            />
+            <Stat
+              label="Grade"
+              value={
+                benchmarkCenter?.institutional_grade
+                  ? benchmarkCenter.claim_safe
+                    ? 'Institutional'
+                    : 'Provisional'
+                  : benchmarkCenter?.overall_result || '—'
+              }
+            />
+            <Stat
+              label="Panel"
+              value={
+                benchmarkCenter?.panel_complete == null
+                  ? '—'
+                  : benchmarkCenter.panel_complete
+                    ? 'Complete'
+                    : 'Pending'
+              }
+            />
+            <Stat
+              label="Claim safe"
+              value={
+                benchmarkCenter?.claim_safe == null
+                  ? '—'
+                  : benchmarkCenter.claim_safe
+                    ? 'Yes'
+                    : 'No'
+              }
+            />
+            <Stat label="Sections" value="A–H" />
+          </div>
+          <Glass>
+            <p className="text-[11px] uppercase text-[var(--io-caption)]">Scorecard</p>
+            <ul className="mt-2 space-y-1 text-xs max-h-40 overflow-auto text-[var(--io-ink-soft)]">
+              {(benchmarkCenter?.section_scores || []).map((s) => (
+                <li key={s.code || s.title}>
+                  {s.code} {s.title}: {s.score ?? '—'}/{s.max ?? '—'}
+                </li>
+              ))}
+              {!benchmarkCenter ? (
+                <li>Benchmark Center soft slice unavailable — run IB-01.</li>
+              ) : null}
+              {benchmarkCenter && !(benchmarkCenter.section_scores || []).length ? (
+                <li>Not run yet — POST /benchmark/ib/run (blind panel still required for claims).</li>
               ) : null}
             </ul>
           </Glass>

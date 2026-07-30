@@ -11113,6 +11113,74 @@ async def acceptance_diagnostics():
     return diagnostics_api()
 
 
+# --- IB-01 AGIB Institutional Benchmark (competitive intelligence grade) ---
+
+
+@router.get("/benchmark/ib/health")
+async def institutional_grade_benchmark_health():
+    from institutional_grade_benchmark.production import health
+
+    return health()
+
+
+@router.post("/benchmark/ib/run")
+async def institutional_grade_benchmark_run(payload: dict[str, Any] = Body(default={})):
+    from institutional_grade_benchmark.production import run
+
+    return run(payload or {})
+
+
+@router.get("/benchmark/ib/report")
+async def institutional_grade_benchmark_report():
+    from institutional_grade_benchmark.production import report_api
+
+    return report_api()
+
+
+@router.get("/benchmark/ib/section/{section}")
+async def institutional_grade_benchmark_section_get(section: str):
+    from institutional_grade_benchmark.production import section_api
+
+    return section_api(section)
+
+
+@router.post("/benchmark/ib/section/{section}")
+async def institutional_grade_benchmark_section_post(
+    section: str, payload: dict[str, Any] = Body(default={})
+):
+    from institutional_grade_benchmark.production import section_api
+
+    return section_api(section, payload or {})
+
+
+@router.post("/benchmark/ib/blind-vote")
+async def institutional_grade_benchmark_blind_vote(payload: dict[str, Any] = Body(default={})):
+    from institutional_grade_benchmark.production import blind_vote_api
+
+    return blind_vote_api(payload or {})
+
+
+@router.post("/benchmark/ib/productivity")
+async def institutional_grade_benchmark_productivity(payload: dict[str, Any] = Body(default={})):
+    from institutional_grade_benchmark.production import productivity_api
+
+    return productivity_api(payload or {})
+
+
+@router.post("/benchmark/ib/manual-score")
+async def institutional_grade_benchmark_manual_score(payload: dict[str, Any] = Body(default={})):
+    from institutional_grade_benchmark.production import manual_score_api
+
+    return manual_score_api(payload or {})
+
+
+@router.get("/benchmark/ib/diagnostics")
+async def institutional_grade_benchmark_diagnostics():
+    from institutional_grade_benchmark.production import diagnostics_api
+
+    return diagnostics_api()
+
+
 # --- Company Monitoring System V1 (continuous living analyst; additive) ---
 
 

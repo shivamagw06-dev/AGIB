@@ -159,4 +159,5 @@ Track product and operations, not expansion count:
 * `docs/AGI_PRP_PROGRAMME.md`
 * `docs/AGI_L_01_LAUNCH.md`
 * `docs/AGI_PAT_01_PRODUCTION_ACCEPTANCE.md` — break AGIB before onboarding users
+* `docs/AGI_IB_01_INSTITUTIONAL_BENCHMARK.md` — competitive intelligence grade (≠ software acceptance)
 * CI: `.github/workflows/architecture-conformance.yml`

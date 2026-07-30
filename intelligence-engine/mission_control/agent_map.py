@@ -1022,6 +1022,27 @@ _CATALOG: list[dict[str, Any]] = [
         "module": "institutional_acceptance.production",
     },
     {
+        "id": "institutional_grade_benchmark",
+        "name": "AGIB Institutional Benchmark (IB-01)",
+        "group": "platform",
+        "responsibility": (
+            "Competitive intelligence grade — 1000-point scorecard vs Bloomberg / "
+            "Capital IQ / FactSet / AlphaSense / sell-side. Sections A–H: company "
+            "research, blind comparison, hallucination, speed, portfolio, "
+            "explainability, analyst productivity, stress reasoning. "
+            "Distinct from PAT-01 (software works) and IBS-01 (sector corpus)."
+        ),
+        "sources": [
+            "Company research rubric",
+            "Blind analyst panel",
+            "Hallucination probes",
+            "Latency targets",
+            "Portfolio / lineage / stress scenarios",
+        ],
+        "kind": "competitive_benchmark",
+        "module": "institutional_grade_benchmark.production",
+    },
+    {
         "id": "ite_thesis",
         "name": "Investment Thesis Office",
         "group": "offices",
