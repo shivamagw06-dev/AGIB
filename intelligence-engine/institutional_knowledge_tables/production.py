@@ -17,6 +17,7 @@ from institutional_knowledge_tables.sync import (
     sync_knowledge_metadata,
     sync_universe_company_master,
 )
+from institutional_knowledge_tables.bulk_sheet import ingest_company_sheet
 
 
 def health() -> dict[str, Any]:
@@ -125,6 +126,37 @@ def onboard_universe(*, scope: str = "nifty500", limit: int | None = None) -> di
     return sync_universe_company_master(scope=scope, limit=limit)
 
 
+def upload_company_sheet(
+    *,
+    filename: str,
+    content_base64: str | None = None,
+    content_bytes: bytes | None = None,
+    sheet_name: Any = 0,
+    dry_run: bool = False,
+    actor: str | None = None,
+) -> dict[str, Any]:
+    """Bulk-ingest a company-info Excel/CSV into IKT. Never fabricates a
+    ticker match — unresolved rows are reported, not guessed.
+    """
+    import base64
+
+    if content_bytes is None:
+        if not content_base64:
+            return {"ok": False, "error": "content_base64 or content_bytes required"}
+        try:
+            content_bytes = base64.b64decode(content_base64)
+        except Exception as exc:
+            return {"ok": False, "error": f"invalid_base64:{exc}"}
+    result = ingest_company_sheet(
+        content_bytes,
+        filename,
+        sheet_name=sheet_name,
+        dry_run=dry_run,
+        source_label=f"bulk_upload:{filename}" + (f" (by {actor})" if actor else ""),
+    )
+    return result
+
+
 __all__ = [
     "get_company_table",
     "get_company_tables",
@@ -135,4 +167,5 @@ __all__ = [
     "record_fact",
     "soft_slice_for_ask_agi",
     "tables_catalog",
+    "upload_company_sheet",
 ]
