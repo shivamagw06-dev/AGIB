@@ -20,6 +20,7 @@
 | --- | --- | --- |
 | FSE-01 | Architecture & Principles | What the architecture is |
 | **FSE-02** | **Data Sources & Collection Pipeline** | **How data enters the architecture** |
+| FSE-02.2 | [End-to-End Production Verification](FSE_02_2_END_TO_END_PRODUCTION_VERIFICATION.md) | Timed pipeline proof · reports · provenance · SLA · DLQ recovery |
 | FSE-03 | [Canonical Financial Data Model & Schema](FSE_03_CANONICAL_FINANCIAL_DATA_MODEL.md) | Authoritative financial representation |
 | FSE-04 | [Parsing & Normalization Engine](FSE_04_PARSING_NORMALIZATION_ENGINE.md) | Raw evidence → canonical statement drafts |
 | FSE-04.1 | [Parse Manifest, Replay & Certification](FSE_04_1_PARSE_MANIFEST_REPLAY_CERTIFICATION.md) | Parser audit / replay / certification |
