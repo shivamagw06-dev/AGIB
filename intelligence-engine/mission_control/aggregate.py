@@ -1602,6 +1602,15 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("release_health")
     except Exception:
         out["release_health"] = None
+
+    # IRE-01 — Institutional Reporting Engine (deterministic; no LLM).
+    try:
+        from institutional_reporting.production import soft_slice_mission_control as ire_soft
+
+        out["institutional_reporting"] = ire_soft()
+        out["sources"].append("institutional_reporting")
+    except Exception:
+        out["institutional_reporting"] = None
     return out
 
 

@@ -2513,6 +2513,40 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // IRE-01 — Institutional Reporting Engine (deterministic company reports; no LLM)
+  router.get('/report/health', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/report/health', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'institutional report health failed' });
+    }
+  });
+  router.post('/report/company', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/report/company', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 60_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'institutional report compose failed' });
+    }
+  });
+  router.get('/report/company/:ticker', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/report/company/${encodeURIComponent(req.params.ticker)}`,
+        { timeoutMs: 60_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'institutional report get failed' });
+    }
+  });
+
   // AGI v4.0 Investment Office OS — Thesis / Decision / Portfolio / Monitoring / Learning
   // Static paths before dynamic :id routes. Ideas ≠ positions; events recommend review only.
   const v4Get = (enginePath) => async (_req, res) => {

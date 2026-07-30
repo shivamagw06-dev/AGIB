@@ -1023,6 +1023,23 @@ export const LAYERS = [
     version: '1.0',
     critical: true,
   },
+  {
+    id: 'IRE01',
+    code: 'IRE-01',
+    name: 'Institutional Reporting Engine',
+    purpose: 'Deterministic company recommendation reports from structured facts (no LLM).',
+    zone: 'publication',
+    accent: 'blue',
+    healthKey: 'ire01',
+    route: '/report/health',
+    docs: '/docs/AGI_IRE_01_INSTITUTIONAL_REPORTING.md',
+    inputs: ['InstitutionalReportInput', 'Evidence IDs', 'Ask AGI'],
+    outputs: ['InstitutionalReport', 'Fixed section company report'],
+    upstream: ['RH01'],
+    downstream: [],
+    version: '1.0',
+    critical: true,
+  },
 ];
 
 export const ZONES = [
