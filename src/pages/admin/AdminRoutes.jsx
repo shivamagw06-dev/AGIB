@@ -64,6 +64,8 @@ export default function AdminRoutes() {
       <Routes>
         {/* Full-bleed Institutional Knowledge Operations Center — not CMS chrome */}
         <Route path="knowledge-operations" element={<KnowledgeOperations />} />
+        {/* Full-bleed Institutional Morning Office — daily investment desk */}
+        <Route path="investment-office" element={<InvestmentOfficeAdmin />} />
         <Route element={<AdminLayout />}>
           <Route index element={<AdminDashboard />} />
           <Route path="articles" element={<AdminDashboard />} />
@@ -93,7 +95,6 @@ export default function AdminRoutes() {
           <Route path="decision-engine-v2" element={<DecisionEngineV2 />} />
           <Route path="institutional-intelligence" element={<InstitutionalIntelligence />} />
           <Route path="company-monitor" element={<CompanyMonitor />} />
-          <Route path="investment-office" element={<InvestmentOfficeAdmin />} />
           <Route path="mission-control" element={<MissionControl />} />
           <Route path="intelligence-map" element={<IntelligenceMap />} />
           <Route path="intent-intelligence" element={<IntentIntelligence />} />

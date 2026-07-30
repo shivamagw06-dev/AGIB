@@ -202,6 +202,10 @@ function PublicRoutes() {
         path="/knowledge-operations"
         element={<Navigate replace to="/admin/knowledge-operations" />}
       />
+      <Route
+        path="/investment-office"
+        element={<Navigate replace to="/admin/investment-office" />}
+      />
 
       <Route path="/about" element={<About />} />
       <Route path="/contact" element={<Contact />} />

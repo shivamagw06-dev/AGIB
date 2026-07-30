@@ -39,7 +39,8 @@ export function isAuthorCmsPath(pathname = '') {
 
 /**
  * Strict admin-only surfaces — non-admins get 403 Forbidden (no soft redirect).
- * Knowledge Operations is a control room, not a CMS page.
+ * Knowledge Operations = knowledge pipeline control room.
+ * Investment Office = institutional morning desk.
  */
 export function isStrictAdminPath(pathname = '') {
   const path = String(pathname || '').replace(/\/+$/, '') || '/';
@@ -47,6 +48,10 @@ export function isStrictAdminPath(pathname = '') {
     path === '/admin/knowledge-operations' ||
     path.startsWith('/admin/knowledge-operations/') ||
     path === '/knowledge-operations' ||
-    path.startsWith('/knowledge-operations/')
+    path.startsWith('/knowledge-operations/') ||
+    path === '/admin/investment-office' ||
+    path.startsWith('/admin/investment-office/') ||
+    path === '/investment-office' ||
+    path.startsWith('/investment-office/')
   );
 }

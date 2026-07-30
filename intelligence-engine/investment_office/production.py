@@ -345,3 +345,112 @@ def quality_gates() -> dict[str, Any]:
 
 def reset_for_tests() -> None:
     io_store.reset_for_tests()
+
+
+# --- AGI V1.3 Institutional Morning Office (additive façades) ---
+
+
+def morning_overview() -> dict[str, Any]:
+    """Full Morning Office aggregate for /admin/investment-office."""
+    from investment_office.morning_desk import build_morning_overview
+
+    return build_morning_overview()
+
+
+def morning_office() -> dict[str, Any]:
+    from investment_office.morning_desk import slice_overview
+
+    return slice_overview("morning-office")
+
+
+def daily_brief() -> dict[str, Any]:
+    from investment_office.morning_desk import slice_overview
+
+    return slice_overview("daily-brief")
+
+
+def research_queue_v13() -> dict[str, Any]:
+    from investment_office.morning_desk import slice_overview
+
+    return slice_overview("research-queue")
+
+
+def opportunities_v13() -> dict[str, Any]:
+    from investment_office.morning_desk import slice_overview
+
+    return slice_overview("opportunities")
+
+
+def market_summary_v13() -> dict[str, Any]:
+    from investment_office.morning_desk import slice_overview
+
+    return slice_overview("market-summary")
+
+
+def macro_v13() -> dict[str, Any]:
+    from investment_office.morning_desk import slice_overview
+
+    return slice_overview("macro")
+
+
+def calendar_v13() -> dict[str, Any]:
+    from investment_office.morning_desk import slice_overview
+
+    return slice_overview("calendar")
+
+
+def portfolio_monitor_v13() -> dict[str, Any]:
+    from investment_office.morning_desk import slice_overview
+
+    return slice_overview("portfolio-monitor")
+
+
+def sector_monitor_v13() -> dict[str, Any]:
+    from investment_office.morning_desk import slice_overview
+
+    return slice_overview("sector-monitor")
+
+
+def metrics_v13() -> dict[str, Any]:
+    from investment_office.morning_desk import slice_overview
+
+    return slice_overview("metrics")
+
+
+def refresh_morning_office() -> dict[str, Any]:
+    from investment_office.morning_desk import refresh_morning_office as _refresh
+
+    return _refresh()
+
+
+def generate_morning_brief() -> dict[str, Any]:
+    from investment_office.morning_desk import generate_morning_brief as _gen
+
+    return _gen()
+
+
+def soft_slice_morning_office() -> dict[str, Any]:
+    """Mission Control / homepage soft board for V1.3 Morning Office."""
+    try:
+        overview = morning_overview()
+        top = overview.get("top_summary") or {}
+        return {
+            "status": "ok",
+            "workstream_id": overview.get("workstream_id"),
+            "product": overview.get("product"),
+            "version": overview.get("version"),
+            "admin_only": True,
+            "buy_sell": False,
+            "panels": {
+                "market_mood": top.get("market_mood"),
+                "global_risk": top.get("global_risk"),
+                "research_queue": top.get("research_queue"),
+                "critical_alerts": top.get("critical_alerts"),
+                "companies_updated_overnight": top.get("companies_updated_overnight"),
+                "institutional_coverage_complete": top.get("institutional_coverage_complete"),
+            },
+            "route": "/admin/investment-office",
+            "complements": "Knowledge Operations",
+        }
+    except Exception as exc:
+        return {"status": "error", "error": str(exc)[:200], "admin_only": True}

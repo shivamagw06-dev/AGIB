@@ -12,7 +12,7 @@ import Forbidden403 from '@/components/admin/Forbidden403';
  * CMS / admin gate:
  * - Signed-in authors can reach article list / create / edit (their own uploads).
  * - Full admin tools remain admin-only.
- * - Strict admin paths (Knowledge Operations) return 403 for non-admins.
+ * - Strict admin paths (Knowledge Operations / Investment Office) return 403 for non-admins.
  */
 export default function RequireAdmin({ children }) {
   const { user } = useAuth();
@@ -35,7 +35,10 @@ export default function RequireAdmin({ children }) {
   }
 
   if (!isAdmin(user) && isStrictAdminPath(location.pathname)) {
-    return <Forbidden403 resource="Knowledge Operations" />;
+    const resource = location.pathname.includes('investment-office')
+      ? 'Investment Office'
+      : 'Knowledge Operations';
+    return <Forbidden403 resource={resource} />;
   }
 
   if (!isAdmin(user) && !isAuthorCmsPath(location.pathname)) {
