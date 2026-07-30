@@ -1,4 +1,4 @@
-"""Recommendation / fact consistency validator — runs before rendering."""
+"""Recommendation / fact / reason consistency validators — run before rendering."""
 
 from __future__ import annotations
 
@@ -11,7 +11,8 @@ from institutional_reporting.recommendation import (
     normalize_recommendation,
     recommendation_requires_conviction,
 )
-from institutional_reporting.schema import HORIZONS, RISK_LABELS, VALUATION_LABELS
+from institutional_reporting.reasoning import Reason, ReasonGraph
+from institutional_reporting.schema import HORIZONS, REPORT_SECTIONS, RISK_LABELS, VALUATION_LABELS
 
 
 def validate_input(inp: InstitutionalReportInput) -> ValidationResult:
@@ -90,6 +91,58 @@ def validate_input(inp: InstitutionalReportInput) -> ValidationResult:
             if not ev.label:
                 errors.append(f"evidence[{i}].label is required")
 
+    return ValidationResult(ok=not errors, errors=errors)
+
+
+def validate_reason(reason: Reason, *, section_key: str = "") -> list[str]:
+    """Reason Validator — every conclusion must be supported, contradicted, evidenced, unknown-aware."""
+    errors: list[str] = []
+    label = section_key or reason.section_key or reason.title or "reason"
+    if not str(reason.title or "").strip():
+        errors.append(f"{label}: reason missing title")
+    if not str(reason.conclusion or "").strip():
+        errors.append(f"{label}: reason missing conclusion")
+    try:
+        conf = float(reason.confidence)
+    except (TypeError, ValueError):
+        conf = -1.0
+        errors.append(f"{label}: reason missing confidence")
+    else:
+        if conf < 0.0 or conf > 1.0:
+            errors.append(f"{label}: reason confidence must be between 0 and 1")
+    if not reason.supporting_points:
+        errors.append(f"{label}: reason missing supporting points")
+    if not reason.contradicting_points:
+        errors.append(f"{label}: reason missing contradicting evidence")
+    if not reason.unknowns:
+        errors.append(f"{label}: reason missing unknowns")
+    if not reason.supporting_evidence:
+        errors.append(f"{label}: reason missing evidence")
+    # Empty reason object
+    if (
+        not reason.conclusion
+        and not reason.supporting_points
+        and not reason.contradicting_points
+        and not reason.unknowns
+        and not reason.supporting_evidence
+    ):
+        errors.append(f"{label}: empty reason object")
+    return errors
+
+
+def validate_reasons(graph: ReasonGraph) -> ValidationResult:
+    errors: list[str] = []
+    by_key = graph.by_section()
+    for key in REPORT_SECTIONS:
+        reason = by_key.get(key)
+        if reason is None:
+            errors.append(f"section missing reason: {key}")
+            continue
+        errors.extend(validate_reason(reason, section_key=key))
+    if len(graph.reasons) != len(REPORT_SECTIONS):
+        errors.append(
+            f"reason count mismatch: expected {len(REPORT_SECTIONS)}, got {len(graph.reasons)}"
+        )
     return ValidationResult(ok=not errors, errors=errors)
 
 

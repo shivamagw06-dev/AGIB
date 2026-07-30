@@ -155,6 +155,7 @@ class ReportSection:
     body: str
     evidence_ids: list[str] = field(default_factory=list)
     meta: dict[str, Any] = field(default_factory=dict)
+    reason: Any = None  # Reason | None — kept Any to avoid circular import at runtime
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -163,6 +164,7 @@ class ReportSection:
             "body": self.body,
             "evidence_ids": list(self.evidence_ids),
             "meta": dict(self.meta or {}),
+            "reason": self.reason.to_dict() if self.reason is not None and hasattr(self.reason, "to_dict") else None,
         }
 
 
@@ -187,6 +189,9 @@ class InstitutionalReport:
     llm: bool = False
     as_of: str = ""
     input_fingerprint: str = ""
+    reasons: list[Any] = field(default_factory=list)
+    diagnostics: dict[str, Any] = field(default_factory=dict)
+    reason_graph_text: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -206,8 +211,14 @@ class InstitutionalReport:
             "rejected": self.rejected,
             "llm": False,
             "external_writer": False,
+            "reason_composer": True,
             "as_of": self.as_of,
             "input_fingerprint": self.input_fingerprint,
+            "reasons": [
+                r.to_dict() if hasattr(r, "to_dict") else r for r in (self.reasons or [])
+            ],
+            "diagnostics": dict(self.diagnostics or {}),
+            "reason_graph_text": self.reason_graph_text,
         }
 
 

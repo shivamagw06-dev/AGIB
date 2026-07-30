@@ -1135,13 +1135,17 @@ export const runReleaseHealth = (body = {}) =>
     timeoutMs: 300_000,
   });
 
-/** IRE-01 — Institutional Reporting Engine (deterministic; no LLM) */
+/** IRE-02 — Institutional Reporting Engine + Reason Composer (deterministic; no LLM) */
 export const getInstitutionalReportHealth = () =>
   intelligenceFetch('/report/health', { timeoutMs: 30_000 });
 export const composeInstitutionalCompanyReport = (body = {}) =>
   intelligenceFetch('/report/company', { method: 'POST', body: body || {}, timeoutMs: 60_000 });
-export const getInstitutionalCompanyReport = (ticker) =>
-  intelligenceFetch(`/report/company/${encodeURIComponent(ticker)}`, { timeoutMs: 60_000 });
+export const getInstitutionalCompanyReport = (ticker, { includeReasons = true } = {}) => {
+  const qs = includeReasons ? '?include_reasons=true' : '?include_reasons=false';
+  return intelligenceFetch(`/report/company/${encodeURIComponent(ticker)}${qs}`, {
+    timeoutMs: 60_000,
+  });
+};
 
 /** IBS-01 — AGI Institutional Benchmark Suite */
 export const getInstitutionalBenchmarksHealth = () =>

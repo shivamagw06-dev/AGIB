@@ -45,7 +45,7 @@ def _base_input(**overrides):
 
 def test_health_no_llm():
     h = health()
-    assert h["workstream_id"] == "IRE-01"
+    assert h["workstream_id"] in {"IRE-01", "IRE-02"}
     assert h["llm"] is False
     assert h["gemini"] is False
     assert h["openai"] is False
@@ -93,9 +93,12 @@ def test_evidence_rendering_in_paragraphs():
     report = compose_report(_base_input())
     assert report.ok is True
     bq = next(s for s in report.sections if s.key == "business_quality")
-    assert "Supported by" in bq.body
+    # IRE-02 section contract embeds Evidence (not legacy "Supported by" block).
+    assert "Evidence" in bq.body
     assert "FIRE-06" in bq.body
     assert bq.evidence_ids
+    assert "Conclusion" in bq.body
+    assert "Unknowns" in bq.body
 
 
 def test_missing_section_impossible_fixed_structure():
