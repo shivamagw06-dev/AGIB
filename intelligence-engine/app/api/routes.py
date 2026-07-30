@@ -10323,6 +10323,39 @@ async def institutional_committee_portfolio_get(
     return get_portfolio_resolutions(portfolio_id, refresh=refresh)
 
 
+# --- UAG-01 Universal Ask AGI Orchestrator (stateless; orchestration only) ---
+
+
+@router.get("/orchestrator/health")
+async def institutional_orchestrator_health():
+    from institutional_orchestrator.production import health
+
+    return health()
+
+
+@router.post("/ask")
+async def universal_ask_post(payload: dict[str, Any] = Body(default={})):
+    """UAG-01: orchestrate registered institutional objects. Does not generate recommendations."""
+    from institutional_orchestrator.production import ask
+
+    return ask(payload or {})
+
+
+@router.post("/ask/stream")
+async def universal_ask_stream(payload: dict[str, Any] = Body(default={})):
+    from institutional_orchestrator.production import ask_stream
+
+    # Structured event list (not LLM token stream)
+    return {"ok": True, "events": list(ask_stream(payload or {})), "stream": True}
+
+
+@router.get("/query/{query_id}")
+async def universal_ask_query_get(query_id: str):
+    from institutional_orchestrator.production import get_query
+
+    return get_query(query_id)
+
+
 # --- Company Monitoring System V1 (continuous living analyst; additive) ---
 
 

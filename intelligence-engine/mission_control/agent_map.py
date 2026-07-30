@@ -790,6 +790,26 @@ _CATALOG: list[dict[str, Any]] = [
         "module": "institutional_committee.production",
     },
     {
+        "id": "institutional_orchestrator",
+        "name": "Universal Ask AGI Orchestrator (UAG-01)",
+        "group": "publication",
+        "responsibility": (
+            "Phase 5.1 — Stateless orchestration over registered institutional objects. "
+            "Intent → plan → retrieve → assemble. Does not generate recommendations or own "
+            "business state. Domain engines remain systems of record."
+        ),
+        "sources": [
+            "Object Registry",
+            "CompanyDecision",
+            "PortfolioRisk",
+            "PolicyAssessment",
+            "PortfolioDecision",
+            "CommitteeResolution",
+        ],
+        "kind": "orchestration",
+        "module": "institutional_orchestrator.production",
+    },
+    {
         "id": "ite_thesis",
         "name": "Investment Thesis Office",
         "group": "offices",

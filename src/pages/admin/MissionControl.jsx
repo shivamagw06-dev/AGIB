@@ -200,6 +200,8 @@ export default function MissionControl() {
     institutional?.institutional_policy || desk?.institutional_policy || null;
   const committeeCenter =
     institutional?.institutional_committee || desk?.institutional_committee || null;
+  const orchestrationCenter =
+    institutional?.institutional_orchestrator || desk?.institutional_orchestrator || null;
   const pipeline = desk?.research_pipeline || {};
   const preds = desk?.prediction_intelligence || {};
   const dq = desk?.data_quality || {};
@@ -1424,6 +1426,62 @@ export default function MissionControl() {
               !(policyCenter.portfolios_out_of_mandate || []).length &&
               !(policyCenter.policy_assessment?.required_actions || []).length ? (
                 <li>Run a policy check to populate the Policy Center.</li>
+              ) : null}
+            </ul>
+          </Glass>
+        </section>
+
+        {/* Orchestration Center — UAG-01 */}
+        <section className="space-y-3">
+          <Kicker>Orchestration Center · UAG-01</Kicker>
+          <p className="text-sm text-[var(--io-muted)] max-w-3xl">
+            Universal Ask AGI — active queries, planner latency, object coverage, failed plans, and
+            missing registrations. Orchestration only; domain engines remain systems of record.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+            <Stat
+              label="Active queries"
+              value={orchestrationCenter?.active_queries ?? '—'}
+              status={orchestrationCenter?.status}
+            />
+            <Stat
+              label="Avg latency"
+              value={
+                orchestrationCenter?.average_latency != null
+                  ? `${Number(orchestrationCenter.average_latency).toFixed(0)}ms`
+                  : '—'
+              }
+            />
+            <Stat
+              label="Object coverage"
+              value={orchestrationCenter?.object_coverage ?? '—'}
+              hint={
+                orchestrationCenter?.registered_object_count != null
+                  ? `${orchestrationCenter.registered_object_count} registered`
+                  : undefined
+              }
+            />
+            <Stat label="Failed plans" value={orchestrationCenter?.failed_plans ?? '—'} />
+            <Stat
+              label="Missing registrations"
+              value={(orchestrationCenter?.missing_registrations || []).length || '—'}
+            />
+            <Stat
+              label="Queries run"
+              value={orchestrationCenter?.planner_performance?.query_count ?? '—'}
+            />
+          </div>
+          <Glass>
+            <p className="text-[11px] uppercase text-[var(--io-caption)]">Recent orchestrated queries</p>
+            <ul className="mt-2 space-y-1 text-xs max-h-36 overflow-auto text-[var(--io-ink-soft)]">
+              {(orchestrationCenter?.recent_queries || []).slice(0, 6).map((q) => (
+                <li key={q.query_id}>
+                  [{q.intent}] {q.question}
+                </li>
+              ))}
+              {!orchestrationCenter ? <li>Orchestration Center soft slice unavailable.</li> : null}
+              {orchestrationCenter && !(orchestrationCenter.recent_queries || []).length ? (
+                <li>Run a Universal Ask query to populate the center.</li>
               ) : null}
             </ul>
           </Glass>
