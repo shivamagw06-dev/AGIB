@@ -2853,6 +2853,62 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // ICE-01 — Investment Committee Engine
+  router.get('/committee-engine/health', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/committee-engine/health', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'committee engine health failed' });
+    }
+  });
+  router.post('/committee/review', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/committee/review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 90_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'committee review failed' });
+    }
+  });
+  router.get('/committee/pending', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/committee/pending', { timeoutMs: 30_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'committee pending failed' });
+    }
+  });
+  router.get('/committee/resolution/:resolutionId', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/committee/resolution/${encodeURIComponent(req.params.resolutionId)}`,
+        { timeoutMs: 30_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'committee resolution get failed' });
+    }
+  });
+  router.get('/committee/portfolio/:portfolioId', async (req, res) => {
+    try {
+      const qs = new URLSearchParams();
+      if (req.query?.refresh !== undefined) qs.set('refresh', String(req.query.refresh));
+      const suffix = qs.toString() ? `?${qs}` : '';
+      const result = await engineFetch(
+        `/v1/committee/portfolio/${encodeURIComponent(req.params.portfolioId)}${suffix}`,
+        { timeoutMs: 90_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'committee portfolio get failed' });
+    }
+  });
+
   // IDS-02 — Decision Calibration & Explainability
   router.get('/calibration/health', async (_req, res) => {
     try {

@@ -1683,6 +1683,15 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("institutional_portfolio_decision")
     except Exception:
         out["institutional_portfolio_decision"] = None
+
+    # ICE-01 — Investment Committee Engine (Committee Center).
+    try:
+        from institutional_committee.production import soft_slice_mission_control as ice_soft
+
+        out["institutional_committee"] = ice_soft()
+        out["sources"].append("institutional_committee")
+    except Exception:
+        out["institutional_committee"] = None
     return out
 
 

@@ -198,6 +198,8 @@ export default function MissionControl() {
     institutional?.institutional_portfolio_risk || desk?.institutional_portfolio_risk || null;
   const policyCenter =
     institutional?.institutional_policy || desk?.institutional_policy || null;
+  const committeeCenter =
+    institutional?.institutional_committee || desk?.institutional_committee || null;
   const pipeline = desk?.research_pipeline || {};
   const preds = desk?.prediction_intelligence || {};
   const dq = desk?.data_quality || {};
@@ -1422,6 +1424,62 @@ export default function MissionControl() {
               !(policyCenter.portfolios_out_of_mandate || []).length &&
               !(policyCenter.policy_assessment?.required_actions || []).length ? (
                 <li>Run a policy check to populate the Policy Center.</li>
+              ) : null}
+            </ul>
+          </Glass>
+        </section>
+
+        {/* Committee Center — ICE-01 */}
+        <section className="space-y-3">
+          <Kicker>Committee Center · ICE-01</Kicker>
+          <p className="text-sm text-[var(--io-muted)] max-w-3xl">
+            Investment committee governance — pending reviews, policy escalations, deferred
+            decisions, upcoming meetings, and open action items. Advisory only; does not mutate
+            upstream risk, policy, or company decisions.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+            <Stat
+              label="Pending reviews"
+              value={committeeCenter?.pending_reviews ?? '—'}
+              status={committeeCenter?.status}
+            />
+            <Stat
+              label="Policy escalations"
+              value={committeeCenter?.policy_escalations ?? '—'}
+            />
+            <Stat
+              label="Deferred decisions"
+              value={committeeCenter?.deferred_decisions ?? '—'}
+            />
+            <Stat
+              label="Upcoming meetings"
+              value={(committeeCenter?.upcoming_meetings || []).length || '—'}
+            />
+            <Stat
+              label="Open action items"
+              value={committeeCenter?.open_action_items ?? '—'}
+            />
+            <Stat label="Overdue reviews" value={committeeCenter?.overdue_reviews ?? '—'} />
+          </div>
+          <Glass>
+            <p className="text-[11px] uppercase text-[var(--io-caption)]">
+              Latest {committeeCenter?.latest_resolution?.status || '—'} ·{' '}
+              {committeeCenter?.latest_resolution?.decision_recommendation || 'no resolution'}
+            </p>
+            <ul className="mt-2 space-y-1 text-xs max-h-36 overflow-auto text-[var(--io-ink-soft)]">
+              {(committeeCenter?.upcoming_meetings || []).slice(0, 6).map((m) => (
+                <li key={`um-${m}`}>Meeting / follow-up: {m}</li>
+              ))}
+              {(committeeCenter?.latest_resolution?.required_actions || [])
+                .slice(0, 4)
+                .map((a) => (
+                  <li key={`ca-${a.action_id || a.title}`}>Action: {a.title || a.detail}</li>
+                ))}
+              {!committeeCenter ? <li>Committee Center soft slice unavailable.</li> : null}
+              {committeeCenter &&
+              !(committeeCenter.upcoming_meetings || []).length &&
+              !(committeeCenter.latest_resolution?.required_actions || []).length ? (
+                <li>Run a committee review to populate the Committee Center.</li>
               ) : null}
             </ul>
           </Glass>

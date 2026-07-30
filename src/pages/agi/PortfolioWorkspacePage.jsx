@@ -120,7 +120,8 @@ export default function PortfolioWorkspacePage() {
       <h1 className="agi-greeting">Investment Office</h1>
       <p className="agi-lede">
         Portfolio risk, mandate compliance, and decisioning — what the book may do, what risks it
-        carries, and what should change. Company recommendations stay immutable.
+        carries, and what should change. Company recommendations stay immutable.{' '}
+        <Link to="/agi/committee">Investment Committee →</Link>
       </p>
 
       {error && <div className="agi-error">{error}</div>}
