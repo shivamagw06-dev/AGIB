@@ -1,4 +1,4 @@
-"""Shared Evidence / Processing Event Bus catalogue (FSE-02…FSE-07)."""
+"""Shared Evidence / Processing Event Bus catalogue (FSE-00…FSE-07)."""
 
 from __future__ import annotations
 
@@ -74,6 +74,20 @@ DERIVED_METRICS_EVENTS_V1 = (
     "derived_metrics.restatement_recalculated.v1",
 )
 
+# Pipeline Orchestrator (FSE-00) — additive coordination events only
+ORCHESTRATOR_EVENTS_V1 = (
+    "workflow.created.v1",
+    "workflow.queued.v1",
+    "stage.started.v1",
+    "stage.completed.v1",
+    "stage.failed.v1",
+    "stage.skipped.v1",
+    "workflow.completed.v1",
+    "workflow.failed.v1",
+    "workflow.retrying.v1",
+    "workflow.cancelled.v1",
+)
+
 PARSE_EVENTS = PARSE_EVENTS_LEGACY + PARSE_EVENTS_V1 + COVERAGE_EVENTS_V1 + PCC_EVENTS_V1
 
 EVENT_TYPES = (
@@ -82,4 +96,5 @@ EVENT_TYPES = (
     + VALIDATION_EVENTS_V1
     + WAREHOUSE_EVENTS_V1
     + DERIVED_METRICS_EVENTS_V1
+    + ORCHESTRATOR_EVENTS_V1
 )

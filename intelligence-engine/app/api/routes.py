@@ -10485,6 +10485,71 @@ async def financial_statements_metric_get(metric: str):
     }
 
 
+@router.get("/financial-statements/orchestrator/health")
+async def financial_statements_orchestrator_health():
+    """FSE-00 Pipeline Orchestrator — coordinates engines only."""
+    from financial_statements_engine.orchestrator.production import health
+
+    return health()
+
+
+@router.get("/financial-statements/orchestrator/dashboard")
+async def financial_statements_orchestrator_dashboard():
+    from financial_statements_engine.orchestrator.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/financial-statements/orchestrator/workflows")
+async def financial_statements_orchestrator_workflows(state: str | None = None, limit: int = 100):
+    from financial_statements_engine.orchestrator.production import workflows
+
+    return workflows(state=state, limit=limit)
+
+
+@router.get("/financial-statements/orchestrator/workflows/{workflow_id}")
+async def financial_statements_orchestrator_workflow(workflow_id: str):
+    from financial_statements_engine.orchestrator.production import workflow_detail
+
+    return workflow_detail(workflow_id)
+
+
+@router.get("/financial-statements/orchestrator/queue")
+async def financial_statements_orchestrator_queue(limit: int = 100):
+    from financial_statements_engine.orchestrator.production import queue
+
+    return queue(limit=limit)
+
+
+@router.get("/financial-statements/orchestrator/history")
+async def financial_statements_orchestrator_history(limit: int = 100):
+    from financial_statements_engine.orchestrator.production import history
+
+    return history(limit=limit)
+
+
+@router.post("/financial-statements/orchestrator/start")
+async def financial_statements_orchestrator_start(payload: dict[str, Any] = Body(default={})):
+    from financial_statements_engine.orchestrator.production import start
+
+    return start(payload or {}, run=bool((payload or {}).get("run", True)))
+
+
+@router.post("/financial-statements/orchestrator/retry/{workflow_id}")
+async def financial_statements_orchestrator_retry(workflow_id: str):
+    from financial_statements_engine.orchestrator.production import retry
+
+    return retry(workflow_id)
+
+
+@router.post("/financial-statements/orchestrator/replay/{workflow_id}")
+async def financial_statements_orchestrator_replay(workflow_id: str, payload: dict[str, Any] = Body(default={})):
+    from financial_statements_engine.orchestrator.production import replay
+
+    body = payload or {}
+    return replay(workflow_id, from_stage=body.get("from_stage"))
+
+
 @router.get("/financial-statements/collection/health")
 async def financial_statements_collection_health():
     """FSE-02 Data Sources & Collection Pipeline."""

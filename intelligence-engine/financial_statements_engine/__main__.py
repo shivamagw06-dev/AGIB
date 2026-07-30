@@ -31,6 +31,9 @@ def main(argv: list[str] | None = None) -> int:
             "--warehouse-contract CONTRACT TICKER|--warehouse-view TICKER VIEW [--as-of TS]|"
             "--dme-health|--dme-dashboard|--dme-calculate TICKER|"
             "--ecd-health|--ecd-dashboard [universe]|--ecd-company TICKER|"
+            "--orch-health|--orch-dashboard|--orch-queue|--orch-history|"
+            "--orch-status|--orch-workflows|--orch-workflow ID|"
+            "--orch-retry ID|--orch-replay ID [--from-stage STAGE]|"
             "--schema-evolution-health|--schema-resolve LABEL|"
             "--collection-health|--collection-dashboard|"
             "--collect TICKER [--mode live|historical]|TICKER [--publish]"
@@ -345,6 +348,65 @@ def main(argv: list[str] | None = None) -> int:
             print("ticker required", file=sys.stderr)
             return 2
         print(json.dumps(ecd_company(args[1]), indent=2, default=str))
+        return 0
+    if cmd in ("--orch-health", "--orch-status"):
+        from financial_statements_engine.orchestrator.production import health as orch_health
+
+        print(json.dumps(orch_health(), indent=2, default=str))
+        return 0
+    if cmd == "--orch-dashboard":
+        from financial_statements_engine.orchestrator.production import dashboard as orch_dash
+
+        print(json.dumps(orch_dash(), indent=2, default=str))
+        return 0
+    if cmd == "--orch-queue":
+        from financial_statements_engine.orchestrator.production import queue as orch_queue
+
+        print(json.dumps(orch_queue(), indent=2, default=str))
+        return 0
+    if cmd == "--orch-history":
+        from financial_statements_engine.orchestrator.production import history as orch_hist
+
+        print(json.dumps(orch_hist(), indent=2, default=str))
+        return 0
+    if cmd == "--orch-workflows":
+        from financial_statements_engine.orchestrator.production import workflows as orch_wfs
+
+        state = None
+        if "--state" in args:
+            i = args.index("--state")
+            if i + 1 < len(args):
+                state = args[i + 1]
+        print(json.dumps(orch_wfs(state=state), indent=2, default=str))
+        return 0
+    if cmd == "--orch-workflow":
+        from financial_statements_engine.orchestrator.production import workflow_detail
+
+        if len(args) < 2:
+            print("workflow_id required", file=sys.stderr)
+            return 2
+        print(json.dumps(workflow_detail(args[1]), indent=2, default=str))
+        return 0
+    if cmd == "--orch-retry":
+        from financial_statements_engine.orchestrator.production import retry as orch_retry
+
+        if len(args) < 2:
+            print("workflow_id required", file=sys.stderr)
+            return 2
+        print(json.dumps(orch_retry(args[1]), indent=2, default=str))
+        return 0
+    if cmd == "--orch-replay":
+        from financial_statements_engine.orchestrator.production import replay as orch_replay
+
+        if len(args) < 2:
+            print("workflow_id required", file=sys.stderr)
+            return 2
+        from_stage = None
+        if "--from-stage" in args:
+            i = args.index("--from-stage")
+            if i + 1 < len(args):
+                from_stage = args[i + 1]
+        print(json.dumps(orch_replay(args[1], from_stage=from_stage), indent=2, default=str))
         return 0
     if cmd == "--schema-evolution-health":
         from financial_statements_engine.schema_evolution.production import health as se_health
