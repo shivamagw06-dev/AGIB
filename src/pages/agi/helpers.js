@@ -19,6 +19,7 @@ export const COMPANY_TABS = [
   { id: 'decision', label: 'Decision' },
   { id: 'knowledge_graph', label: 'Knowledge Graph' },
   { id: 'forecast', label: 'Forecast' },
+  { id: 'observations', label: 'Observations' },
   { id: 'business_quality', label: 'Business Quality' },
   { id: 'financial_trends', label: 'Financials' },
   { id: 'business_strategy', label: 'Strategy' },

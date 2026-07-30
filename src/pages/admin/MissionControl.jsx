@@ -188,6 +188,8 @@ export default function MissionControl() {
   };
   const v4Present = Object.values(v4Office).some(Boolean);
   const monitor = desk?.company_monitor || {};
+  const observationCenter =
+    institutional?.institutional_observation || desk?.institutional_observation || null;
   const pipeline = desk?.research_pipeline || {};
   const preds = desk?.prediction_intelligence || {};
   const dq = desk?.data_quality || {};
@@ -1305,6 +1307,56 @@ export default function MissionControl() {
               </p>
             </Glass>
           </div>
+        </section>
+
+        {/* Observation Center — IO-01 Institutional Observation Engine */}
+        <section className="space-y-3">
+          <Kicker>Observation Center · IO-01</Kicker>
+          <p className="text-sm text-[var(--io-muted)] max-w-3xl">
+            Proactive institutional monitoring — material changes with hysteresis, decision
+            re-evaluation triggers, and structured alerts. Soft board only.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            <Stat
+              label="Today"
+              value={observationCenter?.todays_observations ?? '—'}
+              status={observationCenter?.status}
+            />
+            <Stat
+              label="Critical"
+              value={observationCenter?.critical_observations ?? '—'}
+              status="Critical"
+            />
+            <Stat label="Decision changes" value={observationCenter?.decision_changes ?? '—'} />
+            <Stat label="Pending reviews" value={observationCenter?.pending_reviews ?? '—'} />
+            <Stat
+              label="Throughput"
+              value={observationCenter?.observation_throughput ?? '—'}
+              hint={
+                observationCenter?.observation_latency_ms != null
+                  ? `Latency ${observationCenter.observation_latency_ms} ms`
+                  : observationCenter
+                    ? 'Hysteresis on'
+                    : 'Unavailable'
+              }
+            />
+          </div>
+          <Glass>
+            <p className="text-[11px] uppercase text-[var(--io-caption)]">Recent critical</p>
+            <ul className="mt-2 space-y-1 text-xs max-h-36 overflow-auto text-[var(--io-ink-soft)]">
+              {(observationCenter?.recent_critical || []).slice(0, 8).map((o) => (
+                <li key={o.observation_id || `${o.ticker}-${o.timestamp}`}>
+                  {o.ticker || o.company}: {o.category} [{o.severity}] — {o.recommended_action}
+                </li>
+              ))}
+              {!observationCenter ? (
+                <li>Observation Center soft slice unavailable.</li>
+              ) : null}
+              {observationCenter && !(observationCenter.recent_critical || []).length ? (
+                <li>No critical observations in memory yet.</li>
+              ) : null}
+            </ul>
+          </Glass>
         </section>
 
         {/* SECTION 7 + 8 + 9 */}

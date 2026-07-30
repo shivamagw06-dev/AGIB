@@ -6,6 +6,7 @@ import {
   getCompanyWorkspaceTimeline,
   getInstitutionalDecision,
   getInstitutionalGraph,
+  getInstitutionalObservations,
   getInstitutionalScenarios,
 } from '@/lib/intelligenceApi';
 import {
@@ -96,6 +97,7 @@ export default function CompanyWorkspacePage() {
   const [evidence, setEvidence] = useState([]);
   const [decisionPack, setDecisionPack] = useState(null);
   const [knowledgeGraph, setKnowledgeGraph] = useState(null);
+  const [observationsPack, setObservationsPack] = useState(null);
   const [forecastPack, setForecastPack] = useState(null);
   const [selectedScenario, setSelectedScenario] = useState('base');
   const [selectedNodeId, setSelectedNodeId] = useState(null);
@@ -120,8 +122,11 @@ export default function CompanyWorkspacePage() {
         includeGraph: true,
         includePropagation: true,
       }).catch(() => null),
+      getInstitutionalObservations(ticker, {
+        includeDecisionChanges: true,
+      }).catch(() => null),
     ])
-      .then(([ws, tl, ev, decision, graph, forecast]) => {
+      .then(([ws, tl, ev, decision, graph, forecast, observations]) => {
         if (!active) return;
         setWorkspace(ws);
         const events =
@@ -140,6 +145,7 @@ export default function CompanyWorkspacePage() {
         setKnowledgeGraph(graph && graph.ok !== false ? graph : null);
         setForecastPack(forecast && forecast.ok !== false ? forecast : null);
         setSelectedScenario('base');
+        setObservationsPack(observations && observations.ok !== false ? observations : null);
         setSelectedNodeId(null);
         setLoading(false);
       })
@@ -405,6 +411,131 @@ export default function CompanyWorkspacePage() {
                   {(decisionPack.lineage?.chain || []).join(' → ') ||
                     'Evidence → Reasons → Decision → Calibration → Report'}
                 </p>
+              </section>
+            </>
+          )}
+        </div>
+      )}
+
+      {!loading && !error && tab === 'observations' && (
+        <div>
+          <h2 style={{ margin: '0 0 0.5rem', fontFamily: 'var(--agi-display)', fontSize: '1.5rem' }}>
+            Observations
+          </h2>
+          <p className="agi-list-meta" style={{ marginBottom: '1rem' }}>
+            Proactive institutional monitoring — material changes, severity, evidence lineage, and
+            recommended actions. Small moves stay silent via hysteresis.
+          </p>
+          {!observationsPack ? (
+            <div className="agi-empty">Observations unavailable for this ticker.</div>
+          ) : (
+            <>
+              <div className="agi-stat-row">
+                <div className="agi-stat">
+                  <div className="agi-stat-label">Observations</div>
+                  <div className="agi-stat-value">
+                    {(observationsPack.observations || []).length}
+                  </div>
+                </div>
+                <div className="agi-stat">
+                  <div className="agi-stat-label">Critical / high</div>
+                  <div className="agi-stat-value">
+                    {
+                      (observationsPack.observations || []).filter((o) =>
+                        ['critical', 'high'].includes(o.severity)
+                      ).length
+                    }
+                  </div>
+                </div>
+                <div className="agi-stat">
+                  <div className="agi-stat-label">Pending review</div>
+                  <div className="agi-stat-value">
+                    {(observationsPack.observations || []).filter((o) => o.requires_review).length}
+                  </div>
+                </div>
+              </div>
+
+              <section style={{ marginTop: '1.25rem' }}>
+                <h3 style={{ fontFamily: 'var(--agi-display)', fontSize: '1.15rem' }}>Timeline</h3>
+                {!(observationsPack.observations || []).length ? (
+                  <div className="agi-empty" style={{ marginTop: '0.75rem' }}>
+                    No material observations yet — graph updates may remain silent below hysteresis
+                    thresholds.
+                  </div>
+                ) : (
+                  <ul className="agi-list" style={{ marginTop: '0.75rem' }}>
+                    {[...(observationsPack.observations || [])]
+                      .reverse()
+                      .map((o) => (
+                        <li key={o.observation_id}>
+                          <div className="agi-list-title">
+                            {o.category}{' '}
+                            <span className="agi-list-meta">[{o.severity}]</span>
+                          </div>
+                          <div className="agi-list-meta" style={{ marginTop: '0.35rem' }}>
+                            {productizeText(o.summary)}
+                          </div>
+                          <div className="agi-list-meta" style={{ marginTop: '0.35rem' }}>
+                            Evidence {o.evidence_snapshot_id || '—'}
+                            {o.decision_changed
+                              ? ` · Decision ${o.previous_decision || '—'} → ${o.current_decision || '—'}`
+                              : ''}
+                            {o.recommended_action ? ` · ${o.recommended_action}` : ''}
+                          </div>
+                        </li>
+                      ))}
+                  </ul>
+                )}
+              </section>
+
+              <section style={{ marginTop: '1.25rem' }}>
+                <h3 style={{ fontFamily: 'var(--agi-display)', fontSize: '1.15rem' }}>
+                  Decision changes
+                </h3>
+                <ul className="agi-list" style={{ marginTop: '0.75rem' }}>
+                  {(observationsPack.decision_changes || [])
+                    .filter((d) => d.changed)
+                    .map((d, idx) => (
+                      <li key={`dc-${idx}`}>
+                        <div className="agi-list-title">
+                          {d.previous || '—'} → {d.current || '—'}
+                        </div>
+                        <div className="agi-list-meta">
+                          Confidence {d.previous_confidence ?? '—'} → {d.current_confidence ?? '—'}
+                          {d.re_evaluated ? ' · re-evaluated' : ''}
+                        </div>
+                      </li>
+                    ))}
+                  {!(observationsPack.decision_changes || []).some((d) => d.changed) ? (
+                    <li>
+                      <div className="agi-list-meta">No recommendation changes in this cycle.</div>
+                    </li>
+                  ) : null}
+                </ul>
+              </section>
+
+              <section style={{ marginTop: '1.25rem' }}>
+                <h3 style={{ fontFamily: 'var(--agi-display)', fontSize: '1.15rem' }}>
+                  Recommended actions
+                </h3>
+                <ul className="agi-list" style={{ marginTop: '0.75rem' }}>
+                  {(observationsPack.observations || []).map((o) => (
+                    <li key={`act-${o.observation_id}`}>
+                      <div className="agi-list-title">{o.recommended_action || 'Monitor'}</div>
+                      <div className="agi-list-meta">
+                        {(o.lineage || []).join(' → ') ||
+                          'Evidence → Observation → Knowledge Graph → Reason → Decision → Calibration → Forecast → Report'}
+                      </div>
+                    </li>
+                  ))}
+                  {!(observationsPack.observations || []).length ? (
+                    <li>
+                      <div className="agi-list-meta">
+                        {(observationsPack.plan || {}).recommended_action || 'No action'}
+                      </div>
+                    </li>
+                  ) : null}
+                </ul>
               </section>
             </>
           )}
