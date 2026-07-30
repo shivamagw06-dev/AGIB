@@ -48,6 +48,7 @@ COMPANY_SECTOR: dict[str, str] = {
     # Banks
     "HDFCBANK": "banks",
     "ICICIBANK": "banks",
+    "IDBI": "banks",
     "SBIN": "banks",
     "AXISBANK": "banks",
     "KOTAKBANK": "banks",
@@ -175,6 +176,10 @@ COMPANY_ALIASES: dict[str, str] = {
     "hdfcbank": "HDFCBANK",
     "icici bank": "ICICIBANK",
     "icici": "ICICIBANK",
+    "idbi": "IDBI",
+    "idbi bank": "IDBI",
+    "idbi bank ltd": "IDBI",
+    "idbi bank limited": "IDBI",
     "sbi": "SBIN",
     "infosys": "INFY",
     "tcs": "TCS",

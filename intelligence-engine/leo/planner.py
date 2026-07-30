@@ -60,6 +60,9 @@ def detect_entity(query: str, ticker: str | None = None) -> dict[str, Any]:
         # common aliases
         aliases = {
             "hdfc bank": "HDFCBANK",
+            "idbi": "IDBI",
+            "idbi bank": "IDBI",
+            "idbi bank limited": "IDBI",
             "hdfc": "HDFCBANK",
             "infosys": "INFY",
             "reliance": "RELIANCE",

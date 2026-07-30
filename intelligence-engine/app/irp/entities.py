@@ -6,7 +6,7 @@ import re
 
 from app.irp.models import ResolvedEntityPack
 from app.irp.universes import COMPANY_ALIASES, SECTOR_UNIVERSES
-from app.kip.extractors import KNOWN_TICKERS, TICKER_STOPWORDS
+from app.kip.extractors import looks_like_equity_ticker
 
 _TICKER_RE = re.compile(r"\b([A-Z]{2,12})(?:\.(?:NS|BO))?\b")
 
@@ -35,13 +35,11 @@ def resolve_entities(question: str, *, ticker: str | None = None) -> ResolvedEnt
     found: list[str] = []
     if ticker:
         t = str(ticker).upper().replace(".NS", "").replace(".BO", "")
-        if t not in TICKER_STOPWORDS and (t in KNOWN_TICKERS or t.endswith("BANK")):
+        if looks_like_equity_ticker(t):
             found.append(t)
     for m in _TICKER_RE.finditer(q.upper()):
         tok = m.group(1).upper()
-        if tok in TICKER_STOPWORDS:
-            continue
-        if tok in KNOWN_TICKERS or tok.endswith("BANK"):
+        if looks_like_equity_ticker(tok):
             found.append(tok)
     for alias, tkr in COMPANY_ALIASES.items():
         if alias in ql:

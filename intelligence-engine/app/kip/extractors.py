@@ -27,6 +27,7 @@ _METRIC_RE = re.compile(
 KNOWN_TICKERS = {
     "ICICIBANK",
     "HDFCBANK",
+    "IDBI",
     "RELIANCE",
     "TCS",
     "INFY",
@@ -82,6 +83,18 @@ TICKER_STOPWORDS = {
     "GROWTH",
     "WEAK",
     "DEAL",
+    # Generic sector words — never treat as NSE tickers (e.g. "IDBI BANK" → not BANK)
+    "BANK",
+    "BANKS",
+    "NBFC",
+    "FINANCE",
+    "FINANCIAL",
+    "INSURANCE",
+    "EQUITY",
+    "BOND",
+    "BONDS",
+    "FUND",
+    "FUNDS",
     "DEALS",
     "SERVICE",
     "SERVICES",
@@ -139,6 +152,17 @@ SECTOR_MAP = {
 }
 
 
+def looks_like_equity_ticker(tok: str) -> bool:
+    """Accept known tickers or bank-style symbols (HDFCBANK), never bare BANK."""
+    t = str(tok or "").upper().replace(".NS", "").replace(".BO", "")
+    if not t or t in TICKER_STOPWORDS:
+        return False
+    if t in KNOWN_TICKERS:
+        return True
+    # Bank tickers on NSE are compound (AXISBANK, HDFCBANK) — not the word BANK.
+    return t.endswith("BANK") and len(t) >= 6
+
+
 def sanitize_tickers(tickers: list[str] | None) -> list[str]:
     """Keep only plausible equity tickers; drop research prose tokens."""
     out: list[str] = []
@@ -148,11 +172,9 @@ def sanitize_tickers(tickers: list[str] | None) -> list[str]:
         tok = tok.replace(".NS", "").replace(".BO", "")
         if not tok or tok in seen:
             continue
-        if tok in TICKER_STOPWORDS:
-            continue
         if len(tok) < 2 or len(tok) > 12:
             continue
-        if tok in KNOWN_TICKERS or tok.endswith("BANK"):
+        if looks_like_equity_ticker(tok):
             out.append(tok)
             seen.add(tok)
     return out
@@ -253,9 +275,7 @@ def extract_investment_metadata(
     found = set(sanitize_tickers(tickers))
     for m in _TICKER_RE.finditer(text):
         tok = m.group(1).upper()
-        if tok in TICKER_STOPWORDS:
-            continue
-        if tok in KNOWN_TICKERS or tok.endswith("BANK"):
+        if looks_like_equity_ticker(tok):
             found.add(tok)
     lower = text.lower()
     sector_hits = []
