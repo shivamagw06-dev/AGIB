@@ -1533,6 +1533,46 @@ export const runAcceptancePhase = (phase, body = {}) =>
 export const getAcceptanceDiagnostics = () =>
   intelligenceFetch('/acceptance/diagnostics', { timeoutMs: 30_000 });
 
+/** IEP-01 — Institutional Evidence Platform (AGIB v1.1) */
+export const getIepHealth = () =>
+  intelligenceFetch('/iep/health', { timeoutMs: 30_000 });
+export const getIepStatus = () =>
+  intelligenceFetch('/iep/status', { timeoutMs: 30_000 });
+export const getIepResearchPack = (ticker) =>
+  intelligenceFetch(`/iep/pack/${encodeURIComponent(ticker)}`, { timeoutMs: 90_000 });
+export const getIepReadiness = (ticker) =>
+  intelligenceFetch(`/iep/readiness/${encodeURIComponent(ticker)}`, { timeoutMs: 60_000 });
+export const getIepValidate = (ticker) =>
+  intelligenceFetch(`/iep/validate/${encodeURIComponent(ticker)}`, { timeoutMs: 60_000 });
+export const orchestrateIep = (ticker, body = {}) =>
+  intelligenceFetch(`/iep/orchestrate/${encodeURIComponent(ticker)}`, {
+    method: 'POST',
+    body: body || {},
+    timeoutMs: 120_000,
+  });
+export const getIepRegistry = (ticker) =>
+  intelligenceFetch(`/iep/registry/${encodeURIComponent(ticker)}`, { timeoutMs: 60_000 });
+export const getIepCanonical = (ticker) =>
+  intelligenceFetch(`/iep/canonical/${encodeURIComponent(ticker)}`, { timeoutMs: 60_000 });
+export const getIepMemory = (ticker) =>
+  intelligenceFetch(`/iep/memory/${encodeURIComponent(ticker)}`, { timeoutMs: 60_000 });
+export const getIepPhase1 = () =>
+  intelligenceFetch('/iep/phase1', { timeoutMs: 180_000 });
+export const getIepMetrics = () =>
+  intelligenceFetch('/iep/metrics', { timeoutMs: 180_000 });
+export const getIepCenter = () =>
+  intelligenceFetch('/iep/center', { timeoutMs: 180_000 });
+export const getIepWriterGate = (ticker) =>
+  intelligenceFetch(`/iep/gates/writer/${encodeURIComponent(ticker)}`, { timeoutMs: 60_000 });
+export const getIepDecisionGate = (ticker, recommendation) =>
+  intelligenceFetch(`/iep/gates/decision/${encodeURIComponent(ticker)}`, {
+    method: 'POST',
+    body: { recommendation },
+    timeoutMs: 60_000,
+  });
+export const getIepPublishGate = (ticker) =>
+  intelligenceFetch(`/iep/gates/publish/${encodeURIComponent(ticker)}`, { timeoutMs: 60_000 });
+
 export const getLaunchHealth = () =>
   intelligenceFetch('/launch/health', { timeoutMs: 30_000 });
 export const getLaunchMetrics = () =>

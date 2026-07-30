@@ -93,6 +93,27 @@ def package_for_ask_agi(intelligence_pack: dict[str, Any] | None = None, **kwarg
             pack[k] = v
     query = str(pack.get("query") or kwargs.get("query") or "")
 
+    # IEP-01: Research Writer cannot execute unless ResearchPack.claim_safe == true
+    ticker = str(pack.get("ticker") or kwargs.get("ticker") or "").upper().strip()
+    if ticker:
+        try:
+            from institutional_evidence.gates import gate_research_writer
+
+            iep_gate = gate_research_writer(ticker, pack=pack.get("research_pack"))
+            if not iep_gate.get("allowed"):
+                return {
+                    "enabled": True,
+                    "blocked": True,
+                    "programme": PROGRAMME,
+                    "version": IRW_VERSION,
+                    "iep_gate": iep_gate,
+                    "message": iep_gate.get("message") or "Evidence unavailable.",
+                    "rule": "No research without evidence — never invent financials",
+                }
+            pack["iep_gate"] = {"allowed": True, "claim_safe": True}
+        except Exception:
+            pass
+
     # Soft-wire Academy Books frameworks/terminology (structure only — never book text).
     books_slice: dict[str, Any] = {}
     try:

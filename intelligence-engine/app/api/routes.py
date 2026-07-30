@@ -11113,6 +11113,120 @@ async def acceptance_diagnostics():
     return diagnostics_api()
 
 
+# --- IEP-01 Institutional Evidence Platform (AGIB v1.1 evidence foundation) ---
+
+
+@router.get("/iep/health")
+async def iep_health():
+    from institutional_evidence.production import health
+
+    return health()
+
+
+@router.get("/iep/status")
+async def iep_status():
+    from institutional_evidence.production import get_iep_status
+
+    return get_iep_status()
+
+
+@router.get("/iep/pack/{ticker}")
+async def iep_research_pack(ticker: str):
+    from institutional_evidence.production import get_research_pack
+
+    return get_research_pack(ticker)
+
+
+@router.get("/iep/readiness/{ticker}")
+async def iep_readiness(ticker: str):
+    from institutional_evidence.production import get_research_readiness
+
+    return get_research_readiness(ticker)
+
+
+@router.get("/iep/validate/{ticker}")
+async def iep_validate(ticker: str):
+    from institutional_evidence.production import validate_research_pack
+
+    return validate_research_pack(ticker)
+
+
+@router.post("/iep/orchestrate/{ticker}")
+async def iep_orchestrate(ticker: str, payload: dict[str, Any] = Body(default={})):
+    from institutional_evidence.production import orchestrate_research
+
+    body = payload or {}
+    return orchestrate_research(
+        ticker,
+        generate_research=bool(body.get("generate_research")),
+        force_ingest=bool(body.get("force_ingest")),
+    )
+
+
+@router.get("/iep/registry/{ticker}")
+async def iep_registry(ticker: str):
+    from institutional_evidence.production import get_evidence_registry
+
+    return get_evidence_registry(ticker)
+
+
+@router.get("/iep/canonical/{ticker}")
+async def iep_canonical(ticker: str):
+    from institutional_evidence.production import get_canonical_statements
+
+    return get_canonical_statements(ticker)
+
+
+@router.get("/iep/memory/{ticker}")
+async def iep_memory(ticker: str):
+    from institutional_evidence.production import get_company_memory_bridge
+
+    return get_company_memory_bridge(ticker)
+
+
+@router.get("/iep/phase1")
+async def iep_phase1():
+    from institutional_evidence.production import get_phase1_coverage
+
+    return get_phase1_coverage()
+
+
+@router.get("/iep/metrics")
+async def iep_metrics():
+    from institutional_evidence.production import get_success_metrics
+
+    return get_success_metrics()
+
+
+@router.get("/iep/center")
+async def iep_center():
+    from institutional_evidence.dashboards import evidence_center_payload
+
+    return evidence_center_payload()
+
+
+@router.get("/iep/gates/writer/{ticker}")
+async def iep_writer_gate(ticker: str):
+    from institutional_evidence.production import check_writer_gate
+
+    return check_writer_gate(ticker)
+
+
+@router.post("/iep/gates/decision/{ticker}")
+async def iep_decision_gate(ticker: str, payload: dict[str, Any] = Body(default={})):
+    from institutional_evidence.production import check_decision_gate
+
+    body = payload or {}
+    return check_decision_gate(ticker, str(body.get("recommendation") or body.get("action") or ""))
+
+
+@router.get("/iep/gates/publish/{ticker}")
+async def iep_publish_gate(ticker: str):
+    from institutional_evidence.production import check_publish_gate
+
+    return check_publish_gate(ticker)
+
+
 # --- Company Monitoring System V1 (continuous living analyst; additive) ---
 
 

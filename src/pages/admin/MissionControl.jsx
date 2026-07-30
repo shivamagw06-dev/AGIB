@@ -224,6 +224,8 @@ export default function MissionControl() {
     institutional?.institutional_launch || desk?.institutional_launch || null;
   const acceptanceCenter =
     institutional?.institutional_acceptance || desk?.institutional_acceptance || null;
+  const evidenceCenter =
+    institutional?.institutional_evidence || desk?.institutional_evidence || null;
   const pipeline = desk?.research_pipeline || {};
   const preds = desk?.prediction_intelligence || {};
   const dq = desk?.data_quality || {};
@@ -1556,6 +1558,69 @@ export default function MissionControl() {
                 <li>Run a Universal Ask query to populate the center.</li>
               ) : null}
             </ul>
+          </Glass>
+        </section>
+
+        {/* Evidence Center — IEP-01 */}
+        <section className="space-y-3">
+          <Kicker>Evidence Center · IEP-01</Kicker>
+          <p className="text-sm text-[var(--io-muted)] max-w-3xl">
+            Institutional Evidence Platform — AGIB v1.1 foundation. No research without evidence,
+            no recommendation without canonical statements, no narrative without lineage. Phase-1
+            targets Top-20 India before any Nifty 500 scale-up.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
+            <Stat
+              label="Phase-1 ready"
+              value={
+                evidenceCenter?.research_ready_pct != null
+                  ? `${evidenceCenter.research_ready_pct}%`
+                  : '—'
+              }
+              status={evidenceCenter?.status}
+            />
+            <Stat
+              label="Canonical FS"
+              value={evidenceCenter?.companies_with_canonical_statements ?? '—'}
+            />
+            <Stat
+              label="Complete evidence"
+              value={evidenceCenter?.companies_with_complete_evidence ?? '—'}
+            />
+            <Stat
+              label="Ready count"
+              value={
+                evidenceCenter?.research_ready_count != null && evidenceCenter?.phase1_total != null
+                  ? `${evidenceCenter.research_ready_count}/${evidenceCenter.phase1_total}`
+                  : '—'
+              }
+            />
+            <Stat
+              label="Block rate"
+              value={
+                evidenceCenter?.recommendation_block_rate_proxy_pct != null
+                  ? `${evidenceCenter.recommendation_block_rate_proxy_pct}%`
+                  : '—'
+              }
+            />
+            <Stat
+              label="Threshold"
+              value={evidenceCenter?.threshold != null ? `${evidenceCenter.threshold}` : '—'}
+            />
+          </div>
+          <Glass>
+            <p className="text-[11px] uppercase text-[var(--io-caption)]">
+              Pipeline: Raw Data → Canonical Evidence → Company Memory → KG → FI → Decision → Note
+            </p>
+            <p className="mt-2 text-xs text-[var(--io-ink-soft)]">
+              {evidenceCenter?.guiding_principle ||
+                'Intelligence is a consumer of evidence — not a substitute for it.'}
+            </p>
+            {!evidenceCenter ? (
+              <p className="mt-2 text-xs text-[var(--io-muted)]">
+                Evidence Center soft slice unavailable.
+              </p>
+            ) : null}
           </Glass>
         </section>
 

@@ -132,6 +132,33 @@ def generate(payload: Optional[dict[str, Any]] = None) -> dict[str, Any]:
     except Exception:
         pass
 
+    # IEP-01: reject publication if claim_safe == false or Research Ready == false
+    try:
+        from institutional_evidence.gates import gate_publishing
+
+        ticker = str(body.get("ticker") or body.get("symbol") or "").upper().strip()
+        if ticker:
+            iep_pub = gate_publishing(ticker, pack=body.get("research_pack"))
+            if iep_pub.get("rejected") or not iep_pub.get("allowed"):
+                denied = {
+                    "ok": False,
+                    "published": False,
+                    "rejected": True,
+                    "workstream_id": PUB_WORKSTREAM_ID,
+                    "iep_gate": iep_pub,
+                    "failure_reasons": iep_pub.get("failure_reasons") or [],
+                    "message": iep_pub.get("message")
+                    or "Publication rejected — institutional evidence incomplete",
+                }
+                try:
+                    from institutional_observability.production import maybe_end
+
+                    return maybe_end(body, denied, component="pub.generate")
+                except Exception:
+                    return denied
+    except Exception:
+        pass
+
     # PRP-01: async publication generation via background job queue
     try:
         from institutional_performance.production import maybe_enqueue_publication

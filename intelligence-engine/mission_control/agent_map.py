@@ -1022,6 +1022,27 @@ _CATALOG: list[dict[str, Any]] = [
         "module": "institutional_acceptance.production",
     },
     {
+        "id": "institutional_evidence",
+        "name": "Institutional Evidence Platform (IEP-01)",
+        "group": "evidence",
+        "responsibility": (
+            "AGIB v1.1 foundation — acquire, canonicalize, register, and gate "
+            "institutional evidence so every research note and recommendation is "
+            "traceable to primary evidence. Intelligence consumes evidence; it "
+            "does not substitute for it. Phase-1: Top-20 India."
+        ),
+        "sources": [
+            "NSE/BSE/IR filings",
+            "Canonical financial statements",
+            "Evidence registry",
+            "Company memory",
+            "InstitutionalResearchPack",
+            "Research readiness / claim_safe gates",
+        ],
+        "kind": "evidence_platform",
+        "module": "institutional_evidence.production",
+    },
+    {
         "id": "ite_thesis",
         "name": "Investment Thesis Office",
         "group": "offices",

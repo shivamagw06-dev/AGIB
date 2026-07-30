@@ -15,9 +15,25 @@ def extract_from_earnings_pack(pack: dict[str, Any]) -> dict[str, Any]:
     Output shape is Extraction Layer compatible (pre-normalization).
     """
     periods: list[dict[str, Any]] = []
-    for series_key, period_type in (("quarters", "quarterly"), ("annuals", "annual")):
-        rows = pack.get(series_key) or pack.get("statements", {}).get(series_key) or []
-        if not isinstance(rows, list):
+    # earnings_intelligence uses quarter_history / annual_history;
+    # FSE and older packs also use quarters / annuals.
+    series_aliases = (
+        (("quarters", "quarter_history", "quarterly", "q_history"), "quarterly"),
+        (("annuals", "annual_history", "annual", "yearly"), "annual"),
+    )
+    stmts = pack.get("statements") if isinstance(pack.get("statements"), dict) else {}
+    for aliases, period_type in series_aliases:
+        rows: list[Any] = []
+        for series_key in aliases:
+            candidate = pack.get(series_key)
+            if isinstance(candidate, list) and candidate:
+                rows = candidate
+                break
+            nested = stmts.get(series_key)
+            if isinstance(nested, list) and nested:
+                rows = nested
+                break
+        if not isinstance(rows, list) or not rows:
             continue
         for row in rows:
             if not isinstance(row, dict):
