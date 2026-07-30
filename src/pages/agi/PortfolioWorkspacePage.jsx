@@ -7,6 +7,7 @@ import {
   getPortfolioOfficeDashboard,
   getPortfolioOfficeHoldings,
   getPortfolioOfficePortfolio,
+  getPortfolioRisk,
 } from '@/lib/intelligenceApi';
 
 const DEMO_HOLDINGS = [
@@ -29,6 +30,7 @@ export default function PortfolioWorkspacePage() {
   const [meta, setMeta] = useState({ name: 'AGI Desk Demo', health: 'Calm', coverage: '—' });
   const [portfolioGraph, setPortfolioGraph] = useState(null);
   const [portfolioDecision, setPortfolioDecision] = useState(null);
+  const [portfolioRisk, setPortfolioRisk] = useState(null);
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -76,12 +78,14 @@ export default function PortfolioWorkspacePage() {
           coverage: `${holds.length || DEMO_HOLDINGS.length} names`,
         });
 
-        const [graph, decision] = await Promise.all([
+        const [graph, risk, decision] = await Promise.all([
           getPortfolioGraph('agi-core-equity', { includeCompanyGraphs: true }).catch(() => null),
+          getPortfolioRisk('agi-core-equity', { refresh: true }).catch(() => null),
           getPortfolioDecision('agi-core-equity', { refresh: true }).catch(() => null),
         ]);
         if (!active) return;
         setPortfolioGraph(graph && graph.ok !== false ? graph : null);
+        setPortfolioRisk(risk && risk.ok !== false ? risk : null);
         setPortfolioDecision(decision && decision.ok !== false ? decision : null);
       } catch (err) {
         if (active) setError(err?.message || 'Portfolio unavailable — showing desk demo');
@@ -99,18 +103,28 @@ export default function PortfolioWorkspacePage() {
   const decision = portfolioDecision?.decision || null;
   const scorecard = decision?.scorecard || {};
   const monitoring = decision?.monitoring_plan || {};
+  const risk = portfolioRisk?.risk || null;
+  const riskScorecard = risk?.scorecard || {};
+  const riskConc = risk?.concentration || {};
 
   return (
     <div>
       <h1 className="agi-greeting">Investment Office</h1>
       <p className="agi-lede">
-        Portfolio decisioning — what should change, which allocations move, and which holdings
-        require review. Company recommendations stay immutable; the portfolio decides separately.
+        Portfolio risk and decisioning — what risks the book carries, what should change, and which
+        holdings require review. Company recommendations stay immutable; risk and decisions are
+        separate institutional services.
       </p>
 
       {error && <div className="agi-error">{error}</div>}
 
       <div className="agi-stat-row">
+        <div className="agi-stat">
+          <div className="agi-stat-label">Overall risk</div>
+          <div className="agi-stat-value" style={{ fontSize: '1.05rem' }}>
+            {risk?.overall_risk || '—'}
+          </div>
+        </div>
         <div className="agi-stat">
           <div className="agi-stat-label">Recommendation</div>
           <div className="agi-stat-value" style={{ fontSize: '1.05rem' }}>
@@ -122,23 +136,91 @@ export default function PortfolioWorkspacePage() {
           <div className="agi-stat-value">{decision?.confidence ?? '—'}</div>
         </div>
         <div className="agi-stat">
-          <div className="agi-stat-label">Posture</div>
-          <div className="agi-stat-value" style={{ fontSize: '1.05rem' }}>
-            {decision?.investment_posture || '—'}
-          </div>
-        </div>
-        <div className="agi-stat">
           <div className="agi-stat-label">HHI</div>
           <div className="agi-stat-value" style={{ fontSize: '1.15rem' }}>
-            {concentration.hhi != null ? Number(concentration.hhi).toFixed(2) : '—'}
+            {riskConc.hhi != null
+              ? Number(riskConc.hhi).toFixed(2)
+              : concentration.hhi != null
+                ? Number(concentration.hhi).toFixed(2)
+                : '—'}
           </div>
         </div>
       </div>
 
       <section className="agi-section" style={{ marginTop: '1.5rem' }}>
         <div className="agi-section-head">
+          <h2>Portfolio Risk</h2>
+          <span className="agi-list-meta">PRE-01 · authoritative risk object</span>
+        </div>
+        {!risk ? (
+          <div className="agi-empty">Portfolio risk unavailable.</div>
+        ) : (
+          <>
+            <p className="agi-list-meta" style={{ marginBottom: '0.75rem' }}>
+              {(risk.lineage || []).join(' → ')}
+              {risk.risk_id ? ` · ${risk.risk_id}` : ''}
+            </p>
+            <div className="agi-stat-row">
+              {[
+                ['Concentration', riskConc.level],
+                ['Liquidity', risk.liquidity?.level],
+                ['Correlation', risk.correlations?.level],
+                ['Stress resilience', riskScorecard.stress_resilience],
+                ['Coverage', riskScorecard.coverage],
+              ].map(([label, value]) => (
+                <div key={label} className="agi-stat">
+                  <div className="agi-stat-label">{label}</div>
+                  <div className="agi-stat-value" style={{ fontSize: '1.05rem' }}>
+                    {value ?? '—'}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <h3 style={{ fontFamily: 'var(--agi-display)', fontSize: '1.1rem', marginTop: '1rem' }}>
+              Stress results
+            </h3>
+            <ul className="agi-list" style={{ marginTop: '0.5rem' }}>
+              {(risk.stress_results || []).map((s) => (
+                <li key={s.scenario}>
+                  <div className="agi-list-title">
+                    {s.label}: {Number(s.portfolio_impact_pct).toFixed(1)}%
+                  </div>
+                  <div className="agi-list-meta">
+                    [{s.severity}] {(s.affected_holdings || []).slice(0, 4).join(', ')}
+                  </div>
+                </li>
+              ))}
+            </ul>
+
+            <h3 style={{ fontFamily: 'var(--agi-display)', fontSize: '1.1rem', marginTop: '1rem' }}>
+              Warnings / recommendations
+            </h3>
+            <ul className="agi-list" style={{ marginTop: '0.5rem' }}>
+              {(risk.warnings || []).map((w) => (
+                <li key={`w-${w}`}>
+                  <div className="agi-list-title">{w}</div>
+                </li>
+              ))}
+              {(risk.recommendations || []).map((rec) => (
+                <li key={`r-${rec}`}>
+                  <div className="agi-list-meta">{rec}</div>
+                </li>
+              ))}
+              {!(risk.warnings || []).length && !(risk.recommendations || []).length ? (
+                <li>
+                  <div className="agi-list-meta">No active risk warnings.</div>
+                </li>
+              ) : null}
+            </ul>
+          </>
+        )}
+      </section>
+
+      <section className="agi-section" style={{ marginTop: '1.5rem' }}>
+        <div className="agi-section-head">
           <h2>Portfolio Decision</h2>
-          <span className="agi-list-meta">CIO-01 · referential company decisions</span>
+          <span className="agi-list-meta">CIO-01 · consumes PRE-01 · referential company decisions</span>
         </div>
         {!decision ? (
           <div className="agi-empty">Portfolio decision unavailable.</div>

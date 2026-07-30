@@ -719,18 +719,36 @@ _CATALOG: list[dict[str, Any]] = [
         "module": "institutional_portfolio.production",
     },
     {
+        "id": "institutional_portfolio_risk",
+        "name": "Institutional Portfolio Risk Engine (PRE-01)",
+        "group": "publication",
+        "responsibility": (
+            "Phase 4.3 — Authoritative InstitutionalPortfolioRisk from portfolio graph. "
+            "Concentration, liquidity, correlation proxies, factor exposure, deterministic stress. "
+            "Consumed by CIO-01. No Monte Carlo / VaR / optimisation."
+        ),
+        "sources": [
+            "InstitutionalPortfolio",
+            "Holdings",
+            "Exposures",
+            "Company decisions (lineage)",
+        ],
+        "kind": "portfolio_risk",
+        "module": "institutional_portfolio_risk.production",
+    },
+    {
         "id": "institutional_portfolio_decision",
         "name": "Institutional Portfolio Decision System (CIO-01)",
         "group": "publication",
         "responsibility": (
             "Phase 4.2 — Deterministic InstitutionalPortfolioDecision from portfolio graph + "
-            "referential company decisions. Allocation/exposure actions, portfolio calibration, "
-            "monitoring plan. Never mutates company decisions. No LLM / no trade execution."
+            "PRE-01 risk + referential company decisions. Allocation/exposure actions, portfolio "
+            "calibration, monitoring plan. Never mutates company decisions. No LLM / no trade execution."
         ),
         "sources": [
             "InstitutionalPortfolio",
+            "InstitutionalPortfolioRisk (PRE-01)",
             "Company InstitutionalDecision (referential)",
-            "Portfolio risks",
             "Exposures",
         ],
         "kind": "portfolio_decision",

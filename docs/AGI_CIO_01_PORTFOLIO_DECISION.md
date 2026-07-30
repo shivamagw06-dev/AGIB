@@ -7,12 +7,16 @@ Company Decisions (immutable references)
 ↓
 Portfolio Graph (PKG-01)
 ↓
-Portfolio Decision Engine
+Portfolio Risk (PRE-01)  ← authoritative risk object
+↓
+Portfolio Decision Engine (CIO-01)
 ↓
 Portfolio Calibration
 ↓
 Allocation / Exposure Actions + Monitoring
 ```
+
+CIO-01 **consumes** PRE-01 (`InstitutionalPortfolioRisk`) for HHI, sector concentration, stress, and warnings — it does not recompute risk when PRE-01 is available.
 
 A portfolio recommendation is **not** the average of company recommendations.
 

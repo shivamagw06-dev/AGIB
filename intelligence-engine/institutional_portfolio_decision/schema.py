@@ -36,6 +36,7 @@ INVESTMENT_POSTURES = (
 LINEAGE_CHAIN = (
     "Portfolio",
     "Holding",
+    "Portfolio Risk",
     "Company Decision",
     "Reason",
     "Evidence",

@@ -194,6 +194,8 @@ export default function MissionControl() {
     institutional?.institutional_portfolio_decision ||
     desk?.institutional_portfolio_decision ||
     null;
+  const portfolioRiskCenter =
+    institutional?.institutional_portfolio_risk || desk?.institutional_portfolio_risk || null;
   const pipeline = desk?.research_pipeline || {};
   const preds = desk?.prediction_intelligence || {};
   const dq = desk?.data_quality || {};
@@ -1311,6 +1313,67 @@ export default function MissionControl() {
               </p>
             </Glass>
           </div>
+        </section>
+
+        {/* Risk Center — PRE-01 */}
+        <section className="space-y-3">
+          <Kicker>Risk Center · PRE-01</Kicker>
+          <p className="text-sm text-[var(--io-muted)] max-w-3xl">
+            Authoritative portfolio risk — concentration, liquidity, stress impact, correlation
+            drift, and coverage. Consumed by CIO-01; not a metrics dashboard.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+            <Stat
+              label="Portfolio risk"
+              value={portfolioRiskCenter?.overall_risk || '—'}
+              status={portfolioRiskCenter?.status}
+            />
+            <Stat
+              label="Highest concentration"
+              value={
+                portfolioRiskCenter?.highest_concentration?.ticker
+                  ? `${portfolioRiskCenter.highest_concentration.ticker}`
+                  : '—'
+              }
+              hint={
+                portfolioRiskCenter?.highest_concentration?.weight != null
+                  ? `${(Number(portfolioRiskCenter.highest_concentration.weight) * 100).toFixed(0)}% · ${portfolioRiskCenter.highest_concentration.level || ''}`
+                  : undefined
+              }
+            />
+            <Stat
+              label="Liquidity warning"
+              value={
+                portfolioRiskCenter?.liquidity_warning
+                  ? portfolioRiskCenter?.liquidity_level || 'Yes'
+                  : portfolioRiskCenter?.liquidity_level || '—'
+              }
+            />
+            <Stat
+              label="Stress impact"
+              value={
+                portfolioRiskCenter?.stress_impact?.portfolio_impact_pct != null
+                  ? `${Number(portfolioRiskCenter.stress_impact.portfolio_impact_pct).toFixed(1)}%`
+                  : '—'
+              }
+              hint={portfolioRiskCenter?.stress_impact?.label}
+            />
+            <Stat
+              label="Correlation drift"
+              value={portfolioRiskCenter?.correlation_drift?.level || '—'}
+              hint={
+                portfolioRiskCenter?.correlation_drift?.average_correlation != null
+                  ? `avg ${Number(portfolioRiskCenter.correlation_drift.average_correlation).toFixed(2)}`
+                  : undefined
+              }
+            />
+            <Stat label="Coverage" value={portfolioRiskCenter?.coverage ?? '—'} />
+          </div>
+          {!portfolioRiskCenter ? (
+            <Glass>
+              <p className="text-xs text-[var(--io-muted)]">Risk Center soft slice unavailable.</p>
+            </Glass>
+          ) : null}
         </section>
 
         {/* Portfolio Command Center — CIO-01 */}

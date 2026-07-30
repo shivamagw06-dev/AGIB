@@ -1657,6 +1657,15 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
     except Exception:
         out["institutional_portfolio"] = None
 
+    # PRE-01 — Institutional Portfolio Risk Engine (Risk Center).
+    try:
+        from institutional_portfolio_risk.production import soft_slice_mission_control as pre_soft
+
+        out["institutional_portfolio_risk"] = pre_soft()
+        out["sources"].append("institutional_portfolio_risk")
+    except Exception:
+        out["institutional_portfolio_risk"] = None
+
     # CIO-01 — Institutional Portfolio Decision System (Portfolio Command Center).
     try:
         from institutional_portfolio_decision.production import soft_slice_mission_control as cio_soft

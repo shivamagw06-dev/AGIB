@@ -1238,6 +1238,24 @@ export const getPortfolioDecision = (
   });
 };
 
+/** PRE-01 — Institutional Portfolio Risk Engine */
+export const getPortfolioRiskHealth = () =>
+  intelligenceFetch('/portfolio-risk/health', { timeoutMs: 30_000 });
+export const composePortfolioRisk = (body = {}) =>
+  intelligenceFetch('/portfolio-risk', { method: 'POST', body: body || {}, timeoutMs: 60_000 });
+export const getPortfolioRisk = (
+  portfolioId = 'agi-core-equity',
+  { refresh = true, includeHistory = false } = {}
+) => {
+  const qs = new URLSearchParams();
+  if (refresh) qs.set('refresh', 'true');
+  if (includeHistory) qs.set('include_history', 'true');
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return intelligenceFetch(`/portfolio-risk/${encodeURIComponent(portfolioId)}${suffix}`, {
+    timeoutMs: 60_000,
+  });
+};
+
 /** FG-01 — Forecast & Scenario Graph */
 export const getInstitutionalScenarioHealth = () =>
   intelligenceFetch('/scenario/health', { timeoutMs: 30_000 });

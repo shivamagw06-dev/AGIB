@@ -2771,6 +2771,46 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // PRE-01 — Institutional Portfolio Risk Engine
+  router.get('/portfolio-risk/health', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/portfolio-risk/health', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'portfolio risk health failed' });
+    }
+  });
+  router.post('/portfolio-risk', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/portfolio-risk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 60_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'portfolio risk failed' });
+    }
+  });
+  router.get('/portfolio-risk/:portfolioId', async (req, res) => {
+    try {
+      const qs = new URLSearchParams();
+      if (req.query?.refresh !== undefined) qs.set('refresh', String(req.query.refresh));
+      if (req.query?.include_history !== undefined) {
+        qs.set('include_history', String(req.query.include_history));
+      }
+      const suffix = qs.toString() ? `?${qs}` : '';
+      const result = await engineFetch(
+        `/v1/portfolio-risk/${encodeURIComponent(req.params.portfolioId)}${suffix}`,
+        { timeoutMs: 60_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'portfolio risk get failed' });
+    }
+  });
+
   // IDS-02 — Decision Calibration & Explainability
   router.get('/calibration/health', async (_req, res) => {
     try {

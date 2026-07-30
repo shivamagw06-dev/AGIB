@@ -1,4 +1,4 @@
-"""CIO-01 production façades — portfolio decide / Mission Control Portfolio Command Center."""
+"""PRE-01 production façades — evaluate portfolio risk / Mission Control Risk Center."""
 
 from __future__ import annotations
 
@@ -6,21 +6,21 @@ import time
 from dataclasses import replace
 from typing import Any, Optional
 
-from institutional_portfolio_decision.decision_engine import generate_portfolio_decision
-from institutional_portfolio_decision.decision_validator import validate_decision
-from institutional_portfolio_decision.diagnostics import build_diagnostics
-from institutional_portfolio_decision.flags import flags_dict, is_enabled
-from institutional_portfolio_decision import history as decision_history
-from institutional_portfolio_decision.schema import (
-    CIO_PRODUCT,
-    CIO_ROLE,
-    CIO_SPEC,
-    CIO_VERSION,
-    CIO_WORKSTREAM_ID,
-    DECISION_ENGINE_VERSION,
+from institutional_portfolio_risk.diagnostics import build_diagnostics
+from institutional_portfolio_risk.flags import flags_dict, is_enabled
+from institutional_portfolio_risk import history as risk_history
+from institutional_portfolio_risk.risk_engine import generate_portfolio_risk
+from institutional_portfolio_risk.schema import (
     DEFAULT_PORTFOLIO_ID,
+    PRE_PRODUCT,
+    PRE_ROLE,
+    PRE_SPEC,
+    PRE_VERSION,
+    PRE_WORKSTREAM_ID,
+    RISK_ENGINE_VERSION,
     VALIDATOR_VERSION,
 )
+from institutional_portfolio_risk.validator import validate_risk
 
 try:
     from financial_statements_engine.util import now_iso
@@ -32,30 +32,29 @@ except Exception:  # noqa: BLE001
 
 
 def reset_for_tests() -> None:
-    decision_history.reset_for_tests()
+    risk_history.reset_for_tests()
 
 
 def health() -> dict[str, Any]:
     return {
         "status": "ok" if is_enabled() else "disabled",
-        "workstream_id": CIO_WORKSTREAM_ID,
-        "product": CIO_PRODUCT,
-        "version": CIO_VERSION,
-        "role": CIO_ROLE,
+        "workstream_id": PRE_WORKSTREAM_ID,
+        "product": PRE_PRODUCT,
+        "version": PRE_VERSION,
+        "role": PRE_ROLE,
         "llm": False,
-        "mutates_company_decisions": False,
-        "referential_company_decisions": True,
-        "consumes_pre01": True,
+        "monte_carlo": False,
+        "var": False,
         "optimises": False,
-        "executes_trades": False,
-        "decision_engine_version": DECISION_ENGINE_VERSION,
+        "authoritative_for_cio": True,
+        "risk_engine_version": RISK_ENGINE_VERSION,
         "validator_version": VALIDATOR_VERSION,
         "flags": flags_dict(),
         "enabled": is_enabled(),
-        "spec": CIO_SPEC,
+        "spec": PRE_SPEC,
         "brand": "AGI",
         "phase": 4,
-        "history": decision_history.metrics(),
+        "history": risk_history.metrics(),
         "as_of": now_iso(),
     }
 
@@ -63,47 +62,56 @@ def health() -> dict[str, Any]:
 def soft_slice_mission_control() -> dict[str, Any]:
     h = health()
     latest_rows = []
-    for pid in decision_history.metrics().get("portfolios") or []:
-        d = decision_history.latest(pid)
-        if d:
-            latest_rows.append(d)
-    critical_holdings = []
-    for d in latest_rows:
-        if d.monitoring_plan:
-            critical_holdings.extend(d.monitoring_plan.high_priority_holdings)
-    alloc_drift = sum(len(d.allocation_actions) for d in latest_rows)
-    exp_drift = sum(
-        1
-        for d in latest_rows
-        for a in d.exposure_actions
-        if a.action in {"Reduce", "Increase", "Diversify"}
-    )
-    upcoming = []
-    for d in latest_rows:
-        if d.monitoring_plan:
-            upcoming.extend(d.monitoring_plan.required_reviews)
+    for pid in risk_history.metrics().get("portfolios") or []:
+        r = risk_history.latest(pid)
+        if r:
+            latest_rows.append(r)
     top = latest_rows[-1] if latest_rows else None
+    worst_stress = None
+    if top and top.stress_results:
+        worst_stress = min(top.stress_results, key=lambda s: s.portfolio_impact_pct)
     return {
         "status": h.get("status"),
-        "workstream_id": CIO_WORKSTREAM_ID,
-        "product": CIO_PRODUCT,
-        "version": CIO_VERSION,
+        "workstream_id": PRE_WORKSTREAM_ID,
+        "product": PRE_PRODUCT,
+        "version": PRE_VERSION,
         "llm": False,
-        "portfolio_command_center": True,
-        "portfolio_decision": top.to_dict() if top else None,
-        "allocation_drift": alloc_drift,
-        "exposure_drift": exp_drift,
-        "critical_holdings": list(dict.fromkeys(critical_holdings))[:12],
-        "upcoming_reviews": list(dict.fromkeys(upcoming))[:12],
-        "scenario_impact": (
-            list(top.monitoring_plan.scenario_reruns) if top and top.monitoring_plan else []
+        "risk_center": True,
+        "portfolio_risk": top.to_dict() if top else None,
+        "overall_risk": top.overall_risk if top else None,
+        "highest_concentration": (
+            {
+                "ticker": top.concentration.largest_position_ticker,
+                "weight": top.concentration.largest_position_weight,
+                "level": top.concentration.level,
+                "top_sector": top.concentration.top_sector,
+                "sector_concentration": top.concentration.sector_concentration,
+            }
+            if top
+            else None
         ),
-        "decisions_cached": len(latest_rows),
+        "liquidity_warning": (
+            top.liquidity.level in {"High", "Critical"} if top else False
+        ),
+        "liquidity_level": top.liquidity.level if top else None,
+        "stress_impact": worst_stress.to_dict() if worst_stress else None,
+        "correlation_drift": (
+            {
+                "level": top.correlations.level,
+                "average_correlation": top.correlations.average_correlation,
+                "max_pair_correlation": top.correlations.max_pair_correlation,
+            }
+            if top
+            else None
+        ),
+        "coverage": top.scorecard.coverage if top and top.scorecard else None,
+        "warning_count": len(top.warnings) if top else 0,
+        "risks_cached": len(latest_rows),
     }
 
 
 def _load_portfolio(portfolio_id: str) -> tuple[Any, dict[str, Any], list[str]]:
-    """Load InstitutionalPortfolio via PKG-01 — company decisions remain referential."""
+    """Load InstitutionalPortfolio via PKG-01."""
     try:
         from institutional_portfolio.production import get_portfolio_graph
     except Exception as exc:  # noqa: BLE001
@@ -113,7 +121,6 @@ def _load_portfolio(portfolio_id: str) -> tuple[Any, dict[str, Any], list[str]]:
     if not graph.get("ok"):
         return None, graph, list(graph.get("validation_errors") or ["portfolio graph failed"])
 
-    # Prefer live object from cache
     try:
         from institutional_portfolio.production import _GRAPHS
 
@@ -123,7 +130,6 @@ def _load_portfolio(portfolio_id: str) -> tuple[Any, dict[str, Any], list[str]]:
     except Exception:  # noqa: BLE001
         pass
 
-    # Reconstruct from serialized portfolio dict
     try:
         from institutional_portfolio.portfolio_entities import (
             AllocationRecord,
@@ -203,14 +209,14 @@ def _load_portfolio(portfolio_id: str) -> tuple[Any, dict[str, Any], list[str]]:
         return None, graph, [f"portfolio deserialize failed: {exc}"]
 
 
-def decide_portfolio(payload: Optional[dict[str, Any]] = None) -> dict[str, Any]:
+def evaluate_portfolio_risk(payload: Optional[dict[str, Any]] = None) -> dict[str, Any]:
     if not is_enabled():
         return {
             "ok": False,
             "enabled": False,
-            "workstream_id": CIO_WORKSTREAM_ID,
+            "workstream_id": PRE_WORKSTREAM_ID,
             "rejected": True,
-            "validation_errors": ["CIO-01 disabled"],
+            "validation_errors": ["PRE-01 disabled"],
         }
 
     t0 = time.perf_counter()
@@ -219,80 +225,65 @@ def decide_portfolio(payload: Optional[dict[str, Any]] = None) -> dict[str, Any]
     if portfolio_id in {"default", "DEFAULT"}:
         portfolio_id = DEFAULT_PORTFOLIO_ID
 
-    ip, graph_payload, errors = _load_portfolio(portfolio_id)
+    ip, _graph_payload, errors = _load_portfolio(portfolio_id)
     if errors or ip is None:
         return {
             "ok": False,
             "rejected": True,
-            "workstream_id": CIO_WORKSTREAM_ID,
+            "workstream_id": PRE_WORKSTREAM_ID,
             "validation_errors": errors or ["portfolio unavailable"],
         }
 
-    # Architectural invariant: never call decide_company to overwrite recommendations
-    # for portfolio purposes — PKG-01 already attached referential company decisions.
-    # PRE-01 is authoritative for risk; CIO-01 consumes it (does not recompute HHI/stress).
-    portfolio_risk = None
-    try:
-        from institutional_portfolio_risk.production import evaluate_portfolio_risk, get_risk_object
-
-        risk_payload = evaluate_portfolio_risk({"portfolio_id": ip.portfolio_id})
-        if risk_payload.get("ok"):
-            portfolio_risk = get_risk_object(ip.portfolio_id)
-    except Exception:  # noqa: BLE001
-        portfolio_risk = None
-
-    prev = decision_history.latest(ip.portfolio_id)
-    decision = generate_portfolio_decision(
+    prev = risk_history.latest(ip.portfolio_id)
+    risk = generate_portfolio_risk(
         ip,
-        previous_version=prev.decision_version if prev else 0,
-        concentration=graph_payload.get("concentration") or {},
-        portfolio_risk=portfolio_risk,
-        observation_health=float(body.get("observation_health") or 0.7),
-        forecast_stability=float(body.get("forecast_stability") or 0.7),
+        previous_version=prev.risk_version if prev else 0,
     )
 
-    # Attach diagnostics before validation (gate requires diagnostics)
-    prelim_diag = build_diagnostics(decision, latency_ms=(time.perf_counter() - t0) * 1000.0)
-    decision = replace(decision, diagnostics=prelim_diag)
+    prelim_diag = build_diagnostics(
+        risk,
+        latency_ms=(time.perf_counter() - t0) * 1000.0,
+        holding_count=len(ip.holdings),
+    )
+    risk = replace(risk, diagnostics=prelim_diag)
 
-    validation = validate_decision(decision, holding_count=len(ip.holdings))
+    validation = validate_risk(risk, holding_count=len(ip.holdings))
     diag = build_diagnostics(
-        decision,
+        risk,
         validation=validation.to_dict(),
         latency_ms=(time.perf_counter() - t0) * 1000.0,
+        holding_count=len(ip.holdings),
     )
-    decision = replace(decision, diagnostics=diag)
+    risk = replace(risk, diagnostics=diag)
 
     if not validation.ok:
         return {
             "ok": False,
             "rejected": True,
-            "workstream_id": CIO_WORKSTREAM_ID,
+            "workstream_id": PRE_WORKSTREAM_ID,
             "validation_errors": list(validation.errors),
             "gates": validation.gates,
-            "decision": decision.to_dict(),
+            "risk": risk.to_dict(),
             "diagnostics": diag,
             "llm": False,
-            "mutates_company_decisions": False,
         }
 
-    decision_history.record(decision)
+    risk_history.record(risk)
     return {
         "ok": True,
         "rejected": False,
-        "workstream_id": CIO_WORKSTREAM_ID,
-        "product": CIO_PRODUCT,
-        "version": CIO_VERSION,
-        "decision": decision.to_dict(),
+        "workstream_id": PRE_WORKSTREAM_ID,
+        "product": PRE_PRODUCT,
+        "version": PRE_VERSION,
+        "risk": risk.to_dict(),
         "diagnostics": diag,
-        "portfolio_graph_id": decision.portfolio_graph_id,
-        "company_decisions_immutable": True,
+        "portfolio_graph_id": risk.portfolio_graph_id,
+        "authoritative": True,
         "llm": False,
-        "mutates_company_decisions": False,
     }
 
 
-def get_portfolio_decision(
+def get_portfolio_risk(
     portfolio_id: str = DEFAULT_PORTFOLIO_ID,
     *,
     refresh: bool = True,
@@ -301,23 +292,37 @@ def get_portfolio_decision(
     pid = str(portfolio_id or DEFAULT_PORTFOLIO_ID).strip()
     if pid in {"default", "DEFAULT"}:
         pid = DEFAULT_PORTFOLIO_ID
-    if refresh or decision_history.latest(pid) is None:
-        result = decide_portfolio({"portfolio_id": pid})
+    if refresh or risk_history.latest(pid) is None:
+        result = evaluate_portfolio_risk({"portfolio_id": pid})
         if include_history and result.get("ok"):
             result = dict(result)
-            result["history"] = decision_history.list_versions(pid)
+            result["history"] = risk_history.list_versions(pid)
         return result
-    latest = decision_history.latest(pid)
+    latest = risk_history.latest(pid)
     assert latest is not None
     out = {
         "ok": True,
-        "workstream_id": CIO_WORKSTREAM_ID,
-        "decision": latest.to_dict(),
+        "workstream_id": PRE_WORKSTREAM_ID,
+        "risk": latest.to_dict(),
         "diagnostics": latest.diagnostics,
         "cached": True,
+        "authoritative": True,
         "llm": False,
-        "mutates_company_decisions": False,
     }
     if include_history:
-        out["history"] = decision_history.list_versions(pid)
+        out["history"] = risk_history.list_versions(pid)
     return out
+
+
+def get_risk_object(portfolio_id: str = DEFAULT_PORTFOLIO_ID):
+    """Return live InstitutionalPortfolioRisk (evaluate if needed) for CIO-01."""
+    pid = str(portfolio_id or DEFAULT_PORTFOLIO_ID).strip()
+    if pid in {"default", "DEFAULT"}:
+        pid = DEFAULT_PORTFOLIO_ID
+    cached = risk_history.latest(pid)
+    if cached is not None:
+        return cached
+    result = evaluate_portfolio_risk({"portfolio_id": pid})
+    if result.get("ok"):
+        return risk_history.latest(pid)
+    return None
