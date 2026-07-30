@@ -1226,6 +1226,22 @@ export const getFireDrivers = (ticker) =>
 export const getFireRelationships = (ticker) =>
   intelligenceFetch(`/financial-intelligence/company/${encodeURIComponent(ticker)}/relationships`);
 
+/** FIRE-03 — Business & Management Intelligence */
+export const getBusinessIntelligenceHealth = () =>
+  intelligenceFetch('/business-intelligence/health');
+export const getBusinessIntelligenceDashboard = () =>
+  intelligenceFetch('/business-intelligence/dashboard');
+export const getBusinessIntelligenceCompany = (ticker) =>
+  intelligenceFetch(`/business-intelligence/company/${encodeURIComponent(ticker)}`);
+export const getBusinessIntelligenceSegments = (ticker) =>
+  intelligenceFetch(`/business-intelligence/company/${encodeURIComponent(ticker)}/segments`);
+export const getBusinessIntelligenceStrategy = (ticker) =>
+  intelligenceFetch(`/business-intelligence/company/${encodeURIComponent(ticker)}/strategy`);
+export const getBusinessIntelligenceRisks = (ticker) =>
+  intelligenceFetch(`/business-intelligence/company/${encodeURIComponent(ticker)}/risks`);
+export const getBusinessIntelligenceGuidance = (ticker) =>
+  intelligenceFetch(`/business-intelligence/company/${encodeURIComponent(ticker)}/guidance`);
+
 /** Accounting Intelligence Engine */
 export const getAciHealth = () => intelligenceFetch('/accounting-intelligence/health');
 export const getAciDashboard = () => intelligenceFetch('/accounting-intelligence/dashboard');

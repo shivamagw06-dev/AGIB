@@ -560,6 +560,18 @@ _CATALOG: list[dict[str, Any]] = [
         "kind": "office",
         "module": "financial_knowledge.production",
     },
+    {
+        "id": "business_intelligence",
+        "name": "Business Intelligence (FIRE-03)",
+        "group": "ops",
+        "responsibility": (
+            "Evidence extraction from official disclosures — what management says about "
+            "the business, strategy, risks, opportunities, and guidance (no BUY/SELL)."
+        ),
+        "sources": ["Institutional Documents (IDI)", "FKB glossary (soft refs)"],
+        "kind": "office",
+        "module": "business_intelligence.production",
+    },
     # —— Learning / eval ——
     {
         "id": "forecast_validation_learning",

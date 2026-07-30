@@ -4390,6 +4390,65 @@ async def financial_intelligence_relationships(ticker: str):
     return financial_relationships(ticker.upper())
 
 
+# --- FIRE-03 Business & Management Intelligence (official disclosure evidence) ---
+
+
+@router.get("/business-intelligence/health")
+async def business_intelligence_health():
+    from business_intelligence.production import health
+
+    return health()
+
+
+@router.get("/business-intelligence/dashboard")
+async def business_intelligence_dashboard():
+    from business_intelligence.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/business-intelligence/company/{ticker}")
+async def business_intelligence_company(ticker: str):
+    from business_intelligence.production import company
+
+    return company(ticker.upper())
+
+
+@router.get("/business-intelligence/company/{ticker}/segments")
+async def business_intelligence_segments(ticker: str):
+    from business_intelligence.production import segments
+
+    return segments(ticker.upper())
+
+
+@router.get("/business-intelligence/company/{ticker}/strategy")
+async def business_intelligence_strategy(ticker: str):
+    from business_intelligence.production import strategy
+
+    return strategy(ticker.upper())
+
+
+@router.get("/business-intelligence/company/{ticker}/risks")
+async def business_intelligence_risks(ticker: str):
+    from business_intelligence.production import risks
+
+    return risks(ticker.upper())
+
+
+@router.get("/business-intelligence/company/{ticker}/guidance")
+async def business_intelligence_guidance(ticker: str):
+    from business_intelligence.production import guidance
+
+    return guidance(ticker.upper())
+
+
+@router.get("/admin/business-intelligence", response_class=HTMLResponse)
+async def admin_business_intelligence():
+    from business_intelligence.production import admin_page
+
+    return HTMLResponse(admin_page())
+
+
 # --- Accounting Intelligence Engine V1 (can the statements be trusted?) ---
 
 
