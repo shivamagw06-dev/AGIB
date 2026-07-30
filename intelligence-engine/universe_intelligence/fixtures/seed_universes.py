@@ -62,12 +62,34 @@ MEMBERSHIP_EVENTS: list[dict[str, Any]] = [
 ]
 
 
+def _csv_members(index_id: str, fallback: list[str] | tuple[str, ...] | None = None) -> list[str]:
+    """Prefer live `indices/*.csv` constituents when present."""
+    try:
+        from market_indices.loader import list_members
+
+        rows = list_members(index_id)
+        symbols = [r["symbol"] for r in rows if r.get("symbol")]
+        if symbols:
+            return symbols
+    except Exception:
+        pass
+    return list(fallback or [])
+
+
 def universe_definitions() -> list[dict[str, Any]]:
     """Cross-universe registry definitions (India first; global declared)."""
     from institutional_reasoning.fundamentals.universe import NIFTY_50, NIFTY_100_EXTRA, GLOBAL_SEED
     from institutional_reasoning.fundamentals.nifty500_universe import NIFTY_500
 
-    nifty_100 = tuple(dict.fromkeys([*NIFTY_50, *NIFTY_100_EXTRA]))
+    nifty_100_fallback = tuple(dict.fromkeys([*NIFTY_50, *NIFTY_100_EXTRA]))
+    nifty_50 = _csv_members("NIFTY_50", NIFTY_50)
+    nifty_next_50 = _csv_members("NIFTY_NEXT_50", [])
+    nifty_100 = _csv_members("NIFTY_100", nifty_100_fallback)
+    nifty_200 = _csv_members("NIFTY_200", nifty_100)
+    nifty_500 = _csv_members("NIFTY_500", NIFTY_500)
+    nifty_midcap_select = _csv_members("NIFTY_MIDCAP_SELECT", [])
+    nifty_bank = _csv_members("NIFTY_BANK", [])
+    nifty_fin = _csv_members("NIFTY_FINANCIAL_SERVICES", [])
     return [
         {
             "universe_id": "NIFTY_50",
@@ -77,21 +99,49 @@ def universe_definitions() -> list[dict[str, Any]]:
             "parent": "NIFTY_100",
             "display_name": "Nifty 50",
             "tier": 1,
-            "members": list(NIFTY_50),
+            "members": nifty_50,
             "status": "active",
             "quality_standard": "institutional_depth",
+            "source": "indices/Nifty50.csv",
+        },
+        {
+            "universe_id": "NIFTY_NEXT_50",
+            "family": "india_nifty",
+            "region": "IN",
+            "market": "NSE",
+            "parent": "NIFTY_100",
+            "display_name": "Nifty Next 50",
+            "tier": 1,
+            "members": nifty_next_50,
+            "status": "active",
+            "quality_standard": "institutional_depth",
+            "source": "indices/NiftyNext50.csv",
         },
         {
             "universe_id": "NIFTY_100",
             "family": "india_nifty",
             "region": "IN",
             "market": "NSE",
-            "parent": "NIFTY_500",
+            "parent": "NIFTY_200",
             "display_name": "Nifty 100",
             "tier": 1,
-            "members": list(nifty_100),
+            "members": nifty_100,
             "status": "active",
             "quality_standard": "institutional_depth",
+            "source": "indices/Nifty100.csv",
+        },
+        {
+            "universe_id": "NIFTY_200",
+            "family": "india_nifty",
+            "region": "IN",
+            "market": "NSE",
+            "parent": "NIFTY_500",
+            "display_name": "Nifty 200",
+            "tier": 2,
+            "members": nifty_200,
+            "status": "active",
+            "quality_standard": "institutional_depth",
+            "source": "indices/Nifty200.csv",
         },
         {
             "universe_id": "NIFTY_500",
@@ -101,9 +151,49 @@ def universe_definitions() -> list[dict[str, Any]]:
             "parent": "NIFTY_1000",
             "display_name": "Nifty 500",
             "tier": 2,
-            "members": list(NIFTY_500),
+            "members": nifty_500,
             "status": "active",
             "quality_standard": "institutional_depth",
+            "source": "indices/Nifty500.csv",
+        },
+        {
+            "universe_id": "NIFTY_MIDCAP_SELECT",
+            "family": "india_nifty",
+            "region": "IN",
+            "market": "NSE",
+            "parent": "NIFTY_500",
+            "display_name": "Nifty Midcap Select",
+            "tier": 2,
+            "members": nifty_midcap_select,
+            "status": "active",
+            "quality_standard": "institutional_depth",
+            "source": "indices/NiftyMidcapSelect.csv",
+        },
+        {
+            "universe_id": "NIFTY_BANK",
+            "family": "india_thematic",
+            "region": "IN",
+            "market": "NSE",
+            "parent": None,
+            "display_name": "Nifty Bank",
+            "tier": 2,
+            "members": nifty_bank,
+            "status": "active",
+            "quality_standard": "institutional_depth",
+            "source": "indices/NiftyBank.csv",
+        },
+        {
+            "universe_id": "NIFTY_FINANCIAL_SERVICES",
+            "family": "india_thematic",
+            "region": "IN",
+            "market": "NSE",
+            "parent": None,
+            "display_name": "Nifty Financial Services",
+            "tier": 2,
+            "members": nifty_fin,
+            "status": "active",
+            "quality_standard": "institutional_depth",
+            "source": "indices/NiftyFinancialServices.csv",
         },
         {
             "universe_id": "NIFTY_IT",
@@ -125,7 +215,7 @@ def universe_definitions() -> list[dict[str, Any]]:
             "parent": None,
             "display_name": "Nifty 1000 (declared)",
             "tier": 3,
-            "members": list(NIFTY_500),  # declared shell — expand without claiming coverage
+            "members": list(nifty_500),  # declared shell — expand without claiming coverage
             "status": "declared",
             "quality_standard": "institutional_depth",
             "note": "Declared path only; institutional coverage not claimed beyond Tier-2 quality gate.",
