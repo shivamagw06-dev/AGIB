@@ -10419,6 +10419,65 @@ async def institutional_workspace_notes(payload: dict[str, Any] = Body(default={
     return add_analyst_note(payload or {})
 
 
+# --- CCI-01 Cross-Company Intelligence (relationship reasoning over KG-01) ---
+
+
+@router.get("/relationships/health")
+async def cross_company_relationships_health():
+    from institutional_cross_company.production import health
+
+    return health()
+
+
+@router.get("/relationships/company/{ticker}")
+async def cross_company_relationships_company(ticker: str, portfolio_id: str = "agi-core-equity"):
+    from institutional_cross_company.production import get_company_relationships
+
+    return get_company_relationships(ticker, portfolio_id=portfolio_id)
+
+
+@router.get("/relationships/sector/{sector}")
+async def cross_company_relationships_sector(sector: str):
+    from institutional_cross_company.production import get_sector_relationships
+
+    return get_sector_relationships(sector)
+
+
+@router.get("/relationships/macro/{driver}")
+async def cross_company_relationships_macro(driver: str):
+    from institutional_cross_company.production import get_macro_relationships
+
+    return get_macro_relationships(driver)
+
+
+@router.post("/relationships/query")
+async def cross_company_relationships_query(payload: dict[str, Any] = Body(default={})):
+    from institutional_cross_company.production import query_relationships
+
+    return query_relationships(payload or {})
+
+
+@router.get("/relationships/similar/{ticker}")
+async def cross_company_relationships_similar(ticker: str):
+    from institutional_cross_company.production import get_similarity
+
+    return get_similarity(ticker)
+
+
+@router.get("/relationships/clusters")
+async def cross_company_relationships_clusters():
+    from institutional_cross_company.production import get_clusters
+
+    return get_clusters()
+
+
+@router.get("/relationships/propagate/{driver}")
+async def cross_company_relationships_propagate(driver: str):
+    from institutional_cross_company.production import get_propagation
+
+    return get_propagation(driver)
+
+
 # --- Company Monitoring System V1 (continuous living analyst; additive) ---
 
 

@@ -57,6 +57,7 @@ NAVIGATION = (
     "Committee",
     "Forecast",
     "Knowledge Graph",
+    "Relationship Map",
     "Notes",
     "Ask AGI",
 )

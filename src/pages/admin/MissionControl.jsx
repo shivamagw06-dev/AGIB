@@ -204,6 +204,8 @@ export default function MissionControl() {
     institutional?.institutional_orchestrator || desk?.institutional_orchestrator || null;
   const workspaceHealth =
     institutional?.institutional_workspace || desk?.institutional_workspace || null;
+  const relationshipCenter =
+    institutional?.institutional_cross_company || desk?.institutional_cross_company || null;
   const pipeline = desk?.research_pipeline || {};
   const preds = desk?.prediction_intelligence || {};
   const dq = desk?.data_quality || {};
@@ -1484,6 +1486,68 @@ export default function MissionControl() {
               {!orchestrationCenter ? <li>Orchestration Center soft slice unavailable.</li> : null}
               {orchestrationCenter && !(orchestrationCenter.recent_queries || []).length ? (
                 <li>Run a Universal Ask query to populate the center.</li>
+              ) : null}
+            </ul>
+          </Glass>
+        </section>
+
+        {/* Relationship Center — CCI-01 */}
+        <section className="space-y-3">
+          <Kicker>Relationship Center · CCI-01</Kicker>
+          <p className="text-sm text-[var(--io-muted)] max-w-3xl">
+            Cross-company relationship intelligence over KG-01 — coverage, missing links, strongest
+            hubs, propagation latency, graph integrity (delegated), and cluster health. CCI reasons;
+            KG owns the graph.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+            <Stat
+              label="Coverage"
+              value={relationshipCenter?.relationship_coverage ?? '—'}
+              status={relationshipCenter?.status}
+            />
+            <Stat label="Missing links" value={relationshipCenter?.missing_links ?? '—'} />
+            <Stat
+              label="Strongest hubs"
+              value={(relationshipCenter?.strongest_hubs || []).length || '—'}
+              hint={
+                (relationshipCenter?.strongest_hubs || [])[0]?.entity
+                  ? String((relationshipCenter.strongest_hubs || [])[0].entity)
+                  : undefined
+              }
+            />
+            <Stat
+              label="Prop. latency"
+              value={
+                relationshipCenter?.propagation_latency != null
+                  ? `${Number(relationshipCenter.propagation_latency).toFixed(0)}ms`
+                  : '—'
+              }
+            />
+            <Stat
+              label="Graph integrity"
+              value={relationshipCenter?.graph_integrity || 'KG-01'}
+            />
+            <Stat
+              label="Cluster health"
+              value={relationshipCenter?.cluster_health ?? '—'}
+              hint={
+                relationshipCenter?.provider_count != null
+                  ? `${relationshipCenter.provider_count} providers`
+                  : undefined
+              }
+            />
+          </div>
+          <Glass>
+            <p className="text-[11px] uppercase text-[var(--io-caption)]">Hubs & providers</p>
+            <ul className="mt-2 space-y-1 text-xs max-h-36 overflow-auto text-[var(--io-ink-soft)]">
+              {(relationshipCenter?.strongest_hubs || []).slice(0, 6).map((h) => (
+                <li key={h.entity}>
+                  {h.entity} · degree {h.degree}
+                </li>
+              ))}
+              {!relationshipCenter ? <li>Relationship Center soft slice unavailable.</li> : null}
+              {relationshipCenter && !(relationshipCenter.strongest_hubs || []).length ? (
+                <li>Query company or macro relationships to populate hubs.</li>
               ) : null}
             </ul>
           </Glass>
