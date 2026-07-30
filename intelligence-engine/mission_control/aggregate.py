@@ -1773,6 +1773,15 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("institutional_architecture")
     except Exception:
         out["institutional_architecture"] = None
+
+    # L-01 — Launch Phase (Launch Center).
+    try:
+        from institutional_launch.production import soft_slice_mission_control as launch_soft
+
+        out["institutional_launch"] = launch_soft()
+        out["sources"].append("institutional_launch")
+    except Exception:
+        out["institutional_launch"] = None
     return out
 
 

@@ -10936,6 +10936,86 @@ async def architecture_violations():
     return violations_api()
 
 
+# --- L-01 Launch Phase (usage analytics / feedback / SLAs / feature flags) ---
+
+
+@router.get("/launch/health")
+async def launch_health():
+    from institutional_launch.production import health
+
+    return health()
+
+
+@router.get("/launch/metrics")
+async def launch_metrics():
+    from institutional_launch.production import metrics_api
+
+    return metrics_api()
+
+
+@router.get("/launch/funnel")
+async def launch_funnel():
+    from institutional_launch.production import funnel_api
+
+    return funnel_api()
+
+
+@router.post("/launch/events")
+async def launch_events(payload: dict[str, Any] = Body(default={})):
+    from institutional_launch.production import track_event
+
+    return track_event(payload or {})
+
+
+@router.post("/launch/journey")
+async def launch_journey(payload: dict[str, Any] = Body(default={})):
+    from institutional_launch.production import track_journey
+
+    return track_journey(payload or {})
+
+
+@router.post("/launch/feedback")
+async def launch_feedback_submit(payload: dict[str, Any] = Body(default={})):
+    from institutional_launch.production import feedback_submit_api
+
+    return feedback_submit_api(payload or {})
+
+
+@router.get("/launch/feedback")
+async def launch_feedback_list(limit: int = 40):
+    from institutional_launch.production import feedback_list_api
+
+    return feedback_list_api(limit=limit)
+
+
+@router.get("/launch/flags")
+async def launch_flags():
+    from institutional_launch.production import flags_api
+
+    return flags_api()
+
+
+@router.post("/launch/flags")
+async def launch_flags_set(payload: dict[str, Any] = Body(default={})):
+    from institutional_launch.production import flag_set_api
+
+    return flag_set_api(payload or {})
+
+
+@router.get("/launch/sla")
+async def launch_sla():
+    from institutional_launch.production import sla_api
+
+    return sla_api()
+
+
+@router.get("/launch/report")
+async def launch_report():
+    from institutional_launch.production import report_api
+
+    return report_api()
+
+
 # --- Company Monitoring System V1 (continuous living analyst; additive) ---
 
 

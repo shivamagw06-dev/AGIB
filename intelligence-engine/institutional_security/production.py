@@ -160,7 +160,7 @@ def login(payload: Optional[dict[str, Any]] = None) -> dict[str, Any]:
         correlation_id=cid,
         metadata={"method": method},
     )
-    return {
+    result = {
         "ok": True,
         "workstream_id": PRP_WORKSTREAM_ID,
         "session_id": ctx.session_id,
@@ -169,6 +169,13 @@ def login(payload: Optional[dict[str, Any]] = None) -> dict[str, Any]:
         "correlation_id": cid,
         "authentication_method": ctx.authentication_method,
     }
+    try:
+        from institutional_launch.production import maybe_track_login
+
+        maybe_track_login(body, result)
+    except Exception:
+        pass
+    return result
 
 
 def logout(payload: Optional[dict[str, Any]] = None) -> dict[str, Any]:

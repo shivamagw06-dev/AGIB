@@ -303,9 +303,16 @@ def generate(payload: Optional[dict[str, Any]] = None) -> dict[str, Any]:
         from institutional_observability.production import maybe_end, record_publication_duration
 
         record_publication_duration(latency)
-        return maybe_end(body, result, component="pub.generate")
+        result = maybe_end(body, result, component="pub.generate")
     except Exception:
-        return result
+        pass
+    try:
+        from institutional_launch.production import maybe_track_publication
+
+        maybe_track_publication(body, result)
+    except Exception:
+        pass
+    return result
 
 
 def get_publication(publication_id: str) -> dict[str, Any]:

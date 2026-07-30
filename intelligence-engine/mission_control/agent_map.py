@@ -962,6 +962,25 @@ _CATALOG: list[dict[str, Any]] = [
         "module": "institutional_architecture.production",
     },
     {
+        "id": "institutional_launch",
+        "name": "Launch Phase (L-01)",
+        "group": "platform",
+        "responsibility": (
+            "Post-GA usage validation — journey analytics, product metrics, feedback, "
+            "operational SLAs, v1.1 feature flags (gated), and Launch Center. "
+            "Driven by usage, not architecture expansion."
+        ),
+        "sources": [
+            "Journey funnel",
+            "Adoption metrics",
+            "User feedback",
+            "SLA targets",
+            "Feature flag registry",
+        ],
+        "kind": "launch_validation",
+        "module": "institutional_launch.production",
+    },
+    {
         "id": "ite_thesis",
         "name": "Investment Thesis Office",
         "group": "offices",

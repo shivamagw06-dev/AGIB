@@ -344,6 +344,13 @@ def ask(payload: Optional[dict[str, Any]] = None) -> dict[str, Any]:
         result = maybe_end(body, result, component="uag.ask")
     except Exception:
         pass
+    # L-01: usage journey — observe only
+    try:
+        from institutional_launch.production import maybe_track_ask
+
+        maybe_track_ask(body, result)
+    except Exception:
+        pass
     return result
 
 

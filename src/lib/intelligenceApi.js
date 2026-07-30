@@ -1507,6 +1507,30 @@ export const getArchitectureReport = () =>
 export const getArchitectureViolations = () =>
   intelligenceFetch('/architecture/violations', { timeoutMs: 90_000 });
 
+/** L-01 — Launch Phase */
+export const getLaunchHealth = () =>
+  intelligenceFetch('/launch/health', { timeoutMs: 30_000 });
+export const getLaunchMetrics = () =>
+  intelligenceFetch('/launch/metrics', { timeoutMs: 30_000 });
+export const getLaunchFunnel = () =>
+  intelligenceFetch('/launch/funnel', { timeoutMs: 30_000 });
+export const trackLaunchEvent = (body = {}) =>
+  intelligenceFetch('/launch/events', { method: 'POST', body: body || {}, timeoutMs: 20_000 });
+export const trackLaunchJourney = (body = {}) =>
+  intelligenceFetch('/launch/journey', { method: 'POST', body: body || {}, timeoutMs: 20_000 });
+export const submitLaunchFeedback = (body = {}) =>
+  intelligenceFetch('/launch/feedback', { method: 'POST', body: body || {}, timeoutMs: 20_000 });
+export const getLaunchFeedback = (limit = 40) =>
+  intelligenceFetch(`/launch/feedback?limit=${encodeURIComponent(limit)}`, { timeoutMs: 30_000 });
+export const getLaunchFlags = () =>
+  intelligenceFetch('/launch/flags', { timeoutMs: 20_000 });
+export const setLaunchFlag = (body = {}) =>
+  intelligenceFetch('/launch/flags', { method: 'POST', body: body || {}, timeoutMs: 20_000 });
+export const getLaunchSla = () =>
+  intelligenceFetch('/launch/sla', { timeoutMs: 30_000 });
+export const getLaunchReport = () =>
+  intelligenceFetch('/launch/report', { timeoutMs: 60_000 });
+
 /** ICE-01 — Investment Committee Engine */
 export const getCommitteeEngineHealth = () =>
   intelligenceFetch('/committee-engine/health', { timeoutMs: 30_000 });

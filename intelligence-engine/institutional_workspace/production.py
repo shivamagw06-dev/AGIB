@@ -174,9 +174,16 @@ def get_company_workspace(
         from institutional_observability.production import maybe_end, record_workspace_load
 
         record_workspace_load(float(result.get("latency_ms") or 0))
-        return maybe_end(sec_body, result, component="rw.workspace")
+        result = maybe_end(sec_body, result, component="rw.workspace")
     except Exception:
-        return result
+        pass
+    try:
+        from institutional_launch.production import maybe_track_workspace
+
+        maybe_track_workspace(sec_body, result, kind="company")
+    except Exception:
+        pass
+    return result
 
 
 def get_portfolio_workspace(

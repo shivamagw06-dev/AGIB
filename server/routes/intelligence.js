@@ -3649,6 +3649,117 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // L-01 — Launch Phase
+  router.get('/launch/health', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/launch/health', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'launch health failed' });
+    }
+  });
+  router.get('/launch/metrics', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/launch/metrics', { timeoutMs: 30_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'launch metrics failed' });
+    }
+  });
+  router.get('/launch/funnel', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/launch/funnel', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'launch funnel failed' });
+    }
+  });
+  router.post('/launch/events', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/launch/events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 20_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'launch event failed' });
+    }
+  });
+  router.post('/launch/journey', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/launch/journey', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 20_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'launch journey failed' });
+    }
+  });
+  router.post('/launch/feedback', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/launch/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 20_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'launch feedback failed' });
+    }
+  });
+  router.get('/launch/feedback', async (req, res) => {
+    try {
+      const qs = req.query.limit ? `?limit=${encodeURIComponent(String(req.query.limit))}` : '';
+      const result = await engineFetch(`/v1/launch/feedback${qs}`, { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'launch feedback list failed' });
+    }
+  });
+  router.get('/launch/flags', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/launch/flags', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'launch flags failed' });
+    }
+  });
+  router.post('/launch/flags', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/launch/flags', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 20_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'launch flag set failed' });
+    }
+  });
+  router.get('/launch/sla', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/launch/sla', { timeoutMs: 30_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'launch sla failed' });
+    }
+  });
+  router.get('/launch/report', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/launch/report', { timeoutMs: 60_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'launch report failed' });
+    }
+  });
+
   // ICE-01 — Investment Committee Engine
   router.get('/committee-engine/health', async (_req, res) => {
     try {

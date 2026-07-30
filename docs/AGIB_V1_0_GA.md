@@ -112,9 +112,15 @@ No changes to core architectural ownership, layer responsibilities, or conforman
 * Core engine redesigns
 * Breaking API changes
 
+### Launch-01 (before v1.1)
+
+Usage validation phase — see `docs/AGI_L_01_LAUNCH.md`.
+
+Do not start v1.1 until Launch Center shows evidence of successful workflows (adoption, SLAs, feedback, conformance).
+
 ### v1.1
 
-Built entirely on the v1.0 architecture:
+Built entirely on the v1.0 architecture, justified by Launch-01 evidence:
 
 * Collaboration
 * Workflow automation

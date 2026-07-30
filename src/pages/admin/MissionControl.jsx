@@ -218,6 +218,8 @@ export default function MissionControl() {
     institutional?.institutional_observability || desk?.institutional_observability || null;
   const architectureCenter =
     institutional?.institutional_architecture || desk?.institutional_architecture || null;
+  const launchCenter =
+    institutional?.institutional_launch || desk?.institutional_launch || null;
   const pipeline = desk?.research_pipeline || {};
   const preds = desk?.prediction_intelligence || {};
   const dq = desk?.data_quality || {};
@@ -1501,6 +1503,98 @@ export default function MissionControl() {
               ) : null}
             </ul>
           </Glass>
+        </section>
+
+        {/* Launch Center — L-01 */}
+        <section className="space-y-3">
+          <Kicker>Launch Center · L-01</Kicker>
+          <p className="text-sm text-[var(--io-muted)] max-w-3xl">
+            Usage validation before v1.1 — adoption, Ask performance, SLA status, user feedback, and
+            gated feature flags. Driven by real workflows, not architectural expansion.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+            <Stat
+              label="DAU"
+              value={launchCenter?.daily_active_users ?? '—'}
+              status={launchCenter?.status}
+            />
+            <Stat label="WAU" value={launchCenter?.weekly_active_users ?? '—'} />
+            <Stat label="Ask / day" value={launchCenter?.ask_questions ?? '—'} />
+            <Stat
+              label="Ask P95"
+              value={
+                launchCenter?.ask_p95_ms != null ? `${launchCenter.ask_p95_ms}ms` : '—'
+              }
+            />
+            <Stat label="Pubs" value={launchCenter?.publication_generated ?? '—'} />
+            <Stat
+              label="Helpful"
+              value={
+                launchCenter?.helpful_rate != null
+                  ? `${Math.round(Number(launchCenter.helpful_rate) * 100)}%`
+                  : '—'
+              }
+              hint={
+                launchCenter?.feedback_total != null
+                  ? `${launchCenter.feedback_total} responses`
+                  : undefined
+              }
+            />
+            <Stat
+              label="SLAs"
+              value={
+                launchCenter?.sla_all_met == null
+                  ? '—'
+                  : launchCenter.sla_all_met
+                    ? 'Met'
+                    : `${launchCenter.sla_breach_count ?? 0} breach`
+              }
+            />
+          </div>
+          <div className="grid gap-3 lg:grid-cols-2">
+            <Glass>
+              <p className="text-[11px] uppercase text-[var(--io-caption)]">SLA checks</p>
+              <ul className="mt-2 space-y-1 text-xs max-h-36 overflow-auto text-[var(--io-ink-soft)]">
+                {(launchCenter?.sla_checks || []).map((c) => (
+                  <li key={c.metric}>
+                    {c.status === 'met' ? '✓' : c.status === 'breach' ? '✗' : '·'} {c.metric}:{' '}
+                    {c.actual ?? '—'} / {c.target}
+                  </li>
+                ))}
+                {!launchCenter ? <li>Launch Center soft slice unavailable.</li> : null}
+              </ul>
+            </Glass>
+            <Glass>
+              <p className="text-[11px] uppercase text-[var(--io-caption)]">Feedback &amp; rollout</p>
+              <ul className="mt-2 space-y-1 text-xs max-h-36 overflow-auto text-[var(--io-ink-soft)]">
+                <li>
+                  v1.1 flags gated:{' '}
+                  {launchCenter?.feature_flags_all_disabled == null
+                    ? '—'
+                    : launchCenter.feature_flags_all_disabled
+                      ? 'Yes'
+                      : 'Partial'}
+                </li>
+                <li>
+                  Ready for v1.1:{' '}
+                  {launchCenter?.ready_for_v11 == null
+                    ? '—'
+                    : launchCenter.ready_for_v11
+                      ? 'Yes'
+                      : 'Not yet'}
+                </li>
+                {(launchCenter?.recent_feedback || []).slice(0, 4).map((f) => (
+                  <li key={f.feedback_id}>
+                    [{f.reaction}] {f.screen}
+                    {f.comment ? ` — ${f.comment}` : ''}
+                  </li>
+                ))}
+                {launchCenter && !(launchCenter.recent_feedback || []).length ? (
+                  <li>No feedback yet — collect 👍/👎 on Ask, Workspace, Publications.</li>
+                ) : null}
+              </ul>
+            </Glass>
+          </div>
         </section>
 
         {/* Architecture Center — RC-01 */}
