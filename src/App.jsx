@@ -198,6 +198,10 @@ function PublicRoutes() {
       <Route path="/article/:slug" element={<ArticlePage />} />
       <Route path="/articles/new" element={<Navigate replace to="/admin/articles/new" />} />
       <Route path="/write" element={<Navigate replace to="/admin/articles/new" />} />
+      <Route
+        path="/knowledge-operations"
+        element={<Navigate replace to="/admin/knowledge-operations" />}
+      />
 
       <Route path="/about" element={<About />} />
       <Route path="/contact" element={<Contact />} />

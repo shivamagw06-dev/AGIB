@@ -4416,6 +4416,107 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // KOC-01 — Institutional Knowledge Operations Center
+  router.get('/koc/health', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/koc/health', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'koc health failed' });
+    }
+  });
+  router.get('/koc/status', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/koc/status', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'koc status failed' });
+    }
+  });
+  router.get('/koc/desk', async (req, res) => {
+    try {
+      const qs = new URLSearchParams();
+      if (req.query?.scope) qs.set('scope', String(req.query.scope));
+      const suffix = qs.toString() ? `?${qs.toString()}` : '';
+      const result = await engineFetch(`/v1/koc/desk${suffix}`, { timeoutMs: 180_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'koc desk failed' });
+    }
+  });
+  router.get('/koc/missing-inbox', async (req, res) => {
+    try {
+      const qs = new URLSearchParams();
+      if (req.query?.scope) qs.set('scope', String(req.query.scope));
+      if (req.query?.limit != null) qs.set('limit', String(req.query.limit));
+      const suffix = qs.toString() ? `?${qs.toString()}` : '';
+      const result = await engineFetch(`/v1/koc/missing-inbox${suffix}`, { timeoutMs: 180_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'koc missing inbox failed' });
+    }
+  });
+  router.get('/koc/company/:ticker', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/koc/company/${encodeURIComponent(req.params.ticker)}`,
+        { timeoutMs: 120_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'koc company failed' });
+    }
+  });
+  router.post('/koc/upload', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/koc/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 180_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'koc upload failed' });
+    }
+  });
+  router.get('/koc/queue', async (req, res) => {
+    try {
+      const qs = new URLSearchParams();
+      if (req.query?.limit != null) qs.set('limit', String(req.query.limit));
+      const suffix = qs.toString() ? `?${qs.toString()}` : '';
+      const result = await engineFetch(`/v1/koc/queue${suffix}`, { timeoutMs: 30_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'koc queue failed' });
+    }
+  });
+  router.get('/koc/audit', async (req, res) => {
+    try {
+      const qs = new URLSearchParams();
+      if (req.query?.limit != null) qs.set('limit', String(req.query.limit));
+      if (req.query?.ticker) qs.set('ticker', String(req.query.ticker));
+      const suffix = qs.toString() ? `?${qs.toString()}` : '';
+      const result = await engineFetch(`/v1/koc/audit${suffix}`, { timeoutMs: 30_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'koc audit failed' });
+    }
+  });
+  router.post('/koc/action', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/koc/action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 180_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'koc action failed' });
+    }
+  });
+
   // ICE-01 — Investment Committee Engine
   router.get('/committee-engine/health', async (_req, res) => {
     try {

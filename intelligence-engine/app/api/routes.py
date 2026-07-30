@@ -11493,6 +11493,86 @@ async def icf_scheduler():
     return scheduler_status()
 
 
+# KOC-01 — Institutional Knowledge Operations Center (admin control room)
+
+
+@router.get("/koc/health")
+async def koc_health():
+    from knowledge_operations.production import health
+
+    return health()
+
+
+@router.get("/koc/status")
+async def koc_status():
+    from knowledge_operations.production import get_status
+
+    return get_status()
+
+
+@router.get("/koc/desk")
+async def koc_desk(scope: str = "TOP20"):
+    from knowledge_operations.production import get_desk
+
+    return get_desk(scope=scope)
+
+
+@router.get("/koc/missing-inbox")
+async def koc_missing_inbox(scope: str = "TOP20", limit: int = 50):
+    from knowledge_operations.production import get_missing_inbox
+
+    return get_missing_inbox(scope=scope, limit=limit)
+
+
+@router.get("/koc/company/{ticker}")
+async def koc_company(ticker: str):
+    from knowledge_operations.production import get_company
+
+    return get_company(ticker)
+
+
+@router.post("/koc/upload")
+async def koc_upload(payload: dict[str, Any] = Body(default={})):
+    from knowledge_operations.production import upload_knowledge
+
+    body = payload or {}
+    return upload_knowledge(
+        ticker=str(body.get("ticker") or ""),
+        document_type=str(body.get("document_type") or "other"),
+        filename=str(body.get("filename") or "upload.bin"),
+        content_base64=body.get("content_base64"),
+        actor=body.get("actor"),
+        mime_type=body.get("mime_type"),
+    )
+
+
+@router.get("/koc/queue")
+async def koc_queue(limit: int = 100):
+    from knowledge_operations.production import get_queue
+
+    return get_queue(limit=limit)
+
+
+@router.get("/koc/audit")
+async def koc_audit(limit: int = 100, ticker: str | None = None):
+    from knowledge_operations.production import get_audit
+
+    return get_audit(limit=limit, ticker=ticker)
+
+
+@router.post("/koc/action")
+async def koc_action(payload: dict[str, Any] = Body(default={})):
+    from knowledge_operations.production import run_action
+
+    body = payload or {}
+    return run_action(
+        str(body.get("action") or ""),
+        ticker=body.get("ticker"),
+        actor=body.get("actor"),
+        force=bool(body.get("force")),
+    )
+
+
 # --- Company Monitoring System V1 (continuous living analyst; additive) ---
 
 

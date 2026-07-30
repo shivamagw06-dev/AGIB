@@ -46,6 +46,7 @@ import {
   Lightbulb,
   ListChecks,
   MessageSquare,
+  Library,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { isAdmin } from '@/lib/adminAuth';
@@ -57,6 +58,8 @@ const authorNavItems = [
 
 const navItems = [
   { to: '/admin', label: 'Dashboard', icon: LayoutDashboard, end: true },
+  { to: '/admin/knowledge-operations', label: 'Knowledge Operations', icon: Library },
+  { to: '/admin/mission-control', label: 'Mission Control', icon: Gauge },
   { to: '/admin/release-health', label: 'Release Health', icon: ShieldCheck },
   { to: '/admin/articles', label: 'All Articles', icon: FileText },
   { to: '/admin/intelligence-map', label: 'Intelligence Map', icon: Map },
@@ -104,7 +107,6 @@ const navItems = [
   { to: '/admin/institutional-intelligence', label: 'Institutional Intelligence', icon: Activity },
   { to: '/admin/company-monitor', label: 'Company Monitor', icon: Bell },
   { to: '/admin/investment-office', label: 'Investment Office', icon: Landmark },
-  { to: '/admin/mission-control', label: 'Mission Control', icon: Gauge },
   { to: '/admin/investment-intelligence', label: 'Investment Intel', icon: LineChart },
   { to: '/admin/forecasting', label: 'Forecasting', icon: Target },
   { to: '/admin/events', label: 'Events', icon: Zap },
