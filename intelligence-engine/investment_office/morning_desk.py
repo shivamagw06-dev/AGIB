@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import time
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
+from copy import deepcopy
 from datetime import datetime, timezone
+from threading import Lock
 from typing import Any, Dict, List, Optional
 
 from investment_office.v13_schema import (
@@ -18,6 +22,11 @@ from investment_office.v13_schema import (
     SECTORS,
 )
 
+# Soft-aggregate can be slow on cold engine; keep a short TTL cache for the desk UI.
+_OVERVIEW_CACHE_LOCK = Lock()
+_OVERVIEW_CACHE: Dict[str, Any] = {"at": 0.0, "payload": None}
+_OVERVIEW_CACHE_TTL_S = 90.0
+
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
@@ -26,6 +35,22 @@ def _now() -> str:
 def _soft(fn, default=None):
     try:
         return fn()
+    except Exception as exc:
+        if default is not None:
+            return default
+        return {"_ok": False, "error": str(exc)[:200]}
+
+
+def _soft_timeout(fn, default=None, timeout_s: float = 8.0):
+    """Run soft dependency with a hard wall-clock bound (cold engines / heavy IOL)."""
+    try:
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            fut = pool.submit(fn)
+            return fut.result(timeout=timeout_s)
+    except FuturesTimeout:
+        if default is not None:
+            return default
+        return {"_ok": False, "error": f"soft_timeout_{timeout_s}s"}
     except Exception as exc:
         if default is not None:
             return default
@@ -51,56 +76,64 @@ def _io_desk() -> Dict[str, Any]:
     cached = cached_desk()
     if isinstance(cached, dict) and cached.get("enabled"):
         return cached
-    return dashboard() or {}
+    # Bound desk rebuild — overview must stay interactive on cold start.
+    desk = _soft_timeout(lambda: dashboard() or {}, default={}, timeout_s=12.0)
+    return desk if isinstance(desk, dict) else {}
 
 
 def _iol_morning() -> Dict[str, Any]:
     """Soft Investment Operations morning — may be slower; never hard-fail."""
-    try:
+
+    def _run():
         from investment_operations.production import morning_office
 
         return morning_office(include_soft_reasoning=False) or {}
-    except Exception as exc:
-        return {"_ok": False, "error": str(exc)[:200]}
+
+    return _soft_timeout(_run, default={"_ok": False, "error": "iol_unavailable"}, timeout_s=10.0)
 
 
 def _cgl() -> Dict[str, Any]:
-    return _soft(
+    return _soft_timeout(
         lambda: __import__(
             "continuous_gather_learn.production", fromlist=["dashboard"]
         ).dashboard(),
         default={},
+        timeout_s=8.0,
     )
 
 
 def _knowledge_kpis() -> Dict[str, Any]:
-    out: Dict[str, Any] = {}
-    try:
-        from institutional_coverage_factory.production import coverage_dashboard, scheduler_status
+    def _run() -> Dict[str, Any]:
+        out: Dict[str, Any] = {}
+        try:
+            from institutional_coverage_factory.production import coverage_dashboard, scheduler_status
 
-        dash = coverage_dashboard(scope="TOP20")
-        m = dash.get("metrics") or {}
-        out["icc_complete"] = m.get("icc_complete")
-        out["scoped_companies"] = m.get("scoped_companies")
-        out["icc_entered_today"] = (scheduler_status() or {}).get("icc_entered_today")
-    except Exception:
-        pass
-    try:
-        from institutional_evidence.production import soft_slice_knowledge_health
+            dash = coverage_dashboard(scope="TOP20")
+            m = dash.get("metrics") or {}
+            out["icc_complete"] = m.get("icc_complete")
+            out["scoped_companies"] = m.get("scoped_companies")
+            out["icc_entered_today"] = (scheduler_status() or {}).get("icc_entered_today")
+        except Exception:
+            pass
+        try:
+            from institutional_evidence.production import soft_slice_knowledge_health
 
-        kh = soft_slice_knowledge_health()
-        out["knowledge_health"] = kh
-    except Exception:
-        pass
-    try:
-        from knowledge_operations.production import get_missing_inbox
+            kh = soft_slice_knowledge_health()
+            out["knowledge_health"] = kh
+        except Exception:
+            pass
+        try:
+            from knowledge_operations.production import get_missing_inbox
 
-        inbox = get_missing_inbox(scope="TOP20", limit=10)
-        out["missing_inbox_count"] = inbox.get("count")
-        out["critical_gaps"] = (inbox.get("by_priority") or {}).get("Critical")
-    except Exception:
-        pass
-    return out
+            inbox = get_missing_inbox(scope="TOP20", limit=10)
+            out["missing_inbox_count"] = inbox.get("count")
+            out["critical_gaps"] = (inbox.get("by_priority") or {}).get("Critical")
+        except Exception:
+            pass
+        return out
+
+    result = _soft_timeout(_run, default={}, timeout_s=10.0)
+    return result if isinstance(result, dict) else {}
 
 
 def _overnight_timeline(cgl: Dict[str, Any], iol: Dict[str, Any], desk: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -426,17 +459,37 @@ def _metrics(desk: Dict[str, Any], knowledge: Dict[str, Any], queue: Dict[str, A
     }
 
 
-def build_morning_overview() -> Dict[str, Any]:
+def build_morning_overview(*, force: bool = False) -> Dict[str, Any]:
+    if not force:
+        with _OVERVIEW_CACHE_LOCK:
+            payload = _OVERVIEW_CACHE.get("payload")
+            at = float(_OVERVIEW_CACHE.get("at") or 0.0)
+            if isinstance(payload, dict) and (time.time() - at) < _OVERVIEW_CACHE_TTL_S:
+                cached = deepcopy(payload)
+                cached["cache"] = {
+                    "hit": True,
+                    "age_s": round(time.time() - at, 2),
+                    "ttl_s": _OVERVIEW_CACHE_TTL_S,
+                }
+                return cached
+
     desk = _soft(_io_desk, default={})
     if not isinstance(desk, dict):
         desk = {}
-    iol = _iol_morning()
+    # Parallelize the three slow soft deps when cache misses.
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        fut_iol = pool.submit(_iol_morning)
+        fut_cgl = pool.submit(_cgl)
+        fut_knowledge = pool.submit(_knowledge_kpis)
+        iol = fut_iol.result()
+        cgl = fut_cgl.result()
+        knowledge = fut_knowledge.result()
     if not isinstance(iol, dict):
         iol = {}
-    cgl = _cgl()
     if not isinstance(cgl, dict):
         cgl = {}
-    knowledge = _knowledge_kpis()
+    if not isinstance(knowledge, dict):
+        knowledge = {}
     overnight = _overnight_timeline(cgl, iol, desk)
     priorities = _priorities(desk, iol)
     opportunities = _opportunities(desk, iol)
@@ -484,7 +537,7 @@ def build_morning_overview() -> Dict[str, Any]:
         "institutional_coverage_complete": knowledge.get("icc_complete"),
     }
 
-    return {
+    out = {
         "ok": True,
         "enabled": True,
         "admin_only": True,
@@ -551,7 +604,13 @@ def build_morning_overview() -> Dict[str, Any]:
         },
         "iol_available": not bool(iol.get("error")),
         "desk_enabled": bool(desk.get("enabled")),
+        "cache": {"hit": False, "ttl_s": _OVERVIEW_CACHE_TTL_S},
     }
+
+    with _OVERVIEW_CACHE_LOCK:
+        _OVERVIEW_CACHE["at"] = time.time()
+        _OVERVIEW_CACHE["payload"] = deepcopy(out)
+    return out
 
 
 def slice_overview(key: str) -> Dict[str, Any]:
@@ -635,7 +694,7 @@ def refresh_morning_office() -> Dict[str, Any]:
         dashboard(ui_home=None)
     except Exception:
         pass
-    overview = build_morning_overview()
+    overview = build_morning_overview(force=True)
     return {
         "ok": True,
         "refreshed_at": _now(),
@@ -646,7 +705,7 @@ def refresh_morning_office() -> Dict[str, Any]:
 
 def generate_morning_brief() -> Dict[str, Any]:
     """Regenerate executive + AI morning brief narratives."""
-    overview = build_morning_overview()
+    overview = build_morning_overview(force=True)
     return {
         "ok": True,
         "generated_at": _now(),
