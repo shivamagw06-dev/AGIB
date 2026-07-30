@@ -12,7 +12,7 @@
 | **Consumes** | IO-01 · CIO-01 · FIRE-01…06 · Office SDK · PEB-01 · WO-01 · PO-01 |
 | **Frozen** | FSE · FDO · Warehouse · DME · FKB · FIRE · Office SDK · PEB · IO/CIO/PO/WO |
 
-> Company Workspace answers: *Everything AGIB currently knows about this company, in one place.*
+> Company Workspace answers: *Everything AGI currently knows about this company, in one place.*
 
 ---
 
