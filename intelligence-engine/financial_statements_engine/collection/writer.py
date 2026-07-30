@@ -83,6 +83,7 @@ def write_evidence(
     fiscal_period: str | None = None,
     entity: str | None = None,
     consolidation: str | None = None,
+    extra: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Idempotent raw write. Returns action: stored | duplicate_skipped | restatement_candidate."""
     digest = content_sha256(data)
@@ -117,6 +118,7 @@ def write_evidence(
         fiscal_year=fiscal_year,
         fiscal_period=fiscal_period,
         entity=entity,
+        extra=extra,
     )
     _index_hash(digest, meta)
 

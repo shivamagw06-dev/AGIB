@@ -32,8 +32,13 @@ def store_raw(
     fiscal_period: str | None = None,
     entity: str | None = None,
     ext: str | None = None,
+    extra: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Persist immutable raw bytes + metadata. Idempotent on content hash."""
+    """Persist immutable raw bytes + metadata. Idempotent on content hash.
+
+    ``extra`` merges additive provenance fields (FSE-02.3) without changing
+    the immutable byte blob contract.
+    """
     ensure_dirs()
     digest = content_sha256(data)
     eid = f"sha256:{digest}"
@@ -67,6 +72,12 @@ def store_raw(
         "immutable": True,
         "lifecycle": "raw_verified",
     }
+    if extra:
+        # Do not allow extra to clobber content identity fields
+        for k, v in extra.items():
+            if k in {"evidence_id", "content_sha256", "bytes_path", "immutable"}:
+                continue
+            meta[k] = v
     if not meta_path.exists():
         write_json_atomic(meta_path, meta)
     return meta

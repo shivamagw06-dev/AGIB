@@ -5,17 +5,21 @@ from __future__ import annotations
 from typing import Any
 
 # Lower integer = higher priority (official first / hierarchy)
+# FSE-02.3 registry order: MCA → NSE → BSE → IR (see source_layer/registry.py)
 SOURCE_PRIORITY: dict[str, int] = {
+    "mca_xbrl": 5,
+    "nse_official": 8,
     "nse_xbrl": 10,
     "nse_integrated_filing": 20,
     "nse_corporates_financial_results": 30,
+    "bse_official": 35,
     "bse_xbrl": 40,
     "bse_filing": 50,
     "xbrl_repository": 60,
     "company_ir": 70,
     "quarterly_results": 80,
     "annual_report_pdf": 90,
-    "mca_validation": 100,  # validation only — never canonical overwrite
+    "mca_validation": 100,  # validation-only tag — never canonical overwrite
 }
 
 # Document-type hierarchy within the same period (FSE-02 §3.2)
@@ -29,14 +33,19 @@ DOCUMENT_PRIORITY: dict[str, int] = {
 }
 
 OFFICIAL_ORDER = (
+    "mca",
     "nse",
     "bse",
     "company_ir",
     "xbrl_repositories",
     "annual_reports",
     "quarterly_results",
-    "mca",
 )
+
+
+def registry_priority_order() -> list[str]:
+    """FSE-02.3 dynamic registry order (source_id list)."""
+    return ["mca_xbrl", "nse_official", "bse_official", "company_ir"]
 
 
 def source_rank(source: str | None) -> int:
@@ -84,8 +93,16 @@ def logical_key(
 
 
 def sources_manifest() -> dict[str, Any]:
-    return {
+    manifest = {
         "official_order": list(OFFICIAL_ORDER),
+        "registry_priority_order": registry_priority_order(),
         "source_priority": dict(sorted(SOURCE_PRIORITY.items(), key=lambda kv: kv[1])),
         "document_priority": dict(sorted(DOCUMENT_PRIORITY.items(), key=lambda kv: kv[1])),
     }
+    try:
+        from financial_statements_engine.collection.source_layer.registry import registry_manifest
+
+        manifest["source_registry"] = registry_manifest()
+    except Exception:
+        pass
+    return manifest

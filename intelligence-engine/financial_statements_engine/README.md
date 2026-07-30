@@ -113,8 +113,11 @@ python -m financial_statements_engine --fdo-alerts
 - `GET /v1/financial-statements/collection/health`
 - `GET /v1/financial-statements/collection/dashboard`
 - `GET /v1/financial-statements/collection/ingest-dashboard` (FSE-02.1)
+- `GET /v1/financial-statements/collection/source-coverage` (FSE-02.3)
+- `GET /v1/financial-statements/collection/source-registry` (FSE-02.3)
 - `GET /v1/financial-statements/collection/events`
 - `POST /v1/financial-statements/collection/run`
+- `POST /v1/financial-statements/collection/run-official` (FSE-02.3)
 - `GET /v1/financial-statements/verification/dashboard` (FSE-02.2)
 - `GET /v1/financial-statements/verification/workflows`
 - `GET /v1/financial-statements/verification/workflows/{workflow_id}`

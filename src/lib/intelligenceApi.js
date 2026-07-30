@@ -1173,6 +1173,33 @@ export const getMiiGuidance = (ticker) =>
 export const analyseMii = (ticker) =>
   intelligenceFetch('/management-intelligence/analyse', { method: 'POST', body: { ticker } });
 
+/** Financial Statements Engine + FDO (ops soft-wire) */
+export const getFseHealth = () => intelligenceFetch('/financial-statements/health');
+export const getFseDashboard = () => intelligenceFetch('/financial-statements/dashboard');
+export const getFdoDashboard = (universe = 'gold') =>
+  intelligenceFetch(`/financial-statements/fdo/dashboard?universe=${encodeURIComponent(universe)}`);
+export const getFdoSchedule = (universe = 'gold') =>
+  intelligenceFetch(`/financial-statements/fdo/schedule?universe=${encodeURIComponent(universe)}`);
+export const getFdoAlerts = (universe = 'gold') =>
+  intelligenceFetch(`/financial-statements/fdo/alerts?universe=${encodeURIComponent(universe)}`);
+export const getFseCoverage = (universe = 'gold') =>
+  intelligenceFetch(`/financial-statements/coverage?universe=${encodeURIComponent(universe)}`);
+export const getFseCoverageCompany = (company) =>
+  intelligenceFetch(`/financial-statements/coverage/${encodeURIComponent(company)}`);
+export const getFseSourceHealth = () => intelligenceFetch('/financial-statements/source-health');
+export const getFseCollectionHealth = () =>
+  intelligenceFetch('/financial-statements/collection/health');
+export const getFseSourceCoverage = () =>
+  intelligenceFetch('/financial-statements/collection/source-coverage');
+export const getFseSourceRegistry = () =>
+  intelligenceFetch('/financial-statements/collection/source-registry');
+export const getFseOrchestratorDashboard = () =>
+  intelligenceFetch('/financial-statements/orchestrator/dashboard');
+export const getFseWarehouseDashboard = () =>
+  intelligenceFetch('/financial-statements/warehouse/dashboard');
+export const getFseVerificationDashboard = () =>
+  intelligenceFetch('/financial-statements/verification/dashboard');
+
 /** Accounting Intelligence Engine */
 export const getAciHealth = () => intelligenceFetch('/accounting-intelligence/health');
 export const getAciDashboard = () => intelligenceFetch('/accounting-intelligence/dashboard');
