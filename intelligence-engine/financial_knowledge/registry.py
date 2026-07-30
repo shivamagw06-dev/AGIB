@@ -7,6 +7,7 @@ from typing import Any
 from financial_knowledge.confidence import all_modifiers, get_modifier
 from financial_knowledge.glossary import all_glossary, get_glossary
 from financial_knowledge.metrics import all_metrics, get_metric
+from financial_knowledge.quality_weights import all_quality_weights, get_quality_weight
 from financial_knowledge.ratios import all_ratios, get_ratio
 from financial_knowledge.relationships import all_relationships, get_relationship
 from financial_knowledge.schema import VERSION, WORKSTREAM_ID
@@ -41,6 +42,10 @@ class KnowledgeRegistry:
     def confidence(self, name: str) -> dict[str, Any] | None:
         return get_modifier(name)
 
+    def quality_weight(self, name: str) -> dict[str, Any] | None:
+        """Additive FIRE-06 pillar weight definitions (knowledge only)."""
+        return get_quality_weight(name)
+
     def list_metrics(self) -> list[dict[str, Any]]:
         return all_metrics()
 
@@ -61,6 +66,9 @@ class KnowledgeRegistry:
 
     def list_confidence_modifiers(self) -> list[dict[str, Any]]:
         return all_modifiers()
+
+    def list_quality_weights(self) -> list[dict[str, Any]]:
+        return all_quality_weights()
 
     def validate(self) -> dict[str, Any]:
         """Structural validation: unique IDs, formula presence, cross-refs."""
@@ -85,6 +93,10 @@ class KnowledgeRegistry:
             for dep in m.get("dependencies") or []:
                 if dep not in metric_ids:
                     errors.append(f"metric_missing_dependency:{m['id']}:{dep}")
+        qw = all_quality_weights()
+        wsum = sum(float(w.get("weight") or 0) for w in qw)
+        if qw and abs(wsum - 1.0) > 1e-6:
+            errors.append(f"quality_weights_sum_not_one:{wsum}")
         return {
             "ok": not errors,
             "errors": errors,
@@ -96,6 +108,7 @@ class KnowledgeRegistry:
                 "glossary": len(all_glossary()),
                 "sectors": len(all_sectors()),
                 "confidence_modifiers": len(all_modifiers()),
+                "quality_weights": len(qw),
             },
             "version": VERSION,
         }

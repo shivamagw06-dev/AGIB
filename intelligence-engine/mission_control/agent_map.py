@@ -424,10 +424,115 @@ _CATALOG: list[dict[str, Any]] = [
         "id": "investment_office",
         "name": "Investment Office",
         "group": "offices",
-        "responsibility": "Executive operating cockpit — briefs, queues, coverage.",
-        "sources": ["CMS", "CIO desks", "AGIB caches"],
+        "responsibility": (
+            "Executive operating cockpit — briefs, queues, coverage; "
+            "IO-01 orchestrates FIRE-01…06 into Institutional Research Packages (no new analysis)."
+        ),
+        "sources": [
+            "CMS",
+            "CIO desks",
+            "AGIB caches",
+            "FIRE-01",
+            "FIRE-02",
+            "FIRE-03",
+            "FIRE-04",
+            "FIRE-05",
+            "FIRE-06",
+            "FKB",
+        ],
         "kind": "office",
         "module": "investment_office.production",
+    },
+    {
+        "id": "investment_office_irp",
+        "name": "Investment Office IRP (IO-01)",
+        "group": "ops",
+        "responsibility": (
+            "Question routing + research package assembly from existing FIRE evidence — "
+            "never recalculates, rescores, or invents conclusions (no BUY/SELL)."
+        ),
+        "sources": [
+            "Financial Warehouse",
+            "Derived Metrics",
+            "FIRE-01",
+            "FIRE-02",
+            "FIRE-03",
+            "FIRE-04",
+            "FIRE-05",
+            "FIRE-06",
+            "FKB",
+        ],
+        "kind": "office",
+        "module": "investment_office.production",
+    },
+    {
+        "id": "comparative_intelligence",
+        "name": "Comparative Intelligence (CIO-01)",
+        "group": "ops",
+        "responsibility": (
+            "Cross-company side-by-side Institutional Comparison Reports from existing FIRE "
+            "outputs — comparison only; never recalculates or invents conclusions (no BUY/SELL)."
+        ),
+        "sources": [
+            "FIRE-01",
+            "FIRE-02",
+            "FIRE-03",
+            "FIRE-04",
+            "FIRE-05",
+            "FIRE-06",
+            "IO-01 collectors",
+            "FKB",
+        ],
+        "kind": "office",
+        "module": "comparative_intelligence.production",
+    },
+    {
+        "id": "office_sdk",
+        "name": "Office SDK (shared contract)",
+        "group": "ops",
+        "responsibility": (
+            "Shared OfficeRequest / OfficeResponse / EvidenceBlock contracts for Research, "
+            "Portfolio, Market, Execution, and Knowledge domain offices."
+        ),
+        "sources": ["IO-01", "CIO-01", "PO-01", "WO-01", "future SO/VO/ITO"],
+        "kind": "office",
+        "module": "office_sdk.production",
+    },
+    {
+        "id": "portfolio_office",
+        "name": "Portfolio Office (PO-01)",
+        "group": "ops",
+        "responsibility": (
+            "Canonical portfolio state — holdings, cash, exposures, quality/execution "
+            "distributions from FIRE-05/06, concentration, immutable snapshots (no BUY/SELL)."
+        ),
+        "sources": ["Office SDK", "FIRE-05", "FIRE-06", "holdings", "company master"],
+        "kind": "office",
+        "module": "portfolio_office.production",
+    },
+    {
+        "id": "platform_event_bus",
+        "name": "Platform Event Bus (PEB-01)",
+        "group": "ops",
+        "responsibility": (
+            "In-process typed pub/sub for loose coupling between offices — "
+            "no business logic, no persistence, no broker (infrastructure only)."
+        ),
+        "sources": ["IO-01", "CIO-01", "PO-01", "WO-01", "Office SDK", "future Alerts/Monitoring"],
+        "kind": "platform",
+        "module": "platform_event_bus.production",
+    },
+    {
+        "id": "watchlist_office",
+        "name": "Watchlist Office (WO-01)",
+        "group": "ops",
+        "responsibility": (
+            "Research-queue watchlists — publishes add/remove events and subscribes to "
+            "research/quality/execution/comparison events (no research, no BUY/SELL)."
+        ),
+        "sources": ["Office SDK", "PEB-01", "IO-01 references", "FIRE references"],
+        "kind": "office",
+        "module": "watchlist_office.production",
     },
     {
         "id": "ite_thesis",
@@ -608,6 +713,27 @@ _CATALOG: list[dict[str, Any]] = [
         ],
         "kind": "office",
         "module": "management_execution.production",
+    },
+    {
+        "id": "business_quality",
+        "name": "Business Quality (FIRE-06)",
+        "group": "ops",
+        "responsibility": (
+            "Pillar-primary synthesis of FIRE evidence into business quality scores — "
+            "growth, profitability, cash, balance sheet, capital allocation, execution, model (no BUY/SELL)."
+        ),
+        "sources": [
+            "Financial Warehouse",
+            "Derived Metrics",
+            "FIRE-01",
+            "FIRE-02",
+            "FIRE-03",
+            "FIRE-04",
+            "FIRE-05",
+            "FKB quality weights",
+        ],
+        "kind": "office",
+        "module": "business_quality.production",
     },
     # —— Learning / eval ——
     {
