@@ -1026,20 +1026,23 @@ _CATALOG: list[dict[str, Any]] = [
         "name": "Institutional Evidence Platform (IEP-01)",
         "group": "evidence",
         "responsibility": (
-            "AGI v1.1 foundation — acquire, canonicalize, register, and gate "
-            "institutional evidence so every research note and recommendation is "
-            "traceable to primary evidence. Intelligence consumes evidence; it "
-            "does not substitute for it. Phase-1: Top-20 India."
+            "AGI v1.1.1 Knowledge OS — Layer-0 governance, canonical domain models, "
+            "quality scoring, entity IDs, timelines, claims, decision eligibility, "
+            "continuous evidence learning, and research lifecycle. Durable "
+            "institutional knowledge; intelligence engines are consumers. "
+            "Phase-1: Institutional Coverage Complete on Top-20 India."
         ),
         "sources": [
+            "Data governance",
             "NSE/BSE/IR filings",
-            "Canonical financial statements",
-            "Evidence registry",
-            "Company memory",
-            "InstitutionalResearchPack",
-            "Research readiness / claim_safe gates",
+            "Canonical domain models",
+            "Evidence quality engine",
+            "Evidence registry / graph / claims",
+            "Company memory + timeline",
+            "Decision eligibility",
+            "Research lifecycle",
         ],
-        "kind": "evidence_platform",
+        "kind": "institutional_knowledge_os",
         "module": "institutional_evidence.production",
     },
     {
