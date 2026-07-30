@@ -157,4 +157,6 @@ Track product and operations, not expansion count:
 * `docs/AGIB_V1_ARCHITECTURE_FREEZE.md`
 * `docs/AGI_RC_01_ARCHITECTURE_CONFORMANCE.md`
 * `docs/AGI_PRP_PROGRAMME.md`
+* `docs/AGI_L_01_LAUNCH.md`
+* `docs/AGI_PAT_01_PRODUCTION_ACCEPTANCE.md` — break AGIB before onboarding users
 * CI: `.github/workflows/architecture-conformance.yml`

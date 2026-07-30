@@ -11060,6 +11060,59 @@ async def launch_report():
 
     return report_api()
 
+
+# --- PAT-01 Production Acceptance Test (break AGIB before onboarding users) ---
+
+
+@router.get("/acceptance/health")
+async def acceptance_health():
+    from institutional_acceptance.production import health
+
+    return health()
+
+
+@router.post("/acceptance/run")
+async def acceptance_run(payload: dict[str, Any] = Body(default={})):
+    from institutional_acceptance.production import run
+
+    return run(payload or {})
+
+
+@router.get("/acceptance/report")
+async def acceptance_report():
+    from institutional_acceptance.production import report_api
+
+    return report_api()
+
+
+@router.get("/acceptance/cases")
+async def acceptance_cases(limit: int = 500):
+    from institutional_acceptance.production import cases_api
+
+    return cases_api(limit=limit)
+
+
+@router.get("/acceptance/phase/{phase}")
+async def acceptance_phase_get(phase: str):
+    from institutional_acceptance.production import phase_api
+
+    return phase_api(phase)
+
+
+@router.post("/acceptance/phase/{phase}")
+async def acceptance_phase_post(phase: str, payload: dict[str, Any] = Body(default={})):
+    from institutional_acceptance.production import phase_api
+
+    return phase_api(phase, payload or {})
+
+
+@router.get("/acceptance/diagnostics")
+async def acceptance_diagnostics():
+    from institutional_acceptance.production import diagnostics_api
+
+    return diagnostics_api()
+
+
 # --- Company Monitoring System V1 (continuous living analyst; additive) ---
 
 

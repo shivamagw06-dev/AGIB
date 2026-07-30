@@ -1508,6 +1508,31 @@ export const getArchitectureViolations = () =>
   intelligenceFetch('/architecture/violations', { timeoutMs: 90_000 });
 
 /** L-01 — Launch Phase */
+export const getAcceptanceHealth = () =>
+  intelligenceFetch('/acceptance/health', { timeoutMs: 30_000 });
+export const runAcceptance = (body = {}) =>
+  intelligenceFetch('/acceptance/run', {
+    method: 'POST',
+    body: body || {},
+    timeoutMs: 180_000,
+  });
+export const getAcceptanceReport = () =>
+  intelligenceFetch('/acceptance/report', { timeoutMs: 180_000 });
+export const getAcceptanceCases = (limit = 500) =>
+  intelligenceFetch(`/acceptance/cases?limit=${encodeURIComponent(limit)}`, {
+    timeoutMs: 180_000,
+  });
+export const getAcceptancePhase = (phase) =>
+  intelligenceFetch(`/acceptance/phase/${encodeURIComponent(phase)}`, { timeoutMs: 90_000 });
+export const runAcceptancePhase = (phase, body = {}) =>
+  intelligenceFetch(`/acceptance/phase/${encodeURIComponent(phase)}`, {
+    method: 'POST',
+    body: body || {},
+    timeoutMs: 90_000,
+  });
+export const getAcceptanceDiagnostics = () =>
+  intelligenceFetch('/acceptance/diagnostics', { timeoutMs: 30_000 });
+
 export const getLaunchHealth = () =>
   intelligenceFetch('/launch/health', { timeoutMs: 30_000 });
 export const getLaunchMetrics = () =>

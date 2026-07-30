@@ -1001,6 +1001,27 @@ _CATALOG: list[dict[str, Any]] = [
         "module": "institutional_launch.production",
     },
     {
+        "id": "institutional_acceptance",
+        "name": "Production Acceptance Test (PAT-01)",
+        "group": "platform",
+        "responsibility": (
+            "Break AGIB before onboarding users — 15-phase end-to-end production "
+            "acceptance (boot→data→KG→intelligence→Ask→workspace→publish→security→"
+            "performance→observability→RC-01→failure→workflow→stability). "
+            "Certification gate; no new intelligence engines."
+        ),
+        "sources": [
+            "Phase scenarios",
+            "Stress runner",
+            "Failure injection",
+            "Analyst workflow",
+            "RC-01 conformance",
+            "Certification report",
+        ],
+        "kind": "production_acceptance",
+        "module": "institutional_acceptance.production",
+    },
+    {
         "id": "ite_thesis",
         "name": "Investment Thesis Office",
         "group": "offices",

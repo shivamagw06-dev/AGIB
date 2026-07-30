@@ -221,7 +221,10 @@ export default function MissionControl() {
   const architectureCenter =
     institutional?.institutional_architecture || desk?.institutional_architecture || null;
   const launchCenter =
-    institutional?.institutional_launch || desk?.institutional_launch || null;  const pipeline = desk?.research_pipeline || {};
+    institutional?.institutional_launch || desk?.institutional_launch || null;
+  const acceptanceCenter =
+    institutional?.institutional_acceptance || desk?.institutional_acceptance || null;
+  const pipeline = desk?.research_pipeline || {};
   const preds = desk?.prediction_intelligence || {};
   const dq = desk?.data_quality || {};
   const ca = desk?.company_analysis || {};
@@ -1553,6 +1556,81 @@ export default function MissionControl() {
                 <li>Run a Universal Ask query to populate the center.</li>
               ) : null}
             </ul>
+          </Glass>
+        </section>
+
+        {/* Acceptance Center — PAT-01 */}
+        <section className="space-y-3">
+          <Kicker>Acceptance Center · PAT-01</Kicker>
+          <p className="text-sm text-[var(--io-muted)] max-w-3xl">
+            Break AGIB before onboarding users — full-platform production acceptance across boot,
+            data, intelligence, Ask, workspace, publishing, security, performance, and failure
+            recovery. Architecture stays frozen.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+            <Stat
+              label="Cases"
+              value={
+                acceptanceCenter?.total_cases != null
+                  ? `${acceptanceCenter.passed ?? 0}/${acceptanceCenter.total_cases}`
+                  : '—'
+              }
+              status={acceptanceCenter?.status}
+            />
+            <Stat
+              label="Pass rate"
+              value={
+                acceptanceCenter?.pass_rate_pct != null
+                  ? `${acceptanceCenter.pass_rate_pct}%`
+                  : '—'
+              }
+            />
+            <Stat
+              label="Critical fails"
+              value={acceptanceCenter?.critical_failures ?? '—'}
+            />
+            <Stat
+              label="Arch score"
+              value={acceptanceCenter?.architecture_score ?? '—'}
+            />
+            <Stat
+              label="Security"
+              value={
+                acceptanceCenter?.security_violations != null
+                  ? acceptanceCenter.security_violations === 0
+                    ? 'Clean'
+                    : `${acceptanceCenter.security_violations}`
+                  : '—'
+              }
+            />
+            <Stat
+              label="Memory leaks"
+              value={acceptanceCenter?.memory_leaks ?? '—'}
+            />
+            <Stat
+              label="Certified"
+              value={
+                acceptanceCenter?.certified == null
+                  ? acceptanceCenter?.overall_result || '—'
+                  : acceptanceCenter.certified
+                    ? 'Yes'
+                    : 'No'
+              }
+            />
+          </div>
+          <Glass>
+            <p className="text-[11px] uppercase text-[var(--io-caption)]">
+              Next: closed beta (5–10 analysts)
+            </p>
+            <p className="mt-2 text-xs text-[var(--io-ink-soft)]">
+              {acceptanceCenter?.closed_beta_recommendation ||
+                'After PAT passes, run a closed beta with experienced finance professionals before v1.1.'}
+            </p>
+            {!acceptanceCenter ? (
+              <p className="mt-2 text-xs text-[var(--io-muted)]">
+                Acceptance Center soft slice unavailable.
+              </p>
+            ) : null}
           </Glass>
         </section>
 
