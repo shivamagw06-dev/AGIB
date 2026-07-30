@@ -1632,7 +1632,8 @@ export default function MissionControl() {
                 <li>Not run yet — POST /benchmark/ib/run (blind panel still required for claims).</li>
               ) : null}
               <li className="pt-2 text-[var(--io-muted)]">
-                Productivity case: Reliance note — /benchmark/ib/cases/reliance-productivity
+                Productivity case: Reliance note — PM review 67/100 (scaffold; gates FAIL) —
+                /benchmark/ib/publication-gates/reliance
               </li>
             </ul>
           </Glass>
