@@ -18,7 +18,7 @@
 
 ### Implementation pause recommendation
 
-Implement **FSE-01 → FSE-04.2** before starting **FSE-05**. Validation must be able to distinguish *missing cash flow in the filing* from *parser failed to extract cash flow*. The Coverage Matrix creates that separation.
+Implement **FSE-01 → FSE-04.3** before starting **FSE-05**. Validation must be able to distinguish *missing cash flow in the filing* from *parser failed to extract cash flow*. The Coverage Matrix creates that separation; the Production Certification Corpus locks it as ground truth.
 
 ### Document series
 
@@ -27,7 +27,8 @@ Implement **FSE-01 → FSE-04.2** before starting **FSE-05**. Validation must be
 | FSE-01…04 | Platform → evidence → schema → parse |
 | FSE-04.1 | Parse Manifest / replay / certification |
 | **FSE-04.2** | **Evidence Coverage Matrix / extraction audit** |
-| FSE-05 | Validation (after 04.2 is solid) |
+| FSE-04.3 | [Production Certification Corpus](FSE_04_3_PRODUCTION_CERTIFICATION_CORPUS.md) — golden dataset |
+| FSE-05 | Validation (after 04.3 is solid) |
 
 ---
 

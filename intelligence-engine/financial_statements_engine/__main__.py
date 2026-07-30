@@ -25,6 +25,7 @@ def main(argv: list[str] | None = None) -> int:
             "--quality-health|--quality-dashboard|--certify|--benchmark|"
             "--coverage-health|--coverage-dashboard|--coverage-analytics|"
             "--coverage-matrices TICKER|--coverage-history TICKER [--document-hash HASH]|"
+            "--pcc-health|--pcc-dashboard|--pcc-analytics|--pcc-certify [--sector SECTOR]|--pcc-cases|"
             "--schema-evolution-health|--schema-resolve LABEL|"
             "--collection-health|--collection-dashboard|"
             "--collect TICKER [--mode live|historical]|TICKER [--publish]"
@@ -163,6 +164,37 @@ def main(argv: list[str] | None = None) -> int:
             if i + 1 < len(args):
                 doc_hash = args[i + 1]
         print(json.dumps(history_for(args[1], document_hash=doc_hash), indent=2, default=str))
+        return 0
+    if cmd == "--pcc-health":
+        from financial_statements_engine.parsing.pcc.production import health as pcc_health
+
+        print(json.dumps(pcc_health(), indent=2, default=str))
+        return 0
+    if cmd == "--pcc-dashboard":
+        from financial_statements_engine.parsing.pcc.production import dashboard as pcc_dash
+
+        print(json.dumps(pcc_dash(), indent=2, default=str))
+        return 0
+    if cmd == "--pcc-analytics":
+        from financial_statements_engine.parsing.pcc.production import analytics as pcc_analytics
+
+        print(json.dumps(pcc_analytics(), indent=2, default=str))
+        return 0
+    if cmd == "--pcc-certify":
+        from financial_statements_engine.parsing.pcc.production import run_certification as pcc_certify
+
+        sector = None
+        if "--sector" in args:
+            i = args.index("--sector")
+            if i + 1 < len(args):
+                sector = args[i + 1]
+        print(json.dumps(pcc_certify(sector=sector), indent=2, default=str))
+        return 0
+    if cmd == "--pcc-cases":
+        from financial_statements_engine.parsing.pcc.production import cases as pcc_cases
+
+        sector = args[1] if len(args) > 1 else None
+        print(json.dumps(pcc_cases(sector=sector), indent=2, default=str))
         return 0
     if cmd == "--schema-evolution-health":
         from financial_statements_engine.schema_evolution.production import health as se_health

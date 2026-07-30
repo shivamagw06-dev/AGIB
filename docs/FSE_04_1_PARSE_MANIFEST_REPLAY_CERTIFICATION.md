@@ -18,7 +18,7 @@
 
 ### Implementation pause recommendation
 
-Implement **FSE-01 → FSE-04.2** before starting **FSE-05**. Validation depends on stable, deterministic, certifiable canonical drafts plus an extraction coverage audit. Parsing churn after FSE-05 starts creates avoidable rework.
+Implement **FSE-01 → FSE-04.3** before starting **FSE-05**. Validation depends on stable, deterministic, certifiable canonical drafts plus an extraction coverage audit and a permanent golden corpus. Parsing churn after FSE-05 starts creates avoidable rework.
 
 ### Document series
 
@@ -27,7 +27,8 @@ Implement **FSE-01 → FSE-04.2** before starting **FSE-05**. Validation depends
 | FSE-01…04 | Platform → evidence → schema → parse |
 | **FSE-04.1** | **Parser quality / audit / replay / certification** |
 | FSE-04.2 | [Evidence Coverage Matrix](FSE_04_2_EVIDENCE_COVERAGE_MATRIX.md) — extraction audit |
-| FSE-05 | Validation (after 04.2 is solid) |
+| FSE-04.3 | [Production Certification Corpus](FSE_04_3_PRODUCTION_CERTIFICATION_CORPUS.md) — golden dataset |
+| FSE-05 | Validation (after 04.3 is solid) |
 
 ---
 

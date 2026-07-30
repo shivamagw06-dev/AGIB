@@ -21,7 +21,7 @@ Official Sources → Collection (FSE-02) → Raw Evidence → Evidence Event Bus
 P2.1 `earnings_intelligence` is the NSE XBRL **extraction adapter** during migration.
 New consumers must read through FSE — not bypass to parsers.
 
-Specs: [FSE-01](../../docs/FSE_01_FINANCIAL_STATEMENTS_ENGINE.md) · [FSE-02](../../docs/FSE_02_DATA_SOURCES_COLLECTION_PIPELINE.md) · [FSE-03](../../docs/FSE_03_CANONICAL_FINANCIAL_DATA_MODEL.md) · [FSE-04](../../docs/FSE_04_PARSING_NORMALIZATION_ENGINE.md) · [FSE-04.1](../../docs/FSE_04_1_PARSE_MANIFEST_REPLAY_CERTIFICATION.md) · [FSE-04.2](../../docs/FSE_04_2_EVIDENCE_COVERAGE_MATRIX.md)
+Specs: [FSE-01](../../docs/FSE_01_FINANCIAL_STATEMENTS_ENGINE.md) · [FSE-02](../../docs/FSE_02_DATA_SOURCES_COLLECTION_PIPELINE.md) · [FSE-03](../../docs/FSE_03_CANONICAL_FINANCIAL_DATA_MODEL.md) · [FSE-04](../../docs/FSE_04_PARSING_NORMALIZATION_ENGINE.md) · [FSE-04.1](../../docs/FSE_04_1_PARSE_MANIFEST_REPLAY_CERTIFICATION.md) · [FSE-04.2](../../docs/FSE_04_2_EVIDENCE_COVERAGE_MATRIX.md) · [FSE-04.3](../../docs/FSE_04_3_PRODUCTION_CERTIFICATION_CORPUS.md)
 
 ## CLI
 
@@ -41,6 +41,9 @@ python -m financial_statements_engine --benchmark
 python -m financial_statements_engine --coverage-health
 python -m financial_statements_engine --coverage-dashboard
 python -m financial_statements_engine --coverage-analytics
+python -m financial_statements_engine --pcc-health
+python -m financial_statements_engine --pcc-dashboard
+python -m financial_statements_engine --pcc-certify
 python -m financial_statements_engine --schema-evolution-health
 python -m financial_statements_engine --parse-bytes TCS --format json --file ./sample.json --period-end 2025-03-31
 python -m financial_statements_engine --collect TCS --mode live
@@ -75,6 +78,13 @@ python -m financial_statements_engine TCS --publish
 - `GET /v1/financial-statements/parsing/coverage/matrices/{ticker}/{matrix_id}`
 - `GET /v1/financial-statements/parsing/coverage/history/{ticker}`
 - `POST /v1/financial-statements/parsing/coverage/diff`
+- `GET /v1/financial-statements/parsing/pcc/health`
+- `GET /v1/financial-statements/parsing/pcc/dashboard`
+- `GET /v1/financial-statements/parsing/pcc/analytics`
+- `GET /v1/financial-statements/parsing/pcc/cases`
+- `GET /v1/financial-statements/parsing/pcc/history`
+- `GET /v1/financial-statements/parsing/pcc/certifications/{id}`
+- `POST /v1/financial-statements/parsing/pcc/certify`
 - `GET /v1/financial-statements/schema-evolution/health`
 - `GET /v1/financial-statements/schema-evolution/resolve`
 - `GET /v1/financial-statements/collection/health`
