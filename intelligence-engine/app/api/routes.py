@@ -9780,6 +9780,52 @@ async def admin_company_workspace():
     return HTMLResponse(admin_page())
 
 
+# --- IST-01 Institutional Stress Tests (orchestration exams; additive) ---
+
+
+@router.get("/institutional-stress-tests/health")
+async def institutional_stress_tests_health():
+    from institutional_stress_tests.production import health
+
+    return health()
+
+
+@router.get("/institutional-stress-tests/dashboard")
+async def institutional_stress_tests_dashboard():
+    from institutional_stress_tests.production import dashboard
+
+    return dashboard()
+
+
+@router.post("/institutional-stress-tests/run")
+async def institutional_stress_tests_run(payload: dict[str, Any] = Body(default={})):
+    from institutional_stress_tests.production import run
+
+    body = payload or {}
+    return run(
+        str(body.get("case_id") or body.get("case") or "IST-01"),
+        prebuilt=body.get("prebuilt"),
+        answers=body.get("answers"),
+        final_view=body.get("final_view"),
+        modules_filter=body.get("modules_filter"),
+        write_report=bool(body.get("write_report")),
+    )
+
+
+@router.get("/institutional-stress-tests/report")
+async def institutional_stress_tests_report(case_id: str = "IST-01"):
+    from institutional_stress_tests.production import report
+
+    return report(case_id)
+
+
+@router.get("/admin/institutional-stress-tests", response_class=HTMLResponse)
+async def admin_institutional_stress_tests():
+    from institutional_stress_tests.production import admin_page
+
+    return HTMLResponse(admin_page())
+
+
 # --- Company Monitoring System V1 (continuous living analyst; additive) ---
 
 

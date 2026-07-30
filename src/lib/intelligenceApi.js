@@ -1080,6 +1080,18 @@ export const searchCompanyWorkspace = (ticker, q, scope = 'all') => {
   );
 };
 
+/** IST-01 — Institutional Stress Tests (orchestration exams; no single-module pass) */
+export const getInstitutionalStressTestsHealth = () =>
+  intelligenceFetch('/institutional-stress-tests/health');
+export const getInstitutionalStressTestsDashboard = () =>
+  intelligenceFetch('/institutional-stress-tests/dashboard');
+export const runInstitutionalStressTest = (body = {}) =>
+  intelligenceFetch('/institutional-stress-tests/run', { method: 'POST', body: body || {} });
+export const getInstitutionalStressTestReport = (caseId = 'IST-01') => {
+  const qs = new URLSearchParams({ case_id: String(caseId || 'IST-01') });
+  return intelligenceFetch(`/institutional-stress-tests/report?${qs}`);
+};
+
 /** AGI v4.0 Investment Office OS — Thesis → Decision → Portfolio → Monitoring → Learning */
 export const getThesisHealth = () => intelligenceFetch('/thesis/health');
 export const getThesisDashboard = () => intelligenceFetch('/thesis/dashboard');

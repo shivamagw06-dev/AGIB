@@ -1570,6 +1570,14 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("company_workspace")
     except Exception:
         out["company_workspace"] = None
+    # IST-01 — Institutional Stress Tests (orchestration exams; additive).
+    try:
+        from institutional_stress_tests.production import soft_slice_mission_control as ist_soft
+
+        out["institutional_stress_tests"] = ist_soft()
+        out["sources"].append("institutional_stress_tests")
+    except Exception:
+        out["institutional_stress_tests"] = None
     return out
 
 
