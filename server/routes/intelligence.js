@@ -2739,6 +2739,60 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // FIRE-03 — Business & Management Intelligence
+  router.get('/business-intelligence/health', kfGet('/v1/business-intelligence/health'));
+  router.get('/business-intelligence/dashboard', kfGet('/v1/business-intelligence/dashboard'));
+  router.get('/business-intelligence/company/:ticker', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/business-intelligence/company/${encodeURIComponent(req.params.ticker)}`
+      );
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Business intelligence unavailable', detail: error.message });
+    }
+  });
+  router.get('/business-intelligence/company/:ticker/segments', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/business-intelligence/company/${encodeURIComponent(req.params.ticker)}/segments`
+      );
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Business segments unavailable', detail: error.message });
+    }
+  });
+  router.get('/business-intelligence/company/:ticker/strategy', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/business-intelligence/company/${encodeURIComponent(req.params.ticker)}/strategy`
+      );
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Business strategy unavailable', detail: error.message });
+    }
+  });
+  router.get('/business-intelligence/company/:ticker/risks', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/business-intelligence/company/${encodeURIComponent(req.params.ticker)}/risks`
+      );
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Business risks unavailable', detail: error.message });
+    }
+  });
+  router.get('/business-intelligence/company/:ticker/guidance', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/business-intelligence/company/${encodeURIComponent(req.params.ticker)}/guidance`
+      );
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Business guidance unavailable', detail: error.message });
+    }
+  });
+
   // Accounting Intelligence Engine
   router.get('/accounting-intelligence/health', kfGet('/v1/accounting-intelligence/health'));
   router.get('/accounting-intelligence/dashboard', kfGet('/v1/accounting-intelligence/dashboard'));

@@ -1482,6 +1482,14 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("financial_knowledge")
     except Exception:
         out["financial_knowledge"] = None
+    # FIRE-03 — Business & Management Intelligence (soft board; additive).
+    try:
+        from business_intelligence.production import soft_slice_mission_control as fire03_soft
+
+        out["business_intelligence"] = fire03_soft()
+        out["sources"].append("business_intelligence")
+    except Exception:
+        out["business_intelligence"] = None
     return out
 
 
