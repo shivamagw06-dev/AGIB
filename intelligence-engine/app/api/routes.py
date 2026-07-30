@@ -11113,7 +11113,7 @@ async def acceptance_diagnostics():
     return diagnostics_api()
 
 
-# --- IEP-01 Institutional Evidence Platform (AGIB v1.1 evidence foundation) ---
+# --- IEP-01 Institutional Evidence Platform (AGI v1.1 evidence foundation) ---
 
 
 @router.get("/iep/health")

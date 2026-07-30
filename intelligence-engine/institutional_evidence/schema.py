@@ -1,6 +1,6 @@
 """IEP-01 — Institutional Evidence Platform constants.
 
-AGIB v1.1 highest priority: evidence-first research.
+AGI v1.1 highest priority: evidence-first research.
 Intelligence consumes evidence — it does not substitute for it.
 """
 
@@ -14,7 +14,7 @@ IEP_ROLE = "evidence_foundation"
 
 ADDS_INTELLIGENCE_ENGINES = False
 ARCHITECTURE_FROZEN = True  # engines frozen; evidence plane is the v1.1 expansion
-AGIB_PLATFORM_VERSION = "1.1.0-iep"
+AGI_PLATFORM_VERSION = "1.1.0-iep"
 GUIDING_PRINCIPLE = (
     "No research without evidence. No recommendation without canonical financial "
     "statements. No narrative without lineage. Intelligence is a consumer of "

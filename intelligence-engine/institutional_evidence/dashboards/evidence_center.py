@@ -14,5 +14,5 @@ def evidence_center_payload() -> Dict[str, Any]:
         **board,
         "phase1_companies": cov.get("companies"),
         "title": "Institutional Evidence Platform",
-        "subtitle": "Evidence-first foundation for AGIB v1.1",
+        "subtitle": "Evidence-first foundation for AGI v1.1",
     }

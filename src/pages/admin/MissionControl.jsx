@@ -1565,7 +1565,7 @@ export default function MissionControl() {
         <section className="space-y-3">
           <Kicker>Evidence Center · IEP-01</Kicker>
           <p className="text-sm text-[var(--io-muted)] max-w-3xl">
-            Institutional Evidence Platform — AGIB v1.1 foundation. No research without evidence,
+            Institutional Evidence Platform — AGI v1.1 foundation. No research without evidence,
             no recommendation without canonical statements, no narrative without lineage. Phase-1
             targets Top-20 India before any Nifty 500 scale-up.
           </p>

@@ -118,5 +118,5 @@ def build_company_memory_view(
         "slot_coverage": round(coverage, 4),
         "sources": sorted(set(sources)),
         "persistent": True,
-        "note": "AGIB permanent institutional memory — evidence-backed slots only",
+        "note": "AGI permanent institutional memory — evidence-backed slots only",
     }

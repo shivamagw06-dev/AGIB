@@ -1,4 +1,4 @@
-"""IEP-01 — Institutional Evidence Platform (AGIB v1.1 foundation)."""
+"""IEP-01 — Institutional Evidence Platform (AGI v1.1 foundation)."""
 
 from .schema import (
     IEP_WORKSTREAM_ID,

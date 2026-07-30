@@ -3885,7 +3885,7 @@ export default function createIntelligenceRouter() {
     }
   });
 
-  // IEP-01 — Institutional Evidence Platform (AGIB v1.1)
+  // IEP-01 — Institutional Evidence Platform (AGI v1.1)
   router.get('/iep/health', async (_req, res) => {
     try {
       const result = await engineFetch('/v1/iep/health', { timeoutMs: 20_000 });

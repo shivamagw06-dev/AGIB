@@ -196,9 +196,9 @@ def test_validator_claim_safe_with_complete_fixture():
 
 
 def test_gates_block_writer_decision_publish_when_unsafe(monkeypatch):
-    monkeypatch.setenv("AGIB_IEP_BLOCK_RESEARCH", "1")
-    monkeypatch.setenv("AGIB_IEP_BLOCK_RECOMMENDATION", "1")
-    monkeypatch.setenv("AGIB_IEP_BLOCK_PUBLISH", "1")
+    monkeypatch.setenv("AGI_IEP_BLOCK_RESEARCH", "1")
+    monkeypatch.setenv("AGI_IEP_BLOCK_RECOMMENDATION", "1")
+    monkeypatch.setenv("AGI_IEP_BLOCK_PUBLISH", "1")
 
     empty = {
         "schema": "InstitutionalResearchPack.v1",

@@ -14,17 +14,17 @@ def _env_bool(name: str, default: bool = False) -> bool:
 
 
 def is_iep_enabled() -> bool:
-    return _env_bool("AGIB_IEP_ENABLED", True)
+    return _env_bool("AGI_IEP_ENABLED", True)
 
 
 def iep_flags() -> Dict[str, Any]:
     return {
         "iep_enabled": is_iep_enabled(),
-        "block_research_without_evidence": _env_bool("AGIB_IEP_BLOCK_RESEARCH", True),
+        "block_research_without_evidence": _env_bool("AGI_IEP_BLOCK_RESEARCH", True),
         "block_recommendation_without_statements": _env_bool(
-            "AGIB_IEP_BLOCK_RECOMMENDATION", True
+            "AGI_IEP_BLOCK_RECOMMENDATION", True
         ),
-        "block_publish_unless_ready": _env_bool("AGIB_IEP_BLOCK_PUBLISH", True),
-        "auto_ingest_on_ask": _env_bool("AGIB_IEP_AUTO_INGEST", True),
-        "phase1_top20_only": _env_bool("AGIB_IEP_PHASE1_ONLY", True),
+        "block_publish_unless_ready": _env_bool("AGI_IEP_BLOCK_PUBLISH", True),
+        "auto_ingest_on_ask": _env_bool("AGI_IEP_AUTO_INGEST", True),
+        "phase1_top20_only": _env_bool("AGI_IEP_PHASE1_ONLY", True),
     }

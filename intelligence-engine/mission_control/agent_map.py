@@ -1026,7 +1026,7 @@ _CATALOG: list[dict[str, Any]] = [
         "name": "Institutional Evidence Platform (IEP-01)",
         "group": "evidence",
         "responsibility": (
-            "AGIB v1.1 foundation — acquire, canonicalize, register, and gate "
+            "AGI v1.1 foundation — acquire, canonicalize, register, and gate "
             "institutional evidence so every research note and recommendation is "
             "traceable to primary evidence. Intelligence consumes evidence; it "
             "does not substitute for it. Phase-1: Top-20 India."

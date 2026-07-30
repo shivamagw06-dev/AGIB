@@ -1,8 +1,8 @@
-# AGIB V1.1 — Institutional Evidence Platform (IEP-01)
+# AGI V1.1 — Institutional Evidence Platform (IEP-01)
 
 ## Mission
 
-AGIB's highest priority is no longer building additional intelligence engines.
+AGI's highest priority is no longer building additional intelligence engines.
 
 The highest priority is building an **Institutional Evidence Platform** that ensures every investment opinion is supported by complete, validated, traceable institutional evidence.
 
