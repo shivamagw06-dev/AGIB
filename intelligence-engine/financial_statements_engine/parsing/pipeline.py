@@ -1,6 +1,7 @@
-"""PNE pipeline — Raw Evidence → Parse Manifest → Canonical Statement drafts.
+"""PNE pipeline — Raw Evidence → Parse Manifest → Coverage Matrix → Canonical drafts.
 
 FSE-04.1: every successful parse emits an immutable Parse Manifest.
+FSE-04.2: every successful parse emits an immutable Evidence Coverage Matrix.
 Never publishes to Financial Warehouse (FSE-05).
 """
 
@@ -31,6 +32,7 @@ from financial_statements_engine.parsing.quality.manifest import (
     new_draft_id,
     store_manifest,
 )
+from financial_statements_engine.parsing.coverage.assemble import assemble_coverage
 from financial_statements_engine.parsing.quality.unknown_queue import enqueue_many
 from financial_statements_engine.parsing.quarantine import quarantine_document
 from financial_statements_engine.parsing.registry import select_parser
@@ -324,6 +326,29 @@ def parse_document(
         context={"document_type": identity["document_type"]},
     )
 
+    # FSE-04.2 Evidence Coverage Matrix (observational — never edits data / never blocks)
+    coverage = assemble_coverage(
+        ticker=t,
+        company_id=company["company_id"],
+        evidence_id=evidence_id,
+        draft_id=draft_id,
+        manifest_id=manifest["manifest_id"],
+        document_hash=doc_hash,
+        document_type=identity["document_type"],
+        parser_name=str(extracted.get("parser_id")),
+        parser_version=str(extracted.get("parser_version")),
+        pne_version=VERSION,
+        metric_registry_version=REGISTRY_VERSION,
+        processing_time_ms=elapsed_ms,
+        sections_found=list(structure.get("sections") or []),
+        metrics_extracted=mapped.get("metrics"),
+        unknown_fields=mapped.get("unknown_fields"),
+        confidence=confidence,
+        period_info=period_info,
+        industry=meta.get("industry"),
+        queued_unknowns=queued,
+    )
+
     result = {
         "ok": True,
         "ticker": t,
@@ -355,6 +380,13 @@ def parse_document(
         "manifest": manifest,
         "manifest_id": manifest["manifest_id"],
         "manifest_path": str(manifest_path),
+        "coverage_matrix": coverage["matrix"],
+        "coverage_matrix_id": coverage["matrix_id"],
+        "coverage_matrix_path": coverage["matrix_path"],
+        "coverage_scorecard": coverage["scorecard"],
+        "missing_metric_report": coverage["missing_metric_report"],
+        "unknown_label_report": coverage["unknown_label_report"],
+        "coverage_diff": coverage.get("coverage_diff"),
         "lineage": lineage,
         "unknown_metrics_queued": [q["queue_id"] for q in queued],
         "facts_fingerprint": facts_fingerprint(fact_rows) if fact_rows else None,
@@ -385,6 +417,8 @@ def parse_document(
         "evidence_id": evidence_id,
         "manifest_id": manifest["manifest_id"],
         "draft_id": draft_id,
+        "coverage_matrix_id": coverage["matrix_id"],
+        "coverage_percentage": coverage["scorecard"].get("coverage_percentage"),
         "deterministic_fingerprint": fp,
         "metric_n": len(mapped.get("metrics") or {}),
         "unknown_n": len(mapped.get("unknown_fields") or {}),
