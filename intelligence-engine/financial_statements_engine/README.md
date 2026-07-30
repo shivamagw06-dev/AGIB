@@ -107,6 +107,11 @@ python -m financial_statements_engine TCS --publish
 - `GET /v1/financial-statements/collection/dashboard`
 - `GET /v1/financial-statements/collection/events`
 - `POST /v1/financial-statements/collection/run`
+- `GET /v1/financial-statements/verification/dashboard` (FSE-02.2)
+- `GET /v1/financial-statements/verification/workflows`
+- `GET /v1/financial-statements/verification/workflows/{workflow_id}`
+- `GET /v1/financial-statements/verification/provenance/{workflow_id}`
+- `POST /v1/financial-statements/verification/run/{company}`
 
 ## Frozen surfaces
 
