@@ -1268,6 +1268,16 @@ export const getManagementExecutionScore = (ticker) =>
 export const getManagementExecutionObjectives = (ticker) =>
   intelligenceFetch(`/management-execution/company/${encodeURIComponent(ticker)}/objectives`);
 
+/** FIRE-06 — Business Quality Engine */
+export const getBusinessQualityHealth = () => intelligenceFetch('/business-quality/health');
+export const getBusinessQualityDashboard = () => intelligenceFetch('/business-quality/dashboard');
+export const getBusinessQualityCompany = (ticker) =>
+  intelligenceFetch(`/business-quality/company/${encodeURIComponent(ticker)}`);
+export const getBusinessQualityScore = (ticker) =>
+  intelligenceFetch(`/business-quality/company/${encodeURIComponent(ticker)}/quality`);
+export const getBusinessQualityPillars = (ticker) =>
+  intelligenceFetch(`/business-quality/company/${encodeURIComponent(ticker)}/pillars`);
+
 /** Accounting Intelligence Engine */
 export const getAciHealth = () => intelligenceFetch('/accounting-intelligence/health');
 export const getAciDashboard = () => intelligenceFetch('/accounting-intelligence/dashboard');

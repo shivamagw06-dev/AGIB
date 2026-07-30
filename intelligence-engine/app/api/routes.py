@@ -4553,6 +4553,51 @@ async def admin_management_execution():
     return HTMLResponse(admin_page())
 
 
+# --- FIRE-06 Business Quality Engine (pillar-primary synthesis) ---
+
+
+@router.get("/business-quality/health")
+async def business_quality_health():
+    from business_quality.production import health
+
+    return health()
+
+
+@router.get("/business-quality/dashboard")
+async def business_quality_dashboard():
+    from business_quality.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/business-quality/company/{ticker}")
+async def business_quality_company(ticker: str):
+    from business_quality.production import company
+
+    return company(ticker.upper())
+
+
+@router.get("/business-quality/company/{ticker}/quality")
+async def business_quality_quality(ticker: str):
+    from business_quality.production import quality
+
+    return quality(ticker.upper())
+
+
+@router.get("/business-quality/company/{ticker}/pillars")
+async def business_quality_pillars(ticker: str):
+    from business_quality.production import pillars
+
+    return pillars(ticker.upper())
+
+
+@router.get("/admin/business-quality", response_class=HTMLResponse)
+async def admin_business_quality():
+    from business_quality.production import admin_page
+
+    return HTMLResponse(admin_page())
+
+
 # --- Accounting Intelligence Engine V1 (can the statements be trusted?) ---
 
 

@@ -2881,6 +2881,40 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // FIRE-06 — Business Quality Engine
+  router.get('/business-quality/health', kfGet('/v1/business-quality/health'));
+  router.get('/business-quality/dashboard', kfGet('/v1/business-quality/dashboard'));
+  router.get('/business-quality/company/:ticker', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/business-quality/company/${encodeURIComponent(req.params.ticker)}`
+      );
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Business quality unavailable', detail: error.message });
+    }
+  });
+  router.get('/business-quality/company/:ticker/quality', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/business-quality/company/${encodeURIComponent(req.params.ticker)}/quality`
+      );
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Business quality score unavailable', detail: error.message });
+    }
+  });
+  router.get('/business-quality/company/:ticker/pillars', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/business-quality/company/${encodeURIComponent(req.params.ticker)}/pillars`
+      );
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Business quality pillars unavailable', detail: error.message });
+    }
+  });
+
   // Accounting Intelligence Engine
   router.get('/accounting-intelligence/health', kfGet('/v1/accounting-intelligence/health'));
   router.get('/accounting-intelligence/dashboard', kfGet('/v1/accounting-intelligence/dashboard'));

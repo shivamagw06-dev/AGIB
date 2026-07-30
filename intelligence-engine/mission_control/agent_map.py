@@ -609,6 +609,27 @@ _CATALOG: list[dict[str, Any]] = [
         "kind": "office",
         "module": "management_execution.production",
     },
+    {
+        "id": "business_quality",
+        "name": "Business Quality (FIRE-06)",
+        "group": "ops",
+        "responsibility": (
+            "Pillar-primary synthesis of FIRE evidence into business quality scores — "
+            "growth, profitability, cash, balance sheet, capital allocation, execution, model (no BUY/SELL)."
+        ),
+        "sources": [
+            "Financial Warehouse",
+            "Derived Metrics",
+            "FIRE-01",
+            "FIRE-02",
+            "FIRE-03",
+            "FIRE-04",
+            "FIRE-05",
+            "FKB quality weights",
+        ],
+        "kind": "office",
+        "module": "business_quality.production",
+    },
     # —— Learning / eval ——
     {
         "id": "forecast_validation_learning",

@@ -1506,6 +1506,14 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("management_execution")
     except Exception:
         out["management_execution"] = None
+    # FIRE-06 — Business Quality Engine (soft board; additive).
+    try:
+        from business_quality.production import soft_slice_mission_control as fire06_soft
+
+        out["business_quality"] = fire06_soft()
+        out["sources"].append("business_quality")
+    except Exception:
+        out["business_quality"] = None
     return out
 
 
