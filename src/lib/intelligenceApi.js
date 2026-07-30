@@ -1536,6 +1536,14 @@ export const submitInstitutionalBenchmarkProductivity = (body = {}) =>
   });
 export const getInstitutionalBenchmarkDiagnostics = () =>
   intelligenceFetch('/benchmark/ib/diagnostics', { timeoutMs: 30_000 });
+export const runRelianceProductivityCase = (body = {}) =>
+  intelligenceFetch('/benchmark/ib/cases/reliance-productivity', {
+    method: 'POST',
+    body: body || {},
+    timeoutMs: 120_000,
+  });
+export const getRelianceProductivityCase = () =>
+  intelligenceFetch('/benchmark/ib/cases/reliance-productivity', { timeoutMs: 120_000 });
 
 export const getAcceptanceHealth = () =>
   intelligenceFetch('/acceptance/health', { timeoutMs: 30_000 });

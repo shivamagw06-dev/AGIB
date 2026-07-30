@@ -3989,6 +3989,29 @@ export default function createIntelligenceRouter() {
       return res.status(502).json({ error: err?.message || 'IB-01 diagnostics failed' });
     }
   });
+  router.get('/benchmark/ib/cases/reliance-productivity', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/benchmark/ib/cases/reliance-productivity', {
+        timeoutMs: 120_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'Reliance productivity case failed' });
+    }
+  });
+  router.post('/benchmark/ib/cases/reliance-productivity', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/benchmark/ib/cases/reliance-productivity', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 120_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'Reliance productivity case failed' });
+    }
+  });
 
   // ICE-01 — Investment Committee Engine
   router.get('/committee-engine/health', async (_req, res) => {

@@ -11181,6 +11181,22 @@ async def institutional_grade_benchmark_diagnostics():
     return diagnostics_api()
 
 
+@router.get("/benchmark/ib/cases/reliance-productivity")
+async def institutional_grade_benchmark_reliance_productivity():
+    from institutional_grade_benchmark.production import reliance_productivity_api
+
+    return reliance_productivity_api({"generate_draft": True})
+
+
+@router.post("/benchmark/ib/cases/reliance-productivity")
+async def institutional_grade_benchmark_reliance_productivity_post(
+    payload: dict[str, Any] = Body(default={}),
+):
+    from institutional_grade_benchmark.production import reliance_productivity_api
+
+    return reliance_productivity_api(payload or {})
+
+
 # --- Company Monitoring System V1 (continuous living analyst; additive) ---
 
 

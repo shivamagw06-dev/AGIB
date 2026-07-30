@@ -109,3 +109,28 @@ Overall
 
 Institutional Grade
 ```
+
+---
+
+## Productivity case — Reliance investment note
+
+A more valuable question than “Does it beat Bloomberg?”:
+
+> Does AGIB make a professional analyst materially more productive?
+
+**Artifacts**
+
+* `docs/research_notes/RELIANCE_INVESTMENT_NOTE.md` — analyst-edited note  
+* `docs/research_notes/RELIANCE_PRODUCTIVITY_CASE.md` — measured scorecard  
+* `GET/POST /v1/benchmark/ib/cases/reliance-productivity`
+
+| Metric | Reliance case |
+| --- | ---: |
+| Time to first draft | ~1.1 s |
+| Factual corrections | 8 |
+| Completeness (edited) | 78/100 |
+| Blind reviewer quality | 72/100 |
+| Confidence | 0.45 |
+| Sources cited | 5 (0 primary filings in-graph) |
+
+**Verdict:** AGIB does **not** replace the analyst and did **not** prove Bloomberg parity in this run — but it **did** compress first-draft scaffolding from hours to seconds when corrections are enforced.

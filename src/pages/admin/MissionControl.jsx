@@ -1631,6 +1631,9 @@ export default function MissionControl() {
               {benchmarkCenter && !(benchmarkCenter.section_scores || []).length ? (
                 <li>Not run yet — POST /benchmark/ib/run (blind panel still required for claims).</li>
               ) : null}
+              <li className="pt-2 text-[var(--io-muted)]">
+                Productivity case: Reliance note — /benchmark/ib/cases/reliance-productivity
+              </li>
             </ul>
           </Glass>
         </section>

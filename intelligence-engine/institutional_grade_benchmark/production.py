@@ -165,3 +165,19 @@ def manual_score_api(payload: Optional[dict[str, Any]] = None) -> dict[str, Any]
 
 def diagnostics_api() -> dict[str, Any]:
     return {"ok": True, **build_diagnostics()}
+
+
+def reliance_productivity_api(payload: Optional[dict[str, Any]] = None) -> dict[str, Any]:
+    """Productivity case: investment note on RELIANCE with measured metrics."""
+    body = dict(payload or {})
+    generate = body.get("generate_draft")
+    if isinstance(generate, str):
+        generate = generate.strip().lower() not in {"0", "false", "no", "off"}
+    if generate is None:
+        generate = True
+    from institutional_grade_benchmark.cases.reliance_productivity import (
+        run_reliance_productivity_case,
+    )
+
+    out = run_reliance_productivity_case(generate_draft=bool(generate))
+    return {"ok": bool(out.get("ok")), "workstream_id": IB_WORKSTREAM_ID, **out}
