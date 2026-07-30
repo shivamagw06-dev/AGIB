@@ -1,11 +1,18 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { canAccessCms, isAdmin, isAuthorCmsPath } from '@/lib/adminAuth';
+import {
+  canAccessCms,
+  isAdmin,
+  isAuthorCmsPath,
+  isStrictAdminPath,
+} from '@/lib/adminAuth';
+import Forbidden403 from '@/components/admin/Forbidden403';
 
 /**
- * CMS gate:
+ * CMS / admin gate:
  * - Signed-in authors can reach article list / create / edit (their own uploads).
  * - Full admin tools remain admin-only.
+ * - Strict admin paths (Knowledge Operations) return 403 for non-admins.
  */
 export default function RequireAdmin({ children }) {
   const { user } = useAuth();
@@ -25,6 +32,10 @@ export default function RequireAdmin({ children }) {
         </div>
       </div>
     );
+  }
+
+  if (!isAdmin(user) && isStrictAdminPath(location.pathname)) {
+    return <Forbidden403 resource="Knowledge Operations" />;
   }
 
   if (!isAdmin(user) && !isAuthorCmsPath(location.pathname)) {

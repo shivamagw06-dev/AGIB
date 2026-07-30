@@ -1692,6 +1692,75 @@ export const runIcfDispatch = (ticker, body = {}) =>
 export const getIcfScheduler = () =>
   intelligenceFetch('/icf/scheduler', { timeoutMs: 30_000 });
 
+/** KOC V1.2 — Institutional Knowledge Mission Control (admin only) */
+const kocQs = (params = {}) => {
+  const qs = new URLSearchParams();
+  Object.entries(params || {}).forEach(([k, v]) => {
+    if (v != null && v !== '') qs.set(k, String(v));
+  });
+  const s = qs.toString();
+  return s ? `?${s}` : '';
+};
+export const getKocHealth = () =>
+  intelligenceFetch('/koc/health', { timeoutMs: 30_000 });
+export const getKocStatus = () =>
+  intelligenceFetch('/koc/status', { timeoutMs: 30_000 });
+export const getKocOverview = (params = {}) =>
+  intelligenceFetch(`/koc/overview${kocQs(params)}`, { timeoutMs: 180_000 });
+export const getKocDesk = (params = {}) =>
+  intelligenceFetch(`/koc/desk${kocQs(params)}`, { timeoutMs: 180_000 });
+export const getKocSystemHealth = () =>
+  intelligenceFetch('/koc/system-health', { timeoutMs: 60_000 });
+export const getKocCoverage = (params = {}) =>
+  intelligenceFetch(`/koc/coverage${kocQs(params)}`, { timeoutMs: 180_000 });
+export const getKocMissingInbox = (params = {}) =>
+  intelligenceFetch(`/koc/missing-inbox${kocQs(params)}`, { timeoutMs: 180_000 });
+export const getKocMissingKnowledge = (params = {}) =>
+  intelligenceFetch(`/koc/missing-knowledge${kocQs(params)}`, { timeoutMs: 180_000 });
+export const getKocCompany = (ticker) =>
+  intelligenceFetch(`/koc/company/${encodeURIComponent(ticker)}`, { timeoutMs: 120_000 });
+export const getKocCollectors = () =>
+  intelligenceFetch('/koc/collectors', { timeoutMs: 60_000 });
+export const getKocEvidence = (params = {}) =>
+  intelligenceFetch(`/koc/evidence${kocQs(params)}`, { timeoutMs: 120_000 });
+export const getKocEvidenceDetail = (ticker, documentId) =>
+  intelligenceFetch(
+    `/koc/evidence/${encodeURIComponent(ticker)}/${encodeURIComponent(documentId)}`,
+    { timeoutMs: 90_000 }
+  );
+export const getKocKnowledgeVersions = (params = {}) =>
+  intelligenceFetch(`/koc/knowledge-versions${kocQs(params)}`, { timeoutMs: 30_000 });
+export const getKocGapAi = (params = {}) =>
+  intelligenceFetch(`/koc/gap-ai${kocQs(params)}`, { timeoutMs: 180_000 });
+export const findKocMissingKnowledge = (ticker) =>
+  intelligenceFetch(`/koc/gap-ai/${encodeURIComponent(ticker)}`, { timeoutMs: 90_000 });
+export const searchKoc = (params = {}) =>
+  intelligenceFetch(`/koc/search${kocQs(params)}`, { timeoutMs: 90_000 });
+export const uploadKocKnowledge = (body = {}) =>
+  intelligenceFetch('/koc/upload', {
+    method: 'POST',
+    body: body || {},
+    timeoutMs: 180_000,
+  });
+export const getKocQueue = (params = {}) =>
+  intelligenceFetch(`/koc/queue${kocQs(params)}`, { timeoutMs: 30_000 });
+export const getKocAudit = (params = {}) =>
+  intelligenceFetch(`/koc/audit${kocQs(params)}`, { timeoutMs: 30_000 });
+export const runKocAction = (body = {}) =>
+  intelligenceFetch('/koc/action', {
+    method: 'POST',
+    body: body || {},
+    timeoutMs: 180_000,
+  });
+export const runKocCgl = (body = {}) =>
+  intelligenceFetch('/koc/run-cgl', { method: 'POST', body: body || {}, timeoutMs: 180_000 });
+export const runKocKil = (body = {}) =>
+  intelligenceFetch('/koc/run-kil', { method: 'POST', body: body || {}, timeoutMs: 180_000 });
+export const runKocCoverage = (body = {}) =>
+  intelligenceFetch('/koc/run-coverage', { method: 'POST', body: body || {}, timeoutMs: 180_000 });
+export const runKocRepair = (body = {}) =>
+  intelligenceFetch('/koc/repair', { method: 'POST', body: body || {}, timeoutMs: 180_000 });
+
 export const getLaunchHealth = () =>
   intelligenceFetch('/launch/health', { timeoutMs: 30_000 });
 export const getLaunchMetrics = () =>

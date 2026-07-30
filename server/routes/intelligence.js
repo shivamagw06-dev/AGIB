@@ -4416,6 +4416,88 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // KOC V1.2 — Institutional Knowledge Mission Control
+  const kocGet = (path, timeoutMs = 60_000) => async (req, res) => {
+    try {
+      const qs = new URLSearchParams();
+      for (const [k, v] of Object.entries(req.query || {})) {
+        if (v != null && v !== '') qs.set(k, String(v));
+      }
+      const suffix = qs.toString() ? `?${qs.toString()}` : '';
+      const result = await engineFetch(`/v1${path}${suffix}`, { timeoutMs });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || `koc ${path} failed` });
+    }
+  };
+  const kocPost = (path, timeoutMs = 180_000) => async (req, res) => {
+    try {
+      const result = await engineFetch(`/v1${path}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || `koc ${path} failed` });
+    }
+  };
+  router.get('/koc/health', kocGet('/koc/health', 20_000));
+  router.get('/koc/status', kocGet('/koc/status', 20_000));
+  router.get('/koc/overview', kocGet('/koc/overview', 180_000));
+  router.get('/koc/desk', kocGet('/koc/desk', 180_000));
+  router.get('/koc/system-health', kocGet('/koc/system-health', 60_000));
+  router.get('/koc/coverage', kocGet('/koc/coverage', 180_000));
+  router.get('/koc/missing-inbox', kocGet('/koc/missing-inbox', 180_000));
+  router.get('/koc/missing-knowledge', kocGet('/koc/missing-knowledge', 180_000));
+  router.get('/koc/company/:ticker', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/koc/company/${encodeURIComponent(req.params.ticker)}`,
+        { timeoutMs: 120_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'koc company failed' });
+    }
+  });
+  router.get('/koc/collectors', kocGet('/koc/collectors', 60_000));
+  router.get('/koc/evidence', kocGet('/koc/evidence', 120_000));
+  router.get('/koc/evidence/:ticker/:documentId', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/koc/evidence/${encodeURIComponent(req.params.ticker)}/${encodeURIComponent(req.params.documentId)}`,
+        { timeoutMs: 90_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'koc evidence detail failed' });
+    }
+  });
+  router.get('/koc/knowledge-versions', kocGet('/koc/knowledge-versions', 30_000));
+  router.get('/koc/gap-ai', kocGet('/koc/gap-ai', 180_000));
+  router.get('/koc/gap-ai/:ticker', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/koc/gap-ai/${encodeURIComponent(req.params.ticker)}`,
+        { timeoutMs: 90_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'koc gap-ai failed' });
+    }
+  });
+  router.get('/koc/search', kocGet('/koc/search', 90_000));
+  router.post('/koc/upload', kocPost('/koc/upload'));
+  router.get('/koc/queue', kocGet('/koc/queue', 30_000));
+  router.get('/koc/audit', kocGet('/koc/audit', 30_000));
+  router.post('/koc/action', kocPost('/koc/action'));
+  router.post('/koc/run-cgl', kocPost('/koc/run-cgl'));
+  router.post('/koc/run-kil', kocPost('/koc/run-kil'));
+  router.post('/koc/run-coverage', kocPost('/koc/run-coverage'));
+  router.post('/koc/repair', kocPost('/koc/repair'));
+
   // ICE-01 — Investment Committee Engine
   router.get('/committee-engine/health', async (_req, res) => {
     try {

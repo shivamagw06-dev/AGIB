@@ -11493,6 +11493,200 @@ async def icf_scheduler():
     return scheduler_status()
 
 
+# KOC V1.2 — Institutional Knowledge Mission Control (admin control room)
+
+
+@router.get("/koc/health")
+async def koc_health():
+    from knowledge_operations.production import health
+
+    return health()
+
+
+@router.get("/koc/status")
+async def koc_status():
+    from knowledge_operations.production import get_status
+
+    return get_status()
+
+
+@router.get("/koc/overview")
+async def koc_overview(scope: str = "TOP20"):
+    from knowledge_operations.production import get_overview
+
+    return get_overview(scope=scope)
+
+
+@router.get("/koc/desk")
+async def koc_desk(scope: str = "TOP20"):
+    from knowledge_operations.production import get_desk
+
+    return get_desk(scope=scope)
+
+
+@router.get("/koc/system-health")
+async def koc_system_health():
+    from knowledge_operations.production import get_system_health
+
+    return get_system_health()
+
+
+@router.get("/koc/coverage")
+async def koc_coverage(scope: str = "TOP20"):
+    from knowledge_operations.production import get_coverage
+
+    return get_coverage(scope=scope)
+
+
+@router.get("/koc/missing-inbox")
+async def koc_missing_inbox(scope: str = "TOP20", limit: int = 50):
+    from knowledge_operations.production import get_missing_inbox
+
+    return get_missing_inbox(scope=scope, limit=limit)
+
+
+@router.get("/koc/missing-knowledge")
+async def koc_missing_knowledge(scope: str = "TOP20", limit: int = 50):
+    from knowledge_operations.production import get_missing_knowledge
+
+    return get_missing_knowledge(scope=scope, limit=limit)
+
+
+@router.get("/koc/company/{ticker}")
+async def koc_company(ticker: str):
+    from knowledge_operations.production import get_company
+
+    return get_company(ticker)
+
+
+@router.get("/koc/collectors")
+async def koc_collectors():
+    from knowledge_operations.production import get_collectors
+
+    return get_collectors()
+
+
+@router.get("/koc/evidence")
+async def koc_evidence(
+    q: str = "",
+    ticker: str | None = None,
+    document_type: str | None = None,
+    limit: int = 50,
+):
+    from knowledge_operations.production import get_evidence
+
+    return get_evidence(q=q, ticker=ticker, document_type=document_type, limit=limit)
+
+
+@router.get("/koc/evidence/{ticker}/{document_id}")
+async def koc_evidence_detail(ticker: str, document_id: str):
+    from knowledge_operations.production import get_evidence_detail
+
+    return get_evidence_detail(ticker, document_id)
+
+
+@router.get("/koc/knowledge-versions")
+async def koc_knowledge_versions(limit: int = 20):
+    from knowledge_operations.production import get_knowledge_versions
+
+    return get_knowledge_versions(limit=limit)
+
+
+@router.get("/koc/gap-ai")
+async def koc_gap_ai(scope: str = "TOP20", limit: int = 30):
+    from knowledge_operations.production import get_gap_ai
+
+    return get_gap_ai(scope=scope, limit=limit)
+
+
+@router.get("/koc/gap-ai/{ticker}")
+async def koc_gap_ai_ticker(ticker: str):
+    from knowledge_operations.production import find_missing_knowledge
+
+    return find_missing_knowledge(ticker)
+
+
+@router.get("/koc/search")
+async def koc_search(q: str = "", limit: int = 30):
+    from knowledge_operations.production import global_search
+
+    return global_search(q, limit=limit)
+
+
+@router.post("/koc/upload")
+async def koc_upload(payload: dict[str, Any] = Body(default={})):
+    from knowledge_operations.production import upload_knowledge
+
+    body = payload or {}
+    return upload_knowledge(
+        ticker=str(body.get("ticker") or ""),
+        document_type=str(body.get("document_type") or "other"),
+        filename=str(body.get("filename") or "upload.bin"),
+        content_base64=body.get("content_base64"),
+        actor=body.get("actor"),
+        mime_type=body.get("mime_type"),
+    )
+
+
+@router.get("/koc/queue")
+async def koc_queue(limit: int = 100):
+    from knowledge_operations.production import get_queue
+
+    return get_queue(limit=limit)
+
+
+@router.get("/koc/audit")
+async def koc_audit(limit: int = 100, ticker: str | None = None):
+    from knowledge_operations.production import get_audit
+
+    return get_audit(limit=limit, ticker=ticker)
+
+
+@router.post("/koc/action")
+async def koc_action(payload: dict[str, Any] = Body(default={})):
+    from knowledge_operations.production import run_action
+
+    body = payload or {}
+    return run_action(
+        str(body.get("action") or ""),
+        ticker=body.get("ticker"),
+        actor=body.get("actor"),
+        force=bool(body.get("force")),
+    )
+
+
+@router.post("/koc/run-cgl")
+async def koc_run_cgl(payload: dict[str, Any] = Body(default={})):
+    from knowledge_operations.production import run_cgl
+
+    body = payload or {}
+    return run_cgl(actor=body.get("actor"))
+
+
+@router.post("/koc/run-kil")
+async def koc_run_kil(payload: dict[str, Any] = Body(default={})):
+    from knowledge_operations.production import run_kil
+
+    body = payload or {}
+    return run_kil(ticker=body.get("ticker"), actor=body.get("actor"))
+
+
+@router.post("/koc/run-coverage")
+async def koc_run_coverage(payload: dict[str, Any] = Body(default={})):
+    from knowledge_operations.production import run_coverage
+
+    body = payload or {}
+    return run_coverage(actor=body.get("actor"))
+
+
+@router.post("/koc/repair")
+async def koc_repair(payload: dict[str, Any] = Body(default={})):
+    from knowledge_operations.production import run_repair
+
+    body = payload or {}
+    return run_repair(ticker=body.get("ticker"), actor=body.get("actor"))
+
+
 # --- Company Monitoring System V1 (continuous living analyst; additive) ---
 
 
