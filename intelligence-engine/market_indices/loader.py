@@ -126,11 +126,21 @@ def _normalize_index_id(value: str) -> str | None:
     if up in INDEX_CATALOG:
         return up
     low = raw.lower().strip()
+    # Prefer longer aliases first so "nifty next 50" wins over "nifty 50"
+    alias_hits: list[tuple[int, str]] = []
     for iid, meta in INDEX_CATALOG.items():
-        if low in meta["aliases"] or low == meta["display_name"].lower():
-            return iid
+        names = list(meta["aliases"]) + [str(meta["display_name"]).lower()]
+        for alias in names:
+            a = alias.lower().strip()
+            if not a:
+                continue
+            if low == a or a in low:
+                alias_hits.append((len(a), iid))
         if up == meta.get("quote_symbol"):
             return iid
+    if alias_hits:
+        alias_hits.sort(key=lambda x: -x[0])
+        return alias_hits[0][1]
     return None
 
 

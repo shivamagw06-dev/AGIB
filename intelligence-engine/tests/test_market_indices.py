@@ -78,3 +78,20 @@ def test_seed_universes_use_csv_members():
     assert len(defs["NIFTY_BANK"]["members"]) == 14
     assert len(defs["NIFTY_200"]["members"]) == 200
     assert "HDFCBANK" in defs["NIFTY_BANK"]["members"]
+
+
+def test_ask_soft_slice_answers_membership_and_constituents():
+    from market_indices.production import soft_slice_for_ask_agi
+
+    mem = soft_slice_for_ask_agi(
+        "Which indices does HDFC Bank come under?",
+        {"ticker": "HDFCBANK"},
+    )["market_indices"]
+    assert mem["answerable"] is True
+    assert "Nifty Bank" in mem["direct_answer"]
+    assert "Nifty 50" in mem["direct_answer"]
+
+    cons = soft_slice_for_ask_agi("Which stocks are in Nifty Bank?")["market_indices"]
+    assert cons["answerable"] is True
+    assert cons["answer"]["count"] == 14
+    assert "HDFCBANK" in cons["answer"]["symbols"]
