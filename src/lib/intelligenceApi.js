@@ -7,13 +7,25 @@ async function intelligenceFetch(path, { method = 'GET', body, timeoutMs = 45_00
     throw new Error('API origin is not configured. Set VITE_API_URL to the Render backend.');
   }
   const url = `${BASE}/api/intelligence${path}`;
-  const resp = await fetch(url, {
-    method,
-    credentials: 'include',
-    headers: body ? { 'Content-Type': 'application/json' } : undefined,
-    body: body ? JSON.stringify(body) : undefined,
-    signal: AbortSignal.timeout(timeoutMs),
-  });
+  let resp;
+  try {
+    resp = await fetch(url, {
+      method,
+      credentials: 'include',
+      headers: body ? { 'Content-Type': 'application/json' } : undefined,
+      body: body ? JSON.stringify(body) : undefined,
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+  } catch (err) {
+    const name = err?.name || '';
+    if (name === 'TimeoutError' || name === 'AbortError' || /timed out|aborted/i.test(String(err?.message || ''))) {
+      throw new Error(
+        `Release Health / intelligence request timed out after ${Math.round(timeoutMs / 1000)}s (${path}). ` +
+          'The intelligence engine may be cold-starting or busy — wait a moment and retry.'
+      );
+    }
+    throw err;
+  }
   const contentType = resp.headers.get('content-type') || '';
   const text = await resp.text().catch(() => '');
   if (!contentType.includes('application/json') || text.trim().startsWith('<')) {
@@ -1108,13 +1120,20 @@ export const runProductExperienceValidation = (body = {}) =>
   intelligenceFetch('/product-experience/run', { method: 'POST', body: body || {} });
 
 /** RH-01 — AGI Release Health (single release gate) */
-export const getReleaseHealthHealth = () => intelligenceFetch('/release-health/health');
+export const getReleaseHealthHealth = () =>
+  intelligenceFetch('/release-health/health', { timeoutMs: 30_000 });
 export const getReleaseHealthDashboard = (refresh = false) => {
   const qs = refresh ? '?refresh=true' : '';
-  return intelligenceFetch(`/release-health/dashboard${qs}`);
+  // Dashboard GET is snapshot/lightweight; keep under cold-start budget.
+  return intelligenceFetch(`/release-health/dashboard${qs}`, { timeoutMs: 60_000 });
 };
 export const runReleaseHealth = (body = {}) =>
-  intelligenceFetch('/release-health/run', { method: 'POST', body: body || {} });
+  intelligenceFetch('/release-health/run', {
+    method: 'POST',
+    body: body || {},
+    // Full gate (IST+IBS+E2E) can take a few minutes on a cold Render dyno.
+    timeoutMs: 300_000,
+  });
 
 /** IBS-01 — AGI Institutional Benchmark Suite */
 export const getInstitutionalBenchmarksHealth = () =>

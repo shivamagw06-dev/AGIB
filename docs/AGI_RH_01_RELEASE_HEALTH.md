@@ -27,11 +27,18 @@ The single screen before every release.
 3. **API**
    - `GET /api/intelligence/release-health/dashboard`
    - `POST /api/intelligence/release-health/run`
-4. **CLI**
+4. **CLI** (full gate including unit tests)
    ```bash
    cd intelligence-engine
    PYTHONPATH=. python3 -m release_health --run
    ```
+
+## Timeouts / cold starts
+
+- Admin **page load** only reads a snapshot (or a lightweight assemble). It does **not** run pytest.
+- Admin **Refresh Release Gate** runs IST · IBS · E2E (skips unit tests over HTTP to stay under Render timeouts).
+- Full gate with unit tests: use the CLI above.
+- If the UI says the request timed out, the intelligence engine is usually cold or busy — wait and retry, or check `GET /v1/health` on the engine service.
 
 ## Ready for Release = YES
 

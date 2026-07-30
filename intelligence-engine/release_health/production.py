@@ -54,11 +54,20 @@ def health() -> dict[str, Any]:
 
 
 def dashboard(*, refresh: bool = False) -> dict[str, Any]:
+    """Serve the release-gate scorecard.
+
+    Page loads must stay fast: never run pytest / full IST+IBS+E2E on a plain GET.
+    - cached snapshot → return it
+    - cold store → lightweight assemble from existing suite stores (no unit tests)
+    - refresh=true → re-run suites without unit tests (POST /run for full gate)
+    """
     if not is_enabled():
         return {"ok": False, "enabled": False, "workstream_id": RH_WORKSTREAM_ID}
     latest = rh_store.latest()
-    if refresh or not latest:
-        latest = assemble_release_health(refresh=True, run_unit_tests=True)
+    if refresh:
+        latest = assemble_release_health(refresh=True, run_unit_tests=False)
+    elif not latest:
+        latest = assemble_release_health(refresh=False, run_unit_tests=False)
     return {
         "ok": True,
         "workstream_id": RH_WORKSTREAM_ID,
@@ -75,9 +84,11 @@ def run(payload: Optional[dict[str, Any]] = None) -> dict[str, Any]:
     if not is_enabled():
         return {"ok": False, "enabled": False, "workstream_id": RH_WORKSTREAM_ID}
     body = payload or {}
+    # Default off for HTTP — pytest alone can exceed BFF/browser timeouts on Render.
+    # CLI / explicit UI opt-in still pass run_unit_tests=true.
     run_unit = body.get("run_unit_tests")
     if run_unit is None:
-        run_unit = True
+        run_unit = False
     snapshot = assemble_release_health(refresh=True, run_unit_tests=bool(run_unit))
     return snapshot
 

@@ -27,8 +27,10 @@ export default function ReleaseHealth() {
     setError('');
     try {
       const dash = await getReleaseHealthDashboard(false);
-      setSnapshot(dash?.snapshot || null);
-      setAccess(dash?.access || null);
+      // Prefer unwrapped dashboard; tolerate legacy `{ ok, status, data }` BFF wrappers.
+      const payload = dash?.snapshot ? dash : dash?.data || dash;
+      setSnapshot(payload?.snapshot || null);
+      setAccess(payload?.access || dash?.access || null);
     } catch (err) {
       setError(err?.message || 'Failed to load Release Health');
     } finally {
@@ -44,8 +46,10 @@ export default function ReleaseHealth() {
     setRunning(true);
     setError('');
     try {
-      const snap = await runReleaseHealth({ run_unit_tests: true });
-      setSnapshot(snap);
+      // Skip pytest by default — unit tests alone can exceed HTTP timeouts on Render.
+      // Use CLI `python3 -m release_health --run` for the full gate including unit tests.
+      const snap = await runReleaseHealth({ run_unit_tests: false });
+      setSnapshot(snap?.snapshot || snap);
     } catch (err) {
       setError(err?.message || 'Release gate run failed');
     } finally {
