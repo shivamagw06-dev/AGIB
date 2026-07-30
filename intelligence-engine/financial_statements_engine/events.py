@@ -1,4 +1,4 @@
-"""Shared Evidence / Processing Event Bus catalogue (FSE-02…FSE-05)."""
+"""Shared Evidence / Processing Event Bus catalogue (FSE-02…FSE-06)."""
 
 from __future__ import annotations
 
@@ -60,6 +60,12 @@ VALIDATION_EVENTS_V1 = (
     "validation.quarantined.v1",
 )
 
+# Financial Warehouse (FSE-06)
+WAREHOUSE_EVENTS_V1 = (
+    "warehouse.facts_published.v1",
+    "warehouse.publish_rejected.v1",
+)
+
 PARSE_EVENTS = PARSE_EVENTS_LEGACY + PARSE_EVENTS_V1 + COVERAGE_EVENTS_V1 + PCC_EVENTS_V1
 
-EVENT_TYPES = COLLECTION_EVENTS + PARSE_EVENTS + VALIDATION_EVENTS_V1
+EVENT_TYPES = COLLECTION_EVENTS + PARSE_EVENTS + VALIDATION_EVENTS_V1 + WAREHOUSE_EVENTS_V1

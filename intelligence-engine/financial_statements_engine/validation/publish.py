@@ -107,7 +107,15 @@ def publish_validated_facts(draft: dict[str, Any], report: dict[str, Any]) -> di
     latest.setdefault("statements", latest.get("statements") or [])
     write_json_atomic(latest_path, latest)
 
-    # Quarantine store for audit when not used
+    # FSE-06 Financial Warehouse — permanent system of record
+    warehouse_result = None
+    try:
+        from financial_statements_engine.financial_warehouse.publisher.publish import publish_validated_pack
+
+        warehouse_result = publish_validated_pack(validated_pack=pack, draft=draft)
+    except Exception as exc:  # pragma: no cover - surface failure without mutating drafts
+        warehouse_result = {"ok": False, "published": False, "error": str(exc)}
+
     return {
         "ok": True,
         "published": True,
@@ -116,6 +124,7 @@ def publish_validated_facts(draft: dict[str, Any], report: dict[str, Any]) -> di
         "path": str(pack_path),
         "approval_status": approval.get("approval_status"),
         "facts": facts,
+        "warehouse": warehouse_result,
     }
 
 
