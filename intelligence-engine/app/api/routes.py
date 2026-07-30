@@ -14229,6 +14229,62 @@ async def trading_universe_symbol(symbol: str):
     return {"ok": True, **row}
 
 
+@router.get("/market-indices/health")
+async def market_indices_health():
+    """Nifty / NSE index constituent registry (stocks per index)."""
+    from market_indices.production import health
+
+    return health()
+
+
+@router.get("/market-indices/dashboard")
+async def market_indices_dashboard():
+    from market_indices.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/market-indices")
+async def market_indices_list():
+    from market_indices.production import list_indices
+
+    indices = list_indices()
+    return {"ok": True, "count": len(indices), "indices": indices}
+
+
+@router.get("/market-indices/membership/{symbol}")
+async def market_indices_membership(symbol: str):
+    from market_indices.production import membership_for_symbol
+
+    return membership_for_symbol(symbol)
+
+
+@router.get("/market-indices/{index_id}")
+async def market_indices_get(index_id: str, members: bool = True):
+    from market_indices.production import get_index
+
+    row = get_index(index_id, include_members=bool(members))
+    if not row:
+        return {"ok": False, "error": "unknown_index", "index_id": index_id}
+    return row
+
+
+@router.get("/market-indices/{index_id}/symbols")
+async def market_indices_symbols(index_id: str):
+    from market_indices.production import get_index
+
+    row = get_index(index_id, include_members=True)
+    if not row:
+        return {"ok": False, "error": "unknown_index", "index_id": index_id}
+    return {
+        "ok": True,
+        "index_id": row["index_id"],
+        "display_name": row["display_name"],
+        "count": row["count"],
+        "symbols": row.get("symbols") or [],
+    }
+
+
 @router.get("/production-hardening/history")
 async def production_hardening_history(limit: int = 20):
     from production_hardening.production import history

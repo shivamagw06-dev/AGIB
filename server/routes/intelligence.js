@@ -2140,6 +2140,46 @@ export default function createIntelligenceRouter() {
       res.status(502).json({ error: err.message || 'trading-universe symbol failed' });
     }
   });
+  // Nifty / NSE index constituents (stocks per index)
+  router.get('/market-indices/health', kfGet('/v1/market-indices/health'));
+  router.get('/market-indices/dashboard', kfGet('/v1/market-indices/dashboard'));
+  router.get('/market-indices', kfGet('/v1/market-indices'));
+  router.get('/market-indices/membership/:symbol', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/market-indices/membership/${encodeURIComponent(req.params.symbol)}`,
+        { timeoutMs: 20_000 }
+      );
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'market-indices membership failed' });
+    }
+  });
+  router.get('/market-indices/:indexId', async (req, res) => {
+    try {
+      const q = new URLSearchParams();
+      if (req.query.members != null) q.set('members', String(req.query.members));
+      const qs = q.toString();
+      const result = await engineFetch(
+        `/v1/market-indices/${encodeURIComponent(req.params.indexId)}${qs ? `?${qs}` : ''}`,
+        { timeoutMs: 30_000 }
+      );
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'market-indices get failed' });
+    }
+  });
+  router.get('/market-indices/:indexId/symbols', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/market-indices/${encodeURIComponent(req.params.indexId)}/symbols`,
+        { timeoutMs: 30_000 }
+      );
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'market-indices symbols failed' });
+    }
+  });
   // Investment Office V1 — executive operating cockpit
   router.get('/investment-office/health', kfGet('/v1/investment-office/health'));
   router.get('/investment-office/dashboard', kfGet('/v1/investment-office/dashboard'));
