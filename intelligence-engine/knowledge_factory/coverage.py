@@ -174,6 +174,12 @@ def decision_coverage(universe: tuple[str, ...] | list[str] | None = None) -> di
     rows = [_company_checklist(e) for e in universe]
     ready = sum(1 for r in rows if r["decision_ready"])
     n = len(universe) or 1
+    if tuple(universe) == TARGET_20:
+        label = "target_20"
+    elif tuple(universe) == NIFTY_50:
+        label = "nifty_50"
+    else:
+        label = "custom"
     return {
         "coverage_version": COVERAGE_VERSION,
         "north_star": "decision_coverage",
