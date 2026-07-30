@@ -1506,6 +1506,62 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("management_execution")
     except Exception:
         out["management_execution"] = None
+    # FIRE-06 — Business Quality Engine (soft board; additive).
+    try:
+        from business_quality.production import soft_slice_mission_control as fire06_soft
+
+        out["business_quality"] = fire06_soft()
+        out["sources"].append("business_quality")
+    except Exception:
+        out["business_quality"] = None
+    # IO-01 — Institutional Investment Office IRP orchestration (soft board; additive).
+    try:
+        from investment_office.production import soft_slice_mission_control as io01_soft
+
+        out["investment_office_irp"] = io01_soft()
+        out["sources"].append("investment_office_irp")
+    except Exception:
+        out["investment_office_irp"] = None
+    # CIO-01 — Comparative Intelligence Office (soft board; additive).
+    try:
+        from comparative_intelligence.production import soft_slice_mission_control as cio01_soft
+
+        out["comparative_intelligence"] = cio01_soft()
+        out["sources"].append("comparative_intelligence")
+    except Exception:
+        out["comparative_intelligence"] = None
+    # Office SDK — shared application contract (soft board; additive).
+    try:
+        from office_sdk.production import soft_slice_mission_control as office_sdk_soft
+
+        out["office_sdk"] = office_sdk_soft()
+        out["sources"].append("office_sdk")
+    except Exception:
+        out["office_sdk"] = None
+    # PO-01 — Portfolio Office (soft board; additive).
+    try:
+        from portfolio_office.production import soft_slice_mission_control as po01_soft
+
+        out["portfolio_office"] = po01_soft()
+        out["sources"].append("portfolio_office")
+    except Exception:
+        out["portfolio_office"] = None
+    # PEB-01 — Platform Event Bus (soft board; additive).
+    try:
+        from platform_event_bus.production import soft_slice_mission_control as peb01_soft
+
+        out["platform_event_bus"] = peb01_soft()
+        out["sources"].append("platform_event_bus")
+    except Exception:
+        out["platform_event_bus"] = None
+    # WO-01 — Watchlist Office (soft board; additive).
+    try:
+        from watchlist_office.production import soft_slice_mission_control as wo01_soft
+
+        out["watchlist_office"] = wo01_soft()
+        out["sources"].append("watchlist_office")
+    except Exception:
+        out["watchlist_office"] = None
     return out
 
 

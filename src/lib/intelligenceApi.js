@@ -944,11 +944,104 @@ export const getInvestmentOfficeHealth = () => intelligenceFetch('/investment-of
 export const getInvestmentOfficeDashboard = () => intelligenceFetch('/investment-office/dashboard');
 export const getInvestmentOfficeQualityGates = () =>
   intelligenceFetch('/investment-office/quality-gates');
+export const getInvestmentOfficeCompany = (ticker, params = {}) => {
+  const q = new URLSearchParams();
+  if (params.question) q.set('question', params.question);
+  if (params.package_type) q.set('package_type', params.package_type);
+  const qs = q.toString();
+  return intelligenceFetch(
+    `/investment-office/company/${encodeURIComponent(ticker)}${qs ? `?${qs}` : ''}`
+  );
+};
+export const postInvestmentOfficeQuery = (body) =>
+  intelligenceFetch('/investment-office/query', {
+    method: 'POST',
+    body: body || {},
+  });
 export const packageInvestmentOffice = (query = '', ticker) =>
   intelligenceFetch('/investment-office/package', {
     method: 'POST',
     body: { query, ticker },
   });
+
+/** CIO-01 — Comparative Intelligence Office */
+export const getComparativeIntelligenceHealth = () =>
+  intelligenceFetch('/comparative-intelligence/health');
+export const getComparativeIntelligenceDashboard = () =>
+  intelligenceFetch('/comparative-intelligence/dashboard');
+export const postComparativeIntelligenceCompare = (body) =>
+  intelligenceFetch('/comparative-intelligence/compare', {
+    method: 'POST',
+    body: body || {},
+  });
+export const postComparativeIntelligenceQuery = (body) =>
+  intelligenceFetch('/comparative-intelligence/query', {
+    method: 'POST',
+    body: body || {},
+  });
+
+/** Office SDK — shared application office contract */
+export const getOfficeSdkHealth = () => intelligenceFetch('/office-sdk/health');
+export const getOfficeSdkDashboard = () => intelligenceFetch('/office-sdk/dashboard');
+export const getOfficeSdkCatalog = () => intelligenceFetch('/office-sdk/catalog');
+export const getOfficeSdkDomains = () => intelligenceFetch('/office-sdk/domains');
+export const postOfficeSdkInvoke = (body) =>
+  intelligenceFetch('/office-sdk/invoke', {
+    method: 'POST',
+    body: body || {},
+  });
+
+/** PO-01 — Portfolio Office (canonical state; /portfolio-office avoids IPO /portfolio collision) */
+export const getPortfolioOfficeHealth = () => intelligenceFetch('/portfolio-office/health');
+export const getPortfolioOfficeDashboard = () => intelligenceFetch('/portfolio-office/dashboard');
+export const getPortfolioOfficePortfolio = (portfolioId) =>
+  intelligenceFetch(`/portfolio-office/${encodeURIComponent(portfolioId)}`);
+export const getPortfolioOfficeHoldings = (portfolioId) =>
+  intelligenceFetch(`/portfolio-office/${encodeURIComponent(portfolioId)}/holdings`);
+export const getPortfolioOfficeExposures = (portfolioId) =>
+  intelligenceFetch(`/portfolio-office/${encodeURIComponent(portfolioId)}/exposures`);
+export const getPortfolioOfficeQuality = (portfolioId) =>
+  intelligenceFetch(`/portfolio-office/${encodeURIComponent(portfolioId)}/quality`);
+export const getPortfolioOfficeConcentration = (portfolioId) =>
+  intelligenceFetch(`/portfolio-office/${encodeURIComponent(portfolioId)}/concentration`);
+export const createPortfolioOfficePortfolio = (body) =>
+  intelligenceFetch('/portfolio-office', {
+    method: 'POST',
+    body: body || {},
+  });
+export const createPortfolioOfficeSnapshot = (portfolioId, body = {}) =>
+  intelligenceFetch(`/portfolio-office/${encodeURIComponent(portfolioId)}/snapshot`, {
+    method: 'POST',
+    body: body || {},
+  });
+
+/** PEB-01 — Platform Event Bus */
+export const getPlatformEventBusHealth = () => intelligenceFetch('/platform/events/health');
+export const getPlatformEvents = (limit = 50) =>
+  intelligenceFetch(`/platform/events?limit=${encodeURIComponent(limit)}`);
+export const getPlatformEventTypes = () => intelligenceFetch('/platform/events/types');
+export const getPlatformEventStatistics = () =>
+  intelligenceFetch('/platform/events/statistics');
+
+/** WO-01 — Watchlist Office */
+export const getWatchlistOfficeHealth = () => intelligenceFetch('/watchlist-office/health');
+export const getWatchlistOfficeDashboard = () => intelligenceFetch('/watchlist-office/dashboard');
+export const getWatchlistOfficeWatchlist = (watchlistId) =>
+  intelligenceFetch(`/watchlist-office/${encodeURIComponent(watchlistId)}`);
+export const getWatchlistOfficeQueue = (watchlistId) =>
+  intelligenceFetch(`/watchlist-office/${encodeURIComponent(watchlistId)}/queue`);
+export const createWatchlistOfficeWatchlist = (body) =>
+  intelligenceFetch('/watchlist-office', { method: 'POST', body: body || {} });
+export const addWatchlistOfficeCompany = (watchlistId, body) =>
+  intelligenceFetch(`/watchlist-office/${encodeURIComponent(watchlistId)}/companies`, {
+    method: 'POST',
+    body: body || {},
+  });
+export const removeWatchlistOfficeCompany = (watchlistId, ticker) =>
+  intelligenceFetch(
+    `/watchlist-office/${encodeURIComponent(watchlistId)}/companies/${encodeURIComponent(ticker)}`,
+    { method: 'DELETE' }
+  );
 
 /** AGI v4.0 Investment Office OS — Thesis → Decision → Portfolio → Monitoring → Learning */
 export const getThesisHealth = () => intelligenceFetch('/thesis/health');
@@ -1267,6 +1360,16 @@ export const getManagementExecutionScore = (ticker) =>
   intelligenceFetch(`/management-execution/company/${encodeURIComponent(ticker)}/score`);
 export const getManagementExecutionObjectives = (ticker) =>
   intelligenceFetch(`/management-execution/company/${encodeURIComponent(ticker)}/objectives`);
+
+/** FIRE-06 — Business Quality Engine */
+export const getBusinessQualityHealth = () => intelligenceFetch('/business-quality/health');
+export const getBusinessQualityDashboard = () => intelligenceFetch('/business-quality/dashboard');
+export const getBusinessQualityCompany = (ticker) =>
+  intelligenceFetch(`/business-quality/company/${encodeURIComponent(ticker)}`);
+export const getBusinessQualityScore = (ticker) =>
+  intelligenceFetch(`/business-quality/company/${encodeURIComponent(ticker)}/quality`);
+export const getBusinessQualityPillars = (ticker) =>
+  intelligenceFetch(`/business-quality/company/${encodeURIComponent(ticker)}/pillars`);
 
 /** Accounting Intelligence Engine */
 export const getAciHealth = () => intelligenceFetch('/accounting-intelligence/health');

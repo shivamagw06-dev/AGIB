@@ -2037,6 +2037,32 @@ export default function createIntelligenceRouter() {
   router.get('/investment-office/health', kfGet('/v1/investment-office/health'));
   router.get('/investment-office/dashboard', kfGet('/v1/investment-office/dashboard'));
   router.get('/investment-office/quality-gates', kfGet('/v1/investment-office/quality-gates'));
+  router.get('/investment-office/company/:ticker', async (req, res) => {
+    try {
+      const q = new URLSearchParams();
+      if (req.query.question) q.set('question', String(req.query.question));
+      if (req.query.package_type) q.set('package_type', String(req.query.package_type));
+      const qs = q.toString();
+      const result = await engineFetch(
+        `/v1/investment-office/company/${encodeURIComponent(req.params.ticker)}${qs ? `?${qs}` : ''}`
+      );
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'investment-office company failed' });
+    }
+  });
+  router.post('/investment-office/query', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/investment-office/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+      });
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'investment-office query failed' });
+    }
+  });
   router.post('/investment-office/package', async (req, res) => {
     try {
       const result = await engineFetch('/v1/investment-office/package', {
@@ -2046,6 +2072,212 @@ export default function createIntelligenceRouter() {
       res.json(result);
     } catch (err) {
       res.status(502).json({ error: err?.message || 'Investment Office package failed' });
+    }
+  });
+
+  // CIO-01 — Comparative Intelligence Office (cross-company orchestration)
+  router.get('/comparative-intelligence/health', kfGet('/v1/comparative-intelligence/health'));
+  router.get('/comparative-intelligence/dashboard', kfGet('/v1/comparative-intelligence/dashboard'));
+  router.post('/comparative-intelligence/compare', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/comparative-intelligence/compare', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+      });
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'comparative-intelligence compare failed' });
+    }
+  });
+  router.post('/comparative-intelligence/query', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/comparative-intelligence/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+      });
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'comparative-intelligence query failed' });
+    }
+  });
+
+  // Office SDK — shared application office contract
+  router.get('/office-sdk/health', kfGet('/v1/office-sdk/health'));
+  router.get('/office-sdk/dashboard', kfGet('/v1/office-sdk/dashboard'));
+  router.get('/office-sdk/catalog', kfGet('/v1/office-sdk/catalog'));
+  router.get('/office-sdk/domains', kfGet('/v1/office-sdk/domains'));
+  router.post('/office-sdk/invoke', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/office-sdk/invoke', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+      });
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'office-sdk invoke failed' });
+    }
+  });
+
+  // PO-01 — Portfolio Office (canonical portfolio state)
+  // Uses /portfolio-office/* to avoid colliding with Institutional Portfolio Office (/portfolio/*)
+  router.get('/portfolio-office/health', kfGet('/v1/portfolio-office/health'));
+  router.get('/portfolio-office/dashboard', kfGet('/v1/portfolio-office/dashboard'));
+  router.get('/portfolio-office/:portfolioId', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/portfolio-office/${encodeURIComponent(req.params.portfolioId)}`
+      );
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'portfolio-office get failed' });
+    }
+  });
+  router.get('/portfolio-office/:portfolioId/holdings', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/portfolio-office/${encodeURIComponent(req.params.portfolioId)}/holdings`
+      );
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'portfolio-office holdings failed' });
+    }
+  });
+  router.get('/portfolio-office/:portfolioId/exposures', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/portfolio-office/${encodeURIComponent(req.params.portfolioId)}/exposures`
+      );
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'portfolio-office exposures failed' });
+    }
+  });
+  router.get('/portfolio-office/:portfolioId/quality', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/portfolio-office/${encodeURIComponent(req.params.portfolioId)}/quality`
+      );
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'portfolio-office quality failed' });
+    }
+  });
+  router.get('/portfolio-office/:portfolioId/concentration', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/portfolio-office/${encodeURIComponent(req.params.portfolioId)}/concentration`
+      );
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'portfolio-office concentration failed' });
+    }
+  });
+  router.post('/portfolio-office', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/portfolio-office', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+      });
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'portfolio-office create failed' });
+    }
+  });
+  router.post('/portfolio-office/:portfolioId/snapshot', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/portfolio-office/${encodeURIComponent(req.params.portfolioId)}/snapshot`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(req.body || {}),
+        }
+      );
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'portfolio-office snapshot failed' });
+    }
+  });
+
+  // PEB-01 — Platform Event Bus
+  router.get('/platform/events/health', kfGet('/v1/platform/events/health'));
+  router.get('/platform/events', async (req, res) => {
+    try {
+      const q = new URLSearchParams();
+      if (req.query.limit) q.set('limit', String(req.query.limit));
+      const qs = q.toString();
+      const result = await engineFetch(`/v1/platform/events${qs ? `?${qs}` : ''}`);
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'platform events failed' });
+    }
+  });
+  router.get('/platform/events/types', kfGet('/v1/platform/events/types'));
+  router.get('/platform/events/statistics', kfGet('/v1/platform/events/statistics'));
+
+  // WO-01 — Watchlist Office (research queue)
+  router.get('/watchlist-office/health', kfGet('/v1/watchlist-office/health'));
+  router.get('/watchlist-office/dashboard', kfGet('/v1/watchlist-office/dashboard'));
+  router.get('/watchlist-office/:watchlistId', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/watchlist-office/${encodeURIComponent(req.params.watchlistId)}`
+      );
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'watchlist-office get failed' });
+    }
+  });
+  router.get('/watchlist-office/:watchlistId/queue', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/watchlist-office/${encodeURIComponent(req.params.watchlistId)}/queue`
+      );
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'watchlist-office queue failed' });
+    }
+  });
+  router.post('/watchlist-office', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/watchlist-office', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+      });
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'watchlist-office create failed' });
+    }
+  });
+  router.post('/watchlist-office/:watchlistId/companies', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/watchlist-office/${encodeURIComponent(req.params.watchlistId)}/companies`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(req.body || {}),
+        }
+      );
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'watchlist-office add failed' });
+    }
+  });
+  router.delete('/watchlist-office/:watchlistId/companies/:ticker', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/watchlist-office/${encodeURIComponent(req.params.watchlistId)}/companies/${encodeURIComponent(req.params.ticker)}`,
+        { method: 'DELETE' }
+      );
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'watchlist-office remove failed' });
     }
   });
 
@@ -2878,6 +3110,40 @@ export default function createIntelligenceRouter() {
       return res.status(result.status).json(result.data);
     } catch (error) {
       return res.status(503).json({ error: 'Management execution objectives unavailable', detail: error.message });
+    }
+  });
+
+  // FIRE-06 — Business Quality Engine
+  router.get('/business-quality/health', kfGet('/v1/business-quality/health'));
+  router.get('/business-quality/dashboard', kfGet('/v1/business-quality/dashboard'));
+  router.get('/business-quality/company/:ticker', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/business-quality/company/${encodeURIComponent(req.params.ticker)}`
+      );
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Business quality unavailable', detail: error.message });
+    }
+  });
+  router.get('/business-quality/company/:ticker/quality', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/business-quality/company/${encodeURIComponent(req.params.ticker)}/quality`
+      );
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Business quality score unavailable', detail: error.message });
+    }
+  });
+  router.get('/business-quality/company/:ticker/pillars', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/business-quality/company/${encodeURIComponent(req.params.ticker)}/pillars`
+      );
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Business quality pillars unavailable', detail: error.message });
     }
   });
 

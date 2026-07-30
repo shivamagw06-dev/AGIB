@@ -4553,6 +4553,51 @@ async def admin_management_execution():
     return HTMLResponse(admin_page())
 
 
+# --- FIRE-06 Business Quality Engine (pillar-primary synthesis) ---
+
+
+@router.get("/business-quality/health")
+async def business_quality_health():
+    from business_quality.production import health
+
+    return health()
+
+
+@router.get("/business-quality/dashboard")
+async def business_quality_dashboard():
+    from business_quality.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/business-quality/company/{ticker}")
+async def business_quality_company(ticker: str):
+    from business_quality.production import company
+
+    return company(ticker.upper())
+
+
+@router.get("/business-quality/company/{ticker}/quality")
+async def business_quality_quality(ticker: str):
+    from business_quality.production import quality
+
+    return quality(ticker.upper())
+
+
+@router.get("/business-quality/company/{ticker}/pillars")
+async def business_quality_pillars(ticker: str):
+    from business_quality.production import pillars
+
+    return pillars(ticker.upper())
+
+
+@router.get("/admin/business-quality", response_class=HTMLResponse)
+async def admin_business_quality():
+    from business_quality.production import admin_page
+
+    return HTMLResponse(admin_page())
+
+
 # --- Accounting Intelligence Engine V1 (can the statements be trusted?) ---
 
 
@@ -9313,6 +9358,359 @@ async def investment_office_package(payload: dict[str, Any] = Body(default={})):
         str(payload.get("query") or ""),
         ticker=payload.get("ticker"),
     )
+
+
+@router.get("/investment-office/company/{ticker}")
+async def investment_office_company(ticker: str, question: str | None = None, package_type: str | None = None):
+    """IO-01: Institutional Research Package for a company (orchestration only)."""
+    from investment_office.production import company
+
+    return company(ticker, question=question, package_type=package_type)
+
+
+@router.post("/investment-office/query")
+async def investment_office_query(payload: dict[str, Any] = Body(default={})):
+    """IO-01: route a question and assemble IRP from FIRE modules."""
+    from investment_office.production import query
+
+    ticker = str(payload.get("ticker") or "").strip()
+    if not ticker:
+        raise HTTPException(status_code=400, detail="ticker required")
+    return query(
+        ticker=ticker,
+        question=str(payload.get("question") or ""),
+        package_type=payload.get("package_type") or payload.get("package"),
+    )
+
+
+# --- CIO-01 Comparative Intelligence Office (cross-company orchestration; additive) ---
+
+
+@router.get("/comparative-intelligence/health")
+async def comparative_intelligence_health():
+    from comparative_intelligence.production import health
+
+    return health()
+
+
+@router.get("/comparative-intelligence/dashboard")
+async def comparative_intelligence_dashboard():
+    from comparative_intelligence.production import dashboard
+
+    return dashboard()
+
+
+@router.post("/comparative-intelligence/compare")
+async def comparative_intelligence_compare(payload: dict[str, Any] = Body(default={})):
+    """CIO-01: side-by-side Institutional Comparison Report from FIRE outputs."""
+    from comparative_intelligence.production import compare_companies
+
+    tickers = payload.get("tickers") or payload.get("companies") or []
+    if isinstance(tickers, str):
+        tickers = [t.strip() for t in tickers.replace(",", " ").split() if t.strip()]
+    if not isinstance(tickers, list) or len(tickers) < 2:
+        raise HTTPException(status_code=400, detail="tickers requires at least two symbols")
+    return compare_companies(
+        [str(t) for t in tickers],
+        question=payload.get("question"),
+        comparison_type=payload.get("comparison_type") or payload.get("type"),
+        modules=payload.get("modules"),
+    )
+
+
+@router.post("/comparative-intelligence/query")
+async def comparative_intelligence_query(payload: dict[str, Any] = Body(default={})):
+    """CIO-01: route a comparative question and assemble ICR."""
+    from comparative_intelligence.production import query
+
+    tickers = payload.get("tickers") or payload.get("companies")
+    if isinstance(tickers, str):
+        tickers = [t.strip() for t in tickers.replace(",", " ").split() if t.strip()]
+    try:
+        return query(
+            tickers=list(tickers) if isinstance(tickers, list) else None,
+            question=str(payload.get("question") or ""),
+            comparison_type=payload.get("comparison_type") or payload.get("type"),
+            modules=payload.get("modules"),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/admin/comparative-intelligence", response_class=HTMLResponse)
+async def admin_comparative_intelligence():
+    from comparative_intelligence.production import admin_page
+
+    return HTMLResponse(admin_page())
+
+
+# --- Office SDK — shared application office contract (additive) ---
+
+
+@router.get("/office-sdk/health")
+async def office_sdk_health():
+    from office_sdk.production import health
+
+    return health()
+
+
+@router.get("/office-sdk/dashboard")
+async def office_sdk_dashboard():
+    from office_sdk.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/office-sdk/catalog")
+async def office_sdk_catalog():
+    from office_sdk.production import office_catalog
+
+    return office_catalog()
+
+
+@router.get("/office-sdk/domains")
+async def office_sdk_domains():
+    from office_sdk.production import domains
+
+    return domains()
+
+
+@router.post("/office-sdk/invoke")
+async def office_sdk_invoke(payload: dict[str, Any] = Body(default={})):
+    """Dispatch a shared OfficeRequest to a live office (io-01 / cio-01)."""
+    from office_sdk.production import invoke
+
+    result = invoke(payload or {})
+    if result.get("ok") is False and result.get("error"):
+        # Keep 200 for planned/unknown offices with structured error; 400 for missing office_id shape
+        if "not dispatchable" in str(result.get("error")):
+            raise HTTPException(status_code=400, detail=result["error"])
+    return result
+
+
+@router.get("/admin/office-sdk", response_class=HTMLResponse)
+async def admin_office_sdk():
+    from office_sdk.production import admin_page
+
+    return HTMLResponse(admin_page())
+
+
+# --- PO-01 Portfolio Office (canonical portfolio state; additive) ---
+# NOTE: /v1/portfolio/* is reserved by the existing Portfolio Ideas OS.
+# PO-01 is exposed under /v1/portfolio-office/* to remain additive.
+
+
+@router.get("/portfolio-office/health")
+async def portfolio_office_health():
+    from portfolio_office.production import health
+
+    return health()
+
+
+@router.get("/portfolio-office/dashboard")
+async def portfolio_office_dashboard():
+    from portfolio_office.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/portfolio-office/{portfolio_id}")
+async def portfolio_office_get(portfolio_id: str):
+    from portfolio_office.production import get_portfolio
+
+    result = get_portfolio(portfolio_id)
+    if result.get("ok") is False and "not found" in str(result.get("error") or ""):
+        raise HTTPException(status_code=404, detail=result.get("error"))
+    return result
+
+
+@router.get("/portfolio-office/{portfolio_id}/holdings")
+async def portfolio_office_holdings(portfolio_id: str):
+    from portfolio_office.production import get_holdings
+
+    result = get_holdings(portfolio_id)
+    if result.get("ok") is False:
+        raise HTTPException(status_code=404, detail=result.get("error"))
+    return result
+
+
+@router.get("/portfolio-office/{portfolio_id}/exposures")
+async def portfolio_office_exposures(portfolio_id: str):
+    from portfolio_office.production import get_exposures
+
+    result = get_exposures(portfolio_id)
+    if result.get("ok") is False:
+        raise HTTPException(status_code=404, detail=result.get("error"))
+    return result
+
+
+@router.get("/portfolio-office/{portfolio_id}/quality")
+async def portfolio_office_quality(portfolio_id: str):
+    from portfolio_office.production import get_quality
+
+    result = get_quality(portfolio_id)
+    if result.get("ok") is False:
+        raise HTTPException(status_code=404, detail=result.get("error"))
+    return result
+
+
+@router.get("/portfolio-office/{portfolio_id}/concentration")
+async def portfolio_office_concentration(portfolio_id: str):
+    from portfolio_office.production import get_concentration
+
+    result = get_concentration(portfolio_id)
+    if result.get("ok") is False:
+        raise HTTPException(status_code=404, detail=result.get("error"))
+    return result
+
+
+@router.post("/portfolio-office")
+async def portfolio_office_create(payload: dict[str, Any] = Body(default={})):
+    from portfolio_office.production import create
+
+    result = create(payload or {})
+    if result.get("ok") is False:
+        raise HTTPException(status_code=400, detail=result.get("error") or "create failed")
+    return result
+
+
+@router.post("/portfolio-office/{portfolio_id}/snapshot")
+async def portfolio_office_snapshot_route(portfolio_id: str, payload: dict[str, Any] = Body(default={})):
+    from portfolio_office.production import snapshot
+
+    result = snapshot(portfolio_id, payload or {})
+    if result.get("ok") is False:
+        raise HTTPException(status_code=404, detail=result.get("error"))
+    return result
+
+
+@router.get("/admin/portfolio-office", response_class=HTMLResponse)
+async def admin_portfolio_office():
+    from portfolio_office.production import admin_page
+
+    return HTMLResponse(admin_page())
+
+
+# --- PEB-01 Platform Event Bus (infrastructure; additive) ---
+
+
+@router.get("/platform/events/health")
+async def platform_events_health():
+    from platform_event_bus.production import health
+
+    return health()
+
+
+@router.get("/platform/events")
+async def platform_events_list(limit: int = 50):
+    from platform_event_bus.production import list_events
+
+    return list_events(limit=limit)
+
+
+@router.get("/platform/events/types")
+async def platform_events_types():
+    from platform_event_bus.production import list_types
+
+    return list_types()
+
+
+@router.get("/platform/events/statistics")
+async def platform_events_statistics():
+    from platform_event_bus.production import statistics
+
+    return statistics()
+
+
+@router.get("/admin/platform-event-bus", response_class=HTMLResponse)
+async def admin_platform_event_bus():
+    from platform_event_bus.production import admin_page
+
+    return HTMLResponse(admin_page())
+
+
+# --- WO-01 Watchlist Office (research queue; event-driven; additive) ---
+
+
+@router.get("/watchlist-office/health")
+async def watchlist_office_health():
+    from watchlist_office.production import health
+
+    return health()
+
+
+@router.get("/watchlist-office/dashboard")
+async def watchlist_office_dashboard():
+    from watchlist_office.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/watchlist-office/{watchlist_id}")
+async def watchlist_office_get(watchlist_id: str):
+    from watchlist_office.production import get_watchlist
+
+    result = get_watchlist(watchlist_id)
+    if result.get("ok") is False and "not found" in str(result.get("error") or ""):
+        raise HTTPException(status_code=404, detail=result.get("error"))
+    return result
+
+
+@router.get("/watchlist-office/{watchlist_id}/queue")
+async def watchlist_office_queue(watchlist_id: str):
+    from watchlist_office.production import get_queue
+
+    result = get_queue(watchlist_id)
+    if result.get("ok") is False:
+        raise HTTPException(status_code=404, detail=result.get("error"))
+    return result
+
+
+@router.post("/watchlist-office")
+async def watchlist_office_create(payload: dict[str, Any] = Body(default={})):
+    from watchlist_office.production import create
+
+    result = create(payload or {})
+    if result.get("ok") is False:
+        raise HTTPException(status_code=400, detail=result.get("error") or "create failed")
+    return result
+
+
+@router.post("/watchlist-office/{watchlist_id}/companies")
+async def watchlist_office_add(watchlist_id: str, payload: dict[str, Any] = Body(default={})):
+    from watchlist_office.production import add
+
+    result = add(watchlist_id, payload or {})
+    if result.get("ok") is False:
+        raise HTTPException(status_code=400, detail=result.get("error") or "add failed")
+    return result
+
+
+@router.delete("/watchlist-office/{watchlist_id}/companies/{ticker}")
+async def watchlist_office_remove(watchlist_id: str, ticker: str):
+    from watchlist_office.production import remove
+
+    result = remove(watchlist_id, ticker)
+    if result.get("ok") is False:
+        raise HTTPException(status_code=404, detail=result.get("error"))
+    return result
+
+
+@router.patch("/watchlist-office/{watchlist_id}/companies/{ticker}")
+async def watchlist_office_patch(watchlist_id: str, ticker: str, payload: dict[str, Any] = Body(default={})):
+    from watchlist_office.production import patch_entry
+
+    result = patch_entry(watchlist_id, ticker, payload or {})
+    if result.get("ok") is False:
+        raise HTTPException(status_code=404, detail=result.get("error"))
+    return result
+
+
+@router.get("/admin/watchlist-office", response_class=HTMLResponse)
+async def admin_watchlist_office():
+    from watchlist_office.production import admin_page
+
+    return HTMLResponse(admin_page())
 
 
 # --- Company Monitoring System V1 (continuous living analyst; additive) ---
