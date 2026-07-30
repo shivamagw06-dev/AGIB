@@ -10478,6 +10478,51 @@ async def cross_company_relationships_propagate(driver: str):
     return get_propagation(driver)
 
 
+# --- PUB-01 Publishing & Distribution (compose only; never analyzes) ---
+
+
+@router.get("/publications/health")
+async def institutional_publications_health():
+    from institutional_publishing.production import health
+
+    return health()
+
+
+@router.get("/publications/types")
+async def institutional_publications_types():
+    from institutional_publishing.production import list_types
+
+    return list_types()
+
+
+@router.get("/publications")
+async def institutional_publications_list(limit: int = 20):
+    from institutional_publishing.production import list_publications
+
+    return list_publications(limit=limit)
+
+
+@router.post("/publications/generate")
+async def institutional_publications_generate(payload: dict[str, Any] = Body(default={})):
+    from institutional_publishing.production import generate
+
+    return generate(payload or {})
+
+
+@router.get("/publications/{publication_id}")
+async def institutional_publications_get(publication_id: str):
+    from institutional_publishing.production import get_publication
+
+    return get_publication(publication_id)
+
+
+@router.post("/publications/export")
+async def institutional_publications_export(payload: dict[str, Any] = Body(default={})):
+    from institutional_publishing.production import export_publication
+
+    return export_publication(payload or {})
+
+
 # --- Company Monitoring System V1 (continuous living analyst; additive) ---
 
 

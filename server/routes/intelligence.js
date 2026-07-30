@@ -3069,6 +3069,72 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // PUB-01 — Publishing & Distribution
+  router.get('/publications/health', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/publications/health', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'publications health failed' });
+    }
+  });
+  router.get('/publications/types', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/publications/types', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'publications types failed' });
+    }
+  });
+  router.get('/publications', async (req, res) => {
+    try {
+      const qs = new URLSearchParams();
+      if (req.query.limit) qs.set('limit', String(req.query.limit));
+      const suffix = qs.toString() ? `?${qs}` : '';
+      const result = await engineFetch(`/v1/publications${suffix}`, { timeoutMs: 30_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'publications list failed' });
+    }
+  });
+  router.post('/publications/generate', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/publications/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 90_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'publications generate failed' });
+    }
+  });
+  router.get('/publications/:id', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/publications/${encodeURIComponent(req.params.id)}`,
+        { timeoutMs: 30_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'publication get failed' });
+    }
+  });
+  router.post('/publications/export', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/publications/export', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 90_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'publications export failed' });
+    }
+  });
+
   // ICE-01 — Investment Committee Engine
   router.get('/committee-engine/health', async (_req, res) => {
     try {

@@ -1,9 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
+  exportPublication,
+  generatePublication,
   getCompanyRelationships,
+  getPublication,
   getResearchWorkspaceCompany,
   getResearchWorkspacePortfolio,
+  listPublications,
   searchResearchWorkspace,
 } from '@/lib/intelligenceApi';
 
@@ -18,6 +22,7 @@ const NAV = [
   'Forecast',
   'Knowledge Graph',
   'Relationship Map',
+  'Publications',
   'Notes',
   'Ask AGI',
 ];
@@ -35,10 +40,18 @@ export default function ResearchWorkspacePage() {
   const tab = (params.get('tab') || 'Overview').replace(/_/g, ' ');
   const [workspace, setWorkspace] = useState(null);
   const [relationships, setRelationships] = useState(null);
+  const [publications, setPublications] = useState([]);
+  const [activePub, setActivePub] = useState(null);
+  const [pubBusy, setPubBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [query, setQuery] = useState('');
   const [hits, setHits] = useState([]);
+
+  const refreshPublications = () =>
+    listPublications({ limit: 12 })
+      .then((res) => setPublications(res?.publications || []))
+      .catch(() => setPublications([]));
 
   useEffect(() => {
     let active = true;
@@ -52,8 +65,8 @@ export default function ResearchWorkspacePage() {
       context === 'company'
         ? getCompanyRelationships(ticker).catch(() => null)
         : Promise.resolve(null);
-    Promise.all([load, relLoad])
-      .then(([res, rel]) => {
+    Promise.all([load, relLoad, listPublications({ limit: 12 }).catch(() => null)])
+      .then(([res, rel, pubs]) => {
         if (!active) return;
         if (!res || res.ok === false) {
           setError(res?.error || 'Workspace unavailable');
@@ -62,6 +75,7 @@ export default function ResearchWorkspacePage() {
           setWorkspace(res.workspace || res);
         }
         setRelationships(rel && rel.ok !== false ? rel : null);
+        setPublications(pubs?.publications || []);
         setLoading(false);
       })
       .catch((err) => {
@@ -73,6 +87,25 @@ export default function ResearchWorkspacePage() {
       active = false;
     };
   }, [context, ticker, portfolioId]);
+
+  const onGeneratePublication = async (publicationType) => {
+    setPubBusy(true);
+    try {
+      const res = await generatePublication({
+        publication_type: publicationType,
+        ticker: context === 'company' ? ticker : undefined,
+        portfolio_id: portfolioId,
+        renderer: 'markdown',
+        distribute_to: 'workspace',
+      });
+      if (res?.ok) {
+        setActivePub(res.publication || null);
+        await refreshPublications();
+      }
+    } finally {
+      setPubBusy(false);
+    }
+  };
 
   const setContext = (id) => {
     const next = new URLSearchParams(params);
@@ -343,6 +376,87 @@ export default function ResearchWorkspacePage() {
                     </ul>
                   </>
                 )}
+              </div>
+            )}
+
+            {activeNav === 'Publications' && (
+              <div>
+                <p className="agi-list-meta" style={{ marginBottom: '0.75rem' }}>
+                  PUB-01 · Compose-only institutional deliverables. Templates format; manifests
+                  audit. No new analysis.
+                </p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '0.85rem' }}>
+                  {(context === 'portfolio'
+                    ? ['PortfolioReview', 'RiskSummary', 'InvestmentCommitteePack', 'WeeklyClientReport']
+                    : ['CompanyResearchNote', 'InvestmentSnapshot', 'DecisionUpdate', 'MorningBrief']
+                  ).map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      className="agi-btn"
+                      disabled={pubBusy}
+                      onClick={() => onGeneratePublication(t)}
+                    >
+                      Generate {t}
+                    </button>
+                  ))}
+                </div>
+                <ul className="agi-list">
+                  {publications.map((p) => (
+                    <li key={p.publication_id}>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          getPublication(p.publication_id)
+                            .then((res) => setActivePub(res?.publication || p))
+                            .catch(() => setActivePub(p))
+                        }
+                        style={{ all: 'unset', cursor: 'pointer' }}
+                      >
+                        <div className="agi-list-title">{p.title || p.publication_type}</div>
+                        <div className="agi-list-meta">
+                          {p.publication_type} · v{p.version || '1'} · {p.status} ·{' '}
+                          {(p.lineage_hash || '').slice(0, 10) || 'no hash'}
+                        </div>
+                      </button>
+                    </li>
+                  ))}
+                  {!publications.length ? (
+                    <li>
+                      <div className="agi-list-meta">No publications yet — generate one above.</div>
+                    </li>
+                  ) : null}
+                </ul>
+                {activePub ? (
+                  <div className="agi-panel" style={{ marginTop: '1rem' }}>
+                    <div className="agi-section-head">
+                      <h2>{activePub.title || activePub.publication_type}</h2>
+                      <button
+                        type="button"
+                        className="agi-btn"
+                        onClick={() =>
+                          exportPublication({
+                            publication_id: activePub.publication_id,
+                            renderer: 'markdown',
+                            target: 'export',
+                          }).then(() => refreshPublications())
+                        }
+                      >
+                        Export
+                      </button>
+                    </div>
+                    <p className="agi-list-meta">
+                      Sources: {activePub.source_count ?? (activePub.source_objects || []).length} ·
+                      Manifest lineage:{' '}
+                      {(activePub.lineage_hash || activePub.manifest?.lineage_hash || '—').slice(0, 16)}
+                    </p>
+                    {activePub.body_markdown ? (
+                      <pre style={{ whiteSpace: 'pre-wrap', fontSize: '0.85rem', marginTop: '0.75rem' }}>
+                        {String(activePub.body_markdown).slice(0, 1800)}
+                      </pre>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
             )}
 

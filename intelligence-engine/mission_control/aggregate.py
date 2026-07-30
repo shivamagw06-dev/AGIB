@@ -1719,6 +1719,15 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("institutional_cross_company")
     except Exception:
         out["institutional_cross_company"] = None
+
+    # PUB-01 — Publishing & Distribution (Publication Center).
+    try:
+        from institutional_publishing.production import soft_slice_mission_control as pub_soft
+
+        out["institutional_publishing"] = pub_soft()
+        out["sources"].append("institutional_publishing")
+    except Exception:
+        out["institutional_publishing"] = None
     return out
 
 

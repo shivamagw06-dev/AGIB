@@ -849,6 +849,27 @@ _CATALOG: list[dict[str, Any]] = [
         "module": "institutional_cross_company.production",
     },
     {
+        "id": "institutional_publishing",
+        "name": "Publishing & Distribution (PUB-01)",
+        "group": "publication",
+        "responsibility": (
+            "Phase 5.4 — Compose institutional deliverables from immutable objects. "
+            "Never analyzes or invents recommendations. Templates format; manifests audit. "
+            "Distribution decoupled from builders."
+        ),
+        "sources": [
+            "CompanyDecision",
+            "PortfolioRisk",
+            "PolicyAssessment",
+            "PortfolioDecision",
+            "CommitteeResolution",
+            "Observation",
+            "Evidence",
+        ],
+        "kind": "publishing",
+        "module": "institutional_publishing.production",
+    },
+    {
         "id": "ite_thesis",
         "name": "Investment Thesis Office",
         "group": "offices",

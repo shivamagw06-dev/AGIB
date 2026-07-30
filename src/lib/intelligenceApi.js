@@ -1356,6 +1356,24 @@ export const getSimilarCompanies = (ticker) =>
 export const getRelationshipClusters = () =>
   intelligenceFetch('/relationships/clusters', { timeoutMs: 30_000 });
 
+/** PUB-01 — Publishing & Distribution */
+export const getPublicationsHealth = () =>
+  intelligenceFetch('/publications/health', { timeoutMs: 30_000 });
+export const getPublicationTypes = () =>
+  intelligenceFetch('/publications/types', { timeoutMs: 30_000 });
+export const listPublications = ({ limit = 20 } = {}) => {
+  const qs = new URLSearchParams();
+  if (limit) qs.set('limit', String(limit));
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return intelligenceFetch(`/publications${suffix}`, { timeoutMs: 30_000 });
+};
+export const generatePublication = (body = {}) =>
+  intelligenceFetch('/publications/generate', { method: 'POST', body: body || {}, timeoutMs: 90_000 });
+export const getPublication = (publicationId) =>
+  intelligenceFetch(`/publications/${encodeURIComponent(publicationId)}`, { timeoutMs: 30_000 });
+export const exportPublication = (body = {}) =>
+  intelligenceFetch('/publications/export', { method: 'POST', body: body || {}, timeoutMs: 90_000 });
+
 /** ICE-01 — Investment Committee Engine */
 export const getCommitteeEngineHealth = () =>
   intelligenceFetch('/committee-engine/health', { timeoutMs: 30_000 });

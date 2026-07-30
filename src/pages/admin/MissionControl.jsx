@@ -206,6 +206,8 @@ export default function MissionControl() {
     institutional?.institutional_workspace || desk?.institutional_workspace || null;
   const relationshipCenter =
     institutional?.institutional_cross_company || desk?.institutional_cross_company || null;
+  const publicationCenter =
+    institutional?.institutional_publishing || desk?.institutional_publishing || null;
   const pipeline = desk?.research_pipeline || {};
   const preds = desk?.prediction_intelligence || {};
   const dq = desk?.data_quality || {};
@@ -1486,6 +1488,79 @@ export default function MissionControl() {
               {!orchestrationCenter ? <li>Orchestration Center soft slice unavailable.</li> : null}
               {orchestrationCenter && !(orchestrationCenter.recent_queries || []).length ? (
                 <li>Run a Universal Ask query to populate the center.</li>
+              ) : null}
+            </ul>
+          </Glass>
+        </section>
+
+        {/* Publication Center — PUB-01 */}
+        <section className="space-y-3">
+          <Kicker>Publication Center · PUB-01</Kicker>
+          <p className="text-sm text-[var(--io-muted)] max-w-3xl">
+            Publishing &amp; distribution — success rate, generation latency, template coverage,
+            distribution status, failed renders, version integrity, and missing lineage. Compose
+            only; manifests are the audit record.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+            <Stat
+              label="Success rate"
+              value={
+                publicationCenter?.publication_success_rate != null
+                  ? `${Math.round(Number(publicationCenter.publication_success_rate) * 100)}%`
+                  : '—'
+              }
+              status={publicationCenter?.status}
+            />
+            <Stat
+              label="Gen. latency"
+              value={
+                publicationCenter?.generation_latency != null
+                  ? `${Number(publicationCenter.generation_latency).toFixed(0)}ms`
+                  : '—'
+              }
+            />
+            <Stat
+              label="Template coverage"
+              value={publicationCenter?.template_coverage ?? '—'}
+              hint={
+                publicationCenter?.types_generated != null
+                  ? `${publicationCenter.types_generated} generated`
+                  : undefined
+              }
+            />
+            <Stat
+              label="Distributed"
+              value={publicationCenter?.distribution_status?.distributed_count ?? '—'}
+            />
+            <Stat label="Failed renders" value={publicationCenter?.failed_renders ?? '—'} />
+            <Stat
+              label="Version integrity"
+              value={
+                publicationCenter?.version_integrity == null
+                  ? '—'
+                  : publicationCenter.version_integrity
+                    ? 'OK'
+                    : 'Gaps'
+              }
+              hint={
+                publicationCenter?.missing_lineage != null
+                  ? `${publicationCenter.missing_lineage} missing lineage`
+                  : undefined
+              }
+            />
+          </div>
+          <Glass>
+            <p className="text-[11px] uppercase text-[var(--io-caption)]">Publication diagnostics</p>
+            <ul className="mt-2 space-y-1 text-xs max-h-36 overflow-auto text-[var(--io-ink-soft)]">
+              {!publicationCenter ? <li>Publication Center soft slice unavailable.</li> : null}
+              {publicationCenter ? (
+                <li>
+                  {publicationCenter.product || 'PUB-01'} · compose only ·{' '}
+                  {(publicationCenter.renderers || []).join(', ') || 'markdown/html/pdf/json'}
+                </li>
+              ) : null}
+              {publicationCenter && (publicationCenter.publications_cached || 0) === 0 ? (
+                <li>Generate a publication to populate the center.</li>
               ) : null}
             </ul>
           </Glass>
