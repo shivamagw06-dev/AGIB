@@ -1,4 +1,4 @@
-"""FSE-02 collection subsystem — production façades."""
+"""FSE-02 / FSE-02.1 collection subsystem — production façades."""
 
 from __future__ import annotations
 
@@ -6,6 +6,9 @@ from typing import Any
 
 from financial_statements_engine.collection.adapters.nse import discover_nse
 from financial_statements_engine.collection.event_bus import get_bus
+from financial_statements_engine.collection.flags import canonical_ingest_enabled, dual_write_hd_enabled
+from financial_statements_engine.collection.ingest import MIGRATION_VERSION
+from financial_statements_engine.collection.ingest_metrics import summarize_ingest_metrics
 from financial_statements_engine.collection.pipeline import collect_from_discovery_rows
 from financial_statements_engine.collection.schema import (
     ISSUES_RECOMMENDATIONS,
@@ -29,7 +32,10 @@ def health() -> dict[str, Any]:
         "workstream_id": WORKSTREAM_ID,
         "subsystem": SUBSYSTEM,
         "version": VERSION,
+        "migration": MIGRATION_VERSION,
         "role": "data_sources_collection_pipeline",
+        "canonical_ingest": canonical_ingest_enabled(),
+        "dual_write_hd": dual_write_hd_enabled(),
         "event_bus": bus,
         "sources": sources_manifest(),
         "success_targets": SUCCESS_TARGETS,
@@ -38,6 +44,7 @@ def health() -> dict[str, Any]:
         "parses_financials": False,
         "writes_warehouse": False,
         "spec": "docs/FSE_02_DATA_SOURCES_COLLECTION_PIPELINE.md",
+        "migration_spec": "docs/FSE_02_1_CANONICAL_INGESTION_MIGRATION.md",
         "as_of": now_iso(),
     }
 
@@ -48,10 +55,41 @@ def dashboard() -> dict[str, Any]:
         "status": "ok",
         "workstream_id": WORKSTREAM_ID,
         "version": VERSION,
+        "migration": MIGRATION_VERSION,
         "event_bus": bus,
         "recent_events": get_bus().tail(20),
+        "ingest": summarize_ingest_metrics(),
         "success_targets": SUCCESS_TARGETS,
         "issues_recommendations": False,
+        "as_of": now_iso(),
+    }
+
+
+def ingest_dashboard() -> dict[str, Any]:
+    """FSE-02.1 Mission Control — canonical ingestion dashboard."""
+    metrics = summarize_ingest_metrics()
+    bus = get_bus().stats()
+    stored_events = int((bus.get("by_type") or {}).get("evidence.stored") or 0)
+    dup_events = int((bus.get("by_type") or {}).get("evidence.duplicate_skipped") or 0)
+    return {
+        "status": "ok",
+        "workstream_id": "FSE-02.1",
+        "migration": MIGRATION_VERSION,
+        "canonical_ingest": canonical_ingest_enabled(),
+        "dual_write_hd": dual_write_hd_enabled(),
+        "collected_today": metrics.get("collected_today"),
+        "duplicate_filings": metrics.get("duplicate_filings"),
+        "failed_downloads": metrics.get("failed_downloads"),
+        "stored_evidence": metrics.get("stored_evidence"),
+        "event_emissions": metrics.get("event_emissions"),
+        "average_ingest_latency_ms": metrics.get("average_ingest_latency_ms"),
+        "source_distribution": metrics.get("source_distribution"),
+        "latest_filing_time": metrics.get("latest_filing_time"),
+        "bus_evidence_stored": stored_events,
+        "bus_duplicate_skipped": dup_events,
+        "recent_events": get_bus().tail(20),
+        "issues_recommendations": False,
+        "spec": "docs/FSE_02_1_CANONICAL_INGESTION_MIGRATION.md",
         "as_of": now_iso(),
     }
 

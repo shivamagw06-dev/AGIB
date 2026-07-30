@@ -20,6 +20,7 @@
 | --- | --- | --- |
 | FSE-01 | Architecture & Principles | What the architecture is |
 | **FSE-02** | **Data Sources & Collection Pipeline** | **How data enters the architecture** |
+| FSE-02.1 | [Canonical Ingestion Migration](FSE_02_1_CANONICAL_INGESTION_MIGRATION.md) | Collectors → FSE-02 ingest() → raw store → `evidence.stored` (HD dual-write) |
 | FSE-03 | [Canonical Financial Data Model & Schema](FSE_03_CANONICAL_FINANCIAL_DATA_MODEL.md) | Authoritative financial representation |
 | FSE-04 | [Parsing & Normalization Engine](FSE_04_PARSING_NORMALIZATION_ENGINE.md) | Raw evidence → canonical statement drafts |
 | FSE-04.1 | [Parse Manifest, Replay & Certification](FSE_04_1_PARSE_MANIFEST_REPLAY_CERTIFICATION.md) | Parser audit / replay / certification |

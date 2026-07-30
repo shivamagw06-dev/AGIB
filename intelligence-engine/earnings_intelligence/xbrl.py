@@ -306,6 +306,47 @@ def parse_financial_xbrl(raw: bytes | str) -> dict[str, Any]:
     }
 
 
+def _fse_ingest_xbrl_bytes(
+    filing: dict[str, Any],
+    raw: bytes,
+    *,
+    source_url: str | None,
+) -> dict[str, Any] | None:
+    """FSE-02.1 adapter: submit XBRL bytes through canonical ingest (no parse call)."""
+    try:
+        from financial_statements_engine.collection.flags import canonical_ingest_enabled
+        from financial_statements_engine.collection.ingest import ingest
+    except Exception:  # pragma: no cover
+        return None
+    if not canonical_ingest_enabled():
+        return None
+    ticker = str(filing.get("ticker") or filing.get("symbol") or filing.get("entity") or "").upper().strip()
+    if not ticker:
+        return None
+    period_end = filing.get("period_end") or filing.get("end_date") or filing.get("to_date")
+    freq = str(filing.get("frequency") or filing.get("period_type") or "").lower()
+    if "annual" in freq or freq in {"yearly", "year"}:
+        period_type = "annual"
+    elif "quarter" in freq or freq in {"q", "qtr"}:
+        period_type = "quarterly"
+    else:
+        period_type = filing.get("period_type") or "quarterly"
+    try:
+        return ingest(
+            ticker=ticker,
+            content=raw,
+            source=str(filing.get("source") or "nse_financial_xbrl"),
+            source_url=source_url,
+            document_type="xbrl",
+            period_type=str(period_type),
+            period_end=str(period_end)[:10] if period_end else None,
+            filing_type=str(period_type),
+            collector="earnings_intelligence",
+        )
+    except Exception as exc:  # noqa: BLE001
+        return {"ok": False, "action": "failed", "error": str(exc)[:160]}
+
+
 def enrich_filing_with_xbrl(
     filing: dict[str, Any],
     *,
@@ -314,21 +355,37 @@ def enrich_filing_with_xbrl(
 ) -> dict[str, Any]:
     out = dict(filing)
     url = filing.get("xbrl_url")
+    raw_bytes: bytes | None = None
     try:
         if injected_xbrl is not None:
+            raw_bytes = injected_xbrl if isinstance(injected_xbrl, (bytes, bytearray)) else str(injected_xbrl).encode("utf-8")
             detail = parse_financial_xbrl(injected_xbrl)
             out["xbrl_mode"] = "injected"
+            out["xbrl_bytes"] = len(raw_bytes)
         elif url:
-            raw = download_xbrl(str(url), opener=opener)
-            detail = parse_financial_xbrl(raw)
+            raw_bytes = download_xbrl(str(url), opener=opener)
+            detail = parse_financial_xbrl(raw_bytes)
             out["xbrl_mode"] = "live"
-            out["xbrl_bytes"] = len(raw)
+            out["xbrl_bytes"] = len(raw_bytes)
         else:
             out["xbrl_error"] = "xbrl_url_missing"
             return out
     except Exception as exc:  # noqa: BLE001
         out["xbrl_error"] = f"{type(exc).__name__}:{str(exc)[:160]}"
         return out
+
+    if raw_bytes is not None:
+        fse = _fse_ingest_xbrl_bytes(out, bytes(raw_bytes), source_url=str(url) if url else None)
+        if fse is not None:
+            out["fse_ingest"] = {
+                "ok": fse.get("ok"),
+                "action": fse.get("action"),
+                "evidence_id": fse.get("evidence_id"),
+                "event_emitted": fse.get("event_emitted"),
+                "content_sha256": fse.get("content_sha256"),
+            }
+            if fse.get("action") in {"stored", "restatement_candidate", "duplicate_skipped"}:
+                out["fse_xbrl_ingested"] = True
 
     out["statements"] = {
         "income_statement": detail.get("income_statement"),
