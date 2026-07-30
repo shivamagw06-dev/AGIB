@@ -167,6 +167,49 @@ def analyse_company(
         "answer_policy": "institutional_company_analysis_before_isolated_concepts",
     }
 
+    # Soft-wire Institutional Stack (FIL→FDI→MII→EIL→PIL) — additive only
+    try:
+        from institutional_stack.production import soft_slice_for_company_analysis
+
+        stack = soft_slice_for_company_analysis(t)
+        if stack:
+            report["institutional_stack"] = stack.get("institutional_stack") or stack
+            summary = (report["institutional_stack"] or {}).get("summary") or {}
+            if summary.get("management_dna") or summary.get("management_confidence") is not None:
+                report["management_trust"] = {
+                    "confidence": summary.get("management_confidence"),
+                    "dna": summary.get("management_dna"),
+                    "source": "management_intelligence",
+                }
+            if (
+                summary.get("accounting_behaviour")
+                or summary.get("accounting_quality_score") is not None
+            ):
+                report["accounting_trust"] = {
+                    "confidence": summary.get("accounting_confidence"),
+                    "behaviour": summary.get("accounting_behaviour"),
+                    "quality_score": summary.get("accounting_quality_score"),
+                    "manipulation_risk": summary.get("manipulation_risk"),
+                    "source": "accounting_intelligence",
+                }
+            # Enrich peer_comparison when PIL present
+            pil = ((report["institutional_stack"] or {}).get("layers") or {}).get("peer_intelligence") or {}
+            if pil.get("enabled"):
+                report["peer_comparison"] = {
+                    **(report.get("peer_comparison") or {}),
+                    "peer_intelligence": pil,
+                }
+            # Enrich what_changed when FDI present
+            fdi = ((report["institutional_stack"] or {}).get("layers") or {}).get("filing_diff") or {}
+            if fdi.get("enabled"):
+                changed_block = report.get("what_changed")
+                if isinstance(changed_block, dict):
+                    changed_block["filing_diff"] = fdi
+                elif changed_block is None:
+                    report["what_changed"] = {"filing_diff": fdi}
+    except Exception:
+        pass
+
     if record and t:
         ca_store.put_report(t, report)
     return report

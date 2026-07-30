@@ -62,15 +62,33 @@ def ingest_personal_library(
             continue
 
         if ext in SHEET_EXTS or ext == ".csv":
-            row = ingest_spreadsheet(filename=path.name, content_bytes=raw, title=title, store=store)
+            try:
+                row = ingest_spreadsheet(filename=path.name, content_bytes=raw, title=title, store=store)
+            except Exception as exc:
+                row = {
+                    "ok": False,
+                    "title": title,
+                    "filename": path.name,
+                    "reason": f"spreadsheet_ingest_failed:{exc}",
+                    "extraction_quality": "empty",
+                }
         elif ext in BOOK_EXTS:
-            row = ingest_book(
-                title=title,
-                content_bytes=raw,
-                filename=path.name,
-                store=store,
-            )
-            row = _normalize_book_report(row, title=title, filename=path.name, store=store)
+            try:
+                row = ingest_book(
+                    title=title,
+                    content_bytes=raw,
+                    filename=path.name,
+                    store=store,
+                )
+                row = _normalize_book_report(row, title=title, filename=path.name, store=store)
+            except Exception as exc:
+                row = {
+                    "ok": False,
+                    "title": title,
+                    "filename": path.name,
+                    "reason": f"book_ingest_failed:{exc}",
+                    "extraction_quality": "empty",
+                }
         else:
             row = {"ok": False, "title": title, "filename": path.name, "reason": "unsupported"}
 
@@ -113,6 +131,21 @@ def ingest_personal_library(
             "searchable_pdf_index": False,
         },
     }
+    try:
+        from academy.books.persist import save_learned
+
+        summary["persisted"] = save_learned(store)
+    except Exception as exc:
+        summary["persisted"] = {"ok": False, "error": str(exc)[:160]}
+    # Soft V3 refresh so institutional objects can consume new academies.
+    try:
+        from academy.books.flags import flag_books_v3
+        from academy.books.v3.production import bootstrap as v3_bootstrap
+
+        if flag_books_v3():
+            summary["books_v3"] = v3_bootstrap()
+    except Exception as exc:
+        summary["books_v3"] = {"enabled": False, "error": str(exc)[:160]}
     store.add_ingestion_report(summary)
     return summary
 

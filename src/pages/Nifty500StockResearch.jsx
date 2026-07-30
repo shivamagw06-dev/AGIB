@@ -4,6 +4,7 @@ import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, BrainCircuit, CalendarClock, ShieldAlert } from 'lucide-react';
 import { getNifty500StockResearch } from '@/lib/nifty500ResearchApi';
 import { getUiCompany } from '@/lib/uiApi';
+import { getInstitutionalStackCompany } from '@/lib/intelligenceApi';
 import CompanyIntelligencePanels from '@/components/Company/CompanyIntelligencePanels';
 
 function tone(sentiment = '') {
@@ -44,9 +45,101 @@ export default function Nifty500StockResearch() {
     getNifty500StockResearch(symbol)
       .then((data) => active && setState({ loading: false, data, error: null }))
       .catch((error) => active && setState({ loading: false, data: null, error }));
-    getUiCompany(symbol)
-      .then((data) => active && setCompanyIntel(data))
-      .catch(() => active && setCompanyIntel(null));
+    Promise.allSettled([
+      getUiCompany(symbol),
+      getInstitutionalStackCompany(symbol).catch(() => null),
+    ]).then(([uiRes, stackRes]) => {
+      if (!active) return;
+      const ui = uiRes.status === 'fulfilled' ? uiRes.value : null;
+      const stack = stackRes.status === 'fulfilled' ? stackRes.value : null;
+      if (!ui && !stack) {
+        setCompanyIntel(null);
+        return;
+      }
+      setCompanyIntel({
+        ...(ui || { ticker: String(symbol || '').toUpperCase() }),
+        institutional_stack: stack || undefined,
+        management_trust: stack?.summary
+          ? {
+              dna: stack.summary.management_dna,
+              confidence: stack.summary.management_confidence,
+              source: 'management_intelligence',
+            }
+          : undefined,
+        accounting_trust: stack?.summary
+          ? {
+              behaviour: stack.summary.accounting_behaviour,
+              confidence: stack.summary.accounting_confidence,
+              quality_score: stack.summary.accounting_quality_score,
+              manipulation_risk: stack.summary.manipulation_risk,
+              source: 'accounting_intelligence',
+            }
+          : undefined,
+        portfolio_fit: stack?.summary
+          ? {
+              net_effect: stack.summary.portfolio_net_effect,
+              portfolio_quality: stack.summary.portfolio_quality,
+              grade: stack.summary.portfolio_grade,
+              fit: stack.summary.portfolio_fit,
+              portfolio_id: stack.summary.portfolio_id,
+              source: 'portfolio_intelligence',
+            }
+          : undefined,
+        causal_why: stack?.summary
+          ? {
+              summary: stack.summary.causal_why,
+              upstream: stack.summary.causal_upstream,
+              confidence: stack.summary.causal_confidence,
+              source: 'causal_intelligence',
+            }
+          : undefined,
+        forecast_path: stack?.summary
+          ? {
+              most_likely: stack.summary.forecast_most_likely,
+              confidence: stack.summary.forecast_confidence,
+              distribution: stack.summary.forecast_distribution,
+              summary: stack.summary.forecast_summary,
+              source: 'forecast_intelligence',
+            }
+          : undefined,
+        knowledge_links: stack?.summary
+          ? {
+              count: stack.summary.knowledge_relationship_count,
+              confidence: stack.summary.knowledge_confidence,
+              canonical_id: stack.summary.knowledge_canonical_id,
+              summary: stack.summary.knowledge_summary,
+              source: 'knowledge_graph',
+            }
+          : undefined,
+        institutional_learning: stack?.summary
+          ? {
+              lesson_count: stack.summary.memory_lesson_count,
+              mistake_count: stack.summary.memory_mistake_count,
+              thinking_improved: stack.summary.memory_thinking_improved,
+              summary: stack.summary.memory_summary,
+              source: 'institutional_memory',
+            }
+          : undefined,
+        simulation_lab: stack?.summary
+          ? {
+              scenario_id: stack.summary.simulation_scenario_id,
+              expected_return: stack.summary.simulation_expected_return,
+              confidence: stack.summary.simulation_confidence,
+              summary: stack.summary.simulation_summary,
+              source: 'simulation_lab',
+            }
+          : undefined,
+        decision_engine_v2: stack?.summary
+          ? {
+              recommendation_status: stack.summary.decision_status,
+              confidence: stack.summary.decision_confidence,
+              audit_id: stack.summary.decision_audit_id,
+              summary: stack.summary.decision_summary,
+              source: 'decision_engine_v2',
+            }
+          : undefined,
+      });
+    });
     return () => {
       active = false;
     };

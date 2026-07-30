@@ -23,7 +23,15 @@ def health() -> dict[str, Any]:
         "never_modifies_research": True,
         "flags": flags_dict(),
         "enabled": is_enabled(),
+        "agent_map": "GET /v1/mission-control/agent-map",
     }
+
+
+def agent_map() -> dict[str, Any]:
+    """Read-only inventory of AGIB agents + working/soft/off status."""
+    from mission_control.agent_map import build_agent_map
+
+    return build_agent_map()
 
 
 def dashboard(*, ioc_service: Any | None = None, force: bool = False) -> dict[str, Any]:
@@ -31,11 +39,14 @@ def dashboard(*, ioc_service: Any | None = None, force: bool = False) -> dict[st
         cached = mc_store.get_dashboard()
         if cached:
             return cached
+        # Prefer a stale desk over a multi-minute cold rebuild under Render sleep.
+        stale = mc_store.get_dashboard(allow_stale=True)
+        if stale:
+            return stale
     desk = build_mission_control(ioc_service=ioc_service)
     if desk.get("enabled"):
         mc_store.put_dashboard(desk)
     return desk
-
 
 def acknowledge_alert(alert_id: str, *, actor: str | None = None) -> dict[str, Any]:
     """Acknowledge only — never mutates research / house views."""

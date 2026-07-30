@@ -197,33 +197,36 @@ export default function InvestmentOfficeHome() {
 
   useEffect(() => {
     let alive = true;
+    let cycleTimer = null;
     trackProductEvent('session_start', { surface: 'investment_office_home' });
 
     // Progressive: priority desks already painted from cache/fallback; upgrade live.
     const controller = new AbortController();
     const timer = window.setTimeout(() => controller.abort(), 12_000);
 
-    getUiHome()
-      .then((data) => {
-        if (!alive || !data) return;
-        writeHomeCache(data);
-        const source = data?.meta?.source || (data?.meta?.fallback_used ? 'market_api' : 'live');
-        setState({ loading: false, data, error: null, source });
-        if (data?.investment_office?.enabled) setIoDesk(data.investment_office);
-      })
-      .catch((error) => {
-        if (!alive) return;
-        // Keep cache/desk data — never wipe widgets blank.
-        setState((prev) => ({
-          loading: false,
-          data: prev.data || initial.data,
-          error,
-          source: prev.source || initial.source,
-        }));
-      })
-      .finally(() => {
-        window.clearTimeout(timer);
-      });
+    const loadHome = () =>
+      getUiHome()
+        .then((data) => {
+          if (!alive || !data) return;
+          writeHomeCache(data);
+          const source = data?.meta?.source || (data?.meta?.fallback_used ? 'market_api' : 'live');
+          setState({ loading: false, data, error: null, source });
+          if (data?.investment_office?.enabled) setIoDesk(data.investment_office);
+        })
+        .catch((error) => {
+          if (!alive) return;
+          // Keep cache/desk data — never wipe widgets blank.
+          setState((prev) => ({
+            loading: false,
+            data: prev.data || initial.data,
+            error,
+            source: prev.source || initial.source,
+          }));
+        });
+
+    loadHome().finally(() => {
+      window.clearTimeout(timer);
+    });
 
     getInvestmentOfficeDashboard()
       .then((desk) => {
@@ -231,9 +234,26 @@ export default function InvestmentOfficeHome() {
       })
       .catch(() => {});
 
+    // Refresh homepage market snapshot on the shared 30-min wall-clock cycle.
+    const scheduleHomeCycle = async () => {
+      try {
+        const { msUntilNextMarketCycle } = await import('@/lib/marketCache');
+        const wait = Math.max(250, msUntilNextMarketCycle());
+        cycleTimer = window.setTimeout(async () => {
+          if (!alive) return;
+          await loadHome();
+          if (alive) scheduleHomeCycle();
+        }, wait);
+      } catch {
+        /* soft */
+      }
+    };
+    scheduleHomeCycle();
+
     return () => {
       alive = false;
       window.clearTimeout(timer);
+      if (cycleTimer) window.clearTimeout(cycleTimer);
       controller.abort();
     };
   }, [initial.data, initial.source]);

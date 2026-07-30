@@ -410,7 +410,7 @@ def quality_gates(tickers: List[str] | None = None) -> Dict[str, Any]:
                     "must_have_missing": ["peer_valuation"],
                 },
                 gaps,
-            ).startswith("Recommendation withheld")
+            ).startswith("Institutional recommendation status")
         ),
         "flag_readable": is_ecp_enabled() in (True, False),
         "store_roundtrip": _store_ok(),

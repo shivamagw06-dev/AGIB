@@ -88,7 +88,13 @@ def package_for_ask_agi(
         return report
 
     hints = []
-    for c in ((report.get("academy_application") or {}).get("applied_concepts") or [])[:4]:
+    fin_n = ((report.get("financial_intelligence") or {}).get("narrative") or "").strip()
+    if fin_n:
+        hints.append(fin_n[:280])
+    val_n = ((report.get("valuation_intelligence") or {}).get("narrative") or "").strip()
+    if val_n:
+        hints.append(val_n[:280])
+    for c in ((report.get("academy_application") or {}).get("applied_concepts") or [])[:3]:
         if c.get("application"):
             hints.append(str(c["application"])[:240])
     if report.get("investment_thesis"):
@@ -98,7 +104,7 @@ def package_for_ask_agi(
 
     return {
         **report,
-        "ask_agi_hints": hints[:8],
+        "ask_agi_hints": hints[:10],
         "answer_policy": "institutional_company_analysis_before_isolated_concepts",
     }
 

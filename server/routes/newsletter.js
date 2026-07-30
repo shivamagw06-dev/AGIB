@@ -40,17 +40,14 @@ function excerptFromHtml(html = '', maxChars = 280) {
 }
 
 async function getSupabaseAdmin() {
-  const supabaseUrl = (process.env.SUPABASE_URL || '').trim();
-  const serviceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
-  if (!supabaseUrl || !serviceKey) {
+  const { createSupabaseAdmin } = await import('../lib/supabaseAdmin.js');
+  const admin = createSupabaseAdmin();
+  if (!admin) {
     const err = new Error('Supabase admin credentials unavailable.');
     err.code = 'SUPABASE_ADMIN_MISSING';
     throw err;
   }
-  const { createClient } = await import('@supabase/supabase-js');
-  return createClient(supabaseUrl, serviceKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
+  return admin;
 }
 
 async function sendWithResend(payload) {

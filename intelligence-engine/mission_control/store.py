@@ -14,7 +14,9 @@ _DASH_AT: float = 0.0
 _ACK: set[str] = set()
 
 # Short TTL keeps the cockpit snappy under parallel health/dashboard/gates calls.
-_DASH_TTL_SEC = 20.0
+# Stale window lets cold Render boots serve the last good desk instead of hanging.
+_DASH_TTL_SEC = 120.0
+_DASH_STALE_SEC = 900.0
 
 
 def put_dashboard(row: dict[str, Any]) -> dict[str, Any]:
@@ -25,15 +27,21 @@ def put_dashboard(row: dict[str, Any]) -> dict[str, Any]:
     return row
 
 
-def get_dashboard(*, max_age_sec: float | None = None) -> dict[str, Any] | None:
+def get_dashboard(*, max_age_sec: float | None = None, allow_stale: bool = False) -> dict[str, Any] | None:
     ttl = _DASH_TTL_SEC if max_age_sec is None else max_age_sec
     with _LOCK:
         if not _DASH:
             return None
-        if ttl >= 0 and (monotonic() - _DASH_AT) > ttl:
+        age = monotonic() - _DASH_AT
+        if ttl >= 0 and age > ttl:
+            if allow_stale and age <= _DASH_STALE_SEC:
+                out = deepcopy(_DASH)
+                out["_cache"] = {"stale": True, "age_sec": round(age, 1)}
+                return out
             return None
-        return deepcopy(_DASH)
-
+        out = deepcopy(_DASH)
+        out["_cache"] = {"stale": False, "age_sec": round(age, 1)}
+        return out
 
 def acknowledge(alert_id: str, *, actor: str | None = None) -> dict[str, Any]:
     aid = str(alert_id or "").strip()

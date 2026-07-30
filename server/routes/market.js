@@ -5,6 +5,7 @@
 
 import { Router } from 'express';
 import { getAgiIntelligence, getDashboardFromIntelligence } from '../services/intelligenceService.js';
+import { getTickerData } from '../services/marketDataService.js';
 import { MARKET_REFRESH_MS } from '../config/marketRefresh.js';
 import { getGrowwHealth } from '../services/growwHealth.js';
 import { getMarketBriefing, startMarketBriefingScheduler } from '../services/marketBriefingService.js';
@@ -33,6 +34,8 @@ export default function createMarketRouter(env = {}) {
   });
 
   router.get('/intelligence', async (_req, res) => {
+    // Warm Groww/NSE ticker in the same 30-min cycle as AGI outlook.
+    void getTickerData(env).catch(() => null);
     const data = await getAgiIntelligence(env);
     return sendJson(res, data);
   });

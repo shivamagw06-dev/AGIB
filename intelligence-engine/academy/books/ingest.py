@@ -20,24 +20,49 @@ from academy.books.seed import (
 from academy.books.store import BooksStore, get_books_store
 from academy.books.text_extract import extract_text
 
+# Load the durable learned snapshot at most once per process.
+# Reloading the multi-MB library on every ensure_seeded() call stalls Mission Control / Ask AGI.
+_LEARNED_LOADED = False
+
 
 def ensure_seeded(store: BooksStore | None = None) -> dict[str, Any]:
+    global _LEARNED_LOADED
     store = store or get_books_store()
-    if store.books:
-        return {"seeded": False, **store.snapshot()}
-    for b in seed_books():
-        store.upsert_book(b)
-    for ch in seed_chapters():
-        store.upsert_chapter(ch)
-    for c in all_seed_concepts():
-        store.upsert_concept(c)
-    for f in seed_formulas():
-        store.upsert_formula(f)
-    for fw in seed_frameworks():
-        store.upsert_framework(fw)
-    rebuild_graph(store)
-    return {"seeded": True, **store.snapshot()}
+    seeded = False
+    if not store.books:
+        for b in seed_books():
+            store.upsert_book(b)
+        for ch in seed_chapters():
+            store.upsert_chapter(ch)
+        for c in all_seed_concepts():
+            store.upsert_concept(c)
+        for f in seed_formulas():
+            store.upsert_formula(f)
+        for fw in seed_frameworks():
+            store.upsert_framework(fw)
+        rebuild_graph(store)
+        seeded = True
+    learned = {"ok": False, "skipped": True, "loaded": 0}
+    if not _LEARNED_LOADED:
+        try:
+            from academy.books.persist import load_learned
 
+            # Load durable PDF-learned objects after seed (idempotent upserts).
+            learned = load_learned(store)
+            if learned.get("ok") and int(learned.get("loaded") or 0) > 0:
+                rebuild_graph(store)
+            _LEARNED_LOADED = True
+        except Exception as exc:
+            learned = {"ok": False, "error": str(exc)[:160], "loaded": 0}
+            # Still mark loaded to avoid hammering a broken snapshot on every request.
+            _LEARNED_LOADED = True
+    return {"seeded": seeded, "learned": learned, **store.snapshot()}
+
+
+def reset_learned_load_flag() -> None:
+    """Test helper — allow reloading the learned snapshot after store reset."""
+    global _LEARNED_LOADED
+    _LEARNED_LOADED = False
 
 def ingest_book(
     *,
@@ -83,6 +108,8 @@ def ingest_book(
     resolved_authors = list(authors or [])
     if not resolved_authors and pdf_meta.get("author"):
         resolved_authors = [a.strip() for a in str(pdf_meta["author"]).split(",") if a.strip()][:6]
+    if not resolved_authors:
+        resolved_authors = _guess_authors(resolved_title, filename)
 
     book_id = _book_id(resolved_title, filename)
     meta = BookMeta(
@@ -108,9 +135,10 @@ def ingest_book(
     academies: set[str] = set()
     concept_n = formula_n = framework_n = 0
 
-    # Extract per chapter using chapter summary + local window from headings
+    # Extract per chapter using title + summary + a local body window from the book text.
     for ch in chapters:
-        working = f"{ch.title}. {ch.summary or ''}"
+        window = _chapter_window(text, ch.title, size=9000)
+        working = f"{ch.title}. {ch.summary or ''}\n{window}".strip()
         pack = extract_from_text(book_id=book_id, text=working, chapter_title=ch.title)
         for c in pack["concepts"]:
             store.upsert_concept(c)
@@ -128,10 +156,17 @@ def ingest_book(
     # Multi-slice whole-book pass (front / middle / end) for formulas & frameworks
     n = len(text)
     slices = [
-        ("front_matter", text[:12000]),
-        ("mid_matter", text[max(0, n // 2 - 6000) : n // 2 + 6000]),
-        ("end_matter", text[max(0, n - 12000) :]),
+        ("front_matter", text[:20000]),
+        ("mid_matter", text[max(0, n // 2 - 10000) : n // 2 + 10000]),
+        ("end_matter", text[max(0, n - 20000) :]),
     ]
+    # Extra evenly spaced slices for long textbooks
+    if n > 60000:
+        step = max(15000, n // 8)
+        for i, start in enumerate(range(15000, max(15000, n - 15000), step)):
+            slices.append((f"slice_{i}", text[start : start + 14000]))
+            if len(slices) >= 14:
+                break
     for label, chunk in slices:
         pack = extract_from_text(book_id=book_id, text=chunk, chapter_title=label)
         for f in pack["formulas"]:
@@ -142,7 +177,7 @@ def ingest_book(
             store.upsert_framework(fw)
             academies.add(fw.academy)
             framework_n += 1
-        for c in pack["concepts"][:8]:
+        for c in pack["concepts"][:12]:
             store.upsert_concept(c)
             academies.add(c.academy)
             concept_n += 1
@@ -173,6 +208,30 @@ def ingest_book(
     }
 
 
+def _chapter_window(text: str, title: str, *, size: int = 9000) -> str:
+    """Return a local body window around a chapter heading for extraction."""
+    blob = text or ""
+    if not blob or not title:
+        return ""
+    # Try exact title, then shortened "Chapter N: ..." / bare heading tail.
+    candidates = [title]
+    if ":" in title:
+        candidates.append(title.split(":", 1)[-1].strip())
+    if title.lower().startswith("chapter "):
+        candidates.append(re.sub(r"(?i)^chapter\s+\d+[:.\s]*", "", title).strip())
+    idx = -1
+    for cand in candidates:
+        if not cand or len(cand) < 4:
+            continue
+        idx = blob.lower().find(cand.lower())
+        if idx >= 0:
+            break
+    if idx < 0:
+        return ""
+    start = max(0, idx)
+    return blob[start : start + size]
+
+
 def _book_id(title: str, filename: str) -> str:
     base = title or (Path(filename).stem.replace("_", " ") if filename else "") or "book"
     slug = re.sub(r"[^a-z0-9]+", "_", base.lower()).strip("_")[:48]
@@ -187,6 +246,15 @@ def _guess_topics(text: str) -> list[str]:
     ]
     blob = (text or "").lower()
     return [k for k in keys if k in blob][:10]
+
+
+def _guess_authors(title: str, filename: str) -> list[str]:
+    blob = f"{title} {filename}".lower()
+    if "damodaran" in blob:
+        return ["Aswath Damodaran"]
+    if "mankiw" in blob:
+        return ["N. Gregory Mankiw"]
+    return []
 
 
 def _guess_subject(text: str, title: str) -> str:

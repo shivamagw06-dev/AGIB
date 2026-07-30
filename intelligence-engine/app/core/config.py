@@ -19,7 +19,10 @@ class Settings(BaseSettings):
     agib_api_base_url: str = "http://127.0.0.1:3001"
     agib_service_token: str = ""
 
-    # Optional OpenAI for Phase 2 CIO synthesis (stub works without it)
+    # Optional LLMs for Phase 2 CIO synthesis (stub works without them)
+    # Prefer Gemini when set; OpenAI remains a soft fallback.
+    gemini_api_key: str = ""
+    gemini_model: str = "gemini-flash-latest"
     openai_api_key: str = ""
     openai_model: str = "gpt-4.1-mini"
 
@@ -253,6 +256,32 @@ class Settings(BaseSettings):
     mee_impact: bool = True
     mee_similar: bool = True
 
+    # Finance Retrieval Engine v1 (intelligence acquisition; evidence only; no core redesign)
+    fre: bool = True
+    fre_query_planner: bool = True
+    fre_acquisition: bool = True
+    fre_hybrid_search: bool = True
+    fre_rerank: bool = True
+    fre_evidence: bool = True
+    fre_graph: bool = True
+    fre_scheduler: bool = True
+    fre_soft_publish_kip: bool = True
+    fre_ask_agi: bool = True
+
+    # Finance Acquisition Agent v1 (upstream live acquisition; feeds FRE; no core redesign)
+    faa: bool = True
+    faa_discovery: bool = True
+    faa_fetch: bool = True
+    faa_processing: bool = True
+    faa_index: bool = True
+    faa_live_fetch: bool = False
+    faa_search_api: bool = True
+    faa_playwright: bool = True  # headless Chromium for JS pages + free web search (soft-fail if missing)
+    faa_pdf: bool = True
+    faa_notify_fre: bool = True
+    faa_scheduler: bool = True
+    faa_max_workers: int = 6
+
     # Context Assembly Engine v1 (Ask AGI orchestration gateway; no core redesign)
     cae: bool = True
     cae_cache: bool = True
@@ -288,6 +317,127 @@ class Settings(BaseSettings):
     academy_exams: bool = True
     academy_production: bool = True  # FAPI — production integration into locked engines
     academy_books: bool = True  # ACADEMY_BOOKS — curated book → structured knowledge
+    academy_books_v3: bool = True  # ACADEMY_BOOKS_V3 — institutional knowledge transformation
+    academy_validation_suite: bool = True  # AVS — demonstrate institutional knowledge (not ingest checks)
+    academy_certification_suite: bool = True  # ACS — institutional intelligence certification / merge gate
+    institutional_regression_suite: bool = True  # IRS — did this PR make AGIB smarter?
+    evidence_intelligence_layer: bool = True  # EIL — sources / peers / history / explainable confidence
+    peer_intelligence: bool = True  # PIL — how does this company compare to best/relevant peers?
+    pil_peers: bool = True
+    pil_history: bool = True
+    pil_percentiles: bool = True
+    pil_rankings: bool = True
+    pil_benchmarks: bool = True
+    pil_commentary: bool = True
+    pil_scorecards: bool = True
+    filing_intelligence: bool = True  # FIL — what do the company's own filings actually say?
+    fil_statements: bool = True
+    fil_notes: bool = True
+    fil_segments: bool = True
+    fil_guidance: bool = True
+    fil_risks: bool = True
+    fil_management: bool = True
+    fil_history: bool = True
+    fil_evidence: bool = True
+    filing_diff_engine: bool = True  # FDI — what materially changed since the previous filing?
+    fdi_statements: bool = True
+    fdi_guidance: bool = True
+    fdi_risks: bool = True
+    fdi_management: bool = True
+    fdi_segments: bool = True
+    fdi_accounting: bool = True
+    fdi_capital: bool = True
+    fdi_governance: bool = True
+    fdi_ownership: bool = True
+    management_intelligence: bool = True  # MII — can management be trusted to compound value?
+    mii_credibility: bool = True
+    mii_guidance: bool = True
+    mii_execution: bool = True
+    mii_capital_allocation: bool = True
+    mii_governance: bool = True
+    mii_communication: bool = True
+    mii_incentives: bool = True
+    mii_succession: bool = True
+    institutional_stack: bool = True  # IIS — soft FIL→FDI→MII→EIL→PIL integration
+    institutional_stack_auto_chain: bool = True
+    institutional_stack_ask_agi: bool = True
+    institutional_stack_admin: bool = True
+    accounting_intelligence: bool = True  # ACI — can the financial statements be trusted?
+    aci_earnings: bool = True
+    aci_cash: bool = True
+    aci_accruals: bool = True
+    aci_forensics: bool = True
+    aci_revenue: bool = True
+    aci_working_capital: bool = True
+    aci_balance_sheet: bool = True
+    aci_policies: bool = True
+    aci_behaviour: bool = True
+    portfolio_intelligence: bool = True  # PIO — does this improve this specific portfolio?
+    pio_allocation: bool = True
+    pio_risk: bool = True
+    pio_diversification: bool = True
+    pio_factors: bool = True
+    pio_scenarios: bool = True
+    pio_optimisation: bool = True
+    pio_position_sizing: bool = True
+    pio_overlap: bool = True
+    pio_quality: bool = True
+    causal_intelligence: bool = True  # CIG — why did this happen?
+    cig_transmission: bool = True
+    cig_propagation: bool = True
+    cig_counterfactual: bool = True
+    cig_sector_models: bool = True
+    cig_portfolio_impact: bool = True
+    cig_historical: bool = True
+    cig_confidence: bool = True
+    forecast_intelligence: bool = True  # FIE — what future paths are plausible?
+    fie_scenarios: bool = True
+    fie_catalysts: bool = True
+    fie_triggers: bool = True
+    fie_sensitivity: bool = True
+    fie_expectations: bool = True
+    fie_consensus: bool = True
+    fie_uncertainty: bool = True
+    fie_probability: bool = True
+    knowledge_graph: bool = True  # IKG — what is connected?
+    ikg_entity_resolution: bool = True
+    ikg_supply_chain: bool = True
+    ikg_ownership: bool = True
+    ikg_macro: bool = True
+    ikg_events: bool = True
+    ikg_thesis: bool = True
+    ikg_query: bool = True
+    ikg_dependency: bool = True
+    institutional_memory: bool = True  # ILM — what has AGIB learned over time?
+    ilm_thesis: bool = True
+    ilm_analyst: bool = True
+    ilm_committee: bool = True
+    ilm_forecast: bool = True
+    ilm_portfolio: bool = True
+    ilm_learning: bool = True
+    ilm_accuracy: bool = True
+    ilm_mistake_intelligence: bool = True
+    simulation_lab: bool = True  # SSL — what happens if this decision is taken?
+    ssl_scenario: bool = True
+    ssl_portfolio: bool = True
+    ssl_macro: bool = True
+    ssl_stress: bool = True
+    ssl_strategy: bool = True
+    ssl_decision: bool = True
+    ssl_sensitivity: bool = True
+    ssl_monte_carlo: bool = True
+    ssl_replay: bool = True
+    decision_engine_v2: bool = True  # IDE V2 — final constitutional orchestrator (architecture frozen)
+    idev2_orchestrator: bool = True
+    idev2_constitution: bool = True
+    idev2_weighting: bool = True
+    idev2_conflicts: bool = True
+    idev2_uncertainty: bool = True
+    idev2_confidence: bool = True
+    idev2_recommendation_gate: bool = True
+    idev2_monitoring: bool = True
+    idev2_audit: bool = True
+    idev2_learning_hooks: bool = True
     academy_frameworks: bool = True  # ACADEMY_FRAMEWORKS
     academy_formulas: bool = True  # ACADEMY_FORMULAS
     academy_graph: bool = True  # ACADEMY_GRAPH
@@ -307,6 +457,47 @@ class Settings(BaseSettings):
     ecp: bool = True
     ecp_before_irp: bool = True
     ecp_before_gate: bool = True
+
+    # Ask AGI Intelligence Construction V2 + Answer Construction V3 (soft orchestration; not engines)
+    intelligence_construction: bool = True
+    ask_agi_intelligence_v2: bool = True
+    answer_construction_v3: bool = True
+    ask_agi_answer_construction_v3: bool = True
+
+    # Editorial Intelligence Layer — Gemini is the writer only; AGIB remains the brain.
+    editorial_layer: bool = True
+    ask_agi_editorial_layer: bool = True
+    editorial_provider: str = "gemini"  # gemini | openai | claude | mistral | deepseek (writer swap)
+    # Contradiction Reasoning Soft Layer — step-by-step conflict answers (not a top-level engine)
+    contradiction_reasoning: bool = True
+    ask_agi_contradiction_reasoning: bool = True
+    # Institutional Reasoning Soft Policy — how to think before answering
+    institutional_reasoning: bool = True
+    ask_agi_institutional_reasoning: bool = True
+
+    # Institutional Analyst Framework V1 — Answer Construction ownership (not engines)
+    institutional_analysts: bool = True
+    ask_agi_iaf: bool = True
+
+    # Institutional Analyst Intelligence V1/V2 — per-analyst brain upgrade (soft; one analyst at a time)
+    institutional_analyst_intelligence: bool = True
+    iai_business_analyst: bool = True
+    iai_business_analyst_v2: bool = True
+    iai_business_analyst_v2_1: bool = True
+    iai_financial_analyst: bool = True
+    iai_valuation_analyst: bool = True
+
+    # Investment Committee Intelligence V1 — deliberation / vote / minutes (not an engine)
+    investment_committee_intelligence: bool = True
+    ask_agi_ici: bool = True
+
+    # Institutional Research Writer V1 — presentation/writing layer after CIO (not an engine)
+    institutional_research_writer: bool = True
+    ask_agi_irw: bool = True
+
+    # AGIB Investment Decision Engine — multi-layer investment decisions (soft-wire; not an engine redesign)
+    decision_engine: bool = True
+    ask_agi_decision_engine: bool = True
 
     # Company Analysis Engine V1 — institutional company-specific reasoning (not Context Assembly)
     # Master flag COMPANY_ANALYSIS (cae remains Context Assembly). Subflags match programme brief.
@@ -342,6 +533,19 @@ class Settings(BaseSettings):
     mission_control_alerts: bool = True
     mission_control_events: bool = True
     mission_control_reports: bool = True
+
+    # AGIB Intelligence Layer V2 — living institutional research (soft-wire; not FAA/FRE/CAE redesign)
+    ail: bool = True
+    ail_cde: bool = True
+    ail_ede: bool = True
+    ail_te: bool = True
+    ail_pe: bool = True
+    ail_cme: bool = True
+    ail_el: bool = True
+    ail_graph: bool = True
+    ail_timeline: bool = True
+    ail_ask_agi: bool = True
+    ail_redis_cache: bool = False
 
 
 @lru_cache

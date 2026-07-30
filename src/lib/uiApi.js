@@ -63,8 +63,21 @@ export const getUiAutocomplete = (q) => uiFetch('/autocomplete', { query: { q: q
 export const getUiPredictions = () => uiFetch('/predictions');
 export const getUiCalendar = () => uiFetch('/calendar');
 export const getUiCopilot = (params = {}) => uiFetch('/copilot', { query: params });
-export const postUiSearch = (question, ticker) =>
-  uiFetch('/search', {
-    method: 'POST',
-    body: { question, ticker },
-  });
+export async function postUiSearch(question, ticker) {
+  try {
+    return await uiFetch('/search', {
+      method: 'POST',
+      body: { question, ticker },
+    });
+  } catch (err) {
+    const msg = String(err?.message || '');
+    const retryable = /503|502|research_desk_unavailable|timed out|unavailable/i.test(msg);
+    if (!retryable) throw err;
+    // One wake/retry — give the engine a moment after the gateway wake probe.
+    await new Promise((r) => setTimeout(r, 2500));
+    return uiFetch('/search', {
+      method: 'POST',
+      body: { question, ticker },
+    });
+  }
+}

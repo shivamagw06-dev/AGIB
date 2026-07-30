@@ -53,20 +53,68 @@ function learnedOnISTDate(iso, dateStr) {
   return learningDateIST(new Date(iso)) === dateStr;
 }
 
-function getAdminClient() {
-  const supabaseUrl = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim();
-  const serviceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
-  if (!supabaseUrl || !serviceKey) return null;
-  return { supabaseUrl, serviceKey };
+async function createAdmin() {
+  const { createSupabaseAdmin } = await import('../lib/supabaseAdmin.js');
+  return createSupabaseAdmin();
 }
 
-async function createAdmin() {
-  const creds = getAdminClient();
-  if (!creds) return null;
-  const { createClient } = await import('@supabase/supabase-js');
-  return createClient(creds.supabaseUrl, creds.serviceKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
+/** Stamp CMS article after a successful (or queued) KIP ingest from the Node gateway. */
+export async function markArticleIntelligenceIngest({
+  articleId,
+  documentId = null,
+  status = 'learned',
+  error = null,
+} = {}) {
+  if (!articleId) return { ok: false, skipped: true, reason: 'articleId required' };
+  const admin = await createAdmin();
+  if (!admin) {
+    return {
+      ok: false,
+      skipped: true,
+      reason: 'Supabase admin credentials unavailable on API',
+    };
+  }
+
+  const learnedAt = status === 'learned' ? new Date().toISOString() : null;
+  const patch = {
+    learn_status: status,
+    last_learn_error: error ? String(error).slice(0, 500) : null,
+  };
+  if (documentId) {
+    patch.intelligence_document_id = documentId;
+    patch.intelligence_ingested_at = learnedAt || new Date().toISOString();
+  }
+  if (learnedAt) {
+    patch.last_learned_at = learnedAt;
+  }
+
+  const { error: updateError } = await admin.from('articles').update(patch).eq('id', articleId);
+  if (updateError) return { ok: false, error: updateError.message || String(updateError) };
+
+  if (status === 'learned' && documentId) {
+    try {
+      const { data: row } = await admin
+        .from('articles')
+        .select('title,slug,status')
+        .eq('id', articleId)
+        .maybeSingle();
+      await admin.from('cms_article_learn_events').insert({
+        article_id: articleId,
+        learned_at: learnedAt,
+        learning_date: learningDateIST(),
+        document_id: documentId,
+        status: 'learned',
+        title: row?.title || null,
+        slug: row?.slug || null,
+        destination: row?.status === 'published' ? 'website' : 'intelligence',
+        error: null,
+      });
+    } catch {
+      /* events table optional */
+    }
+  }
+
+  return { ok: true, article_id: articleId, document_id: documentId, status };
 }
 
 /**
@@ -177,6 +225,21 @@ export async function learnCmsArticles({
         result.data?.document?.id ||
         article.intelligence_document_id ||
         null;
+      if (!documentId) {
+        throw new Error('Ingest returned no document_id');
+      }
+
+      // Do NOT mark learned until the document is retrievable (closes metadata/data split).
+      const verified = await engineFetch(`/v1/kip/verify/${encodeURIComponent(documentId)}`);
+      if (!verified.ok || verified.data?.retrievable === false) {
+        const detail =
+          verified.data?.error ||
+          verified.data?.detail?.error ||
+          verified.data?.detail ||
+          `Document not retrievable (${verified.status})`;
+        throw new Error(`Knowledge validation failed: ${detail}`);
+      }
+
       const learnedAt = new Date().toISOString();
       const nextCount = Number(article.learn_count || 0) + 1;
 
@@ -213,6 +276,7 @@ export async function learnCmsArticles({
         learned_at: learnedAt,
         learning_date: learningDate,
         learn_count: nextCount,
+        verified: true,
       });
     } catch (err) {
       failed += 1;
@@ -256,6 +320,46 @@ export async function learnCmsArticles({
     }
   }
 
+  // Soft-wire Research Intelligence Hub — learned articles become Intelligence Objects.
+  let researchHubResult = null;
+  if (learned > 0) {
+    const hubBuilds = [];
+    for (const row of results.filter((r) => r.status === 'learned').slice(0, 25)) {
+      try {
+        const article = rows.find((a) => a.id === row.article_id) || {};
+        const hub = await engineFetch('/v1/research/hub/build', {
+          method: 'POST',
+          body: {
+            note_id: String(row.article_id),
+            headline: row.title || article.title || String(row.article_id),
+            body: String(article.content || article.body || article.markdown || ''),
+            publication_date: article.published_at || article.publication_date || null,
+            persist: true,
+            importance_score: 70,
+          },
+        });
+        hubBuilds.push({
+          article_id: row.article_id,
+          ok: hub.status < 400,
+          hub_id: hub.data?.id || row.article_id,
+          status: hub.status,
+        });
+      } catch (err) {
+        hubBuilds.push({
+          article_id: row.article_id,
+          ok: false,
+          error: err?.message || String(err),
+        });
+      }
+    }
+    researchHubResult = {
+      attempted: hubBuilds.length,
+      ok: hubBuilds.filter((h) => h.ok).length,
+      failed: hubBuilds.filter((h) => !h.ok).length,
+      builds: hubBuilds,
+    };
+  }
+
   return {
     ok: true,
     learning_date: learningDate,
@@ -266,9 +370,10 @@ export async function learnCmsArticles({
     failed,
     skipped,
     compound: compoundResult,
+    research_hub: researchHubResult,
     results,
     architecture_status: 'v1.0.1 LOCKED',
-    note: 'Soft-wire CMS → KIP → KF/KC. Re-run daily so learning_date stays current.',
+    note: 'Soft-wire CMS → KIP → KF/KC → RIH. Every learned article becomes an Intelligence Hub.',
   };
 }
 
@@ -339,7 +444,10 @@ export async function cmsLearningStatus({ days = 14 } = {}) {
 }
 
 export function cmsLearningConfigured() {
-  return Boolean(getAdminClient());
+  // Sync check — credentials only (client constructed async elsewhere)
+  const url = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim();
+  const key = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
+  return Boolean(url && key);
 }
 
 /**

@@ -33,16 +33,9 @@ def candidate_roots() -> list[Path]:
     except Exception:
         repo_root = Path("/workspace")
     # Prefer Books/ inside the Mac AGIB dump; fall back to the AGIB folder itself.
-    mac_agib = Path("/Users/shivamagarwal/Downloads/AGIB")
-    home_agib = Path.home() / "Downloads" / "AGIB"
+    roots.extend(preferred_mac_roots())
     roots.extend(
         [
-            mac_agib / "Books",
-            mac_agib / "books",
-            home_agib / "Books",
-            home_agib / "books",
-            mac_agib,
-            home_agib,
             repo_root / "Books",
             repo_root / "books",
             Path("/workspace/Books"),
@@ -61,6 +54,47 @@ def candidate_roots() -> list[Path]:
     return out
 
 
+def preferred_mac_roots() -> list[Path]:
+    """Roots the user keeps on the Mac AGIB dump (may be absent in cloud agents)."""
+    mac_agib = Path("/Users/shivamagarwal/Downloads/AGIB")
+    home_agib = Path.home() / "Downloads" / "AGIB"
+    return [
+        mac_agib / "Books",
+        mac_agib / "books",
+        home_agib / "Books",
+        home_agib / "books",
+        mac_agib,
+        home_agib,
+    ]
+
+
+def library_reachability() -> dict[str, Any]:
+    """Report whether the Mac personal library is visible to this process."""
+    preferred = preferred_mac_roots()
+    existing_preferred = [str(p) for p in preferred if p.is_dir()]
+    active = resolve_library_root()
+    scan = scan_library(active) if active else {"ok": False, "counts": {}}
+    cloud_fallback = Path("/workspace/books")
+    return {
+        "preferred_mac_path": "/Users/shivamagarwal/Downloads/AGIB/Books",
+        "preferred_reachable": bool(existing_preferred),
+        "preferred_existing": existing_preferred,
+        "active_root": str(active) if active else None,
+        "active_counts": (scan.get("counts") or {}),
+        "cloud_fallback_root": str(cloud_fallback),
+        "cloud_fallback_exists": cloud_fallback.is_dir(),
+        "hint": (
+            None
+            if existing_preferred
+            else (
+                "Mac path is not mounted in this environment. Copy PDFs into the repo "
+                "`books/` folder (gitignored) or run ingest on the Mac with "
+                "ACADEMY_BOOKS_DIR=/Users/shivamagarwal/Downloads/AGIB/Books"
+            )
+        ),
+    }
+
+
 def resolve_library_root() -> Path | None:
     for r in candidate_roots():
         if r.is_dir():
@@ -71,6 +105,14 @@ def resolve_library_root() -> Path | None:
 def scan_library(root: Path | None = None) -> dict[str, Any]:
     root = root or resolve_library_root()
     if root is None or not root.is_dir():
+        reach = {
+            "preferred_mac_path": "/Users/shivamagarwal/Downloads/AGIB/Books",
+            "preferred_reachable": any(p.is_dir() for p in preferred_mac_roots()),
+            "hint": (
+                "Mac Books folder not found. Sync PDFs into /workspace/books "
+                "or set ACADEMY_BOOKS_DIR."
+            ),
+        }
         return {
             "ok": False,
             "root": None,
@@ -79,6 +121,7 @@ def scan_library(root: Path | None = None) -> dict[str, Any]:
             "books": [],
             "spreadsheets": [],
             "unsupported": [],
+            "reachability": reach,
         }
     books: list[dict[str, Any]] = []
     sheets: list[dict[str, Any]] = []
@@ -106,6 +149,11 @@ def scan_library(root: Path | None = None) -> dict[str, Any]:
             sheets.append({**meta, "ext": ".csv", "as": "csv"})
         else:
             unsupported.append(meta)
+    preferred_hit = any(
+        str(root).startswith(str(p)) or root == p
+        for p in preferred_mac_roots()
+        if p.exists()
+    )
     return {
         "ok": True,
         "root": str(root),
@@ -119,5 +167,19 @@ def scan_library(root: Path | None = None) -> dict[str, Any]:
             "spreadsheets": len(sheets),
             "unsupported": len(unsupported),
             "total_supported": len(books) + len(sheets),
+        },
+        "reachability": {
+            "preferred_mac_path": "/Users/shivamagarwal/Downloads/AGIB/Books",
+            "preferred_reachable": any(p.is_dir() for p in preferred_mac_roots()),
+            "using_preferred_mac_library": preferred_hit,
+            "hint": (
+                None
+                if preferred_hit
+                else (
+                    "Active root is a fallback (cloud/workspace). Mac Books at "
+                    "/Users/shivamagarwal/Downloads/AGIB/Books is not visible here — "
+                    "copy PDFs into repo books/ or ingest on the Mac."
+                )
+            ),
         },
     }

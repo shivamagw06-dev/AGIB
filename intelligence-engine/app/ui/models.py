@@ -73,6 +73,9 @@ class CompanyView(BaseModel):
     follow_up_questions: list[str] = Field(default_factory=list)
     knowledge_graph: dict[str, Any] = Field(default_factory=dict)
     prediction_timeline: list[dict[str, Any]] = Field(default_factory=list)
+    # Institutional Stack soft slice (FIL→FDI→MII→EIL→PIL) — additive
+    institutional_stack: dict[str, Any] = Field(default_factory=dict)
+    management_trust: dict[str, Any] = Field(default_factory=dict)
 
 
 class SearchView(BaseModel):
@@ -80,6 +83,9 @@ class SearchView(BaseModel):
 
     meta: UiMeta
     question: str
+    # ok | degraded — Ask always returns a briefing when possible; optional deps may time out.
+    status: str = "ok"
+    degradation: dict[str, Any] = Field(default_factory=dict)
     intent: str | None = None
     entities: dict[str, Any] = Field(default_factory=dict)
     answer: dict[str, Any] = Field(default_factory=dict)
@@ -128,10 +134,14 @@ class SearchView(BaseModel):
     irp: dict[str, Any] = Field(default_factory=dict)
     # KF1 — Knowledge Foundation objects resolved before documents
     knowledge_foundation: dict[str, Any] = Field(default_factory=dict)
+    # KRIG Sprint 6.4 — institutional Knowledge Bundle from Knowledge Platform (never provider feeds)
+    knowledge_bundle: dict[str, Any] = Field(default_factory=dict)
     # KCV1 — Knowledge Corpus consult (primary source of truth before documents)
     knowledge_corpus: dict[str, Any] = Field(default_factory=dict)
     # AOI v1 — public acquisition structured knowledge soft retrieval
     open_intelligence: dict[str, Any] = Field(default_factory=dict)
+    # FRE v1 — Finance Retrieval Engine evidence pack (never answers)
+    finance_retrieval: dict[str, Any] = Field(default_factory=dict)
     # EVE v1 — verified evidence / conflicts / confidence for Ask AGI
     evidence_verification: dict[str, Any] = Field(default_factory=dict)
     # IIE v1 — structured investment intelligence before reasoning
@@ -148,6 +158,8 @@ class SearchView(BaseModel):
     valuation: dict[str, Any] = Field(default_factory=dict)
     # FAPI v1.0 — Finance Academy production provenance (additive)
     finance_academy: dict[str, Any] = Field(default_factory=dict)
+    # Academy Books soft slice — frameworks/terminology/logic hints only (never book text)
+    academy_books: dict[str, Any] = Field(default_factory=dict)
     # SIF v1.0 — Sector Intelligence Framework provenance (additive)
     # SIF / IRP sector pack (single field; SIF may nest under "sif")
     sector_intelligence: dict[str, Any] = Field(default_factory=dict)
@@ -163,8 +175,62 @@ class SearchView(BaseModel):
     company_analysis: dict[str, Any] = Field(default_factory=dict)
     # Company Monitoring System V1 — continuous what-changed living analyst (additive)
     company_monitor: dict[str, Any] = Field(default_factory=dict)
+    # Ask AGI Intelligence Construction V2 — institutional research brief (additive)
+    intelligence_construction: dict[str, Any] = Field(default_factory=dict)
+    # Ask AGI Answer Construction V3 — full brief + trailing recommendation status (additive)
+    answer_construction: dict[str, Any] = Field(default_factory=dict)
+    # AGIB Investment Decision Engine — multi-layer Macro→…→Decision stack (additive)
+    decision_engine: dict[str, Any] = Field(default_factory=dict)
+    # AGIB Intelligence Layer V2 — living dossier / thesis / forecast / ledger (additive)
+    intelligence_layer: dict[str, Any] = Field(default_factory=dict)
+    # Institutional Analyst Framework V1 — specialist opinions → committee → CIO (additive)
+    institutional_analysts: dict[str, Any] = Field(default_factory=dict)
     institutional_briefing: dict[str, Any] = Field(default_factory=dict)
     company_intelligence: dict[str, Any] = Field(default_factory=dict)
+    # Institutional Stack soft slice (FIL→FDI→MII→EIL→PIL) — additive
+    institutional_stack: dict[str, Any] = Field(default_factory=dict)
+    # RQ1 Research Ontology — Sprint 1 classify-only constitution (additive; not a layer)
+    research_ontology: dict[str, Any] = Field(default_factory=dict)
+    # RQ1 Entity Resolution Engine — Sprint 2 canonical identity (additive; not a layer)
+    entity_resolution: dict[str, Any] = Field(default_factory=dict)
+    # RQ1 Research Objective Engine — Sprint 3 objective plan (additive; not a layer)
+    research_objective: dict[str, Any] = Field(default_factory=dict)
+    # RQ1 Context Intelligence Engine — Sprint 4 context enrichment (additive; not a layer)
+    context_intelligence: dict[str, Any] = Field(default_factory=dict)
+    # RQ1 Institutional Analyst Router — Sprint 5 participation plan (additive; not a layer)
+    analyst_router: dict[str, Any] = Field(default_factory=dict)
+    # RQ1 Intelligence Layer Router — Sprint 6 execution plan (additive; not a layer)
+    layer_router: dict[str, Any] = Field(default_factory=dict)
+    # RQ1 Institutional Acquisition & API Planning Engine — Sprint 7 evidence plan (additive; not a layer)
+    acquisition_planner: dict[str, Any] = Field(default_factory=dict)
+    # RQ1 Dynamic Research Blueprint Engine — Sprint 8 publication plan (additive; not a layer)
+    research_blueprint: dict[str, Any] = Field(default_factory=dict)
+    # RQ1 Institutional Validation & Clarification Engine — Sprint 9 readiness gate (additive; not a layer)
+    validation_engine: dict[str, Any] = Field(default_factory=dict)
+    # RQ1 Institutional Research Execution Package — Sprint 10 final planning package (additive; not a layer)
+    research_execution: dict[str, Any] = Field(default_factory=dict)
+    # RQ2 Institutional Hypothesis Generation Engine — Sprint 1 (additive; after IREP; not a layer)
+    hypothesis_engine: dict[str, Any] = Field(default_factory=dict)
+    # RQ2 Institutional Research Question Engine — Sprint 2 (additive; after IHG; not a layer)
+    research_questions: dict[str, Any] = Field(default_factory=dict)
+    # RQ2 Institutional Hypothesis Testing Engine — Sprint 4 (additive; after evidence planning; not a layer)
+    hypothesis_testing: dict[str, Any] = Field(default_factory=dict)
+    # RQ2 Bayesian Belief & Confidence Engine — Sprint 6 (additive; after falsification; not a layer)
+    belief_engine: dict[str, Any] = Field(default_factory=dict)
+    # RQ2 Institutional Thesis Construction Engine — Sprint 7 (additive; before Committee; not a layer)
+    thesis_engine: dict[str, Any] = Field(default_factory=dict)
+    # RQ2 Institutional Debate Engine — Sprint 8 (structured pre-Committee debate; not a layer/committee)
+    debate_engine: dict[str, Any] = Field(default_factory=dict)
+    # RQ2 Institutional Decision Readiness Engine — Sprint 9 (final pre-Committee gate; not a layer)
+    decision_readiness: dict[str, Any] = Field(default_factory=dict)
+    # RQ2 Institutional Reasoning Audit Engine — Sprint 10 (final certification; not a layer)
+    reasoning_audit: dict[str, Any] = Field(default_factory=dict)
+    # AGI v4.0 Investment Office OS — Thesis→Decision→Portfolio→Monitoring→Learning (additive)
+    investment_office_os: dict[str, Any] = Field(default_factory=dict)
+    # Framework Execution Policy — required frameworks must execute or report insufficient (soft-wire)
+    execution_policy: dict[str, Any] = Field(default_factory=dict)
+    # Phase 1 Evidence-First Execution Governance — contract/validation/committee record (soft-wire)
+    execution_governance: dict[str, Any] = Field(default_factory=dict)
     current_outlook: str | None = None
     key_drivers: list[str] = Field(default_factory=list)
     valuation_perspective: str | None = None
@@ -205,6 +271,8 @@ class ArticleView(BaseModel):
     latest_news: list[dict[str, Any]] = Field(default_factory=list)
     discovery: dict[str, Any] = Field(default_factory=dict)
     follow_up_questions: list[str] = Field(default_factory=list)
+    # AGIB v4.0 — Research Intelligence Hub (soft)
+    intelligence_hub: dict[str, Any] = Field(default_factory=dict)
 
 
 class AutocompleteView(BaseModel):
