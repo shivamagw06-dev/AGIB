@@ -23,6 +23,27 @@ def run_action(
             from continuous_gather_learn.orchestrator import run_cycle
 
             result = {"ok": True, "action": a, "result": run_cycle()}
+        elif a in {
+            "bootstrap_universe_learning",
+            "learn_universe",
+            "gather_universe",
+            "universe_learn",
+        }:
+            from universe_learning.production import bootstrap_universe_learning
+
+            # Default: Nifty 500 book first; pass ticker="all" for full NSE trading book
+            scope = "all" if (t in {"ALL", "NSE", "EQUITY"} or force) else "nifty500"
+            result = {
+                "ok": True,
+                "action": a,
+                "result": bootstrap_universe_learning(
+                    scope=scope,
+                    run_cgl=True,
+                    slot="overnight",
+                    force_refresh_queue=True,
+                    icf_tick=False,
+                ),
+            }
         elif a in {"run_kil", "kil"}:
             from institutional_evidence.production import integrate_company_knowledge, run_kil_integration
 
