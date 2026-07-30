@@ -1207,6 +1207,10 @@ export const getFireCompany = (ticker) =>
   intelligenceFetch(`/financial-intelligence/company/${encodeURIComponent(ticker)}`);
 export const getFireFindings = (ticker) =>
   intelligenceFetch(`/financial-intelligence/findings/${encodeURIComponent(ticker)}`);
+export const getFireDrivers = (ticker) =>
+  intelligenceFetch(`/financial-intelligence/company/${encodeURIComponent(ticker)}/drivers`);
+export const getFireRelationships = (ticker) =>
+  intelligenceFetch(`/financial-intelligence/company/${encodeURIComponent(ticker)}/relationships`);
 
 /** Accounting Intelligence Engine */
 export const getAciHealth = () => intelligenceFetch('/accounting-intelligence/health');

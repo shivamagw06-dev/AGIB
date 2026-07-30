@@ -1466,6 +1466,14 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("financial_intelligence")
     except Exception:
         out["financial_intelligence"] = None
+    # FIRE-02 — Relationship & Driver Analysis (soft board; additive).
+    try:
+        from financial_intelligence.drivers.production import soft_slice_mission_control as fire02_soft
+
+        out["financial_drivers"] = fire02_soft()
+        out["sources"].append("financial_drivers")
+    except Exception:
+        out["financial_drivers"] = None
     return out
 
 

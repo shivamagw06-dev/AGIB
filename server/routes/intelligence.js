@@ -2701,6 +2701,26 @@ export default function createIntelligenceRouter() {
       return res.status(503).json({ error: 'Financial findings unavailable', detail: error.message });
     }
   });
+  router.get('/financial-intelligence/company/:ticker/drivers', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/financial-intelligence/company/${encodeURIComponent(req.params.ticker)}/drivers`
+      );
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Financial drivers unavailable', detail: error.message });
+    }
+  });
+  router.get('/financial-intelligence/company/:ticker/relationships', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/financial-intelligence/company/${encodeURIComponent(req.params.ticker)}/relationships`
+      );
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Financial relationships unavailable', detail: error.message });
+    }
+  });
 
   // Accounting Intelligence Engine
   router.get('/accounting-intelligence/health', kfGet('/v1/accounting-intelligence/health'));
