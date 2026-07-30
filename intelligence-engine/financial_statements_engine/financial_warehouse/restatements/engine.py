@@ -39,6 +39,27 @@ def record_restatement(
         write_json_atomic(path, {**meta, "ticker": result.get("ticker"), "company_id": result.get("company_id")})
         result["restatement"] = meta
         result["restatement_path"] = str(path)
+        # FSE-07: restatement → impacted derived metric recalculation (new versions only)
+        try:
+            from financial_statements_engine.derived_metrics.restatement.recalc import (
+                recalculate_for_changed_facts,
+            )
+
+            changed = sorted(
+                {
+                    str(f.get("metric") or f.get("canonical_metric"))
+                    for f in (result.get("facts") or [])
+                    if f.get("metric") or f.get("canonical_metric")
+                }
+            )
+            if changed and result.get("ticker"):
+                result["dme_recalculation"] = recalculate_for_changed_facts(
+                    str(result["ticker"]),
+                    changed,
+                    facts=list(result.get("facts") or []),
+                )
+        except Exception as exc:  # noqa: BLE001 — restatement must not fail on DME side effects
+            result["dme_recalculation"] = {"ok": False, "error": str(exc)}
     return result
 
 

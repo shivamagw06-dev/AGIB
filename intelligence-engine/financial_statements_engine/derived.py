@@ -1,4 +1,8 @@
-"""Derived Metrics Engine — ratios only; never overwrites reported values."""
+"""FSE-01 legacy derived helpers — thin façade.
+
+Authoritative calculations live in FSE-07 Derived Metrics Engine:
+`financial_statements_engine.derived_metrics`.
+"""
 
 from __future__ import annotations
 
@@ -23,9 +27,9 @@ def _safe_div(a: float | None, b: float | None) -> float | None:
 
 
 def compute_derived(statement: dict[str, Any]) -> dict[str, Any]:
+    """Legacy FSE-01 statement-pack helper. Prefer derived_metrics.production.calculate."""
     metrics = statement.get("metrics") or {}
     if statement.get("statement_type") == "results_pack":
-        # Prefer income + balance metrics
         metrics = {}
         for part_key in ("income_statement", "balance_sheet", "cash_flow"):
             part = statement.get(part_key) or {}
@@ -43,13 +47,13 @@ def compute_derived(statement: dict[str, Any]) -> dict[str, Any]:
 
     derived = {
         "net_income_margin": _safe_div(net_income, revenue),
-        "pat_margin": _safe_div(net_income, revenue),  # alias
+        "pat_margin": _safe_div(net_income, revenue),
         "ebit_margin": _safe_div(ebit, revenue),
         "ebitda_margin": _safe_div(ebitda, revenue),
         "roe": _safe_div(net_income, equity),
         "roa": _safe_div(net_income, assets),
         "ocf_to_net_income": _safe_div(ocf, net_income),
-        "ocf_to_pat": _safe_div(ocf, net_income),  # alias
+        "ocf_to_pat": _safe_div(ocf, net_income),
     }
     return {
         "ticker": statement.get("ticker"),
@@ -60,6 +64,8 @@ def compute_derived(statement: dict[str, Any]) -> dict[str, Any]:
         "as_of": now_iso(),
         "layer": "derived_metrics",
         "overwrites_reported": False,
+        "authoritative": False,
+        "prefer": "financial_statements_engine.derived_metrics.production.calculate",
     }
 
 

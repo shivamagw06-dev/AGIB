@@ -279,6 +279,51 @@ def main(argv: list[str] | None = None) -> int:
                 as_of = args[i + 1]
         print(json.dumps(time_travel(args[1], args[2], as_of=as_of), indent=2, default=str))
         return 0
+    if cmd == "--dme-health":
+        from financial_statements_engine.derived_metrics.production import health as dme_health
+
+        print(json.dumps(dme_health(), indent=2, default=str))
+        return 0
+    if cmd == "--dme-dashboard":
+        from financial_statements_engine.derived_metrics.production import dashboard as dme_dash
+
+        print(json.dumps(dme_dash(), indent=2, default=str))
+        return 0
+    if cmd == "--dme-calculate":
+        from financial_statements_engine.derived_metrics.production import calculate as dme_calc
+
+        if len(args) < 2:
+            print("ticker required", file=sys.stderr)
+            return 2
+        persist = "--no-persist" not in args
+        print(json.dumps(dme_calc(args[1], persist=persist), indent=2, default=str))
+        return 0
+    if cmd == "--dme-formulas":
+        from financial_statements_engine.derived_metrics.production import formulas as dme_formulas
+
+        cat = None
+        if "--category" in args:
+            i = args.index("--category")
+            if i + 1 < len(args):
+                cat = args[i + 1]
+        print(json.dumps(dme_formulas(category=cat), indent=2, default=str))
+        return 0
+    if cmd == "--dme-contract":
+        from financial_statements_engine.derived_metrics.production import contract as dme_contract
+
+        if len(args) < 3:
+            print("contract_id and ticker required", file=sys.stderr)
+            return 2
+        print(json.dumps(dme_contract(args[1], args[2]), indent=2, default=str))
+        return 0
+    if cmd == "--dme-lineage":
+        from financial_statements_engine.derived_metrics.production import lineage as dme_lineage
+
+        if len(args) < 2:
+            print("metric_name required", file=sys.stderr)
+            return 2
+        print(json.dumps(dme_lineage(args[1]), indent=2, default=str))
+        return 0
     if cmd == "--schema-evolution-health":
         from financial_statements_engine.schema_evolution.production import health as se_health
 

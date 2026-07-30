@@ -23,10 +23,10 @@
 | --- | --- |
 | FSE-01…05 | Platform → evidence → schema → parse → coverage → PCC → validation |
 | **FSE-06** | **Financial Warehouse** (immutable facts · versioning · restatements · contracts) |
-| FSE-07 | Historical Backfill |
-| FSE-08 | Mission Control & Observability |
-| FSE-09 | Public APIs & Consumers |
-| FSE-10 | Testing, QA & Production Readiness |
+| FSE-07 | Derived Metrics Engine |
+| FSE-08 | Forecast & Estimates Engine |
+| FSE-09 | Financial Time-Series & Revision Engine |
+| FSE-10 | Financial Intelligence APIs |
 
 > **Note:** Versioning & restatement (earlier series placeholder) are owned by FWH in this workstream.
 

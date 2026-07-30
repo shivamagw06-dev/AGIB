@@ -10316,6 +10316,75 @@ async def financial_statements_warehouse_restatements(company_id: str | None = N
     return restatements(company_id=company_id)
 
 
+@router.get("/financial-statements/derived-metrics/health")
+async def financial_statements_dme_health():
+    """FSE-07 Derived Metrics Engine."""
+    from financial_statements_engine.derived_metrics.production import health
+
+    return health()
+
+
+@router.get("/financial-statements/derived-metrics/dashboard")
+async def financial_statements_dme_dashboard():
+    from financial_statements_engine.derived_metrics.production import dashboard
+
+    return dashboard()
+
+
+@router.post("/financial-statements/derived-metrics/calculate/{ticker}")
+async def financial_statements_dme_calculate(ticker: str, payload: dict[str, Any] = Body(default={})):
+    from financial_statements_engine.derived_metrics.production import calculate
+
+    body = payload or {}
+    metrics = body.get("metrics")
+    if metrics is not None and not isinstance(metrics, list):
+        raise HTTPException(status_code=400, detail="metrics_must_be_list")
+    persist = bool(body.get("persist", True))
+    return calculate(ticker, metrics=metrics, persist=persist)
+
+
+@router.get("/financial-statements/derived-metrics/formulas")
+async def financial_statements_dme_formulas(category: str | None = None):
+    from financial_statements_engine.derived_metrics.production import formulas
+
+    return formulas(category=category)
+
+
+@router.get("/financial-statements/derived-metrics/lineage/{metric_name}")
+async def financial_statements_dme_lineage(metric_name: str):
+    from financial_statements_engine.derived_metrics.production import lineage
+
+    return lineage(metric_name)
+
+
+@router.get("/financial-statements/derived-metrics/contracts")
+async def financial_statements_dme_contracts():
+    from financial_statements_engine.derived_metrics.production import contracts
+
+    return contracts()
+
+
+@router.get("/financial-statements/derived-metrics/contracts/{contract_id}/{ticker}")
+async def financial_statements_dme_contract(contract_id: str, ticker: str):
+    from financial_statements_engine.derived_metrics.production import contract
+
+    return contract(contract_id, ticker)
+
+
+@router.get("/financial-statements/derived-metrics/{ticker}")
+async def financial_statements_dme_company(ticker: str):
+    from financial_statements_engine.derived_metrics.production import company_metrics
+
+    return company_metrics(ticker)
+
+
+@router.get("/financial-statements/derived-metrics/{ticker}/{metric_name}")
+async def financial_statements_dme_metric(ticker: str, metric_name: str, period: str | None = None):
+    from financial_statements_engine.derived_metrics.production import get_metric
+
+    return get_metric(ticker, metric_name, period=period)
+
+
 @router.post("/financial-statements/parsing/run")
 async def financial_statements_parsing_run(payload: dict[str, Any] = Body(default={})):
     from financial_statements_engine.parsing.production import parse_bytes

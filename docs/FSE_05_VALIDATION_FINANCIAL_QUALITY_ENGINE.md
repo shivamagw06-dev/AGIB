@@ -24,7 +24,7 @@
 | FSE-01…04.3 | Platform → evidence → schema → parse → coverage → PCC |
 | **FSE-05** | **Validation & Financial Quality Engine** |
 | FSE-06 | [Financial Warehouse](FSE_06_FINANCIAL_WAREHOUSE.md) |
-| FSE-07…10 | Backfill · Mission Control · APIs · QA |
+| FSE-07…10 | Derived Metrics · Forecast · Time-Series · Intelligence APIs |
 
 ---
 
