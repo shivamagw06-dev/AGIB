@@ -1,4 +1,4 @@
-"""Shared Evidence / Processing Event Bus catalogue (FSE-02 + FSE-04 + FSE-04.1 + FSE-04.2)."""
+"""Shared Evidence / Processing Event Bus catalogue (FSE-02 + FSE-04 + FSE-04.1 + FSE-04.2 + FSE-04.3)."""
 
 from __future__ import annotations
 
@@ -42,6 +42,15 @@ COVERAGE_EVENTS_V1 = (
     "coverage.regression.detected.v1",
 )
 
-PARSE_EVENTS = PARSE_EVENTS_LEGACY + PARSE_EVENTS_V1 + COVERAGE_EVENTS_V1
+# Production Certification Corpus (FSE-04.3)
+PCC_EVENTS_V1 = (
+    "pcc.certification.started.v1",
+    "pcc.certification.completed.v1",
+    "pcc.certification.failed.v1",
+    "pcc.case.failed.v1",
+    "pcc.regression.detected.v1",
+)
+
+PARSE_EVENTS = PARSE_EVENTS_LEGACY + PARSE_EVENTS_V1 + COVERAGE_EVENTS_V1 + PCC_EVENTS_V1
 
 EVENT_TYPES = COLLECTION_EVENTS + PARSE_EVENTS

@@ -10151,6 +10151,58 @@ async def financial_statements_parsing_coverage_diff(payload: dict[str, Any] = B
     return diff_matrices(ticker, old_id, new_id)
 
 
+@router.get("/financial-statements/parsing/pcc/health")
+async def financial_statements_parsing_pcc_health():
+    """FSE-04.3 Production Certification Corpus & Golden Dataset."""
+    from financial_statements_engine.parsing.pcc.production import health
+
+    return health()
+
+
+@router.get("/financial-statements/parsing/pcc/dashboard")
+async def financial_statements_parsing_pcc_dashboard():
+    from financial_statements_engine.parsing.pcc.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/financial-statements/parsing/pcc/analytics")
+async def financial_statements_parsing_pcc_analytics():
+    from financial_statements_engine.parsing.pcc.production import analytics
+
+    return analytics()
+
+
+@router.get("/financial-statements/parsing/pcc/cases")
+async def financial_statements_parsing_pcc_cases(sector: str | None = None):
+    from financial_statements_engine.parsing.pcc.production import cases
+
+    return cases(sector=sector)
+
+
+@router.get("/financial-statements/parsing/pcc/history")
+async def financial_statements_parsing_pcc_history(limit: int = 50):
+    from financial_statements_engine.parsing.pcc.production import history
+
+    return history(limit=limit)
+
+
+@router.get("/financial-statements/parsing/pcc/certifications/{certification_id}")
+async def financial_statements_parsing_pcc_certification(certification_id: str):
+    from financial_statements_engine.parsing.pcc.production import certification_detail
+
+    return certification_detail(certification_id)
+
+
+@router.post("/financial-statements/parsing/pcc/certify")
+async def financial_statements_parsing_pcc_certify(payload: dict[str, Any] = Body(default={})):
+    from financial_statements_engine.parsing.pcc.production import run_certification
+
+    body = payload or {}
+    sector = body.get("sector")
+    return run_certification(sector=str(sector) if sector else None)
+
+
 @router.post("/financial-statements/parsing/run")
 async def financial_statements_parsing_run(payload: dict[str, Any] = Body(default={})):
     from financial_statements_engine.parsing.production import parse_bytes
