@@ -2458,16 +2458,39 @@ export default function createIntelligenceRouter() {
   });
 
   // RH-01 — AGI Release Health (IST + IBS + E2E release gate)
-  router.get('/release-health/health', kfGet('/v1/release-health/health'));
+  // Always unwrap engineFetch → result.data (same contract as kfGet).
+  router.get('/release-health/health', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/release-health/health', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      const msg = err?.message || 'release-health health failed';
+      const timedOut = /timed out|aborted/i.test(msg);
+      return res.status(timedOut ? 504 : 502).json({
+        error: timedOut
+          ? 'Release Health health check timed out — intelligence engine may be cold-starting. Retry shortly.'
+          : msg,
+      });
+    }
+  });
   router.get('/release-health/dashboard', async (req, res) => {
     try {
       const qs = new URLSearchParams();
       if (req.query?.refresh) qs.set('refresh', String(req.query.refresh));
       const suffix = qs.toString() ? `?${qs}` : '';
-      const result = await engineFetch(`/v1/release-health/dashboard${suffix}`);
-      res.json(result);
+      // Snapshot path should be quick; fail fast so the admin UI can show a clear retry.
+      const result = await engineFetch(`/v1/release-health/dashboard${suffix}`, {
+        timeoutMs: 60_000,
+      });
+      return res.status(result.status).json(result.data);
     } catch (err) {
-      res.status(502).json({ error: err.message || 'release-health dashboard failed' });
+      const msg = err?.message || 'release-health dashboard failed';
+      const timedOut = /timed out|aborted/i.test(msg);
+      return res.status(timedOut ? 504 : 502).json({
+        error: timedOut
+          ? 'Release Health dashboard timed out — intelligence engine may be cold-starting or the gate is still running. Retry shortly.'
+          : msg,
+      });
     }
   });
   router.post('/release-health/run', async (req, res) => {
@@ -2476,10 +2499,17 @@ export default function createIntelligenceRouter() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(req.body || {}),
+        timeoutMs: 300_000,
       });
-      res.json(result);
+      return res.status(result.status).json(result.data);
     } catch (err) {
-      res.status(502).json({ error: err.message || 'release-health run failed' });
+      const msg = err?.message || 'release-health run failed';
+      const timedOut = /timed out|aborted/i.test(msg);
+      return res.status(timedOut ? 504 : 502).json({
+        error: timedOut
+          ? 'Release Health run timed out waiting for the intelligence engine. Retry once the engine is warm, or run CLI: python3 -m release_health --run'
+          : msg,
+      });
     }
   });
 

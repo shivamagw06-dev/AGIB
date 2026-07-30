@@ -37,3 +37,16 @@ def test_dashboard_serves_snapshot():
     run({"run_unit_tests": False})
     d = dashboard(refresh=False)
     assert d["snapshot"]["ready_for_release"] is True
+
+
+def test_dashboard_cold_start_skips_heavy_gate():
+    """Plain GET must not require a prior run / pytest — lightweight assemble only."""
+    d = dashboard(refresh=False)
+    assert d["ok"] is True
+    assert d["snapshot"]["workstream_id"] == RH_WORKSTREAM_ID
+    assert d["snapshot"]["unit_tests"].get("skipped") is True
+
+
+def test_run_defaults_skip_unit_tests():
+    result = run({})
+    assert result["unit_tests"].get("skipped") is True
