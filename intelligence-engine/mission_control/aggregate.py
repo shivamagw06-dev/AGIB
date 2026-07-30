@@ -1810,6 +1810,15 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
     except Exception:
         out["institutional_evidence"] = None
 
+    # KIL-01 — Knowledge Health (CGL → KIL → IEP).
+    try:
+        from institutional_evidence.production import soft_slice_knowledge_health as kil_soft
+
+        out["knowledge_health"] = kil_soft()
+        out["sources"].append("knowledge_health")
+    except Exception:
+        out["knowledge_health"] = None
+
     return out
 
 

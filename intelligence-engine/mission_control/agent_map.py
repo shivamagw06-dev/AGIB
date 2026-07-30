@@ -1026,15 +1026,12 @@ _CATALOG: list[dict[str, Any]] = [
         "name": "Institutional Evidence Platform (IEP-01)",
         "group": "evidence",
         "responsibility": (
-            "AGI v1.1.1 Knowledge OS — Layer-0 governance, canonical domain models, "
-            "quality scoring, entity IDs, timelines, claims, decision eligibility, "
-            "continuous evidence learning, and research lifecycle. Durable "
-            "institutional knowledge; intelligence engines are consumers. "
-            "Phase-1: Institutional Coverage Complete on Top-20 India."
+            "AGI v1.1.2 Knowledge OS — validates, versions, and preserves canonical "
+            "knowledge produced by KIL from CGL. Durable institutional knowledge; "
+            "intelligence engines are consumers."
         ),
         "sources": [
-            "Data governance",
-            "NSE/BSE/IR filings",
+            "Knowledge Integration Layer",
             "Canonical domain models",
             "Evidence quality engine",
             "Evidence registry / graph / claims",
@@ -1044,6 +1041,28 @@ _CATALOG: list[dict[str, Any]] = [
         ],
         "kind": "institutional_knowledge_os",
         "module": "institutional_evidence.production",
+    },
+    {
+        "id": "knowledge_integration_layer",
+        "name": "Knowledge Integration Layer (KIL-01)",
+        "group": "evidence",
+        "responsibility": (
+            "AGI v1.1.2 bridge — CGL gathers; KIL transforms into canonical evidence, "
+            "refreshes Company Memory, versions knowledge, invalidates stale research, "
+            "and feeds IEP. One institutional knowledge pipeline. Nifty 500 expansion "
+            "gated until Top-20 Institutional Coverage Complete."
+        ),
+        "sources": [
+            "Continuous Gather → Learn",
+            "Knowledge Factory Historical Depth",
+            "Immutable CGL events",
+            "Knowledge Snapshots",
+            "Knowledge Confidence",
+            "Coverage states",
+            "Automatic repair",
+        ],
+        "kind": "knowledge_integration",
+        "module": "institutional_evidence.integration.layer",
     },
     {
         "id": "ite_thesis",
