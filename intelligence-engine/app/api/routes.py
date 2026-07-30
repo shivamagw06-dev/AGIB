@@ -4315,6 +4315,22 @@ async def financial_intelligence_findings(ticker: str):
     return findings(ticker.upper())
 
 
+@router.get("/financial-intelligence/company/{ticker}/drivers")
+async def financial_intelligence_drivers(ticker: str):
+    """FIRE-02 — Financial Drivers / relationship analysis (read-only)."""
+    from financial_intelligence.production import financial_drivers
+
+    return financial_drivers(ticker.upper())
+
+
+@router.get("/financial-intelligence/company/{ticker}/relationships")
+async def financial_intelligence_relationships(ticker: str):
+    """FIRE-02 — relationship list only."""
+    from financial_intelligence.production import financial_relationships
+
+    return financial_relationships(ticker.upper())
+
+
 # --- Accounting Intelligence Engine V1 (can the statements be trusted?) ---
 
 

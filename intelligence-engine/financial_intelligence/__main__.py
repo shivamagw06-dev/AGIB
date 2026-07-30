@@ -11,7 +11,8 @@ def main(argv: list[str] | None = None) -> int:
     if not args or args[0] in {"-h", "--help"}:
         print(
             "usage: python -m financial_intelligence "
-            "--health|--dashboard|--financial-intelligence TICKER|--financial-findings TICKER"
+            "--health|--dashboard|--financial-intelligence TICKER|--financial-findings TICKER|"
+            "--financial-drivers TICKER|--financial-relationships TICKER"
         )
         return 0
 
@@ -41,6 +42,22 @@ def main(argv: list[str] | None = None) -> int:
         from financial_intelligence.production import findings
 
         print(json.dumps(findings(args[1]), indent=2, default=str))
+        return 0
+    if cmd == "--financial-drivers":
+        if len(args) < 2:
+            print("ticker required", file=sys.stderr)
+            return 2
+        from financial_intelligence.production import financial_drivers
+
+        print(json.dumps(financial_drivers(args[1]), indent=2, default=str))
+        return 0
+    if cmd == "--financial-relationships":
+        if len(args) < 2:
+            print("ticker required", file=sys.stderr)
+            return 2
+        from financial_intelligence.production import financial_relationships
+
+        print(json.dumps(financial_relationships(args[1]), indent=2, default=str))
         return 0
 
     # Bare ticker → full report

@@ -536,6 +536,18 @@ _CATALOG: list[dict[str, Any]] = [
         "kind": "office",
         "module": "financial_intelligence.production",
     },
+    {
+        "id": "financial_drivers",
+        "name": "Financial Drivers (FIRE-02)",
+        "group": "ops",
+        "responsibility": (
+            "Deterministic cross-statement relationship & driver analysis — "
+            "which relationships explain financial changes (no BUY/SELL)."
+        ),
+        "sources": ["Financial Warehouse", "Derived Metrics", "Validation", "Coverage"],
+        "kind": "office",
+        "module": "financial_intelligence.drivers.production",
+    },
     # —— Learning / eval ——
     {
         "id": "forecast_validation_learning",
