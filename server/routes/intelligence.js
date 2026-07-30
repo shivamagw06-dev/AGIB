@@ -2811,6 +2811,48 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // PCE-01 — Institutional Policy & Constraint Engine
+  router.get('/policy/health', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/policy/health', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'policy health failed' });
+    }
+  });
+  router.post('/policy/check', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/policy/check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 60_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'policy check failed' });
+    }
+  });
+  router.get('/policy/:portfolioId', async (req, res) => {
+    try {
+      const qs = new URLSearchParams();
+      if (req.query?.refresh !== undefined) qs.set('refresh', String(req.query.refresh));
+      if (req.query?.include_history !== undefined) {
+        qs.set('include_history', String(req.query.include_history));
+      }
+      if (req.query?.policy !== undefined) qs.set('policy', String(req.query.policy));
+      if (req.query?.profile_id !== undefined) qs.set('profile_id', String(req.query.profile_id));
+      const suffix = qs.toString() ? `?${qs}` : '';
+      const result = await engineFetch(
+        `/v1/policy/${encodeURIComponent(req.params.portfolioId)}${suffix}`,
+        { timeoutMs: 60_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'policy get failed' });
+    }
+  });
+
   // IDS-02 — Decision Calibration & Explainability
   router.get('/calibration/health', async (_req, res) => {
     try {

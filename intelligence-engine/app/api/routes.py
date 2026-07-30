@@ -10247,6 +10247,41 @@ async def institutional_portfolio_risk_get(
     )
 
 
+# --- PCE-01 Institutional Policy & Constraint Engine (mandate governance for CIO-01) ---
+
+
+@router.get("/policy/health")
+async def institutional_policy_health():
+    from institutional_policy.production import health
+
+    return health()
+
+
+@router.post("/policy/check")
+async def institutional_policy_check(payload: dict[str, Any] = Body(default={})):
+    from institutional_policy.production import check_policy
+
+    return check_policy(payload or {})
+
+
+@router.get("/policy/{portfolio_id}")
+async def institutional_policy_get(
+    portfolio_id: str,
+    policy: str = "family_office",
+    profile_id: str | None = None,
+    refresh: bool = True,
+    include_history: bool = False,
+):
+    from institutional_policy.production import get_policy_assessment
+
+    return get_policy_assessment(
+        portfolio_id,
+        profile_id=str(profile_id or policy or "family_office"),
+        refresh=refresh,
+        include_history=include_history,
+    )
+
+
 # --- Company Monitoring System V1 (continuous living analyst; additive) ---
 
 

@@ -7,6 +7,7 @@ import {
   getPortfolioOfficeDashboard,
   getPortfolioOfficeHoldings,
   getPortfolioOfficePortfolio,
+  getPortfolioPolicy,
   getPortfolioRisk,
 } from '@/lib/intelligenceApi';
 
@@ -31,6 +32,7 @@ export default function PortfolioWorkspacePage() {
   const [portfolioGraph, setPortfolioGraph] = useState(null);
   const [portfolioDecision, setPortfolioDecision] = useState(null);
   const [portfolioRisk, setPortfolioRisk] = useState(null);
+  const [portfolioPolicy, setPortfolioPolicy] = useState(null);
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -78,14 +80,19 @@ export default function PortfolioWorkspacePage() {
           coverage: `${holds.length || DEMO_HOLDINGS.length} names`,
         });
 
-        const [graph, risk, decision] = await Promise.all([
+        const [graph, risk, policy, decision] = await Promise.all([
           getPortfolioGraph('agi-core-equity', { includeCompanyGraphs: true }).catch(() => null),
           getPortfolioRisk('agi-core-equity', { refresh: true }).catch(() => null),
+          getPortfolioPolicy('agi-core-equity', {
+            refresh: true,
+            policy: 'family_office',
+          }).catch(() => null),
           getPortfolioDecision('agi-core-equity', { refresh: true }).catch(() => null),
         ]);
         if (!active) return;
         setPortfolioGraph(graph && graph.ok !== false ? graph : null);
         setPortfolioRisk(risk && risk.ok !== false ? risk : null);
+        setPortfolioPolicy(policy && policy.ok !== false ? policy : null);
         setPortfolioDecision(decision && decision.ok !== false ? decision : null);
       } catch (err) {
         if (active) setError(err?.message || 'Portfolio unavailable — showing desk demo');
@@ -106,19 +113,25 @@ export default function PortfolioWorkspacePage() {
   const risk = portfolioRisk?.risk || null;
   const riskScorecard = risk?.scorecard || {};
   const riskConc = risk?.concentration || {};
+  const policy = portfolioPolicy?.assessment || null;
 
   return (
     <div>
       <h1 className="agi-greeting">Investment Office</h1>
       <p className="agi-lede">
-        Portfolio risk and decisioning — what risks the book carries, what should change, and which
-        holdings require review. Company recommendations stay immutable; risk and decisions are
-        separate institutional services.
+        Portfolio risk, mandate compliance, and decisioning — what the book may do, what risks it
+        carries, and what should change. Company recommendations stay immutable.
       </p>
 
       {error && <div className="agi-error">{error}</div>}
 
       <div className="agi-stat-row">
+        <div className="agi-stat">
+          <div className="agi-stat-label">Compliance</div>
+          <div className="agi-stat-value" style={{ fontSize: '1.05rem' }}>
+            {policy?.overall_status || '—'}
+          </div>
+        </div>
         <div className="agi-stat">
           <div className="agi-stat-label">Overall risk</div>
           <div className="agi-stat-value" style={{ fontSize: '1.05rem' }}>
@@ -132,10 +145,6 @@ export default function PortfolioWorkspacePage() {
           </div>
         </div>
         <div className="agi-stat">
-          <div className="agi-stat-label">Confidence</div>
-          <div className="agi-stat-value">{decision?.confidence ?? '—'}</div>
-        </div>
-        <div className="agi-stat">
           <div className="agi-stat-label">HHI</div>
           <div className="agi-stat-value" style={{ fontSize: '1.15rem' }}>
             {riskConc.hhi != null
@@ -146,6 +155,80 @@ export default function PortfolioWorkspacePage() {
           </div>
         </div>
       </div>
+
+      <section className="agi-section" style={{ marginTop: '1.5rem' }}>
+        <div className="agi-section-head">
+          <h2>Compliance</h2>
+          <span className="agi-list-meta">
+            PCE-01 · {policy?.profile_id || 'family_office'} mandate
+          </span>
+        </div>
+        {!policy ? (
+          <div className="agi-empty">Policy assessment unavailable.</div>
+        ) : (
+          <>
+            <p className="agi-list-meta" style={{ marginBottom: '0.75rem' }}>
+              {(policy.lineage || []).join(' → ')}
+              {policy.policy_id ? ` · ${policy.policy_id}` : ''}
+            </p>
+            <div className="agi-stat-row">
+              {[
+                ['Status', policy.overall_status],
+                ['Score', policy.compliance_score],
+                ['Violations', (policy.violations || []).length],
+                ['Passed', policy.passed_count],
+                ['Failed', policy.failed_count],
+              ].map(([label, value]) => (
+                <div key={label} className="agi-stat">
+                  <div className="agi-stat-label">{label}</div>
+                  <div className="agi-stat-value" style={{ fontSize: '1.05rem' }}>
+                    {value ?? '—'}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <h3 style={{ fontFamily: 'var(--agi-display)', fontSize: '1.1rem', marginTop: '1rem' }}>
+              Active violations
+            </h3>
+            <ul className="agi-list" style={{ marginTop: '0.5rem' }}>
+              {(policy.violations || []).length ? (
+                (policy.violations || []).map((v) => (
+                  <li key={v.constraint_id}>
+                    <div className="agi-list-title">
+                      [{v.severity}] {v.name}
+                    </div>
+                    <div className="agi-list-meta">
+                      {v.detail} · Action: {v.required_action}
+                    </div>
+                  </li>
+                ))
+              ) : (
+                <li>
+                  <div className="agi-list-meta">No active mandate violations.</div>
+                </li>
+              )}
+            </ul>
+
+            <h3 style={{ fontFamily: 'var(--agi-display)', fontSize: '1.1rem', marginTop: '1rem' }}>
+              Required actions
+            </h3>
+            <ul className="agi-list" style={{ marginTop: '0.5rem' }}>
+              {(policy.required_actions || []).length ? (
+                (policy.required_actions || []).map((a) => (
+                  <li key={a}>
+                    <div className="agi-list-title">{a}</div>
+                  </li>
+                ))
+              ) : (
+                <li>
+                  <div className="agi-list-meta">No remediation required.</div>
+                </li>
+              )}
+            </ul>
+          </>
+        )}
+      </section>
 
       <section className="agi-section" style={{ marginTop: '1.5rem' }}>
         <div className="agi-section-head">
@@ -220,7 +303,9 @@ export default function PortfolioWorkspacePage() {
       <section className="agi-section" style={{ marginTop: '1.5rem' }}>
         <div className="agi-section-head">
           <h2>Portfolio Decision</h2>
-          <span className="agi-list-meta">CIO-01 · consumes PRE-01 · referential company decisions</span>
+          <span className="agi-list-meta">
+            CIO-01 · consumes PRE-01 + PCE-01 · referential company decisions
+          </span>
         </div>
         {!decision ? (
           <div className="agi-empty">Portfolio decision unavailable.</div>

@@ -37,6 +37,7 @@ LINEAGE_CHAIN = (
     "Portfolio",
     "Holding",
     "Portfolio Risk",
+    "Policy Constraint",
     "Company Decision",
     "Reason",
     "Evidence",

@@ -1256,6 +1256,24 @@ export const getPortfolioRisk = (
   });
 };
 
+/** PCE-01 — Institutional Policy & Constraint Engine */
+export const getPolicyHealth = () => intelligenceFetch('/policy/health', { timeoutMs: 30_000 });
+export const checkPortfolioPolicy = (body = {}) =>
+  intelligenceFetch('/policy/check', { method: 'POST', body: body || {}, timeoutMs: 60_000 });
+export const getPortfolioPolicy = (
+  portfolioId = 'agi-core-equity',
+  { refresh = true, includeHistory = false, policy = 'family_office' } = {}
+) => {
+  const qs = new URLSearchParams();
+  if (refresh) qs.set('refresh', 'true');
+  if (includeHistory) qs.set('include_history', 'true');
+  if (policy) qs.set('policy', policy);
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return intelligenceFetch(`/policy/${encodeURIComponent(portfolioId)}${suffix}`, {
+    timeoutMs: 60_000,
+  });
+};
+
 /** FG-01 — Forecast & Scenario Graph */
 export const getInstitutionalScenarioHealth = () =>
   intelligenceFetch('/scenario/health', { timeoutMs: 30_000 });

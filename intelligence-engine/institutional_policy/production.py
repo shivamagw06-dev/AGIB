@@ -1,4 +1,4 @@
-"""CIO-01 production façades — portfolio decide / Mission Control Portfolio Command Center."""
+"""PCE-01 production façades — policy check / Mission Control Policy Center."""
 
 from __future__ import annotations
 
@@ -6,21 +6,23 @@ import time
 from dataclasses import replace
 from typing import Any, Optional
 
-from institutional_portfolio_decision.decision_engine import generate_portfolio_decision
-from institutional_portfolio_decision.decision_validator import validate_decision
-from institutional_portfolio_decision.diagnostics import build_diagnostics
-from institutional_portfolio_decision.flags import flags_dict, is_enabled
-from institutional_portfolio_decision import history as decision_history
-from institutional_portfolio_decision.schema import (
-    CIO_PRODUCT,
-    CIO_ROLE,
-    CIO_SPEC,
-    CIO_VERSION,
-    CIO_WORKSTREAM_ID,
-    DECISION_ENGINE_VERSION,
+from institutional_policy.diagnostics import build_diagnostics
+from institutional_policy.flags import flags_dict, is_enabled
+from institutional_policy import history as policy_history
+from institutional_policy.mandates import list_profiles
+from institutional_policy.policy_engine import generate_policy_assessment
+from institutional_policy.schema import (
+    DEFAULT_POLICY_PROFILE,
     DEFAULT_PORTFOLIO_ID,
+    PCE_PRODUCT,
+    PCE_ROLE,
+    PCE_SPEC,
+    PCE_VERSION,
+    PCE_WORKSTREAM_ID,
+    POLICY_ENGINE_VERSION,
     VALIDATOR_VERSION,
 )
+from institutional_policy.validator import validate_assessment
 
 try:
     from financial_statements_engine.util import now_iso
@@ -32,31 +34,29 @@ except Exception:  # noqa: BLE001
 
 
 def reset_for_tests() -> None:
-    decision_history.reset_for_tests()
+    policy_history.reset_for_tests()
 
 
 def health() -> dict[str, Any]:
     return {
         "status": "ok" if is_enabled() else "disabled",
-        "workstream_id": CIO_WORKSTREAM_ID,
-        "product": CIO_PRODUCT,
-        "version": CIO_VERSION,
-        "role": CIO_ROLE,
+        "workstream_id": PCE_WORKSTREAM_ID,
+        "product": PCE_PRODUCT,
+        "version": PCE_VERSION,
+        "role": PCE_ROLE,
         "llm": False,
-        "mutates_company_decisions": False,
-        "referential_company_decisions": True,
-        "consumes_pre01": True,
-        "consumes_pce01": True,
         "optimises": False,
-        "executes_trades": False,
-        "decision_engine_version": DECISION_ENGINE_VERSION,
+        "authoritative_for_cio": True,
+        "governs_allocations": True,
+        "policy_engine_version": POLICY_ENGINE_VERSION,
         "validator_version": VALIDATOR_VERSION,
+        "profiles": list_profiles(),
         "flags": flags_dict(),
         "enabled": is_enabled(),
-        "spec": CIO_SPEC,
+        "spec": PCE_SPEC,
         "brand": "AGI",
         "phase": 4,
-        "history": decision_history.metrics(),
+        "history": policy_history.metrics(),
         "as_of": now_iso(),
     }
 
@@ -64,47 +64,36 @@ def health() -> dict[str, Any]:
 def soft_slice_mission_control() -> dict[str, Any]:
     h = health()
     latest_rows = []
-    for pid in decision_history.metrics().get("portfolios") or []:
-        d = decision_history.latest(pid)
-        if d:
-            latest_rows.append(d)
-    critical_holdings = []
-    for d in latest_rows:
-        if d.monitoring_plan:
-            critical_holdings.extend(d.monitoring_plan.high_priority_holdings)
-    alloc_drift = sum(len(d.allocation_actions) for d in latest_rows)
-    exp_drift = sum(
-        1
-        for d in latest_rows
-        for a in d.exposure_actions
-        if a.action in {"Reduce", "Increase", "Diversify"}
-    )
-    upcoming = []
-    for d in latest_rows:
-        if d.monitoring_plan:
-            upcoming.extend(d.monitoring_plan.required_reviews)
+    for pid in policy_history.metrics().get("portfolios") or []:
+        a = policy_history.latest(pid)
+        if a:
+            latest_rows.append(a)
     top = latest_rows[-1] if latest_rows else None
+    out_of_mandate = [
+        a.portfolio_id for a in latest_rows if a.overall_status in {"Breach", "Critical Breach"}
+    ]
+    active_violations = sum(len(a.violations) for a in latest_rows)
+    nearing = sum(len(a.nearing_limits) for a in latest_rows)
     return {
         "status": h.get("status"),
-        "workstream_id": CIO_WORKSTREAM_ID,
-        "product": CIO_PRODUCT,
-        "version": CIO_VERSION,
+        "workstream_id": PCE_WORKSTREAM_ID,
+        "product": PCE_PRODUCT,
+        "version": PCE_VERSION,
         "llm": False,
-        "portfolio_command_center": True,
-        "portfolio_decision": top.to_dict() if top else None,
-        "allocation_drift": alloc_drift,
-        "exposure_drift": exp_drift,
-        "critical_holdings": list(dict.fromkeys(critical_holdings))[:12],
-        "upcoming_reviews": list(dict.fromkeys(upcoming))[:12],
-        "scenario_impact": (
-            list(top.monitoring_plan.scenario_reruns) if top and top.monitoring_plan else []
-        ),
-        "decisions_cached": len(latest_rows),
+        "policy_center": True,
+        "policy_assessment": top.to_dict() if top else None,
+        "overall_status": top.overall_status if top else None,
+        "active_violations": active_violations,
+        "compliance_score": top.compliance_score if top else None,
+        "new_violations_today": active_violations,  # session-scoped; no durable day clock
+        "portfolios_out_of_mandate": list(dict.fromkeys(out_of_mandate)),
+        "constraints_nearing_limits": nearing,
+        "profile_id": top.profile_id if top else None,
+        "assessments_cached": len(latest_rows),
     }
 
 
 def _load_portfolio(portfolio_id: str) -> tuple[Any, dict[str, Any], list[str]]:
-    """Load InstitutionalPortfolio via PKG-01 — company decisions remain referential."""
     try:
         from institutional_portfolio.production import get_portfolio_graph
     except Exception as exc:  # noqa: BLE001
@@ -114,7 +103,6 @@ def _load_portfolio(portfolio_id: str) -> tuple[Any, dict[str, Any], list[str]]:
     if not graph.get("ok"):
         return None, graph, list(graph.get("validation_errors") or ["portfolio graph failed"])
 
-    # Prefer live object from cache
     try:
         from institutional_portfolio.production import _GRAPHS
 
@@ -124,7 +112,6 @@ def _load_portfolio(portfolio_id: str) -> tuple[Any, dict[str, Any], list[str]]:
     except Exception:  # noqa: BLE001
         pass
 
-    # Reconstruct from serialized portfolio dict
     try:
         from institutional_portfolio.portfolio_entities import (
             AllocationRecord,
@@ -204,14 +191,26 @@ def _load_portfolio(portfolio_id: str) -> tuple[Any, dict[str, Any], list[str]]:
         return None, graph, [f"portfolio deserialize failed: {exc}"]
 
 
-def decide_portfolio(payload: Optional[dict[str, Any]] = None) -> dict[str, Any]:
+def _load_risk(portfolio_id: str) -> Any:
+    try:
+        from institutional_portfolio_risk.production import evaluate_portfolio_risk, get_risk_object
+
+        payload = evaluate_portfolio_risk({"portfolio_id": portfolio_id})
+        if payload.get("ok"):
+            return get_risk_object(portfolio_id)
+    except Exception:  # noqa: BLE001
+        return None
+    return None
+
+
+def check_policy(payload: Optional[dict[str, Any]] = None) -> dict[str, Any]:
     if not is_enabled():
         return {
             "ok": False,
             "enabled": False,
-            "workstream_id": CIO_WORKSTREAM_ID,
+            "workstream_id": PCE_WORKSTREAM_ID,
             "rejected": True,
-            "validation_errors": ["CIO-01 disabled"],
+            "validation_errors": ["PCE-01 disabled"],
         }
 
     t0 = time.perf_counter()
@@ -219,119 +218,118 @@ def decide_portfolio(payload: Optional[dict[str, Any]] = None) -> dict[str, Any]
     portfolio_id = str(body.get("portfolio_id") or body.get("portfolio") or DEFAULT_PORTFOLIO_ID).strip()
     if portfolio_id in {"default", "DEFAULT"}:
         portfolio_id = DEFAULT_PORTFOLIO_ID
+    profile_id = str(
+        body.get("policy") or body.get("profile_id") or body.get("profile") or DEFAULT_POLICY_PROFILE
+    ).strip()
 
-    ip, graph_payload, errors = _load_portfolio(portfolio_id)
+    ip, _graph, errors = _load_portfolio(portfolio_id)
     if errors or ip is None:
         return {
             "ok": False,
             "rejected": True,
-            "workstream_id": CIO_WORKSTREAM_ID,
+            "workstream_id": PCE_WORKSTREAM_ID,
             "validation_errors": errors or ["portfolio unavailable"],
         }
 
-    # Architectural invariant: never call decide_company to overwrite recommendations
-    # for portfolio purposes — PKG-01 already attached referential company decisions.
-    # PRE-01 is authoritative for risk; PCE-01 for mandate compliance; CIO-01 consumes both.
-    portfolio_risk = None
-    try:
-        from institutional_portfolio_risk.production import evaluate_portfolio_risk, get_risk_object
-
-        risk_payload = evaluate_portfolio_risk({"portfolio_id": ip.portfolio_id})
-        if risk_payload.get("ok"):
-            portfolio_risk = get_risk_object(ip.portfolio_id)
-    except Exception:  # noqa: BLE001
-        portfolio_risk = None
-
-    policy_assessment = None
-    try:
-        from institutional_policy.production import check_policy, get_assessment_object
-        from institutional_policy.schema import DEFAULT_POLICY_PROFILE
-
-        profile = str(body.get("policy") or body.get("profile_id") or DEFAULT_POLICY_PROFILE)
-        policy_payload = check_policy({"portfolio_id": ip.portfolio_id, "policy": profile})
-        if policy_payload.get("ok"):
-            policy_assessment = get_assessment_object(ip.portfolio_id, profile)
-    except Exception:  # noqa: BLE001
-        policy_assessment = None
-
-    prev = decision_history.latest(ip.portfolio_id)
-    decision = generate_portfolio_decision(
+    risk = _load_risk(ip.portfolio_id)
+    prev = policy_history.latest(ip.portfolio_id, profile_id)
+    assessment = generate_policy_assessment(
         ip,
-        previous_version=prev.decision_version if prev else 0,
-        concentration=graph_payload.get("concentration") or {},
-        portfolio_risk=portfolio_risk,
-        policy_assessment=policy_assessment,
-        observation_health=float(body.get("observation_health") or 0.7),
-        forecast_stability=float(body.get("forecast_stability") or 0.7),
+        profile_id=profile_id,
+        portfolio_risk=risk,
+        previous_version=prev.policy_version if prev else 0,
     )
 
-    # Attach diagnostics before validation (gate requires diagnostics)
-    prelim_diag = build_diagnostics(decision, latency_ms=(time.perf_counter() - t0) * 1000.0)
-    decision = replace(decision, diagnostics=prelim_diag)
+    prelim = build_diagnostics(
+        assessment,
+        latency_ms=(time.perf_counter() - t0) * 1000.0,
+        holding_count=len(ip.holdings),
+    )
+    assessment = replace(assessment, diagnostics=prelim)
 
-    validation = validate_decision(decision, holding_count=len(ip.holdings))
+    validation = validate_assessment(assessment, holding_count=len(ip.holdings))
     diag = build_diagnostics(
-        decision,
+        assessment,
         validation=validation.to_dict(),
         latency_ms=(time.perf_counter() - t0) * 1000.0,
+        holding_count=len(ip.holdings),
     )
-    decision = replace(decision, diagnostics=diag)
+    assessment = replace(assessment, diagnostics=diag)
 
     if not validation.ok:
         return {
             "ok": False,
             "rejected": True,
-            "workstream_id": CIO_WORKSTREAM_ID,
+            "workstream_id": PCE_WORKSTREAM_ID,
             "validation_errors": list(validation.errors),
             "gates": validation.gates,
-            "decision": decision.to_dict(),
+            "assessment": assessment.to_dict(),
             "diagnostics": diag,
             "llm": False,
-            "mutates_company_decisions": False,
         }
 
-    decision_history.record(decision)
+    policy_history.record(assessment)
     return {
         "ok": True,
         "rejected": False,
-        "workstream_id": CIO_WORKSTREAM_ID,
-        "product": CIO_PRODUCT,
-        "version": CIO_VERSION,
-        "decision": decision.to_dict(),
+        "workstream_id": PCE_WORKSTREAM_ID,
+        "product": PCE_PRODUCT,
+        "version": PCE_VERSION,
+        "assessment": assessment.to_dict(),
         "diagnostics": diag,
-        "portfolio_graph_id": decision.portfolio_graph_id,
-        "company_decisions_immutable": True,
+        "portfolio_graph_id": assessment.portfolio_graph_id,
+        "portfolio_risk_id": assessment.portfolio_risk_id,
+        "authoritative": True,
         "llm": False,
-        "mutates_company_decisions": False,
     }
 
 
-def get_portfolio_decision(
+def get_policy_assessment(
     portfolio_id: str = DEFAULT_PORTFOLIO_ID,
     *,
+    profile_id: str = DEFAULT_POLICY_PROFILE,
     refresh: bool = True,
     include_history: bool = False,
 ) -> dict[str, Any]:
     pid = str(portfolio_id or DEFAULT_PORTFOLIO_ID).strip()
     if pid in {"default", "DEFAULT"}:
         pid = DEFAULT_PORTFOLIO_ID
-    if refresh or decision_history.latest(pid) is None:
-        result = decide_portfolio({"portfolio_id": pid})
+    profile = str(profile_id or DEFAULT_POLICY_PROFILE).strip()
+    if refresh or policy_history.latest(pid, profile) is None:
+        result = check_policy({"portfolio_id": pid, "policy": profile})
         if include_history and result.get("ok"):
             result = dict(result)
-            result["history"] = decision_history.list_versions(pid)
+            result["history"] = policy_history.list_versions(pid, profile)
         return result
-    latest = decision_history.latest(pid)
+    latest = policy_history.latest(pid, profile)
     assert latest is not None
     out = {
         "ok": True,
-        "workstream_id": CIO_WORKSTREAM_ID,
-        "decision": latest.to_dict(),
+        "workstream_id": PCE_WORKSTREAM_ID,
+        "assessment": latest.to_dict(),
         "diagnostics": latest.diagnostics,
         "cached": True,
+        "authoritative": True,
         "llm": False,
-        "mutates_company_decisions": False,
     }
     if include_history:
-        out["history"] = decision_history.list_versions(pid)
+        out["history"] = policy_history.list_versions(pid, profile)
     return out
+
+
+def get_assessment_object(
+    portfolio_id: str = DEFAULT_PORTFOLIO_ID,
+    profile_id: str = DEFAULT_POLICY_PROFILE,
+):
+    """Return live InstitutionalPolicyAssessment for CIO-01."""
+    pid = str(portfolio_id or DEFAULT_PORTFOLIO_ID).strip()
+    if pid in {"default", "DEFAULT"}:
+        pid = DEFAULT_PORTFOLIO_ID
+    profile = str(profile_id or DEFAULT_POLICY_PROFILE).strip()
+    cached = policy_history.latest(pid, profile)
+    if cached is not None:
+        return cached
+    result = check_policy({"portfolio_id": pid, "policy": profile})
+    if result.get("ok"):
+        return policy_history.latest(pid, profile)
+    return None

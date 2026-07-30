@@ -175,6 +175,7 @@ class InstitutionalPortfolioDecision:
         "Portfolio",
         "Holding",
         "Portfolio Risk",
+        "Policy Constraint",
         "Company Decision",
         "Reason",
         "Evidence",
@@ -183,12 +184,16 @@ class InstitutionalPortfolioDecision:
     portfolio_risk_id: str = ""
     overall_risk: str = ""
     portfolio_risk_summary: Optional[dict[str, Any]] = None
+    policy_id: str = ""
+    policy_status: str = ""
+    policy_summary: Optional[dict[str, Any]] = None
     decision_engine_version: str = ""
     validator_version: str = ""
     rule_path: str = ""
     llm: bool = False
     mutates_company_decisions: bool = False
     consumes_pre01: bool = True
+    consumes_pce01: bool = True
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -215,10 +220,14 @@ class InstitutionalPortfolioDecision:
             "portfolio_risk_id": self.portfolio_risk_id,
             "overall_risk": self.overall_risk,
             "portfolio_risk_summary": dict(self.portfolio_risk_summary or {}),
+            "policy_id": self.policy_id,
+            "policy_status": self.policy_status,
+            "policy_summary": dict(self.policy_summary or {}),
             "decision_engine_version": self.decision_engine_version,
             "validator_version": self.validator_version,
             "rule_path": self.rule_path,
             "llm": False,
             "mutates_company_decisions": False,
             "consumes_pre01": True,
+            "consumes_pce01": True,
         }

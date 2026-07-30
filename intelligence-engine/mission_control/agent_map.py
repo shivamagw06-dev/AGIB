@@ -725,7 +725,7 @@ _CATALOG: list[dict[str, Any]] = [
         "responsibility": (
             "Phase 4.3 — Authoritative InstitutionalPortfolioRisk from portfolio graph. "
             "Concentration, liquidity, correlation proxies, factor exposure, deterministic stress. "
-            "Consumed by CIO-01. No Monte Carlo / VaR / optimisation."
+            "Consumed by PCE-01 and CIO-01. No Monte Carlo / VaR / optimisation."
         ),
         "sources": [
             "InstitutionalPortfolio",
@@ -737,17 +737,35 @@ _CATALOG: list[dict[str, Any]] = [
         "module": "institutional_portfolio_risk.production",
     },
     {
+        "id": "institutional_policy",
+        "name": "Institutional Policy & Constraint Engine (PCE-01)",
+        "group": "publication",
+        "responsibility": (
+            "Phase 4.4 — Deterministic mandate compliance. InstitutionalPolicyAssessment with "
+            "position/sector/cash/diversification/liquidity/risk constraints. Consumed by CIO-01. "
+            "No optimisation / no LLM."
+        ),
+        "sources": [
+            "InstitutionalPortfolio",
+            "InstitutionalPortfolioRisk (PRE-01)",
+            "Policy profiles / mandates",
+        ],
+        "kind": "portfolio_policy",
+        "module": "institutional_policy.production",
+    },
+    {
         "id": "institutional_portfolio_decision",
         "name": "Institutional Portfolio Decision System (CIO-01)",
         "group": "publication",
         "responsibility": (
             "Phase 4.2 — Deterministic InstitutionalPortfolioDecision from portfolio graph + "
-            "PRE-01 risk + referential company decisions. Allocation/exposure actions, portfolio "
-            "calibration, monitoring plan. Never mutates company decisions. No LLM / no trade execution."
+            "PRE-01 risk + PCE-01 policy + referential company decisions. Allocation/exposure "
+            "actions, portfolio calibration, monitoring plan. Never mutates company decisions."
         ),
         "sources": [
             "InstitutionalPortfolio",
             "InstitutionalPortfolioRisk (PRE-01)",
+            "InstitutionalPolicyAssessment (PCE-01)",
             "Company InstitutionalDecision (referential)",
             "Exposures",
         ],

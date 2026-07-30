@@ -74,6 +74,28 @@ def build_company_decision_refs(
     return tuple(supporting), tuple(contradicting)
 
 
+def _recommendation_from_policy(policy_summary: dict[str, Any]) -> Optional[tuple[str, str, str]]:
+    """Map PCE-01 primary violation to a portfolio recommendation."""
+    if not policy_summary or not policy_summary.get("has_breach"):
+        return None
+    primary = policy_summary.get("primary_violation") or {}
+    cid = str(primary.get("constraint_id") or "")
+    name = str(primary.get("name") or "Policy Constraint")
+    reason = f"policy:{cid or 'breach'}:{name.replace(' ', '_').lower()}"
+
+    if cid in {"pos_max_holding", "pos_max_top5", "div_max_hhi", "div_max_sector"}:
+        return ("Reduce Concentration", "Defensive", reason)
+    if cid == "sec_max_it":
+        return ("Reduce Technology", "Defensive", reason)
+    if cid in {"sec_max_financials", "sec_max_energy", "div_min_holdings"}:
+        return ("Increase Diversification", "Defensive", reason)
+    if cid == "cash_min":
+        return ("Increase Cash", "Defensive", reason)
+    if cid in {"risk_max_stress", "risk_max_beta", "liq_max_illiquid", "liq_max_exit_days", "cash_max"}:
+        return ("Review Portfolio", "Review", reason)
+    return ("Reduce Concentration", "Defensive", reason)
+
+
 def _choose_recommendation(
     *,
     sector_concentration: float,
@@ -84,8 +106,13 @@ def _choose_recommendation(
     has_trim_actions: bool,
     agreement: float,
     sell_weight: float,
+    policy_summary: Optional[dict[str, Any]] = None,
 ) -> tuple[str, str, str]:
-    """Return (recommendation, posture, rule_path)."""
+    """Return (recommendation, posture, rule_path). Policy breaches outrank heuristic risk rules."""
+    policy_rec = _recommendation_from_policy(dict(policy_summary or {}))
+    if policy_rec is not None:
+        return policy_rec
+
     # Priority rules — first match wins
     if sector_concentration >= 0.85 or hhi >= 0.28:
         return (
@@ -159,13 +186,14 @@ def generate_portfolio_decision(
     previous_version: int = 0,
     concentration: Optional[dict[str, Any]] = None,
     portfolio_risk: Any = None,
+    policy_assessment: Any = None,
     observation_health: float = 0.7,
     forecast_stability: float = 0.7,
 ) -> InstitutionalPortfolioDecision:
     """
-    Build an InstitutionalPortfolioDecision from portfolio state + PRE-01 risk + company refs.
+    Build an InstitutionalPortfolioDecision from portfolio + PRE-01 risk + PCE-01 policy + company refs.
 
-    Risk metrics come from PRE-01 (authoritative). Company decisions are referential only.
+    Risk and policy are authoritative inputs. Company decisions are referential only.
     """
     risk_summary: dict[str, Any] = {}
     portfolio_risk_id = ""
@@ -189,6 +217,20 @@ def generate_portfolio_decision(
         sectors = [e for e in portfolio.exposures if e.dimension == "sector"]
         sector_concentration = float(sectors[0].weight) if sectors else 0.0
         top_sector = sectors[0].name if sectors else ""
+
+    policy_summary: dict[str, Any] = {}
+    policy_id = ""
+    policy_status = ""
+    if policy_assessment is not None:
+        try:
+            from institutional_policy.policy_engine import policy_summary_for_cio
+
+            policy_summary = policy_summary_for_cio(policy_assessment)
+            policy_id = str(getattr(policy_assessment, "policy_id", "") or "")
+            policy_status = str(getattr(policy_assessment, "overall_status", "") or "")
+        except Exception:  # noqa: BLE001
+            policy_assessment = None
+            policy_summary = {}
 
     supporting, contradicting = build_company_decision_refs(portfolio)
     all_refs = tuple(list(supporting) + list(contradicting))
@@ -221,6 +263,7 @@ def generate_portfolio_decision(
         has_trim_actions=has_trim,
         agreement=agreement,
         sell_weight=sell_weight,
+        policy_summary=policy_summary,
     )
 
     # Special-case label when banking book constructive increase
@@ -266,16 +309,15 @@ def generate_portfolio_decision(
     else:
         risks = tuple(r.to_dict() if hasattr(r, "to_dict") else dict(r) for r in portfolio.risks)
 
-    lineage = LINEAGE_CHAIN
-    if portfolio_risk_id:
-        lineage = (
-            "Portfolio",
-            "Holding",
-            "Portfolio Risk",
-            "Company Decision",
-            "Reason",
-            "Evidence",
-        )
+    lineage = (
+        "Portfolio",
+        "Holding",
+        "Portfolio Risk",
+        "Policy Constraint",
+        "Company Decision",
+        "Reason",
+        "Evidence",
+    ) if (portfolio_risk_id or policy_id) else LINEAGE_CHAIN
 
     return InstitutionalPortfolioDecision(
         portfolio_id=portfolio.portfolio_id,
@@ -301,10 +343,14 @@ def generate_portfolio_decision(
         portfolio_risk_id=portfolio_risk_id,
         overall_risk=overall_risk,
         portfolio_risk_summary=risk_summary or None,
+        policy_id=policy_id,
+        policy_status=policy_status,
+        policy_summary=policy_summary or None,
         decision_engine_version=DECISION_ENGINE_VERSION,
         validator_version=VALIDATOR_VERSION,
         rule_path=rule_path,
         llm=False,
         mutates_company_decisions=False,
         consumes_pre01=bool(portfolio_risk_id),
+        consumes_pce01=bool(policy_id),
     )

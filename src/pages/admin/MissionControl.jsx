@@ -196,6 +196,8 @@ export default function MissionControl() {
     null;
   const portfolioRiskCenter =
     institutional?.institutional_portfolio_risk || desk?.institutional_portfolio_risk || null;
+  const policyCenter =
+    institutional?.institutional_policy || desk?.institutional_policy || null;
   const pipeline = desk?.research_pipeline || {};
   const preds = desk?.prediction_intelligence || {};
   const dq = desk?.data_quality || {};
@@ -1374,6 +1376,55 @@ export default function MissionControl() {
               <p className="text-xs text-[var(--io-muted)]">Risk Center soft slice unavailable.</p>
             </Glass>
           ) : null}
+        </section>
+
+        {/* Policy Center — PCE-01 */}
+        <section className="space-y-3">
+          <Kicker>Policy Center · PCE-01</Kicker>
+          <p className="text-sm text-[var(--io-muted)] max-w-3xl">
+            Mandate compliance — active violations, compliance score, portfolios out of mandate,
+            and constraints nearing limits. Governs CIO-01 recommendations.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            <Stat
+              label="Active violations"
+              value={policyCenter?.active_violations ?? '—'}
+              status={policyCenter?.status}
+            />
+            <Stat label="Compliance score" value={policyCenter?.compliance_score ?? '—'} />
+            <Stat
+              label="New violations today"
+              value={policyCenter?.new_violations_today ?? '—'}
+            />
+            <Stat
+              label="Out of mandate"
+              value={(policyCenter?.portfolios_out_of_mandate || []).length || '—'}
+            />
+            <Stat
+              label="Nearing limits"
+              value={policyCenter?.constraints_nearing_limits ?? '—'}
+            />
+          </div>
+          <Glass>
+            <p className="text-[11px] uppercase text-[var(--io-caption)]">
+              Status {policyCenter?.overall_status || '—'} · profile{' '}
+              {policyCenter?.profile_id || '—'}
+            </p>
+            <ul className="mt-2 space-y-1 text-xs max-h-36 overflow-auto text-[var(--io-ink-soft)]">
+              {(policyCenter?.portfolios_out_of_mandate || []).slice(0, 6).map((p) => (
+                <li key={`oom-${p}`}>Out of mandate: {p}</li>
+              ))}
+              {(policyCenter?.policy_assessment?.required_actions || []).slice(0, 6).map((a) => (
+                <li key={`pa-${a}`}>Action: {a}</li>
+              ))}
+              {!policyCenter ? <li>Policy Center soft slice unavailable.</li> : null}
+              {policyCenter &&
+              !(policyCenter.portfolios_out_of_mandate || []).length &&
+              !(policyCenter.policy_assessment?.required_actions || []).length ? (
+                <li>Run a policy check to populate the Policy Center.</li>
+              ) : null}
+            </ul>
+          </Glass>
         </section>
 
         {/* Portfolio Command Center — CIO-01 */}

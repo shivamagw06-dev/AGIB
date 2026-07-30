@@ -9,6 +9,8 @@ Portfolio Graph (PKG-01)
 ↓
 Portfolio Risk (PRE-01)  ← authoritative risk object
 ↓
+Policy Assessment (PCE-01)  ← mandate governance
+↓
 Portfolio Decision Engine (CIO-01)
 ↓
 Portfolio Calibration
@@ -16,7 +18,7 @@ Portfolio Calibration
 Allocation / Exposure Actions + Monitoring
 ```
 
-CIO-01 **consumes** PRE-01 (`InstitutionalPortfolioRisk`) for HHI, sector concentration, stress, and warnings — it does not recompute risk when PRE-01 is available.
+CIO-01 **consumes** PRE-01 for risk and PCE-01 for mandate compliance. Policy breaches outrank heuristic concentration rules when forming recommendations.
 
 A portfolio recommendation is **not** the average of company recommendations.
 
