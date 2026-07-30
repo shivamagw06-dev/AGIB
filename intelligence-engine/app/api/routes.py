@@ -10656,6 +10656,51 @@ async def financial_statements_collection_run(payload: dict[str, Any] = Body(def
     return collect_ticker(ticker, mode=mode)
 
 
+@router.get("/financial-statements/fdo/dashboard")
+async def financial_statements_fdo_dashboard(universe: str = "gold"):
+    """FSE-FDO Phase 1 — Financial Data Operations Mission Control."""
+    from financial_statements_engine.fdo.production import dashboard
+
+    return dashboard(universe)
+
+
+@router.get("/financial-statements/fdo/schedule")
+async def financial_statements_fdo_schedule(universe: str = "gold", limit: int = 50):
+    from financial_statements_engine.fdo.production import schedule
+
+    return schedule(universe, limit=max(1, min(int(limit), 500)))
+
+
+@router.get("/financial-statements/fdo/alerts")
+async def financial_statements_fdo_alerts(universe: str = "gold"):
+    from financial_statements_engine.fdo.production import alerts
+
+    return alerts(universe)
+
+
+@router.get("/financial-statements/coverage")
+async def financial_statements_fdo_coverage(universe: str = "gold"):
+    """FDO company coverage / completeness aggregate."""
+    from financial_statements_engine.fdo.production import coverage
+
+    return coverage(universe)
+
+
+@router.get("/financial-statements/coverage/{company}")
+async def financial_statements_fdo_coverage_company(company: str):
+    from financial_statements_engine.fdo.production import coverage_company
+
+    return coverage_company(company.upper())
+
+
+@router.get("/financial-statements/source-health")
+async def financial_statements_source_health():
+    """FDO per-source availability / success / latency comparison."""
+    from financial_statements_engine.fdo.production import source_health
+
+    return source_health()
+
+
 @router.get("/financial-statements/{ticker}")
 async def financial_statements_ticker(ticker: str):
     from financial_statements_engine.production import get_statements

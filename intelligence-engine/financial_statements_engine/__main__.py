@@ -36,6 +36,8 @@ def main(argv: list[str] | None = None) -> int:
             "--orch-retry ID|--orch-replay ID [--from-stage STAGE]|"
             "--verify-dashboard|--verify-workflow [ID]|--verify-company TICKER|"
             "--verify-universe [LIST]|--workflow-report ID|--workflow-provenance ID|"
+            "--fdo-dashboard|--fdo-coverage [universe]|--coverage-company TICKER|"
+            "--fdo-schedule|--source-health|--fdo-alerts|"
             "--schema-evolution-health|--schema-resolve LABEL|"
             "--collection-health|--collection-dashboard|--ingest-dashboard|"
             "--collect TICKER [--mode live|historical]|TICKER [--publish]"
@@ -420,6 +422,43 @@ def main(argv: list[str] | None = None) -> int:
         from financial_statements_engine.verification.production import dashboard as verify_dashboard
 
         print(json.dumps(verify_dashboard(), indent=2, default=str))
+        return 0
+    if cmd == "--fdo-dashboard":
+        from financial_statements_engine.fdo.production import dashboard as fdo_dashboard
+
+        universe = args[1] if len(args) > 1 else "gold"
+        print(json.dumps(fdo_dashboard(universe), indent=2, default=str))
+        return 0
+    if cmd == "--fdo-coverage":
+        from financial_statements_engine.fdo.production import coverage as fdo_coverage
+
+        universe = args[1] if len(args) > 1 else "gold"
+        print(json.dumps(fdo_coverage(universe), indent=2, default=str))
+        return 0
+    if cmd == "--coverage-company":
+        from financial_statements_engine.fdo.production import coverage_company
+
+        if len(args) < 2:
+            print("company ticker required", file=sys.stderr)
+            return 2
+        print(json.dumps(coverage_company(args[1].upper()), indent=2, default=str))
+        return 0
+    if cmd == "--fdo-schedule":
+        from financial_statements_engine.fdo.production import schedule as fdo_schedule
+
+        universe = args[1] if len(args) > 1 else "gold"
+        print(json.dumps(fdo_schedule(universe), indent=2, default=str))
+        return 0
+    if cmd == "--source-health":
+        from financial_statements_engine.fdo.production import source_health
+
+        print(json.dumps(source_health(), indent=2, default=str))
+        return 0
+    if cmd == "--fdo-alerts":
+        from financial_statements_engine.fdo.production import alerts as fdo_alerts
+
+        universe = args[1] if len(args) > 1 else "gold"
+        print(json.dumps(fdo_alerts(universe), indent=2, default=str))
         return 0
     if cmd == "--verify-workflow":
         from financial_statements_engine.verification.runner import verify_workflow
