@@ -351,10 +351,10 @@ def reset_for_tests() -> None:
 
 
 def morning_overview() -> dict[str, Any]:
-    """Full Morning Office aggregate for /admin/investment-office."""
+    """Hot path: precomputed morning snapshot (ICF/IEP/CGL off the request)."""
     from investment_office.morning_desk import build_morning_overview
 
-    return build_morning_overview()
+    return build_morning_overview(force=False, allow_live_rebuild=False)
 
 
 def morning_office() -> dict[str, Any]:
@@ -417,10 +417,23 @@ def metrics_v13() -> dict[str, Any]:
     return slice_overview("metrics")
 
 
-def refresh_morning_office() -> dict[str, Any]:
+def snapshot_status() -> dict[str, Any]:
+    from investment_office.morning_snapshot import snapshot_meta
+
+    return {"ok": True, **snapshot_meta()}
+
+
+def system_health_v13() -> dict[str, Any]:
+    """Live operational status — seconds freshness, no heavy scans."""
+    from investment_office.morning_snapshot import live_system_health
+
+    return live_system_health()
+
+
+def refresh_morning_office(wait: bool = False) -> dict[str, Any]:
     from investment_office.morning_desk import refresh_morning_office as _refresh
 
-    return _refresh()
+    return _refresh(wait=wait)
 
 
 def generate_morning_brief() -> dict[str, Any]:
@@ -430,10 +443,12 @@ def generate_morning_brief() -> dict[str, Any]:
 
 
 def soft_slice_morning_office() -> dict[str, Any]:
-    """Mission Control / homepage soft board for V1.3 Morning Office."""
+    """Mission Control / homepage soft board — snapshot only."""
     try:
-        overview = morning_overview()
-        top = overview.get("top_summary") or {}
+        from investment_office.morning_snapshot import get_snapshot, snapshot_meta
+
+        overview = get_snapshot() or morning_overview()
+        top = (overview or {}).get("top_summary") or {}
         return {
             "status": "ok",
             "workstream_id": overview.get("workstream_id"),
@@ -441,6 +456,8 @@ def soft_slice_morning_office() -> dict[str, Any]:
             "version": overview.get("version"),
             "admin_only": True,
             "buy_sell": False,
+            "delivery": (overview or {}).get("delivery"),
+            "snapshot": snapshot_meta(),
             "panels": {
                 "market_mood": top.get("market_mood"),
                 "global_risk": top.get("global_risk"),

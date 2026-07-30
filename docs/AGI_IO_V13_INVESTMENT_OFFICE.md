@@ -26,7 +26,9 @@ Engine + Node BFF under `/v1/investment-office/*` and `/api/intelligence/investm
 
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `/overview` | Full morning desk aggregate |
+| GET | `/overview` | Precomputed morning snapshot (V1.3.1 hot path) |
+| GET | `/snapshot` | Snapshot metadata + rebuild job status |
+| GET | `/system-health` | Live operational status (seconds freshness) |
 | GET | `/morning-office` | Header + summary + brief + priorities + overnight |
 | GET | `/daily-brief` | Executive + AI brief |
 | GET | `/research-queue` | Staged research queue |
@@ -37,7 +39,9 @@ Engine + Node BFF under `/v1/investment-office/*` and `/api/intelligence/investm
 | GET | `/portfolio-monitor` | Watchlist / review alerts |
 | GET | `/sector-monitor` | Sector board |
 | GET | `/metrics` | Daily research metrics |
-| POST | `/refresh` | Rebuild morning office |
+| POST | `/refresh` | Async snapshot rebuild (existing snapshot keeps serving) |
+
+See also: `docs/AGI_IO_V131_PERFORMANCE_OPS.md` (Performance & Operations).
 | POST | `/generate-morning-brief` | Regenerate AI / executive brief |
 
 Existing IO-01 endpoints (`/health`, `/dashboard`, `/company/{ticker}`, `/query`, `/package`) remain unchanged.
@@ -88,5 +92,9 @@ White institutional interface · Financial Times typography · Bloomberg precisi
 ## Version
 
 - Workstream: `IO-V1.3`
-- Product version: `io-v1.3.0`
-- Platform: `AGI V1.3`
+- Product version: `io-v1.3.1` (Performance & Ops — see `docs/AGI_IO_V131_PERFORMANCE_OPS.md`)
+- Platform: `AGI V1.3.1`
+
+## Performance note (v1.3.1)
+
+`/overview` reads a **precomputed morning snapshot**. Heavy ICF/IEP/CGL scans run in the overnight pipeline or via async `POST /refresh`, not on page load.

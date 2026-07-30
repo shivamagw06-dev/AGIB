@@ -9527,12 +9527,30 @@ async def investment_office_metrics_v13():
     return metrics_v13()
 
 
+@router.get("/investment-office/snapshot")
+async def investment_office_snapshot_v13():
+    """Snapshot metadata — no heavy recompute."""
+    from investment_office.production import snapshot_status
+
+    return snapshot_status()
+
+
+@router.get("/investment-office/system-health")
+async def investment_office_system_health_v13():
+    """Live operational status (seconds) — ICF/IEP/CGL off path."""
+    from investment_office.production import system_health_v13
+
+    return system_health_v13()
+
+
 @router.post("/investment-office/refresh")
 async def investment_office_refresh_v13(payload: dict[str, Any] = Body(default={})):
+    """Queue morning snapshot rebuild (async). Pass wait=true for ops sync."""
     from investment_office.production import refresh_morning_office
 
-    _ = payload
-    return refresh_morning_office()
+    body = payload or {}
+    wait = bool(body.get("wait") or body.get("sync"))
+    return refresh_morning_office(wait=wait)
 
 
 @router.post("/investment-office/generate-morning-brief")
