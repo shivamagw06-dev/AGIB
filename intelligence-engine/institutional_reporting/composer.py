@@ -73,6 +73,47 @@ def build_diagnostics(
         out["evidence_snapshot_id"] = getattr(decision, "evidence_snapshot_id", None) or (
             decision.get("evidence_snapshot_id") if isinstance(decision, dict) else None
         )
+        out["calibrated"] = bool(
+            getattr(decision, "calibrated", False)
+            if not isinstance(decision, dict)
+            else decision.get("calibrated")
+        )
+        out["calibration_version"] = getattr(decision, "calibration_version", None) or (
+            decision.get("calibration_version") if isinstance(decision, dict) else None
+        )
+        out["calibration_profile_version"] = getattr(
+            decision, "calibration_profile_version", None
+        ) or (
+            decision.get("calibration_profile_version") if isinstance(decision, dict) else None
+        )
+        cal = getattr(decision, "calibration", None)
+        if cal is None and isinstance(decision, dict):
+            cal = decision.get("calibration")
+        if cal is not None:
+            out["confidence_contributors"] = (
+                {
+                    "positive": [c.to_dict() for c in getattr(cal, "positive_contributors", [])],
+                    "negative": [c.to_dict() for c in getattr(cal, "negative_contributors", [])],
+                }
+                if hasattr(cal, "positive_contributors")
+                else {
+                    "positive": (cal.get("positive_contributors") if isinstance(cal, dict) else []),
+                    "negative": (cal.get("negative_contributors") if isinstance(cal, dict) else []),
+                }
+            )
+            out["penalty_breakdown"] = (
+                {
+                    "unknown_penalty": getattr(cal, "unknown_penalty", None),
+                    "contradiction_penalty": getattr(cal, "contradiction_penalty", None),
+                }
+                if hasattr(cal, "unknown_penalty")
+                else {
+                    "unknown_penalty": cal.get("unknown_penalty") if isinstance(cal, dict) else None,
+                    "contradiction_penalty": cal.get("contradiction_penalty")
+                    if isinstance(cal, dict)
+                    else None,
+                }
+            )
     return out
 
 
@@ -139,7 +180,7 @@ def _rejected(
 
 
 def _generate_institutional_decision(inp: InstitutionalReportInput, graph: Any) -> tuple[Any, list[str]]:
-    """Decision System owns recommendation — report only renders it."""
+    """Decision System owns recommendation — report only renders it (IDS-02 calibrated)."""
     try:
         from institutional_decision.decision_engine import generate_decision
         from institutional_decision.decision_validator import validate_decision
@@ -176,6 +217,26 @@ def _generate_institutional_decision(inp: InstitutionalReportInput, graph: Any) 
     )
     if not validation.ok:
         return decision, list(validation.errors)
+
+    # IDS-02 — replace opaque confidence with calibrated confidence
+    try:
+        from institutional_calibration.calibration_engine import calibrate_decision
+        from institutional_calibration.diagnostics import validate_calibration_gates
+        from institutional_calibration.flags import is_enabled as cal_enabled
+
+        if cal_enabled():
+            decision, bundle = calibrate_decision(
+                decision,
+                reasons=list(graph.reasons),
+                evidence=inp,
+                previous=prev,
+            )
+            cal_errors = validate_calibration_gates(bundle.quality_gates)
+            if cal_errors:
+                return decision, cal_errors
+    except Exception as exc:  # noqa: BLE001
+        return decision, [f"calibration failed: {exc}"]
+
     decision_history.record(decision)
     return decision, []
 

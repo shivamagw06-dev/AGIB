@@ -2580,6 +2580,12 @@ export default function createIntelligenceRouter() {
       if (req.query?.include_history !== undefined) {
         qs.set('include_history', String(req.query.include_history));
       }
+      if (req.query?.include_calibration !== undefined) {
+        qs.set('include_calibration', String(req.query.include_calibration));
+      }
+      if (req.query?.include_drift !== undefined) {
+        qs.set('include_drift', String(req.query.include_drift));
+      }
       const suffix = qs.toString() ? `?${qs}` : '';
       const result = await engineFetch(
         `/v1/decision/company/${encodeURIComponent(req.params.ticker)}${suffix}`,
@@ -2588,6 +2594,48 @@ export default function createIntelligenceRouter() {
       return res.status(result.status).json(result.data);
     } catch (err) {
       return res.status(502).json({ error: err?.message || 'institutional decision get failed' });
+    }
+  });
+
+  // IDS-02 — Decision Calibration & Explainability
+  router.get('/calibration/health', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/calibration/health', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'institutional calibration health failed' });
+    }
+  });
+  router.post('/calibration/company', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/calibration/company', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 60_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'institutional calibration failed' });
+    }
+  });
+  router.get('/calibration/company/:ticker', async (req, res) => {
+    try {
+      const qs = new URLSearchParams();
+      if (req.query?.include_calibration !== undefined) {
+        qs.set('include_calibration', String(req.query.include_calibration));
+      }
+      if (req.query?.include_drift !== undefined) {
+        qs.set('include_drift', String(req.query.include_drift));
+      }
+      const suffix = qs.toString() ? `?${qs}` : '';
+      const result = await engineFetch(
+        `/v1/calibration/company/${encodeURIComponent(req.params.ticker)}${suffix}`,
+        { timeoutMs: 60_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'institutional calibration get failed' });
     }
   });
 

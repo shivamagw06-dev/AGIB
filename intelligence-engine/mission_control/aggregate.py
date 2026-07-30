@@ -1620,6 +1620,15 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("institutional_decision")
     except Exception:
         out["institutional_decision"] = None
+
+    # IDS-02 — Decision Calibration & Explainability.
+    try:
+        from institutional_calibration.production import soft_slice_mission_control as cal_soft
+
+        out["institutional_calibration"] = cal_soft()
+        out["sources"].append("institutional_calibration")
+    except Exception:
+        out["institutional_calibration"] = None
     return out
 
 

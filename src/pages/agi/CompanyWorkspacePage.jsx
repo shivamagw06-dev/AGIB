@@ -4,6 +4,7 @@ import {
   getCompanyWorkspace,
   getCompanyWorkspaceEvidence,
   getCompanyWorkspaceTimeline,
+  getInstitutionalDecision,
 } from '@/lib/intelligenceApi';
 import {
   COMPANY_TABS,
@@ -91,6 +92,7 @@ export default function CompanyWorkspacePage() {
   const [workspace, setWorkspace] = useState(null);
   const [timeline, setTimeline] = useState([]);
   const [evidence, setEvidence] = useState([]);
+  const [decisionPack, setDecisionPack] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -103,8 +105,12 @@ export default function CompanyWorkspacePage() {
       getCompanyWorkspace(ticker),
       getCompanyWorkspaceTimeline(ticker).catch(() => null),
       getCompanyWorkspaceEvidence(ticker).catch(() => null),
+      getInstitutionalDecision(ticker, {
+        includeCalibration: true,
+        includeDrift: true,
+      }).catch(() => null),
     ])
-      .then(([ws, tl, ev]) => {
+      .then(([ws, tl, ev, decision]) => {
         if (!active) return;
         setWorkspace(ws);
         const events =
@@ -119,6 +125,7 @@ export default function CompanyWorkspacePage() {
           sectionByKey(ws, 'evidence_references')?.board?.references ||
           [];
         setEvidence(Array.isArray(refs) ? refs : []);
+        setDecisionPack(decision && decision.ok !== false ? decision : null);
         setLoading(false);
       })
       .catch((err) => {
@@ -274,6 +281,118 @@ export default function CompanyWorkspacePage() {
               </ul>
             </section>
           </div>
+          {decisionPack?.decision ? (
+            <section className="agi-panel" style={{ marginTop: '1.25rem' }}>
+              <div className="agi-section-head">
+                <h2>Institutional decision</h2>
+                <button type="button" className="agi-btn" onClick={() => setTab('decision')}>
+                  Calibration
+                </button>
+              </div>
+              <div className="agi-stat-row">
+                <div className="agi-stat">
+                  <div className="agi-stat-label">Recommendation</div>
+                  <div className="agi-stat-value" style={{ fontSize: '1.35rem' }}>
+                    {decisionPack.decision.recommendation}
+                  </div>
+                </div>
+                <div className="agi-stat">
+                  <div className="agi-stat-label">Calibrated confidence</div>
+                  <div className="agi-stat-value">
+                    {formatConfidence(decisionPack.decision.confidence)}
+                  </div>
+                </div>
+              </div>
+            </section>
+          ) : null}
+        </div>
+      )}
+
+      {!loading && !error && tab === 'decision' && (
+        <div>
+          <h2 style={{ margin: '0 0 0.5rem', fontFamily: 'var(--agi-display)', fontSize: '1.5rem' }}>
+            Decision calibration
+          </h2>
+          <p className="agi-list-meta" style={{ marginBottom: '1rem' }}>
+            Confidence is computed from evidence quality, reasoning strength, and penalties — not assigned.
+          </p>
+          {!decisionPack?.decision ? (
+            <div className="agi-empty">Decision calibration unavailable for this ticker.</div>
+          ) : (
+            <>
+              <div className="agi-stat-row">
+                <div className="agi-stat">
+                  <div className="agi-stat-label">Recommendation</div>
+                  <div className="agi-stat-value" style={{ fontSize: '1.35rem' }}>
+                    {decisionPack.decision.recommendation}
+                  </div>
+                </div>
+                <div className="agi-stat">
+                  <div className="agi-stat-label">Confidence</div>
+                  <div className="agi-stat-value">
+                    {formatConfidence(decisionPack.decision.confidence)}
+                  </div>
+                </div>
+              </div>
+
+              <section style={{ marginTop: '1.25rem' }}>
+                <h3 style={{ fontFamily: 'var(--agi-display)', fontSize: '1.15rem' }}>
+                  Confidence breakdown
+                </h3>
+                <ul className="agi-list" style={{ marginTop: '0.75rem' }}>
+                  {(decisionPack.calibration?.positive || []).slice(0, 6).map((c) => (
+                    <li key={`p-${c.key || c.label}`}>
+                      <div className="agi-list-title">+ {productizeText(c.label || c.key)}</div>
+                    </li>
+                  ))}
+                  {(decisionPack.calibration?.negative || []).slice(0, 6).map((c) => (
+                    <li key={`n-${c.key || c.label}`}>
+                      <div className="agi-list-title">− {productizeText(c.label || c.key)}</div>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+
+              <section style={{ marginTop: '1.25rem' }}>
+                <h3 style={{ fontFamily: 'var(--agi-display)', fontSize: '1.15rem' }}>
+                  Decision scorecard
+                </h3>
+                <ul className="agi-list" style={{ marginTop: '0.75rem' }}>
+                  {(decisionPack.scorecard?.lines || []).map((line) => (
+                    <li key={line.dimension}>
+                      <div className="agi-list-title">
+                        {line.dimension}{' '}
+                        <span className="agi-list-meta">
+                          {line.points > 0 ? `+${line.points}` : String(line.points)}
+                        </span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+
+              <section style={{ marginTop: '1.25rem' }}>
+                <h3 style={{ fontFamily: 'var(--agi-display)', fontSize: '1.15rem' }}>
+                  Decision drift
+                </h3>
+                <ul className="agi-list" style={{ marginTop: '0.75rem' }}>
+                  {(decisionPack.drift?.explanation_chain || ['No prior decision']).map((step) => (
+                    <li key={step}>
+                      <div className="agi-list-title">{productizeText(step)}</div>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+
+              <section style={{ marginTop: '1.25rem' }}>
+                <h3 style={{ fontFamily: 'var(--agi-display)', fontSize: '1.15rem' }}>Lineage</h3>
+                <p className="agi-list-meta" style={{ marginTop: '0.5rem' }}>
+                  {(decisionPack.lineage?.chain || []).join(' → ') ||
+                    'Evidence → Reasons → Decision → Calibration → Report'}
+                </p>
+              </section>
+            </>
+          )}
         </div>
       )}
 
