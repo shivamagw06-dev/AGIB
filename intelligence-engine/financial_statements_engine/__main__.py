@@ -34,6 +34,8 @@ def main(argv: list[str] | None = None) -> int:
             "--orch-health|--orch-dashboard|--orch-queue|--orch-history|--orch-dlq|"
             "--orch-status|--orch-workflows|--orch-workflow ID|"
             "--orch-retry ID|--orch-replay ID [--from-stage STAGE]|"
+            "--verify-dashboard|--verify-workflow [ID]|--verify-company TICKER|"
+            "--verify-universe [LIST]|--workflow-report ID|--workflow-provenance ID|"
             "--schema-evolution-health|--schema-resolve LABEL|"
             "--collection-health|--collection-dashboard|--ingest-dashboard|"
             "--collect TICKER [--mode live|historical]|TICKER [--publish]"
@@ -413,6 +415,51 @@ def main(argv: list[str] | None = None) -> int:
                 from_stage = args[i + 1]
         print(json.dumps(orch_replay(args[1], from_stage=from_stage), indent=2, default=str))
         return 0
+
+    if cmd == "--verify-dashboard":
+        from financial_statements_engine.verification.production import dashboard as verify_dashboard
+
+        print(json.dumps(verify_dashboard(), indent=2, default=str))
+        return 0
+    if cmd == "--verify-workflow":
+        from financial_statements_engine.verification.runner import verify_workflow
+
+        if len(args) < 2:
+            print("workflow_id required", file=sys.stderr)
+            return 2
+        print(json.dumps(verify_workflow(args[1]), indent=2, default=str))
+        return 0
+    if cmd == "--verify-company":
+        from financial_statements_engine.verification.production import run_company
+
+        if len(args) < 2:
+            print("company ticker required", file=sys.stderr)
+            return 2
+        print(json.dumps(run_company(args[1].upper()), indent=2, default=str))
+        return 0
+    if cmd == "--verify-universe":
+        from financial_statements_engine.verification.production import run_universe
+
+        universe = args[1] if len(args) > 1 else None
+        print(json.dumps(run_universe(universe), indent=2, default=str))
+        return 0
+    if cmd == "--workflow-report":
+        from financial_statements_engine.verification.production import workflow_report
+
+        if len(args) < 2:
+            print("workflow_id required", file=sys.stderr)
+            return 2
+        print(json.dumps(workflow_report(args[1]), indent=2, default=str))
+        return 0
+    if cmd == "--workflow-provenance":
+        from financial_statements_engine.verification.production import workflow_provenance
+
+        if len(args) < 2:
+            print("workflow_id required", file=sys.stderr)
+            return 2
+        print(json.dumps(workflow_provenance(args[1]), indent=2, default=str))
+        return 0
+
     if cmd == "--schema-evolution-health":
         from financial_statements_engine.schema_evolution.production import health as se_health
 

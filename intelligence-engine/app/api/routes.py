@@ -10558,6 +10558,60 @@ async def financial_statements_orchestrator_replay(workflow_id: str, payload: di
     return replay(workflow_id, from_stage=body.get("from_stage"))
 
 
+@router.get("/financial-statements/verification/dashboard")
+async def financial_statements_verification_dashboard():
+    """FSE-02.2 Production Verification Mission Control."""
+    from financial_statements_engine.verification.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/financial-statements/verification/workflows")
+async def financial_statements_verification_workflows(state: str | None = None, limit: int = 100):
+    from financial_statements_engine.verification.production import workflows
+
+    return workflows(state=state, limit=max(1, min(int(limit), 1000)))
+
+
+@router.get("/financial-statements/verification/workflows/{workflow_id}")
+async def financial_statements_verification_workflow(workflow_id: str):
+    from financial_statements_engine.verification.production import workflow_detail
+
+    return workflow_detail(workflow_id)
+
+
+@router.get("/financial-statements/verification/provenance/{workflow_id}")
+async def financial_statements_verification_provenance(workflow_id: str):
+    from financial_statements_engine.verification.production import workflow_provenance
+
+    return workflow_provenance(workflow_id)
+
+
+@router.get("/financial-statements/verification/report/{workflow_id}")
+async def financial_statements_verification_report(workflow_id: str):
+    from financial_statements_engine.verification.production import workflow_report
+
+    return workflow_report(workflow_id)
+
+
+@router.get("/financial-statements/verification/sla")
+async def financial_statements_verification_sla():
+    from financial_statements_engine.verification.production import sla
+
+    return sla()
+
+
+@router.post("/financial-statements/verification/run/{company}")
+async def financial_statements_verification_run(company: str):
+    """Run end-to-end production verification for one company."""
+    from financial_statements_engine.verification.production import run_company
+
+    ticker = str(company or "").strip().upper()
+    if not ticker:
+        raise HTTPException(status_code=400, detail="company_required")
+    return run_company(ticker)
+
+
 @router.get("/financial-statements/collection/health")
 async def financial_statements_collection_health():
     """FSE-02 Data Sources & Collection Pipeline."""
