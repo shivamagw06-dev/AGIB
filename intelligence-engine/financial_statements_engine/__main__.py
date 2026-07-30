@@ -29,6 +29,8 @@ def main(argv: list[str] | None = None) -> int:
             "--validation-health|--validation-dashboard|--validate-draft PATH|--validate-ticker TICKER|"
             "--warehouse-health|--warehouse-dashboard|--warehouse-latest TICKER|"
             "--warehouse-contract CONTRACT TICKER|--warehouse-view TICKER VIEW [--as-of TS]|"
+            "--dme-health|--dme-dashboard|--dme-calculate TICKER|"
+            "--ecd-health|--ecd-dashboard [universe]|--ecd-company TICKER|"
             "--schema-evolution-health|--schema-resolve LABEL|"
             "--collection-health|--collection-dashboard|"
             "--collect TICKER [--mode live|historical]|TICKER [--publish]"
@@ -323,6 +325,26 @@ def main(argv: list[str] | None = None) -> int:
             print("metric_name required", file=sys.stderr)
             return 2
         print(json.dumps(dme_lineage(args[1]), indent=2, default=str))
+        return 0
+    if cmd == "--ecd-health":
+        from financial_statements_engine.evidence_coverage.production import health as ecd_health
+
+        print(json.dumps(ecd_health(), indent=2, default=str))
+        return 0
+    if cmd == "--ecd-dashboard":
+        from financial_statements_engine.evidence_coverage.production import dashboard as ecd_dash
+
+        universe = args[1] if len(args) > 1 else "nifty500"
+        include_rows = "--rows" in args
+        print(json.dumps(ecd_dash(universe, include_rows=include_rows), indent=2, default=str))
+        return 0
+    if cmd == "--ecd-company":
+        from financial_statements_engine.evidence_coverage.production import company as ecd_company
+
+        if len(args) < 2:
+            print("ticker required", file=sys.stderr)
+            return 2
+        print(json.dumps(ecd_company(args[1]), indent=2, default=str))
         return 0
     if cmd == "--schema-evolution-health":
         from financial_statements_engine.schema_evolution.production import health as se_health

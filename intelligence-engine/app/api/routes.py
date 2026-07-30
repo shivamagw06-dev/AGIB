@@ -10385,6 +10385,28 @@ async def financial_statements_dme_metric(ticker: str, metric_name: str, period:
     return get_metric(ticker, metric_name, period=period)
 
 
+@router.get("/financial-statements/evidence-coverage/health")
+async def financial_statements_ecd_health():
+    """FSE-ECD Evidence Coverage Dashboard — how many companies do we have?"""
+    from financial_statements_engine.evidence_coverage.production import health
+
+    return health()
+
+
+@router.get("/financial-statements/evidence-coverage/dashboard")
+async def financial_statements_ecd_dashboard(universe: str = "nifty500", rows: bool = False):
+    from financial_statements_engine.evidence_coverage.production import dashboard
+
+    return dashboard(universe, include_rows=rows)
+
+
+@router.get("/financial-statements/evidence-coverage/company/{ticker}")
+async def financial_statements_ecd_company(ticker: str):
+    from financial_statements_engine.evidence_coverage.production import company
+
+    return company(ticker)
+
+
 @router.post("/financial-statements/parsing/run")
 async def financial_statements_parsing_run(payload: dict[str, Any] = Body(default={})):
     from financial_statements_engine.parsing.production import parse_bytes

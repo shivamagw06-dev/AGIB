@@ -28,6 +28,7 @@
 | FSE-05 | [Validation & Financial Quality Engine](FSE_05_VALIDATION_FINANCIAL_QUALITY_ENGINE.md) | Canonical drafts → validated warehouse facts |
 | FSE-06 | [Financial Warehouse](FSE_06_FINANCIAL_WAREHOUSE.md) | Immutable validated facts · versions · contracts |
 | FSE-07 | Derived Metrics Engine | Financial intelligence from validated facts |
+| FSE-ECD | Evidence Coverage Dashboard | How many companies at each pipeline stage |
 | FSE-08 | Forecast & Estimates Engine | Forward estimates on DME metrics |
 | FSE-09 | Financial Time-Series & Revision Engine | Revisions · restatement timelines |
 | FSE-10 | Financial Intelligence APIs | Governed consumer surfaces |
