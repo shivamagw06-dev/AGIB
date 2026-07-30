@@ -572,6 +572,25 @@ _CATALOG: list[dict[str, Any]] = [
         "kind": "office",
         "module": "business_intelligence.production",
     },
+    {
+        "id": "evidence_fusion",
+        "name": "Evidence Fusion (FIRE-04)",
+        "group": "ops",
+        "responsibility": (
+            "Cross-evidence consistency — whether financial evidence and management "
+            "statements support, partially support, or conflict (no BUY/SELL)."
+        ),
+        "sources": [
+            "Financial Warehouse",
+            "Derived Metrics",
+            "FIRE-01",
+            "FIRE-02",
+            "FIRE-03",
+            "FKB",
+        ],
+        "kind": "office",
+        "module": "evidence_fusion.production",
+    },
     # —— Learning / eval ——
     {
         "id": "forecast_validation_learning",
