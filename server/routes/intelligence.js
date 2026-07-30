@@ -2375,6 +2375,18 @@ export default function createIntelligenceRouter() {
       res.status(502).json({ error: err.message || 'institutional-stress-tests run failed' });
     }
   });
+  router.post('/institutional-stress-tests/run-raw', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/institutional-stress-tests/run-raw', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+      });
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'institutional-stress-tests run-raw failed' });
+    }
+  });
 
   // AGI v4.0 Investment Office OS — Thesis / Decision / Portfolio / Monitoring / Learning
   // Static paths before dynamic :id routes. Ideas ≠ positions; events recommend review only.

@@ -560,11 +560,11 @@ _CATALOG: list[dict[str, Any]] = [
     },
     {
         "id": "institutional_stress_tests",
-        "name": "Institutional Stress Tests (IST-01)",
+        "name": "Institutional Stress Tests (IST-01/IST-02)",
         "group": "ops",
         "responsibility": (
-            "Full-stack orchestration exams — no single module can pass; "
-            "Kotak/RBI case forces institutional view (not BUY/SELL)."
+            "IST-01: orchestration exams (no single-module pass). "
+            "IST-02: raw-evidence research validation (no fixture answers)."
         ),
         "sources": [
             "FSE",
@@ -574,6 +574,7 @@ _CATALOG: list[dict[str, Any]] = [
             "WO-01",
             "CW-01",
             "Ask AGI",
+            "raw corpus",
         ],
         "kind": "evaluation",
         "module": "institutional_stress_tests.production",

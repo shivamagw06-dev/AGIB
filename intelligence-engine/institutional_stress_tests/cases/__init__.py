@@ -5,10 +5,12 @@ from __future__ import annotations
 from typing import Any
 
 from institutional_stress_tests.cases.ist_01_kotak_rbi import IST_01_CASE
+from institutional_stress_tests.cases.ist_02_kotak_raw import IST_02_CASE
 
 
 CASES: dict[str, dict[str, Any]] = {
     IST_01_CASE["case_id"]: IST_01_CASE,
+    IST_02_CASE["case_id"]: IST_02_CASE,
 }
 
 
