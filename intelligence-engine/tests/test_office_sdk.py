@@ -44,7 +44,8 @@ def test_health():
     assert h["version"] == SDK_VERSION
     assert "io-01" in h["live_offices"]
     assert "cio-01" in h["live_offices"]
-    assert "po-01" in h["planned_offices"]
+    assert "po-01" in h["live_offices"]
+    assert "wo-01" in h["planned_offices"]
     assert h["buy_sell"] is False
 
 
@@ -56,7 +57,7 @@ def test_domains_include_research_and_portfolio():
     research = next(x for x in d if x["domain"] == DOMAIN_RESEARCH)
     assert research["live_count"] == 2
     portfolio = next(x for x in d if x["domain"] == DOMAIN_PORTFOLIO)
-    assert any(o["office_id"] == "po-01" for o in portfolio["offices"])
+    assert any(o["office_id"] == "po-01" and o["status"] == "live" for o in portfolio["offices"])
 
 
 def test_catalog_contract():
@@ -65,6 +66,7 @@ def test_catalog_contract():
     assert cat["contract"]["response"] == SCHEMA_RESPONSE
     assert "io-01" in cat["dispatchable"]
     assert "cio-01" in cat["dispatchable"]
+    assert "po-01" in cat["dispatchable"]
 
 
 def test_evidence_block_shape():
@@ -152,7 +154,7 @@ def test_dispatch_cio():
 
 
 def test_invoke_unknown_office():
-    out = invoke({"office_id": "po-01", "tickers": ["TCS"]})
+    out = invoke({"office_id": "wo-01", "tickers": ["TCS"]})
     assert out["ok"] is False
     assert "not dispatchable" in str(out.get("error") or "")
 

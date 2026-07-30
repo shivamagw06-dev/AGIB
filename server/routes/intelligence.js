@@ -2121,6 +2121,88 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // PO-01 — Portfolio Office (canonical portfolio state)
+  // Uses /portfolio-office/* to avoid colliding with Institutional Portfolio Office (/portfolio/*)
+  router.get('/portfolio-office/health', kfGet('/v1/portfolio-office/health'));
+  router.get('/portfolio-office/dashboard', kfGet('/v1/portfolio-office/dashboard'));
+  router.get('/portfolio-office/:portfolioId', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/portfolio-office/${encodeURIComponent(req.params.portfolioId)}`
+      );
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'portfolio-office get failed' });
+    }
+  });
+  router.get('/portfolio-office/:portfolioId/holdings', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/portfolio-office/${encodeURIComponent(req.params.portfolioId)}/holdings`
+      );
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'portfolio-office holdings failed' });
+    }
+  });
+  router.get('/portfolio-office/:portfolioId/exposures', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/portfolio-office/${encodeURIComponent(req.params.portfolioId)}/exposures`
+      );
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'portfolio-office exposures failed' });
+    }
+  });
+  router.get('/portfolio-office/:portfolioId/quality', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/portfolio-office/${encodeURIComponent(req.params.portfolioId)}/quality`
+      );
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'portfolio-office quality failed' });
+    }
+  });
+  router.get('/portfolio-office/:portfolioId/concentration', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/portfolio-office/${encodeURIComponent(req.params.portfolioId)}/concentration`
+      );
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'portfolio-office concentration failed' });
+    }
+  });
+  router.post('/portfolio-office', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/portfolio-office', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+      });
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'portfolio-office create failed' });
+    }
+  });
+  router.post('/portfolio-office/:portfolioId/snapshot', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/portfolio-office/${encodeURIComponent(req.params.portfolioId)}/snapshot`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(req.body || {}),
+        }
+      );
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'portfolio-office snapshot failed' });
+    }
+  });
+
   // AGI v4.0 Investment Office OS — Thesis / Decision / Portfolio / Monitoring / Learning
   // Static paths before dynamic :id routes. Ideas ≠ positions; events recommend review only.
   const v4Get = (enginePath) => async (_req, res) => {

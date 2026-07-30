@@ -60,9 +60,36 @@ def _dispatch_cio(req: dict[str, Any]) -> dict[str, Any]:
     return wrap_cio_response(pack, request=req)
 
 
+def _dispatch_po(req: dict[str, Any]) -> dict[str, Any]:
+    from portfolio_office.report import build_psr
+    from portfolio_office import store as pf_store
+
+    options = req.get("options") if isinstance(req.get("options"), dict) else {}
+    portfolio_id = (
+        options.get("portfolio_id")
+        or options.get("portfolio")
+        or req.get("package_type")  # allow alias
+        or (req.get("tickers") or [None])[0]
+    )
+    if not portfolio_id:
+        raise ValueError("PO-01 requires options.portfolio_id")
+    # Ensure resolve by name works
+    pf = pf_store.resolve_portfolio(str(portfolio_id))
+    if not pf:
+        raise ValueError(f"portfolio not found: {portfolio_id}")
+    return build_psr(
+        str(pf.get("portfolio_id")),
+        question=req.get("question"),
+        fire05_map=options.get("fire05_map"),
+        fire06_map=options.get("fire06_map"),
+        request=req,
+    )
+
+
 _DISPATCHERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "io-01": _dispatch_io,
     "cio-01": _dispatch_cio,
+    "po-01": _dispatch_po,
 }
 
 

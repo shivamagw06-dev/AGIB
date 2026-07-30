@@ -1538,6 +1538,14 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("office_sdk")
     except Exception:
         out["office_sdk"] = None
+    # PO-01 — Portfolio Office (soft board; additive).
+    try:
+        from portfolio_office.production import soft_slice_mission_control as po01_soft
+
+        out["portfolio_office"] = po01_soft()
+        out["sources"].append("portfolio_office")
+    except Exception:
+        out["portfolio_office"] = None
     return out
 
 
