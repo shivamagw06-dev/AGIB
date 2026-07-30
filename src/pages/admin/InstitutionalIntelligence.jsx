@@ -214,6 +214,8 @@ export default function InstitutionalIntelligence() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Stat label="Nifty 100 Decision Coverage" value={pct(dc.nifty_100)} hint="Tier 1" />
+        <Stat label="Nifty 500 Decision Coverage" value={pct(dc.nifty_500)} hint="Tier 2" />
         <Stat
           label="Avg ICI (Nifty 500)"
           value={iuiCov.avg_ici != null ? Number(iuiCov.avg_ici).toFixed(1) : '—'}
