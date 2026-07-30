@@ -137,7 +137,50 @@ function makeHeaders() {
   return h;
 }
 
+// In-memory cache for IndianAPI proxies. Fresh TTL is short; stale entries are
+// kept longer so homepage desks can survive upstream 429 / outages.
+const PROXY_CACHE_TTL_MS = 60_000;
+const PROXY_CACHE_STALE_MS = 30 * 60_000;
+const proxyCache = new Map();
+
+function proxyCacheKey(url) {
+  return String(url || '');
+}
+
+function readProxyCache(url, { allowStale = false } = {}) {
+  const hit = proxyCache.get(proxyCacheKey(url));
+  if (!hit) return null;
+  const age = Date.now() - hit.at;
+  if (age <= PROXY_CACHE_TTL_MS) return { ...hit, stale: false };
+  if (allowStale && age <= PROXY_CACHE_STALE_MS) return { ...hit, stale: true };
+  return null;
+}
+
+function writeProxyCache(url, json) {
+  if (!json || typeof json !== 'object') return;
+  proxyCache.set(proxyCacheKey(url), { json, at: Date.now() });
+}
+
+function sendCachedProxy(res, cached, { reason } = {}) {
+  res.set('Cache-Control', 'public, max-age=30, stale-while-revalidate=300');
+  if (cached.stale || reason) {
+    res.set('X-AGI-Upstream-Cache', reason || 'stale');
+  }
+  return res.status(200).json(cached.json);
+}
+
+function isUpstreamRateLimited(status, text = '') {
+  if (status === 429) return true;
+  return /rate limit exceeded/i.test(String(text || ''));
+}
+
 async function proxyFetch(res, url, opts = {}) {
+  const fresh = readProxyCache(url, { allowStale: false });
+  if (fresh) {
+    console.log(`[proxy] cache hit ${url}`);
+    return sendCachedProxy(res, fresh);
+  }
+
   try {
     console.log(`[proxy] -> ${url}`);
     const r = await fetchWithTimeout(url, { method: opts.method || 'GET', headers: opts.headers || makeHeaders(), body: opts.body }, opts.timeout || 15_000);
@@ -146,7 +189,11 @@ async function proxyFetch(res, url, opts = {}) {
 
     console.log(`[proxy] ${url} returned ${r.status} content-type:${ct} length:${String(text?.length || 0)}`);
 
-    if (!text) return res.status(r.status).end();
+    if (!text) {
+      const stale = readProxyCache(url, { allowStale: true });
+      if (stale) return sendCachedProxy(res, stale, { reason: 'empty-upstream' });
+      return res.status(r.status).end();
+    }
 
     if ([401, 402, 403].includes(r.status)) {
       console.error(`[proxy][upstream ${r.status}] ${text.slice(0, 200)}`);
@@ -154,33 +201,64 @@ async function proxyFetch(res, url, opts = {}) {
       return res.status(r.status).send(text);
     }
 
+    if (isUpstreamRateLimited(r.status, text)) {
+      const stale = readProxyCache(url, { allowStale: true });
+      if (stale) {
+        console.warn(`[proxy] upstream 429 — serving stale cache for ${url}`);
+        return sendCachedProxy(res, stale, { reason: 'rate-limited' });
+      }
+      // Soft-fail for market desks: empty payload beats a hard 429 that blanks the homepage.
+      console.warn(`[proxy] upstream 429 — no cache for ${url}`);
+      return res.status(200).json({
+        error: 'upstream_rate_limited',
+        upstream_status: 429,
+        items: [],
+        data: [],
+        stale: true,
+      });
+    }
+
     if (ct.includes('application/json') || ct.includes('+json')) {
       try {
         const json = JSON.parse(text);
         if (json && (json.error || json.upstream_error)) {
           console.error('[proxy][upstream error]', json.error || json.upstream_error);
+          const stale = readProxyCache(url, { allowStale: true });
+          if (stale) return sendCachedProxy(res, stale, { reason: 'upstream-error' });
           return res.status(502).json({ upstream_error: json.error || json.upstream_error, upstream_body: json });
         }
+        writeProxyCache(url, json);
         return res.status(r.status).json(json);
       } catch (parseErr) {
         console.error('[proxy] failed to parse JSON from upstream', parseErr?.message || parseErr);
+        const stale = readProxyCache(url, { allowStale: true });
+        if (stale) return sendCachedProxy(res, stale, { reason: 'parse-error' });
         res.set('Content-Type', ct || 'application/json');
         return res.status(502).send(text);
       }
+    }
+
+    // Plain-text rate-limit bodies are handled above; other non-JSON still may have stale JSON.
+    if (r.status >= 500) {
+      const stale = readProxyCache(url, { allowStale: true });
+      if (stale) return sendCachedProxy(res, stale, { reason: `upstream-${r.status}` });
     }
 
     res.set('Content-Type', ct || 'text/plain');
     return res.status(r.status).send(text);
   } catch (err) {
     console.error('🔥 proxyFetch failed:', err?.message || err);
+    const stale = readProxyCache(url, { allowStale: true });
+    if (stale) return sendCachedProxy(res, stale, { reason: err?.isTimeout ? 'timeout' : 'fetch-failed' });
     if (err?.isTimeout) return res.status(504).json({ error: 'Upstream request timed out' });
     return res.status(500).json({ error: 'Proxy fetch failed', detail: err?.message || String(err) });
   }
 }
 
-// small in-memory trending cache (30s)
+// small in-memory trending cache (fresh 60s, stale up to 30m)
 let trendingCache = null;
 let trendingExpiry = 0;
+let trendingStaleExpiry = 0;
 
 function reg(path, handler) {
   app.get(path, handler);
@@ -426,28 +504,61 @@ reg('/api/mutual_fund_search', (req, res) => { const q = req.query.query; if (!q
 
 reg('/api/trending', async (req, res) => {
   const now = Date.now();
-  if (trendingCache && now < trendingExpiry) { console.log('[trending] returning cache'); return res.json(trendingCache); }
+  if (trendingCache && now < trendingExpiry) {
+    console.log('[trending] returning cache');
+    return res.json(trendingCache);
+  }
   try {
     const r = await fetchWithTimeout(`${BASE_URL}/trending`, { headers: makeHeaders(), method: 'GET' }, 15_000);
     const ct = (r.headers.get('content-type') || '').toLowerCase();
     const text = await r.text().catch(() => '');
-    if (!text) return res.status(r.status).end();
+    if (!text) {
+      if (trendingCache && now < trendingStaleExpiry) {
+        res.set('X-AGI-Upstream-Cache', 'empty-upstream');
+        return res.json(trendingCache);
+      }
+      return res.status(r.status).end();
+    }
+    if (isUpstreamRateLimited(r.status, text)) {
+      if (trendingCache && now < trendingStaleExpiry) {
+        console.warn('[trending] upstream 429 — serving stale cache');
+        res.set('X-AGI-Upstream-Cache', 'rate-limited');
+        return res.json(trendingCache);
+      }
+      return res.status(200).json({
+        error: 'upstream_rate_limited',
+        trending_stocks: { top_gainers: [], top_losers: [] },
+        stale: true,
+      });
+    }
     if (ct.includes('application/json') || ct.includes('+json')) {
       try {
         const json = JSON.parse(text);
         trendingCache = json;
-        trendingExpiry = Date.now() + 30_000;
+        trendingExpiry = Date.now() + PROXY_CACHE_TTL_MS;
+        trendingStaleExpiry = Date.now() + PROXY_CACHE_STALE_MS;
         return res.status(r.status).json(json);
       } catch (parseErr) {
         console.error('[trending] parse error:', parseErr?.message || parseErr);
+        if (trendingCache && now < trendingStaleExpiry) {
+          res.set('X-AGI-Upstream-Cache', 'parse-error');
+          return res.json(trendingCache);
+        }
         return res.status(502).json({ error: 'Invalid trending JSON' });
       }
     } else {
+      if (trendingCache && now < trendingStaleExpiry) {
+        res.set('X-AGI-Upstream-Cache', 'non-json-upstream');
+        return res.json(trendingCache);
+      }
       return res.status(r.status).send(text);
     }
   } catch (err) {
     console.error('trending fetch failed:', err?.message || err);
-    if (trendingCache) return res.json({ data: trendingCache, upstream_issue: true });
+    if (trendingCache && Date.now() < trendingStaleExpiry) {
+      res.set('X-AGI-Upstream-Cache', err?.isTimeout ? 'timeout' : 'fetch-failed');
+      return res.json(trendingCache);
+    }
     return res.status(502).json({ error: 'Upstream trending error', detail: err?.message || String(err) });
   }
 });
