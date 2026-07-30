@@ -141,7 +141,37 @@ def dispatch(request: dict[str, Any]) -> dict[str, Any]:
         modules=list(request.get("modules") or []),
         options=request.get("options") if isinstance(request.get("options"), dict) else {},
     )
-    return _DISPATCHERS[oid](req)
+    try:
+        result = _DISPATCHERS[oid](req)
+    except Exception as exc:
+        try:
+            from platform_event_bus.publisher import soft_publish
+            from platform_event_bus.schema import EVENT_OFFICE_ERROR
+
+            soft_publish(
+                EVENT_OFFICE_ERROR,
+                producer="office_sdk",
+                payload={"office_id": oid, "error": f"{type(exc).__name__}: {exc}"},
+            )
+        except Exception:
+            pass
+        raise
+    try:
+        from platform_event_bus.publisher import soft_publish
+        from platform_event_bus.schema import EVENT_OFFICE_REQUEST_COMPLETED
+
+        soft_publish(
+            EVENT_OFFICE_REQUEST_COMPLETED,
+            producer="office_sdk",
+            payload={
+                "office_id": oid,
+                "ok": bool(result.get("ok", True)) if isinstance(result, dict) else True,
+                "report_type": result.get("report_type") if isinstance(result, dict) else None,
+            },
+        )
+    except Exception:
+        pass
+    return result
 
 
 def research_domain_default() -> str:
