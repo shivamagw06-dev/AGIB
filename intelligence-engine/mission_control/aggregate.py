@@ -1602,6 +1602,21 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("release_health")
     except Exception:
         out["release_health"] = None
+
+    try:
+        from institutional_reporting.production import health as ire_health
+
+        h = ire_health()
+        out["institutional_reporting"] = {
+            "status": h.get("status"),
+            "workstream_id": h.get("workstream_id"),
+            "version": h.get("version"),
+            "llm": False,
+            "report_type": h.get("report_type"),
+        }
+        out["sources"].append("institutional_reporting")
+    except Exception:
+        out["institutional_reporting"] = None
     return out
 
 

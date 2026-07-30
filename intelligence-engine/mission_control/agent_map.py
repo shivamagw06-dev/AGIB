@@ -630,6 +630,18 @@ _CATALOG: list[dict[str, Any]] = [
         "module": "release_health.production",
     },
     {
+        "id": "institutional_reporting",
+        "name": "Institutional Reporting Engine (IRE-01)",
+        "group": "publication",
+        "responsibility": (
+            "Deterministic Company Recommendation Reports from structured facts — "
+            "no Gemini, no GPT, no external writer. Fixed institutional section order."
+        ),
+        "sources": ["InstitutionalReportInput facts", "FIRE evidence IDs", "Ask AGI workflow"],
+        "kind": "reporting",
+        "module": "institutional_reporting.production",
+    },
+    {
         "id": "ite_thesis",
         "name": "Investment Thesis Office",
         "group": "offices",
