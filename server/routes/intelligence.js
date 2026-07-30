@@ -2793,6 +2793,50 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // FIRE-04 — Evidence Fusion Engine
+  router.get('/evidence-fusion/health', kfGet('/v1/evidence-fusion/health'));
+  router.get('/evidence-fusion/dashboard', kfGet('/v1/evidence-fusion/dashboard'));
+  router.get('/evidence-fusion/company/:ticker', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/evidence-fusion/company/${encodeURIComponent(req.params.ticker)}`
+      );
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Evidence fusion unavailable', detail: error.message });
+    }
+  });
+  router.get('/evidence-fusion/company/:ticker/supported', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/evidence-fusion/company/${encodeURIComponent(req.params.ticker)}/supported`
+      );
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Evidence fusion supported unavailable', detail: error.message });
+    }
+  });
+  router.get('/evidence-fusion/company/:ticker/conflicts', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/evidence-fusion/company/${encodeURIComponent(req.params.ticker)}/conflicts`
+      );
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Evidence fusion conflicts unavailable', detail: error.message });
+    }
+  });
+  router.get('/evidence-fusion/company/:ticker/alignment', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/evidence-fusion/company/${encodeURIComponent(req.params.ticker)}/alignment`
+      );
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Evidence fusion alignment unavailable', detail: error.message });
+    }
+  });
+
   // Accounting Intelligence Engine
   router.get('/accounting-intelligence/health', kfGet('/v1/accounting-intelligence/health'));
   router.get('/accounting-intelligence/dashboard', kfGet('/v1/accounting-intelligence/dashboard'));

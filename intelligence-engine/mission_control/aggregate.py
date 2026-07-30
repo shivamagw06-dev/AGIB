@@ -1490,6 +1490,14 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("business_intelligence")
     except Exception:
         out["business_intelligence"] = None
+    # FIRE-04 — Evidence Fusion Engine (soft board; additive).
+    try:
+        from evidence_fusion.production import soft_slice_mission_control as fire04_soft
+
+        out["evidence_fusion"] = fire04_soft()
+        out["sources"].append("evidence_fusion")
+    except Exception:
+        out["evidence_fusion"] = None
     return out
 
 

@@ -1242,6 +1242,18 @@ export const getBusinessIntelligenceRisks = (ticker) =>
 export const getBusinessIntelligenceGuidance = (ticker) =>
   intelligenceFetch(`/business-intelligence/company/${encodeURIComponent(ticker)}/guidance`);
 
+/** FIRE-04 — Evidence Fusion Engine */
+export const getEvidenceFusionHealth = () => intelligenceFetch('/evidence-fusion/health');
+export const getEvidenceFusionDashboard = () => intelligenceFetch('/evidence-fusion/dashboard');
+export const getEvidenceFusionCompany = (ticker) =>
+  intelligenceFetch(`/evidence-fusion/company/${encodeURIComponent(ticker)}`);
+export const getEvidenceFusionSupported = (ticker) =>
+  intelligenceFetch(`/evidence-fusion/company/${encodeURIComponent(ticker)}/supported`);
+export const getEvidenceFusionConflicts = (ticker) =>
+  intelligenceFetch(`/evidence-fusion/company/${encodeURIComponent(ticker)}/conflicts`);
+export const getEvidenceFusionAlignment = (ticker) =>
+  intelligenceFetch(`/evidence-fusion/company/${encodeURIComponent(ticker)}/alignment`);
+
 /** Accounting Intelligence Engine */
 export const getAciHealth = () => intelligenceFetch('/accounting-intelligence/health');
 export const getAciDashboard = () => intelligenceFetch('/accounting-intelligence/dashboard');

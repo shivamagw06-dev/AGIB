@@ -4449,6 +4449,58 @@ async def admin_business_intelligence():
     return HTMLResponse(admin_page())
 
 
+# --- FIRE-04 Evidence Fusion Engine (cross-evidence consistency) ---
+
+
+@router.get("/evidence-fusion/health")
+async def evidence_fusion_health():
+    from evidence_fusion.production import health
+
+    return health()
+
+
+@router.get("/evidence-fusion/dashboard")
+async def evidence_fusion_dashboard():
+    from evidence_fusion.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/evidence-fusion/company/{ticker}")
+async def evidence_fusion_company(ticker: str):
+    from evidence_fusion.production import company
+
+    return company(ticker.upper())
+
+
+@router.get("/evidence-fusion/company/{ticker}/supported")
+async def evidence_fusion_supported(ticker: str):
+    from evidence_fusion.production import supported
+
+    return supported(ticker.upper())
+
+
+@router.get("/evidence-fusion/company/{ticker}/conflicts")
+async def evidence_fusion_conflicts(ticker: str):
+    from evidence_fusion.production import conflicts
+
+    return conflicts(ticker.upper())
+
+
+@router.get("/evidence-fusion/company/{ticker}/alignment")
+async def evidence_fusion_alignment(ticker: str):
+    from evidence_fusion.production import alignment
+
+    return alignment(ticker.upper())
+
+
+@router.get("/admin/evidence-fusion", response_class=HTMLResponse)
+async def admin_evidence_fusion():
+    from evidence_fusion.production import admin_page
+
+    return HTMLResponse(admin_page())
+
+
 # --- Accounting Intelligence Engine V1 (can the statements be trusted?) ---
 
 
