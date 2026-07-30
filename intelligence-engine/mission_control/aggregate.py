@@ -1458,6 +1458,14 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("fse_source_coverage")
     except Exception:
         out["fse_source_coverage"] = None
+    # FIRE-01 — Financial Narrative & Trend Engine (soft board; no BUY/SELL).
+    try:
+        from financial_intelligence.production import soft_slice_mission_control
+
+        out["financial_intelligence"] = soft_slice_mission_control()
+        out["sources"].append("financial_intelligence")
+    except Exception:
+        out["financial_intelligence"] = None
     return out
 
 

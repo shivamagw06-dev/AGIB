@@ -4284,6 +4284,37 @@ async def admin_institutional_stack():
     return HTMLResponse(admin_page())
 
 
+# --- FIRE-01 Financial Narrative & Trend Engine (warehouse consumer) ---
+
+
+@router.get("/financial-intelligence/health")
+async def financial_intelligence_health():
+    from financial_intelligence.production import health
+
+    return health()
+
+
+@router.get("/financial-intelligence/dashboard")
+async def financial_intelligence_dashboard():
+    from financial_intelligence.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/financial-intelligence/company/{ticker}")
+async def financial_intelligence_company(ticker: str):
+    from financial_intelligence.production import company
+
+    return company(ticker.upper())
+
+
+@router.get("/financial-intelligence/findings/{ticker}")
+async def financial_intelligence_findings(ticker: str):
+    from financial_intelligence.production import findings
+
+    return findings(ticker.upper())
+
+
 # --- Accounting Intelligence Engine V1 (can the statements be trusted?) ---
 
 

@@ -1200,6 +1200,14 @@ export const getFseWarehouseDashboard = () =>
 export const getFseVerificationDashboard = () =>
   intelligenceFetch('/financial-statements/verification/dashboard');
 
+/** FIRE-01 — Financial Narrative & Trend Engine */
+export const getFireHealth = () => intelligenceFetch('/financial-intelligence/health');
+export const getFireDashboard = () => intelligenceFetch('/financial-intelligence/dashboard');
+export const getFireCompany = (ticker) =>
+  intelligenceFetch(`/financial-intelligence/company/${encodeURIComponent(ticker)}`);
+export const getFireFindings = (ticker) =>
+  intelligenceFetch(`/financial-intelligence/findings/${encodeURIComponent(ticker)}`);
+
 /** Accounting Intelligence Engine */
 export const getAciHealth = () => intelligenceFetch('/accounting-intelligence/health');
 export const getAciDashboard = () => intelligenceFetch('/accounting-intelligence/dashboard');
