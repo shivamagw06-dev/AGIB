@@ -2098,6 +2098,48 @@ export default function createIntelligenceRouter() {
   router.get('/editorial/health', kfGet('/v1/editorial/health'));
   router.get('/contradiction-reasoning/health', kfGet('/v1/contradiction-reasoning/health'));
   router.get('/red-team/ecr/health', kfGet('/v1/red-team/ecr/health'));
+  // NSE trading universe — EQUITY_L / NIFTYstocks (all cash equities)
+  router.get('/trading-universe/health', kfGet('/v1/trading-universe/health'));
+  router.get('/trading-universe/dashboard', kfGet('/v1/trading-universe/dashboard'));
+  router.get('/trading-universe/symbols', async (req, res) => {
+    try {
+      const q = new URLSearchParams();
+      if (req.query.limit != null) q.set('limit', String(req.query.limit));
+      if (req.query.series) q.set('series', String(req.query.series));
+      const qs = q.toString();
+      const result = await engineFetch(`/v1/trading-universe/symbols${qs ? `?${qs}` : ''}`, {
+        timeoutMs: 30_000,
+      });
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'trading-universe symbols failed' });
+    }
+  });
+  router.get('/trading-universe/search', async (req, res) => {
+    try {
+      const q = new URLSearchParams();
+      if (req.query.q) q.set('q', String(req.query.q));
+      if (req.query.limit != null) q.set('limit', String(req.query.limit));
+      const qs = q.toString();
+      const result = await engineFetch(`/v1/trading-universe/search${qs ? `?${qs}` : ''}`, {
+        timeoutMs: 20_000,
+      });
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'trading-universe search failed' });
+    }
+  });
+  router.get('/trading-universe/symbol/:symbol', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/trading-universe/symbol/${encodeURIComponent(req.params.symbol)}`,
+        { timeoutMs: 15_000 }
+      );
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'trading-universe symbol failed' });
+    }
+  });
   // Investment Office V1 — executive operating cockpit
   router.get('/investment-office/health', kfGet('/v1/investment-office/health'));
   router.get('/investment-office/dashboard', kfGet('/v1/investment-office/dashboard'));

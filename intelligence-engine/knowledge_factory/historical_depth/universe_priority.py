@@ -59,9 +59,19 @@ def nifty_500() -> list[str]:
             return list(dict.fromkeys([*nifty_50(), *nifty_next_50()]))
 
 
+def nse_listed() -> list[str]:
+    """Full NSE cash equities available for trading (EQUITY_L → NIFTYstocks)."""
+    try:
+        from trading_universe.loader import list_symbols
+
+        return list_symbols()
+    except Exception:
+        return []
+
+
 def supported_universe() -> list[str]:
-    """Full supported listed set: Nifty 500 path (extensible to broader NSE/BSE later)."""
-    return list(dict.fromkeys([*nifty_500()]))
+    """Full supported listed set: Nifty 500 ∪ NSE EQUITY_L trading book."""
+    return list(dict.fromkeys([*nifty_500(), *nse_listed()]))
 
 
 def priority_tier(symbol: str) -> int:
@@ -76,8 +86,10 @@ def priority_tier(symbol: str) -> int:
     n500 = set(nifty_500())
     if s in n500:
         return 3
-    # Future: broader NSE / BSE-only registries
-    return 4
+    nse = set(nse_listed())
+    if s in nse:
+        return 4
+    return 5
 
 
 def prioritised_universe(*, coverage_years: dict[str, float] | None = None) -> list[str]:
