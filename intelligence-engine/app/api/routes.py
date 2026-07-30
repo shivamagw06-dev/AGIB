@@ -9984,7 +9984,7 @@ async def admin_release_health_engine():
     return HTMLResponse(admin_page())
 
 
-# --- IRE-01 Institutional Reporting Engine (deterministic company reports; no LLM) ---
+# --- IRE-02 Institutional Reporting Engine + Reason Composer (deterministic; no LLM) ---
 
 
 @router.get("/report/health")
@@ -9998,14 +9998,19 @@ async def institutional_report_health():
 async def institutional_report_company(payload: dict[str, Any] = Body(default={})):
     from institutional_reporting.production import compose_company_report
 
-    return compose_company_report(payload or {})
+    body = dict(payload or {})
+    include_reasons = body.pop("include_reasons", True)
+    return compose_company_report(body, include_reasons=bool(include_reasons))
 
 
 @router.get("/report/company/{ticker}")
-async def institutional_report_company_ticker(ticker: str):
+async def institutional_report_company_ticker(
+    ticker: str,
+    include_reasons: bool = True,
+):
     from institutional_reporting.production import report_for_ticker
 
-    return report_for_ticker(ticker)
+    return report_for_ticker(ticker, include_reasons=include_reasons)
 
 
 # --- Company Monitoring System V1 (continuous living analyst; additive) ---

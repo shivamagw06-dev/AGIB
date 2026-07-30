@@ -62,6 +62,10 @@ BFF:
 - `POST /api/intelligence/report/company`
 - `GET /api/intelligence/report/company/:ticker`
 
+## Successor
+
+**IRE-02** adds the Reason Composer (`docs/AGI_IRE_02_REASON_COMPOSER.md`) so every conclusion is backed by structured reasoning before render.
+
 ## Out of scope (later sprints)
 
 Market / portfolio / earnings / macro reports, phrase banks, sector language packs, LLM polish.

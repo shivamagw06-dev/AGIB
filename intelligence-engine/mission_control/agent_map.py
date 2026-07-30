@@ -631,13 +631,13 @@ _CATALOG: list[dict[str, Any]] = [
     },
     {
         "id": "institutional_reporting",
-        "name": "Institutional Reporting Engine (IRE-01)",
+        "name": "Institutional Reporting Engine (IRE-02)",
         "group": "publication",
         "responsibility": (
-            "Deterministic Company Recommendation Reports from structured facts — "
-            "no Gemini, no GPT, no external writer. Fixed institutional section order."
+            "Deterministic Reason Composer + Company Recommendation Reports — "
+            "Facts → Reasons → Report. No Gemini, no GPT, no external writer."
         ),
-        "sources": ["InstitutionalReportInput facts", "FIRE evidence IDs", "Ask AGI workflow"],
+        "sources": ["InstitutionalReportInput facts", "Reason objects", "FIRE evidence IDs", "Ask AGI"],
         "kind": "reporting",
         "module": "institutional_reporting.production",
     },

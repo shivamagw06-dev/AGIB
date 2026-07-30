@@ -2513,7 +2513,7 @@ export default function createIntelligenceRouter() {
     }
   });
 
-  // IRE-01 — Institutional Reporting Engine (deterministic company reports; no LLM)
+  // IRE-02 — Institutional Reporting Engine + Reason Composer (deterministic; no LLM)
   router.get('/report/health', async (_req, res) => {
     try {
       const result = await engineFetch('/v1/report/health', { timeoutMs: 20_000 });
@@ -2537,8 +2537,13 @@ export default function createIntelligenceRouter() {
   });
   router.get('/report/company/:ticker', async (req, res) => {
     try {
+      const qs = new URLSearchParams();
+      if (req.query?.include_reasons !== undefined) {
+        qs.set('include_reasons', String(req.query.include_reasons));
+      }
+      const suffix = qs.toString() ? `?${qs}` : '';
       const result = await engineFetch(
-        `/v1/report/company/${encodeURIComponent(req.params.ticker)}`,
+        `/v1/report/company/${encodeURIComponent(req.params.ticker)}${suffix}`,
         { timeoutMs: 60_000 }
       );
       return res.status(result.status).json(result.data);

@@ -1,4 +1,4 @@
-"""IRE-01 production façades — health / compose / company report."""
+"""IRE-02 production façades — health / compose / company report + reasons."""
 
 from __future__ import annotations
 
@@ -15,7 +15,9 @@ from institutional_reporting.schema import (
     IRE_SPEC,
     IRE_VERSION,
     IRE_WORKSTREAM_ID,
+    REASON_COMPOSER_VERSION,
     REPORT_SECTIONS,
+    VALIDATOR_VERSION,
 )
 
 try:
@@ -35,6 +37,9 @@ def health() -> dict[str, Any]:
         "version": IRE_VERSION,
         "role": IRE_ROLE,
         "report_type": IRE_REPORT_TYPE,
+        "reason_composer": True,
+        "reason_composer_version": REASON_COMPOSER_VERSION,
+        "validator_version": VALIDATOR_VERSION,
         "llm": False,
         "external_writer": False,
         "gemini": False,
@@ -49,7 +54,27 @@ def health() -> dict[str, Any]:
     }
 
 
-def compose_company_report(payload: Optional[dict[str, Any]] = None) -> dict[str, Any]:
+def _serialize_report(report, *, include_reasons: bool = True) -> dict[str, Any]:
+    out = report.to_dict()
+    out["as_of"] = out.get("as_of") or now_iso()
+    if not include_reasons:
+        # Keep diagnostics; strip bulky reason payloads when not requested.
+        out.pop("reasons", None)
+        out.pop("reason_graph_text", None)
+        for section in out.get("sections") or []:
+            if isinstance(section, dict):
+                section.pop("reason", None)
+                meta = section.get("meta") or {}
+                if isinstance(meta, dict):
+                    meta.pop("reason", None)
+    return out
+
+
+def compose_company_report(
+    payload: Optional[dict[str, Any]] = None,
+    *,
+    include_reasons: bool = True,
+) -> dict[str, Any]:
     """POST /v1/report/company — compose from InstitutionalReportInput facts."""
     if not is_enabled():
         return {
@@ -57,23 +82,23 @@ def compose_company_report(payload: Optional[dict[str, Any]] = None) -> dict[str
             "enabled": False,
             "workstream_id": IRE_WORKSTREAM_ID,
             "rejected": True,
-            "validation_errors": ["IRE-01 disabled"],
+            "validation_errors": ["IRE-02 disabled"],
         }
     body = dict(payload or {})
+    include = body.pop("include_reasons", include_reasons)
+    if isinstance(include, str):
+        include = include.strip().lower() in {"1", "true", "yes", "on"}
     ticker = str(body.get("ticker") or "").strip()
     occupied = {k for k, v in body.items() if v not in (None, "", [], {})}
     ticker_only = occupied <= {"ticker", "as_of"} and bool(ticker)
-    # Allow ticker-only calls using deterministic fixtures (integration path).
     if ticker_only and get_fixture(ticker):
         report = compose_report(get_fixture(ticker))
     else:
         report = compose_report(InstitutionalReportInput.from_dict(body))
-    out = report.to_dict()
-    out["as_of"] = out.get("as_of") or now_iso()
-    return out
+    return _serialize_report(report, include_reasons=bool(include))
 
 
-def report_for_ticker(ticker: str) -> dict[str, Any]:
+def report_for_ticker(ticker: str, *, include_reasons: bool = True) -> dict[str, Any]:
     fixture = get_fixture(ticker)
     if not fixture:
         return {
@@ -83,7 +108,7 @@ def report_for_ticker(ticker: str) -> dict[str, Any]:
             "validation_errors": [f"no deterministic fixture for ticker={ticker}"],
             "hint": "Pass a full InstitutionalReportInput body to POST /v1/report/company",
         }
-    return compose_report(fixture).to_dict()
+    return _serialize_report(compose_report(fixture), include_reasons=include_reasons)
 
 
 def soft_slice_mission_control() -> dict[str, Any]:
@@ -94,6 +119,7 @@ def soft_slice_mission_control() -> dict[str, Any]:
         "product": IRE_PRODUCT,
         "version": IRE_VERSION,
         "llm": False,
+        "reason_composer": True,
         "report_type": IRE_REPORT_TYPE,
         "fixtures": sorted(FIXTURES.keys()),
     }
