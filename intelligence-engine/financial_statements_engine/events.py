@@ -1,4 +1,4 @@
-"""Shared Evidence / Processing Event Bus catalogue (FSE-02…FSE-06)."""
+"""Shared Evidence / Processing Event Bus catalogue (FSE-02…FSE-07)."""
 
 from __future__ import annotations
 
@@ -66,6 +66,20 @@ WAREHOUSE_EVENTS_V1 = (
     "warehouse.publish_rejected.v1",
 )
 
+# Derived Metrics Engine (FSE-07)
+DERIVED_METRICS_EVENTS_V1 = (
+    "derived_metrics.calculated.v1",
+    "derived_metrics.published.v1",
+    "derived_metrics.calculation_failed.v1",
+    "derived_metrics.restatement_recalculated.v1",
+)
+
 PARSE_EVENTS = PARSE_EVENTS_LEGACY + PARSE_EVENTS_V1 + COVERAGE_EVENTS_V1 + PCC_EVENTS_V1
 
-EVENT_TYPES = COLLECTION_EVENTS + PARSE_EVENTS + VALIDATION_EVENTS_V1 + WAREHOUSE_EVENTS_V1
+EVENT_TYPES = (
+    COLLECTION_EVENTS
+    + PARSE_EVENTS
+    + VALIDATION_EVENTS_V1
+    + WAREHOUSE_EVENTS_V1
+    + DERIVED_METRICS_EVENTS_V1
+)
