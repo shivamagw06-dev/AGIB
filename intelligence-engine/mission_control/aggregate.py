@@ -1792,6 +1792,15 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
     except Exception:
         out["institutional_launch"] = None
 
+    # PAT-01 — Production Acceptance Test (Acceptance Center).
+    try:
+        from institutional_acceptance.production import soft_slice_mission_control as pat_soft
+
+        out["institutional_acceptance"] = pat_soft()
+        out["sources"].append("institutional_acceptance")
+    except Exception:
+        out["institutional_acceptance"] = None
+
     return out
 
 

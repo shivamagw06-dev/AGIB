@@ -3808,6 +3808,83 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // PAT-01 — Production Acceptance Test
+  router.get('/acceptance/health', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/acceptance/health', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'acceptance health failed' });
+    }
+  });
+  router.post('/acceptance/run', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/acceptance/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 180_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'acceptance run failed' });
+    }
+  });
+  router.get('/acceptance/report', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/acceptance/report', { timeoutMs: 180_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'acceptance report failed' });
+    }
+  });
+  router.get('/acceptance/cases', async (req, res) => {
+    try {
+      const qs = new URLSearchParams();
+      if (req.query?.limit !== undefined) qs.set('limit', String(req.query.limit));
+      const suffix = qs.toString() ? `?${qs}` : '';
+      const result = await engineFetch(`/v1/acceptance/cases${suffix}`, { timeoutMs: 180_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'acceptance cases failed' });
+    }
+  });
+  router.get('/acceptance/phase/:phase', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/acceptance/phase/${encodeURIComponent(req.params.phase)}`,
+        { timeoutMs: 90_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'acceptance phase failed' });
+    }
+  });
+  router.post('/acceptance/phase/:phase', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/acceptance/phase/${encodeURIComponent(req.params.phase)}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(req.body || {}),
+          timeoutMs: 90_000,
+        }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'acceptance phase run failed' });
+    }
+  });
+  router.get('/acceptance/diagnostics', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/acceptance/diagnostics', { timeoutMs: 30_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'acceptance diagnostics failed' });
+    }
+  });
+
   // ICE-01 — Investment Committee Engine
   router.get('/committee-engine/health', async (_req, res) => {
     try {
