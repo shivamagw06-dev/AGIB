@@ -35,7 +35,7 @@ def main(argv: list[str] | None = None) -> int:
             "--orch-status|--orch-workflows|--orch-workflow ID|"
             "--orch-retry ID|--orch-replay ID [--from-stage STAGE]|"
             "--schema-evolution-health|--schema-resolve LABEL|"
-            "--collection-health|--collection-dashboard|"
+            "--collection-health|--collection-dashboard|--ingest-dashboard|"
             "--collect TICKER [--mode live|historical]|TICKER [--publish]"
         )
         return 0
@@ -431,6 +431,11 @@ def main(argv: list[str] | None = None) -> int:
         from financial_statements_engine.collection.production import dashboard as collection_dashboard
 
         print(json.dumps(collection_dashboard(), indent=2, default=str))
+        return 0
+    if cmd == "--ingest-dashboard":
+        from financial_statements_engine.collection.production import ingest_dashboard
+
+        print(json.dumps(ingest_dashboard(), indent=2, default=str))
         return 0
     if cmd == "--collect":
         from financial_statements_engine.collection.production import collect_ticker

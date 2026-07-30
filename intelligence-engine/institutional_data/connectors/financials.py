@@ -311,25 +311,82 @@ class FinancialStatementsConnector(Connector):
                 annual_out.append(rec)
             else:
                 quarterly_out.append(rec)
-        if annual_out:
-            hd_store.put_series("financials_annual", entity, annual_out)
-        if quarterly_out:
-            hd_store.put_series("financials_quarterly", entity, quarterly_out)
-        # Version history report
+
+        def _hd_write() -> dict[str, Any]:
+            if annual_out:
+                hd_store.put_series("financials_annual", entity, annual_out)
+            if quarterly_out:
+                hd_store.put_series("financials_quarterly", entity, quarterly_out)
+            try:
+                hd_store.put_report(
+                    f"financial_versions_{entity}",
+                    {
+                        "entity": entity,
+                        "updated_at": datetime.now(timezone.utc).isoformat(),
+                        "annual": len(annual_out),
+                        "quarterly": len(quarterly_out),
+                        "source": "financial_connector",
+                    },
+                )
+            except Exception:
+                pass
+            return {"annual": len(annual_out), "quarterly": len(quarterly_out), "ok": True}
+
+        # FSE-02.1: canonical ingest first; HD dual-write always remains (migration rule).
+        fse_ingest: dict[str, Any] | None = None
         try:
-            hd_store.put_report(
-                f"financial_versions_{entity}",
-                {
+            from financial_statements_engine.collection.flags import canonical_ingest_enabled
+            from financial_statements_engine.collection.ingest import ingest_structured_json
+
+            if canonical_ingest_enabled() and entity and records:
+                period_end = None
+                period_type = "annual"
+                for r in records:
+                    if r.get("period_end"):
+                        period_end = str(r.get("period_end"))[:10]
+                        period_type = "annual" if r.get("frequency") == "annual" else "quarterly"
+                        break
+                evidence_payload = {
                     "entity": entity,
-                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                    "source": "financial_connector",
                     "annual": len(annual_out),
                     "quarterly": len(quarterly_out),
-                    "source": "financial_connector",
-                },
-            )
+                    "records": [
+                        {
+                            "period": r.get("period"),
+                            "period_end": r.get("period_end"),
+                            "frequency": r.get("frequency"),
+                            "statement": r.get("statement"),
+                            "accounts": r.get("accounts") or {},
+                        }
+                        for r in records[:40]
+                    ],
+                }
+                fse_ingest = ingest_structured_json(
+                    ticker=entity,
+                    payload=evidence_payload,
+                    source="financial_connector",
+                    document_type="structured_financials",
+                    period_type=period_type,
+                    period_end=period_end,
+                    collector="financial_statements_connector",
+                    filing_type=period_type,
+                )
         except Exception:
-            pass
-        return {"annual": len(annual_out), "quarterly": len(quarterly_out)}
+            fse_ingest = None
+
+        hd = _hd_write()
+        return {
+            **hd,
+            "dual_write_hd": True,
+            "fse_ingest": {
+                "action": (fse_ingest or {}).get("action"),
+                "evidence_id": (fse_ingest or {}).get("evidence_id"),
+                "event_emitted": (fse_ingest or {}).get("event_emitted"),
+            }
+            if fse_ingest
+            else None,
+        }
 
     def coverage(self, **kwargs: Any) -> dict[str, Any]:
         from knowledge_factory.historical_depth import store as hd_store

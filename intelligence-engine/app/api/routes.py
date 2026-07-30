@@ -10565,6 +10565,14 @@ async def financial_statements_collection_dashboard():
     return dashboard()
 
 
+@router.get("/financial-statements/collection/ingest-dashboard")
+async def financial_statements_ingest_dashboard():
+    """FSE-02.1 Mission Control — canonical ingestion metrics."""
+    from financial_statements_engine.collection.production import ingest_dashboard
+
+    return ingest_dashboard()
+
+
 @router.get("/financial-statements/collection/events")
 async def financial_statements_collection_events(limit: int = 50):
     from financial_statements_engine.collection.production import recent_events

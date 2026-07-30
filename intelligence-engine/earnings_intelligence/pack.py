@@ -79,6 +79,9 @@ def _slim_filing(row: dict[str, Any]) -> dict[str, Any]:
         "cash_flow": st.get("cash_flow"),
         "segments": st.get("segments") or [],
         "income_ytd": st.get("income_ytd"),
+        # FSE-02.1 dual-path markers (kept small; no raw bytes)
+        "fse_xbrl_ingested": bool(row.get("fse_xbrl_ingested")),
+        "fse_ingest": row.get("fse_ingest"),
     }
 
 
@@ -117,7 +120,10 @@ def build_financial_pack(
                 continue
             url = str(r.get("xbrl_url") or "")
             try:
-                out.append(enrich_filing_with_xbrl(r, opener=opener, injected_xbrl=xmap.get(url)))
+                row = dict(r)
+                row.setdefault("ticker", key)
+                row.setdefault("symbol", key)
+                out.append(enrich_filing_with_xbrl(row, opener=opener, injected_xbrl=xmap.get(url)))
             except Exception as exc:  # noqa: BLE001
                 row = dict(r)
                 row["xbrl_error"] = f"{type(exc).__name__}:{str(exc)[:120]}"
@@ -201,12 +207,14 @@ def build_financial_pack(
         lineage.append({"source": "nse_financial_xbrl", "ref": latest_q.get("xbrl_url")})
 
     latency_ms = int((datetime.now(timezone.utc) - t0).total_seconds() * 1000)
+    fse_xbrl_ingested = any(r.get("fse_xbrl_ingested") for r in q_enriched + a_enriched)
 
     return {
         "ok": ok,
         "engine": ENGINE_CODE,
         "version": VERSION,
         "ticker": key,
+        "fse_xbrl_ingested": fse_xbrl_ingested,
         "missing": not ok,
         "fabricated": False,
         "coverage_pct": coverage_pct,

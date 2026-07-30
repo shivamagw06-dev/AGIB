@@ -105,6 +105,7 @@ python -m financial_statements_engine TCS --publish
 - `GET /v1/financial-statements/schema-evolution/resolve`
 - `GET /v1/financial-statements/collection/health`
 - `GET /v1/financial-statements/collection/dashboard`
+- `GET /v1/financial-statements/collection/ingest-dashboard` (FSE-02.1)
 - `GET /v1/financial-statements/collection/events`
 - `POST /v1/financial-statements/collection/run`
 
