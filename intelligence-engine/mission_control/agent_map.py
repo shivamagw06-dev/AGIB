@@ -773,6 +773,23 @@ _CATALOG: list[dict[str, Any]] = [
         "module": "institutional_portfolio_decision.production",
     },
     {
+        "id": "institutional_committee",
+        "name": "Investment Committee Engine (ICE-01)",
+        "group": "publication",
+        "responsibility": (
+            "Phase 4.5 — Deterministic InstitutionalCommitteeResolution governing CIO-01 decisions. "
+            "Structured desk votes, agenda, action items, follow-ups. Never mutates risk, policy, "
+            "or company decisions. Not predictive."
+        ),
+        "sources": [
+            "InstitutionalPortfolioDecision (CIO-01)",
+            "InstitutionalPortfolioRisk (PRE-01)",
+            "InstitutionalPolicyAssessment (PCE-01)",
+        ],
+        "kind": "committee_governance",
+        "module": "institutional_committee.production",
+    },
+    {
         "id": "ite_thesis",
         "name": "Investment Thesis Office",
         "group": "offices",

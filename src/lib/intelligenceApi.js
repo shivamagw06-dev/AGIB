@@ -1274,6 +1274,26 @@ export const getPortfolioPolicy = (
   });
 };
 
+/** ICE-01 — Investment Committee Engine */
+export const getCommitteeEngineHealth = () =>
+  intelligenceFetch('/committee-engine/health', { timeoutMs: 30_000 });
+export const reviewCommittee = (body = {}) =>
+  intelligenceFetch('/committee/review', { method: 'POST', body: body || {}, timeoutMs: 90_000 });
+export const getCommitteePending = () =>
+  intelligenceFetch('/committee/pending', { timeoutMs: 30_000 });
+export const getCommitteeResolution = (resolutionId) =>
+  intelligenceFetch(`/committee/resolution/${encodeURIComponent(resolutionId)}`, {
+    timeoutMs: 30_000,
+  });
+export const getCommitteePortfolio = (portfolioId = 'agi-core-equity', { refresh = true } = {}) => {
+  const qs = new URLSearchParams();
+  if (refresh) qs.set('refresh', 'true');
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return intelligenceFetch(`/committee/portfolio/${encodeURIComponent(portfolioId)}${suffix}`, {
+    timeoutMs: 90_000,
+  });
+};
+
 /** FG-01 — Forecast & Scenario Graph */
 export const getInstitutionalScenarioHealth = () =>
   intelligenceFetch('/scenario/health', { timeoutMs: 30_000 });

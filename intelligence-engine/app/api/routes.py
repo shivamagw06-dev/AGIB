@@ -10282,6 +10282,47 @@ async def institutional_policy_get(
     )
 
 
+# --- ICE-01 Investment Committee Engine (governs CIO-01; does not mutate upstream) ---
+
+
+@router.get("/committee-engine/health")
+async def institutional_committee_engine_health():
+    from institutional_committee.production import health
+
+    return health()
+
+
+@router.post("/committee/review")
+async def institutional_committee_review(payload: dict[str, Any] = Body(default={})):
+    from institutional_committee.production import review_committee
+
+    return review_committee(payload or {})
+
+
+@router.get("/committee/pending")
+async def institutional_committee_pending():
+    from institutional_committee.production import get_pending
+
+    return get_pending()
+
+
+@router.get("/committee/resolution/{resolution_id}")
+async def institutional_committee_resolution_get(resolution_id: str):
+    from institutional_committee.production import get_resolution
+
+    return get_resolution(resolution_id)
+
+
+@router.get("/committee/portfolio/{portfolio_id}")
+async def institutional_committee_portfolio_get(
+    portfolio_id: str,
+    refresh: bool = True,
+):
+    from institutional_committee.production import get_portfolio_resolutions
+
+    return get_portfolio_resolutions(portfolio_id, refresh=refresh)
+
+
 # --- Company Monitoring System V1 (continuous living analyst; additive) ---
 
 
