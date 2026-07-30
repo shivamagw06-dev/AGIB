@@ -56,11 +56,14 @@ import ThesisConstruction from '@/pages/admin/ThesisConstruction';
 import InstitutionalDebate from '@/pages/admin/InstitutionalDebate';
 import DecisionReadiness from '@/pages/admin/DecisionReadiness';
 import ReasoningAudit from '@/pages/admin/ReasoningAudit';
+import KnowledgeOperations from '@/pages/admin/KnowledgeOperations';
 
 export default function AdminRoutes() {
   return (
     <RequireAdmin>
       <Routes>
+        {/* Full-bleed Institutional Knowledge Operations Center — not CMS chrome */}
+        <Route path="knowledge-operations" element={<KnowledgeOperations />} />
         <Route element={<AdminLayout />}>
           <Route index element={<AdminDashboard />} />
           <Route path="articles" element={<AdminDashboard />} />

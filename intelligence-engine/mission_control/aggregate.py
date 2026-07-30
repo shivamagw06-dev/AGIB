@@ -1828,6 +1828,15 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
     except Exception:
         out["institutional_coverage_factory"] = None
 
+    # KOC-01 — Knowledge Operations Center (admin control room).
+    try:
+        from knowledge_operations.production import soft_slice_mission_control as koc_soft
+
+        out["knowledge_operations"] = koc_soft()
+        out["sources"].append("knowledge_operations")
+    except Exception:
+        out["knowledge_operations"] = None
+
     return out
 
 

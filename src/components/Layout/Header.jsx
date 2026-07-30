@@ -1,4 +1,4 @@
-import { Search, Menu, X, User, LogOut, Edit2, Shield, Briefcase, LayoutDashboard, Gauge, Activity, Bell, Bookmark, CreditCard, Settings, Newspaper, ListChecks } from 'lucide-react';
+import { Search, Menu, X, User, LogOut, Edit2, Shield, Briefcase, LayoutDashboard, Gauge, Activity, Bell, Bookmark, CreditCard, Settings, Newspaper, ListChecks, Library } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -220,6 +220,9 @@ export default function Header() {
                           <DropdownMenuItem onClick={() => go('/admin/mission-control')}>
                             <Gauge className="w-4 h-4 mr-2" /> Mission Control
                           </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => go('/admin/knowledge-operations')}>
+                            <Library className="w-4 h-4 mr-2" /> Knowledge Operations
+                          </DropdownMenuItem>
                         </>
                       )}
                       <DropdownMenuSeparator />
@@ -252,15 +255,26 @@ export default function Header() {
               )}
 
               {userIsAdmin && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="hidden md:flex h-8 text-xs border-[#ddd]"
-                  onClick={() => go('/admin/mission-control')}
-                >
-                  <Gauge className="w-3.5 h-3.5 mr-1" />
-                  Mission Control
-                </Button>
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="hidden md:flex h-8 text-xs border-[#0b1f33] text-[#0b1f33]"
+                    onClick={() => go('/admin/knowledge-operations')}
+                  >
+                    <Library className="w-3.5 h-3.5 mr-1" />
+                    Knowledge Operations
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="hidden lg:flex h-8 text-xs border-[#ddd]"
+                    onClick={() => go('/admin/mission-control')}
+                  >
+                    <Gauge className="w-3.5 h-3.5 mr-1" />
+                    Mission Control
+                  </Button>
+                </>
               )}
 
               <button
@@ -319,6 +333,15 @@ export default function Header() {
               <button type="button" onClick={() => go('/profile/edit')} className="block w-full py-2.5 text-left text-sm font-medium">
                 Settings
               </button>
+              {userIsAdmin ? (
+                <button
+                  type="button"
+                  onClick={() => go('/admin/knowledge-operations')}
+                  className="block w-full py-2.5 text-left text-sm font-bold text-[#0b1f33]"
+                >
+                  Knowledge Operations
+                </button>
+              ) : null}
               <button type="button" onClick={handleLogout} className="block w-full py-2.5 text-left text-sm font-medium text-[#b42318]">
                 Logout
               </button>

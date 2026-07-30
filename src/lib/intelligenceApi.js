@@ -1692,6 +1692,52 @@ export const runIcfDispatch = (ticker, body = {}) =>
 export const getIcfScheduler = () =>
   intelligenceFetch('/icf/scheduler', { timeoutMs: 30_000 });
 
+/** KOC-01 — Institutional Knowledge Operations Center (admin only) */
+export const getKocHealth = () =>
+  intelligenceFetch('/koc/health', { timeoutMs: 30_000 });
+export const getKocStatus = () =>
+  intelligenceFetch('/koc/status', { timeoutMs: 30_000 });
+export const getKocDesk = (params = {}) => {
+  const qs = new URLSearchParams();
+  if (params.scope) qs.set('scope', params.scope);
+  const suffix = qs.toString() ? `?${qs.toString()}` : '';
+  return intelligenceFetch(`/koc/desk${suffix}`, { timeoutMs: 180_000 });
+};
+export const getKocMissingInbox = (params = {}) => {
+  const qs = new URLSearchParams();
+  if (params.scope) qs.set('scope', params.scope);
+  if (params.limit != null) qs.set('limit', String(params.limit));
+  const suffix = qs.toString() ? `?${qs.toString()}` : '';
+  return intelligenceFetch(`/koc/missing-inbox${suffix}`, { timeoutMs: 180_000 });
+};
+export const getKocCompany = (ticker) =>
+  intelligenceFetch(`/koc/company/${encodeURIComponent(ticker)}`, { timeoutMs: 120_000 });
+export const uploadKocKnowledge = (body = {}) =>
+  intelligenceFetch('/koc/upload', {
+    method: 'POST',
+    body: body || {},
+    timeoutMs: 180_000,
+  });
+export const getKocQueue = (params = {}) => {
+  const qs = new URLSearchParams();
+  if (params.limit != null) qs.set('limit', String(params.limit));
+  const suffix = qs.toString() ? `?${qs.toString()}` : '';
+  return intelligenceFetch(`/koc/queue${suffix}`, { timeoutMs: 30_000 });
+};
+export const getKocAudit = (params = {}) => {
+  const qs = new URLSearchParams();
+  if (params.limit != null) qs.set('limit', String(params.limit));
+  if (params.ticker) qs.set('ticker', params.ticker);
+  const suffix = qs.toString() ? `?${qs.toString()}` : '';
+  return intelligenceFetch(`/koc/audit${suffix}`, { timeoutMs: 30_000 });
+};
+export const runKocAction = (body = {}) =>
+  intelligenceFetch('/koc/action', {
+    method: 'POST',
+    body: body || {},
+    timeoutMs: 180_000,
+  });
+
 export const getLaunchHealth = () =>
   intelligenceFetch('/launch/health', { timeoutMs: 30_000 });
 export const getLaunchMetrics = () =>
