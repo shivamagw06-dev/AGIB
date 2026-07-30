@@ -2004,6 +2004,30 @@ export default function createIntelligenceRouter() {
       } else {
         desk.learning_enrichment = { deferred: true, reason: 'timeout_or_unavailable' };
       }
+
+      if (apiProbe?.probes?.length) {
+        desk.api_probe = {
+          summary: apiProbe.summary,
+          probed_at: apiProbe.probed_at,
+          healthy: apiProbe.healthy,
+          not_configured: apiProbe.not_configured,
+          critical: apiProbe.critical,
+          total: apiProbe.total,
+        };
+        desk.api_status = mergeApiStatus(desk.api_status || [], apiProbe.probes);
+        desk.system_health = {
+          ...(desk.system_health || {}),
+          backend: 'Healthy',
+          fastapi: apiProbe.probes.find((p) => p.name === 'Intelligence Engine')?.status || desk.system_health?.fastapi,
+          database: apiProbe.probes.find((p) => p.name === 'Supabase')?.status || desk.system_health?.database,
+          authentication: apiProbe.probes.find((p) => p.name === 'Supabase')?.status || desk.system_health?.authentication,
+          email: apiProbe.probes.find((p) => p.name === 'Email')?.status || desk.system_health?.email,
+          frontend: apiProbe.probes.find((p) => p.name === 'Hostinger')?.status || desk.system_health?.frontend,
+          scheduler: apiProbe.probes.find((p) => p.name === 'Scheduler')?.status || desk.system_health?.scheduler,
+          cache: apiProbe.probes.find((p) => p.name === 'Redis')?.status || desk.system_health?.cache,
+          note: apiProbe.summary,
+        };
+      }
       return res.json(desk);
     } catch (error) {
       return res.status(503).json({
@@ -2014,6 +2038,17 @@ export default function createIntelligenceRouter() {
     }
   });
   router.get('/mission-control/quality-gates', kfGet('/v1/mission-control/quality-gates'));
+  router.get('/mission-control/api-status', async (_req, res) => {
+    try {
+      const result = await probeMissionControlApis({ engineFetch });
+      return res.json(result);
+    } catch (error) {
+      return res.status(503).json({
+        error: 'Mission Control API probes unavailable',
+        detail: error.message,
+      });
+    }
+  });
   router.get('/mission-control/report', kfGet('/v1/mission-control/report'));
   router.post('/mission-control/acknowledge', async (req, res) => {
     try {
