@@ -2464,15 +2464,9 @@ class UiService:
                 or {}
             )
             if decision_engine.get("active"):
-                for bullet in (decision_engine.get("answer_enrichment") or {}).get("why_bullets") or []:
-                    cleaned = scrub_text(bullet)
-                    if cleaned and cleaned not in why:
-                        why.append(cleaned[:420])
-                why = why[:14]
-                # Never lead with Buy/Sell — frame the executive as the decision hierarchy
-                framing = (decision_engine.get("answer_enrichment") or {}).get("executive_framing")
-                if framing and (not executive or "Insufficient" in str(executive)):
-                    executive = scrub_text(framing) or executive
+                # Decision Engine owns the scorecard — not the executive lead or duplicated why bullets.
+                # Why bullets / layer essays stay out of the lead narrative to avoid section duplication.
+                pass
         except Exception:
             decision_engine = {}
 

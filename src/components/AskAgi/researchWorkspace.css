@@ -687,3 +687,38 @@
   border-radius: 14px;
   padding: 14px 16px;
 }
+
+.rw-score-chips {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 8px;
+}
+
+.rw-score-chip {
+  border: 1px solid var(--rw-border);
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 12px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rw-score-chip span {
+  font-size: 11px;
+  color: var(--rw-caption);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.rw-score-chip strong {
+  font-family: var(--rw-serif);
+  font-size: 24px;
+  line-height: 1.1;
+}
+
+.rw-score-chip em {
+  font-style: normal;
+  font-size: 11px;
+  color: var(--rw-muted);
+}

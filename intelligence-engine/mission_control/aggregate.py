@@ -2113,7 +2113,9 @@ def build_mission_control(*, ioc_service: Any | None = None) -> dict[str, Any]:
                 "note": None if configured is not False else "API key not set on intelligence engine",
             }
         )
-    # Ensure named providers appear even if IOC sparse
+    # Ensure named providers appear even if IOC sparse.
+    # Includes Groww + other .env market/macro/news APIs so Mission Control
+    # surfaces the full external dependency catalogue (soft placeholders until probed).
     known = {p["name"].lower() for p in providers}
     # Soft overlay: Forecast Provider Integration (India-first) health
     fpi_rows: list[dict[str, Any]] = []
@@ -2174,8 +2176,18 @@ def build_mission_control(*, ioc_service: Any | None = None) -> dict[str, Any]:
         "Indian API",
         "Finnhub",
         "FMP",
+        "Alpha Vantage",
+        "FRED",
+        "Twelve Data",
+        "Polygon",
+        "NewsAPI",
+        "Perplexity",
         "OpenAI",
         "Supabase",
+        "Resend",
+        "SendGrid",
+        "RBI Data",
+        "ExchangeRate",
         "Render",
         "Hostinger",
         "SMTP",
@@ -2184,7 +2196,7 @@ def build_mission_control(*, ioc_service: Any | None = None) -> dict[str, Any]:
         "Scheduler",
         "Redis",
     ):
-        if label.lower() not in known and not any(label.lower().split()[0] in k for k in known):
+        if not _already(label):
             providers.append(
                 {
                     "name": label,
@@ -2193,9 +2205,10 @@ def build_mission_control(*, ioc_service: Any | None = None) -> dict[str, Any]:
                     "latency": None,
                     "last_error": None,
                     "provider_confidence": "not_probed",
-                    "note": "Soft placeholder — IOC provider probe when configured",
+                    "note": "Soft placeholder — IOC / Node provider probe when configured",
                 }
             )
+            known.add(label.lower())
 
     # SECTION 5 — Knowledge Growth
     # research_learned / last_5_days_* are soft-enriched by Node from CMS learn events.

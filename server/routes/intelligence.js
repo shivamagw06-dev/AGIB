@@ -2028,6 +2028,13 @@ export default function createIntelligenceRouter() {
           note: apiProbe.summary,
         };
       }
+      // Soft enrich Groww + full .env API catalogue into API Status
+      try {
+        const { enrichMissionControlApis } = await import('../services/envApiCatalog.js');
+        desk = await enrichMissionControlApis(desk);
+      } catch {
+        // never block Mission Control on provider catalogue
+      }
       return res.json(desk);
     } catch (error) {
       return res.status(503).json({

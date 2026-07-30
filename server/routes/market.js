@@ -33,6 +33,34 @@ export default function createMarketRouter(env = {}) {
     return res.status(health.ok ? 200 : 502).json(health);
   });
 
+  // Safe status for Mission Control / ops — no quote payloads, no secrets
+  router.get('/groww-status', async (_req, res) => {
+    try {
+      const health = await getGrowwHealth();
+      return res.status(200).json({
+        configured: Boolean(health.configured),
+        ok: Boolean(health.ok),
+        authMode: health.authMode || null,
+        passed: health.passed ?? 0,
+        total: health.total ?? 0,
+        message: health.message || null,
+        tests: (health.tests || []).map((t) => ({
+          name: t.name,
+          ok: Boolean(t.ok),
+          error: t.ok ? undefined : t.error,
+        })),
+        checkedAt: health.checkedAt || new Date().toISOString(),
+      });
+    } catch (err) {
+      return res.status(200).json({
+        configured: false,
+        ok: false,
+        message: err?.message || 'Groww status unavailable',
+        checkedAt: new Date().toISOString(),
+      });
+    }
+  });
+
   router.get('/intelligence', async (_req, res) => {
     // Warm Groww/NSE ticker in the same 30-min cycle as AGI outlook.
     void getTickerData(env).catch(() => null);

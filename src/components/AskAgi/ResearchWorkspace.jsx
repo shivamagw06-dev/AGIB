@@ -21,7 +21,6 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import { Line, LineChart as RLineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import Sparkline from '@/office/Sparkline';
 import { mapSearchPack } from '@/components/AskAgi/adapters/mapSearchPack';
 import '@/components/AskAgi/researchWorkspace.css';
 
@@ -110,9 +109,23 @@ function Donut({ value = 72 }) {
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <p className="text-3xl font-bold tabular-nums">{v}%</p>
-        <p className="text-[10px] uppercase tracking-wide text-[var(--rw-caption)]">Overall</p>
+        <p className="text-3xl font-bold tabular-nums">{v || '—'}</p>
+        <p className="text-[10px] uppercase tracking-wide text-[var(--rw-caption)]">Confidence</p>
       </div>
+    </div>
+  );
+}
+
+function MetricGrid({ items }) {
+  if (!items?.length) return null;
+  return (
+    <div className="rw-grid-3">
+      {items.map((c) => (
+        <div key={c.label} className={`rw-kpi tone-${c.tone || 'neu'}`}>
+          <p className="label">{c.label}</p>
+          <p className="value text-[18px]">{c.value}</p>
+        </div>
+      ))}
     </div>
   );
 }
@@ -168,6 +181,8 @@ export default function ResearchWorkspace({
       }))
       .filter((p) => Number.isFinite(p.value));
   }, [vm]);
+
+  const ds = vm?.decisionScorecard;
 
   return (
     <div className="agi-research">
@@ -245,7 +260,7 @@ export default function ResearchWorkspace({
                 <Star size={15} />
                 <span className="label">Bookmark</span>
               </button>
-              <button type="button" className="rw-iconbtn" onClick={exportJson} title="Export PDF">
+              <button type="button" className="rw-iconbtn" onClick={exportJson} title="Export">
                 <FileText size={15} />
                 <span className="label">PDF</span>
               </button>
@@ -273,11 +288,10 @@ export default function ResearchWorkspace({
 
           <div className="rw-content">
             {!question && !loading && (
-              <Section kicker="Ask AGI" title="Institutional Investment Research Workspace">
+              <Section kicker="Ask AGI" title="Institutional Investment Research">
                 <p className="rw-body">
-                  Ask any institutional question. Every answer opens as a research note — executive
-                  summary, house view, financial intelligence, valuation, risks and catalysts —
-                  constructed from AGI&apos;s validated intelligence stack.
+                  Ask any institutional question. Answers open as a single research report — one purpose
+                  per section, one coherent investment voice.
                 </p>
                 <div className="rw-explore mt-4">
                   {[
@@ -412,9 +426,11 @@ export default function ResearchWorkspace({
                         <p className={`rw-view-value tone-${vm.stanceTone}`}>{vm.stance}</p>
                       </div>
                       <div>
-                        <p className="rw-mini">Confidence</p>
-                        <p className="rw-view-value">{vm.confidence}%</p>
-                        <p className="rw-mini">{vm.conviction} conviction</p>
+                        <p className="rw-mini">Conviction</p>
+                        <p className="rw-view-value">
+                          {vm.confidence != null ? `${vm.confidence}%` : '—'}
+                        </p>
+                        <p className="rw-mini">{vm.conviction}</p>
                       </div>
                       <div>
                         <p className="rw-mini">Time Horizon</p>
@@ -743,8 +759,8 @@ export default function ResearchWorkspace({
                   </Section>
                 ) : null}
 
-                {vm.decisionEngine ? (
-                  <Section id="decision-scorecard" kicker="Decision Framework" title="Investment Decision Scorecard">
+                {ds ? (
+                  <Section id="scorecard" kicker="03" title="Decision Scorecard">
                     <p className="rw-body mb-4">
                       Ownership questions are answered through a layered institutional stack — macro through
                       expected return — before any investment conclusion. No layer is skipped. Data
@@ -754,7 +770,7 @@ export default function ResearchWorkspace({
                       <div className="rw-decision-hero">
                         <p className="rw-mini">Overall Score</p>
                         <p className="rw-decision-score">
-                          {vm.decisionEngine.overallScore != null ? vm.decisionEngine.overallScore : '—'}
+                          {ds.overallScore != null ? ds.overallScore : '—'}
                           <span>/100</span>
                         </p>
                         <p className="rw-decision-grade">
@@ -769,12 +785,12 @@ export default function ResearchWorkspace({
                       </div>
                       <div className="rw-decision-metrics">
                         {[
-                          ['Expected Return (12m)', vm.decisionEngine.expectedReturn12m, '%'],
-                          ['Bull Case', vm.decisionEngine.bullCase, '%'],
-                          ['Base Case', vm.decisionEngine.baseCase, '%'],
-                          ['Bear Case', vm.decisionEngine.bearCase, '%'],
-                          ['Prob. Weighted', vm.decisionEngine.probabilityWeighted, '%'],
-                          ['Risk / Reward', vm.decisionEngine.riskReward, ''],
+                          ['Expected Return (12m)', ds.expectedReturn12m, '%'],
+                          ['Bull', ds.bullCase, '%'],
+                          ['Base', ds.baseCase, '%'],
+                          ['Bear', ds.bearCase, '%'],
+                          ['Prob. Weighted', ds.probabilityWeighted, '%'],
+                          ['Risk / Reward', ds.riskReward, ''],
                         ].map(([label, value, suffix]) => (
                           <div key={label} className="rw-why-card">
                             <h4>{label}</h4>
@@ -863,7 +879,7 @@ export default function ResearchWorkspace({
                             {w}
                           </li>
                         ))}
-                      </ul>
+                      </div>
                     ) : null}
                   </Section>
                   <Section id="why" kicker="Section 5" title="Why This View">
@@ -988,8 +1004,68 @@ export default function ResearchWorkspace({
                               <td className="tone-pos">{r.change}</td>
                             </tr>
                           ))}
-                        </tbody>
-                      </table>
+                        </ul>
+                      </div>
+                    ) : null}
+                  </Section>
+                ) : null}
+
+                <Section id="business" kicker="04" title="Business Intelligence">
+                  <p className="rw-body">
+                    {vm.business?.narrative ||
+                      vm.business?.model ||
+                      'Business quality is assessed through model, moat, management and competitive position.'}
+                  </p>
+                  <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2">
+                    {[
+                      ['Business model', vm.business?.model],
+                      ['Industry', vm.business?.industry],
+                      ['Competitive position', vm.business?.moat],
+                      ['Revenue drivers', vm.business?.revenueDrivers],
+                      ['Management', vm.business?.management],
+                      ['Pricing power', vm.business?.pricingPower],
+                    ]
+                      .filter(([, text]) => text)
+                      .map(([title, text]) => (
+                        <div key={title} className="rw-why-card">
+                          <h4>{title}</h4>
+                          <p>{text}</p>
+                        </div>
+                      ))}
+                  </div>
+                  {vm.business?.qualityScore != null ? (
+                    <p className="rw-mini mt-3">
+                      Business quality {vm.business.qualityScore}/100
+                      {vm.business.qualityGrade ? ` (${vm.business.qualityGrade})` : ''}
+                    </p>
+                  ) : null}
+                </Section>
+
+                <Section id="financials" kicker="05" title="Financial Intelligence">
+                  {vm.financialNarrative ? <p className="rw-body mb-4">{vm.financialNarrative}</p> : null}
+                  <MetricGrid items={vm.financialCards} />
+                  {(vm.financialImproved?.length || vm.financialDeteriorated?.length) && (
+                    <div className="rw-grid-2 mt-4">
+                      {vm.financialImproved?.length ? (
+                        <div>
+                          <p className="rw-mini tone-pos">Improving</p>
+                          <ul className="mt-1 space-y-1 text-sm text-[var(--rw-soft)]">
+                            {vm.financialImproved.map((x) => (
+                              <li key={x}>• {x}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : null}
+                      {vm.financialDeteriorated?.length ? (
+                        <div>
+                          <p className="rw-mini tone-neg">Softening</p>
+                          <ul className="mt-1 space-y-1 text-sm text-[var(--rw-soft)]">
+                            {vm.financialDeteriorated.map((x) => (
+                              <li key={x}>• {x}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : null}
                     </div>
                   ) : !vm.whatChanged?.length ? (
                     <p className="rw-empty">No material period-over-period changes surfaced yet.</p>
@@ -1035,7 +1111,7 @@ export default function ResearchWorkspace({
                     </div>
                   ) : null}
                   {chartData.length >= 2 ? (
-                    <div className="h-56 rounded-xl border border-[var(--rw-border)] bg-[var(--rw-panel-2)] p-3">
+                    <div className="h-56 mt-4 rounded-xl border border-[var(--rw-border)] bg-[var(--rw-panel-2)] p-3">
                       <ResponsiveContainer width="100%" height="100%">
                         <RLineChart data={chartData}>
                           <XAxis dataKey="name" hide />
@@ -1051,6 +1127,9 @@ export default function ResearchWorkspace({
                         </RLineChart>
                       </ResponsiveContainer>
                     </div>
+                  ) : null}
+                  {!vm.valuationCards?.length && !vm.valuationNarrative ? (
+                    <p className="rw-empty">Valuation multiples will populate as coverage completes.</p>
                   ) : null}
                 </Section>
 
@@ -1119,12 +1198,12 @@ export default function ResearchWorkspace({
                   >
                     <p className="rw-body">
                       {vm.sectorNarrative ||
-                        'Industry structure matters because it shapes pricing power, capital intensity and the durability of returns.'}
+                        'Industry structure shapes pricing power, capital intensity and return durability.'}
                     </p>
-                    {vm.sectorDrivers.length ? (
+                    {vm.sectorDrivers?.length ? (
                       <ul className="mt-3 space-y-1 text-sm text-[var(--rw-muted)]">
                         {vm.sectorDrivers.map((d) => (
-                          <li key={d}>• {String(d).replace(/_/g, ' ')}</li>
+                          <li key={d}>• {d}</li>
                         ))}
                       </ul>
                     ) : null}
@@ -1329,29 +1408,54 @@ export default function ResearchWorkspace({
                   </div>
                 )}
 
-                {vm.leaders.length ? (
-                  <Section id="leaders" kicker="Section 13" title="Sector Leaders">
+                <Section id="macro" kicker="09" title="Macro Intelligence">
+                  {vm.macroDrivers?.length ? (
+                    <ul className="space-y-2 text-sm text-[var(--rw-soft)]">
+                      {vm.macroDrivers.map((d) => (
+                        <li key={d} className="border-b border-[var(--rw-border)] pb-2">
+                          {d}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="rw-body">
+                      Macro conditions matter for discount rates, risk appetite and cyclical demand —
+                      they frame the company debate rather than replace it.
+                    </p>
+                  )}
+                </Section>
+
+                <Section id="monitor" kicker="10" title="Company Monitor">
+                  {vm.houseViewReview ? (
+                    <p className="rw-mini tone-warn mb-3">Material changes — house-view review suggested.</p>
+                  ) : null}
+                  {vm.monitorHints?.length ? (
+                    <ul className="mb-3 space-y-1 text-sm text-[var(--rw-soft)]">
+                      {vm.monitorHints.map((h) => (
+                        <li key={h}>• {h}</li>
+                      ))}
+                    </ul>
+                  ) : null}
+                  {vm.monitorRows?.length ? (
                     <div className="overflow-x-auto">
                       <table className="rw-table">
                         <thead>
                           <tr>
-                            <th>Company</th>
-                            <th>View</th>
-                            <th>Financial</th>
-                            <th>Valuation</th>
-                            <th>Quality</th>
-                            <th>Confidence</th>
+                            <th>Category</th>
+                            <th>Metric</th>
+                            <th>Previous</th>
+                            <th>Current</th>
+                            <th>Change</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {vm.leaders.map((row) => (
-                            <tr key={row.company}>
-                              <td className="font-semibold text-[var(--rw-ink)]">{row.company}</td>
-                              <td className={`tone-${vm.stanceTone}`}>{row.view}</td>
-                              <td>{row.financial}</td>
-                              <td>{row.valuation}</td>
-                              <td>{row.quality}</td>
-                              <td>{row.confidence}%</td>
+                          {vm.monitorRows.map((r) => (
+                            <tr key={`${r.category}-${r.metric}-${r.current}`}>
+                              <td className="rw-mini">{r.category}</td>
+                              <td className="font-semibold text-[var(--rw-ink)]">{r.metric}</td>
+                              <td>{r.previous}</td>
+                              <td>{r.current}</td>
+                              <td className="tone-pos">{r.change}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -1443,44 +1547,53 @@ export default function ResearchWorkspace({
                       <p className="rw-empty">No critical risks listed for this briefing.</p>
                     )}
                   </Section>
-                  <Section id="confidence" kicker="Section 17" title="Confidence Assessment">
-                    <div className="rw-donut-wrap">
-                      <Donut value={vm.confidence} />
-                      <ul className="space-y-2 text-sm text-[var(--rw-soft)]">
-                        {[
-                          ['Financials', Math.min(99, vm.confidence + 2)],
-                          ['Business', Math.min(99, vm.confidence - 1)],
-                          ['Valuation', Math.min(99, vm.confidence - 4)],
-                          ['Sector', Math.min(99, vm.confidence)],
-                          ['Knowledge', Math.min(99, vm.coverage)],
-                        ].map(([label, value]) => (
-                          <li key={label} className="flex justify-between border-b border-[var(--rw-border)] pb-1">
-                            <span>{label}</span>
-                            <span className="tabular-nums">{value}%</span>
-                          </li>
-                        ))}
-                      </ul>
+                  <Section id="scenarios" kicker="12" title="Bull · Base · Bear">
+                    <div className="space-y-3">
+                      {[
+                        {
+                          key: 'bull',
+                          title: 'Bull',
+                          items: vm.bull,
+                          ret: vm.scenarioReturns?.bull,
+                        },
+                        {
+                          key: 'base',
+                          title: 'Base',
+                          items: vm.base,
+                          ret: vm.scenarioReturns?.base,
+                        },
+                        {
+                          key: 'bear',
+                          title: 'Bear',
+                          items: vm.bear,
+                          ret: vm.scenarioReturns?.bear,
+                        },
+                      ].map((s) => (
+                        <div key={s.key} className={`rw-scenario ${s.key}`}>
+                          <div className="flex items-center justify-between">
+                            <h3 className="font-bold">{s.title}</h3>
+                            {s.ret != null ? (
+                              <span className="rw-mini">
+                                {Number(s.ret) > 0 ? '+' : ''}
+                                {s.ret}%
+                              </span>
+                            ) : null}
+                          </div>
+                          <ul className="mt-2 space-y-1 text-sm text-[var(--rw-soft)]">
+                            {(s.items?.length ? s.items : ['Scenario narrative pending richer evidence.']).map(
+                              (item) => (
+                                <li key={item}>• {item}</li>
+                              )
+                            )}
+                          </ul>
+                        </div>
+                      ))}
                     </div>
                   </Section>
                 </div>
 
-                <Section id="catalysts" kicker="Section 16" title="Key Catalysts">
-                  {vm.catalysts.length ? (
-                    <div className="rw-timeline">
-                      {vm.catalysts.map((c, idx) => (
-                        <div key={c} className="rw-timeline-item">
-                          <p className="rw-mini">T+{idx + 1}</p>
-                          <p className="mt-1 text-sm font-semibold text-[var(--rw-ink)]">{c}</p>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="rw-empty">Catalyst calendar will populate from corporate and research events.</p>
-                  )}
-                </Section>
-
                 {vm.learned?.length ? (
-                  <Section id="learned" kicker="Section 18" title="Research Takeaways">
+                  <Section id="learned" kicker="13" title="Research & Learning">
                     <ul className="space-y-2 text-sm">
                       {vm.learned.map((item) => (
                         <li key={item} className="flex items-start gap-2 text-[var(--rw-soft)]">
@@ -1492,40 +1605,23 @@ export default function ResearchWorkspace({
                   </Section>
                 ) : null}
 
-                {vm.decisionEngine?.stackLayers?.length ? (
-                  <Section id="decision-stack" kicker="Decision Stack" title="Layered Investment Analysis">
-                    <p className="rw-body mb-4">
-                      Each layer answers one institutional question with evidence. The investment decision
-                      appears only after this stack is complete.
-                    </p>
-                    <div className="rw-stack">
-                      {vm.decisionEngine.stackLayers.map((layer) => (
-                        <article key={layer.id} className="rw-stack-layer">
-                          <header>
-                            <div>
-                              <p className="rw-mini">
-                                Layer {layer.index}
-                                {layer.weight != null ? ` · Weight ${layer.weight}%` : ''}
-                              </p>
-                              <h3>{layer.title}</h3>
-                              {layer.question ? <p className="rw-stack-q">{layer.question}</p> : null}
-                            </div>
-                            <div className="rw-stack-score">
-                              {layer.score != null ? (
-                                <>
-                                  <strong>{layer.score}</strong>
-                                  <span>{layer.grade || layer.status}</span>
-                                </>
-                              ) : (
-                                <span className="rw-mini">{layer.status}</span>
-                              )}
-                            </div>
-                          </header>
-                          {layer.reasoning ? <p className="rw-body mt-3">{layer.reasoning}</p> : null}
-                          {layer.evidence?.length ? (
-                            <ul className="mt-2 space-y-1 text-sm text-[var(--rw-muted)]">
-                              {layer.evidence.map((e) => (
-                                <li key={e}>• {e}</li>
+                <Section id="conclusion" kicker="14" title="Institutional Conclusion">
+                  <p className="rw-body">{vm.conclusion}</p>
+                  {(vm.suitableFor?.length || vm.unsuitableFor?.length || vm.decisionAction) && (
+                    <div className="rw-decision-final mt-4">
+                      {vm.decisionAction ? (
+                        <>
+                          <p className="rw-mini">Positioning</p>
+                          <p className="rw-view-value text-[20px] mt-1">{vm.decisionAction}</p>
+                        </>
+                      ) : null}
+                      <div className="rw-grid-2 mt-3">
+                        {vm.suitableFor?.length ? (
+                          <div>
+                            <p className="rw-mini tone-pos">Suitable for</p>
+                            <ul className="mt-1 space-y-1 text-sm text-[var(--rw-soft)]">
+                              {vm.suitableFor.map((item) => (
+                                <li key={item}>✔ {item}</li>
                               ))}
                             </ul>
                           ) : null}
@@ -1596,9 +1692,9 @@ export default function ResearchWorkspace({
                         </div>
                       </div>
                     </div>
-                  ) : null}
+                  )}
                   <p className="rw-mini mt-3">
-                    This briefing is institutional research context — not a brokerage order ticket.
+                    Institutional research context — not a brokerage order ticket.
                   </p>
                 </Section>
 
@@ -1614,11 +1710,14 @@ export default function ResearchWorkspace({
                   {vm.recommendationStatus.detail ? (
                     <p className="rw-body mt-2">{vm.recommendationStatus.detail}</p>
                   ) : null}
-                  {(vm.knowledgeGaps || []).length ? (
+                  {vm.recommendationStatus.coverage != null ? (
+                    <p className="rw-mini mt-3">Evidence coverage {vm.recommendationStatus.coverage}%</p>
+                  ) : null}
+                  {vm.recommendationStatus.gaps?.length ? (
                     <div className="mt-4">
                       <p className="rw-mini mb-2">Current Knowledge Gaps</p>
                       <ul className="space-y-2 text-sm text-[var(--rw-soft)]">
-                        {vm.knowledgeGaps.map((g) => (
+                        {vm.recommendationStatus.gaps.map((g) => (
                           <li key={g} className="border-b border-[var(--rw-border)] pb-2">
                             {g}
                           </li>
@@ -1628,7 +1727,7 @@ export default function ResearchWorkspace({
                   ) : null}
                 </Section>
 
-                <Section id="explore" kicker="Section 20" title="Explore Further">
+                <Section id="explore" kicker="16" title="Explore Further">
                   <div className="rw-explore">
                     {vm.explore.map((q) => (
                       <button key={q} type="button" onClick={() => submit(q)}>
@@ -1643,7 +1742,11 @@ export default function ResearchWorkspace({
                     <Link to="/admin/mission-control">Mission Control</Link>
                     <Link to="/admin/knowledge">Knowledge</Link>
                     <Link to="/research">Research</Link>
-                    <button type="button" className="bg-transparent border-0 text-inherit cursor-pointer p-0" onClick={() => navigate('/markets')}>
+                    <button
+                      type="button"
+                      className="bg-transparent border-0 text-inherit cursor-pointer p-0"
+                      onClick={() => navigate('/markets')}
+                    >
                       Markets
                     </button>
                   </div>

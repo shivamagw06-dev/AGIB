@@ -106,6 +106,7 @@ def test_answer_construction_never_leads_with_buy_when_ide_active():
         gate_blocked=True,
         force=True,
     )
+    assert ide.get("summary", {}).get("confidence_breakdown")
     ac = ac_package(
         query="Should I buy Eternal?",
         executive="Buy Eternal now.",
@@ -116,6 +117,14 @@ def test_answer_construction_never_leads_with_buy_when_ide_active():
         risks=["Competition"],
         catalysts=["Earnings"],
         why=["Quality franchise with growth optionality."],
+        intelligence_construction={
+            "enabled": True,
+            "company_name": "Eternal",
+            "executive_brief": "Eternal is a consumer internet platform combining food delivery and quick commerce.",
+            "answer_enrichment": {
+                "executive_summary": "Eternal is a consumer internet platform combining food delivery and quick commerce.",
+            },
+        },
         company_analysis={
             "identity": {"company_name": "Eternal", "business_model": "Food delivery and quick commerce."},
         },
