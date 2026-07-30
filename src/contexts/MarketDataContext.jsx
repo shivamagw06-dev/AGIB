@@ -4,7 +4,7 @@ import {
   MARKET_REFRESH_MS,
   readMarketCache,
   writeMarketCache,
-  msUntilNextRefresh,
+  msUntilNextMarketCycle,
 } from '@/lib/marketCache';
 
 const EMPTY = {
@@ -22,7 +22,8 @@ const EMPTY = {
 const MarketDataContext = createContext(null);
 
 /**
- * Market intelligence refreshes every 10 minutes.
+ * Market intelligence refreshes every 30 minutes on the shared wall-clock cycle
+ * (same cadence as homepage Groww/Yahoo snapshot and /api/market/*).
  * Session cache prevents API calls on every page load / login within that window.
  */
 export function MarketDataProvider({ children, pollMs = MARKET_REFRESH_MS }) {
@@ -33,7 +34,7 @@ export function MarketDataProvider({ children, pollMs = MARKET_REFRESH_MS }) {
 
   useEffect(() => {
     let cancelled = false;
-    let intervalId = null;
+    let timeoutId = null;
 
     async function load(force = false) {
       if (busy.current) return;
@@ -64,23 +65,28 @@ export function MarketDataProvider({ children, pollMs = MARKET_REFRESH_MS }) {
       }
     }
 
-    const wait = msUntilNextRefresh();
-    if (wait > 0) {
-      setLoading(false);
-      const timeoutId = setTimeout(() => load(true), wait);
-      intervalId = setInterval(() => load(true), pollMs);
-      return () => {
-        cancelled = true;
-        clearTimeout(timeoutId);
-        clearInterval(intervalId);
-      };
+    function scheduleNext() {
+      // Align to wall-clock :00 / :30 so strip + snapshot refresh together.
+      const wait = Math.max(250, Math.min(msUntilNextMarketCycle(), pollMs));
+      timeoutId = setTimeout(async () => {
+        await load(true);
+        if (!cancelled) scheduleNext();
+      }, wait);
     }
 
-    load(true);
-    intervalId = setInterval(() => load(true), pollMs);
+    const fresh = readMarketCache();
+    if (fresh) {
+      setLoading(false);
+      scheduleNext();
+    } else {
+      load(true).finally(() => {
+        if (!cancelled) scheduleNext();
+      });
+    }
+
     return () => {
       cancelled = true;
-      clearInterval(intervalId);
+      if (timeoutId) clearTimeout(timeoutId);
     };
   }, [pollMs]);
 

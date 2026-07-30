@@ -29,12 +29,10 @@ import {
   computeTimeframeConfluence,
 } from './indexConfluenceEngine.js';
 import { generateAgiSummary } from './agiSummaryGenerator.js';
-import { MARKET_REFRESH_MS } from '../config/marketRefresh.js';
+import { formatMarketUpdatedLabel, oncePerMarketCycle } from '../config/marketRefresh.js';
 
-const CACHE = { data: null, expiry: 0 };
-const TTL = MARKET_REFRESH_MS;
-const STALE_TTL = 3600_000;
-let inflight = null;
+/** Last successful payload — served only if the current cycle compute fails. */
+let lastGoodIntelligence = null;
 let growwBackoffUntil = 0;
 
 /** Historical model is on by default; set GROWW_USE_HISTORICAL=false only during maintenance. */
@@ -235,35 +233,12 @@ function deriveSectorChanges(gainers, losers) {
 }
 
 export async function getAgiIntelligence(env = {}) {
-  const now = Date.now();
-
-  if (CACHE.data && now < CACHE.expiry) return CACHE.data;
-
-  const hasStale = CACHE.data && now < CACHE.expiry + STALE_TTL;
-  if (hasStale && inflight) return { ...CACHE.data, stale: true };
-
-  if (inflight) {
-    try {
-      return await inflight;
-    } catch {
-      return hasStale ? { ...CACHE.data, stale: true } : buildFallbackIntelligence();
-    }
-  }
-
-  inflight = computeIntelligence(env)
-    .catch((err) => {
-      console.error('[intelligence] compute failed:', err?.message);
-      if (CACHE.data) return { ...CACHE.data, stale: true };
-      return buildFallbackIntelligence();
-    })
-    .finally(() => {
-      inflight = null;
-    });
-
   try {
-    return await inflight;
-  } catch {
-    return hasStale ? { ...CACHE.data, stale: true } : buildFallbackIntelligence();
+    return await oncePerMarketCycle('agi-intelligence', () => computeIntelligence(env));
+  } catch (err) {
+    console.error('[intelligence] compute failed:', err?.message);
+    if (lastGoodIntelligence) return { ...lastGoodIntelligence, stale: true };
+    return buildFallbackIntelligence();
   }
 }
 
@@ -336,11 +311,8 @@ async function computeIntelligence(env) {
     global: { score: openingBias.score },
   });
 
-  const updatedLabel = new Date().toLocaleTimeString('en-IN', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true,
-  });
+  const updatedAt = new Date().toISOString();
+  const updatedLabel = formatMarketUpdatedLabel(updatedAt).replace(/^Updated\s+/i, '');
 
   const intelligence = {
     ...marketScore,
@@ -350,7 +322,7 @@ async function computeIntelligence(env) {
     sectorRotation: sectors.rotation,
     openingBias: openingBias.label,
     volumeStrength: volumeScore >= 65 ? 'Strong' : 'Normal',
-    updatedAt: new Date().toISOString(),
+    updatedAt,
     updatedLabel,
   };
 
@@ -426,8 +398,7 @@ async function computeIntelligence(env) {
     updatedAt: intelligence.updatedAt,
   };
 
-  CACHE.data = result;
-  CACHE.expiry = Date.now() + TTL;
+  lastGoodIntelligence = result;
   return result;
 }
 

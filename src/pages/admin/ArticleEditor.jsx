@@ -30,6 +30,8 @@ import {
 } from '@/lib/articleUtils';
 import { ingestArticleToIntelligence } from '@/lib/cmsIntelligence';
 import { notifySubscribers } from '@/lib/newsletterClient';
+import { normalizeArticleSection } from '@/lib/articleSections';
+import { canEditArticle, isAdmin } from '@/lib/adminAuth';
 import { Button } from '@/components/ui/button';
 
 const AUTOSAVE_MS = 4000;
@@ -64,6 +66,7 @@ export default function ArticleEditor() {
   const [error, setError] = useState('');
   const [previewOpen, setPreviewOpen] = useState(false);
   const [loaded, setLoaded] = useState(!editSlug);
+  const [originalAuthorId, setOriginalAuthorId] = useState(null);
 
   const pendingContentRef = useRef('');
   const autosaveTimer = useRef(null);
@@ -119,7 +122,9 @@ export default function ArticleEditor() {
     (async () => {
       const { data, error: loadError } = await supabase
         .from('articles')
-        .select('id, title, slug, section, excerpt, meta_description, content_md, content, cover_url, tags, status')
+        .select(
+          'id, title, slug, section, excerpt, meta_description, content_md, content, cover_url, tags, status, author_id'
+        )
         .eq('slug', editSlug)
         .maybeSingle();
 
@@ -130,7 +135,14 @@ export default function ArticleEditor() {
         return;
       }
 
+      if (!canEditArticle(user, data)) {
+        setError('You can only edit articles you uploaded.');
+        setLoaded(true);
+        return;
+      }
+
       setDraftId(data.id);
+      setOriginalAuthorId(data.author_id || user.id);
       setTitle(data.title || '');
       setSlug(data.slug || '');
       setSlugManual(true);
@@ -223,12 +235,15 @@ export default function ArticleEditor() {
       const html = editor?.getHTML() || '';
       const tags = tagsInput.split(',').map((t) => t.trim()).filter(Boolean);
       const excerpt = metaDescription.trim() || htmlToExcerpt(html, 320);
+      const safeSection = normalizeArticleSection(section, {
+        forIntelligence: publishStatus === 'intelligence',
+      });
 
       const payload = {
-        author_id: user.id,
+        // Keep original uploader on edit; set author only when creating.
         title: title.trim() || 'Untitled',
         slug: slug || toSlug(title) || `draft-${Date.now()}`,
-        section,
+        section: safeSection,
         excerpt,
         content_md: html,
         content: html,
@@ -236,15 +251,27 @@ export default function ArticleEditor() {
         tags: tags.length ? tags : null,
         status: publishStatus,
       };
+      if (!draftId) {
+        payload.author_id = user.id;
+      } else if (originalAuthorId) {
+        payload.author_id = originalAuthorId;
+      } else if (!isAdmin(user)) {
+        payload.author_id = user.id;
+      }
 
       if (metaDescription.trim()) payload.meta_description = metaDescription.trim();
       if (publishStatus === 'published') payload.published_at = new Date().toISOString();
       // Private intelligence notes must never appear as website posts.
-      if (publishStatus === 'intelligence') payload.published_at = null;
+      if (publishStatus === 'intelligence') {
+        payload.published_at = null;
+        payload.tags = Array.from(
+          new Set([...(payload.tags || []), 'intelligence-only', 'agi-private'])
+        );
+      }
 
       return payload;
     },
-    [editor, tagsInput, metaDescription, user.id, title, slug, section, coverUrl]
+    [editor, tagsInput, metaDescription, user, title, slug, section, coverUrl, draftId, originalAuthorId]
   );
 
   const persist = useCallback(
@@ -261,7 +288,11 @@ export default function ArticleEditor() {
 
         let result;
         if (draftId) {
-          result = await supabase.from('articles').update(payload).eq('id', draftId).select('id, slug, status').single();
+          let updateQuery = supabase.from('articles').update(payload).eq('id', draftId);
+          if (!isAdmin(user)) {
+            updateQuery = updateQuery.eq('author_id', user.id);
+          }
+          result = await updateQuery.select('id, slug, status').single();
         } else {
           result = await supabase.from('articles').insert(payload).select('id, slug, status').single();
         }
@@ -273,14 +304,41 @@ export default function ArticleEditor() {
           const fallbackPayload = {
             ...payload,
             status: 'draft',
+            section: normalizeArticleSection(payload.section || section, { forIntelligence: true }),
             tags: Array.from(new Set([...(payload.tags || []), 'intelligence-only', 'agi-private'])),
+          };
+          if (draftId) {
+            let fallbackUpdate = supabase.from('articles').update(fallbackPayload).eq('id', draftId);
+            if (!isAdmin(user)) fallbackUpdate = fallbackUpdate.eq('author_id', user.id);
+            result = await fallbackUpdate.select('id, slug, status').single();
+          } else {
+            result = await supabase
+              .from('articles')
+              .insert(fallbackPayload)
+              .select('id, slug, status')
+              .single();
+          }
+          ({ data, error: saveError } = result);
+          if (!saveError) {
+            setError('Saved for intelligence. Run the CMS migration to enable status=intelligence in Supabase.');
+          }
+        }
+
+        // Section value not in DB check constraint — coerce to a known-safe section and retry once.
+        if (saveError && /articles_section_allowed|section_allowed/i.test(saveError.message || '')) {
+          const fallbackPayload = {
+            ...payload,
+            section: publishStatus === 'intelligence' ? 'Intelligence' : 'Research Reports',
           };
           result = draftId
             ? await supabase.from('articles').update(fallbackPayload).eq('id', draftId).select('id, slug, status').single()
             : await supabase.from('articles').insert(fallbackPayload).select('id, slug, status').single();
           ({ data, error: saveError } = result);
           if (!saveError) {
-            setError('Saved for intelligence. Run the CMS migration to enable status=intelligence in Supabase.');
+            setSection(fallbackPayload.section);
+            setError(
+              `Section was adjusted to "${fallbackPayload.section}" because the database section list needs updating. Run the latest CMS section migration in Supabase.`
+            );
           }
         }
 
@@ -300,31 +358,73 @@ export default function ArticleEditor() {
         dirtyRef.current = false;
 
         let ingestResult = null;
+        let ingestError = null;
         if (ingest) {
-          ingestResult = await ingestArticleToIntelligence({
-            title: title.trim(),
-            contentHtml: editor.getHTML(),
-            slug: data.slug,
-            articleId: data.id,
-            section,
-            tags: tagsInput.split(',').map((t) => t.trim()).filter(Boolean),
-            status: publishStatus,
-            destination: publishStatus === 'published' ? 'website' : 'intelligence',
-          });
+          try {
+            ingestResult = await ingestArticleToIntelligence({
+              title: title.trim(),
+              contentHtml: editor.getHTML(),
+              slug: data.slug,
+              articleId: data.id,
+              section: payload.section || section,
+              tags: tagsInput.split(',').map((t) => t.trim()).filter(Boolean),
+              status: publishStatus,
+              destination: publishStatus === 'published' ? 'website' : 'intelligence',
+              onAttempt: ({ phase, label, attempt, maxAttempts }) => {
+                if (label) {
+                  setError(label);
+                } else if (phase === 'enqueue' || phase === 'queued') {
+                  setError('Creating intelligence ingest job…');
+                } else if (phase === 'waking') {
+                  setError('Waking intelligence engine…');
+                } else if (phase === 'processing') {
+                  setError('Ingesting into institutional memory…');
+                } else if (phase === 'retry') {
+                  setError(`Worker retrying ingest (${attempt}/${maxAttempts})…`);
+                }
+              },
+            });
 
-          if (ingestResult?.id || ingestResult?.document_id) {
-            const docId = ingestResult.id || ingestResult.document_id;
-            try {
-              await supabase
-                .from('articles')
-                .update({
-                  intelligence_document_id: docId,
-                  intelligence_ingested_at: new Date().toISOString(),
-                })
-                .eq('id', data.id);
-            } catch {
-              /* optional columns may be missing until migration */
+            if (ingestResult?.id || ingestResult?.document_id) {
+              const docId = ingestResult.document_id || ingestResult.id;
+              // Avoid treating job_id as document id
+              if (docId && !String(docId).startsWith('job_')) {
+                const learnedAt = new Date().toISOString();
+                try {
+                  await supabase
+                    .from('articles')
+                    .update({
+                      intelligence_document_id: docId,
+                      intelligence_ingested_at: learnedAt,
+                      last_learned_at: learnedAt,
+                      learn_status: 'learned',
+                      last_learn_error: null,
+                    })
+                    .eq('id', data.id);
+                } catch {
+                  /* optional columns may be missing until migration */
+                }
+              }
+            } else if (ingestResult?.queued || ingestResult?.pending || ingestResult?.poll_timeout) {
+              try {
+                await supabase
+                  .from('articles')
+                  .update({
+                    learn_status: 'pending',
+                    last_learn_error: ingestResult?.job_id
+                      ? `Queued job ${ingestResult.job_id}`
+                      : 'Queued for background ingest',
+                  })
+                  .eq('id', data.id);
+              } catch {
+                /* optional */
+              }
             }
+            setError('');
+          } catch (err) {
+            // Article is already saved — do not fail the whole CMS action on engine cold-start.
+            ingestError = err?.message || 'Intelligence ingest failed';
+            console.warn('[cms] intelligence ingest failed', err);
           }
         }
 
@@ -336,27 +436,56 @@ export default function ArticleEditor() {
             slug: data.slug,
             summary: htmlToExcerpt(html, 280),
             body: html,
+            section,
           });
         }
 
         if (!silent && publishStatus === 'published' && !stayInEditor) {
           if (notifyResult?.ok && notifyResult?.sent > 0) {
-            alert(`Published. Notified ${notifyResult.sent} subscriber${notifyResult.sent === 1 ? '' : 's'}.`);
+            alert(
+              `Published to ${notifyResult.letter || 'letter'}. Notified ${notifyResult.sent} subscriber${
+                notifyResult.sent === 1 ? '' : 's'
+              }.`
+            );
           } else if (notifyResult && !notifyResult.ok && !notifyResult.skipped) {
             alert('Published to website, but subscriber email notify failed. Check Resend / Render env.');
           }
           navigate(`/article/${data.slug}`);
         } else if (!silent && publishStatus === 'intelligence') {
-          alert('Sent to AGI Intelligence only. This will not appear on the public website.');
+          if (ingestError) {
+            alert(
+              `Saved for Intelligence, but ingest job failed (${ingestError}). ` +
+                `Your draft is safe. The worker will not ask you to click again for the same version — edit and re-send only if you change the article.`
+            );
+          } else if (ingestResult?.poll_timeout || (ingestResult?.pending && !ingestResult?.document_id)) {
+            alert(
+              'Saved for Intelligence. Job is still running in the background (engine may be waking). No need to click Send again.'
+            );
+          } else if (ingestResult?.document_id) {
+            alert('Sent to AGI Intelligence only. This will not appear on the public website.');
+          } else {
+            alert(
+              'Saved for Intelligence and queued. Ingest continues in the background — no need to click Send again.'
+            );
+          }
         } else if (!silent && ingest && publishStatus === 'published' && stayInEditor) {
           const notifyNote =
             notifyResult?.ok && notifyResult?.sent > 0
               ? ` Notified ${notifyResult.sent} subscribers.`
               : '';
-          alert(`Published to website and ingested into AGI Intelligence.${notifyNote}`);
+          const ingestNote = ingestError
+            ? ` Intelligence ingest failed (${ingestError}).`
+            : ingestResult?.document_id
+              ? ' Ingested into AGI Intelligence.'
+              : ' Intelligence ingest queued (background worker).';
+          alert(`Published to website.${ingestNote}${notifyNote}`);
         }
 
-        return { ...data, ingestResult, notifyResult };
+        if (ingestError && !silent) {
+          setError(ingestError);
+        }
+
+        return { ...data, ingestResult, notifyResult, ingestError };
       } catch (err) {
         const msg = err?.message || 'Save failed';
         setError(msg);
@@ -389,6 +518,18 @@ export default function ArticleEditor() {
     return (
       <div className="flex items-center justify-center h-64 text-slate-400">
         <Loader2 className="animate-spin mr-2" size={20} /> Loading editor…
+      </div>
+    );
+  }
+
+  if (editSlug && error && !draftId) {
+    return (
+      <div className="flex flex-col items-center justify-center h-72 px-6 text-center">
+        <p className="text-lg font-semibold text-slate-900 mb-2">Cannot open editor</p>
+        <p className="text-slate-500 mb-6 max-w-md">{error}</p>
+        <Button onClick={() => navigate('/admin/articles')} className="bg-blue-700 hover:bg-blue-800">
+          Back to My Articles
+        </Button>
       </div>
     );
   }

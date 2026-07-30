@@ -41,6 +41,7 @@ from app.kip.sources import (
     normalize_newsletter_request,
 )
 from app.kip.store import KipStore
+from app.kip import persist as kip_persist
 
 
 class KipService:
@@ -52,12 +53,19 @@ class KipService:
         flags: KipFlags | None = None,
         *,
         embedding_dim: int | None = None,
+        load_snapshot: bool = True,
     ) -> None:
         settings = get_settings()
         self.flags = flags or KipFlags.from_settings(settings)
         self.store = store or KipStore()
         self.embedding_dim = embedding_dim if embedding_dim is not None else 256
         self.pipeline = KipPipeline(self.store, self.flags, embedding_dim=self.embedding_dim)
+        self._persist_meta: dict[str, Any] = {"loaded": False}
+        if load_snapshot:
+            try:
+                self._persist_meta = kip_persist.load_store(self.store)
+            except Exception as exc:
+                self._persist_meta = {"ok": False, "loaded": False, "error": str(exc)[:200]}
 
     def ingest(self, request: IngestRequest) -> KipDocument:
         self._require_enabled()
@@ -445,12 +453,20 @@ class KipService:
         return self.ingest_agi(req)
 
     def health(self) -> dict[str, Any]:
+        integrity = kip_persist.integrity_report(self.store, sample_limit=5)
         return {
             "status": "ok" if self.flags.kip else "disabled",
             "platform": "KIP",
             "knowledge_version": "kip-v1.0.1-p1",
             "flags": self.flags.as_dict(),
             "stats": self.store.stats(),
+            "persistence": {
+                **(integrity.get("persistence") or {}),
+                "boot": self._persist_meta,
+                "healthy": integrity.get("healthy"),
+                "split_brain_risk": integrity.get("split_brain_risk"),
+                "vector_chunks": (integrity.get("stats") or {}).get("vector_chunks"),
+            },
             "out_of_scope": [
                 "model_fine_tuning",
                 "model_weight_updates",
@@ -459,6 +475,21 @@ class KipService:
                 "research_engine_redesign",
             ],
         }
+
+    def integrity(self, expected_document_ids: list[str] | None = None) -> dict[str, Any]:
+        return kip_persist.integrity_report(
+            self.store, expected_document_ids=expected_document_ids
+        )
+
+    def verify_document(self, document_id: str) -> dict[str, Any]:
+        return kip_persist.verify_document_retrievable(self.store, document_id)
+
+    def save_snapshot(self) -> dict[str, Any]:
+        return kip_persist.save_store(self.store)
+
+    def reload_snapshot(self) -> dict[str, Any]:
+        self._persist_meta = kip_persist.load_store(self.store)
+        return self._persist_meta
 
     def _post_ingest(self, doc: KipDocument) -> None:
         if self.flags.kip_prediction_tracking:
@@ -472,6 +503,11 @@ class KipService:
                         nodes=self.store.nodes,
                         edges=self.store.edges,
                     )
+        # Persist after every successful ingest so Free-tier restarts keep memory.
+        try:
+            kip_persist.save_store(self.store)
+        except Exception:
+            pass
 
     def _require_enabled(self) -> None:
         if not self.flags.kip:

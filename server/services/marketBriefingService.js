@@ -662,9 +662,7 @@ function buildBriefing(intelligence, context, facts = {}) {
   };
 }
 
-async function enrichWithOpenAi(briefing) {
-  const apiKey = (process.env.OPENAI_API_KEY || '').trim();
-  if (!apiKey) return briefing;
+async function enrichWithLlm(briefing) {
   const notes = briefing.intelligence.sessionNotes;
   const source = {
     sessionNotes: notes,
@@ -679,26 +677,14 @@ async function enrichWithOpenAi(briefing) {
     },
   };
   try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      signal: AbortSignal.timeout(25_000),
-      body: JSON.stringify({
-        model: process.env.OPENAI_MARKET_BRIEFING_MODEL || 'gpt-4.1-mini',
-        response_format: { type: 'json_object' },
-        messages: [
-          {
-            role: 'system',
-            content: 'You are the Chief Investment Strategist of Agarwal Global Investments writing Mint-style institutional market notes. Produce three notes: preMarket, midDay, postMarket. Each must include outlook (Bullish/Neutral/Bearish), lead (1 sentence), body (2-3 short paragraphs), why (string array), watch (string array). Never display prices, index levels, or percentage changes. Use directional language only. Ban generic phrases like “markets remained cautious” or “sentiment remained mixed”. Every important claim must answer “because what?”. Never invent facts. Never give buy/sell/hold recommendations. Return JSON only.',
-          },
-          { role: 'user', content: JSON.stringify(source) },
-        ],
-        temperature: 0.25,
-      }),
+    const { completeJson } = await import('./llmClient.js');
+    const generated = await completeJson({
+      system:
+        'You are the Chief Investment Strategist of Agarwal Global Investments writing Mint-style institutional market notes. Produce three notes: preMarket, midDay, postMarket. Each must include outlook (Bullish/Neutral/Bearish), lead (1 sentence), body (2-3 short paragraphs), why (string array), watch (string array). Never display prices, index levels, or percentage changes. Use directional language only. Ban generic phrases like “markets remained cautious” or “sentiment remained mixed”. Every important claim must answer “because what?”. Never invent facts. Never give buy/sell/hold recommendations. Return JSON only.',
+      user: source,
+      temperature: 0.25,
     });
-    if (!response.ok) throw new Error(`OpenAI briefing failed (${response.status})`);
-    const content = (await response.json())?.choices?.[0]?.message?.content;
-    const generated = JSON.parse(content);
+    if (!generated) return briefing;
     const mergeNote = (base, next) => {
       if (!next || typeof next !== 'object') return base;
       return {
@@ -758,7 +744,7 @@ export async function getMarketBriefing() {
       getMarketContext(),
       getMarketSessionFacts(),
     ]);
-    const briefing = await enrichWithOpenAi(buildBriefing(intelligence, context, facts));
+    const briefing = await enrichWithLlm(buildBriefing(intelligence, context, facts));
     cache = briefing;
     expiresAt = Date.now() + CACHE_MS;
     return briefing;

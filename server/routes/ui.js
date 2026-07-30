@@ -10,8 +10,13 @@ import {
   enrichHomePayload,
 } from '../services/homeOfficeEnrichment.js';
 import { getTickerData } from '../services/marketDataService.js';
+import { getAgiIntelligence } from '../services/intelligenceService.js';
 import { fetchNseIndices } from '../providers/fallback.js';
 import { fetchYahooIndices } from '../providers/yahooIndices.js';
+import {
+  marketCycleCacheMaxAgeSeconds,
+  oncePerMarketCycle,
+} from '../config/marketRefresh.js';
 
 function engineConfig() {
   let baseUrl = (process.env.INTELLIGENCE_ENGINE_URL || 'http://127.0.0.1:8100').replace(/\/$/, '');
@@ -22,7 +27,7 @@ function engineConfig() {
   return { baseUrl, token };
 }
 
-async function engineFetch(path, { method = 'GET', body = null, timeoutMs = 120_000 } = {}) {
+async function engineFetch(path, { method = 'GET', body = null, timeoutMs = 360_000 } = {}) {
   const { baseUrl, token } = engineConfig();
   const response = await fetch(`${baseUrl}${path}`, {
     method,
@@ -133,6 +138,11 @@ function isValidPrice(price) {
 }
 
 async function buildMarketSnapshot() {
+  return oncePerMarketCycle('home-market-snapshot', () => buildMarketSnapshotFresh());
+}
+
+async function buildMarketSnapshotFresh() {
+  const cycleUpdatedAt = new Date().toISOString();
   const cards = [];
   const push = (name, price, percentChange, extra = {}, priority = 50) => {
     if (!name) return;
@@ -178,7 +188,7 @@ async function buildMarketSnapshot() {
         row.percentChange ?? row.change ?? null,
         {
           session: row.source === 'groww' ? 'Groww' : row.source === 'nse' ? 'NSE' : 'Live',
-          updatedAt: ticker.updatedAt || new Date().toISOString(),
+          updatedAt: cycleUpdatedAt,
         },
         snapshotPriority(raw) + (row.source === 'groww' ? 5 : 0)
       );
@@ -199,7 +209,7 @@ async function buildMarketSnapshot() {
         row.percentChange ?? null,
         {
           session: 'NSE',
-          updatedAt: new Date().toISOString(),
+          updatedAt: cycleUpdatedAt,
         },
         snapshotPriority(row.name)
       );
@@ -225,7 +235,7 @@ async function buildMarketSnapshot() {
           row.percentChange ?? null,
           {
             session: 'Yahoo',
-            updatedAt: new Date().toISOString(),
+            updatedAt: cycleUpdatedAt,
           },
           120
         );
@@ -257,7 +267,7 @@ async function buildMarketSnapshot() {
       if (hasLivePrice(cards.find((c) => c.name === name))) continue;
       push(name, price, m.changePct ?? m.percentChange ?? null, {
         session: m.source || 'Global',
-        updatedAt: m.asOf || new Date().toISOString(),
+        updatedAt: cycleUpdatedAt,
       }, 40);
     }
     for (const c of ctx.commodities || []) {
@@ -272,7 +282,7 @@ async function buildMarketSnapshot() {
       if (hasLivePrice(cards.find((x) => x.name === name))) continue;
       push(name, price, c.changePct ?? c.percentChange ?? null, {
         session: c.source || 'Global',
-        updatedAt: c.asOf || new Date().toISOString(),
+        updatedAt: cycleUpdatedAt,
       }, 40);
     }
   } catch {
@@ -289,7 +299,7 @@ async function buildMarketSnapshot() {
         const body = await fx.json();
         const rate = body?.rates?.INR;
         if (Number.isFinite(rate)) {
-          push('USDINR', rate, null, { session: 'Frankfurter', updatedAt: new Date().toISOString() }, 30);
+          push('USDINR', rate, null, { session: 'Frankfurter', updatedAt: cycleUpdatedAt }, 30);
         }
       }
     }
@@ -324,7 +334,10 @@ async function buildMarketSnapshot() {
     const bi = order.indexOf(b.name);
     return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
   });
-  return cards.map(({ _priority, ...rest }) => rest);
+  return cards.map(({ _priority, ...rest }) => ({
+    ...rest,
+    updatedAt: cycleUpdatedAt,
+  }));
 }
 
 function marketSessionNow() {
@@ -396,6 +409,13 @@ export default function createUiRouter() {
   // Homepage — always 200 with populated institutional desks (engine optional)
   router.get('/home', async (_req, res) => {
     const session = marketSessionNow();
+    // Warm AGI intelligence in the same 30-min cycle as the Groww/Yahoo snapshot
+    // so Market Outlook strip and homepage prices refresh together.
+    void getAgiIntelligence({
+      indianApiKey: process.env.INDIANAPI_KEY || process.env.VITE_INDIANAPI_KEY || '',
+      indianApiBase: process.env.INDIANAPI_BASE || 'https://stock.indianapi.in',
+    }).catch(() => null);
+
     let snapshot = [];
     try {
       snapshot = await buildMarketSnapshot();
@@ -413,7 +433,11 @@ export default function createUiRouter() {
 
     try {
       const payload = await enrichHomePayload(engineData, { snapshot, session });
-      res.set('Cache-Control', 'public, max-age=30, stale-while-revalidate=120');
+      const maxAge = marketCycleCacheMaxAgeSeconds();
+      res.set(
+        'Cache-Control',
+        `public, max-age=${Math.min(maxAge, 120)}, stale-while-revalidate=${Math.max(60, maxAge)}`
+      );
       return res.status(200).json(payload);
     } catch (error) {
       // Last-resort populated shell — never blank homepage
@@ -458,18 +482,46 @@ export default function createUiRouter() {
   }
 
   router.post('/search', async (req, res) => {
-    try {
-      const question = req.body?.question || req.query.question;
-      const ticker = req.body?.ticker || req.query.ticker;
-      if (!question) {
-        return res.status(400).json({ error: 'question is required' });
+    const question = req.body?.question || req.query.question;
+    const ticker = req.body?.ticker || req.query.ticker;
+    if (!question) {
+      return res.status(400).json({ error: 'question is required' });
+    }
+
+    const serveFallback = async (detail) => {
+      try {
+        const { buildAskDeskFallback } = await import('../services/askDeskFallback.js');
+        const pack = await buildAskDeskFallback(question);
+        pack.detail = detail;
+        // Best-effort wake for the next client retry.
+        engineFetch('/v1/health', { timeoutMs: 8_000 }).catch(() => {});
+        return res.status(200).json(pack);
+      } catch (fallbackError) {
+        return res.status(503).json({
+          error: 'research_desk_unavailable',
+          retryable: true,
+          detail: detail || fallbackError.message,
+        });
       }
+    };
+
+    try {
       const qs = new URLSearchParams({ question: String(question) });
       if (ticker) qs.set('ticker', String(ticker));
-      const result = await engineFetch(`/v1/ui/search?${qs.toString()}`, { method: 'POST' });
+      const path = `/v1/ui/search?${qs.toString()}`;
+      // Keep under Render request budgets. Client may retry a fresh request.
+      const result = await engineFetch(path, {
+        method: 'POST',
+        timeoutMs: 90_000,
+      });
+      const html502 =
+        typeof result.data?.raw === 'string' && result.data.raw.trim().startsWith('<');
+      if (html502 || result.status === 502 || result.status === 503 || result.status >= 500) {
+        return serveFallback('Intelligence engine timed out or restarted — serving Node desk fallback.');
+      }
       return res.status(result.status).json(result.data);
     } catch (error) {
-      return res.status(503).json({ error: 'UI aggregation unavailable', detail: error.message });
+      return serveFallback(error.message);
     }
   });
 

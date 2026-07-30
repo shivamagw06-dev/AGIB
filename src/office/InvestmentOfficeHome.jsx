@@ -5,6 +5,7 @@ import { ArrowRight, Clock3, Loader2, Search } from 'lucide-react';
 import OfficeNav from '@/office/OfficeNav';
 import Sparkline from '@/office/Sparkline';
 import { getUiAutocomplete, getUiHome } from '@/lib/uiApi';
+import { getInvestmentOfficeDashboard } from '@/lib/intelligenceApi';
 import { useAuth } from '@/contexts/AuthContext';
 import { trackProductEvent } from '@/lib/productAnalytics';
 import { resolveInitialHome, writeHomeCache } from '@/office/homeDeskFallback';
@@ -191,40 +192,68 @@ export default function InvestmentOfficeHome() {
     error: null,
     source: initial.source,
   });
+  const [ioDesk, setIoDesk] = useState(null);
   const [dashTab, setDashTab] = useState('Heatmap');
 
   useEffect(() => {
     let alive = true;
+    let cycleTimer = null;
     trackProductEvent('session_start', { surface: 'investment_office_home' });
 
     // Progressive: priority desks already painted from cache/fallback; upgrade live.
     const controller = new AbortController();
     const timer = window.setTimeout(() => controller.abort(), 12_000);
 
-    getUiHome()
-      .then((data) => {
-        if (!alive || !data) return;
-        writeHomeCache(data);
-        const source = data?.meta?.source || (data?.meta?.fallback_used ? 'market_api' : 'live');
-        setState({ loading: false, data, error: null, source });
+    const loadHome = () =>
+      getUiHome()
+        .then((data) => {
+          if (!alive || !data) return;
+          writeHomeCache(data);
+          const source = data?.meta?.source || (data?.meta?.fallback_used ? 'market_api' : 'live');
+          setState({ loading: false, data, error: null, source });
+          if (data?.investment_office?.enabled) setIoDesk(data.investment_office);
+        })
+        .catch((error) => {
+          if (!alive) return;
+          // Keep cache/desk data — never wipe widgets blank.
+          setState((prev) => ({
+            loading: false,
+            data: prev.data || initial.data,
+            error,
+            source: prev.source || initial.source,
+          }));
+        });
+
+    loadHome().finally(() => {
+      window.clearTimeout(timer);
+    });
+
+    getInvestmentOfficeDashboard()
+      .then((desk) => {
+        if (alive && desk?.enabled) setIoDesk(desk);
       })
-      .catch((error) => {
-        if (!alive) return;
-        // Keep cache/desk data — never wipe widgets blank.
-        setState((prev) => ({
-          loading: false,
-          data: prev.data || initial.data,
-          error,
-          source: prev.source || initial.source,
-        }));
-      })
-      .finally(() => {
-        window.clearTimeout(timer);
-      });
+      .catch(() => {});
+
+    // Refresh homepage market snapshot on the shared 30-min wall-clock cycle.
+    const scheduleHomeCycle = async () => {
+      try {
+        const { msUntilNextMarketCycle } = await import('@/lib/marketCache');
+        const wait = Math.max(250, msUntilNextMarketCycle());
+        cycleTimer = window.setTimeout(async () => {
+          if (!alive) return;
+          await loadHome();
+          if (alive) scheduleHomeCycle();
+        }, wait);
+      } catch {
+        /* soft */
+      }
+    };
+    scheduleHomeCycle();
 
     return () => {
       alive = false;
       window.clearTimeout(timer);
+      if (cycleTimer) window.clearTimeout(cycleTimer);
       controller.abort();
     };
   }, [initial.data, initial.source]);
@@ -663,6 +692,138 @@ export default function InvestmentOfficeHome() {
             </div>
           </div>
         </section>
+
+        {/* Investment Office V1 — operating cockpit (aggregate of CMS / CA / Academy / IOC) */}
+        {ioDesk?.enabled ? (
+          <section className="space-y-4">
+            <SectionHead
+              title="Investment Office Desk"
+              subtitle="What happened · what changed · what needs attention · what to write"
+              href="/admin/investment-office"
+              linkLabel="Admin →"
+            />
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-4">
+              <div className="io-card p-5">
+                <p className="io-kicker">Attention</p>
+                <h3 className="io-title mt-2 text-xl">Companies requiring attention</h3>
+                <ul className="mt-3 space-y-2 max-h-64 overflow-y-auto">
+                  {(ioDesk.companies_requiring_attention || []).slice(0, 8).map((row) => (
+                    <li key={row.ticker} className="border-b border-[var(--io-border)] pb-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-bold">{row.ticker}</p>
+                        <span className="text-[10px] font-bold uppercase text-[var(--io-gold)]">{row.priority}</span>
+                      </div>
+                      <p className="mt-1 text-[11px] text-[var(--io-muted)]">
+                        {(row.reasons || []).join(' · ') || 'Monitor signal'}
+                      </p>
+                    </li>
+                  ))}
+                  {!(ioDesk.companies_requiring_attention || []).length ? (
+                    <li className="text-sm text-[var(--io-muted)]">Queue clear — institutional monitor nominal.</li>
+                  ) : null}
+                </ul>
+              </div>
+
+              <div className="io-card p-5">
+                <p className="io-kicker">Research queue</p>
+                <h3 className="io-title mt-2 text-xl">Today&apos;s analyst work</h3>
+                <ul className="mt-3 space-y-2 max-h-64 overflow-y-auto">
+                  {(ioDesk.todays_research_queue || []).slice(0, 8).map((task) => (
+                    <li key={task.id} className="border-b border-[var(--io-border)] pb-2">
+                      <p className="text-sm font-semibold">{task.title}</p>
+                      <p className="mt-1 text-[11px] text-[var(--io-muted)]">
+                        {task.priority} · {task.estimated_effort} · {task.suggested_owner}
+                      </p>
+                      <p className="mt-1 text-[11px] text-[var(--io-ink-soft)] line-clamp-2">{task.reason}</p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="io-card p-5">
+                <p className="io-kicker">Knowledge growth</p>
+                <h3 className="io-title mt-2 text-xl">What AGI learned</h3>
+                <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+                  {[
+                    ['Books', ioDesk.knowledge_growth?.books_learned],
+                    ['Concepts', ioDesk.knowledge_growth?.concepts_added],
+                    ['Frameworks', ioDesk.knowledge_growth?.frameworks_added],
+                    ['Monitored', ioDesk.knowledge_growth?.companies_updated],
+                  ].map(([label, value]) => (
+                    <div key={label} className="rounded-[var(--io-radius-sm)] border border-[var(--io-border)] p-3">
+                      <p className="text-[10px] font-bold uppercase text-[var(--io-caption)]">{label}</p>
+                      <p className="mt-1 text-lg font-semibold tabular-nums">{value ?? '—'}</p>
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-3 text-[11px] text-[var(--io-muted)]">
+                  Coverage {(ioDesk.coverage_dashboard || {}).coverage_pct ?? '—'}% · IOC{' '}
+                  {(ioDesk.system_health || {}).overall || '—'}
+                </p>
+              </div>
+
+              <div className="io-card p-5">
+                <p className="io-kicker">Executive Copilot</p>
+                <h3 className="io-title mt-2 text-xl">Ask the desk</h3>
+                <ul className="mt-3 space-y-2">
+                  {((ioDesk.executive_copilot || {}).prompts || []).slice(0, 6).map((prompt) => (
+                    <li key={prompt}>
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/ask?q=${encodeURIComponent(prompt)}`)}
+                        className="w-full rounded-[var(--io-radius-sm)] border border-[var(--io-border)] px-3 py-2 text-left text-xs font-semibold text-[var(--io-ink)] hover:border-[var(--io-gold)]"
+                      >
+                        {prompt}
+                      </button>
+                      {(ioDesk.executive_copilot || {}).answers?.[prompt] ? (
+                        <p className="mt-1 px-1 text-[11px] text-[var(--io-muted)] line-clamp-2">
+                          {ioDesk.executive_copilot.answers[prompt]}
+                        </p>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <div className="io-card p-5">
+                <SectionHead title="Risk Centre" subtitle="Critical / high alerts from Company Monitor + IOC" />
+                <ul className="space-y-2 max-h-48 overflow-y-auto">
+                  {[
+                    ...((ioDesk.risk_centre || {}).critical_alerts || []),
+                    ...((ioDesk.risk_centre || {}).high_alerts || []),
+                  ]
+                    .slice(0, 8)
+                    .map((a, idx) => (
+                      <li key={`${a.ticker}-${idx}`} className="text-sm text-[var(--io-ink-soft)]">
+                        <span className="font-bold text-[var(--io-ink)]">{a.ticker}</span> · {a.significance} —{' '}
+                        {a.detail || a.change_type}
+                      </li>
+                    ))}
+                  {!((ioDesk.risk_centre || {}).critical_alerts || []).length &&
+                  !((ioDesk.risk_centre || {}).high_alerts || []).length ? (
+                    <li className="text-sm text-[var(--io-muted)]">No high/critical monitor alerts.</li>
+                  ) : null}
+                </ul>
+              </div>
+              <div className="io-card p-5">
+                <SectionHead title="Notifications" subtitle="Coverage · predictions · house-view · system" />
+                <ul className="space-y-2 max-h-48 overflow-y-auto">
+                  {(ioDesk.notifications || []).slice(0, 8).map((n, idx) => (
+                    <li key={`${n.type}-${idx}`} className="text-sm">
+                      <span className="text-[10px] font-bold uppercase text-[var(--io-gold)]">{n.type}</span>
+                      <p className="text-[var(--io-ink-soft)]">
+                        {n.ticker ? `${n.ticker}: ` : ''}
+                        {n.message}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </section>
+        ) : null}
 
         {/* FOOTER METRICS */}
         <section className="io-card p-5 md:p-6">

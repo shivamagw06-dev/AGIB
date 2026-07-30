@@ -4,6 +4,7 @@ from typing import Any
 
 from app.agents.base import BaseAgent
 from app.agents.registry import register_agent
+from observability.tracing import llm_span, wrap_openai
 from app.schemas.models import (
     AgentOutput,
     ConfidenceBreakdown,
@@ -138,35 +139,73 @@ class ChiefInvestmentOfficer(BaseAgent):
         from app.core.config import get_settings
 
         settings = get_settings()
+        system = (
+            "You are AGIB Institutional Intelligence — CIO / PM / equity research voice. "
+            "Be concise, evidence-based, and institutional. Maximum 60 words unless the user "
+            "explicitly asks for detailed analysis. Never invent company-specific facts. "
+            "If evidence is insufficient, state that explicitly. Never exaggerate certainty. "
+            "For stock recommendations use: Recommendation (Buy/Hold/Sell/Accumulate/Avoid), "
+            "Reason (one sentence), Risk (single biggest risk), Investment Horizon "
+            "(Short/Medium/Long Term). No retail-blog tone. No buy/sell without evidence."
+        )
+        user = str(
+            {
+                "draft": thesis,
+                "findings": findings,
+                "debate": debate.model_dump() if debate else None,
+                "confidence": confidence.model_dump(),
+            }
+        )
+
+        gemini_key = (settings.gemini_api_key or "").strip()
+        if gemini_key:
+            try:
+                import httpx
+
+                model = (settings.gemini_model or "gemini-flash-latest").strip()
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+                with llm_span(
+                    provider="gemini",
+                    model=model,
+                    prompt=user,
+                    system=system,
+                    tags=["cio_synthesis"],
+                ) as _llm:
+                    async with httpx.AsyncClient(timeout=30.0) as client:
+                        response = await client.post(
+                            url,
+                            params={"key": gemini_key},
+                            json={
+                                "systemInstruction": {"parts": [{"text": system}]},
+                                "contents": [{"role": "user", "parts": [{"text": user}]}],
+                                "generationConfig": {"temperature": 0.2},
+                            },
+                        )
+                    if response.is_success:
+                        _llm.end(outputs={"status_code": response.status_code})
+                    else:
+                        _llm.end(error=f"gemini_http_{response.status_code}")
+                if response.is_success:
+                    payload = response.json()
+                    parts = (((payload.get("candidates") or [{}])[0].get("content") or {}).get("parts") or [])
+                    text = "".join(str(part.get("text") or "") for part in parts).strip()
+                    if text:
+                        return text
+            except Exception:
+                pass
+
         if not settings.openai_api_key:
             return None
         try:
             from openai import AsyncOpenAI
 
-            client = AsyncOpenAI(api_key=settings.openai_api_key)
+            client = wrap_openai(AsyncOpenAI(api_key=settings.openai_api_key))
             response = await client.chat.completions.create(
                 model=settings.openai_model,
                 temperature=0.2,
                 messages=[
-                    {
-                        "role": "system",
-                        "content": (
-                            "You are AGI's Chief Investment Officer. Synthesize a 180-260 word institutional thesis. "
-                            "Cite reasoning with because-what. Never invent data. Mark scenarios as scenarios. "
-                            "No buy/sell recommendations."
-                        ),
-                    },
-                    {
-                        "role": "user",
-                        "content": str(
-                            {
-                                "draft": thesis,
-                                "findings": findings,
-                                "debate": debate.model_dump() if debate else None,
-                                "confidence": confidence.model_dump(),
-                            }
-                        ),
-                    },
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user},
                 ],
             )
             text = response.choices[0].message.content

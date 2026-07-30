@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime as _dt
+import re
 from typing import Any
 
 from app.kip.models import (
@@ -14,6 +15,17 @@ from app.kip.models import (
 )
 from app.kip.search import search
 from app.kip.sources import retrieval_priority, source_class
+
+_JUNK_TITLES = {
+    "hello world",
+    "sample private research",
+    "test",
+    "asdf",
+    "lorem ipsum",
+    "untitled",
+    "demo",
+}
+_JUNK_TITLE_RE = re.compile(r"^(test|demo|sample|tmp|asdf|xxx)\b", re.I)
 
 
 def build_evidence_pack(
@@ -82,7 +94,7 @@ def build_priority_evidence_pack(
 
     for hit in ranked:
         doc = documents.get(hit.document_id)
-        if doc is None:
+        if doc is None or _is_junk_document(doc):
             continue
         item = _to_item(doc, hit)
         sources.append(f"{doc.document.source}:{doc.document.title}")
@@ -100,13 +112,16 @@ def build_priority_evidence_pack(
         elif cls == "company_filings":
             filings_used.append(doc.document_id)
 
-        if item.stance == "bear" or _conflicts_with_query(query, doc):
+        # Cautious / bearish notes are still supporting evidence for open questions
+        # like "how is Indian IT doing?". Only demote true query conflicts here.
+        if _conflicts_with_query(query, doc):
             conflicting.append(item)
         else:
             supporting.append(item)
 
-    bulls = [i for i in supporting + conflicting if i.stance == "bull"]
-    bears = [i for i in supporting + conflicting if i.stance == "bear"]
+    bulls = [i for i in supporting if i.stance == "bull"]
+    bears = [i for i in supporting if i.stance == "bear"]
+    # When both bullish and bearish research exist, surface bears as conflicting opinions.
     if bulls and bears:
         for b in bears:
             if b not in conflicting:
@@ -199,5 +214,18 @@ def _conflicts_with_query(query: str, doc: KipDocument) -> bool:
     if "bull" in q and doc.research.bear_case and not doc.research.bull_case:
         return True
     if "bear" in q and doc.research.bull_case and not doc.research.bear_case:
+        return True
+    return False
+
+
+def _is_junk_document(doc: KipDocument) -> bool:
+    title = (doc.document.title or "").strip()
+    title_l = title.lower()
+    if not title_l or title_l in _JUNK_TITLES:
+        return True
+    if _JUNK_TITLE_RE.match(title_l):
+        return True
+    content = (doc.cleaned_content or doc.content or "").strip()
+    if len(content) < 60 and any(x in title_l for x in ("test", "hello", "sample", "demo")):
         return True
     return False

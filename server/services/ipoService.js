@@ -96,11 +96,56 @@ export async function getIpoSnapshot() {
   return cache || emptySnapshot(true);
 }
 
+function buildCalendar(snapshot) {
+  const events = [];
+  const push = (ipo, date, label) => {
+    if (!date) return;
+    events.push({
+      date,
+      label,
+      symbol: ipo.symbol,
+      name: ipo.name,
+      status: ipo.status,
+      isSme: ipo.isSme,
+    });
+  };
+  for (const ipo of [...snapshot.upcoming, ...snapshot.active, ...snapshot.closed, ...snapshot.listed]) {
+    push(ipo, ipo.biddingStartDate, 'IPO Opens');
+    push(ipo, ipo.biddingEndDate, 'IPO Closes');
+    push(ipo, ipo.allotmentDate, 'Allotment');
+    push(ipo, ipo.listingDate, 'Listing');
+  }
+  return events.sort((a, b) => String(a.date).localeCompare(String(b.date)));
+}
+
 export async function getIpoSummary() {
   const snapshot = await getIpoSnapshot();
   return {
     active: snapshot.active.slice(0, ACTIVE_LIMIT),
     upcoming: snapshot.upcoming.slice(0, UPCOMING_LIMIT),
+    source: snapshot.source,
+    updatedAt: snapshot.updatedAt,
+    nextRefreshAt: snapshot.nextRefreshAt,
+    unavailable: snapshot.unavailable,
+    disclaimer: 'IPO information is provided for informational purposes only and is not an offer, recommendation, or solicitation. Verify offer documents with the issuer, NSE, BSE, or SEBI.',
+  };
+}
+
+/** Full IPO Intelligence Platform payload (soft-wire over IndianAPI snapshot). */
+export async function getIpoPlatform() {
+  const snapshot = await getIpoSnapshot();
+  return {
+    active: snapshot.active,
+    upcoming: snapshot.upcoming,
+    closed: snapshot.closed,
+    listed: snapshot.listed,
+    calendar: buildCalendar(snapshot),
+    counts: {
+      active: snapshot.active.length,
+      upcoming: snapshot.upcoming.length,
+      closed: snapshot.closed.length,
+      listed: snapshot.listed.length,
+    },
     source: snapshot.source,
     updatedAt: snapshot.updatedAt,
     nextRefreshAt: snapshot.nextRefreshAt,

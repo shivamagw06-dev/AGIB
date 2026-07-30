@@ -70,9 +70,19 @@ export const AuthProvider = ({ children }) => {
           },
         },
       });
-      if (error) throw error;
+      if (error) {
+        const msg = String(error.message || '');
+        if (/database error saving new user/i.test(msg)) {
+          const enriched = new Error(
+            'Account creation is temporarily blocked by a database auth trigger. Please try again shortly, or use “Resend verification” if you already signed up.'
+          );
+          enriched.code = error.code || 'signup_db_trigger';
+          throw enriched;
+        }
+        throw error;
+      }
 
-      // Best-effort branded welcome/verification email via AGI API (SendGrid).
+      // Best-effort branded welcome/verification email via AGI API (Resend).
       try {
         const { API_ORIGIN } = await import('@/config');
         const base = (API_ORIGIN || '').replace(/\/$/, '');
@@ -151,14 +161,58 @@ export const AuthProvider = ({ children }) => {
 
     const logoutAllDevices = async () => logout({ scope: 'global' });
 
-    const resendVerification = async (email) => {
-      requireConfigured();
+    const resendVerification = async (email, fullName = '') => {
+      const target = email.trim();
+      if (!target) throw new Error('Enter the email used at signup.');
+      const redirectTo = `${SITE_URL}/verify-email`;
+
+      // Prefer AGI branded Resend path (works even when browser anon key is bad).
+      let brandedError = null;
+      try {
+        const { API_ORIGIN } = await import('@/config');
+        const base = (API_ORIGIN || '').replace(/\/$/, '');
+        if (base) {
+          const resp = await fetch(`${base}/api/auth/send-verification`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: target, fullName, redirectTo }),
+          });
+          const payload = await resp.json().catch(() => ({}));
+          if (resp.ok && payload?.ok) return payload;
+          brandedError =
+            payload?.detail || payload?.error || payload?.reason || `Branded resend failed (${resp.status})`;
+          if (!payload?.skipped) {
+            console.warn('[auth] branded resend failed', payload);
+          }
+        }
+      } catch (err) {
+        brandedError = err?.message || String(err);
+        console.warn('[auth] branded resend request failed', brandedError);
+      }
+
+      // Only fall back to Supabase client when it is correctly configured.
+      if (!isSupabaseConfigured) {
+        throw new Error(
+          brandedError ||
+            'Unable to resend verification email. Authentication is not configured on this deployment.'
+        );
+      }
+
       const { error } = await supabase.auth.resend({
         type: 'signup',
-        email: email.trim(),
-        options: { emailRedirectTo: `${SITE_URL}/verify-email` },
+        email: target,
+        options: { emailRedirectTo: redirectTo },
       });
-      if (error) throw error;
+      if (error) {
+        if (/invalid api key/i.test(error.message || '')) {
+          throw new Error(
+            brandedError ||
+              'Unable to resend verification email due to an invalid browser API key. Please try again shortly.'
+          );
+        }
+        throw error;
+      }
+      return { ok: true, provider: 'supabase' };
     };
 
     return {
