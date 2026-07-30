@@ -10040,6 +10040,61 @@ async def financial_statements_parsing_dashboard():
     return dashboard()
 
 
+@router.get("/financial-statements/parsing/quality/health")
+async def financial_statements_parsing_quality_health():
+    """FSE-04.1 Parse Manifest, Replay & Certification Framework."""
+    from financial_statements_engine.parsing.quality.production import health
+
+    return health()
+
+
+@router.get("/financial-statements/parsing/quality/dashboard")
+async def financial_statements_parsing_quality_dashboard():
+    from financial_statements_engine.parsing.quality.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/financial-statements/parsing/manifests/{ticker}")
+async def financial_statements_parsing_manifests(ticker: str):
+    from financial_statements_engine.parsing.quality.production import manifests_for
+
+    return manifests_for(ticker)
+
+
+@router.get("/financial-statements/parsing/unknown-metrics")
+async def financial_statements_parsing_unknown_metrics(status: str = "open"):
+    from financial_statements_engine.parsing.quality.production import unknown_metrics
+
+    return unknown_metrics(status=status)
+
+
+@router.post("/financial-statements/parsing/replay")
+async def financial_statements_parsing_replay(payload: dict[str, Any] = Body(default={})):
+    from financial_statements_engine.parsing.quality.production import run_replay
+
+    body = payload or {}
+    ticker = str(body.get("ticker") or "").strip()
+    evidence_id = str(body.get("evidence_id") or "").strip()
+    if not ticker or not evidence_id:
+        raise HTTPException(status_code=400, detail="ticker_and_evidence_id_required")
+    return run_replay(ticker, evidence_id, prior_manifest_id=body.get("prior_manifest_id"))
+
+
+@router.post("/financial-statements/parsing/certify")
+async def financial_statements_parsing_certify():
+    from financial_statements_engine.parsing.quality.production import run_certification
+
+    return run_certification()
+
+
+@router.post("/financial-statements/parsing/benchmark")
+async def financial_statements_parsing_benchmark():
+    from financial_statements_engine.parsing.quality.production import run_benchmark_suite
+
+    return run_benchmark_suite()
+
+
 @router.post("/financial-statements/parsing/run")
 async def financial_statements_parsing_run(payload: dict[str, Any] = Body(default={})):
     from financial_statements_engine.parsing.production import parse_bytes

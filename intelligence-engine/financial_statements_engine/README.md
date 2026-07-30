@@ -21,7 +21,7 @@ Official Sources → Collection (FSE-02) → Raw Evidence → Evidence Event Bus
 P2.1 `earnings_intelligence` is the NSE XBRL **extraction adapter** during migration.
 New consumers must read through FSE — not bypass to parsers.
 
-Specs: [FSE-01](../../docs/FSE_01_FINANCIAL_STATEMENTS_ENGINE.md) · [FSE-02](../../docs/FSE_02_DATA_SOURCES_COLLECTION_PIPELINE.md) · [FSE-03](../../docs/FSE_03_CANONICAL_FINANCIAL_DATA_MODEL.md) · [FSE-04](../../docs/FSE_04_PARSING_NORMALIZATION_ENGINE.md)
+Specs: [FSE-01](../../docs/FSE_01_FINANCIAL_STATEMENTS_ENGINE.md) · [FSE-02](../../docs/FSE_02_DATA_SOURCES_COLLECTION_PIPELINE.md) · [FSE-03](../../docs/FSE_03_CANONICAL_FINANCIAL_DATA_MODEL.md) · [FSE-04](../../docs/FSE_04_PARSING_NORMALIZATION_ENGINE.md) · [FSE-04.1](../../docs/FSE_04_1_PARSE_MANIFEST_REPLAY_CERTIFICATION.md)
 
 ## CLI
 
@@ -35,6 +35,9 @@ python -m financial_statements_engine --cfdm-health
 python -m financial_statements_engine --metric-registry
 python -m financial_statements_engine --resolve-metric "Revenue From Operations"
 python -m financial_statements_engine --parsing-health
+python -m financial_statements_engine --quality-health
+python -m financial_statements_engine --certify
+python -m financial_statements_engine --benchmark
 python -m financial_statements_engine --schema-evolution-health
 python -m financial_statements_engine --parse-bytes TCS --format json --file ./sample.json --period-end 2025-03-31
 python -m financial_statements_engine --collect TCS --mode live
@@ -55,6 +58,13 @@ python -m financial_statements_engine TCS --publish
 - `GET /v1/financial-statements/parsing/health`
 - `GET /v1/financial-statements/parsing/dashboard`
 - `POST /v1/financial-statements/parsing/run`
+- `GET /v1/financial-statements/parsing/quality/health`
+- `GET /v1/financial-statements/parsing/quality/dashboard`
+- `GET /v1/financial-statements/parsing/manifests/{ticker}`
+- `GET /v1/financial-statements/parsing/unknown-metrics`
+- `POST /v1/financial-statements/parsing/replay`
+- `POST /v1/financial-statements/parsing/certify`
+- `POST /v1/financial-statements/parsing/benchmark`
 - `GET /v1/financial-statements/schema-evolution/health`
 - `GET /v1/financial-statements/schema-evolution/resolve`
 - `GET /v1/financial-statements/collection/health`
