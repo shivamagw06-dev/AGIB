@@ -1533,7 +1533,7 @@ export const runAcceptancePhase = (phase, body = {}) =>
 export const getAcceptanceDiagnostics = () =>
   intelligenceFetch('/acceptance/diagnostics', { timeoutMs: 30_000 });
 
-/** IEP-01 — Institutional Evidence Platform (AGIB v1.1) */
+/** IEP-01 — Institutional Evidence Platform (AGI v1.1) */
 export const getIepHealth = () =>
   intelligenceFetch('/iep/health', { timeoutMs: 30_000 });
 export const getIepStatus = () =>
