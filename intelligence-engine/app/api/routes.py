@@ -11113,6 +11113,212 @@ async def acceptance_diagnostics():
     return diagnostics_api()
 
 
+# --- IEP-01 Institutional Evidence Platform (AGI v1.1 evidence foundation) ---
+
+
+@router.get("/iep/health")
+async def iep_health():
+    from institutional_evidence.production import health
+
+    return health()
+
+
+@router.get("/iep/status")
+async def iep_status():
+    from institutional_evidence.production import get_iep_status
+
+    return get_iep_status()
+
+
+@router.get("/iep/pack/{ticker}")
+async def iep_research_pack(ticker: str):
+    from institutional_evidence.production import get_research_pack
+
+    return get_research_pack(ticker)
+
+
+@router.get("/iep/readiness/{ticker}")
+async def iep_readiness(ticker: str):
+    from institutional_evidence.production import get_research_readiness
+
+    return get_research_readiness(ticker)
+
+
+@router.get("/iep/validate/{ticker}")
+async def iep_validate(ticker: str):
+    from institutional_evidence.production import validate_research_pack
+
+    return validate_research_pack(ticker)
+
+
+@router.post("/iep/orchestrate/{ticker}")
+async def iep_orchestrate(ticker: str, payload: dict[str, Any] = Body(default={})):
+    from institutional_evidence.production import orchestrate_research
+
+    body = payload or {}
+    return orchestrate_research(
+        ticker,
+        generate_research=bool(body.get("generate_research")),
+        force_ingest=bool(body.get("force_ingest")),
+    )
+
+
+@router.get("/iep/registry/{ticker}")
+async def iep_registry(ticker: str):
+    from institutional_evidence.production import get_evidence_registry
+
+    return get_evidence_registry(ticker)
+
+
+@router.get("/iep/canonical/{ticker}")
+async def iep_canonical(ticker: str):
+    from institutional_evidence.production import get_canonical_statements
+
+    return get_canonical_statements(ticker)
+
+
+@router.get("/iep/memory/{ticker}")
+async def iep_memory(ticker: str):
+    from institutional_evidence.production import get_company_memory_bridge
+
+    return get_company_memory_bridge(ticker)
+
+
+@router.get("/iep/phase1")
+async def iep_phase1():
+    from institutional_evidence.production import get_phase1_coverage
+
+    return get_phase1_coverage()
+
+
+@router.get("/iep/metrics")
+async def iep_metrics():
+    from institutional_evidence.production import get_success_metrics
+
+    return get_success_metrics()
+
+
+@router.get("/iep/center")
+async def iep_center():
+    from institutional_evidence.dashboards import evidence_center_payload
+
+    return evidence_center_payload()
+
+
+@router.get("/iep/gates/writer/{ticker}")
+async def iep_writer_gate(ticker: str):
+    from institutional_evidence.production import check_writer_gate
+
+    return check_writer_gate(ticker)
+
+
+@router.post("/iep/gates/decision/{ticker}")
+async def iep_decision_gate(ticker: str, payload: dict[str, Any] = Body(default={})):
+    from institutional_evidence.production import check_decision_gate
+
+    body = payload or {}
+    return check_decision_gate(ticker, str(body.get("recommendation") or body.get("action") or ""))
+
+
+@router.get("/iep/gates/publish/{ticker}")
+async def iep_publish_gate(ticker: str):
+    from institutional_evidence.production import check_publish_gate
+
+    return check_publish_gate(ticker)
+
+
+# IEP v1.1.1 — Knowledge OS surfaces
+
+
+@router.get("/iep/entity/{query}")
+async def iep_entity_resolve(query: str):
+    from institutional_evidence.production import resolve_company_entity
+
+    return resolve_company_entity(query)
+
+
+@router.get("/iep/timeline/{ticker}")
+async def iep_timeline(ticker: str):
+    from institutional_evidence.production import get_company_timeline
+
+    return get_company_timeline(ticker)
+
+
+@router.get("/iep/graph/{ticker}")
+async def iep_evidence_graph(ticker: str):
+    from institutional_evidence.production import get_evidence_graph
+
+    return get_evidence_graph(ticker)
+
+
+@router.get("/iep/eligibility/{ticker}")
+async def iep_decision_eligibility(ticker: str):
+    from institutional_evidence.production import get_decision_eligibility
+
+    return get_decision_eligibility(ticker)
+
+
+@router.get("/iep/quality/{ticker}")
+async def iep_evidence_quality(ticker: str):
+    from institutional_evidence.production import get_evidence_quality
+
+    return get_evidence_quality(ticker)
+
+
+@router.get("/iep/domains/{ticker}")
+async def iep_canonical_domains(ticker: str):
+    from institutional_evidence.production import get_canonical_domains
+
+    return get_canonical_domains(ticker)
+
+
+@router.get("/iep/coverage/{ticker}")
+async def iep_phase1_acceptance(ticker: str):
+    from institutional_evidence.production import get_phase1_acceptance
+
+    return get_phase1_acceptance(ticker)
+
+
+@router.post("/iep/learn/{ticker}")
+async def iep_continuous_learning(ticker: str, payload: dict[str, Any] = Body(default={})):
+    from institutional_evidence.production import run_continuous_learning
+
+    body = payload or {}
+    return run_continuous_learning(
+        ticker,
+        event_type=str(body.get("event_type") or "new_filing"),
+        force_ingest=bool(body.get("force_ingest")),
+    )
+
+
+@router.get("/iep/lifecycle/{ticker}")
+async def iep_research_lifecycle(ticker: str):
+    from institutional_evidence.production import get_research_lifecycle
+
+    return get_research_lifecycle(ticker)
+
+
+@router.get("/iep/observability")
+async def iep_observability():
+    from institutional_evidence.production import get_observability_metrics
+
+    return get_observability_metrics()
+
+
+@router.get("/iep/company/{company_ref}")
+async def iep_company(company_ref: str):
+    from institutional_evidence.production import institutional_company
+
+    return institutional_company(company_ref)
+
+
+@router.get("/iep/company/{company_ref}/{resource}")
+async def iep_company_resource(company_ref: str, resource: str):
+    from institutional_evidence.production import company_subresource
+
+    return company_subresource(company_ref, resource)
+
+
 # --- Company Monitoring System V1 (continuous living analyst; additive) ---
 
 

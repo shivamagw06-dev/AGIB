@@ -1801,6 +1801,15 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
     except Exception:
         out["institutional_acceptance"] = None
 
+    # IEP-01 — Institutional Evidence Platform (Evidence Center).
+    try:
+        from institutional_evidence.production import soft_slice_mission_control as iep_soft
+
+        out["institutional_evidence"] = iep_soft()
+        out["sources"].append("institutional_evidence")
+    except Exception:
+        out["institutional_evidence"] = None
+
     return out
 
 

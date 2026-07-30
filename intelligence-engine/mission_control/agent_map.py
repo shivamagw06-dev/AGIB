@@ -1022,6 +1022,30 @@ _CATALOG: list[dict[str, Any]] = [
         "module": "institutional_acceptance.production",
     },
     {
+        "id": "institutional_evidence",
+        "name": "Institutional Evidence Platform (IEP-01)",
+        "group": "evidence",
+        "responsibility": (
+            "AGI v1.1.1 Knowledge OS — Layer-0 governance, canonical domain models, "
+            "quality scoring, entity IDs, timelines, claims, decision eligibility, "
+            "continuous evidence learning, and research lifecycle. Durable "
+            "institutional knowledge; intelligence engines are consumers. "
+            "Phase-1: Institutional Coverage Complete on Top-20 India."
+        ),
+        "sources": [
+            "Data governance",
+            "NSE/BSE/IR filings",
+            "Canonical domain models",
+            "Evidence quality engine",
+            "Evidence registry / graph / claims",
+            "Company memory + timeline",
+            "Decision eligibility",
+            "Research lifecycle",
+        ],
+        "kind": "institutional_knowledge_os",
+        "module": "institutional_evidence.production",
+    },
+    {
         "id": "ite_thesis",
         "name": "Investment Thesis Office",
         "group": "offices",

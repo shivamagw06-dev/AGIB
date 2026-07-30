@@ -120,6 +120,27 @@ def package_for_ask_agi(
 
     gate_blocked_out = bool(assembled.get("gate_blocked") or readiness.get("hard_fail") or blocked)
 
+    # IEP-01: no BUY/SELL/OW/UW without complete evidence + published statements
+    iep_decision_gate: dict[str, Any] | None = None
+    action_out = decision.get("action")
+    try:
+        from institutional_evidence.gates import gate_decision_recommendation
+
+        iep_decision_gate = gate_decision_recommendation(
+            str(assembled.get("ticker") or ticker or ""),
+            str(action_out or ""),
+        )
+        if iep_decision_gate and not iep_decision_gate.get("allowed"):
+            action_out = iep_decision_gate.get("recommendation") or "NO RECOMMENDATION"
+            gate_blocked_out = True
+            if isinstance(decision, dict):
+                decision = dict(decision)
+                decision["action"] = action_out
+                decision["iep_gate"] = iep_decision_gate
+                decision["original_action"] = iep_decision_gate.get("original_recommendation")
+    except Exception:
+        iep_decision_gate = None
+
     return {
         "enabled": True,
         "active": True,
@@ -135,6 +156,7 @@ def package_for_ask_agi(
         "investment_grade": assembled.get("investment_grade"),
         "layers": assembled.get("layers"),
         "institutional_readiness_gate": readiness,
+        "iep_decision_gate": iep_decision_gate,
         "summary": {
             "overall_score": assembled.get("overall_score"),
             "investment_grade": assembled.get("investment_grade"),
@@ -152,7 +174,7 @@ def package_for_ask_agi(
             "bear_case_pct": decision.get("bear_case_pct"),
             "probability_weighted_return_pct": decision.get("probability_weighted_return_pct"),
             "risk_reward": decision.get("risk_reward"),
-            "action": decision.get("action"),
+            "action": action_out,
             "suitable_for": decision.get("suitable_for") or [],
             "unsuitable_for": decision.get("unsuitable_for") or [],
             "layer_scores": decision.get("layer_scores") or {},
