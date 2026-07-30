@@ -28,7 +28,7 @@ Implement **FSE-01 → FSE-04.3** before starting **FSE-05**. Validation must be
 | FSE-04.1 | Parse Manifest / replay / certification |
 | **FSE-04.2** | **Evidence Coverage Matrix / extraction audit** |
 | FSE-04.3 | [Production Certification Corpus](FSE_04_3_PRODUCTION_CERTIFICATION_CORPUS.md) — golden dataset |
-| FSE-05 | Validation (after 04.3 is solid) |
+| FSE-05 | [Validation & Financial Quality Engine](FSE_05_VALIDATION_FINANCIAL_QUALITY_ENGINE.md) |
 
 ---
 

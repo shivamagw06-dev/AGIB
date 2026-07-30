@@ -10203,6 +10203,50 @@ async def financial_statements_parsing_pcc_certify(payload: dict[str, Any] = Bod
     return run_certification(sector=str(sector) if sector else None)
 
 
+@router.get("/financial-statements/validation/health")
+async def financial_statements_validation_health():
+    """FSE-05 Validation & Financial Quality Engine."""
+    from financial_statements_engine.validation.production import health
+
+    return health()
+
+
+@router.get("/financial-statements/validation/dashboard")
+async def financial_statements_validation_dashboard():
+    from financial_statements_engine.validation.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/financial-statements/validation/reports")
+async def financial_statements_validation_reports(ticker: str | None = None):
+    from financial_statements_engine.validation.production import reports_for
+
+    return reports_for(ticker=ticker)
+
+
+@router.get("/financial-statements/validation/reports/{ticker}/{validation_id}")
+async def financial_statements_validation_report_detail(ticker: str, validation_id: str):
+    from financial_statements_engine.validation.production import report_detail
+
+    return report_detail(ticker, validation_id)
+
+
+@router.post("/financial-statements/validation/run")
+async def financial_statements_validation_run(payload: dict[str, Any] = Body(default={})):
+    """Validate a Canonical Draft (inline JSON or draft_path). Never edits the draft."""
+    from financial_statements_engine.validation.production import run_validation, run_validation_file
+
+    body = payload or {}
+    publish = bool(body.get("publish", True))
+    if body.get("draft_path"):
+        return run_validation_file(str(body["draft_path"]), publish=publish)
+    draft = body.get("draft")
+    if not isinstance(draft, dict):
+        raise HTTPException(status_code=400, detail="draft_or_draft_path_required")
+    return run_validation(draft, context=body.get("context"), publish=publish)
+
+
 @router.post("/financial-statements/parsing/run")
 async def financial_statements_parsing_run(payload: dict[str, Any] = Body(default={})):
     from financial_statements_engine.parsing.production import parse_bytes
