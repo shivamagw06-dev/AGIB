@@ -976,7 +976,7 @@ export const LAYERS = [
     id: 'CW01',
     code: 'CW-01',
     name: 'Company Workspace',
-    purpose: 'Primary company UX — everything AGIB knows, one place.',
+    purpose: 'Primary company UX — everything AGI knows, one place.',
     zone: 'publication',
     accent: 'purple',
     healthKey: 'cw01',
