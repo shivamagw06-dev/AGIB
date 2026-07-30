@@ -45,7 +45,8 @@ def test_health():
     assert "io-01" in h["live_offices"]
     assert "cio-01" in h["live_offices"]
     assert "po-01" in h["live_offices"]
-    assert "wo-01" in h["planned_offices"]
+    assert "wo-01" in h["live_offices"]
+    assert "so-01" in h["planned_offices"]
     assert h["buy_sell"] is False
 
 
@@ -67,6 +68,7 @@ def test_catalog_contract():
     assert "io-01" in cat["dispatchable"]
     assert "cio-01" in cat["dispatchable"]
     assert "po-01" in cat["dispatchable"]
+    assert "wo-01" in cat["dispatchable"]
 
 
 def test_evidence_block_shape():
@@ -154,7 +156,7 @@ def test_dispatch_cio():
 
 
 def test_invoke_unknown_office():
-    out = invoke({"office_id": "wo-01", "tickers": ["TCS"]})
+    out = invoke({"office_id": "so-01", "tickers": ["TCS"]})
     assert out["ok"] is False
     assert "not dispatchable" in str(out.get("error") or "")
 

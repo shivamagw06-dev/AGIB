@@ -86,10 +86,29 @@ def _dispatch_po(req: dict[str, Any]) -> dict[str, Any]:
     )
 
 
+def _dispatch_wo(req: dict[str, Any]) -> dict[str, Any]:
+    from watchlist_office.report import build_wqr
+    from watchlist_office import store as wl_store
+
+    options = req.get("options") if isinstance(req.get("options"), dict) else {}
+    watchlist_id = (
+        options.get("watchlist_id")
+        or options.get("watchlist")
+        or (req.get("tickers") or [None])[0]
+    )
+    if not watchlist_id:
+        raise ValueError("WO-01 requires options.watchlist_id")
+    wl = wl_store.resolve_watchlist(str(watchlist_id))
+    if not wl:
+        raise ValueError(f"watchlist not found: {watchlist_id}")
+    return build_wqr(str(wl.get("watchlist_id")), question=req.get("question"), request=req)
+
+
 _DISPATCHERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "io-01": _dispatch_io,
     "cio-01": _dispatch_cio,
     "po-01": _dispatch_po,
+    "wo-01": _dispatch_wo,
 }
 
 

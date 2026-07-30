@@ -9629,6 +9629,90 @@ async def admin_platform_event_bus():
     return HTMLResponse(admin_page())
 
 
+# --- WO-01 Watchlist Office (research queue; event-driven; additive) ---
+
+
+@router.get("/watchlist-office/health")
+async def watchlist_office_health():
+    from watchlist_office.production import health
+
+    return health()
+
+
+@router.get("/watchlist-office/dashboard")
+async def watchlist_office_dashboard():
+    from watchlist_office.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/watchlist-office/{watchlist_id}")
+async def watchlist_office_get(watchlist_id: str):
+    from watchlist_office.production import get_watchlist
+
+    result = get_watchlist(watchlist_id)
+    if result.get("ok") is False and "not found" in str(result.get("error") or ""):
+        raise HTTPException(status_code=404, detail=result.get("error"))
+    return result
+
+
+@router.get("/watchlist-office/{watchlist_id}/queue")
+async def watchlist_office_queue(watchlist_id: str):
+    from watchlist_office.production import get_queue
+
+    result = get_queue(watchlist_id)
+    if result.get("ok") is False:
+        raise HTTPException(status_code=404, detail=result.get("error"))
+    return result
+
+
+@router.post("/watchlist-office")
+async def watchlist_office_create(payload: dict[str, Any] = Body(default={})):
+    from watchlist_office.production import create
+
+    result = create(payload or {})
+    if result.get("ok") is False:
+        raise HTTPException(status_code=400, detail=result.get("error") or "create failed")
+    return result
+
+
+@router.post("/watchlist-office/{watchlist_id}/companies")
+async def watchlist_office_add(watchlist_id: str, payload: dict[str, Any] = Body(default={})):
+    from watchlist_office.production import add
+
+    result = add(watchlist_id, payload or {})
+    if result.get("ok") is False:
+        raise HTTPException(status_code=400, detail=result.get("error") or "add failed")
+    return result
+
+
+@router.delete("/watchlist-office/{watchlist_id}/companies/{ticker}")
+async def watchlist_office_remove(watchlist_id: str, ticker: str):
+    from watchlist_office.production import remove
+
+    result = remove(watchlist_id, ticker)
+    if result.get("ok") is False:
+        raise HTTPException(status_code=404, detail=result.get("error"))
+    return result
+
+
+@router.patch("/watchlist-office/{watchlist_id}/companies/{ticker}")
+async def watchlist_office_patch(watchlist_id: str, ticker: str, payload: dict[str, Any] = Body(default={})):
+    from watchlist_office.production import patch_entry
+
+    result = patch_entry(watchlist_id, ticker, payload or {})
+    if result.get("ok") is False:
+        raise HTTPException(status_code=404, detail=result.get("error"))
+    return result
+
+
+@router.get("/admin/watchlist-office", response_class=HTMLResponse)
+async def admin_watchlist_office():
+    from watchlist_office.production import admin_page
+
+    return HTMLResponse(admin_page())
+
+
 # --- Company Monitoring System V1 (continuous living analyst; additive) ---
 
 
