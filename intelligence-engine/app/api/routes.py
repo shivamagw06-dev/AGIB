@@ -9809,6 +9809,21 @@ async def institutional_stress_tests_run(payload: dict[str, Any] = Body(default=
         final_view=body.get("final_view"),
         modules_filter=body.get("modules_filter"),
         write_report=bool(body.get("write_report")),
+        corpus=body.get("corpus"),
+        fixture_answers=body.get("fixture_answers"),
+    )
+
+
+@router.post("/institutional-stress-tests/run-raw")
+async def institutional_stress_tests_run_raw(payload: dict[str, Any] = Body(default={})):
+    """IST-02 — raw evidence institutional research validation."""
+    from institutional_stress_tests.production import run_raw_evidence
+
+    body = payload or {}
+    return run_raw_evidence(
+        str(body.get("case_id") or body.get("case") or "IST-02"),
+        corpus=body.get("corpus"),
+        fixture_answers=body.get("fixture_answers"),
     )
 
 

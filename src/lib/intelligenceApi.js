@@ -1087,6 +1087,8 @@ export const getInstitutionalStressTestsDashboard = () =>
   intelligenceFetch('/institutional-stress-tests/dashboard');
 export const runInstitutionalStressTest = (body = {}) =>
   intelligenceFetch('/institutional-stress-tests/run', { method: 'POST', body: body || {} });
+export const runInstitutionalStressTestRaw = (body = {}) =>
+  intelligenceFetch('/institutional-stress-tests/run-raw', { method: 'POST', body: body || {} });
 export const getInstitutionalStressTestReport = (caseId = 'IST-01') => {
   const qs = new URLSearchParams({ case_id: String(caseId || 'IST-01') });
   return intelligenceFetch(`/institutional-stress-tests/report?${qs}`);

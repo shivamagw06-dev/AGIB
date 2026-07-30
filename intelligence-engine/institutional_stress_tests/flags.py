@@ -14,11 +14,14 @@ def _flag(name: str, default: bool = True) -> bool:
 
 
 def is_enabled() -> bool:
-    return _flag("INSTITUTIONAL_STRESS_TESTS", True) and _flag("IST01", True)
+    return _flag("INSTITUTIONAL_STRESS_TESTS", True) and (
+        _flag("IST01", True) or _flag("IST02", True)
+    )
 
 
 def flags_dict() -> dict[str, Any]:
     return {
         "INSTITUTIONAL_STRESS_TESTS": is_enabled(),
         "IST01": _flag("IST01", True),
+        "IST02": _flag("IST02", True),
     }

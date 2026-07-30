@@ -6,6 +6,7 @@ from typing import Any, Mapping, Optional, Sequence
 
 from institutional_stress_tests.cases import list_cases
 from institutional_stress_tests.flags import flags_dict, is_enabled
+from institutional_stress_tests.pipeline_ist02 import run_ist02
 from institutional_stress_tests.runner import run_case
 from institutional_stress_tests.schema import (
     FAILURE_CODES,
@@ -20,6 +21,15 @@ from institutional_stress_tests.schema import (
     PROGRAMME_SHORT,
     REQUIRED_MODULES,
     RUBRIC_WEIGHTS,
+)
+from institutional_stress_tests.schema_ist02 import (
+    IST02_CASE_ID,
+    IST02_FAILURE_CODES,
+    IST02_FREEZE_LOCKS,
+    IST02_PASS_SCORE,
+    IST02_RUBRIC_WEIGHTS,
+    IST02_SPEC,
+    IST02_WORKSTREAM_ID,
 )
 from institutional_stress_tests import store as ist_store
 
@@ -41,6 +51,7 @@ def health() -> dict[str, Any]:
         "workstream_id": IST01_WORKSTREAM_ID,
         "version": IST_VERSION,
         "primary_case": IST01_CASE_ID,
+        "cases": [IST01_CASE_ID, IST02_CASE_ID],
         "no_single_module_pass": True,
         "forbids_buy_sell_verdict": True,
         "required_modules": list(REQUIRED_MODULES),
@@ -48,6 +59,17 @@ def health() -> dict[str, Any]:
         "failure_codes": list(FAILURE_CODES),
         "no_actions": list(NO_IST_ACTIONS),
         "freeze_locks": dict(FREEZE_LOCKS),
+        "ist02": {
+            "workstream_id": IST02_WORKSTREAM_ID,
+            "case_id": IST02_CASE_ID,
+            "raw_evidence_only": True,
+            "no_fixture_answers": True,
+            "pass_score": IST02_PASS_SCORE,
+            "rubric_weights": dict(IST02_RUBRIC_WEIGHTS),
+            "failure_codes": list(IST02_FAILURE_CODES),
+            "freeze_locks": dict(IST02_FREEZE_LOCKS),
+            "spec": IST02_SPEC,
+        },
         "flags": flags_dict(),
         "enabled": is_enabled(),
         "spec": IST01_SPEC,
@@ -78,23 +100,39 @@ def run(
     final_view: Optional[Mapping[str, Any]] = None,
     modules_filter: Optional[Sequence[str]] = None,
     write_report: bool = False,
+    corpus: Optional[Mapping[str, Any]] = None,
+    fixture_answers: Optional[Mapping[str, Any]] = None,
 ) -> dict[str, Any]:
     if not is_enabled():
         return {"ok": False, "enabled": False, "workstream_id": IST01_WORKSTREAM_ID}
-    result = run_case(
-        case_id,
-        prebuilt=prebuilt,
-        answers=answers,
-        final_view=final_view,
-        modules_filter=modules_filter,
-    )
-    paths = None
+    cid = str(case_id or IST01_CASE_ID).strip().upper()
+    if cid in {IST02_CASE_ID, "IST02"}:
+        result = run_ist02(IST02_CASE_ID, corpus=corpus, fixture_answers=fixture_answers)
+    else:
+        result = run_case(
+            case_id,
+            prebuilt=prebuilt,
+            answers=answers,
+            final_view=final_view,
+            modules_filter=modules_filter,
+        )
     if write_report:
         from institutional_stress_tests.reports import write_docs
 
-        paths = write_docs(result)
-        result["report_paths"] = paths
+        result["report_paths"] = write_docs(result)
     return result
+
+
+def run_raw_evidence(
+    case_id: str = IST02_CASE_ID,
+    *,
+    corpus: Optional[Mapping[str, Any]] = None,
+    fixture_answers: Optional[Mapping[str, Any]] = None,
+) -> dict[str, Any]:
+    """IST-02 entrypoint — raw evidence only."""
+    if not is_enabled():
+        return {"ok": False, "enabled": False, "workstream_id": IST02_WORKSTREAM_ID}
+    return run_ist02(case_id, corpus=corpus, fixture_answers=fixture_answers)
 
 
 def report(case_id: str = IST01_CASE_ID) -> dict[str, Any]:
