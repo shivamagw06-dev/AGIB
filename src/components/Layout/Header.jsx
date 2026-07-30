@@ -252,7 +252,7 @@ export default function Header() {
                     onClick={() => go('/#newsletter')}
                     className="hidden sm:block bg-[#0b1f33] text-white text-sm font-bold px-4 py-1.5 hover:bg-[#163353]"
                   >
-                    Research Portal
+                    Subscribe
                   </button>
                 </>
               )}
@@ -320,7 +320,7 @@ export default function Header() {
             <div className="grid grid-cols-2 gap-2 py-3">
               <button
                 type="button"
-                onClick={() => go('/login?next=/portal')}
+                onClick={() => go('/login?mode=signin')}
                 className="min-h-[44px] border border-[#111111] px-3 text-sm font-bold text-[#111111]"
               >
                 Sign In
@@ -367,14 +367,6 @@ export default function Header() {
                 Logout
               </button>
             </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => go('/portal')}
-              className="block w-full text-left py-3 text-sm font-medium border-b border-[#eee] text-[#111]"
-            >
-              Research Portal
-            </button>
           )}
         </nav>
       )}

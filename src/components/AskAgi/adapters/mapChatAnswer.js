@@ -266,25 +266,12 @@ export function mapChatAnswer(pack) {
       companyQuality10: vm.decisionEngine?.companyQuality10 ?? vm.recommendationStatus?.companyQuality10,
       marketOpportunity10:
         vm.decisionEngine?.marketOpportunity10 ?? vm.recommendationStatus?.marketOpportunity10,
-      institutionalReadiness:
-        vm.decisionEngine?.institutionalReadiness ?? vm.recommendationStatus?.institutionalReadiness,
-      recommendationReadiness:
-        vm.decisionEngine?.recommendationReadiness ??
-        vm.recommendationStatus?.recommendationReadiness ??
-        vm.decisionEngine?.evidenceConfidence ??
-        vm.recommendationStatus?.evidenceConfidence,
-      analyticalConfidence:
-        vm.decisionEngine?.analyticalConfidence || vm.recommendationStatus?.analyticalConfidence || '',
       evidenceConfidence:
-        vm.decisionEngine?.recommendationReadiness ??
-        vm.decisionEngine?.evidenceConfidence ??
-        vm.recommendationStatus?.recommendationReadiness ??
-        vm.recommendationStatus?.evidenceConfidence,
+        vm.decisionEngine?.evidenceConfidence ?? vm.recommendationStatus?.evidenceConfidence,
       investmentThesisStatus:
         vm.decisionEngine?.investmentThesisStatus ||
         vm.recommendationStatus?.investmentThesisStatus ||
         '',
-      decisionLine: vm.decisionEngine?.decisionLine || vm.recommendationStatus?.decisionLine || '',
       askSlim: pack?.degradation?.ask_slim,
       degraded: Boolean(pack?.degraded || pack?.mode === 'node_desk_fallback'),
     },

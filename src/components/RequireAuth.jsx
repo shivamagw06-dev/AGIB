@@ -1,18 +1,15 @@
-import { Navigate, useLocation } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
+import { useEffect, useState } from 'react';
+import { Navigate } from 'react-router-dom';
+import { supabase } from '@/lib/supabaseClient';
 
-/**
- * Gate for authenticated + PIN-unlocked sessions.
- * Redirects to /login when signed out, PIN missing, or locked.
- */
 export default function RequireAuth({ children }) {
-  const { user, loading, hasPin, unlocked } = useAuth();
-  const location = useLocation();
-  const next = `${location.pathname}${location.search || ''}`;
-
+  const [user, setUser] = useState();
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setUser(data.user || null); setLoading(false);
+    });
+  }, []);
   if (loading) return null;
-  if (!user || !hasPin || !unlocked) {
-    return <Navigate to={`/login?next=${encodeURIComponent(next || '/portal')}`} replace />;
-  }
-  return children;
+  return user ? children : <Navigate to="/login" replace />;
 }
