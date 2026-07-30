@@ -535,6 +535,30 @@ _CATALOG: list[dict[str, Any]] = [
         "module": "watchlist_office.production",
     },
     {
+        "id": "company_workspace",
+        "name": "Company Workspace (CW-01)",
+        "group": "ops",
+        "responsibility": (
+            "Primary company UX — assembles FIRE/IO/WO/PO into one workspace with provenance; "
+            "never runs analysis, never BUY/SELL."
+        ),
+        "sources": [
+            "FIRE-01",
+            "FIRE-02",
+            "FIRE-03",
+            "FIRE-04",
+            "FIRE-05",
+            "FIRE-06",
+            "IO-01",
+            "WO-01",
+            "PO-01",
+            "Office SDK",
+            "PEB-01",
+        ],
+        "kind": "ux_surface",
+        "module": "company_workspace.production",
+    },
+    {
         "id": "ite_thesis",
         "name": "Investment Thesis Office",
         "group": "offices",
