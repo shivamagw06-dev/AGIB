@@ -1,9 +1,9 @@
-# CIO-01 — Institutional Portfolio Decision System
+# CIO-01 — Comparative Intelligence Office
 
-Canonical specification:
+Canonical programme specification:
 
-[`docs/AGI_CIO_01_PORTFOLIO_DECISION.md`](../../docs/AGI_CIO_01_PORTFOLIO_DECISION.md)
+[`docs/CIO_01_COMPARATIVE_INTELLIGENCE_OFFICE.md`](../../docs/CIO_01_COMPARATIVE_INTELLIGENCE_OFFICE.md)
 
-Package: `intelligence-engine/institutional_portfolio_decision/`
+Package: `intelligence-engine/comparative_intelligence/`
 
-Depends on PKG-01 (`institutional_portfolio`) and referential IDS-01 company decisions.
+Additive application layer. Reuses FIRE-01…06 (and IO-01 collectors). Never replaces FIRE. Never recalculates evidence.
