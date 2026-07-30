@@ -10002,9 +10002,188 @@ async def live_market_context_post(payload: dict[str, Any] = Body(default={})):
     return analyse(ticker, force=bool(body.get("force")), intrinsic_value=intrinsic_f)
 
 
+@router.get("/financial-statements/health")
+async def financial_statements_health():
+    """FSE-01 Financial Statements Engine — canonical financial warehouse."""
+    from financial_statements_engine.production import health
+
+    return health()
+
+
+@router.get("/financial-statements/dashboard")
+async def financial_statements_dashboard():
+    from financial_statements_engine.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/financial-statements/cfdm/health")
+async def financial_statements_cfdm_health():
+    """FSE-03 Canonical Financial Data Model + Metric Registry."""
+    from financial_statements_engine.cfdm.production import health
+
+    return health()
+
+
+@router.get("/financial-statements/parsing/health")
+async def financial_statements_parsing_health():
+    """FSE-04 Parsing & Normalization Engine."""
+    from financial_statements_engine.parsing.production import health
+
+    return health()
+
+
+@router.get("/financial-statements/parsing/dashboard")
+async def financial_statements_parsing_dashboard():
+    from financial_statements_engine.parsing.production import dashboard
+
+    return dashboard()
+
+
+@router.post("/financial-statements/parsing/run")
+async def financial_statements_parsing_run(payload: dict[str, Any] = Body(default={})):
+    from financial_statements_engine.parsing.production import parse_bytes
+    import base64
+
+    body = payload or {}
+    ticker = str(body.get("ticker") or "").strip()
+    if not ticker:
+        raise HTTPException(status_code=400, detail="ticker_required")
+    raw_b64 = body.get("bytes_b64")
+    if not raw_b64:
+        raise HTTPException(status_code=400, detail="bytes_b64_required")
+    try:
+        data = base64.b64decode(str(raw_b64))
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"invalid_bytes_b64:{exc}") from exc
+    return parse_bytes(
+        ticker,
+        data,
+        document_type=str(body.get("document_type") or "xbrl"),
+        period_end=body.get("period_end"),
+        period_type=body.get("period_type"),
+        consolidation_type=str(body.get("consolidation_type") or "consolidated"),
+        source=str(body.get("source") or "nse_xbrl"),
+        evidence_id=body.get("evidence_id"),
+    )
+
+
+@router.get("/financial-statements/schema-evolution/health")
+async def financial_statements_schema_evolution_health():
+    from financial_statements_engine.schema_evolution.production import health
+
+    return health()
+
+
+@router.get("/financial-statements/schema-evolution/resolve")
+async def financial_statements_schema_evolution_resolve(
+    label: str,
+    as_of: str | None = None,
+    reporting_standard: str = "IND_AS",
+    taxonomy: str | None = None,
+):
+    from financial_statements_engine.schema_evolution.production import resolve_payload
+
+    return resolve_payload(label, as_of=as_of, reporting_standard=reporting_standard, taxonomy=taxonomy)
+
+
+@router.get("/financial-statements/metrics")
+async def financial_statements_metrics(category: str | None = None, appendix_only: bool = False):
+    from financial_statements_engine.metric_registry.production import metrics_payload
+
+    return metrics_payload(category=category, appendix_only=bool(appendix_only))
+
+
+@router.get("/financial-statements/metrics/resolve")
+async def financial_statements_metrics_resolve(name: str):
+    from financial_statements_engine.metric_registry.production import resolve_payload
+
+    return resolve_payload(name)
+
+
+@router.get("/financial-statements/metrics/{metric}")
+async def financial_statements_metric_get(metric: str):
+    from financial_statements_engine.metric_registry.service import get_metric
+    from financial_statements_engine.metric_registry.schema import REGISTRY_VERSION, WORKSTREAM_ID
+
+    rec = get_metric(metric)
+    if not rec:
+        raise HTTPException(status_code=404, detail="metric_not_found")
+    return {
+        "ok": True,
+        "metric": rec,
+        "registry_version": REGISTRY_VERSION,
+        "workstream_id": WORKSTREAM_ID,
+        "issues_recommendations": False,
+    }
+
+
+@router.get("/financial-statements/collection/health")
+async def financial_statements_collection_health():
+    """FSE-02 Data Sources & Collection Pipeline."""
+    from financial_statements_engine.collection.production import health
+
+    return health()
+
+
+@router.get("/financial-statements/collection/dashboard")
+async def financial_statements_collection_dashboard():
+    from financial_statements_engine.collection.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/financial-statements/collection/events")
+async def financial_statements_collection_events(limit: int = 50):
+    from financial_statements_engine.collection.production import recent_events
+
+    return recent_events(max(1, min(int(limit), 500)))
+
+
+@router.post("/financial-statements/collection/run")
+async def financial_statements_collection_run(payload: dict[str, Any] = Body(default={})):
+    from financial_statements_engine.collection.production import collect_ticker
+
+    body = payload or {}
+    ticker = str(body.get("ticker") or "").strip()
+    if not ticker:
+        raise HTTPException(status_code=400, detail="ticker_required")
+    mode = str(body.get("mode") or "live")
+    if mode not in ("live", "historical"):
+        mode = "live"
+    return collect_ticker(ticker, mode=mode)
+
+
+@router.get("/financial-statements/{ticker}")
+async def financial_statements_ticker(ticker: str):
+    from financial_statements_engine.production import get_statements
+
+    return get_statements(ticker)
+
+
+@router.post("/financial-statements/ingest")
+async def financial_statements_ingest(payload: dict[str, Any] = Body(default={})):
+    from financial_statements_engine.production import ingest_and_publish
+
+    body = payload or {}
+    ticker = str(body.get("ticker") or "").strip()
+    if not ticker:
+        raise HTTPException(status_code=400, detail="ticker_required")
+    try:
+        max_periods = max(0, min(int(body.get("max_periods", 8)), 40))
+    except (TypeError, ValueError):
+        max_periods = 8
+    return ingest_and_publish(
+        ticker,
+        publish=bool(body.get("publish", True)),
+        allow_flagged=bool(body.get("allow_flagged", True)),
+        max_periods=max_periods,
+    )
+
+
 @router.get("/earnings-intelligence/health")
 async def earnings_intelligence_health():
-    """P2.1 Financial Statements & Earnings Intelligence — NSE IND-AS XBRL."""
+    """P2.1 Financial Statements & Earnings Intelligence — NSE XBRL extraction adapter under FSE-01."""
     from earnings_intelligence.production import health
 
     return health()

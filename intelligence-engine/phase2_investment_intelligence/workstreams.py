@@ -10,8 +10,11 @@ WORKSTREAMS: tuple[dict[str, Any], ...] = (
         "code": "earnings_intelligence",
         "title": "Financial Statements & Earnings Intelligence",
         "package": "earnings_intelligence",
+        "canonical_warehouse": "financial_statements_engine",
+        "canonical_spec": "docs/FSE_01_FINANCIAL_STATEMENTS_ENGINE.md",
         "priority": 2,
         "status": "implemented",
+        "note": "P2.1 NSE XBRL ingestion is the FSE-01 extraction adapter; consumers must read via financial_statements_engine.",
         "capabilities": [
             "nse_integrated_filing_discovery",
             "nse_corporates_financial_results",
