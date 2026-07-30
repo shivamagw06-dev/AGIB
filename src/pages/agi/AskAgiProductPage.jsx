@@ -1,16 +1,21 @@
 import { useEffect, useState } from 'react';
-import { Helmet } from 'react-helmet-async';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import InstitutionalChatWorkspace from '@/components/AskAgi/InstitutionalChatWorkspace';
 import { postUiSearch } from '@/lib/uiApi';
 import { pushSearch, saveAnswer, saveSearch } from '@/lib/searchHistory';
 import { trackProductEvent } from '@/lib/productAnalytics';
+import { ASK_PROMPTS } from './helpers';
 
-export default function AskAgiPage() {
+/**
+ * Ask AGI — product homepage experience inside the AGI shell.
+ * Reuses the institutional chat workspace; routes stay under /agi/ask.
+ */
+export default function AskAgiProductPage() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const question = (params.get('q') || '').trim();
   const [state, setState] = useState({ loading: false, pack: null, error: null });
+  const [draft, setDraft] = useState('');
   const [savedFlash, setSavedFlash] = useState(false);
 
   useEffect(() => {
@@ -21,12 +26,12 @@ export default function AskAgiPage() {
     let active = true;
     setState({ loading: true, pack: null, error: null });
     pushSearch(question);
-    trackProductEvent('question_asked', { question });
+    trackProductEvent('question_asked', { question, surface: 'agi_product' });
     postUiSearch(question)
       .then((pack) => {
         if (!active) return;
         setState({ loading: false, pack, error: null });
-        trackProductEvent('search_success', { question });
+        trackProductEvent('search_success', { question, surface: 'agi_product' });
       })
       .catch((error) => active && setState({ loading: false, pack: null, error }));
     return () => {
@@ -37,8 +42,8 @@ export default function AskAgiPage() {
   const onAsk = (q) => {
     const next = String(q || '').trim();
     if (!next) return;
-    trackProductEvent('follow_up_question', { question: next });
-    navigate(`/ask?q=${encodeURIComponent(next)}`);
+    trackProductEvent('follow_up_question', { question: next, surface: 'agi_product' });
+    navigate(`/agi/ask?q=${encodeURIComponent(next)}`);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -51,26 +56,52 @@ export default function AskAgiPage() {
       question: state.pack.question || question,
       stance: state.pack.house_view_card?.stance || state.pack.answer?.house_view_label || '',
       summary: state.pack.executive_summary || '',
-      href: `/ask?q=${encodeURIComponent(state.pack.question || question)}`,
+      href: `/agi/ask?q=${encodeURIComponent(state.pack.question || question)}`,
     });
     saveSearch(state.pack.question || question);
     setSavedFlash(true);
     window.setTimeout(() => setSavedFlash(false), 1600);
   };
 
+  if (!question) {
+    return (
+      <div className="agi-ask-hero">
+        <h1 className="agi-greeting">Ask AGI</h1>
+        <p className="agi-lede">
+          Bloomberg command meets institutional chat — confidence, evidence, timeline, and drill-down in every
+          answer.
+        </p>
+        <form
+          className="agi-ask-input-wrap"
+          onSubmit={(e) => {
+            e.preventDefault();
+            onAsk(draft);
+          }}
+        >
+          <input
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder="Ask about a company, market, or idea…"
+            aria-label="Ask AGI"
+            autoFocus
+          />
+          <button type="submit" className="agi-btn agi-btn-primary">
+            Ask
+          </button>
+        </form>
+        <div className="agi-prompts">
+          {ASK_PROMPTS.map((p) => (
+            <button key={p} type="button" onClick={() => onAsk(p)}>
+              {p}
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <>
-      <Helmet>
-        <title>{question ? `${question} | Ask AGI` : 'Ask AGI | Agarwal Global Investments'}</title>
-        <meta
-          name="description"
-          content="Ask AGI — AI-native institutional research workspace. Concise answers first, deeper intelligence on demand."
-        />
-        <link
-          href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,500;8..60,700&display=swap"
-          rel="stylesheet"
-        />
-      </Helmet>
+    <div style={{ margin: '0 -0.5rem' }}>
       <InstitutionalChatWorkspace
         pack={state.pack}
         loading={Boolean(question && state.loading)}
@@ -79,7 +110,9 @@ export default function AskAgiPage() {
         onAsk={onAsk}
         onSave={onSaveAnswer}
         savedFlash={savedFlash}
+        embedded
+        basePath="/agi/ask"
       />
-    </>
+    </div>
   );
 }

@@ -1,5 +1,17 @@
 /* AGIB v4 — AI-native institutional research chat */
 
+.agib-chat.agib-chat-embedded {
+  min-height: calc(100vh - 4.5rem);
+  grid-template-columns: minmax(0, 1fr);
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--ac-line, #e7eaf0);
+}
+
+.agib-chat.agib-chat-embedded .ac-main {
+  min-height: calc(100vh - 4.5rem);
+}
+
 .agib-chat {
   --ac-navy: #0b1f33;
   --ac-navy-2: #122a42;
