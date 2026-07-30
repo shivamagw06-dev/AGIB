@@ -9495,6 +9495,102 @@ async def admin_office_sdk():
     return HTMLResponse(admin_page())
 
 
+# --- PO-01 Portfolio Office (canonical portfolio state; additive) ---
+# NOTE: /v1/portfolio/* is reserved by the existing Portfolio Ideas OS.
+# PO-01 is exposed under /v1/portfolio-office/* to remain additive.
+
+
+@router.get("/portfolio-office/health")
+async def portfolio_office_health():
+    from portfolio_office.production import health
+
+    return health()
+
+
+@router.get("/portfolio-office/dashboard")
+async def portfolio_office_dashboard():
+    from portfolio_office.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/portfolio-office/{portfolio_id}")
+async def portfolio_office_get(portfolio_id: str):
+    from portfolio_office.production import get_portfolio
+
+    result = get_portfolio(portfolio_id)
+    if result.get("ok") is False and "not found" in str(result.get("error") or ""):
+        raise HTTPException(status_code=404, detail=result.get("error"))
+    return result
+
+
+@router.get("/portfolio-office/{portfolio_id}/holdings")
+async def portfolio_office_holdings(portfolio_id: str):
+    from portfolio_office.production import get_holdings
+
+    result = get_holdings(portfolio_id)
+    if result.get("ok") is False:
+        raise HTTPException(status_code=404, detail=result.get("error"))
+    return result
+
+
+@router.get("/portfolio-office/{portfolio_id}/exposures")
+async def portfolio_office_exposures(portfolio_id: str):
+    from portfolio_office.production import get_exposures
+
+    result = get_exposures(portfolio_id)
+    if result.get("ok") is False:
+        raise HTTPException(status_code=404, detail=result.get("error"))
+    return result
+
+
+@router.get("/portfolio-office/{portfolio_id}/quality")
+async def portfolio_office_quality(portfolio_id: str):
+    from portfolio_office.production import get_quality
+
+    result = get_quality(portfolio_id)
+    if result.get("ok") is False:
+        raise HTTPException(status_code=404, detail=result.get("error"))
+    return result
+
+
+@router.get("/portfolio-office/{portfolio_id}/concentration")
+async def portfolio_office_concentration(portfolio_id: str):
+    from portfolio_office.production import get_concentration
+
+    result = get_concentration(portfolio_id)
+    if result.get("ok") is False:
+        raise HTTPException(status_code=404, detail=result.get("error"))
+    return result
+
+
+@router.post("/portfolio-office")
+async def portfolio_office_create(payload: dict[str, Any] = Body(default={})):
+    from portfolio_office.production import create
+
+    result = create(payload or {})
+    if result.get("ok") is False:
+        raise HTTPException(status_code=400, detail=result.get("error") or "create failed")
+    return result
+
+
+@router.post("/portfolio-office/{portfolio_id}/snapshot")
+async def portfolio_office_snapshot_route(portfolio_id: str, payload: dict[str, Any] = Body(default={})):
+    from portfolio_office.production import snapshot
+
+    result = snapshot(portfolio_id, payload or {})
+    if result.get("ok") is False:
+        raise HTTPException(status_code=404, detail=result.get("error"))
+    return result
+
+
+@router.get("/admin/portfolio-office", response_class=HTMLResponse)
+async def admin_portfolio_office():
+    from portfolio_office.production import admin_page
+
+    return HTMLResponse(admin_page())
+
+
 # --- Company Monitoring System V1 (continuous living analyst; additive) ---
 
 

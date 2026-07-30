@@ -13,7 +13,7 @@ from office_sdk.contracts import (
     office_response,
     provenance_bundle,
 )
-from office_sdk.schema import DOMAIN_RESEARCH
+from office_sdk.schema import DOMAIN_PORTFOLIO, DOMAIN_RESEARCH
 
 
 def wrap_io_response(
@@ -89,6 +89,40 @@ def wrap_io_response(
                 "guardrails": irp.get("guardrails") or pack.get("guardrails"),
             },
         },
+        ok=bool(pack.get("ok", True)),
+        error=pack.get("error"),
+    )
+
+
+def wrap_po_response(
+    pack: Mapping[str, Any],
+    *,
+    request: Optional[Mapping[str, Any]] = None,
+) -> dict[str, Any]:
+    """If a native PO pack already is an OfficeResponse, pass through; else wrap lightly."""
+    if isinstance(pack, Mapping) and pack.get("schema") == "office_sdk.office_response.v1":
+        out = dict(pack)
+        if request:
+            out["request"] = dict(request)
+        return out
+    # Native get_portfolio shape
+    if isinstance(pack.get("office_response"), Mapping):
+        return wrap_po_response(pack["office_response"], request=request)
+    return office_response(
+        metadata=office_metadata(
+            office_id="po-01",
+            workstream_id="PO-01",
+            product="Portfolio Office",
+            version=str(pack.get("version") or "po-01"),
+            domain=DOMAIN_PORTFOLIO,
+            role="canonical_portfolio_state",
+            buy_sell=False,
+            valuation=False,
+            recalculates=False,
+        ),
+        request=request,
+        report_type="portfolio_state_report",
+        payload=dict(pack),
         ok=bool(pack.get("ok", True)),
         error=pack.get("error"),
     )

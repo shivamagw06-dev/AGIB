@@ -39,9 +39,9 @@ DOMAIN_OFFICES: dict[str, tuple[dict[str, Any], ...]] = {
             "office_id": "po-01",
             "workstream_id": "PO-01",
             "name": "Portfolio Office",
-            "status": "planned",
-            "module": None,
-            "role": "portfolio_state_no_optimisation",
+            "status": "live",
+            "module": "portfolio_office.production",
+            "role": "canonical_portfolio_state_no_optimisation",
         },
         {
             "office_id": "wo-01",

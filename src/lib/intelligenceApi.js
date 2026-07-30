@@ -991,6 +991,30 @@ export const postOfficeSdkInvoke = (body) =>
     body: body || {},
   });
 
+/** PO-01 — Portfolio Office (canonical state; /portfolio-office avoids IPO /portfolio collision) */
+export const getPortfolioOfficeHealth = () => intelligenceFetch('/portfolio-office/health');
+export const getPortfolioOfficeDashboard = () => intelligenceFetch('/portfolio-office/dashboard');
+export const getPortfolioOfficePortfolio = (portfolioId) =>
+  intelligenceFetch(`/portfolio-office/${encodeURIComponent(portfolioId)}`);
+export const getPortfolioOfficeHoldings = (portfolioId) =>
+  intelligenceFetch(`/portfolio-office/${encodeURIComponent(portfolioId)}/holdings`);
+export const getPortfolioOfficeExposures = (portfolioId) =>
+  intelligenceFetch(`/portfolio-office/${encodeURIComponent(portfolioId)}/exposures`);
+export const getPortfolioOfficeQuality = (portfolioId) =>
+  intelligenceFetch(`/portfolio-office/${encodeURIComponent(portfolioId)}/quality`);
+export const getPortfolioOfficeConcentration = (portfolioId) =>
+  intelligenceFetch(`/portfolio-office/${encodeURIComponent(portfolioId)}/concentration`);
+export const createPortfolioOfficePortfolio = (body) =>
+  intelligenceFetch('/portfolio-office', {
+    method: 'POST',
+    body: body || {},
+  });
+export const createPortfolioOfficeSnapshot = (portfolioId, body = {}) =>
+  intelligenceFetch(`/portfolio-office/${encodeURIComponent(portfolioId)}/snapshot`, {
+    method: 'POST',
+    body: body || {},
+  });
+
 /** AGI v4.0 Investment Office OS — Thesis → Decision → Portfolio → Monitoring → Learning */
 export const getThesisHealth = () => intelligenceFetch('/thesis/health');
 export const getThesisDashboard = () => intelligenceFetch('/thesis/dashboard');

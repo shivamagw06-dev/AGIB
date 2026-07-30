@@ -494,9 +494,21 @@ _CATALOG: list[dict[str, Any]] = [
             "Shared OfficeRequest / OfficeResponse / EvidenceBlock contracts for Research, "
             "Portfolio, Market, Execution, and Knowledge domain offices."
         ),
-        "sources": ["IO-01", "CIO-01", "future PO/WO/SO/VO/ITO"],
+        "sources": ["IO-01", "CIO-01", "PO-01", "future WO/SO/VO/ITO"],
         "kind": "office",
         "module": "office_sdk.production",
+    },
+    {
+        "id": "portfolio_office",
+        "name": "Portfolio Office (PO-01)",
+        "group": "ops",
+        "responsibility": (
+            "Canonical portfolio state — holdings, cash, exposures, quality/execution "
+            "distributions from FIRE-05/06, concentration, immutable snapshots (no BUY/SELL)."
+        ),
+        "sources": ["Office SDK", "FIRE-05", "FIRE-06", "holdings", "company master"],
+        "kind": "office",
+        "module": "portfolio_office.production",
     },
     {
         "id": "ite_thesis",
