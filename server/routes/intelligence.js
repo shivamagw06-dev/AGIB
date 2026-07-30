@@ -2281,6 +2281,74 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // CW-01 — Company Workspace (primary company UX; presentation only)
+  router.get('/company-workspace/health', kfGet('/v1/company-workspace/health'));
+  router.get('/company-workspace/dashboard', kfGet('/v1/company-workspace/dashboard'));
+  router.get('/company-workspace/:ticker', async (req, res) => {
+    try {
+      const qs = new URLSearchParams();
+      if (req.query?.q) qs.set('q', String(req.query.q));
+      const suffix = qs.toString() ? `?${qs}` : '';
+      const result = await engineFetch(
+        `/v1/company-workspace/${encodeURIComponent(req.params.ticker)}${suffix}`
+      );
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'company-workspace get failed' });
+    }
+  });
+  router.get('/company-workspace/:ticker/timeline', async (req, res) => {
+    try {
+      const qs = new URLSearchParams();
+      if (req.query?.event_type) qs.set('event_type', String(req.query.event_type));
+      if (req.query?.source) qs.set('source', String(req.query.source));
+      if (req.query?.q) qs.set('q', String(req.query.q));
+      const suffix = qs.toString() ? `?${qs}` : '';
+      const result = await engineFetch(
+        `/v1/company-workspace/${encodeURIComponent(req.params.ticker)}/timeline${suffix}`
+      );
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'company-workspace timeline failed' });
+    }
+  });
+  router.get('/company-workspace/:ticker/research', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/company-workspace/${encodeURIComponent(req.params.ticker)}/research`
+      );
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'company-workspace research failed' });
+    }
+  });
+  router.get('/company-workspace/:ticker/evidence', async (req, res) => {
+    try {
+      const qs = new URLSearchParams();
+      if (req.query?.q) qs.set('q', String(req.query.q));
+      const suffix = qs.toString() ? `?${qs}` : '';
+      const result = await engineFetch(
+        `/v1/company-workspace/${encodeURIComponent(req.params.ticker)}/evidence${suffix}`
+      );
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'company-workspace evidence failed' });
+    }
+  });
+  router.get('/company-workspace/:ticker/search', async (req, res) => {
+    try {
+      const qs = new URLSearchParams();
+      qs.set('q', String(req.query?.q || ''));
+      if (req.query?.scope) qs.set('scope', String(req.query.scope));
+      const result = await engineFetch(
+        `/v1/company-workspace/${encodeURIComponent(req.params.ticker)}/search?${qs}`
+      );
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'company-workspace search failed' });
+    }
+  });
+
   // AGI v4.0 Investment Office OS — Thesis / Decision / Portfolio / Monitoring / Learning
   // Static paths before dynamic :id routes. Ideas ≠ positions; events recommend review only.
   const v4Get = (enginePath) => async (_req, res) => {

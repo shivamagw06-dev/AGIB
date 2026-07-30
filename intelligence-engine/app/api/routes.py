@@ -9713,6 +9713,73 @@ async def admin_watchlist_office():
     return HTMLResponse(admin_page())
 
 
+# --- CW-01 Company Workspace (primary company UX; presentation only; additive) ---
+
+
+@router.get("/company-workspace/health")
+async def company_workspace_health():
+    from company_workspace.production import health
+
+    return health()
+
+
+@router.get("/company-workspace/dashboard")
+async def company_workspace_dashboard():
+    from company_workspace.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/company-workspace/{ticker}")
+async def company_workspace_get(ticker: str, q: str | None = None):
+    from company_workspace.production import workspace
+
+    result = workspace(ticker, question=q)
+    if result.get("ok") is False and result.get("enabled") is False:
+        raise HTTPException(status_code=503, detail="company workspace disabled")
+    return result
+
+
+@router.get("/company-workspace/{ticker}/timeline")
+async def company_workspace_timeline(
+    ticker: str,
+    event_type: str | None = None,
+    source: str | None = None,
+    q: str | None = None,
+):
+    from company_workspace.production import timeline
+
+    return timeline(ticker, event_type=event_type, source=source, query=q)
+
+
+@router.get("/company-workspace/{ticker}/research")
+async def company_workspace_research(ticker: str):
+    from company_workspace.production import research
+
+    return research(ticker)
+
+
+@router.get("/company-workspace/{ticker}/evidence")
+async def company_workspace_evidence(ticker: str, q: str | None = None):
+    from company_workspace.production import evidence
+
+    return evidence(ticker, query=q)
+
+
+@router.get("/company-workspace/{ticker}/search")
+async def company_workspace_search(ticker: str, q: str, scope: str = "all"):
+    from company_workspace.production import search
+
+    return search(ticker, q, scope=scope)
+
+
+@router.get("/admin/company-workspace", response_class=HTMLResponse)
+async def admin_company_workspace():
+    from company_workspace.production import admin_page
+
+    return HTMLResponse(admin_page())
+
+
 # --- Company Monitoring System V1 (continuous living analyst; additive) ---
 
 
