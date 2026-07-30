@@ -55,6 +55,13 @@ python -m financial_statements_engine --parse-bytes TCS --format json --file ./s
 python -m financial_statements_engine --collect TCS --mode live
 python -m financial_statements_engine TCS
 python -m financial_statements_engine TCS --publish
+# FSE-FDO Phase 1 — Financial Data Operations (coverage / gaps / ops)
+python -m financial_statements_engine --fdo-dashboard
+python -m financial_statements_engine --fdo-coverage gold
+python -m financial_statements_engine --coverage-company TCS
+python -m financial_statements_engine --fdo-schedule
+python -m financial_statements_engine --source-health
+python -m financial_statements_engine --fdo-alerts
 ```
 
 ## APIs
@@ -113,6 +120,12 @@ python -m financial_statements_engine TCS --publish
 - `GET /v1/financial-statements/verification/workflows/{workflow_id}`
 - `GET /v1/financial-statements/verification/provenance/{workflow_id}`
 - `POST /v1/financial-statements/verification/run/{company}`
+- `GET /v1/financial-statements/fdo/dashboard` (FSE-FDO)
+- `GET /v1/financial-statements/fdo/schedule`
+- `GET /v1/financial-statements/fdo/alerts`
+- `GET /v1/financial-statements/coverage`
+- `GET /v1/financial-statements/coverage/{company}`
+- `GET /v1/financial-statements/source-health`
 
 ## Frozen surfaces
 
