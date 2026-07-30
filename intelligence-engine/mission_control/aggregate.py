@@ -1638,6 +1638,15 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("institutional_graph")
     except Exception:
         out["institutional_graph"] = None
+
+    # IO-01 — Institutional Observation Engine (Observation Center).
+    try:
+        from institutional_observation.production import soft_slice_mission_control as obs_soft
+
+        out["institutional_observation"] = obs_soft()
+        out["sources"].append("institutional_observation")
+    except Exception:
+        out["institutional_observation"] = None
     return out
 
 

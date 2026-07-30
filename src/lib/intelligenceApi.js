@@ -1202,6 +1202,26 @@ export const getInstitutionalGraph = (
   });
 };
 
+/** IO-01 — Institutional Observation Engine (proactive monitoring) */
+export const getInstitutionalObservationHealth = () =>
+  intelligenceFetch('/observation/health', { timeoutMs: 30_000 });
+export const composeInstitutionalObservation = (body = {}) =>
+  intelligenceFetch('/observation/company', { method: 'POST', body: body || {}, timeoutMs: 60_000 });
+export const getInstitutionalObservations = (
+  ticker,
+  { criticalOnly = false, includeDecisionChanges = true, refresh = false, inject = '' } = {}
+) => {
+  const qs = new URLSearchParams();
+  if (criticalOnly) qs.set('critical_only', 'true');
+  if (includeDecisionChanges) qs.set('include_decision_changes', 'true');
+  if (refresh) qs.set('refresh', 'true');
+  if (inject) qs.set('inject', String(inject));
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return intelligenceFetch(`/observation/company/${encodeURIComponent(ticker)}${suffix}`, {
+    timeoutMs: 60_000,
+  });
+};
+
 /** IBS-01 — AGI Institutional Benchmark Suite */
 export const getInstitutionalBenchmarksHealth = () =>
   intelligenceFetch('/institutional-benchmarks/health');

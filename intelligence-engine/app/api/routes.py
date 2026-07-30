@@ -10112,6 +10112,52 @@ async def institutional_graph_company_ticker(
     )
 
 
+# --- IO-01 Institutional Observation Engine (proactive; hysteresis; no LLM) ---
+
+
+@router.get("/observation/health")
+async def institutional_observation_health():
+    from institutional_observation.production import health
+
+    return health()
+
+
+@router.post("/observation/company")
+async def institutional_observation_company(payload: dict[str, Any] = Body(default={})):
+    from institutional_observation.production import observation_company
+
+    return observation_company(payload or {})
+
+
+@router.get("/observation/company/{ticker}")
+async def institutional_observation_company_ticker(
+    ticker: str,
+    critical_only: bool = False,
+    include_decision_changes: bool = True,
+    refresh: bool = False,
+    inject: str | None = None,
+):
+    from institutional_observation.production import get_company_observations, observe_company
+
+    events = None
+    if inject:
+        key = str(inject).strip().lower()
+        events = [{"key": key, "detail": f"Injected institutional event: {key}", "magnitude": 1.0}]
+    if refresh or inject:
+        return observe_company(
+            ticker,
+            critical_only=critical_only,
+            include_decision_changes=include_decision_changes,
+            force_events=events,
+        )
+    return get_company_observations(
+        ticker,
+        critical_only=critical_only,
+        include_decision_changes=include_decision_changes,
+        observe=True,
+    )
+
+
 # --- Company Monitoring System V1 (continuous living analyst; additive) ---
 
 

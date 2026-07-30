@@ -689,6 +689,25 @@ _CATALOG: list[dict[str, Any]] = [
         "module": "institutional_graph.production",
     },
     {
+        "id": "institutional_observation",
+        "name": "Institutional Observation Engine (IO-01)",
+        "group": "publication",
+        "responsibility": (
+            "Proactive institutional monitoring — detect material changes with hysteresis, "
+            "classify significance, re-evaluate decisions when required, emit structured "
+            "observations with full lineage. No LLM."
+        ),
+        "sources": [
+            "Evidence snapshots",
+            "Knowledge graph",
+            "InstitutionalDecision",
+            "Forecasts",
+            "Watchlists",
+        ],
+        "kind": "observation",
+        "module": "institutional_observation.production",
+    },
+    {
         "id": "ite_thesis",
         "name": "Investment Thesis Office",
         "group": "offices",

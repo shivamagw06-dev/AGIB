@@ -2639,6 +2639,54 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // IO-01 — Institutional Observation Engine (proactive monitoring)
+  router.get('/observation/health', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/observation/health', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'institutional observation health failed' });
+    }
+  });
+  router.post('/observation/company', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/observation/company', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 60_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'institutional observation failed' });
+    }
+  });
+  router.get('/observation/company/:ticker', async (req, res) => {
+    try {
+      const qs = new URLSearchParams();
+      if (req.query?.critical_only !== undefined) {
+        qs.set('critical_only', String(req.query.critical_only));
+      }
+      if (req.query?.include_decision_changes !== undefined) {
+        qs.set('include_decision_changes', String(req.query.include_decision_changes));
+      }
+      if (req.query?.refresh !== undefined) {
+        qs.set('refresh', String(req.query.refresh));
+      }
+      if (req.query?.inject !== undefined) {
+        qs.set('inject', String(req.query.inject));
+      }
+      const suffix = qs.toString() ? `?${qs}` : '';
+      const result = await engineFetch(
+        `/v1/observation/company/${encodeURIComponent(req.params.ticker)}${suffix}`,
+        { timeoutMs: 60_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'institutional observation get failed' });
+    }
+  });
+
   // IDS-02 — Decision Calibration & Explainability
   router.get('/calibration/health', async (_req, res) => {
     try {
