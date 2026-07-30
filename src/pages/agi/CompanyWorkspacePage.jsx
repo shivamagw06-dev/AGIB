@@ -5,6 +5,7 @@ import {
   getCompanyWorkspaceEvidence,
   getCompanyWorkspaceTimeline,
   getInstitutionalDecision,
+  getInstitutionalGraph,
 } from '@/lib/intelligenceApi';
 import {
   COMPANY_TABS,
@@ -93,6 +94,8 @@ export default function CompanyWorkspacePage() {
   const [timeline, setTimeline] = useState([]);
   const [evidence, setEvidence] = useState([]);
   const [decisionPack, setDecisionPack] = useState(null);
+  const [knowledgeGraph, setKnowledgeGraph] = useState(null);
+  const [selectedNodeId, setSelectedNodeId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -109,8 +112,9 @@ export default function CompanyWorkspacePage() {
         includeCalibration: true,
         includeDrift: true,
       }).catch(() => null),
+      getInstitutionalGraph(ticker, { includePaths: true, includeInference: true }).catch(() => null),
     ])
-      .then(([ws, tl, ev, decision]) => {
+      .then(([ws, tl, ev, decision, graph]) => {
         if (!active) return;
         setWorkspace(ws);
         const events =
@@ -126,6 +130,8 @@ export default function CompanyWorkspacePage() {
           [];
         setEvidence(Array.isArray(refs) ? refs : []);
         setDecisionPack(decision && decision.ok !== false ? decision : null);
+        setKnowledgeGraph(graph && graph.ok !== false ? graph : null);
+        setSelectedNodeId(null);
         setLoading(false);
       })
       .catch((err) => {
@@ -390,6 +396,158 @@ export default function CompanyWorkspacePage() {
                   {(decisionPack.lineage?.chain || []).join(' → ') ||
                     'Evidence → Reasons → Decision → Calibration → Report'}
                 </p>
+              </section>
+            </>
+          )}
+        </div>
+      )}
+
+      {!loading && !error && tab === 'knowledge_graph' && (
+        <div>
+          <h2 style={{ margin: '0 0 0.5rem', fontFamily: 'var(--agi-display)', fontSize: '1.5rem' }}>
+            Knowledge graph
+          </h2>
+          <p className="agi-list-meta" style={{ marginBottom: '1rem' }}>
+            Evidence → relationships → reasons → decision → calibration → report — one company at a time.
+          </p>
+          {!knowledgeGraph ? (
+            <div className="agi-empty">Knowledge graph unavailable for this ticker.</div>
+          ) : (
+            <>
+              <div className="agi-stat-row">
+                <div className="agi-stat">
+                  <div className="agi-stat-label">Entities</div>
+                  <div className="agi-stat-value">{knowledgeGraph.entity_count ?? 0}</div>
+                </div>
+                <div className="agi-stat">
+                  <div className="agi-stat-label">Relationships</div>
+                  <div className="agi-stat-value">{knowledgeGraph.relationship_count ?? 0}</div>
+                </div>
+                <div className="agi-stat">
+                  <div className="agi-stat-label">Inferences</div>
+                  <div className="agi-stat-value">{knowledgeGraph.inference_count ?? 0}</div>
+                </div>
+              </div>
+
+              <section style={{ marginTop: '1.25rem' }}>
+                <h3 style={{ fontFamily: 'var(--agi-display)', fontSize: '1.15rem' }}>Lineage</h3>
+                <p className="agi-list-meta" style={{ marginTop: '0.5rem' }}>
+                  {(knowledgeGraph.lineage || []).join(' → ')}
+                </p>
+              </section>
+
+              <section style={{ marginTop: '1.25rem' }}>
+                <h3 style={{ fontFamily: 'var(--agi-display)', fontSize: '1.15rem' }}>
+                  Impact scores
+                </h3>
+                <ul className="agi-list" style={{ marginTop: '0.75rem' }}>
+                  {Object.entries(knowledgeGraph.impact || {})
+                    .filter(([k]) => k !== 'total')
+                    .map(([label, pts]) => (
+                      <li key={label}>
+                        <div className="agi-list-title">
+                          {label}{' '}
+                          <span className="agi-list-meta">
+                            {pts > 0 ? `+${pts}` : String(pts)}
+                          </span>
+                        </div>
+                      </li>
+                    ))}
+                </ul>
+              </section>
+
+              <section style={{ marginTop: '1.25rem' }}>
+                <h3 style={{ fontFamily: 'var(--agi-display)', fontSize: '1.15rem' }}>Nodes</h3>
+                <ul className="agi-list" style={{ marginTop: '0.75rem' }}>
+                  {(knowledgeGraph.nodes || [])
+                    .filter((n) =>
+                      ['Evidence', 'Reason', 'Decision', 'Calibration', 'FinancialMetric', 'Risk', 'ValuationMetric', 'MacroVariable'].includes(
+                        n.type
+                      )
+                    )
+                    .slice(0, 24)
+                    .map((n) => (
+                      <li key={n.id}>
+                        <button
+                          type="button"
+                          className="agi-btn"
+                          style={{
+                            width: '100%',
+                            textAlign: 'left',
+                            opacity: selectedNodeId && selectedNodeId !== n.id ? 0.7 : 1,
+                          }}
+                          onClick={() => setSelectedNodeId(n.id)}
+                        >
+                          <div className="agi-list-title">
+                            {n.type}: {productizeText(n.label)}
+                          </div>
+                          <div className="agi-list-meta">
+                            confidence {formatConfidence(n.confidence)}
+                            {n.impact_score
+                              ? ` · impact ${n.impact_score > 0 ? `+${n.impact_score}` : n.impact_score}`
+                              : ''}
+                          </div>
+                        </button>
+                      </li>
+                    ))}
+                </ul>
+              </section>
+
+              {selectedNodeId ? (
+                <section style={{ marginTop: '1.25rem' }}>
+                  <h3 style={{ fontFamily: 'var(--agi-display)', fontSize: '1.15rem' }}>
+                    Selected node
+                  </h3>
+                  {(() => {
+                    const node = (knowledgeGraph.nodes || []).find((n) => n.id === selectedNodeId);
+                    if (!node) return null;
+                    const rels = (knowledgeGraph.relationships || []).filter(
+                      (r) => r.source_id === node.id || r.target_id === node.id
+                    );
+                    return (
+                      <div style={{ marginTop: '0.75rem' }}>
+                        <div className="agi-list-title">
+                          {node.type}: {productizeText(node.label)}
+                        </div>
+                        <div className="agi-list-meta" style={{ marginTop: '0.35rem' }}>
+                          Confidence {formatConfidence(node.confidence)}
+                          {node.impact_score != null
+                            ? ` · impact ${node.impact_score > 0 ? `+${node.impact_score}` : node.impact_score}`
+                            : ''}
+                        </div>
+                        <ul className="agi-list" style={{ marginTop: '0.75rem' }}>
+                          {rels.slice(0, 8).map((r) => (
+                            <li key={r.id}>
+                              <div className="agi-list-title">
+                                {r.kind}: {productizeText(r.label || r.id)}
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    );
+                  })()}
+                </section>
+              ) : null}
+
+              <section style={{ marginTop: '1.25rem' }}>
+                <h3 style={{ fontFamily: 'var(--agi-display)', fontSize: '1.15rem' }}>
+                  Decision path
+                </h3>
+                <ul className="agi-list" style={{ marginTop: '0.75rem' }}>
+                  {(knowledgeGraph.paths?.decision_chain ||
+                    knowledgeGraph.diagnostics?.decision_chain ||
+                    []).map((nid) => {
+                    const node = (knowledgeGraph.nodes || []).find((n) => n.id === nid);
+                    return (
+                      <li key={nid}>
+                        <div className="agi-list-title">
+                          {node ? `${node.type}: ${productizeText(node.label)}` : nid}
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
               </section>
             </>
           )}

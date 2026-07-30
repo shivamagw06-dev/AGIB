@@ -1184,6 +1184,24 @@ export const getInstitutionalCalibration = (
   });
 };
 
+/** KG-01 — Institutional Knowledge Graph (single-company) */
+export const getInstitutionalGraphHealth = () =>
+  intelligenceFetch('/graph/health', { timeoutMs: 30_000 });
+export const composeInstitutionalGraph = (body = {}) =>
+  intelligenceFetch('/graph/company', { method: 'POST', body: body || {}, timeoutMs: 60_000 });
+export const getInstitutionalGraph = (
+  ticker,
+  { includePaths = true, includeInference = true } = {}
+) => {
+  const qs = new URLSearchParams();
+  if (includePaths) qs.set('include_paths', 'true');
+  if (includeInference) qs.set('include_inference', 'true');
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return intelligenceFetch(`/graph/company/${encodeURIComponent(ticker)}${suffix}`, {
+    timeoutMs: 60_000,
+  });
+};
+
 /** IBS-01 — AGI Institutional Benchmark Suite */
 export const getInstitutionalBenchmarksHealth = () =>
   intelligenceFetch('/institutional-benchmarks/health');

@@ -114,6 +114,12 @@ def build_diagnostics(
                     else None,
                 }
             )
+        out["knowledge_graph_id"] = getattr(decision, "knowledge_graph_id", None) or (
+            decision.get("knowledge_graph_id") if isinstance(decision, dict) else None
+        )
+        out["decision_node_id"] = getattr(decision, "decision_node_id", None) or (
+            decision.get("decision_node_id") if isinstance(decision, dict) else None
+        )
     return out
 
 
@@ -236,6 +242,29 @@ def _generate_institutional_decision(inp: InstitutionalReportInput, graph: Any) 
                 return decision, cal_errors
     except Exception as exc:  # noqa: BLE001
         return decision, [f"calibration failed: {exc}"]
+
+    # KG-01 — attach DecisionNode / graph ids (single-company knowledge graph)
+    try:
+        from dataclasses import replace as dc_replace
+
+        from institutional_graph.flags import is_enabled as kg_enabled
+        from institutional_graph.graph import build_company_graph
+        from institutional_graph.impact import compute_impacts
+        from institutional_graph.inference import infer
+        from institutional_graph.production import _GRAPHS
+
+        if kg_enabled():
+            kg = build_company_graph(inp, reasons=list(graph.reasons), decision=decision)
+            infer(kg)
+            compute_impacts(kg, inp)
+            decision = dc_replace(
+                decision,
+                knowledge_graph_id=kg.graph_id,
+                decision_node_id=kg.decision_node_id,
+            )
+            _GRAPHS[str(inp.ticker or "").strip().upper()] = kg
+    except Exception as exc:  # noqa: BLE001
+        return decision, [f"knowledge graph failed: {exc}"]
 
     decision_history.record(decision)
     return decision, []
@@ -414,6 +443,70 @@ def compose_report(
     )
     reason_graph_text = render_reason_graph_text(render_graph)
 
+    # KG-01 — reports consume graph-backed lineage / reasons
+    kg_summary = None
+    try:
+        from institutional_graph.production import _GRAPHS
+        from institutional_graph.traversal import decision_chain, evidence_chain
+        from institutional_reporting.reasoning import Reason
+
+        kg = _GRAPHS.get(str(render_input.ticker or "").strip().upper())
+        if kg is not None:
+            diagnostics["knowledge_graph"] = {
+                "graph_id": kg.graph_id,
+                "entity_count": len(kg.nodes),
+                "relationship_count": len(kg.relationships),
+                "inference_count": len(kg.inferred_relationship_ids),
+                "decision_chain": decision_chain(kg),
+                "lineage": list(kg.lineage),
+                "impact_scores": dict((kg.meta or {}).get("impact_scores") or {}),
+            }
+            # Enrich reasons with graph evidence chains (no English generation)
+            enriched: list[Any] = []
+            for reason in render_graph.reasons:
+                reason_nodes = [
+                    n
+                    for n in kg.nodes_by_type("Reason")
+                    if (n.attributes or {}).get("section_key") == reason.section_key
+                ]
+                extra_ids: list[str] = []
+                if reason_nodes:
+                    for eid in evidence_chain(kg, reason_nodes[0].id):
+                        ev = kg.get(eid)
+                        if ev and ev.attributes.get("evidence_id"):
+                            extra_ids.append(str(ev.attributes["evidence_id"]))
+                merged = tuple(
+                    dict.fromkeys(list(reason.supporting_evidence or ()) + extra_ids)
+                )
+                if merged != tuple(reason.supporting_evidence or ()):
+                    enriched.append(
+                        Reason(
+                            title=reason.title,
+                            conclusion=reason.conclusion,
+                            confidence=reason.confidence,
+                            supporting_evidence=merged,
+                            supporting_points=reason.supporting_points,
+                            contradicting_points=reason.contradicting_points,
+                            unknowns=reason.unknowns,
+                            section_key=reason.section_key,
+                        )
+                    )
+                else:
+                    enriched.append(reason)
+            render_graph.reasons = enriched
+            kg_summary = {
+                "graph_id": kg.graph_id,
+                "ticker": kg.ticker,
+                "entity_count": len(kg.nodes),
+                "relationship_count": len(kg.relationships),
+                "inference_count": len(kg.inferred_relationship_ids),
+                "decision_node_id": kg.decision_node_id,
+                "lineage": list(kg.lineage),
+                "impact": dict((kg.meta or {}).get("impact_scores") or {}),
+            }
+    except Exception:  # noqa: BLE001
+        kg_summary = None
+
     return InstitutionalReport(
         ok=True,
         workstream_id=IRE_WORKSTREAM_ID,
@@ -436,4 +529,5 @@ def compose_report(
         diagnostics=diagnostics,
         reason_graph_text=reason_graph_text,
         decision=decision,
+        knowledge_graph=kg_summary,
     )

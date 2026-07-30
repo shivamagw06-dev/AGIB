@@ -68,6 +68,9 @@ class InstitutionalDecision:
     calibration_profile_version: str = ""
     calibration_engine_version: str = ""
     calibration: Any = None  # institutional_calibration.models.Calibration | dict | None
+    # KG-01 — decision references DecisionNode in the company knowledge graph
+    knowledge_graph_id: str = ""
+    decision_node_id: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)
@@ -127,6 +130,8 @@ class InstitutionalDecision:
             calibration_profile_version=str(body.get("calibration_profile_version") or "").strip(),
             calibration_engine_version=str(body.get("calibration_engine_version") or "").strip(),
             calibration=body.get("calibration"),
+            knowledge_graph_id=str(body.get("knowledge_graph_id") or "").strip(),
+            decision_node_id=str(body.get("decision_node_id") or "").strip(),
         )
 
 
