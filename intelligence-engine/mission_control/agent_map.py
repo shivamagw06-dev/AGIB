@@ -689,6 +689,18 @@ _CATALOG: list[dict[str, Any]] = [
         "module": "institutional_graph.production",
     },
     {
+        "id": "institutional_forecasting",
+        "name": "Forecast & Scenario Graph (FG-01)",
+        "group": "publication",
+        "responsibility": (
+            "Deterministic scenario propagation through the company knowledge graph — "
+            "explicit assumptions, probabilities, sensitivity, decision evolution. No ML/LLM."
+        ),
+        "sources": ["InstitutionalKnowledgeGraph", "ScenarioAssumption", "InstitutionalDecision"],
+        "kind": "forecast",
+        "module": "institutional_forecasting.production",
+    },
+    {
         "id": "ite_thesis",
         "name": "Investment Thesis Office",
         "group": "offices",
