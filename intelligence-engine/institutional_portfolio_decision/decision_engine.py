@@ -158,19 +158,37 @@ def generate_portfolio_decision(
     *,
     previous_version: int = 0,
     concentration: Optional[dict[str, Any]] = None,
+    portfolio_risk: Any = None,
     observation_health: float = 0.7,
     forecast_stability: float = 0.7,
 ) -> InstitutionalPortfolioDecision:
     """
-    Build an InstitutionalPortfolioDecision from portfolio state + company decision refs.
+    Build an InstitutionalPortfolioDecision from portfolio state + PRE-01 risk + company refs.
 
-    Does not call decide_company to rewrite recommendations — only reads refs.
+    Risk metrics come from PRE-01 (authoritative). Company decisions are referential only.
     """
-    conc = dict(concentration or {})
-    hhi = float(conc.get("hhi") or 0.0)
-    sectors = [e for e in portfolio.exposures if e.dimension == "sector"]
-    sector_concentration = float(sectors[0].weight) if sectors else 0.0
-    top_sector = sectors[0].name if sectors else ""
+    risk_summary: dict[str, Any] = {}
+    portfolio_risk_id = ""
+    overall_risk = ""
+    if portfolio_risk is not None:
+        try:
+            from institutional_portfolio_risk.risk_engine import risk_summary_for_cio
+
+            risk_summary = risk_summary_for_cio(portfolio_risk)
+            portfolio_risk_id = str(getattr(portfolio_risk, "risk_id", "") or "")
+            overall_risk = str(getattr(portfolio_risk, "overall_risk", "") or "")
+            hhi = float(risk_summary.get("hhi") or 0.0)
+            sector_concentration = float(risk_summary.get("sector_concentration") or 0.0)
+            top_sector = str(risk_summary.get("top_sector") or "")
+        except Exception:  # noqa: BLE001
+            portfolio_risk = None
+
+    if portfolio_risk is None:
+        conc = dict(concentration or {})
+        hhi = float(conc.get("hhi") or 0.0)
+        sectors = [e for e in portfolio.exposures if e.dimension == "sector"]
+        sector_concentration = float(sectors[0].weight) if sectors else 0.0
+        top_sector = sectors[0].name if sectors else ""
 
     supporting, contradicting = build_company_decision_refs(portfolio)
     all_refs = tuple(list(supporting) + list(contradicting))
@@ -232,7 +250,32 @@ def generate_portfolio_decision(
         sector_concentration=sector_concentration,
     )
     version = int(previous_version or 0) + 1
-    risks = tuple(r.to_dict() if hasattr(r, "to_dict") else dict(r) for r in portfolio.risks)
+    # Prefer PRE-01 stress/warnings as portfolio_risks when available
+    if portfolio_risk is not None and getattr(portfolio_risk, "stress_results", None):
+        risks = tuple(
+            {
+                "kind": "stress",
+                "label": s.label,
+                "severity": s.severity,
+                "score": float(s.portfolio_impact_pct),
+                "detail": s.detail,
+                "source": "PRE-01",
+            }
+            for s in portfolio_risk.stress_results
+        )
+    else:
+        risks = tuple(r.to_dict() if hasattr(r, "to_dict") else dict(r) for r in portfolio.risks)
+
+    lineage = LINEAGE_CHAIN
+    if portfolio_risk_id:
+        lineage = (
+            "Portfolio",
+            "Holding",
+            "Portfolio Risk",
+            "Company Decision",
+            "Reason",
+            "Evidence",
+        )
 
     return InstitutionalPortfolioDecision(
         portfolio_id=portfolio.portfolio_id,
@@ -253,11 +296,15 @@ def generate_portfolio_decision(
         calibration=calibration,
         scorecard=scorecard,
         diagnostics=None,
-        lineage=LINEAGE_CHAIN,
+        lineage=lineage,
         portfolio_graph_id=portfolio.graph_id,
+        portfolio_risk_id=portfolio_risk_id,
+        overall_risk=overall_risk,
+        portfolio_risk_summary=risk_summary or None,
         decision_engine_version=DECISION_ENGINE_VERSION,
         validator_version=VALIDATOR_VERSION,
         rule_path=rule_path,
         llm=False,
         mutates_company_decisions=False,
+        consumes_pre01=bool(portfolio_risk_id),
     )

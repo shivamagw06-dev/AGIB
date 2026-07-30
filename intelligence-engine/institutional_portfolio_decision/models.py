@@ -174,16 +174,21 @@ class InstitutionalPortfolioDecision:
     lineage: tuple[str, ...] = (
         "Portfolio",
         "Holding",
+        "Portfolio Risk",
         "Company Decision",
         "Reason",
         "Evidence",
     )
     portfolio_graph_id: str = ""
+    portfolio_risk_id: str = ""
+    overall_risk: str = ""
+    portfolio_risk_summary: Optional[dict[str, Any]] = None
     decision_engine_version: str = ""
     validator_version: str = ""
     rule_path: str = ""
     llm: bool = False
     mutates_company_decisions: bool = False
+    consumes_pre01: bool = True
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -207,9 +212,13 @@ class InstitutionalPortfolioDecision:
             "diagnostics": dict(self.diagnostics or {}),
             "lineage": list(self.lineage),
             "portfolio_graph_id": self.portfolio_graph_id,
+            "portfolio_risk_id": self.portfolio_risk_id,
+            "overall_risk": self.overall_risk,
+            "portfolio_risk_summary": dict(self.portfolio_risk_summary or {}),
             "decision_engine_version": self.decision_engine_version,
             "validator_version": self.validator_version,
             "rule_path": self.rule_path,
             "llm": False,
             "mutates_company_decisions": False,
+            "consumes_pre01": True,
         }

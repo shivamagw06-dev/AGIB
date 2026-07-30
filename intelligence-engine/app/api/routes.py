@@ -10215,6 +10215,38 @@ async def institutional_portfolio_decision_get(
     )
 
 
+# --- PRE-01 Institutional Portfolio Risk Engine (authoritative risk for CIO-01) ---
+
+
+@router.get("/portfolio-risk/health")
+async def institutional_portfolio_risk_health():
+    from institutional_portfolio_risk.production import health
+
+    return health()
+
+
+@router.post("/portfolio-risk")
+async def institutional_portfolio_risk_post(payload: dict[str, Any] = Body(default={})):
+    from institutional_portfolio_risk.production import evaluate_portfolio_risk
+
+    return evaluate_portfolio_risk(payload or {})
+
+
+@router.get("/portfolio-risk/{portfolio_id}")
+async def institutional_portfolio_risk_get(
+    portfolio_id: str,
+    refresh: bool = True,
+    include_history: bool = False,
+):
+    from institutional_portfolio_risk.production import get_portfolio_risk
+
+    return get_portfolio_risk(
+        portfolio_id,
+        refresh=refresh,
+        include_history=include_history,
+    )
+
+
 # --- Company Monitoring System V1 (continuous living analyst; additive) ---
 
 
