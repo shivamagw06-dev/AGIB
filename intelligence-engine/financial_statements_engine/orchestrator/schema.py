@@ -28,6 +28,7 @@ WORKFLOW_STATES = (
     "COMPLETED",
     "FAILED",
     "RETRYING",
+    "DEAD_LETTER",
     "CANCELLED",
 )
 
@@ -44,9 +45,10 @@ STAGE_STATUSES = (
 ALLOWED_TRANSITIONS: dict[str, tuple[str, ...]] = {
     "RECEIVED": ("QUEUED", "CANCELLED"),
     "QUEUED": ("RUNNING", "CANCELLED"),
-    "RUNNING": ("COMPLETED", "FAILED", "RETRYING", "CANCELLED"),
-    "RETRYING": ("QUEUED", "RUNNING", "FAILED", "CANCELLED"),
-    "FAILED": ("QUEUED", "RETRYING", "CANCELLED"),  # retry/replay re-queues
+    "RUNNING": ("COMPLETED", "FAILED", "RETRYING", "DEAD_LETTER", "CANCELLED"),
+    "RETRYING": ("QUEUED", "RUNNING", "FAILED", "DEAD_LETTER", "CANCELLED"),
+    "FAILED": ("QUEUED", "RETRYING", "DEAD_LETTER", "CANCELLED"),
+    "DEAD_LETTER": ("QUEUED", "RETRYING", "CANCELLED"),  # manual replay/retry only
     "COMPLETED": (),  # terminal unless replay creates new attempt record
     "CANCELLED": (),
 }
@@ -62,6 +64,7 @@ ORCHESTRATOR_EVENTS = (
     "workflow.completed.v1",
     "workflow.failed.v1",
     "workflow.retrying.v1",
+    "workflow.dead_letter.v1",
     "workflow.cancelled.v1",
 )
 

@@ -40,6 +40,8 @@ def health() -> dict[str, Any]:
         "workflow_states": list(WORKFLOW_STATES),
         "orchestrator_events": list(ORCHESTRATOR_EVENTS),
         "foundation": "fse_event_bus_plus_disk_workflow_store",
+        "auto_start_on_evidence_stored": True,
+        "dead_letter_queue": True,
         "never_parses": True,
         "never_validates_accounting": True,
         "never_calculates_metrics": True,
@@ -52,11 +54,29 @@ def health() -> dict[str, Any]:
     }
 
 
+def _dlq_row(wf: dict[str, Any]) -> dict[str, Any]:
+    dl = wf.get("dead_letter") or {}
+    return {
+        "workflow_id": wf.get("workflow_id"),
+        "company_id": wf.get("company_id"),
+        "ticker": wf.get("ticker"),
+        "period": wf.get("period"),
+        "stage": dl.get("stage") or wf.get("current_stage"),
+        "error": dl.get("error_detail") or wf.get("failure_reason"),
+        "error_code": dl.get("error_code"),
+        "last_retry": dl.get("last_retry_at") or wf.get("last_retry_at"),
+        "retries": dl.get("retries", wf.get("retries")),
+        "dead_lettered_at": dl.get("dead_lettered_at"),
+        "manual_replay_action": f"POST /financial-statements/orchestrator/replay/{wf.get('workflow_id')}",
+    }
+
+
 def dashboard() -> dict[str, Any]:
     counts = count_by_state()
     rows = list_workflows(limit=500)
     durations = []
     failures = []
+    dead_letters = []
     longest = None
     longest_ms = -1
     for wf in rows:
@@ -84,6 +104,8 @@ def dashboard() -> dict[str, Any]:
                     "stage": wf.get("current_stage"),
                 }
             )
+        if wf.get("state") == "DEAD_LETTER":
+            dead_letters.append(_dlq_row(wf))
     events = [e for e in get_bus().tail(300) if str(e.get("event_type", "")).startswith("workflow.") or str(e.get("event_type", "")).startswith("stage.")]
     return {
         "status": "ok",
@@ -93,14 +115,32 @@ def dashboard() -> dict[str, Any]:
         "completed": counts.get("COMPLETED", 0),
         "failed": counts.get("FAILED", 0),
         "retrying": counts.get("RETRYING", 0),
+        "dead_letter": counts.get("DEAD_LETTER", 0),
         "cancelled": counts.get("CANCELLED", 0),
         "received": counts.get("RECEIVED", 0),
         "counts_by_state": counts,
         "average_duration_ms": round(sum(durations) / len(durations), 2) if durations else 0.0,
         "longest_running": longest,
         "recent_failures": failures[:20],
+        "dead_letter_queue": dead_letters[:50],
         "recent_orch_events": events[-30:],
+        "auto_start_on_evidence_stored": True,
         "issues_recommendations": False,
+        "as_of": now_iso(),
+    }
+
+
+def dlq(limit: int = 100) -> dict[str, Any]:
+    """Dead Letter Queue for operator investigation + manual replay."""
+    rows = [_dlq_row(w) for w in list_workflows(state="DEAD_LETTER", limit=max(1, min(int(limit), 1000)))]
+    return {
+        "ok": True,
+        "n": len(rows),
+        "dead_letter_queue": rows,
+        "actions": {
+            "replay": "POST /financial-statements/orchestrator/replay/{workflow_id}",
+            "retry": "POST /financial-statements/orchestrator/retry/{workflow_id}",
+        },
         "as_of": now_iso(),
     }
 

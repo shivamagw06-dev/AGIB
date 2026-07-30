@@ -92,7 +92,7 @@ def enqueue(workflow_id: str) -> dict[str, Any]:
         return wf
     if wf["state"] == "RECEIVED":
         _set_state(wf, "QUEUED")
-    elif wf["state"] in ("FAILED", "RETRYING"):
+    elif wf["state"] in ("FAILED", "RETRYING", "DEAD_LETTER"):
         _set_state(wf, "QUEUED")
     save_workflow(wf)
     _emit("workflow.queued.v1", {"workflow_id": workflow_id})
@@ -117,7 +117,7 @@ def run_workflow(
     if wf["state"] == "COMPLETED":
         return wf
 
-    if wf["state"] in ("RECEIVED", "FAILED", "RETRYING"):
+    if wf["state"] in ("RECEIVED", "FAILED", "RETRYING", "DEAD_LETTER"):
         wf = enqueue(workflow_id)
 
     if wf["state"] == "QUEUED":
@@ -240,6 +240,7 @@ def _handle_stage_failure(
     retries = int(wf.get("retries") or 0)
     if transient and should_retry(retries, error_code=code, detail=detail):
         wf["retries"] = retries + 1
+        wf["last_retry_at"] = now_iso()
         delay = backoff_seconds(retries)
         try:
             _set_state(wf, "RETRYING")
@@ -260,7 +261,8 @@ def _handle_stage_failure(
         save_workflow(wf)
         return run_workflow(str(wf["workflow_id"]), stage_fns=stage_fns, sleep_fn=sleeper)
 
-    return _fail(wf, stage, code, detail, transient=transient)
+    # Retries exhausted or permanent failure → FAILED then Dead Letter Queue
+    return _dead_letter(wf, stage, code, detail, transient=transient)
 
 
 def _fail(wf: dict[str, Any], stage: str, code: str, detail: str, *, transient: bool) -> dict[str, Any]:
@@ -284,6 +286,49 @@ def _fail(wf: dict[str, Any], stage: str, code: str, detail: str, *, transient: 
     return wf
 
 
+def _dead_letter(
+    wf: dict[str, Any],
+    stage: str,
+    code: str,
+    detail: str,
+    *,
+    transient: bool,
+) -> dict[str, Any]:
+    """Move exhausted/permanent failures into DEAD_LETTER for operator review."""
+    _fail(wf, stage, code, detail, transient=transient)
+    wf = load_workflow(str(wf["workflow_id"])) or wf
+    try:
+        _set_state(wf, "DEAD_LETTER")
+    except IllegalTransition:
+        wf["state"] = "DEAD_LETTER"
+    wf["dead_letter"] = {
+        "stage": stage,
+        "error_code": code,
+        "error_detail": detail,
+        "transient": transient,
+        "retries": int(wf.get("retries") or 0),
+        "last_retry_at": wf.get("last_retry_at"),
+        "dead_lettered_at": now_iso(),
+        "manual_replay": True,
+    }
+    wf["finished_at"] = now_iso()
+    save_workflow(wf)
+    _emit(
+        "workflow.dead_letter.v1",
+        {
+            "workflow_id": wf["workflow_id"],
+            "ticker": wf.get("ticker"),
+            "company_id": wf.get("company_id"),
+            "stage": stage,
+            "code": code,
+            "detail": detail,
+            "retries": wf.get("retries"),
+            "last_retry_at": wf.get("last_retry_at"),
+        },
+    )
+    return wf
+
+
 def retry_workflow(workflow_id: str, **kwargs: Any) -> dict[str, Any]:
     wf = load_workflow(workflow_id)
     if not wf:
@@ -298,8 +343,13 @@ def retry_workflow(workflow_id: str, **kwargs: Any) -> dict[str, Any]:
         bucket["error"] = None
     wf["failure_reason"] = None
     wf["finished_at"] = None
+    wf["retries"] = 0  # operator-initiated retry resets backoff budget
+    wf.pop("dead_letter", None)
     try:
-        _set_state(wf, "RETRYING")
+        if wf["state"] == "DEAD_LETTER":
+            _set_state(wf, "RETRYING")
+        else:
+            _set_state(wf, "RETRYING")
     except IllegalTransition:
         wf["state"] = "RETRYING"
     save_workflow(wf)
@@ -337,6 +387,8 @@ def replay_workflow(workflow_id: str, *, from_stage: str | None = None, **kwargs
     wf["current_stage"] = start
     wf["failure_reason"] = None
     wf["finished_at"] = None
+    wf["retries"] = 0
+    wf.pop("dead_letter", None)
     wf["state"] = "RECEIVED"
     wf["history"] = list(wf.get("history") or []) + [{"state": "RECEIVED", "at": now_iso(), "replay": True}]
     save_workflow(wf)
