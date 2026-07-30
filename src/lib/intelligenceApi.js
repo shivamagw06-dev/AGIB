@@ -976,38 +976,42 @@ export const packageInvestmentOffice = (query = '', ticker) =>
     body: { query, ticker },
   });
 
-/** AGI V1.3 — Institutional Morning Office (admin desk) */
+/** AGI V1.3 — Institutional Morning Office (admin desk)
+ * Overview soft-aggregates IO desk + IOL + CGL/ICF — allow cold-start headroom (match KOC). */
+const IO_MORNING_TIMEOUT_MS = 180_000;
 export const getInvestmentOfficeOverview = () =>
-  intelligenceFetch('/investment-office/overview');
+  intelligenceFetch('/investment-office/overview', { timeoutMs: IO_MORNING_TIMEOUT_MS });
 export const getInvestmentOfficeMorningOffice = () =>
-  intelligenceFetch('/investment-office/morning-office');
+  intelligenceFetch('/investment-office/morning-office', { timeoutMs: IO_MORNING_TIMEOUT_MS });
 export const getInvestmentOfficeDailyBrief = () =>
-  intelligenceFetch('/investment-office/daily-brief');
+  intelligenceFetch('/investment-office/daily-brief', { timeoutMs: IO_MORNING_TIMEOUT_MS });
 export const getInvestmentOfficeResearchQueue = () =>
-  intelligenceFetch('/investment-office/research-queue');
+  intelligenceFetch('/investment-office/research-queue', { timeoutMs: 120_000 });
 export const getInvestmentOfficeOpportunities = () =>
-  intelligenceFetch('/investment-office/opportunities');
+  intelligenceFetch('/investment-office/opportunities', { timeoutMs: 120_000 });
 export const getInvestmentOfficeMarketSummary = () =>
-  intelligenceFetch('/investment-office/market-summary');
+  intelligenceFetch('/investment-office/market-summary', { timeoutMs: 90_000 });
 export const getInvestmentOfficeMacro = () =>
-  intelligenceFetch('/investment-office/macro');
+  intelligenceFetch('/investment-office/macro', { timeoutMs: 90_000 });
 export const getInvestmentOfficeCalendar = () =>
-  intelligenceFetch('/investment-office/calendar');
+  intelligenceFetch('/investment-office/calendar', { timeoutMs: 90_000 });
 export const getInvestmentOfficePortfolioMonitor = () =>
-  intelligenceFetch('/investment-office/portfolio-monitor');
+  intelligenceFetch('/investment-office/portfolio-monitor', { timeoutMs: 120_000 });
 export const getInvestmentOfficeSectorMonitor = () =>
-  intelligenceFetch('/investment-office/sector-monitor');
+  intelligenceFetch('/investment-office/sector-monitor', { timeoutMs: 90_000 });
 export const getInvestmentOfficeMetrics = () =>
-  intelligenceFetch('/investment-office/metrics');
+  intelligenceFetch('/investment-office/metrics', { timeoutMs: 90_000 });
 export const refreshInvestmentOfficeMorning = (body = {}) =>
   intelligenceFetch('/investment-office/refresh', {
     method: 'POST',
     body: body || {},
+    timeoutMs: IO_MORNING_TIMEOUT_MS,
   });
 export const generateInvestmentOfficeMorningBrief = (body = {}) =>
   intelligenceFetch('/investment-office/generate-morning-brief', {
     method: 'POST',
     body: body || {},
+    timeoutMs: IO_MORNING_TIMEOUT_MS,
   });
 
 /** CIO-01 — Comparative Intelligence Office */
