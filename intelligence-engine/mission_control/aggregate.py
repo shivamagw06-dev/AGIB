@@ -1639,6 +1639,15 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
     except Exception:
         out["institutional_graph"] = None
 
+    # FG-01 — Forecast & Scenario Graph.
+    try:
+        from institutional_forecasting.production import soft_slice_mission_control as fg_soft
+
+        out["institutional_forecasting"] = fg_soft()
+        out["sources"].append("institutional_forecasting")
+    except Exception:
+        out["institutional_forecasting"] = None
+
     # IO-01 — Institutional Observation Engine (Observation Center).
     try:
         from institutional_observation.production import soft_slice_mission_control as obs_soft

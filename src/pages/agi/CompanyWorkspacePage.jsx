@@ -7,6 +7,7 @@ import {
   getInstitutionalDecision,
   getInstitutionalGraph,
   getInstitutionalObservations,
+  getInstitutionalScenarios,
 } from '@/lib/intelligenceApi';
 import {
   COMPANY_TABS,
@@ -97,6 +98,8 @@ export default function CompanyWorkspacePage() {
   const [decisionPack, setDecisionPack] = useState(null);
   const [knowledgeGraph, setKnowledgeGraph] = useState(null);
   const [observationsPack, setObservationsPack] = useState(null);
+  const [forecastPack, setForecastPack] = useState(null);
+  const [selectedScenario, setSelectedScenario] = useState('base');
   const [selectedNodeId, setSelectedNodeId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -115,11 +118,15 @@ export default function CompanyWorkspacePage() {
         includeDrift: true,
       }).catch(() => null),
       getInstitutionalGraph(ticker, { includePaths: true, includeInference: true }).catch(() => null),
+      getInstitutionalScenarios(ticker, {
+        includeGraph: true,
+        includePropagation: true,
+      }).catch(() => null),
       getInstitutionalObservations(ticker, {
         includeDecisionChanges: true,
       }).catch(() => null),
     ])
-      .then(([ws, tl, ev, decision, graph, observations]) => {
+      .then(([ws, tl, ev, decision, graph, forecast, observations]) => {
         if (!active) return;
         setWorkspace(ws);
         const events =
@@ -136,6 +143,8 @@ export default function CompanyWorkspacePage() {
         setEvidence(Array.isArray(refs) ? refs : []);
         setDecisionPack(decision && decision.ok !== false ? decision : null);
         setKnowledgeGraph(graph && graph.ok !== false ? graph : null);
+        setForecastPack(forecast && forecast.ok !== false ? forecast : null);
+        setSelectedScenario('base');
         setObservationsPack(observations && observations.ok !== false ? observations : null);
         setSelectedNodeId(null);
         setLoading(false);
@@ -678,6 +687,136 @@ export default function CompanyWorkspacePage() {
                       </li>
                     );
                   })}
+                </ul>
+              </section>
+            </>
+          )}
+        </div>
+      )}
+
+      {!loading && !error && tab === 'forecast' && (
+        <div>
+          <h2 style={{ margin: '0 0 0.5rem', fontFamily: 'var(--agi-display)', fontSize: '1.5rem' }}>
+            Forecast scenarios
+          </h2>
+          <p className="agi-list-meta" style={{ marginBottom: '1rem' }}>
+            Explicit assumptions propagate through the knowledge graph — not price prediction.
+          </p>
+          {!forecastPack?.scenarios?.length ? (
+            <div className="agi-empty">Forecast scenarios unavailable for this ticker.</div>
+          ) : (
+            <>
+              <div className="agi-tabs" role="tablist" aria-label="Scenario cases">
+                {(forecastPack.scenarios || []).map((s) => (
+                  <button
+                    key={s.scenario_name}
+                    type="button"
+                    role="tab"
+                    aria-selected={selectedScenario === s.scenario_name}
+                    className={selectedScenario === s.scenario_name ? 'active' : undefined}
+                    onClick={() => setSelectedScenario(s.scenario_name)}
+                  >
+                    {String(s.scenario_name || '').toUpperCase()}
+                  </button>
+                ))}
+              </div>
+
+              {(() => {
+                const active =
+                  (forecastPack.scenarios || []).find((s) => s.scenario_name === selectedScenario) ||
+                  forecastPack.scenarios[0];
+                if (!active) return null;
+                return (
+                  <>
+                    <div className="agi-stat-row" style={{ marginTop: '1rem' }}>
+                      <div className="agi-stat">
+                        <div className="agi-stat-label">Decision</div>
+                        <div className="agi-stat-value" style={{ fontSize: '1.35rem' }}>
+                          {active.resulting_decision}
+                        </div>
+                      </div>
+                      <div className="agi-stat">
+                        <div className="agi-stat-label">Confidence</div>
+                        <div className="agi-stat-value">
+                          {formatConfidence(active.resulting_confidence)}
+                        </div>
+                      </div>
+                      <div className="agi-stat">
+                        <div className="agi-stat-label">Probability</div>
+                        <div className="agi-stat-value" style={{ fontSize: '1.15rem' }}>
+                          {Math.round(Number(active.probability || 0) * 100)}%
+                        </div>
+                      </div>
+                    </div>
+
+                    <section style={{ marginTop: '1.25rem' }}>
+                      <h3 style={{ fontFamily: 'var(--agi-display)', fontSize: '1.15rem' }}>
+                        Propagation
+                      </h3>
+                      <ul className="agi-list" style={{ marginTop: '0.75rem' }}>
+                        {(active.graph_changes || []).slice(0, 10).map((step) => (
+                          <li key={step}>
+                            <div className="agi-list-title">{productizeText(step)}</div>
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+
+                    <section style={{ marginTop: '1.25rem' }}>
+                      <h3 style={{ fontFamily: 'var(--agi-display)', fontSize: '1.15rem' }}>
+                        Decision evolution
+                      </h3>
+                      <ul className="agi-list" style={{ marginTop: '0.75rem' }}>
+                        {(active.reason_changes || [
+                          `${active.base_decision || '—'} → ${active.resulting_decision}`,
+                        ]).map((step) => (
+                          <li key={step}>
+                            <div className="agi-list-title">{productizeText(step)}</div>
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+                  </>
+                );
+              })()}
+
+              <section style={{ marginTop: '1.25rem' }}>
+                <h3 style={{ fontFamily: 'var(--agi-display)', fontSize: '1.15rem' }}>
+                  Scenario comparison
+                </h3>
+                <ul className="agi-list" style={{ marginTop: '0.75rem' }}>
+                  {(forecastPack.comparison || []).map((c) => (
+                    <li key={c.scenario}>
+                      <div className="agi-list-title">
+                        {String(c.scenario || '').toUpperCase()}: {c.decision}{' '}
+                        <span className="agi-list-meta">
+                          {formatConfidence(c.confidence)} · p={Math.round(Number(c.probability || 0) * 100)}%
+                        </span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+
+              <section style={{ marginTop: '1.25rem' }}>
+                <h3 style={{ fontFamily: 'var(--agi-display)', fontSize: '1.15rem' }}>
+                  Sensitivity
+                </h3>
+                <ul className="agi-list" style={{ marginTop: '0.75rem' }}>
+                  {Object.entries(
+                    forecastPack.sensitivity?.scorecard ||
+                      forecastPack.scenarios?.[0]?.sensitivity?.scorecard ||
+                      {}
+                  ).map(([label, pts]) => (
+                    <li key={label}>
+                      <div className="agi-list-title">
+                        {label}{' '}
+                        <span className="agi-list-meta">
+                          {pts > 0 ? `+${pts}` : String(pts)}
+                        </span>
+                      </div>
+                    </li>
+                  ))}
                 </ul>
               </section>
             </>

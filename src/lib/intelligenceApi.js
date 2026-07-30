@@ -1202,6 +1202,24 @@ export const getInstitutionalGraph = (
   });
 };
 
+/** FG-01 — Forecast & Scenario Graph */
+export const getInstitutionalScenarioHealth = () =>
+  intelligenceFetch('/scenario/health', { timeoutMs: 30_000 });
+export const composeInstitutionalScenarios = (body = {}) =>
+  intelligenceFetch('/scenario/company', { method: 'POST', body: body || {}, timeoutMs: 90_000 });
+export const getInstitutionalScenarios = (
+  ticker,
+  { includeGraph = false, includePropagation = true } = {}
+) => {
+  const qs = new URLSearchParams();
+  if (includeGraph) qs.set('include_graph', 'true');
+  if (includePropagation) qs.set('include_propagation', 'true');
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return intelligenceFetch(`/scenario/company/${encodeURIComponent(ticker)}${suffix}`, {
+    timeoutMs: 90_000,
+  });
+};
+
 /** IO-01 — Institutional Observation Engine (proactive monitoring) */
 export const getInstitutionalObservationHealth = () =>
   intelligenceFetch('/observation/health', { timeoutMs: 30_000 });

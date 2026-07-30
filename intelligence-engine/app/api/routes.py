@@ -10112,6 +10112,39 @@ async def institutional_graph_company_ticker(
     )
 
 
+# --- FG-01 Forecast & Scenario Graph (deterministic propagation; no ML) ---
+
+
+@router.get("/scenario/health")
+async def institutional_forecast_health():
+    from institutional_forecasting.production import health
+
+    return health()
+
+
+@router.post("/scenario/company")
+async def institutional_forecast_company(payload: dict[str, Any] = Body(default={})):
+    from institutional_forecasting.production import scenario_company
+
+    return scenario_company(payload or {})
+
+
+@router.get("/scenario/company/{ticker}")
+async def institutional_forecast_company_ticker(
+    ticker: str,
+    include_graph: bool = False,
+    include_propagation: bool = True,
+):
+    from institutional_forecasting.production import get_company_scenarios
+
+    return get_company_scenarios(
+        ticker,
+        include_graph=include_graph,
+        include_propagation=include_propagation,
+        rebuild=True,
+    )
+
+
 # --- IO-01 Institutional Observation Engine (proactive; hysteresis; no LLM) ---
 
 
