@@ -2853,6 +2853,53 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // UAG-01 — Universal Ask AGI Orchestrator
+  router.get('/orchestrator/health', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/orchestrator/health', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'orchestrator health failed' });
+    }
+  });
+  router.post('/ask', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/ask', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 90_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'universal ask failed' });
+    }
+  });
+  router.post('/ask/stream', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/ask/stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 90_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'universal ask stream failed' });
+    }
+  });
+  router.get('/query/:queryId', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/query/${encodeURIComponent(req.params.queryId)}`,
+        { timeoutMs: 30_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'query get failed' });
+    }
+  });
+
   // ICE-01 — Investment Committee Engine
   router.get('/committee-engine/health', async (_req, res) => {
     try {

@@ -1274,6 +1274,16 @@ export const getPortfolioPolicy = (
   });
 };
 
+/** UAG-01 — Universal Ask AGI Orchestrator */
+export const getOrchestratorHealth = () =>
+  intelligenceFetch('/orchestrator/health', { timeoutMs: 30_000 });
+export const universalAsk = (body = {}) =>
+  intelligenceFetch('/ask', { method: 'POST', body: body || {}, timeoutMs: 90_000 });
+export const universalAskStream = (body = {}) =>
+  intelligenceFetch('/ask/stream', { method: 'POST', body: body || {}, timeoutMs: 90_000 });
+export const getUniversalQuery = (queryId) =>
+  intelligenceFetch(`/query/${encodeURIComponent(queryId)}`, { timeoutMs: 30_000 });
+
 /** ICE-01 — Investment Committee Engine */
 export const getCommitteeEngineHealth = () =>
   intelligenceFetch('/committee-engine/health', { timeoutMs: 30_000 });

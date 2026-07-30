@@ -1692,6 +1692,15 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("institutional_committee")
     except Exception:
         out["institutional_committee"] = None
+
+    # UAG-01 — Universal Ask AGI Orchestrator (Orchestration Center).
+    try:
+        from institutional_orchestrator.production import soft_slice_mission_control as uag_soft
+
+        out["institutional_orchestrator"] = uag_soft()
+        out["sources"].append("institutional_orchestrator")
+    except Exception:
+        out["institutional_orchestrator"] = None
     return out
 
 
