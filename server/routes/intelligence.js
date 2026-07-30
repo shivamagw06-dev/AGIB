@@ -1920,6 +1920,146 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // AGIB V1.5 — Institutional Universe Data Factory (IUDF)
+  router.get('/universe-master-registry/health', kfGet('/v1/universe-master-registry/health'));
+  router.get('/universe-master-registry/dashboard', kfGet('/v1/universe-master-registry/dashboard'));
+  router.get('/universe-master-registry', async (req, res) => {
+    try {
+      const q = new URLSearchParams();
+      for (const k of ['index', 'limit', 'offset', 'include_coverage']) {
+        if (req.query[k] != null) q.set(k, String(req.query[k]));
+      }
+      const qs = q.toString();
+      const result = await engineFetch(`/v1/universe-master-registry${qs ? `?${qs}` : ''}`, {
+        timeoutMs: 60_000,
+      });
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'universe-master-registry list failed' });
+    }
+  });
+  router.get('/universe-master-registry/company/:ticker', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/universe-master-registry/company/${encodeURIComponent(req.params.ticker)}`,
+        { timeoutMs: 20_000 }
+      );
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'universe-master-registry company failed' });
+    }
+  });
+
+  router.get('/coverage-matrix/health', kfGet('/v1/coverage-matrix/health'));
+  router.get('/coverage-matrix/company/:ticker', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/coverage-matrix/company/${encodeURIComponent(req.params.ticker)}`,
+        { timeoutMs: 30_000 }
+      );
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'coverage-matrix company failed' });
+    }
+  });
+  router.get('/coverage-matrix/universe', async (req, res) => {
+    try {
+      const q = new URLSearchParams();
+      if (req.query.scope) q.set('scope', String(req.query.scope));
+      if (req.query.limit != null) q.set('limit', String(req.query.limit));
+      const qs = q.toString();
+      const result = await engineFetch(`/v1/coverage-matrix/universe${qs ? `?${qs}` : ''}`, {
+        timeoutMs: 60_000,
+      });
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'coverage-matrix universe failed' });
+    }
+  });
+
+  router.get('/institutional-knowledge-tables/health', kfGet('/v1/institutional-knowledge-tables/health'));
+  router.get('/institutional-knowledge-tables/tables', kfGet('/v1/institutional-knowledge-tables/tables'));
+  router.get('/institutional-knowledge-tables/company/:ticker', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/institutional-knowledge-tables/company/${encodeURIComponent(req.params.ticker)}`,
+        { timeoutMs: 20_000 }
+      );
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'ikt company failed' });
+    }
+  });
+  router.get('/institutional-knowledge-tables/company/:ticker/:table', async (req, res) => {
+    try {
+      const q = new URLSearchParams();
+      if (req.query.period) q.set('period', String(req.query.period));
+      const qs = q.toString();
+      const result = await engineFetch(
+        `/v1/institutional-knowledge-tables/company/${encodeURIComponent(
+          req.params.ticker
+        )}/${encodeURIComponent(req.params.table)}${qs ? `?${qs}` : ''}`,
+        { timeoutMs: 20_000 }
+      );
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'ikt company table failed' });
+    }
+  });
+  router.get(
+    '/institutional-knowledge-tables/company/:ticker/:table/:field/history',
+    async (req, res) => {
+      try {
+        const result = await engineFetch(
+          `/v1/institutional-knowledge-tables/company/${encodeURIComponent(
+            req.params.ticker
+          )}/${encodeURIComponent(req.params.table)}/${encodeURIComponent(
+            req.params.field
+          )}/history`,
+          { timeoutMs: 20_000 }
+        );
+        res.json(result);
+      } catch (err) {
+        res.status(502).json({ error: err.message || 'ikt field history failed' });
+      }
+    }
+  );
+  router.post('/institutional-knowledge-tables/fact', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/institutional-knowledge-tables/fact', {
+        method: 'POST',
+        body: req.body || {},
+        timeoutMs: 20_000,
+      });
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'ikt record fact failed' });
+    }
+  });
+  router.post('/institutional-knowledge-tables/onboard-universe', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/institutional-knowledge-tables/onboard-universe', {
+        method: 'POST',
+        body: req.body || {},
+        timeoutMs: 120_000,
+      });
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'ikt onboard universe failed' });
+    }
+  });
+  router.post('/institutional-knowledge-tables/company/:ticker/rebuild', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/institutional-knowledge-tables/company/${encodeURIComponent(req.params.ticker)}/rebuild`,
+        { method: 'POST', body: {}, timeoutMs: 30_000 }
+      );
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'ikt rebuild company failed' });
+    }
+  });
+
   // Mission Control V1 — administrator operations centre (read-only)
   router.get('/mission-control/health', kfGet('/v1/mission-control/health'));
   router.get('/mission-control/agent-map', async (_req, res) => {

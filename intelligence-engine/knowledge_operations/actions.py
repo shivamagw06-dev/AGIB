@@ -44,6 +44,15 @@ def run_action(
                     icf_tick=False,
                 ),
             }
+        elif a in {"rebuild_structured_tables", "ikt_rebuild"} and t:
+            from institutional_knowledge_tables.production import rebuild_company_tables
+
+            result = {"ok": True, "action": a, "result": rebuild_company_tables(t)}
+        elif a in {"onboard_universe_tables", "ikt_onboard_universe"}:
+            from institutional_knowledge_tables.production import onboard_universe
+
+            scope = "all" if (t in {"ALL", "NSE", "EQUITY"} or force) else "nifty500"
+            result = {"ok": True, "action": a, "result": onboard_universe(scope=scope)}
         elif a in {"run_kil", "kil"}:
             from institutional_evidence.production import integrate_company_knowledge, run_kil_integration
 

@@ -157,6 +157,31 @@ def bootstrap_universe_learning(
         and str(c.get("company") or "").upper() in set(symbols)
     ]
 
+    # Onboard every scoped company into the Institutional Knowledge Tables
+    # master registry (real universe fields; cheap — CSV reads + JSON writes).
+    # Under pytest, run synchronously and small so assertions are deterministic;
+    # in production this can be thousands of file writes, so run off-thread.
+    ikt_onboard: dict[str, Any] = {"ok": False, "skipped": True}
+    try:
+        from institutional_knowledge_tables.sync import sync_universe_company_master
+
+        if os.getenv("PYTEST_CURRENT_TEST") and os.getenv("IO_ALLOW_LIVE_IN_PYTEST") != "1":
+            ikt_onboard = sync_universe_company_master(scope=scope, limit=25)
+        else:
+
+            def _onboard_worker() -> None:
+                try:
+                    sync_universe_company_master(scope=scope)
+                except Exception:
+                    pass
+
+            threading.Thread(
+                target=_onboard_worker, name=f"ikt-onboard-{scope}", daemon=True
+            ).start()
+            ikt_onboard = {"ok": True, "status": "queued", "scope": scope}
+    except Exception as exc:
+        ikt_onboard = {"ok": False, "error": str(exc)[:200]}
+
     cgl_job: dict[str, Any] = {"ok": False, "skipped": True}
     if run_cgl:
         cgl_job = _run_cgl_async(slot=slot)
@@ -191,6 +216,7 @@ def bootstrap_universe_learning(
         },
         "cgl": cgl_job,
         "icf": icf_result,
+        "ikt_onboard": ikt_onboard,
         "message": (
             f"Learning queue ready for {len(symbols)} companies (scope={scope}). "
             "CGL gathers filings/financials/evidence in priority order: "

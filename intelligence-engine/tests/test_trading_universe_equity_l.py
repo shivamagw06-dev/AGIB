@@ -59,4 +59,6 @@ def test_supported_universe_includes_nse_listed():
     nse = nse_listed()
     assert len(nse) >= 2300
     assert "IDBI" in supported_universe()
-    assert priority_tier("IDBI") <= 4
+    # IDBI is a Nifty 500 constituent (tier 5 in the index-CSV-based priority
+    # scheme: 1=Nifty50 2=Next50 3=Nifty100 4=Nifty200 5=Nifty500 ... 7=residual NSE).
+    assert priority_tier("IDBI") <= 7
