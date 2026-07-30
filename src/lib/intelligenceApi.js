@@ -1573,6 +1573,39 @@ export const getIepDecisionGate = (ticker, recommendation) =>
 export const getIepPublishGate = (ticker) =>
   intelligenceFetch(`/iep/gates/publish/${encodeURIComponent(ticker)}`, { timeoutMs: 60_000 });
 
+/** IEP v1.1.1 — Knowledge OS + institutional company APIs */
+export const getIepEntity = (query) =>
+  intelligenceFetch(`/iep/entity/${encodeURIComponent(query)}`, { timeoutMs: 30_000 });
+export const getIepTimeline = (ticker) =>
+  intelligenceFetch(`/iep/timeline/${encodeURIComponent(ticker)}`, { timeoutMs: 60_000 });
+export const getIepGraph = (ticker) =>
+  intelligenceFetch(`/iep/graph/${encodeURIComponent(ticker)}`, { timeoutMs: 60_000 });
+export const getIepEligibility = (ticker) =>
+  intelligenceFetch(`/iep/eligibility/${encodeURIComponent(ticker)}`, { timeoutMs: 60_000 });
+export const getIepQuality = (ticker) =>
+  intelligenceFetch(`/iep/quality/${encodeURIComponent(ticker)}`, { timeoutMs: 60_000 });
+export const getIepDomains = (ticker) =>
+  intelligenceFetch(`/iep/domains/${encodeURIComponent(ticker)}`, { timeoutMs: 60_000 });
+export const getIepCoverage = (ticker) =>
+  intelligenceFetch(`/iep/coverage/${encodeURIComponent(ticker)}`, { timeoutMs: 90_000 });
+export const runIepLearn = (ticker, body = {}) =>
+  intelligenceFetch(`/iep/learn/${encodeURIComponent(ticker)}`, {
+    method: 'POST',
+    body: body || {},
+    timeoutMs: 120_000,
+  });
+export const getIepLifecycle = (ticker) =>
+  intelligenceFetch(`/iep/lifecycle/${encodeURIComponent(ticker)}`, { timeoutMs: 30_000 });
+export const getIepObservability = () =>
+  intelligenceFetch('/iep/observability', { timeoutMs: 180_000 });
+export const getIepCompany = (companyRef) =>
+  intelligenceFetch(`/iep/company/${encodeURIComponent(companyRef)}`, { timeoutMs: 120_000 });
+export const getIepCompanyResource = (companyRef, resource) =>
+  intelligenceFetch(
+    `/iep/company/${encodeURIComponent(companyRef)}/${encodeURIComponent(resource)}`,
+    { timeoutMs: 120_000 }
+  );
+
 export const getLaunchHealth = () =>
   intelligenceFetch('/launch/health', { timeoutMs: 30_000 });
 export const getLaunchMetrics = () =>

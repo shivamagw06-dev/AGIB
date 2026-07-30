@@ -1,30 +1,65 @@
-# AGI V1.1 — Institutional Evidence Platform (IEP-01)
+# AGI V1.1.1 — Institutional Evidence Platform (IEP-01)
 
 ## Mission
 
-AGI's highest priority is no longer building additional intelligence engines.
+> **AGI is an Institutional Knowledge Platform that continuously acquires, validates, normalizes, versions, and preserves institutional evidence, transforming raw market information into a canonical knowledge base from which research, investment decisions, portfolio intelligence, and future AI capabilities are derived. Every material conclusion must be explainable, reproducible, and traceable to primary evidence.**
 
-The highest priority is building an **Institutional Evidence Platform** that ensures every investment opinion is supported by complete, validated, traceable institutional evidence.
+### Mindset shift
 
-```text
-Raw Data → Canonical Evidence → Company Memory → Knowledge Graph
-→ Financial Intelligence → Decision Engine → Research Note
-
-NOT
-
-Raw Data → LLM → Research Note
-```
+| Today | Target |
+|-------|--------|
+| Intelligence platform with data feeding engines | **Knowledge platform** — durable institutional knowledge; engines consume it |
 
 Intelligence is a consumer of evidence — not a substitute for it.
 
+## Knowledge OS pipeline
+
+```text
+External Provider
+        │
+        ▼
+Data Governance          ← Layer 0
+        │
+        ▼
+Evidence Acquisition
+        │
+        ▼
+Canonical Normalization  ← domain models (not provider payloads)
+        │
+        ▼
+Data Quality Engine      ← score 0–100; DO NOT PUBLISH below threshold
+        │
+        ▼
+Evidence Registry
+        │
+        ▼
+Company Memory + Timeline
+        │
+        ▼
+Evidence Graph + Claims
+        │
+        ▼
+Knowledge Graph → Financial Intelligence
+        │
+        ▼
+Decision Eligibility → Decision Engine
+        │
+        ▼
+Research Lifecycle → Publishing
+```
+
+**Not:** `Raw Data → LLM → Research Note`
+
 ## Design principles
 
-1. No research without evidence.
-2. No recommendation without canonical financial statements.
-3. No narrative without lineage.
-4. Every material claim must map to primary evidence.
-5. Missing evidence must block publication.
-6. Every downstream engine consumes a single canonical **InstitutionalResearchPack**.
+1. No research without evidence
+2. No recommendation without canonical financial statements
+3. No narrative without lineage
+4. Every material claim maps to primary evidence
+5. Missing evidence blocks publication
+6. Single canonical Research Pack for all consumers
+7. Nothing enters AGI without data governance
+8. Every document references an immutable Entity ID (`AGI-COMPANY-NNNNNNN`)
 
 ## Package
 
@@ -32,56 +67,74 @@ Intelligence is a consumer of evidence — not a substitute for it.
 
 | Module | Role |
 |--------|------|
-| `acquisition/` | Collect institutional documents (identity metadata required) |
-| `canonical/` | `CanonicalFinancialStatements` — one schema for all providers |
-| `registry/` | Immutable evidence objects (hash, authority, freshness) |
-| `company_memory_bridge/` | Persistent per-company institutional memory view |
-| `research_pack/` | Single canonical pack for all consumers |
-| `validator/` | Block if mandatory components fail |
-| `readiness/` | Research Ready / Research Blocked index |
-| `orchestrator/` | Ask → registry → ingest/publish → pack → research |
-| `gates.py` | Soft hooks for Writer / Decision / Publishing |
+| `governance/` | Layer 0 — provider, license, authority, SLA, hash, version, retry, provenance |
+| `acquisition/` | Collect docs (entity_id + governance on every document) |
+| `canonical/` | Financial statements + domain models (Company, Market, Actions, …) |
+| `quality/` | Evidence Quality Score 0–100 |
+| `entity/` | Entity resolution bridge (never guess) |
+| `registry/` | Immutable evidence objects |
+| `company_memory_bridge/` | Persistent memory view |
+| `timeline/` | Company history across time |
+| `evidence_graph/` | Evidence → claim → consumer lineage |
+| `claims/` | Claim objects with confidence / verified |
+| `decision_eligibility/` | Earn permission before recommending |
+| `learning/` | Continuous evidence learning loop |
+| `lifecycle/` | Draft → review → published → stale → refresh |
+| `observability/` | Research-quality metrics for Mission Control |
+| `research_pack/` / `validator/` / `readiness/` / `orchestrator/` | Pack contract + gates |
+| `phase1_acceptance.py` | Explicit Institutional Coverage Complete criteria |
+
+## Canonical domain models
+
+`CanonicalCompany` · `CanonicalFinancialStatements` · `CanonicalMarketData` · `CanonicalCorporateActions` · `CanonicalShareholding` · `CanonicalManagementGuidance` · `CanonicalTranscript` · `CanonicalNewsEvent` · `CanonicalMacroSeries` · `CanonicalValuation` · `CanonicalForecast`
 
 ## Soft gates
 
-- **Research Writer** — cannot execute unless `ResearchPack.claim_safe == true`. Never invent revenue/EPS/EBITDA/debt/margins/ARPU/GRM/capex/valuation; write `Evidence unavailable.`
-- **Decision Engine** — cannot issue BUY/SELL/OVERWEIGHT/UNDERWEIGHT unless evidence complete + statements published + readiness above threshold; otherwise `NO RECOMMENDATION` / `MONITOR`.
-- **Publishing** — reject if `claim_safe == false` or Research Ready == false.
+- **Writer** — requires `claim_safe`
+- **Decision Eligibility → Decision** — BUY/SELL/OW/UW only when eligible; else `NO RECOMMENDATION` / `MONITOR`
+- **Publishing** — requires claim_safe + Research Ready + quality ≥ threshold
 
-## API (engine + BFF)
+## Institutional APIs
 
 Prefix: `/v1/iep/*` (BFF: `/api/intelligence/iep/*`)
 
-- `GET /iep/health` · `/iep/status` · `/iep/center` · `/iep/phase1` · `/iep/metrics`
-- `GET /iep/pack/{ticker}` · `/iep/readiness/{ticker}` · `/iep/validate/{ticker}`
-- `POST /iep/orchestrate/{ticker}`
-- `GET /iep/registry/{ticker}` · `/iep/canonical/{ticker}` · `/iep/memory/{ticker}`
-- Writer / decision / publish gates under `/iep/gates/...`
+```text
+GET /iep/company/{id}
+GET /iep/company/{id}/memory
+GET /iep/company/{id}/financials
+GET /iep/company/{id}/evidence
+GET /iep/company/{id}/timeline
+GET /iep/company/{id}/research-ready
+GET /iep/company/{id}/claims
+GET /iep/company/{id}/valuation
+GET /iep/company/{id}/knowledge
+```
 
-> Note: `/v1/evidence/*` remains reserved for Institutional Evidence Retrieval (IERE).
+Also: `/iep/entity/{q}`, `/iep/eligibility/{t}`, `/iep/quality/{t}`, `/iep/learn/{t}`, `/iep/lifecycle/{t}`, `/iep/observability`, `/iep/coverage/{t}`
 
-## Phase 1 target
+Ask AGI consumes the same APIs. (`/v1/evidence/*` remains IERE.)
 
-Complete institutional coverage for **Top 20 Indian companies** (cross-sector) before scaling to Nifty 500.
+## Phase 1 — Institutional Coverage Complete
 
-For each company: automatic acquisition, canonical statements, evidence registry, company memory, research pack, research readiness, and an institutional research note with every material claim backed by primary evidence.
+Top 20 India. For **each** company, all must pass:
 
-## CI gates
+- 10+ years financial statements · annual reports · quarterly history
+- Earnings presentations · transcripts · corporate actions · shareholding · segments
+- Company timeline · canonical financials · company memory · evidence registry · KG
+- Research readiness ≥ target · zero unsupported material claims · reproducible note
 
-Fail build if:
+Only then expand toward Nifty 500.
 
-- Canonical statements contain zero periods
-- Accounting identities fail
-- Evidence hash missing
-- Freshness exceeded
-- Research Pack incomplete
-- Recommendation contradiction detected
-- Research generated with missing mandatory evidence
+## Continuous learning
+
+On new filing / transcript / guidance / corp action / rating change:
+
+`Acquire → Normalize → Update Memory → Recompute KG → Refresh FI → Refresh Watchlists → Invalidate stale research → Notify analysts`
+
+## Research lifecycle
+
+`Draft → Analyst Review → Published → Evidence Changes → Marked Stale → Auto Refresh → Republished`
 
 ## Related fix
 
-`financial_statements_engine/extraction/nse_xbrl.py` now accepts `quarter_history` / `annual_history` (earnings_intelligence shape) in addition to `quarters` / `annuals` — unblocking FSE extract → publish for packs that already carry XBRL-derived history.
-
-## Mission Control
-
-Evidence Center soft slice on Mission Control (`institutional_evidence`). Live coverage via `/iep/phase1` and `/iep/metrics`.
+FSE `nse_xbrl` extract accepts `quarter_history` / `annual_history`.

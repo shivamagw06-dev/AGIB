@@ -1565,9 +1565,10 @@ export default function MissionControl() {
         <section className="space-y-3">
           <Kicker>Evidence Center · IEP-01</Kicker>
           <p className="text-sm text-[var(--io-muted)] max-w-3xl">
-            Institutional Evidence Platform — AGI v1.1 foundation. No research without evidence,
-            no recommendation without canonical statements, no narrative without lineage. Phase-1
-            targets Top-20 India before any Nifty 500 scale-up.
+            Institutional Knowledge OS — AGI v1.1.1. Layer-0 governance, canonical domain models,
+            quality scoring, entity IDs, timelines, claims, and decision eligibility. Intelligence
+            engines consume durable knowledge; they do not substitute for it. Phase-1 requires
+            Institutional Coverage Complete on Top-20 before any Nifty 500 scale-up.
           </p>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
             <Stat
@@ -1610,11 +1611,13 @@ export default function MissionControl() {
           </div>
           <Glass>
             <p className="text-[11px] uppercase text-[var(--io-caption)]">
-              Pipeline: Raw Data → Canonical Evidence → Company Memory → KG → FI → Decision → Note
+              Provider → Governance → Acquire → Canonical → Quality → Memory/Timeline → Claims →
+              Eligibility → Decision → Lifecycle
             </p>
             <p className="mt-2 text-xs text-[var(--io-ink-soft)]">
-              {evidenceCenter?.guiding_principle ||
-                'Intelligence is a consumer of evidence — not a substitute for it.'}
+              {evidenceCenter?.mission ||
+                evidenceCenter?.guiding_principle ||
+                'AGI is a knowledge platform — durable institutional knowledge, engines as consumers.'}
             </p>
             {!evidenceCenter ? (
               <p className="mt-2 text-xs text-[var(--io-muted)]">

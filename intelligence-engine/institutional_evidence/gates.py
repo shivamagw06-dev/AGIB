@@ -50,21 +50,34 @@ def gate_decision_recommendation(
     *,
     pack: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    """Cannot issue BUY/SELL/OW/UW unless evidence complete + statements + readiness."""
+    """Decision Eligibility → Decision Engine. Earn permission before recommending."""
     flags = iep_flags()
     p = ensure_research_pack(ticker, pack)
     rec = str(recommendation or "").upper().strip()
     if not flags.get("block_recommendation_without_statements"):
         return {"allowed": True, "recommendation": rec, "soft_bypass": True}
 
-    ready = bool(p.get("claim_safe") and p.get("research_ready"))
+    eligibility = None
+    try:
+        from .decision_eligibility.engine import evaluate_decision_eligibility
+
+        eligibility = evaluate_decision_eligibility(ticker, pack=p)
+    except Exception:
+        eligibility = None
+
+    ready = bool(
+        (eligibility or {}).get("eligible")
+        if eligibility is not None
+        else (p.get("claim_safe") and p.get("research_ready"))
+    )
     if rec in BLOCKED_RECOMMENDATIONS and not ready:
         return {
             "allowed": False,
             "recommendation": "NO RECOMMENDATION",
             "alternate": list(ALLOWED_WHEN_BLOCKED),
             "original_recommendation": rec,
-            "reason": "Evidence incomplete — financial statements not published or readiness below threshold",
+            "reason": "Decision Eligibility denied — evidence incomplete or readiness below threshold",
+            "eligibility": eligibility,
             "pack_summary": {
                 "claim_safe": p.get("claim_safe"),
                 "research_ready": p.get("research_ready"),
@@ -72,8 +85,13 @@ def gate_decision_recommendation(
             },
         }
     if rec in ALLOWED_WHEN_BLOCKED or ready:
-        return {"allowed": True, "recommendation": rec or "MONITOR", "pack": p}
-    return {"allowed": True, "recommendation": rec, "pack": p}
+        return {
+            "allowed": True,
+            "recommendation": rec or "MONITOR",
+            "pack": p,
+            "eligibility": eligibility,
+        }
+    return {"allowed": True, "recommendation": rec, "pack": p, "eligibility": eligibility}
 
 
 def gate_publishing(
@@ -81,22 +99,40 @@ def gate_publishing(
     *,
     pack: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    """Reject publication if claim_safe == false or Research Ready == false."""
+    """Reject publication if claim_safe/ready false or quality below threshold."""
     flags = iep_flags()
     p = ensure_research_pack(ticker, pack)
     if not flags.get("block_publish_unless_ready"):
         return {"allowed": True, "soft_bypass": True}
-    if p.get("claim_safe") and p.get("research_ready"):
-        return {"allowed": True, "pack": p}
+
+    quality = None
+    try:
+        from .quality.engine import evaluate_evidence_quality
+
+        quality = evaluate_evidence_quality(
+            canonical_financials=p.get("financials") or {},
+            registry_items=((p.get("evidence") or {}).get("registry") or {}).get("items") or [],
+        )
+    except Exception:
+        quality = None
+
     reasons = []
     if not p.get("claim_safe"):
         reasons.append("claim_safe == false")
     if not p.get("research_ready"):
         reasons.append("Research Ready == false")
-    return {
-        "allowed": False,
-        "rejected": True,
-        "failure_reasons": reasons,
-        "failures": (p.get("validation") or {}).get("failures") or [],
-        "message": "Publication rejected — institutional evidence incomplete",
-    }
+    if quality is not None and not quality.get("publish_allowed"):
+        reasons.append(
+            f"Evidence Quality Score {quality.get('evidence_quality_score')} < threshold "
+            f"{quality.get('threshold')} — DO NOT PUBLISH"
+        )
+    if reasons:
+        return {
+            "allowed": False,
+            "rejected": True,
+            "failure_reasons": reasons,
+            "failures": (p.get("validation") or {}).get("failures") or [],
+            "quality": quality,
+            "message": "Publication rejected — institutional evidence incomplete",
+        }
+    return {"allowed": True, "pack": p, "quality": quality}

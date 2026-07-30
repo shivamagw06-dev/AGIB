@@ -1,4 +1,4 @@
-"""IEP-01 — Institutional Evidence Platform (AGI v1.1 foundation)."""
+"""IEP-01 — Institutional Evidence Platform (AGI v1.1.1 Knowledge OS)."""
 
 from .schema import (
     IEP_WORKSTREAM_ID,
@@ -6,6 +6,7 @@ from .schema import (
     PHASE1_TOP20,
     RESEARCH_READY_THRESHOLD,
     FORBIDDEN_INVENTED_FIELDS,
+    MISSION_STATEMENT,
 )
 from .flags import is_iep_enabled, iep_flags
 from .production import (
@@ -22,6 +23,11 @@ from .production import (
     get_evidence_center_board,
     soft_slice_mission_control,
     health,
+    institutional_company,
+    company_subresource,
+    get_decision_eligibility,
+    get_evidence_quality,
+    resolve_company_entity,
 )
 
 __all__ = [
@@ -30,6 +36,7 @@ __all__ = [
     "PHASE1_TOP20",
     "RESEARCH_READY_THRESHOLD",
     "FORBIDDEN_INVENTED_FIELDS",
+    "MISSION_STATEMENT",
     "is_iep_enabled",
     "iep_flags",
     "get_iep_status",
@@ -45,4 +52,9 @@ __all__ = [
     "get_evidence_center_board",
     "soft_slice_mission_control",
     "health",
+    "institutional_company",
+    "company_subresource",
+    "get_decision_eligibility",
+    "get_evidence_quality",
+    "resolve_company_entity",
 ]

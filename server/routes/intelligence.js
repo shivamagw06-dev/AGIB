@@ -4047,6 +4047,142 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // IEP v1.1.1 — Knowledge OS + institutional company APIs
+  router.get('/iep/entity/:query', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/iep/entity/${encodeURIComponent(req.params.query)}`,
+        { timeoutMs: 30_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'iep entity failed' });
+    }
+  });
+  router.get('/iep/timeline/:ticker', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/iep/timeline/${encodeURIComponent(req.params.ticker)}`,
+        { timeoutMs: 60_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'iep timeline failed' });
+    }
+  });
+  router.get('/iep/graph/:ticker', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/iep/graph/${encodeURIComponent(req.params.ticker)}`,
+        { timeoutMs: 60_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'iep graph failed' });
+    }
+  });
+  router.get('/iep/eligibility/:ticker', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/iep/eligibility/${encodeURIComponent(req.params.ticker)}`,
+        { timeoutMs: 60_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'iep eligibility failed' });
+    }
+  });
+  router.get('/iep/quality/:ticker', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/iep/quality/${encodeURIComponent(req.params.ticker)}`,
+        { timeoutMs: 60_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'iep quality failed' });
+    }
+  });
+  router.get('/iep/domains/:ticker', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/iep/domains/${encodeURIComponent(req.params.ticker)}`,
+        { timeoutMs: 60_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'iep domains failed' });
+    }
+  });
+  router.get('/iep/coverage/:ticker', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/iep/coverage/${encodeURIComponent(req.params.ticker)}`,
+        { timeoutMs: 90_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'iep coverage failed' });
+    }
+  });
+  router.post('/iep/learn/:ticker', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/iep/learn/${encodeURIComponent(req.params.ticker)}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(req.body || {}),
+          timeoutMs: 120_000,
+        }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'iep learn failed' });
+    }
+  });
+  router.get('/iep/lifecycle/:ticker', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/iep/lifecycle/${encodeURIComponent(req.params.ticker)}`,
+        { timeoutMs: 30_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'iep lifecycle failed' });
+    }
+  });
+  router.get('/iep/observability', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/iep/observability', { timeoutMs: 180_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'iep observability failed' });
+    }
+  });
+  router.get('/iep/company/:companyRef', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/iep/company/${encodeURIComponent(req.params.companyRef)}`,
+        { timeoutMs: 120_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'iep company failed' });
+    }
+  });
+  router.get('/iep/company/:companyRef/:resource', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/iep/company/${encodeURIComponent(req.params.companyRef)}/${encodeURIComponent(req.params.resource)}`,
+        { timeoutMs: 120_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'iep company resource failed' });
+    }
+  });
+
   // ICE-01 — Investment Committee Engine
   router.get('/committee-engine/health', async (_req, res) => {
     try {

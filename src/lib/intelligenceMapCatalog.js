@@ -1629,7 +1629,7 @@ export const LAYERS = [
     code: 'IEP-01',
     name: 'Institutional Evidence Platform',
     purpose:
-      'AGI v1.1 foundation — Raw Data → Canonical Evidence → Company Memory → KG → FI → Decision → Research Note. Every opinion backed by complete, validated, traceable institutional evidence. Intelligence consumes evidence; it does not substitute for it.',
+      'AGI v1.1.1 Knowledge OS — Governance → Canonical domains → Quality → Entity/Timeline/Claims → Decision Eligibility → Research Lifecycle. Durable institutional knowledge; intelligence engines are consumers.',
     zone: 'evidence',
     accent: 'blue',
     healthKey: 'iep01',

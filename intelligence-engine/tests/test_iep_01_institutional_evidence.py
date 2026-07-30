@@ -227,7 +227,7 @@ def test_status_and_soft_slice():
     st = get_iep_status()
     assert st["ok"] is True
     assert st["workstream_id"] == "IEP-01"
-    assert st["pipeline"][0] == "Raw Data"
+    assert "Data Governance" in st["pipeline"]
     assert "LLM" in st["anti_pipeline"]
     slice_ = soft_slice_mission_control()
     assert slice_["board"] == "Evidence Center"
