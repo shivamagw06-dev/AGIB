@@ -1530,6 +1530,14 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("comparative_intelligence")
     except Exception:
         out["comparative_intelligence"] = None
+    # Office SDK — shared application contract (soft board; additive).
+    try:
+        from office_sdk.production import soft_slice_mission_control as office_sdk_soft
+
+        out["office_sdk"] = office_sdk_soft()
+        out["sources"].append("office_sdk")
+    except Exception:
+        out["office_sdk"] = None
     return out
 
 

@@ -487,6 +487,18 @@ _CATALOG: list[dict[str, Any]] = [
         "module": "comparative_intelligence.production",
     },
     {
+        "id": "office_sdk",
+        "name": "Office SDK (shared contract)",
+        "group": "ops",
+        "responsibility": (
+            "Shared OfficeRequest / OfficeResponse / EvidenceBlock contracts for Research, "
+            "Portfolio, Market, Execution, and Knowledge domain offices."
+        ),
+        "sources": ["IO-01", "CIO-01", "future PO/WO/SO/VO/ITO"],
+        "kind": "office",
+        "module": "office_sdk.production",
+    },
+    {
         "id": "ite_thesis",
         "name": "Investment Thesis Office",
         "group": "offices",

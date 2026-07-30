@@ -2103,6 +2103,24 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // Office SDK — shared application office contract
+  router.get('/office-sdk/health', kfGet('/v1/office-sdk/health'));
+  router.get('/office-sdk/dashboard', kfGet('/v1/office-sdk/dashboard'));
+  router.get('/office-sdk/catalog', kfGet('/v1/office-sdk/catalog'));
+  router.get('/office-sdk/domains', kfGet('/v1/office-sdk/domains'));
+  router.post('/office-sdk/invoke', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/office-sdk/invoke', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+      });
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'office-sdk invoke failed' });
+    }
+  });
+
   // AGI v4.0 Investment Office OS — Thesis / Decision / Portfolio / Monitoring / Learning
   // Static paths before dynamic :id routes. Ideas ≠ positions; events recommend review only.
   const v4Get = (enginePath) => async (_req, res) => {

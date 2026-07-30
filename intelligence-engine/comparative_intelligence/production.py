@@ -153,6 +153,17 @@ def query(
     )
 
 
+def as_office_response(
+    pack: dict[str, Any],
+    *,
+    request: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Wrap a native CIO pack in the shared OfficeResponse contract."""
+    from office_sdk.adapters import wrap_cio_response
+
+    return wrap_cio_response(pack, request=request)
+
+
 def soft_slice_mission_control(tickers: list[str] | None = None) -> dict[str, Any]:
     m = cio_store.metrics()
     base = {
