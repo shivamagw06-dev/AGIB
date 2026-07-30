@@ -4302,6 +4302,120 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // ICF-01 — Institutional Coverage Factory
+  router.get('/icf/health', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/icf/health', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'icf health failed' });
+    }
+  });
+  router.get('/icf/status', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/icf/status', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'icf status failed' });
+    }
+  });
+  router.get('/icf/dashboard', async (req, res) => {
+    try {
+      const qs = new URLSearchParams();
+      if (req.query?.scope) qs.set('scope', String(req.query.scope));
+      if (req.query?.sample_limit != null) qs.set('sample_limit', String(req.query.sample_limit));
+      const suffix = qs.toString() ? `?${qs.toString()}` : '';
+      const result = await engineFetch(`/v1/icf/dashboard${suffix}`, { timeoutMs: 180_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'icf dashboard failed' });
+    }
+  });
+  router.get('/icf/score/:ticker', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/icf/score/${encodeURIComponent(req.params.ticker)}`,
+        { timeoutMs: 90_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'icf score failed' });
+    }
+  });
+  router.get('/icf/icc/:ticker', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/icf/icc/${encodeURIComponent(req.params.ticker)}`,
+        { timeoutMs: 90_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'icf icc failed' });
+    }
+  });
+  router.get('/icf/plan', async (req, res) => {
+    try {
+      const qs = new URLSearchParams();
+      if (req.query?.scope) qs.set('scope', String(req.query.scope));
+      if (req.query?.limit != null) qs.set('limit', String(req.query.limit));
+      const suffix = qs.toString() ? `?${qs.toString()}` : '';
+      const result = await engineFetch(`/v1/icf/plan${suffix}`, { timeoutMs: 180_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'icf plan failed' });
+    }
+  });
+  router.post('/icf/plan-dispatch', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/icf/plan-dispatch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 180_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'icf plan-dispatch failed' });
+    }
+  });
+  router.post('/icf/tick', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/icf/tick', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 180_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'icf tick failed' });
+    }
+  });
+  router.post('/icf/dispatch/:ticker', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/icf/dispatch/${encodeURIComponent(req.params.ticker)}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(req.body || {}),
+          timeoutMs: 180_000,
+        }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'icf dispatch failed' });
+    }
+  });
+  router.get('/icf/scheduler', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/icf/scheduler', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'icf scheduler failed' });
+    }
+  });
+
   // ICE-01 — Investment Committee Engine
   router.get('/committee-engine/health', async (_req, res) => {
     try {
