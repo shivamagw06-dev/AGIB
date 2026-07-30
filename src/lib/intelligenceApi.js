@@ -1094,6 +1094,28 @@ export const getInstitutionalStressTestReport = (caseId = 'IST-01') => {
   return intelligenceFetch(`/institutional-stress-tests/report?${qs}`);
 };
 
+/** IBS-01 — AGI Institutional Benchmark Suite */
+export const getInstitutionalBenchmarksHealth = () =>
+  intelligenceFetch('/institutional-benchmarks/health');
+export const getInstitutionalBenchmarksDashboard = () =>
+  intelligenceFetch('/institutional-benchmarks/dashboard');
+export const listInstitutionalBenchmarks = (sector) => {
+  const qs = new URLSearchParams();
+  if (sector) qs.set('sector', String(sector));
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return intelligenceFetch(`/institutional-benchmarks${suffix}`);
+};
+export const getInstitutionalBenchmark = (caseId, params = {}) => {
+  const qs = new URLSearchParams();
+  if (params.cutoff) qs.set('cutoff', String(params.cutoff));
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return intelligenceFetch(`/institutional-benchmarks/${encodeURIComponent(caseId)}${suffix}`);
+};
+export const runInstitutionalBenchmark = (body = {}) =>
+  intelligenceFetch('/institutional-benchmarks/run', { method: 'POST', body: body || {} });
+export const runAllInstitutionalBenchmarks = (body = {}) =>
+  intelligenceFetch('/institutional-benchmarks/run-all', { method: 'POST', body: body || {} });
+
 /** AGI v4.0 Investment Office OS — Thesis → Decision → Portfolio → Monitoring → Learning */
 export const getThesisHealth = () => intelligenceFetch('/thesis/health');
 export const getThesisDashboard = () => intelligenceFetch('/thesis/dashboard');

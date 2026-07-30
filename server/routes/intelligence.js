@@ -2388,6 +2388,58 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // IBS-01 — AGI Institutional Benchmark Suite
+  router.get('/institutional-benchmarks/health', kfGet('/v1/institutional-benchmarks/health'));
+  router.get('/institutional-benchmarks/dashboard', kfGet('/v1/institutional-benchmarks/dashboard'));
+  router.get('/institutional-benchmarks', async (req, res) => {
+    try {
+      const qs = new URLSearchParams();
+      if (req.query?.sector) qs.set('sector', String(req.query.sector));
+      const suffix = qs.toString() ? `?${qs}` : '';
+      const result = await engineFetch(`/v1/institutional-benchmarks${suffix}`);
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'institutional-benchmarks list failed' });
+    }
+  });
+  router.get('/institutional-benchmarks/:caseId', async (req, res) => {
+    try {
+      const qs = new URLSearchParams();
+      if (req.query?.cutoff) qs.set('cutoff', String(req.query.cutoff));
+      const suffix = qs.toString() ? `?${qs}` : '';
+      const result = await engineFetch(
+        `/v1/institutional-benchmarks/${encodeURIComponent(req.params.caseId)}${suffix}`
+      );
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'institutional-benchmarks get failed' });
+    }
+  });
+  router.post('/institutional-benchmarks/run', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/institutional-benchmarks/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+      });
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'institutional-benchmarks run failed' });
+    }
+  });
+  router.post('/institutional-benchmarks/run-all', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/institutional-benchmarks/run-all', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+      });
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'institutional-benchmarks run-all failed' });
+    }
+  });
+
   // AGI v4.0 Investment Office OS — Thesis / Decision / Portfolio / Monitoring / Learning
   // Static paths before dynamic :id routes. Ideas ≠ positions; events recommend review only.
   const v4Get = (enginePath) => async (_req, res) => {

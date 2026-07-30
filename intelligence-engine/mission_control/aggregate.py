@@ -1578,6 +1578,14 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("institutional_stress_tests")
     except Exception:
         out["institutional_stress_tests"] = None
+    # IBS-01 — AGI Institutional Benchmark Suite (permanent; additive).
+    try:
+        from institutional_benchmarks.production import soft_slice_mission_control as ibs_soft
+
+        out["institutional_benchmarks"] = ibs_soft()
+        out["sources"].append("institutional_benchmarks")
+    except Exception:
+        out["institutional_benchmarks"] = None
     return out
 
 

@@ -580,6 +580,25 @@ _CATALOG: list[dict[str, Any]] = [
         "module": "institutional_stress_tests.production",
     },
     {
+        "id": "institutional_benchmarks",
+        "name": "AGI Institutional Benchmark Suite (IBS-01)",
+        "group": "ops",
+        "responsibility": (
+            "Permanent multi-sector raw-evidence benchmarks for the AGI Intelligence Core — "
+            "pytest for intelligence; release gates on score/hallucination/provenance/consistency."
+        ),
+        "sources": [
+            "raw corpora",
+            "FIRE-01…06",
+            "IO-01",
+            "CIO-01",
+            "CW-01",
+            "IST-02 pipeline",
+        ],
+        "kind": "evaluation",
+        "module": "institutional_benchmarks.production",
+    },
+    {
         "id": "ite_thesis",
         "name": "Investment Thesis Office",
         "group": "offices",
