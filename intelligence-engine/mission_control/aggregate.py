@@ -1629,6 +1629,15 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("institutional_calibration")
     except Exception:
         out["institutional_calibration"] = None
+
+    # KG-01 — Institutional Knowledge Graph (single-company).
+    try:
+        from institutional_graph.production import soft_slice_mission_control as kg_soft
+
+        out["institutional_graph"] = kg_soft()
+        out["sources"].append("institutional_graph")
+    except Exception:
+        out["institutional_graph"] = None
     return out
 
 

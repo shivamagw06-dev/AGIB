@@ -672,6 +672,23 @@ _CATALOG: list[dict[str, Any]] = [
         "module": "institutional_calibration.production",
     },
     {
+        "id": "institutional_graph",
+        "name": "Institutional Knowledge Graph (KG-01)",
+        "group": "publication",
+        "responsibility": (
+            "Single-company knowledge graph connecting evidence, metrics, risks, "
+            "reasons, decisions and calibration — deterministic inference & impact. No LLM."
+        ),
+        "sources": [
+            "InstitutionalReportInput",
+            "Reason graph",
+            "InstitutionalDecision",
+            "Calibration",
+        ],
+        "kind": "knowledge",
+        "module": "institutional_graph.production",
+    },
+    {
         "id": "ite_thesis",
         "name": "Investment Thesis Office",
         "group": "offices",

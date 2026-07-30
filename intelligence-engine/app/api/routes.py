@@ -10079,6 +10079,39 @@ async def institutional_calibration_company_ticker(
     )
 
 
+# --- KG-01 Institutional Knowledge Graph (single-company; deterministic) ---
+
+
+@router.get("/graph/health")
+async def institutional_graph_health():
+    from institutional_graph.production import health
+
+    return health()
+
+
+@router.post("/graph/company")
+async def institutional_graph_company(payload: dict[str, Any] = Body(default={})):
+    from institutional_graph.production import graph_company
+
+    return graph_company(payload or {})
+
+
+@router.get("/graph/company/{ticker}")
+async def institutional_graph_company_ticker(
+    ticker: str,
+    include_paths: bool = False,
+    include_inference: bool = True,
+):
+    from institutional_graph.production import get_company_graph
+
+    return get_company_graph(
+        ticker,
+        include_paths=include_paths,
+        include_inference=include_inference,
+        rebuild=True,
+    )
+
+
 # --- Company Monitoring System V1 (continuous living analyst; additive) ---
 
 

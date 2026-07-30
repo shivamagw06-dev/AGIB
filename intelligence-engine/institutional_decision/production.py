@@ -144,6 +144,29 @@ def _decide_from_report_input(
             "calibration": cal_summary if include_calibration else None,
         }
 
+    # KG-01 — bind decision to DecisionNode in company knowledge graph
+    try:
+        from dataclasses import replace as dc_replace
+
+        from institutional_graph.flags import is_enabled as kg_enabled
+        from institutional_graph.graph import build_company_graph
+        from institutional_graph.impact import compute_impacts
+        from institutional_graph.inference import infer
+        from institutional_graph.production import _GRAPHS
+
+        if kg_enabled():
+            kg = build_company_graph(inp, reasons=reasons, decision=calibrated)
+            infer(kg)
+            compute_impacts(kg, inp)
+            calibrated = dc_replace(
+                calibrated,
+                knowledge_graph_id=kg.graph_id,
+                decision_node_id=kg.decision_node_id,
+            )
+            _GRAPHS[str(inp.ticker or "").strip().upper()] = kg
+    except Exception:  # noqa: BLE001
+        pass
+
     decision_history.record(calibrated)
     diagnostics = build_diagnostics(calibrated, validation)
     if cal_summary:
@@ -152,6 +175,9 @@ def _decide_from_report_input(
         diagnostics["calibrated"] = True
         if include_drift and cal_summary.get("drift"):
             diagnostics["decision_drift"] = cal_summary["drift"]
+    if getattr(calibrated, "knowledge_graph_id", ""):
+        diagnostics["knowledge_graph_id"] = calibrated.knowledge_graph_id
+        diagnostics["decision_node_id"] = calibrated.decision_node_id
 
     out: dict[str, Any] = {
         "ok": True,

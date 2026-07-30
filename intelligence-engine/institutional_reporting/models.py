@@ -193,12 +193,20 @@ class InstitutionalReport:
     diagnostics: dict[str, Any] = field(default_factory=dict)
     reason_graph_text: str = ""
     decision: Any = None  # InstitutionalDecision | dict | None
+    knowledge_graph: Any = None  # InstitutionalKnowledgeGraph summary | dict | None
 
     def to_dict(self) -> dict[str, Any]:
         decision_payload = None
         if self.decision is not None:
             decision_payload = (
                 self.decision.to_dict() if hasattr(self.decision, "to_dict") else self.decision
+            )
+        kg_payload = None
+        if self.knowledge_graph is not None:
+            kg_payload = (
+                self.knowledge_graph.to_dict()
+                if hasattr(self.knowledge_graph, "to_dict")
+                else self.knowledge_graph
             )
         return {
             "ok": self.ok,
@@ -219,6 +227,7 @@ class InstitutionalReport:
             "external_writer": False,
             "reason_composer": True,
             "decision_system": True,
+            "knowledge_graph": True,
             "as_of": self.as_of,
             "input_fingerprint": self.input_fingerprint,
             "reasons": [
@@ -227,6 +236,7 @@ class InstitutionalReport:
             "diagnostics": dict(self.diagnostics or {}),
             "reason_graph_text": self.reason_graph_text,
             "decision": decision_payload,
+            "graph": kg_payload,
         }
 
 

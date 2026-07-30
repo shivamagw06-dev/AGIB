@@ -2597,6 +2597,48 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // KG-01 — Institutional Knowledge Graph (single-company)
+  router.get('/graph/health', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/graph/health', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'institutional graph health failed' });
+    }
+  });
+  router.post('/graph/company', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/graph/company', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 60_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'institutional graph failed' });
+    }
+  });
+  router.get('/graph/company/:ticker', async (req, res) => {
+    try {
+      const qs = new URLSearchParams();
+      if (req.query?.include_paths !== undefined) {
+        qs.set('include_paths', String(req.query.include_paths));
+      }
+      if (req.query?.include_inference !== undefined) {
+        qs.set('include_inference', String(req.query.include_inference));
+      }
+      const suffix = qs.toString() ? `?${qs}` : '';
+      const result = await engineFetch(
+        `/v1/graph/company/${encodeURIComponent(req.params.ticker)}${suffix}`,
+        { timeoutMs: 60_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'institutional graph get failed' });
+    }
+  });
+
   // IDS-02 — Decision Calibration & Explainability
   router.get('/calibration/health', async (_req, res) => {
     try {
