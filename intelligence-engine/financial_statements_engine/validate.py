@@ -1,4 +1,8 @@
-"""Validation Layer — status + issues only. Never edits metric values."""
+"""Legacy FSE-01 statement validation — status + issues only. Never edits metric values.
+
+Canonical Draft validation for the warehouse gate is FSE-05 VFQE:
+`financial_statements_engine.validation` (deterministic accounting engine).
+"""
 
 from __future__ import annotations
 

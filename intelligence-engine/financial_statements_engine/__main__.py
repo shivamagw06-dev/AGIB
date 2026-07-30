@@ -26,6 +26,7 @@ def main(argv: list[str] | None = None) -> int:
             "--coverage-health|--coverage-dashboard|--coverage-analytics|"
             "--coverage-matrices TICKER|--coverage-history TICKER [--document-hash HASH]|"
             "--pcc-health|--pcc-dashboard|--pcc-analytics|--pcc-certify [--sector SECTOR]|--pcc-cases|"
+            "--validation-health|--validation-dashboard|--validate-draft PATH|--validate-ticker TICKER|"
             "--schema-evolution-health|--schema-resolve LABEL|"
             "--collection-health|--collection-dashboard|"
             "--collect TICKER [--mode live|historical]|TICKER [--publish]"
@@ -195,6 +196,47 @@ def main(argv: list[str] | None = None) -> int:
 
         sector = args[1] if len(args) > 1 else None
         print(json.dumps(pcc_cases(sector=sector), indent=2, default=str))
+        return 0
+    if cmd == "--validation-health":
+        from financial_statements_engine.validation.production import health as v_health
+
+        print(json.dumps(v_health(), indent=2, default=str))
+        return 0
+    if cmd == "--validation-dashboard":
+        from financial_statements_engine.validation.production import dashboard as v_dash
+
+        print(json.dumps(v_dash(), indent=2, default=str))
+        return 0
+    if cmd == "--validate-draft":
+        from financial_statements_engine.validation.production import run_validation_file
+
+        if len(args) < 2:
+            print("draft path required", file=sys.stderr)
+            return 2
+        publish = "--no-publish" not in args
+        print(json.dumps(run_validation_file(args[1], publish=publish), indent=2, default=str))
+        return 0
+    if cmd == "--validate-ticker":
+        from pathlib import Path
+
+        from financial_statements_engine.store import ensure_dirs
+        from financial_statements_engine.validation.production import run_validation_file
+
+        if len(args) < 2:
+            print("ticker required", file=sys.stderr)
+            return 2
+        ticker = args[1].upper().strip()
+        latest = ensure_dirs() / "parsing" / "drafts" / ticker / "latest.json"
+        if not latest.exists():
+            print(f"no draft for {ticker}", file=sys.stderr)
+            return 2
+        meta = json.loads(latest.read_text(encoding="utf-8"))
+        path = meta.get("path")
+        if not path or not Path(path).exists():
+            print("draft path missing", file=sys.stderr)
+            return 2
+        publish = "--no-publish" not in args
+        print(json.dumps(run_validation_file(str(path), publish=publish), indent=2, default=str))
         return 0
     if cmd == "--schema-evolution-health":
         from financial_statements_engine.schema_evolution.production import health as se_health

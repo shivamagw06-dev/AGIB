@@ -1,4 +1,4 @@
-"""Shared Evidence / Processing Event Bus catalogue (FSE-02 + FSE-04 + FSE-04.1 + FSE-04.2 + FSE-04.3)."""
+"""Shared Evidence / Processing Event Bus catalogue (FSE-02…FSE-05)."""
 
 from __future__ import annotations
 
@@ -51,6 +51,15 @@ PCC_EVENTS_V1 = (
     "pcc.regression.detected.v1",
 )
 
+# Validation & Financial Quality Engine (FSE-05)
+VALIDATION_EVENTS_V1 = (
+    "validation.started.v1",
+    "validation.completed.v1",
+    "validation.approved.v1",
+    "validation.rejected.v1",
+    "validation.quarantined.v1",
+)
+
 PARSE_EVENTS = PARSE_EVENTS_LEGACY + PARSE_EVENTS_V1 + COVERAGE_EVENTS_V1 + PCC_EVENTS_V1
 
-EVENT_TYPES = COLLECTION_EVENTS + PARSE_EVENTS
+EVENT_TYPES = COLLECTION_EVENTS + PARSE_EVENTS + VALIDATION_EVENTS_V1
