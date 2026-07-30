@@ -2219,6 +2219,68 @@ export default function createIntelligenceRouter() {
   router.get('/platform/events/types', kfGet('/v1/platform/events/types'));
   router.get('/platform/events/statistics', kfGet('/v1/platform/events/statistics'));
 
+  // WO-01 — Watchlist Office (research queue)
+  router.get('/watchlist-office/health', kfGet('/v1/watchlist-office/health'));
+  router.get('/watchlist-office/dashboard', kfGet('/v1/watchlist-office/dashboard'));
+  router.get('/watchlist-office/:watchlistId', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/watchlist-office/${encodeURIComponent(req.params.watchlistId)}`
+      );
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'watchlist-office get failed' });
+    }
+  });
+  router.get('/watchlist-office/:watchlistId/queue', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/watchlist-office/${encodeURIComponent(req.params.watchlistId)}/queue`
+      );
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'watchlist-office queue failed' });
+    }
+  });
+  router.post('/watchlist-office', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/watchlist-office', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+      });
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'watchlist-office create failed' });
+    }
+  });
+  router.post('/watchlist-office/:watchlistId/companies', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/watchlist-office/${encodeURIComponent(req.params.watchlistId)}/companies`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(req.body || {}),
+        }
+      );
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'watchlist-office add failed' });
+    }
+  });
+  router.delete('/watchlist-office/:watchlistId/companies/:ticker', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/watchlist-office/${encodeURIComponent(req.params.watchlistId)}/companies/${encodeURIComponent(req.params.ticker)}`,
+        { method: 'DELETE' }
+      );
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'watchlist-office remove failed' });
+    }
+  });
+
   // AGI v4.0 Investment Office OS — Thesis / Decision / Portfolio / Monitoring / Learning
   // Static paths before dynamic :id routes. Ideas ≠ positions; events recommend review only.
   const v4Get = (enginePath) => async (_req, res) => {

@@ -47,9 +47,9 @@ DOMAIN_OFFICES: dict[str, tuple[dict[str, Any], ...]] = {
             "office_id": "wo-01",
             "workstream_id": "WO-01",
             "name": "Watchlist Office",
-            "status": "planned",
-            "module": None,
-            "role": "watchlist_objects_over_portfolios",
+            "status": "live",
+            "module": "watchlist_office.production",
+            "role": "research_queue_event_driven_watchlist",
         },
         {
             "office_id": "so-01",

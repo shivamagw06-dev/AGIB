@@ -518,9 +518,21 @@ _CATALOG: list[dict[str, Any]] = [
             "In-process typed pub/sub for loose coupling between offices — "
             "no business logic, no persistence, no broker (infrastructure only)."
         ),
-        "sources": ["IO-01", "CIO-01", "PO-01", "Office SDK", "future WO/Alerts/Monitoring"],
+        "sources": ["IO-01", "CIO-01", "PO-01", "WO-01", "Office SDK", "future Alerts/Monitoring"],
         "kind": "platform",
         "module": "platform_event_bus.production",
+    },
+    {
+        "id": "watchlist_office",
+        "name": "Watchlist Office (WO-01)",
+        "group": "ops",
+        "responsibility": (
+            "Research-queue watchlists — publishes add/remove events and subscribes to "
+            "research/quality/execution/comparison events (no research, no BUY/SELL)."
+        ),
+        "sources": ["Office SDK", "PEB-01", "IO-01 references", "FIRE references"],
+        "kind": "office",
+        "module": "watchlist_office.production",
     },
     {
         "id": "ite_thesis",

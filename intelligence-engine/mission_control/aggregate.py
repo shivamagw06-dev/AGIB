@@ -1554,6 +1554,14 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("platform_event_bus")
     except Exception:
         out["platform_event_bus"] = None
+    # WO-01 — Watchlist Office (soft board; additive).
+    try:
+        from watchlist_office.production import soft_slice_mission_control as wo01_soft
+
+        out["watchlist_office"] = wo01_soft()
+        out["sources"].append("watchlist_office")
+    except Exception:
+        out["watchlist_office"] = None
     return out
 
 

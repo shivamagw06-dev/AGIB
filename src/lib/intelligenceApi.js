@@ -1023,6 +1023,26 @@ export const getPlatformEventTypes = () => intelligenceFetch('/platform/events/t
 export const getPlatformEventStatistics = () =>
   intelligenceFetch('/platform/events/statistics');
 
+/** WO-01 — Watchlist Office */
+export const getWatchlistOfficeHealth = () => intelligenceFetch('/watchlist-office/health');
+export const getWatchlistOfficeDashboard = () => intelligenceFetch('/watchlist-office/dashboard');
+export const getWatchlistOfficeWatchlist = (watchlistId) =>
+  intelligenceFetch(`/watchlist-office/${encodeURIComponent(watchlistId)}`);
+export const getWatchlistOfficeQueue = (watchlistId) =>
+  intelligenceFetch(`/watchlist-office/${encodeURIComponent(watchlistId)}/queue`);
+export const createWatchlistOfficeWatchlist = (body) =>
+  intelligenceFetch('/watchlist-office', { method: 'POST', body: body || {} });
+export const addWatchlistOfficeCompany = (watchlistId, body) =>
+  intelligenceFetch(`/watchlist-office/${encodeURIComponent(watchlistId)}/companies`, {
+    method: 'POST',
+    body: body || {},
+  });
+export const removeWatchlistOfficeCompany = (watchlistId, ticker) =>
+  intelligenceFetch(
+    `/watchlist-office/${encodeURIComponent(watchlistId)}/companies/${encodeURIComponent(ticker)}`,
+    { method: 'DELETE' }
+  );
+
 /** AGI v4.0 Investment Office OS — Thesis → Decision → Portfolio → Monitoring → Learning */
 export const getThesisHealth = () => intelligenceFetch('/thesis/health');
 export const getThesisDashboard = () => intelligenceFetch('/thesis/dashboard');

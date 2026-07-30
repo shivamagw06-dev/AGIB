@@ -45,7 +45,7 @@ def _seed_builtins() -> None:
             "producer": producers.get(et),
             "description": descriptions.get(et, ""),
             "builtin": True,
-            "status": "active" if not et.startswith("watchlist.") else "reserved",
+            "status": "active",
         }
 
 
