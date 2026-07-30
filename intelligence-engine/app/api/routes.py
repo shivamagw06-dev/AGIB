@@ -9915,6 +9915,44 @@ async def admin_institutional_benchmarks():
     return HTMLResponse(admin_page())
 
 
+# --- E2E-01 Institutional Product Experience Validation (not an engine; additive) ---
+
+
+@router.get("/product-experience/health")
+async def product_experience_health():
+    from product_experience_validation.production import health
+
+    return health()
+
+
+@router.get("/product-experience/dashboard")
+async def product_experience_dashboard():
+    from product_experience_validation.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/product-experience/report")
+async def product_experience_report():
+    from product_experience_validation.production import report
+
+    return report()
+
+
+@router.post("/product-experience/run")
+async def product_experience_run(payload: dict[str, Any] = Body(default={})):
+    from product_experience_validation.production import run
+
+    return run(payload or {})
+
+
+@router.get("/admin/product-experience", response_class=HTMLResponse)
+async def admin_product_experience():
+    from product_experience_validation.production import admin_page
+
+    return HTMLResponse(admin_page())
+
+
 # --- Company Monitoring System V1 (continuous living analyst; additive) ---
 
 

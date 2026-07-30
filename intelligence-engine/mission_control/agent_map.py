@@ -599,6 +599,25 @@ _CATALOG: list[dict[str, Any]] = [
         "module": "institutional_benchmarks.production",
     },
     {
+        "id": "product_experience_validation",
+        "name": "Institutional Product Experience Validation (E2E-01)",
+        "group": "ops",
+        "responsibility": (
+            "End-to-end validation of the AGI product experience — Dashboard, Companies, Ask AGI, "
+            "Research, Portfolio, Markets, Watchlists — as a real institutional user. Not an engine."
+        ),
+        "sources": [
+            "Phase 2 /agi UI",
+            "CW-01",
+            "Ask AGI",
+            "PO-01",
+            "WO-01",
+            "IBS-01",
+        ],
+        "kind": "evaluation",
+        "module": "product_experience_validation.production",
+    },
+    {
         "id": "ite_thesis",
         "name": "Investment Thesis Office",
         "group": "offices",

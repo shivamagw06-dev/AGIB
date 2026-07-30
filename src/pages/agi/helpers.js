@@ -95,7 +95,7 @@ export function productizeText(text) {
   return String(text || '')
     .replace(/\bFIRE-\d+\b/gi, 'intelligence')
     .replace(/\b(CW|IO|WO|PO|PEB|FSE|FKB)-\d+\b/gi, 'module')
-    .replace(/\bOffice SDK\b/gi, 'platform')
+    .replace(/\bOffice\s+SDK\b/gi, 'platform')
     .replace(/\bpass-through from intelligence\b/gi, 'assembled from research layers')
     .trim();
 }

@@ -2440,6 +2440,23 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // E2E-01 — Institutional Product Experience Validation (not an engine)
+  router.get('/product-experience/health', kfGet('/v1/product-experience/health'));
+  router.get('/product-experience/dashboard', kfGet('/v1/product-experience/dashboard'));
+  router.get('/product-experience/report', kfGet('/v1/product-experience/report'));
+  router.post('/product-experience/run', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/product-experience/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+      });
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'product-experience run failed' });
+    }
+  });
+
   // AGI v4.0 Investment Office OS — Thesis / Decision / Portfolio / Monitoring / Learning
   // Static paths before dynamic :id routes. Ideas ≠ positions; events recommend review only.
   const v4Get = (enginePath) => async (_req, res) => {
