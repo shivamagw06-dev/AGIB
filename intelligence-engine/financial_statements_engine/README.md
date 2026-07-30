@@ -21,7 +21,7 @@ Official Sources → Collection (FSE-02) → Raw Evidence → Evidence Event Bus
 P2.1 `earnings_intelligence` is the NSE XBRL **extraction adapter** during migration.
 New consumers must read through FSE — not bypass to parsers.
 
-Specs: [FSE-01](../../docs/FSE_01_FINANCIAL_STATEMENTS_ENGINE.md) · [FSE-02](../../docs/FSE_02_DATA_SOURCES_COLLECTION_PIPELINE.md) · [FSE-03](../../docs/FSE_03_CANONICAL_FINANCIAL_DATA_MODEL.md) · [FSE-04](../../docs/FSE_04_PARSING_NORMALIZATION_ENGINE.md) · [FSE-04.1](../../docs/FSE_04_1_PARSE_MANIFEST_REPLAY_CERTIFICATION.md) · [FSE-04.2](../../docs/FSE_04_2_EVIDENCE_COVERAGE_MATRIX.md) · [FSE-04.3](../../docs/FSE_04_3_PRODUCTION_CERTIFICATION_CORPUS.md) · [FSE-05](../../docs/FSE_05_VALIDATION_FINANCIAL_QUALITY_ENGINE.md)
+Specs: [FSE-01](../../docs/FSE_01_FINANCIAL_STATEMENTS_ENGINE.md) · [FSE-02](../../docs/FSE_02_DATA_SOURCES_COLLECTION_PIPELINE.md) · [FSE-03](../../docs/FSE_03_CANONICAL_FINANCIAL_DATA_MODEL.md) · [FSE-04](../../docs/FSE_04_PARSING_NORMALIZATION_ENGINE.md) · [FSE-04.1](../../docs/FSE_04_1_PARSE_MANIFEST_REPLAY_CERTIFICATION.md) · [FSE-04.2](../../docs/FSE_04_2_EVIDENCE_COVERAGE_MATRIX.md) · [FSE-04.3](../../docs/FSE_04_3_PRODUCTION_CERTIFICATION_CORPUS.md) · [FSE-05](../../docs/FSE_05_VALIDATION_FINANCIAL_QUALITY_ENGINE.md) · [FSE-06](../../docs/FSE_06_FINANCIAL_WAREHOUSE.md)
 
 ## CLI
 
@@ -47,6 +47,9 @@ python -m financial_statements_engine --pcc-certify
 python -m financial_statements_engine --validation-health
 python -m financial_statements_engine --validation-dashboard
 python -m financial_statements_engine --validate-ticker TCS
+python -m financial_statements_engine --warehouse-health
+python -m financial_statements_engine --warehouse-latest TCS
+python -m financial_statements_engine --warehouse-contract dcf.v1 TCS
 python -m financial_statements_engine --schema-evolution-health
 python -m financial_statements_engine --parse-bytes TCS --format json --file ./sample.json --period-end 2025-03-31
 python -m financial_statements_engine --collect TCS --mode live
@@ -92,6 +95,12 @@ python -m financial_statements_engine TCS --publish
 - `GET /v1/financial-statements/validation/dashboard`
 - `GET /v1/financial-statements/validation/reports`
 - `POST /v1/financial-statements/validation/run`
+- `GET /v1/financial-statements/warehouse/health`
+- `GET /v1/financial-statements/warehouse/dashboard`
+- `GET /v1/financial-statements/warehouse/latest/{ticker}`
+- `GET /v1/financial-statements/warehouse/contracts`
+- `GET /v1/financial-statements/warehouse/contracts/{contract_id}/{ticker}`
+- `GET /v1/financial-statements/warehouse/view/{ticker}/{view}`
 - `GET /v1/financial-statements/schema-evolution/health`
 - `GET /v1/financial-statements/schema-evolution/resolve`
 - `GET /v1/financial-statements/collection/health`

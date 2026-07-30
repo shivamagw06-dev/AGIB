@@ -1,4 +1,8 @@
-"""Financial Warehouse — canonical published storage and read façade."""
+"""Legacy FSE-01 warehouse façade for statement packs.
+
+Institutional Validated Financial Facts storage is FSE-06:
+`financial_statements_engine.financial_warehouse`.
+"""
 
 from __future__ import annotations
 

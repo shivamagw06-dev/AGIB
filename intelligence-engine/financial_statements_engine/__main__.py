@@ -27,6 +27,8 @@ def main(argv: list[str] | None = None) -> int:
             "--coverage-matrices TICKER|--coverage-history TICKER [--document-hash HASH]|"
             "--pcc-health|--pcc-dashboard|--pcc-analytics|--pcc-certify [--sector SECTOR]|--pcc-cases|"
             "--validation-health|--validation-dashboard|--validate-draft PATH|--validate-ticker TICKER|"
+            "--warehouse-health|--warehouse-dashboard|--warehouse-latest TICKER|"
+            "--warehouse-contract CONTRACT TICKER|--warehouse-view TICKER VIEW [--as-of TS]|"
             "--schema-evolution-health|--schema-resolve LABEL|"
             "--collection-health|--collection-dashboard|"
             "--collect TICKER [--mode live|historical]|TICKER [--publish]"
@@ -237,6 +239,45 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         publish = "--no-publish" not in args
         print(json.dumps(run_validation_file(str(path), publish=publish), indent=2, default=str))
+        return 0
+    if cmd == "--warehouse-health":
+        from financial_statements_engine.financial_warehouse.production import health as wh_health
+
+        print(json.dumps(wh_health(), indent=2, default=str))
+        return 0
+    if cmd == "--warehouse-dashboard":
+        from financial_statements_engine.financial_warehouse.production import dashboard as wh_dash
+
+        print(json.dumps(wh_dash(), indent=2, default=str))
+        return 0
+    if cmd == "--warehouse-latest":
+        from financial_statements_engine.financial_warehouse.production import get_latest
+
+        if len(args) < 2:
+            print("ticker required", file=sys.stderr)
+            return 2
+        print(json.dumps(get_latest(args[1]), indent=2, default=str))
+        return 0
+    if cmd == "--warehouse-contract":
+        from financial_statements_engine.financial_warehouse.production import contract as wh_contract
+
+        if len(args) < 3:
+            print("contract_id and ticker required", file=sys.stderr)
+            return 2
+        print(json.dumps(wh_contract(args[1], args[2]), indent=2, default=str))
+        return 0
+    if cmd == "--warehouse-view":
+        from financial_statements_engine.financial_warehouse.production import time_travel
+
+        if len(args) < 3:
+            print("ticker and view required", file=sys.stderr)
+            return 2
+        as_of = None
+        if "--as-of" in args:
+            i = args.index("--as-of")
+            if i + 1 < len(args):
+                as_of = args[i + 1]
+        print(json.dumps(time_travel(args[1], args[2], as_of=as_of), indent=2, default=str))
         return 0
     if cmd == "--schema-evolution-health":
         from financial_statements_engine.schema_evolution.production import health as se_health

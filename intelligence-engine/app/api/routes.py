@@ -10247,6 +10247,75 @@ async def financial_statements_validation_run(payload: dict[str, Any] = Body(def
     return run_validation(draft, context=body.get("context"), publish=publish)
 
 
+@router.get("/financial-statements/warehouse/health")
+async def financial_statements_warehouse_health():
+    """FSE-06 Financial Warehouse."""
+    from financial_statements_engine.financial_warehouse.production import health
+
+    return health()
+
+
+@router.get("/financial-statements/warehouse/dashboard")
+async def financial_statements_warehouse_dashboard():
+    from financial_statements_engine.financial_warehouse.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/financial-statements/warehouse/latest/{ticker}")
+async def financial_statements_warehouse_latest(ticker: str, statement_type: str | None = None):
+    from financial_statements_engine.financial_warehouse.production import get_latest
+
+    return get_latest(ticker, statement_type=statement_type)
+
+
+@router.get("/financial-statements/warehouse/metrics/{ticker}/{metric}")
+async def financial_statements_warehouse_metric_history(ticker: str, metric: str):
+    from financial_statements_engine.financial_warehouse.production import get_metric_history
+
+    return get_metric_history(ticker, metric)
+
+
+@router.get("/financial-statements/warehouse/timeline/{ticker}")
+async def financial_statements_warehouse_timeline(ticker: str):
+    from financial_statements_engine.financial_warehouse.production import get_timeline
+
+    return get_timeline(ticker)
+
+
+@router.get("/financial-statements/warehouse/view/{ticker}/{view}")
+async def financial_statements_warehouse_view(ticker: str, view: str, as_of: str | None = None):
+    from financial_statements_engine.financial_warehouse.production import time_travel
+
+    return time_travel(ticker, view, as_of=as_of)
+
+
+@router.get("/financial-statements/warehouse/contracts")
+async def financial_statements_warehouse_contracts():
+    from financial_statements_engine.financial_warehouse.production import contracts
+
+    return contracts()
+
+
+@router.get("/financial-statements/warehouse/contracts/{contract_id}/{ticker}")
+async def financial_statements_warehouse_contract(contract_id: str, ticker: str, view: str | None = None, metric: str | None = None):
+    from financial_statements_engine.financial_warehouse.production import contract
+
+    kwargs: dict[str, Any] = {}
+    if view:
+        kwargs["view"] = view
+    if metric:
+        kwargs["metric"] = metric
+    return contract(contract_id, ticker, **kwargs)
+
+
+@router.get("/financial-statements/warehouse/restatements")
+async def financial_statements_warehouse_restatements(company_id: str | None = None):
+    from financial_statements_engine.financial_warehouse.production import restatements
+
+    return restatements(company_id=company_id)
+
+
 @router.post("/financial-statements/parsing/run")
 async def financial_statements_parsing_run(payload: dict[str, Any] = Body(default={})):
     from financial_statements_engine.parsing.production import parse_bytes
