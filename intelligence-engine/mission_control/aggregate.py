@@ -1522,6 +1522,14 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("investment_office_irp")
     except Exception:
         out["investment_office_irp"] = None
+    # CIO-01 — Comparative Intelligence Office (soft board; additive).
+    try:
+        from comparative_intelligence.production import soft_slice_mission_control as cio01_soft
+
+        out["comparative_intelligence"] = cio01_soft()
+        out["sources"].append("comparative_intelligence")
+    except Exception:
+        out["comparative_intelligence"] = None
     return out
 
 

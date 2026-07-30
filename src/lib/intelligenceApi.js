@@ -964,6 +964,22 @@ export const packageInvestmentOffice = (query = '', ticker) =>
     body: { query, ticker },
   });
 
+/** CIO-01 — Comparative Intelligence Office */
+export const getComparativeIntelligenceHealth = () =>
+  intelligenceFetch('/comparative-intelligence/health');
+export const getComparativeIntelligenceDashboard = () =>
+  intelligenceFetch('/comparative-intelligence/dashboard');
+export const postComparativeIntelligenceCompare = (body) =>
+  intelligenceFetch('/comparative-intelligence/compare', {
+    method: 'POST',
+    body: body || {},
+  });
+export const postComparativeIntelligenceQuery = (body) =>
+  intelligenceFetch('/comparative-intelligence/query', {
+    method: 'POST',
+    body: body || {},
+  });
+
 /** AGI v4.0 Investment Office OS — Thesis → Decision → Portfolio → Monitoring → Learning */
 export const getThesisHealth = () => intelligenceFetch('/thesis/health');
 export const getThesisDashboard = () => intelligenceFetch('/thesis/dashboard');

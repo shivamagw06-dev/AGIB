@@ -2075,6 +2075,34 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // CIO-01 — Comparative Intelligence Office (cross-company orchestration)
+  router.get('/comparative-intelligence/health', kfGet('/v1/comparative-intelligence/health'));
+  router.get('/comparative-intelligence/dashboard', kfGet('/v1/comparative-intelligence/dashboard'));
+  router.post('/comparative-intelligence/compare', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/comparative-intelligence/compare', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+      });
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'comparative-intelligence compare failed' });
+    }
+  });
+  router.post('/comparative-intelligence/query', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/comparative-intelligence/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+      });
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'comparative-intelligence query failed' });
+    }
+  });
+
   // AGI v4.0 Investment Office OS — Thesis / Decision / Portfolio / Monitoring / Learning
   // Static paths before dynamic :id routes. Ideas ≠ positions; events recommend review only.
   const v4Get = (enginePath) => async (_req, res) => {
