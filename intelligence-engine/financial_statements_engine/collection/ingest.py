@@ -83,6 +83,7 @@ def ingest(
     emit_event: bool = True,
     collector: str | None = None,
     hd_callback: HdCallback | None = None,
+    provenance: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Canonical entry for every financial-statement filing.
 
@@ -130,6 +131,7 @@ def ingest(
             fiscal_period=fiscal_period,
             entity=entity or t,
             consolidation=consolidation,
+            extra=provenance,
         )
     except Exception as exc:  # noqa: BLE001
         latency_ms = round((time.perf_counter() - t0) * 1000.0, 2)
@@ -169,6 +171,12 @@ def ingest(
         filing_type=filing_type,
         collector=collector,
     )
+    if provenance:
+        # Additive provenance — never drop fields
+        for k, v in provenance.items():
+            if k not in payload or payload.get(k) in (None, ""):
+                payload[k] = v
+        payload["provenance"] = provenance
 
     if emit_event:
         if action == "duplicate_skipped":
