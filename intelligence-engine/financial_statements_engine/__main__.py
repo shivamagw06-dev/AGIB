@@ -22,6 +22,9 @@ def main(argv: list[str] | None = None) -> int:
             "--health|--dashboard|--coverage|--registry|"
             "--cfdm-health|--metric-registry|--resolve-metric NAME|"
             "--parsing-health|--parsing-dashboard|--parse-bytes TICKER --format FMT --file PATH|"
+            "--quality-health|--quality-dashboard|--certify|--benchmark|"
+            "--coverage-health|--coverage-dashboard|--coverage-analytics|"
+            "--coverage-matrices TICKER|--coverage-history TICKER [--document-hash HASH]|"
             "--schema-evolution-health|--schema-resolve LABEL|"
             "--collection-health|--collection-dashboard|"
             "--collect TICKER [--mode live|historical]|TICKER [--publish]"
@@ -104,6 +107,62 @@ def main(argv: list[str] | None = None) -> int:
                 default=str,
             )
         )
+        return 0
+    if cmd == "--quality-health":
+        from financial_statements_engine.parsing.quality.production import health as q_health
+
+        print(json.dumps(q_health(), indent=2, default=str))
+        return 0
+    if cmd == "--quality-dashboard":
+        from financial_statements_engine.parsing.quality.production import dashboard as q_dash
+
+        print(json.dumps(q_dash(), indent=2, default=str))
+        return 0
+    if cmd == "--certify":
+        from financial_statements_engine.parsing.quality.production import run_certification
+
+        print(json.dumps(run_certification(), indent=2, default=str))
+        return 0
+    if cmd == "--benchmark":
+        from financial_statements_engine.parsing.quality.production import run_benchmark_suite
+
+        print(json.dumps(run_benchmark_suite(), indent=2, default=str))
+        return 0
+    if cmd == "--coverage-health":
+        from financial_statements_engine.parsing.coverage.production import health as cov_health
+
+        print(json.dumps(cov_health(), indent=2, default=str))
+        return 0
+    if cmd == "--coverage-dashboard":
+        from financial_statements_engine.parsing.coverage.production import dashboard as cov_dash
+
+        print(json.dumps(cov_dash(), indent=2, default=str))
+        return 0
+    if cmd == "--coverage-analytics":
+        from financial_statements_engine.parsing.coverage.production import analytics as cov_analytics
+
+        print(json.dumps(cov_analytics(), indent=2, default=str))
+        return 0
+    if cmd == "--coverage-matrices":
+        from financial_statements_engine.parsing.coverage.production import matrices_for
+
+        if len(args) < 2:
+            print("ticker required", file=sys.stderr)
+            return 2
+        print(json.dumps(matrices_for(args[1]), indent=2, default=str))
+        return 0
+    if cmd == "--coverage-history":
+        from financial_statements_engine.parsing.coverage.production import history_for
+
+        if len(args) < 2:
+            print("ticker required", file=sys.stderr)
+            return 2
+        doc_hash = None
+        if "--document-hash" in args:
+            i = args.index("--document-hash")
+            if i + 1 < len(args):
+                doc_hash = args[i + 1]
+        print(json.dumps(history_for(args[1], document_hash=doc_hash), indent=2, default=str))
         return 0
     if cmd == "--schema-evolution-health":
         from financial_statements_engine.schema_evolution.production import health as se_health

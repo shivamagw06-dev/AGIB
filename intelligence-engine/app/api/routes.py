@@ -10040,6 +10040,117 @@ async def financial_statements_parsing_dashboard():
     return dashboard()
 
 
+@router.get("/financial-statements/parsing/quality/health")
+async def financial_statements_parsing_quality_health():
+    """FSE-04.1 Parse Manifest, Replay & Certification Framework."""
+    from financial_statements_engine.parsing.quality.production import health
+
+    return health()
+
+
+@router.get("/financial-statements/parsing/quality/dashboard")
+async def financial_statements_parsing_quality_dashboard():
+    from financial_statements_engine.parsing.quality.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/financial-statements/parsing/manifests/{ticker}")
+async def financial_statements_parsing_manifests(ticker: str):
+    from financial_statements_engine.parsing.quality.production import manifests_for
+
+    return manifests_for(ticker)
+
+
+@router.get("/financial-statements/parsing/unknown-metrics")
+async def financial_statements_parsing_unknown_metrics(status: str = "open"):
+    from financial_statements_engine.parsing.quality.production import unknown_metrics
+
+    return unknown_metrics(status=status)
+
+
+@router.post("/financial-statements/parsing/replay")
+async def financial_statements_parsing_replay(payload: dict[str, Any] = Body(default={})):
+    from financial_statements_engine.parsing.quality.production import run_replay
+
+    body = payload or {}
+    ticker = str(body.get("ticker") or "").strip()
+    evidence_id = str(body.get("evidence_id") or "").strip()
+    if not ticker or not evidence_id:
+        raise HTTPException(status_code=400, detail="ticker_and_evidence_id_required")
+    return run_replay(ticker, evidence_id, prior_manifest_id=body.get("prior_manifest_id"))
+
+
+@router.post("/financial-statements/parsing/certify")
+async def financial_statements_parsing_certify():
+    from financial_statements_engine.parsing.quality.production import run_certification
+
+    return run_certification()
+
+
+@router.post("/financial-statements/parsing/benchmark")
+async def financial_statements_parsing_benchmark():
+    from financial_statements_engine.parsing.quality.production import run_benchmark_suite
+
+    return run_benchmark_suite()
+
+
+@router.get("/financial-statements/parsing/coverage/health")
+async def financial_statements_parsing_coverage_health():
+    """FSE-04.2 Evidence Coverage Matrix & Extraction Audit."""
+    from financial_statements_engine.parsing.coverage.production import health
+
+    return health()
+
+
+@router.get("/financial-statements/parsing/coverage/dashboard")
+async def financial_statements_parsing_coverage_dashboard():
+    from financial_statements_engine.parsing.coverage.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/financial-statements/parsing/coverage/analytics")
+async def financial_statements_parsing_coverage_analytics():
+    from financial_statements_engine.parsing.coverage.production import analytics
+
+    return analytics()
+
+
+@router.get("/financial-statements/parsing/coverage/matrices/{ticker}")
+async def financial_statements_parsing_coverage_matrices(ticker: str):
+    from financial_statements_engine.parsing.coverage.production import matrices_for
+
+    return matrices_for(ticker)
+
+
+@router.get("/financial-statements/parsing/coverage/matrices/{ticker}/{matrix_id}")
+async def financial_statements_parsing_coverage_matrix_detail(ticker: str, matrix_id: str):
+    from financial_statements_engine.parsing.coverage.production import matrix_detail
+
+    return matrix_detail(ticker, matrix_id)
+
+
+@router.get("/financial-statements/parsing/coverage/history/{ticker}")
+async def financial_statements_parsing_coverage_history(ticker: str, document_hash: str | None = None):
+    from financial_statements_engine.parsing.coverage.production import history_for
+
+    return history_for(ticker, document_hash=document_hash)
+
+
+@router.post("/financial-statements/parsing/coverage/diff")
+async def financial_statements_parsing_coverage_diff(payload: dict[str, Any] = Body(default={})):
+    from financial_statements_engine.parsing.coverage.production import diff_matrices
+
+    body = payload or {}
+    ticker = str(body.get("ticker") or "").strip()
+    old_id = str(body.get("old_matrix_id") or "").strip()
+    new_id = str(body.get("new_matrix_id") or "").strip()
+    if not ticker or not old_id or not new_id:
+        raise HTTPException(status_code=400, detail="ticker_old_matrix_id_new_matrix_id_required")
+    return diff_matrices(ticker, old_id, new_id)
+
+
 @router.post("/financial-statements/parsing/run")
 async def financial_statements_parsing_run(payload: dict[str, Any] = Body(default={})):
     from financial_statements_engine.parsing.production import parse_bytes

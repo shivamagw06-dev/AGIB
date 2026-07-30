@@ -24,7 +24,9 @@
 | FSE-02 | Data Sources & Collection Pipeline | How data enters |
 | **FSE-03** | **Canonical Financial Data Model & Schema** | **Authoritative financial representation** |
 | FSE-04 | [Parsing & Normalization Engine](FSE_04_PARSING_NORMALIZATION_ENGINE.md) | Raw evidence → canonical statement drafts |
-| FSE-05 | Validation & Quality Engine | Quality gates over facts |
+| FSE-04.1 | [Parse Manifest, Replay & Certification](FSE_04_1_PARSE_MANIFEST_REPLAY_CERTIFICATION.md) | Parser audit / replay / certification |
+| FSE-04.2 | [Evidence Coverage Matrix & Extraction Audit](FSE_04_2_EVIDENCE_COVERAGE_MATRIX.md) | Extraction coverage audit (before validation) |
+| FSE-05 | Validation & Quality Engine | Quality gates over facts (after 04.2) |
 | FSE-06 | Versioning & Restatement Engine | History & revisions |
 | FSE-07 | Historical Backfill Engine | Depth after coverage |
 | FSE-08 | Mission Control & Observability | Ops surfaces |

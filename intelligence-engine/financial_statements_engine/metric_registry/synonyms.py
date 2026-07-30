@@ -42,6 +42,7 @@ SYNONYMS: dict[str, str] = {
     "finance_costs": "finance_cost",
     "finance_cost": "finance_cost",
     "Finance Cost": "finance_cost",
+    "Finance Costs": "finance_cost",
     "InterestExpense": "finance_cost",
     "ProfitBeforeTax": "profit_before_tax",
     "pbt": "profit_before_tax",

@@ -12,6 +12,8 @@ _SEED: tuple[tuple[str, str, str, str, str, str, str | None], ...] = (
     ("ProfitAfterTax", "net_income", "IND_AS", "nse_indas_integrated_filing", "2024.1", "2016-04-01", None),
     ("Profit After Tax", "net_income", "IND_AS", "nse_indas_integrated_filing", "2024.1", "2016-04-01", None),
     ("FinanceCosts", "finance_cost", "IND_AS", "nse_indas_integrated_filing", "2024.1", "2016-04-01", None),
+    ("Finance Costs", "finance_cost", "IND_AS", "nse_indas_integrated_filing", "2024.1", "2016-04-01", None),
+    ("Finance Cost", "finance_cost", "IND_AS", "nse_indas_integrated_filing", "2024.1", "2016-04-01", None),
     ("EmployeeBenefitExpense", "employee_cost", "IND_AS", "nse_indas_integrated_filing", "2024.1", "2016-04-01", "operating_expenses"),
     ("CashAndCashEquivalents", "cash", "IND_AS", "nse_indas_integrated_filing", "2024.1", "2016-04-01", "current_assets"),
     ("TradeReceivables", "receivables", "IND_AS", "nse_indas_integrated_filing", "2024.1", "2016-04-01", "current_assets"),
