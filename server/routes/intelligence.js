@@ -2552,6 +2552,45 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // IDS-01 — Institutional Decision System (deterministic; owns recommendation)
+  router.get('/decision/health', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/decision/health', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'institutional decision health failed' });
+    }
+  });
+  router.post('/decision/company', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/decision/company', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 60_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'institutional decision failed' });
+    }
+  });
+  router.get('/decision/company/:ticker', async (req, res) => {
+    try {
+      const qs = new URLSearchParams();
+      if (req.query?.include_history !== undefined) {
+        qs.set('include_history', String(req.query.include_history));
+      }
+      const suffix = qs.toString() ? `?${qs}` : '';
+      const result = await engineFetch(
+        `/v1/decision/company/${encodeURIComponent(req.params.ticker)}${suffix}`,
+        { timeoutMs: 60_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'institutional decision get failed' });
+    }
+  });
+
   // AGI v4.0 Investment Office OS — Thesis / Decision / Portfolio / Monitoring / Learning
   // Static paths before dynamic :id routes. Ideas ≠ positions; events recommend review only.
   const v4Get = (enginePath) => async (_req, res) => {

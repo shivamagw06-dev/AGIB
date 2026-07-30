@@ -10013,6 +10013,33 @@ async def institutional_report_company_ticker(
     return report_for_ticker(ticker, include_reasons=include_reasons)
 
 
+# --- IDS-01 Institutional Decision System (deterministic decisions; no LLM) ---
+
+
+@router.get("/decision/health")
+async def institutional_decision_health():
+    from institutional_decision.production import health
+
+    return health()
+
+
+@router.post("/decision/company")
+async def institutional_decision_company(payload: dict[str, Any] = Body(default={})):
+    from institutional_decision.production import decide_company
+
+    return decide_company(payload or {})
+
+
+@router.get("/decision/company/{ticker}")
+async def institutional_decision_company_ticker(
+    ticker: str,
+    include_history: bool = False,
+):
+    from institutional_decision.production import get_company_decision
+
+    return get_company_decision(ticker, include_history=include_history)
+
+
 # --- Company Monitoring System V1 (continuous living analyst; additive) ---
 
 

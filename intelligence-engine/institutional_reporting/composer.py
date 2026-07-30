@@ -1,16 +1,16 @@
-"""Report composer — Facts → Reasons → Report (IRE-02)."""
+"""Report composer — Facts → Reasons → Decision System → Report (IDS-01)."""
 
 from __future__ import annotations
 
 import hashlib
 import json
+from dataclasses import replace
 from typing import Any, Union
 
 from institutional_reporting.flags import is_enabled
 from institutional_reporting.models import InstitutionalReport, InstitutionalReportInput
 from institutional_reporting.reason_composer import compose_reasons
 from institutional_reporting.renderer import (
-    render_diagnostics_text,
     render_reason_graph_text,
     render_sections_from_reasons,
     render_text,
@@ -44,10 +44,11 @@ def build_diagnostics(
     *,
     reason_count: int,
     gates: dict[str, bool],
+    decision: Any = None,
 ) -> dict[str, Any]:
     evidence_count = len(inp.evidence or ())
     gate_pass = bool(gates) and all(gates.values())
-    return {
+    out = {
         "generated_at": now_iso(),
         "report_version": IRE_REPORT_TYPE,
         "ire_version": IRE_VERSION,
@@ -60,7 +61,19 @@ def build_diagnostics(
         "llm": False,
         "external_writer": False,
         "section_count": len(REPORT_SECTIONS),
+        "decision_system": True,
     }
+    if decision is not None:
+        out["decision_id"] = getattr(decision, "decision_id", None) or (
+            decision.get("decision_id") if isinstance(decision, dict) else None
+        )
+        out["decision_version"] = getattr(decision, "decision_version", None) or (
+            decision.get("decision_version") if isinstance(decision, dict) else None
+        )
+        out["evidence_snapshot_id"] = getattr(decision, "evidence_snapshot_id", None) or (
+            decision.get("evidence_snapshot_id") if isinstance(decision, dict) else None
+        )
+    return out
 
 
 def quality_gates(
@@ -70,9 +83,10 @@ def quality_gates(
     sections_ok: bool,
     evidence_ok: bool,
     reasons_ok: bool,
+    decision_ok: bool,
 ) -> dict[str, bool]:
     return {
-        "recommendation_valid": validation_ok and bool(inp.recommendation),
+        "recommendation_valid": validation_ok and decision_ok and bool(inp.recommendation),
         "confidence_present": isinstance(inp.confidence, int) and 0 <= inp.confidence <= 100,
         "evidence_exists": bool(inp.evidence) and evidence_ok,
         "thesis_exists": bool(inp.thesis),
@@ -83,6 +97,7 @@ def quality_gates(
         "section_reasons_complete": reasons_ok,
         "contradicting_evidence_present": reasons_ok,
         "unknowns_present": reasons_ok,
+        "decision_valid": decision_ok,
         "enabled": is_enabled(),
     }
 
@@ -93,8 +108,11 @@ def _rejected(
     gates: dict[str, bool],
     *,
     reasons: list[Any] | None = None,
+    decision: Any = None,
 ) -> InstitutionalReport:
-    diagnostics = build_diagnostics(inp, reason_count=len(reasons or []), gates=gates)
+    diagnostics = build_diagnostics(
+        inp, reason_count=len(reasons or []), gates=gates, decision=decision
+    )
     return InstitutionalReport(
         ok=False,
         workstream_id=IRE_WORKSTREAM_ID,
@@ -116,16 +134,59 @@ def _rejected(
         reasons=list(reasons or []),
         diagnostics=diagnostics,
         reason_graph_text="",
+        decision=decision,
     )
+
+
+def _generate_institutional_decision(inp: InstitutionalReportInput, graph: Any) -> tuple[Any, list[str]]:
+    """Decision System owns recommendation — report only renders it."""
+    try:
+        from institutional_decision.decision_engine import generate_decision
+        from institutional_decision.decision_validator import validate_decision
+        from institutional_decision import history as decision_history
+    except Exception as exc:  # noqa: BLE001
+        return None, [f"decision system unavailable: {exc}"]
+
+    prev = decision_history.latest(inp.ticker)
+    previous_version = prev.decision_version if prev else 0
+    evidence_ids = [e.evidence_id for e in (inp.evidence or ()) if e.evidence_id]
+    decision = generate_decision(
+        reasons=list(graph.reasons),
+        valuation=inp.valuation,
+        risks=list(inp.risks or ()),
+        confidence=inp.confidence,
+        business_quality=inp.business_quality,
+        financial_quality=inp.financial_quality,
+        overall_risk=inp.overall_risk,
+        ticker=inp.ticker,
+        company_name=inp.company_name,
+        sector=inp.sector,
+        unknowns=list(inp.unknowns or ()),
+        evidence_ids=evidence_ids,
+        reason_version=REASON_COMPOSER_VERSION,
+        report_version=IRE_VERSION,
+        previous_version=previous_version,
+        investment_horizon=str(inp.horizon or ""),
+    )
+    validation = validate_decision(
+        decision,
+        business_quality=inp.business_quality,
+        valuation=str(inp.valuation or ""),
+        overall_risk=str(inp.overall_risk or ""),
+    )
+    if not validation.ok:
+        return decision, list(validation.errors)
+    decision_history.record(decision)
+    return decision, []
 
 
 def compose_report(
     report_input: Union[InstitutionalReportInput, dict[str, Any], None],
 ) -> InstitutionalReport:
-    """Compose a deterministic InstitutionalReport from structured facts via Reasons.
+    """Compose a deterministic InstitutionalReport.
 
-    Pipeline: Evidence/facts → Reason Composer → Institutional Reporting render.
-    No Gemini. No GPT. No external writer.
+    Pipeline: Facts → Reasons → Institutional Decision → Report render.
+    Reports do not create recommendations; they render InstitutionalDecision.
     """
     if isinstance(report_input, InstitutionalReportInput):
         inp = report_input
@@ -135,83 +196,183 @@ def compose_report(
     validation = validate_input(inp)
     if not validation.ok:
         gates = quality_gates(
-            inp, validation_ok=False, sections_ok=False, evidence_ok=False, reasons_ok=False
+            inp,
+            validation_ok=False,
+            sections_ok=False,
+            evidence_ok=False,
+            reasons_ok=False,
+            decision_ok=False,
         )
         return _rejected(inp, validation.errors, gates)
 
+    # Reasons from factual inputs (BQ/FQ/valuation/risk/thesis) — not from report-owned rec.
     graph = compose_reasons(inp)
     reason_validation = validate_reasons(graph)
     if not reason_validation.ok:
         gates = quality_gates(
-            inp, validation_ok=True, sections_ok=False, evidence_ok=False, reasons_ok=False
+            inp,
+            validation_ok=True,
+            sections_ok=False,
+            evidence_ok=False,
+            reasons_ok=False,
+            decision_ok=False,
         )
         return _rejected(inp, reason_validation.errors, gates, reasons=list(graph.reasons))
 
-    # Evidence count zero already covered by input validator; double-check reasons.
     if len(inp.evidence) == 0:
         gates = quality_gates(
-            inp, validation_ok=True, sections_ok=False, evidence_ok=False, reasons_ok=True
+            inp,
+            validation_ok=True,
+            sections_ok=False,
+            evidence_ok=False,
+            reasons_ok=True,
+            decision_ok=False,
         )
         return _rejected(inp, ["evidence count zero"], gates, reasons=list(graph.reasons))
 
-    sections = render_sections_from_reasons(graph, inp)
+    decision, decision_errors = _generate_institutional_decision(inp, graph)
+    if decision_errors:
+        gates = quality_gates(
+            inp,
+            validation_ok=True,
+            sections_ok=False,
+            evidence_ok=True,
+            reasons_ok=True,
+            decision_ok=False,
+        )
+        return _rejected(
+            inp, decision_errors, gates, reasons=list(graph.reasons), decision=decision
+        )
+
+    # Report consumes decision — overwrite recommendation fields from Decision System.
+    render_input = replace(
+        inp,
+        recommendation=decision.recommendation,
+        conviction=decision.conviction,
+        confidence=int(decision.confidence),
+        horizon=decision.investment_horizon,
+    )
+    render_graph = compose_reasons(render_input)
+    render_reason_validation = validate_reasons(render_graph)
+    if not render_reason_validation.ok:
+        gates = quality_gates(
+            render_input,
+            validation_ok=True,
+            sections_ok=False,
+            evidence_ok=True,
+            reasons_ok=False,
+            decision_ok=True,
+        )
+        return _rejected(
+            render_input,
+            render_reason_validation.errors,
+            gates,
+            reasons=list(render_graph.reasons),
+            decision=decision,
+        )
+
+    sections = render_sections_from_reasons(render_graph, render_input)
     section_keys = [s.key for s in sections]
     missing = [k for k in REPORT_SECTIONS if k not in section_keys]
     if missing or len(sections) != len(REPORT_SECTIONS):
         gates = quality_gates(
-            inp, validation_ok=True, sections_ok=False, evidence_ok=True, reasons_ok=True
+            render_input,
+            validation_ok=True,
+            sections_ok=False,
+            evidence_ok=True,
+            reasons_ok=True,
+            decision_ok=True,
         )
-        return _rejected(inp, [f"missing sections: {missing}"], gates, reasons=list(graph.reasons))
+        return _rejected(
+            render_input,
+            [f"missing sections: {missing}"],
+            gates,
+            reasons=list(render_graph.reasons),
+            decision=decision,
+        )
 
-    # Every section must carry a reason in meta / object
     for section in sections:
         if section.reason is None:
             gates = quality_gates(
-                inp, validation_ok=True, sections_ok=False, evidence_ok=True, reasons_ok=False
+                render_input,
+                validation_ok=True,
+                sections_ok=False,
+                evidence_ok=True,
+                reasons_ok=False,
+                decision_ok=True,
             )
             return _rejected(
-                inp,
+                render_input,
                 [f"section missing reason: {section.key}"],
                 gates,
-                reasons=list(graph.reasons),
+                reasons=list(render_graph.reasons),
+                decision=decision,
             )
 
-    text = render_text(sections, ticker=inp.ticker, company_name=inp.company_name)
+    text = render_text(sections, ticker=render_input.ticker, company_name=render_input.company_name)
     if "Bottom Line" not in text:
         gates = quality_gates(
-            inp, validation_ok=True, sections_ok=False, evidence_ok=True, reasons_ok=True
+            render_input,
+            validation_ok=True,
+            sections_ok=False,
+            evidence_ok=True,
+            reasons_ok=True,
+            decision_ok=True,
         )
-        return _rejected(inp, ["bottom line missing from rendered text"], gates, reasons=list(graph.reasons))
+        return _rejected(
+            render_input,
+            ["bottom line missing from rendered text"],
+            gates,
+            reasons=list(render_graph.reasons),
+            decision=decision,
+        )
 
     gates = quality_gates(
-        inp, validation_ok=True, sections_ok=True, evidence_ok=True, reasons_ok=True
+        render_input,
+        validation_ok=True,
+        sections_ok=True,
+        evidence_ok=True,
+        reasons_ok=True,
+        decision_ok=True,
     )
     if not all(gates.values()):
         failed = [k for k, v in gates.items() if not v]
-        return _rejected(inp, [f"quality gate failed: {failed}"], gates, reasons=list(graph.reasons))
+        return _rejected(
+            render_input,
+            [f"quality gate failed: {failed}"],
+            gates,
+            reasons=list(render_graph.reasons),
+            decision=decision,
+        )
 
-    diagnostics = build_diagnostics(inp, reason_count=len(graph.reasons), gates=gates)
-    reason_graph_text = render_reason_graph_text(graph)
+    diagnostics = build_diagnostics(
+        render_input,
+        reason_count=len(render_graph.reasons),
+        gates=gates,
+        decision=decision,
+    )
+    reason_graph_text = render_reason_graph_text(render_graph)
 
     return InstitutionalReport(
         ok=True,
         workstream_id=IRE_WORKSTREAM_ID,
         version=IRE_VERSION,
         report_type=IRE_REPORT_TYPE,
-        ticker=inp.ticker,
-        company_name=inp.company_name,
-        recommendation=inp.recommendation,
-        conviction=inp.conviction,
-        confidence=int(inp.confidence),
+        ticker=render_input.ticker,
+        company_name=render_input.company_name,
+        recommendation=decision.recommendation,
+        conviction=decision.conviction,
+        confidence=int(decision.confidence),
         sections=sections,
         text=text,
         quality_gates=gates,
         validation_errors=[],
         rejected=False,
         llm=False,
-        as_of=inp.as_of or diagnostics["generated_at"],
-        input_fingerprint=_fingerprint(inp),
-        reasons=list(graph.reasons),
+        as_of=render_input.as_of or diagnostics["generated_at"],
+        input_fingerprint=_fingerprint(render_input),
+        reasons=list(render_graph.reasons),
         diagnostics=diagnostics,
         reason_graph_text=reason_graph_text,
+        decision=decision,
     )

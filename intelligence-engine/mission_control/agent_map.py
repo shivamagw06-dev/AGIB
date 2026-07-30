@@ -635,11 +635,29 @@ _CATALOG: list[dict[str, Any]] = [
         "group": "publication",
         "responsibility": (
             "Deterministic Reason Composer + Company Recommendation Reports — "
-            "Facts → Reasons → Report. No Gemini, no GPT, no external writer."
+            "Facts → Reasons → Decision → Report. No Gemini, no GPT, no external writer."
         ),
-        "sources": ["InstitutionalReportInput facts", "Reason objects", "FIRE evidence IDs", "Ask AGI"],
+        "sources": [
+            "InstitutionalReportInput facts",
+            "Reason objects",
+            "IDS-01 InstitutionalDecision",
+            "FIRE evidence IDs",
+            "Ask AGI",
+        ],
         "kind": "reporting",
         "module": "institutional_reporting.production",
+    },
+    {
+        "id": "institutional_decision",
+        "name": "Institutional Decision System (IDS-01)",
+        "group": "publication",
+        "responsibility": (
+            "Owns BUY/HOLD/SELL as a versioned InstitutionalDecision — "
+            "reports only render the decision. Deterministic, no LLM."
+        ),
+        "sources": ["Reason graph", "Valuation", "Risk", "Business/Financial quality"],
+        "kind": "decision",
+        "module": "institutional_decision.production",
     },
     {
         "id": "ite_thesis",
