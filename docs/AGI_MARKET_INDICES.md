@@ -47,3 +47,13 @@ python3 server/scripts/refresh_nifty_indices.py --in ~/Downloads/MW-NIFTY-BANK-3
 Node BFF: `/api/intelligence/market-indices/*`.
 
 Module: `intelligence-engine/market_indices/`.
+
+## Ask AGI
+
+After deploy, Ask answers index membership factually, for example:
+
+- “Which indices does HDFC Bank come under?”
+- “Which stocks are in Nifty Bank?”
+- “Is IDBI in Nifty 500?”
+
+Direct answer is built from `indices/*.csv` membership (not invented).

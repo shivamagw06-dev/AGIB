@@ -193,6 +193,8 @@ class SearchView(BaseModel):
     research_ontology: dict[str, Any] = Field(default_factory=dict)
     # RQ1 Entity Resolution Engine — Sprint 2 canonical identity (additive; not a layer)
     entity_resolution: dict[str, Any] = Field(default_factory=dict)
+    # Nifty / NSE index membership — stocks ↔ indices (factual)
+    market_indices: dict[str, Any] = Field(default_factory=dict)
     # RQ1 Research Objective Engine — Sprint 3 objective plan (additive; not a layer)
     research_objective: dict[str, Any] = Field(default_factory=dict)
     # RQ1 Context Intelligence Engine — Sprint 4 context enrichment (additive; not a layer)

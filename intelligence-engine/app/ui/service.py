@@ -810,6 +810,24 @@ class UiService:
         except Exception:
             entity_resolution = {}
 
+        # Market Indices — which stock ↔ which Nifty index (factual membership)
+        market_indices: dict[str, Any] = {}
+        try:
+            from market_indices.production import soft_slice_for_ask_agi as mi_soft_slice
+
+            market_indices = (
+                mi_soft_slice(
+                    q,
+                    {
+                        "ticker": detected_ticker,
+                        "entity_resolution": (entity_resolution.get("entity_resolution") or {}),
+                    },
+                )
+                or {}
+            )
+        except Exception:
+            market_indices = {}
+
         # RQ1 Sprint 3 — Research Objective Engine (institutional research plan; metadata soft-wire)
         research_objective: dict[str, Any] = {}
         try:
@@ -2065,6 +2083,15 @@ class UiService:
         )
         why = _why_bullets(house if isinstance(house, dict) else None, supporting, news, house_label)
 
+        # Prefer factual index membership / constituent answers when the question asks for them.
+        mi_body = (market_indices or {}).get("market_indices") if isinstance(market_indices, dict) else {}
+        if isinstance(mi_body, dict) and mi_body.get("answerable") and mi_body.get("direct_answer"):
+            executive = scrub_text(mi_body.get("direct_answer")) or executive
+            mi_bullets = [scrub_text(b) for b in (mi_body.get("bullets") or []) if b]
+            if mi_bullets:
+                why = mi_bullets[:12] + [w for w in why if w not in mi_bullets][:8]
+            house_label = "Index Membership" if mi_body.get("mode") == "symbol_membership" else "Index Constituents"
+
         # Prefer richer SIF / Academy packages from IRP when present
         if isinstance(irp_dump, dict) and isinstance(irp_dump.get("sector_intelligence"), dict):
             irp_sif = irp_dump.get("sector_intelligence") or {}
@@ -3241,6 +3268,7 @@ class UiService:
             else None,
             research_ontology=scrub(research_ontology) if research_ontology else {},
             entity_resolution=scrub(entity_resolution) if entity_resolution else {},
+            market_indices=scrub(market_indices) if market_indices else {},
             research_objective=scrub(research_objective) if research_objective else {},
             context_intelligence=scrub(context_intelligence) if context_intelligence else {},
             analyst_router=scrub(analyst_router) if analyst_router else {},
