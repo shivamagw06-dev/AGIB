@@ -10528,6 +10528,14 @@ async def financial_statements_orchestrator_history(limit: int = 100):
     return history(limit=limit)
 
 
+@router.get("/financial-statements/orchestrator/dlq")
+async def financial_statements_orchestrator_dlq(limit: int = 100):
+    """Dead Letter Queue — exhausted retries awaiting manual replay."""
+    from financial_statements_engine.orchestrator.production import dlq
+
+    return dlq(limit=limit)
+
+
 @router.post("/financial-statements/orchestrator/start")
 async def financial_statements_orchestrator_start(payload: dict[str, Any] = Body(default={})):
     from financial_statements_engine.orchestrator.production import start

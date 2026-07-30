@@ -3,6 +3,7 @@
 from financial_statements_engine.orchestrator.production import (
     cancel,
     dashboard,
+    dlq,
     health,
     history,
     queue,
@@ -20,6 +21,7 @@ __all__ = [
     "ORCH_VERSION",
     "health",
     "dashboard",
+    "dlq",
     "queue",
     "workflows",
     "workflow_detail",

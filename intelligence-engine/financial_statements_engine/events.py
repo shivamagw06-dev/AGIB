@@ -85,6 +85,7 @@ ORCHESTRATOR_EVENTS_V1 = (
     "workflow.completed.v1",
     "workflow.failed.v1",
     "workflow.retrying.v1",
+    "workflow.dead_letter.v1",
     "workflow.cancelled.v1",
 )
 

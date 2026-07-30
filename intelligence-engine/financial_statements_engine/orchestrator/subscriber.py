@@ -1,6 +1,7 @@
-"""Optional Event Bus binding — create workflows on evidence.stored.
+"""Production Event Bus binding — auto-start workflows on evidence.stored.
 
-Additive only. Does not modify collectors or the parse subscriber.
+Wired from app lifespan. Does not modify collectors or the parse subscriber.
+Flow: evidence.stored → orchestrator → PARSE → VALIDATE → WAREHOUSE → DME.
 """
 
 from __future__ import annotations
