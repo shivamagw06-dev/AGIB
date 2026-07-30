@@ -1107,6 +1107,15 @@ export const getProductExperienceReport = () => intelligenceFetch('/product-expe
 export const runProductExperienceValidation = (body = {}) =>
   intelligenceFetch('/product-experience/run', { method: 'POST', body: body || {} });
 
+/** RH-01 — AGI Release Health (single release gate) */
+export const getReleaseHealthHealth = () => intelligenceFetch('/release-health/health');
+export const getReleaseHealthDashboard = (refresh = false) => {
+  const qs = refresh ? '?refresh=true' : '';
+  return intelligenceFetch(`/release-health/dashboard${qs}`);
+};
+export const runReleaseHealth = (body = {}) =>
+  intelligenceFetch('/release-health/run', { method: 'POST', body: body || {} });
+
 /** IBS-01 — AGI Institutional Benchmark Suite */
 export const getInstitutionalBenchmarksHealth = () =>
   intelligenceFetch('/institutional-benchmarks/health');

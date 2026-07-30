@@ -2457,6 +2457,32 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // RH-01 — AGI Release Health (IST + IBS + E2E release gate)
+  router.get('/release-health/health', kfGet('/v1/release-health/health'));
+  router.get('/release-health/dashboard', async (req, res) => {
+    try {
+      const qs = new URLSearchParams();
+      if (req.query?.refresh) qs.set('refresh', String(req.query.refresh));
+      const suffix = qs.toString() ? `?${qs}` : '';
+      const result = await engineFetch(`/v1/release-health/dashboard${suffix}`);
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'release-health dashboard failed' });
+    }
+  });
+  router.post('/release-health/run', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/release-health/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+      });
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'release-health run failed' });
+    }
+  });
+
   // AGI v4.0 Investment Office OS — Thesis / Decision / Portfolio / Monitoring / Learning
   // Static paths before dynamic :id routes. Ideas ≠ positions; events recommend review only.
   const v4Get = (enginePath) => async (_req, res) => {

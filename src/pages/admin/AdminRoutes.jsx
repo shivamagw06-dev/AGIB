@@ -25,6 +25,7 @@ import CompanyMonitor from '@/pages/admin/CompanyMonitor';
 import InvestmentOfficeAdmin from '@/pages/admin/InvestmentOffice';
 import MissionControl from '@/pages/admin/MissionControl';
 import InstitutionalStack from '@/pages/admin/InstitutionalStack';
+import ReleaseHealth from '@/pages/admin/ReleaseHealth';
 import AccountingIntelligence from '@/pages/admin/AccountingIntelligence';
 import FinancialStatementsEngine from '@/pages/admin/FinancialStatementsEngine';
 import FinancialKnowledgeBase from '@/pages/admin/FinancialKnowledgeBase';
@@ -76,6 +77,7 @@ export default function AdminRoutes() {
           <Route path="evidence-completion" element={<EvidenceCompletion />} />
           <Route path="company-analysis" element={<CompanyAnalysis />} />
           <Route path="institutional-stack" element={<InstitutionalStack />} />
+          <Route path="release-health" element={<ReleaseHealth />} />
           <Route path="accounting-intelligence" element={<AccountingIntelligence />} />
           <Route path="financial-statements" element={<FinancialStatementsEngine />} />
           <Route path="financial-knowledge" element={<FinancialKnowledgeBase />} />
