@@ -178,6 +178,34 @@ def reliance_productivity_api(payload: Optional[dict[str, Any]] = None) -> dict[
     from institutional_grade_benchmark.cases.reliance_productivity import (
         run_reliance_productivity_case,
     )
+    from institutional_grade_benchmark.publication_gates import evaluate_reliance_note_as_reviewed
 
     out = run_reliance_productivity_case(generate_draft=bool(generate))
+    gates = evaluate_reliance_note_as_reviewed()
+    out["pm_review"] = {
+        "overall": gates.get("pm_overall_score"),
+        "verdict": gates.get("pm_verdict"),
+        "publication_allowed": gates.get("publication_allowed"),
+        "blocking_failures": gates.get("blocking_failures"),
+        "gates_passed": gates.get("gates_passed"),
+        "gates_total": gates.get("gates_total"),
+        "doc": "docs/research_notes/RELIANCE_PM_REVIEW.md",
+    }
+    out["publication_gates"] = gates
     return {"ok": bool(out.get("ok")), "workstream_id": IB_WORKSTREAM_ID, **out}
+
+
+def publication_gates_api(payload: Optional[dict[str, Any]] = None) -> dict[str, Any]:
+    """Evaluate a research-note payload (or Reliance ground truth) against PM gates."""
+    from institutional_grade_benchmark.publication_gates import (
+        evaluate_publication_readiness,
+        evaluate_reliance_note_as_reviewed,
+    )
+
+    body = dict(payload or {})
+    if body.get("case") == "reliance" or body.get("use_reliance_ground_truth"):
+        out = evaluate_reliance_note_as_reviewed()
+    else:
+        note = body.get("note") if isinstance(body.get("note"), dict) else body
+        out = evaluate_publication_readiness(note)
+    return {"ok": True, "workstream_id": IB_WORKSTREAM_ID, **out}

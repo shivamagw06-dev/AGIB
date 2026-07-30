@@ -15,8 +15,10 @@
 | Factual corrections | **8** | Listed below |
 | Completeness (edited) | **78 / 100** | Structure strong; primary evidence thin |
 | Blind reviewer quality | **72 / 100** | Provisional rubric on edited note (see below) |
+| **Buy-side PM review** | **67 / 100** | See `RELIANCE_PM_REVIEW.md` — *Good first draft. Don't publish.* |
 | Confidence level | **0.45 (Low–Medium)** | Capped until filings attached |
 | Sources cited | **5** (0 primary filings in-graph) | Honesty over fabrication |
+| Publication gates | **FAIL** | 0/7 blocking gates passed — scaffold only |
 
 **Analyst edit time (human):** ~18 minutes to correct, segment-map, and write the investment note  
 **Counterfactual (from blank page):** typically 2–4 hours for a first institutional draft of similar scope  
@@ -87,5 +89,22 @@ Rubric applied to the **edited** note as if debranded (Report X):
 | AGIB replaces the analyst | **No** |
 | AGIB beats Bloomberg out of the box (this run) | **Not evidenced** |
 | AGIB makes a professional analyst materially more productive | **Yes — for first draft & structure**, if corrections are enforced |
+| Publication-ready (PM bar) | **No — 67/100 scaffold** |
 
 **Working rule:** Ship AGIB drafts only with an explicit corrections checklist and evidence-gate before distribution.
+
+**Publication rule:** Block distribution until `publication_gates.publication_allowed` is true (thesis bullets, financials, segments, valuation, triggers, evidence links, single recommendation).
+
+---
+
+## What would make this 85+/100 (PM)
+
+1. Investment Thesis (3–5 evidence-backed bullets)  
+2. Key Financial Metrics (5-year + TTM)  
+3. Segment Economics (O2C, Retail, Jio, New Energy — quantified)  
+4. Valuation (SOTP + peers + sensitivity)  
+5. Decision Triggers (upgrade / downgrade)  
+6. Evidence Links (primary filings per material claim)  
+7. Contradiction Check (single recommendation only)  
+
+Encoded in `institutional_grade_benchmark/publication_gates.py`.

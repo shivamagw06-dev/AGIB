@@ -4012,6 +4012,29 @@ export default function createIntelligenceRouter() {
       return res.status(502).json({ error: err?.message || 'Reliance productivity case failed' });
     }
   });
+  router.post('/benchmark/ib/publication-gates', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/benchmark/ib/publication-gates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 30_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'publication gates failed' });
+    }
+  });
+  router.get('/benchmark/ib/publication-gates/reliance', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/benchmark/ib/publication-gates/reliance', {
+        timeoutMs: 30_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'publication gates reliance failed' });
+    }
+  });
 
   // ICE-01 — Investment Committee Engine
   router.get('/committee-engine/health', async (_req, res) => {

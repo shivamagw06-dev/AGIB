@@ -11197,6 +11197,22 @@ async def institutional_grade_benchmark_reliance_productivity_post(
     return reliance_productivity_api(payload or {})
 
 
+@router.post("/benchmark/ib/publication-gates")
+async def institutional_grade_benchmark_publication_gates(
+    payload: dict[str, Any] = Body(default={}),
+):
+    from institutional_grade_benchmark.production import publication_gates_api
+
+    return publication_gates_api(payload or {})
+
+
+@router.get("/benchmark/ib/publication-gates/reliance")
+async def institutional_grade_benchmark_publication_gates_reliance():
+    from institutional_grade_benchmark.production import publication_gates_api
+
+    return publication_gates_api({"case": "reliance"})
+
+
 # --- Company Monitoring System V1 (continuous living analyst; additive) ---
 
 

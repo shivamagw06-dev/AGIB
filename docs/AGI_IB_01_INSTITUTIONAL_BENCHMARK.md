@@ -130,7 +130,17 @@ A more valuable question than “Does it beat Bloomberg?”:
 | Factual corrections | 8 |
 | Completeness (edited) | 78/100 |
 | Blind reviewer quality | 72/100 |
+| Buy-side PM review | **67/100** |
 | Confidence | 0.45 |
 | Sources cited | 5 (0 primary filings in-graph) |
+| Publication gates | **FAIL** (scaffold only) |
+
+**PM one-liner:** *Good first draft. Don't publish it yet.*
 
 **Verdict:** AGIB does **not** replace the analyst and did **not** prove Bloomberg parity in this run — but it **did** compress first-draft scaffolding from hours to seconds when corrections are enforced.
+
+### Publication gates (85+ bar)
+
+`POST /v1/benchmark/ib/publication-gates` · `GET /v1/benchmark/ib/publication-gates/reliance`
+
+Blocks publication until: thesis bullets · financials · segment economics · valuation · decision triggers · evidence links · contradiction check.
