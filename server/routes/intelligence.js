@@ -2203,6 +2203,22 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // PEB-01 — Platform Event Bus
+  router.get('/platform/events/health', kfGet('/v1/platform/events/health'));
+  router.get('/platform/events', async (req, res) => {
+    try {
+      const q = new URLSearchParams();
+      if (req.query.limit) q.set('limit', String(req.query.limit));
+      const qs = q.toString();
+      const result = await engineFetch(`/v1/platform/events${qs ? `?${qs}` : ''}`);
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'platform events failed' });
+    }
+  });
+  router.get('/platform/events/types', kfGet('/v1/platform/events/types'));
+  router.get('/platform/events/statistics', kfGet('/v1/platform/events/statistics'));
+
   // AGI v4.0 Investment Office OS — Thesis / Decision / Portfolio / Monitoring / Learning
   // Static paths before dynamic :id routes. Ideas ≠ positions; events recommend review only.
   const v4Get = (enginePath) => async (_req, res) => {

@@ -9591,6 +9591,44 @@ async def admin_portfolio_office():
     return HTMLResponse(admin_page())
 
 
+# --- PEB-01 Platform Event Bus (infrastructure; additive) ---
+
+
+@router.get("/platform/events/health")
+async def platform_events_health():
+    from platform_event_bus.production import health
+
+    return health()
+
+
+@router.get("/platform/events")
+async def platform_events_list(limit: int = 50):
+    from platform_event_bus.production import list_events
+
+    return list_events(limit=limit)
+
+
+@router.get("/platform/events/types")
+async def platform_events_types():
+    from platform_event_bus.production import list_types
+
+    return list_types()
+
+
+@router.get("/platform/events/statistics")
+async def platform_events_statistics():
+    from platform_event_bus.production import statistics
+
+    return statistics()
+
+
+@router.get("/admin/platform-event-bus", response_class=HTMLResponse)
+async def admin_platform_event_bus():
+    from platform_event_bus.production import admin_page
+
+    return HTMLResponse(admin_page())
+
+
 # --- Company Monitoring System V1 (continuous living analyst; additive) ---
 
 

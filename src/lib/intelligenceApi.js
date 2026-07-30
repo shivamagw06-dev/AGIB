@@ -1015,6 +1015,14 @@ export const createPortfolioOfficeSnapshot = (portfolioId, body = {}) =>
     body: body || {},
   });
 
+/** PEB-01 — Platform Event Bus */
+export const getPlatformEventBusHealth = () => intelligenceFetch('/platform/events/health');
+export const getPlatformEvents = (limit = 50) =>
+  intelligenceFetch(`/platform/events?limit=${encodeURIComponent(limit)}`);
+export const getPlatformEventTypes = () => intelligenceFetch('/platform/events/types');
+export const getPlatformEventStatistics = () =>
+  intelligenceFetch('/platform/events/statistics');
+
 /** AGI v4.0 Investment Office OS — Thesis → Decision → Portfolio → Monitoring → Learning */
 export const getThesisHealth = () => intelligenceFetch('/thesis/health');
 export const getThesisDashboard = () => intelligenceFetch('/thesis/dashboard');

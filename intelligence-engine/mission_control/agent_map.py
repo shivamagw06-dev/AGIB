@@ -511,6 +511,18 @@ _CATALOG: list[dict[str, Any]] = [
         "module": "portfolio_office.production",
     },
     {
+        "id": "platform_event_bus",
+        "name": "Platform Event Bus (PEB-01)",
+        "group": "ops",
+        "responsibility": (
+            "In-process typed pub/sub for loose coupling between offices — "
+            "no business logic, no persistence, no broker (infrastructure only)."
+        ),
+        "sources": ["IO-01", "CIO-01", "PO-01", "Office SDK", "future WO/Alerts/Monitoring"],
+        "kind": "platform",
+        "module": "platform_event_bus.production",
+    },
+    {
         "id": "ite_thesis",
         "name": "Investment Thesis Office",
         "group": "offices",

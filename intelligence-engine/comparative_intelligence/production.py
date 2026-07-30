@@ -112,7 +112,7 @@ def compare_companies(
         prebuilt_map=prebuilt_map,
     )
     cio_store.record_icr(icr)
-    return {
+    pack = {
         "ok": True,
         "enabled": True,
         "workstream_id": CIO01_WORKSTREAM_ID,
@@ -133,6 +133,23 @@ def compare_companies(
         "routing": icr.get("routing"),
         "guardrails": icr.get("guardrails"),
     }
+    try:
+        from platform_event_bus.publisher import soft_publish
+        from platform_event_bus.schema import EVENT_COMPARISON_COMPLETED
+
+        soft_publish(
+            EVENT_COMPARISON_COMPLETED,
+            producer="cio-01",
+            payload={
+                "tickers": icr.get("tickers"),
+                "comparison_type": icr.get("comparison_type"),
+                "modules_invoked": icr.get("modules_invoked"),
+                "assembly_ms": icr.get("assembly_ms"),
+            },
+        )
+    except Exception:
+        pass
+    return pack
 
 
 def query(

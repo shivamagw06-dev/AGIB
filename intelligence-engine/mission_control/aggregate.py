@@ -1546,6 +1546,14 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("portfolio_office")
     except Exception:
         out["portfolio_office"] = None
+    # PEB-01 — Platform Event Bus (soft board; additive).
+    try:
+        from platform_event_bus.production import soft_slice_mission_control as peb01_soft
+
+        out["platform_event_bus"] = peb01_soft()
+        out["sources"].append("platform_event_bus")
+    except Exception:
+        out["platform_event_bus"] = None
     return out
 
 

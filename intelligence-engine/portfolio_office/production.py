@@ -180,13 +180,28 @@ def create(payload: dict[str, Any]) -> dict[str, Any]:
         cash_balance=float(payload.get("cash_balance") or payload.get("cash") or 0.0),
         cash_currency=payload.get("cash_currency"),
     )
-    return {
+    out = {
         "ok": True,
         "workstream_id": PO01_WORKSTREAM_ID,
         "version": PO01_VERSION,
         "portfolio": pf,
         "portfolio_id": pf.get("portfolio_id"),
     }
+    try:
+        from platform_event_bus.publisher import soft_publish
+        from platform_event_bus.schema import EVENT_PORTFOLIO_UPDATED
+
+        soft_publish(
+            EVENT_PORTFOLIO_UPDATED,
+            producer="po-01",
+            payload={
+                "portfolio_id": pf.get("portfolio_id"),
+                "holdings_n": len(pf.get("holdings") or []),
+            },
+        )
+    except Exception:
+        pass
+    return out
 
 
 def snapshot(portfolio_id: str, payload: Optional[dict[str, Any]] = None, **kwargs: Any) -> dict[str, Any]:
@@ -202,13 +217,31 @@ def snapshot(portfolio_id: str, payload: Optional[dict[str, Any]] = None, **kwar
         )
     except ValueError as exc:
         return {"ok": False, "error": str(exc)}
-    return {
+    out = {
         "ok": True,
         "workstream_id": PO01_WORKSTREAM_ID,
         "immutable": True,
         "snapshot": snap,
         "snapshot_id": snap.get("snapshot_id"),
     }
+    try:
+        from platform_event_bus.publisher import soft_publish
+        from platform_event_bus.schema import EVENT_PORTFOLIO_SNAPSHOT_CREATED
+
+        soft_publish(
+            EVENT_PORTFOLIO_SNAPSHOT_CREATED,
+            producer="po-01",
+            payload={
+                "portfolio_id": snap.get("portfolio_id"),
+                "snapshot_id": snap.get("snapshot_id"),
+                "kind": snap.get("kind"),
+                "as_of": snap.get("as_of"),
+                "immutable": True,
+            },
+        )
+    except Exception:
+        pass
+    return out
 
 
 def soft_slice_mission_control() -> dict[str, Any]:

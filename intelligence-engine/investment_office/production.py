@@ -157,7 +157,7 @@ def company(
         prebuilt=prebuilt,
     )
     io_store.record_irp(irp)
-    return {
+    pack = {
         "ok": True,
         "enabled": True,
         "workstream_id": IO01_WORKSTREAM_ID,
@@ -177,6 +177,24 @@ def company(
         "routing": irp.get("routing"),
         "guardrails": irp.get("guardrails"),
     }
+    # Optional PEB-01 soft publish — never fails the office workflow
+    try:
+        from platform_event_bus.publisher import soft_publish
+        from platform_event_bus.schema import EVENT_COMPANY_RESEARCH_COMPLETED
+
+        soft_publish(
+            EVENT_COMPANY_RESEARCH_COMPLETED,
+            producer="io-01",
+            payload={
+                "ticker": irp.get("ticker"),
+                "package_type": irp.get("package_type"),
+                "modules_invoked": irp.get("modules_invoked"),
+                "assembly_ms": irp.get("assembly_ms"),
+            },
+        )
+    except Exception:
+        pass
+    return pack
 
 
 def query(
