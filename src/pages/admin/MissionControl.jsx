@@ -176,6 +176,7 @@ export default function MissionControl() {
   const fdoBoard = institutional?.financial_data_operations || null;
   const fseBoard = institutional?.financial_statements_engine || null;
   const fseSourceBoard = institutional?.fse_source_coverage || null;
+  const fireBoard = institutional?.financial_intelligence || null;
   const v4Office = {
     thesis: desk?.institutional_investment_thesis || null,
     decision: desk?.institutional_decision_office || null,
@@ -1210,6 +1211,16 @@ export default function MissionControl() {
                   .slice(0, 2)
                   .map((c) => c.ticker)
                   .join(', ') || 'no gaps listed'}
+              </p>
+            </Glass>
+            <Glass>
+              <p className="text-[11px] uppercase text-[var(--io-caption)]">FIRE-01</p>
+              <p className={`mt-2 text-sm font-semibold ${statusColour(fireBoard?.status)}`}>
+                {fireBoard?.status || 'Unavailable'}
+              </p>
+              <p className="mt-1 text-[11px] text-[var(--io-muted)]">
+                Narrative & trends · no BUY/SELL ·{' '}
+                {fireBoard?.version || 'financial_intelligence'}
               </p>
             </Glass>
           </div>

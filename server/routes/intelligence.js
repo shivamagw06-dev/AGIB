@@ -2678,6 +2678,30 @@ export default function createIntelligenceRouter() {
     kfGet('/v1/financial-statements/evidence-coverage/dashboard')
   );
 
+  // FIRE-01 — Financial Narrative & Trend Engine
+  router.get('/financial-intelligence/health', kfGet('/v1/financial-intelligence/health'));
+  router.get('/financial-intelligence/dashboard', kfGet('/v1/financial-intelligence/dashboard'));
+  router.get('/financial-intelligence/company/:ticker', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/financial-intelligence/company/${encodeURIComponent(req.params.ticker)}`
+      );
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Financial intelligence unavailable', detail: error.message });
+    }
+  });
+  router.get('/financial-intelligence/findings/:ticker', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/financial-intelligence/findings/${encodeURIComponent(req.params.ticker)}`
+      );
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Financial findings unavailable', detail: error.message });
+    }
+  });
+
   // Accounting Intelligence Engine
   router.get('/accounting-intelligence/health', kfGet('/v1/accounting-intelligence/health'));
   router.get('/accounting-intelligence/dashboard', kfGet('/v1/accounting-intelligence/dashboard'));

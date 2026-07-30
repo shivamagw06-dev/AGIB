@@ -524,6 +524,18 @@ _CATALOG: list[dict[str, Any]] = [
         "kind": "office",
         "module": "financial_statements_engine.fdo.production",
     },
+    {
+        "id": "financial_intelligence",
+        "name": "Financial Intelligence (FIRE-01)",
+        "group": "ops",
+        "responsibility": (
+            "Evidence-backed narrative & trend intelligence over warehouse facts — "
+            "what happened financially (no BUY/SELL)."
+        ),
+        "sources": ["Financial Warehouse", "Derived Metrics", "Validation", "Coverage"],
+        "kind": "office",
+        "module": "financial_intelligence.production",
+    },
     # —— Learning / eval ——
     {
         "id": "forecast_validation_learning",
