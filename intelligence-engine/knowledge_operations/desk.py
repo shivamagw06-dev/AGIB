@@ -435,6 +435,8 @@ def build_desk(*, scope: str = "TOP20") -> Dict[str, Any]:
             "run_cgl",
             "bootstrap_universe_learning",
             "learn_universe",
+            "rebuild_structured_tables",
+            "onboard_universe_tables",
             "run_kil",
             "run_full_coverage",
             "run_research_refresh",

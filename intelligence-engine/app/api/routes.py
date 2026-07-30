@@ -9379,6 +9379,137 @@ async def universe_learning_bootstrap(payload: dict[str, Any] = Body(default={})
     )
 
 
+# --- AGIB V1.5 — Institutional Universe Data Factory (IUDF) ---
+
+
+@router.get("/universe-master-registry/health")
+async def universe_master_registry_health():
+    from universe_master_registry.production import health
+
+    return health()
+
+
+@router.get("/universe-master-registry/dashboard")
+async def universe_master_registry_dashboard():
+    from universe_master_registry.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/universe-master-registry")
+async def universe_master_registry_list(
+    index: str | None = None,
+    limit: int | None = None,
+    offset: int = 0,
+    include_coverage: bool = False,
+):
+    from universe_master_registry.production import list_registry
+
+    return list_registry(index=index, limit=limit, offset=offset, include_coverage=include_coverage)
+
+
+@router.get("/universe-master-registry/company/{ticker}")
+async def universe_master_registry_company(ticker: str):
+    from universe_master_registry.production import get_company
+
+    return get_company(ticker)
+
+
+@router.get("/coverage-matrix/health")
+async def coverage_matrix_health():
+    from coverage_matrix.production import health
+
+    return health()
+
+
+@router.get("/coverage-matrix/company/{ticker}")
+async def coverage_matrix_company(ticker: str):
+    from coverage_matrix.production import matrix_for_company
+
+    return matrix_for_company(ticker)
+
+
+@router.get("/coverage-matrix/universe")
+async def coverage_matrix_universe(scope: str = "nifty500", limit: int = 20):
+    from coverage_matrix.production import matrix_for_universe
+
+    return matrix_for_universe(scope=scope, limit=limit)
+
+
+@router.get("/institutional-knowledge-tables/health")
+async def ikt_health():
+    from institutional_knowledge_tables.production import health
+
+    return health()
+
+
+@router.get("/institutional-knowledge-tables/tables")
+async def ikt_tables_catalog():
+    from institutional_knowledge_tables.production import tables_catalog
+
+    return tables_catalog()
+
+
+@router.get("/institutional-knowledge-tables/company/{ticker}")
+async def ikt_company(ticker: str):
+    from institutional_knowledge_tables.production import get_company_tables
+
+    return get_company_tables(ticker)
+
+
+@router.get("/institutional-knowledge-tables/company/{ticker}/{table}")
+async def ikt_company_table(ticker: str, table: str, period: str | None = None):
+    from institutional_knowledge_tables.production import get_company_table
+
+    return get_company_table(ticker, table, period=period)
+
+
+@router.get("/institutional-knowledge-tables/company/{ticker}/{table}/{field}/history")
+async def ikt_field_history(ticker: str, table: str, field: str, period: str | None = None):
+    from institutional_knowledge_tables.production import get_field_timeline
+
+    return get_field_timeline(ticker, table, field, period=period)
+
+
+@router.post("/institutional-knowledge-tables/fact")
+async def ikt_record_fact(payload: dict[str, Any] = Body(default={})):
+    """Admin/collector write path. Every fact must carry an evidence `source` —
+    never fabricated. Gate this route at the ops/admin layer upstream.
+    """
+    from institutional_knowledge_tables.production import record_fact
+
+    body = payload or {}
+    try:
+        return record_fact(
+            ticker=str(body.get("ticker") or ""),
+            table=str(body.get("table") or ""),
+            field=str(body.get("field") or ""),
+            value=body.get("value"),
+            source=str(body.get("source") or ""),
+            effective_date=body.get("effective_date"),
+            period=body.get("period"),
+            trigger=str(body.get("trigger") or "manual"),
+        )
+    except ValueError as exc:
+        return {"ok": False, "error": str(exc)}
+
+
+@router.post("/institutional-knowledge-tables/onboard-universe")
+async def ikt_onboard_universe(payload: dict[str, Any] = Body(default={})):
+    """Onboard every company in the uploaded universe file — no code changes."""
+    from institutional_knowledge_tables.production import onboard_universe
+
+    body = payload or {}
+    return onboard_universe(scope=str(body.get("scope") or "nifty500"), limit=body.get("limit"))
+
+
+@router.post("/institutional-knowledge-tables/company/{ticker}/rebuild")
+async def ikt_rebuild_company(ticker: str):
+    from institutional_knowledge_tables.production import rebuild_company_tables
+
+    return rebuild_company_tables(ticker)
+
+
 @router.get("/system/intelligence-stack")
 async def system_intelligence_stack():
     """Inventory of integrated Macro / Sector / Market / Research programmes."""
