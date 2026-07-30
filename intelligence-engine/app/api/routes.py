@@ -9841,6 +9841,80 @@ async def admin_institutional_stress_tests():
     return HTMLResponse(admin_page())
 
 
+# --- IBS-01 AGI Institutional Benchmark Suite (permanent; additive) ---
+
+
+@router.get("/institutional-benchmarks/health")
+async def institutional_benchmarks_health():
+    from institutional_benchmarks.production import health
+
+    return health()
+
+
+@router.get("/institutional-benchmarks/dashboard")
+async def institutional_benchmarks_dashboard():
+    from institutional_benchmarks.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/institutional-benchmarks")
+async def institutional_benchmarks_list(sector: str | None = None):
+    from institutional_benchmarks.production import list_benchmarks
+
+    return list_benchmarks(sector=sector)
+
+
+@router.get("/institutional-benchmarks/{case_id}")
+async def institutional_benchmarks_get(case_id: str, cutoff: str | None = None):
+    from institutional_benchmarks.production import get_benchmark
+
+    try:
+        return get_benchmark(case_id, cutoff=cutoff)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post("/institutional-benchmarks/run")
+async def institutional_benchmarks_run(payload: dict[str, Any] = Body(default={})):
+    from institutional_benchmarks.production import run
+
+    body = payload or {}
+    case_id = str(body.get("case_id") or body.get("case") or "").strip()
+    if not case_id:
+        raise HTTPException(status_code=400, detail="case_id required")
+    try:
+        return run(
+            case_id,
+            cutoff=body.get("cutoff") or body.get("historical_cutoff"),
+            fixture_answers=body.get("fixture_answers"),
+            consistency=bool(body.get("consistency", True)),
+            include_consensus=bool(body.get("include_consensus")),
+            house_notes=body.get("house_notes"),
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post("/institutional-benchmarks/run-all")
+async def institutional_benchmarks_run_all(payload: dict[str, Any] = Body(default={})):
+    from institutional_benchmarks.production import run_all_benchmarks, run_sector_benchmarks
+
+    body = payload or {}
+    cutoff = body.get("cutoff") or body.get("historical_cutoff")
+    sector = body.get("sector")
+    if sector:
+        return run_sector_benchmarks(str(sector), cutoff=cutoff)
+    return run_all_benchmarks(cutoff=cutoff)
+
+
+@router.get("/admin/institutional-benchmarks", response_class=HTMLResponse)
+async def admin_institutional_benchmarks():
+    from institutional_benchmarks.production import admin_page
+
+    return HTMLResponse(admin_page())
+
+
 # --- Company Monitoring System V1 (continuous living analyst; additive) ---
 
 
