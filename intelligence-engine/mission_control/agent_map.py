@@ -591,6 +591,24 @@ _CATALOG: list[dict[str, Any]] = [
         "kind": "office",
         "module": "evidence_fusion.production",
     },
+    {
+        "id": "management_execution",
+        "name": "Management Execution (FIRE-05)",
+        "group": "ops",
+        "responsibility": (
+            "Temporal execution tracking — whether management delivered on prior "
+            "disclosures using later financial evidence (no honesty judgment, no BUY/SELL)."
+        ),
+        "sources": [
+            "FIRE-03",
+            "FIRE-04",
+            "Financial Warehouse",
+            "Derived Metrics",
+            "FKB",
+        ],
+        "kind": "office",
+        "module": "management_execution.production",
+    },
     # —— Learning / eval ——
     {
         "id": "forecast_validation_learning",
