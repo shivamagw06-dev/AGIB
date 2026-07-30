@@ -104,6 +104,18 @@ async def lifespan(_app: FastAPI):
         log.info("continuous_gather_learn", extra=boot_cgl)
     except Exception as exc:
         log.warning("continuous_gather_learn_failed", extra={"error": str(exc)[:160]})
+    # FSE-00 Pipeline Orchestrator — auto-start on evidence.stored.
+    # Coordinates Parse → Validate → Warehouse → DME. Failures never block startup.
+    try:
+        from financial_statements_engine.orchestrator.subscriber import bind_orchestrator_subscriber
+
+        bind_orchestrator_subscriber()
+        log.info(
+            "fse_orchestrator_bound",
+            extra={"subscriber": "fse00_orchestrator", "event": "evidence.stored", "auto_start": True},
+        )
+    except Exception as exc:
+        log.warning("fse_orchestrator_bind_failed", extra={"error": str(exc)[:160]})
     # NOTE: Do not auto-download Chromium at startup on free-tier Render — the
     # install can starve CPU/RAM and make /v1/health time out. Bake browsers via
     # buildCommand (`python -m playwright install chromium`) or set

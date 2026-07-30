@@ -31,12 +31,37 @@ Duplicates do not execute twice.
 
 `RECEIVED` · `QUEUED` · `RUNNING` · `COMPLETED` · `FAILED` · `RETRYING` · `CANCELLED`
 
+## Production auto-start (required)
+
+```text
+evidence.stored  →  Orchestrator  →  PARSE → VALIDATE → WAREHOUSE → DME
+```
+
+`bind_orchestrator_subscriber()` is wired in **app lifespan** (`app/main.py`). No manual trigger required for the happy path.
+
+## Dead Letter Queue
+
+```text
+FAILED → Retry (max 3, exponential backoff) → DEAD_LETTER
+```
+
+Permanent failures also enter `DEAD_LETTER`. Mission Control `/orchestrator/dlq` shows:
+
+| Field | Meaning |
+| --- | --- |
+| workflow_id | Unique workflow |
+| company / ticker | Entity |
+| stage | Failing stage |
+| error | Reason |
+| last_retry | Last retry timestamp |
+| manual_replay_action | `POST …/orchestrator/replay/{id}` |
+
 ## Surfaces
 
 | Surface | Path |
 | --- | --- |
 | Health / Dashboard | `--orch-health` · `--orch-dashboard` · `GET …/orchestrator/health|dashboard` |
-| Queue / History | `--orch-queue` · `--orch-history` · `GET …/orchestrator/workflows` |
+| Queue / History / DLQ | `--orch-queue` · `--orch-history` · `--orch-dlq` · `GET …/orchestrator/{workflows,dlq}` |
 | Retry / Replay | `--orch-retry ID` · `--orch-replay ID` · `POST …/orchestrator/retry|replay/{id}` |
 
 ## Foundation choice

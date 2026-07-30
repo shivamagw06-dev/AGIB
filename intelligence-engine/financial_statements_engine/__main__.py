@@ -31,7 +31,7 @@ def main(argv: list[str] | None = None) -> int:
             "--warehouse-contract CONTRACT TICKER|--warehouse-view TICKER VIEW [--as-of TS]|"
             "--dme-health|--dme-dashboard|--dme-calculate TICKER|"
             "--ecd-health|--ecd-dashboard [universe]|--ecd-company TICKER|"
-            "--orch-health|--orch-dashboard|--orch-queue|--orch-history|"
+            "--orch-health|--orch-dashboard|--orch-queue|--orch-history|--orch-dlq|"
             "--orch-status|--orch-workflows|--orch-workflow ID|"
             "--orch-retry ID|--orch-replay ID [--from-stage STAGE]|"
             "--schema-evolution-health|--schema-resolve LABEL|"
@@ -368,6 +368,11 @@ def main(argv: list[str] | None = None) -> int:
         from financial_statements_engine.orchestrator.production import history as orch_hist
 
         print(json.dumps(orch_hist(), indent=2, default=str))
+        return 0
+    if cmd == "--orch-dlq":
+        from financial_statements_engine.orchestrator.production import dlq as orch_dlq
+
+        print(json.dumps(orch_dlq(), indent=2, default=str))
         return 0
     if cmd == "--orch-workflows":
         from financial_statements_engine.orchestrator.production import workflows as orch_wfs
