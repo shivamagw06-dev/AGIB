@@ -1,17 +1,19 @@
 #!/usr/bin/env python3
 """
-Nifty 500 research engine — read-only, research-only output.
+NSE / Nifty research engine — read-only, research-only output.
 
 Requirements:
   pip install growwapi pandas
 
 Configuration:
   export GROWW_ACCESS_TOKEN="..."
-  export NIFTY500_CONSTITUENTS_PATH="/path/to/nifty500_constituents.csv"
+  export NIFTY500_CONSTITUENTS_PATH="/path/to/NIFTYstocks.csv"  # or Nifty500.csv
   export SUPABASE_URL="https://your-project.supabase.co"
   export SUPABASE_SERVICE_ROLE_KEY="server-only-service-role-key"
 
-The CSV must be a current, licensed constituent export with one `symbol` column.
+The CSV must include a `Symbol` (or `symbol`) column.
+Defaults to repo-root `NIFTYstocks.csv` (all NSE equities) when present,
+otherwise `Nifty500.csv`. Refresh with `python3 scripts/refresh_nifty_stocks.py`.
 This script validates and de-duplicates symbols through Groww before analysis.
 It does not place orders and does not generate investment recommendations.
 """
@@ -33,6 +35,7 @@ import pandas as pd
 from growwapi import GrowwAPI
 
 
+ENGINE_VERSION = "2026-07-25-short-history-v4"
 SERVER_ENV_PATH = Path(__file__).resolve().parents[1] / ".env"
 
 
@@ -65,13 +68,28 @@ load_server_env()
 
 IST = ZoneInfo("Asia/Kolkata")
 OUTPUT_PATH = Path(os.getenv("NIFTY500_RESEARCH_OUTPUT", "nifty500_research.json"))
-DEFAULT_CONSTITUENTS_PATH = Path(__file__).resolve().parents[2] / "Nifty500.csv"
+REPO_ROOT = Path(__file__).resolve().parents[2]
+# Prefer full NSE equity universe (NIFTYstocks.csv) when present; fall back to Nifty 500.
+_DEFAULT_ALL = REPO_ROOT / "NIFTYstocks.csv"
+_DEFAULT_500 = REPO_ROOT / "Nifty500.csv"
+DEFAULT_CONSTITUENTS_PATH = _DEFAULT_ALL if _DEFAULT_ALL.exists() else _DEFAULT_500
 CONSTITUENTS_PATH = Path(os.getenv("NIFTY500_CONSTITUENTS_PATH", DEFAULT_CONSTITUENTS_PATH))
+
+_universe_hint = 0
+try:
+    if CONSTITUENTS_PATH.exists():
+        with CONSTITUENTS_PATH.open(encoding="utf-8-sig") as _preview:
+            _universe_hint = max(sum(1 for _ in _preview) - 1, 0)
+except OSError:
+    _universe_hint = 0
+
+# Full NSE runs reject more thin names — allow a slightly lower default coverage floor.
+_default_coverage = "0.85" if _universe_hint > 600 else "0.95"
 
 CONFIG = {
     "exchange": "NSE",
     "segment": "CASH",
-    "lookback_days": 380,  # enough calendar history for 200+ trading sessions
+    "lookback_days": 420,  # page Groww 1day candles (max 180 days/request)
     "top_n": 20,
     "schedule_times_ist": tuple(
         value.strip()
@@ -82,8 +100,17 @@ CONFIG = {
     "sma_short": 20,
     "sma_long": 50,
     "sma_200": 200,
+    # Groww often returns ~100-130 daily bars even across paged lookbacks.
+    # Require enough for SMA50 + MACD; treat SMA200 as optional when absent.
+    "minimum_bars": int(os.getenv("NIFTY500_MINIMUM_BARS", "60") or 60),
     "volume_average_period": 20,
-    "minimum_publish_coverage": float(os.getenv("NIFTY500_MINIMUM_PUBLISH_COVERAGE", "0.95")),
+    "minimum_publish_coverage": float(
+        os.getenv("NIFTY500_MINIMUM_PUBLISH_COVERAGE", _default_coverage)
+    ),
+    # Pace Groww lookups for the full NSE book (~2k symbols).
+    "request_delay_sec": float(os.getenv("NIFTY500_REQUEST_DELAY_SEC", "0.15")),
+    # Optional smoke / partial runs: NIFTY500_SYMBOL_LIMIT=50
+    "symbol_limit": int(os.getenv("NIFTY500_SYMBOL_LIMIT", "0") or 0),
 }
 
 
@@ -91,24 +118,61 @@ def now_ist() -> datetime:
     return datetime.now(IST)
 
 
+def _row_symbol(row: dict) -> str:
+    """Extract a trading symbol from common NSE / AGI CSV header variants."""
+    if not row:
+        return ""
+    # Exact common keys first
+    for key in (
+        "Symbol",
+        "symbol",
+        "SYMBOL",
+        "Trading Symbol",
+        "trading_symbol",
+        "Ticker",
+        "ticker",
+    ):
+        value = row.get(key)
+        if value is not None and str(value).strip():
+            return str(value).strip().upper()
+    # Case / whitespace-insensitive fallback
+    normalized = {str(k).strip().lower(): v for k, v in row.items() if k is not None}
+    for key in ("symbol", "trading symbol", "trading_symbol", "ticker", "nse symbol"):
+        value = normalized.get(key)
+        if value is not None and str(value).strip():
+            return str(value).strip().upper()
+    return ""
+
+
 def load_constituents(path: Path) -> list[str]:
-    """Load, normalize and de-duplicate a licensed Nifty 500 CSV export."""
+    """Load, normalize and de-duplicate a licensed NSE / Nifty constituent CSV."""
     if not path.exists():
         raise FileNotFoundError(
-            f"Missing constituent file: {path}. Supply a current licensed CSV with a 'symbol' column."
+            f"Missing constituent file: {path}. Supply a current licensed CSV with a 'symbol' column "
+            "(NIFTYstocks.csv for all NSE equities, or Nifty500.csv)."
         )
 
     seen: set[str] = set()
     symbols: list[str] = []
+    fieldnames: list[str] = []
     with path.open(newline="", encoding="utf-8-sig") as source:
-        for row in csv.DictReader(source):
-            raw = str(row.get("symbol") or row.get("Symbol") or "").strip().upper()
+        reader = csv.DictReader(source)
+        fieldnames = list(reader.fieldnames or [])
+        for row in reader:
+            raw = _row_symbol(row)
             if raw and raw not in seen:
                 seen.add(raw)
                 symbols.append(raw)
 
     if not symbols:
-        raise ValueError("No symbols found. The CSV must include a 'symbol' column.")
+        raise ValueError(
+            f"No symbols found in {path}. Headers seen: {fieldnames or '(none)'}. "
+            "Need a Symbol / SYMBOL / trading_symbol column."
+        )
+
+    limit = CONFIG.get("symbol_limit") or 0
+    if limit > 0:
+        symbols = symbols[:limit]
     return symbols
 
 
@@ -243,79 +307,88 @@ def publish_existing_output() -> None:
 
 
 def candle_frame(response: dict) -> pd.DataFrame:
-    candles = response.get("candles", [])
+    candles = response.get("candles", []) if isinstance(response, dict) else []
     if not candles:
         return pd.DataFrame(columns=["timestamp", "open", "high", "low", "close", "volume"])
-    # Groww's CASH endpoint currently returns six fields (without open
-    # interest), while FNO payloads may include a seventh OI field. Research
-    # uses the first six fields only.
+    # Groww V2 candles: [timestamp, open, high, low, close, volume, oi?]
+    # Timestamp may be epoch seconds or an ISO / "YYYY-MM-DD HH:MM:SS" string.
     rows = [list(candle[:6]) for candle in candles if len(candle) >= 6]
     frame = pd.DataFrame(rows, columns=["timestamp", "open", "high", "low", "close", "volume"])
+    frame["timestamp"] = pd.to_datetime(frame["timestamp"], utc=False, errors="coerce")
     for field in ("open", "high", "low", "close", "volume"):
         frame[field] = pd.to_numeric(frame[field], errors="coerce")
-    return frame.dropna(subset=["open", "high", "low", "close"]).sort_values("timestamp").reset_index(drop=True)
-
-
-def fetch_daily_history(access_token: str, instrument: dict) -> pd.DataFrame:
-    """Fetch daily candles through Groww's REST endpoint in safe 180-day windows.
-
-    The Python SDK's backtesting method can return empty candle arrays for CASH
-    equities even when the corresponding Groww REST endpoint returns data.
-    """
-    end = now_ist()
-    start = end - timedelta(days=CONFIG["lookback_days"])
-    cursor = start
-    parts: list[pd.DataFrame] = []
-    api_base = os.getenv("GROWW_API_BASE", "https://api.groww.in/v1").rstrip("/")
-    # Groww documents CASH groww symbols as NSE-<trading_symbol>. Prefer this
-    # canonical value: some SDK instrument payloads expose a display symbol
-    # with an exchange-series suffix that the historical REST endpoint rejects.
-    groww_symbol = str(instrument.get("groww_symbol") or "")
-    trading_symbol = groww_symbol.split("-", 1)[-1] if "-" in groww_symbol else (
-        instrument.get("symbol") or instrument.get("trading_symbol") or groww_symbol
+    return (
+        frame.dropna(subset=["timestamp", "open", "high", "low", "close"])
+        .sort_values("timestamp")
+        .reset_index(drop=True)
     )
 
-    while cursor < end:
-        finish = min(cursor + timedelta(days=180), end)
-        query = urlencode(
-            {
-                "exchange": instrument["exchange"],
-                "segment": instrument["segment"],
-                "trading_symbol": trading_symbol,
-                "start_time": cursor.strftime("%Y-%m-%d %H:%M:%S"),
-                "end_time": finish.strftime("%Y-%m-%d %H:%M:%S"),
-                "interval_in_minutes": "1440",
-            }
-        )
-        request = Request(
-            f"{api_base}/historical/candle/range?{query}",
-            headers={
-                "Accept": "application/json",
-                "Authorization": f"Bearer {access_token}",
-                "X-API-VERSION": "1.0",
-            },
-        )
-        try:
-            with urlopen(request, timeout=45) as response:
-                envelope = json.loads(response.read().decode("utf-8"))
-        except HTTPError as error:
-            detail = error.read().decode("utf-8", errors="replace")
-            raise RuntimeError(f"Groww historical request failed ({error.code}): {detail}") from error
-        except URLError as error:
-            raise RuntimeError(f"Groww historical request failed: {error.reason}") from error
 
-        if envelope.get("status") != "SUCCESS":
-            error = envelope.get("error") or {}
-            raise RuntimeError(
-                f"Groww historical request failed: "
-                f"{error.get('message') or error.get('errorMessage') or envelope}"
+def resolve_groww_symbol(instrument: dict, trading_symbol: str = "") -> str:
+    """Prefer Groww's canonical NSE-<symbol> id for the V2 candles API."""
+    groww_symbol = str(instrument.get("groww_symbol") or "").strip()
+    if groww_symbol:
+        return groww_symbol
+    symbol = str(
+        instrument.get("trading_symbol")
+        or instrument.get("symbol")
+        or trading_symbol
+        or ""
+    ).strip()
+    if not symbol:
+        raise RuntimeError("Instrument payload missing groww_symbol / trading_symbol")
+    exchange = str(instrument.get("exchange") or CONFIG["exchange"]).strip().upper() or "NSE"
+    if symbol.upper().startswith(f"{exchange}-"):
+        return symbol
+    return f"{exchange}-{symbol}"
+
+
+def fetch_daily_history(groww: GrowwAPI, instrument: dict, trading_symbol: str = "") -> pd.DataFrame:
+    """Fetch daily candles via Groww's current backtesting candles API.
+
+    Uses `get_historical_candles` (groww_symbol + candle_interval=1day).
+    Pages newest→oldest in ≤180-day windows (Groww max for 1day).
+    Soft-skips empty/failed older windows so a short recent series still works.
+    """
+    end = now_ist().replace(hour=15, minute=30, second=0, microsecond=0)
+    start = end - timedelta(days=CONFIG["lookback_days"])
+    groww_symbol = resolve_groww_symbol(instrument, trading_symbol)
+    exchange = str(instrument.get("exchange") or CONFIG["exchange"])
+    segment = str(instrument.get("segment") or CONFIG["segment"])
+    interval = getattr(groww, "CANDLE_INTERVAL_DAY", "1day")
+
+    # Newest window first — Groww often fills recent pages more reliably.
+    windows: list[tuple[datetime, datetime]] = []
+    finish = end
+    while finish > start:
+        begin = max(start, finish - timedelta(days=170))
+        windows.append((begin, finish))
+        finish = begin
+
+    parts: list[pd.DataFrame] = []
+    for begin, finish in windows:
+        try:
+            payload = groww.get_historical_candles(
+                exchange=exchange,
+                segment=segment,
+                groww_symbol=groww_symbol,
+                start_time=begin.strftime("%Y-%m-%d %H:%M:%S"),
+                end_time=finish.strftime("%Y-%m-%d %H:%M:%S"),
+                candle_interval=interval,
+                timeout=45,
             )
-        payload = envelope.get("payload") or {}
-        frame = candle_frame(payload)
+        except Exception as error:
+            if is_groww_auth_error(error):
+                raise RuntimeError(groww_auth_help()) from error
+            # Older windows can fail while recent data is still usable.
+            continue
+
+        if isinstance(payload, dict) and "candles" not in payload and isinstance(payload.get("payload"), dict):
+            payload = payload["payload"]
+        frame = candle_frame(payload if isinstance(payload, dict) else {})
         if not frame.empty:
             parts.append(frame)
-        cursor = finish
-        time.sleep(0.35)
+        time.sleep(0.2)
 
     if not parts:
         return pd.DataFrame()
@@ -333,10 +406,12 @@ def last_or_default(series: pd.Series, default: float = 0.0) -> float:
 
 
 def calculate_indicators(frame: pd.DataFrame) -> Optional[dict]:
-    if len(frame) < CONFIG["sma_200"]:
+    min_bars = CONFIG["minimum_bars"]
+    if len(frame) < min_bars:
         return None
 
     close, high, low, volume = frame["close"], frame["high"], frame["low"], frame["volume"]
+    bars = len(frame)
     delta = close.diff()
     gain, loss = delta.clip(lower=0), -delta.clip(upper=0)
     average_gain = gain.ewm(com=CONFIG["rsi_period"] - 1, min_periods=CONFIG["rsi_period"]).mean()
@@ -349,9 +424,15 @@ def calculate_indicators(frame: pd.DataFrame) -> Optional[dict]:
     macd_signal = macd.ewm(span=9, adjust=False).mean()
     histogram = macd - macd_signal
 
-    sma20, sma50, sma200 = close.rolling(20).mean(), close.rolling(50).mean(), close.rolling(200).mean()
-    middle = close.rolling(20).mean()
-    std = close.rolling(20).std()
+    sma20 = close.rolling(20, min_periods=20).mean()
+    sma50 = close.rolling(50, min_periods=min(50, bars)).mean()
+    # Long benchmark: true SMA200 when available, else longest usable SMA (100/50).
+    long_period = 200 if bars >= 200 else 100 if bars >= 100 else 50
+    sma_long = close.rolling(long_period, min_periods=long_period).mean()
+    has_sma200 = bars >= CONFIG["sma_200"]
+
+    middle = close.rolling(20, min_periods=20).mean()
+    std = close.rolling(20, min_periods=20).std()
     upper, lower = middle + 2 * std, middle - 2 * std
     band_width = upper - lower
     percent_b = (close - lower) / band_width.replace(0, math.nan)
@@ -360,23 +441,28 @@ def calculate_indicators(frame: pd.DataFrame) -> Optional[dict]:
     true_range = pd.concat([high - low, (high - previous_close).abs(), (low - previous_close).abs()], axis=1).max(axis=1)
     atr = true_range.ewm(com=13, min_periods=14).mean()
 
-    average_volume = volume.rolling(CONFIG["volume_average_period"]).mean()
+    average_volume = volume.rolling(CONFIG["volume_average_period"], min_periods=5).mean()
     roc_10 = (close / close.shift(10) - 1) * 100
     change_5 = (close / close.shift(5) - 1) * 100
     change_20 = (close / close.shift(20) - 1) * 100
-    change_60 = (close / close.shift(60) - 1) * 100
+    change_60 = (close / close.shift(min(60, max(bars - 1, 1))) - 1) * 100
 
-    high_52 = high.rolling(252).max()
-    low_52 = low.rolling(252).min()
-    position_52 = (close - low_52) / (high_52 - low_52).replace(0, math.nan)
+    range_n = min(252, bars)
+    high_range = high.rolling(range_n, min_periods=max(20, range_n // 2)).max()
+    low_range = low.rolling(range_n, min_periods=max(20, range_n // 2)).min()
+    position_range = (close - low_range) / (high_range - low_range).replace(0, math.nan)
 
+    above_long = last_or_default(close) > last_or_default(sma_long)
     return {
+        "bars": bars,
+        "long_sma_period": long_period,
+        "has_sma200": has_sma200,
         "rsi": last_or_default(rsi, 50),
         "macd_histogram": last_or_default(histogram),
         "macd_positive": last_or_default(macd) > last_or_default(macd_signal),
         "above_sma20": last_or_default(close) > last_or_default(sma20),
         "above_sma50": last_or_default(close) > last_or_default(sma50),
-        "above_sma200": last_or_default(close) > last_or_default(sma200),
+        "above_sma200": above_long,  # long-term proxy when SMA200 unavailable
         "sma20_above_sma50": last_or_default(sma20) > last_or_default(sma50),
         "percent_b": last_or_default(percent_b, 0.5),
         "atr_percent": (last_or_default(atr) / max(last_or_default(close), 0.01)) * 100,
@@ -385,7 +471,7 @@ def calculate_indicators(frame: pd.DataFrame) -> Optional[dict]:
         "change_20d": last_or_default(change_20),
         "change_60d": last_or_default(change_60),
         "roc_10": last_or_default(roc_10),
-        "position_52w": last_or_default(position_52, 0.5),
+        "position_52w": last_or_default(position_range, 0.5),
     }
 
 
@@ -507,24 +593,98 @@ def build_output(results: list[dict], run_name: str, rejected: list[dict]) -> di
     }
 
 
-def run_once(run_name: str = "After Market Close Research") -> None:
+def summarize_rejections(rejected: list[dict], limit: int = 8) -> str:
+    counts: dict[str, int] = {}
+    for item in rejected:
+        reason = str(item.get("reason") or "unknown")
+        # Collapse noisy per-symbol HTTP bodies to a short key
+        key = reason.split(":")[0].strip()[:120]
+        counts[key] = counts.get(key, 0) + 1
+    ordered = sorted(counts.items(), key=lambda pair: pair[1], reverse=True)[:limit]
+    if not ordered:
+        return "none"
+    return "; ".join(f"{reason} ×{count}" for reason, count in ordered)
+
+
+def is_groww_auth_error(error: BaseException) -> bool:
+    name = type(error).__name__
+    text = str(error).lower()
+    return (
+        "Authentication" in name
+        or "authentication failed" in text
+        or "token has either expired" in text
+        or "invalid" in text and "token" in text
+    )
+
+
+def groww_auth_help() -> str:
+    return (
+        "Groww access token is expired or invalid for historical candles.\n"
+        "Fix:\n"
+        "  1) Open Groww → Trade API → generate a fresh Access Token (tokens expire daily)\n"
+        "  2) Put it in server/.env as GROWW_ACCESS_TOKEN=...\n"
+        "  3) Or set GROWW_API_KEY + GROWW_API_SECRET and re-run (SDK will mint a token)\n"
+        "  4) Re-test: python3 scripts/nifty500_research_engine.py --diagnose RELIANCE"
+    )
+
+
+def create_groww_client() -> GrowwAPI:
     access_token = os.environ.get("GROWW_ACCESS_TOKEN", "").strip()
     api_key = os.environ.get("GROWW_API_KEY", "").strip()
     api_secret = os.environ.get("GROWW_API_SECRET", "").strip()
     if access_token:
         groww_access_token = access_token
     elif api_key.startswith("eyJ") and len(api_key) > 100:
-        # Backward-compatible handling for an access token placed in GROWW_API_KEY.
-        # Prefer moving it to GROWW_ACCESS_TOKEN in the environment configuration.
         print("Using JWT-style access token from GROWW_API_KEY; move it to GROWW_ACCESS_TOKEN.")
         groww_access_token = api_key
     elif api_key and api_secret:
         groww_access_token = GrowwAPI.get_access_token(api_key=api_key, secret=api_secret)
     else:
         raise RuntimeError("Set GROWW_ACCESS_TOKEN or GROWW_API_KEY and GROWW_API_SECRET before running.")
-    groww = GrowwAPI(groww_access_token)
+    return GrowwAPI(groww_access_token)
+
+
+def diagnose_symbol(symbol: str) -> None:
+    """Single-symbol deep check — prints instrument + candle counts (no publish)."""
+    symbol = str(symbol or "").strip().upper()
+    if not symbol:
+        raise RuntimeError("Usage: python3 scripts/nifty500_research_engine.py --diagnose RELIANCE")
+    print(f"AGI research engine {ENGINE_VERSION}")
+    print(f"Diagnosing {symbol} …")
+    groww = create_groww_client()
+    instrument = groww.get_instrument_by_exchange_and_trading_symbol(
+        exchange=CONFIG["exchange"], trading_symbol=symbol
+    )
+    if isinstance(instrument, dict) and "segment" not in instrument and isinstance(instrument.get("payload"), dict):
+        instrument = instrument["payload"]
+    print("Instrument keys:", sorted(instrument.keys()) if isinstance(instrument, dict) else type(instrument))
+    print("groww_symbol:", instrument.get("groww_symbol") if isinstance(instrument, dict) else None)
+    print("segment:", instrument.get("segment") if isinstance(instrument, dict) else None)
+    print("trading_symbol:", instrument.get("trading_symbol") if isinstance(instrument, dict) else None)
+    history = fetch_daily_history(groww, instrument, trading_symbol=symbol)
+    print(f"Daily bars: {len(history)}")
+    if not history.empty:
+        print(history.tail(3).to_string(index=False))
+    indicators = calculate_indicators(history)
+    if not indicators:
+        print(f"FAIL: need {CONFIG['minimum_bars']} bars minimum; got {len(history)}")
+        return
+    score = score_research(indicators)
+    print(
+        f"OK: {category(score)} · score={score} · confidence={confidence(score, indicators)} "
+        f"· long_sma={indicators.get('long_sma_period')} · bars={indicators.get('bars')}"
+    )
+
+
+def run_once(run_name: str = "After Market Close Research") -> None:
+    print(f"AGI research engine {ENGINE_VERSION}")
+    groww = create_groww_client()
     validate_publish_config()
     symbols = load_constituents(CONSTITUENTS_PATH)
+    print(f"Universe: {len(symbols)} symbols from {CONSTITUENTS_PATH}")
+    print("Candle source: Groww get_historical_candles (1day / groww_symbol)")
+    if not symbols:
+        raise RuntimeError(f"No symbols loaded from {CONSTITUENTS_PATH}")
     results, rejected = [], []
 
     for index, symbol in enumerate(symbols, start=1):
@@ -532,18 +692,35 @@ def run_once(run_name: str = "After Market Close Research") -> None:
             instrument = groww.get_instrument_by_exchange_and_trading_symbol(
                 exchange=CONFIG["exchange"], trading_symbol=symbol
             )
-            if instrument.get("segment") != CONFIG["segment"]:
-                rejected.append({"symbol": symbol, "reason": "not_cash_equity"})
+            if not isinstance(instrument, dict):
+                raise RuntimeError(f"Unexpected instrument payload type: {type(instrument)}")
+            # Some SDK versions nest under payload
+            if "segment" not in instrument and isinstance(instrument.get("payload"), dict):
+                instrument = instrument["payload"]
+            segment = str(instrument.get("segment") or "").upper()
+            if segment and segment != str(CONFIG["segment"]).upper():
+                rejected.append({"symbol": symbol, "reason": f"not_cash_equity ({segment})"})
+                print(f"[{index}/{len(symbols)}] {symbol}: REJECT not_cash_equity ({segment})")
                 continue
-            history = fetch_daily_history(groww_access_token, instrument)
-            if index == 1 and history.empty:
-                raise RuntimeError(
-                    f"Groww returned no daily candles for {symbol}; "
-                    f"resolved trading symbol was {instrument.get('groww_symbol')!r}."
+            history = fetch_daily_history(groww, instrument, trading_symbol=symbol)
+            if history.empty:
+                reason = (
+                    f"empty_history ({resolve_groww_symbol(instrument, symbol)})"
                 )
+                rejected.append({"symbol": symbol, "reason": reason})
+                print(f"[{index}/{len(symbols)}] {symbol}: REJECT {reason}")
+                if index == 1:
+                    raise RuntimeError(
+                        f"Groww returned no daily candles for first symbol {symbol} "
+                        f"({resolve_groww_symbol(instrument, symbol)}). "
+                        "Check GROWW_ACCESS_TOKEN scopes / Groww backtesting API access."
+                    )
+                continue
             indicators = calculate_indicators(history)
             if not indicators:
-                rejected.append({"symbol": symbol, "reason": "insufficient_history"})
+                reason = f"insufficient_history ({len(history)} bars; need {CONFIG['minimum_bars']})"
+                rejected.append({"symbol": symbol, "reason": reason})
+                print(f"[{index}/{len(symbols)}] {symbol}: REJECT {reason}")
                 continue
             score = score_research(indicators)
             label = category(score)
@@ -556,22 +733,30 @@ def run_once(run_name: str = "After Market Close Research") -> None:
                 **narrative(symbol, label, indicators),
             }
             results.append(result)
-            print(f"[{index}/{len(symbols)}] {symbol}: {label} ({score})")
+            print(f"[{index}/{len(symbols)}] {symbol}: {label} ({score}) · {len(history)} bars")
         except Exception as error:
             rejected.append({"symbol": symbol, "reason": str(error)})
+            print(f"[{index}/{len(symbols)}] {symbol}: ERROR {error}")
+            if index == 1:
+                raise
+        delay = CONFIG.get("request_delay_sec") or 0
+        if delay > 0:
+            time.sleep(delay)
 
     output = build_output(results, run_name, rejected)
     OUTPUT_PATH.write_text(json.dumps(output, indent=2), encoding="utf-8")
     print(f"Saved {len(results)} research records to {OUTPUT_PATH}")
+    print(f"Rejected {len(rejected)} · top reasons: {summarize_rejections(rejected)}")
 
     coverage = len(results) / max(len(symbols), 1)
     if coverage < CONFIG["minimum_publish_coverage"]:
         raise RuntimeError(
             f"Refusing to publish an incomplete run ({coverage:.1%} coverage; "
-            f"minimum {CONFIG['minimum_publish_coverage']:.1%})."
+            f"minimum {CONFIG['minimum_publish_coverage']:.1%}). "
+            f"Top reject reasons: {summarize_rejections(rejected)}"
         )
     run_id = publish_to_supabase(output)
-    print(f"Published Nifty 500 research run {run_id} to Supabase")
+    print(f"Published NSE research run {run_id} to Supabase")
 
 
 def run_scheduler() -> None:
@@ -587,10 +772,15 @@ def run_scheduler() -> None:
 
 if __name__ == "__main__":
     # Use --once for an immediate manual run, --publish-existing to publish a
-    # completed JSON backup, or no flag for the weekday scheduler.
+    # completed JSON backup, --diagnose SYMBOL for a single-name API check,
+    # or no flag for the weekday scheduler.
     import sys
 
-    if "--publish-existing" in sys.argv:
+    print(f"AGI research engine {ENGINE_VERSION}")
+    if "--diagnose" in sys.argv:
+        idx = sys.argv.index("--diagnose")
+        diagnose_symbol(sys.argv[idx + 1] if len(sys.argv) > idx + 1 else "RELIANCE")
+    elif "--publish-existing" in sys.argv:
         publish_existing_output()
     elif "--once" in sys.argv:
         run_once("Manual Research Run")
