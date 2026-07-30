@@ -1904,6 +1904,22 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // Universe learning — seed HD queue from Nifty/NSE lists and start CGL gather→learn
+  router.get('/universe-learning/health', kfGet('/v1/universe-learning/health'));
+  router.get('/universe-learning/status', kfGet('/v1/universe-learning/status', 60_000));
+  router.post('/universe-learning/bootstrap', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/universe-learning/bootstrap', {
+        method: 'POST',
+        body: req.body || {},
+        timeoutMs: 120_000,
+      });
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'universe-learning bootstrap failed' });
+    }
+  });
+
   // Mission Control V1 — administrator operations centre (read-only)
   router.get('/mission-control/health', kfGet('/v1/mission-control/health'));
   router.get('/mission-control/agent-map', async (_req, res) => {

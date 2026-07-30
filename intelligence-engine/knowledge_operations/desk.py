@@ -433,6 +433,8 @@ def build_desk(*, scope: str = "TOP20") -> Dict[str, Any]:
         "upload_pipeline": list(UPLOAD_PIPELINE),
         "actions": [
             "run_cgl",
+            "bootstrap_universe_learning",
+            "learn_universe",
             "run_kil",
             "run_full_coverage",
             "run_research_refresh",

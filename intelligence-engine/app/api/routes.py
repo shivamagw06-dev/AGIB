@@ -9346,6 +9346,39 @@ async def continuous_gather_learn_run(payload: dict[str, Any] = Body(default={})
     )
 
 
+@router.get("/universe-learning/health")
+async def universe_learning_health():
+    """Universe learning bootstrap — gather/learn across Nifty + NSE book."""
+    from universe_learning.production import health
+
+    return health()
+
+
+@router.get("/universe-learning/status")
+async def universe_learning_status():
+    from universe_learning.production import learning_status
+
+    return learning_status()
+
+
+@router.post("/universe-learning/bootstrap")
+async def universe_learning_bootstrap(payload: dict[str, Any] = Body(default={})):
+    """Seed HD queue from index/trading universe and start CGL gather→learn.
+
+    scope: nifty500 (default) | indices | all
+    """
+    from universe_learning.production import bootstrap_universe_learning
+
+    body = payload or {}
+    return bootstrap_universe_learning(
+        scope=str(body.get("scope") or "nifty500"),
+        run_cgl=bool(body.get("run_cgl", True)),
+        slot=str(body.get("slot") or "overnight"),
+        force_refresh_queue=bool(body.get("force_refresh_queue", True)),
+        icf_tick=bool(body.get("icf_tick", False)),
+    )
+
+
 @router.get("/system/intelligence-stack")
 async def system_intelligence_stack():
     """Inventory of integrated Macro / Sector / Market / Research programmes."""

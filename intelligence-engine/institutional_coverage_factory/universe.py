@@ -15,6 +15,14 @@ def top20_tickers() -> List[str]:
 
 def nifty50_tickers() -> List[str]:
     try:
+        from market_indices.loader import list_members
+
+        syms = [m["symbol"] for m in list_members("NIFTY_50") if m.get("symbol")]
+        if syms:
+            return syms
+    except Exception:
+        pass
+    try:
         from institutional_reasoning.fundamentals.universe import NIFTY_50
 
         return [str(t).upper() for t in NIFTY_50]
@@ -24,6 +32,14 @@ def nifty50_tickers() -> List[str]:
 
 def nifty100_tickers() -> List[str]:
     try:
+        from market_indices.loader import list_members
+
+        syms = [m["symbol"] for m in list_members("NIFTY_100") if m.get("symbol")]
+        if syms:
+            return syms
+    except Exception:
+        pass
+    try:
         from knowledge_factory.coverage import NIFTY_100
 
         return [str(t).upper() for t in NIFTY_100]
@@ -32,6 +48,23 @@ def nifty100_tickers() -> List[str]:
 
 
 def universe_tickers() -> List[str]:
+    """Institutional coverage universe — prefer live Nifty 500 CSV, else full NSE book."""
+    try:
+        from market_indices.loader import list_members
+
+        syms = [m["symbol"] for m in list_members("NIFTY_500") if m.get("symbol")]
+        if syms:
+            return syms
+    except Exception:
+        pass
+    try:
+        from trading_universe.loader import list_symbols
+
+        all_eq = list_symbols()
+        if all_eq:
+            return all_eq
+    except Exception:
+        pass
     try:
         from knowledge_factory.coverage import NIFTY_500
 
