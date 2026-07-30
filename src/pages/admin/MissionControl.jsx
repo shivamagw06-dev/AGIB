@@ -1505,13 +1505,26 @@ export default function MissionControl() {
 
         {/* Architecture Center — RC-01 */}
         <section className="space-y-3">
-          <Kicker>Architecture Center · RC-01</Kicker>
+          <Kicker>Architecture Center · RC-01 · AGIB v1.0 GA</Kicker>
           <p className="text-sm text-[var(--io-muted)] max-w-3xl">
-            Release candidate quality gate — invariants, violations, layer dependencies, import
-            graph, context propagation, lineage health, and architecture score. Not a feature;
-            proves AGIB v1.0 principles hold.
+            AGIB v1.0 is General Availability. Continuous quality gate — invariants, violations,
+            layer dependencies, import graph, context propagation, lineage health, and architecture
+            score. Architecture remains frozen; every merge must preserve v1.0 contracts.
           </p>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+            <Stat
+              label="Release"
+              value={
+                architectureCenter?.agib_general_availability ||
+                architectureCenter?.agib_release_status === 'GENERAL_AVAILABILITY'
+                  ? 'GA'
+                  : architectureCenter?.release_candidate_ready
+                    ? 'RC'
+                    : '—'
+              }
+              status={architectureCenter?.status}
+              hint="v1.0.0"
+            />
             <Stat
               label="Score"
               value={
@@ -1519,7 +1532,6 @@ export default function MissionControl() {
                   ? `${architectureCenter.architecture_score}`
                   : '—'
               }
-              status={architectureCenter?.status}
               hint={architectureCenter?.architecture_grade}
             />
             <Stat
@@ -1549,14 +1561,8 @@ export default function MissionControl() {
               hint="Exec · Sec · Obs"
             />
             <Stat
-              label="RC ready"
-              value={
-                architectureCenter?.release_candidate_ready == null
-                  ? '—'
-                  : architectureCenter.release_candidate_ready
-                    ? 'Yes'
-                    : 'No'
-              }
+              label="Frozen"
+              value={architectureCenter?.architecture_frozen == null ? '—' : architectureCenter.architecture_frozen ? 'Yes' : 'No'}
             />
           </div>
           <div className="grid gap-3 lg:grid-cols-2">

@@ -11,8 +11,11 @@ from institutional_architecture.diagnostics import build_diagnostics
 from institutional_architecture.flags import fail_on_violation, flags_dict, is_enabled
 from institutional_architecture.schema import (
     ADDS_INTELLIGENCE_ENGINES,
+    AGIB_GA_SPEC,
+    AGIB_GENERAL_AVAILABILITY,
     AGIB_PLATFORM_VERSION,
     AGIB_RELEASE_CANDIDATE,
+    AGIB_RELEASE_STATUS,
     ARCHITECTURE_FROZEN,
     ARCH_ENGINE_VERSION,
     GUIDING_PRINCIPLE,
@@ -68,6 +71,9 @@ def health() -> dict[str, Any]:
         "architecture_frozen": ARCHITECTURE_FROZEN,
         "agib_platform_version": AGIB_PLATFORM_VERSION,
         "agib_release_candidate": AGIB_RELEASE_CANDIDATE,
+        "agib_general_availability": AGIB_GENERAL_AVAILABILITY,
+        "agib_release_status": AGIB_RELEASE_STATUS,
+        "ga_spec": AGIB_GA_SPEC,
         "arch_engine_version": ARCH_ENGINE_VERSION,
         "guiding_principle": GUIDING_PRINCIPLE,
         "fail_on_violation": fail_on_violation(),
@@ -76,7 +82,7 @@ def health() -> dict[str, Any]:
         "spec": RC_SPEC,
         "brand": "AGI",
         "programme": "RC",
-        "phase": "release_candidate",
+        "phase": "general_availability",
         "as_of": now_iso(),
     }
 
@@ -119,6 +125,8 @@ def run(payload: Optional[dict[str, Any]] = None) -> dict[str, Any]:
         "layers": result.get("layers"),
         "report": result.get("report"),
         "agib_release_candidate": AGIB_RELEASE_CANDIDATE,
+        "agib_general_availability": AGIB_GENERAL_AVAILABILITY,
+        "agib_release_status": AGIB_RELEASE_STATUS,
         "release_candidate_ready": (result.get("architecture_score") or {}).get(
             "release_candidate_ready"
         ),

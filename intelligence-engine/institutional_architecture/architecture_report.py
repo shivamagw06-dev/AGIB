@@ -90,9 +90,11 @@ def build_report(
             "publication_path": (sections.get("lineage") or {}).get("publication_path"),
         },
         "release_candidate_ready": bool(score.get("release_candidate_ready")),
-        "next_gate": "AGIB v1.0 General Availability (GA)"
+        "general_availability": True,
+        "release_status": "GENERAL_AVAILABILITY",
+        "next_gate": "Operate AGIB v1.0 GA — preserve architecture; track product metrics"
         if score.get("release_candidate_ready")
-        else "Remediate violations before GA",
+        else "Remediate violations — GA baseline requires PASS",
     }
 
 
@@ -120,4 +122,7 @@ def architecture_center_board(conformance: dict[str, Any]) -> dict[str, Any]:
         "is_feature": False,
         "architecture_frozen": True,
         "adds_intelligence_engines": False,
+        "agib_general_availability": True,
+        "agib_release_status": "GENERAL_AVAILABILITY",
+        "ga_spec": "docs/AGIB_V1_0_GA.md",
     }

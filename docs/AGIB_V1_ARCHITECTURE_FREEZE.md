@@ -1,8 +1,8 @@
 # AGIB v1.0 — Architecture Freeze
 
-**Effective with Production Readiness Programme (PRP v1).**
+**Status:** General Availability (GA) — see `docs/AGIB_V1_0_GA.md`
 
-The intelligence architecture is complete. AGIB v1.0 is defined as the current stack of institutional objects, engines, and soft-wired Mission Control surfaces delivered through Phase 5 (UAG → RW → CCI → PUB → MPC).
+The intelligence architecture is complete and frozen. AGIB v1.0 is the baseline stack of institutional objects, engines, production layers, and Mission Control surfaces through Phase 5 and PRP-01/02/03, with RC-01 conformance enforced in CI.
 
 ## Frozen
 
@@ -13,22 +13,25 @@ No new:
 - Risk engines
 - Committee engines
 - Portfolio engines
+- Architectural layers or ownership changes within the v1.0 line
 
-Existing engines remain systems of record. Soft integrations and operational layers may still improve ergonomics without changing ownership.
+Existing engines remain systems of record. Soft integrations and operational layers may improve ergonomics without changing ownership.
 
-## What continues
+## v1.0.x may include
 
-Engineering focus shifts to:
+- Bug fixes
+- Performance improvements
+- Security patches
+- Data coverage expansion
+- UI/UX improvements
+- Documentation
 
-1. Performance & scale (PRP-01)
-2. Security & governance (PRP-02)
-3. Observability (PRP-03)
-4. Collaboration (PRP-04)
-5. Automation (PRP-05)
-6. Data expansion (PRP-06)
-7. Mobile & executive experience (PRP-07)
-8. AI productivity for analysts (PRP-08) — summarization/drafting only, not recommendations
+## v1.1 and beyond
+
+Product enhancements (collaboration, automation, data connectors, mobile/executive, AI productivity) build **on** this architecture — they do not replace it.
+
+v2.0 is reserved for intentional architectural evolution under a new review.
 
 ## Competitive advantage
 
-Speed, reliability, security, collaboration, and operational excellence on the existing platform — not another engine.
+Speed, reliability, security, collaboration, and operational excellence — validated with real users — not another engine.

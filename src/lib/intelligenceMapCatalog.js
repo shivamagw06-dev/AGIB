@@ -1519,7 +1519,7 @@ export const LAYERS = [
     code: 'RC-01',
     name: 'Architecture Conformance',
     purpose:
-      'AGIB v1.0 Release Candidate quality gate — invariants, forbidden dependency rules, lineage validation, context propagation (Execution · Security · Observability), publication/UAG gates, and Architecture Center. Not a feature; proves architectural principles hold on every PR.',
+      'AGIB v1.0 GA continuous quality gate — invariants, forbidden dependency rules, lineage validation, context propagation (Execution · Security · Observability), publication/UAG gates, and Architecture Center. Architecture frozen at General Availability; every PR must preserve v1.0 contracts.',
     zone: 'platform',
     accent: 'orange',
     healthKey: 'rc01',

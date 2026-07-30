@@ -96,6 +96,8 @@ Soft-slice key: `institutional_architecture`
 
 ## After RC-01
 
-When RC-01 passes consistently, declare **AGIB v1.0 General Availability (GA)**.
+**AGIB v1.0 General Availability (GA) is declared** — see `docs/AGIB_V1_0_GA.md`.
 
-Only then begin AGIB v1.1 product enhancements (collaboration, automation, data expansion, mobile/executive, AI productivity) — features on a stable foundation, not changes to the foundation.
+RC-01 remains the continuous CI gate for the v1.0 release line.
+
+AGIB v1.1 product enhancements (collaboration, automation, data expansion, mobile/executive, AI productivity) build on this stable foundation — they do not change it.

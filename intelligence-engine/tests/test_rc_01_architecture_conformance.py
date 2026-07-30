@@ -46,6 +46,11 @@ def _clean():
 
 
 def test_health_is_quality_gate_not_feature():
+    from institutional_architecture.schema import (
+        AGIB_GENERAL_AVAILABILITY,
+        AGIB_RELEASE_STATUS,
+    )
+
     h = health()
     assert h["workstream_id"] == RC_WORKSTREAM_ID
     assert h["is_quality_gate"] is True
@@ -53,9 +58,23 @@ def test_health_is_quality_gate_not_feature():
     assert h["adds_intelligence_engines"] is False
     assert h["architecture_frozen"] is True
     assert h["agib_release_candidate"] is True
+    assert h["agib_general_availability"] is True
+    assert h["agib_release_status"] == "GENERAL_AVAILABILITY"
+    assert h["phase"] == "general_availability"
     assert ADDS_INTELLIGENCE_ENGINES is False
     assert ARCHITECTURE_FROZEN is True
     assert AGIB_RELEASE_CANDIDATE is True
+    assert AGIB_GENERAL_AVAILABILITY is True
+    assert AGIB_RELEASE_STATUS == "GENERAL_AVAILABILITY"
+
+
+def test_ga_declaration_artifacts_exist():
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[2]
+    assert (root / "AGIB_VERSION").read_text(encoding="utf-8").strip() == "1.0.0"
+    assert (root / "docs" / "AGIB_V1_0_GA.md").is_file()
+    assert (root / "docs" / "AGIB_V1_0_SUCCESS_METRICS.md").is_file()
 
 
 def test_intelligence_invariants_pass():

@@ -14,10 +14,14 @@ ADDS_INTELLIGENCE_ENGINES = False
 ARCHITECTURE_FROZEN = True
 AGIB_PLATFORM_VERSION = "1.0.0"
 AGIB_RELEASE_CANDIDATE = True
+AGIB_GENERAL_AVAILABILITY = True
+AGIB_GA_SPEC = "docs/AGIB_V1_0_GA.md"
+AGIB_RELEASE_STATUS = "GENERAL_AVAILABILITY"
 
 GUIDING_PRINCIPLE = (
     "Prove every future change preserves AGIB v1.0 architectural principles. "
-    "This is a quality gate, not a feature."
+    "This is a quality gate, not a feature. "
+    "AGIB v1.0 is General Availability — architecture remains frozen."
 )
 
 # Canonical lineage (Evidence → … → Publication)
