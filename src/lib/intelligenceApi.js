@@ -1489,6 +1489,24 @@ export const getOpsLogs = (params = {}) => {
   return intelligenceFetch(`/ops/logs${suffix}`, { timeoutMs: 30_000 });
 };
 
+/** RC-01 — Architecture Conformance */
+export const getArchitectureHealth = () =>
+  intelligenceFetch('/architecture/health', { timeoutMs: 30_000 });
+export const runArchitectureConformance = (body = {}) =>
+  intelligenceFetch('/architecture/conformance', {
+    method: 'POST',
+    body: body || {},
+    timeoutMs: 90_000,
+  });
+export const getArchitectureConformance = (force = false) => {
+  const qs = force ? '?force=true' : '';
+  return intelligenceFetch(`/architecture/conformance${qs}`, { timeoutMs: 90_000 });
+};
+export const getArchitectureReport = () =>
+  intelligenceFetch('/architecture/report', { timeoutMs: 90_000 });
+export const getArchitectureViolations = () =>
+  intelligenceFetch('/architecture/violations', { timeoutMs: 90_000 });
+
 /** ICE-01 — Investment Committee Engine */
 export const getCommitteeEngineHealth = () =>
   intelligenceFetch('/committee-engine/health', { timeoutMs: 30_000 });

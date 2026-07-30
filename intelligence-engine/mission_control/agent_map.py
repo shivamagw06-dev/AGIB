@@ -944,6 +944,24 @@ _CATALOG: list[dict[str, Any]] = [
         "module": "institutional_observability.production",
     },
     {
+        "id": "institutional_architecture",
+        "name": "Architecture Conformance (RC-01)",
+        "group": "platform",
+        "responsibility": (
+            "Release Candidate quality gate — invariants, forbidden dependency rules, "
+            "lineage validation, context propagation, publication/UAG gates, and "
+            "Architecture Center. Not a feature; proves AGIB v1.0 principles hold."
+        ),
+        "sources": [
+            "Ownership registry",
+            "Import graph",
+            "Canonical lineage",
+            "Execution / Security / Observability contexts",
+        ],
+        "kind": "release_candidate",
+        "module": "institutional_architecture.production",
+    },
+    {
         "id": "ite_thesis",
         "name": "Investment Thesis Office",
         "group": "offices",

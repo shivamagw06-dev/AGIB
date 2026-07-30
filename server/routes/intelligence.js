@@ -3601,6 +3601,54 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // RC-01 — Architecture Conformance & Release Candidate
+  router.get('/architecture/health', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/architecture/health', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'architecture health failed' });
+    }
+  });
+  router.get('/architecture/conformance', async (req, res) => {
+    try {
+      const qs = req.query.force ? '?force=true' : '';
+      const result = await engineFetch(`/v1/architecture/conformance${qs}`, { timeoutMs: 90_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'architecture conformance failed' });
+    }
+  });
+  router.post('/architecture/conformance', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/architecture/conformance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 90_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'architecture conformance failed' });
+    }
+  });
+  router.get('/architecture/report', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/architecture/report', { timeoutMs: 90_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'architecture report failed' });
+    }
+  });
+  router.get('/architecture/violations', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/architecture/violations', { timeoutMs: 90_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'architecture violations failed' });
+    }
+  });
+
   // ICE-01 — Investment Committee Engine
   router.get('/committee-engine/health', async (_req, res) => {
     try {

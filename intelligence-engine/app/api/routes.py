@@ -10898,6 +10898,44 @@ async def ops_logs(
     )
 
 
+# --- RC-01 Architecture Conformance & Release Candidate ---
+
+
+@router.get("/architecture/health")
+async def architecture_health():
+    from institutional_architecture.production import health
+
+    return health()
+
+
+@router.post("/architecture/conformance")
+async def architecture_conformance(payload: dict[str, Any] = Body(default={})):
+    from institutional_architecture.production import run
+
+    return run(payload or {})
+
+
+@router.get("/architecture/conformance")
+async def architecture_conformance_get(force: bool = False):
+    from institutional_architecture.production import run
+
+    return run({"force": force})
+
+
+@router.get("/architecture/report")
+async def architecture_report():
+    from institutional_architecture.production import report_api
+
+    return report_api()
+
+
+@router.get("/architecture/violations")
+async def architecture_violations():
+    from institutional_architecture.production import violations_api
+
+    return violations_api()
+
+
 # --- Company Monitoring System V1 (continuous living analyst; additive) ---
 
 

@@ -1764,6 +1764,15 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("institutional_observability")
     except Exception:
         out["institutional_observability"] = None
+
+    # RC-01 — Architecture Conformance (Architecture Center).
+    try:
+        from institutional_architecture.production import soft_slice_mission_control as rc_soft
+
+        out["institutional_architecture"] = rc_soft()
+        out["sources"].append("institutional_architecture")
+    except Exception:
+        out["institutional_architecture"] = None
     return out
 
 

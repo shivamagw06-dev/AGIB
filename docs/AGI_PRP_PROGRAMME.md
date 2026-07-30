@@ -25,6 +25,7 @@ Investment Office     ███████████████████�
 Experience            ██████████████████████████████ 100%
 Platform              ██████████████████████████████ 100%
 Production Readiness  ██████░░░░░░░░░░░░░░░░░░░░░░░░  PRP-01 · PRP-02 · PRP-03
+Release Candidate     ██░░░░░░░░░░░░░░░░░░░░░░░░░░░░  RC-01
 ```
 
 ## Principle
@@ -35,3 +36,5 @@ Production Readiness  ██████░░░░░░░░░░░░░�
 - Observability explains behavior. It never changes it.
 
 Production foundation (fast · secure · operable) is complete with PRP-03.
+
+**RC-01** is the next gate: automated architecture conformance before AGIB v1.0 GA. Not a feature stream.

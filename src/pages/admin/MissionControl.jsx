@@ -216,6 +216,8 @@ export default function MissionControl() {
     institutional?.institutional_security || desk?.institutional_security || null;
   const operationsCenter =
     institutional?.institutional_observability || desk?.institutional_observability || null;
+  const architectureCenter =
+    institutional?.institutional_architecture || desk?.institutional_architecture || null;
   const pipeline = desk?.research_pipeline || {};
   const preds = desk?.prediction_intelligence || {};
   const dq = desk?.data_quality || {};
@@ -1499,6 +1501,90 @@ export default function MissionControl() {
               ) : null}
             </ul>
           </Glass>
+        </section>
+
+        {/* Architecture Center — RC-01 */}
+        <section className="space-y-3">
+          <Kicker>Architecture Center · RC-01</Kicker>
+          <p className="text-sm text-[var(--io-muted)] max-w-3xl">
+            Release candidate quality gate — invariants, violations, layer dependencies, import
+            graph, context propagation, lineage health, and architecture score. Not a feature;
+            proves AGIB v1.0 principles hold.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
+            <Stat
+              label="Score"
+              value={
+                architectureCenter?.architecture_score != null
+                  ? `${architectureCenter.architecture_score}`
+                  : '—'
+              }
+              status={architectureCenter?.status}
+              hint={architectureCenter?.architecture_grade}
+            />
+            <Stat
+              label="Invariants"
+              value={
+                architectureCenter?.invariant_total != null
+                  ? `${architectureCenter.invariant_passed ?? 0}/${architectureCenter.invariant_total}`
+                  : '—'
+              }
+            />
+            <Stat label="Violations" value={architectureCenter?.violation_count ?? '—'} />
+            <Stat
+              label="Import graph"
+              value={
+                architectureCenter?.import_graph?.nodes != null
+                  ? `${architectureCenter.import_graph.nodes}n/${architectureCenter.import_graph.edges ?? 0}e`
+                  : '—'
+              }
+            />
+            <Stat
+              label="Contexts"
+              value={
+                architectureCenter?.context_propagation
+                  ? Object.values(architectureCenter.context_propagation).filter(Boolean).length
+                  : '—'
+              }
+              hint="Exec · Sec · Obs"
+            />
+            <Stat
+              label="RC ready"
+              value={
+                architectureCenter?.release_candidate_ready == null
+                  ? '—'
+                  : architectureCenter.release_candidate_ready
+                    ? 'Yes'
+                    : 'No'
+              }
+            />
+          </div>
+          <div className="grid gap-3 lg:grid-cols-2">
+            <Glass>
+              <p className="text-[11px] uppercase text-[var(--io-caption)]">Invariants</p>
+              <ul className="mt-2 space-y-1 text-xs max-h-36 overflow-auto text-[var(--io-ink-soft)]">
+                {(architectureCenter?.invariants || []).slice(0, 10).map((inv) => (
+                  <li key={inv.id}>
+                    {inv.ok ? '✓' : '✗'} [{inv.group}] {inv.message}
+                  </li>
+                ))}
+                {!architectureCenter ? <li>Architecture Center soft slice unavailable.</li> : null}
+              </ul>
+            </Glass>
+            <Glass>
+              <p className="text-[11px] uppercase text-[var(--io-caption)]">Violations</p>
+              <ul className="mt-2 space-y-1 text-xs max-h-36 overflow-auto text-[var(--io-ink-soft)]">
+                {(architectureCenter?.violations || []).slice(0, 8).map((v, i) => (
+                  <li key={`${v.section || v.kind}-${i}`}>
+                    [{v.section || v.kind}] {v.message || JSON.stringify(v)}
+                  </li>
+                ))}
+                {architectureCenter && !(architectureCenter.violations || []).length ? (
+                  <li>No violations — architecture principles preserved.</li>
+                ) : null}
+              </ul>
+            </Glass>
+          </div>
         </section>
 
         {/* Operations Center — PRP-03 */}
