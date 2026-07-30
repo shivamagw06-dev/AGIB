@@ -701,6 +701,24 @@ _CATALOG: list[dict[str, Any]] = [
         "module": "institutional_forecasting.production",
     },
     {
+        "id": "institutional_portfolio",
+        "name": "Portfolio Knowledge Graph (PKG-01 / PO-01)",
+        "group": "publication",
+        "responsibility": (
+            "Phase 4.1 — Portfolio → Companies → Relationships. Builds InstitutionalPortfolio "
+            "with allocations, exposures, concentration, and correlation proxies. "
+            "Distinct from portfolio_office holdings state. No LLM / no optimisation."
+        ),
+        "sources": [
+            "Holdings",
+            "Company knowledge graphs",
+            "InstitutionalDecision",
+            "portfolio_office (optional)",
+        ],
+        "kind": "portfolio_intelligence",
+        "module": "institutional_portfolio.production",
+    },
+    {
         "id": "ite_thesis",
         "name": "Investment Thesis Office",
         "group": "offices",

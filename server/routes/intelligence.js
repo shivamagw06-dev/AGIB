@@ -2681,6 +2681,56 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // PKG-01 / Phase 4.1 PO-01 — Portfolio Knowledge Graph
+  router.get('/portfolio-graph/health', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/portfolio-graph/health', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'portfolio graph health failed' });
+    }
+  });
+  router.post('/portfolio-graph', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/portfolio-graph', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 60_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'portfolio graph failed' });
+    }
+  });
+  router.get('/portfolio-graph/:portfolioId', async (req, res) => {
+    try {
+      const qs = new URLSearchParams();
+      if (req.query?.include_company_graphs !== undefined) {
+        qs.set('include_company_graphs', String(req.query.include_company_graphs));
+      }
+      const suffix = qs.toString() ? `?${qs}` : '';
+      const result = await engineFetch(
+        `/v1/portfolio-graph/${encodeURIComponent(req.params.portfolioId)}${suffix}`,
+        { timeoutMs: 60_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'portfolio graph get failed' });
+    }
+  });
+  router.get('/portfolio-graph/:portfolioId/portfolio', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/portfolio-graph/${encodeURIComponent(req.params.portfolioId)}/portfolio`,
+        { timeoutMs: 60_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'institutional portfolio get failed' });
+    }
+  });
+
   // IDS-02 — Decision Calibration & Explainability
   router.get('/calibration/health', async (_req, res) => {
     try {

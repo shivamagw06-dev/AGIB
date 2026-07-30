@@ -10145,6 +10145,44 @@ async def institutional_forecast_company_ticker(
     )
 
 
+# --- PKG-01 / Phase 4.1 PO-01 Portfolio Knowledge Graph ---
+
+
+@router.get("/portfolio-graph/health")
+async def institutional_portfolio_graph_health():
+    from institutional_portfolio.production import health
+
+    return health()
+
+
+@router.post("/portfolio-graph")
+async def institutional_portfolio_graph_post(payload: dict[str, Any] = Body(default={})):
+    from institutional_portfolio.production import portfolio_graph_api
+
+    return portfolio_graph_api(payload or {})
+
+
+@router.get("/portfolio-graph/{portfolio_id}")
+async def institutional_portfolio_graph_get(
+    portfolio_id: str,
+    include_company_graphs: bool = True,
+):
+    from institutional_portfolio.production import get_portfolio_graph
+
+    return get_portfolio_graph(
+        portfolio_id,
+        rebuild=True,
+        include_company_graphs=include_company_graphs,
+    )
+
+
+@router.get("/portfolio-graph/{portfolio_id}/portfolio")
+async def institutional_portfolio_object_get(portfolio_id: str):
+    from institutional_portfolio.production import get_institutional_portfolio
+
+    return get_institutional_portfolio(portfolio_id)
+
+
 # --- Company Monitoring System V1 (continuous living analyst; additive) ---
 
 

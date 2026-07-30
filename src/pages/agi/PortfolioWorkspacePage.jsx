@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   createPortfolioOfficePortfolio,
+  getPortfolioGraph,
   getPortfolioOfficeDashboard,
   getPortfolioOfficeHoldings,
   getPortfolioOfficePortfolio,
@@ -14,10 +15,18 @@ const DEMO_HOLDINGS = [
   { ticker: 'RELIANCE', company: 'Reliance Industries', sector: 'Energy', weight: '26%' },
 ];
 
+function formatPct(weight) {
+  if (weight == null || Number.isNaN(Number(weight))) return '—';
+  const n = Number(weight);
+  if (n <= 1) return `${(n * 100).toFixed(0)}%`;
+  return `${n.toFixed(0)}%`;
+}
+
 export default function PortfolioWorkspacePage() {
   const [portfolioId, setPortfolioId] = useState('agi-desk-demo');
   const [holdings, setHoldings] = useState(DEMO_HOLDINGS);
   const [meta, setMeta] = useState({ name: 'AGI Desk Demo', health: 'Calm', coverage: '—' });
+  const [portfolioGraph, setPortfolioGraph] = useState(null);
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -53,7 +62,10 @@ export default function PortfolioWorkspacePage() {
             ticker: h.ticker,
             company: h.company || h.ticker,
             sector: h.sector || '—',
-            weight: h.weight != null ? `${Math.round(Number(h.weight) * (Number(h.weight) <= 1 ? 100 : 1))}%` : h.weight_label || '—',
+            weight:
+              h.weight != null
+                ? `${Math.round(Number(h.weight) * (Number(h.weight) <= 1 ? 100 : 1))}%`
+                : h.weight_label || '—',
           }))
         );
         setMeta({
@@ -61,6 +73,11 @@ export default function PortfolioWorkspacePage() {
           health: 'Calm',
           coverage: `${holds.length || DEMO_HOLDINGS.length} names`,
         });
+
+        const graph = await getPortfolioGraph('agi-core-equity', {
+          includeCompanyGraphs: true,
+        }).catch(() => null);
+        if (active) setPortfolioGraph(graph && graph.ok !== false ? graph : null);
       } catch (err) {
         if (active) setError(err?.message || 'Portfolio unavailable — showing desk demo');
       }
@@ -70,12 +87,17 @@ export default function PortfolioWorkspacePage() {
     };
   }, []);
 
+  const concentration = portfolioGraph?.concentration || {};
+  const largest = concentration.largest_position || {};
+  const sectorExposures = (portfolioGraph?.exposures || []).filter((e) => e.dimension === 'sector');
+  const risks = portfolioGraph?.risks || [];
+
   return (
     <div>
       <h1 className="agi-greeting">Portfolio</h1>
       <p className="agi-lede">
-        Think like a CIO — overall quality, exposure, research coverage, and ideas. Each holding opens Company
-        Workspace.
+        Think like a CIO — overall quality, exposure, research coverage, and the portfolio knowledge
+        graph that connects holdings to company decisions.
       </p>
 
       {error && <div className="agi-error">{error}</div>}
@@ -92,13 +114,17 @@ export default function PortfolioWorkspacePage() {
           </div>
         </div>
         <div className="agi-stat">
-          <div className="agi-stat-label">Business Quality</div>
-          <div className="agi-stat-value">Mixed</div>
+          <div className="agi-stat-label">HHI</div>
+          <div className="agi-stat-value" style={{ fontSize: '1.15rem' }}>
+            {concentration.hhi != null ? Number(concentration.hhi).toFixed(2) : '—'}
+          </div>
         </div>
         <div className="agi-stat">
-          <div className="agi-stat-label">Concentration</div>
+          <div className="agi-stat-label">Avg correlation</div>
           <div className="agi-stat-value" style={{ fontSize: '1.15rem' }}>
-            Banks-led
+            {portfolioGraph?.correlations?.average != null
+              ? Number(portfolioGraph.correlations.average).toFixed(2)
+              : '—'}
           </div>
         </div>
       </div>
@@ -107,7 +133,9 @@ export default function PortfolioWorkspacePage() {
         <section className="agi-section">
           <div className="agi-section-head">
             <h2>Holdings</h2>
-            <Link to={`/agi/ask?context=portfolio&portfolio=${encodeURIComponent(portfolioId)}&q=${encodeURIComponent('Which holding concerns you most?')}`}>
+            <Link
+              to={`/agi/ask?context=portfolio&portfolio=${encodeURIComponent(portfolioId)}&q=${encodeURIComponent('Which holding concerns you most?')}`}
+            >
               Ask AGI
             </Link>
           </div>
@@ -130,35 +158,86 @@ export default function PortfolioWorkspacePage() {
 
         <section className="agi-section">
           <div className="agi-section-head">
-            <h2>Recent Changes</h2>
-            <Link to="/agi/watchlists">Watchlist Candidates</Link>
+            <h2>Portfolio Knowledge Graph</h2>
+            <span className="agi-list-meta">PKG-01 · AGI Core Equity</span>
           </div>
-          <ul className="agi-list">
-            <li>
-              <div>
-                <div className="agi-list-title">KOTAKBANK research refresh</div>
-                <div className="agi-list-meta">Evidence update · Review recommended</div>
+          {!portfolioGraph ? (
+            <div className="agi-empty">Portfolio graph unavailable.</div>
+          ) : (
+            <>
+              <p className="agi-list-meta" style={{ marginBottom: '0.75rem' }}>
+                {(portfolioGraph.lineage || []).join(' → ')}
+              </p>
+              <div className="agi-stat-row">
+                <div className="agi-stat">
+                  <div className="agi-stat-label">Entities</div>
+                  <div className="agi-stat-value">{portfolioGraph.entity_count ?? 0}</div>
+                </div>
+                <div className="agi-stat">
+                  <div className="agi-stat-label">Relationships</div>
+                  <div className="agi-stat-value">{portfolioGraph.relationship_count ?? 0}</div>
+                </div>
+                <div className="agi-stat">
+                  <div className="agi-stat-label">Largest</div>
+                  <div className="agi-stat-value" style={{ fontSize: '1rem' }}>
+                    {largest.ticker || '—'} {formatPct(largest.weight)}
+                  </div>
+                </div>
               </div>
-            </li>
-            <li>
-              <div>
-                <div className="agi-list-title">Banking concentration watch</div>
-                <div className="agi-list-meta">Sector exposure elevated vs benchmark</div>
-              </div>
-            </li>
-            <li>
-              <Link to="/agi/watchlists">
-                <div className="agi-list-title">Watchlist Candidates</div>
-                <div className="agi-list-meta">Names queued for research coverage</div>
-              </Link>
-            </li>
-          </ul>
-          <div className="agi-panel" style={{ marginTop: '1rem' }}>
-            <p className="agi-list-meta">
-              Back navigation: open any holding, then return here via Portfolio in the product nav — context stays in
-              AGI.
-            </p>
-          </div>
+
+              <h3 style={{ fontFamily: 'var(--agi-display)', fontSize: '1.1rem', marginTop: '1rem' }}>
+                Graph holdings
+              </h3>
+              <ul className="agi-list" style={{ marginTop: '0.5rem' }}>
+                {(portfolioGraph.holdings || []).map((h) => (
+                  <li key={`pg-${h.ticker}`}>
+                    <Link to={`/agi/companies/${h.ticker}`}>
+                      <div className="agi-list-title">
+                        {h.ticker} · {formatPct(h.weight)} · {h.recommendation || '—'}
+                      </div>
+                      <div className="agi-list-meta">
+                        conf {h.confidence ?? '—'}
+                        {h.company_graph_id ? ` · company graph linked` : ''}
+                      </div>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+
+              <h3 style={{ fontFamily: 'var(--agi-display)', fontSize: '1.1rem', marginTop: '1rem' }}>
+                Sector exposure
+              </h3>
+              <ul className="agi-list" style={{ marginTop: '0.5rem' }}>
+                {sectorExposures.map((e) => (
+                  <li key={e.name}>
+                    <div className="agi-list-title">
+                      {e.name} <span className="agi-list-meta">{formatPct(e.weight)}</span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+
+              <h3 style={{ fontFamily: 'var(--agi-display)', fontSize: '1.1rem', marginTop: '1rem' }}>
+                Concentration risks
+              </h3>
+              <ul className="agi-list" style={{ marginTop: '0.5rem' }}>
+                {risks.length ? (
+                  risks.map((r) => (
+                    <li key={`${r.kind}-${r.label}`}>
+                      <div className="agi-list-title">
+                        [{r.severity}] {r.label}
+                      </div>
+                      <div className="agi-list-meta">{r.detail}</div>
+                    </li>
+                  ))
+                ) : (
+                  <li>
+                    <div className="agi-list-meta">No concentration risks above threshold.</div>
+                  </li>
+                )}
+              </ul>
+            </>
+          )}
         </section>
       </div>
     </div>

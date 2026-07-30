@@ -1647,6 +1647,15 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("institutional_forecasting")
     except Exception:
         out["institutional_forecasting"] = None
+
+    # PKG-01 / Phase 4.1 PO-01 — Portfolio Knowledge Graph.
+    try:
+        from institutional_portfolio.production import soft_slice_mission_control as pkg_soft
+
+        out["institutional_portfolio"] = pkg_soft()
+        out["sources"].append("institutional_portfolio")
+    except Exception:
+        out["institutional_portfolio"] = None
     return out
 
 

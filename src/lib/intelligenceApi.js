@@ -1202,6 +1202,24 @@ export const getInstitutionalGraph = (
   });
 };
 
+/** PKG-01 / Phase 4.1 PO-01 — Portfolio Knowledge Graph */
+export const getPortfolioGraphHealth = () =>
+  intelligenceFetch('/portfolio-graph/health', { timeoutMs: 30_000 });
+export const composePortfolioGraph = (body = {}) =>
+  intelligenceFetch('/portfolio-graph', { method: 'POST', body: body || {}, timeoutMs: 60_000 });
+export const getPortfolioGraph = (portfolioId = 'agi-core-equity', { includeCompanyGraphs = true } = {}) => {
+  const qs = new URLSearchParams();
+  if (includeCompanyGraphs) qs.set('include_company_graphs', 'true');
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return intelligenceFetch(`/portfolio-graph/${encodeURIComponent(portfolioId)}${suffix}`, {
+    timeoutMs: 60_000,
+  });
+};
+export const getInstitutionalPortfolioObject = (portfolioId = 'agi-core-equity') =>
+  intelligenceFetch(`/portfolio-graph/${encodeURIComponent(portfolioId)}/portfolio`, {
+    timeoutMs: 60_000,
+  });
+
 /** FG-01 — Forecast & Scenario Graph */
 export const getInstitutionalScenarioHealth = () =>
   intelligenceFetch('/scenario/health', { timeoutMs: 30_000 });

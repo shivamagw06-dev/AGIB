@@ -188,6 +188,8 @@ export default function MissionControl() {
   };
   const v4Present = Object.values(v4Office).some(Boolean);
   const monitor = desk?.company_monitor || {};
+  const portfolioKnowledge =
+    institutional?.institutional_portfolio || desk?.institutional_portfolio || null;
   const pipeline = desk?.research_pipeline || {};
   const preds = desk?.prediction_intelligence || {};
   const dq = desk?.data_quality || {};
@@ -1305,6 +1307,48 @@ export default function MissionControl() {
               </p>
             </Glass>
           </div>
+        </section>
+
+        {/* Portfolio Knowledge Graph — PKG-01 / Phase 4.1 */}
+        <section className="space-y-3">
+          <Kicker>Portfolio Knowledge Graph · PKG-01</Kicker>
+          <p className="text-sm text-[var(--io-muted)] max-w-3xl">
+            Phase 4.1 — Portfolio → Companies → Relationships. Soft board for Investment Office
+            portfolio intelligence (distinct from Portfolio Office holdings state).
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            <Stat
+              label="Status"
+              value={portfolioKnowledge?.status || '—'}
+              status={portfolioKnowledge?.status}
+            />
+            <Stat label="Entities" value={portfolioKnowledge?.entity_count ?? '—'} />
+            <Stat label="Relationships" value={portfolioKnowledge?.relationship_count ?? '—'} />
+            <Stat label="Holdings" value={portfolioKnowledge?.holding_count ?? '—'} />
+            <Stat
+              label="Avg ρ"
+              value={
+                portfolioKnowledge?.average_correlation != null
+                  ? Number(portfolioKnowledge.average_correlation).toFixed(2)
+                  : '—'
+              }
+              hint={portfolioKnowledge?.portfolio_name || 'No portfolio cached'}
+            />
+          </div>
+          <Glass>
+            <p className="text-[11px] uppercase text-[var(--io-caption)]">Sector exposures</p>
+            <ul className="mt-2 space-y-1 text-xs max-h-36 overflow-auto text-[var(--io-ink-soft)]">
+              {(portfolioKnowledge?.sector_exposures || []).slice(0, 8).map((e) => (
+                <li key={e.name}>
+                  {e.name}: {e.weight != null ? `${(Number(e.weight) * 100).toFixed(0)}%` : '—'}
+                </li>
+              ))}
+              {!portfolioKnowledge ? <li>Portfolio Knowledge Graph soft slice unavailable.</li> : null}
+              {portfolioKnowledge && !(portfolioKnowledge.sector_exposures || []).length ? (
+                <li>Build a portfolio graph to populate exposures.</li>
+              ) : null}
+            </ul>
+          </Glass>
         </section>
 
         {/* SECTION 7 + 8 + 9 */}
