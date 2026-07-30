@@ -1254,6 +1254,20 @@ export const getEvidenceFusionConflicts = (ticker) =>
 export const getEvidenceFusionAlignment = (ticker) =>
   intelligenceFetch(`/evidence-fusion/company/${encodeURIComponent(ticker)}/alignment`);
 
+/** FIRE-05 — Management Execution & Temporal Evidence */
+export const getManagementExecutionHealth = () =>
+  intelligenceFetch('/management-execution/health');
+export const getManagementExecutionDashboard = () =>
+  intelligenceFetch('/management-execution/dashboard');
+export const getManagementExecutionCompany = (ticker) =>
+  intelligenceFetch(`/management-execution/company/${encodeURIComponent(ticker)}`);
+export const getManagementExecutionTimeline = (ticker) =>
+  intelligenceFetch(`/management-execution/company/${encodeURIComponent(ticker)}/timeline`);
+export const getManagementExecutionScore = (ticker) =>
+  intelligenceFetch(`/management-execution/company/${encodeURIComponent(ticker)}/score`);
+export const getManagementExecutionObjectives = (ticker) =>
+  intelligenceFetch(`/management-execution/company/${encodeURIComponent(ticker)}/objectives`);
+
 /** Accounting Intelligence Engine */
 export const getAciHealth = () => intelligenceFetch('/accounting-intelligence/health');
 export const getAciDashboard = () => intelligenceFetch('/accounting-intelligence/dashboard');

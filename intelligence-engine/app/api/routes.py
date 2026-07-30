@@ -4501,6 +4501,58 @@ async def admin_evidence_fusion():
     return HTMLResponse(admin_page())
 
 
+# --- FIRE-05 Management Execution & Temporal Evidence Engine ---
+
+
+@router.get("/management-execution/health")
+async def management_execution_health():
+    from management_execution.production import health
+
+    return health()
+
+
+@router.get("/management-execution/dashboard")
+async def management_execution_dashboard():
+    from management_execution.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/management-execution/company/{ticker}")
+async def management_execution_company(ticker: str):
+    from management_execution.production import company
+
+    return company(ticker.upper())
+
+
+@router.get("/management-execution/company/{ticker}/timeline")
+async def management_execution_timeline(ticker: str):
+    from management_execution.production import timeline
+
+    return timeline(ticker.upper())
+
+
+@router.get("/management-execution/company/{ticker}/score")
+async def management_execution_score(ticker: str):
+    from management_execution.production import score
+
+    return score(ticker.upper())
+
+
+@router.get("/management-execution/company/{ticker}/objectives")
+async def management_execution_objectives(ticker: str):
+    from management_execution.production import objectives
+
+    return objectives(ticker.upper())
+
+
+@router.get("/admin/management-execution", response_class=HTMLResponse)
+async def admin_management_execution():
+    from management_execution.production import admin_page
+
+    return HTMLResponse(admin_page())
+
+
 # --- Accounting Intelligence Engine V1 (can the statements be trusted?) ---
 
 

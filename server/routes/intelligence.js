@@ -2837,6 +2837,50 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // FIRE-05 — Management Execution & Temporal Evidence
+  router.get('/management-execution/health', kfGet('/v1/management-execution/health'));
+  router.get('/management-execution/dashboard', kfGet('/v1/management-execution/dashboard'));
+  router.get('/management-execution/company/:ticker', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/management-execution/company/${encodeURIComponent(req.params.ticker)}`
+      );
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Management execution unavailable', detail: error.message });
+    }
+  });
+  router.get('/management-execution/company/:ticker/timeline', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/management-execution/company/${encodeURIComponent(req.params.ticker)}/timeline`
+      );
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Management execution timeline unavailable', detail: error.message });
+    }
+  });
+  router.get('/management-execution/company/:ticker/score', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/management-execution/company/${encodeURIComponent(req.params.ticker)}/score`
+      );
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Management execution score unavailable', detail: error.message });
+    }
+  });
+  router.get('/management-execution/company/:ticker/objectives', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/management-execution/company/${encodeURIComponent(req.params.ticker)}/objectives`
+      );
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Management execution objectives unavailable', detail: error.message });
+    }
+  });
+
   // Accounting Intelligence Engine
   router.get('/accounting-intelligence/health', kfGet('/v1/accounting-intelligence/health'));
   router.get('/accounting-intelligence/dashboard', kfGet('/v1/accounting-intelligence/dashboard'));
