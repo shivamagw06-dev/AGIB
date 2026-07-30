@@ -507,6 +507,29 @@ def compose_report(
     except Exception:  # noqa: BLE001
         kg_summary = None
 
+    # FG-01 — reports consume forecast scenario comparison (deterministic)
+    try:
+        from institutional_forecasting.flags import is_enabled as fg_enabled
+        from institutional_forecasting.production import run_company_scenarios
+
+        if fg_enabled():
+            forecast = run_company_scenarios(
+                render_input.ticker,
+                scenarios=["base", "bull", "bear"],
+                include_graph=False,
+                include_propagation=False,
+                include_sensitivity=True,
+            )
+            if forecast.get("ok"):
+                diagnostics["forecast_scenarios"] = {
+                    "comparison": forecast.get("comparison") or [],
+                    "probability_distribution": forecast.get("probability_distribution") or {},
+                    "sensitivity": (forecast.get("sensitivity") or {}).get("scorecard") or {},
+                    "lineage": forecast.get("lineage") or [],
+                }
+    except Exception:  # noqa: BLE001
+        pass
+
     return InstitutionalReport(
         ok=True,
         workstream_id=IRE_WORKSTREAM_ID,

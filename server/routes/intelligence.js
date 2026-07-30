@@ -2597,6 +2597,48 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // FG-01 — Forecast & Scenario Graph (deterministic propagation)
+  router.get('/scenario/health', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/scenario/health', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'institutional scenario health failed' });
+    }
+  });
+  router.post('/scenario/company', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/scenario/company', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 90_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'institutional scenario failed' });
+    }
+  });
+  router.get('/scenario/company/:ticker', async (req, res) => {
+    try {
+      const qs = new URLSearchParams();
+      if (req.query?.include_graph !== undefined) {
+        qs.set('include_graph', String(req.query.include_graph));
+      }
+      if (req.query?.include_propagation !== undefined) {
+        qs.set('include_propagation', String(req.query.include_propagation));
+      }
+      const suffix = qs.toString() ? `?${qs}` : '';
+      const result = await engineFetch(
+        `/v1/scenario/company/${encodeURIComponent(req.params.ticker)}${suffix}`,
+        { timeoutMs: 90_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'institutional scenario get failed' });
+    }
+  });
+
   // KG-01 — Institutional Knowledge Graph (single-company)
   router.get('/graph/health', async (_req, res) => {
     try {

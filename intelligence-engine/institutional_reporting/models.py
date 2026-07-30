@@ -228,6 +228,9 @@ class InstitutionalReport:
             "reason_composer": True,
             "decision_system": True,
             "knowledge_graph": True,
+            "forecast_scenarios": bool(
+                (self.diagnostics or {}).get("forecast_scenarios")
+            ),
             "as_of": self.as_of,
             "input_fingerprint": self.input_fingerprint,
             "reasons": [
