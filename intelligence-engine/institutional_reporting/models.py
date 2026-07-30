@@ -192,8 +192,14 @@ class InstitutionalReport:
     reasons: list[Any] = field(default_factory=list)
     diagnostics: dict[str, Any] = field(default_factory=dict)
     reason_graph_text: str = ""
+    decision: Any = None  # InstitutionalDecision | dict | None
 
     def to_dict(self) -> dict[str, Any]:
+        decision_payload = None
+        if self.decision is not None:
+            decision_payload = (
+                self.decision.to_dict() if hasattr(self.decision, "to_dict") else self.decision
+            )
         return {
             "ok": self.ok,
             "workstream_id": self.workstream_id,
@@ -212,6 +218,7 @@ class InstitutionalReport:
             "llm": False,
             "external_writer": False,
             "reason_composer": True,
+            "decision_system": True,
             "as_of": self.as_of,
             "input_fingerprint": self.input_fingerprint,
             "reasons": [
@@ -219,6 +226,7 @@ class InstitutionalReport:
             ],
             "diagnostics": dict(self.diagnostics or {}),
             "reason_graph_text": self.reason_graph_text,
+            "decision": decision_payload,
         }
 
 

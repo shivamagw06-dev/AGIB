@@ -1611,6 +1611,15 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("institutional_reporting")
     except Exception:
         out["institutional_reporting"] = None
+
+    # IDS-01 — Institutional Decision System (owns recommendation).
+    try:
+        from institutional_decision.production import soft_slice_mission_control as ids_soft
+
+        out["institutional_decision"] = ids_soft()
+        out["sources"].append("institutional_decision")
+    except Exception:
+        out["institutional_decision"] = None
     return out
 
 

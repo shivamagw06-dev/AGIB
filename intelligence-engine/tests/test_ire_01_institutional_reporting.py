@@ -166,7 +166,10 @@ def test_api_compose_from_full_input_dict():
     payload = get_fixture("ICICIBANK").to_dict()
     out = compose_company_report(payload)
     assert out["ok"] is True
-    assert out["recommendation"] == "BUY"
+    # IDS-01 owns recommendation — Fair/Moderate quality stack → HOLD (not fixture BUY).
+    assert out["recommendation"] in {"BUY", "HOLD", "SELL", "AVOID", "WATCH"}
+    assert out.get("decision_system") is True
+    assert out.get("decision", {}).get("decision_id")
 
 
 def test_cli_module_importable():

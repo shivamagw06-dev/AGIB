@@ -1147,6 +1147,18 @@ export const getInstitutionalCompanyReport = (ticker, { includeReasons = true } 
   });
 };
 
+/** IDS-01 — Institutional Decision System (owns recommendation; no LLM) */
+export const getInstitutionalDecisionHealth = () =>
+  intelligenceFetch('/decision/health', { timeoutMs: 30_000 });
+export const composeInstitutionalDecision = (body = {}) =>
+  intelligenceFetch('/decision/company', { method: 'POST', body: body || {}, timeoutMs: 60_000 });
+export const getInstitutionalDecision = (ticker, { includeHistory = false } = {}) => {
+  const qs = includeHistory ? '?include_history=true' : '';
+  return intelligenceFetch(`/decision/company/${encodeURIComponent(ticker)}${qs}`, {
+    timeoutMs: 60_000,
+  });
+};
+
 /** IBS-01 — AGI Institutional Benchmark Suite */
 export const getInstitutionalBenchmarksHealth = () =>
   intelligenceFetch('/institutional-benchmarks/health');
