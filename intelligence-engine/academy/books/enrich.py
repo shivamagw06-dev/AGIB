@@ -11,7 +11,18 @@ from academy.books.store import get_books_store
 
 # Sector / ticker soft maps for Nestlé-class enrichment
 _TICKER_HINTS: dict[str, tuple[str, ...]] = {
-    "NESTLEIND": ("fmcg", "staples", "brand", "pricing", "working capital", "roic", "moat"),
+    "NESTLEIND": (
+        "fmcg",
+        "staples",
+        "brand",
+        "pricing",
+        "working capital",
+        "cash conversion",
+        "roic",
+        "moat",
+        "premium",
+        "valuation",
+    ),
     "INFY": ("it services", "utilisation", "deal", "offshore"),
     "TCS": ("it services", "utilisation", "deal"),
     "HDFCBANK": ("bank", "nim", "casa", "roe"),

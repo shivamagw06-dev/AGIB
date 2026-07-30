@@ -6,7 +6,7 @@ from dataclasses import asdict, dataclass, field
 from typing import Any
 
 
-BOOKS_VERSION = "academy-books-v1.0.0"
+BOOKS_VERSION = "academy-books-v2.0.0"
 
 ACADEMY_TAXONOMY = (
     "accounting",
@@ -28,6 +28,10 @@ ACADEMY_TAXONOMY = (
     "sector_real_estate",
     "sector_telecom",
     "sector_automobiles",
+    "sector_metals",
+    "sector_capital_goods",
+    "sector_chemicals",
+    "sector_consumer_durables",
 )
 
 # Hard caps — never retain copyrighted long form

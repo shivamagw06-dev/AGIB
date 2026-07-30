@@ -40,35 +40,72 @@ const MacroIntelligence = React.lazy(() => import('@/pages/MacroIntelligence'));
 const PreMarketIntelligence = React.lazy(() => import('@/pages/PreMarketIntelligence'));
 const Nifty500StockResearch = React.lazy(() => import('@/pages/Nifty500StockResearch'));
 const IpoDetailPage = React.lazy(() => import('@/pages/IpoDetailPage'));
+const IpoIntelligencePage = React.lazy(() => import('@/pages/IpoIntelligencePage'));
 const MarketDataCentre = React.lazy(() => import('@/pages/MarketDataCentre'));
 const PortfolioDesk = React.lazy(() => import('@/pages/PortfolioDesk'));
 const ThemeDesk = React.lazy(() => import('@/pages/ThemeDesk'));
 const SectorDesk = React.lazy(() => import('@/pages/SectorDesk'));
 const ResearchWorkflowDesk = React.lazy(() => import('@/pages/ResearchWorkflowDesk'));
 const AskAgiPage = React.lazy(() => import('@/pages/AskAgiPage'));
+const AgiRoutes = React.lazy(() => import('@/pages/agi/AgiRoutes'));
 const PredictionCentre = React.lazy(() => import('@/pages/PredictionCentre'));
 const PersonalWorkspace = React.lazy(() => import('@/pages/PersonalWorkspace'));
-const EditorialHome = React.lazy(() => import('@/components/Home/EditorialHome'));
+const ResearchTerminalHome = React.lazy(() => import('@/components/Home/ResearchTerminalHome'));
 
 function HomeLayout() {
-  return <EditorialHome />;
+  // Public research-terminal homepage — admin shells stay under /admin/*.
+  return <ResearchTerminalHome />;
 }
 
 function AppShell() {
   const location = useLocation();
   const isAdmin = location.pathname.startsWith('/admin');
+  const isAskWorkspace = location.pathname === '/ask';
+  const isAgiProduct = location.pathname === '/agi' || location.pathname.startsWith('/agi/');
 
   useEffect(() => {
-    if (!isAdmin) {
+    if (!isAdmin && !isAskWorkspace) {
       document.documentElement.classList.remove('dark');
     }
-  }, [isAdmin, location.pathname]);
+  }, [isAdmin, isAskWorkspace, location.pathname]);
 
   if (isAdmin) {
     return (
       <Routes>
         <Route path="/admin/*" element={<AdminRoutes />} />
       </Routes>
+    );
+  }
+
+  // Phase 2 AGI product shell — full-bleed institutional workflow (no public chrome).
+  if (isAgiProduct) {
+    return (
+      <MarketDataProvider>
+        <PinGate>
+          <Suspense fallback={<div className="min-h-screen bg-[#f6f7f9] p-8 text-center text-slate-600">Loading AGI…</div>}>
+            <Routes>
+              <Route path="/agi/*" element={<AgiRoutes />} />
+            </Routes>
+          </Suspense>
+          <Toaster />
+        </PinGate>
+      </MarketDataProvider>
+    );
+  }
+
+  // Ask AGI is a full-bleed institutional research workspace — no public chrome.
+  if (isAskWorkspace) {
+    return (
+      <MarketDataProvider>
+        <PinGate>
+          <Suspense fallback={<div className="min-h-screen bg-[#0b0e14] p-8 text-center text-slate-300">Loading Ask AGI…</div>}>
+            <Routes>
+              <Route path="/ask" element={<AskAgiPage />} />
+            </Routes>
+          </Suspense>
+          <Toaster />
+        </PinGate>
+      </MarketDataProvider>
     );
   }
 
@@ -112,6 +149,8 @@ function PublicRoutes() {
       <Route path="/sections/markets" element={<Navigate replace to="/markets" />} />
       <Route path="/market-intelligence" element={<MarketIntelligence />} />
       <Route path="/macro-intelligence" element={<MacroIntelligence />} />
+      <Route path="/global" element={<MacroIntelligence />} />
+      <Route path="/global-intelligence" element={<Navigate replace to="/global" />} />
       <Route path="/economy" element={<Navigate replace to="/macro-intelligence" />} />
       <Route path="/pre-market" element={<PreMarketIntelligence />} />
       <Route path="/updates/pre-market" element={<Navigate replace to="/pre-market" />} />
@@ -122,6 +161,8 @@ function PublicRoutes() {
       <Route path="/themes" element={<Navigate replace to="/themes/credit_growth" />} />
       <Route path="/sectors/:sectorId" element={<SectorDesk />} />
       <Route path="/research/workflow" element={<ResearchWorkflowDesk />} />
+      <Route path="/ipo-intelligence" element={<IpoIntelligencePage />} />
+      <Route path="/ipos" element={<Navigate replace to="/ipo-intelligence" />} />
       <Route path="/ipos/:symbol" element={<IpoDetailPage />} />
 
       {/* Legacy redirects */}
@@ -157,6 +198,14 @@ function PublicRoutes() {
       <Route path="/article/:slug" element={<ArticlePage />} />
       <Route path="/articles/new" element={<Navigate replace to="/admin/articles/new" />} />
       <Route path="/write" element={<Navigate replace to="/admin/articles/new" />} />
+      <Route
+        path="/knowledge-operations"
+        element={<Navigate replace to="/admin/knowledge-operations" />}
+      />
+      <Route
+        path="/investment-office"
+        element={<Navigate replace to="/admin/investment-office" />}
+      />
 
       <Route path="/about" element={<About />} />
       <Route path="/contact" element={<Contact />} />
@@ -195,7 +244,7 @@ function App() {
             <link rel="preconnect" href="https://fonts.googleapis.com" />
             <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
             <link
-              href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400;1,700&display=swap"
+              href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&display=swap"
               rel="stylesheet"
             />
           </Helmet>

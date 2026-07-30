@@ -9,7 +9,9 @@ import {
   getAcademyExams,
   getAcademyHealth,
   getAcademyBooksDashboard,
+  getAcademyBooksIngestionReport,
   getAcademyBooksQualityGates,
+  ingestAcademyBooksLibrary,
   getAcademyProduction,
   getAcademyProductionAb,
   getAcademyProductionQualityGates,
@@ -50,6 +52,7 @@ export default function FinanceAcademy() {
   const [sifGates, setSifGates] = useState(null);
   const [booksDash, setBooksDash] = useState(null);
   const [booksGates, setBooksGates] = useState(null);
+  const [booksReport, setBooksReport] = useState(null);
   const [courseFilter, setCourseFilter] = useState('all');
   const [conceptId, setConceptId] = useState('capital_allocation');
   const [lesson, setLesson] = useState(null);
@@ -61,7 +64,7 @@ export default function FinanceAcademy() {
     setLoading(true);
     setError('');
     try {
-      const [h, d, q, e, c, cm, rf, ac, cf, prod, abRes, g, sd, sg, bd, bg] = await Promise.all([
+      const [h, d, q, e, c, cm, rf, ac, cf, prod, abRes, g, sd, sg, bd, bg, br] = await Promise.all([
         getAcademyHealth(),
         getAcademyDashboard(),
         getAcademyQuality(),
@@ -78,6 +81,7 @@ export default function FinanceAcademy() {
         getSifQualityGates(),
         getAcademyBooksDashboard().catch(() => null),
         getAcademyBooksQualityGates().catch(() => null),
+        getAcademyBooksIngestionReport().catch(() => null),
       ]);
       setHealth(h);
       setDashboard(d);
@@ -95,6 +99,7 @@ export default function FinanceAcademy() {
       setSifGates(sg);
       setBooksDash(bd);
       setBooksGates(bg);
+      setBooksReport(br);
     } catch (err) {
       setError(err?.message || 'Failed to load Finance Academy');
     } finally {
@@ -434,20 +439,47 @@ export default function FinanceAcademy() {
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-4">
-        <div className="flex items-center gap-2">
-          <GraduationCap className="h-5 w-5 text-emerald-600" />
-          <div>
-            <h2 className="font-semibold text-slate-900">Academy Books — Institutional Learning</h2>
-            <p className="text-xs text-slate-500">
-              Curated books → concepts / frameworks / formulas / graph. Never searchable PDFs. Never verbatim copyrighted text.
-            </p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <GraduationCap className="h-5 w-5 text-emerald-600" />
+            <div>
+              <h2 className="font-semibold text-slate-900">Academy Books V2 — Personal Library</h2>
+              <p className="text-xs text-slate-500">
+                PDF/EPUB/DOCX/MD + spreadsheets → structured knowledge. Never searchable PDFs. Never verbatim copyrighted text.
+              </p>
+              <p className="text-[11px] text-slate-400 mt-1">
+                Library root: {booksDash?.library_root || '—'} · scanned files:{' '}
+                {booksDash?.library_scan?.total_supported ?? '—'}
+              </p>
+            </div>
           </div>
+          <Button
+            variant="outline"
+            disabled={busy === 'ingest-library' || loading}
+            onClick={async () => {
+              setBusy('ingest-library');
+              setError('');
+              try {
+                const report = await ingestAcademyBooksLibrary({});
+                setBooksReport(report);
+                await load();
+              } catch (err) {
+                setError(err?.message || 'Library ingest failed');
+              } finally {
+                setBusy('');
+              }
+            }}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${busy === 'ingest-library' ? 'animate-spin' : ''}`} />
+            Ingest library
+          </Button>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-          <Stat label="Books" value={booksDash?.books?.length ?? '—'} hint="Seed + ingested" />
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
+          <Stat label="Ingested books" value={booksDash?.books_successfully_ingested ?? '—'} hint="Non-seed library" />
           <Stat label="Concepts" value={booksDash?.concept_count ?? '—'} hint="AGI-owned objects" />
           <Stat label="Frameworks" value={booksDash?.framework_count ?? '—'} hint="Decision logic" />
           <Stat label="Formulas" value={booksDash?.formula_count ?? '—'} hint="WACC / ROIC / DCF…" />
+          <Stat label="Spreadsheets" value={booksDash?.spreadsheet_count ?? '—'} hint="Models / templates" />
           <Stat label="Graph edges" value={booksDash?.graph_edges ?? '—'} hint="Knowledge graph" />
         </div>
         <div className="grid gap-2 sm:grid-cols-2 text-sm">
@@ -468,9 +500,41 @@ export default function FinanceAcademy() {
           ))}
         </div>
         <p className="text-xs text-slate-500">
-          Linked companies: {(booksDash?.linked_companies || []).join(', ') || '—'} · Most used:{' '}
-          {(booksDash?.most_used_concepts || []).slice(0, 5).map((x) => x.concept_id).join(', ') || '—'}
+          Companies: {(booksDash?.linked_companies || []).join(', ') || '—'} · Sectors:{' '}
+          {(booksDash?.sectors_linked || []).slice(0, 10).join(', ') || '—'}
         </p>
+        {booksReport?.reports?.length ? (
+          <div className="overflow-x-auto border border-slate-100 rounded-lg">
+            <table className="min-w-full text-xs">
+              <thead className="bg-slate-50 text-slate-500">
+                <tr>
+                  <th className="text-left px-3 py-2">Title</th>
+                  <th className="text-left px-3 py-2">Quality</th>
+                  <th className="text-right px-3 py-2">Pages</th>
+                  <th className="text-right px-3 py-2">Concepts</th>
+                  <th className="text-right px-3 py-2">Frameworks</th>
+                  <th className="text-right px-3 py-2">Formulas</th>
+                </tr>
+              </thead>
+              <tbody>
+                {booksReport.reports.slice(0, 20).map((r) => (
+                  <tr key={`${r.filename}-${r.book_id || r.title}`} className="border-t border-slate-100">
+                    <td className="px-3 py-2 text-slate-800">{r.title || r.filename}</td>
+                    <td className="px-3 py-2">{r.extraction_quality || (r.ok ? 'ok' : 'fail')}</td>
+                    <td className="px-3 py-2 text-right">{r.pages_processed ?? '—'}</td>
+                    <td className="px-3 py-2 text-right">{r.concepts_extracted ?? 0}</td>
+                    <td className="px-3 py-2 text-right">{r.frameworks_extracted ?? 0}</td>
+                    <td className="px-3 py-2 text-right">{r.formulas_extracted ?? 0}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="text-[11px] text-slate-400 px-3 py-2">
+              Ingest summary: {booksReport.succeeded ?? 0} succeeded / {booksReport.failed ?? 0} failed of{' '}
+              {booksReport.attempted ?? 0}
+            </p>
+          </div>
+        ) : null}
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 p-5">

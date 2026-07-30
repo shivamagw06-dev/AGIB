@@ -41,16 +41,16 @@ export default function NewsletterSection({ initialSelected = null }) {
   };
 
   return (
-    <section className="py-12 border-t border-[#dddddd] bg-[#fafafa]" aria-labelledby="agi-letters-heading">
+    <section id="newsletter" className="py-12 border-t border-[#dddddd] bg-[#fafafa]" aria-labelledby="agi-letters-heading">
       <div className="max-w-[1600px] mx-auto px-4 sm:px-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start border border-[#dddddd] bg-white p-6 md:p-10">
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-wider text-[#ff6600]">AGI Letters</p>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-[#ff6600]">Institutional Morning Brief</p>
             <h2 id="agi-letters-heading" className="mt-2 text-2xl font-bold text-[#111111]">
-              Four desks. One inbox.
+              Subscribe to AGI research
             </h2>
             <p className="mt-2 text-sm text-[#555555] max-w-xl">
-              Choose the AGI publications you want. Each letter has a clear schedule and purpose.
+              Receive Morning Research, Post Market Research, Global Brief, Macro Updates and IPO Notes.
             </p>
 
             <div className="mt-6 space-y-4">

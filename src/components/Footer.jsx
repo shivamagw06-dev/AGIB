@@ -1,41 +1,68 @@
 import { Link } from 'react-router-dom';
 import Logo from '@/components/Layout/Logo';
 
-const footerLinks = [
-  { label: 'About', to: '/about' },
-  { label: 'Contact', to: '/contact' },
-  { label: 'Privacy Policy', to: '/privacy' },
-  { label: 'Terms of Service', to: '/terms' },
-  { label: 'Disclaimer', to: '/disclaimer' },
-  { label: 'SEBI Disclosure', to: '/sebi-disclosure' },
+const COLUMNS = [
+  {
+    title: 'Research',
+    links: [
+      { label: 'Research', to: '/sections/research-notes' },
+      { label: 'Companies', to: '/company-updates' },
+      { label: 'Markets', to: '/markets' },
+      { label: 'Macro', to: '/macro-intelligence' },
+      { label: 'IPO', to: '/ipo-intelligence' },
+    ],
+  },
+  {
+    title: 'Platform',
+    links: [
+      { label: 'Ask AGI', to: '/ask' },
+      { label: 'Portfolio', to: '/portfolio' },
+      { label: 'Academy', to: '/admin/academy' },
+      { label: 'About AGI', to: '/about' },
+      { label: 'Contact', to: '/contact' },
+    ],
+  },
+  {
+    title: 'Legal',
+    links: [
+      { label: 'Privacy', to: '/privacy' },
+      { label: 'Terms', to: '/terms' },
+      { label: 'Disclaimer', to: '/disclaimer' },
+      { label: 'SEBI Disclosure', to: '/sebi-disclosure' },
+    ],
+  },
 ];
 
 export default function Footer() {
   return (
-    <footer className="bg-[#f7f7f7] border-t border-[#dddddd]">
-      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-10">
-        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-8">
+    <footer className="bg-[#0b1f33] text-white">
+      <div className="max-w-[1800px] mx-auto px-4 sm:px-6 py-12">
+        <div className="grid grid-cols-1 gap-10 md:grid-cols-[1.2fr_repeat(3,1fr)]">
           <div>
-            <Logo compact className="mb-3" />
-            <p className="text-xs text-[#767676] max-w-sm leading-relaxed mt-2">
-              Independent equity research for Indian investors. For informational purposes only — not investment advice.
+            <Logo compact className="mb-3 brightness-0 invert" />
+            <p className="mt-3 max-w-sm text-xs leading-relaxed text-white/65">
+              AGI combines AI-powered investment intelligence, original institutional research and deep company
+              intelligence into one professional research platform. Informational only — not investment advice.
             </p>
           </div>
 
-          <nav className="flex flex-wrap gap-x-5 gap-y-2 text-xs">
-            {footerLinks.map((link) => (
-              <Link
-                key={link.to}
-                to={link.to}
-                className="text-[#555555] hover:text-[#ff6600] transition-colors"
-              >
-                {link.label}
-              </Link>
-            ))}
-          </nav>
+          {COLUMNS.map((col) => (
+            <nav key={col.title} aria-label={col.title}>
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/45">{col.title}</p>
+              <ul className="mt-3 space-y-2">
+                {col.links.map((link) => (
+                  <li key={link.label}>
+                    <Link to={link.to} className="text-sm text-white/80 hover:text-[#ffb366]">
+                      {link.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+          ))}
         </div>
 
-        <p className="mt-8 pt-5 border-t border-[#dddddd] text-[11px] text-[#767676]">
+        <p className="mt-10 border-t border-white/10 pt-5 text-[11px] text-white/45">
           © {new Date().getFullYear()} Agarwal Global Investments. All rights reserved.
         </p>
       </div>

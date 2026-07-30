@@ -268,10 +268,12 @@ class YahooFinanceProvider(MarketDataProvider):
         if response.status_code >= 400:
             self._failed_syncs += 1
             self._last_error = f"vendor {response.status_code}"
+            # Permanent client failures must NEVER retry (401/402/403/404).
+            # Yahoo crumb refresh already ran once above for 401.
             raise ProviderError(
                 self.provider_id,
                 f"vendor {response.status_code}: {response.text[:200]}",
-                retryable=True if response.status_code in {401, 403} else False,
+                retryable=False,
             )
         self._last_sync = datetime.now(timezone.utc).isoformat()
         return response.json()

@@ -21,10 +21,19 @@ _NAMED_FORMULAS = {
     "wacc": ("WACC", "r_e*E/V + r_d*(1-t)*D/V", {"r_e": "cost of equity", "r_d": "cost of debt", "E": "equity value", "D": "debt value", "V": "E+D", "t": "tax rate"}),
     "capm": ("CAPM", "r_f + beta*(r_m - r_f)", {"r_f": "risk-free rate", "beta": "systematic risk", "r_m": "market return"}),
     "roe": ("ROE", "Net Income / Equity", {"Net Income": "owners' earnings", "Equity": "book equity"}),
+    "roa": ("ROA", "Net Income / Assets", {"Net Income": "earnings", "Assets": "total assets"}),
     "roic": ("ROIC", "NOPAT / Invested Capital", {"NOPAT": "net operating profit after tax", "Invested Capital": "operating capital"}),
     "roce": ("ROCE", "EBIT / Capital Employed", {"EBIT": "operating profit", "Capital Employed": "equity + interest-bearing debt"}),
     "fcf": ("Free Cash Flow", "CFO - Capex", {"CFO": "operating cash flow", "Capex": "maintenance/growth capex"}),
     "dcf": ("DCF", "Σ CF_t / (1+r)^t + TV/(1+r)^n", {"CF_t": "expected cash flow", "r": "discount rate", "TV": "terminal value"}),
+    "terminal value": ("Terminal Value", "FCF_(n+1) / (r - g)", {"FCF_(n+1)": "steady-state FCF", "r": "discount rate", "g": "perpetual growth"}),
+    "intrinsic value": ("Intrinsic Value", "Σ CF_t/(1+r)^t + TV/(1+r)^n", {"CF_t": "cash flow", "r": "discount rate", "TV": "terminal value"}),
+    "dividend discount": ("Dividend Discount Model", "DPS_1 / (r - g)", {"DPS_1": "next dividend", "r": "required return", "g": "growth"}),
+    "gordon": ("Gordon Growth", "DPS_1 / (r - g)", {"DPS_1": "next dividend", "r": "required return", "g": "growth"}),
+    "economic profit": ("Economic Profit", "NOPAT - WACC * Capital", {"NOPAT": "after-tax operating profit", "WACC": "cost of capital", "Capital": "invested capital"}),
+    "residual income": ("Residual Income", "NI - r_e * Equity", {"NI": "net income", "r_e": "cost of equity", "Equity": "book equity"}),
+    "eva": ("EVA", "NOPAT - WACC * Capital", {"NOPAT": "after-tax operating profit", "WACC": "cost of capital"}),
+    "nopat": ("NOPAT", "EBIT * (1 - t)", {"EBIT": "operating profit", "t": "tax rate"}),
 }
 
 _FRAMEWORK_HINTS = {
@@ -32,6 +41,7 @@ _FRAMEWORK_HINTS = {
     "five forces": ("porters_five_forces", "Porter's Five Forces", "competitive_structure"),
     "swot": ("swot", "SWOT", "strategic_scan"),
     "economic moat": ("economic_moat", "Economic Moat", "durable_advantage"),
+    "moat analysis": ("economic_moat", "Economic Moat", "durable_advantage"),
     "margin of safety": ("margin_of_safety", "Margin of Safety", "valuation_buffer"),
     "intrinsic value": ("intrinsic_value", "Intrinsic Value", "fundamental_worth"),
     "capital allocation": ("capital_allocation", "Capital Allocation", "reinvestment_payout"),
@@ -41,6 +51,10 @@ _FRAMEWORK_HINTS = {
     "business life cycle": ("business_life_cycle", "Business Life Cycle", "stage_analysis"),
     "competitive advantage": ("competitive_advantage", "Competitive Advantage", "returns_above_cost"),
     "narrative investing": ("narrative_investing", "Narrative Investing", "story_vs_numbers"),
+    "risk analysis": ("risk_analysis", "Risk Analysis", "downside_mapping"),
+    "scenario analysis": ("scenario_analysis", "Scenario Analysis", "alternate_states"),
+    "sensitivity analysis": ("sensitivity_analysis", "Sensitivity Analysis", "assumption_impact"),
+    "earnings quality": ("earnings_quality", "Earnings Quality", "cash_vs_accruals"),
 }
 
 

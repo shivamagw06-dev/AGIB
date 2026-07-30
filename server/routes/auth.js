@@ -128,7 +128,9 @@ async function sendEmail({ to, subject, html }) {
 }
 
 async function generateActionLink(admin, email, redirectTo) {
-  const types = ['signup', 'magiclink', 'invite'];
+  // Prefer magiclink first — works for existing users without inserting auth.users.
+  // `signup` / `invite` create users and currently fail when the profiles trigger is broken.
+  const types = ['magiclink', 'recovery', 'signup'];
   let lastError = null;
 
   for (const type of types) {
@@ -172,20 +174,15 @@ export default function createAuthRouter() {
         return res.status(400).json({ error: 'Valid email is required.' });
       }
 
-      const supabaseUrl = (process.env.SUPABASE_URL || '').trim();
-      const serviceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
-      if (!supabaseUrl || !serviceKey) {
+      const { createSupabaseAdmin } = await import('../lib/supabaseAdmin.js');
+      const admin = createSupabaseAdmin();
+      if (!admin) {
         return res.status(503).json({
           ok: false,
           skipped: true,
           reason: 'Supabase admin credentials unavailable; relying on default Auth email.',
         });
       }
-
-      const { createClient } = await import('@supabase/supabase-js');
-      const admin = createClient(supabaseUrl, serviceKey, {
-        auth: { autoRefreshToken: false, persistSession: false },
-      });
 
       const { actionLink, type } = await generateActionLink(
         admin,

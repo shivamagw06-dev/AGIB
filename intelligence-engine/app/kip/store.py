@@ -1,4 +1,8 @@
-"""In-memory institutional knowledge store (optional Supabase tables via migration)."""
+"""Institutional knowledge store with durable snapshot support.
+
+Process memory is the hot path; `app.kip.persist` serialises to disk (and optional
+Supabase mirror) so Render restarts do not orphan CMS learn metadata.
+"""
 
 from __future__ import annotations
 

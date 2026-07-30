@@ -28,6 +28,7 @@ class CaeService:
         iie: Any | None = None,
         fle: Any | None = None,
         mee: Any | None = None,
+        fre: Any | None = None,
         token_budget: int = DEFAULT_TOKEN_BUDGET,
     ) -> None:
         self.flags = flags or CaeFlags.from_settings(get_settings())
@@ -39,6 +40,7 @@ class CaeService:
         self.iie = iie
         self.fle = fle
         self.mee = mee
+        self.fre = fre
         self.retriever = CaeRetriever(
             kf=kf,
             kc=kc,
@@ -47,6 +49,7 @@ class CaeService:
             iie=iie,
             fle=fle,
             mee=mee,
+            fre=fre,
             parallel=self.flags.cae_parallel,
         )
         self.assembler = CaeAssembler(

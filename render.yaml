@@ -20,19 +20,80 @@ services:
         generateValue: true
       - key: CIO_MORNING_SCHEDULER
         value: "true"
+      # Wake Continuous Gather→Learn + morning DAG across Render sleeps (Ask-isolated).
+      - key: CONTINUOUS_GATHER_LEARN_SCHEDULER
+        value: "true"
+      - key: CONTINUOUS_GATHER_LEARN_NODE_INTERVAL_MS
+        value: "1800000"
+      - key: CONTINUOUS_MORNING_DAG
+        value: "true"
+      - key: CONTINUOUS_FAA_REFRESH
+        value: "true"
+      # embedded = API also runs the ingest worker (default on Free).
+      # Set to external when the dedicated worker below is enabled.
+      - key: CMS_INGEST_WORKER_MODE
+        value: embedded
+
+  # Optional dedicated ingest worker (Starter+). Decouples queue processing from
+  # the HTTP process so deploys/restarts of the API do not drop in-flight work
+  # as long as jobs are persisted in Supabase.
+  - type: worker
+    name: agib-cms-ingest-worker
+    runtime: node
+    rootDir: .
+    plan: starter
+    buildCommand: npm install --no-audit --no-fund --prefix server && npm install --no-audit --no-fund
+    startCommand: CMS_INGEST_IS_WORKER=1 CMS_INGEST_WORKER_MODE=external node server/workers/cmsIngestWorker.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: CMS_INGEST_IS_WORKER
+        value: "1"
+      - key: CMS_INGEST_WORKER_MODE
+        value: external
+      - key: INTELLIGENCE_ENGINE_URL
+        fromService:
+          name: agib-intelligence-engine
+          type: web
+          property: host
+      - key: INTELLIGENCE_ENGINE_TOKEN
+        fromService:
+          name: agib-api
+          type: web
+          envVarKey: INTELLIGENCE_ENGINE_TOKEN
 
   # Python multi-agent Intelligence Engine
   - type: web
     name: agib-intelligence-engine
     runtime: python
     rootDir: intelligence-engine
-    plan: free
-    buildCommand: pip install -r requirements.txt
+    # Starter ($7): required before a persistent disk can attach.
+    # Upgrade order: (1) plan→Starter with NO disk, deploy success
+    #                 (2) attach disk /var/data/kip
+    #                 (3) set KIP_DATA_DIR + optional KIP_REQUIRE_PERSISTENT=1
+    plan: starter
+    # Chromium for FAA Playwright JS-render + free web search.
+    # If the live Render service ignores Blueprint buildCommand, start.sh
+    # and FAA_PLAYWRIGHT_AUTO_INSTALL still attempt a one-shot install.
+    buildCommand: pip install -r requirements.txt && python -m playwright install chromium
+    # Prefer uvicorn for fast health checks. Chromium is installed at build time
+    # when Blueprint syncs; otherwise FAA_PLAYWRIGHT_AUTO_INSTALL installs once
+    # on first JS fetch (see app/faa/playwright_browser.py).
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /v1/health
     envVars:
       - key: APP_ENV
         value: production
+      # Set AFTER the paid disk is attached (mount /var/data/kip).
+      # Leaving this unset during Free→Starter upgrade is OK (warn-only boot).
+      # After disk is live: set KIP_DATA_DIR=/var/data/kip and optionally
+      # KIP_REQUIRE_PERSISTENT=1 to refuse ephemeral boots.
+      - key: KIP_DATA_DIR
+        sync: false
+      - key: KIP_REQUIRE_PERSISTENT
+        sync: false
+      - key: KIP_ALLOW_EPHEMERAL
+        sync: false
       - key: INTELLIGENCE_ENGINE_TOKEN
         fromService:
           name: agib-api
@@ -43,3 +104,166 @@ services:
           name: agib-api
           type: web
           property: host
+      # Optional: mirror KIP snapshots to Supabase (set in dashboard)
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      # FAA live public acquisition — search + page enrichment
+      # Set EXA / FIRECRAWL / BROWSERBASE / TAVILY keys in Render dashboard
+      - key: FAA
+        value: "true"
+      - key: FAA_LIVE_FETCH
+        value: "true"
+      - key: FAA_MAX_WORKERS
+        value: "6"
+      - key: FAA_SEARCH_API
+        value: "true"
+      - key: FAA_PLAYWRIGHT
+        value: "true"
+      # Keep false on free tier — Chromium must come from buildCommand.
+      - key: FAA_PLAYWRIGHT_AUTO_INSTALL
+        value: "false"
+      # Ask desk: offices soft-wire off on Starter (memory); persist always off.
+      - key: AGI_V4_OFFICES_IN_ASK
+        value: "0"
+      - key: AGI_V4_OFFICE_PERSIST
+        value: "0"
+      # Continuous Gather → Learn — autonomous historical collection + knowledge loop.
+      # Runs off the Ask path; failures never block Ask. Not ML retraining.
+      - key: CONTINUOUS_GATHER_LEARN
+        value: "true"
+      - key: CONTINUOUS_GATHER_LEARN_INTERVAL_SEC
+        value: "1800"
+      - key: CONTINUOUS_MORNING_DAG
+        value: "true"
+      - key: CONTINUOUS_LIDI
+        value: "true"
+      - key: CONTINUOUS_KF_HD
+        value: "true"
+      - key: CONTINUOUS_FAA_REFRESH
+        value: "true"
+      - key: CONTINUOUS_LEARNING_LOOP
+        value: "true"
+      - key: CONTINUOUS_DIRECTOR_LEARNING
+        value: "true"
+      - key: CONTINUOUS_HISTORICAL_BACKFILL
+        value: "true"
+      # Keep draining backlog until every listed company is fully backfilled, then maintenance-only.
+      - key: CONTINUOUS_BACKFILL_UNTIL_COMPLETE
+        value: "true"
+      - key: CONTINUOUS_BACKFILL_ACTIVE_INTERVAL_SEC
+        value: "300"
+      # Knowledge Factory Historical Depth — live Yahoo OHLCV/actions backfill.
+      - key: KF_HD_LIVE_COLLECTORS
+        value: "true"
+      - key: KF_HD_BACKFILL_BATCH
+        value: "12"
+      - key: KF_HD_BACKFILL_BATCHES_PER_CYCLE
+        value: "3"
+      - key: KF_HD_BACKFILL_WORKERS
+        value: "2"
+      - key: KF_HD_TARGET_YEARS
+        value: "15"
+      # Durable roots — set AFTER disk /var/data/kip is attached:
+      #   KIP_DATA_DIR=/var/data/kip
+      #   CGL_STORE_ROOT=/var/data/kip/continuous_gather_learn
+      #   KF_HD_STORE_ROOT=/var/data/kip/historical_depth
+      #   LIDI_STORE_ROOT=/var/data/kip/live_data
+      - key: CGL_STORE_ROOT
+        sync: false
+      - key: KF_HD_STORE_ROOT
+        sync: false
+      - key: LIDI_STORE_ROOT
+        sync: false
+      # Never pad production financials with fixtures.
+      - key: KF_HD_FIXTURE_QUARTERLY
+        value: "false"
+      - key: INSTITUTIONAL_DATA_CONNECTORS
+        value: "true"
+      - key: KF_HD_CHUNK_YEARS
+        value: "5"
+      # FAA background collector — Ask-isolated. Conservative limits on Starter.
+      - key: FAA_BACKGROUND_COLLECTOR
+        value: "true"
+      - key: FAA_COLLECTOR_INTERVAL_SEC
+        value: "900"
+      - key: FAA_COLLECTOR_LIMIT
+        value: "2"
+      - key: ASK_EXT_TIMEOUT_SEC
+        value: "5"
+      # Starter-safe Ask: skip live LEO/ECP/CAE/AIL fan-out that OOMs under load.
+      # Set ASK_SLIM=0 only after memory profiling proves headroom.
+      - key: ASK_SLIM
+        value: "true"
+      - key: EXA_API_KEY
+        sync: false
+      - key: FIRECRAWL_API_KEY
+        sync: false
+      - key: BROWSERBASE_API_KEY
+        sync: false
+      - key: TAVILY_API_KEY
+        sync: false
+      # AGI Observability — LangSmith tracing (observability only).
+      # Set LANGSMITH_API_KEY in the Render dashboard for THIS service; tracing
+      # turns on automatically when the key is present. No key = silent no-op.
+      - key: LANGSMITH_API_KEY
+        sync: false
+      - key: LANGSMITH_TRACING
+        value: "true"
+      - key: LANGSMITH_PROJECT
+        value: agi-intelligence-engine
+      - key: LANGSMITH_WORKSPACE_ID
+        sync: false
+      # AGIB Intelligence Layer V2
+      - key: AIL
+        value: "true"
+      - key: AIL_ASK_AGI
+        value: "true"
+      # Ask must not call unbound faa.acquire (Playwright / live search hangs >90s).
+      - key: AIL_LIVE_FAA
+        value: "false"
+      - key: FRE
+        value: "true"
+      - key: FRE_ASK_AGI
+        value: "true"
+      # AGIB v3 institutional stack (architecture frozen after IDE V2)
+      # Keys match Settings field names in intelligence-engine/app/core/config.py
+      - key: INSTITUTIONAL_STACK
+        value: "true"
+      - key: FILING_INTELLIGENCE
+        value: "true"
+      - key: FILING_DIFF_ENGINE
+        value: "true"
+      - key: MANAGEMENT_INTELLIGENCE
+        value: "true"
+      - key: ACCOUNTING_INTELLIGENCE
+        value: "true"
+      - key: PORTFOLIO_INTELLIGENCE
+        value: "true"
+      - key: PEER_INTELLIGENCE
+        value: "true"
+      - key: CAUSAL_INTELLIGENCE
+        value: "true"
+      - key: FORECAST_INTELLIGENCE
+        value: "true"
+      - key: KNOWLEDGE_GRAPH
+        value: "true"
+      - key: INSTITUTIONAL_MEMORY
+        value: "true"
+      - key: SIMULATION_LAB
+        value: "true"
+      - key: DECISION_ENGINE_V2
+        value: "true"
+      - key: EVIDENCE_INTELLIGENCE_LAYER
+        value: "true"
+      - key: INSTITUTIONAL_ANALYSTS
+        value: "true"
+      - key: INVESTMENT_COMMITTEE_INTELLIGENCE
+        value: "true"
+      - key: INSTITUTIONAL_RESEARCH_WRITER
+        value: "true"
+      - key: ACADEMY_CERTIFICATION_SUITE
+        value: "true"
+      - key: INSTITUTIONAL_REGRESSION_SUITE
+        value: "true"

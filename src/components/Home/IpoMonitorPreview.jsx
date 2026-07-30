@@ -35,12 +35,17 @@ export default function IpoMonitorPreview() {
         <div>
           <div className="flex items-center gap-2 text-[#274c77]">
             <CalendarDays className="h-4 w-4" />
-            <span className="text-[10px] font-bold uppercase tracking-[0.12em]">IPO Monitor</span>
+            <span className="text-[10px] font-bold uppercase tracking-[0.12em]">IPO Intelligence</span>
           </div>
           <h2 className="mt-2 text-lg font-bold text-[#111111]">Upcoming Public Issues</h2>
-          <p className="mt-1 text-xs text-[#767676]">Offer details from IndianAPI. Refreshes once daily at 12:00 PM IST.</p>
+          <p className="mt-1 text-xs text-[#767676]">Live pipeline plus Research Hub. Offer details refresh daily at 12:00 PM IST.</p>
         </div>
-        <span className="text-[11px] text-[#767676]">{active.length} active issue{active.length === 1 ? '' : 's'}</span>
+        <div className="flex items-center gap-3">
+          <span className="text-[11px] text-[#767676]">{active.length} active issue{active.length === 1 ? '' : 's'}</span>
+          <Link to="/ipo-intelligence" className="inline-flex items-center gap-1 text-[11px] font-bold text-[#274c77] hover:underline">
+            Open platform <ChevronRight className="h-3.5 w-3.5" />
+          </Link>
+        </div>
       </div>
 
       {state.loading ? (
@@ -72,11 +77,18 @@ export default function IpoMonitorPreview() {
         </div>
       )}
 
-      {state.data?.disclaimer && (
-        <p className="mt-4 flex items-start gap-2 text-[11px] leading-relaxed text-[#767676]">
-          <FileText className="mt-0.5 h-3.5 w-3.5 shrink-0" /> {state.data.disclaimer}
-        </p>
-      )}
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+        {state.data?.disclaimer ? (
+          <p className="flex items-start gap-2 text-[11px] leading-relaxed text-[#767676]">
+            <FileText className="mt-0.5 h-3.5 w-3.5 shrink-0" /> {state.data.disclaimer}
+          </p>
+        ) : (
+          <span />
+        )}
+        <Link to="/ipo-intelligence" className="text-[11px] font-bold text-[#274c77] hover:underline">
+          View IPO Intelligence Platform →
+        </Link>
+      </div>
     </section>
   );
 }

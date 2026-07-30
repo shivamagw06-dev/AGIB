@@ -8,10 +8,12 @@ from academy.books.flags import (
     flag_formulas,
     flag_frameworks,
     flag_graph,
+    flag_spreadsheets,
     flags_dict,
     is_books_enabled,
 )
 from academy.books.ingest import ensure_seeded
+from academy.books.library import resolve_library_root, scan_library
 from academy.books.schema import BOOKS_VERSION
 from academy.books.store import get_books_store, reset_books_store
 
@@ -30,44 +32,103 @@ def dashboard() -> dict[str, Any]:
     linked_companies = sorted(
         {co.upper() for c in store.concepts.values() for co in c.linked_companies}
     )
+    real_books = [b for b in store.books.values() if b.source_format != "seed"]
+    sectors = sorted(
+        {
+            *(x for c in store.concepts.values() for x in c.linked_industries),
+            *(c.academy.replace("sector_", "") for c in store.concepts.values() if c.academy.startswith("sector_")),
+        }
+    )
+    # Library scan is optional for cockpit speed — never block Mission Control on disk walks.
+    lib: dict[str, Any] = {"counts": {}}
+    reach: dict[str, Any] = {}
+    try:
+        lib = scan_library()
+        from academy.books.library import library_reachability
+
+        reach = library_reachability()
+    except Exception as exc:
+        lib = {"counts": {}, "error": str(exc)[:120]}
+        reach = {"ok": False, "error": str(exc)[:120]}
     return {
         "programme": "AGI_ACADEMY_BOOKS",
         "books_version": BOOKS_VERSION,
         "architecture_status": "v1.0.1 LOCKED",
         "enabled": is_books_enabled(),
         "flags": flags_dict(),
-        "books": [b.to_dict() for b in store.books.values()],
+        "library_root": str(resolve_library_root() or ""),
+        "library_scan": lib.get("counts") or {},
+        "library_reachability": reach,
+        # Metadata only — never dump full concept bodies into Mission Control.
+        "books": [
+            {
+                "book_id": b.book_id,
+                "title": b.title,
+                "source_format": b.source_format,
+                "status": b.status,
+            }
+            for b in store.books.values()
+        ],
+        "books_successfully_ingested": len(real_books),
         "academies": academies,
         "concept_count": snap["concepts"],
         "framework_count": snap["frameworks"] if flag_frameworks() else 0,
         "formula_count": snap["formulas"] if flag_formulas() else 0,
+        "spreadsheet_count": snap.get("spreadsheets") or 0 if flag_spreadsheets() else 0,
         "graph_edges": snap["edges"] if flag_graph() else 0,
         "chapter_count": snap["chapters"],
         "coverage": {
             "academies_populated": len(academies),
-            "books_ingested": snap["books"],
+            "books_ingested": len(real_books),
             "seed_ratio": round(
                 sum(1 for b in store.books.values() if b.source_format == "seed") / max(1, snap["books"]),
                 3,
             ),
+            "library_files_seen": (lib.get("counts") or {}).get("total_supported") or 0,
         },
         "learning_progress": {
             "concepts": snap["concepts"],
             "frameworks": snap["frameworks"],
             "formulas": snap["formulas"],
+            "spreadsheets": snap.get("spreadsheets") or 0,
             "graph": snap["edges"],
         },
         "linked_companies": linked_companies,
+        "sectors": sectors[:40],
+        "sectors_linked": sectors,
         "most_used_concepts": [
             {"concept_id": cid, "uses": n} for cid, n in snap["most_used"]
         ],
         "knowledge_graph": _graph_preview(store) if flag_graph() else {"nodes": [], "edges": []},
+        "latest_ingestion_report": (store.ingestion_reports[-1] if store.ingestion_reports else None),
         "copyright": {
             "verbatim_storage": False,
             "searchable_pdf_index": False,
             "policy": "concepts_frameworks_formulas_only",
         },
+        "books_v3": _v3_dashboard_soft(),
     }
+
+
+def _v3_dashboard_soft() -> dict[str, Any]:
+    try:
+        from academy.books.flags import flag_books_v3
+        from academy.books.v3.production import dashboard as v3_dashboard
+
+        if not flag_books_v3():
+            return {"enabled": False}
+        d = v3_dashboard()
+        return {
+            "enabled": True,
+            "version": d.get("books_v3_version"),
+            "mode": d.get("mode"),
+            "snapshot": d.get("snapshot"),
+            "institutional_topics": d.get("institutional_topics"),
+            "analyst_bases": d.get("analyst_bases"),
+            "sectors": d.get("sectors"),
+        }
+    except Exception as exc:
+        return {"enabled": False, "error": str(exc)}
 
 
 def _graph_preview(store) -> dict[str, Any]:
@@ -133,7 +194,7 @@ def package_for_query(
         formulas = formulas[:8]
 
     answer_hints = _reasoning_hints(concepts, frameworks, formulas)
-    return {
+    out: dict[str, Any] = {
         "enabled": True,
         "books_version": BOOKS_VERSION,
         "concepts": [c.to_dict() for c in concepts],
@@ -147,6 +208,26 @@ def package_for_query(
             "verbatim_quotes": False,
         },
     }
+    # Soft-wire Books V3 institutional knowledge (no engine redesign)
+    try:
+        from academy.books.flags import flag_books_v3
+        from academy.books.v3.production import soft_slice_for_package
+
+        if flag_books_v3():
+            v3 = soft_slice_for_package(query, ticker=ticker)
+            if v3:
+                out.update(v3)
+                for h in (v3.get("books_v3") or {}).get("answer_hints") or []:
+                    if h and h not in out["answer_hints"]:
+                        out["answer_hints"].append(h)
+                out["answer_hints"] = out["answer_hints"][:6]
+                out["provenance"]["books_v3"] = True
+                out["provenance"]["cross_book_synthesis"] = bool(
+                    (v3.get("books_v3") or {}).get("institutional_objects")
+                )
+    except Exception:
+        pass
+    return out
 
 
 def _reasoning_hints(concepts, frameworks, formulas) -> list[str]:
@@ -185,6 +266,23 @@ def soft_attach_kf() -> dict[str, Any]:
     return attach_books_to_kf()
 
 
+def ingest_library(*, root: str | None = None, limit: int | None = None) -> dict[str, Any]:
+    from academy.books.batch import ingest_personal_library
+    from academy.books.flags import flag_spreadsheets
+
+    return ingest_personal_library(
+        root=root,
+        limit=limit,
+        include_spreadsheets=flag_spreadsheets(),
+    )
+
+
+def ingestion_report() -> dict[str, Any]:
+    from academy.books.batch import latest_ingestion_report
+
+    return latest_ingestion_report() or {"ok": False, "reason": "no_report"}
+
+
 def research_writer_slice(query: str = "", ticker: str | None = None) -> dict[str, Any]:
     """Soft slice for Research Writer — structure/framework/terminology only."""
     pkg = package_for_query(query or "investment research", ticker=ticker, limit=8)
@@ -220,12 +318,25 @@ def quality_gates() -> dict[str, Any]:
         "no_long_verbatim": len(long_hits) == 0,
         "no_searchable_pdf_index": True,
     }
+    v3_gates: dict[str, Any] = {}
+    try:
+        from academy.books.flags import flag_books_v3
+        from academy.books.v3.production import quality_gates as v3_quality_gates
+
+        if flag_books_v3():
+            v3_gates = v3_quality_gates()
+            checks["books_v3_institutional"] = bool(v3_gates.get("passed"))
+    except Exception:
+        checks["books_v3_institutional"] = False
+        v3_gates = {"passed": False}
+
     return {
         "passed": all(checks.values()),
         "checks": checks,
         "long_verbatim_fields": long_hits[:10],
         "books_version": BOOKS_VERSION,
         "flags": flags_dict(),
+        "books_v3": v3_gates,
     }
 
 
