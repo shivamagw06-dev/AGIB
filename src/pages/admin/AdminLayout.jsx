@@ -57,6 +57,7 @@ const authorNavItems = [
 
 const navItems = [
   { to: '/admin', label: 'Dashboard', icon: LayoutDashboard, end: true },
+  { to: '/admin/release-health', label: 'Release Health', icon: ShieldCheck },
   { to: '/admin/articles', label: 'All Articles', icon: FileText },
   { to: '/admin/intelligence-map', label: 'Intelligence Map', icon: Map },
   { to: '/admin/intent-intelligence', label: 'Intent Intelligence', icon: BrainCircuit },

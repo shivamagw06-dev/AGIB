@@ -618,6 +618,18 @@ _CATALOG: list[dict[str, Any]] = [
         "module": "product_experience_validation.production",
     },
     {
+        "id": "release_health",
+        "name": "AGI Release Health (RH-01)",
+        "group": "ops",
+        "responsibility": (
+            "Single release-gate dashboard: Build · Unit · Integration · IST · IBS · E2E · "
+            "hallucinations · provenance · regression · Ready for Release."
+        ),
+        "sources": ["IST-01/02", "IBS-01", "E2E-01", "pytest", "product UI"],
+        "kind": "evaluation",
+        "module": "release_health.production",
+    },
+    {
         "id": "ite_thesis",
         "name": "Investment Thesis Office",
         "group": "offices",

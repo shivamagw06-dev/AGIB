@@ -9953,6 +9953,37 @@ async def admin_product_experience():
     return HTMLResponse(admin_page())
 
 
+# --- RH-01 AGI Release Health (single release gate dashboard; additive) ---
+
+
+@router.get("/release-health/health")
+async def release_health_health():
+    from release_health.production import health
+
+    return health()
+
+
+@router.get("/release-health/dashboard")
+async def release_health_dashboard(refresh: bool = False):
+    from release_health.production import dashboard
+
+    return dashboard(refresh=refresh)
+
+
+@router.post("/release-health/run")
+async def release_health_run(payload: dict[str, Any] = Body(default={})):
+    from release_health.production import run
+
+    return run(payload or {})
+
+
+@router.get("/admin/release-health-engine", response_class=HTMLResponse)
+async def admin_release_health_engine():
+    from release_health.production import admin_page
+
+    return HTMLResponse(admin_page())
+
+
 # --- Company Monitoring System V1 (continuous living analyst; additive) ---
 
 

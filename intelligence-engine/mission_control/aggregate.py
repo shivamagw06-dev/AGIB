@@ -1594,6 +1594,14 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("product_experience_validation")
     except Exception:
         out["product_experience_validation"] = None
+    # RH-01 — AGI Release Health (single release gate; additive).
+    try:
+        from release_health.production import soft_slice_mission_control as rh_soft
+
+        out["release_health"] = rh_soft()
+        out["sources"].append("release_health")
+    except Exception:
+        out["release_health"] = None
     return out
 
 
