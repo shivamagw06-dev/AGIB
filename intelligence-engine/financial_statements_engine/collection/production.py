@@ -65,6 +65,26 @@ def dashboard() -> dict[str, Any]:
     }
 
 
+def source_coverage() -> dict[str, Any]:
+    """FSE-02.3 Mission Control — official source coverage dashboard."""
+    from financial_statements_engine.collection.source_layer.coverage import source_coverage_dashboard
+
+    return source_coverage_dashboard()
+
+
+def source_registry() -> dict[str, Any]:
+    from financial_statements_engine.collection.source_layer.coverage import source_registry_health
+
+    return source_registry_health()
+
+
+def collect_official(ticker: str, **kwargs: Any) -> dict[str, Any]:
+    """Multi-source official collect → FSE-02 ingest (FSE-02.3)."""
+    from financial_statements_engine.collection.source_layer.collect import collect_and_ingest
+
+    return collect_and_ingest(ticker, **kwargs)
+
+
 def ingest_dashboard() -> dict[str, Any]:
     """FSE-02.1 Mission Control — canonical ingestion dashboard."""
     metrics = summarize_ingest_metrics()

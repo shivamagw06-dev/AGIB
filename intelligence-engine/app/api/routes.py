@@ -10635,6 +10635,22 @@ async def financial_statements_ingest_dashboard():
     return ingest_dashboard()
 
 
+@router.get("/financial-statements/collection/source-coverage")
+async def financial_statements_source_coverage():
+    """FSE-02.3 Mission Control — official source coverage dashboard."""
+    from financial_statements_engine.collection.production import source_coverage
+
+    return source_coverage()
+
+
+@router.get("/financial-statements/collection/source-registry")
+async def financial_statements_source_registry():
+    """FSE-02.3 Source Registry (priority, health, filing types)."""
+    from financial_statements_engine.collection.production import source_registry
+
+    return source_registry()
+
+
 @router.get("/financial-statements/collection/events")
 async def financial_statements_collection_events(limit: int = 50):
     from financial_statements_engine.collection.production import recent_events
@@ -10654,6 +10670,23 @@ async def financial_statements_collection_run(payload: dict[str, Any] = Body(def
     if mode not in ("live", "historical"):
         mode = "live"
     return collect_ticker(ticker, mode=mode)
+
+
+@router.post("/financial-statements/collection/run-official")
+async def financial_statements_collection_run_official(payload: dict[str, Any] = Body(default={})):
+    """FSE-02.3 multi-source official collect → FSE-02 ingest()."""
+    from financial_statements_engine.collection.production import collect_official
+
+    body = payload or {}
+    ticker = str(body.get("ticker") or "").strip()
+    if not ticker:
+        raise HTTPException(status_code=400, detail="ticker_required")
+    return collect_official(
+        ticker.upper(),
+        filing_type=body.get("filing_type"),
+        period_end=body.get("period_end"),
+        company_name=body.get("company_name"),
+    )
 
 
 @router.get("/financial-statements/{ticker}")

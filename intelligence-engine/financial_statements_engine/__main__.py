@@ -38,6 +38,7 @@ def main(argv: list[str] | None = None) -> int:
             "--verify-universe [LIST]|--workflow-report ID|--workflow-provenance ID|"
             "--schema-evolution-health|--schema-resolve LABEL|"
             "--collection-health|--collection-dashboard|--ingest-dashboard|"
+            "--source-coverage|--source-registry|--collect-official TICKER|"
             "--collect TICKER [--mode live|historical]|TICKER [--publish]"
         )
         return 0
@@ -488,6 +489,24 @@ def main(argv: list[str] | None = None) -> int:
         from financial_statements_engine.collection.production import ingest_dashboard
 
         print(json.dumps(ingest_dashboard(), indent=2, default=str))
+        return 0
+    if cmd == "--source-coverage":
+        from financial_statements_engine.collection.production import source_coverage
+
+        print(json.dumps(source_coverage(), indent=2, default=str))
+        return 0
+    if cmd == "--source-registry":
+        from financial_statements_engine.collection.production import source_registry
+
+        print(json.dumps(source_registry(), indent=2, default=str))
+        return 0
+    if cmd == "--collect-official":
+        from financial_statements_engine.collection.production import collect_official
+
+        if len(args) < 2:
+            print("ticker required", file=sys.stderr)
+            return 2
+        print(json.dumps(collect_official(args[1].upper()), indent=2, default=str))
         return 0
     if cmd == "--collect":
         from financial_statements_engine.collection.production import collect_ticker
