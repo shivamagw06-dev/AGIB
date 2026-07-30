@@ -2678,6 +2678,23 @@ export default function createIntelligenceRouter() {
     kfGet('/v1/financial-statements/evidence-coverage/dashboard')
   );
 
+  // FKB-01 — Institutional Financial Knowledge Base
+  router.get('/knowledge/health', kfGet('/v1/knowledge/health'));
+  router.get('/knowledge/dashboard', kfGet('/v1/knowledge/dashboard'));
+  router.get('/knowledge/metrics', kfGet('/v1/knowledge/metrics'));
+  router.get('/knowledge/ratios', kfGet('/v1/knowledge/ratios'));
+  router.get('/knowledge/relationships', kfGet('/v1/knowledge/relationships'));
+  router.get('/knowledge/glossary', kfGet('/v1/knowledge/glossary'));
+  router.get('/knowledge/thresholds', async (req, res) => {
+    try {
+      const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+      const result = await engineFetch(`/v1/knowledge/thresholds${q}`);
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Knowledge thresholds unavailable', detail: error.message });
+    }
+  });
+
   // FIRE-01 — Financial Narrative & Trend Engine
   router.get('/financial-intelligence/health', kfGet('/v1/financial-intelligence/health'));
   router.get('/financial-intelligence/dashboard', kfGet('/v1/financial-intelligence/dashboard'));

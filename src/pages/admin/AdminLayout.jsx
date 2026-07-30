@@ -91,6 +91,7 @@ const navItems = [
   { to: '/admin/company-analysis', label: 'Company Analysis', icon: Building2 },
   { to: '/admin/institutional-stack', label: 'Institutional Stack', icon: Layers },
   { to: '/admin/financial-statements', label: 'Financial Statements', icon: FileSpreadsheet },
+  { to: '/admin/financial-knowledge', label: 'Financial Knowledge', icon: BookOpen },
   { to: '/admin/accounting-intelligence', label: 'Accounting Intel', icon: Scale },
   { to: '/admin/portfolio-intelligence', label: 'Portfolio Intel', icon: Briefcase },
   { to: '/admin/causal-intelligence', label: 'Causal Intel', icon: GitBranch },

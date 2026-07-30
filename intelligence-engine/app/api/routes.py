@@ -4284,6 +4284,65 @@ async def admin_institutional_stack():
     return HTMLResponse(admin_page())
 
 
+# --- FKB-01 Institutional Financial Knowledge Base (definitions only) ---
+
+
+@router.get("/knowledge/health")
+async def financial_knowledge_health():
+    from financial_knowledge.production import health
+
+    return health()
+
+
+@router.get("/knowledge/dashboard")
+async def financial_knowledge_dashboard():
+    from financial_knowledge.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/knowledge/metrics")
+async def financial_knowledge_metrics():
+    from financial_knowledge.production import metrics
+
+    return metrics()
+
+
+@router.get("/knowledge/ratios")
+async def financial_knowledge_ratios():
+    from financial_knowledge.production import ratios
+
+    return ratios()
+
+
+@router.get("/knowledge/relationships")
+async def financial_knowledge_relationships():
+    from financial_knowledge.production import relationships
+
+    return relationships()
+
+
+@router.get("/knowledge/glossary")
+async def financial_knowledge_glossary():
+    from financial_knowledge.production import glossary
+
+    return glossary()
+
+
+@router.get("/knowledge/thresholds")
+async def financial_knowledge_thresholds(sector: str | None = None):
+    from financial_knowledge.production import thresholds
+
+    return thresholds(sector=sector)
+
+
+@router.get("/admin/financial-knowledge", response_class=HTMLResponse)
+async def admin_financial_knowledge():
+    from financial_knowledge.production import admin_page
+
+    return HTMLResponse(admin_page())
+
+
 # --- FIRE-01 Financial Narrative & Trend Engine (warehouse consumer) ---
 
 

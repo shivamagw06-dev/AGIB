@@ -548,6 +548,18 @@ _CATALOG: list[dict[str, Any]] = [
         "kind": "office",
         "module": "financial_intelligence.drivers.production",
     },
+    {
+        "id": "financial_knowledge",
+        "name": "Financial Knowledge Base (FKB-01)",
+        "group": "ops",
+        "responsibility": (
+            "Canonical definitions for metrics, ratios, relationships, thresholds, "
+            "glossary and sector guidance — knowledge only, no analysis."
+        ),
+        "sources": ["Institutional financial knowledge catalogs"],
+        "kind": "office",
+        "module": "financial_knowledge.production",
+    },
     # —— Learning / eval ——
     {
         "id": "forecast_validation_learning",

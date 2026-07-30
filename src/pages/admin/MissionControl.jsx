@@ -178,6 +178,7 @@ export default function MissionControl() {
   const fseSourceBoard = institutional?.fse_source_coverage || null;
   const fireBoard = institutional?.financial_intelligence || null;
   const fireDriversBoard = institutional?.financial_drivers || null;
+  const fkbBoard = institutional?.financial_knowledge || null;
   const v4Office = {
     thesis: desk?.institutional_investment_thesis || null,
     decision: desk?.institutional_decision_office || null,
@@ -1233,6 +1234,16 @@ export default function MissionControl() {
                 Relationships {fireDriversBoard?.relationship_findings ?? '—'} · cash warn{' '}
                 {fireDriversBoard?.cash_quality_warnings ?? '—'} · WC warn{' '}
                 {fireDriversBoard?.working_capital_warnings ?? '—'}
+              </p>
+            </Glass>
+            <Glass>
+              <p className="text-[11px] uppercase text-[var(--io-caption)]">FKB-01 Knowledge</p>
+              <p className={`mt-2 text-sm font-semibold ${statusColour(fkbBoard?.status)}`}>
+                {fkbBoard?.validation_status || fkbBoard?.status || 'Unavailable'}
+              </p>
+              <p className="mt-1 text-[11px] text-[var(--io-muted)]">
+                Metrics {fkbBoard?.metrics_loaded ?? '—'} · Ratios {fkbBoard?.ratios_loaded ?? '—'} ·
+                Rel {fkbBoard?.relationships_loaded ?? '—'}
               </p>
             </Glass>
           </div>
