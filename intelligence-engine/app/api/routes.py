@@ -11319,6 +11319,96 @@ async def iep_company_resource(company_ref: str, resource: str):
     return company_subresource(company_ref, resource)
 
 
+# KIL-01 — Knowledge Integration Layer (AGI v1.1.2)
+
+
+@router.get("/iep/kil/health")
+async def iep_kil_health():
+    from institutional_evidence.production import get_kil_status
+
+    return get_kil_status()
+
+
+@router.post("/iep/kil/integrate")
+async def iep_kil_integrate(payload: dict[str, Any] = Body(default={})):
+    from institutional_evidence.production import run_kil_integration
+
+    body = payload or {}
+    return run_kil_integration(
+        body.get("cgl_run"),
+        companies=body.get("companies"),
+    )
+
+
+@router.post("/iep/kil/integrate/{ticker}")
+async def iep_kil_integrate_company(ticker: str, payload: dict[str, Any] = Body(default={})):
+    from institutional_evidence.production import integrate_company_knowledge
+
+    body = payload or {}
+    return integrate_company_knowledge(
+        ticker,
+        trigger_repair=bool(body.get("trigger_repair", True)),
+    )
+
+
+@router.get("/iep/knowledge-health")
+async def iep_knowledge_health():
+    from institutional_evidence.production import get_knowledge_health
+
+    return get_knowledge_health()
+
+
+@router.get("/iep/knowledge-confidence/{ticker}")
+async def iep_knowledge_confidence(ticker: str):
+    from institutional_evidence.production import get_knowledge_confidence
+
+    return get_knowledge_confidence(ticker)
+
+
+@router.get("/iep/coverage-state/{ticker}")
+async def iep_coverage_state(ticker: str):
+    from institutional_evidence.production import get_coverage_state
+
+    return get_coverage_state(ticker)
+
+
+@router.get("/iep/snapshots")
+async def iep_knowledge_snapshots():
+    from institutional_evidence.production import get_knowledge_snapshots
+
+    return get_knowledge_snapshots()
+
+
+@router.get("/iep/events")
+async def iep_kil_events():
+    from institutional_evidence.production import get_kil_events
+
+    return get_kil_events()
+
+
+@router.post("/iep/ask/{ticker}")
+async def iep_orchestrate_ask(ticker: str, payload: dict[str, Any] = Body(default={})):
+    from institutional_evidence.production import orchestrate_ask
+
+    body = payload or {}
+    return orchestrate_ask(ticker, force_kil_refresh=bool(body.get("force_kil_refresh")))
+
+
+@router.get("/iep/expansion")
+async def iep_expansion_status():
+    from institutional_evidence.production import get_expansion_status
+
+    return get_expansion_status()
+
+
+@router.post("/iep/expansion/nifty500")
+async def iep_expansion_enqueue(payload: dict[str, Any] = Body(default={})):
+    from institutional_evidence.production import enqueue_nifty_500_expansion
+
+    body = payload or {}
+    return enqueue_nifty_500_expansion(force=bool(body.get("force")))
+
+
 # --- Company Monitoring System V1 (continuous living analyst; additive) ---
 
 

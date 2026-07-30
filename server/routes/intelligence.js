@@ -4183,6 +4183,125 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // KIL-01 — Knowledge Integration Layer (AGI v1.1.2)
+  router.get('/iep/kil/health', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/iep/kil/health', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'kil health failed' });
+    }
+  });
+  router.post('/iep/kil/integrate', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/iep/kil/integrate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 180_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'kil integrate failed' });
+    }
+  });
+  router.post('/iep/kil/integrate/:ticker', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/iep/kil/integrate/${encodeURIComponent(req.params.ticker)}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(req.body || {}),
+          timeoutMs: 120_000,
+        }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'kil integrate company failed' });
+    }
+  });
+  router.get('/iep/knowledge-health', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/iep/knowledge-health', { timeoutMs: 180_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'knowledge health failed' });
+    }
+  });
+  router.get('/iep/knowledge-confidence/:ticker', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/iep/knowledge-confidence/${encodeURIComponent(req.params.ticker)}`,
+        { timeoutMs: 60_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'knowledge confidence failed' });
+    }
+  });
+  router.get('/iep/coverage-state/:ticker', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/iep/coverage-state/${encodeURIComponent(req.params.ticker)}`,
+        { timeoutMs: 90_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'coverage state failed' });
+    }
+  });
+  router.get('/iep/snapshots', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/iep/snapshots', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'snapshots failed' });
+    }
+  });
+  router.get('/iep/events', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/iep/events', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'kil events failed' });
+    }
+  });
+  router.post('/iep/ask/:ticker', async (req, res) => {
+    try {
+      const result = await engineFetch(`/v1/iep/ask/${encodeURIComponent(req.params.ticker)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 120_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'iep ask orchestrate failed' });
+    }
+  });
+  router.get('/iep/expansion', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/iep/expansion', { timeoutMs: 120_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'expansion status failed' });
+    }
+  });
+  router.post('/iep/expansion/nifty500', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/iep/expansion/nifty500', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 120_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'expansion enqueue failed' });
+    }
+  });
+
   // ICE-01 — Investment Committee Engine
   router.get('/committee-engine/health', async (_req, res) => {
     try {

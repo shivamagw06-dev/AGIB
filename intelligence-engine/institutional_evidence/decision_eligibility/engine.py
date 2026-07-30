@@ -33,11 +33,31 @@ def evaluate_decision_eligibility(
         registry_items=((p.get("evidence") or {}).get("registry") or {}).get("items") or [],
     )
 
+    # Knowledge confidence (KIL) — Decision Engine never checks providers
+    kc = None
+    try:
+        from ..integration.confidence.score import compute_knowledge_confidence
+        from ..integration.layer import get_integrated_company
+
+        integ = get_integrated_company(t)
+        if integ and integ.get("knowledge_confidence"):
+            kc = integ["knowledge_confidence"]
+        else:
+            kc = compute_knowledge_confidence(t, pack=p)
+    except Exception:
+        kc = None
+
     checks = {
+        "knowledge_ready": bool(
+            (kc or {}).get("above_threshold")
+            or (fin.get("published") and not fin.get("zero_periods"))
+        ),
         "evidence_complete": bool(p.get("claim_safe")),
         "financial_statements_published": bool(fin.get("published") and not fin.get("zero_periods")),
         "research_ready": bool(p.get("research_ready")),
+        "claim_safe": bool(p.get("claim_safe")),
         "quality_publishable": bool(q.get("publish_allowed")),
+        "knowledge_confidence_ok": bool((kc or {}).get("above_threshold")) if kc else None,
         "sector_validation": bool(p.get("sector")),
     }
     # Soft-consume IDRE if present
@@ -52,11 +72,16 @@ def evaluate_decision_eligibility(
     except Exception:
         checks["idre_ready"] = None
 
-    eligible = all(
-        v
-        for k, v in checks.items()
-        if k != "idre_ready" and v is not None
+    required = (
+        "knowledge_ready",
+        "research_ready",
+        "claim_safe",
+        "financial_statements_published",
+        "evidence_complete",
     )
+    eligible = all(bool(checks.get(k)) for k in required)
+    if checks.get("knowledge_confidence_ok") is False:
+        eligible = False
     # idre_ready if present must not hard-block unless NOT READY
     if checks.get("idre_ready") is False:
         eligible = False
@@ -73,7 +98,8 @@ def evaluate_decision_eligibility(
         "research_readiness_score": score,
         "research_ready_threshold": RESEARCH_READY_THRESHOLD,
         "evidence_quality_score": q.get("evidence_quality_score"),
+        "knowledge_confidence": (kc or {}).get("knowledge_confidence") if kc else None,
         "next": "decision_engine" if eligible else "NO RECOMMENDATION / MONITOR",
-        "rule": "Decision Eligibility → Decision Engine — earn permission first",
+        "rule": "Decision Engine never checks providers — only InstitutionalResearchPack + KIL knowledge",
         "idre_soft": idre if isinstance(idre, dict) else None,
     }
