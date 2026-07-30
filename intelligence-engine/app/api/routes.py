@@ -10356,6 +10356,69 @@ async def universal_ask_query_get(query_id: str):
     return get_query(query_id)
 
 
+# --- RW-01 Institutional Research Workspace (analyst workstation; presentation only) ---
+
+
+@router.get("/workspace/health")
+async def institutional_workspace_health():
+    from institutional_workspace.production import health
+
+    return health()
+
+
+@router.get("/workspace/company/{ticker}")
+async def institutional_workspace_company(ticker: str, focus: str = "overview"):
+    from institutional_workspace.production import get_company_workspace
+
+    return get_company_workspace(ticker, focus=focus)
+
+
+@router.get("/workspace/portfolio/{portfolio_id}")
+async def institutional_workspace_portfolio(portfolio_id: str, focus: str = "overview"):
+    from institutional_workspace.production import get_portfolio_workspace
+
+    return get_portfolio_workspace(portfolio_id, focus=focus)
+
+
+@router.get("/workspace/committee")
+async def institutional_workspace_committee():
+    from institutional_workspace.production import get_committee_workspace
+
+    return get_committee_workspace()
+
+
+@router.get("/workspace/object/{object_id}")
+async def institutional_workspace_object(object_id: str, object_type: str = ""):
+    from institutional_workspace.production import get_object
+
+    return get_object(object_id, object_type=object_type)
+
+
+@router.get("/workspace/timeline/{context_id}")
+async def institutional_workspace_timeline(context_id: str, context_type: str = "company"):
+    from institutional_workspace.production import get_timeline
+
+    return get_timeline(context_id, context=context_type)
+
+
+@router.get("/workspace/search")
+async def institutional_workspace_search(
+    q: str,
+    context_type: str = "company",
+    context_id: str = "AXISBANK",
+):
+    from institutional_workspace.production import search
+
+    return search(context_id, q, context=context_type)
+
+
+@router.post("/workspace/notes")
+async def institutional_workspace_notes(payload: dict[str, Any] = Body(default={})):
+    from institutional_workspace.production import add_analyst_note
+
+    return add_analyst_note(payload or {})
+
+
 # --- Company Monitoring System V1 (continuous living analyst; additive) ---
 
 

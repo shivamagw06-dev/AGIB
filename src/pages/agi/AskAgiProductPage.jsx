@@ -220,6 +220,26 @@ export default function AskAgiProductPage() {
             Objects: {(orch.objects_consulted || []).join(', ') || '—'} · does not generate
             recommendations
           </p>
+          {state.orchestrated?.workspace?.href ? (
+            <p style={{ marginTop: '0.85rem' }}>
+              <Link className="agi-chip ok" to={state.orchestrated.workspace.href}>
+                Open Research Workspace
+                {state.orchestrated.workspace.focus
+                  ? ` · ${state.orchestrated.workspace.focus}`
+                  : ''}
+              </Link>
+              <span className="agi-list-meta" style={{ marginLeft: '0.5rem' }}>
+                {(state.orchestrated.workspace.lineage_hint || []).join(' → ') ||
+                  'Decision → Timeline → Evidence'}
+              </span>
+            </p>
+          ) : ticker ? (
+            <p style={{ marginTop: '0.85rem' }}>
+              <Link className="agi-chip ok" to={`/agi/companies/${ticker}?tab=timeline&rw=1`}>
+                Open Research Workspace · timeline
+              </Link>
+            </p>
+          ) : null}
         </section>
       ) : null}
 

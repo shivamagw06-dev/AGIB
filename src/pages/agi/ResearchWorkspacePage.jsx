@@ -1,115 +1,338 @@
-import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import {
+  getResearchWorkspaceCompany,
+  getResearchWorkspacePortfolio,
+  searchResearchWorkspace,
+} from '@/lib/intelligenceApi';
 
-const FILTERS = ['Latest', 'Macro', 'Company', 'Sector', 'Portfolio', 'Thematic', 'Saved', 'Published'];
+const NAV = [
+  'Overview',
+  'Timeline',
+  'Evidence',
+  'Decisions',
+  'Risk',
+  'Policy',
+  'Committee',
+  'Forecast',
+  'Knowledge Graph',
+  'Notes',
+  'Ask AGI',
+];
 
-const NOTES = [
-  {
-    id: 'kotak-rbi',
-    title: 'Kotak Mahindra Bank — RBI supervisory episode',
-    meta: 'Company · Published',
-    ticker: 'KOTAKBANK',
-    sections: {
-      'Executive Summary':
-        'Supervisory constraints altered near-term growth optics; franchise quality remains the core research question.',
-      Financial:
-        'Deposit franchise and unsecured mix dominate the financial narrative; monitor NIM and growth trade-offs.',
-      Business:
-        'Business quality hinges on liability franchise durability and credit culture under tighter supervision.',
-      Evidence:
-        'RBI communications, management commentary, and subsequent disclosures form the primary evidence chain.',
-      Risks: 'Re-acceleration risk if controls ease without process proof; peer share shifts in liabilities.',
-      Unknowns: 'Duration of constraints, remediation evidence quality, and competitive deposit response.',
-      Monitoring: 'Quarterly liability mix, unsecured growth, management language on remediation milestones.',
-      Confidence: 'Moderate — evidence is strong on what happened; forward path remains incompletely observed.',
-      Appendix: 'Filing references, timeline of supervisory events, and peer comparison notes.',
-    },
-  },
-  {
-    id: 'it-margins',
-    title: 'IT services margins — what changed this quarter',
-    meta: 'Sector · Draft',
-    ticker: 'TCS',
-    sections: {
-      'Executive Summary': 'Margin bridges remain the institutional focus across large-cap IT.',
-      Financial: 'Deal mix, utilisation, and wage cycles drive the bridge.',
-      Business: 'Client budgets and vertical mix still set the tone.',
-      Evidence: 'Earnings transcripts and order-book commentary.',
-      Risks: 'Pricing pressure and delayed decision cycles.',
-      Unknowns: 'Sustainability of cost actions vs demand recovery.',
-      Monitoring: 'Next-quarter commentary on large deals and attrition.',
-      Confidence: 'Moderate.',
-      Appendix: 'Peer margin table.',
-    },
-  },
+const CONTEXTS = [
+  { id: 'company', label: 'Company' },
+  { id: 'portfolio', label: 'Portfolio' },
 ];
 
 export default function ResearchWorkspacePage() {
-  const [filter, setFilter] = useState('Latest');
-  const [activeId, setActiveId] = useState(NOTES[0].id);
-  const note = useMemo(() => NOTES.find((n) => n.id === activeId) || NOTES[0], [activeId]);
+  const [params, setParams] = useSearchParams();
+  const context = (params.get('context') || 'company').toLowerCase();
+  const ticker = (params.get('ticker') || 'AXISBANK').toUpperCase();
+  const portfolioId = params.get('portfolio') || 'agi-core-equity';
+  const tab = (params.get('tab') || 'Overview').replace(/_/g, ' ');
+  const [workspace, setWorkspace] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [query, setQuery] = useState('');
+  const [hits, setHits] = useState([]);
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setError(null);
+    const load =
+      context === 'portfolio'
+        ? getResearchWorkspacePortfolio(portfolioId, { focus: 'overview' })
+        : getResearchWorkspaceCompany(ticker, { focus: 'overview' });
+    load
+      .then((res) => {
+        if (!active) return;
+        if (!res || res.ok === false) {
+          setError(res?.error || 'Workspace unavailable');
+          setWorkspace(null);
+        } else {
+          setWorkspace(res.workspace || res);
+        }
+        setLoading(false);
+      })
+      .catch((err) => {
+        if (!active) return;
+        setError(err?.message || 'Unable to load research workspace');
+        setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [context, ticker, portfolioId]);
+
+  const setContext = (id) => {
+    const next = new URLSearchParams(params);
+    next.set('context', id);
+    setParams(next, { replace: true });
+  };
+
+  const setTab = (label) => {
+    const next = new URLSearchParams(params);
+    next.set('tab', label);
+    setParams(next, { replace: true });
+  };
+
+  const onSearch = async (e) => {
+    e.preventDefault();
+    const q = query.trim();
+    if (!q) return;
+    const res = await searchResearchWorkspace(q, {
+      contextType: context === 'portfolio' ? 'portfolio' : 'company',
+      contextId: context === 'portfolio' ? portfolioId : ticker,
+    }).catch(() => null);
+    setHits(res?.hits || []);
+  };
+
+  const activeNav = useMemo(() => {
+    const match = NAV.find((n) => n.toLowerCase() === tab.toLowerCase());
+    return match || 'Overview';
+  }, [tab]);
+
+  const askHref =
+    workspace?.ask_deep_link ||
+    (context === 'portfolio'
+      ? `/agi/ask?context=portfolio&portfolio=${encodeURIComponent(portfolioId)}`
+      : `/agi/ask?ticker=${encodeURIComponent(ticker)}`);
 
   return (
     <div>
-      <h1 className="agi-greeting">Research</h1>
+      <h1 className="agi-greeting">Research Workspace</h1>
       <p className="agi-lede">
-        Institutional notes — Executive Summary through Appendix — with evidence, risks, unknowns, monitoring, and
-        confidence.
+        The complete investment story — timeline, evidence, decisions, risk, policy, and committee —
+        linked for reconstruction. Ask AGI points here; this is where analysts spend the day.
       </p>
 
-      <div className="agi-tabs" role="tablist" aria-label="Research filters">
-        {FILTERS.map((f) => (
+      <div className="agi-tabs" role="tablist" aria-label="Workspace context">
+        {CONTEXTS.map((c) => (
           <button
-            key={f}
+            key={c.id}
             type="button"
-            className={filter === f ? 'active' : undefined}
-            onClick={() => setFilter(f)}
+            className={context === c.id ? 'active' : undefined}
+            onClick={() => setContext(c.id)}
           >
-            {f}
+            {c.label}
           </button>
         ))}
       </div>
 
-      <div className="agi-grid-2">
-        <section className="agi-section">
+      <div className="agi-meta-row" style={{ marginBottom: '0.75rem' }}>
+        <span className="agi-chip">{context === 'portfolio' ? portfolioId : ticker}</span>
+        <span className="agi-chip muted">RW-01</span>
+        {workspace?.workspace_id ? (
+          <span className="agi-chip muted">{workspace.workspace_id}</span>
+        ) : null}
+        <Link className="agi-chip ok" to={askHref}>
+          Ask AGI
+        </Link>
+        {context === 'company' ? (
+          <Link className="agi-chip" to={`/agi/companies/${ticker}?rw=1`}>
+            Company page
+          </Link>
+        ) : (
+          <Link className="agi-chip" to="/agi/portfolio?rw=1">
+            Portfolio page
+          </Link>
+        )}
+      </div>
+
+      <div className="agi-tabs" role="tablist" aria-label="Workspace navigation">
+        {NAV.map((n) => (
+          <button
+            key={n}
+            type="button"
+            className={activeNav === n ? 'active' : undefined}
+            onClick={() => (n === 'Ask AGI' ? null : setTab(n))}
+          >
+            {n === 'Ask AGI' ? (
+              <Link to={askHref} style={{ color: 'inherit', textDecoration: 'none' }}>
+                Ask AGI
+              </Link>
+            ) : (
+              n
+            )}
+          </button>
+        ))}
+      </div>
+
+      <form className="agi-ask-input-wrap" style={{ margin: '1rem 0' }} onSubmit={onSearch}>
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search within workspace — capital allocation, CEO, buyback, risk…"
+          aria-label="Search workspace"
+        />
+        <button type="submit" className="agi-btn agi-btn-primary">
+          Search
+        </button>
+      </form>
+
+      {hits.length ? (
+        <section className="agi-section" style={{ marginBottom: '1rem' }}>
           <div className="agi-section-head">
-            <h2>{filter} notes</h2>
+            <h2>Search results</h2>
           </div>
           <ul className="agi-list">
-            {NOTES.map((n) => (
-              <li key={n.id}>
-                <button type="button" onClick={() => setActiveId(n.id)} style={{ all: 'unset', cursor: 'pointer' }}>
-                  <div className="agi-list-title">{n.title}</div>
-                  <div className="agi-list-meta">{n.meta}</div>
-                </button>
-                <Link className="agi-chip" to={`/agi/companies/${n.ticker}`}>
-                  Company
-                </Link>
+            {hits.map((h, i) => (
+              <li key={`${h.kind}-${h.title}-${i}`}>
+                <div className="agi-list-title">
+                  [{h.kind}] {h.title}
+                </div>
+                <div className="agi-list-meta">
+                  {h.object_type}
+                  {h.href ? (
+                    <>
+                      {' · '}
+                      <Link to={h.href}>Open</Link>
+                    </>
+                  ) : null}
+                </div>
               </li>
             ))}
           </ul>
         </section>
+      ) : null}
 
-        <section className="agi-section">
-          <div className="agi-section-head">
-            <h2>Research Note</h2>
-            <Link to={`/agi/ask?ticker=${note.ticker}&q=${encodeURIComponent(`Summarise research on ${note.ticker}`)}`}>
-              Ask AGI
-            </Link>
-          </div>
-          <h3 style={{ fontFamily: 'var(--agi-display)', fontSize: '1.35rem', margin: '0 0 1rem' }}>{note.title}</h3>
-          {Object.entries(note.sections).map(([label, body]) => (
-            <div key={label} className="agi-panel" style={{ marginBottom: '0.85rem' }}>
+      {loading && <div className="agi-empty">Loading research workspace…</div>}
+      {error && <div className="agi-error">{error}</div>}
+
+      {!loading && !error && workspace ? (
+        <div className="agi-grid-2">
+          <section className="agi-section">
+            <div className="agi-section-head">
+              <h2>{activeNav}</h2>
+              <span className="agi-list-meta">{workspace.title}</span>
+            </div>
+
+            {(activeNav === 'Overview' || activeNav === 'Timeline') && (
+              <ul className="agi-list">
+                {(workspace.timeline || []).map((e) => (
+                  <li key={e.event_id || e.title}>
+                    <div className="agi-list-title">
+                      [{e.kind}] {e.title}
+                    </div>
+                    <div className="agi-list-meta">
+                      {e.object_type} · {e.summary}
+                    </div>
+                  </li>
+                ))}
+                {!(workspace.timeline || []).length ? (
+                  <li>
+                    <div className="agi-list-meta">Timeline will fill as objects link.</div>
+                  </li>
+                ) : null}
+              </ul>
+            )}
+
+            {activeNav === 'Evidence' && (
+              <ul className="agi-list">
+                {(workspace.evidence || []).map((e) => (
+                  <li key={e.evidence_id || e.title}>
+                    <div className="agi-list-title">{e.title}</div>
+                    <div className="agi-list-meta">
+                      {e.source_type} · {(e.linked_object_ids || []).join(', ') || 'unlinked'}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {(activeNav === 'Decisions' ||
+              activeNav === 'Risk' ||
+              activeNav === 'Policy' ||
+              activeNav === 'Committee' ||
+              activeNav === 'Forecast' ||
+              activeNav === 'Knowledge Graph') && (
+              <ul className="agi-list">
+                {(workspace.linked_objects || [])
+                  .filter((o) => {
+                    const t = (o.object_type || '').toLowerCase();
+                    if (activeNav === 'Decisions') return t.includes('decision');
+                    if (activeNav === 'Risk') return t.includes('risk');
+                    if (activeNav === 'Policy') return t.includes('policy');
+                    if (activeNav === 'Committee') return t.includes('committee');
+                    if (activeNav === 'Forecast') return t.includes('forecast') || t.includes('scenario');
+                    return true;
+                  })
+                  .map((o) => (
+                    <li key={`${o.object_type}-${o.object_id}`}>
+                      <div className="agi-list-title">{o.label}</div>
+                      <div className="agi-list-meta">
+                        {o.object_type} · {o.relation}
+                        {o.href ? (
+                          <>
+                            {' · '}
+                            <Link to={o.href}>Open</Link>
+                          </>
+                        ) : null}
+                      </div>
+                      {o.summary ? <div className="agi-list-meta">{o.summary}</div> : null}
+                    </li>
+                  ))}
+              </ul>
+            )}
+
+            {activeNav === 'Notes' && (
+              <ul className="agi-list">
+                {(workspace.notes || []).map((n) => (
+                  <li key={n.note_id}>
+                    <div className="agi-list-title">{n.title}</div>
+                    <div className="agi-list-meta">
+                      Analyst note · {(n.tags || []).join(', ') || 'untagged'} · never mutates system
+                      intelligence
+                    </div>
+                    <p className="agi-list-meta" style={{ marginTop: '0.35rem' }}>
+                      {n.body}
+                    </p>
+                  </li>
+                ))}
+                {!(workspace.notes || []).length ? (
+                  <li>
+                    <div className="agi-list-meta">No analyst notes yet.</div>
+                  </li>
+                ) : null}
+              </ul>
+            )}
+          </section>
+
+          <section className="agi-section">
+            <div className="agi-section-head">
+              <h2>Linked objects</h2>
+            </div>
+            <ul className="agi-list">
+              {(workspace.linked_objects || []).map((o) => (
+                <li key={`${o.object_type}-${o.object_id}`}>
+                  <div className="agi-list-title">{o.label}</div>
+                  <div className="agi-list-meta">
+                    {o.object_type}
+                    {o.href ? (
+                      <>
+                        {' · '}
+                        <Link to={o.href}>Navigate</Link>
+                      </>
+                    ) : null}
+                  </div>
+                </li>
+              ))}
+            </ul>
+            <div className="agi-panel" style={{ marginTop: '1rem' }}>
               <div className="agi-section-head">
-                <h2>{label === 'Financial' ? 'Financial Analysis' : label === 'Business' ? 'Business Analysis' : label}</h2>
+                <h2>Diagnostics</h2>
               </div>
               <p className="agi-list-meta" style={{ margin: 0 }}>
-                {body}
+                Missing links: {(workspace.diagnostics?.missing_links || []).length} · Timeline gaps:{' '}
+                {workspace.diagnostics?.timeline_gaps ?? '—'} · Orphaned notes:{' '}
+                {workspace.diagnostics?.orphaned_notes ?? '—'} · Presentation only
               </p>
             </div>
-          ))}
-        </section>
-      </div>
+          </section>
+        </div>
+      ) : null}
     </div>
   );
 }

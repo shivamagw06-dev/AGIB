@@ -9,6 +9,7 @@ import {
   getPortfolioOfficePortfolio,
   getPortfolioPolicy,
   getPortfolioRisk,
+  getResearchWorkspacePortfolio,
 } from '@/lib/intelligenceApi';
 
 const DEMO_HOLDINGS = [
@@ -33,6 +34,7 @@ export default function PortfolioWorkspacePage() {
   const [portfolioDecision, setPortfolioDecision] = useState(null);
   const [portfolioRisk, setPortfolioRisk] = useState(null);
   const [portfolioPolicy, setPortfolioPolicy] = useState(null);
+  const [researchWs, setResearchWs] = useState(null);
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -80,7 +82,7 @@ export default function PortfolioWorkspacePage() {
           coverage: `${holds.length || DEMO_HOLDINGS.length} names`,
         });
 
-        const [graph, risk, policy, decision] = await Promise.all([
+        const [graph, risk, policy, decision, rw] = await Promise.all([
           getPortfolioGraph('agi-core-equity', { includeCompanyGraphs: true }).catch(() => null),
           getPortfolioRisk('agi-core-equity', { refresh: true }).catch(() => null),
           getPortfolioPolicy('agi-core-equity', {
@@ -88,12 +90,14 @@ export default function PortfolioWorkspacePage() {
             policy: 'family_office',
           }).catch(() => null),
           getPortfolioDecision('agi-core-equity', { refresh: true }).catch(() => null),
+          getResearchWorkspacePortfolio('agi-core-equity').catch(() => null),
         ]);
         if (!active) return;
         setPortfolioGraph(graph && graph.ok !== false ? graph : null);
         setPortfolioRisk(risk && risk.ok !== false ? risk : null);
         setPortfolioPolicy(policy && policy.ok !== false ? policy : null);
         setPortfolioDecision(decision && decision.ok !== false ? decision : null);
+        setResearchWs(rw && rw.ok !== false ? rw.workspace || rw : null);
       } catch (err) {
         if (active) setError(err?.message || 'Portfolio unavailable — showing desk demo');
       }
@@ -125,6 +129,42 @@ export default function PortfolioWorkspacePage() {
       </p>
 
       {error && <div className="agi-error">{error}</div>}
+
+      {researchWs ? (
+        <section className="agi-section" style={{ marginBottom: '1rem' }}>
+          <div className="agi-section-head">
+            <h2>Portfolio workspace · RW-01</h2>
+            <Link to={researchWs.ask_deep_link || '/agi/ask?context=portfolio'}>Ask AGI</Link>
+          </div>
+          <p className="agi-list-meta" style={{ marginBottom: '0.75rem' }}>
+            {researchWs.sections?.overview?.headline ||
+              'Holdings, risk, policy, decisions, and committee — one navigable investment story.'}
+          </p>
+          <ul className="agi-list">
+            {(researchWs.timeline || []).slice(0, 5).map((e) => (
+              <li key={e.event_id || e.title}>
+                <div className="agi-list-title">
+                  [{e.kind}] {e.title}
+                </div>
+                <div className="agi-list-meta">{e.summary}</div>
+              </li>
+            ))}
+          </ul>
+          <div style={{ marginTop: '0.75rem', display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+            {(researchWs.linked_objects || []).slice(0, 8).map((o) =>
+              o.href ? (
+                <Link key={`${o.object_type}-${o.object_id}`} className="agi-chip" to={o.href}>
+                  {o.object_type}
+                </Link>
+              ) : (
+                <span key={`${o.object_type}-${o.object_id}`} className="agi-chip muted">
+                  {o.object_type}
+                </span>
+              )
+            )}
+          </div>
+        </section>
+      ) : null}
 
       <div className="agi-stat-row">
         <div className="agi-stat">

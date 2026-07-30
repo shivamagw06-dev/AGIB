@@ -2900,6 +2900,97 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // RW-01 — Institutional Research Workspace
+  router.get('/workspace/health', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/workspace/health', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'workspace health failed' });
+    }
+  });
+  router.get('/workspace/company/:ticker', async (req, res) => {
+    try {
+      const qs = new URLSearchParams();
+      if (req.query.focus) qs.set('focus', String(req.query.focus));
+      const suffix = qs.toString() ? `?${qs}` : '';
+      const result = await engineFetch(
+        `/v1/workspace/company/${encodeURIComponent(req.params.ticker)}${suffix}`,
+        { timeoutMs: 60_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'company workspace failed' });
+    }
+  });
+  router.get('/workspace/portfolio/:id', async (req, res) => {
+    try {
+      const qs = new URLSearchParams();
+      if (req.query.focus) qs.set('focus', String(req.query.focus));
+      const suffix = qs.toString() ? `?${qs}` : '';
+      const result = await engineFetch(
+        `/v1/workspace/portfolio/${encodeURIComponent(req.params.id)}${suffix}`,
+        { timeoutMs: 60_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'portfolio workspace failed' });
+    }
+  });
+  router.get('/workspace/object/:id', async (req, res) => {
+    try {
+      const qs = new URLSearchParams();
+      if (req.query.object_type) qs.set('object_type', String(req.query.object_type));
+      const suffix = qs.toString() ? `?${qs}` : '';
+      const result = await engineFetch(
+        `/v1/workspace/object/${encodeURIComponent(req.params.id)}${suffix}`,
+        { timeoutMs: 30_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'workspace object failed' });
+    }
+  });
+  router.get('/workspace/timeline/:id', async (req, res) => {
+    try {
+      const qs = new URLSearchParams();
+      if (req.query.context_type) qs.set('context_type', String(req.query.context_type));
+      const suffix = qs.toString() ? `?${qs}` : '';
+      const result = await engineFetch(
+        `/v1/workspace/timeline/${encodeURIComponent(req.params.id)}${suffix}`,
+        { timeoutMs: 60_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'workspace timeline failed' });
+    }
+  });
+  router.get('/workspace/search', async (req, res) => {
+    try {
+      const qs = new URLSearchParams();
+      if (req.query.q) qs.set('q', String(req.query.q));
+      if (req.query.context_type) qs.set('context_type', String(req.query.context_type));
+      if (req.query.context_id) qs.set('context_id', String(req.query.context_id));
+      const result = await engineFetch(`/v1/workspace/search?${qs}`, { timeoutMs: 30_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'workspace search failed' });
+    }
+  });
+  router.post('/workspace/notes', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/workspace/notes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 30_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'workspace notes failed' });
+    }
+  });
+
   // ICE-01 — Investment Committee Engine
   router.get('/committee-engine/health', async (_req, res) => {
     try {

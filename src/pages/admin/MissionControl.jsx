@@ -202,6 +202,8 @@ export default function MissionControl() {
     institutional?.institutional_committee || desk?.institutional_committee || null;
   const orchestrationCenter =
     institutional?.institutional_orchestrator || desk?.institutional_orchestrator || null;
+  const workspaceHealth =
+    institutional?.institutional_workspace || desk?.institutional_workspace || null;
   const pipeline = desk?.research_pipeline || {};
   const preds = desk?.prediction_intelligence || {};
   const dq = desk?.data_quality || {};
@@ -1482,6 +1484,57 @@ export default function MissionControl() {
               {!orchestrationCenter ? <li>Orchestration Center soft slice unavailable.</li> : null}
               {orchestrationCenter && !(orchestrationCenter.recent_queries || []).length ? (
                 <li>Run a Universal Ask query to populate the center.</li>
+              ) : null}
+            </ul>
+          </Glass>
+        </section>
+
+        {/* Workspace Health — RW-01 */}
+        <section className="space-y-3">
+          <Kicker>Workspace Health · RW-01</Kicker>
+          <p className="text-sm text-[var(--io-muted)] max-w-3xl">
+            Institutional Research Workspace integrity — missing links, missing evidence, broken
+            lineage, timeline gaps, orphaned notes, and navigation integrity. Presentation layer
+            only; analyst notes never mutate system intelligence.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+            <Stat
+              label="Missing links"
+              value={workspaceHealth?.objects_with_missing_links ?? '—'}
+              status={workspaceHealth?.status}
+            />
+            <Stat label="Missing evidence" value={workspaceHealth?.missing_evidence ?? '—'} />
+            <Stat label="Broken lineage" value={workspaceHealth?.broken_lineage ?? '—'} />
+            <Stat label="Timeline gaps" value={workspaceHealth?.timeline_gaps ?? '—'} />
+            <Stat label="Orphaned notes" value={workspaceHealth?.orphaned_notes ?? '—'} />
+            <Stat
+              label="Nav integrity"
+              value={
+                workspaceHealth?.navigation_integrity == null
+                  ? '—'
+                  : workspaceHealth.navigation_integrity
+                    ? 'OK'
+                    : 'Check'
+              }
+              hint={
+                workspaceHealth?.workspaces_cached != null
+                  ? `${workspaceHealth.workspaces_cached} cached`
+                  : undefined
+              }
+            />
+          </div>
+          <Glass>
+            <p className="text-[11px] uppercase text-[var(--io-caption)]">Workspace diagnostics</p>
+            <ul className="mt-2 space-y-1 text-xs max-h-36 overflow-auto text-[var(--io-ink-soft)]">
+              {!workspaceHealth ? <li>Workspace Health soft slice unavailable.</li> : null}
+              {workspaceHealth ? (
+                <li>
+                  Status {workspaceHealth.status || '—'} · {workspaceHealth.product || 'RW-01'} ·
+                  presentation only
+                </li>
+              ) : null}
+              {workspaceHealth && (workspaceHealth.objects_with_missing_links || 0) === 0 ? (
+                <li>Open a company or portfolio workspace to populate health signals.</li>
               ) : null}
             </ul>
           </Glass>

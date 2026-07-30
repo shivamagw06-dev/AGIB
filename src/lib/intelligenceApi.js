@@ -1284,6 +1284,55 @@ export const universalAskStream = (body = {}) =>
 export const getUniversalQuery = (queryId) =>
   intelligenceFetch(`/query/${encodeURIComponent(queryId)}`, { timeoutMs: 30_000 });
 
+/** RW-01 — Institutional Research Workspace */
+export const getResearchWorkspaceHealth = () =>
+  intelligenceFetch('/workspace/health', { timeoutMs: 30_000 });
+export const getResearchWorkspaceCompany = (ticker, { focus = 'overview' } = {}) => {
+  const qs = new URLSearchParams();
+  if (focus) qs.set('focus', focus);
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return intelligenceFetch(
+    `/workspace/company/${encodeURIComponent(ticker)}${suffix}`,
+    { timeoutMs: 60_000 }
+  );
+};
+export const getResearchWorkspacePortfolio = (portfolioId = 'agi-core-equity', { focus = 'overview' } = {}) => {
+  const qs = new URLSearchParams();
+  if (focus) qs.set('focus', focus);
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return intelligenceFetch(
+    `/workspace/portfolio/${encodeURIComponent(portfolioId)}${suffix}`,
+    { timeoutMs: 60_000 }
+  );
+};
+export const getResearchWorkspaceObject = (objectId, { objectType } = {}) => {
+  const qs = new URLSearchParams();
+  if (objectType) qs.set('object_type', objectType);
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return intelligenceFetch(
+    `/workspace/object/${encodeURIComponent(objectId)}${suffix}`,
+    { timeoutMs: 30_000 }
+  );
+};
+export const getResearchWorkspaceTimeline = (contextId, { contextType = 'company' } = {}) => {
+  const qs = new URLSearchParams();
+  if (contextType) qs.set('context_type', contextType);
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return intelligenceFetch(
+    `/workspace/timeline/${encodeURIComponent(contextId)}${suffix}`,
+    { timeoutMs: 60_000 }
+  );
+};
+export const searchResearchWorkspace = (query, { contextType = 'company', contextId = 'AXISBANK' } = {}) => {
+  const qs = new URLSearchParams();
+  qs.set('q', String(query || '').trim());
+  qs.set('context_type', contextType);
+  qs.set('context_id', contextId);
+  return intelligenceFetch(`/workspace/search?${qs}`, { timeoutMs: 30_000 });
+};
+export const addResearchWorkspaceNote = (body = {}) =>
+  intelligenceFetch('/workspace/notes', { method: 'POST', body: body || {}, timeoutMs: 30_000 });
+
 /** ICE-01 — Investment Committee Engine */
 export const getCommitteeEngineHealth = () =>
   intelligenceFetch('/committee-engine/health', { timeoutMs: 30_000 });

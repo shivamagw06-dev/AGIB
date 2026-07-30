@@ -7,6 +7,7 @@ import {
   getInstitutionalDecision,
   getInstitutionalGraph,
   getInstitutionalScenarios,
+  getResearchWorkspaceCompany,
 } from '@/lib/intelligenceApi';
 import {
   COMPANY_TABS,
@@ -97,6 +98,7 @@ export default function CompanyWorkspacePage() {
   const [decisionPack, setDecisionPack] = useState(null);
   const [knowledgeGraph, setKnowledgeGraph] = useState(null);
   const [forecastPack, setForecastPack] = useState(null);
+  const [researchWs, setResearchWs] = useState(null);
   const [selectedScenario, setSelectedScenario] = useState('base');
   const [selectedNodeId, setSelectedNodeId] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -120,8 +122,9 @@ export default function CompanyWorkspacePage() {
         includeGraph: true,
         includePropagation: true,
       }).catch(() => null),
+      getResearchWorkspaceCompany(ticker, { focus: 'overview' }).catch(() => null),
     ])
-      .then(([ws, tl, ev, decision, graph, forecast]) => {
+      .then(([ws, tl, ev, decision, graph, forecast, rw]) => {
         if (!active) return;
         setWorkspace(ws);
         const events =
@@ -139,6 +142,7 @@ export default function CompanyWorkspacePage() {
         setDecisionPack(decision && decision.ok !== false ? decision : null);
         setKnowledgeGraph(graph && graph.ok !== false ? graph : null);
         setForecastPack(forecast && forecast.ok !== false ? forecast : null);
+        setResearchWs(rw && rw.ok !== false ? rw.workspace || rw : null);
         setSelectedScenario('base');
         setSelectedNodeId(null);
         setLoading(false);
@@ -249,6 +253,58 @@ export default function CompanyWorkspacePage() {
 
       {loading && <div className="agi-empty">Loading company workspace…</div>}
       {error && <div className="agi-error">{error}</div>}
+
+      {!loading && researchWs ? (
+        <section className="agi-section" style={{ marginBottom: '1rem' }}>
+          <div className="agi-section-head">
+            <h2>Investment story · RW-01</h2>
+            <Link to={researchWs.ask_deep_link || `/agi/ask?ticker=${ticker}`}>Ask AGI</Link>
+          </div>
+          <p className="agi-list-meta" style={{ marginBottom: '0.75rem' }}>
+            {researchWs.sections?.overview?.story ||
+              'Linked decisions, evidence, risk, policy, and committee — living workspace, not a static report.'}
+          </p>
+          <div className="agi-stat-row">
+            <div className="agi-stat">
+              <div className="agi-stat-label">Timeline</div>
+              <div className="agi-stat-value">{researchWs.timeline_count ?? (researchWs.timeline || []).length}</div>
+            </div>
+            <div className="agi-stat">
+              <div className="agi-stat-label">Linked</div>
+              <div className="agi-stat-value">{researchWs.linked_count ?? (researchWs.linked_objects || []).length}</div>
+            </div>
+            <div className="agi-stat">
+              <div className="agi-stat-label">Evidence</div>
+              <div className="agi-stat-value">{researchWs.evidence_count ?? (researchWs.evidence || []).length}</div>
+            </div>
+            <div className="agi-stat">
+              <div className="agi-stat-label">Notes</div>
+              <div className="agi-stat-value">{researchWs.note_count ?? (researchWs.notes || []).length}</div>
+            </div>
+          </div>
+          <ul className="agi-list" style={{ marginTop: '0.75rem' }}>
+            {(researchWs.timeline || []).slice(0, 5).map((e) => (
+              <li key={e.event_id || e.title}>
+                <div className="agi-list-title">[{e.kind}] {e.title}</div>
+                <div className="agi-list-meta">{e.summary}</div>
+              </li>
+            ))}
+          </ul>
+          <div style={{ marginTop: '0.75rem', display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+            {(researchWs.linked_objects || []).slice(0, 8).map((o) =>
+              o.href ? (
+                <Link key={`${o.object_type}-${o.object_id}`} className="agi-chip" to={o.href}>
+                  {o.object_type}
+                </Link>
+              ) : (
+                <span key={`${o.object_type}-${o.object_id}`} className="agi-chip muted">
+                  {o.object_type}
+                </span>
+              )
+            )}
+          </div>
+        </section>
+      ) : null}
 
       {!loading && !error && tab === 'overview' && (
         <div>

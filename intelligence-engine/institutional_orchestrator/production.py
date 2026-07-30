@@ -168,6 +168,35 @@ def ask(payload: Optional[dict[str, Any]] = None) -> dict[str, Any]:
     ok = validation.ok
     query_history.record(query, response, ok=ok, latency_ms=diag["latency_ms"])
 
+    # Soft deep-link into RW-01 Research Workspace (Ask answers where; workspace shows everything).
+    workspace_link: dict[str, Any] = {}
+    try:
+        from institutional_workspace.navigation import (
+            workspace_deep_link,
+            workspace_focus_for_intent,
+        )
+
+        focus = workspace_focus_for_intent(intent)
+        ticker = entities[0] if entities else ""
+        workspace_link = {
+            "focus": focus,
+            "href": workspace_deep_link(
+                ticker=ticker,
+                portfolio_id=portfolio_id if not ticker else "",
+                focus=focus,
+                context="portfolio" if not ticker else "company",
+            ),
+            "lineage_hint": [
+                "Decision",
+                "Timeline",
+                "Observation",
+                "Evidence",
+            ],
+            "engine": "RW-01",
+        }
+    except Exception:
+        workspace_link = {}
+
     if not ok:
         return {
             "ok": False,
@@ -177,6 +206,7 @@ def ask(payload: Optional[dict[str, Any]] = None) -> dict[str, Any]:
             "gates": validation.gates,
             "query": query.to_dict(),
             "response": response.to_dict(),
+            "workspace": workspace_link,
             "diagnostics": diag,
             "llm": False,
             "generates_recommendations": False,
@@ -191,6 +221,7 @@ def ask(payload: Optional[dict[str, Any]] = None) -> dict[str, Any]:
         "version": UAG_VERSION,
         "query": query.to_dict(),
         "response": response.to_dict(),
+        "workspace": workspace_link,
         "diagnostics": diag,
         "llm": False,
         "generates_recommendations": False,

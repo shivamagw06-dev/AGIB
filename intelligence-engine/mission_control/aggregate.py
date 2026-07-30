@@ -1701,6 +1701,15 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("institutional_orchestrator")
     except Exception:
         out["institutional_orchestrator"] = None
+
+    # RW-01 — Institutional Research Workspace (Workspace Health).
+    try:
+        from institutional_workspace.production import soft_slice_mission_control as rw_soft
+
+        out["institutional_workspace"] = rw_soft()
+        out["sources"].append("institutional_workspace")
+    except Exception:
+        out["institutional_workspace"] = None
     return out
 
 

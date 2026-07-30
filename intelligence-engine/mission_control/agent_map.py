@@ -810,6 +810,27 @@ _CATALOG: list[dict[str, Any]] = [
         "module": "institutional_orchestrator.production",
     },
     {
+        "id": "institutional_workspace",
+        "name": "Institutional Research Workspace (RW-01)",
+        "group": "publication",
+        "responsibility": (
+            "Phase 5.2 — Analyst workstation over linked institutional objects. Timeline, "
+            "evidence browser, linked navigation, and research notes. Presentation only — "
+            "does not mutate system intelligence. Ask AGI is the entry; workspace is primary."
+        ),
+        "sources": [
+            "CompanyDecision",
+            "PortfolioRisk",
+            "PolicyAssessment",
+            "PortfolioDecision",
+            "CommitteeResolution",
+            "Evidence",
+            "ResearchNotes",
+        ],
+        "kind": "research_workspace",
+        "module": "institutional_workspace.production",
+    },
+    {
         "id": "ite_thesis",
         "name": "Investment Thesis Office",
         "group": "offices",
