@@ -559,6 +559,26 @@ _CATALOG: list[dict[str, Any]] = [
         "module": "company_workspace.production",
     },
     {
+        "id": "institutional_stress_tests",
+        "name": "Institutional Stress Tests (IST-01)",
+        "group": "ops",
+        "responsibility": (
+            "Full-stack orchestration exams — no single module can pass; "
+            "Kotak/RBI case forces institutional view (not BUY/SELL)."
+        ),
+        "sources": [
+            "FSE",
+            "FIL",
+            "FIRE-01…06",
+            "CIO-01",
+            "WO-01",
+            "CW-01",
+            "Ask AGI",
+        ],
+        "kind": "evaluation",
+        "module": "institutional_stress_tests.production",
+    },
+    {
         "id": "ite_thesis",
         "name": "Investment Thesis Office",
         "group": "offices",

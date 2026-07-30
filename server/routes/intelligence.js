@@ -2349,6 +2349,33 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // IST-01 — Institutional Stress Tests (orchestration exams)
+  router.get('/institutional-stress-tests/health', kfGet('/v1/institutional-stress-tests/health'));
+  router.get('/institutional-stress-tests/dashboard', kfGet('/v1/institutional-stress-tests/dashboard'));
+  router.get('/institutional-stress-tests/report', async (req, res) => {
+    try {
+      const qs = new URLSearchParams();
+      if (req.query?.case_id) qs.set('case_id', String(req.query.case_id));
+      const suffix = qs.toString() ? `?${qs}` : '';
+      const result = await engineFetch(`/v1/institutional-stress-tests/report${suffix}`);
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'institutional-stress-tests report failed' });
+    }
+  });
+  router.post('/institutional-stress-tests/run', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/institutional-stress-tests/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+      });
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'institutional-stress-tests run failed' });
+    }
+  });
+
   // AGI v4.0 Investment Office OS — Thesis / Decision / Portfolio / Monitoring / Learning
   // Static paths before dynamic :id routes. Ideas ≠ positions; events recommend review only.
   const v4Get = (enginePath) => async (_req, res) => {
