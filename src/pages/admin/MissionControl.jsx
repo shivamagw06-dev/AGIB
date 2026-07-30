@@ -231,6 +231,10 @@ export default function MissionControl() {
     desk?.knowledge_health ||
     evidenceCenter?.knowledge_health ||
     null;
+  const coverageFactory =
+    institutional?.institutional_coverage_factory ||
+    desk?.institutional_coverage_factory ||
+    null;
   const pipeline = desk?.research_pipeline || {};
   const preds = desk?.prediction_intelligence || {};
   const dq = desk?.data_quality || {};
@@ -1563,6 +1567,74 @@ export default function MissionControl() {
                 <li>Run a Universal Ask query to populate the center.</li>
               ) : null}
             </ul>
+          </Glass>
+        </section>
+
+        {/* Institutional Coverage — ICF-01 */}
+        <section className="space-y-3">
+          <Kicker>Institutional Coverage · ICF-01</Kicker>
+          <p className="text-sm text-[var(--io-muted)] max-w-3xl">
+            Coverage Factory drives companies to Institutional Coverage Complete — not shallow crawl
+            throughput. Daily target is companies entering ICC (configurable). Priority: Top 20 →
+            Nifty 50 → Nifty 100 → Universe.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
+            <Stat
+              label="ICC today"
+              value={
+                coverageFactory?.icc_entered_today != null
+                  ? `${coverageFactory.icc_entered_today}`
+                  : '—'
+              }
+              status={coverageFactory?.status}
+            />
+            <Stat
+              label="Daily ICC target"
+              value={
+                coverageFactory?.daily_icc_target != null
+                  ? `${coverageFactory.daily_icc_target}`
+                  : coverageFactory?.max_companies_per_day != null
+                    ? `${coverageFactory.max_companies_per_day}`
+                    : '—'
+              }
+            />
+            <Stat
+              label="Capacity left"
+              value={
+                coverageFactory?.remaining_capacity_today != null
+                  ? `${coverageFactory.remaining_capacity_today}`
+                  : '—'
+              }
+            />
+            <Stat
+              label="Top-20 size"
+              value={coverageFactory?.top20_size != null ? `${coverageFactory.top20_size}` : '20'}
+            />
+            <Stat
+              label="Tick (min)"
+              value={
+                coverageFactory?.tick_interval_minutes != null
+                  ? `${coverageFactory.tick_interval_minutes}`
+                  : '15'
+              }
+            />
+            <Stat label="ICF" value={coverageFactory?.version || 'icf-01'} />
+          </div>
+          <Glass>
+            <p className="text-[11px] uppercase text-[var(--io-caption)]">
+              Universe → Planner → Acquire → Normalize → Validate → Registry → Memory → KG →
+              Readiness → ICC
+            </p>
+            <p className="mt-2 text-xs text-[var(--io-ink-soft)]">
+              {coverageFactory?.mission ||
+                coverageFactory?.north_star ||
+                'Companies entering Institutional Coverage Complete per day.'}
+            </p>
+            {!coverageFactory ? (
+              <p className="mt-2 text-xs text-[var(--io-muted)]">
+                Coverage Factory soft slice unavailable.
+              </p>
+            ) : null}
           </Glass>
         </section>
 

@@ -1819,6 +1819,15 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
     except Exception:
         out["knowledge_health"] = None
 
+    # ICF-01 — Institutional Coverage Factory (companies → ICC).
+    try:
+        from institutional_coverage_factory.production import soft_slice_mission_control as icf_soft
+
+        out["institutional_coverage_factory"] = icf_soft()
+        out["sources"].append("institutional_coverage_factory")
+    except Exception:
+        out["institutional_coverage_factory"] = None
+
     return out
 
 

@@ -1648,6 +1648,50 @@ export const enqueueNifty500Expansion = (body = {}) =>
     timeoutMs: 120_000,
   });
 
+/** ICF-01 — Institutional Coverage Factory (companies → ICC / day) */
+export const getIcfHealth = () =>
+  intelligenceFetch('/icf/health', { timeoutMs: 30_000 });
+export const getIcfStatus = () =>
+  intelligenceFetch('/icf/status', { timeoutMs: 30_000 });
+export const getIcfDashboard = (params = {}) => {
+  const qs = new URLSearchParams();
+  if (params.scope) qs.set('scope', params.scope);
+  if (params.sample_limit != null) qs.set('sample_limit', String(params.sample_limit));
+  const suffix = qs.toString() ? `?${qs.toString()}` : '';
+  return intelligenceFetch(`/icf/dashboard${suffix}`, { timeoutMs: 180_000 });
+};
+export const getIcfScore = (ticker) =>
+  intelligenceFetch(`/icf/score/${encodeURIComponent(ticker)}`, { timeoutMs: 90_000 });
+export const getIcfIcc = (ticker) =>
+  intelligenceFetch(`/icf/icc/${encodeURIComponent(ticker)}`, { timeoutMs: 90_000 });
+export const getIcfPlan = (params = {}) => {
+  const qs = new URLSearchParams();
+  if (params.scope) qs.set('scope', params.scope);
+  if (params.limit != null) qs.set('limit', String(params.limit));
+  const suffix = qs.toString() ? `?${qs.toString()}` : '';
+  return intelligenceFetch(`/icf/plan${suffix}`, { timeoutMs: 180_000 });
+};
+export const runIcfPlanDispatch = (body = {}) =>
+  intelligenceFetch('/icf/plan-dispatch', {
+    method: 'POST',
+    body: body || {},
+    timeoutMs: 180_000,
+  });
+export const runIcfTick = (body = {}) =>
+  intelligenceFetch('/icf/tick', {
+    method: 'POST',
+    body: body || {},
+    timeoutMs: 180_000,
+  });
+export const runIcfDispatch = (ticker, body = {}) =>
+  intelligenceFetch(`/icf/dispatch/${encodeURIComponent(ticker)}`, {
+    method: 'POST',
+    body: body || {},
+    timeoutMs: 180_000,
+  });
+export const getIcfScheduler = () =>
+  intelligenceFetch('/icf/scheduler', { timeoutMs: 30_000 });
+
 export const getLaunchHealth = () =>
   intelligenceFetch('/launch/health', { timeoutMs: 30_000 });
 export const getLaunchMetrics = () =>

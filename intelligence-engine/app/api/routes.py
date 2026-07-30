@@ -11409,6 +11409,90 @@ async def iep_expansion_enqueue(payload: dict[str, Any] = Body(default={})):
     return enqueue_nifty_500_expansion(force=bool(body.get("force")))
 
 
+# ICF-01 — Institutional Coverage Factory (companies → ICC, not crawl count)
+
+
+@router.get("/icf/health")
+async def icf_health():
+    from institutional_coverage_factory.production import health
+
+    return health()
+
+
+@router.get("/icf/status")
+async def icf_status():
+    from institutional_coverage_factory.production import get_icf_status
+
+    return get_icf_status()
+
+
+@router.get("/icf/dashboard")
+async def icf_dashboard(scope: str = "TOP20", sample_limit: int | None = None):
+    from institutional_coverage_factory.production import coverage_dashboard
+
+    return coverage_dashboard(scope=scope, sample_limit=sample_limit)
+
+
+@router.get("/icf/score/{ticker}")
+async def icf_score(ticker: str):
+    from institutional_coverage_factory.production import coverage_score_for
+
+    return coverage_score_for(ticker)
+
+
+@router.get("/icf/icc/{ticker}")
+async def icf_icc(ticker: str):
+    from institutional_coverage_factory.production import icc_status_for
+
+    return icc_status_for(ticker)
+
+
+@router.get("/icf/plan")
+async def icf_plan(scope: str = "TOP20", limit: int | None = None):
+    from institutional_coverage_factory.production import plan_coverage
+
+    return plan_coverage(limit=limit, scope=scope)
+
+
+@router.post("/icf/plan-dispatch")
+async def icf_plan_dispatch(payload: dict[str, Any] = Body(default={})):
+    from institutional_coverage_factory.production import plan_and_dispatch
+
+    body = payload or {}
+    return plan_and_dispatch(
+        limit=body.get("limit"),
+        scope=str(body.get("scope") or "TOP20"),
+        dispatch=body.get("dispatch"),
+    )
+
+
+@router.post("/icf/tick")
+async def icf_tick(payload: dict[str, Any] = Body(default={})):
+    from institutional_coverage_factory.production import run_coverage_tick
+
+    body = payload or {}
+    return run_coverage_tick(
+        scope=str(body.get("scope") or "TOP20"),
+        limit=body.get("limit"),
+        dispatch=body.get("dispatch"),
+    )
+
+
+@router.post("/icf/dispatch/{ticker}")
+async def icf_dispatch_company(ticker: str, payload: dict[str, Any] = Body(default={})):
+    from institutional_coverage_factory.production import dispatch_company
+
+    body = payload or {}
+    return dispatch_company(ticker, missing_classes=body.get("missing_classes"))
+
+
+@router.get("/icf/scheduler")
+async def icf_scheduler():
+    from institutional_coverage_factory.production import scheduler_status
+
+    return scheduler_status()
+
+
 # --- Company Monitoring System V1 (continuous living analyst; additive) ---
 
 
