@@ -1333,6 +1333,29 @@ export const searchResearchWorkspace = (query, { contextType = 'company', contex
 export const addResearchWorkspaceNote = (body = {}) =>
   intelligenceFetch('/workspace/notes', { method: 'POST', body: body || {}, timeoutMs: 30_000 });
 
+/** CCI-01 — Cross-Company Intelligence */
+export const getRelationshipsHealth = () =>
+  intelligenceFetch('/relationships/health', { timeoutMs: 30_000 });
+export const getCompanyRelationships = (ticker, { portfolioId = 'agi-core-equity' } = {}) => {
+  const qs = new URLSearchParams();
+  if (portfolioId) qs.set('portfolio_id', portfolioId);
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return intelligenceFetch(
+    `/relationships/company/${encodeURIComponent(ticker)}${suffix}`,
+    { timeoutMs: 60_000 }
+  );
+};
+export const getSectorRelationships = (sector) =>
+  intelligenceFetch(`/relationships/sector/${encodeURIComponent(sector)}`, { timeoutMs: 60_000 });
+export const getMacroRelationships = (driver) =>
+  intelligenceFetch(`/relationships/macro/${encodeURIComponent(driver)}`, { timeoutMs: 60_000 });
+export const queryRelationships = (body = {}) =>
+  intelligenceFetch('/relationships/query', { method: 'POST', body: body || {}, timeoutMs: 90_000 });
+export const getSimilarCompanies = (ticker) =>
+  intelligenceFetch(`/relationships/similar/${encodeURIComponent(ticker)}`, { timeoutMs: 30_000 });
+export const getRelationshipClusters = () =>
+  intelligenceFetch('/relationships/clusters', { timeoutMs: 30_000 });
+
 /** ICE-01 — Investment Committee Engine */
 export const getCommitteeEngineHealth = () =>
   intelligenceFetch('/committee-engine/health', { timeoutMs: 30_000 });

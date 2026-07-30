@@ -831,6 +831,24 @@ _CATALOG: list[dict[str, Any]] = [
         "module": "institutional_workspace.production",
     },
     {
+        "id": "institutional_cross_company",
+        "name": "Cross-Company Intelligence (CCI-01)",
+        "group": "publication",
+        "responsibility": (
+            "Phase 5.3 — Relationship reasoning and dependency propagation over KG-01. "
+            "Does not own or duplicate the graph. Provider registry for competitor, sector, "
+            "macro, and portfolio relationships. Not predictive."
+        ),
+        "sources": [
+            "KG-01 Institutional Knowledge Graph",
+            "Peer Intelligence",
+            "PKG-01 Portfolio Graph",
+            "Macro dependency map",
+        ],
+        "kind": "cross_company_intelligence",
+        "module": "institutional_cross_company.production",
+    },
+    {
         "id": "ite_thesis",
         "name": "Investment Thesis Office",
         "group": "offices",

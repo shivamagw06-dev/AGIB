@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
+  getCompanyRelationships,
   getResearchWorkspaceCompany,
   getResearchWorkspacePortfolio,
   searchResearchWorkspace,
@@ -16,6 +17,7 @@ const NAV = [
   'Committee',
   'Forecast',
   'Knowledge Graph',
+  'Relationship Map',
   'Notes',
   'Ask AGI',
 ];
@@ -32,6 +34,7 @@ export default function ResearchWorkspacePage() {
   const portfolioId = params.get('portfolio') || 'agi-core-equity';
   const tab = (params.get('tab') || 'Overview').replace(/_/g, ' ');
   const [workspace, setWorkspace] = useState(null);
+  const [relationships, setRelationships] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [query, setQuery] = useState('');
@@ -45,8 +48,12 @@ export default function ResearchWorkspacePage() {
       context === 'portfolio'
         ? getResearchWorkspacePortfolio(portfolioId, { focus: 'overview' })
         : getResearchWorkspaceCompany(ticker, { focus: 'overview' });
-    load
-      .then((res) => {
+    const relLoad =
+      context === 'company'
+        ? getCompanyRelationships(ticker).catch(() => null)
+        : Promise.resolve(null);
+    Promise.all([load, relLoad])
+      .then(([res, rel]) => {
         if (!active) return;
         if (!res || res.ok === false) {
           setError(res?.error || 'Workspace unavailable');
@@ -54,6 +61,7 @@ export default function ResearchWorkspacePage() {
         } else {
           setWorkspace(res.workspace || res);
         }
+        setRelationships(rel && rel.ok !== false ? rel : null);
         setLoading(false);
       })
       .catch((err) => {
@@ -275,6 +283,67 @@ export default function ResearchWorkspacePage() {
                     </li>
                   ))}
               </ul>
+            )}
+
+            {activeNav === 'Relationship Map' && (
+              <div>
+                <p className="agi-list-meta" style={{ marginBottom: '0.75rem' }}>
+                  CCI-01 · Company → Competitors → Sector → Portfolio → Macro Drivers. KG-01 remains
+                  the graph system of record; CCI reasons over it.
+                </p>
+                {!relationships ? (
+                  <div className="agi-empty">Relationship map unavailable for this context.</div>
+                ) : (
+                  <>
+                    <div className="agi-stat-row" style={{ marginBottom: '0.75rem' }}>
+                      <div className="agi-stat">
+                        <div className="agi-stat-label">Competitors</div>
+                        <div className="agi-stat-value">
+                          {(relationships.competitors || []).length}
+                        </div>
+                      </div>
+                      <div className="agi-stat">
+                        <div className="agi-stat-label">Macro</div>
+                        <div className="agi-stat-value">
+                          {(relationships.macro_drivers || []).length}
+                        </div>
+                      </div>
+                      <div className="agi-stat">
+                        <div className="agi-stat-label">KG-01</div>
+                        <div className="agi-stat-value" style={{ fontSize: '1rem' }}>
+                          {relationships.kg_ref?.ok ? 'linked' : 'soft'}
+                        </div>
+                      </div>
+                    </div>
+                    <ul className="agi-list">
+                      {(relationships.competitors || []).slice(0, 8).map((c) => (
+                        <li key={c}>
+                          <div className="agi-list-title">Competitor · {c}</div>
+                          <div className="agi-list-meta">
+                            <Link to={`/agi/companies/${c}?rw=1`}>Open</Link>
+                            {' · '}
+                            <Link to={`/agi/research?ticker=${c}&tab=Relationship%20Map`}>Map</Link>
+                          </div>
+                        </li>
+                      ))}
+                      {(relationships.macro_drivers || []).map((m) => (
+                        <li key={m}>
+                          <div className="agi-list-title">Macro · {m}</div>
+                          <div className="agi-list-meta">Dependency propagation — not a forecast</div>
+                        </li>
+                      ))}
+                      {(relationships.similar || []).slice(0, 5).map((s) => (
+                        <li key={s.ticker}>
+                          <div className="agi-list-title">
+                            Similar · {s.ticker} ({Number(s.score).toFixed(2)})
+                          </div>
+                          <div className="agi-list-meta">{(s.reasons || []).join(' · ')}</div>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+              </div>
             )}
 
             {activeNav === 'Notes' && (

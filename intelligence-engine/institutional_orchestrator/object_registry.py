@@ -216,6 +216,38 @@ def _retrieve_research(ctx: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _retrieve_relationships(ctx: dict[str, Any]) -> dict[str, Any]:
+    """CCI-01 soft retrieve — relationship reasoning over KG-01; no recommendations."""
+    question = str(ctx.get("question") or "")
+    entities = ctx.get("entities") or []
+    ticker = str(entities[0]).upper() if entities else ""
+    try:
+        from institutional_cross_company.production import query_relationships
+
+        out = query_relationships(
+            {
+                "question": question,
+                "ticker": ticker,
+                "portfolio_id": ctx.get("portfolio_id") or "agi-core-equity",
+            }
+        )
+        return {
+            "ok": bool(out.get("ok")),
+            "object_type": "Relationship",
+            "payload": out,
+            "owns_graph": False,
+            "graph_system_of_record": "KG-01",
+        }
+    except Exception as exc:  # noqa: BLE001
+        return {
+            "ok": True,
+            "object_type": "Relationship",
+            "payload": {"available": False, "error": str(exc)},
+            "soft_missing": True,
+            "owns_graph": False,
+        }
+
+
 def bootstrap_default_registry() -> None:
     if _REGISTRY:
         return
@@ -290,6 +322,27 @@ def bootstrap_default_registry() -> None:
         planner="company",
         description="Research packages (soft)",
         retrieve=_retrieve_research,
+    )
+    register(
+        "Relationship",
+        routes=[
+            "competitor",
+            "compete",
+            "similar",
+            "connected to",
+            "macro risk",
+            "oil",
+            "interest rates",
+            "peer",
+            "sector network",
+            "relationship",
+            "how does",
+            "affect",
+        ],
+        provider="institutional_cross_company",
+        planner="market",
+        description="CCI-01 InstitutionalRelationship (reasons over KG-01; does not own graph)",
+        retrieve=_retrieve_relationships,
     )
 
 

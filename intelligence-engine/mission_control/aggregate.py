@@ -1710,6 +1710,15 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("institutional_workspace")
     except Exception:
         out["institutional_workspace"] = None
+
+    # CCI-01 — Cross-Company Intelligence (Relationship Center).
+    try:
+        from institutional_cross_company.production import soft_slice_mission_control as cci_soft
+
+        out["institutional_cross_company"] = cci_soft()
+        out["sources"].append("institutional_cross_company")
+    except Exception:
+        out["institutional_cross_company"] = None
     return out
 
 

@@ -2991,6 +2991,84 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // CCI-01 — Cross-Company Intelligence
+  router.get('/relationships/health', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/relationships/health', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'relationships health failed' });
+    }
+  });
+  router.get('/relationships/company/:ticker', async (req, res) => {
+    try {
+      const qs = new URLSearchParams();
+      if (req.query.portfolio_id) qs.set('portfolio_id', String(req.query.portfolio_id));
+      const suffix = qs.toString() ? `?${qs}` : '';
+      const result = await engineFetch(
+        `/v1/relationships/company/${encodeURIComponent(req.params.ticker)}${suffix}`,
+        { timeoutMs: 60_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'company relationships failed' });
+    }
+  });
+  router.get('/relationships/sector/:sector', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/relationships/sector/${encodeURIComponent(req.params.sector)}`,
+        { timeoutMs: 60_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'sector relationships failed' });
+    }
+  });
+  router.get('/relationships/macro/:driver', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/relationships/macro/${encodeURIComponent(req.params.driver)}`,
+        { timeoutMs: 60_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'macro relationships failed' });
+    }
+  });
+  router.post('/relationships/query', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/relationships/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 90_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'relationships query failed' });
+    }
+  });
+  router.get('/relationships/similar/:ticker', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/relationships/similar/${encodeURIComponent(req.params.ticker)}`,
+        { timeoutMs: 30_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'similarity failed' });
+    }
+  });
+  router.get('/relationships/clusters', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/relationships/clusters', { timeoutMs: 30_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'clusters failed' });
+    }
+  });
+
   // ICE-01 — Investment Committee Engine
   router.get('/committee-engine/health', async (_req, res) => {
     try {
