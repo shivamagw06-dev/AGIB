@@ -190,7 +190,38 @@ export default function MissionControl() {
   const monitor = desk?.company_monitor || {};
   const observationCenter =
     institutional?.institutional_observation || desk?.institutional_observation || null;
-  const pipeline = desk?.research_pipeline || {};
+  const portfolioKnowledge =
+    institutional?.institutional_portfolio || desk?.institutional_portfolio || null;
+  const portfolioCommand =
+    institutional?.institutional_portfolio_decision ||
+    desk?.institutional_portfolio_decision ||
+    null;
+  const portfolioRiskCenter =
+    institutional?.institutional_portfolio_risk || desk?.institutional_portfolio_risk || null;
+  const policyCenter =
+    institutional?.institutional_policy || desk?.institutional_policy || null;
+  const committeeCenter =
+    institutional?.institutional_committee || desk?.institutional_committee || null;
+  const orchestrationCenter =
+    institutional?.institutional_orchestrator || desk?.institutional_orchestrator || null;
+  const workspaceHealth =
+    institutional?.institutional_workspace || desk?.institutional_workspace || null;
+  const relationshipCenter =
+    institutional?.institutional_cross_company || desk?.institutional_cross_company || null;
+  const publicationCenter =
+    institutional?.institutional_publishing || desk?.institutional_publishing || null;
+  const platformOps =
+    institutional?.institutional_multi_portfolio || desk?.institutional_multi_portfolio || null;
+  const performanceCenter =
+    institutional?.institutional_performance || desk?.institutional_performance || null;
+  const securityCenter =
+    institutional?.institutional_security || desk?.institutional_security || null;
+  const operationsCenter =
+    institutional?.institutional_observability || desk?.institutional_observability || null;
+  const architectureCenter =
+    institutional?.institutional_architecture || desk?.institutional_architecture || null;
+  const launchCenter =
+    institutional?.institutional_launch || desk?.institutional_launch || null;  const pipeline = desk?.research_pipeline || {};
   const preds = desk?.prediction_intelligence || {};
   const dq = desk?.data_quality || {};
   const ca = desk?.company_analysis || {};
@@ -1355,6 +1386,928 @@ export default function MissionControl() {
               {observationCenter && !(observationCenter.recent_critical || []).length ? (
                 <li>No critical observations in memory yet.</li>
               ) : null}
+            </ul>
+          </Glass>
+        </section>
+
+        {/* Risk Center — PRE-01 */}
+        <section className="space-y-3">
+          <Kicker>Risk Center · PRE-01</Kicker>
+          <p className="text-sm text-[var(--io-muted)] max-w-3xl">
+            Authoritative portfolio risk — concentration, liquidity, stress impact, correlation
+            drift, and coverage. Consumed by CIO-01; not a metrics dashboard.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+            <Stat
+              label="Portfolio risk"
+              value={portfolioRiskCenter?.overall_risk || '—'}
+              status={portfolioRiskCenter?.status}
+            />
+            <Stat
+              label="Highest concentration"
+              value={
+                portfolioRiskCenter?.highest_concentration?.ticker
+                  ? `${portfolioRiskCenter.highest_concentration.ticker}`
+                  : '—'
+              }
+              hint={
+                portfolioRiskCenter?.highest_concentration?.weight != null
+                  ? `${(Number(portfolioRiskCenter.highest_concentration.weight) * 100).toFixed(0)}% · ${portfolioRiskCenter.highest_concentration.level || ''}`
+                  : undefined
+              }
+            />
+            <Stat
+              label="Liquidity warning"
+              value={
+                portfolioRiskCenter?.liquidity_warning
+                  ? portfolioRiskCenter?.liquidity_level || 'Yes'
+                  : portfolioRiskCenter?.liquidity_level || '—'
+              }
+            />
+            <Stat
+              label="Stress impact"
+              value={
+                portfolioRiskCenter?.stress_impact?.portfolio_impact_pct != null
+                  ? `${Number(portfolioRiskCenter.stress_impact.portfolio_impact_pct).toFixed(1)}%`
+                  : '—'
+              }
+              hint={portfolioRiskCenter?.stress_impact?.label}
+            />
+            <Stat
+              label="Correlation drift"
+              value={portfolioRiskCenter?.correlation_drift?.level || '—'}
+              hint={
+                portfolioRiskCenter?.correlation_drift?.average_correlation != null
+                  ? `avg ${Number(portfolioRiskCenter.correlation_drift.average_correlation).toFixed(2)}`
+                  : undefined
+              }
+            />
+            <Stat label="Coverage" value={portfolioRiskCenter?.coverage ?? '—'} />
+          </div>
+          {!portfolioRiskCenter ? (
+            <Glass>
+              <p className="text-xs text-[var(--io-muted)]">Risk Center soft slice unavailable.</p>
+            </Glass>
+          ) : null}
+        </section>
+
+        {/* Policy Center — PCE-01 */}
+        <section className="space-y-3">
+          <Kicker>Policy Center · PCE-01</Kicker>
+          <p className="text-sm text-[var(--io-muted)] max-w-3xl">
+            Mandate compliance — active violations, compliance score, portfolios out of mandate,
+            and constraints nearing limits. Governs CIO-01 recommendations.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            <Stat
+              label="Active violations"
+              value={policyCenter?.active_violations ?? '—'}
+              status={policyCenter?.status}
+            />
+            <Stat label="Compliance score" value={policyCenter?.compliance_score ?? '—'} />
+            <Stat
+              label="New violations today"
+              value={policyCenter?.new_violations_today ?? '—'}
+            />
+            <Stat
+              label="Out of mandate"
+              value={(policyCenter?.portfolios_out_of_mandate || []).length || '—'}
+            />
+            <Stat
+              label="Nearing limits"
+              value={policyCenter?.constraints_nearing_limits ?? '—'}
+            />
+          </div>
+          <Glass>
+            <p className="text-[11px] uppercase text-[var(--io-caption)]">
+              Status {policyCenter?.overall_status || '—'} · profile{' '}
+              {policyCenter?.profile_id || '—'}
+            </p>
+            <ul className="mt-2 space-y-1 text-xs max-h-36 overflow-auto text-[var(--io-ink-soft)]">
+              {(policyCenter?.portfolios_out_of_mandate || []).slice(0, 6).map((p) => (
+                <li key={`oom-${p}`}>Out of mandate: {p}</li>
+              ))}
+              {(policyCenter?.policy_assessment?.required_actions || []).slice(0, 6).map((a) => (
+                <li key={`pa-${a}`}>Action: {a}</li>
+              ))}
+              {!policyCenter ? <li>Policy Center soft slice unavailable.</li> : null}
+              {policyCenter &&
+              !(policyCenter.portfolios_out_of_mandate || []).length &&
+              !(policyCenter.policy_assessment?.required_actions || []).length ? (
+                <li>Run a policy check to populate the Policy Center.</li>
+              ) : null}
+            </ul>
+          </Glass>
+        </section>
+
+        {/* Orchestration Center — UAG-01 */}
+        <section className="space-y-3">
+          <Kicker>Orchestration Center · UAG-01</Kicker>
+          <p className="text-sm text-[var(--io-muted)] max-w-3xl">
+            Universal Ask AGI — active queries, planner latency, object coverage, failed plans, and
+            missing registrations. Orchestration only; domain engines remain systems of record.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+            <Stat
+              label="Active queries"
+              value={orchestrationCenter?.active_queries ?? '—'}
+              status={orchestrationCenter?.status}
+            />
+            <Stat
+              label="Avg latency"
+              value={
+                orchestrationCenter?.average_latency != null
+                  ? `${Number(orchestrationCenter.average_latency).toFixed(0)}ms`
+                  : '—'
+              }
+            />
+            <Stat
+              label="Object coverage"
+              value={orchestrationCenter?.object_coverage ?? '—'}
+              hint={
+                orchestrationCenter?.registered_object_count != null
+                  ? `${orchestrationCenter.registered_object_count} registered`
+                  : undefined
+              }
+            />
+            <Stat label="Failed plans" value={orchestrationCenter?.failed_plans ?? '—'} />
+            <Stat
+              label="Missing registrations"
+              value={(orchestrationCenter?.missing_registrations || []).length || '—'}
+            />
+            <Stat
+              label="Queries run"
+              value={orchestrationCenter?.planner_performance?.query_count ?? '—'}
+            />
+          </div>
+          <Glass>
+            <p className="text-[11px] uppercase text-[var(--io-caption)]">Recent orchestrated queries</p>
+            <ul className="mt-2 space-y-1 text-xs max-h-36 overflow-auto text-[var(--io-ink-soft)]">
+              {(orchestrationCenter?.recent_queries || []).slice(0, 6).map((q) => (
+                <li key={q.query_id}>
+                  [{q.intent}] {q.question}
+                </li>
+              ))}
+              {!orchestrationCenter ? <li>Orchestration Center soft slice unavailable.</li> : null}
+              {orchestrationCenter && !(orchestrationCenter.recent_queries || []).length ? (
+                <li>Run a Universal Ask query to populate the center.</li>
+              ) : null}
+            </ul>
+          </Glass>
+        </section>
+
+        {/* Launch Center — L-01 */}
+        <section className="space-y-3">
+          <Kicker>Launch Center · L-01</Kicker>
+          <p className="text-sm text-[var(--io-muted)] max-w-3xl">
+            Usage validation before v1.1 — adoption, Ask performance, SLA status, user feedback, and
+            gated feature flags. Driven by real workflows, not architectural expansion.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+            <Stat
+              label="DAU"
+              value={launchCenter?.daily_active_users ?? '—'}
+              status={launchCenter?.status}
+            />
+            <Stat label="WAU" value={launchCenter?.weekly_active_users ?? '—'} />
+            <Stat label="Ask / day" value={launchCenter?.ask_questions ?? '—'} />
+            <Stat
+              label="Ask P95"
+              value={
+                launchCenter?.ask_p95_ms != null ? `${launchCenter.ask_p95_ms}ms` : '—'
+              }
+            />
+            <Stat label="Pubs" value={launchCenter?.publication_generated ?? '—'} />
+            <Stat
+              label="Helpful"
+              value={
+                launchCenter?.helpful_rate != null
+                  ? `${Math.round(Number(launchCenter.helpful_rate) * 100)}%`
+                  : '—'
+              }
+              hint={
+                launchCenter?.feedback_total != null
+                  ? `${launchCenter.feedback_total} responses`
+                  : undefined
+              }
+            />
+            <Stat
+              label="SLAs"
+              value={
+                launchCenter?.sla_all_met == null
+                  ? '—'
+                  : launchCenter.sla_all_met
+                    ? 'Met'
+                    : `${launchCenter.sla_breach_count ?? 0} breach`
+              }
+            />
+          </div>
+          <div className="grid gap-3 lg:grid-cols-2">
+            <Glass>
+              <p className="text-[11px] uppercase text-[var(--io-caption)]">SLA checks</p>
+              <ul className="mt-2 space-y-1 text-xs max-h-36 overflow-auto text-[var(--io-ink-soft)]">
+                {(launchCenter?.sla_checks || []).map((c) => (
+                  <li key={c.metric}>
+                    {c.status === 'met' ? '✓' : c.status === 'breach' ? '✗' : '·'} {c.metric}:{' '}
+                    {c.actual ?? '—'} / {c.target}
+                  </li>
+                ))}
+                {!launchCenter ? <li>Launch Center soft slice unavailable.</li> : null}
+              </ul>
+            </Glass>
+            <Glass>
+              <p className="text-[11px] uppercase text-[var(--io-caption)]">Feedback &amp; rollout</p>
+              <ul className="mt-2 space-y-1 text-xs max-h-36 overflow-auto text-[var(--io-ink-soft)]">
+                <li>
+                  v1.1 flags gated:{' '}
+                  {launchCenter?.feature_flags_all_disabled == null
+                    ? '—'
+                    : launchCenter.feature_flags_all_disabled
+                      ? 'Yes'
+                      : 'Partial'}
+                </li>
+                <li>
+                  Ready for v1.1:{' '}
+                  {launchCenter?.ready_for_v11 == null
+                    ? '—'
+                    : launchCenter.ready_for_v11
+                      ? 'Yes'
+                      : 'Not yet'}
+                </li>
+                {(launchCenter?.recent_feedback || []).slice(0, 4).map((f) => (
+                  <li key={f.feedback_id}>
+                    [{f.reaction}] {f.screen}
+                    {f.comment ? ` — ${f.comment}` : ''}
+                  </li>
+                ))}
+                {launchCenter && !(launchCenter.recent_feedback || []).length ? (
+                  <li>No feedback yet — collect 👍/👎 on Ask, Workspace, Publications.</li>
+                ) : null}
+              </ul>
+            </Glass>
+          </div>
+        </section>
+
+        {/* Architecture Center — RC-01 */}
+        <section className="space-y-3">
+          <Kicker>Architecture Center · RC-01 · AGIB v1.0 GA</Kicker>
+          <p className="text-sm text-[var(--io-muted)] max-w-3xl">
+            AGIB v1.0 is General Availability. Continuous quality gate — invariants, violations,
+            layer dependencies, import graph, context propagation, lineage health, and architecture
+            score. Architecture remains frozen; every merge must preserve v1.0 contracts.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+            <Stat
+              label="Release"
+              value={
+                architectureCenter?.agib_general_availability ||
+                architectureCenter?.agib_release_status === 'GENERAL_AVAILABILITY'
+                  ? 'GA'
+                  : architectureCenter?.release_candidate_ready
+                    ? 'RC'
+                    : '—'
+              }
+              status={architectureCenter?.status}
+              hint="v1.0.0"
+            />
+            <Stat
+              label="Score"
+              value={
+                architectureCenter?.architecture_score != null
+                  ? `${architectureCenter.architecture_score}`
+                  : '—'
+              }
+              hint={architectureCenter?.architecture_grade}
+            />
+            <Stat
+              label="Invariants"
+              value={
+                architectureCenter?.invariant_total != null
+                  ? `${architectureCenter.invariant_passed ?? 0}/${architectureCenter.invariant_total}`
+                  : '—'
+              }
+            />
+            <Stat label="Violations" value={architectureCenter?.violation_count ?? '—'} />
+            <Stat
+              label="Import graph"
+              value={
+                architectureCenter?.import_graph?.nodes != null
+                  ? `${architectureCenter.import_graph.nodes}n/${architectureCenter.import_graph.edges ?? 0}e`
+                  : '—'
+              }
+            />
+            <Stat
+              label="Contexts"
+              value={
+                architectureCenter?.context_propagation
+                  ? Object.values(architectureCenter.context_propagation).filter(Boolean).length
+                  : '—'
+              }
+              hint="Exec · Sec · Obs"
+            />
+            <Stat
+              label="Frozen"
+              value={architectureCenter?.architecture_frozen == null ? '—' : architectureCenter.architecture_frozen ? 'Yes' : 'No'}
+            />
+          </div>
+          <div className="grid gap-3 lg:grid-cols-2">
+            <Glass>
+              <p className="text-[11px] uppercase text-[var(--io-caption)]">Invariants</p>
+              <ul className="mt-2 space-y-1 text-xs max-h-36 overflow-auto text-[var(--io-ink-soft)]">
+                {(architectureCenter?.invariants || []).slice(0, 10).map((inv) => (
+                  <li key={inv.id}>
+                    {inv.ok ? '✓' : '✗'} [{inv.group}] {inv.message}
+                  </li>
+                ))}
+                {!architectureCenter ? <li>Architecture Center soft slice unavailable.</li> : null}
+              </ul>
+            </Glass>
+            <Glass>
+              <p className="text-[11px] uppercase text-[var(--io-caption)]">Violations</p>
+              <ul className="mt-2 space-y-1 text-xs max-h-36 overflow-auto text-[var(--io-ink-soft)]">
+                {(architectureCenter?.violations || []).slice(0, 8).map((v, i) => (
+                  <li key={`${v.section || v.kind}-${i}`}>
+                    [{v.section || v.kind}] {v.message || JSON.stringify(v)}
+                  </li>
+                ))}
+                {architectureCenter && !(architectureCenter.violations || []).length ? (
+                  <li>No violations — architecture principles preserved.</li>
+                ) : null}
+              </ul>
+            </Glass>
+          </div>
+        </section>
+
+        {/* Operations Center — PRP-03 */}
+        <section className="space-y-3">
+          <Kicker>Operations Center · PRP-03</Kicker>
+          <p className="text-sm text-[var(--io-muted)] max-w-3xl">
+            End-to-end operability — live request rate, active traces, P95/P99 latency, error rate,
+            queue/cache health, worker utilization, dependency status, and alert timeline.
+            Observability explains behavior; it never changes it.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
+            <Stat
+              label="Req / min"
+              value={operationsCenter?.live_request_rate ?? '—'}
+              status={operationsCenter?.status || operationsCenter?.overall_health}
+            />
+            <Stat label="Active traces" value={operationsCenter?.active_traces ?? '—'} />
+            <Stat
+              label="P95"
+              value={
+                operationsCenter?.p95_latency_ms != null
+                  ? `${operationsCenter.p95_latency_ms}ms`
+                  : '—'
+              }
+            />
+            <Stat
+              label="P99"
+              value={
+                operationsCenter?.p99_latency_ms != null
+                  ? `${operationsCenter.p99_latency_ms}ms`
+                  : '—'
+              }
+            />
+            <Stat
+              label="Error rate"
+              value={
+                operationsCenter?.error_rate != null
+                  ? `${Math.round(Number(operationsCenter.error_rate) * 100)}%`
+                  : '—'
+              }
+            />
+            <Stat
+              label="Queue"
+              value={operationsCenter?.queue_health?.depth ?? '—'}
+              hint={operationsCenter?.queue_health?.status}
+            />
+            <Stat
+              label="Cache hit"
+              value={
+                operationsCenter?.cache_health?.hit_rate != null
+                  ? `${Math.round(Number(operationsCenter.cache_health.hit_rate) * 100)}%`
+                  : '—'
+              }
+            />
+            <Stat
+              label="Workers"
+              value={
+                operationsCenter?.worker_utilization != null
+                  ? `${Math.round(Number(operationsCenter.worker_utilization) * 100)}%`
+                  : '—'
+              }
+            />
+          </div>
+          <div className="grid gap-3 lg:grid-cols-2">
+            <Glass>
+              <p className="text-[11px] uppercase text-[var(--io-caption)]">Alert timeline</p>
+              <ul className="mt-2 space-y-1 text-xs max-h-36 overflow-auto text-[var(--io-ink-soft)]">
+                {(operationsCenter?.alert_timeline || []).slice(0, 6).map((a) => (
+                  <li key={a.alert_id}>
+                    [{a.severity}] {a.rule}: {a.message}
+                  </li>
+                ))}
+                {!operationsCenter ? <li>Operations Center soft slice unavailable.</li> : null}
+                {operationsCenter && !(operationsCenter.alert_timeline || []).length ? (
+                  <li>No alerts — platform metrics within thresholds.</li>
+                ) : null}
+              </ul>
+            </Glass>
+            <Glass>
+              <p className="text-[11px] uppercase text-[var(--io-caption)]">Service topology</p>
+              <ul className="mt-2 space-y-1 text-xs max-h-36 overflow-auto text-[var(--io-ink-soft)]">
+                {(operationsCenter?.service_topology?.nodes || []).slice(0, 10).map((n) => (
+                  <li key={n.id}>
+                    {n.id} · {n.status || 'unknown'} · {n.kind || 'service'}
+                  </li>
+                ))}
+                {operationsCenter && !(operationsCenter.service_topology?.nodes || []).length ? (
+                  <li>Service map empty.</li>
+                ) : null}
+              </ul>
+            </Glass>
+          </div>
+        </section>
+
+        {/* Security Center — PRP-02 */}
+        <section className="space-y-3">
+          <Kicker>Security Center · PRP-02</Kicker>
+          <p className="text-sm text-[var(--io-muted)] max-w-3xl">
+            Enterprise controls — active sessions, login failures, API key usage, permission
+            changes, audit volume, tenants, and revoked tokens. Security decides who; intelligence
+            decides what. Never enters the intelligence layer.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
+            <Stat
+              label="Sessions"
+              value={securityCenter?.active_sessions ?? '—'}
+              status={securityCenter?.status}
+            />
+            <Stat label="Login fails" value={securityCenter?.login_failures ?? '—'} />
+            <Stat label="API key use" value={securityCenter?.api_key_usage ?? '—'} />
+            <Stat label="Perm changes" value={securityCenter?.permission_changes ?? '—'} />
+            <Stat label="Audit volume" value={securityCenter?.audit_volume ?? '—'} />
+            <Stat label="Tenants" value={securityCenter?.tenant_count ?? '—'} />
+            <Stat label="Revoked" value={securityCenter?.revoked_tokens ?? '—'} />
+            <Stat
+              label="Auth latency"
+              value={
+                securityCenter?.authentication_latency_ms != null
+                  ? `${securityCenter.authentication_latency_ms}ms`
+                  : '—'
+              }
+            />
+          </div>
+          <Glass>
+            <p className="text-[11px] uppercase text-[var(--io-caption)]">Recent audit</p>
+            <ul className="mt-2 space-y-1 text-xs max-h-36 overflow-auto text-[var(--io-ink-soft)]">
+              {(securityCenter?.recent_audit || []).slice(0, 6).map((a) => (
+                <li key={a.event_id}>
+                  [{a.action}] {a.resource}
+                  {a.resource_id ? `:${a.resource_id}` : ''} → {a.outcome}
+                  {a.correlation_id ? ` · ${a.correlation_id}` : ''}
+                </li>
+              ))}
+              {!securityCenter ? <li>Security Center soft slice unavailable.</li> : null}
+              {securityCenter && !(securityCenter.recent_audit || []).length ? (
+                <li>Login or run a gated Ask/publication to populate audit.</li>
+              ) : null}
+            </ul>
+          </Glass>
+        </section>
+
+        {/* Performance Center — PRP-01 */}
+        <section className="space-y-3">
+          <Kicker>Performance Center · PRP-01</Kicker>
+          <p className="text-sm text-[var(--io-muted)] max-w-3xl">
+            Production readiness — cache hit rate, P95 latency, slow queries, queue depth, and active
+            workers. Targets: Ask AGI &lt; 2s cached, workspace &lt; 1s, async publications. No new
+            intelligence engines; AGIB v1.0 architecture is frozen.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+            <Stat
+              label="Cache hit rate"
+              value={
+                performanceCenter?.cache_hit_rate != null
+                  ? `${Math.round(Number(performanceCenter.cache_hit_rate) * 100)}%`
+                  : '—'
+              }
+              status={performanceCenter?.status}
+            />
+            <Stat
+              label="P95 latency"
+              value={
+                performanceCenter?.p95_latency_seconds != null
+                  ? `${performanceCenter.p95_latency_seconds}s`
+                  : '—'
+              }
+            />
+            <Stat
+              label="Slow queries"
+              value={(performanceCenter?.slow_queries || []).length}
+            />
+            <Stat label="Queue depth" value={performanceCenter?.queue_depth ?? '—'} />
+            <Stat label="Active workers" value={performanceCenter?.active_workers ?? '—'} />
+            <Stat
+              label="Jobs done"
+              value={performanceCenter?.jobs_completed ?? '—'}
+              hint={
+                performanceCenter?.redis_enabled
+                  ? 'Redis connected'
+                  : performanceCenter
+                    ? 'Memory cache'
+                    : undefined
+              }
+            />
+          </div>
+          <Glass>
+            <p className="text-[11px] uppercase text-[var(--io-caption)]">Slow queries</p>
+            <ul className="mt-2 space-y-1 text-xs max-h-36 overflow-auto text-[var(--io-ink-soft)]">
+              {(performanceCenter?.slow_queries || []).slice(0, 6).map((q, i) => (
+                <li key={`${q.operation}-${q.ts || i}`}>
+                  [{q.operation}] {q.seconds}s{q.cached ? ' (cached)' : ''}
+                </li>
+              ))}
+              {!performanceCenter ? <li>Performance Center soft slice unavailable.</li> : null}
+              {performanceCenter && !(performanceCenter.slow_queries || []).length ? (
+                <li>No slow queries recorded yet — run Ask or workspace loads to sample latency.</li>
+              ) : null}
+            </ul>
+          </Glass>
+        </section>
+
+        {/* Platform Operations Center — MPC-01 */}
+        <section className="space-y-3">
+          <Kicker>Platform Operations · MPC-01</Kicker>
+          <p className="text-sm text-[var(--io-muted)] max-w-3xl">
+            Multi-portfolio tenancy — active workspaces, portfolio/client counts, publication queue,
+            permission changes, workspace health, distribution status, and audit events. Intelligence
+            stays global; mandates and permissions are local.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+            <Stat
+              label="Workspaces"
+              value={platformOps?.active_workspaces ?? '—'}
+              status={platformOps?.status}
+            />
+            <Stat label="Portfolios" value={platformOps?.portfolio_count ?? '—'} />
+            <Stat label="Clients" value={platformOps?.client_count ?? '—'} />
+            <Stat label="Pub queue" value={platformOps?.publication_queue ?? '—'} />
+            <Stat label="Perm changes" value={platformOps?.permission_changes ?? '—'} />
+            <Stat
+              label="Workspace health"
+              value={platformOps?.workspace_health ?? '—'}
+              hint={
+                platformOps?.audit_events != null
+                  ? `${platformOps.audit_events} audit events`
+                  : undefined
+              }
+            />
+          </div>
+          <Glass>
+            <p className="text-[11px] uppercase text-[var(--io-caption)]">Recent audit</p>
+            <ul className="mt-2 space-y-1 text-xs max-h-36 overflow-auto text-[var(--io-ink-soft)]">
+              {(platformOps?.recent_audit || []).slice(0, 6).map((a) => (
+                <li key={a.event_id}>
+                  [{a.kind}] {a.detail}
+                </li>
+              ))}
+              {!platformOps ? <li>Platform Operations soft slice unavailable.</li> : null}
+              {platformOps && !(platformOps.recent_audit || []).length ? (
+                <li>Resolve a workspace or grant permissions to populate audit.</li>
+              ) : null}
+            </ul>
+          </Glass>
+        </section>
+
+        {/* Publication Center — PUB-01 */}
+        <section className="space-y-3">
+          <Kicker>Publication Center · PUB-01</Kicker>
+          <p className="text-sm text-[var(--io-muted)] max-w-3xl">
+            Publishing &amp; distribution — success rate, generation latency, template coverage,
+            distribution status, failed renders, version integrity, and missing lineage. Compose
+            only; manifests are the audit record.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+            <Stat
+              label="Success rate"
+              value={
+                publicationCenter?.publication_success_rate != null
+                  ? `${Math.round(Number(publicationCenter.publication_success_rate) * 100)}%`
+                  : '—'
+              }
+              status={publicationCenter?.status}
+            />
+            <Stat
+              label="Gen. latency"
+              value={
+                publicationCenter?.generation_latency != null
+                  ? `${Number(publicationCenter.generation_latency).toFixed(0)}ms`
+                  : '—'
+              }
+            />
+            <Stat
+              label="Template coverage"
+              value={publicationCenter?.template_coverage ?? '—'}
+              hint={
+                publicationCenter?.types_generated != null
+                  ? `${publicationCenter.types_generated} generated`
+                  : undefined
+              }
+            />
+            <Stat
+              label="Distributed"
+              value={publicationCenter?.distribution_status?.distributed_count ?? '—'}
+            />
+            <Stat label="Failed renders" value={publicationCenter?.failed_renders ?? '—'} />
+            <Stat
+              label="Version integrity"
+              value={
+                publicationCenter?.version_integrity == null
+                  ? '—'
+                  : publicationCenter.version_integrity
+                    ? 'OK'
+                    : 'Gaps'
+              }
+              hint={
+                publicationCenter?.missing_lineage != null
+                  ? `${publicationCenter.missing_lineage} missing lineage`
+                  : undefined
+              }
+            />
+          </div>
+          <Glass>
+            <p className="text-[11px] uppercase text-[var(--io-caption)]">Publication diagnostics</p>
+            <ul className="mt-2 space-y-1 text-xs max-h-36 overflow-auto text-[var(--io-ink-soft)]">
+              {!publicationCenter ? <li>Publication Center soft slice unavailable.</li> : null}
+              {publicationCenter ? (
+                <li>
+                  {publicationCenter.product || 'PUB-01'} · compose only ·{' '}
+                  {(publicationCenter.renderers || []).join(', ') || 'markdown/html/pdf/json'}
+                </li>
+              ) : null}
+              {publicationCenter && (publicationCenter.publications_cached || 0) === 0 ? (
+                <li>Generate a publication to populate the center.</li>
+              ) : null}
+            </ul>
+          </Glass>
+        </section>
+
+        {/* Relationship Center — CCI-01 */}
+        <section className="space-y-3">
+          <Kicker>Relationship Center · CCI-01</Kicker>
+          <p className="text-sm text-[var(--io-muted)] max-w-3xl">
+            Cross-company relationship intelligence over KG-01 — coverage, missing links, strongest
+            hubs, propagation latency, graph integrity (delegated), and cluster health. CCI reasons;
+            KG owns the graph.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+            <Stat
+              label="Coverage"
+              value={relationshipCenter?.relationship_coverage ?? '—'}
+              status={relationshipCenter?.status}
+            />
+            <Stat label="Missing links" value={relationshipCenter?.missing_links ?? '—'} />
+            <Stat
+              label="Strongest hubs"
+              value={(relationshipCenter?.strongest_hubs || []).length || '—'}
+              hint={
+                (relationshipCenter?.strongest_hubs || [])[0]?.entity
+                  ? String((relationshipCenter.strongest_hubs || [])[0].entity)
+                  : undefined
+              }
+            />
+            <Stat
+              label="Prop. latency"
+              value={
+                relationshipCenter?.propagation_latency != null
+                  ? `${Number(relationshipCenter.propagation_latency).toFixed(0)}ms`
+                  : '—'
+              }
+            />
+            <Stat
+              label="Graph integrity"
+              value={relationshipCenter?.graph_integrity || 'KG-01'}
+            />
+            <Stat
+              label="Cluster health"
+              value={relationshipCenter?.cluster_health ?? '—'}
+              hint={
+                relationshipCenter?.provider_count != null
+                  ? `${relationshipCenter.provider_count} providers`
+                  : undefined
+              }
+            />
+          </div>
+          <Glass>
+            <p className="text-[11px] uppercase text-[var(--io-caption)]">Hubs & providers</p>
+            <ul className="mt-2 space-y-1 text-xs max-h-36 overflow-auto text-[var(--io-ink-soft)]">
+              {(relationshipCenter?.strongest_hubs || []).slice(0, 6).map((h) => (
+                <li key={h.entity}>
+                  {h.entity} · degree {h.degree}
+                </li>
+              ))}
+              {!relationshipCenter ? <li>Relationship Center soft slice unavailable.</li> : null}
+              {relationshipCenter && !(relationshipCenter.strongest_hubs || []).length ? (
+                <li>Query company or macro relationships to populate hubs.</li>
+              ) : null}
+            </ul>
+          </Glass>
+        </section>
+
+        {/* Workspace Health — RW-01 */}
+        <section className="space-y-3">
+          <Kicker>Workspace Health · RW-01</Kicker>
+          <p className="text-sm text-[var(--io-muted)] max-w-3xl">
+            Institutional Research Workspace integrity — missing links, missing evidence, broken
+            lineage, timeline gaps, orphaned notes, and navigation integrity. Presentation layer
+            only; analyst notes never mutate system intelligence.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+            <Stat
+              label="Missing links"
+              value={workspaceHealth?.objects_with_missing_links ?? '—'}
+              status={workspaceHealth?.status}
+            />
+            <Stat label="Missing evidence" value={workspaceHealth?.missing_evidence ?? '—'} />
+            <Stat label="Broken lineage" value={workspaceHealth?.broken_lineage ?? '—'} />
+            <Stat label="Timeline gaps" value={workspaceHealth?.timeline_gaps ?? '—'} />
+            <Stat label="Orphaned notes" value={workspaceHealth?.orphaned_notes ?? '—'} />
+            <Stat
+              label="Nav integrity"
+              value={
+                workspaceHealth?.navigation_integrity == null
+                  ? '—'
+                  : workspaceHealth.navigation_integrity
+                    ? 'OK'
+                    : 'Check'
+              }
+              hint={
+                workspaceHealth?.workspaces_cached != null
+                  ? `${workspaceHealth.workspaces_cached} cached`
+                  : undefined
+              }
+            />
+          </div>
+          <Glass>
+            <p className="text-[11px] uppercase text-[var(--io-caption)]">Workspace diagnostics</p>
+            <ul className="mt-2 space-y-1 text-xs max-h-36 overflow-auto text-[var(--io-ink-soft)]">
+              {!workspaceHealth ? <li>Workspace Health soft slice unavailable.</li> : null}
+              {workspaceHealth ? (
+                <li>
+                  Status {workspaceHealth.status || '—'} · {workspaceHealth.product || 'RW-01'} ·
+                  presentation only
+                </li>
+              ) : null}
+              {workspaceHealth && (workspaceHealth.objects_with_missing_links || 0) === 0 ? (
+                <li>Open a company or portfolio workspace to populate health signals.</li>
+              ) : null}
+            </ul>
+          </Glass>
+        </section>
+
+        {/* Committee Center — ICE-01 */}
+        <section className="space-y-3">
+          <Kicker>Committee Center · ICE-01</Kicker>
+          <p className="text-sm text-[var(--io-muted)] max-w-3xl">
+            Investment committee governance — pending reviews, policy escalations, deferred
+            decisions, upcoming meetings, and open action items. Advisory only; does not mutate
+            upstream risk, policy, or company decisions.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+            <Stat
+              label="Pending reviews"
+              value={committeeCenter?.pending_reviews ?? '—'}
+              status={committeeCenter?.status}
+            />
+            <Stat
+              label="Policy escalations"
+              value={committeeCenter?.policy_escalations ?? '—'}
+            />
+            <Stat
+              label="Deferred decisions"
+              value={committeeCenter?.deferred_decisions ?? '—'}
+            />
+            <Stat
+              label="Upcoming meetings"
+              value={(committeeCenter?.upcoming_meetings || []).length || '—'}
+            />
+            <Stat
+              label="Open action items"
+              value={committeeCenter?.open_action_items ?? '—'}
+            />
+            <Stat label="Overdue reviews" value={committeeCenter?.overdue_reviews ?? '—'} />
+          </div>
+          <Glass>
+            <p className="text-[11px] uppercase text-[var(--io-caption)]">
+              Latest {committeeCenter?.latest_resolution?.status || '—'} ·{' '}
+              {committeeCenter?.latest_resolution?.decision_recommendation || 'no resolution'}
+            </p>
+            <ul className="mt-2 space-y-1 text-xs max-h-36 overflow-auto text-[var(--io-ink-soft)]">
+              {(committeeCenter?.upcoming_meetings || []).slice(0, 6).map((m) => (
+                <li key={`um-${m}`}>Meeting / follow-up: {m}</li>
+              ))}
+              {(committeeCenter?.latest_resolution?.required_actions || [])
+                .slice(0, 4)
+                .map((a) => (
+                  <li key={`ca-${a.action_id || a.title}`}>Action: {a.title || a.detail}</li>
+                ))}
+              {!committeeCenter ? <li>Committee Center soft slice unavailable.</li> : null}
+              {committeeCenter &&
+              !(committeeCenter.upcoming_meetings || []).length &&
+              !(committeeCenter.latest_resolution?.required_actions || []).length ? (
+                <li>Run a committee review to populate the Committee Center.</li>
+              ) : null}
+            </ul>
+          </Glass>
+        </section>
+
+        {/* Portfolio Command Center — CIO-01 */}
+        <section className="space-y-3">
+          <Kicker>Portfolio Command Center · CIO-01</Kicker>
+          <p className="text-sm text-[var(--io-muted)] max-w-3xl">
+            Deterministic portfolio decisions — allocation drift, exposure drift, critical holdings,
+            and upcoming reviews. Company decisions remain immutable references.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            <Stat
+              label="Decision"
+              value={portfolioCommand?.portfolio_decision?.recommendation || '—'}
+              status={portfolioCommand?.status}
+              hint={
+                portfolioCommand?.portfolio_decision?.confidence != null
+                  ? `Confidence ${portfolioCommand.portfolio_decision.confidence}`
+                  : 'No decision cached'
+              }
+            />
+            <Stat label="Allocation drift" value={portfolioCommand?.allocation_drift ?? '—'} />
+            <Stat label="Exposure drift" value={portfolioCommand?.exposure_drift ?? '—'} />
+            <Stat
+              label="Critical holdings"
+              value={(portfolioCommand?.critical_holdings || []).length || '—'}
+            />
+            <Stat
+              label="Upcoming reviews"
+              value={(portfolioCommand?.upcoming_reviews || []).length || '—'}
+            />
+          </div>
+          <Glass>
+            <p className="text-[11px] uppercase text-[var(--io-caption)]">Critical holdings / reviews</p>
+            <ul className="mt-2 space-y-1 text-xs max-h-36 overflow-auto text-[var(--io-ink-soft)]">
+              {(portfolioCommand?.critical_holdings || []).slice(0, 6).map((t) => (
+                <li key={`ch-${t}`}>Holding: {t}</li>
+              ))}
+              {(portfolioCommand?.upcoming_reviews || []).slice(0, 6).map((t) => (
+                <li key={`ur-${t}`}>Review: {t}</li>
+              ))}
+              {!portfolioCommand ? <li>Portfolio Command Center soft slice unavailable.</li> : null}
+              {portfolioCommand &&
+              !(portfolioCommand.critical_holdings || []).length &&
+              !(portfolioCommand.upcoming_reviews || []).length ? (
+                <li>Run a portfolio decision to populate the command center.</li>
+              ) : null}
+            </ul>
+          </Glass>
+        </section>
+
+        {/* Portfolio Knowledge Graph — PKG-01 / Phase 4.1 */}
+        <section className="space-y-3">
+          <Kicker>Portfolio Knowledge Graph · PKG-01</Kicker>
+          <p className="text-sm text-[var(--io-muted)] max-w-3xl">
+            Phase 4.1 — Portfolio → Companies → Relationships. Soft board for Investment Office
+            portfolio intelligence (distinct from Portfolio Office holdings state).
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            <Stat
+              label="Status"
+              value={portfolioKnowledge?.status || '—'}
+              status={portfolioKnowledge?.status}
+            />
+            <Stat label="Entities" value={portfolioKnowledge?.entity_count ?? '—'} />
+            <Stat label="Relationships" value={portfolioKnowledge?.relationship_count ?? '—'} />
+            <Stat label="Holdings" value={portfolioKnowledge?.holding_count ?? '—'} />
+            <Stat
+              label="Avg ρ"
+              value={
+                portfolioKnowledge?.average_correlation != null
+                  ? Number(portfolioKnowledge.average_correlation).toFixed(2)
+                  : '—'
+              }
+              hint={portfolioKnowledge?.portfolio_name || 'No portfolio cached'}
+            />
+          </div>
+          <Glass>
+            <p className="text-[11px] uppercase text-[var(--io-caption)]">Sector exposures</p>
+            <ul className="mt-2 space-y-1 text-xs max-h-36 overflow-auto text-[var(--io-ink-soft)]">
+              {(portfolioKnowledge?.sector_exposures || []).slice(0, 8).map((e) => (
+                <li key={e.name}>
+                  {e.name}: {e.weight != null ? `${(Number(e.weight) * 100).toFixed(0)}%` : '—'}
+                </li>
+              ))}
+              {!portfolioKnowledge ? <li>Portfolio Knowledge Graph soft slice unavailable.</li> : null}
+              {portfolioKnowledge && !(portfolioKnowledge.sector_exposures || []).length ? (
+                <li>Build a portfolio graph to populate exposures.</li>              ) : null}
             </ul>
           </Glass>
         </section>

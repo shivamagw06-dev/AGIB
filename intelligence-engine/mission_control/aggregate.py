@@ -1656,6 +1656,142 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("institutional_observation")
     except Exception:
         out["institutional_observation"] = None
+
+    # PKG-01 / Phase 4.1 PO-01 — Portfolio Knowledge Graph.
+    try:
+        from institutional_portfolio.production import soft_slice_mission_control as pkg_soft
+
+        out["institutional_portfolio"] = pkg_soft()
+        out["sources"].append("institutional_portfolio")
+    except Exception:
+        out["institutional_portfolio"] = None
+
+    # PRE-01 — Institutional Portfolio Risk Engine (Risk Center).
+    try:
+        from institutional_portfolio_risk.production import soft_slice_mission_control as pre_soft
+
+        out["institutional_portfolio_risk"] = pre_soft()
+        out["sources"].append("institutional_portfolio_risk")
+    except Exception:
+        out["institutional_portfolio_risk"] = None
+
+    # PCE-01 — Institutional Policy & Constraint Engine (Policy Center).
+    try:
+        from institutional_policy.production import soft_slice_mission_control as pce_soft
+
+        out["institutional_policy"] = pce_soft()
+        out["sources"].append("institutional_policy")
+    except Exception:
+        out["institutional_policy"] = None
+
+    # CIO-01 — Institutional Portfolio Decision System (Portfolio Command Center).
+    try:
+        from institutional_portfolio_decision.production import soft_slice_mission_control as cio_soft
+
+        out["institutional_portfolio_decision"] = cio_soft()
+        out["sources"].append("institutional_portfolio_decision")
+    except Exception:
+        out["institutional_portfolio_decision"] = None
+
+    # ICE-01 — Investment Committee Engine (Committee Center).
+    try:
+        from institutional_committee.production import soft_slice_mission_control as ice_soft
+
+        out["institutional_committee"] = ice_soft()
+        out["sources"].append("institutional_committee")
+    except Exception:
+        out["institutional_committee"] = None
+
+    # UAG-01 — Universal Ask AGI Orchestrator (Orchestration Center).
+    try:
+        from institutional_orchestrator.production import soft_slice_mission_control as uag_soft
+
+        out["institutional_orchestrator"] = uag_soft()
+        out["sources"].append("institutional_orchestrator")
+    except Exception:
+        out["institutional_orchestrator"] = None
+
+    # RW-01 — Institutional Research Workspace (Workspace Health).
+    try:
+        from institutional_workspace.production import soft_slice_mission_control as rw_soft
+
+        out["institutional_workspace"] = rw_soft()
+        out["sources"].append("institutional_workspace")
+    except Exception:
+        out["institutional_workspace"] = None
+
+    # CCI-01 — Cross-Company Intelligence (Relationship Center).
+    try:
+        from institutional_cross_company.production import soft_slice_mission_control as cci_soft
+
+        out["institutional_cross_company"] = cci_soft()
+        out["sources"].append("institutional_cross_company")
+    except Exception:
+        out["institutional_cross_company"] = None
+
+    # PUB-01 — Publishing & Distribution (Publication Center).
+    try:
+        from institutional_publishing.production import soft_slice_mission_control as pub_soft
+
+        out["institutional_publishing"] = pub_soft()
+        out["sources"].append("institutional_publishing")
+    except Exception:
+        out["institutional_publishing"] = None
+
+    # MPC-01 — Multi-Portfolio & Client Platform (Platform Operations Center).
+    try:
+        from institutional_multi_portfolio.production import soft_slice_mission_control as mpc_soft
+
+        out["institutional_multi_portfolio"] = mpc_soft()
+        out["sources"].append("institutional_multi_portfolio")
+    except Exception:
+        out["institutional_multi_portfolio"] = None
+
+    # PRP-01 — Performance & Scale (Performance Center).
+    try:
+        from institutional_performance.production import soft_slice_mission_control as prp_soft
+
+        out["institutional_performance"] = prp_soft()
+        out["sources"].append("institutional_performance")
+    except Exception:
+        out["institutional_performance"] = None
+
+    # PRP-02 — Security & Governance (Security Center).
+    try:
+        from institutional_security.production import soft_slice_mission_control as sec_soft
+
+        out["institutional_security"] = sec_soft()
+        out["sources"].append("institutional_security")
+    except Exception:
+        out["institutional_security"] = None
+
+    # PRP-03 — Observability & Operations (Operations Center).
+    try:
+        from institutional_observability.production import soft_slice_mission_control as obs_soft
+
+        out["institutional_observability"] = obs_soft()
+        out["sources"].append("institutional_observability")
+    except Exception:
+        out["institutional_observability"] = None
+
+    # RC-01 — Architecture Conformance (Architecture Center).
+    try:
+        from institutional_architecture.production import soft_slice_mission_control as rc_soft
+
+        out["institutional_architecture"] = rc_soft()
+        out["sources"].append("institutional_architecture")
+    except Exception:
+        out["institutional_architecture"] = None
+
+    # L-01 — Launch Phase (Launch Center).
+    try:
+        from institutional_launch.production import soft_slice_mission_control as launch_soft
+
+        out["institutional_launch"] = launch_soft()
+        out["sources"].append("institutional_launch")
+    except Exception:
+        out["institutional_launch"] = None
+
     return out
 
 

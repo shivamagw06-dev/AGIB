@@ -10190,6 +10190,875 @@ async def institutional_observation_company_ticker(
         observe=True,
     )
 
+# --- PKG-01 / Phase 4.1 PO-01 Portfolio Knowledge Graph ---
+
+
+@router.get("/portfolio-graph/health")
+async def institutional_portfolio_graph_health():
+    from institutional_portfolio.production import health
+
+    return health()
+
+
+@router.post("/portfolio-graph")
+async def institutional_portfolio_graph_post(payload: dict[str, Any] = Body(default={})):
+    from institutional_portfolio.production import portfolio_graph_api
+
+    return portfolio_graph_api(payload or {})
+
+
+@router.get("/portfolio-graph/{portfolio_id}")
+async def institutional_portfolio_graph_get(
+    portfolio_id: str,
+    include_company_graphs: bool = True,
+):
+    from institutional_portfolio.production import get_portfolio_graph
+
+    return get_portfolio_graph(
+        portfolio_id,
+        rebuild=True,
+        include_company_graphs=include_company_graphs,
+    )
+
+
+@router.get("/portfolio-graph/{portfolio_id}/portfolio")
+async def institutional_portfolio_object_get(portfolio_id: str):
+    from institutional_portfolio.production import get_institutional_portfolio
+
+    return get_institutional_portfolio(portfolio_id)
+
+
+# --- CIO-01 Institutional Portfolio Decision System (referential; no company mutation) ---
+
+
+@router.get("/portfolio-decision/health")
+async def institutional_portfolio_decision_health():
+    from institutional_portfolio_decision.production import health
+
+    return health()
+
+
+@router.post("/portfolio-decision")
+async def institutional_portfolio_decision_post(payload: dict[str, Any] = Body(default={})):
+    from institutional_portfolio_decision.production import decide_portfolio
+
+    return decide_portfolio(payload or {})
+
+
+@router.get("/portfolio-decision/{portfolio_id}")
+async def institutional_portfolio_decision_get(
+    portfolio_id: str,
+    refresh: bool = True,
+    include_history: bool = False,
+):
+    from institutional_portfolio_decision.production import get_portfolio_decision
+
+    return get_portfolio_decision(
+        portfolio_id,
+        refresh=refresh,
+        include_history=include_history,
+    )
+
+
+# --- PRE-01 Institutional Portfolio Risk Engine (authoritative risk for CIO-01) ---
+
+
+@router.get("/portfolio-risk/health")
+async def institutional_portfolio_risk_health():
+    from institutional_portfolio_risk.production import health
+
+    return health()
+
+
+@router.post("/portfolio-risk")
+async def institutional_portfolio_risk_post(payload: dict[str, Any] = Body(default={})):
+    from institutional_portfolio_risk.production import evaluate_portfolio_risk
+
+    return evaluate_portfolio_risk(payload or {})
+
+
+@router.get("/portfolio-risk/{portfolio_id}")
+async def institutional_portfolio_risk_get(
+    portfolio_id: str,
+    refresh: bool = True,
+    include_history: bool = False,
+):
+    from institutional_portfolio_risk.production import get_portfolio_risk
+
+    return get_portfolio_risk(
+        portfolio_id,
+        refresh=refresh,
+        include_history=include_history,
+    )
+
+
+# --- PCE-01 Institutional Policy & Constraint Engine (mandate governance for CIO-01) ---
+
+
+@router.get("/policy/health")
+async def institutional_policy_health():
+    from institutional_policy.production import health
+
+    return health()
+
+
+@router.post("/policy/check")
+async def institutional_policy_check(payload: dict[str, Any] = Body(default={})):
+    from institutional_policy.production import check_policy
+
+    return check_policy(payload or {})
+
+
+@router.get("/policy/{portfolio_id}")
+async def institutional_policy_get(
+    portfolio_id: str,
+    policy: str = "family_office",
+    profile_id: str | None = None,
+    refresh: bool = True,
+    include_history: bool = False,
+):
+    from institutional_policy.production import get_policy_assessment
+
+    return get_policy_assessment(
+        portfolio_id,
+        profile_id=str(profile_id or policy or "family_office"),
+        refresh=refresh,
+        include_history=include_history,
+    )
+
+
+# --- ICE-01 Investment Committee Engine (governs CIO-01; does not mutate upstream) ---
+
+
+@router.get("/committee-engine/health")
+async def institutional_committee_engine_health():
+    from institutional_committee.production import health
+
+    return health()
+
+
+@router.post("/committee/review")
+async def institutional_committee_review(payload: dict[str, Any] = Body(default={})):
+    from institutional_committee.production import review_committee
+
+    return review_committee(payload or {})
+
+
+@router.get("/committee/pending")
+async def institutional_committee_pending():
+    from institutional_committee.production import get_pending
+
+    return get_pending()
+
+
+@router.get("/committee/resolution/{resolution_id}")
+async def institutional_committee_resolution_get(resolution_id: str):
+    from institutional_committee.production import get_resolution
+
+    return get_resolution(resolution_id)
+
+
+@router.get("/committee/portfolio/{portfolio_id}")
+async def institutional_committee_portfolio_get(
+    portfolio_id: str,
+    refresh: bool = True,
+):
+    from institutional_committee.production import get_portfolio_resolutions
+
+    return get_portfolio_resolutions(portfolio_id, refresh=refresh)
+
+
+# --- UAG-01 Universal Ask AGI Orchestrator (stateless; orchestration only) ---
+
+
+@router.get("/orchestrator/health")
+async def institutional_orchestrator_health():
+    from institutional_orchestrator.production import health
+
+    return health()
+
+
+@router.post("/ask")
+async def universal_ask_post(payload: dict[str, Any] = Body(default={})):
+    """UAG-01: orchestrate registered institutional objects. Does not generate recommendations."""
+    from institutional_orchestrator.production import ask
+
+    return ask(payload or {})
+
+
+@router.post("/ask/stream")
+async def universal_ask_stream(payload: dict[str, Any] = Body(default={})):
+    from institutional_orchestrator.production import ask_stream
+
+    # Structured event list (not LLM token stream)
+    return {"ok": True, "events": list(ask_stream(payload or {})), "stream": True}
+
+
+@router.get("/query/{query_id}")
+async def universal_ask_query_get(query_id: str):
+    from institutional_orchestrator.production import get_query
+
+    return get_query(query_id)
+
+
+# --- RW-01 Institutional Research Workspace (analyst workstation; presentation only) ---
+
+
+@router.get("/workspace/health")
+async def institutional_workspace_health():
+    from institutional_workspace.production import health
+
+    return health()
+
+
+@router.get("/workspace/company/{ticker}")
+async def institutional_workspace_company(ticker: str, focus: str = "overview"):
+    from institutional_workspace.production import get_company_workspace
+
+    return get_company_workspace(ticker, focus=focus)
+
+
+@router.get("/workspace/portfolio/{portfolio_id}")
+async def institutional_workspace_portfolio(portfolio_id: str, focus: str = "overview"):
+    from institutional_workspace.production import get_portfolio_workspace
+
+    return get_portfolio_workspace(portfolio_id, focus=focus)
+
+
+@router.get("/workspace/committee")
+async def institutional_workspace_committee():
+    from institutional_workspace.production import get_committee_workspace
+
+    return get_committee_workspace()
+
+
+@router.get("/workspace/object/{object_id}")
+async def institutional_workspace_object(object_id: str, object_type: str = ""):
+    from institutional_workspace.production import get_object
+
+    return get_object(object_id, object_type=object_type)
+
+
+@router.get("/workspace/timeline/{context_id}")
+async def institutional_workspace_timeline(context_id: str, context_type: str = "company"):
+    from institutional_workspace.production import get_timeline
+
+    return get_timeline(context_id, context=context_type)
+
+
+@router.get("/workspace/search")
+async def institutional_workspace_search(
+    q: str,
+    context_type: str = "company",
+    context_id: str = "AXISBANK",
+):
+    from institutional_workspace.production import search
+
+    return search(context_id, q, context=context_type)
+
+
+@router.post("/workspace/notes")
+async def institutional_workspace_notes(payload: dict[str, Any] = Body(default={})):
+    from institutional_workspace.production import add_analyst_note
+
+    return add_analyst_note(payload or {})
+
+
+# --- CCI-01 Cross-Company Intelligence (relationship reasoning over KG-01) ---
+
+
+@router.get("/relationships/health")
+async def cross_company_relationships_health():
+    from institutional_cross_company.production import health
+
+    return health()
+
+
+@router.get("/relationships/company/{ticker}")
+async def cross_company_relationships_company(ticker: str, portfolio_id: str = "agi-core-equity"):
+    from institutional_cross_company.production import get_company_relationships
+
+    return get_company_relationships(ticker, portfolio_id=portfolio_id)
+
+
+@router.get("/relationships/sector/{sector}")
+async def cross_company_relationships_sector(sector: str):
+    from institutional_cross_company.production import get_sector_relationships
+
+    return get_sector_relationships(sector)
+
+
+@router.get("/relationships/macro/{driver}")
+async def cross_company_relationships_macro(driver: str):
+    from institutional_cross_company.production import get_macro_relationships
+
+    return get_macro_relationships(driver)
+
+
+@router.post("/relationships/query")
+async def cross_company_relationships_query(payload: dict[str, Any] = Body(default={})):
+    from institutional_cross_company.production import query_relationships
+
+    return query_relationships(payload or {})
+
+
+@router.get("/relationships/similar/{ticker}")
+async def cross_company_relationships_similar(ticker: str):
+    from institutional_cross_company.production import get_similarity
+
+    return get_similarity(ticker)
+
+
+@router.get("/relationships/clusters")
+async def cross_company_relationships_clusters():
+    from institutional_cross_company.production import get_clusters
+
+    return get_clusters()
+
+
+@router.get("/relationships/propagate/{driver}")
+async def cross_company_relationships_propagate(driver: str):
+    from institutional_cross_company.production import get_propagation
+
+    return get_propagation(driver)
+
+
+# --- PUB-01 Publishing & Distribution (compose only; never analyzes) ---
+
+
+@router.get("/publications/health")
+async def institutional_publications_health():
+    from institutional_publishing.production import health
+
+    return health()
+
+
+@router.get("/publications/types")
+async def institutional_publications_types():
+    from institutional_publishing.production import list_types
+
+    return list_types()
+
+
+@router.get("/publications")
+async def institutional_publications_list(limit: int = 20):
+    from institutional_publishing.production import list_publications
+
+    return list_publications(limit=limit)
+
+
+@router.post("/publications/generate")
+async def institutional_publications_generate(payload: dict[str, Any] = Body(default={})):
+    from institutional_publishing.production import generate
+
+    return generate(payload or {})
+
+
+@router.get("/publications/{publication_id}")
+async def institutional_publications_get(publication_id: str):
+    from institutional_publishing.production import get_publication
+
+    return get_publication(publication_id)
+
+
+@router.post("/publications/export")
+async def institutional_publications_export(payload: dict[str, Any] = Body(default={})):
+    from institutional_publishing.production import export_publication
+
+    return export_publication(payload or {})
+
+
+# --- MPC-01 Multi-Portfolio & Client Platform (tenancy/workflow; intelligence global) ---
+
+
+@router.get("/platform/health")
+async def multi_portfolio_platform_health():
+    from institutional_multi_portfolio.production import health
+
+    return health()
+
+
+@router.get("/portfolios")
+async def multi_portfolio_list():
+    from institutional_multi_portfolio.production import list_portfolios_api
+
+    return list_portfolios_api()
+
+
+@router.post("/portfolios")
+async def multi_portfolio_create(payload: dict[str, Any] = Body(default={})):
+    from institutional_multi_portfolio.production import create_portfolio
+
+    return create_portfolio(payload or {})
+
+
+@router.get("/clients")
+async def multi_portfolio_clients():
+    from institutional_multi_portfolio.production import list_clients_api
+
+    return list_clients_api()
+
+
+@router.post("/clients")
+async def multi_portfolio_client_create(payload: dict[str, Any] = Body(default={})):
+    from institutional_multi_portfolio.production import create_client
+
+    return create_client(payload or {})
+
+
+@router.get("/workspaces/{workspace_id}")
+async def multi_portfolio_workspace_get(
+    workspace_id: str,
+    portfolio_id: str = "",
+    client_id: str = "",
+    role_id: str = "analyst",
+    user_id: str = "",
+    mandate_id: str = "",
+):
+    from institutional_multi_portfolio.production import get_workspace
+
+    return get_workspace(
+        workspace_id,
+        portfolio_id=portfolio_id,
+        client_id=client_id,
+        role_id=role_id,
+        user_id=user_id,
+        mandate_id=mandate_id,
+    )
+
+
+@router.post("/workspaces/resolve")
+async def multi_portfolio_workspace_resolve(payload: dict[str, Any] = Body(default={})):
+    from institutional_multi_portfolio.production import get_workspace
+
+    body = payload or {}
+    return get_workspace(
+        str(body.get("workspace_id") or ""),
+        portfolio_id=str(body.get("portfolio_id") or body.get("portfolio") or ""),
+        client_id=str(body.get("client_id") or ""),
+        role_id=str(body.get("role_id") or "analyst"),
+        user_id=str(body.get("user_id") or ""),
+        mandate_id=str(body.get("mandate_id") or ""),
+    )
+
+
+@router.post("/permissions")
+async def multi_portfolio_permissions(payload: dict[str, Any] = Body(default={})):
+    from institutional_multi_portfolio.production import set_permissions
+
+    return set_permissions(payload or {})
+
+
+@router.post("/platform/context")
+async def multi_portfolio_context(payload: dict[str, Any] = Body(default={})):
+    from institutional_multi_portfolio.production import resolve_context
+
+    return resolve_context(payload or {})
+
+
+@router.post("/platform/ask")
+async def multi_portfolio_ask(payload: dict[str, Any] = Body(default={})):
+    from institutional_multi_portfolio.production import ask_scoped
+
+    return ask_scoped(payload or {})
+
+
+# --- PRP-01 Performance & Scale (cache / queue / metrics / Performance Center) ---
+
+
+@router.get("/performance/health")
+async def performance_health():
+    from institutional_performance.production import health
+
+    return health()
+
+
+@router.get("/performance/metrics")
+async def performance_metrics():
+    from institutional_performance.production import metrics_api
+
+    return metrics_api()
+
+
+@router.get("/performance/cache")
+async def performance_cache_stats():
+    from institutional_performance.production import cache_stats
+
+    return cache_stats()
+
+
+@router.post("/performance/cache/get")
+async def performance_cache_get(payload: dict[str, Any] = Body(default={})):
+    from institutional_performance.production import cache_get_api
+
+    return cache_get_api(payload or {})
+
+
+@router.post("/performance/cache/set")
+async def performance_cache_set(payload: dict[str, Any] = Body(default={})):
+    from institutional_performance.production import cache_set_api
+
+    return cache_set_api(payload or {})
+
+
+@router.get("/performance/queue")
+async def performance_queue():
+    from institutional_performance.production import queue_stats_api
+
+    return queue_stats_api()
+
+
+@router.post("/performance/jobs")
+async def performance_enqueue(payload: dict[str, Any] = Body(default={})):
+    from institutional_performance.production import enqueue_job
+
+    return enqueue_job(payload or {})
+
+
+@router.get("/performance/jobs")
+async def performance_list_jobs(limit: int = 40):
+    from institutional_performance.production import list_jobs_api
+
+    return list_jobs_api(limit=limit)
+
+
+@router.get("/performance/jobs/{job_id}")
+async def performance_job(job_id: str):
+    from institutional_performance.production import get_job
+
+    return get_job(job_id)
+
+
+@router.post("/performance/graph/incremental")
+async def performance_graph_incremental(payload: dict[str, Any] = Body(default={})):
+    from institutional_performance.production import graph_incremental_api
+
+    return graph_incremental_api(payload or {})
+
+
+@router.post("/performance/parallel")
+async def performance_parallel(payload: dict[str, Any] = Body(default={})):
+    from institutional_performance.production import parallel_demo
+
+    return parallel_demo(payload or {})
+
+
+# --- PRP-02 Security & Governance (auth / authz / audit / tenant isolation) ---
+
+
+@router.get("/security/health")
+async def security_health():
+    from institutional_security.production import health
+
+    return health()
+
+
+@router.post("/auth/login")
+async def auth_login(payload: dict[str, Any] = Body(default={})):
+    from institutional_security.production import login
+
+    return login(payload or {})
+
+
+@router.post("/auth/logout")
+async def auth_logout(payload: dict[str, Any] = Body(default={})):
+    from institutional_security.production import logout
+
+    return logout(payload or {})
+
+
+@router.post("/auth/refresh")
+async def auth_refresh(payload: dict[str, Any] = Body(default={})):
+    from institutional_security.production import refresh
+
+    return refresh(payload or {})
+
+
+@router.get("/security/context")
+async def security_context_get(
+    session_id: str = "",
+    user_id: str = "",
+    tenant_id: str = "",
+    correlation_id: str = "",
+):
+    from institutional_security.production import get_context
+
+    return get_context(
+        {
+            "session_id": session_id,
+            "user_id": user_id,
+            "tenant_id": tenant_id,
+            "correlation_id": correlation_id,
+        }
+    )
+
+
+@router.post("/security/context")
+async def security_context_post(payload: dict[str, Any] = Body(default={})):
+    from institutional_security.production import get_context
+
+    return get_context(payload or {})
+
+
+@router.get("/security/audit")
+async def security_audit_get(
+    limit: int = 50,
+    tenant_id: str = "",
+    user_id: str = "",
+    action: str = "",
+    correlation_id: str = "",
+    session_id: str = "",
+):
+    from institutional_security.production import list_audit
+
+    return list_audit(
+        {
+            "limit": limit,
+            "tenant_id": tenant_id,
+            "user_id": user_id,
+            "action": action,
+            "correlation_id": correlation_id,
+            "session_id": session_id,
+        }
+    )
+
+
+@router.post("/security/audit")
+async def security_audit_post(payload: dict[str, Any] = Body(default={})):
+    from institutional_security.production import list_audit
+
+    return list_audit(payload or {})
+
+
+@router.post("/security/api-keys")
+async def security_api_keys_create(payload: dict[str, Any] = Body(default={})):
+    from institutional_security.production import create_api_key
+
+    return create_api_key(payload or {})
+
+
+@router.delete("/security/api-keys/{api_key_id}")
+async def security_api_keys_revoke(api_key_id: str, payload: dict[str, Any] = Body(default={})):
+    from institutional_security.production import revoke_api_key
+
+    return revoke_api_key(api_key_id, payload or {})
+
+
+@router.get("/security/roles")
+async def security_roles():
+    from institutional_security.production import roles_api
+
+    return roles_api()
+
+
+@router.get("/security/permissions")
+async def security_permissions():
+    from institutional_security.production import permissions_api
+
+    return permissions_api()
+
+
+@router.post("/security/permissions/grant")
+async def security_permissions_grant(payload: dict[str, Any] = Body(default={})):
+    from institutional_security.production import grant_permissions
+
+    return grant_permissions(payload or {})
+
+
+@router.get("/security/tenants")
+async def security_tenants():
+    from institutional_security.production import tenants_api
+
+    return tenants_api()
+
+
+# --- PRP-03 Observability & Operations (tracing / metrics / health / alerts) ---
+
+
+@router.get("/ops/health")
+async def ops_health():
+    from institutional_observability.production import ops_health as _ops_health
+
+    return _ops_health()
+
+
+@router.get("/observability/health")
+async def observability_health():
+    from institutional_observability.production import health
+
+    return health()
+
+
+@router.get("/ops/metrics")
+async def ops_metrics():
+    from institutional_observability.production import ops_metrics as _ops_metrics
+
+    return _ops_metrics()
+
+
+@router.get("/ops/traces/{trace_id}")
+async def ops_trace(trace_id: str):
+    from institutional_observability.production import ops_trace as _ops_trace
+
+    return _ops_trace(trace_id)
+
+
+@router.get("/ops/service-map")
+async def ops_service_map():
+    from institutional_observability.production import ops_service_map as _ops_map
+
+    return _ops_map()
+
+
+@router.get("/ops/alerts")
+async def ops_alerts():
+    from institutional_observability.production import ops_alerts as _ops_alerts
+
+    return _ops_alerts()
+
+
+@router.get("/ops/dependencies")
+async def ops_dependencies():
+    from institutional_observability.production import ops_dependencies as _ops_deps
+
+    return _ops_deps()
+
+
+@router.get("/ops/logs")
+async def ops_logs(
+    limit: int = 50,
+    severity: str = "",
+    correlation_id: str = "",
+    component: str = "",
+):
+    from institutional_observability.production import ops_logs as _ops_logs
+
+    return _ops_logs(
+        {
+            "limit": limit,
+            "severity": severity,
+            "correlation_id": correlation_id,
+            "component": component,
+        }
+    )
+
+
+# --- RC-01 Architecture Conformance & Release Candidate ---
+
+
+@router.get("/architecture/health")
+async def architecture_health():
+    from institutional_architecture.production import health
+
+    return health()
+
+
+@router.post("/architecture/conformance")
+async def architecture_conformance(payload: dict[str, Any] = Body(default={})):
+    from institutional_architecture.production import run
+
+    return run(payload or {})
+
+
+@router.get("/architecture/conformance")
+async def architecture_conformance_get(force: bool = False):
+    from institutional_architecture.production import run
+
+    return run({"force": force})
+
+
+@router.get("/architecture/report")
+async def architecture_report():
+    from institutional_architecture.production import report_api
+
+    return report_api()
+
+
+@router.get("/architecture/violations")
+async def architecture_violations():
+    from institutional_architecture.production import violations_api
+
+    return violations_api()
+
+
+# --- L-01 Launch Phase (usage analytics / feedback / SLAs / feature flags) ---
+
+
+@router.get("/launch/health")
+async def launch_health():
+    from institutional_launch.production import health
+
+    return health()
+
+
+@router.get("/launch/metrics")
+async def launch_metrics():
+    from institutional_launch.production import metrics_api
+
+    return metrics_api()
+
+
+@router.get("/launch/funnel")
+async def launch_funnel():
+    from institutional_launch.production import funnel_api
+
+    return funnel_api()
+
+
+@router.post("/launch/events")
+async def launch_events(payload: dict[str, Any] = Body(default={})):
+    from institutional_launch.production import track_event
+
+    return track_event(payload or {})
+
+
+@router.post("/launch/journey")
+async def launch_journey(payload: dict[str, Any] = Body(default={})):
+    from institutional_launch.production import track_journey
+
+    return track_journey(payload or {})
+
+
+@router.post("/launch/feedback")
+async def launch_feedback_submit(payload: dict[str, Any] = Body(default={})):
+    from institutional_launch.production import feedback_submit_api
+
+    return feedback_submit_api(payload or {})
+
+
+@router.get("/launch/feedback")
+async def launch_feedback_list(limit: int = 40):
+    from institutional_launch.production import feedback_list_api
+
+    return feedback_list_api(limit=limit)
+
+
+@router.get("/launch/flags")
+async def launch_flags():
+    from institutional_launch.production import flags_api
+
+    return flags_api()
+
+
+@router.post("/launch/flags")
+async def launch_flags_set(payload: dict[str, Any] = Body(default={})):
+    from institutional_launch.production import flag_set_api
+
+    return flag_set_api(payload or {})
+
+
+@router.get("/launch/sla")
+async def launch_sla():
+    from institutional_launch.production import sla_api
+
+    return sla_api()
+
+
+@router.get("/launch/report")
+async def launch_report():
+    from institutional_launch.production import report_api
+
+    return report_api()
 
 # --- Company Monitoring System V1 (continuous living analyst; additive) ---
 

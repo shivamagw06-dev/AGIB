@@ -5,6 +5,7 @@ import AskAgiProductPage from './AskAgiProductPage';
 import CompaniesIndexPage from './CompaniesIndexPage';
 import CompanyWorkspacePage from './CompanyWorkspacePage';
 import PortfolioWorkspacePage from './PortfolioWorkspacePage';
+import CommitteePage from './CommitteePage';
 import MarketsWorkspacePage from './MarketsWorkspacePage';
 import ResearchWorkspacePage from './ResearchWorkspacePage';
 import WatchlistsWorkspacePage from './WatchlistsWorkspacePage';
@@ -20,6 +21,7 @@ export default function AgiRoutes() {
         <Route path="companies" element={<CompaniesIndexPage />} />
         <Route path="companies/:ticker" element={<CompanyWorkspacePage />} />
         <Route path="portfolio" element={<PortfolioWorkspacePage />} />
+        <Route path="committee" element={<CommitteePage />} />
         <Route path="markets" element={<MarketsWorkspacePage />} />
         <Route path="research" element={<ResearchWorkspacePage />} />
         <Route path="watchlists" element={<WatchlistsWorkspacePage />} />

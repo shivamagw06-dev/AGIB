@@ -2729,6 +2729,1141 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // PKG-01 / Phase 4.1 PO-01 — Portfolio Knowledge Graph
+  router.get('/portfolio-graph/health', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/portfolio-graph/health', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'portfolio graph health failed' });
+    }
+  });
+  router.post('/portfolio-graph', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/portfolio-graph', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 60_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'portfolio graph failed' });
+    }
+  });
+  router.get('/portfolio-graph/:portfolioId', async (req, res) => {
+    try {
+      const qs = new URLSearchParams();
+      if (req.query?.include_company_graphs !== undefined) {
+        qs.set('include_company_graphs', String(req.query.include_company_graphs));
+      }
+      const suffix = qs.toString() ? `?${qs}` : '';
+      const result = await engineFetch(
+        `/v1/portfolio-graph/${encodeURIComponent(req.params.portfolioId)}${suffix}`,
+        { timeoutMs: 60_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'portfolio graph get failed' });
+    }
+  });
+  router.get('/portfolio-graph/:portfolioId/portfolio', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/portfolio-graph/${encodeURIComponent(req.params.portfolioId)}/portfolio`,
+        { timeoutMs: 60_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'institutional portfolio get failed' });
+    }
+  });
+
+  // CIO-01 — Institutional Portfolio Decision System
+  router.get('/portfolio-decision/health', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/portfolio-decision/health', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'portfolio decision health failed' });
+    }
+  });
+  router.post('/portfolio-decision', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/portfolio-decision', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 60_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'portfolio decision failed' });
+    }
+  });
+  router.get('/portfolio-decision/:portfolioId', async (req, res) => {
+    try {
+      const qs = new URLSearchParams();
+      if (req.query?.refresh !== undefined) qs.set('refresh', String(req.query.refresh));
+      if (req.query?.include_history !== undefined) {
+        qs.set('include_history', String(req.query.include_history));
+      }
+      const suffix = qs.toString() ? `?${qs}` : '';
+      const result = await engineFetch(
+        `/v1/portfolio-decision/${encodeURIComponent(req.params.portfolioId)}${suffix}`,
+        { timeoutMs: 60_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'portfolio decision get failed' });
+    }
+  });
+
+  // PRE-01 — Institutional Portfolio Risk Engine
+  router.get('/portfolio-risk/health', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/portfolio-risk/health', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'portfolio risk health failed' });
+    }
+  });
+  router.post('/portfolio-risk', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/portfolio-risk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 60_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'portfolio risk failed' });
+    }
+  });
+  router.get('/portfolio-risk/:portfolioId', async (req, res) => {
+    try {
+      const qs = new URLSearchParams();
+      if (req.query?.refresh !== undefined) qs.set('refresh', String(req.query.refresh));
+      if (req.query?.include_history !== undefined) {
+        qs.set('include_history', String(req.query.include_history));
+      }
+      const suffix = qs.toString() ? `?${qs}` : '';
+      const result = await engineFetch(
+        `/v1/portfolio-risk/${encodeURIComponent(req.params.portfolioId)}${suffix}`,
+        { timeoutMs: 60_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'portfolio risk get failed' });
+    }
+  });
+
+  // PCE-01 — Institutional Policy & Constraint Engine
+  router.get('/policy/health', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/policy/health', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'policy health failed' });
+    }
+  });
+  router.post('/policy/check', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/policy/check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 60_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'policy check failed' });
+    }
+  });
+  router.get('/policy/:portfolioId', async (req, res) => {
+    try {
+      const qs = new URLSearchParams();
+      if (req.query?.refresh !== undefined) qs.set('refresh', String(req.query.refresh));
+      if (req.query?.include_history !== undefined) {
+        qs.set('include_history', String(req.query.include_history));
+      }
+      if (req.query?.policy !== undefined) qs.set('policy', String(req.query.policy));
+      if (req.query?.profile_id !== undefined) qs.set('profile_id', String(req.query.profile_id));
+      const suffix = qs.toString() ? `?${qs}` : '';
+      const result = await engineFetch(
+        `/v1/policy/${encodeURIComponent(req.params.portfolioId)}${suffix}`,
+        { timeoutMs: 60_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'policy get failed' });
+    }
+  });
+
+  // UAG-01 — Universal Ask AGI Orchestrator
+  router.get('/orchestrator/health', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/orchestrator/health', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'orchestrator health failed' });
+    }
+  });
+  router.post('/ask', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/ask', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 90_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'universal ask failed' });
+    }
+  });
+  router.post('/ask/stream', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/ask/stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 90_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'universal ask stream failed' });
+    }
+  });
+  router.get('/query/:queryId', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/query/${encodeURIComponent(req.params.queryId)}`,
+        { timeoutMs: 30_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'query get failed' });
+    }
+  });
+
+  // RW-01 — Institutional Research Workspace
+  router.get('/workspace/health', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/workspace/health', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'workspace health failed' });
+    }
+  });
+  router.get('/workspace/company/:ticker', async (req, res) => {
+    try {
+      const qs = new URLSearchParams();
+      if (req.query.focus) qs.set('focus', String(req.query.focus));
+      const suffix = qs.toString() ? `?${qs}` : '';
+      const result = await engineFetch(
+        `/v1/workspace/company/${encodeURIComponent(req.params.ticker)}${suffix}`,
+        { timeoutMs: 60_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'company workspace failed' });
+    }
+  });
+  router.get('/workspace/portfolio/:id', async (req, res) => {
+    try {
+      const qs = new URLSearchParams();
+      if (req.query.focus) qs.set('focus', String(req.query.focus));
+      const suffix = qs.toString() ? `?${qs}` : '';
+      const result = await engineFetch(
+        `/v1/workspace/portfolio/${encodeURIComponent(req.params.id)}${suffix}`,
+        { timeoutMs: 60_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'portfolio workspace failed' });
+    }
+  });
+  router.get('/workspace/object/:id', async (req, res) => {
+    try {
+      const qs = new URLSearchParams();
+      if (req.query.object_type) qs.set('object_type', String(req.query.object_type));
+      const suffix = qs.toString() ? `?${qs}` : '';
+      const result = await engineFetch(
+        `/v1/workspace/object/${encodeURIComponent(req.params.id)}${suffix}`,
+        { timeoutMs: 30_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'workspace object failed' });
+    }
+  });
+  router.get('/workspace/timeline/:id', async (req, res) => {
+    try {
+      const qs = new URLSearchParams();
+      if (req.query.context_type) qs.set('context_type', String(req.query.context_type));
+      const suffix = qs.toString() ? `?${qs}` : '';
+      const result = await engineFetch(
+        `/v1/workspace/timeline/${encodeURIComponent(req.params.id)}${suffix}`,
+        { timeoutMs: 60_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'workspace timeline failed' });
+    }
+  });
+  router.get('/workspace/search', async (req, res) => {
+    try {
+      const qs = new URLSearchParams();
+      if (req.query.q) qs.set('q', String(req.query.q));
+      if (req.query.context_type) qs.set('context_type', String(req.query.context_type));
+      if (req.query.context_id) qs.set('context_id', String(req.query.context_id));
+      const result = await engineFetch(`/v1/workspace/search?${qs}`, { timeoutMs: 30_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'workspace search failed' });
+    }
+  });
+  router.post('/workspace/notes', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/workspace/notes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 30_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'workspace notes failed' });
+    }
+  });
+
+  // CCI-01 — Cross-Company Intelligence
+  router.get('/relationships/health', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/relationships/health', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'relationships health failed' });
+    }
+  });
+  router.get('/relationships/company/:ticker', async (req, res) => {
+    try {
+      const qs = new URLSearchParams();
+      if (req.query.portfolio_id) qs.set('portfolio_id', String(req.query.portfolio_id));
+      const suffix = qs.toString() ? `?${qs}` : '';
+      const result = await engineFetch(
+        `/v1/relationships/company/${encodeURIComponent(req.params.ticker)}${suffix}`,
+        { timeoutMs: 60_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'company relationships failed' });
+    }
+  });
+  router.get('/relationships/sector/:sector', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/relationships/sector/${encodeURIComponent(req.params.sector)}`,
+        { timeoutMs: 60_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'sector relationships failed' });
+    }
+  });
+  router.get('/relationships/macro/:driver', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/relationships/macro/${encodeURIComponent(req.params.driver)}`,
+        { timeoutMs: 60_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'macro relationships failed' });
+    }
+  });
+  router.post('/relationships/query', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/relationships/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 90_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'relationships query failed' });
+    }
+  });
+  router.get('/relationships/similar/:ticker', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/relationships/similar/${encodeURIComponent(req.params.ticker)}`,
+        { timeoutMs: 30_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'similarity failed' });
+    }
+  });
+  router.get('/relationships/clusters', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/relationships/clusters', { timeoutMs: 30_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'clusters failed' });
+    }
+  });
+
+  // PUB-01 — Publishing & Distribution
+  router.get('/publications/health', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/publications/health', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'publications health failed' });
+    }
+  });
+  router.get('/publications/types', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/publications/types', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'publications types failed' });
+    }
+  });
+  router.get('/publications', async (req, res) => {
+    try {
+      const qs = new URLSearchParams();
+      if (req.query.limit) qs.set('limit', String(req.query.limit));
+      const suffix = qs.toString() ? `?${qs}` : '';
+      const result = await engineFetch(`/v1/publications${suffix}`, { timeoutMs: 30_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'publications list failed' });
+    }
+  });
+  router.post('/publications/generate', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/publications/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 90_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'publications generate failed' });
+    }
+  });
+  router.get('/publications/:id', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/publications/${encodeURIComponent(req.params.id)}`,
+        { timeoutMs: 30_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'publication get failed' });
+    }
+  });
+  router.post('/publications/export', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/publications/export', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 90_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'publications export failed' });
+    }
+  });
+
+  // MPC-01 — Multi-Portfolio & Client Platform
+  router.get('/platform/health', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/platform/health', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'platform health failed' });
+    }
+  });
+  router.get('/portfolios', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/portfolios', { timeoutMs: 30_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'portfolios list failed' });
+    }
+  });
+  router.post('/portfolios', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/portfolios', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 30_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'portfolio create failed' });
+    }
+  });
+  router.get('/clients', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/clients', { timeoutMs: 30_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'clients list failed' });
+    }
+  });
+  router.post('/clients', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/clients', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 30_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'client create failed' });
+    }
+  });
+  router.get('/workspaces/:id', async (req, res) => {
+    try {
+      const qs = new URLSearchParams();
+      for (const k of ['portfolio_id', 'client_id', 'role_id', 'user_id', 'mandate_id']) {
+        if (req.query[k]) qs.set(k, String(req.query[k]));
+      }
+      const suffix = qs.toString() ? `?${qs}` : '';
+      const result = await engineFetch(
+        `/v1/workspaces/${encodeURIComponent(req.params.id)}${suffix}`,
+        { timeoutMs: 30_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'workspace get failed' });
+    }
+  });
+  router.post('/workspaces/resolve', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/workspaces/resolve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 30_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'workspace resolve failed' });
+    }
+  });
+  router.post('/permissions', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/permissions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 30_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'permissions failed' });
+    }
+  });
+  router.post('/platform/context', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/platform/context', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 30_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'platform context failed' });
+    }
+  });
+  router.post('/platform/ask', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/platform/ask', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 90_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'platform ask failed' });
+    }
+  });
+
+  // PRP-01 — Performance & Scale
+  router.get('/performance/health', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/performance/health', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'performance health failed' });
+    }
+  });
+  router.get('/performance/metrics', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/performance/metrics', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'performance metrics failed' });
+    }
+  });
+  router.get('/performance/cache', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/performance/cache', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'performance cache failed' });
+    }
+  });
+  router.post('/performance/cache/get', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/performance/cache/get', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 20_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'performance cache get failed' });
+    }
+  });
+  router.post('/performance/cache/set', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/performance/cache/set', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 20_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'performance cache set failed' });
+    }
+  });
+  router.get('/performance/queue', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/performance/queue', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'performance queue failed' });
+    }
+  });
+  router.get('/performance/jobs', async (req, res) => {
+    try {
+      const qs = new URLSearchParams();
+      if (req.query.limit) qs.set('limit', String(req.query.limit));
+      const suffix = qs.toString() ? `?${qs}` : '';
+      const result = await engineFetch(`/v1/performance/jobs${suffix}`, { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'performance jobs list failed' });
+    }
+  });
+  router.post('/performance/jobs', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/performance/jobs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 30_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'performance job enqueue failed' });
+    }
+  });
+  router.get('/performance/jobs/:jobId', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/performance/jobs/${encodeURIComponent(req.params.jobId)}`,
+        { timeoutMs: 20_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'performance job get failed' });
+    }
+  });
+  router.post('/performance/graph/incremental', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/performance/graph/incremental', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 30_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'graph incremental failed' });
+    }
+  });
+  router.post('/performance/parallel', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/performance/parallel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 30_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'performance parallel failed' });
+    }
+  });
+
+  // PRP-02 — Security & Governance
+  router.get('/security/health', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/security/health', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'security health failed' });
+    }
+  });
+  router.post('/auth/login', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 30_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'auth login failed' });
+    }
+  });
+  router.post('/auth/logout', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/auth/logout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 20_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'auth logout failed' });
+    }
+  });
+  router.post('/auth/refresh', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/auth/refresh', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 20_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'auth refresh failed' });
+    }
+  });
+  router.get('/security/context', async (req, res) => {
+    try {
+      const qs = new URLSearchParams();
+      for (const k of ['session_id', 'user_id', 'tenant_id', 'correlation_id']) {
+        if (req.query[k]) qs.set(k, String(req.query[k]));
+      }
+      const suffix = qs.toString() ? `?${qs}` : '';
+      const result = await engineFetch(`/v1/security/context${suffix}`, { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'security context failed' });
+    }
+  });
+  router.post('/security/context', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/security/context', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 20_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'security context failed' });
+    }
+  });
+  router.get('/security/audit', async (req, res) => {
+    try {
+      const qs = new URLSearchParams();
+      for (const k of ['limit', 'tenant_id', 'user_id', 'action', 'correlation_id', 'session_id']) {
+        if (req.query[k]) qs.set(k, String(req.query[k]));
+      }
+      const suffix = qs.toString() ? `?${qs}` : '';
+      const result = await engineFetch(`/v1/security/audit${suffix}`, { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'security audit failed' });
+    }
+  });
+  router.post('/security/audit', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/security/audit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 20_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'security audit failed' });
+    }
+  });
+  router.post('/security/api-keys', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/security/api-keys', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 30_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'api key create failed' });
+    }
+  });
+  router.delete('/security/api-keys/:id', async (req, res) => {
+    try {
+      const result = await engineFetch(`/v1/security/api-keys/${encodeURIComponent(req.params.id)}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 20_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'api key revoke failed' });
+    }
+  });
+  router.get('/security/roles', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/security/roles', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'security roles failed' });
+    }
+  });
+  router.get('/security/permissions', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/security/permissions', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'security permissions failed' });
+    }
+  });
+  router.get('/security/tenants', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/security/tenants', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'security tenants failed' });
+    }
+  });
+
+  // PRP-03 — Observability & Operations
+  router.get('/ops/health', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/ops/health', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'ops health failed' });
+    }
+  });
+  router.get('/observability/health', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/observability/health', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'observability health failed' });
+    }
+  });
+  router.get('/ops/metrics', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/ops/metrics', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'ops metrics failed' });
+    }
+  });
+  router.get('/ops/traces/:traceId', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/ops/traces/${encodeURIComponent(req.params.traceId)}`,
+        { timeoutMs: 20_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'ops trace failed' });
+    }
+  });
+  router.get('/ops/service-map', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/ops/service-map', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'ops service-map failed' });
+    }
+  });
+  router.get('/ops/alerts', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/ops/alerts', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'ops alerts failed' });
+    }
+  });
+  router.get('/ops/dependencies', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/ops/dependencies', { timeoutMs: 30_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'ops dependencies failed' });
+    }
+  });
+  router.get('/ops/logs', async (req, res) => {
+    try {
+      const qs = new URLSearchParams();
+      for (const k of ['limit', 'severity', 'correlation_id', 'component']) {
+        if (req.query[k]) qs.set(k, String(req.query[k]));
+      }
+      const suffix = qs.toString() ? `?${qs}` : '';
+      const result = await engineFetch(`/v1/ops/logs${suffix}`, { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'ops logs failed' });
+    }
+  });
+
+  // RC-01 — Architecture Conformance & Release Candidate
+  router.get('/architecture/health', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/architecture/health', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'architecture health failed' });
+    }
+  });
+  router.get('/architecture/conformance', async (req, res) => {
+    try {
+      const qs = req.query.force ? '?force=true' : '';
+      const result = await engineFetch(`/v1/architecture/conformance${qs}`, { timeoutMs: 90_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'architecture conformance failed' });
+    }
+  });
+  router.post('/architecture/conformance', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/architecture/conformance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 90_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'architecture conformance failed' });
+    }
+  });
+  router.get('/architecture/report', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/architecture/report', { timeoutMs: 90_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'architecture report failed' });
+    }
+  });
+  router.get('/architecture/violations', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/architecture/violations', { timeoutMs: 90_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'architecture violations failed' });
+    }
+  });
+
+  // L-01 — Launch Phase
+  router.get('/launch/health', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/launch/health', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'launch health failed' });
+    }
+  });
+  router.get('/launch/metrics', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/launch/metrics', { timeoutMs: 30_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'launch metrics failed' });
+    }
+  });
+  router.get('/launch/funnel', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/launch/funnel', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'launch funnel failed' });
+    }
+  });
+  router.post('/launch/events', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/launch/events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 20_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'launch event failed' });
+    }
+  });
+  router.post('/launch/journey', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/launch/journey', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 20_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'launch journey failed' });
+    }
+  });
+  router.post('/launch/feedback', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/launch/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 20_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'launch feedback failed' });
+    }
+  });
+  router.get('/launch/feedback', async (req, res) => {
+    try {
+      const qs = req.query.limit ? `?limit=${encodeURIComponent(String(req.query.limit))}` : '';
+      const result = await engineFetch(`/v1/launch/feedback${qs}`, { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'launch feedback list failed' });
+    }
+  });
+  router.get('/launch/flags', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/launch/flags', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'launch flags failed' });
+    }
+  });
+  router.post('/launch/flags', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/launch/flags', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 20_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'launch flag set failed' });
+    }
+  });
+  router.get('/launch/sla', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/launch/sla', { timeoutMs: 30_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'launch sla failed' });
+    }
+  });
+  router.get('/launch/report', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/launch/report', { timeoutMs: 60_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'launch report failed' });
+    }
+  });
+
+  // ICE-01 — Investment Committee Engine
+  router.get('/committee-engine/health', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/committee-engine/health', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'committee engine health failed' });
+    }
+  });
+  router.post('/committee/review', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/committee/review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 90_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'committee review failed' });
+    }
+  });
+  router.get('/committee/pending', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/committee/pending', { timeoutMs: 30_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'committee pending failed' });
+    }
+  });
+  router.get('/committee/resolution/:resolutionId', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/committee/resolution/${encodeURIComponent(req.params.resolutionId)}`,
+        { timeoutMs: 30_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'committee resolution get failed' });
+    }
+  });
+  router.get('/committee/portfolio/:portfolioId', async (req, res) => {
+    try {
+      const qs = new URLSearchParams();
+      if (req.query?.refresh !== undefined) qs.set('refresh', String(req.query.refresh));
+      const suffix = qs.toString() ? `?${qs}` : '';
+      const result = await engineFetch(
+        `/v1/committee/portfolio/${encodeURIComponent(req.params.portfolioId)}${suffix}`,
+        { timeoutMs: 90_000 }
+      );
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'committee portfolio get failed' });
+    }
+  });
+
   // IDS-02 — Decision Calibration & Explainability
   router.get('/calibration/health', async (_req, res) => {
     try {

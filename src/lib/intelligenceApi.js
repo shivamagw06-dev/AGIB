@@ -1202,6 +1202,355 @@ export const getInstitutionalGraph = (
   });
 };
 
+/** PKG-01 / Phase 4.1 PO-01 — Portfolio Knowledge Graph */
+export const getPortfolioGraphHealth = () =>
+  intelligenceFetch('/portfolio-graph/health', { timeoutMs: 30_000 });
+export const composePortfolioGraph = (body = {}) =>
+  intelligenceFetch('/portfolio-graph', { method: 'POST', body: body || {}, timeoutMs: 60_000 });
+export const getPortfolioGraph = (portfolioId = 'agi-core-equity', { includeCompanyGraphs = true } = {}) => {
+  const qs = new URLSearchParams();
+  if (includeCompanyGraphs) qs.set('include_company_graphs', 'true');
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return intelligenceFetch(`/portfolio-graph/${encodeURIComponent(portfolioId)}${suffix}`, {
+    timeoutMs: 60_000,
+  });
+};
+export const getInstitutionalPortfolioObject = (portfolioId = 'agi-core-equity') =>
+  intelligenceFetch(`/portfolio-graph/${encodeURIComponent(portfolioId)}/portfolio`, {
+    timeoutMs: 60_000,
+  });
+
+/** CIO-01 — Institutional Portfolio Decision System */
+export const getPortfolioDecisionHealth = () =>
+  intelligenceFetch('/portfolio-decision/health', { timeoutMs: 30_000 });
+export const composePortfolioDecision = (body = {}) =>
+  intelligenceFetch('/portfolio-decision', { method: 'POST', body: body || {}, timeoutMs: 60_000 });
+export const getPortfolioDecision = (
+  portfolioId = 'agi-core-equity',
+  { refresh = true, includeHistory = false } = {}
+) => {
+  const qs = new URLSearchParams();
+  if (refresh) qs.set('refresh', 'true');
+  if (includeHistory) qs.set('include_history', 'true');
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return intelligenceFetch(`/portfolio-decision/${encodeURIComponent(portfolioId)}${suffix}`, {
+    timeoutMs: 60_000,
+  });
+};
+
+/** PRE-01 — Institutional Portfolio Risk Engine */
+export const getPortfolioRiskHealth = () =>
+  intelligenceFetch('/portfolio-risk/health', { timeoutMs: 30_000 });
+export const composePortfolioRisk = (body = {}) =>
+  intelligenceFetch('/portfolio-risk', { method: 'POST', body: body || {}, timeoutMs: 60_000 });
+export const getPortfolioRisk = (
+  portfolioId = 'agi-core-equity',
+  { refresh = true, includeHistory = false } = {}
+) => {
+  const qs = new URLSearchParams();
+  if (refresh) qs.set('refresh', 'true');
+  if (includeHistory) qs.set('include_history', 'true');
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return intelligenceFetch(`/portfolio-risk/${encodeURIComponent(portfolioId)}${suffix}`, {
+    timeoutMs: 60_000,
+  });
+};
+
+/** PCE-01 — Institutional Policy & Constraint Engine */
+export const getPolicyHealth = () => intelligenceFetch('/policy/health', { timeoutMs: 30_000 });
+export const checkPortfolioPolicy = (body = {}) =>
+  intelligenceFetch('/policy/check', { method: 'POST', body: body || {}, timeoutMs: 60_000 });
+export const getPortfolioPolicy = (
+  portfolioId = 'agi-core-equity',
+  { refresh = true, includeHistory = false, policy = 'family_office' } = {}
+) => {
+  const qs = new URLSearchParams();
+  if (refresh) qs.set('refresh', 'true');
+  if (includeHistory) qs.set('include_history', 'true');
+  if (policy) qs.set('policy', policy);
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return intelligenceFetch(`/policy/${encodeURIComponent(portfolioId)}${suffix}`, {
+    timeoutMs: 60_000,
+  });
+};
+
+/** UAG-01 — Universal Ask AGI Orchestrator */
+export const getOrchestratorHealth = () =>
+  intelligenceFetch('/orchestrator/health', { timeoutMs: 30_000 });
+export const universalAsk = (body = {}) =>
+  intelligenceFetch('/ask', { method: 'POST', body: body || {}, timeoutMs: 90_000 });
+export const universalAskStream = (body = {}) =>
+  intelligenceFetch('/ask/stream', { method: 'POST', body: body || {}, timeoutMs: 90_000 });
+export const getUniversalQuery = (queryId) =>
+  intelligenceFetch(`/query/${encodeURIComponent(queryId)}`, { timeoutMs: 30_000 });
+
+/** RW-01 — Institutional Research Workspace */
+export const getResearchWorkspaceHealth = () =>
+  intelligenceFetch('/workspace/health', { timeoutMs: 30_000 });
+export const getResearchWorkspaceCompany = (ticker, { focus = 'overview' } = {}) => {
+  const qs = new URLSearchParams();
+  if (focus) qs.set('focus', focus);
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return intelligenceFetch(
+    `/workspace/company/${encodeURIComponent(ticker)}${suffix}`,
+    { timeoutMs: 60_000 }
+  );
+};
+export const getResearchWorkspacePortfolio = (portfolioId = 'agi-core-equity', { focus = 'overview' } = {}) => {
+  const qs = new URLSearchParams();
+  if (focus) qs.set('focus', focus);
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return intelligenceFetch(
+    `/workspace/portfolio/${encodeURIComponent(portfolioId)}${suffix}`,
+    { timeoutMs: 60_000 }
+  );
+};
+export const getResearchWorkspaceObject = (objectId, { objectType } = {}) => {
+  const qs = new URLSearchParams();
+  if (objectType) qs.set('object_type', objectType);
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return intelligenceFetch(
+    `/workspace/object/${encodeURIComponent(objectId)}${suffix}`,
+    { timeoutMs: 30_000 }
+  );
+};
+export const getResearchWorkspaceTimeline = (contextId, { contextType = 'company' } = {}) => {
+  const qs = new URLSearchParams();
+  if (contextType) qs.set('context_type', contextType);
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return intelligenceFetch(
+    `/workspace/timeline/${encodeURIComponent(contextId)}${suffix}`,
+    { timeoutMs: 60_000 }
+  );
+};
+export const searchResearchWorkspace = (query, { contextType = 'company', contextId = 'AXISBANK' } = {}) => {
+  const qs = new URLSearchParams();
+  qs.set('q', String(query || '').trim());
+  qs.set('context_type', contextType);
+  qs.set('context_id', contextId);
+  return intelligenceFetch(`/workspace/search?${qs}`, { timeoutMs: 30_000 });
+};
+export const addResearchWorkspaceNote = (body = {}) =>
+  intelligenceFetch('/workspace/notes', { method: 'POST', body: body || {}, timeoutMs: 30_000 });
+
+/** CCI-01 — Cross-Company Intelligence */
+export const getRelationshipsHealth = () =>
+  intelligenceFetch('/relationships/health', { timeoutMs: 30_000 });
+export const getCompanyRelationships = (ticker, { portfolioId = 'agi-core-equity' } = {}) => {
+  const qs = new URLSearchParams();
+  if (portfolioId) qs.set('portfolio_id', portfolioId);
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return intelligenceFetch(
+    `/relationships/company/${encodeURIComponent(ticker)}${suffix}`,
+    { timeoutMs: 60_000 }
+  );
+};
+export const getSectorRelationships = (sector) =>
+  intelligenceFetch(`/relationships/sector/${encodeURIComponent(sector)}`, { timeoutMs: 60_000 });
+export const getMacroRelationships = (driver) =>
+  intelligenceFetch(`/relationships/macro/${encodeURIComponent(driver)}`, { timeoutMs: 60_000 });
+export const queryRelationships = (body = {}) =>
+  intelligenceFetch('/relationships/query', { method: 'POST', body: body || {}, timeoutMs: 90_000 });
+export const getSimilarCompanies = (ticker) =>
+  intelligenceFetch(`/relationships/similar/${encodeURIComponent(ticker)}`, { timeoutMs: 30_000 });
+export const getRelationshipClusters = () =>
+  intelligenceFetch('/relationships/clusters', { timeoutMs: 30_000 });
+
+/** PUB-01 — Publishing & Distribution */
+export const getPublicationsHealth = () =>
+  intelligenceFetch('/publications/health', { timeoutMs: 30_000 });
+export const getPublicationTypes = () =>
+  intelligenceFetch('/publications/types', { timeoutMs: 30_000 });
+export const listPublications = ({ limit = 20 } = {}) => {
+  const qs = new URLSearchParams();
+  if (limit) qs.set('limit', String(limit));
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return intelligenceFetch(`/publications${suffix}`, { timeoutMs: 30_000 });
+};
+export const generatePublication = (body = {}) =>
+  intelligenceFetch('/publications/generate', { method: 'POST', body: body || {}, timeoutMs: 90_000 });
+export const getPublication = (publicationId) =>
+  intelligenceFetch(`/publications/${encodeURIComponent(publicationId)}`, { timeoutMs: 30_000 });
+export const exportPublication = (body = {}) =>
+  intelligenceFetch('/publications/export', { method: 'POST', body: body || {}, timeoutMs: 90_000 });
+
+/** MPC-01 — Multi-Portfolio & Client Platform */
+export const getPlatformHealth = () =>
+  intelligenceFetch('/platform/health', { timeoutMs: 30_000 });
+export const listPlatformPortfolios = () =>
+  intelligenceFetch('/portfolios', { timeoutMs: 30_000 });
+export const createPlatformPortfolio = (body = {}) =>
+  intelligenceFetch('/portfolios', { method: 'POST', body: body || {}, timeoutMs: 30_000 });
+export const listPlatformClients = () =>
+  intelligenceFetch('/clients', { timeoutMs: 30_000 });
+export const createPlatformClient = (body = {}) =>
+  intelligenceFetch('/clients', { method: 'POST', body: body || {}, timeoutMs: 30_000 });
+export const resolvePlatformWorkspace = (body = {}) =>
+  intelligenceFetch('/workspaces/resolve', { method: 'POST', body: body || {}, timeoutMs: 30_000 });
+export const getPlatformWorkspace = (workspaceId, params = {}) => {
+  const qs = new URLSearchParams();
+  if (params.portfolioId) qs.set('portfolio_id', params.portfolioId);
+  if (params.clientId) qs.set('client_id', params.clientId);
+  if (params.roleId) qs.set('role_id', params.roleId);
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return intelligenceFetch(`/workspaces/${encodeURIComponent(workspaceId)}${suffix}`, {
+    timeoutMs: 30_000,
+  });
+};
+export const setPlatformPermissions = (body = {}) =>
+  intelligenceFetch('/permissions', { method: 'POST', body: body || {}, timeoutMs: 30_000 });
+export const resolvePlatformContext = (body = {}) =>
+  intelligenceFetch('/platform/context', { method: 'POST', body: body || {}, timeoutMs: 30_000 });
+export const platformAsk = (body = {}) =>
+  intelligenceFetch('/platform/ask', { method: 'POST', body: body || {}, timeoutMs: 90_000 });
+
+/** PRP-01 — Performance & Scale */
+export const getPerformanceHealth = () =>
+  intelligenceFetch('/performance/health', { timeoutMs: 30_000 });
+export const getPerformanceMetrics = () =>
+  intelligenceFetch('/performance/metrics', { timeoutMs: 30_000 });
+export const getPerformanceCache = () =>
+  intelligenceFetch('/performance/cache', { timeoutMs: 30_000 });
+export const getPerformanceQueue = () =>
+  intelligenceFetch('/performance/queue', { timeoutMs: 30_000 });
+export const listPerformanceJobs = (limit = 40) => {
+  const qs = new URLSearchParams();
+  if (limit) qs.set('limit', String(limit));
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return intelligenceFetch(`/performance/jobs${suffix}`, { timeoutMs: 30_000 });
+};
+export const enqueuePerformanceJob = (body = {}) =>
+  intelligenceFetch('/performance/jobs', { method: 'POST', body: body || {}, timeoutMs: 30_000 });
+export const getPerformanceJob = (jobId) =>
+  intelligenceFetch(`/performance/jobs/${encodeURIComponent(jobId)}`, { timeoutMs: 30_000 });
+export const runGraphIncremental = (body = {}) =>
+  intelligenceFetch('/performance/graph/incremental', {
+    method: 'POST',
+    body: body || {},
+    timeoutMs: 30_000,
+  });
+export const runPerformanceParallel = (body = {}) =>
+  intelligenceFetch('/performance/parallel', {
+    method: 'POST',
+    body: body || {},
+    timeoutMs: 30_000,
+  });
+
+/** PRP-02 — Security & Governance */
+export const getSecurityHealth = () =>
+  intelligenceFetch('/security/health', { timeoutMs: 30_000 });
+export const authLogin = (body = {}) =>
+  intelligenceFetch('/auth/login', { method: 'POST', body: body || {}, timeoutMs: 30_000 });
+export const authLogout = (body = {}) =>
+  intelligenceFetch('/auth/logout', { method: 'POST', body: body || {}, timeoutMs: 30_000 });
+export const authRefresh = (body = {}) =>
+  intelligenceFetch('/auth/refresh', { method: 'POST', body: body || {}, timeoutMs: 30_000 });
+export const getSecurityContext = (body = {}) =>
+  intelligenceFetch('/security/context', { method: 'POST', body: body || {}, timeoutMs: 30_000 });
+export const getSecurityAudit = (body = {}) =>
+  intelligenceFetch('/security/audit', { method: 'POST', body: body || {}, timeoutMs: 30_000 });
+export const createSecurityApiKey = (body = {}) =>
+  intelligenceFetch('/security/api-keys', { method: 'POST', body: body || {}, timeoutMs: 30_000 });
+export const revokeSecurityApiKey = (apiKeyId, body = {}) =>
+  intelligenceFetch(`/security/api-keys/${encodeURIComponent(apiKeyId)}`, {
+    method: 'DELETE',
+    body: body || {},
+    timeoutMs: 30_000,
+  });
+export const listSecurityRoles = () =>
+  intelligenceFetch('/security/roles', { timeoutMs: 30_000 });
+export const listSecurityPermissions = () =>
+  intelligenceFetch('/security/permissions', { timeoutMs: 30_000 });
+export const listSecurityTenants = () =>
+  intelligenceFetch('/security/tenants', { timeoutMs: 30_000 });
+
+/** PRP-03 — Observability & Operations */
+export const getOpsHealth = () =>
+  intelligenceFetch('/ops/health', { timeoutMs: 30_000 });
+export const getObservabilityHealth = () =>
+  intelligenceFetch('/observability/health', { timeoutMs: 30_000 });
+export const getOpsMetrics = () =>
+  intelligenceFetch('/ops/metrics', { timeoutMs: 30_000 });
+export const getOpsTrace = (traceId) =>
+  intelligenceFetch(`/ops/traces/${encodeURIComponent(traceId)}`, { timeoutMs: 30_000 });
+export const getOpsServiceMap = () =>
+  intelligenceFetch('/ops/service-map', { timeoutMs: 30_000 });
+export const getOpsAlerts = () =>
+  intelligenceFetch('/ops/alerts', { timeoutMs: 30_000 });
+export const getOpsDependencies = () =>
+  intelligenceFetch('/ops/dependencies', { timeoutMs: 30_000 });
+export const getOpsLogs = (params = {}) => {
+  const qs = new URLSearchParams();
+  if (params.limit) qs.set('limit', String(params.limit));
+  if (params.severity) qs.set('severity', params.severity);
+  if (params.correlationId) qs.set('correlation_id', params.correlationId);
+  if (params.component) qs.set('component', params.component);
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return intelligenceFetch(`/ops/logs${suffix}`, { timeoutMs: 30_000 });
+};
+
+/** RC-01 — Architecture Conformance */
+export const getArchitectureHealth = () =>
+  intelligenceFetch('/architecture/health', { timeoutMs: 30_000 });
+export const runArchitectureConformance = (body = {}) =>
+  intelligenceFetch('/architecture/conformance', {
+    method: 'POST',
+    body: body || {},
+    timeoutMs: 90_000,
+  });
+export const getArchitectureConformance = (force = false) => {
+  const qs = force ? '?force=true' : '';
+  return intelligenceFetch(`/architecture/conformance${qs}`, { timeoutMs: 90_000 });
+};
+export const getArchitectureReport = () =>
+  intelligenceFetch('/architecture/report', { timeoutMs: 90_000 });
+export const getArchitectureViolations = () =>
+  intelligenceFetch('/architecture/violations', { timeoutMs: 90_000 });
+
+/** L-01 — Launch Phase */
+export const getLaunchHealth = () =>
+  intelligenceFetch('/launch/health', { timeoutMs: 30_000 });
+export const getLaunchMetrics = () =>
+  intelligenceFetch('/launch/metrics', { timeoutMs: 30_000 });
+export const getLaunchFunnel = () =>
+  intelligenceFetch('/launch/funnel', { timeoutMs: 30_000 });
+export const trackLaunchEvent = (body = {}) =>
+  intelligenceFetch('/launch/events', { method: 'POST', body: body || {}, timeoutMs: 20_000 });
+export const trackLaunchJourney = (body = {}) =>
+  intelligenceFetch('/launch/journey', { method: 'POST', body: body || {}, timeoutMs: 20_000 });
+export const submitLaunchFeedback = (body = {}) =>
+  intelligenceFetch('/launch/feedback', { method: 'POST', body: body || {}, timeoutMs: 20_000 });
+export const getLaunchFeedback = (limit = 40) =>
+  intelligenceFetch(`/launch/feedback?limit=${encodeURIComponent(limit)}`, { timeoutMs: 30_000 });
+export const getLaunchFlags = () =>
+  intelligenceFetch('/launch/flags', { timeoutMs: 20_000 });
+export const setLaunchFlag = (body = {}) =>
+  intelligenceFetch('/launch/flags', { method: 'POST', body: body || {}, timeoutMs: 20_000 });
+export const getLaunchSla = () =>
+  intelligenceFetch('/launch/sla', { timeoutMs: 30_000 });
+export const getLaunchReport = () =>
+  intelligenceFetch('/launch/report', { timeoutMs: 60_000 });
+
+/** ICE-01 — Investment Committee Engine */
+export const getCommitteeEngineHealth = () =>
+  intelligenceFetch('/committee-engine/health', { timeoutMs: 30_000 });
+export const reviewCommittee = (body = {}) =>
+  intelligenceFetch('/committee/review', { method: 'POST', body: body || {}, timeoutMs: 90_000 });
+export const getCommitteePending = () =>
+  intelligenceFetch('/committee/pending', { timeoutMs: 30_000 });
+export const getCommitteeResolution = (resolutionId) =>
+  intelligenceFetch(`/committee/resolution/${encodeURIComponent(resolutionId)}`, {
+    timeoutMs: 30_000,
+  });
+export const getCommitteePortfolio = (portfolioId = 'agi-core-equity', { refresh = true } = {}) => {
+  const qs = new URLSearchParams();
+  if (refresh) qs.set('refresh', 'true');
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return intelligenceFetch(`/committee/portfolio/${encodeURIComponent(portfolioId)}${suffix}`, {
+    timeoutMs: 90_000,
+  });
+};
+
 /** FG-01 — Forecast & Scenario Graph */
 export const getInstitutionalScenarioHealth = () =>
   intelligenceFetch('/scenario/health', { timeoutMs: 30_000 });

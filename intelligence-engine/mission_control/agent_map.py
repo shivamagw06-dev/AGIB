@@ -719,6 +719,287 @@ _CATALOG: list[dict[str, Any]] = [
         "kind": "observation",
         "module": "institutional_observation.production",
     },
+
+    {
+        "id": "institutional_portfolio",
+        "name": "Portfolio Knowledge Graph (PKG-01 / PO-01)",
+        "group": "publication",
+        "responsibility": (
+            "Phase 4.1 — Portfolio → Companies → Relationships. Builds InstitutionalPortfolio "
+            "with allocations, exposures, concentration, and correlation proxies. "
+            "Distinct from portfolio_office holdings state. No LLM / no optimisation."
+        ),
+        "sources": [
+            "Holdings",
+            "Company knowledge graphs",
+            "InstitutionalDecision",
+            "portfolio_office (optional)",
+        ],
+        "kind": "portfolio_intelligence",
+        "module": "institutional_portfolio.production",
+    },
+    {
+        "id": "institutional_portfolio_risk",
+        "name": "Institutional Portfolio Risk Engine (PRE-01)",
+        "group": "publication",
+        "responsibility": (
+            "Phase 4.3 — Authoritative InstitutionalPortfolioRisk from portfolio graph. "
+            "Concentration, liquidity, correlation proxies, factor exposure, deterministic stress. "
+            "Consumed by PCE-01 and CIO-01. No Monte Carlo / VaR / optimisation."
+        ),
+        "sources": [
+            "InstitutionalPortfolio",
+            "Holdings",
+            "Exposures",
+            "Company decisions (lineage)",
+        ],
+        "kind": "portfolio_risk",
+        "module": "institutional_portfolio_risk.production",
+    },
+    {
+        "id": "institutional_policy",
+        "name": "Institutional Policy & Constraint Engine (PCE-01)",
+        "group": "publication",
+        "responsibility": (
+            "Phase 4.4 — Deterministic mandate compliance. InstitutionalPolicyAssessment with "
+            "position/sector/cash/diversification/liquidity/risk constraints. Consumed by CIO-01. "
+            "No optimisation / no LLM."
+        ),
+        "sources": [
+            "InstitutionalPortfolio",
+            "InstitutionalPortfolioRisk (PRE-01)",
+            "Policy profiles / mandates",
+        ],
+        "kind": "portfolio_policy",
+        "module": "institutional_policy.production",
+    },
+    {
+        "id": "institutional_portfolio_decision",
+        "name": "Institutional Portfolio Decision System (CIO-01)",
+        "group": "publication",
+        "responsibility": (
+            "Phase 4.2 — Deterministic InstitutionalPortfolioDecision from portfolio graph + "
+            "PRE-01 risk + PCE-01 policy + referential company decisions. Allocation/exposure "
+            "actions, portfolio calibration, monitoring plan. Never mutates company decisions."
+        ),
+        "sources": [
+            "InstitutionalPortfolio",
+            "InstitutionalPortfolioRisk (PRE-01)",
+            "InstitutionalPolicyAssessment (PCE-01)",
+            "Company InstitutionalDecision (referential)",
+            "Exposures",
+        ],
+        "kind": "portfolio_decision",
+        "module": "institutional_portfolio_decision.production",
+    },
+    {
+        "id": "institutional_committee",
+        "name": "Investment Committee Engine (ICE-01)",
+        "group": "publication",
+        "responsibility": (
+            "Phase 4.5 — Deterministic InstitutionalCommitteeResolution governing CIO-01 decisions. "
+            "Structured desk votes, agenda, action items, follow-ups. Never mutates risk, policy, "
+            "or company decisions. Not predictive."
+        ),
+        "sources": [
+            "InstitutionalPortfolioDecision (CIO-01)",
+            "InstitutionalPortfolioRisk (PRE-01)",
+            "InstitutionalPolicyAssessment (PCE-01)",
+        ],
+        "kind": "committee_governance",
+        "module": "institutional_committee.production",
+    },
+    {
+        "id": "institutional_orchestrator",
+        "name": "Universal Ask AGI Orchestrator (UAG-01)",
+        "group": "publication",
+        "responsibility": (
+            "Phase 5.1 — Stateless orchestration over registered institutional objects. "
+            "Intent → plan → retrieve → assemble. Does not generate recommendations or own "
+            "business state. Domain engines remain systems of record."
+        ),
+        "sources": [
+            "Object Registry",
+            "CompanyDecision",
+            "PortfolioRisk",
+            "PolicyAssessment",
+            "PortfolioDecision",
+            "CommitteeResolution",
+        ],
+        "kind": "orchestration",
+        "module": "institutional_orchestrator.production",
+    },
+    {
+        "id": "institutional_workspace",
+        "name": "Institutional Research Workspace (RW-01)",
+        "group": "publication",
+        "responsibility": (
+            "Phase 5.2 — Analyst workstation over linked institutional objects. Timeline, "
+            "evidence browser, linked navigation, and research notes. Presentation only — "
+            "does not mutate system intelligence. Ask AGI is the entry; workspace is primary."
+        ),
+        "sources": [
+            "CompanyDecision",
+            "PortfolioRisk",
+            "PolicyAssessment",
+            "PortfolioDecision",
+            "CommitteeResolution",
+            "Evidence",
+            "ResearchNotes",
+        ],
+        "kind": "research_workspace",
+        "module": "institutional_workspace.production",
+    },
+    {
+        "id": "institutional_cross_company",
+        "name": "Cross-Company Intelligence (CCI-01)",
+        "group": "publication",
+        "responsibility": (
+            "Phase 5.3 — Relationship reasoning and dependency propagation over KG-01. "
+            "Does not own or duplicate the graph. Provider registry for competitor, sector, "
+            "macro, and portfolio relationships. Not predictive."
+        ),
+        "sources": [
+            "KG-01 Institutional Knowledge Graph",
+            "Peer Intelligence",
+            "PKG-01 Portfolio Graph",
+            "Macro dependency map",
+        ],
+        "kind": "cross_company_intelligence",
+        "module": "institutional_cross_company.production",
+    },
+    {
+        "id": "institutional_publishing",
+        "name": "Publishing & Distribution (PUB-01)",
+        "group": "publication",
+        "responsibility": (
+            "Phase 5.4 — Compose institutional deliverables from immutable objects. "
+            "Never analyzes or invents recommendations. Templates format; manifests audit. "
+            "Distribution decoupled from builders."
+        ),
+        "sources": [
+            "CompanyDecision",
+            "PortfolioRisk",
+            "PolicyAssessment",
+            "PortfolioDecision",
+            "CommitteeResolution",
+            "Observation",
+            "Evidence",
+        ],
+        "kind": "publishing",
+        "module": "institutional_publishing.production",
+    },
+    {
+        "id": "institutional_multi_portfolio",
+        "name": "Multi-Portfolio & Client Platform (MPC-01)",
+        "group": "publication",
+        "responsibility": (
+            "Phase 5.5 — Tenancy and workflow for multiple portfolios, clients, and teams. "
+            "Intelligence remains global; mandates, permissions, and workspaces are local. "
+            "Explicit InstitutionalExecutionContext flows through orchestration."
+        ),
+        "sources": [
+            "Portfolio registry",
+            "Client registry",
+            "Mandate → PCE policy profile",
+            "Role permissions",
+            "Workspace resolver",
+        ],
+        "kind": "multi_portfolio_platform",
+        "module": "institutional_multi_portfolio.production",
+    },
+    {
+        "id": "institutional_performance",
+        "name": "Performance & Scale (PRP-01)",
+        "group": "platform",
+        "responsibility": (
+            "Production Readiness Programme — distributed cache, query/workspace caches, "
+            "parallel orchestration, async publication jobs, incremental graph updates, "
+            "streaming, and Performance Center metrics. No new intelligence engines."
+        ),
+        "sources": [
+            "Redis / in-memory cache",
+            "Background job queue",
+            "Latency samples",
+            "UAG / RW / PUB soft hooks",
+        ],
+        "kind": "production_readiness",
+        "module": "institutional_performance.production",
+    },
+    {
+        "id": "institutional_security",
+        "name": "Security & Governance (PRP-02)",
+        "group": "platform",
+        "responsibility": (
+            "Production Readiness Programme — authentication, RBAC authorization, tenant "
+            "isolation, API keys, sessions, immutable audit, encryption helpers, and "
+            "Security Center. Wraps the platform; never enters the intelligence layer."
+        ),
+        "sources": [
+            "InstitutionalSecurityContext",
+            "InstitutionalAuditEvent",
+            "Session / API key stores",
+            "Correlation ID",
+            "Security Gateway",
+        ],
+        "kind": "production_readiness",
+        "module": "institutional_security.production",
+    },
+    {
+        "id": "institutional_observability",
+        "name": "Observability & Operations (PRP-03)",
+        "group": "platform",
+        "responsibility": (
+            "Production Readiness Programme — distributed tracing, metrics, structured logs, "
+            "health checks, alerting, dependency monitoring, and Operations Center. "
+            "Explains platform behavior; never changes it. Complements Execution + Security contexts."
+        ),
+        "sources": [
+            "InstitutionalObservabilityContext",
+            "InstitutionalTrace / Metric / Health",
+            "Correlation ID (PRP-02)",
+            "Performance + Security gauges",
+        ],
+        "kind": "production_readiness",
+        "module": "institutional_observability.production",
+    },
+    {
+        "id": "institutional_architecture",
+        "name": "Architecture Conformance (RC-01)",
+        "group": "platform",
+        "responsibility": (
+            "Release Candidate quality gate — invariants, forbidden dependency rules, "
+            "lineage validation, context propagation, publication/UAG gates, and "
+            "Architecture Center. Not a feature; proves AGIB v1.0 principles hold."
+        ),
+        "sources": [
+            "Ownership registry",
+            "Import graph",
+            "Canonical lineage",
+            "Execution / Security / Observability contexts",
+        ],
+        "kind": "release_candidate",
+        "module": "institutional_architecture.production",
+    },
+    {
+        "id": "institutional_launch",
+        "name": "Launch Phase (L-01)",
+        "group": "platform",
+        "responsibility": (
+            "Post-GA usage validation — journey analytics, product metrics, feedback, "
+            "operational SLAs, v1.1 feature flags (gated), and Launch Center. "
+            "Driven by usage, not architecture expansion."
+        ),
+        "sources": [
+            "Journey funnel",
+            "Adoption metrics",
+            "User feedback",
+            "SLA targets",
+            "Feature flag registry",
+        ],
+        "kind": "launch_validation",
+        "module": "institutional_launch.production",
+    },
     {
         "id": "ite_thesis",
         "name": "Investment Thesis Office",
