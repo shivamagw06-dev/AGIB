@@ -1746,6 +1746,15 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("institutional_performance")
     except Exception:
         out["institutional_performance"] = None
+
+    # PRP-02 — Security & Governance (Security Center).
+    try:
+        from institutional_security.production import soft_slice_mission_control as sec_soft
+
+        out["institutional_security"] = sec_soft()
+        out["sources"].append("institutional_security")
+    except Exception:
+        out["institutional_security"] = None
     return out
 
 

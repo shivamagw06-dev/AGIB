@@ -79,9 +79,25 @@ def soft_slice_mission_control() -> dict[str, Any]:
     }
 
 
-def get_company_workspace(ticker: str, *, focus: str = "overview") -> dict[str, Any]:
+def get_company_workspace(
+    ticker: str,
+    *,
+    focus: str = "overview",
+    security: Optional[dict[str, Any]] = None,
+) -> dict[str, Any]:
     if not is_enabled():
         return {"ok": False, "enabled": False, "workstream_id": RW_WORKSTREAM_ID}
+    sec_body = dict(security or {})
+    # PRP-02: Security Gateway before workspace assemble
+    try:
+        from institutional_security.production import finalize_with_security, maybe_gate_workspace
+
+        denied = maybe_gate_workspace(sec_body)
+        if denied is not None:
+            return denied
+    except Exception:
+        pass
+
     t0 = time.perf_counter()
     # PRP-01: workspace cache (target < 1s)
     try:
@@ -98,7 +114,12 @@ def get_company_workspace(ticker: str, *, focus: str = "overview") -> dict[str, 
             out["cached"] = True
             out["cache_layer"] = "PRP-01"
             out["latency_ms"] = round(elapsed * 1000.0, 2)
-            return out
+            try:
+                from institutional_security.production import finalize_with_security
+
+                return finalize_with_security(out, sec_body)
+            except Exception:
+                return out
     except Exception:
         pass
 
@@ -123,12 +144,33 @@ def get_company_workspace(ticker: str, *, focus: str = "overview") -> dict[str, 
         maybe_set_workspace_cache("company", str(ticker).upper(), focus, value=result)
     except Exception:
         pass
-    return result
+    try:
+        from institutional_security.production import finalize_with_security
+
+        return finalize_with_security(result, sec_body)
+    except Exception:
+        return result
 
 
-def get_portfolio_workspace(portfolio_id: str = "agi-core-equity", *, focus: str = "overview") -> dict[str, Any]:
+def get_portfolio_workspace(
+    portfolio_id: str = "agi-core-equity",
+    *,
+    focus: str = "overview",
+    security: Optional[dict[str, Any]] = None,
+) -> dict[str, Any]:
     if not is_enabled():
         return {"ok": False, "enabled": False, "workstream_id": RW_WORKSTREAM_ID}
+    sec_body = dict(security or {})
+    sec_body.setdefault("portfolio_id", portfolio_id)
+    try:
+        from institutional_security.production import finalize_with_security, maybe_gate_workspace
+
+        denied = maybe_gate_workspace(sec_body)
+        if denied is not None:
+            return denied
+    except Exception:
+        pass
+
     t0 = time.perf_counter()
     try:
         from institutional_performance.production import (
@@ -144,7 +186,12 @@ def get_portfolio_workspace(portfolio_id: str = "agi-core-equity", *, focus: str
             out["cached"] = True
             out["cache_layer"] = "PRP-01"
             out["latency_ms"] = round(elapsed * 1000.0, 2)
-            return out
+            try:
+                from institutional_security.production import finalize_with_security
+
+                return finalize_with_security(out, sec_body)
+            except Exception:
+                return out
     except Exception:
         pass
 
@@ -169,7 +216,12 @@ def get_portfolio_workspace(portfolio_id: str = "agi-core-equity", *, focus: str
         maybe_set_workspace_cache("portfolio", str(portfolio_id), focus, value=result)
     except Exception:
         pass
-    return result
+    try:
+        from institutional_security.production import finalize_with_security
+
+        return finalize_with_security(result, sec_body)
+    except Exception:
+        return result
 
 
 def get_committee_workspace() -> dict[str, Any]:

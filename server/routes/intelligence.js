@@ -3376,6 +3376,157 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // PRP-02 — Security & Governance
+  router.get('/security/health', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/security/health', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'security health failed' });
+    }
+  });
+  router.post('/auth/login', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 30_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'auth login failed' });
+    }
+  });
+  router.post('/auth/logout', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/auth/logout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 20_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'auth logout failed' });
+    }
+  });
+  router.post('/auth/refresh', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/auth/refresh', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 20_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'auth refresh failed' });
+    }
+  });
+  router.get('/security/context', async (req, res) => {
+    try {
+      const qs = new URLSearchParams();
+      for (const k of ['session_id', 'user_id', 'tenant_id', 'correlation_id']) {
+        if (req.query[k]) qs.set(k, String(req.query[k]));
+      }
+      const suffix = qs.toString() ? `?${qs}` : '';
+      const result = await engineFetch(`/v1/security/context${suffix}`, { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'security context failed' });
+    }
+  });
+  router.post('/security/context', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/security/context', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 20_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'security context failed' });
+    }
+  });
+  router.get('/security/audit', async (req, res) => {
+    try {
+      const qs = new URLSearchParams();
+      for (const k of ['limit', 'tenant_id', 'user_id', 'action', 'correlation_id', 'session_id']) {
+        if (req.query[k]) qs.set(k, String(req.query[k]));
+      }
+      const suffix = qs.toString() ? `?${qs}` : '';
+      const result = await engineFetch(`/v1/security/audit${suffix}`, { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'security audit failed' });
+    }
+  });
+  router.post('/security/audit', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/security/audit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 20_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'security audit failed' });
+    }
+  });
+  router.post('/security/api-keys', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/security/api-keys', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 30_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'api key create failed' });
+    }
+  });
+  router.delete('/security/api-keys/:id', async (req, res) => {
+    try {
+      const result = await engineFetch(`/v1/security/api-keys/${encodeURIComponent(req.params.id)}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+        timeoutMs: 20_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'api key revoke failed' });
+    }
+  });
+  router.get('/security/roles', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/security/roles', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'security roles failed' });
+    }
+  });
+  router.get('/security/permissions', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/security/permissions', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'security permissions failed' });
+    }
+  });
+  router.get('/security/tenants', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/security/tenants', { timeoutMs: 20_000 });
+      return res.status(result.status).json(result.data);
+    } catch (err) {
+      return res.status(502).json({ error: err?.message || 'security tenants failed' });
+    }
+  });
+
   // ICE-01 — Investment Committee Engine
   router.get('/committee-engine/health', async (_req, res) => {
     try {

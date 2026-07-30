@@ -907,6 +907,25 @@ _CATALOG: list[dict[str, Any]] = [
         "module": "institutional_performance.production",
     },
     {
+        "id": "institutional_security",
+        "name": "Security & Governance (PRP-02)",
+        "group": "platform",
+        "responsibility": (
+            "Production Readiness Programme — authentication, RBAC authorization, tenant "
+            "isolation, API keys, sessions, immutable audit, encryption helpers, and "
+            "Security Center. Wraps the platform; never enters the intelligence layer."
+        ),
+        "sources": [
+            "InstitutionalSecurityContext",
+            "InstitutionalAuditEvent",
+            "Session / API key stores",
+            "Correlation ID",
+            "Security Gateway",
+        ],
+        "kind": "production_readiness",
+        "module": "institutional_security.production",
+    },
+    {
         "id": "ite_thesis",
         "name": "Investment Thesis Office",
         "group": "offices",

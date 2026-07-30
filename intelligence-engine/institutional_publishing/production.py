@@ -106,13 +106,31 @@ def generate(payload: Optional[dict[str, Any]] = None) -> dict[str, Any]:
 
     t0 = time.perf_counter()
     body = dict(payload or {})
+    # PRP-02: Security Gateway — authorize before compose (PUB still never analyzes)
+    try:
+        from institutional_security.production import (
+            finalize_with_security,
+            maybe_gate_publication,
+        )
+
+        denied = maybe_gate_publication(body)
+        if denied is not None:
+            return denied
+    except Exception:
+        pass
+
     # PRP-01: async publication generation via background job queue
     try:
         from institutional_performance.production import maybe_enqueue_publication
 
         queued = maybe_enqueue_publication(body)
         if queued is not None:
-            return queued
+            try:
+                from institutional_security.production import finalize_with_security
+
+                return finalize_with_security(queued, body)
+            except Exception:
+                return queued
     except Exception:
         pass
 
@@ -234,7 +252,7 @@ def generate(payload: Optional[dict[str, Any]] = None) -> dict[str, Any]:
         except Exception:
             scoped = None
 
-    return {
+    result = {
         "ok": True,
         "workstream_id": PUB_WORKSTREAM_ID,
         "product": PUB_PRODUCT,
@@ -252,6 +270,12 @@ def generate(payload: Optional[dict[str, Any]] = None) -> dict[str, Any]:
         "compose_only": True,
         "latency_ms": round(latency, 2),
     }
+    try:
+        from institutional_security.production import finalize_with_security
+
+        return finalize_with_security(result, body)
+    except Exception:
+        return result
 
 
 def get_publication(publication_id: str) -> dict[str, Any]:

@@ -110,6 +110,16 @@ def ask(payload: Optional[dict[str, Any]] = None) -> dict[str, Any]:
 
     t0 = time.perf_counter()
     body = dict(payload or {})
+    # PRP-02: Security Gateway — authorize before orchestration (engines stay unaware)
+    try:
+        from institutional_security.production import finalize_with_security, maybe_gate_ask
+
+        denied = maybe_gate_ask(body)
+        if denied is not None:
+            return denied
+    except Exception:
+        pass
+
     question = str(body.get("question") or body.get("query") or body.get("q") or "").strip()
     if not question:
         return {
@@ -284,6 +294,12 @@ def ask(payload: Optional[dict[str, Any]] = None) -> dict[str, Any]:
         record_op_latency("ask", elapsed, cached=False)
         if not skip_cache:
             maybe_set_query_cache(*cache_parts, value=result)
+    except Exception:
+        pass
+    try:
+        from institutional_security.production import finalize_with_security
+
+        result = finalize_with_security(result, body)
     except Exception:
         pass
     return result

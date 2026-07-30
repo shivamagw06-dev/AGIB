@@ -10698,6 +10698,135 @@ async def performance_parallel(payload: dict[str, Any] = Body(default={})):
     return parallel_demo(payload or {})
 
 
+# --- PRP-02 Security & Governance (auth / authz / audit / tenant isolation) ---
+
+
+@router.get("/security/health")
+async def security_health():
+    from institutional_security.production import health
+
+    return health()
+
+
+@router.post("/auth/login")
+async def auth_login(payload: dict[str, Any] = Body(default={})):
+    from institutional_security.production import login
+
+    return login(payload or {})
+
+
+@router.post("/auth/logout")
+async def auth_logout(payload: dict[str, Any] = Body(default={})):
+    from institutional_security.production import logout
+
+    return logout(payload or {})
+
+
+@router.post("/auth/refresh")
+async def auth_refresh(payload: dict[str, Any] = Body(default={})):
+    from institutional_security.production import refresh
+
+    return refresh(payload or {})
+
+
+@router.get("/security/context")
+async def security_context_get(
+    session_id: str = "",
+    user_id: str = "",
+    tenant_id: str = "",
+    correlation_id: str = "",
+):
+    from institutional_security.production import get_context
+
+    return get_context(
+        {
+            "session_id": session_id,
+            "user_id": user_id,
+            "tenant_id": tenant_id,
+            "correlation_id": correlation_id,
+        }
+    )
+
+
+@router.post("/security/context")
+async def security_context_post(payload: dict[str, Any] = Body(default={})):
+    from institutional_security.production import get_context
+
+    return get_context(payload or {})
+
+
+@router.get("/security/audit")
+async def security_audit_get(
+    limit: int = 50,
+    tenant_id: str = "",
+    user_id: str = "",
+    action: str = "",
+    correlation_id: str = "",
+    session_id: str = "",
+):
+    from institutional_security.production import list_audit
+
+    return list_audit(
+        {
+            "limit": limit,
+            "tenant_id": tenant_id,
+            "user_id": user_id,
+            "action": action,
+            "correlation_id": correlation_id,
+            "session_id": session_id,
+        }
+    )
+
+
+@router.post("/security/audit")
+async def security_audit_post(payload: dict[str, Any] = Body(default={})):
+    from institutional_security.production import list_audit
+
+    return list_audit(payload or {})
+
+
+@router.post("/security/api-keys")
+async def security_api_keys_create(payload: dict[str, Any] = Body(default={})):
+    from institutional_security.production import create_api_key
+
+    return create_api_key(payload or {})
+
+
+@router.delete("/security/api-keys/{api_key_id}")
+async def security_api_keys_revoke(api_key_id: str, payload: dict[str, Any] = Body(default={})):
+    from institutional_security.production import revoke_api_key
+
+    return revoke_api_key(api_key_id, payload or {})
+
+
+@router.get("/security/roles")
+async def security_roles():
+    from institutional_security.production import roles_api
+
+    return roles_api()
+
+
+@router.get("/security/permissions")
+async def security_permissions():
+    from institutional_security.production import permissions_api
+
+    return permissions_api()
+
+
+@router.post("/security/permissions/grant")
+async def security_permissions_grant(payload: dict[str, Any] = Body(default={})):
+    from institutional_security.production import grant_permissions
+
+    return grant_permissions(payload or {})
+
+
+@router.get("/security/tenants")
+async def security_tenants():
+    from institutional_security.production import tenants_api
+
+    return tenants_api()
+
+
 # --- Company Monitoring System V1 (continuous living analyst; additive) ---
 
 

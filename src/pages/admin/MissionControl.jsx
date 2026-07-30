@@ -212,6 +212,8 @@ export default function MissionControl() {
     institutional?.institutional_multi_portfolio || desk?.institutional_multi_portfolio || null;
   const performanceCenter =
     institutional?.institutional_performance || desk?.institutional_performance || null;
+  const securityCenter =
+    institutional?.institutional_security || desk?.institutional_security || null;
   const pipeline = desk?.research_pipeline || {};
   const preds = desk?.prediction_intelligence || {};
   const dq = desk?.data_quality || {};
@@ -1492,6 +1494,53 @@ export default function MissionControl() {
               {!orchestrationCenter ? <li>Orchestration Center soft slice unavailable.</li> : null}
               {orchestrationCenter && !(orchestrationCenter.recent_queries || []).length ? (
                 <li>Run a Universal Ask query to populate the center.</li>
+              ) : null}
+            </ul>
+          </Glass>
+        </section>
+
+        {/* Security Center — PRP-02 */}
+        <section className="space-y-3">
+          <Kicker>Security Center · PRP-02</Kicker>
+          <p className="text-sm text-[var(--io-muted)] max-w-3xl">
+            Enterprise controls — active sessions, login failures, API key usage, permission
+            changes, audit volume, tenants, and revoked tokens. Security decides who; intelligence
+            decides what. Never enters the intelligence layer.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
+            <Stat
+              label="Sessions"
+              value={securityCenter?.active_sessions ?? '—'}
+              status={securityCenter?.status}
+            />
+            <Stat label="Login fails" value={securityCenter?.login_failures ?? '—'} />
+            <Stat label="API key use" value={securityCenter?.api_key_usage ?? '—'} />
+            <Stat label="Perm changes" value={securityCenter?.permission_changes ?? '—'} />
+            <Stat label="Audit volume" value={securityCenter?.audit_volume ?? '—'} />
+            <Stat label="Tenants" value={securityCenter?.tenant_count ?? '—'} />
+            <Stat label="Revoked" value={securityCenter?.revoked_tokens ?? '—'} />
+            <Stat
+              label="Auth latency"
+              value={
+                securityCenter?.authentication_latency_ms != null
+                  ? `${securityCenter.authentication_latency_ms}ms`
+                  : '—'
+              }
+            />
+          </div>
+          <Glass>
+            <p className="text-[11px] uppercase text-[var(--io-caption)]">Recent audit</p>
+            <ul className="mt-2 space-y-1 text-xs max-h-36 overflow-auto text-[var(--io-ink-soft)]">
+              {(securityCenter?.recent_audit || []).slice(0, 6).map((a) => (
+                <li key={a.event_id}>
+                  [{a.action}] {a.resource}
+                  {a.resource_id ? `:${a.resource_id}` : ''} → {a.outcome}
+                  {a.correlation_id ? ` · ${a.correlation_id}` : ''}
+                </li>
+              ))}
+              {!securityCenter ? <li>Security Center soft slice unavailable.</li> : null}
+              {securityCenter && !(securityCenter.recent_audit || []).length ? (
+                <li>Login or run a gated Ask/publication to populate audit.</li>
               ) : null}
             </ul>
           </Glass>

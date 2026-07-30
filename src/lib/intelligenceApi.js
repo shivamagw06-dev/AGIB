@@ -1436,6 +1436,34 @@ export const runPerformanceParallel = (body = {}) =>
     timeoutMs: 30_000,
   });
 
+/** PRP-02 — Security & Governance */
+export const getSecurityHealth = () =>
+  intelligenceFetch('/security/health', { timeoutMs: 30_000 });
+export const authLogin = (body = {}) =>
+  intelligenceFetch('/auth/login', { method: 'POST', body: body || {}, timeoutMs: 30_000 });
+export const authLogout = (body = {}) =>
+  intelligenceFetch('/auth/logout', { method: 'POST', body: body || {}, timeoutMs: 30_000 });
+export const authRefresh = (body = {}) =>
+  intelligenceFetch('/auth/refresh', { method: 'POST', body: body || {}, timeoutMs: 30_000 });
+export const getSecurityContext = (body = {}) =>
+  intelligenceFetch('/security/context', { method: 'POST', body: body || {}, timeoutMs: 30_000 });
+export const getSecurityAudit = (body = {}) =>
+  intelligenceFetch('/security/audit', { method: 'POST', body: body || {}, timeoutMs: 30_000 });
+export const createSecurityApiKey = (body = {}) =>
+  intelligenceFetch('/security/api-keys', { method: 'POST', body: body || {}, timeoutMs: 30_000 });
+export const revokeSecurityApiKey = (apiKeyId, body = {}) =>
+  intelligenceFetch(`/security/api-keys/${encodeURIComponent(apiKeyId)}`, {
+    method: 'DELETE',
+    body: body || {},
+    timeoutMs: 30_000,
+  });
+export const listSecurityRoles = () =>
+  intelligenceFetch('/security/roles', { timeoutMs: 30_000 });
+export const listSecurityPermissions = () =>
+  intelligenceFetch('/security/permissions', { timeoutMs: 30_000 });
+export const listSecurityTenants = () =>
+  intelligenceFetch('/security/tenants', { timeoutMs: 30_000 });
+
 /** ICE-01 — Investment Committee Engine */
 export const getCommitteeEngineHealth = () =>
   intelligenceFetch('/committee-engine/health', { timeoutMs: 30_000 });
