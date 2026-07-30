@@ -9360,6 +9360,29 @@ async def investment_office_package(payload: dict[str, Any] = Body(default={})):
     )
 
 
+@router.get("/investment-office/company/{ticker}")
+async def investment_office_company(ticker: str, question: str | None = None, package_type: str | None = None):
+    """IO-01: Institutional Research Package for a company (orchestration only)."""
+    from investment_office.production import company
+
+    return company(ticker, question=question, package_type=package_type)
+
+
+@router.post("/investment-office/query")
+async def investment_office_query(payload: dict[str, Any] = Body(default={})):
+    """IO-01: route a question and assemble IRP from FIRE modules."""
+    from investment_office.production import query
+
+    ticker = str(payload.get("ticker") or "").strip()
+    if not ticker:
+        raise HTTPException(status_code=400, detail="ticker required")
+    return query(
+        ticker=ticker,
+        question=str(payload.get("question") or ""),
+        package_type=payload.get("package_type") or payload.get("package"),
+    )
+
+
 # --- Company Monitoring System V1 (continuous living analyst; additive) ---
 
 

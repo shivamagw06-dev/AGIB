@@ -424,8 +424,44 @@ _CATALOG: list[dict[str, Any]] = [
         "id": "investment_office",
         "name": "Investment Office",
         "group": "offices",
-        "responsibility": "Executive operating cockpit — briefs, queues, coverage.",
-        "sources": ["CMS", "CIO desks", "AGIB caches"],
+        "responsibility": (
+            "Executive operating cockpit — briefs, queues, coverage; "
+            "IO-01 orchestrates FIRE-01…06 into Institutional Research Packages (no new analysis)."
+        ),
+        "sources": [
+            "CMS",
+            "CIO desks",
+            "AGIB caches",
+            "FIRE-01",
+            "FIRE-02",
+            "FIRE-03",
+            "FIRE-04",
+            "FIRE-05",
+            "FIRE-06",
+            "FKB",
+        ],
+        "kind": "office",
+        "module": "investment_office.production",
+    },
+    {
+        "id": "investment_office_irp",
+        "name": "Investment Office IRP (IO-01)",
+        "group": "ops",
+        "responsibility": (
+            "Question routing + research package assembly from existing FIRE evidence — "
+            "never recalculates, rescores, or invents conclusions (no BUY/SELL)."
+        ),
+        "sources": [
+            "Financial Warehouse",
+            "Derived Metrics",
+            "FIRE-01",
+            "FIRE-02",
+            "FIRE-03",
+            "FIRE-04",
+            "FIRE-05",
+            "FIRE-06",
+            "FKB",
+        ],
         "kind": "office",
         "module": "investment_office.production",
     },

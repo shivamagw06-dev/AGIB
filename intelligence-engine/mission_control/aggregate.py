@@ -1514,6 +1514,14 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("business_quality")
     except Exception:
         out["business_quality"] = None
+    # IO-01 — Institutional Investment Office IRP orchestration (soft board; additive).
+    try:
+        from investment_office.production import soft_slice_mission_control as io01_soft
+
+        out["investment_office_irp"] = io01_soft()
+        out["sources"].append("investment_office_irp")
+    except Exception:
+        out["investment_office_irp"] = None
     return out
 
 
