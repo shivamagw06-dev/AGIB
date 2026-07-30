@@ -1586,6 +1586,14 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("institutional_benchmarks")
     except Exception:
         out["institutional_benchmarks"] = None
+    # E2E-01 — Institutional Product Experience Validation (not an engine; additive).
+    try:
+        from product_experience_validation.production import soft_slice_mission_control as e2e_soft
+
+        out["product_experience_validation"] = e2e_soft()
+        out["sources"].append("product_experience_validation")
+    except Exception:
+        out["product_experience_validation"] = None
     return out
 
 

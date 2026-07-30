@@ -1042,6 +1042,11 @@ export const removeWatchlistOfficeCompany = (watchlistId, ticker) =>
     `/watchlist-office/${encodeURIComponent(watchlistId)}/companies/${encodeURIComponent(ticker)}`,
     { method: 'DELETE' }
   );
+export const patchWatchlistOfficeCompany = (watchlistId, ticker, body = {}) =>
+  intelligenceFetch(
+    `/watchlist-office/${encodeURIComponent(watchlistId)}/companies/${encodeURIComponent(ticker)}`,
+    { method: 'PATCH', body: body || {} }
+  );
 
 /** CW-01 — Company Workspace (primary company UX; presentation only) */
 export const getCompanyWorkspaceHealth = () => intelligenceFetch('/company-workspace/health');
@@ -1093,6 +1098,14 @@ export const getInstitutionalStressTestReport = (caseId = 'IST-01') => {
   const qs = new URLSearchParams({ case_id: String(caseId || 'IST-01') });
   return intelligenceFetch(`/institutional-stress-tests/report?${qs}`);
 };
+
+/** E2E-01 — Institutional Product Experience Validation */
+export const getProductExperienceHealth = () => intelligenceFetch('/product-experience/health');
+export const getProductExperienceDashboard = () =>
+  intelligenceFetch('/product-experience/dashboard');
+export const getProductExperienceReport = () => intelligenceFetch('/product-experience/report');
+export const runProductExperienceValidation = (body = {}) =>
+  intelligenceFetch('/product-experience/run', { method: 'POST', body: body || {} });
 
 /** IBS-01 — AGI Institutional Benchmark Suite */
 export const getInstitutionalBenchmarksHealth = () =>

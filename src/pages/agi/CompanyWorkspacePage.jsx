@@ -202,7 +202,9 @@ export default function CompanyWorkspacePage() {
           <div className="agi-stat">
             <div className="agi-stat-label">Ask</div>
             <div className="agi-stat-value" style={{ fontSize: '1.05rem' }}>
-              <Link to={`/agi/ask?q=${encodeURIComponent(`Explain ${ticker}`)}`}>Open Ask AGI</Link>
+              <Link to={`/agi/ask?ticker=${encodeURIComponent(ticker)}&q=${encodeURIComponent('Explain margins.')}`}>
+                Open Ask AGI
+              </Link>
             </div>
           </div>
         </div>

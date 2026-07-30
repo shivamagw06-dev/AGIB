@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import InstitutionalChatWorkspace from '@/components/AskAgi/InstitutionalChatWorkspace';
 import { postUiSearch } from '@/lib/uiApi';
 import { pushSearch, saveAnswer, saveSearch } from '@/lib/searchHistory';
@@ -8,15 +8,35 @@ import { ASK_PROMPTS } from './helpers';
 
 /**
  * Ask AGI — product homepage experience inside the AGI shell.
- * Reuses the institutional chat workspace; routes stay under /agi/ask.
+ * Context-aware: ticker / portfolio from query params supply institutional scope.
  */
 export default function AskAgiProductPage() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const question = (params.get('q') || '').trim();
+  const ticker = (params.get('ticker') || '').trim().toUpperCase();
+  const context = (params.get('context') || '').trim().toLowerCase();
+  const portfolio = (params.get('portfolio') || '').trim();
   const [state, setState] = useState({ loading: false, pack: null, error: null });
   const [draft, setDraft] = useState('');
   const [savedFlash, setSavedFlash] = useState(false);
+
+  const contextLabel = useMemo(() => {
+    if (ticker) return `Company context: ${ticker}`;
+    if (context === 'portfolio' || portfolio) return `Portfolio context: ${portfolio || 'desk'}`;
+    return '';
+  }, [ticker, context, portfolio]);
+
+  const scopedQuestion = useMemo(() => {
+    if (!question) return '';
+    if (ticker && !question.toUpperCase().includes(ticker)) {
+      return `${question} (company: ${ticker})`;
+    }
+    if ((context === 'portfolio' || portfolio) && !/portfolio|holding/i.test(question)) {
+      return `${question} (portfolio context)`;
+    }
+    return question;
+  }, [question, ticker, context, portfolio]);
 
   useEffect(() => {
     if (!question) {
@@ -25,25 +45,40 @@ export default function AskAgiProductPage() {
     }
     let active = true;
     setState({ loading: true, pack: null, error: null });
-    pushSearch(question);
-    trackProductEvent('question_asked', { question, surface: 'agi_product' });
-    postUiSearch(question)
+    pushSearch(scopedQuestion);
+    trackProductEvent('question_asked', {
+      question: scopedQuestion,
+      surface: 'agi_product',
+      ticker: ticker || undefined,
+      context: context || undefined,
+    });
+    postUiSearch(scopedQuestion)
       .then((pack) => {
         if (!active) return;
         setState({ loading: false, pack, error: null });
-        trackProductEvent('search_success', { question, surface: 'agi_product' });
+        trackProductEvent('search_success', { question: scopedQuestion, surface: 'agi_product' });
       })
       .catch((error) => active && setState({ loading: false, pack: null, error }));
     return () => {
       active = false;
     };
-  }, [question]);
+  }, [question, scopedQuestion, ticker, context]);
+
+  const buildAskHref = (q) => {
+    const next = String(q || '').trim();
+    const qs = new URLSearchParams();
+    qs.set('q', next);
+    if (ticker) qs.set('ticker', ticker);
+    if (context) qs.set('context', context);
+    if (portfolio) qs.set('portfolio', portfolio);
+    return `/agi/ask?${qs.toString()}`;
+  };
 
   const onAsk = (q) => {
     const next = String(q || '').trim();
     if (!next) return;
     trackProductEvent('follow_up_question', { question: next, surface: 'agi_product' });
-    navigate(`/agi/ask?q=${encodeURIComponent(next)}`);
+    navigate(buildAskHref(next));
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -56,12 +91,26 @@ export default function AskAgiProductPage() {
       question: state.pack.question || question,
       stance: state.pack.house_view_card?.stance || state.pack.answer?.house_view_label || '',
       summary: state.pack.executive_summary || '',
-      href: `/agi/ask?q=${encodeURIComponent(state.pack.question || question)}`,
+      href: buildAskHref(state.pack.question || question),
     });
     saveSearch(state.pack.question || question);
     setSavedFlash(true);
     window.setTimeout(() => setSavedFlash(false), 1600);
   };
+
+  const contextualPrompts = ticker
+    ? [
+        'What changed?',
+        'Why is confidence moderate?',
+        'Show supporting evidence.',
+        'Show contradictory evidence.',
+        'What would change your conclusion?',
+        'Summarise management execution.',
+        'Explain margins.',
+      ]
+    : context === 'portfolio' || portfolio
+      ? ['Which holding concerns you most?', 'Where is research coverage weakest?', 'Summarise portfolio quality.']
+      : ASK_PROMPTS;
 
   if (!question) {
     return (
@@ -71,6 +120,17 @@ export default function AskAgiProductPage() {
           Bloomberg command meets institutional chat — confidence, evidence, timeline, and drill-down in every
           answer.
         </p>
+        {contextLabel ? (
+          <p className="agi-list-meta" style={{ marginBottom: '0.75rem' }}>
+            {contextLabel}
+            {ticker ? (
+              <>
+                {' · '}
+                <Link to={`/agi/companies/${ticker}`}>Open workspace</Link>
+              </>
+            ) : null}
+          </p>
+        ) : null}
         <form
           className="agi-ask-input-wrap"
           onSubmit={(e) => {
@@ -81,7 +141,13 @@ export default function AskAgiProductPage() {
           <input
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
-            placeholder="Ask about a company, market, or idea…"
+            placeholder={
+              ticker
+                ? `Ask about ${ticker} — no ticker needed`
+                : context === 'portfolio'
+                  ? 'Ask about this portfolio…'
+                  : 'Ask about a company, market, or idea…'
+            }
             aria-label="Ask AGI"
             autoFocus
           />
@@ -90,7 +156,7 @@ export default function AskAgiProductPage() {
           </button>
         </form>
         <div className="agi-prompts">
-          {ASK_PROMPTS.map((p) => (
+          {contextualPrompts.map((p) => (
             <button key={p} type="button" onClick={() => onAsk(p)}>
               {p}
             </button>
@@ -102,6 +168,11 @@ export default function AskAgiProductPage() {
 
   return (
     <div style={{ margin: '0 -0.5rem' }}>
+      {contextLabel ? (
+        <p className="agi-list-meta" style={{ margin: '0 0 0.5rem 0.25rem' }}>
+          {contextLabel}
+        </p>
+      ) : null}
       <InstitutionalChatWorkspace
         pack={state.pack}
         loading={Boolean(question && state.loading)}
