@@ -1,51 +1,49 @@
-# AGI — Institutional Knowledge Operations Center (KOC-01)
+# AGI V1.2 — Knowledge Operations Center (KOC)
 
-## Mission
+## Institutional Knowledge Mission Control
 
-Admin-only control room for the Institutional Evidence Platform / Knowledge OS.
+Admin-only command center for the Institutional Knowledge Operating System.
 
-**Not a developer dashboard.** Operators monitor, validate, repair, and improve institutional knowledge.
+**Not a developer dashboard.** Operators monitor, validate, repair, and improve institutional knowledge before research is published.
 
 ## Access
 
 | Rule | Behavior |
 |------|----------|
-| `isAdmin(user)` | Render **Knowledge Operations** in top nav (next to auth controls) and CMS sidebar |
-| Non-admin signed-in | Menu item hidden; direct URL → **403 Forbidden** |
-| Guest | Redirect to login |
+| Admin (`isAdmin`) | **Knowledge Operations** in top nav + CMS sidebar |
+| Non-admin | Menu hidden; direct URL → **403 Forbidden** |
+| Every action | Immutable audit log |
 
 Route: `/admin/knowledge-operations` (alias `/knowledge-operations`)
 
-## Primary workflow — Missing Knowledge Inbox
+## Design
 
-> **Today's Highest-Impact Missing Knowledge**
+White modern institutional UI · Bloomberg precision · Green / Orange / Red / Blue status only.
 
-Prioritized gaps (Critical → Low) with one-click **Upload** / **Repair**. Clears the job of searching for missing evidence.
+## Primary workflow
 
-## Page sections
+**Missing Knowledge Inbox** + **Knowledge Gap AI** — clear prioritized gaps with estimated ICC / confidence / readiness uplift. One-click Upload.
 
-1. Today's Knowledge Ingestion (timeline)
-2. Daily Knowledge Summary
-3. Institutional Coverage Table (search / view / refresh / upload)
-4. Company Detail (green / yellow / red progress)
-5. Manual Knowledge Upload (append-only pipeline)
-6. Knowledge Queue
-7. Collector Health
-8. Evidence Explorer (via coverage + registry drill-down)
-9. Knowledge Graph (rebuild action + IEP graph API)
-10. Knowledge Versions
-11. Coverage Heatmap (Top 20 / Nifty bands)
-12. Operational Actions (CGL / KIL / ICF / repair / readiness)
+## Sections
 
-## Upload pipeline
+1. Today's Knowledge Timeline  
+2. Institutional Coverage Dashboard  
+3. Company Detail (checklist)  
+4. Missing Knowledge Inbox  
+5. Manual Knowledge Upload (append-only pipeline)  
+6. Knowledge Queue  
+7. Collector Health  
+8. Evidence Explorer  
+9. Knowledge Graph Viewer  
+10. Knowledge Version History  
+11. Coverage Heatmap  
+12. Knowledge Gap AI  
+13. Operations  
+14. Audit Trail  
 
-```text
-Store document → checksum / hash → parse → extract → normalize
-→ Evidence Objects → link company → Company Memory
-→ Knowledge Graph → Research Readiness → Claim Safety
-```
+## System Health Bar
 
-Evidence is **never overwritten**. Every action is audit-logged (who, when, hash, company, version, evidence IDs).
+CGL · KIL · ICF · Scheduler · Collector Health % · Knowledge Latency · Repair Queue · Auto Repair · KOC
 
 ## Package
 
@@ -53,27 +51,33 @@ Evidence is **never overwritten**. Every action is audit-logged (who, when, hash
 
 | Module | Role |
 |--------|------|
-| `desk.py` | Control-room aggregate |
-| `missing_inbox.py` | Prioritized gap inbox |
-| `upload.py` | Manual upload + queue |
-| `audit.py` | Immutable audit log |
-| `actions.py` | Audited ops actions |
-| `production.py` | API façades |
+| `desk.py` / `production.py` | Overview aggregate |
+| `system_health.py` | Health bar |
+| `missing_inbox.py` | Prioritized gaps + ICC gain |
+| `gap_ai.py` | Coverage / confidence / readiness uplift |
+| `evidence_explorer.py` | Search + lineage |
+| `upload.py` | Manual upload pipeline |
+| `audit.py` | Immutable audit |
+| `actions.py` | Audited ops |
 
 ## APIs
 
 | Method | Path |
 |--------|------|
-| GET | `/v1/koc/health` · `/koc/status` |
-| GET | `/v1/koc/desk` |
-| GET | `/v1/koc/missing-inbox` |
-| GET | `/v1/koc/company/{ticker}` |
-| POST | `/v1/koc/upload` |
-| GET | `/v1/koc/queue` · `/koc/audit` |
-| POST | `/v1/koc/action` |
+| GET | `/v1/koc/overview` · `/system-health` · `/coverage` |
+| GET | `/v1/koc/company/{ticker}` · `/missing-knowledge` |
+| GET | `/v1/koc/collectors` · `/evidence` · `/knowledge-versions` |
+| GET | `/v1/koc/gap-ai` · `/search` · `/audit` · `/queue` |
+| POST | `/v1/koc/upload` · `/run-cgl` · `/run-kil` · `/run-coverage` · `/repair` |
 
 BFF: `/api/intelligence/koc/*`
 
-## UI
+## Success criteria
 
-Light institutional surface — white background, IBM Plex, green/yellow/red status only. Bloomberg-terminal precision, not a colorful admin theme.
+- Complete visibility into CGL → KIL → IEP → ICF → Memory → Graph → Research  
+- Measurable Institutional Coverage per company  
+- Missing documents automatically identified  
+- Manual upload updates memory, graph, readiness  
+- Research traceable to immutable evidence  
+- Overnight Knowledge Snapshots observable  
+- Every admin action audited  

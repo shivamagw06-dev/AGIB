@@ -1,11 +1,12 @@
-"""Missing Knowledge Inbox — prioritized gaps to clear, not search."""
+"""Missing Knowledge Inbox — prioritized gaps with ICC / readiness impact."""
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from knowledge_operations.schema import (
     CLASS_LABELS,
+    CLASS_WEIGHTS,
     MISSING_PRIORITY,
     PRIORITY_RANK,
 )
@@ -24,11 +25,7 @@ def _company_name(ticker: str) -> str:
 
 
 def build_missing_inbox(*, scope: str = "TOP20", limit: int = 50) -> Dict[str, Any]:
-    """
-    Today's highest-impact missing knowledge.
-
-    One row per (company, missing class) ranked Critical → Low, then by tier.
-    """
+    """Today's highest-impact missing knowledge with estimated ICC gain."""
     from institutional_coverage_factory.universe import top20_tickers, tier_for_ticker
     from institutional_coverage_factory.scorer.score import score_evidence_classes
 
@@ -59,10 +56,11 @@ def build_missing_inbox(*, scope: str = "TOP20", limit: int = 50) -> Dict[str, A
             continue
         missing = list(score.get("missing_classes") or [])
         tier = tier_for_ticker(t)
+        coverage = float(score.get("coverage_pct") or 0)
         for class_id in missing:
-            # Skip non-uploadable structural classes from upload CTA prominence
             priority = MISSING_PRIORITY.get(class_id, "Medium")
             label = CLASS_LABELS.get(class_id, class_id.replace("_", " ").title())
+            weight = float(CLASS_WEIGHTS.get(class_id, 5))
             uploadable = class_id not in {"company_memory", "knowledge_graph"}
             items.append(
                 {
@@ -73,9 +71,14 @@ def build_missing_inbox(*, scope: str = "TOP20", limit: int = 50) -> Dict[str, A
                     "priority": priority,
                     "priority_rank": PRIORITY_RANK.get(priority, 9),
                     "tier": tier,
-                    "coverage_pct": score.get("coverage_pct"),
+                    "coverage_pct": coverage,
+                    "estimated_icc_gain_pct": weight,
+                    "estimated_research_improvement": round(weight * 0.7, 1),
+                    "estimated_knowledge_confidence_improvement": round(weight * 0.5, 1),
+                    "expected_claims": int(weight * 8),
+                    "estimated_processing_minutes": 2 if uploadable else 1,
                     "uploadable": uploadable,
-                    "impact_note": f"Clears {label} gap for {t}",
+                    "impact_note": f"+{weight:.0f}% ICC if {label} acquired for {t}",
                 }
             )
 
@@ -83,6 +86,7 @@ def build_missing_inbox(*, scope: str = "TOP20", limit: int = 50) -> Dict[str, A
         key=lambda r: (
             r.get("priority_rank", 9),
             0 if r.get("tier") == "TOP20" else 1,
+            -(r.get("estimated_icc_gain_pct") or 0),
             -(float(r.get("coverage_pct") or 0)),
             r.get("ticker") or "",
         )
@@ -120,6 +124,7 @@ def missing_for_ticker(ticker: str) -> Dict[str, Any]:
                 "class_id": c,
                 "label": CLASS_LABELS.get(c, c),
                 "priority": MISSING_PRIORITY.get(c, "Medium"),
+                "estimated_icc_gain_pct": CLASS_WEIGHTS.get(c, 5),
                 "uploadable": c not in {"company_memory", "knowledge_graph"},
             }
             for c in missing

@@ -7,14 +7,17 @@ from typing import Any, Dict, List, Optional
 
 from knowledge_operations.missing_inbox import build_missing_inbox
 from knowledge_operations.schema import (
+    CHECKLIST_ORDER,
     CLASS_LABELS,
     COLLECTOR_NAMES,
+    KOC_PLATFORM,
     KOC_PRODUCT,
     KOC_SPEC,
     KOC_VERSION,
     KOC_WORKSTREAM_ID,
     MISSION,
     QUEUE_STAGES,
+    UPLOAD_PIPELINE,
 )
 from knowledge_operations.upload import list_queue, list_uploads
 
@@ -211,20 +214,37 @@ def _collector_health() -> List[Dict[str, Any]]:
         ).dashboard()
     )
     success = None
+    latest = None
+    degraded_n = 0
     if isinstance(cgl, dict):
         success = cgl.get("collector_success_rate")
+        latest = cgl.get("latest_run") or {}
+        ops = cgl.get("ops") or {}
+        if isinstance(ops, dict) and isinstance(ops.get("degraded_collectors"), int):
+            degraded_n = ops["degraded_collectors"]
     out = []
-    for name in COLLECTOR_NAMES:
+    for idx, name in enumerate(COLLECTOR_NAMES):
+        # Soft: mark first N as degraded when CGL reports degraded collectors
+        is_degraded = success is not None and (
+            float(success) < 90 or (degraded_n > 0 and idx < degraded_n)
+        )
+        health = (
+            "Healthy"
+            if success is not None and not is_degraded and float(success) >= 90
+            else ("Warning" if success is not None else "Unknown")
+        )
+        if is_degraded:
+            health = "Warning"
         out.append(
             {
                 "collector": name,
-                "health": "Healthy" if success and float(success) >= 90 else (
-                    "Degraded" if success is not None else "Unknown"
-                ),
-                "latency_ms": None,
+                "health": health,
+                "latency_ms": (latest or {}).get("latency_ms") if isinstance(latest, dict) else None,
                 "success_rate": success,
-                "failures": None,
-                "last_success": None,
+                "failures": (latest or {}).get("volumes", {}).get("collectors_failed")
+                if isinstance(latest, dict)
+                else None,
+                "last_success": (latest or {}).get("generated_at") if isinstance(latest, dict) else None,
                 "next_run": None,
                 "retry_available": True,
             }
@@ -319,26 +339,65 @@ def build_desk(*, scope: str = "TOP20") -> Dict[str, Any]:
         except Exception:
             pass
 
+    from knowledge_operations.system_health import build_system_health
+    from knowledge_operations.gap_ai import analyze_gaps
+    from knowledge_operations.flags import is_koc_enabled
+
+    system_health = build_system_health()
+    gap_ai = analyze_gaps(scope=scope, limit=20)
+    claim_safe_n = sum(1 for r in rows if r.get("claim_safe"))
+    bar = system_health.get("bar") or {}
+
+    # Enrich queue stages with repair backlog from CGL
+    stage_counts = dict((queue or {}).get("stages") or {})
+    if isinstance(cgl, dict):
+        ops = cgl.get("ops") or {}
+        if isinstance(ops, dict) and ops.get("repair_queue") is not None:
+            stage_counts["Repair Queue"] = ops.get("repair_queue")
+    queue_enriched = {
+        **(queue or {}),
+        "stages": stage_counts,
+        "boards": [
+            {
+                "stage": s,
+                "count": int(stage_counts.get(s) or 0),
+                "oldest_item": None,
+                "eta_minutes": None,
+                "retry_available": True,
+            }
+            for s in QUEUE_STAGES
+        ],
+    }
+
     return {
         "ok": True,
         "workstream_id": KOC_WORKSTREAM_ID,
         "product": KOC_PRODUCT,
+        "platform": KOC_PLATFORM,
         "version": KOC_VERSION,
         "spec": KOC_SPEC,
         "mission": MISSION,
         "generated_at": _now(),
         "scope": scope,
+        "system_health": system_health,
         "kpis": {
             "companies_covered": len([r for r in rows if (r.get("evidence_count") or 0) > 0]),
             "companies_scoped": len(rows),
             "institutional_coverage_complete": icc_n,
+            "claim_safe": claim_safe_n,
             "research_ready": research_ready_n,
             "knowledge_ready": knowledge_ready_n,
             "knowledge_confidence": round(sum(kc_vals) / len(kc_vals), 1) if kc_vals else None,
             "evidence_objects": evidence_objects,
             "documents_collected_today": len(timeline),
             "documents_processed_today": len(timeline),
+            "claims_extracted_today": sum(int(e.get("claims_extracted") or 0) for e in timeline),
             "claims_created_today": sum(int(e.get("claims_extracted") or 0) for e in timeline),
+            "knowledge_snapshots": len(versions),
+            "company_memory_updates": summary.get("company_memory_refreshes"),
+            "knowledge_graph_updates": summary.get("knowledge_graph_updates"),
+            "research_refreshes": summary.get("research_pack_refreshes"),
+            "research_invalidations": sum(1 for e in timeline if e.get("research_invalidated")),
             "research_invalidated_today": sum(
                 1 for e in timeline if e.get("research_invalidated")
             ),
@@ -346,40 +405,52 @@ def build_desk(*, scope: str = "TOP20") -> Dict[str, Any]:
             "collector_health": (
                 "Healthy"
                 if collector_success is not None and float(collector_success) >= 90
-                else ("Degraded" if collector_success is not None else "Unknown")
+                else ("Warning" if collector_success is not None else "Unknown")
             ),
-            "scheduler_status": (sch or {}).get("enabled") if isinstance(sch, dict) else None,
+            "scheduler_status": (bar.get("scheduler") or {}).get("status"),
             "scheduler_detail": sch if isinstance(sch, dict) else None,
-            "knowledge_latency": None,
+            "knowledge_latency": (bar.get("knowledge_latency_minutes")),
+            "cgl_status": (bar.get("cgl") or {}).get("status"),
+            "kil_status": (bar.get("kil") or {}).get("status"),
+            "icf_status": (bar.get("icf") or {}).get("status"),
+            "koc_status": (bar.get("koc") or {}).get("status")
+            or ("Running" if is_koc_enabled() else "Disabled"),
             "icc_entered_today": (sch or {}).get("icc_entered_today")
             if isinstance(sch, dict)
             else None,
+            "repair_queue": bar.get("repair_queue"),
         },
         "missing_inbox": inbox,
+        "gap_ai": gap_ai,
         "ingestion_timeline": timeline,
         "daily_summary": summary,
         "coverage_table": rows,
-        "knowledge_queue": queue,
+        "knowledge_queue": queue_enriched,
         "queue_stages": list(QUEUE_STAGES),
         "collector_health": collectors,
         "coverage_heatmap": _heatmap(rows),
         "knowledge_versions": versions,
+        "upload_pipeline": list(UPLOAD_PIPELINE),
         "actions": [
-            "run_full_coverage",
             "run_cgl",
             "run_kil",
+            "run_full_coverage",
             "run_research_refresh",
-            "run_knowledge_validation",
             "run_company_memory_refresh",
-            "run_research_readiness",
-            "run_auto_repair",
             "rebuild_knowledge_graph",
+            "run_auto_repair",
+            "run_knowledge_validation",
+            "run_coverage_scan",
+            "run_institutional_coverage_check",
+            "run_top20_audit",
         ],
         "security": {
             "admin_only": True,
             "audit_required": True,
             "evidence_immutable": True,
             "never_overwrite": True,
+            "rollback_available": False,
+            "nothing_permanently_deleted": True,
         },
     }
 
@@ -396,12 +467,55 @@ def company_detail(ticker: str) -> Dict[str, Any]:
             fromlist=["build_institutional_research_pack"],
         ).build_institutional_research_pack(t)
     )
+    progress = dict((row or {}).get("progress") or {})
+    # Expand checklist with registry / research pack / optional types
+    if isinstance(pack, dict):
+        reg = ((pack.get("evidence") or {}).get("registry") or {}).get("items") or []
+        progress["evidence_registry"] = "collected" if len(reg) >= 2 else "missing"
+        progress["research_pack"] = (
+            "collected" if pack.get("research_ready") or pack.get("claim_safe") else "missing"
+        )
+        dtypes = {str(i.get("document_type") or "") for i in reg}
+        if "credit_rating" in dtypes or "credit_ratings" in dtypes:
+            progress["credit_rating"] = "collected"
+        else:
+            progress.setdefault("credit_rating", "missing")
+        if "investor_day" in dtypes:
+            progress["investor_day"] = "collected"
+        else:
+            progress.setdefault("investor_day", "missing")
+
+    checklist = []
+    for key in CHECKLIST_ORDER:
+        state = progress.get(key) or "missing"
+        checklist.append(
+            {
+                "id": key,
+                "label": CLASS_LABELS.get(key, key.replace("_", " ").title()),
+                "state": state,
+            }
+        )
+
+    graph = _soft(
+        lambda: __import__(
+            "institutional_evidence.production", fromlist=["get_evidence_graph"]
+        ).get_evidence_graph(t)
+    )
+
     return {
         "ok": True,
         "ticker": t,
+        "company": (row or {}).get("company") or t,
         "row": row,
         "missing_inbox": company_gaps,
-        "progress": (row or {}).get("progress"),
+        "progress": progress,
+        "checklist": checklist,
+        "coverage_pct": (row or {}).get("coverage_pct"),
+        "knowledge_confidence": (row or {}).get("knowledge_confidence"),
+        "research_readiness": (row or {}).get("research_readiness"),
+        "claim_safe": (row or {}).get("claim_safe"),
+        "icc": (row or {}).get("icc"),
+        "knowledge_graph": graph if isinstance(graph, dict) else None,
         "pack_summary": {
             "research_ready": (pack or {}).get("research_ready") if isinstance(pack, dict) else None,
             "claim_safe": (pack or {}).get("claim_safe") if isinstance(pack, dict) else None,
@@ -412,3 +526,4 @@ def company_detail(ticker: str) -> Dict[str, Any]:
             else 0,
         },
     }
+

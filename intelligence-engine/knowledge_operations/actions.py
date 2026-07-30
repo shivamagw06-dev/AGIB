@@ -74,6 +74,30 @@ def run_action(
             from institutional_coverage_factory.production import dispatch_company
 
             result = {"ok": True, "action": a, "result": dispatch_company(t)}
+        elif a in {"run_coverage_scan", "coverage_scan"}:
+            from institutional_coverage_factory.production import plan_coverage
+
+            result = {
+                "ok": True,
+                "action": a,
+                "result": plan_coverage(limit=20, scope="TOP20"),
+            }
+        elif a in {"run_institutional_coverage_check", "icc_check"} and t:
+            from institutional_coverage_factory.production import icc_status_for
+
+            result = {"ok": True, "action": a, "result": icc_status_for(t)}
+        elif a in {"run_top20_audit", "top20_audit"}:
+            from institutional_coverage_factory.production import coverage_dashboard
+
+            result = {
+                "ok": True,
+                "action": a,
+                "result": coverage_dashboard(scope="TOP20"),
+            }
+        elif a in {"run_kg_refresh", "knowledge_graph_refresh"} and t:
+            from institutional_evidence.production import get_evidence_graph
+
+            result = {"ok": True, "action": a, "result": get_evidence_graph(t)}
         else:
             result = {
                 "ok": False,
