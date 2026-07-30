@@ -54,6 +54,29 @@ async function engineFetch(path, { method = 'GET', body = null, timeoutMs = 120_
   return { ok: response.ok, status: response.status, data };
 }
 
+function proxyPost(path) {
+  return async (req, res) => {
+    try {
+      const result = await engineFetch(path, { method: 'POST', body: req.body || {} });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Intelligence engine unavailable', detail: error.message });
+    }
+  };
+}
+
+function proxyGet(pathBuilder) {
+  return async (req, res) => {
+    try {
+      const path = typeof pathBuilder === 'function' ? pathBuilder(req) : pathBuilder;
+      const result = await engineFetch(path);
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Intelligence engine unavailable', detail: error.message });
+    }
+  };
+}
+
 export default function createIntelligenceRouter() {
   const router = Router();
 
@@ -80,15 +103,7 @@ export default function createIntelligenceRouter() {
     }
   });
 
-  router.post('/research/runs', async (req, res) => {
-    try {
-      const result = await engineFetch('/v1/research/runs', { method: 'POST', body: req.body || {} });
-      return res.status(result.status).json(result.data);
-    } catch (error) {
-      return res.status(503).json({ error: 'Intelligence engine unavailable', detail: error.message });
-    }
-  });
-
+  router.post('/research/runs', proxyPost('/v1/research/runs'));
   router.get('/research/runs', async (req, res) => {
     try {
       const qs = new URLSearchParams(req.query).toString();
@@ -98,15 +113,23 @@ export default function createIntelligenceRouter() {
       return res.status(503).json({ error: 'Intelligence engine unavailable', detail: error.message });
     }
   });
+  router.get(
+    '/research/runs/:runId',
+    proxyGet((req) => `/v1/research/runs/${encodeURIComponent(req.params.runId)}`),
+  );
 
-  router.get('/research/runs/:runId', async (req, res) => {
-    try {
-      const result = await engineFetch(`/v1/research/runs/${encodeURIComponent(req.params.runId)}`);
-      return res.status(result.status).json(result.data);
-    } catch (error) {
-      return res.status(503).json({ error: 'Intelligence engine unavailable', detail: error.message });
-    }
-  });
+  // Portfolio Office
+  router.get('/portfolio/models', proxyGet('/v1/portfolio/models'));
+  router.post('/portfolio/normalize', proxyPost('/v1/portfolio/normalize'));
+  router.post('/portfolio/ingest', proxyPost('/v1/portfolio/ingest'));
+  router.post('/portfolio/scenario', proxyPost('/v1/portfolio/scenario'));
+  router.post('/portfolio/office', proxyPost('/v1/portfolio/office'));
+
+  // Investment Office
+  router.get('/investment-office/playbooks', proxyGet('/v1/investment-office/playbooks'));
+  router.post('/investment-office/package', proxyPost('/v1/investment-office/package'));
+  router.post('/investment-office/scenario', proxyPost('/v1/investment-office/scenario'));
+  router.post('/investment-office/run', proxyPost('/v1/investment-office/run'));
 
   // System integration inventory (Macro / Sector / Market / Research stack)
   router.get('/system/intelligence-stack', async (_req, res) => {

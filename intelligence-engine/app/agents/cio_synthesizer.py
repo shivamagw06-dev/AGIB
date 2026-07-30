@@ -56,6 +56,13 @@ class ChiefInvestmentOfficer(BaseAgent):
         )
 
     async def synthesize(self, context: dict[str, Any]) -> InstitutionalReport:
+        desk = context.get("desk") or DeskType.SMOKE
+        desk_enum = desk if isinstance(desk, DeskType) else DeskType(str(desk))
+        if desk_enum == DeskType.PORTFOLIO:
+            return await self._synthesize_portfolio(context)
+        if desk_enum == DeskType.INVESTMENT_OFFICE:
+            return await self._synthesize_investment_office(context)
+
         outputs: list[AgentOutput] = context.get("agent_outputs") or []
         debate: DebatePackage | None = context.get("debate")
         confidence: ConfidenceBreakdown = context.get("confidence") or ConfidenceBreakdown(
@@ -65,7 +72,6 @@ class ChiefInvestmentOfficer(BaseAgent):
             rationale="Default confidence because no combined score was provided.",
         )
         evidence: list[EvidenceItem] = context.get("evidence") or []
-        desk = context.get("desk") or DeskType.SMOKE
 
         key_findings = []
         for output in outputs:
@@ -90,7 +96,7 @@ class ChiefInvestmentOfficer(BaseAgent):
         executive = enriched or thesis
 
         return InstitutionalReport(
-            desk=desk if isinstance(desk, DeskType) else DeskType(str(desk)),
+            desk=desk_enum,
             title="AGI Institutional Research Note",
             executive_summary=executive,
             key_findings=key_findings[:8],
@@ -129,12 +135,201 @@ class ChiefInvestmentOfficer(BaseAgent):
             ],
         )
 
+    async def _synthesize_portfolio(self, context: dict[str, Any]) -> InstitutionalReport:
+        """CIO Summary for Portfolio Office — Neutral / Review language only. Never Buy/Sell/Execute."""
+        outputs: list[AgentOutput] = context.get("agent_outputs") or []
+        confidence: ConfidenceBreakdown = context.get("confidence") or ConfidenceBreakdown(
+            score=50,
+            supports=[],
+            challenges=["Missing confidence package"],
+            rationale="Default portfolio confidence.",
+        )
+        evidence: list[EvidenceItem] = context.get("evidence") or []
+        pack = context.get("portfolio_pack")
+        pack_data = pack.model_dump() if pack is not None and hasattr(pack, "model_dump") else (pack or {})
+
+        portfolio = pack_data.get("portfolio") or {}
+        name = portfolio.get("name") or "Client Portfolio"
+        n_holdings = len(portfolio.get("holdings") or [])
+        health = pack_data.get("health_score")
+        recs = pack_data.get("recommendations") or []
+        high = [r for r in recs if r.get("priority") == "high"]
+        withheld = pack_data.get("withheld") or []
+
+        key_findings: list[str] = []
+        for output in outputs:
+            for finding in output.findings[:2]:
+                key_findings.append(finding.statement)
+
+        thesis = (
+            f"AGI Portfolio Office CIO Summary for '{name}' ({n_holdings} holdings). "
+            f"Portfolio Health Score: {health if health is not None else 'withheld'}. "
+            f"{len(high)} high-priority review item(s) in the Action Center. "
+            "Stance is Neutral / Review — guidance uses Review, Research, Monitor, Consider, and Investigate only. "
+        )
+        if withheld:
+            thesis += f"Withheld (not fabricated): {withheld[0]}. "
+        if key_findings:
+            thesis += f"Lead packaging finding: {key_findings[0]}"
+
+        enriched = await self._maybe_enrich(
+            thesis,
+            key_findings,
+            context.get("debate"),
+            confidence,
+            portfolio_mode=True,
+        )
+        executive = enriched or thesis
+
+        action_items = [
+            f"{r.get('verb')}: {r.get('title')}" for r in recs[:6]
+        ] or [
+            "Review portfolio concentration in Action Center",
+            "Investigate holdings lacking research coverage",
+            "Monitor withheld forecast/risk layers until engines are attached",
+        ]
+
+        return InstitutionalReport(
+            desk=DeskType.PORTFOLIO,
+            title=f"AGI Portfolio Office — {name}",
+            executive_summary=executive,
+            key_findings=key_findings[:8],
+            macro_view=None,
+            market_view=None,
+            sector_view=str((pack_data.get("sector_exposure") or {}))[:240] or None,
+            company_view=None,
+            technical_view=None,
+            valuation_view=None,
+            catalysts=[
+                "Deepen equity research coverage",
+                "Attach Forecast Layer when available",
+                "Compare timeline baselines once stored",
+            ],
+            risks=[w for w in withheld[:4]]
+            + [r.get("title") for r in high[:3]],
+            bull_case=ScenarioCase(
+                label="Constructive review path",
+                probability=max(10, min(40, confidence.score // 2)),
+                detail="Research coverage improves and concentration recommendations are investigated — not a buy signal.",
+                is_prediction=True,
+            ),
+            base_case=ScenarioCase(
+                label="Monitor / Review",
+                probability=confidence.score,
+                detail=executive[:240],
+                is_prediction=True,
+            ),
+            bear_case=ScenarioCase(
+                label="Elevated review urgency",
+                probability=max(10, min(40, 100 - confidence.score)),
+                detail="Concentration or research gaps widen — investigate and monitor; not a sell instruction.",
+                is_prediction=True,
+            ),
+            confidence=confidence,
+            supporting_evidence=evidence[:20],
+            action_items=action_items,
+        )
+
+    async def _synthesize_investment_office(self, context: dict[str, Any]) -> InstitutionalReport:
+        """CIO Summary for Investment Office — Neutral / Review only. Never trade instructions."""
+        outputs: list[AgentOutput] = context.get("agent_outputs") or []
+        confidence: ConfidenceBreakdown = context.get("confidence") or ConfidenceBreakdown(
+            score=50,
+            supports=[],
+            challenges=["Missing confidence package"],
+            rationale="Default investment office confidence.",
+        )
+        evidence: list[EvidenceItem] = context.get("evidence") or []
+        pack = context.get("investment_office_pack")
+        pack_data = pack.model_dump() if pack is not None and hasattr(pack, "model_dump") else (pack or {})
+        brief = pack_data.get("daily_brief") or {}
+        queue = pack_data.get("research_queue") or []
+        high = [q for q in queue if q.get("priority") == "high"]
+        withheld = pack_data.get("withheld") or []
+
+        key_findings: list[str] = []
+        for output in outputs:
+            for finding in output.findings[:2]:
+                key_findings.append(finding.statement)
+
+        thesis = (
+            "AGI Investment Office CIO Summary. "
+            f"{brief.get('executive_summary') or 'Daily brief packaged.'} "
+            f"{len(high)} high-priority research item(s) deserve attention. "
+            "Stance is Neutral / Review — guidance uses Review, Research, Monitor, Consider, and Investigate only. "
+        )
+        if withheld:
+            thesis += f"Withheld (not fabricated): {withheld[0]}. "
+        if key_findings:
+            thesis += f"Lead packaging finding: {key_findings[0]}"
+
+        enriched = await self._maybe_enrich(
+            thesis,
+            key_findings,
+            context.get("debate"),
+            confidence,
+            investment_office_mode=True,
+        )
+        executive = enriched or thesis
+        action_items = [
+            f"{'Research' if q.get('priority')=='high' else 'Review'}: {q.get('title')} — {q.get('reason')}"
+            for q in queue[:6]
+        ] or [
+            "Review Today's Brief for market story and risks",
+            "Work Research Queue high-priority names",
+            "Open Scenario Center only with evidenced assumptions",
+        ]
+
+        return InstitutionalReport(
+            desk=DeskType.INVESTMENT_OFFICE,
+            title="AGI Investment Office — Daily CIO",
+            executive_summary=executive,
+            key_findings=key_findings[:8],
+            macro_view=str(brief.get("outlook") or "") or None,
+            market_view=str(brief.get("todays_market_story"))[:240]
+            if not isinstance(brief.get("todays_market_story"), dict)
+            else (brief.get("todays_market_story") or {}).get("note"),
+            sector_view=None,
+            company_view=", ".join(
+                str(x) for x in (brief.get("companies_to_research") or [])[:6] if x
+            )
+            or None,
+            technical_view=None,
+            valuation_view=None,
+            catalysts=list(brief.get("research_priorities") or [])[:4],
+            risks=[w for w in withheld[:3]]
+            + [str((r or {}).get("title")) for r in (brief.get("top_risks") or [])[:3]],
+            bull_case=ScenarioCase(
+                label="Constructive research path",
+                probability=max(10, min(40, confidence.score // 2)),
+                detail="High-priority queue items are researched and assumptions re-checked — not a trade signal.",
+                is_prediction=True,
+            ),
+            base_case=ScenarioCase(
+                label="Monitor / Review",
+                probability=confidence.score,
+                detail=executive[:240],
+                is_prediction=True,
+            ),
+            bear_case=ScenarioCase(
+                label="Elevated attention",
+                probability=max(10, min(40, 100 - confidence.score)),
+                detail="Macro or forecast uncertainty rises — investigate and monitor; not a liquidation instruction.",
+                is_prediction=True,
+            ),
+            confidence=confidence,
+            supporting_evidence=evidence[:20],
+            action_items=action_items,
+        )
+
     async def _maybe_enrich(
         self,
         thesis: str,
         findings: list[str],
         debate: DebatePackage | None,
         confidence: ConfidenceBreakdown,
+        portfolio_mode: bool = False,
+        investment_office_mode: bool = False,
     ) -> str | None:
         from app.core.config import get_settings
 

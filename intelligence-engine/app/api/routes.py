@@ -83,7 +83,23 @@ from app.orch.l2.executor import L2FeatureBuildService
 from app.orch.l2.models import BuildBatchRequest, MarketDataUpdateEvent
 from app.orch.ledger import OrchLedger
 from app.orchestration.director import ResearchDirector
-from app.schemas.models import PredictionRecord, ResearchRun, ResearchRunCreate
+from app.portfolio.normalize import MODEL_PORTFOLIOS
+from app.portfolio.pack import build_portfolio_package, evaluate_scenario
+from app.investment_office.pack import (
+    build_investment_office_package,
+    evaluate_office_scenario,
+)
+from app.investment_office.playbooks import list_playbooks
+from app.schemas.models import (
+    DeskType,
+    InvestmentOfficePackage,
+    InvestmentOfficeRequest,
+    PortfolioIngestRequest,
+    PortfolioPackage,
+    PredictionRecord,
+    ResearchRun,
+    ResearchRunCreate,
+)
 
 router = APIRouter(prefix="/v1")
 _store = ResearchStore()

@@ -29,7 +29,7 @@ const serverDirectory = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(serverDirectory, ".env") });
 
 const app = express();
-app.use(express.json({ limit: "200kb" }));
+app.use(express.json({ limit: "2mb" }));
 app.set("trust proxy", 1);
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
@@ -60,7 +60,7 @@ app.use(cors({
     // Deny quietly — never cb(Error) (that surfaces as Internal Server Error).
     return cb(null, false);
   },
-  methods: ["GET", "POST", "OPTIONS"],
+  methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
   optionsSuccessStatus: 200,
   credentials: true,
 }));

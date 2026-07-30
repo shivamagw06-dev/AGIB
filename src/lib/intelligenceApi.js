@@ -44,8 +44,10 @@ async function intelligenceFetch(path, { method = 'GET', body, timeoutMs = 45_00
 }
 
 export const getIntelligenceHealth = () => intelligenceFetch('/health');
-export const createResearchRun = (payload) => intelligenceFetch('/research/runs', { method: 'POST', body: payload });
-export const getResearchRun = (runId) => intelligenceFetch(`/research/runs/${encodeURIComponent(runId)}`);
+export const createResearchRun = (payload) =>
+  intelligenceFetch('/research/runs', { method: 'POST', body: payload });
+export const getResearchRun = (runId) =>
+  intelligenceFetch(`/research/runs/${encodeURIComponent(runId)}`);
 export const listResearchRuns = (params = {}) => {
   const qs = new URLSearchParams(params).toString();
   return intelligenceFetch(`/research/runs${qs ? `?${qs}` : ''}`);

@@ -36,5 +36,7 @@ def bootstrap_registry() -> None:
     from app.agents import stubs  # noqa: F401
     from app.agents.cio_desk import news_analyst, macro_economist, market_analyst, risk_manager  # noqa: F401
     from app.agents.cio_synthesizer import ChiefInvestmentOfficer  # noqa: F401
+    from app.agents import portfolio_desk  # noqa: F401
+    from app.agents import investment_office_desk  # noqa: F401
 
     log.info("agent_registry_ready", extra={"agents": list_agents()})

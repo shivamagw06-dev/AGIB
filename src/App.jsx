@@ -185,6 +185,8 @@ function PublicRoutes() {
       <Route path="/events-webinars" element={<Navigate replace to="/events" />} />
 
       <Route path="/privacy" element={<PrivacyPolicy />} />
+      <Route path="/unsubscribe" element={<UnsubscribePage />} />
+      <Route path="/unsubscribe-preferences" element={<UnsubscribePage />} />
       <Route path="/terms" element={<TermsOfService />} />
       <Route path="/disclaimer" element={<Disclaimer />} />
       <Route path="/sebi-disclosure" element={<SebiDisclosure />} />
