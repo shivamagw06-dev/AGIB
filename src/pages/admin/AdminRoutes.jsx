@@ -27,6 +27,7 @@ import MissionControl from '@/pages/admin/MissionControl';
 import InstitutionalStack from '@/pages/admin/InstitutionalStack';
 import AccountingIntelligence from '@/pages/admin/AccountingIntelligence';
 import FinancialStatementsEngine from '@/pages/admin/FinancialStatementsEngine';
+import FinancialKnowledgeBase from '@/pages/admin/FinancialKnowledgeBase';
 import PortfolioIntelligence from '@/pages/admin/PortfolioIntelligence';
 import CausalIntelligence from '@/pages/admin/CausalIntelligence';
 import ForecastIntelligence from '@/pages/admin/ForecastIntelligence';
@@ -77,6 +78,7 @@ export default function AdminRoutes() {
           <Route path="institutional-stack" element={<InstitutionalStack />} />
           <Route path="accounting-intelligence" element={<AccountingIntelligence />} />
           <Route path="financial-statements" element={<FinancialStatementsEngine />} />
+          <Route path="financial-knowledge" element={<FinancialKnowledgeBase />} />
           <Route path="portfolio-intelligence" element={<PortfolioIntelligence />} />
           <Route path="causal-intelligence" element={<CausalIntelligence />} />
           <Route path="forecast-intelligence" element={<ForecastIntelligence />} />

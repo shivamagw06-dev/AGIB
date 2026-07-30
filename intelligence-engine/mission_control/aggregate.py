@@ -1474,6 +1474,14 @@ def _soft_institutional_intelligence() -> dict[str, Any]:
         out["sources"].append("financial_drivers")
     except Exception:
         out["financial_drivers"] = None
+    # FKB-01 — Institutional Financial Knowledge Base (definitions only).
+    try:
+        from financial_knowledge.production import soft_slice_mission_control as fkb_soft
+
+        out["financial_knowledge"] = fkb_soft()
+        out["sources"].append("financial_knowledge")
+    except Exception:
+        out["financial_knowledge"] = None
     return out
 
 

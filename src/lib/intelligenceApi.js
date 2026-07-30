@@ -1200,6 +1200,20 @@ export const getFseWarehouseDashboard = () =>
 export const getFseVerificationDashboard = () =>
   intelligenceFetch('/financial-statements/verification/dashboard');
 
+/** FKB-01 — Institutional Financial Knowledge Base */
+export const getFkbHealth = () => intelligenceFetch('/knowledge/health');
+export const getFkbDashboard = () => intelligenceFetch('/knowledge/dashboard');
+export const getFkbMetrics = () => intelligenceFetch('/knowledge/metrics');
+export const getFkbRatios = () => intelligenceFetch('/knowledge/ratios');
+export const getFkbRelationships = () => intelligenceFetch('/knowledge/relationships');
+export const getFkbGlossary = () => intelligenceFetch('/knowledge/glossary');
+export const getFkbThresholds = (sector) =>
+  intelligenceFetch(
+    sector
+      ? `/knowledge/thresholds?sector=${encodeURIComponent(sector)}`
+      : '/knowledge/thresholds'
+  );
+
 /** FIRE-01 — Financial Narrative & Trend Engine */
 export const getFireHealth = () => intelligenceFetch('/financial-intelligence/health');
 export const getFireDashboard = () => intelligenceFetch('/financial-intelligence/dashboard');
