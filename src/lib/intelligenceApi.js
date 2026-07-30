@@ -944,6 +944,20 @@ export const getInvestmentOfficeHealth = () => intelligenceFetch('/investment-of
 export const getInvestmentOfficeDashboard = () => intelligenceFetch('/investment-office/dashboard');
 export const getInvestmentOfficeQualityGates = () =>
   intelligenceFetch('/investment-office/quality-gates');
+export const getInvestmentOfficeCompany = (ticker, params = {}) => {
+  const q = new URLSearchParams();
+  if (params.question) q.set('question', params.question);
+  if (params.package_type) q.set('package_type', params.package_type);
+  const qs = q.toString();
+  return intelligenceFetch(
+    `/investment-office/company/${encodeURIComponent(ticker)}${qs ? `?${qs}` : ''}`
+  );
+};
+export const postInvestmentOfficeQuery = (body) =>
+  intelligenceFetch('/investment-office/query', {
+    method: 'POST',
+    body: body || {},
+  });
 export const packageInvestmentOffice = (query = '', ticker) =>
   intelligenceFetch('/investment-office/package', {
     method: 'POST',

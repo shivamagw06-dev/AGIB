@@ -1,4 +1,7 @@
-"""Investment Office production facade — aggregate soft adapters only."""
+"""Investment Office production facade — aggregate soft adapters only.
+
+IO-01 adds Institutional Research Package orchestration (additive; never redesigns desk).
+"""
 
 from __future__ import annotations
 
@@ -6,7 +9,18 @@ from typing import Any
 
 from investment_office.aggregate import build_desk
 from investment_office.flags import flags_dict, is_enabled
-from investment_office.schema import IO_VERSION, PROGRAMME, PROGRAMME_SHORT
+from investment_office.schema import (
+    IO01_PRODUCT,
+    IO01_RECOMMENDATION_POLICY,
+    IO01_SPEC,
+    IO01_SUBSYSTEM,
+    IO01_VERSION,
+    IO01_WORKSTREAM_ID,
+    IO_VERSION,
+    PACKAGE_TYPES,
+    PROGRAMME,
+    PROGRAMME_SHORT,
+)
 from investment_office import store as io_store
 
 
@@ -22,6 +36,34 @@ def health() -> dict[str, Any]:
         "not_portfolio_management": True,
         "flags": flags_dict(),
         "enabled": is_enabled(),
+        # IO-01 additive fields (desk unchanged)
+        "io01": {
+            "workstream_id": IO01_WORKSTREAM_ID,
+            "product": IO01_PRODUCT,
+            "version": IO01_VERSION,
+            "subsystem": IO01_SUBSYSTEM,
+            "role": "orchestration_layer",
+            "orchestrates_only": True,
+            "never_recalculates": True,
+            "never_rescores": True,
+            "never_invents_conclusions": True,
+            "buy_sell": False,
+            "valuation": False,
+            "package_types": list(PACKAGE_TYPES),
+            "recommendation_policy": IO01_RECOMMENDATION_POLICY,
+            "spec": IO01_SPEC,
+            "consumes": [
+                "financial_warehouse",
+                "derived_metrics",
+                "FIRE-01",
+                "FIRE-02",
+                "FIRE-03",
+                "FIRE-04",
+                "FIRE-05",
+                "FIRE-06",
+                "FKB",
+            ],
+        },
     }
 
 
@@ -85,6 +127,121 @@ def package_for_ask_agi(query: str = "", *, ticker: str | None = None) -> dict[s
         "ask_agi_hints": hints[:8],
         "answer_policy": "investment_office_context_before_answer",
     }
+
+
+def company(
+    ticker: str,
+    *,
+    question: str | None = None,
+    package_type: str | None = None,
+    series_map: dict[str, list[dict[str, Any]]] | None = None,
+    documents: list[dict[str, Any]] | None = None,
+    prebuilt: dict[str, dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """IO-01: assemble Institutional Research Package for a company (orchestration only)."""
+    if not is_enabled():
+        return {
+            "ok": False,
+            "enabled": False,
+            "workstream_id": IO01_WORKSTREAM_ID,
+            "version": IO01_VERSION,
+        }
+    from investment_office.irp.coordinator import coordinate
+
+    irp = coordinate(
+        ticker=ticker,
+        question=question,
+        package_type=package_type,
+        series_map=series_map,
+        documents=documents,
+        prebuilt=prebuilt,
+    )
+    io_store.record_irp(irp)
+    return {
+        "ok": True,
+        "enabled": True,
+        "workstream_id": IO01_WORKSTREAM_ID,
+        "product": IO01_PRODUCT,
+        "version": IO01_VERSION,
+        "orchestrates_only": True,
+        "buy_sell": False,
+        "valuation": False,
+        "irp": irp,
+        "ticker": irp.get("ticker"),
+        "package_type": irp.get("package_type"),
+        "modules_invoked": irp.get("modules_invoked"),
+        "sections": irp.get("sections"),
+        "confidence": irp.get("confidence"),
+        "evidence_references": irp.get("evidence_references"),
+        "assembly_ms": irp.get("assembly_ms"),
+        "routing": irp.get("routing"),
+        "guardrails": irp.get("guardrails"),
+    }
+
+
+def query(
+    *,
+    ticker: str,
+    question: str = "",
+    package_type: str | None = None,
+    series_map: dict[str, list[dict[str, Any]]] | None = None,
+    documents: list[dict[str, Any]] | None = None,
+    prebuilt: dict[str, dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """IO-01: route a natural-language investment question and assemble IRP."""
+    return company(
+        ticker,
+        question=question,
+        package_type=package_type,
+        series_map=series_map,
+        documents=documents,
+        prebuilt=prebuilt,
+    )
+
+
+def soft_slice_mission_control(ticker: str | None = None) -> dict[str, Any]:
+    """Mission Control soft board for IO-01 orchestration metrics (additive)."""
+    metrics = io_store.irp_metrics()
+    base = {
+        "status": "ok" if is_enabled() else "disabled",
+        "workstream_id": IO01_WORKSTREAM_ID,
+        "product": IO01_PRODUCT,
+        "version": IO01_VERSION,
+        "orchestrates_only": True,
+        "buy_sell": False,
+        "panels": {
+            "requests_served": metrics.get("requests_served"),
+            "modules_invoked": metrics.get("modules_invoked_total"),
+            "average_assembly_time": metrics.get("average_assembly_time_ms"),
+            "evidence_reuse": metrics.get("evidence_reuse"),
+            "coverage": metrics.get("coverage"),
+            "confidence": metrics.get("confidence"),
+        },
+        "metrics": metrics,
+    }
+    if ticker:
+        pack = company(ticker)
+        irp = pack.get("irp") if isinstance(pack.get("irp"), dict) else {}
+        base["ticker"] = (ticker or "").upper()
+        base["last_package_type"] = irp.get("package_type")
+        base["last_modules"] = irp.get("modules_invoked")
+        base["last_mean_confidence"] = (irp.get("confidence") or {}).get("mean_confidence")
+        base["panels"] = {
+            **base["panels"],
+            **io_store.irp_metrics().get("confidence", {}),
+        }
+        # refresh panels from updated metrics
+        m2 = io_store.irp_metrics()
+        base["panels"] = {
+            "requests_served": m2.get("requests_served"),
+            "modules_invoked": m2.get("modules_invoked_total"),
+            "average_assembly_time": m2.get("average_assembly_time_ms"),
+            "evidence_reuse": m2.get("evidence_reuse"),
+            "coverage": m2.get("coverage"),
+            "confidence": m2.get("confidence"),
+        }
+        base["metrics"] = m2
+    return base
 
 
 def quality_gates() -> dict[str, Any]:

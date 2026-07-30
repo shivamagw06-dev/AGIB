@@ -2037,6 +2037,32 @@ export default function createIntelligenceRouter() {
   router.get('/investment-office/health', kfGet('/v1/investment-office/health'));
   router.get('/investment-office/dashboard', kfGet('/v1/investment-office/dashboard'));
   router.get('/investment-office/quality-gates', kfGet('/v1/investment-office/quality-gates'));
+  router.get('/investment-office/company/:ticker', async (req, res) => {
+    try {
+      const q = new URLSearchParams();
+      if (req.query.question) q.set('question', String(req.query.question));
+      if (req.query.package_type) q.set('package_type', String(req.query.package_type));
+      const qs = q.toString();
+      const result = await engineFetch(
+        `/v1/investment-office/company/${encodeURIComponent(req.params.ticker)}${qs ? `?${qs}` : ''}`
+      );
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'investment-office company failed' });
+    }
+  });
+  router.post('/investment-office/query', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/investment-office/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+      });
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'investment-office query failed' });
+    }
+  });
   router.post('/investment-office/package', async (req, res) => {
     try {
       const result = await engineFetch('/v1/investment-office/package', {
