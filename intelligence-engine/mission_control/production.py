@@ -1,16 +1,18 @@
-"""Mission Control production facade — read-only diagnostics aggregation."""
+"""Mission Control production facade — snapshot-backed diagnostics (HTTP read-only)."""
 
 from __future__ import annotations
 
 from typing import Any
 
-from mission_control.aggregate import build_mission_control
 from mission_control.flags import flags_dict, is_enabled
 from mission_control.schema import MISSION_CONTROL_VERSION, PROGRAMME, PROGRAMME_SHORT
+from mission_control import snapshot as mc_snapshot
 from mission_control import store as mc_store
 
 
 def health() -> dict[str, Any]:
+    meta = mc_snapshot.snapshot_meta()
+    job = meta.get("job") or {}
     return {
         "status": "ok" if is_enabled() else "disabled",
         "programme": PROGRAMME,
@@ -24,29 +26,53 @@ def health() -> dict[str, Any]:
         "flags": flags_dict(),
         "enabled": is_enabled(),
         "agent_map": "GET /v1/mission-control/agent-map",
+        "delivery": "snapshot",
+        "snapshot": {
+            "exists": meta.get("exists"),
+            "status": meta.get("status"),
+            "lastUpdated": meta.get("persisted_at") or meta.get("last_successful_at"),
+            "last_successful_at": meta.get("last_successful_at"),
+            "last_failure_at": meta.get("last_failure_at"),
+            "last_error": meta.get("last_error"),
+            "trigger": meta.get("trigger"),
+            "path": meta.get("path"),
+        },
+        "worker": {
+            "job_status": job.get("status"),
+            "job_id": job.get("job_id"),
+            "job_trigger": job.get("trigger"),
+            "queue_status": job.get("status") or "idle",
+        },
     }
 
 
 def agent_map() -> dict[str, Any]:
-    """Read-only inventory of AGIB agents + working/soft/off status."""
+    """Read-only inventory of AGIB agents + working/soft/off status.
+
+    PR2 will snapshot this; PR1 still builds on demand (secondary panel).
+    """
     from mission_control.agent_map import build_agent_map
 
     return build_agent_map()
 
 
 def dashboard(*, ioc_service: Any | None = None, force: bool = False) -> dict[str, Any]:
-    if not force:
-        cached = mc_store.get_dashboard()
-        if cached:
-            return cached
-        # Prefer a stale desk over a multi-minute cold rebuild under Render sleep.
-        stale = mc_store.get_dashboard(allow_stale=True)
-        if stale:
-            return stale
-    desk = build_mission_control(ioc_service=ioc_service)
-    if desk.get("enabled"):
-        mc_store.put_dashboard(desk)
-    return desk
+    """Serve precomputed snapshot only. Never builds on the HTTP path.
+
+    ``force`` and ``ioc_service`` are accepted for API compatibility but ignored
+    for computation — use POST /mission-control/rebuild to enqueue a worker build.
+    """
+    _ = ioc_service
+    if force:
+        # Never compute inline; queue background rebuild and return current state.
+        mc_snapshot.enqueue_rebuild(trigger="dashboard_force_ignored", wait=False)
+    return mc_snapshot.read_dashboard()
+
+
+def rebuild(*, trigger: str = "admin_rebuild", wait: bool = False) -> dict[str, Any]:
+    """Queue snapshot rebuild. Returns immediately unless wait=True (tests/ops)."""
+    return mc_snapshot.enqueue_rebuild(trigger=trigger, wait=wait)
+
 
 def acknowledge_alert(alert_id: str, *, actor: str | None = None) -> dict[str, Any]:
     """Acknowledge only — never mutates research / house views."""
@@ -54,7 +80,20 @@ def acknowledge_alert(alert_id: str, *, actor: str | None = None) -> dict[str, A
 
 
 def system_report(*, ioc_service: Any | None = None) -> dict[str, Any]:
-    desk = mc_store.get_dashboard() or dashboard(ioc_service=ioc_service)
+    _ = ioc_service
+    desk = mc_snapshot.read_dashboard()
+    if desk.get("_warming") or desk.get("status") == "warming":
+        return {
+            "ok": True,
+            "status": "warming",
+            "report_type": "mission_control_system_report",
+            "title": "AGI Mission Control System Report",
+            "generated_at": None,
+            "version": MISSION_CONTROL_VERSION,
+            "read_only": True,
+            "message": "Snapshot warming — report unavailable until first snapshot.",
+            "sections": {},
+        }
     sections = {
         "platform_health": desk.get("executive_status"),
         "api_health": desk.get("api_status"),
@@ -91,8 +130,17 @@ def system_report(*, ioc_service: Any | None = None) -> dict[str, Any]:
 
 
 def quality_gates() -> dict[str, Any]:
-    # Prefer cached desk — never rebuild a second full aggregate for gates.
-    desk = mc_store.get_dashboard() or dashboard()
+    # Snapshot only — never rebuild for gates.
+    desk = mc_snapshot.read_dashboard()
+    if desk.get("_warming") or desk.get("status") == "warming":
+        return {
+            "programme": PROGRAMME,
+            "version": MISSION_CONTROL_VERSION,
+            "passed": False,
+            "status": "warming",
+            "criteria": {"snapshot_ready": False},
+            "message": "Mission Control snapshot warming",
+        }
     criteria = {
         "enabled": desk.get("enabled") is True,
         "read_only": desk.get("read_only") is True,
@@ -107,6 +155,7 @@ def quality_gates() -> dict[str, Any]:
         "events_present": isinstance(desk.get("live_event_stream"), list),
         "copilot_present": bool((desk.get("executive_copilot") or {}).get("prompts")),
         "never_mutates": desk.get("never_modifies_research") is True,
+        "snapshot_ready": True,
     }
     passed = all(criteria.values())
     return {
@@ -119,4 +168,5 @@ def quality_gates() -> dict[str, Any]:
 
 
 def reset_for_tests() -> None:
+    mc_snapshot.reset_for_tests()
     mc_store.reset_for_tests()

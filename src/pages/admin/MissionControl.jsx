@@ -65,72 +65,46 @@ export default function MissionControl() {
   const [selectedNode, setSelectedNode] = useState(null);
   const [agentMapOpen, setAgentMapOpen] = useState(false);
 
-  const load = useCallback(async () => {
+  const loadDashboard = useCallback(async () => {
     setError('');
     try {
-      // Dashboard is the cockpit. Health/gates are secondary and must not block render.
+      // Snapshot reader only — never triggers analytics rebuild.
       const d = await getMissionControlDashboard();
       setDesk(d);
       setLoading(false);
-
-      Promise.allSettled([getMissionControlHealth(), getMissionControlQualityGates()]).then(
-        ([hRes, gRes]) => {
-          if (hRes.status === 'fulfilled') setHealth(hRes.value);
-          if (gRes.status === 'fulfilled') setGates(gRes.value);
-          if (hRes.status === 'rejected' && gRes.status === 'rejected') {
-            setError('Secondary Mission Control probes timed out; dashboard data is still shown.');
-          }
-        }
-      );
     } catch (err) {
       const msg = String(err?.message || 'Failed to load Mission Control');
-      const cold =
-        /timeout|aborted|504|502|503|cold|unavailable/i.test(msg) ||
-        err?.name === 'TimeoutError' ||
-        err?.name === 'AbortError';
-      setError(
-        cold
-          ? `${msg} — Intelligence engine may be cold-starting on Render. Wait ~30–60s and tap Refresh.`
-          : msg
-      );
-      // Soft fallback: still show health shell if dashboard timed out.
-      try {
-        const h = await getMissionControlHealth();
-        setHealth(h);
-        setDesk((prev) =>
-          prev || {
-            enabled: true,
-            executive_status: {
-              agi_status: h?.status === 'ok' ? 'Waking' : 'Degraded',
-              research_grade: '—',
-              knowledge_grade: '—',
-              data_grade: '—',
-            },
-            platform_status: [],
-            engine_status: [],
-            api_status: [],
-            live_event_stream: [
-              {
-                at: new Date().toISOString(),
-                type: 'system',
-                message: 'Dashboard deferred — showing health fallback while engine wakes.',
-              },
-            ],
-            _fallback: true,
-          }
-        );
-      } catch {
-        /* ignore */
-      }
+      setError(msg);
       setLoading(false);
     }
   }, []);
 
+  const loadHealth = useCallback(async () => {
+    try {
+      const [hRes, gRes] = await Promise.allSettled([
+        getMissionControlHealth(),
+        getMissionControlQualityGates(),
+      ]);
+      if (hRes.status === 'fulfilled') setHealth(hRes.value);
+      if (gRes.status === 'fulfilled') setGates(gRes.value);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
   useEffect(() => {
-    load();
-    const t = window.setInterval(load, 30_000);
-    return () => window.clearInterval(t);
-  }, [load]);
+    loadDashboard();
+    loadHealth();
+    // Poll cached snapshot only (60–120s). Never rebuild on interval.
+    const dashTimer = window.setInterval(loadDashboard, 90_000);
+    const healthTimer = window.setInterval(loadHealth, 45_000);
+    return () => {
+      window.clearInterval(dashTimer);
+      window.clearInterval(healthTimer);
+    };
+  }, [loadDashboard, loadHealth]);
+
+  const load = loadDashboard;
 
   const exportReport = async () => {
     try {
@@ -255,15 +229,72 @@ export default function MissionControl() {
     return platforms.filter((p) => JSON.stringify(p).toLowerCase().includes(q));
   }, [platforms, query]);
 
+  const warming = Boolean(desk?._warming || desk?.status === 'warming');
+  const lastUpdated =
+    desk?.snapshot_meta?.persisted_at ||
+    desk?.snapshot?.persisted_at ||
+    health?.snapshot?.lastUpdated ||
+    desk?.generated_at ||
+    null;
+
   if (loading && !desk) {
     return (
       <div className="agi-office -m-6 min-h-screen p-4 md:p-6">
         <div className="mx-auto max-w-[1400px] py-16 text-center">
-          <RefreshCw className="mx-auto h-8 w-8 animate-spin text-[var(--io-gold)]" />
-          <p className="mt-4 text-sm text-[var(--io-muted)]">Loading Mission Control diagnostics…</p>
+          <p className="mt-4 text-sm text-[var(--io-muted)]">Opening Mission Control…</p>
           <p className="mt-2 text-[11px] text-[var(--io-caption)]">
-            First load can take a few seconds while the intelligence engine wakes.
+            Serving the latest snapshot — no live analytics rebuild.
           </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (warming && !desk?.executive_status?.agi_status?.includes?.('Healthy')) {
+    return (
+      <div className="agi-office -m-6 min-h-screen p-4 md:p-6">
+        <div className="mx-auto max-w-[1400px] space-y-5 py-10">
+          <Kicker>Administrator only · Mission Control v1.0</Kicker>
+          <h1 className="io-title mt-2 text-3xl flex items-center gap-2">
+            <Shield className="h-7 w-7 text-[var(--io-gold)]" />
+            AGI Mission Control
+          </h1>
+          <Glass className="mt-6">
+            <p className="text-lg font-semibold text-[var(--io-ink)]">Mission Control is warming up.</p>
+            <p className="mt-2 text-sm text-[var(--io-muted)]">
+              {desk?.message ||
+                'The first operational snapshot is being generated by the intelligence worker.'}
+            </p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+              <div>
+                <p className="text-[11px] uppercase text-[var(--io-caption)]">Last Updated</p>
+                <p className="mt-1 text-sm">Unknown</p>
+              </div>
+              <div>
+                <p className="text-[11px] uppercase text-[var(--io-caption)]">System Health</p>
+                <p className={`mt-1 text-sm ${statusColour(health?.status)}`}>
+                  {health?.status === 'ok' ? 'Available' : health?.status || 'Checking…'}
+                </p>
+              </div>
+              <div>
+                <p className="text-[11px] uppercase text-[var(--io-caption)]">Snapshot job</p>
+                <p className="mt-1 text-sm">
+                  {health?.worker?.queue_status || desk?.snapshot_meta?.job?.status || 'queued'}
+                </p>
+              </div>
+            </div>
+            <p className="mt-4 text-[11px] text-[var(--io-caption)]">
+              This page polls the cached snapshot every 90s and will populate automatically — it never
+              rebuilds analytics on refresh.
+            </p>
+            <div className="mt-4">
+              <Button type="button" variant="outline" onClick={() => loadDashboard()}>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Check snapshot
+              </Button>
+            </div>
+          </Glass>
+          {error ? <p className="text-sm text-rose-400">{error}</p> : null}
         </div>
       </div>
     );
@@ -280,11 +311,11 @@ export default function MissionControl() {
               AGI Mission Control
             </h1>
             <p className="mt-2 max-w-3xl text-sm text-[var(--io-muted)]">
-              Read-only operations cockpit. Aggregates IOC, CMS, Academy, Company Analysis, Investment
-              Office and providers. Never modifies research, House Views, or recommendations.
+              Read-only operations cockpit. Serves a precomputed worker snapshot. Never modifies
+              research, House Views, or recommendations. Never rebuilds analytics on page open.
             </p>
             <p className="mt-2 text-[11px] text-[var(--io-caption)]">
-              Timestamp {desk?.generated_at || '—'} · Auto-refresh 30s · Gates{' '}
+              Last snapshot {lastUpdated || desk?.generated_at || '—'} · Poll 90s · Gates{' '}
               {gates?.passed ? 'PASS' : gates ? 'FAIL' : '—'} · {health?.version || ''}
             </p>
           </div>

@@ -512,6 +512,22 @@ def run_cycle(
             "soft_wire": True,
         }
 
+    # Mission Control snapshot (soft). Worker owns compute; HTTP only reads.
+    try:
+        from mission_control.snapshot import after_cgl_cycle as mc_after_cgl
+
+        run["mission_control_snapshot"] = mc_after_cgl(run)
+        try:
+            cgl_persist.put_run(run)
+        except Exception:
+            pass
+    except Exception as exc:  # noqa: BLE001
+        run["mission_control_snapshot"] = {
+            "ok": False,
+            "error": str(exc)[:200],
+            "soft_wire": True,
+        }
+
     return run
 
 

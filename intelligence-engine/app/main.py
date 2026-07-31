@@ -132,6 +132,29 @@ async def lifespan(_app: FastAPI):
             )
         except Exception as exc:
             log.warning("fse_orchestrator_bind_failed", extra={"error": str(exc)[:160]})
+
+    # Mission Control snapshot: HTTP never builds. Prefer gather_worker / sidecar
+    # (shared disk). When AGI_GATHER_SIDECAR=false (dedicated worker elsewhere),
+    # start a local background builder so this box still has snapshot.json.
+    stop_mc_snapshot = None
+    try:
+        from mission_control.snapshot import should_run_builder_on_web, start_scheduler, stop_scheduler
+
+        run_mc = (not http_only) or should_run_builder_on_web()
+        # gather_worker process starts its own scheduler; avoid double-start there.
+        if http_only and should_run_builder_on_web():
+            boot_mc = start_scheduler(boot_build=True)
+            stop_mc_snapshot = stop_scheduler
+            log.info("mc_snapshot_builder_on_web", extra=boot_mc)
+        elif not http_only and (os.environ.get("AGI_ROLE") or "").strip().lower() != "gather_worker":
+            # Legacy in-process gather (no AGI_ROLE=web) — also own MC snapshots.
+            if run_mc:
+                boot_mc = start_scheduler(boot_build=True)
+                stop_mc_snapshot = stop_scheduler
+                log.info("mc_snapshot_builder_inprocess", extra=boot_mc)
+    except Exception as exc:
+        log.warning("mc_snapshot_builder_failed", extra={"error": str(exc)[:160]})
+
     # NOTE: Do not auto-download Chromium at startup on free-tier Render — the
     # install can starve CPU/RAM and make /v1/health time out. Bake browsers via
     # buildCommand (`python -m playwright install chromium`) or set
@@ -149,6 +172,11 @@ async def lifespan(_app: FastAPI):
     try:
         if stop_faa_collector is not None:
             stop_faa_collector()
+    except Exception:
+        pass
+    try:
+        if stop_mc_snapshot is not None:
+            stop_mc_snapshot()
     except Exception:
         pass
     log.info("intelligence_engine_stopped")

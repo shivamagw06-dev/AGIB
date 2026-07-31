@@ -285,17 +285,15 @@ def handle_quality_gates(ctx: dict[str, Any]) -> dict[str, Any]:
 
 
 def handle_mission_control() -> dict[str, Any]:
+    """Queue MC snapshot rebuild (or wait briefly). Never leave HTTP path hanging on aggregate."""
     try:
-        from mission_control.production import dashboard
+        from mission_control.production import rebuild
+        from mission_control.snapshot import read_dashboard
 
-        return _ok(dashboard(force=True))
-    except Exception:
-        try:
-            from mission_control.aggregate import build_mission_control
-
-            return _ok(build_mission_control())
-        except Exception as exc:
-            return _err(exc)
+        queued = rebuild(trigger="institutional_scheduler", wait=False)
+        return _ok({"rebuild": queued, "dashboard": read_dashboard()})
+    except Exception as exc:
+        return _err(exc)
 
 
 def handle_daily_health() -> dict[str, Any]:
