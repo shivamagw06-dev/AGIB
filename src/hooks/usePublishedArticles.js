@@ -13,8 +13,11 @@ export default function usePublishedArticles({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const sectionsKey = Array.isArray(sections) ? sections.join('\u0001') : '';
+
   useEffect(() => {
     let cancelled = false;
+    const sectionList = sectionsKey ? sectionsKey.split('\u0001') : null;
 
     async function load() {
       setLoading(true);
@@ -28,7 +31,7 @@ export default function usePublishedArticles({
         .range(offset, offset + limit + (excludeSlug ? 1 : 0) - 1);
 
       if (section) query = query.eq('section', section);
-      else if (Array.isArray(sections) && sections.length) query = query.in('section', sections);
+      else if (sectionList?.length) query = query.in('section', sectionList);
 
       const { data, error: fetchError } = await query;
       if (cancelled) return;
@@ -53,7 +56,7 @@ export default function usePublishedArticles({
     return () => {
       cancelled = true;
     };
-  }, [limit, excludeSlug, section, sections, offset]);
+  }, [limit, excludeSlug, section, sectionsKey, offset]);
 
   return { articles, loading, error };
 }

@@ -423,12 +423,26 @@
 
   .agi-cover--featured {
     aspect-ratio: 16 / 10;
-    min-height: 240px;
+    min-height: 220px;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  /* Desktop featured mosaic: fill the grid cell without overflowing into copy. */
+  @media (min-width: 1024px) {
+    .agi-cover--featured {
+      aspect-ratio: auto;
+      height: 100%;
+      min-height: 280px;
+    }
   }
 
   .agi-cover--thumb {
     width: 118px;
     height: 88px;
+    min-width: 118px;
+    max-width: 118px;
+    flex-shrink: 0;
   }
 
   .agi-cover--article {

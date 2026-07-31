@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import PageShell from '@/components/Layout/PageShell';
 import AskAgiBar from '@/components/Home/AskAgiBar';
+import DeskResearchFeed from '@/components/Research/DeskResearchFeed';
 
 const THEMES = [
   {
@@ -41,6 +42,8 @@ export default function HedgeFundPage() {
             />
           </div>
         </div>
+
+        <DeskResearchFeed deskId="hedge-funds" title="Hedge Fund Research" />
 
         <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
           {THEMES.map((theme) => (

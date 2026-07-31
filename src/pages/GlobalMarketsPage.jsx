@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import PageShell from '@/components/Layout/PageShell';
 import AskAgiBar from '@/components/Home/AskAgiBar';
+import DeskResearchFeed from '@/components/Research/DeskResearchFeed';
 
 const DESKS = [
   {
@@ -44,6 +45,8 @@ export default function GlobalMarketsPage() {
             />
           </div>
         </div>
+
+        <DeskResearchFeed deskId="global-markets" title="Global Markets Research" />
 
         <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
           {DESKS.map((desk) => (

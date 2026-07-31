@@ -1,12 +1,16 @@
 import { Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import usePublishedArticles from '@/hooks/usePublishedArticles';
 import { usePeOverview } from '@/hooks/usePeIntelligence';
 import NewsletterSection from '@/components/Home/NewsletterSection';
 import AskAgiBar from '@/components/Home/AskAgiBar';
 import { formatTimeAgo } from '@/lib/articleUtils';
 import { fetchPipelineStatus } from '@/lib/intelligencePlatformApi';
+import {
+  articleMatchesDesk,
+  getSectionsForDesk,
+} from '@/lib/deskSections';
 import '@/components/private-equity/editorial/peEditorial.css';
 
 const DEFAULT_COVER =
@@ -37,10 +41,123 @@ const INDUSTRIES = [
 ];
 
 const VALUATION_PLACEHOLDER = [
-  { sector: 'Technology', evRev: '8.2x', evEbitda: '22.4x', growth: '14%', sentiment: 'Neutral', view: 'Selective' },
-  { sector: 'Healthcare', evRev: '4.1x', evEbitda: '16.8x', growth: '11%', sentiment: 'Positive', view: 'Constructive' },
-  { sector: 'Industrials', evRev: '2.8x', evEbitda: '12.1x', growth: '8%', sentiment: 'Neutral', view: 'Core' },
+  {
+    company: 'Enterprise SaaS Platform',
+    sector: 'Technology',
+    evRev: '8.2x',
+    evEbitda: '22.4x',
+    growth: '14%',
+    geography: 'US / Global',
+    comment: 'Selective on rule-of-40 leaders',
+    view: 'Selective',
+  },
+  {
+    company: 'Regional Healthcare Services',
+    sector: 'Healthcare',
+    evRev: '4.1x',
+    evEbitda: '16.8x',
+    growth: '11%',
+    geography: 'India',
+    comment: 'Consolidation theme intact',
+    view: 'Constructive',
+  },
+  {
+    company: 'Industrial Components Group',
+    sector: 'Industrials',
+    evRev: '2.8x',
+    evEbitda: '12.1x',
+    growth: '8%',
+    geography: 'India / Export',
+    comment: 'Prefer export-oriented niches',
+    view: 'Core',
+  },
 ];
+
+function dealComment(data = {}) {
+  return (
+    data.comment ||
+    data.commentary ||
+    data.agi_rating ||
+    data.view ||
+    '—'
+  );
+}
+
+/** Premium recent-deals / valuation strip for the Private Markets hero. */
+function HeroDealsTable() {
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    import('@/lib/intelligenceCmsApi')
+      .then(({ fetchPublicCmsModule }) => fetchPublicCmsModule('valuation_monitor'))
+      .then((res) => setRows((res.records || []).slice(0, 6)))
+      .catch(() => setRows([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const displayRows = rows.length
+    ? rows
+    : VALUATION_PLACEHOLDER.map((r, i) => ({
+        id: `ph-${i}`,
+        data: {
+          company: r.company,
+          sector: r.sector,
+          ev_revenue: r.evRev,
+          ev_ebitda: r.evEbitda,
+          growth: r.growth,
+          geography: r.geography,
+          commentary: r.comment,
+          agi_rating: r.view,
+        },
+      }));
+
+  return (
+    <aside className="pe-hero-deals" aria-label="Recent private market deals">
+      <div className="pe-hero-deals-head">
+        <div>
+          <p className="pe-kicker">Recent deals</p>
+          <h2>Valuation &amp; deal multiples</h2>
+        </div>
+        <Link to="#valuation-monitor" className="text-[13px] font-semibold text-[var(--pe-accent)] no-underline hover:underline">
+          Full monitor →
+        </Link>
+      </div>
+      {loading ? (
+        <div className="h-40 animate-pulse rounded bg-[#eee]" />
+      ) : (
+        <div className="pe-hero-deals-scroll">
+          <table className="pe-table-editorial pe-hero-deals-table">
+            <thead>
+              <tr>
+                <th>Company</th>
+                <th>Sector</th>
+                <th>EV / Revenue</th>
+                <th>EV / EBITDA</th>
+                <th>Growth</th>
+                <th>Geography</th>
+                <th>Comment</th>
+              </tr>
+            </thead>
+            <tbody>
+              {displayRows.map((row) => (
+                <tr key={row.id}>
+                  <td className="font-medium">{row.data.company}</td>
+                  <td>{row.data.sector || '—'}</td>
+                  <td>{row.data.ev_revenue || '—'}</td>
+                  <td>{row.data.ev_ebitda || '—'}</td>
+                  <td>{row.data.growth || '—'}</td>
+                  <td>{row.data.geography || '—'}</td>
+                  <td className="pe-hero-deals-comment">{dealComment(row.data)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </aside>
+  );
+}
 
 function SectionHead({ kicker, title, href, linkLabel = 'View all →' }) {
   return (
@@ -94,10 +211,10 @@ function FeaturedResearch({ featured, top10, loading }) {
           <div className="pe-card h-96 animate-pulse bg-[#eee]" />
         ) : lead ? (
           <article className="pe-card pe-featured">
-            <Link to={`/article/${lead.slug}`}>
+            <Link to={`/article/${lead.slug}`} className="pe-featured-media min-w-0">
               <img src={cover} alt="" className="pe-featured-img" loading="eager" />
             </Link>
-            <div className="pe-featured-body">
+            <div className="pe-featured-body min-w-0">
               <span className="pe-tag">{lead.section || 'Research'}</span>
               <h3 className="font-serif text-2xl font-semibold mt-3 leading-snug">
                 <Link to={`/article/${lead.slug}`} className="text-inherit no-underline hover:text-[var(--pe-accent)]">
@@ -114,11 +231,14 @@ function FeaturedResearch({ featured, top10, loading }) {
             </div>
           </article>
         ) : (
-          <div className="pe-card p-8 text-[var(--pe-muted)]">Publish research in the admin CMS to feature here.</div>
+          <div className="pe-card p-8 text-[var(--pe-muted)]">
+            No Private Markets research yet. In Admin → Articles, set Research Desk to
+            “Private Markets” and publish.
+          </div>
         )}
 
         <aside className="pe-card pe-top10-box">
-          <h3>Today&apos;s Top 10 Research</h3>
+          <h3>Private Markets Top Research</h3>
           {(top10.length ? top10 : []).slice(0, 10).map((a) => (
             <Link key={a.slug} to={`/article/${a.slug}`} className="pe-top10-item">
               <img
@@ -133,7 +253,9 @@ function FeaturedResearch({ featured, top10, loading }) {
             </Link>
           ))}
           {!top10.length && !loading && (
-            <p className="text-sm text-[var(--pe-muted)]">No published articles yet.</p>
+            <p className="text-sm text-[var(--pe-muted)]">
+              Publish Private Markets desk articles to fill this list.
+            </p>
           )}
         </aside>
       </div>
@@ -214,14 +336,15 @@ function ValuationMonitor() {
               {(rows.length ? rows : VALUATION_PLACEHOLDER.map((r, i) => ({
                 id: `ph-${i}`,
                 data: {
-                  company: r.sector,
+                  company: r.company,
                   sector: r.sector,
                   ev_revenue: r.evRev,
                   ev_ebitda: r.evEbitda,
                   growth: r.growth,
-                  geography: '—',
+                  geography: r.geography,
                   agi_rating: r.view,
                   analyst: 'AGI Research',
+                  commentary: r.comment,
                 },
               }))).map((row) => (
                 <tr key={row.id}>
@@ -364,16 +487,22 @@ function TopPeFirms({ firms }) {
 }
 
 export default function PeEditorialHome() {
+  const privateSections = useMemo(() => getSectionsForDesk('private-markets'), []);
   const { articles: editorsDeskArticles, loading: deskLoading } = usePublishedArticles({
     limit: 1,
     section: "Editor's Desk",
   });
-  const { articles: research, loading: researchLoading } = usePublishedArticles({ limit: 11 });
+  const { articles: fetchedResearch, loading: researchLoading } = usePublishedArticles({
+    limit: 24,
+    sections: privateSections,
+  });
+  const research = useMemo(
+    () => fetchedResearch.filter((article) => articleMatchesDesk(article, 'private-markets')),
+    [fetchedResearch]
+  );
   const { data: peData, loading: peLoading } = usePeOverview();
 
-  const editorsDesk = editorsDeskArticles[0] || research.find((a) =>
-    /editor|desk|morning|brief/i.test(`${a.section} ${a.title}`)
-  );
+  const editorsDesk = editorsDeskArticles[0];
   const featured = research[0];
   const top10 = research.slice(0, 10);
 
@@ -389,37 +518,44 @@ export default function PeEditorialHome() {
 
       <div className="pe-editorial-inner">
         <header className="pe-hero">
-          <p className="pe-tag">Institutional Intelligence</p>
-          <h1>Private market intelligence for institutional investors.</h1>
-          <p className="pe-hero-lead">
-            Editorial research, structured data, and AI-driven knowledge — covering private equity,
-            M&A, valuation, fundraising, and investment opportunities across India and global markets.
-          </p>
-          <div className="mt-8 max-w-2xl">
-            <AskAgiBar
-              placeholder="Search companies, deals, PE firms, industries, valuation themes…"
-              size="large"
-              buttonLabel="Ask AGI"
-              ariaLabel="Ask AGI about private markets"
-            />
+          <div className="pe-hero-grid">
+            <div className="pe-hero-copy min-w-0">
+              <p className="pe-tag">Institutional Intelligence</p>
+              <h1>Private market intelligence for institutional investors.</h1>
+              <p className="pe-hero-lead">
+                Editorial research, structured data, and AI-driven knowledge — covering private equity,
+                M&A, valuation, fundraising, and investment opportunities across India and global markets.
+              </p>
+              <div className="mt-8 max-w-2xl">
+                <AskAgiBar
+                  placeholder="Search companies, deals, PE firms, industries, valuation themes…"
+                  size="large"
+                  buttonLabel="Ask AGI"
+                  ariaLabel="Ask AGI about private markets"
+                />
+              </div>
+              <nav className="flex flex-wrap gap-4 mt-6 text-sm font-semibold">
+                {[
+                  { label: 'Latest Research', to: '#pe-research' },
+                  { label: 'Transactions', to: '#recent-transactions' },
+                  { label: 'Valuation Monitor', to: '#valuation-monitor' },
+                  { label: 'Industries', to: '#industries' },
+                  { label: 'Fundraising', to: '#fundraising' },
+                ].map((l) => (
+                  <Link key={l.label} to={l.to} className="text-[var(--pe-accent)] no-underline hover:underline">
+                    {l.label}
+                  </Link>
+                ))}
+              </nav>
+            </div>
+            <HeroDealsTable />
           </div>
-          <nav className="flex flex-wrap gap-4 mt-6 text-sm font-semibold">
-            {[
-              { label: 'Latest Research', to: '/research' },
-              { label: 'Transactions', to: '/sections/deal-tracker' },
-              { label: 'Valuation Monitor', to: '#valuation-monitor' },
-              { label: 'Industries', to: '#industries' },
-              { label: 'Fundraising', to: '#fundraising' },
-            ].map((l) => (
-              <Link key={l.label} to={l.to} className="text-[var(--pe-accent)] no-underline hover:underline">
-                {l.label}
-              </Link>
-            ))}
-          </nav>
         </header>
 
-        <EditorsDesk article={editorsDesk} loading={deskLoading && researchLoading} />
-        <FeaturedResearch featured={featured} top10={top10} loading={researchLoading} />
+        <EditorsDesk article={editorsDesk} loading={deskLoading} />
+        <div id="pe-research">
+          <FeaturedResearch featured={featured} top10={top10} loading={researchLoading} />
+        </div>
         <DailyBrief feed={peData?.feed} />
         <div id="valuation-monitor"><ValuationMonitor /></div>
         <RecentTransactions />

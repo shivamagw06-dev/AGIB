@@ -99,8 +99,8 @@ function FeaturedArticle({ article }) {
   const meta = articleMeta(article);
 
   return (
-    <article className="group grid h-full overflow-hidden rounded-xl border border-[#e4e7ec] bg-white lg:grid-cols-[1.15fr_1fr] animate-home-rise">
-      <Link to={href} className="agi-cover agi-cover--featured block bg-[#f3f4f6] lg:min-h-full">
+    <article className="group grid h-full min-w-0 overflow-hidden rounded-xl border border-[#e4e7ec] bg-white lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] animate-home-rise">
+      <Link to={href} className="agi-cover agi-cover--featured block min-w-0 bg-[#f3f4f6]">
         <img
           src={cover}
           alt=""
@@ -108,7 +108,7 @@ function FeaturedArticle({ article }) {
           loading="eager"
         />
       </Link>
-      <div className="flex flex-col justify-center p-6 md:p-8">
+      <div className="flex min-w-0 flex-col justify-center p-6 md:p-8">
         <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#6b7280]">{meta.category}</p>
         <h3 className="mt-3 font-serif text-2xl md:text-[1.75rem] font-bold leading-snug text-[#111111]">
           <Link to={href} className="hover:underline underline-offset-4 decoration-[#111]/25">
@@ -389,9 +389,9 @@ export default function ResearchTerminalHome() {
             </div>
           ) : (
             <>
-              <div className="mt-8 grid grid-cols-1 gap-5 lg:grid-cols-[1.65fr_1fr] lg:items-stretch">
+              <div className="mt-8 grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1.65fr)_minmax(0,1fr)] lg:items-stretch">
                 <FeaturedArticle article={featured} />
-                <div className="rounded-xl border border-[#e4e7ec] bg-white px-5 py-4 md:px-6">
+                <div className="min-w-0 rounded-xl border border-[#e4e7ec] bg-white px-5 py-4 md:px-6">
                   <p className="mb-1 text-[11px] font-bold uppercase tracking-[0.14em] text-[#6b7280]">
                     Also on the desk
                   </p>
