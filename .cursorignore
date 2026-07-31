@@ -1,0 +1,33 @@
+# Cursor indexing exclusions — large/generated paths that slow the IDE agent.
+# See: intelligence-engine/data is ~1.6GB of runtime/cache data.
+
+# Dependencies & build output
+node_modules/
+dist/
+assets/
+.tmp/
+
+# Python runtime & caches
+**/__pycache__/
+**/.pytest_cache/
+**/.mypy_cache/
+**/.venv/
+**/venv/
+*.pyc
+
+# Intelligence engine data (largest indexer drag — ~1.6GB)
+intelligence-engine/data/
+
+# Large static / generated datasets
+historical-platform/data/
+knowledge-platform/data/
+server/data/intelligence_platform/
+books/
+
+# Git & IDE
+.git/
+
+# Logs & artifacts
+*.log
+tmp/
+/opt/cursor/artifacts/
