@@ -25,6 +25,11 @@ import {
   mergeApiStatus,
   probeMissionControlApis,
 } from '../services/missionControlApiProbes.js';
+import {
+  buildKocDegradedAudit,
+  buildKocDegradedHealth,
+  buildKocDegradedOverview,
+} from '../services/kocDegraded.js';
 
 function engineConfig() {
   let baseUrl = (process.env.INTELLIGENCE_ENGINE_URL || 'http://127.0.0.1:8100').replace(/\/$/, '');
@@ -91,16 +96,19 @@ export default function createIntelligenceRouter() {
 
   router.get('/health', async (_req, res) => {
     try {
-      const result = await engineFetch('/v1/health');
+      // Short probe — never leave Mission Control / KOC waiting on a dead engine.
+      const result = await engineFetch('/v1/health', { timeoutMs: 8_000 });
       return res.status(result.ok ? 200 : 503).json({
         gateway: 'agi-node',
         engine: result.data,
         engineStatus: result.status,
+        ok: result.ok,
       });
     } catch (error) {
       return res.status(503).json({
         gateway: 'agi-node',
         ok: false,
+        degraded: true,
         error: error.message,
         hint: 'Start intelligence-engine on INTELLIGENCE_ENGINE_URL (default http://127.0.0.1:8100)',
       });
@@ -4845,6 +4853,8 @@ export default function createIntelligenceRouter() {
   });
 
   // KOC V1.2 — Institutional Knowledge Mission Control
+  // When the engine is down, return a degraded shell so the admin page opens
+  // instead of hanging on long proxy timeouts.
   const kocGet = (path, timeoutMs = 60_000) => async (req, res) => {
     try {
       const qs = new URLSearchParams();
@@ -4855,7 +4865,23 @@ export default function createIntelligenceRouter() {
       const result = await engineFetch(`/v1${path}${suffix}`, { timeoutMs });
       return res.status(result.status).json(result.data);
     } catch (err) {
-      return res.status(502).json({ error: err?.message || `koc ${path} failed` });
+      const detail = err?.message || `koc ${path} failed`;
+      if (path === '/koc/health' || path === '/koc/status') {
+        return res.status(200).json(buildKocDegradedHealth(detail));
+      }
+      if (path === '/koc/overview' || path === '/koc/desk' || path === '/koc/coverage') {
+        return res.status(200).json(
+          buildKocDegradedOverview({ scope: req.query?.scope || 'TOP20', detail })
+        );
+      }
+      if (path === '/koc/audit') {
+        return res.status(200).json(buildKocDegradedAudit({ limit: req.query?.limit, detail }));
+      }
+      if (path === '/koc/missing-inbox' || path === '/koc/missing-knowledge') {
+        const deg = buildKocDegradedOverview({ scope: req.query?.scope || 'TOP20', detail });
+        return res.status(200).json({ ...deg.missing_inbox, ok: false, degraded: true, error: detail });
+      }
+      return res.status(502).json({ error: detail, degraded: true });
     }
   };
   const kocPost = (path, timeoutMs = 180_000) => async (req, res) => {
@@ -4868,58 +4894,58 @@ export default function createIntelligenceRouter() {
       });
       return res.status(result.status).json(result.data);
     } catch (err) {
-      return res.status(502).json({ error: err?.message || `koc ${path} failed` });
+      return res.status(502).json({ error: err?.message || `koc ${path} failed`, degraded: true });
     }
   };
-  router.get('/koc/health', kocGet('/koc/health', 20_000));
-  router.get('/koc/status', kocGet('/koc/status', 20_000));
-  router.get('/koc/overview', kocGet('/koc/overview', 180_000));
-  router.get('/koc/desk', kocGet('/koc/desk', 180_000));
-  router.get('/koc/system-health', kocGet('/koc/system-health', 60_000));
-  router.get('/koc/coverage', kocGet('/koc/coverage', 180_000));
-  router.get('/koc/missing-inbox', kocGet('/koc/missing-inbox', 180_000));
-  router.get('/koc/missing-knowledge', kocGet('/koc/missing-knowledge', 180_000));
+  router.get('/koc/health', kocGet('/koc/health', 8_000));
+  router.get('/koc/status', kocGet('/koc/status', 8_000));
+  router.get('/koc/overview', kocGet('/koc/overview', 45_000));
+  router.get('/koc/desk', kocGet('/koc/desk', 45_000));
+  router.get('/koc/system-health', kocGet('/koc/system-health', 20_000));
+  router.get('/koc/coverage', kocGet('/koc/coverage', 45_000));
+  router.get('/koc/missing-inbox', kocGet('/koc/missing-inbox', 45_000));
+  router.get('/koc/missing-knowledge', kocGet('/koc/missing-knowledge', 45_000));
   router.get('/koc/company/:ticker', async (req, res) => {
     try {
       const result = await engineFetch(
         `/v1/koc/company/${encodeURIComponent(req.params.ticker)}`,
-        { timeoutMs: 120_000 }
+        { timeoutMs: 60_000 }
       );
       return res.status(result.status).json(result.data);
     } catch (err) {
-      return res.status(502).json({ error: err?.message || 'koc company failed' });
+      return res.status(502).json({ error: err?.message || 'koc company failed', degraded: true });
     }
   });
-  router.get('/koc/collectors', kocGet('/koc/collectors', 60_000));
-  router.get('/koc/evidence', kocGet('/koc/evidence', 120_000));
+  router.get('/koc/collectors', kocGet('/koc/collectors', 20_000));
+  router.get('/koc/evidence', kocGet('/koc/evidence', 45_000));
   router.get('/koc/evidence/:ticker/:documentId', async (req, res) => {
     try {
       const result = await engineFetch(
         `/v1/koc/evidence/${encodeURIComponent(req.params.ticker)}/${encodeURIComponent(req.params.documentId)}`,
-        { timeoutMs: 90_000 }
+        { timeoutMs: 45_000 }
       );
       return res.status(result.status).json(result.data);
     } catch (err) {
-      return res.status(502).json({ error: err?.message || 'koc evidence detail failed' });
+      return res.status(502).json({ error: err?.message || 'koc evidence detail failed', degraded: true });
     }
   });
-  router.get('/koc/knowledge-versions', kocGet('/koc/knowledge-versions', 30_000));
-  router.get('/koc/gap-ai', kocGet('/koc/gap-ai', 180_000));
+  router.get('/koc/knowledge-versions', kocGet('/koc/knowledge-versions', 20_000));
+  router.get('/koc/gap-ai', kocGet('/koc/gap-ai', 45_000));
   router.get('/koc/gap-ai/:ticker', async (req, res) => {
     try {
       const result = await engineFetch(
         `/v1/koc/gap-ai/${encodeURIComponent(req.params.ticker)}`,
-        { timeoutMs: 90_000 }
+        { timeoutMs: 45_000 }
       );
       return res.status(result.status).json(result.data);
     } catch (err) {
-      return res.status(502).json({ error: err?.message || 'koc gap-ai failed' });
+      return res.status(502).json({ error: err?.message || 'koc gap-ai failed', degraded: true });
     }
   });
-  router.get('/koc/search', kocGet('/koc/search', 90_000));
+  router.get('/koc/search', kocGet('/koc/search', 30_000));
   router.post('/koc/upload', kocPost('/koc/upload'));
-  router.get('/koc/queue', kocGet('/koc/queue', 30_000));
-  router.get('/koc/audit', kocGet('/koc/audit', 30_000));
+  router.get('/koc/queue', kocGet('/koc/queue', 20_000));
+  router.get('/koc/audit', kocGet('/koc/audit', 12_000));
   router.post('/koc/action', kocPost('/koc/action'));
   router.post('/koc/run-cgl', kocPost('/koc/run-cgl'));
   router.post('/koc/run-kil', kocPost('/koc/run-kil'));

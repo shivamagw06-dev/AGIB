@@ -11908,17 +11908,17 @@ async def koc_status():
 
 
 @router.get("/koc/overview")
-async def koc_overview(scope: str = "TOP20"):
+async def koc_overview(scope: str = "TOP20", deep: bool = False):
     from knowledge_operations.production import get_overview
 
-    return get_overview(scope=scope)
+    return get_overview(scope=scope, deep=deep)
 
 
 @router.get("/koc/desk")
-async def koc_desk(scope: str = "TOP20"):
+async def koc_desk(scope: str = "TOP20", deep: bool = False):
     from knowledge_operations.production import get_desk
 
-    return get_desk(scope=scope)
+    return get_desk(scope=scope, deep=deep)
 
 
 @router.get("/koc/system-health")
