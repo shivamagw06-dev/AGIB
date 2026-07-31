@@ -4,7 +4,14 @@ services:
     name: agib-api
     runtime: node
     rootDir: server
-    plan: free
+    # Always-on requires a PAID plan. Render's "free" web services spin down
+    # after ~15 min of no traffic and cold-start (30-60s, sometimes a raw 502)
+    # on the next request. "starter" (or higher) never sleeps on inactivity.
+    # NOTE: changing this value here does not itself change billing on an
+    # already-created Render service — also set the plan to Starter+ in the
+    # Render dashboard (Service → Settings → Instance Type) or re-sync the
+    # Blueprint and confirm the plan change there.
+    plan: starter
     buildCommand: npm install --no-audit --no-fund
     startCommand: npm start
     healthCheckPath: /api/health
