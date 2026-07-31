@@ -21,7 +21,7 @@ const MODULE_NAV = [
   { to: '/admin/intelligence', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/admin/intelligence/entities', label: 'Entity Registry', icon: Network, enabled: true },
   { to: '/admin/intelligence/valuation-monitor', label: 'Valuation Monitor', icon: LineChart, enabled: true },
-  { to: '/admin/intelligence/transactions', label: 'Transactions', icon: ArrowLeftRight, enabled: false },
+  { to: '/admin/intelligence/transactions', label: 'Recent Transactions', icon: ArrowLeftRight, enabled: true },
   { to: '/admin/intelligence/pe-firms', label: 'PE Firms', icon: Building2, enabled: false },
   { to: '/admin/intelligence/portfolio-companies', label: 'Portfolio Companies', icon: Briefcase, enabled: false },
   { to: '/admin/intelligence/funds', label: 'Funds', icon: Landmark, enabled: false },
