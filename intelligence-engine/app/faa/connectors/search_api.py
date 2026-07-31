@@ -17,6 +17,7 @@ from urllib.parse import quote_plus
 
 from app.faa.connectors.base import AcquisitionConnector
 from app.faa.models import CandidateDocument, DiscoveryTask
+from app.faa.provider_flags import provider_enabled
 
 # Preference order by document class (first configured wins).
 _RESEARCH_PREF = ("exa", "firecrawl", "tavily", "playwright", "serpapi", "bing", "google_cse")
@@ -35,21 +36,32 @@ def _playwright_search_ready() -> bool:
 
 
 def available_search_providers() -> list[str]:
-    """All configured providers (unsorted inventory)."""
+    """All configured AND enabled providers (unsorted inventory).
+
+    A provider is only used when it has a key AND its FAA_<NAME>_ENABLED
+    flag isn't explicitly false — this lets a provider be hard-disabled
+    (e.g. lapsed billing) without needing to remove its API key.
+    """
     out: list[str] = []
-    if (os.environ.get("EXA_API_KEY") or "").strip():
+    if provider_enabled("exa") and (os.environ.get("EXA_API_KEY") or "").strip():
         out.append("exa")
-    if (os.environ.get("TAVILY_API_KEY") or "").strip():
+    if provider_enabled("tavily") and (os.environ.get("TAVILY_API_KEY") or "").strip():
         out.append("tavily")
-    if (os.environ.get("FIRECRAWL_API_KEY") or "").strip():
+    if provider_enabled("firecrawl") and (os.environ.get("FIRECRAWL_API_KEY") or "").strip():
         out.append("firecrawl")
-    if _playwright_search_ready():
+    if provider_enabled("playwright") and _playwright_search_ready():
         out.append("playwright")
-    if (os.environ.get("SERPAPI_API_KEY") or os.environ.get("SERPAPI_KEY") or "").strip():
+    if provider_enabled("serpapi") and (
+        os.environ.get("SERPAPI_API_KEY") or os.environ.get("SERPAPI_KEY") or ""
+    ).strip():
         out.append("serpapi")
-    if (os.environ.get("BING_SEARCH_API_KEY") or "").strip():
+    if provider_enabled("bing") and (os.environ.get("BING_SEARCH_API_KEY") or "").strip():
         out.append("bing")
-    if (os.environ.get("GOOGLE_CSE_ID") or "").strip() and (os.environ.get("GOOGLE_CSE_API_KEY") or "").strip():
+    if (
+        provider_enabled("google_cse")
+        and (os.environ.get("GOOGLE_CSE_ID") or "").strip()
+        and (os.environ.get("GOOGLE_CSE_API_KEY") or "").strip()
+    ):
         out.append("google_cse")
     return out
 
