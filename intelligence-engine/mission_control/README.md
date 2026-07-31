@@ -24,7 +24,8 @@
 
 - `GET /v1/mission-control/health` — liveness + snapshot meta
 - `GET /v1/mission-control/dashboard` — snapshot reader (or warming)
-- `POST /v1/mission-control/rebuild` — queue background rebuild
+- `GET /v1/mission-control/agent-map` — Agent Map snapshot reader (or warming)
+- `POST /v1/mission-control/rebuild` — queue background rebuild (+ Agent Map)
 - `GET /v1/mission-control/quality-gates`
 - `GET /v1/mission-control/report`
 - `POST /v1/mission-control/acknowledge`

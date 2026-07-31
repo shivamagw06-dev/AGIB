@@ -47,13 +47,10 @@ def health() -> dict[str, Any]:
 
 
 def agent_map() -> dict[str, Any]:
-    """Read-only inventory of AGIB agents + working/soft/off status.
+    """Serve precomputed Agent Map snapshot only. Never probes on the HTTP path."""
+    from mission_control.agent_map_snapshot import read_agent_map
 
-    PR2 will snapshot this; PR1 still builds on demand (secondary panel).
-    """
-    from mission_control.agent_map import build_agent_map
-
-    return build_agent_map()
+    return read_agent_map()
 
 
 def dashboard(*, ioc_service: Any | None = None, force: bool = False) -> dict[str, Any]:

@@ -8,7 +8,9 @@ The intelligence worker (or gather sidecar) builds a durable snapshot; HTTP only
 ## Layout
 
 ```text
-$KIP_DATA_DIR/mission_control/snapshot.json
+$KIP_DATA_DIR/mission_control/
+  snapshot.json      # Mission Control desk (PR1)
+  agent_map.json     # Agent Map panel (PR2)
 ```
 
 Atomic write: temp → fsync → rename (via `institutional_data.persistence.atomic`).
@@ -26,8 +28,9 @@ Atomic write: temp → fsync → rename (via `institutional_data.persistence.ato
 | Method | Path | Behavior |
 |---|---|---|
 | GET | `/v1/mission-control/dashboard` | Read snapshot or `{status:warming}` — never compute |
+| GET | `/v1/mission-control/agent-map` | Read `agent_map.json` or warming — never `build_agent_map()` |
 | GET | `/v1/mission-control/health` | Flags + snapshot meta + job status |
-| POST | `/v1/mission-control/rebuild` | Queue background rebuild; return immediately |
+| POST | `/v1/mission-control/rebuild` | Queue background rebuild (+ Agent Map refresh); return immediately |
 | GET | `/v1/mission-control/report` | Slice of snapshot only |
 | GET | `/v1/mission-control/quality-gates` | Snapshot only |
 
@@ -47,9 +50,14 @@ Atomic write: temp → fsync → rename (via `institutional_data.persistence.ato
 | `AGI_MC_SNAPSHOT_BUILDER` | auto | Force on/off local web builder |
 | `MC_ALLOW_LIVE_IN_PYTEST` | unset | Set `1` to run real aggregate in tests |
 
+## Agent Map (PR2)
+
+- Built in the same worker loop immediately after each Mission Control snapshot
+- Also enqueued on boot if `agent_map.json` is missing
+- Frontend panel polls every 90s **only while open**
+
 ## Follow-ups
 
-- PR2 Agent Map snapshot
 - PR3 Intelligence Map cached probes
 - PR4 Institutional Intelligence snapshot boards
 - Optional section files (`coverage.json`, `fire.json`, …) if summary exceeds ~1MB
