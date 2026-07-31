@@ -14,7 +14,7 @@ const DEFAULT_COVER =
 const BRIEF_TOPICS = [
   { label: 'Acquisitions', tag: 'Acquisition' },
   { label: 'Fundraising', tag: 'Fundraise' },
-  { label: 'Private Equity', tag: 'Private Equity' },
+  { label: 'Private Markets', tag: 'Private Markets' },
   { label: 'Exits', tag: 'Exit' },
   { label: 'Valuation', tag: 'Valuation' },
   { label: 'IPO', tag: 'IPO' },
@@ -151,7 +151,7 @@ function DailyBrief({ feed }) {
           return (
             <Link
               key={topic.label}
-              to={match?.firmSlug ? `/private-equity/firms/${match.firmSlug}` : '/sections/deal-tracker'}
+              to={match?.firmSlug ? `/private-markets/firms/${match.firmSlug}` : '/sections/deal-tracker'}
               className="pe-card pe-brief-card"
             >
               <span className="pe-tag">{topic.label}</span>
@@ -317,10 +317,10 @@ function FundraisingSection({ funds }) {
 function TopPeFirms({ firms }) {
   return (
     <section className="pe-block">
-      <SectionHead title="Top Global Private Equity Firms" />
+      <SectionHead title="Top Global Private Markets Firms" />
       <div className="pe-card">
         {(firms || []).map((f, i) => (
-          <Link key={f.slug} to={`/private-equity/firms/${f.slug}`} className="pe-firm-row">
+          <Link key={f.slug} to={`/private-markets/firms/${f.slug}`} className="pe-firm-row">
             <span className="pe-firm-rank">{i + 1}</span>
             <img src={f.logo} alt="" className="w-9 h-9 rounded object-contain bg-[#f5f5f5] p-1" />
             <div className="flex-1 min-w-0">
@@ -352,7 +352,7 @@ export default function PeEditorialHome() {
   return (
     <div className="pe-editorial">
       <Helmet>
-        <title>Private Equity Intelligence | Agarwal Global Investments</title>
+        <title>Private Markets Intelligence | Agarwal Global Investments</title>
         <meta
           name="description"
           content="Institutional intelligence combining editorial research, structured private market data, and AI-driven knowledge for PE, M&A, fundraising, and valuation."

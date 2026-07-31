@@ -26,7 +26,7 @@ const DESK_BUTTONS = [
   { label: 'Articles', to: '/research', icon: BookOpen, hint: 'Research notes' },
   { label: 'Indian Market', to: '/market-intelligence', icon: LineChart, hint: 'India desk' },
   { label: 'Global Markets', to: '/global-markets', icon: Globe2, hint: 'World markets' },
-  { label: 'Private Equity', to: '/private-equity', icon: Briefcase, hint: 'Deals & exits' },
+  { label: 'Private Markets', to: '/private-markets', icon: Briefcase, hint: 'Deals & exits' },
   { label: 'Hedge Funds', to: '/hedge-fund', icon: Building2, hint: 'Strategies' },
   { label: 'Economics', to: '/economics', icon: Landmark, hint: 'Macro & policy' },
 ];

@@ -4,6 +4,7 @@ import { Helmet } from 'react-helmet-async';
 import { ArrowLeft, Download } from 'lucide-react';
 import { PeFirmAnalytics } from '@/components/private-equity/PeDashboard';
 import { usePeFirm } from '@/hooks/usePeIntelligence';
+import { useIntelligenceEntity } from '@/hooks/useIntelligencePlatform';
 import '@/components/private-equity/editorial/peEditorial.css';
 
 const TABS = [
@@ -29,6 +30,7 @@ function exportCsv(rows) {
 export default function PrivateEquityFirmPage() {
   const { slug } = useParams();
   const { data, loading, error } = usePeFirm(slug);
+  const { data: entityData } = useIntelligenceEntity(slug);
   const [tab, setTab] = useState('Overview');
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState('company');
@@ -60,8 +62,8 @@ export default function PrivateEquityFirmPage() {
   if (error || !data) {
     return (
       <div className="pe-editorial pe-editorial-inner py-16">
-        <Link to="/private-equity" className="inline-flex items-center gap-2 text-sm text-[var(--pe-accent)] no-underline mb-6">
-          <ArrowLeft size={16} /> Private Equity Intelligence
+        <Link to="/private-markets" className="inline-flex items-center gap-2 text-sm text-[var(--pe-muted)] no-underline mb-6">
+          <ArrowLeft size={16} /> Private Markets Intelligence
         </Link>
         <p>Firm not found.</p>
       </div>
@@ -71,11 +73,11 @@ export default function PrivateEquityFirmPage() {
   return (
     <div className="pe-editorial">
       <Helmet>
-        <title>{data.name} | Private Equity Intelligence | AGI</title>
+        <title>{data.name} | Private Markets Intelligence | AGI</title>
       </Helmet>
       <div className="pe-editorial-inner py-10">
-        <Link to="/private-equity" className="inline-flex items-center gap-2 text-sm text-[var(--pe-muted)] no-underline mb-8 hover:text-[var(--pe-accent)]">
-          <ArrowLeft size={16} /> Private Equity Intelligence
+        <Link to="/private-markets" className="inline-flex items-center gap-2 text-sm text-[var(--pe-muted)] no-underline mb-8 hover:text-[var(--pe-accent)]">
+          <ArrowLeft size={16} /> Private Markets Intelligence
         </Link>
 
         <section className="pe-card p-6 md:p-10 mb-8">
@@ -110,6 +112,15 @@ export default function PrivateEquityFirmPage() {
           </div>
         </section>
 
+        {entityData?.entity?.ai_summary && (
+          <section className="pe-card p-6 md:p-8 mb-8 border-l-4 border-l-[var(--pe-accent)]">
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--pe-accent)] mb-3">
+              AI Intelligence Summary
+            </p>
+            <p className="text-base leading-relaxed text-[var(--pe-text)]">{entityData.entity.ai_summary}</p>
+          </section>
+        )}
+
         <div className="flex flex-wrap gap-2 mb-6 border-b border-[var(--pe-border)] pb-4">
           {TABS.map((t) => (
             <button
@@ -128,13 +139,34 @@ export default function PrivateEquityFirmPage() {
         </div>
 
         {tab === 'Overview' && (
-          <div className="pe-card p-6 space-y-4 text-[17px] leading-relaxed text-[var(--pe-muted)]">
-            <p className="text-[var(--pe-text)]">{data.overview.history}</p>
-            <p><strong className="text-[var(--pe-text)]">Philosophy:</strong> {data.overview.philosophy}</p>
-            <p><strong className="text-[var(--pe-text)]">Positioning:</strong> {data.overview.positioning}</p>
-            <div className="flex flex-wrap gap-2 pt-2">
-              {data.industries.map((i) => <span key={i} className="pe-tag">{i}</span>)}
+          <div className="space-y-6">
+            <div className="pe-card p-6 space-y-4 text-[17px] leading-relaxed text-[var(--pe-muted)]">
+              <p className="text-[var(--pe-text)]">{data.overview.history}</p>
+              <p><strong className="text-[var(--pe-text)]">Philosophy:</strong> {data.overview.philosophy}</p>
+              <p><strong className="text-[var(--pe-text)]">Positioning:</strong> {data.overview.positioning}</p>
+              <div className="flex flex-wrap gap-2 pt-2">
+                {data.industries.map((i) => <span key={i} className="pe-tag">{i}</span>)}
+              </div>
             </div>
+            {entityData?.timeline?.length > 0 && (
+              <div className="pe-card p-6">
+                <h2 className="font-serif text-xl font-semibold mb-5">Timeline</h2>
+                <ol className="space-y-0 border-l-2 border-[var(--pe-border)] ml-3">
+                  {entityData.timeline.slice(0, 12).map((event) => (
+                    <li key={event.id} className="relative pl-6 pb-5 last:pb-0">
+                      <span className="absolute -left-[5px] top-1.5 w-2 h-2 rounded-full bg-[var(--pe-accent)]" />
+                      <time className="text-[10px] uppercase tracking-wider text-[var(--pe-muted)]">
+                        {new Date(event.occurred_at).getFullYear()}
+                      </time>
+                      <p className="font-medium mt-1">{event.title}</p>
+                      {event.description && (
+                        <p className="text-sm text-[var(--pe-muted)] mt-1">{event.description}</p>
+                      )}
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            )}
           </div>
         )}
 

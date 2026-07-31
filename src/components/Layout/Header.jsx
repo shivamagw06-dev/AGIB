@@ -23,7 +23,7 @@ const NAV = [
   { name: 'Home', path: '/' },
   { name: 'Market Intelligence', path: '/market-intelligence' },
   { name: 'Hedge Fund', path: '/hedge-fund' },
-  { name: 'Private Equity', path: '/private-equity' },
+  { name: 'Private Markets', path: '/private-markets' },
   { name: 'Global Markets', path: '/global-markets' },
   { name: 'Economics', path: '/economics' },
 ];

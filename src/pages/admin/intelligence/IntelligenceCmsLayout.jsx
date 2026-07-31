@@ -13,11 +13,13 @@ import {
   Sparkles,
   ExternalLink,
   LogOut,
+  Network,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
 const MODULE_NAV = [
   { to: '/admin/intelligence', label: 'Dashboard', icon: LayoutDashboard, end: true },
+  { to: '/admin/intelligence/entities', label: 'Entity Registry', icon: Network, enabled: true },
   { to: '/admin/intelligence/valuation-monitor', label: 'Valuation Monitor', icon: LineChart, enabled: true },
   { to: '/admin/intelligence/transactions', label: 'Transactions', icon: ArrowLeftRight, enabled: false },
   { to: '/admin/intelligence/pe-firms', label: 'PE Firms', icon: Building2, enabled: false },
@@ -84,10 +86,10 @@ export default function IntelligenceCmsLayout() {
         <div className="px-2 py-4 border-t border-white/10 space-y-1">
           <button
             type="button"
-            onClick={() => window.open('/private-equity', '_blank')}
+            onClick={() => window.open('/private-markets', '_blank')}
             className="w-full flex items-center gap-3 px-3 py-2 text-sm text-white/70 hover:text-white"
           >
-            <ExternalLink size={15} /> View PE Intelligence
+            <ExternalLink size={15} /> View Private Markets
           </button>
           <button
             type="button"

@@ -19,7 +19,7 @@ export const INTELLIGENCE_MODULES = {
     label: 'Valuation Monitor',
     slug: 'valuation-monitor',
     description: 'Private market valuation multiples and AGI research ratings.',
-    publicPath: '/private-equity#valuation-monitor',
+    publicPath: '/private-markets#valuation-monitor',
     columns: [
       { key: 'company', label: 'Company', type: 'text', required: true, grid: true },
       { key: 'sector', label: 'Sector', type: 'text', grid: true },
