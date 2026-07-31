@@ -126,11 +126,15 @@ function FeaturedStory({ article }) {
 
   return (
     <article className="home-hero-panel">
-      <Link to={href} className="block overflow-hidden border border-[#e2e5ea] bg-[#f4f5f7]">
+      <Link
+        to={href}
+        className="block overflow-hidden border border-[#e2e5ea] bg-[#f4f5f7]"
+      >
+        {/* Natural aspect ratio — box follows uploaded photo size (capped for layout). */}
         <img
           src={cover}
           alt=""
-          className="aspect-[16/9] w-full object-cover"
+          className="block h-auto w-full max-h-[min(32rem,60vh)] object-contain mx-auto"
           loading="eager"
         />
       </Link>
