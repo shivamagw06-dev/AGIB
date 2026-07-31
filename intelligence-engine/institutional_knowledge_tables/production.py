@@ -134,9 +134,13 @@ def upload_company_sheet(
     sheet_name: Any = 0,
     dry_run: bool = False,
     actor: str | None = None,
+    column_names: list[str] | None = None,
 ) -> dict[str, Any]:
     """Bulk-ingest a company-info Excel/CSV into IKT. Never fabricates a
     ticker match — unresolved rows are reported, not guessed.
+
+    `column_names`: reuse the header row from a sibling upload when this
+    file is a headerless continuation batch of the same export.
     """
     import base64
 
@@ -153,6 +157,7 @@ def upload_company_sheet(
         sheet_name=sheet_name,
         dry_run=dry_run,
         source_label=f"bulk_upload:{filename}" + (f" (by {actor})" if actor else ""),
+        column_names=column_names,
     )
     return result
 

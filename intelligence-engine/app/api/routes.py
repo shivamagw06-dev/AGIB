@@ -9543,7 +9543,9 @@ async def ikt_upload_sheet(payload: dict[str, Any] = Body(default={})):
     versioned fact per resolved ticker. Rows that can't be matched to the
     uploaded universe registry are reported, never guessed.
 
-    Body: { filename, content_base64, sheet_name?, dry_run?, actor? }
+    Body: { filename, content_base64, sheet_name?, dry_run?, actor?, column_names? }
+    `column_names`: reuse the header list from a sibling upload when this
+    file is a headerless continuation batch of the same export.
     """
     from institutional_knowledge_tables.production import upload_company_sheet
 
@@ -9555,6 +9557,7 @@ async def ikt_upload_sheet(payload: dict[str, Any] = Body(default={})):
             sheet_name=body.get("sheet_name", 0),
             dry_run=bool(body.get("dry_run", False)),
             actor=body.get("actor"),
+            column_names=body.get("column_names"),
         )
     except Exception as exc:
         return {"ok": False, "error": str(exc)[:300]}
