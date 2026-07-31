@@ -99,6 +99,10 @@ COMPANY_ALIASES: dict[str, str] = {
     "icici": "ICICIBANK",
     "icici bank": "ICICIBANK",
     "hdfc bank": "HDFCBANK",
+    "idbi": "IDBI",
+    "idbi bank": "IDBI",
+    "idbi bank ltd": "IDBI",
+    "idbi bank limited": "IDBI",
     "reliance": "RELIANCE",
     "sbi": "SBIN",
 }

@@ -260,6 +260,7 @@ _KNOWN_ENTITIES: tuple[tuple[re.Pattern[str], str, str, str], ...] = (
     (re.compile(r"\btech\s*mahindra\b|\btechm\b", re.I), "TECHM", "Tech Mahindra", "Company"),
     (re.compile(r"\bwipro\b", re.I), "WIPRO", "Wipro", "Company"),
     (re.compile(r"\bhdfc\s*bank\b", re.I), "HDFCBANK", "HDFC Bank", "Company"),
+    (re.compile(r"\bidbi(?:\s*bank(?:\s*ltd|\s*limited)?)?\b", re.I), "IDBI", "IDBI Bank", "Company"),
     (re.compile(r"\bicici\s*bank\b", re.I), "ICICIBANK", "ICICI Bank", "Company"),
     (re.compile(r"\baxis\s*bank\b", re.I), "AXISBANK", "Axis Bank", "Company"),
     (re.compile(r"\bkotak(?:\s*bank|\s*mahindra)?\b", re.I), "KOTAKBANK", "Kotak Mahindra Bank", "Company"),

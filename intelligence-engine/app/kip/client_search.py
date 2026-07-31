@@ -239,6 +239,10 @@ def _infer_ticker(question: str, documents: dict[str, KipDocument]) -> str | Non
         "reliance": "RELIANCE",
         "icici": "ICICIBANK",
         "hdfc bank": "HDFCBANK",
+        "idbi": "IDBI",
+        "idbi bank": "IDBI",
+        "idbi bank ltd": "IDBI",
+        "idbi bank limited": "IDBI",
     }
     for name, ticker in name_map.items():
         if name in q and ticker in known:

@@ -9,6 +9,7 @@ from ask_pipeline.intent_resolution.schema import ENTITY_BIND_THRESHOLD
 
 _KNOWN: list[tuple[re.Pattern[str], str, str]] = [
     (re.compile(r"\bhdfc\s*bank\b", re.I), "HDFCBANK", "HDFC Bank"),
+    (re.compile(r"\bidbi(?:\s*bank)?\b", re.I), "IDBI", "IDBI Bank"),
     (re.compile(r"\binfosys\b|\binfy\b", re.I), "INFY", "Infosys"),
     (re.compile(r"\btcs\b|\btata consultancy\b", re.I), "TCS", "Tata Consultancy Services"),
     (re.compile(r"\bwipro\b", re.I), "WIPRO", "Wipro"),
