@@ -12,6 +12,7 @@ import createNifty500ResearchRouter from "./routes/nifty500Research.js";
 import createIntelligenceRouter from "./routes/intelligence.js";
 import createUiRouter from "./routes/ui.js";
 import createPeIntelligenceRouter from "./routes/peIntelligence.js";
+import createIntelligenceCmsRouter from "./routes/intelligenceCms.js";
 import createAuthRouter from "./routes/auth.js";
 import createNewsletterRouter from "./routes/newsletter.js";
 import { getNewsHeadlines } from "./services/newsHeadlinesService.js";
@@ -296,6 +297,7 @@ app.use('/api/research/nifty500', nifty500ResearchLimiter, createNifty500Researc
 app.use('/api/intelligence', createIntelligenceRouter());
 app.use('/api/ui', createUiRouter());
 app.use('/api/pe', createPeIntelligenceRouter());
+app.use('/api/intelligence/cms', createIntelligenceCmsRouter());
 app.use('/api/auth', createAuthRouter());
 const newsletterRouter = createNewsletterRouter();
 app.use('/api/newsletter', newsletterRouter);

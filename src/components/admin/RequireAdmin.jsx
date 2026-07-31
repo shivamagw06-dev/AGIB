@@ -4,6 +4,7 @@ import {
   canAccessCms,
   isAdmin,
   isAuthorCmsPath,
+  isIntelligenceCmsPath,
   isStrictAdminPath,
 } from '@/lib/adminAuth';
 import Forbidden403 from '@/components/admin/Forbidden403';
@@ -39,6 +40,10 @@ export default function RequireAdmin({ children }) {
       ? 'Investment Office'
       : 'Knowledge Operations';
     return <Forbidden403 resource={resource} />;
+  }
+
+  if (!isAdmin(user) && isIntelligenceCmsPath(location.pathname)) {
+    return <Forbidden403 resource="Intelligence CMS" />;
   }
 
   if (!isAdmin(user) && !isAuthorCmsPath(location.pathname)) {

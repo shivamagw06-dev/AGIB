@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
+import { useEffect, useState } from 'react';
 import usePublishedArticles from '@/hooks/usePublishedArticles';
 import { usePeOverview } from '@/hooks/usePeIntelligence';
 import NewsletterSection from '@/components/Home/NewsletterSection';
@@ -167,6 +168,17 @@ function DailyBrief({ feed }) {
 }
 
 function ValuationMonitor() {
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    import('@/lib/intelligenceCmsApi')
+      .then(({ fetchPublicCmsModule }) => fetchPublicCmsModule('valuation_monitor'))
+      .then((res) => setRows(res.records || []))
+      .catch(() => setRows([]))
+      .finally(() => setLoading(false));
+  }, []);
+
   return (
     <section className="pe-block">
       <SectionHead
@@ -174,37 +186,58 @@ function ValuationMonitor() {
         title="Private Market Valuation Monitor"
       />
       <p className="text-[var(--pe-muted)] text-sm mb-4 max-w-2xl">
-        Updated daily by AGI Research. Full admin spreadsheet editing arrives in Phase 2 (Intelligence CMS).
+        Updated daily by AGI Research. Administer via{' '}
+        <Link to="/admin/intelligence/valuation-monitor" className="text-[var(--pe-accent)]">
+          Intelligence CMS
+        </Link>
+        .
       </p>
-      <div className="pe-cms-notice">
-        Intelligence CMS: admins will add rows, commentary, charts, and publish schedules — no coding required.
-      </div>
-      <div className="pe-card overflow-hidden">
-        <table className="pe-table-editorial">
-          <thead>
-            <tr>
-              <th>Sector</th>
-              <th>EV / Revenue</th>
-              <th>EV / EBITDA</th>
-              <th>Revenue Growth</th>
-              <th>Sentiment</th>
-              <th>AGI View</th>
-            </tr>
-          </thead>
-          <tbody>
-            {VALUATION_PLACEHOLDER.map((row) => (
-              <tr key={row.sector}>
-                <td className="font-medium">{row.sector}</td>
-                <td>{row.evRev}</td>
-                <td>{row.evEbitda}</td>
-                <td>{row.growth}</td>
-                <td>{row.sentiment}</td>
-                <td className="text-[var(--pe-accent)] font-medium">{row.view}</td>
+      {loading ? (
+        <div className="pe-card h-32 animate-pulse bg-[#eee]" />
+      ) : (
+        <div className="pe-card overflow-hidden">
+          <table className="pe-table-editorial">
+            <thead>
+              <tr>
+                <th>Company</th>
+                <th>Sector</th>
+                <th>EV / Revenue</th>
+                <th>EV / EBITDA</th>
+                <th>Growth</th>
+                <th>Geography</th>
+                <th>AGI Rating</th>
+                <th>Analyst</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {(rows.length ? rows : VALUATION_PLACEHOLDER.map((r, i) => ({
+                id: `ph-${i}`,
+                data: {
+                  company: r.sector,
+                  sector: r.sector,
+                  ev_revenue: r.evRev,
+                  ev_ebitda: r.evEbitda,
+                  growth: r.growth,
+                  geography: '—',
+                  agi_rating: r.view,
+                  analyst: 'AGI Research',
+                },
+              }))).map((row) => (
+                <tr key={row.id}>
+                  <td className="font-medium">{row.data.company}</td>
+                  <td>{row.data.sector}</td>
+                  <td>{row.data.ev_revenue}</td>
+                  <td>{row.data.ev_ebitda}</td>
+                  <td>{row.data.growth}</td>
+                  <td>{row.data.geography}</td>
+                  <td className="text-[var(--pe-accent)] font-medium">{row.data.agi_rating}</td>
+                  <td>{row.data.analyst}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </section>
   );
 }
