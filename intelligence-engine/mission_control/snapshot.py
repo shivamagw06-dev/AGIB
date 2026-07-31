@@ -337,19 +337,33 @@ def enqueue_rebuild(*, trigger: str = "admin_rebuild", wait: bool = False) -> di
         _set_job(status="running")
         try:
             build_and_persist_snapshot(trigger=trigger)
-            # PR2 — refresh Agent Map in the same worker loop (no second scheduler).
+            # PR2/PR3 — refresh Agent Map + Intelligence Map in the same worker loop.
             try:
                 from mission_control.agent_map_snapshot import build_and_persist_agent_map
 
                 build_and_persist_agent_map(trigger=f"after_mc:{trigger}")
             except Exception as am_exc:  # noqa: BLE001
-                # Desk snapshot still succeeds if Agent Map refresh fails.
                 try:
                     from mission_control import agent_map_snapshot as am
 
                     with am._LOCK:  # noqa: SLF001
                         am._META["last_failure_at"] = _now()
                         am._META["last_error"] = str(am_exc)[:240]
+                except Exception:
+                    pass
+            try:
+                from mission_control.intelligence_map_snapshot import (
+                    build_and_persist_intelligence_map,
+                )
+
+                build_and_persist_intelligence_map(trigger=f"after_mc:{trigger}")
+            except Exception as im_exc:  # noqa: BLE001
+                try:
+                    from mission_control import intelligence_map_snapshot as im
+
+                    with im._LOCK:  # noqa: SLF001
+                        im._META["last_failure_at"] = _now()
+                        im._META["last_error"] = str(im_exc)[:240]
                 except Exception:
                     pass
             _set_job(status="completed", finished_at=_now(), error=None)
@@ -424,6 +438,16 @@ def start_scheduler(*, boot_build: bool = True) -> dict[str, Any]:
 
                 if get_agent_map() is None:
                     enqueue_am(trigger="worker_boot_agent_map_missing", wait=False)
+            except Exception:
+                pass
+            try:
+                from mission_control.intelligence_map_snapshot import (
+                    enqueue_rebuild as enqueue_im,
+                    get_intelligence_map,
+                )
+
+                if get_intelligence_map() is None:
+                    enqueue_im(trigger="worker_boot_intelligence_map_missing", wait=False)
             except Exception:
                 pass
         while not stop.wait(interval_sec()):
@@ -505,6 +529,12 @@ def reset_for_tests() -> None:
         from mission_control.agent_map_snapshot import reset_for_tests as reset_am
 
         reset_am()
+    except Exception:
+        pass
+    try:
+        from mission_control.intelligence_map_snapshot import reset_for_tests as reset_im
+
+        reset_im()
     except Exception:
         pass
     try:

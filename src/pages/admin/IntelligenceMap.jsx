@@ -20,17 +20,10 @@ import {
   findLayer,
   layersByZone,
 } from '@/lib/intelligenceMapCatalog';
-import {
-  getMissionControlDashboard,
-  probeIntelligencePath,
-} from '@/lib/intelligenceApi';
+import { getIntelligenceMapSnapshot } from '@/lib/intelligenceApi';
 import { Button } from '@/components/ui/button';
 import '@/office/theme.css';
 import './IntelligenceMap.css';
-
-const HEALTH_ROUTES = Object.fromEntries(
-  LAYERS.filter((l) => l.route).map((l) => [l.id, l.route])
-);
 
 function classifyProbe(probe) {
   if (!probe) return { status: 'waiting', label: 'Waiting' };
@@ -167,38 +160,43 @@ export default function IntelligenceMap() {
     );
   }, []);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async ({ quiet } = {}) => {
     setError('');
-    const entries = Object.entries(HEALTH_ROUTES);
-    pushActivity('Refreshing live topology probes…');
-    const settled = await Promise.all(
-      entries.map(async ([id, route]) => {
-        const probe = await probeIntelligencePath(route);
-        return [id, probe];
-      })
-    );
-    const next = Object.fromEntries(settled);
-    setProbes(next);
-    setUpdatedAt(new Date());
-    setLoading(false);
-
-    const activeN = settled.filter(([, p]) => p.ok).length;
-    const badN = settled.filter(([, p]) => !p.ok).length;
-    pushActivity(`Topology refresh complete · ${activeN} active · ${badN} partial/unreachable`);
-
+    if (!quiet) pushActivity('Loading Intelligence Map snapshot…');
     try {
-      const d = await getMissionControlDashboard();
-      setDesk(d);
+      // Snapshot reader only — no live catalog probe fan-out.
+      const snap = await getIntelligenceMapSnapshot();
+      const next = snap?.probes && typeof snap.probes === 'object' ? snap.probes : {};
+      setProbes(next);
+      setDesk(snap?.mission_control_summary || null);
+      setUpdatedAt(
+        snap?.snapshot_meta?.persisted_at || snap?.generated_at
+          ? new Date(snap?.snapshot_meta?.persisted_at || snap?.generated_at)
+          : new Date()
+      );
+      setLoading(false);
+
+      if (snap?._warming || snap?.status === 'warming') {
+        pushActivity(snap?.message || 'Intelligence Map is warming up — worker building first snapshot.');
+        return;
+      }
+
+      const values = Object.values(next);
+      const activeN = values.filter((p) => p?.ok).length;
+      const badN = values.length - activeN;
+      pushActivity(
+        `Snapshot loaded · ${snap?.summary?.headline || `${activeN} active · ${badN} partial/unreachable`}`
+      );
     } catch (err) {
-      // Mission Control is secondary context for the map.
-      setDesk(null);
-      if (!activeN) setError(err?.message || 'Failed to load supporting dashboard context');
+      setError(err?.message || 'Failed to load Intelligence Map snapshot');
+      setLoading(false);
     }
   }, [pushActivity]);
 
   useEffect(() => {
     load();
-    const t = window.setInterval(load, 30_000);
+    // Poll cached snapshot only while the page is mounted (was 30s live fan-out).
+    const t = window.setInterval(() => load({ quiet: true }), 90_000);
     return () => window.clearInterval(t);
   }, [load]);
 
@@ -329,7 +327,7 @@ export default function IntelligenceMap() {
                 Admin Only
               </span>
               <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] uppercase tracking-wider text-[var(--imap-muted)]">
-                Live System Topology
+                Snapshot Topology
               </span>
             </div>
             <h1 className="mt-2 flex items-center gap-2 text-2xl md:text-3xl font-semibold tracking-tight">
@@ -337,7 +335,8 @@ export default function IntelligenceMap() {
               Institutional Intelligence Map
             </h1>
             <p className="mt-1 text-sm text-[var(--imap-muted)]">
-              Brain map of the frozen AGIB pipeline — every layer, every hop, live.
+              Brain map of the frozen AGIB pipeline — worker snapshot, polled every 90s. No live probe
+              fan-out on open.
             </p>
           </div>
 
@@ -377,11 +376,11 @@ export default function IntelligenceMap() {
             size="sm"
             variant="outline"
             className="border-white/15 bg-white/5 text-white hover:bg-white/10"
-            onClick={load}
+            onClick={() => load()}
             disabled={loading}
           >
             <RefreshCw className={`mr-2 h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
+            Check snapshot
           </Button>
           <Button
             type="button"
@@ -763,10 +762,10 @@ export default function IntelligenceMap() {
                 size="sm"
                 variant="outline"
                 className="justify-start border-white/15 bg-white/5 text-white hover:bg-white/10"
-                onClick={load}
+                onClick={() => load()}
               >
                 <Shield className="mr-2 h-3.5 w-3.5" />
-                Run End-to-End Health Check
+                Reload Snapshot
               </Button>
               <Button
                 type="button"

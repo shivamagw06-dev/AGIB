@@ -9,8 +9,9 @@ The intelligence worker (or gather sidecar) builds a durable snapshot; HTTP only
 
 ```text
 $KIP_DATA_DIR/mission_control/
-  snapshot.json      # Mission Control desk (PR1)
-  agent_map.json     # Agent Map panel (PR2)
+  snapshot.json           # Mission Control desk (PR1)
+  agent_map.json          # Agent Map panel (PR2)
+  intelligence_map.json   # Intelligence Map page (PR3)
 ```
 
 Atomic write: temp → fsync → rename (via `institutional_data.persistence.atomic`).
@@ -29,6 +30,7 @@ Atomic write: temp → fsync → rename (via `institutional_data.persistence.ato
 |---|---|---|
 | GET | `/v1/mission-control/dashboard` | Read snapshot or `{status:warming}` — never compute |
 | GET | `/v1/mission-control/agent-map` | Read `agent_map.json` or warming — never `build_agent_map()` |
+| GET | `/v1/mission-control/intelligence-map` | Read `intelligence_map.json` or warming — never catalog fan-out |
 | GET | `/v1/mission-control/health` | Flags + snapshot meta + job status |
 | POST | `/v1/mission-control/rebuild` | Queue background rebuild (+ Agent Map refresh); return immediately |
 | GET | `/v1/mission-control/report` | Slice of snapshot only |
@@ -56,8 +58,15 @@ Atomic write: temp → fsync → rename (via `institutional_data.persistence.ato
 - Also enqueued on boot if `agent_map.json` is missing
 - Frontend panel polls every 90s **only while open**
 
+## Intelligence Map (PR3)
+
+- Worker soft-probes `intelligence_map_routes.json` (catalog layer id → `/…/health`)
+- Writes `intelligence_map.json` with the same probe envelope the UI already expected
+- Embeds a light `mission_control_summary` so the page does not re-fetch the MC desk
+- Frontend (`IntelligenceMap.jsx`) performs **one GET** on open; polls every 90s while mounted
+- Removed `Promise.all(probeIntelligencePath…)` and the 30s live refresh
+
 ## Follow-ups
 
-- PR3 Intelligence Map cached probes
 - PR4 Institutional Intelligence snapshot boards
 - Optional section files (`coverage.json`, `fire.json`, …) if summary exceeds ~1MB
