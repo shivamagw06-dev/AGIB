@@ -24,7 +24,11 @@ Controlled by:
 | Env | Default | Meaning |
 |---|---|---|
 | `AGI_GATHER_SIDECAR` | `true` | Launch gather sibling process |
+| `AGI_GATHER_SIDECAR_DELAY_SEC` | `90` | Wait after boot before gather starts (keeps `/v1/health` + Mission Control responsive) |
 | HTTP gather flags | `false` | Set in `render.yaml` + forced in start script |
+| `AGI_ROLE=web` | set by start script | HTTP process skips in-process CGL/FAA/FSE entirely |
+
+Gather sidecar runs under `nice -n 10` with milder batch sizes so it cannot starve uvicorn on a shared Pro instance.
 
 ### What you do in Render
 

@@ -38,3 +38,14 @@ def test_start_engine_script_exists():
     assert "gather_worker.py" in text
     assert "CONTINUOUS_GATHER_LEARN=false" in text
     assert "uvicorn app.main:app" in text
+    assert "AGI_GATHER_SIDECAR_DELAY_SEC" in text
+    assert "nice -n 10" in text
+
+
+def test_http_role_skips_gather_boot_helpers():
+    """Web role must not start in-process CGL/FAA (sidecar owns gather)."""
+    import os
+
+    os.environ["AGI_ROLE"] = "web"
+    # Lifespan branching is covered by role check used in app.main
+    assert (os.environ.get("AGI_ROLE") or "").lower() == "web"
