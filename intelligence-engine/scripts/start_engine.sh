@@ -19,9 +19,21 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
+# HTTP process: never run in-process gather loops (set before uvicorn import).
+export AGI_ROLE=web
+export CONTINUOUS_GATHER_LEARN=false
+export FAA_BACKGROUND_COLLECTOR=false
+export CONTINUOUS_HISTORICAL_BACKFILL=false
+# Keep KF live collectors off in HTTP; sidecar/worker owns backfill.
+export KF_HD_LIVE_COLLECTORS=false
+
 if [[ "${AGI_GATHER_SIDECAR:-true}" != "false" && "${AGI_GATHER_SIDECAR:-true}" != "0" ]]; then
-  echo "[start_engine] launching gather sidecar (CGL/FAA/FSE)"
+  # Delay + nice: let uvicorn finish boot and stay responsive before gather
+  # saturates the shared Pro CPUs (was starving /v1/health + Mission Control).
+  DELAY_SEC="${AGI_GATHER_SIDECAR_DELAY_SEC:-90}"
+  echo "[start_engine] gather sidecar scheduled in ${DELAY_SEC}s (nice)"
   (
+    sleep "${DELAY_SEC}"
     export AGI_ROLE=gather_worker
     export AGI_GATHER_FORCE=true
     export CONTINUOUS_GATHER_LEARN=true
@@ -34,21 +46,19 @@ if [[ "${AGI_GATHER_SIDECAR:-true}" != "false" && "${AGI_GATHER_SIDECAR:-true}" 
     export CONTINUOUS_KF_HD=true
     export CONTINUOUS_LEARNING_LOOP=true
     export CONTINUOUS_MORNING_DAG=true
-    exec python scripts/gather_worker.py
+    # Milder defaults on shared box so HTTP keeps CPU share.
+    export KF_HD_BACKFILL_WORKERS="${KF_HD_BACKFILL_WORKERS_SIDECAR:-1}"
+    export KF_HD_BACKFILL_BATCH="${KF_HD_BACKFILL_BATCH_SIDECAR:-6}"
+    export FAA_COLLECTOR_LIMIT="${FAA_COLLECTOR_LIMIT_SIDECAR:-2}"
+    export FAA_MAX_WORKERS="${FAA_MAX_WORKERS_SIDECAR:-2}"
+    echo "[start_engine] launching gather sidecar now"
+    exec nice -n 10 python scripts/gather_worker.py
   ) &
   GATHER_PID=$!
   echo "[start_engine] gather sidecar pid=${GATHER_PID}"
 else
   echo "[start_engine] AGI_GATHER_SIDECAR=false — HTTP only (use agib-intelligence-worker)"
 fi
-
-# HTTP process: never run in-process gather loops.
-export AGI_ROLE=web
-export CONTINUOUS_GATHER_LEARN=false
-export FAA_BACKGROUND_COLLECTOR=false
-export CONTINUOUS_HISTORICAL_BACKFILL=false
-# Keep KF live collectors off in HTTP; sidecar/worker owns backfill.
-export KF_HD_LIVE_COLLECTORS=false
 
 echo "[start_engine] launching uvicorn on port ${PORT:-8100}"
 exec uvicorn app.main:app --host 0.0.0.0 --port "${PORT:-8100}"

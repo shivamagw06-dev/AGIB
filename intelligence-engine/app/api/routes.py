@@ -9312,9 +9312,13 @@ async def mission_control_agent_map():
 
 @router.get("/mission-control/dashboard")
 async def mission_control_dashboard():
+    """Heavy sync aggregate — run in a thread so gather/CPU work cannot block the event loop."""
+    import asyncio
+
     from mission_control.production import dashboard
 
-    return dashboard(ioc_service=getattr(_ui, "ioc", None) or _ioc)
+    ioc = getattr(_ui, "ioc", None) or _ioc
+    return await asyncio.to_thread(dashboard, ioc_service=ioc)
 
 
 # --- Continuous Gather → Learn (autonomous; never on Ask path) ---

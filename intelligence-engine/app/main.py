@@ -80,42 +80,58 @@ async def lifespan(_app: FastAPI):
             )
     except Exception as exc:
         log.warning("institutional_stack_bootstrap_failed", extra={"error": str(exc)[:160]})
-    # FAA background collector — fills snapshot/index off the Ask path.
-    # Ask must never call faa.acquire; this thread is the only auto live crawl.
+    # Gather loops belong on the sidecar / dedicated worker (AGI_ROLE=gather_worker).
+    # When this process is the HTTP web role, skip starting them so Ask / Mission
+    # Control are not starved — even if env flags were left true by mistake.
+    import os
+
+    # Only skip when explicitly marked as the HTTP process (start_engine.sh sets
+    # AGI_ROLE=web). Unset role keeps legacy flag-gated in-process gather for
+    # local/dev uvicorn launches without the sidecar script.
+    agi_role = (os.environ.get("AGI_ROLE") or "").strip().lower()
+    http_only = agi_role in {"web", "http", "api"} or str(
+        os.environ.get("AGI_HTTP_NO_GATHER") or ""
+    ).strip().lower() in {"1", "true", "yes", "on"}
+
     stop_faa_collector = None
-    try:
-        from app.api.routes import _faa
-        from app.faa.background import start_background_collector, stop_background_collector
-
-        boot_faa = start_background_collector(lambda: _faa)
-        stop_faa_collector = stop_background_collector
-        log.info("faa_background_collector", extra=boot_faa)
-    except Exception as exc:
-        log.warning("faa_background_collector_failed", extra={"error": str(exc)[:160]})
-    # Continuous Gather → Learn — autonomous historical collection + knowledge loop.
-    # Never on the Ask path; failures never block request serving.
     stop_cgl = None
-    try:
-        from continuous_gather_learn.production import start as start_cgl
-        from continuous_gather_learn.production import stop as stop_cgl_fn
-
-        boot_cgl = start_cgl()
-        stop_cgl = stop_cgl_fn
-        log.info("continuous_gather_learn", extra=boot_cgl)
-    except Exception as exc:
-        log.warning("continuous_gather_learn_failed", extra={"error": str(exc)[:160]})
-    # FSE-00 Pipeline Orchestrator — auto-start on evidence.stored.
-    # Coordinates Parse → Validate → Warehouse → DME. Failures never block startup.
-    try:
-        from financial_statements_engine.orchestrator.subscriber import bind_orchestrator_subscriber
-
-        bind_orchestrator_subscriber()
+    if http_only:
         log.info(
-            "fse_orchestrator_bound",
-            extra={"subscriber": "fse00_orchestrator", "event": "evidence.stored", "auto_start": True},
+            "gather_skipped_http_role",
+            extra={"agi_role": agi_role, "reason": "sidecar_or_worker_owns_gather"},
         )
-    except Exception as exc:
-        log.warning("fse_orchestrator_bind_failed", extra={"error": str(exc)[:160]})
+    else:
+        # FAA background collector — fills snapshot/index off the Ask path.
+        try:
+            from app.api.routes import _faa
+            from app.faa.background import start_background_collector, stop_background_collector
+
+            boot_faa = start_background_collector(lambda: _faa)
+            stop_faa_collector = stop_background_collector
+            log.info("faa_background_collector", extra=boot_faa)
+        except Exception as exc:
+            log.warning("faa_background_collector_failed", extra={"error": str(exc)[:160]})
+        # Continuous Gather → Learn — autonomous historical collection + knowledge loop.
+        try:
+            from continuous_gather_learn.production import start as start_cgl
+            from continuous_gather_learn.production import stop as stop_cgl_fn
+
+            boot_cgl = start_cgl()
+            stop_cgl = stop_cgl_fn
+            log.info("continuous_gather_learn", extra=boot_cgl)
+        except Exception as exc:
+            log.warning("continuous_gather_learn_failed", extra={"error": str(exc)[:160]})
+        # FSE-00 Pipeline Orchestrator — auto-start on evidence.stored.
+        try:
+            from financial_statements_engine.orchestrator.subscriber import bind_orchestrator_subscriber
+
+            bind_orchestrator_subscriber()
+            log.info(
+                "fse_orchestrator_bound",
+                extra={"subscriber": "fse00_orchestrator", "event": "evidence.stored", "auto_start": True},
+            )
+        except Exception as exc:
+            log.warning("fse_orchestrator_bind_failed", extra={"error": str(exc)[:160]})
     # NOTE: Do not auto-download Chromium at startup on free-tier Render — the
     # install can starve CPU/RAM and make /v1/health time out. Bake browsers via
     # buildCommand (`python -m playwright install chromium`) or set
