@@ -1,17 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Activity, AlertTriangle, RefreshCw, Trophy } from 'lucide-react';
 import {
-  getAlternativeDataDashboard,
-  getDecisionQualityDashboard,
-  getDecisionQualityHall,
-  getExpectationsDashboard,
-  getHistoricalDepthDashboard,
-  getInstitutionalKnowledgeDashboard,
-  getKnowledgeFactoryDailyHealth,
-  getMacroIntelligenceDashboard,
-  getRelationshipDashboard,
-  getSectorIntelligenceDashboard,
-  getUniverseIntelligenceDashboard,
+  getInstitutionalIntelligenceSnapshot,
   runDecisionQuality,
   runHistoricalDepth,
   runInstitutionalKnowledgeStack,
@@ -67,43 +57,39 @@ export default function InstitutionalIntelligence() {
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async ({ quiet } = {}) => {
+    if (!quiet) setLoading(true);
     setError('');
     try {
-      const [h, d, s, m, q, hallRes, u, stack, rel, alt, exp] = await Promise.all([
-        getKnowledgeFactoryDailyHealth(),
-        getHistoricalDepthDashboard(),
-        getSectorIntelligenceDashboard(),
-        getMacroIntelligenceDashboard(),
-        getDecisionQualityDashboard(),
-        getDecisionQualityHall(),
-        getUniverseIntelligenceDashboard('NIFTY_500'),
-        getInstitutionalKnowledgeDashboard(false),
-        getRelationshipDashboard(),
-        getAlternativeDataDashboard(),
-        getExpectationsDashboard(),
-      ]);
-      setHealth(h);
-      setHd(d);
-      setIsi(s);
-      setImi(m);
-      setIdq(q);
-      setHall(hallRes);
-      setIui(u);
-      setIks(stack);
-      setIeri(rel);
-      setIadi(alt);
-      setImei(exp);
+      // Snapshot reader only — no parallel dashboard fan-out on page open.
+      const snap = await getInstitutionalIntelligenceSnapshot();
+      const boards = snap?.boards || {};
+      setHealth(boards.health || null);
+      setHd(boards.historical_depth || null);
+      setIsi(boards.sector || null);
+      setImi(boards.macro || null);
+      setIdq(boards.decision_quality || null);
+      setHall(boards.hall || null);
+      setIui(boards.universe || null);
+      setIks(boards.institutional_knowledge || null);
+      setIeri(boards.relationship || null);
+      setIadi(boards.alternative_data || null);
+      setImei(boards.expectations || null);
+      if (snap?._warming || snap?.status === 'warming') {
+        setError(snap?.message || 'Institutional Intelligence is warming up — worker building first snapshot.');
+      }
     } catch (err) {
-      setError(err?.message || 'Failed to load Institutional Intelligence');
+      setError(err?.message || 'Failed to load Institutional Intelligence snapshot');
     } finally {
-      setLoading(false);
+      if (!quiet) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
     load();
+    // Poll cached snapshot only while mounted.
+    const t = window.setInterval(() => load({ quiet: true }), 90_000);
+    return () => window.clearInterval(t);
   }, [load]);
 
   const runAll = async () => {
@@ -153,13 +139,14 @@ export default function InstitutionalIntelligence() {
           </h1>
           <p className="text-sm text-slate-500 mt-1 max-w-2xl">
             Reality (companies → industries → relationships → alt data) + Expectations (guidance,
-            revisions, surprises). Soft Knowledge Factory only — Phases 1–7 frozen.
+            revisions, surprises). Soft Knowledge Factory only — Phases 1–7 frozen. Snapshot-backed
+            (poll 90s) — page open never fans out live dashboards.
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={load} disabled={loading || !!busy}>
+          <Button variant="outline" onClick={() => load()} disabled={loading || !!busy}>
             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
+            Check snapshot
           </Button>
           <Button onClick={runAll} disabled={!!busy || loading}>
             {busy ? 'Running…' : 'Prime / Run stack'}

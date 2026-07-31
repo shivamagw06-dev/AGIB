@@ -926,6 +926,8 @@ export const getMissionControlAgentMap = () =>
   intelligenceFetch('/mission-control/agent-map', { timeoutMs: 15_000 });
 export const getIntelligenceMapSnapshot = () =>
   intelligenceFetch('/mission-control/intelligence-map', { timeoutMs: 15_000 });
+export const getInstitutionalIntelligenceSnapshot = () =>
+  intelligenceFetch('/mission-control/institutional-intelligence', { timeoutMs: 15_000 });
 export const getContinuousGatherLearnHealth = () =>
   intelligenceFetch('/continuous-gather-learn/health', { timeoutMs: 30_000 });
 export const getContinuousGatherLearnDashboard = () =>

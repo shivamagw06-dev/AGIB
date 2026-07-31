@@ -9,9 +9,10 @@ The intelligence worker (or gather sidecar) builds a durable snapshot; HTTP only
 
 ```text
 $KIP_DATA_DIR/mission_control/
-  snapshot.json           # Mission Control desk (PR1)
-  agent_map.json          # Agent Map panel (PR2)
-  intelligence_map.json   # Intelligence Map page (PR3)
+  snapshot.json                    # Mission Control desk (PR1)
+  agent_map.json                   # Agent Map panel (PR2)
+  intelligence_map.json            # Intelligence Map page (PR3)
+  institutional_intelligence.json  # Institutional Intelligence page (PR4)
 ```
 
 Atomic write: temp → fsync → rename (via `institutional_data.persistence.atomic`).
@@ -31,6 +32,7 @@ Atomic write: temp → fsync → rename (via `institutional_data.persistence.ato
 | GET | `/v1/mission-control/dashboard` | Read snapshot or `{status:warming}` — never compute |
 | GET | `/v1/mission-control/agent-map` | Read `agent_map.json` or warming — never `build_agent_map()` |
 | GET | `/v1/mission-control/intelligence-map` | Read `intelligence_map.json` or warming — never catalog fan-out |
+| GET | `/v1/mission-control/institutional-intelligence` | Read `institutional_intelligence.json` or warming — never 11-board fan-out |
 | GET | `/v1/mission-control/health` | Flags + snapshot meta + job status |
 | POST | `/v1/mission-control/rebuild` | Queue background rebuild (+ Agent Map refresh); return immediately |
 | GET | `/v1/mission-control/report` | Slice of snapshot only |
@@ -66,7 +68,13 @@ Atomic write: temp → fsync → rename (via `institutional_data.persistence.ato
 - Frontend (`IntelligenceMap.jsx`) performs **one GET** on open; polls every 90s while mounted
 - Removed `Promise.all(probeIntelligencePath…)` and the 30s live refresh
 
+## Institutional Intelligence (PR4)
+
+- Worker soft-calls the same 11 dashboard facades the page used to `Promise.all`
+- Writes `institutional_intelligence.json` with `boards.*` matching frontend state keys
+- Frontend: **one GET** on open; poll every 90s while mounted
+- **Prime / Run stack** remains an intentional write-side action (not removed)
+
 ## Follow-ups
 
-- PR4 Institutional Intelligence snapshot boards
 - Optional section files (`coverage.json`, `fire.json`, …) if summary exceeds ~1MB

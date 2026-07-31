@@ -26,6 +26,7 @@
 - `GET /v1/mission-control/dashboard` — snapshot reader (or warming)
 - `GET /v1/mission-control/agent-map` — Agent Map snapshot reader (or warming)
 - `GET /v1/mission-control/intelligence-map` — Intelligence Map snapshot reader (or warming)
+- `GET /v1/mission-control/institutional-intelligence` — Institutional Intelligence snapshot reader (or warming)
 - `POST /v1/mission-control/rebuild` — queue background rebuild (+ Agent Map)
 - `GET /v1/mission-control/quality-gates`
 - `GET /v1/mission-control/report`

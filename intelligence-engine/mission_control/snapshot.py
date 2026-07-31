@@ -366,6 +366,21 @@ def enqueue_rebuild(*, trigger: str = "admin_rebuild", wait: bool = False) -> di
                         im._META["last_error"] = str(im_exc)[:240]
                 except Exception:
                     pass
+            try:
+                from mission_control.institutional_intelligence_snapshot import (
+                    build_and_persist_institutional_intelligence,
+                )
+
+                build_and_persist_institutional_intelligence(trigger=f"after_mc:{trigger}")
+            except Exception as ii_exc:  # noqa: BLE001
+                try:
+                    from mission_control import institutional_intelligence_snapshot as ii
+
+                    with ii._LOCK:  # noqa: SLF001
+                        ii._META["last_failure_at"] = _now()
+                        ii._META["last_error"] = str(ii_exc)[:240]
+                except Exception:
+                    pass
             _set_job(status="completed", finished_at=_now(), error=None)
         except Exception as exc:  # noqa: BLE001
             with _LOCK:
@@ -448,6 +463,16 @@ def start_scheduler(*, boot_build: bool = True) -> dict[str, Any]:
 
                 if get_intelligence_map() is None:
                     enqueue_im(trigger="worker_boot_intelligence_map_missing", wait=False)
+            except Exception:
+                pass
+            try:
+                from mission_control.institutional_intelligence_snapshot import (
+                    enqueue_rebuild as enqueue_ii,
+                    get_institutional_intelligence,
+                )
+
+                if get_institutional_intelligence() is None:
+                    enqueue_ii(trigger="worker_boot_institutional_intelligence_missing", wait=False)
             except Exception:
                 pass
         while not stop.wait(interval_sec()):
@@ -535,6 +560,14 @@ def reset_for_tests() -> None:
         from mission_control.intelligence_map_snapshot import reset_for_tests as reset_im
 
         reset_im()
+    except Exception:
+        pass
+    try:
+        from mission_control.institutional_intelligence_snapshot import (
+            reset_for_tests as reset_ii,
+        )
+
+        reset_ii()
     except Exception:
         pass
     try:

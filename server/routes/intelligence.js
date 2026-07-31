@@ -2088,6 +2088,20 @@ export default function createIntelligenceRouter() {
       });
     }
   });
+  router.get('/mission-control/institutional-intelligence', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/mission-control/institutional-intelligence', {
+        timeoutMs: 10_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({
+        error: 'Institutional Intelligence unavailable',
+        detail: error.message,
+        hint: 'Snapshot reader failed — check institutional_intelligence.json on disk.',
+      });
+    }
+  });
   router.get('/mission-control/agent-map', async (_req, res) => {
     try {
       // Snapshot path — keep timeout short; engine must not probe modules.

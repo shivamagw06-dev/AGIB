@@ -9318,6 +9318,14 @@ async def mission_control_intelligence_map():
     return intelligence_map()
 
 
+@router.get("/mission-control/institutional-intelligence")
+async def mission_control_institutional_intelligence():
+    """Snapshot reader only — never fans out institutional dashboard aggregation."""
+    from mission_control.production import institutional_intelligence
+
+    return institutional_intelligence()
+
+
 @router.get("/mission-control/dashboard")
 async def mission_control_dashboard():
     """Snapshot reader only — never runs build_mission_control() on the HTTP path."""

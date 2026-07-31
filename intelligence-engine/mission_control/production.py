@@ -60,6 +60,15 @@ def intelligence_map() -> dict[str, Any]:
     return read_intelligence_map()
 
 
+def institutional_intelligence() -> dict[str, Any]:
+    """Serve precomputed Institutional Intelligence snapshot only. Never aggregates."""
+    from mission_control.institutional_intelligence_snapshot import (
+        read_institutional_intelligence,
+    )
+
+    return read_institutional_intelligence()
+
+
 def dashboard(*, ioc_service: Any | None = None, force: bool = False) -> dict[str, Any]:
     """Serve precomputed snapshot only. Never builds on the HTTP path.
 
