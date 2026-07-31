@@ -53,6 +53,7 @@ const PersonalWorkspace = React.lazy(() => import('@/pages/PersonalWorkspace'));
 const ResearchTerminalHome = React.lazy(() => import('@/components/Home/ResearchTerminalHome'));
 const HedgeFundPage = React.lazy(() => import('@/pages/HedgeFundPage'));
 const PrivateEquityPage = React.lazy(() => import('@/pages/PrivateEquityPage'));
+const PrivateEquityFirmPage = React.lazy(() => import('@/pages/PrivateEquityFirmPage'));
 const GlobalMarketsPage = React.lazy(() => import('@/pages/GlobalMarketsPage'));
 const EconomicsPage = React.lazy(() => import('@/pages/EconomicsPage'));
 
@@ -65,13 +66,14 @@ function AppShell() {
   const location = useLocation();
   const isAdmin = location.pathname.startsWith('/admin');
   const isAskWorkspace = location.pathname === '/ask';
+  const isPeTerminal = location.pathname === '/private-equity' || location.pathname.startsWith('/private-equity/firms/');
   const isAgiProduct = location.pathname === '/agi' || location.pathname.startsWith('/agi/');
 
   useEffect(() => {
-    if (!isAdmin && !isAskWorkspace) {
+    if (!isAdmin && !isAskWorkspace && !isPeTerminal) {
       document.documentElement.classList.remove('dark');
     }
-  }, [isAdmin, isAskWorkspace, location.pathname]);
+  }, [isAdmin, isAskWorkspace, isPeTerminal, location.pathname]);
 
   if (isAdmin) {
     return (
@@ -105,6 +107,23 @@ function AppShell() {
           <Suspense fallback={<div className="min-h-screen bg-[#0b0e14] p-8 text-center text-slate-300">Loading Ask AGI…</div>}>
             <Routes>
               <Route path="/ask" element={<AskAgiPage />} />
+            </Routes>
+          </Suspense>
+          <Toaster />
+        </PinGate>
+      </MarketDataProvider>
+    );
+  }
+
+  // PE Intelligence — full-bleed institutional terminal (no public header/footer).
+  if (isPeTerminal) {
+    return (
+      <MarketDataProvider>
+        <PinGate>
+          <Suspense fallback={<div className="min-h-screen bg-[#0a0b0d] p-8 text-center text-slate-400">Loading PE Intelligence…</div>}>
+            <Routes>
+              <Route path="/private-equity" element={<PrivateEquityPage />} />
+              <Route path="/private-equity/firms/:slug" element={<PrivateEquityFirmPage />} />
             </Routes>
           </Suspense>
           <Toaster />
@@ -154,7 +173,6 @@ function PublicRoutes() {
       <Route path="/market-intelligence" element={<MarketIntelligence />} />
       <Route path="/macro-intelligence" element={<MacroIntelligence />} />
       <Route path="/hedge-fund" element={<HedgeFundPage />} />
-      <Route path="/private-equity" element={<PrivateEquityPage />} />
       <Route path="/global-markets" element={<GlobalMarketsPage />} />
       <Route path="/economics" element={<EconomicsPage />} />
       <Route path="/global" element={<MacroIntelligence />} />
