@@ -10,15 +10,16 @@
 
 ## Fix #1 — Paid plan on both services (the real fix)
 
-`render.yaml` now declares `plan: starter` for **both** `agib-api` and `agib-intelligence-engine`.
+`render.yaml` now declares `plan: pro` for **both** `agib-api` and `agib-intelligence-engine`, matching the account's actual Render plan (4 GB / 2 CPU each).
 
-**Important:** committing this file does not itself change billing on an already-created Render service. Confirm in the Render dashboard:
+**Important — keep this value in sync with the dashboard.** Render's Blueprint docs are explicit: *"In your Blueprint file, set your service's plan field to a new instance type... the next time you sync your Blueprint, Render triggers a new deploy to apply the new instance type."* That means if `render.yaml` ever specifies a **lower** plan than what's actually configured in the dashboard, a Blueprint re-sync can silently **downgrade** the live service to match the file — the opposite of what we want.
 
-1. `agib-api` → **Settings → Instance Type** → Starter (or higher)
-2. `agib-intelligence-engine` → already Starter+ (per earlier RAM upgrade) — verify it's still correct
-3. If the services were created outside a Blueprint sync, apply the plan there directly; Blueprint re-sync may not change billing on existing services automatically
+Confirm in the Render dashboard that both show **Pro**:
 
-Free plan should only be used for scratch/preview services, never for the two production services users depend on.
+1. `agib-api` → Settings → Instance Type → **Pro**
+2. `agib-intelligence-engine` → Settings → Instance Type → **Pro**
+
+Free plan should only ever be used for scratch/preview services, never for the two production services users depend on.
 
 ## Fix #2 — Keep-warm ping
 
