@@ -2196,7 +2196,7 @@ def build_mission_control(*, ioc_service: Any | None = None) -> dict[str, Any]:
         "Scheduler",
         "Redis",
     ):
-        if not _already(label):
+        if label.lower() not in known:
             providers.append(
                 {
                     "name": label,
