@@ -473,6 +473,10 @@ class FetchService:
             ]
 
         if provider == "exa":
+            from app.faa.provider_flags import provider_enabled
+
+            if not provider_enabled("exa"):
+                return []
             key = (os.environ.get("EXA_API_KEY") or "").strip()
             if not key:
                 return []

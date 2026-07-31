@@ -130,6 +130,16 @@ services:
       # Keep false on free tier — Chromium must come from buildCommand.
       - key: FAA_PLAYWRIGHT_AUTO_INSTALL
         value: "false"
+      # Exa / Firecrawl / Browserbase — hard-disabled (unpaid; every call was
+      # returning 402 Payment Required every background cycle, wasting time
+      # for zero benefit). Disabling here works even if the API keys remain
+      # set in the dashboard. Flip back to "true" once/if billing resumes.
+      - key: FAA_EXA_ENABLED
+        value: "false"
+      - key: FAA_FIRECRAWL_ENABLED
+        value: "false"
+      - key: FAA_BROWSERBASE_ENABLED
+        value: "false"
       # Ask desk: offices soft-wire off on Starter (memory); persist always off.
       - key: AGI_V4_OFFICES_IN_ASK
         value: "0"

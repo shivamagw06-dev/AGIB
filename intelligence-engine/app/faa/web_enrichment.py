@@ -24,6 +24,7 @@ from app.faa.playwright_browser import (
     playwright_enabled,
     playwright_status,
 )
+from app.faa.provider_flags import provider_enabled
 
 # Hosts that often need a real browser / proxy path (exchanges, IR portals).
 _HARD_HOST_RE = re.compile(
@@ -37,11 +38,11 @@ _MIN_USEFUL_CHARS = 400
 
 
 def firecrawl_configured() -> bool:
-    return bool((os.environ.get("FIRECRAWL_API_KEY") or "").strip())
+    return provider_enabled("firecrawl") and bool((os.environ.get("FIRECRAWL_API_KEY") or "").strip())
 
 
 def browserbase_configured() -> bool:
-    return bool((os.environ.get("BROWSERBASE_API_KEY") or "").strip())
+    return provider_enabled("browserbase") and bool((os.environ.get("BROWSERBASE_API_KEY") or "").strip())
 
 
 def enrichment_status() -> dict[str, Any]:
@@ -82,6 +83,8 @@ def text_is_thin(text: str | None, *, min_chars: int = _MIN_USEFUL_CHARS) -> boo
 
 def firecrawl_scrape(client: HttpClient, url: str) -> dict[str, Any] | None:
     """Scrape one URL to markdown via Firecrawl. Returns {markdown, title, source} or None."""
+    if not provider_enabled("firecrawl"):
+        return None
     key = (os.environ.get("FIRECRAWL_API_KEY") or "").strip()
     if not key or not url or url.startswith("search://"):
         return None
@@ -120,6 +123,8 @@ def firecrawl_scrape(client: HttpClient, url: str) -> dict[str, Any] | None:
 
 def firecrawl_search(client: HttpClient, query: str, *, limit: int = 5) -> list[dict[str, Any]]:
     """Optional Firecrawl web search — returns results that may already include markdown."""
+    if not provider_enabled("firecrawl"):
+        return []
     key = (os.environ.get("FIRECRAWL_API_KEY") or "").strip()
     if not key or not (query or "").strip():
         return []
@@ -166,6 +171,8 @@ def firecrawl_search(client: HttpClient, query: str, *, limit: int = 5) -> list[
 
 def browserbase_fetch(client: HttpClient, url: str) -> dict[str, Any] | None:
     """Fetch page content via Browserbase Fetch API (markdown preferred)."""
+    if not provider_enabled("browserbase"):
+        return None
     key = (os.environ.get("BROWSERBASE_API_KEY") or "").strip()
     if not key or not url or url.startswith("search://"):
         return None
