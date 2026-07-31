@@ -54,6 +54,7 @@ const ResearchTerminalHome = React.lazy(() => import('@/components/Home/Research
 const HedgeFundPage = React.lazy(() => import('@/pages/HedgeFundPage'));
 const PrivateEquityPage = React.lazy(() => import('@/pages/PrivateEquityPage'));
 const GlobalMarketsPage = React.lazy(() => import('@/pages/GlobalMarketsPage'));
+const EconomicsPage = React.lazy(() => import('@/pages/EconomicsPage'));
 
 function HomeLayout() {
   // Public research-terminal homepage — admin shells stay under /admin/*.
@@ -155,10 +156,11 @@ function PublicRoutes() {
       <Route path="/hedge-fund" element={<HedgeFundPage />} />
       <Route path="/private-equity" element={<PrivateEquityPage />} />
       <Route path="/global-markets" element={<GlobalMarketsPage />} />
+      <Route path="/economics" element={<EconomicsPage />} />
       <Route path="/global" element={<MacroIntelligence />} />
       <Route path="/global-intelligence" element={<Navigate replace to="/global-markets" />} />
       <Route path="/private-markets" element={<Navigate replace to="/private-equity" />} />
-      <Route path="/economy" element={<Navigate replace to="/macro-intelligence" />} />
+      <Route path="/economy" element={<Navigate replace to="/economics" />} />
       <Route path="/pre-market" element={<PreMarketIntelligence />} />
       <Route path="/updates/pre-market" element={<Navigate replace to="/pre-market" />} />
       <Route path="/market-data" element={<MarketDataCentre />} />

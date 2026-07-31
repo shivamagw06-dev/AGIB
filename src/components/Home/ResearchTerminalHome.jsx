@@ -1,6 +1,14 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
+import {
+  BookOpen,
+  Building2,
+  Briefcase,
+  Globe2,
+  Landmark,
+  LineChart,
+} from 'lucide-react';
 import AskAgiBar from '@/components/Home/AskAgiBar';
 import NewsletterSection from '@/components/Home/NewsletterSection';
 import usePublishedArticles from '@/hooks/usePublishedArticles';
@@ -14,17 +22,13 @@ const ASK_SUGGESTIONS = [
   'Compare HDFC Bank vs ICICI Bank',
 ];
 
-const RESEARCH_CATEGORIES = [
-  { label: 'Markets', to: '/market-intelligence' },
-  { label: 'Macro', to: '/macro-intelligence' },
-  { label: 'IPO', to: '/ipo-intelligence' },
-  { label: 'Equities', to: '/research' },
-  { label: 'Private Equity', to: '/private-equity' },
-  { label: 'Global Markets', to: '/global-markets' },
-  { label: 'Business', to: '/business' },
-  { label: 'Technology', to: '/research?q=Technology' },
-  { label: 'Energy', to: '/research?q=Energy' },
-  { label: 'Healthcare', to: '/research?q=Healthcare' },
+const DESK_BUTTONS = [
+  { label: 'Articles', to: '/research', icon: BookOpen, hint: 'Research notes' },
+  { label: 'Indian Market', to: '/market-intelligence', icon: LineChart, hint: 'India desk' },
+  { label: 'Global Markets', to: '/global-markets', icon: Globe2, hint: 'World markets' },
+  { label: 'Private Equity', to: '/private-equity', icon: Briefcase, hint: 'Deals & exits' },
+  { label: 'Hedge Funds', to: '/hedge-fund', icon: Building2, hint: 'Strategies' },
+  { label: 'Economics', to: '/economics', icon: Landmark, hint: 'Macro & policy' },
 ];
 
 const DEFAULT_COVER =
@@ -42,6 +46,21 @@ function articleAuthor(article) {
   return article?.author || article?.byline || 'AGI Research';
 }
 
+function articleMeta(article) {
+  const published = article?.publishedLabel
+    ? formatTimeAgo(article.publishedLabel) || article.publishedLabel
+    : article?.date
+      ? formatTimeAgo(article.date)
+      : 'Recently';
+  return {
+    category: article?.section || article?.category || 'Research',
+    summary: article?.excerpt || article?.summary || 'Institutional research note from the AGI desk.',
+    author: articleAuthor(article),
+    published,
+    readTime: article?.readTime || '5 min read',
+  };
+}
+
 function isMorning(article) {
   const hay = `${article?.section || ''} ${article?.category || ''} ${article?.title || ''}`;
   return /morning|pre-?market|overnight|open/i.test(hay);
@@ -52,55 +71,120 @@ function isEvening(article) {
   return /evening|post\s*market|day\s*close|market\s*close|wrap/i.test(hay);
 }
 
-function ResearchCard({ article, featured = false, index = 0 }) {
+/** Featured story — image + copy in one balanced row on desktop. */
+function FeaturedArticle({ article }) {
   if (!article) return null;
   const href = articleHref(article);
   const cover = articleCover(article);
-  const summary = article.excerpt || article.summary || 'Institutional research note from the AGI desk.';
-  const category = article.section || article.category || 'Research';
-  const published = article.publishedLabel
-    ? formatTimeAgo(article.publishedLabel) || article.publishedLabel
-    : article.date
-      ? formatTimeAgo(article.date)
-      : 'Recently';
+  const meta = articleMeta(article);
 
   return (
-    <article
-      className={`group overflow-hidden rounded-xl border border-[#e6e8ec] bg-white transition-shadow hover:shadow-sm animate-home-rise ${
-        featured ? 'md:col-span-2' : ''
-      }`}
-      style={{ animationDelay: `${Math.min(index, 8) * 40}ms` }}
-    >
-      <Link to={href} className="block">
-        <div className={`overflow-hidden bg-[#f4f5f7] ${featured ? 'max-h-[340px]' : 'max-h-[200px]'}`}>
-          <img
-            src={cover}
-            alt=""
-            className="h-full w-full object-contain object-center transition-transform duration-500 group-hover:scale-[1.02]"
-            loading={featured ? 'eager' : 'lazy'}
-          />
-        </div>
+    <article className="group grid h-full overflow-hidden rounded-xl border border-[#e4e7ec] bg-white lg:grid-cols-[1.15fr_1fr] animate-home-rise">
+      <Link to={href} className="relative block min-h-[240px] bg-[#f3f4f6] lg:min-h-full">
+        <img
+          src={cover}
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+          loading="eager"
+        />
       </Link>
-      <div className={`p-5 ${featured ? 'md:p-7' : ''}`}>
-        <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#5d6470]">{category}</p>
-        <h3
-          className={`mt-2 font-serif font-bold leading-snug text-[#111111] ${
-            featured ? 'text-2xl md:text-[1.85rem]' : 'text-lg md:text-xl'
-          }`}
-        >
-          <Link to={href} className="hover:underline underline-offset-4 decoration-[#111111]/30">
+      <div className="flex flex-col justify-center p-6 md:p-8">
+        <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#6b7280]">{meta.category}</p>
+        <h3 className="mt-3 font-serif text-2xl md:text-[1.75rem] font-bold leading-snug text-[#111111]">
+          <Link to={href} className="hover:underline underline-offset-4 decoration-[#111]/25">
             {article.title}
           </Link>
         </h3>
-        <p className={`mt-3 text-[#555555] leading-relaxed ${featured ? 'text-base line-clamp-3' : 'text-sm line-clamp-2'}`}>
-          {summary}
-        </p>
-        <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-[#767676]">
-          <span className="font-medium text-[#333333]">{articleAuthor(article)}</span>
+        <p className="mt-3 text-sm md:text-[15px] leading-relaxed text-[#555555] line-clamp-4">{meta.summary}</p>
+        <div className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-[#767676]">
+          <span className="font-medium text-[#333]">{meta.author}</span>
           <span aria-hidden>·</span>
-          <span>{published}</span>
+          <span>{meta.published}</span>
           <span aria-hidden>·</span>
-          <span>{article.readTime || '5 min read'}</span>
+          <span>{meta.readTime}</span>
+        </div>
+        <Link
+          to={href}
+          className="mt-6 inline-flex w-fit text-sm font-semibold text-[#0b1f33] underline-offset-4 hover:underline"
+        >
+          Read research →
+        </Link>
+      </div>
+    </article>
+  );
+}
+
+/** Compact stacked row used beside the featured story. */
+function StackArticle({ article, index = 0 }) {
+  if (!article) return null;
+  const href = articleHref(article);
+  const cover = articleCover(article);
+  const meta = articleMeta(article);
+
+  return (
+    <article
+      className="group flex gap-4 border-b border-[#eceef2] py-4 first:pt-0 last:border-b-0 last:pb-0 animate-home-rise"
+      style={{ animationDelay: `${Math.min(index, 6) * 40}ms` }}
+    >
+      <Link to={href} className="relative h-[88px] w-[118px] shrink-0 overflow-hidden rounded-lg bg-[#f3f4f6]">
+        <img
+          src={cover}
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+          loading="lazy"
+        />
+      </Link>
+      <div className="min-w-0 flex-1 py-0.5">
+        <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#6b7280]">{meta.category}</p>
+        <h3 className="mt-1 font-serif text-[1.05rem] font-bold leading-snug text-[#111111] line-clamp-2">
+          <Link to={href} className="hover:underline underline-offset-4 decoration-[#111]/25">
+            {article.title}
+          </Link>
+        </h3>
+        <div className="mt-2 flex flex-wrap items-center gap-x-2 text-[11px] text-[#767676]">
+          <span>{meta.published}</span>
+          <span aria-hidden>·</span>
+          <span>{meta.readTime}</span>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+/** Equal grid card for the lower research shelf. */
+function GridArticle({ article, index = 0 }) {
+  if (!article) return null;
+  const href = articleHref(article);
+  const cover = articleCover(article);
+  const meta = articleMeta(article);
+
+  return (
+    <article
+      className="group flex h-full flex-col overflow-hidden rounded-xl border border-[#e4e7ec] bg-white transition-shadow hover:shadow-sm animate-home-rise"
+      style={{ animationDelay: `${Math.min(index, 8) * 35}ms` }}
+    >
+      <Link to={href} className="relative block aspect-[16/10] overflow-hidden bg-[#f3f4f6]">
+        <img
+          src={cover}
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+          loading="lazy"
+        />
+      </Link>
+      <div className="flex flex-1 flex-col p-5">
+        <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#6b7280]">{meta.category}</p>
+        <h3 className="mt-2 font-serif text-lg font-bold leading-snug text-[#111111] line-clamp-2">
+          <Link to={href} className="hover:underline underline-offset-4 decoration-[#111]/25">
+            {article.title}
+          </Link>
+        </h3>
+        <p className="mt-2 flex-1 text-sm leading-relaxed text-[#555555] line-clamp-2">{meta.summary}</p>
+        <div className="mt-4 flex flex-wrap items-center gap-x-2 text-[11px] text-[#767676]">
+          <span className="font-medium text-[#333]">{meta.author}</span>
+          <span aria-hidden>·</span>
+          <span>{meta.published}</span>
+          <span aria-hidden>·</span>
+          <span>{meta.readTime}</span>
         </div>
       </div>
     </article>
@@ -111,14 +195,14 @@ function BriefCard({ title, description, href, cta }) {
   return (
     <Link
       to={href}
-      className="group flex flex-col justify-between rounded-xl border border-[#e6e8ec] bg-white p-7 md:p-8 transition-shadow hover:shadow-sm"
+      className="group flex flex-col justify-between rounded-xl border border-[#e4e7ec] bg-white p-6 md:p-7 transition-shadow hover:shadow-sm"
     >
       <div>
-        <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#5d6470]">Daily Brief</p>
-        <h3 className="mt-3 font-serif text-2xl font-bold text-[#111111]">{title}</h3>
-        <p className="mt-3 text-sm leading-relaxed text-[#555555]">{description}</p>
+        <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#6b7280]">Daily Brief</p>
+        <h3 className="mt-2 font-serif text-xl md:text-2xl font-bold text-[#111111]">{title}</h3>
+        <p className="mt-3 text-sm leading-relaxed text-[#555555] line-clamp-3">{description}</p>
       </div>
-      <span className="mt-8 inline-flex text-sm font-semibold text-[#111111] group-hover:underline underline-offset-4">
+      <span className="mt-6 inline-flex text-sm font-semibold text-[#0b1f33] group-hover:underline underline-offset-4">
         {cta}
       </span>
     </Link>
@@ -128,34 +212,30 @@ function BriefCard({ title, description, href, cta }) {
 export default function ResearchTerminalHome() {
   const navigate = useNavigate();
   const { articles, loading } = usePublishedArticles({ limit: 18, section: null });
-  const [researchLane, setResearchLane] = useState('featured');
 
   const featured = articles[0] || null;
-  const latest = articles.slice(1, 7);
-  const trending = articles.slice(3, 9);
+  const stack = articles.slice(1, 4);
+  const grid = articles.slice(4, 10);
 
   const morningArticle = useMemo(() => articles.find(isMorning), [articles]);
   const eveningArticle = useMemo(() => articles.find(isEvening), [articles]);
 
-  const laneArticles =
-    researchLane === 'latest' ? latest : researchLane === 'trending' ? trending : [featured, ...latest.slice(0, 3)].filter(Boolean);
-
   return (
     <div className="home-terminal min-h-screen bg-white text-[#111111]">
       <Helmet>
-        <title>AGI — Institutional Intelligence, Powered by AGI</title>
+        <title>AGI — Institutional Research</title>
         <meta
           name="description"
-          content="Research companies, markets, macroeconomics and investments using institutional-grade AI. Ask AGI and read the latest AGI research."
+          content="Ask AGI and read institutional research across Indian markets, global markets, private equity, hedge funds and economics."
         />
       </Helmet>
 
-      {/* Compact Ask box — directly under the sticky market strip */}
-      <section id="agi-ask" className="border-b border-[#e8eaee] bg-[#fafbfc]" aria-label="Ask AGI">
-        <div className="mx-auto max-w-[1200px] px-4 sm:px-6 py-4 md:py-5 home-hero-brand">
-          <div className="rounded-xl border border-[#e2e5ea] bg-white px-4 py-3.5 sm:px-5 sm:py-4">
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-5">
-              <div className="shrink-0 md:w-44">
+      {/* Compact Ask — under the strip */}
+      <section id="agi-ask" className="border-b border-[#e8eaee] bg-[#f7f8fa]" aria-label="Ask AGI">
+        <div className="mx-auto max-w-[1680px] px-4 sm:px-6 lg:px-8 py-4 home-hero-brand">
+          <div className="rounded-xl border border-[#e4e7ec] bg-white px-4 py-3.5 sm:px-5">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-6">
+              <div className="shrink-0 lg:w-40">
                 <p className="text-sm font-bold text-[#0b1f33]">Ask AGI</p>
                 <p className="mt-0.5 text-xs text-[#767676]">Institutional research questions</p>
               </div>
@@ -170,7 +250,7 @@ export default function ResearchTerminalHome() {
               </div>
               <Link
                 to="/research"
-                className="hidden shrink-0 text-xs font-semibold text-[#111111] underline-offset-4 hover:underline lg:inline"
+                className="hidden shrink-0 text-xs font-semibold text-[#111111] underline-offset-4 hover:underline xl:inline"
               >
                 Explore Research →
               </Link>
@@ -181,7 +261,7 @@ export default function ResearchTerminalHome() {
                   key={q}
                   type="button"
                   onClick={() => navigate(`/ask?q=${encodeURIComponent(q)}`)}
-                  className="rounded-full border border-[#e6e8ec] bg-[#fafbfc] px-2.5 py-1 text-[11px] font-medium text-[#444444] transition-colors hover:border-[#111111] hover:text-[#111111]"
+                  className="rounded-full border border-[#e6e8ec] bg-[#fafbfc] px-2.5 py-1 text-[11px] font-medium text-[#444] transition-colors hover:border-[#111] hover:text-[#111]"
                 >
                   {q}
                 </button>
@@ -191,96 +271,89 @@ export default function ResearchTerminalHome() {
         </div>
       </section>
 
-      {/* RESEARCH CATEGORIES */}
-      <section className="border-b border-[#e8eaee] bg-white" aria-label="Research categories">
-        <div className="mx-auto max-w-[1200px] px-4 sm:px-6 py-8">
-          <div className="flex flex-wrap justify-center gap-2">
-            {RESEARCH_CATEGORIES.map((cat) => (
-              <Link
-                key={cat.label}
-                to={cat.to}
-                className="rounded-full border border-[#e2e5ea] bg-[#fafbfc] px-4 py-2 text-sm font-medium text-[#333333] transition-colors hover:border-[#111111] hover:bg-white hover:text-[#111111]"
-              >
-                {cat.label}
-              </Link>
-            ))}
+      {/* Desk navigation — six equal professional buttons */}
+      <section className="border-b border-[#e8eaee] bg-white" aria-label="Research desks">
+        <div className="mx-auto max-w-[1680px] px-4 sm:px-6 lg:px-8 py-5">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
+            {DESK_BUTTONS.map((desk) => {
+              const Icon = desk.icon;
+              return (
+                <Link
+                  key={desk.label}
+                  to={desk.to}
+                  className="group flex items-center gap-3 rounded-xl border border-[#e4e7ec] bg-[#fafbfc] px-3.5 py-3.5 transition-colors hover:border-[#0b1f33]/35 hover:bg-white"
+                >
+                  <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#e8eaee] bg-white text-[#0b1f33] group-hover:border-[#0b1f33]/20">
+                    <Icon className="h-4 w-4" aria-hidden />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold text-[#111111]">{desk.label}</span>
+                    <span className="block text-[11px] text-[#767676]">{desk.hint}</span>
+                  </span>
+                </Link>
+              );
+            })}
           </div>
         </div>
       </section>
 
-      {/* LATEST RESEARCH */}
+      {/* Research mosaic */}
       <section id="latest-research" className="border-b border-[#e8eaee] bg-white" aria-label="Latest research">
-        <div className="mx-auto max-w-[1200px] px-4 sm:px-6 py-14 md:py-20">
-          <div className="flex flex-wrap items-end justify-between gap-4">
+        <div className="mx-auto max-w-[1680px] px-4 sm:px-6 lg:px-8 py-10 md:py-12">
+          <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
-              <h2 className="font-serif text-3xl md:text-4xl font-bold text-[#111111]">Latest Research</h2>
-              <p className="mt-2 text-sm text-[#555555]">Editorial research from the AGI desk.</p>
+              <h2 className="font-serif text-3xl font-bold tracking-tight text-[#111111]">Latest Research</h2>
+              <p className="mt-1.5 text-sm text-[#555555]">Editorial research from the AGI desk.</p>
             </div>
             <Link to="/research" className="text-sm font-semibold text-[#111111] hover:underline underline-offset-4">
               View all research →
             </Link>
           </div>
 
-          <div className="mt-8 flex flex-wrap gap-2 border-b border-[#e8eaee] pb-px">
-            {[
-              { id: 'featured', label: 'Featured Research' },
-              { id: 'latest', label: 'Latest Research' },
-              { id: 'trending', label: 'Trending' },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setResearchLane(tab.id)}
-                className={`-mb-px border-b-2 px-3 py-2.5 text-sm font-semibold transition-colors ${
-                  researchLane === tab.id
-                    ? 'border-[#111111] text-[#111111]'
-                    : 'border-transparent text-[#767676] hover:text-[#111111]'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
           {loading ? (
-            <div className="mt-10 grid grid-cols-1 gap-6 md:grid-cols-2">
-              {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="h-72 animate-pulse rounded-xl border border-[#e8eaee] bg-[#f7f8fa]" />
-              ))}
+            <div className="mt-8 grid grid-cols-1 gap-5 lg:grid-cols-[1.6fr_1fr]">
+              <div className="h-[340px] animate-pulse rounded-xl border border-[#e8eaee] bg-[#f7f8fa]" />
+              <div className="h-[340px] animate-pulse rounded-xl border border-[#e8eaee] bg-[#f7f8fa]" />
             </div>
-          ) : !laneArticles.length ? (
-            <div className="mt-10 rounded-xl border border-[#e8eaee] px-6 py-16 text-center">
+          ) : !articles.length ? (
+            <div className="mt-8 rounded-xl border border-[#e8eaee] px-6 py-14 text-center">
               <p className="font-serif text-xl font-bold text-[#111111]">Research notes are publishing soon</p>
               <p className="mt-2 text-sm text-[#555555]">Ask AGI while the desk prepares the next notes.</p>
-              <Link to="/ask" className="mt-6 inline-flex text-sm font-semibold underline underline-offset-4">
-                Ask AGI
-              </Link>
             </div>
           ) : (
-            <div className="mt-10 grid grid-cols-1 gap-6 md:grid-cols-2">
-              {researchLane === 'featured' && featured ? (
-                <>
-                  <ResearchCard article={featured} featured index={0} />
-                  {latest.slice(0, 2).map((article, i) => (
-                    <ResearchCard key={article.id || article.slug || i} article={article} index={i + 1} />
+            <>
+              <div className="mt-8 grid grid-cols-1 gap-5 lg:grid-cols-[1.65fr_1fr] lg:items-stretch">
+                <FeaturedArticle article={featured} />
+                <div className="rounded-xl border border-[#e4e7ec] bg-white px-5 py-4 md:px-6">
+                  <p className="mb-1 text-[11px] font-bold uppercase tracking-[0.14em] text-[#6b7280]">
+                    Also on the desk
+                  </p>
+                  <div>
+                    {stack.map((article, i) => (
+                      <StackArticle key={article.id || article.slug || i} article={article} index={i} />
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {grid.length > 0 ? (
+                <div className="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+                  {grid.map((article, i) => (
+                    <GridArticle key={article.id || article.slug || i} article={article} index={i} />
                   ))}
-                </>
-              ) : (
-                laneArticles.map((article, i) => (
-                  <ResearchCard key={article.id || article.slug || i} article={article} index={i} />
-                ))
-              )}
-            </div>
+                </div>
+              ) : null}
+            </>
           )}
         </div>
       </section>
 
-      {/* MORNING & EVENING BRIEF */}
-      <section className="border-b border-[#e8eaee] bg-[#fafbfc]" aria-label="Morning and evening intelligence">
-        <div className="mx-auto max-w-[1200px] px-4 sm:px-6 py-14 md:py-16">
-          <h2 className="font-serif text-3xl font-bold text-[#111111]">Daily Intelligence</h2>
-          <p className="mt-2 text-sm text-[#555555]">Overnight developments and market-close summaries.</p>
-          <div className="mt-8 grid grid-cols-1 gap-5 md:grid-cols-2">
+      {/* Morning / Evening */}
+      <section className="border-b border-[#e8eaee] bg-[#f7f8fa]" aria-label="Morning and evening intelligence">
+        <div className="mx-auto max-w-[1680px] px-4 sm:px-6 lg:px-8 py-10 md:py-12">
+          <h2 className="font-serif text-2xl md:text-3xl font-bold text-[#111111]">Daily Intelligence</h2>
+          <p className="mt-1.5 text-sm text-[#555555]">Overnight developments and market-close summaries.</p>
+          <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
             <BriefCard
               title="Morning Intelligence"
               description={
@@ -305,7 +378,6 @@ export default function ResearchTerminalHome() {
         </div>
       </section>
 
-      {/* NEWSLETTER */}
       <NewsletterSection variant="minimal" />
     </div>
   );

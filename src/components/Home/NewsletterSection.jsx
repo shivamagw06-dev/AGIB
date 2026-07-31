@@ -43,8 +43,9 @@ export default function NewsletterSection({ initialSelected = null, variant = 'f
 
   if (minimal) {
     return (
-      <section id="newsletter" className="border-t border-[#e8eaee] bg-white py-16 md:py-20" aria-labelledby="agi-letters-heading">
-        <div className="mx-auto max-w-[720px] px-4 sm:px-6 text-center">
+      <section id="newsletter" className="border-t border-[#e8eaee] bg-white py-12 md:py-16" aria-labelledby="agi-letters-heading">
+        <div className="mx-auto max-w-[1680px] px-4 sm:px-6 lg:px-8 text-center">
+          <div className="mx-auto max-w-[720px]">
           <h2 id="agi-letters-heading" className="font-serif text-3xl md:text-4xl font-bold text-[#111111]">
             Stay Ahead of the Market.
           </h2>
@@ -78,6 +79,7 @@ export default function NewsletterSection({ initialSelected = null, variant = 'f
           <p className="mt-4 text-[11px] text-[#767676]">
             Free · Unsubscribe anytime · updates@agarwalglobalinvestments.com
           </p>
+          </div>
         </div>
       </section>
     );

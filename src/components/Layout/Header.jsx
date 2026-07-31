@@ -25,6 +25,7 @@ const NAV = [
   { name: 'Hedge Fund', path: '/hedge-fund' },
   { name: 'Private Equity', path: '/private-equity' },
   { name: 'Global Markets', path: '/global-markets' },
+  { name: 'Economics', path: '/economics' },
 ];
 
 export default function Header() {

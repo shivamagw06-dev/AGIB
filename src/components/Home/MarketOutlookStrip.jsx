@@ -21,10 +21,8 @@ function formatPrice(value, label) {
   if (/usd\/inr|usdinr/i.test(label)) {
     return n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
-  if (/btc|bitcoin|gold|brent|vix/i.test(label)) {
-    return n.toLocaleString('en-IN', { maximumFractionDigits: 2 });
-  }
-  return n.toLocaleString('en-IN', { maximumFractionDigits: 2 });
+  if (n >= 1000) return n.toLocaleString('en-IN', { maximumFractionDigits: 2 });
+  return n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function formatPct(pct) {
@@ -32,17 +30,6 @@ function formatPct(pct) {
   if (!Number.isFinite(n)) return null;
   const sign = n > 0 ? '+' : '';
   return `${sign}${n.toFixed(2)}%`;
-}
-
-function formatAbsChange(price, pct) {
-  const p = Number(price);
-  const c = Number(pct);
-  if (!Number.isFinite(p) || !Number.isFinite(c) || p <= 0) return null;
-  // percentChange is vs prior close: abs ≈ price * pct / (100 + pct) when pct is day change.
-  const abs = (p * c) / (100 + c);
-  if (!Number.isFinite(abs)) return null;
-  const sign = abs > 0 ? '+' : '';
-  return `${sign}${Math.abs(abs) >= 100 ? abs.toFixed(0) : abs.toFixed(2)}`;
 }
 
 function matchStripRows(items = []) {
@@ -66,56 +53,63 @@ function matchStripRows(items = []) {
   return rows;
 }
 
-/** Thin sticky global market strip — live prices from market_snapshot. */
+function QuoteChip({ item }) {
+  const pct = item.percentChange;
+  const up = Number(pct) > 0;
+  const down = Number(pct) < 0;
+  const tone = up ? 'text-[#087443]' : down ? 'text-[#b42318]' : 'text-[#5d6470]';
+  const pctLabel = formatPct(pct);
+
+  return (
+    <Link
+      to="/market-intelligence"
+      className="market-ticker-chip inline-flex shrink-0 flex-col justify-center gap-0.5 border-r border-[#e8eaee] px-4 py-2 hover:bg-[#fafbfc]"
+    >
+      <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#6b7280] whitespace-nowrap">
+        {item.label}
+      </span>
+      <span className="flex items-center gap-2 whitespace-nowrap">
+        <span className="text-[12px] font-semibold tabular-nums text-[#111111]">
+          {formatPrice(item.price, item.label)}
+        </span>
+        {pctLabel ? (
+          <span className={`text-[11px] font-semibold tabular-nums ${tone}`}>{pctLabel}</span>
+        ) : null}
+      </span>
+    </Link>
+  );
+}
+
+/** Sticky scrolling market strip — live prices, no overlapping numbers. */
 export default function MarketOutlookStrip() {
   const { items, loading } = useMarketSnapshot();
   const rows = matchStripRows(items);
+  const loop = rows.length ? [...rows, ...rows] : [];
 
   return (
     <div className="border-b border-[#e6e8ec] bg-white">
-      <div className="mx-auto flex max-w-[1800px] items-center gap-1 overflow-x-auto px-2 sm:px-4">
-        <span className="hidden shrink-0 px-2 text-[10px] font-bold uppercase tracking-[0.12em] text-[#9298a3] md:inline">
-          Markets
+      <div className="flex items-stretch">
+        <span className="hidden shrink-0 items-center border-r border-[#e8eaee] bg-[#0b1f33] px-3 text-[10px] font-bold uppercase tracking-[0.14em] text-white/80 md:inline-flex">
+          Live
         </span>
-        <div className="flex min-w-0 flex-1 items-stretch">
+
+        <div className="market-ticker-viewport min-w-0 flex-1 overflow-hidden">
           {loading && !rows.length ? (
-            <span className="px-3 py-2.5 text-xs text-[#767676]">Loading markets…</span>
+            <span className="block px-4 py-2.5 text-xs text-[#767676]">Loading markets…</span>
           ) : !rows.length ? (
-            <span className="px-3 py-2.5 text-xs text-[#767676]">Market data unavailable</span>
+            <span className="block px-4 py-2.5 text-xs text-[#767676]">Market data unavailable</span>
           ) : (
-            rows.map((item) => {
-              const pct = item.percentChange;
-              const up = Number(pct) > 0;
-              const down = Number(pct) < 0;
-              const tone = up ? 'text-[#087443]' : down ? 'text-[#b42318]' : 'text-[#5d6470]';
-              const abs = formatAbsChange(item.price, pct);
-              const pctLabel = formatPct(pct);
-              return (
-                <Link
-                  key={item.key}
-                  to="/market-intelligence"
-                  className="flex min-w-[132px] items-baseline gap-2 border-r border-[#eef0f3] px-3 py-2.5 last:border-r-0 hover:bg-[#fafbfc]"
-                >
-                  <span className="text-[11px] font-bold uppercase tracking-wide text-[#111111] whitespace-nowrap">
-                    {item.label}
-                  </span>
-                  <span className="text-xs font-semibold tabular-nums text-[#333333]">
-                    {formatPrice(item.price, item.label)}
-                  </span>
-                  {pctLabel && (
-                    <span className={`text-[11px] font-semibold tabular-nums whitespace-nowrap ${tone}`}>
-                      {abs && <span className="mr-1">{abs}</span>}
-                      ({pctLabel})
-                    </span>
-                  )}
-                </Link>
-              );
-            })
+            <div className="market-ticker-track flex w-max items-stretch" aria-label="Live market quotes">
+              {loop.map((item, i) => (
+                <QuoteChip key={`${item.key}-${i}`} item={item} />
+              ))}
+            </div>
           )}
         </div>
+
         <Link
           to="/market-intelligence"
-          className="hidden shrink-0 px-3 py-2 text-[11px] font-bold text-[#111111] hover:underline underline-offset-2 lg:inline"
+          className="hidden shrink-0 items-center border-l border-[#e8eaee] px-3 text-[11px] font-bold text-[#111111] hover:bg-[#fafbfc] lg:inline-flex"
         >
           Markets →
         </Link>
