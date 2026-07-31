@@ -165,6 +165,7 @@ TABLE_DEFS: dict[str, dict[str, object]] = {
             "customers",
             "geography",
             "competitive_position",
+            "description",
         ),
         "keyed_by_period": False,
     },

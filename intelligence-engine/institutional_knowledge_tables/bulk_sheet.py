@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import io
 import re
+import unicodedata
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -73,7 +74,30 @@ _COLUMN_MAP: dict[str, tuple[str, str]] = {
     "rating": ("credit_ratings", "rating"),
     "rating agency": ("credit_ratings", "agency"),
     "outlook": ("credit_ratings", "outlook"),
+    # Capital IQ / screener-style exports (verbose headers, snapshot pulls)
+    "primary sector": ("company_master", "sector"),
+    "primary industry": ("company_master", "industry"),
+    "trading status": ("company_master", "status"),
+    "exchange country/region": ("company_master", "country"),
+    "product name": ("products", "product"),
+    "competitors": ("competitors", "peer"),
+    "long business description": ("business_model", "description"),
+    "price change 1 month": ("market_data", "returns_1m"),
+    "price change 1 year": ("market_data", "returns_1y"),
 }
+
+# Prefix-matched (regex) for headers whose suffix varies by export settings,
+# e.g. "EBITDA [LTM] ($USDmm, Historical rate)" or "Market Capitalization
+# [My Setting] [Latest] ($USDmm, Historical rate)". Evaluated only when an
+# exact _COLUMN_MAP lookup misses.
+_PREFIX_PATTERNS: tuple[tuple[re.Pattern[str], str, str, str], ...] = (
+    (re.compile(r"^day close price"), "market_data", "close", "latest"),
+    (re.compile(r"^daily volume"), "market_data", "volume", "latest"),
+    (re.compile(r"^total enterprise value"), "market_data", "enterprise_value", "latest"),
+    (re.compile(r"^market capitalization"), "market_data", "market_cap", "latest"),
+    (re.compile(r"^ebitda\b"), "financial_statements", "ebitda", "LTM"),
+    (re.compile(r"^total revenue\b"), "financial_statements", "revenue", "LTM"),
+)
 
 _TICKER_HEADERS = {"ticker", "symbol", "nse symbol", "nse code", "stock symbol"}
 _NAME_HEADERS = {"company name", "company", "name"}
@@ -130,31 +154,83 @@ def read_sheet_rows(content_bytes: bytes, filename: str, *, sheet_name: Any = 0)
     return df.where(df.notnull(), None)
 
 
+_LEGAL_SUFFIXES = re.compile(
+    r"\b(limited|ltd|pvt|private|company|co|corporation|corp|inc|plc|llp)\b",
+    re.I,
+)
+_LEADING_ARTICLE = re.compile(r"^the\s+", re.I)
+_EXCHANGE_PREFIX = re.compile(r"^(nse|bse)\s*:\s*", re.I)
+
+
+_JOINER_WORD = re.compile(r"\band\b", re.I)
+
+
+def normalize_company_name(name: Any) -> str:
+    """Strip legal suffixes, articles, initials-punctuation, and '&'/'and'
+    so 'L.G. Balakrishnan & Bros Ltd' and 'Oil and Natural Gas Corporation
+    Limited' compare equal to their catalog forms. Matching-only, never stored.
+    """
+    n = str(name or "").strip().lower()
+    n = unicodedata.normalize("NFKD", n).encode("ascii", "ignore").decode("ascii")  # Nestlé -> Nestle
+    n = n.replace(".", "")  # "L.G." -> "lg" (no inserted space, unlike other punctuation)
+    n = _LEGAL_SUFFIXES.sub(" ", n)
+    n = n.replace("&", " ")
+    n = _JOINER_WORD.sub(" ", n)
+    n = re.sub(r"[^a-z0-9 ]", " ", n)
+    n = _LEADING_ARTICLE.sub("", n)
+    return re.sub(r"\s+", " ", n).strip()
+
+
+def _normalized_universe_index() -> list[tuple[str, str, str]]:
+    """(normalized_name, symbol, raw_name) for every row in the uploaded
+    trading universe — comparison is normalized on both sides so legal
+    suffixes/punctuation differences ('Dr. Reddy's' vs 'Dr Reddys') don't
+    block a real match.
+    """
+    from trading_universe.loader import load_rows
+
+    return [(normalize_company_name(r["name"]), r["symbol"], r["name"]) for r in load_rows()]
+
+
 def resolve_ticker(ticker_raw: Any, name_raw: Any) -> tuple[str | None, str]:
     """Resolve a row to a real, uploaded-universe ticker. Never invents one."""
-    from trading_universe.loader import get_symbol, search
+    from trading_universe.loader import get_symbol
 
     if not _is_blank(ticker_raw):
-        t = str(ticker_raw).strip().upper().replace(".NS", "").replace(".BO", "")
+        t = _EXCHANGE_PREFIX.sub("", str(ticker_raw).strip()).upper()
+        t = t.replace(".NS", "").replace(".BO", "")
         if get_symbol(t):
             return t, "exact_ticker"
     if not _is_blank(name_raw):
-        name = str(name_raw).strip()
-        hits = search(name, limit=5)
-        if hits:
-            nlow = name.lower()
-            exact = [h for h in hits if str(h.get("name") or "").strip().lower() == nlow]
-            if exact:
-                return exact[0]["symbol"], "exact_name_match"
-            return hits[0]["symbol"], (
-                "fuzzy_name_match_top1" if len(hits) == 1 else "ambiguous_name_match_top1"
-            )
+        norm_query = normalize_company_name(name_raw)
+        if not norm_query:
+            return None, "unresolved"
+        index = _normalized_universe_index()
+        exact = [(sym, raw) for norm, sym, raw in index if norm == norm_query]
+        if exact:
+            if len(exact) == 1:
+                return exact[0][0], "exact_name_match"
+            return exact[0][0], "ambiguous_name_match_top1"
+        # Substring both directions on normalized names (short-code queries
+        # like "hmt" only match if the stored name is short too — avoids a
+        # 3-letter fragment matching an unrelated long company name).
+        contains = [
+            (sym, raw)
+            for norm, sym, raw in index
+            if len(norm_query) >= 4
+            and (norm_query in norm or norm in norm_query)
+        ]
+        if contains:
+            if len(contains) == 1:
+                return contains[0][0], "fuzzy_name_match_top1"
+            return contains[0][0], "ambiguous_name_match_top1"
     return None, "unresolved"
 
 
 def _detect_columns(columns: list[Any]) -> dict[str, Any]:
     header_by_norm: dict[str, Any] = {}
     mapped: dict[str, tuple[str, str]] = {}
+    period_override: dict[str, str] = {}
     unmapped: list[str] = []
     ticker_col = None
     name_col = None
@@ -172,11 +248,18 @@ def _detect_columns(columns: list[Any]) -> dict[str, Any]:
             period_col = col
         if norm in _COLUMN_MAP:
             mapped[norm] = _COLUMN_MAP[norm]
+            continue
+        prefix_hit = next((p for p in _PREFIX_PATTERNS if p[0].search(norm)), None)
+        if prefix_hit:
+            _, table, field, period_label = prefix_hit
+            mapped[norm] = (table, field)
+            period_override[norm] = period_label
         else:
             unmapped.append(str(col))
     return {
         "header_by_norm": header_by_norm,
         "mapped": mapped,
+        "period_override": period_override,
         "unmapped": unmapped,
         "ticker_col": ticker_col,
         "name_col": name_col,
@@ -199,6 +282,7 @@ def ingest_company_sheet(
     df = read_sheet_rows(content_bytes, filename, sheet_name=sheet_name)
     detected = _detect_columns(list(df.columns))
     mapped, unmapped = detected["mapped"], detected["unmapped"]
+    period_override = detected["period_override"]
     ticker_col, name_col, period_col = (
         detected["ticker_col"],
         detected["name_col"],
@@ -236,17 +320,26 @@ def ingest_company_sheet(
             continue
 
         period_val = row.get(period_col) if period_col is not None else None
-        period = str(period_val) if not _is_blank(period_val) else _today()
+        row_period = str(period_val) if not _is_blank(period_val) else None
         written_fields: list[str] = []
         for norm, (table, field) in mapped.items():
-            raw_val = row.get(header_by_norm[norm])
-            if _is_blank(raw_val):
-                continue
-            value = _to_python(raw_val)
+            if table == "company_master" and field == "ticker":
+                # Always the resolved, canonical ticker — never the raw sheet
+                # cell (which may be an exchange-prefixed code like
+                # "BSE:500002" that would contradict the entity key itself).
+                value = ticker
+            else:
+                raw_val = row.get(header_by_norm[norm])
+                if _is_blank(raw_val):
+                    continue
+                value = _to_python(raw_val)
             if not dry_run:
                 kwargs: dict[str, Any] = {"source": source, "trigger": "bulk_sheet_upload"}
                 if TABLE_DEFS[table]["keyed_by_period"]:
-                    kwargs["period"] = period
+                    # Priority: an explicit per-row period column > a
+                    # column-specific label (e.g. "LTM", "latest" inferred
+                    # from the header itself) > today's upload date.
+                    kwargs["period"] = row_period or period_override.get(norm) or _today()
                 upsert_fact(ticker, table, field, value, **kwargs)
             written_fields.append(f"{table}.{field}")
             tables_touched.add(table)

@@ -108,3 +108,40 @@ def test_csv_input_also_supported():
     out = ingest_company_sheet(csv_bytes, "companies.csv")
     assert out["ok"] is True
     assert out["resolved_count"] == 1
+
+
+def test_exchange_prefixed_ticker_resolves_and_writes_canonical_value():
+    """A raw sheet code like 'BSE:500180' must resolve via company name and
+    the written company_master.ticker fact must be the canonical ticker,
+    never the raw exchange-prefixed source code."""
+    df = pd.DataFrame(
+        [{"Ticker": "BSE:500180", "Company Name": "HDFC Bank Limited", "Primary Sector": "Financials"}]
+    )
+    out = ingest_company_sheet(_xlsx_bytes(df), "capiq_style.xlsx")
+    assert out["ok"] is True
+    assert out["resolved_count"] == 1
+    assert out["resolved_sample"][0]["ticker"] == "HDFCBANK"
+
+    table = get_table("HDFCBANK", "company_master")
+    assert table["row"]["ticker"]["value"] == "HDFCBANK"
+    assert table["row"]["sector"]["value"] == "Financials"
+
+
+def test_ltm_and_latest_period_labels_inferred_from_header():
+    df = pd.DataFrame(
+        [
+            {
+                "Ticker": "RELIANCE",
+                "EBITDA [LTM] ($USDmm, Historical rate)": 12000,
+                "Market Capitalization [My Setting] [Latest] ($USDmm, Historical rate)": 250000,
+            }
+        ]
+    )
+    out = ingest_company_sheet(_xlsx_bytes(df), "capiq2.xlsx")
+    assert out["ok"] is True
+    fin = get_table("RELIANCE", "financial_statements", period="LTM")
+    assert fin["found"] is True
+    assert fin["row"]["ebitda"]["value"] == 12000
+    market = get_table("RELIANCE", "market_data", period="latest")
+    assert market["found"] is True
+    assert market["row"]["market_cap"]["value"] == 250000
