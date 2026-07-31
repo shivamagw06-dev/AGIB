@@ -49,3 +49,7 @@ curl -sS https://agib-intelligence-engine.onrender.com/v1/health
 ```
 
 Both should return `200` with JSON in well under a second once the plan change is applied and the keep-warm workflow has run at least once.
+
+## Gather vs Mission Control
+
+If `/v1/health` is fine but Mission Control times out while FSE/CGL logs flood, gather is starving the HTTP process. Use the **gather sidecar** (default) or optional dedicated worker — see [`AGI_GATHER_WORKER.md`](./AGI_GATHER_WORKER.md). Do **not** solve this by only upgrading the web plan.
