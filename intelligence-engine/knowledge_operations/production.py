@@ -41,16 +41,36 @@ def get_status() -> Dict[str, Any]:
     }
 
 
-def get_overview(*, scope: str = "TOP20") -> Dict[str, Any]:
-    """V1.2 primary payload (alias of desk with explicit name)."""
+_OVERVIEW_CACHE: Dict[str, Any] = {}
+_OVERVIEW_CACHE_TTL_SEC = 45.0
+
+
+def get_overview(*, scope: str = "TOP20", deep: bool = False) -> Dict[str, Any]:
+    """V1.2 primary payload (alias of desk with explicit name).
+
+    Cached briefly so the admin page can refresh without rebuilding TOP20 rows
+    on every click. Pass deep=True for KIL/research-pack enrichment (slow).
+    """
+    import time
+
     from knowledge_operations.desk import build_desk
 
-    desk = build_desk(scope=scope)
-    return {**desk, "endpoint": "overview"}
+    scope_u = str(scope or "TOP20").upper()
+    key = f"{scope_u}:{'deep' if deep else 'light'}"
+    hit = _OVERVIEW_CACHE.get(key)
+    if isinstance(hit, dict) and (time.time() - float(hit.get("_ts") or 0)) < _OVERVIEW_CACHE_TTL_SEC:
+        payload = dict(hit.get("payload") or {})
+        payload["cache"] = "hit"
+        return payload
+
+    desk = build_desk(scope=scope_u, deep=bool(deep))
+    payload = {**desk, "endpoint": "overview", "cache": "miss"}
+    _OVERVIEW_CACHE[key] = {"_ts": time.time(), "payload": payload}
+    return payload
 
 
-def get_desk(*, scope: str = "TOP20") -> Dict[str, Any]:
-    return get_overview(scope=scope)
+def get_desk(*, scope: str = "TOP20", deep: bool = False) -> Dict[str, Any]:
+    return get_overview(scope=scope, deep=deep)
 
 
 def get_system_health() -> Dict[str, Any]:

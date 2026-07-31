@@ -355,8 +355,32 @@ export default function KnowledgeOperations() {
       ]);
       setDesk(d);
       setAudit(a);
+      if (d?.degraded || d?.engine_error) {
+        setError(
+          d.engine_error ||
+            d.error ||
+            'Intelligence engine is offline. Knowledge Operations Center opened in degraded mode — Retry after Render restarts agib-intelligence-engine.'
+        );
+      }
     } catch (err) {
       setError(err?.message || 'Failed to load Knowledge Operations Center');
+      // Keep a minimal desk so the page shell stays usable (upload / retry).
+      setDesk((prev) =>
+        prev || {
+          ok: true,
+          degraded: true,
+          kpis: {},
+          system_health: { bar: { koc: { status: 'Degraded' } } },
+          missing_inbox: { title: 'Missing Knowledge Inbox', count: 0, items: [], by_priority: {} },
+          coverage_table: [],
+          gap_ai: { items: [] },
+          ingestion_timeline: [],
+          knowledge_queue: { boards: [] },
+          collector_health: [],
+          coverage_heatmap: {},
+          knowledge_versions: [],
+        }
+      );
     } finally {
       setLoading(false);
     }
@@ -549,10 +573,24 @@ export default function KnowledgeOperations() {
           </div>
         </header>
 
-        {error ? (
-          <div className="koc-panel flex items-start gap-2 border-[var(--koc-red)] bg-[var(--koc-red-bg)] p-3 text-sm text-[var(--koc-red)]">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-            <span>{error}</span>
+        {error || desk?.degraded ? (
+          <div className="koc-panel flex flex-wrap items-start justify-between gap-3 border-[var(--koc-orange)] bg-[var(--koc-orange-bg)] p-3 text-sm text-[var(--koc-orange)]">
+            <div className="flex min-w-0 items-start gap-2">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <div>
+                <div className="font-semibold">
+                  {desk?.degraded ? 'Engine offline — degraded mode' : 'Load issue'}
+                </div>
+                <p className="mt-1 text-[var(--koc-muted)]">
+                  {error ||
+                    'agib-intelligence-engine is not responding. The page is open; coverage data will fill when the engine recovers.'}
+                </p>
+              </div>
+            </div>
+            <button type="button" className="koc-btn primary shrink-0" onClick={load} disabled={loading}>
+              <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+              Retry
+            </button>
           </div>
         ) : null}
 

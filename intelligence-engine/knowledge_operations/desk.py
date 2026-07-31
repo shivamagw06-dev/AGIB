@@ -35,7 +35,12 @@ def _soft(fn, default=None):
         return {"error": str(exc)[:160]}
 
 
-def _company_rows(*, scope: str = "TOP20") -> List[Dict[str, Any]]:
+def _company_rows(*, scope: str = "TOP20", deep: bool = False) -> List[Dict[str, Any]]:
+    """Build coverage rows.
+
+    Default (deep=False) uses ICF scores only — fast enough for the admin desk.
+    deep=True also runs KIL integrate + research packs (slow; company detail path).
+    """
     from institutional_coverage_factory.universe import top20_tickers, tier_for_ticker
     from institutional_coverage_factory.scorer.score import score_evidence_classes
     from institutional_coverage_factory.validator.icc import evaluate_icc
@@ -52,35 +57,39 @@ def _company_rows(*, scope: str = "TOP20") -> List[Dict[str, Any]]:
             readiness = None
             claim_safe = None
             coverage_state = None
-            evidence_count = 0
+            classes_meta = score.get("classes") or {}
+            evidence_count = sum(
+                1 for meta in classes_meta.values() if (meta or {}).get("present")
+            )
             last_updated = None
-            try:
-                from institutional_evidence.integration.layer import integrate_company
+            if deep:
+                try:
+                    from institutional_evidence.integration.layer import integrate_company
 
-                kil = integrate_company(t, trigger_repair=False)
-                kc = (kil.get("knowledge_confidence") or {}).get("knowledge_confidence")
-                claim_safe = kil.get("claim_safe")
-                coverage_state = (kil.get("coverage_state") or {}).get("coverage_state")
-                readiness = 100.0 if kil.get("research_ready") else (
-                    (kil.get("research_readiness") or {}).get("score")
-                )
-            except Exception:
-                pass
-            try:
-                from institutional_evidence.research_pack.builder import (
-                    build_institutional_research_pack,
-                )
+                    kil = integrate_company(t, trigger_repair=False)
+                    kc = (kil.get("knowledge_confidence") or {}).get("knowledge_confidence")
+                    claim_safe = kil.get("claim_safe")
+                    coverage_state = (kil.get("coverage_state") or {}).get("coverage_state")
+                    readiness = 100.0 if kil.get("research_ready") else (
+                        (kil.get("research_readiness") or {}).get("score")
+                    )
+                except Exception:
+                    pass
+                try:
+                    from institutional_evidence.research_pack.builder import (
+                        build_institutional_research_pack,
+                    )
 
-                pack = build_institutional_research_pack(t)
-                reg = ((pack.get("evidence") or {}).get("registry") or {}).get("items") or []
-                evidence_count = len(reg)
-                claim_safe = pack.get("claim_safe") if claim_safe is None else claim_safe
-                rr = pack.get("research_readiness") or {}
-                if readiness is None:
-                    readiness = rr.get("score") or (100.0 if pack.get("research_ready") else 0)
-                last_updated = pack.get("generated_at") or pack.get("as_of")
-            except Exception:
-                pass
+                    pack = build_institutional_research_pack(t)
+                    reg = ((pack.get("evidence") or {}).get("registry") or {}).get("items") or []
+                    evidence_count = len(reg)
+                    claim_safe = pack.get("claim_safe") if claim_safe is None else claim_safe
+                    rr = pack.get("research_readiness") or {}
+                    if readiness is None:
+                        readiness = rr.get("score") or (100.0 if pack.get("research_ready") else 0)
+                    last_updated = pack.get("generated_at") or pack.get("as_of")
+                except Exception:
+                    pass
 
             classes = score.get("classes") or {}
             progress = {
@@ -94,6 +103,12 @@ def _company_rows(*, scope: str = "TOP20") -> List[Dict[str, Any]]:
             missing_labels = [
                 CLASS_LABELS.get(c, c) for c in (score.get("missing_classes") or [])
             ]
+            # Light mode: derive readiness proxies from coverage so KPIs are not empty.
+            if not deep:
+                cov = float(score.get("coverage_pct") or 0)
+                readiness = cov if readiness is None else readiness
+                claim_safe = bool(icc.get("institutional_coverage_complete")) if claim_safe is None else claim_safe
+                kc = cov if kc is None else kc
             rows.append(
                 {
                     "ticker": t,
@@ -111,6 +126,7 @@ def _company_rows(*, scope: str = "TOP20") -> List[Dict[str, Any]]:
                     "missing_classes": score.get("missing_classes"),
                     "progress": progress,
                     "status": icc.get("status"),
+                    "deep": bool(deep),
                 }
             )
         except Exception as exc:
@@ -284,8 +300,8 @@ def _heatmap(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
     }
 
 
-def build_desk(*, scope: str = "TOP20") -> Dict[str, Any]:
-    rows = _company_rows(scope=scope)
+def build_desk(*, scope: str = "TOP20", deep: bool = False) -> Dict[str, Any]:
+    rows = _company_rows(scope=scope, deep=deep)
     timeline = _ingestion_timeline(24)
     inbox = build_missing_inbox(scope=scope, limit=40)
     summary = _daily_summary(rows, timeline)
@@ -379,6 +395,7 @@ def build_desk(*, scope: str = "TOP20") -> Dict[str, Any]:
         "mission": MISSION,
         "generated_at": _now(),
         "scope": scope,
+        "deep": bool(deep),
         "system_health": system_health,
         "kpis": {
             "companies_covered": len([r for r in rows if (r.get("evidence_count") or 0) > 0]),
