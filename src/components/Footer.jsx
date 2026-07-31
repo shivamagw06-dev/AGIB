@@ -1,68 +1,59 @@
 import { Link } from 'react-router-dom';
 import Logo from '@/components/Layout/Logo';
 
-const COLUMNS = [
+const LINKS = [
+  { label: 'Research', to: '/research' },
+  { label: 'Markets', to: '/market-intelligence' },
+  { label: 'About', to: '/about' },
+  { label: 'Newsletter', to: '/#newsletter' },
+  { label: 'Privacy', to: '/privacy' },
+  { label: 'Terms', to: '/terms' },
+  { label: 'Contact', to: '/contact' },
   {
-    title: 'Research',
-    links: [
-      { label: 'Research', to: '/sections/research-notes' },
-      { label: 'Companies', to: '/company-updates' },
-      { label: 'Markets', to: '/markets' },
-      { label: 'Macro', to: '/macro-intelligence' },
-      { label: 'IPO', to: '/ipo-intelligence' },
-    ],
-  },
-  {
-    title: 'Platform',
-    links: [
-      { label: 'Ask AGI', to: '/ask' },
-      { label: 'Portfolio', to: '/portfolio' },
-      { label: 'Academy', to: '/admin/academy' },
-      { label: 'About AGI', to: '/about' },
-      { label: 'Contact', to: '/contact' },
-    ],
-  },
-  {
-    title: 'Legal',
-    links: [
-      { label: 'Privacy', to: '/privacy' },
-      { label: 'Terms', to: '/terms' },
-      { label: 'Disclaimer', to: '/disclaimer' },
-      { label: 'SEBI Disclosure', to: '/sebi-disclosure' },
-    ],
+    label: 'LinkedIn',
+    to: 'https://www.linkedin.com/company/agarwal-global-investments',
+    external: true,
   },
 ];
 
 export default function Footer() {
   return (
-    <footer className="bg-[#0b1f33] text-white">
-      <div className="max-w-[1800px] mx-auto px-4 sm:px-6 py-12">
-        <div className="grid grid-cols-1 gap-10 md:grid-cols-[1.2fr_repeat(3,1fr)]">
+    <footer className="border-t border-[#e6e8ec] bg-white text-[#111111]">
+      <div className="mx-auto max-w-[1200px] px-4 sm:px-6 py-12">
+        <div className="flex flex-col gap-8 md:flex-row md:items-start md:justify-between">
           <div>
-            <Logo compact className="mb-3 brightness-0 invert" />
-            <p className="mt-3 max-w-sm text-xs leading-relaxed text-white/65">
-              AGI combines AI-powered investment intelligence, original institutional research and deep company
-              intelligence into one professional research platform. Informational only — not investment advice.
+            <Logo compact className="mb-3" />
+            <p className="mt-3 max-w-sm text-xs leading-relaxed text-[#555555]">
+              AGI is an AI-powered institutional research platform. Informational only — not investment advice.
             </p>
           </div>
 
-          {COLUMNS.map((col) => (
-            <nav key={col.title} aria-label={col.title}>
-              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/45">{col.title}</p>
-              <ul className="mt-3 space-y-2">
-                {col.links.map((link) => (
-                  <li key={link.label}>
-                    <Link to={link.to} className="text-sm text-white/80 hover:text-[#ffb366]">
-                      {link.label}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </nav>
-          ))}
+          <nav aria-label="Footer" className="flex flex-wrap gap-x-5 gap-y-3">
+            {LINKS.map((link) =>
+              link.external ? (
+                <a
+                  key={link.label}
+                  href={link.to}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-[#333333] hover:text-[#111111] hover:underline underline-offset-4"
+                >
+                  {link.label}
+                </a>
+              ) : (
+                <Link
+                  key={link.label}
+                  to={link.to}
+                  className="text-sm text-[#333333] hover:text-[#111111] hover:underline underline-offset-4"
+                >
+                  {link.label}
+                </Link>
+              )
+            )}
+          </nav>
         </div>
 
-        <p className="mt-10 border-t border-white/10 pt-5 text-[11px] text-white/45">
+        <p className="mt-10 border-t border-[#eef0f3] pt-5 text-[11px] text-[#767676]">
           © {new Date().getFullYear()} Agarwal Global Investments. All rights reserved.
         </p>
       </div>

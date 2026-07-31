@@ -4,10 +4,11 @@ import { useToast } from '@/components/ui/use-toast';
 import { subscribeNewsletter } from '@/lib/subscribeNewsletter';
 import { AGI_LETTERS, defaultLetterPreferences } from '@/config/agiLetters';
 
-export default function NewsletterSection({ initialSelected = null }) {
+export default function NewsletterSection({ initialSelected = null, variant = 'full' }) {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const minimal = variant === 'minimal';
 
   const initialPrefs = useMemo(
     () => defaultLetterPreferences(initialSelected),
@@ -40,12 +41,54 @@ export default function NewsletterSection({ initialSelected = null }) {
     }
   };
 
+  if (minimal) {
+    return (
+      <section id="newsletter" className="border-t border-[#e8eaee] bg-white py-16 md:py-20" aria-labelledby="agi-letters-heading">
+        <div className="mx-auto max-w-[720px] px-4 sm:px-6 text-center">
+          <h2 id="agi-letters-heading" className="font-serif text-3xl md:text-4xl font-bold text-[#111111]">
+            Stay Ahead of the Market.
+          </h2>
+          <p className="mx-auto mt-4 max-w-xl text-base leading-relaxed text-[#555555]">
+            Receive institutional-quality research and market intelligence directly in your inbox.
+          </p>
+          <form onSubmit={handleSubmit} className="mx-auto mt-8 flex max-w-lg flex-col gap-3 sm:flex-row">
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Email address"
+              disabled={loading}
+              className="min-h-[48px] flex-1 rounded-md border border-[#d5d8de] px-4 text-sm focus:border-[#111111] focus:outline-none"
+            />
+            <button
+              type="submit"
+              disabled={loading}
+              className="inline-flex min-h-[48px] items-center justify-center rounded-md bg-[#0b1f33] px-6 text-sm font-bold text-white hover:bg-[#163353] disabled:opacity-60"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Subscribing…
+                </>
+              ) : (
+                'Subscribe'
+              )}
+            </button>
+          </form>
+          <p className="mt-4 text-[11px] text-[#767676]">
+            Free · Unsubscribe anytime · updates@agarwalglobalinvestments.com
+          </p>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section id="newsletter" className="py-12 border-t border-[#dddddd] bg-[#fafafa]" aria-labelledby="agi-letters-heading">
       <div className="max-w-[1600px] mx-auto px-4 sm:px-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start border border-[#dddddd] bg-white p-6 md:p-10">
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-wider text-[#ff6600]">Institutional Morning Brief</p>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-[#5d6470]">Institutional Morning Brief</p>
             <h2 id="agi-letters-heading" className="mt-2 text-2xl font-bold text-[#111111]">
               Subscribe to AGI research
             </h2>
