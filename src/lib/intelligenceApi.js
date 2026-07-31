@@ -1783,6 +1783,13 @@ export const uploadKocKnowledge = (body = {}) =>
     body: body || {},
     timeoutMs: 180_000,
   });
+/** V1.5 IUDF — bulk company-info sheet (Excel/CSV, one row per company) → IKT facts. */
+export const uploadCompanySheet = (body = {}) =>
+  intelligenceFetch('/institutional-knowledge-tables/upload-sheet', {
+    method: 'POST',
+    body: body || {},
+    timeoutMs: 180_000,
+  });
 export const getKocQueue = (params = {}) =>
   intelligenceFetch(`/koc/queue${kocQs(params)}`, { timeoutMs: 30_000 });
 export const getKocAudit = (params = {}) =>

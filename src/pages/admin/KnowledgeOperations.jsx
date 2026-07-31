@@ -19,6 +19,7 @@ import {
   getKocOverview,
   getKocCompany,
   uploadKocKnowledge,
+  uploadCompanySheet,
   runKocAction,
   getKocAudit,
   searchKoc,
@@ -196,6 +197,133 @@ function UploadModal({ open, ticker, documentType, company, actor, onClose, onDo
   );
 }
 
+function SheetUploadModal({ open, actor, onClose, onDone }) {
+  const [file, setFile] = useState(null);
+  const [dryRun, setDryRun] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [result, setResult] = useState(null);
+
+  useEffect(() => {
+    if (open) {
+      setFile(null);
+      setDryRun(true);
+      setError('');
+      setResult(null);
+    }
+  }, [open]);
+
+  if (!open) return null;
+
+  const submit = async () => {
+    if (!file) {
+      setError('Choose an Excel (.xlsx) or CSV file.');
+      return;
+    }
+    setBusy(true);
+    setError('');
+    try {
+      const buf = await file.arrayBuffer();
+      const bytes = new Uint8Array(buf);
+      let binary = '';
+      bytes.forEach((b) => {
+        binary += String.fromCharCode(b);
+      });
+      const res = await uploadCompanySheet({
+        filename: file.name,
+        content_base64: btoa(binary),
+        dry_run: dryRun,
+        actor: actor || 'admin',
+      });
+      setResult(res);
+      if (!dryRun) onDone?.(res);
+    } catch (err) {
+      setError(err?.message || 'Upload failed');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="koc-modal-backdrop" role="dialog" aria-modal="true">
+      <div className="koc-modal">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="koc-kicker">Bulk Company Info Sheet</p>
+            <h2 className="mt-1 text-lg font-semibold">Upload Excel / CSV</h2>
+            <p className="mt-1 text-xs text-[var(--koc-muted)]">
+              One row per company. Recognized columns (Ticker/Company Name, Sector, Industry, CEO,
+              CFO, PE, PB, Market Cap, ISIN, Website, …) are written as versioned facts. Rows that
+              can&apos;t be matched to a real ticker are reported, never guessed.
+            </p>
+          </div>
+          <button type="button" className="koc-btn" onClick={onClose} aria-label="Close">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="mt-4 space-y-3">
+          <label className="block text-xs font-semibold uppercase tracking-wide text-[var(--koc-caption)]">
+            File (.xlsx / .xls / .csv)
+            <input
+              type="file"
+              className="mt-1 block w-full text-sm"
+              accept=".xlsx,.xls,.csv"
+              onChange={(e) => {
+                setFile(e.target.files?.[0] || null);
+                setResult(null);
+              }}
+            />
+          </label>
+          <label className="flex items-center gap-2 text-xs text-[var(--koc-muted)]">
+            <input type="checkbox" checked={dryRun} onChange={(e) => setDryRun(e.target.checked)} />
+            Preview only (dry run) — don&apos;t write facts yet
+          </label>
+          {error ? (
+            <p className="flex items-center gap-2 text-sm text-[var(--koc-red)]">
+              <AlertTriangle className="h-4 w-4" /> {error}
+            </p>
+          ) : null}
+          {result ? (
+            result.ok ? (
+              <div className="border border-[var(--koc-line)] bg-[var(--koc-green-bg)] p-3 text-xs space-y-1">
+                <div>
+                  {result.dry_run ? 'Preview: ' : 'Written: '}
+                  {result.resolved_count}/{result.total_rows} rows resolved ·{' '}
+                  {result.fields_written_total} field values → tables{' '}
+                  {(result.tables_touched || []).join(', ') || '—'}
+                </div>
+                {result.unresolved_count > 0 ? (
+                  <div className="text-[var(--koc-orange)]">
+                    {result.unresolved_count} row(s) unresolved (no matching ticker/company name) —
+                    not written.
+                  </div>
+                ) : null}
+                {(result.unmapped_columns || []).length > 0 ? (
+                  <div className="text-[var(--koc-muted)]">
+                    Ignored columns: {result.unmapped_columns.join(', ')}
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              <p className="flex items-center gap-2 text-sm text-[var(--koc-red)]">
+                <AlertTriangle className="h-4 w-4" /> {result.error || 'Upload failed'}
+                {result.hint ? ` — ${result.hint}` : ''}
+              </p>
+            )
+          ) : null}
+          <div className="flex justify-end gap-2 pt-2">
+            <button type="button" className="koc-btn" onClick={onClose}>Cancel</button>
+            <button type="button" className="koc-btn primary" disabled={busy} onClick={submit}>
+              <Upload className="h-3.5 w-3.5" />
+              {busy ? 'Processing…' : dryRun ? 'Preview' : 'Upload & write facts'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function KnowledgeOperations() {
   const { user } = useAuth();
   const [desk, setDesk] = useState(null);
@@ -215,6 +343,7 @@ export default function KnowledgeOperations() {
     company: '',
     documentType: 'investor_presentation',
   });
+  const [sheetUploadOpen, setSheetUploadOpen] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -407,6 +536,9 @@ export default function KnowledgeOperations() {
           </div>
           <div className="flex flex-wrap gap-2">
             <Link to="/" className="koc-btn"><ArrowLeft className="h-3.5 w-3.5" /> Home</Link>
+            <button type="button" className="koc-btn" onClick={() => setSheetUploadOpen(true)}>
+              <Upload className="h-3.5 w-3.5" /> Upload Company Sheet
+            </button>
             <button type="button" className="koc-btn" onClick={exportCsv}>
               <Download className="h-3.5 w-3.5" /> Export
             </button>
@@ -995,6 +1127,12 @@ export default function KnowledgeOperations() {
         documentType={uploadState.documentType}
         actor={user?.email}
         onClose={() => setUploadState((s) => ({ ...s, open: false }))}
+        onDone={() => load()}
+      />
+      <SheetUploadModal
+        open={sheetUploadOpen}
+        actor={user?.email}
+        onClose={() => setSheetUploadOpen(false)}
         onDone={() => load()}
       />
     </div>

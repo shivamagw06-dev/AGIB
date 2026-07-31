@@ -106,6 +106,27 @@ Node BFF mirrors under `/api/intelligence/{universe-master-registry,coverage-mat
 
 This is the deliberate design from the spec: *"Missing fields remain explicitly NULL rather than inferred."* The next phase is wiring existing collectors (FSE financial warehouse, ownership_intelligence shareholding, BSE corporate actions, IDI documents) to call `upsert_fact` so their output lands in these tables instead of only their own stores.
 
+## Bulk company-info sheet upload (Excel/CSV)
+
+Drop a spreadsheet with **one row per company** and columns like `Ticker`, `Company Name`, `Sector`, `Industry`, `CEO`, `CFO`, `PE`, `PB`, `Market Cap`, `ISIN`, `Website`, `Credit Rating`… Each recognized column becomes a versioned IKT fact.
+
+**Where:** Admin → Knowledge Operations → **Upload Company Sheet** button (top toolbar). Or directly:
+
+```bash
+curl -X POST "$ENGINE/v1/institutional-knowledge-tables/upload-sheet" \
+  -H 'content-type: application/json' \
+  -d '{"filename":"companies.xlsx","content_base64":"<base64>","dry_run":true}'
+```
+
+**How it knows what to learn:**
+
+1. Row resolution — a `Ticker`/`Symbol` column is matched against the uploaded universe registry (`trading_universe`); if absent, `Company Name` is matched by exact/substring search. **Rows that don't resolve are reported, never guessed.**
+2. Column mapping — headers are normalized and matched against a known map (`institutional_knowledge_tables/bulk_sheet.py:_COLUMN_MAP`) to `(table, field)`. Unrecognized columns are listed as `unmapped_columns`, not silently dropped or guessed.
+3. Every non-blank cell is written via `upsert_fact(ticker, table, field, value, source="bulk_upload:<filename>", ...)` — versioned, never overwritten.
+4. `dry_run: true` previews the resolution + mapping without writing anything — use this first.
+
+Response includes `resolved_count`, `unresolved_rows` (with reasons), `mapped_columns`, `unmapped_columns`, and `fields_written_total` so you can see exactly what happened before trusting the data.
+
 ## Success criteria
 
 - [x] Universe Master Registry sourced from the uploaded file, not a hardcoded list

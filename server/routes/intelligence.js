@@ -2059,6 +2059,18 @@ export default function createIntelligenceRouter() {
       res.status(502).json({ error: err.message || 'ikt rebuild company failed' });
     }
   });
+  router.post('/institutional-knowledge-tables/upload-sheet', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/institutional-knowledge-tables/upload-sheet', {
+        method: 'POST',
+        body: req.body || {},
+        timeoutMs: 120_000,
+      });
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'ikt upload-sheet failed' });
+    }
+  });
 
   // Mission Control V1 — administrator operations centre (read-only)
   router.get('/mission-control/health', kfGet('/v1/mission-control/health'));

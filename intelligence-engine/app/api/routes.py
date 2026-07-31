@@ -9510,6 +9510,29 @@ async def ikt_rebuild_company(ticker: str):
     return rebuild_company_tables(ticker)
 
 
+@router.post("/institutional-knowledge-tables/upload-sheet")
+async def ikt_upload_sheet(payload: dict[str, Any] = Body(default={})):
+    """Drop an Excel/CSV of companies + info. Each recognized column becomes a
+    versioned fact per resolved ticker. Rows that can't be matched to the
+    uploaded universe registry are reported, never guessed.
+
+    Body: { filename, content_base64, sheet_name?, dry_run?, actor? }
+    """
+    from institutional_knowledge_tables.production import upload_company_sheet
+
+    body = payload or {}
+    try:
+        return upload_company_sheet(
+            filename=str(body.get("filename") or "upload.xlsx"),
+            content_base64=body.get("content_base64"),
+            sheet_name=body.get("sheet_name", 0),
+            dry_run=bool(body.get("dry_run", False)),
+            actor=body.get("actor"),
+        )
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)[:300]}
+
+
 @router.get("/system/intelligence-stack")
 async def system_intelligence_stack():
     """Inventory of integrated Macro / Sector / Market / Research programmes."""
