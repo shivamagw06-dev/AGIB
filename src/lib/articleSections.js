@@ -1,6 +1,9 @@
+import { RESEARCH_DESK_SECTIONS } from '@/lib/deskSections';
+
 /** Canonical article.section values accepted by DB constraint articles_section_allowed. */
 
 export const ALLOWED_ARTICLE_SECTIONS = [
+  ...RESEARCH_DESK_SECTIONS,
   'Pre-Market Update',
   'Morning Market Update',
   "Today's Market Brief",
@@ -44,6 +47,12 @@ const SECTION_ALIASES = {
   research: 'Research Reports',
   'research report': 'Research Reports',
   'stock research': 'Stock Analysis',
+  'indian market': 'Indian Market',
+  'private markets': 'Private Markets',
+  'hedge funds': 'Hedge Funds',
+  'hedge fund': 'Hedge Funds',
+  economics: 'Economics',
+  'private equity': 'Private Markets',
 };
 
 export function normalizeArticleSection(section, { forIntelligence = false } = {}) {
@@ -53,7 +62,7 @@ export function normalizeArticleSection(section, { forIntelligence = false } = {
     if (!raw || !ALLOWED_ARTICLE_SECTIONS.includes(raw)) return 'Intelligence';
     return raw;
   }
-  if (!raw) return 'Research Reports';
+  if (!raw) return 'Indian Market';
   if (ALLOWED_ARTICLE_SECTIONS.includes(raw)) return raw;
 
   const alias = SECTION_ALIASES[raw.toLowerCase()];
@@ -62,5 +71,5 @@ export function normalizeArticleSection(section, { forIntelligence = false } = {
   // Fuzzy contains match against allowed list.
   const lower = raw.toLowerCase();
   const fuzzy = ALLOWED_ARTICLE_SECTIONS.find((name) => lower.includes(name.toLowerCase()));
-  return fuzzy || 'Research Reports';
+  return fuzzy || 'Indian Market';
 }

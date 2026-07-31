@@ -16,7 +16,6 @@ import TableHeader from '@tiptap/extension-table-header';
 import { Eye, Save, Send, ImageIcon, Loader2, Brain } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/contexts/AuthContext';
-import useCategories from '@/hooks/useCategories';
 import EditorToolbar from '@/components/editor/EditorToolbar';
 import ArticlePreview from '@/components/editor/ArticlePreview';
 import { CustomImage } from '@/extensions/CustomImage';
@@ -31,6 +30,7 @@ import {
 import { ingestArticleToIntelligence } from '@/lib/cmsIntelligence';
 import { notifySubscribers } from '@/lib/newsletterClient';
 import { normalizeArticleSection } from '@/lib/articleSections';
+import { RESEARCH_DESK_SECTIONS } from '@/lib/deskSections';
 import { canEditArticle, isAdmin } from '@/lib/adminAuth';
 import { Button } from '@/components/ui/button';
 
@@ -56,7 +56,7 @@ export default function ArticleEditor() {
   const [slug, setSlug] = useState('');
   const [slugManual, setSlugManual] = useState(false);
   const [metaDescription, setMetaDescription] = useState('');
-  const [section, setSection] = useState('');
+  const [section, setSection] = useState('Indian Market');
   const [tagsInput, setTagsInput] = useState('');
   const [coverUrl, setCoverUrl] = useState('');
   const [draftId, setDraftId] = useState(null);
@@ -106,10 +106,8 @@ export default function ArticleEditor() {
   });
 
   useEffect(() => {
-    if (!categoriesLoading && categories.length && !section) {
-      setSection(categories[0].name);
-    }
-  }, [categories, categoriesLoading, section]);
+    if (!section) setSection('Indian Market');
+  }, [section]);
 
   useEffect(() => {
     if (!slugManual && title) setSlug(toSlug(title));
@@ -609,8 +607,8 @@ export default function ArticleEditor() {
           {/* Cover */}
           <div className="bg-white border-b border-slate-200">
             {coverUrl ? (
-              <div className="relative group">
-                <img src={coverUrl} alt="Cover" className="w-full max-h-72 object-cover" />
+              <div className="relative group agi-cover agi-cover--editor">
+                <img src={coverUrl} alt="Cover" />
                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
                   <Button size="sm" variant="secondary" onClick={chooseCover}>Change</Button>
                   <Button size="sm" variant="secondary" onClick={() => setCoverUrl('')}>Remove</Button>
@@ -650,7 +648,7 @@ export default function ArticleEditor() {
         <aside className="w-80 shrink-0 bg-white border-l border-slate-200 overflow-y-auto p-5 space-y-5">
           <div>
             <h3 className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-3">Publishing</h3>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Category</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Research Desk</label>
             <select
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
               value={section}
@@ -659,10 +657,13 @@ export default function ArticleEditor() {
                 dirtyRef.current = true;
               }}
             >
-              {categories.map((cat) => (
-                <option key={cat.id || cat.slug} value={cat.name}>{cat.name}</option>
+              {RESEARCH_DESK_SECTIONS.map((deskSection) => (
+                <option key={deskSection} value={deskSection}>{deskSection}</option>
               ))}
             </select>
+            <p className="text-xs text-slate-400 mt-1">
+              Choose which homepage desk this research belongs to.
+            </p>
           </div>
 
           <div>
