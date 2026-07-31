@@ -15,9 +15,15 @@ export function isAdmin(user) {
   return false;
 }
 
-/** Any signed-in user can open the article CMS to manage their own uploads. */
+  /** Any signed-in user can open the article CMS to manage their own uploads. */
 export function canAccessCms(user) {
   return Boolean(user?.id);
+}
+
+/** Intelligence CMS — admin-only structured data modules. */
+export function isIntelligenceCmsPath(pathname = '') {
+  const path = String(pathname || '').replace(/\/+$/, '') || '/';
+  return path === '/admin/intelligence' || path.startsWith('/admin/intelligence/');
 }
 
 /** Admins manage every article; authors only manage rows they uploaded. */

@@ -47,6 +47,7 @@ import {
   ListChecks,
   MessageSquare,
   Library,
+  Sparkles,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { isAdmin } from '@/lib/adminAuth';
@@ -58,6 +59,7 @@ const authorNavItems = [
 
 const navItems = [
   { to: '/admin', label: 'Dashboard', icon: LayoutDashboard, end: true },
+  { to: '/admin/intelligence', label: 'Intelligence CMS', icon: Sparkles },
   { to: '/admin/knowledge-operations', label: 'Knowledge Operations', icon: Library },
   { to: '/admin/investment-office', label: 'Investment Office', icon: Landmark },
   { to: '/admin/mission-control', label: 'Mission Control', icon: Gauge },

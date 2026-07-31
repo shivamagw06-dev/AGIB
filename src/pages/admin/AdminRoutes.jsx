@@ -57,6 +57,7 @@ import InstitutionalDebate from '@/pages/admin/InstitutionalDebate';
 import DecisionReadiness from '@/pages/admin/DecisionReadiness';
 import ReasoningAudit from '@/pages/admin/ReasoningAudit';
 import KnowledgeOperations from '@/pages/admin/KnowledgeOperations';
+import IntelligenceCmsRoutes from '@/pages/admin/intelligence/IntelligenceCmsRoutes';
 
 export default function AdminRoutes() {
   return (
@@ -66,6 +67,8 @@ export default function AdminRoutes() {
         <Route path="knowledge-operations" element={<KnowledgeOperations />} />
         {/* Full-bleed Institutional Morning Office — daily investment desk */}
         <Route path="investment-office" element={<InvestmentOfficeAdmin />} />
+        {/* Intelligence CMS — structured data modules (Valuation Monitor first) */}
+        <Route path="intelligence/*" element={<IntelligenceCmsRoutes />} />
         <Route element={<AdminLayout />}>
           <Route index element={<AdminDashboard />} />
           <Route path="articles" element={<AdminDashboard />} />
