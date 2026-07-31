@@ -368,10 +368,32 @@
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+/* Live market strip — continuous marquee, pause on hover */
+.market-ticker-viewport {
+  mask-image: linear-gradient(to right, transparent, #000 24px, #000 calc(100% - 24px), transparent);
+}
+.market-ticker-track {
+  animation: market-ticker-scroll 42s linear infinite;
+}
+.market-ticker-track:hover {
+  animation-play-state: paused;
+}
+.market-ticker-chip {
+  min-width: 148px;
+}
+@keyframes market-ticker-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .home-terminal .home-hero-brand,
   .home-terminal .home-hero-panel,
   .home-terminal .animate-home-rise {
+    animation: none;
+  }
+  .market-ticker-track {
     animation: none;
   }
 }
