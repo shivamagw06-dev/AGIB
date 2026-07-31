@@ -134,6 +134,8 @@ class SearchView(BaseModel):
     irp: dict[str, Any] = Field(default_factory=dict)
     # KF1 — Knowledge Foundation objects resolved before documents
     knowledge_foundation: dict[str, Any] = Field(default_factory=dict)
+    # Multi-source retrieval — Private Markets / Valuation CMS / Nifty research
+    multi_source: dict[str, Any] = Field(default_factory=dict)
     # KRIG Sprint 6.4 — institutional Knowledge Bundle from Knowledge Platform (never provider feeds)
     knowledge_bundle: dict[str, Any] = Field(default_factory=dict)
     # KCV1 — Knowledge Corpus consult (primary source of truth before documents)

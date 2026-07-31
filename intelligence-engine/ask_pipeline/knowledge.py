@@ -104,6 +104,19 @@ def retrieve_knowledge(
     )
     primary = "evidence_retrieval" if iere and not iere.get("unavailable") else "knowledge_factory"
 
+    # Soft-wire multi-source adapters (Private Markets / Valuation CMS / Nifty research).
+    multi_source = _retrieve_multi_source(
+        question=question,
+        company_ids=company_ids,
+        entities=entities,
+    )
+    if multi_source and not multi_source.get("unavailable") and multi_source.get("evidence_count"):
+        # Keep KF/IERE primary; annotate that multi-source contributed.
+        if primary == "knowledge_factory":
+            primary = "knowledge_factory+multi_source"
+        else:
+            primary = f"{primary}+multi_source"
+
     return {
         "stage": "knowledge_retrieval",
         "status": "executed",
@@ -114,11 +127,33 @@ def retrieve_knowledge(
         "as_of": as_of,
         "bag": bag,
         "iere": iere,
+        "multi_source": multi_source,
         "primary_engine": primary,
         "duration_ms": int((time.time() - started) * 1000),
         "provenance": _prov("ask_pipeline.knowledge.retrieve_knowledge"),
         "fabricated": False,
     }
+
+
+def _retrieve_multi_source(
+    *,
+    question: str | None,
+    company_ids: list[str],
+    entities: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    try:
+        from multi_source import retrieve_multi_source
+
+        ticker = company_ids[0] if company_ids else None
+        out = retrieve_multi_source(
+            question or "",
+            ticker=ticker,
+            entities=entities,
+            timeout_sec=2.5,
+        )
+        return out if isinstance(out, dict) else {"unavailable": True, "fabricated": False}
+    except Exception as exc:
+        return {"unavailable": True, "error": str(exc)[:160], "fabricated": False}
 
 
 def _retrieve_iere(
