@@ -6,6 +6,7 @@ import { usePeOverview } from '@/hooks/usePeIntelligence';
 import NewsletterSection from '@/components/Home/NewsletterSection';
 import AskAgiBar from '@/components/Home/AskAgiBar';
 import { formatTimeAgo } from '@/lib/articleUtils';
+import { fetchPipelineStatus } from '@/lib/intelligencePlatformApi';
 import '@/components/private-equity/editorial/peEditorial.css';
 
 const DEFAULT_COVER =
