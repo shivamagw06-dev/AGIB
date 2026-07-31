@@ -1631,6 +1631,33 @@ class UiService:
         except Exception:
             investment_office_pkg = {}
 
+        # Multi-source retrieval — Private Markets + Valuation CMS + Nifty research.
+        # Soft-wire only; never blocks Ask if adapters fail.
+        multi_source_pack: dict[str, Any] = {}
+        try:
+            from multi_source import retrieve_multi_source
+
+            multi_source_pack, ms_to = call_with_timeout(
+                retrieve_multi_source,
+                q,
+                ticker=detected_ticker,
+                entities=(entity_resolution or {}).get("entities")
+                if isinstance(entity_resolution, dict)
+                else None,
+                timeout_sec=3.0,
+                default={},
+            )
+            multi_source_pack = multi_source_pack if isinstance(multi_source_pack, dict) else {}
+            if ms_to:
+                degradation["multi_source"] = "timeout_cached"
+            elif multi_source_pack.get("evidence_count"):
+                degradation["multi_source"] = "ok"
+            else:
+                degradation["multi_source"] = "empty"
+        except Exception:
+            multi_source_pack = {}
+            degradation["multi_source"] = "unavailable"
+
         # AGIB v2.1 — Complete Ask Pipeline (soft-wire).
         # Context → Intent → Entities → KF retrieval → Evidence → IRO plan → DAG
         # → existing govern_answer (Phase 1–7) → DQ record → IOI register → telemetry.
@@ -1658,6 +1685,7 @@ class UiService:
                     "sector_intelligence": sector_intelligence if isinstance(sector_intelligence, dict) else {},
                     "live_evidence": live_evidence if isinstance(live_evidence, dict) else {},
                     "company_dossier": company_dossier if isinstance(company_dossier, dict) else {},
+                    "multi_source": multi_source_pack if isinstance(multi_source_pack, dict) else {},
                 },
                 academy=finance_academy if isinstance(finance_academy, dict) else None,
             )
@@ -2175,6 +2203,14 @@ class UiService:
             if bq is not None:
                 why.insert(0, scrub_text(f"Business quality score: {bq}/100.")[:200])
             why = why[:12]
+
+        # Multi-source evidence — Private Markets / Valuation CMS / Nifty research
+        if isinstance(multi_source_pack, dict) and multi_source_pack.get("evidence_count"):
+            for hint in (multi_source_pack.get("ask_agi_hints") or [])[:6]:
+                cleaned = scrub_text(hint)[:420]
+                if cleaned and cleaned not in why:
+                    why.insert(0, cleaned)
+            why = why[:16]
 
         # Phase 1 governance enforcement — executive/stance derive from framework outputs.
         if isinstance(execution_governance, dict) and execution_governance.get("run_id"):
@@ -3025,7 +3061,17 @@ class UiService:
         return SearchView(
             meta=UiMeta(
                 surface="search",
-                sources=["knowledge", "research_committee", "composite_view", "model_portfolio", "irp"],
+                sources=[
+                    "knowledge",
+                    "research_committee",
+                    "composite_view",
+                    "model_portfolio",
+                    "irp",
+                    "multi_source",
+                    "private_markets",
+                    "nifty_research",
+                    "valuation_monitor",
+                ],
             ),
             question=q,
             status=desk_status,
@@ -3094,6 +3140,7 @@ class UiService:
                 "hits": scrub(kf_hits)[:8],
                 "count": len(kf_hits),
             },
+            multi_source=scrub(multi_source_pack) if multi_source_pack else {},
             knowledge_bundle=scrub(knowledge_bundle) if knowledge_bundle else {},
             knowledge_corpus=scrub(knowledge_corpus)
             if knowledge_corpus

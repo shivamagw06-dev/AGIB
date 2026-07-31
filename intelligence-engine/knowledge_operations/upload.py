@@ -193,6 +193,67 @@ def upload_knowledge(
         pipeline.append({"step": "coverage_rescore", "ok": False, "error": str(exc)[:200]})
         icc = None
 
+    # 5 Ask AGI learning — ingest into KIP so future Ask questions can retrieve this upload.
+    kip_document_id = None
+    try:
+        text = ""
+        try:
+            text = content_bytes.decode("utf-8", errors="ignore")
+        except Exception:
+            text = ""
+        if not text.strip():
+            text = (
+                f"Manual knowledge upload for {t}.\n"
+                f"Document type: {dtype}.\n"
+                f"Filename: {name}.\n"
+                f"SHA256: {digest}.\n"
+                "Content stored in Knowledge Operations; binary payload available for research refresh."
+            )
+
+        from app.kip.models import DocumentType, IngestRequest
+        from app.kip.service import KipService
+
+        dtype_map = {
+            "annual_report": DocumentType.ANNUAL_REPORT,
+            "quarterly_report": DocumentType.QUARTERLY_REPORT,
+            "investor_presentation": DocumentType.INVESTOR_PRESENTATION,
+            "earnings_transcript": DocumentType.EARNINGS_TRANSCRIPT,
+            "filing": DocumentType.NSE_BSE_FILING,
+            "research": DocumentType.AGI_RESEARCH,
+            "note": DocumentType.AGI_NOTE,
+        }
+        kip_type = dtype_map.get(dtype, DocumentType.OTHER)
+        kip = KipService()
+        doc = kip.ingest_agi(
+            IngestRequest(
+                title=f"KOC upload: {name}",
+                content=text[:120_000],
+                document_type=kip_type,
+                tickers=[t] if t else [],
+                source="knowledge_operations_upload",
+                author=actor or "admin",
+                metadata={
+                    "upload_id": upload_id,
+                    "sha256": digest,
+                    "stored_as": dest.name,
+                    "learn_for_ask": True,
+                },
+            )
+        )
+        kip_document_id = getattr(doc, "document_id", None) or getattr(doc, "id", None)
+        if kip_document_id:
+            evidence_ids.append(str(kip_document_id))
+        pipeline.append(
+            {
+                "step": "kip_ingest_for_ask",
+                "ok": True,
+                "document_id": kip_document_id,
+                "note": "Upload is now searchable by Ask AGI via KIP.",
+            }
+        )
+    except Exception as exc:
+        pipeline.append({"step": "kip_ingest_for_ask", "ok": False, "error": str(exc)[:200]})
+
     record = {
         "upload_id": upload_id,
         "ticker": t,
@@ -205,10 +266,12 @@ def upload_knowledge(
         "actor": actor or "admin",
         "uploaded_at": _now(),
         "evidence_ids": evidence_ids,
+        "kip_document_id": kip_document_id,
         "knowledge_version": knowledge_version,
         "pipeline": pipeline,
         "immutable": True,
         "coverage_pct": (score or {}).get("coverage_pct") if isinstance(score, dict) else None,
+        "ask_learned": bool(kip_document_id),
     }
 
     queue_item = {
