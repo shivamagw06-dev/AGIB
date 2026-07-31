@@ -398,4 +398,50 @@
   }
 }
 
+@layer components {
+  .agi-cover {
+    position: relative;
+    overflow: hidden;
+    background-color: #f3f4f6;
+  }
+
+  .agi-cover img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+  }
+
+  .agi-cover--16-10 {
+    aspect-ratio: 16 / 10;
+  }
+
+  .agi-cover--16-9 {
+    aspect-ratio: 16 / 9;
+  }
+
+  .agi-cover--featured {
+    aspect-ratio: 16 / 10;
+    min-height: 240px;
+  }
+
+  .agi-cover--thumb {
+    width: 118px;
+    height: 88px;
+  }
+
+  .agi-cover--article {
+    aspect-ratio: 16 / 10;
+    max-height: 420px;
+    border-radius: 0.75rem;
+    border: 1px solid hsl(var(--border));
+  }
+
+  .agi-cover--editor {
+    aspect-ratio: 16 / 10;
+    max-height: 288px;
+  }
+}
+
 /* End of file */

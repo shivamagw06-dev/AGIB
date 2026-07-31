@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { fetchEntity, searchEntities } from '@/lib/intelligencePlatformApi';
+import { fetchEntity, fetchEntityFull, searchEntities } from '@/lib/intelligencePlatformApi';
 
-export function useIntelligenceEntity(slug, { refresh = false } = {}) {
+export function useIntelligenceEntity(slug, { refresh = false, full = false } = {}) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(Boolean(slug));
   const [error, setError] = useState(null);
@@ -11,7 +11,8 @@ export function useIntelligenceEntity(slug, { refresh = false } = {}) {
     let mounted = true;
     setLoading(true);
     setError(null);
-    fetchEntity(slug, { refresh })
+    const fetcher = full ? fetchEntityFull : fetchEntity;
+    fetcher(slug, { refresh })
       .then((payload) => {
         if (mounted) setData(payload);
       })
@@ -24,19 +25,19 @@ export function useIntelligenceEntity(slug, { refresh = false } = {}) {
     return () => {
       mounted = false;
     };
-  }, [slug, refresh]);
+  }, [slug, refresh, full]);
 
   return { data, loading, error };
 }
 
-export function useUniversalSearch(query, { limit = 8, debounceMs = 250 } = {}) {
-  const [result, setResult] = useState({ groups: [], total: 0, query: '' });
+export function useUniversalSearch(query, { limit = 8, debounceMs = 200 } = {}) {
+  const [result, setResult] = useState({ groups: [], total: 0, query: '', took_ms: 0 });
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const q = String(query || '').trim();
     if (q.length < 2) {
-      setResult({ groups: [], total: 0, query: q });
+      setResult({ groups: [], total: 0, query: q, took_ms: 0 });
       return;
     }
     let mounted = true;
@@ -47,7 +48,7 @@ export function useUniversalSearch(query, { limit = 8, debounceMs = 250 } = {}) 
           if (mounted) setResult(payload);
         })
         .catch(() => {
-          if (mounted) setResult({ groups: [], total: 0, query: q });
+          if (mounted) setResult({ groups: [], total: 0, query: q, took_ms: 0 });
         })
         .finally(() => {
           if (mounted) setLoading(false);

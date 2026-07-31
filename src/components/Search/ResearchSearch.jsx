@@ -18,7 +18,7 @@ export default function ResearchSearch({ onClose }) {
   const navigate = useNavigate();
   const [recent, setRecent] = useState([]);
   const [entityQuery, setEntityQuery] = useState('');
-  const { groups, total, loading } = useUniversalSearch(entityQuery);
+  const { groups, total, loading, took_ms } = useUniversalSearch(entityQuery);
 
   useEffect(() => {
     setRecent(getRecentSearches());
@@ -86,17 +86,37 @@ export default function ResearchSearch({ onClose }) {
                         <button
                           type="button"
                           onClick={() => goToEntity(item.path)}
-                          className="w-full text-left px-4 py-3 hover:bg-[#fafafa] flex items-start justify-between gap-4"
+                          className="w-full text-left px-4 py-3 hover:bg-[#fafafa] flex items-start gap-3"
                         >
-                          <div>
-                            <p className="font-medium text-sm text-[#111]">{item.name}</p>
-                            {item.description && (
+                          {item.logo ? (
+                            <img src={item.logo} alt="" className="w-8 h-8 rounded object-contain bg-[#f5f5f5] shrink-0" />
+                          ) : (
+                            <span
+                              className="w-8 h-8 rounded flex items-center justify-center text-xs text-white font-bold shrink-0"
+                              style={{ background: item.color || '#0B3B60' }}
+                            >
+                              {item.name?.[0]}
+                            </span>
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-start justify-between gap-2">
+                              <p className="font-medium text-sm text-[#111]">{item.name}</p>
+                              <span className="text-[10px] uppercase tracking-wide text-[#767676] shrink-0">
+                                {item.entity_type_label}
+                              </span>
+                            </div>
+                            {item.ai_summary ? (
+                              <p className="text-xs text-[#767676] mt-0.5 line-clamp-2">{item.ai_summary}</p>
+                            ) : item.description ? (
                               <p className="text-xs text-[#767676] mt-0.5 line-clamp-1">{item.description}</p>
-                            )}
+                            ) : null}
+                            <div className="flex flex-wrap gap-2 mt-1 text-[10px] text-[#999]">
+                              {item.intelligence_score != null && <span>{item.intelligence_score}/100</span>}
+                              {item.updated_at && (
+                                <span>Updated {new Date(item.updated_at).toLocaleDateString()}</span>
+                              )}
+                            </div>
                           </div>
-                          <span className="text-[10px] uppercase tracking-wide text-[#767676] shrink-0">
-                            {item.entity_type_label}
-                          </span>
                         </button>
                       </li>
                     ))}
@@ -104,7 +124,9 @@ export default function ResearchSearch({ onClose }) {
                 </div>
               ))}
               {total > 0 && (
-                <p className="text-xs text-[#767676]">{total} matching entities across the intelligence graph</p>
+                <p className="text-xs text-[#767676]">
+                  {total} matching entities{took_ms ? ` · ${took_ms}ms` : ''}
+                </p>
               )}
             </div>
           )}

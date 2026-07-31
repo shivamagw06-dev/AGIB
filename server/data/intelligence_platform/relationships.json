@@ -791,7 +791,97 @@
       "label": null,
       "metadata": {},
       "created_at": "2026-07-31T18:54:37.793Z"
+    },
+    {
+      "id": "884a92b6-f00e-4bbd-aacb-32fe32653820",
+      "from_entity_id": "firm-blackstone",
+      "to_entity_id": "firm-kkr",
+      "relation_type": "COMPETES_WITH",
+      "label": null,
+      "metadata": {},
+      "created_at": "2026-07-31T19:04:58.768Z"
+    },
+    {
+      "id": "5dfdd808-226d-4f60-b9ee-4b9b1b94443e",
+      "from_entity_id": "firm-kkr",
+      "to_entity_id": "firm-apollo",
+      "relation_type": "COMPETES_WITH",
+      "label": null,
+      "metadata": {},
+      "created_at": "2026-07-31T19:04:58.768Z"
+    },
+    {
+      "id": "7fcf1597-70f0-47a8-861f-7ab22ed460cc",
+      "from_entity_id": "firm-apollo",
+      "to_entity_id": "firm-carlyle",
+      "relation_type": "COMPETES_WITH",
+      "label": null,
+      "metadata": {},
+      "created_at": "2026-07-31T19:04:58.768Z"
+    },
+    {
+      "id": "dcbfb816-ea30-4efd-8896-30f51c258f1e",
+      "from_entity_id": "firm-carlyle",
+      "to_entity_id": "firm-advent",
+      "relation_type": "COMPETES_WITH",
+      "label": null,
+      "metadata": {},
+      "created_at": "2026-07-31T19:04:58.768Z"
+    },
+    {
+      "id": "5c0bbfa0-05f9-4a7d-9842-423d5e37802b",
+      "from_entity_id": "firm-advent",
+      "to_entity_id": "firm-bain-capital",
+      "relation_type": "COMPETES_WITH",
+      "label": null,
+      "metadata": {},
+      "created_at": "2026-07-31T19:04:58.768Z"
+    },
+    {
+      "id": "2c50ecdc-4d33-4d81-84a1-8dd5d95aaf84",
+      "from_entity_id": "firm-bain-capital",
+      "to_entity_id": "firm-tpg",
+      "relation_type": "COMPETES_WITH",
+      "label": null,
+      "metadata": {},
+      "created_at": "2026-07-31T19:04:58.768Z"
+    },
+    {
+      "id": "baf9ba92-d48b-4d6e-bbcd-edc60f999f17",
+      "from_entity_id": "firm-tpg",
+      "to_entity_id": "firm-eqt",
+      "relation_type": "COMPETES_WITH",
+      "label": null,
+      "metadata": {},
+      "created_at": "2026-07-31T19:04:58.768Z"
+    },
+    {
+      "id": "3fd43d40-4eb2-4b3c-a470-93bfdb0541c8",
+      "from_entity_id": "firm-eqt",
+      "to_entity_id": "firm-vista",
+      "relation_type": "COMPETES_WITH",
+      "label": null,
+      "metadata": {},
+      "created_at": "2026-07-31T19:04:58.768Z"
+    },
+    {
+      "id": "25f6e615-8f04-4772-9532-d46e6e694b04",
+      "from_entity_id": "firm-vista",
+      "to_entity_id": "firm-warburg-pincus",
+      "relation_type": "COMPETES_WITH",
+      "label": null,
+      "metadata": {},
+      "created_at": "2026-07-31T19:04:58.768Z"
+    },
+    {
+      "id": "9dd3dbf8-1a14-48e4-a447-8913cabaf5f1",
+      "from_entity_id": "firm-warburg-pincus",
+      "to_entity_id": "firm-blackstone",
+      "relation_type": "COMPETES_WITH",
+      "label": null,
+      "metadata": {},
+      "created_at": "2026-07-31T19:04:58.768Z"
     }
   ],
-  "updated_at": "2026-07-31T18:54:37.793Z"
+  "updated_at": "2026-07-31T19:04:58.768Z"
 }

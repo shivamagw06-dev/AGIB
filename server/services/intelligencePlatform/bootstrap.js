@@ -341,6 +341,18 @@ export async function bootstrapIntelligencePlatform({ force = false } = {}) {
     }
   });
 
+  // Comparable firms (COMPETES_WITH among top GPs)
+  const firmSlugs = TOP_FIRMS.map((f) => f.slug);
+  firmSlugs.forEach((slug, i) => {
+    const firmId = slugToId.get(slug);
+    if (!firmId) return;
+    const peerSlug = firmSlugs[(i + 1) % firmSlugs.length];
+    const peerId = slugToId.get(peerSlug);
+    if (peerId && peerId !== firmId) {
+      relRows.push({ from_entity_id: firmId, to_entity_id: peerId, relation_type: 'COMPETES_WITH' });
+    }
+  });
+
   bulkUpsertEntities(entityRows);
   bulkAddRelationships(relRows);
   bulkAddTimelineEvents(timelineRows);

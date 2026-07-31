@@ -5,6 +5,10 @@ import { ArrowLeft, Download } from 'lucide-react';
 import { PeFirmAnalytics } from '@/components/private-equity/PeDashboard';
 import { usePeFirm } from '@/hooks/usePeIntelligence';
 import { useIntelligenceEntity } from '@/hooks/useIntelligencePlatform';
+import KnowledgeGraph from '@/components/intelligence/KnowledgeGraph';
+import EntityIntelligencePanel from '@/components/intelligence/EntityIntelligencePanel';
+import EntityTimeline from '@/components/intelligence/EntityTimeline';
+import EntityCard from '@/components/intelligence/EntityCard';
 import '@/components/private-equity/editorial/peEditorial.css';
 
 const TABS = [
@@ -30,7 +34,7 @@ function exportCsv(rows) {
 export default function PrivateEquityFirmPage() {
   const { slug } = useParams();
   const { data, loading, error } = usePeFirm(slug);
-  const { data: entityData } = useIntelligenceEntity(slug);
+  const { data: entityData } = useIntelligenceEntity(slug, { full: true });
   const [tab, setTab] = useState('Overview');
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState('company');
@@ -118,8 +122,29 @@ export default function PrivateEquityFirmPage() {
               AI Intelligence Summary
             </p>
             <p className="text-base leading-relaxed text-[var(--pe-text)]">{entityData.entity.ai_summary}</p>
+            {entityData.intelligence && (
+              <p className="text-xs text-[var(--pe-muted)] mt-3">
+                Intelligence Score: {entityData.intelligence.score}/100 · {entityData.intelligence.label}
+              </p>
+            )}
           </section>
         )}
+
+        <section className="mb-8">
+          <h2 className="font-serif text-2xl font-semibold mb-5">Knowledge Graph</h2>
+          <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-6">
+            <KnowledgeGraph entitySlug={slug} />
+            {entityData?.entity && (
+              <EntityIntelligencePanel
+                entity={entityData.entity}
+                intelligence={entityData.intelligence}
+                related={entityData.related}
+                timeline={entityData.timeline}
+                lastRefresh={entityData.last_refresh}
+              />
+            )}
+          </div>
+        </section>
 
         <div className="flex flex-wrap gap-2 mb-6 border-b border-[var(--pe-border)] pb-4">
           {TABS.map((t) => (
@@ -150,21 +175,17 @@ export default function PrivateEquityFirmPage() {
             </div>
             {entityData?.timeline?.length > 0 && (
               <div className="pe-card p-6">
-                <h2 className="font-serif text-xl font-semibold mb-5">Timeline</h2>
-                <ol className="space-y-0 border-l-2 border-[var(--pe-border)] ml-3">
-                  {entityData.timeline.slice(0, 12).map((event) => (
-                    <li key={event.id} className="relative pl-6 pb-5 last:pb-0">
-                      <span className="absolute -left-[5px] top-1.5 w-2 h-2 rounded-full bg-[var(--pe-accent)]" />
-                      <time className="text-[10px] uppercase tracking-wider text-[var(--pe-muted)]">
-                        {new Date(event.occurred_at).getFullYear()}
-                      </time>
-                      <p className="font-medium mt-1">{event.title}</p>
-                      {event.description && (
-                        <p className="text-sm text-[var(--pe-muted)] mt-1">{event.description}</p>
-                      )}
-                    </li>
+                <EntityTimeline events={entityData.timeline} title="Institutional Timeline" />
+              </div>
+            )}
+            {entityData?.related?.comparables?.length > 0 && (
+              <div className="pe-card p-6">
+                <h2 className="font-serif text-xl font-semibold mb-4">Comparable Firms</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {entityData.related.comparables.slice(0, 4).map((item) => (
+                    <EntityCard key={item.id} entity={item} compact />
                   ))}
-                </ol>
+                </div>
               </div>
             )}
           </div>

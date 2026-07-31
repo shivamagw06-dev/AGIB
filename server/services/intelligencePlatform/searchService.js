@@ -1,5 +1,12 @@
 import { readEntities } from './store.js';
-import { searchGroupForType, SEARCH_GROUP_ORDER, entityTypeLabel } from './entityTypes.js';
+import {
+  searchGroupForType,
+  SEARCH_GROUP_ORDER,
+  entityTypeLabel,
+  entityPublicPath,
+  nodeColorForType,
+} from './entityTypes.js';
+import { computeIntelligenceScore } from './intelligenceScoreService.js';
 
 function scoreEntity(entity, query) {
   const q = query.toLowerCase();
@@ -24,22 +31,40 @@ function scoreEntity(entity, query) {
   return score;
 }
 
-function entityPath(entity) {
-  if (entity.entity_type === 'pe_firm') return `/private-markets/firms/${entity.slug}`;
-  if (entity.entity_type === 'article' || entity.entity_type === 'news') {
-    const articleId = entity.metadata?.article_id;
-    if (articleId) return `/articles/${articleId}`;
-    return `/research?q=${encodeURIComponent(entity.name)}`;
-  }
-  return `/private-markets/entities/${entity.slug}`;
+function serializeSearchResult(entity, score) {
+  const meta = entity.metadata || {};
+  const intel = computeIntelligenceScore(entity.id);
+  return {
+    id: entity.id,
+    slug: entity.slug,
+    name: entity.name,
+    entity_type: entity.entity_type,
+    entity_type_label: entityTypeLabel(entity.entity_type),
+    description: entity.description?.slice(0, 140) || '',
+    ai_summary: entity.ai_summary?.slice(0, 180) || '',
+    logo: meta.logo || null,
+    color: nodeColorForType(entity.entity_type),
+    score,
+    path: entityPublicPath(entity),
+    updated_at: entity.updated_at,
+    intelligence_score: intel?.score,
+    intelligence_label: intel?.label,
+    metadata: {
+      aum: meta.aum,
+      industry: meta.industry,
+      status: meta.status,
+      hq: meta.hq,
+    },
+  };
 }
 
 export function universalSearch(query, { limit = 8 } = {}) {
   const q = String(query || '').trim();
   if (!q || q.length < 2) {
-    return { query: q, groups: [], total: 0 };
+    return { query: q, groups: [], total: 0, took_ms: 0 };
   }
 
+  const start = Date.now();
   const entities = readEntities().filter((e) => e.status === 'published');
   const scored = entities
     .map((entity) => ({ entity, score: scoreEntity(entity, q) }))
@@ -51,21 +76,7 @@ export function universalSearch(query, { limit = 8 } = {}) {
     const group = searchGroupForType(entity.entity_type);
     if (!grouped[group]) grouped[group] = [];
     if (grouped[group].length < limit) {
-      grouped[group].push({
-        id: entity.id,
-        slug: entity.slug,
-        name: entity.name,
-        entity_type: entity.entity_type,
-        entity_type_label: entityTypeLabel(entity.entity_type),
-        description: entity.description?.slice(0, 140) || '',
-        score,
-        path: entityPath(entity),
-        metadata: {
-          aum: entity.metadata?.aum,
-          industry: entity.metadata?.industry,
-          status: entity.metadata?.status,
-        },
-      });
+      grouped[group].push(serializeSearchResult(entity, score));
     }
   });
 
@@ -83,6 +94,7 @@ export function universalSearch(query, { limit = 8 } = {}) {
     query: q,
     groups,
     total: scored.length,
+    took_ms: Date.now() - start,
   };
 }
 
@@ -90,3 +102,5 @@ export function searchSuggestions(query, { limit = 6 } = {}) {
   const result = universalSearch(query, { limit: 3 });
   return result.groups.flatMap((g) => g.results).slice(0, limit);
 }
+
+export { entityPublicPath };
