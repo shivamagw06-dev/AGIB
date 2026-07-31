@@ -760,14 +760,14 @@ export default function ArticlePage() {
         </div>
 
         {image && (
-          <div className="mt-6">
-            <img src={image} alt="" className="w-full rounded-xl border object-cover" />
+          <div className="mt-6 agi-cover agi-cover--article">
+            <img src={image} alt="" />
           </div>
         )}
 
         <article
-          className="prose prose-neutral dark:prose-invert max-w-none mt-8 prose-img:rounded-lg prose-img:border prose-h1:font-extrabold prose-h2:font-bold prose-p:leading-7"
-          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(htmlToUse) }}
+          className="prose prose-neutral dark:prose-invert max-w-none mt-8 prose-img:rounded-lg prose-img:border prose-img:max-w-full prose-img:h-auto prose-img:object-contain prose-h1:font-extrabold prose-h2:font-bold prose-p:leading-7"
+          dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
         />
 
         {message && <div className="mt-6 text-sm text-green-700">{message}</div>}

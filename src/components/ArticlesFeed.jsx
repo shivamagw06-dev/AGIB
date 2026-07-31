@@ -6,8 +6,13 @@ import { Calendar, Clock, ArrowRight, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/supabaseClient';
+import {
+  RESEARCH_DESKS,
+  articleMatchesDesk,
+  getDeskForSection,
+} from '@/lib/deskSections';
 
-const DEFAULT_CATEGORIES = ['All', 'Finance', 'Economics', 'Private Equity', 'M&A', 'Global Markets'];
+const DEFAULT_CATEGORIES = ['All', ...RESEARCH_DESKS.map((desk) => desk.label)];
 
 /**
  * Props:
@@ -50,10 +55,10 @@ export default function ArticlesFeed({ section, variant = 'light' }) {
           excerpt: a.excerpt,
           slug: a.slug,
           image: a.cover_url || 'https://images.unsplash.com/photo-1595872018818-97555653a011',
-          // Use first tag as the “category chip”; otherwise fallback to section
-          category: Array.isArray(a.tags) && a.tags.length ? a.tags[0] : a.section || 'General',
+          section: a.section,
+          category: getDeskForSection(a.section)?.label || a.section || 'Research',
           date: a.published_at,
-          readTime: estimateReadTime(a.excerpt), // quick estimate from excerpt length
+          readTime: estimateReadTime(a.excerpt),
         }));
         setArticles(mapped);
       }
@@ -74,7 +79,11 @@ export default function ArticlesFeed({ section, variant = 'light' }) {
   const filteredArticles =
     selectedCategory === 'All'
       ? articles
-      : articles.filter((a) => a.category === selectedCategory);
+      : articles.filter((article) => {
+          const desk = RESEARCH_DESKS.find((d) => d.label === selectedCategory);
+          if (!desk) return article.category === selectedCategory;
+          return articleMatchesDesk(article, desk.id);
+        });
 
   const pageTitle = section || 'Research';
   const isLight = variant === 'light';
@@ -165,9 +174,9 @@ export default function ArticlesFeed({ section, variant = 'light' }) {
                 }`}
               >
                 <Link to={`/article/${article.slug}`} className="block">
-                  <div className={`aspect-video relative overflow-hidden ${isLight ? 'bg-slate-100' : 'bg-slate-900'}`}>
+                  <div className={`agi-cover agi-cover--16-9 relative ${isLight ? 'bg-slate-100' : 'bg-slate-900'}`}>
                     <img
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      className="group-hover:scale-105 transition-transform duration-500"
                       alt={article.title}
                       src={article.image}
                     />

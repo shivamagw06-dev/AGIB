@@ -6,6 +6,7 @@ export default function usePublishedArticles({
   limit = 6,
   excludeSlug = null,
   section = null,
+  sections = null,
   offset = 0,
 } = {}) {
   const [articles, setArticles] = useState([]);
@@ -27,6 +28,7 @@ export default function usePublishedArticles({
         .range(offset, offset + limit + (excludeSlug ? 1 : 0) - 1);
 
       if (section) query = query.eq('section', section);
+      else if (Array.isArray(sections) && sections.length) query = query.in('section', sections);
 
       const { data, error: fetchError } = await query;
       if (cancelled) return;
@@ -51,7 +53,7 @@ export default function usePublishedArticles({
     return () => {
       cancelled = true;
     };
-  }, [limit, excludeSlug, section, offset]);
+  }, [limit, excludeSlug, section, sections, offset]);
 
   return { articles, loading, error };
 }

@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import {
@@ -13,6 +13,13 @@ import AskAgiBar from '@/components/Home/AskAgiBar';
 import NewsletterSection from '@/components/Home/NewsletterSection';
 import usePublishedArticles from '@/hooks/usePublishedArticles';
 import { formatTimeAgo } from '@/lib/articleUtils';
+import {
+  RESEARCH_DESK_ALL,
+  RESEARCH_DESKS,
+  articleMatchesDesk,
+  getDeskForSection,
+  getSectionsForDesk,
+} from '@/lib/deskSections';
 
 const ASK_SUGGESTIONS = [
   'Analyse Reliance Industries',
@@ -23,12 +30,22 @@ const ASK_SUGGESTIONS = [
 ];
 
 const DESK_BUTTONS = [
-  { label: 'Articles', to: '/research', icon: BookOpen, hint: 'Research notes' },
-  { label: 'Indian Market', to: '/market-intelligence', icon: LineChart, hint: 'India desk' },
-  { label: 'Global Markets', to: '/global-markets', icon: Globe2, hint: 'World markets' },
-  { label: 'Private Markets', to: '/private-markets', icon: Briefcase, hint: 'Deals & exits' },
-  { label: 'Hedge Funds', to: '/hedge-fund', icon: Building2, hint: 'Strategies' },
-  { label: 'Economics', to: '/economics', icon: Landmark, hint: 'Macro & policy' },
+  { id: RESEARCH_DESK_ALL, label: 'Articles', icon: BookOpen, hint: 'All research' },
+  ...RESEARCH_DESKS.map((desk) => ({
+    id: desk.id,
+    label: desk.label,
+    icon:
+      desk.id === 'indian-market'
+        ? LineChart
+        : desk.id === 'global-markets'
+          ? Globe2
+          : desk.id === 'private-markets'
+            ? Briefcase
+            : desk.id === 'hedge-funds'
+              ? Building2
+              : Landmark,
+    hint: desk.hint,
+  })),
 ];
 
 const DEFAULT_COVER =
@@ -53,7 +70,10 @@ function articleMeta(article) {
       ? formatTimeAgo(article.date)
       : 'Recently';
   return {
-    category: article?.section || article?.category || 'Research',
+    category: getDeskForSection(article?.section || article?.category)?.label
+      || article?.section
+      || article?.category
+      || 'Research',
     summary: article?.excerpt || article?.summary || 'Institutional research note from the AGI desk.',
     author: articleAuthor(article),
     published,
@@ -80,11 +100,11 @@ function FeaturedArticle({ article }) {
 
   return (
     <article className="group grid h-full overflow-hidden rounded-xl border border-[#e4e7ec] bg-white lg:grid-cols-[1.15fr_1fr] animate-home-rise">
-      <Link to={href} className="relative block min-h-[240px] bg-[#f3f4f6] lg:min-h-full">
+      <Link to={href} className="agi-cover agi-cover--featured block bg-[#f3f4f6] lg:min-h-full">
         <img
           src={cover}
           alt=""
-          className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+          className="transition-transform duration-500 group-hover:scale-[1.02]"
           loading="eager"
         />
       </Link>
@@ -126,11 +146,11 @@ function StackArticle({ article, index = 0 }) {
       className="group flex gap-4 border-b border-[#eceef2] py-4 first:pt-0 last:border-b-0 last:pb-0 animate-home-rise"
       style={{ animationDelay: `${Math.min(index, 6) * 40}ms` }}
     >
-      <Link to={href} className="relative h-[88px] w-[118px] shrink-0 overflow-hidden rounded-lg bg-[#f3f4f6]">
+      <Link to={href} className="agi-cover agi-cover--thumb shrink-0 rounded-lg">
         <img
           src={cover}
           alt=""
-          className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+          className="transition-transform duration-500 group-hover:scale-[1.03]"
           loading="lazy"
         />
       </Link>
@@ -163,11 +183,11 @@ function GridArticle({ article, index = 0 }) {
       className="group flex h-full flex-col overflow-hidden rounded-xl border border-[#e4e7ec] bg-white transition-shadow hover:shadow-sm animate-home-rise"
       style={{ animationDelay: `${Math.min(index, 8) * 35}ms` }}
     >
-      <Link to={href} className="relative block aspect-[16/10] overflow-hidden bg-[#f3f4f6]">
+      <Link to={href} className="agi-cover agi-cover--16-10 block">
         <img
           src={cover}
           alt=""
-          className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+          className="transition-transform duration-500 group-hover:scale-[1.03]"
           loading="lazy"
         />
       </Link>
@@ -211,7 +231,23 @@ function BriefCard({ title, description, href, cta }) {
 
 export default function ResearchTerminalHome() {
   const navigate = useNavigate();
-  const { articles, loading } = usePublishedArticles({ limit: 18, section: null });
+  const [activeDesk, setActiveDesk] = useState(RESEARCH_DESK_ALL);
+  const deskSections = useMemo(
+    () => (activeDesk === RESEARCH_DESK_ALL ? null : getSectionsForDesk(activeDesk)),
+    [activeDesk]
+  );
+  const { articles: fetchedArticles, loading } = usePublishedArticles({
+    limit: 36,
+    section: null,
+    sections: deskSections,
+  });
+
+  const articles = useMemo(() => {
+    if (activeDesk === RESEARCH_DESK_ALL) return fetchedArticles;
+    return fetchedArticles.filter((article) => articleMatchesDesk(article, activeDesk));
+  }, [activeDesk, fetchedArticles]);
+
+  const activeDeskLabel = DESK_BUTTONS.find((desk) => desk.id === activeDesk)?.label || 'Articles';
 
   const featured = articles[0] || null;
   const stack = articles.slice(1, 4);
@@ -277,20 +313,37 @@ export default function ResearchTerminalHome() {
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
             {DESK_BUTTONS.map((desk) => {
               const Icon = desk.icon;
+              const isActive = activeDesk === desk.id;
               return (
-                <Link
-                  key={desk.label}
-                  to={desk.to}
-                  className="group flex items-center gap-3 rounded-xl border border-[#e4e7ec] bg-[#fafbfc] px-3.5 py-3.5 transition-colors hover:border-[#0b1f33]/35 hover:bg-white"
+                <button
+                  key={desk.id}
+                  type="button"
+                  onClick={() => setActiveDesk(desk.id)}
+                  aria-pressed={isActive}
+                  className={`group flex items-center gap-3 rounded-xl border px-3.5 py-3.5 text-left transition-colors ${
+                    isActive
+                      ? 'border-[#0b1f33] bg-[#0b1f33] text-white'
+                      : 'border-[#e4e7ec] bg-[#fafbfc] hover:border-[#0b1f33]/35 hover:bg-white'
+                  }`}
                 >
-                  <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#e8eaee] bg-white text-[#0b1f33] group-hover:border-[#0b1f33]/20">
+                  <span
+                    className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border ${
+                      isActive
+                        ? 'border-white/20 bg-white/10 text-white'
+                        : 'border-[#e8eaee] bg-white text-[#0b1f33] group-hover:border-[#0b1f33]/20'
+                    }`}
+                  >
                     <Icon className="h-4 w-4" aria-hidden />
                   </span>
                   <span className="min-w-0">
-                    <span className="block text-sm font-semibold text-[#111111]">{desk.label}</span>
-                    <span className="block text-[11px] text-[#767676]">{desk.hint}</span>
+                    <span className={`block text-sm font-semibold ${isActive ? 'text-white' : 'text-[#111111]'}`}>
+                      {desk.label}
+                    </span>
+                    <span className={`block text-[11px] ${isActive ? 'text-white/75' : 'text-[#767676]'}`}>
+                      {desk.hint}
+                    </span>
                   </span>
-                </Link>
+                </button>
               );
             })}
           </div>
@@ -302,8 +355,14 @@ export default function ResearchTerminalHome() {
         <div className="mx-auto max-w-[1680px] px-4 sm:px-6 lg:px-8 py-10 md:py-12">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
-              <h2 className="font-serif text-3xl font-bold tracking-tight text-[#111111]">Latest Research</h2>
-              <p className="mt-1.5 text-sm text-[#555555]">Editorial research from the AGI desk.</p>
+              <h2 className="font-serif text-3xl font-bold tracking-tight text-[#111111]">
+                {activeDesk === RESEARCH_DESK_ALL ? 'Latest Research' : `${activeDeskLabel} Research`}
+              </h2>
+              <p className="mt-1.5 text-sm text-[#555555]">
+                {activeDesk === RESEARCH_DESK_ALL
+                  ? 'Editorial research from the AGI desk.'
+                  : `Research notes from the ${activeDeskLabel} desk.`}
+              </p>
             </div>
             <Link to="/research" className="text-sm font-semibold text-[#111111] hover:underline underline-offset-4">
               View all research →
@@ -317,8 +376,16 @@ export default function ResearchTerminalHome() {
             </div>
           ) : !articles.length ? (
             <div className="mt-8 rounded-xl border border-[#e8eaee] px-6 py-14 text-center">
-              <p className="font-serif text-xl font-bold text-[#111111]">Research notes are publishing soon</p>
-              <p className="mt-2 text-sm text-[#555555]">Ask AGI while the desk prepares the next notes.</p>
+              <p className="font-serif text-xl font-bold text-[#111111]">
+                {activeDesk === RESEARCH_DESK_ALL
+                  ? 'Research notes are publishing soon'
+                  : `No ${activeDeskLabel.toLowerCase()} research yet`}
+              </p>
+              <p className="mt-2 text-sm text-[#555555]">
+                {activeDesk === RESEARCH_DESK_ALL
+                  ? 'Ask AGI while the desk prepares the next notes.'
+                  : 'Try another desk or ask AGI for a research question.'}
+              </p>
             </div>
           ) : (
             <>
