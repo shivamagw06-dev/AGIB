@@ -102,6 +102,17 @@ def main() -> int:
     except Exception as exc:  # noqa: BLE001
         log.warning("gather_worker_fse_bind_failed", extra={"error": str(exc)[:200]})
 
+    # Mission Control snapshot builder — HTTP only reads; this process computes.
+    try:
+        from mission_control.snapshot import start_scheduler as start_mc_snapshot
+        from mission_control.snapshot import stop_scheduler as stop_mc_snapshot
+
+        boot_mc = start_mc_snapshot(boot_build=True)
+        stop_fns.append(stop_mc_snapshot)
+        log.info("gather_worker_mc_snapshot", extra=boot_mc if isinstance(boot_mc, dict) else {"boot": boot_mc})
+    except Exception as exc:  # noqa: BLE001
+        log.warning("gather_worker_mc_snapshot_failed", extra={"error": str(exc)[:200]})
+
     stopping = {"flag": False}
 
     def _handle_stop(signum, _frame):  # noqa: ANN001

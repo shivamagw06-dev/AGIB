@@ -4,6 +4,8 @@
 
 FSE / CGL / FAA running **inside** the uvicorn process starve Ask and Mission Control (`/mission-control/dashboard` times out at 90s+).
 
+Mission Control itself is now **snapshot-backed** (see `docs/AGI_MC_SNAPSHOT.md`): the gather worker builds `snapshot.json`; HTTP only reads it.
+
 ## Recommended fix (default) — sidecar on the same Pro box ($0 extra)
 
 One Render web service, **two OS processes**, **one shared disk**:

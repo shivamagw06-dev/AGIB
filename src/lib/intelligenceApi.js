@@ -917,11 +917,11 @@ export const getIndustryDashboard = () =>
 export const getGovernmentDashboard = () =>
   intelligenceFetch('/government/dashboard', { timeoutMs: 120_000 });
 
-/** Mission Control V1 — administrator operations centre (read-only) */
+/** Mission Control V1 — snapshot-backed ops cockpit (HTTP never rebuilds) */
 export const getMissionControlHealth = () =>
-  intelligenceFetch('/mission-control/health', { timeoutMs: 30_000 });
+  intelligenceFetch('/mission-control/health', { timeoutMs: 15_000 });
 export const getMissionControlDashboard = () =>
-  intelligenceFetch('/mission-control/dashboard', { timeoutMs: 90_000 });
+  intelligenceFetch('/mission-control/dashboard', { timeoutMs: 15_000 });
 export const getMissionControlAgentMap = () =>
   intelligenceFetch('/mission-control/agent-map', { timeoutMs: 60_000 });
 export const getContinuousGatherLearnHealth = () =>
@@ -935,9 +935,15 @@ export const runContinuousGatherLearn = (body = {}) =>
     timeoutMs: 300_000,
   });
 export const getMissionControlQualityGates = () =>
-  intelligenceFetch('/mission-control/quality-gates', { timeoutMs: 45_000 });
+  intelligenceFetch('/mission-control/quality-gates', { timeoutMs: 15_000 });
 export const getMissionControlReport = () =>
-  intelligenceFetch('/mission-control/report', { timeoutMs: 90_000 });
+  intelligenceFetch('/mission-control/report', { timeoutMs: 30_000 });
+export const rebuildMissionControlSnapshot = (body = {}) =>
+  intelligenceFetch('/mission-control/rebuild', {
+    method: 'POST',
+    body,
+    timeoutMs: 15_000,
+  });
 export const acknowledgeMissionControlAlert = (alertId) =>
   intelligenceFetch('/mission-control/acknowledge', {
     method: 'POST',

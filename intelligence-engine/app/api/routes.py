@@ -9312,13 +9312,20 @@ async def mission_control_agent_map():
 
 @router.get("/mission-control/dashboard")
 async def mission_control_dashboard():
-    """Heavy sync aggregate — run in a thread so gather/CPU work cannot block the event loop."""
-    import asyncio
-
+    """Snapshot reader only — never runs build_mission_control() on the HTTP path."""
     from mission_control.production import dashboard
 
-    ioc = getattr(_ui, "ioc", None) or _ioc
-    return await asyncio.to_thread(dashboard, ioc_service=ioc)
+    return dashboard()
+
+
+@router.post("/mission-control/rebuild")
+async def mission_control_rebuild(payload: dict[str, Any] = Body(default={})):
+    """Admin: queue worker snapshot rebuild. Returns immediately. Never builds inline."""
+    from mission_control.production import rebuild
+
+    body = payload or {}
+    trigger = str(body.get("trigger") or "admin_rebuild").strip() or "admin_rebuild"
+    return rebuild(trigger=trigger, wait=False)
 
 
 # --- Continuous Gather → Learn (autonomous; never on Ask path) ---

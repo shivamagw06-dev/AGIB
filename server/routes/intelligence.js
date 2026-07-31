@@ -2152,17 +2152,23 @@ export default function createIntelligenceRouter() {
   });
   router.get('/mission-control/dashboard', async (_req, res) => {
     try {
-      const result = await engineFetch('/v1/mission-control/dashboard');
+      // Snapshot path — keep Node timeout short; engine must not compute.
+      const result = await engineFetch('/v1/mission-control/dashboard', { timeoutMs: 10_000 });
       if (!result.ok) {
         return res.status(result.status).json(result.data);
       }
-      const desk = result.data && typeof result.data === 'object' ? { ...result.data } : {};
+      let desk = result.data && typeof result.data === 'object' ? { ...result.data } : {};
+      const warming = desk.status === 'warming' || desk._warming === true;
+      if (warming) {
+        // Do not fan out learning/API enrich while the desk is warming.
+        return res.json(desk);
+      }
       // Soft enrich with CMS/KC learning digest — never block cockpit if digest is slow.
       let learning = null;
       try {
         learning = await Promise.race([
           buildRecentLearningSummary({ engineFetch, days: 5 }),
-          new Promise((resolve) => setTimeout(() => resolve(null), 3500)),
+          new Promise((resolve) => setTimeout(() => resolve(null), 1500)),
         ]);
       } catch {
         learning = null;
@@ -2231,7 +2237,22 @@ export default function createIntelligenceRouter() {
       return res.status(503).json({
         error: 'Mission Control dashboard unavailable',
         detail: error.message,
-        hint: 'Intelligence engine may be cold-starting on Render — retry in 30–60s.',
+        hint: 'Snapshot reader failed — check intelligence engine health / disk snapshot.',
+      });
+    }
+  });
+  router.post('/mission-control/rebuild', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/mission-control/rebuild', {
+        method: 'POST',
+        body: req.body || {},
+        timeoutMs: 15_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(502).json({
+        error: 'Mission Control rebuild queue failed',
+        detail: error.message,
       });
     }
   });

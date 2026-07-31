@@ -12,10 +12,13 @@ from mission_control.production import (
     system_report,
 )
 from mission_control.schema import MISSION_CONTROL_VERSION, PROGRAMME
+from mission_control import snapshot as mc_snapshot
 
 
 def setup_function() -> None:
     reset_for_tests()
+    # Dashboard is snapshot-backed; seed a stub desk for section assertions.
+    mc_snapshot.build_and_persist_snapshot(trigger="test_seed")
 
 
 def test_flags_default_enabled():
