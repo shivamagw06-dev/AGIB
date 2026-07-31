@@ -26,9 +26,10 @@ services:
         generateValue: true
       - key: CIO_MORNING_SCHEDULER
         value: "true"
-      # Wake Continuous Gather→Learn + morning DAG across Render sleeps (Ask-isolated).
+      # Gather runs on the engine gather sidecar / dedicated worker — do not
+      # POST heavy CGL cycles into the HTTP process from Node (causes 502s).
       - key: CONTINUOUS_GATHER_LEARN_SCHEDULER
-        value: "true"
+        value: "false"
       - key: CONTINUOUS_GATHER_LEARN_NODE_INTERVAL_MS
         value: "1800000"
       - key: CONTINUOUS_MORNING_DAG
@@ -82,14 +83,18 @@ services:
     # If the live Render service ignores Blueprint buildCommand, start.sh
     # and FAA_PLAYWRIGHT_AUTO_INSTALL still attempt a one-shot install.
     buildCommand: pip install -r requirements.txt && python -m playwright install chromium
-    # Prefer uvicorn for fast health checks. Chromium is installed at build time
-    # when Blueprint syncs; otherwise FAA_PLAYWRIGHT_AUTO_INSTALL installs once
-    # on first JS fetch (see app/faa/playwright_browser.py).
-    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    # HTTP + gather sidecar (separate OS process, shared disk). See
+    # docs/AGI_GATHER_WORKER.md. Sidecar keeps Ask/Mission Control responsive
+    # while CGL/FAA/FSE continue gathering.
+    startCommand: bash scripts/start_engine.sh
     healthCheckPath: /v1/health
     envVars:
       - key: APP_ENV
         value: production
+      # Sidecar on by default (same Pro box, $0 extra). Set false only when
+      # the dedicated agib-intelligence-worker below is enabled and funded.
+      - key: AGI_GATHER_SIDECAR
+        value: "true"
       # Set AFTER the paid disk is attached (mount /var/data/kip).
       # Leaving this unset during Free→Starter upgrade is OK (warn-only boot).
       # After disk is live: set KIP_DATA_DIR=/var/data/kip and optionally
@@ -145,10 +150,11 @@ services:
         value: "0"
       - key: AGI_V4_OFFICE_PERSIST
         value: "0"
-      # Continuous Gather → Learn — autonomous historical collection + knowledge loop.
-      # Runs off the Ask path; failures never block Ask. Not ML retraining.
+      # HTTP process gather flags — start_engine.sh forces these false for
+      # uvicorn. Sidecar re-enables them in its own process. Keep false here
+      # so a plain `uvicorn` fallback also stays responsive.
       - key: CONTINUOUS_GATHER_LEARN
-        value: "true"
+        value: "false"
       - key: CONTINUOUS_GATHER_LEARN_INTERVAL_SEC
         value: "1800"
       - key: CONTINUOUS_MORNING_DAG
@@ -164,15 +170,15 @@ services:
       - key: CONTINUOUS_DIRECTOR_LEARNING
         value: "true"
       - key: CONTINUOUS_HISTORICAL_BACKFILL
-        value: "true"
+        value: "false"
       # Keep draining backlog until every listed company is fully backfilled, then maintenance-only.
       - key: CONTINUOUS_BACKFILL_UNTIL_COMPLETE
         value: "true"
       - key: CONTINUOUS_BACKFILL_ACTIVE_INTERVAL_SEC
         value: "300"
-      # Knowledge Factory Historical Depth — live Yahoo OHLCV/actions backfill.
+      # Knowledge Factory Historical Depth — owned by gather sidecar/worker.
       - key: KF_HD_LIVE_COLLECTORS
-        value: "true"
+        value: "false"
       - key: KF_HD_BACKFILL_BATCH
         value: "12"
       - key: KF_HD_BACKFILL_BATCHES_PER_CYCLE
@@ -199,9 +205,9 @@ services:
         value: "true"
       - key: KF_HD_CHUNK_YEARS
         value: "5"
-      # FAA background collector — Ask-isolated. Conservative limits on Starter.
+      # FAA background collector — owned by gather sidecar/worker, not HTTP.
       - key: FAA_BACKGROUND_COLLECTOR
-        value: "true"
+        value: "false"
       - key: FAA_COLLECTOR_INTERVAL_SEC
         value: "900"
       - key: FAA_COLLECTOR_LIMIT
@@ -283,3 +289,122 @@ services:
         value: "true"
       - key: INSTITUTIONAL_REGRESSION_SUITE
         value: "true"
+
+  # Optional dedicated gather worker (separate billable instance).
+  # Default path is the sidecar on agib-intelligence-engine ($0 extra, shared
+  # disk). Enable this worker only when you want gather on its own CPU/RAM:
+  #   1. Create/sync this service on Standard or Pro
+  #   2. Attach a disk at /var/data/kip (Render disks are NOT shareable —
+  #      prefer Supabase mirror, or migrate the primary disk here)
+  #   3. On agib-intelligence-engine set AGI_GATHER_SIDECAR=false
+  # See docs/AGI_GATHER_WORKER.md
+  - type: worker
+    name: agib-intelligence-worker
+    runtime: python
+    rootDir: intelligence-engine
+    plan: standard
+    buildCommand: pip install -r requirements.txt && python -m playwright install chromium
+    startCommand: python scripts/gather_worker.py
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: AGI_ROLE
+        value: gather_worker
+      - key: AGI_GATHER_FORCE
+        value: "true"
+      - key: KIP_DATA_DIR
+        sync: false
+      - key: KIP_REQUIRE_PERSISTENT
+        sync: false
+      - key: KIP_ALLOW_EPHEMERAL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: INTELLIGENCE_ENGINE_TOKEN
+        fromService:
+          name: agib-api
+          type: web
+          envVarKey: INTELLIGENCE_ENGINE_TOKEN
+      - key: AGIB_API_BASE_URL
+        fromService:
+          name: agib-api
+          type: web
+          property: host
+      - key: FAA
+        value: "true"
+      - key: FAA_LIVE_FETCH
+        value: "true"
+      - key: FAA_MAX_WORKERS
+        value: "4"
+      - key: FAA_SEARCH_API
+        value: "true"
+      - key: FAA_PLAYWRIGHT
+        value: "true"
+      - key: FAA_PLAYWRIGHT_AUTO_INSTALL
+        value: "false"
+      - key: FAA_EXA_ENABLED
+        value: "false"
+      - key: FAA_FIRECRAWL_ENABLED
+        value: "false"
+      - key: FAA_BROWSERBASE_ENABLED
+        value: "false"
+      - key: CONTINUOUS_GATHER_LEARN
+        value: "true"
+      - key: CONTINUOUS_GATHER_LEARN_INTERVAL_SEC
+        value: "1800"
+      - key: CONTINUOUS_MORNING_DAG
+        value: "true"
+      - key: CONTINUOUS_LIDI
+        value: "true"
+      - key: CONTINUOUS_KF_HD
+        value: "true"
+      - key: CONTINUOUS_FAA_REFRESH
+        value: "true"
+      - key: CONTINUOUS_LEARNING_LOOP
+        value: "true"
+      - key: CONTINUOUS_DIRECTOR_LEARNING
+        value: "true"
+      - key: CONTINUOUS_HISTORICAL_BACKFILL
+        value: "true"
+      - key: CONTINUOUS_BACKFILL_UNTIL_COMPLETE
+        value: "true"
+      - key: CONTINUOUS_BACKFILL_ACTIVE_INTERVAL_SEC
+        value: "300"
+      - key: KF_HD_LIVE_COLLECTORS
+        value: "true"
+      - key: KF_HD_BACKFILL_BATCH
+        value: "12"
+      - key: KF_HD_BACKFILL_BATCHES_PER_CYCLE
+        value: "3"
+      - key: KF_HD_BACKFILL_WORKERS
+        value: "2"
+      - key: KF_HD_TARGET_YEARS
+        value: "15"
+      - key: FAA_BACKGROUND_COLLECTOR
+        value: "true"
+      - key: FAA_COLLECTOR_INTERVAL_SEC
+        value: "900"
+      - key: FAA_COLLECTOR_LIMIT
+        value: "2"
+      - key: CGL_STORE_ROOT
+        sync: false
+      - key: KF_HD_STORE_ROOT
+        sync: false
+      - key: LIDI_STORE_ROOT
+        sync: false
+      - key: KF_HD_FIXTURE_QUARTERLY
+        value: "false"
+      - key: INSTITUTIONAL_DATA_CONNECTORS
+        value: "true"
+      - key: KF_HD_CHUNK_YEARS
+        value: "5"
+      - key: EXA_API_KEY
+        sync: false
+      - key: FIRECRAWL_API_KEY
+        sync: false
+      - key: BROWSERBASE_API_KEY
+        sync: false
+      - key: TAVILY_API_KEY
+        sync: false
