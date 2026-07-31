@@ -21,15 +21,10 @@ import ResearchSearch from '@/components/Search/ResearchSearch';
 
 const NAV = [
   { name: 'Home', path: '/' },
-  { name: 'Research', path: '/sections/research-notes' },
-  { name: 'Companies', path: '/company-updates' },
-  { name: 'Markets', path: '/markets' },
-  { name: 'Macro', path: '/macro-intelligence' },
-  { name: 'IPO', path: '/ipo-intelligence' },
-  { name: 'Portfolio', path: '/portfolio' },
-  { name: 'Academy', path: '/admin/academy' },
-  { name: 'Ask AGI', path: '/agi/ask' },
-  { name: 'Platform', path: '/agi' },
+  { name: 'Market Intelligence', path: '/market-intelligence' },
+  { name: 'Hedge Fund', path: '/hedge-fund' },
+  { name: 'Private Equity', path: '/private-equity' },
+  { name: 'Global Markets', path: '/global-markets' },
 ];
 
 export default function Header() {
@@ -135,7 +130,7 @@ export default function Header() {
                   onClick={() => go(item.path)}
                   className={`h-full px-2.5 xl:px-3 text-[13px] font-medium border-b-2 transition-colors whitespace-nowrap ${
                     isActive(item.path)
-                      ? 'text-[#111111] border-[#ff6600]'
+                      ? 'text-[#111111] border-[#111111]'
                       : 'text-[#444444] border-transparent hover:text-[#111111] hover:border-[#cccccc]'
                   }`}
                 >
@@ -245,47 +240,15 @@ export default function Header() {
                     onClick={() => go('/login?mode=signin')}
                     className="hidden sm:block text-sm font-medium text-[#111111] hover:underline px-2"
                   >
-                    Sign In
+                    Login
                   </button>
                   <button
                     type="button"
                     onClick={() => go('/#newsletter')}
-                    className="hidden sm:block bg-[#0b1f33] text-white text-sm font-bold px-4 py-1.5 hover:bg-[#163353]"
+                    className="hidden sm:block rounded-md bg-[#0b1f33] text-white text-sm font-bold px-4 py-1.5 hover:bg-[#163353]"
                   >
                     Subscribe
                   </button>
-                </>
-              )}
-
-              {userIsAdmin && (
-                <>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="hidden md:flex h-8 text-xs border-[#0b1f33] text-[#0b1f33]"
-                    onClick={() => go('/admin/knowledge-operations')}
-                  >
-                    <Library className="w-3.5 h-3.5 mr-1" />
-                    Knowledge Operations
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="hidden lg:flex h-8 text-xs border-[#0b1f33] text-[#0b1f33]"
-                    onClick={() => go('/admin/investment-office')}
-                  >
-                    <Landmark className="w-3.5 h-3.5 mr-1" />
-                    Investment Office
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="hidden xl:flex h-8 text-xs border-[#ddd]"
-                    onClick={() => go('/admin/mission-control')}
-                  >
-                    <Gauge className="w-3.5 h-3.5 mr-1" />
-                    Mission Control
-                  </Button>
                 </>
               )}
 
@@ -310,7 +273,7 @@ export default function Header() {
               type="button"
               onClick={() => go(item.path)}
               className={`block w-full text-left py-3 text-sm font-medium border-b border-[#eee] ${
-                isActive(item.path) ? 'text-[#ff6600]' : 'text-[#111]'
+                isActive(item.path) ? 'text-[#111111] font-semibold' : 'text-[#111]'
               }`}
             >
               {item.name}
@@ -323,12 +286,12 @@ export default function Header() {
                 onClick={() => go('/login?mode=signin')}
                 className="min-h-[44px] border border-[#111111] px-3 text-sm font-bold text-[#111111]"
               >
-                Sign In
+                Login
               </button>
               <button
                 type="button"
                 onClick={() => go('/#newsletter')}
-                className="min-h-[44px] bg-[#0b1f33] px-3 text-sm font-bold text-white"
+                className="min-h-[44px] rounded-md bg-[#0b1f33] px-3 text-sm font-bold text-white"
               >
                 Subscribe
               </button>

@@ -51,6 +51,9 @@ const AgiRoutes = React.lazy(() => import('@/pages/agi/AgiRoutes'));
 const PredictionCentre = React.lazy(() => import('@/pages/PredictionCentre'));
 const PersonalWorkspace = React.lazy(() => import('@/pages/PersonalWorkspace'));
 const ResearchTerminalHome = React.lazy(() => import('@/components/Home/ResearchTerminalHome'));
+const HedgeFundPage = React.lazy(() => import('@/pages/HedgeFundPage'));
+const PrivateEquityPage = React.lazy(() => import('@/pages/PrivateEquityPage'));
+const GlobalMarketsPage = React.lazy(() => import('@/pages/GlobalMarketsPage'));
 
 function HomeLayout() {
   // Public research-terminal homepage — admin shells stay under /admin/*.
@@ -149,8 +152,12 @@ function PublicRoutes() {
       <Route path="/sections/markets" element={<Navigate replace to="/markets" />} />
       <Route path="/market-intelligence" element={<MarketIntelligence />} />
       <Route path="/macro-intelligence" element={<MacroIntelligence />} />
+      <Route path="/hedge-fund" element={<HedgeFundPage />} />
+      <Route path="/private-equity" element={<PrivateEquityPage />} />
+      <Route path="/global-markets" element={<GlobalMarketsPage />} />
       <Route path="/global" element={<MacroIntelligence />} />
-      <Route path="/global-intelligence" element={<Navigate replace to="/global" />} />
+      <Route path="/global-intelligence" element={<Navigate replace to="/global-markets" />} />
+      <Route path="/private-markets" element={<Navigate replace to="/private-equity" />} />
       <Route path="/economy" element={<Navigate replace to="/macro-intelligence" />} />
       <Route path="/pre-market" element={<PreMarketIntelligence />} />
       <Route path="/updates/pre-market" element={<Navigate replace to="/pre-market" />} />
@@ -167,7 +174,6 @@ function PublicRoutes() {
 
       {/* Legacy redirects */}
       <Route path="/companies" element={<Navigate replace to="/company-updates" />} />
-      <Route path="/private-markets" element={<Navigate replace to="/sections/deal-tracker" />} />
       <Route path="/insights" element={<Navigate replace to="/sections/opinions-editorials" />} />
 
       <Route path="/sections/research-notes" element={<ResearchNotes />} />

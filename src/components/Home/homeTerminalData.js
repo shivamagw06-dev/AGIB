@@ -85,11 +85,11 @@ export const DEFAULT_OUTLOOK = [
   { key: 'nifty50', label: 'NIFTY 50', sentiment: 'Bullish', score: 72, path: '/market-intelligence' },
   { key: 'sensex', label: 'SENSEX', sentiment: 'Bullish', score: 70, path: '/market-intelligence' },
   { key: 'banknifty', label: 'BANK NIFTY', sentiment: 'Neutral', score: 55, path: '/market-intelligence' },
-  { key: 'midcap', label: 'MIDCAP', sentiment: 'Bearish', score: 38, path: '/market-intelligence' },
-  { key: 'smallcap', label: 'SMALLCAP', sentiment: 'Bullish', score: 64, path: '/market-intelligence' },
-  { key: 'usdinr', label: 'USDINR', sentiment: 'Neutral', score: 52, path: '/macro-intelligence' },
-  { key: 'brent', label: 'BRENT', sentiment: 'Bearish', score: 42, path: '/macro-intelligence' },
+  { key: 'usdinr', label: 'USD/INR', sentiment: 'Neutral', score: 52, path: '/macro-intelligence' },
   { key: 'gold', label: 'GOLD', sentiment: 'Bullish', score: 66, path: '/macro-intelligence' },
+  { key: 'brent', label: 'BRENT', sentiment: 'Bearish', score: 42, path: '/macro-intelligence' },
+  { key: 'us10y', label: 'US 10Y', sentiment: 'Neutral', score: 51, path: '/global-markets' },
+  { key: 'btc', label: 'BTC', sentiment: 'Bullish', score: 61, path: '/global-markets' },
   { key: 'india10y', label: 'India 10Y', sentiment: 'Neutral', score: 54, path: '/macro-intelligence' },
 ];
 
@@ -267,11 +267,11 @@ export function matchOutlookIndices(indexSentiments = []) {
     { key: 'nifty50', match: /nifty\s*50(?!\s*next)|^nifty$/i, label: 'NIFTY 50' },
     { key: 'sensex', match: /sensex/i, label: 'SENSEX' },
     { key: 'banknifty', match: /bank/i, label: 'BANK NIFTY' },
-    { key: 'midcap', match: /midcap|mid\s*cap/i, label: 'MIDCAP' },
-    { key: 'smallcap', match: /smallcap|small\s*cap/i, label: 'SMALLCAP' },
-    { key: 'usdinr', match: /usd\s*inr|usdinr|inr/i, label: 'USDINR' },
-    { key: 'brent', match: /brent|crude|oil/i, label: 'BRENT' },
+    { key: 'usdinr', match: /usd\s*inr|usdinr|inr/i, label: 'USD/INR' },
     { key: 'gold', match: /gold/i, label: 'GOLD' },
+    { key: 'brent', match: /brent|crude|oil/i, label: 'BRENT' },
+    { key: 'us10y', match: /us\s*10|ust\s*10|treasury/i, label: 'US 10Y' },
+    { key: 'btc', match: /btc|bitcoin/i, label: 'BTC' },
     { key: 'india10y', match: /india\s*10|g-?sec|in10/i, label: 'India 10Y' },
   ];
   return aliases.map((alias) => {
