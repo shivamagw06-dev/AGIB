@@ -66,14 +66,13 @@ function AppShell() {
   const location = useLocation();
   const isAdmin = location.pathname.startsWith('/admin');
   const isAskWorkspace = location.pathname === '/ask';
-  const isPeTerminal = location.pathname === '/private-equity' || location.pathname.startsWith('/private-equity/firms/');
   const isAgiProduct = location.pathname === '/agi' || location.pathname.startsWith('/agi/');
 
   useEffect(() => {
-    if (!isAdmin && !isAskWorkspace && !isPeTerminal) {
+    if (!isAdmin && !isAskWorkspace) {
       document.documentElement.classList.remove('dark');
     }
-  }, [isAdmin, isAskWorkspace, isPeTerminal, location.pathname]);
+  }, [isAdmin, isAskWorkspace, location.pathname]);
 
   if (isAdmin) {
     return (
@@ -107,23 +106,6 @@ function AppShell() {
           <Suspense fallback={<div className="min-h-screen bg-[#0b0e14] p-8 text-center text-slate-300">Loading Ask AGI…</div>}>
             <Routes>
               <Route path="/ask" element={<AskAgiPage />} />
-            </Routes>
-          </Suspense>
-          <Toaster />
-        </PinGate>
-      </MarketDataProvider>
-    );
-  }
-
-  // PE Intelligence — full-bleed institutional terminal (no public header/footer).
-  if (isPeTerminal) {
-    return (
-      <MarketDataProvider>
-        <PinGate>
-          <Suspense fallback={<div className="min-h-screen bg-[#0a0b0d] p-8 text-center text-slate-400">Loading PE Intelligence…</div>}>
-            <Routes>
-              <Route path="/private-equity" element={<PrivateEquityPage />} />
-              <Route path="/private-equity/firms/:slug" element={<PrivateEquityFirmPage />} />
             </Routes>
           </Suspense>
           <Toaster />
@@ -173,6 +155,8 @@ function PublicRoutes() {
       <Route path="/market-intelligence" element={<MarketIntelligence />} />
       <Route path="/macro-intelligence" element={<MacroIntelligence />} />
       <Route path="/hedge-fund" element={<HedgeFundPage />} />
+      <Route path="/private-equity" element={<PrivateEquityPage />} />
+      <Route path="/private-equity/firms/:slug" element={<PrivateEquityFirmPage />} />
       <Route path="/global-markets" element={<GlobalMarketsPage />} />
       <Route path="/economics" element={<EconomicsPage />} />
       <Route path="/global" element={<MacroIntelligence />} />

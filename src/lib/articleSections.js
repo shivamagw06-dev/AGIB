@@ -23,6 +23,8 @@ export const ALLOWED_ARTICLE_SECTIONS = [
   'Research',
   'Opinions & Editorials',
   'Deal Tracker',
+  "Editor's Desk",
+  'Private Equity',
 ];
 
 const SECTION_ALIASES = {
