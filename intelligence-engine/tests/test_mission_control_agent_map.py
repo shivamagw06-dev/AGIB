@@ -28,7 +28,12 @@ def test_agent_map_payload_shape():
 
 
 def test_production_facade_and_health_link():
+    from mission_control.agent_map_snapshot import build_and_persist_agent_map
+
+    # HTTP facade is snapshot-backed — seed then read.
+    build_and_persist_agent_map(trigger="test_seed")
     body = agent_map()
     assert body["summary"]["headline"]
+    assert body.get("_warming") is not True
     h = health()
     assert "agent-map" in str(h.get("agent_map") or "")

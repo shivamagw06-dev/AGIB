@@ -9304,7 +9304,7 @@ async def mission_control_health():
 
 @router.get("/mission-control/agent-map")
 async def mission_control_agent_map():
-    """Read-only inventory of AGIB agents + working/soft/off status."""
+    """Snapshot reader only — never runs build_agent_map() / probe fan-out."""
     from mission_control.production import agent_map
 
     return agent_map()

@@ -2076,12 +2076,14 @@ export default function createIntelligenceRouter() {
   router.get('/mission-control/health', kfGet('/v1/mission-control/health'));
   router.get('/mission-control/agent-map', async (_req, res) => {
     try {
-      const result = await engineFetch('/v1/mission-control/agent-map');
+      // Snapshot path — keep timeout short; engine must not probe modules.
+      const result = await engineFetch('/v1/mission-control/agent-map', { timeoutMs: 10_000 });
       if (!result.ok) {
         return res.status(result.status).json(result.data);
       }
       const map = result.data && typeof result.data === 'object' ? { ...result.data } : {};
-      // Enrich Node-only ops flags the engine process may not see.
+      const warming = map.status === 'warming' || map._warming === true;
+      // Enrich Node-only ops flags — never import/probe Python modules.
       const flags = {
         ...(map.production_flags || {}),
         CIO_MORNING_SCHEDULER: process.env.CIO_MORNING_SCHEDULER || null,
@@ -2089,6 +2091,9 @@ export default function createIntelligenceRouter() {
         NODE_ENRICHED: true,
       };
       map.production_flags = flags;
+      if (warming) {
+        return res.json(map);
+      }
       if (Array.isArray(map.agents)) {
         map.agents = map.agents.map((a) => {
           if (!a || typeof a !== 'object') return a;
@@ -2146,7 +2151,7 @@ export default function createIntelligenceRouter() {
       return res.status(503).json({
         error: 'Agent Map unavailable',
         detail: error.message,
-        hint: 'Intelligence engine may be cold-starting — retry in 30–60s.',
+        hint: 'Snapshot reader failed — check intelligence engine / agent_map.json.',
       });
     }
   });

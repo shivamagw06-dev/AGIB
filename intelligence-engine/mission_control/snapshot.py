@@ -337,6 +337,21 @@ def enqueue_rebuild(*, trigger: str = "admin_rebuild", wait: bool = False) -> di
         _set_job(status="running")
         try:
             build_and_persist_snapshot(trigger=trigger)
+            # PR2 — refresh Agent Map in the same worker loop (no second scheduler).
+            try:
+                from mission_control.agent_map_snapshot import build_and_persist_agent_map
+
+                build_and_persist_agent_map(trigger=f"after_mc:{trigger}")
+            except Exception as am_exc:  # noqa: BLE001
+                # Desk snapshot still succeeds if Agent Map refresh fails.
+                try:
+                    from mission_control import agent_map_snapshot as am
+
+                    with am._LOCK:  # noqa: SLF001
+                        am._META["last_failure_at"] = _now()
+                        am._META["last_error"] = str(am_exc)[:240]
+                except Exception:
+                    pass
             _set_job(status="completed", finished_at=_now(), error=None)
         except Exception as exc:  # noqa: BLE001
             with _LOCK:
@@ -395,11 +410,22 @@ def start_scheduler(*, boot_build: bool = True) -> dict[str, Any]:
 
     def _loop() -> None:
         # Boot: enqueue immediately if missing (or always once).
+        # Also covers Agent Map (built after each MC snapshot in the worker).
         if boot_build:
             if get_snapshot() is None:
                 enqueue_rebuild(trigger="worker_boot_missing", wait=False)
             else:
                 enqueue_rebuild(trigger="worker_boot", wait=False)
+            try:
+                from mission_control.agent_map_snapshot import (
+                    enqueue_rebuild as enqueue_am,
+                    get_agent_map,
+                )
+
+                if get_agent_map() is None:
+                    enqueue_am(trigger="worker_boot_agent_map_missing", wait=False)
+            except Exception:
+                pass
         while not stop.wait(interval_sec()):
             enqueue_rebuild(trigger="interval", wait=False)
 
@@ -475,6 +501,12 @@ def reset_for_tests() -> None:
     )
     with _LOCK:
         _WARM = None
+    try:
+        from mission_control.agent_map_snapshot import reset_for_tests as reset_am
+
+        reset_am()
+    except Exception:
+        pass
     try:
         from mission_control import store as mc_store
 
