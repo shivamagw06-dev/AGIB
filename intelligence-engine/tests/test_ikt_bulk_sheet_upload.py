@@ -127,6 +127,28 @@ def test_exchange_prefixed_ticker_resolves_and_writes_canonical_value():
     assert table["row"]["sector"]["value"] == "Financials"
 
 
+def test_headerless_continuation_file_reuses_column_names():
+    """A second export batch from the same saved screen often has no header
+    row — reuse the header list from the first file positionally."""
+    headers = ["Ticker", "Company Name", "Primary Sector"]
+    # Data-only rows, no header
+    df = pd.DataFrame([["RELIANCE", "Reliance Industries Limited", "Energy"]])
+    out = ingest_company_sheet(
+        _xlsx_bytes(df), "continuation.xlsx", column_names=headers
+    )
+    assert out["ok"] is True
+    assert out["resolved_count"] == 1
+    assert out["mapped_columns"]["Primary Sector"] == "company_master.sector"
+
+
+def test_headerless_column_count_mismatch_reported():
+    headers = ["Ticker", "Company Name", "Primary Sector", "Extra Column"]
+    df = pd.DataFrame([["RELIANCE", "Reliance Industries Limited", "Energy"]])
+    out = ingest_company_sheet(_xlsx_bytes(df), "bad.xlsx", column_names=headers)
+    assert out["ok"] is False
+    assert "column_count_mismatch" in out["error"]
+
+
 def test_ltm_and_latest_period_labels_inferred_from_header():
     df = pd.DataFrame(
         [

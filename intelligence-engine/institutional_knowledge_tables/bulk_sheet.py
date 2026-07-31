@@ -138,19 +138,39 @@ def _is_blank(value: Any) -> bool:
     return str(value).strip() == ""
 
 
-def read_sheet_rows(content_bytes: bytes, filename: str, *, sheet_name: Any = 0) -> Any:
-    """Return a pandas DataFrame for .xlsx/.xls/.csv content."""
+def read_sheet_rows(
+    content_bytes: bytes,
+    filename: str,
+    *,
+    sheet_name: Any = 0,
+    column_names: list[str] | None = None,
+) -> Any:
+    """Return a pandas DataFrame for .xlsx/.xls/.csv content.
+
+    Some export tools (e.g. Capital IQ "continuation" batches) omit the
+    header row on subsequent files from the same saved screen. Pass the
+    header list from the first file as `column_names` to reuse it — the
+    file is then read with no header row and those names applied positionally.
+    """
     import pandas as pd
 
     ext = Path(filename or "").suffix.lower()
+    header = None if column_names else 0
     if ext in {".xlsx", ".xls", ".xlsm"}:
-        df = pd.read_excel(io.BytesIO(content_bytes), sheet_name=sheet_name)
+        df = pd.read_excel(io.BytesIO(content_bytes), sheet_name=sheet_name, header=header)
     elif ext == ".csv":
-        df = pd.read_csv(io.BytesIO(content_bytes))
+        df = pd.read_csv(io.BytesIO(content_bytes), header=header)
     else:
         raise ValueError(f"unsupported_file_type:{ext or 'unknown'} (use .xlsx, .xls, or .csv)")
     if isinstance(df, dict):  # sheet_name=None returns {sheet: df}
         df = next(iter(df.values()))
+    if column_names:
+        if len(column_names) != df.shape[1]:
+            raise ValueError(
+                f"column_count_mismatch: file has {df.shape[1]} columns, "
+                f"column_names has {len(column_names)}"
+            )
+        df.columns = column_names
     return df.where(df.notnull(), None)
 
 
@@ -274,12 +294,20 @@ def ingest_company_sheet(
     sheet_name: Any = 0,
     dry_run: bool = False,
     source_label: str | None = None,
+    column_names: list[str] | None = None,
 ) -> dict[str, Any]:
     """Parse a company-info spreadsheet and write recognized columns as
     versioned IKT facts. Rows whose company can't be resolved against the
     uploaded universe registry are reported, never guessed.
+
+    `column_names`: pass the header list from a sibling file when this file
+    is a headerless continuation batch of the same export (same column
+    order, header only on the first chunk).
     """
-    df = read_sheet_rows(content_bytes, filename, sheet_name=sheet_name)
+    try:
+        df = read_sheet_rows(content_bytes, filename, sheet_name=sheet_name, column_names=column_names)
+    except ValueError as exc:
+        return {"ok": False, "error": str(exc)}
     detected = _detect_columns(list(df.columns))
     mapped, unmapped = detected["mapped"], detected["unmapped"]
     period_override = detected["period_override"]
