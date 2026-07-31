@@ -21,6 +21,10 @@ import {
   replayIngestJob,
   startCmsIngestJobWorker,
 } from '../services/cmsIngestJobs.js';
+import {
+  mergeApiStatus,
+  probeMissionControlApis,
+} from '../services/missionControlApiProbes.js';
 
 function engineConfig() {
   let baseUrl = (process.env.INTELLIGENCE_ENGINE_URL || 'http://127.0.0.1:8100').replace(/\/$/, '');
@@ -2233,6 +2237,17 @@ export default function createIntelligenceRouter() {
         }
       } else {
         desk.learning_enrichment = { deferred: true, reason: 'timeout_or_unavailable' };
+      }
+
+      // Soft Node API probe enrich — bounded; never blocks snapshot delivery.
+      let apiProbe = null;
+      try {
+        apiProbe = await Promise.race([
+          probeMissionControlApis({ engineFetch }),
+          new Promise((resolve) => setTimeout(() => resolve(null), 2500)),
+        ]);
+      } catch {
+        apiProbe = null;
       }
 
       if (apiProbe?.probes?.length) {
