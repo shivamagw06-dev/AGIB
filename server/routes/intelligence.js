@@ -2074,6 +2074,20 @@ export default function createIntelligenceRouter() {
 
   // Mission Control V1 — administrator operations centre (read-only)
   router.get('/mission-control/health', kfGet('/v1/mission-control/health'));
+  router.get('/mission-control/intelligence-map', async (_req, res) => {
+    try {
+      const result = await engineFetch('/v1/mission-control/intelligence-map', {
+        timeoutMs: 10_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({
+        error: 'Intelligence Map unavailable',
+        detail: error.message,
+        hint: 'Snapshot reader failed — check intelligence_map.json on disk.',
+      });
+    }
+  });
   router.get('/mission-control/agent-map', async (_req, res) => {
     try {
       // Snapshot path — keep timeout short; engine must not probe modules.

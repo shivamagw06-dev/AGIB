@@ -53,6 +53,13 @@ def agent_map() -> dict[str, Any]:
     return read_agent_map()
 
 
+def intelligence_map() -> dict[str, Any]:
+    """Serve precomputed Intelligence Map snapshot only. Never probes on the HTTP path."""
+    from mission_control.intelligence_map_snapshot import read_intelligence_map
+
+    return read_intelligence_map()
+
+
 def dashboard(*, ioc_service: Any | None = None, force: bool = False) -> dict[str, Any]:
     """Serve precomputed snapshot only. Never builds on the HTTP path.
 
