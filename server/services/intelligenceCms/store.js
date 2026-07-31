@@ -12,7 +12,10 @@ const VERSIONS_FILE = path.join(DATA_DIR, 'versions.json');
 function ensureStore() {
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
   if (!fs.existsSync(RECORDS_FILE)) {
-    fs.writeFileSync(RECORDS_FILE, JSON.stringify({ records: seedValuationRows() }, null, 2));
+    fs.writeFileSync(
+      RECORDS_FILE,
+      JSON.stringify({ records: [...seedValuationRows(), ...seedTransactionRows()] }, null, 2)
+    );
   }
   if (!fs.existsSync(VERSIONS_FILE)) {
     fs.writeFileSync(VERSIONS_FILE, JSON.stringify({ versions: [] }, null, 2));
@@ -50,6 +53,34 @@ function seedValuationRows() {
       { commentary: 'Cyclical recovery priced modestly; prefer export-oriented niches.', risks: 'Energy costs, China demand' },
       'review'
     ),
+  ];
+}
+
+function seedTransactionRows() {
+  const now = new Date().toISOString();
+  const mk = (data, detail = {}, status = 'published') => ({
+    id: crypto.randomUUID(),
+    module: 'transactions',
+    status,
+    data,
+    detail,
+    relationships: [],
+    version: 1,
+    created_by: 'system',
+    updated_by: 'system',
+    published_at: status === 'published' ? now : null,
+    scheduled_at: null,
+    created_at: now,
+    updated_at: now,
+  });
+
+  return [
+    mk({ date: '2026-07-30', target: 'Healthcare Services Co.', buyer: 'KKR', seller: 'Public shareholders', enterprise_value: '$4.8B', deal_value: '$4.2B', industry: 'Healthcare', country: 'United States', status: 'Announced' }),
+    mk({ date: '2026-07-28', target: 'Data Center Platform', buyer: 'Blackstone', seller: 'Founders', enterprise_value: '$13.0B', deal_value: '$12.5B', industry: 'Infrastructure', country: 'United States', status: 'Completed' }),
+    mk({ date: '2026-07-27', target: 'Industrial Tech Platform', buyer: 'Apollo', seller: 'Family owners', enterprise_value: '$3.1B', deal_value: '$2.8B', industry: 'Industrials', country: 'Germany', status: 'Completed' }),
+    mk({ date: '2026-07-26', target: 'Consumer Retail Chain', buyer: 'Bain Capital', seller: 'PE consortium', enterprise_value: '$1.3B', deal_value: '$1.1B', industry: 'Consumer', country: 'India', status: 'Announced' }),
+    mk({ date: '2026-07-25', target: 'Business Services Group', buyer: 'Advent International', seller: 'Corporate carve-out', enterprise_value: '$3.6B', deal_value: '$3.4B', industry: 'Business Services', country: 'United Kingdom', status: 'Pending' }),
+    mk({ date: '2026-07-24', target: 'HealthTech Platform', buyer: 'TPG', seller: 'Founders + early investors', enterprise_value: '$950M', deal_value: '$890M', industry: 'Healthcare', country: 'United States', status: 'Completed' }),
   ];
 }
 

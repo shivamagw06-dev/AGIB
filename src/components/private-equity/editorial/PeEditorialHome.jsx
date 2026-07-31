@@ -243,39 +243,66 @@ function ValuationMonitor() {
   );
 }
 
-function RecentTransactions({ transactions }) {
-  const rows = transactions || [];
+function RecentTransactions() {
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    import('@/lib/intelligenceCmsApi')
+      .then(({ fetchPublicCmsModule }) => fetchPublicCmsModule('transactions'))
+      .then((res) => setRows(res.records || []))
+      .catch(() => setRows([]))
+      .finally(() => setLoading(false));
+  }, []);
+
   return (
-    <section className="pe-block">
+    <section className="pe-block" id="recent-transactions">
       <SectionHead title="Recent Transactions" href="/sections/deal-tracker" linkLabel="Full database →" />
-      <div className="pe-card overflow-x-auto">
-        <table className="pe-table-editorial">
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Target</th>
-              <th>Buyer</th>
-              <th>EV</th>
-              <th>Sector</th>
-              <th>Country</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((t) => (
-              <tr key={t.id}>
-                <td>{t.date}</td>
-                <td className="font-medium">{t.target}</td>
-                <td>{t.buyer}</td>
-                <td>{t.enterpriseValue || t.dealValue}</td>
-                <td>{t.industry}</td>
-                <td>{t.country}</td>
-                <td><span className="pe-tag">{t.status}</span></td>
+      <p className="text-[var(--pe-muted)] text-sm mb-4 max-w-2xl">
+        Updated manually by AGI Research. Administer via{' '}
+        <Link to="/admin/intelligence/transactions" className="text-[var(--pe-accent)]">
+          Intelligence CMS
+        </Link>
+        .
+      </p>
+      {loading ? (
+        <div className="pe-card h-32 animate-pulse bg-[#eee]" />
+      ) : (
+        <div className="pe-card overflow-x-auto">
+          <table className="pe-table-editorial">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Target</th>
+                <th>Buyer</th>
+                <th>EV</th>
+                <th>Sector</th>
+                <th>Country</th>
+                <th>Status</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {rows.length ? rows.map((row) => (
+                <tr key={row.id}>
+                  <td>{row.data.date}</td>
+                  <td className="font-medium">{row.data.target}</td>
+                  <td>{row.data.buyer}</td>
+                  <td>{row.data.enterprise_value || row.data.deal_value}</td>
+                  <td>{row.data.industry}</td>
+                  <td>{row.data.country}</td>
+                  <td><span className="pe-tag">{row.data.status}</span></td>
+                </tr>
+              )) : (
+                <tr>
+                  <td colSpan={7} className="py-8 text-center text-[var(--pe-muted)]">
+                    No transactions published yet.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
     </section>
   );
 }
@@ -395,7 +422,7 @@ export default function PeEditorialHome() {
         <FeaturedResearch featured={featured} top10={top10} loading={researchLoading} />
         <DailyBrief feed={peData?.feed} />
         <div id="valuation-monitor"><ValuationMonitor /></div>
-        {!peLoading && <RecentTransactions transactions={peData?.transactions} />}
+        <RecentTransactions />
         <div id="industries"><IndustryIntelligence /></div>
         <div id="fundraising"><FundraisingSection funds={peData?.funds} /></div>
         {!peLoading && <TopPeFirms firms={peData?.firms} />}
