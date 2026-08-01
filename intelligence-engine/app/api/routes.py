@@ -4472,6 +4472,61 @@ async def admin_business_intelligence():
     return HTMLResponse(admin_page())
 
 
+# --- Phase 3.0 Business Intelligence Foundation (Ask NOT wired) ---
+
+
+@router.get("/business-intelligence/foundation/health")
+async def bi_foundation_health():
+    from business_intelligence.foundation.production import health
+
+    return health()
+
+
+@router.get("/business-intelligence/foundation/dashboard")
+async def bi_foundation_dashboard():
+    from business_intelligence.foundation.production import dashboard
+
+    return dashboard()
+
+
+@router.post("/business-intelligence/foundation/analyse")
+async def bi_foundation_analyse(payload: dict):
+    from business_intelligence.foundation.production import analyse
+
+    question = str((payload or {}).get("question") or "").strip()
+    ticker = (payload or {}).get("ticker")
+    industry = (payload or {}).get("industry")
+    return analyse(question, ticker=ticker, industry=industry)
+
+
+@router.get("/business-intelligence/foundation/industry/{industry_key}")
+async def bi_foundation_industry(industry_key: str):
+    from business_intelligence.foundation.production import industry
+
+    return industry(industry_key)
+
+
+@router.get("/business-intelligence/foundation/company/{ticker}")
+async def bi_foundation_company(ticker: str, question: str = ""):
+    from business_intelligence.foundation.production import company
+
+    return company(ticker.upper(), question=question)
+
+
+@router.get("/business-intelligence/foundation/graph/{ticker}")
+async def bi_foundation_graph(ticker: str):
+    from business_intelligence.foundation.production import graph
+
+    return graph(ticker.upper())
+
+
+@router.post("/business-intelligence/foundation/compare")
+async def bi_foundation_compare(payload: dict):
+    from business_intelligence.foundation.production import compare
+
+    return compare(str((payload or {}).get("question") or ""))
+
+
 # --- FIRE-04 Evidence Fusion Engine (cross-evidence consistency) ---
 
 
