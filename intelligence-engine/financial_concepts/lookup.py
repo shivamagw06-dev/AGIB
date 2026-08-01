@@ -75,6 +75,11 @@ ALIASES: dict[str, str] = {
     "croci": "croci",
     "rote": "rote",
     "qip": "qip",
+    "free cash flow yield": "fcf_yield",
+    "unlevered free cash flow": "unlevered_fcf",
+    "levered free cash flow": "levered_fcf",
+    "fcff": "unlevered_fcf",
+    "fcfe": "levered_fcf",
 }
 
 
@@ -110,7 +115,32 @@ def explain(topic: str) -> dict:
     words = set(cleaned.split())
     stripped_words = words - _STOPWORDS
 
-    # Alias phrases embedded in a longer question (e.g. "What is EVA?").
+    # Longest-matching-phrase-wins: pool every library key phrase AND every
+    # alias phrase together, keep only those that are literal substrings of
+    # the cleaned question, and pick the LONGEST match. This is what makes
+    # "Levered Free Cash Flow" resolve to levered_fcf (an alias phrase)
+    # rather than the shorter, also-present "free cash flow" substring
+    # (free_cash_flow's own key phrase) — specificity beats an arbitrary
+    # key/alias tier ordering. A fixed tier order previously let a shorter
+    # substring match (e.g. plain "roic") win over a more specific,
+    # equally-present phrase (e.g. "incremental roic") purely because of
+    # which list it was checked in first.
+    candidates: list[tuple[int, str]] = []  # (phrase_length, key)
+    for key in ALL_CONCEPTS:
+        key_phrase = key.replace("_", " ")
+        if key_phrase in cleaned:
+            candidates.append((len(key_phrase), key))
+    for phrase, key in ALIASES.items():
+        if phrase in cleaned:
+            candidates.append((len(phrase), key))
+    if candidates:
+        candidates.sort(key=lambda t: t[0], reverse=True)
+        card = get_concept(candidates[0][1])
+        if card:
+            return {"found": True, **card.to_dict()}
+
+    # Alias by word-subset (handles aliases whose words appear out of
+    # order or are not a literal contiguous substring).
     for phrase, key in sorted(ALIASES.items(), key=lambda kv: len(kv[0]), reverse=True):
         phrase_words = set(phrase.split())
         if phrase_words and phrase_words <= words:
@@ -118,10 +148,9 @@ def explain(topic: str) -> dict:
             if card:
                 return {"found": True, **card.to_dict()}
 
-    # Exact key phrase, or every component word present (order-independent).
+    # Loosest fallback: every component word of a key present, order-independent.
     for key in sorted(ALL_CONCEPTS, key=len, reverse=True):
-        key_phrase = key.replace("_", " ")
-        if key_phrase in cleaned or _all_words_present(key, stripped_words):
+        if _all_words_present(key, stripped_words):
             card = get_concept(key)
             if card:
                 return {"found": True, **card.to_dict()}
