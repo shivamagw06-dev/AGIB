@@ -37,6 +37,7 @@ def _row_summary(row: Dict[str, Any]) -> Dict[str, Any]:
         "id": row.get("id"),
         "prompt": row.get("prompt"),
         "pass": bool(row.get("pass")),
+        "live_gate_pass": bool(row.get("live_gate_pass", row.get("pass"))),
         "completed": bool(row.get("completed")),
         "latency_ms": row.get("latency_ms"),
         "entity": row.get("entity"),
@@ -49,13 +50,95 @@ def _row_summary(row: Dict[str, Any]) -> Dict[str, Any]:
         "referenced": funnel.get("referenced"),
         "fallback": bool(row.get("fallback_used") or row.get("fallback")),
         "timeout": bool(row.get("timeout")),
+        "engine_reached": row.get("engine_reached"),
         "ask_trace_id": row.get("ask_trace_id"),
         "last_completed_stage": row.get("last_completed_stage"),
         "short_circuit": (row.get("degradation") or {}).get("short_circuit")
         if isinstance(row.get("degradation"), dict)
-        else None,
+        else row.get("short_circuit"),
         "failures": row.get("failures") or [],
+        "live_gate_failures": row.get("live_gate_failures") or [],
     }
+
+
+def _apply_live_founder_gate(row: Dict[str, Any], case: Dict[str, Any], transport: Dict[str, Any]) -> Dict[str, Any]:
+    """Founder live gate — Node desk fallback must NOT count as a Tier A pass."""
+    payload = transport.get("payload") if isinstance(transport.get("payload"), dict) else {}
+    orch = (payload.get("ask_orchestration") or {}) if isinstance(payload, dict) else {}
+    deg = (payload.get("degradation") or {}) if isinstance(payload, dict) else {}
+    funnel = row.get("funnel") or orch.get("funnel") or orch.get("evidence") or {}
+    short = deg.get("short_circuit") or orch.get("short_circuit")
+    reco = bool(case.get("recommendation_bait"))
+    failures: List[str] = []
+
+    if transport.get("raw_is_html") or int(transport.get("http_status") or 0) in {502, 503}:
+        failures.append("html_or_gateway_5xx")
+    if row.get("timeout") or orch.get("timeout"):
+        failures.append("timeout")
+    if row.get("fallback_used") or orch.get("fallback") or orch.get("fallback_used"):
+        failures.append("gateway_fallback")
+    if not row.get("ask_trace_id") and not orch.get("ask_trace_id"):
+        failures.append("missing_ask_trace_id")
+    engine_reached = orch.get("engine_reached")
+    if engine_reached is False:
+        failures.append("engine_not_reached")
+    stage = row.get("last_completed_stage") or orch.get("last_completed_stage") or ""
+    if reco:
+        if short != "recommendation_policy":
+            failures.append("recommendation_did_not_short_circuit")
+    else:
+        if stage in {"", "http_ingress"} and not orch.get("completed"):
+            failures.append("stuck_at_http_ingress")
+        retrieved = int(funnel.get("retrieved") or 0)
+        if retrieved <= 0 and short != "recommendation_policy":
+            failures.append("empty_evidence_funnel")
+
+    row["short_circuit"] = short
+    row["engine_reached"] = engine_reached
+    row["live_gate_failures"] = failures
+    # Contract pass AND live founder gate
+    row["live_gate_pass"] = bool(row.get("pass")) and not failures
+    if failures:
+        row["pass"] = False
+        row["failures"] = list(row.get("failures") or []) + [f"live_gate:{f}" for f in failures]
+    return row
+
+
+def _wait_engine_healthy(*, base_url: str, attempts: int = 40, sleep_s: float = 15.0) -> bool:
+    """Best-effort preflight: engine /v1/ui/health via gateway or direct."""
+    import urllib.error
+    import urllib.request
+
+    candidates = [
+        os.environ.get("ASK_TEST_ENGINE_BASE", "").rstrip("/"),
+        "https://agib-intelligence-engine.onrender.com",
+    ]
+    for i in range(1, attempts + 1):
+        ok = False
+        for root in candidates:
+            if not root:
+                continue
+            url = f"{root}/v1/ui/health"
+            try:
+                req = urllib.request.Request(url, method="GET")
+                with urllib.request.urlopen(req, timeout=20) as resp:  # noqa: S310
+                    if int(resp.status) == 200:
+                        ok = True
+                        break
+            except Exception:
+                continue
+        # Also require gateway health
+        try:
+            gurl = f"{base_url.rstrip('/')}/api/health"
+            with urllib.request.urlopen(gurl, timeout=15) as resp:  # noqa: S310
+                gateway_ok = int(resp.status) == 200
+        except Exception:
+            gateway_ok = False
+        print(f"[tier-a] preflight ({i}/{attempts}) engine_ok={ok} gateway_ok={gateway_ok}", flush=True)
+        if ok and gateway_ok:
+            return True
+        time.sleep(sleep_s)
+    return False
 
 
 def _load_previous_baseline() -> Optional[Dict[str, Any]]:
@@ -143,14 +226,38 @@ def main() -> int:
     workspace_arts = Path("/workspace/artifacts")
 
     cases = list(SMOKE_PROMPTS)
+    cooldown_s = float(os.environ.get("ASK_TEST_CASE_COOLDOWN_SEC", "8") or "8")
     print(
         f"[tier-a] mode={h.mode} base={h.base_url} "
-        f"latency_budget_ms={latency} cases={len(cases)}",
+        f"latency_budget_ms={latency} cases={len(cases)} cooldown_s={cooldown_s}",
         flush=True,
     )
 
+    if h.mode == "live":
+        if not _wait_engine_healthy(base_url=h.base_url):
+            print("[tier-a] ENGINE_NOT_HEALTHY — aborting before false-green fallbacks", flush=True)
+            report = {
+                "suite": "Tier A founder acceptance (SMOKE-01..08)",
+                "timestamp": _ts(),
+                "mode": h.mode,
+                "base_url": h.base_url,
+                "tier_a_gate": "FAIL",
+                "passed": 0,
+                "total": 0,
+                "note": "Aborted: intelligence engine unhealthy before Tier A start",
+                "recommend_full_suite": False,
+            }
+            _write_atomic(stamped, report)
+            _write_atomic(stable, report)
+            return 2
+
     questions: List[Dict[str, Any]] = []
     for idx, case in enumerate(cases, 1):
+        if idx > 1 and cooldown_s > 0:
+            # Give Render Starter headroom between heavy Asks (avoids 502 cascade).
+            time.sleep(cooldown_s)
+            if h.mode == "live":
+                _wait_engine_healthy(base_url=h.base_url, attempts=8, sleep_s=5.0)
         print(
             f"\n[tier-a] ({idx}/{len(cases)}) {case.get('id')} — {case.get('prompt')[:100]}",
             flush=True,
@@ -178,19 +285,31 @@ def main() -> int:
         payload = transport.get("payload") if isinstance(transport.get("payload"), dict) else {}
         if isinstance(payload, dict):
             row["degradation"] = payload.get("degradation") or {}
+        if h.mode == "live":
+            row = _apply_live_founder_gate(row, case, transport)
+        else:
+            row["live_gate_pass"] = bool(row.get("pass"))
         questions.append(row)
         orch = (payload.get("ask_orchestration") or {}) if isinstance(payload, dict) else {}
         _print_execution_trace(row, orch if isinstance(orch, dict) else {})
         print(
-            f"[tier-a] pass={row.get('pass')} timeout={row.get('timeout')} "
-            f"fallback={row.get('fallback_used')} ms={row.get('latency_ms')}",
+            f"[tier-a] pass={row.get('pass')} live_gate={row.get('live_gate_pass')} "
+            f"timeout={row.get('timeout')} fallback={row.get('fallback_used')} "
+            f"ms={row.get('latency_ms')} gate_failures={row.get('live_gate_failures')}",
             flush=True,
         )
 
     summaries = [_row_summary(q) for q in questions]
     previous = _load_previous_baseline()
     comparison = _compare(summaries, previous)
-    passed = sum(1 for s in summaries if s.get("pass"))
+    passed = sum(1 for s in summaries if s.get("live_gate_pass" if h.mode == "live" else "pass"))
+    gate_ok = passed == 8
+    comparison["recommend_full_suite"] = gate_ok
+    comparison["false_green_guard"] = (
+        "live mode rejects gateway_fallback / empty funnel / missing short-circuit"
+        if h.mode == "live"
+        else "inprocess contract gate"
+    )
     report = {
         "suite": "Tier A founder acceptance (SMOKE-01..08)",
         "timestamp": _ts(),
@@ -202,15 +321,16 @@ def main() -> int:
         "pass_rate": (passed / len(summaries)) if summaries else 0.0,
         "passed": passed,
         "total": len(summaries),
-        "tier_a_gate": "PASS" if passed == 8 else "FAIL",
+        "tier_a_gate": "PASS" if gate_ok else "FAIL",
         "questions": summaries,
         "full_questions": questions,
         "comparison": comparison,
         "artifact": str(stable),
         "stamped_artifact": str(stamped),
         "note": (
-            "Tier A only — do not run full 42-case suite until 8/8. "
-            "Do not merge IKL until Tier A is green."
+            "Tier A only — do not run full 42-case suite until live gate 8/8 "
+            "(no fallback, no timeout, funnel/stage/trace present). "
+            "Do not treat IKL A/B as valid until then."
         ),
     }
     _write_atomic(stamped, report)
