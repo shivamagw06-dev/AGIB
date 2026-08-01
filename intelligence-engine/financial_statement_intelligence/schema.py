@@ -25,6 +25,24 @@ FREEZE_LOCKS: dict[str, Any] = {
     "evidence_required_for_every_claim": True,
 }
 
+# Phase 2 is declared FROZEN as of the Institutional Accounting Exam
+# (Level 1) release-gate pass (see institutional_accounting_exam/).
+# No new features from here — only bug fixes. Documented, not-yet-built
+# refinements identified during exam review (deeper hypothesis
+# enumeration for Q7/Q12/Q21-style questions; investment-committee-memo
+# style prose for the analyst note) are intentionally deferred past this
+# freeze — see institutional_accounting_exam/PHASE2_BACKLOG.md.
+RELEASE_STATUS: dict[str, Any] = {
+    "status": "frozen",
+    "frozen_version": FSI_VERSION,
+    "frozen_reason": "Passed Institutional Accounting Exam (Level 1) release gate.",
+    "exam_overall_score": 0.9365,
+    "exam_passing_score": 0.90,
+    "exam_module_code": "IAE",
+    "policy": "no_new_features_bug_fixes_only",
+    "deferred_refinements_doc": "institutional_accounting_exam/PHASE2_BACKLOG.md",
+}
+
 
 @dataclass
 class StatementPeriod:

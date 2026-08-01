@@ -22,6 +22,21 @@ FREEZE_LOCKS: dict[str, Any] = {
     "double_entry_always_balances": True,
 }
 
+# Phase 1 is declared FROZEN as of the Institutional Accounting Exam
+# (Level 1) release-gate pass (see institutional_accounting_exam/).
+# No new features from here — only bug fixes. Phase 3 (business models,
+# unit economics, moats, industry structure) builds ON TOP of this
+# engine rather than modifying it.
+RELEASE_STATUS: dict[str, Any] = {
+    "status": "frozen",
+    "frozen_version": FF_VERSION,
+    "frozen_reason": "Passed Institutional Accounting Exam (Level 1) release gate.",
+    "exam_overall_score": 0.9365,
+    "exam_passing_score": 0.90,
+    "exam_module_code": "IAE",
+    "policy": "no_new_features_bug_fixes_only",
+}
+
 
 class AccountType(str, Enum):
     ASSET = "asset"

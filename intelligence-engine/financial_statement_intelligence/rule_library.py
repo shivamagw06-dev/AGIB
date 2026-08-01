@@ -378,13 +378,25 @@ def _make_pair_rules(pair: ComparisonPair) -> list[InterpretiveRule]:
             keys, pair.severity_b_faster,
         )
     )
-    # 5. Both down.
+    # 5. Both down — deliberately NEUTRAL/DESCRIPTIVE ONLY. Unlike the four
+    # scenarios above, "both declined" does not have a single safe polarity
+    # across all 40 pairs: for a value-pair (Revenue vs EBITDA) both falling
+    # is bad; for a cost-pair (Gross Profit vs Opex) Opex falling is GOOD.
+    # Asserting "both metrics deteriorated" here would be wrong roughly half
+    # the time — so this rule reports the fact and explicitly defers to the
+    # pair's own context instead of guessing a polarity.
     rules.append(
         InterpretiveRule(
             f"{pair.key}__both_down", pair.category, pair.module,
             lambda d: both_present(d) and pct_a(d) < 0 and pct_b(d) < 0,
-            lambda d: f"{pair.label_a} fell {_fmt_pct(pct_a(d))} and {pair.label_b} fell {_fmt_pct(pct_b(d))} — both metrics deteriorated this period.",
-            keys, "medium",
+            lambda d: (
+                f"{pair.label_a} fell {_fmt_pct(pct_a(d))} and {pair.label_b} fell {_fmt_pct(pct_b(d))} in the "
+                f"same period — whether this is favourable depends on what {pair.label_b} represents: a "
+                f"decline is a positive signal if {pair.label_b} is a cost/expense/working-capital item "
+                f"({pair.meaning_b_faster.split(' — ')[0] if '—' not in pair.meaning_b_faster else pair.meaning_b_faster}), "
+                f"and a negative signal if it represents value creation."
+            ),
+            keys, "neutral", 0.5,
         )
     )
     return rules

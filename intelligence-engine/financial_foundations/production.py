@@ -20,7 +20,7 @@ from financial_foundations.assessment import (
 from financial_foundations.chart_of_accounts import classify, list_chart
 from financial_foundations.journal import Ledger
 from financial_foundations.linkage_engine import explain_transaction_linkage, why_pat_not_equal_cash_flow
-from financial_foundations.schema import FF_VERSION, FREEZE_LOCKS, PROGRAMME
+from financial_foundations.schema import FF_VERSION, FREEZE_LOCKS, PROGRAMME, RELEASE_STATUS
 from financial_foundations.simulation import run_simulation
 from financial_foundations.statement_builder import build_all_statements
 
@@ -31,6 +31,7 @@ def health() -> dict[str, Any]:
         "programme": PROGRAMME,
         "ff_version": FF_VERSION,
         "freeze_locks": FREEZE_LOCKS,
+        "release_status": RELEASE_STATUS,
         "api_prefix": "/v1/financial-foundations",
         "modules": [
             "1 Birth of a Company", "2 Double Entry Accounting", "3 Chart of Accounts",
