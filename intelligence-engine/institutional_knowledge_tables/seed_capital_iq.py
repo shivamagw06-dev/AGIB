@@ -24,11 +24,18 @@ from typing import Any
 logger = logging.getLogger("institutional_knowledge_tables.seed_capital_iq")
 
 _EXPORTS_DIR = Path(__file__).resolve().parents[2] / "capital_iq_exports"
-_FILES = ("capiq_export_460.xlsx", "capiq_export_2035.xlsx")
+# Header lives only on the first file; 2035 + 7000 are headerless
+# continuation batches of the same Capital IQ screener export (same 40
+# columns, same column order). Combined they cover the full Indian public
+# company universe (~7,800+ unique resolved tickers).
+_FILES = ("capiq_export_460.xlsx", "capiq_export_2035.xlsx", "capiq_export_7000.xlsx")
 # Below this company count, treat the store as not-yet-seeded (real ingests
-# resolve 100% of ~2,027 rows across both files; a much lower count means a
-# fresh/wiped disk, not a partial prior run worth preserving).
-_MIN_EXPECTED_COMPANIES = 1500
+# resolve ~100% of the ~7,800+ unique companies across all three files; a
+# much lower count means a fresh/wiped disk, not a partial prior run worth
+# preserving). Threshold sits between the old 2-file corpus (~2,027) and the
+# full 3-file corpus so a deploy that only has the first two files still
+# re-seeds once the third lands.
+_MIN_EXPECTED_COMPANIES = 5000
 
 
 def _already_seeded() -> bool:
@@ -54,6 +61,10 @@ def seed_if_needed(*, force: bool = False) -> dict[str, Any]:
 
     results: list[dict[str, Any]] = []
     column_names: list[str] | None = None
+    # Shared across all three CapIQ chunks so a company that appears as
+    # BSE:500191 in file 1 and NSEI:HMT in file 3 collapses to one IKT key
+    # (preferring the NSE symbol) instead of splitting facts across two.
+    name_canonical: dict[str, str] = {}
     for filename in _FILES:
         path = _EXPORTS_DIR / filename
         if not path.exists():
@@ -65,7 +76,10 @@ def seed_if_needed(*, force: bool = False) -> dict[str, Any]:
                 df = read_sheet_rows(content, filename)
                 column_names = list(df.columns)
                 out = ingest_company_sheet(
-                    content, filename, source_label=f"capital_iq_exports/{filename}"
+                    content,
+                    filename,
+                    source_label=f"capital_iq_exports/{filename}",
+                    name_canonical=name_canonical,
                 )
             else:
                 out = ingest_company_sheet(
@@ -73,6 +87,7 @@ def seed_if_needed(*, force: bool = False) -> dict[str, Any]:
                     filename,
                     source_label=f"capital_iq_exports/{filename}",
                     column_names=column_names,
+                    name_canonical=name_canonical,
                 )
         except Exception as exc:  # pragma: no cover - defensive
             out = {"ok": False, "filename": filename, "error": str(exc)[:300]}

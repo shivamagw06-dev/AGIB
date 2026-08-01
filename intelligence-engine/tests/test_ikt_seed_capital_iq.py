@@ -3,10 +3,11 @@
 Render's filesystem is ephemeral without a persistent disk (see
 app/kip/persist.py). This seed re-derives the IKT company facts from the
 committed capital_iq_exports/*.xlsx source files on every boot, so the
-2,027-company dataset never depends on the mutable JSON-per-ticker store
+full Indian public-company dataset (~7,800+ unique tickers across the
+three CapIQ exports) never depends on the mutable JSON-per-ticker store
 surviving a redeploy. These tests validate the idempotent skip logic and
 the seed's actual effect on a fresh store, without running the full
-~90-second ingestion in the default test suite.
+multi-minute ingestion in the default test suite.
 """
 
 from __future__ import annotations
@@ -71,12 +72,16 @@ def test_missing_exports_directory_reports_error_not_a_crash():
 
 
 def test_min_expected_companies_threshold_is_realistic():
-    """The skip threshold must be well below the real ~2,027-company
-    dataset (so a genuinely completed prior seed is recognized) and well
-    above zero/a handful of unrelated test tickers (so a fresh/wiped disk
-    is not mistaken for already-seeded)."""
+    """The skip threshold must be well below the real ~7,800-company
+    3-file corpus (so a genuinely completed prior seed is recognized),
+    above the old 2-file corpus (~2,027 — so a deploy that only has the
+    first two files still re-seeds once the third lands), and well above
+    zero/a handful of unrelated test tickers (so a fresh/wiped disk is
+    not mistaken for already-seeded)."""
 
-    assert 500 <= seed_capital_iq._MIN_EXPECTED_COMPANIES <= 1900
+    assert 3000 <= seed_capital_iq._MIN_EXPECTED_COMPANIES <= 7000
+    assert len(seed_capital_iq._FILES) == 3
+    assert "capiq_export_7000.xlsx" in seed_capital_iq._FILES
 
 
 def test_already_seeded_reflects_real_store_state():

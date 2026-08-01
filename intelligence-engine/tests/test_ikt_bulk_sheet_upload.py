@@ -26,7 +26,7 @@ def _xlsx_bytes(df: "pd.DataFrame") -> bytes:
 
 
 def setup_function():
-    for t in ("HDFCBANK", "IDBI", "RELIANCE", "ABB", "BSE500191", "TOTALLYFAKEXYZ"):
+    for t in ("HDFCBANK", "IDBI", "RELIANCE", "ABB", "BSE500191", "HMT", "BSEPRESSMN", "AAKAAR", "TOTALLYFAKEXYZ"):
         delete_company(t)
 
 
@@ -354,6 +354,67 @@ def test_short_ticker_word_does_not_match_as_raw_substring_of_unrelated_name():
     assert ticker2 != "ACC"
     assert ticker2 == "BSE507815"
     assert method2 == "bse_code_fallback"
+
+
+def test_nsei_prefixed_sme_ticker_falls_back_to_bare_nse_symbol():
+    """CapIQ marks many SME/small-cap NSE listings as 'NSEI:<SYMBOL>' that
+    are not in the (Nifty-anchored) trading_universe. The source-supplied
+    symbol itself must become the canonical ticker — never dropped, never
+    invented under a different key."""
+    from institutional_knowledge_tables.bulk_sheet import resolve_ticker
+
+    ticker, method = resolve_ticker("NSEI:AAKAAR", "Aakaar Medical Technologies Ltd.")
+    assert ticker == "AAKAAR"
+    assert method == "nse_ticker_fallback"
+
+    # 'NSE:' (without the trailing I) must also strip and fall back the same way
+    # when the symbol isn't in the universe.
+    ticker2, method2 = resolve_ticker("NSE:3RDROCK", "3rd Rock Multimedia Limited")
+    assert ticker2 == "3RDROCK"
+    assert method2 == "nse_ticker_fallback"
+
+
+def test_bse_alphabetic_symbol_falls_back_like_numeric_code():
+    """A few CapIQ BSE rows carry an alphabetic symbol ('BSE:PRESSMN')
+    rather than a 6-digit code. Same contract as the numeric fallback:
+    use the source-supplied identifier, prefixed with BSE, never invent."""
+    from institutional_knowledge_tables.bulk_sheet import resolve_ticker
+
+    ticker, method = resolve_ticker("BSE:PRESSMN", "Pressman Advertising Limited")
+    assert ticker == "BSEPRESSMN"
+    assert method == "bse_code_fallback"
+
+
+def test_name_canonical_dedup_prefers_nse_over_bse_key():
+    """The same legal company can appear as BSE:500191 in one CapIQ chunk
+    and NSEI:HMT in a later chunk. Facts must collapse onto one IKT key,
+    preferring the bare NSE symbol, and the orphan BSE key must be removed
+    so the company_router can't keep answering under the old identifier."""
+    from institutional_knowledge_tables.bulk_sheet import ingest_company_sheet
+    from institutional_knowledge_tables.store import get_table, list_companies
+
+    name_canonical: dict = {}
+    df_bse = pd.DataFrame(
+        [{"Ticker": "BSE:500191", "Company Name": "HMT Limited", "Primary Sector": "Industrials"}]
+    )
+    out1 = ingest_company_sheet(_xlsx_bytes(df_bse), "bse_chunk.xlsx", name_canonical=name_canonical)
+    assert out1["resolved_count"] == 1
+    assert out1["resolved_sample"][0]["ticker"] == "BSE500191"
+
+    df_nse = pd.DataFrame(
+        [{"Ticker": "NSEI:HMT", "Company Name": "HMT Limited", "Primary Sector": "Industrials"}]
+    )
+    out2 = ingest_company_sheet(_xlsx_bytes(df_nse), "nse_chunk.xlsx", name_canonical=name_canonical)
+    assert out2["resolved_count"] == 1
+    assert out2["resolved_sample"][0]["ticker"] == "HMT"
+    assert out2["superseded_count"] == 1
+
+    assert "HMT" in list_companies()
+    assert "BSE500191" not in list_companies()
+    master = get_table("HMT", "company_master")
+    assert master["row"]["company_name"]["value"] == "HMT Limited"
+    assert master["row"]["ticker"]["value"] == "HMT"
+    delete_company("HMT")
 
 
 def test_fuzzy_word_subset_fallback_removed_no_wrong_company_binding():

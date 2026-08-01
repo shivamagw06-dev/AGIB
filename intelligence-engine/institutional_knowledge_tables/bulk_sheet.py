@@ -218,7 +218,9 @@ _LEGAL_SUFFIXES = re.compile(
     re.I,
 )
 _LEADING_ARTICLE = re.compile(r"^the\s+", re.I)
-_EXCHANGE_PREFIX = re.compile(r"^(nse|bse)\s*:\s*", re.I)
+# CapIQ uses both "NSE:" and "NSEI:" (National Stock Exchange of India)
+# as exchange prefixes on ticker columns — treat them equivalently.
+_EXCHANGE_PREFIX = re.compile(r"^(nsei?|bse)\s*:\s*", re.I)
 
 
 _JOINER_WORD = re.compile(r"\band\b", re.I)
@@ -260,28 +262,37 @@ def _normalized_universe_index() -> list[tuple[str, str, str]]:
     return [(normalize_company_name(r["name"]), r["symbol"], r["name"]) for r in load_rows()]
 
 
-_BSE_CODE_RE = re.compile(r"^bse\s*:\s*(\d{5,6})$", re.I)
+# CapIQ BSE identifiers are usually numeric ("BSE:500191") but a few
+# older/SME names carry an alphabetic BSE symbol ("BSE:PRESSMN"). Both
+# are explicit source-supplied identifiers — accept either.
+_BSE_CODE_RE = re.compile(r"^bse\s*:\s*([A-Z0-9]{1,15})$", re.I)
+_NSE_CODE_RE = re.compile(r"^nsei?\s*:\s*([A-Z0-9.&-]{1,20})$", re.I)
 
 
 def resolve_ticker(ticker_raw: Any, name_raw: Any) -> tuple[str | None, str]:
     """Resolve a row to a real ticker. Never invents one.
 
     Tries the NSE-anchored uploaded universe (trading_universe) first. If a
-    company has no NSE listing (BSE-only — common for smaller/legacy
-    companies), and the source row itself carries an explicit BSE numeric
-    code (e.g. "BSE:500191"), that code becomes the canonical ticker
-    ("BSE500191"). This is not inventing an identifier: it is the
-    identifier the uploaded source data itself provides, distinct from a
-    chat question where no ticker was ever supplied by the user.
+    company is not in that universe, and the source row itself carries an
+    explicit exchange-qualified identifier — BSE numeric/alpha code
+    ("BSE:500191", "BSE:PRESSMN") or NSEI/NSE ticker ("NSEI:AAKAAR") —
+    that identifier becomes the canonical ticker. This is not inventing
+    an identifier: it is the identifier the uploaded source data itself
+    provides, distinct from a chat question where no ticker was ever
+    supplied by the user.
     """
     from trading_universe.loader import get_symbol
 
     bse_code = None
+    nse_symbol = None
     if not _is_blank(ticker_raw):
         raw = str(ticker_raw).strip()
-        m = _BSE_CODE_RE.match(raw)
-        if m:
-            bse_code = m.group(1)
+        m_bse = _BSE_CODE_RE.match(raw)
+        if m_bse:
+            bse_code = m_bse.group(1).upper()
+        m_nse = _NSE_CODE_RE.match(raw)
+        if m_nse:
+            nse_symbol = m_nse.group(1).upper().replace(".", "").replace("&", "")
         t = _EXCHANGE_PREFIX.sub("", raw).upper()
         t = t.replace(".NS", "").replace(".BO", "")
         if get_symbol(t):
@@ -298,8 +309,8 @@ def resolve_ticker(ticker_raw: Any, name_raw: Any) -> tuple[str | None, str]:
                 # often two share classes (equity + DVR) of the same legal
                 # entity. Guessing "top1" would silently bind the row to
                 # whichever happens to sort first; safer to fall through to
-                # the BSE-code fallback (a distinct, explicit identifier) or
-                # unresolved than to invent a pick between two real tickers.
+                # the exchange-code fallback (a distinct, explicit identifier)
+                # or unresolved than to invent a pick between two real tickers.
                 pass
             # NOTE: a word-subset/substring "fuzzy" fallback was tried here
             # and removed. Audited against the full ~2,027-row Capital IQ
@@ -310,14 +321,22 @@ def resolve_ticker(ticker_raw: Any, name_raw: Any) -> tuple[str | None, str]:
             # actually "Shree Cement Limited"). A >60% wrong-match rate is
             # incompatible with this store's zero-substitution contract, so
             # only exact-ticker, exact-normalized-name, and explicit
-            # BSE-code identifiers are trusted. Unmatched names fall through
-            # to bse_code fallback below, or unresolved — never a guess.
+            # exchange-qualified identifiers are trusted. Unmatched names
+            # fall through to the exchange-code fallbacks below, or
+            # unresolved — never a guess.
     if bse_code:
-        # No NSE listing found for this company — fall back to the BSE code
-        # the source row itself supplied, rather than dropping a real,
+        # No universe listing found for this company — fall back to the BSE
+        # code the source row itself supplied, rather than dropping a real,
         # named, actively-traded company purely because it isn't in the
         # NSE-anchored universe.
         return f"BSE{bse_code}", "bse_code_fallback"
+    if nse_symbol:
+        # CapIQ marks many SME/small-cap NSE listings as "NSEI:<SYMBOL>"
+        # that are not in the (Nifty-anchored) trading_universe upload.
+        # The symbol itself is the real NSE ticker the source provided —
+        # keep it as-is (no "NSE" prefix; bare NSE tickers are the
+        # platform's existing convention for universe-listed names).
+        return nse_symbol, "nse_ticker_fallback"
     return None, "unresolved"
 
 
@@ -361,6 +380,24 @@ def _detect_columns(columns: list[Any]) -> dict[str, Any]:
     }
 
 
+def _prefer_canonical_ticker(existing: str, candidate: str) -> str:
+    """When the same legal company name resolves to two tickers across
+    CapIQ chunks (e.g. HMT Limited as both BSE:500191 and NSEI:HMT), keep
+    one. Prefer a real NSE/universe ticker over a synthetic BSE* key —
+    bare NSE symbols are the platform's existing convention.
+    """
+    if existing == candidate:
+        return existing
+    existing_bse = existing.startswith("BSE")
+    candidate_bse = candidate.startswith("BSE")
+    if existing_bse and not candidate_bse:
+        return candidate
+    if candidate_bse and not existing_bse:
+        return existing
+    # Same class — keep the first one we saw (stable, never flip-flops).
+    return existing
+
+
 def ingest_company_sheet(
     content_bytes: bytes,
     filename: str,
@@ -369,6 +406,7 @@ def ingest_company_sheet(
     dry_run: bool = False,
     source_label: str | None = None,
     column_names: list[str] | None = None,
+    name_canonical: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Parse a company-info spreadsheet and write recognized columns as
     versioned IKT facts. Rows whose company can't be resolved against the
@@ -377,6 +415,12 @@ def ingest_company_sheet(
     `column_names`: pass the header list from a sibling file when this file
     is a headerless continuation batch of the same export (same column
     order, header only on the first chunk).
+
+    `name_canonical`: optional shared `{normalized_company_name: ticker}`
+    map across multi-file seeds. When the same legal name appears under
+    two exchange identifiers (BSE code vs NSEI symbol), facts are written
+    to a single preferred ticker instead of splitting one company across
+    two IKT keys. The seed owns and threads this dict across files.
     """
     try:
         df = read_sheet_rows(content_bytes, filename, sheet_name=sheet_name, column_names=column_names)
@@ -405,6 +449,9 @@ def ingest_company_sheet(
     unresolved: list[dict[str, Any]] = []
     fields_written_total = 0
     tables_touched: set[str] = set()
+    if name_canonical is None:
+        name_canonical = {}
+    superseded: list[dict[str, str]] = []
 
     for idx, row in df.iterrows():
         ticker_raw = row.get(ticker_col) if ticker_col is not None else None
@@ -420,6 +467,34 @@ def ingest_company_sheet(
                 }
             )
             continue
+
+        # Dedup by legal name across exchange identifiers.
+        norm_name = normalize_company_name(name_raw) if not _is_blank(name_raw) else ""
+        if norm_name:
+            existing = name_canonical.get(norm_name)
+            if existing:
+                preferred = _prefer_canonical_ticker(existing, ticker)
+                if preferred != ticker:
+                    method = "name_dedup_reuse"
+                    ticker = preferred
+                elif preferred != existing:
+                    # Upgrading BSE* → NSE: drop the orphan BSE key so the
+                    # company_router name index can't keep pointing at it.
+                    superseded.append({"from": existing, "to": preferred, "name": norm_name})
+                    if not dry_run:
+                        try:
+                            from institutional_knowledge_tables.store import delete_company
+
+                            delete_company(existing)
+                        except Exception:
+                            pass
+                    name_canonical[norm_name] = preferred
+                    ticker = preferred
+                    method = f"{method}+name_dedup_upgrade"
+                else:
+                    name_canonical[norm_name] = ticker
+            else:
+                name_canonical[norm_name] = ticker
 
         period_val = row.get(period_col) if period_col is not None else None
         row_period = str(period_val) if not _is_blank(period_val) else None
@@ -465,6 +540,8 @@ def ingest_company_sheet(
         "unresolved_count": len(unresolved),
         "unresolved_rows": unresolved[:50],
         "resolved_sample": resolved[:20],
+        "superseded_count": len(superseded),
+        "superseded_sample": superseded[:20],
         "mapped_columns": {header_by_norm[n]: f"{t}.{f}" for n, (t, f) in mapped.items()},
         "unmapped_columns": unmapped,
         "tables_touched": sorted(tables_touched),

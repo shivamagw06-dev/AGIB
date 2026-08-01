@@ -145,7 +145,11 @@ NSE_LISTED_20: List[Dict[str, Any]] = [
 # answered by app/ui/company_router.py from institutional_knowledge_tables.
 # ---------------------------------------------------------------------------
 BSE_ONLY_20: List[Dict[str, Any]] = [
-    {"id": "BSE-01", "company": "HMT Limited", "ticker": "BSE500191", "prompt": "What is HMT Limited's business model?"},
+    # HMT Limited was previously BSE-only (BSE:500191) but CapIQ's fuller
+    # 7000-row export also carries NSEI:HMT — after name-dedup it canonicalizes
+    # to the NSE ticker, so it is no longer a BSE-only fixture. Replaced with
+    # a true BSE-only name that has no NSEI twin.
+    {"id": "BSE-01", "company": "Utique Enterprises Limited", "ticker": "BSE500014", "prompt": "What is Utique Enterprises Limited's business model?"},
     {"id": "BSE-02", "company": "The Bombay Dyeing and Manufacturing Company Limited", "ticker": "BSE500020", "prompt": "Explain Bombay Dyeing and Manufacturing Company Limited."},
     {"id": "BSE-03", "company": "Goodricke Group Limited", "ticker": "BSE500166", "prompt": "What is Goodricke Group Limited's business model?"},
     {"id": "BSE-04", "company": "I G Petrochemicals Limited", "ticker": "BSE500199", "prompt": "Explain I G Petrochemicals Limited."},
