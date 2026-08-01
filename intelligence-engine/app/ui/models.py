@@ -169,6 +169,8 @@ class SearchView(BaseModel):
     live_evidence: dict[str, Any] = Field(default_factory=dict)
     # CID v1.0 — Company Intelligence Dossier (permanent institutional memory)
     company_dossier: dict[str, Any] = Field(default_factory=dict)
+    # IKL — Institutional Knowledge Intelligence Layer (memory before raw documents)
+    institutional_knowledge: dict[str, Any] = Field(default_factory=dict)
     # DVC V1 — Data Validation & Consensus (Market Data platform layer; additive)
     data_validation: dict[str, Any] = Field(default_factory=dict)
     # ECP V1 — Evidence Completion Pipeline (orchestration; additive)
