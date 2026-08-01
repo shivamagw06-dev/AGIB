@@ -19,7 +19,7 @@ from financial_statement_intelligence.narrative_generator import generate_narrat
 from financial_statement_intelligence.ratio_engine import compute_ratios, growth_metrics, ratio_trends
 from financial_statement_intelligence.red_flag_detector import detect_red_flags
 from financial_statement_intelligence.rule_library import rule_library
-from financial_statement_intelligence.schema import FSI_VERSION, FREEZE_LOCKS, PROGRAMME, FinancialSeries
+from financial_statement_intelligence.schema import FSI_VERSION, FREEZE_LOCKS, PROGRAMME, RELEASE_STATUS, FinancialSeries
 from financial_statement_intelligence.statement_intelligence import (
     interpret_series,
     overall_direction,
@@ -33,6 +33,7 @@ def health() -> dict[str, Any]:
         "programme": PROGRAMME,
         "fsi_version": FSI_VERSION,
         "freeze_locks": FREEZE_LOCKS,
+        "release_status": RELEASE_STATUS,
         "api_prefix": "/v1/financial-statement-intelligence",
         "modules": [
             "1 Income Statement Intelligence", "2 Balance Sheet Intelligence", "3 Cash Flow Intelligence",
