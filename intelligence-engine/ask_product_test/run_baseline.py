@@ -225,7 +225,11 @@ def main() -> int:
             pass
         return report
 
+    cooldown_s = float(os.environ.get("ASK_TEST_CASE_COOLDOWN_SEC", "10") or "10")
     for idx, case in enumerate(cases, 1):
+        if idx > 1 and cooldown_s > 0 and h.mode == "live":
+            # Avoid Render Starter 502 cascades between heavy Ask cases.
+            time.sleep(cooldown_s)
         isolate = str(case.get("id") or "").startswith("CTX-")
         print(
             f"\n[baseline] ({idx}/{len(cases)}) {case.get('id')} — {case.get('prompt')[:100]}",
