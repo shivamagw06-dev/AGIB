@@ -8851,34 +8851,43 @@ async def ui_search(
     ticker: str | None = Query(default=None),
     body: dict[str, Any] | None = Body(default=None),
     x_ask_trace_id: str | None = Header(default=None, alias="X-Ask-Trace-Id"),
+    x_request_id: str | None = Header(default=None, alias="X-Request-Id"),
 ):
     """Run sync UiService.search off the event loop so health checks stay responsive.
 
     Prefer a degraded SearchView over research_desk_unavailable whenever possible.
-    Propagates gateway ask_trace_id (body / X-Ask-Trace-Id) for end-to-end tracing.
+    Propagates gateway request_id / ask_trace_id (body / X-Ask-Trace-Id / X-Request-Id).
     """
     from functools import partial
 
     from starlette.concurrency import run_in_threadpool
 
+    from app.ui.ask_pipeline_trace import normalize_request_id
+
     ask_trace_id = None
     if isinstance(body, dict):
-        ask_trace_id = body.get("ask_trace_id") or body.get("askTraceId")
+        ask_trace_id = (
+            body.get("request_id")
+            or body.get("ask_trace_id")
+            or body.get("askTraceId")
+        )
         if not ticker and body.get("ticker"):
             ticker = str(body.get("ticker"))
     ask_trace_id = (str(ask_trace_id).strip() if ask_trace_id else None) or (
-        str(x_ask_trace_id).strip() if x_ask_trace_id else None
-    )
+        str(x_request_id).strip() if x_request_id else None
+    ) or (str(x_ask_trace_id).strip() if x_ask_trace_id else None)
+    ask_trace_id = normalize_request_id(ask_trace_id)
 
     try:
         view = await run_in_threadpool(
             partial(_ui.search, question, ticker=ticker, ask_trace_id=ask_trace_id)
         )
         payload = view.model_dump(mode="json")
-        # Echo trace id for gateway / clients even if pack already has it.
+        # Echo request_id / ask_trace_id for gateway / clients.
         orch = payload.get("ask_orchestration") if isinstance(payload, dict) else None
-        if isinstance(orch, dict) and ask_trace_id and not orch.get("ask_trace_id"):
-            orch["ask_trace_id"] = ask_trace_id
+        if isinstance(orch, dict):
+            orch.setdefault("ask_trace_id", ask_trace_id)
+            orch.setdefault("request_id", ask_trace_id)
         return payload
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -8887,7 +8896,7 @@ async def ui_search(
         import logging
 
         logging.getLogger("agi.ui.search").exception(
-            "ui_search_unhandled q=%r", str(question)[:120]
+            "ui_search_unhandled q=%r request_id=%s", str(question)[:120], ask_trace_id
         )
         raise HTTPException(
             status_code=503,
@@ -8896,6 +8905,7 @@ async def ui_search(
                 "retryable": True,
                 "message": str(exc)[:240],
                 "ask_trace_id": ask_trace_id,
+                "request_id": ask_trace_id,
             },
         ) from exc
 
@@ -8906,18 +8916,61 @@ async def ui_ask_trace(ask_trace_id: str):
 
     Used by the Node gateway on engine timeout so last_completed_stage is real.
     """
-    from app.ui.ask_observability_store import get_partial_trace, recent_traces
+    from app.ui.ask_observability_store import (
+        get_partial_trace,
+        get_request_debug,
+        recent_traces,
+    )
+    from app.ui.ask_pipeline_trace import normalize_request_id
 
-    tid = (ask_trace_id or "").strip()
+    tid = normalize_request_id((ask_trace_id or "").strip() or None)
     if not tid:
         raise HTTPException(status_code=400, detail="ask_trace_id required")
-    partial = get_partial_trace(tid)
+    partial = get_partial_trace(tid) or get_partial_trace(ask_trace_id)
     if partial:
-        return {"ok": True, "partial": True, "trace": partial}
+        return {"ok": True, "partial": True, "trace": partial, "request_id": tid}
+    debug = get_request_debug(tid) or get_request_debug(ask_trace_id)
+    if debug:
+        return {
+            "ok": True,
+            "partial": bool(debug.get("partial")),
+            "trace": debug,
+            "request_id": tid,
+            "pipeline": True,
+        }
     for row in recent_traces(limit=50):
-        if str(row.get("ask_trace_id") or "") == tid:
-            return {"ok": True, "partial": False, "trace": row}
-    return {"ok": False, "partial": False, "trace": None, "ask_trace_id": tid}
+        row_tid = str(row.get("ask_trace_id") or "")
+        if row_tid == tid or row_tid == str(ask_trace_id or ""):
+            return {"ok": True, "partial": False, "trace": row, "request_id": tid}
+    return {
+        "ok": False,
+        "partial": False,
+        "trace": None,
+        "ask_trace_id": tid,
+        "request_id": tid,
+    }
+
+
+@router.get("/debug/request/{request_id}")
+async def debug_request(request_id: str):
+    """Phase-1 Ask pipeline debug — intent, entities, sources, evidence, LLM, fallback.
+
+    Debugging only. Does not change Ask behavior.
+    """
+    from app.ui.ask_observability_store import get_request_debug
+    from app.ui.ask_pipeline_trace import normalize_request_id
+
+    rid = (request_id or "").strip()
+    if not rid:
+        raise HTTPException(status_code=400, detail="request_id required")
+    # Accept both ask_* and legacy ASK-* without forcing a new id when empty-normalized.
+    looked = get_request_debug(rid) or get_request_debug(normalize_request_id(rid))
+    if not looked:
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "request_trace_not_found", "request_id": rid},
+        )
+    return looked
 
 
 @router.get("/resilience/providers")

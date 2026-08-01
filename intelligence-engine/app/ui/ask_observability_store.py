@@ -11,17 +11,21 @@ from typing import Any, Deque, Dict, List, Optional
 _LOCK = Lock()
 _TRACES: Deque[dict[str, Any]] = deque(maxlen=200)
 _PARTIAL: Dict[str, dict[str, Any]] = {}
+# Phase-1 full pipeline debug payloads keyed by request_id (ask_* / legacy ASK-*).
+_PIPELINE: Dict[str, dict[str, Any]] = {}
+_PIPELINE_ORDER: Deque[str] = deque(maxlen=200)
 
 
 def record_partial_trace(row: dict[str, Any]) -> None:
     """In-flight checkpoint — survives hangs until final record_trace."""
     if not isinstance(row, dict) or not row:
         return
-    tid = row.get("ask_trace_id")
+    tid = row.get("ask_trace_id") or row.get("request_id")
     if not tid:
         return
     slim = {
         "ask_trace_id": tid,
+        "request_id": row.get("request_id") or tid,
         "ts": row.get("ts"),
         "partial": True,
         "completed": bool(row.get("completed")),
@@ -39,13 +43,111 @@ def record_partial_trace(row: dict[str, Any]) -> None:
         "execution_trace": row.get("execution_trace"),
     }
     with _LOCK:
-        _PARTIAL[str(tid)] = slim
+        for key in _pipeline_keys(str(tid)):
+            _PARTIAL[key] = slim
 
 
 def get_partial_trace(ask_trace_id: str) -> Optional[dict[str, Any]]:
     with _LOCK:
-        row = _PARTIAL.get(str(ask_trace_id or ""))
-        return deepcopy(row) if row else None
+        for key in _pipeline_keys(str(ask_trace_id or "")):
+            row = _PARTIAL.get(key)
+            if row:
+                return deepcopy(row)
+        return None
+
+
+def _pipeline_keys(request_id: str) -> List[str]:
+    """Lookup variants so ask_* and legacy ASK-* resolve to the same bag."""
+    rid = str(request_id or "").strip()
+    keys = [rid]
+    if rid.lower().startswith("ask_"):
+        parts = rid.split("_")
+        if len(parts) >= 3:
+            keys.append(f"ASK-{parts[1]}-{''.join(parts[2:]).upper()}")
+    if rid.upper().startswith("ASK-"):
+        try:
+            from app.ui.ask_pipeline_trace import normalize_request_id
+
+            keys.append(normalize_request_id(rid))
+        except Exception:
+            pass
+    # de-dupe preserve order
+    out: List[str] = []
+    for k in keys:
+        if k and k not in out:
+            out.append(k)
+    return out
+
+
+def record_pipeline_trace(row: dict[str, Any], *, final: bool = False) -> None:
+    """Persist Phase-1 pipeline debug payload for GET /v1/debug/request/{id}."""
+    if not isinstance(row, dict) or not row:
+        return
+    rid = str(row.get("request_id") or row.get("ask_trace_id") or "").strip()
+    if not rid:
+        return
+    slim = deepcopy(row)
+    slim.pop("_trace_obj", None)
+    slim["partial"] = not final and slim.get("status") == "in_progress"
+    slim["ts"] = slim.get("ts") or slim.get("timestamp")
+    with _LOCK:
+        for key in _pipeline_keys(rid):
+            _PIPELINE[key] = slim
+        if rid not in _PIPELINE_ORDER:
+            _PIPELINE_ORDER.appendleft(rid)
+        # Bound memory
+        while len(_PIPELINE_ORDER) > 200:
+            old = _PIPELINE_ORDER.pop()
+            for key in _pipeline_keys(old):
+                _PIPELINE.pop(key, None)
+
+
+def get_pipeline_trace(request_id: str) -> Optional[dict[str, Any]]:
+    with _LOCK:
+        for key in _pipeline_keys(str(request_id or "")):
+            row = _PIPELINE.get(key)
+            if row:
+                return deepcopy(row)
+        return None
+
+
+def get_request_debug(request_id: str) -> Optional[dict[str, Any]]:
+    """Unified debug view: pipeline trace preferred, else partial/final orch trace."""
+    pipe = get_pipeline_trace(request_id)
+    if pipe:
+        return pipe
+    partial = get_partial_trace(request_id)
+    if partial:
+        return {
+            "request_id": request_id,
+            "ask_trace_id": partial.get("ask_trace_id") or request_id,
+            "status": "partial" if partial.get("partial") else "unknown",
+            "fallback_used": bool(partial.get("fallback")),
+            "total_latency_ms": partial.get("elapsed_ms"),
+            "entities": [partial.get("entity")] if partial.get("entity") else [],
+            "evidence_count": (partial.get("evidence") or {}).get("retrieved"),
+            "latency_breakdown": partial.get("latency") or {},
+            "events": [],
+            "note": "pipeline trace not found; returning partial orchestration checkpoint",
+            "partial": True,
+        }
+    with _LOCK:
+        for t in _TRACES:
+            tid = str(t.get("ask_trace_id") or "")
+            if tid == str(request_id or "") or tid in _pipeline_keys(str(request_id or "")):
+                return {
+                    "request_id": request_id,
+                    "ask_trace_id": tid,
+                    "status": "success" if t.get("completed") else "unknown",
+                    "fallback_used": bool(t.get("fallback")),
+                    "total_latency_ms": t.get("elapsed_ms"),
+                    "entities": [t.get("entity")] if t.get("entity") else [],
+                    "evidence_count": (t.get("evidence") or {}).get("retrieved"),
+                    "latency_breakdown": t.get("latency") or {},
+                    "events": [],
+                    "note": "pipeline trace not found; returning completed orch summary",
+                }
+    return None
 
 
 def record_trace(row: dict[str, Any]) -> None:
@@ -256,3 +358,6 @@ def kpi_dashboard() -> Dict[str, Any]:
 def reset_for_tests() -> None:
     with _LOCK:
         _TRACES.clear()
+        _PARTIAL.clear()
+        _PIPELINE.clear()
+        _PIPELINE_ORDER.clear()
