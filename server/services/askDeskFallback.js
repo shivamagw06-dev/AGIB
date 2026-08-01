@@ -121,7 +121,18 @@ export async function buildAskDeskFallback(question) {
     ask_orchestration: {
       engine_reached: false,
       fallback: true,
+      fallback_used: true,
       reason: 'node_desk_fallback',
+      diagnostics_visibility: 'internal',
+      evidence: {
+        retrieved: 0,
+        ranked: 0,
+        passed: 0,
+        referenced: 0,
+        utilization: 0,
+        efficiency: 0,
+        precision: 0,
+      },
     },
     answer: {
       executive_summary: directAnswer,

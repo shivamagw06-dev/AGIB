@@ -16,6 +16,7 @@ import {
 } from '@/lib/intelligenceApi';
 import { Button } from '@/components/ui/button';
 import AgentMapPanel from '@/pages/admin/AgentMapPanel';
+import AskObservabilityPanel from '@/pages/admin/AskObservabilityPanel';
 import '@/office/theme.css';
 
 function statusColour(status) {
@@ -377,6 +378,9 @@ export default function MissionControl() {
             <Stat label="Branch" value={deploy.current_branch || '—'} />
           </div>
         </section>
+
+        {/* Ask Evidence Intelligence — internal funnel / latency / traces */}
+        <AskObservabilityPanel />
 
         {continuousGatherLearn ? (
           <section className="space-y-3">

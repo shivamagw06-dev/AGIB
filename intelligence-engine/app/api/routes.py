@@ -9334,6 +9334,14 @@ async def mission_control_dashboard():
     return dashboard()
 
 
+@router.get("/mission-control/ask-observability")
+async def mission_control_ask_observability(limit: int = 25):
+    """Ask evidence funnel + latency KPIs (internal diagnostics; not client-facing)."""
+    from mission_control.production import ask_observability
+
+    return ask_observability(limit=max(1, min(int(limit or 25), 100)))
+
+
 @router.post("/mission-control/rebuild")
 async def mission_control_rebuild(payload: dict[str, Any] = Body(default={})):
     """Admin: queue worker snapshot rebuild. Returns immediately. Never builds inline."""

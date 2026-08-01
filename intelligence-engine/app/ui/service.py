@@ -9,7 +9,12 @@ from app.core.config import get_settings
 from app.kip.models import ClientSearchRequest
 from app.ui.flags import UiFlags
 from app.kip.extractors import KNOWN_TICKERS, TICKER_STOPWORDS
-from app.ui.ask_orchestration_trace import StageTimer, finalize_orchestration
+from app.ui.ask_orchestration_trace import (
+    StageTimer,
+    finalize_orchestration,
+    format_trace_summary,
+    new_ask_trace_id,
+)
 from app.ui.ticker_guard import (
     accept_detected_ticker,
     alias_ticker_from_question,
@@ -762,10 +767,13 @@ class UiService:
                     "detail": str(exc)[:200],
                 },
                 ask_orchestration={
-                    "version": "ask-orchestration-trace-1",
+                    "version": "ask-orchestration-trace-2",
+                    "ask_trace_id": new_ask_trace_id(),
                     "fallback": True,
+                    "fallback_used": True,
                     "engine_reached": False,
                     "reason": type(exc).__name__,
+                    "diagnostics_visibility": "internal",
                     "trace_summary": f"Fallback: Yes | Exception: {type(exc).__name__}",
                 },
                 answer={
@@ -794,6 +802,7 @@ class UiService:
         irp_pkg = None
         irp_dump: dict[str, Any] = {}
         stage_timer = StageTimer()
+        ask_trace_id = new_ask_trace_id()
 
         knowledge_bundle: dict[str, Any] = {}
 
@@ -813,6 +822,7 @@ class UiService:
         ere_ticker: str | None = None
         alias_hit: str | None = None
         ask_orchestration: dict[str, Any] = {
+            "ask_trace_id": ask_trace_id,
             "ticker_source": "user" if detected_ticker else None,
             "ticker_rejects": [],
             "ere_research_blocked": False,
@@ -2012,6 +2022,7 @@ class UiService:
                 {"type": "model_evidence", "items": evidence.get("engine_evidence") or []},
             ]
         )
+        stage_timer.mark("ranking")
 
         related = []
         related_themes: list[str] = []
@@ -3226,6 +3237,16 @@ class UiService:
             str(v).endswith("timeout_cached") or v == "unavailable"
             for v in degradation.values()
         ) else "ok"
+
+        stage_timer.mark("serialization")
+        # Refresh latency block with serialization after funnel finalize.
+        if isinstance(ask_orchestration, dict):
+            try:
+                ask_orchestration["latency"] = stage_timer.as_latency_block()
+                ask_orchestration["latency_ms"] = stage_timer.as_dict()
+                ask_orchestration["trace_summary"] = format_trace_summary(ask_orchestration)
+            except Exception:
+                pass
 
         return SearchView(
             meta=UiMeta(

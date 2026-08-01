@@ -940,6 +940,8 @@ export const runContinuousGatherLearn = (body = {}) =>
   });
 export const getMissionControlQualityGates = () =>
   intelligenceFetch('/mission-control/quality-gates', { timeoutMs: 15_000 });
+export const getMissionControlAskObservability = (limit = 25) =>
+  intelligenceFetch(`/mission-control/ask-observability?limit=${limit}`, { timeoutMs: 15_000 });
 export const getMissionControlReport = () =>
   intelligenceFetch('/mission-control/report', { timeoutMs: 30_000 });
 export const rebuildMissionControlSnapshot = (body = {}) =>

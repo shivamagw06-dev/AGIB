@@ -5,8 +5,16 @@ Internal telemetry for founder debugging. Not a user-facing surface.
 
 from __future__ import annotations
 
+import secrets
 import time
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
+
+
+def new_ask_trace_id() -> str:
+    """Stable per-request id: ASK-YYYYMMDD-<hex>."""
+    day = datetime.now(timezone.utc).strftime("%Y%m%d")
+    return f"ASK-{day}-{secrets.token_hex(3).upper()}"
 
 
 class StageTimer:
@@ -31,6 +39,26 @@ class StageTimer:
         out = dict(self.stages_ms)
         out["total"] = self.total_ms()
         return out
+
+    def as_latency_block(self) -> Dict[str, int]:
+        """Spec-shaped latency keys for diagnostics / Mission Control."""
+        s = self.stages_ms
+        return {
+            "entity_ms": int(s.get("entity_resolution") or 0),
+            "retrieval_ms": int(s.get("retrieval") or 0),
+            "ranking_ms": int(s.get("ranking") or 0),
+            "reasoning_ms": int(s.get("reasoning") or 0),
+            "assembly_ms": int(
+                s.get("response_assembly")
+                or s.get("executive_assembly")
+                or 0
+            ),
+            "serialization_ms": int(s.get("serialization") or 0),
+            "http_ms": int(s.get("http") or 0),
+            "total_ms": self.total_ms(),
+            # Keep raw stage map for debugging
+            "stages": dict(s),
+        }
 
 
 def _len_list(obj: Any) -> int:
@@ -213,17 +241,26 @@ def entity_confidence_block(
     needs_clarification = bool(ere.get("needs_clarification") or ere.get("research_blocked"))
     low_confidence = bool(detected_ticker) and conf_f < 0.7
 
+    name = None
+    if isinstance(ere.get("entity"), str):
+        name = ere.get("entity")
+    elif isinstance(canon, dict):
+        name = canon.get("canonical_name") or canon.get("name")
+    if not name and detected_ticker:
+        name = detected_ticker
+
     return {
+        "name": name,
         "detected": detected_ticker,
-        "entity_name": ere.get("entity") if isinstance(ere.get("entity"), str) else (
-            (canon or {}).get("canonical_name") if isinstance(canon, dict) else None
-        ),
+        "entity_name": name,
         "entity_type": ere.get("entity_type"),
         "aliases_matched": aliases[:8],
         "confidence": round(conf_f, 3),
         "source": ticker_source,
-        "needs_clarification": needs_clarification,
+        "resolution_source": ticker_source,
+        "needs_clarification": needs_clarification or low_confidence,
         "low_confidence": low_confidence,
+        "silently_bound": bool(low_confidence and ticker_source not in {"user", "alias", "alias_override", "alias_final", "ere"}),
         "question_excerpt": (question or "")[:160],
     }
 
@@ -289,18 +326,23 @@ def build_funnel(
     ranked = min(ranked, retrieved) if retrieved else ranked
     passed = min(passed, ranked) if ranked else passed
     utilization = (referenced / passed) if passed else 0.0
+    efficiency = (referenced / retrieved) if retrieved else 0.0
+    precision = (referenced / ranked) if ranked else 0.0
     return {
         "retrieved": retrieved,
         "ranked": ranked,
-        "passed_to_ice": passed,
+        "passed": passed,
+        "passed_to_ice": passed,  # alias for older consumers
         "referenced": referenced,
         "utilization": round(min(utilization, 1.0), 3),
+        "efficiency": round(min(efficiency, 1.0), 3),
+        "precision": round(min(precision, 1.0), 3),
         "zero_stage": (
             "retrieved"
             if retrieved == 0
             else "ranked"
             if ranked == 0
-            else "passed_to_ice"
+            else "passed"
             if passed == 0
             else "referenced"
             if referenced == 0
@@ -311,17 +353,22 @@ def build_funnel(
 
 def format_trace_summary(orch: Dict[str, Any]) -> str:
     ent = orch.get("entity") or {}
-    funnel = orch.get("funnel") or {}
-    lat = orch.get("latency_ms") or {}
+    evidence = orch.get("evidence") or orch.get("funnel") or {}
+    lat = orch.get("latency") or orch.get("latency_ms") or {}
+    total = lat.get("total_ms") if lat.get("total_ms") is not None else lat.get("total") or 0
     return (
-        f"Entity: {ent.get('detected') or ent.get('entity_name') or '—'} "
+        f"Trace: {orch.get('ask_trace_id') or '—'} | "
+        f"Entity: {ent.get('name') or ent.get('detected') or ent.get('entity_name') or '—'} "
         f"({ent.get('confidence', 0)}) | "
-        f"Retrieved: {funnel.get('retrieved', 0)} → Ranked: {funnel.get('ranked', 0)} → "
-        f"Passed: {funnel.get('passed_to_ice', 0)} → Referenced: {funnel.get('referenced', 0)} | "
-        f"Utilization: {funnel.get('utilization', 0)} | "
+        f"Retrieved: {evidence.get('retrieved', 0)} → Ranked: {evidence.get('ranked', 0)} → "
+        f"Passed: {evidence.get('passed', evidence.get('passed_to_ice', 0))} → "
+        f"Referenced: {evidence.get('referenced', 0)} | "
+        f"Utilization: {evidence.get('utilization', 0)} | "
+        f"Efficiency: {evidence.get('efficiency', 0)} | "
+        f"Precision: {evidence.get('precision', 0)} | "
         f"Executive overwritten: {'Yes' if orch.get('executive_overwritten') else 'No'} | "
-        f"Fallback: {'Yes' if orch.get('fallback') else 'No'} | "
-        f"Total: {(lat.get('total') or 0) / 1000:.1f}s"
+        f"Fallback: {'Yes' if orch.get('fallback') or orch.get('fallback_used') else 'No'} | "
+        f"Total: {float(total) / 1000:.1f}s"
     )
 
 
@@ -351,9 +398,11 @@ def finalize_orchestration(
     executive: str = "",
     intent: Any = None,
     fallback: bool = False,
+    persist: bool = True,
 ) -> Dict[str, Any]:
     orch = dict(base or {})
     ticker_source = orch.get("ticker_source")
+    ask_trace_id = orch.get("ask_trace_id") or new_ask_trace_id()
     retrieved = count_retrieved(
         kf_hits=kf_hits,
         finance_retrieval=finance_retrieval,
@@ -390,6 +439,10 @@ def finalize_orchestration(
         question=question,
         alias_hit=alias_hit,
     )
+    rejects = list(orch.get("ticker_rejects") or [])
+    entity["rejected_candidates"] = [
+        (r.get("raw") if isinstance(r, dict) else r) for r in rejects
+    ][:12]
     attribution = executive_attribution(
         executive=executive,
         evidence_used=evidence_used,
@@ -409,22 +462,45 @@ def finalize_orchestration(
     # executive_overwritten: ICE tried to replace with meta and we suppressed, or ice won
     executive_overwritten = bool(orch.get("executive_source") == "ice") and not ice_meta
 
+    latency = timer.as_latency_block()
     orch.update(
         {
-            "version": "ask-orchestration-trace-1",
+            "version": "ask-orchestration-trace-2",
+            "ask_trace_id": ask_trace_id,
+            "ts": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             "fallback": fallback,
+            "fallback_used": fallback,
             "engine_reached": not fallback,
             "intent": intent,
             "bound_ticker": detected_ticker,
             "entity": entity,
             "funnel": funnel,
-            "latency_ms": timer.as_dict(),
+            "evidence": {
+                "retrieved": funnel["retrieved"],
+                "ranked": funnel["ranked"],
+                "passed": funnel["passed"],
+                "referenced": funnel["referenced"],
+                "utilization": funnel["utilization"],
+                "efficiency": funnel["efficiency"],
+                "precision": funnel["precision"],
+                "zero_stage": funnel["zero_stage"],
+            },
+            "latency": latency,
+            "latency_ms": timer.as_dict(),  # backward compatible
             "executive_attribution": attribution,
             "grounding": round(grounded, 3) if grounded is not None else None,
             "executive_overwritten": executive_overwritten,
             "executive_source": orch.get("executive_source"),
+            "diagnostics_visibility": "internal",  # not end-user product copy
             "trace_summary": "",
         }
     )
     orch["trace_summary"] = format_trace_summary(orch)
+    if persist:
+        try:
+            from app.ui.ask_observability_store import record_trace
+
+            record_trace(orch)
+        except Exception:
+            pass
     return orch
