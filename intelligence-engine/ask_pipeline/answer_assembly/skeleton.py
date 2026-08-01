@@ -47,16 +47,19 @@ def build_skeleton(
         if eid:
             sections["evidence"]["evidence_ids"].append(eid)
 
-    # Analysis — bind concrete evidence titles (never planning prompts as user text)
-    for item in top[:6]:
-        eid = item.get("evidence_id")
-        title = item.get("title") or item.get("evidence_type")
-        domain = item.get("domain") or "Evidence"
-        if not title:
-            continue
-        sections["analysis"]["bullets"].append(f"{domain}: {title}")
-        if eid:
-            sections["analysis"]["evidence_ids"].append(eid)
+    # Analysis — bind concrete evidence titles (never planning prompts as user text).
+    # Concept-mode / education questions must not surface an entity's evidence titles
+    # as the analysis lead (the question isn't about that company).
+    if not concept_mode:
+        for item in top[:6]:
+            eid = item.get("evidence_id")
+            title = item.get("title") or item.get("evidence_type")
+            domain = item.get("domain") or "Evidence"
+            if not title:
+                continue
+            sections["analysis"]["bullets"].append(f"{domain}: {title}")
+            if eid:
+                sections["analysis"]["evidence_ids"].append(eid)
     # Domain coverage as internal status only (not executive-facing planning prose)
     for domain in (ordered.get("priority_domains") or [])[:5]:
         ids = framework_inputs.get(domain) or []

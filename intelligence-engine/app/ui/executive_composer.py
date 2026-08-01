@@ -36,7 +36,29 @@ _PLANNING_MARKERS = (
     "governance path:",
     "institutional brief (",
     "lidi validated publish",
+    "this matters because",
 )
+
+_TICKER_DISPLAY: Dict[str, str] = {
+    "META": "Meta",
+    "AAPL": "Apple",
+    "MSFT": "Microsoft",
+    "GOOGL": "Alphabet",
+    "AMZN": "Amazon",
+    "NVDA": "Nvidia",
+    "RELIANCE": "Reliance Industries",
+    "INFY": "Infosys",
+    "TCS": "TCS",
+    "WIPRO": "Wipro",
+    "HDFCBANK": "HDFC Bank",
+    "TATAMOTORS": "Tata Motors",
+    "ADANIENT": "Adani Enterprises",
+    "JSWENERGY": "JSW Energy",
+}
+
+
+def display_name(ticker: str) -> str:
+    return _TICKER_DISPLAY.get(str(ticker or "").upper(), str(ticker or ""))
 
 _COMMITTEE_BOILERPLATE = re.compile(
     r"\b(own .+ only when franchise|committee vote|position sizing should respect|"
@@ -266,7 +288,7 @@ def _lead_for_question(
 ) -> str:
     q = (question or "").strip()
     ql = q.lower()
-    names = [str(t) for t in tickers if t]
+    names = [display_name(t) for t in tickers if t]
 
     if is_comparison_question(q) and len(names) >= 2:
         a, b = names[0], names[1]
@@ -329,6 +351,133 @@ def _lead_for_question(
         f"I have evidence for {subj} but cannot yet form a clean institutional answer "
         "to the exact question asked — see supporting items and knowledge gaps below."
     )
+
+
+def _first_sentence(text: str) -> str:
+    parts = re.split(r"(?<=[.!?])\s+", (text or "").strip(), maxsplit=1)
+    return parts[0] if parts else ""
+
+
+def validate_executive(
+    question: str,
+    executive: str,
+    *,
+    why: Optional[Sequence[str]] = None,
+    evidence_used: Optional[Sequence[Any]] = None,
+    tickers: Optional[Sequence[str]] = None,
+    rejected: Optional[Sequence[str]] = None,
+    is_unknown_stop: bool = False,
+    is_comparison: bool = False,
+) -> Dict[str, Any]:
+    """Rule 6 — Final Executive Validation. Returns {ok, failures}."""
+    failures: List[str] = []
+    text = executive or ""
+    low = text.lower()
+    why = list(why or [])
+    rejected_low = [str(r).lower() for r in (rejected or []) if r]
+
+    first = _first_sentence(text)
+    if not first or is_planning_scaffold(first):
+        failures.append("first_sentence_not_an_answer")
+
+    if is_planning_scaffold(text) or looks_like_framework_meta_executive(text):
+        failures.append("banned_scaffold_present")
+
+    for w in why[:6]:
+        if is_planning_scaffold(str(w)):
+            failures.append("committee_framework_leakage_in_why")
+            break
+
+    # No unrelated entity substitution — a rejected candidate must not become the subject.
+    for rej in rejected_low:
+        if rej and len(rej) > 1 and re.search(rf"\b{re.escape(rej)}\b", low):
+            failures.append(f"unrelated_entity_substitution:{rej}")
+
+    if is_unknown_stop:
+        if not re.search(
+            r"\b(couldn'?t identify|could not identify|no verified|insufficient evidence)\b",
+            low,
+        ):
+            failures.append("unknown_entity_did_not_terminate_correctly")
+
+    if is_comparison and tickers and len(tickers) >= 2:
+        a, b = str(tickers[0]).lower(), str(tickers[1]).lower()
+        if not (a in low or a in " ".join(why).lower()) or not (
+            b in low or b in " ".join(why).lower()
+        ):
+            failures.append("comparison_omits_an_entity")
+
+    # Evidence should follow the answer when evidence exists.
+    if evidence_used and not why and len(text) < 40:
+        failures.append("evidence_does_not_follow_answer")
+
+    return {"ok": not failures, "failures": failures}
+
+
+def finalize_executive(
+    question: str,
+    executive: str,
+    *,
+    why: Optional[Sequence[str]] = None,
+    evidence_used: Optional[Sequence[Any]] = None,
+    supporting: Optional[Sequence[Any]] = None,
+    packs: Optional[Dict[str, Any]] = None,
+    detected_ticker: Optional[str] = None,
+    tickers: Optional[Sequence[str]] = None,
+    rejected: Optional[Sequence[str]] = None,
+    is_unknown_stop: bool = False,
+    is_comparison: bool = False,
+) -> Dict[str, Any]:
+    """Rule 6 orchestrator — validate once, rewrite once from existing evidence if it fails.
+
+    Never re-runs retrieval. Returns {executive, why, validation, rewritten}.
+    """
+    why = list(why or [])
+    validation = validate_executive(
+        question,
+        executive,
+        why=why,
+        evidence_used=evidence_used,
+        tickers=tickers,
+        rejected=rejected,
+        is_unknown_stop=is_unknown_stop,
+        is_comparison=is_comparison,
+    )
+    if validation["ok"]:
+        return {
+            "executive": executive,
+            "why": why,
+            "validation": validation,
+            "rewritten": False,
+        }
+
+    # Rewrite once, forcing a fresh compose from evidence only (no upstream candidates).
+    composed = compose_executive(
+        question,
+        detected_ticker=detected_ticker,
+        evidence_used=evidence_used,
+        supporting=supporting,
+        packs=packs,
+        candidates=[],
+        why=why,
+    )
+    revalidation = validate_executive(
+        question,
+        composed["executive"],
+        why=composed.get("why") or [],
+        evidence_used=evidence_used,
+        tickers=tickers,
+        rejected=rejected,
+        is_unknown_stop=is_unknown_stop,
+        is_comparison=is_comparison,
+    )
+    return {
+        "executive": composed["executive"],
+        "why": composed.get("why") or [],
+        "validation": revalidation,
+        "rewritten": True,
+        "pre_rewrite_failures": validation["failures"],
+    }
 
 
 def compose_executive(

@@ -175,12 +175,47 @@ def score_golden_answer(
         if first.lower().startswith("analyse") or first.lower().startswith("analyze"):
             failures.append("first_sentence_is_plan")
 
+    # Deterministic 0-30 founder-rubric-style score for the release gate (avg < 25 fails).
+    critical = {
+        "executive_is_planning_scaffold": 15,
+        "first_sentence_is_scaffold": 12,
+        "first_sentence_is_plan": 12,
+        "why_contains_planning_scaffold": 8,
+        "missing_unknown_refuse": 20,
+        "substituted_lookalike_company": 25,
+        "comparison_omits_one_entity": 15,
+        "missing_recommendation_refuse": 20,
+        "missing_topic_substance": 8,
+        "missing_uncertainty_language": 5,
+    }
+    score = 30
+    for f in failures:
+        key = f.split(":", 1)[0]
+        score -= critical.get(key, 6)
+    score = max(0, min(30, score))
+
+    hard_fail_flags = {
+        "framework_scaffold_appears": any(
+            f.split(":", 1)[0]
+            in {"executive_is_planning_scaffold", "first_sentence_is_scaffold", "first_sentence_is_plan"}
+            for f in failures
+        ),
+        "unknown_entity_hallucinates": any(
+            f.split(":", 1)[0] in {"missing_unknown_refuse", "substituted_lookalike_company"}
+            for f in failures
+        ),
+        "comparison_omits_entity": "comparison_omits_one_entity" in failures,
+        "recommendation_regresses": "missing_recommendation_refuse" in failures,
+    }
+
     return {
         "id": case.get("id"),
         "pass": not failures,
         "failures": failures,
         "notes": notes,
         "summary_excerpt": text[:280],
+        "score": score,
+        "hard_fail_flags": {k: v for k, v in hard_fail_flags.items() if v},
     }
 
 

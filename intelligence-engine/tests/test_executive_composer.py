@@ -6,10 +6,12 @@ from app.ui.executive_composer import (
     alias_tickers_from_question,
     comparison_entity_count,
     compose_executive,
+    finalize_executive,
     is_comparison_question,
     is_planning_scaffold,
     requires_resolved_company,
     unknown_entity_executive,
+    validate_executive,
 )
 from app.ui.ticker_guard import looks_like_framework_meta_executive
 
@@ -107,6 +109,8 @@ def test_golden_founder_scorer_offline():
     )
     assert bad["pass"] is False
     assert "executive_is_planning_scaffold" in bad["failures"]
+    assert bad["score"] < 25
+    assert bad["hard_fail_flags"].get("framework_scaffold_appears") is True
 
     good_policy = score_golden_answer(
         g4,
@@ -117,6 +121,8 @@ def test_golden_founder_scorer_offline():
         orch={"executive_source": "recommendation_policy", "short_circuit": "recommendation_policy"},
     )
     assert good_policy["pass"] is True
+    assert good_policy["score"] == 30
+    assert not good_policy["hard_fail_flags"]
 
     good_unknown = score_golden_answer(
         g5,
@@ -127,6 +133,7 @@ def test_golden_founder_scorer_offline():
         orch={"short_circuit": "unknown_entity", "entity_hard_stop": True},
     )
     assert good_unknown["pass"] is True
+    assert good_unknown["score"] == 30
 
     swapped = score_golden_answer(
         g5,
@@ -134,6 +141,72 @@ def test_golden_founder_scorer_offline():
         why=[],
     )
     assert swapped["pass"] is False
+    assert swapped["hard_fail_flags"].get("unknown_entity_hallucinates") is True
+    assert swapped["score"] <= 10
+
+
+def test_rule6_validate_catches_scaffold_and_substitution():
+    v1 = validate_executive(
+        "What is Reliance's business model?",
+        "Analyse via Financial evidence (5 items) Evidence: RELIANCE",
+    )
+    assert v1["ok"] is False
+    assert "banned_scaffold_present" in v1["failures"]
+
+    v2 = validate_executive(
+        "Explain XYZ Quantum Robotics Pvt Ltd.",
+        "AGIB's view on LT starts here because own LT only when franchise durability",
+        rejected=["LT"],
+        is_unknown_stop=True,
+    )
+    assert v2["ok"] is False
+    assert any(f.startswith("unrelated_entity_substitution") for f in v2["failures"])
+    assert "unknown_entity_did_not_terminate_correctly" in v2["failures"]
+
+    v3 = validate_executive(
+        "Compare Infosys vs TCS.",
+        "Infosys focuses on consulting-led deals.",
+        tickers=["INFY", "TCS"],
+        is_comparison=True,
+    )
+    assert v3["ok"] is False
+    assert "comparison_omits_an_entity" in v3["failures"]
+
+    v_ok = validate_executive(
+        "What is Reliance's business model?",
+        "Reliance earns cash across refining, retail, and Jio digital platforms.",
+    )
+    assert v_ok["ok"] is True
+
+
+def test_rule6_finalize_rewrites_once_from_evidence():
+    out = finalize_executive(
+        "What is Reliance Industries' business model?",
+        "Analyse via Financial evidence (5 items) Evidence: RELIANCE expectations",
+        why=["committee vote 7 / 9 → Neutral"],
+        evidence_used=[{"title": "Reliance O2C and retail cash engines", "source": "kf"}],
+        detected_ticker="RELIANCE",
+        packs={
+            "company_analysis": {
+                "summary": "Reliance combines O2C, retail, and Jio digital as linked cash engines."
+            }
+        },
+    )
+    assert out["rewritten"] is True
+    assert out["validation"]["ok"] is True
+    assert not is_planning_scaffold(out["executive"])
+    assert "analyse via" not in out["executive"].lower()
+
+
+def test_rule6_finalize_noop_when_already_clean():
+    clean = "Reliance earns cash across refining, retail, and Jio digital platforms."
+    out = finalize_executive(
+        "What is Reliance's business model?",
+        clean,
+        why=["Evidence: Reliance O2C profile"],
+    )
+    assert out["rewritten"] is False
+    assert out["executive"] == clean
 
 
 def test_ice_render_drops_analyse_via():

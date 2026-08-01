@@ -20,6 +20,7 @@ from app.ui.executive_composer import (
     comparison_clarification_executive,
     comparison_entity_count,
     compose_executive,
+    finalize_executive,
     is_comparison_question,
     is_planning_scaffold,
     requires_resolved_company,
@@ -3819,6 +3820,45 @@ class UiService:
             str(v).endswith("timeout_cached") or v == "unavailable"
             for v in degradation.values()
         ) else "ok"
+
+        # Executive Composer Rule 6 — final validation + single rewrite from existing evidence.
+        try:
+            _rej_names = []
+            if isinstance(ere_body, dict):
+                for r in ere_body.get("rejected_candidates") or ere_body.get("rejected") or []:
+                    if isinstance(r, dict):
+                        _rej_names.append(str(r.get("ticker") or r.get("raw") or r.get("name") or ""))
+                    elif r:
+                        _rej_names.append(str(r))
+            _rej_names = [x for x in _rej_names if x]
+            _cmp_tickers = ask_orchestration.get("comparison_tickers") or []
+            _final = finalize_executive(
+                q,
+                executive or "",
+                why=why if isinstance(why, list) else [],
+                evidence_used=evidence_used if isinstance(evidence_used, list) else [],
+                supporting=supporting if isinstance(supporting, list) else [],
+                packs={
+                    "company_analysis": company_analysis if isinstance(company_analysis, dict) else {},
+                    "company_dossier": company_dossier if isinstance(company_dossier, dict) else {},
+                    "knowledge_bundle": knowledge_bundle if isinstance(knowledge_bundle, dict) else {},
+                },
+                detected_ticker=detected_ticker,
+                tickers=_cmp_tickers or ([detected_ticker] if detected_ticker else []),
+                rejected=_rej_names,
+                is_unknown_stop=False,
+                is_comparison=bool(_cmp_tickers) or is_comparison_question(q),
+            )
+            if _final.get("rewritten"):
+                executive = _final["executive"]
+                why = _final["why"]
+                answer["summary"] = executive
+                answer["executive_summary"] = executive
+                answer["why"] = why
+                ask_orchestration["executive_source"] = "executive_composer_rule6_rewrite"
+            ask_orchestration["executive_validation"] = _final.get("validation")
+        except Exception:
+            pass
 
         stage_timer.mark("serialization")
         # Refresh latency block with serialization after funnel finalize.

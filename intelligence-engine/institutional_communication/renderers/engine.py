@@ -48,6 +48,10 @@ def render_communication(institutional_answer: dict[str, Any]) -> dict[str, Any]
                 continue
             if "framework input domain" in low or low.startswith("intent:"):
                 continue
+            if "fill from existing reasoning" in low or "no unsupported certainty" in low:
+                continue
+            if low.startswith("this matters because"):
+                continue
             analysis_bullets.append(bullet(line))
 
     # AGIB v3.5 — surface Institutional Analytical Playbook checklist / procedure
@@ -278,6 +282,10 @@ def _executive_summary(
             if "evidence coverage=" in low or "concept mode" == low:
                 continue
             if "committee vote" in low or "only when franchise" in low:
+                continue
+            if "fill from existing reasoning" in low or "no unsupported certainty" in low:
+                continue
+            if low.startswith("this matters because"):
                 continue
             lines.append(bullet(line))
             if len(lines) >= 3:

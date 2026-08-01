@@ -60,6 +60,13 @@ def main() -> int:
         print(f"  excerpt: {scored.get('summary_excerpt')}", flush=True)
 
     passed = sum(1 for r in results if r.get("pass"))
+    scores = [r.get("score") or 0 for r in results]
+    avg_score = round(sum(scores) / max(1, len(scores)), 2)
+    hard_fail_union: Dict[str, bool] = {}
+    for r in results:
+        for k in (r.get("hard_fail_flags") or {}):
+            hard_fail_union[k] = True
+    release_block = avg_score < 25 or bool(hard_fail_union)
     report = {
         "suite": "golden_founder_5",
         "version": "v1.0",
@@ -69,7 +76,17 @@ def main() -> int:
         "passed": passed,
         "total": len(results),
         "pass_rate": passed / max(1, len(results)),
-        "release_block": passed < len(results),
+        "average_score": avg_score,
+        "max_score": 30,
+        "hard_fail_flags": hard_fail_union,
+        "release_block": release_block,
+        "release_gate": {
+            "fail_if_avg_below": 25,
+            "fail_if_framework_scaffold_appears": True,
+            "fail_if_unknown_entity_hallucinates": True,
+            "fail_if_comparison_omits_entity": True,
+            "fail_if_recommendation_regresses": True,
+        },
         "results": results,
     }
     path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
@@ -83,11 +100,11 @@ def main() -> int:
     except Exception:
         pass
     print(
-        f"\n[golden_founder_5] {passed}/{len(results)} "
-        f"release_block={report['release_block']} → {path}",
+        f"\n[golden_founder_5] {passed}/{len(results)} avg_score={avg_score}/30 "
+        f"hard_fail_flags={list(hard_fail_union)} release_block={release_block} → {path}",
         flush=True,
     )
-    return 0 if passed == len(results) else 1
+    return 1 if release_block else 0
 
 
 if __name__ == "__main__":
