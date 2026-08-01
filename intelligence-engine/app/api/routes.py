@@ -12637,6 +12637,95 @@ async def framework_selection_history(limit: int = 50):
 
 
 # ---------------------------------------------------------------------------
+# AGIB Phase 1 — Financial Foundations (accounting intelligence, not
+# investment/valuation). Soft-wire only; standalone engine.
+# ---------------------------------------------------------------------------
+@router.get("/financial-foundations/health")
+async def financial_foundations_health():
+    from financial_foundations.production import health
+
+    return health()
+
+
+@router.get("/financial-foundations/dashboard")
+async def financial_foundations_dashboard():
+    from financial_foundations.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/financial-foundations/curriculum")
+async def financial_foundations_curriculum():
+    from financial_foundations.production import curriculum
+
+    return curriculum()
+
+
+@router.get("/financial-foundations/explain/{topic}")
+async def financial_foundations_explain(topic: str, amount: float = 100_000.0):
+    from financial_foundations.production import explain
+
+    return explain(topic, amount=amount)
+
+
+@router.get("/financial-foundations/chart-of-accounts")
+async def financial_foundations_chart_of_accounts():
+    from financial_foundations.production import chart_of_accounts
+
+    return chart_of_accounts()
+
+
+@router.get("/financial-foundations/chart-of-accounts/{code}")
+async def financial_foundations_classify_account(code: str):
+    from financial_foundations.production import classify_account
+
+    return classify_account(code)
+
+
+@router.get("/financial-foundations/transaction/{transaction_type}")
+async def financial_foundations_transaction(transaction_type: str, amount: float = 100_000.0):
+    from financial_foundations.production import transaction_linkage
+
+    return transaction_linkage(transaction_type, amount=amount)
+
+
+@router.get("/financial-foundations/lesson/pat-vs-cash-flow")
+async def financial_foundations_pat_vs_cash_flow():
+    from financial_foundations.production import pat_vs_cash_flow_lesson
+
+    return pat_vs_cash_flow_lesson()
+
+
+@router.get("/financial-foundations/simulate")
+async def financial_foundations_simulate(period: int = 1):
+    from financial_foundations.production import simulate
+
+    return simulate(period=period)
+
+
+@router.get("/financial-foundations/assessment")
+async def financial_foundations_assessment_list(category: str | None = None, module: int | None = None):
+    from financial_foundations.production import assessment_list
+
+    return assessment_list(category=category, module=module)
+
+
+@router.get("/financial-foundations/assessment/{scenario_id}")
+async def financial_foundations_assessment_get(scenario_id: str):
+    from financial_foundations.production import assessment_get
+
+    return assessment_get(scenario_id)
+
+
+@router.post("/financial-foundations/assessment/{scenario_id}/grade")
+async def financial_foundations_assessment_grade(scenario_id: str, payload: dict[str, Any] = Body(default={})):
+    from financial_foundations.production import assessment_grade
+
+    answer = str(payload.get("answer") or "")
+    return assessment_grade(scenario_id, answer)
+
+
+# ---------------------------------------------------------------------------
 # AGIB v3.4 Track D — Institutional Communication Engine (ICE)
 # Deterministic renderer of InstitutionalAnswer. Reasoning frozen.
 # ---------------------------------------------------------------------------
