@@ -57,7 +57,43 @@ Internal only (`diagnostics_visibility: "internal"`). Not product copy for end u
 }
 ```
 
-Also: `X-Ask-Trace-Id` response header (Node gateway).
+Also: `X-Ask-Trace-Id` response header (Node gateway). Gateway `ask_trace_id` is
+propagated into the engine via body + header so ingress→completion share one id.
+
+## Progressive stage checkpoints (hang diagnosis)
+
+Every Ask marks stages and flushes a **partial** trace after each mark:
+
+`http_ingress → entity_resolution → ikl → retrieval → ranking → reasoning → response_assembly → serialization → http`
+
+Threshold warnings (log only — no timeout changes):
+
+| Stage | Threshold |
+|-------|-----------|
+| Entity | 250ms |
+| IKL | 500ms |
+| Retrieval | 2s |
+| Ranking | 1s |
+| Reasoning | 20s (+ extra warn at 30s with docs/model/latency) |
+| Assembly | 2s |
+
+On gateway timeout, Node returns fallback with:
+
+`completed=false`, `timeout=true`, `last_completed_stage`, `elapsed_ms`, `ask_trace_id`, `execution_trace`.
+
+## Baseline runner (always writes)
+
+```bash
+cd intelligence-engine
+ASK_TEST_MODE=live \
+ASK_TEST_BASE=https://finance-news-backend-19i5.onrender.com \
+  python3 -m ask_product_test.run_baseline
+```
+
+- Writes `artifacts/ask_test_report_pre_ikl_<UTC>.json` after **every** prompt
+- Never overwrites prior stamped reports
+- Exits cleanly even when Ask times out
+- Prints founder execution traces per question
 
 ## Mission Control
 
@@ -69,5 +105,5 @@ Also: `X-Ask-Trace-Id` response header (Node gateway).
 
 ```bash
 cd intelligence-engine
-pytest tests/test_ask_orchestration_trace.py tests/test_ask_observability_store.py -q
+pytest tests/test_ask_orchestration_stages.py tests/test_ask_orchestration_trace.py tests/test_ask_observability_store.py -q
 ```
