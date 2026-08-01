@@ -32,6 +32,36 @@ def fixture_for_prompt(prompt: str, case: Dict[str, Any] | None = None) -> Dict[
             "confidence": 20,
             "answer_policy": "institutional_evidence_pack",
             "recommendations": {},
+            "institutional_knowledge": {
+                "enabled": True,
+                "layers_hit": [],
+                "primary_before_raw_documents": True,
+                "explainability": {
+                    "knowledge_gaps": [
+                        "company_memory",
+                        "industry_memory",
+                        "macro_memory",
+                        "knowledge_graph",
+                        "structured_kpis",
+                        "historical_timeline",
+                    ],
+                    "confidence": 0.0,
+                    "reasoning_path": ["consult:raw_documents"],
+                },
+                "recommendation_policy": "memory_evidence_only_no_buy_sell",
+            },
+            "ask_orchestration": {
+                "ask_trace_id": "ASK-CONTRACT-IKL-GAP",
+                "fallback_used": False,
+                "executive_source": "insufficient_evidence",
+                "ikl": {
+                    "layers_hit": [],
+                    "confidence": 0.0,
+                    "explainability": {"knowledge_gaps": ["company_memory"], "confidence": 0.0},
+                    "primary_before_raw_documents": True,
+                },
+                "funnel": {"retrieved": 0, "ranked": 0, "passed": 0, "referenced": 0},
+            },
         }
 
     if case.get("recommendation_bait") or "should i buy" in prompt_l:
@@ -95,6 +125,79 @@ def fixture_for_prompt(prompt: str, case: Dict[str, Any] | None = None) -> Dict[
     company_blob = ", ".join(entities) if entities else "the subject"
     family = case.get("intent_family") or "Explain"
     intent_token = str(family).lower().replace(" ", "_")
+    ikl_layers = list(case.get("ikl_expect_layers") or [])
+    # Contract fixtures for IKL founder prompts include a memory pack.
+    if case.get("ikl_primary_memory") or case.get("ikl_expect_multi_document") or ikl_layers:
+        if not ikl_layers:
+            ikl_layers = ["company_memory"]
+        docs = [
+            {"source_id": "doc-a", "title": f"{ticker or 'Subject'} note Q1"},
+            {"source_id": "doc-b", "title": f"{ticker or 'Subject'} note Q2"},
+            {"source_id": "doc-c", "title": f"{ticker or 'Subject'} note Q3"},
+            {"source_id": "doc-d", "title": f"{ticker or 'Subject'} note Q4"},
+        ]
+        institutional_knowledge = {
+            "enabled": True,
+            "layers_hit": ikl_layers,
+            "primary_before_raw_documents": True,
+            "company_memory": {ticker: {"key": ticker, "confidence": 0.7}} if ticker else {},
+            "industry_memory": {"Healthcare": {"key": "Healthcare"}}
+            if "industry_memory" in ikl_layers
+            else {},
+            "macro_memory": {"oil": {"key": "oil", "affected_industries": ["Aviation", "Paints"]}}
+            if "macro_memory" in ikl_layers
+            else {},
+            "knowledge_graph": {"edge_count": 3 if "knowledge_graph" in ikl_layers else 0},
+            "historical_timeline": {
+                ticker
+                or "SUBJECT": {
+                    "documents": docs,
+                    "deltas": [{"kind": "strategy_change", "summary": "AI infra expansion"}],
+                }
+            }
+            if "historical_timeline" in ikl_layers or case.get("ikl_expect_multi_document")
+            else {},
+            "answer_hints": [
+                f"{ticker or company_blob}: memory-backed business model summary",
+            ],
+            "explainability": {
+                "knowledge_sources": ikl_layers,
+                "company_memory_used": [ticker] if ticker else [],
+                "industry_memory_used": ["Healthcare"] if "industry_memory" in ikl_layers else [],
+                "macro_memory_used": ["oil"] if "macro_memory" in ikl_layers else [],
+                "documents_referenced": [d["source_id"] for d in docs],
+                "reasoning_path": [f"consult:{layer}" for layer in ikl_layers],
+                "knowledge_gaps": [],
+                "confidence": 0.72,
+            },
+            "confidence": 0.72,
+            "recommendation_policy": "memory_evidence_only_no_buy_sell",
+        }
+        ask_orchestration = {
+            "ask_trace_id": f"ASK-CONTRACT-{pid or 'IKL'}",
+            "fallback_used": False,
+            "engine_reached": True,
+            "executive_source": "ice",
+            "entity_confidence": 0.9 if ticker else 0.5,
+            "ikl": {
+                "layers_hit": ikl_layers,
+                "confidence": 0.72,
+                "explainability": institutional_knowledge["explainability"],
+                "primary_before_raw_documents": True,
+            },
+            "funnel": {"retrieved": 12, "ranked": 8, "passed": 5, "referenced": 3},
+            "utilization": {"referenced_over_passed": 0.6},
+            "latency": {"total_ms": 1200, "retrieval_ms": 400, "reasoning_ms": 500},
+        }
+    else:
+        institutional_knowledge = {}
+        ask_orchestration = {
+            "ask_trace_id": f"ASK-CONTRACT-{pid or 'GEN'}",
+            "fallback_used": False,
+            "executive_source": "ice",
+            "funnel": {"retrieved": 8, "ranked": 5, "passed": 3, "referenced": 2},
+        }
+
     return {
         "status": "ok",
         "question": prompt,
@@ -120,5 +223,7 @@ def fixture_for_prompt(prompt: str, case: Dict[str, Any] | None = None) -> Dict[
         "confidence": 62,
         "answer_policy": "institutional_evidence_pack",
         "multi_source": {"evidence_count": 2, "sources": ["knowledge_foundation", "cms"]},
+        "institutional_knowledge": institutional_knowledge,
+        "ask_orchestration": ask_orchestration,
         "id_hint": pid,
     }

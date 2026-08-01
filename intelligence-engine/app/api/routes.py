@@ -8849,16 +8849,37 @@ async def ui_company(ticker: str):
 async def ui_search(
     question: str = Query(...),
     ticker: str | None = Query(default=None),
+    body: dict[str, Any] | None = Body(default=None),
+    x_ask_trace_id: str | None = Header(default=None, alias="X-Ask-Trace-Id"),
 ):
     """Run sync UiService.search off the event loop so health checks stay responsive.
 
     Prefer a degraded SearchView over research_desk_unavailable whenever possible.
+    Propagates gateway ask_trace_id (body / X-Ask-Trace-Id) for end-to-end tracing.
     """
+    from functools import partial
+
     from starlette.concurrency import run_in_threadpool
 
+    ask_trace_id = None
+    if isinstance(body, dict):
+        ask_trace_id = body.get("ask_trace_id") or body.get("askTraceId")
+        if not ticker and body.get("ticker"):
+            ticker = str(body.get("ticker"))
+    ask_trace_id = (str(ask_trace_id).strip() if ask_trace_id else None) or (
+        str(x_ask_trace_id).strip() if x_ask_trace_id else None
+    )
+
     try:
-        view = await run_in_threadpool(_ui.search, question, ticker=ticker)
-        return view.model_dump(mode="json")
+        view = await run_in_threadpool(
+            partial(_ui.search, question, ticker=ticker, ask_trace_id=ask_trace_id)
+        )
+        payload = view.model_dump(mode="json")
+        # Echo trace id for gateway / clients even if pack already has it.
+        orch = payload.get("ask_orchestration") if isinstance(payload, dict) else None
+        if isinstance(orch, dict) and ask_trace_id and not orch.get("ask_trace_id"):
+            orch["ask_trace_id"] = ask_trace_id
+        return payload
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
@@ -8874,8 +8895,29 @@ async def ui_search(
                 "error": "research_desk_unavailable",
                 "retryable": True,
                 "message": str(exc)[:240],
+                "ask_trace_id": ask_trace_id,
             },
         ) from exc
+
+
+@router.get("/ui/ask-trace/{ask_trace_id}")
+async def ui_ask_trace(ask_trace_id: str):
+    """Return in-flight partial or completed Ask orchestration for a trace id.
+
+    Used by the Node gateway on engine timeout so last_completed_stage is real.
+    """
+    from app.ui.ask_observability_store import get_partial_trace, recent_traces
+
+    tid = (ask_trace_id or "").strip()
+    if not tid:
+        raise HTTPException(status_code=400, detail="ask_trace_id required")
+    partial = get_partial_trace(tid)
+    if partial:
+        return {"ok": True, "partial": True, "trace": partial}
+    for row in recent_traces(limit=50):
+        if str(row.get("ask_trace_id") or "") == tid:
+            return {"ok": True, "partial": False, "trace": row}
+    return {"ok": False, "partial": False, "trace": None, "ask_trace_id": tid}
 
 
 @router.get("/resilience/providers")

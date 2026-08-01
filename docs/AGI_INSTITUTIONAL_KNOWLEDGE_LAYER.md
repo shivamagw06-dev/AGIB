@@ -97,3 +97,27 @@ Never exposed as end-user implementation detail.
 - Ask reasons primarily from structured institutional memory; raw documents support.  
 - No unsupported investment recommendations — evidence-grounded only.  
 - Memories update incrementally (never full rebuild on each document).
+
+## Founder validation suite (Tier IKL)
+
+Five prompts in `ask_product_test/prompts.py` → `IKL_PROMPTS`, run via:
+
+```bash
+cd intelligence-engine
+pytest tests/test_ask_product_ikl.py -q
+
+# After deploy — require memory layers
+ASK_TEST_MODE=live ASK_TEST_IKL_STRICT=1 \
+  pytest tests/test_ask_product_ikl.py -q
+```
+
+| ID | Question focus | Expected layers |
+|----|----------------|-----------------|
+| IKL-01 | Reliance business model | `company_memory` first |
+| IKL-02 | Meta AI infra evolution | timeline / multi-doc |
+| IKL-03 | Hospitals vs pharma valuation | `industry_memory` |
+| IKL-04 | Crude ↓ → aviation / paints / OMCs | `macro_memory` + graph |
+| IKL-05 | XYZ Private Ltd | knowledge gap, no hallucination |
+
+Compare live Tier A/B reports via `comparison_metrics` before vs after deploy
+(`artifacts/ask_test_report_pre_ikl.json` → post-deploy `ask_test_report.json`).

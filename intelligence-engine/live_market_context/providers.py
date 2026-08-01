@@ -168,7 +168,12 @@ class YahooQuoteProvider:
 def _yahoo_chart_ltp(ticker: str) -> dict[str, Any]:
     if (os.environ.get("LMC_YAHOO_CHART") or "1").strip().lower() in {"0", "false", "no"}:
         return {"ok": False, "ticker": ticker, "provider": "yahoo", "ltp": None, "error": "yahoo_chart_disabled"}
-    symbol = f"{ticker.upper()}.NS"
+    try:
+        from app.market_data.providers.yahoo_symbols import to_yahoo_symbol
+
+        symbol = to_yahoo_symbol(ticker)
+    except Exception:
+        symbol = f"{ticker.upper()}.NS"
     url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?interval=1d&range=5d"
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "AGIB-LiveMarketContext/1.0"})

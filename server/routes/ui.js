@@ -27,7 +27,10 @@ function engineConfig() {
   return { baseUrl, token };
 }
 
-async function engineFetch(path, { method = 'GET', body = null, timeoutMs = 360_000 } = {}) {
+async function engineFetch(
+  path,
+  { method = 'GET', body = null, timeoutMs = 360_000, headers: extraHeaders = null } = {},
+) {
   const { baseUrl, token } = engineConfig();
   const response = await fetch(`${baseUrl}${path}`, {
     method,
@@ -36,6 +39,7 @@ async function engineFetch(path, { method = 'GET', body = null, timeoutMs = 360_
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
       'X-AGI-Intelligence-Token': token,
+      ...(extraHeaders && typeof extraHeaders === 'object' ? extraHeaders : {}),
     },
     body: body ? JSON.stringify(body) : undefined,
     signal: AbortSignal.timeout(timeoutMs),
@@ -499,27 +503,125 @@ export default function createUiRouter() {
       req.headers['x-ask-trace-id'] ||
       `ASK-${day}-${Math.random().toString(16).slice(2, 8).toUpperCase()}`;
 
+    const buildTimeoutOrch = (detail, meta = {}) => {
+      const elapsed = Date.now() - httpStarted;
+      const timedOut = Boolean(meta.timeout);
+      const partial = meta.partialTrace && typeof meta.partialTrace === 'object' ? meta.partialTrace : {};
+      const partialLat = partial.latency && typeof partial.latency === 'object' ? partial.latency : {};
+      const lastStage =
+        partial.last_completed_stage ||
+        partialLat.last_completed_stage ||
+        'http_ingress';
+      const funnel = {
+        retrieved: Number(partial.evidence?.retrieved || partial.funnel?.retrieved || 0),
+        ranked: Number(partial.evidence?.ranked || partial.funnel?.ranked || 0),
+        passed: Number(partial.evidence?.passed || partial.funnel?.passed || 0),
+        referenced: Number(partial.evidence?.referenced || partial.funnel?.referenced || 0),
+      };
+      const entityFromPartial = partial.entity && typeof partial.entity === 'object' ? partial.entity : {};
+      const entityName =
+        entityFromPartial.name ||
+        entityFromPartial.detected ||
+        (ticker ? String(ticker).toUpperCase() : null);
+      const orch = {
+        version: 'ask-orchestration-trace-2',
+        ask_trace_id: gatewayTraceId,
+        engine_reached: Boolean(partial.engine_reached) || lastStage !== 'http_ingress',
+        fallback: true,
+        fallback_used: true,
+        completed: false,
+        timeout: timedOut,
+        partial: true,
+        last_completed_stage: lastStage,
+        elapsed_ms: elapsed,
+        reason: detail,
+        timeout_ms: askTimeoutMs,
+        engine_status: meta.engineStatus ?? null,
+        html_502: Boolean(meta.html502),
+        entity: {
+          name: entityName,
+          detected: entityName,
+          confidence: Number(entityFromPartial.confidence || (ticker ? 0.95 : 0)),
+          question_excerpt: String(question || '').slice(0, 160),
+          ...(entityFromPartial.source ? { source: entityFromPartial.source } : {}),
+        },
+        funnel,
+        evidence: funnel,
+        ikl: partial.ikl || {},
+        latency: {
+          http_ms: elapsed,
+          total_ms: elapsed,
+          http_ingress_ms: Number(partialLat.http_ingress_ms || 0),
+          entity_ms: Number(partialLat.entity_ms || partialLat.stages?.entity_resolution || 0),
+          ikl_ms: Number(partialLat.ikl_ms || partialLat.stages?.ikl || 0),
+          retrieval_ms: Number(partialLat.retrieval_ms || partialLat.stages?.retrieval || 0),
+          ranking_ms: Number(partialLat.ranking_ms || partialLat.stages?.ranking || 0),
+          reasoning_ms: Number(partialLat.reasoning_ms || partialLat.stages?.reasoning || 0),
+          assembly_ms: Number(partialLat.assembly_ms || partialLat.stages?.response_assembly || 0),
+          serialization_ms: Number(partialLat.serialization_ms || 0),
+          last_completed_stage: lastStage,
+          stages: { http_ingress: 0, ...(partialLat.stages || {}), http: elapsed },
+          warnings: [
+            ...((Array.isArray(partial.stage_warnings) && partial.stage_warnings) ||
+              (Array.isArray(partialLat.warnings) && partialLat.warnings) ||
+              []),
+            ...(timedOut
+              ? [
+                  {
+                    kind: 'gateway_engine_timeout',
+                    elapsed_ms: elapsed,
+                    threshold_ms: askTimeoutMs,
+                    ask_trace_id: gatewayTraceId,
+                    last_completed_stage: lastStage,
+                  },
+                ]
+              : []),
+          ],
+        },
+        diagnostics_visibility: 'internal',
+        execution_trace: [
+          `Ask Trace ID: ${gatewayTraceId}`,
+          `Entity: ${entityName || '—'} (${entityFromPartial.confidence != null ? entityFromPartial.confidence : ticker ? '0.95' : '—'})`,
+          `IKL: ${Number(partialLat.ikl_ms || 0)}ms`,
+          `Retrieved: ${funnel.retrieved}`,
+          `Ranked: ${funnel.ranked}`,
+          `Passed: ${funnel.passed}`,
+          `Referenced: ${funnel.referenced}`,
+          `Reasoning: ${(Number(partialLat.reasoning_ms || 0) / 1000).toFixed(1)}s`,
+          `Assembly: ${Number(partialLat.assembly_ms || 0)}ms`,
+          'Completed: false',
+          `Last completed stage: ${lastStage}`,
+          `Elapsed: ${(elapsed / 1000).toFixed(1)}s`,
+          timedOut ? 'Timeout: true' : 'Fallback: true',
+        ].join('\n'),
+        trace_summary: `Trace: ${gatewayTraceId} | Timeout: ${timedOut ? 'Yes' : 'No'} | Fallback: Yes | Last stage: ${lastStage} | Total: ${(elapsed / 1000).toFixed(1)}s`,
+      };
+      return orch;
+    };
+
+    const fetchPartialTrace = async () => {
+      try {
+        const result = await engineFetch(`/v1/ui/ask-trace/${encodeURIComponent(gatewayTraceId)}`, {
+          timeoutMs: 2_500,
+        });
+        if (result.status === 200 && result.data?.trace && typeof result.data.trace === 'object') {
+          return result.data.trace;
+        }
+      } catch {
+        /* best-effort only */
+      }
+      return null;
+    };
+
     const serveFallback = async (detail, meta = {}) => {
       try {
+        const partialTrace = meta.partialTrace || (await fetchPartialTrace());
         const { buildAskDeskFallback } = await import('../services/askDeskFallback.js');
         const pack = await buildAskDeskFallback(question);
         pack.detail = detail;
         pack.ask_orchestration = {
           ...(pack.ask_orchestration || {}),
-          ask_trace_id: gatewayTraceId,
-          engine_reached: false,
-          fallback: true,
-          fallback_used: true,
-          reason: detail,
-          timeout_ms: askTimeoutMs,
-          engine_status: meta.engineStatus ?? null,
-          html_502: Boolean(meta.html502),
-          latency: {
-            ...(pack.ask_orchestration?.latency || {}),
-            http_ms: Date.now() - httpStarted,
-            total_ms: Date.now() - httpStarted,
-          },
-          diagnostics_visibility: 'internal',
+          ...buildTimeoutOrch(detail, { ...meta, partialTrace }),
         };
         res.setHeader('X-Ask-Trace-Id', gatewayTraceId);
         // Best-effort wake for the next client retry.
@@ -530,16 +632,7 @@ export default function createUiRouter() {
           error: 'research_desk_unavailable',
           retryable: true,
           detail: detail || fallbackError.message,
-          ask_orchestration: {
-            ask_trace_id: gatewayTraceId,
-            engine_reached: false,
-            fallback: true,
-            fallback_used: true,
-            reason: detail || fallbackError.message,
-            timeout_ms: askTimeoutMs,
-            latency: { http_ms: Date.now() - httpStarted, total_ms: Date.now() - httpStarted },
-            diagnostics_visibility: 'internal',
-          },
+          ask_orchestration: buildTimeoutOrch(detail || fallbackError.message, meta),
         });
       }
     };
@@ -557,13 +650,14 @@ export default function createUiRouter() {
           ...(ticker ? { ticker: String(ticker) } : {}),
         },
         timeoutMs: askTimeoutMs,
+        headers: { 'X-Ask-Trace-Id': gatewayTraceId },
       });
       const html502 =
         typeof result.data?.raw === 'string' && result.data.raw.trim().startsWith('<');
       if (html502 || result.status === 502 || result.status === 503 || result.status >= 500) {
         return serveFallback(
           `Intelligence engine unavailable (HTTP ${result.status}${html502 ? ', HTML body' : ''}) — Node desk fallback.`,
-          { engineStatus: result.status, html502 },
+          { engineStatus: result.status, html502, timeout: false },
         );
       }
       if (result.data && typeof result.data === 'object') {
@@ -576,6 +670,11 @@ export default function createUiRouter() {
           engine_reached: true,
           fallback: false,
           fallback_used: false,
+          completed: orch.completed !== false,
+          timeout: Boolean(orch.timeout),
+          last_completed_stage:
+            orch.last_completed_stage || orch.latency?.last_completed_stage || 'serialization',
+          elapsed_ms: orch.elapsed_ms || orch.latency?.total_ms || httpMs,
           timeout_ms: askTimeoutMs,
           engine_status: result.status,
           latency: {
@@ -588,10 +687,12 @@ export default function createUiRouter() {
       }
       return res.status(result.status).json(result.data);
     } catch (error) {
-      const msg = error?.name === 'TimeoutError' || /aborted|timeout/i.test(String(error?.message || ''))
+      const timedOut =
+        error?.name === 'TimeoutError' || /aborted|timeout/i.test(String(error?.message || ''));
+      const msg = timedOut
         ? `Intelligence engine exceeded ASK timeout (${askTimeoutMs}ms) — Node desk fallback.`
         : error.message;
-      return serveFallback(msg, { engineStatus: 0 });
+      return serveFallback(msg, { engineStatus: 0, timeout: timedOut });
     }
   });
 

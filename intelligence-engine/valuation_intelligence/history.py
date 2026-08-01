@@ -74,7 +74,12 @@ def _pe_from_yahoo_annual(symbol: str, annual_eps: list[tuple[str, float]]) -> l
         import json
         import urllib.request
 
-        sym = f"{symbol.upper()}.NS"
+        try:
+            from app.market_data.providers.yahoo_symbols import to_yahoo_symbol
+
+            sym = to_yahoo_symbol(symbol)
+        except Exception:
+            sym = f"{symbol.upper()}.NS"
         url = f"https://query1.finance.yahoo.com/v8/finance/chart/{sym}?interval=1mo&range=10y"
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 AGIB-Valuation/1.0"})
         with urllib.request.urlopen(req, timeout=12) as resp:

@@ -94,7 +94,7 @@ def test_home_ppe_fields():
 def test_rich_search_answer():
     import re
 
-    pack = _ui().search("Should I buy ICICIBANK?")
+    pack = _ui().search("What is changing at ICICIBANK?")
     assert pack.executive_summary
     assert pack.answer.get("summary")
     assert len(pack.follow_up_questions) >= 4

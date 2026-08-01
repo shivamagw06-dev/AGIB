@@ -137,7 +137,25 @@ class MarketDataClient:
         Secondary Yahoo enrichment package for CID / KIP / KF.
         Goes through the Yahoo adapter only; returns canonical dumps (not Yahoo-native JSON).
         Does not replace higher-priority provider results — callers merge softly.
+
+        Request-scoped + TTL cache: resolve once per Ask; reuse across CID/DVC/YFP.
         """
+        canon = (symbol or "").upper()
+        cache_key = f"yahoo_enrich:{canon}"
+        try:
+            from app.market_data.providers.yahoo_request_cache import cached_get, cached_set
+            from app.market_data.providers.yahoo_symbols import to_yahoo_symbol
+
+            hit = cached_get(cache_key)
+            if isinstance(hit, dict):
+                return hit
+            # Resolve Yahoo symbol once and pin it for this request.
+            ysym = to_yahoo_symbol(canon)
+            cached_set(f"ysym_resolved:{canon}", ysym)
+        except Exception:
+            cached_get = cached_set = None  # type: ignore[assignment]
+            ysym = canon
+
         yahoo = self.yahoo_provider()
         if yahoo is None or not yahoo.is_configured():
             return {"enabled": False, "provider_id": "yahoo", "reason": "not_configured"}
@@ -146,7 +164,8 @@ class MarketDataClient:
             "provider_id": "yahoo",
             "priority": yahoo.priority,
             "role": "secondary_enrichment",
-            "symbol": (symbol or "").upper(),
+            "symbol": canon,
+            "yahoo_symbol": ysym if "ysym" in locals() else canon,
         }
         try:
             quote = await yahoo.get_quote(symbol)
@@ -179,6 +198,11 @@ class MarketDataClient:
                     out["financial_intelligence_error"] = fi.get("error")
         except Exception as exc:  # noqa: BLE001
             out["financial_intelligence_error"] = str(exc)[:200]
+        if cached_set is not None:
+            try:
+                cached_set(cache_key, out)
+            except Exception:
+                pass
         return out
 
     async def yahoo_financial_intelligence(self, symbol: str) -> dict[str, Any]:

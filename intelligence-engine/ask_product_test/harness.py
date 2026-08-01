@@ -226,12 +226,21 @@ class AskProductHarness:
     def _ask_live(
         self, prompt: str, *, ticker: Optional[str], t0: float
     ) -> Dict[str, Any]:
+        from app.ui.ask_orchestration_trace import new_ask_trace_id
+
         qs = urllib.parse.urlencode(
             {"question": prompt, **({"ticker": ticker} if ticker else {})}
         )
         # Prefer Node gateway product path; fall back to engine path if configured.
-        url = f"{self.base_url}/api/ui/search"
-        body = json.dumps({"question": prompt, "ticker": ticker}).encode("utf-8")
+        url = f"{self.base_url}/api/ui/search?{qs}"
+        ask_trace_id = new_ask_trace_id()
+        body = json.dumps(
+            {
+                "question": prompt,
+                "ticker": ticker,
+                "ask_trace_id": ask_trace_id,
+            }
+        ).encode("utf-8")
         req = urllib.request.Request(
             url,
             data=body,
@@ -239,6 +248,7 @@ class AskProductHarness:
             headers={
                 "Accept": "application/json",
                 "Content-Type": "application/json",
+                "X-Ask-Trace-Id": ask_trace_id,
             },
         )
         try:
@@ -253,18 +263,31 @@ class AskProductHarness:
                 except json.JSONDecodeError:
                     payload = {"raw": text[:500]}
                     html = html or True
+                # Ensure client-issued trace id is preserved if gateway omitted it
+                if isinstance(payload, dict):
+                    orch = payload.get("ask_orchestration")
+                    if isinstance(orch, dict) and not orch.get("ask_trace_id"):
+                        orch["ask_trace_id"] = ask_trace_id
+                    elif not orch:
+                        payload.setdefault(
+                            "ask_orchestration",
+                            {"ask_trace_id": ask_trace_id, "diagnostics_visibility": "internal"},
+                        )
                 return {
                     "http_status": status,
                     "latency_ms": latency_ms,
                     "payload": payload,
                     "error": None,
                     "raw_is_html": html,
+                    "timeout": False,
+                    "ask_trace_id": ask_trace_id,
                     "transport": "live",
                     "url": url,
                     "query": qs,
                 }
         except Exception as exc:  # noqa: BLE001
             latency_ms = int((time.perf_counter() - t0) * 1000)
+            timed_out = "timeout" in str(exc).lower() or "timed out" in str(exc).lower()
             return {
                 "http_status": 0,
                 "latency_ms": latency_ms,
@@ -272,9 +295,48 @@ class AskProductHarness:
                     "error": "research_desk_unavailable",
                     "retryable": True,
                     "detail": str(exc)[:240],
+                    "ask_orchestration": {
+                        "ask_trace_id": ask_trace_id,
+                        "completed": False,
+                        "timeout": timed_out,
+                        "partial": True,
+                        "last_completed_stage": "http_ingress",
+                        "elapsed_ms": latency_ms,
+                        "engine_reached": False,
+                        "fallback_used": True,
+                        "funnel": {
+                            "retrieved": 0,
+                            "ranked": 0,
+                            "passed": 0,
+                            "referenced": 0,
+                        },
+                        "latency": {
+                            "http_ms": latency_ms,
+                            "total_ms": latency_ms,
+                            "last_completed_stage": "http_ingress",
+                        },
+                        "execution_trace": (
+                            f"Ask Trace ID: {ask_trace_id}\n"
+                            f"Entity: —\n"
+                            f"IKL: 0ms\n"
+                            f"Retrieved: 0\n"
+                            f"Ranked: 0\n"
+                            f"Passed: 0\n"
+                            f"Referenced: 0\n"
+                            f"Reasoning: 0.0s\n"
+                            f"Assembly: 0ms\n"
+                            f"Completed: false\n"
+                            f"Last completed stage: http_ingress\n"
+                            f"Elapsed: {latency_ms / 1000:.1f}s\n"
+                            f"Timeout: {str(timed_out).lower()}"
+                        ),
+                        "diagnostics_visibility": "internal",
+                    },
                 },
                 "error": str(exc),
                 "raw_is_html": False,
+                "timeout": timed_out,
+                "ask_trace_id": ask_trace_id,
                 "transport": "live",
                 "url": url,
             }
@@ -408,6 +470,30 @@ class AskProductHarness:
             if confidence is None and isinstance(payload.get("answer"), dict):
                 confidence = payload["answer"].get("confidence")
 
+        orch = (
+            checks.extract_orchestration(payload) if isinstance(payload, dict) else {}
+        )
+        ikl_meta: Dict[str, Any] = {}
+        if case.get("ikl_expect_layers") or case.get("ikl_expect_knowledge_gap") or case.get(
+            "ikl_primary_memory"
+        ):
+            strict_ikl = str(os.environ.get("ASK_TEST_IKL_STRICT", "")).strip().lower() in {
+                "1",
+                "true",
+                "yes",
+                "on",
+            }
+            # Inprocess with local IKL memory: strict by default unless explicitly off
+            if self.mode == "inprocess" and "ASK_TEST_IKL_STRICT" not in os.environ:
+                strict_ikl = True
+            ok_ikl, err_ikl, ikl_meta = checks.check_ikl_expectations(
+                payload if isinstance(payload, dict) else {},
+                case,
+                strict=strict_ikl,
+            )
+            if not ok_ikl:
+                failures.extend(err_ikl)
+
         passed = len(failures) == 0
         row = {
             "id": case.get("id"),
@@ -440,6 +526,17 @@ class AskProductHarness:
             "hallucination_risk": hallucination_risk,
             "transport": transport.get("transport"),
             "error": transport.get("error"),
+            # Observability (#435/#436) — for pre/post IKL comparison
+            "ask_trace_id": orch.get("ask_trace_id"),
+            "fallback_used": orch.get("fallback_used"),
+            "executive_source": orch.get("executive_source"),
+            "entity_confidence": orch.get("entity_confidence"),
+            "funnel": orch.get("funnel"),
+            "utilization": orch.get("utilization"),
+            "orchestration_latency": orch.get("latency"),
+            "ikl_layers_hit": orch.get("ikl_layers_hit") or ikl_meta.get("layers_hit") or [],
+            "ikl_meta": ikl_meta or None,
+            "trace_summary": orch.get("trace_summary"),
         }
         self.results.append(row)
         return row
@@ -477,9 +574,60 @@ class AskProductHarness:
             "total": total,
             "average_latency_ms": int(sum(latencies) / len(latencies)) if latencies else 0,
             "questions": rows,
+            "comparison_metrics": _comparison_metrics(rows),
         }
         print_health_summary(report)
         return report
+
+
+def _comparison_metrics(rows: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
+    """Aggregate metrics for pre/post IKL baseline comparison."""
+    total = len(rows) or 1
+    fallback_n = sum(1 for r in rows if r.get("fallback_used"))
+    company_mem_hits = sum(
+        1 for r in rows if "company_memory" in (r.get("ikl_layers_hit") or [])
+    )
+    industry_mem_hits = sum(
+        1 for r in rows if "industry_memory" in (r.get("ikl_layers_hit") or [])
+    )
+    macro_mem_hits = sum(
+        1 for r in rows if "macro_memory" in (r.get("ikl_layers_hit") or [])
+    )
+    funnel_rows = [r.get("funnel") or {} for r in rows if isinstance(r.get("funnel"), dict)]
+
+    def _avg_funnel(key: str) -> float | None:
+        vals = []
+        for f in funnel_rows:
+            v = f.get(key)
+            if isinstance(v, (int, float)):
+                vals.append(float(v))
+        return round(sum(vals) / len(vals), 2) if vals else None
+
+    entity_conf = [
+        float(r["entity_confidence"])
+        for r in rows
+        if isinstance(r.get("entity_confidence"), (int, float))
+    ]
+    exec_sources: Dict[str, int] = {}
+    for r in rows:
+        src = r.get("executive_source") or "unknown"
+        exec_sources[str(src)] = exec_sources.get(str(src), 0) + 1
+    return {
+        "fallback_rate": round(fallback_n / total, 3),
+        "company_memory_hits": company_mem_hits,
+        "industry_memory_hits": industry_mem_hits,
+        "macro_memory_hits": macro_mem_hits,
+        "avg_funnel_retrieved": _avg_funnel("retrieved"),
+        "avg_funnel_ranked": _avg_funnel("ranked"),
+        "avg_funnel_passed": _avg_funnel("passed"),
+        "avg_funnel_referenced": _avg_funnel("referenced"),
+        "avg_entity_confidence": round(sum(entity_conf) / len(entity_conf), 3)
+        if entity_conf
+        else None,
+        "executive_attribution": exec_sources,
+        "hallucination_risk_total": sum(int(r.get("hallucination_risk") or 0) for r in rows),
+        "policy_violations": sum(1 for r in rows if r.get("policy") == "violation"),
+    }
 
 
 def cio_cases_from_frozen() -> List[Dict[str, Any]]:

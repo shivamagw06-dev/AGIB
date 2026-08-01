@@ -166,6 +166,11 @@ def test_symbol_resolution():
     assert to_yahoo_symbol("Infosys") == "INFY.NS"
     assert to_yahoo_symbol("INFY.NS") == "INFY.NS"
     assert from_yahoo_symbol("INFY.NS") == "INFY"
+    # US listings must not be forced onto NSE (META.NS 404 storms hang Ask).
+    assert to_yahoo_symbol("META") == "META"
+    assert to_yahoo_symbol("AAPL") == "AAPL"
+    assert to_yahoo_symbol("facebook") == "META"
+    assert to_yahoo_symbol("META", exchange="US") == "META"
 
 
 def test_mapper_search_canonical():

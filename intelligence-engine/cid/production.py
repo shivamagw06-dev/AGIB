@@ -106,7 +106,23 @@ def get_or_build(
         from cid.store import get_cid_store
 
         if is_cid_enrichment_enabled() and bool(getattr(get_settings(), "yahoo_provider", True)):
-            ypack = enrich_ticker(t)
+            # Never block Ask on Yahoo — strict ceiling; CMS/KIP evidence continues.
+            # Use a private executor (not Ask's shared pool) to avoid nested-timeout deadlocks.
+            from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
+
+            from app.ui.timeouts import ask_slim_enabled
+
+            if ask_slim_enabled():
+                # ASK_SLIM: skip live Yahoo CID fan-out (META.NS storms were hanging Tier A).
+                ypack = {"enabled": False, "bypassed": True, "reason": "ask_slim"}
+            else:
+                with ThreadPoolExecutor(max_workers=1, thread_name_prefix="cid-yfp") as ex:
+                    fut = ex.submit(enrich_ticker, t)
+                    try:
+                        ypack = fut.result(timeout=6.0)
+                    except FuturesTimeout:
+                        ypack = {"enabled": False, "timeout": True}
+                ypack = ypack if isinstance(ypack, dict) else {"enabled": False}
             if ypack.get("enabled") and (
                 ypack.get("quote")
                 or ypack.get("fundamentals")
@@ -248,13 +264,16 @@ def get_or_build(
 
         already_mem = isinstance(dossier.get("company_memory"), dict) and dossier["company_memory"].get("ok")
         if not already_mem:
+            from app.ui.timeouts import ask_slim_enabled
+
             injected = injected_from_dossier(dossier)
             mem = incremental_compile(
                 t,
                 injected=injected,
                 persist=True,
                 skip_live=True,
-                allow_live_prices=True,
+                # ASK_SLIM: avoid live Yahoo price fan-out on Ask (META.NS storms).
+                allow_live_prices=not ask_slim_enabled(),
             )
             if not mem.get("ok"):
                 # Fallback: full incremental compile once (cold memory)

@@ -12,11 +12,16 @@ payloads outward — callers must map through yahoo_mapper canonical helpers.
 
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor
+import logging
+import os
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
 from datetime import date, datetime
 from typing import Any
 
+_LOG = logging.getLogger("agi.yahoo.yfinance")
 _EXEC = ThreadPoolExecutor(max_workers=2, thread_name_prefix="yahoo-yf")
+# Hard ceiling — Meta.NS-style 404 storms must not hold Ask for minutes.
+_YF_TIMEOUT_SEC = float(os.environ.get("YAHOO_YFINANCE_TIMEOUT_SEC", "4") or "4")
 
 
 def yfinance_available() -> bool:
@@ -223,6 +228,16 @@ def _statement_df(t: Any, kind: str, freq: str) -> Any:
 
 
 def _fetch_package_sync(yahoo_symbol: str) -> dict[str, Any]:
+    cache_key = f"yf_pkg:{yahoo_symbol}"
+    try:
+        from app.market_data.providers.yahoo_request_cache import cached_get, cached_set
+
+        hit = cached_get(cache_key)
+        if isinstance(hit, dict):
+            return hit
+    except Exception:
+        cached_get = cached_set = None  # type: ignore[assignment]
+
     import yfinance as yf
 
     t = yf.Ticker(yahoo_symbol)
@@ -266,7 +281,7 @@ def _fetch_package_sync(yahoo_symbol: str) -> dict[str, Any]:
         if (r.get("netIncome") is not None or r.get("netIncomeCommonStockholders") is not None)
     ]
 
-    return {
+    pack = {
         "source": "yfinance",
         "endpoint": "fundamentals-timeseries+calendar",
         "symbol": yahoo_symbol,
@@ -290,12 +305,56 @@ def _fetch_package_sync(yahoo_symbol: str) -> dict[str, Any]:
             "get_sec_filings",
         ],
     }
+    if cached_set is not None:
+        try:
+            cached_set(cache_key, pack)
+        except Exception:
+            pass
+    return pack
+
+
+def fetch_yfinance_financial_package_sync(
+    yahoo_symbol: str, *, timeout_sec: float | None = None
+) -> dict[str, Any]:
+    """Sync fetch with hard wall-clock timeout + request/TTL cache."""
+    if not yahoo_symbol or not yfinance_available():
+        return {}
+    cache_key = f"yf_pkg:{yahoo_symbol}"
+    try:
+        from app.market_data.providers.yahoo_request_cache import cached_get
+
+        hit = cached_get(cache_key)
+        if isinstance(hit, dict):
+            return hit
+    except Exception:
+        pass
+    budget = _YF_TIMEOUT_SEC if timeout_sec is None else max(0.5, float(timeout_sec))
+    fut = _EXEC.submit(_fetch_package_sync, yahoo_symbol)
+    try:
+        return fut.result(timeout=budget) or {}
+    except FuturesTimeout:
+        _LOG.warning(
+            "yfinance_timeout symbol=%s budget_s=%.1f — continuing without Yahoo pack",
+            yahoo_symbol,
+            budget,
+        )
+        empty = {"source": "yfinance", "symbol": yahoo_symbol, "timeout": True, "enabled": False}
+        try:
+            from app.market_data.providers.yahoo_request_cache import cached_set
+
+            # Negative-cache briefly so Ask fan-out does not re-stampede
+            cached_set(cache_key, empty, ttl_sec=60.0)
+        except Exception:
+            pass
+        return empty
+    except Exception:
+        return {}
 
 
 async def fetch_yfinance_financial_package(yahoo_symbol: str) -> dict[str, Any]:
     """
     Async wrapper around yfinance Ticker statement + calendar APIs.
-    Returns empty dict if yfinance missing or fetch fails.
+    Returns empty dict if yfinance missing or fetch fails / times out.
     """
     if not yahoo_symbol or not yfinance_available():
         return {}
@@ -303,6 +362,9 @@ async def fetch_yfinance_financial_package(yahoo_symbol: str) -> dict[str, Any]:
 
     loop = asyncio.get_running_loop()
     try:
-        return await loop.run_in_executor(_EXEC, _fetch_package_sync, yahoo_symbol)
+        return await loop.run_in_executor(
+            None,
+            lambda: fetch_yfinance_financial_package_sync(yahoo_symbol),
+        )
     except Exception:
         return {}

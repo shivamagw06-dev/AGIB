@@ -219,7 +219,7 @@ def test_disabled_ib_keeps_engines_working():
 def test_ask_agi_soft_emit():
     ib = _ib()
     ui = UiService(ib=ib, cae=None)
-    view = ui.search("Should I buy INFY?", ticker="INFY")
+    view = ui.search("What is changing at INFY?", ticker="INFY")
     assert view.intelligence_bus.get("emitted") is True
     assert view.intelligence_bus.get("event", {}).get("event_type") in (
         "CompanyUpdated",

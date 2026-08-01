@@ -1907,9 +1907,12 @@ export default function createIntelligenceRouter() {
         `/v1/ikl/memory/${encodeURIComponent(req.params.ticker)}`,
         { timeoutMs: 15_000 },
       );
-      return res.json(result);
-    } catch (err) {
-      return res.status(502).json({ ok: false, error: String(err?.message || err).slice(0, 200) });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({
+        error: 'IKL memory unavailable',
+        detail: error.message,
+      });
     }
   });
   router.post('/ikl/learn', async (req, res) => {
@@ -1919,9 +1922,12 @@ export default function createIntelligenceRouter() {
         body: req.body || {},
         timeoutMs: 30_000,
       });
-      return res.json(result);
-    } catch (err) {
-      return res.status(502).json({ ok: false, error: String(err?.message || err).slice(0, 200) });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({
+        error: 'IKL learn unavailable',
+        detail: error.message,
+      });
     }
   });
 

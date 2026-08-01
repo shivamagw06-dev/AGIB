@@ -165,7 +165,11 @@ def test_tier_b_product_regression(harness: AskProductHarness):
         },
     }
     print_health_summary(report)
-    path = write_report(report, filename="ask_test_report.json")
+    filename = (os.environ.get("ASK_TEST_REPORT_NAME") or "ask_test_report.json").strip()
+    path = write_report(report, filename=filename or "ask_test_report.json")
+    baseline = (os.environ.get("ASK_TEST_BASELINE_NAME") or "").strip()
+    if baseline:
+        write_report(report, filename=baseline)
     assert path.exists()
 
     assert unknown_row["pass"], unknown_row.get("failures")

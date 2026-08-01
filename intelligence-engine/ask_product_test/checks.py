@@ -338,3 +338,108 @@ def has_usable_answer(payload: Dict[str, Any]) -> bool:
     if payload.get("error") == "research_desk_unavailable" and payload.get("retryable"):
         return True
     return False
+
+
+def extract_orchestration(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Pull #435/#436 observability fields for baseline comparison."""
+    orch = payload.get("ask_orchestration") if isinstance(payload, dict) else None
+    if not isinstance(orch, dict):
+        deg = payload.get("degradation") if isinstance(payload, dict) else None
+        if isinstance(deg, dict) and isinstance(deg.get("ask_orchestration"), dict):
+            orch = deg["ask_orchestration"]
+        else:
+            orch = {}
+    funnel = orch.get("funnel") if isinstance(orch.get("funnel"), dict) else {}
+    util = orch.get("utilization") or orch.get("evidence_utilization")
+    if not isinstance(util, dict):
+        util = {}
+    latency = orch.get("latency") if isinstance(orch.get("latency"), dict) else {}
+    entity = orch.get("entity") if isinstance(orch.get("entity"), dict) else {}
+    ikl = orch.get("ikl") if isinstance(orch.get("ikl"), dict) else {}
+    ik_pack = payload.get("institutional_knowledge") if isinstance(payload, dict) else {}
+    if not isinstance(ik_pack, dict):
+        ik_pack = {}
+    layers = list(ikl.get("layers_hit") or ik_pack.get("layers_hit") or [])
+    return {
+        "ask_trace_id": orch.get("ask_trace_id"),
+        "fallback_used": bool(orch.get("fallback_used") or orch.get("fallback")),
+        "engine_reached": orch.get("engine_reached"),
+        "executive_source": orch.get("executive_source"),
+        "ticker_source": orch.get("ticker_source"),
+        "entity_confidence": entity.get("confidence") or orch.get("entity_confidence"),
+        "funnel": {
+            "retrieved": funnel.get("retrieved"),
+            "ranked": funnel.get("ranked"),
+            "passed": funnel.get("passed"),
+            "referenced": funnel.get("referenced"),
+        },
+        "utilization": util,
+        "latency": latency,
+        "latency_total_ms": latency.get("total_ms") or orch.get("latency_ms"),
+        "ikl_layers_hit": layers,
+        "ikl_confidence": ikl.get("confidence") if ikl else ik_pack.get("confidence"),
+        "ikl_explainability": ikl.get("explainability") or ik_pack.get("explainability") or {},
+        "trace_summary": orch.get("trace_summary"),
+    }
+
+
+def check_ikl_expectations(
+    payload: Dict[str, Any],
+    case: Dict[str, Any],
+    *,
+    strict: bool = False,
+) -> Tuple[bool, List[str], Dict[str, Any]]:
+    """Validate IKL memory usage. Soft unless strict=True."""
+    errors: List[str] = []
+    orch = extract_orchestration(payload)
+    ik = payload.get("institutional_knowledge") if isinstance(payload, dict) else {}
+    if not isinstance(ik, dict):
+        ik = {}
+    layers = list(orch.get("ikl_layers_hit") or [])
+    meta = {
+        "layers_hit": layers,
+        "ikl_present": bool(ik.get("enabled") or layers or orch.get("ikl_explainability")),
+        "primary_before_raw": bool(ik.get("primary_before_raw_documents")),
+        "knowledge_gaps": list((ik.get("explainability") or {}).get("knowledge_gaps") or []),
+        "strict": strict,
+    }
+
+    if case.get("ikl_expect_knowledge_gap") or case.get("expect_insufficient_evidence"):
+        ok_i, err_i = check_insufficient_evidence(payload)
+        meta["insufficient_evidence"] = ok_i
+        if not ok_i and strict:
+            errors.extend(err_i)
+        elif not ok_i:
+            meta["soft_gap"] = err_i
+        return (len(errors) == 0), errors, meta
+
+    expected_layers = list(case.get("ikl_expect_layers") or [])
+    missing = [layer for layer in expected_layers if layer not in layers]
+    meta["missing_layers"] = missing
+
+    if expected_layers and missing:
+        msg = f"IKL layers missing: expected {expected_layers}, hit {layers or []}"
+        if strict:
+            errors.append(msg)
+        else:
+            meta["soft_ikl"] = msg
+
+    if case.get("ikl_primary_memory") and strict:
+        if not (ik.get("primary_before_raw_documents") or "company_memory" in layers):
+            errors.append("expected company memory consulted before raw documents")
+
+    if case.get("ikl_expect_multi_document") and strict:
+        timeline = (ik.get("historical_timeline") or {}) if isinstance(ik, dict) else {}
+        docs_n = 0
+        if isinstance(timeline, dict):
+            for v in timeline.values():
+                if isinstance(v, dict):
+                    docs_n += len(v.get("documents") or [])
+                    docs_n += len(v.get("deltas") or [])
+        expl = ik.get("explainability") or {}
+        docs_n = max(docs_n, len(expl.get("documents_referenced") or []))
+        meta["documents_referenced_n"] = docs_n
+        if docs_n < 2 and "historical_timeline" not in layers:
+            errors.append("expected multi-document / timeline reasoning")
+
+    return (len(errors) == 0), errors, meta

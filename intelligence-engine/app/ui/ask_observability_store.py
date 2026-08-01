@@ -10,6 +10,42 @@ from typing import Any, Deque, Dict, List, Optional
 
 _LOCK = Lock()
 _TRACES: Deque[dict[str, Any]] = deque(maxlen=200)
+_PARTIAL: Dict[str, dict[str, Any]] = {}
+
+
+def record_partial_trace(row: dict[str, Any]) -> None:
+    """In-flight checkpoint — survives hangs until final record_trace."""
+    if not isinstance(row, dict) or not row:
+        return
+    tid = row.get("ask_trace_id")
+    if not tid:
+        return
+    slim = {
+        "ask_trace_id": tid,
+        "ts": row.get("ts"),
+        "partial": True,
+        "completed": bool(row.get("completed")),
+        "timeout": bool(row.get("timeout")),
+        "last_completed_stage": row.get("last_completed_stage") or row.get("checkpoint_stage"),
+        "elapsed_ms": row.get("elapsed_ms"),
+        "fallback": bool(row.get("fallback") or row.get("fallback_used")),
+        "engine_reached": bool(row.get("engine_reached", True)),
+        "entity": row.get("entity") or {},
+        "evidence": row.get("evidence") or row.get("funnel") or {},
+        "latency": row.get("latency") or row.get("latency_ms") or {},
+        "ikl": row.get("ikl") or {},
+        "stage_warnings": row.get("stage_warnings") or [],
+        "trace_summary": row.get("trace_summary"),
+        "execution_trace": row.get("execution_trace"),
+    }
+    with _LOCK:
+        _PARTIAL[str(tid)] = slim
+
+
+def get_partial_trace(ask_trace_id: str) -> Optional[dict[str, Any]]:
+    with _LOCK:
+        row = _PARTIAL.get(str(ask_trace_id or ""))
+        return deepcopy(row) if row else None
 
 
 def record_trace(row: dict[str, Any]) -> None:
@@ -18,6 +54,12 @@ def record_trace(row: dict[str, Any]) -> None:
     slim = {
         "ask_trace_id": row.get("ask_trace_id"),
         "ts": row.get("ts"),
+        "partial": bool(row.get("partial")),
+        "completed": row.get("completed"),
+        "timeout": bool(row.get("timeout")),
+        "last_completed_stage": row.get("last_completed_stage")
+        or (row.get("latency") or {}).get("last_completed_stage"),
+        "elapsed_ms": row.get("elapsed_ms"),
         "fallback": bool(row.get("fallback") or row.get("fallback_used")),
         "engine_reached": bool(row.get("engine_reached", True)),
         "entity": row.get("entity") or {},
@@ -27,6 +69,10 @@ def record_trace(row: dict[str, Any]) -> None:
         "grounding": row.get("grounding"),
         "intent": row.get("intent"),
         "trace_summary": row.get("trace_summary"),
+        "execution_trace": row.get("execution_trace"),
+        "stage_warnings": row.get("stage_warnings")
+        or (row.get("latency") or {}).get("warnings")
+        or [],
         "rejected": (row.get("entity") or {}).get("rejected_candidates")
         or row.get("ticker_rejects")
         or [],
@@ -37,6 +83,9 @@ def record_trace(row: dict[str, Any]) -> None:
     }
     with _LOCK:
         _TRACES.appendleft(slim)
+        tid = str(row.get("ask_trace_id") or "")
+        if tid and tid in _PARTIAL:
+            del _PARTIAL[tid]
 
 
 def recent_traces(*, limit: int = 25) -> List[dict[str, Any]]:
