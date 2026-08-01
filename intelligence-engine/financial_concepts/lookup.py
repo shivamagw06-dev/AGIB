@@ -80,12 +80,21 @@ ALIASES: dict[str, str] = {
     "levered free cash flow": "levered_fcf",
     "fcff": "unlevered_fcf",
     "fcfe": "levered_fcf",
+    "capital allocation": "capital_recycling",
+    "gross margin": "contribution_margin",
 }
 
 
 def _normalize(text: str) -> str:
     cleaned = re.sub(r"[^a-z0-9\s]", " ", (text or "").strip().lower())
     return re.sub(r"\s+", " ", cleaned).strip()
+
+
+def _phrase_in(phrase: str, cleaned: str) -> bool:
+    """Whole-phrase match — prevents alias 'ev' matching inside 'every'."""
+    if not phrase or not cleaned:
+        return False
+    return re.search(rf"(?<![a-z0-9]){re.escape(phrase)}(?![a-z0-9])", cleaned) is not None
 
 
 def _all_words_present(key: str, words: set[str]) -> bool:
@@ -128,10 +137,10 @@ def explain(topic: str) -> dict:
     candidates: list[tuple[int, str]] = []  # (phrase_length, key)
     for key in ALL_CONCEPTS:
         key_phrase = key.replace("_", " ")
-        if key_phrase in cleaned:
+        if _phrase_in(key_phrase, cleaned):
             candidates.append((len(key_phrase), key))
     for phrase, key in ALIASES.items():
-        if phrase in cleaned:
+        if _phrase_in(phrase, cleaned):
             candidates.append((len(phrase), key))
     if candidates:
         candidates.sort(key=lambda t: t[0], reverse=True)
