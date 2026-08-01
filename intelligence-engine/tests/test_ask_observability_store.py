@@ -18,8 +18,11 @@ def setup_function() -> None:
 
 def test_trace_id_format():
     tid = new_ask_trace_id()
-    assert tid.startswith("ASK-")
+    assert tid.startswith("ask_")
     assert len(tid) >= 16
+    parts = tid.split("_")
+    assert len(parts) >= 3
+    assert parts[1].isdigit()
 
 
 def test_funnel_efficiency_and_precision():
@@ -54,7 +57,7 @@ def test_finalize_persists_and_mission_control_reads():
         intent="earnings_analysis",
         persist=True,
     )
-    assert orch["ask_trace_id"].startswith("ASK-")
+    assert orch["ask_trace_id"].startswith("ask_")
     assert orch["evidence"]["efficiency"] is not None
     assert orch["evidence"]["precision"] is not None
     assert "entity_ms" in orch["latency"]

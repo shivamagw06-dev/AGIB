@@ -32,9 +32,17 @@ REASONING_WARN_MS = 30_000
 
 
 def new_ask_trace_id() -> str:
-    """Stable per-request id: ASK-YYYYMMDD-<hex>."""
-    day = datetime.now(timezone.utc).strftime("%Y%m%d")
-    return f"ASK-{day}-{secrets.token_hex(3).upper()}"
+    """Stable per-request id (Phase-1): ask_YYYYMMDD_<hex>.
+
+    Legacy ASK-YYYYMMDD-HEX ids are still accepted via normalize_request_id.
+    """
+    try:
+        from app.ui.ask_pipeline_trace import new_request_id
+
+        return new_request_id()
+    except Exception:
+        day = datetime.now(timezone.utc).strftime("%Y%m%d")
+        return f"ask_{day}_{secrets.token_hex(4)}"
 
 
 class StageTimer:

@@ -15,6 +15,15 @@ from app.ui.ask_orchestration_trace import (
     format_trace_summary,
     new_ask_trace_id,
 )
+from app.ui.ask_pipeline_trace import (
+    STAGE_ENGINE_RECEIVED,
+    STAGE_LLM_STARTED,
+    STAGE_RETRIEVAL_COMPLETED,
+    STAGE_RETRIEVAL_STARTED,
+    AskPipelineTrace,
+    normalize_request_id,
+    sources_from_degradation,
+)
 from app.ui.ticker_guard import (
     accept_detected_ticker,
     alias_ticker_from_question,
@@ -915,9 +924,23 @@ class UiService:
                 )
             except Exception as exc:  # noqa: BLE001 — desk must degrade, not disappear
                 import logging
+                import traceback
 
                 logging.getLogger("agi.ui.search").exception("ask_search_failed q=%r", q[:120])
-                tid = (ask_trace_id or "").strip() or new_ask_trace_id()
+                tid = normalize_request_id((ask_trace_id or "").strip() or None)
+                try:
+                    _pt = AskPipelineTrace(request_id=tid, question=q)
+                    _pt.mark(STAGE_ENGINE_RECEIVED, status="error")
+                    _pt.set_error(
+                        stage="search",
+                        message=type(exc).__name__,
+                        root_cause=str(exc)[:400],
+                        stack=traceback.format_exc(),
+                    )
+                    _pt.set_fallback("dependency_failure", detail={"exception": type(exc).__name__})
+                    _pt.complete(status="error")
+                except Exception:
+                    pass
                 return SearchView(
                     meta=UiMeta(
                         surface="search",
@@ -935,6 +958,7 @@ class UiService:
                     ask_orchestration={
                         "version": "ask-orchestration-trace-2",
                         "ask_trace_id": tid,
+                        "request_id": tid,
                         "fallback": True,
                         "fallback_used": True,
                         "completed": False,
@@ -982,8 +1006,10 @@ class UiService:
         rsp_pkg: dict[str, Any] = {}
         irp_pkg = None
         irp_dump: dict[str, Any] = {}
-        ask_trace_id = (ask_trace_id or "").strip() or new_ask_trace_id()
+        ask_trace_id = normalize_request_id((ask_trace_id or "").strip() or None)
         stage_timer = StageTimer(ask_trace_id=ask_trace_id)
+        pipeline = AskPipelineTrace(request_id=ask_trace_id, question=q)
+        pipeline.mark(STAGE_ENGINE_RECEIVED, status="ok")
 
         knowledge_bundle: dict[str, Any] = {}
 
@@ -995,6 +1021,26 @@ class UiService:
             research_ontology = soft_slice_for_ask_agi(q) or {}
         except Exception:
             research_ontology = {}
+        # Phase-1 observability — intent (no behavior change)
+        try:
+            _ro = (research_ontology.get("research_ontology") or research_ontology) if isinstance(research_ontology, dict) else {}
+            _intent = (
+                _ro.get("research_type")
+                or _ro.get("question_type")
+                or _ro.get("intent")
+                or (research_ontology.get("research_type") if isinstance(research_ontology, dict) else None)
+            )
+            _conf = _ro.get("confidence") if isinstance(_ro, dict) else None
+            if _intent:
+                pipeline.set_intent(str(_intent), confidence=float(_conf) if _conf is not None else None)
+            else:
+                pipeline.set_intent(
+                    "Unknown",
+                    confidence=0.0,
+                    why_unknown="research_ontology returned no research_type/question_type",
+                )
+        except Exception:
+            pipeline.set_intent("Unknown", confidence=0.0, why_unknown="intent logging failed")
 
         # RQ1 Sprint 2 — Entity Resolution Engine (canonical identity; metadata soft-wire)
         entity_resolution: dict[str, Any] = {}
@@ -1004,6 +1050,7 @@ class UiService:
         alias_hit: str | None = None
         ask_orchestration: dict[str, Any] = {
             "ask_trace_id": ask_trace_id,
+            "request_id": ask_trace_id,
             "ticker_source": "user" if detected_ticker else None,
             "ticker_rejects": [],
             "ere_research_blocked": False,
@@ -1053,16 +1100,56 @@ class UiService:
             }
         )
         stage_timer.mark("entity_resolution")
+        # Phase-1 observability — entities (never silent on miss)
+        try:
+            _ent_rows: list[dict[str, Any]] = []
+            if detected_ticker:
+                _ent_rows.append(
+                    {
+                        "name": detected_ticker,
+                        "ticker": detected_ticker,
+                        "confidence": 0.98 if alias_hit else (0.9 if ere_ticker else 0.5),
+                        "source": ask_orchestration.get("ticker_source"),
+                    }
+                )
+            pipeline.set_entities(
+                _ent_rows,
+                confidence=0.98 if alias_hit else (0.9 if ere_ticker else (0.0 if not _ent_rows else 0.5)),
+                aliases_matched=[alias_hit] if alias_hit else [],
+                none_found=not _ent_rows,
+            )
+        except Exception:
+            pipeline.set_entities([], none_found=True)
 
         # Recommendation / buy-sell bait: refuse before RQ cascade and full retrieval.
         # SMOKE-06 and similar must not invoke the research pipeline.
         if _is_recommendation_bait(q):
+            try:
+                pipeline.set_intent("Recommendation Request", confidence=0.99)
+                pipeline.mark(STAGE_RETRIEVAL_STARTED, status="skipped")
+                pipeline.mark(STAGE_RETRIEVAL_COMPLETED, status="skipped")
+                pipeline.set_evidence(retrieved=0, used=1, top_ids=["policy"], sources=["policy"])
+                pipeline.set_prompt(
+                    prompt_chars=len(q) + 200,
+                    estimated_tokens=80,
+                    evidence_count=1,
+                    system_prompt_version="recommendation_policy",
+                    playbook="no_buy_sell",
+                )
+                pipeline.set_llm(model="policy", used=False, finish_reason="policy_refuse")
+                pipeline.complete(status="success")
+            except Exception:
+                pass
             return self._recommendation_policy_view(
                 question=q,
                 ticker=detected_ticker,
                 ask_trace_id=ask_trace_id,
                 stage_timer=stage_timer,
-                ask_orchestration=ask_orchestration,
+                ask_orchestration={
+                    **ask_orchestration,
+                    "request_id": ask_trace_id,
+                    "pipeline_debug": pipeline.to_debug_payload(),
+                },
                 entity_resolution=entity_resolution,
                 ere_body=ere_body if isinstance(ere_body, dict) else {},
                 alias_hit=alias_hit,
@@ -1474,6 +1561,7 @@ class UiService:
 
         # Sprint 6.4 KRIG — Knowledge Bundle soft-wire (IE never discovers Yahoo/NSE/BSE).
         # Soft / timed: Ask must not block if Knowledge Platform is down.
+        pipeline.mark(STAGE_RETRIEVAL_STARTED, status="ok")
         try:
             from app.kaip_client import KrigClient
 
@@ -1999,6 +2087,83 @@ class UiService:
             multi_source_pack = {}
             degradation["multi_source"] = "unavailable"
         stage_timer.mark("retrieval")
+        # Phase-1 observability — retrieval completed + per-source rows from degradation ledger
+        try:
+            for _src in sources_from_degradation(degradation):
+                pipeline.set_source(
+                    str(_src.get("key") or _src.get("name") or "source"),
+                    searched=bool(_src.get("searched")),
+                    latency_ms=int(_src.get("latency_ms") or 0),
+                    returned=int(_src.get("returned") or 0),
+                    selected=int(_src.get("selected") or 0),
+                    status=str(_src.get("status") or "ok"),
+                )
+            # Enrich returned counts from soft packs when available (labels only).
+            if isinstance(knowledge_bundle, dict) and knowledge_bundle:
+                pipeline.set_source(
+                    "krig",
+                    searched=True,
+                    returned=int(knowledge_bundle.get("document_count") or len(knowledge_bundle.get("documents") or []) or 0),
+                    selected=min(8, int(knowledge_bundle.get("document_count") or 0)),
+                    status=str(degradation.get("krig") or "ok"),
+                )
+            if isinstance(multi_source_pack, dict):
+                pipeline.set_source(
+                    "multi_source",
+                    searched=degradation.get("multi_source") not in {None, "unavailable", "skipped_slim"},
+                    returned=int(multi_source_pack.get("evidence_count") or 0),
+                    selected=min(8, int(multi_source_pack.get("evidence_count") or 0)),
+                    status=str(degradation.get("multi_source") or "ok"),
+                )
+            if isinstance(live_evidence, dict):
+                pipeline.set_source(
+                    "live_evidence",
+                    searched=degradation.get("live_evidence") not in {None, "unavailable", "skipped_slim"},
+                    returned=int(live_evidence.get("evidence_count") or 0),
+                    selected=min(8, int(live_evidence.get("evidence_count") or 0)),
+                    status=str(degradation.get("live_evidence") or "ok"),
+                )
+            # Soft packs — labels/counts only (no retrieval behavior change).
+            for _key, _pack, _count_keys in (
+                ("valuation", locals().get("valuation"), ("evidence_count", "hit_count", "items")),
+                ("kip", locals().get("kip_pack") or locals().get("kip"), ("evidence_count", "documents", "hits")),
+                (
+                    "finance_academy",
+                    locals().get("finance_academy"),
+                    ("evidence_count", "passages", "hits"),
+                ),
+                (
+                    "finance_retrieval",
+                    locals().get("finance_retrieval"),
+                    ("evidence_count", "hits"),
+                ),
+                (
+                    "market_indices",
+                    locals().get("market_indices"),
+                    ("membership_count", "indices", "hits"),
+                ),
+            ):
+                if not isinstance(_pack, dict) or not _pack:
+                    continue
+                _ret = 0
+                for _ck in _count_keys:
+                    _v = _pack.get(_ck)
+                    if isinstance(_v, int):
+                        _ret = _v
+                        break
+                    if isinstance(_v, list):
+                        _ret = len(_v)
+                        break
+                pipeline.set_source(
+                    _key,
+                    searched=True,
+                    returned=int(_ret or 0),
+                    selected=min(8, int(_ret or 0)),
+                    status=str(degradation.get(_key) or "ok"),
+                )
+            pipeline.mark(STAGE_RETRIEVAL_COMPLETED, status="ok")
+        except Exception:
+            pipeline.mark(STAGE_RETRIEVAL_COMPLETED, status="degraded")
 
         # AGIB v2.1 — Complete Ask Pipeline (soft-wire).
         # Context → Intent → Entities → KF retrieval → Evidence → IRO plan → DAG
@@ -3450,6 +3615,71 @@ class UiService:
             intent=(irp_dump or {}).get("intent") or (client or {}).get("intent"),
             fallback=False,
         )
+        # Phase-1 observability — evidence / prompt sizes / LLM soft status (no behavior change)
+        try:
+            _funnel = ask_orchestration.get("funnel") or ask_orchestration.get("evidence") or {}
+            _ev_ids = []
+            for _e in (evidence_used or [])[:12]:
+                if isinstance(_e, dict):
+                    _ev_ids.append(str(_e.get("id") or _e.get("title") or _e.get("source") or "")[:80])
+            pipeline.set_evidence(
+                retrieved=int(_funnel.get("retrieved") or 0),
+                used=int(_funnel.get("referenced") or _funnel.get("passed") or len(evidence_used or [])),
+                top_ids=[x for x in _ev_ids if x],
+                sources=[s.get("name") for s in pipeline.sources if s.get("searched") or s.get("returned")],
+            )
+            _exec = executive or ""
+            _why_join = " ".join(str(x) for x in (why or [])[:12])
+            _prompt_chars = len(_exec) + len(_why_join) + len(q)
+            _playbook = None
+            try:
+                _playbook = ((ask_pipeline_runtime or {}).get("playbook_selection") or {}).get("playbook_id")
+            except Exception:
+                _playbook = None
+            pipeline.set_prompt(
+                prompt_chars=_prompt_chars,
+                estimated_tokens=max(1, _prompt_chars // 4),
+                evidence_count=int(_funnel.get("passed") or len(evidence_used or [])),
+                system_prompt_version="ask-orchestration-trace-2",
+                playbook=_playbook,
+            )
+            # Soft ICE / IRP path — record whether a generative LLM call was used.
+            _llm_used = bool((ask_pipeline_runtime or {}).get("llm_used"))
+            _lat = (ask_orchestration.get("latency") or {})
+            pipeline.mark(STAGE_LLM_STARTED, status="ok" if _llm_used else "skipped")
+            pipeline.set_llm(
+                model=((ask_pipeline_runtime or {}).get("model") or ("ice_compose" if _ice_for_trace else "irp_soft")),
+                prompt_tokens=pipeline.prompt.get("estimated_tokens"),
+                completion_tokens=max(1, len(_exec) // 4) if _exec else 0,
+                latency_ms=int(_lat.get("reasoning_ms") or 0),
+                finish_reason="stop",
+                used=_llm_used or bool(_lat.get("reasoning_ms")),
+            )
+            if not pipeline.intent:
+                _intent_final = (irp_dump or {}).get("intent") or (client or {}).get("intent") or ask_orchestration.get("intent")
+                if _intent_final:
+                    pipeline.intent = str(_intent_final)
+            pipeline.complete(status="success")
+            ask_orchestration["request_id"] = pipeline.request_id
+            ask_orchestration["pipeline_debug"] = {
+                "request_id": pipeline.request_id,
+                "intent": pipeline.intent,
+                "intent_confidence": pipeline.intent_confidence,
+                "entities": pipeline.entities,
+                "sources": pipeline.sources,
+                "evidence_count": pipeline.evidence_count,
+                "evidence_used": pipeline.evidence_used,
+                "prompt_tokens": pipeline.prompt.get("estimated_tokens"),
+                "completion_tokens": (pipeline.llm or {}).get("completion_tokens"),
+                "llm_latency_ms": (pipeline.llm or {}).get("latency_ms"),
+                "fallback_used": pipeline.fallback_used,
+                "fallback_reason": pipeline.fallback_reason,
+                "total_latency_ms": pipeline.elapsed_ms(),
+                "latency_breakdown": pipeline.latency_breakdown,
+                "status": pipeline.status,
+            }
+        except Exception:
+            pass
         try:
             import logging
 

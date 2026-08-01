@@ -485,6 +485,84 @@ export default function createUiRouter() {
     });
   }
 
+  /** Phase-1 request id: ask_YYYYMMDD_<hex>. Accepts legacy ASK-* / ask_*. */
+  const newAskRequestId = () => {
+    const day = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const hex = Math.random().toString(16).slice(2, 10);
+    return `ask_${day}_${hex}`;
+  };
+
+  const normalizeAskRequestId = (raw) => {
+    const s = String(raw || '').trim();
+    if (!s) return newAskRequestId();
+    if (/^ask_/i.test(s)) return s.startsWith('ask_') ? s : s.toLowerCase();
+    // Legacy ASK-YYYYMMDD-HEX → ask_YYYYMMDD_hex
+    if (/^ASK-/i.test(s) && !s.includes('_')) {
+      const parts = s.split('-');
+      if (parts.length >= 3) {
+        const day = parts[1];
+        const hexpart = parts.slice(2).join('').toLowerCase();
+        if (/^\d+$/.test(day) && hexpart) return `ask_${day}_${hexpart}`;
+      }
+    }
+    return s;
+  };
+
+  const logAskPipeline = (stage, requestId, extra = {}) => {
+    const payload = {
+      stage,
+      timestamp: new Date().toISOString(),
+      request_id: requestId,
+      duration_ms: extra.duration_ms ?? null,
+      status: extra.status || 'ok',
+      ...extra,
+    };
+    // eslint-disable-next-line no-console
+    console.log(
+      `ask_pipeline request_id=${requestId} stage=${stage} status=${payload.status} duration_ms=${payload.duration_ms ?? 0}`,
+      JSON.stringify(payload),
+    );
+  };
+
+  const classifyFallbackReason = (detail, meta = {}) => {
+    if (meta.timeout) return 'timeout';
+    if (meta.circuitBreaker) return 'circuit_breaker';
+    if (meta.engineStatus === 0) return 'engine_unavailable';
+    if (meta.html502 || meta.engineStatus === 502 || meta.engineStatus === 503) {
+      return 'engine_unavailable';
+    }
+    if (meta.engineStatus >= 500) return 'dependency_failure';
+    const d = String(detail || '').toLowerCase();
+    if (d.includes('timeout')) return 'timeout';
+    if (d.includes('intent')) return 'intent_failure';
+    if (d.includes('retriev')) return 'retrieval_failure';
+    if (d.includes('llm')) return 'llm_timeout';
+    if (d.includes('circuit')) return 'circuit_breaker';
+    if (d.includes('unavailable') || d.includes('502') || d.includes('503')) {
+      return 'engine_unavailable';
+    }
+    return 'dependency_failure';
+  };
+
+  router.get('/debug/request/:requestId', async (req, res) => {
+    const requestId = String(req.params.requestId || '').trim();
+    if (!requestId) {
+      return res.status(400).json({ error: 'request_id required' });
+    }
+    try {
+      const result = await engineFetch(`/v1/debug/request/${encodeURIComponent(requestId)}`, {
+        timeoutMs: 5_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({
+        error: 'debug_request_unavailable',
+        detail: error.message,
+        request_id: requestId,
+      });
+    }
+  });
+
   router.post('/search', async (req, res) => {
     const question = req.body?.question || req.query.question;
     const ticker = req.body?.ticker || req.query.ticker;
@@ -497,15 +575,22 @@ export default function createUiRouter() {
       Number.parseInt(process.env.ASK_ENGINE_TIMEOUT_MS || '120000', 10) || 120_000,
     );
     const httpStarted = Date.now();
-    const day = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    const gatewayTraceId =
-      req.body?.ask_trace_id ||
-      req.headers['x-ask-trace-id'] ||
-      `ASK-${day}-${Math.random().toString(16).slice(2, 8).toUpperCase()}`;
+    const gatewayTraceId = normalizeAskRequestId(
+      req.body?.request_id ||
+        req.body?.ask_trace_id ||
+        req.headers['x-request-id'] ||
+        req.headers['x-ask-trace-id'],
+    );
+    logAskPipeline('REQUEST_RECEIVED', gatewayTraceId, {
+      status: 'ok',
+      duration_ms: 0,
+      question_excerpt: String(question).slice(0, 160),
+    });
 
     const buildTimeoutOrch = (detail, meta = {}) => {
       const elapsed = Date.now() - httpStarted;
       const timedOut = Boolean(meta.timeout);
+      const fallbackReason = classifyFallbackReason(detail, meta);
       const partial = meta.partialTrace && typeof meta.partialTrace === 'object' ? meta.partialTrace : {};
       const partialLat = partial.latency && typeof partial.latency === 'object' ? partial.latency : {};
       const lastStage =
@@ -526,15 +611,17 @@ export default function createUiRouter() {
       const orch = {
         version: 'ask-orchestration-trace-2',
         ask_trace_id: gatewayTraceId,
+        request_id: gatewayTraceId,
         engine_reached: Boolean(partial.engine_reached) || lastStage !== 'http_ingress',
         fallback: true,
         fallback_used: true,
+        fallback_reason: fallbackReason,
+        reason: detail,
         completed: false,
         timeout: timedOut,
         partial: true,
         last_completed_stage: lastStage,
         elapsed_ms: elapsed,
-        reason: detail,
         timeout_ms: askTimeoutMs,
         engine_status: meta.engineStatus ?? null,
         html_502: Boolean(meta.html502),
@@ -551,6 +638,7 @@ export default function createUiRouter() {
         latency: {
           http_ms: elapsed,
           total_ms: elapsed,
+          node_ms: elapsed,
           http_ingress_ms: Number(partialLat.http_ingress_ms || 0),
           entity_ms: Number(partialLat.entity_ms || partialLat.stages?.entity_resolution || 0),
           ikl_ms: Number(partialLat.ikl_ms || partialLat.stages?.ikl || 0),
@@ -572,6 +660,7 @@ export default function createUiRouter() {
                     elapsed_ms: elapsed,
                     threshold_ms: askTimeoutMs,
                     ask_trace_id: gatewayTraceId,
+                    request_id: gatewayTraceId,
                     last_completed_stage: lastStage,
                   },
                 ]
@@ -580,6 +669,7 @@ export default function createUiRouter() {
         },
         diagnostics_visibility: 'internal',
         execution_trace: [
+          `Request ID: ${gatewayTraceId}`,
           `Ask Trace ID: ${gatewayTraceId}`,
           `Entity: ${entityName || '—'} (${entityFromPartial.confidence != null ? entityFromPartial.confidence : ticker ? '0.95' : '—'})`,
           `IKL: ${Number(partialLat.ikl_ms || 0)}ms`,
@@ -592,9 +682,10 @@ export default function createUiRouter() {
           'Completed: false',
           `Last completed stage: ${lastStage}`,
           `Elapsed: ${(elapsed / 1000).toFixed(1)}s`,
+          `Fallback reason: ${fallbackReason}`,
           timedOut ? 'Timeout: true' : 'Fallback: true',
         ].join('\n'),
-        trace_summary: `Trace: ${gatewayTraceId} | Timeout: ${timedOut ? 'Yes' : 'No'} | Fallback: Yes | Last stage: ${lastStage} | Total: ${(elapsed / 1000).toFixed(1)}s`,
+        trace_summary: `Request: ${gatewayTraceId} | Timeout: ${timedOut ? 'Yes' : 'No'} | Fallback: Yes (${fallbackReason}) | Last stage: ${lastStage} | Total: ${(elapsed / 1000).toFixed(1)}s`,
       };
       return orch;
     };
@@ -614,6 +705,16 @@ export default function createUiRouter() {
     };
 
     const serveFallback = async (detail, meta = {}) => {
+      const fallbackReason = classifyFallbackReason(detail, meta);
+      const forwardMs = Date.now() - httpStarted;
+      logAskPipeline('FALLBACK_USED', gatewayTraceId, {
+        status: 'fallback',
+        duration_ms: forwardMs,
+        reason: fallbackReason,
+        detail: String(detail || '').slice(0, 240),
+        timeout: Boolean(meta.timeout),
+        engine_status: meta.engineStatus ?? null,
+      });
       try {
         const partialTrace = meta.partialTrace || (await fetchPartialTrace());
         const { buildAskDeskFallback } = await import('../services/askDeskFallback.js');
@@ -624,14 +725,27 @@ export default function createUiRouter() {
           ...buildTimeoutOrch(detail, { ...meta, partialTrace }),
         };
         res.setHeader('X-Ask-Trace-Id', gatewayTraceId);
+        res.setHeader('X-Request-Id', gatewayTraceId);
+        logAskPipeline('RESPONSE_SENT', gatewayTraceId, {
+          status: 'fallback',
+          duration_ms: Date.now() - httpStarted,
+          fallback_reason: fallbackReason,
+        });
         // Best-effort wake for the next client retry.
         engineFetch('/v1/health', { timeoutMs: 8_000 }).catch(() => {});
         return res.status(200).json(pack);
       } catch (fallbackError) {
+        logAskPipeline('ERROR', gatewayTraceId, {
+          status: 'error',
+          duration_ms: Date.now() - httpStarted,
+          reason: 'fallback_builder_failed',
+          detail: String(fallbackError?.message || fallbackError).slice(0, 240),
+        });
         return res.status(503).json({
           error: 'research_desk_unavailable',
           retryable: true,
           detail: detail || fallbackError.message,
+          request_id: gatewayTraceId,
           ask_orchestration: buildTimeoutOrch(detail || fallbackError.message, meta),
         });
       }
@@ -641,16 +755,26 @@ export default function createUiRouter() {
       const qs = new URLSearchParams({ question: String(question) });
       if (ticker) qs.set('ticker', String(ticker));
       const path = `/v1/ui/search?${qs.toString()}`;
+      const forwardAt = Date.now();
+      logAskPipeline('REQUEST_FORWARDED', gatewayTraceId, {
+        status: 'ok',
+        duration_ms: forwardAt - httpStarted,
+        path,
+      });
       // Default 120s (env ASK_ENGINE_TIMEOUT_MS). Client may retry a fresh request.
       const result = await engineFetch(path, {
         method: 'POST',
         body: {
           question: String(question),
+          request_id: gatewayTraceId,
           ask_trace_id: gatewayTraceId,
           ...(ticker ? { ticker: String(ticker) } : {}),
         },
         timeoutMs: askTimeoutMs,
-        headers: { 'X-Ask-Trace-Id': gatewayTraceId },
+        headers: {
+          'X-Ask-Trace-Id': gatewayTraceId,
+          'X-Request-Id': gatewayTraceId,
+        },
       });
       const html502 =
         typeof result.data?.raw === 'string' && result.data.raw.trim().startsWith('<');
@@ -664,13 +788,16 @@ export default function createUiRouter() {
         const orch =
           result.data.ask_orchestration || result.data.degradation?.ask_orchestration || {};
         const httpMs = Date.now() - httpStarted;
+        const engineFallback = Boolean(orch.fallback || orch.fallback_used);
         result.data.ask_orchestration = {
           ...orch,
           ask_trace_id: orch.ask_trace_id || gatewayTraceId,
+          request_id: orch.request_id || orch.ask_trace_id || gatewayTraceId,
           engine_reached: true,
-          fallback: false,
-          fallback_used: false,
-          completed: orch.completed !== false,
+          fallback: engineFallback,
+          fallback_used: engineFallback,
+          fallback_reason: orch.fallback_reason || (engineFallback ? 'engine_reported_fallback' : null),
+          completed: orch.completed !== false && !engineFallback,
           timeout: Boolean(orch.timeout),
           last_completed_stage:
             orch.last_completed_stage || orch.latency?.last_completed_stage || 'serialization',
@@ -680,10 +807,18 @@ export default function createUiRouter() {
           latency: {
             ...(orch.latency || {}),
             http_ms: httpMs,
+            node_ms: httpMs,
           },
           diagnostics_visibility: 'internal',
         };
-        res.setHeader('X-Ask-Trace-Id', result.data.ask_orchestration.ask_trace_id);
+        const rid = result.data.ask_orchestration.request_id;
+        res.setHeader('X-Ask-Trace-Id', rid);
+        res.setHeader('X-Request-Id', rid);
+        logAskPipeline('RESPONSE_SENT', rid, {
+          status: engineFallback ? 'fallback' : 'success',
+          duration_ms: httpMs,
+          fallback_used: engineFallback,
+        });
       }
       return res.status(result.status).json(result.data);
     } catch (error) {
