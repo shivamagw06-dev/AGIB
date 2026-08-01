@@ -72,7 +72,7 @@ def test_dashboard_shape():
 def test_ask_agi_includes_live_evidence():
     from app.ui.service import UiService
 
-    view = UiService().search("Should I buy HDFC Bank?")
+    view = UiService().search("What are the key risks for HDFC Bank?")
     data = view.model_dump()
     leo = data.get("live_evidence") or {}
     assert leo.get("enabled") is True

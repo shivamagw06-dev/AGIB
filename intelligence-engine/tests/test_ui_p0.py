@@ -91,7 +91,7 @@ def test_home_and_company_views():
 
 def test_search_evidence_pack():
     ui, _ = _stack()
-    pack = ui.search("Should I buy ICICIBANK?")
+    pack = ui.search("What is changing at ICICIBANK?")
     assert pack.question
     assert pack.answer_policy == "institutional_evidence_pack"
     assert pack.answer.get("policy")
@@ -141,7 +141,7 @@ async def test_ui_api_endpoints():
 
         search = await client.post(
             "/v1/ui/search",
-            params={"question": "Should I buy ICICIBANK?"},
+            params={"question": "What is changing at ICICIBANK?"},
         )
         assert search.status_code == 200
         assert search.json()["answer_policy"] in {

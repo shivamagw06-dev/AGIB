@@ -506,83 +506,122 @@ export default function createUiRouter() {
     const buildTimeoutOrch = (detail, meta = {}) => {
       const elapsed = Date.now() - httpStarted;
       const timedOut = Boolean(meta.timeout);
-      const funnel = { retrieved: 0, ranked: 0, passed: 0, referenced: 0 };
+      const partial = meta.partialTrace && typeof meta.partialTrace === 'object' ? meta.partialTrace : {};
+      const partialLat = partial.latency && typeof partial.latency === 'object' ? partial.latency : {};
+      const lastStage =
+        partial.last_completed_stage ||
+        partialLat.last_completed_stage ||
+        'http_ingress';
+      const funnel = {
+        retrieved: Number(partial.evidence?.retrieved || partial.funnel?.retrieved || 0),
+        ranked: Number(partial.evidence?.ranked || partial.funnel?.ranked || 0),
+        passed: Number(partial.evidence?.passed || partial.funnel?.passed || 0),
+        referenced: Number(partial.evidence?.referenced || partial.funnel?.referenced || 0),
+      };
+      const entityFromPartial = partial.entity && typeof partial.entity === 'object' ? partial.entity : {};
+      const entityName =
+        entityFromPartial.name ||
+        entityFromPartial.detected ||
+        (ticker ? String(ticker).toUpperCase() : null);
       const orch = {
         version: 'ask-orchestration-trace-2',
         ask_trace_id: gatewayTraceId,
-        engine_reached: false,
+        engine_reached: Boolean(partial.engine_reached) || lastStage !== 'http_ingress',
         fallback: true,
         fallback_used: true,
         completed: false,
         timeout: timedOut,
         partial: true,
-        last_completed_stage: timedOut ? 'http_ingress' : 'http_ingress',
+        last_completed_stage: lastStage,
         elapsed_ms: elapsed,
         reason: detail,
         timeout_ms: askTimeoutMs,
         engine_status: meta.engineStatus ?? null,
         html_502: Boolean(meta.html502),
         entity: {
-          name: ticker ? String(ticker).toUpperCase() : null,
-          detected: ticker ? String(ticker).toUpperCase() : null,
-          confidence: ticker ? 0.95 : 0,
+          name: entityName,
+          detected: entityName,
+          confidence: Number(entityFromPartial.confidence || (ticker ? 0.95 : 0)),
           question_excerpt: String(question || '').slice(0, 160),
+          ...(entityFromPartial.source ? { source: entityFromPartial.source } : {}),
         },
         funnel,
         evidence: funnel,
+        ikl: partial.ikl || {},
         latency: {
           http_ms: elapsed,
           total_ms: elapsed,
-          http_ingress_ms: 0,
-          entity_ms: 0,
-          ikl_ms: 0,
-          retrieval_ms: 0,
-          ranking_ms: 0,
-          reasoning_ms: 0,
-          assembly_ms: 0,
-          serialization_ms: 0,
-          last_completed_stage: 'http_ingress',
-          stages: { http_ingress: 0, http: elapsed },
-          warnings: timedOut
-            ? [
-                {
-                  kind: 'gateway_engine_timeout',
-                  elapsed_ms: elapsed,
-                  threshold_ms: askTimeoutMs,
-                  ask_trace_id: gatewayTraceId,
-                },
-              ]
-            : [],
+          http_ingress_ms: Number(partialLat.http_ingress_ms || 0),
+          entity_ms: Number(partialLat.entity_ms || partialLat.stages?.entity_resolution || 0),
+          ikl_ms: Number(partialLat.ikl_ms || partialLat.stages?.ikl || 0),
+          retrieval_ms: Number(partialLat.retrieval_ms || partialLat.stages?.retrieval || 0),
+          ranking_ms: Number(partialLat.ranking_ms || partialLat.stages?.ranking || 0),
+          reasoning_ms: Number(partialLat.reasoning_ms || partialLat.stages?.reasoning || 0),
+          assembly_ms: Number(partialLat.assembly_ms || partialLat.stages?.response_assembly || 0),
+          serialization_ms: Number(partialLat.serialization_ms || 0),
+          last_completed_stage: lastStage,
+          stages: { http_ingress: 0, ...(partialLat.stages || {}), http: elapsed },
+          warnings: [
+            ...((Array.isArray(partial.stage_warnings) && partial.stage_warnings) ||
+              (Array.isArray(partialLat.warnings) && partialLat.warnings) ||
+              []),
+            ...(timedOut
+              ? [
+                  {
+                    kind: 'gateway_engine_timeout',
+                    elapsed_ms: elapsed,
+                    threshold_ms: askTimeoutMs,
+                    ask_trace_id: gatewayTraceId,
+                    last_completed_stage: lastStage,
+                  },
+                ]
+              : []),
+          ],
         },
         diagnostics_visibility: 'internal',
         execution_trace: [
           `Ask Trace ID: ${gatewayTraceId}`,
-          `Entity: ${ticker ? String(ticker).toUpperCase() : '—'} (${ticker ? '0.95' : '—'})`,
-          'IKL: 0ms',
-          'Retrieved: 0',
-          'Ranked: 0',
-          'Passed: 0',
-          'Referenced: 0',
-          'Reasoning: 0.0s',
-          'Assembly: 0ms',
+          `Entity: ${entityName || '—'} (${entityFromPartial.confidence != null ? entityFromPartial.confidence : ticker ? '0.95' : '—'})`,
+          `IKL: ${Number(partialLat.ikl_ms || 0)}ms`,
+          `Retrieved: ${funnel.retrieved}`,
+          `Ranked: ${funnel.ranked}`,
+          `Passed: ${funnel.passed}`,
+          `Referenced: ${funnel.referenced}`,
+          `Reasoning: ${(Number(partialLat.reasoning_ms || 0) / 1000).toFixed(1)}s`,
+          `Assembly: ${Number(partialLat.assembly_ms || 0)}ms`,
           'Completed: false',
-          'Last completed stage: http_ingress',
+          `Last completed stage: ${lastStage}`,
           `Elapsed: ${(elapsed / 1000).toFixed(1)}s`,
           timedOut ? 'Timeout: true' : 'Fallback: true',
         ].join('\n'),
-        trace_summary: `Trace: ${gatewayTraceId} | Timeout: ${timedOut ? 'Yes' : 'No'} | Fallback: Yes | Last stage: http_ingress | Total: ${(elapsed / 1000).toFixed(1)}s`,
+        trace_summary: `Trace: ${gatewayTraceId} | Timeout: ${timedOut ? 'Yes' : 'No'} | Fallback: Yes | Last stage: ${lastStage} | Total: ${(elapsed / 1000).toFixed(1)}s`,
       };
       return orch;
     };
 
+    const fetchPartialTrace = async () => {
+      try {
+        const result = await engineFetch(`/v1/ui/ask-trace/${encodeURIComponent(gatewayTraceId)}`, {
+          timeoutMs: 2_500,
+        });
+        if (result.status === 200 && result.data?.trace && typeof result.data.trace === 'object') {
+          return result.data.trace;
+        }
+      } catch {
+        /* best-effort only */
+      }
+      return null;
+    };
+
     const serveFallback = async (detail, meta = {}) => {
       try {
+        const partialTrace = meta.partialTrace || (await fetchPartialTrace());
         const { buildAskDeskFallback } = await import('../services/askDeskFallback.js');
         const pack = await buildAskDeskFallback(question);
         pack.detail = detail;
         pack.ask_orchestration = {
           ...(pack.ask_orchestration || {}),
-          ...buildTimeoutOrch(detail, meta),
+          ...buildTimeoutOrch(detail, { ...meta, partialTrace }),
         };
         res.setHeader('X-Ask-Trace-Id', gatewayTraceId);
         // Best-effort wake for the next client retry.

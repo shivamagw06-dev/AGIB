@@ -129,7 +129,7 @@ def test_evidence_and_market_intelligence_scrub_engines():
 
 
 def test_search_returns_iax_workspace_fields():
-    pack = _ui().search("Should I buy ICICIBANK?")
+    pack = _ui().search("What is changing at ICICIBANK?")
     assert pack.executive_summary
     assert pack.house_view_card.get("stance")
     assert pack.whats_changed.get("items")
@@ -220,7 +220,7 @@ def test_timeline_surface():
 async def test_iax_api_routes():
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        search = await client.post("/v1/ui/search", params={"question": "Should I buy ICICIBANK?"})
+        search = await client.post("/v1/ui/search", params={"question": "What is changing at ICICIBANK?"})
         assert search.status_code == 200
         body = search.json()
         assert body["house_view_card"]

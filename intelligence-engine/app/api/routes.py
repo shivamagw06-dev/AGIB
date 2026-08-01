@@ -8900,6 +8900,26 @@ async def ui_search(
         ) from exc
 
 
+@router.get("/ui/ask-trace/{ask_trace_id}")
+async def ui_ask_trace(ask_trace_id: str):
+    """Return in-flight partial or completed Ask orchestration for a trace id.
+
+    Used by the Node gateway on engine timeout so last_completed_stage is real.
+    """
+    from app.ui.ask_observability_store import get_partial_trace, recent_traces
+
+    tid = (ask_trace_id or "").strip()
+    if not tid:
+        raise HTTPException(status_code=400, detail="ask_trace_id required")
+    partial = get_partial_trace(tid)
+    if partial:
+        return {"ok": True, "partial": True, "trace": partial}
+    for row in recent_traces(limit=50):
+        if str(row.get("ask_trace_id") or "") == tid:
+            return {"ok": True, "partial": False, "trace": row}
+    return {"ok": False, "partial": False, "trace": None, "ask_trace_id": tid}
+
+
 @router.get("/resilience/providers")
 async def resilience_providers():
     """Circuit-breaker / provider health snapshot for Mission Control."""

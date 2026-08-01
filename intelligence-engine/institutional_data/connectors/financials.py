@@ -40,7 +40,15 @@ class FinancialStatementsConnector(Connector):
                 source_id=self.source_id,
                 error="entity_required",
             )
-        ysym = entity if entity.endswith(".NS") or entity.endswith(".BO") else f"{entity}.NS"
+        if entity.endswith(".NS") or entity.endswith(".BO"):
+            ysym = entity
+        else:
+            try:
+                from app.market_data.providers.yahoo_symbols import to_yahoo_symbol
+
+                ysym = to_yahoo_symbol(entity)
+            except Exception:
+                ysym = f"{entity}.NS"
         records: list[dict[str, Any]] = []
         errors: list[str] = []
         mode = "live"

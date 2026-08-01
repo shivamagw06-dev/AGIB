@@ -181,7 +181,7 @@ def test_ask_agi_uses_single_cae_gateway():
         mee=mee,
         cae=cae,
     )
-    pack = ui.search("Should I buy INFY?")
+    pack = ui.search("What is the outlook for INFY?")
     assert pack.context_assembly.get("answer_policy") == "unified_context_before_reasoning"
     assert pack.context_assembly.get("guidance", {}).get("single_orchestration_call") is True
     assert isinstance(pack.evidence_verification, dict)

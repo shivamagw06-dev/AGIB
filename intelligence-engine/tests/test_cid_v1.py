@@ -52,7 +52,7 @@ def test_coverage_and_timeline_apis():
 def test_ask_agi_uses_dossier():
     from app.ui.service import UiService
 
-    view = UiService().search("Should I buy HDFC Bank?")
+    view = UiService().search("What are the key risks for HDFC Bank?")
     data = view.model_dump()
     dossier = data.get("company_dossier") or {}
     assert dossier.get("ticker") == "HDFCBANK"
