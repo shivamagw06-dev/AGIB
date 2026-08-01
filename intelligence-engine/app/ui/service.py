@@ -14,6 +14,7 @@ from app.ui.coverage_policy import (
     unsupported_coverage_executive as coverage_policy_executive,
     unsupported_coverage_why as coverage_policy_why,
 )
+from app.ui.company_router import route as company_router_route
 from app.kip.extractors import KNOWN_TICKERS, TICKER_STOPWORDS
 from app.ui.ask_orchestration_trace import (
     StageTimer,
@@ -1528,6 +1529,95 @@ class UiService:
                     "Ask about a covered company (e.g. Reliance, TCS, Infosys, HDFC Bank) for full research.",
                 ],
                 answer_policy="unsupported_coverage_refuse",
+                entity_resolution=scrub(entity_resolution) if entity_resolution else {},
+            )
+
+        # IKT Company Router — a company with real bulk-uploaded reference
+        # data (Capital IQ-style screener export ingested into
+        # institutional_knowledge_tables) answers directly from that
+        # structured data, even when entity_resolution's small static seed
+        # registry has never heard of it. Runs BEFORE the Financial Router
+        # below for the same reason the Unsupported Coverage Policy does:
+        # a question like "Why does HMT Limited generate high free cash
+        # flow?" also matches the Financial Router's generic 'free cash
+        # flow' concept fallback and would otherwise get a company-blind
+        # concept answer instead of grounded, company-specific data we
+        # actually have. See app/ui/company_router.py.
+        try:
+            ikt_hit = company_router_route(q)
+        except Exception:
+            ikt_hit = None
+        if ikt_hit:
+            for stage in ("ikl", "retrieval", "ranking", "reasoning", "response_assembly"):
+                stage_timer.mark(stage)
+            executive = ikt_hit["summary"]
+            why = ikt_hit["why"]
+            ikt_orch = {
+                **ask_orchestration,
+                "executive_source": "ikt_company_router",
+                "short_circuit": "ikt_company_router",
+                "rq_stack": "skipped_ikt_company_router",
+                "ikt_company_key": ikt_hit.get("key"),
+            }
+            orch = finalize_orchestration(
+                ikt_orch,
+                timer=stage_timer,
+                question=q,
+                detected_ticker=ikt_hit.get("key"),
+                ere_body=ere_body if isinstance(ere_body, dict) else {},
+                alias_hit=alias_hit,
+                evidence_used=ikt_hit.get("evidence") or [],
+                why=why,
+                executive=executive,
+                intent="company_profile",
+                fallback=False,
+            )
+            stage_timer.mark("serialization")
+            try:
+                orch["latency"] = stage_timer.as_latency_block()
+                orch["latency_ms"] = stage_timer.as_dict()
+                orch["trace_summary"] = format_trace_summary(orch)
+                orch["completed"] = True
+                orch["timeout"] = False
+            except Exception:
+                pass
+            return SearchView(
+                meta=UiMeta(surface="search", sources=["institutional_knowledge_tables"]),
+                question=q,
+                status="ok",
+                degradation={
+                    "ask_slim": ask_slim_enabled(),
+                    "short_circuit": "ikt_company_router",
+                    "rq_stack": "skipped",
+                    "reasoning": "ikt_company_profile",
+                },
+                ask_orchestration=orch,
+                intent="company_profile",
+                entities={
+                    "ticker": ikt_hit.get("key"),
+                    "companies": [ikt_hit.get("company_name") or ikt_hit.get("key")],
+                    "themes": [],
+                    "sectors": [],
+                },
+                answer={
+                    "summary": executive,
+                    "executive_summary": executive,
+                    "stance": "Neutral",
+                    "why": why,
+                    "house_view_label": "Company Profile",
+                    "policy": "ikt_company_profile",
+                },
+                executive_summary=executive,
+                house_view={"label": "Company Profile", "stance": "Neutral"},
+                confidence=80.0,
+                investment_thesis=executive,
+                bull_case=[],
+                bear_case=[],
+                key_risks=[],
+                why=why,
+                evidence_used=ikt_hit.get("evidence") or [],
+                follow_up_questions=[],
+                answer_policy="ikt_company_profile",
                 entity_resolution=scrub(entity_resolution) if entity_resolution else {},
             )
 

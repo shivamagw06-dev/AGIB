@@ -80,10 +80,19 @@ _COLUMN_MAP: dict[str, tuple[str, str]] = {
     "trading status": ("company_master", "status"),
     "exchange country/region": ("company_master", "country"),
     "product name": ("products", "product"),
+    "product description": ("products", "product_description"),
     "competitors": ("competitors", "peer"),
     "long business description": ("business_model", "description"),
-    "price change 1 month": ("market_data", "returns_1m"),
-    "price change 1 year": ("market_data", "returns_1y"),
+    "business description": ("business_model", "description_short"),
+    "equity currency": ("company_master", "currency"),
+    "company type": ("company_master", "company_type"),
+    "native language company name": ("company_master", "native_name"),
+    "ultimate corporate parent": ("company_master", "parent_company"),
+    "excel trading item id": ("company_master", "external_id"),
+    "number of investment research documents last 30 days": ("company_master", "research_coverage_count"),
+    "current and pending investors": ("business_model", "investors"),
+    "industry classifications": ("business_model", "industry_classifications"),
+    "of total investments / subsidiaries": ("business_model", "subsidiaries_count"),
 }
 
 # Prefix-matched (regex) for headers whose suffix varies by export settings,
@@ -97,6 +106,27 @@ _PREFIX_PATTERNS: tuple[tuple[re.Pattern[str], str, str, str], ...] = (
     (re.compile(r"^market capitalization"), "market_data", "market_cap", "latest"),
     (re.compile(r"^ebitda\b"), "financial_statements", "ebitda", "LTM"),
     (re.compile(r"^total revenue\b"), "financial_statements", "revenue", "LTM"),
+    # Capital IQ / screener-style exports: headers with a variable embedded
+    # date/suffix ("% Price Change [YTD as of 1/1/2026]", "Index Constituents
+    # (All Equity Listings)") — matched by prefix so the exact date/suffix
+    # text doesn't need to be hardcoded. All "% Price Change [...]" windows
+    # are point-in-time snapshot facts from the same export pull, so — like
+    # close/volume/market_cap/enterprise_value above — they are all keyed to
+    # period="latest" rather than the upload date, so a single
+    # get_table(..., period="latest") call returns the whole snapshot.
+    (re.compile(r"^price change ytd"), "market_data", "returns_ytd", "latest"),
+    (re.compile(r"^price change 1 day"), "market_data", "returns_1d", "latest"),
+    (re.compile(r"^price change 1 week"), "market_data", "returns_1w", "latest"),
+    (re.compile(r"^price change 1 month"), "market_data", "returns_1m", "latest"),
+    (re.compile(r"^price change 3 months"), "market_data", "returns_3m", "latest"),
+    (re.compile(r"^price change 6 months"), "market_data", "returns_6m", "latest"),
+    (re.compile(r"^price change 9 months"), "market_data", "returns_9m", "latest"),
+    (re.compile(r"^price change 1 year"), "market_data", "returns_1y", "latest"),
+    (re.compile(r"^price change 3 years"), "market_data", "returns_3y", "latest"),
+    (re.compile(r"^price change 5 years"), "market_data", "returns_5y", "latest"),
+    (re.compile(r"^index constituents"), "business_model", "index_constituents", "latest"),
+    (re.compile(r"^next announced earnings date"), "market_data", "next_earnings_date_announced", "latest"),
+    (re.compile(r"^next expected earnings date"), "market_data", "next_earnings_date_expected", "latest"),
 )
 
 _TICKER_HEADERS = {"ticker", "symbol", "nse symbol", "nse code", "stock symbol"}
@@ -125,6 +155,9 @@ def _to_python(value: Any) -> Any:
     return value
 
 
+_PLACEHOLDER_VALUES = {"-", "--", "n/a", "na", "n.a.", "none", "nil", "null", "#n/a"}
+
+
 def _is_blank(value: Any) -> bool:
     if value is None:
         return True
@@ -135,7 +168,13 @@ def _is_blank(value: Any) -> bool:
             return True
     except Exception:
         pass
-    return str(value).strip() == ""
+    s = str(value).strip()
+    if s == "":
+        return True
+    # Capital IQ / screener exports use a bare "-" (and similar tokens) as
+    # their "no data available" placeholder — treat it as blank so it is
+    # never stored as if it were a real fact value.
+    return s.lower() in _PLACEHOLDER_VALUES
 
 
 def read_sheet_rows(
@@ -212,38 +251,60 @@ def _normalized_universe_index() -> list[tuple[str, str, str]]:
     return [(normalize_company_name(r["name"]), r["symbol"], r["name"]) for r in load_rows()]
 
 
+_BSE_CODE_RE = re.compile(r"^bse\s*:\s*(\d{5,6})$", re.I)
+
+
 def resolve_ticker(ticker_raw: Any, name_raw: Any) -> tuple[str | None, str]:
-    """Resolve a row to a real, uploaded-universe ticker. Never invents one."""
+    """Resolve a row to a real ticker. Never invents one.
+
+    Tries the NSE-anchored uploaded universe (trading_universe) first. If a
+    company has no NSE listing (BSE-only — common for smaller/legacy
+    companies), and the source row itself carries an explicit BSE numeric
+    code (e.g. "BSE:500191"), that code becomes the canonical ticker
+    ("BSE500191"). This is not inventing an identifier: it is the
+    identifier the uploaded source data itself provides, distinct from a
+    chat question where no ticker was ever supplied by the user.
+    """
     from trading_universe.loader import get_symbol
 
+    bse_code = None
     if not _is_blank(ticker_raw):
-        t = _EXCHANGE_PREFIX.sub("", str(ticker_raw).strip()).upper()
+        raw = str(ticker_raw).strip()
+        m = _BSE_CODE_RE.match(raw)
+        if m:
+            bse_code = m.group(1)
+        t = _EXCHANGE_PREFIX.sub("", raw).upper()
         t = t.replace(".NS", "").replace(".BO", "")
         if get_symbol(t):
             return t, "exact_ticker"
     if not _is_blank(name_raw):
         norm_query = normalize_company_name(name_raw)
-        if not norm_query:
-            return None, "unresolved"
-        index = _normalized_universe_index()
-        exact = [(sym, raw) for norm, sym, raw in index if norm == norm_query]
-        if exact:
-            if len(exact) == 1:
-                return exact[0][0], "exact_name_match"
-            return exact[0][0], "ambiguous_name_match_top1"
-        # Substring both directions on normalized names (short-code queries
-        # like "hmt" only match if the stored name is short too — avoids a
-        # 3-letter fragment matching an unrelated long company name).
-        contains = [
-            (sym, raw)
-            for norm, sym, raw in index
-            if len(norm_query) >= 4
-            and (norm_query in norm or norm in norm_query)
-        ]
-        if contains:
-            if len(contains) == 1:
-                return contains[0][0], "fuzzy_name_match_top1"
-            return contains[0][0], "ambiguous_name_match_top1"
+        if norm_query:
+            index = _normalized_universe_index()
+            exact = [(sym, raw) for norm, sym, raw in index if norm == norm_query]
+            if exact:
+                if len(exact) == 1:
+                    return exact[0][0], "exact_name_match"
+                return exact[0][0], "ambiguous_name_match_top1"
+            # Substring both directions on normalized names (short-code
+            # queries like "hmt" only match if the stored name is short too
+            # — avoids a 3-letter fragment matching an unrelated long name).
+            contains = [
+                (sym, raw)
+                for norm, sym, raw in index
+                if len(norm_query) >= 4
+                and (norm_query in norm or norm in norm_query)
+            ]
+            if contains:
+                if len(contains) == 1:
+                    return contains[0][0], "fuzzy_name_match_top1"
+                return contains[0][0], "ambiguous_name_match_top1"
+    if bse_code:
+        # No NSE listing found for this company — fall back to the BSE code
+        # the source row itself supplied, rather than dropping a real,
+        # named, actively-traded company purely because it isn't in the
+        # NSE-anchored universe.
+        return f"BSE{bse_code}", "bse_code_fallback"
     return None, "unresolved"
 
 

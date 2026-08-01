@@ -9647,6 +9647,19 @@ async def ikt_rebuild_company(ticker: str):
     return rebuild_company_tables(ticker)
 
 
+@router.post("/institutional-knowledge-tables/seed-capital-iq")
+async def ikt_seed_capital_iq(payload: dict[str, Any] = Body(default={})):
+    """(Re-)ingest the committed Capital IQ screener exports
+    (capital_iq_exports/) into IKT. Runs automatically (non-blocking) at
+    boot — this endpoint is for manually re-triggering it (e.g. after a
+    persistent-disk migration) or checking the current resolved/unresolved
+    counts. Body: {force?: bool}."""
+    from institutional_knowledge_tables.production import seed_capital_iq_status
+
+    body = payload or {}
+    return seed_capital_iq_status(force=bool(body.get("force", False)))
+
+
 @router.post("/institutional-knowledge-tables/upload-sheet")
 async def ikt_upload_sheet(payload: dict[str, Any] = Body(default={})):
     """Drop an Excel/CSV of companies + info. Each recognized column becomes a

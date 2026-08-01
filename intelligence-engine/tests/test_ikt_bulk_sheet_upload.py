@@ -26,7 +26,7 @@ def _xlsx_bytes(df: "pd.DataFrame") -> bytes:
 
 
 def setup_function():
-    for t in ("HDFCBANK", "IDBI", "RELIANCE"):
+    for t in ("HDFCBANK", "IDBI", "RELIANCE", "ABB", "BSE500191", "TOTALLYFAKEXYZ"):
         delete_company(t)
 
 
@@ -167,3 +167,153 @@ def test_ltm_and_latest_period_labels_inferred_from_header():
     market = get_table("RELIANCE", "market_data", period="latest")
     assert market["found"] is True
     assert market["row"]["market_cap"]["value"] == 250000
+
+
+def test_dash_placeholder_values_are_treated_as_blank_not_stored():
+    """Capital IQ / screener exports use a bare '-' for 'no data available'
+    — this must never be written as if it were a real fact value (found
+    via live 460/2035.xlsx ingestion: Business Description='-' was
+    overwriting a real, populated description_short elsewhere)."""
+
+    df = pd.DataFrame(
+        [
+            {
+                "Ticker": "RELIANCE",
+                "Long Business Description": "-",
+                "Website": "-",
+                "Native Language Company Name": "-",
+                "Primary Sector": "Energy",
+            }
+        ]
+    )
+    out = ingest_company_sheet(_xlsx_bytes(df), "dashes.xlsx")
+    assert out["ok"] is True
+    biz = get_table("RELIANCE", "business_model")
+    assert biz["row"]["description"] is None
+    master = get_table("RELIANCE", "company_master")
+    assert master["row"]["website"] is None
+    assert master["row"]["native_name"] is None
+    assert master["row"]["sector"]["value"] == "Energy"  # real value still written
+
+
+def test_capital_iq_full_column_set_all_mapped_no_unmapped():
+    """All 40 columns of the actual 460.xlsx/2035.xlsx export shape must be
+    recognized — regression guard for the Phase 2.6+ bulk-upload extension
+    that added returns_*, currency, company_type, native_name,
+    parent_company, external_id, research_coverage_count, investors,
+    industry_classifications, subsidiaries_count, description_short,
+    index_constituents, next_earnings_date_* and product_description."""
+
+    df = pd.DataFrame(
+        [
+            {
+                "Ticker": "BSE:500002",
+                "Company Name": "ABB India Limited",
+                "Index Constituents (All Equity Listings)": "S&P Global Ex-Japan LargeCap Growth",
+                "Trading Status": "Active",
+                "Excel Trading Item ID": "IQT34636426",
+                "Equity Currency": "Indian Rupee",
+                "Day Close Price [Latest] ($USD, Historical rate)": 76.3,
+                "% Price Change [YTD as of 1/1/2026]": 41.3,
+                "% Price Change [1 Day]": 0.926,
+                "% Price Change [1 Week]": -2.59,
+                "% Price Change [1 Month]": 2.55,
+                "% Price Change [3 Months]": 0.661,
+                "% Price Change [6 Months]": 33.5,
+                "% Price Change [9 Months]": 38.2,
+                "% Price Change [1 Year]": 31.0,
+                "% Price Change [3 Years]": 61.9,
+                "% Price Change [5 Years]": 334.3,
+                "Daily Volume (Average - 3 Months) [Latest]": 0.019,
+                "Primary Sector": "Industrials",
+                "Primary Industry": "Heavy Electrical Equipment",
+                "Industry Classifications": "Industrials (Primary)",
+                "Current and Pending Investors": "ABB Asea Brown Boveri Ltd (Current Parent)",
+                "Ultimate Corporate Parent": "ABB Ltd (SWX:ABBN)",
+                "Exchange Country/Region": "India",
+                "Business Description": "ABB India Limited develops and sells products.",
+                "# of Total Investments / Subsidiaries": 13,
+                "Company Type": "Public Company",
+                "Competitors": "Siemens Limited; Larsen & Toubro Limited",
+                "EBITDA [LTM] ($USDmm, Historical rate)": 200.2,
+                "Total Enterprise Value [My Setting] [Latest] ($USDmm, Historical rate)": 15584.7,
+                "Total Revenue [LTM] ($USDmm, Historical rate)": 1426.6,
+                "Market Capitalization [My Setting] [Latest] ($USDmm, Historical rate)": 16186.2,
+                "Long Business Description": "ABB India Limited (ABB) is an engineering company.",
+                "Native Language Company Name": "-",
+                "Next Announced Earnings Date": "2026-07-31",
+                "Next Expected Earnings Date": "2026-07-31",
+                "Number of Investment Research Documents [Last 30 Days]": 13,
+                "Product Description": "ABB Ability SmartMaster: asset performance management.",
+                "Product Name": "ABB Ability SmartMaster; AFS Contactors",
+                "Website": "new.abb.com/indian-subcontinent",
+            }
+        ]
+    )
+    out = ingest_company_sheet(_xlsx_bytes(df), "full_capiq_export.xlsx")
+    assert out["ok"] is True
+    assert out["unmapped_columns"] == []
+    assert out["resolved_count"] == 1
+
+    master = get_table("ABB", "company_master")
+    assert master["row"]["currency"]["value"] == "Indian Rupee"
+    assert master["row"]["company_type"]["value"] == "Public Company"
+    assert master["row"]["parent_company"]["value"] == "ABB Ltd (SWX:ABBN)"
+    assert master["row"]["external_id"]["value"] == "IQT34636426"
+    assert master["row"]["research_coverage_count"]["value"] == 13
+    assert master["row"]["native_name"] is None  # "-" placeholder skipped
+
+    biz = get_table("ABB", "business_model")
+    assert biz["row"]["description_short"]["value"].startswith("ABB India Limited develops")
+    assert biz["row"]["industry_classifications"]["value"] == "Industrials (Primary)"
+    assert biz["row"]["investors"]["value"].startswith("ABB Asea Brown Boveri")
+    assert biz["row"]["subsidiaries_count"]["value"] == 13
+    assert biz["row"]["index_constituents"]["value"].startswith("S&P Global")
+
+    products = get_table("ABB", "products")
+    assert products["row"]["product_description"]["value"].startswith("ABB Ability SmartMaster")
+
+    market = get_table("ABB", "market_data", period="latest")
+    assert market["found"] is True
+    row = market["row"]
+    assert row["returns_1d"]["value"] == 0.926
+    assert row["returns_1w"]["value"] == -2.59
+    assert row["returns_3m"]["value"] == 0.661
+    assert row["returns_6m"]["value"] == 33.5
+    assert row["returns_9m"]["value"] == 38.2
+    assert row["returns_3y"]["value"] == 61.9
+    assert row["returns_5y"]["value"] == 334.3
+    assert row["returns_ytd"]["value"] == 41.3
+    assert row["next_earnings_date_announced"]["value"] == "2026-07-31"
+    assert row["next_earnings_date_expected"]["value"] == "2026-07-31"
+
+
+def test_bse_only_company_resolves_via_bse_code_fallback():
+    """A company with no NSE listing (common for smaller/legacy BSE-only
+    names) must still resolve using its own real BSE code from the sheet,
+    rather than being dropped as unresolved."""
+
+    df = pd.DataFrame(
+        [{"Ticker": "BSE:500191", "Company Name": "HMT Limited", "Primary Sector": "Industrials"}]
+    )
+    out = ingest_company_sheet(_xlsx_bytes(df), "bse_only.xlsx")
+    assert out["ok"] is True
+    assert out["resolved_count"] == 1
+    assert out["resolved_sample"][0]["ticker"] == "BSE500191"
+    assert out["resolved_sample"][0]["method"] == "bse_code_fallback"
+
+    master = get_table("BSE500191", "company_master")
+    assert master["row"]["ticker"]["value"] == "BSE500191"
+    assert master["row"]["sector"]["value"] == "Industrials"
+
+
+def test_bse_code_fallback_not_used_when_no_bse_prefix_present():
+    """A genuinely fabricated/unrecognized name+ticker combination must
+    still be reported unresolved — the BSE fallback only accepts an
+    explicit, well-formed 'BSE:NNNNNN' code, never invents one."""
+
+    df = pd.DataFrame([{"Ticker": "TOTALLYFAKEXYZ", "Company Name": "Not A Real Company Ltd"}])
+    out = ingest_company_sheet(_xlsx_bytes(df), "fake.xlsx")
+    assert out["resolved_count"] == 0
+    assert out["unresolved_count"] == 1
+    assert out["unresolved_rows"][0]["reason"] == "unresolved"

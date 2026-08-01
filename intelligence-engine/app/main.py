@@ -80,6 +80,35 @@ async def lifespan(_app: FastAPI):
             )
     except Exception as exc:
         log.warning("institutional_stack_bootstrap_failed", extra={"error": str(exc)[:160]})
+    # IKT Capital IQ company-reference seed (bulk-uploaded screener exports,
+    # re-derived from the committed source spreadsheets on every boot since
+    # Render's filesystem is ephemeral without a persistent disk — see
+    # institutional_knowledge_tables/seed_capital_iq.py). Idempotent, cheap
+    # to skip once already seeded; runs in a background thread since a full
+    # ingest of ~2,000 companies takes ~90s and must never block startup.
+    try:
+        import threading
+
+        from institutional_knowledge_tables.seed_capital_iq import seed_if_needed
+
+        def _run_ikt_seed() -> None:
+            try:
+                result = seed_if_needed()
+                log.info(
+                    "ikt_capital_iq_seed",
+                    extra={
+                        "ok": result.get("ok"),
+                        "skipped": result.get("skipped"),
+                        "total_resolved": result.get("total_resolved"),
+                        "total_unresolved": result.get("total_unresolved"),
+                    },
+                )
+            except Exception as exc:  # pragma: no cover - defensive
+                log.warning("ikt_capital_iq_seed_failed", extra={"error": str(exc)[:160]})
+
+        threading.Thread(target=_run_ikt_seed, name="ikt-capital-iq-seed", daemon=True).start()
+    except Exception as exc:
+        log.warning("ikt_capital_iq_seed_thread_failed", extra={"error": str(exc)[:160]})
     # Gather loops belong on the sidecar / dedicated worker (AGI_ROLE=gather_worker).
     # When this process is the HTTP web role, skip starting them so Ask / Mission
     # Control are not starved — even if env flags were left true by mistake.
