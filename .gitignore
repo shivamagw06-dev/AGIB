@@ -15,3 +15,5 @@ knowledge-platform/.venv/
 node_modules/
 *.pdf
 __pycache__/
+artifacts/*.json
+artifacts/*.log
