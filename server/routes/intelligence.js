@@ -2195,6 +2195,23 @@ export default function createIntelligenceRouter() {
       });
     }
   });
+  router.get('/mission-control/ask-observability', async (req, res) => {
+    try {
+      const limit = req.query?.limit || '25';
+      const result = await engineFetch(`/v1/mission-control/ask-observability?limit=${limit}`, {
+        timeoutMs: 10_000,
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({
+        ok: false,
+        error: 'ask_observability_unavailable',
+        detail: error.message,
+        sample_size: 0,
+      });
+    }
+  });
+
   router.get('/mission-control/dashboard', async (_req, res) => {
     try {
       // Snapshot path — keep Node timeout short; engine must not compute.

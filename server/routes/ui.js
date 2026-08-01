@@ -492,6 +492,12 @@ export default function createUiRouter() {
       30_000,
       Number.parseInt(process.env.ASK_ENGINE_TIMEOUT_MS || '120000', 10) || 120_000,
     );
+    const httpStarted = Date.now();
+    const day = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const gatewayTraceId =
+      req.body?.ask_trace_id ||
+      req.headers['x-ask-trace-id'] ||
+      `ASK-${day}-${Math.random().toString(16).slice(2, 8).toUpperCase()}`;
 
     const serveFallback = async (detail, meta = {}) => {
       try {
@@ -500,13 +506,22 @@ export default function createUiRouter() {
         pack.detail = detail;
         pack.ask_orchestration = {
           ...(pack.ask_orchestration || {}),
+          ask_trace_id: gatewayTraceId,
           engine_reached: false,
           fallback: true,
+          fallback_used: true,
           reason: detail,
           timeout_ms: askTimeoutMs,
           engine_status: meta.engineStatus ?? null,
           html_502: Boolean(meta.html502),
+          latency: {
+            ...(pack.ask_orchestration?.latency || {}),
+            http_ms: Date.now() - httpStarted,
+            total_ms: Date.now() - httpStarted,
+          },
+          diagnostics_visibility: 'internal',
         };
+        res.setHeader('X-Ask-Trace-Id', gatewayTraceId);
         // Best-effort wake for the next client retry.
         engineFetch('/v1/health', { timeoutMs: 8_000 }).catch(() => {});
         return res.status(200).json(pack);
@@ -516,10 +531,14 @@ export default function createUiRouter() {
           retryable: true,
           detail: detail || fallbackError.message,
           ask_orchestration: {
+            ask_trace_id: gatewayTraceId,
             engine_reached: false,
             fallback: true,
+            fallback_used: true,
             reason: detail || fallbackError.message,
             timeout_ms: askTimeoutMs,
+            latency: { http_ms: Date.now() - httpStarted, total_ms: Date.now() - httpStarted },
+            diagnostics_visibility: 'internal',
           },
         });
       }
@@ -532,7 +551,11 @@ export default function createUiRouter() {
       // Default 120s (env ASK_ENGINE_TIMEOUT_MS). Client may retry a fresh request.
       const result = await engineFetch(path, {
         method: 'POST',
-        body: { question: String(question), ...(ticker ? { ticker: String(ticker) } : {}) },
+        body: {
+          question: String(question),
+          ask_trace_id: gatewayTraceId,
+          ...(ticker ? { ticker: String(ticker) } : {}),
+        },
         timeoutMs: askTimeoutMs,
       });
       const html502 =
@@ -544,13 +567,24 @@ export default function createUiRouter() {
         );
       }
       if (result.data && typeof result.data === 'object') {
+        const orch =
+          result.data.ask_orchestration || result.data.degradation?.ask_orchestration || {};
+        const httpMs = Date.now() - httpStarted;
         result.data.ask_orchestration = {
-          ...(result.data.ask_orchestration || result.data.degradation?.ask_orchestration || {}),
+          ...orch,
+          ask_trace_id: orch.ask_trace_id || gatewayTraceId,
           engine_reached: true,
           fallback: false,
+          fallback_used: false,
           timeout_ms: askTimeoutMs,
           engine_status: result.status,
+          latency: {
+            ...(orch.latency || {}),
+            http_ms: httpMs,
+          },
+          diagnostics_visibility: 'internal',
         };
+        res.setHeader('X-Ask-Trace-Id', result.data.ask_orchestration.ask_trace_id);
       }
       return res.status(result.status).json(result.data);
     } catch (error) {

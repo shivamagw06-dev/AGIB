@@ -106,9 +106,15 @@ def test_finalize_trace_summary():
     )
     assert orch["funnel"]["retrieved"] >= 2
     assert orch["funnel"]["ranked"] >= 1
+    assert orch["evidence"]["efficiency"] is not None
+    assert orch["evidence"]["precision"] is not None
+    assert orch["ask_trace_id"].startswith("ASK-")
     assert orch["entity"]["detected"] == "META"
+    assert orch["entity"]["name"]
+    assert "latency" in orch and "entity_ms" in orch["latency"]
     assert "latency_ms" in orch
     assert "Entity:" in orch["trace_summary"]
     assert "Retrieved:" in orch["trace_summary"]
+    assert "Trace:" in orch["trace_summary"]
     summary = format_trace_summary(orch)
     assert "META" in summary or "Meta" in summary

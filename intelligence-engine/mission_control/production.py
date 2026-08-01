@@ -180,6 +180,30 @@ def quality_gates() -> dict[str, Any]:
     }
 
 
+def ask_observability(*, limit: int = 25) -> dict[str, Any]:
+    """Live Ask evidence funnel / latency KPIs from in-process ring buffer."""
+    from app.ui.ask_observability_store import kpi_dashboard, recent_traces
+
+    dash = kpi_dashboard()
+    return {
+        "ok": True,
+        "programme": PROGRAMME,
+        "layer": "Ask Evidence Intelligence",
+        "version": MISSION_CONTROL_VERSION,
+        "read_only": True,
+        "not_client_facing": True,
+        "diagnostics_visibility": "internal",
+        **dash,
+        "recent_traces": recent_traces(limit=limit),
+    }
+
+
 def reset_for_tests() -> None:
     mc_snapshot.reset_for_tests()
+    try:
+        from app.ui.ask_observability_store import reset_for_tests as ask_reset
+
+        ask_reset()
+    except Exception:
+        pass
     mc_store.reset_for_tests()
