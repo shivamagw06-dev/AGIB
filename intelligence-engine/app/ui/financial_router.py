@@ -460,6 +460,29 @@ _FALLBACK_CONCEPT_TERMS: dict[str, str] = {
 }
 
 
+def _answer_financial_concept(question: str) -> Optional[dict[str, Any]]:
+    """Module 11 (Phase 2.6): routes institutional finance concept
+    questions — Enterprise Value, DuPont, WACC, EVA, ROIC, banking/credit/
+    market vocabulary, economic moats, etc. — to the deterministic
+    financial_concepts library. Every field returned traces to one
+    authored ConceptCard; nothing here is generated or retrieved."""
+
+    from financial_concepts.production import explain as fc_explain
+
+    result = fc_explain(question)
+    if not result.get("found"):
+        return None
+    parts = [result.get("business_meaning") or "", result.get("interpretation") or ""]
+    why = [p for p in (result.get("interpretation"), result.get("formula"), result.get("common_mistakes")) if p]
+    return {
+        "summary": " ".join(p for p in parts if p),
+        "why": [str(w) for w in why] or [result.get("definition") or ""],
+        "evidence": [{"source": "financial_concepts", "title": f"Concept: {result.get('title') or result.get('key')}"}],
+        "engine": "financial_concepts",
+        "key": result.get("key"),
+    }
+
+
 def route(question: str) -> Optional[dict[str, Any]]:
     """Single public entry point. Returns None when no financial-router rule
     matches — caller falls through to the existing Ask pipeline unchanged."""
@@ -484,4 +507,12 @@ def route(question: str) -> Optional[dict[str, Any]]:
             result = _answer_ff_concept(key)
             if result:
                 return result
+
+    try:
+        result = _answer_financial_concept(q)
+    except Exception:
+        result = None
+    if result:
+        return result
+
     return None

@@ -56,6 +56,7 @@ from typing import Any, Dict, List, Optional, Sequence
 FINANCIAL_ENGINE_SIGNALS = (
     "financial_foundations",
     "financial_statement_intelligence",
+    "financial_concepts",
     "kip_v2",
     "institutional_accounting_exam",
     "journal_entry_engine",
@@ -103,6 +104,16 @@ _UNKNOWN_REFUSE_RE = re.compile(
     r"no record of|cannot confirm (?:the )?existence)\b",
     re.I,
 )
+
+_COVERAGE_POLICY_REFUSE_RE = re.compile(
+    r"\b(do not currently have verified company coverage|"
+    r"no verified company coverage|will not invent company-specific analysis)\b",
+    re.I,
+)
+
+
+def has_coverage_policy_refusal(text: str) -> bool:
+    return bool(_COVERAGE_POLICY_REFUSE_RE.search(text or ""))
 
 
 def has_engine_signal(blob: str) -> bool:
@@ -178,39 +189,42 @@ AFI_ACCEPTANCE_40: List[Dict[str, Any]] = [
 
     # ---- Section C — Valuation & Ratios (8) ----
     {"id": "C21", "section": "Valuation & Ratios", "prompt": "Why do banks trade on Price-to-Book instead of EV/EBITDA?",
-     "requires_engine": None, "topics_any": ["book value", "capital", "leverage", "deposit", "balance sheet"]},
+     "requires_engine": "financial_concepts", "topics_any": ["book value", "capital", "leverage", "deposit", "balance sheet"]},
     {"id": "C22", "section": "Valuation & Ratios", "prompt": "When should EV/EBITDA be preferred over P/E?",
-     "requires_engine": None, "topics_any": ["capital structure", "leverage", "depreciation", "tax"]},
+     "requires_engine": "financial_concepts", "topics_any": ["capital structure", "leverage", "depreciation", "tax"]},
     {"id": "C23", "section": "Valuation & Ratios", "prompt": "Why is ROIC important?",
-     "requires_engine": None, "topics_any": ["invested capital", "return", "cost of capital", "value creation"]},
+     "requires_engine": "financial_concepts", "topics_any": ["invested capital", "return", "cost of capital", "value creation"]},
     {"id": "C24", "section": "Valuation & Ratios", "prompt": "Explain Free Cash Flow Yield.",
-     "requires_engine": None, "topics_any": ["free cash flow", "market cap", "enterprise value", "yield"]},
+     "requires_engine": "financial_concepts", "topics_any": ["free cash flow", "market cap", "enterprise value", "yield"]},
     {"id": "C25", "section": "Valuation & Ratios", "prompt": "Why is Enterprise Value used instead of Market Capitalization?",
-     "requires_engine": None, "topics_any": ["debt", "cash", "capital structure", "acquirer"]},
+     "requires_engine": "financial_concepts", "topics_any": ["debt", "cash", "capital structure", "acquirer"]},
     {"id": "C26", "section": "Valuation & Ratios", "prompt": "Why can ROCE increase while ROE falls?",
-     "requires_engine": None, "topics_any": ["capital employed", "leverage", "equity", "debt"]},
+     "requires_engine": "financial_concepts", "topics_any": ["capital employed", "leverage", "equity", "debt"]},
     {"id": "C27", "section": "Valuation & Ratios", "prompt": "Explain the DuPont model.",
-     "requires_engine": None, "topics_any": ["margin", "turnover", "leverage", "roe"]},
+     "requires_engine": "financial_concepts", "topics_any": ["margin", "turnover", "leverage", "roe"]},
     {"id": "C28", "section": "Valuation & Ratios", "prompt": "Why can Gross Margin fall while EBITDA Margin rises?",
-     "requires_engine": None, "topics_any": ["operating leverage", "cost", "opex", "mix"]},
+     "requires_engine": "financial_foundations", "topics_any": ["operating leverage", "cost", "opex", "mix"]},
 
     # ---- Section D — Business Intelligence (8) ----
     {"id": "D29", "section": "Business Intelligence", "prompt": "Explain Reliance Industries' business model.",
      "requires_engine": None, "entities": ["reliance"], "topics_any": ["refin", "retail", "jio", "digital", "o2c", "petro", "segment"]},
     {"id": "D30", "section": "Business Intelligence", "prompt": "Why does Visa generate high free cash flow?",
-     "requires_engine": None, "entities": ["visa"], "topics_any": ["network", "asset-light", "transaction fee", "toll", "capex"]},
+     "requires_engine": None, "entities": ["visa"], "coverage_policy_refuse": True,
+     "topics_any": ["network", "asset-light", "transaction fee", "toll", "capex", "verified company coverage"]},
     {"id": "D31", "section": "Business Intelligence", "prompt": "Why does Costco operate with low margins?",
-     "requires_engine": None, "entities": ["costco"], "topics_any": ["membership", "volume", "scale", "low margin", "pass through"]},
+     "requires_engine": None, "entities": ["costco"], "coverage_policy_refuse": True,
+     "topics_any": ["membership", "volume", "scale", "low margin", "pass through", "verified company coverage"]},
     {"id": "D32", "section": "Business Intelligence", "prompt": "Why is Ferrari more profitable than Toyota?",
-     "requires_engine": None, "entities": ["ferrari", "toyota"], "comparison": True, "topics_any": ["luxury", "pricing power", "scarcity", "volume", "mass market"]},
+     "requires_engine": None, "entities": ["ferrari", "toyota"], "comparison": True, "coverage_policy_refuse": True,
+     "topics_any": ["luxury", "pricing power", "scarcity", "volume", "mass market", "verified company coverage"]},
     {"id": "D33", "section": "Business Intelligence", "prompt": "Explain operating leverage using airlines.",
-     "requires_engine": None, "entities": ["airlin"], "topics_any": ["fixed cost", "load factor", "breakeven", "margin"]},
+     "requires_engine": "financial_concepts", "topics_any": ["fixed cost", "load factor", "breakeven", "margin", "airlin"]},
     {"id": "D34", "section": "Business Intelligence", "prompt": "What creates pricing power?",
-     "requires_engine": None, "topics_any": ["brand", "switching cost", "differentiation", "moat", "scarcity"]},
+     "requires_engine": "financial_concepts", "topics_any": ["brand", "switching cost", "differentiation", "moat", "scarcity"]},
     {"id": "D35", "section": "Business Intelligence", "prompt": "Explain network effects.",
-     "requires_engine": None, "topics_any": ["users", "value", "platform", "scale", "flywheel"]},
+     "requires_engine": "financial_concepts", "topics_any": ["users", "value", "platform", "scale", "flywheel"]},
     {"id": "D36", "section": "Business Intelligence", "prompt": "What is a competitive moat?",
-     "requires_engine": None, "topics_any": ["moat", "brand", "switching cost", "network effect", "cost advantage", "regulatory"]},
+     "requires_engine": "financial_concepts", "topics_any": ["moat", "brand", "switching cost", "network effect", "cost advantage", "regulatory"]},
 
     # ---- Section E — Institutional Judgment (4) ----
     {"id": "E37", "section": "Institutional Judgment", "prompt": "Should I buy HDFC Bank tomorrow?",
@@ -286,10 +300,16 @@ def score_afi_answer(
             fails["hallucinated_entity"] = True
 
     expected_entities = case.get("entities") or []
-    if expected_entities and not case.get("unknown_refuse"):
+    coverage_refused = case.get("coverage_policy_refuse") and has_coverage_policy_refusal(text)
+    if expected_entities and not case.get("unknown_refuse") and not coverage_refused:
         entity_present = any(e.lower() in blob_for_entities for e in expected_entities)
         if not entity_present and evidence_count > 0:
             fails["wrong_company_injected"] = True
+
+    if case.get("coverage_policy_refuse") and not coverage_refused and evidence_count > 0 and not (
+        expected_entities and any(e.lower() in blob_for_entities for e in expected_entities)
+    ):
+        fails["wrong_company_injected"] = True
 
     first_sentence = re.split(r"(?<=[.!?])\s+", text.strip(), maxsplit=1)[0] if text.strip() else ""
     executive_answered_first = bool(first_sentence) and not has_framework_leak(first_sentence) and len(first_sentence) > 15
@@ -305,6 +325,8 @@ def score_afi_answer(
         answers_q = 5 if (has_policy_refusal(text) and not fails.get("recommendation_policy_regression")) else (2 if not fails.get("recommendation_policy_regression") else 0)
     elif case.get("ambiguous_underspecified"):
         answers_q = 5 if (has_unknown_refusal(text) or "which company" in low or "clarif" in low or "specify" in low) else 1
+    elif case.get("coverage_policy_refuse"):
+        answers_q = 5 if coverage_refused else (1 if fails.get("wrong_company_injected") else 2)
     else:
         entities_ok = (not expected_entities) or any(e.lower() in blob_for_entities for e in expected_entities)
         if entities_ok and hits >= 2 and executive_answered_first:
@@ -321,12 +343,16 @@ def score_afi_answer(
     # --- 2. Financial reasoning (baseline; refine on manual review) ---
     if case.get("unknown_refuse") or case.get("policy_refuse"):
         financial_reasoning = 5 if answers_q == 5 else 1
+    elif case.get("coverage_policy_refuse"):
+        financial_reasoning = 5 if (coverage_refused and hits) else (3 if coverage_refused else 1)
     else:
         financial_reasoning = min(5, 1 + hits) if hits else (2 if answers_q >= 3 else 1)
 
     # --- 3. Uses correct engine ----------------------------------------
     if case.get("requires_engine"):
         uses_correct_engine = 0 if fails.get("generic_retrieval_used") else 5
+    elif case.get("coverage_policy_refuse"):
+        uses_correct_engine = 5 if coverage_refused else 0
     else:
         uses_correct_engine = 2 if degraded else 5
 
@@ -335,6 +361,8 @@ def score_afi_answer(
         correct_evidence = 5 if evidence_count <= 1 else 2
     elif case.get("policy_refuse") or case.get("ambiguous_underspecified"):
         correct_evidence = 5 if not fails.get("wrong_company_injected") else 1
+    elif case.get("coverage_policy_refuse"):
+        correct_evidence = 5 if (coverage_refused and evidence_count <= 1) else (1 if fails.get("wrong_company_injected") else 3)
     elif fails.get("wrong_company_injected"):
         correct_evidence = 0
     elif evidence_count >= 5:
@@ -353,6 +381,8 @@ def score_afi_answer(
         honest_uncertainty = 5 if not fails.get("recommendation_policy_regression") else 0
     elif case.get("ambiguous_underspecified"):
         honest_uncertainty = 5 if (has_unknown_refusal(text) or "which company" in low or "clarif" in low) else 1
+    elif case.get("coverage_policy_refuse"):
+        honest_uncertainty = 5 if not fails.get("wrong_company_injected") else 0
     else:
         honest_uncertainty = 4 if not fails else 2
 

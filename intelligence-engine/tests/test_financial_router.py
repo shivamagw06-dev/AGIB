@@ -65,12 +65,13 @@ def test_income_statement_example_is_internally_consistent():
 
 
 def test_business_questions_do_not_route_financially():
-    """Non-accounting company/business questions must NOT be hijacked by the
-    financial router — it should return None so the normal pipeline runs."""
+    """Company-specific business questions must NOT be hijacked by the
+    financial router — it should return None so the normal pipeline runs.
+    (Pure concept questions like "What is a competitive moat?" DO route,
+    as of Phase 2.6 — see tests/test_financial_router_concepts.py.)"""
     assert route("Explain Reliance Industries' business model.") is None
     assert route("Should I buy HDFC Bank tomorrow?") is None
     assert route("Explain XYZ Quantum Robotics Pvt Ltd.") is None
-    assert route("What is a competitive moat?") is None
 
 
 def test_parse_amount_handles_crore_lakh_and_absence():
