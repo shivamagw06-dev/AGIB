@@ -217,7 +217,7 @@ def _categorize_failure(row: Dict[str, Any]) -> str:
         return "recommendation_policy"
     if row.get("id") == "E39" or flags.get("hallucinated_entity"):
         return "unknown_entity_policy"
-    if row.get("entity_misfire"):
+    if row.get("entity_misfire") or flags.get("wrong_company_injected"):
         return "entity_resolution"
     if flags.get("generic_retrieval_used"):
         engine = row.get("requires_engine")
