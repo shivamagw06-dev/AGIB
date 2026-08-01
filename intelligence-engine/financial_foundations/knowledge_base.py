@@ -63,6 +63,23 @@ MODULE_1_BIRTH_OF_A_COMPANY: dict[str, ConceptCard] = {
         "in; Retained Earnings is what the business has since earned and kept.",
         "Founder invests ₹10,00,000 → Share Capital = ₹10,00,000.",
     ),
+    "retained_earnings": ConceptCard(
+        "retained_earnings", 1, "Retained Earnings",
+        "The cumulative Net Income the company has earned since inception, minus all "
+        "dividends ever declared — the portion of profit reinvested in the business rather "
+        "than distributed to shareholders.",
+        "Retained Earnings is an Equity account that grows every period a company is "
+        "profitable and shrinks when it declares dividends or posts a loss; it is the "
+        "accounting link between the Income Statement and the Balance Sheet — Net Income "
+        "flows into Equity through this account at period close, not through Cash directly.",
+        "Treating Retained Earnings as a pool of cash sitting in a bank account — it is an "
+        "accounting balance representing accumulated claims on the company's assets, not "
+        "cash itself; the actual cash may already be invested in machinery, inventory, or "
+        "receivables.",
+        "A company earns ₹5,00,000 Net Income in Year 1 and declares no dividend: Retained "
+        "Earnings rises from ₹0 to ₹5,00,000. If it then pays a ₹1,00,000 dividend in Year 2, "
+        "Retained Earnings falls by that ₹1,00,000 even though Year 2's own profit may be higher.",
+    ),
     "debt": ConceptCard(
         "debt", 1, "Debt",
         "Capital borrowed from lenders that must be repaid, usually with interest.",
