@@ -743,15 +743,24 @@ class UiService:
             management_trust=management_trust,
         )
 
-    def search(self, question: str, *, ticker: str | None = None) -> SearchView:
+    def search(
+        self,
+        question: str,
+        *,
+        ticker: str | None = None,
+        ask_trace_id: str | None = None,
+    ) -> SearchView:
         """Ask desk entry — always returns a SearchView when possible (never blank 503)."""
         q = (question or "").strip()
         try:
-            return self._search_unguarded(question, ticker=ticker)
+            return self._search_unguarded(
+                question, ticker=ticker, ask_trace_id=ask_trace_id
+            )
         except Exception as exc:  # noqa: BLE001 — desk must degrade, not disappear
             import logging
 
             logging.getLogger("agi.ui.search").exception("ask_search_failed q=%r", q[:120])
+            tid = (ask_trace_id or "").strip() or new_ask_trace_id()
             return SearchView(
                 meta=UiMeta(
                     surface="search",
@@ -768,9 +777,12 @@ class UiService:
                 },
                 ask_orchestration={
                     "version": "ask-orchestration-trace-2",
-                    "ask_trace_id": new_ask_trace_id(),
+                    "ask_trace_id": tid,
                     "fallback": True,
                     "fallback_used": True,
+                    "completed": False,
+                    "timeout": False,
+                    "last_completed_stage": "http_ingress",
                     "engine_reached": False,
                     "reason": type(exc).__name__,
                     "diagnostics_visibility": "internal",
@@ -793,7 +805,13 @@ class UiService:
                 ],
             )
 
-    def _search_unguarded(self, question: str, *, ticker: str | None = None) -> SearchView:
+    def _search_unguarded(
+        self,
+        question: str,
+        *,
+        ticker: str | None = None,
+        ask_trace_id: str | None = None,
+    ) -> SearchView:
         self._require()
         q = (question or "").strip()
         client = None
@@ -801,8 +819,8 @@ class UiService:
         rsp_pkg: dict[str, Any] = {}
         irp_pkg = None
         irp_dump: dict[str, Any] = {}
-        stage_timer = StageTimer()
-        ask_trace_id = new_ask_trace_id()
+        ask_trace_id = (ask_trace_id or "").strip() or new_ask_trace_id()
+        stage_timer = StageTimer(ask_trace_id=ask_trace_id)
 
         knowledge_bundle: dict[str, Any] = {}
 
@@ -863,6 +881,14 @@ class UiService:
             # Soft-pack / theme pollution must not override an explicit company mention.
             detected_ticker = alias_hit
             ask_orchestration["ticker_source"] = "alias_override"
+        stage_timer.set_context(
+            entity={
+                "name": detected_ticker,
+                "detected": detected_ticker,
+                "confidence": 0.98 if alias_hit else (0.9 if ere_ticker else 0.0),
+                "source": ask_orchestration.get("ticker_source"),
+            }
+        )
         stage_timer.mark("entity_resolution")
 
         # Market Indices — which stock ↔ which Nifty index (factual membership)
@@ -1409,9 +1435,11 @@ class UiService:
                 ikl_answer_hints = [
                     str(h)[:280] for h in (institutional_knowledge.get("answer_hints") or [])[:6] if h
                 ]
+                stage_timer.set_context(ikl=ask_orchestration.get("ikl") or {})
         except Exception:
             institutional_knowledge = {}
             ikl_answer_hints = []
+        stage_timer.mark("ikl")
 
         # DVC V1 — load validated canonical values / conflict hints before answering
         try:

@@ -226,12 +226,21 @@ class AskProductHarness:
     def _ask_live(
         self, prompt: str, *, ticker: Optional[str], t0: float
     ) -> Dict[str, Any]:
+        from app.ui.ask_orchestration_trace import new_ask_trace_id
+
         qs = urllib.parse.urlencode(
             {"question": prompt, **({"ticker": ticker} if ticker else {})}
         )
         # Prefer Node gateway product path; fall back to engine path if configured.
-        url = f"{self.base_url}/api/ui/search"
-        body = json.dumps({"question": prompt, "ticker": ticker}).encode("utf-8")
+        url = f"{self.base_url}/api/ui/search?{qs}"
+        ask_trace_id = new_ask_trace_id()
+        body = json.dumps(
+            {
+                "question": prompt,
+                "ticker": ticker,
+                "ask_trace_id": ask_trace_id,
+            }
+        ).encode("utf-8")
         req = urllib.request.Request(
             url,
             data=body,
@@ -239,6 +248,7 @@ class AskProductHarness:
             headers={
                 "Accept": "application/json",
                 "Content-Type": "application/json",
+                "X-Ask-Trace-Id": ask_trace_id,
             },
         )
         try:
@@ -253,18 +263,31 @@ class AskProductHarness:
                 except json.JSONDecodeError:
                     payload = {"raw": text[:500]}
                     html = html or True
+                # Ensure client-issued trace id is preserved if gateway omitted it
+                if isinstance(payload, dict):
+                    orch = payload.get("ask_orchestration")
+                    if isinstance(orch, dict) and not orch.get("ask_trace_id"):
+                        orch["ask_trace_id"] = ask_trace_id
+                    elif not orch:
+                        payload.setdefault(
+                            "ask_orchestration",
+                            {"ask_trace_id": ask_trace_id, "diagnostics_visibility": "internal"},
+                        )
                 return {
                     "http_status": status,
                     "latency_ms": latency_ms,
                     "payload": payload,
                     "error": None,
                     "raw_is_html": html,
+                    "timeout": False,
+                    "ask_trace_id": ask_trace_id,
                     "transport": "live",
                     "url": url,
                     "query": qs,
                 }
         except Exception as exc:  # noqa: BLE001
             latency_ms = int((time.perf_counter() - t0) * 1000)
+            timed_out = "timeout" in str(exc).lower() or "timed out" in str(exc).lower()
             return {
                 "http_status": 0,
                 "latency_ms": latency_ms,
@@ -272,9 +295,48 @@ class AskProductHarness:
                     "error": "research_desk_unavailable",
                     "retryable": True,
                     "detail": str(exc)[:240],
+                    "ask_orchestration": {
+                        "ask_trace_id": ask_trace_id,
+                        "completed": False,
+                        "timeout": timed_out,
+                        "partial": True,
+                        "last_completed_stage": "http_ingress",
+                        "elapsed_ms": latency_ms,
+                        "engine_reached": False,
+                        "fallback_used": True,
+                        "funnel": {
+                            "retrieved": 0,
+                            "ranked": 0,
+                            "passed": 0,
+                            "referenced": 0,
+                        },
+                        "latency": {
+                            "http_ms": latency_ms,
+                            "total_ms": latency_ms,
+                            "last_completed_stage": "http_ingress",
+                        },
+                        "execution_trace": (
+                            f"Ask Trace ID: {ask_trace_id}\n"
+                            f"Entity: —\n"
+                            f"IKL: 0ms\n"
+                            f"Retrieved: 0\n"
+                            f"Ranked: 0\n"
+                            f"Passed: 0\n"
+                            f"Referenced: 0\n"
+                            f"Reasoning: 0.0s\n"
+                            f"Assembly: 0ms\n"
+                            f"Completed: false\n"
+                            f"Last completed stage: http_ingress\n"
+                            f"Elapsed: {latency_ms / 1000:.1f}s\n"
+                            f"Timeout: {str(timed_out).lower()}"
+                        ),
+                        "diagnostics_visibility": "internal",
+                    },
                 },
                 "error": str(exc),
                 "raw_is_html": False,
+                "timeout": timed_out,
+                "ask_trace_id": ask_trace_id,
                 "transport": "live",
                 "url": url,
             }
