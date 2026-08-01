@@ -488,11 +488,25 @@ export default function createUiRouter() {
       return res.status(400).json({ error: 'question is required' });
     }
 
-    const serveFallback = async (detail) => {
+    const askTimeoutMs = Math.max(
+      30_000,
+      Number.parseInt(process.env.ASK_ENGINE_TIMEOUT_MS || '120000', 10) || 120_000,
+    );
+
+    const serveFallback = async (detail, meta = {}) => {
       try {
         const { buildAskDeskFallback } = await import('../services/askDeskFallback.js');
         const pack = await buildAskDeskFallback(question);
         pack.detail = detail;
+        pack.ask_orchestration = {
+          ...(pack.ask_orchestration || {}),
+          engine_reached: false,
+          fallback: true,
+          reason: detail,
+          timeout_ms: askTimeoutMs,
+          engine_status: meta.engineStatus ?? null,
+          html_502: Boolean(meta.html502),
+        };
         // Best-effort wake for the next client retry.
         engineFetch('/v1/health', { timeoutMs: 8_000 }).catch(() => {});
         return res.status(200).json(pack);
@@ -501,6 +515,12 @@ export default function createUiRouter() {
           error: 'research_desk_unavailable',
           retryable: true,
           detail: detail || fallbackError.message,
+          ask_orchestration: {
+            engine_reached: false,
+            fallback: true,
+            reason: detail || fallbackError.message,
+            timeout_ms: askTimeoutMs,
+          },
         });
       }
     };
@@ -509,19 +529,35 @@ export default function createUiRouter() {
       const qs = new URLSearchParams({ question: String(question) });
       if (ticker) qs.set('ticker', String(ticker));
       const path = `/v1/ui/search?${qs.toString()}`;
-      // Keep under Render request budgets. Client may retry a fresh request.
+      // Default 120s (env ASK_ENGINE_TIMEOUT_MS). Client may retry a fresh request.
       const result = await engineFetch(path, {
         method: 'POST',
-        timeoutMs: 90_000,
+        body: { question: String(question), ...(ticker ? { ticker: String(ticker) } : {}) },
+        timeoutMs: askTimeoutMs,
       });
       const html502 =
         typeof result.data?.raw === 'string' && result.data.raw.trim().startsWith('<');
       if (html502 || result.status === 502 || result.status === 503 || result.status >= 500) {
-        return serveFallback('Intelligence engine timed out or restarted — serving Node desk fallback.');
+        return serveFallback(
+          `Intelligence engine unavailable (HTTP ${result.status}${html502 ? ', HTML body' : ''}) — Node desk fallback.`,
+          { engineStatus: result.status, html502 },
+        );
+      }
+      if (result.data && typeof result.data === 'object') {
+        result.data.ask_orchestration = {
+          ...(result.data.ask_orchestration || result.data.degradation?.ask_orchestration || {}),
+          engine_reached: true,
+          fallback: false,
+          timeout_ms: askTimeoutMs,
+          engine_status: result.status,
+        };
       }
       return res.status(result.status).json(result.data);
     } catch (error) {
-      return serveFallback(error.message);
+      const msg = error?.name === 'TimeoutError' || /aborted|timeout/i.test(String(error?.message || ''))
+        ? `Intelligence engine exceeded ASK timeout (${askTimeoutMs}ms) — Node desk fallback.`
+        : error.message;
+      return serveFallback(msg, { engineStatus: 0 });
     }
   });
 

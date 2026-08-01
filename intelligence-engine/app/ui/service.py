@@ -9,6 +9,11 @@ from app.core.config import get_settings
 from app.kip.models import ClientSearchRequest
 from app.ui.flags import UiFlags
 from app.kip.extractors import KNOWN_TICKERS, TICKER_STOPWORDS
+from app.ui.ticker_guard import (
+    accept_detected_ticker,
+    alias_ticker_from_question,
+    looks_like_framework_meta_executive,
+)
 from app.ui.iax import (
     build_charts,
     clean_thesis_text,
@@ -794,21 +799,50 @@ class UiService:
 
         # RQ1 Sprint 2 — Entity Resolution Engine (canonical identity; metadata soft-wire)
         entity_resolution: dict[str, Any] = {}
+        ere_body: dict[str, Any] = {}
+        ere_research_blocked = False
+        ere_ticker: str | None = None
+        ask_orchestration: dict[str, Any] = {
+            "ticker_source": "user" if detected_ticker else None,
+            "ticker_rejects": [],
+            "ere_research_blocked": False,
+            "executive_source": None,
+        }
         try:
             from entity_resolution.production import soft_slice_for_ask_agi as ere_soft_slice
 
             entity_resolution = ere_soft_slice(q) or {}
             # Prefer ERE ticker when clear
             ere_body = entity_resolution.get("entity_resolution") or {}
-            if (
-                isinstance(ere_body, dict)
-                and not ere_body.get("needs_clarification")
-                and ere_body.get("ticker")
-                and not detected_ticker
-            ):
-                detected_ticker = str(ere_body.get("ticker")).upper()
+            if isinstance(ere_body, dict):
+                ere_research_blocked = bool(
+                    ere_body.get("research_blocked")
+                    or (ere_body.get("needs_clarification") and not ere_body.get("ticker"))
+                )
+                ask_orchestration["ere_research_blocked"] = ere_research_blocked
+                if (
+                    not ere_body.get("needs_clarification")
+                    and ere_body.get("ticker")
+                    and not detected_ticker
+                ):
+                    safe = accept_detected_ticker(ere_body.get("ticker"))
+                    if safe:
+                        detected_ticker = safe
+                        ere_ticker = safe
+                        ask_orchestration["ticker_source"] = "ere"
         except Exception:
             entity_resolution = {}
+            ere_body = {}
+
+        # Deterministic alias bind (Meta/Apple/…) before soft packs can pollute.
+        alias_hit = alias_ticker_from_question(q)
+        if alias_hit and not detected_ticker:
+            detected_ticker = alias_hit
+            ask_orchestration["ticker_source"] = "alias"
+        elif alias_hit and detected_ticker and detected_ticker != alias_hit and not ticker:
+            # Soft-pack / theme pollution must not override an explicit company mention.
+            detected_ticker = alias_hit
+            ask_orchestration["ticker_source"] = "alias_override"
 
         # Market Indices — which stock ↔ which Nifty index (factual membership)
         market_indices: dict[str, Any] = {}
@@ -1443,7 +1477,18 @@ class UiService:
                     ):
                         company_dossier = cae_soft.get("company_dossier") or company_dossier
                     if assembled.get("primary_ticker") and not detected_ticker:
-                        detected_ticker = str(assembled["primary_ticker"]).upper()
+                        safe = accept_detected_ticker(
+                            assembled["primary_ticker"], ere_blocked=ere_research_blocked
+                        )
+                        if safe:
+                            detected_ticker = safe
+                            ask_orchestration["ticker_source"] = ask_orchestration.get(
+                                "ticker_source"
+                            ) or "cae"
+                        else:
+                            ask_orchestration["ticker_rejects"].append(
+                                {"raw": assembled.get("primary_ticker"), "source": "cae"}
+                            )
             except Exception:
                 used_cae = False
                 context_assembly = {}
@@ -1812,7 +1857,18 @@ class UiService:
                     rsp_pkg = irp_dump.get("rsp") or {}
                     ents = irp_dump.get("entities") or {}
                     if not detected_ticker and isinstance(ents, dict) and ents.get("primary_ticker"):
-                        detected_ticker = str(ents["primary_ticker"]).upper()
+                        safe = accept_detected_ticker(
+                            ents["primary_ticker"], ere_blocked=ere_research_blocked
+                        )
+                        if safe:
+                            detected_ticker = safe
+                            ask_orchestration["ticker_source"] = ask_orchestration.get(
+                                "ticker_source"
+                            ) or "irp"
+                        else:
+                            ask_orchestration["ticker_rejects"].append(
+                                {"raw": ents.get("primary_ticker"), "source": "irp"}
+                            )
             except Exception:
                 irp_pkg = None
                 irp_dump = {}
@@ -2869,21 +2925,39 @@ class UiService:
                     "knowledge_gaps"
                 )
 
-        # AGIB v3.4 Track D — Institutional Communication Engine wins over generic templates.
-        # Soft-wire only: bind InstitutionalAnswer render; do not re-run reasoning.
+        # AGIB v3.4 Track D — Institutional Communication Engine soft-wire.
+        # Framework/playbook metadata must NOT replace an evidence-backed executive.
         _ice_view = (ask_pipeline_runtime or {}).get("communication") or {}
         if isinstance(_ice_view, dict) and _ice_view.get("executive_summary"):
             ice_exec = scrub_text(_ice_view.get("executive_summary"))
-            if ice_exec:
+            ice_is_meta = looks_like_framework_meta_executive(ice_exec or "")
+            existing_is_meta = looks_like_framework_meta_executive(executive or "")
+            if ice_exec and not ice_is_meta:
                 executive = ice_exec
                 answer["executive_summary"] = executive
                 answer["summary"] = executive
-                answer["communication_template"] = _ice_view.get("template")
-                answer["communication_sections"] = _ice_view.get("sections")
                 answer["source"] = "institutional_communication"
                 briefing["executive_summary"] = executive
+                ask_orchestration["executive_source"] = "ice"
+            elif ice_exec and ice_is_meta and (not executive or existing_is_meta):
+                # Prefer answer-construction / prior executive over framework scaffolding.
+                ac_exec = None
+                if isinstance(answer_construction, dict):
+                    ac_exec = scrub_text(answer_construction.get("executive"))
+                if ac_exec and not looks_like_framework_meta_executive(ac_exec):
+                    executive = ac_exec
+                    ask_orchestration["executive_source"] = "answer_construction_over_ice_meta"
+                else:
+                    ask_orchestration["executive_source"] = "ice_meta_suppressed"
+                answer["executive_summary"] = executive
+                answer["summary"] = executive
+                briefing["executive_summary"] = executive
+            answer["communication_template"] = _ice_view.get("template")
+            answer["communication_sections"] = _ice_view.get("sections")
+            if not ice_is_meta:
+                answer["source"] = answer.get("source") or "institutional_communication"
             ice_why = _ice_view.get("why") or []
-            if isinstance(ice_why, list) and ice_why:
+            if isinstance(ice_why, list) and ice_why and not ice_is_meta:
                 why = [scrub_text(x) or str(x) for x in ice_why if x][:16]
             answer["institutional_communication"] = {
                 "ice_version": _ice_view.get("ice_version"),
@@ -2894,6 +2968,7 @@ class UiService:
                 "validation": _ice_view.get("validation"),
                 "consumes_institutional_answer": True,
                 "llm_used": False,
+                "executive_was_framework_meta": ice_is_meta,
             }
             _pb_view = (ask_pipeline_runtime or {}).get("playbook_selection") or {}
             if isinstance(_pb_view, dict) and _pb_view.get("playbook_id"):
@@ -2980,10 +3055,62 @@ class UiService:
             },
         }
 
+        # Final ticker hygiene — drop prose tokens / soft-pack pollution before response.
+        alias_final = alias_ticker_from_question(q)
+        if alias_final and (not detected_ticker or detected_ticker != alias_final):
+            if not ticker or str(ticker).upper() == alias_final:
+                if detected_ticker and detected_ticker != alias_final:
+                    ask_orchestration["ticker_rejects"].append(
+                        {"raw": detected_ticker, "source": "final_alias_override"}
+                    )
+                detected_ticker = alias_final
+                ask_orchestration["ticker_source"] = ask_orchestration.get("ticker_source") or "alias_final"
+        safe_final = accept_detected_ticker(
+            detected_ticker,
+            ere_blocked=ere_research_blocked and detected_ticker not in {ere_ticker, alias_final, (str(ticker).upper() if ticker else None)},
+            allow_when_blocked=bool(
+                detected_ticker
+                and detected_ticker in {ere_ticker, alias_final, (str(ticker).upper() if ticker else None)}
+            ),
+        )
+        if detected_ticker and not safe_final:
+            ask_orchestration["ticker_rejects"].append(
+                {"raw": detected_ticker, "source": "final_sanitize"}
+            )
+            detected_ticker = None
+        else:
+            detected_ticker = safe_final
+        # Strip polluted related companies that are not plausible tickers
+        related = [
+            str(r).upper()
+            for r in (related or [])
+            if accept_detected_ticker(r) and str(r).upper() != "SUMMARIZE"
+        ][:8]
+        if detected_ticker and detected_ticker not in related:
+            related = [detected_ticker] + [r for r in related if r != detected_ticker]
+        ask_orchestration.update(
+            {
+                "bound_ticker": detected_ticker,
+                "evidence_count": len(support_ev) if isinstance(support_ev, list) else 0,
+                "intent": (irp_dump or {}).get("intent") or (client or {}).get("intent"),
+                "ice_framework_meta_suppressed": bool(
+                    ((answer.get("institutional_communication") or {}) if isinstance(answer, dict) else {}).get(
+                        "executive_was_framework_meta"
+                    )
+                ),
+            }
+        )
+        degradation["ask_orchestration"] = ask_orchestration
+        if isinstance(answer, dict):
+            answer["ask_orchestration"] = ask_orchestration
+
         if briefing.get("executive_summary") and not (
             isinstance(answer_meta_institutional, dict) and answer_meta_institutional.get("enabled")
         ):
-            executive = scrub_text(briefing["executive_summary"]) or executive
+            # Never let a late briefing stomp a good executive with framework meta.
+            candidate = scrub_text(briefing["executive_summary"])
+            if candidate and not looks_like_framework_meta_executive(candidate):
+                executive = candidate or executive
             answer["summary"] = executive
             answer["executive_summary"] = executive
             if house_label:
