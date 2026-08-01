@@ -9,6 +9,11 @@ from app.core.config import get_settings
 from app.kip.models import ClientSearchRequest
 from app.ui.flags import UiFlags
 from app.ui.financial_router import route as financial_router_route
+from app.ui.coverage_policy import (
+    detect_unsupported_company as coverage_policy_detect,
+    unsupported_coverage_executive as coverage_policy_executive,
+    unsupported_coverage_why as coverage_policy_why,
+)
 from app.kip.extractors import KNOWN_TICKERS, TICKER_STOPWORDS
 from app.ui.ask_orchestration_trace import (
     StageTimer,
@@ -1437,6 +1442,93 @@ class UiService:
                 entity_resolution=entity_resolution,
                 ere_body=ere_body if isinstance(ere_body, dict) else {},
                 alias_hit=alias_hit,
+            )
+
+        # Unsupported Coverage Policy (Phase 2.6 Module 12) — a REAL, well-
+        # known company outside this platform's verified retrieval universe
+        # (e.g. Visa, Costco, Ferrari) must get an honest "no coverage"
+        # refusal, never irrelevant generic evidence — and this must run
+        # BEFORE the Financial Router below, since a question like "Why does
+        # Visa generate high free cash flow?" also matches the generic
+        # 'free cash flow' concept and would otherwise get a company-blind
+        # concept answer instead of the honest coverage refusal. Distinct
+        # from the unknown-entity hard stop further down, which handles
+        # genuinely fictitious/unrecognized names — see
+        # app/ui/coverage_policy.py.
+        try:
+            unsupported_company = coverage_policy_detect(q)
+        except Exception:
+            unsupported_company = None
+        if unsupported_company:
+            for stage in ("ikl", "retrieval", "ranking", "reasoning", "response_assembly"):
+                stage_timer.mark(stage)
+            executive = coverage_policy_executive(unsupported_company)
+            why = coverage_policy_why(unsupported_company)
+            cov_orch = {
+                **ask_orchestration,
+                "executive_source": "unsupported_coverage_policy",
+                "short_circuit": "unsupported_coverage_policy",
+                "rq_stack": "skipped_unsupported_coverage_policy",
+                "unsupported_company": unsupported_company,
+            }
+            orch = finalize_orchestration(
+                cov_orch,
+                timer=stage_timer,
+                question=q,
+                detected_ticker=None,
+                ere_body=ere_body if isinstance(ere_body, dict) else {},
+                alias_hit=alias_hit,
+                evidence_used=[],
+                why=why,
+                executive=executive,
+                intent="unsupported_coverage_policy",
+                fallback=False,
+            )
+            stage_timer.mark("serialization")
+            try:
+                orch["latency"] = stage_timer.as_latency_block()
+                orch["latency_ms"] = stage_timer.as_dict()
+                orch["trace_summary"] = format_trace_summary(orch)
+                orch["completed"] = True
+                orch["timeout"] = False
+            except Exception:
+                pass
+            return SearchView(
+                meta=UiMeta(surface="search", sources=["unsupported_coverage_policy"]),
+                question=q,
+                status="ok",
+                degradation={
+                    "ask_slim": ask_slim_enabled(),
+                    "short_circuit": "unsupported_coverage_policy",
+                    "rq_stack": "skipped",
+                    "reasoning": "unsupported_company",
+                },
+                ask_orchestration=orch,
+                intent="unsupported_coverage_policy",
+                entities={"ticker": None, "companies": [], "themes": [], "sectors": []},
+                answer={
+                    "summary": executive,
+                    "executive_summary": executive,
+                    "stance": "Neutral",
+                    "why": why,
+                    "house_view_label": "Insufficient evidence",
+                    "policy": "unsupported_coverage_refuse",
+                },
+                executive_summary=executive,
+                house_view={"label": "Insufficient evidence", "stance": "Neutral"},
+                confidence=15.0,
+                investment_thesis=executive,
+                bull_case=[],
+                bear_case=[],
+                key_risks=[f"{unsupported_company} is outside this platform's verified coverage universe."],
+                why=why,
+                evidence_used=[],
+                follow_up_questions=[
+                    "Ask about the underlying financial concept for a general explanation.",
+                    "Ask about a covered company (e.g. Reliance, TCS, Infosys, HDFC Bank) for full research.",
+                ],
+                answer_policy="unsupported_coverage_refuse",
+                entity_resolution=scrub(entity_resolution) if entity_resolution else {},
             )
 
         # Financial Router — accounting / financial-statement-analysis concept

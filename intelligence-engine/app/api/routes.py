@@ -12801,6 +12801,97 @@ async def fsi_analyze(payload: dict[str, Any] = Body(default={})):
 
 
 # ---------------------------------------------------------------------------
+# AGIB Phase 2.6 — Institutional Financial Concepts (FC). Deterministic
+# concept library (Enterprise Value, WACC, DuPont, banking/credit/market
+# vocabulary, economic moats, ...). Ask integration is exclusively via
+# app/ui/financial_router.py + app/ui/coverage_policy.py — these routes are
+# the standalone verification/documentation surface, same pattern as FF/FSI.
+# ---------------------------------------------------------------------------
+@router.get("/financial-concepts/health")
+async def fc_health():
+    from financial_concepts.production import health
+
+    return health()
+
+
+@router.get("/financial-concepts/dashboard")
+async def fc_dashboard():
+    from financial_concepts.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/financial-concepts/concepts")
+async def fc_list_concepts(module: str | None = None):
+    from financial_concepts.production import list_concepts
+
+    return list_concepts(module)
+
+
+@router.get("/financial-concepts/concepts/{key}")
+async def fc_concept_card(key: str):
+    from financial_concepts.production import concept_card
+
+    return concept_card(key)
+
+
+@router.get("/financial-concepts/explain/{topic}")
+async def fc_explain(topic: str):
+    from financial_concepts.production import explain
+
+    return explain(topic)
+
+
+@router.get("/financial-concepts/search")
+async def fc_search(q: str, limit: int = 5):
+    from financial_concepts.production import search
+
+    return search(q, limit=limit)
+
+
+@router.get("/financial-concepts/related/{key}")
+async def fc_related(key: str):
+    from financial_concepts.production import related
+
+    return related(key)
+
+
+@router.get("/financial-concepts/path")
+async def fc_path(start: str, end: str):
+    from financial_concepts.production import path
+
+    return path(start, end)
+
+
+@router.get("/financial-concepts/graph")
+async def fc_graph():
+    from financial_concepts.production import graph
+
+    return graph()
+
+
+@router.get("/financial-concepts/exam/items")
+async def fc_exam_items(section: str | None = None):
+    from financial_concepts.production import exam_questions
+
+    return exam_questions(section)
+
+
+@router.get("/financial-concepts/exam/items/{item_id}")
+async def fc_exam_run_item(item_id: str):
+    from financial_concepts.production import exam_run_item
+
+    return exam_run_item(item_id)
+
+
+@router.post("/financial-concepts/exam/items/{item_id}/grade")
+async def fc_exam_grade(item_id: str, payload: dict[str, Any] = Body(default_factory=dict)):
+    from financial_concepts.production import exam_grade
+
+    return exam_grade(item_id, str(payload.get("answer") or ""))
+
+
+# ---------------------------------------------------------------------------
 # AGI Institutional Accounting & Financial Analysis Exam (Level 1) — the
 # Phase 1/2 -> Phase 3 release gate. Debugging/verification surface only;
 # not part of the Ask product path.
