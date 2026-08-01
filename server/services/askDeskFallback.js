@@ -32,14 +32,19 @@ export async function buildAskDeskFallback(question) {
   const indices = Array.isArray(intel?.indexSentiments) ? intel.indexSentiments.slice(0, 8) : [];
   const bias = asText(intel?.outlook?.bias) || 'Monitoring';
 
-  const directAnswer = `On “${q}”: ${summary}`;
+  // Honest unavailable posture — do NOT pretend the market blurb answers the research question.
+  const directAnswer =
+    `AGIB could not complete a research answer for “${q}” because the intelligence engine did not respond in time. ` +
+    `This is not a finished company or macro brief. Retry Ask in a moment. ` +
+    `While the desk recovers, live market context reads: ${summary}`;
   const why = [
-    `AGIB is answering from the live market desk because the full research engine is still recovering.`,
+    'Node gateway fallback: the Python research engine timed out, returned 5xx/HTML, or was unreachable.',
+    'No company-level evidence pack was retrieved for this question on the fallback path.',
     indices[0]
-      ? `${indices[0].label || 'Index'} currently reads ${indices[0].sentiment || 'mixed'} (${indices[0].strength || 'AGI model'}) — that shapes near-term risk appetite.`
-      : 'Index sentiment models are syncing, so confidence stays modest until the full desk returns.',
+      ? `${indices[0].label || 'Index'} currently reads ${indices[0].sentiment || 'mixed'} (${indices[0].strength || 'AGI model'}) — market context only.`
+      : 'Index sentiment models are syncing; treat this as market context, not a research conclusion.',
     sectors[0]
-      ? `Sector focus remains on ${sectors[0].name || sectors[0].label || 'leadership'} while fuller company evidence reloads.`
+      ? `Sector tape focus: ${sectors[0].name || sectors[0].label || 'leadership'} (not evidence for the asked question).`
       : 'Sector leadership will refresh with the next market cycle.',
   ].filter(Boolean);
 
@@ -105,11 +110,19 @@ export async function buildAskDeskFallback(question) {
     mode: 'node_desk_fallback',
     degraded: true,
     retryable: true,
+    status: 'degraded',
+    intent: 'unavailable',
+    entities: { ticker: null, companies: [] },
     providers_queried: [],
     internet_used: false,
     fabricated: false,
     executive_summary: directAnswer,
     confidence: 45,
+    ask_orchestration: {
+      engine_reached: false,
+      fallback: true,
+      reason: 'node_desk_fallback',
+    },
     answer: {
       executive_summary: directAnswer,
       summary,

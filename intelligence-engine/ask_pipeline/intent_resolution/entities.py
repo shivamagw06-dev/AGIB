@@ -19,6 +19,9 @@ _KNOWN: list[tuple[re.Pattern[str], str, str]] = [
     (re.compile(r"\bindigo\b|\binterglobe\b", re.I), "INDIGO", "InterGlobe Aviation"),
     (re.compile(r"\bmaruti\b", re.I), "MARUTI", "Maruti Suzuki"),
     (re.compile(r"\bicici\s*bank\b", re.I), "ICICIBANK", "ICICI Bank"),
+    (re.compile(r"\bmeta(?:\s+platforms)?\b|\bfacebook\b|\bfb\b", re.I), "META", "Meta Platforms"),
+    (re.compile(r"\bapple\b|\baapl\b", re.I), "AAPL", "Apple"),
+    (re.compile(r"\bmicrosoft\b|\bmsft\b", re.I), "MSFT", "Microsoft"),
 ]
 
 

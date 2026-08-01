@@ -105,4 +105,9 @@ COMPANY_ALIASES: dict[str, str] = {
     "idbi bank limited": "IDBI",
     "reliance": "RELIANCE",
     "sbi": "SBIN",
+    "meta": "META",
+    "meta platforms": "META",
+    "facebook": "META",
+    "apple": "AAPL",
+    "microsoft": "MSFT",
 }

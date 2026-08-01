@@ -266,6 +266,10 @@ _KNOWN_ENTITIES: tuple[tuple[re.Pattern[str], str, str, str], ...] = (
     (re.compile(r"\bkotak(?:\s*bank|\s*mahindra)?\b", re.I), "KOTAKBANK", "Kotak Mahindra Bank", "Company"),
     (re.compile(r"\bsbi\b|\bstate bank of india\b", re.I), "SBIN", "State Bank of India", "Company"),
     (re.compile(r"\breliance\b", re.I), "RELIANCE", "Reliance Industries", "Company"),
+    (re.compile(r"\bmeta(?:\s+platforms)?\b|\bfacebook\b|\bfb\b", re.I), "META", "Meta Platforms", "Company"),
+    (re.compile(r"\bapple\b|\baapl\b", re.I), "AAPL", "Apple", "Company"),
+    (re.compile(r"\bmicrosoft\b|\bmsft\b", re.I), "MSFT", "Microsoft", "Company"),
+
     (re.compile(r"\bzomato\b|\beternal\b", re.I), "ZOMATO", "Zomato", "Company"),
     (re.compile(r"\bnestle(?:\s*india)?\b", re.I), "NESTLEIND", "Nestlé India", "Company"),
     (re.compile(r"\bhindustan\s*unilever\b|\bhul\b", re.I), "HINDUNILVR", "Hindustan Unilever", "Company"),

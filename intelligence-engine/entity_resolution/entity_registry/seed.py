@@ -377,6 +377,23 @@ SEED_ENTITIES: list[dict[str, Any]] = [
         "peers": ["COMP_AAPL"],
         "indexes": [],
     },
+    {
+        "id": "COMP_META",
+        "canonical_name": "Meta Platforms",
+        "entity_type": "Company",
+        "ticker": "META",
+        "exchange": "NASDAQ",
+        "country": "United States",
+        "sector": "Technology",
+        "industry": "Internet Content",
+        "aliases": ["meta", "meta platforms", "facebook", "fb", "meta platforms inc"],
+        "status": "active",
+        "parent": None,
+        "children": [],
+        "knowledge_graph_id": None,
+        "peers": ["COMP_AAPL", "COMP_MSFT"],
+        "indexes": [],
+    },
     # Sectors
     {
         "id": "SECTOR_BANKING",

@@ -247,28 +247,42 @@ def _executive_summary(
     template: dict[str, Any],
     sections_out: dict[str, dict[str, Any]],
 ) -> list[str]:
-    intent = institutional_answer.get("intent_v2")
-    lines = [
-        bullet(f"Intent: {intent} · Template: {template.get('title')}"),
-    ]
-    fw_ids = ((institutional_answer.get("frameworks") or {}).get("framework_ids") or [])[:4]
-    if fw_ids:
-        lines.append(bullet(f"Frameworks applied: {', '.join(map(str, fw_ids))}"))
+    """User-facing lead: evidence/analysis first. Framework labels stay in framework_used."""
+    lines: list[str] = []
+
+    # Prefer substantive analysis / conclusion bullets already bound upstream.
+    for key in ("analysis", "conclusion", "executive_summary"):
+        for b in ((institutional_answer.get("sections") or {}).get(key) or {}).get("bullets") or []:
+            line = clean_line(str(b), max_len=260)
+            if not line:
+                continue
+            low = line.lower()
+            if low.startswith("intent:") or low.startswith("frameworks applied"):
+                continue
+            if "playbook:" in low and "checklist" in low:
+                continue
+            if low.startswith("governance path:"):
+                continue
+            if "business strength rated c" in low:
+                continue
+            if "valuation question blocked" in low:
+                continue
+            lines.append(bullet(line))
+            if len(lines) >= 3:
+                break
+        if len(lines) >= 3:
+            break
+
     expl = ((institutional_answer.get("frameworks") or {}).get("explanation") or {}).get("reason")
-    if expl:
+    if expl and len(lines) < 3:
         lines.append(bullet(clean_line(str(expl), max_len=260)))
 
-    pb = institutional_answer.get("playbook") or {}
-    if pb.get("playbook_name") or pb.get("playbook_id"):
-        lines.append(
-            bullet(
-                clean_line(
-                    f"Playbook: {pb.get('playbook_name') or pb.get('playbook_id')} "
-                    f"— reasoning follows the analytical checklist.",
-                    max_len=260,
-                )
-            )
-        )
+    for item in ((institutional_answer.get("evidence") or {}).get("items") or [])[:3]:
+        if len(lines) >= 4:
+            break
+        title = item.get("title") or item.get("evidence_type") or item.get("source")
+        if title:
+            lines.append(bullet(clean_line(f"Evidence: {title}", max_len=220)))
 
     im = institutional_answer.get("institutional_memory") or {}
     if im.get("have_we_seen_this_before") and (im.get("top_memory_ids") or im.get("surface_bullets")):
@@ -276,8 +290,8 @@ def _executive_summary(
         lines.append(
             bullet(
                 clean_line(
-                    f"Have we seen this before? — {n_mem} validated historical analogue(s) ranked by similarity.",
-                    max_len=260,
+                    f"Have we seen this before? — {n_mem} validated historical analogue(s).",
+                    max_len=220,
                 )
             )
         )
@@ -285,15 +299,25 @@ def _executive_summary(
     if plan.get("as_of"):
         lines.append(bullet(f"Historical replay as_of={plan.get('as_of')} — current prices excluded."))
 
-    n_ev = len(((institutional_answer.get("evidence") or {}).get("items") or []))
-    lines.append(bullet(f"Evidence items bound: {n_ev}. Conclusions follow evidence, frameworks, and playbook checklist."))
-
-    band = (sections_out.get("confidence") or {}).get("band")
-    if band:
-        lines.append(bullet(f"Confidence: {band} (see Confidence section for calibration)."))
-
-    # Concept mode hygiene
     if institutional_answer.get("concept_mode"):
         lines.append(bullet("Concept mode — no company entity forced into the narrative."))
 
-    return lines
+    # Thin fallback only — never lead with Intent/Template/Playbook scaffolding.
+    if not lines:
+        intent = institutional_answer.get("intent_v2") or "Unknown"
+        n_ev = len(((institutional_answer.get("evidence") or {}).get("items") or []))
+        lines.append(
+            bullet(
+                clean_line(
+                    f"Institutional brief ({template.get('title') or 'Research'}) — "
+                    f"intent {intent}; {n_ev} evidence item(s) bound.",
+                    max_len=260,
+                )
+            )
+        )
+
+    band = (sections_out.get("confidence") or {}).get("band")
+    if band and len(lines) < 5:
+        lines.append(bullet(f"Confidence: {band}."))
+
+    return lines[:5]

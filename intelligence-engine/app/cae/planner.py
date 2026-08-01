@@ -35,6 +35,22 @@ _STOP = {
     "PE",
     "AI",
     "EV",
+    "WHAT",
+    "DID",
+    "SAY",
+    "ABOUT",
+    "SUMMARIZE",
+    "SUMMARISE",
+    "EXPLAIN",
+    "COMPARE",
+    "CAPEX",
+    "MID",
+    "YEAR",
+    "EQUITY",
+    "OUTLOOK",
+    "INDIA",
+    "MODEL",
+    "BUSINESS",
 }
 
 
@@ -64,21 +80,28 @@ def classify_intents(query: str) -> list[str]:
 
 
 def extract_entities(query: str, *, ticker: str | None = None, aoi: Any | None = None) -> tuple[list[str], str | None]:
+    from app.kip.extractors import looks_like_equity_ticker
+
     entities: list[str] = []
-    primary = ticker.upper() if ticker else None
+    primary = str(ticker).upper() if ticker and looks_like_equity_ticker(str(ticker)) else None
     if aoi is not None:
         try:
             co = aoi.registry.resolve(query)
             if co:
-                primary = primary or (co.nse_symbol or co.company_id)
-                if co.nse_symbol:
-                    entities.append(co.nse_symbol)
-                if co.company_id and co.company_id not in entities:
-                    entities.append(co.company_id)
+                sym = co.nse_symbol or co.company_id
+                if sym and looks_like_equity_ticker(str(sym)):
+                    primary = primary or str(sym).upper()
+                    if co.nse_symbol and looks_like_equity_ticker(str(co.nse_symbol)):
+                        entities.append(str(co.nse_symbol).upper())
+                    if co.company_id and str(co.company_id).upper() not in entities and looks_like_equity_ticker(
+                        str(co.company_id)
+                    ):
+                        entities.append(str(co.company_id).upper())
         except Exception:
             pass
-    for tok in _TICKER_RE.findall(query or ""):
-        if tok in _STOP:
+    # Only accept uppercase tokens that look like real equity tickers — never prose verbs.
+    for tok in _TICKER_RE.findall((query or "").upper()):
+        if tok in _STOP or not looks_like_equity_ticker(tok):
             continue
         if tok not in entities:
             entities.append(tok)
@@ -89,8 +112,8 @@ def extract_entities(query: str, *, ticker: str | None = None, aoi: Any | None =
     if " vs " in lower or " versus " in lower:
         parts = re.split(r"\bvs\b|\bversus\b", query, flags=re.I)
         for part in parts[1:]:
-            for tok in _TICKER_RE.findall(part):
-                if tok not in _STOP and tok not in entities:
+            for tok in _TICKER_RE.findall(part.upper()):
+                if tok not in _STOP and looks_like_equity_ticker(tok) and tok not in entities:
                     entities.append(tok)
     return entities[:8], primary
 
