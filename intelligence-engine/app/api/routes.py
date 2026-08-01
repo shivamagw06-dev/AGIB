@@ -12726,6 +12726,81 @@ async def financial_foundations_assessment_grade(scenario_id: str, payload: dict
 
 
 # ---------------------------------------------------------------------------
+# AGIB Phase 2 — Financial Statement Intelligence (analyst reasoning, not a
+# recommendation engine). Soft-wire only; standalone engine.
+# ---------------------------------------------------------------------------
+@router.get("/financial-statement-intelligence/health")
+async def fsi_health():
+    from financial_statement_intelligence.production import health
+
+    return health()
+
+
+@router.get("/financial-statement-intelligence/dashboard")
+async def fsi_dashboard():
+    from financial_statement_intelligence.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/financial-statement-intelligence/explain/{metric}")
+async def fsi_explain_metric(metric: str):
+    from financial_statement_intelligence.production import explain_metric
+
+    return explain_metric(metric)
+
+
+@router.get("/financial-statement-intelligence/sector/{sector}")
+async def fsi_sector_context(sector: str):
+    from financial_statement_intelligence.production import sector_context
+
+    return sector_context(sector)
+
+
+@router.get("/financial-statement-intelligence/case-studies")
+async def fsi_case_studies():
+    from financial_statement_intelligence.production import case_studies
+
+    return case_studies()
+
+
+@router.get("/financial-statement-intelligence/case-studies/{key}")
+async def fsi_case_study(key: str):
+    from financial_statement_intelligence.production import case_study
+
+    return case_study(key)
+
+
+@router.post("/financial-statement-intelligence/analyze")
+async def fsi_analyze(payload: dict[str, Any] = Body(default={})):
+    """Analyze a custom multi-period series supplied by the caller.
+
+    Body: {"company": str, "sector": str | None, "periods": [{"label": str, ...StatementPeriod fields}, ...]}
+    """
+    from financial_statement_intelligence.production import analyze
+    from financial_statement_intelligence.schema import FinancialSeries, StatementPeriod
+
+    company = str(payload.get("company") or "Unnamed Company")
+    sector = payload.get("sector")
+    rows = payload.get("periods") or []
+    if not isinstance(rows, list) or len(rows) < 2:
+        raise HTTPException(status_code=400, detail="periods must be a list of at least 2 period objects")
+    periods = []
+    for i, row in enumerate(rows):
+        if not isinstance(row, dict) or "label" not in row:
+            raise HTTPException(status_code=400, detail=f"period[{i}] must include a 'label'")
+        row = dict(row)
+        label = row.pop("label")
+        row.pop("sequence", None)
+        try:
+            periods.append(StatementPeriod(label=str(label), sequence=i + 1, **row))
+        except TypeError as exc:
+            raise HTTPException(status_code=400, detail=f"period[{i}] invalid field: {exc}") from exc
+    series = FinancialSeries(company=company, periods=periods, sector=sector, data_source="api_request")
+    return analyze(series)
+
+
+# ---------------------------------------------------------------------------
 # AGIB v3.4 Track D — Institutional Communication Engine (ICE)
 # Deterministic renderer of InstitutionalAnswer. Reasoning frozen.
 # ---------------------------------------------------------------------------
