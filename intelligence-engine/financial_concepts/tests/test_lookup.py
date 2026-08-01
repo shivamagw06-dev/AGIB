@@ -86,3 +86,40 @@ def test_operating_leverage_mentions_airlines():
     assert result["found"]
     assert result["key"] == "operating_leverage"
     assert "airlin" in result["business_meaning"].lower()
+
+
+def test_compound_key_phrase_beats_short_alias_substring():
+    """Regression test: 'Explain Incremental ROIC' must resolve to
+    incremental_roic, not the generic roic card. A single-word alias like
+    'roic' is a subset of the question's words and must not win over a
+    more specific, literally-present multi-word key phrase — found via the
+    Concept Acceptance Test v1.0 (CA-10) before this fix."""
+
+    result = explain("Explain Incremental ROIC.")
+    assert result["found"]
+    assert result["key"] == "incremental_roic"
+
+
+def test_compound_key_phrase_priority_does_not_break_plain_roic():
+    result = explain("Explain ROIC.")
+    assert result["found"]
+    assert result["key"] == "roic"
+
+
+@pytest.mark.parametrize(
+    "question,expected_key",
+    [
+        ("What is Incremental ROIC?", "incremental_roic"),
+        ("Explain ROA decomposition.", "roa_decomposition"),
+        ("Explain ROE decomposition.", "roe_decomposition"),
+        ("What is Unlevered Beta?", "unlevered_beta"),
+        ("What is Levered Beta?", "levered_beta"),
+        ("Explain Free Cash Flow Yield.", "fcf_yield"),
+        ("What is Unlevered Free Cash Flow?", "unlevered_fcf"),
+        ("What is Levered Free Cash Flow?", "levered_fcf"),
+    ],
+)
+def test_compound_keys_resolve_precisely_over_shorter_substrings(question, expected_key):
+    result = explain(question)
+    assert result["found"]
+    assert result["key"] == expected_key
