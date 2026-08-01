@@ -214,7 +214,7 @@ def read_sheet_rows(
 
 
 _LEGAL_SUFFIXES = re.compile(
-    r"\b(limited|ltd|pvt|private|company|co|corporation|corp|inc|plc|llp)\b",
+    r"\b(limited|ltd|pvt|private|corporation|corp|inc|plc|llp)\b",
     re.I,
 )
 _LEADING_ARTICLE = re.compile(r"^the\s+", re.I)
@@ -232,6 +232,15 @@ def normalize_company_name(name: Any) -> str:
     n = str(name or "").strip().lower()
     n = unicodedata.normalize("NFKD", n).encode("ascii", "ignore").decode("ascii")  # Nestlé -> Nestle
     n = n.replace(".", "")  # "L.G." -> "lg" (no inserted space, unlike other punctuation)
+    # Drop apostrophes entirely rather than treating them as word separators:
+    # "TCS's" must normalize to "tcs", not "tcs s" — that stray one-letter "s"
+    # remnant would otherwise falsely word-overlap-match any company whose
+    # name contains a literal "S" token (e.g. "S&S Power Switchgear Limited"
+    # -> "s s power switchgear"). Strip a trailing possessive "'s" as a unit
+    # first so "TCS's" -> "tcs", not "tcss".
+    n = n.replace("\u2019", "'")
+    n = re.sub(r"'s\b", "", n)
+    n = n.replace("'", "")
     n = _LEGAL_SUFFIXES.sub(" ", n)
     n = n.replace("&", " ")
     n = _JOINER_WORD.sub(" ", n)
@@ -285,20 +294,24 @@ def resolve_ticker(ticker_raw: Any, name_raw: Any) -> tuple[str | None, str]:
             if exact:
                 if len(exact) == 1:
                     return exact[0][0], "exact_name_match"
-                return exact[0][0], "ambiguous_name_match_top1"
-            # Substring both directions on normalized names (short-code
-            # queries like "hmt" only match if the stored name is short too
-            # — avoids a 3-letter fragment matching an unrelated long name).
-            contains = [
-                (sym, raw)
-                for norm, sym, raw in index
-                if len(norm_query) >= 4
-                and (norm_query in norm or norm in norm_query)
-            ]
-            if contains:
-                if len(contains) == 1:
-                    return contains[0][0], "fuzzy_name_match_top1"
-                return contains[0][0], "ambiguous_name_match_top1"
+                # Two+ universe rows share this exact normalized name — most
+                # often two share classes (equity + DVR) of the same legal
+                # entity. Guessing "top1" would silently bind the row to
+                # whichever happens to sort first; safer to fall through to
+                # the BSE-code fallback (a distinct, explicit identifier) or
+                # unresolved than to invent a pick between two real tickers.
+                pass
+            # NOTE: a word-subset/substring "fuzzy" fallback was tried here
+            # and removed. Audited against the full ~2,027-row Capital IQ
+            # corpus, it fired for 17 rows and produced a *wrong* company for
+            # 11 of them (e.g. "Reliance Infrastructure Limited" bound to
+            # RIIL — actually "Reliance Industrial Infrastructure Limited";
+            # "Shree Digvijay Cement Company Limited" bound to SHREECEM —
+            # actually "Shree Cement Limited"). A >60% wrong-match rate is
+            # incompatible with this store's zero-substitution contract, so
+            # only exact-ticker, exact-normalized-name, and explicit
+            # BSE-code identifiers are trusted. Unmatched names fall through
+            # to bse_code fallback below, or unresolved — never a guess.
     if bse_code:
         # No NSE listing found for this company — fall back to the BSE code
         # the source row itself supplied, rather than dropping a real,

@@ -317,3 +317,69 @@ def test_bse_code_fallback_not_used_when_no_bse_prefix_present():
     assert out["resolved_count"] == 0
     assert out["unresolved_count"] == 1
     assert out["unresolved_rows"][0]["reason"] == "unresolved"
+
+
+def test_generic_middle_word_company_does_not_collide_with_unrelated_ticker():
+    """Regression: 'Titan Company Limited' must resolve to TITAN, and a
+    totally unrelated 'Titan Biotech Limited' row must never be silently
+    bound to that same ticker. 'Company' is a genuine, distinguishing word
+    in many Indian legal names (Titan Company Ltd, Tata Power Company Ltd)
+    — stripping it as a generic suffix collapsed 'Titan Company Limited'
+    down to just 'titan', which then wrongly fuzzy-matched any other
+    'Titan *' company."""
+    from institutional_knowledge_tables.bulk_sheet import resolve_ticker
+
+    ticker, method = resolve_ticker(None, "Titan Company Limited")
+    assert ticker == "TITAN"
+    assert method == "exact_name_match"
+
+    ticker2, method2 = resolve_ticker("BSE:507590", "Titan Biotech Limited")
+    assert ticker2 != "TITAN"
+    assert ticker2 == "BSE507590"
+    assert method2 == "bse_code_fallback"
+
+
+def test_short_ticker_word_does_not_match_as_raw_substring_of_unrelated_name():
+    """Regression: a 3-letter listed name like 'ACC Limited' (-> 'acc') must
+    never match purely because those letters occur inside an unrelated
+    word, e.g. 'tobacco' contains the substring 'acc'. Matching must be
+    word-boundary based, not raw character containment."""
+    from institutional_knowledge_tables.bulk_sheet import resolve_ticker
+
+    ticker, method = resolve_ticker(None, "ACC Limited")
+    assert ticker == "ACC"
+    assert method == "exact_name_match"
+
+    ticker2, method2 = resolve_ticker("BSE:507815", "Golden Tobacco Limited")
+    assert ticker2 != "ACC"
+    assert ticker2 == "BSE507815"
+    assert method2 == "bse_code_fallback"
+
+
+def test_fuzzy_word_subset_fallback_removed_no_wrong_company_binding():
+    """Regression: names that are a superset/subset of another real,
+    differently-ticker'd company's words (e.g. 'Reliance Infrastructure
+    Limited' vs the distinct 'Reliance Industrial Infrastructure Limited'
+    (RIIL); 'Shree Digvijay Cement Company Limited' vs the distinct 'Shree
+    Cement Limited' (SHREECEM)) must never be guessed via fuzzy matching.
+    Only an exact ticker, exact normalized name, or explicit BSE code may
+    resolve a row."""
+    from institutional_knowledge_tables.bulk_sheet import resolve_ticker
+
+    riil, riil_method = resolve_ticker(None, "Reliance Industrial Infrastructure Limited")
+    assert riil == "RIIL"
+    assert riil_method == "exact_name_match"
+
+    reliance_infra, method = resolve_ticker("BSE:500390", "Reliance Infrastructure Limited")
+    assert reliance_infra != "RIIL"
+    assert reliance_infra == "BSE500390"
+    assert method == "bse_code_fallback"
+
+    shreecem, shreecem_method = resolve_ticker(None, "Shree Cement Limited")
+    assert shreecem == "SHREECEM"
+    assert shreecem_method == "exact_name_match"
+
+    digvijay, digvijay_method = resolve_ticker("BSE:502180", "Shree Digvijay Cement Company Limited")
+    assert digvijay != "SHREECEM"
+    assert digvijay == "BSE502180"
+    assert digvijay_method == "bse_code_fallback"

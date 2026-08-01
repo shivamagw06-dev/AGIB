@@ -132,12 +132,17 @@ def detect_ikt_company(question: str) -> Optional[str]:
         return substring_hits[0][1]
 
     # Tier 3: word-overlap — most of the company name's words present.
-    words = set(norm_q.split()) - _STOPWORDS_FOR_MATCH
+    # Single-character tokens are excluded: they are almost always a
+    # normalization artifact (e.g. an "&"-joined name like "S&S Power
+    # Switchgear Limited" -> "s s power switchgear") rather than a real,
+    # distinguishing word, and would otherwise let unrelated questions
+    # spuriously match on a bare "s" or "a".
+    words = {w for w in norm_q.split() if len(w) >= 2} - _STOPWORDS_FOR_MATCH
     if not words:
         return None
     best: Optional[tuple[float, int, str]] = None  # (coverage, hits, ticker)
     for norm_name, ticker in name_index.items():
-        name_words = [w for w in norm_name.split() if w not in _STOPWORDS_FOR_MATCH]
+        name_words = [w for w in norm_name.split() if len(w) >= 2 and w not in _STOPWORDS_FOR_MATCH]
         if not name_words:
             continue
         hits = sum(1 for w in name_words if w in words)
