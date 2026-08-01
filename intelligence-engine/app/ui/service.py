@@ -15,6 +15,7 @@ from app.ui.coverage_policy import (
     unsupported_coverage_why as coverage_policy_why,
 )
 from app.ui.company_router import route as company_router_route
+from knowledge_unification.production import answer_for_ask as kul_answer_for_ask
 from app.kip.extractors import KNOWN_TICKERS, TICKER_STOPWORDS
 from app.ui.ask_orchestration_trace import (
     StageTimer,
@@ -1532,17 +1533,150 @@ class UiService:
                 entity_resolution=scrub(entity_resolution) if entity_resolution else {},
             )
 
-        # IKT Company Router — a company with real bulk-uploaded reference
-        # data (Capital IQ-style screener export ingested into
-        # institutional_knowledge_tables) answers directly from that
-        # structured data, even when entity_resolution's small static seed
-        # registry has never heard of it. Runs BEFORE the Financial Router
-        # below for the same reason the Unsupported Coverage Policy does:
-        # a question like "Why does HMT Limited generate high free cash
-        # flow?" also matches the Financial Router's generic 'free cash
-        # flow' concept fallback and would otherwise get a company-blind
-        # concept answer instead of grounded, company-specific data we
-        # actually have. See app/ui/company_router.py.
+        # Knowledge Unification Layer (KUL) — Phase X. Single deterministic
+        # planner over CapIQ/IKT, IKL, Company Memory, KF, CGL, financial
+        # concepts/foundations/FSI, Academy, and legacy KIP. Replaces the
+        # isolated company-router / financial-router "one source then done"
+        # pattern for questions it can answer from fused institutional
+        # knowledge. Routers below remain lightweight fallbacks only.
+        try:
+            kul_hit = kul_answer_for_ask(q, ticker=detected_ticker)
+        except Exception:
+            kul_hit = None
+        if kul_hit and (kul_hit.get("summary") or kul_hit.get("why")):
+            for stage in ("ikl", "retrieval", "ranking", "reasoning", "response_assembly"):
+                stage_timer.mark(stage)
+            executive = kul_hit["summary"]
+            why = list(kul_hit.get("why") or [])
+            providers_used = list(kul_hit.get("providers_used") or [])
+            coverage = kul_hit.get("coverage") or {}
+            kul_key = kul_hit.get("key") or detected_ticker
+            kul_orch = {
+                **ask_orchestration,
+                "executive_source": "knowledge_unification",
+                "short_circuit": "knowledge_unification",
+                "rq_stack": "skipped_knowledge_unification",
+                "ikt_company_key": kul_key,
+                "kul_providers_used": providers_used,
+                "kul_coverage": coverage,
+                "kul_diagnostics": kul_hit.get("diagnostics") or {},
+            }
+            intent = (
+                "company_profile"
+                if (kul_hit.get("company_intelligence") or {}).get("identity", {}).get("ticker")
+                or "capiq_ikt" in providers_used
+                else "financial_engine"
+                if any(
+                    p in providers_used
+                    for p in (
+                        "financial_concepts",
+                        "financial_foundations",
+                        "financial_statement_intelligence",
+                    )
+                )
+                else "knowledge_unification"
+            )
+            orch = finalize_orchestration(
+                kul_orch,
+                timer=stage_timer,
+                question=q,
+                detected_ticker=kul_key,
+                ere_body=ere_body if isinstance(ere_body, dict) else {},
+                alias_hit=alias_hit,
+                evidence_used=kul_hit.get("evidence") or [],
+                why=why,
+                executive=executive,
+                intent=intent,
+                fallback=False,
+            )
+            stage_timer.mark("serialization")
+            try:
+                orch["latency"] = stage_timer.as_latency_block()
+                orch["latency_ms"] = stage_timer.as_dict()
+                orch["trace_summary"] = format_trace_summary(orch)
+                orch["completed"] = True
+                orch["timeout"] = False
+                # Preserve pre-KUL acceptance signals: primary deterministic
+                # finance engine + concept key when KUL answered via those
+                # providers (concept/accounting acceptance + AFI routing).
+                det_finance = [
+                    p
+                    for p in (
+                        "financial_concepts",
+                        "financial_foundations",
+                        "financial_statement_intelligence",
+                    )
+                    if p in providers_used
+                ]
+                concept_intel = kul_hit.get("concept_intelligence") or {}
+                primary_finance = concept_intel.get("provider") if concept_intel.get("provider") in det_finance else None
+                if not primary_finance and det_finance:
+                    primary_finance = det_finance[0]
+                if primary_finance and not (
+                    (kul_hit.get("company_intelligence") or {}).get("identity") or {}
+                ).get("ticker"):
+                    orch["financial_engine"] = primary_finance
+                    orch["financial_router_triggered"] = True
+                    if concept_intel.get("key"):
+                        orch["financial_engine_key"] = concept_intel.get("key")
+                    orch["kul_stack"] = providers_used
+                else:
+                    orch["financial_engine"] = (
+                        "knowledge_unification+" + ",".join(providers_used[:4])
+                        if providers_used
+                        else "knowledge_unification"
+                    )
+                    if det_finance:
+                        orch["financial_router_triggered"] = True
+            except Exception:
+                pass
+            conf = float(coverage.get("confidence") or 80.0)
+            sources = ["knowledge_unification", *providers_used]
+            return SearchView(
+                meta=UiMeta(surface="search", sources=sources),
+                question=q,
+                status="ok",
+                degradation={
+                    "ask_slim": ask_slim_enabled(),
+                    "short_circuit": "knowledge_unification",
+                    "rq_stack": "skipped",
+                    "reasoning": "kul_fused_evidence",
+                },
+                ask_orchestration=orch,
+                intent=intent,
+                entities={
+                    "ticker": kul_key,
+                    "companies": [kul_hit.get("company_name") or kul_key] if kul_key else [],
+                    "themes": [],
+                    "sectors": [],
+                },
+                answer={
+                    "summary": executive,
+                    "executive_summary": executive,
+                    "stance": "Neutral",
+                    "why": why,
+                    "house_view_label": "Unified Knowledge",
+                    "policy": "knowledge_unification",
+                    "coverage": coverage,
+                    "company_intelligence": kul_hit.get("company_intelligence") or {},
+                    "concept_intelligence": kul_hit.get("concept_intelligence") or {},
+                },
+                executive_summary=executive,
+                house_view={"label": "Unified Knowledge", "stance": "Neutral"},
+                confidence=conf,
+                investment_thesis=executive,
+                bull_case=[],
+                bear_case=[],
+                key_risks=list(coverage.get("missing_information") or []),
+                why=why,
+                evidence_used=kul_hit.get("evidence") or [],
+                follow_up_questions=[],
+                answer_policy="knowledge_unification",
+                entity_resolution=scrub(entity_resolution) if entity_resolution else {},
+            )
+
+        # Fallback: isolated IKT company router (pre-KUL path) if unification
+        # returned nothing but CapIQ still has a direct profile hit.
         try:
             ikt_hit = company_router_route(q)
         except Exception:
