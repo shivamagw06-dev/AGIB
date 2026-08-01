@@ -9,6 +9,7 @@ from app.core.config import get_settings
 from app.kip.models import ClientSearchRequest
 from app.ui.flags import UiFlags
 from app.kip.extractors import KNOWN_TICKERS, TICKER_STOPWORDS
+from app.ui.ask_orchestration_trace import StageTimer, finalize_orchestration
 from app.ui.ticker_guard import (
     accept_detected_ticker,
     alias_ticker_from_question,
@@ -760,6 +761,13 @@ class UiService:
                     "reasoning": "unavailable",
                     "detail": str(exc)[:200],
                 },
+                ask_orchestration={
+                    "version": "ask-orchestration-trace-1",
+                    "fallback": True,
+                    "engine_reached": False,
+                    "reason": type(exc).__name__,
+                    "trace_summary": f"Fallback: Yes | Exception: {type(exc).__name__}",
+                },
                 answer={
                     "summary": (
                         "The research desk returned a partial response. "
@@ -785,6 +793,7 @@ class UiService:
         rsp_pkg: dict[str, Any] = {}
         irp_pkg = None
         irp_dump: dict[str, Any] = {}
+        stage_timer = StageTimer()
 
         knowledge_bundle: dict[str, Any] = {}
 
@@ -802,6 +811,7 @@ class UiService:
         ere_body: dict[str, Any] = {}
         ere_research_blocked = False
         ere_ticker: str | None = None
+        alias_hit: str | None = None
         ask_orchestration: dict[str, Any] = {
             "ticker_source": "user" if detected_ticker else None,
             "ticker_rejects": [],
@@ -843,6 +853,7 @@ class UiService:
             # Soft-pack / theme pollution must not override an explicit company mention.
             detected_ticker = alias_hit
             ask_orchestration["ticker_source"] = "alias_override"
+        stage_timer.mark("entity_resolution")
 
         # Market Indices — which stock ↔ which Nifty index (factual membership)
         market_indices: dict[str, Any] = {}
@@ -1702,6 +1713,7 @@ class UiService:
         except Exception:
             multi_source_pack = {}
             degradation["multi_source"] = "unavailable"
+        stage_timer.mark("retrieval")
 
         # AGIB v2.1 — Complete Ask Pipeline (soft-wire).
         # Context → Intent → Entities → KF retrieval → Evidence → IRO plan → DAG
@@ -1872,6 +1884,7 @@ class UiService:
             except Exception:
                 irp_pkg = None
                 irp_dump = {}
+        stage_timer.mark("reasoning")
 
         if self.kip and q and not client:
             l4 = None
@@ -3088,18 +3101,47 @@ class UiService:
         ][:8]
         if detected_ticker and detected_ticker not in related:
             related = [detected_ticker] + [r for r in related if r != detected_ticker]
-        ask_orchestration.update(
-            {
-                "bound_ticker": detected_ticker,
-                "evidence_count": len(support_ev) if isinstance(support_ev, list) else 0,
-                "intent": (irp_dump or {}).get("intent") or (client or {}).get("intent"),
-                "ice_framework_meta_suppressed": bool(
-                    ((answer.get("institutional_communication") or {}) if isinstance(answer, dict) else {}).get(
-                        "executive_was_framework_meta"
-                    )
-                ),
-            }
+        stage_timer.mark("response_assembly")
+        _ice_for_trace = (ask_pipeline_runtime or {}).get("communication") or {}
+        ask_orchestration["ice_framework_meta_suppressed"] = bool(
+            ((answer.get("institutional_communication") or {}) if isinstance(answer, dict) else {}).get(
+                "executive_was_framework_meta"
+            )
         )
+        ask_orchestration = finalize_orchestration(
+            ask_orchestration,
+            timer=stage_timer,
+            question=q,
+            detected_ticker=detected_ticker,
+            ere_body=ere_body,
+            alias_hit=alias_hit,
+            kf_hits=kf_hits,
+            finance_retrieval=finance_retrieval,
+            live_evidence=live_evidence,
+            multi_source=multi_source_pack,
+            knowledge_corpus=knowledge_corpus,
+            open_intelligence=open_intelligence,
+            hits=hits,
+            articles=articles,
+            supporting=supporting,
+            evidence_used=evidence_used,
+            supporting_research=supporting,
+            support_ev=support_ev,
+            ask_pipeline_runtime=ask_pipeline_runtime,
+            ice_view=_ice_for_trace,
+            why=why,
+            executive=executive or "",
+            intent=(irp_dump or {}).get("intent") or (client or {}).get("intent"),
+            fallback=False,
+        )
+        try:
+            import logging
+
+            logging.getLogger("agi.ui.search").info(
+                "ask_orchestration %s", ask_orchestration.get("trace_summary")
+            )
+        except Exception:
+            pass
         degradation["ask_orchestration"] = ask_orchestration
         if isinstance(answer, dict):
             answer["ask_orchestration"] = ask_orchestration
@@ -3203,6 +3245,7 @@ class UiService:
             question=q,
             status=desk_status,
             degradation=degradation,
+            ask_orchestration=ask_orchestration,
             intent=(irp_dump or {}).get("intent") or (client or {}).get("intent"),
             entities={
                 "ticker": detected_ticker,
