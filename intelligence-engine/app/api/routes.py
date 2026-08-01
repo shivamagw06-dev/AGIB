@@ -12817,6 +12817,32 @@ async def fsi_analyze(payload: dict[str, Any] = Body(default={})):
 # AGIB Phase 2.6 — Institutional Financial Concepts (FC). Deterministic
 # concept library (Enterprise Value, WACC, DuPont, banking/credit/market
 # vocabulary, economic moats, ...). Ask integration is exclusively via
+# Phase X — Knowledge Unification Layer (KUL). Deterministic gateway over
+# every existing institutional knowledge source. No LLM, no new datasets.
+# ---------------------------------------------------------------------------
+@router.get("/knowledge-unification/health")
+async def kul_health():
+    from knowledge_unification.production import health
+
+    return health()
+
+
+@router.get("/knowledge-unification/registry")
+async def kul_registry():
+    from knowledge_unification.registry import get_registry
+
+    return get_registry().dashboard()
+
+
+@router.post("/knowledge-unification/plan")
+async def kul_plan(payload: dict):
+    from knowledge_unification.production import plan_and_gather
+
+    question = str((payload or {}).get("question") or "").strip()
+    ticker = (payload or {}).get("ticker")
+    return plan_and_gather(question, ticker=ticker)
+
+
 # app/ui/financial_router.py + app/ui/coverage_policy.py — these routes are
 # the standalone verification/documentation surface, same pattern as FF/FSI.
 # ---------------------------------------------------------------------------
