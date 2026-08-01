@@ -18,6 +18,7 @@ from institutional_knowledge_tables.sync import (
     sync_universe_company_master,
 )
 from institutional_knowledge_tables.bulk_sheet import ingest_company_sheet
+from institutional_knowledge_tables.seed_capital_iq import seed_if_needed
 
 
 def health() -> dict[str, Any]:
@@ -124,6 +125,14 @@ def rebuild_company_tables(ticker: str) -> dict[str, Any]:
 def onboard_universe(*, scope: str = "nifty500", limit: int | None = None) -> dict[str, Any]:
     """Onboard every company in the uploaded universe file into IKT company_master."""
     return sync_universe_company_master(scope=scope, limit=limit)
+
+
+def seed_capital_iq_status(*, force: bool = False) -> dict[str, Any]:
+    """Ops action — (re-)run the committed Capital IQ export seed. Runs
+    synchronously (unlike the background-threaded boot-time call in
+    app/main.py) so an operator gets the real resolved/unresolved counts
+    back immediately. Safe to call repeatedly; idempotent unless force=True."""
+    return seed_if_needed(force=force)
 
 
 def upload_company_sheet(
