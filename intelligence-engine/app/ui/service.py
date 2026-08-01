@@ -24,6 +24,17 @@ from app.ui.ask_pipeline_trace import (
     normalize_request_id,
     sources_from_degradation,
 )
+from app.ui.executive_composer import (
+    alias_tickers_from_question,
+    comparison_clarification_executive,
+    comparison_entity_count,
+    compose_executive,
+    finalize_executive,
+    is_comparison_question,
+    is_planning_scaffold,
+    requires_resolved_company,
+    unknown_entity_executive,
+)
 from app.ui.ticker_guard import (
     accept_detected_ticker,
     alias_ticker_from_question,
@@ -895,6 +906,180 @@ class UiService:
             entity_resolution=scrub(entity_resolution) if entity_resolution else {},
         )
 
+    def _unknown_entity_view(
+        self,
+        *,
+        question: str,
+        ask_trace_id: str,
+        stage_timer: StageTimer,
+        ask_orchestration: dict[str, Any],
+        entity_resolution: dict[str, Any],
+        ere_body: dict[str, Any],
+        alias_hit: str | None,
+        rejected: list[str] | None = None,
+    ) -> SearchView:
+        """Hard stop: no verified company → uncertainty, no retrieval / no substitution."""
+        executive = unknown_entity_executive(question, rejected=rejected or [])
+        why = [
+            "No verified entity was bound for this company-shaped question.",
+            "AGIB will not substitute a lookalike ticker or invent a research narrative.",
+            "Provide a listed ticker or the full legal company name to continue.",
+        ]
+        for stage in ("ikl", "retrieval", "ranking", "reasoning", "response_assembly"):
+            stage_timer.mark(stage)
+        ask_orchestration = {
+            **ask_orchestration,
+            "executive_source": "unknown_entity_policy",
+            "short_circuit": "unknown_entity",
+            "rq_stack": "skipped_unknown_entity",
+            "entity_hard_stop": True,
+        }
+        orch = finalize_orchestration(
+            ask_orchestration,
+            timer=stage_timer,
+            question=question,
+            detected_ticker=None,
+            ere_body=ere_body,
+            alias_hit=alias_hit,
+            evidence_used=[],
+            why=why,
+            executive=executive,
+            intent="unknown_entity",
+            fallback=False,
+        )
+        stage_timer.mark("serialization")
+        try:
+            orch["latency"] = stage_timer.as_latency_block()
+            orch["latency_ms"] = stage_timer.as_dict()
+            orch["trace_summary"] = format_trace_summary(orch)
+            orch["completed"] = True
+            orch["timeout"] = False
+        except Exception:
+            pass
+        return SearchView(
+            meta=UiMeta(surface="search", sources=["unknown_entity_policy"]),
+            question=question,
+            status="ok",
+            degradation={
+                "ask_slim": ask_slim_enabled(),
+                "short_circuit": "unknown_entity",
+                "rq_stack": "skipped",
+                "reasoning": "entity_hard_stop",
+            },
+            ask_orchestration=orch,
+            intent="unknown_entity",
+            entities={"ticker": None, "companies": [], "themes": [], "sectors": []},
+            answer={
+                "summary": executive,
+                "executive_summary": executive,
+                "stance": "Neutral",
+                "why": why,
+                "house_view_label": "Insufficient evidence",
+                "policy": "unknown_entity_refuse",
+            },
+            executive_summary=executive,
+            house_view={"label": "Insufficient evidence", "stance": "Neutral"},
+            confidence=10.0,
+            investment_thesis=executive,
+            bull_case=[],
+            bear_case=[],
+            key_risks=["Entity not verified — any company narrative would be speculative."],
+            why=why,
+            evidence_used=[],
+            follow_up_questions=[
+                "Retry with a listed ticker (e.g. RELIANCE, INFY, META).",
+                "What is Reliance Industries' business model?",
+            ],
+            answer_policy="unknown_entity_refuse",
+            entity_resolution=scrub(entity_resolution) if entity_resolution else {},
+        )
+
+    def _comparison_clarification_view(
+        self,
+        *,
+        question: str,
+        ask_trace_id: str,
+        stage_timer: StageTimer,
+        ask_orchestration: dict[str, Any],
+        entity_resolution: dict[str, Any],
+        ere_body: dict[str, Any],
+        alias_hit: str | None,
+        detected_ticker: str | None,
+    ) -> SearchView:
+        """Comparison intent without ≥2 entities — clarify, do not one-side answer."""
+        executive = comparison_clarification_executive(question)
+        why = [
+            "Comparison questions require at least two resolved companies.",
+            "Name both sides explicitly (for example: Infosys vs TCS).",
+        ]
+        for stage in ("ikl", "retrieval", "ranking", "reasoning", "response_assembly"):
+            stage_timer.mark(stage)
+        ask_orchestration = {
+            **ask_orchestration,
+            "executive_source": "comparison_clarification",
+            "short_circuit": "comparison_entities",
+            "comparison_entity_count": comparison_entity_count(question, ere_body=ere_body),
+        }
+        orch = finalize_orchestration(
+            ask_orchestration,
+            timer=stage_timer,
+            question=question,
+            detected_ticker=detected_ticker,
+            ere_body=ere_body,
+            alias_hit=alias_hit,
+            evidence_used=[],
+            why=why,
+            executive=executive,
+            intent="compare",
+            fallback=False,
+        )
+        stage_timer.mark("serialization")
+        try:
+            orch["latency"] = stage_timer.as_latency_block()
+            orch["latency_ms"] = stage_timer.as_dict()
+            orch["trace_summary"] = format_trace_summary(orch)
+            orch["completed"] = True
+        except Exception:
+            pass
+        return SearchView(
+            meta=UiMeta(surface="search", sources=["comparison_clarification"]),
+            question=question,
+            status="ok",
+            degradation={
+                "ask_slim": ask_slim_enabled(),
+                "short_circuit": "comparison_entities",
+                "rq_stack": "skipped",
+            },
+            ask_orchestration=orch,
+            intent="compare",
+            entities={
+                "ticker": detected_ticker,
+                "companies": [detected_ticker] if detected_ticker else [],
+                "themes": [],
+                "sectors": [],
+            },
+            answer={
+                "summary": executive,
+                "executive_summary": executive,
+                "stance": "Neutral",
+                "why": why,
+                "house_view_label": "Needs clarification",
+                "policy": "comparison_requires_two_entities",
+            },
+            executive_summary=executive,
+            house_view={"label": "Needs clarification", "stance": "Neutral"},
+            confidence=20.0,
+            investment_thesis=executive,
+            why=why,
+            evidence_used=[],
+            follow_up_questions=[
+                "Compare Infosys vs TCS.",
+                "Compare Reliance and Adani as capital allocators.",
+            ],
+            answer_policy="comparison_requires_two_entities",
+            entity_resolution=scrub(entity_resolution) if entity_resolution else {},
+        )
+
     def search(
         self,
         question: str,
@@ -1154,6 +1339,55 @@ class UiService:
                 ere_body=ere_body if isinstance(ere_body, dict) else {},
                 alias_hit=alias_hit,
             )
+
+        # Executive Composer Rule 3 — unknown / blocked company: STOP (no retrieval, no LT swap).
+        _rejected = []
+        if isinstance(ere_body, dict):
+            for r in ere_body.get("rejected_candidates") or ere_body.get("rejected") or []:
+                if isinstance(r, dict):
+                    _rejected.append(str(r.get("ticker") or r.get("raw") or r.get("name") or ""))
+                elif r:
+                    _rejected.append(str(r))
+        _rejected = [x for x in _rejected if x]
+        if (
+            requires_resolved_company(q)
+            and not detected_ticker
+            and (ere_research_blocked or not alias_hit)
+        ):
+            return self._unknown_entity_view(
+                question=q,
+                ask_trace_id=ask_trace_id,
+                stage_timer=stage_timer,
+                ask_orchestration=ask_orchestration,
+                entity_resolution=entity_resolution,
+                ere_body=ere_body if isinstance(ere_body, dict) else {},
+                alias_hit=alias_hit,
+                rejected=_rejected,
+            )
+
+        # Executive Composer Rule 4 — comparison requires ≥2 entities.
+        if is_comparison_question(q):
+            _cmp_n = comparison_entity_count(
+                q, ere_body=ere_body if isinstance(ere_body, dict) else {}
+            )
+            _alias_all = alias_tickers_from_question(q)
+            if _cmp_n < 2 and len(_alias_all) < 2:
+                return self._comparison_clarification_view(
+                    question=q,
+                    ask_trace_id=ask_trace_id,
+                    stage_timer=stage_timer,
+                    ask_orchestration=ask_orchestration,
+                    entity_resolution=entity_resolution,
+                    ere_body=ere_body if isinstance(ere_body, dict) else {},
+                    alias_hit=alias_hit,
+                    detected_ticker=detected_ticker,
+                )
+            # Ensure primary ticker is set when aliases resolved both sides.
+            if not detected_ticker and _alias_all:
+                detected_ticker = _alias_all[0]
+                ask_orchestration["ticker_source"] = "alias_compare"
+            ask_orchestration["comparison_tickers"] = _alias_all
+            ask_orchestration["comparison_entity_count"] = max(_cmp_n, len(_alias_all))
 
         slim = ask_slim_enabled()
 
@@ -3659,25 +3893,9 @@ class UiService:
                 _intent_final = (irp_dump or {}).get("intent") or (client or {}).get("intent") or ask_orchestration.get("intent")
                 if _intent_final:
                     pipeline.intent = str(_intent_final)
-            pipeline.complete(status="success")
-            ask_orchestration["request_id"] = pipeline.request_id
-            ask_orchestration["pipeline_debug"] = {
-                "request_id": pipeline.request_id,
-                "intent": pipeline.intent,
-                "intent_confidence": pipeline.intent_confidence,
-                "entities": pipeline.entities,
-                "sources": pipeline.sources,
-                "evidence_count": pipeline.evidence_count,
-                "evidence_used": pipeline.evidence_used,
-                "prompt_tokens": pipeline.prompt.get("estimated_tokens"),
-                "completion_tokens": (pipeline.llm or {}).get("completion_tokens"),
-                "llm_latency_ms": (pipeline.llm or {}).get("latency_ms"),
-                "fallback_used": pipeline.fallback_used,
-                "fallback_reason": pipeline.fallback_reason,
-                "total_latency_ms": pipeline.elapsed_ms(),
-                "latency_breakdown": pipeline.latency_breakdown,
-                "status": pipeline.status,
-            }
+            # Note: pipeline.complete() is deferred until after the Executive Composer
+            # rewrites below, so the debug trace / developer console reflect the final
+            # user-visible executive rather than a pre-rewrite scaffold snapshot.
         except Exception:
             pass
         try:
@@ -3708,6 +3926,50 @@ class UiService:
             answer["executive_summary"] = executive
             answer["institutional_answer"] = answer_meta_institutional
             answer["policy"] = "agib_institutional_intelligence_concise_recommendation"
+
+        # Executive Composer contract — question → answer → evidence (never planning text).
+        try:
+            _why_list = why if isinstance(why, list) else []
+            _needs_compose = (
+                is_planning_scaffold(executive or "")
+                or looks_like_framework_meta_executive(executive or "")
+                or any(is_planning_scaffold(str(w)) for w in _why_list[:4])
+            )
+            if _needs_compose:
+                composed = compose_executive(
+                    q,
+                    detected_ticker=detected_ticker,
+                    evidence_used=evidence_used if isinstance(evidence_used, list) else [],
+                    supporting=supporting if isinstance(supporting, list) else [],
+                    packs={
+                        "company_analysis": company_analysis if isinstance(company_analysis, dict) else {},
+                        "company_dossier": company_dossier if isinstance(company_dossier, dict) else {},
+                        "knowledge_bundle": knowledge_bundle if isinstance(knowledge_bundle, dict) else {},
+                    },
+                    candidates=[
+                        executive or "",
+                        scrub_text((answer_construction or {}).get("executive"))
+                        if isinstance(answer_construction, dict)
+                        else "",
+                        scrub_text((briefing or {}).get("executive_summary") or ""),
+                    ],
+                    why=_why_list,
+                )
+                executive = composed.get("executive") or executive
+                if composed.get("why"):
+                    why = list(composed["why"])
+                answer["summary"] = executive
+                answer["executive_summary"] = executive
+                answer["why"] = why
+                ask_orchestration["executive_source"] = composed.get("source") or "executive_composer"
+                ask_orchestration["executive_composer"] = {
+                    "replaced_scaffold": bool(composed.get("replaced_scaffold")),
+                    "tickers": composed.get("tickers") or [],
+                }
+                briefing["executive_summary"] = executive
+        except Exception:
+            # Never fail the desk if composer faults — keep prior executive.
+            pass
 
         irp_meta = {}
         if isinstance(irp_dump, dict) and irp_dump:
@@ -3772,6 +4034,72 @@ class UiService:
             str(v).endswith("timeout_cached") or v == "unavailable"
             for v in degradation.values()
         ) else "ok"
+
+        # Executive Composer Rule 6 — final validation + single rewrite from existing evidence.
+        try:
+            _rej_names = []
+            if isinstance(ere_body, dict):
+                for r in ere_body.get("rejected_candidates") or ere_body.get("rejected") or []:
+                    if isinstance(r, dict):
+                        _rej_names.append(str(r.get("ticker") or r.get("raw") or r.get("name") or ""))
+                    elif r:
+                        _rej_names.append(str(r))
+            _rej_names = [x for x in _rej_names if x]
+            _cmp_tickers = ask_orchestration.get("comparison_tickers") or []
+            _final = finalize_executive(
+                q,
+                executive or "",
+                why=why if isinstance(why, list) else [],
+                evidence_used=evidence_used if isinstance(evidence_used, list) else [],
+                supporting=supporting if isinstance(supporting, list) else [],
+                packs={
+                    "company_analysis": company_analysis if isinstance(company_analysis, dict) else {},
+                    "company_dossier": company_dossier if isinstance(company_dossier, dict) else {},
+                    "knowledge_bundle": knowledge_bundle if isinstance(knowledge_bundle, dict) else {},
+                },
+                detected_ticker=detected_ticker,
+                tickers=_cmp_tickers or ([detected_ticker] if detected_ticker else []),
+                rejected=_rej_names,
+                is_unknown_stop=False,
+                is_comparison=bool(_cmp_tickers) or is_comparison_question(q),
+            )
+            if _final.get("rewritten"):
+                executive = _final["executive"]
+                why = _final["why"]
+                answer["summary"] = executive
+                answer["executive_summary"] = executive
+                answer["why"] = why
+                ask_orchestration["executive_source"] = "executive_composer_rule6_rewrite"
+            ask_orchestration["executive_validation"] = _final.get("validation")
+        except Exception:
+            pass
+
+        # Phase-1 observability finalize — deferred until after all Executive Composer
+        # rewrites so the debug trace / developer console show the final user-visible
+        # executive, not a pre-rewrite scaffold snapshot.
+        try:
+            pipeline.complete(status="success")
+            ask_orchestration["request_id"] = pipeline.request_id
+            ask_orchestration["pipeline_debug"] = {
+                "request_id": pipeline.request_id,
+                "intent": pipeline.intent,
+                "intent_confidence": pipeline.intent_confidence,
+                "entities": pipeline.entities,
+                "sources": pipeline.sources,
+                "evidence_count": pipeline.evidence_count,
+                "evidence_used": pipeline.evidence_used,
+                "prompt_tokens": pipeline.prompt.get("estimated_tokens"),
+                "completion_tokens": (pipeline.llm or {}).get("completion_tokens"),
+                "llm_latency_ms": (pipeline.llm or {}).get("latency_ms"),
+                "fallback_used": pipeline.fallback_used,
+                "fallback_reason": pipeline.fallback_reason,
+                "total_latency_ms": pipeline.elapsed_ms(),
+                "latency_breakdown": pipeline.latency_breakdown,
+                "status": pipeline.status,
+                "executive_excerpt": (executive or "")[:280],
+            }
+        except Exception:
+            pass
 
         stage_timer.mark("serialization")
         # Refresh latency block with serialization after funnel finalize.

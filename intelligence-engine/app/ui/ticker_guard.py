@@ -57,17 +57,32 @@ def alias_ticker_from_question(question: str) -> Optional[str]:
 
 def looks_like_framework_meta_executive(text: str) -> bool:
     """True when ICE/framework scaffolding is being passed off as the answer."""
-    low = (text or "").lower()
-    if not low.strip():
+    low = (text or "").lower().strip()
+    if not low:
         return False
     meta_markers = (
         "frameworks applied:",
+        "frameworks applied",
         "playbook:",
         "reasoning follows the analytical checklist",
         "template: research note",
+        "analyse via",
+        "analyze via",
+        "framework input domain",
+        "committee vote",
+        "fill from existing reasoning",
+        "evidence coverage=",
+        "entity-bound analysis",
+        "governance path:",
+        "lidi validated publish",
     )
     if any(m in low for m in meta_markers):
         return True
-    if low.startswith("intent:") and "template:" in low:
+    if low.startswith("intent:") and ("template:" in low or "frameworks" in low):
+        return True
+    if low.startswith("intent:"):
+        return True
+    # Committee boilerplate leaked as lead narrative
+    if "only when franchise" in low and "position sizing" in low:
         return True
     return False

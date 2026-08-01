@@ -44,6 +44,14 @@ def render_communication(institutional_answer: dict[str, Any]) -> dict[str, Any]
                 continue
             if "valuation question blocked" in low:
                 continue
+            if low.startswith("analyse via") or low.startswith("analyze via"):
+                continue
+            if "framework input domain" in low or low.startswith("intent:"):
+                continue
+            if "fill from existing reasoning" in low or "no unsupported certainty" in low:
+                continue
+            if low.startswith("this matters because"):
+                continue
             analysis_bullets.append(bullet(line))
 
     # AGIB v3.5 — surface Institutional Analytical Playbook checklist / procedure
@@ -267,22 +275,37 @@ def _executive_summary(
                 continue
             if "valuation question blocked" in low:
                 continue
+            if low.startswith("analyse via") or low.startswith("analyze via"):
+                continue
+            if "framework input domain" in low or "entity-bound analysis" in low:
+                continue
+            if "evidence coverage=" in low or "concept mode" == low:
+                continue
+            if "committee vote" in low or "only when franchise" in low:
+                continue
+            if "fill from existing reasoning" in low or "no unsupported certainty" in low:
+                continue
+            if low.startswith("this matters because"):
+                continue
             lines.append(bullet(line))
             if len(lines) >= 3:
                 break
         if len(lines) >= 3:
             break
 
-    expl = ((institutional_answer.get("frameworks") or {}).get("explanation") or {}).get("reason")
-    if expl and len(lines) < 3:
-        lines.append(bullet(clean_line(str(expl), max_len=260)))
-
+    # Prefer evidence titles over framework explanation as the user-facing lead.
     for item in ((institutional_answer.get("evidence") or {}).get("items") or [])[:3]:
         if len(lines) >= 4:
             break
         title = item.get("title") or item.get("evidence_type") or item.get("source")
         if title:
             lines.append(bullet(clean_line(f"Evidence: {title}", max_len=220)))
+
+    expl = ((institutional_answer.get("frameworks") or {}).get("explanation") or {}).get("reason")
+    if expl and len(lines) < 3:
+        elow = str(expl).lower()
+        if "analyse via" not in elow and "frameworks applied" not in elow:
+            lines.append(bullet(clean_line(str(expl), max_len=260)))
 
     im = institutional_answer.get("institutional_memory") or {}
     if im.get("have_we_seen_this_before") and (im.get("top_memory_ids") or im.get("surface_bullets")):
@@ -302,15 +325,18 @@ def _executive_summary(
     if institutional_answer.get("concept_mode"):
         lines.append(bullet("Concept mode — no company entity forced into the narrative."))
 
-    # Thin fallback only — never lead with Intent/Template/Playbook scaffolding.
+    # Thin fallback — evidence count only; never Intent/Template/Playbook scaffolding.
     if not lines:
-        intent = institutional_answer.get("intent_v2") or "Unknown"
         n_ev = len(((institutional_answer.get("evidence") or {}).get("items") or []))
+        q = clean_line(str(institutional_answer.get("question") or ""), max_len=120)
         lines.append(
             bullet(
                 clean_line(
-                    f"Institutional brief ({template.get('title') or 'Research'}) — "
-                    f"intent {intent}; {n_ev} evidence item(s) bound.",
+                    (
+                        f"Retrieved {n_ev} evidence item(s) for the question"
+                        + (f" “{q}”" if q else "")
+                        + "; synthesis limited to bound evidence."
+                    ),
                     max_len=260,
                 )
             )
