@@ -17,7 +17,19 @@
 .pe-editorial-inner {
   max-width: 1680px;
   margin: 0 auto;
-  padding: 0 20px 64px;
+  padding: 0 16px 64px;
+}
+
+@media (min-width: 640px) {
+  .pe-editorial-inner {
+    padding: 0 24px 64px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .pe-editorial-inner {
+    padding: 0 32px 72px;
+  }
 }
 
 .pe-section-head {
@@ -72,26 +84,97 @@
 }
 
 .pe-hero {
-  padding: 48px 0 40px;
+  padding: 40px 0 36px;
   border-bottom: 1px solid var(--pe-border);
   margin-bottom: 40px;
 }
 
-.pe-hero h1 {
+.pe-hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+  gap: 28px 36px;
+  align-items: start;
+}
+
+@media (max-width: 1100px) {
+  .pe-hero-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pe-hero-copy h1 {
   font-family: 'Source Serif 4', Georgia, serif;
-  font-size: clamp(2rem, 4vw, 3.25rem);
+  font-size: clamp(2rem, 3.6vw, 3rem);
   font-weight: 600;
   line-height: 1.15;
-  max-width: 16ch;
+  max-width: 18ch;
+  letter-spacing: -0.02em;
+}
+
+.pe-hero h1 {
+  font-family: 'Source Serif 4', Georgia, serif;
+  font-size: clamp(2rem, 3.6vw, 3rem);
+  font-weight: 600;
+  line-height: 1.15;
+  max-width: 18ch;
   letter-spacing: -0.02em;
 }
 
 .pe-hero-lead {
   margin-top: 16px;
-  font-size: 18px;
+  font-size: 17px;
   line-height: 1.65;
   color: var(--pe-muted);
-  max-width: 42rem;
+  max-width: 38rem;
+}
+
+.pe-hero-deals {
+  min-width: 0;
+  background: var(--pe-card);
+  border: 1px solid var(--pe-border);
+  border-radius: 4px;
+  padding: 16px 14px 12px;
+  box-shadow: 0 1px 0 rgba(17, 17, 17, 0.04);
+}
+
+.pe-hero-deals-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--pe-border);
+}
+
+.pe-hero-deals-head h2 {
+  font-family: 'Source Serif 4', Georgia, serif;
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+.pe-hero-deals-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.pe-hero-deals-table {
+  min-width: 640px;
+}
+
+.pe-hero-deals-table th,
+.pe-hero-deals-table td {
+  font-size: 12px;
+  padding: 8px 10px;
+  white-space: nowrap;
+}
+
+.pe-hero-deals-comment {
+  max-width: 160px;
+  white-space: normal !important;
+  color: var(--pe-muted);
+  line-height: 1.35;
 }
 
 .pe-editors-desk {
@@ -138,8 +221,9 @@
 
 .pe-featured {
   display: grid;
-  grid-template-columns: 1.2fr 1fr;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
   min-height: 360px;
+  min-width: 0;
   overflow: hidden;
 }
 
@@ -149,12 +233,22 @@
   }
 }
 
+.pe-featured-media {
+  display: block;
+  min-width: 0;
+  min-height: 240px;
+  overflow: hidden;
+  background: #eee;
+}
+
 .pe-featured-img {
   min-height: 240px;
   background: #eee;
   object-fit: cover;
+  object-position: center;
   width: 100%;
   height: 100%;
+  display: block;
 }
 
 .pe-featured-body {

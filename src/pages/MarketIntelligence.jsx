@@ -5,6 +5,7 @@ import { Activity, ArrowDownRight, ArrowUpRight, BrainCircuit, Clock3, ShieldAle
 import useMarketIntelligence from '@/hooks/useMarketIntelligence';
 import Nifty500ResearchPanel from '@/components/Research/Nifty500ResearchPanel';
 import InstitutionalIntelligenceLayer from '@/components/Research/InstitutionalIntelligenceLayer';
+import DeskResearchFeed from '@/components/Research/DeskResearchFeed';
 import { getMarketBriefing } from '@/api/marketApi';
 import { getUiDashboard } from '@/lib/uiApi';
 
@@ -103,6 +104,10 @@ export default function MarketIntelligence() {
         </section>
 
         <main className="max-w-[1800px] mx-auto px-4 sm:px-6 py-6 sm:py-8 lg:py-10">
+          <div className="mb-8 rounded-xl border border-[#dde1e6] bg-white p-5 sm:p-6">
+            <DeskResearchFeed deskId="indian-market" title="Indian Market Research" />
+          </div>
+
           <Nifty500ResearchPanel />
 
           {uiDash && (

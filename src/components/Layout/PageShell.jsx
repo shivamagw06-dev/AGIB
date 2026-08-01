@@ -26,7 +26,7 @@ export default function PageShell({
       </Helmet>
 
       <div className={`border-b ${isLight ? 'border-slate-200 bg-white' : 'border-white/10 bg-slate-950'}`}>
-        <div className={`${wide ? 'max-w-6xl' : 'max-w-4xl'} mx-auto px-6 py-12 lg:py-14`}>
+        <div className={`${wide ? 'max-w-[1680px]' : 'max-w-4xl'} mx-auto px-4 sm:px-6 lg:px-8 py-12 lg:py-14`}>
           <Link
             to={backTo}
             className={`inline-flex items-center gap-2 text-sm mb-6 transition-colors ${
@@ -64,7 +64,7 @@ export default function PageShell({
         </div>
       </div>
 
-      <div className={`${wide ? 'max-w-6xl' : 'max-w-4xl'} mx-auto px-6 py-10 lg:py-14`}>
+      <div className={`${wide ? 'max-w-[1680px]' : 'max-w-4xl'} mx-auto px-4 sm:px-6 lg:px-8 py-10 lg:py-14`}>
         {children}
       </div>
     </div>

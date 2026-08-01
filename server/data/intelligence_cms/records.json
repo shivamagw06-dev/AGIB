@@ -9,12 +9,13 @@
         "sector": "Technology",
         "ev_revenue": "8.2x",
         "ev_ebitda": "22.4x",
-        "pe_ratio": "—",
+        "pe_ratio": "\u2014",
         "growth": "14%",
         "margin": "28%",
         "geography": "North America",
         "agi_rating": "Neutral",
-        "analyst": "AGI Research"
+        "analyst": "AGI Research",
+        "comment": "Neutral"
       },
       "detail": {
         "commentary": "Premium SaaS multiples compressing from 2021 peaks; selective on rule-of-40 leaders.",
@@ -38,12 +39,13 @@
         "sector": "Healthcare",
         "ev_revenue": "4.1x",
         "ev_ebitda": "16.8x",
-        "pe_ratio": "—",
+        "pe_ratio": "\u2014",
         "growth": "11%",
         "margin": "18%",
         "geography": "India",
         "agi_rating": "Constructive",
-        "analyst": "AGI Research"
+        "analyst": "AGI Research",
+        "comment": "Constructive"
       },
       "detail": {
         "commentary": "Consolidation theme intact; pay attention to regulatory and payer mix.",
@@ -72,7 +74,8 @@
         "margin": "14%",
         "geography": "Europe",
         "agi_rating": "Core",
-        "analyst": "AGI Research"
+        "analyst": "AGI Research",
+        "comment": "Core"
       },
       "detail": {
         "commentary": "Cyclical recovery priced modestly; prefer export-oriented niches.",

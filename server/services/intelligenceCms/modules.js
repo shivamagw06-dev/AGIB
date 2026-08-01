@@ -29,6 +29,7 @@ export const INTELLIGENCE_MODULES = {
       { key: 'growth', label: 'Growth', type: 'text', grid: true },
       { key: 'margin', label: 'Margin', type: 'text', grid: true },
       { key: 'geography', label: 'Geography', type: 'text', grid: true },
+      { key: 'comment', label: 'Comment', type: 'text', grid: true },
       { key: 'agi_rating', label: 'AGI Rating', type: 'text', grid: true },
       { key: 'analyst', label: 'Analyst', type: 'text', grid: true },
     ],
