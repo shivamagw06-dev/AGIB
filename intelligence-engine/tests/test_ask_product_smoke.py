@@ -67,7 +67,12 @@ def test_tier_a_product_smoke(harness: AskProductHarness):
             pass
 
     report = harness.run_cases(prompts, suite="Tier A — Product Smoke")
-    path = write_report(report, filename="ask_test_report.json")
+    filename = (os.environ.get("ASK_TEST_REPORT_NAME") or "ask_test_report.json").strip()
+    path = write_report(report, filename=filename or "ask_test_report.json")
+    # Optional durable baseline alias (does not overwrite the primary report name)
+    baseline = (os.environ.get("ASK_TEST_BASELINE_NAME") or "").strip()
+    if baseline:
+        write_report(report, filename=baseline)
     assert path.exists()
     assert report["total"] == len(prompts)
     # Founder gate: Tier A must be 100%
