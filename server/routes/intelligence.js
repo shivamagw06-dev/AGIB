@@ -1899,6 +1899,32 @@ export default function createIntelligenceRouter() {
   });
 
   // Continuous Gather → Learn (Ask-isolated autonomous loop)
+  // IKL — Institutional Knowledge Intelligence Layer (Gather → Memory → Ask)
+  router.get('/ikl/health', kfGet('/v1/ikl/health'));
+  router.get('/ikl/memory/:ticker', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/ikl/memory/${encodeURIComponent(req.params.ticker)}`,
+        { timeoutMs: 15_000 },
+      );
+      return res.json(result);
+    } catch (err) {
+      return res.status(502).json({ ok: false, error: String(err?.message || err).slice(0, 200) });
+    }
+  });
+  router.post('/ikl/learn', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/ikl/learn', {
+        method: 'POST',
+        body: req.body || {},
+        timeoutMs: 30_000,
+      });
+      return res.json(result);
+    } catch (err) {
+      return res.status(502).json({ ok: false, error: String(err?.message || err).slice(0, 200) });
+    }
+  });
+
   router.get('/continuous-gather-learn/health', kfGet('/v1/continuous-gather-learn/health'));
   router.get('/continuous-gather-learn/dashboard', kfGet('/v1/continuous-gather-learn/dashboard'));
   router.post('/continuous-gather-learn/run', async (req, res) => {

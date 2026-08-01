@@ -42,6 +42,25 @@ def retrieve_knowledge(
 ) -> dict[str, Any]:
     started = time.time()
     selection = dict(KNOWLEDGE_SELECTION.get(intent) or KNOWLEDGE_SELECTION["Unknown"])
+
+    # IKL — institutional memory before KF/IERE raw-document style retrieval
+    ikl_pack: dict[str, Any] = {}
+    try:
+        from institutional_knowledge_layer.production import ask_consult as ikl_ask_consult
+
+        company_ids_early = [
+            str(e["id"]).upper()
+            for e in (entities or [])
+            if e.get("type") == "company" and e.get("id")
+        ]
+        ikl_pack = ikl_ask_consult(
+            question or "",
+            ticker=company_ids_early[0] if company_ids_early else None,
+            companies=company_ids_early or None,
+        ) or {}
+    except Exception:
+        ikl_pack = {}
+
     # Track A Concept Mode — never force company objects / Infosys defaults
     if concept_mode:
         selection = {k: v for k, v in selection.items() if k != "company"}
@@ -103,6 +122,8 @@ def retrieve_knowledge(
         concept_mode=concept_mode,
     )
     primary = "evidence_retrieval" if iere and not iere.get("unavailable") else "knowledge_factory"
+    if isinstance(ikl_pack, dict) and ikl_pack.get("enabled") and ikl_pack.get("layers_hit"):
+        primary = f"ikl+{primary}"
 
     # Soft-wire multi-source adapters (Private Markets / Valuation CMS / Nifty research).
     multi_source = _retrieve_multi_source(
@@ -128,7 +149,9 @@ def retrieve_knowledge(
         "bag": bag,
         "iere": iere,
         "multi_source": multi_source,
+        "institutional_knowledge": ikl_pack if isinstance(ikl_pack, dict) else {},
         "primary_engine": primary,
+        "retrieval_order_policy": "company_memory→industry→macro→graph→kpis→timeline→raw→live",
         "duration_ms": int((time.time() - started) * 1000),
         "provenance": _prov("ask_pipeline.knowledge.retrieve_knowledge"),
         "fabricated": False,

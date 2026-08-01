@@ -1222,6 +1222,8 @@ class UiService:
         sector_intelligence: dict[str, Any] = {}
         live_evidence: dict[str, Any] = {}
         company_dossier: dict[str, Any] = {}
+        institutional_knowledge: dict[str, Any] = {}
+        ikl_answer_hints: list[str] = []
         data_validation: dict[str, Any] = {}
         evidence_completion: dict[str, Any] = {}
         company_analysis: dict[str, Any] = {}
@@ -1383,6 +1385,33 @@ class UiService:
         except Exception:
             company_dossier = live_evidence.get("company_dossier") if isinstance(live_evidence, dict) else {}
             company_dossier = company_dossier or {}
+
+        # IKL — consult persistent institutional memory BEFORE raw documents
+        ikl_answer_hints: list[str] = []
+        try:
+            from institutional_knowledge_layer.production import ask_consult as ikl_ask_consult
+
+            institutional_knowledge = (
+                ikl_ask_consult(
+                    q,
+                    ticker=detected_ticker,
+                    companies=[detected_ticker] if detected_ticker else None,
+                )
+                or {}
+            )
+            if isinstance(institutional_knowledge, dict) and institutional_knowledge.get("enabled"):
+                ask_orchestration["ikl"] = {
+                    "layers_hit": institutional_knowledge.get("layers_hit") or [],
+                    "confidence": institutional_knowledge.get("confidence"),
+                    "explainability": institutional_knowledge.get("explainability") or {},
+                    "primary_before_raw_documents": True,
+                }
+                ikl_answer_hints = [
+                    str(h)[:280] for h in (institutional_knowledge.get("answer_hints") or [])[:6] if h
+                ]
+        except Exception:
+            institutional_knowledge = {}
+            ikl_answer_hints = []
 
         # DVC V1 — load validated canonical values / conflict hints before answering
         try:
@@ -2190,6 +2219,10 @@ class UiService:
             house_label=house_label,
         )
         why = _why_bullets(house if isinstance(house, dict) else None, supporting, news, house_label)
+        # IKL memory hints — prepend evidence-backed institutional memory (before raw docs)
+        if ikl_answer_hints:
+            merged = [h for h in ikl_answer_hints if h not in why]
+            why = (merged + why)[:16]
 
         # Prefer factual index membership / constituent answers when the question asks for them.
         mi_body = (market_indices or {}).get("market_indices") if isinstance(market_indices, dict) else {}
@@ -3424,6 +3457,7 @@ class UiService:
             academy_books=scrub(academy_books) if academy_books else {},
             live_evidence=scrub(live_evidence) if live_evidence else {},
             company_dossier=scrub(company_dossier) if company_dossier else {},
+            institutional_knowledge=scrub(institutional_knowledge) if institutional_knowledge else {},
             data_validation=scrub(data_validation) if data_validation else {},
             evidence_completion=scrub(evidence_completion) if evidence_completion else {},
             company_analysis=scrub(company_analysis) if company_analysis else {},

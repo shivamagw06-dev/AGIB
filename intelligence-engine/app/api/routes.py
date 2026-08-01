@@ -794,13 +794,20 @@ async def kip_ingest(body: IngestRequest):
 
 
 def _kf_soft_learn(doc) -> None:
-    """Soft KF + Knowledge Corpus learning hook — never fails the KIP ingest path."""
+    """Soft KF + Knowledge Corpus + IKL learning hook — never fails the KIP ingest path."""
     try:
         _kf.on_document(doc)
     except Exception:
         pass
     try:
         _kc.on_document(doc)
+    except Exception:
+        pass
+    # IKL — extract → company/industry/macro memory → graph (before any Ask)
+    try:
+        from institutional_knowledge_layer.production import on_document as ikl_on_document
+
+        ikl_on_document(doc)
     except Exception:
         return
 
@@ -13961,6 +13968,30 @@ async def valuation_intelligence_ic10(max_peers: int = 3):
     from valuation_intelligence.production import ic10_smoke
 
     return ic10_smoke(max_peers=max(1, min(int(max_peers), 8)))
+
+
+@router.get("/ikl/health")
+async def ikl_health():
+    """Institutional Knowledge Intelligence Layer — Gather → Memory → Ask."""
+    from institutional_knowledge_layer.production import health
+
+    return health()
+
+
+@router.get("/ikl/memory/{ticker}")
+async def ikl_memory_ticker(ticker: str):
+    """Read persistent IKL company memory (incremental institutional profile)."""
+    from institutional_knowledge_layer.production import memory_snapshot
+
+    return memory_snapshot(ticker)
+
+
+@router.post("/ikl/learn")
+async def ikl_learn(payload: dict[str, Any] = Body(default={})):
+    """Soft writeback: extract knowledge from a document payload into IKL memories."""
+    from institutional_knowledge_layer.production import on_document
+
+    return on_document(payload or {})
 
 
 @router.get("/company-memory/health")

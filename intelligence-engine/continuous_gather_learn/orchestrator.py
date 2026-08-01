@@ -496,6 +496,19 @@ def run_cycle(
         except Exception:
             pass
 
+    # IKL — Institutional Knowledge Intelligence Layer (extract → memories → graph)
+    try:
+        from institutional_knowledge_layer.production import after_cgl_cycle as ikl_after_cgl
+
+        run["ikl_writeback"] = ikl_after_cgl(run)
+        cgl_persist.put_run(run)
+    except Exception as exc:  # noqa: BLE001
+        run["ikl_writeback"] = {"ok": False, "error": str(exc)[:200], "soft": True}
+        try:
+            cgl_persist.put_run(run)
+        except Exception:
+            pass
+
     # IO V1.3.1 — Morning Snapshot Builder (soft). Never blocks CGL/Ask.
     try:
         from investment_office.morning_snapshot import after_cgl_cycle
