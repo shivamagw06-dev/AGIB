@@ -47,13 +47,21 @@ def build_skeleton(
         if eid:
             sections["evidence"]["evidence_ids"].append(eid)
 
-    # Analysis — domain-ordered prompts for reasoning fill
+    # Analysis — bind concrete evidence titles (never planning prompts as user text)
+    for item in top[:6]:
+        eid = item.get("evidence_id")
+        title = item.get("title") or item.get("evidence_type")
+        domain = item.get("domain") or "Evidence"
+        if not title:
+            continue
+        sections["analysis"]["bullets"].append(f"{domain}: {title}")
+        if eid:
+            sections["analysis"]["evidence_ids"].append(eid)
+    # Domain coverage as internal status only (not executive-facing planning prose)
     for domain in (ordered.get("priority_domains") or [])[:5]:
         ids = framework_inputs.get(domain) or []
-        if not ids:
-            continue
-        sections["analysis"]["bullets"].append(f"Analyse via {domain} evidence ({len(ids)} items)")
-        sections["analysis"]["evidence_ids"].extend(ids[:3])
+        if ids:
+            sections["analysis"]["evidence_ids"].extend(ids[:2])
 
     # Framework — bind valuation/accounting/business-model inputs
     for domain in ("ValuationFramework", "Accounting", "BusinessModel", "Industry", "Macro"):
