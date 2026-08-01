@@ -408,6 +408,30 @@ class AskProductHarness:
             if confidence is None and isinstance(payload.get("answer"), dict):
                 confidence = payload["answer"].get("confidence")
 
+        orch = (
+            checks.extract_orchestration(payload) if isinstance(payload, dict) else {}
+        )
+        ikl_meta: Dict[str, Any] = {}
+        if case.get("ikl_expect_layers") or case.get("ikl_expect_knowledge_gap") or case.get(
+            "ikl_primary_memory"
+        ):
+            strict_ikl = str(os.environ.get("ASK_TEST_IKL_STRICT", "")).strip().lower() in {
+                "1",
+                "true",
+                "yes",
+                "on",
+            }
+            # Inprocess with local IKL memory: strict by default unless explicitly off
+            if self.mode == "inprocess" and "ASK_TEST_IKL_STRICT" not in os.environ:
+                strict_ikl = True
+            ok_ikl, err_ikl, ikl_meta = checks.check_ikl_expectations(
+                payload if isinstance(payload, dict) else {},
+                case,
+                strict=strict_ikl,
+            )
+            if not ok_ikl:
+                failures.extend(err_ikl)
+
         passed = len(failures) == 0
         row = {
             "id": case.get("id"),
@@ -440,6 +464,17 @@ class AskProductHarness:
             "hallucination_risk": hallucination_risk,
             "transport": transport.get("transport"),
             "error": transport.get("error"),
+            # Observability (#435/#436) — for pre/post IKL comparison
+            "ask_trace_id": orch.get("ask_trace_id"),
+            "fallback_used": orch.get("fallback_used"),
+            "executive_source": orch.get("executive_source"),
+            "entity_confidence": orch.get("entity_confidence"),
+            "funnel": orch.get("funnel"),
+            "utilization": orch.get("utilization"),
+            "orchestration_latency": orch.get("latency"),
+            "ikl_layers_hit": orch.get("ikl_layers_hit") or ikl_meta.get("layers_hit") or [],
+            "ikl_meta": ikl_meta or None,
+            "trace_summary": orch.get("trace_summary"),
         }
         self.results.append(row)
         return row
@@ -477,9 +512,60 @@ class AskProductHarness:
             "total": total,
             "average_latency_ms": int(sum(latencies) / len(latencies)) if latencies else 0,
             "questions": rows,
+            "comparison_metrics": _comparison_metrics(rows),
         }
         print_health_summary(report)
         return report
+
+
+def _comparison_metrics(rows: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
+    """Aggregate metrics for pre/post IKL baseline comparison."""
+    total = len(rows) or 1
+    fallback_n = sum(1 for r in rows if r.get("fallback_used"))
+    company_mem_hits = sum(
+        1 for r in rows if "company_memory" in (r.get("ikl_layers_hit") or [])
+    )
+    industry_mem_hits = sum(
+        1 for r in rows if "industry_memory" in (r.get("ikl_layers_hit") or [])
+    )
+    macro_mem_hits = sum(
+        1 for r in rows if "macro_memory" in (r.get("ikl_layers_hit") or [])
+    )
+    funnel_rows = [r.get("funnel") or {} for r in rows if isinstance(r.get("funnel"), dict)]
+
+    def _avg_funnel(key: str) -> float | None:
+        vals = []
+        for f in funnel_rows:
+            v = f.get(key)
+            if isinstance(v, (int, float)):
+                vals.append(float(v))
+        return round(sum(vals) / len(vals), 2) if vals else None
+
+    entity_conf = [
+        float(r["entity_confidence"])
+        for r in rows
+        if isinstance(r.get("entity_confidence"), (int, float))
+    ]
+    exec_sources: Dict[str, int] = {}
+    for r in rows:
+        src = r.get("executive_source") or "unknown"
+        exec_sources[str(src)] = exec_sources.get(str(src), 0) + 1
+    return {
+        "fallback_rate": round(fallback_n / total, 3),
+        "company_memory_hits": company_mem_hits,
+        "industry_memory_hits": industry_mem_hits,
+        "macro_memory_hits": macro_mem_hits,
+        "avg_funnel_retrieved": _avg_funnel("retrieved"),
+        "avg_funnel_ranked": _avg_funnel("ranked"),
+        "avg_funnel_passed": _avg_funnel("passed"),
+        "avg_funnel_referenced": _avg_funnel("referenced"),
+        "avg_entity_confidence": round(sum(entity_conf) / len(entity_conf), 3)
+        if entity_conf
+        else None,
+        "executive_attribution": exec_sources,
+        "hallucination_risk_total": sum(int(r.get("hallucination_risk") or 0) for r in rows),
+        "policy_violations": sum(1 for r in rows if r.get("policy") == "violation"),
+    }
 
 
 def cio_cases_from_frozen() -> List[Dict[str, Any]]:

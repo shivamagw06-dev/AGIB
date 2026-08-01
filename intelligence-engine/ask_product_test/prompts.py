@@ -76,6 +76,58 @@ UNKNOWN_COMPANY_PROMPT = {
     "expect_insufficient_evidence": True,
 }
 
+# Tier IKL — founder questions that prove persistent memory is used (after IKL deploy).
+# Product-contract checks always apply. Memory-layer asserts are soft unless
+# ASK_TEST_IKL_STRICT=1 (or inprocess with IKL local memory populated).
+IKL_PROMPTS: List[Dict[str, Any]] = [
+    {
+        "id": "IKL-01",
+        "prompt": "Explain Reliance Industries' business model.",
+        "intent_family": "Company",
+        "expected_entities": ["RELIANCE"],
+        "forbid_entities": ["AAPL", "APPLE", "INFY"],
+        "ikl_expect_layers": ["company_memory"],
+        "ikl_primary_memory": True,
+        "ticker": "RELIANCE",
+    },
+    {
+        "id": "IKL-02",
+        "prompt": "How has Meta's AI infrastructure strategy evolved over the last four quarters?",
+        "intent_family": "Company",
+        "expected_entities": ["META", "META PLATFORMS", "FACEBOOK"],
+        "forbid_entities": ["AAPL", "APPLE", "MSFT"],
+        "ikl_expect_layers": ["company_memory", "historical_timeline"],
+        "ikl_expect_multi_document": True,
+        "ticker": "META",
+    },
+    {
+        "id": "IKL-03",
+        "prompt": "Why are hospitals typically valued differently from pharmaceutical manufacturers?",
+        "intent_family": "Industry",
+        "expected_entities": [],
+        "forbid_entities": [],
+        "ikl_expect_layers": ["industry_memory"],
+        "concept_mode": True,
+    },
+    {
+        "id": "IKL-04",
+        "prompt": "How would a sustained decline in crude oil prices affect Indian aviation, paints, and OMCs?",
+        "intent_family": "Macro",
+        "expected_entities": [],
+        "forbid_entities": [],
+        "ikl_expect_layers": ["macro_memory", "industry_memory", "knowledge_graph"],
+    },
+    {
+        "id": "IKL-05",
+        "prompt": "Explain XYZ Private Ltd founded yesterday.",
+        "intent_family": "Company",
+        "expected_entities": [],
+        "forbid_entities": [],
+        "expect_insufficient_evidence": True,
+        "ikl_expect_knowledge_gap": True,
+    },
+]
+
 CONTEXT_ISOLATION_SEQUENCE = [
     {
         "id": "CTX-01",
