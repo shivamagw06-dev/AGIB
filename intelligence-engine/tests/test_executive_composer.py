@@ -49,6 +49,19 @@ def test_requires_company_for_explain_pvt_ltd_not_macro():
     assert not requires_resolved_company("Explain why banks trade on P/B instead of EV/EBITDA.")
 
 
+def test_requires_company_exempts_recognized_finance_concepts():
+    """A bare 'Explain <term>' must not require a company when <term> is a
+    real financial_foundations/financial_statement_intelligence concept —
+    this was the AFI Acceptance Test v1.0 A7/A10-style routing bug."""
+    assert not requires_resolved_company("Explain retained earnings.")
+    assert not requires_resolved_company("Explain the accounting equation.")
+    assert not requires_resolved_company("Describe trial balance")
+    assert not requires_resolved_company("What is EBITDA?")
+    # Real companies (and unknown ones shaped like companies) must still hard-stop.
+    assert requires_resolved_company("Explain Tata Motors.")
+    assert requires_resolved_company("Explain XYZ Quantum Robotics Pvt Ltd.")
+
+
 def test_comparison_requires_two_aliases():
     assert is_comparison_question("Compare Infosys vs TCS.")
     assert alias_tickers_from_question("Compare Infosys vs TCS.") == ["INFY", "TCS"]

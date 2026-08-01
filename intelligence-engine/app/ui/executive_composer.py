@@ -137,6 +137,54 @@ def is_comparison_question(question: str) -> bool:
     return bool(_COMPARE_RE.search(question or ""))
 
 
+_FINANCE_VOCAB_CACHE: Optional[set] = None
+
+
+def _finance_vocabulary() -> set:
+    """Every concept/transaction/metric key financial_foundations or
+    financial_statement_intelligence can answer directly, as space-separated
+    phrases (e.g. "accounting_equation" -> "accounting equation"). Used so a
+    bare "Explain <finance term>" question is never misread as needing a
+    company — the Financial Router (app/ui/financial_router.py) is the
+    primary fix for this; this is the defense-in-depth backstop for any
+    finance vocabulary the router's regex patterns don't explicitly cover."""
+
+    global _FINANCE_VOCAB_CACHE
+    if _FINANCE_VOCAB_CACHE is not None:
+        return _FINANCE_VOCAB_CACHE
+    vocab: set = set()
+    try:
+        from financial_foundations import education as _ff_edu
+
+        for key in _ff_edu.list_all_concepts():
+            vocab.add(key.replace("_", " "))
+        for key in _ff_edu.list_all_transaction_types():
+            vocab.add(key.replace("_", " "))
+    except Exception:
+        pass
+    try:
+        from financial_statement_intelligence.metric_concepts import all_metrics
+
+        for key in all_metrics():
+            vocab.add(key.replace("_", " "))
+    except Exception:
+        pass
+    _FINANCE_VOCAB_CACHE = vocab
+    return vocab
+
+
+_BARE_EXPLAIN_RE = re.compile(r"^(?:explain|describe|what is|define)\s+(.+?)[.?!]?$", re.I)
+
+
+def _is_recognized_finance_concept(question: str) -> bool:
+    m = _BARE_EXPLAIN_RE.match((question or "").strip())
+    if not m:
+        return False
+    subject = m.group(1).strip().lower()
+    subject = re.sub(r"^(the|a|an)\s+", "", subject)
+    return subject in _finance_vocabulary()
+
+
 def requires_resolved_company(question: str) -> bool:
     """Company-shaped asks that must not invent a substitute entity."""
     q = question or ""
@@ -150,6 +198,8 @@ def requires_resolved_company(question: str) -> bool:
             return False
     if is_comparison_question(q):
         return True
+    if _is_recognized_finance_concept(q):
+        return False
     return bool(_COMPANY_REQUIRED_RE.search(q))
 
 

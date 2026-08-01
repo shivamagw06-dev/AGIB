@@ -8,6 +8,7 @@ from app.aws.adapters import dump, soft
 from app.core.config import get_settings
 from app.kip.models import ClientSearchRequest
 from app.ui.flags import UiFlags
+from app.ui.financial_router import route as financial_router_route
 from app.kip.extractors import KNOWN_TICKERS, TICKER_STOPWORDS
 from app.ui.ask_orchestration_trace import (
     StageTimer,
@@ -906,6 +907,104 @@ class UiService:
             entity_resolution=scrub(entity_resolution) if entity_resolution else {},
         )
 
+    def _financial_engine_view(
+        self,
+        *,
+        question: str,
+        ask_trace_id: str,
+        stage_timer: StageTimer,
+        ask_orchestration: dict[str, Any],
+        entity_resolution: dict[str, Any],
+        ere_body: dict[str, Any],
+        alias_hit: str | None,
+        financial_hit: dict[str, Any],
+    ) -> SearchView:
+        """Fast path: answer accounting / FSA concept questions directly from
+        the deterministic financial_foundations / financial_statement_intelligence
+        engines — no entity resolution, no generic retrieval. See
+        app/ui/financial_router.py for the classifier and engine calls."""
+        executive = str(financial_hit.get("summary") or "").strip()
+        why = [str(w) for w in (financial_hit.get("why") or []) if w]
+        evidence = list(financial_hit.get("evidence") or [])
+        engine_name = str(financial_hit.get("engine") or "financial_foundations")
+        engine_key = str(financial_hit.get("key") or "")
+
+        for stage in ("ikl", "retrieval", "ranking", "reasoning", "response_assembly"):
+            stage_timer.mark(stage)
+        ask_orchestration = {
+            **ask_orchestration,
+            "executive_source": "financial_router",
+            "short_circuit": "financial_router",
+            "rq_stack": "skipped_financial_router",
+            "financial_router_triggered": True,
+            "financial_engine": engine_name,
+            "financial_engine_key": engine_key,
+        }
+        orch = finalize_orchestration(
+            ask_orchestration,
+            timer=stage_timer,
+            question=question,
+            detected_ticker=None,
+            ere_body=ere_body,
+            alias_hit=alias_hit,
+            evidence_used=evidence,
+            why=why,
+            executive=executive,
+            intent="financial_engine",
+            fallback=False,
+        )
+        # `finalize_orchestration` sets engine_reached to a bare bool (see
+        # ask_orchestration_trace.py) — preserve that contract for existing
+        # observability consumers, and surface the engine name separately so
+        # test harnesses (ask_product_test/afi_acceptance_v1.py) can detect
+        # exactly which deterministic engine answered.
+        orch["financial_router_triggered"] = True
+        orch["financial_engine"] = engine_name
+        orch["financial_engine_key"] = engine_key
+        stage_timer.mark("serialization")
+        try:
+            orch["latency"] = stage_timer.as_latency_block()
+            orch["latency_ms"] = stage_timer.as_dict()
+            orch["trace_summary"] = format_trace_summary(orch)
+            orch["completed"] = True
+            orch["timeout"] = False
+        except Exception:
+            pass
+        return SearchView(
+            meta=UiMeta(surface="search", sources=[engine_name]),
+            question=question,
+            status="ok",
+            degradation={
+                "ask_slim": ask_slim_enabled(),
+                "short_circuit": "financial_router",
+                "rq_stack": "skipped",
+                "reasoning": "financial_engine",
+            },
+            ask_orchestration=orch,
+            intent="financial_engine",
+            entities={"ticker": None, "companies": [], "themes": [], "sectors": []},
+            answer={
+                "summary": executive,
+                "executive_summary": executive,
+                "stance": "Neutral",
+                "why": why,
+                "house_view_label": "Educational",
+                "policy": "financial_engine_answer",
+            },
+            executive_summary=executive,
+            house_view={"label": "Educational", "stance": "Neutral"},
+            confidence=85.0,
+            investment_thesis=executive,
+            bull_case=[],
+            bear_case=[],
+            key_risks=[],
+            why=why,
+            evidence_used=evidence,
+            follow_up_questions=[],
+            answer_policy="financial_engine_answer",
+            entity_resolution=scrub(entity_resolution) if entity_resolution else {},
+        )
+
     def _unknown_entity_view(
         self,
         *,
@@ -1338,6 +1437,42 @@ class UiService:
                 entity_resolution=entity_resolution,
                 ere_body=ere_body if isinstance(ere_body, dict) else {},
                 alias_hit=alias_hit,
+            )
+
+        # Financial Router — accounting / financial-statement-analysis concept
+        # questions ("Explain retained earnings", "Why does every transaction
+        # require a debit and a credit?", "Founder invests ₹1 crore. Build the
+        # journal entry...") answer directly from the deterministic Phase 1/2
+        # engines (financial_foundations / financial_statement_intelligence)
+        # and must never fall through to entity resolution or generic
+        # retrieval. Runs before the unknown-entity gate below because many
+        # of these questions are shaped like "Explain <term>" and would
+        # otherwise be misread as requiring a company.
+        try:
+            financial_hit = financial_router_route(q)
+        except Exception:
+            financial_hit = None
+        if financial_hit:
+            try:
+                pipeline.set_intent("Financial Engine", confidence=0.95)
+                pipeline.mark(STAGE_RETRIEVAL_STARTED, status="skipped")
+                pipeline.mark(STAGE_RETRIEVAL_COMPLETED, status="skipped")
+                pipeline.complete(status="success")
+            except Exception:
+                pass
+            return self._financial_engine_view(
+                question=q,
+                ask_trace_id=ask_trace_id,
+                stage_timer=stage_timer,
+                ask_orchestration={
+                    **ask_orchestration,
+                    "request_id": ask_trace_id,
+                    "pipeline_debug": pipeline.to_debug_payload(),
+                },
+                entity_resolution=entity_resolution,
+                ere_body=ere_body if isinstance(ere_body, dict) else {},
+                alias_hit=alias_hit,
+                financial_hit=financial_hit,
             )
 
         # Executive Composer Rule 3 — unknown / blocked company: STOP (no retrieval, no LT swap).
