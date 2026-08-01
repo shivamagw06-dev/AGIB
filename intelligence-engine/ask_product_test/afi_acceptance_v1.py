@@ -41,7 +41,7 @@ into the release-gate hard-fail set:
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, List, Sequence
+from typing import Any, Dict, List, Optional, Sequence
 
 # ---------------------------------------------------------------------------
 # Engine-signal detection
@@ -256,6 +256,7 @@ def score_afi_answer(
     latency_ms: int,
     http_status: int,
     degraded: bool,
+    evidence_sources: Optional[list] = None,
 ) -> Dict[str, Any]:
     low = (text or "").lower()
     blob_for_entities = (entities_blob or "").lower() + " " + low
@@ -268,7 +269,13 @@ def score_afi_answer(
     if has_framework_leak(text):
         fails["framework_meta_leak"] = True
 
-    if case.get("requires_engine") and not has_engine_signal(engine_blob):
+    # Prefer the authoritative ask_orchestration signal (set by
+    # app/ui/service.py's _financial_engine_view when the Financial Router
+    # fires) over a blob text-scan, which is only a fallback for deployments
+    # that predate that field.
+    router_triggered = bool(orch.get("financial_router_triggered"))
+    engine_hit = router_triggered or has_engine_signal(engine_blob)
+    if case.get("requires_engine") and not engine_hit:
         fails["generic_retrieval_used"] = True
 
     if case.get("policy_refuse") and has_recommendation_violation(text):
@@ -375,6 +382,13 @@ def score_afi_answer(
         # matching the spec's "automatic fail" semantics.
         final_score = min(final_score, 14)
 
+    funnel = orch.get("funnel") or {}
+    entity_confidence = (orch.get("entity") or {}).get("confidence") if isinstance(orch.get("entity"), dict) else None
+    entity_misfire = bool(
+        case.get("requires_engine")
+        and orch.get("short_circuit") == "unknown_entity"
+    )
+
     return {
         "id": case.get("id"),
         "section": case.get("section"),
@@ -391,5 +405,16 @@ def score_afi_answer(
         "max_score": 30,
         "auto_fail_flags": fails,
         "requires_engine": case.get("requires_engine"),
-        "engine_signal_found": has_engine_signal(engine_blob),
+        "engine_signal_found": engine_hit,
+        "financial_router_triggered": router_triggered,
+        "financial_engine": orch.get("financial_engine"),
+        "financial_engine_key": orch.get("financial_engine_key"),
+        "engine_reached": orch.get("engine_reached"),
+        "short_circuit": orch.get("short_circuit"),
+        "executive_source": orch.get("executive_source"),
+        "entity_resolution_attempted": bool(orch.get("ticker_source") or entity_confidence),
+        "entity_misfire": entity_misfire,
+        "retrieval_used": bool((funnel.get("retrieved") or 0) > 0),
+        "funnel": funnel,
+        "evidence_sources": evidence_sources or [],
     }
