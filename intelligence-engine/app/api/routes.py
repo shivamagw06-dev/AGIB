@@ -17466,3 +17466,80 @@ async def iiex_history(limit: int = 20):
     from institutional_intelligence_examination.production import history as _h
 
     return _h(limit=limit)
+
+
+# ---------------------------------------------------------------------------
+# AGIB Phase 2.5 — Institutional Knowledge Intelligence (KIP v2)
+# Document Intelligence -> Structured Knowledge -> Evidence Validation ->
+# Knowledge Store -> Executive Summary / Retrieval. See kip_v2/__init__.py.
+# ---------------------------------------------------------------------------
+@router.get("/kip-v2/health")
+async def kip_v2_health():
+    from kip_v2.production import health
+
+    return health()
+
+
+@router.post("/kip-v2/ingest")
+async def kip_v2_ingest(payload: dict[str, Any] = Body(default_factory=dict)):
+    from kip_v2.production import ingest
+
+    return ingest(payload)
+
+
+@router.get("/kip-v2/knowledge/{company_id}")
+async def kip_v2_get_knowledge(company_id: str, category: str | None = None, key: str | None = None):
+    from kip_v2.production import get_knowledge
+
+    return get_knowledge(company_id, category=category, key=key)
+
+
+@router.get("/kip-v2/financials/{company_id}")
+async def kip_v2_get_financials(company_id: str, metric: str | None = None, period: str | None = None):
+    from kip_v2.production import get_financial_metrics
+
+    return get_financial_metrics(company_id, metric=metric, period=period)
+
+
+@router.get("/kip-v2/management/{company_id}")
+async def kip_v2_get_management(company_id: str, topic: str | None = None):
+    from kip_v2.production import get_management_commentary
+
+    return get_management_commentary(company_id, topic=topic)
+
+
+@router.get("/kip-v2/changes/{company_id}")
+async def kip_v2_get_changes(company_id: str, from_period: str | None = None, to_period: str | None = None):
+    from kip_v2.production import get_changes
+
+    return get_changes(company_id, from_period=from_period, to_period=to_period)
+
+
+@router.get("/kip-v2/graph/{node_id}")
+async def kip_v2_get_graph(node_id: str):
+    from kip_v2.production import get_knowledge_graph
+
+    return get_knowledge_graph(node_id)
+
+
+@router.get("/kip-v2/summary/{company_id}")
+async def kip_v2_get_summary(company_id: str):
+    from kip_v2.production import get_executive_summary
+
+    return get_executive_summary(company_id)
+
+
+@router.post("/kip-v2/ask")
+async def kip_v2_ask(payload: dict[str, Any] = Body(default_factory=dict)):
+    from kip_v2.production import ask
+
+    company_id = payload.get("company_id", "")
+    question = payload.get("question", "")
+    return ask(company_id, question)
+
+
+@router.get("/kip-v2/quality-report")
+async def kip_v2_quality_report(company_id: str | None = None):
+    from kip_v2.production import quality_report
+
+    return quality_report(company_id=company_id)
