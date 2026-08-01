@@ -12801,6 +12801,42 @@ async def fsi_analyze(payload: dict[str, Any] = Body(default={})):
 
 
 # ---------------------------------------------------------------------------
+# AGI Institutional Accounting & Financial Analysis Exam (Level 1) — the
+# Phase 1/2 -> Phase 3 release gate. Debugging/verification surface only;
+# not part of the Ask product path.
+# ---------------------------------------------------------------------------
+@router.get("/institutional-accounting-exam/health")
+async def iae_health():
+    from institutional_accounting_exam.production import health
+
+    return health()
+
+
+@router.get("/institutional-accounting-exam/items")
+async def iae_list_items(section: str | None = None):
+    from institutional_accounting_exam.production import list_items
+
+    return list_items(section)
+
+
+@router.get("/institutional-accounting-exam/items/{item_id}")
+async def iae_run_item(item_id: str):
+    from institutional_accounting_exam.production import run_item
+
+    return run_item(item_id)
+
+
+@router.get("/institutional-accounting-exam/run")
+async def iae_run_full_exam():
+    """Runs all 30 items live against the real Phase 1/2 engines and grades
+    them — this can take a moment; it is a verification tool, not a
+    user-facing endpoint."""
+    from institutional_accounting_exam.production import run_full_exam
+
+    return run_full_exam()
+
+
+# ---------------------------------------------------------------------------
 # AGIB v3.4 Track D — Institutional Communication Engine (ICE)
 # Deterministic renderer of InstitutionalAnswer. Reasoning frozen.
 # ---------------------------------------------------------------------------
