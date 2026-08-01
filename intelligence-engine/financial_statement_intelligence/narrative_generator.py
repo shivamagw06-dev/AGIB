@@ -111,6 +111,86 @@ def _leverage_sentence(findings: list[Finding]) -> tuple[str, list[str]]:
     return lev.explanation, [lev.explanation]
 
 
+def generate_long_form_note(series: FinancialSeries) -> dict[str, Any]:
+    """A ~500-word, section-structured analyst note pulling together every
+    Phase 2 engine — ratios, red flags, earnings quality, cash conversion,
+    leverage, capital efficiency — each sentence grounded in a computed
+    number. This is the Section F "produce a 500-word analyst note" answer.
+    """
+    from financial_statement_intelligence.earnings_quality import assess_earnings_quality
+    from financial_statement_intelligence.health_score import score_financial_health
+    from financial_statement_intelligence.ratio_engine import compute_ratios
+    from financial_statement_intelligence.red_flag_detector import detect_red_flags
+    from financial_statement_intelligence.statement_intelligence import overall_direction
+
+    latest = series.latest()
+    if latest is None:
+        return {"available": False, "reason": "No periods in series."}
+
+    direction = overall_direction(series)
+    ratios = compute_ratios(series)
+    eq = assess_earnings_quality(series)
+    flags = detect_red_flags(series)
+    health = score_financial_health(series)
+    core_narrative = generate_narrative(series)
+
+    sections: list[str] = []
+    sections.append(
+        f"EXECUTIVE SUMMARY. {series.company}'s latest period ({latest.label}) shows an overall "
+        f"{direction['verdict']} trend (net score {direction['net_score']}), based on "
+        f"{direction['latest_period_positive_findings']} favourable and {direction['latest_period_concern_findings']} "
+        f"concerning findings from the period's Income Statement, Balance Sheet, and Cash Flow Statement. "
+        f"{core_narrative.get('narrative', '')}"
+    )
+    sections.append(
+        f"RATIOS. Gross Margin stands at {ratios.get('gross_margin')}, EBITDA Margin at "
+        f"{ratios.get('ebitda_margin')}, and Net Margin at {ratios.get('net_margin')}. Liquidity is "
+        f"reflected in a Current Ratio of {ratios.get('current_ratio')} and a Quick Ratio of "
+        f"{ratios.get('quick_ratio')}. Returns stand at ROE {ratios.get('roe')}, ROCE {ratios.get('roce')}, "
+        f"and ROIC {ratios.get('roic')}."
+    )
+    sections.append(
+        f"CASH CONVERSION. {eq.get('label', 'Not assessed')} (score {eq.get('score', 'n/a')}/10). "
+        + " ".join(s["explanation"] for s in (eq.get("signals") or [])[:2])
+    )
+    sections.append(
+        f"LEVERAGE. Debt/Equity is {ratios.get('debt_to_equity')} and Net Debt/EBITDA is "
+        f"{ratios.get('net_debt_to_ebitda')}, with Interest Coverage of {ratios.get('interest_coverage')}x. "
+        f"{'Leverage is elevated and warrants monitoring.' if (ratios.get('net_debt_to_ebitda') or 0) > 3 else 'Leverage sits within a conventional range for a non-financial business.'}"
+    )
+    sections.append(
+        f"CAPITAL EFFICIENCY. ROIC of {ratios.get('roic')} against a Return on Capital Employed of "
+        f"{ratios.get('roce')} indicates "
+        + ("capital is being deployed above a typical cost-of-capital hurdle." if (ratios.get('roic') or 0) > 0.10
+           else "capital efficiency below a typical cost-of-capital hurdle, warranting scrutiny of recent capex/investment decisions.")
+    )
+    sections.append(
+        f"RED FLAGS. {flags['total_flags']} flag(s) detected ({flags['high_severity_count']} high severity, "
+        f"{flags['medium_severity_count']} medium severity). "
+        + (("Most notably: " + flags["flags"][0]["evidence"]) if flags["flags"] else "No material red flags were detected in this period.")
+    )
+    sections.append(
+        f"CONCLUSION. Overall Financial Strength scores {health.get('overall_financial_strength')}/100. "
+        f"{series.company} presents a {direction['verdict']} financial profile this period; "
+        f"{'continued monitoring of the flagged items above is warranted before drawing further conclusions.' if flags['total_flags'] > 0 else 'no immediate red flags temper the picture described above.'}"
+    )
+
+    note = " ".join(sections)
+    word_count = len(note.split())
+    return {
+        "available": True,
+        "company": series.company,
+        "period": latest.label,
+        "note": note,
+        "word_count": word_count,
+        "sections": ["EXECUTIVE SUMMARY", "RATIOS", "CASH CONVERSION", "LEVERAGE", "CAPITAL EFFICIENCY", "RED FLAGS", "CONCLUSION"],
+        "grounded_in": {
+            "overall_direction": direction, "ratios": ratios, "earnings_quality": eq,
+            "red_flags": flags, "health_score": health,
+        },
+    }
+
+
 def generate_narrative(
     series: FinancialSeries, *, drivers: Optional[dict[str, float]] = None
 ) -> dict[str, Any]:

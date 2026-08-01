@@ -102,13 +102,18 @@ def _statement_tags(account_code: str, transaction_type: str) -> list[str]:
     return tags
 
 
-def explain_transaction_linkage(transaction_type: str, *, amount: float = 100_000.0) -> dict[str, Any]:
-    """Trace one transaction's impact across IS → BS → CF, today and later."""
+def explain_transaction_linkage(transaction_type: str, *, amount: float = 100_000.0, **kwargs: Any) -> dict[str, Any]:
+    """Trace one transaction's impact across IS → BS → CF, today and later.
+
+    Extra ``kwargs`` (e.g. ``asset_account="machinery"``) are passed
+    through to the transaction rule exactly as in ``build_journal_entry``,
+    so the explanation names the correct account instead of defaulting.
+    """
     rule = get_rule(transaction_type)
     if rule is None:
         return {"found": False, "transaction_type": transaction_type}
 
-    legs = rule.build(amount)
+    legs = rule.build(amount, **kwargs)
     today: list[dict[str, Any]] = []
     for code, side, amt in legs:
         acc = get_account(code)
