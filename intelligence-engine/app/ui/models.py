@@ -235,6 +235,8 @@ class SearchView(BaseModel):
     execution_policy: dict[str, Any] = Field(default_factory=dict)
     # Phase 1 Evidence-First Execution Governance — contract/validation/committee record (soft-wire)
     execution_governance: dict[str, Any] = Field(default_factory=dict)
+    # Ask orchestration observability — retrieval funnel / latency / entity confidence (internal)
+    ask_orchestration: dict[str, Any] = Field(default_factory=dict)
     current_outlook: str | None = None
     key_drivers: list[str] = Field(default_factory=list)
     valuation_perspective: str | None = None
