@@ -127,15 +127,19 @@ def extract_compare_names(question: str) -> list[str]:
 
 def _synthetic_uncovered_company(name: str) -> dict[str, Any]:
     """Industry-template placeholder for a named firm outside CapIQ coverage."""
-    industry_key = classify_industry(question=name, industry=name)
+    from business_intelligence.foundation.named_pedagogy import lookup_named_pedagogy
+
+    ped = lookup_named_pedagogy(name=name)
+    industry_key = (ped or {}).get("industry_key") or classify_industry(question=name, industry=name)
     return {
         "ticker": None,
         "company_name": name.strip(),
         "sector": None,
         "industry": industry_key,
-        "description": None,
+        "description": (ped or {}).get("how_it_makes_money"),
         "source": "name_only_uncovered",
         "uncovered": True,
+        "archetype": (ped or {}).get("archetype"),
     }
 
 
@@ -145,10 +149,18 @@ def assemble_evidence(
     ticker: Optional[str] = None,
     industry_hint: Optional[str] = None,
 ) -> dict[str, Any]:
+    from business_intelligence.foundation.named_pedagogy import lookup_named_pedagogy
+
     tk = ticker or detect_ticker(question)
     company = load_ikt_company(tk) if tk else {}
+    ped = lookup_named_pedagogy(
+        name=company.get("company_name"),
+        ticker=tk,
+        question=question,
+    )
     industry_key = (
-        normalize_industry(industry_hint)
+        (ped or {}).get("industry_key")
+        or normalize_industry(industry_hint)
         or classify_industry(
             sector=company.get("sector"),
             industry=company.get("industry"),

@@ -18,7 +18,7 @@ INDUSTRY_ALIASES: dict[str, str] = {
     "software": "saas",
     "it services": "it_services",
     "information technology": "it_services",
-    "it": "it_services",
+    # Do not alias bare "it" — substring matches "profitable", "with", etc.
     "cement": "cement",
     "airline": "airlines",
     "airlines": "airlines",
@@ -40,6 +40,8 @@ INDUSTRY_ALIASES: dict[str, str] = {
     "ferrari": "manufacturing",
     "toyota": "manufacturing",
     "apple": "platform",
+    "reliance": "conglomerate",
+    "reliance industries": "conglomerate",
     "marketplace": "marketplace",
     "e-commerce": "marketplace",
     "ecommerce": "marketplace",
@@ -114,8 +116,13 @@ def normalize_industry(text: Optional[str]) -> Optional[str]:
     low = re.sub(r"\s+", " ", str(text).strip().lower())
     if low in INDUSTRY_ALIASES:
         return INDUSTRY_ALIASES[low]
-    for alias, key in INDUSTRY_ALIASES.items():
-        if alias in low:
+    # Prefer longer aliases first; require word boundaries so short tokens
+    # like "oil" don't misfire inside unrelated words, and "it" never matches
+    # inside "profitable" / "with".
+    for alias, key in sorted(INDUSTRY_ALIASES.items(), key=lambda kv: -len(kv[0])):
+        if len(alias) <= 2:
+            continue
+        if re.search(rf"\b{re.escape(alias)}\b", low):
             return key
     return None
 

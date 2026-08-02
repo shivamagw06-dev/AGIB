@@ -12,6 +12,10 @@ from business_intelligence.foundation.engines import (
     analyse_value_drivers,
 )
 from business_intelligence.foundation.evidence import assemble_evidence
+from business_intelligence.foundation.named_pedagogy import (
+    lookup_named_pedagogy,
+    profitability_contrast_summary,
+)
 from business_intelligence.foundation.taxonomy import classify_industry
 
 
@@ -95,12 +99,38 @@ def compare_companies(question: str, names_or_tickers: list[str] | None = None) 
 
     a, b = labels[0], labels[1]
     qlow = (question or "").lower()
+    ped_a = lookup_named_pedagogy(name=a, question=question)
+    ped_b = lookup_named_pedagogy(name=b, question=question)
+    # Enrich axes from named pedagogy when CapIQ/industry templates are identical.
+    for label, ped in ((a, ped_a), (b, ped_b)):
+        if not ped:
+            continue
+        ax = axes.get(label) or {}
+        if ped.get("how_it_makes_money"):
+            ax["how_it_makes_money"] = ped["how_it_makes_money"][:220]
+        if ped.get("business_type"):
+            ax["business_type"] = ped["business_type"]
+        if ped.get("moats"):
+            ax["primary_moats"] = list(ped["moats"])[:4]
+        if ped.get("archetype"):
+            ax["archetype"] = ped["archetype"]
+        axes[label] = ax
+
     if "capital allocat" in qlow:
         summary = (
             f"{a} vs {b}: compare capital allocation using business type "
             f"({axes[a].get('business_type')} vs {axes[b].get('business_type')}), "
             f"growth modes, capital intensity, leverage posture, and ROIC discipline — "
             f"evidence-gated, not ratios alone."
+        )
+    elif ped_a and ped_b and re_search_profitability(qlow):
+        summary = profitability_contrast_summary(a, b, ped_a, ped_b)
+    elif ped_a and ped_b and ped_a.get("archetype") != ped_b.get("archetype"):
+        summary = (
+            f"{a} ({ped_a.get('archetype', '').replace('_', ' ')}) vs "
+            f"{b} ({ped_b.get('archetype', '').replace('_', ' ')}): "
+            f"{(ped_a.get('how_it_makes_money') or '')[:160]} "
+            f"By contrast, {(ped_b.get('how_it_makes_money') or '')[:160]}"
         )
     else:
         summary = (
@@ -117,6 +147,20 @@ def compare_companies(question: str, names_or_tickers: list[str] | None = None) 
         "fabricated": False,
         "policy": "business_axes_not_ratios_only",
     }
+
+
+def re_search_profitability(qlow: str) -> bool:
+    return any(
+        k in (qlow or "")
+        for k in (
+            "more profitable",
+            "higher margins",
+            "higher margin",
+            "earn higher",
+            "earns higher",
+            "profitability",
+        )
+    )
 
 
 def industry_for_question(question: str) -> str:

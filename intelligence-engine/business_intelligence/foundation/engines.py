@@ -6,6 +6,7 @@ import re
 from typing import Any
 
 from business_intelligence.foundation.industry_drivers import template_for
+from business_intelligence.foundation.named_pedagogy import lookup_named_pedagogy
 from business_intelligence.foundation.schema import (
     MOAT_DIMENSIONS,
     RISK_TYPES,
@@ -23,6 +24,15 @@ def _blob(*parts: Any) -> str:
     return " ".join(str(p).lower() for p in parts if p)
 
 
+def _pedagogy_for_ev(ev: dict[str, Any]) -> dict[str, Any] | None:
+    company = ev.get("company") or {}
+    return lookup_named_pedagogy(
+        name=company.get("display_name") or company.get("company_name"),
+        ticker=ev.get("ticker") or company.get("ticker"),
+        question=ev.get("question"),
+    )
+
+
 def _score_rating(score: int) -> str:
     if score >= 70:
         return "Strong"
@@ -34,34 +44,47 @@ def _score_rating(score: int) -> str:
 
 
 def analyse_business_model(ev: dict[str, Any]) -> dict[str, Any]:
-    industry = ev.get("industry_key") or "unknown"
+    ped = _pedagogy_for_ev(ev)
+    industry = (ped or {}).get("industry_key") or ev.get("industry_key") or "unknown"
     tmpl = template_for(industry)
     company = ev.get("company") or {}
-    name = company.get("company_name") or ev.get("ticker") or "The company"
+    name = (
+        company.get("display_name")
+        or company.get("company_name")
+        or ev.get("ticker")
+        or "The company"
+    )
     desc = str(company.get("description") or "")
     products = company.get("products")
-    segments = company.get("business_segments")
-    btype = business_type_for_industry(industry)
+    segments = company.get("business_segments") or (ped or {}).get("segments")
+    btype = (ped or {}).get("business_type") or business_type_for_industry(industry)
 
     revenue_streams: list[str] = []
     if products:
         revenue_streams.append(f"Products/services: {str(products)[:180]}")
     if segments:
-        revenue_streams.append(f"Segments: {str(segments)[:180]}")
-    if not revenue_streams and desc:
+        if isinstance(segments, list):
+            revenue_streams.append("Segments: " + "; ".join(str(s) for s in segments[:6]))
+        else:
+            revenue_streams.append(f"Segments: {str(segments)[:180]}")
+    if not revenue_streams and desc and not ped:
         # First sentence as revenue narrative, not fabrication of numbers.
         revenue_streams.append(re.split(r"(?<=[.!?])\s+", desc.strip())[0][:220])
     if not revenue_streams:
         revenue_streams = [f"Core {industry.replace('_', ' ')} franchise revenue"]
 
-    how = desc.strip()
-    if how:
-        how = " ".join(re.split(r"(?<=[.!?])\s+", how)[:2])
+    # Named pedagogy wins over thin CapIQ blurbs for conglomerates / globals.
+    if ped and ped.get("how_it_makes_money"):
+        how = str(ped["how_it_makes_money"])
     else:
-        how = (
-            f"{name} operates a {btype.replace('_', ' ')} economic engine in "
-            f"{industry.replace('_', ' ')}, monetising its core franchise."
-        )
+        how = desc.strip()
+        if how:
+            how = " ".join(re.split(r"(?<=[.!?])\s+", how)[:2])
+        else:
+            how = (
+                f"{name} operates a {btype.replace('_', ' ')} economic engine in "
+                f"{industry.replace('_', ' ')}, monetising its core franchise."
+            )
 
     customers = []
     if company.get("customers"):

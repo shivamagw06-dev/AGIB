@@ -36,7 +36,13 @@ RATIO_INTELLIGENCE_CONCEPTS: dict[str, ConceptCard] = {
         "operating_leverage", M, "Operating Leverage",
         "The degree to which a company's cost structure is fixed versus variable — and therefore how much profit swings for a given change in revenue.",
         formula="Degree of Operating Leverage = % Change in Operating Profit / % Change in Revenue",
-        business_meaning="High fixed-cost businesses (airlines, hotels, manufacturing) see profit swing dramatically with small revenue changes, since fixed costs don't fall when revenue does.",
+        business_meaning=(
+            "High fixed-cost businesses (airlines, hotels, manufacturing) see profit and margin "
+            "swing dramatically with small revenue changes, since fixed costs don't fall when "
+            "revenue does. For airlines, once the breakeven load factor is cleared, incremental "
+            "passengers drop through to margin; below breakeven, empty seats still carry the "
+            "fixed fleet and crew cost base."
+        ),
         interpretation="High operating leverage magnifies both upside (in a recovery) and downside (in a downturn) — the same cost structure that drives outsized profit growth in good times drives outsized losses in bad times.",
         industry_exceptions="Asset-light, variable-cost businesses (many services and software-as-a-service companies with usage-based costs) have low operating leverage and steadier margins through cycles.",
         related_concepts=("financial_leverage", "fixed_charge_coverage", "contribution_margin"),

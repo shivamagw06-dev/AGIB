@@ -20,7 +20,12 @@ BUSINESS_QUALITY_CONCEPTS: dict[str, ConceptCard] = {
     "network_effect": ConceptCard(
         "network_effect", M, "Network Effect",
         "A dynamic where a product or platform becomes more valuable to each user as more users join it.",
-        business_meaning="Network effects create a powerful, self-reinforcing moat: the market leader's product improves faster than a smaller rival's simply because it has more users, making it very hard to dislodge once critical mass is reached.",
+        business_meaning=(
+            "Network effects create a powerful, self-reinforcing moat and flywheel: the market "
+            "leader's product or platform improves faster than a smaller rival's simply because "
+            "it has more users — each new user raises value for existing users — making it very "
+            "hard to dislodge once critical mass and scale are reached."
+        ),
         interpretation="Direct network effects (users value connecting with other users, e.g. social/communication platforms) are typically stronger and more durable than indirect ones (more users attract more third-party complements, e.g. app stores, marketplaces).",
         common_mistakes="Assuming any large user base implies a network effect — a network effect requires that MORE users make the product BETTER for existing users, not just that the company has scale.",
         related_concepts=("economic_moat", "switching_cost", "winner_take_all"),

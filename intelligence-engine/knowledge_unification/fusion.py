@@ -112,17 +112,46 @@ def fuse(
     elif qtypes.intersection(
         {"business_model", "moat", "unit_economics", "comparison", "business_risk", "industry"}
     ):
-        preferred_order = (
-            "business_intelligence",
-            "capiq_ikt",
-            "company_memory",
-            "ikl",
-            "knowledge_factory",
-            "cgl",
-            "financial_concepts",
-            "academy",
-            "legacy_kip",
+        # Company-less moat pedagogy ("Explain network effects") should lead with
+        # financial_concepts, not a synthetic company moat card from BI.
+        company_bound = bool(
+            getattr(plan.query, "ticker_hint", None)
+            or getattr(plan.query, "company_hint", None)
+            or "comparison" in qtypes
+            or "company" in qtypes
         )
+        qtext = (getattr(plan.query, "question", None) or "").lower()
+        concept_moat_pedagogy = (not company_bound) and any(
+            k in qtext
+            for k in (
+                "network effect",
+                "pricing power",
+                "competitive moat",
+                "what is a moat",
+                "explain moat",
+                "what creates pricing",
+            )
+        )
+        if concept_moat_pedagogy:
+            preferred_order = (
+                "financial_concepts",
+                "business_intelligence",
+                "capiq_ikt",
+                "academy",
+                "legacy_kip",
+            )
+        else:
+            preferred_order = (
+                "business_intelligence",
+                "capiq_ikt",
+                "company_memory",
+                "ikl",
+                "knowledge_factory",
+                "cgl",
+                "financial_concepts",
+                "academy",
+                "legacy_kip",
+            )
     elif qtypes.intersection({"company", "market"}):
         preferred_order = (
             "capiq_ikt",

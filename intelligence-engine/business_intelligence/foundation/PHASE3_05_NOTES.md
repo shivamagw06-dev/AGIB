@@ -53,12 +53,18 @@ first, no hallucination / false CapIQ binds, evidence fusion when company-bound.
 | Recommendation Policy | ✅ PASS |
 | Unknown Entity | ✅ PASS |
 | Coverage | ✅ PR-scoped PASS (known pre-existing NSE twins remain) |
-| AFI overall | ❌ ~82.5% (routing/engine util 100%, pollution 0; quality bar ≥95 still open) |
+| AFI overall | 🔧 quality uplift in progress (routing/engine util 100%, pollution 0; target ≥95) |
+
+AFI quality fixes landed for freeze readiness:
+- Answer scoring no longer triple-counts mirrored SearchView fields
+- Ambiguous causal events (`PAT doubled. What happened?`) clarify company/period
+- Named BI pedagogy for Ferrari/Toyota/Reliance (luxury vs mass; O2C/Jio/Retail)
+- Company-less moat concepts lead with `financial_concepts`
 
 ```bash
 cd intelligence-engine
 ASK_TEST_MODE=inprocess python3 -m ask_product_test.run_production_regression_v1 --with-afi
 ```
 
-**Phase 3.0 is not frozen** until AFI overall ≥95%. Do not start Industry Intelligence until that gate is green.
+**Phase 3.0 freezes only when AFI overall ≥95% and the full production regression gate is PASS.** Do not start Industry Intelligence until that gate is green.
 See `ask_product_test/PRODUCTION_REGRESSION_V1.md`.
