@@ -39,19 +39,26 @@ python3 -m ask_product_test.run_bi_integration_acceptance_v1
 Assertions: BI selected, KUL plan includes BI, not legacy-only, direct answer
 first, no hallucination / false CapIQ binds, evidence fusion when company-bound.
 
-## Remaining before Phase 3 freeze
+## Production validation status (inprocess)
 
-1. ✅ Engine acceptance (100/100)
-2. ✅ Ask/KUL integration + Business Integration suite
-3. ⏳ Founder Evaluation V2 (≥95%, business emphasis)
-4. ⏳ Golden Business 20 permanent regression
-5. ⏳ Full Production Regression gate:
-   Golden Founder 5 · Founder V2 · AFI · BI Acceptance · Coverage ·
-   Concept · Recommendation Policy · Unknown Entity · KUL · Golden Business 20
+| Gate | Result |
+|---|---|
+| BI Acceptance | ✅ 100/100 |
+| Business Integration | ✅ 28/28 |
+| Golden Business 20 | ✅ 20/20 |
+| Golden Founder 5 | ✅ 5/5 |
+| Founder Evaluation V2 | ✅ 50/50 (100%) |
+| KUL | ✅ 60/60 |
+| Concept | ✅ 12/12 |
+| Recommendation Policy | ✅ PASS |
+| Unknown Entity | ✅ PASS |
+| Coverage | ✅ PR-scoped PASS (known pre-existing NSE twins remain) |
+| AFI overall | ❌ ~82.5% (routing/engine util 100%, pollution 0; quality bar ≥95 still open) |
 
 ```bash
 cd intelligence-engine
 ASK_TEST_MODE=inprocess python3 -m ask_product_test.run_production_regression_v1 --with-afi
 ```
 
-Only after the full gate is PASS: freeze Business Intelligence Foundation → Industry Intelligence.
+**Phase 3.0 is not frozen** until AFI overall ≥95%. Do not start Industry Intelligence until that gate is green.
+See `ask_product_test/PRODUCTION_REGRESSION_V1.md`.
