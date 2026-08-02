@@ -107,5 +107,83 @@ def status() -> dict[str, Any]:
         "running": bool(_THREAD and _THREAD.is_alive()),
         "slot_ist": f"{hour:02d}:{minute:02d}",
         "due_now": due(),
+        "backfill": backfill_status(),
         **_STATE,
+    }
+
+
+# --------------------------------------------------------------------------
+# Continuous historical backfill
+# --------------------------------------------------------------------------
+
+_BACKFILL_THREAD: Optional[threading.Thread] = None
+_BACKFILL_STOP = threading.Event()
+_BACKFILL_STATE: dict[str, Any] = {"slices": 0, "last_slice_at": None, "last_result": None}
+
+
+def _backfill_slice() -> dict[str, Any]:
+    from institutional_warehouse.backfill.engine import run
+
+    companies = int(os.getenv("WAREHOUSE_BACKFILL_COMPANIES", "25") or 25)
+    days = int(os.getenv("WAREHOUSE_BACKFILL_DAYS", "40") or 40)
+    result = run(actor="backfill_scheduler", companies=companies, days=days)
+    _BACKFILL_STATE["slices"] = int(_BACKFILL_STATE.get("slices") or 0) + 1
+    _BACKFILL_STATE["last_slice_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    _BACKFILL_STATE["last_result"] = {
+        "ok": result.get("ok"),
+        "job_id": result.get("job_id"),
+        "stages": result.get("stages", {}).keys() and list(result.get("stages", {})),
+        "errors": result.get("errors"),
+    }
+    return result
+
+
+def _backfill_loop(interval_seconds: float) -> None:
+    while not _BACKFILL_STOP.wait(interval_seconds):
+        try:
+            _backfill_slice()
+        except Exception:
+            # A bad slice is recorded in the job table; the loop keeps going so a
+            # single unreachable source cannot end the backfill.
+            continue
+
+
+def start_backfill(*, boot_slice: bool = False) -> dict[str, Any]:
+    """Run a bounded backfill slice on a timer until the history is deep enough."""
+    global _BACKFILL_THREAD
+    if not _truthy("WAREHOUSE_BACKFILL"):
+        return {"ok": True, "enabled": False, "reason": "WAREHOUSE_BACKFILL is off"}
+    if _BACKFILL_THREAD and _BACKFILL_THREAD.is_alive():
+        return {"ok": True, "enabled": True, "already_running": True}
+
+    minutes = float(os.getenv("WAREHOUSE_BACKFILL_INTERVAL_MIN", "30") or 30)
+    if boot_slice:
+        try:
+            _backfill_slice()
+        except Exception:
+            pass
+
+    _BACKFILL_STOP.clear()
+    _BACKFILL_THREAD = threading.Thread(target=_backfill_loop, args=(minutes * 60.0,),
+                                        name="warehouse-backfill", daemon=True)
+    _BACKFILL_THREAD.start()
+    return {"ok": True, "enabled": True, "interval_minutes": minutes, "boot_slice": boot_slice}
+
+
+def stop_backfill() -> dict[str, Any]:
+    _BACKFILL_STOP.set()
+    thread = _BACKFILL_THREAD
+    if thread and thread.is_alive():
+        thread.join(timeout=5.0)
+    return {"ok": True, "stopped": True}
+
+
+def backfill_status() -> dict[str, Any]:
+    return {
+        "enabled": _truthy("WAREHOUSE_BACKFILL"),
+        "running": bool(_BACKFILL_THREAD and _BACKFILL_THREAD.is_alive()),
+        "interval_minutes": float(os.getenv("WAREHOUSE_BACKFILL_INTERVAL_MIN", "30") or 30),
+        "companies_per_slice": int(os.getenv("WAREHOUSE_BACKFILL_COMPANIES", "25") or 25),
+        "days_per_slice": int(os.getenv("WAREHOUSE_BACKFILL_DAYS", "40") or 40),
+        **_BACKFILL_STATE,
     }

@@ -118,6 +118,46 @@ def by_sector(limit: int = 40) -> list[dict[str, Any]]:
     return sorted(out, key=lambda b: b["companies"], reverse=True)[:limit]
 
 
+def reconstruction_inputs() -> dict[str, Any]:
+    """What the valuation reconstruction could and could not build, and why.
+
+    A multiple that cannot be computed is a missing input, not a missing feature:
+    without a share count there is no market cap, no book value and no EV.
+    """
+    table = db.physical_table("historical_valuation")
+    row = db.query(
+        f"SELECT COUNT(*) AS rows,"
+        f" SUM(CASE WHEN pe IS NOT NULL THEN 1 ELSE 0 END) AS with_pe,"
+        f" SUM(CASE WHEN pb IS NOT NULL THEN 1 ELSE 0 END) AS with_pb,"
+        f" SUM(CASE WHEN market_cap IS NOT NULL THEN 1 ELSE 0 END) AS with_market_cap,"
+        f" SUM(CASE WHEN ev_ebitda IS NOT NULL THEN 1 ELSE 0 END) AS with_ev_ebitda"
+        f" FROM {table}"
+    )[0]
+    rows = int(row.get("rows") or 0) or 1
+
+    shares = db.query(
+        f"SELECT COUNT(DISTINCT sys_entity) AS n FROM {db.physical_table('financials_annual')}"
+        f" WHERE shares_outstanding IS NOT NULL"
+    )[0]
+    statement_companies = db.query(
+        f"SELECT COUNT(DISTINCT sys_entity) AS n FROM {db.physical_table('financials_annual')}"
+    )[0]
+
+    return {
+        "observations": int(row.get("rows") or 0),
+        "with_pe_pct": round(100.0 * int(row.get("with_pe") or 0) / rows, 1),
+        "with_pb_pct": round(100.0 * int(row.get("with_pb") or 0) / rows, 1),
+        "with_market_cap_pct": round(100.0 * int(row.get("with_market_cap") or 0) / rows, 1),
+        "with_ev_ebitda_pct": round(100.0 * int(row.get("with_ev_ebitda") or 0) / rows, 1),
+        "companies_with_share_count": int(shares.get("n") or 0),
+        "companies_with_statements": int(statement_companies.get("n") or 0),
+        "note": (
+            "P/B, market cap and EV multiples need a share count on the statement. "
+            "Where the source omits it, those columns stay empty rather than being guessed."
+        ),
+    }
+
+
 def summary() -> dict[str, Any]:
     depths = company_depth()
     universe = len(store.entities("company_master")) or len(depths)
@@ -146,6 +186,7 @@ def dashboard(*, top: int = 25) -> dict[str, Any]:
     return {
         "ok": True,
         "summary": summary(),
+        "inputs": reconstruction_inputs(),
         "tables": by_table(),
         "sectors": by_sector(),
         "deepest": depths[:top],

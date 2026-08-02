@@ -7311,5 +7311,23 @@ export default function createIntelligenceRouter() {
   router.post('/warehouse/refresh', warehousePost('/v1/warehouse/refresh', 900_000));
   router.post('/warehouse/recalculate', warehousePost('/v1/warehouse/recalculate', 600_000));
 
+  // Phase 7.1a — historical backfill and time-series reads
+  router.post('/warehouse/backfill', warehousePost('/v1/warehouse/backfill', 900_000));
+  router.get('/warehouse/backfill/status', warehouseGet('/v1/warehouse/backfill/status'));
+  router.get('/warehouse/backfill/jobs', warehouseGet('/v1/warehouse/backfill/jobs'));
+  router.get('/warehouse/historical-coverage', warehouseGet('/v1/warehouse/historical-coverage'));
+
+  router.get('/history/compare', warehouseGet('/v1/history/compare'));
+  router.get('/history/company/:symbol', warehouseGet((req) =>
+    `/v1/history/company/${encode(req.params.symbol)}`));
+  router.get('/history/series/:symbol/:metric', warehouseGet((req) =>
+    `/v1/history/series/${encode(req.params.symbol)}/${encode(req.params.metric)}`));
+  router.get('/history/as-at/:symbol', warehouseGet((req) =>
+    `/v1/history/as-at/${encode(req.params.symbol)}`));
+  router.get('/history/table/:tabId', warehouseGet((req) =>
+    `/v1/history/table/${encode(req.params.tabId)}`));
+  router.get('/history/coverage/:symbol', warehouseGet((req) =>
+    `/v1/history/coverage/${encode(req.params.symbol)}`));
+
   return router;
 }

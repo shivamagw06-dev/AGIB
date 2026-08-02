@@ -153,6 +153,11 @@ def reconstruct_company(
         key=lambda r: str(r["date"] or ""),
     )
 
+    # A reconstruction is only as good as the statement behind it. Count what was
+    # missing so the coverage board can say "no share count, so no P/B" instead of
+    # quietly publishing a blank column.
+    missing = {"shares_outstanding": 0, "equity": 0, "ebitda": 0, "revenue": 0, "eps": 0}
+
     observations: list[dict[str, Any]] = []
     for observed in sampled:
         price_row = by_date[observed]
@@ -196,6 +201,11 @@ def reconstruct_company(
         if market_cap is not None:
             enterprise_value = market_cap + (debt or 0.0) - (cash or 0.0)
 
+        for field, value in (("shares_outstanding", shares), ("equity", equity),
+                             ("ebitda", ebitda), ("revenue", revenue), ("eps", eps)):
+            if value is None:
+                missing[field] += 1
+
         trailing_dividend = sum(
             d["amount"] for d in dividends
             if d["date"] and d["amount"] and
@@ -220,7 +230,7 @@ def reconstruct_company(
                 if market_cap is not None and revenue and revenue > 0 else None,
                 "dividend_yield": round(100.0 * trailing_dividend / close, 4)
                 if trailing_dividend else None,
-                "source": SOURCE,
+                "source": f"{SOURCE}<-{statement.get('source') or 'unknown'}",
             }
         )
 
@@ -237,14 +247,21 @@ def reconstruct_company(
         first_period=observations[0]["date"], last_period=observations[-1]["date"],
         cursor=observations[-1]["date"], reset_attempts=True,
     )
+    total = len(observations)
     return {
         "ok": True,
         "symbol": ticker,
-        "observations": len(observations),
+        "observations": total,
         "first": observations[0]["date"],
         "last": observations[-1]["date"],
         "cadence": cadence,
         "written": written,
+        "missing_inputs": {k: v for k, v in missing.items() if v},
+        "unusable": {
+            "market_cap": missing["shares_outstanding"] == total,
+            "pb": missing["shares_outstanding"] == total or missing["equity"] == total,
+            "ev_multiples": missing["shares_outstanding"] == total,
+        },
     }
 
 
@@ -327,6 +344,8 @@ def reconstruct(
     skipped: list[dict[str, Any]] = []
     observations = 0
     dates: set[str] = set()
+    gaps: dict[str, int] = {}
+    no_share_count: list[str] = []
 
     for ticker in pending:
         result = reconstruct_company(ticker, actor=actor, cadence=cadence, lag_days=lag_days)
@@ -337,6 +356,10 @@ def reconstruct(
         observations += int(result.get("observations") or 0)
         dates.add(result["first"])
         dates.add(result["last"])
+        for field, count in (result.get("missing_inputs") or {}).items():
+            gaps[field] = gaps.get(field, 0) + count
+        if (result.get("unusable") or {}).get("market_cap"):
+            no_share_count.append(ticker)
 
     ranked = None
     if rerank and done:
@@ -359,5 +382,7 @@ def reconstruct(
         "cadence": cadence,
         "reranked": ranked,
         "skipped": skipped[:20],
+        "missing_inputs": gaps,
+        "companies_without_share_count": no_share_count[:50],
         "coverage": checkpoints.entity_coverage(KIND),
     }
