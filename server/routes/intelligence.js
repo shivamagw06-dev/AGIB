@@ -2116,6 +2116,87 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // Valuation Intelligence — Institutional Consensus Dashboard (Capital IQ)
+  router.get('/valuation-consensus/health', kfGet('/v1/valuation-consensus/health'));
+  router.get('/valuation-consensus/analytics', kfGet('/v1/valuation-consensus/analytics'));
+  router.get('/valuation-consensus/rows', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query || {}).toString();
+      const result = await engineFetch(`/v1/valuation-consensus/rows${qs ? `?${qs}` : ''}`);
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'valuation-consensus rows failed' });
+    }
+  });
+  router.get('/valuation-consensus/company/:ticker', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/valuation-consensus/company/${encodeURIComponent(req.params.ticker)}`
+      );
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'valuation-consensus company failed' });
+    }
+  });
+  router.post('/valuation-consensus/import/preview', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/valuation-consensus/import/preview', {
+        method: 'POST',
+        body: req.body || {},
+        timeoutMs: 180_000,
+      });
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'valuation-consensus import preview failed' });
+    }
+  });
+  router.post('/valuation-consensus/import/validate', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/valuation-consensus/import/validate', {
+        method: 'POST',
+        body: req.body || {},
+        timeoutMs: 60_000,
+      });
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'valuation-consensus import validate failed' });
+    }
+  });
+  router.post('/valuation-consensus/import/publish', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/valuation-consensus/import/publish', {
+        method: 'POST',
+        body: req.body || {},
+        timeoutMs: 120_000,
+      });
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'valuation-consensus import publish failed' });
+    }
+  });
+  router.post('/valuation-consensus/import/rollback', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/valuation-consensus/import/rollback', {
+        method: 'POST',
+        body: req.body || {},
+        timeoutMs: 60_000,
+      });
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'valuation-consensus import rollback failed' });
+    }
+  });
+  router.get('/valuation-consensus/imports', kfGet('/v1/valuation-consensus/imports'));
+  router.get('/valuation-consensus/versions', kfGet('/v1/valuation-consensus/versions'));
+  router.get('/valuation-consensus/export', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/valuation-consensus/export', { timeoutMs: 120_000 });
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'valuation-consensus export failed' });
+    }
+  });
+
   // Mission Control V1 — administrator operations centre (read-only)
   router.get('/mission-control/health', kfGet('/v1/mission-control/health'));
   router.get('/mission-control/intelligence-map', async (_req, res) => {

@@ -147,6 +147,7 @@ _HARD_PROVIDERS = frozenset(
         "investment_intelligence",
         "industry_intelligence",
         "business_intelligence",
+        "valuation_consensus",
         "capiq_ikt",
         "company_memory",
         "ikl",

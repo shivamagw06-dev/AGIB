@@ -61,6 +61,7 @@ const navItems = [
   { to: '/admin', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/admin/intelligence', label: 'Intelligence CMS', icon: Sparkles },
   { to: '/admin/knowledge-operations', label: 'Knowledge Operations', icon: Library },
+  { to: '/admin/valuation-intelligence', label: 'Valuation Intelligence', icon: Scale },
   { to: '/admin/investment-office', label: 'Investment Office', icon: Landmark },
   { to: '/admin/mission-control', label: 'Mission Control', icon: Gauge },
   { to: '/admin/release-health', label: 'Release Health', icon: ShieldCheck },

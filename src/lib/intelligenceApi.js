@@ -2721,3 +2721,46 @@ export const diagnoseReasoningAudit = (payload = {}) =>
     method: 'POST',
     body: typeof payload === 'string' ? { question: payload } : payload,
   });
+
+/** Valuation Intelligence — Institutional Consensus Dashboard (Capital IQ) */
+export const getValuationConsensusHealth = () => intelligenceFetch('/valuation-consensus/health');
+export const getValuationConsensusAnalytics = () =>
+  intelligenceFetch('/valuation-consensus/analytics');
+export const getValuationConsensusRows = (params = {}) => {
+  const qs = new URLSearchParams(
+    Object.fromEntries(
+      Object.entries(params)
+        .filter(([, v]) => v !== undefined && v !== null && v !== '')
+        .map(([k, v]) => [k, String(v)])
+    )
+  ).toString();
+  return intelligenceFetch(`/valuation-consensus/rows${qs ? `?${qs}` : ''}`);
+};
+export const getValuationConsensusCompany = (ticker) =>
+  intelligenceFetch(`/valuation-consensus/company/${encodeURIComponent(ticker)}`);
+export const previewValuationConsensusImport = (payload) =>
+  intelligenceFetch('/valuation-consensus/import/preview', {
+    method: 'POST',
+    body: payload,
+    timeoutMs: 180_000,
+  });
+export const validateValuationConsensusImport = (importId, actor) =>
+  intelligenceFetch('/valuation-consensus/import/validate', {
+    method: 'POST',
+    body: { import_id: importId, actor },
+  });
+export const publishValuationConsensusImport = (importId, actor) =>
+  intelligenceFetch('/valuation-consensus/import/publish', {
+    method: 'POST',
+    body: { import_id: importId, actor },
+  });
+export const rollbackValuationConsensus = (versionId, actor) =>
+  intelligenceFetch('/valuation-consensus/import/rollback', {
+    method: 'POST',
+    body: { version_id: versionId, actor },
+  });
+export const listValuationConsensusImports = () => intelligenceFetch('/valuation-consensus/imports');
+export const listValuationConsensusVersions = () =>
+  intelligenceFetch('/valuation-consensus/versions');
+export const exportValuationConsensusSnapshot = () =>
+  intelligenceFetch('/valuation-consensus/export', { timeoutMs: 120_000 });
