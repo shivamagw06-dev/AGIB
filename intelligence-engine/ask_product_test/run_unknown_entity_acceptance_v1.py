@@ -3,12 +3,10 @@
 
 from __future__ import annotations
 
-import json
 import os
 from datetime import datetime, timezone
-from pathlib import Path
 
-from ask_product_test.harness import AskProductHarness, _artifacts_dir
+from ask_product_test.harness import AskProductHarness, write_artifact
 from ask_product_test.unknown_entity_acceptance_v1 import (
     UNKNOWN_ENTITY_CASES,
     evaluate_unknown_case,
@@ -37,11 +35,7 @@ def main() -> int:
         "release_decision": "PASS" if passed == len(rows) else "FAIL",
         "questions": rows,
     }
-    out = Path("/workspace/artifacts")
-    out.mkdir(parents=True, exist_ok=True)
-    text = json.dumps(report, indent=2) + "\n"
-    (out / "unknown_entity_acceptance_v1.json").write_text(text, encoding="utf-8")
-    (_artifacts_dir() / "unknown_entity_acceptance_v1.json").write_text(text, encoding="utf-8")
+    write_artifact("unknown_entity_acceptance_v1.json", report)
     print(f"\n[unknown_entity] {passed}/{len(rows)} decision={report['release_decision']}", flush=True)
     return 0 if report["release_decision"] == "PASS" else 1
 

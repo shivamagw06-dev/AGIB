@@ -6,7 +6,6 @@ Exit 0 iff pass rate ≥ 90%. Writes /workspace/artifacts/bi_integration_accepta
 
 from __future__ import annotations
 
-import json
 import os
 import sys
 from datetime import datetime, timezone
@@ -22,6 +21,7 @@ from ask_product_test.bi_integration_acceptance_v1 import (  # noqa: E402
     BI_INTEGRATION_CASES,
     evaluate_bi_integration_case,
 )
+from ask_product_test.harness import write_artifact  # noqa: E402
 from business_intelligence.foundation.production import health as bi_health  # noqa: E402
 from knowledge_unification.production import plan_and_gather  # noqa: E402
 from knowledge_unification.registry import KnowledgeRegistry  # noqa: E402
@@ -91,11 +91,7 @@ def main() -> int:
         ),
         "questions": rows,
     }
-    out = Path("/workspace/artifacts")
-    out.mkdir(parents=True, exist_ok=True)
-    (out / "bi_integration_acceptance_v1.json").write_text(
-        json.dumps(report, indent=2) + "\n", encoding="utf-8"
-    )
+    write_artifact("bi_integration_acceptance_v1.json", report)
     print(
         f"\n[bi_integration_v1] {passed}/{len(rows)} ({rate}%) decision={report['release_decision']}",
         flush=True,

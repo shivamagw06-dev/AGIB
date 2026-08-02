@@ -67,6 +67,10 @@ cd intelligence-engine
 ASK_TEST_MODE=inprocess python3 -m ask_product_test.run_production_regression_v1 --with-afi
 ```
 
-**Phase 3.0 freeze gate:** full production regression including AFI must be PASS.
-Do not start Industry Intelligence until that gate is green.
+**Phase 3.0 is frozen into AGI Core v1.0.** See `docs/AGI_CORE_V1_0.md`.
+
+Permanent merge policy: every future PR must PASS the Production Release Gate
+(`.github/workflows/production-regression.yml`). Industry Intelligence and later
+phases build on this baseline; they must not change Core expected behavior
+without a deliberate Core version bump.
 See `ask_product_test/PRODUCTION_REGRESSION_V1.md`.

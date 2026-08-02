@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import json
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -12,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from ask_product_test.harness import write_artifact
 from ask_product_test.kul_acceptance_v1 import KUL_ACCEPTANCE_60, evaluate_kul_case
 from knowledge_unification.production import plan_and_gather
 
@@ -48,9 +48,7 @@ def main() -> int:
         "release_decision": "PASS" if passed == len(rows) else "FAIL",
         "questions": rows,
     }
-    out = Path("/workspace/artifacts")
-    out.mkdir(parents=True, exist_ok=True)
-    (out / "kul_acceptance_v1.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    write_artifact("kul_acceptance_v1.json", report)
     print(
         f"\n[kul_acceptance_v1] {passed}/{len(rows)} ({report['pass_rate_pct']}%) "
         f"decision={report['release_decision']}",

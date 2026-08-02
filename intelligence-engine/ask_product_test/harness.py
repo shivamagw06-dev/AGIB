@@ -36,10 +36,20 @@ def _artifacts_dir() -> Path:
     return path
 
 
+def write_artifact(filename: str, report: Dict[str, Any]) -> Path:
+    """Write acceptance artifact to ASK_TEST_ARTIFACTS (and /workspace mirror if present)."""
+    text = json.dumps(report, indent=2, default=str) + "\n"
+    primary = _artifacts_dir() / filename
+    primary.write_text(text, encoding="utf-8")
+    if Path("/workspace").exists():
+        mirror = Path("/workspace/artifacts")
+        mirror.mkdir(parents=True, exist_ok=True)
+        (mirror / filename).write_text(text, encoding="utf-8")
+    return primary
+
+
 def write_report(report: Dict[str, Any], filename: str = "ask_test_report.json") -> Path:
-    out = _artifacts_dir() / filename
-    out.write_text(json.dumps(report, indent=2, default=str) + "\n", encoding="utf-8")
-    return out
+    return write_artifact(filename, report)
 
 
 def print_health_summary(report: Dict[str, Any]) -> None:

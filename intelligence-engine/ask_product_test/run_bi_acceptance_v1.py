@@ -6,7 +6,6 @@ Does NOT call Ask. Exit 0 iff pass rate ≥ 95%.
 
 from __future__ import annotations
 
-import json
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -16,6 +15,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from ask_product_test.bi_acceptance_v1 import BI_ACCEPTANCE_100, evaluate_bi_case
+from ask_product_test.harness import write_artifact
 from business_intelligence.foundation.production import analyse, health
 
 
@@ -57,9 +57,7 @@ def main() -> int:
         "release_decision": "PASS" if rate >= 95.0 else "FAIL",
         "questions": rows,
     }
-    out = Path("/workspace/artifacts")
-    out.mkdir(parents=True, exist_ok=True)
-    (out / "bi_acceptance_v1.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    write_artifact("bi_acceptance_v1.json", report)
     print(
         f"\n[bi_acceptance_v1] {passed}/{len(rows)} ({rate}%) decision={report['release_decision']}",
         flush=True,
