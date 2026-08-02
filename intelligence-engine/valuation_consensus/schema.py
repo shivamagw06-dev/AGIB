@@ -188,38 +188,25 @@ PREFIX_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"^research coverage"), "coverage"),
 )
 
-NSE_SECTOR_CARDS: tuple[str, ...] = (
-    "Banking",
-    "IT Services",
-    "Auto",
-    "Healthcare",
-    "Consumer",
+# Capital IQ "Primary Sector" values are GICS sectors — these are the exact
+# labels present in the export, so cards match rows one-for-one (no fuzzy
+# "Consumer" bucket double-counting Discretionary + Staples).
+SECTOR_CARDS: tuple[str, ...] = (
+    "Communication Services",
+    "Consumer Discretionary",
+    "Consumer Staples",
+    "Energy",
+    "Financials",
+    "Health Care",
     "Industrials",
-    "Capital Goods",
-    "Power",
-    "Utilities",
-    "Chemicals",
-    "Oil & Gas",
-    "Telecom",
-    "Media",
-    "Retail",
+    "Information Technology",
+    "Materials",
     "Real Estate",
-    "Insurance",
-    "NBFC",
-    "Metals",
-    "Mining",
-    "Infrastructure",
-    "Textiles",
-    "Agriculture",
-    "Shipping",
-    "Logistics",
-    "Aviation",
-    "Diagnostics",
-    "Pharma",
-    "Hospitals",
-    "FMCG",
-    "Internet",
+    "Utilities",
 )
+
+# Back-compat alias — older imports referenced the NSE-style card list.
+NSE_SECTOR_CARDS = SECTOR_CARDS
 
 
 def normalize_header(header: Any) -> str:

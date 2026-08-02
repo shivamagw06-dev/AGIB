@@ -2119,21 +2119,13 @@ export default function createIntelligenceRouter() {
   // Valuation Intelligence — Institutional Consensus Dashboard (Capital IQ)
   router.get('/valuation-consensus/health', kfGet('/v1/valuation-consensus/health'));
   router.get('/valuation-consensus/analytics', kfGet('/v1/valuation-consensus/analytics'));
-  router.get('/valuation-consensus/rows', async (req, res) => {
-    try {
-      const qs = new URLSearchParams(req.query || {}).toString();
-      const result = await engineFetch(`/v1/valuation-consensus/rows${qs ? `?${qs}` : ''}`);
-      res.json(result);
-    } catch (err) {
-      res.status(502).json({ error: err.message || 'valuation-consensus rows failed' });
-    }
-  });
+  router.get('/valuation-consensus/rows', kfGet('/v1/valuation-consensus/rows'));
   router.get('/valuation-consensus/company/:ticker', async (req, res) => {
     try {
       const result = await engineFetch(
         `/v1/valuation-consensus/company/${encodeURIComponent(req.params.ticker)}`
       );
-      res.json(result);
+      res.status(result.status).json(result.data);
     } catch (err) {
       res.status(502).json({ error: err.message || 'valuation-consensus company failed' });
     }
@@ -2145,7 +2137,7 @@ export default function createIntelligenceRouter() {
         body: req.body || {},
         timeoutMs: 300_000,
       });
-      res.json(result);
+      res.status(result.status).json(result.data);
     } catch (err) {
       res.status(502).json({ error: err.message || 'valuation-consensus import preview failed' });
     }
@@ -2155,9 +2147,9 @@ export default function createIntelligenceRouter() {
       const result = await engineFetch('/v1/valuation-consensus/import/validate', {
         method: 'POST',
         body: req.body || {},
-        timeoutMs: 60_000,
+        timeoutMs: 120_000,
       });
-      res.json(result);
+      res.status(result.status).json(result.data);
     } catch (err) {
       res.status(502).json({ error: err.message || 'valuation-consensus import validate failed' });
     }
@@ -2167,9 +2159,9 @@ export default function createIntelligenceRouter() {
       const result = await engineFetch('/v1/valuation-consensus/import/publish', {
         method: 'POST',
         body: req.body || {},
-        timeoutMs: 120_000,
+        timeoutMs: 180_000,
       });
-      res.json(result);
+      res.status(result.status).json(result.data);
     } catch (err) {
       res.status(502).json({ error: err.message || 'valuation-consensus import publish failed' });
     }
@@ -2181,7 +2173,7 @@ export default function createIntelligenceRouter() {
         body: req.body || {},
         timeoutMs: 60_000,
       });
-      res.json(result);
+      res.status(result.status).json(result.data);
     } catch (err) {
       res.status(502).json({ error: err.message || 'valuation-consensus import rollback failed' });
     }
@@ -2191,7 +2183,7 @@ export default function createIntelligenceRouter() {
   router.get('/valuation-consensus/export', async (req, res) => {
     try {
       const result = await engineFetch('/v1/valuation-consensus/export', { timeoutMs: 120_000 });
-      res.json(result);
+      res.status(result.status).json(result.data);
     } catch (err) {
       res.status(502).json({ error: err.message || 'valuation-consensus export failed' });
     }
@@ -2203,7 +2195,7 @@ export default function createIntelligenceRouter() {
         body: req.body || {},
         timeoutMs: 300_000,
       });
-      res.json(result);
+      res.status(result.status).json(result.data);
     } catch (err) {
       res.status(502).json({ error: err.message || 'valuation-consensus seed failed' });
     }

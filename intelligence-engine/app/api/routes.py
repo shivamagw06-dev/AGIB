@@ -9915,7 +9915,7 @@ async def valuation_consensus_rows(
     q: str = "",
     page: int = 1,
     page_size: int = 50,
-    sort: str = "market_cap",
+    sort: str = "coverage",
     sort_dir: str | None = None,
     sector: str | None = None,
     industry: str | None = None,
