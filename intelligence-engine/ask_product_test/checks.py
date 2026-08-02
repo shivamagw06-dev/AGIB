@@ -106,6 +106,12 @@ def extract_answer_text(payload: Dict[str, Any]) -> str:
         seen_why.add(wn_low)
         why_parts.append(wn)
     why_text = " ".join(why_parts)
+    # Keep scoring text within the executive-quality length band. Soft-provider
+    # dumps must not dominate the visible answer used for acceptance gates.
+    if why_text and lead:
+        budget = max(0, 1100 - len(lead) - 1)
+        if len(why_text) > budget:
+            why_text = why_text[:budget].rsplit(" ", 1)[0].rstrip()
     parts = [p for p in (lead, why_text) if p]
     return " ".join(parts)
 

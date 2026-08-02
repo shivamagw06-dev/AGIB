@@ -191,20 +191,52 @@ def fuse(
     why: list[str] = []
     evidence: list[dict[str, Any]] = []
     seen_why: set[str] = set()
+    hard_ids = {
+        "financial_foundations",
+        "financial_statement_intelligence",
+        "financial_concepts",
+        "business_intelligence",
+        "capiq_ikt",
+    }
+    soft_ids = {"academy", "legacy_kip", "cgl", "ikl", "knowledge_factory", "company_memory"}
+    has_hard = any(r.provider_id in hard_ids for r in used)
+
+    def _append_why(line: str, *, max_len: int = 280) -> None:
+        norm = " ".join((line or "").split()).strip()
+        if not norm or norm in seen_why:
+            return
+        if len(norm) > max_len:
+            norm = norm[: max_len - 1].rstrip() + "…"
+        seen_why.add(norm)
+        why.append(norm)
+
+    # Prefer hard-provider why; soft academy/book lines only fill gaps and stay short.
     for r in used:
+        if r.provider_id in soft_ids and has_hard:
+            continue
         for line in r.why:
-            norm = line.strip()
-            if not norm or norm in seen_why:
+            _append_why(line)
+            if len(why) >= 6:
+                break
+        if len(why) >= 6:
+            break
+    if len(why) < 3:
+        for r in used:
+            if r.provider_id not in soft_ids:
                 continue
-            seen_why.add(norm)
-            why.append(norm)
+            for line in r.why[:1]:
+                _append_why(line, max_len=160)
+            if len(why) >= 4:
+                break
+    for r in used:
         for ev in r.evidence:
             if ev and ev not in evidence:
                 evidence.append(ev)
 
-    # Annotate multi-source fusion in why when more than one provider contributed.
+    # Compact multi-source annotation — do not dump provider dumps into the lead.
     if len(used) >= 2:
         why.insert(0, "Sources fused: " + ", ".join(r.provider_id for r in used) + ".")
+        why = why[:7]
 
     diagnostics = {
         "plan": plan.to_dict(),
