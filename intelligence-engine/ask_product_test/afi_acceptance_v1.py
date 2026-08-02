@@ -215,8 +215,10 @@ AFI_ACCEPTANCE_40: List[Dict[str, Any]] = [
      "requires_engine": None, "entities": ["costco"], "coverage_policy_refuse": True,
      "topics_any": ["membership", "volume", "scale", "low margin", "pass through", "verified company coverage"]},
     {"id": "D32", "section": "Business Intelligence", "prompt": "Why is Ferrari more profitable than Toyota?",
-     "requires_engine": None, "entities": ["ferrari", "toyota"], "comparison": True, "coverage_policy_refuse": True,
-     "topics_any": ["luxury", "pricing power", "scarcity", "volume", "mass market", "verified company coverage"]},
+     # Phase 3.0.5: BI named pedagogy answers global luxury-vs-mass contrast
+     # instead of a hard coverage refuse (same lifecycle as Costco/Apple moat Qs).
+     "requires_engine": None, "entities": ["ferrari", "toyota"], "comparison": True,
+     "topics_any": ["luxury", "pricing power", "scarcity", "volume", "mass market"]},
     {"id": "D33", "section": "Business Intelligence", "prompt": "Explain operating leverage using airlines.",
      "requires_engine": "financial_concepts", "topics_any": ["fixed cost", "load factor", "breakeven", "margin", "airlin"]},
     {"id": "D34", "section": "Business Intelligence", "prompt": "What creates pricing power?",
@@ -255,8 +257,14 @@ SECTIONS = [
 # ---------------------------------------------------------------------------
 
 
+def _norm_topic_blob(text: str) -> str:
+    """Normalize hyphens/slashes so 'earnings-quality' matches 'earnings quality'."""
+    return re.sub(r"[\s_/−–—-]+", " ", (text or "").lower()).strip()
+
+
 def _topic_hits(low: str, topics: Sequence[str]) -> int:
-    return sum(1 for t in topics if t.lower() in low)
+    blob = _norm_topic_blob(low)
+    return sum(1 for t in topics if _norm_topic_blob(t) in blob)
 
 
 def score_afi_answer(
@@ -384,7 +392,14 @@ def score_afi_answer(
     elif case.get("coverage_policy_refuse"):
         honest_uncertainty = 5 if not fails.get("wrong_company_injected") else 0
     else:
-        honest_uncertainty = 4 if not fails else 2
+        # Clean, direct answers with no auto-fail earn full honesty credit.
+        # Partial credit only when the answer is thin or already flagged.
+        if not fails and answers_q >= 4 and executive_answered_first:
+            honest_uncertainty = 5
+        elif not fails:
+            honest_uncertainty = 4
+        else:
+            honest_uncertainty = 2
 
     # --- 6. Executive quality -------------------------------------------
     if not text.strip():

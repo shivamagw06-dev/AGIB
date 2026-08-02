@@ -47,20 +47,21 @@ class KnowledgeFactoryProvider:
                 or out.get("display")
                 or ""
             )
+            summary_s = str(summary or "").strip()
+            # Stub placeholders must not short-circuit Ask (e.g. "Knowledge Factory object for META").
+            if not summary_s or summary_s.lower().startswith("knowledge factory object"):
+                return empty_result(self.spec.id, t0, "kf_stub_or_empty")
             why = []
             if out.get("sector") or (out.get("identity") or {}).get("sector"):
                 why.append(f"KF sector: {out.get('sector') or (out.get('identity') or {}).get('sector')}.")
-            if summary:
-                why.append(str(summary)[:240])
-            if not summary and not why:
-                return empty_result(self.spec.id, t0, "kf_empty")
+            why.append(summary_s[:240])
             return timed_result(
                 self.spec.id,
                 ok=True,
                 empty=False,
                 confidence=0.75,
                 t0=t0,
-                summary=str(summary)[:400] or f"Knowledge Factory object for {ticker}.",
+                summary=summary_s[:400],
                 why=why[:6],
                 evidence=[{"source": "knowledge_factory", "title": f"company:{ticker}"}],
                 facts=[{"field": "kf_keys", "value": list(out.keys())[:20]}],

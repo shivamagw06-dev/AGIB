@@ -70,20 +70,50 @@ def flatten_text(payload: Any) -> str:
 
 
 def extract_answer_text(payload: Dict[str, Any]) -> str:
+    """Canonical user-facing answer text for scoring.
+
+    SearchView mirrors the same executive into several fields
+    (answer.summary, answer.executive_summary, payload.executive_summary,
+    investment_thesis) and duplicates why at top-level and under answer.
+    Concatenating all of them triple-counts the lead and falsely tanks
+    executive_quality on length. Prefer one lead + one why list.
+    """
     answer = payload.get("answer") if isinstance(payload.get("answer"), dict) else {}
-    parts = [
-        payload.get("executive_summary"),
-        answer.get("executive_summary"),
+    constitution = answer.get("response_constitution") if isinstance(answer.get("response_constitution"), dict) else {}
+    lead_candidates = [
         answer.get("summary"),
+        answer.get("executive_summary"),
         answer.get("direct_answer"),
-        (answer.get("response_constitution") or {}).get("direct_answer")
-        if isinstance(answer.get("response_constitution"), dict)
-        else None,
+        constitution.get("direct_answer") if isinstance(constitution, dict) else None,
+        payload.get("executive_summary"),
         payload.get("investment_thesis"),
-        " ".join(payload.get("why") or []),
-        " ".join(answer.get("why") or []) if isinstance(answer.get("why"), list) else None,
     ]
-    return " ".join(str(p) for p in parts if p)
+    lead = next((str(p).strip() for p in lead_candidates if p and str(p).strip()), "")
+    why_list = answer.get("why") if isinstance(answer.get("why"), list) and answer.get("why") else payload.get("why")
+    # Drop why lines that merely repeat the lead paragraph; dedupe repeats.
+    lead_norm = re.sub(r"\s+", " ", lead).strip().lower() if lead else ""
+    why_parts: List[str] = []
+    seen_why: set[str] = set()
+    for w in (why_list or []):
+        wn = re.sub(r"\s+", " ", str(w)).strip()
+        if not wn:
+            continue
+        wn_low = wn.lower()
+        if wn_low in seen_why:
+            continue
+        if lead_norm and (wn_low == lead_norm or (len(wn) > 40 and wn_low in lead_norm)):
+            continue
+        seen_why.add(wn_low)
+        why_parts.append(wn)
+    why_text = " ".join(why_parts)
+    # Keep scoring text within the executive-quality length band. Soft-provider
+    # dumps must not dominate the visible answer used for acceptance gates.
+    if why_text and lead:
+        budget = max(0, 1100 - len(lead) - 1)
+        if len(why_text) > budget:
+            why_text = why_text[:budget].rsplit(" ", 1)[0].rstrip()
+    parts = [p for p in (lead, why_text) if p]
+    return " ".join(parts)
 
 
 def evidence_count(payload: Dict[str, Any]) -> int:
@@ -316,6 +346,24 @@ def mentions_insufficient_evidence(text: str) -> bool:
     return bool(_INSUFFICIENT_RE.search(text or ""))
 
 
+# Intentional product short-circuits stash a `short_circuit` key inside the
+# degradation dict for orchestration observability. Those paths are successful
+# answers, not degraded fallbacks — do not treat them as degraded unless an
+# explicit failure/fallback marker is also present.
+_INTENTIONAL_SHORT_CIRCUITS = frozenset(
+    {
+        "knowledge_unification",
+        "financial_router",
+        "recommendation_policy",
+        "unknown_entity",
+        "unsupported_coverage_policy",
+        "comparison_entities",
+        "ikt_company_router",
+        "ambiguous_event_clarification",
+    }
+)
+
+
 def is_degraded(payload: Dict[str, Any]) -> bool:
     if payload.get("degraded") is True:
         return True
@@ -325,6 +373,20 @@ def is_degraded(payload: Dict[str, Any]) -> bool:
         return True
     deg = payload.get("degradation")
     if isinstance(deg, dict) and deg:
+        sc = str(deg.get("short_circuit") or "").strip()
+        if sc in _INTENTIONAL_SHORT_CIRCUITS:
+            failure_markers = (
+                "fallback",
+                "error",
+                "unavailable",
+                "timeout",
+                "empty",
+                "node_desk_fallback",
+            )
+            if any(deg.get(k) for k in failure_markers):
+                return True
+            # Pure intentional short-circuit with no failure markers.
+            return False
         return True
     return False
 

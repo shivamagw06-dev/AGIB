@@ -50,6 +50,7 @@ def _evaluate_one(case: Dict[str, Any], payload: Dict[str, Any], *, latency_ms: 
         evidence_count=evidence_n,
         http_status=http_status,
         latency_ms=latency_ms,
+        kul_providers=raw_orch.get("kul_providers_used") or [],
     )
     row["known_pre_existing"] = case.get("known_pre_existing")
     return row

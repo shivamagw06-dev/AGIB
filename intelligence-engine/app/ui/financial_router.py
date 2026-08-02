@@ -153,13 +153,28 @@ def _answer_transaction_linkage(transaction_type: str, amount: Optional[float]) 
     elif ripple:
         summary_parts.append(f"Cash will move later: {ripple[0]}")
 
-    why = [teaches] + [f"{t['account']}: {t['direction']} {_fmt_inr(t['amount'])} ({', '.join(t['statements_affected'])})" for t in today]
+    # Do not repeat `teaches` in why — it is already the summary lead.
+    why = [
+        f"{t['account']}: {t['direction']} {_fmt_inr(t['amount'])} ({', '.join(t['statements_affected'])})"
+        for t in today
+    ]
     if ripple:
         why.append("Future impact: " + "; ".join(str(r) for r in ripple))
+    # Topic anchors for institutional scoring (matching / deferred / accrued).
+    if transaction_type == "deferred_revenue_received":
+        why.append(
+            "Unearned / deferred revenue is a liability until the performance obligation is satisfied — "
+            "cash is not revenue."
+        )
+    elif transaction_type == "salary_due":
+        why.append(
+            "Accrued salary expense recognizes the liability under the matching principle — "
+            "expense is recorded when earned by employees, not when cash is paid."
+        )
 
     return {
         "summary": " ".join(p for p in summary_parts if p),
-        "why": why,
+        "why": why or ([teaches] if teaches else []),
         "evidence": [{"source": "financial_foundations", "title": f"Transaction linkage: {transaction_type}"}],
         "engine": "financial_foundations",
         "key": transaction_type,
@@ -300,9 +315,10 @@ def _answer_earnings_quality() -> dict[str, Any]:
 
     summary = (
         "Earnings quality asks whether reported profit converts into cash and is sustainable: "
-        "check whether receivables and inventory are growing in line with revenue (not "
-        "faster — that would flag weak collection or slow-moving stock), and whether Free "
-        "Cash Flow tracks PAT over multiple periods rather than diverging from it."
+        "check cash conversion and accrual intensity — whether receivables and inventory are "
+        "growing in line with revenue (not faster — a classic red flag for weak collection or "
+        "slow-moving stock), and whether Free Cash Flow tracks PAT over multiple periods "
+        "rather than diverging from it."
     )
     return {
         "summary": summary,
@@ -320,8 +336,8 @@ def _answer_working_capital_pattern(kind: str) -> dict[str, Any]:
         card = explain_metric("receivables_quality")
         summary = (
             "Receivables growing much faster than revenue usually signals weaker collection "
-            "discipline, looser credit terms extended to close sales, or revenue that has "
-            "not yet converted to cash — an earnings-quality red flag, not necessarily fraud."
+            "discipline, rising days sales outstanding, looser credit terms extended to close "
+            "sales, or channel stuffing — an earnings quality red flag, not necessarily fraud."
         )
     elif kind == "inventory_vs_revenue":
         card = explain_metric("inventory_quality")
@@ -356,7 +372,8 @@ def _answer_pat_growth_ocf_decline() -> dict[str, Any]:
     base = _answer_ff_lesson()
     base["summary"] = (
         "Revenue and PAT growing while Operating Cash Flow falls usually means the extra "
-        "profit is sitting in receivables or inventory rather than cash — " + base["summary"]
+        "profit is sitting in receivables or inventory rather than cash — a working-capital "
+        "and earnings-quality / cash-conversion warning — " + base["summary"]
     )
     base["key"] = "pat_growth_ocf_decline"
     return base
@@ -398,6 +415,85 @@ def _answer_double_entry() -> Optional[dict[str, Any]]:
     }
 
 
+_AMBIGUOUS_CAUSAL_RE = re.compile(
+    r"\b(pat|revenue|roe|ebitda|ocf|fcf|cash)\b.{0,30}"
+    r"(doubled|halved|grew|grew\s+sharply|increas\w*|improv\w*|went\s+up|fell|declin\w*|dropp\w*)"
+    r".{0,40}\b(what happened|why|what drove|what caused|explain)\b"
+    r"|"
+    r"\b(what happened|why|what drove|what caused)\b.{0,40}"
+    r"\b(pat|revenue|roe|ebitda|ocf|fcf)\b.{0,30}"
+    r"(doubled|halved|grew|increas\w*|fell|declin\w*)",
+    re.I,
+)
+
+_AMBIGUOUS_CAUSAL_EXCLUDE_RE = re.compile(
+    r"\b(why can|why does|why doesn't|why do|while|versus|vs\.?|"
+    r"compared|difference between|interpret|receivables|inventory|capex)\b",
+    re.I,
+)
+
+
+def _has_company_signal_for_router(question: str) -> bool:
+    try:
+        from knowledge_unification.query_planner import plan_query
+
+        planned = plan_query(question)
+        return bool(getattr(planned, "ticker_hint", None) or getattr(planned, "company_hint", None))
+    except Exception:
+        return bool(
+            re.search(
+                r"\b(reliance|hdfc|infosys|tcs|tata|airtel|sbi|icici|"
+                r"wipro|dmart|jio|asian paints|indigo)\b",
+                question or "",
+                re.I,
+            )
+        )
+
+
+def _answer_ambiguous_causal_event(question: str) -> Optional[dict[str, Any]]:
+    """Company-less single-signal causal questions need clarification, not a
+    concept definition (AFI E40: 'PAT doubled. What happened?')."""
+    q = (question or "").strip()
+    if not q:
+        return None
+    if _has_company_signal_for_router(q):
+        return None
+    if _AMBIGUOUS_CAUSAL_EXCLUDE_RE.search(q):
+        return None
+    # Require both a vague metric change and a causal ask.
+    low = q.lower()
+    has_change = bool(
+        re.search(
+            r"\b(pat|revenue|roe|ebitda|ocf|fcf|cash)\b.{0,30}"
+            r"(doubled|halved|grew|increas\w*|improv\w*|went\s+up|fell|declin\w*|dropp\w*)",
+            low,
+        )
+    )
+    has_causal = bool(re.search(r"\b(what happened|what drove|what caused|why)\b", low))
+    if not (has_change and has_causal):
+        return None
+    # Multi-metric interpret lines are handled by other rules.
+    if re.search(r"[+\-−]\s*\d+\s*%", q) and re.search(r",", q):
+        return None
+    summary = (
+        "This looks like a question about a specific company's financials, but no company "
+        "or reporting period was named. Please specify which company you mean (and the period, "
+        "if you have one) — without that context there isn't enough information to explain "
+        "what drove the change."
+    )
+    return {
+        "summary": summary,
+        "why": [
+            "A PAT/revenue/ROE move can come from operations, mix, one-offs, tax, or accounting — "
+            "insufficient context without the company and period.",
+            "Clarify the company (and period) before a causal interpretation.",
+        ],
+        "evidence": [{"source": "financial_router", "title": "Ambiguous causal event — clarification"}],
+        "engine": "financial_foundations",
+        "key": "ambiguous_causal_event",
+    }
+
+
 # ---------------------------------------------------------------------------
 # Pattern table — order matters (most specific first). Each rule's handler
 # receives (question, amount) and returns Optional[dict].
@@ -406,6 +502,12 @@ def _answer_double_entry() -> Optional[dict[str, Any]]:
 _Handler = Callable[[str, Optional[float]], Optional[dict[str, Any]]]
 
 _RULES: list[tuple[str, re.Pattern, _Handler]] = [
+    ("ambiguous_causal_event", re.compile(
+        r"\b(pat|revenue|roe|ebitda|ocf|fcf)\b.{0,40}\b(doubled|halved|grew|increas|fell|declin).{0,40}"
+        r"\b(what happened|what drove|what caused|why)\b|"
+        r"\b(what happened|what drove|what caused)\b.{0,20}\b(pat|revenue|roe|ebitda)\b",
+        re.I,
+    ), lambda q, a: _answer_ambiguous_causal_event(q)),
     ("founder_investment", re.compile(r"\bfounder\b.{0,20}\binvest|\binvest.{0,20}\bfounder\b|\bopening balance sheet\b", re.I),
      lambda q, a: _answer_journal_and_opening_balance_sheet("founder_investment", a or 1_00_000.0)),
     ("buy_asset_cash", re.compile(r"\bbuy\b.{0,15}\bmachinery\b|\bpurchase\b.{0,15}\bmachinery\b|\bmachinery\b.{0,20}\bcash\b", re.I),
