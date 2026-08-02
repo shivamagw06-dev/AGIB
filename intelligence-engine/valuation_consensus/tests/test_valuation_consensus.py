@@ -147,7 +147,7 @@ def test_kul_provider_surfaces_market_consensus(tmp_store):
     )
     result = provider.consult(plan)
     assert result.ok and not result.empty
-    assert "Market Consensus" in " ".join(result.why)
+    assert "market consensus" in " ".join(result.why).lower()
     assert any(f.get("field") == "consensus_target" for f in result.facts)
     assert result.raw.get("layer") == "market_consensus"
     blob = (result.summary + " " + " ".join(result.why)).lower()

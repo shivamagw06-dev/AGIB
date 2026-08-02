@@ -117,6 +117,26 @@ _INDUSTRY_RE = re.compile(
     r"industry dna|industry kpi)\b",
     re.I,
 )
+# Sell-side / broker consensus — Capital IQ market data, answered from the
+# valuation_consensus store rather than AGI's own analytical engines.
+_CONSENSUS_RE = re.compile(
+    r"\b(consensus|analyst consensus|street (?:view|estimate|target)|sell[- ]side|"
+    r"broker (?:estimate|consensus|recommendation|rating|coverage)|brokerages?|"
+    r"target price|price target|consensus target|mean target|"
+    r"analyst (?:target|rating|recommendation|coverage|estimate|opinion)|"
+    r"how many (?:analysts?|brokers?)|analysts? cover|coverage count|"
+    r"buy(?:/| |,| and )?(?:hold|sell)(?: |/|,|and )*(?:sell|ratings?|recommendations?)|"
+    r"buy ratings?|sell ratings?|hold ratings?|outperform ratings?|"
+    r"upside to target|potential upside|implied upside|consensus upside)\b",
+    re.I,
+)
+# Market-wide consensus screens ("highest upside", "most covered") — no ticker.
+_CONSENSUS_SCREEN_RE = re.compile(
+    r"\b(highest|lowest|most|least|top|best|worst|widest|biggest)\b.{0,40}"
+    r"\b(upside|target|coverage|covered|buy|sell|hold|consensus|conviction)\b|"
+    r"\b(upside|coverage|covered|consensus)\b.{0,30}\b(across|in the|by sector|universe|market)\b",
+    re.I,
+)
 _MACRO_RE = re.compile(r"\b(macro|gdp|inflation|interest rate|rbi|fed|risk premium|country premium)\b", re.I)
 _MARKET_RE = re.compile(r"\b(price|return|returns|market cap|volume|earnings date|ytd)\b", re.I)
 _PORTFOLIO_RE = re.compile(
@@ -364,6 +384,8 @@ def plan_query(question: str) -> QueryPlan:
             types.append("industry")
     if _INDUSTRY_RE.search(q) or _INDUSTRY_NAME_RE.search(q):
         types.append("industry")
+    if _CONSENSUS_RE.search(q) or _CONSENSUS_SCREEN_RE.search(q):
+        types.insert(0, "consensus")
     if _MACRO_RE.search(q):
         types.append("macro")
     if _MARKET_RE.search(q):
@@ -387,6 +409,7 @@ def plan_query(question: str) -> QueryPlan:
                 "investment",
                 "research",
                 "portfolio",
+                "consensus",
             }
         )
     )
@@ -406,6 +429,7 @@ def plan_query(question: str) -> QueryPlan:
         or _INDUSTRY_RE.search(q)
         or _MARKET_RE.search(q)
         or _NEWS_RE.search(q)
+        or _CONSENSUS_RE.search(q)
     )
     # Reject ticker collisions from finance vocabulary (premium pricing → PREMIUM).
     if ticker and str(ticker).upper() in {

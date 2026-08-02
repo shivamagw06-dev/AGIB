@@ -18,6 +18,7 @@ QUESTION_TYPES = (
     "comparison",
     "business_risk",
     "valuation",
+    "consensus",
     "macro",
     "market",
     "portfolio",

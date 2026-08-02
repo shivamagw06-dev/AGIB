@@ -48,6 +48,16 @@ _MACRO_RE = re.compile(
     r"\b(macro|gdp|inflation|interest rate|rbi|fed|currency|usd|inr|macro outlook)\b",
     re.I,
 )
+# Universe-wide sell-side consensus screens ("which stocks have the highest
+# consensus upside") name no company by design — there is no entity to verify,
+# so they are a market-data route rather than an unsupported entity.
+_CONSENSUS_SCREEN_RE = re.compile(
+    r"\b(highest|lowest|most|least|top|best|worst|widest|biggest|rank|ranked|list)\b"
+    r"[^?]{0,60}?"
+    r"\b(consensus|target price|price target|upside|analyst coverage|covered|"
+    r"coverage|buy ratings?|sell ratings?|hold ratings?|analysts?|brokers?)\b",
+    re.I,
+)
 _COMPANY_SHAPE_RE = re.compile(
     r"\b(company|business model|investment thesis|ticker|stock|share|"
     r"annual report|earnings|management|guidance|market cap|valuation for)\b",
@@ -361,6 +371,21 @@ def resolve(question: str) -> dict[str, Any]:
             "allow_planner": True,
             "ticker": None,
             "summary": "Verified financial/business concept route (no company bind).",
+            "version": EI_VERSION,
+        }
+    # Market-wide consensus screen: no company named, nothing to disambiguate.
+    if _CONSENSUS_SCREEN_RE.search(q) and not bare and not _find_entity_in_text(q)[0]:
+        return {
+            "ok": True,
+            "state": STATE_VERIFIED_CONCEPT,
+            "confidence": 0.95,
+            "allow_planner": True,
+            "ticker": None,
+            "summary": "Verified market-consensus screen route (universe query, no company bind).",
+            "why": [
+                "Question ranks the consensus universe rather than naming one company.",
+                "Answered from Capital IQ market consensus — never an AGI buy/sell call.",
+            ],
             "version": EI_VERSION,
         }
 
