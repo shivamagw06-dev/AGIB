@@ -40,7 +40,7 @@ function engineConfig() {
   return { baseUrl, token };
 }
 
-async function engineFetch(path, { method = 'GET', body = null, timeoutMs = 120_000 } = {}) {
+async function engineFetch(path, { method = 'GET', body = null, timeoutMs = 120_000, headers = null } = {}) {
   const { baseUrl, token } = engineConfig();
   const response = await fetch(`${baseUrl}${path}`, {
     method,
@@ -49,6 +49,7 @@ async function engineFetch(path, { method = 'GET', body = null, timeoutMs = 120_
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
       'X-AGI-Intelligence-Token': token,
+      ...(headers || {}),
     },
     body: body ? JSON.stringify(body) : undefined,
     signal: AbortSignal.timeout(timeoutMs),
@@ -7217,6 +7218,98 @@ export default function createIntelligenceRouter() {
     }
     return res.status(200).json(out);
   });
+
+  // ---------------------------------------------------------------------
+  // AGI Institutional Data Warehouse (admin workspace)
+  // ---------------------------------------------------------------------
+
+  const warehouseActor = (req) =>
+    String(
+      req.get?.('X-AGI-Actor') ||
+        req.body?.actor ||
+        req.query?.actor ||
+        'admin',
+    ).slice(0, 200);
+
+  const warehouseGet = (buildPath) => async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query || {}).toString();
+      const target = typeof buildPath === 'function' ? buildPath(req) : buildPath;
+      const result = await engineFetch(`${target}${qs ? `?${qs}` : ''}`, {
+        timeoutMs: 120_000,
+        headers: { 'X-AGI-Actor': warehouseActor(req) },
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Data warehouse unavailable', detail: error.message });
+    }
+  };
+
+  const warehousePost = (buildPath, timeoutMs = 180_000) => async (req, res) => {
+    try {
+      const target = typeof buildPath === 'function' ? buildPath(req) : buildPath;
+      const result = await engineFetch(target, {
+        method: 'POST',
+        body: req.body || {},
+        timeoutMs,
+        headers: { 'X-AGI-Actor': warehouseActor(req) },
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Data warehouse unavailable', detail: error.message });
+    }
+  };
+
+  const encode = (value) => encodeURIComponent(String(value || ''));
+
+  router.get('/warehouse/health', warehouseGet('/v1/warehouse/health'));
+  router.get('/warehouse/workbook', warehouseGet('/v1/warehouse/workbook'));
+  router.get('/warehouse/stats', warehouseGet('/v1/warehouse/stats'));
+  router.get('/warehouse/whoami', warehouseGet('/v1/warehouse/whoami'));
+  router.get('/warehouse/coverage', warehouseGet('/v1/warehouse/coverage'));
+  router.get('/warehouse/audit', warehouseGet('/v1/warehouse/audit'));
+  router.get('/warehouse/validate', warehouseGet('/v1/warehouse/validate'));
+  router.get('/warehouse/imports', warehouseGet('/v1/warehouse/imports'));
+  router.get('/warehouse/refresh-runs', warehouseGet('/v1/warehouse/refresh-runs'));
+  router.get('/warehouse/scheduler', warehouseGet('/v1/warehouse/scheduler'));
+  router.get('/warehouse/search', warehouseGet('/v1/warehouse/search'));
+  router.get('/warehouse/suggest', warehouseGet('/v1/warehouse/suggest'));
+  router.get('/warehouse/company/:symbol', warehouseGet((req) =>
+    `/v1/warehouse/company/${encode(req.params.symbol)}`));
+
+  router.get('/warehouse/tab/:tabId/schema', warehouseGet((req) =>
+    `/v1/warehouse/tab/${encode(req.params.tabId)}/schema`));
+  router.get('/warehouse/tab/:tabId/export', warehouseGet((req) =>
+    `/v1/warehouse/tab/${encode(req.params.tabId)}/export`));
+  router.get('/warehouse/tab/:tabId/row/:rowId/history', warehouseGet((req) =>
+    `/v1/warehouse/tab/${encode(req.params.tabId)}/row/${encode(req.params.rowId)}/history`));
+  router.get('/warehouse/tab/:tabId/row/:rowId/compare', warehouseGet((req) =>
+    `/v1/warehouse/tab/${encode(req.params.tabId)}/row/${encode(req.params.rowId)}/compare`));
+  router.get('/warehouse/tab/:tabId/row/:rowId', warehouseGet((req) =>
+    `/v1/warehouse/tab/${encode(req.params.tabId)}/row/${encode(req.params.rowId)}`));
+  router.get('/warehouse/tab/:tabId', warehouseGet((req) =>
+    `/v1/warehouse/tab/${encode(req.params.tabId)}`));
+
+  router.post('/warehouse/tab/:tabId/edit', warehousePost((req) =>
+    `/v1/warehouse/tab/${encode(req.params.tabId)}/edit`));
+  router.post('/warehouse/tab/:tabId/row', warehousePost((req) =>
+    `/v1/warehouse/tab/${encode(req.params.tabId)}/row`));
+  router.post('/warehouse/tab/:tabId/clear-override', warehousePost((req) =>
+    `/v1/warehouse/tab/${encode(req.params.tabId)}/clear-override`));
+  router.post('/warehouse/tab/:tabId/delete', warehousePost((req) =>
+    `/v1/warehouse/tab/${encode(req.params.tabId)}/delete`));
+  router.post('/warehouse/tab/:tabId/publish', warehousePost((req) =>
+    `/v1/warehouse/tab/${encode(req.params.tabId)}/publish`));
+  router.post('/warehouse/tab/:tabId/import', warehousePost((req) =>
+    `/v1/warehouse/tab/${encode(req.params.tabId)}/import`, 300_000));
+  router.post('/warehouse/tab/:tabId/map-headers', warehousePost((req) =>
+    `/v1/warehouse/tab/${encode(req.params.tabId)}/map-headers`, 30_000));
+  router.post('/warehouse/tab/:tabId/row/:rowId/restore', warehousePost((req) =>
+    `/v1/warehouse/tab/${encode(req.params.tabId)}/row/${encode(req.params.rowId)}/restore`));
+  router.post('/warehouse/import/:importId/commit', warehousePost((req) =>
+    `/v1/warehouse/import/${encode(req.params.importId)}/commit`, 300_000));
+  router.post('/warehouse/refresh', warehousePost('/v1/warehouse/refresh', 900_000));
+  router.post('/warehouse/recalculate', warehousePost('/v1/warehouse/recalculate', 600_000));
 
   return router;
 }

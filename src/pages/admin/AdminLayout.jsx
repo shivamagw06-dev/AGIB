@@ -59,6 +59,7 @@ const authorNavItems = [
 
 const navItems = [
   { to: '/admin', label: 'Dashboard', icon: LayoutDashboard, end: true },
+  { to: '/admin/data-warehouse', label: 'Data Warehouse', icon: Database },
   { to: '/admin/intelligence', label: 'Intelligence CMS', icon: Sparkles },
   { to: '/admin/knowledge-operations', label: 'Knowledge Operations', icon: Library },
   { to: '/admin/valuation-intelligence', label: 'Valuation Intelligence', icon: Scale },
