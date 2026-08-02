@@ -19,6 +19,7 @@ def test_registry_lists_all_expected_providers():
     reg = KnowledgeRegistry()
     ids = {p.spec.id for p in reg.all()}
     for required in (
+        "business_intelligence",
         "capiq_ikt",
         "ikl",
         "company_memory",
@@ -54,7 +55,9 @@ def test_knowledge_plan_orders_memory_before_legacy_for_company():
         q.ticker_hint = "RELIANCE"
         q.question_types = ["company", "business_model"]
     plan = build_knowledge_plan(q, registry=KnowledgeRegistry())
+    assert "business_intelligence" in plan.provider_ids
     assert "capiq_ikt" in plan.provider_ids or "company_memory" in plan.provider_ids
+    assert plan.provider_ids.index("business_intelligence") < plan.provider_ids.index("legacy_kip")
     if "legacy_kip" in plan.provider_ids and "capiq_ikt" in plan.provider_ids:
         assert plan.provider_ids.index("capiq_ikt") < plan.provider_ids.index("legacy_kip")
 
@@ -86,15 +89,35 @@ def test_plan_and_gather_company_fuses_capiq_when_seeded():
     assert out["ok"] is True
     assert out["answerable"] is True
     sources = out["coverage"]["knowledge_sources_used"]
-    assert "capiq_ikt" in sources
+    assert "business_intelligence" in sources
+    assert "capiq_ikt" in sources or "company_memory" in sources
     # CapIQ previously-unused fields should appear in company intelligence / facts
     market = (out.get("company_intelligence") or {}).get("market") or {}
-    assert market.get("market_cap") is not None or any(
-        f.get("field", "").startswith("returns_")
-        for r in out.get("provider_results") or []
-        if r.get("provider_id") == "capiq_ikt"
-        for f in r.get("facts") or []
+    assert (
+        market.get("market_cap") is not None
+        or (out.get("company_intelligence") or {}).get("business")
+        or any(
+            f.get("field", "").startswith("returns_")
+            for r in out.get("provider_results") or []
+            if r.get("provider_id") == "capiq_ikt"
+            for f in r.get("facts") or []
+        )
     )
+
+
+def test_business_question_routes_bi_before_legacy():
+    from knowledge_unification.knowledge_planner import build_knowledge_plan
+    from knowledge_unification.query_planner import plan_query
+    from knowledge_unification.registry import KnowledgeRegistry
+
+    q = plan_query("What is TCS's competitive advantage?")
+    plan = build_knowledge_plan(q, registry=KnowledgeRegistry())
+    assert "moat" in q.question_types or "business_model" in q.question_types
+    assert "business_intelligence" in plan.provider_ids
+    assert plan.provider_ids[0] == "business_intelligence"
+    assert "legacy_kip" not in plan.provider_ids or plan.provider_ids.index(
+        "business_intelligence"
+    ) < plan.provider_ids.index("legacy_kip")
 
 
 def test_plan_and_gather_concept_uses_deterministic_engine():

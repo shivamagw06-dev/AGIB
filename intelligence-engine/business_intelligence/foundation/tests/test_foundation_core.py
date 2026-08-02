@@ -13,21 +13,23 @@ if str(ROOT) not in sys.path:
 os.environ.setdefault("IKT_STORE_ROOT", str(ROOT / "data" / "institutional_knowledge_tables"))
 
 
-def test_health_ask_not_wired():
+def test_health_ask_wired_via_kul():
     from business_intelligence.foundation.production import health
 
     h = health()
     assert h["ok"] is True
-    assert h["ask_wired"] is False
+    assert h["ask_wired"] is True
+    assert "knowledge_unification" in (h.get("ask_wired_via") or "")
     assert h["uses_llm"] is False
 
 
-def test_soft_slice_disabled():
+def test_soft_slice_enabled_via_kul():
     from business_intelligence.foundation.production import soft_slice_for_ask_agi
 
     out = soft_slice_for_ask_agi("What is HDFC Bank's business model?")
-    assert out["enabled"] is False
-    assert out["ask_wired"] is False
+    assert out["enabled"] is True
+    assert out["ask_wired"] is True
+    assert out.get("summary")
 
 
 def test_bank_value_drivers():

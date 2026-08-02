@@ -66,6 +66,10 @@ def _coverage(results: list[ProviderResult], used: list[ProviderResult]) -> Cove
     ids = set(sources)
     if "capiq_ikt" not in ids and any(r.provider_id == "capiq_ikt" and r.empty for r in results):
         missing.append("CapIQ company profile unavailable for this entity")
+    if "business_intelligence" not in ids and any(
+        r.provider_id == "business_intelligence" and r.empty for r in results
+    ):
+        missing.append("Business Intelligence foundation returned empty")
     if "company_memory" not in ids and any(r.provider_id == "company_memory" for r in results):
         missing.append("Company memory not populated")
     if "ikl" not in ids and any(r.provider_id == "ikl" for r in results):
@@ -105,10 +109,25 @@ def fuse(
             "academy",
             "legacy_kip",
         )
-    elif qtypes.intersection({"company", "business_model", "industry", "market"}):
+    elif qtypes.intersection(
+        {"business_model", "moat", "unit_economics", "comparison", "business_risk", "industry"}
+    ):
+        preferred_order = (
+            "business_intelligence",
+            "capiq_ikt",
+            "company_memory",
+            "ikl",
+            "knowledge_factory",
+            "cgl",
+            "financial_concepts",
+            "academy",
+            "legacy_kip",
+        )
+    elif qtypes.intersection({"company", "market"}):
         preferred_order = (
             "capiq_ikt",
             "company_memory",
+            "business_intelligence",
             "ikl",
             "knowledge_factory",
             "cgl",

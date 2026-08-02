@@ -1,7 +1,7 @@
-"""Phase 3.0 Business Intelligence Foundation — production facade.
+"""Phase 3.0.5 Business Intelligence Foundation — production facade.
 
-Ask is NOT wired here. Callers use analyse() / module endpoints only after
-the Business Intelligence Acceptance Test passes.
+Ask is wired exclusively through the Knowledge Unification Layer provider
+`business_intelligence` (not a parallel soft-slice short-circuit in service.py).
 """
 
 from __future__ import annotations
@@ -35,6 +35,8 @@ from business_intelligence.foundation.schema import (
 )
 from business_intelligence.foundation.taxonomy import classify_industry
 
+ASK_WIRED_VIA = "knowledge_unification.providers.business_intelligence"
+
 
 def health() -> dict[str, Any]:
     return {
@@ -43,7 +45,8 @@ def health() -> dict[str, Any]:
         "programme": PROGRAMME,
         "version": BI_VERSION,
         "spec": SPEC,
-        "ask_wired": False,
+        "ask_wired": True,
+        "ask_wired_via": ASK_WIRED_VIA,
         "uses_llm": False,
         "fabricated": False,
         "modules": [
@@ -70,12 +73,13 @@ def dashboard() -> dict[str, Any]:
     return {
         "programme": PROGRAMME,
         "version": BI_VERSION,
-        "ask_wired": False,
+        "ask_wired": True,
+        "ask_wired_via": ASK_WIRED_VIA,
         "module_count": len(h["modules"]),
         "industry_template_count": len(h["industry_templates"]),
         "lifecycle_stages": list(LIFECYCLE_STAGES),
         "risk_types": list(RISK_TYPES),
-        "note": "Ask integration deferred until BI Acceptance Test ≥95%.",
+        "note": "Ask consumes BI via KUL provider business_intelligence (Phase 3.0.5).",
         "fabricated": False,
     }
 
@@ -120,11 +124,32 @@ def graph(ticker: str) -> dict[str, Any]:
 
 
 def soft_slice_for_ask_agi(question: str = "", *_args: Any, ticker: Optional[str] = None, **_kwargs: Any) -> dict[str, Any]:
-    """Reserved soft-slice — disabled until acceptance gate passes."""
+    """Ask soft-slice — enabled for diagnostics; production Ask uses KUL.
+
+    Returns a compact BI analyse payload so callers can inspect the same
+    surface KUL's business_intelligence provider consults. Does not bypass
+    coverage / recommendation / unknown-entity policies in UiService.
+    """
+    q = (question or "").strip()
+    if not q:
+        return {
+            "enabled": True,
+            "ask_wired": True,
+            "ask_wired_via": ASK_WIRED_VIA,
+            "reason": "Provide a question to preview BI analyse output.",
+            "fabricated": False,
+        }
+    out = analyse(q, ticker=ticker)
     return {
-        "enabled": False,
-        "ask_wired": False,
-        "reason": "Phase 3.0 Ask integration deferred until BI Acceptance Test ≥95%.",
-        "preview_available_via": "business_intelligence.foundation.production.analyse",
+        "enabled": True,
+        "ask_wired": True,
+        "ask_wired_via": ASK_WIRED_VIA,
+        "summary": out.get("summary") or "",
+        "modules_used": list(out.get("modules_used") or []),
+        "why": list(out.get("why") or []),
+        "confidence": out.get("confidence"),
+        "ticker": out.get("ticker"),
+        "industry": out.get("industry"),
         "fabricated": False,
+        "note": "Production Ask routes BI through knowledge_unification.answer_for_ask.",
     }

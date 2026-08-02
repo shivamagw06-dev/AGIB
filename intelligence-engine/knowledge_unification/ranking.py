@@ -5,6 +5,7 @@ from __future__ import annotations
 from knowledge_unification.schema import ProviderResult
 
 _PRIORITY_BONUS = {
+    "business_intelligence": 0,
     "company_memory": 0,
     "ikl": 1,
     "capiq_ikt": 2,

@@ -86,6 +86,26 @@ def build_company_intelligence(
             if sector:
                 obj["industry"]["sector"] = sector
 
+        elif r.provider_id == "business_intelligence":
+            ticker = ticker or raw.get("ticker")
+            name = name or raw.get("company")
+            if raw.get("industry"):
+                obj["industry"]["key"] = raw.get("industry")
+            bm = raw.get("business_model") or {}
+            if isinstance(bm, dict):
+                if bm.get("business_type"):
+                    obj["business"]["business_type"] = bm.get("business_type")
+                if bm.get("how_it_makes_money"):
+                    obj["business"]["how_it_makes_money"] = bm.get("how_it_makes_money")
+            if raw.get("moat"):
+                obj["business"]["moat"] = raw.get("moat")
+            if raw.get("unit_economics"):
+                obj["business"]["unit_economics"] = raw.get("unit_economics")
+            if raw.get("risks"):
+                obj["risk"]["business_risks"] = raw.get("risks")
+            if r.summary and not obj["business"].get("description"):
+                obj["business"]["description"] = r.summary
+
         elif r.provider_id == "cgl":
             obj["research"]["cgl_extracts"] = (raw.get("extracts") or [])[:5]
 

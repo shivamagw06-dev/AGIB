@@ -15,6 +15,23 @@ _COMPANY_MENU = (
     "cgl",
     "legacy_kip",
 )
+# Phase 3.0.5 — BI first for business-shaped questions, then CapIQ / memory / KF.
+_BUSINESS_MENU = (
+    "business_intelligence",
+    "capiq_ikt",
+    "company_memory",
+    "ikl",
+    "knowledge_factory",
+    "cgl",
+    "legacy_kip",
+)
+_INDUSTRY_CONCEPT_MENU = (
+    "business_intelligence",
+    "knowledge_factory",
+    "financial_concepts",
+    "cgl",
+    "legacy_kip",
+)
 _CONCEPT_MENU = (
     "financial_concepts",
     "financial_foundations",
@@ -40,6 +57,17 @@ _MACRO_MENU = (
     "legacy_kip",
 )
 
+_BUSINESS_TYPES = frozenset(
+    {
+        "business_model",
+        "moat",
+        "unit_economics",
+        "comparison",
+        "business_risk",
+        "industry",
+    }
+)
+
 
 def build_knowledge_plan(
     query: QueryPlan,
@@ -51,13 +79,26 @@ def build_knowledge_plan(
     selected: list[str] = []
     rationale: list[str] = []
 
-    if types.intersection({"company", "business_model", "industry", "market", "news"}) and (
+    business_shaped = bool(types.intersection(_BUSINESS_TYPES))
+
+    if business_shaped and (query.ticker_hint or query.company_hint or "comparison" in types):
+        selected.extend(_BUSINESS_MENU)
+        rationale.append(
+            "Business-shaped question → BI → CapIQ → memory → KF → CGL → legacy fallback."
+        )
+    elif business_shaped:
+        # Industry / unit-economics / moat pedagogy without a ticker bind.
+        selected.extend(_INDUSTRY_CONCEPT_MENU)
+        rationale.append(
+            "Business/industry concept (no company bind) → BI → KF → concepts (no generic retrieval)."
+        )
+    elif types.intersection({"company", "market", "news"}) and (
         query.ticker_hint or query.company_hint
     ):
         selected.extend(_COMPANY_MENU)
         rationale.append("Company-shaped question → memory → CapIQ → KF → CGL → legacy fallback.")
 
-    if types.intersection({"concept"}) and not query.ticker_hint:
+    if types.intersection({"concept"}) and not query.ticker_hint and not business_shaped:
         selected.extend(_CONCEPT_MENU)
         rationale.append("Concept question → deterministic finance engines only (no retrieval default).")
 
@@ -65,7 +106,7 @@ def build_knowledge_plan(
         selected.extend(_ACCOUNTING_MENU)
         rationale.append("Accounting/FSA → foundations + statement intelligence.")
 
-    if types.intersection({"valuation"}):
+    if types.intersection({"valuation"}) and not business_shaped:
         selected.extend(_VALUATION_MENU)
         rationale.append("Valuation → concepts + academy + CapIQ snapshot when company-bound.")
 

@@ -34,10 +34,40 @@ _VALUATION_RE = re.compile(
     re.I,
 )
 _BUSINESS_RE = re.compile(
-    r"\b(business model|how does .+ make money|products?|competitors?|moat|segments?)\b",
+    r"\b(business model|how does .+ make money|how .+ (?:make|makes) money|"
+    r"products?|competitors?|moat|segments?|revenue stream|monetis\w*|monetiz\w*)\b",
     re.I,
 )
-_INDUSTRY_RE = re.compile(r"\b(industry|sector|peers?|competitive landscape)\b", re.I)
+_MOAT_RE = re.compile(
+    r"\b(moat|competitive advantage|pricing power|switching costs?|network effects?|"
+    r"scale advantages?|customer lock[- ]?in|brand moat|distribution moat|"
+    r"licensing moat|why is .+ considered to have a strong moat)\b",
+    re.I,
+)
+_UNIT_ECON_RE = re.compile(
+    r"\b(unit economics|contribution margin|cac|ltv|payback|cash conversion|"
+    r"airline economics|saas unit|fmcg cash)\b",
+    re.I,
+)
+_COMPARISON_RE = re.compile(
+    r"\b(compare|vs\.?|versus|more profitable than|better than|vs)\b",
+    re.I,
+)
+_GROWTH_RE = re.compile(
+    r"\b(what drives growth|growth drivers?|drives growth|growth mode|"
+    r"pricing-led|volume-led|capacity expansion)\b",
+    re.I,
+)
+_BUSINESS_RISK_RE = re.compile(
+    r"\b(biggest risks?|business risks?|why are .+ cyclical|cyclical|"
+    r"concentration risk|commodity risk|regulatory risk)\b",
+    re.I,
+)
+_INDUSTRY_RE = re.compile(
+    r"\b(industry|sector|peers?|competitive landscape|porter|five forces|"
+    r"entry barriers?|supplier power|customer power)\b",
+    re.I,
+)
 _MACRO_RE = re.compile(r"\b(macro|gdp|inflation|interest rate|rbi|fed|risk premium|country premium)\b", re.I)
 _MARKET_RE = re.compile(r"\b(price|return|returns|market cap|volume|earnings date|ytd)\b", re.I)
 _PORTFOLIO_RE = re.compile(r"\b(portfolio|position sizing|allocation|watchlist)\b", re.I)
@@ -70,19 +100,24 @@ def _detect_company_hint(question: str) -> tuple[Optional[str], Optional[str]]:
             company = None
         return company, ticker
 
-    # Alias seed / common names
+    # Alias seed / common names (longest match first)
     aliases = {
-        "reliance": "RELIANCE",
-        "hdfc bank": "HDFCBANK",
-        "infosys": "INFY",
-        "tcs": "TCS",
-        "wipro": "WIPRO",
-        "icici bank": "ICICIBANK",
-        "sbi": "SBIN",
         "state bank of india": "SBIN",
+        "avenue supermarts": "DMART",
+        "asian paints": "ASIANPAINT",
+        "reliance retail": "RELIANCE",
+        "hdfc bank": "HDFCBANK",
+        "icici bank": "ICICIBANK",
+        "reliance": "RELIANCE",
+        "infosys": "INFY",
+        "wipro": "WIPRO",
+        "dmart": "DMART",
+        "tcs": "TCS",
+        "sbi": "SBIN",
+        "ongc": "ONGC",
     }
     low = question.lower()
-    for name, tk in aliases.items():
+    for name, tk in sorted(aliases.items(), key=lambda kv: -len(kv[0])):
         if name in low:
             return name.title(), tk
     return None, None
@@ -92,7 +127,8 @@ _EXPLICIT_COMPANY_ALIASES = (
     "reliance", "hdfc bank", "infosys", "tcs", "wipro", "icici bank", "sbi",
     "state bank of india", "axis bank", "kotak", "tata steel", "tata motors",
     "tata power", "adani", "hmt limited", "goodricke", "utique", "aakaar",
-    "spright agro", "titan company",
+    "spright agro", "titan company", "dmart", "avenue supermarts", "asian paints",
+    "reliance retail", "ongc",
 )
 
 
@@ -172,6 +208,37 @@ def plan_query(question: str) -> QueryPlan:
         types.append("valuation" if _VALUATION_RE.search(q) else "concept")
     if _BUSINESS_RE.search(q):
         types.append("business_model")
+    if _MOAT_RE.search(q):
+        types.append("moat")
+        if "business_model" not in types:
+            types.append("business_model")
+    if _UNIT_ECON_RE.search(q):
+        types.append("unit_economics")
+        if "business_model" not in types:
+            types.append("business_model")
+    if _COMPARISON_RE.search(q) and (
+        _BUSINESS_RE.search(q)
+        or _MOAT_RE.search(q)
+        or _UNIT_ECON_RE.search(q)
+        or _INDUSTRY_RE.search(q)
+        or _GROWTH_RE.search(q)
+        or re.search(
+            r"\b(infosys|tcs|visa|mastercard|dmart|reliance|hdfc|icici|"
+            r"ferrari|toyota|apple|costco|asian paints)\b",
+            q,
+            re.I,
+        )
+    ):
+        types.append("comparison")
+        if "business_model" not in types:
+            types.append("business_model")
+    if _GROWTH_RE.search(q):
+        if "business_model" not in types:
+            types.append("business_model")
+    if _BUSINESS_RISK_RE.search(q):
+        types.append("business_risk")
+        if "industry" not in types:
+            types.append("industry")
     if _INDUSTRY_RE.search(q):
         types.append("industry")
     if _MACRO_RE.search(q):
@@ -182,7 +249,13 @@ def plan_query(question: str) -> QueryPlan:
         types.append("portfolio")
     if _NEWS_RE.search(q):
         types.append("news")
-    if _CONCEPT_RE.search(q) or _FINANCE_TERMS.search(q):
+    # Pedagogy concept detection — skip when already classified as business.
+    business_typed = bool(
+        set(types).intersection(
+            {"business_model", "moat", "unit_economics", "comparison", "business_risk", "industry"}
+        )
+    )
+    if (_CONCEPT_RE.search(q) or _FINANCE_TERMS.search(q)) and not business_typed:
         if "concept" not in types:
             types.append("concept")
 
@@ -192,7 +265,12 @@ def plan_query(question: str) -> QueryPlan:
     # is clearly company-shaped (business model / industry / market / news).
     explicit = _has_explicit_company_signal(q, company_hint=company, ticker_hint=ticker)
     company_shaped = bool(
-        _BUSINESS_RE.search(q) or _INDUSTRY_RE.search(q) or _MARKET_RE.search(q) or _NEWS_RE.search(q)
+        _BUSINESS_RE.search(q)
+        or _MOAT_RE.search(q)
+        or _COMPARISON_RE.search(q)
+        or _INDUSTRY_RE.search(q)
+        or _MARKET_RE.search(q)
+        or _NEWS_RE.search(q)
     )
     if (company or ticker) and not explicit and not company_shaped:
         company, ticker = None, None
