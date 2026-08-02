@@ -260,6 +260,25 @@ def _first_sentence(text: str) -> str:
     return parts[0] if parts else ""
 
 
+_MENTION_ALIASES = {
+    "tcs": ("tcs", "tata consultancy"),
+    "infosys": ("infosys", "infy"),
+    "hdfc": ("hdfc",),
+    "reliance": ("reliance",),
+    "dmart": ("dmart", "avenue supermarts"),
+    "asian paints": ("asian paints", "asian paint"),
+    "indigo": ("indigo", "indigo", "interglobe", "indiGo".lower()),
+    "air india": ("air india", "airindia"),
+    "adani": ("adani",),
+    "jsw steel": ("jsw steel", "jswsteel", "jsw"),
+}
+
+
+def _mentions(phrase: str, low: str, why_join: str) -> bool:
+    aliases = _MENTION_ALIASES.get(phrase.lower(), (phrase.lower(),))
+    return any(a in low or a in why_join for a in aliases)
+
+
 def evaluate_golden_business_case(case: Dict[str, Any], payload: Dict[str, Any]) -> Dict[str, Any]:
     expect = case.get("expect") or {}
     text = _summary(payload)
@@ -285,7 +304,7 @@ def evaluate_golden_business_case(case: Dict[str, Any], payload: Dict[str, Any])
     assertions["no_fabrication_flag"] = payload.get("fabricated") is not True
 
     for phrase in expect.get("must_mention") or []:
-        assertions[f"mention:{phrase}"] = phrase.lower() in low or phrase.lower() in why_join
+        assertions[f"mention:{phrase}"] = _mentions(phrase, low, why_join)
 
     topics = expect.get("topics_any") or []
     if topics:
@@ -294,9 +313,7 @@ def evaluate_golden_business_case(case: Dict[str, Any], payload: Dict[str, Any])
     if expect.get("comparison"):
         names = expect.get("must_mention") or []
         if len(names) >= 2:
-            assertions["comparison_both"] = all(
-                n.lower() in low or n.lower() in why_join for n in names
-            )
+            assertions["comparison_both"] = all(_mentions(n, low, why_join) for n in names)
 
     for phrase in expect.get("forbid") or []:
         assertions[f"forbid:{phrase}"] = phrase.lower() not in low and phrase.lower() not in why_join

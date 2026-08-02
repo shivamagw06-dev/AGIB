@@ -54,8 +54,16 @@ _COMPARISON_RE = re.compile(
     re.I,
 )
 _GROWTH_RE = re.compile(
-    r"\b(what drives growth|growth drivers?|drives growth|growth mode|"
+    r"\b(what drives growth|growth drivers?|drives growth|growth modes?|"
     r"pricing-led|volume-led|capacity expansion)\b",
+    re.I,
+)
+_VALUE_DRIVER_RE = re.compile(
+    r"\b(value drivers?|key drivers?|what drives)\b",
+    re.I,
+)
+_MANAGEMENT_RE = re.compile(
+    r"\b(management quality|capital allocat\w*|governance|shareholder friendl)\b",
     re.I,
 )
 _BUSINESS_RISK_RE = re.compile(
@@ -111,11 +119,13 @@ def _detect_company_hint(question: str) -> tuple[Optional[str], Optional[str]]:
         "axis bank": "AXISBANK",
         "jsw steel": "JSWSTEEL",
         "interglobe": "INDIGO",
+        "adani enterprises": "ADANIENT",
         "reliance": "RELIANCE",
         "infosys": "INFY",
         "wipro": "WIPRO",
         "dmart": "DMART",
         "indigo": "INDIGO",
+        "adani": "ADANIENT",
         "tcs": "TCS",
         "sbi": "SBIN",
         "ongc": "ONGC",
@@ -226,9 +236,11 @@ def plan_query(question: str) -> QueryPlan:
         or _UNIT_ECON_RE.search(q)
         or _INDUSTRY_RE.search(q)
         or _GROWTH_RE.search(q)
+        or _MANAGEMENT_RE.search(q)
         or re.search(
             r"\b(infosys|tcs|visa|mastercard|dmart|reliance|hdfc|icici|"
-            r"ferrari|toyota|apple|costco|asian paints)\b",
+            r"ferrari|toyota|apple|costco|asian paints|indigo|air india|"
+            r"adani|jsw)\b",
             q,
             re.I,
         )
@@ -236,7 +248,10 @@ def plan_query(question: str) -> QueryPlan:
         types.append("comparison")
         if "business_model" not in types:
             types.append("business_model")
-    if _GROWTH_RE.search(q):
+    if _GROWTH_RE.search(q) or _VALUE_DRIVER_RE.search(q):
+        if "business_model" not in types:
+            types.append("business_model")
+    if _MANAGEMENT_RE.search(q):
         if "business_model" not in types:
             types.append("business_model")
     if _BUSINESS_RISK_RE.search(q):

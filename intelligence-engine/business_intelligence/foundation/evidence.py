@@ -58,6 +58,7 @@ _KNOWN_COMPANY_ALIASES = (
     "hdfc bank", "icici bank", "reliance", "infosys", "tcs", "wipro", "ongc",
     "state bank", "kotak", "axis bank", "sbi", "dmart", "asian paints",
     "jsw steel", "indigo", "interglobe", "adani", "tata motors", "tata steel",
+    "air india",
 )
 
 
@@ -84,14 +85,24 @@ _COMPARE_RE = re.compile(
 
 
 def extract_compare_names(question: str) -> list[str]:
-    """Lightweight pair extraction for 'TCS vs Infosys' style prompts."""
+    """Lightweight pair extraction for 'TCS vs Infosys' / 'Compare A and B'."""
     q = question or ""
     if not _COMPARE_RE.search(q):
         return []
-    # Split on vs/versus
-    parts = re.split(r"\bvs\.?|versus\b", q, flags=re.I)
+
+    # Prefer explicit "Compare X and Y ..." before vs-splitting.
+    m = re.search(
+        r"\bcompare\s+(.+?)\s+and\s+(.+?)(?:\s+as\b|\s+on\b|\s+business\b|\s*$)",
+        q,
+        flags=re.I,
+    )
+    if m:
+        raw_parts = [m.group(1), m.group(2)]
+    else:
+        raw_parts = re.split(r"\bvs\.?|versus\b", q, flags=re.I)[:2]
+
     names: list[str] = []
-    for part in parts[:2]:
+    for part in raw_parts:
         cleaned = re.sub(
             r"\b(compare|and|the|business|models?|moat|of|for|with|on|"
             r"axes?|economics?|as|capital|allocators?)\b",

@@ -94,11 +94,20 @@ def compare_companies(question: str, names_or_tickers: list[str] | None = None) 
         }
 
     a, b = labels[0], labels[1]
-    summary = (
-        f"{a} vs {b}: compare business type ({axes[a].get('business_type')} vs {axes[b].get('business_type')}), "
-        f"moat durability ({axes[a].get('moat_durability')} vs {axes[b].get('moat_durability')}), "
-        f"growth modes, capital intensity, and industry value drivers — not ratios alone."
-    )
+    qlow = (question or "").lower()
+    if "capital allocat" in qlow:
+        summary = (
+            f"{a} vs {b}: compare capital allocation using business type "
+            f"({axes[a].get('business_type')} vs {axes[b].get('business_type')}), "
+            f"growth modes, capital intensity, leverage posture, and ROIC discipline — "
+            f"evidence-gated, not ratios alone."
+        )
+    else:
+        summary = (
+            f"{a} vs {b}: compare business type ({axes[a].get('business_type')} vs {axes[b].get('business_type')}), "
+            f"moat durability ({axes[a].get('moat_durability')} vs {axes[b].get('moat_durability')}), "
+            f"growth modes, capital intensity, and industry value drivers — not ratios alone."
+        )
     return {
         "ok": True,
         "companies": labels,
