@@ -2203,6 +2203,18 @@ export default function createIntelligenceRouter() {
 
   // Company Identity Service — canonical Capital IQ classification
   router.get('/company-identity/health', kfGet('/v1/company-identity/health'));
+  router.post('/company-identity/metadata', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/company-identity/metadata', {
+        method: 'POST',
+        body: req.body || {},
+        timeoutMs: 20_000,
+      });
+      res.status(result.status).json(result.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'company-identity metadata failed' });
+    }
+  });
   router.get('/company-identity/:ticker', async (req, res) => {
     try {
       const result = await engineFetch(

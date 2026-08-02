@@ -1012,6 +1012,109 @@ class UiService:
             entity_resolution=scrub(entity_resolution) if entity_resolution else {},
         )
 
+    def _company_metadata_view(
+        self,
+        *,
+        question: str,
+        ask_trace_id: str,
+        stage_timer: StageTimer,
+        ask_orchestration: dict[str, Any],
+        entity_resolution: dict[str, Any],
+        ere_body: dict[str, Any],
+        alias_hit: str | None,
+        metadata: dict[str, Any],
+    ) -> SearchView:
+        """Direct Capital IQ field lookup — no planner, fusion or composer."""
+        executive = str(metadata.get("summary") or "").strip()
+        why = list(metadata.get("why") or [])
+        identity = metadata.get("identity") or {}
+        evidence = list(metadata.get("evidence") or [])
+        for stage in ("ikl", "retrieval", "ranking", "reasoning", "response_assembly"):
+            stage_timer.mark(stage)
+        ask_orchestration = {
+            **ask_orchestration,
+            "executive_source": "company_metadata",
+            "short_circuit": "company_metadata",
+            "rq_stack": "skipped_company_metadata",
+            "company_metadata": {
+                "ticker": metadata.get("ticker"),
+                "company_name": metadata.get("company_name"),
+                "fields": [f.get("field") for f in (metadata.get("fields") or [])],
+                "resolution": metadata.get("resolution"),
+                "source": metadata.get("source"),
+            },
+            "company_identity": identity,
+            "resolved_entity": {
+                "name": metadata.get("company_name"),
+                "ticker": metadata.get("ticker"),
+                "coverage": "capital_iq_registry",
+                "confidence": 0.99,
+            },
+        }
+        orch = finalize_orchestration(
+            ask_orchestration,
+            timer=stage_timer,
+            question=question,
+            detected_ticker=metadata.get("ticker"),
+            ere_body=ere_body,
+            alias_hit=alias_hit,
+            evidence_used=evidence,
+            why=why,
+            executive=executive,
+            intent="company_metadata",
+            fallback=False,
+        )
+        stage_timer.mark("serialization")
+        try:
+            orch["latency"] = stage_timer.as_latency_block()
+            orch["latency_ms"] = stage_timer.as_dict()
+            orch["trace_summary"] = format_trace_summary(orch)
+            orch["completed"] = True
+            orch["timeout"] = False
+        except Exception:
+            pass
+        return SearchView(
+            meta=UiMeta(surface="search", sources=["company_identity"]),
+            question=question,
+            status="ok",
+            degradation={
+                "ask_slim": ask_slim_enabled(),
+                "short_circuit": "company_metadata",
+                "rq_stack": "skipped",
+                "reasoning": "company_metadata_lookup",
+            },
+            ask_orchestration=orch,
+            intent="company_metadata",
+            entities={
+                "ticker": metadata.get("ticker"),
+                "companies": [metadata.get("company_name")] if metadata.get("company_name") else [],
+                "themes": [],
+                "sectors": [identity["primary_sector"]] if identity.get("primary_sector") else [],
+            },
+            answer={
+                "summary": executive,
+                "executive_summary": executive,
+                "stance": "Neutral",
+                "why": why,
+                "house_view_label": "Company Metadata",
+                "policy": "capital_iq_registry",
+                "resolved_entity": ask_orchestration.get("resolved_entity"),
+                "fields": metadata.get("fields") or [],
+            },
+            executive_summary=executive,
+            house_view={"label": "Company Metadata", "stance": "Neutral"},
+            confidence=99.0,
+            investment_thesis=executive,
+            bull_case=[],
+            bear_case=[],
+            key_risks=[],
+            why=why,
+            evidence_used=evidence,
+            follow_up_questions=[],
+            answer_policy="capital_iq_registry",
+            entity_resolution=scrub(entity_resolution) if entity_resolution else {},
+        )
+
     def _entity_intelligence_view(
         self,
         *,
@@ -1566,6 +1669,47 @@ class UiService:
             unsupported_company = coverage_policy_detect(q)
         except Exception:
             unsupported_company = None
+
+        # Company Metadata Router — "Axis Bank primary sector" is a stored
+        # Capital IQ field, not a research question. It must answer from the
+        # Company Identity Service without touching Entity Intelligence, KUL,
+        # fusion or the composer. Only unambiguous, registered companies route
+        # here; anything else falls through to the normal pipeline.
+        try:
+            from company_identity.metadata_router import route as metadata_route
+
+            metadata_hit = metadata_route(q)
+        except Exception:
+            metadata_hit = None
+        if metadata_hit:
+            try:
+                pipeline.set_intent("Company Metadata", confidence=0.99)
+                pipeline.mark(STAGE_RETRIEVAL_STARTED, status="skipped")
+                pipeline.mark(STAGE_RETRIEVAL_COMPLETED, status="skipped")
+                pipeline.set_evidence(
+                    retrieved=0,
+                    used=1,
+                    top_ids=["company_identity"],
+                    sources=["company_identity"],
+                )
+                pipeline.set_llm(model="registry", used=False, finish_reason="company_metadata")
+                pipeline.complete(status="success")
+            except Exception:
+                pass
+            return self._company_metadata_view(
+                question=q,
+                ask_trace_id=ask_trace_id,
+                stage_timer=stage_timer,
+                ask_orchestration={
+                    **ask_orchestration,
+                    "request_id": ask_trace_id,
+                    "pipeline_debug": pipeline.to_debug_payload(),
+                },
+                entity_resolution=entity_resolution,
+                ere_body=ere_body if isinstance(ere_body, dict) else {},
+                alias_hit=alias_hit,
+                metadata=metadata_hit,
+            )
 
         # P0 Entity Intelligence — verified entity contract BEFORE KUL.
         # Never execute intelligence engines on a substituted / unverified company.
