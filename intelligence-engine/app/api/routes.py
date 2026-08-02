@@ -18379,3 +18379,328 @@ async def kip_v2_quality_report(company_id: str | None = None):
     from kip_v2.production import quality_report
 
     return quality_report(company_id=company_id)
+
+
+# ---------------------------------------------------------------------------
+# AGI Institutional Data Warehouse (admin workspace)
+# ---------------------------------------------------------------------------
+
+
+def _warehouse_actor(payload: dict[str, Any] | None = None, header: str | None = None) -> str:
+    body_actor = str((payload or {}).get("actor") or "").strip()
+    return body_actor or (header or "").strip() or "admin"
+
+
+@router.get("/warehouse/health")
+async def warehouse_health():
+    from institutional_warehouse.production import health
+
+    return health()
+
+
+@router.get("/warehouse/workbook")
+async def warehouse_workbook():
+    from institutional_warehouse.production import workbook
+
+    return workbook()
+
+
+@router.get("/warehouse/stats")
+async def warehouse_stats():
+    from institutional_warehouse.production import stats
+
+    return stats()
+
+
+@router.get("/warehouse/whoami")
+async def warehouse_whoami(x_agi_actor: str | None = Header(default=None)):
+    from institutional_warehouse.production import whoami
+
+    return whoami(_warehouse_actor(None, x_agi_actor))
+
+
+@router.get("/warehouse/tab/{tab_id}/schema")
+async def warehouse_tab_schema(tab_id: str):
+    from institutional_warehouse.production import tab_schema
+
+    return tab_schema(tab_id)
+
+
+@router.get("/warehouse/tab/{tab_id}")
+async def warehouse_sheet(
+    tab_id: str,
+    entity: str | None = None,
+    q: str | None = None,
+    sort: str | None = None,
+    order: str = "asc",
+    limit: int = 200,
+    offset: int = 0,
+    filters: str | None = None,
+):
+    import json as _json
+
+    from institutional_warehouse.production import sheet
+
+    parsed: dict[str, Any] = {}
+    if filters:
+        try:
+            parsed = _json.loads(filters)
+        except Exception:
+            parsed = {}
+    return sheet(tab_id, entity=entity, filters=parsed, q=q, sort=sort, order=order,
+                 limit=limit, offset=offset)
+
+
+@router.get("/warehouse/tab/{tab_id}/row/{row_id}")
+async def warehouse_row(tab_id: str, row_id: str):
+    from institutional_warehouse.production import row
+
+    return row(tab_id, row_id)
+
+
+@router.post("/warehouse/tab/{tab_id}/edit")
+async def warehouse_edit(
+    tab_id: str,
+    payload: dict[str, Any] = Body(default_factory=dict),
+    x_agi_actor: str | None = Header(default=None),
+):
+    from institutional_warehouse.production import edit
+
+    body = payload or {}
+    edits = body.get("edits")
+    if not isinstance(edits, list):
+        single = {k: body.get(k) for k in ("row_id", "column", "value")}
+        edits = [single] if single.get("row_id") else []
+    return edit(tab_id, edits, actor=_warehouse_actor(body, x_agi_actor),
+                reason=body.get("reason"), recalc=bool(body.get("recalculate", True)))
+
+
+@router.post("/warehouse/tab/{tab_id}/row")
+async def warehouse_create_row(
+    tab_id: str,
+    payload: dict[str, Any] = Body(default_factory=dict),
+    x_agi_actor: str | None = Header(default=None),
+):
+    from institutional_warehouse.production import create
+
+    body = payload or {}
+    return create(tab_id, body.get("values") or {}, actor=_warehouse_actor(body, x_agi_actor))
+
+
+@router.post("/warehouse/tab/{tab_id}/clear-override")
+async def warehouse_clear_override(
+    tab_id: str,
+    payload: dict[str, Any] = Body(default_factory=dict),
+    x_agi_actor: str | None = Header(default=None),
+):
+    from institutional_warehouse.production import clear_override
+
+    body = payload or {}
+    return clear_override(tab_id, str(body.get("row_id") or ""), str(body.get("column") or ""),
+                          actor=_warehouse_actor(body, x_agi_actor))
+
+
+@router.post("/warehouse/tab/{tab_id}/delete")
+async def warehouse_delete_rows(
+    tab_id: str,
+    payload: dict[str, Any] = Body(default_factory=dict),
+    x_agi_actor: str | None = Header(default=None),
+):
+    from institutional_warehouse.production import delete
+
+    body = payload or {}
+    return delete(tab_id, body.get("row_ids") or [], actor=_warehouse_actor(body, x_agi_actor),
+                  reason=body.get("reason"))
+
+
+@router.post("/warehouse/tab/{tab_id}/publish")
+async def warehouse_publish(
+    tab_id: str,
+    payload: dict[str, Any] = Body(default_factory=dict),
+    x_agi_actor: str | None = Header(default=None),
+):
+    from institutional_warehouse.production import publish
+
+    return publish(tab_id, actor=_warehouse_actor(payload, x_agi_actor))
+
+
+@router.post("/warehouse/tab/{tab_id}/import")
+async def warehouse_stage_import(
+    tab_id: str,
+    payload: dict[str, Any] = Body(default_factory=dict),
+    x_agi_actor: str | None = Header(default=None),
+):
+    from institutional_warehouse.production import stage_import
+
+    body = payload or {}
+    return stage_import(
+        tab_id,
+        rows=body.get("rows"),
+        text=body.get("text"),
+        headers=body.get("headers"),
+        matrix=body.get("matrix"),
+        mapping=body.get("mapping"),
+        actor=_warehouse_actor(body, x_agi_actor),
+        source=str(body.get("source") or "manual_import"),
+    )
+
+
+@router.post("/warehouse/import/{import_id}/commit")
+async def warehouse_commit_import(
+    import_id: str,
+    payload: dict[str, Any] = Body(default_factory=dict),
+    x_agi_actor: str | None = Header(default=None),
+):
+    from institutional_warehouse.production import commit_import
+
+    return commit_import(import_id, actor=_warehouse_actor(payload, x_agi_actor))
+
+
+@router.post("/warehouse/tab/{tab_id}/map-headers")
+async def warehouse_map_headers(tab_id: str, payload: dict[str, Any] = Body(default_factory=dict)):
+    from institutional_warehouse.production import preview_mapping
+
+    return preview_mapping(tab_id, (payload or {}).get("headers") or [])
+
+
+@router.get("/warehouse/imports")
+async def warehouse_imports(tab_id: str | None = None, limit: int = 25):
+    from institutional_warehouse.production import imports
+
+    return imports(tab_id=tab_id, limit=limit)
+
+
+@router.get("/warehouse/tab/{tab_id}/export")
+async def warehouse_export(
+    tab_id: str,
+    entity: str | None = None,
+    q: str | None = None,
+    limit: int = 5000,
+    x_agi_actor: str | None = Header(default=None),
+):
+    from institutional_warehouse.production import export
+
+    return export(tab_id, entity=entity, search=q, limit=limit,
+                  actor=_warehouse_actor(None, x_agi_actor))
+
+
+@router.get("/warehouse/tab/{tab_id}/row/{row_id}/history")
+async def warehouse_history(tab_id: str, row_id: str, column: str | None = None):
+    from institutional_warehouse.production import history
+
+    return history(tab_id, row_id, column=column)
+
+
+@router.get("/warehouse/tab/{tab_id}/row/{row_id}/compare")
+async def warehouse_compare(tab_id: str, row_id: str, version_a: int, version_b: int | None = None):
+    from institutional_warehouse.production import compare
+
+    return compare(tab_id, row_id, version_a, version_b)
+
+
+@router.post("/warehouse/tab/{tab_id}/row/{row_id}/restore")
+async def warehouse_restore(
+    tab_id: str,
+    row_id: str,
+    payload: dict[str, Any] = Body(default_factory=dict),
+    x_agi_actor: str | None = Header(default=None),
+):
+    from institutional_warehouse.production import restore
+
+    body = payload or {}
+    version = body.get("version")
+    return restore(tab_id, row_id, version=int(version) if version is not None else None,
+                   snapshot_id=body.get("snapshot_id"),
+                   actor=_warehouse_actor(body, x_agi_actor))
+
+
+@router.get("/warehouse/audit")
+async def warehouse_audit(
+    tab_id: str | None = None,
+    entity: str | None = None,
+    action: str | None = None,
+    actor: str | None = None,
+    limit: int = 100,
+    offset: int = 0,
+):
+    from institutional_warehouse.production import audit_log
+
+    return audit_log(tab_id=tab_id, entity=entity, action=action, actor=actor,
+                     limit=limit, offset=offset)
+
+
+@router.get("/warehouse/validate")
+async def warehouse_validate(tab_id: str | None = None, sample: int = 300):
+    from institutional_warehouse.production import validate
+
+    return validate(tab_id, sample=sample)
+
+
+@router.post("/warehouse/refresh")
+async def warehouse_refresh(
+    payload: dict[str, Any] = Body(default_factory=dict),
+    x_agi_actor: str | None = Header(default=None),
+):
+    from institutional_warehouse.production import run_refresh
+
+    body = payload or {}
+    kwargs: dict[str, Any] = {"actor": _warehouse_actor(body, x_agi_actor)}
+    if body.get("stages"):
+        kwargs["stages"] = body["stages"]
+    if body.get("limit") is not None:
+        kwargs["limit"] = int(body["limit"])
+    if body.get("days") is not None:
+        kwargs["days"] = int(body["days"])
+    return run_refresh(**kwargs)
+
+
+@router.get("/warehouse/refresh-runs")
+async def warehouse_refresh_runs(limit: int = 20):
+    from institutional_warehouse.production import refresh_runs
+
+    return refresh_runs(limit=limit)
+
+
+@router.post("/warehouse/recalculate")
+async def warehouse_recalculate(
+    payload: dict[str, Any] = Body(default_factory=dict),
+    x_agi_actor: str | None = Header(default=None),
+):
+    from institutional_warehouse.production import recompute
+
+    body = payload or {}
+    kwargs: dict[str, Any] = {"actor": _warehouse_actor(body, x_agi_actor)}
+    if body.get("stages"):
+        kwargs["stages"] = body["stages"]
+    if body.get("entity"):
+        kwargs["entity"] = str(body["entity"]).upper()
+    return recompute(**kwargs)
+
+
+@router.get("/warehouse/search")
+async def warehouse_search(q: str, per_tab: int = 5, tabs: str | None = None):
+    from institutional_warehouse.production import global_search
+
+    tab_list = [t.strip() for t in tabs.split(",") if t.strip()] if tabs else None
+    return global_search(q, tabs=tab_list, per_tab=per_tab)
+
+
+@router.get("/warehouse/suggest")
+async def warehouse_suggest(prefix: str, limit: int = 10):
+    from institutional_warehouse.production import suggest
+
+    return suggest(prefix, limit=limit)
+
+
+@router.get("/warehouse/company/{symbol}")
+async def warehouse_company(symbol: str, per_tab: int = 25):
+    from institutional_warehouse.production import company
+
+    return company(symbol, per_tab=per_tab)
+
+
+@router.get("/warehouse/coverage")
+async def warehouse_coverage():
+    from institutional_warehouse.production import coverage
+
+    return coverage()

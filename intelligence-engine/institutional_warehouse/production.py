@@ -11,7 +11,17 @@ from __future__ import annotations
 
 from typing import Any, Optional, Sequence
 
-from institutional_warehouse import audit, db, importer, refresh, search, store, validation, versions
+from institutional_warehouse import (
+    audit,
+    db,
+    importer,
+    permissions,
+    refresh,
+    search,
+    store,
+    validation,
+    versions,
+)
 from institutional_warehouse.formulas import recalculate
 from institutional_warehouse.schema import TABS, find_tab, tab as get_tab, workbook as workbook_schema
 from institutional_warehouse.values import now_iso
@@ -119,8 +129,9 @@ def edit(
 ) -> dict[str, Any]:
     if not find_tab(tab_id):
         return {"ok": False, "error": f"unknown_tab:{tab_id}"}
-    if not actor:
-        return {"ok": False, "error": "actor_required"}
+    denied = permissions.require(actor, "edit")
+    if denied:
+        return denied
     result = store.set_cells(tab_id, list(edits or []), actor=actor, reason=reason)
     if result.get("ok") and result.get("applied") and recalc:
         result["recalculated"] = recalculate(actor=actor, stages=importer._stages_for(tab_id))
@@ -130,6 +141,9 @@ def edit(
 def create(tab_id: str, values: dict[str, Any], *, actor: str) -> dict[str, Any]:
     if not find_tab(tab_id):
         return {"ok": False, "error": f"unknown_tab:{tab_id}"}
+    denied = permissions.require(actor, "create")
+    if denied:
+        return denied
     report = validation.validate_payload(tab_id, [values or {}])
     if report["rejected"]:
         return {"ok": False, "error": "validation_failed", "issues": report["rejected"][0]["issues"]}
@@ -139,16 +153,25 @@ def create(tab_id: str, values: dict[str, Any], *, actor: str) -> dict[str, Any]
 def clear_override(tab_id: str, row_id: str, column: str, *, actor: str) -> dict[str, Any]:
     if not find_tab(tab_id):
         return {"ok": False, "error": f"unknown_tab:{tab_id}"}
+    denied = permissions.require(actor, "clear_override")
+    if denied:
+        return denied
     return store.clear_override(tab_id, row_id, column, actor=actor)
 
 
 def delete(tab_id: str, row_ids: Sequence[str], *, actor: str, reason: Optional[str] = None) -> dict[str, Any]:
     if not find_tab(tab_id):
         return {"ok": False, "error": f"unknown_tab:{tab_id}"}
+    denied = permissions.require(actor, "delete")
+    if denied:
+        return denied
     return store.delete_rows(tab_id, list(row_ids or []), actor=actor, reason=reason)
 
 
 def publish(tab_id: Optional[str] = None, *, actor: str) -> dict[str, Any]:
+    denied = permissions.require(actor, "publish")
+    if denied:
+        return denied
     if tab_id:
         if not find_tab(tab_id):
             return {"ok": False, "error": f"unknown_tab:{tab_id}"}
@@ -174,11 +197,17 @@ def stage_import(
 ) -> dict[str, Any]:
     if not find_tab(tab_id):
         return {"ok": False, "error": f"unknown_tab:{tab_id}"}
+    denied = permissions.require(actor, "stage_import")
+    if denied:
+        return denied
     return importer.stage(tab_id, rows=rows, text=text, headers=headers, matrix=matrix,
                           mapping=mapping, actor=actor, source=source)
 
 
 def commit_import(import_id: str, *, actor: str = "admin") -> dict[str, Any]:
+    denied = permissions.require(actor, "commit_import")
+    if denied:
+        return denied
     return importer.commit(import_id, actor=actor)
 
 
@@ -247,6 +276,9 @@ def restore(tab_id: str, row_id: str, *, version: Optional[int] = None,
             snapshot_id: Optional[str] = None, actor: str) -> dict[str, Any]:
     if not find_tab(tab_id):
         return {"ok": False, "error": f"unknown_tab:{tab_id}"}
+    denied = permissions.require(actor, "restore")
+    if denied:
+        return denied
     return store.restore(tab_id, row_id, version=version, snapshot_id=snapshot_id, actor=actor)
 
 
@@ -271,6 +303,9 @@ def validate(tab_id: Optional[str] = None, *, sample: int = 300) -> dict[str, An
 
 
 def run_refresh(**kwargs: Any) -> dict[str, Any]:
+    denied = permissions.require(kwargs.get("actor"), "refresh")
+    if denied:
+        return denied
     return refresh.run(**kwargs)
 
 
@@ -279,6 +314,9 @@ def refresh_runs(limit: int = 20) -> dict[str, Any]:
 
 
 def recompute(**kwargs: Any) -> dict[str, Any]:
+    denied = permissions.require(kwargs.get("actor"), "recalculate")
+    if denied:
+        return denied
     return recalculate(**kwargs)
 
 
@@ -297,6 +335,10 @@ def company(symbol: str, **kwargs: Any) -> dict[str, Any]:
 
 def suggest(prefix: str, limit: int = 10) -> dict[str, Any]:
     return search.suggest(prefix, limit=limit)
+
+
+def whoami(actor: Optional[str]) -> dict[str, Any]:
+    return permissions.describe(actor)
 
 
 # --------------------------------------------------------------------------
