@@ -6,7 +6,10 @@ Teach AGI how industries work — deterministic Industry DNA, not generic LLM su
 
 **Lifecycle:** Build → Acceptance → Integration → Production Validation → Freeze
 
-See `intelligence-engine/industry_intelligence/PHASE31_NOTES.md` for implementation status.
+See:
+- `intelligence-engine/industry_intelligence/PHASE31_NOTES.md` (engine)
+- `intelligence-engine/industry_intelligence/PHASE31_05_NOTES.md` (KUL integration)
+- `docs/KNOWLEDGE_DEPENDENCY_MAP.md` (II → BI → Investment → Portfolio)
 
 ## Objective
 

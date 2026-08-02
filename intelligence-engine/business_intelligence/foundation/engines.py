@@ -279,6 +279,9 @@ def analyse_industry(ev: dict[str, Any]) -> dict[str, Any]:
     industry = ev.get("industry_key") or "unknown"
     tmpl = template_for(industry)
     porter = dict(tmpl["porter"])
+    dna_note = ""
+    if tmpl.get("from_industry_dna"):
+        dna_note = f" (Industry DNA: {tmpl.get('industry_dna_key')})"
     card = IndustryCard(
         industry=industry,
         value_drivers=list(tmpl["value_drivers"]),
@@ -286,11 +289,14 @@ def analyse_industry(ev: dict[str, Any]) -> dict[str, Any]:
         concentration=str(tmpl["concentration"]),
         summary=(
             f"{industry.replace('_', ' ').title()} structure — concentration: {tmpl['concentration']}. "
-            f"Rivalry: {porter.get('rivalry')}. Entry barriers: {porter.get('entry_barriers')}."
+            f"Rivalry: {porter.get('rivalry')}. Entry barriers: {porter.get('entry_barriers')}.{dna_note}"
         ),
-        confidence=0.88 if industry != "unknown" else 0.4,
+        confidence=0.9 if tmpl.get("from_industry_dna") else (0.88 if industry != "unknown" else 0.4),
     )
-    return card.to_dict()
+    out = card.to_dict()
+    out["from_industry_dna"] = bool(tmpl.get("from_industry_dna"))
+    out["industry_dna_key"] = tmpl.get("industry_dna_key")
+    return out
 
 
 def analyse_growth(ev: dict[str, Any]) -> dict[str, Any]:
@@ -365,6 +371,9 @@ def analyse_risks(ev: dict[str, Any]) -> dict[str, Any]:
     industry = ev.get("industry_key") or "unknown"
     company = ev.get("company") or {}
     blob = _blob(company.get("description"), ev.get("question"))
+    tmpl = template_for(industry)
+    # Prefer Industry DNA typical risks when available (BI consumes, does not duplicate).
+    dna_risks = [str(r).lower().replace(" ", "_") for r in (tmpl.get("typical_risks") or [])]
     industry_priors = {
         "banks": ["regulatory", "demand", "execution"],
         "nbfc": ["refinancing", "demand", "regulatory"],
@@ -377,6 +386,10 @@ def analyse_risks(ev: dict[str, Any]) -> dict[str, Any]:
         "marketplace": ["regulatory", "technology_disruption", "execution"],
     }
     priors = set(industry_priors.get(industry, ["demand", "execution", "regulatory"]))
+    for dr in dna_risks:
+        for key in RISK_TYPES:
+            if dr in key or key in dr or dr.split("_")[0] in key:
+                priors.add(key)
     risks = []
     for key in RISK_TYPES:
         score = 55 if key in priors else 25
@@ -391,12 +404,16 @@ def analyse_risks(ev: dict[str, Any]) -> dict[str, Any]:
             }
         )
     top = [r["key"] for r in sorted(risks, key=lambda x: -x["score"])[:5]]
+    summary = "Primary business risks: " + ", ".join(t.replace("_", " ") for t in top) + "."
+    if tmpl.get("from_industry_dna") and tmpl.get("typical_risks"):
+        summary += " Industry DNA risks: " + ", ".join(tmpl["typical_risks"][:4]) + "."
     return {
         "industry": industry,
         "risks": risks,
         "primary_risks": top,
-        "summary": "Primary business risks: " + ", ".join(t.replace("_", " ") for t in top) + ".",
-        "confidence": 0.8 if industry != "unknown" else 0.45,
+        "summary": summary,
+        "from_industry_dna": bool(tmpl.get("from_industry_dna")),
+        "confidence": 0.85 if tmpl.get("from_industry_dna") else (0.8 if industry != "unknown" else 0.45),
         "fabricated": False,
     }
 

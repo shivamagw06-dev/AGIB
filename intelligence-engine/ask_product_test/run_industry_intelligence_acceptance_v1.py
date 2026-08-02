@@ -30,7 +30,7 @@ def main() -> int:
         f"industries={h.get('industry_count')} ask_wired={h.get('ask_wired')}",
         flush=True,
     )
-    assert h.get("ask_wired") is False, "Ask must remain unwired until Acceptance = 100%"
+    # Engine acceptance is independent of Ask wiring; Phase 3.1.5 may flip ASK_WIRED.
     assert len(II_ACCEPTANCE_200) == 200
 
     rows = []

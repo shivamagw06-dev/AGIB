@@ -72,14 +72,15 @@ def test_alias_resolve():
     assert resolve_industry("quick service restaurants") == "qsr"
 
 
-def test_ask_not_wired():
-    assert ASK_WIRED is False
+def test_ask_wired_via_kul():
+    assert ASK_WIRED is True
     h = health()
-    assert h["ask_wired"] is False
+    assert h["ask_wired"] is True
+    assert h.get("ask_wired_via")
     assert h["uses_llm"] is False
     soft = soft_slice_for_ask_agi("Why do banks use P/B?")
-    assert soft["found"] is False
-    assert soft["ask_wired"] is False
+    assert soft["found"] is True
+    assert soft["ask_wired"] is True
 
 
 def test_analyse_banks_pb():

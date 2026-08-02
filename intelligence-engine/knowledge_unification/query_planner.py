@@ -30,7 +30,8 @@ _FSA_SHAPE_RE = re.compile(
     re.I,
 )
 _VALUATION_RE = re.compile(
-    r"\b(valuation|enterprise value|equity value|dcf|ev/ebitda|p/e|pe ratio|wacc|terminal value)\b",
+    r"\b(valuation|valued|enterprise value|equity value|dcf|ev/?ebitda|ev/?sales|"
+    r"p/?b|price.to.book|p/e|pe ratio|wacc|terminal value|embedded value|\bnav\b)\b",
     re.I,
 )
 _BUSINESS_RE = re.compile(
@@ -48,12 +49,22 @@ _MOAT_RE = re.compile(
 )
 _UNIT_ECON_RE = re.compile(
     r"\b(unit economics|contribution margin|cac|ltv|payback|cash conversion|"
-    r"airline economics|saas unit|fmcg cash)\b",
+    r"airline economics|saas unit|fmcg cash|industry economics|"
+    r"low[- ]margin|strong cash flow|working capital|"
+    r"capital intens\w*|operating leverage|scale differently|"
+    r"why do .+ (earn|generate|use|carry|scale))\b",
     re.I,
 )
 _COMPARISON_RE = re.compile(
     r"\b(compare|vs\.?|versus|more profitable than|higher margins than|"
-    r"better margins than|better than|vs)\b",
+    r"better margins than|better than|differently from|\bvs\b)\b",
+    re.I,
+)
+_INDUSTRY_NAME_RE = re.compile(
+    r"\b(banks?|nbfcs?|saas|software|airlines?|railways?|fmcg|utilities|"
+    r"hospitals?|telecoms?|cement|insurance|insurers?|retail|it services|"
+    r"chemicals?|diagnostics?|metals?|mining|pharma|real estate|realty|"
+    r"power utilities|renewables?|oil\s*&?\s*gas|qsr|logistics|shipping)\b",
     re.I,
 )
 _GROWTH_RE = re.compile(
@@ -76,8 +87,14 @@ _BUSINESS_RISK_RE = re.compile(
     re.I,
 )
 _INDUSTRY_RE = re.compile(
-    r"\b(industry|sector|peers?|competitive landscape|porter|five forces|"
-    r"entry barriers?|supplier power|customer power)\b",
+    r"\b(industry|sector|peers?|competitive (?:landscape|structure)|"
+    r"industry structure|porter|five forces|"
+    r"entry barriers?|supplier power|customer power|buyer power|oligopol\w*|"
+    r"duopol\w*|fragmented|spectrum|regulator|regulates?|"
+    r"nim|casa|arpob|load factor|rask|cask|sssg|cet1|gnpa|"
+    r"utilization|attrition|billing rate|offshore mix|nrr|cac|"
+    r"cycle matters|credit cycle|commodity cycle|housing cycle|"
+    r"industry dna|industry kpi)\b",
     re.I,
 )
 _MACRO_RE = re.compile(r"\b(macro|gdp|inflation|interest rate|rbi|fed|risk premium|country premium)\b", re.I)
@@ -239,6 +256,7 @@ def plan_query(question: str) -> QueryPlan:
         or _MOAT_RE.search(q)
         or _UNIT_ECON_RE.search(q)
         or _INDUSTRY_RE.search(q)
+        or _INDUSTRY_NAME_RE.search(q)
         or _GROWTH_RE.search(q)
         or _MANAGEMENT_RE.search(q)
         or re.search(
@@ -250,7 +268,14 @@ def plan_query(question: str) -> QueryPlan:
         )
     ):
         types.append("comparison")
-        if "business_model" not in types:
+        if _INDUSTRY_NAME_RE.search(q) and not re.search(
+            r"\b(infosys|tcs|visa|mastercard|dmart|reliance|hdfc|icici|"
+            r"ferrari|toyota|apple|costco)\b",
+            q,
+            re.I,
+        ):
+            types.append("industry")
+        elif "business_model" not in types:
             types.append("business_model")
     if _GROWTH_RE.search(q) or _VALUE_DRIVER_RE.search(q):
         if "business_model" not in types:
@@ -262,7 +287,7 @@ def plan_query(question: str) -> QueryPlan:
         types.append("business_risk")
         if "industry" not in types:
             types.append("industry")
-    if _INDUSTRY_RE.search(q):
+    if _INDUSTRY_RE.search(q) or _INDUSTRY_NAME_RE.search(q):
         types.append("industry")
     if _MACRO_RE.search(q):
         types.append("macro")
@@ -308,6 +333,18 @@ def plan_query(question: str) -> QueryPlan:
     ) and not explicit:
         # Only drop when the bind is not itself one of those names (never in IKT).
         company, ticker = None, None
+    # Industry pedagogy phrases must not CapIQ-bind a random "Real Estate" company.
+    if ticker and re.search(
+        r"\b(real estate|industry|sector|oligopoly|porter|five forces|"
+        r"typically valued|industry economics)\b",
+        q,
+        re.I,
+    ) and not re.search(
+        r"\b(infosys|tcs|hdfc|reliance|dmart|wipro|icici|sbi)\b", q, re.I
+    ):
+        company, ticker = None, None
+        if "company" in types:
+            types = [t for t in types if t != "company"]
     if company or ticker:
         types.insert(0, "company")
 

@@ -6,7 +6,7 @@ from typing import Any, Optional
 
 from industry_intelligence.dna_catalog import INDUSTRY_DNA
 from industry_intelligence.registry import all_industry_keys, registry_snapshot, resolve_industry
-from industry_intelligence.schema import ASK_WIRED, II_VERSION, PROGRAMME, SPEC
+from industry_intelligence.schema import ASK_WIRED, ASK_WIRED_VIA, II_VERSION, PROGRAMME, SPEC
 from industry_intelligence import engines
 from industry_intelligence.orchestrator import analyse as _analyse
 
@@ -19,7 +19,8 @@ def health() -> dict[str, Any]:
         "version": II_VERSION,
         "spec": SPEC,
         "ask_wired": ASK_WIRED,
-        "ask_wired_policy": "wire_only_after_acceptance_100",
+        "ask_wired_via": ASK_WIRED_VIA if ASK_WIRED else None,
+        "ask_wired_policy": "kul_provider_only_after_acceptance_100",
         "uses_llm": False,
         "fabricated": False,
         "depends_on": "AGI Core v1.0 (extend, do not modify)",
@@ -84,7 +85,7 @@ def explain_kpi(industry_key: str, kpi_key: str) -> dict[str, Any]:
 
 
 def soft_slice_for_ask_agi(question: str, *_args: Any, **_kwargs: Any) -> dict[str, Any]:
-    """Reserved — returns empty until ASK_WIRED flips after acceptance."""
+    """Diagnostics preview — production Ask uses KUL provider only (no bypass)."""
     if not ASK_WIRED:
         return {
             "found": False,
@@ -93,4 +94,10 @@ def soft_slice_for_ask_agi(question: str, *_args: Any, **_kwargs: Any) -> dict[s
             "fabricated": False,
         }
     out = analyse(question)
-    return {"found": bool(out.get("ok") and out.get("summary")), **out}
+    return {
+        "found": bool(out.get("ok") and out.get("summary")),
+        "ask_wired": True,
+        "ask_wired_via": ASK_WIRED_VIA,
+        "enabled": True,
+        **out,
+    }
