@@ -345,7 +345,7 @@ function OpportunityScanner() {
   );
 }
 
-export default function HedgeFundLab() {
+export function HedgeFundLabSections({ embedded = false } = {}) {
   const [strategies, setStrategies] = useState([]);
   const [rows, setRows] = useState([]);
   const [selected, setSelected] = useState(null);
@@ -371,12 +371,19 @@ export default function HedgeFundLab() {
   const agi = detail?.agi_intelligence;
 
   return (
-    <div className="hfl-root">
-      <header className="hfl-header">
-        <Link to="/hedge-fund" className="hfl-back"><ArrowLeft size={14} /> Hedge Fund</Link>
-        <h1>Hedge Fund Strategy Lab</h1>
-        <p>How institutional strategies make money — and when they stop working</p>
-      </header>
+    <div className={embedded ? 'hfl-root hfl-embed' : 'hfl-root'}>
+      {embedded ? (
+        <header className="hfl-header hfl-header-embed">
+          <h2>Strategy Lab</h2>
+          <p>How institutional strategies make money — and when they stop working</p>
+        </header>
+      ) : (
+        <header className="hfl-header">
+          <Link to="/hedge-fund" className="hfl-back"><ArrowLeft size={14} /> Hedge Fund</Link>
+          <h1>Hedge Fund Strategy Lab</h1>
+          <p>How institutional strategies make money — and when they stop working</p>
+        </header>
+      )}
 
       <main className="hfl-body">
         {error ? <div className="hfl-error">{error}</div> : null}
@@ -505,4 +512,8 @@ export default function HedgeFundLab() {
       </main>
     </div>
   );
+}
+
+export default function HedgeFundLab() {
+  return <HedgeFundLabSections />;
 }

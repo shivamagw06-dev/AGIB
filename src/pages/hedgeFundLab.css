@@ -492,3 +492,19 @@
 .hfl-opp p { margin: 0.4rem 0 0; font-size: 0.82rem; line-height: 1.5; color: #c3d4e8; }
 .hfl-opp p.caution { color: var(--hfl-dim); font-size: 0.75rem; }
 @media (max-width: 1100px) { .hfl-suit, .hfl-opps { grid-template-columns: 1fr; } }
+
+/* Embedded inside the light Hedge Fund page as a terminal panel. */
+.hfl-embed {
+  min-height: 0;
+  border: 1px solid #1e2d42;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.hfl-header-embed { padding: 1.1rem 1.25rem 0.9rem; }
+.hfl-header-embed h2 {
+  margin: 0 0 0.2rem;
+  font-size: 1.4rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+.hfl-embed .hfl-body { padding: 1rem 1.25rem 1.5rem; }
