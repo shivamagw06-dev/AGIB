@@ -70,6 +70,10 @@ def _coverage(results: list[ProviderResult], used: list[ProviderResult]) -> Cove
         r.provider_id == "business_intelligence" and r.empty for r in results
     ):
         missing.append("Business Intelligence foundation returned empty")
+    if "industry_intelligence" not in ids and any(
+        r.provider_id == "industry_intelligence" and r.empty for r in results
+    ):
+        missing.append("Industry Intelligence DNA returned empty")
     if "company_memory" not in ids and any(r.provider_id == "company_memory" for r in results):
         missing.append("Company memory not populated")
     if "ikl" not in ids and any(r.provider_id == "ikl" for r in results):
@@ -132,10 +136,43 @@ def fuse(
                 "what creates pricing",
             )
         )
+        industry_lead = (not company_bound) and (
+            "industry" in qtypes
+            or "unit_economics" in qtypes
+            or "business_risk" in qtypes
+            or any(
+                k in qtext
+                for k in (
+                    "nim",
+                    "casa",
+                    "arpob",
+                    "load factor",
+                    "ev/sales",
+                    "p/b",
+                    "embedded value",
+                    "porter",
+                    "oligopol",
+                    "spectrum",
+                    "industry economics",
+                )
+            )
+        )
         if concept_moat_pedagogy:
             preferred_order = (
                 "financial_concepts",
                 "business_intelligence",
+                "industry_intelligence",
+                "capiq_ikt",
+                "academy",
+                "legacy_kip",
+            )
+        elif industry_lead:
+            # Phase 3.1.5 — Industry DNA leads pure industry pedagogy.
+            preferred_order = (
+                "industry_intelligence",
+                "business_intelligence",
+                "financial_concepts",
+                "knowledge_factory",
                 "capiq_ikt",
                 "academy",
                 "legacy_kip",
@@ -143,6 +180,7 @@ def fuse(
         else:
             preferred_order = (
                 "business_intelligence",
+                "industry_intelligence",
                 "capiq_ikt",
                 "company_memory",
                 "ikl",
@@ -152,11 +190,22 @@ def fuse(
                 "academy",
                 "legacy_kip",
             )
+    elif qtypes.intersection({"valuation"}) and not (
+        getattr(plan.query, "ticker_hint", None) or getattr(plan.query, "company_hint", None)
+    ):
+        preferred_order = (
+            "industry_intelligence",
+            "financial_concepts",
+            "business_intelligence",
+            "academy",
+            "legacy_kip",
+        )
     elif qtypes.intersection({"company", "market"}):
         preferred_order = (
             "capiq_ikt",
             "company_memory",
             "business_intelligence",
+            "industry_intelligence",
             "ikl",
             "knowledge_factory",
             "cgl",
@@ -169,6 +218,7 @@ def fuse(
             "financial_concepts",
             "financial_foundations",
             "financial_statement_intelligence",
+            "industry_intelligence",
             "capiq_ikt",
             "academy",
             "knowledge_factory",
@@ -195,6 +245,7 @@ def fuse(
         "financial_foundations",
         "financial_statement_intelligence",
         "financial_concepts",
+        "industry_intelligence",
         "business_intelligence",
         "capiq_ikt",
     }

@@ -1,8 +1,9 @@
 # Phase 3.1 — Industry Intelligence Engine
 
-**Status:** Build complete · Acceptance = 100% · Ask/KUL **not wired**  
+**Status:** Build complete · Acceptance = 100% · Ask/KUL wired in Phase 3.1.5  
 **Depends on:** AGI Core v1.0 (extend only — do not modify Core)  
-**Version:** `3.1.0`
+**Version:** `3.1.0`  
+**Integration:** see `PHASE31_05_NOTES.md`
 
 ## Discipline
 
@@ -54,15 +55,12 @@ Working capital · Cash conversion · Regulation · Competition · Valuation
 Lifecycle · Risks · Macro sensitivity · Graph relationships
 ```
 
-## Explicit non-goals (this PR)
+## Explicit non-goals (engine)
 
-- No KUL provider registration
-- No Ask router / soft-slice wiring (`ASK_WIRED = False`)
 - No Core module edits
 - No LLM summaries
+- No Ask bypass outside KUL
 
-## Next (after merge)
+## Integration
 
-1. Register `industry_intelligence` provider inside KUL  
-2. Business Intelligence consumes Industry DNA (not vice versa)  
-3. Production validation stack → Freeze Phase 3.1
+Phase 3.1.5 (`PHASE31_05_NOTES.md`) registers the KUL provider, makes BI consume Industry DNA, and adds Integration Acceptance + Founder V3.

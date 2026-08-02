@@ -15,9 +15,11 @@ _COMPANY_MENU = (
     "cgl",
     "legacy_kip",
 )
-# Phase 3.0.5 — BI first for business-shaped questions, then CapIQ / memory / KF.
+# Phase 3.0.5 — BI first for company business questions, then CapIQ / memory / KF.
+# Phase 3.1.5 — Industry Intelligence consulted so BI can fuse Industry DNA.
 _BUSINESS_MENU = (
     "business_intelligence",
+    "industry_intelligence",
     "capiq_ikt",
     "company_memory",
     "ikl",
@@ -25,7 +27,9 @@ _BUSINESS_MENU = (
     "cgl",
     "legacy_kip",
 )
+# Pure industry / KPI / valuation pedagogy — II first (canonical Industry DNA).
 _INDUSTRY_CONCEPT_MENU = (
+    "industry_intelligence",
     "business_intelligence",
     "knowledge_factory",
     "financial_concepts",
@@ -49,6 +53,13 @@ _VALUATION_MENU = (
     "academy",
     "capiq_ikt",
     "company_memory",
+)
+# Industry-specific valuation pedagogy (P/B for banks, EV/Sales for SaaS, …).
+_VALUATION_INDUSTRY_MENU = (
+    "industry_intelligence",
+    "financial_concepts",
+    "business_intelligence",
+    "academy",
 )
 _MACRO_MENU = (
     "academy",
@@ -80,17 +91,47 @@ def build_knowledge_plan(
     rationale: list[str] = []
 
     business_shaped = bool(types.intersection(_BUSINESS_TYPES))
+    company_bound = bool(query.ticker_hint or query.company_hint or "comparison" in types)
+    industry_pedagogy = bool(
+        types.intersection({"industry", "unit_economics", "business_risk"})
+        or (
+            "valuation" in types
+            and not company_bound
+            and any(
+                tok in (query.question or "").lower()
+                for tok in (
+                    "bank",
+                    "saas",
+                    "software",
+                    "airline",
+                    "fmcg",
+                    "utilit",
+                    "hospital",
+                    "telecom",
+                    "insurance",
+                    "insurer",
+                    "cement",
+                    "real estate",
+                    "commodity",
+                    "p/b",
+                    "ev/sales",
+                    "embedded value",
+                    "nav",
+                )
+            )
+        )
+    )
 
-    if business_shaped and (query.ticker_hint or query.company_hint or "comparison" in types):
+    if business_shaped and company_bound:
         selected.extend(_BUSINESS_MENU)
         rationale.append(
-            "Business-shaped question → BI → CapIQ → memory → KF → CGL → legacy fallback."
+            "Business-shaped + company → BI → Industry DNA → CapIQ → memory → KF → CGL → legacy."
         )
-    elif business_shaped:
-        # Industry / unit-economics / moat pedagogy without a ticker bind.
+    elif business_shaped or (industry_pedagogy and not company_bound):
+        # Industry / unit-economics / KPI / valuation pedagogy without a ticker bind.
         selected.extend(_INDUSTRY_CONCEPT_MENU)
         rationale.append(
-            "Business/industry concept (no company bind) → BI → KF → concepts (no generic retrieval)."
+            "Industry pedagogy (no company bind) → Industry Intelligence → BI → KF → concepts."
         )
     elif types.intersection({"company", "market", "news"}) and (
         query.ticker_hint or query.company_hint
@@ -98,7 +139,7 @@ def build_knowledge_plan(
         selected.extend(_COMPANY_MENU)
         rationale.append("Company-shaped question → memory → CapIQ → KF → CGL → legacy fallback.")
 
-    if types.intersection({"concept"}) and not query.ticker_hint and not business_shaped:
+    if types.intersection({"concept"}) and not query.ticker_hint and not business_shaped and not industry_pedagogy:
         selected.extend(_CONCEPT_MENU)
         rationale.append("Concept question → deterministic finance engines only (no retrieval default).")
 
@@ -107,8 +148,12 @@ def build_knowledge_plan(
         rationale.append("Accounting/FSA → foundations + statement intelligence.")
 
     if types.intersection({"valuation"}) and not business_shaped:
-        selected.extend(_VALUATION_MENU)
-        rationale.append("Valuation → concepts + academy + CapIQ snapshot when company-bound.")
+        if industry_pedagogy and not company_bound:
+            selected.extend(_VALUATION_INDUSTRY_MENU)
+            rationale.append("Industry valuation pedagogy → Industry Intelligence → concepts.")
+        else:
+            selected.extend(_VALUATION_MENU)
+            rationale.append("Valuation → concepts + academy + CapIQ snapshot when company-bound.")
 
     if types.intersection({"macro"}):
         selected.extend(_MACRO_MENU)
@@ -134,13 +179,15 @@ def build_knowledge_plan(
         # considered; ranking will reject empty results after consult.
         filtered.append(pid)
 
-    # Stable unique, then sort by registry priority
+    # Preserve menu order — menus encode the Knowledge Dependency Map
+    # (Industry DNA → BI → CapIQ → …). Re-sorting by ProviderSpec.priority
+    # would incorrectly put Industry Intelligence ahead of BI on company
+    # business questions.
     seen = set()
     unique = []
     for pid in filtered:
         if pid not in seen:
             seen.add(pid)
             unique.append(pid)
-    unique.sort(key=lambda pid: (reg.get(pid).spec.priority if reg.get(pid) else 999, pid))
 
     return KnowledgePlan(query=query, provider_ids=unique, rationale=rationale)

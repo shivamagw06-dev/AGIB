@@ -736,6 +736,7 @@ def evaluate_founder_v2_case(
         hardish = any(
             p in providers
             for p in (
+                "industry_intelligence",
                 "business_intelligence",
                 "capiq_ikt",
                 "company_memory",

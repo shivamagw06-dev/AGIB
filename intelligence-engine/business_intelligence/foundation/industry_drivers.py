@@ -465,5 +465,71 @@ INDUSTRY_TEMPLATES: dict[str, dict[str, Any]] = {
 }
 
 
+# BI industry keys → Phase 3.1 Industry DNA keys (BI consumes DNA; does not duplicate).
+_BI_TO_II_KEY: dict[str, str] = {
+    "saas": "software",
+    "utility": "utilities",
+    "marketplace": "internet_platforms",
+    "platform": "internet_platforms",
+    "restaurant": "qsr",
+    "subscription": "software",
+    "commodity": "metals",
+    "manufacturing": "capital_goods",
+    "conglomerate": "oil_gas",  # soft fallback; company pedagogy overrides
+}
+
+
+def _overlay_industry_dna(industry_key: str, base: dict[str, Any]) -> dict[str, Any]:
+    """Enrich BI templates from canonical Industry DNA when available."""
+    ii_key = _BI_TO_II_KEY.get(industry_key, industry_key)
+    try:
+        from industry_intelligence.dna_catalog import get_dna
+
+        dna = get_dna(ii_key)
+    except Exception:
+        return base
+    if not dna:
+        return base
+
+    out = dict(base)
+    if dna.value_drivers:
+        out["value_drivers"] = list(dna.value_drivers)
+    if dna.capital_intensity:
+        out["capital_intensity"] = dna.capital_intensity
+    if dna.working_capital:
+        out["working_capital"] = dna.working_capital
+    if dna.operating_leverage:
+        out["operating_leverage"] = dna.operating_leverage
+    if dna.pricing_power:
+        out["pricing_model"] = dna.pricing_power
+    if dna.porter:
+        out["porter"] = {
+            "rivalry": dna.porter.rivalry,
+            "entry_barriers": dna.porter.entry_barriers,
+            "supplier_power": dna.porter.supplier_power,
+            "customer_power": dna.porter.buyer_power,
+            "substitutes": dna.porter.substitutes,
+        }
+    if dna.concentration:
+        out["concentration"] = dna.concentration
+    if dna.lifecycle:
+        out["lifecycle_default"] = dna.lifecycle
+    # Prefer DNA revenue/margin chain as unit-econ narrative when BI chain empty-ish
+    if dna.revenue_drivers and dna.margin_drivers:
+        out["unit_econ_chain"] = [
+            f"Revenue: {', '.join(dna.revenue_drivers[:3])}",
+            f"Margins: {', '.join(dna.margin_drivers[:3])}",
+            f"Cash conversion: {dna.cash_conversion}",
+            f"Capital intensity: {dna.capital_intensity}",
+            f"Typical ROIC: {dna.typical_roic}",
+        ]
+    out["from_industry_dna"] = True
+    out["industry_dna_key"] = ii_key
+    out["valuation_methods"] = list(dna.valuation_methods)
+    out["typical_risks"] = list(dna.typical_risks)
+    return out
+
+
 def template_for(industry_key: str) -> dict[str, Any]:
-    return dict(INDUSTRY_TEMPLATES.get(industry_key) or INDUSTRY_TEMPLATES["unknown"])
+    base = dict(INDUSTRY_TEMPLATES.get(industry_key) or INDUSTRY_TEMPLATES["unknown"])
+    return _overlay_industry_dna(industry_key, base)
