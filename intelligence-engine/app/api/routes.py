@@ -4635,6 +4635,47 @@ async def portfolio_intelligence_foundation_soft_slice(payload: dict):
     return soft_slice_for_ask_agi(question)
 
 
+# --- Phase 3.4 Research Intelligence Engine (Ask NOT wired until Acceptance 100%) ---
+
+
+@router.get("/research-intelligence/health")
+async def research_intelligence_health():
+    from research_intelligence.production import health
+
+    return health()
+
+
+@router.get("/research-intelligence/dashboard")
+async def research_intelligence_dashboard():
+    from research_intelligence.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/research-intelligence/entities")
+async def research_intelligence_entities():
+    from research_intelligence.production import entities
+
+    return entities()
+
+
+@router.post("/research-intelligence/analyse")
+async def research_intelligence_analyse(payload: dict):
+    from research_intelligence.production import analyse
+
+    question = str((payload or {}).get("question") or "").strip()
+    entity = (payload or {}).get("entity")
+    return analyse(question, entity=entity)
+
+
+@router.post("/research-intelligence/soft_slice")
+async def research_intelligence_soft_slice(payload: dict):
+    from research_intelligence.production import soft_slice_for_ask_agi
+
+    question = str((payload or {}).get("question") or "").strip()
+    return soft_slice_for_ask_agi(question)
+
+
 # --- FIRE-04 Evidence Fusion Engine (cross-evidence consistency) ---
 
 
