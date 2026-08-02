@@ -11,10 +11,12 @@ _COMPANY_MENU = (
     "company_memory",
     "ikl",
     "valuation_consensus",
+    "valuation_terminal",
     "capiq_ikt",
     "knowledge_factory",
     "cgl",
     "legacy_kip",
+    "hedge_fund_screens",
 )
 # Phase 3.0.5 — BI first for company business questions, then CapIQ / memory / KF.
 # Phase 3.1.5 — Industry Intelligence consulted so BI can fuse Industry DNA.
@@ -22,6 +24,7 @@ _BUSINESS_MENU = (
     "business_intelligence",
     "industry_intelligence",
     "valuation_consensus",
+    "valuation_terminal",
     "capiq_ikt",
     "company_memory",
     "ikl",
@@ -33,9 +36,11 @@ _BUSINESS_MENU = (
 # INV consumes BI + Industry DNA conceptually; planner still consults BI/II.
 _INVESTMENT_MENU = (
     "investment_intelligence",
+    "hedge_fund_screens",
     "business_intelligence",
     "industry_intelligence",
     "valuation_consensus",
+    "valuation_terminal",
     "capiq_ikt",
     "company_memory",
     "ikl",
@@ -50,6 +55,7 @@ _PORTFOLIO_MENU = (
     "business_intelligence",
     "industry_intelligence",
     "valuation_consensus",
+    "valuation_terminal",
     "capiq_ikt",
     "company_memory",
     "ikl",
@@ -64,6 +70,7 @@ _RESEARCH_MENU = (
     "business_intelligence",
     "industry_intelligence",
     "valuation_consensus",
+    "valuation_terminal",
     "capiq_ikt",
     "company_memory",
     "ikl",
@@ -94,6 +101,8 @@ _ACCOUNTING_MENU = (
 )
 _VALUATION_MENU = (
     "valuation_consensus",
+    "valuation_terminal",
+    "hedge_fund_screens",
     "financial_concepts",
     "academy",
     "capiq_ikt",
@@ -103,6 +112,7 @@ _VALUATION_MENU = (
 # AGI's own layers so the answer can separate market view from AGI view.
 _CONSENSUS_MENU = (
     "valuation_consensus",
+    "valuation_terminal",
     "capiq_ikt",
     "investment_intelligence",
     "business_intelligence",
@@ -114,6 +124,7 @@ _CONSENSUS_MENU = (
 # engines only yields "Business type: unknown" noise.
 _CONSENSUS_SCREEN_MENU = (
     "valuation_consensus",
+    "valuation_terminal",
     "industry_intelligence",
 )
 # Industry-specific valuation pedagogy (P/B for banks, EV/Sales for SaaS, …).

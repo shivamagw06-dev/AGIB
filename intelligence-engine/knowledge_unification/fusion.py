@@ -177,6 +177,23 @@ _OBJECTIVE_LEADS: tuple[tuple[re.Pattern[str], tuple[str, ...]], ...] = (
     ),
     (
         re.compile(
+            r"\b(expensive|cheap|overvalued|undervalued|valuation|multiple|"
+            r"p/?e\b|p/?b\b|ev/?ebitda|price to (?:earnings|book|sales)|"
+            r"trades? at|re-?rat(?:e|ing)|de-?rat(?:e|ing)|discount|premium)\b",
+            re.I,
+        ),
+        ("valuation_terminal", "valuation_consensus", "industry_intelligence"),
+    ),
+    (
+        re.compile(
+            r"\b(screen|scanner|hedge fund|long/?short|market neutral|pair trade|"
+            r"value trap|momentum|quality screen)\b",
+            re.I,
+        ),
+        ("hedge_fund_screens", "valuation_terminal", "investment_intelligence"),
+    ),
+    (
+        re.compile(
             r"\b(investment thesis|why (?:would|should).{0,20}own|thesis|catalysts?|"
             r"biggest risks?|business and financial quality)\b",
             re.I,
