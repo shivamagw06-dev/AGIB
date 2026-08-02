@@ -536,3 +536,165 @@
   text-transform: uppercase;
   color: var(--hfl-dim);
 }
+
+/* ---------------------------------------------------------------- */
+/* Intelligence terminal                                             */
+/* ---------------------------------------------------------------- */
+.hft { display: block; }
+.hft-dim { color: var(--hfl-dim); font-size: 0.82rem; }
+.hft-error {
+  border: 1px solid rgba(224, 90, 79, 0.4);
+  background: rgba(224, 90, 79, 0.12);
+  color: #ffb4ac;
+  border-radius: 8px;
+  padding: 0.7rem 0.9rem;
+  font-size: 0.85rem;
+}
+.hft-lead { margin: 0 0 0.6rem; }
+.hft-title {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 1.8rem 0 0.7rem;
+  font-size: 0.95rem;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--hfl-dim);
+}
+.hft-stars { color: var(--hfl-amber); letter-spacing: 1px; font-size: 0.8rem; }
+.hft-stars .dim { color: #33455e; }
+
+/* Ask */
+.hft-ask { margin-top: 0.9rem; }
+.hft-ask-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 0.8rem;
+  background: var(--hfl-panel);
+  border: 1px solid var(--hfl-line);
+  border-radius: 8px;
+  max-width: 900px;
+}
+.hft-ask-bar svg { color: var(--hfl-dim); flex: none; }
+.hft-ask-bar input {
+  flex: 1; background: transparent; border: 0; outline: none;
+  color: var(--hfl-ink); font-size: 0.9rem;
+}
+.hft-ask-bar input::placeholder { color: var(--hfl-dim); }
+.hft-ask-bar button {
+  flex: none; padding: 0.35rem 0.9rem; border: 0; border-radius: 6px;
+  background: var(--hfl-teal); color: #06121f; font-size: 0.82rem; font-weight: 700; cursor: pointer;
+}
+.hft-ask-bar button:disabled { opacity: 0.6; cursor: default; }
+.hft-ask-examples { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.5rem; }
+.hft-ask-examples button {
+  background: transparent; border: 1px solid var(--hfl-line); color: var(--hfl-dim);
+  border-radius: 999px; padding: 0.2rem 0.7rem; font-size: 0.75rem; cursor: pointer;
+}
+.hft-ask-examples button:hover { color: var(--hfl-ink); border-color: var(--hfl-teal); }
+.hft-ask-answer {
+  margin-top: 0.7rem; max-width: 900px; padding: 0.8rem 0.95rem;
+  background: var(--hfl-panel); border: 1px solid var(--hfl-line); border-radius: 8px;
+  font-size: 0.88rem; line-height: 1.6;
+}
+.hft-ask-head {
+  display: flex; align-items: center; gap: 0.35rem; color: var(--hfl-teal);
+  font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.35rem;
+}
+.hft-ask-answer p { margin: 0 0 0.4rem; white-space: pre-wrap; }
+
+/* Regime strip */
+.hft-regime {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1px;
+  background: var(--hfl-line);
+  border: 1px solid var(--hfl-line);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+.hft-regime > div { background: #0d1727; padding: 0.55rem 0.7rem; display: flex; flex-direction: column; gap: 2px; }
+.hft-regime .k { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--hfl-dim); }
+.hft-regime .v { font-size: 0.95rem; font-weight: 600; }
+
+/* Hero */
+.hft-hero { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 0.7rem; }
+.hft-stat {
+  background: var(--hfl-panel); border: 1px solid var(--hfl-line); border-radius: 8px;
+  padding: 0.7rem 0.9rem; display: flex; flex-direction: column; gap: 3px;
+}
+.hft-stat .k { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--hfl-dim); }
+.hft-stat .v { font-size: 1.5rem; font-weight: 650; }
+
+.hft-highlights { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 0.7rem; margin-top: 0.7rem; }
+.hft-highlight { background: #0d1727; border: 1px solid var(--hfl-line); border-radius: 8px; padding: 0.7rem 0.9rem; }
+.hft-highlight .k { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--hfl-teal); }
+.hft-highlight strong { display: block; margin: 0.2rem 0 0.3rem; font-size: 0.95rem; }
+.hft-highlight p { margin: 0; font-size: 0.78rem; line-height: 1.5; color: var(--hfl-dim); }
+
+/* Scanner cards */
+.hft-scanners { display: grid; grid-template-columns: repeat(auto-fit, minmax(215px, 1fr)); gap: 0.7rem; }
+.hft-scan-card {
+  text-align: left; background: var(--hfl-panel); border: 1px solid var(--hfl-line);
+  border-radius: 8px; padding: 0.75rem 0.9rem; color: inherit; cursor: pointer;
+  display: flex; flex-direction: column; gap: 0.35rem; font-family: inherit;
+}
+.hft-scan-card:hover { border-color: #2c4a6b; }
+.hft-scan-card.active { border-color: var(--hfl-teal); background: #10202f; }
+.hft-scan-card .top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.hft-scan-card .name { font-weight: 650; font-size: 0.92rem; }
+.hft-scan-card .count { font-size: 1.5rem; font-weight: 650; display: flex; align-items: baseline; gap: 0.35rem; }
+.hft-scan-card .count span { font-size: 0.7rem; font-weight: 400; color: var(--hfl-dim); }
+.hft-scan-card .meta { display: flex; justify-content: space-between; gap: 0.5rem; font-size: 0.72rem; color: var(--hfl-dim); }
+.hft-scan-card .alpha { font-size: 0.75rem; color: var(--hfl-ink); }
+.hft-scan-card .risk { font-size: 0.72rem; color: var(--hfl-dim); }
+
+/* Opportunity tables */
+.hft-opps { margin-top: 0.9rem; }
+.hft-opps-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.5rem; font-size: 0.85rem; }
+.hft-table-wrap { overflow-x: auto; border: 1px solid var(--hfl-line); border-radius: 8px; }
+.hft-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+.hft-table th {
+  text-align: left; padding: 0.5rem 0.65rem; background: #0d1727; color: var(--hfl-dim);
+  font-weight: 600; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--hfl-line); white-space: nowrap;
+}
+.hft-table td { padding: 0.5rem 0.65rem; border-bottom: 1px solid rgba(30, 45, 66, 0.7); vertical-align: top; }
+.hft-table tr.open td { background: #101d2d; }
+.hft-table.compact td, .hft-table.compact th { padding: 0.35rem 0.5rem; }
+.hft-why { color: var(--hfl-dim); max-width: 560px; line-height: 1.5; }
+.hft-conf {
+  display: inline-block; min-width: 34px; text-align: center; padding: 0.1rem 0.35rem;
+  border-radius: 4px; background: rgba(47, 191, 164, 0.14); color: var(--hfl-teal); font-weight: 650;
+}
+.hft-toggle { background: transparent; border: 0; color: var(--hfl-dim); cursor: pointer; padding: 0; }
+.hft-detail-row td { background: #0b1523; }
+
+/* Explanation */
+.hft-explain { padding: 0.4rem 0.2rem 0.6rem; }
+.hft-explain-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; }
+.hft-explain h5 {
+  margin: 0 0 0.35rem; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--hfl-teal);
+}
+.hft-explain h5 + h5 { margin-top: 0.7rem; }
+.hft-explain ul { margin: 0; padding-left: 1rem; font-size: 0.8rem; line-height: 1.55; }
+.hft-explain li { margin-bottom: 0.3rem; }
+.hft-chain { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+.hft-chain td { padding: 0.2rem 0; border-bottom: 1px solid rgba(30, 45, 66, 0.6); }
+.hft-chain td:last-child { text-align: right; font-weight: 600; }
+.hft-timeline { list-style: none; padding-left: 0; }
+.hft-timeline span { color: var(--hfl-dim); margin-right: 0.4rem; }
+.hft-bottom { margin: 0.8rem 0 0; font-size: 0.85rem; line-height: 1.6; max-width: 92ch; }
+
+/* Daily + dashboard */
+.hft-daily { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; }
+.hft-daily h5, .hft-dash h5 {
+  margin: 0 0 0.4rem; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--hfl-teal);
+}
+.hft-daily ul, .hft-list { margin: 0; padding-left: 1rem; font-size: 0.82rem; line-height: 1.6; }
+.hft-dash { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.2rem; }
+.hft-dash h5 + h5 { margin-top: 0.9rem; }
+.hft-note { margin: 0.8rem 0 0; font-size: 0.75rem; color: var(--hfl-dim); max-width: 100ch; line-height: 1.55; }
