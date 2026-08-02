@@ -13,7 +13,8 @@ from typing import Any, Optional
 II_VERSION = "3.1.0"
 PROGRAMME = "Phase 3.1 — Industry Intelligence Engine"
 SPEC = "AGI-INDUSTRY-INTELLIGENCE-3.1"
-ASK_WIRED = False  # Integration only after Acceptance = 100%
+ASK_WIRED = True  # Phase 3.1.5 — wired via KUL provider only (Acceptance = 100%)
+ASK_WIRED_VIA = "knowledge_unification.providers.industry_intelligence"
 
 COMPETITIVE_STRUCTURES = (
     "fragmented",

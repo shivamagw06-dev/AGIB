@@ -11,8 +11,8 @@ from knowledge_unification.ranking import rank_and_filter
 from knowledge_unification.registry import get_registry
 from knowledge_unification.schema import FusedEvidence, ProviderResult
 
-KUL_VERSION = "1.1.0"
-PROGRAMME = "Phase X — Knowledge Unification Layer (+ BI Integration 3.0.5)"
+KUL_VERSION = "1.2.0"
+PROGRAMME = "Phase X — Knowledge Unification Layer (+ II Integration 3.1.5)"
 
 
 def health() -> dict[str, Any]:
@@ -87,6 +87,7 @@ def soft_slice_for_ask_agi(
 
 _HARD_PROVIDERS = frozenset(
     {
+        "industry_intelligence",
         "business_intelligence",
         "capiq_ikt",
         "company_memory",

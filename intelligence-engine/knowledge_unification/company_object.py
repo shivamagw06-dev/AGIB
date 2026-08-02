@@ -106,6 +106,19 @@ def build_company_intelligence(
             if r.summary and not obj["business"].get("description"):
                 obj["business"]["description"] = r.summary
 
+        elif r.provider_id == "industry_intelligence":
+            if raw.get("industry"):
+                obj["industry"]["key"] = raw.get("industry")
+                obj["industry"]["name"] = raw.get("industry_name")
+                obj["industry"]["from_industry_dna"] = True
+                dna = raw.get("dna") if isinstance(raw.get("dna"), dict) else {}
+                if dna:
+                    obj["industry"]["dna"] = {
+                        "valuation_methods": dna.get("valuation_methods"),
+                        "competitive_structure": dna.get("competitive_structure"),
+                        "primary_cycle": dna.get("primary_cycle"),
+                    }
+
         elif r.provider_id == "cgl":
             obj["research"]["cgl_extracts"] = (raw.get("extracts") or [])[:5]
 

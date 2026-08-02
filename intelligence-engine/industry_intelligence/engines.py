@@ -259,6 +259,29 @@ _CROSS_INDUSTRY_ANSWERS: list[tuple[str, str, str]] = [
         "Commodity industries use EV/EBITDA and replacement cost because earnings are cycle-volatile — "
         "replacement cost anchors the capital required to recreate capacity when mid-cycle earnings mislead.",
     ),
+    (
+        r"saas.*(scale|differ).*(it services|its)|it services.*(scale|differ).*saas|"
+        r"why do saas companies scale differently",
+        "software",
+        "SaaS scales differently from IT services because incremental seats drop through at high gross margin "
+        "with negative working capital (deferred revenue), while IT services remain utilization- and "
+        "headcount-linked — growth consumes hiring and wage inflation rather than pure software leverage.",
+    ),
+    (
+        r"airline.*(rail|railway)|railway.*(airline)|compare airlines? and railways?",
+        "airlines",
+        "Airlines are price-competitive, fuel- and fleet-capital intensive with thin mid-cycle ROIC; "
+        "railways (where private comps exist) are denser network/infrastructure plays with different "
+        "regulation and lower discretionary yield volatility — capital intensity stays high but pricing "
+        "and cycle mapping diverge.",
+    ),
+    (
+        r"banks? vs\.? nbfcs?|nbfcs? vs\.? banks?|funding models differ",
+        "banks",
+        "Banks fund primarily via deposits/CASA (sticky, regulated franchise) while NBFCs rely more on "
+        "wholesale borrowings — so banks defend NIM through CASA and NBFCs live on spread over funding cost "
+        "with higher refinancing sensitivity.",
+    ),
 ]
 
 

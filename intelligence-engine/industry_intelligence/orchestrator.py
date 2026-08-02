@@ -41,7 +41,7 @@ def detect_intents(question: str) -> list[str]:
         intents.append("competition")
     if re.search(
         r"\b(cycle|expansion|slowdown|recovery|credit cycle|commodity cycle|"
-        r"housing cycle|interest rate cycle|technology cycle)\b",
+        r"housing cycle|interest rate cycle|technology cycle|cyclical)\b",
         q,
     ):
         intents.append("cycle")

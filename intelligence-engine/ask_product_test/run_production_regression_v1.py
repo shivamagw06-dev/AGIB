@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Full Production Regression — Phase 3.0 release gate.
+"""Full Production Regression — Phase 3.0 / 3.1 release gate.
 
 Runs the required suites together and writes a single release report:
 
@@ -8,15 +8,18 @@ Runs the required suites together and writes a single release report:
 Suites (order):
   1. BI Acceptance                 target 100%
   2. Business Integration          target 100%
-  3. Golden Business 20            target 20/20
-  4. Golden Founder 5              target 5/5
-  5. Founder Evaluation V2         target ≥95%
-  6. KUL Acceptance                target PASS (100%)
-  7. Concept Acceptance            target PASS
-  8. Coverage Acceptance           target PASS
-  9. Recommendation Policy         target PASS
- 10. Unknown Entity                target PASS
- 11. Financial Intelligence (AFI)  target ≥95%  (optional via --with-afi)
+  3. Industry Acceptance           target 100%
+  4. Industry Integration          target 100%
+  5. Golden Business 20            target 20/20
+  6. Golden Founder 5              target 5/5
+  7. Founder Evaluation V2         target ≥95%
+  8. Founder Evaluation V3         target ≥95%
+  9. KUL Acceptance                target PASS (100%)
+ 10. Concept Acceptance            target PASS
+ 11. Coverage Acceptance           target PASS
+ 12. Recommendation Policy         target PASS
+ 13. Unknown Entity                target PASS
+ 14. Financial Intelligence (AFI)  target ≥95%  (optional via --with-afi)
 
 Environment:
   ASK_TEST_MODE=inprocess|live|contract   (default inprocess)
@@ -78,9 +81,12 @@ def _decide(suite_id: str, report: Dict[str, Any], rc: int) -> Dict[str, Any]:
     targets = {
         "bi_acceptance": {"metric": "pass_rate_pct", "op": "eq", "value": 100.0, "artifact": "bi_acceptance_v1.json"},
         "bi_integration": {"metric": "pass_rate_pct", "op": "eq", "value": 100.0, "artifact": "bi_integration_acceptance_v1.json"},
+        "ii_acceptance": {"metric": "pass_rate_pct", "op": "eq", "value": 100.0, "artifact": "industry_intelligence_acceptance_v1.json"},
+        "ii_integration": {"metric": "pass_rate_pct", "op": "eq", "value": 100.0, "artifact": "ii_integration_acceptance_v1.json"},
         "golden_business_20": {"metric": "pass_rate_pct", "op": "eq", "value": 100.0, "artifact": "golden_business_20.json"},
         "golden_founder_5": {"metric": "pass_rate", "op": "eq", "value": 1.0, "artifact": "golden_founder_5_latest.json"},
         "founder_evaluation_v2": {"metric": "pass_rate_pct", "op": "gte", "value": 95.0, "artifact": "founder_evaluation_v2.json"},
+        "founder_evaluation_v3": {"metric": "pass_rate_pct", "op": "gte", "value": 95.0, "artifact": "founder_evaluation_v3.json"},
         "kul_acceptance": {"metric": "pass_rate_pct", "op": "eq", "value": 100.0, "artifact": "kul_acceptance_v1.json"},
         "concept_acceptance": {"metric": "pass_rate_pct", "op": "eq", "value": 100.0, "artifact": "concept_acceptance_v1.json"},
         "coverage_acceptance": {"metric": "release_decision", "op": "eq", "value": "PASS", "artifact": "coverage_acceptance_v1.json"},
@@ -154,7 +160,7 @@ def _decide(suite_id: str, report: Dict[str, Any], rc: int) -> Dict[str, Any]:
     hallucinations = 0
     if isinstance(hard, dict) and hard:
         hallucinations = len(hard)
-    if suite_id in {"founder_evaluation_v2", "afi_acceptance"} and hallucinations:
+    if suite_id in {"founder_evaluation_v2", "founder_evaluation_v3", "afi_acceptance"} and hallucinations:
         ok = False
 
     return {
@@ -182,9 +188,12 @@ def main() -> int:
     plan: List[Tuple[str, str]] = [
         ("bi_acceptance", "ask_product_test.run_bi_acceptance_v1"),
         ("bi_integration", "ask_product_test.run_bi_integration_acceptance_v1"),
+        ("ii_acceptance", "ask_product_test.run_industry_intelligence_acceptance_v1"),
+        ("ii_integration", "ask_product_test.run_ii_integration_acceptance_v1"),
         ("golden_business_20", "ask_product_test.run_golden_business_20"),
         ("golden_founder_5", "ask_product_test.run_golden_founder_5"),
         ("founder_evaluation_v2", "ask_product_test.run_founder_evaluation_v2"),
+        ("founder_evaluation_v3", "ask_product_test.run_founder_evaluation_v3"),
         ("kul_acceptance", "ask_product_test.run_kul_acceptance_v1"),
         ("concept_acceptance", "ask_product_test.run_concept_acceptance_v1"),
         ("recommendation_policy", "ask_product_test.run_recommendation_policy_acceptance_v1"),
@@ -217,7 +226,10 @@ def main() -> int:
         "targets": {
             "BI Acceptance": "100%",
             "Business Integration": "100%",
+            "Industry Acceptance": "100%",
+            "Industry Integration": "100%",
             "Founder Evaluation V2": "≥95%",
+            "Founder Evaluation V3": "≥95%",
             "Golden Founder 5": "5/5",
             "Golden Business 20": "20/20",
             "AFI": "≥95% (when included)",
@@ -233,9 +245,11 @@ def main() -> int:
         "total_suites": len(results),
         "release_decision": "PASS" if all_pass else "FAIL",
         "phase3_freeze_ready": bool(all_pass and with_afi and not quick),
+        "phase31_freeze_ready": bool(all_pass and with_afi and not quick),
         "note": (
-            "Phase 3.0 freezes only when the full gate (including AFI + Coverage) is PASS. "
-            "Quick mode validates business/founder/KUL/policy slices for iteration."
+            "Phase 3.1 freezes only when Industry Acceptance + Integration + Founder V3 "
+            "and the full gate (including AFI + Coverage) are PASS. "
+            "Quick mode validates business/industry/founder/KUL/policy slices for iteration."
         ),
     }
     (ART / "production_regression_v1.json").write_text(
