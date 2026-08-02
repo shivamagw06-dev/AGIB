@@ -56,8 +56,14 @@ export default function HedgeFundPage() {
 
         <div className="flex flex-wrap gap-3">
           <Link
-            to="/research"
+            to="/hedge-fund/strategy-lab"
             className="rounded-md bg-[#0b1f33] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#163353]"
+          >
+            Strategy Lab
+          </Link>
+          <Link
+            to="/research"
+            className="rounded-md border border-[#d5d8de] px-5 py-2.5 text-sm font-bold text-[#111111] hover:border-[#111111]"
           >
             Explore Research
           </Link>

@@ -10053,6 +10053,47 @@ async def valuation_consensus_seed(payload: dict[str, Any] = Body(default={})):
 
 
 # ---------------------------------------------------------------------------
+# Hedge Fund Strategy Lab — strategy library plus server-side calculators.
+# ---------------------------------------------------------------------------
+
+
+@router.get("/hedge-fund-lab/health")
+async def hedge_fund_lab_health():
+    from hedge_fund_lab.production import health
+
+    return health()
+
+
+@router.get("/hedge-fund-lab/strategies")
+async def hedge_fund_lab_strategies():
+    from hedge_fund_lab.production import library
+
+    return library()
+
+
+@router.get("/hedge-fund-lab/compare")
+async def hedge_fund_lab_compare():
+    from hedge_fund_lab.production import compare
+
+    return compare()
+
+
+@router.get("/hedge-fund-lab/strategy/{strategy_id}")
+async def hedge_fund_lab_strategy(strategy_id: str):
+    from hedge_fund_lab.production import strategy
+
+    return strategy(strategy_id)
+
+
+@router.post("/hedge-fund-lab/calculate/{kind}")
+async def hedge_fund_lab_calculate(kind: str, payload: dict[str, Any] = Body(default={})):
+    """Every strategy calculation runs here, never in the browser."""
+    from hedge_fund_lab.production import calculate
+
+    return calculate(kind, payload or {})
+
+
+# ---------------------------------------------------------------------------
 # Valuation Intelligence Terminal — market multiples plus AGI interpretation.
 # ---------------------------------------------------------------------------
 

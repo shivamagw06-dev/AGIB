@@ -2201,6 +2201,29 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // Hedge Fund Strategy Lab
+  router.get('/hedge-fund-lab/health', kfGet('/v1/hedge-fund-lab/health'));
+  router.get('/hedge-fund-lab/strategies', kfGet('/v1/hedge-fund-lab/strategies'));
+  router.get('/hedge-fund-lab/compare', kfGet('/v1/hedge-fund-lab/compare'));
+  router.get('/hedge-fund-lab/strategy/:id', async (req, res) => {
+    try {
+      const r = await engineFetch(`/v1/hedge-fund-lab/strategy/${encodeURIComponent(req.params.id)}`);
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'hedge-fund-lab strategy failed' });
+    }
+  });
+  router.post('/hedge-fund-lab/calculate/:kind', async (req, res) => {
+    try {
+      const r = await engineFetch(`/v1/hedge-fund-lab/calculate/${encodeURIComponent(req.params.kind)}`, {
+        method: 'POST', body: req.body || {}, timeoutMs: 30_000,
+      });
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'hedge-fund-lab calculate failed' });
+    }
+  });
+
   // Valuation Intelligence Terminal — market multiples + AGI interpretation
   router.get('/valuation-terminal/health', kfGet('/v1/valuation-terminal/health'));
   router.get('/valuation-terminal/overview', kfGet('/v1/valuation-terminal/overview'));

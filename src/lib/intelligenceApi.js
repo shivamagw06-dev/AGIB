@@ -2794,3 +2794,15 @@ export const getVtCompany = (ticker) =>
   intelligenceFetch(`/valuation-terminal/company/${encodeURIComponent(ticker)}`);
 export const getVtExplain = (metric) =>
   intelligenceFetch(`/valuation-terminal/explain/${encodeURIComponent(metric)}`);
+
+/** Hedge Fund Strategy Lab */
+export const getHflHealth = () => intelligenceFetch('/hedge-fund-lab/health');
+export const getHflStrategies = () => intelligenceFetch('/hedge-fund-lab/strategies');
+export const getHflCompare = () => intelligenceFetch('/hedge-fund-lab/compare');
+export const getHflStrategy = (id) =>
+  intelligenceFetch(`/hedge-fund-lab/strategy/${encodeURIComponent(id)}`);
+export const hflCalculate = (kind, payload) =>
+  intelligenceFetch(`/hedge-fund-lab/calculate/${encodeURIComponent(kind)}`, {
+    method: 'POST',
+    body: payload,
+  });

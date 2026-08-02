@@ -54,6 +54,7 @@ const PredictionCentre = React.lazy(() => import('@/pages/PredictionCentre'));
 const PersonalWorkspace = React.lazy(() => import('@/pages/PersonalWorkspace'));
 const ResearchTerminalHome = React.lazy(() => import('@/components/Home/ResearchTerminalHome'));
 const HedgeFundPage = React.lazy(() => import('@/pages/HedgeFundPage'));
+const HedgeFundLab = React.lazy(() => import('@/pages/HedgeFundLab'));
 const PrivateEquityPage = React.lazy(() => import('@/pages/PrivateEquityPage'));
 const PrivateEquityFirmPage = React.lazy(() => import('@/pages/PrivateEquityFirmPage'));
 const IntelligenceEntityPage = React.lazy(() => import('@/pages/IntelligenceEntityPage'));
@@ -177,6 +178,7 @@ function PublicRoutes() {
       <Route path="/market-intelligence" element={<MarketIntelligence />} />
       <Route path="/macro-intelligence" element={<MacroIntelligence />} />
       <Route path="/hedge-fund" element={<HedgeFundPage />} />
+      <Route path="/hedge-fund/strategy-lab" element={<HedgeFundLab />} />
       <Route path="/private-markets" element={<PrivateEquityPage />} />
       <Route path="/private-markets/firms/:slug" element={<PrivateEquityFirmPage />} />
       <Route path="/private-markets/entities/:slug" element={<IntelligenceEntityPage />} />
