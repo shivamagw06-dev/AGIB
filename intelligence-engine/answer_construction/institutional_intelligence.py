@@ -82,8 +82,25 @@ _DETAILED_REQUEST = re.compile(
 )
 
 
+# Asking what the sell side thinks is a market-data question, not a request
+# for an AGI call — "consensus target price" must reach Consensus
+# Intelligence rather than the no-recommendations refusal.
+_CONSENSUS_DATA_QUERY = re.compile(
+    r"\b(consensus|analysts?|brokers?|brokerages?|sell[- ]side|street)\b", re.I
+)
+_ASKS_AGI_FOR_A_CALL = re.compile(
+    r"\b(should\s+i\b|buy\s+or\s+sell|is\s+.+\s+a\s+(buy|sell)|"
+    r"give\s+me\s+a\s+target|your\s+(target|call|recommendation)|"
+    r"do\s+you\s+recommend|worth\s+buying|good\s+buy)\b",
+    re.I,
+)
+
+
 def is_recommendation_query(query: str | None) -> bool:
-    return bool(_RECO_QUERY.search(str(query or "")))
+    q = str(query or "")
+    if _CONSENSUS_DATA_QUERY.search(q) and not _ASKS_AGI_FOR_A_CALL.search(q):
+        return False
+    return bool(_RECO_QUERY.search(q))
 
 
 def wants_detailed_analysis(query: str | None) -> bool:

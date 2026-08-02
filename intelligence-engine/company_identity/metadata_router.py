@@ -184,6 +184,22 @@ def _value_for(identity: Any, field: str) -> Optional[Any]:
     return getattr(identity, field, None)
 
 
+def _fields_outside_company_name(question: str, company_name: str) -> list[tuple[str, str]]:
+    """Detect field words only in the part of the question that is not the name.
+
+    "Reliance Industries" and "Sun Pharmaceutical Industries" contain the word
+    "Industries"; without this, an annual-report question about Reliance was
+    treated as a request for its primary industry.
+    """
+    residue = str(question or "")
+    for token in str(company_name or "").split():
+        cleaned = re.sub(r"[^\w&]", "", token)
+        if len(cleaned) < 3:
+            continue
+        residue = re.sub(rf"\b{re.escape(cleaned)}\w*\b", " ", residue, flags=re.I)
+    return detect_fields(residue)
+
+
 def route(question: str) -> Optional[dict[str, Any]]:
     """Answer a company metadata question directly, or return None.
 
@@ -217,7 +233,11 @@ def route(question: str) -> Optional[dict[str, Any]]:
     if not identity.resolved:
         return None
 
-    fields = detect_fields(q)
+    fields = _fields_outside_company_name(q, identity.company_name)
+    if not fields:
+        # Every field word came from the company's own name — this is not a
+        # metadata question at all.
+        return None
     answered: list[dict[str, Any]] = []
     missing: list[str] = []
     for key, label in fields:
