@@ -29,11 +29,12 @@ evidence + industry templates + financial_concepts vocabulary.
 
 ## Ask integration
 
-**DISABLED** until BI Acceptance Test ≥95%.
+**Phase 3.0.5** wires Ask exclusively through KUL provider
+`business_intelligence` (see `PHASE3_05_NOTES.md`).
 
-`soft_slice_for_ask_agi` returns `enabled: false`.
+`ask_wired: true` · `ask_wired_via: knowledge_unification.providers.business_intelligence`
 
-Do not wire `app/ui/service.py` in this phase.
+Do not add a parallel short-circuit in `app/ui/service.py` — KUL is the path.
 
 ## API
 

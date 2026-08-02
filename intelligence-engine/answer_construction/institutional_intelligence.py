@@ -69,7 +69,9 @@ _RECO_QUERY = re.compile(
     r"is\s+.+\s+a\s+(buy|sell)|"
     r"recommendation\s+on|"
     r"worth\s+buying|"
-    r"good\s+buy"
+    r"good\s+buy|"
+    r"(give\s+me\s+a\s+)?target\s+price|"
+    r"price\s+target"
     r")\b",
     re.I,
 )

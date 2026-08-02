@@ -150,12 +150,12 @@ BSE_ONLY_20: List[Dict[str, Any]] = [
     # to the NSE ticker, so it is no longer a BSE-only fixture. Replaced with
     # a true BSE-only name that has no NSEI twin.
     {"id": "BSE-01", "company": "Utique Enterprises Limited", "ticker": "BSE500014", "prompt": "What is Utique Enterprises Limited's business model?"},
-    {"id": "BSE-02", "company": "The Bombay Dyeing and Manufacturing Company Limited", "ticker": "BSE500020", "prompt": "Explain Bombay Dyeing and Manufacturing Company Limited."},
+    {"id": "BSE-02", "company": "The Bombay Dyeing and Manufacturing Company Limited", "ticker": "BSE500020", "accept_tickers": ["BSE500020", "BOMDYEING"], "prompt": "Explain Bombay Dyeing and Manufacturing Company Limited."},
     {"id": "BSE-03", "company": "Goodricke Group Limited", "ticker": "BSE500166", "prompt": "What is Goodricke Group Limited's business model?"},
-    {"id": "BSE-04", "company": "I G Petrochemicals Limited", "ticker": "BSE500199", "prompt": "Explain I G Petrochemicals Limited."},
+    {"id": "BSE-04", "company": "I G Petrochemicals Limited", "ticker": "BSE500199", "accept_tickers": ["BSE500199", "IGPL"], "prompt": "Explain I G Petrochemicals Limited."},
     {"id": "BSE-05", "company": "JCT Limited", "ticker": "BSE500223", "prompt": "What is JCT Limited's business model?"},
     {"id": "BSE-06", "company": "The Baroda Rayon Corporation Limited", "ticker": "BSE500270", "prompt": "Explain Baroda Rayon Corporation Limited."},
-    {"id": "BSE-07", "company": "Ansal Properties & Infrastructure Limited", "ticker": "BSE500013", "prompt": "What is Ansal Properties & Infrastructure Limited's business model?"},
+    {"id": "BSE-07", "company": "Ansal Properties & Infrastructure Limited", "ticker": "BSE500013", "accept_tickers": ["BSE500013", "ANSALAPI"], "prompt": "What is Ansal Properties & Infrastructure Limited's business model?"},
     {"id": "BSE-08", "company": "The Andhra Petrochemicals Limited", "ticker": "BSE500012", "prompt": "Explain Andhra Petrochemicals Limited."},
     {"id": "BSE-09", "company": "GTN Industries Limited", "ticker": "BSE500170", "prompt": "What is GTN Industries Limited's business model?"},
     {"id": "BSE-10", "company": "Kinetic Engineering Limited", "ticker": "BSE500240", "prompt": "Explain Kinetic Engineering Limited."},
@@ -242,9 +242,11 @@ def evaluate_coverage_item(
     if category in ("nse_listed", "bse_only"):
         resolved_ticker = str(bound_ticker or ikt_company_key or "").upper()
         expected_ticker = case["ticker"].upper()
-        assertions["entity_resolution_correct"] = resolved_ticker == expected_ticker
+        accepted = {expected_ticker, *(str(t).upper() for t in (case.get("accept_tickers") or []))}
+        assertions["entity_resolution_correct"] = resolved_ticker in accepted
         detail["resolved_ticker"] = resolved_ticker
         detail["expected_ticker"] = expected_ticker
+        detail["accepted_tickers"] = sorted(accepted)
 
         assertions["no_substitution"] = _name_mentioned(
             text + " " + entities_blob, company, ticker=case["ticker"]

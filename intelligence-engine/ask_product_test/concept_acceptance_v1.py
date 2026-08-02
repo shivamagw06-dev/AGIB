@@ -88,8 +88,20 @@ def evaluate_concept_question(
     low = (text or "").lower()
     assertions: Dict[str, bool] = {}
 
+    # KUL (Phase X) short-circuits concept questions through the same
+    # financial_concepts provider; accept either the legacy financial_router
+    # signal or KUL with financial_concepts as the primary engine.
     assertions["routed_to_financial_concepts"] = bool(
-        financial_engine == "financial_concepts" or short_circuit == "unsupported_coverage_policy"
+        financial_engine == "financial_concepts"
+        or short_circuit == "unsupported_coverage_policy"
+        or (
+            short_circuit == "knowledge_unification"
+            and financial_engine in {
+                "financial_concepts",
+                "financial_foundations",
+                "financial_statement_intelligence",
+            }
+        )
     )
     assertions["no_retrieval"] = retrieved in (0, None)
     assertions["no_entity_lookup"] = not bool(entity_detected)

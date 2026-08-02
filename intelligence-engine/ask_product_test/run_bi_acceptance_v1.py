@@ -45,7 +45,8 @@ def main() -> int:
     report = {
         "suite": "Business Intelligence Acceptance Test v1.0",
         "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-        "ask_wired": False,
+        "ask_wired": bool(h.get("ask_wired")),
+        "ask_wired_via": h.get("ask_wired_via"),
         "total": len(rows),
         "passed": passed,
         "pass_rate_pct": rate,
