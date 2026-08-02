@@ -1,0 +1,58 @@
+name: Production Release Gate (AGI Core v1.0)
+
+# Permanent merge policy — every PR must PASS before merge.
+# See docs/AGI_CORE_V1_0.md
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - 'cursor/**'
+  workflow_dispatch:
+
+jobs:
+  production-release-gate:
+    name: AGI Core v1.0 Production Regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: intelligence-engine
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          pip install pytest pydantic || true
+
+      - name: Prepare artifacts directory
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/artifacts"
+          echo "ASK_TEST_ARTIFACTS=$GITHUB_WORKSPACE/artifacts" >> "$GITHUB_ENV"
+
+      - name: Run Production Release Gate
+        env:
+          ASK_TEST_MODE: inprocess
+          ASK_TEST_CASE_COOLDOWN_SEC: '0'
+          ASK_SLIM: 'true'
+          FAA_BACKGROUND_COLLECTOR: 'false'
+          CONTINUOUS_GATHER_LEARN: 'false'
+          PYTHONPATH: .
+          IKT_STORE_ROOT: ${{ github.workspace }}/intelligence-engine/data/institutional_knowledge_tables
+        run: python -m ask_product_test.run_production_regression_v1
+
+      - name: Upload gate artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-regression-artifacts
+          path: artifacts/
+          if-no-files-found: warn
