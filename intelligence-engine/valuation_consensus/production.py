@@ -8,7 +8,7 @@ from typing import Any, Optional
 
 from valuation_consensus.agi_panel import agi_panel
 from valuation_consensus.parser import decode_content, diff_against_live, parse_sheet
-from valuation_consensus.schema import NSE_SECTOR_CARDS
+from valuation_consensus.schema import SECTOR_CARDS
 from valuation_consensus import store
 
 
@@ -75,17 +75,17 @@ def analytics() -> dict[str, Any]:
         s = str(r.get("sector") or "Unclassified").strip() or "Unclassified"
         sector_counts[s] = sector_counts.get(s, 0) + 1
 
-    cards = []
-    for name in NSE_SECTOR_CARDS:
-        # fuzzy contains match against CapIQ primary sector labels
-        count = sum(
-            c for s, c in sector_counts.items() if name.lower() in s.lower() or s.lower() in name.lower()
-        )
-        cards.append({"sector": name, "count": count})
-    # Remaining sectors not in the named card list
-    named_lower = {n.lower() for n in NSE_SECTOR_CARDS}
+    # Exact-label cards for the CapIQ GICS primary sectors, then any other
+    # sector label the export actually contains. Counts always sum to the
+    # row total — no sector is counted twice.
+    cards: list[dict[str, Any]] = []
+    named_lower = {n.lower() for n in SECTOR_CARDS}
+    lower_counts = {s.lower(): (s, c) for s, c in sector_counts.items()}
+    for name in SECTOR_CARDS:
+        hit = lower_counts.get(name.lower())
+        cards.append({"sector": name, "count": hit[1] if hit else 0})
     for s, c in sorted(sector_counts.items(), key=lambda kv: (-kv[1], kv[0])):
-        if not any(n in s.lower() or s.lower() in n for n in named_lower):
+        if s.lower() not in named_lower:
             cards.append({"sector": s, "count": c})
 
     return {
@@ -134,11 +134,11 @@ def _match_search(row: dict[str, Any], q: str) -> bool:
 def _passes_filters(row: dict[str, Any], filters: dict[str, Any]) -> bool:
     if not filters:
         return True
+    # CapIQ primary sectors are exact GICS labels — match exactly so
+    # "Consumer Discretionary" never also pulls in "Consumer Staples".
     sector = filters.get("sector")
-    if sector and str(row.get("sector") or "").lower() != str(sector).lower():
-        # allow contains for CapIQ verbose sectors
-        if str(sector).lower() not in str(row.get("sector") or "").lower():
-            return False
+    if sector and str(row.get("sector") or "").strip().lower() != str(sector).strip().lower():
+        return False
     industry = filters.get("industry")
     if industry and str(industry).lower() not in str(row.get("industry") or "").lower():
         return False
@@ -196,6 +196,8 @@ _SORT_KEYS = {
     "alphabetical": ("company_name", False),
     "company": ("company_name", False),
     "ticker": ("ticker", False),
+    "sector": ("sector", False),
+    "industry": ("industry", False),
     "market_cap": ("market_cap", True),
     "target": ("target_price", True),
     "target_price": ("target_price", True),
@@ -220,7 +222,7 @@ def query_rows(
     q: str = "",
     page: int = 1,
     page_size: int = 50,
-    sort: str = "market_cap",
+    sort: str = "coverage",
     sort_dir: str | None = None,
     filters: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
@@ -230,18 +232,24 @@ def query_rows(
     filt = filters or {}
     filtered = [r for r in rows if _match_search(r, qn) and _passes_filters(r, filt)]
 
-    key, default_desc = _SORT_KEYS.get(str(sort or "market_cap").lower(), ("market_cap", True))
+    key, default_desc = _SORT_KEYS.get(str(sort or "coverage").lower(), ("coverage", True))
     descending = default_desc if sort_dir is None else str(sort_dir).lower() in {"desc", "descending", "-1"}
 
+    # Rows without a value for the sort column always sink to the bottom,
+    # in both directions — a null market cap must never outrank a real one.
     def sort_val(r: dict[str, Any]):
         v = r.get(key)
-        if v is None:
-            return (1, "") if not descending else (1, 0)
-        if isinstance(v, (int, float)):
-            return (0, v)
-        return (0, str(v).lower())
+        if isinstance(v, (int, float)) and not isinstance(v, bool):
+            return float(v)
+        if v is None or v == "":
+            return None
+        return str(v).lower()
 
-    filtered.sort(key=sort_val, reverse=descending)
+    with_value = [r for r in filtered if sort_val(r) is not None]
+    without_value = [r for r in filtered if sort_val(r) is None]
+    with_value.sort(key=sort_val, reverse=descending)
+    without_value.sort(key=lambda r: str(r.get("company_name") or r.get("ticker") or "").lower())
+    filtered = with_value + without_value
 
     page = max(1, int(page or 1))
     page_size = max(1, min(500, int(page_size or 50)))

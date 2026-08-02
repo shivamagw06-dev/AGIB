@@ -275,7 +275,7 @@ export default function ValuationIntelligence() {
   const [recommendation, setRecommendation] = useState('');
   const [coverageMin, setCoverageMin] = useState('');
   const [mcapMin, setMcapMin] = useState('');
-  const [sort, setSort] = useState('market_cap');
+  const [sort, setSort] = useState('coverage');
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -397,7 +397,7 @@ export default function ValuationIntelligence() {
   };
 
   const sectorCards = useMemo(
-    () => (analytics?.sector_cards || []).filter((c) => (c.count || 0) > 0 || NSE_ALWAYS.has(c.sector)).slice(0, 36),
+    () => (analytics?.sector_cards || []).filter((c) => (c.count || 0) > 0),
     [analytics]
   );
 
@@ -420,10 +420,6 @@ export default function ValuationIntelligence() {
             </div>
             <h1>Valuation Intelligence</h1>
             <p>Institutional Consensus Dashboard</p>
-            <div className="vi-principle">
-              <span className="vi-chip market">Capital IQ · Market Consensus</span>
-              <span className="vi-chip agi">AGI · Institutional Intelligence</span>
-            </div>
           </div>
           {admin ? (
             <div className="vi-actions">
@@ -556,6 +552,12 @@ export default function ValuationIntelligence() {
       <main className="vi-body">
         {error ? <div className="vi-error">{error}</div> : null}
 
+        <p className="vi-note">
+          Note: consensus prices, targets and broker recommendation counts are Capital IQ market
+          data. AGI Institutional Intelligence is a separate layer, shown inside each company panel,
+          and is never overwritten by Capital IQ.
+        </p>
+
         <section className="vi-analytics">
           <div className="vi-stat">
             <div className="label">Total Companies</div>
@@ -582,7 +584,18 @@ export default function ValuationIntelligence() {
           </div>
         </section>
 
-        <section className="vi-sectors" aria-label="Sector cards">
+        <section className="vi-sectors" aria-label="Primary sectors">
+          <button
+            type="button"
+            className={`vi-sector ${sector === '' ? 'active' : ''}`}
+            onClick={() => {
+              setPage(1);
+              setSector('');
+            }}
+          >
+            <div className="name">All Sectors</div>
+            <div className="count">{fmt(analytics?.total_companies, 0)} companies</div>
+          </button>
           {sectorCards.map((c) => (
             <button
               type="button"
@@ -717,19 +730,6 @@ export default function ValuationIntelligence() {
     </div>
   );
 }
-
-const NSE_ALWAYS = new Set([
-  'Banking',
-  'IT Services',
-  'Auto',
-  'Healthcare',
-  'Consumer',
-  'Industrials',
-  'Capital Goods',
-  'Power',
-  'Pharma',
-  'FMCG',
-]);
 
 function Expansion({ detail, tab, setTab }) {
   const tabs = ['overview', 'performance', 'valuation', 'business', 'research'];
