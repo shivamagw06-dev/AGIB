@@ -80,10 +80,30 @@ _MANAGEMENT_RE = re.compile(
     r"\b(management quality|capital allocat\w*|governance|shareholder friendl)\b",
     re.I,
 )
+_INVESTMENT_RE = re.compile(
+    r"\b(investment thesis|investment (quality|risks?|case|perspective|monitoring|lens)|"
+    r"from an investment (perspective|lens)|for an investor|"
+    r"how should investors monitor|investors? (should )?monitor|"
+    r"monitoring (priorities|points)|key investment monitoring|"
+    r"key catalysts?|biggest catalysts?|catalysts? for|"
+    r"bull,? base,? and bear|bull and bear|bear cases?|base scenarios?|"
+    r"scenario analysis|scenarios?\b|"
+    r"investment committee|committee simulation|evidence strength|"
+    r"why is (this|the) company attractive|downside( risks?)?|"
+    r"major investment risks?|what could (improve|rerate)|"
+    r"why might roic|roic improve|"
+    r"quality scorecard|investment implications|"
+    r"what drives valuation|valuation drivers?|"
+    r"business quality|quality perspective|"
+    r"unknowns? remain|so what does .+ mean for an investor)\b",
+    re.I,
+)
+_INVESTMENT_VERB_RE = re.compile(r"\b(evaluate|assess|analy[sz]e)\b", re.I)
 _BUSINESS_RISK_RE = re.compile(
     r"\b(biggest risks?|business risks?|key risks?|risks? matter|"
     r"why are .+ cyclical|cyclical|"
-    r"concentration risk|commodity risk|regulatory risk)\b",
+    r"concentration risk|commodity risk|regulatory risk|"
+    r"investment risks?|downside risks?)\b",
     re.I,
 )
 _INDUSTRY_RE = re.compile(
@@ -99,7 +119,24 @@ _INDUSTRY_RE = re.compile(
 )
 _MACRO_RE = re.compile(r"\b(macro|gdp|inflation|interest rate|rbi|fed|risk premium|country premium)\b", re.I)
 _MARKET_RE = re.compile(r"\b(price|return|returns|market cap|volume|earnings date|ytd)\b", re.I)
-_PORTFOLIO_RE = re.compile(r"\b(portfolio|position sizing|allocation|watchlist)\b", re.I)
+_PORTFOLIO_RE = re.compile(
+    r"\b(portfolio|position sizing|risk budget|factor exposure|concentration|"
+    r"rebalanc\w*|portfolio construction|portfolio quality|portfolio scenario|"
+    r"watchlist|agib core|concentrated growth)\b",
+    re.I,
+)
+_RESEARCH_RE = re.compile(
+    r"\b(annual report|earnings (call|transcript)|conference call|transcript|"
+    r"management (commentary|intelligence|philosophy)|"
+    r"guidance (history|evolved|vs|intelligence)|"
+    r"research memory|deep research|cross-?document|investor day|"
+    r"(research )?timeline intelligence|research timeline|"
+    r"what changed since|last quarter|five years of|5 years of|"
+    r"from the annual report|capital allocation evolution|"
+    r"estimate (intelligence|changes)|event (intelligence|research)|"
+    r"structured research|research workspace|from .+ event research)\b",
+    re.I,
+)
 _NEWS_RE = re.compile(r"\b(news|latest|recent|announced|filing|transcript)\b", re.I)
 
 _FINANCE_TERMS = re.compile(
@@ -163,7 +200,8 @@ _EXPLICIT_COMPANY_ALIASES = (
     "state bank of india", "axis bank", "kotak", "tata steel", "tata motors",
     "tata power", "adani", "hmt limited", "goodricke", "utique", "aakaar",
     "spright agro", "titan company", "dmart", "avenue supermarts", "asian paints",
-    "reliance retail", "ongc", "jsw steel", "indigo", "interglobe",
+    "reliance retail", "ongc", "jsw steel", "indigo", "interglobe", "berger",
+    "berger paints",
 )
 
 
@@ -283,9 +321,11 @@ def plan_query(question: str) -> QueryPlan:
     if _MANAGEMENT_RE.search(q):
         if "business_model" not in types:
             types.append("business_model")
+    if _INVESTMENT_RE.search(q):
+        types.append("investment")
     if _BUSINESS_RISK_RE.search(q):
         types.append("business_risk")
-        if "industry" not in types:
+        if "industry" not in types and "investment" not in types:
             types.append("industry")
     if _INDUSTRY_RE.search(q) or _INDUSTRY_NAME_RE.search(q):
         types.append("industry")
@@ -295,12 +335,24 @@ def plan_query(question: str) -> QueryPlan:
         types.append("market")
     if _PORTFOLIO_RE.search(q):
         types.append("portfolio")
+    if _RESEARCH_RE.search(q):
+        types.append("research")
     if _NEWS_RE.search(q):
         types.append("news")
-    # Pedagogy concept detection — skip when already classified as business.
+    # Pedagogy concept detection — skip when already classified as business/investment.
     business_typed = bool(
         set(types).intersection(
-            {"business_model", "moat", "unit_economics", "comparison", "business_risk", "industry"}
+            {
+                "business_model",
+                "moat",
+                "unit_economics",
+                "comparison",
+                "business_risk",
+                "industry",
+                "investment",
+                "research",
+                "portfolio",
+            }
         )
     )
     if (_CONCEPT_RE.search(q) or _FINANCE_TERMS.search(q)) and not business_typed:
@@ -347,6 +399,15 @@ def plan_query(question: str) -> QueryPlan:
             types = [t for t in types if t != "company"]
     if company or ticker:
         types.insert(0, "company")
+
+    # Evaluate/Assess/Analyze + company bind → investment reasoning layer.
+    explicit_now = _has_explicit_company_signal(q, company_hint=company, ticker_hint=ticker)
+    if (
+        "investment" not in types
+        and _INVESTMENT_VERB_RE.search(q)
+        and (company or ticker or explicit_now)
+    ):
+        types.append("investment")
 
     # Dedup preserving order
     seen = set()

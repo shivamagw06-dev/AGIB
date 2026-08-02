@@ -4567,6 +4567,115 @@ async def industry_intelligence_kpi(industry_key: str, kpi_key: str):
     return explain_kpi(industry_key, kpi_key)
 
 
+# --- Phase 3.2 Investment Intelligence Engine (Ask NOT wired until Acceptance 100%) ---
+
+
+@router.get("/investment-intelligence/health")
+async def investment_intelligence_health():
+    from investment_intelligence.production import health
+
+    return health()
+
+
+@router.get("/investment-intelligence/dashboard")
+async def investment_intelligence_dashboard():
+    from investment_intelligence.production import dashboard
+
+    return dashboard()
+
+
+@router.post("/investment-intelligence/analyse")
+async def investment_intelligence_analyse(payload: dict):
+    from investment_intelligence.production import analyse
+
+    question = str((payload or {}).get("question") or "").strip()
+    entity = (payload or {}).get("entity")
+    return analyse(question, entity=entity)
+
+
+# --- Phase 3.3 Portfolio Intelligence Foundation (Ask NOT wired until Acceptance 100%) ---
+
+
+@router.get("/portfolio-intelligence/foundation/health")
+async def portfolio_intelligence_foundation_health():
+    from portfolio_intelligence.foundation.production import health
+
+    return health()
+
+
+@router.get("/portfolio-intelligence/foundation/dashboard")
+async def portfolio_intelligence_foundation_dashboard():
+    from portfolio_intelligence.foundation.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/portfolio-intelligence/foundation/portfolios")
+async def portfolio_intelligence_foundation_portfolios():
+    from portfolio_intelligence.foundation.production import portfolios
+
+    return portfolios()
+
+
+@router.post("/portfolio-intelligence/foundation/analyse")
+async def portfolio_intelligence_foundation_analyse(payload: dict):
+    from portfolio_intelligence.foundation.production import analyse
+
+    question = str((payload or {}).get("question") or "").strip()
+    portfolio_id = (payload or {}).get("portfolio_id")
+    compare_with = (payload or {}).get("compare_with")
+    return analyse(question, portfolio_id=portfolio_id, compare_with=compare_with)
+
+
+@router.post("/portfolio-intelligence/foundation/soft_slice")
+async def portfolio_intelligence_foundation_soft_slice(payload: dict):
+    from portfolio_intelligence.foundation.production import soft_slice_for_ask_agi
+
+    question = str((payload or {}).get("question") or "").strip()
+    return soft_slice_for_ask_agi(question)
+
+
+# --- Phase 3.4 Research Intelligence Engine (Ask NOT wired until Acceptance 100%) ---
+
+
+@router.get("/research-intelligence/health")
+async def research_intelligence_health():
+    from research_intelligence.production import health
+
+    return health()
+
+
+@router.get("/research-intelligence/dashboard")
+async def research_intelligence_dashboard():
+    from research_intelligence.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/research-intelligence/entities")
+async def research_intelligence_entities():
+    from research_intelligence.production import entities
+
+    return entities()
+
+
+@router.post("/research-intelligence/analyse")
+async def research_intelligence_analyse(payload: dict):
+    from research_intelligence.production import analyse
+
+    question = str((payload or {}).get("question") or "").strip()
+    entity = (payload or {}).get("entity")
+    return analyse(question, entity=entity)
+
+
+@router.post("/research-intelligence/soft_slice")
+async def research_intelligence_soft_slice(payload: dict):
+    from research_intelligence.production import soft_slice_for_ask_agi
+
+    question = str((payload or {}).get("question") or "").strip()
+    return soft_slice_for_ask_agi(question)
+
+
 # --- FIRE-04 Evidence Fusion Engine (cross-evidence consistency) ---
 
 

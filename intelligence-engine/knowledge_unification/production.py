@@ -87,6 +87,9 @@ def soft_slice_for_ask_agi(
 
 _HARD_PROVIDERS = frozenset(
     {
+        "research_intelligence",
+        "portfolio_intelligence",
+        "investment_intelligence",
         "industry_intelligence",
         "business_intelligence",
         "capiq_ikt",
