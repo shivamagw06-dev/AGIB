@@ -4527,6 +4527,46 @@ async def bi_foundation_compare(payload: dict):
     return compare(str((payload or {}).get("question") or ""))
 
 
+# --- Phase 3.1 Industry Intelligence Engine (Ask NOT wired until Acceptance 100%) ---
+
+
+@router.get("/industry-intelligence/health")
+async def industry_intelligence_health():
+    from industry_intelligence.production import health
+
+    return health()
+
+
+@router.get("/industry-intelligence/dashboard")
+async def industry_intelligence_dashboard():
+    from industry_intelligence.production import dashboard
+
+    return dashboard()
+
+
+@router.post("/industry-intelligence/analyse")
+async def industry_intelligence_analyse(payload: dict):
+    from industry_intelligence.production import analyse
+
+    question = str((payload or {}).get("question") or "").strip()
+    industry = (payload or {}).get("industry")
+    return analyse(question, industry=industry)
+
+
+@router.get("/industry-intelligence/industry/{industry_key}")
+async def industry_intelligence_industry(industry_key: str):
+    from industry_intelligence.production import industry
+
+    return industry(industry_key)
+
+
+@router.get("/industry-intelligence/industry/{industry_key}/kpi/{kpi_key}")
+async def industry_intelligence_kpi(industry_key: str, kpi_key: str):
+    from industry_intelligence.production import explain_kpi
+
+    return explain_kpi(industry_key, kpi_key)
+
+
 # --- FIRE-04 Evidence Fusion Engine (cross-evidence consistency) ---
 
 
