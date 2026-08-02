@@ -35,8 +35,15 @@ from entity_intelligence.schema import (
 )
 
 _CONCEPT_RE = re.compile(
-    r"\b(what is|explain|define|meaning of|how (does|do|to)|roic|ebitda|free cash flow|"
-    r"enterprise value|moat|pricing power|working capital|wacc)\b",
+    r"\b(what is|what are|explain|define|meaning of|how (does|do|to)|"
+    r"why (does|do|is|are)|"
+    r"roic|ebitda|free cash flow|enterprise value|moat|pricing power|"
+    r"working capital|wacc|"
+    # Accounting pedagogy — "Why does every transaction require a debit and a
+    # credit?" is a concept question and must never be treated as a company.
+    r"debit|credit\b|journal entry|double entry|accrual|depreciation|amortisation|"
+    r"balance sheet|income statement|cash flow statement|retained earnings|"
+    r"accounting equation|trial balance|deferred tax|revenue recognition)\b",
     re.I,
 )
 _INDUSTRY_RE = re.compile(
@@ -156,12 +163,26 @@ def _canonical_capiq_ticker(question: str) -> Optional[str]:
         return None
 
 
+def _canonical_mention_reason(question: str) -> Optional[str]:
+    try:
+        from company_identity.service import resolve_company_mention
+
+        return resolve_company_mention(question)[1]
+    except Exception:
+        return None
+
+
 def _cap_iq_safe(question: str, ent: Optional[dict[str, Any]]) -> Optional[str]:
     """Optional CapIQ ticker — rejected if it would substitute a curated entity."""
     # The canonical Capital IQ registry outranks the loose keyword matcher,
     # which bound "Apollo Hospitals" to APOLLO (Apollo Micro Systems).
     tk = _canonical_capiq_ticker(question)
     if not tk:
+        # When the registry judges the mention ambiguous or too short to
+        # identify ("Apollo", "JSW", "Birla"), a loose keyword bind would be
+        # a guess between namesakes. Refuse instead.
+        if _canonical_mention_reason(question) in {"ambiguous_mention", "mention_too_short"}:
+            return None
         try:
             from app.ui.company_router import detect_ikt_company
 
@@ -404,6 +425,40 @@ def resolve(question: str) -> dict[str, Any]:
             "why": [
                 "Company named in the question matched the canonical Capital IQ registry.",
                 "Capital IQ classification is authoritative for sector, industry and business type.",
+            ],
+            "version": EI_VERSION,
+        }
+
+    # A stem that names several Capital IQ companies ("Apollo", "JSW",
+    # "Birla") must be disambiguated, never resolved by picking one.
+    try:
+        from company_identity.service import ambiguous_company_candidates
+
+        candidates = ambiguous_company_candidates(q)
+    except Exception:
+        candidates = []
+    if candidates:
+        options = [
+            {"id": f"CAPIQ_{c['ticker']}", "canonical_name": c["company_name"], "ticker": c["ticker"]}
+            for c in candidates
+        ]
+        names = ", ".join(c["company_name"] for c in candidates[:4])
+        return {
+            "ok": True,
+            "state": STATE_CLARIFICATION_REQUIRED,
+            "confidence": 0.9,
+            "allow_planner": False,
+            "entity": None,
+            "ticker": None,
+            "canonical_name": None,
+            "clarification": {"stem": q, "options": options},
+            "summary": (
+                "That name matches several listed companies in the Capital IQ registry "
+                f"— {names}. Which one do you mean?"
+            ),
+            "why": [
+                "Entity Intelligence requires disambiguation before any intelligence engine runs.",
+                "AGI will not pick one company from a shared group or brand name.",
             ],
             "version": EI_VERSION,
         }

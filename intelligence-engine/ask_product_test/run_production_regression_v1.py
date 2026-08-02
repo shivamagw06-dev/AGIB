@@ -93,6 +93,9 @@ def _decide(suite_id: str, report: Dict[str, Any], rc: int) -> Dict[str, Any]:
         "recommendation_policy": {"metric": "pass_rate_pct", "op": "eq", "value": 100.0, "artifact": "recommendation_policy_acceptance_v1.json"},
         "unknown_entity": {"metric": "pass_rate_pct", "op": "eq", "value": 100.0, "artifact": "unknown_entity_acceptance_v1.json"},
         "afi_acceptance": {"metric": "overall_score_pct", "op": "gte", "value": 95.0, "artifact": "afi_acceptance_v1.json"},
+        "canonical_classification": {"metric": "pass_rate_pct", "op": "eq", "value": 100.0, "artifact": "canonical_classification_acceptance_v1.json"},
+        "company_metadata_routing": {"metric": "pass_rate_pct", "op": "eq", "value": 100.0, "artifact": "company_metadata_routing_acceptance_v1.json"},
+        "core_platform_acceptance": {"metric": "overall_score", "op": "gte", "value": 98.0, "artifact": "core_platform_acceptance_v1.json"},
     }
     spec = targets[suite_id]
     # Prefer freshly loaded artifact; fall back to rc.
@@ -149,6 +152,11 @@ def _decide(suite_id: str, report: Dict[str, Any], rc: int) -> Dict[str, Any]:
         except (TypeError, ValueError):
             ok = rc == 0
 
+    # Core Platform Acceptance also requires every zero-defect gate at zero —
+    # a 98% score with a hallucination or wrong entity is still a release block.
+    if suite_id == "core_platform_acceptance" and ok and data.get("zero_defect") is False:
+        ok = False
+
     # Golden founder 5 also uses release_block / all-pass.
     if suite_id == "golden_founder_5":
         ok = (data.get("passed") == data.get("total") == 5) or (
@@ -203,6 +211,16 @@ def main() -> int:
         plan.append(("coverage_acceptance", "ask_product_test.run_coverage_acceptance_v1"))
     if with_afi and not quick:
         plan.append(("afi_acceptance", "ask_product_test.run_afi_acceptance_v1"))
+    # Canonical classification and metadata routing gate the identity layer;
+    # Core Platform Acceptance is the final end-to-end certification and runs last.
+    plan.append(
+        ("canonical_classification", "ask_product_test.run_canonical_classification_acceptance_v1")
+    )
+    plan.append(
+        ("company_metadata_routing", "ask_product_test.run_company_metadata_routing_acceptance_v1")
+    )
+    if not quick:
+        plan.append(("core_platform_acceptance", "ask_product_test.run_core_platform_acceptance_v1"))
 
     results: List[Dict[str, Any]] = []
     for suite_id, module in plan:

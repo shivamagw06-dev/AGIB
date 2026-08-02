@@ -9,6 +9,7 @@ Nothing here infers classification from a business description.
 
 from __future__ import annotations
 
+import re
 import threading
 from typing import Any, Optional
 
@@ -24,7 +25,22 @@ from company_identity.taxonomy import classify, forbidden_for, framework_for
 _LOCK = threading.RLock()
 _CACHE: dict[str, CompanyIdentity] = {}
 _NAME_INDEX: dict[str, str] | None = None
+_SHORT_NAME_INDEX: dict[str, str] | None = None
 _SECTOR_LOOKUP = {s.lower(): s for s in PRIMARY_SECTORS}
+
+_LEGAL_TAIL_RE = re.compile(r"\b(limited|ltd|plc|inc|incorporated)\b\.?", re.I)
+
+
+def _short_name_key(raw_name: Any) -> str:
+    """Company name with only the legal suffix removed.
+
+    Distinguishes "ITC Limited" (genuinely one word) from "Birla Corporation
+    Limited", whose single-word form only appears because "Corporation" is a
+    stripped suffix and which reads as a group name, not a company.
+    """
+    text = _LEGAL_TAIL_RE.sub(" ", str(raw_name or ""))
+    text = re.sub(r"[^\w&\- ]+", " ", text).strip().lower()
+    return re.sub(r"\s+", " ", text)
 
 
 def _normalize_name(name: Any) -> str:
@@ -48,7 +64,10 @@ def _name_index() -> dict[str, str]:
     with _LOCK:
         if _NAME_INDEX is not None:
             return _NAME_INDEX
+    global _SHORT_NAME_INDEX
     index: dict[str, str] = {}
+    short_index: dict[str, str] = {}
+    short_ambiguous: set[str] = set()
     ambiguous: set[str] = set()
     try:
         from valuation_consensus.store import load_live
@@ -66,13 +85,29 @@ def _name_index() -> dict[str, str]:
                 ambiguous.add(name)
                 continue
             index[name] = ticker
+            short = _short_name_key(row.get("company_name"))
+            if short and " " not in short:
+                if short in short_index and short_index[short] != ticker:
+                    short_ambiguous.add(short)
+                else:
+                    short_index[short] = ticker
     except Exception:
         pass
     for name in ambiguous:
         index.pop(name, None)
+    for name in short_ambiguous:
+        short_index.pop(name, None)
     with _LOCK:
         _NAME_INDEX = index
+        _SHORT_NAME_INDEX = short_index
     return index
+
+
+def _short_name_index() -> dict[str, str]:
+    """Single-word company names that are genuinely the whole name."""
+    if _SHORT_NAME_INDEX is None:
+        _name_index()
+    return _SHORT_NAME_INDEX or {}
 
 
 def ticker_for_name(name: Optional[str]) -> Optional[str]:
@@ -188,11 +223,13 @@ def resolve_company_mention(text: Optional[str]) -> tuple[Optional[str], str]:
                 if prefix_is_unambiguous(window, name, index):
                     return hits[name], "unique_prefix_in_question"
 
-    # Single-token canonical names, guarded against ordinary vocabulary.
+    # Single-token canonical names, guarded against ordinary vocabulary and
+    # against group names whose one-word form is only a stripped suffix.
+    short_index = _short_name_index()
     single = [
-        index[tok]
+        short_index[tok]
         for tok in tokens
-        if len(tok) >= 3 and tok not in _MENTION_STOPWORDS and tok in index
+        if len(tok) >= 3 and tok not in _MENTION_STOPWORDS and tok in short_index
     ]
     if len(set(single)) == 1:
         return single[0], "single_token_name"
@@ -340,6 +377,39 @@ def identity_for(ticker: Optional[str]) -> CompanyIdentity:
     with _LOCK:
         _CACHE[t] = ident
     return ident
+
+
+def ambiguous_company_candidates(question: Optional[str], limit: int = 6) -> list[dict[str, Any]]:
+    """Capitalised stems in a question that name several Capital IQ companies.
+
+    "Explain Apollo" could mean Apollo Hospitals, Apollo Tyres, Apollo Micro
+    Systems or Apollo Pipes. Rather than pick one, the caller should ask which.
+    Returns [] when the question names no such stem.
+    """
+    text = str(question or "")
+    if not text.strip():
+        return []
+    # If the registry can already identify one company from this question,
+    # nothing is ambiguous — "Axis Bank" resolves even though "Bank" alone
+    # prefixes dozens of names.
+    if resolve_company_mention(text)[0]:
+        return []
+    index = _name_index()
+    short_index = _short_name_index()
+    for raw in re.findall(r"\b[A-Z][A-Za-z&.\-]{2,}\b", text):
+        token = _normalize_name(raw)
+        if not token or " " in token or len(token) < 3:
+            continue
+        if token in _MENTION_STOPWORDS or token in short_index:
+            continue
+        prefix = f"{token} "
+        matches = sorted({name for name in index if name.startswith(prefix)})
+        if len(matches) < 2:
+            continue
+        return [
+            {"company_name": name.title(), "ticker": index[name]} for name in matches[:limit]
+        ]
+    return []
 
 
 def resolve(ticker_or_name: Optional[str]) -> CompanyIdentity:
