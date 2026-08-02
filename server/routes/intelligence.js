@@ -2218,6 +2218,15 @@ export default function createIntelligenceRouter() {
   router.get('/hedge-fund-lab/compare', kfGet('/v1/hedge-fund-lab/compare'));
   router.get('/hedge-fund-lab/regime', kfGet('/v1/hedge-fund-lab/regime'));
   router.get('/hedge-fund-lab/daily-monitor', kfGet('/v1/hedge-fund-lab/daily-monitor'));
+  router.get('/hedge-fund-lab/terminal', kfGet('/v1/hedge-fund-lab/terminal'));
+  router.get('/hedge-fund-lab/opportunity/:ticker', async (req, res) => {
+    try {
+      const r = await engineFetch(`/v1/hedge-fund-lab/opportunity/${encodeURIComponent(req.params.ticker)}`);
+      res.json(r);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'hedge-fund-lab opportunity failed' });
+    }
+  });
   router.get('/hedge-fund-lab/scan/:strategy', kfGet2('/v1/hedge-fund-lab/scan'));
   router.get('/hedge-fund-lab/strategy/:id', async (req, res) => {
     try {

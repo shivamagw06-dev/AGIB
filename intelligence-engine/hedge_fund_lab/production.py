@@ -107,3 +107,22 @@ def calculate(kind: str, payload: dict[str, Any]) -> dict[str, Any]:
             body.get("scenarios"),
         )
     return {"ok": False, "error": "unknown_calculator", "kind": name}
+
+
+def terminal(limit: int = 12) -> dict[str, Any]:
+    """The full hedge fund terminal surface in one call."""
+    from .terminal import overview
+
+    return overview(limit=limit)
+
+
+def terminal_scan(strategy: str, limit: int = 20, sector: str | None = None) -> dict[str, Any]:
+    from .terminal import scan
+
+    return scan(strategy, limit=limit, sector=sector)
+
+
+def terminal_opportunity(ticker: str) -> dict[str, Any]:
+    from .terminal import opportunity
+
+    return opportunity(ticker)

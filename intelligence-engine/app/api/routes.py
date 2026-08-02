@@ -10093,11 +10093,27 @@ async def hedge_fund_lab_regime():
 
 
 @router.get("/hedge-fund-lab/scan/{strategy}")
-async def hedge_fund_lab_scan(strategy: str, limit: int = 15, sector: str | None = None):
+async def hedge_fund_lab_scan(strategy: str, limit: int = 20, sector: str | None = None):
     """Run a strategy across the live NSE universe."""
-    from hedge_fund_lab.scanner import scan
+    from hedge_fund_lab.terminal import scan
 
     return scan(strategy, limit=limit, sector=sector)
+
+
+@router.get("/hedge-fund-lab/terminal")
+async def hedge_fund_lab_terminal(limit: int = 12):
+    """Regime, live opportunities, overlap, research queue and market dashboard."""
+    from hedge_fund_lab.terminal import overview
+
+    return overview(limit=limit)
+
+
+@router.get("/hedge-fund-lab/opportunity/{ticker}")
+async def hedge_fund_lab_opportunity(ticker: str):
+    """Why a company was surfaced: evidence, calculation chain, risks and timeline."""
+    from hedge_fund_lab.terminal import opportunity
+
+    return opportunity(ticker)
 
 
 @router.get("/hedge-fund-lab/daily-monitor")
