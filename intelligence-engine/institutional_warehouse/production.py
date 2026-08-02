@@ -319,6 +319,79 @@ def scheduler_status() -> dict[str, Any]:
     return status()
 
 
+# --------------------------------------------------------------------------
+# Historical backfill (Phase 7.1a)
+# --------------------------------------------------------------------------
+
+
+def run_backfill(**kwargs: Any) -> dict[str, Any]:
+    from institutional_warehouse.backfill.engine import run
+
+    denied = permissions.require(kwargs.get("actor"), "refresh")
+    if denied:
+        return denied
+    return run(**kwargs)
+
+
+def backfill_status() -> dict[str, Any]:
+    from institutional_warehouse.backfill.engine import status
+
+    return status()
+
+
+def backfill_jobs(limit: int = 20) -> dict[str, Any]:
+    from institutional_warehouse.backfill.checkpoints import recent_jobs
+
+    return {"ok": True, "jobs": recent_jobs(limit=limit)}
+
+
+def historical_coverage(top: int = 25) -> dict[str, Any]:
+    from institutional_warehouse.backfill.coverage import dashboard
+
+    return dashboard(top=top)
+
+
+# --------------------------------------------------------------------------
+# Historical reads
+# --------------------------------------------------------------------------
+
+
+def history_series(symbol: str, metric: str, **kwargs: Any) -> dict[str, Any]:
+    from institutional_warehouse.history import series
+
+    return series(symbol, metric, **kwargs)
+
+
+def history_company(symbol: str, **kwargs: Any) -> dict[str, Any]:
+    from institutional_warehouse.history import company_history
+
+    return company_history(symbol, **kwargs)
+
+
+def history_as_at(symbol: str, on: str) -> dict[str, Any]:
+    from institutional_warehouse.history import as_at
+
+    return as_at(symbol, on)
+
+
+def history_range(tab_id: str, **kwargs: Any) -> dict[str, Any]:
+    from institutional_warehouse.history import range_query
+
+    return range_query(tab_id, **kwargs)
+
+
+def history_compare(symbols: Sequence[str], metric: str, **kwargs: Any) -> dict[str, Any]:
+    from institutional_warehouse.history import compare
+
+    return compare(symbols, metric, **kwargs)
+
+
+def history_coverage(symbol: str) -> dict[str, Any]:
+    from institutional_warehouse.history import coverage as company_coverage
+
+    return company_coverage(symbol)
+
+
 def recompute(**kwargs: Any) -> dict[str, Any]:
     denied = permissions.require(kwargs.get("actor"), "recalculate")
     if denied:
