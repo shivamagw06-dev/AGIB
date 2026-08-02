@@ -1461,7 +1461,24 @@ class UiService:
             unsupported_company = coverage_policy_detect(q)
         except Exception:
             unsupported_company = None
-        if unsupported_company:
+
+        # Knowledge Unification Layer (KUL) — Phase X. Single deterministic
+        # planner over CapIQ/IKT, IKL, Company Memory, KF, CGL, financial
+        # concepts/foundations/FSI, Academy, BI Foundation, and legacy KIP.
+        # For unsupported globals on *business-shaped* questions, prefer BI
+        # via KUL (industry templates / honest economics) over a hard refuse
+        # that blocks all business reasoning. CapIQ false-binds remain guarded
+        # inside KUL. Non-business unsupported questions still refuse below.
+        try:
+            kul_hit = kul_answer_for_ask(q, ticker=detected_ticker)
+        except Exception:
+            kul_hit = None
+
+        if unsupported_company and not (
+            kul_hit
+            and (kul_hit.get("summary") or kul_hit.get("why"))
+            and "business_intelligence" in list(kul_hit.get("providers_used") or [])
+        ):
             for stage in ("ikl", "retrieval", "ranking", "reasoning", "response_assembly"):
                 stage_timer.mark(stage)
             executive = coverage_policy_executive(unsupported_company)
@@ -1533,16 +1550,6 @@ class UiService:
                 entity_resolution=scrub(entity_resolution) if entity_resolution else {},
             )
 
-        # Knowledge Unification Layer (KUL) — Phase X. Single deterministic
-        # planner over CapIQ/IKT, IKL, Company Memory, KF, CGL, financial
-        # concepts/foundations/FSI, Academy, and legacy KIP. Replaces the
-        # isolated company-router / financial-router "one source then done"
-        # pattern for questions it can answer from fused institutional
-        # knowledge. Routers below remain lightweight fallbacks only.
-        try:
-            kul_hit = kul_answer_for_ask(q, ticker=detected_ticker)
-        except Exception:
-            kul_hit = None
         if kul_hit and (kul_hit.get("summary") or kul_hit.get("why")):
             for stage in ("ikl", "retrieval", "ranking", "reasoning", "response_assembly"):
                 stage_timer.mark(stage)

@@ -90,10 +90,16 @@ class FinancialConceptsProvider:
             key = out.get("key") or (out.get("concept") or {}).get("key") or ""
             if not definition and not key:
                 return empty_result(self.spec.id, t0, "concept_empty")
-            why = []
             meaning = out.get("business_meaning") or (out.get("concept") or {}).get("business_meaning")
-            if meaning:
-                why.append(str(meaning))
+            interpretation = out.get("interpretation") or (out.get("concept") or {}).get("interpretation")
+            # Lead with business meaning (direct institutional answer); keep
+            # the formal definition as supporting context, not the headline.
+            lead = str(meaning or definition or "")[:600]
+            why = []
+            if meaning and definition and str(meaning).strip() != str(definition).strip():
+                why.append(str(definition)[:280])
+            if interpretation:
+                why.append(str(interpretation)[:320])
             formula = out.get("formula") or (out.get("concept") or {}).get("formula")
             if formula:
                 why.append(f"Formula: {formula}")
@@ -103,7 +109,7 @@ class FinancialConceptsProvider:
                 empty=False,
                 confidence=0.95,
                 t0=t0,
-                summary=str(definition)[:600],
+                summary=lead or str(definition)[:600],
                 why=why or [str(definition)[:240]],
                 evidence=[{"source": "financial_concepts", "title": key or "concept"}],
                 facts=[{"field": "concept_key", "value": key}],

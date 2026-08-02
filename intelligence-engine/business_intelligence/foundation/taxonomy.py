@@ -18,14 +18,30 @@ INDUSTRY_ALIASES: dict[str, str] = {
     "software": "saas",
     "it services": "it_services",
     "information technology": "it_services",
-    "it": "it_services",
+    # Do not alias bare "it" — substring matches "profitable", "with", etc.
     "cement": "cement",
     "airline": "airlines",
     "airlines": "airlines",
+    "aviation": "airlines",
+    "passenger airlines": "airlines",
+    "air india": "airlines",
+    "indigo": "airlines",
+    "interglobe": "airlines",
     "hospital": "hospitals",
     "hospitals": "hospitals",
     "healthcare": "hospitals",
     "retail": "retail",
+    "paint": "retail",
+    "paints": "retail",
+    "fmcg": "retail",
+    "membership": "retail",
+    "warehouse club": "retail",
+    "costco": "retail",
+    "ferrari": "manufacturing",
+    "toyota": "manufacturing",
+    "apple": "platform",
+    "reliance": "conglomerate",
+    "reliance industries": "conglomerate",
     "marketplace": "marketplace",
     "e-commerce": "marketplace",
     "ecommerce": "marketplace",
@@ -33,6 +49,7 @@ INDUSTRY_ALIASES: dict[str, str] = {
     "manufacturing": "manufacturing",
     "auto": "manufacturing",
     "automobile": "manufacturing",
+    "luxury auto": "manufacturing",
     "oil": "commodity",
     "oil & gas": "commodity",
     "oil and gas": "commodity",
@@ -78,9 +95,9 @@ _SECTOR_HINTS: list[tuple[str, tuple[str, ...]]] = [
     ("saas", ("saas", "subscription software", "arr", "nrr", "churn")),
     ("it_services", ("it services", "software services", "outsourcing", "tcs", "infosys", "wipro")),
     ("cement", ("cement", "clinker", "realization", "utilization")),
-    ("airlines", ("airline", "aviation", "load factor", "atf", "yield")),
+    ("airlines", ("airline", "aviation", "load factor", "atf", "yield", "air india", "indigo", "interglobe")),
     ("hospitals", ("hospital", "arpob", "occupancy", "alos", "bed")),
-    ("retail", ("retail", "store", "same-store", "merchandising")),
+    ("retail", ("retail", "store", "same-store", "merchandising", "paint", "fmcg", "membership", "costco", "warehouse")),
     ("marketplace", ("marketplace", "take rate", "gmv", "two-sided")),
     ("manufacturing", ("manufactur", "factory", "plant", "auto", "oem")),
     ("commodity", ("refining", "petrochemical", "crude", "commodity")),
@@ -99,8 +116,13 @@ def normalize_industry(text: Optional[str]) -> Optional[str]:
     low = re.sub(r"\s+", " ", str(text).strip().lower())
     if low in INDUSTRY_ALIASES:
         return INDUSTRY_ALIASES[low]
-    for alias, key in INDUSTRY_ALIASES.items():
-        if alias in low:
+    # Prefer longer aliases first; require word boundaries so short tokens
+    # like "oil" don't misfire inside unrelated words, and "it" never matches
+    # inside "profitable" / "with".
+    for alias, key in sorted(INDUSTRY_ALIASES.items(), key=lambda kv: -len(kv[0])):
+        if len(alias) <= 2:
+            continue
+        if re.search(rf"\b{re.escape(alias)}\b", low):
             return key
     return None
 
@@ -115,7 +137,12 @@ def classify_industry(
     blob = " ".join(x for x in (sector, industry, description, question) if x).lower()
     if not blob.strip():
         return "unknown"
-    direct = normalize_industry(industry) or normalize_industry(sector)
+    direct = (
+        normalize_industry(industry)
+        or normalize_industry(sector)
+        or normalize_industry(question)
+        or normalize_industry(description)
+    )
     if direct:
         return direct
     best_key = "unknown"

@@ -77,12 +77,59 @@ def invalidate_index_cache() -> None:
 
 _TICKER_TOKEN_RE = re.compile(r"\b([A-Z]{2,15}\d{0,6})\b")
 _QUESTION_WORDS = ("explain", "what", "describe", "tell", "about", "is", "the")
+# Tickers that are also common English finance words — only bind when the
+# original question contains the token in ticker casing (e.g. bare PREMIUM),
+# never when it only appears as lowercase prose ("premium pricing").
+_AMBIGUOUS_TICKER_TOKENS = frozenset(
+    {
+        "PREMIUM",
+        "VALUE",
+        "GROWTH",
+        "INCOME",
+        "CREDIT",
+        "ADVANCE",
+        "CAPITAL",
+        "POWER",
+        "ENERGY",
+        "FINANCE",
+        "GLOBAL",
+    }
+)
 
 
 _STOPWORDS_FOR_MATCH = {
     "explain", "what", "describe", "tell", "about", "is", "the", "why", "how",
     "does", "of", "for", "give", "me", "a", "in", "on", "business", "model",
 }
+
+# Hard generics never count toward a company-name match.
+_HARD_GENERIC_WORDS = frozenset(
+    {
+        "india", "indian", "limited", "ltd", "private", "public", "group",
+        "company", "industries", "enterprise", "enterprises", "holdings",
+        "international", "national", "global", "corp", "corporation",
+        "services", "finance", "financial", "air", "tech", "technology",
+        "market", "markets", "premium", "value", "growth", "income", "credit",
+        "advance", "asset", "management", "insurance", "the",
+    }
+)
+# Soft sector words may count only alongside a distinctive token
+# (tata+power ✓, bare power ✗, hdfc+company ✗).
+_SOFT_GENERIC_WORDS = frozenset(
+    {
+        "capital", "power", "energy", "steel", "bank", "motors", "life",
+        "paint", "paints", "cement", "pharma",
+    }
+)
+_GENERIC_OVERLAP_WORDS = _HARD_GENERIC_WORDS | _SOFT_GENERIC_WORDS
+
+# Explicit non-binds for known uncovered names that fuzzy-match wrong IKT rows.
+_EXPLICIT_NO_BIND = frozenset(
+    {
+        "air india",
+        "airindia",
+    }
+)
 
 
 def detect_ikt_company(question: str) -> Optional[str]:
@@ -102,13 +149,23 @@ def detect_ikt_company(question: str) -> Optional[str]:
     q = (question or "").strip()
     if not q:
         return None
+    low_q = q.lower()
+    if any(blocked in low_q for blocked in _EXPLICIT_NO_BIND):
+        # Still allow other tickers in the same question (e.g. IndiGo vs Air India).
+        # Strip the blocked phrase before matching so Air India cannot bind IKT.
+        for blocked in _EXPLICIT_NO_BIND:
+            low_q = low_q.replace(blocked, " ")
+        q = re.sub(r"(?i)\bair[\s-]?india\b", " ", q)
     name_index, tickers = _get_index()
     if not name_index:
         return None
 
     for token in _TICKER_TOKEN_RE.findall(q.upper()):
-        if token in tickers:
-            return token
+        if token not in tickers:
+            continue
+        if token in _AMBIGUOUS_TICKER_TOKENS and not re.search(rf"\b{token}\b", q):
+            continue
+        return token
 
     norm_q = _normalize_name(q)
     if not norm_q:
@@ -124,7 +181,8 @@ def detect_ikt_company(question: str) -> Optional[str]:
     # enough at a lower floor.
     substring_hits: list[tuple[int, str]] = []
     for norm_name, ticker in name_index.items():
-        min_len = 3 if " " in norm_name else 4
+        # Single-token legal-suffix-stripped names (e.g. "jct") need len≥3.
+        min_len = 3 if " " in norm_name else 3
         if len(norm_name) >= min_len and f" {norm_name} " in f" {norm_q} ":
             substring_hits.append((len(norm_name), ticker))
     if substring_hits:
@@ -140,22 +198,38 @@ def detect_ikt_company(question: str) -> Optional[str]:
     words = {w for w in norm_q.split() if len(w) >= 2} - _STOPWORDS_FOR_MATCH
     if not words:
         return None
-    best: Optional[tuple[float, int, str]] = None  # (coverage, hits, ticker)
+    best: Optional[tuple[float, int, int, str]] = None  # (hits, coverage_milli, name_len, ticker)
     for norm_name, ticker in name_index.items():
-        name_words = [w for w in norm_name.split() if len(w) >= 2 and w not in _STOPWORDS_FOR_MATCH]
+        name_words = [
+            w
+            for w in norm_name.split()
+            if len(w) >= 2 and w not in _STOPWORDS_FOR_MATCH
+        ]
         if not name_words:
             continue
-        hits = sum(1 for w in name_words if w in words)
-        if hits == 0:
+        matched = [w for w in name_words if w in words]
+        if not matched:
             continue
+        distinctive = [w for w in matched if w not in _GENERIC_OVERLAP_WORDS]
+        soft_hits = [w for w in matched if w in _SOFT_GENERIC_WORDS]
+        # Pure hard/soft generic matches are never enough.
+        if not distinctive:
+            continue
+        if len(name_words) == 1:
+            if len(name_words[0]) < 3:
+                continue
+        else:
+            # Multi-word: need distinctive + another token (distinctive or soft).
+            if len(distinctive) + len(soft_hits) < 2:
+                continue
+        hits = len(matched)
         coverage = hits / len(name_words)
-        min_hits_required = 1 if len(name_words) == 1 and len(name_words[0]) >= 3 else 2
-        if hits < min_hits_required or coverage < 0.5:
+        if coverage < 0.45:
             continue
-        candidate = (coverage, hits, ticker)
-        if best is None or candidate[:2] > best[:2]:
+        candidate = (len(distinctive), hits, int(coverage * 1000), len(norm_name), ticker)
+        if best is None or candidate[:4] > best[:4]:
             best = candidate
-    return best[2] if best else None
+    return best[4] if best else None
 
 
 def _field(row: dict[str, Any], name: str) -> Optional[Any]:

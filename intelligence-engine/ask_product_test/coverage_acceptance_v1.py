@@ -19,8 +19,9 @@ Per-company assertions (all required for a PASS):
        company than the one asked about.
     3. no_hallucination — no framework/scaffold leakage, no fabricated
        company-specific claims for an unsupported company.
-    4. correct_coverage_policy — unsupported companies get exactly the
-       coverage-policy refusal text; NSE/BSE companies do NOT trigger it.
+       4. correct_coverage_policy — unsupported companies get the
+       coverage-policy refusal OR an honest BI/KUL business-economics answer
+       with no CapIQ false-bind; NSE/BSE companies do NOT trigger refusal.
 """
 
 from __future__ import annotations
@@ -220,6 +221,21 @@ def _name_mentioned(blob: str, name: str, *, ticker: str = "") -> bool:
     return check in haystack
 
 
+_FALSE_INDIA_BIND = frozenset(
+    {
+        "HDFCBANK",
+        "RELIANCE",
+        "INFY",
+        "TCS",
+        "WIPRO",
+        "ICICIBANK",
+        "SBIN",
+        "DMART",
+        "ASIANPAINT",
+    }
+)
+
+
 def evaluate_coverage_item(
     case: Dict[str, Any],
     *,
@@ -232,12 +248,14 @@ def evaluate_coverage_item(
     evidence_count: int,
     http_status: int,
     latency_ms: int,
+    kul_providers: Any = None,
 ) -> Dict[str, Any]:
     category = case["category"]
     company = case["company"]
     low = (text or "").lower()
     assertions: Dict[str, bool] = {}
     detail: Dict[str, Any] = {}
+    providers = [str(p) for p in (kul_providers or [])]
 
     if category in ("nse_listed", "bse_only"):
         resolved_ticker = str(bound_ticker or ikt_company_key or "").upper()
@@ -256,11 +274,30 @@ def evaluate_coverage_item(
         assertions["correct_coverage_policy"] = short_circuit != "unsupported_coverage_policy"
     else:  # unsupported_global
         refused = has_coverage_policy_refusal(text)
-        assertions["entity_resolution_correct"] = refused  # correctly identified as real-but-uncovered
-        assertions["no_substitution"] = refused and evidence_count == 0
-        assertions["no_hallucination"] = not has_framework_leak(text) and refused
-        assertions["correct_coverage_policy"] = short_circuit == "unsupported_coverage_policy"
+        # Phase 3.0.5: BI via KUL may answer business-economics questions for
+        # unsupported globals without CapIQ false-binds — that is also correct
+        # coverage behavior (honest institutional path, not hallucination).
+        bind = str(bound_ticker or ikt_company_key or "").upper()
+        false_bind = bool(bind) and (
+            bind in _FALSE_INDIA_BIND or bind.startswith("BSE") or bind.startswith("NSE")
+        )
+        bi_path = (
+            short_circuit == "knowledge_unification"
+            and "business_intelligence" in providers
+            and not false_bind
+            and not has_framework_leak(text)
+            and len((text or "").strip()) >= 24
+        )
+        assertions["entity_resolution_correct"] = refused or bi_path
+        assertions["no_substitution"] = (refused and evidence_count == 0) or (bi_path and not false_bind)
+        assertions["no_hallucination"] = not has_framework_leak(text) and (refused or bi_path)
+        assertions["correct_coverage_policy"] = (
+            short_circuit == "unsupported_coverage_policy" or bi_path
+        )
         detail["refused"] = refused
+        detail["bi_path"] = bi_path
+        detail["bind"] = bind
+        detail["kul_providers"] = providers
 
     passed = all(assertions.values())
     return {

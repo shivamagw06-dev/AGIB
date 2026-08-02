@@ -39,9 +39,11 @@ _BUSINESS_RE = re.compile(
     re.I,
 )
 _MOAT_RE = re.compile(
-    r"\b(moat|competitive advantage|pricing power|switching costs?|network effects?|"
+    r"\b(moat|competitive advantage|pricing power|premium pricing|"
+    r"sustain premium|switching costs?|network effects?|"
     r"scale advantages?|customer lock[- ]?in|brand moat|distribution moat|"
-    r"licensing moat|why is .+ considered to have a strong moat)\b",
+    r"licensing moat|why is .+ considered to have a strong moat|"
+    r"able to sustain)\b",
     re.I,
 )
 _UNIT_ECON_RE = re.compile(
@@ -50,16 +52,26 @@ _UNIT_ECON_RE = re.compile(
     re.I,
 )
 _COMPARISON_RE = re.compile(
-    r"\b(compare|vs\.?|versus|more profitable than|better than|vs)\b",
+    r"\b(compare|vs\.?|versus|more profitable than|higher margins than|"
+    r"better margins than|better than|vs)\b",
     re.I,
 )
 _GROWTH_RE = re.compile(
-    r"\b(what drives growth|growth drivers?|drives growth|growth mode|"
+    r"\b(what drives growth|growth drivers?|drives growth|growth modes?|"
     r"pricing-led|volume-led|capacity expansion)\b",
     re.I,
 )
+_VALUE_DRIVER_RE = re.compile(
+    r"\b(value drivers?|key drivers?|what drives)\b",
+    re.I,
+)
+_MANAGEMENT_RE = re.compile(
+    r"\b(management quality|capital allocat\w*|governance|shareholder friendl)\b",
+    re.I,
+)
 _BUSINESS_RISK_RE = re.compile(
-    r"\b(biggest risks?|business risks?|why are .+ cyclical|cyclical|"
+    r"\b(biggest risks?|business risks?|key risks?|risks? matter|"
+    r"why are .+ cyclical|cyclical|"
     r"concentration risk|commodity risk|regulatory risk)\b",
     re.I,
 )
@@ -108,10 +120,16 @@ def _detect_company_hint(question: str) -> tuple[Optional[str], Optional[str]]:
         "reliance retail": "RELIANCE",
         "hdfc bank": "HDFCBANK",
         "icici bank": "ICICIBANK",
+        "axis bank": "AXISBANK",
+        "jsw steel": "JSWSTEEL",
+        "interglobe": "INDIGO",
+        "adani enterprises": "ADANIENT",
         "reliance": "RELIANCE",
         "infosys": "INFY",
         "wipro": "WIPRO",
         "dmart": "DMART",
+        "indigo": "INDIGO",
+        "adani": "ADANIENT",
         "tcs": "TCS",
         "sbi": "SBIN",
         "ongc": "ONGC",
@@ -128,7 +146,7 @@ _EXPLICIT_COMPANY_ALIASES = (
     "state bank of india", "axis bank", "kotak", "tata steel", "tata motors",
     "tata power", "adani", "hmt limited", "goodricke", "utique", "aakaar",
     "spright agro", "titan company", "dmart", "avenue supermarts", "asian paints",
-    "reliance retail", "ongc",
+    "reliance retail", "ongc", "jsw steel", "indigo", "interglobe",
 )
 
 
@@ -222,9 +240,11 @@ def plan_query(question: str) -> QueryPlan:
         or _UNIT_ECON_RE.search(q)
         or _INDUSTRY_RE.search(q)
         or _GROWTH_RE.search(q)
+        or _MANAGEMENT_RE.search(q)
         or re.search(
             r"\b(infosys|tcs|visa|mastercard|dmart|reliance|hdfc|icici|"
-            r"ferrari|toyota|apple|costco|asian paints)\b",
+            r"ferrari|toyota|apple|costco|asian paints|indigo|air india|"
+            r"adani|jsw)\b",
             q,
             re.I,
         )
@@ -232,7 +252,10 @@ def plan_query(question: str) -> QueryPlan:
         types.append("comparison")
         if "business_model" not in types:
             types.append("business_model")
-    if _GROWTH_RE.search(q):
+    if _GROWTH_RE.search(q) or _VALUE_DRIVER_RE.search(q):
+        if "business_model" not in types:
+            types.append("business_model")
+    if _MANAGEMENT_RE.search(q):
         if "business_model" not in types:
             types.append("business_model")
     if _BUSINESS_RISK_RE.search(q):
@@ -272,7 +295,18 @@ def plan_query(question: str) -> QueryPlan:
         or _MARKET_RE.search(q)
         or _NEWS_RE.search(q)
     )
+    # Reject ticker collisions from finance vocabulary (premium pricing → PREMIUM).
+    if ticker and str(ticker).upper() in {
+        "PREMIUM", "VALUE", "GROWTH", "INCOME", "CREDIT", "ADVANCE", "CAPITAL",
+    } and not explicit:
+        company, ticker = None, None
     if (company or ticker) and not explicit and not company_shaped:
+        company, ticker = None, None
+    # Unsupported globals named in the question must not keep an Indian CapIQ bind.
+    if ticker and re.search(
+        r"\b(apple|costco|ferrari|toyota|visa|mastercard|netflix|tesla)\b", q, re.I
+    ) and not explicit:
+        # Only drop when the bind is not itself one of those names (never in IKT).
         company, ticker = None, None
     if company or ticker:
         types.insert(0, "company")

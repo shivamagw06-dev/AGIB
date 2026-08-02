@@ -56,7 +56,9 @@ _CORPORATE_FORM_RE = re.compile(
 )
 _KNOWN_COMPANY_ALIASES = (
     "hdfc bank", "icici bank", "reliance", "infosys", "tcs", "wipro", "ongc",
-    "state bank", "kotak", "axis bank", "sbi",
+    "state bank", "kotak", "axis bank", "sbi", "dmart", "asian paints",
+    "jsw steel", "indigo", "interglobe", "adani", "tata motors", "tata steel",
+    "air india",
 )
 
 
@@ -77,22 +79,41 @@ def detect_ticker(question: str) -> Optional[str]:
 
 
 _COMPARE_RE = re.compile(
-    r"\b(compare|vs\.?|versus|against)\b",
+    r"\b(compare|vs\.?|versus|against|more profitable than|higher margins than|"
+    r"better margins than)\b",
     re.I,
 )
 
 
 def extract_compare_names(question: str) -> list[str]:
-    """Lightweight pair extraction for 'TCS vs Infosys' style prompts."""
+    """Lightweight pair extraction for 'TCS vs Infosys' / 'Compare A and B'."""
     q = question or ""
     if not _COMPARE_RE.search(q):
         return []
-    # Split on vs/versus
-    parts = re.split(r"\bvs\.?|versus\b", q, flags=re.I)
+
+    # Prefer explicit "Compare X and Y ..." before vs-splitting.
+    m = re.search(
+        r"\bcompare\s+(.+?)\s+and\s+(.+?)(?:\s+as\b|\s+on\b|\s+business\b|\s*$)",
+        q,
+        flags=re.I,
+    )
+    m2 = re.search(
+        r"\b(?:why (?:is|does|do)\s+)?(.+?)\s+(?:more profitable|higher margins|better margins)\s+than\s+(.+?)(?:\?|$)",
+        q,
+        flags=re.I,
+    )
+    if m:
+        raw_parts = [m.group(1), m.group(2)]
+    elif m2:
+        raw_parts = [m2.group(1), m2.group(2)]
+    else:
+        raw_parts = re.split(r"\bvs\.?|versus\b", q, flags=re.I)[:2]
+
     names: list[str] = []
-    for part in parts[:2]:
+    for part in raw_parts:
         cleaned = re.sub(
-            r"\b(compare|and|the|business|model|moat|of|for|with)\b",
+            r"\b(compare|and|the|business|models?|moat|of|for|with|on|"
+            r"axes?|economics?|as|capital|allocators?|earn|earns|is|does|do|why)\b",
             " ",
             part,
             flags=re.I,
@@ -104,16 +125,42 @@ def extract_compare_names(question: str) -> list[str]:
     return names[:2]
 
 
+def _synthetic_uncovered_company(name: str) -> dict[str, Any]:
+    """Industry-template placeholder for a named firm outside CapIQ coverage."""
+    from business_intelligence.foundation.named_pedagogy import lookup_named_pedagogy
+
+    ped = lookup_named_pedagogy(name=name)
+    industry_key = (ped or {}).get("industry_key") or classify_industry(question=name, industry=name)
+    return {
+        "ticker": None,
+        "company_name": name.strip(),
+        "sector": None,
+        "industry": industry_key,
+        "description": (ped or {}).get("how_it_makes_money"),
+        "source": "name_only_uncovered",
+        "uncovered": True,
+        "archetype": (ped or {}).get("archetype"),
+    }
+
+
 def assemble_evidence(
     question: str,
     *,
     ticker: Optional[str] = None,
     industry_hint: Optional[str] = None,
 ) -> dict[str, Any]:
+    from business_intelligence.foundation.named_pedagogy import lookup_named_pedagogy
+
     tk = ticker or detect_ticker(question)
     company = load_ikt_company(tk) if tk else {}
+    ped = lookup_named_pedagogy(
+        name=company.get("company_name"),
+        ticker=tk,
+        question=question,
+    )
     industry_key = (
-        normalize_industry(industry_hint)
+        (ped or {}).get("industry_key")
+        or normalize_industry(industry_hint)
         or classify_industry(
             sector=company.get("sector"),
             industry=company.get("industry"),
@@ -129,6 +176,10 @@ def assemble_evidence(
         if ct:
             compare_tickers.append(ct)
             compare_companies.append(load_ikt_company(ct))
+        else:
+            # Keep the named company in the comparison axis set without
+            # inventing CapIQ facts (e.g. Air India outside IKT coverage).
+            compare_companies.append(_synthetic_uncovered_company(name))
 
     # Soft industry playbook (optional)
     playbook: dict[str, Any] = {}
