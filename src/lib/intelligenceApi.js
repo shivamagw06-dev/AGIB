@@ -2806,3 +2806,13 @@ export const hflCalculate = (kind, payload) =>
     method: 'POST',
     body: payload,
   });
+export const getHflRegime = () => intelligenceFetch('/hedge-fund-lab/regime');
+export const getHflScan = (strategy, params = {}) => {
+  const qs = new URLSearchParams(
+    Object.fromEntries(
+      Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== '')
+        .map(([k, v]) => [k, String(v)])
+    )
+  ).toString();
+  return intelligenceFetch(`/hedge-fund-lab/scan/${encodeURIComponent(strategy)}${qs ? `?${qs}` : ''}`);
+};

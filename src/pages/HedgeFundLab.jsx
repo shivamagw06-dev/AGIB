@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { ArrowLeft, Activity, Gauge, Layers, Sigma } from 'lucide-react';
 import {
   getHflCompare,
+  getHflRegime,
+  getHflScan,
   getHflStrategies,
   getHflStrategy,
   hflCalculate,
@@ -241,6 +243,108 @@ function PairLab() {
   );
 }
 
+
+const SCANS = [
+  ['value', 'Value'],
+  ['quality', 'Quality'],
+  ['momentum', 'Momentum'],
+  ['conviction', 'Conviction'],
+  ['stress', 'Stress'],
+  ['pairs', 'Pairs'],
+];
+
+function RegimeBar() {
+  const [r, setR] = useState(null);
+  useEffect(() => { getHflRegime().then(setR).catch(() => setR(null)); }, []);
+  if (!r?.ok) return null;
+  return (
+    <section className="hfl-module hfl-regime">
+      <h3><Gauge size={15} /> Market regime</h3>
+      <div className="hfl-regime-head">
+        <div className={`stance ${r.stance.replace(/\s/g, '').toLowerCase()}`}>{r.stance}</div>
+        <div className="hfl-kv">
+          <span>Breadth advancing</span><b>{fmt(r.breadth_advancing_pct, 0)}%</b>
+          <span>Median 1Y return</span><b>{fmt(r.median_return_1y_pct)}%</b>
+          <span>Median P/E</span><b>{fmt(r.median_pe)}</b>
+          <span>Universe</span><b>{fmt(r.universe, 0)}</b>
+        </div>
+      </div>
+      <div className="hfl-suit">
+        {r.strategy_suitability.map((s) => (
+          <div key={s.strategy}>
+            <div className="row"><span>{s.strategy}</span><Stars n={s.stars} /></div>
+            <p>{s.why}</p>
+          </div>
+        ))}
+      </div>
+      <p className="hfl-hint">{r.note}</p>
+    </section>
+  );
+}
+
+function OpportunityScanner() {
+  const [kind, setKind] = useState('value');
+  const [out, setOut] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    setBusy(true);
+    getHflScan(kind, { limit: 12 })
+      .then(setOut)
+      .catch(() => setOut(null))
+      .finally(() => setBusy(false));
+  }, [kind]);
+
+  return (
+    <section className="hfl-module">
+      <h3><Activity size={15} /> Live opportunity scanner</h3>
+      <div className="hfl-tabs">
+        {SCANS.map(([id, label]) => (
+          <button key={id} type="button" className={kind === id ? 'on' : ''} onClick={() => setKind(id)}>
+            {label}
+          </button>
+        ))}
+      </div>
+      {busy ? <p className="hfl-hint">Scanning the universe…</p> : null}
+      {out?.ok ? (
+        <>
+          <p className="hfl-hint">
+            {out.count} results from {fmt(out.universe_scanned, 0)} companies · {out.policy}
+          </p>
+          <div className="hfl-opps">
+            {out.results.map((x, i) => (
+              <div className="hfl-opp" key={x.ticker || `${x.industry}-${i}`}>
+                {kind === 'pairs' ? (
+                  <>
+                    <div className="head">
+                      <strong>{x.long_leg.ticker}</strong> long vs <strong>{x.short_leg.ticker}</strong> short
+                      <span className="tag">{x.spread_multiple}× spread</span>
+                    </div>
+                    <div className="sub">{x.industry} · {x.peers} peers</div>
+                    <p>{x.why}</p>
+                    <p className="caution">{x.caution}</p>
+                  </>
+                ) : (
+                  <>
+                    <div className="head">
+                      <strong>{x.ticker}</strong> {x.company_name}
+                      {x.classification ? <span className="tag">{x.classification}</span> : null}
+                    </div>
+                    <div className="sub">{x.industry} · {x.sector}</div>
+                    <p>{x.why}</p>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+        </>
+      ) : !busy ? (
+        <p className="hfl-hint">No results for this scan.</p>
+      ) : null}
+    </section>
+  );
+}
+
 export default function HedgeFundLab() {
   const [strategies, setStrategies] = useState([]);
   const [rows, setRows] = useState([]);
@@ -359,6 +463,9 @@ export default function HedgeFundLab() {
             </section>
           </>
         ) : null}
+
+        <RegimeBar />
+        <OpportunityScanner />
 
         <ExposureLab />
         <ExpectancyLab />

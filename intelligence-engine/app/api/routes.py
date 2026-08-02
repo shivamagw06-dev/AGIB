@@ -10085,6 +10085,28 @@ async def hedge_fund_lab_strategy(strategy_id: str):
     return strategy(strategy_id)
 
 
+@router.get("/hedge-fund-lab/regime")
+async def hedge_fund_lab_regime():
+    from hedge_fund_lab.scanner import market_regime
+
+    return market_regime()
+
+
+@router.get("/hedge-fund-lab/scan/{strategy}")
+async def hedge_fund_lab_scan(strategy: str, limit: int = 15, sector: str | None = None):
+    """Run a strategy across the live NSE universe."""
+    from hedge_fund_lab.scanner import scan
+
+    return scan(strategy, limit=limit, sector=sector)
+
+
+@router.get("/hedge-fund-lab/daily-monitor")
+async def hedge_fund_lab_daily_monitor(limit: int = 6):
+    from hedge_fund_lab.scanner import daily_monitor
+
+    return daily_monitor(limit=limit)
+
+
 @router.post("/hedge-fund-lab/calculate/{kind}")
 async def hedge_fund_lab_calculate(kind: str, payload: dict[str, Any] = Body(default={})):
     """Every strategy calculation runs here, never in the browser."""

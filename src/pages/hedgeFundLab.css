@@ -463,3 +463,32 @@
   .hfl-header, .hfl-body { padding-left: 1rem; padding-right: 1rem; }
   .hfl-rings { grid-template-columns: repeat(2, 1fr); }
 }
+
+.hfl-regime-head { display: flex; gap: 1.2rem; align-items: center; flex-wrap: wrap; margin-bottom: 0.8rem; }
+.hfl-regime .stance {
+  font-size: 1.3rem; font-weight: 700; padding: 0.35rem 0.9rem; border: 1px solid var(--hfl-line);
+}
+.hfl-regime .stance.riskon { color: var(--hfl-teal); border-color: var(--hfl-teal); }
+.hfl-regime .stance.riskoff { color: var(--hfl-red); border-color: var(--hfl-red); }
+.hfl-regime .stance.mixed { color: var(--hfl-amber); border-color: var(--hfl-amber); }
+.hfl-suit { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.6rem; margin-bottom: 0.6rem; }
+.hfl-suit > div { border: 1px solid var(--hfl-line); padding: 0.5rem 0.6rem; }
+.hfl-suit .row { display: flex; justify-content: space-between; gap: 0.5rem; font-size: 0.82rem; }
+.hfl-suit p { margin: 0.25rem 0 0; font-size: 0.74rem; color: var(--hfl-dim); line-height: 1.45; }
+.hfl-tabs { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.7rem; }
+.hfl-tabs button {
+  border: 1px solid var(--hfl-line); background: transparent; color: var(--hfl-dim);
+  font: inherit; font-size: 0.8rem; padding: 0.3rem 0.7rem; cursor: pointer;
+}
+.hfl-tabs button.on { border-color: var(--hfl-teal); color: var(--hfl-teal); background: #14273a; }
+.hfl-opps { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.6rem; }
+.hfl-opp { border: 1px solid var(--hfl-line); padding: 0.6rem 0.7rem; }
+.hfl-opp .head { font-size: 0.88rem; display: flex; align-items: baseline; gap: 0.4rem; flex-wrap: wrap; }
+.hfl-opp .tag {
+  font-size: 0.66rem; border: 1px solid var(--hfl-amber); color: var(--hfl-amber);
+  padding: 0.1rem 0.35rem; text-transform: uppercase; letter-spacing: 0.04em;
+}
+.hfl-opp .sub { font-size: 0.72rem; color: var(--hfl-dim); margin-top: 0.15rem; }
+.hfl-opp p { margin: 0.4rem 0 0; font-size: 0.82rem; line-height: 1.5; color: #c3d4e8; }
+.hfl-opp p.caution { color: var(--hfl-dim); font-size: 0.75rem; }
+@media (max-width: 1100px) { .hfl-suit, .hfl-opps { grid-template-columns: 1fr; } }

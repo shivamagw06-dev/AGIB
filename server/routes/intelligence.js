@@ -465,6 +465,17 @@ export default function createIntelligenceRouter() {
   });
 
   // KF1 Knowledge Foundation — structured knowledge objects over KIP.
+  const kfGet2 = (basePath) => async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query || {}).toString();
+      const seg = encodeURIComponent(Object.values(req.params || {})[0] || '');
+      const r = await engineFetch(`${basePath}/${seg}${qs ? `?${qs}` : ''}`);
+      return res.status(r.status).json(r.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Engine unavailable', detail: error.message });
+    }
+  };
+
   const kfGet = (enginePath) => async (req, res) => {
     try {
       const qs = new URLSearchParams(req.query).toString();
@@ -2205,6 +2216,9 @@ export default function createIntelligenceRouter() {
   router.get('/hedge-fund-lab/health', kfGet('/v1/hedge-fund-lab/health'));
   router.get('/hedge-fund-lab/strategies', kfGet('/v1/hedge-fund-lab/strategies'));
   router.get('/hedge-fund-lab/compare', kfGet('/v1/hedge-fund-lab/compare'));
+  router.get('/hedge-fund-lab/regime', kfGet('/v1/hedge-fund-lab/regime'));
+  router.get('/hedge-fund-lab/daily-monitor', kfGet('/v1/hedge-fund-lab/daily-monitor'));
+  router.get('/hedge-fund-lab/scan/:strategy', kfGet2('/v1/hedge-fund-lab/scan'));
   router.get('/hedge-fund-lab/strategy/:id', async (req, res) => {
     try {
       const r = await engineFetch(`/v1/hedge-fund-lab/strategy/${encodeURIComponent(req.params.id)}`);
