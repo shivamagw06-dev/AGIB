@@ -44,8 +44,10 @@ _COMPILED = tuple((key, label, re.compile(rx, re.I)) for key, label, rx in _FIEL
 # Phrasings that look like metadata words but are analytical questions —
 # these belong to the reasoning stack, not a field lookup.
 _ANALYTICAL_RE = re.compile(
-    r"\b(why|how does|how do|compare|versus|\bvs\b|explain|thesis|outlook|forecast|"
+    r"\b(why|how does|how do|compar\w+|versus|\bvs\b|explain|thesis|outlook|forecast|"
     r"should i|risk|risks|moat|valuation|valued|target price|consensus|upside|"
+    r"expensive|cheap|overvalued|undervalued|discount|premium|multiple|multiples|"
+    r"screen|scanner|re-?rating|de-?rating|trading at|trades at|"
     r"drivers?|economics|business model|invest|attractive|opportunit\w+|"
     r"strategy|competitive advantage|deep dive|analys|assess|evaluate)\b",
     re.I,
