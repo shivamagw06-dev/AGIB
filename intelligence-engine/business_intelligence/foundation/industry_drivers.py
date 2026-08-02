@@ -475,7 +475,9 @@ _BI_TO_II_KEY: dict[str, str] = {
     "subscription": "software",
     "commodity": "metals",
     "manufacturing": "capital_goods",
-    "conglomerate": "oil_gas",  # soft fallback; company pedagogy overrides
+    # A conglomerate is not an oil & gas company. The old oil_gas fallback
+    # handed GRM / Reserve Replacement drivers to every diversified name.
+    "conglomerate": "capital_goods",
 }
 
 

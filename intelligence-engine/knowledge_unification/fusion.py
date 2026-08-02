@@ -405,12 +405,58 @@ def fuse(
             if ev and ev not in evidence:
                 evidence.append(ev)
 
+    # Canonical Company Identity outranks every engine. Any line carrying
+    # another industry's exclusive vocabulary is dropped rather than shown.
+    identity_context: dict[str, Any] = {}
+    classification_guard: dict[str, Any] = {}
+    try:
+        from company_identity.guard import filter_leaked_lines, validate_text
+        from company_identity.service import resolve as resolve_identity
+
+        identity = resolve_identity(plan.query.ticker_hint or plan.query.company_hint or "")
+        if not identity.resolved:
+            # A company named in the question still owns the classification even
+            # when the planner declined to bind a ticker.
+            from company_identity.service import resolve_company_mention
+
+            mentioned, _how = resolve_company_mention(getattr(plan.query, "question", ""))
+            if mentioned:
+                identity = resolve_identity(mentioned)
+        if identity.resolved:
+            identity_context = identity.context()
+            why, dropped = filter_leaked_lines(identity, why)
+            summary_report = validate_text(identity, summary, where="summary")
+            if not summary_report.ok:
+                replacement = next((line for line in why if line), "")
+                dropped.append(
+                    {
+                        "line": str(summary)[:220],
+                        "violations": [v.rule for v in summary_report.violations],
+                        "field": "summary",
+                    }
+                )
+                summary = replacement or (
+                    f"{identity.company_name} is classified by Capital IQ as "
+                    f"{identity.primary_sector} / {identity.primary_industry} "
+                    f"({identity.business_type})."
+                )
+            classification_guard = {
+                "identity": identity_context,
+                "source": identity.source,
+                "dropped_lines": dropped,
+                "clean": not dropped,
+            }
+    except Exception as exc:  # never block an answer on the guard
+        classification_guard = {"error": f"{type(exc).__name__}:{str(exc)[:120]}"}
+
     # Compact multi-source annotation — do not dump provider dumps into the lead.
     if len(used) >= 2:
         why.insert(0, "Sources fused: " + ", ".join(r.provider_id for r in used) + ".")
         why = why[:7]
 
     diagnostics = {
+        "company_identity": identity_context,
+        "classification_guard": classification_guard,
         "plan": plan.to_dict(),
         "providers_consulted": [r.provider_id for r in all_results],
         "providers_used": [r.provider_id for r in used],

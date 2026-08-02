@@ -10052,6 +10052,57 @@ async def valuation_consensus_seed(payload: dict[str, Any] = Body(default={})):
     return seed_if_needed(force=bool(body.get("force", True)))
 
 
+# ---------------------------------------------------------------------------
+# Company Identity Service — canonical Capital IQ classification.
+# Every engine consumes this immutable object instead of inferring identity.
+# ---------------------------------------------------------------------------
+
+
+@router.get("/company-identity/health")
+async def company_identity_health():
+    from company_identity.service import health
+
+    return health()
+
+
+@router.get("/company-identity/{ticker}")
+async def company_identity_lookup(ticker: str):
+    from company_identity.service import resolve
+
+    identity = resolve(ticker)
+    if not identity.resolved:
+        return {"ok": False, "error": "unresolved_company", "ticker": ticker.upper()}
+    return {"ok": True, **identity.to_dict()}
+
+
+@router.post("/company-identity/validate")
+async def company_identity_validate(payload: dict[str, Any] = Body(default={})):
+    """Check text or a classification claim against the canonical identity."""
+    from company_identity.guard import validate_classification, validate_text
+    from company_identity.service import resolve
+
+    body = payload or {}
+    identity = resolve(str(body.get("ticker") or body.get("company") or ""))
+    if not identity.resolved:
+        return {"ok": False, "error": "unresolved_company"}
+    reports = {}
+    if body.get("text"):
+        reports["text"] = validate_text(identity, str(body["text"])).to_dict()
+    if any(body.get(k) for k in ("sector", "industry", "business_type", "industry_dna")):
+        reports["classification"] = validate_classification(
+            identity,
+            sector=body.get("sector"),
+            industry=body.get("industry"),
+            business_type=body.get("business_type"),
+            industry_dna=body.get("industry_dna"),
+        ).to_dict()
+    return {
+        "ok": all(r.get("ok") for r in reports.values()) if reports else True,
+        "identity": identity.context(),
+        "reports": reports,
+    }
+
+
 @router.get("/system/intelligence-stack")
 async def system_intelligence_stack():
     """Inventory of integrated Macro / Sector / Market / Research programmes."""
