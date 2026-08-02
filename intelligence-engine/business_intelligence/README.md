@@ -1,3 +1,15 @@
+# Business Intelligence
+
+Two layers:
+
+1. **FIRE-03** — disclosure evidence extraction (this package root)
+2. **Phase 3.0 Foundation** — deterministic business reasoning (`foundation/`)
+
+Phase 3.0 Ask wiring is **disabled** until the BI Acceptance Test ≥95%.
+See [`foundation/PHASE3_NOTES.md`](foundation/PHASE3_NOTES.md).
+
+---
+
 # FIRE-03 — Business & Management Intelligence
 
 Evidence extraction engine over official company disclosures (IDI).
