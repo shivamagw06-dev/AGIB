@@ -12,6 +12,7 @@ _COMPANY_MENU = (
     "ikl",
     "valuation_consensus",
     "valuation_terminal",
+    "financial_statement_warehouse",
     "capiq_ikt",
     "knowledge_factory",
     "cgl",
@@ -25,6 +26,7 @@ _BUSINESS_MENU = (
     "industry_intelligence",
     "valuation_consensus",
     "valuation_terminal",
+    "financial_statement_warehouse",
     "capiq_ikt",
     "company_memory",
     "ikl",
@@ -41,6 +43,7 @@ _INVESTMENT_MENU = (
     "industry_intelligence",
     "valuation_consensus",
     "valuation_terminal",
+    "financial_statement_warehouse",
     "capiq_ikt",
     "company_memory",
     "ikl",
@@ -56,6 +59,7 @@ _PORTFOLIO_MENU = (
     "industry_intelligence",
     "valuation_consensus",
     "valuation_terminal",
+    "financial_statement_warehouse",
     "capiq_ikt",
     "company_memory",
     "ikl",
@@ -71,6 +75,7 @@ _RESEARCH_MENU = (
     "industry_intelligence",
     "valuation_consensus",
     "valuation_terminal",
+    "financial_statement_warehouse",
     "capiq_ikt",
     "company_memory",
     "ikl",
@@ -95,6 +100,7 @@ _CONCEPT_MENU = (
 )
 _ACCOUNTING_MENU = (
     "financial_foundations",
+    "financial_statement_warehouse",
     "financial_statement_intelligence",
     "financial_concepts",
     "academy",
@@ -102,6 +108,7 @@ _ACCOUNTING_MENU = (
 _VALUATION_MENU = (
     "valuation_consensus",
     "valuation_terminal",
+    "financial_statement_warehouse",
     "hedge_fund_screens",
     "financial_concepts",
     "academy",
@@ -113,6 +120,7 @@ _VALUATION_MENU = (
 _CONSENSUS_MENU = (
     "valuation_consensus",
     "valuation_terminal",
+    "financial_statement_warehouse",
     "capiq_ikt",
     "investment_intelligence",
     "business_intelligence",
@@ -125,6 +133,7 @@ _CONSENSUS_MENU = (
 _CONSENSUS_SCREEN_MENU = (
     "valuation_consensus",
     "valuation_terminal",
+    "financial_statement_warehouse",
     "industry_intelligence",
 )
 # Industry-specific valuation pedagogy (P/B for banks, EV/Sales for SaaS, …).

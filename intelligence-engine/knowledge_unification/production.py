@@ -148,6 +148,9 @@ _HARD_PROVIDERS = frozenset(
         "industry_intelligence",
         "business_intelligence",
         "valuation_consensus",
+        "valuation_terminal",
+        "hedge_fund_screens",
+        "financial_statement_warehouse",
         "capiq_ikt",
         "company_memory",
         "ikl",
@@ -161,30 +164,47 @@ _HARD_PROVIDERS = frozenset(
 
 
 def answer_for_ask(question: str, *, ticker: Optional[str] = None) -> Optional[dict[str, Any]]:
-    """Compact Ask short-circuit payload. Returns None when KUL has nothing."""
-    out = plan_and_gather(question, ticker=ticker)
-    if not out.get("answerable"):
+    """Compact Ask short-circuit payload via Universal Knowledge Orchestration.
+
+    Phase 6.0 — every short-circuit uses the same gather as the full desk path.
+    Soft-only academy/legacy hits still must not short-circuit Ask.
+    """
+    try:
+        from universal_knowledge.production import for_ask as uko_for_ask
+
+        out = uko_for_ask(question, ticker=ticker)
+    except Exception:
+        out = None
+        # Fall back to legacy KUL gather if UKO is unavailable.
+        gathered = plan_and_gather(question, ticker=ticker)
+        if gathered.get("answerable"):
+            coverage = gathered.get("coverage") or {}
+            sources = list(coverage.get("knowledge_sources_used") or [])
+            if sources and any(s in _HARD_PROVIDERS for s in sources):
+                out = {
+                    "summary": gathered.get("summary") or "",
+                    "why": list(gathered.get("why") or []),
+                    "evidence": list(gathered.get("evidence") or []),
+                    "engine": "knowledge_unification",
+                    "key": ((gathered.get("company_intelligence") or {}).get("identity") or {}).get("ticker"),
+                    "company_name": ((gathered.get("company_intelligence") or {}).get("identity") or {}).get("name"),
+                    "coverage": coverage,
+                    "company_intelligence": gathered.get("company_intelligence") or {},
+                    "concept_intelligence": gathered.get("concept_intelligence") or {},
+                    "diagnostics": gathered.get("diagnostics") or {},
+                    "providers_used": sources,
+                }
+    if not out:
         return None
-    coverage = out.get("coverage") or {}
-    sources = list(coverage.get("knowledge_sources_used") or [])
-    # Require at least one real provider contribution.
+    sources = list(out.get("providers_used") or (out.get("coverage") or {}).get("knowledge_sources_used") or [])
     if not sources:
         return None
-    # Soft-only academy/legacy hits must not short-circuit Ask — that blocks
-    # CapIQ company_router fallback and unknown-entity / recommendation
-    # policies for names KUL couldn't bind.
     if not any(s in _HARD_PROVIDERS for s in sources):
         return None
-    return {
-        "summary": out.get("summary") or "",
-        "why": list(out.get("why") or []),
-        "evidence": list(out.get("evidence") or []),
-        "engine": "knowledge_unification",
-        "key": ((out.get("company_intelligence") or {}).get("identity") or {}).get("ticker"),
-        "company_name": ((out.get("company_intelligence") or {}).get("identity") or {}).get("name"),
-        "coverage": coverage,
-        "company_intelligence": out.get("company_intelligence") or {},
-        "concept_intelligence": out.get("concept_intelligence") or {},
-        "diagnostics": out.get("diagnostics") or {},
-        "providers_used": coverage.get("knowledge_sources_used") or [],
-    }
+    # Preserve KUL engine label for downstream short-circuit gates that key on it,
+    # while recording that UKO produced the gather.
+    out = dict(out)
+    out.setdefault("engine", "knowledge_unification")
+    out["uko"] = True
+    out["providers_used"] = sources
+    return out

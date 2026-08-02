@@ -2218,6 +2218,22 @@ export default function createIntelligenceRouter() {
   router.get('/hedge-fund-lab/compare', kfGet('/v1/hedge-fund-lab/compare'));
   router.get('/hedge-fund-lab/regime', kfGet('/v1/hedge-fund-lab/regime'));
   router.get('/hedge-fund-lab/daily-monitor', kfGet('/v1/hedge-fund-lab/daily-monitor'));
+
+  router.get('/universal-knowledge/health', kfGet('/v1/universal-knowledge/health'));
+  router.get('/universal-knowledge/registry', kfGet('/v1/universal-knowledge/registry'));
+  router.post('/universal-knowledge/orchestrate', async (req, res) => {
+    try {
+      const r = await engineFetch('/v1/universal-knowledge/orchestrate', {
+        method: 'POST',
+        body: req.body || {},
+        timeoutMs: 120_000,
+      });
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'uko orchestrate failed' });
+    }
+  });
+
   router.get('/hedge-fund-lab/terminal', kfGet('/v1/hedge-fund-lab/terminal'));
   router.get('/hedge-fund-lab/opportunity/:ticker', async (req, res) => {
     try {
