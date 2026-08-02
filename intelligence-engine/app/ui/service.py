@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from app.aws.adapters import dump, soft
@@ -116,6 +117,19 @@ def _unwrap_soft_slice(name: str, data: Any) -> dict[str, Any]:
     if isinstance(inner, dict) and len(data) == 1:
         return inner
     return data
+
+
+_RESEARCH_SHAPED_QUESTION_RE = re.compile(
+    r"\b(annual report|earnings call|transcript|management (?:said|commentary)|"
+    r"guidance|capital allocation|what changed since|research memory|"
+    r"investor presentation|quarterly results)\b",
+    re.I,
+)
+
+
+def _is_research_shaped_question(question: str) -> bool:
+    """Research questions need filed documents, not a company profile."""
+    return bool(_RESEARCH_SHAPED_QUESTION_RE.search(str(question or "")))
 
 
 def _is_recommendation_bait(question: str) -> bool:
@@ -2019,6 +2033,19 @@ class UiService:
                 stage_timer.mark(stage)
             executive = ikt_hit["summary"]
             why = ikt_hit["why"]
+            # A question about an annual report, transcript or guidance must
+            # not be answered with a company profile as if it were research.
+            if _is_research_shaped_question(q):
+                company_label = ikt_hit.get("company_name") or ikt_hit.get("key") or "this company"
+                executive = (
+                    f"No annual report, transcript or management commentary for "
+                    f"{company_label} is in research memory yet, so there is nothing to quote. "
+                    f"What is on file is the company profile: {executive}"
+                )
+                why = [
+                    "Research memory holds no filed document for this company yet.",
+                    *list(why or []),
+                ]
             ikt_orch = {
                 **ask_orchestration,
                 "executive_source": "ikt_company_router",

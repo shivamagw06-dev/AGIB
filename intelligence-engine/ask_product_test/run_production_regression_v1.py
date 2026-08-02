@@ -96,6 +96,7 @@ def _decide(suite_id: str, report: Dict[str, Any], rc: int) -> Dict[str, Any]:
         "canonical_classification": {"metric": "pass_rate_pct", "op": "eq", "value": 100.0, "artifact": "canonical_classification_acceptance_v1.json"},
         "company_metadata_routing": {"metric": "pass_rate_pct", "op": "eq", "value": 100.0, "artifact": "company_metadata_routing_acceptance_v1.json"},
         "core_platform_acceptance": {"metric": "overall_score", "op": "gte", "value": 98.0, "artifact": "core_platform_acceptance_v1.json"},
+        "answer_quality": {"metric": "overall_score", "op": "gte", "value": 95.0, "artifact": "answer_quality_acceptance_v1.json"},
     }
     spec = targets[suite_id]
     # Prefer freshly loaded artifact; fall back to rc.
@@ -221,6 +222,7 @@ def main() -> int:
     )
     if not quick:
         plan.append(("core_platform_acceptance", "ask_product_test.run_core_platform_acceptance_v1"))
+        plan.append(("answer_quality", "ask_product_test.run_answer_quality_acceptance_v1"))
 
     results: List[Dict[str, Any]] = []
     for suite_id, module in plan:
