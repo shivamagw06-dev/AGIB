@@ -99,6 +99,23 @@ _VALUATION_MENU = (
     "capiq_ikt",
     "company_memory",
 )
+# Sell-side consensus (CapIQ targets / broker counts / coverage) leads, then
+# AGI's own layers so the answer can separate market view from AGI view.
+_CONSENSUS_MENU = (
+    "valuation_consensus",
+    "capiq_ikt",
+    "investment_intelligence",
+    "business_intelligence",
+    "company_memory",
+    "industry_intelligence",
+    "ikl",
+)
+# Universe-wide consensus screens name no company — consulting the company
+# engines only yields "Business type: unknown" noise.
+_CONSENSUS_SCREEN_MENU = (
+    "valuation_consensus",
+    "industry_intelligence",
+)
 # Industry-specific valuation pedagogy (P/B for banks, EV/Sales for SaaS, …).
 _VALUATION_INDUSTRY_MENU = (
     "industry_intelligence",
@@ -248,7 +265,17 @@ def build_knowledge_plan(
         )
     )
 
-    if research_shaped and (company_bound or "research" in types or "comparison" in types):
+    if "consensus" in types and company_bound:
+        selected.extend(_CONSENSUS_MENU)
+        rationale.append(
+            "Consensus-shaped → Valuation Consensus (CapIQ market data) → CapIQ profile → AGI layers."
+        )
+    elif "consensus" in types:
+        selected.extend(_CONSENSUS_SCREEN_MENU)
+        rationale.append(
+            "Consensus screen (no company bind) → Valuation Consensus universe → Industry DNA."
+        )
+    elif research_shaped and (company_bound or "research" in types or "comparison" in types):
         selected.extend(_RESEARCH_MENU)
         rationale.append(
             "Research-shaped → Research Intelligence → INV → BI → Industry DNA → CapIQ → memory → KF."

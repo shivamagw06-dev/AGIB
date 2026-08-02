@@ -44,6 +44,34 @@ KUL provider id: `valuation_consensus`
 - Facts labeled `layer: market_consensus` / `source: capital_iq_market_consensus`
 - Broker Buy/Hold/Sell counts are **market observations**, never framed as AGI recommendations
 
+### Consensus question routing
+
+`consensus` is a first-class question type in the Query Planner. It fires on
+consensus / target price / analyst coverage / broker rating language, and both
+the Knowledge Planner and Fusion put `valuation_consensus` first, so a consensus
+question is answered from Capital IQ data instead of adjacent AGI pedagogy.
+
+| Ask | Answered from |
+|---|---|
+| "What is the consensus target price for Infosys?" | company row — target, price, upside, coverage |
+| "How many analysts cover TCS?" | coverage count |
+| "What is the analyst rating split for Reliance?" | Buy / Outperform / Hold / Sell / No opinion |
+| "Which companies have the highest consensus upside?" | universe screen (top 10) |
+| "Which IT stocks are most covered by analysts?" | sector screen (GICS sector resolved from the question) |
+
+Screens carry universe context (total companies, average upside, average coverage).
+
+### Guardrails
+
+- Entity Intelligence still runs first. Company-less consensus screens are admitted
+  as a market-data route; a named company is still verified, and an unverified or
+  ambiguous name is still refused rather than substituted.
+- Every consensus answer is labelled Capital IQ market data and states that AGI
+  Institutional Intelligence is assessed separately.
+- AGI never issues its own buy/sell call — broker counts stay reported counts.
+
+Regressions: `valuation_consensus/tests/test_ask_consensus_learning.py`.
+
 ## Admin workflow
 
 1. **Import Capital IQ Excel** (or click **Load Broker Estimates** to publish the committed file)

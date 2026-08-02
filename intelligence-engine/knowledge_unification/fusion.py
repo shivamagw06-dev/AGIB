@@ -104,7 +104,24 @@ def fuse(
     # Prefer statement/foundations over concepts when both contributed so
     # interpretive accounting answers aren't overwritten by a concept card.
     qtypes = set(plan.query.question_types or [])
-    if qtypes.intersection({"financial_statement", "accounting"}):
+    if "consensus" in qtypes:
+        # Sell-side consensus questions must be answered from CapIQ market data,
+        # not from AGI pedagogy that happens to mention valuation.
+        preferred_order = (
+            "valuation_consensus",
+            "capiq_ikt",
+            "investment_intelligence",
+            "business_intelligence",
+            "company_memory",
+            "industry_intelligence",
+            "ikl",
+            "knowledge_factory",
+            "cgl",
+            "financial_concepts",
+            "academy",
+            "legacy_kip",
+        )
+    elif qtypes.intersection({"financial_statement", "accounting"}):
         preferred_order = (
             "financial_statement_intelligence",
             "financial_foundations",
