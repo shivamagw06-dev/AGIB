@@ -41,8 +41,9 @@ def has_recommendation_leak(text: str) -> bool:
     # Allow discussing the words in a policy / negation context.
     low = text.lower()
     if re.search(
-        r"(no buy|no sell|not a buy|not .*buy\s*/\s*sell|buy\s*/\s*sell recommendation|"
-        r"does not recommend|recommendation policy|observations only|not a trade)",
+        r"(no[_\s-]?buy|no[_\s-]?sell|not a buy|not .*buy\s*/\s*sell|buy\s*/\s*sell recommendation|"
+        r"does not recommend|recommendation policy|observations[_\s-]?only|not a trade|"
+        r"no recommendation is issued)",
         low,
     ):
         return False

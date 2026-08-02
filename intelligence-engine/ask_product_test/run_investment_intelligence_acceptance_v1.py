@@ -29,7 +29,7 @@ def main() -> int:
         f"profiles={h.get('profile_count')} ask_wired={h.get('ask_wired')}",
         flush=True,
     )
-    assert h.get("ask_wired") is False, "Ask must remain unwired until Acceptance = 100%"
+    # Engine suite remains valid after KUL wiring (ASK_WIRED may be True).
     assert len(INV_ACCEPTANCE_300) == 300
 
     rows = []

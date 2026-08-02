@@ -5,6 +5,7 @@ from __future__ import annotations
 from knowledge_unification.schema import ProviderResult
 
 _PRIORITY_BONUS = {
+    "investment_intelligence": 0,
     "industry_intelligence": 0,
     "business_intelligence": 0,
     "company_memory": 0,
@@ -24,6 +25,7 @@ _PRIORITY_BONUS = {
 # solely for summary similarity — fusion needs multi-source evidence.
 _DEDUP_EXEMPT = frozenset(
     {
+        "investment_intelligence",
         "industry_intelligence",
         "business_intelligence",
         "capiq_ikt",
