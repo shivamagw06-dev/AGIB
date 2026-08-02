@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { ArrowLeft, Activity, Gauge, Layers, Sigma } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Activity, Gauge, Layers, Search, Sigma } from 'lucide-react';
 import {
   getHflCompare,
   getHflRegime,
@@ -345,7 +345,32 @@ function OpportunityScanner() {
   );
 }
 
-export function HedgeFundLabSections({ embedded = false } = {}) {
+function AskBox() {
+  const navigate = useNavigate();
+  const [q, setQ] = useState('');
+
+  const submit = (event) => {
+    event.preventDefault();
+    const value = q.trim();
+    if (!value) return;
+    navigate(`/ask?q=${encodeURIComponent(value)}`);
+  };
+
+  return (
+    <form className="hfl-ask" onSubmit={submit}>
+      <Search size={15} />
+      <input
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        placeholder="Ask AGI — strategy mechanics, crowding, factor regimes, a company or a pair"
+        aria-label="Ask AGI"
+      />
+      <button type="submit">Ask</button>
+    </form>
+  );
+}
+
+export function HedgeFundLabSections() {
   const [strategies, setStrategies] = useState([]);
   const [rows, setRows] = useState([]);
   const [selected, setSelected] = useState(null);
@@ -371,22 +396,20 @@ export function HedgeFundLabSections({ embedded = false } = {}) {
   const agi = detail?.agi_intelligence;
 
   return (
-    <div className={embedded ? 'hfl-root hfl-embed' : 'hfl-root'}>
-      {embedded ? (
-        <header className="hfl-header hfl-header-embed">
-          <h2>Strategy Lab</h2>
-          <p>How institutional strategies make money — and when they stop working</p>
-        </header>
-      ) : (
-        <header className="hfl-header">
-          <Link to="/hedge-fund" className="hfl-back"><ArrowLeft size={14} /> Hedge Fund</Link>
-          <h1>Hedge Fund Strategy Lab</h1>
-          <p>How institutional strategies make money — and when they stop working</p>
-        </header>
-      )}
+    <div className="hfl-root">
+      <header className="hfl-header">
+        <h1>Hedge Fund</h1>
+        <p>Live opportunities, strategy mechanics and institutional risk analytics</p>
+        <AskBox />
+      </header>
 
       <main className="hfl-body">
         {error ? <div className="hfl-error">{error}</div> : null}
+
+        <RegimeBar />
+        <OpportunityScanner />
+
+        <h2 className="hfl-section-title">Strategy library</h2>
 
         <section className="hfl-cards">
           {strategies.map((s) => (
@@ -470,9 +493,6 @@ export function HedgeFundLabSections({ embedded = false } = {}) {
             </section>
           </>
         ) : null}
-
-        <RegimeBar />
-        <OpportunityScanner />
 
         <ExposureLab />
         <ExpectancyLab />

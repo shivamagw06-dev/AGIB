@@ -13,7 +13,7 @@
 }
 
 .hfl-header {
-  padding: 1.6rem 1.75rem 1.1rem;
+  padding: 1.4rem 1.5rem 1rem;
   border-bottom: 1px solid var(--hfl-line);
 }
 
@@ -40,8 +40,8 @@
 }
 
 .hfl-body {
-  padding: 1.2rem 1.75rem 3rem;
-  max-width: 1500px;
+  padding: 1.2rem 1.5rem 3rem;
+  max-width: none;
 }
 
 .hfl-error {
@@ -493,18 +493,46 @@
 .hfl-opp p.caution { color: var(--hfl-dim); font-size: 0.75rem; }
 @media (max-width: 1100px) { .hfl-suit, .hfl-opps { grid-template-columns: 1fr; } }
 
-/* Embedded inside the light Hedge Fund page as a terminal panel. */
-.hfl-embed {
-  min-height: 0;
-  border: 1px solid #1e2d42;
-  border-radius: 12px;
-  overflow: hidden;
+
+.hfl-ask {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 1rem;
+  padding: 0.55rem 0.8rem;
+  background: var(--hfl-panel);
+  border: 1px solid var(--hfl-line);
+  border-radius: 8px;
+  max-width: 780px;
 }
-.hfl-header-embed { padding: 1.1rem 1.25rem 0.9rem; }
-.hfl-header-embed h2 {
-  margin: 0 0 0.2rem;
-  font-size: 1.4rem;
+.hfl-ask svg { color: var(--hfl-dim); flex: none; }
+.hfl-ask input {
+  flex: 1;
+  background: transparent;
+  border: 0;
+  outline: none;
+  color: var(--hfl-ink);
+  font-size: 0.9rem;
+}
+.hfl-ask input::placeholder { color: var(--hfl-dim); }
+.hfl-ask button {
+  flex: none;
+  padding: 0.35rem 0.9rem;
+  border: 0;
+  border-radius: 6px;
+  background: var(--hfl-teal);
+  color: #06121f;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.hfl-ask button:hover { filter: brightness(1.08); }
+
+.hfl-section-title {
+  margin: 1.6rem 0 0.2rem;
+  font-size: 1.05rem;
   font-weight: 650;
-  letter-spacing: -0.01em;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--hfl-dim);
 }
-.hfl-embed .hfl-body { padding: 1rem 1.25rem 1.5rem; }

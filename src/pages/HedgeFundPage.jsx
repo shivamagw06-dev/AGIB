@@ -1,53 +1,10 @@
-import { Link } from 'react-router-dom';
-import PageShell from '@/components/Layout/PageShell';
-import AskAgiBar from '@/components/Home/AskAgiBar';
-import DeskResearchFeed from '@/components/Research/DeskResearchFeed';
+import { useEffect } from 'react';
 import { HedgeFundLabSections } from '@/pages/HedgeFundLab';
 
 export default function HedgeFundPage() {
-  return (
-    <PageShell
-      title="Hedge Fund"
-      eyebrow="AGI Research"
-      description="Institutional hedge fund research — multi-strategy intelligence across equities, macro, and catalysts."
-      metaTitle="Hedge Fund | Agarwal Global Investments"
-      wide
-    >
-      <div className="space-y-10">
-        <div className="rounded-xl border border-[#e6e8ec] bg-white p-6 md:p-8">
-          <h2 className="font-serif text-2xl font-bold text-[#111111]">Ask the hedge fund desk</h2>
-          <p className="mt-2 text-sm text-[#555555]">
-            Frame long/short, factor, and event questions with institutional evidence.
-          </p>
-          <div className="mt-5">
-            <AskAgiBar
-              placeholder="Ask about hedge fund strategy, crowding, factors or catalysts..."
-              size="large"
-              buttonLabel="Ask AGI"
-              ariaLabel="Ask AGI about hedge funds"
-            />
-          </div>
-        </div>
+  useEffect(() => {
+    document.title = 'Hedge Fund | Agarwal Global Investments';
+  }, []);
 
-        <DeskResearchFeed deskId="hedge-funds" title="Hedge Fund Research" />
-
-        <HedgeFundLabSections embedded />
-
-        <div className="flex flex-wrap gap-3">
-          <Link
-            to="/research"
-            className="rounded-md bg-[#0b1f33] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#163353]"
-          >
-            Explore Research
-          </Link>
-          <Link
-            to="/market-intelligence"
-            className="rounded-md border border-[#d5d8de] px-5 py-2.5 text-sm font-bold text-[#111111] hover:border-[#111111]"
-          >
-            Market Intelligence
-          </Link>
-        </div>
-      </div>
-    </PageShell>
-  );
+  return <HedgeFundLabSections />;
 }
