@@ -288,6 +288,16 @@ def _create_tab_table(tab: Tab) -> None:
         )
     be.execute(f'CREATE INDEX IF NOT EXISTS idx_{tab.id}_updated ON {name} (sys_updated_at)')
 
+    # Time-series reads are always "one company, ordered by period". At millions
+    # of rows that has to be an index seek, not a scan.
+    period_key = next((k for k in tab.key if k != tab.entity_column), None)
+    if tab.entity_column and period_key:
+        be.execute(
+            f'CREATE INDEX IF NOT EXISTS idx_{tab.id}_entity_period'
+            f' ON {name} (sys_entity, "{period_key}")'
+        )
+        be.execute(f'CREATE INDEX IF NOT EXISTS idx_{tab.id}_period ON {name} ("{period_key}")')
+
 
 def _table_columns(name: str) -> list[str]:
     be = backend()
@@ -373,6 +383,42 @@ CREATE TABLE IF NOT EXISTS wh_refresh_runs (
     counts TEXT,
     errors TEXT
 );
+CREATE TABLE IF NOT EXISTS wh_backfill_jobs (
+    id TEXT PRIMARY KEY,
+    created_at TEXT,
+    updated_at TEXT,
+    finished_at TEXT,
+    kind TEXT,
+    actor TEXT,
+    status TEXT,
+    params TEXT,
+    stats TEXT,
+    error TEXT
+);
+CREATE TABLE IF NOT EXISTS wh_backfill_checkpoints (
+    id TEXT PRIMARY KEY,
+    kind TEXT,
+    entity TEXT,
+    cursor TEXT,
+    status TEXT,
+    attempts INTEGER,
+    rows_written INTEGER,
+    first_period TEXT,
+    last_period TEXT,
+    last_error TEXT,
+    updated_at TEXT
+);
+CREATE TABLE IF NOT EXISTS wh_backfill_dates (
+    id TEXT PRIMARY KEY,
+    source TEXT,
+    trade_date TEXT,
+    status TEXT,
+    rows INTEGER,
+    checksum TEXT,
+    attempts INTEGER,
+    last_error TEXT,
+    updated_at TEXT
+);
 """
 
 _META_INDEXES = (
@@ -381,6 +427,11 @@ _META_INDEXES = (
     "CREATE INDEX IF NOT EXISTS idx_cellver_row ON wh_cell_versions (tab_id, row_id)",
     "CREATE INDEX IF NOT EXISTS idx_snap_row ON wh_row_snapshots (tab_id, row_id)",
     "CREATE INDEX IF NOT EXISTS idx_override_row ON wh_overrides (tab_id, row_id)",
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_ckpt_kind_entity ON wh_backfill_checkpoints (kind, entity)",
+    "CREATE INDEX IF NOT EXISTS idx_ckpt_status ON wh_backfill_checkpoints (kind, status)",
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_bfdate_source_date ON wh_backfill_dates (source, trade_date)",
+    "CREATE INDEX IF NOT EXISTS idx_bfdate_status ON wh_backfill_dates (source, status)",
+    "CREATE INDEX IF NOT EXISTS idx_job_kind ON wh_backfill_jobs (kind, created_at)",
 )
 
 

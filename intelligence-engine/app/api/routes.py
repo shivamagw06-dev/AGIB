@@ -18711,3 +18711,114 @@ async def warehouse_coverage():
     from institutional_warehouse.production import coverage
 
     return coverage()
+
+
+# ---------------------------------------------------------------------------
+# Historical Backfill & Time-Series (Phase 7.1a)
+# ---------------------------------------------------------------------------
+
+
+@router.post("/warehouse/backfill")
+async def warehouse_backfill(
+    payload: dict[str, Any] = Body(default_factory=dict),
+    x_agi_actor: str | None = Header(default=None),
+):
+    from institutional_warehouse.production import run_backfill
+
+    body = payload or {}
+    kwargs: dict[str, Any] = {"actor": _warehouse_actor(body, x_agi_actor)}
+    for key in ("companies", "days"):
+        if body.get(key) is not None:
+            kwargs[key] = int(body[key])
+    if body.get("stages"):
+        kwargs["stages"] = body["stages"]
+    if body.get("cadence"):
+        kwargs["cadence"] = str(body["cadence"])
+    if body.get("universe"):
+        kwargs["universe"] = [str(s).upper() for s in body["universe"]]
+    if body.get("allow_here"):
+        kwargs["enforce_worker"] = False
+    return run_backfill(**kwargs)
+
+
+@router.get("/warehouse/backfill/status")
+async def warehouse_backfill_status():
+    from institutional_warehouse.production import backfill_status
+
+    return backfill_status()
+
+
+@router.get("/warehouse/backfill/jobs")
+async def warehouse_backfill_jobs(limit: int = 20):
+    from institutional_warehouse.production import backfill_jobs
+
+    return backfill_jobs(limit=limit)
+
+
+@router.get("/warehouse/historical-coverage")
+async def warehouse_historical_coverage(top: int = 25):
+    from institutional_warehouse.production import historical_coverage
+
+    return historical_coverage(top=top)
+
+
+@router.get("/history/company/{symbol}")
+async def history_company_route(symbol: str, window: str = "max", metrics: str | None = None):
+    from institutional_warehouse.production import history_company
+
+    wanted = [m.strip() for m in metrics.split(",") if m.strip()] if metrics else None
+    return history_company(symbol, window=window, metrics=wanted)
+
+
+@router.get("/history/series/{symbol}/{metric}")
+async def history_series_route(
+    symbol: str,
+    metric: str,
+    window: str = "max",
+    start: str | None = None,
+    end: str | None = None,
+    limit: int = 5000,
+):
+    from institutional_warehouse.production import history_series
+
+    return history_series(symbol, metric, window=window, start=start, end=end, limit=limit)
+
+
+@router.get("/history/as-at/{symbol}")
+async def history_as_at_route(symbol: str, on: str):
+    from institutional_warehouse.production import history_as_at
+
+    return history_as_at(symbol, on)
+
+
+@router.get("/history/table/{tab_id}")
+async def history_range_route(
+    tab_id: str,
+    symbol: str | None = None,
+    start: str | None = None,
+    end: str | None = None,
+    fiscal_year: str | None = None,
+    quarter: str | None = None,
+    window: str | None = None,
+    limit: int = 1000,
+    offset: int = 0,
+):
+    from institutional_warehouse.production import history_range
+
+    return history_range(tab_id, symbol=symbol, start=start, end=end, fiscal_year=fiscal_year,
+                         quarter=quarter, window=window, limit=limit, offset=offset)
+
+
+@router.get("/history/compare")
+async def history_compare_route(symbols: str, metric: str, window: str = "5y"):
+    from institutional_warehouse.production import history_compare
+
+    names = [s.strip() for s in symbols.split(",") if s.strip()]
+    return history_compare(names, metric, window=window)
+
+
+@router.get("/history/coverage/{symbol}")
+async def history_coverage_route(symbol: str):
+    from institutional_warehouse.production import history_coverage
+
+    return history_coverage(symbol)

@@ -1,0 +1,289 @@
+"""Resumable state for the backfill engine.
+
+Two kinds of work, two kinds of bookmark:
+
+* **Date work** (NSE archive) — a trading day is fetched once. ``wh_backfill_dates``
+  holds one row per (source, date) so a completed day is never downloaded again,
+  which is the whole reason 406 downloads only ever produced 3 trading days.
+* **Entity work** (Yahoo per company) — a company is walked from its most recent
+  covered period backwards. ``wh_backfill_checkpoints`` holds the cursor, the
+  attempt count and the last error so an interrupted run resumes where it left
+  off instead of starting again.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import uuid
+from typing import Any, Iterable, Optional, Sequence
+
+from institutional_warehouse import db
+from institutional_warehouse.values import now_iso
+
+DONE = "done"
+PENDING = "pending"
+FAILED = "failed"
+SKIPPED = "skipped"
+RUNNING = "running"
+
+MAX_ATTEMPTS = 3
+
+
+def _id(*parts: str) -> str:
+    return hashlib.sha1("|".join(parts).encode("utf-8")).hexdigest()[:32]
+
+
+# --------------------------------------------------------------------------
+# Date work
+# --------------------------------------------------------------------------
+
+
+def date_status(source: str, trade_date: str) -> Optional[dict[str, Any]]:
+    rows = db.query(
+        "SELECT * FROM wh_backfill_dates WHERE source = ? AND trade_date = ?",
+        (source, trade_date),
+    )
+    return rows[0] if rows else None
+
+
+def completed_dates(source: str) -> set[str]:
+    rows = db.query(
+        "SELECT trade_date FROM wh_backfill_dates WHERE source = ? AND status IN (?, ?)",
+        (source, DONE, SKIPPED),
+    )
+    return {str(r["trade_date"]) for r in rows}
+
+
+def exhausted_dates(source: str, max_attempts: int = MAX_ATTEMPTS) -> set[str]:
+    rows = db.query(
+        "SELECT trade_date FROM wh_backfill_dates WHERE source = ? AND status = ? AND attempts >= ?",
+        (source, FAILED, int(max_attempts)),
+    )
+    return {str(r["trade_date"]) for r in rows}
+
+
+def claim_dates(
+    source: str,
+    candidates: Sequence[str],
+    *,
+    limit: int = 20,
+    max_attempts: int = MAX_ATTEMPTS,
+) -> list[str]:
+    """Return the next dates worth fetching, skipping done and exhausted ones."""
+    db.init()
+    skip = completed_dates(source) | exhausted_dates(source, max_attempts)
+    claimed = [d for d in candidates if d not in skip]
+    return claimed[: max(0, int(limit))]
+
+
+def mark_date(
+    source: str,
+    trade_date: str,
+    *,
+    status: str,
+    rows: int = 0,
+    checksum: Optional[str] = None,
+    error: Optional[str] = None,
+) -> None:
+    db.init()
+    existing = date_status(source, trade_date)
+    attempts = int((existing or {}).get("attempts") or 0) + 1
+    if existing:
+        db.execute(
+            "UPDATE wh_backfill_dates SET status = ?, rows = ?, checksum = ?, attempts = ?,"
+            " last_error = ?, updated_at = ? WHERE source = ? AND trade_date = ?",
+            (status, int(rows), checksum, attempts, error, now_iso(), source, trade_date),
+        )
+        return
+    db.execute(
+        "INSERT INTO wh_backfill_dates (id, source, trade_date, status, rows, checksum,"
+        " attempts, last_error, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (_id(source, trade_date), source, trade_date, status, int(rows), checksum,
+         attempts, error, now_iso()),
+    )
+
+
+def date_coverage(source: str) -> dict[str, Any]:
+    rows = db.query(
+        "SELECT status, COUNT(*) AS n, SUM(rows) AS r FROM wh_backfill_dates"
+        " WHERE source = ? GROUP BY status",
+        (source,),
+    )
+    span = db.query(
+        "SELECT MIN(trade_date) AS a, MAX(trade_date) AS b FROM wh_backfill_dates"
+        " WHERE source = ? AND status = ?",
+        (source, DONE),
+    )
+    by_status = {str(r["status"]): int(r["n"] or 0) for r in rows}
+    return {
+        "source": source,
+        "by_status": by_status,
+        "days_done": by_status.get(DONE, 0),
+        "rows_imported": int(sum(int(r["r"] or 0) for r in rows)),
+        "oldest": (span[0].get("a") if span else None),
+        "newest": (span[0].get("b") if span else None),
+    }
+
+
+# --------------------------------------------------------------------------
+# Entity work
+# --------------------------------------------------------------------------
+
+
+def checkpoint(kind: str, entity: str) -> Optional[dict[str, Any]]:
+    rows = db.query(
+        "SELECT * FROM wh_backfill_checkpoints WHERE kind = ? AND entity = ?",
+        (kind, str(entity).upper()),
+    )
+    return rows[0] if rows else None
+
+
+def save_checkpoint(
+    kind: str,
+    entity: str,
+    *,
+    status: str,
+    cursor: Optional[str] = None,
+    rows_written: int = 0,
+    first_period: Optional[str] = None,
+    last_period: Optional[str] = None,
+    error: Optional[str] = None,
+    reset_attempts: bool = False,
+) -> None:
+    db.init()
+    ticker = str(entity).upper()
+    existing = checkpoint(kind, ticker)
+    attempts = 0 if reset_attempts else int((existing or {}).get("attempts") or 0) + 1
+    written = int((existing or {}).get("rows_written") or 0) + int(rows_written)
+    if existing:
+        db.execute(
+            "UPDATE wh_backfill_checkpoints SET status = ?, cursor = ?, attempts = ?,"
+            " rows_written = ?, first_period = ?, last_period = ?, last_error = ?, updated_at = ?"
+            " WHERE kind = ? AND entity = ?",
+            (status, cursor, attempts, written,
+             first_period or existing.get("first_period"),
+             last_period or existing.get("last_period"),
+             error, now_iso(), kind, ticker),
+        )
+        return
+    db.execute(
+        "INSERT INTO wh_backfill_checkpoints (id, kind, entity, cursor, status, attempts,"
+        " rows_written, first_period, last_period, last_error, updated_at)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (_id(kind, ticker), kind, ticker, cursor, status, attempts, written,
+         first_period, last_period, error, now_iso()),
+    )
+
+
+def pending_entities(
+    kind: str,
+    universe: Iterable[str],
+    *,
+    limit: int = 50,
+    max_attempts: int = MAX_ATTEMPTS,
+    refresh_done: bool = False,
+) -> list[str]:
+    """Companies still owed work, newest failures last so one bad name cannot block the queue."""
+    db.init()
+    states = {
+        str(r["entity"]): r
+        for r in db.query("SELECT * FROM wh_backfill_checkpoints WHERE kind = ?", (kind,))
+    }
+    fresh: list[str] = []
+    retry: list[str] = []
+    for raw in universe:
+        ticker = str(raw).upper()
+        state = states.get(ticker)
+        if state is None:
+            fresh.append(ticker)
+            continue
+        status = str(state.get("status") or "")
+        if status == DONE and not refresh_done:
+            continue
+        if status == SKIPPED:
+            continue
+        if int(state.get("attempts") or 0) >= max_attempts and status == FAILED:
+            continue
+        retry.append(ticker)
+    return (fresh + retry)[: max(0, int(limit))]
+
+
+def entity_coverage(kind: str) -> dict[str, Any]:
+    rows = db.query(
+        "SELECT status, COUNT(*) AS n, SUM(rows_written) AS r FROM wh_backfill_checkpoints"
+        " WHERE kind = ? GROUP BY status",
+        (kind,),
+    )
+    by_status = {str(r["status"]): int(r["n"] or 0) for r in rows}
+    return {
+        "kind": kind,
+        "by_status": by_status,
+        "companies_done": by_status.get(DONE, 0),
+        "companies_failed": by_status.get(FAILED, 0),
+        "rows_written": int(sum(int(r["r"] or 0) for r in rows)),
+    }
+
+
+def failures(kind: Optional[str] = None, limit: int = 50) -> list[dict[str, Any]]:
+    clause = " AND kind = ?" if kind else ""
+    params: tuple[Any, ...] = (FAILED, kind) if kind else (FAILED,)
+    rows = db.query(
+        f"SELECT kind, entity, attempts, last_error, updated_at FROM wh_backfill_checkpoints"
+        f" WHERE status = ?{clause} ORDER BY updated_at DESC LIMIT ?",
+        (*params, max(1, int(limit))),
+    )
+    return [dict(r) for r in rows]
+
+
+# --------------------------------------------------------------------------
+# Jobs
+# --------------------------------------------------------------------------
+
+
+def start_job(kind: str, *, actor: str, params: Optional[dict[str, Any]] = None) -> str:
+    db.init()
+    job_id = uuid.uuid4().hex
+    stamp = now_iso()
+    db.execute(
+        "INSERT INTO wh_backfill_jobs (id, created_at, updated_at, kind, actor, status, params,"
+        " stats, error) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (job_id, stamp, stamp, kind, actor, RUNNING, json.dumps(params or {}, default=str),
+         "{}", None),
+    )
+    return job_id
+
+
+def finish_job(job_id: str, *, ok: bool, stats: dict[str, Any], error: Optional[str] = None) -> None:
+    stamp = now_iso()
+    db.execute(
+        "UPDATE wh_backfill_jobs SET status = ?, updated_at = ?, finished_at = ?, stats = ?,"
+        " error = ? WHERE id = ?",
+        (DONE if ok else FAILED, stamp, stamp, json.dumps(stats, default=str), error, job_id),
+    )
+
+
+def recent_jobs(*, kind: Optional[str] = None, limit: int = 20) -> list[dict[str, Any]]:
+    clause = " WHERE kind = ?" if kind else ""
+    params: tuple[Any, ...] = (kind,) if kind else ()
+    rows = db.query(
+        f"SELECT * FROM wh_backfill_jobs{clause} ORDER BY created_at DESC LIMIT ?",
+        (*params, max(1, int(limit))),
+    )
+    out = []
+    for row in rows:
+        out.append(
+            {
+                **row,
+                "params": _loads(row.get("params"), {}),
+                "stats": _loads(row.get("stats"), {}),
+            }
+        )
+    return out
+
+
+def _loads(raw: Any, fallback: Any) -> Any:
+    try:
+        return json.loads(raw) if raw else fallback
+    except Exception:
+        return fallback

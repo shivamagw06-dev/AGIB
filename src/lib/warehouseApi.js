@@ -161,6 +161,42 @@ export const recalculate = (payload = {}) =>
     timeoutMs: 600_000,
   });
 
+/* Historical backfill (Phase 7.1a) */
+export const runBackfill = (payload = {}) =>
+  warehouseFetch('/backfill', {
+    method: 'POST',
+    body: { ...payload, actor: currentActor },
+    timeoutMs: 900_000,
+  });
+export const getBackfillStatus = () => warehouseFetch('/backfill/status');
+export const getBackfillJobs = (limit = 10) => warehouseFetch(`/backfill/jobs${qs({ limit })}`);
+export const getHistoricalCoverage = (top = 25) =>
+  warehouseFetch(`/historical-coverage${qs({ top })}`, { timeoutMs: 180_000 });
+
+/* Historical reads — served from the warehouse, never from a collector */
+const historyFetch = (path, params = {}) => {
+  const url = `${BASE}/api/intelligence/history${path}${qs(params)}`;
+  return fetch(url, { credentials: 'include', headers: { 'X-AGI-Actor': currentActor } }).then(
+    async (resp) => {
+      const text = await resp.text().catch(() => '');
+      if (!resp.ok) throw new Error(`History API error (${resp.status}) ${text.slice(0, 200)}`);
+      return text ? JSON.parse(text) : null;
+    },
+  );
+};
+
+export const getCompanyHistory = (symbol, params = {}) =>
+  historyFetch(`/company/${encodeURIComponent(symbol)}`, params);
+export const getSeries = (symbol, metric, params = {}) =>
+  historyFetch(`/series/${encodeURIComponent(symbol)}/${encodeURIComponent(metric)}`, params);
+export const getAsAt = (symbol, on) => historyFetch(`/as-at/${encodeURIComponent(symbol)}`, { on });
+export const getHistoryTable = (tabId, params = {}) =>
+  historyFetch(`/table/${encodeURIComponent(tabId)}`, params);
+export const compareHistory = (symbols, metric, window = '5y') =>
+  historyFetch('/compare', { symbols: symbols.join(','), metric, window });
+export const getSymbolCoverage = (symbol) =>
+  historyFetch(`/coverage/${encodeURIComponent(symbol)}`);
+
 /* Search */
 export const searchWarehouse = (q, params = {}) => warehouseFetch(`/search${qs({ q, ...params })}`);
 export const suggestCompanies = (prefix, limit = 10) =>
