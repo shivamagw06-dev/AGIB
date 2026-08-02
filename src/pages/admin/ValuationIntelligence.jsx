@@ -359,9 +359,16 @@ export default function ValuationIntelligence() {
       <header className="vi-header">
         <div className="vi-brand-row">
           <div className="vi-brand">
-            <Link to={homeLink} style={{ color: 'var(--vi-muted)', fontSize: '0.8rem', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-              <ArrowLeft size={14} /> {location.pathname.startsWith('/admin') ? 'Admin' : 'Home'}
-            </Link>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '0.15rem' }}>
+              <Link to={homeLink} style={{ color: 'var(--vi-muted)', fontSize: '0.8rem', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <ArrowLeft size={14} /> {location.pathname.startsWith('/admin') ? 'Admin' : 'Home'}
+              </Link>
+              {!location.pathname.startsWith('/admin') ? (
+                <Link to="/market-intelligence" style={{ color: 'var(--vi-muted)', fontSize: '0.8rem', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <ArrowLeft size={14} /> Market Intelligence
+                </Link>
+              ) : null}
+            </div>
             <h1>Valuation Intelligence</h1>
             <p>Institutional Consensus Dashboard</p>
             <div className="vi-principle">
