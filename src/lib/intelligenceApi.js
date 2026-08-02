@@ -2807,8 +2807,8 @@ export const hflCalculate = (kind, payload) =>
     body: payload,
   });
 export const getHflRegime = () => intelligenceFetch('/hedge-fund-lab/regime');
-export const getHflTerminal = (limit = 12) =>
-  intelligenceFetch(`/hedge-fund-lab/terminal?limit=${limit}`, { timeoutMs: 90_000 });
+export const getHflTerminal = () =>
+  intelligenceFetch('/hedge-fund-lab/terminal', { timeoutMs: 120_000 });
 export const getHflOpportunity = (ticker) =>
   intelligenceFetch(`/hedge-fund-lab/opportunity/${encodeURIComponent(ticker)}`, { timeoutMs: 90_000 });
 export const getHflScan = (strategy, params = {}) => {

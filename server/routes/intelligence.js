@@ -2222,7 +2222,7 @@ export default function createIntelligenceRouter() {
   router.get('/hedge-fund-lab/opportunity/:ticker', async (req, res) => {
     try {
       const r = await engineFetch(`/v1/hedge-fund-lab/opportunity/${encodeURIComponent(req.params.ticker)}`);
-      res.json(r);
+      res.status(r.status).json(r.data);
     } catch (err) {
       res.status(502).json({ error: err.message || 'hedge-fund-lab opportunity failed' });
     }
@@ -3621,8 +3621,7 @@ export default function createIntelligenceRouter() {
     try {
       const result = await engineFetch('/v1/ask', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(req.body || {}),
+        body: req.body || {},
         timeoutMs: 90_000,
       });
       return res.status(result.status).json(result.data);
@@ -3634,8 +3633,7 @@ export default function createIntelligenceRouter() {
     try {
       const result = await engineFetch('/v1/ask/stream', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(req.body || {}),
+        body: req.body || {},
         timeoutMs: 90_000,
       });
       return res.status(result.status).json(result.data);
