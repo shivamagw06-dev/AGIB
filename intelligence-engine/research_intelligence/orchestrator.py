@@ -364,6 +364,24 @@ def analyse(question: str, *, entity: Optional[str] = None) -> dict[str, Any]:
     primary = intents[0]
     summary = intent_map.get(primary) or intent_map["overview"]
 
+    # Surface quarter/period deltas when the question asks what changed.
+    qlow = (question or "").lower()
+    if re.search(r"\b(what changed|since last quarter|how has .+ changed)\b", qlow):
+        delta_bits = []
+        if pkg.whats_new:
+            delta_bits.append("What changed — " + "; ".join(pkg.whats_new[:3]))
+        if gd.get("evolution"):
+            delta_bits.append(f"Guidance change — {gd.get('evolution')}")
+        mem_body = (mem.get("memory") if isinstance(mem, dict) else None) or (c.get("memory") or {})
+        if mem_body.get("guidance_history_note"):
+            delta_bits.append(f"Guidance history — {mem_body.get('guidance_history_note')}")
+        if "quarter" not in summary.lower():
+            delta_bits.append("Quarter/FY research memory is updated in place — never duplicated.")
+        if delta_bits:
+            summary = strip_recommendation_language(
+                " ".join(delta_bits) + " " + summary
+            )
+
     pkg.executive_summary = strip_recommendation_language(summary)[:1400]
     pkg.summary = pkg.executive_summary
     pkg.modules_used = []

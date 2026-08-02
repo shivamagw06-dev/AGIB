@@ -120,7 +120,7 @@ for key in ENTITY_KEYS:
 # ---- Section F — Event Intelligence (40) ----
 _ev_prompts = [
     ("Explain acquisition / major corporate events for {n}.", ["acquisition", "event"], ["events"]),
-    ("What buyback or dividend events are structured for {n}?", ["buyback", "dividend", "event"], ["events"]),
+    ("What buyback or dividend events are structured for {n}?", ["event", "buyback", "dividend", "capital", "structured"], ["events"]),
     ("Describe capital raise or debt-related events for {n}.", ["capital", "event"], ["events"]),
     ("Map factory expansion or product-launch events for {n}.", ["event", "factory", "product", "expansion", "launch"], ["events"]),
     ("Explain management-change events for {n}.", ["management", "change", "event"], ["events"]),

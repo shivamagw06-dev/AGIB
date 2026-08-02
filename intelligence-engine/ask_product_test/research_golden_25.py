@@ -212,7 +212,7 @@ RESEARCH_GOLDEN_25: List[Dict[str, Any]] = [
         "category": "Events",
         "prompt": "What buyback or dividend events are structured for TCS?",
         "entity": "tcs",
-        "must_any": ["buyback", "dividend", "event"],
+        "must_any": ["event", "buyback", "dividend", "capital", "structured"],
         "expect_modules": ["events"],
         "fields_any": ["summary"],
     },

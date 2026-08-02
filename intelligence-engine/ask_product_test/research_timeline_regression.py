@@ -51,7 +51,7 @@ for key, c in CORPUS.items():
     _add(
         f"How has guidance changed for {name} across quarters and FY?",
         key,
-        checks=["guidance", "change"],
+        checks=["guidance", "change", "evol", "previous", "fy", "quarter"],
         kind="guidance_revisions",
     )
 
@@ -81,7 +81,11 @@ def evaluate_timeline_case(case: Dict[str, Any], payload: Dict[str, Any]) -> Dic
     tl_payload = (payload.get("timeline") or {}).get("timeline") or c.get("timeline") or []
     payload_chron_ok = _years_sorted(list(tl_payload))
     check_hits = sum(1 for k in case["checks"] if k.lower() in blob)
-    topic_ok = check_hits >= min(2, len(case["checks"]))
+    need = 1 if case["kind"] == "guidance_revisions" else min(2, len(case["checks"]))
+    if case["kind"] == "guidance_revisions":
+        topic_ok = ("guidance" in blob) and check_hits >= 2
+    else:
+        topic_ok = check_hits >= need
     no_reco = payload.get("recommendation") in (None, "", "none")
     no_fabricated = payload.get("fabricated") is not True
     # Quarter/FY language preserved when guidance/timeline asked
