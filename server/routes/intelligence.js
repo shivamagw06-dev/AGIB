@@ -7271,6 +7271,7 @@ export default function createIntelligenceRouter() {
   router.get('/warehouse/validate', warehouseGet('/v1/warehouse/validate'));
   router.get('/warehouse/imports', warehouseGet('/v1/warehouse/imports'));
   router.get('/warehouse/refresh-runs', warehouseGet('/v1/warehouse/refresh-runs'));
+  router.get('/warehouse/scheduler', warehouseGet('/v1/warehouse/scheduler'));
   router.get('/warehouse/search', warehouseGet('/v1/warehouse/search'));
   router.get('/warehouse/suggest', warehouseGet('/v1/warehouse/suggest'));
   router.get('/warehouse/company/:symbol', warehouseGet((req) =>

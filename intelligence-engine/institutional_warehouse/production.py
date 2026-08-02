@@ -313,6 +313,12 @@ def refresh_runs(limit: int = 20) -> dict[str, Any]:
     return refresh.recent_runs(limit=limit)
 
 
+def scheduler_status() -> dict[str, Any]:
+    from institutional_warehouse.scheduler import status
+
+    return status()
+
+
 def recompute(**kwargs: Any) -> dict[str, Any]:
     denied = permissions.require(kwargs.get("actor"), "recalculate")
     if denied:

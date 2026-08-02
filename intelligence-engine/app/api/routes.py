@@ -18661,6 +18661,13 @@ async def warehouse_refresh_runs(limit: int = 20):
     return refresh_runs(limit=limit)
 
 
+@router.get("/warehouse/scheduler")
+async def warehouse_scheduler():
+    from institutional_warehouse.production import scheduler_status
+
+    return scheduler_status()
+
+
 @router.post("/warehouse/recalculate")
 async def warehouse_recalculate(
     payload: dict[str, Any] = Body(default_factory=dict),

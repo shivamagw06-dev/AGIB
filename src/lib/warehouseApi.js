@@ -153,6 +153,7 @@ export const runRefresh = (payload = {}) =>
     timeoutMs: 900_000,
   });
 export const listRefreshRuns = (limit = 10) => warehouseFetch(`/refresh-runs${qs({ limit })}`);
+export const getSchedulerStatus = () => warehouseFetch('/scheduler');
 export const recalculate = (payload = {}) =>
   warehouseFetch('/recalculate', {
     method: 'POST',

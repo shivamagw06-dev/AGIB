@@ -42,6 +42,7 @@ def _apply_worker_defaults() -> None:
         "CONTINUOUS_KF_HD": "true",
         "CONTINUOUS_LEARNING_LOOP": "true",
         "CONTINUOUS_MORNING_DAG": "true",
+        "WAREHOUSE_DAILY_REFRESH": "true",
     }
     # Sidecar start script exports these true already; still fill gaps.
     for key, value in defaults.items():
@@ -112,6 +113,18 @@ def main() -> int:
         log.info("gather_worker_mc_snapshot", extra=boot_mc if isinstance(boot_mc, dict) else {"boot": boot_mc})
     except Exception as exc:  # noqa: BLE001
         log.warning("gather_worker_mc_snapshot_failed", extra={"error": str(exc)[:200]})
+
+    # Institutional Data Warehouse — daily refresh after the Indian close.
+    try:
+        from institutional_warehouse.scheduler import start as start_warehouse
+        from institutional_warehouse.scheduler import stop as stop_warehouse
+
+        boot_warehouse = start_warehouse()
+        if boot_warehouse.get("enabled"):
+            stop_fns.append(stop_warehouse)
+        log.info("gather_worker_warehouse", extra=boot_warehouse)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("gather_worker_warehouse_failed", extra={"error": str(exc)[:200]})
 
     stopping = {"flag": False}
 
