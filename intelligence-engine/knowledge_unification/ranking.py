@@ -18,6 +18,21 @@ _PRIORITY_BONUS = {
     "legacy_kip": 9,
 }
 
+# Hard providers carry distinct fact surfaces even when narrative text overlaps
+# (e.g. BI how-it-makes-money vs CapIQ description paraphrase). Never drop them
+# solely for summary similarity — fusion needs multi-source evidence.
+_DEDUP_EXEMPT = frozenset(
+    {
+        "business_intelligence",
+        "capiq_ikt",
+        "company_memory",
+        "ikl",
+        "financial_concepts",
+        "financial_foundations",
+        "financial_statement_intelligence",
+    }
+)
+
 
 def rank_and_filter(results: list[ProviderResult]) -> list[ProviderResult]:
     kept: list[ProviderResult] = []
@@ -32,9 +47,9 @@ def rank_and_filter(results: list[ProviderResult]) -> list[ProviderResult]:
         if not (r.summary or r.why or r.facts):
             r.rejected_reason = "no_content"
             continue
-        # Near-duplicate summary rejection (keeps highest-priority first later).
+        # Near-duplicate summary rejection (soft sources only).
         norm = " ".join((r.summary or "").lower().split())[:180]
-        if norm and norm in seen_summaries:
+        if norm and norm in seen_summaries and r.provider_id not in _DEDUP_EXEMPT:
             r.rejected_reason = "duplicate"
             continue
         if norm:
