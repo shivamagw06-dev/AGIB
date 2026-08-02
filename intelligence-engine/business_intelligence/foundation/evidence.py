@@ -79,7 +79,8 @@ def detect_ticker(question: str) -> Optional[str]:
 
 
 _COMPARE_RE = re.compile(
-    r"\b(compare|vs\.?|versus|against)\b",
+    r"\b(compare|vs\.?|versus|against|more profitable than|higher margins than|"
+    r"better margins than)\b",
     re.I,
 )
 
@@ -96,8 +97,15 @@ def extract_compare_names(question: str) -> list[str]:
         q,
         flags=re.I,
     )
+    m2 = re.search(
+        r"\b(?:why (?:is|does|do)\s+)?(.+?)\s+(?:more profitable|higher margins|better margins)\s+than\s+(.+?)(?:\?|$)",
+        q,
+        flags=re.I,
+    )
     if m:
         raw_parts = [m.group(1), m.group(2)]
+    elif m2:
+        raw_parts = [m2.group(1), m2.group(2)]
     else:
         raw_parts = re.split(r"\bvs\.?|versus\b", q, flags=re.I)[:2]
 
@@ -105,7 +113,7 @@ def extract_compare_names(question: str) -> list[str]:
     for part in raw_parts:
         cleaned = re.sub(
             r"\b(compare|and|the|business|models?|moat|of|for|with|on|"
-            r"axes?|economics?|as|capital|allocators?)\b",
+            r"axes?|economics?|as|capital|allocators?|earn|earns|is|does|do|why)\b",
             " ",
             part,
             flags=re.I,

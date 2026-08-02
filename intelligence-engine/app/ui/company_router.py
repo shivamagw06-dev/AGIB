@@ -77,6 +77,24 @@ def invalidate_index_cache() -> None:
 
 _TICKER_TOKEN_RE = re.compile(r"\b([A-Z]{2,15}\d{0,6})\b")
 _QUESTION_WORDS = ("explain", "what", "describe", "tell", "about", "is", "the")
+# Tickers that are also common English finance words — only bind when the
+# original question contains the token in ticker casing (e.g. bare PREMIUM),
+# never when it only appears as lowercase prose ("premium pricing").
+_AMBIGUOUS_TICKER_TOKENS = frozenset(
+    {
+        "PREMIUM",
+        "VALUE",
+        "GROWTH",
+        "INCOME",
+        "CREDIT",
+        "ADVANCE",
+        "CAPITAL",
+        "POWER",
+        "ENERGY",
+        "FINANCE",
+        "GLOBAL",
+    }
+)
 
 
 _STOPWORDS_FOR_MATCH = {
@@ -94,6 +112,7 @@ _GENERIC_OVERLAP_WORDS = frozenset(
         "services", "finance", "financial", "capital", "power", "energy",
         "steel", "bank", "motors", "air", "tech", "technology",
         "market", "markets", "global",
+        "premium", "value", "growth", "income", "credit", "advance",
     }
 )
 
@@ -135,8 +154,11 @@ def detect_ikt_company(question: str) -> Optional[str]:
         return None
 
     for token in _TICKER_TOKEN_RE.findall(q.upper()):
-        if token in tickers:
-            return token
+        if token not in tickers:
+            continue
+        if token in _AMBIGUOUS_TICKER_TOKENS and not re.search(rf"\b{token}\b", q):
+            continue
+        return token
 
     norm_q = _normalize_name(q)
     if not norm_q:

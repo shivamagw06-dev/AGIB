@@ -215,15 +215,33 @@ def analyse_moat(ev: dict[str, Any]) -> dict[str, Any]:
             )
         )
     primary = [d.key for d in sorted(dims, key=lambda x: -x.score) if d.score >= 45][:4]
+    if not primary and industry not in {"unknown", ""}:
+        primary = [k for k in (tmpl.get("typical_moats") or []) if k][:3]
     durability = "Strong" if sum(1 for d in dims if d.score >= 70) >= 2 else (
         "Medium" if primary else "Weak"
     )
-    name = company.get("company_name") or ev.get("ticker") or "The company"
-    summary = (
-        f"{name}'s primary moat sources are "
-        + (", ".join(p.replace('_', ' ') for p in primary) if primary else "not yet clearly established")
-        + f" (durability: {durability})."
-    )
+    name = company.get("company_name") or ev.get("ticker")
+    if not name:
+        # Pull a proper noun from the question (Costco/Apple/TCS) for direct answers.
+        q = str(ev.get("question") or "")
+        m = re.search(
+            r"\b(Costco|Apple|TCS|Infosys|HDFC Bank|Asian Paints|DMart|Visa|Mastercard|Ferrari|Toyota)\b",
+            q,
+            re.I,
+        )
+        name = m.group(1) if m else "The company"
+    if industry == "retail" and "membership" in str(ev.get("question") or "").lower():
+        summary = (
+            f"{name}'s membership/retail moat is typically grounded in "
+            + (", ".join(p.replace('_', ' ') for p in primary) if primary else "scale and brand")
+            + f" (durability: {durability})."
+        )
+    else:
+        summary = (
+            f"{name}'s primary moat sources are "
+            + (", ".join(p.replace('_', ' ') for p in primary) if primary else "not yet clearly established")
+            + f" (durability: {durability})."
+        )
     card = MoatCard(
         dimensions=dims,
         primary_moats=primary,

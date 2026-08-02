@@ -22,11 +22,19 @@ from business_intelligence.foundation.graph import build_knowledge_graph
 from business_intelligence.foundation.schema import BusinessIntelligencePackage
 
 _INTENT_RULES: list[tuple[str, re.Pattern[str]]] = [
-    ("comparison", re.compile(r"\b(compare|vs\.?|versus)\b", re.I)),
+    (
+        "comparison",
+        re.compile(
+            r"\b(compare|vs\.?|versus|more profitable than|higher margins than|"
+            r"better margins than)\b",
+            re.I,
+        ),
+    ),
     (
         "moat",
         re.compile(
-            r"\b(moat|competitive advantage|switching costs?|network effects?|"
+            r"\b(moat|competitive advantage|pricing power|premium pricing|"
+            r"sustain premium|switching costs?|network effects?|"
             r"scale advantages?|customer lock[- ]?in|licensing moat|distribution moat|"
             r"brand moat|lock-in)\b",
             re.I,

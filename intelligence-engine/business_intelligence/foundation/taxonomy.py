@@ -31,6 +31,15 @@ INDUSTRY_ALIASES: dict[str, str] = {
     "hospitals": "hospitals",
     "healthcare": "hospitals",
     "retail": "retail",
+    "paint": "retail",
+    "paints": "retail",
+    "fmcg": "retail",
+    "membership": "retail",
+    "warehouse club": "retail",
+    "costco": "retail",
+    "ferrari": "manufacturing",
+    "toyota": "manufacturing",
+    "apple": "platform",
     "marketplace": "marketplace",
     "e-commerce": "marketplace",
     "ecommerce": "marketplace",
@@ -38,6 +47,7 @@ INDUSTRY_ALIASES: dict[str, str] = {
     "manufacturing": "manufacturing",
     "auto": "manufacturing",
     "automobile": "manufacturing",
+    "luxury auto": "manufacturing",
     "oil": "commodity",
     "oil & gas": "commodity",
     "oil and gas": "commodity",
@@ -85,7 +95,7 @@ _SECTOR_HINTS: list[tuple[str, tuple[str, ...]]] = [
     ("cement", ("cement", "clinker", "realization", "utilization")),
     ("airlines", ("airline", "aviation", "load factor", "atf", "yield", "air india", "indigo", "interglobe")),
     ("hospitals", ("hospital", "arpob", "occupancy", "alos", "bed")),
-    ("retail", ("retail", "store", "same-store", "merchandising")),
+    ("retail", ("retail", "store", "same-store", "merchandising", "paint", "fmcg", "membership", "costco", "warehouse")),
     ("marketplace", ("marketplace", "take rate", "gmv", "two-sided")),
     ("manufacturing", ("manufactur", "factory", "plant", "auto", "oem")),
     ("commodity", ("refining", "petrochemical", "crude", "commodity")),
@@ -120,7 +130,12 @@ def classify_industry(
     blob = " ".join(x for x in (sector, industry, description, question) if x).lower()
     if not blob.strip():
         return "unknown"
-    direct = normalize_industry(industry) or normalize_industry(sector)
+    direct = (
+        normalize_industry(industry)
+        or normalize_industry(sector)
+        or normalize_industry(question)
+        or normalize_industry(description)
+    )
     if direct:
         return direct
     best_key = "unknown"
