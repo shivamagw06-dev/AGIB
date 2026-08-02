@@ -134,7 +134,7 @@ def edit(
         return denied
     result = store.set_cells(tab_id, list(edits or []), actor=actor, reason=reason)
     if result.get("ok") and result.get("applied") and recalc:
-        result["recalculated"] = recalculate(actor=actor, stages=importer._stages_for(tab_id))
+        result["recalculated"] = recalculate(actor=actor, stages=importer.stages_for(tab_id))
     return result
 
 

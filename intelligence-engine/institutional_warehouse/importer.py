@@ -223,7 +223,7 @@ def stage(
                 },
                 default=str,
             ),
-            ),
+        ),
     )
     audit.record("import", tab_id=tab.id, actor=actor,
                  detail={"stage": "staged", "import_id": import_id,
@@ -286,11 +286,11 @@ def commit(import_id: str, *, actor: str = "admin", recalculate: bool = True) ->
     if recalculate:
         from institutional_warehouse.formulas import recalculate as run_formulas
 
-        recalc = run_formulas(actor=actor, stages=_stages_for(tab_id))
+        recalc = run_formulas(actor=actor, stages=stages_for(tab_id))
     return {"ok": True, "import_id": import_id, "tab": tab_id, **result, "recalculated": recalc}
 
 
-def _stages_for(tab_id: str) -> list[str]:
+def stages_for(tab_id: str) -> list[str]:
     if tab_id in ("financials_annual", "financials_quarterly"):
         return ["statement_derivations", "ratios", "valuation", "factors", "quality"]
     if tab_id == "daily_market_history":

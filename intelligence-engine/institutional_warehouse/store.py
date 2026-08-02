@@ -539,7 +539,7 @@ def set_cells(
                 "INSERT INTO wh_overrides (id, created_at, tab_id, row_id, entity, column_key, value,"
                 " actor, reason, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)",
                 (uuid.uuid4().hex, stamp, tab.id, row_id, entity, column_key,
-                 as_text(new_value), actor, reason, ),
+                 as_text(new_value), actor, reason),
             )
         version = int(current_raw.get("sys_version") or 1) + 1
         db.execute(
