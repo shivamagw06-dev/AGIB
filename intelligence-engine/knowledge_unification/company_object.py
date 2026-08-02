@@ -24,6 +24,7 @@ _EMPTY_COMPANY = {
     "valuation": {},
     "capital_allocation": {},
     "risk": {},
+    "investment": {},
 }
 
 
@@ -118,6 +119,23 @@ def build_company_intelligence(
                         "competitive_structure": dna.get("competitive_structure"),
                         "primary_cycle": dna.get("primary_cycle"),
                     }
+
+        elif r.provider_id == "investment_intelligence":
+            obj["investment"]["from_investment_intelligence"] = True
+            obj["investment"]["entity"] = raw.get("entity")
+            obj["investment"]["modules_used"] = raw.get("modules_used") or []
+            obj["investment"]["recommendation_policy"] = raw.get("recommendation_policy")
+            obj["investment"]["recommendation"] = None
+            if raw.get("quality"):
+                obj["investment"]["quality"] = raw.get("quality")
+            if raw.get("thesis"):
+                obj["investment"]["thesis"] = raw.get("thesis")
+            if raw.get("unknowns"):
+                obj["investment"]["unknowns"] = raw.get("unknowns")
+            if raw.get("monitoring_points"):
+                obj["investment"]["monitoring_points"] = raw.get("monitoring_points")
+            if r.summary:
+                obj["investment"]["summary"] = r.summary
 
         elif r.provider_id == "cgl":
             obj["research"]["cgl_extracts"] = (raw.get("extracts") or [])[:5]

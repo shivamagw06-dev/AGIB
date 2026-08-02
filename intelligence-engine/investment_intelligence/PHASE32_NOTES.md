@@ -1,6 +1,6 @@
 # Phase 3.2 — Investment Intelligence Engine
 
-**Status:** Build complete · Acceptance = 100% · Ask/KUL **not wired**  
+**Status:** Build complete · Acceptance = 100% · Ask/KUL wired in **Phase 3.2.5**  
 **Depends on:** AGI Core v1.1 (extend only) + Business Intelligence + Industry DNA  
 **Version:** `3.2.0`
 
@@ -10,7 +10,7 @@
 Build → Acceptance Test → Integration → Production Validation → Freeze
 ```
 
-This PR stops after **Acceptance = 100%**. Modules 11–16 (KUL integration, Founder V4, freeze) are deferred.
+Engine acceptance is green. See `PHASE32_05_NOTES.md` for KUL integration.
 
 ## Objective
 
@@ -46,16 +46,11 @@ python3 ask_product_test/run_investment_intelligence_acceptance_v1.py
 
 300 questions · gate **100%** · artifact `investment_intelligence_acceptance_v1.json`
 
-## Explicit non-goals (this PR)
+## Explicit non-goals (engine PR)
 
-- No KUL provider registration
-- No Ask wiring (`ASK_WIRED = False`)
 - No BUY/SELL / price targets
 - No Core modifications
 
-## Next
+## Integration (Phase 3.2.5)
 
-1. Register `investment_intelligence` in KUL  
-2. Investment Integration Acceptance (~75)  
-3. Founder Evaluation V4  
-4. Production validation → Freeze Phase 3.2
+See `PHASE32_05_NOTES.md` — KUL provider, Integration Acceptance (75), Founder V4 (100).

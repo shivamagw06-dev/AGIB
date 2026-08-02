@@ -12,7 +12,7 @@ from typing import Any, Optional
 IIE_VERSION = "3.2.0"
 PROGRAMME = "Phase 3.2 — Investment Intelligence Engine"
 SPEC = "AGI-INVESTMENT-INTELLIGENCE-3.2"
-ASK_WIRED = False  # Wire only after Acceptance = 100%
+ASK_WIRED = True  # Phase 3.2.5 — wired via KUL provider only (Acceptance = 100%)
 ASK_WIRED_VIA = "knowledge_unification.providers.investment_intelligence"
 
 EVIDENCE_LEVELS = ("high", "medium", "low", "unknown")
