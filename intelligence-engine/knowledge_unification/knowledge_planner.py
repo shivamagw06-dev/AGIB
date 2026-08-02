@@ -10,6 +10,7 @@ from knowledge_unification.schema import KnowledgePlan, QueryPlan
 _COMPANY_MENU = (
     "company_memory",
     "ikl",
+    "valuation_consensus",
     "capiq_ikt",
     "knowledge_factory",
     "cgl",
@@ -20,6 +21,7 @@ _COMPANY_MENU = (
 _BUSINESS_MENU = (
     "business_intelligence",
     "industry_intelligence",
+    "valuation_consensus",
     "capiq_ikt",
     "company_memory",
     "ikl",
@@ -33,6 +35,7 @@ _INVESTMENT_MENU = (
     "investment_intelligence",
     "business_intelligence",
     "industry_intelligence",
+    "valuation_consensus",
     "capiq_ikt",
     "company_memory",
     "ikl",
@@ -46,6 +49,7 @@ _PORTFOLIO_MENU = (
     "investment_intelligence",
     "business_intelligence",
     "industry_intelligence",
+    "valuation_consensus",
     "capiq_ikt",
     "company_memory",
     "ikl",
@@ -59,6 +63,7 @@ _RESEARCH_MENU = (
     "investment_intelligence",
     "business_intelligence",
     "industry_intelligence",
+    "valuation_consensus",
     "capiq_ikt",
     "company_memory",
     "ikl",
@@ -88,6 +93,7 @@ _ACCOUNTING_MENU = (
     "academy",
 )
 _VALUATION_MENU = (
+    "valuation_consensus",
     "financial_concepts",
     "academy",
     "capiq_ikt",

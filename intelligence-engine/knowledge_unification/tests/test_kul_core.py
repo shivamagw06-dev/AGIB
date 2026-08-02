@@ -24,6 +24,7 @@ def test_registry_lists_all_expected_providers():
         "investment_intelligence",
         "industry_intelligence",
         "business_intelligence",
+        "valuation_consensus",
         "capiq_ikt",
         "ikl",
         "company_memory",

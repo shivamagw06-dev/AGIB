@@ -9890,6 +9890,166 @@ async def ikt_upload_sheet(payload: dict[str, Any] = Body(default={})):
         return {"ok": False, "error": str(exc)[:300]}
 
 
+# ---------------------------------------------------------------------------
+# Valuation Intelligence — Institutional Consensus Dashboard (Capital IQ)
+# Excel is import-source only; UI/Ask read the normalized valuation_consensus store.
+# ---------------------------------------------------------------------------
+
+
+@router.get("/valuation-consensus/health")
+async def valuation_consensus_health():
+    from valuation_consensus.production import health
+
+    return health()
+
+
+@router.get("/valuation-consensus/analytics")
+async def valuation_consensus_analytics():
+    from valuation_consensus.production import analytics
+
+    return analytics()
+
+
+@router.get("/valuation-consensus/rows")
+async def valuation_consensus_rows(
+    q: str = "",
+    page: int = 1,
+    page_size: int = 50,
+    sort: str = "market_cap",
+    sort_dir: str | None = None,
+    sector: str | None = None,
+    industry: str | None = None,
+    recommendation: str | None = None,
+    country: str | None = None,
+    exchange: str | None = None,
+    market_cap_min: float | None = None,
+    market_cap_max: float | None = None,
+    coverage_min: float | None = None,
+    coverage_max: float | None = None,
+    upside_min: float | None = None,
+    upside_max: float | None = None,
+    buy_min: float | None = None,
+    hold_min: float | None = None,
+    sell_min: float | None = None,
+    return_min: float | None = None,
+    return_max: float | None = None,
+):
+    from valuation_consensus.production import query_rows
+
+    filters = {
+        k: v
+        for k, v in {
+            "sector": sector,
+            "industry": industry,
+            "recommendation": recommendation,
+            "country": country,
+            "exchange": exchange,
+            "market_cap_min": market_cap_min,
+            "market_cap_max": market_cap_max,
+            "coverage_min": coverage_min,
+            "coverage_max": coverage_max,
+            "upside_min": upside_min,
+            "upside_max": upside_max,
+            "buy_min": buy_min,
+            "hold_min": hold_min,
+            "sell_min": sell_min,
+            "return_min": return_min,
+            "return_max": return_max,
+        }.items()
+        if v is not None and v != ""
+    }
+    return query_rows(
+        q=q,
+        page=page,
+        page_size=page_size,
+        sort=sort,
+        sort_dir=sort_dir,
+        filters=filters,
+    )
+
+
+@router.get("/valuation-consensus/company/{ticker}")
+async def valuation_consensus_company(ticker: str):
+    from valuation_consensus.production import company_detail
+
+    return company_detail(ticker)
+
+
+@router.post("/valuation-consensus/import/preview")
+async def valuation_consensus_import_preview(payload: dict[str, Any] = Body(default={})):
+    """Admin: upload CapIQ Excel → parse → stage preview (does not publish)."""
+    from valuation_consensus.production import import_preview
+
+    body = payload or {}
+    try:
+        return import_preview(
+            filename=str(body.get("filename") or "capiq.xlsx"),
+            content_base64=body.get("content_base64"),
+            sheet_name=body.get("sheet_name", 0),
+            column_names=body.get("column_names"),
+            actor=body.get("actor"),
+        )
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)[:300]}
+
+
+@router.post("/valuation-consensus/import/validate")
+async def valuation_consensus_import_validate(payload: dict[str, Any] = Body(default={})):
+    from valuation_consensus.production import import_validate
+
+    body = payload or {}
+    return import_validate(str(body.get("import_id") or ""))
+
+
+@router.post("/valuation-consensus/import/publish")
+async def valuation_consensus_import_publish(payload: dict[str, Any] = Body(default={})):
+    from valuation_consensus.production import import_publish
+
+    body = payload or {}
+    return import_publish(str(body.get("import_id") or ""), actor=body.get("actor"))
+
+
+@router.post("/valuation-consensus/import/rollback")
+async def valuation_consensus_import_rollback(payload: dict[str, Any] = Body(default={})):
+    from valuation_consensus.production import import_rollback
+
+    body = payload or {}
+    return import_rollback(str(body.get("version_id") or ""), actor=body.get("actor"))
+
+
+@router.get("/valuation-consensus/imports")
+async def valuation_consensus_imports():
+    from valuation_consensus.production import list_imports
+
+    return list_imports()
+
+
+@router.get("/valuation-consensus/versions")
+async def valuation_consensus_versions():
+    from valuation_consensus.production import list_versions
+
+    return list_versions()
+
+
+@router.get("/valuation-consensus/export")
+async def valuation_consensus_export():
+    from valuation_consensus.production import export_snapshot
+
+    return export_snapshot()
+
+
+@router.post("/valuation-consensus/seed")
+async def valuation_consensus_seed(payload: dict[str, Any] = Body(default={})):
+    """Ops: seed from a server-local CapIQ path (dev/bootstrap)."""
+    from valuation_consensus.production import seed_from_path
+
+    body = payload or {}
+    path = body.get("path")
+    if not path:
+        return {"ok": False, "error": "path_required"}
+    return seed_from_path(path, actor=str(body.get("actor") or "seed"))
+
+
 @router.get("/system/intelligence-stack")
 async def system_intelligence_stack():
     """Inventory of integrated Macro / Sector / Market / Research programmes."""

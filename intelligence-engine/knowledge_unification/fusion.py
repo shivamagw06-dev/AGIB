@@ -203,6 +203,7 @@ def fuse(
             "investment_intelligence",
             "business_intelligence",
             "industry_intelligence",
+            "valuation_consensus",
             "capiq_ikt",
             "company_memory",
             "ikl",
