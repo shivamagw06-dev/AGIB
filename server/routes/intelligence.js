@@ -2201,6 +2201,31 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // Company Identity Service — canonical Capital IQ classification
+  router.get('/company-identity/health', kfGet('/v1/company-identity/health'));
+  router.get('/company-identity/:ticker', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/company-identity/${encodeURIComponent(req.params.ticker)}`
+      );
+      res.status(result.status).json(result.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'company-identity lookup failed' });
+    }
+  });
+  router.post('/company-identity/validate', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/company-identity/validate', {
+        method: 'POST',
+        body: req.body || {},
+        timeoutMs: 30_000,
+      });
+      res.status(result.status).json(result.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'company-identity validate failed' });
+    }
+  });
+
   // Mission Control V1 — administrator operations centre (read-only)
   router.get('/mission-control/health', kfGet('/v1/mission-control/health'));
   router.get('/mission-control/intelligence-map', async (_req, res) => {

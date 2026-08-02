@@ -130,14 +130,44 @@ def _find_entity_in_text(question: str) -> tuple[Optional[dict[str, Any]], float
     return ent, conf, alias
 
 
-def _cap_iq_safe(question: str, ent: Optional[dict[str, Any]]) -> Optional[str]:
-    """Optional CapIQ ticker — rejected if it would substitute a curated entity."""
+def _canonical_identity(ticker: Optional[str]) -> Optional[dict[str, Any]]:
+    """Canonical Capital IQ classification context for a bound ticker."""
+    if not ticker:
+        return None
     try:
-        from app.ui.company_router import detect_ikt_company
+        from company_identity.service import identity_for
 
-        tk = detect_ikt_company(question)
+        identity = identity_for(ticker)
+        return identity.context() if identity.resolved else None
     except Exception:
         return None
+
+
+def _canonical_capiq_ticker(question: str) -> Optional[str]:
+    """Canonical Capital IQ registry bind (exact / unambiguous name only)."""
+    try:
+        from company_identity.service import resolve_company_mention
+    except Exception:
+        return None
+    try:
+        ticker, _how = resolve_company_mention(question)
+        return ticker
+    except Exception:
+        return None
+
+
+def _cap_iq_safe(question: str, ent: Optional[dict[str, Any]]) -> Optional[str]:
+    """Optional CapIQ ticker — rejected if it would substitute a curated entity."""
+    # The canonical Capital IQ registry outranks the loose keyword matcher,
+    # which bound "Apollo Hospitals" to APOLLO (Apollo Micro Systems).
+    tk = _canonical_capiq_ticker(question)
+    if not tk:
+        try:
+            from app.ui.company_router import detect_ikt_company
+
+            tk = detect_ikt_company(question)
+        except Exception:
+            return None
     if not tk:
         return None
     forbid = set((ent or {}).get("forbid_tickers") or [])
@@ -342,6 +372,42 @@ def resolve(question: str) -> dict[str, Any]:
             "version": EI_VERSION,
         }
 
+    # A question that names a real Capital IQ company is a company question,
+    # even when phrased as pedagogy ("What is <company>'s business model?").
+    # Without this, such questions fell through to the concept route and the
+    # planner's loose matcher bound a namesake (Indian Oil → Oil India).
+    canonical_tk = _canonical_capiq_ticker(q)
+    if canonical_tk and not bare:
+        canonical = _canonical_identity(canonical_tk)
+        display_name = (canonical or {}).get("company_name") or canonical_tk
+        return {
+            "ok": True,
+            "state": STATE_VERIFIED_ENTITY,
+            "confidence": 0.97,
+            "allow_planner": True,
+            "entity": {
+                "id": f"CAPIQ_{canonical_tk}",
+                "canonical_name": display_name,
+                "ticker": canonical_tk,
+                "listing": "public",
+                "coverage": "full_institutional",
+                "source": "capiq_registry",
+                "primary_sector": (canonical or {}).get("primary_sector"),
+                "primary_industry": (canonical or {}).get("primary_industry"),
+                "business_type": (canonical or {}).get("business_type"),
+                "industry_dna": (canonical or {}).get("industry_dna"),
+            },
+            "ticker": canonical_tk,
+            "canonical_name": display_name,
+            "identity": canonical,
+            "summary": f"Resolved {display_name} ({canonical_tk}) from the Capital IQ registry.",
+            "why": [
+                "Company named in the question matched the canonical Capital IQ registry.",
+                "Capital IQ classification is authoritative for sector, industry and business type.",
+            ],
+            "version": EI_VERSION,
+        }
+
     # Non-company pedagogy before unsupported-company fallback
     if _MACRO_RE.search(q) and not _find_entity_in_text(q)[0]:
         return {
@@ -393,6 +459,8 @@ def resolve(question: str) -> dict[str, Any]:
     if _COMPANY_SHAPE_RE.search(q) or (bare and len(bare.split()) <= 3):
         tk = _cap_iq_safe(q, None)
         if tk:
+            canonical = _canonical_identity(tk)
+            display_name = (canonical or {}).get("company_name") or tk
             return {
                 "ok": True,
                 "state": STATE_VERIFIED_ENTITY,
@@ -400,16 +468,21 @@ def resolve(question: str) -> dict[str, Any]:
                 "allow_planner": True,
                 "entity": {
                     "id": f"CAPIQ_{tk}",
-                    "canonical_name": tk,
+                    "canonical_name": display_name,
                     "ticker": tk,
                     "listing": "public",
                     "coverage": "full_institutional",
                     "source": "capiq_ikt",
+                    "primary_sector": (canonical or {}).get("primary_sector"),
+                    "primary_industry": (canonical or {}).get("primary_industry"),
+                    "business_type": (canonical or {}).get("business_type"),
+                    "industry_dna": (canonical or {}).get("industry_dna"),
                 },
                 "ticker": tk,
-                "canonical_name": tk,
-                "summary": f"Resolved listed entity ticker {tk} via CapIQ/IKT exact match.",
-                "why": ["CapIQ/IKT exact bind after Entity Intelligence curated miss."],
+                "canonical_name": display_name,
+                "identity": canonical,
+                "summary": f"Resolved listed entity {display_name} ({tk}) via the Capital IQ registry.",
+                "why": ["Capital IQ canonical registry bind after Entity Intelligence curated miss."],
                 "version": EI_VERSION,
             }
         label = bare or nq
