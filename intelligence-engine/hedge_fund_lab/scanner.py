@@ -207,7 +207,7 @@ def _scan_value(universe, medians, limit) -> list[dict[str, Any]]:
         if value is None or not benchmark or value <= 0:
             continue
         discount = round(((value / benchmark) - 1.0) * 100.0, 1)
-        if discount > -20:
+        if discount > -25:
             continue
         # A cheap multiple with sub-par returns is a trap, not value.
         trap = roe is not None and roe_med is not None and roe < roe_med
@@ -274,9 +274,11 @@ def _scan_momentum(universe, medians, limit) -> list[dict[str, Any]]:
         r1 = _num(consensus.get("return_1y"))
         industry = row.get("primary_industry")
         med = (medians.get(industry) or {}).get("return_1y")
-        if r1 is None or r1 < 15:
+        if r1 is None or r1 < 35:
             continue
         relative = round(r1 - (_num(med) or 0.0), 1)
+        if relative < 15:
+            continue
         out.append(
             {
                 **_base(row),

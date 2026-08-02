@@ -96,7 +96,11 @@ def _scan_growth(universe, medians, limit) -> list[dict[str, Any]]:
         if pe is None or fwd is None or fwd <= 0:
             continue
         implied = round(((pe / fwd) - 1.0) * 100.0, 1)
-        if implied < 15 or implied > 100:
+        if implied < 25 or implied > 100:
+            continue
+        # Growth nobody covers and nobody can size is noise, not an idea.
+        coverage = _num((row.get("consensus") or {}).get("coverage")) or 0
+        if coverage < 5 and (_num(row.get("market_cap")) or 0) < 2e10:
             continue
         upside = _num((row.get("consensus") or {}).get("upside"))
         out.append(
