@@ -10053,6 +10053,132 @@ async def valuation_consensus_seed(payload: dict[str, Any] = Body(default={})):
 
 
 # ---------------------------------------------------------------------------
+# Valuation Intelligence Terminal — market multiples plus AGI interpretation.
+# ---------------------------------------------------------------------------
+
+
+@router.get("/valuation-terminal/health")
+async def valuation_terminal_health():
+    from valuation_terminal.production import health
+
+    return health()
+
+
+@router.get("/valuation-terminal/overview")
+async def valuation_terminal_overview():
+    from valuation_terminal.production import market_overview
+
+    return market_overview()
+
+
+@router.get("/valuation-terminal/sectors")
+async def valuation_terminal_sectors():
+    from valuation_terminal.production import sectors
+
+    return sectors()
+
+
+@router.get("/valuation-terminal/sector/{sector}")
+async def valuation_terminal_sector(sector: str):
+    from valuation_terminal.production import sector_intelligence
+
+    return sector_intelligence(sector)
+
+
+@router.get("/valuation-terminal/sector-intelligence")
+async def valuation_terminal_all_sectors():
+    from valuation_terminal.production import all_sector_intelligence
+
+    return all_sector_intelligence()
+
+
+@router.get("/valuation-terminal/companies")
+async def valuation_terminal_companies(
+    q: str = "",
+    sector: str | None = None,
+    industry: str | None = None,
+    sort: str = "market_cap",
+    sort_dir: str = "desc",
+    page: int = 1,
+    page_size: int = 50,
+    pe_max: float | None = None,
+    pb_max: float | None = None,
+    ev_ebitda_max: float | None = None,
+    roe_min: float | None = None,
+    dividend_yield_min: float | None = None,
+    market_cap_min: float | None = None,
+    upside_min: float | None = None,
+    coverage_min: float | None = None,
+):
+    from valuation_terminal.production import companies
+
+    filters = {
+        k: v
+        for k, v in {
+            "pe_max": pe_max,
+            "pb_max": pb_max,
+            "ev_ebitda_max": ev_ebitda_max,
+            "roe_min": roe_min,
+            "dividend_yield_min": dividend_yield_min,
+            "market_cap_min": market_cap_min,
+            "upside_min": upside_min,
+            "coverage_min": coverage_min,
+        }.items()
+        if v is not None
+    }
+    return companies(
+        q=q,
+        sector=sector,
+        industry=industry,
+        sort=sort,
+        sort_dir=sort_dir,
+        page=page,
+        page_size=page_size,
+        filters=filters,
+    )
+
+
+@router.get("/valuation-terminal/company/{ticker}")
+async def valuation_terminal_company(ticker: str):
+    from valuation_terminal.production import company
+
+    return company(ticker)
+
+
+@router.get("/valuation-terminal/peers/{ticker}")
+async def valuation_terminal_peers(ticker: str):
+    from valuation_terminal.production import peers
+
+    return peers(ticker)
+
+
+@router.get("/valuation-terminal/insights")
+async def valuation_terminal_insights():
+    from valuation_terminal.production import insights
+
+    return insights()
+
+
+@router.get("/valuation-terminal/explain/{metric}")
+async def valuation_terminal_explain(metric: str):
+    from valuation_terminal.production import metric_explainer
+
+    return metric_explainer(metric)
+
+
+@router.post("/valuation-terminal/ingest")
+async def valuation_terminal_ingest(payload: dict[str, Any] = Body(default={})):
+    """Ops: load committed market-data pulls into the terminal store."""
+    from valuation_terminal.ingest import ingest_files, seed_if_needed
+
+    body = payload or {}
+    paths = body.get("paths")
+    if paths:
+        return ingest_files(list(paths), source=str(body.get("source") or "yahoo_finance"))
+    return seed_if_needed(force=bool(body.get("force", True)))
+
+
+# ---------------------------------------------------------------------------
 # Company Identity Service — canonical Capital IQ classification.
 # Every engine consumes this immutable object instead of inferring identity.
 # ---------------------------------------------------------------------------

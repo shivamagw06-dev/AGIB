@@ -2201,6 +2201,38 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // Valuation Intelligence Terminal — market multiples + AGI interpretation
+  router.get('/valuation-terminal/health', kfGet('/v1/valuation-terminal/health'));
+  router.get('/valuation-terminal/overview', kfGet('/v1/valuation-terminal/overview'));
+  router.get('/valuation-terminal/sectors', kfGet('/v1/valuation-terminal/sectors'));
+  router.get('/valuation-terminal/sector-intelligence', kfGet('/v1/valuation-terminal/sector-intelligence'));
+  router.get('/valuation-terminal/insights', kfGet('/v1/valuation-terminal/insights'));
+  router.get('/valuation-terminal/companies', kfGet('/v1/valuation-terminal/companies'));
+  router.get('/valuation-terminal/sector/:sector', async (req, res) => {
+    try {
+      const r = await engineFetch(`/v1/valuation-terminal/sector/${encodeURIComponent(req.params.sector)}`);
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'valuation-terminal sector failed' });
+    }
+  });
+  router.get('/valuation-terminal/company/:ticker', async (req, res) => {
+    try {
+      const r = await engineFetch(`/v1/valuation-terminal/company/${encodeURIComponent(req.params.ticker)}`);
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'valuation-terminal company failed' });
+    }
+  });
+  router.get('/valuation-terminal/explain/:metric', async (req, res) => {
+    try {
+      const r = await engineFetch(`/v1/valuation-terminal/explain/${encodeURIComponent(req.params.metric)}`);
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'valuation-terminal explain failed' });
+    }
+  });
+
   // Company Identity Service — canonical Capital IQ classification
   router.get('/company-identity/health', kfGet('/v1/company-identity/health'));
   router.post('/company-identity/metadata', async (req, res) => {

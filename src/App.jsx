@@ -48,6 +48,7 @@ const SectorDesk = React.lazy(() => import('@/pages/SectorDesk'));
 const ResearchWorkflowDesk = React.lazy(() => import('@/pages/ResearchWorkflowDesk'));
 const AskAgiPage = React.lazy(() => import('@/pages/AskAgiPage'));
 const ValuationIntelligence = React.lazy(() => import('@/pages/admin/ValuationIntelligence'));
+const ValuationTerminal = React.lazy(() => import('@/pages/admin/ValuationTerminal'));
 const AgiRoutes = React.lazy(() => import('@/pages/agi/AgiRoutes'));
 const PredictionCentre = React.lazy(() => import('@/pages/PredictionCentre'));
 const PersonalWorkspace = React.lazy(() => import('@/pages/PersonalWorkspace'));
@@ -68,7 +69,8 @@ function AppShell() {
   const location = useLocation();
   const isAdmin = location.pathname.startsWith('/admin');
   const isAskWorkspace = location.pathname === '/ask';
-  const isValuationIntelligence = location.pathname === '/valuation-intelligence';
+  const isValuationIntelligence =
+    location.pathname === '/valuation-intelligence' || location.pathname === '/valuation-terminal';
   const isAgiProduct = location.pathname === '/agi' || location.pathname.startsWith('/agi/');
 
   useEffect(() => {
@@ -125,6 +127,7 @@ function AppShell() {
           <Suspense fallback={<div className="min-h-screen bg-[#eef3f8] p-8 text-center text-slate-600">Loading Valuation Intelligence…</div>}>
             <Routes>
               <Route path="/valuation-intelligence" element={<ValuationIntelligence />} />
+              <Route path="/valuation-terminal" element={<ValuationTerminal />} />
             </Routes>
           </Suspense>
           <Toaster />

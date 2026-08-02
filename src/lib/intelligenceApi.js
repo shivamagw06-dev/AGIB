@@ -2772,3 +2772,25 @@ export const seedValuationConsensus = (payload = {}) =>
     body: payload,
     timeoutMs: 300_000,
   });
+
+/** Valuation Intelligence Terminal — market multiples + AGI interpretation */
+export const getVtHealth = () => intelligenceFetch('/valuation-terminal/health');
+export const getVtOverview = () => intelligenceFetch('/valuation-terminal/overview');
+export const getVtSectors = () => intelligenceFetch('/valuation-terminal/sectors');
+export const getVtSectorIntelligence = (sector) =>
+  intelligenceFetch(`/valuation-terminal/sector/${encodeURIComponent(sector)}`);
+export const getVtInsights = () => intelligenceFetch('/valuation-terminal/insights');
+export const getVtCompanies = (params = {}) => {
+  const qs = new URLSearchParams(
+    Object.fromEntries(
+      Object.entries(params)
+        .filter(([, v]) => v !== undefined && v !== null && v !== '')
+        .map(([k, v]) => [k, String(v)])
+    )
+  ).toString();
+  return intelligenceFetch(`/valuation-terminal/companies${qs ? `?${qs}` : ''}`);
+};
+export const getVtCompany = (ticker) =>
+  intelligenceFetch(`/valuation-terminal/company/${encodeURIComponent(ticker)}`);
+export const getVtExplain = (metric) =>
+  intelligenceFetch(`/valuation-terminal/explain/${encodeURIComponent(metric)}`);
