@@ -84,3 +84,72 @@ Mirrored on the Node BFF under `/api/intelligence/valuation-terminal/*`.
 Historical multiple charts (5/10-year P/E, P/B, EV/EBITDA bands) and
 consensus target history. Both need a time series the current pull does not
 carry.
+
+## v2.0 — Backend calculation engine, percentiles and audited overrides
+
+### No formulas in the UI
+
+Every derived number is computed server-side in `valuation_terminal/calc.py`
+from stored raw values, so the same figure is identical for every consumer and
+traceable to its inputs:
+
+| Derived | Formula |
+|---|---|
+| Upside % | (target − CMP) ÷ CMP, against the **latest** price rather than the vendor's older close |
+| Premium vs sector | (value ÷ industry median) − 1 |
+| Consensus spread | (high − low) ÷ mean target |
+| Sector percentile | position within the industry population, 0 = cheapest |
+| ROE premium | ROE against the industry median |
+
+### Relative Valuation Score
+
+A descriptive 0–100 position from sector percentile (45%), consensus (15%),
+profitability against the sector (10%) and, once available, historical
+percentile (30%). Bands: Deep Discount · Discount · Fair · Premium · Rich.
+
+Never advice — it says where the market has placed the company, not what to do.
+
+Worked examples from the loaded data:
+
+| Company | Metric | Value | Industry median | Premium | Percentile | Score |
+|---|---|---|---|---|---|---|
+| Axis Bank | P/B | 1.71 | 1.40 | +22.1% | 67.9 | 60.7 Premium |
+| Infosys | P/E | 14.58 | 23.42 | −37.8% | 21.2 | 40.0 Fair |
+| NTPC | EV/EBITDA | 7.61 | 10.67 | −28.7% | 0.0 | 12.6 Deep Discount |
+
+### Manual overrides with audit
+
+Imported values are never overwritten. An override is a layer on top carrying
+value, imported value, actor, reason, timestamp and version, with full history
+per field and a global audit log. A reason is mandatory. Company responses
+expose `field_provenance` so any number is attributable to a vendor or a named
+person.
+
+Fourteen fields are editable; derived metrics recalculate from the override
+automatically.
+
+### Statistics
+
+`sector_statistics()` recomputes medians for 11 sectors and 136 industries from
+raw values on every call, so percentiles and premiums never drift from the
+underlying data.
+
+### API additions
+
+| Route | Purpose |
+|---|---|
+| `GET /v1/valuation-terminal/statistics` | Sector and industry medians |
+| `GET /v1/valuation-terminal/overrides/audit` | Audit log and summary |
+| `POST /v1/valuation-terminal/overrides` | Set an override (reason required) |
+| `POST /v1/valuation-terminal/overrides/clear` | Revert to the imported value |
+
+### Still outstanding from the v2.0 spec
+
+- **Historical valuation** — current vs 5Y/10Y median, percentile and
+  premium/discount per multiple. This is the spec's highest priority and is not
+  built: it needs a fundamentals time series (historical EPS and book value per
+  share) that the current pull does not carry. Price history alone would give a
+  misleading "P/E band".
+- **Groww daily price layer** and the 18:45 IST refresh pipeline.
+- Sector heatmap, daily valuation intelligence digest, and the admin editable
+  grid UI — the override engine and audit trail behind them are complete.

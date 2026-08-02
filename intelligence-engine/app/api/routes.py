@@ -10166,6 +10166,53 @@ async def valuation_terminal_explain(metric: str):
     return metric_explainer(metric)
 
 
+@router.get("/valuation-terminal/statistics")
+async def valuation_terminal_statistics():
+    from valuation_terminal.production import sector_statistics
+
+    return sector_statistics()
+
+
+@router.get("/valuation-terminal/overrides/audit")
+async def valuation_terminal_override_audit(limit: int = 100, ticker: str | None = None):
+    from valuation_terminal.overrides import audit_log, summary
+
+    return {**audit_log(limit=limit, ticker=ticker), "summary": summary()}
+
+
+@router.post("/valuation-terminal/overrides")
+async def valuation_terminal_set_override(payload: dict[str, Any] = Body(default={})):
+    """Admin: override an imported value. The import is never overwritten."""
+    from valuation_terminal.overrides import set_override
+    from valuation_terminal.store import get as get_row
+
+    body = payload or {}
+    ticker = str(body.get("ticker") or "")
+    field = str(body.get("field") or "")
+    imported = (get_row(ticker) or {}).get(field)
+    return set_override(
+        ticker,
+        field,
+        body.get("value"),
+        actor=str(body.get("actor") or "admin"),
+        reason=str(body.get("reason") or ""),
+        imported_value=imported,
+    )
+
+
+@router.post("/valuation-terminal/overrides/clear")
+async def valuation_terminal_clear_override(payload: dict[str, Any] = Body(default={})):
+    from valuation_terminal.overrides import clear_override
+
+    body = payload or {}
+    return clear_override(
+        str(body.get("ticker") or ""),
+        str(body.get("field") or ""),
+        actor=str(body.get("actor") or "admin"),
+        reason=str(body.get("reason") or "manual revert"),
+    )
+
+
 @router.post("/valuation-terminal/ingest")
 async def valuation_terminal_ingest(payload: dict[str, Any] = Body(default={})):
     """Ops: load committed market-data pulls into the terminal store."""

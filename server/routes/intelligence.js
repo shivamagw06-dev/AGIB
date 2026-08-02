@@ -2206,6 +2206,28 @@ export default function createIntelligenceRouter() {
   router.get('/valuation-terminal/overview', kfGet('/v1/valuation-terminal/overview'));
   router.get('/valuation-terminal/sectors', kfGet('/v1/valuation-terminal/sectors'));
   router.get('/valuation-terminal/sector-intelligence', kfGet('/v1/valuation-terminal/sector-intelligence'));
+  router.get('/valuation-terminal/statistics', kfGet('/v1/valuation-terminal/statistics'));
+  router.get('/valuation-terminal/overrides/audit', kfGet('/v1/valuation-terminal/overrides/audit'));
+  router.post('/valuation-terminal/overrides', async (req, res) => {
+    try {
+      const r = await engineFetch('/v1/valuation-terminal/overrides', {
+        method: 'POST', body: req.body || {}, timeoutMs: 30_000,
+      });
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'valuation-terminal override failed' });
+    }
+  });
+  router.post('/valuation-terminal/overrides/clear', async (req, res) => {
+    try {
+      const r = await engineFetch('/v1/valuation-terminal/overrides/clear', {
+        method: 'POST', body: req.body || {}, timeoutMs: 30_000,
+      });
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'valuation-terminal override clear failed' });
+    }
+  });
   router.get('/valuation-terminal/insights', kfGet('/v1/valuation-terminal/insights'));
   router.get('/valuation-terminal/companies', kfGet('/v1/valuation-terminal/companies'));
   router.get('/valuation-terminal/sector/:sector', async (req, res) => {

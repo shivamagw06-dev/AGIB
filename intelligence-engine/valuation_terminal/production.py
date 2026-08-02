@@ -73,13 +73,52 @@ def _consensus(ticker: str) -> dict[str, Any]:
 
 
 def _enriched_rows() -> list[dict[str, Any]]:
+    """Stored rows with manual overrides applied and consensus attached."""
+    from valuation_terminal import overrides
+
     rows = []
     for ticker, row in store.all_rows().items():
-        merged = dict(row)
+        merged = overrides.apply_to(ticker, dict(row))
         merged["ticker"] = ticker
         merged["consensus"] = _consensus(ticker)
         rows.append(merged)
     return rows
+
+
+def _industry_population(rows: list[dict[str, Any]], industry: Optional[str]) -> dict[str, list[Any]]:
+    """Every value of every metric within one industry, for percentile ranking."""
+    from valuation_terminal.sector_lens import ALL_METRICS
+
+    members = [r for r in rows if r.get("primary_industry") == industry]
+    return {metric: [m.get(metric) for m in members] for metric in ALL_METRICS}
+
+
+def sector_statistics() -> dict[str, Any]:
+    """Median statistics per sector and per industry, recomputed from raw values."""
+    from valuation_terminal.calc import median_of
+
+    rows = _enriched_rows()
+    metrics = ("pe", "forward_pe", "pb", "ev_ebitda", "ev_sales", "roe", "dividend_yield", "market_cap")
+
+    def block(members: list[dict[str, Any]]) -> dict[str, Any]:
+        out: dict[str, Any] = {"companies": len(members)}
+        for metric in metrics:
+            out[f"median_{metric}"] = median_of([m.get(metric) for m in members])
+        out["median_consensus_upside"] = median_of(
+            [m["consensus"].get("upside") for m in members]
+        )
+        return out
+
+    by_sector = {
+        sector: block([r for r in rows if r.get("primary_sector") == sector])
+        for sector in PRIMARY_SECTORS
+    }
+    industries = {r.get("primary_industry") for r in rows if r.get("primary_industry")}
+    by_industry = {
+        industry: block([r for r in rows if r.get("primary_industry") == industry])
+        for industry in sorted(industries)
+    }
+    return {"ok": True, "sectors": by_sector, "industries": by_industry}
 
 
 def health() -> dict[str, Any]:
@@ -520,6 +559,10 @@ def company(ticker: str) -> dict[str, Any]:
     if not row:
         return {"ok": False, "error": "not_found", "ticker": tk}
 
+    from valuation_terminal import overrides
+    from valuation_terminal.calc import derive_company
+
+    row = overrides.apply_to(tk, dict(row))
     consensus = _consensus(tk)
     dna = row.get("industry_dna")
     lens = lens_for(dna, row.get("primary_sector"))
@@ -527,6 +570,16 @@ def company(ticker: str) -> dict[str, Any]:
     metric = lens["primary_metric"]
     value = _num(row.get(metric))
     peer_median = _num(peer_pack.get("peer_median"))
+
+    all_rows = _enriched_rows()
+    stats_pack = sector_statistics()
+    derived = derive_company(
+        row,
+        consensus,
+        (stats_pack["industries"].get(row.get("primary_industry")) or {}),
+        _industry_population(all_rows, row.get("primary_industry")),
+        metric,
+    )
 
     # AGI valuation summary — comparison and drivers, never a call.
     parts: list[str] = []
@@ -549,10 +602,21 @@ def company(ticker: str) -> dict[str, Any]:
         )
     elif roe is not None:
         parts.append(f"Return on equity is {roe}%.")
-    if consensus.get("upside") is not None:
+    # Recompute against the current market price rather than quoting the
+    # upside CapIQ published against its own (older) close.
+    live_upside = derived.get("upside_pct")
+    if live_upside is not None:
         parts.append(
-            f"Capital IQ consensus implies {consensus['upside']}% upside from "
-            f"{consensus.get('coverage')} analysts — market expectation, not an AGI view."
+            f"The Capital IQ consensus target of {consensus.get('target_price')} implies "
+            f"{live_upside}% against the latest price, on {consensus.get('coverage')} "
+            "analysts — market expectation, not an AGI view."
+        )
+    score = derived.get("relative_valuation") or {}
+    if score.get("band"):
+        parts.append(
+            f"Against its industry the market has placed it in the {score['band'].lower()} "
+            f"part of the range ({score['score']}/100 on sector position, consensus and "
+            "profitability) — a description of where it sits, not a call."
         )
     parts.append(
         "Watch "
@@ -566,6 +630,9 @@ def company(ticker: str) -> dict[str, Any]:
         "ok": True,
         "ticker": tk,
         "company_name": name,
+        "derived": derived,
+        "relative_valuation": score,
+        "field_provenance": row.get("field_provenance") or {},
         "identity": {
             "primary_sector": row.get("primary_sector"),
             "primary_industry": row.get("primary_industry"),
