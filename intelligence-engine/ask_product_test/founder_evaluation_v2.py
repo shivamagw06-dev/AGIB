@@ -628,7 +628,7 @@ _ENTITY_ALIASES = {
     "icici": ("icici",),
     "wipro": ("wipro",),
     "adani": ("adani",),
-    "apple": ("apple",),
+    "apple": ("apple", "aapl"),
     "costco": ("costco",),
     "ferrari": ("ferrari",),
     "toyota": ("toyota",),
