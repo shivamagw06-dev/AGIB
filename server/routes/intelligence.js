@@ -2143,7 +2143,7 @@ export default function createIntelligenceRouter() {
       const result = await engineFetch('/v1/valuation-consensus/import/preview', {
         method: 'POST',
         body: req.body || {},
-        timeoutMs: 180_000,
+        timeoutMs: 300_000,
       });
       res.json(result);
     } catch (err) {
@@ -2194,6 +2194,18 @@ export default function createIntelligenceRouter() {
       res.json(result);
     } catch (err) {
       res.status(502).json({ error: err.message || 'valuation-consensus export failed' });
+    }
+  });
+  router.post('/valuation-consensus/seed', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/valuation-consensus/seed', {
+        method: 'POST',
+        body: req.body || {},
+        timeoutMs: 300_000,
+      });
+      res.json(result);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'valuation-consensus seed failed' });
     }
   });
 

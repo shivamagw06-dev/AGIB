@@ -2742,17 +2742,19 @@ export const previewValuationConsensusImport = (payload) =>
   intelligenceFetch('/valuation-consensus/import/preview', {
     method: 'POST',
     body: payload,
-    timeoutMs: 180_000,
+    timeoutMs: 300_000,
   });
 export const validateValuationConsensusImport = (importId, actor) =>
   intelligenceFetch('/valuation-consensus/import/validate', {
     method: 'POST',
     body: { import_id: importId, actor },
+    timeoutMs: 120_000,
   });
 export const publishValuationConsensusImport = (importId, actor) =>
   intelligenceFetch('/valuation-consensus/import/publish', {
     method: 'POST',
     body: { import_id: importId, actor },
+    timeoutMs: 180_000,
   });
 export const rollbackValuationConsensus = (versionId, actor) =>
   intelligenceFetch('/valuation-consensus/import/rollback', {
@@ -2764,3 +2766,9 @@ export const listValuationConsensusVersions = () =>
   intelligenceFetch('/valuation-consensus/versions');
 export const exportValuationConsensusSnapshot = () =>
   intelligenceFetch('/valuation-consensus/export', { timeoutMs: 120_000 });
+export const seedValuationConsensus = (payload = {}) =>
+  intelligenceFetch('/valuation-consensus/seed', {
+    method: 'POST',
+    body: payload,
+    timeoutMs: 300_000,
+  });
