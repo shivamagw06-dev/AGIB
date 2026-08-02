@@ -521,6 +521,19 @@ def resolve(question: str) -> dict[str, Any]:
             "summary": "Verified industry pedagogy route (no company bind).",
             "version": EI_VERSION,
         }
+    # Concept pedagogy with no company anywhere in the question is a teaching
+    # request — "Explain the difference between accrual and cash profit" was
+    # refused because the bare-stem extractor treated it as a company name.
+    if _CONCEPT_RE.search(q) and not _canonical_capiq_ticker(q) and not _find_entity_in_text(q)[0]:
+        return {
+            "ok": True,
+            "state": STATE_VERIFIED_CONCEPT,
+            "confidence": 0.96,
+            "allow_planner": True,
+            "ticker": None,
+            "summary": "Verified financial/business concept route (no company bind).",
+            "version": EI_VERSION,
+        }
     if _CONCEPT_RE.search(q) and not bare:
         return {
             "ok": True,

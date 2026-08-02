@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import re
 import sys
+import unicodedata
 from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Any, Optional
@@ -308,7 +309,9 @@ _NUMBER_RE = re.compile(r"\b\d[\d,.]*\b")
 
 
 def _normalise(text: str) -> str:
-    return re.sub(r"[^a-z0-9 ]+", " ", str(text or "").lower())
+    # Fold accents so "Nestlé India" matches the "Nestle India" prompt.
+    folded = unicodedata.normalize("NFKD", str(text or "")).encode("ascii", "ignore").decode()
+    return re.sub(r"[^a-z0-9 ]+", " ", folded.lower())
 
 
 def _tokens(text: str) -> list[str]:
@@ -348,6 +351,7 @@ def _score_case(
     if section == "F_research" and not _RESEARCH_EVIDENCE_RE.search(text or ""):
         fails.append("research_without_research")
     if section in {"A_company", "C_business", "H_fusion", "I_executive"} and case.get("company"):
+        low = _normalise(text)
         hits = sum(1 for t in _company_tokens(case["company"]) if t in low)
         if hits == 0 and not refused:
             fails.append("company_without_company")

@@ -1,7 +1,7 @@
 # AGI Answer Quality Acceptance v1.0 (Phase 4.0)
 
 **Runner:** `ask_product_test/run_answer_quality_acceptance_v1.py`
-**Status:** not yet certified — **90.4%** against a 95% target with 25 open defects.
+**Status:** not yet certified — **95.6%** against the Phase 4.1 target of 97%.
 
 Core Platform Acceptance proves AGI answers *safely*: right route, right
 entity, no hallucination, no recommendation leakage. It does not prove AGI
@@ -35,22 +35,22 @@ unexpected refusal.
 different companies; similarity ≥0.85 fails both. Axis Bank, ICICI Bank and
 SBI cannot share one thesis.
 
-## Current result
+## Current result (after Phase 4.1)
 
 ```
-452/500 (90.4%)  target 95%  decision=FAIL
+478/500 (95.6%)  target 97%  decision=FAIL
 
-A Company Intelligence     80%   F Research Intelligence     94%
-B Financial Intelligence   92%   G Consensus Intelligence    88%
-C Business Intelligence    96%   H Knowledge Fusion          72%
-D Industry Intelligence    92%   I Executive Communication   90%
-E Investment Intelligence  90%   J Impossible Questions     100%
+A Company Intelligence     96%   F Research Intelligence     94%
+B Financial Intelligence   96%   G Consensus Intelligence    96%
+C Business Intelligence    98%   H Knowledge Fusion          86%
+D Industry Intelligence    92%   I Executive Communication  100%
+E Investment Intelligence  94%   J Impossible Questions     100%
 
-boilerplate 8 · generic thesis 3 · generic research 1 · industry refusal 0
-wrong evidence 5 · company answered generically 6 · recommendation leakage 0
+boilerplate 8 · generic thesis 2 · generic research 1 · industry refusal 0
+wrong evidence 0 · company answered generically 2 · recommendation leakage 0
 ```
 
-Baseline before the fixes below was **53.3%**.
+Trajectory: **53.3% → 90.4% (Phase 4.0) → 95.6% (Phase 4.1)**.
 
 ## Product defects this suite found and fixed
 
@@ -99,3 +99,37 @@ Registered after Core Platform Acceptance:
 ```
 production regression → core platform acceptance → answer quality acceptance
 ```
+
+## Phase 4.1 — Institutional Answer Intelligence
+
+Fusion 2.0 replaced "pick one provider's summary" with objective-led
+composition:
+
+- **The question's objective decides who leads.** A consensus question is led
+  by consensus, a research question by research, a thesis by investment
+  intelligence, a business question by the company's own profile.
+- **Industry cards can no longer lead a company answer.** Both template shapes
+  ("For banks, enterprise value is primarily driven by…" and "Banks economics:
+  revenue from…") are rejected as leads when a company is bound.
+- **Company specificity is proven, not assumed.** Industry words are excluded
+  from the company's own name tokens, so "cement" no longer makes a cement
+  industry card look like an answer about UltraTech Cement.
+- **Concept pedagogy no longer needs an entity.** "Explain the difference
+  between accrual and cash profit" was refused by the bare-stem guard.
+
+Section movement: Knowledge Fusion 72% → 86%, Company Intelligence 80% → 96%,
+Executive Communication 90% → 100%, Consensus 88% → 96%, Investment 90% → 94%.
+Wrong evidence went 5 → 0.
+
+### Remaining work to reach 97%
+
+- **Boilerplate (8 clusters)** — companies without a curated thesis still share
+  wording. Needs Investment Intelligence to generate per-company theses
+  (Workstream 2), which is an engine change rather than a composition change.
+- **Financial reasoning (33%)** — concept answers give definitions where the
+  dimension expects causal chains (Workstream 6).
+- **Industry specificity (56%)** — company answers rarely carry the industry's
+  own KPI vocabulary.
+- **Knowledge Fusion (86%)** — multi-part questions ("business, industry
+  position and what the street thinks") still answer one part well rather than
+  composing all three (Workstream 1's section planner).

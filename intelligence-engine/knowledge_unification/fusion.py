@@ -92,9 +92,13 @@ def _coverage(results: list[ProviderResult], used: list[ProviderResult]) -> Cove
 
 
 _GENERIC_TEMPLATE_RE = re.compile(
+    # "For banks, enterprise value is primarily driven by …"
     r"^\s*for [a-z0-9_ /&+-]{2,40}, enterprise value is primarily driven by|"
     r"^\s*for unknown,|"
-    r"^\s*unknown structure",
+    r"^\s*unknown structure|"
+    # "Banks economics: revenue from …" — an industry card, not a company answer.
+    r"^\s*[a-z][a-z /&+-]{2,30} economics:\s|"
+    r"^\s*industry dna:",
     re.I,
 )
 
@@ -117,7 +121,11 @@ _GENERIC_NAME_WORDS = frozenset(
 
 
 def _company_terms(plan: KnowledgePlan) -> list[str]:
-    """Distinctive tokens of the bound company, for 'is this answer about it?'."""
+    """Distinctive tokens of the bound company, for 'is this answer about it?'.
+
+    Industry words are excluded: "cement" appears in both UltraTech Cement and
+    in every cement industry template, so it cannot prove company specificity.
+    """
     raw = " ".join(
         str(x or "")
         for x in (
@@ -125,12 +133,70 @@ def _company_terms(plan: KnowledgePlan) -> list[str]:
             getattr(plan.query, "ticker_hint", None),
         )
     )
+    industry_words: set[str] = set()
+    ticker = getattr(plan.query, "ticker_hint", None)
+    if ticker:
+        try:
+            from company_identity.service import identity_for
+
+            identity = identity_for(ticker)
+            if identity.resolved:
+                industry_words = {
+                    w
+                    for w in re.split(
+                        r"[^A-Za-z]+",
+                        f"{identity.primary_industry or ''} {identity.primary_sector or ''}".lower(),
+                    )
+                    if len(w) > 2
+                }
+        except Exception:
+            industry_words = set()
     terms = [
         t
         for t in re.split(r"[^A-Za-z0-9]+", raw.lower())
-        if len(t) > 2 and t not in _GENERIC_NAME_WORDS
+        if len(t) > 2 and t not in _GENERIC_NAME_WORDS and t not in industry_words
     ]
     return list(dict.fromkeys(terms))
+
+
+_OBJECTIVE_LEADS: tuple[tuple[re.Pattern[str], tuple[str, ...]], ...] = (
+    (
+        re.compile(
+            r"\b(consensus|target price|price target|high target|low target|"
+            r"analysts? cover|coverage|rating split|upside)\b",
+            re.I,
+        ),
+        ("valuation_consensus",),
+    ),
+    (
+        re.compile(
+            r"\b(annual report|earnings call|transcript|guidance|management (?:said|commentary))\b",
+            re.I,
+        ),
+        ("research_intelligence",),
+    ),
+    (
+        re.compile(
+            r"\b(investment thesis|why (?:would|should).{0,20}own|thesis|catalysts?|"
+            r"biggest risks?|business and financial quality)\b",
+            re.I,
+        ),
+        ("investment_intelligence", "business_intelligence", "capiq_ikt"),
+    ),
+    (
+        re.compile(r"\b(business model|what does .+ do|explain|moat|competes?|unit economics)\b", re.I),
+        ("business_intelligence", "capiq_ikt", "company_memory"),
+    ),
+)
+
+
+def _objective_lead_order(plan: KnowledgePlan) -> tuple[str, ...]:
+    """Providers that should lead, given what the question actually asks for."""
+    question = getattr(plan.query, "question", None) or ""
+    for pattern, providers in _OBJECTIVE_LEADS:
+        if pattern.search(question):
+            return providers
+    return ()
 
 
 def _mentions_company(text: str | None, terms: list[str]) -> bool:
@@ -398,37 +464,45 @@ def fuse(
             "cgl",
             "legacy_kip",
         )
-    summary = ""
-    for preferred in preferred_order:
-        for r in used:
-            if r.provider_id == preferred and r.summary:
-                summary = r.summary
-                break
-        if summary:
-            break
-    if not summary and used:
-        summary = used[0].summary
-
-    # A company question must be answered about that company. "Explain Axis
-    # Bank" led with "For banks, enterprise value is primarily driven by NIM,
-    # CASA…" — true of every bank, and therefore about none of them.
+    # The question's objective decides who leads: a consensus question is led
+    # by consensus, a research question by research, a thesis by investment.
+    lead_order = _objective_lead_order(plan) + preferred_order
     company_terms = _company_terms(plan)
-    if company_terms and not _mentions_company(summary, company_terms):
-        for preferred in preferred_order:
-            replacement = next(
+
+    def _acceptable(result: ProviderResult) -> bool:
+        if not result.summary:
+            return False
+        if _is_generic_template(result.summary):
+            return False
+        if company_terms and not _mentions_company(result.summary, company_terms):
+            return False
+        return True
+
+    summary = ""
+    for preferred in lead_order:
+        match = next((r for r in used if r.provider_id == preferred and _acceptable(r)), None)
+        if match:
+            summary = match.summary
+            break
+    if not summary:
+        # Nothing company-specific — fall back to the ranked order, still
+        # preferring anything over a bare industry template.
+        for preferred in lead_order:
+            match = next(
                 (
-                    r.summary
+                    r
                     for r in used
                     if r.provider_id == preferred
                     and r.summary
-                    and _mentions_company(r.summary, company_terms)
                     and not _is_generic_template(r.summary)
                 ),
                 None,
             )
-            if replacement:
-                summary = replacement
+            if match:
+                summary = match.summary
                 break
+    if not summary and used:
+        summary = used[0].summary
 
     # A research question with no research behind it must say so rather than
     # fall back to a generic company or industry line.
