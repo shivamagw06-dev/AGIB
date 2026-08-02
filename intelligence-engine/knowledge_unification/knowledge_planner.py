@@ -141,14 +141,17 @@ def build_knowledge_plan(
             "conference call",
             "transcript",
             "management commentary",
+            "management intelligence",
             "guidance history",
             "guidance evolved",
+            "guidance intelligence",
             "research memory",
             "deep research",
             "cross-document",
             "cross document",
             "investor day",
             "research timeline",
+            "timeline intelligence",
             "what changed since",
             "last quarter",
             "five years of",
@@ -157,7 +160,9 @@ def build_knowledge_plan(
             "capital allocation evolution",
             "management philosophy",
             "estimate intelligence",
+            "estimate changes",
             "event intelligence",
+            "event research",
         )
     )
     portfolio_shaped = "portfolio" in types or any(

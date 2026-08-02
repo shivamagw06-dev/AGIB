@@ -31,14 +31,17 @@ _RESEARCH_CUES = (
     "conference call",
     "transcript",
     "management commentary",
+    "management intelligence",
     "guidance history",
     "guidance evolved",
+    "guidance intelligence",
     "research memory",
     "deep research",
     "cross-document",
     "cross document",
     "investor day",
     "research timeline",
+    "timeline intelligence",
     "what changed since",
     "last quarter",
     "five years of",
@@ -47,7 +50,9 @@ _RESEARCH_CUES = (
     "capital allocation evolution",
     "management philosophy",
     "estimate intelligence",
+    "estimate changes",
     "event intelligence",
+    "event research",
 )
 
 

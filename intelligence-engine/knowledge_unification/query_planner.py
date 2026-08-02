@@ -127,12 +127,14 @@ _PORTFOLIO_RE = re.compile(
 )
 _RESEARCH_RE = re.compile(
     r"\b(annual report|earnings (call|transcript)|conference call|transcript|"
-    r"management commentary|guidance (history|evolved|vs)|research memory|"
-    r"deep research|cross-?document|investor day|research timeline|"
+    r"management (commentary|intelligence|philosophy)|"
+    r"guidance (history|evolved|vs|intelligence)|"
+    r"research memory|deep research|cross-?document|investor day|"
+    r"(research )?timeline intelligence|research timeline|"
     r"what changed since|last quarter|five years of|5 years of|"
     r"from the annual report|capital allocation evolution|"
-    r"management philosophy|estimate intelligence|event intelligence|"
-    r"structured research|research workspace)\b",
+    r"estimate (intelligence|changes)|event (intelligence|research)|"
+    r"structured research|research workspace|from .+ event research)\b",
     re.I,
 )
 _NEWS_RE = re.compile(r"\b(news|latest|recent|announced|filing|transcript)\b", re.I)
