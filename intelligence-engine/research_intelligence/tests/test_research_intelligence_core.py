@@ -56,3 +56,26 @@ def test_corpus():
     assert "reliance" in list_entities()
     c = get_corpus("reliance")
     assert c and len(c["annual_reports"]) >= 3
+
+
+def test_refuse_forecast():
+    out = analyse("What will Reliance report next quarter?", entity="reliance")
+    assert out.get("policy_refuse") is True
+    assert "refuse_forecast" in (out.get("modules_used") or [])
+    assert out.get("recommendation") is None
+
+
+def test_refuse_recommendation():
+    out = analyse("BUY or SELL Reliance?", entity="reliance")
+    assert out.get("policy_refuse") is True
+    assert "refuse_recommendation" in (out.get("modules_used") or [])
+    assert out.get("recommendation") is None
+
+
+def test_estimate_meta_not_refused():
+    out = analyse(
+        "Explain why estimate intelligence for TCS does not forecast.",
+        entity="tcs",
+    )
+    assert out.get("policy_refuse") is not True
+    assert "estimates" in (out.get("modules_used") or [])

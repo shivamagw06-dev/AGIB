@@ -51,4 +51,12 @@ Phase 3.2 freezes only when Investment Acceptance (300), Investment Integration,
 
 Phase 3.3 freezes only when Portfolio Acceptance (300), Portfolio Integration (~75), Founder V5, and the production regression stack all pass — with zero hallucinations, zero recommendation leakage, and Core unchanged.
 
-Phase 3.4 freezes only when Research Acceptance (400), Research Integration (~100), Founder V6, and the production regression stack all pass — with zero hallucinations, zero recommendation leakage, and Core unchanged.
+Phase 3.4 freezes only when Research Acceptance v1.0 (400, ≥95%, planner 100%, zero hallucinations / reco / memory leakage), Research Golden 25, Timeline Regression, Research Memory Regression, Research Integration (~100), Founder V6, and the production regression stack all pass — with Core unchanged.
+
+Post-integration production gate order (excerpt):
+
+```
+… → Investment Acceptance → Research Acceptance → Research Golden 25
+  → Timeline Regression → Research Memory Regression → Coverage → Concept
+  → Knowledge Unification → Recommendation Policy → Unknown Entity → PASS → Merge
+```
