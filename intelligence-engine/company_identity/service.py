@@ -54,6 +54,11 @@ def _name_index() -> dict[str, str]:
         from valuation_consensus.store import load_live
 
         for ticker, row in (load_live().get("rows") or {}).items():
+            # NAME* keys are synthetic row ids minted during import for
+            # companies with no exchange ticker. They identify a dashboard
+            # row, not a tradable entity, so they must never bind a question.
+            if str(ticker).startswith("NAME"):
+                continue
             name = _normalize_name(row.get("company_name"))
             if not name:
                 continue
