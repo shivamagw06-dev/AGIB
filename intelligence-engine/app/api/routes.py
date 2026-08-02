@@ -4593,6 +4593,48 @@ async def investment_intelligence_analyse(payload: dict):
     return analyse(question, entity=entity)
 
 
+# --- Phase 3.3 Portfolio Intelligence Foundation (Ask NOT wired until Acceptance 100%) ---
+
+
+@router.get("/portfolio-intelligence/foundation/health")
+async def portfolio_intelligence_foundation_health():
+    from portfolio_intelligence.foundation.production import health
+
+    return health()
+
+
+@router.get("/portfolio-intelligence/foundation/dashboard")
+async def portfolio_intelligence_foundation_dashboard():
+    from portfolio_intelligence.foundation.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/portfolio-intelligence/foundation/portfolios")
+async def portfolio_intelligence_foundation_portfolios():
+    from portfolio_intelligence.foundation.production import portfolios
+
+    return portfolios()
+
+
+@router.post("/portfolio-intelligence/foundation/analyse")
+async def portfolio_intelligence_foundation_analyse(payload: dict):
+    from portfolio_intelligence.foundation.production import analyse
+
+    question = str((payload or {}).get("question") or "").strip()
+    portfolio_id = (payload or {}).get("portfolio_id")
+    compare_with = (payload or {}).get("compare_with")
+    return analyse(question, portfolio_id=portfolio_id, compare_with=compare_with)
+
+
+@router.post("/portfolio-intelligence/foundation/soft_slice")
+async def portfolio_intelligence_foundation_soft_slice(payload: dict):
+    from portfolio_intelligence.foundation.production import soft_slice_for_ask_agi
+
+    question = str((payload or {}).get("question") or "").strip()
+    return soft_slice_for_ask_agi(question)
+
+
 # --- FIRE-04 Evidence Fusion Engine (cross-evidence consistency) ---
 
 
