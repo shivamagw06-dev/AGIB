@@ -85,6 +85,32 @@ def ticker_for_name(name: Optional[str]) -> Optional[str]:
 
 _MAX_NAME_TOKENS = 12
 
+
+def prefix_is_unambiguous(key: str, chosen: str, index: dict[str, str]) -> bool:
+    """Reject a prefix bind when the stem also abbreviates a different company.
+
+    "Sun Pharma" prefixes Sun Pharma Advanced Research, but it is equally the
+    common abbreviation of Sun Pharmaceutical Industries — a different
+    company — so neither may be bound from that mention alone.
+    """
+    tokens = key.split()
+    if not tokens:
+        return False
+    head, last = tokens[:-1], tokens[-1]
+    for name in index:
+        if name == chosen:
+            continue
+        parts = name.split()
+        if len(parts) <= len(head):
+            continue
+        if (
+            parts[: len(head)] == head
+            and parts[len(head)] != last
+            and parts[len(head)].startswith(last)
+        ):
+            return False
+    return True
+
 # Single-token company names (ITC, Infosys) are matchable, but only when the
 # token cannot be ordinary question vocabulary — otherwise "advance" or
 # "value" would bind a namesake company.
@@ -136,12 +162,15 @@ def resolve_company_mention(text: Optional[str]) -> tuple[Optional[str], str]:
             return None, "ambiguous_mention"
 
     prefix = f"{key} "
-    matches = {
-        ticker for name, ticker in index.items() if name == key or name.startswith(prefix)
+    matched = {
+        name: ticker for name, ticker in index.items() if name == key or name.startswith(prefix)
     }
-    if len(matches) == 1:
-        return matches.pop(), "unique_prefix"
-    if len(matches) > 1:
+    if len(set(matched.values())) == 1:
+        name = next(iter(matched))
+        if not prefix_is_unambiguous(key, name, index):
+            return None, "abbreviation_collision"
+        return matched[name], "unique_prefix"
+    if len(matched) > 1:
         return None, "ambiguous_mention"
 
     # Longest window that uniquely prefixes exactly one canonical name.
@@ -150,12 +179,14 @@ def resolve_company_mention(text: Optional[str]) -> tuple[Optional[str], str]:
             window = " ".join(tokens[start : start + size])
             window_prefix = f"{window} "
             hits = {
-                ticker
+                name: ticker
                 for name, ticker in index.items()
                 if name == window or name.startswith(window_prefix)
             }
-            if len(hits) == 1:
-                return hits.pop(), "unique_prefix_in_question"
+            if len(set(hits.values())) == 1:
+                name = next(iter(hits))
+                if prefix_is_unambiguous(window, name, index):
+                    return hits[name], "unique_prefix_in_question"
 
     # Single-token canonical names, guarded against ordinary vocabulary.
     single = [
@@ -286,16 +317,19 @@ def identity_for(ticker: Optional[str]) -> CompanyIdentity:
 
     row = _from_consensus(t)
     source = SOURCE_CAPIQ_CONSENSUS
-    if not row or not (row.get("sector") or row.get("industry")):
-        ikt = _from_ikt(t)
-        if ikt and (ikt.get("sector") or ikt.get("industry")):
-            # Consensus row may still hold richer market fields; merge without
-            # ever letting a non-CapIQ value override CapIQ classification.
-            merged = dict(row or {})
-            for key, value in ikt.items():
-                if value is not None and not merged.get(key):
-                    merged[key] = value
-            row, source = merged, SOURCE_CAPIQ_IKT
+    # Both stores are Capital IQ exports with different column sets: the
+    # Broker Estimates master carries consensus and classification, the
+    # screener export carries website / country / currency / company type.
+    # Merge them, filling only fields the primary row does not already have.
+    ikt = _from_ikt(t)
+    if ikt:
+        merged = dict(row or {})
+        for key, value in ikt.items():
+            if value is not None and not merged.get(key):
+                merged[key] = value
+        if not row:
+            source = SOURCE_CAPIQ_IKT
+        row = merged
 
     if not row:
         return _unresolved(t)

@@ -10065,6 +10065,18 @@ async def company_identity_health():
     return health()
 
 
+@router.post("/company-identity/metadata")
+async def company_identity_metadata(payload: dict[str, Any] = Body(default={})):
+    """Company Metadata Router — direct Capital IQ field lookup, no reasoning."""
+    from company_identity.metadata_router import route
+
+    body = payload or {}
+    hit = route(str(body.get("question") or body.get("q") or ""))
+    if not hit:
+        return {"ok": False, "routed": False, "reason": "not_a_company_metadata_question"}
+    return {"routed": True, **hit}
+
+
 @router.get("/company-identity/{ticker}")
 async def company_identity_lookup(ticker: str):
     from company_identity.service import resolve

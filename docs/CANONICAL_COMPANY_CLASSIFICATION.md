@@ -72,6 +72,38 @@ question wins, then a unique prefix, then a single distinctive token.
 | `Apollo`, `HDFC`, `Tata` | refused — ambiguous |
 | `Air India` | refused — not in the listed universe |
 
+## Company Metadata Router
+
+`"Axis Bank primary sector"` is a stored Capital IQ field, not a research
+question. It previously fell through Entity Intelligence to the Unknown Entity
+Policy and was refused. Metadata questions now short-circuit ahead of
+everything:
+
+```
+Question → Metadata Router → Company Identity Service → Capital IQ → answer
+```
+
+No Entity Intelligence gate, no KUL, no planner, no fusion, no composer. The
+answer carries `intent="company_metadata"` and `sources=["company_identity"]`.
+
+Recognised fields: sector, industry, industry classification, ticker,
+exchange, website, currency, country, parent, company type, business type,
+trading status, products, competitors, industry DNA. Headquarters, employees,
+founded and ISIN are recognised but not carried in the current export, so they
+return an honest "not in the export" answer rather than a guess.
+
+A question only routes when the company is unambiguous. Resolution is tried in
+order: full name in the question, unique prefix, ticker-shaped mention
+(`ONGC`, `BPCL`, `HCLTech`), then curated market aliases (`Reliance`, `TCS`,
+`DMart`). Ambiguous stems (`Apollo`, `HDFC`, `Tata`), abbreviation collisions
+(`Sun Pharma`, which also abbreviates Sun Pharmaceutical Industries) and
+uncovered names (`Air India`) fall through to the normal pipeline so
+clarification and refusal still apply.
+
+Analytical questions are never captured — anything containing why, how,
+compare, thesis, valuation, risk, moat, consensus and similar goes to the
+reasoning stack even when it mentions a metadata word.
+
 ## Precedence
 
 ```
@@ -99,6 +131,7 @@ SSSG, and a power producer may use plant load factor.
 |---|---|
 | `GET /v1/company-identity/health` | Coverage and classification rate |
 | `GET /v1/company-identity/{ticker}` | Full canonical identity |
+| `POST /v1/company-identity/metadata` | Company Metadata Router lookup |
 | `POST /v1/company-identity/validate` | Check text or a classification claim |
 
 Node BFF mirrors these under `/api/intelligence/company-identity/*`.
@@ -112,5 +145,12 @@ Model consistency, including the 30 golden companies.
 
 Current result: **300/300 (100%)**, golden **150/150**, sectors **11/11**,
 cross-industry leakage **0**, wrong sector **0**, wrong industry **0**.
+
+`ask_product_test/run_company_metadata_routing_acceptance_v1.py` — 68 checks
+covering metadata answers, end-to-end Ask routing, analytical questions that
+must not be captured, and ambiguous names that must fall through.
+
+Current result: **68/68 (100%)** — metadata 40/40, pipeline 12/12,
+analytical 10/10, fallthrough 6/6.
 
 Unit contract: `company_identity/tests/test_company_identity.py`.
