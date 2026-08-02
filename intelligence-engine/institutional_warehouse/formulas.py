@@ -263,9 +263,23 @@ def _latest(rows: list[dict[str, Any]], key: str) -> Optional[dict[str, Any]]:
     return sorted(ordered, key=lambda r: str(r.get(key)), reverse=True)[0]
 
 
+# Multiples a data vendor reports directly. When a vendor value is already in the
+# row we keep it: the warehouse's job on these is custody, not re-derivation. The
+# relational columns below them (medians, percentile, score) are always computed
+# here, because only the warehouse can see the whole peer set at one snapshot.
+VENDOR_OWNED_MULTIPLES = (
+    "cmp", "market_cap", "pe", "forward_pe", "pb", "ev_ebitda", "ev_sales",
+    "price_sales", "dividend_yield",
+)
+
+
 def recalc_valuation(*, actor: str = "system", as_of: Optional[str] = None,
                      entity: Optional[str] = None) -> dict[str, Any]:
     stamp = as_of or today_iso()
+    existing: dict[str, dict[str, Any]] = {}
+    for row in _iter_rows("historical_valuation", entity=entity):
+        if str(row.get("date")) == stamp:
+            existing[str(row.get("symbol") or "").upper()] = row
     market = _by_entity("daily_market_history", entity=entity)
     annual = _by_entity("financials_annual", entity=entity)
     consensus = _by_entity("consensus", entity=entity)
@@ -307,6 +321,13 @@ def recalc_valuation(*, actor: str = "system", as_of: Optional[str] = None,
         target = _num(broker.get("target_price"))
         upside = round(100.0 * (target - cmp_price) / cmp_price, 3) if target and cmp_price else None
 
+        held = existing.get(symbol) or {}
+        vendor = (
+            {key: held[key] for key in VENDOR_OWNED_MULTIPLES if held.get(key) is not None}
+            if held and str(held.get("source") or "") not in ("", SOURCE)
+            else {}
+        )
+
         staged[symbol] = {
             "date": stamp,
             "symbol": symbol,
@@ -324,6 +345,9 @@ def recalc_valuation(*, actor: str = "system", as_of: Optional[str] = None,
             "_sector": str((masters.get(symbol) or {}).get("sector") or "").strip() or "Unclassified",
             "_industry": str((masters.get(symbol) or {}).get("industry") or "").strip() or "Unclassified",
         }
+        if vendor:
+            staged[symbol].update(vendor)
+            staged[symbol]["source"] = held.get("source")
 
     # growth for PEG, from annual earnings history
     for symbol, row in staged.items():

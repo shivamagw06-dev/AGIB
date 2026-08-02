@@ -17,6 +17,9 @@ from knowledge_unification.providers.financial_statement_warehouse import (
 )
 from knowledge_unification.providers.hedge_fund_screens import HedgeFundScreenProvider
 from knowledge_unification.providers.ikl import IklProvider
+from knowledge_unification.providers.institutional_warehouse import (
+    InstitutionalWarehouseProvider,
+)
 from knowledge_unification.providers.industry_intelligence import IndustryIntelligenceProvider
 from knowledge_unification.providers.investment_intelligence import InvestmentIntelligenceProvider
 from knowledge_unification.providers.knowledge_factory import KnowledgeFactoryProvider
@@ -27,6 +30,7 @@ from knowledge_unification.providers.valuation_consensus import ValuationConsens
 from knowledge_unification.providers.valuation_terminal import ValuationTerminalProvider
 
 ALL_PROVIDERS = (
+    InstitutionalWarehouseProvider,
     ResearchIntelligenceProvider,
     PortfolioIntelligenceProvider,
     InvestmentIntelligenceProvider,

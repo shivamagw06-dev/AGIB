@@ -10,6 +10,7 @@ from knowledge_unification.schema import KnowledgePlan, QueryPlan
 _COMPANY_MENU = (
     "company_memory",
     "ikl",
+    "institutional_warehouse",
     "valuation_consensus",
     "valuation_terminal",
     "financial_statement_warehouse",
@@ -24,6 +25,7 @@ _COMPANY_MENU = (
 _BUSINESS_MENU = (
     "business_intelligence",
     "industry_intelligence",
+    "institutional_warehouse",
     "valuation_consensus",
     "valuation_terminal",
     "financial_statement_warehouse",
@@ -41,6 +43,7 @@ _INVESTMENT_MENU = (
     "hedge_fund_screens",
     "business_intelligence",
     "industry_intelligence",
+    "institutional_warehouse",
     "valuation_consensus",
     "valuation_terminal",
     "financial_statement_warehouse",
@@ -57,6 +60,7 @@ _PORTFOLIO_MENU = (
     "investment_intelligence",
     "business_intelligence",
     "industry_intelligence",
+    "institutional_warehouse",
     "valuation_consensus",
     "valuation_terminal",
     "financial_statement_warehouse",
@@ -73,6 +77,7 @@ _RESEARCH_MENU = (
     "investment_intelligence",
     "business_intelligence",
     "industry_intelligence",
+    "institutional_warehouse",
     "valuation_consensus",
     "valuation_terminal",
     "financial_statement_warehouse",
@@ -106,6 +111,7 @@ _ACCOUNTING_MENU = (
     "academy",
 )
 _VALUATION_MENU = (
+    "institutional_warehouse",
     "valuation_consensus",
     "valuation_terminal",
     "financial_statement_warehouse",
@@ -118,6 +124,7 @@ _VALUATION_MENU = (
 # Sell-side consensus (CapIQ targets / broker counts / coverage) leads, then
 # AGI's own layers so the answer can separate market view from AGI view.
 _CONSENSUS_MENU = (
+    "institutional_warehouse",
     "valuation_consensus",
     "valuation_terminal",
     "financial_statement_warehouse",
@@ -131,6 +138,7 @@ _CONSENSUS_MENU = (
 # Universe-wide consensus screens name no company — consulting the company
 # engines only yields "Business type: unknown" noise.
 _CONSENSUS_SCREEN_MENU = (
+    "institutional_warehouse",
     "valuation_consensus",
     "valuation_terminal",
     "financial_statement_warehouse",
