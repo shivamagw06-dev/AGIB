@@ -13524,6 +13524,31 @@ async def kul_plan(payload: dict):
     return plan_and_gather(question, ticker=ticker)
 
 
+@router.get("/universal-knowledge/health")
+async def uko_health():
+    """Phase 6.0 — Universal Knowledge Orchestration provider health."""
+    from universal_knowledge.production import health
+
+    return health()
+
+
+@router.get("/universal-knowledge/registry")
+async def uko_registry():
+    from universal_knowledge.registry import registered_providers
+
+    return {"ok": True, "engine": "universal_knowledge", "providers": registered_providers()}
+
+
+@router.post("/universal-knowledge/orchestrate")
+async def uko_orchestrate(payload: dict[str, Any] = Body(default={})):
+    """Plan once, gather once — the route-independent knowledge surface."""
+    from universal_knowledge.production import orchestrate
+
+    question = str((payload or {}).get("question") or "").strip()
+    ticker = (payload or {}).get("ticker")
+    return orchestrate(question, ticker=ticker)
+
+
 # app/ui/financial_router.py + app/ui/coverage_policy.py — these routes are
 # the standalone verification/documentation surface, same pattern as FF/FSI.
 # ---------------------------------------------------------------------------
