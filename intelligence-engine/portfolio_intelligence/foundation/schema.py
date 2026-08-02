@@ -12,7 +12,7 @@ from typing import Any, Optional
 PI_VERSION = "3.3.0"
 PROGRAMME = "Phase 3.3 — Portfolio Intelligence Engine"
 SPEC = "AGI-PORTFOLIO-INTELLIGENCE-3.3"
-ASK_WIRED = False
+ASK_WIRED = True  # Phase 3.3.5 — wired via KUL provider only (Acceptance = 100%)
 ASK_WIRED_VIA = "knowledge_unification.providers.portfolio_intelligence"
 RECOMMENDATION_POLICY = "observations_only_no_buy_sell"
 

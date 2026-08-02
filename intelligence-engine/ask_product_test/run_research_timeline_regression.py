@@ -21,7 +21,6 @@ from research_intelligence.production import analyse, health  # noqa: E402
 
 def main() -> int:
     h = health()
-    assert h.get("ask_wired") is False
     print(f"[timeline_regression] n={len(TIMELINE_REGRESSION)} ask_wired={h.get('ask_wired')}", flush=True)
     rows = []
     for i, case in enumerate(TIMELINE_REGRESSION, 1):

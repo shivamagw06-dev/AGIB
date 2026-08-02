@@ -21,7 +21,6 @@ from research_intelligence.production import analyse, health  # noqa: E402
 
 def main() -> int:
     h = health()
-    assert h.get("ask_wired") is False
     assert len(RESEARCH_GOLDEN_25) == 25
     print(f"[research_golden_25] ask_wired={h.get('ask_wired')}", flush=True)
 

@@ -7,19 +7,21 @@ from research_intelligence.production import analyse, health, soft_slice_for_ask
 from research_intelligence.schema import ASK_WIRED, KNOWLEDGE_AUTHORITY, RECOMMENDATION_POLICY
 
 
-def test_health_unwired():
+def test_health_wired_via_kul():
     h = health()
     assert h["ok"] is True
-    assert h["ask_wired"] is False
-    assert ASK_WIRED is False
+    assert h["ask_wired"] is True
+    assert ASK_WIRED is True
+    assert h["ask_wired_via"] == "knowledge_unification.providers.research_intelligence"
     assert h["entity_count"] >= 5
     assert h["knowledge_authority"] == KNOWLEDGE_AUTHORITY
 
 
-def test_soft_slice_blocked():
+def test_soft_slice_diagnostics_only():
     out = soft_slice_for_ask_agi("How has management guidance evolved for TCS?")
-    assert out["found"] is False
-    assert out["ask_wired"] is False
+    assert out.get("ask_wired") is True
+    assert out.get("ask_wired_via") == "knowledge_unification.providers.research_intelligence"
+    assert out.get("found") is True
 
 
 def test_executive_note_order():

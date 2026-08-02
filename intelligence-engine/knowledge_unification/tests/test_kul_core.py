@@ -19,6 +19,8 @@ def test_registry_lists_all_expected_providers():
     reg = KnowledgeRegistry()
     ids = {p.spec.id for p in reg.all()}
     for required in (
+        "research_intelligence",
+        "portfolio_intelligence",
         "investment_intelligence",
         "industry_intelligence",
         "business_intelligence",
@@ -157,6 +159,28 @@ def test_investment_question_routes_inv_before_bi():
     assert plan.provider_ids.index("investment_intelligence") < plan.provider_ids.index(
         "industry_intelligence"
     )
+
+
+def test_research_question_routes_ri_first():
+    from knowledge_unification.knowledge_planner import build_knowledge_plan
+    from knowledge_unification.query_planner import plan_query
+    from knowledge_unification.registry import KnowledgeRegistry
+
+    q = plan_query("Explain Reliance's business segments from the annual report.")
+    plan = build_knowledge_plan(q, registry=KnowledgeRegistry())
+    assert "research" in q.question_types
+    assert plan.provider_ids[0] == "research_intelligence"
+
+
+def test_portfolio_question_routes_pi_first():
+    from knowledge_unification.knowledge_planner import build_knowledge_plan
+    from knowledge_unification.query_planner import plan_query
+    from knowledge_unification.registry import KnowledgeRegistry
+
+    q = plan_query("Explain portfolio construction for AGIB Core India Equity.")
+    plan = build_knowledge_plan(q, registry=KnowledgeRegistry())
+    assert "portfolio" in q.question_types
+    assert plan.provider_ids[0] == "portfolio_intelligence"
 
 
 def test_plan_and_gather_concept_uses_deterministic_engine():

@@ -29,7 +29,7 @@ def main() -> int:
         f"portfolios={h.get('portfolio_count')} ask_wired={h.get('ask_wired')}",
         flush=True,
     )
-    assert h.get("ask_wired") is False, "Ask must remain unwired until Acceptance = 100%"
+    # ASK_WIRED may be True after Phase 3.3.5 KUL integration.
     assert len(PI_ACCEPTANCE_300) == 300
 
     rows = []

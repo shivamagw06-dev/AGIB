@@ -25,6 +25,7 @@ _EMPTY_COMPANY = {
     "capital_allocation": {},
     "risk": {},
     "investment": {},
+    "portfolio": {},
 }
 
 
@@ -136,6 +137,29 @@ def build_company_intelligence(
                 obj["investment"]["monitoring_points"] = raw.get("monitoring_points")
             if r.summary:
                 obj["investment"]["summary"] = r.summary
+
+        elif r.provider_id == "research_intelligence":
+            obj["research"]["from_research_intelligence"] = True
+            obj["research"]["entity"] = raw.get("entity")
+            obj["research"]["modules_used"] = raw.get("modules_used") or []
+            obj["research"]["recommendation_policy"] = raw.get("recommendation_policy")
+            obj["research"]["knowledge_authority"] = raw.get("knowledge_authority")
+            if raw.get("memory"):
+                obj["research"]["memory"] = raw.get("memory")
+            if raw.get("timeline"):
+                obj["research"]["timeline"] = raw.get("timeline")
+            if raw.get("unknowns"):
+                obj["research"]["unknowns"] = raw.get("unknowns")
+            if r.summary:
+                obj["research"]["summary"] = r.summary
+
+        elif r.provider_id == "portfolio_intelligence":
+            obj["portfolio"]["from_portfolio_intelligence"] = True
+            obj["portfolio"]["portfolio_id"] = raw.get("portfolio_id")
+            obj["portfolio"]["modules_used"] = raw.get("modules_used") or []
+            obj["portfolio"]["recommendation_policy"] = raw.get("recommendation_policy")
+            if r.summary:
+                obj["portfolio"]["summary"] = r.summary
 
         elif r.provider_id == "cgl":
             obj["research"]["cgl_extracts"] = (raw.get("extracts") or [])[:5]

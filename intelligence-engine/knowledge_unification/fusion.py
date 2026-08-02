@@ -113,6 +113,67 @@ def fuse(
             "academy",
             "legacy_kip",
         )
+    elif "research" in qtypes or any(
+        r.provider_id == "research_intelligence" and not r.empty for r in used
+    ) or any(
+        k in ((getattr(plan.query, "question", None) or "").lower())
+        for k in (
+            "annual report",
+            "earnings call",
+            "transcript",
+            "research memory",
+            "deep research",
+            "cross-document",
+            "guidance history",
+            "research timeline",
+            "what changed since",
+            "five years of",
+            "from the annual report",
+        )
+    ):
+        # Phase 3.4.5 — Research Intelligence leads research-shaped answers.
+        preferred_order = (
+            "research_intelligence",
+            "investment_intelligence",
+            "business_intelligence",
+            "industry_intelligence",
+            "capiq_ikt",
+            "company_memory",
+            "ikl",
+            "knowledge_factory",
+            "cgl",
+            "financial_concepts",
+            "academy",
+            "legacy_kip",
+        )
+    elif "portfolio" in qtypes or any(
+        r.provider_id == "portfolio_intelligence" and not r.empty for r in used
+    ) or any(
+        k in ((getattr(plan.query, "question", None) or "").lower())
+        for k in (
+            "portfolio construction",
+            "portfolio quality",
+            "risk budget",
+            "factor exposure",
+            "position sizing",
+            "agib core",
+            "concentrated growth",
+        )
+    ):
+        preferred_order = (
+            "portfolio_intelligence",
+            "investment_intelligence",
+            "business_intelligence",
+            "industry_intelligence",
+            "capiq_ikt",
+            "company_memory",
+            "ikl",
+            "knowledge_factory",
+            "cgl",
+            "financial_concepts",
+            "academy",
+            "legacy_kip",
+        )
     elif "investment" in qtypes or any(
         r.provider_id == "investment_intelligence" and not r.empty for r in used
     ) or any(
@@ -284,6 +345,8 @@ def fuse(
         "financial_foundations",
         "financial_statement_intelligence",
         "financial_concepts",
+        "research_intelligence",
+        "portfolio_intelligence",
         "investment_intelligence",
         "industry_intelligence",
         "business_intelligence",

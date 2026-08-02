@@ -15,7 +15,7 @@ from typing import Any, Optional
 RI_VERSION = "3.4.0"
 PROGRAMME = "Phase 3.4 — Research Intelligence Engine"
 SPEC = "AGI-RESEARCH-INTELLIGENCE-3.4"
-ASK_WIRED = False
+ASK_WIRED = True  # Phase 3.4.5 — wired via KUL provider only (Acceptance = 100%)
 ASK_WIRED_VIA = "knowledge_unification.providers.research_intelligence"
 RECOMMENDATION_POLICY = "observations_only_no_buy_sell"
 KNOWLEDGE_AUTHORITY = "research_intelligence_only_long_lived_memory"

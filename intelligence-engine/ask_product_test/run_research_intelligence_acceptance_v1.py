@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Run Research Intelligence Acceptance Test v1.0 (engine in-process).
 
-Permanent release gate before Research Intelligence KUL integration.
-Does NOT call Ask / KUL.
+Permanent Research Intelligence engine gate (in-process; not Ask).
+After Phase 3.4.5, ASK_WIRED may be True via KUL provider only.
 
 Pass when:
   - pass rate ≥ 95%
@@ -10,7 +10,6 @@ Pass when:
   - recommendation leakage = 0
   - research memory leakage = 0
   - planner / module accuracy = 100%
-  - ASK_WIRED = False
 """
 
 from __future__ import annotations
@@ -50,7 +49,6 @@ def main() -> int:
         f"entities={h.get('entity_count')} ask_wired={h.get('ask_wired')}",
         flush=True,
     )
-    assert h.get("ask_wired") is False, "Ask must remain unwired until Research Integration"
     assert len(RI_ACCEPTANCE_400) == 400
 
     rows = []
@@ -102,7 +100,6 @@ def main() -> int:
     planner_pct = round(100.0 * planner_ok / n, 2)
 
     hard_gates = {
-        "ask_unwired": h.get("ask_wired") is False,
         "pass_rate_ge_95": rate >= GATE_PCT,
         "hallucinations_zero": hallucinations == 0,
         "recommendation_leakage_zero": reco_leaks == 0,

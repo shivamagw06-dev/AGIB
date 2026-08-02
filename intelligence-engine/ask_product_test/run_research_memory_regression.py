@@ -21,7 +21,6 @@ from research_intelligence.production import analyse, health  # noqa: E402
 
 def main() -> int:
     h = health()
-    assert h.get("ask_wired") is False
     print(f"[memory_regression] n={len(MEMORY_REGRESSION)} ask_wired={h.get('ask_wired')}", flush=True)
     rows = []
     for i, case in enumerate(MEMORY_REGRESSION, 1):

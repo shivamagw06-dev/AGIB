@@ -17,8 +17,12 @@ from knowledge_unification.providers.industry_intelligence import IndustryIntell
 from knowledge_unification.providers.investment_intelligence import InvestmentIntelligenceProvider
 from knowledge_unification.providers.knowledge_factory import KnowledgeFactoryProvider
 from knowledge_unification.providers.legacy_kip import LegacyKipProvider
+from knowledge_unification.providers.portfolio_intelligence import PortfolioIntelligenceProvider
+from knowledge_unification.providers.research_intelligence import ResearchIntelligenceProvider
 
 ALL_PROVIDERS = (
+    ResearchIntelligenceProvider,
+    PortfolioIntelligenceProvider,
     InvestmentIntelligenceProvider,
     IndustryIntelligenceProvider,
     BusinessIntelligenceProvider,

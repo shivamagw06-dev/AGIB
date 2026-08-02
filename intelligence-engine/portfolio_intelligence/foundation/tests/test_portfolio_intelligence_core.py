@@ -7,19 +7,20 @@ from portfolio_intelligence.foundation.production import analyse, health, soft_s
 from portfolio_intelligence.foundation.schema import ASK_WIRED, RECOMMENDATION_POLICY
 
 
-def test_health_unwired():
+def test_health_wired_via_kul():
     h = health()
     assert h["ok"] is True
-    assert h["ask_wired"] is False
-    assert ASK_WIRED is False
+    assert h["ask_wired"] is True
+    assert ASK_WIRED is True
+    assert h["ask_wired_via"] == "knowledge_unification.providers.portfolio_intelligence"
     assert h["portfolio_count"] >= 2
     assert "no_buy_sell" in h["recommendation_policy"] or "observations_only" in h["recommendation_policy"]
 
 
-def test_soft_slice_blocked():
-    out = soft_slice_for_ask_agi("Explain portfolio diversification")
-    assert out["found"] is False
-    assert out["ask_wired"] is False
+def test_soft_slice_diagnostics_only():
+    out = soft_slice_for_ask_agi("Explain portfolio construction for AGIB Core India Equity.")
+    assert out.get("ask_wired") is True
+    assert out.get("ask_wired_via") == "knowledge_unification.providers.portfolio_intelligence"
 
 
 def test_analyse_overview_executive_brief():

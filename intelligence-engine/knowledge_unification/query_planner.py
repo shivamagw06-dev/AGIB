@@ -119,7 +119,22 @@ _INDUSTRY_RE = re.compile(
 )
 _MACRO_RE = re.compile(r"\b(macro|gdp|inflation|interest rate|rbi|fed|risk premium|country premium)\b", re.I)
 _MARKET_RE = re.compile(r"\b(price|return|returns|market cap|volume|earnings date|ytd)\b", re.I)
-_PORTFOLIO_RE = re.compile(r"\b(portfolio|position sizing|allocation|watchlist)\b", re.I)
+_PORTFOLIO_RE = re.compile(
+    r"\b(portfolio|position sizing|risk budget|factor exposure|concentration|"
+    r"rebalanc\w*|portfolio construction|portfolio quality|portfolio scenario|"
+    r"watchlist|agib core|concentrated growth)\b",
+    re.I,
+)
+_RESEARCH_RE = re.compile(
+    r"\b(annual report|earnings (call|transcript)|conference call|transcript|"
+    r"management commentary|guidance (history|evolved|vs)|research memory|"
+    r"deep research|cross-?document|investor day|research timeline|"
+    r"what changed since|last quarter|five years of|5 years of|"
+    r"from the annual report|capital allocation evolution|"
+    r"management philosophy|estimate intelligence|event intelligence|"
+    r"structured research|research workspace)\b",
+    re.I,
+)
 _NEWS_RE = re.compile(r"\b(news|latest|recent|announced|filing|transcript)\b", re.I)
 
 _FINANCE_TERMS = re.compile(
@@ -318,6 +333,8 @@ def plan_query(question: str) -> QueryPlan:
         types.append("market")
     if _PORTFOLIO_RE.search(q):
         types.append("portfolio")
+    if _RESEARCH_RE.search(q):
+        types.append("research")
     if _NEWS_RE.search(q):
         types.append("news")
     # Pedagogy concept detection — skip when already classified as business/investment.
@@ -331,6 +348,8 @@ def plan_query(question: str) -> QueryPlan:
                 "business_risk",
                 "industry",
                 "investment",
+                "research",
+                "portfolio",
             }
         )
     )

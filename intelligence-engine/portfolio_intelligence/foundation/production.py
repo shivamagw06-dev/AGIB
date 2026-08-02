@@ -31,7 +31,7 @@ def health() -> dict[str, Any]:
         "spec": SPEC,
         "ask_wired": ASK_WIRED,
         "ask_wired_via": ASK_WIRED_VIA if ASK_WIRED else None,
-        "ask_wired_policy": "wire_only_after_acceptance_100",
+        "ask_wired_policy": "kul_provider_only_after_acceptance_100",
         "uses_llm": False,
         "fabricated": False,
         "recommendation_policy": RECOMMENDATION_POLICY,
@@ -98,7 +98,7 @@ def analyse(
 
 
 def soft_slice_for_ask_agi(question: str, *_args: Any, **_kwargs: Any) -> dict[str, Any]:
-    """Reserved — empty until ASK_WIRED flips after acceptance + integration gates."""
+    """Diagnostics preview only — Ask production path uses KUL (no bypass)."""
     if not ASK_WIRED:
         return {
             "found": False,
@@ -108,7 +108,14 @@ def soft_slice_for_ask_agi(question: str, *_args: Any, **_kwargs: Any) -> dict[s
             "fabricated": False,
         }
     out = analyse(question)
-    return {"found": bool(out.get("ok") and out.get("summary")), **out}
+    return {
+        "found": bool(out.get("ok") and out.get("summary")),
+        "ask_wired": True,
+        "ask_wired_via": ASK_WIRED_VIA,
+        "enabled": True,
+        "recommendation_policy": RECOMMENDATION_POLICY,
+        **out,
+    }
 
 
 __all__ = [

@@ -8,13 +8,14 @@ from investment_intelligence.profiles import list_profiles, resolve_entity
 from investment_intelligence.schema import ASK_WIRED, IIE_VERSION, RECOMMENDATION_POLICY
 
 
-def test_ask_unwired():
-    assert ASK_WIRED is False
+def test_ask_wired_via_kul():
+    assert ASK_WIRED is True
     h = health()
-    assert h["ask_wired"] is False
+    assert h["ask_wired"] is True
     assert h["recommendation_policy"] == RECOMMENDATION_POLICY
     soft = soft_slice_for_ask_agi("What is the investment thesis for TCS?")
-    assert soft["found"] is False
+    assert soft.get("ask_wired") is True
+    assert soft.get("found") is True
 
 
 def test_profiles_resolve():

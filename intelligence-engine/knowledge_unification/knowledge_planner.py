@@ -40,6 +40,32 @@ _INVESTMENT_MENU = (
     "cgl",
     "legacy_kip",
 )
+# Phase 3.3.5 — Portfolio Intelligence for portfolio-shaped questions.
+_PORTFOLIO_MENU = (
+    "portfolio_intelligence",
+    "investment_intelligence",
+    "business_intelligence",
+    "industry_intelligence",
+    "capiq_ikt",
+    "company_memory",
+    "ikl",
+    "knowledge_factory",
+    "cgl",
+    "legacy_kip",
+)
+# Phase 3.4.5 — Research Intelligence for institutional research / document memory.
+_RESEARCH_MENU = (
+    "research_intelligence",
+    "investment_intelligence",
+    "business_intelligence",
+    "industry_intelligence",
+    "capiq_ikt",
+    "company_memory",
+    "ikl",
+    "knowledge_factory",
+    "cgl",
+    "legacy_kip",
+)
 # Pure industry / KPI / valuation pedagogy — II first (canonical Industry DNA).
 _INDUSTRY_CONCEPT_MENU = (
     "industry_intelligence",
@@ -106,6 +132,49 @@ def build_knowledge_plan(
     business_shaped = bool(types.intersection(_BUSINESS_TYPES))
     company_bound = bool(query.ticker_hint or query.company_hint or "comparison" in types)
     qlow = (query.question or "").lower()
+    research_shaped = "research" in types or any(
+        k in qlow
+        for k in (
+            "annual report",
+            "earnings call",
+            "earnings transcript",
+            "conference call",
+            "transcript",
+            "management commentary",
+            "guidance history",
+            "guidance evolved",
+            "research memory",
+            "deep research",
+            "cross-document",
+            "cross document",
+            "investor day",
+            "research timeline",
+            "what changed since",
+            "last quarter",
+            "five years of",
+            "5 years of",
+            "from the annual report",
+            "capital allocation evolution",
+            "management philosophy",
+            "estimate intelligence",
+            "event intelligence",
+        )
+    )
+    portfolio_shaped = "portfolio" in types or any(
+        k in qlow
+        for k in (
+            "portfolio construction",
+            "portfolio quality",
+            "portfolio scenario",
+            "risk budget",
+            "factor exposure",
+            "position sizing",
+            "rebalanc",
+            "agib core",
+            "concentrated growth",
+            "watchlist",
+        )
+    )
     investment_shaped = "investment" in types or any(
         k in qlow
         for k in (
@@ -168,7 +237,17 @@ def build_knowledge_plan(
         )
     )
 
-    if investment_shaped and (company_bound or "comparison" in types or "investment" in types):
+    if research_shaped and (company_bound or "research" in types or "comparison" in types):
+        selected.extend(_RESEARCH_MENU)
+        rationale.append(
+            "Research-shaped → Research Intelligence → INV → BI → Industry DNA → CapIQ → memory → KF."
+        )
+    elif portfolio_shaped:
+        selected.extend(_PORTFOLIO_MENU)
+        rationale.append(
+            "Portfolio-shaped → Portfolio Intelligence → INV → BI → Industry DNA → CapIQ → memory → KF."
+        )
+    elif investment_shaped and (company_bound or "comparison" in types or "investment" in types):
         selected.extend(_INVESTMENT_MENU)
         rationale.append(
             "Investment-shaped → Investment Intelligence → BI → Industry DNA → CapIQ → memory → KF."
