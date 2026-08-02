@@ -4,8 +4,8 @@ import {
   getHflOpportunity,
   getHflScan,
   getHflTerminal,
-  universalAsk,
 } from '@/lib/intelligenceApi';
+import { postUiSearch } from '@/lib/uiApi';
 
 const n = (v, digits = 2) => {
   if (v == null || v === '') return '—';
@@ -51,21 +51,22 @@ export function InlineAsk() {
     setError('');
     setAnswer(null);
     try {
-      const res = await universalAsk({ question: value, query: value, source: 'hedge_fund_terminal' });
-      const body =
-        res?.answer ||
-        res?.response?.answer ||
-        res?.composed?.answer ||
-        res?.summary ||
-        res?.result?.answer ||
+      const res = await postUiSearch(value);
+      const text =
+        res?.answer?.summary ||
+        res?.executive_summary ||
+        res?.answer?.executive_summary ||
         '';
-      if (!body) {
+      if (!text) {
         setError('AGI returned no answer for that question.');
       } else {
         setAnswer({
-          text: typeof body === 'string' ? body : JSON.stringify(body),
-          evidence: res?.evidence_count ?? res?.evidence?.length ?? null,
-          engines: res?.engines_used || res?.providers || null,
+          text,
+          why: Array.isArray(res?.why) ? res.why.slice(0, 5) : [],
+          risks: Array.isArray(res?.key_risks) ? res.key_risks.slice(0, 3) : [],
+          catalysts: Array.isArray(res?.key_catalysts) ? res.key_catalysts.slice(0, 3) : [],
+          confidence: res?.confidence ?? null,
+          stance: res?.answer?.stance || res?.house_view || null,
         });
       }
     } catch (err) {
@@ -106,9 +107,17 @@ export function InlineAsk() {
       {error ? <div className="hft-ask-answer hft-error">{error}</div> : null}
       {answer ? (
         <div className="hft-ask-answer">
-          <div className="hft-ask-head"><Sparkles size={13} /> AGI</div>
+          <div className="hft-ask-head">
+            <Sparkles size={13} /> AGI
+            {answer.confidence != null ? <span className="hft-dim">confidence {answer.confidence}</span> : null}
+            {answer.stance ? <span className="hft-dim">{answer.stance}</span> : null}
+          </div>
           <p>{answer.text}</p>
-          {answer.evidence ? <div className="hft-dim">{answer.evidence} evidence items</div> : null}
+          {answer.why.length ? (
+            <ul className="hft-ask-why">{answer.why.map((w) => <li key={w}>{w}</li>)}</ul>
+          ) : null}
+          {answer.risks.length ? <div className="hft-dim">Risks: {answer.risks.join(' · ')}</div> : null}
+          {answer.catalysts.length ? <div className="hft-dim">Catalysts: {answer.catalysts.join(' · ')}</div> : null}
         </div>
       ) : null}
     </div>

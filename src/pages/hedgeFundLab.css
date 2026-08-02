@@ -698,3 +698,5 @@
 .hft-dash { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.2rem; }
 .hft-dash h5 + h5 { margin-top: 0.9rem; }
 .hft-note { margin: 0.8rem 0 0; font-size: 0.75rem; color: var(--hfl-dim); max-width: 100ch; line-height: 1.55; }
+.hft-ask-head .hft-dim { margin-left: 0.5rem; text-transform: none; letter-spacing: 0; }
+.hft-ask-why { margin: 0.3rem 0 0.5rem; padding-left: 1rem; font-size: 0.82rem; line-height: 1.55; color: var(--hfl-dim); }
