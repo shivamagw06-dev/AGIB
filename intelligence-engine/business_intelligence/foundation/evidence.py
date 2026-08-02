@@ -56,7 +56,8 @@ _CORPORATE_FORM_RE = re.compile(
 )
 _KNOWN_COMPANY_ALIASES = (
     "hdfc bank", "icici bank", "reliance", "infosys", "tcs", "wipro", "ongc",
-    "state bank", "kotak", "axis bank", "sbi",
+    "state bank", "kotak", "axis bank", "sbi", "dmart", "asian paints",
+    "jsw steel", "indigo", "interglobe", "adani", "tata motors", "tata steel",
 )
 
 
@@ -92,7 +93,8 @@ def extract_compare_names(question: str) -> list[str]:
     names: list[str] = []
     for part in parts[:2]:
         cleaned = re.sub(
-            r"\b(compare|and|the|business|model|moat|of|for|with)\b",
+            r"\b(compare|and|the|business|models?|moat|of|for|with|on|"
+            r"axes?|economics?|as|capital|allocators?)\b",
             " ",
             part,
             flags=re.I,
@@ -102,6 +104,20 @@ def extract_compare_names(question: str) -> list[str]:
         if cleaned and len(cleaned) >= 2:
             names.append(cleaned)
     return names[:2]
+
+
+def _synthetic_uncovered_company(name: str) -> dict[str, Any]:
+    """Industry-template placeholder for a named firm outside CapIQ coverage."""
+    industry_key = classify_industry(question=name, industry=name)
+    return {
+        "ticker": None,
+        "company_name": name.strip(),
+        "sector": None,
+        "industry": industry_key,
+        "description": None,
+        "source": "name_only_uncovered",
+        "uncovered": True,
+    }
 
 
 def assemble_evidence(
@@ -129,6 +145,10 @@ def assemble_evidence(
         if ct:
             compare_tickers.append(ct)
             compare_companies.append(load_ikt_company(ct))
+        else:
+            # Keep the named company in the comparison axis set without
+            # inventing CapIQ facts (e.g. Air India outside IKT coverage).
+            compare_companies.append(_synthetic_uncovered_company(name))
 
     # Soft industry playbook (optional)
     playbook: dict[str, Any] = {}

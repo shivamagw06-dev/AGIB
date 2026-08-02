@@ -42,8 +42,16 @@ first, no hallucination / false CapIQ binds, evidence fusion when company-bound.
 ## Remaining before Phase 3 freeze
 
 1. ✅ Engine acceptance (100/100)
-2. ⏳ This integration suite green
-3. ⏳ Founder Evaluation rerun
-4. ⏳ Production regression (Golden 5, Coverage, AFI, Recommendation Policy)
+2. ✅ Ask/KUL integration + Business Integration suite
+3. ⏳ Founder Evaluation V2 (≥95%, business emphasis)
+4. ⏳ Golden Business 20 permanent regression
+5. ⏳ Full Production Regression gate:
+   Golden Founder 5 · Founder V2 · AFI · BI Acceptance · Coverage ·
+   Concept · Recommendation Policy · Unknown Entity · KUL · Golden Business 20
 
-Only after those pass: freeze Business Intelligence Foundation → Industry Intelligence.
+```bash
+cd intelligence-engine
+ASK_TEST_MODE=inprocess python3 -m ask_product_test.run_production_regression_v1 --with-afi
+```
+
+Only after the full gate is PASS: freeze Business Intelligence Foundation → Industry Intelligence.

@@ -84,6 +84,27 @@ _STOPWORDS_FOR_MATCH = {
     "does", "of", "for", "give", "me", "a", "in", "on", "business", "model",
 }
 
+# Words that must never alone satisfy tier-3 overlap (geographic/legal noise).
+# "Air India" previously false-bound to "D & H India Limited" via bare "india".
+_GENERIC_OVERLAP_WORDS = frozenset(
+    {
+        "india", "indian", "limited", "ltd", "private", "public", "group",
+        "company", "industries", "enterprise", "enterprises", "holdings",
+        "international", "national", "global", "corp", "corporation",
+        "services", "finance", "financial", "capital", "power", "energy",
+        "steel", "bank", "motors", "air", "tech", "technology",
+        "market", "markets", "global",
+    }
+)
+
+# Explicit non-binds for known uncovered names that fuzzy-match wrong IKT rows.
+_EXPLICIT_NO_BIND = frozenset(
+    {
+        "air india",
+        "airindia",
+    }
+)
+
 
 def detect_ikt_company(question: str) -> Optional[str]:
     """Returns the resolved IKT ticker for a company mentioned in the
@@ -102,6 +123,13 @@ def detect_ikt_company(question: str) -> Optional[str]:
     q = (question or "").strip()
     if not q:
         return None
+    low_q = q.lower()
+    if any(blocked in low_q for blocked in _EXPLICIT_NO_BIND):
+        # Still allow other tickers in the same question (e.g. IndiGo vs Air India).
+        # Strip the blocked phrase before matching so Air India cannot bind IKT.
+        for blocked in _EXPLICIT_NO_BIND:
+            low_q = low_q.replace(blocked, " ")
+        q = re.sub(r"(?i)\bair[\s-]?india\b", " ", q)
     name_index, tickers = _get_index()
     if not name_index:
         return None
@@ -142,14 +170,22 @@ def detect_ikt_company(question: str) -> Optional[str]:
         return None
     best: Optional[tuple[float, int, str]] = None  # (coverage, hits, ticker)
     for norm_name, ticker in name_index.items():
-        name_words = [w for w in norm_name.split() if len(w) >= 2 and w not in _STOPWORDS_FOR_MATCH]
+        name_words = [
+            w
+            for w in norm_name.split()
+            if len(w) >= 2 and w not in _STOPWORDS_FOR_MATCH
+        ]
         if not name_words:
             continue
-        hits = sum(1 for w in name_words if w in words)
+        # Distinctive words only — geographic/legal leftovers cannot sole-match.
+        distinctive = [w for w in name_words if w not in _GENERIC_OVERLAP_WORDS]
+        if not distinctive:
+            continue
+        hits = sum(1 for w in distinctive if w in words)
         if hits == 0:
             continue
-        coverage = hits / len(name_words)
-        min_hits_required = 1 if len(name_words) == 1 and len(name_words[0]) >= 3 else 2
+        coverage = hits / len(distinctive)
+        min_hits_required = 1 if len(distinctive) == 1 and len(distinctive[0]) >= 4 else 2
         if hits < min_hits_required or coverage < 0.5:
             continue
         candidate = (coverage, hits, ticker)

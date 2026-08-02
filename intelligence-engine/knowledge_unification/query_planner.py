@@ -108,10 +108,14 @@ def _detect_company_hint(question: str) -> tuple[Optional[str], Optional[str]]:
         "reliance retail": "RELIANCE",
         "hdfc bank": "HDFCBANK",
         "icici bank": "ICICIBANK",
+        "axis bank": "AXISBANK",
+        "jsw steel": "JSWSTEEL",
+        "interglobe": "INDIGO",
         "reliance": "RELIANCE",
         "infosys": "INFY",
         "wipro": "WIPRO",
         "dmart": "DMART",
+        "indigo": "INDIGO",
         "tcs": "TCS",
         "sbi": "SBIN",
         "ongc": "ONGC",
@@ -128,7 +132,7 @@ _EXPLICIT_COMPANY_ALIASES = (
     "state bank of india", "axis bank", "kotak", "tata steel", "tata motors",
     "tata power", "adani", "hmt limited", "goodricke", "utique", "aakaar",
     "spright agro", "titan company", "dmart", "avenue supermarts", "asian paints",
-    "reliance retail", "ongc",
+    "reliance retail", "ongc", "jsw steel", "indigo", "interglobe",
 )
 
 

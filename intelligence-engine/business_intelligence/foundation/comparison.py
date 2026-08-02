@@ -20,11 +20,31 @@ def compare_companies(question: str, names_or_tickers: list[str] | None = None) 
     names = names_or_tickers or ev0.get("compare_names") or []
     companies_ev: list[dict[str, Any]] = []
     if ev0.get("compare_companies"):
-        for c in ev0["compare_companies"]:
+        for i, c in enumerate(ev0["compare_companies"]):
             tk = c.get("ticker")
-            companies_ev.append(
-                assemble_evidence(f"Explain {c.get('company_name') or tk}", ticker=tk)
-            )
+            asked = (names[i] if i < len(names) else None) or c.get("company_name") or tk
+            if c.get("uncovered") or not tk:
+                # Preserve uncovered name + industry template without CapIQ invent.
+                cev = assemble_evidence(f"Explain {asked} business model")
+                cev = dict(cev)
+                cev["company"] = {
+                    **(cev.get("company") or {}),
+                    "company_name": asked,
+                    "uncovered": True,
+                }
+                if c.get("industry") and not cev.get("industry_key"):
+                    cev["industry_key"] = c.get("industry")
+                companies_ev.append(cev)
+            else:
+                cev = assemble_evidence(f"Explain {asked}", ticker=tk)
+                cev = dict(cev)
+                # Keep the user-facing name (Indigo) alongside CapIQ legal name.
+                co = dict(cev.get("company") or {})
+                co["display_name"] = asked
+                if not co.get("company_name"):
+                    co["company_name"] = asked
+                cev["company"] = co
+                companies_ev.append(cev)
     elif names:
         for n in names[:2]:
             companies_ev.append(assemble_evidence(f"Explain {n}"))
@@ -47,9 +67,10 @@ def compare_companies(question: str, names_or_tickers: list[str] | None = None) 
 
     axes: dict[str, dict[str, Any]] = {}
     labels = []
-    for cev in companies_ev[:2]:
+    for i, cev in enumerate(companies_ev[:2]):
         co = cev.get("company") or {}
-        label = co.get("company_name") or cev.get("ticker") or "Company"
+        asked = names[i] if i < len(names) else None
+        label = asked or co.get("display_name") or co.get("company_name") or cev.get("ticker") or "Company"
         labels.append(label)
         bm = analyse_business_model(cev)
         moat = analyse_moat(cev)
