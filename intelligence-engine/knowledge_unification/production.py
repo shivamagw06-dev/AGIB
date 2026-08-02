@@ -36,8 +36,63 @@ def plan_and_gather(
     ticker: Optional[str] = None,
     max_providers: int = 8,
 ) -> dict[str, Any]:
-    """Full KUL path: query plan → knowledge plan → consult → rank → fuse."""
+    """Full KUL path: query plan → knowledge plan → consult → rank → fuse.
+
+    Entity Intelligence is authoritative: if the contract blocks the planner
+    (clarification / unsupported / private insufficient coverage), KUL must
+    not run Investment/Business/Industry engines on a substituted entity.
+    """
+    ei_contract: dict[str, Any] = {}
+    try:
+        from entity_intelligence.production import analyse as ei_analyse
+        from entity_intelligence.production import should_short_circuit
+
+        ei_contract = ei_analyse(question) or {}
+        if should_short_circuit(ei_contract):
+            summary = str(ei_contract.get("summary") or "").strip()
+            why = list(ei_contract.get("why") or [])
+            return {
+                "ok": True,
+                "version": KUL_VERSION,
+                "programme": PROGRAMME,
+                "engine": "entity_intelligence_gate",
+                "answerable": bool(summary),
+                "fabricated": False,
+                "summary": summary,
+                "why": why,
+                "evidence": [],
+                "coverage": {"knowledge_sources_used": ["entity_intelligence"]},
+                "company_intelligence": {
+                    "identity": {
+                        "ticker": None,
+                        "name": ei_contract.get("canonical_name"),
+                    }
+                },
+                "diagnostics": {
+                    "entity_intelligence": {
+                        "state": ei_contract.get("state"),
+                        "confidence": ei_contract.get("confidence"),
+                        "allow_planner": False,
+                        "ticker": ei_contract.get("ticker"),
+                    },
+                    "providers_consulted": [],
+                    "plan": {"provider_ids": []},
+                },
+                "entity_intelligence": ei_contract,
+            }
+    except Exception:
+        ei_contract = {}
+
     query = plan_query(question)
+    if ticker and not query.ticker_hint:
+        # Never accept a caller ticker that Entity Intelligence forbids.
+        try:
+            from entity_intelligence.production import validate_bound_ticker
+
+            if ei_contract and not validate_bound_ticker(ei_contract, ticker):
+                ticker = None
+        except Exception:
+            pass
     if ticker and not query.ticker_hint:
         query.ticker_hint = str(ticker).upper()
         if "company" not in query.question_types:

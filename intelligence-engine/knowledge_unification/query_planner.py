@@ -147,7 +147,42 @@ _FINANCE_TERMS = re.compile(
 
 
 def _detect_company_hint(question: str) -> tuple[Optional[str], Optional[str]]:
-    """Return (company_hint, ticker_hint) using CapIQ router + light heuristics."""
+    """Return (company_hint, ticker_hint) using Entity Intelligence then CapIQ.
+
+    Entity Intelligence is authoritative: private / insufficient / forbidden
+    binds must never surface a CapIQ substitute (e.g. Air India → BHARTIARTL).
+    """
+    try:
+        from entity_intelligence.production import analyse as ei_analyse
+        from entity_intelligence.production import validate_bound_ticker
+
+        contract = ei_analyse(question) or {}
+        if contract.get("state") == "verified_entity" and contract.get("allow_planner"):
+            tk = contract.get("ticker")
+            name = contract.get("canonical_name")
+            if tk:
+                return name, str(tk).upper()
+        if contract.get("state") in {
+            "clarification_required",
+            "unsupported_entity",
+        } or (
+            contract.get("state") == "verified_entity" and not contract.get("allow_planner")
+        ):
+            # Explicitly no ticker — block CapIQ substitution.
+            return None, None
+        # If EI verified a public entity without ticker somehow, still block CapIQ forbid list.
+        tentative = None
+        try:
+            from app.ui.company_router import detect_ikt_company
+
+            tentative = detect_ikt_company(question)
+        except Exception:
+            tentative = None
+        if tentative and not validate_bound_ticker(contract, tentative):
+            return None, None
+    except Exception:
+        pass
+
     ticker = None
     company = None
     try:
