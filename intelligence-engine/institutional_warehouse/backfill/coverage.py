@@ -160,7 +160,11 @@ def reconstruction_inputs() -> dict[str, Any]:
 
 def summary() -> dict[str, Any]:
     depths = company_depth()
-    universe = len(store.entities("company_master")) or len(depths)
+    # The denominator is every company the warehouse tracks, which is the registry
+    # plus anything already carrying prices. Using the registry alone produced a
+    # coverage figure above 100% whenever the exchange feed ran ahead of it.
+    registered = len(store.entities("company_master"))
+    universe = max(registered, len(depths), 1)
     with_history = [d for d in depths if d["points"] > 1]
     deep = [d for d in depths if d["years"] >= 10]
     total_years = sum(d["years"] for d in depths)
@@ -168,6 +172,7 @@ def summary() -> dict[str, Any]:
     return {
         "ok": True,
         "universe": universe,
+        "registered_companies": registered,
         "companies_with_history": len(with_history),
         "companies_deep_10y": len(deep),
         "coverage_pct": round(100.0 * len(with_history) / max(universe, 1), 1),

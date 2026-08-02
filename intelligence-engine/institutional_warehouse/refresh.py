@@ -322,6 +322,7 @@ def stage_nse(*, actor: str, days: int = 30, symbols: Optional[Iterable[str]] = 
 
     totals = {"inserted": 0, "updated": 0, "unchanged": 0, "skipped": 0}
     dates: list[str] = []
+    traded: set[str] = set()
     for trade_date, path in files:
         rows = _parse_bhav(path, trade_date)
         if wanted:
@@ -332,9 +333,48 @@ def stage_nse(*, actor: str, days: int = 30, symbols: Optional[Iterable[str]] = 
                               reason=f"refresh:nse:{trade_date}")
         for key in totals:
             totals[key] += int(result.get(key) or 0)
+        traded.update(r["symbol"] for r in rows)
         dates.append(trade_date)
+
+    registered = _register_traded_symbols(traded, actor=actor)
     return _ok("nse", files=len(files), trading_days=len(dates), first=dates[0] if dates else None,
-               last=dates[-1] if dates else None, **totals)
+               last=dates[-1] if dates else None, registered_companies=registered, **totals)
+
+
+def _register_traded_symbols(symbols: set[str], *, actor: str) -> int:
+    """Put every traded symbol in Company Master.
+
+    The bhavcopy covers the whole exchange while the Yahoo universe covers a
+    subset, so without this the registry knows fewer companies than the
+    warehouse actually holds prices for. Only genuinely new symbols are written:
+    an existing row must never have its real company name overwritten by its
+    ticker.
+    """
+    if not symbols:
+        return 0
+    known = set(store.entities("company_master"))
+    fresh = sorted(symbols - known)
+    if not fresh:
+        return 0
+    rows = [
+        {
+            "company_id": symbol,
+            "symbol": symbol,
+            # The ticker is all this source knows. Yahoo and Capital IQ fill in the
+            # legal name on their next pass without this stage clobbering it.
+            "company_name": symbol,
+            "exchange": "NSE",
+            "currency": "INR",
+            "country": "India",
+            "market_status": "listed",
+            "active": True,
+            "source": "nse_bhavcopy",
+        }
+        for symbol in fresh
+    ]
+    result = store.upsert("company_master", rows, source="nse_bhavcopy", actor=actor,
+                          reason="refresh:nse:register_traded")
+    return int(result.get("inserted") or 0)
 
 
 def stage_lidi_events(*, actor: str, limit: int = 2000) -> dict[str, Any]:
