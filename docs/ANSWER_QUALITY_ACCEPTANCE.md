@@ -133,3 +133,35 @@ Wrong evidence went 5 → 0.
 - **Knowledge Fusion (86%)** — multi-part questions ("business, industry
   position and what the street thinks") still answer one part well rather than
   composing all three (Workstream 1's section planner).
+
+## Phase 4.2 — Company Thesis Intelligence
+
+A synthesis layer inside Investment Intelligence
+(`investment_intelligence/company_thesis.py`) composes a twelve-section
+institutional thesis for any covered company from evidence that already
+exists: canonical identity, CapIQ profile, reported financials, market
+consensus, and the company's position relative to its industry peers.
+
+Uniqueness is structural rather than stylistic. Two banks differ because their
+scale rank, margin, coverage, target dispersion, momentum and named
+competitors differ, and every section is written from those numbers.
+
+Measured similarity across full theses:
+
+| Pair | Similarity | Threshold |
+|---|---|---|
+| Axis Bank vs ICICI Bank | 0.11 | <0.70 |
+| Axis Bank vs HDFC Bank | 0.05 | <0.70 |
+| Axis Bank vs Infosys | 0.02 | <0.60 |
+| Infosys vs Reliance | 0.05 | <0.60 |
+
+Risks and catalysts are derived from the company's own position — Axis Bank's
+29% implied upside against a 17.8% peer median reads differently from
+Infosys trailing its peer median on 18 of 42 positive brokers.
+
+Fusion also now orders supporting reasoning behind whichever provider
+answered, so a company thesis is followed by its own evidence rather than
+another engine's industry notes.
+
+Result: **95.6% → 96.2%**, Consensus 96% → 100%, Research 94% → 96%,
+boilerplate 8 → 6. Regression: `investment_intelligence/tests/test_company_thesis.py`.

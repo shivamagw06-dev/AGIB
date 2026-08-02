@@ -479,10 +479,12 @@ def fuse(
         return True
 
     summary = ""
+    lead_provider: str | None = None
     for preferred in lead_order:
         match = next((r for r in used if r.provider_id == preferred and _acceptable(r)), None)
         if match:
             summary = match.summary
+            lead_provider = match.provider_id
             break
     if not summary:
         # Nothing company-specific — fall back to the ranked order, still
@@ -500,9 +502,11 @@ def fuse(
             )
             if match:
                 summary = match.summary
+                lead_provider = match.provider_id
                 break
     if not summary and used:
         summary = used[0].summary
+        lead_provider = used[0].provider_id
 
     # A research question with no research behind it must say so rather than
     # fall back to a generic company or industry line.
@@ -546,8 +550,12 @@ def fuse(
         seen_why.add(norm)
         why.append(norm)
 
+    # The provider that answered leads the reasoning too — otherwise a company
+    # thesis is followed by someone else's industry notes.
+    ordered_used = sorted(used, key=lambda r: 0 if r.provider_id == lead_provider else 1)
+
     # Prefer hard-provider why; soft academy/book lines only fill gaps and stay short.
-    for r in used:
+    for r in ordered_used:
         if r.provider_id in soft_ids and has_hard:
             continue
         for line in r.why:
