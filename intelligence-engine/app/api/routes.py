@@ -4567,6 +4567,32 @@ async def industry_intelligence_kpi(industry_key: str, kpi_key: str):
     return explain_kpi(industry_key, kpi_key)
 
 
+# --- Phase 3.2 Investment Intelligence Engine (Ask NOT wired until Acceptance 100%) ---
+
+
+@router.get("/investment-intelligence/health")
+async def investment_intelligence_health():
+    from investment_intelligence.production import health
+
+    return health()
+
+
+@router.get("/investment-intelligence/dashboard")
+async def investment_intelligence_dashboard():
+    from investment_intelligence.production import dashboard
+
+    return dashboard()
+
+
+@router.post("/investment-intelligence/analyse")
+async def investment_intelligence_analyse(payload: dict):
+    from investment_intelligence.production import analyse
+
+    question = str((payload or {}).get("question") or "").strip()
+    entity = (payload or {}).get("entity")
+    return analyse(question, entity=entity)
+
+
 # --- FIRE-04 Evidence Fusion Engine (cross-evidence consistency) ---
 
 
