@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from knowledge_unification.company_object import build_company_intelligence
@@ -88,6 +89,58 @@ def _coverage(results: list[ProviderResult], used: list[ProviderResult]) -> Cove
         evidence_strength=strength,
         missing_information=missing,
     )
+
+
+_GENERIC_TEMPLATE_RE = re.compile(
+    r"^\s*for [a-z0-9_ /&+-]{2,40}, enterprise value is primarily driven by|"
+    r"^\s*for unknown,|"
+    r"^\s*unknown structure",
+    re.I,
+)
+
+_RESEARCH_SHAPED_RE = re.compile(
+    r"\b(annual report|earnings call|transcript|management (?:said|commentary)|"
+    r"guidance|capital allocation|what changed since|research memory|investor presentation)\b",
+    re.I,
+)
+
+
+def _is_generic_template(text: str | None) -> bool:
+    """True for industry-template leads that say nothing company-specific."""
+    return bool(_GENERIC_TEMPLATE_RE.search(str(text or "").strip()))
+
+
+_GENERIC_NAME_WORDS = frozenset(
+    {"limited", "ltd", "the", "and", "of", "india", "indian", "corporation", "company",
+     "bank", "industries", "enterprise", "enterprises", "group", "holdings", "services"}
+)
+
+
+def _company_terms(plan: KnowledgePlan) -> list[str]:
+    """Distinctive tokens of the bound company, for 'is this answer about it?'."""
+    raw = " ".join(
+        str(x or "")
+        for x in (
+            getattr(plan.query, "company_hint", None),
+            getattr(plan.query, "ticker_hint", None),
+        )
+    )
+    terms = [
+        t
+        for t in re.split(r"[^A-Za-z0-9]+", raw.lower())
+        if len(t) > 2 and t not in _GENERIC_NAME_WORDS
+    ]
+    return list(dict.fromkeys(terms))
+
+
+def _mentions_company(text: str | None, terms: list[str]) -> bool:
+    low = str(text or "").lower()
+    return any(t in low for t in terms)
+
+
+def _is_research_shaped(plan: KnowledgePlan) -> bool:
+    question = getattr(plan.query, "question", None) or ""
+    return bool(_RESEARCH_SHAPED_RE.search(question))
 
 
 def fuse(
@@ -356,6 +409,43 @@ def fuse(
     if not summary and used:
         summary = used[0].summary
 
+    # A company question must be answered about that company. "Explain Axis
+    # Bank" led with "For banks, enterprise value is primarily driven by NIM,
+    # CASA…" — true of every bank, and therefore about none of them.
+    company_terms = _company_terms(plan)
+    if company_terms and not _mentions_company(summary, company_terms):
+        for preferred in preferred_order:
+            replacement = next(
+                (
+                    r.summary
+                    for r in used
+                    if r.provider_id == preferred
+                    and r.summary
+                    and _mentions_company(r.summary, company_terms)
+                    and not _is_generic_template(r.summary)
+                ),
+                None,
+            )
+            if replacement:
+                summary = replacement
+                break
+
+    # A research question with no research behind it must say so rather than
+    # fall back to a generic company or industry line.
+    if _is_research_shaped(plan) and not any(
+        r.provider_id == "research_intelligence" and not r.empty for r in used
+    ):
+        company = (
+            getattr(plan.query, "company_hint", None)
+            or getattr(plan.query, "ticker_hint", None)
+            or "this company"
+        )
+        summary = (
+            f"No annual report, transcript or management commentary for {company} is in "
+            "research memory yet, so there is nothing to quote. "
+            + (summary if summary and not _is_generic_template(summary) else "")
+        ).strip()
+
     why: list[str] = []
     evidence: list[dict[str, Any]] = []
     seen_why: set[str] = set()
@@ -449,10 +539,9 @@ def fuse(
     except Exception as exc:  # never block an answer on the guard
         classification_guard = {"error": f"{type(exc).__name__}:{str(exc)[:120]}"}
 
-    # Compact multi-source annotation — do not dump provider dumps into the lead.
-    if len(used) >= 2:
-        why.insert(0, "Sources fused: " + ", ".join(r.provider_id for r in used) + ".")
-        why = why[:7]
+    # Provider names are internal plumbing — they belong in diagnostics, not in
+    # an institutional answer. (Previously prepended as "Sources fused: …".)
+    why = why[:7]
 
     diagnostics = {
         "company_identity": identity_context,

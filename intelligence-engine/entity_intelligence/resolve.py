@@ -36,7 +36,7 @@ from entity_intelligence.schema import (
 
 _CONCEPT_RE = re.compile(
     r"\b(what is|what are|explain|define|meaning of|how (does|do|to)|"
-    r"why (does|do|is|are)|"
+    r"why (does|do|is|are|can|could|might|would|should)|"
     r"roic|ebitda|free cash flow|enterprise value|moat|pricing power|"
     r"working capital|wacc|"
     # Accounting pedagogy — "Why does every transaction require a debit and a
@@ -49,6 +49,27 @@ _CONCEPT_RE = re.compile(
 _INDUSTRY_RE = re.compile(
     r"\b(industry|sector|porter|oligopol|airline industry|banking industry|"
     r"saas industry|fmcg industry|industry economics|industry kpi)\b",
+    re.I,
+)
+# Company-less industry pedagogy — "How are banks valued?", "What KPIs matter
+# for telecom?". These name an industry, not a company, and must never reach
+# the unknown-entity policy.
+_INDUSTRY_PEDAGOGY_RE = re.compile(
+    r"\b(banks?|nbfcs?|insurers?|insurance|asset managers?|brokers?|"
+    r"it services|software|saas|telecom|telcos?|media|"
+    r"airlines?|aviation|hospitals?|diagnostics|pharma|pharmaceuticals?|"
+    r"cement|steel|metals|mining|chemicals|fertilisers?|fertilizers?|"
+    r"refiners?|oil and gas|utilities|power|renewables|"
+    r"fmcg|retail|qsr|hotels|real estate|realty|logistics|shipping|"
+    r"auto|automobiles?|auto components|capital goods|infrastructure)\b"
+    r"[^?]{0,60}?"
+    r"\b(valued|valuation|kpis?|metrics|economics|unit economics|margins|"
+    r"drivers?|cycle|returns|capital intensity|competition|regulation)\b"
+    r"|"
+    r"\b(how (?:are|is|do you value)|what (?:kpis?|metrics|drives?|matters?)|explain)\b"
+    r"[^?]{0,40}?"
+    r"\b(banks?|telecom|airlines?|hospitals?|cement|steel|pharma|fmcg|retail|"
+    r"utilities|refiners?|it services|insurance|real estate|logistics)\b",
     re.I,
 )
 _MACRO_RE = re.compile(
@@ -397,8 +418,11 @@ def resolve(question: str) -> dict[str, Any]:
     # even when phrased as pedagogy ("What is <company>'s business model?").
     # Without this, such questions fell through to the concept route and the
     # planner's loose matcher bound a namesake (Indian Oil → Oil India).
+    # The canonical resolver only binds exact or unambiguous names, so it is
+    # safe even for bare stems — "What does Axis Bank do?" previously fell
+    # through to the unknown-entity policy.
     canonical_tk = _canonical_capiq_ticker(q)
-    if canonical_tk and not bare:
+    if canonical_tk:
         canonical = _canonical_identity(canonical_tk)
         display_name = (canonical or {}).get("company_name") or canonical_tk
         return {
@@ -472,6 +496,19 @@ def resolve(question: str) -> dict[str, Any]:
             "allow_planner": True,
             "ticker": None,
             "summary": "Verified macro / rates / currency pedagogy route.",
+            "version": EI_VERSION,
+        }
+    # Industry pedagogy names an industry, not a company — "How are banks
+    # valued?" must teach, never refuse for want of an entity. Checked before
+    # the bare-stem guard, which treats "banks valued" as a company stem.
+    if _INDUSTRY_PEDAGOGY_RE.search(q) and not _find_entity_in_text(q)[0]:
+        return {
+            "ok": True,
+            "state": STATE_VERIFIED_INDUSTRY,
+            "confidence": 0.96,
+            "allow_planner": True,
+            "ticker": None,
+            "summary": "Verified industry pedagogy route (no company bind).",
             "version": EI_VERSION,
         }
     if _INDUSTRY_RE.search(q) and not bare:
