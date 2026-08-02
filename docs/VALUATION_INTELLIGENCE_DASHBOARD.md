@@ -46,14 +46,23 @@ KUL provider id: `valuation_consensus`
 
 ## Admin workflow
 
-1. **Import Capital IQ Excel**
-2. **Preview Changes** (added / changed / removed)
+1. **Import Capital IQ Excel** (or click **Load Broker Estimates** to publish the committed file)
+2. **Preview Changes** (added / changed / removed) — runs automatically on file choose
 3. **Validate**
 4. **Publish**
 5. **Rollback** to prior version if needed
 6. **Export Current Snapshot**
 
 No row-by-row editing.
+
+## Broker Estimates source
+
+Committed under `capital_iq_exports/`:
+
+- `broker_estimates.xlsx` — formatted CapIQ Broker Estimates (headers cleaned; numbers unchanged)
+- `broker_estimates_raw.xlsx` — original GitHub upload
+
+Boot seed: `valuation_consensus.seed_broker_estimates.seed_if_needed` (same durability pattern as IKT CapIQ seed).
 
 ## Persistence
 

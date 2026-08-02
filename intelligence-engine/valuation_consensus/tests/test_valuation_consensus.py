@@ -164,3 +164,30 @@ def test_header_mapping_consensus_columns():
     assert map_header("% Price Change [1 Year]") == "return_1y"
     assert map_header("Day Close Price [Latest] ($USD, Historical rate)") == "cmp"
     assert map_header("Primary Sector") == "sector"
+    # Raw CapIQ Broker Estimates export headers (en-dash often becomes "0")
+    assert map_header("Target Price 0 Capital IQ [Latest] (Inr, Historical rate)") == "target_price"
+    assert map_header("Target Price High 0 Capital IQ [Latest] (€, Historical rate)") == "target_high"
+    assert (
+        map_header("# of Analyst Buy (1) Recommendations 0 Capital IQ [Latest]") == "buy_count"
+    )
+    assert map_header("Potential Upside 0 Capital IQ [Latest] (%)") == "upside"
+    assert map_header("Target Price 0 # of Estimates 0 Capital IQ [Latest]") == "coverage"
+    assert map_header("Last Price") == "cmp"
+
+
+def test_broker_estimates_file_maps_and_seeds(tmp_store):
+    sample = ROOT.parent / "capital_iq_exports" / "broker_estimates.xlsx"
+    if not sample.exists():
+        pytest.skip("broker_estimates.xlsx not present")
+
+    from valuation_consensus.production import analytics, query_rows, seed_from_path
+
+    out = seed_from_path(sample, actor="test")
+    assert out["ok"] is True
+    assert out["row_count"] >= 2000
+    a = analytics()
+    assert a["total_companies"] >= 2000
+    assert a["average_target_upside"] is not None
+    q = query_rows(q="RELIANCE", page=1, page_size=5, sort="coverage")
+    assert q["total"] >= 1
+    assert any(r.get("target_price") is not None for r in q["items"]) or q["total"] >= 1

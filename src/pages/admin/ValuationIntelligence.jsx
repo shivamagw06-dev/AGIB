@@ -22,9 +22,23 @@ import {
   previewValuationConsensusImport,
   publishValuationConsensusImport,
   rollbackValuationConsensus,
+  seedValuationConsensus,
   validateValuationConsensusImport,
 } from '@/lib/intelligenceApi';
 import './valuationIntelligence.css';
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = String(reader.result || '');
+      const comma = result.indexOf(',');
+      resolve(comma >= 0 ? result.slice(comma + 1) : result);
+    };
+    reader.onerror = () => reject(reader.error || new Error('Could not read the Excel file'));
+    reader.readAsDataURL(file);
+  });
+}
 
 function fmt(v, digits = 1) {
   if (v == null || v === '') return '—';
@@ -87,35 +101,54 @@ function ImportModal({ open, actor, onClose, onPublished }) {
   const [busy, setBusy] = useState('');
   const [preview, setPreview] = useState(null);
   const [error, setError] = useState('');
+  const [status, setStatus] = useState('');
+
+  useEffect(() => {
+    if (!open) {
+      setFile(null);
+      setPreview(null);
+      setError('');
+      setBusy('');
+      setStatus('');
+    }
+  }, [open]);
 
   if (!open) return null;
 
-  const readFile = async (f) => {
-    const buf = await f.arrayBuffer();
-    const bytes = new Uint8Array(buf);
-    let binary = '';
-    for (let i = 0; i < bytes.length; i += 1) binary += String.fromCharCode(bytes[i]);
-    return btoa(binary);
-  };
-
-  const onPreview = async () => {
-    if (!file) return;
+  const runPreview = async (chosen) => {
+    const f = chosen || file;
+    if (!f) {
+      setError('Choose a Capital IQ / Broker Estimates Excel (.xlsx) file first.');
+      return;
+    }
     setBusy('preview');
     setError('');
+    setStatus(`Reading ${f.name}…`);
+    setPreview(null);
     try {
-      const content_base64 = await readFile(file);
+      const content_base64 = await fileToBase64(f);
+      setStatus('Parsing and matching tickers…');
       const out = await previewValuationConsensusImport({
-        filename: file.name,
+        filename: f.name,
         content_base64,
         actor,
       });
       if (!out?.ok) throw new Error(out?.error || 'Preview failed');
       setPreview(out);
+      setStatus(`Preview ready — ${out.row_count || 0} companies`);
     } catch (err) {
       setError(err?.message || 'Preview failed');
+      setStatus('');
     } finally {
       setBusy('');
     }
+  };
+
+  const onPick = (f) => {
+    setFile(f || null);
+    setPreview(null);
+    setError('');
+    if (f) runPreview(f);
   };
 
   const onValidate = async () => {
@@ -126,6 +159,7 @@ function ImportModal({ open, actor, onClose, onPublished }) {
       const out = await validateValuationConsensusImport(preview.import_id, actor);
       if (!out?.ok) throw new Error((out?.errors || []).join(', ') || 'Validation failed');
       setPreview((p) => ({ ...p, validated: true }));
+      setStatus('Validated — ready to publish');
     } catch (err) {
       setError(err?.message || 'Validation failed');
     } finally {
@@ -137,13 +171,19 @@ function ImportModal({ open, actor, onClose, onPublished }) {
     if (!preview?.import_id) return;
     setBusy('publish');
     setError('');
+    setStatus('Publishing to database…');
     try {
+      if (!preview.validated) {
+        const v = await validateValuationConsensusImport(preview.import_id, actor);
+        if (!v?.ok) throw new Error((v?.errors || []).join(', ') || 'Validation failed');
+      }
       const out = await publishValuationConsensusImport(preview.import_id, actor);
       if (!out?.ok) throw new Error(out?.error || 'Publish failed');
       onPublished?.(out);
       onClose?.();
     } catch (err) {
       setError(err?.message || 'Publish failed');
+      setStatus('');
     } finally {
       setBusy('');
     }
@@ -154,19 +194,23 @@ function ImportModal({ open, actor, onClose, onPublished }) {
   return (
     <div className="vi-modal-backdrop" onClick={onClose}>
       <div className="vi-modal" onClick={(e) => e.stopPropagation()}>
-        <h2>Import Capital IQ Excel</h2>
+        <h2>Import Capital IQ / Broker Estimates</h2>
         <p className="hint">
-          Spreadsheet is an import source only. Parse → validate → publish updates the database.
-          Never edit row-by-row.
+          Choose an Excel file — preview runs automatically. Then Validate and Publish.
+          Spreadsheet is an import source only; numbers are stored as-is.
         </p>
-        <input
-          type="file"
-          accept=".xlsx,.xls,.xlsm,.csv"
-          onChange={(e) => {
-            setFile(e.target.files?.[0] || null);
-            setPreview(null);
-          }}
-        />
+        <label className="vi-btn teal" style={{ cursor: 'pointer', display: 'inline-flex' }}>
+          <FileSpreadsheet size={14} />
+          {file ? file.name : 'Choose Excel file'}
+          <input
+            type="file"
+            accept=".xlsx,.xls,.xlsm,.csv"
+            style={{ display: 'none' }}
+            disabled={!!busy}
+            onChange={(e) => onPick(e.target.files?.[0] || null)}
+          />
+        </label>
+        {status ? <p className="hint" style={{ marginTop: '0.65rem' }}>{busy ? `${status} (${busy})` : status}</p> : null}
         {error ? <div className="vi-error" style={{ marginTop: '0.75rem' }}>{error}</div> : null}
         {preview ? (
           <div className="vi-preview-grid">
@@ -197,27 +241,17 @@ function ImportModal({ open, actor, onClose, onPublished }) {
           </div>
         ) : null}
         <div className="vi-actions" style={{ marginTop: '1rem', justifyContent: 'flex-start' }}>
-          <button type="button" className="vi-btn" onClick={onClose}>
+          <button type="button" className="vi-btn" onClick={onClose} disabled={!!busy}>
             Cancel
           </button>
-          <button type="button" className="vi-btn" disabled={!file || !!busy} onClick={onPreview}>
-            <Eye size={14} /> Preview Changes
+          <button type="button" className="vi-btn" disabled={!file || !!busy} onClick={() => runPreview()}>
+            <Eye size={14} /> {busy === 'preview' ? 'Previewing…' : 'Preview Changes'}
           </button>
-          <button
-            type="button"
-            className="vi-btn"
-            disabled={!preview || !!busy}
-            onClick={onValidate}
-          >
+          <button type="button" className="vi-btn" disabled={!preview || !!busy} onClick={onValidate}>
             <CheckCircle2 size={14} /> Validate
           </button>
-          <button
-            type="button"
-            className="vi-btn primary"
-            disabled={!preview || !!busy}
-            onClick={onPublish}
-          >
-            <Upload size={14} /> Publish
+          <button type="button" className="vi-btn primary" disabled={!preview || !!busy} onClick={onPublish}>
+            <Upload size={14} /> {busy === 'publish' ? 'Publishing…' : 'Publish'}
           </button>
         </div>
       </div>
@@ -347,6 +381,21 @@ export default function ValuationIntelligence() {
     }
   };
 
+  const onSeedBrokerEstimates = async () => {
+    setBusy('seed');
+    setError('');
+    try {
+      const out = await seedValuationConsensus({ force: true, actor });
+      if (!out?.ok) throw new Error(out?.error || 'Seed failed');
+      await loadMeta();
+      await loadRows();
+    } catch (err) {
+      setError(err?.message || 'Broker Estimates seed failed');
+    } finally {
+      setBusy('');
+    }
+  };
+
   const sectorCards = useMemo(
     () => (analytics?.sector_cards || []).filter((c) => (c.count || 0) > 0 || NSE_ALWAYS.has(c.sector)).slice(0, 36),
     [analytics]
@@ -381,8 +430,21 @@ export default function ValuationIntelligence() {
               <button type="button" className="vi-btn" onClick={() => { loadMeta(); loadRows(); }}>
                 <RefreshCw size={14} /> Refresh
               </button>
-              <button type="button" className="vi-btn teal" onClick={() => setImportOpen(true)}>
+              <button
+                type="button"
+                className="vi-btn teal"
+                disabled={!!busy}
+                onClick={() => setImportOpen(true)}
+              >
                 <FileSpreadsheet size={14} /> Import Capital IQ Excel
+              </button>
+              <button
+                type="button"
+                className="vi-btn primary"
+                disabled={!!busy}
+                onClick={onSeedBrokerEstimates}
+              >
+                <Upload size={14} /> {busy === 'seed' ? 'Loading…' : 'Load Broker Estimates'}
               </button>
               <button type="button" className="vi-btn" disabled={!!busy} onClick={onExport}>
                 <Download size={14} /> Export Snapshot
@@ -391,7 +453,11 @@ export default function ValuationIntelligence() {
                 <RotateCcw size={14} /> Rollback
               </button>
             </div>
-          ) : null}
+          ) : (
+            <p style={{ color: 'var(--vi-muted)', fontSize: '0.8rem', maxWidth: 280, textAlign: 'right' }}>
+              Browse-only. Sign in as admin to import CapIQ / Broker Estimates.
+            </p>
+          )}
         </div>
 
         <div className="vi-filters">

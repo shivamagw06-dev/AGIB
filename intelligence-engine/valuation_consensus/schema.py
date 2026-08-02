@@ -117,6 +117,9 @@ COLUMN_MAP: dict[str, str] = {
     "upside": "upside",
     "upside %": "upside",
     "upside potential": "upside",
+    "potential upside": "upside",
+    "last price": "cmp",
+    "most recent trade price": "cmp",
     "buy": "buy_count",
     "buy count": "buy_count",
     "# buy": "buy_count",
@@ -131,9 +134,11 @@ COLUMN_MAP: dict[str, str] = {
     "coverage": "coverage",
     "analyst coverage": "coverage",
     "research coverage": "coverage",
+    "of estimates": "coverage",
 }
 
 # Prefix patterns for CapIQ headers with variable suffixes/dates.
+# More-specific patterns MUST come before broader "target price" / "price" matches.
 PREFIX_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
     # Returns before generic price — CapIQ "% Price Change [...]" normalizes to "price change ..."
     (re.compile(r"^price change ytd"), "return_ytd"),
@@ -148,6 +153,8 @@ PREFIX_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"^price change 5 years"), "return_5y"),
     (re.compile(r"^day close price"), "cmp"),
     (re.compile(r"^close price"), "cmp"),
+    (re.compile(r"^most recent trade price"), "cmp"),
+    (re.compile(r"^last price"), "cmp"),
     (re.compile(r"^daily volume"), "avg_volume"),
     (re.compile(r"^average volume"), "avg_volume"),
     (re.compile(r"^total enterprise value"), "enterprise_value"),
@@ -158,8 +165,25 @@ PREFIX_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"^revenue\b"), "revenue"),
     (re.compile(r"^ebitda\b"), "ebitda"),
     (re.compile(r"^index constituents"), "indices"),
+    # CapIQ broker-estimate columns (export often replaces "–" with "0")
+    (re.compile(r"^target price high"), "target_high"),
+    (re.compile(r"^target price low"), "target_low"),
+    (re.compile(r"^target price.*std\s*dev"), "target_std_dev"),
+    (re.compile(r"^target price.*of estimates"), "coverage"),
+    (re.compile(r"^target price.*# of estimates"), "coverage"),
     (re.compile(r"^target price"), "target_price"),
     (re.compile(r"^consensus target"), "target_price"),
+    (re.compile(r"^potential upside"), "upside"),
+    (re.compile(r"analyst buy"), "buy_count"),
+    (re.compile(r"analyst outperform"), "outperform_count"),
+    (re.compile(r"analyst hold"), "hold_count"),
+    (re.compile(r"analyst sell"), "sell_count"),
+    (re.compile(r"analyst no opinion"), "no_opinion_count"),
+    (re.compile(r"^of analyst buy"), "buy_count"),
+    (re.compile(r"^of analyst outperform"), "outperform_count"),
+    (re.compile(r"^of analyst hold"), "hold_count"),
+    (re.compile(r"^of analyst sell"), "sell_count"),
+    (re.compile(r"^of analyst no opinion"), "no_opinion_count"),
     (re.compile(r"^number of investment research"), "coverage"),
     (re.compile(r"^research coverage"), "coverage"),
 )

@@ -10040,14 +10040,16 @@ async def valuation_consensus_export():
 
 @router.post("/valuation-consensus/seed")
 async def valuation_consensus_seed(payload: dict[str, Any] = Body(default={})):
-    """Ops: seed from a server-local CapIQ path (dev/bootstrap)."""
-    from valuation_consensus.production import seed_from_path
-
+    """Ops: seed from committed broker_estimates.xlsx (or an explicit path)."""
     body = payload or {}
     path = body.get("path")
-    if not path:
-        return {"ok": False, "error": "path_required"}
-    return seed_from_path(path, actor=str(body.get("actor") or "seed"))
+    if path:
+        from valuation_consensus.production import seed_from_path
+
+        return seed_from_path(path, actor=str(body.get("actor") or "seed"))
+    from valuation_consensus.seed_broker_estimates import seed_if_needed
+
+    return seed_if_needed(force=bool(body.get("force", True)))
 
 
 @router.get("/system/intelligence-stack")

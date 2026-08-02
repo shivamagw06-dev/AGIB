@@ -99,7 +99,43 @@ def read_dataframe(
     return df.where(df.notnull(), None)
 
 
-def resolve_ticker(ticker_raw: Any, name_raw: Any) -> tuple[str | None, str]:
+_PAREN_NSEI_RE = re.compile(r"\b(?:nsei?|bse)\s*:\s*([A-Z0-9.&-]{1,20})\b", re.I)
+
+
+def _ticker_from_parent(parent_raw: Any) -> str | None:
+    """Pull NSEI:/BSE: symbol embedded in CapIQ parent strings."""
+    if _is_blank(parent_raw):
+        return None
+    m = _PAREN_NSEI_RE.search(str(parent_raw))
+    if not m:
+        return None
+    sym = m.group(1).upper().replace(".", "").replace("&", "")
+    return sym or None
+
+
+def _name_key(name_raw: Any) -> str | None:
+    """Stable synthetic key when no exchange ticker can be resolved."""
+    if _is_blank(name_raw):
+        return None
+    try:
+        from institutional_knowledge_tables.bulk_sheet import normalize_company_name
+
+        norm = normalize_company_name(name_raw)
+    except Exception:
+        norm = re.sub(r"[^a-z0-9]+", " ", str(name_raw).lower()).strip()
+    if not norm:
+        return None
+    slug = re.sub(r"[^A-Z0-9]+", "", norm.upper())[:24]
+    return f"NAME{slug}" if slug else None
+
+
+def resolve_ticker(
+    ticker_raw: Any,
+    name_raw: Any,
+    *,
+    parent_raw: Any = None,
+    allow_name_key: bool = True,
+) -> tuple[str | None, str]:
     """Resolve CapIQ ticker. Prefer trading_universe; fall back to exchange codes."""
     bse_code = None
     nse_symbol = None
@@ -118,7 +154,6 @@ def resolve_ticker(ticker_raw: Any, name_raw: Any) -> tuple[str | None, str]:
             t = t.replace(".NS", "").replace(".BO", "")
             if get_symbol(t):
                 return t, "exact_ticker"
-            # CapIQ often ships BSE:500325 — try bare after strip
             if nse_symbol and get_symbol(nse_symbol):
                 return nse_symbol, "nse_universe"
         except Exception:
@@ -128,18 +163,25 @@ def resolve_ticker(ticker_raw: Any, name_raw: Any) -> tuple[str | None, str]:
 
     if not _is_blank(name_raw):
         try:
-            from institutional_knowledge_tables.bulk_sheet import (
-                normalize_company_name,
-                resolve_ticker as ikt_resolve,
-            )
+            from institutional_knowledge_tables.bulk_sheet import resolve_ticker as ikt_resolve
 
             ticker, how = ikt_resolve(ticker_raw, name_raw)
             if ticker:
                 return ticker, how
-            # name-only path already inside ikt_resolve
-            _ = normalize_company_name
         except Exception:
             pass
+
+    parent_sym = _ticker_from_parent(parent_raw)
+    if parent_sym:
+        try:
+            from trading_universe.loader import get_symbol
+
+            if get_symbol(parent_sym):
+                return parent_sym, "parent_nsei"
+        except Exception:
+            pass
+        if not parent_sym.isdigit():
+            return parent_sym, "parent_nsei_fallback"
 
     if nse_symbol:
         return nse_symbol, "nse_ticker_fallback"
@@ -150,6 +192,10 @@ def resolve_ticker(ticker_raw: Any, name_raw: Any) -> tuple[str | None, str]:
         t = t.replace(".NS", "").replace(".BO", "")
         if t and not t.isdigit():
             return t, "raw_ticker"
+    if allow_name_key:
+        key = _name_key(name_raw)
+        if key:
+            return key, "name_key"
     return None, "unresolved"
 
 
@@ -259,10 +305,17 @@ def parse_sheet(
     unresolved: list[dict[str, Any]] = []
     resolve_stats: dict[str, int] = {}
 
+    # Locate parent column for NSEI: fallback extraction
+    parent_col = next(
+        (c for c, f in mapped.items() if f == "parent"),
+        None,
+    )
+
     for idx, series in df.iterrows():
         ticker_raw = series.get(ticker_col) if ticker_col is not None else None
         name_raw = series.get(name_col) if name_col is not None else None
-        ticker, how = resolve_ticker(ticker_raw, name_raw)
+        parent_raw = series.get(parent_col) if parent_col is not None else None
+        ticker, how = resolve_ticker(ticker_raw, name_raw, parent_raw=parent_raw)
         resolve_stats[how] = resolve_stats.get(how, 0) + 1
         if not ticker:
             unresolved.append(
@@ -292,7 +345,15 @@ def parse_sheet(
             else:
                 row[field] = _to_text(val)
 
-        row["upside"] = _compute_upside(row)
+        # CapIQ often emits 0 for missing target/upside — keep counts at 0, null prices.
+        if row.get("coverage") in (0, 0.0) and row.get("target_price") in (0, 0.0):
+            for k in ("target_price", "target_high", "target_low", "target_std_dev", "upside"):
+                if row.get(k) in (0, 0.0):
+                    row[k] = None
+
+        row["upside"] = _compute_upside(row) if row.get("upside") is None else row.get("upside")
+        if row.get("upside") in (0, 0.0) and row.get("target_price") is None:
+            row["upside"] = None
         returns = {k: row.get(k) for k in _RETURN_FIELDS if row.get(k) is not None}
         row["returns"] = returns
         if extras:
