@@ -148,7 +148,25 @@ def _backfill_loop(interval_seconds: float) -> None:
             continue
 
 
-def start_backfill(*, boot_slice: bool = False) -> dict[str, Any]:
+def minutes_since_last_slice() -> Optional[float]:
+    """Age of the last recorded slice, from the database rather than this process.
+
+    The timer lives in memory, so every redeploy resets it. The job table does
+    not, which is what lets a restarted process tell whether work is overdue.
+    """
+    try:
+        from institutional_warehouse.backfill.checkpoints import recent_jobs
+
+        jobs = recent_jobs(limit=1)
+        if not jobs:
+            return None
+        stamp = datetime.fromisoformat(str(jobs[0].get("created_at")))
+        return (datetime.now(timezone.utc) - stamp).total_seconds() / 60.0
+    except Exception:
+        return None
+
+
+def start_backfill(*, boot_slice: Optional[bool] = None) -> dict[str, Any]:
     """Run a bounded backfill slice on a timer until the history is deep enough."""
     global _BACKFILL_THREAD
     if not _truthy("WAREHOUSE_BACKFILL"):
@@ -157,6 +175,13 @@ def start_backfill(*, boot_slice: bool = False) -> dict[str, Any]:
         return {"ok": True, "enabled": True, "already_running": True}
 
     minutes = float(os.getenv("WAREHOUSE_BACKFILL_INTERVAL_MIN", "30") or 30)
+
+    # A redeploy restarts this process and, with a purely in-memory timer, would
+    # idle a full interval before doing any work. Decide from the job table
+    # instead: if a slice is already overdue, run one now; if one just ran, wait.
+    age = minutes_since_last_slice()
+    if boot_slice is None:
+        boot_slice = age is None or age >= minutes
     if boot_slice:
         try:
             _backfill_slice()
@@ -167,7 +192,8 @@ def start_backfill(*, boot_slice: bool = False) -> dict[str, Any]:
     _BACKFILL_THREAD = threading.Thread(target=_backfill_loop, args=(minutes * 60.0,),
                                         name="warehouse-backfill", daemon=True)
     _BACKFILL_THREAD.start()
-    return {"ok": True, "enabled": True, "interval_minutes": minutes, "boot_slice": boot_slice}
+    return {"ok": True, "enabled": True, "interval_minutes": minutes, "boot_slice": boot_slice,
+            "minutes_since_last_slice": round(age, 1) if age is not None else None}
 
 
 def stop_backfill() -> dict[str, Any]:
@@ -179,9 +205,15 @@ def stop_backfill() -> dict[str, Any]:
 
 
 def backfill_status() -> dict[str, Any]:
+    age = minutes_since_last_slice()
     return {
         "enabled": _truthy("WAREHOUSE_BACKFILL"),
-        "running": bool(_BACKFILL_THREAD and _BACKFILL_THREAD.is_alive()),
+        "running_in_this_process": bool(_BACKFILL_THREAD and _BACKFILL_THREAD.is_alive()),
+        # The loop runs in the gather worker, so a web process asking this
+        # question must answer from the shared job table, not its own thread.
+        "minutes_since_last_slice": round(age, 1) if age is not None else None,
+        "loop_healthy": age is not None
+        and age < float(os.getenv("WAREHOUSE_BACKFILL_INTERVAL_MIN", "30") or 30) * 2.5,
         "interval_minutes": float(os.getenv("WAREHOUSE_BACKFILL_INTERVAL_MIN", "30") or 30),
         "companies_per_slice": int(os.getenv("WAREHOUSE_BACKFILL_COMPANIES", "25") or 25),
         "days_per_slice": int(os.getenv("WAREHOUSE_BACKFILL_DAYS", "40") or 40),
