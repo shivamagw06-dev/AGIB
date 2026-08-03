@@ -20,7 +20,7 @@ import statistics
 from datetime import date, datetime, timedelta
 from typing import Any, Iterable, Optional
 
-from institutional_warehouse import store
+from institutional_warehouse import gateway, store
 from institutional_warehouse.backfill import checkpoints
 from institutional_warehouse.values import to_date, to_number
 
@@ -240,7 +240,7 @@ def reconstruct_company(
         return {"ok": False, "symbol": ticker, "error": "no_point_in_time_statement",
                 "observations": 0}
 
-    written = store.upsert("historical_valuation", observations, source=SOURCE, actor=actor,
+    written = gateway.write("historical_valuation", observations, source=SOURCE, actor=actor,
                            reason=f"reconstruct:{ticker}")
     checkpoints.save_checkpoint(
         KIND, ticker, status=checkpoints.DONE, rows_written=len(observations),
@@ -318,7 +318,7 @@ def rerank_dates(dates: Iterable[str], *, actor: str = "backfill") -> dict[str, 
                 entry["relative_valuation_score"] = percentile
             staged.append(entry)
 
-        result = store.upsert("historical_valuation", staged, source=SOURCE, actor=actor,
+        result = gateway.write("historical_valuation", staged, source=SOURCE, actor=actor,
                               reason=f"rerank:{observed}")
         updated += int(result.get("updated") or 0)
         touched.append(observed)

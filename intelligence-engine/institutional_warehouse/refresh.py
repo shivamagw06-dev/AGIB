@@ -19,7 +19,7 @@ import uuid
 from pathlib import Path
 from typing import Any, Callable, Iterable, Optional
 
-from institutional_warehouse import audit, db, store, validation
+from institutional_warehouse import audit, db, gateway, store, validation
 from institutional_warehouse.formulas import recalculate
 from institutional_warehouse.values import now_iso, to_date, to_number, today_iso
 
@@ -123,11 +123,11 @@ def stage_yahoo(*, actor: str, limit: Optional[int] = None) -> dict[str, Any]:
             }
         )
 
-    master_result = store.upsert("company_master", masters, source="yahoo_finance", actor=actor,
+    master_result = gateway.write("company_master", masters, source="yahoo_finance", actor=actor,
                                  reason="refresh:yahoo")
-    price_result = store.upsert("daily_market_history", prices, source="yahoo_finance", actor=actor,
+    price_result = gateway.write("daily_market_history", prices, source="yahoo_finance", actor=actor,
                                 reason="refresh:yahoo")
-    valuation_result = store.upsert("historical_valuation", valuations, source="yahoo_finance",
+    valuation_result = gateway.write("historical_valuation", valuations, source="yahoo_finance",
                                     actor=actor, reason="refresh:yahoo")
     return _ok(
         "yahoo",
@@ -207,9 +207,9 @@ def stage_capital_iq(*, actor: str, limit: Optional[int] = None) -> dict[str, An
                     "statement_version": "capiq_ltm",
                 }
             )
-    written["company_master"] = store.upsert("company_master", masters, source="capital_iq",
+    written["company_master"] = gateway.write("company_master", masters, source="capital_iq",
                                              actor=actor, reason="refresh:capital_iq")
-    written["financials_annual"] = store.upsert("financials_annual", statements, source="capital_iq",
+    written["financials_annual"] = gateway.write("financials_annual", statements, source="capital_iq",
                                                 actor=actor, reason="refresh:capital_iq")
     written["consensus"] = _refresh_consensus(actor=actor, limit=limit)
     return _ok("capital_iq", companies=len(tickers), **written)
@@ -253,7 +253,7 @@ def _refresh_consensus(*, actor: str, limit: Optional[int] = None) -> dict[str, 
                 "source": "capital_iq_consensus",
             }
         )
-    return store.upsert("consensus", staged, source="capital_iq_consensus", actor=actor,
+    return gateway.write("consensus", staged, source="capital_iq_consensus", actor=actor,
                         reason="refresh:consensus")
 
 
@@ -329,7 +329,7 @@ def stage_nse(*, actor: str, days: int = 30, symbols: Optional[Iterable[str]] = 
             rows = [r for r in rows if r["symbol"] in wanted]
         if not rows:
             continue
-        result = store.upsert("daily_market_history", rows, source="nse_bhavcopy", actor=actor,
+        result = gateway.write("daily_market_history", rows, source="nse_bhavcopy", actor=actor,
                               reason=f"refresh:nse:{trade_date}")
         for key in totals:
             totals[key] += int(result.get(key) or 0)
@@ -372,7 +372,7 @@ def _register_traded_symbols(symbols: set[str], *, actor: str) -> int:
         }
         for symbol in fresh
     ]
-    result = store.upsert("company_master", rows, source="nse_bhavcopy", actor=actor,
+    result = gateway.write("company_master", rows, source="nse_bhavcopy", actor=actor,
                           reason="refresh:nse:register_traded")
     return int(result.get("inserted") or 0)
 
@@ -425,9 +425,9 @@ def stage_lidi_events(*, actor: str, limit: int = 2000) -> dict[str, Any]:
             )
     return _ok(
         "lidi_events",
-        timeline=store.upsert("research_timeline", timeline, source="lidi", actor=actor,
+        timeline=gateway.write("research_timeline", timeline, source="lidi", actor=actor,
                               reason="refresh:lidi_events"),
-        corporate_actions=store.upsert("corporate_actions", actions, source="lidi", actor=actor,
+        corporate_actions=gateway.write("corporate_actions", actions, source="lidi", actor=actor,
                                        reason="refresh:lidi_events"),
     )
 
@@ -516,10 +516,10 @@ def stage_cgl(*, actor: str, limit: Optional[int] = None) -> dict[str, Any]:
             )
     return _ok(
         "cgl",
-        company_intelligence=store.upsert("company_intelligence", intelligence,
+        company_intelligence=gateway.write("company_intelligence", intelligence,
                                           source="continuous_gather_learn", actor=actor,
                                           reason="refresh:cgl"),
-        research_timeline=store.upsert("research_timeline", timeline,
+        research_timeline=gateway.write("research_timeline", timeline,
                                        source="continuous_gather_learn", actor=actor,
                                        reason="refresh:cgl"),
     )
@@ -636,13 +636,13 @@ def stage_knowledge_factory(*, actor: str, limit: Optional[int] = None) -> dict[
 
     return _ok(
         "knowledge_factory",
-        daily_market_history=store.upsert("daily_market_history", prices, source="knowledge_factory_hd",
+        daily_market_history=gateway.write("daily_market_history", prices, source="knowledge_factory_hd",
                                           actor=actor, reason="refresh:kf"),
-        corporate_actions=store.upsert("corporate_actions", actions, source="knowledge_factory_hd",
+        corporate_actions=gateway.write("corporate_actions", actions, source="knowledge_factory_hd",
                                        actor=actor, reason="refresh:kf"),
-        ownership=store.upsert("ownership", ownership, source="knowledge_factory_hd", actor=actor,
+        ownership=gateway.write("ownership", ownership, source="knowledge_factory_hd", actor=actor,
                                reason="refresh:kf"),
-        research_timeline=store.upsert("research_timeline", timeline, source="knowledge_factory_hd",
+        research_timeline=gateway.write("research_timeline", timeline, source="knowledge_factory_hd",
                                        actor=actor, reason="refresh:kf"),
     )
 
@@ -712,10 +712,10 @@ def stage_financial_statements(*, actor: str, limit: Optional[int] = None) -> di
 
     return _ok(
         "financial_statements",
-        financials_annual=store.upsert("financials_annual", annual_rows + warehouse_rows.get("annual", []),
+        financials_annual=gateway.write("financials_annual", annual_rows + warehouse_rows.get("annual", []),
                                        source="knowledge_factory_hd", actor=actor,
                                        reason="refresh:statements"),
-        financials_quarterly=store.upsert("financials_quarterly",
+        financials_quarterly=gateway.write("financials_quarterly",
                                           quarterly_rows + warehouse_rows.get("quarterly", []),
                                           source="knowledge_factory_hd", actor=actor,
                                           reason="refresh:statements"),
@@ -806,7 +806,7 @@ def stage_research(*, actor: str) -> dict[str, Any]:
             )
     if not rows:
         return _skip("research", "no_research_documents")
-    return _ok("research", research_intelligence=store.upsert(
+    return _ok("research", research_intelligence=gateway.write(
         "research_intelligence", rows, source="research_intelligence", actor=actor,
         reason="refresh:research"))
 

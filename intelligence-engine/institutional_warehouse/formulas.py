@@ -16,7 +16,7 @@ from __future__ import annotations
 import statistics
 from typing import Any, Iterable, Optional
 
-from institutional_warehouse import audit, store
+from institutional_warehouse import audit, gateway, store
 from institutional_warehouse.values import now_iso, today_iso
 
 SOURCE = "formula_engine"
@@ -123,7 +123,7 @@ def recalc_statement_derivations(*, actor: str = "system", entity: Optional[str]
                     "book_value": book,
                 }
             )
-        counts[tab_id] = store.upsert(tab_id, updates, source=SOURCE, actor=actor,
+        counts[tab_id] = gateway.write(tab_id, updates, source=SOURCE, actor=actor,
                                       reason="derive_statement_columns")
     return counts
 
@@ -153,7 +153,7 @@ def recalc_market_derivations(*, actor: str = "system", entity: Optional[str] = 
                 "market_cap": round(close * shares, 2),
             }
         )
-    return store.upsert("daily_market_history", updates, source=SOURCE, actor=actor,
+    return gateway.write("daily_market_history", updates, source=SOURCE, actor=actor,
                         reason="derive_market_cap")
 
 
@@ -177,7 +177,7 @@ def recalc_consensus_derivations(*, actor: str = "system", entity: Optional[str]
                 "target_dispersion": dispersion,
             }
         )
-    return store.upsert("consensus", updates, source=SOURCE, actor=actor, reason="derive_consensus")
+    return gateway.write("consensus", updates, source=SOURCE, actor=actor, reason="derive_consensus")
 
 
 # --------------------------------------------------------------------------
@@ -248,7 +248,7 @@ def recalc_ratios(*, actor: str = "system", entity: Optional[str] = None) -> dic
                     continue
                 previous = ordered[idx - 1] if idx else None
                 rows.append(_ratio_row(symbol, period, basis, current, previous))
-    return store.upsert("historical_ratios", rows, source=SOURCE, actor=actor, reason="recalc_ratios")
+    return gateway.write("historical_ratios", rows, source=SOURCE, actor=actor, reason="recalc_ratios")
 
 
 # --------------------------------------------------------------------------
@@ -409,7 +409,7 @@ def recalc_valuation(*, actor: str = "system", as_of: Optional[str] = None,
             row.setdefault("peg", round(row["pe"] / growth, 4))
         output.append(row)
 
-    result = store.upsert("historical_valuation", output, source=SOURCE, actor=actor,
+    result = gateway.write("historical_valuation", output, source=SOURCE, actor=actor,
                           reason="recalc_valuation")
     result["as_of"] = stamp
     return result
@@ -521,7 +521,7 @@ def recalc_factors(*, actor: str = "system", as_of: Optional[str] = None,
                 "source": SOURCE,
             }
         )
-    return store.upsert("hedge_fund_factors", rows, source=SOURCE, actor=actor, reason="recalc_factors")
+    return gateway.write("hedge_fund_factors", rows, source=SOURCE, actor=actor, reason="recalc_factors")
 
 
 def _momentum(prices: list[dict[str, Any]]) -> Optional[float]:
@@ -569,7 +569,7 @@ def recalc_quality(*, actor: str = "system") -> dict[str, Any]:
                 "source": SOURCE,
             }
         )
-    return store.upsert("data_quality", rows, source=SOURCE, actor=actor, reason="recalc_quality")
+    return gateway.write("data_quality", rows, source=SOURCE, actor=actor, reason="recalc_quality")
 
 
 # --------------------------------------------------------------------------

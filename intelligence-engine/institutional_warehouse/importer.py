@@ -269,7 +269,9 @@ def commit(import_id: str, *, actor: str = "admin", recalculate: bool = True) ->
         return {"ok": False, "error": "nothing_to_commit", "import_id": import_id}
 
     tab_id = str(record.get("tab_id"))
-    result = store.upsert(
+    from institutional_warehouse import gateway
+
+    result = gateway.write(
         tab_id,
         accepted,
         source=str(record.get("source") or "manual_import"),

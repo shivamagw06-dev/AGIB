@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from typing import Any, Callable, Iterable, Optional
 
-from institutional_warehouse import store
+from institutional_warehouse import gateway, store
 from institutional_warehouse.backfill import checkpoints
 from institutional_warehouse.backfill.sources import yahoo_history
 
@@ -65,9 +65,9 @@ def backfill_company(
     annual = _rows(ticker, payload.get("annual") or [], quarterly=False)
     quarterly = _rows(ticker, payload.get("quarterly") or [], quarterly=True)
 
-    annual_result = store.upsert("financials_annual", annual, source=SOURCE, actor=actor,
+    annual_result = gateway.write("financials_annual", annual, source=SOURCE, actor=actor,
                                  reason=f"backfill:statements:{ticker}") if annual else {}
-    quarterly_result = store.upsert("financials_quarterly", quarterly, source=SOURCE, actor=actor,
+    quarterly_result = gateway.write("financials_quarterly", quarterly, source=SOURCE, actor=actor,
                                     reason=f"backfill:statements:{ticker}") if quarterly else {}
 
     written = len(annual) + len(quarterly)

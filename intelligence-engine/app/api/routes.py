@@ -18914,3 +18914,49 @@ async def hie_sector(symbol: str, metric: str = "pe"):
     from historical_intelligence.production import against_sector
 
     return against_sector(symbol, metric)
+
+
+# ---------------------------------------------------------------------------
+# Data Quality Integration & Validation (Phase 7.3)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/warehouse/quality")
+async def warehouse_quality_summary():
+    from institutional_warehouse.production import quality_summary
+
+    return quality_summary()
+
+
+@router.get("/warehouse/quarantine")
+async def warehouse_quarantine(tab_id: str | None = None, limit: int = 100):
+    from institutional_warehouse.production import quarantined_rows
+
+    return quarantined_rows(tab_id, limit=limit)
+
+
+@router.get("/warehouse/conflicts")
+async def warehouse_conflicts(tab_id: str | None = None, entity: str | None = None,
+                              limit: int = 100):
+    from institutional_warehouse.production import source_conflicts
+
+    return source_conflicts(tab_id=tab_id, entity=entity, limit=limit)
+
+
+@router.get("/warehouse/conflicts/summary")
+async def warehouse_conflict_summary():
+    from institutional_warehouse.production import conflict_summary
+
+    return conflict_summary()
+
+
+@router.post("/warehouse/remediate-zeros")
+async def warehouse_remediate_zeros(
+    payload: dict[str, Any] = Body(default_factory=dict),
+    x_agi_actor: str | None = Header(default=None),
+):
+    from institutional_warehouse.production import remediate_zeros
+
+    body = payload or {}
+    return remediate_zeros(actor=_warehouse_actor(body, x_agi_actor),
+                           dry_run=bool(body.get("dry_run")))

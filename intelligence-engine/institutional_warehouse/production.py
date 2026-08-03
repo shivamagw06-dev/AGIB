@@ -313,6 +313,39 @@ def refresh_runs(limit: int = 20) -> dict[str, Any]:
     return refresh.recent_runs(limit=limit)
 
 
+def quality_summary() -> dict[str, Any]:
+    from institutional_warehouse.gateway import quality_summary as summary
+
+    return summary()
+
+
+def quarantined_rows(tab_id: Optional[str] = None, limit: int = 100) -> dict[str, Any]:
+    from institutional_warehouse.gateway import quarantined
+
+    return quarantined(tab_id, limit=limit)
+
+
+def source_conflicts(**kwargs: Any) -> dict[str, Any]:
+    from institutional_warehouse.conflicts import recent
+
+    return recent(**kwargs)
+
+
+def conflict_summary() -> dict[str, Any]:
+    from institutional_warehouse.conflicts import summary
+
+    return summary()
+
+
+def remediate_zeros(*, actor: str, dry_run: bool = False) -> dict[str, Any]:
+    from institutional_warehouse.gateway import remediate_missing_zeros
+
+    denied = permissions.require(actor, "refresh")
+    if denied:
+        return denied
+    return remediate_missing_zeros(actor=actor, dry_run=dry_run)
+
+
 def scheduler_status() -> dict[str, Any]:
     from institutional_warehouse.scheduler import status
 

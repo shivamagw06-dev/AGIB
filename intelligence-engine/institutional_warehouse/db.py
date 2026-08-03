@@ -247,6 +247,11 @@ _PG_TYPES = {
 # System columns present on every warehouse tab table.
 SYSTEM_DDL: tuple[tuple[str, str], ...] = (
     ("sys_version", INTEGER),
+    ("sys_quality", TEXT),
+    ("sys_confidence", TEXT),
+    ("sys_confidence_score", NUMBER),
+    ("sys_validation", TEXT),
+    ("sys_validated_at", DATETIME),
     ("sys_created_at", DATETIME),
     ("sys_updated_at", DATETIME),
     ("sys_published", BOOL),
@@ -383,6 +388,32 @@ CREATE TABLE IF NOT EXISTS wh_refresh_runs (
     counts TEXT,
     errors TEXT
 );
+CREATE TABLE IF NOT EXISTS wh_quarantine (
+    id TEXT PRIMARY KEY,
+    created_at TEXT,
+    tab_id TEXT,
+    source TEXT,
+    actor TEXT,
+    import_id TEXT,
+    row_key TEXT,
+    issues TEXT,
+    payload TEXT
+);
+CREATE TABLE IF NOT EXISTS wh_conflicts (
+    id TEXT PRIMARY KEY,
+    created_at TEXT,
+    tab_id TEXT,
+    row_id TEXT,
+    entity TEXT,
+    field TEXT,
+    held_value TEXT,
+    held_source TEXT,
+    incoming_value TEXT,
+    incoming_source TEXT,
+    gap_pct REAL,
+    actor TEXT,
+    resolved INTEGER
+);
 CREATE TABLE IF NOT EXISTS wh_backfill_jobs (
     id TEXT PRIMARY KEY,
     created_at TEXT,
@@ -432,6 +463,9 @@ _META_INDEXES = (
     "CREATE UNIQUE INDEX IF NOT EXISTS idx_bfdate_source_date ON wh_backfill_dates (source, trade_date)",
     "CREATE INDEX IF NOT EXISTS idx_bfdate_status ON wh_backfill_dates (source, status)",
     "CREATE INDEX IF NOT EXISTS idx_job_kind ON wh_backfill_jobs (kind, created_at)",
+    "CREATE INDEX IF NOT EXISTS idx_quarantine_tab ON wh_quarantine (tab_id, created_at)",
+    "CREATE INDEX IF NOT EXISTS idx_conflicts_row ON wh_conflicts (tab_id, row_id)",
+    "CREATE INDEX IF NOT EXISTS idx_conflicts_entity ON wh_conflicts (entity)",
 )
 
 

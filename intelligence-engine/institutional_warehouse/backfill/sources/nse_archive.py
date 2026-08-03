@@ -17,7 +17,7 @@ import zipfile
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Callable, Iterable, Optional
 
-from institutional_warehouse import store
+from institutional_warehouse import gateway, store
 from institutional_warehouse.backfill import checkpoints
 from institutional_warehouse.values import to_date, to_number
 
@@ -189,7 +189,7 @@ def backfill(
             missing.append(trade_date)
             continue
         rows = result["rows"]
-        outcome = store.upsert("daily_market_history", rows, source=SOURCE, actor=actor,
+        outcome = gateway.write("daily_market_history", rows, source=SOURCE, actor=actor,
                                reason=f"backfill:nse:{trade_date}")
         for key in written:
             written[key] += int(outcome.get(key) or 0)

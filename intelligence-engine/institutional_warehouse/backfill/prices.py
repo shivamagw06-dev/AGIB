@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any, Callable, Iterable, Optional
 
-from institutional_warehouse import store
+from institutional_warehouse import gateway, store
 from institutional_warehouse.backfill import checkpoints
 from institutional_warehouse.backfill.sources import yahoo_history
 from institutional_warehouse.backfill.validation import screen_series
@@ -39,11 +39,11 @@ def backfill_company(
     screened = screen_series(rows, date_field="date")
     clean = screened["accepted"]
 
-    written = store.upsert("daily_market_history", clean, source=SOURCE, actor=actor,
+    written = gateway.write("daily_market_history", clean, source=SOURCE, actor=actor,
                            reason=f"backfill:yahoo:{ticker}")
 
     actions = _action_rows(ticker, history)
-    action_result = store.upsert("corporate_actions", actions, source=SOURCE, actor=actor,
+    action_result = gateway.write("corporate_actions", actions, source=SOURCE, actor=actor,
                                  reason=f"backfill:yahoo_actions:{ticker}") if actions else {}
 
     checkpoints.save_checkpoint(

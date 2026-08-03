@@ -7317,6 +7317,13 @@ export default function createIntelligenceRouter() {
   router.get('/warehouse/backfill/jobs', warehouseGet('/v1/warehouse/backfill/jobs'));
   router.get('/warehouse/historical-coverage', warehouseGet('/v1/warehouse/historical-coverage'));
 
+  // Phase 7.3 — data quality integration
+  router.get('/warehouse/quality', warehouseGet('/v1/warehouse/quality'));
+  router.get('/warehouse/quarantine', warehouseGet('/v1/warehouse/quarantine'));
+  router.get('/warehouse/conflicts', warehouseGet('/v1/warehouse/conflicts'));
+  router.get('/warehouse/conflicts/summary', warehouseGet('/v1/warehouse/conflicts/summary'));
+  router.post('/warehouse/remediate-zeros', warehousePost('/v1/warehouse/remediate-zeros', 300_000));
+
   router.get('/history/compare', warehouseGet('/v1/history/compare'));
   router.get('/history/company/:symbol', warehouseGet((req) =>
     `/v1/history/company/${encode(req.params.symbol)}`));
