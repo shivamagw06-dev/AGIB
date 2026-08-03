@@ -70,6 +70,10 @@ METRIC_PATTERNS: tuple[tuple[str, str], ...] = (
 _EXTREME = re.compile(r"cheapest|dearest|most expensive|highest|lowest|peak|trough|best|worst|"
                       r"all[- ]time|ever\b", re.IGNORECASE)
 _COMPARE = re.compile(r"\bcompare\b|\bversus\b|\bvs\.?\b|against\b|relative to\b", re.IGNORECASE)
+# "relative to its own history" compares a company with its past, not with a peer.
+_SELF_RELATIVE = re.compile(r"(relative to|against|versus|vs\.?)\s+(its|their|his|her|the company\'s)?"
+                            r"\s*(own\s+)?(history|past|record|average|median|range)",
+                            re.IGNORECASE)
 _EVENTS = re.compile(r"event|dividend|split|bonus|buyback|merger|acquisition|timeline|"
                      r"what happened|announcement", re.IGNORECASE)
 _TREND = re.compile(r"trend|growth|grew|evolution|evolved|changed over|improve|deteriorat|"
@@ -143,7 +147,7 @@ def extract_period(question: str, *, today: Optional[date] = None) -> dict[str, 
 def classify(question: str) -> dict[str, Any]:
     """Route a historical question to the module that should answer it."""
     text = question or ""
-    if _COMPARE.search(text):
+    if _COMPARE.search(text) and not _SELF_RELATIVE.search(text):
         module = "comparison"
     elif _EXTREME.search(text):
         module = "valuation_extreme"

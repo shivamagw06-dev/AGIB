@@ -197,6 +197,43 @@ export const compareHistory = (symbols, metric, window = '5y') =>
 export const getSymbolCoverage = (symbol) =>
   historyFetch(`/coverage/${encodeURIComponent(symbol)}`);
 
+/* Historical Intelligence Engine (Phase 7.2) */
+const hieFetch = (path, params = {}) => {
+  const url = `${BASE}/api/intelligence/historical-intelligence${path}${qs(params)}`;
+  return fetch(url, { credentials: 'include', headers: { 'X-AGI-Actor': currentActor } }).then(
+    async (resp) => {
+      const text = await resp.text().catch(() => '');
+      if (!resp.ok) throw new Error(`Historical API error (${resp.status}) ${text.slice(0, 200)}`);
+      return text ? JSON.parse(text) : null;
+    },
+  );
+};
+
+export const getHieHealth = () => hieFetch('/health');
+export const detectHistoricalIntent = (q) => hieFetch('/detect', { q });
+export const askHistory = (question, symbol, peers) =>
+  warehouseFetch('/../historical-intelligence/ask', {
+    method: 'POST',
+    body: { question, symbol, peers, actor: currentActor },
+    timeoutMs: 180_000,
+  });
+export const getHistoryCoverage = (symbol, metric) =>
+  hieFetch(`/coverage/${encodeURIComponent(symbol)}`, metric ? { metric } : {});
+export const getCompanyHistoryCards = (symbol, metrics) =>
+  hieFetch(`/company/${encodeURIComponent(symbol)}`, metrics ? { metrics: metrics.join(',') } : {});
+export const getTrendAnalysis = (symbol, metric) =>
+  hieFetch(`/trend/${encodeURIComponent(symbol)}/${encodeURIComponent(metric)}`);
+export const getValuationHistory = (symbol, metric = 'pe') =>
+  hieFetch(`/valuation/${encodeURIComponent(symbol)}`, { metric });
+export const getValuationBands = (symbol, metric = 'pe') =>
+  hieFetch(`/bands/${encodeURIComponent(symbol)}`, { metric });
+export const getEventTimeline = (symbol, limit = 40) =>
+  hieFetch(`/timeline/${encodeURIComponent(symbol)}`, { limit });
+export const compareHistories = (symbols, metric = 'price') =>
+  hieFetch('/compare', { symbols: symbols.join(','), metric });
+export const getSectorHistory = (symbol, metric = 'pe') =>
+  hieFetch(`/sector/${encodeURIComponent(symbol)}`, { metric });
+
 /* Search */
 export const searchWarehouse = (q, params = {}) => warehouseFetch(`/search${qs({ q, ...params })}`);
 export const suggestCompanies = (prefix, limit = 10) =>

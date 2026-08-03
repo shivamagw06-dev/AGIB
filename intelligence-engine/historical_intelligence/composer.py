@@ -58,8 +58,14 @@ def answer(question: str, *, symbol: Optional[str] = None,
     module_name = intended["module"]
 
     if module_name == "comparison":
-        others = list(peers or []) or intended["extra_symbols"]
-        module = comparison.compare([ticker, *others], metric)
+        others = [s for s in (list(peers or []) or intended["extra_symbols"]) if s != ticker]
+        if others:
+            module = comparison.compare([ticker, *others], metric)
+        elif metric in valuation.MULTIPLES:
+            # Nothing to compare against: the question is about this company's own record.
+            module = valuation.analyse(ticker, metric, period=period)
+        else:
+            module = trend.analyse(ticker, metric, period=period)
     elif module_name == "valuation_extreme":
         module = trend.extreme(ticker, metric, want=_extreme_direction(question), period=period)
     elif module_name == "trend_extreme":

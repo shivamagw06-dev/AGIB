@@ -31,6 +31,17 @@ class ProviderCapability:
 
 # Capability matrix. Ids must match KUL ProviderSpec.id values.
 CAPABILITIES: dict[str, ProviderCapability] = {
+    "historical_intelligence": ProviderCapability(
+        id="historical_intelligence",
+        name="Historical Intelligence Engine",
+        priority=6,
+        entity_types=("company",),
+        question_types=("historical", "company", "valuation", "financials", "investment"),
+        authority="warehouse",
+        freshness="daily",
+        role="research",
+        required_for=("historical",),
+    ),
     "institutional_warehouse": ProviderCapability(
         id="institutional_warehouse",
         name="Institutional Data Warehouse",

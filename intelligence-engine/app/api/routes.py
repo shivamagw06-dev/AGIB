@@ -18822,3 +18822,95 @@ async def history_coverage_route(symbol: str):
     from institutional_warehouse.production import history_coverage
 
     return history_coverage(symbol)
+
+
+# ---------------------------------------------------------------------------
+# Historical Intelligence Engine (Phase 7.2)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/historical-intelligence/health")
+async def hie_health():
+    from historical_intelligence.production import health
+
+    return health()
+
+
+@router.post("/historical-intelligence/ask")
+async def hie_ask(payload: dict[str, Any] = Body(default_factory=dict)):
+    from historical_intelligence.production import ask
+
+    body = payload or {}
+    peers = body.get("peers")
+    return ask(
+        str(body.get("question") or ""),
+        symbol=(str(body.get("symbol")).upper() if body.get("symbol") else None),
+        peers=[str(p).upper() for p in peers] if isinstance(peers, list) else None,
+    )
+
+
+@router.get("/historical-intelligence/detect")
+async def hie_detect(q: str):
+    from historical_intelligence.production import detect
+
+    return detect(q)
+
+
+@router.get("/historical-intelligence/coverage/{symbol}")
+async def hie_coverage(symbol: str, metric: str | None = None):
+    from historical_intelligence.production import company_coverage, metric_coverage
+
+    if metric:
+        return metric_coverage(symbol, metric)
+    return company_coverage(symbol)
+
+
+@router.get("/historical-intelligence/company/{symbol}")
+async def hie_company(symbol: str, metrics: str | None = None):
+    from historical_intelligence.production import company
+
+    wanted = [m.strip() for m in metrics.split(",") if m.strip()] if metrics else None
+    return company(symbol, metrics=wanted)
+
+
+@router.get("/historical-intelligence/trend/{symbol}/{metric}")
+async def hie_trend(symbol: str, metric: str):
+    from historical_intelligence.production import trend_analysis
+
+    return trend_analysis(symbol, metric)
+
+
+@router.get("/historical-intelligence/valuation/{symbol}")
+async def hie_valuation(symbol: str, metric: str = "pe"):
+    from historical_intelligence.production import valuation_analysis
+
+    return valuation_analysis(symbol, metric)
+
+
+@router.get("/historical-intelligence/bands/{symbol}")
+async def hie_bands(symbol: str, metric: str = "pe"):
+    from historical_intelligence.production import valuation_bands
+
+    return valuation_bands(symbol, metric)
+
+
+@router.get("/historical-intelligence/timeline/{symbol}")
+async def hie_timeline(symbol: str, limit: int = 40):
+    from historical_intelligence.production import event_timeline
+
+    return event_timeline(symbol, limit=limit)
+
+
+@router.get("/historical-intelligence/compare")
+async def hie_compare(symbols: str, metric: str = "price"):
+    from historical_intelligence.production import compare
+
+    names = [s.strip().upper() for s in symbols.split(",") if s.strip()]
+    return compare(names, metric)
+
+
+@router.get("/historical-intelligence/sector/{symbol}")
+async def hie_sector(symbol: str, metric: str = "pe"):
+    from historical_intelligence.production import against_sector
+
+    return against_sector(symbol, metric)

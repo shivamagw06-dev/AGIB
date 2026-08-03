@@ -7329,5 +7329,25 @@ export default function createIntelligenceRouter() {
   router.get('/history/coverage/:symbol', warehouseGet((req) =>
     `/v1/history/coverage/${encode(req.params.symbol)}`));
 
+  // Phase 7.2 — Historical Intelligence Engine
+  router.get('/historical-intelligence/health', warehouseGet('/v1/historical-intelligence/health'));
+  router.get('/historical-intelligence/detect', warehouseGet('/v1/historical-intelligence/detect'));
+  router.get('/historical-intelligence/compare', warehouseGet('/v1/historical-intelligence/compare'));
+  router.post('/historical-intelligence/ask', warehousePost('/v1/historical-intelligence/ask', 180_000));
+  router.get('/historical-intelligence/coverage/:symbol', warehouseGet((req) =>
+    `/v1/historical-intelligence/coverage/${encode(req.params.symbol)}`));
+  router.get('/historical-intelligence/company/:symbol', warehouseGet((req) =>
+    `/v1/historical-intelligence/company/${encode(req.params.symbol)}`));
+  router.get('/historical-intelligence/trend/:symbol/:metric', warehouseGet((req) =>
+    `/v1/historical-intelligence/trend/${encode(req.params.symbol)}/${encode(req.params.metric)}`));
+  router.get('/historical-intelligence/valuation/:symbol', warehouseGet((req) =>
+    `/v1/historical-intelligence/valuation/${encode(req.params.symbol)}`));
+  router.get('/historical-intelligence/bands/:symbol', warehouseGet((req) =>
+    `/v1/historical-intelligence/bands/${encode(req.params.symbol)}`));
+  router.get('/historical-intelligence/timeline/:symbol', warehouseGet((req) =>
+    `/v1/historical-intelligence/timeline/${encode(req.params.symbol)}`));
+  router.get('/historical-intelligence/sector/:symbol', warehouseGet((req) =>
+    `/v1/historical-intelligence/sector/${encode(req.params.symbol)}`));
+
   return router;
 }
