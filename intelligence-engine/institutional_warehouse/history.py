@@ -37,11 +37,16 @@ SERIES: dict[str, dict[str, Any]] = {
     "debt": {"tab": "financials_annual", "period": "fiscal_year", "field": "debt"},
     "cash": {"tab": "financials_annual", "period": "fiscal_year", "field": "cash"},
     "free_cash_flow": {"tab": "financials_annual", "period": "fiscal_year", "field": "free_cash_flow"},
-    "roe": {"tab": "historical_ratios", "period": "period", "field": "roe"},
-    "roce": {"tab": "historical_ratios", "period": "period", "field": "roce"},
-    "net_margin": {"tab": "historical_ratios", "period": "period", "field": "net_margin"},
-    "ebitda_margin": {"tab": "historical_ratios", "period": "period", "field": "ebitda_margin"},
-    "debt_equity": {"tab": "historical_ratios", "period": "period", "field": "debt_equity"},
+    "roe": {"tab": "historical_ratios", "period": "period", "field": "roe",
+             "filters": {"basis": "annual"}},
+    "roce": {"tab": "historical_ratios", "period": "period", "field": "roce",
+             "filters": {"basis": "annual"}},
+    "net_margin": {"tab": "historical_ratios", "period": "period", "field": "net_margin",
+             "filters": {"basis": "annual"}},
+    "ebitda_margin": {"tab": "historical_ratios", "period": "period", "field": "ebitda_margin",
+             "filters": {"basis": "annual"}},
+    "debt_equity": {"tab": "historical_ratios", "period": "period", "field": "debt_equity",
+             "filters": {"basis": "annual"}},
     "revenue_quarterly": {"tab": "financials_quarterly", "period": "fiscal_period", "field": "revenue"},
     "pat_quarterly": {"tab": "financials_quarterly", "period": "fiscal_period", "field": "pat"},
     "target_price": {"tab": "consensus", "period": "consensus_date", "field": "target_price"},
@@ -59,8 +64,14 @@ def _window_floor(window: Optional[str]) -> Optional[str]:
     return (datetime.now(timezone.utc).date() - timedelta(days=days)).isoformat()
 
 
-def _rows(tab_id: str, symbol: str, limit: int = 20000) -> list[dict[str, Any]]:
-    return store.all_rows(tab_id, entity=symbol, limit=limit)
+def _rows(tab_id: str, symbol: str, limit: int = 20000,
+          filters: Optional[dict[str, Any]] = None) -> list[dict[str, Any]]:
+    rows = store.all_rows(tab_id, entity=symbol, limit=limit)
+    if not filters:
+        return rows
+    # Ratio tabs hold annual and quarterly rows side by side. Interleaving them
+    # produces a series that alternates between two different measures.
+    return [r for r in rows if all(str(r.get(k)) == str(v) for k, v in filters.items())]
 
 
 def series(
@@ -82,7 +93,7 @@ def series(
 
     floor = start or _window_floor(window)
     points = []
-    for row in _rows(spec["tab"], ticker):
+    for row in _rows(spec["tab"], ticker, filters=spec.get("filters")):
         period = str(row.get(spec["period"]) or "")
         value = to_number(row.get(spec["field"]))
         if not period or value is None:

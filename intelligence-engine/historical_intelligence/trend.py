@@ -147,10 +147,14 @@ def analyse(symbol: str, metric: str, *, period: Optional[dict[str, Any]] = None
         if turns:
             conclusions.append("Direction changed around " + ", ".join(turns[:3]) + ".")
     elif len(legs) == 1 and legs[0]["direction"]:
-        conclusions.append(
-            f"The move ran in one direction throughout, {legs[0]['direction']} "
-            f"{abs(legs[0]['change_pct'])}% end to end, without a material reversal."
-        )
+        # Only narrate the leg when it agrees with the endpoints; a smoothed leg that
+        # disagrees means the series is too noisy to describe as one move.
+        endpoint_up = last["value"] >= first["value"]
+        if (legs[0]["direction"] == "up") == endpoint_up:
+            conclusions.append(
+                f"The move ran in one direction throughout, {legs[0]['direction']} "
+                f"{abs(legs[0]['change_pct'])}% end to end, without a material reversal."
+            )
 
     if consistency is not None:
         if consistency >= 75:
