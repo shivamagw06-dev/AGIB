@@ -130,9 +130,14 @@ def sector_table(universe: dict[str, Any]) -> list[dict[str, Any]]:
         lens = lens_for(dominant_dna, sector) or {}
         primary = lens.get("primary_metric") or "pe"
         primary_values = [m.get(primary) for m in members if m.get(primary) is not None]
-        hist_pcts = [m.get("percentile") for m in members if m.get("percentile") is not None]
+        # Diagnostic only — median of within-sector peer ranks ≈ 50 by construction.
+        peer_pcts = [m.get("percentile") for m in members if m.get("percentile") is not None]
+        peer_pct_median = _median(peer_pcts)
         current = _median(primary_values)
-        hist_median_pct = _median(hist_pcts)
+        # True sector historical percentile: rank today's sector median in its
+        # own median history (HVIE). Never fall back to inventing 50.
+        hist_pack = _sector_own_history_percentile(sector, current=current, metric=primary)
+        hist_pct = hist_pack.get("historical_percentile")
         # Upstox sector benchmark only — do not invent one from peer medians.
         sector_key = {
             "pe": "sector_median_pe",
@@ -144,21 +149,41 @@ def sector_table(universe: dict[str, Any]) -> list[dict[str, Any]]:
         sector_bench = None
         if covered > 0:
             sector_bench = _median([m.get(sector_key) for m in members if m.get(sector_key) is not None])
+        # Prefer HVIE historical median for premium when available; else Upstox bench.
+        hist_median_level = hist_pack.get("historical_median")
         premium = None
-        if current is not None and sector_bench:
+        premium_basis = None
+        if current is not None and hist_median_level:
+            premium = round(100.0 * (current - hist_median_level) / abs(hist_median_level), 1)
+            premium_basis = "hvie_sector_history"
+        elif current is not None and sector_bench:
             premium = round(100.0 * (current - sector_bench) / sector_bench, 1)
-        opportunity = _opportunity_label(hist_median_pct)
+            premium_basis = "upstox_sector_benchmark"
+        opportunity = _opportunity_label(hist_pct)
         out.append({
             "sector": sector,
             "companies": len(members),
             "primary_metric": primary,
             "primary_metric_label": lens.get("primary_metric_label") or primary.upper(),
             "current": current,
-            "historical_median": sector_bench,
+            "historical_median": hist_median_level if hist_median_level is not None else sector_bench,
             "sector_benchmark": sector_bench,
             "sector_benchmark_source": "upstox" if sector_bench is not None and covered > 0 else None,
-            "historical_percentile": round(hist_median_pct, 1) if hist_median_pct is not None else None,
+            "historical_percentile": round(hist_pct, 1) if hist_pct is not None else None,
+            "historical_percentile_status": hist_pack.get("status"),
+            "historical_percentile_reason": hist_pack.get("reason"),
+            "historical_percentile_source": hist_pack.get("source"),
+            "historical_observations": hist_pack.get("observation_count"),
+            "historical_window": {
+                "first": hist_pack.get("first_observation"),
+                "last": hist_pack.get("last_observation"),
+            },
+            # Kept for DQ / audit — NOT the heatmap KPI.
+            "peer_relative_percentile_median": (
+                round(peer_pct_median, 1) if peer_pct_median is not None else None
+            ),
             "premium_pct": premium,
+            "premium_basis": premium_basis,
             "opportunity": opportunity,
             "median_pe": _median([m.get("pe") for m in members]),
             "median_pb": _median([m.get("pb") for m in members]),
@@ -168,8 +193,39 @@ def sector_table(universe: dict[str, Any]) -> list[dict[str, Any]]:
             "median_roce": _median([m.get("roce") for m in members]),
             "upstox_coverage": covered,
             "upstox_coverage_pct": round(100.0 * covered / len(members), 1) if members else 0,
+            "valid_primary_count": len(primary_values),
+            "excluded_primary_count": max(0, len(members) - len(primary_values)),
         })
     return out
+
+
+def _sector_own_history_percentile(
+    sector: str,
+    *,
+    current: Optional[float],
+    metric: str,
+) -> dict[str, Any]:
+    """HVIE sector own-history percentile; never invents a mid-pack default."""
+    try:
+        from historical_valuation_intelligence.sector_percentile import (
+            sector_historical_percentile,
+        )
+
+        # Banks / financials often use pb as primary — request that series.
+        metric_key = metric if metric in {"pe", "pb", "ev_ebitda", "ev_sales", "roe"} else "pe"
+        return sector_historical_percentile(
+            sector,
+            current_median=current,
+            metric=metric_key if metric_key != "roe" else "pe",
+        )
+    except Exception as exc:
+        return {
+            "historical_percentile": None,
+            "status": "UNAVAILABLE",
+            "reason": f"sector_history_unavailable:{exc}",
+            "observation_count": 0,
+            "source": None,
+        }
 
 
 def _opportunity_label(hist_pct: Optional[float]) -> str:

@@ -22,6 +22,10 @@ from historical_valuation_intelligence.production import (
     runtime_stop,
     statistics,
 )
+from historical_valuation_intelligence.sector_percentile import (
+    load_sector_median_series,
+    sector_historical_percentile,
+)
 
 __all__ = [
     "ENGINE_CODE",
@@ -41,4 +45,6 @@ __all__ = [
     "runtime_run",
     "runtime_start",
     "runtime_stop",
+    "sector_historical_percentile",
+    "load_sector_median_series",
 ]
