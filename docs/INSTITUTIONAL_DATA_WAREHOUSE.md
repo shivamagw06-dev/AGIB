@@ -136,6 +136,62 @@ than an addition to it.
 
 ---
 
+## Units
+
+Aggregate money is stored in **INR million**. Vendors do not agree on magnitude
+— Upstox reports crores, Yahoo reports absolute rupees, Capital IQ varies by
+sheet — and conflict detection treats a gap above 2% as a disagreement. Crores
+against rupees differ by 10,000,000%, so without a single canonical scale every
+field on every row would register as a conflict and the conflict log would carry
+no signal.
+
+Normalisation happens in `units.py`, first in the gateway, before validation or
+comparison sees a number.
+
+### Unit classes are per column, not global
+
+A share price and annual revenue are both `CURRENCY`, so the database type
+cannot decide this. Each column declares a unit class:
+
+| Class | Columns | Rescaled? |
+|---|---|---|
+| `inr_million` | revenue, EBITDA, PAT, assets, equity, debt, cash, capex, CFO/CFI/CFF | **yes** |
+| `inr` | open/high/low/close, VWAP, dividend, EPS, book value | no |
+| `count` | shares outstanding, volume | no |
+| `ratio` / `percent` | multiples, delivery % | no |
+
+Only `inr_million` columns are rescaled. Anything unclassified passes through
+untouched, so forgetting to classify a column leaves it un-normalised rather
+than corrupting it.
+
+### Derived metrics cross the boundary
+
+Market capitalisation is price times share count, so it is in rupees, while
+statement aggregates are in millions. Anything mixing the two converts first
+via `units.to_rupees` — book value per share, EPS from PAT, enterprise value,
+EV/EBITDA, EV/Sales, price/sales. Without that step enterprise value would add
+rupees to millions and every multiple would be out by a factor of a million.
+
+### Rows written before normalisation
+
+Each row records `sys_reported_unit`, `sys_unit_scale` and `sys_unit_method`,
+surfaced as `reported_unit` in a row's `_meta`. A row with no stamp predates
+this system, so its money columns are **skipped by conflict detection** — a gap
+against an unstamped row would measure the vendor's magnitude rather than the
+fact. Those deferrals are recorded in the audit log rather than passing silently.
+
+```bash
+GET  /v1/warehouse/unit-coverage                   # what is still unstamped
+POST /v1/warehouse/normalise-units {"dry_run":true}  # read the plan
+POST /v1/warehouse/normalise-units {"dry_run":false} # apply it
+```
+
+The migration groups by each row's own `source` so every vendor converts with
+its own scale, and only touches rows with no stamp — running it twice cannot
+double-scale a row.
+
+---
+
 ## Daily refresh
 
 ```

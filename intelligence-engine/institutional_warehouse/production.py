@@ -346,6 +346,27 @@ def remediate_zeros(*, actor: str, dry_run: bool = False) -> dict[str, Any]:
     return remediate_missing_zeros(actor=actor, dry_run=dry_run)
 
 
+def unit_coverage() -> dict[str, Any]:
+    """How much of the warehouse has been through unit normalisation."""
+    from institutional_warehouse import units
+
+    return units.unstamped_summary()
+
+
+def normalise_units(*, actor: str, dry_run: bool = True) -> dict[str, Any]:
+    """Convert and stamp rows written before unit normalisation existed.
+
+    Defaults to a dry run: this rescales stored values, so the plan should be
+    read before it is applied.
+    """
+    from institutional_warehouse import units
+
+    denied = permissions.require(actor, "refresh")
+    if denied:
+        return denied
+    return units.backfill_units(actor=actor, dry_run=dry_run)
+
+
 def scheduler_status() -> dict[str, Any]:
     from institutional_warehouse.scheduler import status
 

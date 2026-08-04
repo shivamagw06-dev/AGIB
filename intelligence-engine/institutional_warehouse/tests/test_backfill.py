@@ -12,7 +12,7 @@ import pytest
 
 os.environ.setdefault("INSTITUTIONAL_WAREHOUSE_ROOT", tempfile.mkdtemp(prefix="wh_backfill_"))
 
-from institutional_warehouse import db, history, store  # noqa: E402
+from institutional_warehouse import db, history, store, units  # noqa: E402
 from institutional_warehouse.backfill import (  # noqa: E402
     checkpoints,
     coverage,
@@ -313,7 +313,9 @@ def test_statement_backfill_stores_raw_periods_only():
     assert result["annual_periods"] == 2
     assert result["quarterly_periods"] == 1
     row = store.fetch("financials_annual", entity="AAA", filters={"fiscal_year": "FY25"})["rows"][0]
-    assert row["revenue"] == 1200.0
+    # Yahoo reports absolute rupees; the warehouse stores INR million.
+    assert row["revenue"] == pytest.approx(1200.0 / units.MILLION)
+    assert row["_meta"]["reported_unit"] == "rupee"
     assert row["free_cash_flow"] is None  # derived values are not the backfill's job
 
 

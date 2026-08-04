@@ -9,7 +9,7 @@ import pytest
 
 os.environ.setdefault("INSTITUTIONAL_WAREHOUSE_ROOT", tempfile.mkdtemp(prefix="wh_calc_"))
 
-from institutional_warehouse import db, formulas, production, store  # noqa: E402
+from institutional_warehouse import db, formulas, production, store, units  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
@@ -97,8 +97,11 @@ def test_statement_derivations_compute_fcf_and_book_value():
     formulas.recalc_statement_derivations(actor="tester")
     rows = {r["symbol"] + r["fiscal_year"]: r for r in store.fetch("financials_annual", limit=100)["rows"]}
     row = rows["AAAFY2026"]
+    # Both inputs are aggregates, so free cash flow stays in INR million.
     assert row["free_cash_flow"] == pytest.approx(120.0 - 30.0)  # CFO 1.2x PAT, capex 0.3x PAT
-    assert row["book_value"] == pytest.approx(5.0)
+    # Book value per share is money per share: equity of 500 INR million over
+    # 100 shares is 5 million rupees a share, not 5.
+    assert row["book_value"] == pytest.approx(5.0 * units.MILLION)
 
 
 def test_market_cap_is_price_times_shares():
@@ -157,7 +160,11 @@ def test_valuation_snapshot_computes_multiples_and_relative_position():
     assert alpha["cmp"] > 0
     assert alpha["market_cap"] == pytest.approx(alpha["cmp"] * 100.0)
     assert alpha["pe"] == pytest.approx(alpha["cmp"] / 1.0, rel=1e-6)
-    assert alpha["enterprise_value"] == pytest.approx(alpha["market_cap"] + 250.0 - 50.0)
+    # Market cap is in rupees while debt and cash are in INR million, so the
+    # aggregates are converted before they are added.
+    assert alpha["enterprise_value"] == pytest.approx(
+        alpha["market_cap"] + (250.0 - 50.0) * units.MILLION
+    )
     assert alpha["sector_median"] is not None
     assert 0 <= alpha["percentile"] <= 100
     assert alpha["upside"] == pytest.approx(100.0 * (30.0 - alpha["cmp"]) / alpha["cmp"], abs=0.01)
