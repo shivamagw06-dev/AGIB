@@ -136,6 +136,61 @@ than an addition to it.
 
 ---
 
+## Financial statement identity
+
+A consolidated and a standalone filing for one company and year are two
+different facts, not two opinions about one fact. Until `statement_type` joined
+the natural key they hashed to the same row, so importing one silently replaced
+the other — no conflict, no warning, no history.
+
+Both financial tabs are now keyed by statement type:
+
+```
+financials_annual     (symbol, statement_type, fiscal_year)
+financials_quarterly  (symbol, statement_type, fiscal_period)
+```
+
+### What is deliberately not in the key
+
+**`source`.** Conflict detection works by finding the stored row an incoming row
+collides with. If each vendor owned its own row they would never collide, and
+DQIV could never report that Yahoo and Upstox disagree about the same filing.
+Sources share a row; disagreements are recorded rather than avoided.
+
+**`statement_version`.** Every write already snapshots the prior row through
+`versions`, so a restatement is a new snapshot on the same identity. Putting a
+version in the key would stand up a second version chain competing with the one
+that exists.
+
+### Defaulting
+
+`statement_type` is required by the key, and `store.make_row_id` refuses a row
+with an empty key part, so the gateway fills it before the row is keyed. A
+collector that declares nothing lands as `UNKNOWN` rather than being dropped.
+An unrecognised vendor label also becomes `UNKNOWN` rather than being guessed —
+a filing recorded under the wrong type is worse than one recorded under none,
+because it would be compared against the wrong sibling.
+
+Conflict detection additionally refuses to compare rows whose type or frequency
+differ, so a legacy mis-pairing cannot surface as a false disagreement.
+
+### Migrating rows written before this
+
+Legacy rows have no type *and* a `row_id` hashed from the old key, so a later
+import of the same filing would compute a different id and insert a duplicate
+beside it. The migration does both: stamps `UNKNOWN` and re-keys.
+
+```bash
+GET  /v1/warehouse/statement-identity                            # what is untyped
+POST /v1/warehouse/migrate-statement-identity {"dry_run": true}  # read the plan
+POST /v1/warehouse/migrate-statement-identity {"dry_run": false} # apply
+```
+
+Where a correctly-typed row already occupies the new id, the legacy row is left
+alone rather than overwritten. Re-running is safe.
+
+---
+
 ## Units
 
 Aggregate money is stored in **INR million**. Vendors do not agree on magnitude
