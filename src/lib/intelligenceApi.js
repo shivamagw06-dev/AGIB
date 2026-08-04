@@ -3088,7 +3088,36 @@ export const postHvieRuntimeStart = () =>
 export const postHvieRuntimeStop = () =>
   intelligenceFetch('/historical-valuation/runtime/stop', { method: 'POST', body: {} });
 
-/** HVIE Universe Completion Programme (Phase 8.3A) */
+/** HVIE intelligence aliases (Phase 8.3B — warehouse-reconstructed) */
+export const getHvieCompany = (symbol, params = {}) => {
+  const qs = new URLSearchParams(
+    Object.fromEntries(Object.entries(params).filter(([, v]) => v != null && v !== '')),
+  ).toString();
+  return intelligenceFetch(
+    `/hvie/company/${encodeURIComponent(symbol)}${qs ? `?${qs}` : ''}`,
+    { timeoutMs: 60_000 },
+  );
+};
+export const getHvieHistory = (symbol, params = {}) => {
+  const qs = new URLSearchParams(
+    Object.fromEntries(Object.entries(params).filter(([, v]) => v != null && v !== '')),
+  ).toString();
+  return intelligenceFetch(
+    `/hvie/history/${encodeURIComponent(symbol)}${qs ? `?${qs}` : ''}`,
+    { timeoutMs: 90_000 },
+  );
+};
+export const getHvieStatistics = (symbol, params = {}) => {
+  const qs = new URLSearchParams(
+    Object.fromEntries(Object.entries(params).filter(([, v]) => v != null && v !== '')),
+  ).toString();
+  return intelligenceFetch(
+    `/hvie/statistics/${encodeURIComponent(symbol)}${qs ? `?${qs}` : ''}`,
+    { timeoutMs: 60_000 },
+  );
+};
+
+/** HVIE Universe Completion Programme (Phase 8.3A/B) */
 export const getHvieUniverseHealth = () =>
   intelligenceFetch('/hvie/runtime/health', { timeoutMs: 60_000 });
 export const getHvieUniverseStatus = () =>

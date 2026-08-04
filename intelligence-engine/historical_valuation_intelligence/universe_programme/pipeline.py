@@ -12,6 +12,7 @@ from historical_valuation_intelligence.universe_programme.models import (
     LIFE_FAILED,
     LIFE_READY,
     LIFE_WAITING_PRICE,
+    LIFE_WAITING_SHARE_COUNT,
     LIFE_WAITING_STATEMENTS,
     MAX_ATTEMPTS,
     MAX_BACKOFF_SECONDS,
@@ -153,7 +154,7 @@ def process_company(symbol: str) -> dict[str, Any]:
         life = clf.get("lifecycle") or LIFE_WAITING_PRICE
         # Waiting on inputs — park as SKIPPED-with-waiting lifecycle so bootstrap doesn't spin forever.
         # Reclassify on next sync will promote when data arrives (re-queue as PENDING).
-        if life in {LIFE_WAITING_PRICE, LIFE_WAITING_STATEMENTS}:
+        if life in {LIFE_WAITING_PRICE, LIFE_WAITING_STATEMENTS, LIFE_WAITING_SHARE_COUNT}:
             row = mark_terminal(
                 ticker,
                 queue_status=QUEUE_SKIPPED,
@@ -353,7 +354,7 @@ def requeue_waiting(*, limit: int = 200) -> dict[str, Any]:
         if str(r.get("queue_status") or "").upper() != QUEUE_SKIPPED:
             continue
         life = str(r.get("lifecycle") or "").upper()
-        if life not in {LIFE_WAITING_PRICE, LIFE_WAITING_STATEMENTS}:
+        if life not in {LIFE_WAITING_PRICE, LIFE_WAITING_STATEMENTS, LIFE_WAITING_SHARE_COUNT}:
             continue
         sym = str(r.get("symbol") or "").upper()
         clf = classify_company(sym)

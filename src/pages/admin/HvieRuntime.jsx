@@ -174,8 +174,10 @@ export default function HvieRuntime() {
         <section className="vp-stats">
           <Stat label="Companies" value={fmt(progress.universe)} hint="On the work list" />
           <Stat label="Finished" value={fmt(progress.complete)} hint={`${fmt(pct, 1)}%`} />
-          <Stat label="Waiting" value={fmt(progress.pending)} hint="Not started yet" />
-          <Stat label="Retry" value={fmt(progress.retry)} hint="Will try again" />
+          <Stat label="Ready / pending" value={fmt(progress.pending)} hint="Queued to build" />
+          <Stat label="Waiting prices" value={fmt(progress.waiting_prices)} hint="Need market history" />
+          <Stat label="Waiting statements" value={fmt(progress.waiting_statements)} hint="Need financials" />
+          <Stat label="Waiting share count" value={fmt(progress.waiting_share_count)} hint="Need shares outstanding" />
           <Stat label="Failed" value={fmt(progress.failed)} hint="Need attention" />
           <Stat
             label="Speed"

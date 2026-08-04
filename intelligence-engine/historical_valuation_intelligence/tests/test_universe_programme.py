@@ -164,6 +164,25 @@ def test_classify_waiting_price(monkeypatch):
     assert out["lifecycle"] == LIFE_WAITING_PRICE
 
 
+def test_classify_waiting_share_count(monkeypatch):
+    store = FakeStore()
+    store.tables["daily_market_history"] = [
+        {"symbol": "AAA", "date": f"2024-01-{i:02d}", "close": 100 + i}
+        for i in range(1, 20)
+    ]
+    store.tables["financials_annual"] = [
+        {"symbol": "AAA", "fiscal_year": "FY24", "pat": 1000, "equity": 5000},
+    ]
+    _patch_warehouse(monkeypatch, store)
+    from historical_valuation_intelligence.universe_programme.eligibility import classify_company
+    from historical_valuation_intelligence.universe_programme.models import LIFE_WAITING_SHARE_COUNT
+
+    out = classify_company("AAA")
+    assert out["eligible"] is False
+    assert out["lifecycle"] == LIFE_WAITING_SHARE_COUNT
+    assert out["blocking_reason"] == "missing_share_count"
+
+
 def test_process_company_skips_when_waiting_inputs(monkeypatch):
     store = FakeStore()
     _patch_warehouse(monkeypatch, store)

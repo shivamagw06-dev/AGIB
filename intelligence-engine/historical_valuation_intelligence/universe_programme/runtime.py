@@ -236,10 +236,11 @@ def board() -> dict[str, Any]:
     complete = int(pipe.get("complete") or 0)
     pct = round(100.0 * complete / universe, 1) if universe else 0.0
     lists = queue.board_rows(limit_fail=20, limit_next=12)
+    life = queue.lifecycle_counts()
     stages = [
         {"name": "All companies", "count": pipe.get("universe"), "hint": "Full listed universe on the queue"},
-        {"name": "Have enough data", "count": pipe.get("eligible"), "hint": "Prices + statements available"},
-        {"name": "History built", "count": pipe.get("seeded_history"), "hint": "Reconstructed valuation history"},
+        {"name": "Have enough data", "count": pipe.get("eligible"), "hint": "Prices + statements + share count"},
+        {"name": "History built", "count": pipe.get("seeded_history"), "hint": "Reconstructed from statements + prices"},
         {"name": "Statistics", "count": pipe.get("statistics"), "hint": "Means / medians / bands inputs"},
         {"name": "Percentile ready", "count": pipe.get("percentiles"), "hint": "Where valuation sits vs history"},
         {"name": "Regime ready", "count": pipe.get("regimes"), "hint": "Cheap / fair / expensive label"},
@@ -250,6 +251,8 @@ def board() -> dict[str, Any]:
         "engine": ENGINE_CODE,
         "programme": PROGRAMME_CODE,
         "version": PROGRAMME_VERSION,
+        "reconstruction_version": "8.3B",
+        "vendor_historical_ratios": False,
         "runtime": {
             "status": runtime_status,
             "started_at": snap.get("started_at"),
@@ -269,6 +272,11 @@ def board() -> dict[str, Any]:
             "retry": pipe.get("retry"),
             "failed": pipe.get("failed"),
             "skipped": pipe.get("skipped"),
+            "waiting_prices": life.get("WAITING_PRICE_HISTORY", 0),
+            "waiting_statements": life.get("WAITING_STATEMENTS", 0),
+            "waiting_corporate_actions": life.get("WAITING_CORPORATE_ACTIONS", 0),
+            "waiting_share_count": life.get("WAITING_SHARE_COUNT", 0),
+            "ready": life.get("READY", 0),
         },
         "pipeline": pipe,
         "stages": stages,
@@ -283,10 +291,12 @@ def board() -> dict[str, Any]:
         "next_up": lists.get("next_up") or [],
         "recent_complete": lists.get("recent_complete") or [],
         "what_this_does": (
-            "Builds historical PE, PB and EV for every company from warehouse prices, "
-            "financial statements and corporate actions. It does not download vendor PE history. "
+            "Builds historical PE, PB, EV, EV/EBITDA, EV/Sales and profitability from "
+            "warehouse prices + normalized financial statements + corporate actions "
+            "(Phase 8.3B). It never downloads vendor historical ratios. "
             "Press Start and leave it running — progress is saved if the server restarts."
         ),
+        "lifecycle": life,
         "buttons": {
             "start": "Start / keep the background worker running until the queue is empty.",
             "stop": "Pause the background worker. Progress already saved stays saved.",

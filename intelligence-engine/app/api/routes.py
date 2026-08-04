@@ -19347,6 +19347,68 @@ async def historical_valuation_health():
     return hvie_health()
 
 
+# Phase 8.3B — short HVIE intelligence aliases (warehouse-reconstructed only)
+@router.get("/hvie/company/{symbol}")
+async def hvie_alias_company(symbol: str, metric: str = "", window: str = "10y"):
+    from historical_valuation_intelligence import company as hvie_company
+
+    return hvie_company(symbol, metric=metric or None, window=window or "10y")
+
+
+@router.get("/hvie/history/{symbol}")
+async def hvie_alias_history(
+    symbol: str, metric: str = "", window: str = "max", limit: int = 5000,
+):
+    from historical_valuation_intelligence import history as hvie_history
+
+    return hvie_history(
+        symbol, metric=metric or None, window=window or "max",
+        limit=min(max(int(limit or 5000), 1), 20000),
+    )
+
+
+@router.get("/hvie/statistics/{symbol}")
+async def hvie_alias_statistics(symbol: str, metric: str = "pe", window: str = ""):
+    from historical_valuation_intelligence import statistics as hvie_statistics
+
+    return hvie_statistics(symbol, metric=metric or "pe", window=window or None)
+
+
+@router.get("/hvie/percentiles/{symbol}")
+async def hvie_alias_percentiles(symbol: str, metric: str = "pe"):
+    from historical_valuation_intelligence import percentiles as hvie_percentiles
+
+    return hvie_percentiles(symbol, metric=metric or "pe")
+
+
+@router.get("/hvie/bands/{symbol}")
+async def hvie_alias_bands(symbol: str, metric: str = "pe", window: str = "max"):
+    from historical_valuation_intelligence import bands as hvie_bands
+
+    return hvie_bands(symbol, metric=metric or "pe", window=window or "max")
+
+
+@router.get("/hvie/regimes/{symbol}")
+async def hvie_alias_regimes(symbol: str, metric: str = "pe", window: str = "max"):
+    from historical_valuation_intelligence import regimes as hvie_regimes
+
+    return hvie_regimes(symbol, metric=metric or "pe", window=window or "max")
+
+
+@router.get("/hvie/rerating/{symbol}")
+async def hvie_alias_rerating(symbol: str, metric: str = "pe", window: str = "max"):
+    from historical_valuation_intelligence import rerating as hvie_rerating
+
+    return hvie_rerating(symbol, metric=metric or "pe", window=window or "max")
+
+
+@router.get("/hvie/coverage/{symbol}")
+async def hvie_alias_coverage(symbol: str, metric: str = ""):
+    from historical_valuation_intelligence import coverage as hvie_coverage
+
+    return hvie_coverage(symbol, metric=metric or None)
+
+
 @router.get("/historical-valuation/company/{symbol}")
 async def historical_valuation_company(symbol: str, metric: str = "", window: str = "10y"):
     from historical_valuation_intelligence import company as hvie_company
