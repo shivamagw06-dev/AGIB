@@ -329,6 +329,12 @@ async function processBatch(batch) {
   let successes = 0;
 
   const warehouseOk = Boolean(result.ok);
+  const batchRateLimited = result.status === 429
+    || result.error === 'upstox_rate_limited'
+    || /too many request/i.test(String(result.error || ''));
+  if (batchRateLimited) {
+    adjustThrottle({ hit429: true });
+  }
   for (const item of batch) {
     const err = failedMap.get(item.symbol);
     if (err) {
@@ -336,6 +342,7 @@ async function processBatch(batch) {
       continue;
     }
     if (!warehouseOk) {
+      // Prefer precise batch error (rate limit / auth) over legacy "empty".
       markRetry(item, result.error || 'ingest_failed', result.status || null);
       continue;
     }

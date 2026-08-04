@@ -160,3 +160,13 @@ PR **#507** introduced Coverage Health residual/bootstrap panels and the truncat
 1. Refresh Coverage Health after this fix deploys → expect `no_upstox_fundamentals` ≈ **338**, `key_ratios` ≈ **2077**
 2. Prefer `bootstrap_runs` + `valuation_ratios` distinct symbols over Node queue for historical truth
 3. Treat UIFI zeros as a separate Phase 7.4E completion task (source=`upstox` writes), not as key-ratios failure
+
+---
+
+## Note — `upstox_key_ratios_empty` in bootstrap logs
+
+This error is returned by `refreshUpstoxValuationRatios` when **zero** companies in a batch successfully fetch from Upstox (every call threw). Live bootstrap failures show `Too Many Request Sent` (HTTP **429**) on the same batches.
+
+So the log line is usually **rate-limit**, not “Upstox has no key-ratios for this ticker.” Warehouse already holds tens of thousands of ratio rows; pause/resume bootstrap rather than treating this as data emptiness.
+
+After this branch: the same condition surfaces as `upstox_rate_limited` (with legacy alias retained).
