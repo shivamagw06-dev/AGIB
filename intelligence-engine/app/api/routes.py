@@ -19466,6 +19466,130 @@ async def historical_valuation_runtime_stop():
     return runtime_stop()
 
 
+# --------------------------------------------------------------------------
+# HVIE Universe Completion Programme (Phase 8.3A)
+# --------------------------------------------------------------------------
+
+@router.get("/hvie/runtime/status")
+async def hvie_universe_runtime_status():
+    from historical_valuation_intelligence.universe_programme import production as univ
+
+    return univ.status()
+
+
+@router.get("/hvie/runtime/coverage")
+async def hvie_universe_runtime_coverage():
+    from historical_valuation_intelligence.universe_programme import production as univ
+
+    return univ.coverage()
+
+
+@router.get("/hvie/runtime/pipeline")
+async def hvie_universe_runtime_pipeline():
+    from historical_valuation_intelligence.universe_programme import production as univ
+
+    return univ.pipeline_view()
+
+
+@router.get("/hvie/runtime/company/{symbol}")
+async def hvie_universe_runtime_company(symbol: str):
+    from historical_valuation_intelligence.universe_programme import production as univ
+
+    return univ.company(symbol)
+
+
+@router.get("/hvie/runtime/sector")
+async def hvie_universe_runtime_sector():
+    from historical_valuation_intelligence.universe_programme import production as univ
+
+    return univ.sector_view()
+
+
+@router.get("/hvie/runtime/industry")
+async def hvie_universe_runtime_industry():
+    from historical_valuation_intelligence.universe_programme import production as univ
+
+    return univ.industry_view()
+
+
+@router.get("/hvie/runtime/market")
+async def hvie_universe_runtime_market():
+    from historical_valuation_intelligence.universe_programme import production as univ
+
+    return univ.market_view()
+
+
+@router.get("/hvie/runtime/failures")
+async def hvie_universe_runtime_failures(limit: int = 100):
+    from historical_valuation_intelligence.universe_programme import production as univ
+
+    return univ.failures(limit=min(max(int(limit or 100), 1), 500))
+
+
+@router.get("/hvie/runtime/retry")
+async def hvie_universe_runtime_retry_queue(limit: int = 100):
+    from historical_valuation_intelligence.universe_programme import production as univ
+
+    return univ.retry_queue(limit=min(max(int(limit or 100), 1), 500))
+
+
+@router.post("/hvie/runtime/start")
+async def hvie_universe_runtime_start():
+    from historical_valuation_intelligence.universe_programme import production as univ
+
+    return univ.start()
+
+
+@router.post("/hvie/runtime/stop")
+async def hvie_universe_runtime_stop():
+    from historical_valuation_intelligence.universe_programme import production as univ
+
+    return univ.stop()
+
+
+@router.post("/hvie/runtime/resume")
+async def hvie_universe_runtime_resume():
+    from historical_valuation_intelligence.universe_programme import production as univ
+
+    return univ.resume()
+
+
+@router.post("/hvie/runtime/run")
+async def hvie_universe_runtime_run(payload: dict[str, Any] = Body(default_factory=dict)):
+    from historical_valuation_intelligence.universe_programme import production as univ
+
+    body = payload or {}
+    return univ.run_batch(batch=int(body.get("batch") or 15))
+
+
+@router.post("/hvie/runtime/retry/{symbol}")
+async def hvie_universe_runtime_retry_symbol(symbol: str):
+    from historical_valuation_intelligence.universe_programme import production as univ
+
+    return univ.retry_symbol(symbol)
+
+
+@router.post("/hvie/runtime/reconstruct/{symbol}")
+async def hvie_universe_runtime_reconstruct(symbol: str):
+    from historical_valuation_intelligence.universe_programme import production as univ
+
+    return univ.reconstruct_symbol(symbol)
+
+
+@router.post("/hvie/runtime/aggregates")
+async def hvie_universe_runtime_aggregates(payload: dict[str, Any] = Body(default_factory=dict)):
+    from historical_valuation_intelligence.universe_programme import production as univ
+
+    return univ.persist_aggregates(metric=str((payload or {}).get("metric") or "pe"))
+
+
+@router.get("/hvie/runtime/health")
+async def hvie_universe_runtime_health():
+    from historical_valuation_intelligence.universe_programme import production as univ
+
+    return univ.health()
+
+
 @router.get("/valuation-engine/health")
 async def valuation_engine_health():
     """The one valuation contract: what it computes and what it reads."""

@@ -274,12 +274,20 @@ def run_daily_append(*, batch: int = 80) -> dict[str, Any]:
     }
 
 
-def forward_rebuild_company(symbol: str, release_date: Optional[str] = None) -> dict[str, Any]:
+def forward_rebuild_company(
+    symbol: str,
+    release_date: Optional[str] = None,
+    *,
+    as_of: Optional[str] = None,
+) -> dict[str, Any]:
     """Quarterly/annual: rebuild only from statement release date → today."""
     ticker = str(symbol or "").strip().upper()
+    start = release_date or as_of
+    if hasattr(start, "isoformat"):
+        start = start.isoformat()
     _upsert_state(ticker, status="FORWARD_REBUILD")
     result = compute.recalculate_from_statement(
-        ticker, release_date=release_date, actor="hvie_forward",
+        ticker, release_date=start, actor="hvie_forward",
     )
     _upsert_state(
         ticker,
@@ -464,17 +472,27 @@ def run_once(mode: str = "auto", **kwargs: Any) -> dict[str, Any]:
             )
         elif mode in {"ca", "corporate_action"}:
             out = corporate_action_rebuild(str(kwargs.get("symbol") or ""))
-        elif mode == "auto":
-            # Prefer finishing bootstrap; otherwise daily maintenance.
-            from institutional_warehouse import store
+        elif mode in {"universe", "universe_bootstrap", "completion"}:
+            from historical_valuation_intelligence.universe_programme import runtime as univ
 
-            seeded = sum(
-                1 for r in (store.all_rows("hvie_company_state", limit=6000) or [])
-                if r.get("seeded")
-            )
-            universe = len(_universe())
-            if universe and seeded < universe:
-                out = run_bootstrap_slice(batch=int(kwargs.get("batch") or 15))
+            out = univ.process_batch(batch=int(kwargs.get("batch") or 15))
+        elif mode == "auto":
+            # Prefer finishing the persisted universe queue; else daily maintenance.
+            from historical_valuation_intelligence.universe_programme import runtime as univ
+            from historical_valuation_intelligence.universe_programme import queue as univ_queue
+
+            try:
+                univ_queue.sync_universe()
+                pipe = univ_queue.pipeline_counts()
+                remaining = (
+                    int(pipe.get("pending") or 0)
+                    + int(pipe.get("retry") or 0)
+                    + int(pipe.get("running") or 0)
+                )
+            except Exception:
+                remaining = -1
+            if remaining != 0:
+                out = univ.process_batch(batch=int(kwargs.get("batch") or 15))
             else:
                 out = run_daily_append(batch=int(kwargs.get("batch") or 80))
         else:
@@ -491,12 +509,26 @@ def run_once(mode: str = "auto", **kwargs: Any) -> dict[str, Any]:
 
 
 def start_loop(*, interval_seconds: Optional[float] = None) -> dict[str, Any]:
-    """Background loop for gather_worker — drains bootstrap + light daily."""
+    """Background loop for gather_worker — drains universe queue + light daily."""
     global _THREAD
     if not _truthy("HVIE_RUNTIME", "true"):
         return {"ok": True, "enabled": False, "reason": "HVIE_RUNTIME=false"}
+    # Also start the dedicated universe completion runtime (persisted queue).
+    universe_start = None
+    try:
+        from historical_valuation_intelligence.universe_programme import runtime as univ
+
+        universe_start = univ.start(interval_seconds=interval_seconds)
+    except Exception as exc:
+        universe_start = {"ok": False, "error": str(exc)[:200]}
+
     if _THREAD and _THREAD.is_alive():
-        return {"ok": True, "enabled": True, "already_running": True}
+        return {
+            "ok": True,
+            "enabled": True,
+            "already_running": True,
+            "universe_programme": universe_start,
+        }
 
     interval = float(interval_seconds or os.getenv("HVIE_RUNTIME_INTERVAL_SECONDS") or 120)
 
@@ -516,11 +548,24 @@ def start_loop(*, interval_seconds: Optional[float] = None) -> dict[str, Any]:
 
     _THREAD = threading.Thread(target=_loop, name="hvie-runtime", daemon=True)
     _THREAD.start()
-    return {"ok": True, "enabled": True, "interval_seconds": interval, "engine": ENGINE_CODE}
+    return {
+        "ok": True,
+        "enabled": True,
+        "interval_seconds": interval,
+        "engine": ENGINE_CODE,
+        "universe_programme": universe_start,
+    }
 
 
 def stop_loop() -> dict[str, Any]:
     with _STATE_LOCK:
         _RUNTIME["stopped"] = True
         _RUNTIME["status"] = "stopped"
-    return {"ok": True, "stopped": True}
+    universe_stop = None
+    try:
+        from historical_valuation_intelligence.universe_programme import runtime as univ
+
+        universe_stop = univ.stop()
+    except Exception as exc:
+        universe_stop = {"ok": False, "error": str(exc)[:200]}
+    return {"ok": True, "stopped": True, "universe_programme": universe_stop}
