@@ -137,8 +137,46 @@ _CONSENSUS_SCREEN_RE = re.compile(
     r"\b(upside|coverage|covered|consensus)\b.{0,30}\b(across|in the|by sector|universe|market)\b",
     re.I,
 )
-_MACRO_RE = re.compile(r"\b(macro|gdp|inflation|interest rate|rbi|fed|risk premium|country premium)\b", re.I)
-_MARKET_RE = re.compile(r"\b(price|return|returns|market cap|volume|earnings date|ytd)\b", re.I)
+_MACRO_RE = re.compile(
+    r"\b(macro|gdp|inflation|interest rate|rbi|fed|risk premium|country premium|"
+    r"rate cut|rate hike|basis point|repo rate|nbfc)\b",
+    re.I,
+)
+_MARKET_RE = re.compile(
+    r"\b(price|return|returns|market cap|volume|earnings date|ytd|"
+    r"market breadth|sector rotation|institutional flows|today'?s (?:indian )?market|"
+    r"market summary|indian market)\b",
+    re.I,
+)
+_FORECAST_RE = re.compile(
+    r"\b(forecast|outlook|bull case|bear case|base case|bull,? base,? and bear|"
+    r"next 3(?:\s*[–-]\s*5)? years|scenario probabilities|forecast confidence)\b",
+    re.I,
+)
+_HISTORICAL_VAL_RE = re.compile(
+    r"\b(historical valuation|own history|similar to today|when has|when was|"
+    r"ever traded|what happened afterwards|percentile|versus history|vs\.? history)\b",
+    re.I,
+)
+_ATTRIBUTION_RE = re.compile(
+    r"\b(attribute|attribution|break down the premium|decompose|"
+    r"trades? at a premium|trading at a premium|premium valuation|"
+    r"what explains the|valuation drivers?)\b",
+    re.I,
+)
+_SCREEN_RE = re.compile(
+    r"\b(hedge fund|screen for|find (?:high-quality|companies)|compounders?|"
+    r"which (?:stocks|companies)|strategy screen|factor screen|"
+    r"rising institutional ownership|attractive valuation)\b",
+    re.I,
+)
+_COMPANY_INTEL_RE = re.compile(
+    r"\b(institutional equity analyst|complete company intelligence|"
+    r"investment committee|ic report|committee report|research report|"
+    r"as if you were|dossier|key monitoring points|"
+    r"observed,? derived,? and inferred)\b",
+    re.I,
+)
 _PORTFOLIO_RE = re.compile(
     r"\b(portfolio|position sizing|risk budget|factor exposure|concentration|"
     r"rebalanc\w*|portfolio construction|portfolio quality|portfolio scenario|"
@@ -233,6 +271,9 @@ def _detect_company_hint(question: str) -> tuple[Optional[str], Optional[str]]:
         "jsw steel": "JSWSTEEL",
         "interglobe": "INDIGO",
         "adani enterprises": "ADANIENT",
+        "larsen & toubro": "LT",
+        "larsen and toubro": "LT",
+        "tata motors": "TATAMOTORS",
         "reliance": "RELIANCE",
         "infosys": "INFY",
         "wipro": "WIPRO",
@@ -242,6 +283,7 @@ def _detect_company_hint(question: str) -> tuple[Optional[str], Optional[str]]:
         "tcs": "TCS",
         "sbi": "SBIN",
         "ongc": "ONGC",
+        "l&t": "LT",
     }
     low = question.lower()
     for name, tk in sorted(aliases.items(), key=lambda kv: -len(kv[0])):
@@ -253,10 +295,10 @@ def _detect_company_hint(question: str) -> tuple[Optional[str], Optional[str]]:
 _EXPLICIT_COMPANY_ALIASES = (
     "reliance", "hdfc bank", "infosys", "tcs", "wipro", "icici bank", "sbi",
     "state bank of india", "axis bank", "kotak", "tata steel", "tata motors",
-    "tata power", "adani", "hmt limited", "goodricke", "utique", "aakaar",
-    "spright agro", "titan company", "dmart", "avenue supermarts", "asian paints",
-    "reliance retail", "ongc", "jsw steel", "indigo", "interglobe", "berger",
-    "berger paints",
+    "tata power", "larsen & toubro", "larsen and toubro", "adani", "hmt limited",
+    "goodricke", "utique", "aakaar", "spright agro", "titan company", "dmart",
+    "avenue supermarts", "asian paints", "reliance retail", "ongc", "jsw steel",
+    "indigo", "interglobe", "berger", "berger paints",
 )
 
 
@@ -352,10 +394,13 @@ def plan_query(question: str) -> QueryPlan:
         or _INDUSTRY_NAME_RE.search(q)
         or _GROWTH_RE.search(q)
         or _MANAGEMENT_RE.search(q)
+        or _VALUATION_RE.search(q)
+        or _FORECAST_RE.search(q)
+        or _HISTORICAL_VAL_RE.search(q)
         or re.search(
             r"\b(infosys|tcs|visa|mastercard|dmart|reliance|hdfc|icici|"
             r"ferrari|toyota|apple|costco|asian paints|indigo|air india|"
-            r"adani|jsw)\b",
+            r"adani|jsw|tata motors|larsen)\b",
             q,
             re.I,
         )
@@ -368,6 +413,9 @@ def plan_query(question: str) -> QueryPlan:
             re.I,
         ):
             types.append("industry")
+        elif _VALUATION_RE.search(q) or _FORECAST_RE.search(q) or _HISTORICAL_VAL_RE.search(q):
+            if "valuation" not in types:
+                types.append("valuation")
         elif "business_model" not in types:
             types.append("business_model")
     if _GROWTH_RE.search(q) or _VALUE_DRIVER_RE.search(q):
@@ -386,10 +434,23 @@ def plan_query(question: str) -> QueryPlan:
         types.append("industry")
     if _CONSENSUS_RE.search(q) or _CONSENSUS_SCREEN_RE.search(q):
         types.insert(0, "consensus")
+    if _FORECAST_RE.search(q):
+        types.append("forecast")
+    if _HISTORICAL_VAL_RE.search(q):
+        types.append("historical")
+    if _ATTRIBUTION_RE.search(q):
+        types.append("attribution")
+    if _SCREEN_RE.search(q):
+        types.append("screen")
+    if _COMPANY_INTEL_RE.search(q):
+        types.append("research")
+        types.append("investment")
     if _MACRO_RE.search(q):
         types.append("macro")
     if _MARKET_RE.search(q):
         types.append("market")
+        if re.search(r"today'?s|market summary|market breadth|sector rotation", q, re.I):
+            types.append("market_summary")
     if _PORTFOLIO_RE.search(q):
         types.append("portfolio")
     if _RESEARCH_RE.search(q):
@@ -410,6 +471,12 @@ def plan_query(question: str) -> QueryPlan:
                 "research",
                 "portfolio",
                 "consensus",
+                "forecast",
+                "historical",
+                "attribution",
+                "screen",
+                "macro",
+                "market_summary",
             }
         )
     )

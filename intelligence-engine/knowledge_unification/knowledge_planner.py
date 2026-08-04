@@ -100,6 +100,9 @@ _FORECAST_MENU = (
     "forecast_intelligence_engine",
     "macro_intelligence_engine",
     "research_intelligence_engine",
+    "historical_valuation_intelligence",
+    "unified_valuation_engine",
+    "valuation_attribution_engine",
     "research_intelligence",
     "investment_intelligence",
     "business_intelligence",
@@ -118,6 +121,7 @@ _FORECAST_MENU = (
 # Phase 9.0 — Macro Intelligence Engine for top-down environment / sector transmission.
 _MACRO_MENU = (
     "macro_intelligence_engine",
+    "market_intelligence_engine",
     "forecast_intelligence_engine",
     "research_intelligence_engine",
     "investment_intelligence",
@@ -156,16 +160,114 @@ _ACCOUNTING_MENU = (
     "academy",
 )
 _VALUATION_MENU = (
+    "unified_valuation_engine",
+    "historical_valuation_intelligence",
+    "valuation_attribution_engine",
+    "valuation_policy_engine",
+    "historical_intelligence",
+    "institutional_warehouse",
+    "valuation_consensus",
+    "valuation_terminal",
+    "research_intelligence_engine",
+    "financial_statement_warehouse",
+    "hedge_fund_screens",
+    "financial_concepts",
+    "capiq_ikt",
+    "company_memory",
+)
+# Full institutional company / IC-style intelligence — RIE leads; engines under it.
+_COMPANY_INTEL_MENU = (
+    "research_intelligence_engine",
+    "forecast_intelligence_engine",
+    "macro_intelligence_engine",
+    "unified_valuation_engine",
+    "historical_valuation_intelligence",
+    "valuation_attribution_engine",
+    "valuation_policy_engine",
+    "market_intelligence_engine",
+    "business_intelligence",
+    "industry_intelligence",
+    "investment_intelligence",
     "historical_intelligence",
     "institutional_warehouse",
     "valuation_consensus",
     "valuation_terminal",
     "financial_statement_warehouse",
     "hedge_fund_screens",
-    "financial_concepts",
-    "academy",
     "capiq_ikt",
     "company_memory",
+    "ikl",
+    "knowledge_factory",
+)
+# Premium / discount attribution — VARIE + HVIE + VPAE first.
+_ATTRIBUTION_MENU = (
+    "valuation_attribution_engine",
+    "historical_valuation_intelligence",
+    "valuation_policy_engine",
+    "unified_valuation_engine",
+    "research_intelligence_engine",
+    "forecast_intelligence_engine",
+    "macro_intelligence_engine",
+    "historical_intelligence",
+    "institutional_warehouse",
+    "valuation_consensus",
+    "valuation_terminal",
+    "capiq_ikt",
+    "company_memory",
+)
+# Own-history / regime questions — HVIE first.
+_HISTORICAL_VAL_MENU = (
+    "historical_valuation_intelligence",
+    "valuation_attribution_engine",
+    "unified_valuation_engine",
+    "valuation_policy_engine",
+    "historical_intelligence",
+    "institutional_warehouse",
+    "valuation_terminal",
+    "valuation_consensus",
+    "research_intelligence_engine",
+    "capiq_ikt",
+)
+# Hedge-fund / factor screens across the universe.
+_SCREEN_MENU = (
+    "hedge_fund_screens",
+    "forecast_intelligence_engine",
+    "research_intelligence_engine",
+    "unified_valuation_engine",
+    "valuation_attribution_engine",
+    "historical_valuation_intelligence",
+    "market_intelligence_engine",
+    "institutional_warehouse",
+    "valuation_terminal",
+    "valuation_consensus",
+    "investment_intelligence",
+)
+# Cross-company institutional comparison.
+_COMPARE_MENU = (
+    "research_intelligence_engine",
+    "unified_valuation_engine",
+    "historical_valuation_intelligence",
+    "valuation_attribution_engine",
+    "forecast_intelligence_engine",
+    "valuation_policy_engine",
+    "business_intelligence",
+    "industry_intelligence",
+    "institutional_warehouse",
+    "valuation_terminal",
+    "valuation_consensus",
+    "financial_statement_warehouse",
+    "capiq_ikt",
+    "company_memory",
+)
+# Today's market / breadth / flows / rotation.
+_MARKET_MENU = (
+    "market_intelligence_engine",
+    "macro_intelligence_engine",
+    "historical_valuation_intelligence",
+    "institutional_warehouse",
+    "forecast_intelligence_engine",
+    "valuation_terminal",
+    "hedge_fund_screens",
 )
 # Sell-side consensus (CapIQ targets / broker counts / coverage) leads, then
 # AGI's own layers so the answer can separate market view from AGI view.
@@ -198,12 +300,6 @@ _VALUATION_INDUSTRY_MENU = (
     "financial_concepts",
     "business_intelligence",
     "academy",
-)
-_MACRO_MENU = (
-    "academy",
-    "ikl",
-    "cgl",
-    "legacy_kip",
 )
 
 _BUSINESS_TYPES = frozenset(
@@ -262,7 +358,108 @@ def build_knowledge_plan(
             "estimate changes",
             "event intelligence",
             "event research",
+            "complete research",
+            "research note",
+            "research dossier",
         )
+    )
+    company_intel_shaped = any(
+        k in qlow
+        for k in (
+            "institutional equity analyst",
+            "complete company intelligence",
+            "company intelligence",
+            "investment committee",
+            "ic report",
+            "committee report",
+            "research report",
+            "as if you were",
+            "preparing an investment",
+            "full research",
+            "dossier",
+            "institutional profile",
+            "key monitoring points",
+            "top five factors",
+            "observed, derived, and inferred",
+            "observed, derived and inferred",
+        )
+    )
+    attribution_shaped = "attribution" in types or any(
+        k in qlow
+        for k in (
+            "attribute",
+            "attribution",
+            "trades at a premium",
+            "trading at a premium",
+            "trades at a discount",
+            "trading at a discount",
+            "premium valuation",
+            "why .+ premium",
+            "break down the premium",
+            "decompose",
+            "what explains the",
+            "valuation driver",
+            "what drives valuation",
+        )
+    )
+    # Regex-lite: "why ... premium" already covered via substring "premium" + why.
+    if not attribution_shaped and "premium" in qlow and any(
+        k in qlow for k in ("why", "explain", "break down", "because", "driven")
+    ):
+        attribution_shaped = True
+    historical_val_shaped = "historical" in types or any(
+        k in qlow
+        for k in (
+            "own history",
+            "historical valuation",
+            "historically",
+            "traded at valuations similar",
+            "similar to today",
+            "when has",
+            "when was",
+            "ever traded",
+            "cheapest",
+            "percentile",
+            "unusual",
+            "relative to its own history",
+            "versus history",
+            "vs history",
+            "what happened afterwards",
+        )
+    )
+    screen_shaped = "screen" in types or any(
+        k in qlow
+        for k in (
+            "hedge fund",
+            "find high-quality",
+            "find companies",
+            "screen for",
+            "which stocks",
+            "which companies",
+            "compounders",
+            "strategy screen",
+            "factor screen",
+            "rising institutional ownership",
+            "attractive valuation",
+            "qualify",
+        )
+    ) and not company_bound
+    market_shaped = "market_summary" in types or any(
+        k in qlow
+        for k in (
+            "today's indian market",
+            "today's market",
+            "summarize today's",
+            "market summary",
+            "market breadth",
+            "sector rotation",
+            "institutional flows",
+            "most important developments",
+            "indian market",
+        )
+    ) and not company_bound
+    comparison_shaped = "comparison" in types or any(
+        k in qlow for k in ("compare", " versus ", " vs ", " vs.", "stronger institutional")
     )
     portfolio_shaped = "portfolio" in types or any(
         k in qlow
@@ -285,17 +482,25 @@ def build_knowledge_plan(
             "macro regime",
             "macro environment",
             "macro outlook",
+            "macro exposure",
             "economic cycle",
             "interest rates affecting",
             "falling inflation",
             "liquidity environment",
             "which sectors benefit",
+            "which sectors are likely",
             "how does oil",
             "why has the macro",
             "india's economic cycle",
             "current macro",
             "rbi policy",
+            "rbi rate",
             "repo rate",
+            "basis point",
+            "rate cut",
+            "rate hike",
+            "affect indian banks",
+            "nbfcs",
         )
     )
     forecast_shaped = "forecast" in types or any(
@@ -306,7 +511,13 @@ def build_knowledge_plan(
             "bull case",
             "bear case",
             "base case",
+            "bull, base, and bear",
+            "bull, base and bear",
             "next 3 years",
+            "next 3–5 years",
+            "next 3-5 years",
+            "3–5 years",
+            "3-5 years",
             "fy+",
             "fy+1",
             "fy+2",
@@ -317,6 +528,8 @@ def build_knowledge_plan(
             "how has the forecast",
             "sensitivity",
             "scenario probabilities",
+            "forecast scenarios",
+            "forecast confidence",
         )
     )
     investment_shaped = "investment" in types or any(
@@ -391,15 +604,45 @@ def build_knowledge_plan(
         rationale.append(
             "Consensus screen (no company bind) → Valuation Consensus universe → Industry DNA."
         )
-    elif macro_shaped:
+    elif market_shaped:
+        selected.extend(_MARKET_MENU)
+        rationale.append(
+            "Market-summary → Market Intelligence → MIE → HVIE → warehouse (no vendor crawl)."
+        )
+    elif macro_shaped and not company_bound:
         selected.extend(_MACRO_MENU)
         rationale.append(
             "Macro-shaped → MIE → FIE → RIE → INV → BI (top-down context, no recalculation)."
         )
+    elif screen_shaped:
+        selected.extend(_SCREEN_MENU)
+        rationale.append(
+            "Screen-shaped → Hedge Fund Factors/screens → FIE → RIE → UVE/VARIE/HVIE."
+        )
+    elif company_intel_shaped and company_bound:
+        selected.extend(_COMPANY_INTEL_MENU)
+        rationale.append(
+            "Company-intelligence / IC → RIE → FIE → MIE → UVE/HVIE/VARIE/VPAE → warehouse."
+        )
+    elif attribution_shaped and company_bound:
+        selected.extend(_ATTRIBUTION_MENU)
+        rationale.append(
+            "Attribution-shaped → VARIE → HVIE → VPAE → UVE → RIE/FIE/MIE."
+        )
+    elif historical_val_shaped and company_bound:
+        selected.extend(_HISTORICAL_VAL_MENU)
+        rationale.append(
+            "Historical-valuation → HVIE → VARIE → UVE → VPAE → warehouse."
+        )
     elif forecast_shaped and company_bound:
         selected.extend(_FORECAST_MENU)
         rationale.append(
-            "Forecast-shaped → FIE → RIE → INV → BI → warehouse/valuation layers (no recalculation)."
+            "Forecast-shaped → FIE → MIE → RIE → warehouse/valuation layers (no recalculation)."
+        )
+    elif comparison_shaped and company_bound:
+        selected.extend(_COMPARE_MENU)
+        rationale.append(
+            "Comparison → RIE → UVE/HVIE/VARIE/FIE → BI/Industry (dual-company institutional profile)."
         )
     elif research_shaped and (company_bound or "research" in types or "comparison" in types):
         selected.extend(_RESEARCH_MENU)
@@ -433,7 +676,16 @@ def build_knowledge_plan(
         selected.extend(_COMPANY_MENU)
         rationale.append("Company-shaped question → memory → CapIQ → KF → CGL → legacy fallback.")
 
-    if types.intersection({"concept"}) and not query.ticker_hint and not business_shaped and not industry_pedagogy:
+    if (
+        types.intersection({"concept"})
+        and not query.ticker_hint
+        and not business_shaped
+        and not industry_pedagogy
+        and not macro_shaped
+        and not market_shaped
+        and not screen_shaped
+        and not forecast_shaped
+    ):
         selected.extend(_CONCEPT_MENU)
         rationale.append("Concept question → deterministic finance engines only (no retrieval default).")
 
@@ -441,17 +693,20 @@ def build_knowledge_plan(
         selected.extend(_ACCOUNTING_MENU)
         rationale.append("Accounting/FSA → foundations + statement intelligence.")
 
-    if types.intersection({"valuation"}) and not business_shaped:
+    if types.intersection({"valuation"}) and not business_shaped and not attribution_shaped and not historical_val_shaped:
         if industry_pedagogy and not company_bound:
             selected.extend(_VALUATION_INDUSTRY_MENU)
             rationale.append("Industry valuation pedagogy → Industry Intelligence → concepts.")
         else:
             selected.extend(_VALUATION_MENU)
-            rationale.append("Valuation → concepts + academy + CapIQ snapshot when company-bound.")
+            rationale.append(
+                "Valuation → UVE/HVIE/VARIE/VPAE → warehouse/consensus (company-bound)."
+            )
 
-    if types.intersection({"macro"}):
-        selected.extend(_MACRO_MENU)
-        rationale.append("Macro → academy datasets + IKL/CGL.")
+    if macro_shaped and company_bound and "macro_intelligence_engine" not in selected:
+        # Company + macro exposure: append MIE without replacing the company menu.
+        selected.extend(_MACRO_MENU[:4])
+        rationale.append("Company + macro exposure → append MIE/FIE context.")
 
     if not selected:
         # Unknown: try concepts then soft company detection leftovers, then legacy.

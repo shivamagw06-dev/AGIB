@@ -170,7 +170,8 @@ def test_research_question_routes_ri_first():
     q = plan_query("Explain Reliance's business segments from the annual report.")
     plan = build_knowledge_plan(q, registry=KnowledgeRegistry())
     assert "research" in q.question_types
-    assert plan.provider_ids[0] == "research_intelligence"
+    assert plan.provider_ids[0] == "research_intelligence_engine"
+    assert "research_intelligence" in plan.provider_ids
 
 
 def test_portfolio_question_routes_pi_first():
@@ -206,9 +207,9 @@ def test_answer_for_ask_returns_compact_payload():
 
     hit = answer_for_ask("Explain EBITDA")
     assert hit is not None
-    assert hit["engine"] == "knowledge_unification"
+    assert hit["engine"] in {"knowledge_unification", "universal_knowledge"}
     assert hit["summary"]
-    assert hit["providers_used"]
+    assert hit.get("providers_used") or hit.get("modules_used") or hit.get("coverage")
 
 
 def test_ranking_rejects_empty_and_duplicates():

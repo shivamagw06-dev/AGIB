@@ -15,11 +15,65 @@ from universal_knowledge.registry import CAPABILITIES, DEPENDENCY_ORDER, capabil
 
 _EXPECTED: dict[str, tuple[str, ...]] = {
     "valuation": (
+        "unified_valuation_engine",
+        "historical_valuation_intelligence",
+        "valuation_attribution_engine",
+        "valuation_policy_engine",
         "valuation_terminal",
         "valuation_consensus",
+        "institutional_warehouse",
         "industry_intelligence",
-        "capiq_ikt",
-        "financial_statement_warehouse",
+    ),
+    "attribution": (
+        "valuation_attribution_engine",
+        "historical_valuation_intelligence",
+        "valuation_policy_engine",
+        "unified_valuation_engine",
+        "research_intelligence_engine",
+        "forecast_intelligence_engine",
+        "macro_intelligence_engine",
+    ),
+    "historical": (
+        "historical_valuation_intelligence",
+        "valuation_attribution_engine",
+        "unified_valuation_engine",
+        "valuation_policy_engine",
+        "historical_intelligence",
+        "institutional_warehouse",
+    ),
+    "forecast": (
+        "forecast_intelligence_engine",
+        "macro_intelligence_engine",
+        "research_intelligence_engine",
+        "historical_valuation_intelligence",
+        "unified_valuation_engine",
+        "institutional_warehouse",
+    ),
+    "macro": (
+        "macro_intelligence_engine",
+        "market_intelligence_engine",
+        "forecast_intelligence_engine",
+        "research_intelligence_engine",
+        "institutional_warehouse",
+    ),
+    "market": (
+        "market_intelligence_engine",
+        "macro_intelligence_engine",
+        "historical_valuation_intelligence",
+        "institutional_warehouse",
+        "hedge_fund_screens",
+    ),
+    "company_intel": (
+        "research_intelligence_engine",
+        "forecast_intelligence_engine",
+        "macro_intelligence_engine",
+        "unified_valuation_engine",
+        "historical_valuation_intelligence",
+        "valuation_attribution_engine",
+        "valuation_policy_engine",
+        "market_intelligence_engine",
+        "institutional_warehouse",
+        "business_intelligence",
     ),
     "consensus": (
         "valuation_consensus",
@@ -33,9 +87,11 @@ _EXPECTED: dict[str, tuple[str, ...]] = {
         "company_memory",
     ),
     "investment": (
+        "research_intelligence_engine",
         "investment_intelligence",
         "business_intelligence",
         "industry_intelligence",
+        "unified_valuation_engine",
         "valuation_terminal",
         "valuation_consensus",
         "hedge_fund_screens",
@@ -46,10 +102,12 @@ _EXPECTED: dict[str, tuple[str, ...]] = {
         "valuation_terminal",
     ),
     "research": (
+        "research_intelligence_engine",
+        "forecast_intelligence_engine",
         "research_intelligence",
-        "cgl",
         "company_memory",
         "valuation_consensus",
+        "institutional_warehouse",
     ),
     "financials": (
         "financial_statement_warehouse",
@@ -68,10 +126,13 @@ _EXPECTED: dict[str, tuple[str, ...]] = {
         "financial_concepts",
     ),
     "company": (
+        "research_intelligence_engine",
+        "institutional_warehouse",
         "capiq_ikt",
         "company_memory",
         "business_intelligence",
         "industry_intelligence",
+        "unified_valuation_engine",
         "valuation_terminal",
         "valuation_consensus",
     ),
@@ -82,8 +143,21 @@ _EXPECTED: dict[str, tuple[str, ...]] = {
     ),
     "screen": (
         "hedge_fund_screens",
-        "valuation_terminal",
-        "investment_intelligence",
+        "forecast_intelligence_engine",
+        "research_intelligence_engine",
+        "unified_valuation_engine",
+        "valuation_attribution_engine",
+        "market_intelligence_engine",
+        "institutional_warehouse",
+    ),
+    "comparison": (
+        "research_intelligence_engine",
+        "unified_valuation_engine",
+        "historical_valuation_intelligence",
+        "valuation_attribution_engine",
+        "forecast_intelligence_engine",
+        "business_intelligence",
+        "institutional_warehouse",
     ),
 }
 
@@ -91,7 +165,30 @@ _EXPECTED: dict[str, tuple[str, ...]] = {
 _FAMILY_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("screen", re.compile(
         r"\b(screen|scanner|hedge fund|long/?short|market neutral|pair trade|"
-        r"value trap|momentum|quality screen)\b", re.I)),
+        r"value trap|momentum|quality screen|compounders?|find (?:high-quality|companies)|"
+        r"which (?:stocks|companies))\b", re.I)),
+    ("company_intel", re.compile(
+        r"\b(institutional equity analyst|complete company intelligence|"
+        r"investment committee|ic report|committee report|research report|"
+        r"as if you were|dossier|key monitoring points|"
+        r"observed,? derived,? and inferred)\b", re.I)),
+    ("forecast", re.compile(
+        r"\b(forecast|outlook|bull case|bear case|base case|"
+        r"next 3(?:\s*[–-]\s*5)? years|scenario probabilities)\b", re.I)),
+    ("macro", re.compile(
+        r"\b(macro|rbi|repo rate|rate cut|rate hike|basis point|"
+        r"interest rates?|inflation|which sectors (?:benefit|are likely)|nbfc)\b", re.I)),
+    ("market", re.compile(
+        r"\b(today'?s (?:indian )?market|market summary|market breadth|"
+        r"sector rotation|institutional flows)\b", re.I)),
+    ("attribution", re.compile(
+        r"\b(attribute|attribution|break down the premium|decompose|"
+        r"trades? at a premium|trading at a premium|premium valuation)\b", re.I)),
+    ("historical", re.compile(
+        r"\b(historical valuation|own history|similar to today|when has|"
+        r"what happened afterwards|versus history|vs\.? history|ever traded)\b", re.I)),
+    ("comparison", re.compile(
+        r"\b(compare|versus|\bvs\.?\b|stronger institutional profile)\b", re.I)),
     ("consensus", re.compile(
         r"\b(consensus|target price|price target|analysts? cover|coverage|"
         r"rating split|upside)\b", re.I)),
@@ -101,7 +198,7 @@ _FAMILY_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
         r"trades? at|re-?rat(?:e|ing)|de-?rat(?:e|ing)|discount|premium)\b", re.I)),
     ("financials", re.compile(
         r"\b(revenue|eps|earnings|margin|debt|cash flow|fcf|capex|"
-        r"balance sheet|income statement|working capital|historical)\b", re.I)),
+        r"balance sheet|income statement|working capital)\b", re.I)),
     ("accounting", re.compile(
         r"\b(accrual|cash profit|journal|ledger|debit|credit|gaap|ind.?as|"
         r"depreciation|amortisation|amortization|impairment)\b", re.I)),
@@ -163,6 +260,13 @@ def plan(
     # even when the query planner classified the question as pure industry pedagogy.
     family_type = {
         "valuation": "valuation",
+        "attribution": "attribution",
+        "historical": "historical",
+        "forecast": "forecast",
+        "macro": "macro",
+        "market": "market_summary",
+        "company_intel": "research",
+        "comparison": "comparison",
         "consensus": "consensus",
         "business": "business_model",
         "investment": "investment",
@@ -171,7 +275,7 @@ def plan(
         "financials": "financial_statement",
         "accounting": "accounting",
         "industry": "industry",
-        "screen": "investment",
+        "screen": "screen",
     }.get(family)
     if family_type and family_type not in query.question_types:
         query.question_types = [family_type, *list(query.question_types)]
@@ -180,18 +284,38 @@ def plan(
     menu = list(knowledge.provider_ids or [])
 
     # Expected providers are never truncated — coverage requires the attempt.
+    # Preserve KUL menu order for institutional showcase families so RIE/FIE/MIE/
+    # UVE/HVIE/VARIE are not pushed behind pedagogy by role-sort.
     locked = [pid for pid in expected if pid in CAPABILITIES]
     extras = [pid for pid in menu if pid not in locked]
-    role_rank = {role: i for i, role in enumerate(DEPENDENCY_ORDER)}
+    preserve_menu = family in {
+        "valuation", "attribution", "historical", "forecast", "macro", "market",
+        "company_intel", "comparison", "screen", "research", "investment",
+    }
+    budget = max(len(locked), int(max_providers), 14 if preserve_menu else int(max_providers))
+    if preserve_menu:
+        # Menu order first (already encodes Knowledge Dependency Map for the family),
+        # then any locked expected providers not already present.
+        ordered: list[str] = []
+        seen: set[str] = set()
+        for pid in list(menu) + locked:
+            if pid in seen:
+                continue
+            seen.add(pid)
+            ordered.append(pid)
+            if len(ordered) >= budget:
+                break
+        selected = ordered
+    else:
+        role_rank = {role: i for i, role in enumerate(DEPENDENCY_ORDER)}
 
-    def sort_key(pid: str) -> tuple[int, int, str]:
-        cap = capability(pid)
-        if cap is None:
-            return (99, 99, pid)
-        return (role_rank.get(cap.role, 50), cap.priority, pid)
+        def sort_key(pid: str) -> tuple[int, int, str]:
+            cap = capability(pid)
+            if cap is None:
+                return (99, 99, pid)
+            return (role_rank.get(cap.role, 50), cap.priority, pid)
 
-    budget = max(len(locked), int(max_providers))
-    selected = sorted(set(locked + extras[: max(0, budget - len(locked))]), key=sort_key)
+        selected = sorted(set(locked + extras[: max(0, budget - len(locked))]), key=sort_key)
     knowledge.provider_ids = selected
 
     return {

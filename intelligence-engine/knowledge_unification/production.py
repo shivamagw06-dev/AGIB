@@ -143,6 +143,16 @@ def soft_slice_for_ask_agi(
 _HARD_PROVIDERS = frozenset(
     {
         "research_intelligence",
+        "research_intelligence_engine",
+        "forecast_intelligence_engine",
+        "macro_intelligence_engine",
+        "unified_valuation_engine",
+        "historical_valuation_intelligence",
+        "valuation_attribution_engine",
+        "valuation_policy_engine",
+        "market_intelligence_engine",
+        "historical_intelligence",
+        "institutional_warehouse",
         "portfolio_intelligence",
         "investment_intelligence",
         "industry_intelligence",
