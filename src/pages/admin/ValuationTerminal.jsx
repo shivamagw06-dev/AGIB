@@ -31,10 +31,7 @@ import SectorValuationWorkspace, {
   ResearchBoards,
   SectorDirectory,
 } from '@/pages/admin/SectorValuationWorkspace';
-import {
-  CompanyAttributionPanel,
-  MarketAttributionStrip,
-} from '@/pages/admin/ValuationAttributionPanel';
+import { CompanyAttributionPanel } from '@/pages/admin/ValuationAttributionPanel';
 import './valuationIntelligence.css';
 import './valuationTerminal.css';
 import './sectorValuationExplorer.css';
@@ -577,6 +574,147 @@ function DataQualityPanel({ dq, healthScore }) {
   );
 }
 
+const COMPANY_TABS = [
+  { id: 'overview', label: 'Overview' },
+  { id: 'valuation', label: 'Valuation' },
+  { id: 'historical', label: 'Historical' },
+  { id: 'research', label: 'Research' },
+  { id: 'peers', label: 'Peers' },
+  { id: 'risks', label: 'Risks' },
+];
+
+function CompanyDetailWorkspace({
+  pack,
+  symbol,
+  window,
+  onWindow,
+  isFavorite,
+  onToggleFavorite,
+  onExplain,
+}) {
+  const [tab, setTab] = useState('overview');
+  const overview = pack.overview || {};
+  const healthScore = pack.health_score || {};
+  const peRow = (pack.table || []).find((r) => r.metric === 'pe') || {};
+  const pbRow = (pack.table || []).find((r) => r.metric === 'pb') || {};
+
+  return (
+    <div className="vt-company-shell">
+      <div className="vt-company-main">
+        <div className="vt-title-actions">
+          <OverviewStrip overview={overview} healthScore={healthScore} />
+          <button
+            type="button"
+            className={`vt-fav-btn ${isFavorite ? 'on' : ''}`}
+            onClick={onToggleFavorite}
+          >
+            <Star size={14} /> {isFavorite ? 'Favorited' : 'Favorite'}
+          </button>
+        </div>
+
+        <nav className="vt-tabs" aria-label="Company sections">
+          {COMPANY_TABS.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              className={tab === t.id ? 'on' : ''}
+              onClick={() => setTab(t.id)}
+            >
+              {t.label}
+            </button>
+          ))}
+        </nav>
+
+        {tab === 'overview' || tab === 'valuation' ? (
+          <div className="vt-main-grid">
+            <InstitutionalTable rows={pack.table} onExplain={onExplain} />
+            <ChartPanel
+              symbol={symbol}
+              window={window}
+              onWindow={onWindow}
+              coverage={pack.charts}
+            />
+          </div>
+        ) : null}
+
+        {tab === 'overview' ? (
+          <div className="vt-main-grid">
+            <SectorContext ctx={pack.sector_context} />
+            <Explanation explanation={pack.explanation} />
+          </div>
+        ) : null}
+
+        {tab === 'research' || tab === 'overview' ? (
+          <CompanyAttributionPanel symbol={symbol} />
+        ) : null}
+
+        {tab === 'historical' ? (
+          <>
+            <ChartPanel
+              symbol={symbol}
+              window={window}
+              onWindow={onWindow}
+              coverage={pack.charts}
+            />
+            <ChangeLog log={pack.change_log} />
+          </>
+        ) : null}
+
+        {tab === 'peers' ? <PeerTable peers={pack.peers} /> : null}
+
+        {tab === 'risks' || tab === 'valuation' ? (
+          <div className="vt-main-grid">
+            <ProvenancePanel provenance={pack.provenance} version={pack.version} />
+            <DataQualityPanel dq={pack.data_quality} healthScore={healthScore} />
+          </div>
+        ) : null}
+
+        {pack.coverage ? (
+          <p className="vt-cov-foot">
+            Metric coverage {pack.coverage.pct}%
+            ({pack.coverage.available}/{pack.coverage.applicable} applicable)
+            · Engine {pack.engine} v{pack.version}
+          </p>
+        ) : null}
+      </div>
+
+      <aside className="vt-side-rail" aria-label="Institutional summary">
+        <div className="vt-side-card">
+          <div className="vt-side-label">Institutional summary</div>
+          <h3>{overview.symbol || symbol}</h3>
+          <div className="vt-side-metric">
+            <span>CMP</span>
+            <strong>{fmt(overview.cmp)}</strong>
+          </div>
+          <div className="vt-side-metric">
+            <span>P/E</span>
+            <strong>{fmt(peRow.company)}</strong>
+          </div>
+          <div className="vt-side-metric">
+            <span>P/B</span>
+            <strong>{fmt(pbRow.company)}</strong>
+          </div>
+          <div className="vt-side-metric">
+            <span>Position</span>
+            <strong>{peRow.position || '—'}</strong>
+          </div>
+          <div className="vt-side-metric">
+            <span>Confidence</span>
+            <strong className="vt-health">{healthScore.score != null ? `${healthScore.score}%` : '—'}</strong>
+          </div>
+          <div className="vt-side-metric">
+            <span>Quality</span>
+            <strong className={`vt-band-${overview.data_quality || 'low'}`}>
+              {overview.data_quality || '—'}
+            </strong>
+          </div>
+          <p className="hint">Research context only — not a recommendation.</p>
+        </div>
+      </aside>
+    </div>
+  );
+}
+
 export default function ValuationTerminal() {
   const location = useLocation();
   const [params, setParams] = useSearchParams();
@@ -722,7 +860,7 @@ export default function ValuationTerminal() {
           <div className="vi-brand">
             <Link to={home} className="vt-back"><ArrowLeft size={14} /> Back</Link>
             <h1>Valuation Research Workspace</h1>
-            <p>Market → Sector → Industry → Company → History → Research · Warehouse → UVE / HVIE / VPAE</p>
+            <p>Market → Sector → Industry → Company → Research</p>
           </div>
           <div className="vi-actions">
             <button
@@ -759,22 +897,7 @@ export default function ValuationTerminal() {
 
         {showSectorHome ? (
           <>
-            <section className="vt-empty-state">
-              <h2>Institutional Valuation Research Workspace</h2>
-              <p>
-                Begin at the Indian market, drill into a sector and industry, or search a company.
-                Every multiple is warehouse-backed through UVE / HVIE / VPAE — never calculated in the UI.
-              </p>
-              <div className="vt-quick">
-                {['AXISBANK', 'ICICIBANK', 'INFY', 'TCS'].map((s) => (
-                  <button key={s} type="button" className="vt-chip" onClick={() => selectCompany(s, s)}>
-                    {s}
-                  </button>
-                ))}
-              </div>
-            </section>
             <MarketSnapshot market={market} loading={marketLoading} />
-            <MarketAttributionStrip />
             <SectorDirectory
               sectors={sectors}
               loading={sectorsLoading}
@@ -813,51 +936,15 @@ export default function ValuationTerminal() {
         {loading ? <p className="hint">Computing valuation from warehouse…</p> : null}
 
         {pack?.ok ? (
-          <>
-            <div className="vt-title-actions">
-              <OverviewStrip overview={pack.overview} healthScore={pack.health_score} />
-              <button
-                type="button"
-                className={`vt-fav-btn ${isFavorite ? 'on' : ''}`}
-                onClick={() => toggleFavorite(symbol, pack.overview?.name)}
-              >
-                <Star size={14} /> {isFavorite ? 'Favorited' : 'Favorite'}
-              </button>
-            </div>
-
-            <div className="vt-main-grid">
-              <InstitutionalTable rows={pack.table} onExplain={setMetric} />
-              <ChartPanel
-                symbol={symbol}
-                window={window}
-                onWindow={setWindow}
-                coverage={pack.charts}
-              />
-            </div>
-
-            <div className="vt-main-grid">
-              <SectorContext ctx={pack.sector_context} />
-              <Explanation explanation={pack.explanation} />
-            </div>
-
-            <CompanyAttributionPanel symbol={symbol} />
-
-            <PeerTable peers={pack.peers} />
-            <ChangeLog log={pack.change_log} />
-
-            <div className="vt-main-grid">
-              <ProvenancePanel provenance={pack.provenance} version={pack.version} />
-              <DataQualityPanel dq={pack.data_quality} healthScore={pack.health_score} />
-            </div>
-
-            {pack.coverage ? (
-              <p className="vt-cov-foot">
-                Metric coverage {pack.coverage.pct}%
-                ({pack.coverage.available}/{pack.coverage.applicable} applicable)
-                · Engine {pack.engine} v{pack.version}
-              </p>
-            ) : null}
-          </>
+          <CompanyDetailWorkspace
+            pack={pack}
+            symbol={symbol}
+            window={window}
+            onWindow={setWindow}
+            isFavorite={isFavorite}
+            onToggleFavorite={() => toggleFavorite(symbol, pack.overview?.name)}
+            onExplain={setMetric}
+          />
         ) : null}
       </main>
 

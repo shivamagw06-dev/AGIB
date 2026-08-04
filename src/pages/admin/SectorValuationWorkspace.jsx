@@ -21,12 +21,33 @@ function fmt(v, digits = 2) {
   return String(v);
 }
 
-function statusClass(status) {
+function toneFromStatus(status) {
   const s = String(status || '').toLowerCase();
-  if (s.includes('cheap') || s.includes('undervalued') || s.includes('attractive')) return 'sve-status-cheap';
-  if (s.includes('expensive') || s.includes('premium')) return 'sve-status-rich';
-  if (s.includes('insufficient') || s.includes('not applicable')) return 'sve-status-na';
-  return 'sve-status-fair';
+  if (s.includes('cheap') || s.includes('attractive') || s.includes('undervalued')) return 'cheap';
+  if (s.includes('premium') || s.includes('expensive')) return 'premium';
+  if (s.includes('fair')) return 'fair';
+  return 'neutral';
+}
+
+function KpiChip({ label, tone = 'neutral' }) {
+  return <span className={`kpi-chip kpi-${tone}`}>{label}</span>;
+}
+
+function HistBar({ pct }) {
+  const width = pct == null ? 0 : Math.max(4, Math.min(100, Number(pct)));
+  const tone = pct == null ? 'neutral' : pct <= 35 ? 'cheap' : pct >= 65 ? 'premium' : 'fair';
+  return (
+    <div className={`hist-bar hist-${tone}`} title={pct == null ? '—' : `${pct}`}>
+      <div style={{ width: `${width}%` }} />
+    </div>
+  );
+}
+
+function SparkDir({ changePct }) {
+  // Visual direction from server-provided change — not a UI valuation calc.
+  const v = changePct == null ? 0 : Number(changePct);
+  const cls = v > 0.5 ? 'up' : v < -0.5 ? 'down' : 'flat';
+  return <span className={`spark-dir spark-${cls}`} aria-hidden="true" />;
 }
 
 function DistBars({ dist, label }) {
@@ -113,37 +134,105 @@ function rowsToCsv(rows) {
 }
 
 export function MarketSnapshot({ market, loading }) {
-  if (loading) return <section className="sve-market hint">Loading Indian market snapshot…</section>;
+  if (loading) return <section className="sve-hero hint">Loading Indian market…</section>;
   if (!market?.ok) return null;
+  const tone = toneFromStatus(market.regime || market.opportunity);
   return (
-    <section className="sve-market">
-      <div className="sve-directory-head">
-        <h3>Indian Market</h3>
-        <p className="hint">
-          Market valuation snapshot · as of {market.as_of || market.last_updated || '—'} · warehouse-backed
-        </p>
-      </div>
-      <div className="sve-market-grid">
-        <div><span className="k">Companies Covered</span><span className="v">{fmt(market.companies_covered, 0)}</span></div>
-        <div><span className="k">Coverage</span><span className="v">{market.coverage_pct != null ? `${fmt(market.coverage_pct, 1)}%` : '—'}</span></div>
-        <div><span className="k">Median PE</span><span className="v">{fmt(market.median_pe)}</span></div>
-        <div><span className="k">10Y Median PE</span><span className="v">{fmt(market.historical_median_pe)}</span></div>
-        <div><span className="k">Premium</span><span className="v">{market.premium_pct != null ? `${fmt(market.premium_pct, 1)}%` : '—'}</span></div>
-        <div><span className="k">Median PB</span><span className="v">{fmt(market.median_pb)}</span></div>
-        <div><span className="k">Historical %</span><span className="v">{fmt(market.historical_percentile, 0)}</span></div>
-        <div><span className="k">Market Regime</span><span className="v">{market.regime || '—'}</span></div>
-        <div><span className="k">Median EV/EBITDA</span><span className="v">{fmt(market.median_ev_ebitda)}</span></div>
-        <div><span className="k">Median ROE</span><span className="v">{fmt(market.median_roe)}</span></div>
-        <div><span className="k">Median ROCE</span><span className="v">{fmt(market.median_roce)}</span></div>
-        <div><span className="k">Dividend Yield</span><span className="v">{fmt(market.median_dividend_yield)}</span></div>
-        <div><span className="k">Market Cap Covered</span><span className="v">{fmt(market.market_cap)}</span></div>
-        <div><span className="k">Confidence</span><span className="v">{market.confidence != null ? `${fmt(market.confidence, 0)}%` : '—'}</span></div>
-        <div className="sve-market-focus">
-          <span className="k">Research Focus</span>
-          <span className="v">{market.research_focus || '—'}</span>
+    <section className="sve-hero">
+      <div className="sve-hero-top">
+        <div>
+          <div className="sve-hero-eyebrow">Indian Market</div>
+          <h2 className="sve-hero-title">Market valuation</h2>
+        </div>
+        <div className="sve-hero-chips">
+          <KpiChip label={market.regime || market.opportunity || '—'} tone={tone} />
+          <KpiChip
+            label={market.confidence != null ? `${fmt(market.confidence, 0)}% Confidence` : 'Confidence —'}
+            tone="confidence"
+          />
         </div>
       </div>
-      <p className="hint">Analysis only — not a recommendation. Provenance: {market.provenance?.universe || 'warehouse'}.</p>
+      <div className="sve-hero-metrics">
+        <div>
+          <span className="k">Coverage</span>
+          <span className="v">{market.coverage_pct != null ? `${fmt(market.coverage_pct, 0)}%` : '—'}</span>
+        </div>
+        <div>
+          <span className="k">Median PE</span>
+          <span className="v">{fmt(market.median_pe)}</span>
+        </div>
+        <div>
+          <span className="k">Historical %</span>
+          <span className="v">{fmt(market.historical_percentile, 0)}</span>
+        </div>
+        <div>
+          <span className="k">Premium</span>
+          <span className="v">{market.premium_pct != null ? `${fmt(market.premium_pct, 1)}%` : '—'}</span>
+        </div>
+        <div>
+          <span className="k">Median PB</span>
+          <span className="v">{fmt(market.median_pb)}</span>
+        </div>
+        <div>
+          <span className="k">EV/EBITDA</span>
+          <span className="v">{fmt(market.median_ev_ebitda)}</span>
+        </div>
+        <div>
+          <span className="k">ROE</span>
+          <span className="v">{fmt(market.median_roe)}</span>
+        </div>
+        <div>
+          <span className="k">Companies</span>
+          <span className="v">{fmt(market.companies_covered, 0)}</span>
+        </div>
+      </div>
+      <div className="sve-hero-focus">
+        <span className="k">Research focus</span>
+        <p>{market.research_focus || '—'}</p>
+      </div>
+    </section>
+  );
+}
+
+function heatTone(status, pct) {
+  const fromStatus = toneFromStatus(status);
+  if (fromStatus !== 'neutral') return fromStatus;
+  if (pct == null) return 'neutral';
+  if (pct <= 35) return 'cheap';
+  if (pct >= 65) return 'premium';
+  return 'fair';
+}
+
+function SectorHeatmap({ sectors, onSelect }) {
+  const rows = [...(sectors || [])].sort(
+    (a, b) => (b.historical_percentile || 0) - (a.historical_percentile || 0),
+  );
+  if (!rows.length) return null;
+  return (
+    <section className="sve-heatmap">
+      <div className="sve-directory-head">
+        <h3>Sector valuation heatmap</h3>
+        <p className="hint">Historical percentile intensity — green cheap · blue fair · red premium</p>
+      </div>
+      <div className="sve-heatmap-grid">
+        {rows.map((s) => {
+          const pct = s.historical_percentile;
+          const tone = heatTone(s.status || s.opportunity, pct);
+          return (
+            <button
+              key={s.sector}
+              type="button"
+              className={`sve-heat-cell heat-${tone}`}
+              onClick={() => onSelect(s.sector)}
+              title={`${s.sector} · hist% ${fmt(pct, 0)}`}
+            >
+              <strong>{s.sector}</strong>
+              <span>{fmt(pct, 0)}</span>
+              <HistBar pct={pct} />
+            </button>
+          );
+        })}
+      </div>
     </section>
   );
 }
@@ -275,15 +364,25 @@ export default function SectorValuationWorkspace({
   const dists = pack.distributions || {};
   const activeIndustry = industryCards.find((c) => c.industry === industry);
 
+  const currentPe = activeIndustry?.median_pe ?? summary.current_median;
+  const premiumVal = activeIndustry?.premium_pct ?? summary.premium_pct;
+  const histPct = activeIndustry?.historical_percentile ?? summary.historical_percentile;
+  const overallTone = heatTone(outcome.overall || summary.overall, histPct);
+
   return (
     <div className="sve-workspace">
       <div className="sve-workspace-head">
         <button type="button" className="sve-back" onClick={onBack}>← All sectors</button>
         <div>
           <h2>{pack.sector}{industry ? ` · ${industry}` : ''}</h2>
-          <p className="hint">
-            {fmt(industry ? rows.length : pack.companies, 0)} companies · as of {pack.as_of || '—'} · warehouse → UVE / HVIE / VPAE
-          </p>
+          <p className="hint">{fmt(industry ? rows.length : pack.companies, 0)} companies</p>
+        </div>
+        <div className="sve-hero-chips">
+          <KpiChip label={outcome.overall || summary.overall || '—'} tone={overallTone} />
+          <KpiChip
+            label={`${fmt(activeIndustry?.confidence ?? outcome.confidence, 0)}% Conf`}
+            tone="confidence"
+          />
         </div>
         <div className="sve-export">
           <button type="button" onClick={exportCsv}>Export CSV</button>
@@ -292,87 +391,87 @@ export default function SectorValuationWorkspace({
         </div>
       </div>
 
-      <section className="sve-dash">
-        <div><span className="k">Current Median</span><span className="v">{fmt(activeIndustry?.median_pe ?? summary.current_median)} <small>{summary.primary_metric_label}</small></span></div>
-        <div><span className="k">Historical Median</span><span className="v">{fmt(summary.historical_median)}</span></div>
-        <div><span className="k">Premium</span><span className="v">{(activeIndustry?.premium_pct ?? summary.premium_pct) != null ? `${fmt(activeIndustry?.premium_pct ?? summary.premium_pct, 1)}%` : '—'}</span></div>
-        <div><span className="k">Historical %ile</span><span className="v">{fmt(activeIndustry?.historical_percentile ?? summary.historical_percentile, 0)}</span></div>
-        <div><span className="k">Market Cap</span><span className="v">{fmt(activeIndustry?.market_cap ?? summary.market_cap)}</span></div>
-        <div><span className="k">Coverage</span><span className="v">{(activeIndustry?.coverage_pct ?? summary.coverage_pct) != null ? `${fmt(activeIndustry?.coverage_pct ?? summary.coverage_pct, 0)}%` : '—'}</span></div>
-        <div><span className="k">Overall</span><span className="v">{outcome.overall || summary.overall || '—'}</span></div>
-        <div><span className="k">Confidence</span><span className="v">{(activeIndustry?.confidence ?? outcome.confidence) != null ? `${fmt(activeIndustry?.confidence ?? outcome.confidence, 0)}%` : '—'}</span></div>
+      <section className="sve-sector-hero">
+        <div className="sve-sector-summary">
+          <h3>Sector summary</h3>
+          <div className="sve-sector-metrics">
+            <div><span className="k">Current PE</span><span className="v">{fmt(currentPe)}</span></div>
+            <div><span className="k">Historical median</span><span className="v">{fmt(summary.historical_median)}</span></div>
+            <div><span className="k">Premium</span><span className="v">{premiumVal != null ? `${fmt(premiumVal, 1)}%` : '—'}</span></div>
+            <div><span className="k">Historical %</span><span className="v">{fmt(histPct, 0)}</span></div>
+            <div><span className="k">Market cap</span><span className="v">{fmt(activeIndustry?.market_cap ?? summary.market_cap)}</span></div>
+            <div><span className="k">Coverage</span><span className="v">{(activeIndustry?.coverage_pct ?? summary.coverage_pct) != null ? `${fmt(activeIndustry?.coverage_pct ?? summary.coverage_pct, 0)}%` : '—'}</span></div>
+          </div>
+          <HistBar pct={histPct} />
+          <p className="hint">Primary metric · {explanation.primary_metric_label || summary.primary_metric_label || '—'}</p>
+        </div>
+        <div className="sve-sector-chart">
+          <h3>Distribution charts</h3>
+          <div className="sve-dist-grid">
+            <DistBars dist={dists.pe} label="P/E" />
+            <DistBars dist={dists.pb} label="P/B" />
+            <DistBars dist={dists.historical_percentile} label="Historical %" />
+            <DistBars dist={dists.ev_ebitda || dists.premium_pct} label={dists.ev_ebitda ? 'EV/EBITDA' : 'Premium %'} />
+          </div>
+        </div>
+        <div className="sve-sector-why">
+          <h3>Why?</h3>
+          <p className="sve-conclusion">{outcome.conclusion}</p>
+          <ul className="varie-why">
+            {(outcome.evidence || []).slice(0, 5).map((e, i) => <li key={i}>✓ {e}</li>)}
+          </ul>
+          <p className="hint">{explanation.rationale || explanation.why}</p>
+          <SectorAttributionPanel sector={pack.sector} />
+        </div>
       </section>
 
       <section className="sve-panel">
         <div className="sve-panel-head">
           <h3>Industry workspace</h3>
           {industry ? (
-            <button type="button" className="sve-back" onClick={clearIndustry}>Clear industry filter</button>
+            <button type="button" className="sve-back" onClick={clearIndustry}>Clear industry</button>
           ) : null}
         </div>
-        <p className="hint">Sector → Industry → Company. Cards are warehouse medians — no UI calculations.</p>
-        <div className="sve-cards sve-industry-cards">
-          {industryCards.map((ind) => (
-            <button
-              key={ind.industry}
-              type="button"
-              className={`sve-card ${industry === ind.industry ? 'sve-card-on' : ''}`}
-              onClick={() => selectIndustry(ind.industry)}
-            >
-              <div className="sve-card-title">{ind.industry}</div>
-              <div className="sve-card-meta">{fmt(ind.companies, 0)} companies</div>
-              <div className="sve-card-row"><span>Median PE</span><strong>{fmt(ind.median_pe)}</strong></div>
-              <div className="sve-card-row"><span>Median PB</span><strong>{fmt(ind.median_pb)}</strong></div>
-              <div className="sve-card-row"><span>EV/EBITDA</span><strong>{fmt(ind.median_ev_ebitda)}</strong></div>
-              <div className="sve-card-row"><span>Historical %</span><strong>{fmt(ind.historical_percentile, 0)}</strong></div>
-              <div className="sve-card-row"><span>Premium</span><strong>{ind.premium_pct != null ? `${fmt(ind.premium_pct, 1)}%` : '—'}</strong></div>
-              <div className="sve-card-row"><span>ROE</span><strong>{fmt(ind.median_roe)}</strong></div>
-              <div className={`sve-pill ${String(ind.opportunity || '').toLowerCase()}`}>
-                {ind.opportunity || '—'} · cov {fmt(ind.coverage_pct, 0)}% · conf {fmt(ind.confidence, 0)}%
-              </div>
-            </button>
-          ))}
+        <div className="sve-cards sve-cards-modern sve-industry-cards">
+          {industryCards.map((ind) => {
+            const tone = heatTone(ind.opportunity, ind.historical_percentile);
+            return (
+              <button
+                key={ind.industry}
+                type="button"
+                className={`sve-card-modern heat-${tone} ${industry === ind.industry ? 'sve-card-on' : ''}`}
+                onClick={() => selectIndustry(ind.industry)}
+              >
+                <div className="sve-card-modern-top">
+                  <div>
+                    <div className="sve-card-title">{ind.industry}</div>
+                    <div className="sve-card-meta">{fmt(ind.companies, 0)} companies</div>
+                  </div>
+                  <div className="sve-card-premium">
+                    <span>Premium</span>
+                    <strong>{ind.premium_pct != null ? `${fmt(ind.premium_pct, 1)}%` : '—'}</strong>
+                  </div>
+                </div>
+                <HistBar pct={ind.historical_percentile} />
+                <div className="sve-card-modern-grid">
+                  <div><span>PE</span><strong>{fmt(ind.median_pe)}</strong></div>
+                  <div><span>PB</span><strong>{fmt(ind.median_pb)}</strong></div>
+                  <div><span>Hist %</span><strong>{fmt(ind.historical_percentile, 0)}</strong></div>
+                  <div><span>ROE</span><strong>{fmt(ind.median_roe)}</strong></div>
+                </div>
+                <div className="sve-card-modern-foot">
+                  <KpiChip label={ind.opportunity || '—'} tone={tone} />
+                  <span className="sve-open">Filter →</span>
+                </div>
+              </button>
+            );
+          })}
         </div>
       </section>
 
-      <SectorAttributionPanel sector={pack.sector} />
-
-      <div className="sve-two">
-        <section className="sve-panel">
-          <h3>Sector explanation</h3>
-          <p className="sve-primary">
-            Primary metric <strong>{explanation.primary_metric_label || '—'}</strong>
-          </p>
-          <p>{explanation.rationale || explanation.why}</p>
-          {explanation.interpret ? <p className="hint">{explanation.interpret}</p> : null}
-          <div className="sve-chips">
-            {(explanation.supporting || []).map((m) => (
-              <span key={m.metric} className="sve-chip">Supporting · {m.label}</span>
-            ))}
-            {(explanation.hidden || []).map((m) => (
-              <span key={m.metric} className="sve-chip sve-chip-muted">Hidden · {m.label}</span>
-            ))}
-          </div>
-          <p className="hint">Rules from sector_lens / VPAE — not duplicated in the UI.</p>
-        </section>
-
-        <section className="sve-panel sve-outcome">
-          <h3>{outcome.title || 'Institutional outcome'}</h3>
-          <p className="sve-conclusion">{outcome.conclusion}</p>
-          <ul>
-            {(outcome.evidence || []).map((e, i) => <li key={i}>{e}</li>)}
-          </ul>
-          <div className="sve-outcome-foot">
-            <span>Overall <strong>{outcome.overall}</strong></span>
-            <span>Confidence <strong>{fmt(outcome.confidence, 0)}%</strong></span>
-          </div>
-          <p className="hint">Analysis and evidence only — never BUY / SELL / target price.</p>
-        </section>
-      </div>
-
-      <section className="sve-panel">
-        <div className="sve-panel-head">
-          <h3>Company valuation table{industry ? ` · ${industry}` : ''}</h3>
+      <section className="sve-panel sve-table-panel">
+        <div className="sve-sticky-filters">
+          <h3>Company table{industry ? ` · ${industry}` : ''}</h3>
           <div className="sve-filters">
             <select
               value={industry}
@@ -398,48 +497,43 @@ export default function SectorValuationWorkspace({
               <option value="asc">Asc</option>
             </select>
           </div>
+          <div className="sve-quick">
+            {QUICK.map((q) => (
+              <button
+                key={q.id}
+                type="button"
+                className={quick === q.id ? 'on' : ''}
+                onClick={() => setQuick(quick === q.id ? null : q.id)}
+              >
+                {q.label}
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="sve-quick">
-          {QUICK.map((q) => (
-            <button
-              key={q.id}
-              type="button"
-              className={quick === q.id ? 'on' : ''}
-              onClick={() => setQuick(quick === q.id ? null : q.id)}
-            >
-              {q.label}
-            </button>
-          ))}
-        </div>
-        <div className="vi-table-wrap">
+        <div className="vi-table-wrap sve-table-dominant">
           <table className="vi-table sve-table">
             <thead>
               <tr>
-                <th />
-                <th>Company</th>
+                <th className="pin" />
+                <th className="pin">Company</th>
                 <th>CMP</th>
-                <th>Mkt Cap</th>
-                <th>Industry</th>
-                <th>P/E</th>
+                <th>PE</th>
+                <th>PB</th>
+                <th>EV/EBITDA</th>
                 <th>Sector PE</th>
                 <th>Industry PE</th>
-                <th>Premium %</th>
                 <th>Hist %</th>
-                <th>P/B</th>
-                <th>Sector PB</th>
+                <th>Premium</th>
                 <th>ROE</th>
                 <th>ROCE</th>
-                <th>EV/EBITDA</th>
-                <th>Regime</th>
                 <th>Status</th>
-                <th>Cov</th>
                 <th>Conf</th>
               </tr>
             </thead>
             <tbody>
               {rows.slice(0, 250).map((r) => (
                 <tr key={r.symbol}>
-                  <td>
+                  <td className="pin">
                     <input
                       type="checkbox"
                       checked={compare.includes(r.symbol)}
@@ -448,15 +542,14 @@ export default function SectorValuationWorkspace({
                       aria-label={`Compare ${r.symbol}`}
                     />
                   </td>
-                  <td>
+                  <td className="pin">
                     <button type="button" className="sve-link" onClick={() => onSelectCompany(r.symbol, r.company_name)}>
                       <strong>{r.symbol}</strong>
                       <span>{r.company_name}</span>
                     </button>
+                    <SparkDir changePct={r.pe_change_pct} />
                   </td>
                   <td>{fmt(r.cmp)}</td>
-                  <td>{fmt(r.market_cap)}</td>
-                  <td>{r.industry || '—'}</td>
                   <td>
                     <MetricTip
                       label="P/E"
@@ -468,25 +561,37 @@ export default function SectorValuationWorkspace({
                       confidence={(r.confidence || 0) * 100}
                     />
                   </td>
+                  <td>{fmt(r.pb)}</td>
+                  <td>{fmt(r.ev_ebitda)}</td>
                   <td>{fmt(r.sector_pe)}</td>
                   <td>{fmt(r.industry_pe)}</td>
+                  <td>
+                    <div className="cell-hist">
+                      <span>{fmt(r.historical_percentile, 0)}</span>
+                      <HistBar pct={r.historical_percentile} />
+                    </div>
+                  </td>
                   <td>{r.premium_pct != null ? `${fmt(r.premium_pct, 1)}%` : '—'}</td>
-                  <td>{fmt(r.historical_percentile, 0)}</td>
-                  <td>{fmt(r.pb)}</td>
-                  <td>{fmt(r.sector_pb)}</td>
                   <td>{fmt(r.roe)}</td>
                   <td>{fmt(r.roce)}</td>
-                  <td>{fmt(r.ev_ebitda)}</td>
-                  <td>{r.historical_regime || '—'}</td>
-                  <td><span className={`sve-status ${statusClass(r.valuation_status)}`}>{r.valuation_status}</span></td>
-                  <td>{r.coverage?.provider || 0}</td>
-                  <td>{r.confidence != null ? `${Math.round((r.confidence > 1 ? r.confidence : r.confidence * 100))}%` : '—'}</td>
+                  <td>
+                    <KpiChip
+                      label={r.valuation_status || '—'}
+                      tone={toneFromStatus(r.valuation_status)}
+                    />
+                  </td>
+                  <td>
+                    <KpiChip
+                      label={r.confidence != null ? `${Math.round((r.confidence > 1 ? r.confidence : r.confidence * 100))}%` : '—'}
+                      tone="confidence"
+                    />
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-        <p className="hint">Showing {Math.min(rows.length, 250)} of {rows.length}. Values from warehouse via UVE / HVIE — no UI calculations.</p>
+        <p className="hint">Showing {Math.min(rows.length, 250)} of {rows.length}. Warehouse → UVE / HVIE — no UI calculations.</p>
       </section>
 
       {compare.length >= 2 ? (
@@ -531,30 +636,20 @@ export default function SectorValuationWorkspace({
         </section>
       ) : null}
 
-      <div className="sve-two">
-        <section className="sve-panel">
-          <h3>Distributions</h3>
-          <div className="sve-dist-grid">
-            <DistBars dist={dists.pe} label="P/E" />
-            <DistBars dist={dists.pb} label="P/B" />
-            <DistBars dist={dists.historical_percentile} label="Historical %" />
-            <DistBars dist={dists.premium_pct} label="Premium %" />
-            <DistBars dist={dists.roe} label="ROE" />
+      <section className="sve-panel">
+        <div className="sve-panel-head">
+          <h3>Leaders & research</h3>
+          <div className="sve-quick">
+            {['leaders', 'rotation', 'research'].map((t) => (
+              <button key={t} type="button" className={dashTab === t ? 'on' : ''} onClick={() => setDashTab(t)}>
+                {t}
+              </button>
+            ))}
           </div>
-        </section>
-        <section className="sve-panel">
-          <div className="sve-panel-head">
-            <h3>Workspace dashboards</h3>
-            <div className="sve-quick">
-              {['leaders', 'rotation', 'research'].map((t) => (
-                <button key={t} type="button" className={dashTab === t ? 'on' : ''} onClick={() => setDashTab(t)}>
-                  {t}
-                </button>
-              ))}
-            </div>
-          </div>
-          {dashTab === 'leaders' ? (
-            leaders?.leaders ? Object.entries(leaders.leaders).map(([key, list]) => (
+        </div>
+        {dashTab === 'leaders' ? (
+          <div className="sve-leaders-grid">
+            {leaders?.leaders ? Object.entries(leaders.leaders).map(([key, list]) => (
               <div key={key} className="sve-leader-block">
                 <div className="k">{key.replace(/_/g, ' ')}</div>
                 <ul>
@@ -568,53 +663,36 @@ export default function SectorValuationWorkspace({
                   ))}
                 </ul>
               </div>
-            )) : <p className="hint">No leaders yet.</p>
-          ) : null}
-          {dashTab === 'rotation' ? (
-            <div className="sve-rotation">
-              <p>{rotation?.rotation?.explanation || rotation?.note || 'Rotation context loading…'}</p>
-              <ul>
-                {(rotation?.rotation?.rows || rotation?.sectors || []).slice(0, 8).map((s) => (
-                  <li key={s.sector}>
-                    <strong>{s.sector}</strong>
-                    <span> hist% {fmt(s.historical_percentile, 0)}</span>
-                    <span> PE chg {s.avg_pe_change_pct != null ? `${fmt(s.avg_pe_change_pct, 1)}%` : '—'}</span>
-                  </li>
-                ))}
-              </ul>
-              <p className="hint">Capital rotation context for research priority — not a portfolio mandate.</p>
-            </div>
-          ) : null}
-          {dashTab === 'research' ? (
-            <ul className="sve-research">
-              {(research?.priorities || []).map((p) => (
-                <li key={p.symbol}>
-                  <button type="button" className="sve-link" onClick={() => onSelectCompany(p.symbol, p.company_name)}>
-                    <strong>{p.symbol}</strong>
-                  </button>
-                  <span>{p.reason}</span>
-                  <span className="hint">→ {p.action}</span>
+            )) : <p className="hint">No leaders yet.</p>}
+          </div>
+        ) : null}
+        {dashTab === 'rotation' ? (
+          <div className="sve-rotation">
+            <p>{rotation?.rotation?.explanation || rotation?.note || 'Rotation context loading…'}</p>
+            <ul>
+              {(rotation?.rotation?.rows || rotation?.sectors || []).slice(0, 8).map((s) => (
+                <li key={s.sector}>
+                  <strong>{s.sector}</strong>
+                  <span> hist% {fmt(s.historical_percentile, 0)}</span>
+                  <span> PE chg {s.avg_pe_change_pct != null ? `${fmt(s.avg_pe_change_pct, 1)}%` : '—'}</span>
                 </li>
               ))}
             </ul>
-          ) : null}
-        </section>
-      </div>
-
-      <section className="sve-panel">
-        <h3>Research priorities</h3>
-        <p className="hint">{research?.note}</p>
-        <ul className="sve-research">
-          {(research?.priorities || []).map((p) => (
-            <li key={`rp-${p.symbol}`}>
-              <button type="button" className="sve-link" onClick={() => onSelectCompany(p.symbol, p.company_name)}>
-                <strong>{p.symbol}</strong>
-              </button>
-              <span>{p.reason}</span>
-              <span className="hint">→ {p.action}</span>
-            </li>
-          ))}
-        </ul>
+          </div>
+        ) : null}
+        {dashTab === 'research' ? (
+          <ul className="sve-research">
+            {(research?.priorities || []).map((p) => (
+              <li key={p.symbol}>
+                <button type="button" className="sve-link" onClick={() => onSelectCompany(p.symbol, p.company_name)}>
+                  <strong>{p.symbol}</strong>
+                </button>
+                <span>{p.reason}</span>
+                <span className="hint">→ {p.action}</span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
       </section>
     </div>
   );
@@ -622,7 +700,7 @@ export default function SectorValuationWorkspace({
 
 export function SectorDirectory({ sectors, onSelect, loading }) {
   const [q, setQ] = useState('');
-  const [sort, setSort] = useState('companies');
+  const [sort, setSort] = useState('pct');
 
   const list = useMemo(() => {
     let rows = [...(sectors || [])];
@@ -642,54 +720,92 @@ export function SectorDirectory({ sectors, onSelect, loading }) {
 
   if (loading) return <section className="sve-directory hint">Loading sectors…</section>;
   return (
-    <section className="sve-directory">
-      <div className="sve-directory-head">
-        <h3>All sectors</h3>
-        <p className="hint">Start top-down: market → sector → industry → company → history → research</p>
-      </div>
-      <div className="sve-directory-tools">
-        <input
-          type="search"
-          placeholder="Search sectors…"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          aria-label="Search sectors"
-        />
-        <select value={sort} onChange={(e) => setSort(e.target.value)} aria-label="Sort sectors">
-          <option value="companies">Companies</option>
-          <option value="name">Name</option>
-          <option value="pe">Median PE</option>
-          <option value="pct">Historical %</option>
-          <option value="premium">Premium</option>
-        </select>
-      </div>
-      <div className="sve-cards">
-        {list.map((s) => (
-          <button
-            key={s.sector}
-            type="button"
-            className={`sve-card band-${s.heatmap_band || 'grey'}`}
-            onClick={() => onSelect(s.sector)}
-          >
-            <div className="sve-card-title">{s.sector}</div>
-            <div className="sve-card-meta">{fmt(s.companies, 0)} companies</div>
-            <div className="sve-card-row">
-              <span>Median {s.primary_metric_label || 'P/E'}</span>
-              <strong>{fmt(s.current)}</strong>
-            </div>
-            <div className="sve-card-row"><span>Median P/B</span><strong>{fmt(s.median_pb)}</strong></div>
-            <div className="sve-card-row"><span>EV/EBITDA</span><strong>{fmt(s.median_ev_ebitda)}</strong></div>
-            <div className="sve-card-row"><span>Historical %</span><strong>{fmt(s.historical_percentile, 0)}</strong></div>
-            <div className="sve-card-row"><span>Premium</span><strong>{s.premium_pct != null ? `${fmt(s.premium_pct, 1)}%` : '—'}</strong></div>
-            <div className="sve-card-row"><span>ROE</span><strong>{fmt(s.median_roe)}</strong></div>
-            <div className="sve-card-row"><span>Coverage</span><strong>{s.coverage_pct != null ? `${fmt(s.coverage_pct, 0)}%` : '—'}</strong></div>
-            <div className={`sve-pill ${String(s.status || s.opportunity || '').toLowerCase()}`}>
-              {s.status || s.opportunity || 'Unknown'} · conf {fmt(s.confidence, 0)}%
-            </div>
-          </button>
+    <>
+      <SectorHeatmap sectors={sectors} onSelect={onSelect} />
+      <section className="sve-directory">
+        <div className="sve-directory-head">
+          <h3>All sectors</h3>
+          <p className="hint">Open a sector for industry drill-down and the company table</p>
+        </div>
+        <div className="sve-directory-tools">
+          <input
+            type="search"
+            placeholder="Search sectors…"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            aria-label="Search sectors"
+          />
+          <select value={sort} onChange={(e) => setSort(e.target.value)} aria-label="Sort sectors">
+            <option value="pct">Historical %</option>
+            <option value="premium">Premium</option>
+            <option value="pe">Median PE</option>
+            <option value="companies">Companies</option>
+            <option value="name">Name</option>
+          </select>
+        </div>
+        <div className="sve-cards sve-cards-modern">
+          {list.map((s) => {
+            const status = s.status || s.opportunity || 'Unknown';
+            const tone = heatTone(status, s.historical_percentile);
+            return (
+              <button
+                key={s.sector}
+                type="button"
+                className={`sve-card-modern heat-${tone}`}
+                onClick={() => onSelect(s.sector)}
+              >
+                <div className="sve-card-modern-top">
+                  <div>
+                    <div className="sve-card-title">{s.sector}</div>
+                    <div className="sve-card-meta">{fmt(s.companies, 0)} companies</div>
+                  </div>
+                  <div className="sve-card-premium">
+                    <span>Premium</span>
+                    <strong>{s.premium_pct != null ? `${fmt(s.premium_pct, 1)}%` : '—'}</strong>
+                  </div>
+                </div>
+                <HistBar pct={s.historical_percentile} />
+                <div className="sve-card-modern-grid">
+                  <div><span>Historical %</span><strong>{fmt(s.historical_percentile, 0)}</strong></div>
+                  <div><span>Current PE</span><strong>{fmt(s.current || s.median_pe)}</strong></div>
+                  <div><span>Median PB</span><strong>{fmt(s.median_pb)}</strong></div>
+                  <div><span>ROE</span><strong>{fmt(s.median_roe)}</strong></div>
+                  <div><span>Coverage</span><strong>{s.coverage_pct != null ? `${fmt(s.coverage_pct, 0)}%` : '—'}</strong></div>
+                  <div><span>EV/EBITDA</span><strong>{fmt(s.median_ev_ebitda)}</strong></div>
+                </div>
+                <div className="sve-card-modern-foot">
+                  <KpiChip label={status} tone={tone} />
+                  <KpiChip
+                    label={s.confidence != null ? `${fmt(s.confidence, 0)}% Conf` : 'Conf —'}
+                    tone="confidence"
+                  />
+                  <span className="sve-open">Open →</span>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+    </>
+  );
+}
+
+function OppRail({ title, accent, rows, onSelectCompany }) {
+  return (
+    <div className={`opp-rail accent-${accent}`}>
+      <h4>{title}</h4>
+      <ul>
+        {(rows || []).slice(0, 6).map((r) => (
+          <li key={`${title}-${r.symbol}`}>
+            <button type="button" className="sve-link" onClick={() => onSelectCompany?.(r.symbol, r.company_name)}>
+              <strong>{r.symbol}</strong>
+              <span>{r.company_name || r.sector || r.transition || r.why || ''}</span>
+            </button>
+          </li>
         ))}
-      </div>
-    </section>
+        {!rows?.length ? <li className="hint">No rows yet</li> : null}
+      </ul>
+    </div>
   );
 }
 
@@ -726,75 +842,38 @@ export function ResearchBoards({ onSelectCompany }) {
     return () => { cancelled = true; };
   }, []);
 
-  if (loading) return <section className="sve-boards hint">Loading opportunity / premium / re-rating boards…</section>;
+  if (loading) return <section className="sve-boards hint">Loading opportunity dashboard…</section>;
 
   const boards = opps?.boards || {};
-  const boardEntries = [
-    ['Most Attractive', boards.most_attractive],
-    ['Most Undervalued', boards.most_undervalued],
-    ['Most Overvalued', boards.most_overvalued],
-    ['Largest Discounts', boards.largest_discounts],
-    ['Largest Premiums', boards.largest_premiums],
-    ['Highest ROE', boards.highest_roe],
-    ['Lowest Historical %', boards.lowest_historical_percentile],
-  ];
+  const researchBullets = [
+    ...(boards.most_attractive || []).slice(0, 1).map((r) => `${r.symbol} screens historically attractive`),
+    ...(premium?.rows || []).slice(0, 1).map((r) => `${r.sector || r.symbol} carrying elevated premium`),
+    ...(rerating?.rows || []).slice(0, 1).map((r) => `${r.symbol}: ${r.transition}`),
+    ...(boards.highest_roe || []).slice(0, 1).map((r) => `${r.symbol} among highest ROE names`),
+  ].filter(Boolean);
 
   return (
-    <section className="sve-boards">
-      <div className="sve-directory-head">
-        <h3>Opportunity, premium & re-rating</h3>
-        <p className="hint">Warehouse-backed screens for research — not recommendations.</p>
-      </div>
-      <div className="sve-boards-grid">
-        {boardEntries.map(([title, rows]) => (
-          <div key={title} className="sve-panel sve-board-card">
-            <h4>{title}</h4>
-            <ul>
-              {(rows || []).slice(0, 8).map((r) => (
-                <li key={`${title}-${r.symbol}`}>
-                  <button type="button" className="sve-link" onClick={() => onSelectCompany?.(r.symbol, r.company_name)}>
-                    {r.symbol}
-                  </button>
-                  <span className="hint">{r.sector || r.why || r.valuation_status || ''}</span>
-                </li>
-              ))}
-              {!rows?.length ? <li className="hint">No rows yet</li> : null}
-            </ul>
-          </div>
-        ))}
-        <div className="sve-panel sve-board-card">
-          <h4>Premium dashboard</h4>
-          <ul>
-            {(premium?.rows || []).slice(0, 10).map((r) => (
-              <li key={`prem-${r.symbol}`}>
-                <button type="button" className="sve-link" onClick={() => onSelectCompany?.(r.symbol, r.company_name)}>
-                  {r.symbol}
-                </button>
-                <span>
-                  {r.premium_pct != null ? `${fmt(r.premium_pct, 1)}%` : '—'} · hist% {fmt(r.historical_percentile, 0)}
-                </span>
-                <span className="hint">{r.reason}</span>
-              </li>
-            ))}
-          </ul>
+    <>
+      <section className="sve-boards sve-opp-dash">
+        <div className="sve-directory-head">
+          <h3>Opportunity dashboard</h3>
+          <p className="hint">Warehouse screens for research focus — not recommendations</p>
         </div>
-        <div className="sve-panel sve-board-card">
-          <h4>Re-rating dashboard</h4>
-          <ul>
-            {(rerating?.rows || []).slice(0, 10).map((r) => (
-              <li key={`re-${r.symbol}`}>
-                <button type="button" className="sve-link" onClick={() => onSelectCompany?.(r.symbol, r.company_name)}>
-                  {r.symbol}
-                </button>
-                <span>{r.transition}</span>
-                <span className="hint">
-                  {r.magnitude_pct != null ? `${fmt(r.magnitude_pct, 1)}%` : '—'} · {r.reason}
-                </span>
-              </li>
-            ))}
-          </ul>
+        <div className="opp-rails">
+          <OppRail title="Deep value" accent="cheap" rows={boards.most_undervalued || boards.most_attractive} onSelectCompany={onSelectCompany} />
+          <OppRail title="Highest premium" accent="premium" rows={premium?.rows || boards.largest_premiums} onSelectCompany={onSelectCompany} />
+          <OppRail title="Strongest ROE" accent="quality" rows={boards.highest_roe} onSelectCompany={onSelectCompany} />
+          <OppRail title="Research priority" accent="alert" rows={rerating?.rows || boards.most_overvalued} onSelectCompany={onSelectCompany} />
         </div>
-      </div>
-    </section>
+      </section>
+      <section className="sve-today-research">
+        <h3>Today&apos;s research</h3>
+        <ul>
+          {researchBullets.length
+            ? researchBullets.map((b) => <li key={b}>{b}</li>)
+            : <li className="hint">Research bullets appear when warehouse screens populate.</li>}
+        </ul>
+      </section>
+    </>
   );
 }
