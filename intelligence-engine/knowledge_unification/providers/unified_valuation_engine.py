@@ -91,6 +91,16 @@ class UnifiedValuationEngineProvider:
                 why.append(f"{key.upper()}={block}")
         if pack.get("policy_status"):
             why.append(f"VPAE status: {pack.get('policy_status')}")
+        try:
+            from valuation_engine.prompt import OUTPUT_SECTIONS, UVE_PROMPT_VERSION
+
+            prompt_meta = {
+                "id": "uve_institutional_system_prompt_v3",
+                "version": UVE_PROMPT_VERSION,
+                "sections": list(OUTPUT_SECTIONS),
+            }
+        except Exception:
+            prompt_meta = {"id": "uve_institutional_system_prompt_v3", "version": "v3.0.0", "sections": []}
         return timed_result(
             self.spec.id,
             ok=True,
@@ -108,5 +118,5 @@ class UnifiedValuationEngineProvider:
                 "primary_metric": primary,
                 "policy_status": pack.get("policy_status"),
                 "metrics": pack.get("metrics"),
-            }},
+            }, "prompt": prompt_meta},
         )

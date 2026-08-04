@@ -339,6 +339,12 @@ def explain_valuation_change(symbol: str, before: dict[str, Any],
 
 
 def health() -> dict[str, Any]:
+    try:
+        from valuation_engine.prompt import UVE_PROMPT_VERSION, prompt_catalog
+
+        prompt_meta = prompt_catalog()
+    except Exception:
+        prompt_meta = {"version": None}
     return {
         "ok": True,
         "engine": ENGINE_CODE,
@@ -346,4 +352,9 @@ def health() -> dict[str, Any]:
         "metrics": list(graph.METRICS),
         "computation_order": graph.topological(),
         "reads": "institutional_warehouse",
+        "institutional_prompt": {
+            "id": "uve_institutional_system_prompt_v3",
+            "version": UVE_PROMPT_VERSION,
+            "output_sections": prompt_meta.get("output_sections") or [],
+        },
     }

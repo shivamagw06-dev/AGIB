@@ -20201,6 +20201,14 @@ async def valuation_engine_health():
     return health()
 
 
+@router.get("/valuation-engine/prompt")
+async def valuation_engine_prompt():
+    """UVE Institutional System Prompt V3 — sections, frameworks, voice rules."""
+    from valuation_engine.prompt import prompt_catalog, system_prompt
+
+    return {**prompt_catalog(), "system_prompt": system_prompt()}
+
+
 @router.get("/valuation-engine/company/{symbol}")
 async def valuation_engine_company(symbol: str):
     """One company's valuation, sector context, coverage and provenance."""

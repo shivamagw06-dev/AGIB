@@ -3221,6 +3221,7 @@ export default function createIntelligenceRouter() {
 
   // Unified Valuation Engine — terminal migration surface
   router.get('/valuation-engine/health', kfGet('/v1/valuation-engine/health'));
+  router.get('/valuation-engine/prompt', kfGet('/v1/valuation-engine/prompt'));
   router.get('/valuation-engine/company/:symbol', async (req, res) => {
     try {
       const r = await engineFetch(
