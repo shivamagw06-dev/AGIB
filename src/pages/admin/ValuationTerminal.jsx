@@ -18,6 +18,7 @@ import {
   YAxis,
 } from 'recharts';
 import {
+  getSveMarket,
   getSveSectors,
   getVtCompany,
   getVtExplain,
@@ -25,7 +26,11 @@ import {
   getVtSeries,
   searchVtCompanies,
 } from '@/lib/intelligenceApi';
-import SectorValuationWorkspace, { SectorDirectory } from '@/pages/admin/SectorValuationWorkspace';
+import SectorValuationWorkspace, {
+  MarketSnapshot,
+  ResearchBoards,
+  SectorDirectory,
+} from '@/pages/admin/SectorValuationWorkspace';
 import './valuationIntelligence.css';
 import './valuationTerminal.css';
 import './sectorValuationExplorer.css';
@@ -572,6 +577,7 @@ export default function ValuationTerminal() {
   const [params, setParams] = useSearchParams();
   const [symbol, setSymbol] = useState(params.get('symbol') || '');
   const [sector, setSector] = useState(params.get('sector') || '');
+  const [industry, setIndustry] = useState(params.get('industry') || '');
   const [window, setWindow] = useState('5Y');
   const [pack, setPack] = useState(null);
   const [health, setHealth] = useState(null);
@@ -582,6 +588,8 @@ export default function ValuationTerminal() {
   const [favorites, setFavorites] = useState(() => readList(FAV_KEY));
   const [sectors, setSectors] = useState([]);
   const [sectorsLoading, setSectorsLoading] = useState(true);
+  const [market, setMarket] = useState(null);
+  const [marketLoading, setMarketLoading] = useState(true);
   const [compare, setCompare] = useState([]);
 
   const home = location.pathname.startsWith('/admin') ? '/admin' : '/';
@@ -592,22 +600,36 @@ export default function ValuationTerminal() {
 
   const selectSector = useCallback((name) => {
     setSector(name);
+    setIndustry('');
     setSymbol('');
     setPack(null);
     setCompare([]);
     setParams((prev) => {
       const next = new URLSearchParams(prev);
       next.delete('symbol');
+      next.delete('industry');
       next.set('sector', name);
+      return next;
+    });
+  }, [setParams]);
+
+  const selectIndustry = useCallback((name) => {
+    setIndustry(name || '');
+    setParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (name) next.set('industry', name);
+      else next.delete('industry');
       return next;
     });
   }, [setParams]);
 
   const clearSector = useCallback(() => {
     setSector('');
+    setIndustry('');
     setParams((prev) => {
       const next = new URLSearchParams(prev);
       next.delete('sector');
+      next.delete('industry');
       return next;
     });
   }, [setParams]);
@@ -664,18 +686,25 @@ export default function ValuationTerminal() {
   useEffect(() => { loadPack(); }, [loadPack]);
   useEffect(() => {
     setSectorsLoading(true);
+    setMarketLoading(true);
     getSveSectors()
       .then((r) => setSectors(r?.sectors || []))
       .catch(() => setSectors([]))
       .finally(() => setSectorsLoading(false));
+    getSveMarket()
+      .then(setMarket)
+      .catch(() => setMarket(null))
+      .finally(() => setMarketLoading(false));
   }, []);
 
   useEffect(() => {
     const fromUrl = params.get('symbol');
     const sectorUrl = params.get('sector') || '';
+    const industryUrl = params.get('industry') || '';
     if (fromUrl && fromUrl.toUpperCase() !== symbol) setSymbol(fromUrl.toUpperCase());
     if (sectorUrl !== sector) setSector(sectorUrl);
-  }, [params, symbol, sector]);
+    if (industryUrl !== industry) setIndustry(industryUrl);
+  }, [params, symbol, sector, industry]);
 
   const isFavorite = favorites.some((f) => f.symbol === symbol);
   const showSectorHome = !symbol && !sector;
@@ -687,11 +716,21 @@ export default function ValuationTerminal() {
         <div className="vi-brand-row">
           <div className="vi-brand">
             <Link to={home} className="vt-back"><ArrowLeft size={14} /> Back</Link>
-            <h1>Valuation Terminal</h1>
-            <p>Market → Sector → Company → History · Warehouse → UVE / HVIE / VPAE</p>
+            <h1>Valuation Research Workspace</h1>
+            <p>Market → Sector → Industry → Company → History → Research · Warehouse → UVE / HVIE / VPAE</p>
           </div>
           <div className="vi-actions">
-            <button type="button" className="vi-btn" onClick={() => { loadHealth(); loadPack(); getSveSectors().then((r) => setSectors(r?.sectors || [])); }} disabled={loading}>
+            <button
+              type="button"
+              className="vi-btn"
+              onClick={() => {
+                loadHealth();
+                loadPack();
+                getSveSectors().then((r) => setSectors(r?.sectors || []));
+                getSveMarket().then(setMarket).catch(() => setMarket(null));
+              }}
+              disabled={loading}
+            >
               <RefreshCw size={14} /> Refresh
             </button>
             <div className="vi-updated">
@@ -716,10 +755,10 @@ export default function ValuationTerminal() {
         {showSectorHome ? (
           <>
             <section className="vt-empty-state">
-              <h2>Institutional Valuation Terminal</h2>
+              <h2>Institutional Valuation Research Workspace</h2>
               <p>
-                Search a company, or start from a sector below for top-down research.
-                Multiples come from the Unified Valuation Engine and HVIE — never from the UI.
+                Begin at the Indian market, drill into a sector and industry, or search a company.
+                Every multiple is warehouse-backed through UVE / HVIE / VPAE — never calculated in the UI.
               </p>
               <div className="vt-quick">
                 {['AXISBANK', 'ICICIBANK', 'INFY', 'TCS'].map((s) => (
@@ -729,18 +768,23 @@ export default function ValuationTerminal() {
                 ))}
               </div>
             </section>
+            <MarketSnapshot market={market} loading={marketLoading} />
             <SectorDirectory
               sectors={sectors}
               loading={sectorsLoading}
               onSelect={selectSector}
             />
+            <ResearchBoards onSelectCompany={selectCompany} />
           </>
         ) : null}
 
         {showSectorWorkspace ? (
           <SectorValuationWorkspace
             sector={sector}
+            industry={industry}
             onBack={clearSector}
+            onSelectIndustry={selectIndustry}
+            onClearIndustry={() => selectIndustry('')}
             onSelectCompany={selectCompany}
             compare={compare}
             onToggleCompare={(sym) => {

@@ -21,7 +21,7 @@ from valuation_terminal.production import PRIMARY_SECTORS
 from valuation_terminal.sector_lens import METRIC_LABELS, explain, lens_for
 
 ENGINE_CODE = "sector_valuation_explorer"
-VERSION = "1.0.0"
+VERSION = "2.0.0"
 
 
 def _now() -> str:
@@ -101,11 +101,52 @@ def _sector_history_medians(sector: str, metric: str) -> dict[str, Any]:
     }
 
 
-def _enrich_company(row: dict[str, Any], sector_medians: dict[str, Any]) -> dict[str, Any]:
+def _industry_medians(members: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    groups: dict[str, list[dict[str, Any]]] = {}
+    for m in members:
+        ind = str(m.get("industry") or "").strip()
+        if ind:
+            groups.setdefault(ind, []).append(m)
+    out: dict[str, dict[str, Any]] = {}
+    for ind, rows in groups.items():
+        pct = _median([r.get("percentile") for r in rows])
+        pe = _median([r.get("pe") for r in rows])
+        out[ind] = {
+            "industry": ind,
+            "sector": rows[0].get("sector"),
+            "companies": len(rows),
+            "median_pe": pe,
+            "median_pb": _median([r.get("pb") for r in rows]),
+            "median_ev_ebitda": _median([r.get("ev_ebitda") for r in rows]),
+            "median_roe": _median([r.get("roe") for r in rows]),
+            "median_roce": _median([r.get("roce") for r in rows]),
+            "historical_percentile": pct,
+            "opportunity": opportunity_label(pct),
+            "coverage_pct": round(
+                100.0 * sum(1 for r in rows if r.get("provider_coverage")) / len(rows), 1
+            ) if rows else 0,
+            "market_cap": sum(_num(r.get("market_cap")) or 0 for r in rows) or None,
+            "confidence": 90 if sum(1 for r in rows if r.get("provider_coverage")) >= max(3, len(rows) * 0.4) else 70,
+        }
+        if pe and out[ind].get("historical_percentile") is not None:
+            # Premium vs own historical percentile band is already on companies;
+            # surface sector-relative premium using peer median when possible.
+            pass
+    return out
+
+
+def _enrich_company(
+    row: dict[str, Any],
+    sector_medians: dict[str, Any],
+    industry_medians: Optional[dict[str, dict[str, Any]]] = None,
+) -> dict[str, Any]:
     primary = row.get("primary_metric") or "pe"
     primary_value = row.get("primary_value")
     sector_pe = sector_medians.get("median_pe") or row.get("sector_median_pe")
     sector_pb = sector_medians.get("median_pb") or row.get("sector_median_pb")
+    ind_name = str(row.get("industry") or "")
+    ind = (industry_medians or {}).get(ind_name) or {}
+    industry_pe = ind.get("median_pe") or row.get("industry_median_pe")
     sector_bench = {
         "pe": sector_pe,
         "pb": sector_pb,
@@ -122,6 +163,14 @@ def _enrich_company(row: dict[str, Any], sector_medians: dict[str, Any]) -> dict
         primary_value=_num(primary_value),
         provider_coverage=int(row.get("provider_coverage") or 0),
     )
+    regime = None
+    if percentile is not None:
+        if percentile >= 80:
+            regime = "Premium"
+        elif percentile <= 20:
+            regime = "Cheap"
+        else:
+            regime = "Fair"
     return {
         "symbol": row.get("symbol"),
         "company_name": row.get("company_name"),
@@ -133,16 +182,22 @@ def _enrich_company(row: dict[str, Any], sector_medians: dict[str, Any]) -> dict
         "industry_dna": row.get("industry_dna"),
         "pe": row.get("pe"),
         "sector_pe": sector_pe,
+        "industry_pe": industry_pe,
         "premium_pct": premium,
         "historical_percentile": percentile,
+        "historical_regime": regime,
         "pb": row.get("pb"),
         "sector_pb": sector_pb,
         "roe": row.get("roe"),
         "roce": row.get("roce"),
         "ev_ebitda": row.get("ev_ebitda"),
+        "dividend_yield": row.get("dividend_yield"),
         "primary_metric": primary,
         "primary_value": primary_value,
         "valuation_status": status,
+        "prev_pe": row.get("prev_pe"),
+        "pe_change_pct": row.get("pe_change_pct"),
+        "pb_change_pct": row.get("pb_change_pct"),
         "coverage": {
             "provider": int(row.get("provider_coverage") or 0),
             "has_percentile": percentile is not None,
@@ -150,6 +205,7 @@ def _enrich_company(row: dict[str, Any], sector_medians: dict[str, Any]) -> dict
         },
         "confidence": 0.9 if row.get("provider_coverage") else 0.6,
         "valuation_date": row.get("valuation_date"),
+        "source": row.get("source"),
     }
 
 
@@ -272,7 +328,7 @@ def health() -> dict[str, Any]:
         "ok": True,
         "engine": ENGINE_CODE,
         "version": VERSION,
-        "role": "sector_first_valuation_workspace",
+        "role": "institutional_valuation_research_workspace",
         "sectors": list(PRIMARY_SECTORS),
         "reads": [
             "market_intelligence_engine.universe",
@@ -283,13 +339,20 @@ def health() -> dict[str, Any]:
         ],
         "rule": "no_ui_calculations_no_buy_sell",
         "endpoints": [
+            "/v1/valuation/market",
             "/v1/valuation/sectors",
             "/v1/valuation/sector/{sector}",
+            "/v1/valuation/sector/{sector}/industries",
+            "/v1/valuation/industry/{industry}",
             "/v1/valuation/sector/{sector}/companies",
             "/v1/valuation/sector/{sector}/summary",
             "/v1/valuation/sector/{sector}/leaders",
             "/v1/valuation/sector/{sector}/heatmap",
             "/v1/valuation/sector/{sector}/research",
+            "/v1/valuation/sector/{sector}/rotation",
+            "/v1/valuation/opportunities",
+            "/v1/valuation/premium",
+            "/v1/valuation/rerating",
             "/v1/valuation/company/{symbol}",
             "/v1/valuation/company/{symbol}/history",
         ],
@@ -318,8 +381,16 @@ def sectors(*, universe_limit: int = 5000) -> dict[str, Any]:
             "median_pe": None,
             "median_pb": None,
         }
+        covered_pct = _num(row.get("upstox_coverage_pct"))
         cards.append({
             **row,
+            "median_ev_ebitda": row.get("median_ev_ebitda"),
+            "median_roe": row.get("median_roe"),
+            "median_roce": row.get("median_roce"),
+            "premium_pct": row.get("premium_pct"),
+            "coverage_pct": covered_pct,
+            "confidence": 96 if (covered_pct or 0) >= 80 else 85 if (covered_pct or 0) >= 50 else 70,
+            "status": row.get("opportunity") or opportunity_label(_num(row.get("historical_percentile"))),
             "opportunity": row.get("opportunity") or opportunity_label(_num(row.get("historical_percentile"))),
             "heatmap_band": aggregation.sector_heatmap([row])[0].get("heatmap_band") if row.get("companies") else "grey",
         })
@@ -354,11 +425,21 @@ def sector_pack(sector: str, *, universe_limit: int = 5000) -> dict[str, Any]:
         dna_counts[d] = dna_counts.get(d, 0) + 1
     dominant = max(dna_counts, key=dna_counts.get) if dna_counts else None
     lens = lens_for(dominant, canonical) or {}
-    companies = [_enrich_company(m, valuation) for m in members]
+    ind_medians = _industry_medians(members)
+    companies = [_enrich_company(m, valuation, ind_medians) for m in members]
     market_cap = sum(_num(c.get("market_cap")) or 0 for c in companies)
     covered = sum(1 for c in companies if (c.get("coverage") or {}).get("provider"))
     explanation = _sector_explanation(lens, canonical)
     outcome = _sector_outcome(canonical, valuation, companies)
+    industry_cards = sorted(ind_medians.values(), key=lambda r: -(r.get("companies") or 0))
+    # Industry premium vs sector median PE when both present.
+    sector_pe = _num(valuation.get("median_pe") or valuation.get("current"))
+    for card in industry_cards:
+        ipe = _num(card.get("median_pe"))
+        if ipe is not None and sector_pe:
+            card["premium_pct"] = round(100.0 * (ipe - sector_pe) / sector_pe, 1)
+        else:
+            card["premium_pct"] = None
     return {
         "ok": True,
         "engine": ENGINE_CODE,
@@ -374,6 +455,9 @@ def sector_pack(sector: str, *, universe_limit: int = 5000) -> dict[str, Any]:
             "market_cap": market_cap or None,
             "coverage_pct": round(100.0 * covered / len(companies), 1) if companies else 0,
             "last_updated": uni.get("valuation_date") or _now()[:10],
+            "median_ev_ebitda": valuation.get("median_ev_ebitda"),
+            "median_roe": valuation.get("median_roe"),
+            "median_roce": valuation.get("median_roce"),
         },
         "summary": {
             "sector": canonical,
@@ -388,6 +472,10 @@ def sector_pack(sector: str, *, universe_limit: int = 5000) -> dict[str, Any]:
             "coverage_pct": round(100.0 * covered / len(companies), 1) if companies else 0,
             "opportunity": outcome.get("opportunity"),
             "overall": outcome.get("overall"),
+            "median_pe": valuation.get("median_pe"),
+            "median_pb": valuation.get("median_pb"),
+            "median_ev_ebitda": valuation.get("median_ev_ebitda"),
+            "median_roe": valuation.get("median_roe"),
         },
         "company_rows": companies,
         "distributions": {
@@ -397,7 +485,8 @@ def sector_pack(sector: str, *, universe_limit: int = 5000) -> dict[str, Any]:
             "premium_pct": _distribution([c.get("premium_pct") for c in companies]),
             "roe": _distribution([c.get("roe") for c in companies]),
         },
-        "industries": sorted({c.get("industry") for c in companies if c.get("industry")}),
+        "industries": industry_cards,
+        "industry_names": [c["industry"] for c in industry_cards],
         "provenance": {
             "universe": "market_intelligence_engine.universe",
             "lens": "valuation_terminal.sector_lens",
@@ -618,3 +707,334 @@ def company_history(symbol: str, *, metric: str = "pe", window: str = "MAX") -> 
         return hvie_history(symbol, metric=metric, window=str(window or "max").lower())
     except Exception as exc:
         return {"ok": False, "symbol": str(symbol).upper(), "error": str(exc)[:200]}
+
+
+def market(*, universe_limit: int = 5000) -> dict[str, Any]:
+    """Indian market valuation snapshot — top of the research workspace."""
+    from market_intelligence_engine import aggregation
+
+    uni = _load_universe(universe_limit)
+    if not uni.get("ok"):
+        return {"ok": False, "error": uni.get("error"), "engine": ENGINE_CODE}
+    overview = aggregation.market_overview(uni)
+    rows = uni.get("rows") or []
+    pe = _median([r.get("pe") for r in rows])
+    pb = _median([r.get("pb") for r in rows])
+    ev = _median([r.get("ev_ebitda") for r in rows])
+    roe = _median([r.get("roe") for r in rows])
+    roce = _median([r.get("roce") for r in rows])
+    div = _median([r.get("dividend_yield") for r in rows])
+    pct = _median([r.get("percentile") for r in rows])
+    covered = sum(1 for r in rows if r.get("provider_coverage") or r.get("pe") is not None)
+    market_cap = sum(_num(r.get("market_cap")) or 0 for r in rows) or None
+    hist = _sector_history_medians("Market", "pe")
+    # Fall back: median of sector historical medians when market row absent.
+    hist_median = hist.get("historical_median")
+    if hist_median is None:
+        sector_hist = []
+        for name in PRIMARY_SECTORS:
+            pack = _sector_history_medians(name, "pe")
+            if pack.get("historical_median") is not None:
+                sector_hist.append(pack["historical_median"])
+        hist_median = _median(sector_hist)
+    premium = None
+    if pe is not None and hist_median:
+        premium = round(100.0 * (pe - hist_median) / hist_median, 1)
+    regime = outcome_label(pct, premium)
+    focus = "Watch earnings quality and durability of current multiples."
+    if pct is not None and pct <= 30:
+        focus = "Screen historically cheap sectors for quality confirmation."
+    elif pct is not None and pct >= 75:
+        focus = "Prioritise earnings quality where premiums are elevated."
+    confidence = 70
+    if covered >= max(50, len(rows) * 0.5):
+        confidence += 15
+    if pct is not None:
+        confidence += 10
+    if hist_median is not None:
+        confidence += 5
+    return {
+        "ok": True,
+        "engine": ENGINE_CODE,
+        "version": VERSION,
+        "market": "Indian Market",
+        "as_of": uni.get("valuation_date"),
+        "companies_covered": len(rows),
+        "coverage_pct": round(100.0 * covered / len(rows), 1) if rows else 0,
+        "median_pe": pe,
+        "historical_median_pe": hist_median,
+        "premium_pct": premium,
+        "median_pb": pb,
+        "median_ev_ebitda": ev,
+        "median_roe": roe,
+        "median_roce": roce,
+        "median_dividend_yield": div,
+        "historical_percentile": pct,
+        "market_cap": market_cap,
+        "regime": regime,
+        "opportunity": opportunity_label(pct),
+        "research_focus": focus,
+        "confidence": min(98, confidence),
+        "last_updated": uni.get("valuation_date") or _now()[:10],
+        "extremes": overview.get("extremes"),
+        "provenance": {
+            "universe": "market_intelligence_engine.universe",
+            "provider_ratios": "warehouse.valuation_ratios",
+            "historical": "warehouse.historical_sector_medians",
+        },
+        "language": "analysis_only",
+        "checked_at": _now(),
+    }
+
+
+def sector_industries(sector: str, *, universe_limit: int = 5000) -> dict[str, Any]:
+    pack = sector_pack(sector, universe_limit=universe_limit)
+    if not pack.get("ok"):
+        return pack
+    return {
+        "ok": True,
+        "engine": ENGINE_CODE,
+        "sector": pack["sector"],
+        "as_of": pack.get("as_of"),
+        "industries": pack.get("industries") or [],
+        "count": len(pack.get("industries") or []),
+    }
+
+
+def industry_pack(industry: str, *, universe_limit: int = 5000) -> dict[str, Any]:
+    name = unquote(str(industry or "")).strip()
+    if not name:
+        return {"ok": False, "error": "industry_required"}
+    uni = _load_universe(universe_limit)
+    members = [r for r in (uni.get("rows") or []) if str(r.get("industry") or "") == name]
+    if not members:
+        # Case-insensitive fallback
+        members = [
+            r for r in (uni.get("rows") or [])
+            if str(r.get("industry") or "").lower() == name.lower()
+        ]
+    if not members:
+        return {"ok": False, "error": "industry_not_found", "industry": name}
+    sector = members[0].get("sector")
+    from market_intelligence_engine import aggregation
+
+    table = aggregation.sector_table(uni)
+    valuation = next((s for s in table if s["sector"] == sector), {})
+    ind_medians = _industry_medians(members)
+    # Rebuild medians for this industry alone (members already filtered).
+    ind_card = ind_medians.get(members[0].get("industry") or name) or next(iter(ind_medians.values()), {})
+    companies = [_enrich_company(m, valuation, ind_medians) for m in members]
+    dna_counts: dict[str, int] = {}
+    for m in members:
+        d = m.get("industry_dna") or "general"
+        dna_counts[d] = dna_counts.get(d, 0) + 1
+    dominant = max(dna_counts, key=dna_counts.get) if dna_counts else None
+    lens = lens_for(dominant, sector) or {}
+    explanation = _sector_explanation(lens, str(sector or name))
+    outcome = _sector_outcome(str(name), {
+        "current": ind_card.get("median_pe") or ind_card.get("median_pb"),
+        "primary_metric": lens.get("primary_metric") or "pe",
+        "historical_percentile": ind_card.get("historical_percentile"),
+        "premium_pct": ind_card.get("premium_pct"),
+        "historical_median": None,
+    }, companies)
+    return {
+        "ok": True,
+        "engine": ENGINE_CODE,
+        "version": VERSION,
+        "industry": members[0].get("industry") or name,
+        "sector": sector,
+        "as_of": uni.get("valuation_date"),
+        "companies": len(companies),
+        "card": ind_card,
+        "lens": lens,
+        "explanation": explanation,
+        "outcome": outcome,
+        "company_rows": companies,
+        "provenance": {
+            "universe": "market_intelligence_engine.universe",
+            "lens": "valuation_terminal.sector_lens",
+        },
+        "checked_at": _now(),
+    }
+
+
+def opportunities(*, universe_limit: int = 5000, top: int = 10, limit: Optional[int] = None) -> dict[str, Any]:
+    if limit is not None:
+        top = limit
+    from market_intelligence_engine import opportunities as opp_mod
+
+    uni = _load_universe(universe_limit)
+    if not uni.get("ok"):
+        return {"ok": False, "error": uni.get("error")}
+    raw = opp_mod.detect_opportunities(uni, limit_per_kind=top)
+    cards = list(raw.get("cards") or [])
+    for c in cards:
+        c["valuation_status"] = valuation_status(
+            percentile=_num(c.get("percentile") or c.get("historical_percentile")),
+            premium_pct=_num(c.get("sector_premium_pct") or c.get("premium_pct")),
+            primary_value=_num(c.get("primary_value") or c.get("pe") or c.get("pb")),
+            provider_coverage=int(c.get("provider_coverage") or 0),
+        )
+
+    def _kind(*names: str) -> list[dict[str, Any]]:
+        return [c for c in cards if c.get("kind") in names][:top]
+
+    # Also build quality / ROE boards directly from universe.
+    by_roe = sorted(
+        [r for r in (uni.get("rows") or []) if r.get("roe") is not None],
+        key=lambda r: -(_num(r.get("roe")) or 0),
+    )[:top]
+    high_roe = [
+        {
+            "symbol": r.get("symbol"),
+            "company_name": r.get("company_name"),
+            "sector": r.get("sector"),
+            "roe": r.get("roe"),
+            "pe": r.get("pe"),
+            "historical_percentile": r.get("percentile"),
+            "kind": "high_roe",
+            "why": f"ROE {r.get('roe')}%",
+        }
+        for r in by_roe
+    ]
+    cheap = _kind("historical_discount", "relative_value")
+    rich = _kind("historical_premium", "valuation_expansion")
+    return {
+        "ok": True,
+        "engine": ENGINE_CODE,
+        "version": VERSION,
+        "as_of": uni.get("valuation_date"),
+        "cards": cards,
+        "boards": {
+            "most_attractive": cheap,
+            "most_undervalued": _kind("historical_discount"),
+            "most_overvalued": rich,
+            "largest_discounts": _kind("relative_value", "historical_discount"),
+            "largest_premiums": _kind("historical_premium"),
+            "highest_quality": high_roe,
+            "highest_roe": high_roe,
+            "most_attractive_historical": _kind("historical_discount"),
+            "lowest_historical_percentile": _kind("historical_discount"),
+        },
+        "note": "Opportunity screens for research — not recommendations.",
+        "language": "analysis_only",
+    }
+
+
+def premium_board(*, universe_limit: int = 5000, top: int = 10, limit: Optional[int] = None) -> dict[str, Any]:
+    if limit is not None:
+        top = limit
+    uni = _load_universe(universe_limit)
+    rows = []
+    from market_intelligence_engine import aggregation
+
+    table = {s["sector"]: s for s in aggregation.sector_table(uni)}
+    for r in uni.get("rows") or []:
+        premium = _num(r.get("sector_premium_pct"))
+        pct = _num(r.get("percentile"))
+        if premium is None and pct is None:
+            continue
+        if (premium or 0) < 15 and (pct or 0) < 70:
+            continue
+        sector_row = table.get(r.get("sector") or "") or {}
+        rows.append({
+            "symbol": r.get("symbol"),
+            "company_name": r.get("company_name"),
+            "sector": r.get("sector"),
+            "industry": r.get("industry"),
+            "premium_pct": premium,
+            "historical_percentile": pct,
+            "pe": r.get("pe"),
+            "pb": r.get("pb"),
+            "roe": r.get("roe"),
+            "reason": (
+                "Elevated vs sector median"
+                if premium is not None and premium >= 15
+                else "Elevated historical percentile"
+            ),
+            "confidence": 90 if r.get("provider_coverage") else 65,
+            "sector_median": sector_row.get("current"),
+        })
+    rows.sort(key=lambda x: -(_num(x.get("premium_pct")) or _num(x.get("historical_percentile")) or 0))
+    return {
+        "ok": True,
+        "engine": ENGINE_CODE,
+        "version": VERSION,
+        "as_of": uni.get("valuation_date"),
+        "rows": rows[: max(1, min(int(top or 10), 50))],
+        "note": "Premium dashboard — evidence of rich valuations, not sell signals.",
+    }
+
+
+def rerating_board(*, universe_limit: int = 5000, top: int = 15, limit: Optional[int] = None) -> dict[str, Any]:
+    if limit is not None:
+        top = limit
+    """Companies whose short-term multiple moves imply regime transitions."""
+    uni = _load_universe(universe_limit)
+    moves = []
+    for r in uni.get("rows") or []:
+        pe_chg = _num(r.get("pe_change_pct"))
+        pb_chg = _num(r.get("pb_change_pct"))
+        chg = pe_chg if pe_chg is not None else pb_chg
+        if chg is None or abs(chg) < 8:
+            continue
+        pct = _num(r.get("percentile"))
+        if chg >= 8:
+            transition = "Fair → Premium" if (pct or 50) >= 55 else "Cheap → Fair"
+        else:
+            transition = "Premium → Fair" if (pct or 50) >= 55 else "Fair → Cheap"
+        moves.append({
+            "symbol": r.get("symbol"),
+            "company_name": r.get("company_name"),
+            "sector": r.get("sector"),
+            "industry": r.get("industry"),
+            "transition": transition,
+            "magnitude_pct": round(chg, 1),
+            "metric": "pe" if pe_chg is not None else "pb",
+            "historical_percentile": pct,
+            "date": uni.get("valuation_date") or uni.get("previous_date"),
+            "reason": (
+                f"{'Expansion' if chg > 0 else 'Compression'} of "
+                f"{'P/E' if pe_chg is not None else 'P/B'} vs prior observation"
+            ),
+            "confidence": 80 if r.get("provider_coverage") else 60,
+        })
+    moves.sort(key=lambda x: -abs(_num(x.get("magnitude_pct")) or 0))
+    return {
+        "ok": True,
+        "engine": ENGINE_CODE,
+        "version": VERSION,
+        "as_of": uni.get("valuation_date"),
+        "previous_date": uni.get("previous_date"),
+        "rows": moves[: max(1, min(int(top or 15), 50))],
+        "note": "Re-rating transitions inferred from warehouse observation changes — not trade signals.",
+    }
+
+
+def sector_rotation(sector: Optional[str] = None, *, universe_limit: int = 5000) -> dict[str, Any]:
+    from market_intelligence_engine import aggregation, flows, rotation
+
+    uni = _load_universe(universe_limit)
+    sectors_table = aggregation.sector_table(uni)
+    rotate = rotation.market_rotation(sectors_table, uni)
+    flow = flows.institutional_flows()
+    selected = None
+    if sector:
+        canonical = _canonical_sector(sector)
+        selected = next((s for s in sectors_table if s.get("sector") == canonical), None)
+    return {
+        "ok": True,
+        "engine": ENGINE_CODE,
+        "version": VERSION,
+        "as_of": uni.get("valuation_date"),
+        "sector": selected,
+        "rotation": rotate,
+        "flows": {
+            "coverage": flow.get("coverage"),
+            "latest": flow.get("latest") or flow.get("summary"),
+            "provenance": flow.get("provenance"),
+        },
+        "sectors": sectors_table,
+        "note": "Sector rotation context for research prioritisation — not a portfolio mandate.",
+    }

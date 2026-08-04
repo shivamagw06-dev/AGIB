@@ -2860,27 +2860,44 @@ export const getValuationPolicyUniverse = (params = {}) => {
   return intelligenceFetch(`/valuation/universe${qs ? `?${qs}` : ''}`, { timeoutMs: 120_000 });
 };
 
-/** Sector Valuation Explorer — top-down institutional valuation workspace */
-export const getSveHealth = () => intelligenceFetch('/valuation/explorer/health');
-export const getSveSectors = (params = {}) => {
-  const qs = new URLSearchParams(
+/** Institutional Valuation Research Workspace v2 — warehouse → UVE / HVIE / VPAE */
+const sveQs = (params = {}) =>
+  new URLSearchParams(
     Object.fromEntries(Object.entries(params).filter(([, v]) => v != null && v !== '')),
   ).toString();
+
+export const getSveHealth = () => intelligenceFetch('/valuation/explorer/health');
+export const getSveMarket = (params = {}) => {
+  const qs = sveQs(params);
+  return intelligenceFetch(`/valuation/market${qs ? `?${qs}` : ''}`, { timeoutMs: 120_000 });
+};
+export const getSveSectors = (params = {}) => {
+  const qs = sveQs(params);
   return intelligenceFetch(`/valuation/sectors${qs ? `?${qs}` : ''}`, { timeoutMs: 120_000 });
 };
 export const getSveSector = (sector, params = {}) => {
-  const qs = new URLSearchParams(
-    Object.fromEntries(Object.entries(params).filter(([, v]) => v != null && v !== '')),
-  ).toString();
+  const qs = sveQs(params);
   return intelligenceFetch(
     `/valuation/sector/${encodeURIComponent(sector)}${qs ? `?${qs}` : ''}`,
     { timeoutMs: 120_000 },
   );
 };
+export const getSveSectorIndustries = (sector, params = {}) => {
+  const qs = sveQs(params);
+  return intelligenceFetch(
+    `/valuation/sector/${encodeURIComponent(sector)}/industries${qs ? `?${qs}` : ''}`,
+    { timeoutMs: 120_000 },
+  );
+};
+export const getSveIndustry = (industry, params = {}) => {
+  const qs = sveQs(params);
+  return intelligenceFetch(
+    `/valuation/industry/${encodeURIComponent(industry)}${qs ? `?${qs}` : ''}`,
+    { timeoutMs: 120_000 },
+  );
+};
 export const getSveSectorCompanies = (sector, params = {}) => {
-  const qs = new URLSearchParams(
-    Object.fromEntries(Object.entries(params).filter(([, v]) => v != null && v !== '')),
-  ).toString();
+  const qs = sveQs(params);
   return intelligenceFetch(
     `/valuation/sector/${encodeURIComponent(sector)}/companies${qs ? `?${qs}` : ''}`,
     { timeoutMs: 120_000 },
@@ -2888,26 +2905,41 @@ export const getSveSectorCompanies = (sector, params = {}) => {
 };
 export const getSveSectorLeaders = (sector, params = {}) =>
   intelligenceFetch(
-    `/valuation/sector/${encodeURIComponent(sector)}/leaders?${new URLSearchParams(params)}`,
+    `/valuation/sector/${encodeURIComponent(sector)}/leaders?${sveQs(params)}`,
     { timeoutMs: 120_000 },
   );
 export const getSveSectorHeatmap = (sector) =>
   intelligenceFetch(`/valuation/sector/${encodeURIComponent(sector)}/heatmap`, { timeoutMs: 120_000 });
 export const getSveSectorResearch = (sector) =>
   intelligenceFetch(`/valuation/sector/${encodeURIComponent(sector)}/research`, { timeoutMs: 120_000 });
+export const getSveSectorRotation = (sector, params = {}) => {
+  const qs = sveQs(params);
+  return intelligenceFetch(
+    `/valuation/sector/${encodeURIComponent(sector)}/rotation${qs ? `?${qs}` : ''}`,
+    { timeoutMs: 120_000 },
+  );
+};
+export const getSveOpportunities = (params = {}) => {
+  const qs = sveQs(params);
+  return intelligenceFetch(`/valuation/opportunities${qs ? `?${qs}` : ''}`, { timeoutMs: 120_000 });
+};
+export const getSvePremium = (params = {}) => {
+  const qs = sveQs(params);
+  return intelligenceFetch(`/valuation/premium${qs ? `?${qs}` : ''}`, { timeoutMs: 120_000 });
+};
+export const getSveRerating = (params = {}) => {
+  const qs = sveQs(params);
+  return intelligenceFetch(`/valuation/rerating${qs ? `?${qs}` : ''}`, { timeoutMs: 120_000 });
+};
 export const getSveCompany = (symbol, params = {}) => {
-  const qs = new URLSearchParams(
-    Object.fromEntries(Object.entries(params).filter(([, v]) => v != null && v !== '')),
-  ).toString();
+  const qs = sveQs(params);
   return intelligenceFetch(
     `/valuation/company/${encodeURIComponent(symbol)}${qs ? `?${qs}` : ''}`,
     { timeoutMs: 90_000 },
   );
 };
 export const getSveCompanyHistory = (symbol, params = {}) => {
-  const qs = new URLSearchParams(
-    Object.fromEntries(Object.entries(params).filter(([, v]) => v != null && v !== '')),
-  ).toString();
+  const qs = sveQs(params);
   return intelligenceFetch(
     `/valuation/company/${encodeURIComponent(symbol)}/history${qs ? `?${qs}` : ''}`,
     { timeoutMs: 90_000 },
