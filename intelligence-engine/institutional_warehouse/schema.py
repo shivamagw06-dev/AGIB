@@ -1263,7 +1263,7 @@ MACRO_SERIES = Tab(
     mode="append",
     key=("series_id", "as_of", "country"),
     order_by=("as_of DESC", "series_id"),
-    search_columns=("series_id", "domain", "country", "source"),
+    search_columns=("series_id", "domain", "country"),
     icon="macro",
     columns=(
         _c("series_id", "Series ID", TEXT, required=True, width=140, group="Key"),
@@ -1274,7 +1274,7 @@ MACRO_SERIES = Tab(
         _c("unit", "Unit", TEXT, width=100, group="Observation"),
         _c("direction", "Direction", TEXT, width=100, group="Observation",
            options=("up", "down", "flat")),
-        _c("source", "Source", TEXT, width=140, group="Provenance"),
+        # Do not add a custom "source" column — reserved by PROVENANCE_COLUMNS.
         *PROVENANCE_COLUMNS,
     ),
 )
@@ -1296,7 +1296,7 @@ MACRO_LATEST = Tab(
         _c("value", "Value", NUMBER, width=120, group="Observation"),
         _c("unit", "Unit", TEXT, width=100, group="Observation"),
         _c("direction", "Direction", TEXT, width=100, group="Observation"),
-        _c("source", "Source", TEXT, width=140, group="Provenance"),
+        # Do not add a custom "source" column — reserved by PROVENANCE_COLUMNS.
         *PROVENANCE_COLUMNS,
     ),
 )
@@ -1454,7 +1454,7 @@ MACRO_CALENDAR = Tab(
         _c("release_date", "Release Date", DATE, width=130, group="Key"),
         _c("indicator", "Indicator", TEXT, required=True, width=160, group="Key"),
         _c("status", "Status", TEXT, width=100, group="Quality"),
-        _c("source", "Source", TEXT, width=140, group="Provenance"),
+        # Do not add a custom "source" column — reserved by PROVENANCE_COLUMNS.
         *PROVENANCE_COLUMNS,
     ),
 )
@@ -1530,6 +1530,20 @@ TABS: tuple[Tab, ...] = (
 )
 
 _BY_ID = {t.id: t for t in TABS}
+
+
+def _assert_unique_columns() -> None:
+    """Fail fast if any tab declares duplicate column keys (breaks CREATE TABLE)."""
+    for t in TABS:
+        seen: set[str] = set()
+        for col in t.columns:
+            key = str(col.key)
+            if key in seen:
+                raise ValueError(f"duplicate_column:{t.id}.{key}")
+            seen.add(key)
+
+
+_assert_unique_columns()
 
 
 def tab(tab_id: str) -> Tab:
