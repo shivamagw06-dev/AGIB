@@ -19590,6 +19590,122 @@ async def hvie_universe_runtime_health():
     return univ.health()
 
 
+# --------------------------------------------------------------------------
+# Research Intelligence Engine (Phase 8.4)
+# --------------------------------------------------------------------------
+
+@router.get("/research/health")
+async def rie_health():
+    from research_intelligence_engine import health
+
+    return health()
+
+
+@router.get("/research/dashboard")
+async def rie_dashboard():
+    from research_intelligence_engine import dashboard
+
+    return dashboard()
+
+
+@router.get("/research/coverage")
+async def rie_coverage(limit: int = 200):
+    from research_intelligence_engine import coverage
+
+    return coverage(limit=min(max(int(limit or 200), 1), 2000))
+
+
+@router.get("/research/company/{symbol}")
+async def rie_company(symbol: str):
+    from research_intelligence_engine import company
+
+    return company(symbol)
+
+
+@router.get("/research/business/{symbol}")
+async def rie_business(symbol: str):
+    from research_intelligence_engine import business
+
+    return business(symbol)
+
+
+@router.get("/research/financial-quality/{symbol}")
+async def rie_financial_quality(symbol: str):
+    from research_intelligence_engine import financial_quality
+
+    return financial_quality(symbol)
+
+
+@router.get("/research/growth/{symbol}")
+async def rie_growth(symbol: str):
+    from research_intelligence_engine import growth
+
+    return growth(symbol)
+
+
+@router.get("/research/profitability/{symbol}")
+async def rie_profitability(symbol: str):
+    from research_intelligence_engine import profitability
+
+    return profitability(symbol)
+
+
+@router.get("/research/capital-allocation/{symbol}")
+async def rie_capital_allocation(symbol: str):
+    from research_intelligence_engine import capital_allocation
+
+    return capital_allocation(symbol)
+
+
+@router.get("/research/valuation/{symbol}")
+async def rie_valuation(symbol: str):
+    from research_intelligence_engine import valuation
+
+    return valuation(symbol)
+
+
+@router.get("/research/ownership/{symbol}")
+async def rie_ownership(symbol: str):
+    from research_intelligence_engine import ownership
+
+    return ownership(symbol)
+
+
+@router.get("/research/risk/{symbol}")
+async def rie_risk(symbol: str):
+    from research_intelligence_engine import risk
+
+    return risk(symbol)
+
+
+@router.get("/research/catalysts/{symbol}")
+async def rie_catalysts(symbol: str):
+    from research_intelligence_engine import catalysts
+
+    return catalysts(symbol)
+
+
+@router.get("/research/monitoring/{symbol}")
+async def rie_monitoring(symbol: str):
+    from research_intelligence_engine import monitoring
+
+    return monitoring(symbol)
+
+
+@router.get("/research/timeline/{symbol}")
+async def rie_timeline(symbol: str):
+    from research_intelligence_engine import timeline
+
+    return timeline(symbol)
+
+
+@router.get("/research/confidence/{symbol}")
+async def rie_confidence(symbol: str):
+    from research_intelligence_engine import confidence
+
+    return confidence(symbol)
+
+
 @router.get("/valuation-engine/health")
 async def valuation_engine_health():
     """The one valuation contract: what it computes and what it reads."""

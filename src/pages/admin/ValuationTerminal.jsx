@@ -33,11 +33,13 @@ import SectorValuationWorkspace, {
 } from '@/pages/admin/SectorValuationWorkspace';
 import CoverageHealthPanel from '@/pages/admin/CoverageHealthPanel';
 import { CompanyAttributionPanel } from '@/pages/admin/ValuationAttributionPanel';
+import ResearchDossierPanel from '@/pages/admin/ResearchDossierPanel';
 import './valuationIntelligence.css';
 import './valuationTerminal.css';
 import './sectorValuationExplorer.css';
 import './valuationAttribution.css';
 import './coverageHealth.css';
+import './researchIntelligence.css';
 
 const METRIC_LABELS = {
   pe: 'P/E',
@@ -646,7 +648,14 @@ function CompanyDetailWorkspace({
           </div>
         ) : null}
 
-        {tab === 'research' || tab === 'overview' ? (
+        {tab === 'research' ? (
+          <>
+            <ResearchDossierPanel symbol={symbol} />
+            <CompanyAttributionPanel symbol={symbol} />
+          </>
+        ) : null}
+
+        {tab === 'overview' ? (
           <CompanyAttributionPanel symbol={symbol} />
         ) : null}
 

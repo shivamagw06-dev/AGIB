@@ -3134,6 +3134,34 @@ export const postHvieUniverseReconstruct = (symbol) =>
     method: 'POST', body: {}, timeoutMs: 300_000,
   });
 
+/** Research Intelligence Engine (Phase 8.4) */
+export const getRieHealth = () => intelligenceFetch('/research/health');
+export const getRieDashboard = () =>
+  intelligenceFetch('/research/dashboard', { timeoutMs: 90_000 });
+export const getRieCoverage = (params = {}) => {
+  const qs = new URLSearchParams(
+    Object.fromEntries(Object.entries(params).filter(([, v]) => v != null && v !== '')),
+  ).toString();
+  return intelligenceFetch(`/research/coverage${qs ? `?${qs}` : ''}`, { timeoutMs: 90_000 });
+};
+export const getRieCompany = (symbol) =>
+  intelligenceFetch(`/research/company/${encodeURIComponent(symbol)}`, { timeoutMs: 180_000 });
+export const getRieSection = (section, symbol) =>
+  intelligenceFetch(`/research/${section}/${encodeURIComponent(symbol)}`, { timeoutMs: 90_000 });
+export const getRieBusiness = (symbol) => getRieSection('business', symbol);
+export const getRieFinancialQuality = (symbol) => getRieSection('financial-quality', symbol);
+export const getRieGrowth = (symbol) => getRieSection('growth', symbol);
+export const getRieProfitability = (symbol) => getRieSection('profitability', symbol);
+export const getRieCapitalAllocation = (symbol) => getRieSection('capital-allocation', symbol);
+export const getRieValuation = (symbol) => getRieSection('valuation', symbol);
+export const getRieOwnership = (symbol) => getRieSection('ownership', symbol);
+export const getRieRisk = (symbol) => getRieSection('risk', symbol);
+export const getRieCatalysts = (symbol) => getRieSection('catalysts', symbol);
+export const getRieMonitoring = (symbol) => getRieSection('monitoring', symbol);
+export const getRieTimeline = (symbol) => getRieSection('timeline', symbol);
+export const getRieConfidence = (symbol) =>
+  intelligenceFetch(`/research/confidence/${encodeURIComponent(symbol)}`, { timeoutMs: 180_000 });
+
 /** Market & Sector Intelligence Terminal v1.0 */
 export const getMiHealth = () => intelligenceFetch('/market-intelligence/health');
 export const getMiDashboard = () =>
