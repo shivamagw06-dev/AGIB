@@ -98,12 +98,60 @@ def test_sync_universe_classifies_all_masters(monkeypatch):
 def test_sync_recovers_running_after_restart(monkeypatch):
     store = FakeStore()
     _patch_warehouse(monkeypatch, store)
-    queue.sync_universe()
-    queue.upsert_queue_row("AAA", queue_status="RUNNING", lifecycle="RUNNING")
-    out = queue.sync_universe()
+    queue.sync_universe(adopt_existing=False)
+    # Stale RUNNING (no last_run_at) is recovered; fresh RUNNING is left alone.
+    queue.upsert_queue_row("AAA", queue_status="RUNNING", lifecycle="RUNNING", last_run_at=None)
+    out = queue.sync_universe(adopt_existing=False)
     assert out["recovered_running"] >= 1
     row = queue.get_queue_row("AAA")
     assert row["queue_status"] == "RETRY"
+
+
+def test_import_existing_hvie_progress(monkeypatch):
+    store = FakeStore()
+    store.tables["hvie_company_state"] = [
+        {
+            "symbol": "AAA",
+            "seeded": True,
+            "status": "SEEDED",
+            "observations": 40,
+            "last_percentile": 55.0,
+            "last_regime": "FAIR",
+            "primary_metric": "pe",
+        }
+    ]
+    _patch_warehouse(monkeypatch, store)
+    queue.sync_universe(adopt_existing=False)
+    out = queue.import_existing_hvie_progress()
+    assert out["adopted"] == 1
+    row = queue.get_queue_row("AAA")
+    assert row["queue_status"] == QUEUE_COMPLETED
+    assert row["lifecycle"] == LIFE_COMPLETE
+    assert row["has_percentile"] is True
+
+
+def test_process_company_adopts_seeded_state(monkeypatch):
+    store = FakeStore()
+    store.tables["hvie_company_state"] = [
+        {
+            "symbol": "AAA",
+            "seeded": True,
+            "status": "SEEDED",
+            "observations": 40,
+            "last_percentile": 33.0,
+            "last_regime": "CHEAP",
+        }
+    ]
+    _patch_warehouse(monkeypatch, store)
+    queue.sync_universe(adopt_existing=False)
+    monkeypatch.setattr(
+        "historical_valuation_intelligence.runtime._get_state",
+        lambda symbol: store.tables["hvie_company_state"][0],
+    )
+    out = pipeline.process_company("AAA")
+    assert out["ok"] is True
+    assert out.get("adopted") is True
+    assert out["queue_status"] == QUEUE_COMPLETED
 
 
 def test_classify_waiting_price(monkeypatch):
@@ -197,7 +245,7 @@ def test_process_company_completes_pipeline(monkeypatch):
 def test_pipeline_counts(monkeypatch):
     store = FakeStore()
     _patch_warehouse(monkeypatch, store)
-    queue.sync_universe()
+    queue.sync_universe(adopt_existing=False)
     queue.upsert_queue_row(
         "AAA",
         queue_status=QUEUE_COMPLETED,
@@ -216,3 +264,17 @@ def test_pipeline_counts(monkeypatch):
     assert counts["complete"] == 1
     assert counts["percentiles"] == 1
     assert counts["pending"] == 2
+
+
+def test_board_payload_shape(monkeypatch):
+    from historical_valuation_intelligence.universe_programme import runtime as univ_rt
+
+    store = FakeStore()
+    _patch_warehouse(monkeypatch, store)
+    queue.sync_universe(adopt_existing=False)
+    board = univ_rt.board()
+    assert board["ok"] is True
+    assert "plain_english" in board
+    assert "progress" in board
+    assert "stages" in board
+    assert isinstance(board["failures"], list)

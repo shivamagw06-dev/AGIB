@@ -26,6 +26,8 @@ _STATE: dict[str, Any] = {
     "last_tick": None,
     "last_error": None,
     "last_batch": None,
+    "last_sync": None,
+    "ticks": 0,
     "completed_this_session": 0,
     "failed_this_session": 0,
     "processed_this_session": 0,
@@ -41,16 +43,27 @@ def _truthy(name: str, default: str = "true") -> bool:
     return str(os.getenv(name, default)).strip().lower() in {"1", "true", "yes", "on"}
 
 
-def ensure_classified() -> dict[str, Any]:
-    return queue.sync_universe()
+def ensure_classified(
+    *,
+    recover_running: bool = True,
+    adopt_existing: bool = True,
+) -> dict[str, Any]:
+    out = queue.sync_universe(
+        recover_running=recover_running,
+        adopt_existing=adopt_existing,
+    )
+    with _LOCK:
+        _STATE["last_sync"] = _now()
+    return out
 
 
-def process_batch(*, batch: int = 15) -> dict[str, Any]:
+def process_batch(*, batch: int = 3, sync: bool = False) -> dict[str, Any]:
     """Claim and process one batch from the persisted queue."""
-    sync = queue.sync_universe()
-    # Periodically re-promote waiting names when raw data arrives.
-    if int(sync.get("queue_total") or 0) % 17 == 0:
-        pipeline.requeue_waiting(limit=50)
+    sync_out = None
+    if sync:
+        # Light sync while running: no RUNNING recovery, no full HVIE import.
+        sync_out = ensure_classified(recover_running=False, adopt_existing=False)
+        pipeline.requeue_waiting(limit=40)
 
     claimed = queue.next_batch(batch=batch)
     results = []
@@ -91,6 +104,7 @@ def process_batch(*, batch: int = 15) -> dict[str, Any]:
     counts = queue.pipeline_counts()
     with _LOCK:
         _STATE["last_tick"] = _now()
+        _STATE["ticks"] = int(_STATE.get("ticks") or 0) + 1
         _STATE["last_batch"] = {
             "attempted": len(claimed),
             "completed": completed,
@@ -112,7 +126,7 @@ def process_batch(*, batch: int = 15) -> dict[str, Any]:
         "elapsed_seconds": round(elapsed, 2),
         "companies_per_hour": round(len(claimed) * 3600.0 / elapsed, 1) if claimed else 0.0,
         "pipeline": counts,
-        "sync": sync,
+        "sync": sync_out,
         "engine": ENGINE_CODE,
         "programme": PROGRAMME_CODE,
         "version": PROGRAMME_VERSION,
@@ -145,6 +159,36 @@ def throughput() -> dict[str, Any]:
     }
 
 
+def _plain_english(pipe: dict[str, Any], runtime_status: str, thr: dict[str, Any]) -> str:
+    universe = int(pipe.get("universe") or 0)
+    complete = int(pipe.get("complete") or 0)
+    pending = int(pipe.get("pending") or 0)
+    retry = int(pipe.get("retry") or 0)
+    failed = int(pipe.get("failed") or 0)
+    skipped = int(pipe.get("skipped") or 0)
+    running = int(pipe.get("running") or 0)
+    pct = round(100.0 * complete / universe, 1) if universe else 0.0
+
+    if universe <= 0:
+        return "No companies loaded yet. Press Start — we will build the work list from the warehouse."
+    if complete >= universe and pending == 0 and retry == 0 and running == 0:
+        return f"Done. Historical valuation is ready for all {universe} companies."
+    if runtime_status == "running":
+        eta = thr.get("eta_hours")
+        eta_bit = f" About {eta} hours left at the current speed." if eta is not None else ""
+        return (
+            f"Working now: {complete} of {universe} finished ({pct}%). "
+            f"{pending + retry} still waiting, {running} in progress, {skipped} waiting on missing data."
+            f"{eta_bit}"
+        )
+    if failed and pending == 0 and retry == 0 and running == 0:
+        return f"{complete} finished, {failed} failed. Press Resume to retry failures, or Start to continue."
+    return (
+        f"{complete} of {universe} companies finished ({pct}%). "
+        f"Press Start to keep building historical PE/PB/EV for the rest."
+    )
+
+
 def status() -> dict[str, Any]:
     with _LOCK:
         snap = {k: v for k, v in _STATE.items() if k != "started_mono"}
@@ -161,6 +205,7 @@ def status() -> dict[str, Any]:
         "queue": qcounts,
         "pipeline": pipe,
         "throughput": thr,
+        "plain_english": _plain_english(pipe, str(snap.get("status") or "idle"), thr),
         "completion": {
             "pending": pipe.get("pending"),
             "running": pipe.get("running"),
@@ -176,6 +221,77 @@ def status() -> dict[str, Any]:
             "daily": "append one observation after bootstrap complete",
             "statement": "forward reconstruct release→today",
             "corporate_action": "full reconstruct on structural CA",
+        },
+    }
+
+
+def board() -> dict[str, Any]:
+    """Single payload for the admin UI — avoids 4 heavy parallel polls."""
+    with _LOCK:
+        snap = {k: v for k, v in _STATE.items() if k != "started_mono"}
+    pipe = queue.pipeline_counts()
+    thr = throughput()
+    runtime_status = str(snap.get("status") or "idle")
+    universe = int(pipe.get("universe") or 0)
+    complete = int(pipe.get("complete") or 0)
+    pct = round(100.0 * complete / universe, 1) if universe else 0.0
+    lists = queue.board_rows(limit_fail=20, limit_next=12)
+    stages = [
+        {"name": "All companies", "count": pipe.get("universe"), "hint": "Full listed universe on the queue"},
+        {"name": "Have enough data", "count": pipe.get("eligible"), "hint": "Prices + statements available"},
+        {"name": "History built", "count": pipe.get("seeded_history"), "hint": "Reconstructed valuation history"},
+        {"name": "Statistics", "count": pipe.get("statistics"), "hint": "Means / medians / bands inputs"},
+        {"name": "Percentile ready", "count": pipe.get("percentiles"), "hint": "Where valuation sits vs history"},
+        {"name": "Regime ready", "count": pipe.get("regimes"), "hint": "Cheap / fair / expensive label"},
+        {"name": "Finished", "count": pipe.get("complete"), "hint": "Fully usable for research"},
+    ]
+    return {
+        "ok": True,
+        "engine": ENGINE_CODE,
+        "programme": PROGRAMME_CODE,
+        "version": PROGRAMME_VERSION,
+        "runtime": {
+            "status": runtime_status,
+            "started_at": snap.get("started_at"),
+            "last_tick": snap.get("last_tick"),
+            "last_error": snap.get("last_error"),
+            "last_batch": snap.get("last_batch"),
+            "completed_this_session": snap.get("completed_this_session"),
+            "failed_this_session": snap.get("failed_this_session"),
+            "processed_this_session": snap.get("processed_this_session"),
+        },
+        "progress": {
+            "universe": universe,
+            "complete": complete,
+            "percent": pct,
+            "pending": pipe.get("pending"),
+            "running": pipe.get("running"),
+            "retry": pipe.get("retry"),
+            "failed": pipe.get("failed"),
+            "skipped": pipe.get("skipped"),
+        },
+        "pipeline": pipe,
+        "stages": stages,
+        "throughput": {
+            "speed_per_hour": thr.get("speed_per_hour"),
+            "eta_hours": thr.get("eta_hours"),
+            "remaining": thr.get("remaining"),
+            "session_completed": thr.get("session_completed"),
+        },
+        "plain_english": _plain_english(pipe, runtime_status, thr),
+        "failures": lists.get("failures") or [],
+        "next_up": lists.get("next_up") or [],
+        "recent_complete": lists.get("recent_complete") or [],
+        "what_this_does": (
+            "Builds historical PE, PB and EV for every company from warehouse prices, "
+            "financial statements and corporate actions. It does not download vendor PE history. "
+            "Press Start and leave it running — progress is saved if the server restarts."
+        ),
+        "buttons": {
+            "start": "Start / keep the background worker running until the queue is empty.",
+            "stop": "Pause the background worker. Progress already saved stays saved.",
+            "resume": "Reload the work list (including older HVIE progress) and start again.",
+            "run_batch": "Process a small batch once, without leaving the worker on.",
         },
     }
 
@@ -266,10 +382,21 @@ def start(*, interval_seconds: Optional[float] = None, batch: Optional[int] = No
     if not _truthy("HVIE_UNIVERSE_RUNTIME", "true"):
         return {"ok": True, "enabled": False, "reason": "HVIE_UNIVERSE_RUNTIME=false"}
     if _THREAD and _THREAD.is_alive():
-        return {"ok": True, "enabled": True, "already_running": True, "status": status()}
+        with _LOCK:
+            snap = {k: v for k, v in _STATE.items() if k != "started_mono"}
+        return {
+            "ok": True,
+            "enabled": True,
+            "already_running": True,
+            "runtime": snap,
+            "programme": PROGRAMME_CODE,
+        }
 
-    interval = float(interval_seconds or os.getenv("HVIE_UNIVERSE_INTERVAL_SECONDS") or 90)
-    batch_n = int(batch or os.getenv("HVIE_UNIVERSE_BATCH") or 12)
+    # Smaller batches + longer pause: each company reconstruct is heavy; large
+    # batches were 502'ing the Render service when Start + UI polls stacked.
+    interval = float(interval_seconds or os.getenv("HVIE_UNIVERSE_INTERVAL_SECONDS") or 120)
+    batch_n = int(batch or os.getenv("HVIE_UNIVERSE_BATCH") or 3)
+    sync_every = max(1, int(os.getenv("HVIE_UNIVERSE_SYNC_EVERY_TICKS") or 8))
 
     def _loop() -> None:
         with _LOCK:
@@ -277,35 +404,43 @@ def start(*, interval_seconds: Optional[float] = None, batch: Optional[int] = No
             _STATE["started_at"] = _now()
             _STATE["started_mono"] = time.time()
             _STATE["stopped"] = False
+            _STATE["ticks"] = 0
+            _STATE["last_error"] = None
             _STATE["completed_this_session"] = 0
             _STATE["failed_this_session"] = 0
             _STATE["processed_this_session"] = 0
-        ensure_classified()
+        try:
+            ensure_classified(recover_running=True)
+        except Exception as exc:
+            with _LOCK:
+                _STATE["last_error"] = f"sync_failed:{exc}"[:300]
         while True:
             with _LOCK:
                 if _STATE.get("stopped"):
                     break
+                ticks = int(_STATE.get("ticks") or 0)
             try:
-                out = process_batch(batch=batch_n)
+                out = process_batch(batch=batch_n, sync=(ticks > 0 and ticks % sync_every == 0))
                 done = (
                     int((out.get("pipeline") or {}).get("pending") or 0) == 0
                     and int((out.get("pipeline") or {}).get("retry") or 0) == 0
                     and int((out.get("pipeline") or {}).get("running") or 0) == 0
                 )
                 if done:
-                    # Bootstrap complete — persist aggregates once, then idle lightly.
                     try:
                         persist_aggregates(metric="pe")
                     except Exception:
                         pass
-                    # Keep loop alive for requeue of waiting names + new listings.
-                    pipeline.requeue_waiting(limit=100)
-                    time.sleep(max(60.0, interval))
+                    try:
+                        pipeline.requeue_waiting(limit=100)
+                    except Exception:
+                        pass
+                    time.sleep(max(90.0, interval))
                     continue
             except Exception as exc:
                 with _LOCK:
                     _STATE["last_error"] = str(exc)[:300]
-            time.sleep(max(15.0, interval))
+            time.sleep(max(30.0, interval))
         with _LOCK:
             _STATE["status"] = "stopped"
 
@@ -329,6 +464,6 @@ def stop() -> dict[str, Any]:
 
 
 def resume() -> dict[str, Any]:
-    """Alias for start — recovers RUNNING→RETRY via sync_universe."""
-    ensure_classified()
+    """Reload queue (adopt classic HVIE progress) and start the worker."""
+    ensure_classified(recover_running=True)
     return start()

@@ -19477,6 +19477,13 @@ async def hvie_universe_runtime_status():
     return univ.status()
 
 
+@router.get("/hvie/runtime/board")
+async def hvie_universe_runtime_board():
+    from historical_valuation_intelligence.universe_programme import production as univ
+
+    return univ.board()
+
+
 @router.get("/hvie/runtime/coverage")
 async def hvie_universe_runtime_coverage():
     from historical_valuation_intelligence.universe_programme import production as univ

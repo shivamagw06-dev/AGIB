@@ -177,8 +177,199 @@
 
 .vp-back:hover { color: var(--vp-text); }
 
+/* HVIE Runtime board */
+.hr-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin: 1.25rem 0 0.75rem;
+}
+
+.hr-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: var(--vp-panel);
+  color: var(--vp-text);
+  border: 1px solid var(--vp-line);
+  padding: 0.55rem 0.9rem;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.hr-btn.primary {
+  background: var(--vp-accent);
+  color: #1a1408;
+  border-color: transparent;
+}
+
+.hr-btn.ghost {
+  background: transparent;
+}
+
+.hr-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.hr-note {
+  color: var(--vp-ok);
+  margin: 0.5rem 0 0;
+  font-size: 0.9rem;
+}
+
+.hr-hero {
+  margin: 1.25rem 0;
+  padding: 1.15rem 1.2rem 1rem;
+  background: var(--vp-panel);
+  border: 1px solid var(--vp-line);
+}
+
+.hr-hero-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.hr-status {
+  display: inline-block;
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 700;
+  margin-bottom: 0.45rem;
+  padding: 0.2rem 0.45rem;
+  border: 1px solid var(--vp-line);
+}
+
+.hr-status.on {
+  color: var(--vp-ok);
+  border-color: rgba(61, 154, 106, 0.5);
+}
+
+.hr-status.off {
+  color: var(--vp-warn);
+  border-color: rgba(196, 137, 58, 0.5);
+}
+
+.hr-status.idle { color: var(--vp-muted); }
+
+.hr-plain {
+  margin: 0;
+  max-width: 46rem;
+  line-height: 1.45;
+  font-size: 1.02rem;
+}
+
+.hr-pct {
+  text-align: right;
+  min-width: 5.5rem;
+}
+
+.hr-pct strong {
+  display: block;
+  font-size: 1.8rem;
+  font-family: "IBM Plex Serif", Georgia, serif;
+  line-height: 1.1;
+}
+
+.hr-pct span {
+  color: var(--vp-muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.hr-bar {
+  margin-top: 1rem;
+  height: 0.55rem;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.hr-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #9a7b3c, var(--vp-accent));
+  transition: width 0.4s ease;
+}
+
+.hr-bar-caption {
+  margin: 0.55rem 0 0;
+  font-size: 0.82rem;
+}
+
+.hr-panel {
+  margin: 1.25rem 0;
+  padding: 1.1rem 1.15rem;
+  background: var(--vp-panel);
+  border: 1px solid var(--vp-line);
+}
+
+.hr-panel h2 {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.hr-stages {
+  list-style: none;
+  margin: 0.9rem 0 0;
+  padding: 0;
+}
+
+.hr-stages li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.65rem 0;
+  border-top: 1px solid var(--vp-line);
+}
+
+.hr-stages li strong {
+  display: block;
+  font-size: 0.92rem;
+}
+
+.hr-stages li span {
+  display: block;
+  font-size: 0.8rem;
+  margin-top: 0.15rem;
+}
+
+.hr-stages li em {
+  font-style: normal;
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.hr-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.hr-chips {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 0.75rem 0 0;
+  padding: 0;
+}
+
+.hr-chips li {
+  border: 1px solid var(--vp-line);
+  padding: 0.25rem 0.55rem;
+  font-size: 0.85rem;
+}
+
 @media (max-width: 720px) {
   .vp-shell { padding: 1rem; }
   .vp-filters input,
   .vp-filters select { min-width: 100%; flex: 1 1 100%; }
+  .hr-grid { grid-template-columns: 1fr; }
+  .hr-hero-top { flex-direction: column; }
+  .hr-pct { text-align: left; }
 }

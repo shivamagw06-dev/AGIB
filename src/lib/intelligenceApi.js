@@ -3093,6 +3093,8 @@ export const getHvieUniverseHealth = () =>
   intelligenceFetch('/hvie/runtime/health', { timeoutMs: 60_000 });
 export const getHvieUniverseStatus = () =>
   intelligenceFetch('/hvie/runtime/status', { timeoutMs: 90_000 });
+export const getHvieUniverseBoard = () =>
+  intelligenceFetch('/hvie/runtime/board', { timeoutMs: 90_000 });
 export const getHvieUniverseCoverage = () =>
   intelligenceFetch('/hvie/runtime/coverage', { timeoutMs: 90_000 });
 export const getHvieUniversePipeline = () =>

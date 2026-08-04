@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Any, Optional
 
 from historical_valuation_intelligence.universe_programme.eligibility import classify_company
 from historical_valuation_intelligence.universe_programme.models import (
@@ -76,6 +76,52 @@ def _retry(symbol: str, *, error: str, attempts: int) -> dict[str, Any]:
     }
 
 
+def _adopt_if_already_complete(ticker: str, *, attempts: int) -> Optional[dict[str, Any]]:
+    """Skip heavy reconstruct when classic HVIE already has percentile + regime."""
+    from historical_valuation_intelligence import runtime as hvie_runtime
+
+    state = hvie_runtime._get_state(ticker) or {}
+    seeded = bool(state.get("seeded")) or str(state.get("status") or "").upper() == "SEEDED"
+    if not seeded:
+        return None
+    if state.get("last_percentile") is None or not state.get("last_regime"):
+        return None
+    obs = int(state.get("observations") or 0)
+    row = mark_terminal(
+        ticker,
+        queue_status=QUEUE_COMPLETED,
+        lifecycle=LIFE_COMPLETE,
+        stage=STAGE_COMPLETE,
+        reason="already_seeded_with_signals",
+        error=None,
+        eligible=True,
+        observations=obs,
+        history_window_first=state.get("first_observation"),
+        history_window_last=state.get("last_observation_date"),
+        has_statistics=True,
+        has_percentile=True,
+        has_bands=True,
+        has_regime=True,
+        has_research=True,
+        last_percentile=state.get("last_percentile"),
+        last_regime=state.get("last_regime"),
+        primary_metric=state.get("primary_metric") or "pe",
+        primary_model=state.get("primary_model"),
+        attempts=attempts,
+    )
+    return {
+        "ok": True,
+        "symbol": ticker,
+        "queue_status": QUEUE_COMPLETED,
+        "lifecycle": LIFE_COMPLETE,
+        "observations": obs,
+        "historical_percentile": state.get("last_percentile"),
+        "regime": state.get("last_regime"),
+        "adopted": True,
+        "row": row,
+    }
+
+
 def process_company(symbol: str) -> dict[str, Any]:
     """Run one company through the HVIE completion pipeline. Persists every stage."""
     from historical_valuation_intelligence import compute, persist, runtime
@@ -96,6 +142,10 @@ def process_company(symbol: str) -> dict[str, Any]:
         last_run_at=_now(),
         stage=STAGE_RECONSTRUCT,
     )
+
+    adopted = _adopt_if_already_complete(ticker, attempts=attempts)
+    if adopted is not None:
+        return adopted
 
     # Phase 1 — eligibility
     clf = classify_company(ticker)

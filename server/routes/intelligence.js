@@ -2804,6 +2804,7 @@ export default function createIntelligenceRouter() {
   // HVIE Universe Completion Programme (Phase 8.3A)
   router.get('/hvie/runtime/health', kfGet('/v1/hvie/runtime/health'));
   router.get('/hvie/runtime/status', kfGet('/v1/hvie/runtime/status'));
+  router.get('/hvie/runtime/board', kfGet('/v1/hvie/runtime/board'));
   router.get('/hvie/runtime/coverage', kfGet('/v1/hvie/runtime/coverage'));
   router.get('/hvie/runtime/pipeline', kfGet('/v1/hvie/runtime/pipeline'));
   router.get('/hvie/runtime/sector', kfGet('/v1/hvie/runtime/sector'));
