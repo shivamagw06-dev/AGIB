@@ -68,6 +68,7 @@ import HistoricalValuation from '@/pages/admin/HistoricalValuation';
 import HvieRuntime from '@/pages/admin/HvieRuntime';
 import ResearchIntelligence from '@/pages/admin/ResearchIntelligence';
 import ForecastRuntime from '@/pages/admin/ForecastRuntime';
+import MacroRuntime from '@/pages/admin/MacroRuntime';
 import IntelligenceCmsRoutes from '@/pages/admin/intelligence/IntelligenceCmsRoutes';
 
 export default function AdminRoutes() {
@@ -95,6 +96,7 @@ export default function AdminRoutes() {
         <Route path="hvie-runtime" element={<HvieRuntime />} />
         <Route path="research-intelligence" element={<ResearchIntelligence />} />
         <Route path="forecast-runtime" element={<ForecastRuntime />} />
+        <Route path="macro-runtime" element={<MacroRuntime />} />
         {/* Full-bleed Institutional Morning Office — daily investment desk */}
         <Route path="investment-office" element={<InvestmentOfficeAdmin />} />
         {/* Intelligence CMS — structured data modules (Valuation Monitor first) */}

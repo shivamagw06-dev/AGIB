@@ -95,6 +95,15 @@ def load_bundle(symbol: str) -> dict[str, Any]:
     rie = _safe(
         lambda: __import__("research_intelligence_engine", fromlist=["company"]).company(ticker)
     )
+    # Phase 9.0 — FIE consumes MIE top-down context (regime / scenarios / sector impact).
+    mie = _safe(
+        lambda: __import__("macro_intelligence_engine", fromlist=["module"]).module(
+            "regime", country="India"
+        )
+    )
+    mie_scenarios = _safe(
+        lambda: __import__("macro_intelligence_engine", fromlist=["scenarios"]).scenarios("India")
+    )
 
     latest_annual = annual[-1] if annual else {}
     prev_annual = annual[-2] if len(annual) >= 2 else {}
@@ -119,6 +128,8 @@ def load_bundle(symbol: str) -> dict[str, Any]:
         "hvie": hvie or {},
         "varie": varie or {},
         "rie": rie or {},
+        "mie": mie or {},
+        "mie_scenarios": mie_scenarios or {},
         "inputs_present": {
             "master": bool(master.get("symbol") or master.get("company_name")),
             "financials_annual": len(annual) >= 2,
@@ -129,6 +140,7 @@ def load_bundle(symbol: str) -> dict[str, Any]:
             "varie": bool(varie and varie.get("ok")),
             "vpae": bool(vpae and (vpae.get("ok") or vpae.get("primary_model"))),
             "rie": bool(rie and rie.get("ok")),
+            "mie": bool(mie and mie.get("ok") is not False and not mie.get("error")),
         },
     }
 

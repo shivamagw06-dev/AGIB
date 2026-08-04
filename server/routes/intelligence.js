@@ -3098,6 +3098,108 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // Macro Intelligence Engine (Phase 9.0) — /mie/* avoids legacy /macro/* sprints
+  router.get('/mie/health', kfGet('/v1/mie/health'));
+  router.get('/mie/dashboard', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(
+        Object.fromEntries(Object.entries(req.query || {}).filter(([, v]) => v != null && v !== '')),
+      ).toString();
+      const r = await engineFetch(`/v1/mie/dashboard${qs ? `?${qs}` : ''}`, { timeoutMs: 120_000 });
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'mie dashboard failed' });
+    }
+  });
+  router.get('/mie/pack', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(
+        Object.fromEntries(Object.entries(req.query || {}).filter(([, v]) => v != null && v !== '')),
+      ).toString();
+      const r = await engineFetch(`/v1/mie/pack${qs ? `?${qs}` : ''}`, { timeoutMs: 180_000 });
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'mie pack failed' });
+    }
+  });
+  router.get('/mie/runtime/status', kfGet('/v1/mie/runtime/status'));
+  router.get('/mie/runtime/board', kfGet('/v1/mie/runtime/board'));
+  const mieGet = (suffix, timeoutMs = 90_000) => async (req, res) => {
+    try {
+      const qs = new URLSearchParams(
+        Object.fromEntries(Object.entries(req.query || {}).filter(([, v]) => v != null && v !== '')),
+      ).toString();
+      const r = await engineFetch(`/v1/mie/${suffix}${qs ? `?${qs}` : ''}`, { timeoutMs });
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || `mie ${suffix} failed` });
+    }
+  };
+  router.get('/mie/regime', mieGet('regime'));
+  router.get('/mie/economy', mieGet('economy'));
+  router.get('/mie/inflation', mieGet('inflation'));
+  router.get('/mie/rates', mieGet('rates'));
+  router.get('/mie/liquidity', mieGet('liquidity'));
+  router.get('/mie/currency', mieGet('currency'));
+  router.get('/mie/commodities', mieGet('commodities'));
+  router.get('/mie/bonds', mieGet('bonds'));
+  router.get('/mie/fiscal', mieGet('fiscal'));
+  router.get('/mie/external', mieGet('external'));
+  router.get('/mie/sector-impact', mieGet('sector-impact'));
+  router.get('/mie/industry-impact', mieGet('industry-impact'));
+  router.get('/mie/forecast', mieGet('forecast'));
+  router.get('/mie/scenarios', mieGet('scenarios'));
+  router.get('/mie/relationships', mieGet('relationships'));
+  router.get('/mie/risks', mieGet('risks'));
+  router.get('/mie/company-impact/:symbol', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(
+        Object.fromEntries(Object.entries(req.query || {}).filter(([, v]) => v != null && v !== '')),
+      ).toString();
+      const r = await engineFetch(
+        `/v1/mie/company-impact/${encodeURIComponent(req.params.symbol)}${qs ? `?${qs}` : ''}`,
+        { timeoutMs: 90_000 },
+      );
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'mie company-impact failed' });
+    }
+  });
+  router.post('/mie/runtime/start', async (req, res) => {
+    try {
+      const r = await engineFetch('/v1/mie/runtime/start', { method: 'POST', body: {}, timeoutMs: 30_000 });
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'mie runtime start failed' });
+    }
+  });
+  router.post('/mie/runtime/stop', async (req, res) => {
+    try {
+      const r = await engineFetch('/v1/mie/runtime/stop', { method: 'POST', body: {}, timeoutMs: 30_000 });
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'mie runtime stop failed' });
+    }
+  });
+  router.post('/mie/runtime/resume', async (req, res) => {
+    try {
+      const r = await engineFetch('/v1/mie/runtime/resume', { method: 'POST', body: {}, timeoutMs: 30_000 });
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'mie runtime resume failed' });
+    }
+  });
+  router.post('/mie/runtime/run', async (req, res) => {
+    try {
+      const r = await engineFetch('/v1/mie/runtime/run', {
+        method: 'POST', body: req.body || {}, timeoutMs: 300_000,
+      });
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'mie runtime run failed' });
+    }
+  });
+
   // Unified Valuation Engine — terminal migration surface
   router.get('/valuation-engine/health', kfGet('/v1/valuation-engine/health'));
   router.get('/valuation-engine/company/:symbol', async (req, res) => {

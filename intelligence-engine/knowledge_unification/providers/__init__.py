@@ -35,11 +35,15 @@ from knowledge_unification.providers.research_intelligence_engine import (
 from knowledge_unification.providers.forecast_intelligence_engine import (
     ForecastIntelligenceEngineProvider,
 )
+from knowledge_unification.providers.macro_intelligence_engine import (
+    MacroIntelligenceEngineProvider,
+)
 from knowledge_unification.providers.valuation_consensus import ValuationConsensusProvider
 from knowledge_unification.providers.valuation_terminal import ValuationTerminalProvider
 
 ALL_PROVIDERS = (
     HistoricalIntelligenceProvider,
+    MacroIntelligenceEngineProvider,
     ResearchIntelligenceEngineProvider,
     ForecastIntelligenceEngineProvider,
     InstitutionalWarehouseProvider,

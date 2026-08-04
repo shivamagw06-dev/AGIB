@@ -3183,6 +3183,46 @@ export const postFieRuntimeResume = () =>
 export const postFieRuntimeRun = (body = {}) =>
   intelligenceFetch('/fie/runtime/run', { method: 'POST', body, timeoutMs: 300_000 });
 
+/** Macro Intelligence Engine (Phase 9.0) — /mie/* */
+export const getMieHealth = () => intelligenceFetch('/mie/health');
+export const getMieDashboard = (params = {}) => {
+  const qs = new URLSearchParams(
+    Object.fromEntries(Object.entries(params).filter(([, v]) => v != null && v !== '')),
+  ).toString();
+  return intelligenceFetch(`/mie/dashboard${qs ? `?${qs}` : ''}`, { timeoutMs: 120_000 });
+};
+export const getMiePack = (params = {}) => {
+  const qs = new URLSearchParams(
+    Object.fromEntries(Object.entries(params).filter(([, v]) => v != null && v !== '')),
+  ).toString();
+  return intelligenceFetch(`/mie/pack${qs ? `?${qs}` : ''}`, { timeoutMs: 180_000 });
+};
+export const getMieBoard = () =>
+  intelligenceFetch('/mie/runtime/board', { timeoutMs: 90_000 });
+export const getMieModule = (module, params = {}) => {
+  const qs = new URLSearchParams(
+    Object.fromEntries(Object.entries(params).filter(([, v]) => v != null && v !== '')),
+  ).toString();
+  return intelligenceFetch(`/mie/${module}${qs ? `?${qs}` : ''}`, { timeoutMs: 90_000 });
+};
+export const getMieCompanyImpact = (symbol, params = {}) => {
+  const qs = new URLSearchParams(
+    Object.fromEntries(Object.entries(params).filter(([, v]) => v != null && v !== '')),
+  ).toString();
+  return intelligenceFetch(
+    `/mie/company-impact/${encodeURIComponent(symbol)}${qs ? `?${qs}` : ''}`,
+    { timeoutMs: 90_000 },
+  );
+};
+export const postMieRuntimeStart = () =>
+  intelligenceFetch('/mie/runtime/start', { method: 'POST', body: {} });
+export const postMieRuntimeStop = () =>
+  intelligenceFetch('/mie/runtime/stop', { method: 'POST', body: {} });
+export const postMieRuntimeResume = () =>
+  intelligenceFetch('/mie/runtime/resume', { method: 'POST', body: {} });
+export const postMieRuntimeRun = (body = {}) =>
+  intelligenceFetch('/mie/runtime/run', { method: 'POST', body, timeoutMs: 300_000 });
+
 /** Market & Sector Intelligence Terminal v1.0 */
 export const getMiHealth = () => intelligenceFetch('/market-intelligence/health');
 export const getMiDashboard = () =>

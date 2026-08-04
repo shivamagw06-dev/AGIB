@@ -19934,6 +19934,198 @@ async def fie_runtime_run(payload: dict[str, Any] = Body(default_factory=dict)):
     return runtime_run(batch=int((payload or {}).get("batch") or 3))
 
 
+# ===========================================================================
+# Phase 9.0 — Macro Intelligence Engine (MIE)
+# Canonical prefix /v1/mie/* — avoids collision with legacy /v1/macro/* sprints
+# ===========================================================================
+
+
+@router.get("/mie/health")
+async def mie_health():
+    from macro_intelligence_engine import health
+
+    return health()
+
+
+@router.get("/mie/dashboard")
+async def mie_dashboard(country: str = "India"):
+    from macro_intelligence_engine import dashboard
+
+    return dashboard(country)
+
+
+@router.get("/mie/pack")
+async def mie_pack(country: str = "India", symbol: str | None = None):
+    from macro_intelligence_engine import pack
+
+    return pack(country, symbol=symbol)
+
+
+@router.get("/mie/regime")
+async def mie_regime(country: str = "India"):
+    from macro_intelligence_engine import regime
+
+    return regime(country)
+
+
+@router.get("/mie/economy")
+async def mie_economy(country: str = "India"):
+    from macro_intelligence_engine import economy
+
+    return economy(country)
+
+
+@router.get("/mie/inflation")
+async def mie_inflation(country: str = "India"):
+    from macro_intelligence_engine import inflation
+
+    return inflation(country)
+
+
+@router.get("/mie/rates")
+async def mie_rates(country: str = "India"):
+    from macro_intelligence_engine import rates
+
+    return rates(country)
+
+
+@router.get("/mie/liquidity")
+async def mie_liquidity(country: str = "India"):
+    from macro_intelligence_engine import liquidity
+
+    return liquidity(country)
+
+
+@router.get("/mie/currency")
+async def mie_currency(country: str = "India"):
+    from macro_intelligence_engine import currency
+
+    return currency(country)
+
+
+@router.get("/mie/commodities")
+async def mie_commodities(country: str = "India"):
+    from macro_intelligence_engine import commodities
+
+    return commodities(country)
+
+
+@router.get("/mie/bonds")
+async def mie_bonds(country: str = "India"):
+    from macro_intelligence_engine import bonds
+
+    return bonds(country)
+
+
+@router.get("/mie/fiscal")
+async def mie_fiscal(country: str = "India"):
+    from macro_intelligence_engine import fiscal
+
+    return fiscal(country)
+
+
+@router.get("/mie/external")
+async def mie_external(country: str = "India"):
+    from macro_intelligence_engine import external
+
+    return external(country)
+
+
+@router.get("/mie/sector-impact")
+async def mie_sector_impact(country: str = "India"):
+    from macro_intelligence_engine import sector_impact
+
+    return sector_impact(country)
+
+
+@router.get("/mie/industry-impact")
+async def mie_industry_impact(country: str = "India"):
+    from macro_intelligence_engine import industry_impact
+
+    return industry_impact(country)
+
+
+@router.get("/mie/company-impact/{symbol}")
+async def mie_company_impact(symbol: str, country: str = "India"):
+    from macro_intelligence_engine import company_impact
+
+    return company_impact(symbol, country=country)
+
+
+@router.get("/mie/forecast")
+async def mie_forecast(country: str = "India"):
+    from macro_intelligence_engine import forecast
+
+    return forecast(country)
+
+
+@router.get("/mie/scenarios")
+async def mie_scenarios(country: str = "India"):
+    from macro_intelligence_engine import scenarios
+
+    return scenarios(country)
+
+
+@router.get("/mie/relationships")
+async def mie_relationships(country: str = "India"):
+    from macro_intelligence_engine import relationships
+
+    return relationships(country)
+
+
+@router.get("/mie/risks")
+async def mie_risks(country: str = "India"):
+    from macro_intelligence_engine import risks
+
+    return risks(country)
+
+
+@router.get("/mie/runtime/status")
+async def mie_runtime_status():
+    from macro_intelligence_engine import runtime_status
+
+    return runtime_status()
+
+
+@router.get("/mie/runtime/board")
+async def mie_runtime_board():
+    from macro_intelligence_engine import runtime_board
+
+    return runtime_board()
+
+
+@router.post("/mie/runtime/start")
+async def mie_runtime_start():
+    from macro_intelligence_engine import runtime_start
+
+    return runtime_start()
+
+
+@router.post("/mie/runtime/stop")
+async def mie_runtime_stop():
+    from macro_intelligence_engine import runtime_stop
+
+    return runtime_stop()
+
+
+@router.post("/mie/runtime/resume")
+async def mie_runtime_resume():
+    from macro_intelligence_engine import runtime_resume
+
+    return runtime_resume()
+
+
+@router.post("/mie/runtime/run")
+async def mie_runtime_run(payload: dict[str, Any] = Body(default_factory=dict)):
+    from macro_intelligence_engine import runtime_run
+
+    body = payload or {}
+    return runtime_run(
+        mode=str(body.get("mode") or "daily"),
+        batch=int(body.get("batch") or 1),
+    )
+
+
 @router.get("/valuation-engine/health")
 async def valuation_engine_health():
     """The one valuation contract: what it computes and what it reads."""
