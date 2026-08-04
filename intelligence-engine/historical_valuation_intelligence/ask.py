@@ -16,17 +16,25 @@ from historical_valuation_intelligence.models import ENGINE_CODE, VERSION
 _EXPENSIVE = re.compile(r"\b(expensive|cheap|fairly\s+valued|overvalued|undervalued)\b", re.I)
 _CHEAPEST = re.compile(r"\b(cheapest|lowest|when\s+was|least\s+expensive)\b", re.I)
 _EVER_CHEAPER = re.compile(r"\b(ever\s+traded\s+cheaper|cheaper\s+than\s+today|own\s+history)\b", re.I)
+_SIMILAR = re.compile(
+    r"\b(similar\s+to\s+today|valuations?\s+similar|what\s+happened\s+afterwards|"
+    r"unusual|versus\s+history|vs\.?\s+history|relative\s+to\s+its\s+own\s+history|"
+    r"when\s+has)\b",
+    re.I,
+)
 
 
 def is_historical_valuation_question(question: str) -> bool:
     text = str(question or "")
     if not text:
         return False
+    low = text.lower()
     return bool(
         _EXPENSIVE.search(text)
         or _CHEAPEST.search(text)
         or _EVER_CHEAPER.search(text)
-        or "historical" in text.lower() and ("pe" in text.lower() or "p/b" in text.lower() or "valuation" in text.lower())
+        or _SIMILAR.search(text)
+        or ("historical" in low and ("pe" in low or "p/b" in low or "valuation" in low))
     )
 
 

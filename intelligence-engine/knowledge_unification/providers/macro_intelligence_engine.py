@@ -10,6 +10,8 @@ from knowledge_unification.schema import ProviderResult, ProviderSpec, QueryPlan
 _MACRO_MARKERS = (
     "macro",
     "macro regime",
+    "macro exposure",
+    "macro backdrop",
     "interest rates",
     "inflation",
     "liquidity environment",
@@ -17,13 +19,22 @@ _MACRO_MARKERS = (
     "falling inflation",
     "oil impact",
     "which sectors benefit",
+    "which sectors are likely",
     "why are interest rates",
     "macro outlook",
     "rbi",
     "repo rate",
+    "rate cut",
+    "rate hike",
+    "basis point",
+    "100 basis",
+    "nbfc",
+    "real estate",
     "usdinr",
     "commodity",
     "fiscal deficit",
+    "today's indian market",
+    "market breadth",
 )
 
 
