@@ -116,7 +116,9 @@ def normalise_upstox_key_ratios(payload: dict[str, Any]) -> list[dict[str, Any]]
             "snapshot_id": snapshot_id,
             "provider": SOURCE,
             "provider_version": PROVIDER_VERSION,
-            "confidence": "high" if status == "passed" else "medium",
+            # Numeric band (0–1). Text "high" crashed older warehouse validators
+            # that applied IMPOSSIBLE["confidence"] via float().
+            "confidence": 0.9 if status == "passed" else 0.7,
             "dqiv_status": status,
             "validation_notes": notes,
             "source": SOURCE,

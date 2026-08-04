@@ -117,24 +117,32 @@ def validate_row(
             issues.append(_issue("warn", "unknown_option",
                                  f"{column.label}={value!r} is outside {list(column.options)}",
                                  column=column.key))
-        bounds = IMPOSSIBLE.get(column.key)
-        if bounds and value is not None:
-            low, high = bounds
-            if not (low <= float(value) <= high):
-                issues.append(_issue("error", "impossible_value",
-                                     f"{column.label}={value} outside [{low}, {high}]",
+        # Bounds only apply to numeric columns. Text fields that share a name
+        # with a bounded metric (e.g. valuation_ratios.confidence = "high")
+        # must not crash float() validation.
+        if column.numeric and value is not None:
+            try:
+                number = float(value)
+            except (TypeError, ValueError):
+                number = None
+            bounds = IMPOSSIBLE.get(column.key)
+            if bounds is not None and number is not None:
+                low, high = bounds
+                if not (low <= number <= high):
+                    issues.append(_issue("error", "impossible_value",
+                                         f"{column.label}={value} outside [{low}, {high}]",
+                                         column=column.key))
+            soft = SUSPICIOUS.get(column.key)
+            if soft is not None and number is not None:
+                low, high = soft
+                if not (low <= number <= high):
+                    issues.append(_issue("warn", "suspicious_value",
+                                         f"{column.label}={value} outside the usual [{low}, {high}]",
+                                         column=column.key))
+            threshold = OUTLIER.get(column.key)
+            if threshold is not None and number is not None and abs(number) > threshold:
+                issues.append(_issue("warn", "outlier", f"{column.label}={value} looks extreme",
                                      column=column.key))
-        soft = SUSPICIOUS.get(column.key)
-        if soft and value is not None:
-            low, high = soft
-            if not (low <= float(value) <= high):
-                issues.append(_issue("warn", "suspicious_value",
-                                     f"{column.label}={value} outside the usual [{low}, {high}]",
-                                     column=column.key))
-        threshold = OUTLIER.get(column.key)
-        if threshold and value is not None and abs(float(value)) > threshold:
-            issues.append(_issue("warn", "outlier", f"{column.label}={value} looks extreme",
-                                 column=column.key))
 
     symbol = normalise_entity(row.get(tab.entity_column)) if tab.entity_column else None
     if symbol:

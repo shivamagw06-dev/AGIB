@@ -180,9 +180,10 @@ export async function getHistoricalCandles(instrumentKey, { unit = 'months', int
 
 /**
  * Exchange-level FII/DII — GET /v2/market/fii and /v2/market/dii
- * @param {{ dataType?: 'NSE_EQ'|'CASH', interval?: '1D'|'1M' }} opts
+ * Upstox currently accepts: NSE_EQ|CASH, NSE_FO|INDEX_FUTURES, ...
+ * @param {{ dataType?: string, interval?: '1D'|'1M' }} opts
  */
-export async function getMarketFiiDii({ dataType = 'NSE_EQ', interval = '1D' } = {}) {
+export async function getMarketFiiDii({ dataType = 'NSE_EQ|CASH', interval = '1D' } = {}) {
   const qs = new URLSearchParams({ data_type: dataType, interval }).toString();
   const [fii, dii] = await Promise.all([
     upstoxGet(`/market/fii?${qs}`),
@@ -192,9 +193,14 @@ export async function getMarketFiiDii({ dataType = 'NSE_EQ', interval = '1D' } =
   const diiData = dii?.data || dii;
   const latestFii = Array.isArray(fiiData) ? fiiData[fiiData.length - 1] : fiiData;
   const latestDii = Array.isArray(diiData) ? diiData[diiData.length - 1] : diiData;
+  // Warehouse institutional_flow.segment options are NSE_EQ / CASH.
+  const segment = dataType.includes('CASH') || dataType.startsWith('NSE_EQ')
+    ? 'NSE_EQ'
+    : String(dataType).slice(0, 32);
   return {
     ok: true,
-    segment: dataType,
+    segment,
+    data_type: dataType,
     interval,
     fii: latestFii || {},
     dii: latestDii || {},

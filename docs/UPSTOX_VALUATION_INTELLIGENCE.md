@@ -41,15 +41,38 @@ Market cap, enterprise value, price/sales, EV/sales, dividend yield, historical 
 
 `valuation_engine.engine.compute` overlays Upstox ratios before derivation. If Upstox supplies PE, CMP÷EPS is **not** used.
 
+## Prerequisite — ISIN on company_master
+
+Upstox fundamentals are **ISIN-keyed**. If `company_master.isin` is null for the universe, key-ratios ingest returns `no_isin_universe` and Sector Intelligence shows Upstox **0%** / Unknown.
+
+Backfill (Upstox NSE EQ instruments → warehouse):
+
+```
+POST /api/market/company-isin/backfill
+POST /v1/valuation-ratios/isin-backfill
+```
+
+Refresh auto-runs this when the ISIN universe is empty.
+
 ## Daily schedule
 
 | Time (IST) | Job |
 |------------|-----|
 | 18:05 | FII/DII institutional flow |
-| **18:15** | **Upstox key-ratios → valuation_ratios** |
+| **18:15** | **ISIN backfill (if needed) → Upstox key-ratios → valuation_ratios** |
 | ~18:45 | Warehouse refresh |
 
 Manual: `POST /api/market/upstox-valuation-ratios/refresh`
+
+## Why Sector Intelligence looks empty
+
+| Symptom | Cause |
+|---------|--------|
+| Upstox column 0% | `valuation_ratios` empty — usually no ISINs, or scheduler not yet run |
+| Sector / Premium `—` | Honest empty state until Upstox sector_value lands (not peer-median fake) |
+| Hist %ile Unknown | Sparse `historical_valuation.percentile` for that sector |
+| Index row `—` | Live index gateway returned no quotes for this request |
+| FII/DII never | `institutional_flow` empty — run `POST /api/market/upstox-flows/refresh` after close |
 
 ## API
 
@@ -59,5 +82,6 @@ Manual: `POST /api/market/upstox-valuation-ratios/refresh`
 | GET | `/v1/valuation-ratios/coverage` |
 | GET | `/v1/valuation-ratios/company/{symbol}` |
 | POST | `/v1/valuation-ratios/ingest` |
+| POST | `/v1/valuation-ratios/isin-backfill` |
 
-BFF: `/api/intelligence/valuation-ratios/*`
+BFF: `/api/intelligence/valuation-ratios/*` · `/api/market/company-isin/backfill`

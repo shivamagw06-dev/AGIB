@@ -9,7 +9,7 @@ def health() -> dict[str, Any]:
     from institutional_warehouse import db, store
 
     try:
-        count = db.count("valuation_ratios")
+        count = db.count(db.physical_table("valuation_ratios"))
     except Exception:
         count = 0
     sample = store.all_rows("valuation_ratios", limit=5) if count else []
@@ -30,7 +30,7 @@ def coverage() -> dict[str, Any]:
     from institutional_warehouse import db, store
 
     try:
-        total = db.count("valuation_ratios")
+        total = db.count(db.physical_table("valuation_ratios"))
     except Exception:
         total = 0
     rows = store.all_rows("valuation_ratios", limit=20_000) if total else []

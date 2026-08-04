@@ -4,7 +4,8 @@
  */
 
 export async function refreshUpstoxInstitutionalFlows({
-  dataType = 'NSE_EQ',
+  // Upstox market-insights FII/DII expects segment form NSE_EQ|CASH (not bare NSE_EQ).
+  dataType = 'NSE_EQ|CASH',
   interval = '1D',
   date = undefined,
 } = {}) {

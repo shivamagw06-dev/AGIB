@@ -2450,6 +2450,16 @@ export default function createIntelligenceRouter() {
       res.status(502).json({ error: err.message || 'valuation-ratios ingest failed' });
     }
   });
+  router.post('/valuation-ratios/isin-backfill', async (req, res) => {
+    try {
+      const r = await engineFetch('/v1/valuation-ratios/isin-backfill', {
+        method: 'POST', body: req.body || {}, timeoutMs: 300_000,
+      });
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'valuation-ratios isin-backfill failed' });
+    }
+  });
 
   // Company Identity Service — canonical Capital IQ classification
   router.get('/company-identity/health', kfGet('/v1/company-identity/health'));
