@@ -60,7 +60,18 @@ export async function triggerValuationRatiosRefresh({ force = false } = {}) {
   }
 
   try {
-    const result = await refreshUpstoxValuationRatios();
+    // Never compete with the one-shot full-universe bootstrap (Phase 7.4d).
+    const { isUpstoxBootstrapRunning } = await import('./upstoxBootstrapEngine.js');
+    if (!force && isUpstoxBootstrapRunning()) {
+      return { ok: true, skipped: true, reason: 'bootstrap_running', date: parts.date };
+    }
+
+    // Nightly = incremental maintenance only (small batch), not universe bootstrap.
+    const incrementalLimit = Number(process.env.UPSTOX_VALUATION_INCREMENTAL_BATCH || 80);
+    const result = await refreshUpstoxValuationRatios({
+      limit: incrementalLimit,
+      concurrency: Number(process.env.UPSTOX_VALUATION_CONCURRENCY || 3),
+    });
     lastRun = {
       at: new Date().toISOString(),
       ok: Boolean(result.ok),
