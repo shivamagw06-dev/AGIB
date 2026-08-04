@@ -133,24 +133,43 @@ def sector_table(universe: dict[str, Any]) -> list[dict[str, Any]]:
         hist_pcts = [m.get("percentile") for m in members if m.get("percentile") is not None]
         current = _median(primary_values)
         hist_median_pct = _median(hist_pcts)
+        # Upstox sector benchmark for the primary metric (preferred over peer median).
+        sector_key = {
+            "pe": "sector_median_pe",
+            "pb": "sector_median_pb",
+            "ev_ebitda": "sector_median_ev_ebitda",
+            "roe": "sector_median_roe",
+        }.get(primary, "sector_median_pe")
+        sector_bench = _median([m.get(sector_key) for m in members])
         premium = None
-        if current is not None and hist_median_pct is not None:
-            premium = round(current - hist_median_pct, 1)  # percentile vs median percentile proxy
-        opportunity = _opportunity_label(hist_median_pct)
+        if current is not None and sector_bench:
+            premium = round(100.0 * (current - sector_bench) / sector_bench, 1)
+        opportunity = _opportunity_label(hist_median_pct if hist_median_pct is not None else (
+            30.0 if premium is not None and premium < -10 else
+            70.0 if premium is not None and premium > 15 else
+            50.0 if premium is not None else None
+        ))
+        covered = sum(1 for m in members if m.get("provider_coverage"))
         out.append({
             "sector": sector,
             "companies": len(members),
             "primary_metric": primary,
             "primary_metric_label": lens.get("primary_metric_label") or primary.upper(),
             "current": current,
-            "historical_median": _median([m.get("sector_median_pe") for m in members]),
+            "historical_median": sector_bench,
+            "sector_benchmark": sector_bench,
+            "sector_benchmark_source": "upstox" if sector_bench is not None else None,
             "historical_percentile": round(hist_median_pct, 1) if hist_median_pct is not None else None,
             "premium_pct": premium,
             "opportunity": opportunity,
             "median_pe": _median([m.get("pe") for m in members]),
             "median_pb": _median([m.get("pb") for m in members]),
             "median_ev_ebitda": _median([m.get("ev_ebitda") for m in members]),
-            "median_roe": None,
+            "median_roe": _median([m.get("roe") for m in members]),
+            "median_roa": _median([m.get("roa") for m in members]),
+            "median_roce": _median([m.get("roce") for m in members]),
+            "upstox_coverage": covered,
+            "upstox_coverage_pct": round(100.0 * covered / len(members), 1) if members else 0,
         })
     return out
 

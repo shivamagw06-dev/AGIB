@@ -18,7 +18,7 @@ VERSION = "3.0"
 
 #: Multiples a sector median is worth taking. Money amounts are not comparable
 #: across companies of different size.
-_COMPARABLE = ("pe", "pb", "ev_ebitda", "ev_sales", "ps", "dividend_yield", "roe")
+_COMPARABLE = ("pe", "pb", "ev_ebitda", "ev_sales", "ps", "dividend_yield", "roe", "roa", "roce")
 
 
 def _sector_lens(industry_dna: Optional[str], sector: Optional[str]) -> dict[str, Any]:
@@ -68,16 +68,35 @@ def get_company_valuation(symbol: str, *, record: Optional[dict[str, Any]] = Non
     industry_dna = master.get("industry") or master.get("industry_dna")
     sector = master.get("sector")
 
+    # Attach latest Upstox ratios when the caller did not already supply them.
+    if not record.get("provider_ratios"):
+        try:
+            from valuation_ratios.ingest import latest_provider_ratios
+
+            record = {**record, "provider_ratios": latest_provider_ratios(ticker)}
+        except Exception:
+            pass
+
     values = engine.compute(record)
     lens = _sector_lens(industry_dna, sector)
+    provider = (record.get("provider_ratios") or {}).get("ratios") or {}
 
     metrics: dict[str, Any] = {}
     for name, value in values.items():
         payload = value.to_dict()
         payload["meaningful"] = _visible(name, industry_dna)
+        if name in provider and isinstance(provider.get(name), dict):
+            payload["provider"] = {
+                "source": "upstox",
+                "sector_value": provider[name].get("sector_value"),
+                "reported_date": provider[name].get("reported_date"),
+                "dqiv_status": provider[name].get("dqiv_status"),
+                "confidence": provider[name].get("confidence"),
+            }
         metrics[name] = payload
 
     # Sector and historical context, once the company's own multiples exist.
+    # Prefer Upstox sector_value over peer-sample medians when available.
     peer_rows = peers or []
     history_rows = history or []
     context: dict[str, Any] = {}
@@ -86,9 +105,15 @@ def get_company_valuation(symbol: str, *, record: Optional[dict[str, Any]] = Non
         own_value = own.value if own else None
         peer_series = [v for v in (_as_number(p.get(name)) for p in peer_rows) if v is not None]
         past_series = [v for v in (_as_number(h.get(name)) for h in history_rows) if v is not None]
-        sector_median = round(median(peer_series), 4) if peer_series else None
+        provider_sector = None
+        if isinstance(provider.get(name), dict):
+            provider_sector = _as_number(provider[name].get("sector_value"))
+        sector_median = provider_sector if provider_sector is not None else (
+            round(median(peer_series), 4) if peer_series else None
+        )
         context[name] = {
             "sector_median": sector_median,
+            "sector_source": "upstox" if provider_sector is not None else ("peers" if peer_series else None),
             "peer_count": len(peer_series),
             "premium_pct": (round(100.0 * (own_value - sector_median) / sector_median, 2)
                             if own_value is not None and sector_median else None),
@@ -160,10 +185,16 @@ def _provenance(record: dict[str, Any], values: dict[str, engine.Value]) -> dict
         }
 
     sources = sorted({s for value in values.values() for s in value.sources})
+    provider = record.get("provider_ratios") or {}
     return {
         "price": block("latest_price"),
         "financials": block("latest_annual"),
         "consensus": block("consensus"),
+        "provider_ratios": {
+            "source": provider.get("source") or ("upstox" if provider.get("ratios") else None),
+            "as_of": provider.get("as_of"),
+            "ratios": list((provider.get("ratios") or {}).keys()),
+        },
         "sources": sources,
         "formula": ENGINE_CODE,
         "formula_version": VERSION,

@@ -514,6 +514,15 @@ def read_company(symbol: str) -> dict[str, Any]:
         rows = (sheets.get(tab_id) or {}).get("rows") or []
         return rows[0] if rows else None
 
+    symbol_key = view.get("symbol") or symbol
+    provider_ratios = None
+    try:
+        from valuation_ratios.ingest import latest_provider_ratios
+
+        provider_ratios = latest_provider_ratios(str(symbol_key))
+    except Exception:
+        provider_ratios = None
+
     return {
         "ok": True,
         "symbol": view.get("symbol"),
@@ -521,6 +530,7 @@ def read_company(symbol: str) -> dict[str, Any]:
         "valuation": _first("historical_valuation"),
         "factors": _first("hedge_fund_factors"),
         "ratios": _first("historical_ratios"),
+        "provider_ratios": provider_ratios,
         "consensus": _first("consensus"),
         "latest_price": _first("daily_market_history"),
         "latest_annual": _first("financials_annual"),

@@ -22,6 +22,7 @@ import { getMarketContext } from "./services/marketContextService.js";
 import { startCioMorningScheduler } from "./services/cioMorningScheduler.js";
 import { startContinuousGatherLearnScheduler } from "./services/continuousGatherLearnScheduler.js";
 import { startInstitutionalFlowScheduler } from "./services/institutionalFlowScheduler.js";
+import { startValuationRatiosScheduler } from "./services/valuationRatiosScheduler.js";
 import { llmProviderStatus } from "./services/llmClient.js";
 import rateLimit from "express-rate-limit";
 import cors from "cors";
@@ -312,6 +313,7 @@ app.post('/api/notify-subscribers', (req, res, next) => {
 startCioMorningScheduler();
 startContinuousGatherLearnScheduler();
 startInstitutionalFlowScheduler();
+startValuationRatiosScheduler();
 
 /* ---------- /api/perplexity/deals ----------
    Ask Perplexity for a strict JSON array of deals with these fields:

@@ -704,6 +704,44 @@ INSTITUTIONAL_FLOW = Tab(
     ),
 )
 
+# --------------------------------------------------------------------------
+# Tab — Valuation Ratios (Upstox key-ratios, append-only snapshots)
+# --------------------------------------------------------------------------
+
+VALUATION_RATIOS = Tab(
+    id="valuation_ratios",
+    label="Valuation Ratios",
+    description=(
+        "Provider-reported valuation ratios (P/E, P/B, ROA, ROE, ROCE, EV/EBITDA) "
+        "with sector benchmarks. Append-only daily snapshots from Upstox via DQIV."
+    ),
+    mode="append",
+    key=("symbol", "ratio_name", "reported_date", "snapshot_id"),
+    order_by=("reported_date DESC", "symbol", "ratio_name"),
+    search_columns=("symbol", "isin", "ratio_name", "company_id"),
+    icon="valuation",
+    columns=(
+        _c("company_id", "Company ID", TEXT, width=140, group="Identity"),
+        _c("symbol", "Symbol", TEXT, required=True, width=120, group="Identity"),
+        _c("isin", "ISIN", TEXT, required=True, width=140, group="Identity"),
+        _c("instrument_key", "Instrument Key", TEXT, width=180, group="Identity"),
+        _c("ratio_name", "Ratio", TEXT, required=True, width=120, group="Ratio",
+           options=("pe", "pb", "roa", "roe", "roce", "ev_ebitda")),
+        _c("company_value", "Company Value", NUMBER, required=True, width=130, group="Ratio",
+           unit=UNIT_RATIO),
+        _c("sector_value", "Sector Value", NUMBER, width=130, group="Ratio", unit=UNIT_RATIO),
+        _c("reported_date", "Reported Date", DATE, required=True, width=130, group="Snapshot"),
+        _c("reported_time", "Reported Time", DATETIME, width=170, group="Snapshot"),
+        _c("snapshot_id", "Snapshot ID", TEXT, required=True, width=180, group="Snapshot"),
+        _c("provider", "Provider", TEXT, width=120, group="Provenance"),
+        _c("provider_version", "Provider Version", TEXT, width=140, group="Provenance"),
+        _c("confidence", "Confidence", TEXT, width=110, group="Quality"),
+        _c("dqiv_status", "DQIV Status", TEXT, width=120, group="Quality"),
+        _c("validation_notes", "Validation Notes", TEXT, width=220, group="Quality"),
+        *PROVENANCE_COLUMNS,
+    ),
+)
+
 TABS: tuple[Tab, ...] = (
     COMPANY_MASTER,
     DAILY_MARKET_HISTORY,
@@ -717,6 +755,7 @@ TABS: tuple[Tab, ...] = (
     CORPORATE_ACTIONS,
     OWNERSHIP,
     INSTITUTIONAL_FLOW,
+    VALUATION_RATIOS,
     HEDGE_FUND_FACTORS,
     COMPANY_INTELLIGENCE,
     DATA_QUALITY,

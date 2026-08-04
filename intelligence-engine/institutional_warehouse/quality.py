@@ -20,7 +20,7 @@ CONFLICTING = "conflicting"  # sources disagree
 MISSING = "missing"          # nothing observed
 
 # Which sources produce which class of value.
-_VENDOR_SOURCES = ("yahoo", "capital_iq", "capiq", "groww", "consensus")
+_VENDOR_SOURCES = ("yahoo", "capital_iq", "capiq", "groww", "consensus", "upstox")
 _CALCULATED_SOURCES = ("formula_engine", "warehouse_reconstruction")
 _OBSERVED_SOURCES = ("nse_bhavcopy", "nse", "bse", "lidi", "knowledge_factory", "fse",
                      "research_intelligence", "continuous_gather_learn")
@@ -30,7 +30,7 @@ CONFIDENCE_HIGH, CONFIDENCE_MEDIUM, CONFIDENCE_LOW, CONFIDENCE_UNKNOWN = (
 
 # How much each source is trusted before any other evidence is considered.
 _SOURCE_WEIGHT = {
-    "capital_iq": 0.9, "capiq": 0.9, "yahoo_finance": 0.85, "yahoo": 0.85,
+    "upstox": 0.92, "capital_iq": 0.9, "capiq": 0.9, "yahoo_finance": 0.85, "yahoo": 0.85,
     "nse_bhavcopy": 0.95, "fse_warehouse": 0.85, "formula_engine": 0.8,
     "warehouse_reconstruction": 0.75, "knowledge_factory_hd": 0.6,
     "continuous_gather_learn": 0.55, "lidi": 0.7, "manual": 0.9, "manual_import": 0.85,

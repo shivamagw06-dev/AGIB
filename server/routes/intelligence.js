@@ -2427,6 +2427,30 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // Upstox valuation ratios (key-ratios) — warehouse-backed; UI never calls Upstox
+  router.get('/valuation-ratios/health', kfGet('/v1/valuation-ratios/health'));
+  router.get('/valuation-ratios/coverage', kfGet('/v1/valuation-ratios/coverage'));
+  router.get('/valuation-ratios/company/:symbol', async (req, res) => {
+    try {
+      const r = await engineFetch(
+        `/v1/valuation-ratios/company/${encodeURIComponent(req.params.symbol)}`
+      );
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'valuation-ratios company failed' });
+    }
+  });
+  router.post('/valuation-ratios/ingest', async (req, res) => {
+    try {
+      const r = await engineFetch('/v1/valuation-ratios/ingest', {
+        method: 'POST', body: req.body || {}, timeoutMs: 180_000,
+      });
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'valuation-ratios ingest failed' });
+    }
+  });
+
   // Company Identity Service — canonical Capital IQ classification
   router.get('/company-identity/health', kfGet('/v1/company-identity/health'));
   router.post('/company-identity/metadata', async (req, res) => {

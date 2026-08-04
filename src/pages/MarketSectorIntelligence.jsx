@@ -157,7 +157,7 @@ export default function MarketSectorIntelligence() {
               </Section>
             ) : null}
 
-            <Section title="Sector intelligence" subtitle="Primary metric · current · historical · opportunity">
+            <Section title="Sector intelligence" subtitle="Primary metric · current · Upstox sector benchmark · premium · opportunity">
               <div className="msi-table-wrap">
                 <table className="msi-table">
                   <thead>
@@ -165,8 +165,11 @@ export default function MarketSectorIntelligence() {
                       <th>Sector</th>
                       <th>Metric</th>
                       <th>Current</th>
+                      <th>Sector</th>
+                      <th>Premium</th>
                       <th>Hist %ile</th>
                       <th>Opportunity</th>
+                      <th>Upstox</th>
                       <th>Cos</th>
                     </tr>
                   </thead>
@@ -176,8 +179,11 @@ export default function MarketSectorIntelligence() {
                         <td><strong>{s.sector}</strong></td>
                         <td>{s.primary_metric_label}</td>
                         <td>{fmt(s.current)}</td>
+                        <td>{fmt(s.sector_benchmark ?? s.historical_median)}</td>
+                        <td>{s.premium_pct != null ? `${fmt(s.premium_pct, 1)}%` : '—'}</td>
                         <td>{fmt(s.historical_percentile, 0)}</td>
                         <td>{s.opportunity}</td>
+                        <td>{s.upstox_coverage_pct != null ? `${fmt(s.upstox_coverage_pct, 0)}%` : '—'}</td>
                         <td>{fmt(s.companies, 0)}</td>
                       </tr>
                     ))}

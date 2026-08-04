@@ -19082,6 +19082,50 @@ async def market_intelligence_flows_ingest(payload: dict[str, Any] = Body(defaul
     return ingest_flows(rows, actor=str(body.get("actor") or "market_intelligence_engine"))
 
 
+@router.get("/valuation-ratios/health")
+async def valuation_ratios_health():
+    from valuation_ratios import health
+
+    return health()
+
+
+@router.get("/valuation-ratios/coverage")
+async def valuation_ratios_coverage():
+    from valuation_ratios import ratios_coverage
+
+    return ratios_coverage()
+
+
+@router.get("/valuation-ratios/company/{symbol}")
+async def valuation_ratios_company(symbol: str):
+    from valuation_ratios.ingest import latest_provider_ratios
+
+    return latest_provider_ratios(symbol)
+
+
+@router.post("/valuation-ratios/ingest")
+async def valuation_ratios_ingest(payload: dict[str, Any] = Body(default_factory=dict)):
+    """Persist Upstox key-ratios into warehouse (called by BFF after Upstox fetch)."""
+    from valuation_ratios.ingest import ingest_key_ratios, normalise_upstox_key_ratios
+
+    body = payload or {}
+    rows = body.get("rows")
+    if not rows:
+        # Accept single company payload or batch under "companies".
+        companies = body.get("companies")
+        if isinstance(companies, list):
+            rows = []
+            for item in companies:
+                rows.extend(normalise_upstox_key_ratios(item if isinstance(item, dict) else {}))
+        else:
+            rows = normalise_upstox_key_ratios(body)
+    return ingest_key_ratios(
+        rows,
+        actor=str(body.get("actor") or "valuation_ratios"),
+        sync_valuation=bool(body.get("sync_valuation", True)),
+    )
+
+
 @router.get("/warehouse/statement-identity")
 async def warehouse_statement_identity():
     """Statement rows still carrying no statement type."""

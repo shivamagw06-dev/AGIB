@@ -62,6 +62,7 @@ def dashboard(*, universe_limit: int = 5000) -> dict[str, Any]:
         "summary": agi_summary,
         "provenance": {
             "valuation": "warehouse.historical_valuation",
+            "provider_ratios": "warehouse.valuation_ratios (upstox)",
             "price": "warehouse.daily_market_history",
             "consensus": "warehouse.consensus",
             "flows": flow_pack.get("provenance") or {},
@@ -73,6 +74,7 @@ def dashboard(*, universe_limit: int = 5000) -> dict[str, Any]:
             "valuation_date": uni.get("valuation_date"),
             "breadth_sample": breadth_pack.get("sample_size"),
             "flow_history": (flow_pack.get("coverage") or {}).get("history"),
+            "upstox_ratio_companies": sum(1 for r in (uni.get("rows") or []) if r.get("provider_coverage")),
         },
     }
 
