@@ -119,6 +119,10 @@ def load_universe(*, limit: int = 5000) -> dict[str, Any]:
             )
         except Exception:
             policy = {}
+        valuation_covered = None
+        policy_status = None
+        primary_model = None
+        policy_coverage = None
         if policy.get("ok"):
             industry_dna = (policy.get("company") or {}).get("industry_dna") or industry_dna
             lens = {
@@ -130,8 +134,22 @@ def load_universe(*, limit: int = 5000) -> dict[str, Any]:
                 "status": policy.get("status"),
                 "confidence": policy.get("confidence"),
             }
+            policy_status = str(policy.get("status") or "").upper() or None
+            primary_model = policy.get("primary_model")
+            policy_coverage = policy.get("coverage")
+            # VPAE applicability — primary KPI for institutional coverage.
+            if policy_status == "NOT_APPLICABLE":
+                valuation_covered = None
+            elif policy_status == "INSUFFICIENT_DATA" or policy_coverage == "NONE":
+                valuation_covered = False
+            elif primary_model and policy.get("primary_metric"):
+                primary_entry = (policy.get("metrics") or {}).get(policy.get("primary_metric")) or {}
+                valuation_covered = str(primary_entry.get("status") or "").lower() != "unavailable"
+            else:
+                valuation_covered = False
         else:
             lens = lens_for(industry_dna, master.get("sector")) or {}
+            valuation_covered = False
         primary = lens.get("primary_metric") or "pe"
 
         # Prefer Upstox provider ratios over sparse computed warehouse multiples.
@@ -191,6 +209,11 @@ def load_universe(*, limit: int = 5000) -> dict[str, Any]:
             "has_upstox_sector_benchmark": any(
                 v is not None for v in (sector_pe, sector_pb, sector_ev, sector_roe)
             ),
+            "primary_model": primary_model or lens.get("primary_metric_label"),
+            "policy_status": policy_status or lens.get("status"),
+            "policy_coverage": policy_coverage,
+            "policy_confidence": lens.get("confidence"),
+            "valuation_covered": valuation_covered,
         }
         primary_val = row.get(primary)
         if primary_val is None or not is_meaningful(primary, industry_dna):

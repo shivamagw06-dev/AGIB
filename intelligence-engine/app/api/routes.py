@@ -19008,6 +19008,49 @@ async def valuation_explanation(symbol: str):
     return vpae_explanation(symbol)
 
 
+# Institutional Coverage Health — static paths BEFORE /valuation/coverage/{symbol}
+@router.get("/valuation/coverage-health/health")
+async def institutional_coverage_health_probe():
+    from institutional_coverage_health import health as ich_health
+
+    return ich_health()
+
+
+@router.get("/valuation/coverage/health")
+async def institutional_coverage_health(limit: int = 6000, force: bool = False):
+    from institutional_coverage_health import coverage_health
+
+    return coverage_health(limit=min(max(int(limit or 6000), 50), 8000), force=bool(force))
+
+
+@router.get("/valuation/coverage/valuation")
+async def institutional_valuation_coverage(limit: int = 6000):
+    from institutional_coverage_health import valuation_coverage as ich_valuation
+
+    return ich_valuation(limit=min(max(int(limit or 6000), 50), 8000))
+
+
+@router.get("/valuation/coverage/metrics")
+async def institutional_metric_coverage(limit: int = 6000):
+    from institutional_coverage_health import metric_coverage as ich_metrics
+
+    return ich_metrics(limit=min(max(int(limit or 6000), 50), 8000))
+
+
+@router.get("/valuation/coverage/research")
+async def institutional_research_coverage(limit: int = 6000):
+    from institutional_coverage_health import research_coverage as ich_research
+
+    return ich_research(limit=min(max(int(limit or 6000), 50), 8000))
+
+
+@router.get("/valuation/coverage/residual")
+async def institutional_coverage_residual(limit: int = 6000):
+    from institutional_coverage_health import bootstrap_residual
+
+    return bootstrap_residual(limit=min(max(int(limit or 6000), 50), 8000))
+
+
 @router.get("/valuation/coverage/{symbol}")
 async def valuation_coverage(symbol: str):
     from valuation_policy import coverage as vpae_coverage

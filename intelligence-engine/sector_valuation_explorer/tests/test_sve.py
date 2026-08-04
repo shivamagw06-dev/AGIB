@@ -113,6 +113,9 @@ def test_market_and_boards_empty_universe(monkeypatch):
     assert m["market"] == "Indian Market"
     assert m["companies_covered"] == 0
     assert m["language"] == "analysis_only"
+    assert "valuation_coverage_pct" in m
+    assert "legacy_pe_or_provider_coverage_pct" in m
+    assert "vpae" in (m.get("coverage_definition") or "").lower()
 
     opps = opportunities(top=5)
     assert opps["ok"] is True
