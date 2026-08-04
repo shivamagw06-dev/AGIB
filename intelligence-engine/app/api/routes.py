@@ -19202,6 +19202,96 @@ async def sve_health():
 
 
 # ---------------------------------------------------------------------------
+# Valuation Attribution & Research Intelligence Engine (VARIE) v1.0
+# Explains why valuation is where it is — warehouse / UVE / HVIE / MI only.
+# ---------------------------------------------------------------------------
+
+
+@router.get("/valuation/attribution/health")
+async def varie_health():
+    from valuation_attribution_engine import health as varie_health_fn
+
+    return varie_health_fn()
+
+
+@router.get("/valuation/attribution/company/{symbol}")
+async def varie_company(symbol: str, window: str = "10y", universe_limit: int = 5000):
+    from valuation_attribution_engine import company as varie_company_fn
+
+    return varie_company_fn(
+        symbol,
+        window=window or "10y",
+        universe_limit=min(max(int(universe_limit or 5000), 100), 20000),
+    )
+
+
+@router.get("/valuation/attribution/sector/{sector}")
+async def varie_sector(sector: str, universe_limit: int = 5000):
+    from valuation_attribution_engine import sector as varie_sector_fn
+
+    return varie_sector_fn(sector, universe_limit=min(max(int(universe_limit or 5000), 100), 20000))
+
+
+@router.get("/valuation/attribution/industry/{industry}")
+async def varie_industry(industry: str, universe_limit: int = 5000):
+    from valuation_attribution_engine import industry as varie_industry_fn
+
+    return varie_industry_fn(industry, universe_limit=min(max(int(universe_limit or 5000), 100), 20000))
+
+
+@router.get("/valuation/attribution/market")
+async def varie_market(universe_limit: int = 5000):
+    from valuation_attribution_engine import market as varie_market_fn
+
+    return varie_market_fn(universe_limit=min(max(int(universe_limit or 5000), 100), 20000))
+
+
+@router.get("/valuation/attribution/peer/{symbol}")
+async def varie_peer(symbol: str, peer: str = "", universe_limit: int = 5000):
+    from valuation_attribution_engine import peer as varie_peer_fn
+
+    return varie_peer_fn(
+        symbol,
+        peer_symbol=peer or None,
+        universe_limit=min(max(int(universe_limit or 5000), 100), 20000),
+    )
+
+
+@router.get("/valuation/attribution/history/{symbol}")
+async def varie_history(symbol: str, metric: str = "pe", window: str = "max"):
+    from valuation_attribution_engine import history as varie_history_fn
+
+    return varie_history_fn(symbol, metric=metric or "pe", window=window or "max")
+
+
+@router.get("/valuation/attribution/timeline/{symbol}")
+async def varie_timeline(symbol: str, metric: str = "pe", window: str = "max"):
+    from valuation_attribution_engine import timeline as varie_timeline_fn
+
+    return varie_timeline_fn(symbol, metric=metric or "pe", window=window or "max")
+
+
+@router.get("/valuation/attribution/opportunities")
+async def varie_opportunities(top: int = 10, universe_limit: int = 5000):
+    from valuation_attribution_engine import opportunities as varie_opps_fn
+
+    return varie_opps_fn(
+        top=min(max(int(top or 10), 1), 50),
+        universe_limit=min(max(int(universe_limit or 5000), 100), 20000),
+    )
+
+
+@router.get("/valuation/attribution/leaders")
+async def varie_leaders(top: int = 10, universe_limit: int = 5000):
+    from valuation_attribution_engine import leaders as varie_leaders_fn
+
+    return varie_leaders_fn(
+        top=min(max(int(top or 10), 1), 50),
+        universe_limit=min(max(int(universe_limit or 5000), 100), 20000),
+    )
+
+
+# ---------------------------------------------------------------------------
 # Historical Valuation Intelligence Engine (HVIE) — Phase 8.3
 # Reconstructs multiples from prices + statements; gated by VPAE.
 # ---------------------------------------------------------------------------
