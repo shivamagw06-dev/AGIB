@@ -24,6 +24,7 @@ import { startContinuousGatherLearnScheduler } from "./services/continuousGather
 import { startInstitutionalFlowScheduler } from "./services/institutionalFlowScheduler.js";
 import { startValuationRatiosScheduler } from "./services/valuationRatiosScheduler.js";
 import { startHvieRuntimeScheduler } from "./services/hvieRuntimeScheduler.js";
+import { startUifiScheduler } from "./services/uifiScheduler.js";
 import { llmProviderStatus } from "./services/llmClient.js";
 import rateLimit from "express-rate-limit";
 import cors from "cors";
@@ -297,6 +298,11 @@ const marketRouter = createMarketRouter({
   indianApiBase: BASE_URL,
 });
 app.use('/api/market', marketIntelLimiter, marketRouter);
+// Phase 7.4E — plan paths are /api/upstox/* (alias onto market UIFI routes)
+app.use('/api/upstox', marketIntelLimiter, (req, res, next) => {
+  req.url = `/upstox${req.url === '/' ? '' : req.url}`;
+  return marketRouter.handle(req, res, next);
+});
 app.use('/api/research/nifty500', nifty500ResearchLimiter, createNifty500ResearchRouter());
 app.use('/api/intelligence', createIntelligenceRouter());
 app.use('/api/ui', createUiRouter());
@@ -316,6 +322,7 @@ startContinuousGatherLearnScheduler();
 startInstitutionalFlowScheduler();
 startValuationRatiosScheduler();
 startHvieRuntimeScheduler();
+startUifiScheduler();
 
 /* ---------- /api/perplexity/deals ----------
    Ask Perplexity for a strict JSON array of deals with these fields:
