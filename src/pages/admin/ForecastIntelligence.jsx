@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Compass, AlertTriangle, RefreshCw } from 'lucide-react';
 import {
-  analyseFie,
-  getFieCompany,
-  getFieDashboard,
-  getFieHealth,
-  getFieQualityGates,
-  getFieScenarios,
+  analyseLegacyFie,
+  getLegacyFieCompany,
+  getLegacyFieDashboard,
+  getLegacyFieHealth,
+  getLegacyFieQualityGates,
+  getLegacyFieScenarios,
 } from '@/lib/intelligenceApi';
 import { Button } from '@/components/ui/button';
 
@@ -35,9 +35,9 @@ export default function ForecastIntelligence() {
     setError('');
     try {
       const [h, d, g] = await Promise.all([
-        getFieHealth(),
-        getFieDashboard(),
-        getFieQualityGates(),
+        getLegacyFieHealth(),
+        getLegacyFieDashboard(),
+        getLegacyFieQualityGates(),
       ]);
       setHealth(h);
       setDashboard(d);
@@ -57,7 +57,7 @@ export default function ForecastIntelligence() {
     setBusy('company');
     setError('');
     try {
-      const out = await getFieCompany(ticker || 'HDFCBANK');
+      const out = await getLegacyFieCompany(ticker || 'HDFCBANK');
       setPack(out);
     } catch (err) {
       setError(err?.message || 'Company forecast failed');
@@ -70,7 +70,7 @@ export default function ForecastIntelligence() {
     setBusy('scenarios');
     setError('');
     try {
-      const out = await getFieScenarios(ticker || 'HDFCBANK');
+      const out = await getLegacyFieScenarios(ticker || 'HDFCBANK');
       setPack(out);
     } catch (err) {
       setError(err?.message || 'Scenarios failed');
@@ -83,7 +83,7 @@ export default function ForecastIntelligence() {
     setBusy('analyse');
     setError('');
     try {
-      const out = await analyseFie({
+      const out = await analyseLegacyFie({
         ticker: ticker || undefined,
         question: `What has to happen for ${ticker || 'this company'} to outperform?`,
       });

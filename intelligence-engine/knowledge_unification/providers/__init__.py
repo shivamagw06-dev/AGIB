@@ -32,12 +32,16 @@ from knowledge_unification.providers.research_intelligence import ResearchIntell
 from knowledge_unification.providers.research_intelligence_engine import (
     ResearchIntelligenceEngineProvider,
 )
+from knowledge_unification.providers.forecast_intelligence_engine import (
+    ForecastIntelligenceEngineProvider,
+)
 from knowledge_unification.providers.valuation_consensus import ValuationConsensusProvider
 from knowledge_unification.providers.valuation_terminal import ValuationTerminalProvider
 
 ALL_PROVIDERS = (
     HistoricalIntelligenceProvider,
     ResearchIntelligenceEngineProvider,
+    ForecastIntelligenceEngineProvider,
     InstitutionalWarehouseProvider,
     ResearchIntelligenceProvider,
     PortfolioIntelligenceProvider,

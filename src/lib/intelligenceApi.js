@@ -2307,17 +2307,17 @@ export const getCigEvent = (event) =>
 export const analyseCig = (payload = {}) =>
   intelligenceFetch('/causal-intelligence/analyse', { method: 'POST', body: payload || {} });
 
-/** Forecast Intelligence Engine */
-export const getFieHealth = () => intelligenceFetch('/forecast/health');
-export const getFieDashboard = () => intelligenceFetch('/forecast/dashboard');
-export const getFieQualityGates = () => intelligenceFetch('/forecast/quality-gates');
-export const getFieCompany = (ticker) =>
+/** Legacy scenario Forecast Intelligence (/forecast/*) — not Phase 8.5 FIE */
+export const getLegacyFieHealth = () => intelligenceFetch('/forecast/health');
+export const getLegacyFieDashboard = () => intelligenceFetch('/forecast/dashboard');
+export const getLegacyFieQualityGates = () => intelligenceFetch('/forecast/quality-gates');
+export const getLegacyFieCompany = (ticker) =>
   intelligenceFetch(`/forecast/company/${encodeURIComponent(ticker)}`);
-export const getFieScenarios = (ticker) =>
+export const getLegacyFieScenarios = (ticker) =>
   intelligenceFetch(`/forecast/scenarios/${encodeURIComponent(ticker)}`);
-export const getFieCatalysts = (ticker) =>
+export const getLegacyFieCatalysts = (ticker) =>
   intelligenceFetch(`/forecast/catalysts/${encodeURIComponent(ticker)}`);
-export const analyseFie = (payload = {}) =>
+export const analyseLegacyFie = (payload = {}) =>
   intelligenceFetch('/forecast/analyse', { method: 'POST', body: payload || {} });
 
 /** Institutional Knowledge Graph */
@@ -3088,35 +3088,6 @@ export const postHvieRuntimeStart = () =>
 export const postHvieRuntimeStop = () =>
   intelligenceFetch('/historical-valuation/runtime/stop', { method: 'POST', body: {} });
 
-/** HVIE intelligence aliases (Phase 8.3B — warehouse-reconstructed) */
-export const getHvieCompany = (symbol, params = {}) => {
-  const qs = new URLSearchParams(
-    Object.fromEntries(Object.entries(params).filter(([, v]) => v != null && v !== '')),
-  ).toString();
-  return intelligenceFetch(
-    `/hvie/company/${encodeURIComponent(symbol)}${qs ? `?${qs}` : ''}`,
-    { timeoutMs: 60_000 },
-  );
-};
-export const getHvieHistory = (symbol, params = {}) => {
-  const qs = new URLSearchParams(
-    Object.fromEntries(Object.entries(params).filter(([, v]) => v != null && v !== '')),
-  ).toString();
-  return intelligenceFetch(
-    `/hvie/history/${encodeURIComponent(symbol)}${qs ? `?${qs}` : ''}`,
-    { timeoutMs: 90_000 },
-  );
-};
-export const getHvieStatistics = (symbol, params = {}) => {
-  const qs = new URLSearchParams(
-    Object.fromEntries(Object.entries(params).filter(([, v]) => v != null && v !== '')),
-  ).toString();
-  return intelligenceFetch(
-    `/hvie/statistics/${encodeURIComponent(symbol)}${qs ? `?${qs}` : ''}`,
-    { timeoutMs: 60_000 },
-  );
-};
-
 /** HVIE Universe Completion Programme (Phase 8.3A/B) */
 export const getHvieUniverseHealth = () =>
   intelligenceFetch('/hvie/runtime/health', { timeoutMs: 60_000 });
@@ -3192,6 +3163,25 @@ export const getRieMonitoring = (symbol) => getRieSection('monitoring', symbol);
 export const getRieTimeline = (symbol) => getRieSection('timeline', symbol);
 export const getRieConfidence = (symbol) =>
   intelligenceFetch(`/research/confidence/${encodeURIComponent(symbol)}`, { timeoutMs: 180_000 });
+
+/** Forecast Intelligence Engine (Phase 8.5) — /fie/* */
+export const getFieHealth = () => intelligenceFetch('/fie/health');
+export const getFieDashboard = () =>
+  intelligenceFetch('/fie/dashboard', { timeoutMs: 90_000 });
+export const getFieBoard = () =>
+  intelligenceFetch('/fie/runtime/board', { timeoutMs: 90_000 });
+export const getFieCompany = (symbol) =>
+  intelligenceFetch(`/fie/company/${encodeURIComponent(symbol)}`, { timeoutMs: 180_000 });
+export const getFieModule = (module, symbol) =>
+  intelligenceFetch(`/fie/${module}/${encodeURIComponent(symbol)}`, { timeoutMs: 90_000 });
+export const postFieRuntimeStart = () =>
+  intelligenceFetch('/fie/runtime/start', { method: 'POST', body: {} });
+export const postFieRuntimeStop = () =>
+  intelligenceFetch('/fie/runtime/stop', { method: 'POST', body: {} });
+export const postFieRuntimeResume = () =>
+  intelligenceFetch('/fie/runtime/resume', { method: 'POST', body: {} });
+export const postFieRuntimeRun = (body = {}) =>
+  intelligenceFetch('/fie/runtime/run', { method: 'POST', body, timeoutMs: 300_000 });
 
 /** Market & Sector Intelligence Terminal v1.0 */
 export const getMiHealth = () => intelligenceFetch('/market-intelligence/health');

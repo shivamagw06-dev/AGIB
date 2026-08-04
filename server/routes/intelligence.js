@@ -3033,6 +3033,71 @@ export default function createIntelligenceRouter() {
   router.get('/research/timeline/:symbol', rieGet('timeline'));
   router.get('/research/confidence/:symbol', rieGet('confidence', 180_000));
 
+  // Forecast Intelligence Engine (Phase 8.5) — /fie/* avoids legacy /forecast/*
+  router.get('/fie/health', kfGet('/v1/fie/health'));
+  router.get('/fie/dashboard', kfGet('/v1/fie/dashboard'));
+  router.get('/fie/coverage', kfGet('/v1/fie/coverage'));
+  router.get('/fie/runtime/status', kfGet('/v1/fie/runtime/status'));
+  router.get('/fie/runtime/board', kfGet('/v1/fie/runtime/board'));
+  const fieGet = (suffix, timeoutMs = 90_000) => async (req, res) => {
+    try {
+      const r = await engineFetch(
+        `/v1/fie/${suffix}/${encodeURIComponent(req.params.symbol)}`,
+        { timeoutMs },
+      );
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || `fie ${suffix} failed` });
+    }
+  };
+  router.get('/fie/company/:symbol', fieGet('company', 180_000));
+  router.get('/fie/business/:symbol', fieGet('business'));
+  router.get('/fie/growth/:symbol', fieGet('growth'));
+  router.get('/fie/profitability/:symbol', fieGet('profitability'));
+  router.get('/fie/balance-sheet/:symbol', fieGet('balance-sheet'));
+  router.get('/fie/valuation/:symbol', fieGet('valuation'));
+  router.get('/fie/scenarios/:symbol', fieGet('scenarios'));
+  router.get('/fie/sensitivity/:symbol', fieGet('sensitivity'));
+  router.get('/fie/risks/:symbol', fieGet('risks'));
+  router.get('/fie/catalysts/:symbol', fieGet('catalysts'));
+  router.get('/fie/confidence/:symbol', fieGet('confidence', 180_000));
+  router.get('/fie/history/:symbol', fieGet('history'));
+  router.get('/fie/accuracy/:symbol', fieGet('accuracy'));
+  router.post('/fie/runtime/start', async (req, res) => {
+    try {
+      const r = await engineFetch('/v1/fie/runtime/start', { method: 'POST', body: {}, timeoutMs: 30_000 });
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'fie runtime start failed' });
+    }
+  });
+  router.post('/fie/runtime/stop', async (req, res) => {
+    try {
+      const r = await engineFetch('/v1/fie/runtime/stop', { method: 'POST', body: {}, timeoutMs: 30_000 });
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'fie runtime stop failed' });
+    }
+  });
+  router.post('/fie/runtime/resume', async (req, res) => {
+    try {
+      const r = await engineFetch('/v1/fie/runtime/resume', { method: 'POST', body: {}, timeoutMs: 30_000 });
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'fie runtime resume failed' });
+    }
+  });
+  router.post('/fie/runtime/run', async (req, res) => {
+    try {
+      const r = await engineFetch('/v1/fie/runtime/run', {
+        method: 'POST', body: req.body || {}, timeoutMs: 300_000,
+      });
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'fie runtime run failed' });
+    }
+  });
+
   // Unified Valuation Engine — terminal migration surface
   router.get('/valuation-engine/health', kfGet('/v1/valuation-engine/health'));
   router.get('/valuation-engine/company/:symbol', async (req, res) => {
