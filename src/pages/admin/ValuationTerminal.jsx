@@ -31,11 +31,13 @@ import SectorValuationWorkspace, {
   ResearchBoards,
   SectorDirectory,
 } from '@/pages/admin/SectorValuationWorkspace';
+import CoverageHealthPanel from '@/pages/admin/CoverageHealthPanel';
 import { CompanyAttributionPanel } from '@/pages/admin/ValuationAttributionPanel';
 import './valuationIntelligence.css';
 import './valuationTerminal.css';
 import './sectorValuationExplorer.css';
 import './valuationAttribution.css';
+import './coverageHealth.css';
 
 const METRIC_LABELS = {
   pe: 'P/E',
@@ -898,6 +900,7 @@ export default function ValuationTerminal() {
         {showSectorHome ? (
           <>
             <MarketSnapshot market={market} loading={marketLoading} />
+            <CoverageHealthPanel />
             <SectorDirectory
               sectors={sectors}
               loading={sectorsLoading}

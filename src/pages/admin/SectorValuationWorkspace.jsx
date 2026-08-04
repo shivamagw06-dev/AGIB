@@ -154,8 +154,8 @@ export function MarketSnapshot({ market, loading }) {
       </div>
       <div className="sve-hero-metrics">
         <div>
-          <span className="k">Coverage</span>
-          <span className="v">{market.coverage_pct != null ? `${fmt(market.coverage_pct, 0)}%` : '—'}</span>
+          <span className="k">Valuation coverage</span>
+          <span className="v">{(market.valuation_coverage_pct ?? market.coverage_pct) != null ? `${fmt(market.valuation_coverage_pct ?? market.coverage_pct, 0)}%` : '—'}</span>
         </div>
         <div>
           <span className="k">Median PE</span>

@@ -725,7 +725,26 @@ def market(*, universe_limit: int = 5000) -> dict[str, Any]:
     roce = _median([r.get("roce") for r in rows])
     div = _median([r.get("dividend_yield") for r in rows])
     pct = _median([r.get("percentile") for r in rows])
-    covered = sum(1 for r in rows if r.get("provider_coverage") or r.get("pe") is not None)
+    # Legacy PE/provider presence — secondary diagnostic only (not primary KPI).
+    legacy_pe_covered = sum(
+        1 for r in rows if r.get("provider_coverage") or r.get("pe") is not None
+    )
+    # Primary KPI: VPAE valuation applicability on MI rows (set by universe load).
+    valuation_expected_n = sum(1 for r in rows if r.get("valuation_covered") is not None)
+    valuation_covered_n = sum(1 for r in rows if r.get("valuation_covered") is True)
+    if valuation_expected_n <= 0:
+        # Fallback when older universe rows lack the flag.
+        valuation_expected_n = len(rows)
+        valuation_covered_n = sum(
+            1
+            for r in rows
+            if r.get("primary_model")
+            and str(r.get("policy_status") or "").upper()
+            not in {"INSUFFICIENT_DATA", "NOT_APPLICABLE", ""}
+        )
+        if valuation_covered_n <= 0:
+            valuation_covered_n = legacy_pe_covered
+    covered = valuation_covered_n
     market_cap = sum(_num(r.get("market_cap")) or 0 for r in rows) or None
     hist = _sector_history_medians("Market", "pe")
     # Fall back: median of sector historical medians when market row absent.
@@ -760,7 +779,25 @@ def market(*, universe_limit: int = 5000) -> dict[str, Any]:
         "market": "Indian Market",
         "as_of": uni.get("valuation_date"),
         "companies_covered": len(rows),
-        "coverage_pct": round(100.0 * covered / len(rows), 1) if rows else 0,
+        "coverage_pct": (
+            round(100.0 * valuation_covered_n / valuation_expected_n, 1)
+            if valuation_expected_n
+            else 0
+        ),
+        "valuation_coverage_pct": (
+            round(100.0 * valuation_covered_n / valuation_expected_n, 1)
+            if valuation_expected_n
+            else 0
+        ),
+        "valuation_covered": valuation_covered_n,
+        "valuation_expected": valuation_expected_n,
+        "legacy_pe_or_provider_coverage_pct": (
+            round(100.0 * legacy_pe_covered / len(rows), 1) if rows else 0
+        ),
+        "coverage_definition": (
+            "Companies with a valid VPAE primary valuation model and sufficient "
+            "supporting data ÷ companies expected to have a valuation model"
+        ),
         "median_pe": pe,
         "historical_median_pe": hist_median,
         "premium_pct": premium,

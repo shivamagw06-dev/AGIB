@@ -2368,6 +2368,63 @@ export default function createIntelligenceRouter() {
       res.status(502).json({ error: err.message || 'valuation explanation failed' });
     }
   });
+  // Institutional Coverage Health — register BEFORE /valuation/coverage/:symbol
+  router.get('/valuation/coverage-health/health', kfGet('/v1/valuation/coverage-health/health'));
+  router.get('/valuation/coverage/health', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query || {}).toString();
+      const r = await engineFetch(`/v1/valuation/coverage/health${qs ? `?${qs}` : ''}`, {
+        timeoutMs: 180_000,
+      });
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'coverage health failed' });
+    }
+  });
+  router.get('/valuation/coverage/valuation', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query || {}).toString();
+      const r = await engineFetch(`/v1/valuation/coverage/valuation${qs ? `?${qs}` : ''}`, {
+        timeoutMs: 180_000,
+      });
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'valuation coverage failed' });
+    }
+  });
+  router.get('/valuation/coverage/metrics', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query || {}).toString();
+      const r = await engineFetch(`/v1/valuation/coverage/metrics${qs ? `?${qs}` : ''}`, {
+        timeoutMs: 180_000,
+      });
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'metric coverage failed' });
+    }
+  });
+  router.get('/valuation/coverage/research', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query || {}).toString();
+      const r = await engineFetch(`/v1/valuation/coverage/research${qs ? `?${qs}` : ''}`, {
+        timeoutMs: 180_000,
+      });
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'research coverage failed' });
+    }
+  });
+  router.get('/valuation/coverage/residual', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query || {}).toString();
+      const r = await engineFetch(`/v1/valuation/coverage/residual${qs ? `?${qs}` : ''}`, {
+        timeoutMs: 180_000,
+      });
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'coverage residual failed' });
+    }
+  });
   router.get('/valuation/coverage/:symbol', async (req, res) => {
     try {
       const r = await engineFetch(

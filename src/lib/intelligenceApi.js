@@ -2860,6 +2860,40 @@ export const getValuationPolicyUniverse = (params = {}) => {
   return intelligenceFetch(`/valuation/universe${qs ? `?${qs}` : ''}`, { timeoutMs: 120_000 });
 };
 
+/** Institutional Coverage Health — five-layer coverage (VPAE-aligned) */
+export const getCoverageHealthProbe = () =>
+  intelligenceFetch('/valuation/coverage-health/health');
+export const getCoverageHealth = (params = {}) => {
+  const qs = new URLSearchParams(
+    Object.fromEntries(Object.entries(params).filter(([, v]) => v != null && v !== '')),
+  ).toString();
+  return intelligenceFetch(`/valuation/coverage/health${qs ? `?${qs}` : ''}`, { timeoutMs: 180_000 });
+};
+export const getCoverageValuation = (params = {}) => {
+  const qs = new URLSearchParams(
+    Object.fromEntries(Object.entries(params).filter(([, v]) => v != null && v !== '')),
+  ).toString();
+  return intelligenceFetch(`/valuation/coverage/valuation${qs ? `?${qs}` : ''}`, { timeoutMs: 180_000 });
+};
+export const getCoverageMetrics = (params = {}) => {
+  const qs = new URLSearchParams(
+    Object.fromEntries(Object.entries(params).filter(([, v]) => v != null && v !== '')),
+  ).toString();
+  return intelligenceFetch(`/valuation/coverage/metrics${qs ? `?${qs}` : ''}`, { timeoutMs: 180_000 });
+};
+export const getCoverageResearch = (params = {}) => {
+  const qs = new URLSearchParams(
+    Object.fromEntries(Object.entries(params).filter(([, v]) => v != null && v !== '')),
+  ).toString();
+  return intelligenceFetch(`/valuation/coverage/research${qs ? `?${qs}` : ''}`, { timeoutMs: 180_000 });
+};
+export const getCoverageResidual = (params = {}) => {
+  const qs = new URLSearchParams(
+    Object.fromEntries(Object.entries(params).filter(([, v]) => v != null && v !== '')),
+  ).toString();
+  return intelligenceFetch(`/valuation/coverage/residual${qs ? `?${qs}` : ''}`, { timeoutMs: 180_000 });
+};
+
 /** Institutional Valuation Research Workspace v2 — warehouse → UVE / HVIE / VPAE */
 const sveQs = (params = {}) =>
   new URLSearchParams(
