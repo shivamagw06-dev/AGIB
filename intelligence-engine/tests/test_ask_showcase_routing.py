@@ -171,6 +171,23 @@ def test_macro_menu_is_not_academy_overwrite():
     assert "academy" not in _MACRO_MENU[:4]
 
 
+def test_premium_question_is_attribution_not_macro():
+    from universal_knowledge.planner import detect_family, plan as uko_plan
+
+    q = (
+        "Explain why HDFC Bank trades at a premium valuation. Break down the premium "
+        "into business quality, profitability, capital allocation, historical valuation "
+        "behavior, macro factors, institutional ownership, and future expectations."
+    )
+    assert detect_family(q) == "attribution"
+    up = uko_plan(q, ticker="HDFCBANK")
+    assert up["family"] == "attribution"
+    assert up["selected_providers"][0] == "valuation_attribution_engine"
+
+    rate = "How would a 100 basis point RBI rate cut affect Indian banks and NBFCs?"
+    assert detect_family(rate) == "macro"
+
+
 def test_hard_providers_include_showcase_engines():
     from knowledge_unification.production import _HARD_PROVIDERS
 
