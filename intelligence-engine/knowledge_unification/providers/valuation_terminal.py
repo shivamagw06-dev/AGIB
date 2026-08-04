@@ -73,9 +73,27 @@ class ValuationTerminalProvider:
             name = row.get("company_name") or ticker
             industry = row.get("primary_industry")
             sector = row.get("primary_sector")
-            lens = lens_for(row.get("industry_dna"))
-            metric = lens.get("primary_metric") or "pe"
-            label = _LABELS.get(metric, metric.upper())
+            # Prefer VPAE policy; fall back to sector_lens baseline.
+            policy = None
+            try:
+                from valuation_policy import evaluate as vpae_evaluate
+
+                policy = vpae_evaluate(str(ticker).upper())
+            except Exception:
+                policy = None
+            if policy and policy.get("ok"):
+                metric = policy.get("primary_metric") or "pe"
+                label = _LABELS.get(metric, policy.get("primary_model") or metric.upper())
+                lens = {
+                    "primary_metric": metric,
+                    "rationale": policy.get("reason"),
+                    "status": policy.get("status"),
+                    "confidence": policy.get("confidence"),
+                }
+            else:
+                lens = lens_for(row.get("industry_dna"))
+                metric = lens.get("primary_metric") or "pe"
+                label = _LABELS.get(metric, metric.upper())
 
             peers = [
                 r for r in rows.values()
@@ -105,6 +123,17 @@ class ValuationTerminalProvider:
 
             why: list[str] = []
             facts: list[dict[str, Any]] = []
+            if policy and policy.get("ok"):
+                why.append(
+                    f"Valuation policy: primary model {policy.get('primary_model')} "
+                    f"({policy.get('status')}, confidence {policy.get('confidence')}). "
+                    f"{policy.get('reason')}"
+                )
+                facts.append({
+                    "field": "valuation_policy_primary_model",
+                    "value": policy.get("primary_model"),
+                    "status": policy.get("status"),
+                })
             gap = None
             if median:
                 gap = round(((value / median) - 1.0) * 100.0, 1)

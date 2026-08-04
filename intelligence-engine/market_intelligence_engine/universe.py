@@ -102,7 +102,36 @@ def load_universe(*, limit: int = 5000) -> dict[str, Any]:
         consensus = consensus_map.get(sym) or {}
         provider = provider_map.get(sym) or {}
         industry_dna = master.get("industry_dna") or master.get("industry")
-        lens = lens_for(industry_dna, master.get("sector")) or {}
+        # VPAE gate — instrument / loss-making / DNA before any sector aggregate.
+        try:
+            from valuation_policy import evaluate as vpae_evaluate
+
+            policy = vpae_evaluate(
+                sym,
+                record={
+                    "ok": True,
+                    "symbol": sym,
+                    "master": master,
+                    "provider_ratios": {"ratios": provider},
+                    "latest_annual": {},
+                    "latest_price": {},
+                },
+            )
+        except Exception:
+            policy = {}
+        if policy.get("ok"):
+            industry_dna = (policy.get("company") or {}).get("industry_dna") or industry_dna
+            lens = {
+                "primary_metric": policy.get("primary_metric"),
+                "primary_metric_label": policy.get("primary_model"),
+                "supporting_metrics": policy.get("supporting_metrics") or [],
+                "suppressed_metrics": policy.get("hidden_metrics") or [],
+                "rationale": policy.get("reason"),
+                "status": policy.get("status"),
+                "confidence": policy.get("confidence"),
+            }
+        else:
+            lens = lens_for(industry_dna, master.get("sector")) or {}
         primary = lens.get("primary_metric") or "pe"
 
         # Prefer Upstox provider ratios over sparse computed warehouse multiples.

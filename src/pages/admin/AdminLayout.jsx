@@ -63,6 +63,7 @@ const navItems = [
   { to: '/admin/data-warehouse', label: 'Data Warehouse', icon: Database },
   { to: '/admin/historical-coverage', label: 'Historical Coverage', icon: CalendarRange },
   { to: '/admin/upstox-bootstrap', label: 'Upstox Bootstrap', icon: Database },
+  { to: '/admin/valuation-policy', label: 'Valuation Policy', icon: Scale },
   { to: '/admin/intelligence', label: 'Intelligence CMS', icon: Sparkles },
   { to: '/admin/knowledge-operations', label: 'Knowledge Operations', icon: Library },
   { to: '/admin/valuation-intelligence', label: 'Valuation Intelligence', icon: Scale },

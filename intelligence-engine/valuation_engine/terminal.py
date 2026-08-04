@@ -90,10 +90,15 @@ def company_pack(symbol: str, *, window: str = "5Y", peer_limit: int = 12) -> di
 
     metrics = valuation.get("metrics") or {}
     context = valuation.get("context") or {}
+    policy = valuation.get("policy") or {}
     master = record.get("master") or {}
-    industry_dna = master.get("industry") or master.get("industry_dna")
+    industry_dna = (
+        (valuation.get("company") or {}).get("industry")
+        or master.get("industry_dna")
+        or master.get("industry")
+    )
 
-    table = _institutional_table(metrics, context, industry_dna)
+    table = _institutional_table(metrics, context, industry_dna, policy)
     sector_context = _sector_context(valuation, peer_valuations)
     peers = _peer_table(ticker, metrics, peer_valuations, context)
     explanation = _explanation(ticker, valuation, sector_context)
@@ -132,6 +137,7 @@ def company_pack(symbol: str, *, window: str = "5Y", peer_limit: int = 12) -> di
         "data_quality": dq,
         "health_score": confidence,
         "lens": valuation.get("lens"),
+        "policy": policy,
         "metrics": metrics,
         "context": context,
         "company": valuation.get("company"),
@@ -270,10 +276,12 @@ def _institutional_table(
     metrics: dict[str, Any],
     context: dict[str, Any],
     industry_dna: Optional[str],
+    policy: Optional[dict[str, Any]] = None,
 ) -> list[dict[str, Any]]:
     rows = []
     for name in TABLE_METRICS:
-        if not _visible(name, industry_dna):
+        if not _visible(name, industry_dna, policy):
+            applicability = ((metrics.get(name) or {}).get("applicability") or {})
             rows.append({
                 "metric": name,
                 "meaningful": False,
@@ -282,7 +290,11 @@ def _institutional_table(
                 "historical": None,
                 "position": None,
                 "source": None,
-                "note": "not meaningful for this industry",
+                "note": applicability.get("reason") or "not meaningful for this industry",
+                "applicability": applicability or {
+                    "status": "Hidden",
+                    "reason": "Suppressed by valuation policy.",
+                },
             })
             continue
         cell = metrics.get(name) or {}
@@ -305,6 +317,7 @@ def _institutional_table(
             "available": bool(cell.get("available")),
             "missing": cell.get("missing") or [],
             "note": cell.get("note") or "",
+            "applicability": cell.get("applicability"),
             "coverage": {
                 "peer_count": ctx.get("peer_count"),
                 "observations": ctx.get("observations"),
@@ -319,12 +332,15 @@ def _sector_context(valuation: dict[str, Any], peer_vals: list[dict[str, Any]]) 
     company = valuation.get("company") or {}
     sector = company.get("sector")
     context = valuation.get("context") or {}
-    # Pick the primary comparable for rank — prefer pe then pb.
-    primary = "pe"
-    for candidate in ("pe", "pb", "ev_ebitda", "roe"):
-        if (context.get(candidate) or {}).get("sector_median") is not None:
-            primary = candidate
-            break
+    policy = valuation.get("policy") or {}
+    lens = valuation.get("lens") or {}
+    # VPAE primary first; else first comparable with a sector median.
+    primary = policy.get("primary_metric") or lens.get("primary_metric") or "pe"
+    if (context.get(primary) or {}).get("sector_median") is None:
+        for candidate in ("pe", "pb", "ev_ebitda", "roe", "ev_sales"):
+            if (context.get(candidate) or {}).get("sector_median") is not None:
+                primary = candidate
+                break
     own = ((valuation.get("metrics") or {}).get(primary) or {}).get("value")
     series = [v for v in (_as_number(p.get(primary)) for p in peer_vals) if v is not None]
     if own is not None:
@@ -453,12 +469,23 @@ def _explanation(symbol: str, valuation: dict[str, Any], sector_context: dict[st
     pe_ctx = context.get("pe") or {}
     pb_ctx = context.get("pb") or {}
 
-    current = (
-        f"{symbol} trades at "
-        + (f"P/E {pe:.1f}x" if pe is not None else "an unavailable P/E")
-        + (f" and P/B {pb:.1f}x" if pb is not None else "")
-        + "."
-    )
+    policy = valuation.get("policy") or {}
+    if policy.get("primary_model"):
+        current = (
+            f"Primary valuation model for {symbol}: {policy['primary_model']}. "
+            f"{policy.get('reason') or ''}"
+        ).strip()
+        if pe is not None and "pe" not in (policy.get("hidden_metrics") or []) and policy.get("primary_metric") == "pe":
+            current += f" Trailing P/E {pe:.1f}x."
+        elif pb is not None and policy.get("primary_metric") == "pb":
+            current += f" Trailing P/B {pb:.1f}x."
+    else:
+        current = (
+            f"{symbol} trades at "
+            + (f"P/E {pe:.1f}x" if pe is not None else "an unavailable P/E")
+            + (f" and P/B {pb:.1f}x" if pb is not None else "")
+            + "."
+        )
     hist_bits = []
     if pe_ctx.get("historical_median") is not None and pe is not None:
         hist_bits.append(

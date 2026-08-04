@@ -62,13 +62,16 @@ Statement aggregates live in INR million; price and share count are in rupees.
 The engine converts aggregates once, on read, so every multiple divides rupees
 by rupees. See the Units section of `INSTITUTIONAL_DATA_WAREHOUSE.md`.
 
-## Sector applicability
+## Sector applicability / valuation policy
 
-Whether a metric means anything for a business comes from
-`valuation_terminal.sector_lens`, which already owns primary, supporting and
-suppressed metrics per sector plus the written interpretation for each. A bank
-returns `meaningful: false` for EV/EBITDA rather than a number nobody should
-read. The engine extends that authority rather than adding a second one.
+Whether a metric means anything for a business is decided by the
+**Valuation Policy & Applicability Engine (VPAE)** — Phase 8.2A — in
+`valuation_policy/`. VPAE extends `valuation_terminal.sector_lens` (industry DNA
+baseline) with instrument type, profitability, coverage and DQIV.
+
+UVE computes multiples; VPAE decides what may be shown. A bank returns
+`meaningful: false` for EV/EBITDA rather than a number nobody should read. See
+`docs/VALUATION_POLICY_APPLICABILITY_ENGINE.md`.
 
 ## Provenance
 
