@@ -2264,7 +2264,7 @@ export default function createIntelligenceRouter() {
     }
   });
 
-  // Valuation Intelligence Terminal — market multiples + AGI interpretation
+  // Valuation Intelligence Terminal — Warehouse → Unified Valuation Engine
   router.get('/valuation-terminal/health', kfGet('/v1/valuation-terminal/health'));
   router.get('/valuation-terminal/overview', kfGet('/v1/valuation-terminal/overview'));
   router.get('/valuation-terminal/sectors', kfGet('/v1/valuation-terminal/sectors'));
@@ -2303,7 +2303,11 @@ export default function createIntelligenceRouter() {
   });
   router.get('/valuation-terminal/company/:ticker', async (req, res) => {
     try {
-      const r = await engineFetch(`/v1/valuation-terminal/company/${encodeURIComponent(req.params.ticker)}`);
+      const qs = new URLSearchParams(req.query || {}).toString();
+      const r = await engineFetch(
+        `/v1/valuation-terminal/company/${encodeURIComponent(req.params.ticker)}${qs ? `?${qs}` : ''}`,
+        { timeoutMs: 90_000 },
+      );
       res.status(r.status).json(r.data);
     } catch (err) {
       res.status(502).json({ error: err.message || 'valuation-terminal company failed' });
@@ -2315,6 +2319,66 @@ export default function createIntelligenceRouter() {
       res.status(r.status).json(r.data);
     } catch (err) {
       res.status(502).json({ error: err.message || 'valuation-terminal explain failed' });
+    }
+  });
+
+  // Unified Valuation Engine — terminal migration surface
+  router.get('/valuation-engine/health', kfGet('/v1/valuation-engine/health'));
+  router.get('/valuation-engine/company/:symbol', async (req, res) => {
+    try {
+      const r = await engineFetch(
+        `/v1/valuation-engine/company/${encodeURIComponent(req.params.symbol)}`,
+        { timeoutMs: 60_000 },
+      );
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'valuation-engine company failed' });
+    }
+  });
+  router.post('/valuation-engine/explain-change', async (req, res) => {
+    try {
+      const r = await engineFetch('/v1/valuation-engine/explain-change', {
+        method: 'POST', body: req.body || {}, timeoutMs: 30_000,
+      });
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'valuation-engine explain-change failed' });
+    }
+  });
+  router.get('/valuation-engine/terminal/health', kfGet('/v1/valuation-engine/terminal/health'));
+  router.get('/valuation-engine/terminal/search', kfGet('/v1/valuation-engine/terminal/search'));
+  router.get('/valuation-engine/terminal/company/:symbol', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query || {}).toString();
+      const r = await engineFetch(
+        `/v1/valuation-engine/terminal/company/${encodeURIComponent(req.params.symbol)}${qs ? `?${qs}` : ''}`,
+        { timeoutMs: 90_000 },
+      );
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'valuation-engine terminal company failed' });
+    }
+  });
+  router.get('/valuation-engine/terminal/series/:symbol/:metric', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query || {}).toString();
+      const r = await engineFetch(
+        `/v1/valuation-engine/terminal/series/${encodeURIComponent(req.params.symbol)}/${encodeURIComponent(req.params.metric)}${qs ? `?${qs}` : ''}`,
+        { timeoutMs: 60_000 },
+      );
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'valuation-engine terminal series failed' });
+    }
+  });
+  router.get('/valuation-engine/terminal/explain/:metric', async (req, res) => {
+    try {
+      const r = await engineFetch(
+        `/v1/valuation-engine/terminal/explain/${encodeURIComponent(req.params.metric)}`,
+      );
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'valuation-engine terminal explain failed' });
     }
   });
 

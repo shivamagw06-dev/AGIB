@@ -10138,16 +10138,23 @@ async def hedge_fund_lab_calculate(kind: str, payload: dict[str, Any] = Body(def
 
 @router.get("/valuation-terminal/health")
 async def valuation_terminal_health():
-    from valuation_terminal.production import health
+    """Migrated: Warehouse → Unified Valuation Engine → Terminal."""
+    from valuation_engine.terminal import health as terminal_health
 
-    return health()
+    return terminal_health()
 
 
 @router.get("/valuation-terminal/overview")
 async def valuation_terminal_overview():
-    from valuation_terminal.production import market_overview
-
-    return market_overview()
+    """Market dashboard deferred (PR #492). Terminal is company-first now."""
+    return {
+        "ok": True,
+        "migrated": True,
+        "engine": "unified_valuation_engine",
+        "version": "3.0",
+        "note": "Market dashboard deferred. Use /v1/valuation-engine/terminal/company/{symbol}.",
+        "companies_covered": None,
+    }
 
 
 @router.get("/valuation-terminal/sectors")
@@ -10218,10 +10225,11 @@ async def valuation_terminal_companies(
 
 
 @router.get("/valuation-terminal/company/{ticker}")
-async def valuation_terminal_company(ticker: str):
-    from valuation_terminal.production import company
+async def valuation_terminal_company(ticker: str, window: str = "5Y"):
+    """Migrated to Unified Valuation Engine terminal pack."""
+    from valuation_engine.terminal import company_pack
 
-    return company(ticker)
+    return company_pack(ticker, window=window)
 
 
 @router.get("/valuation-terminal/peers/{ticker}")
@@ -10294,14 +10302,18 @@ async def valuation_terminal_clear_override(payload: dict[str, Any] = Body(defau
 
 @router.post("/valuation-terminal/ingest")
 async def valuation_terminal_ingest(payload: dict[str, Any] = Body(default={})):
-    """Ops: load committed market-data pulls into the terminal store."""
-    from valuation_terminal.ingest import ingest_files, seed_if_needed
-
-    body = payload or {}
-    paths = body.get("paths")
-    if paths:
-        return ingest_files(list(paths), source=str(body.get("source") or "yahoo_finance"))
-    return seed_if_needed(force=bool(body.get("force", True)))
+    """Retired — terminal reads the warehouse via the Unified Valuation Engine."""
+    return {
+        "ok": False,
+        "retired": True,
+        "error": "json_loader_retired",
+        "note": (
+            "Committed Yahoo JSON ingest is retired. Valuation Terminal reads "
+            "Warehouse → Unified Valuation Engine. Refresh warehouse data instead."
+        ),
+        "engine": "unified_valuation_engine",
+        "version": "3.0",
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -18989,6 +19001,46 @@ async def valuation_engine_explain_change(payload: dict[str, Any] = Body(default
         body.get("before") or {},
         body.get("after") or {},
     )
+
+
+@router.get("/valuation-engine/terminal/health")
+async def valuation_engine_terminal_health():
+    """Institutional Valuation Terminal — warehouse-backed, JSON loader retired."""
+    from valuation_engine.terminal import health as terminal_health
+
+    return terminal_health()
+
+
+@router.get("/valuation-engine/terminal/search")
+async def valuation_engine_terminal_search(q: str = "", limit: int = 12):
+    """Company autocomplete over warehouse company_master."""
+    from valuation_engine.terminal import search as terminal_search
+
+    return terminal_search(q, limit=limit)
+
+
+@router.get("/valuation-engine/terminal/company/{symbol}")
+async def valuation_engine_terminal_company(symbol: str, window: str = "5Y", peer_limit: int = 12):
+    """Full terminal pack: table, peers, charts coverage, change log, health score."""
+    from valuation_engine.terminal import company_pack
+
+    return company_pack(symbol, window=window, peer_limit=peer_limit)
+
+
+@router.get("/valuation-engine/terminal/series/{symbol}/{metric}")
+async def valuation_engine_terminal_series(symbol: str, metric: str, window: str = "5Y"):
+    """Coverage-aware chart series for one metric."""
+    from valuation_engine.terminal import chart_series
+
+    return chart_series(symbol, metric, window=window)
+
+
+@router.get("/valuation-engine/terminal/explain/{metric}")
+async def valuation_engine_terminal_explain(metric: str):
+    """Metric pedagogy (sector lens)."""
+    from valuation_engine.terminal import explain_metric
+
+    return explain_metric(metric)
 
 
 @router.get("/warehouse/statement-identity")

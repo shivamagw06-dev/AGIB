@@ -135,9 +135,15 @@ def default_sources() -> list[Path]:
 
 
 def seed_if_needed(*, force: bool = False) -> dict[str, Any]:
-    if not force and (store.load().get("rows") or {}):
-        return {"ok": True, "skipped": True, "reason": "already_loaded"}
-    sources = default_sources()
-    if not sources:
-        return {"ok": False, "error": "no_market_data_files"}
-    return ingest_files(sources)
+    """Retired — terminal reads the warehouse via the Unified Valuation Engine."""
+    return {
+        "ok": False,
+        "retired": True,
+        "skipped": True,
+        "reason": "json_loader_retired",
+        "note": (
+            "market_data/*valuation*.json ingest is retired. "
+            "Use Warehouse → Unified Valuation Engine → Terminal."
+        ),
+        "force": bool(force),
+    }

@@ -16,6 +16,7 @@ from valuation_engine.service import (
     get_sector_valuation,
     health,
 )
+from valuation_engine import terminal
 
 __all__ = [
     "ENGINE_CODE",
@@ -24,4 +25,5 @@ __all__ = [
     "get_company_valuation",
     "get_sector_valuation",
     "health",
+    "terminal",
 ]

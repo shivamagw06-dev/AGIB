@@ -2773,8 +2773,8 @@ export const seedValuationConsensus = (payload = {}) =>
     timeoutMs: 300_000,
   });
 
-/** Valuation Intelligence Terminal — market multiples + AGI interpretation */
-export const getVtHealth = () => intelligenceFetch('/valuation-terminal/health');
+/** Valuation Intelligence Terminal — Warehouse → Unified Valuation Engine */
+export const getVtHealth = () => intelligenceFetch('/valuation-engine/terminal/health');
 export const getVtOverview = () => intelligenceFetch('/valuation-terminal/overview');
 export const getVtSectors = () => intelligenceFetch('/valuation-terminal/sectors');
 export const getVtSectorIntelligence = (sector) =>
@@ -2790,10 +2790,35 @@ export const getVtCompanies = (params = {}) => {
   ).toString();
   return intelligenceFetch(`/valuation-terminal/companies${qs ? `?${qs}` : ''}`);
 };
-export const getVtCompany = (ticker) =>
-  intelligenceFetch(`/valuation-terminal/company/${encodeURIComponent(ticker)}`);
+export const getVtCompany = (ticker, params = {}) => {
+  const qs = new URLSearchParams(
+    Object.fromEntries(
+      Object.entries(params)
+        .filter(([, v]) => v !== undefined && v !== null && v !== '')
+        .map(([k, v]) => [k, String(v)])
+    )
+  ).toString();
+  return intelligenceFetch(
+    `/valuation-engine/terminal/company/${encodeURIComponent(ticker)}${qs ? `?${qs}` : ''}`,
+    { timeoutMs: 90_000 },
+  );
+};
 export const getVtExplain = (metric) =>
-  intelligenceFetch(`/valuation-terminal/explain/${encodeURIComponent(metric)}`);
+  intelligenceFetch(`/valuation-engine/terminal/explain/${encodeURIComponent(metric)}`);
+export const searchVtCompanies = (q, limit = 12) => {
+  const qs = new URLSearchParams({ q: q || '', limit: String(limit) }).toString();
+  return intelligenceFetch(`/valuation-engine/terminal/search?${qs}`);
+};
+export const getVtSeries = (symbol, metric, window = '5Y') => {
+  const qs = new URLSearchParams({ window: String(window) }).toString();
+  return intelligenceFetch(
+    `/valuation-engine/terminal/series/${encodeURIComponent(symbol)}/${encodeURIComponent(metric)}?${qs}`,
+    { timeoutMs: 60_000 },
+  );
+};
+export const getVeCompany = (symbol) =>
+  intelligenceFetch(`/valuation-engine/company/${encodeURIComponent(symbol)}`, { timeoutMs: 60_000 });
+export const getVeHealth = () => intelligenceFetch('/valuation-engine/health');
 
 /** Hedge Fund Strategy Lab */
 export const getHflHealth = () => intelligenceFetch('/hedge-fund-lab/health');
