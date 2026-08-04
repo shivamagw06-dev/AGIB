@@ -24,30 +24,27 @@ Writes `artifacts/production_regression_v1.json` (override with `ASK_TEST_ARTIFA
 ## Permanent suite order
 
 ```text
-Founder Evaluation V2
-        ↓
-Golden Founder 5
-        ↓
-Golden Business 20
+Founder Evaluation V2 → Golden Founder 5 → Golden Business 20
         ↓
 Financial Intelligence Acceptance (AFI)
         ↓
-Business Intelligence Acceptance
+Business Intelligence Acceptance → Business Integration
         ↓
-Business Integration
+Industry Acceptance → Industry Integration → Founder Evaluation V3
         ↓
-Coverage Acceptance
+Coverage → Concept → Knowledge Unification
         ↓
-Concept Acceptance
+Recommendation Policy → Unknown Entity
         ↓
-Knowledge Unification
+Canonical Classification → Company Metadata Routing
         ↓
-Recommendation Policy
-        ↓
-Unknown Entity
+Core Platform Acceptance → Answer Quality
         ↓
 PASS → Merge
 ```
+
+Industry / founder v3 / identity / platform / answer-quality suites were
+absorbed from `main` so the Core v1.0 gate does not drop production coverage.
 
 ## Targets
 
@@ -59,11 +56,18 @@ PASS → Merge
 | AFI | ≥95% overall |
 | BI Acceptance | 100% |
 | Business Integration | 100% |
+| Industry Acceptance | 100% |
+| Industry Integration | 100% |
+| Founder Evaluation V3 | ≥95% |
 | Coverage | PR-scoped PASS |
 | Concept | 100% |
 | KUL | 100% |
 | Recommendation Policy | PASS |
 | Unknown Entity | PASS |
+| Canonical Classification | 100% |
+| Company Metadata Routing | 100% |
+| Core Platform Acceptance | ≥98% + zero-defect |
+| Answer Quality | ≥95% |
 | Hallucinations | 0 |
 
 `agi_core_v1_ready` / `merge_allowed` is true only when the full gate
