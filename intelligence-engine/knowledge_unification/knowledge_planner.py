@@ -98,6 +98,7 @@ _RESEARCH_MENU = (
 # Phase 8.5 — Forecast Intelligence Engine for forward outlook / scenarios.
 _FORECAST_MENU = (
     "forecast_intelligence_engine",
+    "macro_intelligence_engine",
     "research_intelligence_engine",
     "research_intelligence",
     "investment_intelligence",
@@ -107,6 +108,24 @@ _FORECAST_MENU = (
     "valuation_consensus",
     "valuation_terminal",
     "financial_statement_warehouse",
+    "capiq_ikt",
+    "company_memory",
+    "ikl",
+    "knowledge_factory",
+    "cgl",
+    "legacy_kip",
+)
+# Phase 9.0 — Macro Intelligence Engine for top-down environment / sector transmission.
+_MACRO_MENU = (
+    "macro_intelligence_engine",
+    "forecast_intelligence_engine",
+    "research_intelligence_engine",
+    "investment_intelligence",
+    "business_intelligence",
+    "historical_intelligence",
+    "institutional_warehouse",
+    "valuation_consensus",
+    "valuation_terminal",
     "capiq_ikt",
     "company_memory",
     "ikl",
@@ -260,6 +279,25 @@ def build_knowledge_plan(
             "watchlist",
         )
     )
+    macro_shaped = "macro" in types or any(
+        k in qlow
+        for k in (
+            "macro regime",
+            "macro environment",
+            "macro outlook",
+            "economic cycle",
+            "interest rates affecting",
+            "falling inflation",
+            "liquidity environment",
+            "which sectors benefit",
+            "how does oil",
+            "why has the macro",
+            "india's economic cycle",
+            "current macro",
+            "rbi policy",
+            "repo rate",
+        )
+    )
     forecast_shaped = "forecast" in types or any(
         k in qlow
         for k in (
@@ -352,6 +390,11 @@ def build_knowledge_plan(
         selected.extend(_CONSENSUS_SCREEN_MENU)
         rationale.append(
             "Consensus screen (no company bind) → Valuation Consensus universe → Industry DNA."
+        )
+    elif macro_shaped:
+        selected.extend(_MACRO_MENU)
+        rationale.append(
+            "Macro-shaped → MIE → FIE → RIE → INV → BI (top-down context, no recalculation)."
         )
     elif forecast_shaped and company_bound:
         selected.extend(_FORECAST_MENU)

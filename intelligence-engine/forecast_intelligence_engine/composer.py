@@ -90,6 +90,7 @@ def build_forecast(symbol: str) -> dict[str, Any]:
             "valuation_attribution_engine",
             "valuation_policy",
             "research_intelligence_engine",
+            "macro_intelligence_engine",
         ],
     }
     gate = validate_pack(pack)
