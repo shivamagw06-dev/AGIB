@@ -8,19 +8,25 @@ should a research team spend its time today?
 ## Architecture
 
 ```
-valuation_terminal.store      market multiples (Yahoo Finance)
-valuation_consensus.store     analyst consensus (Capital IQ)
-company identity registry     sector / industry classification (Capital IQ)
+institutional warehouse (nightly refresh ~18:45 IST)
+  company_master · historical_valuation · valuation_ratios (Upstox)
+  historical_ratios · consensus · daily_market_history · hedge_fund_factors
+        |
+market_intelligence_engine.universe   joined live multiples + consensus
         |
 hedge_fund_lab/scanner.py     value, quality, momentum, conviction, stress, pairs
 hedge_fund_lab/terminal.py    growth, dividend, confidence, overlap, queue,
                               regime extension, market dashboard, snapshots
+        |
+warehouse refresh stage "hedge_fund_lab"   writes daily scanner snapshot
         |
 /v1/hedge-fund-lab/terminal          the whole page in one call
 /v1/hedge-fund-lab/scan/{strategy}   one scanner, full rows
 /v1/hedge-fund-lab/opportunity/{tk}  why one company qualified
 ```
 
+Scanners read the warehouse only — no vendor calls at page load. The Yahoo /
+CapIQ file stores remain a soft fallback when the warehouse universe is empty.
 Every derived number is computed server-side. The browser renders, it never
 calculates.
 
@@ -65,10 +71,12 @@ and not a recommendation.
 
 ## Snapshots
 
-Each terminal load records the day's scanner membership under the hedge fund
-lab store (`HEDGE_FUND_LAB_ROOT`, else `KIP_DATA_DIR/hedge_fund_lab`), keeping
-60 days. Day-on-day entries and exits, and the per-company timeline, are
-computed from those snapshots, so history builds from the first run forward.
+The warehouse nightly refresh runs a soft `hedge_fund_lab` stage after
+`recalculate` / `publish`, which records the day's scanner membership under
+the hedge fund lab store (`HEDGE_FUND_LAB_ROOT`, else
+`KIP_DATA_DIR/hedge_fund_lab`), keeping 60 days. Opening the terminal page
+also refreshes today's snapshot. Day-on-day entries and exits, and the
+per-company timeline, are computed from those snapshots.
 
 ## Data hygiene
 
@@ -82,9 +90,9 @@ yields above 8% carry a special-dividend warning.
 Stated plainly so the page is not mistaken for more than it is:
 
 - **India VIX** is not wired in; return dispersion stands in for it.
-- **Intraday and daily price data** — the market layer refreshes with the
-  Yahoo pull, so momentum uses one-year and three-year returns rather than
-  moving averages, 52-week position or volume.
+- **Intraday microstructure** — momentum uses warehouse one-year returns
+  (from `daily_market_history`) and CapIQ three-year returns when present,
+  not moving averages, 52-week position or volume.
 - **Historical hit rates and historical opportunity counts** per strategy
   require snapshot history; the fields appear once enough days accumulate.
 - **Cointegration and spread history** for pairs need a price time series.

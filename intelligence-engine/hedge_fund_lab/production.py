@@ -9,13 +9,28 @@ from hedge_fund_lab.strategies import STRATEGIES, comparison, get_strategy, list
 
 
 def health() -> dict[str, Any]:
+    from .scanner import universe_meta
+
+    meta = universe_meta()
+    # Touch the universe once so meta reflects live warehouse coverage.
+    if not meta.get("count"):
+        try:
+            from .scanner import _universe
+
+            _universe()
+            meta = universe_meta()
+        except Exception:
+            pass
+    status = "ok" if meta.get("count") else "empty"
     return {
         "ok": True,
         "engine": "hedge_fund_lab",
-        "status": "ok",
+        "status": status,
         "strategies": len(STRATEGIES),
         "families": sorted({s["family"] for s in STRATEGIES}),
         "page": "Hedge Fund Strategy Lab",
+        "universe": meta,
+        "live_feed": meta.get("source") == "warehouse+market_intelligence",
     }
 
 

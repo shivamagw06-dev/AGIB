@@ -47,8 +47,284 @@ def _median(values: list[Any]) -> Optional[float]:
     return round(stats.median(clean), 2) if clean else None
 
 
-def _universe() -> list[dict[str, Any]]:
-    """Companies with both market multiples and consensus attached."""
+# Provenance for warehouse-backed scans. Vendors feed the warehouse on the
+# nightly refresh; scanners never call vendors at Ask / page-load time.
+SOURCES = {
+    "market_data": "warehouse.historical_valuation+upstox",
+    "fundamentals": "warehouse.historical_ratios",
+    "consensus": "warehouse.consensus",
+    "factors": "warehouse.hedge_fund_factors",
+    "classification": "warehouse.company_master",
+    "interpretation": "agi",
+}
+
+_UNIVERSE_META: dict[str, Any] = {
+    "source": None,
+    "as_of": None,
+    "count": 0,
+    "factors_joined": 0,
+}
+
+
+def universe_meta() -> dict[str, Any]:
+    """Coverage / provenance for health and terminal surfaces."""
+    return {
+        "ok": bool(_UNIVERSE_META.get("count")),
+        "source": _UNIVERSE_META.get("source"),
+        "as_of": _UNIVERSE_META.get("as_of"),
+        "count": int(_UNIVERSE_META.get("count") or 0),
+        "factors_joined": int(_UNIVERSE_META.get("factors_joined") or 0),
+        "sources": dict(SOURCES),
+    }
+
+
+def _latest_ratios_by_symbol(*, limit: int = 8000) -> dict[str, dict[str, Any]]:
+    """Latest annual historical_ratios row per symbol."""
+    try:
+        from institutional_warehouse import store
+    except Exception:
+        return {}
+    out: dict[str, dict[str, Any]] = {}
+    try:
+        for row in store.all_rows("historical_ratios", limit=limit) or []:
+            if str(row.get("basis") or "").lower() not in ("", "annual"):
+                continue
+            sym = str(row.get("symbol") or "").upper()
+            if not sym:
+                continue
+            prev = out.get(sym)
+            if not prev or str(row.get("period") or "") > str(prev.get("period") or ""):
+                out[sym] = row
+    except Exception:
+        return {}
+    return out
+
+
+def _factors_by_symbol(*, limit: int = 8000) -> dict[str, dict[str, Any]]:
+    try:
+        from institutional_warehouse import store
+    except Exception:
+        return {}
+    out: dict[str, dict[str, Any]] = {}
+    try:
+        for row in store.all_rows("hedge_fund_factors", limit=limit) or []:
+            sym = str(row.get("symbol") or "").upper()
+            if not sym:
+                continue
+            prev = out.get(sym)
+            if not prev or str(row.get("as_of") or "") > str(prev.get("as_of") or ""):
+                out[sym] = row
+    except Exception:
+        return {}
+    return out
+
+
+def _return_1y_by_symbol(*, limit: int = 200000) -> dict[str, Optional[float]]:
+    """Approximate one-year price return from warehouse daily_market_history."""
+    try:
+        from institutional_warehouse import store
+    except Exception:
+        return {}
+    by_sym: dict[str, list[tuple[str, float]]] = {}
+    try:
+        for row in store.all_rows("daily_market_history", limit=limit) or []:
+            sym = str(row.get("symbol") or "").upper()
+            close = _num(row.get("close") or row.get("adj_close"))
+            day = str(row.get("date") or "")
+            if not sym or close is None or not day:
+                continue
+            by_sym.setdefault(sym, []).append((day, close))
+    except Exception:
+        return {}
+
+    out: dict[str, Optional[float]] = {}
+    for sym, points in by_sym.items():
+        points.sort(key=lambda p: p[0])
+        if len(points) < 2:
+            continue
+        last_px = points[-1][1]
+        # Prefer ~252 trading sessions back; else first available print.
+        base_px = points[max(0, len(points) - 253)][1]
+        if not base_px:
+            continue
+        out[sym] = round(((last_px / base_px) - 1.0) * 100.0, 2)
+    return out
+
+
+def _legacy_consensus(ticker: str) -> dict[str, Any]:
+    try:
+        from valuation_consensus.store import get_row as consensus_row
+
+        return consensus_row(ticker) or {}
+    except Exception:
+        return {}
+
+
+def _map_warehouse_row(
+    mi: dict[str, Any],
+    *,
+    ratios: dict[str, Any],
+    factors: dict[str, Any],
+    return_1y: Optional[float],
+    legacy_consensus: dict[str, Any],
+) -> dict[str, Any]:
+    """Shape a Market Intelligence / warehouse row for the scanners."""
+    sym = str(mi.get("symbol") or "").upper()
+    # Warehouse debt_equity is a multiple (0.5); scanners use Yahoo-style %.
+    debt_ratio = _num(ratios.get("debt_equity"))
+    debt_to_equity = round(debt_ratio * 100.0, 2) if debt_ratio is not None else None
+    profit_margin = _num(ratios.get("net_margin"))
+    roe = _num(mi.get("roe"))
+    if roe is None:
+        roe = _num(ratios.get("roe"))
+
+    upside = _num(mi.get("consensus_upside"))
+    if upside is None:
+        upside = _num(legacy_consensus.get("upside"))
+    coverage = _num(mi.get("analyst_count"))
+    if coverage is None:
+        coverage = _num(legacy_consensus.get("coverage"))
+    buy_count = _num(legacy_consensus.get("buy_count"))
+    # Warehouse consensus uses `buy`; MI universe does not currently expose it.
+    if buy_count is None:
+        buy_count = _num((legacy_consensus or {}).get("buy"))
+
+    r1 = return_1y
+    if r1 is None:
+        r1 = _num(legacy_consensus.get("return_1y"))
+
+    consensus = {
+        "upside": upside,
+        "coverage": coverage,
+        "buy_count": buy_count,
+        "target_price": _num(mi.get("consensus_target")) or _num(legacy_consensus.get("target_price")),
+        "return_1y": r1,
+        "return_3y": _num(legacy_consensus.get("return_3y")),
+        "source": "warehouse.consensus" if upside is not None or coverage is not None else (
+            "valuation_consensus" if legacy_consensus else None
+        ),
+    }
+
+    return {
+        "ticker": sym,
+        "company_name": mi.get("company_name") or sym,
+        "primary_sector": mi.get("sector"),
+        "primary_industry": mi.get("industry"),
+        "industry_dna": mi.get("industry_dna"),
+        "market_cap": _num(mi.get("market_cap")),
+        "price": _num(mi.get("cmp")),
+        "pe": _num(mi.get("pe")),
+        "forward_pe": _num(mi.get("forward_pe")),
+        "pb": _num(mi.get("pb")),
+        "ev_ebitda": _num(mi.get("ev_ebitda")),
+        "roe": roe,
+        "profit_margin": profit_margin,
+        "debt_to_equity": debt_to_equity,
+        "dividend_yield": _num(mi.get("dividend_yield")),
+        "consensus": consensus,
+        "factors": {
+            "value_score": _num(factors.get("value_score")),
+            "quality_score": _num(factors.get("quality_score")),
+            "growth_score": _num(factors.get("growth_score")),
+            "momentum_score": _num(factors.get("momentum_score")),
+            "consensus_score": _num(factors.get("consensus_score")),
+            "opportunity_score": _num(factors.get("opportunity_score")),
+            "strategy_agreement": _num(factors.get("strategy_agreement")),
+            "as_of": factors.get("as_of"),
+        } if factors else {},
+        "source": mi.get("source") or "warehouse",
+        "valuation_date": mi.get("valuation_date"),
+    }
+
+
+def _universe_from_warehouse() -> list[dict[str, Any]]:
+    try:
+        from market_intelligence_engine.universe import load_universe
+    except Exception:
+        return []
+
+    try:
+        pack = load_universe(limit=5000)
+    except Exception:
+        return []
+    mi_rows = pack.get("rows") or []
+    if not mi_rows:
+        return []
+
+    ratios = _latest_ratios_by_symbol()
+    factors = _factors_by_symbol()
+    returns = _return_1y_by_symbol()
+
+    # Soft-fill buy_count / forward_pe from warehouse tabs when CapIQ file store is thin.
+    wh_consensus: dict[str, dict[str, Any]] = {}
+    forward_pe_map: dict[str, Optional[float]] = {}
+    try:
+        from institutional_warehouse import store
+
+        for row in store.all_rows("consensus", limit=10000) or []:
+            sym = str(row.get("symbol") or "").upper()
+            if not sym:
+                continue
+            prev = wh_consensus.get(sym)
+            if not prev or str(row.get("consensus_date") or "") > str(prev.get("consensus_date") or ""):
+                wh_consensus[sym] = row
+        val_date = pack.get("valuation_date")
+        if val_date:
+            for row in store.fetch("historical_valuation", filters={"date": val_date}, limit=5000).get("rows") or []:
+                sym = str(row.get("symbol") or "").upper()
+                if sym:
+                    forward_pe_map[sym] = _num(row.get("forward_pe"))
+    except Exception:
+        wh_consensus = {}
+
+    out: list[dict[str, Any]] = []
+    factors_joined = 0
+    for mi in mi_rows:
+        sym = str(mi.get("symbol") or "").upper()
+        if not sym:
+            continue
+        # Skip shells with no usable multiple and no consensus — scanners need signal.
+        if not any(_num(mi.get(k)) is not None for k in ("pe", "pb", "ev_ebitda", "roe", "market_cap")):
+            continue
+        legacy = _legacy_consensus(sym)
+        wh = wh_consensus.get(sym) or {}
+        if wh:
+            # Prefer warehouse buy / analyst_count when legacy file store is thin.
+            if not legacy.get("buy_count") and wh.get("buy") is not None:
+                legacy = {**legacy, "buy_count": wh.get("buy"), "buy": wh.get("buy")}
+            if not legacy.get("coverage") and wh.get("analyst_count") is not None:
+                legacy = {**legacy, "coverage": wh.get("analyst_count")}
+            if not legacy.get("target_price") and wh.get("target_price") is not None:
+                legacy = {**legacy, "target_price": wh.get("target_price")}
+        fac = factors.get(sym) or {}
+        if fac:
+            factors_joined += 1
+        mapped = _map_warehouse_row(
+            {
+                **mi,
+                "valuation_date": pack.get("valuation_date"),
+                "forward_pe": mi.get("forward_pe") if mi.get("forward_pe") is not None else forward_pe_map.get(sym),
+            },
+            ratios=ratios.get(sym) or {},
+            factors=fac,
+            return_1y=returns.get(sym),
+            legacy_consensus=legacy,
+        )
+        out.append(mapped)
+
+    _UNIVERSE_META.update(
+        {
+            "source": "warehouse+market_intelligence",
+            "as_of": pack.get("valuation_date"),
+            "count": len(out),
+            "factors_joined": factors_joined,
+        }
+    )
+    return out
+
+
+def _universe_from_legacy() -> list[dict[str, Any]]:
+    """Fallback when the warehouse has not been populated yet."""
     try:
         from valuation_consensus.store import get_row as consensus_row
         from valuation_terminal.store import all_rows
@@ -61,7 +337,28 @@ def _universe() -> list[dict[str, Any]]:
         merged["ticker"] = ticker
         merged["consensus"] = consensus_row(ticker) or {}
         out.append(merged)
+    _UNIVERSE_META.update(
+        {
+            "source": "legacy_valuation_terminal",
+            "as_of": None,
+            "count": len(out),
+            "factors_joined": 0,
+        }
+    )
     return out
+
+
+def _universe() -> list[dict[str, Any]]:
+    """Companies with market multiples (+ consensus / factors when available).
+
+    Prefers the institutional warehouse via Market Intelligence (Upstox ratios,
+    HVIE valuation, CapIQ consensus tabs). Falls back to the Yahoo-era file
+    store only when the warehouse universe is empty.
+    """
+    rows = _universe_from_warehouse()
+    if rows:
+        return rows
+    return _universe_from_legacy()
 
 
 def _primary_metric(dna: Optional[str]) -> str:
@@ -183,10 +480,11 @@ def market_regime() -> dict[str, Any]:
         "median_pe": median_pe,
         "median_consensus_upside_pct": median_upside,
         "universe": len(universe),
+        "universe_meta": universe_meta(),
         "strategy_suitability": suitability,
         "note": (
             "Regime is derived from the covered universe's own breadth, returns and "
-            "valuation, not from an external macro feed."
+            "valuation after the warehouse refresh — not from a live vendor call."
         ),
     }
 
@@ -440,12 +738,8 @@ def scan(strategy: str, *, limit: int = 15, sector: Optional[str] = None) -> dic
         "universe_scanned": len(universe),
         "results": results,
         "count": len(results),
-        "sources": {
-            "market_data": "yahoo_finance",
-            "consensus": "capital_iq",
-            "classification": "capital_iq_registry",
-            "interpretation": "agi",
-        },
+        "sources": dict(SOURCES),
+        "universe_meta": universe_meta(),
         "policy": "Research observations only — no buy, sell or price target.",
     }
 
@@ -464,5 +758,7 @@ def daily_monitor(limit: int = 6) -> dict[str, Any]:
             for key, (label, fn) in _SCANNERS.items()
         ],
         "universe": len(universe),
+        "universe_meta": universe_meta(),
+        "sources": dict(SOURCES),
         "policy": "Research observations only — no buy, sell or price target.",
     }

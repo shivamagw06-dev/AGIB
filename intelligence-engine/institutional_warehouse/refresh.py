@@ -872,7 +872,26 @@ PIPELINE: tuple[str, ...] = (
     "validation",
     "recalculate",
     "publish",
+    "hedge_fund_lab",
 )
+
+
+def stage_hedge_fund_lab(*, actor: str) -> dict[str, Any]:
+    """Refresh Hedge Fund Strategy Lab snapshots from warehouse-backed scanners.
+
+    Soft stage: an empty universe or import error must not fail the warehouse run.
+    """
+    try:
+        from hedge_fund_lab.terminal import record_daily_snapshot
+    except Exception as exc:
+        return _skip("hedge_fund_lab", f"terminal_unavailable:{exc}")
+    try:
+        out = record_daily_snapshot(limit=1000)
+    except Exception as exc:
+        return _skip("hedge_fund_lab", f"snapshot_failed:{exc}")
+    if not out.get("ok"):
+        return _skip("hedge_fund_lab", str(out.get("error") or "universe_empty"), detail=out)
+    return _ok("hedge_fund_lab", actor=actor, **{k: v for k, v in out.items() if k != "ok"})
 
 
 def run(
@@ -907,6 +926,7 @@ def run(
                                "report": validation.validate_all(sample=200)},
         "recalculate": lambda: {"stage": "recalculate", **recalculate(actor=actor)},
         "publish": lambda: _publish_all(actor=actor),
+        "hedge_fund_lab": lambda: stage_hedge_fund_lab(actor=actor),
     }
 
     results: dict[str, Any] = {}
