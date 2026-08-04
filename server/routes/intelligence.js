@@ -59,7 +59,18 @@ async function engineFetch(path, { method = 'GET', body = null, timeoutMs = 120_
   try {
     data = text ? JSON.parse(text) : null;
   } catch {
-    data = { raw: text };
+    // Render/proxy outages often return HTML 502 pages. Never forward raw HTML
+    // to the browser — Mission Control / Ask surface it as a confusing dump.
+    const looksHtml = /^\s*</.test(text || '');
+    data = looksHtml
+      ? {
+          error: 'intelligence_engine_html_error',
+          detail:
+            'Intelligence engine returned an HTML error page instead of JSON (often a Render 502 during redeploy). Retry shortly.',
+          status: response.status,
+          path,
+        }
+      : { raw: String(text || '').slice(0, 400) };
   }
   return { ok: response.ok, status: response.status, data };
 }
