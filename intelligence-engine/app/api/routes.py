@@ -18960,3 +18960,24 @@ async def warehouse_remediate_zeros(
     body = payload or {}
     return remediate_zeros(actor=_warehouse_actor(body, x_agi_actor),
                            dry_run=bool(body.get("dry_run")))
+
+
+@router.get("/warehouse/unit-coverage")
+async def warehouse_unit_coverage():
+    """Rows still carrying no unit stamp, per tab."""
+    from institutional_warehouse.production import unit_coverage
+
+    return unit_coverage()
+
+
+@router.post("/warehouse/normalise-units")
+async def warehouse_normalise_units(
+    payload: dict[str, Any] = Body(default_factory=dict),
+    x_agi_actor: str | None = Header(default=None),
+):
+    """Back-normalise legacy rows to INR million. Dry run unless told otherwise."""
+    from institutional_warehouse.production import normalise_units
+
+    body = payload or {}
+    return normalise_units(actor=_warehouse_actor(body, x_agi_actor),
+                           dry_run=bool(body.get("dry_run", True)))

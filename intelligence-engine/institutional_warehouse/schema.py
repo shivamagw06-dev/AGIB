@@ -32,6 +32,28 @@ JSON = "json"
 
 _NUMERIC_TYPES = {NUMBER, INTEGER, PERCENT, CURRENCY}
 
+# --------------------------------------------------------------------------
+# Unit classes
+# --------------------------------------------------------------------------
+# The database type says how a value is stored; the unit class says what it
+# means. Both a share price and annual revenue are CURRENCY, so type alone
+# cannot drive normalisation — scaling revenue to millions is correct and
+# doing the same to a closing price is data loss.
+#
+# Only UNIT_INR_MILLION columns are rescaled on write. Everything else passes
+# through untouched, so a column nobody has classified can never be corrupted
+# by the normaliser.
+
+UNIT_INR_MILLION = "inr_million"  # aggregate money — canonical storage
+UNIT_INR = "inr"                  # price and per-share money — stored as reported
+UNIT_COUNT = "count"              # share counts, volumes
+UNIT_RATIO = "ratio"              # unitless multiples (P/E, P/B)
+UNIT_PERCENT = "percent"          # already expressed as a percentage
+UNIT_NONE = ""                    # non-numeric or unclassified
+
+#: Columns in this class are rescaled to INR million by the unit normaliser.
+RESCALED_UNITS = frozenset({UNIT_INR_MILLION})
+
 
 @dataclass(frozen=True)
 class Column:
@@ -45,10 +67,16 @@ class Column:
     required: bool = False
     options: tuple[str, ...] = ()
     help: str = ""
+    unit: str = UNIT_NONE
 
     @property
     def numeric(self) -> bool:
         return self.type in _NUMERIC_TYPES
+
+    @property
+    def rescaled(self) -> bool:
+        """True when the unit normaliser may change this column's magnitude."""
+        return self.unit in RESCALED_UNITS
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -63,6 +91,7 @@ class Column:
             "options": list(self.options),
             "help": self.help,
             "numeric": self.numeric,
+            "unit": self.unit,
         }
 
 
@@ -199,19 +228,23 @@ DAILY_MARKET_HISTORY = Tab(
     columns=(
         _c("date", "Date", DATE, required=True, width=120, group="Key"),
         _c("symbol", "Symbol", TEXT, required=True, width=130, group="Key"),
-        _c("open", "Open", CURRENCY, width=110, group="OHLCV"),
-        _c("high", "High", CURRENCY, width=110, group="OHLCV"),
-        _c("low", "Low", CURRENCY, width=110, group="OHLCV"),
-        _c("close", "Close", CURRENCY, width=110, group="OHLCV"),
-        _c("adjusted_close", "Adjusted Close", CURRENCY, width=140, group="OHLCV"),
-        _c("volume", "Volume", INTEGER, width=130, group="OHLCV"),
-        _c("vwap", "VWAP", CURRENCY, width=110, group="OHLCV"),
-        _c("delivery_pct", "Delivery %", PERCENT, width=110, group="OHLCV"),
-        _c("dividend", "Dividend", CURRENCY, width=110, group="Actions"),
-        _c("split", "Split", NUMBER, width=100, group="Actions"),
-        _computed("market_cap", "Market Cap", CURRENCY, width=150, group="Derived",
+        # Prices are money but not aggregates — they stay in rupees.
+        _c("open", "Open", CURRENCY, width=110, group="OHLCV", unit=UNIT_INR),
+        _c("high", "High", CURRENCY, width=110, group="OHLCV", unit=UNIT_INR),
+        _c("low", "Low", CURRENCY, width=110, group="OHLCV", unit=UNIT_INR),
+        _c("close", "Close", CURRENCY, width=110, group="OHLCV", unit=UNIT_INR),
+        _c("adjusted_close", "Adjusted Close", CURRENCY, width=140, group="OHLCV", unit=UNIT_INR),
+        _c("volume", "Volume", INTEGER, width=130, group="OHLCV", unit=UNIT_COUNT),
+        _c("vwap", "VWAP", CURRENCY, width=110, group="OHLCV", unit=UNIT_INR),
+        _c("delivery_pct", "Delivery %", PERCENT, width=110, group="OHLCV", unit=UNIT_PERCENT),
+        _c("dividend", "Dividend", CURRENCY, width=110, group="Actions", unit=UNIT_INR),
+        _c("split", "Split", NUMBER, width=100, group="Actions", unit=UNIT_RATIO),
+        # Derived from close x shares, so it follows the price scale, not the
+        # statement scale. Changing this would change the formula engine too.
+        _computed("market_cap", "Market Cap", CURRENCY, width=150, group="Derived", unit=UNIT_INR,
                   help="Close x Shares Outstanding"),
-        _c("shares_outstanding", "Shares Outstanding", NUMBER, width=160, group="Derived"),
+        _c("shares_outstanding", "Shares Outstanding", NUMBER, width=160, group="Derived",
+           unit=UNIT_COUNT),
         *PROVENANCE_COLUMNS,
         _c("import_time", "Import Time", DATETIME, editable=False, width=170, group="Provenance"),
     ),
@@ -221,31 +254,37 @@ DAILY_MARKET_HISTORY = Tab(
 # Tabs 3 & 4 — Financial statements
 # --------------------------------------------------------------------------
 
+_MN = UNIT_INR_MILLION
+
 _STATEMENT_COLUMNS: tuple[Column, ...] = (
-    _c("revenue", "Revenue", CURRENCY, width=130, group="P&L"),
-    _c("gross_profit", "Gross Profit", CURRENCY, width=130, group="P&L"),
-    _c("ebitda", "EBITDA", CURRENCY, width=120, group="P&L"),
-    _c("ebit", "EBIT", CURRENCY, width=120, group="P&L"),
-    _c("pbt", "PBT", CURRENCY, width=120, group="P&L"),
-    _c("pat", "PAT", CURRENCY, width=120, group="P&L"),
-    _c("eps", "EPS", NUMBER, width=100, group="P&L"),
-    _c("assets", "Assets", CURRENCY, width=130, group="Balance Sheet"),
-    _c("equity", "Equity", CURRENCY, width=130, group="Balance Sheet"),
-    _c("debt", "Debt", CURRENCY, width=120, group="Balance Sheet"),
-    _c("cash", "Cash", CURRENCY, width=120, group="Balance Sheet"),
-    _c("current_assets", "Current Assets", CURRENCY, width=140, group="Balance Sheet"),
-    _c("current_liabilities", "Current Liabilities", CURRENCY, width=160, group="Balance Sheet"),
-    _c("inventory", "Inventory", CURRENCY, width=120, group="Balance Sheet"),
-    _c("working_capital", "Working Capital", CURRENCY, width=150, group="Balance Sheet",
+    _c("revenue", "Revenue", CURRENCY, width=130, group="P&L", unit=_MN),
+    _c("gross_profit", "Gross Profit", CURRENCY, width=130, group="P&L", unit=_MN),
+    _c("ebitda", "EBITDA", CURRENCY, width=120, group="P&L", unit=_MN),
+    _c("ebit", "EBIT", CURRENCY, width=120, group="P&L", unit=_MN),
+    _c("pbt", "PBT", CURRENCY, width=120, group="P&L", unit=_MN),
+    _c("pat", "PAT", CURRENCY, width=120, group="P&L", unit=_MN),
+    # Per share, not an aggregate: rescaling this to millions would make every
+    # earnings per share read as zero.
+    _c("eps", "EPS", NUMBER, width=100, group="P&L", unit=UNIT_INR),
+    _c("assets", "Assets", CURRENCY, width=130, group="Balance Sheet", unit=_MN),
+    _c("equity", "Equity", CURRENCY, width=130, group="Balance Sheet", unit=_MN),
+    _c("debt", "Debt", CURRENCY, width=120, group="Balance Sheet", unit=_MN),
+    _c("cash", "Cash", CURRENCY, width=120, group="Balance Sheet", unit=_MN),
+    _c("current_assets", "Current Assets", CURRENCY, width=140, group="Balance Sheet", unit=_MN),
+    _c("current_liabilities", "Current Liabilities", CURRENCY, width=160, group="Balance Sheet",
+       unit=_MN),
+    _c("inventory", "Inventory", CURRENCY, width=120, group="Balance Sheet", unit=_MN),
+    _c("working_capital", "Working Capital", CURRENCY, width=150, group="Balance Sheet", unit=_MN,
        help="Current Assets - Current Liabilities when both are supplied"),
-    _c("capex", "Capex", CURRENCY, width=120, group="Cash Flow"),
-    _c("cfo", "CFO", CURRENCY, width=120, group="Cash Flow"),
-    _c("cfi", "CFI", CURRENCY, width=120, group="Cash Flow"),
-    _c("cff", "CFF", CURRENCY, width=120, group="Cash Flow"),
-    _computed("free_cash_flow", "Free Cash Flow", CURRENCY, width=140, group="Cash Flow",
+    _c("capex", "Capex", CURRENCY, width=120, group="Cash Flow", unit=_MN),
+    _c("cfo", "CFO", CURRENCY, width=120, group="Cash Flow", unit=_MN),
+    _c("cfi", "CFI", CURRENCY, width=120, group="Cash Flow", unit=_MN),
+    _c("cff", "CFF", CURRENCY, width=120, group="Cash Flow", unit=_MN),
+    _computed("free_cash_flow", "Free Cash Flow", CURRENCY, width=140, group="Cash Flow", unit=_MN,
               help="CFO - Capex"),
-    _c("shares_outstanding", "Shares Outstanding", NUMBER, width=160, group="Per Share"),
-    _computed("book_value", "Book Value", NUMBER, width=120, group="Per Share",
+    _c("shares_outstanding", "Shares Outstanding", NUMBER, width=160, group="Per Share",
+       unit=UNIT_COUNT),
+    _computed("book_value", "Book Value", NUMBER, width=120, group="Per Share", unit=UNIT_INR,
               help="Equity / Shares Outstanding"),
     *PROVENANCE_COLUMNS,
     _c("statement_version", "Statement Version", TEXT, editable=False, width=150, group="Provenance"),

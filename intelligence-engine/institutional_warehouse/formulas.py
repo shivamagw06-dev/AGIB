@@ -16,7 +16,7 @@ from __future__ import annotations
 import statistics
 from typing import Any, Iterable, Optional
 
-from institutional_warehouse import audit, gateway, store
+from institutional_warehouse import audit, gateway, store, units
 from institutional_warehouse.values import now_iso, today_iso
 
 SOURCE = "formula_engine"
@@ -103,7 +103,12 @@ def _clamp(value: Optional[float], low: float = 0.0, high: float = 100.0) -> Opt
 
 
 def recalc_statement_derivations(*, actor: str = "system", entity: Optional[str] = None) -> dict[str, Any]:
-    """free_cash_flow = CFO - Capex, book_value = Equity / Shares."""
+    """free_cash_flow = CFO - Capex, book_value = Equity / Shares.
+
+    Free cash flow stays in INR million because both inputs are aggregates.
+    Book value per share does not: equity is in millions and the share count is
+    a plain count, so equity is converted to rupees before the division.
+    """
     counts = {}
     for tab_id, key in (("financials_annual", "fiscal_year"), ("financials_quarterly", "fiscal_period")):
         updates = []
@@ -112,7 +117,7 @@ def recalc_statement_derivations(*, actor: str = "system", entity: Optional[str]
             fcf = None
             if cfo is not None:
                 fcf = round(cfo - abs(capex), 6) if capex is not None else round(cfo, 6)
-            book = _div(row.get("equity"), row.get("shares_outstanding"))
+            book = _div(units.to_rupees(row.get("equity")), row.get("shares_outstanding"))
             if fcf is None and book is None:
                 continue
             updates.append(
@@ -297,25 +302,31 @@ def recalc_valuation(*, actor: str = "system", as_of: Optional[str] = None,
         statement = _latest(annual.get(symbol, []), "fiscal_year") or {}
         broker = _latest(consensus.get(symbol, []), "consensus_date") or {}
 
+        # Market capitalisation is price x count, so it is in rupees. Statement
+        # aggregates are in INR million. Every line below that mixes the two
+        # converts the aggregate first, otherwise enterprise value adds rupees
+        # to millions and every multiple is out by a factor of a million.
         shares = _num(latest_price.get("shares_outstanding")) or _num(statement.get("shares_outstanding"))
         market_cap = _num(latest_price.get("market_cap"))
         if market_cap is None and shares:
             market_cap = cmp_price * shares
-        debt, cash = _num(statement.get("debt")), _num(statement.get("cash"))
+        debt, cash = units.to_rupees(statement.get("debt")), units.to_rupees(statement.get("cash"))
         enterprise_value = None
         if market_cap is not None:
             enterprise_value = market_cap + (debt or 0.0) - (cash or 0.0)
 
         eps = _num(statement.get("eps"))
         if eps is None and shares:
-            eps = _div(statement.get("pat"), shares)
-        book_value = _num(statement.get("book_value")) or _div(statement.get("equity"), shares)
+            eps = _div(units.to_rupees(statement.get("pat")), shares)
+        book_value = _num(statement.get("book_value")) \
+            or _div(units.to_rupees(statement.get("equity")), shares)
 
+        revenue_inr = units.to_rupees(statement.get("revenue"))
         pe = _div(cmp_price, eps) if eps and eps > 0 else None
         pb = _div(cmp_price, book_value) if book_value and book_value > 0 else None
-        ev_ebitda = _div(enterprise_value, statement.get("ebitda"))
-        ev_sales = _div(enterprise_value, statement.get("revenue"))
-        price_sales = _div(market_cap, statement.get("revenue"))
+        ev_ebitda = _div(enterprise_value, units.to_rupees(statement.get("ebitda")))
+        ev_sales = _div(enterprise_value, revenue_inr)
+        price_sales = _div(market_cap, revenue_inr)
         dividend = _num(latest_price.get("dividend"))
         dividend_yield = _pct(dividend, cmp_price) if dividend else None
         target = _num(broker.get("target_price"))

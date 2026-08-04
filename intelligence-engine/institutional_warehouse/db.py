@@ -257,6 +257,12 @@ SYSTEM_DDL: tuple[tuple[str, str], ...] = (
     ("sys_published", BOOL),
     ("sys_import_id", TEXT),
     ("sys_entity", TEXT),
+    # Unit provenance. Currency aggregates are stored in INR million; these
+    # record what the vendor reported and how the row got there, so an
+    # unstamped legacy row is distinguishable from a normalised one.
+    ("sys_reported_unit", TEXT),
+    ("sys_unit_method", TEXT),
+    ("sys_unit_scale", NUMBER),
 )
 
 

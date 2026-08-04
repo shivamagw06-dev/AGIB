@@ -192,6 +192,11 @@ def _shape_row(tab: Tab, raw: dict[str, Any], overrides: dict[str, dict[str, Any
         "published": bool(raw.get("sys_published")),
         "import_id": raw.get("sys_import_id"),
         "entity": raw.get("sys_entity"),
+        # What the vendor reported in, and how the row reached INR million. A
+        # null reported_unit means the row predates unit normalisation.
+        "reported_unit": raw.get("sys_reported_unit"),
+        "unit_scale": raw.get("sys_unit_scale"),
+        "unit_method": raw.get("sys_unit_method"),
         "overridden": sorted(overridden),
         "override_detail": {k: overrides[k] for k in overridden} if overridden else {},
     }

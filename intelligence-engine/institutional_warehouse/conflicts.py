@@ -8,6 +8,12 @@ identical to agreement.
 Disagreements are now recorded before the write, with both values and the source
 of each. Nothing is discarded: the incoming value still lands, but the conflict
 survives so a desk can see that two sources do not agree.
+
+Comparison assumes both sides are on the same scale. Money columns reach that
+state through ``units``; a stored row written before unit stamping existed has
+no ``sys_reported_unit``, so comparing it against a normalised row would measure
+the vendor's magnitude rather than the fact. Those rows are skipped on money
+fields until ``units.backfill_units`` has migrated them.
 """
 
 from __future__ import annotations
@@ -53,9 +59,13 @@ def detect(tab_id: str, rows: Sequence[dict[str, Any]], *, source: str,
     if not watched:
         return []
 
+    # Money columns are only comparable once both sides are in INR million.
+    rescaled = {c.key for c in tab.columns if c.rescaled}
+
     found: list[dict[str, Any]] = []
     stamp = now_iso()
     payload: list[tuple[Any, ...]] = []
+    skipped_unnormalised = 0
 
     for row in rows:
         row_id = store.make_row_id(tab, row)
@@ -68,7 +78,15 @@ def detect(tab_id: str, rows: Sequence[dict[str, Any]], *, source: str,
         if not held_source or held_source == source:
             continue  # same source revising itself is a revision, not a conflict
 
+        # A stored row with no unit stamp predates normalisation. Its money
+        # columns may be in any magnitude, so a gap against a normalised row
+        # says nothing about whether the sources actually disagree.
+        held_unstamped = existing.get("sys_reported_unit") in (None, "")
+
         for field in watched:
+            if held_unstamped and field in rescaled:
+                skipped_unnormalised += 1
+                continue
             if field not in row:
                 continue
             gap = _materially_different(existing.get(field), row.get(field))
@@ -98,6 +116,22 @@ def detect(tab_id: str, rows: Sequence[dict[str, Any]], *, source: str,
             " held_value, held_source, incoming_value, incoming_source, gap_pct, actor,"
             " resolved) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             payload,
+        )
+    if skipped_unnormalised:
+        # Visible rather than silent: these comparisons are deferred until the
+        # back-normalisation migration has stamped the stored rows.
+        from institutional_warehouse import audit
+
+        audit.record(
+            "import",
+            tab_id=tab.id,
+            actor=actor,
+            detail={
+                "conflict_comparisons_deferred": skipped_unnormalised,
+                "reason": "stored_row_has_no_unit_stamp",
+                "remedy": "units.backfill_units",
+                "incoming_source": source,
+            },
         )
     return found
 

@@ -20,7 +20,7 @@ import statistics
 from datetime import date, datetime, timedelta
 from typing import Any, Iterable, Optional
 
-from institutional_warehouse import gateway, store
+from institutional_warehouse import gateway, store, units
 from institutional_warehouse.backfill import checkpoints
 from institutional_warehouse.values import to_date, to_number
 
@@ -185,18 +185,25 @@ def reconstruct_company(
         # Trailing twelve months when four quarters were public; otherwise the last
         # published annual figures. Companies that only file annually still get a
         # multiple, just a coarser one.
-        eps = (ttm_pat / shares) if (ttm_pat is not None and shares) else None
+        # Statement aggregates are stored in INR million; price, share count and
+        # market capitalisation are in rupees. Anything that crosses the two is
+        # converted here so a multiple is a multiple and not a scale artefact.
+        eps = (units.to_rupees(ttm_pat) / shares) if (ttm_pat is not None and shares) else None
         if eps is None:
             eps = _num(statement.get("eps"))
         if eps is None and shares:
-            annual_pat = _num(statement.get("pat"))
+            annual_pat = units.to_rupees(statement.get("pat"))
             eps = (annual_pat / shares) if annual_pat is not None else None
         revenue = ttm_revenue if ttm_revenue is not None else _num(statement.get("revenue"))
         ebitda = ttm_ebitda if ttm_ebitda is not None else _num(statement.get("ebitda"))
+        revenue_inr = units.to_rupees(revenue)
+        ebitda_inr = units.to_rupees(ebitda)
 
         equity = _num(statement.get("equity"))
-        book_value = (equity / shares) if (equity is not None and shares) else None
-        debt, cash = _num(statement.get("debt")), _num(statement.get("cash"))
+        equity_inr = units.to_rupees(equity)
+        book_value = (equity_inr / shares) if (equity_inr is not None and shares) else None
+        debt = units.to_rupees(statement.get("debt"))
+        cash = units.to_rupees(statement.get("cash"))
         enterprise_value = None
         if market_cap is not None:
             enterprise_value = market_cap + (debt or 0.0) - (cash or 0.0)
@@ -222,12 +229,12 @@ def reconstruct_company(
                 "enterprise_value": round(enterprise_value, 2) if enterprise_value is not None else None,
                 "pe": round(close / eps, 4) if eps and eps > 0 else None,
                 "pb": round(close / book_value, 4) if book_value and book_value > 0 else None,
-                "ev_ebitda": round(enterprise_value / ebitda, 4)
-                if enterprise_value is not None and ebitda and ebitda > 0 else None,
-                "ev_sales": round(enterprise_value / revenue, 4)
-                if enterprise_value is not None and revenue and revenue > 0 else None,
-                "price_sales": round(market_cap / revenue, 4)
-                if market_cap is not None and revenue and revenue > 0 else None,
+                "ev_ebitda": round(enterprise_value / ebitda_inr, 4)
+                if enterprise_value is not None and ebitda_inr and ebitda_inr > 0 else None,
+                "ev_sales": round(enterprise_value / revenue_inr, 4)
+                if enterprise_value is not None and revenue_inr and revenue_inr > 0 else None,
+                "price_sales": round(market_cap / revenue_inr, 4)
+                if market_cap is not None and revenue_inr and revenue_inr > 0 else None,
                 "dividend_yield": round(100.0 * trailing_dividend / close, 4)
                 if trailing_dividend else None,
                 "source": f"{SOURCE}<-{statement.get('source') or 'unknown'}",
