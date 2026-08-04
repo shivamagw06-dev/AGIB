@@ -20,6 +20,15 @@ from historical_valuation_intelligence.statistics import _num, _percentile_of
 # Institutional floor — below this, return Unavailable (never invent 50).
 MIN_SECTOR_HISTORY_OBS = 24
 
+# One-pass reconstruction cache: metric → {sector → points}.
+# Cleared only for tests via clear_reconstruction_cache().
+_RECON_CACHE: dict[str, dict[str, list[dict[str, Any]]]] = {}
+
+
+def clear_reconstruction_cache() -> None:
+    """Test helper — drop in-process reconstruction cache."""
+    _RECON_CACHE.clear()
+
 
 def load_sector_median_series(
     sector: str,
@@ -152,6 +161,32 @@ def sector_historical_percentile(
     }
 
 
+def _paged_warehouse_rows(tab_id: str, *, max_rows: int = 100_000) -> list[dict[str, Any]]:
+    """Page past store.MAX_LIMIT (5000). ``all_rows(limit=50000)`` silently clamps."""
+    try:
+        from institutional_warehouse import store
+    except Exception:
+        return []
+
+    page_size = 5000
+    offset = 0
+    out: list[dict[str, Any]] = []
+    while offset < max_rows:
+        try:
+            page = store.fetch(tab_id, limit=page_size, offset=offset)
+        except Exception:
+            break
+        rows = page.get("rows") or []
+        if not rows:
+            break
+        out.extend(rows)
+        total = int(page.get("total") or 0)
+        offset += len(rows)
+        if offset >= total or len(rows) < page_size:
+            break
+    return out
+
+
 def _from_persisted_medians(sector: str, *, metric: str, limit: int) -> list[dict[str, Any]]:
     try:
         from institutional_warehouse import store
@@ -168,7 +203,7 @@ def _from_persisted_medians(sector: str, *, metric: str, limit: int) -> list[dic
     # Soft case-insensitive match if exact filter missed aliases
     if not rows:
         try:
-            all_rows = store.all_rows("historical_sector_medians", limit=limit) or []
+            all_rows = _paged_warehouse_rows("historical_sector_medians", max_rows=max(limit, 50_000))
             rows = [
                 r for r in all_rows
                 if str(r.get("sector") or "").strip().lower() == sector.lower()
@@ -190,47 +225,65 @@ def _from_persisted_medians(sector: str, *, metric: str, limit: int) -> list[dic
 
 def _reconstruct_from_valuation(sector: str, *, metric: str, limit: int) -> list[dict[str, Any]]:
     """Build daily sector medians from historical_valuation when persist table is thin."""
+    by_sector = _reconstruct_all_sectors(metric=metric)
+    points = list(by_sector.get(sector.lower()) or [])
+    return points[-limit:]
+
+
+def _reconstruct_all_sectors(*, metric: str) -> dict[str, list[dict[str, Any]]]:
+    """One-pass scan of historical_valuation → {sector_lower: dated median points}.
+
+    Must page past warehouse MAX_LIMIT=5000. A single ``all_rows(limit=50000)``
+    only returns 5k rows (~2 as-of dates at universe scale), which made every
+    sector report INSUFFICIENT_HISTORY after the peer-rank heatmap fix.
+    """
+    metric_key = str(metric or "pe").lower()
+    cached = _RECON_CACHE.get(metric_key)
+    if cached is not None:
+        return cached
+
     try:
-        from institutional_warehouse import store
         import statistics as stats
     except Exception:
-        return []
+        _RECON_CACHE[metric_key] = {}
+        return _RECON_CACHE[metric_key]
 
     masters = {
         str(r.get("symbol") or "").upper(): str(r.get("sector") or "").strip()
-        for r in (store.all_rows("company_master", limit=8000) or [])
+        for r in _paged_warehouse_rows("company_master", max_rows=20_000)
+        if str(r.get("symbol") or "").strip() and str(r.get("sector") or "").strip()
     }
-    # Match sector case-insensitively
-    target = sector.lower()
-    sector_syms = {sym for sym, sec in masters.items() if sec.lower() == target}
-    if not sector_syms:
-        return []
+    if not masters:
+        _RECON_CACHE[metric_key] = {}
+        return _RECON_CACHE[metric_key]
 
-    # Pull valuation rows — cap scan; prefer dates with data for this sector.
-    try:
-        rows = store.all_rows("historical_valuation", limit=max(limit * 20, 50000)) or []
-    except Exception:
-        return []
-
-    by_date: dict[str, list[float]] = defaultdict(list)
+    rows = _paged_warehouse_rows("historical_valuation", max_rows=200_000)
+    # sector_lower → date → values
+    by_sector_date: dict[str, dict[str, list[float]]] = defaultdict(lambda: defaultdict(list))
     for r in rows:
         sym = str(r.get("symbol") or "").upper()
-        if sym not in sector_syms:
+        sector = masters.get(sym)
+        if not sector:
             continue
-        period = str(r.get("date") or "")[:10]
-        val = _num(r.get(metric))
+        period = str(r.get("date") or r.get("as_of") or "")[:10]
+        val = _num(r.get(metric_key) if metric_key in r else r.get(metric))
         if not period or val is None or val <= 0:
             continue
-        by_date[period].append(val)
+        by_sector_date[sector.lower()][period].append(val)
 
-    points: list[dict[str, Any]] = []
-    for period in sorted(by_date):
-        vals = by_date[period]
-        if len(vals) < 2:
-            continue
-        points.append({
-            "period": period,
-            "value": round(stats.median(vals), 4),
-            "company_count": len(vals),
-        })
-    return points[-limit:]
+    out: dict[str, list[dict[str, Any]]] = {}
+    for sector_key, by_date in by_sector_date.items():
+        points: list[dict[str, Any]] = []
+        for period in sorted(by_date):
+            vals = by_date[period]
+            if len(vals) < 2:
+                continue
+            points.append({
+                "period": period,
+                "value": round(stats.median(vals), 4),
+                "company_count": len(vals),
+            })
+        out[sector_key] = points
+
+    _RECON_CACHE[metric_key] = out
+    return out

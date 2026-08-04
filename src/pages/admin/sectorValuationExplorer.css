@@ -669,6 +669,15 @@
   font-variant-numeric: tabular-nums;
 }
 
+.sve-heat-meta {
+  display: block;
+  margin: 0 0 0.15rem;
+  font-size: 0.68rem;
+  font-style: normal;
+  color: var(--vi-muted, #6b7280);
+  font-variant-numeric: tabular-nums;
+}
+
 .heat-cheap { box-shadow: inset 0 0 0 1px rgba(31, 122, 77, 0.25); background: rgba(31, 122, 77, 0.08); }
 .heat-fair { box-shadow: inset 0 0 0 1px rgba(47, 111, 173, 0.25); background: rgba(47, 111, 173, 0.08); }
 .heat-premium { box-shadow: inset 0 0 0 1px rgba(180, 35, 24, 0.25); background: rgba(180, 35, 24, 0.08); }

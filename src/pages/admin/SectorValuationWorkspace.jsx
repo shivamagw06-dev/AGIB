@@ -227,7 +227,9 @@ function SectorHeatmap({ sectors, onSelect }) {
           const pct = s.historical_percentile;
           const unavailable = pct == null;
           const tone = unavailable ? 'neutral' : heatTone(s.status || s.opportunity, pct);
-          const reason = s.historical_percentile_reason || 'Insufficient history';
+          const obs = s.historical_observations;
+          const reason = s.historical_percentile_reason
+            || (obs != null ? `Insufficient history (${obs} obs; need ≥24)` : 'Insufficient history');
           const label = unavailable ? 'n/a' : fmt(pct, 0);
           return (
             <button
@@ -243,6 +245,9 @@ function SectorHeatmap({ sectors, onSelect }) {
             >
               <strong>{s.sector}</strong>
               <span>{label}</span>
+              {unavailable && obs != null ? (
+                <em className="sve-heat-meta">{obs} obs</em>
+              ) : null}
               <HistBar pct={pct} />
             </button>
           );

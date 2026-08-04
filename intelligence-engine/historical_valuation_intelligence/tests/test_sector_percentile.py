@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from historical_valuation_intelligence.sector_percentile import (
     MIN_SECTOR_HISTORY_OBS,
+    clear_reconstruction_cache,
+    load_sector_median_series,
     sector_historical_percentile,
 )
 from historical_valuation_intelligence.statistics import _percentile_of
@@ -120,3 +122,78 @@ def test_sector_table_does_not_use_peer_median_as_historical(monkeypatch):
     assert rows[0]["historical_percentile_status"] == "OK"
     # Dispersion proof: heatmap KPI ≠ peer mid-pack
     assert rows[0]["historical_percentile"] != rows[0]["peer_relative_percentile_median"]
+
+
+def test_reconstruct_pages_past_store_max_limit(monkeypatch):
+    """all_rows clamps at 5000; reconstruction must page or heatmap stays empty."""
+    clear_reconstruction_cache()
+
+    masters = [
+        {"symbol": "AAA", "sector": "Information Technology"},
+        {"symbol": "BBB", "sector": "Information Technology"},
+    ]
+    # 30 distinct dates × 2 symbols = 60 valuation rows across 2 pages of 5k-cap.
+    # Put them after a 5000-row junk page so a non-paged all_rows would miss them.
+    junk = [
+        {"symbol": "ZZZ", "sector": "Other", "date": "2020-01-01", "pe": 10.0}
+        for _ in range(5000)
+    ]
+    hist = []
+    for i in range(30):
+        day = f"2025-{(i % 12) + 1:02d}-{((i % 28) + 1):02d}"
+        hist.append({"symbol": "AAA", "date": day, "pe": 20.0 + i * 0.1})
+        hist.append({"symbol": "BBB", "date": day, "pe": 21.0 + i * 0.1})
+    all_hv = junk + hist
+
+    def fake_fetch(tab_id, limit=200, offset=0, **_kwargs):
+        if tab_id == "company_master":
+            rows = masters
+            return {"ok": True, "rows": rows, "total": len(rows), "limit": limit, "offset": offset}
+        if tab_id == "historical_valuation":
+            page = all_hv[offset: offset + limit]
+            return {
+                "ok": True,
+                "rows": page,
+                "total": len(all_hv),
+                "limit": limit,
+                "offset": offset,
+            }
+        if tab_id == "historical_sector_medians":
+            return {"ok": True, "rows": [], "total": 0, "limit": limit, "offset": offset}
+        return {"ok": True, "rows": [], "total": 0, "limit": limit, "offset": offset}
+
+    class FakeStore:
+        MAX_LIMIT = 5000
+
+        @staticmethod
+        def fetch(tab_id, **kwargs):
+            return fake_fetch(tab_id, **kwargs)
+
+        @staticmethod
+        def all_rows(tab_id, limit=5000, **_kwargs):
+            # Reproduce production clamp behaviour.
+            capped = min(int(limit or 5000), FakeStore.MAX_LIMIT)
+            return fake_fetch(tab_id, limit=capped, offset=0)["rows"]
+
+    import institutional_warehouse.store as store_mod
+
+    monkeypatch.setattr(
+        "institutional_warehouse.store",
+        FakeStore,
+        raising=False,
+    )
+    # sector_percentile imports store inside functions from institutional_warehouse
+    import institutional_warehouse as wh
+
+    monkeypatch.setattr(wh, "store", FakeStore)
+
+    series = load_sector_median_series("Information Technology", metric="pe")
+    assert series["observation_count"] >= MIN_SECTOR_HISTORY_OBS
+    assert series["source"] == "warehouse.historical_valuation.reconstructed_sector_median"
+
+    out = sector_historical_percentile(
+        "Information Technology", current_median=22.0, metric="pe"
+    )
+    assert out["status"] == "OK"
+    assert out["historical_percentile"] is not None
+    clear_reconstruction_cache()
