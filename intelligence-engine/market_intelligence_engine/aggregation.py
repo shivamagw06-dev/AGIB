@@ -133,23 +133,21 @@ def sector_table(universe: dict[str, Any]) -> list[dict[str, Any]]:
         hist_pcts = [m.get("percentile") for m in members if m.get("percentile") is not None]
         current = _median(primary_values)
         hist_median_pct = _median(hist_pcts)
-        # Upstox sector benchmark for the primary metric (preferred over peer median).
+        # Upstox sector benchmark only — do not invent one from peer medians.
         sector_key = {
             "pe": "sector_median_pe",
             "pb": "sector_median_pb",
             "ev_ebitda": "sector_median_ev_ebitda",
             "roe": "sector_median_roe",
         }.get(primary, "sector_median_pe")
-        sector_bench = _median([m.get(sector_key) for m in members])
+        covered = sum(1 for m in members if m.get("provider_coverage"))
+        sector_bench = None
+        if covered > 0:
+            sector_bench = _median([m.get(sector_key) for m in members if m.get(sector_key) is not None])
         premium = None
         if current is not None and sector_bench:
             premium = round(100.0 * (current - sector_bench) / sector_bench, 1)
-        opportunity = _opportunity_label(hist_median_pct if hist_median_pct is not None else (
-            30.0 if premium is not None and premium < -10 else
-            70.0 if premium is not None and premium > 15 else
-            50.0 if premium is not None else None
-        ))
-        covered = sum(1 for m in members if m.get("provider_coverage"))
+        opportunity = _opportunity_label(hist_median_pct)
         out.append({
             "sector": sector,
             "companies": len(members),
@@ -158,7 +156,7 @@ def sector_table(universe: dict[str, Any]) -> list[dict[str, Any]]:
             "current": current,
             "historical_median": sector_bench,
             "sector_benchmark": sector_bench,
-            "sector_benchmark_source": "upstox" if sector_bench is not None else None,
+            "sector_benchmark_source": "upstox" if sector_bench is not None and covered > 0 else None,
             "historical_percentile": round(hist_median_pct, 1) if hist_median_pct is not None else None,
             "premium_pct": premium,
             "opportunity": opportunity,

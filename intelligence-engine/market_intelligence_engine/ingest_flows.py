@@ -11,7 +11,12 @@ SOURCE = "upstox"
 def normalise_upstox_flow(payload: dict[str, Any]) -> list[dict[str, Any]]:
     """Normalise Upstox market/fii and market/dii responses into warehouse rows."""
     date = str(payload.get("date") or datetime.now(timezone.utc).date().isoformat())
-    segment = str(payload.get("segment") or "NSE_EQ")
+    raw_segment = str(payload.get("segment") or payload.get("data_type") or "NSE_EQ")
+    # Upstox API uses NSE_EQ|CASH; warehouse options are NSE_EQ / CASH.
+    if raw_segment in {"NSE_EQ|CASH", "NSE_EQ", "CASH"} or raw_segment.startswith("NSE_EQ"):
+        segment = "NSE_EQ"
+    else:
+        segment = raw_segment[:32] or "NSE_EQ"
     fii = payload.get("fii") or {}
     dii = payload.get("dii") or {}
 

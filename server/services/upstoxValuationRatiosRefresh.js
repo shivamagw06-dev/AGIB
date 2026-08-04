@@ -75,27 +75,47 @@ export async function refreshUpstoxValuationRatios({
   limit = Number(process.env.UPSTOX_VALUATION_BATCH || 80),
   concurrency = Number(process.env.UPSTOX_VALUATION_CONCURRENCY || 4),
   symbols = null,
+  backfillIsins = true,
 } = {}) {
   const { getFundamentals, isUpstoxConfigured } = await import('../providers/upstox.js');
   if (!isUpstoxConfigured()) {
     return { ok: false, status: 503, error: 'upstox_not_configured' };
   }
 
+  let isinBackfill = null;
   let companies = [];
   if (Array.isArray(symbols) && symbols.length) {
     // Resolve ISINs for explicit symbols from warehouse master.
-    const all = await loadIsinUniverse({ limit: 5000 });
+    let all = await loadIsinUniverse({ limit: 5000 });
+    if (backfillIsins && !pickIsinCompanies(all, { limit: 1 }).length) {
+      const { backfillCompanyIsins } = await import('./companyIsinBackfill.js');
+      isinBackfill = await backfillCompanyIsins({ dryRun: false });
+      all = await loadIsinUniverse({ limit: 5000 });
+    }
     const want = new Set(symbols.map((s) => String(s).toUpperCase()));
     companies = pickIsinCompanies(all.filter((r) => want.has(String(r.symbol || '').toUpperCase())), {
       limit: symbols.length,
     });
   } else {
-    const all = await loadIsinUniverse({ limit: Math.max(limit * 3, 500) });
+    let all = await loadIsinUniverse({ limit: Math.max(limit * 5, 5000) });
+    if (backfillIsins && !pickIsinCompanies(all, { limit: 1 }).length) {
+      const { backfillCompanyIsins } = await import('./companyIsinBackfill.js');
+      isinBackfill = await backfillCompanyIsins({ dryRun: false });
+      all = await loadIsinUniverse({ limit: Math.max(limit * 5, 5000) });
+    }
     companies = pickIsinCompanies(all, { limit });
   }
 
   if (!companies.length) {
-    return { ok: false, status: 404, error: 'no_isin_universe', fetched: 0, ingested: 0 };
+    return {
+      ok: false,
+      status: 404,
+      error: 'no_isin_universe',
+      fetched: 0,
+      ingested: 0,
+      isin_backfill: isinBackfill,
+      hint: 'Run POST /api/market/company-isin/backfill then retry. Upstox key-ratios require ISIN.',
+    };
   }
 
   const reportedDate = new Date().toISOString().slice(0, 10);
@@ -152,14 +172,122 @@ export async function refreshUpstoxValuationRatios({
     timeoutMs: 180_000,
   });
 
+  if (ingest.ok) {
+    return {
+      ok: true,
+      status: ingest.status,
+      attempted: companies.length,
+      fetched: batch.length,
+      failed: errors.length,
+      errors: errors.slice(0, 20),
+      warehouse: ingest.data,
+      isin_backfill: isinBackfill,
+      path: 'valuation_ratios_ingest',
+      error: null,
+    };
+  }
+
+  // Fallback: warehouse import+commit (works when ingest route crashes on older engines).
+  const rows = flattenKeyRatioRows(batch);
+  const fallback = rows.length ? await warehouseImportValuationRatios(rows) : null;
+
   return {
-    ok: ingest.ok,
-    status: ingest.status,
+    ok: !!fallback?.ok,
+    status: fallback?.ok ? 200 : ingest.status,
     attempted: companies.length,
     fetched: batch.length,
     failed: errors.length,
     errors: errors.slice(0, 20),
-    warehouse: ingest.data,
-    error: ingest.ok ? null : ingest.data?.error || `ingest_http_${ingest.status}`,
+    warehouse: fallback || ingest.data,
+    isin_backfill: isinBackfill,
+    path: fallback?.ok ? 'warehouse_import_fallback' : 'valuation_ratios_ingest',
+    error: fallback?.ok ? null : ingest.data?.error || `ingest_http_${ingest.status}`,
+  };
+}
+
+const RATIO_MAP = {
+  'p/e': 'pe',
+  pe: 'pe',
+  'p/b': 'pb',
+  pb: 'pb',
+  roa: 'roa',
+  roe: 'roe',
+  roce: 'roce',
+  'ev/ebitda': 'ev_ebitda',
+  ev_ebitda: 'ev_ebitda',
+  evebitda: 'ev_ebitda',
+};
+
+function num(value) {
+  if (value == null || typeof value === 'boolean') return null;
+  const text = String(value).trim().replace(/,/g, '').replace(/%/g, '');
+  if (!text || /^(na|n\/a|-|null|none)$/i.test(text)) return null;
+  const n = Number(text);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** Flatten Upstox key-ratios company batches into warehouse.valuation_ratios rows. */
+export function flattenKeyRatioRows(companies) {
+  const out = [];
+  const reportedDate = new Date().toISOString().slice(0, 10);
+  for (const company of companies || []) {
+    const symbol = String(company.symbol || '').trim().toUpperCase();
+    const isin = String(company.isin || '').trim().toUpperCase();
+    if (!symbol || !isin) continue;
+    const snapshotId = `upstox-${reportedDate}-${symbol}-${Math.random().toString(16).slice(2, 10)}`;
+    let entries = company.data;
+    if (entries && !Array.isArray(entries) && typeof entries === 'object') {
+      entries = Object.entries(entries).map(([name, block]) => (
+        block && typeof block === 'object'
+          ? { name, company_value: block.company_value ?? block.value, sector_value: block.sector_value ?? block.sector }
+          : { name, company_value: block, sector_value: null }
+      ));
+    }
+    for (const item of Array.isArray(entries) ? entries : []) {
+      const mapped = RATIO_MAP[String(item?.name || '').trim().toLowerCase()];
+      const companyValue = num(item?.company_value);
+      if (!mapped || companyValue == null) continue;
+      const sectorValue = num(item?.sector_value);
+      out.push({
+        company_id: company.company_id || symbol,
+        symbol,
+        isin,
+        instrument_key: company.instrument_key || `NSE_EQ|${isin}`,
+        ratio_name: mapped,
+        company_value: companyValue,
+        sector_value: sectorValue,
+        reported_date: company.reported_date || reportedDate,
+        snapshot_id: snapshotId,
+        provider: 'upstox',
+        provider_version: 'v2/fundamentals/key-ratios',
+        confidence: 0.9,
+        dqiv_status: 'passed',
+        source: 'upstox',
+      });
+    }
+  }
+  return out;
+}
+
+async function warehouseImportValuationRatios(rows) {
+  const staged = await engineFetch('/v1/warehouse/tab/valuation_ratios/import', {
+    method: 'POST',
+    body: { rows, actor: 'upstox_valuation_ratios_refresh', source: 'upstox' },
+    timeoutMs: 180_000,
+  });
+  if (!staged.ok || !staged.data?.import_id) {
+    return { ok: false, error: staged.data?.error || 'stage_import_failed', staged: staged.data };
+  }
+  const committed = await engineFetch(`/v1/warehouse/import/${staged.data.import_id}/commit`, {
+    method: 'POST',
+    body: { actor: 'upstox_valuation_ratios_refresh' },
+    timeoutMs: 180_000,
+  });
+  return {
+    ok: committed.ok,
+    import_id: staged.data.import_id,
+    staged: staged.data,
+    committed: committed.data,
+    error: committed.ok ? null : committed.data?.error || 'commit_failed',
   };
 }

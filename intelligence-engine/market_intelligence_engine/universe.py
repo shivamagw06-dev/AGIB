@@ -116,12 +116,16 @@ def load_universe(*, limit: int = 5000) -> dict[str, Any]:
         roe = _provider_or_val("roe")
         roa = _num((provider.get("roa") or {}).get("company_value"))
         roce = _num((provider.get("roce") or {}).get("company_value"))
-        sector_pe = _num((provider.get("pe") or {}).get("sector_value")) or _num(val.get("sector_median"))
+        # Sector benchmarks are Upstox-owned only — never fall back to warehouse
+        # sector_median (that often equals the peer median and falsely looks like
+        # an Upstox sector print with 0% premium).
+        sector_pe = _num((provider.get("pe") or {}).get("sector_value"))
         sector_pb = _num((provider.get("pb") or {}).get("sector_value"))
         sector_ev = _num((provider.get("ev_ebitda") or {}).get("sector_value"))
         sector_roe = _num((provider.get("roe") or {}).get("sector_value"))
+        has_provider = bool(provider)
 
-        source = "upstox" if provider else (val.get("source") or "warehouse.historical_valuation")
+        source = "upstox" if has_provider else (val.get("source") or "warehouse.historical_valuation")
         row = {
             "symbol": sym,
             "company_name": master.get("company_name") or sym,
@@ -154,7 +158,10 @@ def load_universe(*, limit: int = 5000) -> dict[str, Any]:
             "analyst_count": _num(consensus.get("analyst_count") or consensus.get("buy")),
             "valuation_date": val_date or (next(iter(provider.values()), {}) or {}).get("reported_date"),
             "source": source,
-            "provider_coverage": len(provider),
+            "provider_coverage": len(provider) if has_provider else 0,
+            "has_upstox_sector_benchmark": any(
+                v is not None for v in (sector_pe, sector_pb, sector_ev, sector_roe)
+            ),
         }
         primary_val = row.get(primary)
         if primary_val is None or not is_meaningful(primary, industry_dna):

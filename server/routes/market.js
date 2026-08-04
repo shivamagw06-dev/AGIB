@@ -100,7 +100,7 @@ export default function createMarketRouter(env = {}) {
     try {
       const { refreshUpstoxInstitutionalFlows } = await import('../services/upstoxFlowRefresh.js');
       const result = await refreshUpstoxInstitutionalFlows({
-        dataType: req.body?.dataType || 'NSE_EQ',
+        dataType: req.body?.dataType || 'NSE_EQ|CASH',
         interval: req.body?.interval || '1D',
         date: req.body?.date,
       });
@@ -123,6 +123,20 @@ export default function createMarketRouter(env = {}) {
     }
   });
 
+  // Fill company_master.isin from Upstox NSE EQ instruments (required for key-ratios)
+  router.post('/company-isin/backfill', async (req, res) => {
+    try {
+      const { backfillCompanyIsins } = await import('../services/companyIsinBackfill.js');
+      const result = await backfillCompanyIsins({
+        dryRun: !!req.body?.dry_run,
+        forceNode: !!req.body?.force_node,
+      });
+      return res.status(result.ok ? 200 : (result.status || 502)).json(result);
+    } catch (err) {
+      return res.status(502).json({ ok: false, error: err?.message || 'company_isin_backfill_failed' });
+    }
+  });
+
   // Upstox key-ratios → warehouse.valuation_ratios (admin / scheduler)
   router.post('/upstox-valuation-ratios/refresh', async (req, res) => {
     try {
@@ -131,6 +145,7 @@ export default function createMarketRouter(env = {}) {
         limit: req.body?.limit,
         symbols: req.body?.symbols,
         concurrency: req.body?.concurrency,
+        backfillIsins: req.body?.backfill_isins !== false,
       });
       return res.status(result.status || (result.ok ? 200 : 502)).json(result);
     } catch (err) {

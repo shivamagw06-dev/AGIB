@@ -19126,6 +19126,20 @@ async def valuation_ratios_ingest(payload: dict[str, Any] = Body(default_factory
     )
 
 
+@router.post("/valuation-ratios/isin-backfill")
+async def valuation_ratios_isin_backfill(payload: dict[str, Any] = Body(default_factory=dict)):
+    """Fill company_master.isin from Upstox NSE EQ instruments (blocks key-ratios otherwise)."""
+    from valuation_ratios.isin_backfill import backfill_company_isins
+
+    body = payload or {}
+    return backfill_company_isins(
+        actor=str(body.get("actor") or "isin_backfill"),
+        dry_run=bool(body.get("dry_run", False)),
+        prefer_csv=bool(body.get("prefer_csv", True)),
+        limit=body.get("limit"),
+    )
+
+
 @router.get("/warehouse/statement-identity")
 async def warehouse_statement_identity():
     """Statement rows still carrying no statement type."""

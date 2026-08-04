@@ -107,16 +107,23 @@ export default function MarketSectorIntelligence() {
 
         {pack?.ok ? (
           <>
-            <Section title="Market overview" subtitle={`Valuation as of ${overview.valuation_date || '—'} · ${overview.companies || 0} companies`}>
+            <Section
+              title="Market overview"
+              subtitle={`Valuation as of ${overview.valuation_date || '—'} · ${overview.companies || 0} companies · PE coverage ${overview.coverage?.pct != null ? overview.coverage.pct : '—'}%`}
+            >
               <div className="msi-index-row">
-                {(indexSentiments.length ? indexSentiments : pulse?.indices || []).slice(0, 5).map((idx) => (
-                  <Stat
-                    key={idx.name || idx.symbol}
-                    label={idx.name || idx.symbol}
-                    value={idx.value ?? idx.ltp ?? '—'}
-                    hint={idx.sentiment || idx.change_pct != null ? `${fmt(idx.change_pct)}%` : 'Live gateway'}
-                  />
-                ))}
+                {(indexSentiments.length ? indexSentiments : pulse?.indices || []).length ? (
+                  (indexSentiments.length ? indexSentiments : pulse?.indices || []).slice(0, 5).map((idx) => (
+                    <Stat
+                      key={idx.name || idx.symbol}
+                      label={idx.name || idx.symbol}
+                      value={idx.value ?? idx.ltp ?? '—'}
+                      hint={idx.sentiment || idx.change_pct != null ? `${fmt(idx.change_pct)}%` : 'Live gateway'}
+                    />
+                  ))
+                ) : (
+                  <p className="msi-hint">Index quotes unavailable from live gateway for this session.</p>
+                )}
               </div>
               <div className="msi-grid">
                 <Stat label="Median P/E" value={fmt(overview.averages?.pe)} />
@@ -157,7 +164,14 @@ export default function MarketSectorIntelligence() {
               </Section>
             ) : null}
 
-            <Section title="Sector intelligence" subtitle="Primary metric · current · Upstox sector benchmark · premium · opportunity">
+            <Section
+              title="Sector intelligence"
+              subtitle={
+                sectors.some((s) => (s.upstox_coverage_pct || 0) > 0)
+                  ? 'Primary metric · current · Upstox sector benchmark · premium · opportunity'
+                  : 'Primary metric · current · sector benchmark awaits Upstox ISIN key-ratios (Upstox column is 0%)'
+              }
+            >
               <div className="msi-table-wrap">
                 <table className="msi-table">
                   <thead>
@@ -179,8 +193,16 @@ export default function MarketSectorIntelligence() {
                         <td><strong>{s.sector}</strong></td>
                         <td>{s.primary_metric_label}</td>
                         <td>{fmt(s.current)}</td>
-                        <td>{fmt(s.sector_benchmark ?? s.historical_median)}</td>
-                        <td>{s.premium_pct != null ? `${fmt(s.premium_pct, 1)}%` : '—'}</td>
+                        <td>
+                          {(s.upstox_coverage_pct || 0) > 0
+                            ? fmt(s.sector_benchmark ?? s.historical_median)
+                            : '—'}
+                        </td>
+                        <td>
+                          {(s.upstox_coverage_pct || 0) > 0 && s.premium_pct != null
+                            ? `${fmt(s.premium_pct, 1)}%`
+                            : '—'}
+                        </td>
                         <td>{fmt(s.historical_percentile, 0)}</td>
                         <td>{s.opportunity}</td>
                         <td>{s.upstox_coverage_pct != null ? `${fmt(s.upstox_coverage_pct, 0)}%` : '—'}</td>
