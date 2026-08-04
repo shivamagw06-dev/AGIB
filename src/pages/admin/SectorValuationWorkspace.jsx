@@ -204,30 +204,45 @@ function heatTone(status, pct) {
 }
 
 function SectorHeatmap({ sectors, onSelect }) {
-  const rows = [...(sectors || [])].sort(
-    (a, b) => (b.historical_percentile || 0) - (a.historical_percentile || 0),
-  );
+  const rows = [...(sectors || [])].sort((a, b) => {
+    const ap = a.historical_percentile;
+    const bp = b.historical_percentile;
+    if (ap == null && bp == null) return String(a.sector).localeCompare(String(b.sector));
+    if (ap == null) return 1;
+    if (bp == null) return -1;
+    return bp - ap;
+  });
   if (!rows.length) return null;
   return (
     <section className="sve-heatmap">
       <div className="sve-directory-head">
         <h3>Sector valuation heatmap</h3>
-        <p className="hint">Historical percentile intensity — green cheap · blue fair · red premium</p>
+        <p className="hint">
+          Sector median vs its own history (HVIE) — green cheap · blue fair · red premium.
+          Unavailable when history is insufficient (never defaults to 50).
+        </p>
       </div>
       <div className="sve-heatmap-grid">
         {rows.map((s) => {
           const pct = s.historical_percentile;
-          const tone = heatTone(s.status || s.opportunity, pct);
+          const unavailable = pct == null;
+          const tone = unavailable ? 'neutral' : heatTone(s.status || s.opportunity, pct);
+          const reason = s.historical_percentile_reason || 'Insufficient history';
+          const label = unavailable ? 'n/a' : fmt(pct, 0);
           return (
             <button
               key={s.sector}
               type="button"
               className={`sve-heat-cell heat-${tone}`}
               onClick={() => onSelect(s.sector)}
-              title={`${s.sector} · hist% ${fmt(pct, 0)}`}
+              title={
+                unavailable
+                  ? `${s.sector} · Historical % unavailable — ${reason}`
+                  : `${s.sector} · hist% ${label}`
+              }
             >
               <strong>{s.sector}</strong>
-              <span>{fmt(pct, 0)}</span>
+              <span>{label}</span>
               <HistBar pct={pct} />
             </button>
           );

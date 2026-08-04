@@ -96,6 +96,10 @@ def test_industry_medians():
     assert out["IT Services"]["companies"] == 2
     assert out["IT Services"]["median_pe"] == 26.0
     assert "Software Products" in out
+    # Must not treat peer-rank median (~70 here) as historical own-history %.
+    assert out["IT Services"]["historical_percentile"] is None
+    assert out["IT Services"]["historical_percentile_status"] == "INSUFFICIENT_HISTORY"
+    assert out["IT Services"]["peer_relative_percentile_median"] == 70.0
 
 
 def test_market_and_boards_empty_universe(monkeypatch):

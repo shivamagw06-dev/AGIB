@@ -109,7 +109,8 @@ def _industry_medians(members: list[dict[str, Any]]) -> dict[str, dict[str, Any]
             groups.setdefault(ind, []).append(m)
     out: dict[str, dict[str, Any]] = {}
     for ind, rows in groups.items():
-        pct = _median([r.get("percentile") for r in rows])
+        # Peer-rank medians ≈ 50 by construction — do NOT use as historical %.
+        peer_pct = _median([r.get("percentile") for r in rows])
         pe = _median([r.get("pe") for r in rows])
         out[ind] = {
             "industry": ind,
@@ -120,18 +121,20 @@ def _industry_medians(members: list[dict[str, Any]]) -> dict[str, dict[str, Any]
             "median_ev_ebitda": _median([r.get("ev_ebitda") for r in rows]),
             "median_roe": _median([r.get("roe") for r in rows]),
             "median_roce": _median([r.get("roce") for r in rows]),
-            "historical_percentile": pct,
-            "opportunity": opportunity_label(pct),
+            "historical_percentile": None,
+            "historical_percentile_status": "INSUFFICIENT_HISTORY",
+            "historical_percentile_reason": (
+                "Industry own-history median series is not yet persisted; "
+                "refusing peer-rank median fallback (~50 by construction)."
+            ),
+            "peer_relative_percentile_median": peer_pct,
+            "opportunity": "Unknown",
             "coverage_pct": round(
                 100.0 * sum(1 for r in rows if r.get("provider_coverage")) / len(rows), 1
             ) if rows else 0,
             "market_cap": sum(_num(r.get("market_cap")) or 0 for r in rows) or None,
             "confidence": 90 if sum(1 for r in rows if r.get("provider_coverage")) >= max(3, len(rows) * 0.4) else 70,
         }
-        if pe and out[ind].get("historical_percentile") is not None:
-            # Premium vs own historical percentile band is already on companies;
-            # surface sector-relative premium using peer median when possible.
-            pass
     return out
 
 
@@ -404,7 +407,15 @@ def sectors(*, universe_limit: int = 5000) -> dict[str, Any]:
         "provenance": {
             "base": "market_intelligence_engine.sector_table",
             "lens": "valuation_terminal.sector_lens",
+            "historical_percentile": (
+                "HVIE sector own-history rank of today's sector median "
+                "(not median of peer-relative company percentiles)"
+            ),
         },
+        "percentile_definition": (
+            "Rank of today's sector median within the historical sector-median "
+            "time series. Insufficient history → null (never default 50)."
+        ),
         "checked_at": _now(),
     }
 
@@ -724,7 +735,14 @@ def market(*, universe_limit: int = 5000) -> dict[str, Any]:
     roe = _median([r.get("roe") for r in rows])
     roce = _median([r.get("roce") for r in rows])
     div = _median([r.get("dividend_yield") for r in rows])
-    pct = _median([r.get("percentile") for r in rows])
+    # Market historical % from sector own-history percentiles — not peer ranks.
+    sector_rows = aggregation.sector_table(uni)
+    sector_hist_pcts = [
+        _num(r.get("historical_percentile"))
+        for r in sector_rows
+        if r.get("historical_percentile") is not None
+    ]
+    pct = _median(sector_hist_pcts) if sector_hist_pcts else None
     # Legacy PE/provider presence — secondary diagnostic only (not primary KPI).
     legacy_pe_covered = sum(
         1 for r in rows if r.get("provider_coverage") or r.get("pe") is not None
@@ -756,6 +774,11 @@ def market(*, universe_limit: int = 5000) -> dict[str, Any]:
             if pack.get("historical_median") is not None:
                 sector_hist.append(pack["historical_median"])
         hist_median = _median(sector_hist)
+    if hist_median is None:
+        hist_median = _median([
+            _num(r.get("historical_median")) for r in sector_rows
+            if r.get("historical_median") is not None
+        ])
     premium = None
     if pe is not None and hist_median:
         premium = round(100.0 * (pe - hist_median) / hist_median, 1)
