@@ -2580,6 +2580,93 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // Valuation Attribution & Research Intelligence Engine (VARIE) v1.0
+  router.get('/valuation/attribution/health', kfGet('/v1/valuation/attribution/health'));
+  const varieGet = (path, timeoutMs = 120_000) => async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query || {}).toString();
+      const r = await engineFetch(`${path}${qs ? `?${qs}` : ''}`, { timeoutMs });
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'valuation attribution failed' });
+    }
+  };
+  router.get('/valuation/attribution/market', varieGet('/v1/valuation/attribution/market'));
+  router.get('/valuation/attribution/opportunities', varieGet('/v1/valuation/attribution/opportunities'));
+  router.get('/valuation/attribution/leaders', varieGet('/v1/valuation/attribution/leaders'));
+  router.get('/valuation/attribution/company/:symbol', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query || {}).toString();
+      const r = await engineFetch(
+        `/v1/valuation/attribution/company/${encodeURIComponent(req.params.symbol)}${qs ? `?${qs}` : ''}`,
+        { timeoutMs: 120_000 },
+      );
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'valuation attribution company failed' });
+    }
+  });
+  router.get('/valuation/attribution/sector/:sector', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query || {}).toString();
+      const r = await engineFetch(
+        `/v1/valuation/attribution/sector/${encodeURIComponent(req.params.sector)}${qs ? `?${qs}` : ''}`,
+        { timeoutMs: 120_000 },
+      );
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'valuation attribution sector failed' });
+    }
+  });
+  router.get('/valuation/attribution/industry/:industry', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query || {}).toString();
+      const r = await engineFetch(
+        `/v1/valuation/attribution/industry/${encodeURIComponent(req.params.industry)}${qs ? `?${qs}` : ''}`,
+        { timeoutMs: 120_000 },
+      );
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'valuation attribution industry failed' });
+    }
+  });
+  router.get('/valuation/attribution/peer/:symbol', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query || {}).toString();
+      const r = await engineFetch(
+        `/v1/valuation/attribution/peer/${encodeURIComponent(req.params.symbol)}${qs ? `?${qs}` : ''}`,
+        { timeoutMs: 120_000 },
+      );
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'valuation attribution peer failed' });
+    }
+  });
+  router.get('/valuation/attribution/history/:symbol', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query || {}).toString();
+      const r = await engineFetch(
+        `/v1/valuation/attribution/history/${encodeURIComponent(req.params.symbol)}${qs ? `?${qs}` : ''}`,
+        { timeoutMs: 120_000 },
+      );
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'valuation attribution history failed' });
+    }
+  });
+  router.get('/valuation/attribution/timeline/:symbol', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query || {}).toString();
+      const r = await engineFetch(
+        `/v1/valuation/attribution/timeline/${encodeURIComponent(req.params.symbol)}${qs ? `?${qs}` : ''}`,
+        { timeoutMs: 120_000 },
+      );
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'valuation attribution timeline failed' });
+    }
+  });
+
   // Historical Valuation Intelligence Engine (HVIE) — Phase 8.3
   router.get('/historical-valuation/health', kfGet('/v1/historical-valuation/health'));
   const hvieGet = (suffix, timeoutMs = 60_000) => async (req, res) => {

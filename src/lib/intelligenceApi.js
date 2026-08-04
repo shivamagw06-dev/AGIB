@@ -2946,6 +2946,63 @@ export const getSveCompanyHistory = (symbol, params = {}) => {
   );
 };
 
+/** Valuation Attribution & Research Intelligence Engine (VARIE) v1.0 */
+export const getVarieHealth = () => intelligenceFetch('/valuation/attribution/health');
+export const getVarieCompany = (symbol, params = {}) => {
+  const qs = sveQs(params);
+  return intelligenceFetch(
+    `/valuation/attribution/company/${encodeURIComponent(symbol)}${qs ? `?${qs}` : ''}`,
+    { timeoutMs: 120_000 },
+  );
+};
+export const getVarieSector = (sector, params = {}) => {
+  const qs = sveQs(params);
+  return intelligenceFetch(
+    `/valuation/attribution/sector/${encodeURIComponent(sector)}${qs ? `?${qs}` : ''}`,
+    { timeoutMs: 120_000 },
+  );
+};
+export const getVarieIndustry = (industry, params = {}) => {
+  const qs = sveQs(params);
+  return intelligenceFetch(
+    `/valuation/attribution/industry/${encodeURIComponent(industry)}${qs ? `?${qs}` : ''}`,
+    { timeoutMs: 120_000 },
+  );
+};
+export const getVarieMarket = (params = {}) => {
+  const qs = sveQs(params);
+  return intelligenceFetch(`/valuation/attribution/market${qs ? `?${qs}` : ''}`, { timeoutMs: 120_000 });
+};
+export const getVariePeer = (symbol, params = {}) => {
+  const qs = sveQs(params);
+  return intelligenceFetch(
+    `/valuation/attribution/peer/${encodeURIComponent(symbol)}${qs ? `?${qs}` : ''}`,
+    { timeoutMs: 120_000 },
+  );
+};
+export const getVarieHistory = (symbol, params = {}) => {
+  const qs = sveQs(params);
+  return intelligenceFetch(
+    `/valuation/attribution/history/${encodeURIComponent(symbol)}${qs ? `?${qs}` : ''}`,
+    { timeoutMs: 120_000 },
+  );
+};
+export const getVarieTimeline = (symbol, params = {}) => {
+  const qs = sveQs(params);
+  return intelligenceFetch(
+    `/valuation/attribution/timeline/${encodeURIComponent(symbol)}${qs ? `?${qs}` : ''}`,
+    { timeoutMs: 120_000 },
+  );
+};
+export const getVarieOpportunities = (params = {}) => {
+  const qs = sveQs(params);
+  return intelligenceFetch(`/valuation/attribution/opportunities${qs ? `?${qs}` : ''}`, { timeoutMs: 120_000 });
+};
+export const getVarieLeaders = (params = {}) => {
+  const qs = sveQs(params);
+  return intelligenceFetch(`/valuation/attribution/leaders${qs ? `?${qs}` : ''}`, { timeoutMs: 120_000 });
+};
+
 /** Historical Valuation Intelligence Engine (HVIE) — Phase 8.3 */
 export const getHvieHealth = () => intelligenceFetch('/historical-valuation/health');
 const hvieFetch = (path, params = {}, timeoutMs = 60_000) => {

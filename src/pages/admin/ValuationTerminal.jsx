@@ -31,9 +31,14 @@ import SectorValuationWorkspace, {
   ResearchBoards,
   SectorDirectory,
 } from '@/pages/admin/SectorValuationWorkspace';
+import {
+  CompanyAttributionPanel,
+  MarketAttributionStrip,
+} from '@/pages/admin/ValuationAttributionPanel';
 import './valuationIntelligence.css';
 import './valuationTerminal.css';
 import './sectorValuationExplorer.css';
+import './valuationAttribution.css';
 
 const METRIC_LABELS = {
   pe: 'P/E',
@@ -769,6 +774,7 @@ export default function ValuationTerminal() {
               </div>
             </section>
             <MarketSnapshot market={market} loading={marketLoading} />
+            <MarketAttributionStrip />
             <SectorDirectory
               sectors={sectors}
               loading={sectorsLoading}
@@ -833,6 +839,8 @@ export default function ValuationTerminal() {
               <SectorContext ctx={pack.sector_context} />
               <Explanation explanation={pack.explanation} />
             </div>
+
+            <CompanyAttributionPanel symbol={symbol} />
 
             <PeerTable peers={pack.peers} />
             <ChangeLog log={pack.change_log} />

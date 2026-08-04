@@ -8,6 +8,7 @@ import {
   getSveSectorResearch,
   getSveSectorRotation,
 } from '@/lib/intelligenceApi';
+import { SectorAttributionPanel } from '@/pages/admin/ValuationAttributionPanel';
 
 function fmt(v, digits = 2) {
   if (v == null || v === '') return '—';
@@ -333,6 +334,8 @@ export default function SectorValuationWorkspace({
           ))}
         </div>
       </section>
+
+      <SectorAttributionPanel sector={pack.sector} />
 
       <div className="sve-two">
         <section className="sve-panel">
