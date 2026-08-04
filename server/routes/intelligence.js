@@ -3200,6 +3200,25 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // Phase 9.1 — Intelligence Fusion & Answer Composer (IFAC)
+  router.get('/ifac/health', kfGet('/v1/ifac/health'));
+  router.get('/ifac/templates', kfGet('/v1/ifac/templates'));
+  router.get('/ifac/routing', kfGet('/v1/ifac/routing'));
+  router.get('/ifac/confidence', kfGet('/v1/ifac/confidence'));
+  router.get('/ifac/debug', kfGet('/v1/ifac/debug'));
+  router.get('/ifac/provenance', kfGet('/v1/ifac/provenance'));
+  router.get('/ifac/dashboard', kfGet('/v1/ifac/dashboard'));
+  router.post('/ifac/compose', async (req, res) => {
+    try {
+      const r = await engineFetch('/v1/ifac/compose', {
+        method: 'POST', body: req.body || {}, timeoutMs: 120_000,
+      });
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'ifac compose failed' });
+    }
+  });
+
   // Unified Valuation Engine — terminal migration surface
   router.get('/valuation-engine/health', kfGet('/v1/valuation-engine/health'));
   router.get('/valuation-engine/company/:symbol', async (req, res) => {

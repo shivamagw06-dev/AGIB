@@ -188,20 +188,25 @@ def answer_for_ask(question: str, *, ticker: Optional[str] = None) -> Optional[d
         # Fall back to legacy KUL gather if UKO is unavailable.
         gathered = plan_and_gather(question, ticker=ticker)
         if gathered.get("answerable"):
-            coverage = gathered.get("coverage") or {}
+            coverage = gathered.get("coverage") if isinstance(gathered.get("coverage"), dict) else {}
             sources = list(coverage.get("knowledge_sources_used") or [])
+            company = gathered.get("company_intelligence")
+            company = company if isinstance(company, dict) else {}
+            identity = company.get("identity") if isinstance(company.get("identity"), dict) else {}
+            concept = gathered.get("concept_intelligence")
+            concept = concept if isinstance(concept, dict) else {}
             if sources and any(s in _HARD_PROVIDERS for s in sources):
                 out = {
                     "summary": gathered.get("summary") or "",
                     "why": list(gathered.get("why") or []),
                     "evidence": list(gathered.get("evidence") or []),
                     "engine": "knowledge_unification",
-                    "key": ((gathered.get("company_intelligence") or {}).get("identity") or {}).get("ticker"),
-                    "company_name": ((gathered.get("company_intelligence") or {}).get("identity") or {}).get("name"),
+                    "key": identity.get("ticker"),
+                    "company_name": identity.get("name"),
                     "coverage": coverage,
-                    "company_intelligence": gathered.get("company_intelligence") or {},
-                    "concept_intelligence": gathered.get("concept_intelligence") or {},
-                    "diagnostics": gathered.get("diagnostics") or {},
+                    "company_intelligence": company,
+                    "concept_intelligence": concept,
+                    "diagnostics": gathered.get("diagnostics") if isinstance(gathered.get("diagnostics"), dict) else {},
                     "providers_used": sources,
                 }
     if not out:

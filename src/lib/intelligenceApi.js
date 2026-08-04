@@ -3223,6 +3223,18 @@ export const postMieRuntimeResume = () =>
 export const postMieRuntimeRun = (body = {}) =>
   intelligenceFetch('/mie/runtime/run', { method: 'POST', body, timeoutMs: 300_000 });
 
+/** Phase 9.1 — Intelligence Fusion & Answer Composer (IFAC) */
+export const getIfacHealth = () => intelligenceFetch('/ifac/health');
+export const getIfacDashboard = () =>
+  intelligenceFetch('/ifac/dashboard', { timeoutMs: 60_000 });
+export const getIfacTemplates = () => intelligenceFetch('/ifac/templates');
+export const getIfacRouting = () => intelligenceFetch('/ifac/routing');
+export const getIfacConfidence = () => intelligenceFetch('/ifac/confidence');
+export const getIfacDebug = (limit = 20) =>
+  intelligenceFetch(`/ifac/debug?limit=${encodeURIComponent(limit)}`);
+export const postIfacCompose = (body = {}) =>
+  intelligenceFetch('/ifac/compose', { method: 'POST', body, timeoutMs: 120_000 });
+
 /** Market & Sector Intelligence Terminal v1.0 */
 export const getMiHealth = () => intelligenceFetch('/market-intelligence/health');
 export const getMiDashboard = () =>

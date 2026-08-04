@@ -175,20 +175,32 @@ _FAMILY_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("forecast", re.compile(
         r"\b(forecast|outlook|bull case|bear case|base case|"
         r"next 3(?:\s*[–-]\s*5)? years|scenario probabilities)\b", re.I)),
-    ("macro", re.compile(
-        r"\b(macro|rbi|repo rate|rate cut|rate hike|basis point|"
-        r"interest rates?|inflation|which sectors (?:benefit|are likely)|nbfc)\b", re.I)),
-    ("market", re.compile(
-        r"\b(today'?s (?:indian )?market|market summary|market breadth|"
-        r"sector rotation|institutional flows)\b", re.I)),
+    # Attribution / premium decomposition must win over incidental "macro factors"
+    # mentions inside company valuation questions (HDFC premium, etc.).
     ("attribution", re.compile(
         r"\b(attribute|attribution|break down the premium|decompose|"
-        r"trades? at a premium|trading at a premium|premium valuation)\b", re.I)),
+        r"trades? at a premium|trading at a premium|premium to peers|"
+        r"premium valuation|why .{0,40}premium)\b", re.I)),
+    # Explicit compare / expensive-cheap must win over "historical valuation"
+    # mentions that appear as section lists inside those questions.
+    ("comparison", re.compile(
+        r"\b(compare|versus|\bvs\.?\b|stronger institutional profile)\b", re.I)),
+    ("valuation", re.compile(
+        r"\b(expensive or cheap|currently (?:expensive|cheap)|overvalued|undervalued|"
+        r"cheap relative|expensive relative)\b", re.I)),
     ("historical", re.compile(
         r"\b(historical valuation|own history|similar to today|when has|"
         r"what happened afterwards|versus history|vs\.? history|ever traded)\b", re.I)),
-    ("comparison", re.compile(
-        r"\b(compare|versus|\bvs\.?\b|stronger institutional profile)\b", re.I)),
+    ("market", re.compile(
+        r"\b(today'?s (?:indian )?market|market summary|market breadth|"
+        r"sector rotation|institutional flows)\b", re.I)),
+    # Avoid bare \bmacro\b — "macro exposure/factors" appear inside company IC
+    # and attribution questions and must not steal those families.
+    ("macro", re.compile(
+        r"\b(rbi|repo rate|rate cut|rate hike|basis point|"
+        r"interest rates?|inflation|which sectors (?:benefit|are likely)|nbfc|"
+        r"macro (?:regime|outlook|environment|backdrop|impact|transmission|"
+        r"conditions?|question|view|analysis))\b", re.I)),
     ("consensus", re.compile(
         r"\b(consensus|target price|price target|analysts? cover|coverage|"
         r"rating split|upside)\b", re.I)),
