@@ -166,6 +166,72 @@ export default function createMarketRouter(env = {}) {
     }
   });
 
+  // Phase 7.4d — one-shot full-universe Upstox valuation bootstrap
+  router.get('/upstox-bootstrap/status', async (_req, res) => {
+    try {
+      const { getUpstoxBootstrapStatus } = await import('../services/upstoxBootstrapEngine.js');
+      return res.status(200).json(getUpstoxBootstrapStatus());
+    } catch (err) {
+      return res.status(502).json({ ok: false, error: err?.message || 'bootstrap_status_failed' });
+    }
+  });
+
+  router.get('/upstox-bootstrap/missing-isin', async (req, res) => {
+    try {
+      const { getUpstoxBootstrapMissingIsin } = await import('../services/upstoxBootstrapEngine.js');
+      return res.status(200).json(getUpstoxBootstrapMissingIsin({
+        limit: Number(req.query?.limit) || 500,
+      }));
+    } catch (err) {
+      return res.status(502).json({ ok: false, error: err?.message || 'missing_isin_failed' });
+    }
+  });
+
+  router.get('/upstox-bootstrap/failures', async (req, res) => {
+    try {
+      const { getUpstoxBootstrapFailures } = await import('../services/upstoxBootstrapEngine.js');
+      return res.status(200).json(getUpstoxBootstrapFailures({
+        limit: Number(req.query?.limit) || 200,
+      }));
+    } catch (err) {
+      return res.status(502).json({ ok: false, error: err?.message || 'failures_failed' });
+    }
+  });
+
+  router.post('/upstox-bootstrap/start', async (req, res) => {
+    try {
+      const { startUpstoxBootstrap } = await import('../services/upstoxBootstrapEngine.js');
+      const result = await startUpstoxBootstrap({
+        reset: !!req.body?.reset,
+        batchSize: req.body?.batchSize ?? req.body?.batch_size,
+        concurrency: req.body?.concurrency,
+        pauseMs: req.body?.pauseMs ?? req.body?.pause_ms,
+      });
+      return res.status(result.ok ? 200 : 409).json(result);
+    } catch (err) {
+      return res.status(502).json({ ok: false, error: err?.message || 'bootstrap_start_failed' });
+    }
+  });
+
+  router.post('/upstox-bootstrap/stop', async (_req, res) => {
+    try {
+      const { stopUpstoxBootstrap } = await import('../services/upstoxBootstrapEngine.js');
+      return res.status(200).json(await stopUpstoxBootstrap());
+    } catch (err) {
+      return res.status(502).json({ ok: false, error: err?.message || 'bootstrap_stop_failed' });
+    }
+  });
+
+  router.post('/upstox-bootstrap/reset', async (_req, res) => {
+    try {
+      const { resetUpstoxBootstrap } = await import('../services/upstoxBootstrapEngine.js');
+      const result = await resetUpstoxBootstrap();
+      return res.status(result.ok ? 200 : 409).json(result);
+    } catch (err) {
+      return res.status(502).json({ ok: false, error: err?.message || 'bootstrap_reset_failed' });
+    }
+  });
+
   router.get('/intelligence', async (_req, res) => {
     // Warm Groww/NSE ticker in the same 30-min cycle as AGI outlook.
     void getTickerData(env).catch(() => null);

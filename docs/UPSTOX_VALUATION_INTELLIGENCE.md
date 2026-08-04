@@ -54,15 +54,26 @@ POST /v1/valuation-ratios/isin-backfill
 
 Refresh auto-runs this when the ISIN universe is empty.
 
-## Daily schedule
+## Full-universe bootstrap (Phase 7.4d)
+
+One-shot coverage of all ISIN-mapped companies (~30–40 min) lives in a dedicated bootstrap engine — **not** the nightly job.
+
+See [`docs/UPSTOX_BOOTSTRAP.md`](./UPSTOX_BOOTSTRAP.md) and admin UI `/admin/upstox-bootstrap`.
+
+```
+POST /api/market/upstox-bootstrap/start
+GET  /api/market/upstox-bootstrap/status
+```
+
+## Daily schedule (steady-state)
 
 | Time (IST) | Job |
 |------------|-----|
 | 18:05 | FII/DII institutional flow |
-| **18:15** | **ISIN backfill (if needed) → Upstox key-ratios → valuation_ratios** |
+| **18:15** | **Incremental** Upstox key-ratios (~80 names; skips while bootstrap runs) |
 | ~18:45 | Warehouse refresh |
 
-Manual: `POST /api/market/upstox-valuation-ratios/refresh`
+Manual batch: `POST /api/market/upstox-valuation-ratios/refresh`
 
 ## Why Sector Intelligence looks empty
 

@@ -742,6 +742,62 @@ VALUATION_RATIOS = Tab(
     ),
 )
 
+# --------------------------------------------------------------------------
+# Tab — Bootstrap Runs (Phase 7.4d one-shot universe backfill)
+# --------------------------------------------------------------------------
+
+BOOTSTRAP_RUNS = Tab(
+    id="bootstrap_runs",
+    label="Bootstrap Runs",
+    description="One-shot Upstox valuation bootstrap run summaries (append-only).",
+    mode="append",
+    key=("run_id",),
+    order_by=("started_at DESC",),
+    search_columns=("run_id", "status"),
+    icon="ops",
+    columns=(
+        _c("run_id", "Run ID", TEXT, required=True, width=160, group="Key"),
+        _c("started_at", "Start Time", DATETIME, width=170, group="Timing"),
+        _c("ended_at", "End Time", DATETIME, width=170, group="Timing"),
+        _c("companies", "Companies", INTEGER, width=110, group="Counts"),
+        _c("success", "Success", INTEGER, width=100, group="Counts"),
+        _c("failed", "Failed", INTEGER, width=100, group="Counts"),
+        _c("skipped", "Skipped", INTEGER, width=100, group="Counts"),
+        _c("coverage", "Coverage %", NUMBER, width=110, group="Stats"),
+        _c("average_speed", "Avg Speed (cpm)", NUMBER, width=130, group="Stats"),
+        _c("average_latency", "Avg Latency (ms)", NUMBER, width=140, group="Stats"),
+        _c("http_429_count", "429 Count", INTEGER, width=100, group="Stats"),
+        _c("retry_count", "Retry Count", INTEGER, width=110, group="Stats"),
+        _c("status", "Status", TEXT, width=120, group="Status",
+           options=("idle", "running", "paused", "completed", "stopped")),
+        *PROVENANCE_COLUMNS,
+    ),
+)
+
+INGESTION_HEALTH = Tab(
+    id="ingestion_health",
+    label="Ingestion Health",
+    description="Per-source warehouse ingestion health snapshot for ops dashboards.",
+    mode="master",
+    key=("source",),
+    order_by=("source",),
+    search_columns=("source", "health", "notes"),
+    icon="ops",
+    columns=(
+        _c("source", "Source", TEXT, required=True, width=160, group="Key"),
+        _c("coverage", "Coverage %", NUMBER, width=120, group="Health"),
+        _c("rows", "Rows", INTEGER, width=110, group="Health"),
+        _c("successful", "Successful", INTEGER, width=120, group="Health"),
+        _c("failed", "Failed", INTEGER, width=100, group="Health"),
+        _c("average_latency", "Avg Latency (ms)", NUMBER, width=140, group="Health"),
+        _c("last_refresh", "Last Refresh", DATETIME, width=170, group="Health"),
+        _c("health", "Health", TEXT, width=110, group="Health",
+           options=("ok", "warn", "critical", "empty")),
+        _c("notes", "Notes", TEXT, width=280, group="Health"),
+        *PROVENANCE_COLUMNS,
+    ),
+)
+
 TABS: tuple[Tab, ...] = (
     COMPANY_MASTER,
     DAILY_MARKET_HISTORY,
@@ -756,6 +812,8 @@ TABS: tuple[Tab, ...] = (
     OWNERSHIP,
     INSTITUTIONAL_FLOW,
     VALUATION_RATIOS,
+    BOOTSTRAP_RUNS,
+    INGESTION_HEALTH,
     HEDGE_FUND_FACTORS,
     COMPANY_INTELLIGENCE,
     DATA_QUALITY,
