@@ -9,10 +9,25 @@ from macro_intelligence_engine.indicators import (
     classify_regime,
     company_sensitivity,
     industry_impacts,
+    regime_label,
     scenario_probabilities,
     sector_impacts,
 )
 from macro_intelligence_engine.models import FORBIDDEN_TOKENS, SECTORS
+
+
+def _resolve_regime(bundle: dict[str, Any]) -> dict[str, Any]:
+    """Prefer deterministic cycle rules; use HMAI only when it exposes a clean label."""
+    snap = bundle.get("snapshot") or {}
+    pack = classify_regime(snap)
+    hmai = bundle.get("hmai_regime") or {}
+    upstream = regime_label(
+        hmai.get("regime") or hmai.get("current_regime") or (hmai.get("data") or {}).get("regime")
+    )
+    # Ignore verbose catalog labels like "India 2026 current regime"
+    if upstream and upstream.lower() not in {"current regime"} and " current regime" not in upstream.lower():
+        return {**pack, "regime": upstream, "upstream_label": upstream}
+    return pack
 
 
 def _block(
@@ -123,11 +138,9 @@ def _domain_section(
 def executive(bundle: dict[str, Any]) -> dict[str, Any]:
     country = bundle.get("country") or "India"
     snap = bundle.get("snapshot") or {}
-    regime_pack = classify_regime(snap)
-    hmai = bundle.get("hmai_regime") or {}
-    upstream_regime = hmai.get("regime") or hmai.get("current_regime") or (hmai.get("data") or {}).get("regime")
-    regime = upstream_regime or regime_pack["regime"]
-    cycle = regime_pack["cycle"]
+    regime_pack = _resolve_regime(bundle)
+    regime = str(regime_pack.get("regime") or "Recovery")
+    cycle = str(regime_pack.get("cycle") or "Early Cycle")
     impacts = sector_impacts(snap)
     pos = [i["sector"] for i in impacts if i["impact"] == "Positive"]
     neg = [i["sector"] for i in impacts if i["impact"] == "Negative"]
@@ -171,10 +184,10 @@ def executive(bundle: dict[str, Any]) -> dict[str, Any]:
 
 def dashboard(bundle: dict[str, Any]) -> dict[str, Any]:
     snap = bundle.get("snapshot") or {}
-    regime_pack = classify_regime(snap)
+    regime_pack = _resolve_regime(bundle)
     cards = {
-        "regime": regime_pack["regime"],
-        "cycle": regime_pack["cycle"],
+        "regime": str(regime_pack.get("regime") or ""),
+        "cycle": str(regime_pack.get("cycle") or ""),
         "growth": {"gdp": _val(snap, "gdp_growth"), "pmi_mfg": _val(snap, "pmi_manufacturing"), "direction": _dir(snap, "gdp_growth")},
         "inflation": {"cpi": _val(snap, "cpi"), "wpi": _val(snap, "wpi"), "direction": _dir(snap, "cpi")},
         "liquidity": {"credit_growth": _val(snap, "credit_growth"), "banking_liquidity": _val(snap, "banking_liquidity")},
@@ -205,18 +218,16 @@ def dashboard(bundle: dict[str, Any]) -> dict[str, Any]:
 
 
 def regime(bundle: dict[str, Any]) -> dict[str, Any]:
-    snap = bundle.get("snapshot") or {}
-    pack = classify_regime(snap)
-    hmai = bundle.get("hmai_regime") or {}
-    upstream = hmai.get("regime") or hmai.get("current_regime")
-    regime_name = upstream or pack["regime"]
+    pack = _resolve_regime(bundle)
+    regime_name = str(pack.get("regime") or "Recovery")
+    cycle_name = str(pack.get("cycle") or "Early Cycle")
     findings = [
         f"Macro regime classified as {regime_name}.",
-        f"Economic cycle stage: {pack['cycle']}.",
-        f"Classification basis: {pack['basis']}.",
+        f"Economic cycle stage: {cycle_name}.",
+        f"Classification basis: {pack.get('basis')}.",
     ]
-    if upstream:
-        findings.append("HMAI current regime consumed as upstream evidence when available.")
+    if pack.get("upstream_label"):
+        findings.append(f"HMAI label available: {pack.get('upstream_label')}.")
     conf = section_confidence(
         required_hits=1 if regime_name else 0,
         required_total=1,
@@ -225,21 +236,22 @@ def regime(bundle: dict[str, Any]) -> dict[str, Any]:
     return _block(
         "Macro Regime",
         findings,
-        observed=[f"hmai_regime={upstream}", f"drivers={pack['drivers']}"],
-        derived=[f"regime={regime_name}", f"cycle={pack['cycle']}"],
+        observed=[f"hmai_label={pack.get('upstream_label')}", f"drivers={pack.get('drivers')}"],
+        derived=[f"regime={regime_name}", f"cycle={cycle_name}"],
         inferred=["Regime is explainable state classification, not a GDP point forecast."],
         evidence=[{"source": "hmai.current_regime"}, {"source": "directional_rules"}],
         confidence=conf,
         regime=regime_name,
-        cycle=pack["cycle"],
-        drivers=pack["drivers"],
+        cycle=cycle_name,
+        drivers=pack.get("drivers"),
     )
 
 
 def cycle(bundle: dict[str, Any]) -> dict[str, Any]:
-    pack = classify_regime(bundle.get("snapshot") or {})
+    pack = _resolve_regime(bundle)
+    cycle_name = str(pack.get("cycle") or "Early Cycle")
     findings = [
-        f"Economic cycle: {pack['cycle']}.",
+        f"Economic cycle: {cycle_name}.",
         "Cycle uses growth / inflation / rates directional transmission rules.",
         "Early/Mid/Late/Contraction/Recovery labels are research context, not trading signals.",
     ]
@@ -247,12 +259,12 @@ def cycle(bundle: dict[str, Any]) -> dict[str, Any]:
     return _block(
         "Economic Cycle",
         findings,
-        observed=[str(pack["drivers"])],
-        derived=[f"cycle={pack['cycle']}"],
+        observed=[str(pack.get("drivers"))],
+        derived=[f"cycle={cycle_name}"],
         inferred=["Cycle stage informs sector impact and forecast scenario weights."],
         evidence=[{"source": "classify_regime"}],
         confidence=conf,
-        cycle=pack["cycle"],
+        cycle=cycle_name,
     )
 
 
@@ -408,12 +420,12 @@ def company_exposure(bundle: dict[str, Any], *, company: Optional[dict[str, Any]
 
 
 def attribution(bundle: dict[str, Any]) -> dict[str, Any]:
-    snap = bundle.get("snapshot") or {}
     events = (bundle.get("warehouse") or {}).get("macro_events") or []
-    pack = classify_regime(snap)
+    pack = _resolve_regime(bundle)
+    regime_name = str(pack.get("regime") or "Recovery")
     findings = [
-        f"Macro change attribution for regime {pack['regime']}.",
-        f"Observed drivers: {pack['drivers']}.",
+        f"Macro change attribution for regime {regime_name}.",
+        f"Observed drivers: {pack.get('drivers')}.",
     ]
     if events:
         findings.append(f"Recent macro events in warehouse: {len(events)}.")
@@ -429,8 +441,8 @@ def attribution(bundle: dict[str, Any]) -> dict[str, Any]:
     return _block(
         "Macro Attribution",
         findings,
-        observed=[f"events={len(events)}", f"drivers={pack['drivers']}"],
-        derived=[f"regime={pack['regime']}"],
+        observed=[f"events={len(events)}", f"drivers={pack.get('drivers')}"],
+        derived=[f"regime={regime_name}"],
         inferred=["Attribution separates observed series moves from derived regime labels."],
         evidence=[{"source": "macro_events"}, {"source": "snapshot_directions"}],
         confidence=conf,
@@ -439,11 +451,12 @@ def attribution(bundle: dict[str, Any]) -> dict[str, Any]:
 
 def forecast(bundle: dict[str, Any]) -> dict[str, Any]:
     mfi = bundle.get("mfi_forecast") or {}
-    snap = bundle.get("snapshot") or {}
-    pack = classify_regime(snap)
+    pack = _resolve_regime(bundle)
+    drivers = pack.get("drivers") or {}
+    regime_name = str(pack.get("regime") or "Recovery")
     findings = [
         "Macro forecast is scenario-directional (not point GDP prediction).",
-        f"Current regime context: {pack['regime']}.",
+        f"Current regime context: {regime_name}.",
         "Directions covered: growth, inflation, rates, liquidity, currency, commodities.",
     ]
     if mfi and mfi.get("ok") is not False and not mfi.get("error"):
@@ -454,12 +467,12 @@ def forecast(bundle: dict[str, Any]) -> dict[str, Any]:
     else:
         findings.append("MFI forecast unavailable — using regime-conditioned directional outlook.")
     directions = {
-        "gdp": "stable_to_improving" if pack["drivers"].get("growth_up") else "softening",
-        "inflation": "elevated" if pack["drivers"].get("inflation_up") else "easing",
-        "rates": "restrictive" if pack["drivers"].get("rates_up") else "accommodative_bias",
-        "liquidity": "tight" if pack["drivers"].get("liquidity_tight") else "adequate",
-        "currency": "usd_firm" if pack["drivers"].get("usd_up") else "mixed",
-        "commodities": "oil_firm" if pack["drivers"].get("oil_up") else "mixed",
+        "gdp": "stable_to_improving" if drivers.get("growth_up") else "softening",
+        "inflation": "elevated" if drivers.get("inflation_up") else "easing",
+        "rates": "restrictive" if drivers.get("rates_up") else "accommodative_bias",
+        "liquidity": "tight" if drivers.get("liquidity_tight") else "adequate",
+        "currency": "usd_firm" if drivers.get("usd_up") else "mixed",
+        "commodities": "oil_firm" if drivers.get("oil_up") else "mixed",
     }
     conf = section_confidence(
         required_hits=1 if (bundle.get("inputs_present") or {}).get("mfi_forecast") else 0,
@@ -470,7 +483,7 @@ def forecast(bundle: dict[str, Any]) -> dict[str, Any]:
     return _block(
         "Macro Forecast",
         findings,
-        observed=[f"regime={pack['regime']}"],
+        observed=[f"regime={regime_name}"],
         derived=[str(directions)],
         inferred=["Forecasts are directional scenarios for research adjustment, not point estimates."],
         evidence=[{"source": "mfi.forecast"}, {"source": "regime_rules"}],
@@ -480,12 +493,12 @@ def forecast(bundle: dict[str, Any]) -> dict[str, Any]:
 
 
 def scenarios(bundle: dict[str, Any]) -> dict[str, Any]:
-    snap = bundle.get("snapshot") or {}
-    pack = classify_regime(snap)
+    pack = _resolve_regime(bundle)
     mfi_sc = bundle.get("mfi_scenarios") or {}
     inputs = bundle.get("inputs_present") or {}
     conf_score = 0.65 if inputs.get("mfi_scenarios") else 0.45
-    probs = scenario_probabilities(str(pack["regime"]), conf_score)
+    regime_name = str(pack.get("regime") or "Recovery")
+    probs = scenario_probabilities(regime_name, conf_score)
     scen = {
         "bull": {
             "economy": "Growth reaccelerates with disinflation",
@@ -526,7 +539,7 @@ def scenarios(bundle: dict[str, Any]) -> dict[str, Any]:
     return _block(
         "Macro Scenarios",
         findings,
-        observed=[f"regime={pack['regime']}"],
+        observed=[f"regime={regime_name}"],
         derived=[f"probabilities={probs}"],
         inferred=["Probabilities are confidence-weighted and always normalized to 100%."],
         evidence=[{"source": "mfi.scenarios"}, {"source": "scenario_probabilities"}],
@@ -537,8 +550,7 @@ def scenarios(bundle: dict[str, Any]) -> dict[str, Any]:
 
 
 def risks(bundle: dict[str, Any]) -> dict[str, Any]:
-    snap = bundle.get("snapshot") or {}
-    drivers = classify_regime(snap)["drivers"]
+    drivers = (_resolve_regime(bundle).get("drivers") or {})
     risk_rows = [
         {"risk": "Inflation Risk", "level": "High" if drivers.get("inflation_up") else "Medium"},
         {"risk": "Policy Risk", "level": "High" if drivers.get("rates_up") else "Medium"},

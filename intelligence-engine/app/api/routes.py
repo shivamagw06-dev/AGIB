@@ -19949,16 +19949,22 @@ async def mie_health():
 
 @router.get("/mie/dashboard")
 async def mie_dashboard(country: str = "India"):
-    from macro_intelligence_engine import dashboard
+    try:
+        from macro_intelligence_engine import dashboard
 
-    return dashboard(country)
+        return dashboard(country)
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)[:320], "engine": "macro_intelligence_engine"}
 
 
 @router.get("/mie/pack")
 async def mie_pack(country: str = "India", symbol: str | None = None):
-    from macro_intelligence_engine import pack
+    try:
+        from macro_intelligence_engine import pack
 
-    return pack(country, symbol=symbol)
+        return pack(country, symbol=symbol)
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)[:320], "engine": "macro_intelligence_engine"}
 
 
 @router.get("/mie/regime")

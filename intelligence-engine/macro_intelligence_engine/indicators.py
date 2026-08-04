@@ -207,6 +207,29 @@ def company_sensitivity(sector: Optional[str], industry: Optional[str] = None) -
     }
 
 
+def regime_label(value: Any) -> str:
+    """Normalize HMAI / rule-engine regime payloads to a short display label."""
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value.strip()
+    if isinstance(value, dict):
+        for key in ("label", "regime", "name", "regime_label", "current_regime"):
+            inner = value.get(key)
+            if isinstance(inner, str) and inner.strip():
+                # Prefer human label; strip verbose "India 2026 current regime" → keep as-is if short
+                text = inner.strip()
+                if key == "label" and " current regime" in text.lower():
+                    # Fall through to rule classification preference when label is generic catalog text
+                    continue
+                if key != "label":
+                    return regime_label(inner) if isinstance(inner, dict) else text
+                return text
+        # Catalog rows often only have features — no named Expansion/Slowdown label
+        return ""
+    return str(value).strip()
+
+
 def classify_regime(snapshot: dict[str, Any]) -> dict[str, Any]:
     """Rule-based regime from growth + inflation directions."""
     drivers = active_drivers(snapshot)

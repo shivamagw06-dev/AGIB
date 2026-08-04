@@ -77,6 +77,14 @@ def build_macro_pack(country: str = DEFAULT_COUNTRY, *, symbol: Optional[str] = 
 
     executive = modules.get("executive") or {}
     scenarios = modules.get("scenarios") or {}
+    regime_val = executive.get("regime") or (modules.get("regime") or {}).get("regime")
+    cycle_val = executive.get("cycle") or (modules.get("cycle") or {}).get("cycle")
+    if not isinstance(regime_val, str):
+        from macro_intelligence_engine.indicators import regime_label
+
+        regime_val = regime_label(regime_val) or "Recovery"
+    if not isinstance(cycle_val, str):
+        cycle_val = str(cycle_val or "Early Cycle")
     pack = {
         "ok": True,
         "country": ctry,
@@ -86,8 +94,8 @@ def build_macro_pack(country: str = DEFAULT_COUNTRY, *, symbol: Optional[str] = 
         "version": VERSION,
         "generated_at": _now(),
         "executive_summary": executive.get("summary"),
-        "regime": executive.get("regime") or (modules.get("regime") or {}).get("regime"),
-        "cycle": executive.get("cycle") or (modules.get("cycle") or {}).get("cycle"),
+        "regime": regime_val,
+        "cycle": cycle_val,
         "modules": modules,
         "sections": modules,
         "macro_quality": quality,

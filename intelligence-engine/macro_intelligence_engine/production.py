@@ -59,13 +59,30 @@ def health() -> dict[str, Any]:
     }
 
 
+def _safe_call(fn, *args, **kwargs) -> dict[str, Any]:
+    """Never raise to FastAPI — return structured JSON errors instead of bare 500s."""
+    try:
+        out = fn(*args, **kwargs)
+        return out if isinstance(out, dict) else {"ok": True, "value": out, "engine": ENGINE_CODE}
+    except Exception as exc:
+        return {
+            "ok": False,
+            "error": str(exc)[:320],
+            "engine": ENGINE_CODE,
+            "version": VERSION,
+            "recommendation": None,
+        }
+
+
 def dashboard(country: str = DEFAULT_COUNTRY) -> dict[str, Any]:
-    pack = build_macro_pack(country)
+    pack = _safe_call(build_macro_pack, country)
+    if pack.get("ok") is False and pack.get("error") and not pack.get("modules"):
+        return pack
     return {
         "ok": pack.get("ok"),
         "country": pack.get("country"),
-        "regime": pack.get("regime"),
-        "cycle": pack.get("cycle"),
+        "regime": pack.get("regime") if isinstance(pack.get("regime"), str) else None,
+        "cycle": pack.get("cycle") if isinstance(pack.get("cycle"), str) else None,
         "executive_summary": pack.get("executive_summary"),
         "macro_quality": pack.get("macro_quality"),
         "probabilities": pack.get("probabilities"),
@@ -80,15 +97,16 @@ def dashboard(country: str = DEFAULT_COUNTRY) -> dict[str, Any]:
         "engine": ENGINE_CODE,
         "version": VERSION,
         "generated_at": pack.get("generated_at"),
+        "error": pack.get("error"),
     }
 
 
 def pack(country: str = DEFAULT_COUNTRY, *, symbol: Optional[str] = None) -> dict[str, Any]:
-    return build_macro_pack(country, symbol=symbol)
+    return _safe_call(build_macro_pack, country, symbol=symbol)
 
 
 def module(name: str, *, country: str = DEFAULT_COUNTRY, symbol: Optional[str] = None) -> dict[str, Any]:
-    return build_module(name, country=country, symbol=symbol)
+    return _safe_call(build_module, name, country=country, symbol=symbol)
 
 
 def regime(country: str = DEFAULT_COUNTRY) -> dict[str, Any]:
