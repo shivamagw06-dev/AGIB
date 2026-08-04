@@ -18,14 +18,17 @@ import {
   YAxis,
 } from 'recharts';
 import {
+  getSveSectors,
   getVtCompany,
   getVtExplain,
   getVtHealth,
   getVtSeries,
   searchVtCompanies,
 } from '@/lib/intelligenceApi';
+import SectorValuationWorkspace, { SectorDirectory } from '@/pages/admin/SectorValuationWorkspace';
 import './valuationIntelligence.css';
 import './valuationTerminal.css';
+import './sectorValuationExplorer.css';
 
 const METRIC_LABELS = {
   pe: 'P/E',
@@ -568,6 +571,7 @@ export default function ValuationTerminal() {
   const location = useLocation();
   const [params, setParams] = useSearchParams();
   const [symbol, setSymbol] = useState(params.get('symbol') || '');
+  const [sector, setSector] = useState(params.get('sector') || '');
   const [window, setWindow] = useState('5Y');
   const [pack, setPack] = useState(null);
   const [health, setHealth] = useState(null);
@@ -576,6 +580,9 @@ export default function ValuationTerminal() {
   const [metric, setMetric] = useState(null);
   const [recent, setRecent] = useState(() => readList(RECENT_KEY));
   const [favorites, setFavorites] = useState(() => readList(FAV_KEY));
+  const [sectors, setSectors] = useState([]);
+  const [sectorsLoading, setSectorsLoading] = useState(true);
+  const [compare, setCompare] = useState([]);
 
   const home = location.pathname.startsWith('/admin') ? '/admin' : '/';
 
@@ -583,12 +590,35 @@ export default function ValuationTerminal() {
     getVtHealth().then(setHealth).catch(() => setHealth(null));
   }, []);
 
+  const selectSector = useCallback((name) => {
+    setSector(name);
+    setSymbol('');
+    setPack(null);
+    setCompare([]);
+    setParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('symbol');
+      next.set('sector', name);
+      return next;
+    });
+  }, [setParams]);
+
+  const clearSector = useCallback(() => {
+    setSector('');
+    setParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('sector');
+      return next;
+    });
+  }, [setParams]);
+
   const selectCompany = useCallback((sym, name) => {
     const ticker = String(sym || '').toUpperCase();
     setSymbol(ticker);
     setParams((prev) => {
       const next = new URLSearchParams(prev);
       next.set('symbol', ticker);
+      // Keep sector context when drilling down from sector workspace.
       return next;
     });
     const entry = { symbol: ticker, name: name || ticker };
@@ -632,13 +662,24 @@ export default function ValuationTerminal() {
 
   useEffect(() => { loadHealth(); }, [loadHealth]);
   useEffect(() => { loadPack(); }, [loadPack]);
+  useEffect(() => {
+    setSectorsLoading(true);
+    getSveSectors()
+      .then((r) => setSectors(r?.sectors || []))
+      .catch(() => setSectors([]))
+      .finally(() => setSectorsLoading(false));
+  }, []);
 
   useEffect(() => {
     const fromUrl = params.get('symbol');
+    const sectorUrl = params.get('sector') || '';
     if (fromUrl && fromUrl.toUpperCase() !== symbol) setSymbol(fromUrl.toUpperCase());
-  }, [params, symbol]);
+    if (sectorUrl !== sector) setSector(sectorUrl);
+  }, [params, symbol, sector]);
 
   const isFavorite = favorites.some((f) => f.symbol === symbol);
+  const showSectorHome = !symbol && !sector;
+  const showSectorWorkspace = !symbol && !!sector;
 
   return (
     <div className="vi-root vt-root">
@@ -647,10 +688,10 @@ export default function ValuationTerminal() {
           <div className="vi-brand">
             <Link to={home} className="vt-back"><ArrowLeft size={14} /> Back</Link>
             <h1>Valuation Terminal</h1>
-            <p>Warehouse → Unified Valuation Engine → Terminal</p>
+            <p>Market → Sector → Company → History · Warehouse → UVE / HVIE / VPAE</p>
           </div>
           <div className="vi-actions">
-            <button type="button" className="vi-btn" onClick={() => { loadHealth(); loadPack(); }} disabled={!symbol || loading}>
+            <button type="button" className="vi-btn" onClick={() => { loadHealth(); loadPack(); getSveSectors().then((r) => setSectors(r?.sectors || [])); }} disabled={loading}>
               <RefreshCw size={14} /> Refresh
             </button>
             <div className="vi-updated">
@@ -672,21 +713,51 @@ export default function ValuationTerminal() {
       <main className="vi-body">
         {error ? <div className="vi-error">{error}</div> : null}
 
-        {!symbol ? (
-          <section className="vt-empty-state">
-            <h2>Institutional Valuation Terminal</h2>
-            <p>
-              Search a company to open the valuation workspace. Multiples come from the
-              Unified Valuation Engine — never from committed Yahoo JSON.
-            </p>
-            <div className="vt-quick">
-              {['AXISBANK', 'ICICIBANK', 'INFY', 'TCS'].map((s) => (
-                <button key={s} type="button" className="vt-chip" onClick={() => selectCompany(s, s)}>
-                  {s}
-                </button>
-              ))}
-            </div>
-          </section>
+        {showSectorHome ? (
+          <>
+            <section className="vt-empty-state">
+              <h2>Institutional Valuation Terminal</h2>
+              <p>
+                Search a company, or start from a sector below for top-down research.
+                Multiples come from the Unified Valuation Engine and HVIE — never from the UI.
+              </p>
+              <div className="vt-quick">
+                {['AXISBANK', 'ICICIBANK', 'INFY', 'TCS'].map((s) => (
+                  <button key={s} type="button" className="vt-chip" onClick={() => selectCompany(s, s)}>
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </section>
+            <SectorDirectory
+              sectors={sectors}
+              loading={sectorsLoading}
+              onSelect={selectSector}
+            />
+          </>
+        ) : null}
+
+        {showSectorWorkspace ? (
+          <SectorValuationWorkspace
+            sector={sector}
+            onBack={clearSector}
+            onSelectCompany={selectCompany}
+            compare={compare}
+            onToggleCompare={(sym) => {
+              setCompare((prev) => (
+                prev.includes(sym) ? prev.filter((x) => x !== sym) : [...prev, sym].slice(0, 5)
+              ));
+            }}
+          />
+        ) : null}
+
+        {symbol && sector ? (
+          <div className="sve-context-bar">
+            <button type="button" onClick={() => { setSymbol(''); setParams((p) => { const n = new URLSearchParams(p); n.delete('symbol'); return n; }); }}>
+              ← Back to {sector}
+            </button>
+            <span className="hint">Company drill-down from sector workspace</span>
+          </div>
         ) : null}
 
         {loading ? <p className="hint">Computing valuation from warehouse…</p> : null}

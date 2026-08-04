@@ -2860,6 +2860,60 @@ export const getValuationPolicyUniverse = (params = {}) => {
   return intelligenceFetch(`/valuation/universe${qs ? `?${qs}` : ''}`, { timeoutMs: 120_000 });
 };
 
+/** Sector Valuation Explorer — top-down institutional valuation workspace */
+export const getSveHealth = () => intelligenceFetch('/valuation/explorer/health');
+export const getSveSectors = (params = {}) => {
+  const qs = new URLSearchParams(
+    Object.fromEntries(Object.entries(params).filter(([, v]) => v != null && v !== '')),
+  ).toString();
+  return intelligenceFetch(`/valuation/sectors${qs ? `?${qs}` : ''}`, { timeoutMs: 120_000 });
+};
+export const getSveSector = (sector, params = {}) => {
+  const qs = new URLSearchParams(
+    Object.fromEntries(Object.entries(params).filter(([, v]) => v != null && v !== '')),
+  ).toString();
+  return intelligenceFetch(
+    `/valuation/sector/${encodeURIComponent(sector)}${qs ? `?${qs}` : ''}`,
+    { timeoutMs: 120_000 },
+  );
+};
+export const getSveSectorCompanies = (sector, params = {}) => {
+  const qs = new URLSearchParams(
+    Object.fromEntries(Object.entries(params).filter(([, v]) => v != null && v !== '')),
+  ).toString();
+  return intelligenceFetch(
+    `/valuation/sector/${encodeURIComponent(sector)}/companies${qs ? `?${qs}` : ''}`,
+    { timeoutMs: 120_000 },
+  );
+};
+export const getSveSectorLeaders = (sector, params = {}) =>
+  intelligenceFetch(
+    `/valuation/sector/${encodeURIComponent(sector)}/leaders?${new URLSearchParams(params)}`,
+    { timeoutMs: 120_000 },
+  );
+export const getSveSectorHeatmap = (sector) =>
+  intelligenceFetch(`/valuation/sector/${encodeURIComponent(sector)}/heatmap`, { timeoutMs: 120_000 });
+export const getSveSectorResearch = (sector) =>
+  intelligenceFetch(`/valuation/sector/${encodeURIComponent(sector)}/research`, { timeoutMs: 120_000 });
+export const getSveCompany = (symbol, params = {}) => {
+  const qs = new URLSearchParams(
+    Object.fromEntries(Object.entries(params).filter(([, v]) => v != null && v !== '')),
+  ).toString();
+  return intelligenceFetch(
+    `/valuation/company/${encodeURIComponent(symbol)}${qs ? `?${qs}` : ''}`,
+    { timeoutMs: 90_000 },
+  );
+};
+export const getSveCompanyHistory = (symbol, params = {}) => {
+  const qs = new URLSearchParams(
+    Object.fromEntries(Object.entries(params).filter(([, v]) => v != null && v !== '')),
+  ).toString();
+  return intelligenceFetch(
+    `/valuation/company/${encodeURIComponent(symbol)}/history${qs ? `?${qs}` : ''}`,
+    { timeoutMs: 90_000 },
+  );
+};
+
 /** Historical Valuation Intelligence Engine (HVIE) — Phase 8.3 */
 export const getHvieHealth = () => intelligenceFetch('/historical-valuation/health');
 const hvieFetch = (path, params = {}, timeoutMs = 60_000) => {
