@@ -34,6 +34,7 @@ import SectorValuationWorkspace, {
 import CoverageHealthPanel from '@/pages/admin/CoverageHealthPanel';
 import { CompanyAttributionPanel } from '@/pages/admin/ValuationAttributionPanel';
 import ResearchDossierPanel from '@/pages/admin/ResearchDossierPanel';
+import ForecastPanel from '@/pages/admin/ForecastPanel';
 import './valuationIntelligence.css';
 import './valuationTerminal.css';
 import './sectorValuationExplorer.css';
@@ -583,6 +584,7 @@ const COMPANY_TABS = [
   { id: 'valuation', label: 'Valuation' },
   { id: 'historical', label: 'Historical' },
   { id: 'research', label: 'Research' },
+  { id: 'forecast', label: 'Forecast' },
   { id: 'peers', label: 'Peers' },
   { id: 'risks', label: 'Risks' },
 ];
@@ -653,6 +655,10 @@ function CompanyDetailWorkspace({
             <ResearchDossierPanel symbol={symbol} />
             <CompanyAttributionPanel symbol={symbol} />
           </>
+        ) : null}
+
+        {tab === 'forecast' ? (
+          <ForecastPanel symbol={symbol} />
         ) : null}
 
         {tab === 'overview' ? (

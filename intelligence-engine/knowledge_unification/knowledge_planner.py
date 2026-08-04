@@ -78,10 +78,30 @@ _PORTFOLIO_MENU = (
 # Phase 3.4.5 — Research Intelligence for institutional research / document memory.
 _RESEARCH_MENU = (
     "research_intelligence_engine",
+    "forecast_intelligence_engine",
     "research_intelligence",
     "investment_intelligence",
     "business_intelligence",
     "industry_intelligence",
+    "historical_intelligence",
+    "institutional_warehouse",
+    "valuation_consensus",
+    "valuation_terminal",
+    "financial_statement_warehouse",
+    "capiq_ikt",
+    "company_memory",
+    "ikl",
+    "knowledge_factory",
+    "cgl",
+    "legacy_kip",
+)
+# Phase 8.5 — Forecast Intelligence Engine for forward outlook / scenarios.
+_FORECAST_MENU = (
+    "forecast_intelligence_engine",
+    "research_intelligence_engine",
+    "research_intelligence",
+    "investment_intelligence",
+    "business_intelligence",
     "historical_intelligence",
     "institutional_warehouse",
     "valuation_consensus",
@@ -240,6 +260,27 @@ def build_knowledge_plan(
             "watchlist",
         )
     )
+    forecast_shaped = "forecast" in types or any(
+        k in qlow
+        for k in (
+            "forecast",
+            "outlook",
+            "bull case",
+            "bear case",
+            "base case",
+            "next 3 years",
+            "fy+",
+            "fy+1",
+            "fy+2",
+            "fy+3",
+            "assumptions matter",
+            "confidence low",
+            "invalidate this forecast",
+            "how has the forecast",
+            "sensitivity",
+            "scenario probabilities",
+        )
+    )
     investment_shaped = "investment" in types or any(
         k in qlow
         for k in (
@@ -311,6 +352,11 @@ def build_knowledge_plan(
         selected.extend(_CONSENSUS_SCREEN_MENU)
         rationale.append(
             "Consensus screen (no company bind) → Valuation Consensus universe → Industry DNA."
+        )
+    elif forecast_shaped and company_bound:
+        selected.extend(_FORECAST_MENU)
+        rationale.append(
+            "Forecast-shaped → FIE → RIE → INV → BI → warehouse/valuation layers (no recalculation)."
         )
     elif research_shaped and (company_bound or "research" in types or "comparison" in types):
         selected.extend(_RESEARCH_MENU)

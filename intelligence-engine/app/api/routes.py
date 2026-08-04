@@ -19775,6 +19775,165 @@ async def rie_confidence(symbol: str):
     return confidence(symbol)
 
 
+# --------------------------------------------------------------------------
+# Forecast Intelligence Engine (Phase 8.5)
+# Canonical prefix /v1/fie/* — avoids collision with legacy /v1/forecast/*
+# --------------------------------------------------------------------------
+
+@router.get("/fie/health")
+async def fie_health():
+    from forecast_intelligence_engine import health
+
+    return health()
+
+
+@router.get("/fie/dashboard")
+async def fie_dashboard():
+    from forecast_intelligence_engine import dashboard
+
+    return dashboard()
+
+
+@router.get("/fie/coverage")
+async def fie_coverage(limit: int = 200):
+    from forecast_intelligence_engine import coverage
+
+    return coverage(limit=min(max(int(limit or 200), 1), 2000))
+
+
+@router.get("/fie/company/{symbol}")
+async def fie_company(symbol: str):
+    from forecast_intelligence_engine import company
+
+    return company(symbol)
+
+
+@router.get("/fie/business/{symbol}")
+async def fie_business(symbol: str):
+    from forecast_intelligence_engine import business
+
+    return business(symbol)
+
+
+@router.get("/fie/growth/{symbol}")
+async def fie_growth(symbol: str):
+    from forecast_intelligence_engine import growth
+
+    return growth(symbol)
+
+
+@router.get("/fie/profitability/{symbol}")
+async def fie_profitability(symbol: str):
+    from forecast_intelligence_engine import profitability
+
+    return profitability(symbol)
+
+
+@router.get("/fie/balance-sheet/{symbol}")
+async def fie_balance_sheet(symbol: str):
+    from forecast_intelligence_engine import balance_sheet
+
+    return balance_sheet(symbol)
+
+
+@router.get("/fie/valuation/{symbol}")
+async def fie_valuation(symbol: str):
+    from forecast_intelligence_engine import valuation
+
+    return valuation(symbol)
+
+
+@router.get("/fie/scenarios/{symbol}")
+async def fie_scenarios(symbol: str):
+    from forecast_intelligence_engine import scenarios
+
+    return scenarios(symbol)
+
+
+@router.get("/fie/sensitivity/{symbol}")
+async def fie_sensitivity(symbol: str):
+    from forecast_intelligence_engine import sensitivity
+
+    return sensitivity(symbol)
+
+
+@router.get("/fie/risks/{symbol}")
+async def fie_risks(symbol: str):
+    from forecast_intelligence_engine import risks
+
+    return risks(symbol)
+
+
+@router.get("/fie/catalysts/{symbol}")
+async def fie_catalysts(symbol: str):
+    from forecast_intelligence_engine import catalysts
+
+    return catalysts(symbol)
+
+
+@router.get("/fie/confidence/{symbol}")
+async def fie_confidence(symbol: str):
+    from forecast_intelligence_engine import confidence
+
+    return confidence(symbol)
+
+
+@router.get("/fie/history/{symbol}")
+async def fie_history(symbol: str):
+    from forecast_intelligence_engine import history
+
+    return history(symbol)
+
+
+@router.get("/fie/accuracy/{symbol}")
+async def fie_accuracy(symbol: str):
+    from forecast_intelligence_engine import accuracy
+
+    return accuracy(symbol)
+
+
+@router.get("/fie/runtime/status")
+async def fie_runtime_status():
+    from forecast_intelligence_engine import runtime_status
+
+    return runtime_status()
+
+
+@router.get("/fie/runtime/board")
+async def fie_runtime_board():
+    from forecast_intelligence_engine import runtime_board
+
+    return runtime_board()
+
+
+@router.post("/fie/runtime/start")
+async def fie_runtime_start():
+    from forecast_intelligence_engine import runtime_start
+
+    return runtime_start()
+
+
+@router.post("/fie/runtime/stop")
+async def fie_runtime_stop():
+    from forecast_intelligence_engine import runtime_stop
+
+    return runtime_stop()
+
+
+@router.post("/fie/runtime/resume")
+async def fie_runtime_resume():
+    from forecast_intelligence_engine import runtime_resume
+
+    return runtime_resume()
+
+
+@router.post("/fie/runtime/run")
+async def fie_runtime_run(payload: dict[str, Any] = Body(default_factory=dict)):
+    from forecast_intelligence_engine import runtime_run
+
+    return runtime_run(batch=int((payload or {}).get("batch") or 3))
+
+
 @router.get("/valuation-engine/health")
 async def valuation_engine_health():
     """The one valuation contract: what it computes and what it reads."""
