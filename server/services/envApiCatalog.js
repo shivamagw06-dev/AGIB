@@ -4,7 +4,9 @@
  */
 
 import { isGrowwConfigured } from '../providers/groww.js';
+import { isUpstoxConfigured } from '../providers/upstox.js';
 import { getGrowwHealth } from './growwHealth.js';
+import { getUpstoxHealth } from './upstoxHealth.js';
 
 function present(...keys) {
   return keys.some((k) => Boolean(String(process.env[k] || '').trim()));
@@ -18,6 +20,18 @@ export function listEnvApiCatalog() {
       env: ['GROWW_ACCESS_TOKEN', 'GROWW_API_KEY', 'GROWW_API_SECRET', 'GROWW_API_BASE'],
       configured: isGrowwConfigured(),
       role: 'Primary India market data (LTP / quote / OHLC / historical)',
+    },
+    {
+      name: 'Upstox',
+      env: [
+        'UPSTOX_ACCESS_TOKEN',
+        'UPSTOX_API',
+        'UPSTOX_API_KEY',
+        'UPSTOX_API_SECRET',
+        'UPSTOX_REDIRECT_URI',
+      ],
+      configured: isUpstoxConfigured() || present('UPSTOX_API_KEY', 'UPSTOX_API', 'UPSTOX_CLIENT_ID'),
+      role: 'Fundamentals / corporate actions (Bearer access token)',
     },
     {
       name: 'Indian API',
@@ -232,6 +246,44 @@ export async function enrichMissionControlApis(desk = {}) {
       error: t.ok ? undefined : t.error,
     })),
     checkedAt: groww?.checkedAt || new Date().toISOString(),
+  };
+
+  let upstox = null;
+  try {
+    upstox = await getUpstoxHealth();
+  } catch (err) {
+    upstox = {
+      ok: false,
+      configured: isUpstoxConfigured(),
+      message: err?.message || 'Upstox probe failed',
+    };
+  }
+  const upstoxStatus = !upstox?.configured
+    ? 'Offline'
+    : upstox.ok
+      ? 'Healthy'
+      : 'Critical';
+  apis = upsertApiStatus(apis, {
+    name: 'Upstox',
+    status: upstoxStatus,
+    colour: upstoxStatus === 'Healthy' ? 'Green' : upstoxStatus === 'Offline' ? 'Red' : 'Yellow',
+    provider_confidence: upstox?.configured ? 'configured' : 'missing_env',
+    last_error: upstox?.ok ? null : upstox?.message || null,
+    note: upstox?.configured
+      ? upstox.message || `Auth source: ${upstox.authSource || 'token'}`
+      : 'Set UPSTOX_ACCESS_TOKEN (Bearer). UPSTOX_API key alone is not enough.',
+    capabilities: ['corporate_actions', 'fundamentals'],
+    env_keys: ['UPSTOX_ACCESS_TOKEN', 'UPSTOX_API', 'UPSTOX_API_KEY', 'UPSTOX_API_SECRET'],
+    checked_at: upstox?.checkedAt || new Date().toISOString(),
+  });
+  out.upstox_health = {
+    configured: Boolean(upstox?.configured),
+    ok: Boolean(upstox?.ok),
+    authSource: upstox?.authSource || null,
+    message: upstox?.message || null,
+    isin: upstox?.isin || null,
+    event_count: upstox?.corporate_actions?.count ?? null,
+    checkedAt: upstox?.checkedAt || new Date().toISOString(),
   };
   return out;
 }
