@@ -18962,6 +18962,27 @@ async def warehouse_remediate_zeros(
                            dry_run=bool(body.get("dry_run")))
 
 
+@router.get("/warehouse/statement-identity")
+async def warehouse_statement_identity():
+    """Statement rows still carrying no statement type."""
+    from institutional_warehouse.production import statement_identity_coverage
+
+    return statement_identity_coverage()
+
+
+@router.post("/warehouse/migrate-statement-identity")
+async def warehouse_migrate_statement_identity(
+    payload: dict[str, Any] = Body(default_factory=dict),
+    x_agi_actor: str | None = Header(default=None),
+):
+    """Type and re-key legacy statement rows. Dry run unless told otherwise."""
+    from institutional_warehouse.production import migrate_statement_identity
+
+    body = payload or {}
+    return migrate_statement_identity(actor=_warehouse_actor(body, x_agi_actor),
+                                      dry_run=bool(body.get("dry_run", True)))
+
+
 @router.get("/warehouse/unit-coverage")
 async def warehouse_unit_coverage():
     """Rows still carrying no unit stamp, per tab."""

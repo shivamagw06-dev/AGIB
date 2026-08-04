@@ -8,13 +8,17 @@ and an earnings per share of 174 for a bank reached production.
 Now every writer — collector, backfill, importer, formula engine — goes through
 here:
 
-    units -> normalise -> validate -> missing-value intelligence -> quality
-          -> conflicts -> persist -> audit
+    identity -> units -> missing-value intelligence -> validate -> conflicts
+             -> persist -> quality -> audit
 
-Unit normalisation runs first because everything after it compares numbers.
-Crores against rupees is a 10,000,000% gap, so a vendor that reports in a
-different magnitude would otherwise fail validation ranges and register as a
-conflict on every field.
+Identity runs first because a row cannot be keyed without it: ``statement_type``
+is part of the natural key on the financial tabs, and a row with an empty key
+part is skipped entirely.
+
+Units run next because everything after them compares numbers. Crores against
+rupees is a 10,000,000% gap, so a vendor reporting in a different magnitude
+would otherwise fail validation ranges and register as a conflict on every
+field.
 
 Rejected rows are quarantined rather than dropped, so switching the collectors
 onto a stricter path cannot silently lose data that used to land.
@@ -27,7 +31,8 @@ import uuid
 from typing import Any, Iterable, Optional, Sequence
 
 from institutional_warehouse import (
-    audit, conflicts, db, missing_values, quality, store, units, validation,
+    audit, conflicts, db, missing_values, quality, statement_identity, store, units,
+    validation,
 )
 from institutional_warehouse.schema import find_tab
 from institutional_warehouse.values import now_iso
@@ -60,14 +65,18 @@ def write(
         return {"ok": True, "tab": tab_id, "seen": 0, "written": 0, "inserted": 0,
                 "updated": 0, "unchanged": 0, "quarantined": 0}
 
-    # 1. Units, before anything reads a number. Aggregate money becomes INR
+    # 1. Statement identity, before the row can be keyed at all: statement_type
+    #    is part of the natural key, and a row with an empty key part is skipped.
+    incoming = statement_identity.apply_identity(tab, incoming)
+
+    # 2. Units, before anything reads a number. Aggregate money becomes INR
     #    million so validation ranges and conflict tolerances mean the same
     #    thing whichever vendor sent the row.
     unit_result = units.normalise_rows(tab_id, incoming, source=source,
                                        reported_unit=reported_unit)
     incoming = unit_result["rows"]
 
-    # 2. Missing-value intelligence, before validation sees the row: a zero that
+    # 3. Missing-value intelligence, before validation sees the row: a zero that
     #    means "absent" must not be validated as though it were a reading.
     cleaned: list[dict[str, Any]] = []
     reclassified = 0
@@ -76,25 +85,25 @@ def write(
         cleaned.append(verdict["row"])
         reclassified += len(verdict["reclassified_zeros"])
 
-    # 3. Validation. Rejected rows are quarantined, never silently dropped.
+    # 4. Validation. Rejected rows are quarantined, never silently dropped.
     report = validation.validate_payload(tab_id, cleaned, require_reference=require_reference)
     accepted = report["accepted"]
     quarantined = _quarantine(tab_id, report["rejected"], source=source, actor=actor,
                               import_id=import_id)
 
-    # 4. Conflict detection against what is already stored.
+    # 5. Conflict detection against what is already stored.
     found_conflicts: list[dict[str, Any]] = []
     if quality.classify_source(source) == quality.CALCULATED:
         detect_conflicts = False
     if detect_conflicts and accepted:
         found_conflicts = conflicts.detect(tab_id, accepted, source=source, actor=actor)
 
-    # 5. Persist.
+    # 6. Persist.
     result = store.upsert(tab_id, accepted, source=source, actor=actor,
                           import_id=import_id, reason=reason, published=published) \
         if accepted else {"inserted": 0, "updated": 0, "unchanged": 0, "skipped": 0}
 
-    # 6. Unit and quality metadata for the rows that landed. Both are system
+    # 7. Unit and quality metadata for the rows that landed. Both are system
     #    columns, which store.upsert does not carry, so they are written here.
     _stamp_units(tab, accepted)
     stamped = _stamp_quality(tab, accepted, source=source,

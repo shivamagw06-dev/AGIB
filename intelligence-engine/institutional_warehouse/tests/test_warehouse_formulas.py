@@ -42,6 +42,9 @@ def _seed() -> None:
         for year, factor in (("FY2025", 0.9), ("FY2026", 1.0)):
             annual.append({
                 "symbol": symbol,
+                # Part of the natural key: store.upsert cannot key a row without it.
+                "statement_type": "CONSOLIDATED",
+                "statement_frequency": "ANNUAL",
                 "fiscal_year": year,
                 "revenue": revenue * factor,
                 "gross_profit": revenue * factor * 0.4,
