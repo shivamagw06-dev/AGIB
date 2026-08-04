@@ -27,7 +27,8 @@ import uuid
 from typing import Any, Iterable, Optional, Sequence
 
 from institutional_warehouse import (
-    audit, conflicts, db, missing_values, quality, store, units, validation,
+    audit, conflicts, db, missing_values, quality, statement_identity, store, units,
+    validation,
 )
 from institutional_warehouse.schema import find_tab
 from institutional_warehouse.values import now_iso
@@ -60,7 +61,11 @@ def write(
         return {"ok": True, "tab": tab_id, "seen": 0, "written": 0, "inserted": 0,
                 "updated": 0, "unchanged": 0, "quarantined": 0}
 
-    # 1. Units, before anything reads a number. Aggregate money becomes INR
+    # 1. Statement identity, before the row can be keyed at all: statement_type
+    #    is part of the natural key, and a row with an empty key part is skipped.
+    incoming = statement_identity.apply_identity(tab, incoming)
+
+    # 2. Units, before anything reads a number. Aggregate money becomes INR
     #    million so validation ranges and conflict tolerances mean the same
     #    thing whichever vendor sent the row.
     unit_result = units.normalise_rows(tab_id, incoming, source=source,

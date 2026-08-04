@@ -256,6 +256,40 @@ DAILY_MARKET_HISTORY = Tab(
 
 _MN = UNIT_INR_MILLION
 
+# Consolidated and standalone are different facts about the same period, not two
+# opinions about one fact. Before they were part of the key the second import
+# hashed to the same row and silently replaced the first.
+STATEMENT_TYPES = ("CONSOLIDATED", "STANDALONE", "UNKNOWN")
+
+# Frequency is carried alongside the type so a tab can hold half-yearly and
+# trailing-twelve-month filings without another schema change.
+STATEMENT_FREQUENCIES = ("ANNUAL", "QUARTERLY", "HALF_YEARLY", "TTM", "UNKNOWN")
+
+DEFAULT_STATEMENT_TYPE = "UNKNOWN"
+
+
+def _identity_columns(frequency: str) -> tuple[Column, ...]:
+    """Statement identity — part of the natural key on both financial tabs."""
+    return (
+        _c("statement_type", "Statement Type", TEXT, required=True, width=140, group="Key",
+           options=STATEMENT_TYPES,
+           help="Consolidated and standalone are stored separately and never compared."),
+        _c("statement_frequency", "Frequency", TEXT, width=120, group="Key",
+           options=STATEMENT_FREQUENCIES,
+           help=f"Defaults to {frequency} for this tab."),
+    )
+
+
+#: Filing lifecycle. Restatements are kept as row snapshots by ``versions``,
+#: so these describe *which* filing a row represents rather than duplicating
+#: the version chain that already exists.
+_FILING_COLUMNS: tuple[Column, ...] = (
+    _c("filing_date", "Filing Date", DATE, width=120, group="Filing"),
+    _c("effective_date", "Effective Date", DATE, width=130, group="Filing"),
+    _c("restated", "Restated", BOOL, width=100, group="Filing",
+       help="Set when this filing revises figures the company published earlier."),
+)
+
 _STATEMENT_COLUMNS: tuple[Column, ...] = (
     _c("revenue", "Revenue", CURRENCY, width=130, group="P&L", unit=_MN),
     _c("gross_profit", "Gross Profit", CURRENCY, width=130, group="P&L", unit=_MN),
@@ -286,6 +320,7 @@ _STATEMENT_COLUMNS: tuple[Column, ...] = (
        unit=UNIT_COUNT),
     _computed("book_value", "Book Value", NUMBER, width=120, group="Per Share", unit=UNIT_INR,
               help="Equity / Shares Outstanding"),
+    *_FILING_COLUMNS,
     *PROVENANCE_COLUMNS,
     _c("statement_version", "Statement Version", TEXT, editable=False, width=150, group="Provenance"),
 )
@@ -293,14 +328,17 @@ _STATEMENT_COLUMNS: tuple[Column, ...] = (
 FINANCIALS_ANNUAL = Tab(
     id="financials_annual",
     label="Financials (Annual)",
-    description="Annual statement facts. One row per company per fiscal year.",
+    description="Annual statement facts. One row per company per fiscal year per statement type.",
     mode="append",
-    key=("symbol", "fiscal_year"),
+    key=("symbol", "statement_type", "fiscal_year"),
     order_by=("symbol", "fiscal_year DESC"),
-    search_columns=("symbol", "fiscal_year"),
+    search_columns=("symbol", "fiscal_year", "statement_type"),
     icon="annual",
+    notes=("Consolidated and standalone are separate rows and are never compared "
+           "against each other.",),
     columns=(
         _c("symbol", "Symbol", TEXT, required=True, width=130, group="Key"),
+        *_identity_columns("ANNUAL"),
         _c("fiscal_year", "Fiscal Year", TEXT, required=True, width=120, group="Key"),
         *_STATEMENT_COLUMNS,
     ),
@@ -309,14 +347,18 @@ FINANCIALS_ANNUAL = Tab(
 FINANCIALS_QUARTERLY = Tab(
     id="financials_quarterly",
     label="Financials (Quarterly)",
-    description="Quarterly statement facts. Same schema as annual, one row per fiscal quarter.",
+    description="Quarterly statement facts. One row per company per fiscal quarter "
+                "per statement type.",
     mode="append",
-    key=("symbol", "fiscal_period"),
+    key=("symbol", "statement_type", "fiscal_period"),
     order_by=("symbol", "fiscal_period DESC"),
-    search_columns=("symbol", "fiscal_period"),
+    search_columns=("symbol", "fiscal_period", "statement_type"),
     icon="quarterly",
+    notes=("Consolidated and standalone are separate rows and are never compared "
+           "against each other.",),
     columns=(
         _c("symbol", "Symbol", TEXT, required=True, width=130, group="Key"),
+        *_identity_columns("QUARTERLY"),
         _c("fiscal_period", "Fiscal Period", TEXT, required=True, width=130, group="Key",
            help="FY2026Q1 style period label"),
         _c("fiscal_year", "Fiscal Year", TEXT, width=110, group="Key"),

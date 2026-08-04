@@ -346,6 +346,23 @@ def remediate_zeros(*, actor: str, dry_run: bool = False) -> dict[str, Any]:
     return remediate_missing_zeros(actor=actor, dry_run=dry_run)
 
 
+def statement_identity_coverage() -> dict[str, Any]:
+    """Statement rows still carrying no statement type."""
+    from institutional_warehouse import statement_identity
+
+    return statement_identity.unidentified_summary()
+
+
+def migrate_statement_identity(*, actor: str, dry_run: bool = True) -> dict[str, Any]:
+    """Type and re-key statement rows written before statement_type was keyed."""
+    from institutional_warehouse import statement_identity
+
+    denied = permissions.require(actor, "refresh")
+    if denied:
+        return denied
+    return statement_identity.backfill_identity(actor=actor, dry_run=dry_run)
+
+
 def unit_coverage() -> dict[str, Any]:
     """How much of the warehouse has been through unit normalisation."""
     from institutional_warehouse import units

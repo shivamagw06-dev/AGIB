@@ -21,7 +21,7 @@ from __future__ import annotations
 import uuid
 from typing import Any, Iterable, Optional, Sequence
 
-from institutional_warehouse import db, store
+from institutional_warehouse import db, statement_identity, store
 from institutional_warehouse.schema import tab as get_tab
 from institutional_warehouse.values import now_iso, to_number
 
@@ -82,6 +82,14 @@ def detect(tab_id: str, rows: Sequence[dict[str, Any]], *, source: str,
         # columns may be in any magnitude, so a gap against a normalised row
         # says nothing about whether the sources actually disagree.
         held_unstamped = existing.get("sys_reported_unit") in (None, "")
+
+        # Consolidated against standalone, or annual against quarterly, are
+        # different facts. They should not collide on one row_id now that
+        # statement_type is keyed, but a legacy row can still carry the wrong
+        # pairing, and reporting that as a disagreement would be a false
+        # conflict rather than a finding.
+        if not statement_identity.comparable(existing, row):
+            continue
 
         for field in watched:
             if held_unstamped and field in rescaled:
