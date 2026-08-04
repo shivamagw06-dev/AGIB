@@ -20132,6 +20132,67 @@ async def mie_runtime_run(payload: dict[str, Any] = Body(default_factory=dict)):
     )
 
 
+# --------------------------------------------------------------------------
+# Phase 9.1 — Intelligence Fusion & Answer Composer (IFAC)
+# --------------------------------------------------------------------------
+
+
+@router.get("/ifac/health")
+async def ifac_health():
+    from intelligence_fusion_answer_composer import health
+
+    return health()
+
+
+@router.post("/ifac/compose")
+async def ifac_compose(payload: dict[str, Any] = Body(default_factory=dict)):
+    from intelligence_fusion_answer_composer.production import compose_api
+
+    return compose_api(payload or {})
+
+
+@router.get("/ifac/templates")
+async def ifac_templates():
+    from intelligence_fusion_answer_composer import templates_catalog
+
+    return templates_catalog()
+
+
+@router.get("/ifac/routing")
+async def ifac_routing():
+    from intelligence_fusion_answer_composer import routing_table
+
+    return routing_table()
+
+
+@router.get("/ifac/confidence")
+async def ifac_confidence():
+    from intelligence_fusion_answer_composer import confidence_board
+
+    return confidence_board()
+
+
+@router.get("/ifac/debug")
+async def ifac_debug(limit: int = 20):
+    from intelligence_fusion_answer_composer import debug_last
+
+    return debug_last(limit=limit)
+
+
+@router.get("/ifac/provenance")
+async def ifac_provenance():
+    from intelligence_fusion_answer_composer import provenance_sample
+
+    return provenance_sample()
+
+
+@router.get("/ifac/dashboard")
+async def ifac_dashboard():
+    from intelligence_fusion_answer_composer.production import dashboard
+
+    return dashboard()
+
+
 @router.get("/valuation-engine/health")
 async def valuation_engine_health():
     """The one valuation contract: what it computes and what it reads."""

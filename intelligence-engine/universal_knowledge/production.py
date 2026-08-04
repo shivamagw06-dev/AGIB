@@ -29,22 +29,36 @@ def for_ask(question: str, *, ticker: Optional[str] = None) -> Optional[dict[str
     used = list((out.get("coverage") or {}).get("knowledge_sources_used") or [])
     if not used:
         return None
+    ifac = out.get("ifac") if isinstance(out.get("ifac"), dict) else {}
+    company = out.get("company_intelligence")
+    company = company if isinstance(company, dict) else {}
+    identity = company.get("identity") if isinstance(company.get("identity"), dict) else {}
+    concept = out.get("concept_intelligence")
+    concept = concept if isinstance(concept, dict) else {}
     return {
         "summary": out.get("summary") or "",
         "why": list(out.get("why") or []),
         "evidence": list(out.get("evidence") or []),
+        "sections": list(out.get("sections") or []),
+        "explainability": out.get("explainability") if isinstance(out.get("explainability"), dict) else {},
+        "conflicts": list(out.get("conflicts") or []),
+        "confidence": out.get("confidence") if isinstance(out.get("confidence"), dict) else {},
         "engine": "universal_knowledge",
+        "composer": "intelligence_fusion_answer_composer",
         "version": UKO_VERSION,
         "programme": PROGRAMME,
-        "key": ((out.get("company_intelligence") or {}).get("identity") or {}).get("ticker"),
-        "company_name": ((out.get("company_intelligence") or {}).get("identity") or {}).get("name"),
-        "coverage": out.get("coverage") or {},
-        "company_intelligence": out.get("company_intelligence") or {},
-        "concept_intelligence": out.get("concept_intelligence") or {},
-        "diagnostics": out.get("diagnostics") or {},
+        "key": identity.get("ticker"),
+        "company_name": identity.get("name"),
+        "coverage": out.get("coverage") if isinstance(out.get("coverage"), dict) else {},
+        "company_intelligence": company,
+        "concept_intelligence": concept,
+        "diagnostics": out.get("diagnostics") if isinstance(out.get("diagnostics"), dict) else {},
         "providers_used": used,
-        "evidence_graph": out.get("evidence_graph") or {},
-        "attributions": out.get("attributions") or [],
+        "evidence_graph": out.get("evidence_graph") if isinstance(out.get("evidence_graph"), dict) else {},
+        "attributions": list(out.get("attributions") or []),
+        "ifac": ifac,
+        "primary_engine": ifac.get("primary_engine"),
+        "consensus_demoted": bool(ifac.get("consensus_demoted")),
     }
 
 

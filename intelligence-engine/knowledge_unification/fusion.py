@@ -160,37 +160,61 @@ def _company_terms(plan: KnowledgePlan) -> list[str]:
 
 
 _OBJECTIVE_LEADS: tuple[tuple[re.Pattern[str], tuple[str, ...]], ...] = (
+    # Explicit CapIQ consensus questions only — never for valuation / IC / forecast.
     (
         re.compile(
-            r"\b(consensus|target price|price target|high target|low target|"
-            r"analysts? cover|coverage|rating split|upside)\b",
+            r"\b(consensus target|target price|price target|high target|low target|"
+            r"analysts? cover|rating split|broker (?:estimate|consensus|recommendation))\b",
             re.I,
         ),
         ("valuation_consensus",),
     ),
     (
         re.compile(
-            r"\b(annual report|earnings call|transcript|guidance|management (?:said|commentary))\b",
+            r"\b(annual report|earnings call|transcript|guidance|management (?:said|commentary)|"
+            r"investment committee|institutional equity analyst|as if you were)\b",
             re.I,
         ),
-        ("research_intelligence",),
+        ("research_intelligence_engine", "research_intelligence", "forecast_intelligence_engine"),
     ),
     (
         re.compile(
             r"\b(expensive|cheap|overvalued|undervalued|valuation|multiple|"
             r"p/?e\b|p/?b\b|ev/?ebitda|price to (?:earnings|book|sales)|"
-            r"trades? at|re-?rat(?:e|ing)|de-?rat(?:e|ing)|discount|premium)\b",
+            r"trades? at|re-?rat(?:e|ing)|de-?rat(?:e|ing)|discount|premium|"
+            r"own history|similar to today)\b",
             re.I,
         ),
-        ("valuation_terminal", "valuation_consensus", "industry_intelligence"),
+        (
+            "historical_valuation_intelligence",
+            "unified_valuation_engine",
+            "valuation_attribution_engine",
+            "valuation_policy_engine",
+            "valuation_terminal",
+            "industry_intelligence",
+        ),
     ),
     (
         re.compile(
             r"\b(screen|scanner|hedge fund|long/?short|market neutral|pair trade|"
-            r"value trap|momentum|quality screen)\b",
+            r"value trap|momentum|quality screen|compounders?)\b",
             re.I,
         ),
-        ("hedge_fund_screens", "valuation_terminal", "investment_intelligence"),
+        ("hedge_fund_screens", "unified_valuation_engine", "investment_intelligence"),
+    ),
+    (
+        re.compile(
+            r"\b(forecast|outlook|bull case|bear case|base case|next 3)\b",
+            re.I,
+        ),
+        ("forecast_intelligence_engine", "research_intelligence_engine", "macro_intelligence_engine"),
+    ),
+    (
+        re.compile(
+            r"\b(macro|rbi|rate cut|basis point|sector rotation|market breadth)\b",
+            re.I,
+        ),
+        ("macro_intelligence_engine", "market_intelligence_engine", "forecast_intelligence_engine"),
     ),
     (
         re.compile(
@@ -198,11 +222,11 @@ _OBJECTIVE_LEADS: tuple[tuple[re.Pattern[str], tuple[str, ...]], ...] = (
             r"biggest risks?|business and financial quality)\b",
             re.I,
         ),
-        ("investment_intelligence", "business_intelligence", "capiq_ikt"),
+        ("research_intelligence_engine", "investment_intelligence", "business_intelligence"),
     ),
     (
         re.compile(r"\b(business model|what does .+ do|explain|moat|competes?|unit economics)\b", re.I),
-        ("business_intelligence", "capiq_ikt", "company_memory"),
+        ("business_intelligence", "research_intelligence_engine", "company_memory"),
     ),
 )
 

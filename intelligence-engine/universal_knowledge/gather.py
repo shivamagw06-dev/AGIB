@@ -97,7 +97,10 @@ def gather(
         except Exception:
             pass
 
-    execution = plan_question(question, ticker=bound, max_providers=max_providers)
+    # Institutional showcase answers need a wider provider budget so IFAC can
+    # fuse RIE/FIE/MIE/UVE/HVIE/VARIE rather than truncating to CapIQ alone.
+    budget = max(int(max_providers or 10), 14)
+    execution = plan_question(question, ticker=bound, max_providers=budget)
     selected = list(execution["selected_providers"])
     expected = list(execution["expected_providers"])
     knowledge_plan = execution["knowledge_plan"]
@@ -146,11 +149,33 @@ def gather(
     except Exception as exc:
         fused_dict = {"summary": "", "why": [], "error": f"fusion_failed:{type(exc).__name__}:{exc}"}
 
-    summary = str(fused_dict.get("summary") or "").strip()
+    # Phase 9.1 — IFAC composes the institutional answer above engine fusion.
+    # CapIQ consensus may still appear in fused_dict; IFAC demotes it from the headline.
+    ifac_pack: dict[str, Any] = {}
+    try:
+        from intelligence_fusion_answer_composer.compose import compose_from_provider_results
+
+        ifac_pack = compose_from_provider_results(
+            question,
+            results,
+            family=execution.get("family"),
+            ticker=bound_ticker,
+            fused=fused_dict,
+        )
+    except Exception as exc:
+        ifac_pack = {"ok": False, "error": f"ifac_failed:{type(exc).__name__}:{exc}"}
+
+    summary = ""
+    why: list[Any] = []
+    if ifac_pack.get("ok") and str(ifac_pack.get("summary") or "").strip():
+        summary = str(ifac_pack.get("summary") or "").strip()
+        why = list(ifac_pack.get("why") or [])
+    else:
+        summary = str(fused_dict.get("summary") or "").strip()
+        why = list(fused_dict.get("why") or []) or list(graph.get("why") or [])
     if not summary and graph["nodes"]:
         summary = graph["nodes"][0].get("summary") or ""
 
-    why = list(fused_dict.get("why") or []) or list(graph.get("why") or [])
     elapsed_ms = round((time.perf_counter() - t0) * 1000.0, 1)
     answerable = bool(summary) and bool(used)
 
@@ -163,6 +188,21 @@ def gather(
         "fabricated": False,
         "summary": summary,
         "why": why,
+        "sections": list(ifac_pack.get("sections") or []),
+        "explainability": ifac_pack.get("explainability") or {},
+        "conflicts": list(ifac_pack.get("conflicts") or []),
+        "confidence": ifac_pack.get("confidence") or {},
+        "ifac": {
+            "ok": bool(ifac_pack.get("ok")),
+            "template": ifac_pack.get("template"),
+            "family": ifac_pack.get("family"),
+            "primary_engine": ifac_pack.get("primary_engine"),
+            "consensus_demoted": bool(ifac_pack.get("consensus_demoted")),
+            "provenance": ifac_pack.get("provenance") or {},
+            "dqiv": ifac_pack.get("dqiv") or {},
+            "debug": ifac_pack.get("debug") or {},
+            "engines_used": list(ifac_pack.get("engines_used") or []),
+        },
         "evidence": list(fused_dict.get("evidence") or graph.get("evidence") or []),
         "company_intelligence": fused_dict.get("company_intelligence") or {},
         "concept_intelligence": fused_dict.get("concept_intelligence") or {},
@@ -179,6 +219,7 @@ def gather(
                 "empty": getattr(r, "empty", True),
                 "confidence": getattr(r, "confidence", None),
                 "summary": (getattr(r, "summary", None) or "")[:240],
+                "why": list(getattr(r, "why", None) or [])[:4],
             }
             for r in results
         ],
@@ -192,6 +233,7 @@ def gather(
             "errors": errors,
             "latency_ms": elapsed_ms,
             "fusion_engine": "knowledge_unification.fusion",
+            "composer": "intelligence_fusion_answer_composer",
             "entity_intelligence": {
                 "state": ei_contract.get("state") if ei_contract else None,
             },
