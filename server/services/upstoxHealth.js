@@ -4,7 +4,10 @@
  */
 
 import {
+  FUNDAMENTAL_ENDPOINTS,
   getCorporateActions,
+  getFundamentals,
+  getHistoricalCandles,
   isUpstoxConfigured,
   resolveUpstoxAccessToken,
   upstoxEnvPresence,
@@ -38,6 +41,79 @@ function sanitizeEvents(payload, limit = 5) {
         details: details.Details || details.details || null,
       };
     }),
+  };
+}
+
+function shapeOf(payload) {
+  const data = payload?.data;
+  if (Array.isArray(data)) {
+    const first = data[0];
+    return {
+      kind: 'array',
+      rows: data.length,
+      fields: first && typeof first === 'object' ? Object.keys(first).slice(0, 12) : [],
+    };
+  }
+  if (data && typeof data === 'object') {
+    return { kind: 'object', fields: Object.keys(data).slice(0, 15) };
+  }
+  return { kind: typeof data, rows: 0, fields: [] };
+}
+
+/**
+ * Probe every fundamentals endpoint plus public candles for one ISIN.
+ * Reports availability and payload shape only — never raw statements or secrets.
+ */
+export async function getUpstoxCapabilities(opts = {}) {
+  const isin = String(opts.isin || DEFAULT_ISIN).trim().toUpperCase();
+  const instrumentKey = opts.instrumentKey || `NSE_EQ|${isin}`;
+  const endpoints = {};
+
+  for (const endpoint of FUNDAMENTAL_ENDPOINTS) {
+    try {
+      const payload = await getFundamentals(isin, endpoint);
+      endpoints[endpoint] = {
+        ok: payload?.status === 'success',
+        status: payload?.status || null,
+        ...shapeOf(payload),
+      };
+    } catch (err) {
+      endpoints[endpoint] = { ok: false, error: err?.message || 'failed', httpStatus: err?.status || null };
+    }
+  }
+
+  const candles = {};
+  const to = new Date().toISOString().slice(0, 10);
+  for (const [label, spec] of Object.entries({
+    monthly_16y: { unit: 'months', interval: 1, from: '2010-01-01' },
+    weekly_15y: { unit: 'weeks', interval: 1, from: '2011-01-01' },
+    daily_5y: { unit: 'days', interval: 1, from: '2020-01-01' },
+  })) {
+    try {
+      const payload = await getHistoricalCandles(instrumentKey, { ...spec, to });
+      const rows = payload?.data?.candles || [];
+      candles[label] = {
+        ok: rows.length > 0,
+        count: rows.length,
+        oldest: rows.length ? rows[rows.length - 1][0] : null,
+        newest: rows.length ? rows[0][0] : null,
+        auth_required: false,
+      };
+    } catch (err) {
+      candles[label] = { ok: false, error: err?.message || 'failed' };
+    }
+  }
+
+  const available = Object.values(endpoints).filter((e) => e.ok).length;
+  return {
+    provider: 'upstox',
+    isin,
+    instrument_key: instrumentKey,
+    configured: isUpstoxConfigured(),
+    fundamentals: endpoints,
+    fundamentals_available: `${available}/${FUNDAMENTAL_ENDPOINTS.length}`,
+    candles,
+    checkedAt: new Date().toISOString(),
   };
 }
 

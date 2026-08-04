@@ -111,14 +111,58 @@ async function upstoxGet(path) {
   return json;
 }
 
-/**
- * GET /fundamentals/{isin}/corporate-actions
- * @param {string} isin e.g. INE002A01018 (Reliance)
- */
-export async function getCorporateActions(isin) {
+function cleanIsin(isin) {
   const clean = String(isin || '').trim().toUpperCase();
   if (!/^INE[A-Z0-9]{9}$/.test(clean) && !/^[A-Z]{2}[A-Z0-9]{9,12}$/.test(clean)) {
     throw new Error(`Invalid ISIN: ${isin}`);
   }
-  return upstoxGet(`/fundamentals/${encodeURIComponent(clean)}/corporate-actions`);
+  return clean;
+}
+
+/** ISIN-keyed fundamentals endpoints. `competitors` is keyed by instrument_key instead. */
+export const FUNDAMENTAL_ENDPOINTS = Object.freeze([
+  'company-profile',
+  'income-statement',
+  'balance-sheet',
+  'cash-flow',
+  'key-ratios',
+  'share-holdings',
+  'corporate-actions',
+]);
+
+/**
+ * GET /fundamentals/{isin}/{endpoint}
+ * @param {string} isin e.g. INE002A01018 (Reliance)
+ * @param {string} endpoint one of FUNDAMENTAL_ENDPOINTS
+ */
+export async function getFundamentals(isin, endpoint) {
+  if (!FUNDAMENTAL_ENDPOINTS.includes(endpoint)) {
+    throw new Error(`Unsupported fundamentals endpoint: ${endpoint}`);
+  }
+  return upstoxGet(`/fundamentals/${encodeURIComponent(cleanIsin(isin))}/${endpoint}`);
+}
+
+export async function getCorporateActions(isin) {
+  return getFundamentals(isin, 'corporate-actions');
+}
+
+/**
+ * Historical OHLC candles. Public data — works without an access token.
+ * @param {string} instrumentKey e.g. "NSE_EQ|INE002A01018"
+ * @param {string} unit days | weeks | months | minutes | hours
+ */
+export async function getHistoricalCandles(instrumentKey, { unit = 'months', interval = 1, from, to } = {}) {
+  const key = String(instrumentKey || '').trim();
+  if (!key.includes('|')) throw new Error(`Invalid instrument_key: ${instrumentKey}`);
+  const base = process.env.UPSTOX_API_BASE_V3 || 'https://api.upstox.com/v3';
+  const path = `/historical-candle/${encodeURIComponent(key)}/${unit}/${interval}/${to}/${from}`;
+  const fetchFn = await ensureFetch();
+  const resp = await fetchFn(`${base}${path}`, { headers: { Accept: 'application/json' } });
+  const json = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    const err = new Error(json?.errors?.[0]?.message || `Upstox HTTP ${resp.status}`);
+    err.status = resp.status;
+    throw err;
+  }
+  return json;
 }
