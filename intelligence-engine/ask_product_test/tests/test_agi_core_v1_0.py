@@ -34,8 +34,19 @@ def test_release_gate_order_matches_permanent_policy():
     assert RELEASE_GATE_ORDER[1] == "golden_founder_5"
     assert RELEASE_GATE_ORDER[2] == "golden_business_20"
     assert RELEASE_GATE_ORDER[3] == "afi_acceptance"
-    assert RELEASE_GATE_ORDER[-1] == "unknown_entity"
+    # Core identity/platform certs absorbed from main run after unknown-entity.
+    assert "unknown_entity" in RELEASE_GATE_ORDER
+    assert RELEASE_GATE_ORDER[-1] == "answer_quality"
+    assert RELEASE_GATE_ORDER[-2] == "core_platform_acceptance"
     assert set(RELEASE_GATE_ORDER) == set(RELEASE_GATE_TARGETS)
+    for required in (
+        "ii_acceptance",
+        "ii_integration",
+        "founder_evaluation_v3",
+        "canonical_classification",
+        "company_metadata_routing",
+    ):
+        assert required in RELEASE_GATE_ORDER
 
 
 def test_baseline_manifest_is_merge_ready():

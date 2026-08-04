@@ -47,6 +47,8 @@ const ThemeDesk = React.lazy(() => import('@/pages/ThemeDesk'));
 const SectorDesk = React.lazy(() => import('@/pages/SectorDesk'));
 const ResearchWorkflowDesk = React.lazy(() => import('@/pages/ResearchWorkflowDesk'));
 const AskAgiPage = React.lazy(() => import('@/pages/AskAgiPage'));
+const ValuationIntelligence = React.lazy(() => import('@/pages/admin/ValuationIntelligence'));
+const ValuationTerminal = React.lazy(() => import('@/pages/admin/ValuationTerminal'));
 const AgiRoutes = React.lazy(() => import('@/pages/agi/AgiRoutes'));
 const PredictionCentre = React.lazy(() => import('@/pages/PredictionCentre'));
 const PersonalWorkspace = React.lazy(() => import('@/pages/PersonalWorkspace'));
@@ -67,6 +69,8 @@ function AppShell() {
   const location = useLocation();
   const isAdmin = location.pathname.startsWith('/admin');
   const isAskWorkspace = location.pathname === '/ask';
+  const isValuationIntelligence =
+    location.pathname === '/valuation-intelligence' || location.pathname === '/valuation-terminal';
   const isAgiProduct = location.pathname === '/agi' || location.pathname.startsWith('/agi/');
 
   useEffect(() => {
@@ -107,6 +111,23 @@ function AppShell() {
           <Suspense fallback={<div className="min-h-screen bg-[#0b0e14] p-8 text-center text-slate-300">Loading Ask AGI…</div>}>
             <Routes>
               <Route path="/ask" element={<AskAgiPage />} />
+            </Routes>
+          </Suspense>
+          <Toaster />
+        </PinGate>
+      </MarketDataProvider>
+    );
+  }
+
+  // Valuation Intelligence — full-bleed institutional consensus (read for users; admin import on /admin).
+  if (isValuationIntelligence) {
+    return (
+      <MarketDataProvider>
+        <PinGate>
+          <Suspense fallback={<div className="min-h-screen bg-[#eef3f8] p-8 text-center text-slate-600">Loading Valuation Intelligence…</div>}>
+            <Routes>
+              <Route path="/valuation-intelligence" element={<ValuationIntelligence />} />
+              <Route path="/valuation-terminal" element={<ValuationTerminal />} />
             </Routes>
           </Suspense>
           <Toaster />
@@ -156,6 +177,7 @@ function PublicRoutes() {
       <Route path="/market-intelligence" element={<MarketIntelligence />} />
       <Route path="/macro-intelligence" element={<MacroIntelligence />} />
       <Route path="/hedge-fund" element={<HedgeFundPage />} />
+      <Route path="/hedge-fund/strategy-lab" element={<Navigate replace to="/hedge-fund" />} />
       <Route path="/private-markets" element={<PrivateEquityPage />} />
       <Route path="/private-markets/firms/:slug" element={<PrivateEquityFirmPage />} />
       <Route path="/private-markets/entities/:slug" element={<IntelligenceEntityPage />} />

@@ -8,7 +8,11 @@ from __future__ import annotations
 import re
 from typing import Any, Optional
 
-from business_intelligence.foundation.taxonomy import classify_industry, normalize_industry
+from business_intelligence.foundation.taxonomy import (
+    canonical_industry_key,
+    classify_industry,
+    normalize_industry,
+)
 
 
 def _cell(row: dict[str, Any], key: str) -> Any:
@@ -158,8 +162,11 @@ def assemble_evidence(
         ticker=tk,
         question=question,
     )
+    # Capital IQ classification is canonical and outranks named pedagogy,
+    # caller hints, and any description-derived guess.
     industry_key = (
-        (ped or {}).get("industry_key")
+        canonical_industry_key(tk)
+        or (ped or {}).get("industry_key")
         or normalize_industry(industry_hint)
         or classify_industry(
             sector=company.get("sector"),

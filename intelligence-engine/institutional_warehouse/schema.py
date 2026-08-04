@@ -1,0 +1,647 @@
+"""Warehouse schema — the 14 workbook tabs and their columns.
+
+Each tab is a physical database table. The admin workspace renders a tab as a
+sheet, but nothing here is a spreadsheet: types, keys, editability and
+computation are declared once and enforced on the server.
+
+Column semantics
+----------------
+``editable``  admin may type into the cell (creates an override + version)
+``computed``  written only by the server-side formula engine (read only)
+``key``       part of the natural key that makes a row unique in the tab
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Any, Iterable, Optional
+
+# --------------------------------------------------------------------------
+# Column / tab model
+# --------------------------------------------------------------------------
+
+TEXT = "text"
+NUMBER = "number"
+INTEGER = "integer"
+PERCENT = "percent"
+CURRENCY = "currency"
+DATE = "date"
+DATETIME = "datetime"
+BOOL = "bool"
+JSON = "json"
+
+_NUMERIC_TYPES = {NUMBER, INTEGER, PERCENT, CURRENCY}
+
+
+@dataclass(frozen=True)
+class Column:
+    key: str
+    label: str
+    type: str = TEXT
+    editable: bool = True
+    computed: bool = False
+    width: int = 140
+    group: str = ""
+    required: bool = False
+    options: tuple[str, ...] = ()
+    help: str = ""
+
+    @property
+    def numeric(self) -> bool:
+        return self.type in _NUMERIC_TYPES
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "key": self.key,
+            "label": self.label,
+            "type": self.type,
+            "editable": self.editable and not self.computed,
+            "computed": self.computed,
+            "width": self.width,
+            "group": self.group,
+            "required": self.required,
+            "options": list(self.options),
+            "help": self.help,
+            "numeric": self.numeric,
+        }
+
+
+@dataclass(frozen=True)
+class Tab:
+    id: str
+    label: str
+    description: str
+    mode: str  # master | append | structured | computed | generated | internal
+    key: tuple[str, ...]
+    columns: tuple[Column, ...]
+    order_by: tuple[str, ...] = ()
+    entity_column: Optional[str] = "symbol"
+    search_columns: tuple[str, ...] = ()
+    icon: str = ""
+    notes: tuple[str, ...] = field(default_factory=tuple)
+
+    # -- lookups ----------------------------------------------------------
+    def column(self, key: str) -> Optional[Column]:
+        for col in self.columns:
+            if col.key == key:
+                return col
+        return None
+
+    @property
+    def column_keys(self) -> list[str]:
+        return [c.key for c in self.columns]
+
+    @property
+    def computed_keys(self) -> list[str]:
+        return [c.key for c in self.columns if c.computed]
+
+    @property
+    def editable_keys(self) -> list[str]:
+        return [c.key for c in self.columns if c.editable and not c.computed]
+
+    @property
+    def append_only(self) -> bool:
+        """Append-only tabs keep an immutable snapshot per key (never overwrite history)."""
+        return self.mode in {"append", "computed_daily"}
+
+    @property
+    def read_only(self) -> bool:
+        return self.mode in {"computed", "internal"}
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "label": self.label,
+            "description": self.description,
+            "mode": self.mode,
+            "key": list(self.key),
+            "order_by": list(self.order_by or self.key),
+            "entity_column": self.entity_column,
+            "read_only": self.read_only,
+            "append_only": self.append_only,
+            "icon": self.icon,
+            "notes": list(self.notes),
+            "columns": [c.to_dict() for c in self.columns],
+        }
+
+
+def _c(key: str, label: str, type_: str = TEXT, **kw: Any) -> Column:
+    return Column(key=key, label=label, type=type_, **kw)
+
+
+def _computed(key: str, label: str, type_: str = NUMBER, **kw: Any) -> Column:
+    kw.setdefault("width", 120)
+    return Column(key=key, label=label, type=type_, editable=False, computed=True, **kw)
+
+
+# Provenance columns exist on every tab and are managed by the server.
+PROVENANCE_COLUMNS: tuple[Column, ...] = (
+    _c("source", "Source", TEXT, editable=False, width=150, group="Provenance"),
+    _c("last_updated", "Last Updated", DATETIME, editable=False, width=170, group="Provenance"),
+)
+
+SYSTEM_COLUMNS = ("row_id", "version", "published", "created_at", "overridden")
+
+
+# --------------------------------------------------------------------------
+# Tab 1 — Company Master
+# --------------------------------------------------------------------------
+
+COMPANY_MASTER = Tab(
+    id="company_master",
+    label="Company Master",
+    description="Master registry. Primary key for every AGI module.",
+    mode="master",
+    key=("company_id",),
+    order_by=("symbol",),
+    entity_column="symbol",
+    search_columns=("company_id", "symbol", "bse_symbol", "isin", "company_name", "legal_name"),
+    icon="registry",
+    columns=(
+        _c("company_id", "Company ID", TEXT, editable=False, required=True, width=140, group="Identity"),
+        _c("symbol", "NSE Symbol", TEXT, required=True, width=130, group="Identity"),
+        _c("bse_symbol", "BSE Symbol", TEXT, width=120, group="Identity"),
+        _c("isin", "ISIN", TEXT, width=140, group="Identity"),
+        _c("company_name", "Company Name", TEXT, required=True, width=240, group="Identity"),
+        _c("legal_name", "Legal Name", TEXT, width=240, group="Identity"),
+        _c("sector", "Sector", TEXT, width=160, group="Classification"),
+        _c("industry", "Industry", TEXT, width=180, group="Classification"),
+        _c("industry_dna", "Industry DNA", TEXT, width=180, group="Classification"),
+        _c("business_type", "Business Type", TEXT, width=150, group="Classification"),
+        _c("exchange", "Exchange", TEXT, width=110, group="Listing"),
+        _c("listing_date", "Listing Date", DATE, width=130, group="Listing"),
+        _c("website", "Website", TEXT, width=210, group="Profile"),
+        _c("country", "Country", TEXT, width=110, group="Profile"),
+        _c("state", "State", TEXT, width=130, group="Profile"),
+        _c("city", "City", TEXT, width=130, group="Profile"),
+        _c("currency", "Currency", TEXT, width=100, group="Profile"),
+        _c("market_status", "Market Status", TEXT, width=130, group="Status",
+           options=("listed", "suspended", "delisted", "unlisted")),
+        _c("active", "Active", BOOL, width=90, group="Status"),
+        *PROVENANCE_COLUMNS,
+    ),
+)
+
+# --------------------------------------------------------------------------
+# Tab 2 — Daily Market History
+# --------------------------------------------------------------------------
+
+DAILY_MARKET_HISTORY = Tab(
+    id="daily_market_history",
+    label="Daily Market History",
+    description="One row per company per trading day. Daily append only — history is never overwritten.",
+    mode="append",
+    key=("symbol", "date"),
+    order_by=("date DESC", "symbol"),
+    search_columns=("symbol",),
+    icon="market",
+    notes=("Append only. A re-import for an existing (symbol, date) writes a new snapshot version.",),
+    columns=(
+        _c("date", "Date", DATE, required=True, width=120, group="Key"),
+        _c("symbol", "Symbol", TEXT, required=True, width=130, group="Key"),
+        _c("open", "Open", CURRENCY, width=110, group="OHLCV"),
+        _c("high", "High", CURRENCY, width=110, group="OHLCV"),
+        _c("low", "Low", CURRENCY, width=110, group="OHLCV"),
+        _c("close", "Close", CURRENCY, width=110, group="OHLCV"),
+        _c("adjusted_close", "Adjusted Close", CURRENCY, width=140, group="OHLCV"),
+        _c("volume", "Volume", INTEGER, width=130, group="OHLCV"),
+        _c("vwap", "VWAP", CURRENCY, width=110, group="OHLCV"),
+        _c("delivery_pct", "Delivery %", PERCENT, width=110, group="OHLCV"),
+        _c("dividend", "Dividend", CURRENCY, width=110, group="Actions"),
+        _c("split", "Split", NUMBER, width=100, group="Actions"),
+        _computed("market_cap", "Market Cap", CURRENCY, width=150, group="Derived",
+                  help="Close x Shares Outstanding"),
+        _c("shares_outstanding", "Shares Outstanding", NUMBER, width=160, group="Derived"),
+        *PROVENANCE_COLUMNS,
+        _c("import_time", "Import Time", DATETIME, editable=False, width=170, group="Provenance"),
+    ),
+)
+
+# --------------------------------------------------------------------------
+# Tabs 3 & 4 — Financial statements
+# --------------------------------------------------------------------------
+
+_STATEMENT_COLUMNS: tuple[Column, ...] = (
+    _c("revenue", "Revenue", CURRENCY, width=130, group="P&L"),
+    _c("gross_profit", "Gross Profit", CURRENCY, width=130, group="P&L"),
+    _c("ebitda", "EBITDA", CURRENCY, width=120, group="P&L"),
+    _c("ebit", "EBIT", CURRENCY, width=120, group="P&L"),
+    _c("pbt", "PBT", CURRENCY, width=120, group="P&L"),
+    _c("pat", "PAT", CURRENCY, width=120, group="P&L"),
+    _c("eps", "EPS", NUMBER, width=100, group="P&L"),
+    _c("assets", "Assets", CURRENCY, width=130, group="Balance Sheet"),
+    _c("equity", "Equity", CURRENCY, width=130, group="Balance Sheet"),
+    _c("debt", "Debt", CURRENCY, width=120, group="Balance Sheet"),
+    _c("cash", "Cash", CURRENCY, width=120, group="Balance Sheet"),
+    _c("current_assets", "Current Assets", CURRENCY, width=140, group="Balance Sheet"),
+    _c("current_liabilities", "Current Liabilities", CURRENCY, width=160, group="Balance Sheet"),
+    _c("inventory", "Inventory", CURRENCY, width=120, group="Balance Sheet"),
+    _c("working_capital", "Working Capital", CURRENCY, width=150, group="Balance Sheet",
+       help="Current Assets - Current Liabilities when both are supplied"),
+    _c("capex", "Capex", CURRENCY, width=120, group="Cash Flow"),
+    _c("cfo", "CFO", CURRENCY, width=120, group="Cash Flow"),
+    _c("cfi", "CFI", CURRENCY, width=120, group="Cash Flow"),
+    _c("cff", "CFF", CURRENCY, width=120, group="Cash Flow"),
+    _computed("free_cash_flow", "Free Cash Flow", CURRENCY, width=140, group="Cash Flow",
+              help="CFO - Capex"),
+    _c("shares_outstanding", "Shares Outstanding", NUMBER, width=160, group="Per Share"),
+    _computed("book_value", "Book Value", NUMBER, width=120, group="Per Share",
+              help="Equity / Shares Outstanding"),
+    *PROVENANCE_COLUMNS,
+    _c("statement_version", "Statement Version", TEXT, editable=False, width=150, group="Provenance"),
+)
+
+FINANCIALS_ANNUAL = Tab(
+    id="financials_annual",
+    label="Financials (Annual)",
+    description="Annual statement facts. One row per company per fiscal year.",
+    mode="append",
+    key=("symbol", "fiscal_year"),
+    order_by=("symbol", "fiscal_year DESC"),
+    search_columns=("symbol", "fiscal_year"),
+    icon="annual",
+    columns=(
+        _c("symbol", "Symbol", TEXT, required=True, width=130, group="Key"),
+        _c("fiscal_year", "Fiscal Year", TEXT, required=True, width=120, group="Key"),
+        *_STATEMENT_COLUMNS,
+    ),
+)
+
+FINANCIALS_QUARTERLY = Tab(
+    id="financials_quarterly",
+    label="Financials (Quarterly)",
+    description="Quarterly statement facts. Same schema as annual, one row per fiscal quarter.",
+    mode="append",
+    key=("symbol", "fiscal_period"),
+    order_by=("symbol", "fiscal_period DESC"),
+    search_columns=("symbol", "fiscal_period"),
+    icon="quarterly",
+    columns=(
+        _c("symbol", "Symbol", TEXT, required=True, width=130, group="Key"),
+        _c("fiscal_period", "Fiscal Period", TEXT, required=True, width=130, group="Key",
+           help="FY2026Q1 style period label"),
+        _c("fiscal_year", "Fiscal Year", TEXT, width=110, group="Key"),
+        _c("quarter", "Quarter", TEXT, width=90, group="Key"),
+        *_STATEMENT_COLUMNS,
+    ),
+)
+
+# --------------------------------------------------------------------------
+# Tab 5 — Historical Ratios (computed)
+# --------------------------------------------------------------------------
+
+HISTORICAL_RATIOS = Tab(
+    id="historical_ratios",
+    label="Historical Ratios",
+    description="Derived from the statement tabs by the server-side formula engine. Read only.",
+    mode="computed",
+    key=("symbol", "period"),
+    order_by=("symbol", "period DESC"),
+    search_columns=("symbol", "period"),
+    icon="ratios",
+    notes=("No manual editing. Recalculated after every statement import.",),
+    columns=(
+        _c("symbol", "Symbol", TEXT, editable=False, required=True, width=130, group="Key"),
+        _c("period", "Period", TEXT, editable=False, required=True, width=120, group="Key"),
+        _c("basis", "Basis", TEXT, editable=False, width=100, group="Key",
+           options=("annual", "quarterly")),
+        _computed("roe", "ROE", PERCENT, group="Returns"),
+        _computed("roce", "ROCE", PERCENT, group="Returns"),
+        _computed("roa", "ROA", PERCENT, group="Returns"),
+        _computed("gross_margin", "Gross Margin", PERCENT, group="Margins"),
+        _computed("ebitda_margin", "EBITDA Margin", PERCENT, group="Margins"),
+        _computed("operating_margin", "Operating Margin", PERCENT, group="Margins"),
+        _computed("net_margin", "Net Margin", PERCENT, group="Margins"),
+        _computed("asset_turnover", "Asset Turnover", NUMBER, group="Efficiency"),
+        _computed("debt_equity", "Debt / Equity", NUMBER, group="Leverage"),
+        _computed("interest_coverage", "Interest Coverage", NUMBER, group="Leverage"),
+        _computed("current_ratio", "Current Ratio", NUMBER, group="Liquidity"),
+        _computed("quick_ratio", "Quick Ratio", NUMBER, group="Liquidity"),
+        _computed("fcf_margin", "FCF Margin", PERCENT, group="Cash"),
+        *PROVENANCE_COLUMNS,
+    ),
+)
+
+# --------------------------------------------------------------------------
+# Tab 6 — Historical Valuation (computed daily snapshots)
+# --------------------------------------------------------------------------
+
+HISTORICAL_VALUATION = Tab(
+    id="historical_valuation",
+    label="Historical Valuation",
+    description="Daily valuation snapshots. Calculated automatically, appended never overwritten.",
+    mode="computed_daily",
+    key=("symbol", "date"),
+    order_by=("date DESC", "symbol"),
+    search_columns=("symbol",),
+    icon="valuation",
+    columns=(
+        _c("date", "Date", DATE, editable=False, required=True, width=120, group="Key"),
+        _c("symbol", "Symbol", TEXT, editable=False, required=True, width=130, group="Key"),
+        _computed("cmp", "CMP", CURRENCY, group="Price"),
+        _computed("market_cap", "Market Cap", CURRENCY, width=150, group="Price"),
+        _computed("enterprise_value", "Enterprise Value", CURRENCY, width=160, group="Price"),
+        _computed("pe", "P/E", NUMBER, group="Multiples"),
+        _computed("forward_pe", "Forward P/E", NUMBER, width=130, group="Multiples"),
+        _computed("pb", "P/B", NUMBER, group="Multiples"),
+        _computed("ev_ebitda", "EV/EBITDA", NUMBER, width=130, group="Multiples"),
+        _computed("ev_sales", "EV/Sales", NUMBER, width=120, group="Multiples"),
+        _computed("price_sales", "Price/Sales", NUMBER, width=130, group="Multiples"),
+        _computed("peg", "PEG", NUMBER, group="Multiples"),
+        _computed("dividend_yield", "Dividend Yield", PERCENT, width=140, group="Returns"),
+        _computed("beta", "Beta", NUMBER, group="Risk"),
+        _computed("upside", "Upside", PERCENT, group="Consensus",
+                  help="(Target Price - CMP) / CMP"),
+        _computed("sector_median", "Sector Median P/E", NUMBER, width=160, group="Relative"),
+        _computed("industry_median", "Industry Median P/E", NUMBER, width=170, group="Relative"),
+        _computed("percentile", "Percentile", NUMBER, width=120, group="Relative"),
+        _computed("relative_valuation_score", "Relative Valuation Score", NUMBER, width=200,
+                  group="Relative"),
+        *PROVENANCE_COLUMNS,
+    ),
+)
+
+# --------------------------------------------------------------------------
+# Tab 7 — Consensus
+# --------------------------------------------------------------------------
+
+CONSENSUS = Tab(
+    id="consensus",
+    label="Consensus",
+    description="Capital IQ sell-side consensus. Appended daily.",
+    mode="append",
+    key=("symbol", "consensus_date"),
+    order_by=("consensus_date DESC", "symbol"),
+    search_columns=("symbol",),
+    icon="consensus",
+    columns=(
+        _c("symbol", "Symbol", TEXT, required=True, width=130, group="Key"),
+        _c("consensus_date", "Consensus Date", DATE, required=True, width=140, group="Key"),
+        _c("target_price", "Target Price", CURRENCY, width=130, group="Targets"),
+        _c("high_target", "High Target", CURRENCY, width=130, group="Targets"),
+        _c("low_target", "Low Target", CURRENCY, width=130, group="Targets"),
+        _c("buy", "Buy", INTEGER, width=80, group="Ratings"),
+        _c("outperform", "Outperform", INTEGER, width=120, group="Ratings"),
+        _c("hold", "Hold", INTEGER, width=90, group="Ratings"),
+        _c("sell", "Sell", INTEGER, width=80, group="Ratings"),
+        _c("no_opinion", "No Opinion", INTEGER, width=120, group="Ratings"),
+        _computed("analyst_count", "Analyst Count", INTEGER, width=130, group="Ratings"),
+        _computed("target_dispersion", "Target Dispersion", PERCENT, width=160, group="Targets",
+                  help="(High - Low) / Target"),
+        *PROVENANCE_COLUMNS,
+    ),
+)
+
+# --------------------------------------------------------------------------
+# Tab 8 — Research Intelligence
+# --------------------------------------------------------------------------
+
+RESEARCH_INTELLIGENCE = Tab(
+    id="research_intelligence",
+    label="Research Intelligence",
+    description="Structured document intelligence: what management said, and what it implies.",
+    mode="structured",
+    key=("symbol", "document_type", "fiscal_period"),
+    order_by=("symbol", "fiscal_period DESC"),
+    search_columns=("symbol", "document_type", "fiscal_period", "summary", "management_themes"),
+    icon="research",
+    columns=(
+        _c("symbol", "Company", TEXT, required=True, width=130, group="Key"),
+        _c("document_type", "Document Type", TEXT, required=True, width=150, group="Key",
+           options=("annual_report", "quarterly_results", "transcript", "presentation", "filing", "note")),
+        _c("fiscal_period", "Fiscal Period", TEXT, required=True, width=130, group="Key"),
+        _c("management_themes", "Management Themes", TEXT, width=260, group="Narrative"),
+        _c("strategy", "Strategy", TEXT, width=240, group="Narrative"),
+        _c("risks", "Risks", TEXT, width=240, group="Narrative"),
+        _c("opportunities", "Opportunities", TEXT, width=240, group="Narrative"),
+        _c("capital_allocation", "Capital Allocation", TEXT, width=220, group="Narrative"),
+        _c("guidance", "Guidance", TEXT, width=220, group="Narrative"),
+        _c("events", "Events", TEXT, width=200, group="Narrative"),
+        _c("summary", "Summary", TEXT, width=320, group="Narrative"),
+        _c("confidence", "Confidence", NUMBER, width=110, group="Quality"),
+        *PROVENANCE_COLUMNS,
+    ),
+)
+
+# --------------------------------------------------------------------------
+# Tab 9 — Historical Research Timeline
+# --------------------------------------------------------------------------
+
+RESEARCH_TIMELINE = Tab(
+    id="research_timeline",
+    label="Research Timeline",
+    description="Chronological company history: what happened, when, and what changed.",
+    mode="append",
+    key=("symbol", "date", "event"),
+    order_by=("date DESC", "symbol"),
+    search_columns=("symbol", "event", "results", "management"),
+    icon="timeline",
+    columns=(
+        _c("symbol", "Symbol", TEXT, required=True, width=130, group="Key"),
+        _c("date", "Date", DATE, required=True, width=120, group="Key"),
+        _c("event", "Event", TEXT, required=True, width=260, group="Event"),
+        _c("guidance", "Guidance", TEXT, width=220, group="Event"),
+        _c("management", "Management", TEXT, width=200, group="Event"),
+        _c("results", "Results", TEXT, width=220, group="Event"),
+        _c("acquisitions", "Acquisitions", TEXT, width=180, group="Corporate"),
+        _c("divestments", "Divestments", TEXT, width=180, group="Corporate"),
+        _c("capital_allocation", "Capital Allocation", TEXT, width=200, group="Corporate"),
+        _c("major_risks", "Major Risks", TEXT, width=220, group="Risk"),
+        *PROVENANCE_COLUMNS,
+    ),
+)
+
+# --------------------------------------------------------------------------
+# Tab 10 — Corporate Actions
+# --------------------------------------------------------------------------
+
+CORPORATE_ACTIONS = Tab(
+    id="corporate_actions",
+    label="Corporate Actions",
+    description="Dividends, splits, bonuses, buybacks and structural changes.",
+    mode="append",
+    key=("symbol", "action_date", "action_type"),
+    order_by=("action_date DESC", "symbol"),
+    search_columns=("symbol", "action_type", "details"),
+    icon="actions",
+    columns=(
+        _c("symbol", "Symbol", TEXT, required=True, width=130, group="Key"),
+        _c("action_date", "Date", DATE, required=True, width=120, group="Key"),
+        _c("action_type", "Action Type", TEXT, required=True, width=140, group="Key",
+           options=("dividend", "split", "bonus", "rights", "buyback", "merger",
+                    "demerger", "name_change", "symbol_change")),
+        _c("dividend", "Dividend", CURRENCY, width=120, group="Cash"),
+        _c("split", "Split", TEXT, width=110, group="Structure"),
+        _c("bonus", "Bonus", TEXT, width=110, group="Structure"),
+        _c("rights", "Rights", TEXT, width=110, group="Structure"),
+        _c("buyback", "Buyback", TEXT, width=120, group="Structure"),
+        _c("merger", "Merger", TEXT, width=160, group="Structure"),
+        _c("demerger", "Demerger", TEXT, width=160, group="Structure"),
+        _c("name_change", "Name Change", TEXT, width=160, group="Identity"),
+        _c("symbol_change", "Symbol Change", TEXT, width=150, group="Identity"),
+        _c("details", "Details", TEXT, width=280, group="Detail"),
+        *PROVENANCE_COLUMNS,
+    ),
+)
+
+# --------------------------------------------------------------------------
+# Tab 11 — Ownership
+# --------------------------------------------------------------------------
+
+OWNERSHIP = Tab(
+    id="ownership",
+    label="Ownership",
+    description="Historical shareholding snapshots by quarter.",
+    mode="append",
+    key=("symbol", "as_of"),
+    order_by=("as_of DESC", "symbol"),
+    search_columns=("symbol",),
+    icon="ownership",
+    columns=(
+        _c("symbol", "Symbol", TEXT, required=True, width=130, group="Key"),
+        _c("as_of", "As Of", DATE, required=True, width=120, group="Key"),
+        _c("promoter_holding", "Promoter", PERCENT, width=120, group="Holders"),
+        _c("institutional_holding", "Institutional", PERCENT, width=130, group="Holders"),
+        _c("fii", "FII", PERCENT, width=100, group="Holders"),
+        _c("dii", "DII", PERCENT, width=100, group="Holders"),
+        _c("mutual_funds", "Mutual Funds", PERCENT, width=130, group="Holders"),
+        _c("insider_holding", "Insider", PERCENT, width=110, group="Holders"),
+        _c("public_holding", "Public", PERCENT, width=110, group="Holders"),
+        *PROVENANCE_COLUMNS,
+    ),
+)
+
+# --------------------------------------------------------------------------
+# Tab 12 — Hedge Fund Factors (computed)
+# --------------------------------------------------------------------------
+
+HEDGE_FUND_FACTORS = Tab(
+    id="hedge_fund_factors",
+    label="Hedge Fund Factors",
+    description="Cross-sectional factor scores computed from the warehouse. Read only.",
+    mode="computed",
+    key=("symbol", "as_of"),
+    order_by=("as_of DESC", "opportunity_score DESC"),
+    search_columns=("symbol",),
+    icon="factors",
+    columns=(
+        _c("symbol", "Symbol", TEXT, editable=False, required=True, width=130, group="Key"),
+        _c("as_of", "As Of", DATE, editable=False, required=True, width=120, group="Key"),
+        _computed("value_score", "Value", NUMBER, group="Factors"),
+        _computed("quality_score", "Quality", NUMBER, group="Factors"),
+        _computed("growth_score", "Growth", NUMBER, group="Factors"),
+        _computed("momentum_score", "Momentum", NUMBER, group="Factors"),
+        _computed("consensus_score", "Consensus", NUMBER, group="Factors"),
+        _computed("dividend_score", "Dividend", NUMBER, group="Factors"),
+        _computed("risk_score", "Risk", NUMBER, group="Factors"),
+        _computed("opportunity_score", "Opportunity", NUMBER, width=140, group="Composite"),
+        _computed("strategy_agreement", "Strategy Agreement", INTEGER, width=170, group="Composite"),
+        *PROVENANCE_COLUMNS,
+    ),
+)
+
+# --------------------------------------------------------------------------
+# Tab 13 — Company Intelligence
+# --------------------------------------------------------------------------
+
+COMPANY_INTELLIGENCE = Tab(
+    id="company_intelligence",
+    label="Company Intelligence",
+    description="Generated business understanding — reviewed and editable by admins.",
+    mode="generated",
+    key=("symbol",),
+    order_by=("symbol",),
+    search_columns=("symbol", "business_summary", "investment_thesis", "moat"),
+    icon="intelligence",
+    columns=(
+        _c("symbol", "Symbol", TEXT, required=True, width=130, group="Key"),
+        _c("business_summary", "Business Summary", TEXT, width=320, group="Business"),
+        _c("industry_summary", "Industry Summary", TEXT, width=300, group="Business"),
+        _c("investment_thesis", "Investment Thesis", TEXT, width=320, group="View"),
+        _c("key_risks", "Key Risks", TEXT, width=260, group="View"),
+        _c("catalysts", "Catalysts", TEXT, width=260, group="View"),
+        _c("moat", "Moat", TEXT, width=220, group="Quality"),
+        _c("competitive_position", "Competitive Position", TEXT, width=240, group="Quality"),
+        *PROVENANCE_COLUMNS,
+    ),
+)
+
+# --------------------------------------------------------------------------
+# Tab 14 — Data Quality (internal)
+# --------------------------------------------------------------------------
+
+DATA_QUALITY = Tab(
+    id="data_quality",
+    label="Data Quality",
+    description="Internal health board: rows, gaps, freshness and validation status per table.",
+    mode="internal",
+    key=("table_id",),
+    order_by=("table_id",),
+    entity_column=None,
+    search_columns=("table_id", "validation_status"),
+    icon="quality",
+    columns=(
+        _c("table_id", "Table", TEXT, editable=False, required=True, width=200, group="Key"),
+        _computed("rows", "Rows", INTEGER, width=110, group="Volume"),
+        _computed("companies", "Companies", INTEGER, width=120, group="Volume"),
+        _computed("missing_values", "Missing Values", INTEGER, width=150, group="Gaps"),
+        _computed("missing_pct", "Missing %", PERCENT, width=120, group="Gaps"),
+        _c("last_refresh", "Last Refresh", DATETIME, editable=False, width=180, group="Freshness"),
+        _computed("errors", "Errors", INTEGER, width=100, group="Validation"),
+        _c("validation_status", "Validation Status", TEXT, editable=False, width=150,
+           group="Validation", options=("ok", "warn", "fail", "empty")),
+        _c("freshness", "Freshness", TEXT, editable=False, width=140, group="Freshness"),
+        *PROVENANCE_COLUMNS,
+    ),
+)
+
+
+TABS: tuple[Tab, ...] = (
+    COMPANY_MASTER,
+    DAILY_MARKET_HISTORY,
+    FINANCIALS_ANNUAL,
+    FINANCIALS_QUARTERLY,
+    HISTORICAL_RATIOS,
+    HISTORICAL_VALUATION,
+    CONSENSUS,
+    RESEARCH_INTELLIGENCE,
+    RESEARCH_TIMELINE,
+    CORPORATE_ACTIONS,
+    OWNERSHIP,
+    HEDGE_FUND_FACTORS,
+    COMPANY_INTELLIGENCE,
+    DATA_QUALITY,
+)
+
+_BY_ID = {t.id: t for t in TABS}
+
+
+def tab(tab_id: str) -> Tab:
+    key = (tab_id or "").strip().lower()
+    if key not in _BY_ID:
+        raise KeyError(f"unknown_warehouse_tab:{tab_id}")
+    return _BY_ID[key]
+
+
+def tab_ids() -> list[str]:
+    return [t.id for t in TABS]
+
+
+def find_tab(tab_id: str) -> Optional[Tab]:
+    return _BY_ID.get((tab_id or "").strip().lower())
+
+
+def workbook() -> dict[str, Any]:
+    """Full workbook description for the admin workspace."""
+    return {
+        "ok": True,
+        "workbook": "AGI Institutional Data Warehouse",
+        "tab_count": len(TABS),
+        "tabs": [t.to_dict() for t in TABS],
+        "system_columns": list(SYSTEM_COLUMNS),
+    }
+
+
+def entity_tabs() -> Iterable[Tab]:
+    """Tabs that carry a company entity column (used by global search / company view)."""
+    return (t for t in TABS if t.entity_column)

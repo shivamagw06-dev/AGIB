@@ -12,12 +12,38 @@ from knowledge_unification.providers.financial_foundations import FinancialFound
 from knowledge_unification.providers.financial_statement_intelligence import (
     FinancialStatementIntelligenceProvider,
 )
+from knowledge_unification.providers.financial_statement_warehouse import (
+    FinancialStatementWarehouseProvider,
+)
+from knowledge_unification.providers.hedge_fund_screens import HedgeFundScreenProvider
+from knowledge_unification.providers.historical_intelligence import (
+    HistoricalIntelligenceProvider,
+)
 from knowledge_unification.providers.ikl import IklProvider
+from knowledge_unification.providers.institutional_warehouse import (
+    InstitutionalWarehouseProvider,
+)
+from knowledge_unification.providers.industry_intelligence import IndustryIntelligenceProvider
+from knowledge_unification.providers.investment_intelligence import InvestmentIntelligenceProvider
 from knowledge_unification.providers.knowledge_factory import KnowledgeFactoryProvider
 from knowledge_unification.providers.legacy_kip import LegacyKipProvider
+from knowledge_unification.providers.portfolio_intelligence import PortfolioIntelligenceProvider
+from knowledge_unification.providers.research_intelligence import ResearchIntelligenceProvider
+from knowledge_unification.providers.valuation_consensus import ValuationConsensusProvider
+from knowledge_unification.providers.valuation_terminal import ValuationTerminalProvider
 
 ALL_PROVIDERS = (
+    HistoricalIntelligenceProvider,
+    InstitutionalWarehouseProvider,
+    ResearchIntelligenceProvider,
+    PortfolioIntelligenceProvider,
+    InvestmentIntelligenceProvider,
+    IndustryIntelligenceProvider,
     BusinessIntelligenceProvider,
+    ValuationConsensusProvider,
+    ValuationTerminalProvider,
+    HedgeFundScreenProvider,
+    FinancialStatementWarehouseProvider,
     CapIqIktProvider,
     IklProvider,
     CompanyMemoryProvider,

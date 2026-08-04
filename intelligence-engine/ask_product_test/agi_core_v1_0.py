@@ -61,6 +61,8 @@ FROZEN_COMPONENTS: List[Dict[str, str]] = [
 ]
 
 # Permanent merge order for the Production Release Gate.
+# Core v1.0 suites first; later main-line certs (industry / identity / platform)
+# appended so the gate never drops coverage that production already requires.
 RELEASE_GATE_ORDER: List[str] = [
     "founder_evaluation_v2",
     "golden_founder_5",
@@ -68,11 +70,18 @@ RELEASE_GATE_ORDER: List[str] = [
     "afi_acceptance",
     "bi_acceptance",
     "bi_integration",
+    "ii_acceptance",
+    "ii_integration",
+    "founder_evaluation_v3",
     "coverage_acceptance",
     "concept_acceptance",
     "kul_acceptance",
     "recommendation_policy",
     "unknown_entity",
+    "canonical_classification",
+    "company_metadata_routing",
+    "core_platform_acceptance",
+    "answer_quality",
 ]
 
 RELEASE_GATE_TARGETS: Dict[str, Dict[str, Any]] = {
@@ -82,11 +91,18 @@ RELEASE_GATE_TARGETS: Dict[str, Dict[str, Any]] = {
     "afi_acceptance": {"metric": "overall_score_pct", "op": "gte", "value": 95.0},
     "bi_acceptance": {"metric": "pass_rate_pct", "op": "eq", "value": 100.0},
     "bi_integration": {"metric": "pass_rate_pct", "op": "eq", "value": 100.0},
+    "ii_acceptance": {"metric": "pass_rate_pct", "op": "eq", "value": 100.0},
+    "ii_integration": {"metric": "pass_rate_pct", "op": "eq", "value": 100.0},
+    "founder_evaluation_v3": {"metric": "pass_rate_pct", "op": "gte", "value": 95.0},
     "coverage_acceptance": {"metric": "release_decision", "op": "eq", "value": "PASS"},
     "concept_acceptance": {"metric": "pass_rate_pct", "op": "eq", "value": 100.0},
     "kul_acceptance": {"metric": "pass_rate_pct", "op": "eq", "value": 100.0},
     "recommendation_policy": {"metric": "pass_rate_pct", "op": "eq", "value": 100.0},
     "unknown_entity": {"metric": "pass_rate_pct", "op": "eq", "value": 100.0},
+    "canonical_classification": {"metric": "pass_rate_pct", "op": "eq", "value": 100.0},
+    "company_metadata_routing": {"metric": "pass_rate_pct", "op": "eq", "value": 100.0},
+    "core_platform_acceptance": {"metric": "overall_score", "op": "gte", "value": 98.0},
+    "answer_quality": {"metric": "overall_score", "op": "gte", "value": 95.0},
 }
 
 BASELINE_RESULTS_INPROCESS: Dict[str, Any] = {

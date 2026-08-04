@@ -2721,3 +2721,102 @@ export const diagnoseReasoningAudit = (payload = {}) =>
     method: 'POST',
     body: typeof payload === 'string' ? { question: payload } : payload,
   });
+
+/** Valuation Intelligence — Institutional Consensus Dashboard (Capital IQ) */
+export const getValuationConsensusHealth = () => intelligenceFetch('/valuation-consensus/health');
+export const getValuationConsensusAnalytics = () =>
+  intelligenceFetch('/valuation-consensus/analytics');
+export const getValuationConsensusRows = (params = {}) => {
+  const qs = new URLSearchParams(
+    Object.fromEntries(
+      Object.entries(params)
+        .filter(([, v]) => v !== undefined && v !== null && v !== '')
+        .map(([k, v]) => [k, String(v)])
+    )
+  ).toString();
+  return intelligenceFetch(`/valuation-consensus/rows${qs ? `?${qs}` : ''}`);
+};
+export const getValuationConsensusCompany = (ticker) =>
+  intelligenceFetch(`/valuation-consensus/company/${encodeURIComponent(ticker)}`);
+export const previewValuationConsensusImport = (payload) =>
+  intelligenceFetch('/valuation-consensus/import/preview', {
+    method: 'POST',
+    body: payload,
+    timeoutMs: 300_000,
+  });
+export const validateValuationConsensusImport = (importId, actor) =>
+  intelligenceFetch('/valuation-consensus/import/validate', {
+    method: 'POST',
+    body: { import_id: importId, actor },
+    timeoutMs: 120_000,
+  });
+export const publishValuationConsensusImport = (importId, actor) =>
+  intelligenceFetch('/valuation-consensus/import/publish', {
+    method: 'POST',
+    body: { import_id: importId, actor },
+    timeoutMs: 180_000,
+  });
+export const rollbackValuationConsensus = (versionId, actor) =>
+  intelligenceFetch('/valuation-consensus/import/rollback', {
+    method: 'POST',
+    body: { version_id: versionId, actor },
+  });
+export const listValuationConsensusImports = () => intelligenceFetch('/valuation-consensus/imports');
+export const listValuationConsensusVersions = () =>
+  intelligenceFetch('/valuation-consensus/versions');
+export const exportValuationConsensusSnapshot = () =>
+  intelligenceFetch('/valuation-consensus/export', { timeoutMs: 120_000 });
+export const seedValuationConsensus = (payload = {}) =>
+  intelligenceFetch('/valuation-consensus/seed', {
+    method: 'POST',
+    body: payload,
+    timeoutMs: 300_000,
+  });
+
+/** Valuation Intelligence Terminal — market multiples + AGI interpretation */
+export const getVtHealth = () => intelligenceFetch('/valuation-terminal/health');
+export const getVtOverview = () => intelligenceFetch('/valuation-terminal/overview');
+export const getVtSectors = () => intelligenceFetch('/valuation-terminal/sectors');
+export const getVtSectorIntelligence = (sector) =>
+  intelligenceFetch(`/valuation-terminal/sector/${encodeURIComponent(sector)}`);
+export const getVtInsights = () => intelligenceFetch('/valuation-terminal/insights');
+export const getVtCompanies = (params = {}) => {
+  const qs = new URLSearchParams(
+    Object.fromEntries(
+      Object.entries(params)
+        .filter(([, v]) => v !== undefined && v !== null && v !== '')
+        .map(([k, v]) => [k, String(v)])
+    )
+  ).toString();
+  return intelligenceFetch(`/valuation-terminal/companies${qs ? `?${qs}` : ''}`);
+};
+export const getVtCompany = (ticker) =>
+  intelligenceFetch(`/valuation-terminal/company/${encodeURIComponent(ticker)}`);
+export const getVtExplain = (metric) =>
+  intelligenceFetch(`/valuation-terminal/explain/${encodeURIComponent(metric)}`);
+
+/** Hedge Fund Strategy Lab */
+export const getHflHealth = () => intelligenceFetch('/hedge-fund-lab/health');
+export const getHflStrategies = () => intelligenceFetch('/hedge-fund-lab/strategies');
+export const getHflCompare = () => intelligenceFetch('/hedge-fund-lab/compare');
+export const getHflStrategy = (id) =>
+  intelligenceFetch(`/hedge-fund-lab/strategy/${encodeURIComponent(id)}`);
+export const hflCalculate = (kind, payload) =>
+  intelligenceFetch(`/hedge-fund-lab/calculate/${encodeURIComponent(kind)}`, {
+    method: 'POST',
+    body: payload,
+  });
+export const getHflRegime = () => intelligenceFetch('/hedge-fund-lab/regime');
+export const getHflTerminal = () =>
+  intelligenceFetch('/hedge-fund-lab/terminal', { timeoutMs: 120_000 });
+export const getHflOpportunity = (ticker) =>
+  intelligenceFetch(`/hedge-fund-lab/opportunity/${encodeURIComponent(ticker)}`, { timeoutMs: 90_000 });
+export const getHflScan = (strategy, params = {}) => {
+  const qs = new URLSearchParams(
+    Object.fromEntries(
+      Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== '')
+        .map(([k, v]) => [k, String(v)])
+    )
+  ).toString();
+  return intelligenceFetch(`/hedge-fund-lab/scan/${encodeURIComponent(strategy)}${qs ? `?${qs}` : ''}`);
+};

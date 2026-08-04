@@ -4527,6 +4527,155 @@ async def bi_foundation_compare(payload: dict):
     return compare(str((payload or {}).get("question") or ""))
 
 
+# --- Phase 3.1 Industry Intelligence Engine (Ask NOT wired until Acceptance 100%) ---
+
+
+@router.get("/industry-intelligence/health")
+async def industry_intelligence_health():
+    from industry_intelligence.production import health
+
+    return health()
+
+
+@router.get("/industry-intelligence/dashboard")
+async def industry_intelligence_dashboard():
+    from industry_intelligence.production import dashboard
+
+    return dashboard()
+
+
+@router.post("/industry-intelligence/analyse")
+async def industry_intelligence_analyse(payload: dict):
+    from industry_intelligence.production import analyse
+
+    question = str((payload or {}).get("question") or "").strip()
+    industry = (payload or {}).get("industry")
+    return analyse(question, industry=industry)
+
+
+@router.get("/industry-intelligence/industry/{industry_key}")
+async def industry_intelligence_industry(industry_key: str):
+    from industry_intelligence.production import industry
+
+    return industry(industry_key)
+
+
+@router.get("/industry-intelligence/industry/{industry_key}/kpi/{kpi_key}")
+async def industry_intelligence_kpi(industry_key: str, kpi_key: str):
+    from industry_intelligence.production import explain_kpi
+
+    return explain_kpi(industry_key, kpi_key)
+
+
+# --- Phase 3.2 Investment Intelligence Engine (Ask NOT wired until Acceptance 100%) ---
+
+
+@router.get("/investment-intelligence/health")
+async def investment_intelligence_health():
+    from investment_intelligence.production import health
+
+    return health()
+
+
+@router.get("/investment-intelligence/dashboard")
+async def investment_intelligence_dashboard():
+    from investment_intelligence.production import dashboard
+
+    return dashboard()
+
+
+@router.post("/investment-intelligence/analyse")
+async def investment_intelligence_analyse(payload: dict):
+    from investment_intelligence.production import analyse
+
+    question = str((payload or {}).get("question") or "").strip()
+    entity = (payload or {}).get("entity")
+    return analyse(question, entity=entity)
+
+
+# --- Phase 3.3 Portfolio Intelligence Foundation (Ask NOT wired until Acceptance 100%) ---
+
+
+@router.get("/portfolio-intelligence/foundation/health")
+async def portfolio_intelligence_foundation_health():
+    from portfolio_intelligence.foundation.production import health
+
+    return health()
+
+
+@router.get("/portfolio-intelligence/foundation/dashboard")
+async def portfolio_intelligence_foundation_dashboard():
+    from portfolio_intelligence.foundation.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/portfolio-intelligence/foundation/portfolios")
+async def portfolio_intelligence_foundation_portfolios():
+    from portfolio_intelligence.foundation.production import portfolios
+
+    return portfolios()
+
+
+@router.post("/portfolio-intelligence/foundation/analyse")
+async def portfolio_intelligence_foundation_analyse(payload: dict):
+    from portfolio_intelligence.foundation.production import analyse
+
+    question = str((payload or {}).get("question") or "").strip()
+    portfolio_id = (payload or {}).get("portfolio_id")
+    compare_with = (payload or {}).get("compare_with")
+    return analyse(question, portfolio_id=portfolio_id, compare_with=compare_with)
+
+
+@router.post("/portfolio-intelligence/foundation/soft_slice")
+async def portfolio_intelligence_foundation_soft_slice(payload: dict):
+    from portfolio_intelligence.foundation.production import soft_slice_for_ask_agi
+
+    question = str((payload or {}).get("question") or "").strip()
+    return soft_slice_for_ask_agi(question)
+
+
+# --- Phase 3.4 Research Intelligence Engine (Ask NOT wired until Acceptance 100%) ---
+
+
+@router.get("/research-intelligence/health")
+async def research_intelligence_health():
+    from research_intelligence.production import health
+
+    return health()
+
+
+@router.get("/research-intelligence/dashboard")
+async def research_intelligence_dashboard():
+    from research_intelligence.production import dashboard
+
+    return dashboard()
+
+
+@router.get("/research-intelligence/entities")
+async def research_intelligence_entities():
+    from research_intelligence.production import entities
+
+    return entities()
+
+
+@router.post("/research-intelligence/analyse")
+async def research_intelligence_analyse(payload: dict):
+    from research_intelligence.production import analyse
+
+    question = str((payload or {}).get("question") or "").strip()
+    entity = (payload or {}).get("entity")
+    return analyse(question, entity=entity)
+
+
+@router.post("/research-intelligence/soft_slice")
+async def research_intelligence_soft_slice(payload: dict):
+    from research_intelligence.production import soft_slice_for_ask_agi
+
+    question = str((payload or {}).get("question") or "").strip()
+    return soft_slice_for_ask_agi(question)
+
+
 # --- FIRE-04 Evidence Fusion Engine (cross-evidence consistency) ---
 
 
@@ -9741,6 +9890,483 @@ async def ikt_upload_sheet(payload: dict[str, Any] = Body(default={})):
         return {"ok": False, "error": str(exc)[:300]}
 
 
+# ---------------------------------------------------------------------------
+# Valuation Intelligence — Institutional Consensus Dashboard (Capital IQ)
+# Excel is import-source only; UI/Ask read the normalized valuation_consensus store.
+# ---------------------------------------------------------------------------
+
+
+@router.get("/valuation-consensus/health")
+async def valuation_consensus_health():
+    from valuation_consensus.production import health
+
+    return health()
+
+
+@router.get("/valuation-consensus/analytics")
+async def valuation_consensus_analytics():
+    from valuation_consensus.production import analytics
+
+    return analytics()
+
+
+@router.get("/valuation-consensus/rows")
+async def valuation_consensus_rows(
+    q: str = "",
+    page: int = 1,
+    page_size: int = 50,
+    sort: str = "coverage",
+    sort_dir: str | None = None,
+    sector: str | None = None,
+    industry: str | None = None,
+    recommendation: str | None = None,
+    country: str | None = None,
+    exchange: str | None = None,
+    market_cap_min: float | None = None,
+    market_cap_max: float | None = None,
+    coverage_min: float | None = None,
+    coverage_max: float | None = None,
+    upside_min: float | None = None,
+    upside_max: float | None = None,
+    buy_min: float | None = None,
+    hold_min: float | None = None,
+    sell_min: float | None = None,
+    return_min: float | None = None,
+    return_max: float | None = None,
+):
+    from valuation_consensus.production import query_rows
+
+    filters = {
+        k: v
+        for k, v in {
+            "sector": sector,
+            "industry": industry,
+            "recommendation": recommendation,
+            "country": country,
+            "exchange": exchange,
+            "market_cap_min": market_cap_min,
+            "market_cap_max": market_cap_max,
+            "coverage_min": coverage_min,
+            "coverage_max": coverage_max,
+            "upside_min": upside_min,
+            "upside_max": upside_max,
+            "buy_min": buy_min,
+            "hold_min": hold_min,
+            "sell_min": sell_min,
+            "return_min": return_min,
+            "return_max": return_max,
+        }.items()
+        if v is not None and v != ""
+    }
+    return query_rows(
+        q=q,
+        page=page,
+        page_size=page_size,
+        sort=sort,
+        sort_dir=sort_dir,
+        filters=filters,
+    )
+
+
+@router.get("/valuation-consensus/company/{ticker}")
+async def valuation_consensus_company(ticker: str):
+    from valuation_consensus.production import company_detail
+
+    return company_detail(ticker)
+
+
+@router.post("/valuation-consensus/import/preview")
+async def valuation_consensus_import_preview(payload: dict[str, Any] = Body(default={})):
+    """Admin: upload CapIQ Excel → parse → stage preview (does not publish)."""
+    from valuation_consensus.production import import_preview
+
+    body = payload or {}
+    try:
+        return import_preview(
+            filename=str(body.get("filename") or "capiq.xlsx"),
+            content_base64=body.get("content_base64"),
+            sheet_name=body.get("sheet_name", 0),
+            column_names=body.get("column_names"),
+            actor=body.get("actor"),
+        )
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)[:300]}
+
+
+@router.post("/valuation-consensus/import/validate")
+async def valuation_consensus_import_validate(payload: dict[str, Any] = Body(default={})):
+    from valuation_consensus.production import import_validate
+
+    body = payload or {}
+    return import_validate(str(body.get("import_id") or ""))
+
+
+@router.post("/valuation-consensus/import/publish")
+async def valuation_consensus_import_publish(payload: dict[str, Any] = Body(default={})):
+    from valuation_consensus.production import import_publish
+
+    body = payload or {}
+    return import_publish(str(body.get("import_id") or ""), actor=body.get("actor"))
+
+
+@router.post("/valuation-consensus/import/rollback")
+async def valuation_consensus_import_rollback(payload: dict[str, Any] = Body(default={})):
+    from valuation_consensus.production import import_rollback
+
+    body = payload or {}
+    return import_rollback(str(body.get("version_id") or ""), actor=body.get("actor"))
+
+
+@router.get("/valuation-consensus/imports")
+async def valuation_consensus_imports():
+    from valuation_consensus.production import list_imports
+
+    return list_imports()
+
+
+@router.get("/valuation-consensus/versions")
+async def valuation_consensus_versions():
+    from valuation_consensus.production import list_versions
+
+    return list_versions()
+
+
+@router.get("/valuation-consensus/export")
+async def valuation_consensus_export():
+    from valuation_consensus.production import export_snapshot
+
+    return export_snapshot()
+
+
+@router.post("/valuation-consensus/seed")
+async def valuation_consensus_seed(payload: dict[str, Any] = Body(default={})):
+    """Ops: seed from committed broker_estimates.xlsx (or an explicit path)."""
+    body = payload or {}
+    path = body.get("path")
+    if path:
+        from valuation_consensus.production import seed_from_path
+
+        return seed_from_path(path, actor=str(body.get("actor") or "seed"))
+    from valuation_consensus.seed_broker_estimates import seed_if_needed
+
+    return seed_if_needed(force=bool(body.get("force", True)))
+
+
+# ---------------------------------------------------------------------------
+# Hedge Fund Strategy Lab — strategy library plus server-side calculators.
+# ---------------------------------------------------------------------------
+
+
+@router.get("/hedge-fund-lab/health")
+async def hedge_fund_lab_health():
+    from hedge_fund_lab.production import health
+
+    return health()
+
+
+@router.get("/hedge-fund-lab/strategies")
+async def hedge_fund_lab_strategies():
+    from hedge_fund_lab.production import library
+
+    return library()
+
+
+@router.get("/hedge-fund-lab/compare")
+async def hedge_fund_lab_compare():
+    from hedge_fund_lab.production import compare
+
+    return compare()
+
+
+@router.get("/hedge-fund-lab/strategy/{strategy_id}")
+async def hedge_fund_lab_strategy(strategy_id: str):
+    from hedge_fund_lab.production import strategy
+
+    return strategy(strategy_id)
+
+
+@router.get("/hedge-fund-lab/regime")
+async def hedge_fund_lab_regime():
+    from hedge_fund_lab.scanner import market_regime
+
+    return market_regime()
+
+
+@router.get("/hedge-fund-lab/scan/{strategy}")
+async def hedge_fund_lab_scan(strategy: str, limit: int = 20, sector: str | None = None):
+    """Run a strategy across the live NSE universe."""
+    from hedge_fund_lab.terminal import scan
+
+    return scan(strategy, limit=limit, sector=sector)
+
+
+@router.get("/hedge-fund-lab/terminal")
+async def hedge_fund_lab_terminal(limit: int = 1000):
+    """Regime, live opportunities, overlap, research queue and market dashboard."""
+    from hedge_fund_lab.terminal import overview
+
+    return overview(limit=limit)
+
+
+@router.get("/hedge-fund-lab/opportunity/{ticker}")
+async def hedge_fund_lab_opportunity(ticker: str):
+    """Why a company was surfaced: evidence, calculation chain, risks and timeline."""
+    from hedge_fund_lab.terminal import opportunity
+
+    return opportunity(ticker)
+
+
+@router.get("/hedge-fund-lab/daily-monitor")
+async def hedge_fund_lab_daily_monitor(limit: int = 6):
+    from hedge_fund_lab.scanner import daily_monitor
+
+    return daily_monitor(limit=limit)
+
+
+@router.post("/hedge-fund-lab/calculate/{kind}")
+async def hedge_fund_lab_calculate(kind: str, payload: dict[str, Any] = Body(default={})):
+    """Every strategy calculation runs here, never in the browser."""
+    from hedge_fund_lab.production import calculate
+
+    return calculate(kind, payload or {})
+
+
+# ---------------------------------------------------------------------------
+# Valuation Intelligence Terminal — market multiples plus AGI interpretation.
+# ---------------------------------------------------------------------------
+
+
+@router.get("/valuation-terminal/health")
+async def valuation_terminal_health():
+    from valuation_terminal.production import health
+
+    return health()
+
+
+@router.get("/valuation-terminal/overview")
+async def valuation_terminal_overview():
+    from valuation_terminal.production import market_overview
+
+    return market_overview()
+
+
+@router.get("/valuation-terminal/sectors")
+async def valuation_terminal_sectors():
+    from valuation_terminal.production import sectors
+
+    return sectors()
+
+
+@router.get("/valuation-terminal/sector/{sector}")
+async def valuation_terminal_sector(sector: str):
+    from valuation_terminal.production import sector_intelligence
+
+    return sector_intelligence(sector)
+
+
+@router.get("/valuation-terminal/sector-intelligence")
+async def valuation_terminal_all_sectors():
+    from valuation_terminal.production import all_sector_intelligence
+
+    return all_sector_intelligence()
+
+
+@router.get("/valuation-terminal/companies")
+async def valuation_terminal_companies(
+    q: str = "",
+    sector: str | None = None,
+    industry: str | None = None,
+    sort: str = "market_cap",
+    sort_dir: str = "desc",
+    page: int = 1,
+    page_size: int = 50,
+    pe_max: float | None = None,
+    pb_max: float | None = None,
+    ev_ebitda_max: float | None = None,
+    roe_min: float | None = None,
+    dividend_yield_min: float | None = None,
+    market_cap_min: float | None = None,
+    upside_min: float | None = None,
+    coverage_min: float | None = None,
+):
+    from valuation_terminal.production import companies
+
+    filters = {
+        k: v
+        for k, v in {
+            "pe_max": pe_max,
+            "pb_max": pb_max,
+            "ev_ebitda_max": ev_ebitda_max,
+            "roe_min": roe_min,
+            "dividend_yield_min": dividend_yield_min,
+            "market_cap_min": market_cap_min,
+            "upside_min": upside_min,
+            "coverage_min": coverage_min,
+        }.items()
+        if v is not None
+    }
+    return companies(
+        q=q,
+        sector=sector,
+        industry=industry,
+        sort=sort,
+        sort_dir=sort_dir,
+        page=page,
+        page_size=page_size,
+        filters=filters,
+    )
+
+
+@router.get("/valuation-terminal/company/{ticker}")
+async def valuation_terminal_company(ticker: str):
+    from valuation_terminal.production import company
+
+    return company(ticker)
+
+
+@router.get("/valuation-terminal/peers/{ticker}")
+async def valuation_terminal_peers(ticker: str):
+    from valuation_terminal.production import peers
+
+    return peers(ticker)
+
+
+@router.get("/valuation-terminal/insights")
+async def valuation_terminal_insights():
+    from valuation_terminal.production import insights
+
+    return insights()
+
+
+@router.get("/valuation-terminal/explain/{metric}")
+async def valuation_terminal_explain(metric: str):
+    from valuation_terminal.production import metric_explainer
+
+    return metric_explainer(metric)
+
+
+@router.get("/valuation-terminal/statistics")
+async def valuation_terminal_statistics():
+    from valuation_terminal.production import sector_statistics
+
+    return sector_statistics()
+
+
+@router.get("/valuation-terminal/overrides/audit")
+async def valuation_terminal_override_audit(limit: int = 100, ticker: str | None = None):
+    from valuation_terminal.overrides import audit_log, summary
+
+    return {**audit_log(limit=limit, ticker=ticker), "summary": summary()}
+
+
+@router.post("/valuation-terminal/overrides")
+async def valuation_terminal_set_override(payload: dict[str, Any] = Body(default={})):
+    """Admin: override an imported value. The import is never overwritten."""
+    from valuation_terminal.overrides import set_override
+    from valuation_terminal.store import get as get_row
+
+    body = payload or {}
+    ticker = str(body.get("ticker") or "")
+    field = str(body.get("field") or "")
+    imported = (get_row(ticker) or {}).get(field)
+    return set_override(
+        ticker,
+        field,
+        body.get("value"),
+        actor=str(body.get("actor") or "admin"),
+        reason=str(body.get("reason") or ""),
+        imported_value=imported,
+    )
+
+
+@router.post("/valuation-terminal/overrides/clear")
+async def valuation_terminal_clear_override(payload: dict[str, Any] = Body(default={})):
+    from valuation_terminal.overrides import clear_override
+
+    body = payload or {}
+    return clear_override(
+        str(body.get("ticker") or ""),
+        str(body.get("field") or ""),
+        actor=str(body.get("actor") or "admin"),
+        reason=str(body.get("reason") or "manual revert"),
+    )
+
+
+@router.post("/valuation-terminal/ingest")
+async def valuation_terminal_ingest(payload: dict[str, Any] = Body(default={})):
+    """Ops: load committed market-data pulls into the terminal store."""
+    from valuation_terminal.ingest import ingest_files, seed_if_needed
+
+    body = payload or {}
+    paths = body.get("paths")
+    if paths:
+        return ingest_files(list(paths), source=str(body.get("source") or "yahoo_finance"))
+    return seed_if_needed(force=bool(body.get("force", True)))
+
+
+# ---------------------------------------------------------------------------
+# Company Identity Service — canonical Capital IQ classification.
+# Every engine consumes this immutable object instead of inferring identity.
+# ---------------------------------------------------------------------------
+
+
+@router.get("/company-identity/health")
+async def company_identity_health():
+    from company_identity.service import health
+
+    return health()
+
+
+@router.post("/company-identity/metadata")
+async def company_identity_metadata(payload: dict[str, Any] = Body(default={})):
+    """Company Metadata Router — direct Capital IQ field lookup, no reasoning."""
+    from company_identity.metadata_router import route
+
+    body = payload or {}
+    hit = route(str(body.get("question") or body.get("q") or ""))
+    if not hit:
+        return {"ok": False, "routed": False, "reason": "not_a_company_metadata_question"}
+    return {"routed": True, **hit}
+
+
+@router.get("/company-identity/{ticker}")
+async def company_identity_lookup(ticker: str):
+    from company_identity.service import resolve
+
+    identity = resolve(ticker)
+    if not identity.resolved:
+        return {"ok": False, "error": "unresolved_company", "ticker": ticker.upper()}
+    return {"ok": True, **identity.to_dict()}
+
+
+@router.post("/company-identity/validate")
+async def company_identity_validate(payload: dict[str, Any] = Body(default={})):
+    """Check text or a classification claim against the canonical identity."""
+    from company_identity.guard import validate_classification, validate_text
+    from company_identity.service import resolve
+
+    body = payload or {}
+    identity = resolve(str(body.get("ticker") or body.get("company") or ""))
+    if not identity.resolved:
+        return {"ok": False, "error": "unresolved_company"}
+    reports = {}
+    if body.get("text"):
+        reports["text"] = validate_text(identity, str(body["text"])).to_dict()
+    if any(body.get(k) for k in ("sector", "industry", "business_type", "industry_dna")):
+        reports["classification"] = validate_classification(
+            identity,
+            sector=body.get("sector"),
+            industry=body.get("industry"),
+            business_type=body.get("business_type"),
+            industry_dna=body.get("industry_dna"),
+        ).to_dict()
+    return {
+        "ok": all(r.get("ok") for r in reports.values()) if reports else True,
+        "identity": identity.context(),
+        "reports": reports,
+    }
+
+
 @router.get("/system/intelligence-stack")
 async def system_intelligence_stack():
     """Inventory of integrated Macro / Sector / Market / Research programmes."""
@@ -12896,6 +13522,31 @@ async def kul_plan(payload: dict):
     question = str((payload or {}).get("question") or "").strip()
     ticker = (payload or {}).get("ticker")
     return plan_and_gather(question, ticker=ticker)
+
+
+@router.get("/universal-knowledge/health")
+async def uko_health():
+    """Phase 6.0 — Universal Knowledge Orchestration provider health."""
+    from universal_knowledge.production import health
+
+    return health()
+
+
+@router.get("/universal-knowledge/registry")
+async def uko_registry():
+    from universal_knowledge.registry import registered_providers
+
+    return {"ok": True, "engine": "universal_knowledge", "providers": registered_providers()}
+
+
+@router.post("/universal-knowledge/orchestrate")
+async def uko_orchestrate(payload: dict[str, Any] = Body(default={})):
+    """Plan once, gather once — the route-independent knowledge surface."""
+    from universal_knowledge.production import orchestrate
+
+    question = str((payload or {}).get("question") or "").strip()
+    ticker = (payload or {}).get("ticker")
+    return orchestrate(question, ticker=ticker)
 
 
 # app/ui/financial_router.py + app/ui/coverage_policy.py — these routes are
@@ -17728,3 +18379,584 @@ async def kip_v2_quality_report(company_id: str | None = None):
     from kip_v2.production import quality_report
 
     return quality_report(company_id=company_id)
+
+
+# ---------------------------------------------------------------------------
+# AGI Institutional Data Warehouse (admin workspace)
+# ---------------------------------------------------------------------------
+
+
+def _warehouse_actor(payload: dict[str, Any] | None = None, header: str | None = None) -> str:
+    body_actor = str((payload or {}).get("actor") or "").strip()
+    return body_actor or (header or "").strip() or "admin"
+
+
+@router.get("/warehouse/health")
+async def warehouse_health():
+    from institutional_warehouse.production import health
+
+    return health()
+
+
+@router.get("/warehouse/workbook")
+async def warehouse_workbook():
+    from institutional_warehouse.production import workbook
+
+    return workbook()
+
+
+@router.get("/warehouse/stats")
+async def warehouse_stats():
+    from institutional_warehouse.production import stats
+
+    return stats()
+
+
+@router.get("/warehouse/whoami")
+async def warehouse_whoami(x_agi_actor: str | None = Header(default=None)):
+    from institutional_warehouse.production import whoami
+
+    return whoami(_warehouse_actor(None, x_agi_actor))
+
+
+@router.get("/warehouse/tab/{tab_id}/schema")
+async def warehouse_tab_schema(tab_id: str):
+    from institutional_warehouse.production import tab_schema
+
+    return tab_schema(tab_id)
+
+
+@router.get("/warehouse/tab/{tab_id}")
+async def warehouse_sheet(
+    tab_id: str,
+    entity: str | None = None,
+    q: str | None = None,
+    sort: str | None = None,
+    order: str = "asc",
+    limit: int = 200,
+    offset: int = 0,
+    filters: str | None = None,
+):
+    import json as _json
+
+    from institutional_warehouse.production import sheet
+
+    parsed: dict[str, Any] = {}
+    if filters:
+        try:
+            parsed = _json.loads(filters)
+        except Exception:
+            parsed = {}
+    return sheet(tab_id, entity=entity, filters=parsed, q=q, sort=sort, order=order,
+                 limit=limit, offset=offset)
+
+
+@router.get("/warehouse/tab/{tab_id}/row/{row_id}")
+async def warehouse_row(tab_id: str, row_id: str):
+    from institutional_warehouse.production import row
+
+    return row(tab_id, row_id)
+
+
+@router.post("/warehouse/tab/{tab_id}/edit")
+async def warehouse_edit(
+    tab_id: str,
+    payload: dict[str, Any] = Body(default_factory=dict),
+    x_agi_actor: str | None = Header(default=None),
+):
+    from institutional_warehouse.production import edit
+
+    body = payload or {}
+    edits = body.get("edits")
+    if not isinstance(edits, list):
+        single = {k: body.get(k) for k in ("row_id", "column", "value")}
+        edits = [single] if single.get("row_id") else []
+    return edit(tab_id, edits, actor=_warehouse_actor(body, x_agi_actor),
+                reason=body.get("reason"), recalc=bool(body.get("recalculate", True)))
+
+
+@router.post("/warehouse/tab/{tab_id}/row")
+async def warehouse_create_row(
+    tab_id: str,
+    payload: dict[str, Any] = Body(default_factory=dict),
+    x_agi_actor: str | None = Header(default=None),
+):
+    from institutional_warehouse.production import create
+
+    body = payload or {}
+    return create(tab_id, body.get("values") or {}, actor=_warehouse_actor(body, x_agi_actor))
+
+
+@router.post("/warehouse/tab/{tab_id}/clear-override")
+async def warehouse_clear_override(
+    tab_id: str,
+    payload: dict[str, Any] = Body(default_factory=dict),
+    x_agi_actor: str | None = Header(default=None),
+):
+    from institutional_warehouse.production import clear_override
+
+    body = payload or {}
+    return clear_override(tab_id, str(body.get("row_id") or ""), str(body.get("column") or ""),
+                          actor=_warehouse_actor(body, x_agi_actor))
+
+
+@router.post("/warehouse/tab/{tab_id}/delete")
+async def warehouse_delete_rows(
+    tab_id: str,
+    payload: dict[str, Any] = Body(default_factory=dict),
+    x_agi_actor: str | None = Header(default=None),
+):
+    from institutional_warehouse.production import delete
+
+    body = payload or {}
+    return delete(tab_id, body.get("row_ids") or [], actor=_warehouse_actor(body, x_agi_actor),
+                  reason=body.get("reason"))
+
+
+@router.post("/warehouse/tab/{tab_id}/publish")
+async def warehouse_publish(
+    tab_id: str,
+    payload: dict[str, Any] = Body(default_factory=dict),
+    x_agi_actor: str | None = Header(default=None),
+):
+    from institutional_warehouse.production import publish
+
+    return publish(tab_id, actor=_warehouse_actor(payload, x_agi_actor))
+
+
+@router.post("/warehouse/tab/{tab_id}/import")
+async def warehouse_stage_import(
+    tab_id: str,
+    payload: dict[str, Any] = Body(default_factory=dict),
+    x_agi_actor: str | None = Header(default=None),
+):
+    from institutional_warehouse.production import stage_import
+
+    body = payload or {}
+    return stage_import(
+        tab_id,
+        rows=body.get("rows"),
+        text=body.get("text"),
+        headers=body.get("headers"),
+        matrix=body.get("matrix"),
+        mapping=body.get("mapping"),
+        actor=_warehouse_actor(body, x_agi_actor),
+        source=str(body.get("source") or "manual_import"),
+    )
+
+
+@router.post("/warehouse/import/{import_id}/commit")
+async def warehouse_commit_import(
+    import_id: str,
+    payload: dict[str, Any] = Body(default_factory=dict),
+    x_agi_actor: str | None = Header(default=None),
+):
+    from institutional_warehouse.production import commit_import
+
+    return commit_import(import_id, actor=_warehouse_actor(payload, x_agi_actor))
+
+
+@router.post("/warehouse/tab/{tab_id}/map-headers")
+async def warehouse_map_headers(tab_id: str, payload: dict[str, Any] = Body(default_factory=dict)):
+    from institutional_warehouse.production import preview_mapping
+
+    return preview_mapping(tab_id, (payload or {}).get("headers") or [])
+
+
+@router.get("/warehouse/imports")
+async def warehouse_imports(tab_id: str | None = None, limit: int = 25):
+    from institutional_warehouse.production import imports
+
+    return imports(tab_id=tab_id, limit=limit)
+
+
+@router.get("/warehouse/tab/{tab_id}/export")
+async def warehouse_export(
+    tab_id: str,
+    entity: str | None = None,
+    q: str | None = None,
+    limit: int = 5000,
+    x_agi_actor: str | None = Header(default=None),
+):
+    from institutional_warehouse.production import export
+
+    return export(tab_id, entity=entity, search=q, limit=limit,
+                  actor=_warehouse_actor(None, x_agi_actor))
+
+
+@router.get("/warehouse/tab/{tab_id}/row/{row_id}/history")
+async def warehouse_history(tab_id: str, row_id: str, column: str | None = None):
+    from institutional_warehouse.production import history
+
+    return history(tab_id, row_id, column=column)
+
+
+@router.get("/warehouse/tab/{tab_id}/row/{row_id}/compare")
+async def warehouse_compare(tab_id: str, row_id: str, version_a: int, version_b: int | None = None):
+    from institutional_warehouse.production import compare
+
+    return compare(tab_id, row_id, version_a, version_b)
+
+
+@router.post("/warehouse/tab/{tab_id}/row/{row_id}/restore")
+async def warehouse_restore(
+    tab_id: str,
+    row_id: str,
+    payload: dict[str, Any] = Body(default_factory=dict),
+    x_agi_actor: str | None = Header(default=None),
+):
+    from institutional_warehouse.production import restore
+
+    body = payload or {}
+    version = body.get("version")
+    return restore(tab_id, row_id, version=int(version) if version is not None else None,
+                   snapshot_id=body.get("snapshot_id"),
+                   actor=_warehouse_actor(body, x_agi_actor))
+
+
+@router.get("/warehouse/audit")
+async def warehouse_audit(
+    tab_id: str | None = None,
+    entity: str | None = None,
+    action: str | None = None,
+    actor: str | None = None,
+    limit: int = 100,
+    offset: int = 0,
+):
+    from institutional_warehouse.production import audit_log
+
+    return audit_log(tab_id=tab_id, entity=entity, action=action, actor=actor,
+                     limit=limit, offset=offset)
+
+
+@router.get("/warehouse/validate")
+async def warehouse_validate(tab_id: str | None = None, sample: int = 300):
+    from institutional_warehouse.production import validate
+
+    return validate(tab_id, sample=sample)
+
+
+@router.post("/warehouse/refresh")
+async def warehouse_refresh(
+    payload: dict[str, Any] = Body(default_factory=dict),
+    x_agi_actor: str | None = Header(default=None),
+):
+    from institutional_warehouse.production import run_refresh
+
+    body = payload or {}
+    kwargs: dict[str, Any] = {"actor": _warehouse_actor(body, x_agi_actor)}
+    if body.get("stages"):
+        kwargs["stages"] = body["stages"]
+    if body.get("limit") is not None:
+        kwargs["limit"] = int(body["limit"])
+    if body.get("days") is not None:
+        kwargs["days"] = int(body["days"])
+    return run_refresh(**kwargs)
+
+
+@router.get("/warehouse/refresh-runs")
+async def warehouse_refresh_runs(limit: int = 20):
+    from institutional_warehouse.production import refresh_runs
+
+    return refresh_runs(limit=limit)
+
+
+@router.get("/warehouse/scheduler")
+async def warehouse_scheduler():
+    from institutional_warehouse.production import scheduler_status
+
+    return scheduler_status()
+
+
+@router.post("/warehouse/recalculate")
+async def warehouse_recalculate(
+    payload: dict[str, Any] = Body(default_factory=dict),
+    x_agi_actor: str | None = Header(default=None),
+):
+    from institutional_warehouse.production import recompute
+
+    body = payload or {}
+    kwargs: dict[str, Any] = {"actor": _warehouse_actor(body, x_agi_actor)}
+    if body.get("stages"):
+        kwargs["stages"] = body["stages"]
+    if body.get("entity"):
+        kwargs["entity"] = str(body["entity"]).upper()
+    return recompute(**kwargs)
+
+
+@router.get("/warehouse/search")
+async def warehouse_search(q: str, per_tab: int = 5, tabs: str | None = None):
+    from institutional_warehouse.production import global_search
+
+    tab_list = [t.strip() for t in tabs.split(",") if t.strip()] if tabs else None
+    return global_search(q, tabs=tab_list, per_tab=per_tab)
+
+
+@router.get("/warehouse/suggest")
+async def warehouse_suggest(prefix: str, limit: int = 10):
+    from institutional_warehouse.production import suggest
+
+    return suggest(prefix, limit=limit)
+
+
+@router.get("/warehouse/company/{symbol}")
+async def warehouse_company(symbol: str, per_tab: int = 25):
+    from institutional_warehouse.production import company
+
+    return company(symbol, per_tab=per_tab)
+
+
+@router.get("/warehouse/coverage")
+async def warehouse_coverage():
+    from institutional_warehouse.production import coverage
+
+    return coverage()
+
+
+# ---------------------------------------------------------------------------
+# Historical Backfill & Time-Series (Phase 7.1a)
+# ---------------------------------------------------------------------------
+
+
+@router.post("/warehouse/backfill")
+async def warehouse_backfill(
+    payload: dict[str, Any] = Body(default_factory=dict),
+    x_agi_actor: str | None = Header(default=None),
+):
+    from institutional_warehouse.production import run_backfill
+
+    body = payload or {}
+    kwargs: dict[str, Any] = {"actor": _warehouse_actor(body, x_agi_actor)}
+    for key in ("companies", "days"):
+        if body.get(key) is not None:
+            kwargs[key] = int(body[key])
+    if body.get("stages"):
+        kwargs["stages"] = body["stages"]
+    if body.get("cadence"):
+        kwargs["cadence"] = str(body["cadence"])
+    if body.get("universe"):
+        kwargs["universe"] = [str(s).upper() for s in body["universe"]]
+    if body.get("allow_here"):
+        kwargs["enforce_worker"] = False
+    return run_backfill(**kwargs)
+
+
+@router.get("/warehouse/backfill/status")
+async def warehouse_backfill_status():
+    from institutional_warehouse.production import backfill_status
+
+    return backfill_status()
+
+
+@router.get("/warehouse/backfill/jobs")
+async def warehouse_backfill_jobs(limit: int = 20):
+    from institutional_warehouse.production import backfill_jobs
+
+    return backfill_jobs(limit=limit)
+
+
+@router.get("/warehouse/historical-coverage")
+async def warehouse_historical_coverage(top: int = 25):
+    from institutional_warehouse.production import historical_coverage
+
+    return historical_coverage(top=top)
+
+
+@router.get("/history/company/{symbol}")
+async def history_company_route(symbol: str, window: str = "max", metrics: str | None = None):
+    from institutional_warehouse.production import history_company
+
+    wanted = [m.strip() for m in metrics.split(",") if m.strip()] if metrics else None
+    return history_company(symbol, window=window, metrics=wanted)
+
+
+@router.get("/history/series/{symbol}/{metric}")
+async def history_series_route(
+    symbol: str,
+    metric: str,
+    window: str = "max",
+    start: str | None = None,
+    end: str | None = None,
+    limit: int = 5000,
+):
+    from institutional_warehouse.production import history_series
+
+    return history_series(symbol, metric, window=window, start=start, end=end, limit=limit)
+
+
+@router.get("/history/as-at/{symbol}")
+async def history_as_at_route(symbol: str, on: str):
+    from institutional_warehouse.production import history_as_at
+
+    return history_as_at(symbol, on)
+
+
+@router.get("/history/table/{tab_id}")
+async def history_range_route(
+    tab_id: str,
+    symbol: str | None = None,
+    start: str | None = None,
+    end: str | None = None,
+    fiscal_year: str | None = None,
+    quarter: str | None = None,
+    window: str | None = None,
+    limit: int = 1000,
+    offset: int = 0,
+):
+    from institutional_warehouse.production import history_range
+
+    return history_range(tab_id, symbol=symbol, start=start, end=end, fiscal_year=fiscal_year,
+                         quarter=quarter, window=window, limit=limit, offset=offset)
+
+
+@router.get("/history/compare")
+async def history_compare_route(symbols: str, metric: str, window: str = "5y"):
+    from institutional_warehouse.production import history_compare
+
+    names = [s.strip() for s in symbols.split(",") if s.strip()]
+    return history_compare(names, metric, window=window)
+
+
+@router.get("/history/coverage/{symbol}")
+async def history_coverage_route(symbol: str):
+    from institutional_warehouse.production import history_coverage
+
+    return history_coverage(symbol)
+
+
+# ---------------------------------------------------------------------------
+# Historical Intelligence Engine (Phase 7.2)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/historical-intelligence/health")
+async def hie_health():
+    from historical_intelligence.production import health
+
+    return health()
+
+
+@router.post("/historical-intelligence/ask")
+async def hie_ask(payload: dict[str, Any] = Body(default_factory=dict)):
+    from historical_intelligence.production import ask
+
+    body = payload or {}
+    peers = body.get("peers")
+    return ask(
+        str(body.get("question") or ""),
+        symbol=(str(body.get("symbol")).upper() if body.get("symbol") else None),
+        peers=[str(p).upper() for p in peers] if isinstance(peers, list) else None,
+    )
+
+
+@router.get("/historical-intelligence/detect")
+async def hie_detect(q: str):
+    from historical_intelligence.production import detect
+
+    return detect(q)
+
+
+@router.get("/historical-intelligence/coverage/{symbol}")
+async def hie_coverage(symbol: str, metric: str | None = None):
+    from historical_intelligence.production import company_coverage, metric_coverage
+
+    if metric:
+        return metric_coverage(symbol, metric)
+    return company_coverage(symbol)
+
+
+@router.get("/historical-intelligence/company/{symbol}")
+async def hie_company(symbol: str, metrics: str | None = None):
+    from historical_intelligence.production import company
+
+    wanted = [m.strip() for m in metrics.split(",") if m.strip()] if metrics else None
+    return company(symbol, metrics=wanted)
+
+
+@router.get("/historical-intelligence/trend/{symbol}/{metric}")
+async def hie_trend(symbol: str, metric: str):
+    from historical_intelligence.production import trend_analysis
+
+    return trend_analysis(symbol, metric)
+
+
+@router.get("/historical-intelligence/valuation/{symbol}")
+async def hie_valuation(symbol: str, metric: str = "pe"):
+    from historical_intelligence.production import valuation_analysis
+
+    return valuation_analysis(symbol, metric)
+
+
+@router.get("/historical-intelligence/bands/{symbol}")
+async def hie_bands(symbol: str, metric: str = "pe"):
+    from historical_intelligence.production import valuation_bands
+
+    return valuation_bands(symbol, metric)
+
+
+@router.get("/historical-intelligence/timeline/{symbol}")
+async def hie_timeline(symbol: str, limit: int = 40):
+    from historical_intelligence.production import event_timeline
+
+    return event_timeline(symbol, limit=limit)
+
+
+@router.get("/historical-intelligence/compare")
+async def hie_compare(symbols: str, metric: str = "price"):
+    from historical_intelligence.production import compare
+
+    names = [s.strip().upper() for s in symbols.split(",") if s.strip()]
+    return compare(names, metric)
+
+
+@router.get("/historical-intelligence/sector/{symbol}")
+async def hie_sector(symbol: str, metric: str = "pe"):
+    from historical_intelligence.production import against_sector
+
+    return against_sector(symbol, metric)
+
+
+# ---------------------------------------------------------------------------
+# Data Quality Integration & Validation (Phase 7.3)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/warehouse/quality")
+async def warehouse_quality_summary():
+    from institutional_warehouse.production import quality_summary
+
+    return quality_summary()
+
+
+@router.get("/warehouse/quarantine")
+async def warehouse_quarantine(tab_id: str | None = None, limit: int = 100):
+    from institutional_warehouse.production import quarantined_rows
+
+    return quarantined_rows(tab_id, limit=limit)
+
+
+@router.get("/warehouse/conflicts")
+async def warehouse_conflicts(tab_id: str | None = None, entity: str | None = None,
+                              limit: int = 100):
+    from institutional_warehouse.production import source_conflicts
+
+    return source_conflicts(tab_id=tab_id, entity=entity, limit=limit)
+
+
+@router.get("/warehouse/conflicts/summary")
+async def warehouse_conflict_summary():
+    from institutional_warehouse.production import conflict_summary
+
+    return conflict_summary()
+
+
+@router.post("/warehouse/remediate-zeros")
+async def warehouse_remediate_zeros(
+    payload: dict[str, Any] = Body(default_factory=dict),
+    x_agi_actor: str | None = Header(default=None),
+):
+    from institutional_warehouse.production import remediate_zeros
+
+    body = payload or {}
+    return remediate_zeros(actor=_warehouse_actor(body, x_agi_actor),
+                           dry_run=bool(body.get("dry_run")))

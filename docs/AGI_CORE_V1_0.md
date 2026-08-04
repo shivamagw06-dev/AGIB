@@ -61,41 +61,33 @@ Every future PR **must** run the Production Release Gate and **PASS** before mer
 Production Regression
         │
         ▼
-Founder Evaluation V2
-        │
-        ▼
-Golden Founder 5
-        │
-        ▼
-Golden Business 20
+Founder Evaluation V2 → Golden Founder 5 → Golden Business 20
         │
         ▼
 Financial Intelligence Acceptance (AFI)
         │
         ▼
-Business Intelligence Acceptance
+Business Intelligence + Integration
         │
         ▼
-Coverage Acceptance
+Industry Acceptance + Integration → Founder Evaluation V3
         │
         ▼
-Concept Acceptance
+Coverage → Concept → KUL → Recommendation Policy → Unknown Entity
         │
         ▼
-Knowledge Unification Acceptance
+Canonical Classification → Company Metadata Routing
         │
         ▼
-Recommendation Policy
+Core Platform Acceptance → Answer Quality
         │
         ▼
-Unknown Entity
-        │
-        ▼
-      PASS
-        │
-        ▼
-      Merge
+      PASS → Merge
 ```
+
+Frozen Core v1.0 components are unchanged. Suites below the Core block
+(industry / founder v3 / identity / platform / answer quality) were absorbed
+from `main` so the permanent gate does not drop production coverage.
 
 ### Targets
 
@@ -107,11 +99,18 @@ Unknown Entity
 | Financial Intelligence (AFI) | ≥95% overall; routing 100%; pollution 0; hallucinations 0 |
 | Business Intelligence Acceptance | 100% |
 | Business Integration | 100% |
+| Industry Acceptance | 100% |
+| Industry Integration | 100% |
+| Founder Evaluation V3 | ≥95% |
 | Coverage Acceptance | PR-scoped PASS |
 | Concept Acceptance | 100% |
 | Knowledge Unification | 100% |
 | Recommendation Policy | PASS |
 | Unknown Entity | PASS |
+| Canonical Classification | 100% |
+| Company Metadata Routing | 100% |
+| Core Platform Acceptance | ≥98% + zero-defect |
+| Answer Quality | ≥95% |
 | Hallucinations | 0 |
 
 ### How to run

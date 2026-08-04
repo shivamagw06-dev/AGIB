@@ -109,6 +109,53 @@ async def lifespan(_app: FastAPI):
         threading.Thread(target=_run_ikt_seed, name="ikt-capital-iq-seed", daemon=True).start()
     except Exception as exc:
         log.warning("ikt_capital_iq_seed_thread_failed", extra={"error": str(exc)[:160]})
+    # Valuation Consensus — Broker Estimates seed (committed CapIQ export).
+    try:
+        import threading
+
+        from valuation_consensus.seed_broker_estimates import seed_if_needed as seed_broker_estimates
+
+        def _run_vc_seed() -> None:
+            try:
+                result = seed_broker_estimates()
+                log.info(
+                    "valuation_consensus_seed",
+                    extra={
+                        "ok": result.get("ok"),
+                        "skipped": result.get("skipped"),
+                        "row_count": result.get("row_count"),
+                    },
+                )
+            except Exception as exc:  # pragma: no cover
+                log.warning("valuation_consensus_seed_failed", extra={"error": str(exc)[:160]})
+
+        threading.Thread(target=_run_vc_seed, name="valuation-consensus-seed", daemon=True).start()
+    except Exception as exc:
+        log.warning("valuation_consensus_seed_thread_failed", extra={"error": str(exc)[:160]})
+    # Valuation Terminal metrics — re-derived on boot from the committed
+    # market_data pull, since the derived store lives on ephemeral disk.
+    try:
+        import threading
+
+        from valuation_terminal.ingest import seed_if_needed as seed_valuation_terminal
+
+        def _run_vt_seed() -> None:
+            try:
+                result = seed_valuation_terminal()
+                log.info(
+                    "valuation_terminal_seed",
+                    extra={
+                        "ok": result.get("ok"),
+                        "skipped": result.get("skipped"),
+                        "companies": result.get("companies_stored"),
+                    },
+                )
+            except Exception as exc:  # pragma: no cover
+                log.warning("valuation_terminal_seed_failed", extra={"error": str(exc)[:160]})
+
+        threading.Thread(target=_run_vt_seed, name="valuation-terminal-seed", daemon=True).start()
+    except Exception as exc:
+        log.warning("valuation_terminal_seed_thread_failed", extra={"error": str(exc)[:160]})
     # Gather loops belong on the sidecar / dedicated worker (AGI_ROLE=gather_worker).
     # When this process is the HTTP web role, skip starting them so Ask / Mission
     # Control are not starved — even if env flags were left true by mistake.

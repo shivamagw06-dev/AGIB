@@ -1,7 +1,17 @@
 import { useEffect, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Link } from 'react-router-dom';
-import { Activity, ArrowDownRight, ArrowUpRight, BrainCircuit, Clock3, ShieldAlert } from 'lucide-react';
+import {
+  Activity,
+  ArrowDownRight,
+  ArrowRight,
+  ArrowUpRight,
+  BrainCircuit,
+  Clock3,
+  LineChart,
+  Scale,
+  ShieldAlert,
+} from 'lucide-react';
 import useMarketIntelligence from '@/hooks/useMarketIntelligence';
 import Nifty500ResearchPanel from '@/components/Research/Nifty500ResearchPanel';
 import InstitutionalIntelligenceLayer from '@/components/Research/InstitutionalIntelligenceLayer';
@@ -95,9 +105,27 @@ export default function MarketIntelligence() {
                   Mint-style Pre-Market, 12 PM and Market Close notes — Bullish, Bearish or Neutral, with clear reasoning.
                 </p>
               </div>
-              <div className="flex items-start gap-2 text-xs leading-relaxed text-[#c6d4e7]">
-                <Clock3 className="h-4 w-4" />
-                {updatedAt ? `Updated ${new Date(updatedAt).toLocaleString('en-IN')}` : 'Awaiting model refresh'}
+              <div className="flex flex-col items-stretch gap-3 sm:items-end">
+                <Link
+                  to="/valuation-intelligence"
+                  className="inline-flex items-center justify-center gap-2 border border-[#7ea2cf] bg-white px-4 py-2.5 text-sm font-bold text-[#0d1d33] transition hover:bg-[#e8f0fa]"
+                >
+                  <LineChart className="h-4 w-4" />
+                  Broker Estimates
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+                <Link
+                  to="/valuation-terminal"
+                  className="inline-flex items-center justify-center gap-2 border border-[#7ea2cf] bg-white px-4 py-2.5 text-sm font-bold text-[#0d1d33] transition hover:bg-[#e8f0fa]"
+                >
+                  <Scale className="h-4 w-4" />
+                  Valuation Table
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+                <div className="flex items-start gap-2 text-xs leading-relaxed text-[#c6d4e7]">
+                  <Clock3 className="h-4 w-4 shrink-0" />
+                  {updatedAt ? `Updated ${new Date(updatedAt).toLocaleString('en-IN')}` : 'Awaiting model refresh'}
+                </div>
               </div>
             </div>
           </div>

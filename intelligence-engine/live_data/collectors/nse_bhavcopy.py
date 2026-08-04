@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import hashlib
 import io
 import zipfile
 from datetime import datetime, timedelta
@@ -222,12 +223,27 @@ def collect_nse_bhavcopy(
 
         assert data is not None
         csv_bytes = _extract_csv_bytes(data)
-        file_rec = store.put_raw_file(
-            SOURCE_ID,
-            Path(used_url or "bhavcopy.csv").name,
-            csv_bytes,
-            meta={"mode": mode, "url": used_url},
-        )
+        digest = hashlib.sha256(csv_bytes).hexdigest()
+
+        # The archive publishes one file per trading day, but this collector runs
+        # every cycle. Storing an identical payload again buys nothing and cost
+        # 147 MB of duplicates on the worker before this check existed: the same
+        # 30 July file was written 248 times. Reuse the stored file instead.
+        prior = store.get_collector_health(COLLECTOR_ID) or {}
+        if prior.get("last_checksum") == digest:
+            existing_paths = [p for p in (prior.get("downloaded_files") or []) if p]
+            file_rec = {
+                "checksum": digest,
+                "path": existing_paths[0] if existing_paths else None,
+                "reused": True,
+            }
+        else:
+            file_rec = store.put_raw_file(
+                SOURCE_ID,
+                Path(used_url or "bhavcopy.csv").name,
+                csv_bytes,
+                meta={"mode": mode, "url": used_url},
+            )
         downloaded.append(file_rec)
         text = csv_bytes.decode("utf-8", errors="replace")
         effective, rows = parse_bhavcopy_csv(text)

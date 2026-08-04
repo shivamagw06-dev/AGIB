@@ -1,0 +1,851 @@
+"""AGI Hedge Fund Intelligence Terminal.
+
+An opportunity-first surface over the covered Indian equity universe. Every
+strategy runs as a live scanner; the terminal ranks what came out of them,
+records a daily snapshot so tomorrow can say what changed, and explains why
+each company qualified. Descriptive research output only — never a call.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import statistics as stats
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Callable, Optional
+
+from .scanner import (
+    _SCANNERS,
+    _base,
+    _industry_medians,
+    _median,
+    _num,
+    _primary_metric,
+    _sane,
+    _universe,
+    market_regime,
+)
+
+_SNAPSHOT_DAYS = 60
+
+
+# ---------------------------------------------------------------------------
+# Snapshot store — the only way the terminal can answer "what changed today?"
+# ---------------------------------------------------------------------------
+def store_root() -> Path:
+    raw = (os.getenv("HEDGE_FUND_LAB_ROOT") or "").strip()
+    kip = (os.getenv("KIP_DATA_DIR") or "").strip()
+    if raw:
+        root = Path(raw)
+    elif kip:
+        root = Path(kip) / "hedge_fund_lab"
+    else:
+        root = Path(__file__).resolve().parents[1] / "data" / "hedge_fund_lab"
+    root.mkdir(parents=True, exist_ok=True)
+    return root
+
+
+def _snap_path() -> Path:
+    return store_root() / "snapshots.json"
+
+
+def _today() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+
+def _load_snapshots() -> dict[str, Any]:
+    path = _snap_path()
+    if not path.exists():
+        return {"days": {}}
+    try:
+        data = json.loads(path.read_text())
+        return data if isinstance(data, dict) and isinstance(data.get("days"), dict) else {"days": {}}
+    except Exception:
+        return {"days": {}}
+
+
+def _save_snapshot(day: str, payload: dict[str, list[str]]) -> None:
+    data = _load_snapshots()
+    days = data.get("days") or {}
+    days[day] = payload
+    for stale in sorted(days)[:-_SNAPSHOT_DAYS]:
+        days.pop(stale, None)
+    data["days"] = days
+    data["updated_at"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    try:
+        _snap_path().write_text(json.dumps(data, indent=2, sort_keys=True))
+    except Exception:
+        pass
+
+
+def _previous_day(day: str) -> Optional[str]:
+    days = sorted((_load_snapshots().get("days") or {}).keys())
+    prior = [d for d in days if d < day]
+    return prior[-1] if prior else None
+
+
+# ---------------------------------------------------------------------------
+# Additional scanners
+# ---------------------------------------------------------------------------
+def _scan_growth(universe, medians, limit) -> list[dict[str, Any]]:
+    """Earnings growth the market is already pricing, via the trailing-to-forward gap."""
+    out = []
+    for row in universe:
+        pe, fwd = _sane(row, "pe"), _sane(row, "forward_pe")
+        if pe is None or fwd is None or fwd <= 0:
+            continue
+        implied = round(((pe / fwd) - 1.0) * 100.0, 1)
+        if implied < 25 or implied > 100:
+            continue
+        # Growth nobody covers and nobody can size is noise, not an idea.
+        coverage = _num((row.get("consensus") or {}).get("coverage")) or 0
+        if coverage < 5 and (_num(row.get("market_cap")) or 0) < 2e10:
+            continue
+        upside = _num((row.get("consensus") or {}).get("upside"))
+        out.append(
+            {
+                **_base(row),
+                "pe": pe,
+                "forward_pe": fwd,
+                "implied_earnings_growth_pct": implied,
+                "why": (
+                    f"Trailing P/E of {pe} against a forward P/E of {fwd} implies {implied}% "
+                    "earnings growth is already in the price"
+                    + (f", alongside {upside}% consensus upside." if upside is not None else ".")
+                    + " The research question is whether the growth is deliverable, not whether it is expected."
+                ),
+            }
+        )
+    out.sort(key=lambda r: -r["implied_earnings_growth_pct"])
+    return out[:limit]
+
+
+def _scan_dividend(universe, medians, limit) -> list[dict[str, Any]]:
+    """Yield that profitability and leverage can plausibly support."""
+    out = []
+    for row in universe:
+        yld = _sane(row, "dividend_yield")
+        roe = _sane(row, "roe")
+        debt = _sane(row, "debt_to_equity")
+        if yld is None or yld < 2.0 or yld > 12.0:
+            continue
+        if roe is not None and roe < 8:
+            continue
+        if debt is not None and debt > 200:
+            continue
+        out.append(
+            {
+                **_base(row),
+                "dividend_yield": yld,
+                "roe": roe,
+                "debt_to_equity": debt,
+                "why": (
+                    f"Yields {yld}%"
+                    + (f" on a {roe}% return on equity" if roe is not None else "")
+                    + (f" with debt/equity at {debt}" if debt is not None else "")
+                    + " — income supported by returns rather than by a falling share price."
+                    + (
+                        " Verify the payout is recurring: yields this high often include a special dividend."
+                        if yld > 8
+                        else ""
+                    )
+                ),
+            }
+        )
+    out.sort(key=lambda r: -r["dividend_yield"])
+    return out[:limit]
+
+
+SCANS: dict[str, tuple[str, Callable]] = {
+    **{k: v for k, v in _SCANNERS.items()},
+    "growth": ("Growth", _scan_growth),
+    "dividend": ("Dividend / income", _scan_dividend),
+}
+
+_ORDER = ["value", "quality", "growth", "momentum", "conviction", "dividend", "stress", "pairs"]
+
+_SCAN_PROFILE: dict[str, dict[str, str]] = {
+    "value": {
+        "alpha": "Multiple re-rating toward the industry median",
+        "risk": "Medium — cheap can stay cheap when returns are structurally lower",
+        "question": "Is the discount a mispricing or a verdict?",
+    },
+    "quality": {
+        "alpha": "Compounding returns on capital held through cycles",
+        "risk": "Low to medium — the usual failure is overpaying",
+        "question": "Is the return on capital durable, and what is priced for it?",
+    },
+    "growth": {
+        "alpha": "Earnings delivery against an already-optimistic curve",
+        "risk": "High — de-rating is violent when growth disappoints",
+        "question": "Can the implied growth actually be delivered?",
+    },
+    "momentum": {
+        "alpha": "Persistence of relative strength inside an industry",
+        "risk": "High — crowded trends reverse without warning",
+        "question": "Is the trend fundamentally supported or purely flows?",
+    },
+    "conviction": {
+        "alpha": "Sell-side expectation gaps that resolve on results",
+        "risk": "Medium — consensus is an expectation to test, not a signal",
+        "question": "What does the street assume, and is it defensible?",
+    },
+    "dividend": {
+        "alpha": "Cash return supported by profitability",
+        "risk": "Low to medium — yield traps appear when the price is falling for a reason",
+        "question": "Is the payout covered through a downturn?",
+    },
+    "stress": {
+        "alpha": "Dislocation from forced selling and balance-sheet repair",
+        "risk": "Very high — permanent capital loss is the base case if wrong",
+        "question": "Is this a solvency problem or a liquidity problem?",
+    },
+    "pairs": {
+        "alpha": "Convergence of a valuation gap between industry peers",
+        "risk": "Medium — the spread widens before it converges, if it converges",
+        "question": "Is the gap explained by profitability, or is it mispricing?",
+    },
+}
+
+
+# ---------------------------------------------------------------------------
+# Confidence — a bounded, explainable score, never a probability of profit
+# ---------------------------------------------------------------------------
+def _confidence(key: str, row: dict[str, Any]) -> int:
+    def clamp(x: float) -> int:
+        return int(max(25, min(95, round(x))))
+
+    if key == "value":
+        base = 45 + abs(_num(row.get("discount_pct")) or 0) / 2.0
+        if row.get("classification") == "Potential value trap":
+            base -= 20
+        return clamp(base)
+    if key == "quality":
+        return clamp(35 + (_num(row.get("quality_score")) or 0) * 0.7)
+    if key == "growth":
+        return clamp(40 + (_num(row.get("implied_earnings_growth_pct")) or 0) / 3.0)
+    if key == "momentum":
+        return clamp(45 + (_num(row.get("relative_strength")) or 0) / 2.5)
+    if key == "conviction":
+        return clamp(
+            (_num(row.get("buy_share_pct")) or 0) * 0.5
+            + (_num(row.get("consensus_upside")) or 0) * 0.8
+        )
+    if key == "dividend":
+        return clamp(40 + (_num(row.get("dividend_yield")) or 0) * 6.0)
+    if key == "stress":
+        return clamp(50 + len(row.get("stress_flags") or []) * 12)
+    if key == "pairs":
+        return clamp(30 + (_num(row.get("spread_multiple")) or 0) * 12)
+    return 50
+
+
+def _identity(row: dict[str, Any]) -> tuple[str, str]:
+    """Ticker and display name for a scan row, whether single-name or a pair."""
+    if row.get("long_leg"):
+        leg = row["long_leg"]
+        return str(leg.get("ticker") or ""), str(leg.get("company_name") or leg.get("ticker") or "")
+    return str(row.get("ticker") or ""), str(row.get("company_name") or row.get("ticker") or "")
+
+
+def run_all(limit: int = 12) -> dict[str, Any]:
+    universe = _universe()
+    if not universe:
+        return {"ok": False, "error": "universe_empty"}
+    medians = _industry_medians(universe)
+    results: dict[str, list[dict[str, Any]]] = {}
+    for key in _ORDER:
+        label, fn = SCANS[key]
+        rows = fn(universe, medians, limit)
+        for row in rows:
+            row["confidence"] = _confidence(key, row)
+            row["strategy"] = key
+            row["strategy_label"] = label
+        results[key] = rows
+    return {"ok": True, "universe": universe, "medians": medians, "results": results}
+
+
+# ---------------------------------------------------------------------------
+# Market regime, extended with rotation and sentiment
+# ---------------------------------------------------------------------------
+def regime(universe: Optional[list[dict[str, Any]]] = None) -> dict[str, Any]:
+    base = market_regime()
+    rows = universe if universe is not None else _universe()
+    if not base.get("ok") or not rows:
+        return base
+
+    sectors: dict[str, list[dict[str, Any]]] = {}
+    for row in rows:
+        sector = row.get("primary_sector")
+        if sector:
+            sectors.setdefault(sector, []).append(row)
+
+    sector_rows = []
+    for sector, members in sectors.items():
+        if len(members) < 5:
+            continue
+        upside = _median([(m.get("consensus") or {}).get("upside") for m in members])
+        sector_rows.append(
+            {
+                "sector": sector,
+                "companies": len(members),
+                "median_pe": _median([_sane(m, "pe") for m in members]),
+                "median_roe": _median([_sane(m, "roe") for m in members]),
+                "median_return_1y": _median([(m.get("consensus") or {}).get("return_1y") for m in members]),
+                "median_consensus_upside": upside,
+            }
+        )
+    ranked = [s for s in sector_rows if s["median_consensus_upside"] is not None]
+    ranked.sort(key=lambda s: -(s["median_consensus_upside"] or 0))
+
+    returns = [
+        _num((r.get("consensus") or {}).get("return_1y"))
+        for r in rows
+        if _num((r.get("consensus") or {}).get("return_1y")) is not None
+    ]
+    advancing = sum(1 for r in returns if r > 0)
+    declining = max(1, len(returns) - advancing)
+    ad_ratio = round(advancing / declining, 2) if returns else None
+
+    median_pe = base.get("median_pe")
+    if median_pe is None:
+        valuation = "Unknown"
+    elif median_pe >= 32:
+        valuation = "Expensive"
+    elif median_pe >= 22:
+        valuation = "Full"
+    elif median_pe >= 15:
+        valuation = "Fair"
+    else:
+        valuation = "Cheap"
+
+    upside = base.get("median_consensus_upside_pct")
+    if upside is None:
+        sentiment = "Unknown"
+    elif upside >= 20:
+        sentiment = "Constructive"
+    elif upside >= 8:
+        sentiment = "Balanced"
+    elif upside >= 0:
+        sentiment = "Cautious"
+    else:
+        sentiment = "Defensive"
+
+    dispersion = None
+    if len(returns) > 10:
+        dispersion = round(stats.pstdev(returns), 1)
+
+    return {
+        **base,
+        "advance_decline_ratio": ad_ratio,
+        "advancing": advancing,
+        "declining": len(returns) - advancing,
+        "valuation_stance": valuation,
+        "institutional_sentiment": sentiment,
+        "return_dispersion_pct": dispersion,
+        "sector_rotation": {
+            "most_attractive": ranked[0] if ranked else None,
+            "least_attractive": ranked[-1] if ranked else None,
+            "ranked": ranked[:12],
+        },
+        "vix": None,
+        "vix_note": "India VIX is not wired into this engine yet; dispersion of one-year returns is shown instead.",
+    }
+
+
+# ---------------------------------------------------------------------------
+# The terminal overview — everything the page needs in one call
+# ---------------------------------------------------------------------------
+def overview(limit: int = 1000) -> dict[str, Any]:
+    run = run_all(limit=limit)
+    if not run.get("ok"):
+        return {"ok": False, "error": run.get("error") or "universe_empty"}
+
+    universe = run["universe"]
+    medians = run["medians"]
+    results = run["results"]
+
+    day = _today()
+    snapshot = {key: [_identity(r)[0] for r in rows if _identity(r)[0]] for key, rows in results.items()}
+    prior_day = _previous_day(day)
+    prior = (_load_snapshots().get("days") or {}).get(prior_day) or {} if prior_day else {}
+    _save_snapshot(day, snapshot)
+
+    # Strategy suitability comes from the regime, keyed onto the scanners.
+    reg = regime(universe)
+    suitability_by_name = {s["strategy"]: s for s in (reg.get("strategy_suitability") or [])}
+    suitability_map = {
+        "value": "Value / Deep Value",
+        "quality": "Long / Short Equity",
+        "growth": "Long / Short Equity",
+        "momentum": "Momentum / CTA Trend",
+        "conviction": "Long / Short Equity",
+        "dividend": "Equity Market Neutral",
+        "stress": "Distressed",
+        "pairs": "Equity Market Neutral",
+    }
+
+    cards = []
+    new_today: list[dict[str, Any]] = []
+    removed_today: list[dict[str, Any]] = []
+    for key in _ORDER:
+        rows = results[key]
+        label = SCANS[key][0]
+        confs = [r.get("confidence") for r in rows if r.get("confidence")]
+        current = set(snapshot.get(key) or [])
+        previous = set(prior.get(key) or [])
+        entered = sorted(current - previous) if prior else []
+        exited = sorted(previous - current) if prior else []
+        profile = _SCAN_PROFILE.get(key, {})
+        suit = suitability_by_name.get(suitability_map.get(key, ""), {})
+        for ticker in entered:
+            row = next((r for r in rows if _identity(r)[0] == ticker), None)
+            new_today.append(
+                {"ticker": ticker, "company_name": _identity(row)[1] if row else ticker,
+                 "strategy": key, "strategy_label": label, "why": (row or {}).get("why")}
+            )
+        for ticker in exited:
+            removed_today.append({"ticker": ticker, "strategy": key, "strategy_label": label})
+        cards.append(
+            {
+                "id": key,
+                "label": label,
+                "count": len(rows),
+                "avg_confidence": round(sum(confs) / len(confs), 1) if confs else None,
+                "suitability_stars": suit.get("stars"),
+                "suitability_why": suit.get("why"),
+                "alpha_source": profile.get("alpha"),
+                "risk_level": profile.get("risk"),
+                "research_question": profile.get("question"),
+                "entered_today": len(entered),
+                "exited_today": len(exited),
+            }
+        )
+
+    # Strategy overlap — independent scanners agreeing on the same company.
+    overlap: dict[str, dict[str, Any]] = {}
+    for key, rows in results.items():
+        for row in rows:
+            ticker, name = _identity(row)
+            if not ticker:
+                continue
+            entry = overlap.setdefault(
+                ticker,
+                {
+                    "ticker": ticker,
+                    "company_name": name,
+                    "sector": row.get("sector") or (row.get("long_leg") or {}).get("sector"),
+                    "industry": row.get("industry") or (row.get("long_leg") or {}).get("industry"),
+                    "market_cap": row.get("market_cap") or (row.get("long_leg") or {}).get("market_cap"),
+                    "coverage": row.get("coverage") or (row.get("long_leg") or {}).get("coverage"),
+                    "strategies": [],
+                    "confidences": [],
+                },
+            )
+            entry["strategies"].append(SCANS[key][0])
+            entry["confidences"].append(row.get("confidence") or 50)
+
+    overlap_rows = []
+    for entry in overlap.values():
+        n = len(entry["strategies"])
+        avg = round(sum(entry["confidences"]) / n, 1)
+        overlap_rows.append(
+            {
+                "ticker": entry["ticker"],
+                "company_name": entry["company_name"],
+                "sector": entry["sector"],
+                "industry": entry["industry"],
+                "market_cap": entry["market_cap"],
+                "coverage": entry["coverage"],
+                "strategies": entry["strategies"],
+                "agreement": n,
+                "avg_confidence": avg,
+                "priority_score": round(n * 20 + avg * 0.6, 1),
+            }
+        )
+    overlap_rows.sort(key=lambda r: -r["priority_score"])
+
+    # Research priority queue — where an analyst should spend the morning.
+    # Microcaps clear these screens easily; the queue favours names an
+    # institution could actually take a position in.
+    _SIZE_FLOOR = 2e10  # roughly Rs 2,000 crore
+    agreed = [r for r in overlap_rows if r["agreement"] >= 2]
+    investable = [
+        r for r in agreed
+        if (r.get("market_cap") or 0) >= _SIZE_FLOOR or (r.get("coverage") or 0) >= 5
+    ]
+    ranked_queue = investable if len(investable) >= 5 else agreed
+
+    queue = []
+    for rank, row in enumerate(ranked_queue[:10], start=1):
+        minutes = 30 + 15 * min(4, row["agreement"])
+        queue.append(
+            {
+                "rank": rank,
+                "ticker": row["ticker"],
+                "company_name": row["company_name"],
+                "sector": row["sector"],
+                "industry": row["industry"],
+                "stars": max(1, min(5, 1 + row["agreement"])),
+                "why": f"{row['agreement']} independent scanners agree: " + ", ".join(row["strategies"]),
+                "estimated_research_minutes": minutes,
+                "confidence": row["avg_confidence"],
+                "market_cap": row.get("market_cap"),
+                "strategies": row["strategies"],
+            }
+        )
+
+    def _top(key: str) -> Optional[dict[str, Any]]:
+        rows = results.get(key) or []
+        sized = [
+            r for r in rows
+            if (r.get("market_cap") or (r.get("long_leg") or {}).get("market_cap") or 0) >= 2e10
+            or (r.get("coverage") or (r.get("long_leg") or {}).get("coverage") or 0) >= 5
+        ]
+        pool = sized or rows
+        return pool[0] if pool else None
+
+    highlights = [
+        {"label": "Highest conviction", "scan": "conviction", "row": _top("conviction")},
+        {"label": "Largest discount", "scan": "value", "row": _top("value")},
+        {"label": "Highest quality", "scan": "quality", "row": _top("quality")},
+        {"label": "Strongest momentum", "scan": "momentum", "row": _top("momentum")},
+        {"label": "Widest pair spread", "scan": "pairs", "row": _top("pairs")},
+    ]
+
+    total = sum(len(rows) for rows in results.values())
+    return {
+        "ok": True,
+        "as_of": day,
+        "compared_with": prior_day,
+        "regime": reg,
+        "hero": {
+            "universe_scanned": len(universe),
+            "strategies_running": len(_ORDER),
+            "live_opportunities": total,
+            "companies_flagged": len(overlap_rows),
+            "multi_strategy_companies": sum(1 for r in overlap_rows if r["agreement"] >= 2),
+            "highlights": [h for h in highlights if h["row"]],
+        },
+        "cards": cards,
+        "overlap": overlap_rows[:20],
+        "research_queue": queue,
+        "market_dashboard": market_dashboard(universe, medians),
+        "factors": factor_dashboard(universe, medians),
+        "daily_intelligence": {
+            "baseline": prior_day is None,
+            "new_opportunities": new_today[:20],
+            "removed_opportunities": removed_today[:20],
+            "note": (
+                "First snapshot recorded today — day-on-day changes appear from the next run."
+                if prior_day is None
+                else f"Compared with the scan recorded on {prior_day}."
+            ),
+        },
+        "sources": {
+            "market_data": "yahoo_finance",
+            "consensus": "capital_iq",
+            "classification": "capital_iq_registry",
+            "interpretation": "agi",
+        },
+        "policy": "Research observations only — no buy, sell, target price or personalised advice.",
+    }
+
+
+def market_dashboard(universe=None, medians=None) -> dict[str, Any]:
+    rows = universe if universe is not None else _universe()
+    if not rows:
+        return {"ok": False, "error": "universe_empty"}
+    meds = medians if medians is not None else _industry_medians(rows)
+
+    sectors: dict[str, list[dict[str, Any]]] = {}
+    for row in rows:
+        sector = row.get("primary_sector")
+        if sector:
+            sectors.setdefault(sector, []).append(row)
+
+    sector_rows = []
+    for sector, members in sectors.items():
+        if len(members) < 5:
+            continue
+        sector_rows.append(
+            {
+                "sector": sector,
+                "companies": len(members),
+                "median_pe": _median([_sane(m, "pe") for m in members]),
+                "median_pb": _median([_sane(m, "pb") for m in members]),
+                "median_roe": _median([_sane(m, "roe") for m in members]),
+                "median_yield": _median([_sane(m, "dividend_yield") for m in members]),
+                "median_return_1y": _median([(m.get("consensus") or {}).get("return_1y") for m in members]),
+                "median_upside": _median([(m.get("consensus") or {}).get("upside") for m in members]),
+            }
+        )
+
+    priced = [s for s in sector_rows if s["median_pe"] is not None]
+    priced.sort(key=lambda s: s["median_pe"])
+
+    # Premium and discount against the company's own industry.
+    gaps = []
+    for row in rows:
+        industry = row.get("primary_industry")
+        med = (meds.get(industry) or {})
+        if (med.get("count") or 0) < 5:
+            continue
+        metric = _primary_metric(row.get("industry_dna"))
+        value, benchmark = _sane(row, metric), _num(med.get(metric))
+        if value is None or not benchmark or value <= 0:
+            continue
+        gaps.append(
+            {
+                **_base(row),
+                "metric": metric,
+                "value": value,
+                "industry_median": benchmark,
+                "gap_pct": round(((value / benchmark) - 1.0) * 100.0, 1),
+            }
+        )
+    gaps.sort(key=lambda r: r["gap_pct"])
+
+    def _rank(field: str, reverse: bool, n: int = 5) -> list[dict[str, Any]]:
+        vals = [(row, _sane(row, field)) for row in rows]
+        vals = [(row, v) for row, v in vals if v is not None]
+        vals.sort(key=lambda pair: -pair[1] if reverse else pair[1])
+        return [{**_base(row), field: v} for row, v in vals[:n]]
+
+    conviction = [
+        {**_base(row), "upside": _num((row.get("consensus") or {}).get("upside")),
+         "coverage": _num((row.get("consensus") or {}).get("coverage"))}
+        for row in rows
+        if _num((row.get("consensus") or {}).get("upside")) is not None
+        and (_num((row.get("consensus") or {}).get("coverage")) or 0) >= 10
+    ]
+    conviction.sort(key=lambda r: -(r["upside"] or 0))
+
+    return {
+        "ok": True,
+        "sectors": sector_rows,
+        "cheapest_sector": priced[0] if priced else None,
+        "most_expensive_sector": priced[-1] if priced else None,
+        "largest_discounts": gaps[:5],
+        "largest_premiums": list(reversed(gaps[-5:])) if gaps else [],
+        "highest_roe": _rank("roe", True),
+        "highest_yield": _rank("dividend_yield", True),
+        "highest_conviction": conviction[:5],
+        "note": "Sector medians are computed across the covered universe, not an index weighting.",
+    }
+
+
+def factor_dashboard(universe=None, medians=None) -> dict[str, Any]:
+    """Universe-level factor readings: how much of each factor is available today."""
+    rows = universe if universe is not None else _universe()
+    if not rows:
+        return {"ok": False, "error": "universe_empty"}
+
+    def share(predicate) -> tuple[int, float]:
+        hits = [r for r in rows if predicate(r)]
+        return len(hits), round((len(hits) / len(rows)) * 100.0, 1)
+
+    factors = []
+    definitions = [
+        ("Value", lambda r: (_sane(r, "pe") or 999) < 15, "P/E below 15"),
+        ("Quality", lambda r: (_sane(r, "roe") or -999) > 18, "Return on equity above 18%"),
+        ("Profitability", lambda r: (_sane(r, "profit_margin") or -999) > 15, "Net margin above 15%"),
+        ("Momentum", lambda r: (_num((r.get("consensus") or {}).get("return_1y")) or -999) > 25,
+         "One-year return above 25%"),
+        ("Dividend", lambda r: (_sane(r, "dividend_yield") or -1) > 3, "Yield above 3%"),
+        ("Leverage risk", lambda r: (_sane(r, "debt_to_equity") or -1) > 150, "Debt/equity above 150"),
+    ]
+    for name, predicate, definition in definitions:
+        count, pct = share(predicate)
+        factors.append({"factor": name, "companies": count, "share_pct": pct, "definition": definition})
+
+    return {"ok": True, "universe": len(rows), "factors": factors}
+
+
+# ---------------------------------------------------------------------------
+# Explain a single opportunity
+# ---------------------------------------------------------------------------
+def opportunity(ticker: str, limit: int = 1000) -> dict[str, Any]:
+    tk = str(ticker or "").strip().upper()
+    if not tk:
+        return {"ok": False, "error": "ticker_required"}
+
+    run = run_all(limit=limit)
+    if not run.get("ok"):
+        return {"ok": False, "error": run.get("error") or "universe_empty"}
+    universe, medians, results = run["universe"], run["medians"], run["results"]
+
+    row = next((r for r in universe if str(r.get("ticker") or "").upper() == tk), None)
+    if row is None:
+        return {"ok": False, "error": "not_covered", "ticker": tk}
+
+    industry = row.get("primary_industry")
+    med = medians.get(industry) or {}
+    consensus = row.get("consensus") or {}
+    metric = _primary_metric(row.get("industry_dna"))
+    value, benchmark = _sane(row, metric), _num(med.get(metric))
+    roe, roe_med = _sane(row, "roe"), _num(med.get("roe"))
+    margin = _sane(row, "profit_margin")
+    debt = _sane(row, "debt_to_equity")
+    yld = _sane(row, "dividend_yield")
+    r1 = _num(consensus.get("return_1y"))
+
+    matched = []
+    for key in _ORDER:
+        for hit in results[key]:
+            if _identity(hit)[0] == tk:
+                matched.append(
+                    {
+                        "strategy": key,
+                        "label": SCANS[key][0],
+                        "confidence": hit.get("confidence"),
+                        "why": hit.get("why"),
+                        "research_question": _SCAN_PROFILE.get(key, {}).get("question"),
+                    }
+                )
+                break
+
+    gap = round(((value / benchmark) - 1.0) * 100.0, 1) if value and benchmark else None
+
+    chain = []
+    if value is not None and benchmark:
+        chain = [
+            {"step": f"{metric.upper()} today", "value": value},
+            {"step": f"{industry} median {metric.upper()}", "value": benchmark},
+            {"step": "Gap to industry", "value": f"{gap}%"},
+            {"step": "Return on equity", "value": f"{roe}%" if roe is not None else "—"},
+            {"step": "Industry median return on equity", "value": f"{roe_med}%" if roe_med is not None else "—"},
+            {"step": "Debt / equity", "value": debt if debt is not None else "—"},
+            {"step": "Consensus upside", "value": f"{consensus.get('upside')}%" if consensus.get("upside") is not None else "—"},
+        ]
+
+    risks, catalysts = [], []
+    if debt is not None and debt > 120:
+        risks.append(f"Leverage: debt/equity at {debt}.")
+    if margin is not None and margin < 5:
+        risks.append(f"Thin profitability: net margin of {margin}%.")
+    if gap is not None and gap < -25 and roe is not None and roe_med is not None and roe < roe_med:
+        risks.append("The discount coincides with below-industry returns — a value trap until proven otherwise.")
+    if r1 is not None and r1 < -15:
+        risks.append(f"Price already down {abs(r1)}% over a year; the market is discounting something.")
+    if not risks:
+        risks.append("No leverage, margin or drawdown flag in the covered metrics — risk work still required on the business itself.")
+
+    if consensus.get("upside") is not None:
+        catalysts.append(f"Consensus target implies {consensus.get('upside')}% against the current price.")
+    if gap is not None and gap < -20:
+        catalysts.append("Re-rating toward the industry median if returns hold.")
+    if roe is not None and roe_med is not None and roe > roe_med:
+        catalysts.append("Above-industry returns on equity that the multiple has not yet reflected.")
+    if not catalysts:
+        catalysts.append("No mechanical catalyst in the covered data — a catalyst would have to come from results or corporate action.")
+
+    # Timeline from the daily snapshots.
+    timeline = []
+    days = _load_snapshots().get("days") or {}
+    prior_state: dict[str, bool] = {}
+    for day in sorted(days):
+        state = {key: tk in (days[day].get(key) or []) for key in _ORDER}
+        for key, present in state.items():
+            was = prior_state.get(key)
+            if was is None and present:
+                timeline.append({"date": day, "event": f"Entered {SCANS[key][0]} scanner"})
+            elif was is False and present:
+                timeline.append({"date": day, "event": f"Re-entered {SCANS[key][0]} scanner"})
+            elif was is True and not present:
+                timeline.append({"date": day, "event": f"Left {SCANS[key][0]} scanner"})
+        prior_state = state
+
+    bottom = (
+        f"{row.get('company_name') or tk} is surfaced by {len(matched)} "
+        f"{'scanner' if len(matched) == 1 else 'independent scanners'}"
+        + (f" ({', '.join(m['label'] for m in matched)})" if matched else "")
+        + ". That makes it a research priority, not a position — the scanners describe what the "
+        "data looks like today, not what the business is worth."
+    ) if matched else (
+        f"{row.get('company_name') or tk} does not currently satisfy any scanner. It is covered, "
+        "with metrics and consensus attached, but nothing in today's data flags it for research."
+    )
+
+    return {
+        "ok": True,
+        "ticker": tk,
+        "company_name": row.get("company_name"),
+        "sector": row.get("primary_sector"),
+        "industry": industry,
+        "identity_source": "capital_iq_registry",
+        "market": {
+            "price": row.get("price"),
+            "market_cap": row.get("market_cap"),
+            "pe": _sane(row, "pe"),
+            "forward_pe": _sane(row, "forward_pe"),
+            "pb": _sane(row, "pb"),
+            "ev_ebitda": _sane(row, "ev_ebitda"),
+            "dividend_yield": yld,
+            "source": "yahoo_finance",
+        },
+        "quality": {"roe": roe, "profit_margin": margin, "debt_to_equity": debt, "source": "yahoo_finance"},
+        "industry_context": {
+            "primary_metric": metric,
+            "company_value": value,
+            "industry_median": benchmark,
+            "gap_pct": gap,
+            "industry_median_roe": roe_med,
+            "peers": med.get("count"),
+            "source": "agi_industry_intelligence",
+        },
+        "consensus": {
+            "upside": consensus.get("upside"),
+            "coverage": consensus.get("coverage"),
+            "buy_count": consensus.get("buy_count"),
+            "target": consensus.get("target_price") or consensus.get("target"),
+            "return_1y": r1,
+            "source": "capital_iq",
+        },
+        "strategies_matched": matched,
+        "calculation_chain": chain,
+        "risks": risks,
+        "catalysts": catalysts,
+        "timeline": timeline[-20:],
+        "bottom_line": bottom,
+        "policy": "Descriptive research observation. No buy, sell, target price or personalised advice.",
+    }
+
+
+def scan(strategy: str, *, limit: int = 20, sector: Optional[str] = None) -> dict[str, Any]:
+    """One scanner, with confidence attached and the full explanation per row."""
+    key = str(strategy or "").strip().lower()
+    if key not in SCANS:
+        return {"ok": False, "error": "unknown_scan", "available": _ORDER}
+
+    rows = _universe()
+    if sector:
+        rows = [r for r in rows if str(r.get("primary_sector") or "").lower() == sector.lower()]
+    if not rows:
+        return {"ok": False, "error": "universe_empty"}
+
+    medians = _industry_medians(rows)
+    label, fn = SCANS[key]
+    results = fn(rows, medians, max(1, min(60, int(limit or 20))))
+    for row in results:
+        row["confidence"] = _confidence(key, row)
+    profile = _SCAN_PROFILE.get(key, {})
+    return {
+        "ok": True,
+        "scan": key,
+        "label": label,
+        "alpha_source": profile.get("alpha"),
+        "risk_level": profile.get("risk"),
+        "research_question": profile.get("question"),
+        "universe_scanned": len(rows),
+        "results": results,
+        "count": len(results),
+        "sources": {
+            "market_data": "yahoo_finance",
+            "consensus": "capital_iq",
+            "classification": "capital_iq_registry",
+            "interpretation": "agi",
+        },
+        "policy": "Research observations only — no buy, sell or price target.",
+    }

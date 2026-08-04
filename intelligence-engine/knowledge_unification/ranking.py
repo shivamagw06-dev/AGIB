@@ -5,9 +5,16 @@ from __future__ import annotations
 from knowledge_unification.schema import ProviderResult
 
 _PRIORITY_BONUS = {
+    "historical_intelligence": 0,
+    "institutional_warehouse": 0,
+    "research_intelligence": 0,
+    "portfolio_intelligence": 0,
+    "investment_intelligence": 0,
+    "industry_intelligence": 0,
     "business_intelligence": 0,
     "company_memory": 0,
     "ikl": 1,
+    "valuation_consensus": 1,
     "capiq_ikt": 2,
     "financial_concepts": 0,
     "financial_foundations": 1,
@@ -23,7 +30,14 @@ _PRIORITY_BONUS = {
 # solely for summary similarity — fusion needs multi-source evidence.
 _DEDUP_EXEMPT = frozenset(
     {
+        "historical_intelligence",
+        "institutional_warehouse",
+        "research_intelligence",
+        "portfolio_intelligence",
+        "investment_intelligence",
+        "industry_intelligence",
         "business_intelligence",
+        "valuation_consensus",
         "capiq_ikt",
         "company_memory",
         "ikl",

@@ -11,8 +11,8 @@ from knowledge_unification.ranking import rank_and_filter
 from knowledge_unification.registry import get_registry
 from knowledge_unification.schema import FusedEvidence, ProviderResult
 
-KUL_VERSION = "1.1.0"
-PROGRAMME = "Phase X — Knowledge Unification Layer (+ BI Integration 3.0.5)"
+KUL_VERSION = "1.2.0"
+PROGRAMME = "Phase X — Knowledge Unification Layer (+ II Integration 3.1.5)"
 
 
 def health() -> dict[str, Any]:
@@ -36,8 +36,63 @@ def plan_and_gather(
     ticker: Optional[str] = None,
     max_providers: int = 8,
 ) -> dict[str, Any]:
-    """Full KUL path: query plan → knowledge plan → consult → rank → fuse."""
+    """Full KUL path: query plan → knowledge plan → consult → rank → fuse.
+
+    Entity Intelligence is authoritative: if the contract blocks the planner
+    (clarification / unsupported / private insufficient coverage), KUL must
+    not run Investment/Business/Industry engines on a substituted entity.
+    """
+    ei_contract: dict[str, Any] = {}
+    try:
+        from entity_intelligence.production import analyse as ei_analyse
+        from entity_intelligence.production import should_short_circuit
+
+        ei_contract = ei_analyse(question) or {}
+        if should_short_circuit(ei_contract):
+            summary = str(ei_contract.get("summary") or "").strip()
+            why = list(ei_contract.get("why") or [])
+            return {
+                "ok": True,
+                "version": KUL_VERSION,
+                "programme": PROGRAMME,
+                "engine": "entity_intelligence_gate",
+                "answerable": bool(summary),
+                "fabricated": False,
+                "summary": summary,
+                "why": why,
+                "evidence": [],
+                "coverage": {"knowledge_sources_used": ["entity_intelligence"]},
+                "company_intelligence": {
+                    "identity": {
+                        "ticker": None,
+                        "name": ei_contract.get("canonical_name"),
+                    }
+                },
+                "diagnostics": {
+                    "entity_intelligence": {
+                        "state": ei_contract.get("state"),
+                        "confidence": ei_contract.get("confidence"),
+                        "allow_planner": False,
+                        "ticker": ei_contract.get("ticker"),
+                    },
+                    "providers_consulted": [],
+                    "plan": {"provider_ids": []},
+                },
+                "entity_intelligence": ei_contract,
+            }
+    except Exception:
+        ei_contract = {}
+
     query = plan_query(question)
+    if ticker and not query.ticker_hint:
+        # Never accept a caller ticker that Entity Intelligence forbids.
+        try:
+            from entity_intelligence.production import validate_bound_ticker
+
+            if ei_contract and not validate_bound_ticker(ei_contract, ticker):
+                ticker = None
+        except Exception:
+            pass
     if ticker and not query.ticker_hint:
         query.ticker_hint = str(ticker).upper()
         if "company" not in query.question_types:
@@ -87,7 +142,15 @@ def soft_slice_for_ask_agi(
 
 _HARD_PROVIDERS = frozenset(
     {
+        "research_intelligence",
+        "portfolio_intelligence",
+        "investment_intelligence",
+        "industry_intelligence",
         "business_intelligence",
+        "valuation_consensus",
+        "valuation_terminal",
+        "hedge_fund_screens",
+        "financial_statement_warehouse",
         "capiq_ikt",
         "company_memory",
         "ikl",
@@ -101,30 +164,47 @@ _HARD_PROVIDERS = frozenset(
 
 
 def answer_for_ask(question: str, *, ticker: Optional[str] = None) -> Optional[dict[str, Any]]:
-    """Compact Ask short-circuit payload. Returns None when KUL has nothing."""
-    out = plan_and_gather(question, ticker=ticker)
-    if not out.get("answerable"):
+    """Compact Ask short-circuit payload via Universal Knowledge Orchestration.
+
+    Phase 6.0 — every short-circuit uses the same gather as the full desk path.
+    Soft-only academy/legacy hits still must not short-circuit Ask.
+    """
+    try:
+        from universal_knowledge.production import for_ask as uko_for_ask
+
+        out = uko_for_ask(question, ticker=ticker)
+    except Exception:
+        out = None
+        # Fall back to legacy KUL gather if UKO is unavailable.
+        gathered = plan_and_gather(question, ticker=ticker)
+        if gathered.get("answerable"):
+            coverage = gathered.get("coverage") or {}
+            sources = list(coverage.get("knowledge_sources_used") or [])
+            if sources and any(s in _HARD_PROVIDERS for s in sources):
+                out = {
+                    "summary": gathered.get("summary") or "",
+                    "why": list(gathered.get("why") or []),
+                    "evidence": list(gathered.get("evidence") or []),
+                    "engine": "knowledge_unification",
+                    "key": ((gathered.get("company_intelligence") or {}).get("identity") or {}).get("ticker"),
+                    "company_name": ((gathered.get("company_intelligence") or {}).get("identity") or {}).get("name"),
+                    "coverage": coverage,
+                    "company_intelligence": gathered.get("company_intelligence") or {},
+                    "concept_intelligence": gathered.get("concept_intelligence") or {},
+                    "diagnostics": gathered.get("diagnostics") or {},
+                    "providers_used": sources,
+                }
+    if not out:
         return None
-    coverage = out.get("coverage") or {}
-    sources = list(coverage.get("knowledge_sources_used") or [])
-    # Require at least one real provider contribution.
+    sources = list(out.get("providers_used") or (out.get("coverage") or {}).get("knowledge_sources_used") or [])
     if not sources:
         return None
-    # Soft-only academy/legacy hits must not short-circuit Ask — that blocks
-    # CapIQ company_router fallback and unknown-entity / recommendation
-    # policies for names KUL couldn't bind.
     if not any(s in _HARD_PROVIDERS for s in sources):
         return None
-    return {
-        "summary": out.get("summary") or "",
-        "why": list(out.get("why") or []),
-        "evidence": list(out.get("evidence") or []),
-        "engine": "knowledge_unification",
-        "key": ((out.get("company_intelligence") or {}).get("identity") or {}).get("ticker"),
-        "company_name": ((out.get("company_intelligence") or {}).get("identity") or {}).get("name"),
-        "coverage": coverage,
-        "company_intelligence": out.get("company_intelligence") or {},
-        "concept_intelligence": out.get("concept_intelligence") or {},
-        "diagnostics": out.get("diagnostics") or {},
-        "providers_used": coverage.get("knowledge_sources_used") or [],
-    }
+    # Preserve KUL engine label for downstream short-circuit gates that key on it,
+    # while recording that UKO produced the gather.
+    out = dict(out)
+    out.setdefault("engine", "knowledge_unification")
+    out["uko"] = True
+    out["providers_used"] = sources
+    return out

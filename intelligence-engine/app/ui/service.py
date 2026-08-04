@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from app.aws.adapters import dump, soft
@@ -116,6 +117,19 @@ def _unwrap_soft_slice(name: str, data: Any) -> dict[str, Any]:
     if isinstance(inner, dict) and len(data) == 1:
         return inner
     return data
+
+
+_RESEARCH_SHAPED_QUESTION_RE = re.compile(
+    r"\b(annual report|earnings call|transcript|management (?:said|commentary)|"
+    r"guidance|capital allocation|what changed since|research memory|"
+    r"investor presentation|quarterly results)\b",
+    re.I,
+)
+
+
+def _is_research_shaped_question(question: str) -> bool:
+    """Research questions need filed documents, not a company profile."""
+    return bool(_RESEARCH_SHAPED_QUESTION_RE.search(str(question or "")))
 
 
 def _is_recommendation_bait(question: str) -> bool:
@@ -1012,6 +1026,214 @@ class UiService:
             entity_resolution=scrub(entity_resolution) if entity_resolution else {},
         )
 
+    def _company_metadata_view(
+        self,
+        *,
+        question: str,
+        ask_trace_id: str,
+        stage_timer: StageTimer,
+        ask_orchestration: dict[str, Any],
+        entity_resolution: dict[str, Any],
+        ere_body: dict[str, Any],
+        alias_hit: str | None,
+        metadata: dict[str, Any],
+    ) -> SearchView:
+        """Direct Capital IQ field lookup — no planner, fusion or composer."""
+        executive = str(metadata.get("summary") or "").strip()
+        why = list(metadata.get("why") or [])
+        identity = metadata.get("identity") or {}
+        evidence = list(metadata.get("evidence") or [])
+        for stage in ("ikl", "retrieval", "ranking", "reasoning", "response_assembly"):
+            stage_timer.mark(stage)
+        ask_orchestration = {
+            **ask_orchestration,
+            "executive_source": "company_metadata",
+            "short_circuit": "company_metadata",
+            "rq_stack": "skipped_company_metadata",
+            "company_metadata": {
+                "ticker": metadata.get("ticker"),
+                "company_name": metadata.get("company_name"),
+                "fields": [f.get("field") for f in (metadata.get("fields") or [])],
+                "resolution": metadata.get("resolution"),
+                "source": metadata.get("source"),
+            },
+            "company_identity": identity,
+            "resolved_entity": {
+                "name": metadata.get("company_name"),
+                "ticker": metadata.get("ticker"),
+                "coverage": "capital_iq_registry",
+                "confidence": 0.99,
+            },
+        }
+        orch = finalize_orchestration(
+            ask_orchestration,
+            timer=stage_timer,
+            question=question,
+            detected_ticker=metadata.get("ticker"),
+            ere_body=ere_body,
+            alias_hit=alias_hit,
+            evidence_used=evidence,
+            why=why,
+            executive=executive,
+            intent="company_metadata",
+            fallback=False,
+        )
+        stage_timer.mark("serialization")
+        try:
+            orch["latency"] = stage_timer.as_latency_block()
+            orch["latency_ms"] = stage_timer.as_dict()
+            orch["trace_summary"] = format_trace_summary(orch)
+            orch["completed"] = True
+            orch["timeout"] = False
+        except Exception:
+            pass
+        return SearchView(
+            meta=UiMeta(surface="search", sources=["company_identity"]),
+            question=question,
+            status="ok",
+            degradation={
+                "ask_slim": ask_slim_enabled(),
+                "short_circuit": "company_metadata",
+                "rq_stack": "skipped",
+                "reasoning": "company_metadata_lookup",
+            },
+            ask_orchestration=orch,
+            intent="company_metadata",
+            entities={
+                "ticker": metadata.get("ticker"),
+                "companies": [metadata.get("company_name")] if metadata.get("company_name") else [],
+                "themes": [],
+                "sectors": [identity["primary_sector"]] if identity.get("primary_sector") else [],
+            },
+            answer={
+                "summary": executive,
+                "executive_summary": executive,
+                "stance": "Neutral",
+                "why": why,
+                "house_view_label": "Company Metadata",
+                "policy": "capital_iq_registry",
+                "resolved_entity": ask_orchestration.get("resolved_entity"),
+                "fields": metadata.get("fields") or [],
+            },
+            executive_summary=executive,
+            house_view={"label": "Company Metadata", "stance": "Neutral"},
+            confidence=99.0,
+            investment_thesis=executive,
+            bull_case=[],
+            bear_case=[],
+            key_risks=[],
+            why=why,
+            evidence_used=evidence,
+            follow_up_questions=[],
+            answer_policy="capital_iq_registry",
+            entity_resolution=scrub(entity_resolution) if entity_resolution else {},
+        )
+
+    def _entity_intelligence_view(
+        self,
+        *,
+        question: str,
+        ask_trace_id: str,
+        stage_timer: StageTimer,
+        ask_orchestration: dict[str, Any],
+        entity_resolution: dict[str, Any],
+        ere_body: dict[str, Any],
+        alias_hit: str | None,
+        contract: dict[str, Any],
+    ) -> SearchView:
+        """P0 Entity Intelligence short-circuit — never answer for the wrong entity."""
+        executive = str(contract.get("summary") or "").strip() or unknown_entity_executive(question)
+        why = list(contract.get("why") or []) or [
+            "Entity Intelligence blocked planner execution until a verified entity exists.",
+            "AGI will not substitute another company or CapIQ ticker.",
+        ]
+        ent = contract.get("entity") if isinstance(contract.get("entity"), dict) else {}
+        for stage in ("ikl", "retrieval", "ranking", "reasoning", "response_assembly"):
+            stage_timer.mark(stage)
+        ask_orchestration = {
+            **ask_orchestration,
+            "executive_source": "entity_intelligence",
+            "short_circuit": "entity_intelligence",
+            "rq_stack": "skipped_entity_intelligence",
+            "entity_intelligence": {
+                "state": contract.get("state"),
+                "confidence": contract.get("confidence"),
+                "ticker": contract.get("ticker"),
+                "canonical_name": contract.get("canonical_name") or ent.get("canonical_name"),
+                "coverage": contract.get("coverage") or ent.get("coverage"),
+                "listing": ent.get("listing"),
+                "allow_planner": False,
+            },
+            "resolved_entity": {
+                "name": contract.get("canonical_name") or ent.get("canonical_name"),
+                "ticker": None,
+                "coverage": contract.get("coverage") or ent.get("coverage"),
+                "confidence": contract.get("confidence"),
+            },
+        }
+        orch = finalize_orchestration(
+            ask_orchestration,
+            timer=stage_timer,
+            question=question,
+            detected_ticker=None,
+            ere_body=ere_body,
+            alias_hit=alias_hit,
+            evidence_used=[],
+            why=why,
+            executive=executive,
+            intent="entity_intelligence",
+            fallback=False,
+        )
+        stage_timer.mark("serialization")
+        try:
+            orch["latency"] = stage_timer.as_latency_block()
+            orch["latency_ms"] = stage_timer.as_dict()
+            orch["trace_summary"] = format_trace_summary(orch)
+            orch["completed"] = True
+            orch["timeout"] = False
+        except Exception:
+            pass
+        return SearchView(
+            meta=UiMeta(surface="search", sources=["entity_intelligence"]),
+            question=question,
+            status="ok",
+            degradation={
+                "ask_slim": ask_slim_enabled(),
+                "short_circuit": "entity_intelligence",
+                "rq_stack": "skipped",
+                "reasoning": "entity_intelligence_gate",
+            },
+            ask_orchestration=orch,
+            intent="entity_intelligence",
+            entities={
+                "ticker": None,
+                "companies": [ent.get("canonical_name")] if ent.get("canonical_name") else [],
+                "themes": [],
+                "sectors": [ent["sector"]] if ent.get("sector") else [],
+            },
+            answer={
+                "summary": executive,
+                "executive_summary": executive,
+                "stance": "Neutral",
+                "why": why,
+                "house_view_label": "Entity Intelligence",
+                "policy": "verified_entity_contract",
+                "resolved_entity": ask_orchestration.get("resolved_entity"),
+            },
+            executive_summary=executive,
+            house_view={"label": "Entity Intelligence", "stance": "Neutral"},
+            confidence=float(contract.get("confidence") or 0.9) * 100.0,
+            investment_thesis=executive,
+            bull_case=[],
+            bear_case=[],
+            key_risks=[],
+            why=why,
+            evidence_used=[],
+            follow_up_questions=[],
+            answer_policy="entity_intelligence_gate",
+            entity_resolution=scrub(entity_resolution) if entity_resolution else {},
+        )
+
     def _unknown_entity_view(
         self,
         *,
@@ -1462,6 +1684,109 @@ class UiService:
         except Exception:
             unsupported_company = None
 
+        # Company Metadata Router — "Axis Bank primary sector" is a stored
+        # Capital IQ field, not a research question. It must answer from the
+        # Company Identity Service without touching Entity Intelligence, KUL,
+        # fusion or the composer. Only unambiguous, registered companies route
+        # here; anything else falls through to the normal pipeline.
+        try:
+            from company_identity.metadata_router import route as metadata_route
+
+            metadata_hit = metadata_route(q)
+        except Exception:
+            metadata_hit = None
+        if metadata_hit:
+            try:
+                pipeline.set_intent("Company Metadata", confidence=0.99)
+                pipeline.mark(STAGE_RETRIEVAL_STARTED, status="skipped")
+                pipeline.mark(STAGE_RETRIEVAL_COMPLETED, status="skipped")
+                pipeline.set_evidence(
+                    retrieved=0,
+                    used=1,
+                    top_ids=["company_identity"],
+                    sources=["company_identity"],
+                )
+                pipeline.set_llm(model="registry", used=False, finish_reason="company_metadata")
+                pipeline.complete(status="success")
+            except Exception:
+                pass
+            return self._company_metadata_view(
+                question=q,
+                ask_trace_id=ask_trace_id,
+                stage_timer=stage_timer,
+                ask_orchestration={
+                    **ask_orchestration,
+                    "request_id": ask_trace_id,
+                    "pipeline_debug": pipeline.to_debug_payload(),
+                },
+                entity_resolution=entity_resolution,
+                ere_body=ere_body if isinstance(ere_body, dict) else {},
+                alias_hit=alias_hit,
+                metadata=metadata_hit,
+            )
+
+        # P0 Entity Intelligence — verified entity contract BEFORE KUL.
+        # Never execute intelligence engines on a substituted / unverified company.
+        ei_contract: dict[str, Any] = {}
+        try:
+            from entity_intelligence.production import (
+                analyse as ei_analyse,
+                should_short_circuit as ei_should_short_circuit,
+                validate_bound_ticker as ei_validate_bound_ticker,
+            )
+
+            ei_contract = ei_analyse(q) or {}
+            ask_orchestration["entity_intelligence"] = {
+                "state": ei_contract.get("state"),
+                "confidence": ei_contract.get("confidence"),
+                "ticker": ei_contract.get("ticker"),
+                "canonical_name": ei_contract.get("canonical_name"),
+                "allow_planner": ei_contract.get("allow_planner"),
+                "coverage": ei_contract.get("coverage"),
+            }
+            # Prefer EI verified ticker over CapIQ/ERE when present.
+            ei_tk = ei_contract.get("ticker")
+            if ei_tk and ei_contract.get("allow_planner"):
+                safe = accept_detected_ticker(ei_tk)
+                if safe:
+                    detected_ticker = safe
+                    ask_orchestration["ticker_source"] = "entity_intelligence"
+            # Drop any prior bind that violates forbid / private rules.
+            if detected_ticker and not ei_validate_bound_ticker(ei_contract, detected_ticker):
+                ask_orchestration.setdefault("ticker_rejects", []).append(
+                    {"ticker": detected_ticker, "reason": "entity_intelligence_forbidden_bind"}
+                )
+                detected_ticker = None
+                ask_orchestration["ticker_source"] = "entity_intelligence_cleared"
+            if ei_should_short_circuit(ei_contract):
+                try:
+                    pipeline.set_intent("Entity Intelligence", confidence=0.99)
+                    pipeline.mark(STAGE_RETRIEVAL_STARTED, status="skipped")
+                    pipeline.mark(STAGE_RETRIEVAL_COMPLETED, status="skipped")
+                    pipeline.set_evidence(
+                        retrieved=0, used=1, top_ids=["entity_intelligence"], sources=["entity_intelligence"]
+                    )
+                    pipeline.set_llm(model="policy", used=False, finish_reason="entity_intelligence_gate")
+                    pipeline.complete(status="success")
+                except Exception:
+                    pass
+                return self._entity_intelligence_view(
+                    question=q,
+                    ask_trace_id=ask_trace_id,
+                    stage_timer=stage_timer,
+                    ask_orchestration={
+                        **ask_orchestration,
+                        "request_id": ask_trace_id,
+                        "pipeline_debug": pipeline.to_debug_payload(),
+                    },
+                    entity_resolution=entity_resolution,
+                    ere_body=ere_body if isinstance(ere_body, dict) else {},
+                    alias_hit=alias_hit,
+                    contract=ei_contract,
+                )
+        except Exception:
+            ei_contract = {}
+
         # Knowledge Unification Layer (KUL) — Phase X. Single deterministic
         # planner over CapIQ/IKT, IKL, Company Memory, KF, CGL, financial
         # concepts/foundations/FSI, Academy, BI Foundation, and legacy KIP.
@@ -1469,10 +1794,25 @@ class UiService:
         # via KUL (industry templates / honest economics) over a hard refuse
         # that blocks all business reasoning. CapIQ false-binds remain guarded
         # inside KUL. Non-business unsupported questions still refuse below.
+        # Entity Intelligence must have allowed the planner (or been unavailable).
         try:
             kul_hit = kul_answer_for_ask(q, ticker=detected_ticker)
         except Exception:
             kul_hit = None
+        # Post-KUL: if KUL somehow bound a forbidden ticker, discard and refuse.
+        try:
+            from entity_intelligence.production import validate_bound_ticker as ei_validate_bound_ticker
+
+            kul_tk = None
+            if isinstance(kul_hit, dict):
+                kul_tk = ((kul_hit.get("company_intelligence") or {}).get("identity") or {}).get("ticker")
+            if ei_contract and kul_tk and not ei_validate_bound_ticker(ei_contract, kul_tk):
+                kul_hit = None
+                ask_orchestration.setdefault("ticker_rejects", []).append(
+                    {"ticker": kul_tk, "reason": "entity_intelligence_post_kul_forbid"}
+                )
+        except Exception:
+            pass
 
         if unsupported_company and not (
             kul_hit
@@ -1693,6 +2033,19 @@ class UiService:
                 stage_timer.mark(stage)
             executive = ikt_hit["summary"]
             why = ikt_hit["why"]
+            # A question about an annual report, transcript or guidance must
+            # not be answered with a company profile as if it were research.
+            if _is_research_shaped_question(q):
+                company_label = ikt_hit.get("company_name") or ikt_hit.get("key") or "this company"
+                executive = (
+                    f"No annual report, transcript or management commentary for "
+                    f"{company_label} is in research memory yet, so there is nothing to quote. "
+                    f"What is on file is the company profile: {executive}"
+                )
+                why = [
+                    "Research memory holds no filed document for this company yet.",
+                    *list(why or []),
+                ]
             ikt_orch = {
                 **ask_orchestration,
                 "executive_source": "ikt_company_router",

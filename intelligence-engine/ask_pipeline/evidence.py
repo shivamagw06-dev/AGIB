@@ -266,6 +266,44 @@ def assemble_evidence(
         }
         governance_packs["iere_evidence"] = packs["iere"]["evidence"]
 
+    # Phase 6.0 — Universal Knowledge Orchestration evidence graph.
+    uko = (knowledge or {}).get("universal_knowledge") or {}
+    if isinstance(uko, dict) and (uko.get("providers_used") or uko.get("nodes")):
+        packs["universal_knowledge"] = {
+            "pack_type": "universal_knowledge_graph",
+            "entity": company_ids[0] if company_ids else None,
+            "evidence": {
+                "summary": uko.get("summary"),
+                "why": uko.get("why") or [],
+                "facts": uko.get("facts") or [],
+                "nodes": uko.get("nodes") or [],
+                "by_role": uko.get("by_role") or {},
+                "attributions": uko.get("attributions") or [],
+                "providers_used": uko.get("providers_used") or [],
+                "providers_missing": uko.get("providers_missing") or [],
+                "coverage": uko.get("coverage") or {},
+            },
+            "quality": 0.9,
+            "coverage": ((uko.get("coverage") or {}).get("coverage_pct") or 0) / 100.0,
+            "provenance": {
+                "source": "universal_knowledge",
+                "collector": "uko",
+                "retrieved_at": utc_now(),
+                "validated_at": utc_now(),
+                "fabricated": False,
+                "version": uko.get("version") or "uko-6.0",
+            },
+            "validation": {
+                "ok": bool(uko.get("answerable") or uko.get("providers_used")),
+                "insufficient": not bool(uko.get("providers_used")),
+            },
+            "point_in_time": {"integrity": True, "as_of": utc_now(), "lookahead": False},
+            "found": bool(uko.get("providers_used")),
+            "fabricated": False,
+            "pdf_sent_to_reasoning": False,
+        }
+        governance_packs["universal_knowledge"] = packs["universal_knowledge"]["evidence"]
+
     # Coverage summary
     flat = []
     for k, v in packs.items():

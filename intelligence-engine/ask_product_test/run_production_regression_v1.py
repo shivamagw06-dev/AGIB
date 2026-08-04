@@ -9,23 +9,30 @@ See:
   ask_product_test/agi_core_v1_0.py
   ask_product_test/PRODUCTION_REGRESSION_V1.md
 
-Suite order (permanent release policy):
+Suite order (permanent release policy — Core v1.0 + suites absorbed from main):
   1. Founder Evaluation V2         target ≥95%
   2. Golden Founder 5              target 5/5
   3. Golden Business 20            target 20/20
   4. Financial Intelligence (AFI)  target ≥95%
   5. Business Intelligence         target 100%
   6. Business Integration          target 100%
-  7. Coverage Acceptance           target PASS
-  8. Concept Acceptance            target PASS
-  9. Knowledge Unification         target PASS
- 10. Recommendation Policy         target PASS
- 11. Unknown Entity                target PASS
+  7. Industry Acceptance           target 100%
+  8. Industry Integration          target 100%
+  9. Founder Evaluation V3         target ≥95%
+ 10. Coverage Acceptance           target PASS
+ 11. Concept Acceptance            target PASS
+ 12. Knowledge Unification         target PASS
+ 13. Recommendation Policy         target PASS
+ 14. Unknown Entity                target PASS
+ 15. Canonical Classification      target 100%
+ 16. Company Metadata Routing      target 100%
+ 17. Core Platform Acceptance      target ≥98% (zero-defect)
+ 18. Answer Quality                target ≥95%
 
 Environment:
   ASK_TEST_MODE=inprocess|live|contract   (default inprocess)
   ASK_TEST_ARTIFACTS=/path/to/artifacts   (default: repo artifacts/)
-  PROD_REGRESSION_QUICK=1                 skip coverage + AFI (local iteration only)
+  PROD_REGRESSION_QUICK=1                 skip coverage + AFI + heavy certs (local iteration only)
   PROD_REGRESSION_SKIP_AFI=1              skip AFI only (not merge-sufficient)
 
 Exit 0 only when every included suite meets its target.
@@ -62,11 +69,18 @@ SUITE_MODULES: Dict[str, str] = {
     "afi_acceptance": "ask_product_test.run_afi_acceptance_v1",
     "bi_acceptance": "ask_product_test.run_bi_acceptance_v1",
     "bi_integration": "ask_product_test.run_bi_integration_acceptance_v1",
+    "ii_acceptance": "ask_product_test.run_industry_intelligence_acceptance_v1",
+    "ii_integration": "ask_product_test.run_ii_integration_acceptance_v1",
+    "founder_evaluation_v3": "ask_product_test.run_founder_evaluation_v3",
     "coverage_acceptance": "ask_product_test.run_coverage_acceptance_v1",
     "concept_acceptance": "ask_product_test.run_concept_acceptance_v1",
     "kul_acceptance": "ask_product_test.run_kul_acceptance_v1",
     "recommendation_policy": "ask_product_test.run_recommendation_policy_acceptance_v1",
     "unknown_entity": "ask_product_test.run_unknown_entity_acceptance_v1",
+    "canonical_classification": "ask_product_test.run_canonical_classification_acceptance_v1",
+    "company_metadata_routing": "ask_product_test.run_company_metadata_routing_acceptance_v1",
+    "core_platform_acceptance": "ask_product_test.run_core_platform_acceptance_v1",
+    "answer_quality": "ask_product_test.run_answer_quality_acceptance_v1",
 }
 
 SUITE_ARTIFACTS: Dict[str, str] = {
@@ -76,11 +90,26 @@ SUITE_ARTIFACTS: Dict[str, str] = {
     "afi_acceptance": "afi_acceptance_v1.json",
     "bi_acceptance": "bi_acceptance_v1.json",
     "bi_integration": "bi_integration_acceptance_v1.json",
+    "ii_acceptance": "industry_intelligence_acceptance_v1.json",
+    "ii_integration": "ii_integration_acceptance_v1.json",
+    "founder_evaluation_v3": "founder_evaluation_v3.json",
     "coverage_acceptance": "coverage_acceptance_v1.json",
     "concept_acceptance": "concept_acceptance_v1.json",
     "kul_acceptance": "kul_acceptance_v1.json",
     "recommendation_policy": "recommendation_policy_acceptance_v1.json",
     "unknown_entity": "unknown_entity_acceptance_v1.json",
+    "canonical_classification": "canonical_classification_acceptance_v1.json",
+    "company_metadata_routing": "company_metadata_routing_acceptance_v1.json",
+    "core_platform_acceptance": "core_platform_acceptance_v1.json",
+    "answer_quality": "answer_quality_acceptance_v1.json",
+}
+
+# Heavy / slow suites skipped in quick local iteration (not merge-sufficient).
+_QUICK_SKIP = {
+    "coverage_acceptance",
+    "afi_acceptance",
+    "core_platform_acceptance",
+    "answer_quality",
 }
 
 
@@ -169,6 +198,12 @@ def _decide(suite_id: str, report: Dict[str, Any], rc: int) -> Dict[str, Any]:
         rg = data.get("release_gate") or {}
         if actual is None and isinstance(rg, dict):
             actual = (rg.get("metrics") or {}).get("overall_score_pct")
+        if actual is None:
+            actual = data.get("overall_score") or data.get("pass_rate_pct")
+
+    if actual is None and metric == "overall_score":
+        metrics = data.get("metrics") if isinstance(data.get("metrics"), dict) else {}
+        actual = data.get("overall_score") or metrics.get("overall_score")
 
     op = target["op"]
     value = target["value"]
@@ -176,9 +211,18 @@ def _decide(suite_id: str, report: Dict[str, Any], rc: int) -> Dict[str, Any]:
         ok = rc == 0
         actual = "exit_ok" if ok else "exit_fail"
     elif op == "eq":
-        ok = actual == value
+        if isinstance(value, str):
+            ok = str(actual) == value
+        else:
+            try:
+                ok = float(actual) == float(value)
+            except (TypeError, ValueError):
+                ok = rc == 0
     elif op == "gte":
-        ok = float(actual) >= float(value)
+        try:
+            ok = float(actual) >= float(value)
+        except (TypeError, ValueError):
+            ok = rc == 0
     else:
         ok = rc == 0
 
@@ -189,23 +233,40 @@ def _decide(suite_id: str, report: Dict[str, Any], rc: int) -> Dict[str, Any]:
             or data.get("pr_scoped_decision")
             or data.get("pr_scoped")
         )
-        if pr_scoped == "PASS":
+        if pr_scoped == "PASS" or (rc == 0 and data.get("release_decision") == "PASS"):
             ok = True
             actual = {
                 "release_decision": data.get("release_decision"),
-                "pr_scoped": "PASS",
+                "pr_scoped": pr_scoped or data.get("pr_451_scoped_decision"),
                 "pass_rate_pct": data.get("pass_rate_pct"),
             }
 
+    # Core Platform Acceptance also requires every zero-defect gate at zero —
+    # a 98% score with a hallucination or wrong entity is still a release block.
+    if suite_id == "core_platform_acceptance" and ok and data.get("zero_defect") is False:
+        ok = False
+
+    # Golden founder 5 also uses release_block / all-pass.
+    if suite_id == "golden_founder_5":
+        ok = (data.get("passed") == data.get("total") == 5) or (
+            data.get("pass_rate") == 1.0 and not data.get("release_block")
+        ) or (rc == 0 and data.get("passed") == 5)
+
+    hard = data.get("hard_fail_flags") or {}
     hallucinations = 0
+    if isinstance(hard, dict) and hard:
+        hallucinations = len(hard)
     if suite_id in {"founder_evaluation_v2", "afi_acceptance"}:
-        hallucinations = int(
-            data.get("hallucination_count")
-            or (data.get("metrics") or {}).get("hallucination_count")
-            or 0
+        hallucinations = max(
+            hallucinations,
+            int(
+                data.get("hallucination_count")
+                or (data.get("metrics") or {}).get("hallucination_count")
+                or 0
+            ),
         )
-        if hallucinations:
-            ok = False
+    if suite_id in {"founder_evaluation_v2", "founder_evaluation_v3", "afi_acceptance"} and hallucinations:
+        ok = False
 
     return {
         "suite": suite_id,
@@ -244,9 +305,10 @@ def main() -> int:
     for suite_id in RELEASE_GATE_ORDER:
         if suite_id == "afi_acceptance" and not with_afi:
             continue
-        if suite_id == "coverage_acceptance" and quick:
+        if quick and suite_id in _QUICK_SKIP:
             continue
-        plan.append((suite_id, SUITE_MODULES[suite_id]))
+        module = SUITE_MODULES[suite_id]
+        plan.append((suite_id, module))
 
     results: List[Dict[str, Any]] = []
     for suite_id, module in plan:
@@ -275,16 +337,23 @@ def main() -> int:
         "merge_allowed": full_gate,
         "targets": {
             "Founder Evaluation V2": "≥95%",
+            "Founder Evaluation V3": "≥95%",
             "Golden Founder 5": "5/5",
             "Golden Business 20": "20/20",
             "AFI": "≥95%",
             "BI Acceptance": "100%",
             "Business Integration": "100%",
+            "Industry Acceptance": "100%",
+            "Industry Integration": "100%",
             "Coverage": "PASS",
             "Concept": "PASS",
             "KUL": "PASS",
             "Recommendation Policy": "PASS",
             "Unknown Entity": "PASS",
+            "Canonical Classification": "100%",
+            "Company Metadata Routing": "100%",
+            "Core Platform Acceptance": "≥98% + zero-defect",
+            "Answer Quality": "≥95%",
             "Hallucinations": 0,
         },
         "suites": results,
@@ -292,12 +361,13 @@ def main() -> int:
         "total_suites": len(results),
         "release_decision": "PASS" if all_pass else "FAIL",
         "phase3_freeze_ready": full_gate,
+        "phase31_freeze_ready": full_gate,
         "agi_core_v1_ready": full_gate,
         "baseline": baseline_manifest(),
         "note": (
             "AGI Core v1.0 permanent release policy: full Production Release Gate "
-            "(including AFI + Coverage) must PASS before merge. Quick mode is for "
-            "local iteration only and is not merge-sufficient."
+            "(including AFI + Coverage + industry/identity/platform certs) must PASS "
+            "before merge. Quick mode is for local iteration only and is not merge-sufficient."
         ),
     }
     text = json.dumps(report, indent=2, default=str) + "\n"

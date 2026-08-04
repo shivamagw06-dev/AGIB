@@ -61,6 +61,24 @@ def retrieve_knowledge(
     except Exception:
         ikl_pack = {}
 
+    # Phase 6.0 — Universal Knowledge Orchestration. The desk path gathers the
+    # same provider set as the KUL short-circuit; routing never decides coverage.
+    uko_pack: dict[str, Any] = {}
+    try:
+        from universal_knowledge.production import for_ask_pipeline
+
+        company_ids_uko = [
+            str(e["id"]).upper()
+            for e in (entities or [])
+            if e.get("type") == "company" and e.get("id")
+        ]
+        uko_pack = for_ask_pipeline(
+            question or "",
+            ticker=company_ids_uko[0] if company_ids_uko else None,
+        ) or {}
+    except Exception as exc:
+        uko_pack = {"ok": False, "error": f"{type(exc).__name__}: {exc}", "providers_used": []}
+
     # Track A Concept Mode — never force company objects / Infosys defaults
     if concept_mode:
         selection = {k: v for k, v in selection.items() if k != "company"}
@@ -137,6 +155,8 @@ def retrieve_knowledge(
             primary = "knowledge_factory+multi_source"
         else:
             primary = f"{primary}+multi_source"
+    if isinstance(uko_pack, dict) and uko_pack.get("providers_used"):
+        primary = f"uko+{primary}"
 
     return {
         "stage": "knowledge_retrieval",
@@ -150,8 +170,9 @@ def retrieve_knowledge(
         "iere": iere,
         "multi_source": multi_source,
         "institutional_knowledge": ikl_pack if isinstance(ikl_pack, dict) else {},
+        "universal_knowledge": uko_pack if isinstance(uko_pack, dict) else {},
         "primary_engine": primary,
-        "retrieval_order_policy": "company_memory→industry→macro→graph→kpis→timeline→raw→live",
+        "retrieval_order_policy": "uko→company_memory→industry→macro→graph→kpis→timeline→raw→live",
         "duration_ms": int((time.time() - started) * 1000),
         "provenance": _prov("ask_pipeline.knowledge.retrieve_knowledge"),
         "fabricated": False,

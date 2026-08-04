@@ -57,6 +57,10 @@ import InstitutionalDebate from '@/pages/admin/InstitutionalDebate';
 import DecisionReadiness from '@/pages/admin/DecisionReadiness';
 import ReasoningAudit from '@/pages/admin/ReasoningAudit';
 import KnowledgeOperations from '@/pages/admin/KnowledgeOperations';
+import ValuationIntelligence from '@/pages/admin/ValuationIntelligence';
+import ValuationTerminal from '@/pages/admin/ValuationTerminal';
+import DataWarehouse from '@/pages/admin/DataWarehouse';
+import HistoricalCoverage from '@/pages/admin/HistoricalCoverage';
 import IntelligenceCmsRoutes from '@/pages/admin/intelligence/IntelligenceCmsRoutes';
 
 export default function AdminRoutes() {
@@ -65,6 +69,14 @@ export default function AdminRoutes() {
       <Routes>
         {/* Full-bleed Institutional Knowledge Operations Center — not CMS chrome */}
         <Route path="knowledge-operations" element={<KnowledgeOperations />} />
+        {/* Full-bleed Valuation Intelligence — Institutional Consensus Dashboard */}
+        <Route path="valuation-intelligence" element={<ValuationIntelligence />} />
+        {/* Full-bleed Institutional Valuation Terminal */}
+        <Route path="valuation-terminal" element={<ValuationTerminal />} />
+        {/* Full-bleed Institutional Data Warehouse — the workbook every engine reads */}
+        <Route path="data-warehouse" element={<DataWarehouse />} />
+        {/* Full-bleed Historical Coverage — how deep the warehouse actually goes */}
+        <Route path="historical-coverage" element={<HistoricalCoverage />} />
         {/* Full-bleed Institutional Morning Office — daily investment desk */}
         <Route path="investment-office" element={<InvestmentOfficeAdmin />} />
         {/* Intelligence CMS — structured data modules (Valuation Monitor first) */}

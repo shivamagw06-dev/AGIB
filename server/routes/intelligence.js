@@ -40,7 +40,7 @@ function engineConfig() {
   return { baseUrl, token };
 }
 
-async function engineFetch(path, { method = 'GET', body = null, timeoutMs = 120_000 } = {}) {
+async function engineFetch(path, { method = 'GET', body = null, timeoutMs = 120_000, headers = null } = {}) {
   const { baseUrl, token } = engineConfig();
   const response = await fetch(`${baseUrl}${path}`, {
     method,
@@ -49,6 +49,7 @@ async function engineFetch(path, { method = 'GET', body = null, timeoutMs = 120_
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
       'X-AGI-Intelligence-Token': token,
+      ...(headers || {}),
     },
     body: body ? JSON.stringify(body) : undefined,
     signal: AbortSignal.timeout(timeoutMs),
@@ -465,6 +466,17 @@ export default function createIntelligenceRouter() {
   });
 
   // KF1 Knowledge Foundation — structured knowledge objects over KIP.
+  const kfGet2 = (basePath) => async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query || {}).toString();
+      const seg = encodeURIComponent(Object.values(req.params || {})[0] || '');
+      const r = await engineFetch(`${basePath}/${seg}${qs ? `?${qs}` : ''}`);
+      return res.status(r.status).json(r.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Engine unavailable', detail: error.message });
+    }
+  };
+
   const kfGet = (enginePath) => async (req, res) => {
     try {
       const qs = new URLSearchParams(req.query).toString();
@@ -2116,6 +2128,233 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // Valuation Intelligence — Institutional Consensus Dashboard (Capital IQ)
+  router.get('/valuation-consensus/health', kfGet('/v1/valuation-consensus/health'));
+  router.get('/valuation-consensus/analytics', kfGet('/v1/valuation-consensus/analytics'));
+  router.get('/valuation-consensus/rows', kfGet('/v1/valuation-consensus/rows'));
+  router.get('/valuation-consensus/company/:ticker', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/valuation-consensus/company/${encodeURIComponent(req.params.ticker)}`
+      );
+      res.status(result.status).json(result.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'valuation-consensus company failed' });
+    }
+  });
+  router.post('/valuation-consensus/import/preview', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/valuation-consensus/import/preview', {
+        method: 'POST',
+        body: req.body || {},
+        timeoutMs: 300_000,
+      });
+      res.status(result.status).json(result.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'valuation-consensus import preview failed' });
+    }
+  });
+  router.post('/valuation-consensus/import/validate', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/valuation-consensus/import/validate', {
+        method: 'POST',
+        body: req.body || {},
+        timeoutMs: 120_000,
+      });
+      res.status(result.status).json(result.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'valuation-consensus import validate failed' });
+    }
+  });
+  router.post('/valuation-consensus/import/publish', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/valuation-consensus/import/publish', {
+        method: 'POST',
+        body: req.body || {},
+        timeoutMs: 180_000,
+      });
+      res.status(result.status).json(result.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'valuation-consensus import publish failed' });
+    }
+  });
+  router.post('/valuation-consensus/import/rollback', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/valuation-consensus/import/rollback', {
+        method: 'POST',
+        body: req.body || {},
+        timeoutMs: 60_000,
+      });
+      res.status(result.status).json(result.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'valuation-consensus import rollback failed' });
+    }
+  });
+  router.get('/valuation-consensus/imports', kfGet('/v1/valuation-consensus/imports'));
+  router.get('/valuation-consensus/versions', kfGet('/v1/valuation-consensus/versions'));
+  router.get('/valuation-consensus/export', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/valuation-consensus/export', { timeoutMs: 120_000 });
+      res.status(result.status).json(result.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'valuation-consensus export failed' });
+    }
+  });
+  router.post('/valuation-consensus/seed', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/valuation-consensus/seed', {
+        method: 'POST',
+        body: req.body || {},
+        timeoutMs: 300_000,
+      });
+      res.status(result.status).json(result.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'valuation-consensus seed failed' });
+    }
+  });
+
+  // Hedge Fund Strategy Lab
+  router.get('/hedge-fund-lab/health', kfGet('/v1/hedge-fund-lab/health'));
+  router.get('/hedge-fund-lab/strategies', kfGet('/v1/hedge-fund-lab/strategies'));
+  router.get('/hedge-fund-lab/compare', kfGet('/v1/hedge-fund-lab/compare'));
+  router.get('/hedge-fund-lab/regime', kfGet('/v1/hedge-fund-lab/regime'));
+  router.get('/hedge-fund-lab/daily-monitor', kfGet('/v1/hedge-fund-lab/daily-monitor'));
+
+  router.get('/universal-knowledge/health', kfGet('/v1/universal-knowledge/health'));
+  router.get('/universal-knowledge/registry', kfGet('/v1/universal-knowledge/registry'));
+  router.post('/universal-knowledge/orchestrate', async (req, res) => {
+    try {
+      const r = await engineFetch('/v1/universal-knowledge/orchestrate', {
+        method: 'POST',
+        body: req.body || {},
+        timeoutMs: 120_000,
+      });
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'uko orchestrate failed' });
+    }
+  });
+
+  router.get('/hedge-fund-lab/terminal', kfGet('/v1/hedge-fund-lab/terminal'));
+  router.get('/hedge-fund-lab/opportunity/:ticker', async (req, res) => {
+    try {
+      const r = await engineFetch(`/v1/hedge-fund-lab/opportunity/${encodeURIComponent(req.params.ticker)}`);
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'hedge-fund-lab opportunity failed' });
+    }
+  });
+  router.get('/hedge-fund-lab/scan/:strategy', kfGet2('/v1/hedge-fund-lab/scan'));
+  router.get('/hedge-fund-lab/strategy/:id', async (req, res) => {
+    try {
+      const r = await engineFetch(`/v1/hedge-fund-lab/strategy/${encodeURIComponent(req.params.id)}`);
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'hedge-fund-lab strategy failed' });
+    }
+  });
+  router.post('/hedge-fund-lab/calculate/:kind', async (req, res) => {
+    try {
+      const r = await engineFetch(`/v1/hedge-fund-lab/calculate/${encodeURIComponent(req.params.kind)}`, {
+        method: 'POST', body: req.body || {}, timeoutMs: 30_000,
+      });
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'hedge-fund-lab calculate failed' });
+    }
+  });
+
+  // Valuation Intelligence Terminal — market multiples + AGI interpretation
+  router.get('/valuation-terminal/health', kfGet('/v1/valuation-terminal/health'));
+  router.get('/valuation-terminal/overview', kfGet('/v1/valuation-terminal/overview'));
+  router.get('/valuation-terminal/sectors', kfGet('/v1/valuation-terminal/sectors'));
+  router.get('/valuation-terminal/sector-intelligence', kfGet('/v1/valuation-terminal/sector-intelligence'));
+  router.get('/valuation-terminal/statistics', kfGet('/v1/valuation-terminal/statistics'));
+  router.get('/valuation-terminal/overrides/audit', kfGet('/v1/valuation-terminal/overrides/audit'));
+  router.post('/valuation-terminal/overrides', async (req, res) => {
+    try {
+      const r = await engineFetch('/v1/valuation-terminal/overrides', {
+        method: 'POST', body: req.body || {}, timeoutMs: 30_000,
+      });
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'valuation-terminal override failed' });
+    }
+  });
+  router.post('/valuation-terminal/overrides/clear', async (req, res) => {
+    try {
+      const r = await engineFetch('/v1/valuation-terminal/overrides/clear', {
+        method: 'POST', body: req.body || {}, timeoutMs: 30_000,
+      });
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'valuation-terminal override clear failed' });
+    }
+  });
+  router.get('/valuation-terminal/insights', kfGet('/v1/valuation-terminal/insights'));
+  router.get('/valuation-terminal/companies', kfGet('/v1/valuation-terminal/companies'));
+  router.get('/valuation-terminal/sector/:sector', async (req, res) => {
+    try {
+      const r = await engineFetch(`/v1/valuation-terminal/sector/${encodeURIComponent(req.params.sector)}`);
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'valuation-terminal sector failed' });
+    }
+  });
+  router.get('/valuation-terminal/company/:ticker', async (req, res) => {
+    try {
+      const r = await engineFetch(`/v1/valuation-terminal/company/${encodeURIComponent(req.params.ticker)}`);
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'valuation-terminal company failed' });
+    }
+  });
+  router.get('/valuation-terminal/explain/:metric', async (req, res) => {
+    try {
+      const r = await engineFetch(`/v1/valuation-terminal/explain/${encodeURIComponent(req.params.metric)}`);
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'valuation-terminal explain failed' });
+    }
+  });
+
+  // Company Identity Service — canonical Capital IQ classification
+  router.get('/company-identity/health', kfGet('/v1/company-identity/health'));
+  router.post('/company-identity/metadata', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/company-identity/metadata', {
+        method: 'POST',
+        body: req.body || {},
+        timeoutMs: 20_000,
+      });
+      res.status(result.status).json(result.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'company-identity metadata failed' });
+    }
+  });
+  router.get('/company-identity/:ticker', async (req, res) => {
+    try {
+      const result = await engineFetch(
+        `/v1/company-identity/${encodeURIComponent(req.params.ticker)}`
+      );
+      res.status(result.status).json(result.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'company-identity lookup failed' });
+    }
+  });
+  router.post('/company-identity/validate', async (req, res) => {
+    try {
+      const result = await engineFetch('/v1/company-identity/validate', {
+        method: 'POST',
+        body: req.body || {},
+        timeoutMs: 30_000,
+      });
+      res.status(result.status).json(result.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'company-identity validate failed' });
+    }
+  });
+
   // Mission Control V1 — administrator operations centre (read-only)
   router.get('/mission-control/health', kfGet('/v1/mission-control/health'));
   router.get('/mission-control/intelligence-map', async (_req, res) => {
@@ -3399,8 +3638,7 @@ export default function createIntelligenceRouter() {
     try {
       const result = await engineFetch('/v1/ask', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(req.body || {}),
+        body: req.body || {},
         timeoutMs: 90_000,
       });
       return res.status(result.status).json(result.data);
@@ -3412,8 +3650,7 @@ export default function createIntelligenceRouter() {
     try {
       const result = await engineFetch('/v1/ask/stream', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(req.body || {}),
+        body: req.body || {},
         timeoutMs: 90_000,
       });
       return res.status(result.status).json(result.data);
@@ -6981,6 +7218,143 @@ export default function createIntelligenceRouter() {
     }
     return res.status(200).json(out);
   });
+
+  // ---------------------------------------------------------------------
+  // AGI Institutional Data Warehouse (admin workspace)
+  // ---------------------------------------------------------------------
+
+  const warehouseActor = (req) =>
+    String(
+      req.get?.('X-AGI-Actor') ||
+        req.body?.actor ||
+        req.query?.actor ||
+        'admin',
+    ).slice(0, 200);
+
+  const warehouseGet = (buildPath) => async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query || {}).toString();
+      const target = typeof buildPath === 'function' ? buildPath(req) : buildPath;
+      const result = await engineFetch(`${target}${qs ? `?${qs}` : ''}`, {
+        timeoutMs: 120_000,
+        headers: { 'X-AGI-Actor': warehouseActor(req) },
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Data warehouse unavailable', detail: error.message });
+    }
+  };
+
+  const warehousePost = (buildPath, timeoutMs = 180_000) => async (req, res) => {
+    try {
+      const target = typeof buildPath === 'function' ? buildPath(req) : buildPath;
+      const result = await engineFetch(target, {
+        method: 'POST',
+        body: req.body || {},
+        timeoutMs,
+        headers: { 'X-AGI-Actor': warehouseActor(req) },
+      });
+      return res.status(result.status).json(result.data);
+    } catch (error) {
+      return res.status(503).json({ error: 'Data warehouse unavailable', detail: error.message });
+    }
+  };
+
+  const encode = (value) => encodeURIComponent(String(value || ''));
+
+  router.get('/warehouse/health', warehouseGet('/v1/warehouse/health'));
+  router.get('/warehouse/workbook', warehouseGet('/v1/warehouse/workbook'));
+  router.get('/warehouse/stats', warehouseGet('/v1/warehouse/stats'));
+  router.get('/warehouse/whoami', warehouseGet('/v1/warehouse/whoami'));
+  router.get('/warehouse/coverage', warehouseGet('/v1/warehouse/coverage'));
+  router.get('/warehouse/audit', warehouseGet('/v1/warehouse/audit'));
+  router.get('/warehouse/validate', warehouseGet('/v1/warehouse/validate'));
+  router.get('/warehouse/imports', warehouseGet('/v1/warehouse/imports'));
+  router.get('/warehouse/refresh-runs', warehouseGet('/v1/warehouse/refresh-runs'));
+  router.get('/warehouse/scheduler', warehouseGet('/v1/warehouse/scheduler'));
+  router.get('/warehouse/search', warehouseGet('/v1/warehouse/search'));
+  router.get('/warehouse/suggest', warehouseGet('/v1/warehouse/suggest'));
+  router.get('/warehouse/company/:symbol', warehouseGet((req) =>
+    `/v1/warehouse/company/${encode(req.params.symbol)}`));
+
+  router.get('/warehouse/tab/:tabId/schema', warehouseGet((req) =>
+    `/v1/warehouse/tab/${encode(req.params.tabId)}/schema`));
+  router.get('/warehouse/tab/:tabId/export', warehouseGet((req) =>
+    `/v1/warehouse/tab/${encode(req.params.tabId)}/export`));
+  router.get('/warehouse/tab/:tabId/row/:rowId/history', warehouseGet((req) =>
+    `/v1/warehouse/tab/${encode(req.params.tabId)}/row/${encode(req.params.rowId)}/history`));
+  router.get('/warehouse/tab/:tabId/row/:rowId/compare', warehouseGet((req) =>
+    `/v1/warehouse/tab/${encode(req.params.tabId)}/row/${encode(req.params.rowId)}/compare`));
+  router.get('/warehouse/tab/:tabId/row/:rowId', warehouseGet((req) =>
+    `/v1/warehouse/tab/${encode(req.params.tabId)}/row/${encode(req.params.rowId)}`));
+  router.get('/warehouse/tab/:tabId', warehouseGet((req) =>
+    `/v1/warehouse/tab/${encode(req.params.tabId)}`));
+
+  router.post('/warehouse/tab/:tabId/edit', warehousePost((req) =>
+    `/v1/warehouse/tab/${encode(req.params.tabId)}/edit`));
+  router.post('/warehouse/tab/:tabId/row', warehousePost((req) =>
+    `/v1/warehouse/tab/${encode(req.params.tabId)}/row`));
+  router.post('/warehouse/tab/:tabId/clear-override', warehousePost((req) =>
+    `/v1/warehouse/tab/${encode(req.params.tabId)}/clear-override`));
+  router.post('/warehouse/tab/:tabId/delete', warehousePost((req) =>
+    `/v1/warehouse/tab/${encode(req.params.tabId)}/delete`));
+  router.post('/warehouse/tab/:tabId/publish', warehousePost((req) =>
+    `/v1/warehouse/tab/${encode(req.params.tabId)}/publish`));
+  router.post('/warehouse/tab/:tabId/import', warehousePost((req) =>
+    `/v1/warehouse/tab/${encode(req.params.tabId)}/import`, 300_000));
+  router.post('/warehouse/tab/:tabId/map-headers', warehousePost((req) =>
+    `/v1/warehouse/tab/${encode(req.params.tabId)}/map-headers`, 30_000));
+  router.post('/warehouse/tab/:tabId/row/:rowId/restore', warehousePost((req) =>
+    `/v1/warehouse/tab/${encode(req.params.tabId)}/row/${encode(req.params.rowId)}/restore`));
+  router.post('/warehouse/import/:importId/commit', warehousePost((req) =>
+    `/v1/warehouse/import/${encode(req.params.importId)}/commit`, 300_000));
+  router.post('/warehouse/refresh', warehousePost('/v1/warehouse/refresh', 900_000));
+  router.post('/warehouse/recalculate', warehousePost('/v1/warehouse/recalculate', 600_000));
+
+  // Phase 7.1a — historical backfill and time-series reads
+  router.post('/warehouse/backfill', warehousePost('/v1/warehouse/backfill', 900_000));
+  router.get('/warehouse/backfill/status', warehouseGet('/v1/warehouse/backfill/status'));
+  router.get('/warehouse/backfill/jobs', warehouseGet('/v1/warehouse/backfill/jobs'));
+  router.get('/warehouse/historical-coverage', warehouseGet('/v1/warehouse/historical-coverage'));
+
+  // Phase 7.3 — data quality integration
+  router.get('/warehouse/quality', warehouseGet('/v1/warehouse/quality'));
+  router.get('/warehouse/quarantine', warehouseGet('/v1/warehouse/quarantine'));
+  router.get('/warehouse/conflicts', warehouseGet('/v1/warehouse/conflicts'));
+  router.get('/warehouse/conflicts/summary', warehouseGet('/v1/warehouse/conflicts/summary'));
+  router.post('/warehouse/remediate-zeros', warehousePost('/v1/warehouse/remediate-zeros', 300_000));
+
+  router.get('/history/compare', warehouseGet('/v1/history/compare'));
+  router.get('/history/company/:symbol', warehouseGet((req) =>
+    `/v1/history/company/${encode(req.params.symbol)}`));
+  router.get('/history/series/:symbol/:metric', warehouseGet((req) =>
+    `/v1/history/series/${encode(req.params.symbol)}/${encode(req.params.metric)}`));
+  router.get('/history/as-at/:symbol', warehouseGet((req) =>
+    `/v1/history/as-at/${encode(req.params.symbol)}`));
+  router.get('/history/table/:tabId', warehouseGet((req) =>
+    `/v1/history/table/${encode(req.params.tabId)}`));
+  router.get('/history/coverage/:symbol', warehouseGet((req) =>
+    `/v1/history/coverage/${encode(req.params.symbol)}`));
+
+  // Phase 7.2 — Historical Intelligence Engine
+  router.get('/historical-intelligence/health', warehouseGet('/v1/historical-intelligence/health'));
+  router.get('/historical-intelligence/detect', warehouseGet('/v1/historical-intelligence/detect'));
+  router.get('/historical-intelligence/compare', warehouseGet('/v1/historical-intelligence/compare'));
+  router.post('/historical-intelligence/ask', warehousePost('/v1/historical-intelligence/ask', 180_000));
+  router.get('/historical-intelligence/coverage/:symbol', warehouseGet((req) =>
+    `/v1/historical-intelligence/coverage/${encode(req.params.symbol)}`));
+  router.get('/historical-intelligence/company/:symbol', warehouseGet((req) =>
+    `/v1/historical-intelligence/company/${encode(req.params.symbol)}`));
+  router.get('/historical-intelligence/trend/:symbol/:metric', warehouseGet((req) =>
+    `/v1/historical-intelligence/trend/${encode(req.params.symbol)}/${encode(req.params.metric)}`));
+  router.get('/historical-intelligence/valuation/:symbol', warehouseGet((req) =>
+    `/v1/historical-intelligence/valuation/${encode(req.params.symbol)}`));
+  router.get('/historical-intelligence/bands/:symbol', warehouseGet((req) =>
+    `/v1/historical-intelligence/bands/${encode(req.params.symbol)}`));
+  router.get('/historical-intelligence/timeline/:symbol', warehouseGet((req) =>
+    `/v1/historical-intelligence/timeline/${encode(req.params.symbol)}`));
+  router.get('/historical-intelligence/sector/:symbol', warehouseGet((req) =>
+    `/v1/historical-intelligence/sector/${encode(req.params.symbol)}`));
 
   return router;
 }

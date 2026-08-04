@@ -42,6 +42,8 @@ def _apply_worker_defaults() -> None:
         "CONTINUOUS_KF_HD": "true",
         "CONTINUOUS_LEARNING_LOOP": "true",
         "CONTINUOUS_MORNING_DAG": "true",
+        "WAREHOUSE_DAILY_REFRESH": "true",
+        "WAREHOUSE_BACKFILL": "true",
     }
     # Sidecar start script exports these true already; still fill gaps.
     for key, value in defaults.items():
@@ -112,6 +114,27 @@ def main() -> int:
         log.info("gather_worker_mc_snapshot", extra=boot_mc if isinstance(boot_mc, dict) else {"boot": boot_mc})
     except Exception as exc:  # noqa: BLE001
         log.warning("gather_worker_mc_snapshot_failed", extra={"error": str(exc)[:200]})
+
+    # Institutional Data Warehouse — daily refresh after the Indian close.
+    try:
+        from institutional_warehouse.scheduler import start as start_warehouse
+        from institutional_warehouse.scheduler import stop as stop_warehouse
+
+        boot_warehouse = start_warehouse()
+        if boot_warehouse.get("enabled"):
+            stop_fns.append(stop_warehouse)
+        log.info("gather_worker_warehouse", extra=boot_warehouse)
+
+        # Historical backfill runs here and nowhere else: a universe pass is
+        # thousands of HTTP calls and must never sit in front of Ask.
+        from institutional_warehouse.scheduler import start_backfill, stop_backfill
+
+        boot_backfill = start_backfill()
+        if boot_backfill.get("enabled"):
+            stop_fns.append(stop_backfill)
+        log.info("gather_worker_warehouse_backfill", extra=boot_backfill)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("gather_worker_warehouse_failed", extra={"error": str(exc)[:200]})
 
     stopping = {"flag": False}
 
