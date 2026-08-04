@@ -77,6 +77,7 @@ _PORTFOLIO_MENU = (
 )
 # Phase 3.4.5 — Research Intelligence for institutional research / document memory.
 _RESEARCH_MENU = (
+    "research_intelligence_engine",
     "research_intelligence",
     "investment_intelligence",
     "business_intelligence",

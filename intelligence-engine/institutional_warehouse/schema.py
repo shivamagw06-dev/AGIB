@@ -1053,6 +1053,30 @@ HVIE_UNIVERSE_QUEUE = Tab(
     ),
 )
 
+RIE_COMPANY_DOSSIER = Tab(
+    id="rie_company_dossier",
+    label="RIE Company Dossier",
+    description="Research Intelligence Engine dossier summaries (Phase 8.4) — no recommendations.",
+    mode="master",
+    key=("symbol",),
+    order_by=("as_of DESC", "symbol"),
+    search_columns=("symbol", "research_confidence", "status"),
+    icon="research",
+    columns=(
+        _c("symbol", "Symbol", TEXT, required=True, width=120, group="Key"),
+        _c("as_of", "As Of", DATE, width=120, group="Key"),
+        _c("research_confidence", "Research Confidence", TEXT, width=160, group="Quality",
+           options=("High", "Medium", "Low")),
+        _c("score", "Score", NUMBER, width=100, group="Quality"),
+        _c("coverage_pct", "Coverage %", NUMBER, width=120, group="Quality"),
+        _c("status", "Status", TEXT, width=100, group="Quality"),
+        _c("dqiv", "DQIV", TEXT, width=100, group="Quality"),
+        _c("sections_ok", "Sections OK", INTEGER, width=120, group="Coverage"),
+        _c("executive_summary", "Executive Summary", TEXT, width=360, group="Narrative"),
+        *PROVENANCE_COLUMNS,
+    ),
+)
+
 TABS: tuple[Tab, ...] = (
     COMPANY_MASTER,
     PROFILE_HISTORY,
@@ -1077,6 +1101,7 @@ TABS: tuple[Tab, ...] = (
     HISTORICAL_INDUSTRY_MEDIANS,
     HISTORICAL_MARKET_MEDIANS,
     HVIE_UNIVERSE_QUEUE,
+    RIE_COMPANY_DOSSIER,
     HEDGE_FUND_FACTORS,
     COMPANY_INTELLIGENCE,
     DATA_QUALITY,

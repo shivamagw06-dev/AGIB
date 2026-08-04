@@ -29,11 +29,15 @@ from knowledge_unification.providers.knowledge_factory import KnowledgeFactoryPr
 from knowledge_unification.providers.legacy_kip import LegacyKipProvider
 from knowledge_unification.providers.portfolio_intelligence import PortfolioIntelligenceProvider
 from knowledge_unification.providers.research_intelligence import ResearchIntelligenceProvider
+from knowledge_unification.providers.research_intelligence_engine import (
+    ResearchIntelligenceEngineProvider,
+)
 from knowledge_unification.providers.valuation_consensus import ValuationConsensusProvider
 from knowledge_unification.providers.valuation_terminal import ValuationTerminalProvider
 
 ALL_PROVIDERS = (
     HistoricalIntelligenceProvider,
+    ResearchIntelligenceEngineProvider,
     InstitutionalWarehouseProvider,
     ResearchIntelligenceProvider,
     PortfolioIntelligenceProvider,

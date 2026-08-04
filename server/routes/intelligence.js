@@ -2905,6 +2905,35 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // Research Intelligence Engine (Phase 8.4) — dossier consumer
+  router.get('/research/health', kfGet('/v1/research/health'));
+  router.get('/research/dashboard', kfGet('/v1/research/dashboard'));
+  router.get('/research/coverage', kfGet('/v1/research/coverage'));
+  const rieGet = (suffix, timeoutMs = 90_000) => async (req, res) => {
+    try {
+      const r = await engineFetch(
+        `/v1/research/${suffix}/${encodeURIComponent(req.params.symbol)}`,
+        { timeoutMs },
+      );
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || `research ${suffix} failed` });
+    }
+  };
+  router.get('/research/company/:symbol', rieGet('company', 180_000));
+  router.get('/research/business/:symbol', rieGet('business'));
+  router.get('/research/financial-quality/:symbol', rieGet('financial-quality'));
+  router.get('/research/growth/:symbol', rieGet('growth'));
+  router.get('/research/profitability/:symbol', rieGet('profitability'));
+  router.get('/research/capital-allocation/:symbol', rieGet('capital-allocation'));
+  router.get('/research/valuation/:symbol', rieGet('valuation'));
+  router.get('/research/ownership/:symbol', rieGet('ownership'));
+  router.get('/research/risk/:symbol', rieGet('risk'));
+  router.get('/research/catalysts/:symbol', rieGet('catalysts'));
+  router.get('/research/monitoring/:symbol', rieGet('monitoring'));
+  router.get('/research/timeline/:symbol', rieGet('timeline'));
+  router.get('/research/confidence/:symbol', rieGet('confidence', 180_000));
+
   // Unified Valuation Engine — terminal migration surface
   router.get('/valuation-engine/health', kfGet('/v1/valuation-engine/health'));
   router.get('/valuation-engine/company/:symbol', async (req, res) => {
