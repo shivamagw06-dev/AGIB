@@ -5,6 +5,7 @@
 
 import {
   FUNDAMENTAL_ENDPOINTS,
+  getCompetitors,
   getCorporateActions,
   getFundamentals,
   getHistoricalCandles,
@@ -82,6 +83,17 @@ export async function getUpstoxCapabilities(opts = {}) {
     }
   }
 
+  try {
+    const payload = await getCompetitors(instrumentKey);
+    endpoints.competitors = {
+      ok: payload?.status === 'success',
+      status: payload?.status || null,
+      ...shapeOf(payload),
+    };
+  } catch (err) {
+    endpoints.competitors = { ok: false, error: err?.message || 'failed', httpStatus: err?.status || null };
+  }
+
   const candles = {};
   const to = new Date().toISOString().slice(0, 10);
   for (const [label, spec] of Object.entries({
@@ -104,6 +116,7 @@ export async function getUpstoxCapabilities(opts = {}) {
     }
   }
 
+  const total = Object.keys(endpoints).length;
   const available = Object.values(endpoints).filter((e) => e.ok).length;
   return {
     provider: 'upstox',
@@ -111,7 +124,7 @@ export async function getUpstoxCapabilities(opts = {}) {
     instrument_key: instrumentKey,
     configured: isUpstoxConfigured(),
     fundamentals: endpoints,
-    fundamentals_available: `${available}/${FUNDAMENTAL_ENDPOINTS.length}`,
+    fundamentals_available: `${available}/${total}`,
     candles,
     checkedAt: new Date().toISOString(),
   };

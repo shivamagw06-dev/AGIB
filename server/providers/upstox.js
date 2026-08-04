@@ -119,9 +119,13 @@ function cleanIsin(isin) {
   return clean;
 }
 
-/** ISIN-keyed fundamentals endpoints. `competitors` is keyed by instrument_key instead. */
+/**
+ * ISIN-keyed fundamentals endpoints, as published by the Upstox Python SDK
+ * (`/v2/fundamentals/{isin}/...`). Note the profile path is `profile`, not
+ * `company-profile`. `competitors` is keyed by instrument_key instead.
+ */
 export const FUNDAMENTAL_ENDPOINTS = Object.freeze([
-  'company-profile',
+  'profile',
   'income-statement',
   'balance-sheet',
   'cash-flow',
@@ -144,6 +148,13 @@ export async function getFundamentals(isin, endpoint) {
 
 export async function getCorporateActions(isin) {
   return getFundamentals(isin, 'corporate-actions');
+}
+
+/** GET /v2/fundamentals/{instrument_key}/competitors — keyed by instrument_key, not ISIN. */
+export async function getCompetitors(instrumentKey) {
+  const key = String(instrumentKey || '').trim();
+  if (!key.includes('|')) throw new Error(`Invalid instrument_key: ${instrumentKey}`);
+  return upstoxGet(`/fundamentals/${encodeURIComponent(key)}/competitors`);
 }
 
 /**
