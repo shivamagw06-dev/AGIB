@@ -5,7 +5,9 @@ from __future__ import annotations
 from institutional_coverage_health import health
 from institutional_coverage_health.production import (
     _bar,
+    _paged_rows,
     _pct,
+    _provider_ratio_index,
     coverage_health,
     valuation_covered,
 )
@@ -28,6 +30,41 @@ def test_pct_and_bar():
     assert len(_bar(95)) == 10
     assert _bar(100).startswith("█")
     assert _bar(0) == "░" * 10
+
+
+def test_paged_rows_walks_past_store_max_limit(monkeypatch):
+    """Regression: first 5k valuation_ratios rows only cover ~295 symbols."""
+    calls = []
+
+    def fake_fetch(tab_id, limit=200, offset=0, **kwargs):
+        calls.append(offset)
+        if offset == 0:
+            rows = [
+                {"symbol": f"A{i}", "ratio_name": "pe", "company_value": 10, "reported_date": "2026-01-01"}
+                for i in range(5000)
+            ]
+            return {"ok": True, "rows": rows, "total": 6000, "limit": limit, "offset": offset}
+        if offset == 5000:
+            rows = [
+                {"symbol": f"B{i}", "ratio_name": "pe", "company_value": 11, "reported_date": "2026-01-02"}
+                for i in range(1000)
+            ]
+            return {"ok": True, "rows": rows, "total": 6000, "limit": limit, "offset": offset}
+        return {"ok": True, "rows": [], "total": 6000, "limit": limit, "offset": offset}
+
+    monkeypatch.setattr(
+        "institutional_warehouse.store.fetch",
+        fake_fetch,
+    )
+    rows = _paged_rows("valuation_ratios")
+    assert len(rows) == 6000
+    assert calls == [0, 5000]
+
+    # Provider index must see symbols from page 2, not stop at page 1.
+    idx = _provider_ratio_index()
+    assert len(idx) == 6000
+    assert "B0" in idx
+    assert "A0" in idx
 
 
 def test_valuation_covered_rules():
