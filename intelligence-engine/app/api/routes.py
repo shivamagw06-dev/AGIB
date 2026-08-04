@@ -19343,6 +19343,80 @@ async def valuation_ratios_isin_backfill(payload: dict[str, Any] = Body(default_
     )
 
 
+# ---- Phase 7.4E — Upstox Institutional Fundamentals Integration (UIFI) ----
+
+@router.get("/upstox-fundamentals/health")
+async def uifi_health():
+    from upstox_fundamentals import health
+
+    return health()
+
+
+@router.get("/upstox-fundamentals/coverage")
+async def uifi_coverage():
+    from upstox_fundamentals import coverage
+
+    return coverage()
+
+
+@router.get("/upstox-fundamentals/failures")
+async def uifi_failures():
+    from upstox_fundamentals import failures
+
+    return failures()
+
+
+@router.post("/upstox-fundamentals/ingest")
+async def uifi_ingest(payload: dict[str, Any] = Body(default_factory=dict)):
+    """BFF posts fetched Upstox fundamentals here — never called by UI/engines directly."""
+    from upstox_fundamentals import ingest_bundle
+
+    body = payload or {}
+    return ingest_bundle(body, actor=str(body.get("actor") or "uifi"))
+
+
+@router.get("/company/profile/{symbol}")
+async def company_profile_api(symbol: str):
+    from upstox_fundamentals import company_profile
+
+    return company_profile(symbol)
+
+
+@router.get("/company/profile/history/{symbol}")
+async def company_profile_history_api(symbol: str):
+    from upstox_fundamentals import company_profile_history
+
+    return company_profile_history(symbol)
+
+
+@router.get("/company/statements/{symbol}")
+async def company_statements_api(symbol: str):
+    from upstox_fundamentals import company_statements
+
+    return company_statements(symbol)
+
+
+@router.get("/company/shareholding/{symbol}")
+async def company_shareholding_api(symbol: str):
+    from upstox_fundamentals import company_shareholding
+
+    return company_shareholding(symbol)
+
+
+@router.get("/company/competitors/{symbol}")
+async def company_competitors_api(symbol: str):
+    from upstox_fundamentals import company_competitors
+
+    return company_competitors(symbol)
+
+
+@router.get("/company/corporate-actions/{symbol}")
+async def company_corporate_actions_api(symbol: str):
+    from upstox_fundamentals import company_corporate_actions
+
+    return company_corporate_actions(symbol)
+
+
 @router.get("/warehouse/statement-identity")
 async def warehouse_statement_identity():
     """Statement rows still carrying no statement type."""

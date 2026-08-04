@@ -191,12 +191,16 @@ COMPANY_MASTER = Tab(
         _c("symbol", "NSE Symbol", TEXT, required=True, width=130, group="Identity"),
         _c("bse_symbol", "BSE Symbol", TEXT, width=120, group="Identity"),
         _c("isin", "ISIN", TEXT, width=140, group="Identity"),
+        _c("instrument_key", "Instrument Key", TEXT, width=180, group="Identity",
+           help="Upstox NSE_EQ|ISIN instrument key"),
         _c("company_name", "Company Name", TEXT, required=True, width=240, group="Identity"),
         _c("legal_name", "Legal Name", TEXT, width=240, group="Identity"),
         _c("sector", "Sector", TEXT, width=160, group="Classification"),
         _c("industry", "Industry", TEXT, width=180, group="Classification"),
+        _c("sub_industry", "Sub Industry", TEXT, width=180, group="Classification"),
         _c("industry_dna", "Industry DNA", TEXT, width=180, group="Classification"),
         _c("business_type", "Business Type", TEXT, width=150, group="Classification"),
+        _c("business_description", "Business Description", TEXT, width=320, group="Profile"),
         _c("exchange", "Exchange", TEXT, width=110, group="Listing"),
         _c("listing_date", "Listing Date", DATE, width=130, group="Listing"),
         _c("website", "Website", TEXT, width=210, group="Profile"),
@@ -204,9 +208,80 @@ COMPANY_MASTER = Tab(
         _c("state", "State", TEXT, width=130, group="Profile"),
         _c("city", "City", TEXT, width=130, group="Profile"),
         _c("currency", "Currency", TEXT, width=100, group="Profile"),
+        _c("market_cap_inr", "Market Cap (INR)", CURRENCY, width=150, group="Profile", unit=UNIT_INR),
+        _c("market_cap_usd", "Market Cap (USD)", CURRENCY, width=150, group="Profile"),
+        _c("employee_count", "Employees", INTEGER, width=120, group="Profile"),
         _c("market_status", "Market Status", TEXT, width=130, group="Status",
            options=("listed", "suspended", "delisted", "unlisted")),
         _c("active", "Active", BOOL, width=90, group="Status"),
+        *PROVENANCE_COLUMNS,
+    ),
+)
+
+# --------------------------------------------------------------------------
+# Tab — Profile History (append-only revisions from Upstox / other providers)
+# --------------------------------------------------------------------------
+
+PROFILE_HISTORY = Tab(
+    id="profile_history",
+    label="Profile History",
+    description="Append-only company profile revisions. Every change is preserved.",
+    mode="append",
+    key=("symbol", "as_of", "source"),
+    order_by=("as_of DESC", "symbol"),
+    search_columns=("symbol", "company_name", "sector", "industry"),
+    icon="registry",
+    notes=("Do not overwrite. Diffs against company_master are stored as new rows.",),
+    columns=(
+        _c("symbol", "Symbol", TEXT, required=True, width=130, group="Key"),
+        _c("as_of", "As Of", DATE, required=True, width=120, group="Key"),
+        _c("isin", "ISIN", TEXT, width=140, group="Identity"),
+        _c("instrument_key", "Instrument Key", TEXT, width=180, group="Identity"),
+        _c("company_name", "Company Name", TEXT, width=240, group="Identity"),
+        _c("legal_name", "Legal Name", TEXT, width=240, group="Identity"),
+        _c("sector", "Sector", TEXT, width=160, group="Classification"),
+        _c("industry", "Industry", TEXT, width=180, group="Classification"),
+        _c("sub_industry", "Sub Industry", TEXT, width=180, group="Classification"),
+        _c("business_description", "Business Description", TEXT, width=320, group="Profile"),
+        _c("market_cap_inr", "Market Cap (INR)", CURRENCY, width=150, group="Profile", unit=UNIT_INR),
+        _c("market_cap_usd", "Market Cap (USD)", CURRENCY, width=150, group="Profile"),
+        _c("website", "Website", TEXT, width=210, group="Profile"),
+        _c("city", "City", TEXT, width=130, group="Profile"),
+        _c("state", "State", TEXT, width=130, group="Profile"),
+        _c("country", "Country", TEXT, width=110, group="Profile"),
+        _c("listing_date", "Listing Date", DATE, width=130, group="Listing"),
+        _c("employee_count", "Employees", INTEGER, width=120, group="Profile"),
+        _c("confidence", "Confidence", NUMBER, width=110, group="Quality"),
+        _c("dqiv_status", "DQIV", TEXT, width=110, group="Quality"),
+        _c("validation_notes", "Notes", TEXT, width=220, group="Quality"),
+        *PROVENANCE_COLUMNS,
+    ),
+)
+
+# --------------------------------------------------------------------------
+# Tab — Peer Relationships (competitor graph)
+# --------------------------------------------------------------------------
+
+PEER_RELATIONSHIPS = Tab(
+    id="peer_relationships",
+    label="Peer Relationships",
+    description="Competitor / peer graph resolved to company_master symbols.",
+    mode="append",
+    key=("symbol", "peer_symbol", "relationship", "source"),
+    order_by=("symbol", "peer_symbol"),
+    search_columns=("symbol", "peer_symbol", "peer_isin"),
+    icon="factors",
+    columns=(
+        _c("symbol", "Company", TEXT, required=True, width=130, group="Key"),
+        _c("peer_symbol", "Peer", TEXT, required=True, width=130, group="Key"),
+        _c("peer_isin", "Peer ISIN", TEXT, width=140, group="Identity"),
+        _c("peer_instrument_key", "Peer Instrument Key", TEXT, width=180, group="Identity"),
+        _c("sector", "Sector", TEXT, width=160, group="Classification"),
+        _c("industry", "Industry", TEXT, width=180, group="Classification"),
+        _c("relationship", "Relationship", TEXT, required=True, width=140, group="Key",
+           options=("competitor", "peer", "subsidiary", "related")),
+        _c("confidence", "Confidence", NUMBER, width=110, group="Quality"),
+        _c("as_of", "As Of", DATE, width=120, group="Key"),
         *PROVENANCE_COLUMNS,
     ),
 )
@@ -561,6 +636,10 @@ CORPORATE_ACTIONS = Tab(
         _c("name_change", "Name Change", TEXT, width=160, group="Identity"),
         _c("symbol_change", "Symbol Change", TEXT, width=150, group="Identity"),
         _c("details", "Details", TEXT, width=280, group="Detail"),
+        _c("announcement_date", "Announcement Date", DATE, width=150, group="Dates"),
+        _c("effective_date", "Effective Date", DATE, width=140, group="Dates"),
+        _c("confidence", "Confidence", NUMBER, width=110, group="Quality",
+           help="1.0 primary NSE/LIDI; lower when secondary (e.g. Upstox) or conflicted"),
         *PROVENANCE_COLUMNS,
     ),
 )
@@ -588,6 +667,11 @@ OWNERSHIP = Tab(
         _c("mutual_funds", "Mutual Funds", PERCENT, width=130, group="Holders"),
         _c("insider_holding", "Insider", PERCENT, width=110, group="Holders"),
         _c("public_holding", "Public", PERCENT, width=110, group="Holders"),
+        _c("government_holding", "Government", PERCENT, width=120, group="Holders"),
+        _c("others_holding", "Others", PERCENT, width=110, group="Holders"),
+        _c("confidence", "Confidence", NUMBER, width=110, group="Quality"),
+        _c("dqiv_status", "DQIV", TEXT, width=110, group="Quality"),
+        _c("validation_notes", "Notes", TEXT, width=220, group="Quality"),
         *PROVENANCE_COLUMNS,
     ),
 )
@@ -889,6 +973,7 @@ HISTORICAL_SECTOR_MEDIANS = Tab(
 
 TABS: tuple[Tab, ...] = (
     COMPANY_MASTER,
+    PROFILE_HISTORY,
     DAILY_MARKET_HISTORY,
     FINANCIALS_ANNUAL,
     FINANCIALS_QUARTERLY,
@@ -899,6 +984,7 @@ TABS: tuple[Tab, ...] = (
     RESEARCH_TIMELINE,
     CORPORATE_ACTIONS,
     OWNERSHIP,
+    PEER_RELATIONSHIPS,
     INSTITUTIONAL_FLOW,
     VALUATION_RATIOS,
     BOOTSTRAP_RUNS,

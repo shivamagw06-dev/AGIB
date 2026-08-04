@@ -232,6 +232,130 @@ export default function createMarketRouter(env = {}) {
     }
   });
 
+  // ---- Phase 7.4E UIFI — also exposed under /api/upstox/* via alias below ----
+  router.post('/upstox/profile/bootstrap', async (req, res) => {
+    try {
+      const { startUifiBootstrap } = await import('../services/uifiBootstrapEngine.js');
+      return res.status(200).json(await startUifiBootstrap({
+        dataset: 'profile', reset: !!req.body?.reset,
+        batchSize: req.body?.batchSize, concurrency: req.body?.concurrency,
+      }));
+    } catch (err) {
+      return res.status(502).json({ ok: false, error: err?.message || 'uifi_profile_bootstrap_failed' });
+    }
+  });
+  router.post('/upstox/statements/bootstrap', async (req, res) => {
+    try {
+      const { startUifiBootstrap } = await import('../services/uifiBootstrapEngine.js');
+      return res.status(200).json(await startUifiBootstrap({
+        dataset: 'statements', reset: !!req.body?.reset,
+        batchSize: req.body?.batchSize, concurrency: req.body?.concurrency,
+      }));
+    } catch (err) {
+      return res.status(502).json({ ok: false, error: err?.message || 'uifi_statements_bootstrap_failed' });
+    }
+  });
+  router.post('/upstox/shareholding/bootstrap', async (req, res) => {
+    try {
+      const { startUifiBootstrap } = await import('../services/uifiBootstrapEngine.js');
+      return res.status(200).json(await startUifiBootstrap({
+        dataset: 'share-holdings', reset: !!req.body?.reset,
+        batchSize: req.body?.batchSize, concurrency: req.body?.concurrency,
+      }));
+    } catch (err) {
+      return res.status(502).json({ ok: false, error: err?.message || 'uifi_shareholding_bootstrap_failed' });
+    }
+  });
+  router.post('/upstox/competitors/bootstrap', async (req, res) => {
+    try {
+      const { startUifiBootstrap } = await import('../services/uifiBootstrapEngine.js');
+      return res.status(200).json(await startUifiBootstrap({
+        dataset: 'competitors', reset: !!req.body?.reset,
+        batchSize: req.body?.batchSize, concurrency: req.body?.concurrency,
+      }));
+    } catch (err) {
+      return res.status(502).json({ ok: false, error: err?.message || 'uifi_competitors_bootstrap_failed' });
+    }
+  });
+  router.post('/upstox/corporate-actions/bootstrap', async (req, res) => {
+    try {
+      const { startUifiBootstrap } = await import('../services/uifiBootstrapEngine.js');
+      return res.status(200).json(await startUifiBootstrap({
+        dataset: 'corporate-actions', reset: !!req.body?.reset,
+        batchSize: req.body?.batchSize, concurrency: req.body?.concurrency,
+      }));
+    } catch (err) {
+      return res.status(502).json({ ok: false, error: err?.message || 'uifi_ca_bootstrap_failed' });
+    }
+  });
+  router.post('/upstox/bootstrap/start', async (req, res) => {
+    try {
+      const { startUifiBootstrap } = await import('../services/uifiBootstrapEngine.js');
+      return res.status(200).json(await startUifiBootstrap({
+        dataset: req.body?.dataset || 'all',
+        reset: !!req.body?.reset,
+        batchSize: req.body?.batchSize,
+        concurrency: req.body?.concurrency,
+      }));
+    } catch (err) {
+      return res.status(502).json({ ok: false, error: err?.message || 'uifi_bootstrap_start_failed' });
+    }
+  });
+  router.post('/upstox/bootstrap/stop', async (_req, res) => {
+    try {
+      const { stopUifiBootstrap } = await import('../services/uifiBootstrapEngine.js');
+      return res.status(200).json(await stopUifiBootstrap());
+    } catch (err) {
+      return res.status(502).json({ ok: false, error: err?.message || 'uifi_bootstrap_stop_failed' });
+    }
+  });
+  router.get('/upstox/bootstrap/status', async (_req, res) => {
+    try {
+      const { getUifiBootstrapStatus } = await import('../services/uifiBootstrapEngine.js');
+      return res.status(200).json(getUifiBootstrapStatus());
+    } catch (err) {
+      return res.status(502).json({ ok: false, error: err?.message || 'uifi_bootstrap_status_failed' });
+    }
+  });
+  router.get('/upstox/coverage', async (_req, res) => {
+    try {
+      const { getUifiCoverage } = await import('../services/upstoxFundamentalsRefresh.js');
+      return res.status(200).json(await getUifiCoverage());
+    } catch (err) {
+      return res.status(502).json({ ok: false, error: err?.message || 'uifi_coverage_failed' });
+    }
+  });
+  router.get('/upstox/failures', async (_req, res) => {
+    try {
+      const { getUifiFailures } = await import('../services/upstoxFundamentalsRefresh.js');
+      return res.status(200).json(await getUifiFailures());
+    } catch (err) {
+      return res.status(502).json({ ok: false, error: err?.message || 'uifi_failures_failed' });
+    }
+  });
+  router.get('/upstox/scheduler', async (_req, res) => {
+    try {
+      const { getUifiSchedulerStatus } = await import('../services/uifiScheduler.js');
+      return res.status(200).json(getUifiSchedulerStatus());
+    } catch (err) {
+      return res.status(200).json({ ok: false, error: err?.message || 'scheduler_unavailable' });
+    }
+  });
+  router.post('/upstox/refresh', async (req, res) => {
+    try {
+      const { refreshUpstoxFundamentals } = await import('../services/upstoxFundamentalsRefresh.js');
+      const result = await refreshUpstoxFundamentals({
+        dataset: req.body?.dataset || 'profile',
+        limit: req.body?.limit,
+        concurrency: req.body?.concurrency,
+        symbols: req.body?.symbols,
+      });
+      return res.status(result.status || (result.ok ? 200 : 502)).json(result);
+    } catch (err) {
+      return res.status(502).json({ ok: false, error: err?.message || 'uifi_refresh_failed' });
+    }
+  });
+
   router.get('/intelligence', async (_req, res) => {
     // Warm Groww/NSE ticker in the same 30-min cycle as AGI outlook.
     void getTickerData(env).catch(() => null);
