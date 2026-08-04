@@ -18962,6 +18962,35 @@ async def warehouse_remediate_zeros(
                            dry_run=bool(body.get("dry_run")))
 
 
+@router.get("/valuation-engine/health")
+async def valuation_engine_health():
+    """The one valuation contract: what it computes and what it reads."""
+    from valuation_engine import health
+
+    return health()
+
+
+@router.get("/valuation-engine/company/{symbol}")
+async def valuation_engine_company(symbol: str):
+    """One company's valuation, sector context, coverage and provenance."""
+    from valuation_engine import get_company_valuation
+
+    return get_company_valuation(symbol)
+
+
+@router.post("/valuation-engine/explain-change")
+async def valuation_engine_explain_change(payload: dict[str, Any] = Body(default_factory=dict)):
+    """Why a company's multiples moved between two observations."""
+    from valuation_engine import explain_valuation_change
+
+    body = payload or {}
+    return explain_valuation_change(
+        str(body.get("symbol") or ""),
+        body.get("before") or {},
+        body.get("after") or {},
+    )
+
+
 @router.get("/warehouse/statement-identity")
 async def warehouse_statement_identity():
     """Statement rows still carrying no statement type."""
