@@ -20209,23 +20209,37 @@ async def valuation_engine_terminal_explain(metric: str):
 
 @router.get("/market-intelligence/health")
 async def market_intelligence_health():
-    from market_intelligence_engine import health
+    try:
+        from market_intelligence_engine import health
 
-    return health()
+        return health()
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)[:320], "engine": "market_intelligence_engine"}
 
 
 @router.get("/market-intelligence/dashboard")
 async def market_intelligence_dashboard(universe_limit: int = 5000):
-    from market_intelligence_engine import dashboard
+    try:
+        from market_intelligence_engine import dashboard
 
-    return dashboard(universe_limit=universe_limit)
+        return dashboard(universe_limit=universe_limit)
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)[:320], "engine": "market_intelligence_engine"}
 
 
 @router.get("/market-intelligence/sector/{sector}")
 async def market_intelligence_sector(sector: str, universe_limit: int = 5000):
-    from market_intelligence_engine import sector_detail
+    try:
+        from market_intelligence_engine import sector_detail
 
-    return sector_detail(sector, universe_limit=universe_limit)
+        return sector_detail(sector, universe_limit=universe_limit)
+    except Exception as exc:
+        return {
+            "ok": False,
+            "error": str(exc)[:320],
+            "sector": sector,
+            "engine": "market_intelligence_engine",
+        }
 
 
 @router.post("/market-intelligence/flows/ingest")

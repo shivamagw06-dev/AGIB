@@ -11,18 +11,27 @@ VERSION = "1.0"
 
 
 def health() -> dict[str, Any]:
-    from institutional_warehouse.production import coverage as wh_coverage
+    wh: dict[str, Any] = {}
+    flow: dict[str, Any] = {}
+    try:
+        from institutional_warehouse.production import coverage as wh_coverage
 
-    wh = wh_coverage()
-    flow = flows.institutional_flows()
+        wh = wh_coverage() or {}
+    except Exception as exc:
+        wh = {"error": str(exc)[:200]}
+    try:
+        flow = flows.institutional_flows() or {}
+    except Exception as exc:
+        flow = {"coverage": {"error": str(exc)[:200]}}
     return {
-        "ok": True,
+        "ok": "error" not in wh,
         "engine": ENGINE_CODE,
         "version": VERSION,
         "data_path": "warehouse → unified_valuation_engine → market_intelligence_engine",
         "companies": wh.get("companies"),
         "warehouse_rows": wh.get("total_rows"),
         "institutional_flow": flow.get("coverage"),
+        "warehouse_error": wh.get("error"),
         "reads": ["institutional_warehouse", "valuation_engine", "valuation_terminal.sector_lens"],
     }
 
