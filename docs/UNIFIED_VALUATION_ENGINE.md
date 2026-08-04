@@ -105,6 +105,7 @@ question for the research layer.
 
 ```bash
 GET  /v1/valuation-engine/health
+GET  /v1/valuation-engine/prompt          # Institutional System Prompt V3
 GET  /v1/valuation-engine/company/{symbol}
 POST /v1/valuation-engine/explain-change  {"symbol", "before", "after"}
 
@@ -120,6 +121,19 @@ coverage and provenance in one response, so a consumer never stitches several
 calls and re-derives the same multiple differently. The terminal pack adds the
 institutional table, peers, charts coverage, change log, DQIV surface and
 Valuation Health Score.
+
+## Institutional research voice (Prompt V3)
+
+UVE computes warehouse-backed multiples; **Institutional System Prompt V3**
+(`valuation_engine/prompt.py`) governs how valuation intelligence is composed
+into senior equity research prose for Ask and downstream LLM layers.
+
+- Module: `intelligence-engine/valuation_engine/prompt.py`
+- API: `GET /v1/valuation-engine/prompt`
+- Auto-selected by `institutional_reasoning.production.system_prompt_for()` when
+  the question is valuation-shaped
+- 25-section institutional report structure; industry-appropriate frameworks;
+  no BUY/SELL, no price targets, no generic commentary
 
 ## Coverage
 

@@ -72,6 +72,29 @@ def system_prompt() -> str:
     return INSTITUTIONAL_REASONING_SYSTEM_PROMPT
 
 
+def system_prompt_for(
+    *,
+    query: str = "",
+    family_id: str | None = None,
+    question_type: str | None = None,
+) -> str:
+    """Return UVE V3 for valuation questions; otherwise IRSP."""
+    qtype = str(question_type or "").strip()
+    fam = str(family_id or "").strip().lower()
+    if fam == "valuation" or qtype == "Valuation":
+        from valuation_engine.prompt import UVE_INSTITUTIONAL_SYSTEM_PROMPT_V3
+
+        return UVE_INSTITUTIONAL_SYSTEM_PROMPT_V3
+    try:
+        from valuation_engine.prompt import is_valuation_question, UVE_INSTITUTIONAL_SYSTEM_PROMPT_V3
+
+        if is_valuation_question(query):
+            return UVE_INSTITUTIONAL_SYSTEM_PROMPT_V3
+    except Exception:
+        pass
+    return INSTITUTIONAL_REASONING_SYSTEM_PROMPT
+
+
 def package_for_ask_agi(
     *,
     query: str = "",
@@ -98,6 +121,13 @@ def package_for_ask_agi(
             reasoned = attach_ecr_to_package(reasoned)
         except Exception:
             pass
+        qtype = (plan.get("question_understanding") or {}).get("question_type")
+        fam_id = reasoned.get("family_id")
+        selected_prompt = system_prompt_for(
+            query=query,
+            family_id=fam_id,
+            question_type=qtype,
+        )
         out = {
             **plan,
             "programme": PROGRAMME,
@@ -107,8 +137,13 @@ def package_for_ask_agi(
             "not_a_top_level_engine": True,
             "role": ROLE,
             "top_rule": TOP_RULE,
-            "system_prompt": INSTITUTIONAL_REASONING_SYSTEM_PROMPT,
-            "system_prompt_chars": len(INSTITUTIONAL_REASONING_SYSTEM_PROMPT),
+            "system_prompt": selected_prompt,
+            "system_prompt_chars": len(selected_prompt),
+            "system_prompt_id": (
+                "uve_institutional_system_prompt_v3"
+                if selected_prompt != INSTITUTIONAL_REASONING_SYSTEM_PROMPT
+                else "institutional_reasoning_system_prompt"
+            ),
             "flags": flags_dict(),
             "reasoning_family": {
                 "family_id": reasoned.get("family_id"),

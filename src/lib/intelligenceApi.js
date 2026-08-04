@@ -2839,6 +2839,7 @@ export const getVtSeries = (symbol, metric, window = '5Y') => {
 export const getUveCompany = (symbol) =>
   intelligenceFetch(`/valuation-engine/company/${encodeURIComponent(symbol)}`, { timeoutMs: 60_000 });
 export const getUveHealth = () => intelligenceFetch('/valuation-engine/health');
+export const getUvePrompt = () => intelligenceFetch('/valuation-engine/prompt');
 
 /** Valuation Policy & Applicability Engine (VPAE) — Phase 8.2A */
 export const getValuationPolicyHealth = () =>
