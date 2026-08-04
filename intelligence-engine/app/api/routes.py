@@ -19045,6 +19045,97 @@ async def valuation_universe(
     )
 
 
+# ---------------------------------------------------------------------------
+# Historical Valuation Intelligence Engine (HVIE) — Phase 8.3
+# Reconstructs multiples from prices + statements; gated by VPAE.
+# ---------------------------------------------------------------------------
+
+
+@router.get("/historical-valuation/health")
+async def historical_valuation_health():
+    from historical_valuation_intelligence import health as hvie_health
+
+    return hvie_health()
+
+
+@router.get("/historical-valuation/company/{symbol}")
+async def historical_valuation_company(symbol: str, metric: str = "", window: str = "10y"):
+    from historical_valuation_intelligence import company as hvie_company
+
+    return hvie_company(symbol, metric=metric or None, window=window or "10y")
+
+
+@router.get("/historical-valuation/history/{symbol}")
+async def historical_valuation_history(
+    symbol: str, metric: str = "", window: str = "max", limit: int = 5000,
+):
+    from historical_valuation_intelligence import history as hvie_history
+
+    return hvie_history(
+        symbol, metric=metric or None, window=window or "max",
+        limit=min(max(int(limit or 5000), 1), 20000),
+    )
+
+
+@router.get("/historical-valuation/statistics/{symbol}")
+async def historical_valuation_statistics(symbol: str, metric: str = "pe", window: str = ""):
+    from historical_valuation_intelligence import statistics as hvie_statistics
+
+    return hvie_statistics(symbol, metric=metric or "pe", window=window or None)
+
+
+@router.get("/historical-valuation/bands/{symbol}")
+async def historical_valuation_bands(symbol: str, metric: str = "pe", window: str = "max"):
+    from historical_valuation_intelligence import bands as hvie_bands
+
+    return hvie_bands(symbol, metric=metric or "pe", window=window or "max")
+
+
+@router.get("/historical-valuation/percentiles/{symbol}")
+async def historical_valuation_percentiles(symbol: str, metric: str = "pe"):
+    from historical_valuation_intelligence import percentiles as hvie_percentiles
+
+    return hvie_percentiles(symbol, metric=metric or "pe")
+
+
+@router.get("/historical-valuation/regimes/{symbol}")
+async def historical_valuation_regimes(symbol: str, metric: str = "pe", window: str = "max"):
+    from historical_valuation_intelligence import regimes as hvie_regimes
+
+    return hvie_regimes(symbol, metric=metric or "pe", window=window or "max")
+
+
+@router.get("/historical-valuation/rerating/{symbol}")
+async def historical_valuation_rerating(symbol: str, metric: str = "pe", window: str = "max"):
+    from historical_valuation_intelligence import rerating as hvie_rerating
+
+    return hvie_rerating(symbol, metric=metric or "pe", window=window or "max")
+
+
+@router.get("/historical-valuation/coverage/{symbol}")
+async def historical_valuation_coverage(symbol: str, metric: str = ""):
+    from historical_valuation_intelligence import coverage as hvie_coverage
+
+    return hvie_coverage(symbol, metric=metric or None)
+
+
+@router.post("/historical-valuation/reconstruct/{symbol}")
+async def historical_valuation_reconstruct(
+    symbol: str,
+    payload: dict[str, Any] = Body(default_factory=dict),
+):
+    from historical_valuation_intelligence import reconstruct as hvie_reconstruct
+
+    body = payload or {}
+    return hvie_reconstruct(
+        symbol,
+        cadence=str(body.get("cadence") or "daily"),
+        start=body.get("start"),
+        end=body.get("end"),
+        incremental=bool(body.get("incremental")),
+    )
+
+
 @router.get("/valuation-engine/health")
 async def valuation_engine_health():
     """The one valuation contract: what it computes and what it reads."""

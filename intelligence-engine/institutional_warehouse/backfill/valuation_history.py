@@ -66,17 +66,22 @@ def available_from(label: str, *, quarterly: bool, lag_days: Optional[int] = Non
 
 
 def _statement_timeline(symbol: str, *, lag_days: Optional[int] = None) -> list[dict[str, Any]]:
-    """Statements ordered by the date they became public, not the period they cover."""
+    """Statements ordered by the date they became public, not the period they cover.
+
+    Prefer filing_date / effective_date when present (Phase 8.3 chronology),
+    otherwise fall back to fiscal-label + conservative lag.
+    """
     timeline: list[dict[str, Any]] = []
     for tab, key, quarterly in (("financials_annual", "fiscal_year", False),
                                 ("financials_quarterly", "fiscal_period", True)):
         for row in store.all_rows(tab, entity=symbol, limit=400):
             label = str(row.get(key) or "")
-            known_at = available_from(label, quarterly=quarterly, lag_days=lag_days)
+            filing = to_date(row.get("filing_date") or row.get("effective_date"))
+            known_at = filing or available_from(label, quarterly=quarterly, lag_days=lag_days)
             if not known_at:
                 continue
             timeline.append({"known_at": known_at, "label": label, "quarterly": quarterly,
-                             "row": row})
+                             "row": row, "release_source": "filing_date" if filing else "lag_heuristic"})
     return sorted(timeline, key=lambda item: item["known_at"])
 
 

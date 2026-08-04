@@ -2860,6 +2860,37 @@ export const getValuationPolicyUniverse = (params = {}) => {
   return intelligenceFetch(`/valuation/universe${qs ? `?${qs}` : ''}`, { timeoutMs: 120_000 });
 };
 
+/** Historical Valuation Intelligence Engine (HVIE) — Phase 8.3 */
+export const getHvieHealth = () => intelligenceFetch('/historical-valuation/health');
+const hvieFetch = (path, params = {}, timeoutMs = 60_000) => {
+  const qs = new URLSearchParams(
+    Object.fromEntries(Object.entries(params).filter(([, v]) => v != null && v !== '')),
+  ).toString();
+  return intelligenceFetch(`${path}${qs ? `?${qs}` : ''}`, { timeoutMs });
+};
+export const getHvieCompany = (symbol, params = {}) =>
+  hvieFetch(`/historical-valuation/company/${encodeURIComponent(symbol)}`, params);
+export const getHvieHistory = (symbol, params = {}) =>
+  hvieFetch(`/historical-valuation/history/${encodeURIComponent(symbol)}`, params, 90_000);
+export const getHvieStatistics = (symbol, params = {}) =>
+  hvieFetch(`/historical-valuation/statistics/${encodeURIComponent(symbol)}`, params);
+export const getHvieBands = (symbol, params = {}) =>
+  hvieFetch(`/historical-valuation/bands/${encodeURIComponent(symbol)}`, params);
+export const getHviePercentiles = (symbol, params = {}) =>
+  hvieFetch(`/historical-valuation/percentiles/${encodeURIComponent(symbol)}`, params);
+export const getHvieRegimes = (symbol, params = {}) =>
+  hvieFetch(`/historical-valuation/regimes/${encodeURIComponent(symbol)}`, params);
+export const getHvieRerating = (symbol, params = {}) =>
+  hvieFetch(`/historical-valuation/rerating/${encodeURIComponent(symbol)}`, params);
+export const getHvieCoverage = (symbol, params = {}) =>
+  hvieFetch(`/historical-valuation/coverage/${encodeURIComponent(symbol)}`, params);
+export const postHvieReconstruct = (symbol, body = {}) =>
+  intelligenceFetch(`/historical-valuation/reconstruct/${encodeURIComponent(symbol)}`, {
+    method: 'POST',
+    body,
+    timeoutMs: 180_000,
+  });
+
 /** Market & Sector Intelligence Terminal v1.0 */
 export const getMiHealth = () => intelligenceFetch('/market-intelligence/health');
 export const getMiDashboard = () =>
