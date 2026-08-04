@@ -1,6 +1,6 @@
 # Phase 3.4 — Research Intelligence Engine
 
-**Status:** Build complete · Acceptance target 100% · Ask/KUL **not wired**  
+**Status:** Build complete · Acceptance Test v1.0 formalized · Ask/KUL **not wired**  
 **Depends on:** AGI Core v1.1 (extend only) + Investment Intelligence + Portfolio Intelligence  
 **Version:** `3.4.0`
 
@@ -10,64 +10,43 @@
 Build → Acceptance Test → Integration → Production Validation → Freeze
 ```
 
-This PR stops after **Acceptance = 100%**. KUL integration, Founder V6, and freeze are deferred.
+This branch lands the **permanent Research Intelligence Acceptance Test v1.0** and three regression suites. KUL integration remains deferred.
 
-## Objective
+## Acceptance gate (v1.0)
 
-Perform **institutional research** — structured memory across documents and time — not retrieval or summarization.
-
-## Knowledge authority refinement
-
-**Research Intelligence is the only Phase-3 layer allowed to create new long-lived research knowledge.**  
-Financial / Business / Industry / Investment / Portfolio layers **consume** structured research outputs.
-
-## Modules shipped
-
-| Module | Role |
-|--------|------|
-| Research Workspace | Canonical Research Object |
-| Annual Report Intelligence | Structured extracts → memory |
-| Transcript Intelligence | Commentary / Q&A / guidance / pricing tracks |
-| Management Intelligence | Leadership, consistency, philosophy |
-| Guidance Intelligence | vs previous / consensus / actual |
-| Estimate Intelligence | Consensus/revisions/gaps — **no forecasting** |
-| Event Intelligence | Events linked to business/industry/investment/portfolio |
-| Research Memory | Persistent conclusions, themes, histories |
-| Cross-Document | One document timeline |
-| Research Timeline | Chronological company intelligence |
-| Quality Engine | Evidence, freshness, coverage, contradictions |
-| Knowledge Evolution | Research → BI → INV → Portfolio path |
-| Deep Research | Multi-year institutional synthesis |
-| Executive Research Notes | Fixed communication order |
-
-## REST
-
-- `GET /v1/research-intelligence/health`
-- `GET /v1/research-intelligence/dashboard`
-- `GET /v1/research-intelligence/entities`
-- `POST /v1/research-intelligence/analyse`
-- `POST /v1/research-intelligence/soft_slice` (blocked while unwired)
-
-## Acceptance
+| Metric | Threshold |
+|--------|-----------|
+| Questions | 400 (sections A–K) |
+| Pass rate | ≥95% |
+| Hallucinations | 0 |
+| Recommendation leakage | 0 |
+| Research memory leakage | 0 |
+| Planner accuracy | 100% |
+| `ASK_WIRED` | `False` |
 
 ```bash
 cd intelligence-engine
 PYTHONPATH=. python3 ask_product_test/run_research_intelligence_acceptance_v1.py
+PYTHONPATH=. python3 ask_product_test/run_research_golden_25.py
+PYTHONPATH=. python3 ask_product_test/run_research_timeline_regression.py
+PYTHONPATH=. python3 ask_product_test/run_research_memory_regression.py
 ```
 
-400 questions · gate **100%**
+## Knowledge authority
+
+**Research Intelligence is the only Phase-3 layer allowed to create new long-lived research knowledge.**  
+Financial / Business / Industry / Investment / Portfolio layers **consume** structured research outputs.
 
 ## Explicit non-goals (this PR)
 
 - No KUL provider registration
 - No Ask wiring (`ASK_WIRED = False`)
-- No BUY/SELL / forecasting as recommendations
+- No BUY/SELL / forecasting as answers (Section K refusals)
 - No Core modifications
-- Does not replace `research_intelligence_hub` / `research_writer` soft layers
 
 ## Next
 
 1. Register `research_intelligence` in KUL  
 2. Research Integration Acceptance (~100)  
 3. Founder Evaluation V6  
-4. Production validation → Freeze Phase 3.4
+4. Production validation (full gate including Research Acceptance + regressions) → Freeze  
