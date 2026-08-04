@@ -799,6 +799,94 @@ INGESTION_HEALTH = Tab(
     ),
 )
 
+# --------------------------------------------------------------------------
+# Tabs — HVIE Continuous Runtime (Phase 8.3R)
+# --------------------------------------------------------------------------
+
+HVIE_COMPANY_STATE = Tab(
+    id="hvie_company_state",
+    label="HVIE Company State",
+    description="Per-company HVIE runtime lifecycle: bootstrap once, then daily append.",
+    mode="master",
+    key=("symbol",),
+    order_by=("symbol",),
+    search_columns=("symbol", "status", "seeded"),
+    icon="ops",
+    columns=(
+        _c("symbol", "Symbol", TEXT, required=True, width=120, group="Key"),
+        _c("status", "Status", TEXT, width=130, group="Lifecycle",
+           options=("PENDING", "BOOTSTRAPPING", "SEEDED", "DAILY", "FORWARD_REBUILD",
+                    "CA_REBUILD", "FAILED", "SKIPPED")),
+        _c("seeded", "Seeded", BOOL, width=100, group="Lifecycle"),
+        _c("bootstrap_at", "Bootstrap At", DATETIME, width=170, group="Lifecycle"),
+        _c("last_observation_date", "Last Observation", DATE, width=140, group="Lifecycle"),
+        _c("last_daily_at", "Last Daily Append", DATETIME, width=170, group="Lifecycle"),
+        _c("last_forward_at", "Last Forward Rebuild", DATETIME, width=180, group="Lifecycle"),
+        _c("last_ca_at", "Last CA Rebuild", DATETIME, width=170, group="Lifecycle"),
+        _c("last_stats_at", "Last Stats Refresh", DATETIME, width=170, group="Lifecycle"),
+        _c("observations", "Observations", INTEGER, width=120, group="Coverage"),
+        _c("first_observation", "First Observation", DATE, width=140, group="Coverage"),
+        _c("primary_metric", "Primary Metric", TEXT, width=130, group="Policy"),
+        _c("primary_model", "Primary Model", TEXT, width=160, group="Policy"),
+        _c("last_regime", "Last Regime", TEXT, width=140, group="Signals"),
+        _c("last_percentile", "Last Percentile", NUMBER, width=140, group="Signals"),
+        _c("error", "Error", TEXT, width=280, group="Health"),
+        *PROVENANCE_COLUMNS,
+    ),
+)
+
+HISTORICAL_STATISTICS = Tab(
+    id="historical_statistics",
+    label="Historical Statistics",
+    description="Persisted HVIE rolling statistics by symbol/metric/window (weekly refresh).",
+    mode="append",
+    key=("symbol", "metric", "window", "as_of"),
+    order_by=("as_of DESC", "symbol", "metric"),
+    search_columns=("symbol", "metric", "window"),
+    icon="valuation",
+    columns=(
+        _c("symbol", "Symbol", TEXT, required=True, width=120, group="Key"),
+        _c("metric", "Metric", TEXT, required=True, width=120, group="Key"),
+        _c("window", "Window", TEXT, required=True, width=100, group="Key"),
+        _c("as_of", "As Of", DATE, required=True, width=120, group="Key"),
+        _c("observation_count", "Observations", INTEGER, width=120, group="Stats"),
+        _c("min_value", "Min", NUMBER, width=100, group="Stats"),
+        _c("max_value", "Max", NUMBER, width=100, group="Stats"),
+        _c("mean_value", "Mean", NUMBER, width=100, group="Stats"),
+        _c("median_value", "Median", NUMBER, width=110, group="Stats"),
+        _c("stdev", "Stdev", NUMBER, width=100, group="Stats"),
+        _c("p25", "P25", NUMBER, width=100, group="Stats"),
+        _c("p75", "P75", NUMBER, width=100, group="Stats"),
+        _c("current_value", "Current", NUMBER, width=110, group="Stats"),
+        _c("current_percentile", "Percentile", NUMBER, width=120, group="Stats"),
+        _c("z_score", "Z Score", NUMBER, width=100, group="Stats"),
+        _c("premium_to_median_pct", "Premium %", NUMBER, width=120, group="Stats"),
+        _c("span_years", "Span Years", NUMBER, width=120, group="Coverage"),
+        _c("regime", "Regime", TEXT, width=140, group="Signals"),
+        _c("confidence", "Confidence", TEXT, width=110, group="Quality"),
+        *PROVENANCE_COLUMNS,
+    ),
+)
+
+HISTORICAL_SECTOR_MEDIANS = Tab(
+    id="historical_sector_medians",
+    label="Historical Sector Medians",
+    description="Cross-sectional sector median multiples by observation date (weekly).",
+    mode="append",
+    key=("sector", "metric", "as_of"),
+    order_by=("as_of DESC", "sector", "metric"),
+    search_columns=("sector", "metric"),
+    icon="valuation",
+    columns=(
+        _c("sector", "Sector", TEXT, required=True, width=160, group="Key"),
+        _c("metric", "Metric", TEXT, required=True, width=120, group="Key"),
+        _c("as_of", "As Of", DATE, required=True, width=120, group="Key"),
+        _c("median_value", "Median", NUMBER, width=120, group="Stats"),
+        _c("company_count", "Companies", INTEGER, width=120, group="Stats"),
+        *PROVENANCE_COLUMNS,
+    ),
+)
+
 TABS: tuple[Tab, ...] = (
     COMPANY_MASTER,
     DAILY_MARKET_HISTORY,
@@ -815,6 +903,9 @@ TABS: tuple[Tab, ...] = (
     VALUATION_RATIOS,
     BOOTSTRAP_RUNS,
     INGESTION_HEALTH,
+    HVIE_COMPANY_STATE,
+    HISTORICAL_STATISTICS,
+    HISTORICAL_SECTOR_MEDIANS,
     HEDGE_FUND_FACTORS,
     COMPANY_INTELLIGENCE,
     DATA_QUALITY,

@@ -23,6 +23,7 @@ import { startCioMorningScheduler } from "./services/cioMorningScheduler.js";
 import { startContinuousGatherLearnScheduler } from "./services/continuousGatherLearnScheduler.js";
 import { startInstitutionalFlowScheduler } from "./services/institutionalFlowScheduler.js";
 import { startValuationRatiosScheduler } from "./services/valuationRatiosScheduler.js";
+import { startHvieRuntimeScheduler } from "./services/hvieRuntimeScheduler.js";
 import { llmProviderStatus } from "./services/llmClient.js";
 import rateLimit from "express-rate-limit";
 import cors from "cors";
@@ -314,6 +315,7 @@ startCioMorningScheduler();
 startContinuousGatherLearnScheduler();
 startInstitutionalFlowScheduler();
 startValuationRatiosScheduler();
+startHvieRuntimeScheduler();
 
 /* ---------- /api/perplexity/deals ----------
    Ask Perplexity for a strict JSON array of deals with these fields:

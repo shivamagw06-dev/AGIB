@@ -44,6 +44,7 @@ def _apply_worker_defaults() -> None:
         "CONTINUOUS_MORNING_DAG": "true",
         "WAREHOUSE_DAILY_REFRESH": "true",
         "WAREHOUSE_BACKFILL": "true",
+        "HVIE_RUNTIME": "true",
     }
     # Sidecar start script exports these true already; still fill gaps.
     for key, value in defaults.items():
@@ -135,6 +136,18 @@ def main() -> int:
         log.info("gather_worker_warehouse_backfill", extra=boot_backfill)
     except Exception as exc:  # noqa: BLE001
         log.warning("gather_worker_warehouse_failed", extra={"error": str(exc)[:200]})
+
+    # HVIE Continuous Runtime — bootstrap once, then maintain historical_valuation.
+    try:
+        from historical_valuation_intelligence.runtime import start_loop as start_hvie
+        from historical_valuation_intelligence.runtime import stop_loop as stop_hvie
+
+        boot_hvie = start_hvie()
+        if boot_hvie.get("enabled"):
+            stop_fns.append(stop_hvie)
+        log.info("gather_worker_hvie_runtime", extra=boot_hvie)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("gather_worker_hvie_runtime_failed", extra={"error": str(exc)[:200]})
 
     stopping = {"flag": False}
 

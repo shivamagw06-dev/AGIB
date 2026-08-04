@@ -2890,6 +2890,26 @@ export const postHvieReconstruct = (symbol, body = {}) =>
     body,
     timeoutMs: 180_000,
   });
+export const getHvieCoverageDashboard = (params = {}) => {
+  const qs = new URLSearchParams(
+    Object.fromEntries(Object.entries(params).filter(([, v]) => v != null && v !== '')),
+  ).toString();
+  return intelligenceFetch(`/historical-valuation/coverage-dashboard${qs ? `?${qs}` : ''}`, {
+    timeoutMs: 120_000,
+  });
+};
+export const getHvieRuntimeStatus = () =>
+  intelligenceFetch('/historical-valuation/runtime/status');
+export const postHvieRuntimeRun = (body = {}) =>
+  intelligenceFetch('/historical-valuation/runtime/run', {
+    method: 'POST',
+    body,
+    timeoutMs: 180_000,
+  });
+export const postHvieRuntimeStart = () =>
+  intelligenceFetch('/historical-valuation/runtime/start', { method: 'POST', body: {} });
+export const postHvieRuntimeStop = () =>
+  intelligenceFetch('/historical-valuation/runtime/stop', { method: 'POST', body: {} });
 
 /** Market & Sector Intelligence Terminal v1.0 */
 export const getMiHealth = () => intelligenceFetch('/market-intelligence/health');

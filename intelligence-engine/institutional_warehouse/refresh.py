@@ -423,12 +423,22 @@ def stage_lidi_events(*, actor: str, limit: int = 2000) -> dict[str, Any]:
                     "source": str(payload.get("source") or "lidi"),
                 }
             )
+    ca_result = gateway.write(
+        "corporate_actions", actions, source="lidi", actor=actor, reason="refresh:lidi_events",
+    )
+    hvie_ca = None
+    try:
+        from historical_valuation_intelligence.hooks import after_corporate_actions_written
+
+        hvie_ca = after_corporate_actions_written(actions)
+    except Exception as exc:
+        hvie_ca = {"ok": False, "error": str(exc)[:200]}
     return _ok(
         "lidi_events",
         timeline=gateway.write("research_timeline", timeline, source="lidi", actor=actor,
                               reason="refresh:lidi_events"),
-        corporate_actions=gateway.write("corporate_actions", actions, source="lidi", actor=actor,
-                                       reason="refresh:lidi_events"),
+        corporate_actions=ca_result,
+        hvie_ca=hvie_ca,
     )
 
 
@@ -634,16 +644,26 @@ def stage_knowledge_factory(*, actor: str, limit: Optional[int] = None) -> dict[
                 }
             )
 
+    ca_result = gateway.write(
+        "corporate_actions", actions, source="knowledge_factory_hd", actor=actor, reason="refresh:kf",
+    )
+    hvie_ca = None
+    try:
+        from historical_valuation_intelligence.hooks import after_corporate_actions_written
+
+        hvie_ca = after_corporate_actions_written(actions)
+    except Exception as exc:
+        hvie_ca = {"ok": False, "error": str(exc)[:200]}
     return _ok(
         "knowledge_factory",
         daily_market_history=gateway.write("daily_market_history", prices, source="knowledge_factory_hd",
                                           actor=actor, reason="refresh:kf"),
-        corporate_actions=gateway.write("corporate_actions", actions, source="knowledge_factory_hd",
-                                       actor=actor, reason="refresh:kf"),
+        corporate_actions=ca_result,
         ownership=gateway.write("ownership", ownership, source="knowledge_factory_hd", actor=actor,
                                reason="refresh:kf"),
         research_timeline=gateway.write("research_timeline", timeline, source="knowledge_factory_hd",
                                        actor=actor, reason="refresh:kf"),
+        hvie_ca=hvie_ca,
     )
 
 
@@ -710,16 +730,30 @@ def stage_financial_statements(*, actor: str, limit: Optional[int] = None) -> di
 
     warehouse_rows = _fse_rows(limit=limit)
 
+    annual_all = annual_rows + warehouse_rows.get("annual", [])
+    quarterly_all = quarterly_rows + warehouse_rows.get("quarterly", [])
+    annual_result = gateway.write(
+        "financials_annual", annual_all, source="knowledge_factory_hd", actor=actor,
+        reason="refresh:statements",
+    )
+    quarterly_result = gateway.write(
+        "financials_quarterly", quarterly_all, source="knowledge_factory_hd", actor=actor,
+        reason="refresh:statements",
+    )
+    hvie_forward = None
+    try:
+        from historical_valuation_intelligence.hooks import after_statements_written
+
+        hvie_forward = after_statements_written(annual_all + quarterly_all)
+    except Exception as exc:
+        hvie_forward = {"ok": False, "error": str(exc)[:200]}
+
     return _ok(
         "financial_statements",
-        financials_annual=gateway.write("financials_annual", annual_rows + warehouse_rows.get("annual", []),
-                                       source="knowledge_factory_hd", actor=actor,
-                                       reason="refresh:statements"),
-        financials_quarterly=gateway.write("financials_quarterly",
-                                          quarterly_rows + warehouse_rows.get("quarterly", []),
-                                          source="knowledge_factory_hd", actor=actor,
-                                          reason="refresh:statements"),
+        financials_annual=annual_result,
+        financials_quarterly=quarterly_result,
         fse_rows=sum(len(v) for v in warehouse_rows.values()),
+        hvie_forward=hvie_forward,
     )
 
 
