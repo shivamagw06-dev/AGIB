@@ -1,6 +1,6 @@
 # Unified Valuation Engine v3.0
 
-**Status:** Core landed (PR #491)
+**Status:** Core + Valuation Terminal migration
 **Reads:** `institutional_warehouse` only
 **Module:** `intelligence-engine/valuation_engine/`
 
@@ -8,14 +8,15 @@
 
 Three surfaces produced valuation numbers independently:
 
-| Surface | Source |
+| Surface | Source (before) |
 |---|---|
-| Valuation Terminal | committed Yahoo JSON under `market_data/`, frozen at a point in time |
+| Valuation Terminal | committed Yahoo JSON under `market_data/` (retired) |
 | `valuation_intelligence` (Ask) | live quote plus NSE filings, composed per request |
 | `historical_valuation` warehouse tab | computed by the formula engine, displayed nowhere |
 
 Three P/E numbers for one company could disagree, and nothing on screen
-explained why. This engine is the single place a multiple is computed.
+explained why. This engine is the single place a multiple is computed. The
+Institutional Valuation Terminal now reads only this engine.
 
 ## Flow
 
@@ -103,11 +104,19 @@ question for the research layer.
 GET  /v1/valuation-engine/health
 GET  /v1/valuation-engine/company/{symbol}
 POST /v1/valuation-engine/explain-change  {"symbol", "before", "after"}
+
+GET  /v1/valuation-engine/terminal/health
+GET  /v1/valuation-engine/terminal/search?q=
+GET  /v1/valuation-engine/terminal/company/{symbol}
+GET  /v1/valuation-engine/terminal/series/{symbol}/{metric}
+GET  /v1/valuation-engine/terminal/explain/{metric}
 ```
 
 `get_company_valuation` returns metrics, sector and historical context,
 coverage and provenance in one response, so a consumer never stitches several
-calls and re-derives the same multiple differently.
+calls and re-derives the same multiple differently. The terminal pack adds the
+institutional table, peers, charts coverage, change log, DQIV surface and
+Valuation Health Score.
 
 ## Coverage
 
@@ -121,9 +130,8 @@ metric states what it lacked:
 
 ## Not yet done
 
-- The terminal still reads its committed JSON; switching it over is the next step
-- Sector and market aggregation endpoints (PR #492)
-- Company workspace, peers and historical UI (PR #493)
-- Market and opportunity dashboards (PR #494)
-- Narrative and the daily valuation brief (PR #495)
-- `relative_score` is declared in the graph but not yet computed
+- Market / Sector / Opportunity dashboards (next PR)
+- Daily research narratives and briefs
+- Historical re-rating / timeline intelligence
+- Portfolio valuation, watchlists, alerts
+- Ask path still composes some live quotes independently (cut over later)
