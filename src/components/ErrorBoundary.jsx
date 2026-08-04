@@ -1,5 +1,6 @@
 // src/components/ErrorBoundary.jsx
 import React from 'react';
+import { reloadOnceForChunkError } from '@/lib/buildVersion';
 
 export class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -12,8 +13,9 @@ export class ErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, info) {
-    // you can also send this to your logging service here
     console.error('Uncaught error:', error, info);
+    // After a Hostinger deploy, lazy chunks can 404 until hard refresh.
+    reloadOnceForChunkError(error?.message || String(error));
   }
 
   render() {
@@ -25,6 +27,13 @@ export class ErrorBoundary extends React.Component {
             <p className="text-sm text-gray-600 mb-3">
               An unexpected error occurred. Try refreshing the page. If it persists, contact support.
             </p>
+            <button
+              type="button"
+              className="mb-3 rounded bg-[#0b1f33] px-3 py-1.5 text-sm font-medium text-white"
+              onClick={() => window.location.reload()}
+            >
+              Refresh
+            </button>
             <details className="text-xs text-left text-gray-500">
               <summary>Show technical details</summary>
               <pre className="whitespace-pre-wrap">{this.state.message}</pre>

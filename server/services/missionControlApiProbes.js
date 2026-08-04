@@ -5,6 +5,9 @@
 
 import { getCmsLearningSchedulerStatus } from './cmsArticleLearning.js';
 import { getCioSchedulerStatus } from './cioMorningScheduler.js';
+import { getInstitutionalFlowSchedulerStatus } from './institutionalFlowScheduler.js';
+import { getUpstoxHealth } from './upstoxHealth.js';
+import { getGrowwHealth } from './growwHealth.js';
 
 function env(...keys) {
   for (const k of keys) {
@@ -336,14 +339,104 @@ function probeOpenAi() {
 function probeSchedulers() {
   const cms = getCmsLearningSchedulerStatus();
   const cio = getCioSchedulerStatus();
-  const enabled = Boolean(cms?.enabled || cio?.enabled);
+  const flows = getInstitutionalFlowSchedulerStatus();
+  const enabled = Boolean(cms?.enabled || cio?.enabled || flows?.enabled);
   return card({
     name: 'Scheduler',
     status: enabled ? 'Healthy' : 'Warning',
     configured: true,
-    note: `CMS learn=${cms?.enabled ? 'on' : 'off'}; CIO morning=${cio?.enabled ? 'on' : 'off'}`,
-    detail: { cms, cio },
+    note: `CMS learn=${cms?.enabled ? 'on' : 'off'}; CIO morning=${cio?.enabled ? 'on' : 'off'}; FII/DII EOD=${flows?.enabled ? 'on' : 'off'}`,
+    detail: { cms, cio, institutional_flow: flows },
   });
+}
+
+async function probeUpstoxFlows() {
+  try {
+    const health = await getUpstoxHealth({});
+    const flows = getInstitutionalFlowSchedulerStatus();
+    const lastOk = Boolean(flows?.lastRun?.ok);
+    const configured = Boolean(health?.configured);
+    let status = 'Not configured';
+    if (configured && health?.ok) status = 'Healthy';
+    else if (configured) status = 'Warning';
+    return card({
+      name: 'Upstox FII/DII',
+      status,
+      configured,
+      note: flows?.lastSuccessDate
+        ? `Last EOD success ${flows.lastSuccessDate}`
+        : lastOk
+          ? 'Recent ingest ok'
+          : 'No warehouse flow history yet — daily 18:05 IST',
+      detail: { health: { ok: health?.ok, configured }, scheduler: flows },
+    });
+  } catch (error) {
+    return card({
+      name: 'Upstox FII/DII',
+      status: 'Warning',
+      configured: false,
+      note: error.message || 'Upstox probe failed',
+    });
+  }
+}
+
+async function probeGrowwProvider() {
+  try {
+    const health = await getGrowwHealth();
+    const configured = Boolean(health?.configured);
+    let status = 'Not configured';
+    if (configured && health?.ok) status = 'Healthy';
+    else if (configured) status = 'Warning';
+    return card({
+      name: 'Groww',
+      status,
+      configured,
+      note: health?.message || (configured ? 'Groww quote provider' : 'Groww not configured'),
+    });
+  } catch (error) {
+    return card({
+      name: 'Groww',
+      status: 'Warning',
+      configured: false,
+      note: error.message || 'Groww probe failed',
+    });
+  }
+}
+
+async function probeIndicesSnapshot() {
+  const started = Date.now();
+  try {
+    const origin = `http://127.0.0.1:${process.env.PORT || 5000}`;
+    const response = await fetch(`${origin}/api/indices`, {
+      headers: { Accept: 'application/json' },
+      signal: AbortSignal.timeout(8_000),
+    });
+    const data = await response.json().catch(() => ({}));
+    const count = Array.isArray(data?.indices) ? data.indices.length : 0;
+    const stale = Boolean(data?.stale || data?.live_unavailable);
+    let status = 'Critical';
+    if (count > 0 && !stale) status = 'Healthy';
+    else if (count > 0) status = 'Warning';
+    return card({
+      name: 'Market Indices',
+      status,
+      configured: true,
+      latency_ms: Date.now() - started,
+      note: count
+        ? stale
+          ? `Serving last snapshot (${count} indices) — live unavailable`
+          : `${count} indices live`
+        : 'No index snapshot available yet',
+    });
+  } catch (error) {
+    return card({
+      name: 'Market Indices',
+      status: 'Warning',
+      configured: true,
+      note: error.message || 'Indices probe failed',
+      latency_ms: Date.now() - started,
+    });
+  }
 }
 
 function probeRedis() {
@@ -434,6 +527,9 @@ export function mergeApiStatus(existing = [], probes = []) {
     'Intelligence Engine',
     'Indian API',
     'Yahoo Finance',
+    'Groww',
+    'Upstox FII/DII',
+    'Market Indices',
     'Finnhub',
     'FMP',
     'Supabase',
@@ -466,6 +562,9 @@ export async function probeMissionControlApis({ engineFetch } = {}) {
     probeIntelligenceEngine(engineFetch),
     probeIndianApi(),
     probeYahoo(),
+    probeGrowwProvider(),
+    probeUpstoxFlows(),
+    probeIndicesSnapshot(),
     probeFinnhub(),
     probeFmp(),
     probeSupabase(),

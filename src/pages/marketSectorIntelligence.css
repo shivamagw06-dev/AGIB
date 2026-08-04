@@ -289,6 +289,21 @@
   line-height: 1.5;
 }
 
+.msi-empty-flow {
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+  padding: 0.9rem 1rem;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.msi-empty-flow .msi-hint {
+  margin: 0.2rem 0;
+}
+
+.msi-empty-flow strong {
+  color: #1e293b;
+}
+
 .msi-explain {
   margin: 0;
   padding-left: 1.1rem;

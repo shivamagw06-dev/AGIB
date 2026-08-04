@@ -45,9 +45,15 @@ import './index.css';
 import { AuthProvider } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { startBuildVersionWatcher } from '@/lib/buildVersion';
 
 // export helmetContext so it can be used on the server if you later add SSR
 export const helmetContext = {};
+
+// Detect Hostinger deploy race (fresh HTML + stale hashed chunks) and reload once.
+if (typeof window !== 'undefined') {
+  startBuildVersionWatcher({ intervalMs: 60_000 });
+}
 
 /**
  * Initialize theme (dark class) on documentElement early.

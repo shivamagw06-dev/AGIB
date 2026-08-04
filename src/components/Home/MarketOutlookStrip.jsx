@@ -82,24 +82,32 @@ function QuoteChip({ item }) {
 
 /** Sticky scrolling market strip — live prices, no overlapping numbers. */
 export default function MarketOutlookStrip() {
-  const { items, loading } = useMarketSnapshot();
+  const { items, loading, stale, updatedLabel } = useMarketSnapshot();
   const rows = matchStripRows(items);
   const loop = rows.length ? [...rows, ...rows] : [];
+  const badge = stale ? 'Snapshot' : 'Live';
 
   return (
     <div className="border-b border-[#e6e8ec] bg-white">
       <div className="flex items-stretch">
         <span className="hidden shrink-0 items-center border-r border-[#e8eaee] bg-[#0b1f33] px-3 text-[10px] font-bold uppercase tracking-[0.14em] text-white/80 md:inline-flex">
-          Live
+          {badge}
         </span>
 
         <div className="market-ticker-viewport min-w-0 flex-1 overflow-hidden">
           {loading && !rows.length ? (
             <span className="block px-4 py-2.5 text-xs text-[#767676]">Loading markets…</span>
           ) : !rows.length ? (
-            <span className="block px-4 py-2.5 text-xs text-[#767676]">Market data unavailable</span>
+            <span className="block px-4 py-2.5 text-xs text-[#767676]">
+              Live unavailable · waiting for first successful snapshot
+            </span>
           ) : (
             <div className="market-ticker-track flex w-max items-stretch" aria-label="Live market quotes">
+              {stale ? (
+                <span className="inline-flex shrink-0 items-center border-r border-[#e8eaee] px-3 text-[10px] font-semibold uppercase tracking-[0.08em] text-[#9a3412]">
+                  Live unavailable{updatedLabel ? ` · ${updatedLabel}` : ''}
+                </span>
+              ) : null}
               {loop.map((item, i) => (
                 <QuoteChip key={`${item.key}-${i}`} item={item} />
               ))}

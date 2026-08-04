@@ -4,9 +4,9 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "dev": "cp index.vite.html index.html && vite --host :: --port 3000",
-    "build": "cp index.vite.html index.html && vite build",
-    "build:hostinger": "cp index.vite.html index.html && vite build && cp dist/index.html index.html && rm -rf assets && cp -R dist/assets assets && cp dist/.htaccess .htaccess",
+    "dev": "node scripts/write-build-version.js && cp index.vite.html index.html && vite --host :: --port 3000",
+    "build": "node scripts/write-build-version.js && cp index.vite.html index.html && vite build",
+    "build:hostinger": "node scripts/write-build-version.js && cp index.vite.html index.html && vite build && cp dist/index.html index.html && rm -rf assets && cp -R dist/assets assets && cp dist/.htaccess .htaccess && cp dist/version.json version.json",
     "preview": "vite preview --host :: --port 3000",
     "worker:cms-ingest": "CMS_INGEST_IS_WORKER=1 node server/workers/cmsIngestWorker.js"
   },
