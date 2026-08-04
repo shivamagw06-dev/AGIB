@@ -27,11 +27,23 @@ def persist_macro_pack(pack: dict[str, Any]) -> dict[str, Any]:
     modules = pack.get("modules") or {}
     probs = pack.get("probabilities") or {}
 
+    regime_val = pack.get("regime")
+    if isinstance(regime_val, dict):
+        regime_val = (
+            regime_val.get("label")
+            or regime_val.get("name")
+            or regime_val.get("regime")
+            or "Recovery"
+        )
+    cycle_val = pack.get("cycle")
+    if not isinstance(cycle_val, str):
+        cycle_val = str(cycle_val or "")
+
     regime_row = {
         "country": country,
         "as_of": as_of,
-        "regime": pack.get("regime"),
-        "cycle": pack.get("cycle"),
+        "regime": str(regime_val or "")[:160],
+        "cycle": str(cycle_val or "")[:160],
         "macro_confidence": quality.get("macro_confidence"),
         "score": quality.get("score"),
         "bull_pct": probs.get("bull"),

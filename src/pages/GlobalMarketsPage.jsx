@@ -34,9 +34,18 @@ function ConfPill({ conf }) {
   const level = conf?.confidence || conf || '—';
   return (
     <span className="inline-flex rounded-full border border-[#d5d8de] bg-[#f7f8fa] px-2.5 py-0.5 text-[11px] font-semibold text-[#333]">
-      {level}
+      {String(level)}
     </span>
   );
+}
+
+function asLabel(value, fallback = '—') {
+  if (value == null || value === '') return fallback;
+  if (typeof value === 'string' || typeof value === 'number') return String(value);
+  if (typeof value === 'object') {
+    return value.label || value.name || value.regime || value.cycle || fallback;
+  }
+  return fallback;
 }
 
 function MieSurface({ pack, loading, error }) {
@@ -110,11 +119,11 @@ function MieSurface({ pack, loading, error }) {
         <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
           <div className="border border-[#eceef2] px-4 py-3">
             <p className="text-[10px] font-bold uppercase tracking-wide text-[#888]">Regime</p>
-            <p className="mt-1 text-lg font-semibold text-[#111]">{pack.regime || '—'}</p>
+            <p className="mt-1 text-lg font-semibold text-[#111]">{asLabel(pack.regime)}</p>
           </div>
           <div className="border border-[#eceef2] px-4 py-3">
             <p className="text-[10px] font-bold uppercase tracking-wide text-[#888]">Cycle</p>
-            <p className="mt-1 text-lg font-semibold text-[#111]">{pack.cycle || '—'}</p>
+            <p className="mt-1 text-lg font-semibold text-[#111]">{asLabel(pack.cycle)}</p>
           </div>
           <div className="border border-[#eceef2] px-4 py-3 md:col-span-2">
             <p className="text-[10px] font-bold uppercase tracking-wide text-[#888]">Executive read</p>

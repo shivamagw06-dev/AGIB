@@ -85,6 +85,25 @@ def test_regime_classification():
     assert pack["cycle"]
 
 
+def test_regime_label_normalizes_hmai_dict():
+    from macro_intelligence_engine.indicators import regime_label
+    from macro_intelligence_engine.modules import executive
+
+    label = regime_label({
+        "regime_id": "x",
+        "label": "India 2026 current regime",
+        "features": {"gdp": 7.4},
+    })
+    assert label == ""  # generic catalog label ignored
+    assert regime_label({"regime": "Expansion"}) == "Expansion"
+    sec = executive(_bundle(hmai_regime={
+        "ok": True,
+        "regime": {"regime_id": "x", "label": "India 2026 current regime", "features": {}},
+    }))
+    assert isinstance(sec.get("regime"), str)
+    assert "{" not in sec["summary"]
+
+
 def test_executive_no_recommendation_language():
     sec = executive(_bundle())
     assert sec["ok"] is True

@@ -25,7 +25,16 @@ const MODULE_ORDER = [
 function ConfBadge({ conf }) {
   const level = conf?.confidence || conf || '—';
   const cls = String(level).toLowerCase();
-  return <span className={`rie-conf rie-conf-${cls}`}>{level}</span>;
+  return <span className={`rie-conf rie-conf-${cls}`}>{String(level)}</span>;
+}
+
+function asLabel(value, fallback = '—') {
+  if (value == null || value === '') return fallback;
+  if (typeof value === 'string' || typeof value === 'number') return String(value);
+  if (typeof value === 'object') {
+    return value.label || value.name || value.regime || value.cycle || fallback;
+  }
+  return fallback;
 }
 
 export default function MacroPanel({ symbol }) {
@@ -83,7 +92,7 @@ export default function MacroPanel({ symbol }) {
         <div className="rie-quality">
           <span>Macro confidence</span>
           <strong><ConfBadge conf={quality.macro_confidence} /></strong>
-          <span className="rie-meta">regime {pack.regime || '—'} · {pack.cycle || '—'}</span>
+          <span className="rie-meta">regime {asLabel(pack.regime)} · {asLabel(pack.cycle)}</span>
           {probs.base != null ? (
             <span className="rie-meta">
               B/Base/Bear {probs.bull}/{probs.base}/{probs.bear}
