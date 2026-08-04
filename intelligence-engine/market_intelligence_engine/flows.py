@@ -1,0 +1,105 @@
+"""Institutional flow (FII/DII) — read from warehouse only."""
+
+from __future__ import annotations
+
+from typing import Any, Optional
+
+
+def institutional_flows(*, limit: int = 120) -> dict[str, Any]:
+    from institutional_warehouse import store
+
+    try:
+        rows = store.all_rows("institutional_flow", limit=limit)
+    except Exception:
+        rows = []
+
+    if not rows:
+        return {
+            "ok": True,
+            "available": False,
+            "note": "No FII/DII rows in warehouse yet. Run POST /v1/market-intelligence/flows/refresh.",
+            "coverage": {"source": "warehouse.institutional_flow", "history": 0, "confidence": "none"},
+        }
+
+    rows = sorted(rows, key=lambda r: str(r.get("date") or ""))
+    latest = rows[-1] if rows else {}
+    fii_net = _num(latest.get("fii_net"))
+    dii_net = _num(latest.get("dii_net"))
+    combined = None
+    if fii_net is not None or dii_net is not None:
+        combined = round((fii_net or 0) + (dii_net or 0), 2)
+
+    def trend(days: int) -> Optional[float]:
+        if len(rows) < days:
+            return None
+        window = rows[-days:]
+        return round(sum(_num(r.get("fii_net") or 0) + _num(r.get("dii_net") or 0) for r in window), 2)
+
+    explanation = _explain_flows(rows[-5:] if len(rows) >= 5 else rows)
+
+    series = [
+        {
+            "date": r.get("date"),
+            "fii_net": _num(r.get("fii_net")),
+            "dii_net": _num(r.get("dii_net")),
+            "combined": round((_num(r.get("fii_net")) or 0) + (_num(r.get("dii_net")) or 0), 2),
+            "source": r.get("source"),
+        }
+        for r in rows[-60:]
+    ]
+
+    return {
+        "ok": True,
+        "available": True,
+        "latest_date": latest.get("date"),
+        "fii_net_buy": fii_net if (fii_net or 0) >= 0 else None,
+        "fii_net_sell": abs(fii_net) if (fii_net or 0) < 0 else None,
+        "dii_net_buy": dii_net if (dii_net or 0) >= 0 else None,
+        "dii_net_sell": abs(dii_net) if (dii_net or 0) < 0 else None,
+        "net_institutional_flow": combined,
+        "trend_5d": trend(5),
+        "trend_20d": trend(20),
+        "trend_monthly": trend(min(22, len(rows))),
+        "series": series,
+        "explanation": explanation,
+        "coverage": {
+            "history": len(rows),
+            "first": rows[0].get("date") if rows else None,
+            "last": latest.get("date"),
+            "confidence": "high" if len(rows) >= 20 else "moderate" if len(rows) >= 5 else "low",
+            "source": latest.get("source") or "warehouse.institutional_flow",
+        },
+        "provenance": {
+            "source": latest.get("source") or "upstox",
+            "updated_at": latest.get("_meta", {}).get("updated_at") if isinstance(latest.get("_meta"), dict) else None,
+        },
+    }
+
+
+def _num(value: Any) -> Optional[float]:
+    try:
+        if value is None or isinstance(value, bool):
+            return None
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _explain_flows(recent: list[dict[str, Any]]) -> str:
+    if not recent:
+        return "Institutional flow history is not yet available in the warehouse."
+    fii_streak = sum(1 for r in recent if (_num(r.get("fii_net")) or 0) > 0)
+    dii_streak = sum(1 for r in recent if (_num(r.get("dii_net")) or 0) > 0)
+    parts = []
+    if fii_streak >= 3:
+        parts.append(
+            f"Foreign institutional investors were net buyers on {fii_streak} of the last {len(recent)} sessions."
+        )
+    elif fii_streak == 0 and recent:
+        parts.append("Foreign institutions were net sellers across recent sessions.")
+    if dii_streak >= 3:
+        parts.append("Domestic institutions provided supportive flow on recent sessions.")
+    if not parts:
+        parts.append("Institutional flows are mixed — no sustained one-direction streak in recent data.")
+    parts.append("This is flow context, not a recommendation.")
+    return " ".join(parts)

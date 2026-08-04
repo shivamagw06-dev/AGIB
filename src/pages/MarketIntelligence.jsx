@@ -11,6 +11,7 @@ import {
   LineChart,
   Scale,
   ShieldAlert,
+  TrendingUp,
 } from 'lucide-react';
 import useMarketIntelligence from '@/hooks/useMarketIntelligence';
 import Nifty500ResearchPanel from '@/components/Research/Nifty500ResearchPanel';
@@ -112,6 +113,14 @@ export default function MarketIntelligence() {
                 >
                   <LineChart className="h-4 w-4" />
                   Broker Estimates
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+                <Link
+                  to="/market-sector-intelligence"
+                  className="inline-flex items-center justify-center gap-2 border border-[#7ea2cf] bg-white px-4 py-2.5 text-sm font-bold text-[#0d1d33] transition hover:bg-[#e8f0fa]"
+                >
+                  <TrendingUp className="h-4 w-4" />
+                  Sector Intelligence
                   <ArrowRight className="h-4 w-4" />
                 </Link>
                 <Link

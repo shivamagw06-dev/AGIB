@@ -94,6 +94,38 @@ export default function createMarketRouter(env = {}) {
     }
   });
 
+  // Fetch Upstox FII/DII and persist to warehouse via intelligence engine.
+  router.post('/upstox-flows/refresh', async (req, res) => {
+    try {
+      const { getMarketFiiDii } = await import('../providers/upstox.js');
+      const pack = await getMarketFiiDii({
+        dataType: req.body?.dataType || 'NSE_EQ',
+        interval: req.body?.interval || '1D',
+      });
+      const engineBase = process.env.AGIB_INTELLIGENCE_ENGINE_URL || process.env.INTELLIGENCE_ENGINE_URL;
+      const token = process.env.AGIB_SERVICE_TOKEN || process.env.INTELLIGENCE_ENGINE_TOKEN;
+      if (!engineBase || !token) {
+        return res.status(503).json({ ok: false, error: 'intelligence_engine_not_configured', upstox: pack });
+      }
+      const ingest = await fetch(`${engineBase.replace(/\/$/, '')}/v1/market-intelligence/flows/ingest`, {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          'X-AGI-Intelligence-Token': token,
+        },
+        body: JSON.stringify({ ...pack, date: req.body?.date }),
+      });
+      const text = await ingest.text();
+      let data = null;
+      try { data = text ? JSON.parse(text) : null; } catch { data = { raw: text.slice(0, 400) }; }
+      return res.status(ingest.status).json({ ok: ingest.ok, upstox: pack, warehouse: data });
+    } catch (err) {
+      return res.status(502).json({ ok: false, error: err?.message || 'upstox_flows_refresh_failed' });
+    }
+  });
+
   router.get('/intelligence', async (_req, res) => {
     // Warm Groww/NSE ticker in the same 30-min cycle as AGI outlook.
     void getTickerData(env).catch(() => null);

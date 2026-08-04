@@ -177,3 +177,28 @@ export async function getHistoricalCandles(instrumentKey, { unit = 'months', int
   }
   return json;
 }
+
+/**
+ * Exchange-level FII/DII — GET /v2/market/fii and /v2/market/dii
+ * @param {{ dataType?: 'NSE_EQ'|'CASH', interval?: '1D'|'1M' }} opts
+ */
+export async function getMarketFiiDii({ dataType = 'NSE_EQ', interval = '1D' } = {}) {
+  const qs = new URLSearchParams({ data_type: dataType, interval }).toString();
+  const [fii, dii] = await Promise.all([
+    upstoxGet(`/market/fii?${qs}`),
+    upstoxGet(`/market/dii?${qs}`),
+  ]);
+  const fiiData = fii?.data || fii;
+  const diiData = dii?.data || dii;
+  const latestFii = Array.isArray(fiiData) ? fiiData[fiiData.length - 1] : fiiData;
+  const latestDii = Array.isArray(diiData) ? diiData[diiData.length - 1] : diiData;
+  return {
+    ok: true,
+    segment: dataType,
+    interval,
+    fii: latestFii || {},
+    dii: latestDii || {},
+    fii_series: Array.isArray(fiiData) ? fiiData : [fiiData].filter(Boolean),
+    dii_series: Array.isArray(diiData) ? diiData : [diiData].filter(Boolean),
+  };
+}

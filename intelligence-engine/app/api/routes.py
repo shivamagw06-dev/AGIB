@@ -19043,6 +19043,45 @@ async def valuation_engine_terminal_explain(metric: str):
     return explain_metric(metric)
 
 
+# ---------------------------------------------------------------------------
+# Market & Sector Intelligence Terminal v1.0
+# Warehouse → Unified Valuation Engine → Market Intelligence Engine
+# ---------------------------------------------------------------------------
+
+
+@router.get("/market-intelligence/health")
+async def market_intelligence_health():
+    from market_intelligence_engine import health
+
+    return health()
+
+
+@router.get("/market-intelligence/dashboard")
+async def market_intelligence_dashboard(universe_limit: int = 5000):
+    from market_intelligence_engine import dashboard
+
+    return dashboard(universe_limit=universe_limit)
+
+
+@router.get("/market-intelligence/sector/{sector}")
+async def market_intelligence_sector(sector: str, universe_limit: int = 5000):
+    from market_intelligence_engine import sector_detail
+
+    return sector_detail(sector, universe_limit=universe_limit)
+
+
+@router.post("/market-intelligence/flows/ingest")
+async def market_intelligence_flows_ingest(payload: dict[str, Any] = Body(default_factory=dict)):
+    """Persist FII/DII rows into warehouse (called by BFF after Upstox fetch)."""
+    from market_intelligence_engine.ingest_flows import ingest_flows, normalise_upstox_flow
+
+    body = payload or {}
+    rows = body.get("rows")
+    if not rows:
+        rows = normalise_upstox_flow(body)
+    return ingest_flows(rows, actor=str(body.get("actor") or "market_intelligence_engine"))
+
+
 @router.get("/warehouse/statement-identity")
 async def warehouse_statement_identity():
     """Statement rows still carrying no statement type."""
