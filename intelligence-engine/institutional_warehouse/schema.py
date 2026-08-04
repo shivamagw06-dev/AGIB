@@ -777,14 +777,15 @@ BOOTSTRAP_RUNS = Tab(
 INGESTION_HEALTH = Tab(
     id="ingestion_health",
     label="Ingestion Health",
-    description="Per-source warehouse ingestion health snapshot for ops dashboards.",
+    description="Per-feed warehouse ingestion health snapshot for ops dashboards.",
     mode="master",
-    key=("source",),
-    order_by=("source",),
-    search_columns=("source", "health", "notes"),
+    # Identity column must not be named "source" — that key is reserved by PROVENANCE_COLUMNS.
+    key=("feed",),
+    order_by=("feed",),
+    search_columns=("feed", "health", "notes"),
     icon="ops",
     columns=(
-        _c("source", "Source", TEXT, required=True, width=160, group="Key"),
+        _c("feed", "Feed", TEXT, required=True, width=160, group="Key"),
         _c("coverage", "Coverage %", NUMBER, width=120, group="Health"),
         _c("rows", "Rows", INTEGER, width=110, group="Health"),
         _c("successful", "Successful", INTEGER, width=120, group="Health"),
