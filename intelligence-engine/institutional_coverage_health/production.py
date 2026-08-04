@@ -129,10 +129,36 @@ def _entity_set(tab_id: str) -> set[str]:
         return set()
 
 
-def _load_masters() -> list[dict[str, Any]]:
+def _paged_rows(tab_id: str, *, max_rows: int = 100_000) -> list[dict[str, Any]]:
+    """Read all effective rows for a tab.
+
+    ``store.all_rows`` / ``store.fetch`` clamp to ``MAX_LIMIT`` (5000). Coverage
+    health must page past that or residual gaps falsely treat bootstrapped
+    companies as missing (first 5k valuation_ratios rows ≈ 295 symbols).
+    """
     from institutional_warehouse import store
 
-    rows = store.all_rows("company_master", limit=8000) or []
+    page_size = 5000
+    offset = 0
+    out: list[dict[str, Any]] = []
+    while offset < max_rows:
+        try:
+            page = store.fetch(tab_id, limit=page_size, offset=offset)
+        except Exception:
+            break
+        rows = page.get("rows") or []
+        if not rows:
+            break
+        out.extend(rows)
+        total = int(page.get("total") or 0)
+        offset += len(rows)
+        if offset >= total or len(rows) < page_size:
+            break
+    return out
+
+
+def _load_masters() -> list[dict[str, Any]]:
+    rows = _paged_rows("company_master", max_rows=20_000)
     out = []
     for r in rows:
         sym = str(r.get("symbol") or "").strip().upper()
@@ -143,14 +169,9 @@ def _load_masters() -> list[dict[str, Any]]:
 
 
 def _provider_ratio_index() -> dict[str, dict[str, Any]]:
-    """symbol → {source, ratios: {name: payload}} — one pass, no N+1."""
-    from institutional_warehouse import store
-
+    """symbol → {source, ratios: {name: payload}} — paged, no N+1."""
     provider_by_symbol: dict[str, dict[str, Any]] = {}
-    try:
-        ratio_rows = store.all_rows("valuation_ratios", limit=50000) or []
-    except Exception:
-        return provider_by_symbol
+    ratio_rows = _paged_rows("valuation_ratios", max_rows=100_000)
     ratio_rows = sorted(
         ratio_rows,
         key=lambda r: str(r.get("reported_date") or ""),
@@ -180,13 +201,8 @@ def _provider_ratio_index() -> dict[str, dict[str, Any]]:
 
 def _annual_index() -> dict[str, dict[str, Any]]:
     """Latest annual facts per symbol for VPAE financial health."""
-    from institutional_warehouse import store
-
     by_sym: dict[str, dict[str, Any]] = {}
-    try:
-        rows = store.all_rows("financials_annual", limit=40000) or []
-    except Exception:
-        return by_sym
+    rows = _paged_rows("financials_annual", max_rows=100_000)
     rows = sorted(rows, key=lambda r: str(r.get("fiscal_year") or ""), reverse=True)
     for r in rows:
         sym = str(r.get("symbol") or "").strip().upper()
@@ -629,9 +645,15 @@ def _residual_block(
             provider_failure.append(row["symbol"])
 
     residual = sorted(set(missing_isin) | set(no_fundamentals) | set(provider_failure) | set(delisted))
+    with_ratios = sum(
+        1 for m in masters
+        if (provider_by_symbol.get(str(m.get("symbol") or "").strip().upper()) or {}).get("ratios")
+    )
     return {
         "residual_missing": len(residual),
         "missing_isin": len(missing_isin),
+        "isin_available": max(0, len(masters) - len(missing_isin) - len(delisted)),
+        "with_upstox_key_ratios": with_ratios,
         "no_upstox_fundamentals": len(no_fundamentals),
         "provider_failure": len(set(provider_failure)),
         "delisted": len(delisted),
@@ -643,8 +665,10 @@ def _residual_block(
             "delisted": delisted[:20],
         },
         "note": (
-            "Residual gaps are warehouse-derived. Live bootstrap queue states "
-            "(Pending / Retry / Failed / ETA) come from /api/market/upstox-bootstrap/status."
+            "Residual gaps are warehouse-derived from a full paged scan of "
+            "valuation_ratios (not the 5k store.all_rows cap). Live bootstrap "
+            "queue states (Pending / Retry / Failed / ETA) come from "
+            "/api/market/upstox-bootstrap/status and may read 0 after Node redeploy."
         ),
     }
 

@@ -161,16 +161,39 @@ export default function CoverageHealthPanel() {
           {bootstrap?.ok ? (
             <>
               <ul className="ich-metric-list">
-                <li><span>Universe</span><strong>{fmt(summary.companies, 0)}</strong></li>
-                <li><span>ISIN available</span><strong>{fmt(summary.isinAvailable, 0)}</strong></li>
-                <li><span>Bootstrapped</span><strong>{fmt(summary.completed ?? queue.SUCCESS, 0)}</strong></li>
+                <li>
+                  <span>Universe</span>
+                  <strong>{fmt(summary.companies || pack.universe?.companies, 0)}</strong>
+                </li>
+                <li>
+                  <span>ISIN available</span>
+                  <strong>{fmt(summary.isinAvailable ?? residual.isin_available, 0)}</strong>
+                </li>
+                <li>
+                  <span>Bootstrapped</span>
+                  <strong>
+                    {fmt(
+                      summary.completed
+                      ?? queue.SUCCESS
+                      ?? residual.with_upstox_key_ratios
+                      ?? pack.data_coverage?.counts?.key_ratios,
+                      0,
+                    )}
+                  </strong>
+                </li>
                 <li><span>Bootstrap coverage</span><strong>{summary.coverage != null ? `${fmt(summary.coverage, 1)}%` : '—'}</strong></li>
                 <li><span>Pending</span><strong>{fmt(queue.PENDING ?? summary.remaining, 0)}</strong></li>
                 <li><span>Retry</span><strong>{fmt(queue.RETRY, 0)}</strong></li>
                 <li><span>Failed</span><strong>{fmt(queue.FAILED, 0)}</strong></li>
-                <li><span>Missing ISIN</span><strong>{fmt(summary.missingIsin, 0)}</strong></li>
+                <li><span>Missing ISIN</span><strong>{fmt(summary.missingIsin ?? residual.missing_isin, 0)}</strong></li>
                 <li><span>ETA</span><strong>{summary.etaMinutes != null ? `${fmt(summary.etaMinutes, 0)} min` : '—'}</strong></li>
               </ul>
+              {(summary.companies == null || Number(summary.companies) === 0) ? (
+                <p className="hint">
+                  Node bootstrap queue looks empty (often after redeploy). Warehouse residual /
+                  key-ratio counts above are authoritative — do not rerun bootstrap solely from zeros.
+                </p>
+              ) : null}
             </>
           ) : (
             <p className="hint">Bootstrap status unavailable — open Upstox Bootstrap admin for live queue.</p>
