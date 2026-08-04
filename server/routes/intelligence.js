@@ -2393,6 +2393,40 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // Market & Sector Intelligence Terminal v1.0
+  router.get('/market-intelligence/health', kfGet('/v1/market-intelligence/health'));
+  router.get('/market-intelligence/dashboard', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query || {}).toString();
+      const r = await engineFetch(`/v1/market-intelligence/dashboard${qs ? `?${qs}` : ''}`, { timeoutMs: 120_000 });
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'market-intelligence dashboard failed' });
+    }
+  });
+  router.get('/market-intelligence/sector/:sector', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query || {}).toString();
+      const r = await engineFetch(
+        `/v1/market-intelligence/sector/${encodeURIComponent(req.params.sector)}${qs ? `?${qs}` : ''}`,
+        { timeoutMs: 90_000 },
+      );
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'market-intelligence sector failed' });
+    }
+  });
+  router.post('/market-intelligence/flows/ingest', async (req, res) => {
+    try {
+      const r = await engineFetch('/v1/market-intelligence/flows/ingest', {
+        method: 'POST', body: req.body || {}, timeoutMs: 60_000,
+      });
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'market-intelligence flows ingest failed' });
+    }
+  });
+
   // Company Identity Service — canonical Capital IQ classification
   router.get('/company-identity/health', kfGet('/v1/company-identity/health'));
   router.post('/company-identity/metadata', async (req, res) => {

@@ -2840,6 +2840,13 @@ export const getUveCompany = (symbol) =>
   intelligenceFetch(`/valuation-engine/company/${encodeURIComponent(symbol)}`, { timeoutMs: 60_000 });
 export const getUveHealth = () => intelligenceFetch('/valuation-engine/health');
 
+/** Market & Sector Intelligence Terminal v1.0 */
+export const getMiHealth = () => intelligenceFetch('/market-intelligence/health');
+export const getMiDashboard = () =>
+  intelligenceFetch('/market-intelligence/dashboard', { timeoutMs: 120_000 });
+export const getMiSector = (sector) =>
+  intelligenceFetch(`/market-intelligence/sector/${encodeURIComponent(sector)}`, { timeoutMs: 90_000 });
+
 /** Hedge Fund Strategy Lab */
 export const getHflHealth = () => intelligenceFetch('/hedge-fund-lab/health');
 export const getHflStrategies = () => intelligenceFetch('/hedge-fund-lab/strategies');

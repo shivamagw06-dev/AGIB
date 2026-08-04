@@ -36,6 +36,7 @@ import PinGate from '@/components/auth/PinGate';
 const Opinions = React.lazy(() => import('@/components/Opinions'));
 const Markets = React.lazy(() => import('@/pages/Markets'));
 const MarketIntelligence = React.lazy(() => import('@/pages/MarketIntelligence'));
+const MarketSectorIntelligence = React.lazy(() => import('@/pages/MarketSectorIntelligence'));
 const MacroIntelligence = React.lazy(() => import('@/pages/MacroIntelligence'));
 const PreMarketIntelligence = React.lazy(() => import('@/pages/PreMarketIntelligence'));
 const Nifty500StockResearch = React.lazy(() => import('@/pages/Nifty500StockResearch'));
@@ -175,6 +176,7 @@ function PublicRoutes() {
       <Route path="/markets" element={<Markets />} />
       <Route path="/sections/markets" element={<Navigate replace to="/markets" />} />
       <Route path="/market-intelligence" element={<MarketIntelligence />} />
+      <Route path="/market-sector-intelligence" element={<MarketSectorIntelligence />} />
       <Route path="/macro-intelligence" element={<MacroIntelligence />} />
       <Route path="/hedge-fund" element={<HedgeFundPage />} />
       <Route path="/hedge-fund/strategy-lab" element={<Navigate replace to="/hedge-fund" />} />

@@ -677,6 +677,33 @@ DATA_QUALITY = Tab(
 )
 
 
+# --------------------------------------------------------------------------
+# Tab — Institutional Flow (exchange-level FII/DII)
+# --------------------------------------------------------------------------
+
+INSTITUTIONAL_FLOW = Tab(
+    id="institutional_flow",
+    label="Institutional Flow",
+    description="Exchange-level FII/DII net flows. Appended daily from Upstox via DQIV gateway.",
+    mode="append",
+    key=("date", "segment"),
+    order_by=("date DESC",),
+    search_columns=("segment",),
+    icon="flow",
+    columns=(
+        _c("date", "Date", DATE, required=True, width=120, group="Key"),
+        _c("segment", "Segment", TEXT, required=True, width=120, group="Key",
+           options=("NSE_EQ", "CASH")),
+        _c("fii_net", "FII Net (₹ Cr)", NUMBER, width=140, group="Flow"),
+        _c("dii_net", "DII Net (₹ Cr)", NUMBER, width=140, group="Flow"),
+        _c("fii_buy", "FII Buy", NUMBER, width=120, group="Flow"),
+        _c("fii_sell", "FII Sell", NUMBER, width=120, group="Flow"),
+        _c("dii_buy", "DII Buy", NUMBER, width=120, group="Flow"),
+        _c("dii_sell", "DII Sell", NUMBER, width=120, group="Flow"),
+        *PROVENANCE_COLUMNS,
+    ),
+)
+
 TABS: tuple[Tab, ...] = (
     COMPANY_MASTER,
     DAILY_MARKET_HISTORY,
@@ -689,6 +716,7 @@ TABS: tuple[Tab, ...] = (
     RESEARCH_TIMELINE,
     CORPORATE_ACTIONS,
     OWNERSHIP,
+    INSTITUTIONAL_FLOW,
     HEDGE_FUND_FACTORS,
     COMPANY_INTELLIGENCE,
     DATA_QUALITY,
