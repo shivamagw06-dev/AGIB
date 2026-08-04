@@ -2801,6 +2801,110 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // HVIE Universe Completion Programme (Phase 8.3A)
+  router.get('/hvie/runtime/health', kfGet('/v1/hvie/runtime/health'));
+  router.get('/hvie/runtime/status', kfGet('/v1/hvie/runtime/status'));
+  router.get('/hvie/runtime/coverage', kfGet('/v1/hvie/runtime/coverage'));
+  router.get('/hvie/runtime/pipeline', kfGet('/v1/hvie/runtime/pipeline'));
+  router.get('/hvie/runtime/sector', kfGet('/v1/hvie/runtime/sector'));
+  router.get('/hvie/runtime/industry', kfGet('/v1/hvie/runtime/industry'));
+  router.get('/hvie/runtime/market', kfGet('/v1/hvie/runtime/market'));
+  router.get('/hvie/runtime/failures', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query || {}).toString();
+      const r = await engineFetch(`/v1/hvie/runtime/failures${qs ? `?${qs}` : ''}`, { timeoutMs: 60_000 });
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'hvie failures failed' });
+    }
+  });
+  router.get('/hvie/runtime/retry', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query || {}).toString();
+      const r = await engineFetch(`/v1/hvie/runtime/retry${qs ? `?${qs}` : ''}`, { timeoutMs: 60_000 });
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'hvie retry queue failed' });
+    }
+  });
+  router.get('/hvie/runtime/company/:symbol', async (req, res) => {
+    try {
+      const r = await engineFetch(
+        `/v1/hvie/runtime/company/${encodeURIComponent(req.params.symbol)}`,
+        { timeoutMs: 30_000 },
+      );
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'hvie company status failed' });
+    }
+  });
+  router.post('/hvie/runtime/start', async (req, res) => {
+    try {
+      const r = await engineFetch('/v1/hvie/runtime/start', { method: 'POST', body: {}, timeoutMs: 30_000 });
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'hvie universe start failed' });
+    }
+  });
+  router.post('/hvie/runtime/stop', async (req, res) => {
+    try {
+      const r = await engineFetch('/v1/hvie/runtime/stop', { method: 'POST', body: {}, timeoutMs: 30_000 });
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'hvie universe stop failed' });
+    }
+  });
+  router.post('/hvie/runtime/resume', async (req, res) => {
+    try {
+      const r = await engineFetch('/v1/hvie/runtime/resume', { method: 'POST', body: {}, timeoutMs: 30_000 });
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'hvie universe resume failed' });
+    }
+  });
+  router.post('/hvie/runtime/run', async (req, res) => {
+    try {
+      const r = await engineFetch('/v1/hvie/runtime/run', {
+        method: 'POST', body: req.body || {}, timeoutMs: 300_000,
+      });
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'hvie universe run failed' });
+    }
+  });
+  router.post('/hvie/runtime/retry/:symbol', async (req, res) => {
+    try {
+      const r = await engineFetch(
+        `/v1/hvie/runtime/retry/${encodeURIComponent(req.params.symbol)}`,
+        { method: 'POST', body: {}, timeoutMs: 180_000 },
+      );
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'hvie retry symbol failed' });
+    }
+  });
+  router.post('/hvie/runtime/reconstruct/:symbol', async (req, res) => {
+    try {
+      const r = await engineFetch(
+        `/v1/hvie/runtime/reconstruct/${encodeURIComponent(req.params.symbol)}`,
+        { method: 'POST', body: {}, timeoutMs: 300_000 },
+      );
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'hvie reconstruct failed' });
+    }
+  });
+  router.post('/hvie/runtime/aggregates', async (req, res) => {
+    try {
+      const r = await engineFetch('/v1/hvie/runtime/aggregates', {
+        method: 'POST', body: req.body || {}, timeoutMs: 180_000,
+      });
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'hvie aggregates failed' });
+    }
+  });
+
   // Unified Valuation Engine — terminal migration surface
   router.get('/valuation-engine/health', kfGet('/v1/valuation-engine/health'));
   router.get('/valuation-engine/company/:symbol', async (req, res) => {

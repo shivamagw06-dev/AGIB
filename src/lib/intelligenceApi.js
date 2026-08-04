@@ -3088,6 +3088,52 @@ export const postHvieRuntimeStart = () =>
 export const postHvieRuntimeStop = () =>
   intelligenceFetch('/historical-valuation/runtime/stop', { method: 'POST', body: {} });
 
+/** HVIE Universe Completion Programme (Phase 8.3A) */
+export const getHvieUniverseHealth = () =>
+  intelligenceFetch('/hvie/runtime/health', { timeoutMs: 60_000 });
+export const getHvieUniverseStatus = () =>
+  intelligenceFetch('/hvie/runtime/status', { timeoutMs: 90_000 });
+export const getHvieUniverseCoverage = () =>
+  intelligenceFetch('/hvie/runtime/coverage', { timeoutMs: 90_000 });
+export const getHvieUniversePipeline = () =>
+  intelligenceFetch('/hvie/runtime/pipeline', { timeoutMs: 90_000 });
+export const getHvieUniverseSector = () =>
+  intelligenceFetch('/hvie/runtime/sector', { timeoutMs: 90_000 });
+export const getHvieUniverseIndustry = () =>
+  intelligenceFetch('/hvie/runtime/industry', { timeoutMs: 90_000 });
+export const getHvieUniverseMarket = () =>
+  intelligenceFetch('/hvie/runtime/market', { timeoutMs: 60_000 });
+export const getHvieUniverseFailures = (params = {}) => {
+  const qs = new URLSearchParams(
+    Object.fromEntries(Object.entries(params).filter(([, v]) => v != null && v !== '')),
+  ).toString();
+  return intelligenceFetch(`/hvie/runtime/failures${qs ? `?${qs}` : ''}`, { timeoutMs: 60_000 });
+};
+export const getHvieUniverseRetryQueue = (params = {}) => {
+  const qs = new URLSearchParams(
+    Object.fromEntries(Object.entries(params).filter(([, v]) => v != null && v !== '')),
+  ).toString();
+  return intelligenceFetch(`/hvie/runtime/retry${qs ? `?${qs}` : ''}`, { timeoutMs: 60_000 });
+};
+export const getHvieUniverseCompany = (symbol) =>
+  intelligenceFetch(`/hvie/runtime/company/${encodeURIComponent(symbol)}`, { timeoutMs: 30_000 });
+export const postHvieUniverseStart = () =>
+  intelligenceFetch('/hvie/runtime/start', { method: 'POST', body: {} });
+export const postHvieUniverseStop = () =>
+  intelligenceFetch('/hvie/runtime/stop', { method: 'POST', body: {} });
+export const postHvieUniverseResume = () =>
+  intelligenceFetch('/hvie/runtime/resume', { method: 'POST', body: {} });
+export const postHvieUniverseRun = (body = {}) =>
+  intelligenceFetch('/hvie/runtime/run', { method: 'POST', body, timeoutMs: 300_000 });
+export const postHvieUniverseRetry = (symbol) =>
+  intelligenceFetch(`/hvie/runtime/retry/${encodeURIComponent(symbol)}`, {
+    method: 'POST', body: {}, timeoutMs: 180_000,
+  });
+export const postHvieUniverseReconstruct = (symbol) =>
+  intelligenceFetch(`/hvie/runtime/reconstruct/${encodeURIComponent(symbol)}`, {
+    method: 'POST', body: {}, timeoutMs: 300_000,
+  });
+
 /** Market & Sector Intelligence Terminal v1.0 */
 export const getMiHealth = () => intelligenceFetch('/market-intelligence/health');
 export const getMiDashboard = () =>

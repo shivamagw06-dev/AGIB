@@ -417,13 +417,57 @@ def _metric_coverage_block(
     return {"pct": avg, "metrics": metrics, "universe": n}
 
 
+def _hvie_pipeline_snapshot(universe_syms: set[str]) -> dict[str, Any]:
+    """Prefer persisted HVIE universe queue completion state when available."""
+    try:
+        from historical_valuation_intelligence.universe_programme import queue as univ_queue
+
+        rows = univ_queue.all_queue_rows()
+    except Exception:
+        rows = []
+    if not rows:
+        return {}
+    by_sym = {
+        str(r.get("symbol") or "").strip().upper(): r
+        for r in rows
+        if r.get("symbol")
+    }
+    # Restrict to coverage universe when provided.
+    scoped = [by_sym[s] for s in universe_syms if s in by_sym] if universe_syms else list(by_sym.values())
+    if not scoped:
+        scoped = list(by_sym.values())
+    n = len(scoped) or 1
+    complete = sum(1 for r in scoped if str(r.get("lifecycle") or "").upper() == "COMPLETE")
+    percentiles = sum(1 for r in scoped if r.get("has_percentile") or r.get("last_percentile") is not None)
+    bands = sum(1 for r in scoped if r.get("has_bands"))
+    regimes = sum(1 for r in scoped if r.get("has_regime") or r.get("last_regime"))
+    research = sum(1 for r in scoped if r.get("has_research"))
+    eligible = sum(1 for r in scoped if r.get("eligible") is True)
+    seeded = sum(1 for r in scoped if int(r.get("observations") or 0) > 0)
+    statistics = sum(1 for r in scoped if r.get("has_statistics"))
+    return {
+        "source": "hvie_universe_queue",
+        "universe": len(scoped),
+        "eligible": eligible,
+        "seeded_history": seeded,
+        "statistics": statistics,
+        "percentiles": percentiles,
+        "bands": bands,
+        "regimes": regimes,
+        "research": research,
+        "complete": complete,
+        "historical_percentile_pct": _pct(percentiles, n),
+        "historical_bands_pct": _pct(bands, n),
+        "regime_pct": _pct(regimes, n),
+        "complete_pct": _pct(complete, n),
+    }
+
+
 def _intelligence_coverage(universe_syms: set[str], evaluated: list[dict[str, Any]]) -> dict[str, Any]:
     n = len(universe_syms)
     hvie_rows = []
     try:
-        from institutional_warehouse import store
-
-        hvie_rows = store.all_rows("hvie_company_state", limit=8000) or []
+        hvie_rows = _paged_rows("hvie_company_state", max_rows=20_000)
     except Exception:
         hvie_rows = []
 
@@ -449,6 +493,13 @@ def _intelligence_coverage(universe_syms: set[str], evaluated: list[dict[str, An
             bands += 1
         if st.get("last_regime"):
             regime += 1
+
+    # Prefer queue completion plane when the universe programme has classified names.
+    pipe = _hvie_pipeline_snapshot(universe_syms)
+    if pipe and int(pipe.get("universe") or 0) >= max(1, int(0.5 * n)):
+        percentile = int(pipe.get("percentiles") or percentile)
+        bands = int(pipe.get("bands") or bands)
+        regime = int(pipe.get("regimes") or regime)
 
     varie = len((research | timeline) & universe_syms)
     research_summary = len(research & universe_syms)
@@ -487,6 +538,7 @@ def _intelligence_coverage(universe_syms: set[str], evaluated: list[dict[str, An
         },
         "universe": n,
         "hvie_seeded": sum(1 for s in universe_syms if (hvie_by_sym.get(s) or {}).get("seeded")),
+        "hvie_pipeline": pipe,
     }
 
 
@@ -743,6 +795,22 @@ def coverage_health(*, limit: int = 6000, force: bool = False) -> dict[str, Any]
         _layer("DQIV", dqiv_pct, covered=int(round(dqiv_pct * valuation["expected"] / 100.0)) if valuation["expected"] else 0, universe=valuation["expected"]),
     ]
 
+    hvie_pipe = intelligence.get("hvie_pipeline") or {}
+    hvie_pipeline_dashboard = None
+    if hvie_pipe:
+        hvie_pipeline_dashboard = [
+            {"name": "Universe", "count": hvie_pipe.get("universe"), "pct": 100.0},
+            {"name": "Eligible", "count": hvie_pipe.get("eligible")},
+            {"name": "Seeded", "count": hvie_pipe.get("seeded_history")},
+            {"name": "History Built", "count": hvie_pipe.get("seeded_history")},
+            {"name": "Statistics", "count": hvie_pipe.get("statistics")},
+            {"name": "Percentiles", "count": hvie_pipe.get("percentiles")},
+            {"name": "Bands", "count": hvie_pipe.get("bands")},
+            {"name": "Regimes", "count": hvie_pipe.get("regimes")},
+            {"name": "Research Timeline", "count": hvie_pipe.get("research")},
+            {"name": "Complete", "count": hvie_pipe.get("complete")},
+        ]
+
     payload = {
         "ok": True,
         "engine": ENGINE_CODE,
@@ -758,6 +826,8 @@ def coverage_health(*, limit: int = 6000, force: bool = False) -> dict[str, Any]
         "valuation_coverage": valuation,
         "metric_coverage": metrics,
         "intelligence_coverage": intelligence,
+        "hvie_pipeline": hvie_pipe,
+        "hvie_pipeline_dashboard": hvie_pipeline_dashboard,
         "research_coverage": research,
         "residual_gap": residual,
         "dashboard": dashboard,

@@ -180,7 +180,8 @@ def test_statement_hook_triggers_forward(monkeypatch):
 
     monkeypatch.setattr(
         "historical_valuation_intelligence.runtime.forward_rebuild_company",
-        lambda symbol, as_of=None: called.append(symbol) or {"ok": True, "symbol": symbol},
+        lambda symbol, release_date=None, as_of=None, **_kw: called.append(symbol)
+        or {"ok": True, "symbol": symbol},
     )
     out = hooks.after_statements_written(
         [{"symbol": "INFY", "period_end": "2026-06-30"}, {"symbol": "TCS"}]

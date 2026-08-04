@@ -44,7 +44,8 @@ def after_statements_written(
     results = []
     for sym in tickers[:80]:
         try:
-            results.append(forward_rebuild_company(sym, as_of=as_of))
+            release = as_of.isoformat() if hasattr(as_of, "isoformat") else as_of
+            results.append(forward_rebuild_company(sym, release_date=release))
         except Exception as exc:
             log.warning("hvie forward rebuild %s failed: %s", sym, exc)
             results.append({"symbol": sym, "ok": False, "error": str(exc)[:160]})

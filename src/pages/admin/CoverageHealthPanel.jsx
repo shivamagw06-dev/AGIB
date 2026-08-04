@@ -139,6 +139,23 @@ export default function CoverageHealthPanel() {
         ))}
       </div>
 
+      {(pack.hvie_pipeline_dashboard || []).length ? (
+        <div className="ich-block" style={{ marginTop: '1rem' }}>
+          <h4>HVIE Pipeline</h4>
+          <p className="hint" style={{ marginTop: 0 }}>
+            Full-universe completion stages — not just seeded count.
+          </p>
+          <ul className="ich-metric-list">
+            {pack.hvie_pipeline_dashboard.map((row) => (
+              <li key={row.name}>
+                <span>{row.name}</span>
+                <strong>{fmt(row.count, 0)}</strong>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
       <div className="ich-grid">
         <MetricList title="Raw data" items={dataItems} />
         <MetricList title="Metric coverage" items={metricItems} />
