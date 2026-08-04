@@ -153,12 +153,33 @@ export async function refreshUpstoxValuationRatios({
   await Promise.all(workers);
 
   if (!batch.length) {
+    // Every getFundamentals call threw — usually rate-limit / auth, not "no ratios".
+    const rateLimited = errors.some(
+      (e) => e.status === 429 || /too many request/i.test(String(e.error || '')),
+    );
+    const authFailed = errors.some(
+      (e) => e.status === 401 || e.status === 403
+        || /unauthorized|forbidden|access.token/i.test(String(e.error || '')),
+    );
     return {
       ok: false,
-      status: 502,
-      error: 'upstox_key_ratios_empty',
+      status: rateLimited ? 429 : authFailed ? 401 : 502,
+      error: rateLimited
+        ? 'upstox_rate_limited'
+        : authFailed
+          ? 'upstox_auth_failed'
+          : 'upstox_key_ratios_fetch_failed',
+      // Legacy alias — bootstrap logs previously showed this for 429 batches.
+      legacy_error: 'upstox_key_ratios_empty',
       attempted: companies.length,
+      fetched: 0,
+      failed: errors.length,
       errors: errors.slice(0, 20),
+      hint: rateLimited
+        ? 'Upstox HTTP 429 on the whole batch. Slow the bootstrap (pause↑ / concurrency↓). Existing warehouse.valuation_ratios rows are intact.'
+        : authFailed
+          ? 'Upstox rejected the access token. Refresh UPSTOX_ACCESS_TOKEN.'
+          : 'No key-ratios fetched for this batch. Inspect errors[]; warehouse data already ingested is intact.',
     };
   }
 
