@@ -45,6 +45,41 @@ function sanitizeEvents(payload, limit = 5) {
   };
 }
 
+/**
+ * How many reporting periods a statement payload carries, and their labels.
+ * Period labels (e.g. "FY2024") are metadata, not financial values — knowing
+ * the depth is what tells us whether Upstox can stand in for CapIQ history.
+ */
+function depthOf(data) {
+  const periodKeys = new Set();
+  let deepest = 0;
+
+  const walk = (node, hops) => {
+    if (hops > 4 || !node) return;
+    if (Array.isArray(node)) {
+      for (const item of node.slice(0, 30)) walk(item, hops + 1);
+      return;
+    }
+    if (typeof node !== 'object') return;
+    // A statement line item keyed by period looks like { FY2024: 123, FY2023: 98 }
+    const keys = Object.keys(node);
+    const periodish = keys.filter((k) => /^(FY|Q[1-4])?\s?-?\d{2,4}/i.test(k) || /\d{4}/.test(k));
+    if (periodish.length >= 2 && periodish.length === keys.length) {
+      periodish.forEach((k) => periodKeys.add(k));
+      deepest = Math.max(deepest, periodish.length);
+      return;
+    }
+    for (const value of Object.values(node).slice(0, 30)) walk(value, hops + 1);
+  };
+
+  walk(data, 0);
+  const labels = [...periodKeys].sort();
+  return {
+    periods: deepest,
+    period_labels: labels.slice(0, 16),
+  };
+}
+
 function shapeOf(payload) {
   const data = payload?.data;
   if (Array.isArray(data)) {
@@ -53,10 +88,17 @@ function shapeOf(payload) {
       kind: 'array',
       rows: data.length,
       fields: first && typeof first === 'object' ? Object.keys(first).slice(0, 12) : [],
+      ...depthOf(data),
     };
   }
   if (data && typeof data === 'object') {
-    return { kind: 'object', fields: Object.keys(data).slice(0, 15) };
+    return {
+      kind: 'object',
+      fields: Object.keys(data).slice(0, 15),
+      time_period: data.time_period ?? null,
+      units_in: data.units_in ?? null,
+      ...depthOf(data),
+    };
   }
   return { kind: typeof data, rows: 0, fields: [] };
 }
