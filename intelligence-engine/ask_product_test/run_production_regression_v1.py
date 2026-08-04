@@ -1,30 +1,39 @@
 #!/usr/bin/env python3
-"""Full Production Regression — Phase 3.0 / 3.1 release gate.
+"""AGI Core v1.0 — Permanent Production Release Gate.
 
-Runs the required suites together and writes a single release report:
+Runs the required suites together and writes a single release report.
+Every future PR must PASS this gate before merge.
 
-  artifacts/production_regression_v1.json
+See:
+  docs/AGI_CORE_V1_0.md
+  ask_product_test/agi_core_v1_0.py
+  ask_product_test/PRODUCTION_REGRESSION_V1.md
 
-Suites (order):
-  1. BI Acceptance                 target 100%
-  2. Business Integration          target 100%
-  3. Industry Acceptance           target 100%
-  4. Industry Integration          target 100%
-  5. Golden Business 20            target 20/20
-  6. Golden Founder 5              target 5/5
-  7. Founder Evaluation V2         target ≥95%
-  8. Founder Evaluation V3         target ≥95%
-  9. KUL Acceptance                target PASS (100%)
- 10. Concept Acceptance            target PASS
- 11. Coverage Acceptance           target PASS
- 12. Recommendation Policy         target PASS
- 13. Unknown Entity                target PASS
- 14. Financial Intelligence (AFI)  target ≥95%  (optional via --with-afi)
+Suite order (permanent release policy — Core v1.0 + suites absorbed from main):
+  1. Founder Evaluation V2         target ≥95%
+  2. Golden Founder 5              target 5/5
+  3. Golden Business 20            target 20/20
+  4. Financial Intelligence (AFI)  target ≥95%
+  5. Business Intelligence         target 100%
+  6. Business Integration          target 100%
+  7. Industry Acceptance           target 100%
+  8. Industry Integration          target 100%
+  9. Founder Evaluation V3         target ≥95%
+ 10. Coverage Acceptance           target PASS
+ 11. Concept Acceptance            target PASS
+ 12. Knowledge Unification         target PASS
+ 13. Recommendation Policy         target PASS
+ 14. Unknown Entity                target PASS
+ 15. Canonical Classification      target 100%
+ 16. Company Metadata Routing      target 100%
+ 17. Core Platform Acceptance      target ≥98% (zero-defect)
+ 18. Answer Quality                target ≥95%
 
 Environment:
   ASK_TEST_MODE=inprocess|live|contract   (default inprocess)
-  PROD_REGRESSION_WITH_AFI=1              include AFI (slow)
-  PROD_REGRESSION_QUICK=1                 skip coverage + AFI (still runs founder/business gates)
+  ASK_TEST_ARTIFACTS=/path/to/artifacts   (default: repo artifacts/)
+  PROD_REGRESSION_QUICK=1                 skip coverage + AFI + heavy certs (local iteration only)
+  PROD_REGRESSION_SKIP_AFI=1              skip AFI only (not merge-sufficient)
 
 Exit 0 only when every included suite meets its target.
 """
@@ -41,17 +50,82 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 ROOT = Path(__file__).resolve().parents[1]
-ART = Path("/workspace/artifacts")
+
+from ask_product_test.agi_core_v1_0 import (  # noqa: E402
+    AGI_CORE_OWNER,
+    AGI_CORE_REGRESSION,
+    AGI_CORE_STATUS,
+    AGI_CORE_VERSION,
+    RELEASE_GATE_ORDER,
+    RELEASE_GATE_TARGETS,
+    baseline_manifest,
+)
+from ask_product_test.harness import _artifacts_dir  # noqa: E402
+
+SUITE_MODULES: Dict[str, str] = {
+    "founder_evaluation_v2": "ask_product_test.run_founder_evaluation_v2",
+    "golden_founder_5": "ask_product_test.run_golden_founder_5",
+    "golden_business_20": "ask_product_test.run_golden_business_20",
+    "afi_acceptance": "ask_product_test.run_afi_acceptance_v1",
+    "bi_acceptance": "ask_product_test.run_bi_acceptance_v1",
+    "bi_integration": "ask_product_test.run_bi_integration_acceptance_v1",
+    "ii_acceptance": "ask_product_test.run_industry_intelligence_acceptance_v1",
+    "ii_integration": "ask_product_test.run_ii_integration_acceptance_v1",
+    "founder_evaluation_v3": "ask_product_test.run_founder_evaluation_v3",
+    "coverage_acceptance": "ask_product_test.run_coverage_acceptance_v1",
+    "concept_acceptance": "ask_product_test.run_concept_acceptance_v1",
+    "kul_acceptance": "ask_product_test.run_kul_acceptance_v1",
+    "recommendation_policy": "ask_product_test.run_recommendation_policy_acceptance_v1",
+    "unknown_entity": "ask_product_test.run_unknown_entity_acceptance_v1",
+    "canonical_classification": "ask_product_test.run_canonical_classification_acceptance_v1",
+    "company_metadata_routing": "ask_product_test.run_company_metadata_routing_acceptance_v1",
+    "core_platform_acceptance": "ask_product_test.run_core_platform_acceptance_v1",
+    "answer_quality": "ask_product_test.run_answer_quality_acceptance_v1",
+}
+
+SUITE_ARTIFACTS: Dict[str, str] = {
+    "founder_evaluation_v2": "founder_evaluation_v2.json",
+    "golden_founder_5": "golden_founder_5_latest.json",
+    "golden_business_20": "golden_business_20.json",
+    "afi_acceptance": "afi_acceptance_v1.json",
+    "bi_acceptance": "bi_acceptance_v1.json",
+    "bi_integration": "bi_integration_acceptance_v1.json",
+    "ii_acceptance": "industry_intelligence_acceptance_v1.json",
+    "ii_integration": "ii_integration_acceptance_v1.json",
+    "founder_evaluation_v3": "founder_evaluation_v3.json",
+    "coverage_acceptance": "coverage_acceptance_v1.json",
+    "concept_acceptance": "concept_acceptance_v1.json",
+    "kul_acceptance": "kul_acceptance_v1.json",
+    "recommendation_policy": "recommendation_policy_acceptance_v1.json",
+    "unknown_entity": "unknown_entity_acceptance_v1.json",
+    "canonical_classification": "canonical_classification_acceptance_v1.json",
+    "company_metadata_routing": "company_metadata_routing_acceptance_v1.json",
+    "core_platform_acceptance": "core_platform_acceptance_v1.json",
+    "answer_quality": "answer_quality_acceptance_v1.json",
+}
+
+# Heavy / slow suites skipped in quick local iteration (not merge-sufficient).
+_QUICK_SKIP = {
+    "coverage_acceptance",
+    "afi_acceptance",
+    "core_platform_acceptance",
+    "answer_quality",
+}
 
 
 def _ts() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
+def _art() -> Path:
+    return _artifacts_dir()
+
+
 def _run_module(module: str, env: Optional[Dict[str, str]] = None) -> Tuple[int, float]:
     merged = os.environ.copy()
     merged.setdefault("ASK_TEST_MODE", "inprocess")
     merged.setdefault("ASK_TEST_CASE_COOLDOWN_SEC", "0")
+    merged.setdefault("ASK_TEST_ARTIFACTS", str(_art()))
     if env:
         merged.update(env)
     t0 = time.perf_counter()
@@ -67,9 +141,14 @@ def _run_module(module: str, env: Optional[Dict[str, str]] = None) -> Tuple[int,
 
 
 def _load(name: str) -> Dict[str, Any]:
-    path = ART / name
+    path = _art() / name
     if not path.exists():
-        return {}
+        # Legacy cloud-agent path fallback.
+        legacy = Path("/workspace/artifacts") / name
+        if legacy.exists():
+            path = legacy
+        else:
+            return {}
     try:
         return json.loads(path.read_text(encoding="utf-8"))
     except Exception:
@@ -77,81 +156,90 @@ def _load(name: str) -> Dict[str, Any]:
 
 
 def _decide(suite_id: str, report: Dict[str, Any], rc: int) -> Dict[str, Any]:
-    """Normalize suite outcome against Phase 3.0 freeze targets."""
-    targets = {
-        "bi_acceptance": {"metric": "pass_rate_pct", "op": "eq", "value": 100.0, "artifact": "bi_acceptance_v1.json"},
-        "bi_integration": {"metric": "pass_rate_pct", "op": "eq", "value": 100.0, "artifact": "bi_integration_acceptance_v1.json"},
-        "ii_acceptance": {"metric": "pass_rate_pct", "op": "eq", "value": 100.0, "artifact": "industry_intelligence_acceptance_v1.json"},
-        "ii_integration": {"metric": "pass_rate_pct", "op": "eq", "value": 100.0, "artifact": "ii_integration_acceptance_v1.json"},
-        "golden_business_20": {"metric": "pass_rate_pct", "op": "eq", "value": 100.0, "artifact": "golden_business_20.json"},
-        "golden_founder_5": {"metric": "pass_rate", "op": "eq", "value": 1.0, "artifact": "golden_founder_5_latest.json"},
-        "founder_evaluation_v2": {"metric": "pass_rate_pct", "op": "gte", "value": 95.0, "artifact": "founder_evaluation_v2.json"},
-        "founder_evaluation_v3": {"metric": "pass_rate_pct", "op": "gte", "value": 95.0, "artifact": "founder_evaluation_v3.json"},
-        "kul_acceptance": {"metric": "pass_rate_pct", "op": "eq", "value": 100.0, "artifact": "kul_acceptance_v1.json"},
-        "concept_acceptance": {"metric": "pass_rate_pct", "op": "eq", "value": 100.0, "artifact": "concept_acceptance_v1.json"},
-        "coverage_acceptance": {"metric": "release_decision", "op": "eq", "value": "PASS", "artifact": "coverage_acceptance_v1.json"},
-        "recommendation_policy": {"metric": "pass_rate_pct", "op": "eq", "value": 100.0, "artifact": "recommendation_policy_acceptance_v1.json"},
-        "unknown_entity": {"metric": "pass_rate_pct", "op": "eq", "value": 100.0, "artifact": "unknown_entity_acceptance_v1.json"},
-        "afi_acceptance": {"metric": "overall_score_pct", "op": "gte", "value": 95.0, "artifact": "afi_acceptance_v1.json"},
-        "canonical_classification": {"metric": "pass_rate_pct", "op": "eq", "value": 100.0, "artifact": "canonical_classification_acceptance_v1.json"},
-        "company_metadata_routing": {"metric": "pass_rate_pct", "op": "eq", "value": 100.0, "artifact": "company_metadata_routing_acceptance_v1.json"},
-        "core_platform_acceptance": {"metric": "overall_score", "op": "gte", "value": 98.0, "artifact": "core_platform_acceptance_v1.json"},
-        "answer_quality": {"metric": "overall_score", "op": "gte", "value": 95.0, "artifact": "answer_quality_acceptance_v1.json"},
-    }
-    spec = targets[suite_id]
-    # Prefer freshly loaded artifact; fall back to rc.
-    data = report or _load(spec["artifact"])
-    metric = spec["metric"]
+    """Normalize suite outcome against AGI Core v1.0 freeze targets."""
+    target = dict(RELEASE_GATE_TARGETS[suite_id])
+    target["artifact"] = SUITE_ARTIFACTS[suite_id]
+    data = report or _load(target["artifact"])
+    metric = target["metric"]
     actual = data.get(metric)
     if actual is None and metric == "pass_rate_pct":
-        # Some suites only expose passed/total or release_decision.
         if data.get("release_decision"):
             actual = 100.0 if data.get("release_decision") == "PASS" else 0.0
         elif data.get("total") and data.get("passed") is not None:
             actual = round(100.0 * float(data["passed"]) / float(data["total"]), 2)
-    if actual is None and metric == "overall_score_pct":
-        metrics = data.get("metrics") if isinstance(data.get("metrics"), dict) else {}
-        actual = (
-            data.get("overall_score_pct")
-            or metrics.get("overall_score_pct")
-            or data.get("overall_score")
-            or data.get("pass_rate_pct")
-        )
+        elif data.get("pass_rate") is not None:
+            pr = float(data["pass_rate"])
+            actual = round(pr * 100.0, 2) if pr <= 1.0 else pr
     if actual is None and metric == "pass_rate":
-        if data.get("passed") is not None and data.get("total"):
+        if data.get("pass_rate") is not None:
+            actual = float(data["pass_rate"])
+        elif data.get("passed") is not None and data.get("total"):
             actual = float(data["passed"]) / float(data["total"])
+    if actual is None and metric == "release_decision":
+        # Coverage: accept PR-scoped PASS even when absolute decision is FAIL
+        # on known pre-existing NSE twins (pr_451_scoped_decision).
+        scoped = (
+            data.get("pr_451_scoped_decision")
+            or data.get("pr_scoped_decision")
+            or data.get("pr_scoped")
+            or (data.get("metrics") or {}).get("pr_scoped_decision")
+        )
+        if scoped == "PASS":
+            actual = "PASS"
         else:
-            actual = data.get("pass_rate")
+            actual = data.get("release_decision")
 
-    ok = False
-    if spec["op"] == "eq":
-        if isinstance(spec["value"], str):
-            ok = str(data.get(metric) or data.get("release_decision") or "") == spec["value"]
-            # Coverage suite exits 0 on PR-scoped PASS even when absolute
-            # release_decision is FAIL due to known pre-existing twins.
-            if suite_id == "coverage_acceptance" and (
-                data.get("pr_451_scoped_decision") == "PASS" or rc == 0
-            ):
-                ok = True
-            if not ok and rc == 0 and data.get("release_decision") == "PASS":
-                ok = True
-            actual = data.get(metric, data.get("release_decision"))
-            if suite_id == "coverage_acceptance":
-                actual = {
-                    "release_decision": data.get("release_decision"),
-                    "pr_scoped": data.get("pr_451_scoped_decision"),
-                    "pass_rate_pct": data.get("pass_rate_pct"),
-                }
+    if actual is None and metric == "overall_score_pct":
+        metrics = data.get("metrics") or {}
+        actual = metrics.get("overall_score_pct")
+        if actual is None:
+            actual = data.get("overall_score_pct")
+        # Release gate nested under afi report.
+        rg = data.get("release_gate") or {}
+        if actual is None and isinstance(rg, dict):
+            actual = (rg.get("metrics") or {}).get("overall_score_pct")
+        if actual is None:
+            actual = data.get("overall_score") or data.get("pass_rate_pct")
+
+    if actual is None and metric == "overall_score":
+        metrics = data.get("metrics") if isinstance(data.get("metrics"), dict) else {}
+        actual = data.get("overall_score") or metrics.get("overall_score")
+
+    op = target["op"]
+    value = target["value"]
+    if actual is None:
+        ok = rc == 0
+        actual = "exit_ok" if ok else "exit_fail"
+    elif op == "eq":
+        if isinstance(value, str):
+            ok = str(actual) == value
         else:
             try:
-                ok = float(actual) == float(spec["value"])
+                ok = float(actual) == float(value)
             except (TypeError, ValueError):
                 ok = rc == 0
-    elif spec["op"] == "gte":
+    elif op == "gte":
         try:
-            ok = float(actual) >= float(spec["value"])
+            ok = float(actual) >= float(value)
         except (TypeError, ValueError):
             ok = rc == 0
+    else:
+        ok = rc == 0
+
+    # Coverage special-case: prefer PR-scoped PASS from full artifact shape.
+    if suite_id == "coverage_acceptance":
+        pr_scoped = (
+            data.get("pr_451_scoped_decision")
+            or data.get("pr_scoped_decision")
+            or data.get("pr_scoped")
+        )
+        if pr_scoped == "PASS" or (rc == 0 and data.get("release_decision") == "PASS"):
+            ok = True
+            actual = {
+                "release_decision": data.get("release_decision"),
+                "pr_scoped": pr_scoped or data.get("pr_451_scoped_decision"),
+                "pass_rate_pct": data.get("pass_rate_pct"),
+            }
 
     # Core Platform Acceptance also requires every zero-defect gate at zero —
     # a 98% score with a hallucination or wrong entity is still a release block.
@@ -164,17 +252,25 @@ def _decide(suite_id: str, report: Dict[str, Any], rc: int) -> Dict[str, Any]:
             data.get("pass_rate") == 1.0 and not data.get("release_block")
         ) or (rc == 0 and data.get("passed") == 5)
 
-    # Hallucinations / hard fails for founder + AFI
     hard = data.get("hard_fail_flags") or {}
     hallucinations = 0
     if isinstance(hard, dict) and hard:
         hallucinations = len(hard)
+    if suite_id in {"founder_evaluation_v2", "afi_acceptance"}:
+        hallucinations = max(
+            hallucinations,
+            int(
+                data.get("hallucination_count")
+                or (data.get("metrics") or {}).get("hallucination_count")
+                or 0
+            ),
+        )
     if suite_id in {"founder_evaluation_v2", "founder_evaluation_v3", "afi_acceptance"} and hallucinations:
         ok = False
 
     return {
         "suite": suite_id,
-        "target": spec,
+        "target": target,
         "actual": actual,
         "exit_code": rc,
         "pass": bool(ok),
@@ -185,44 +281,34 @@ def _decide(suite_id: str, report: Dict[str, Any], rc: int) -> Dict[str, Any]:
 
 def main() -> int:
     os.environ.setdefault("ASK_TEST_MODE", "inprocess")
-    ART.mkdir(parents=True, exist_ok=True)
+    art = _art()
+    os.environ.setdefault("ASK_TEST_ARTIFACTS", str(art))
+    # Also mirror into /workspace/artifacts when that tree exists (cloud agents).
+    ws = Path("/workspace/artifacts")
+    if Path("/workspace").exists():
+        ws.mkdir(parents=True, exist_ok=True)
+
     quick = os.environ.get("PROD_REGRESSION_QUICK", "").strip() in {"1", "true", "yes"}
-    with_afi = os.environ.get("PROD_REGRESSION_WITH_AFI", "").strip() in {"1", "true", "yes"}
-    # Also honor CLI flag.
+    skip_afi = os.environ.get("PROD_REGRESSION_SKIP_AFI", "").strip() in {"1", "true", "yes"}
+    # Permanent AGI Core v1.0 policy: AFI is on by default for merge gates.
+    with_afi = True
+    if "--quick" in sys.argv or quick:
+        quick = True
+        with_afi = False
+    if "--skip-afi" in sys.argv or skip_afi:
+        with_afi = False
     if "--with-afi" in sys.argv:
         with_afi = True
-    if "--quick" in sys.argv:
-        quick = True
+        quick = False
 
-    plan: List[Tuple[str, str]] = [
-        ("bi_acceptance", "ask_product_test.run_bi_acceptance_v1"),
-        ("bi_integration", "ask_product_test.run_bi_integration_acceptance_v1"),
-        ("ii_acceptance", "ask_product_test.run_industry_intelligence_acceptance_v1"),
-        ("ii_integration", "ask_product_test.run_ii_integration_acceptance_v1"),
-        ("golden_business_20", "ask_product_test.run_golden_business_20"),
-        ("golden_founder_5", "ask_product_test.run_golden_founder_5"),
-        ("founder_evaluation_v2", "ask_product_test.run_founder_evaluation_v2"),
-        ("founder_evaluation_v3", "ask_product_test.run_founder_evaluation_v3"),
-        ("kul_acceptance", "ask_product_test.run_kul_acceptance_v1"),
-        ("concept_acceptance", "ask_product_test.run_concept_acceptance_v1"),
-        ("recommendation_policy", "ask_product_test.run_recommendation_policy_acceptance_v1"),
-        ("unknown_entity", "ask_product_test.run_unknown_entity_acceptance_v1"),
-    ]
-    if not quick:
-        plan.append(("coverage_acceptance", "ask_product_test.run_coverage_acceptance_v1"))
-    if with_afi and not quick:
-        plan.append(("afi_acceptance", "ask_product_test.run_afi_acceptance_v1"))
-    # Canonical classification and metadata routing gate the identity layer;
-    # Core Platform Acceptance is the final end-to-end certification and runs last.
-    plan.append(
-        ("canonical_classification", "ask_product_test.run_canonical_classification_acceptance_v1")
-    )
-    plan.append(
-        ("company_metadata_routing", "ask_product_test.run_company_metadata_routing_acceptance_v1")
-    )
-    if not quick:
-        plan.append(("core_platform_acceptance", "ask_product_test.run_core_platform_acceptance_v1"))
-        plan.append(("answer_quality", "ask_product_test.run_answer_quality_acceptance_v1"))
+    plan: List[Tuple[str, str]] = []
+    for suite_id in RELEASE_GATE_ORDER:
+        if suite_id == "afi_acceptance" and not with_afi:
+            continue
+        if quick and suite_id in _QUICK_SKIP:
+            continue
+        module = SUITE_MODULES[suite_id]
+        plan.append((suite_id, module))
 
     results: List[Dict[str, Any]] = []
     for suite_id, module in plan:
@@ -237,47 +323,61 @@ def main() -> int:
         )
 
     all_pass = all(r["pass"] for r in results)
+    full_gate = bool(all_pass and with_afi and not quick)
     report = {
-        "suite": "Full Production Regression v1 — Phase 3.0 Freeze Gate",
+        "suite": "AGI Core v1.0 — Production Release Gate",
+        "agi_core_version": AGI_CORE_VERSION,
+        "status": AGI_CORE_STATUS,
+        "owner": AGI_CORE_OWNER,
+        "regression": AGI_CORE_REGRESSION,
         "timestamp": _ts(),
         "mode": os.environ.get("ASK_TEST_MODE"),
         "quick": quick,
         "with_afi": with_afi,
+        "merge_allowed": full_gate,
         "targets": {
-            "BI Acceptance": "100%",
-            "Business Integration": "100%",
-            "Industry Acceptance": "100%",
-            "Industry Integration": "100%",
             "Founder Evaluation V2": "≥95%",
             "Founder Evaluation V3": "≥95%",
             "Golden Founder 5": "5/5",
             "Golden Business 20": "20/20",
-            "AFI": "≥95% (when included)",
+            "AFI": "≥95%",
+            "BI Acceptance": "100%",
+            "Business Integration": "100%",
+            "Industry Acceptance": "100%",
+            "Industry Integration": "100%",
             "Coverage": "PASS",
-            "KUL": "PASS",
             "Concept": "PASS",
+            "KUL": "PASS",
             "Recommendation Policy": "PASS",
             "Unknown Entity": "PASS",
+            "Canonical Classification": "100%",
+            "Company Metadata Routing": "100%",
+            "Core Platform Acceptance": "≥98% + zero-defect",
+            "Answer Quality": "≥95%",
             "Hallucinations": 0,
         },
         "suites": results,
         "passed_suites": sum(1 for r in results if r["pass"]),
         "total_suites": len(results),
         "release_decision": "PASS" if all_pass else "FAIL",
-        "phase3_freeze_ready": bool(all_pass and with_afi and not quick),
-        "phase31_freeze_ready": bool(all_pass and with_afi and not quick),
+        "phase3_freeze_ready": full_gate,
+        "phase31_freeze_ready": full_gate,
+        "agi_core_v1_ready": full_gate,
+        "baseline": baseline_manifest(),
         "note": (
-            "Phase 3.1 freezes only when Industry Acceptance + Integration + Founder V3 "
-            "and the full gate (including AFI + Coverage) are PASS. "
-            "Quick mode validates business/industry/founder/KUL/policy slices for iteration."
+            "AGI Core v1.0 permanent release policy: full Production Release Gate "
+            "(including AFI + Coverage + industry/identity/platform certs) must PASS "
+            "before merge. Quick mode is for local iteration only and is not merge-sufficient."
         ),
     }
-    (ART / "production_regression_v1.json").write_text(
-        json.dumps(report, indent=2, default=str) + "\n", encoding="utf-8"
-    )
+    text = json.dumps(report, indent=2, default=str) + "\n"
+    (art / "production_regression_v1.json").write_text(text, encoding="utf-8")
+    if Path("/workspace").exists():
+        (ws / "production_regression_v1.json").write_text(text, encoding="utf-8")
     print(
         f"\n[production_regression_v1] {report['passed_suites']}/{report['total_suites']} "
-        f"decision={report['release_decision']} phase3_freeze_ready={report['phase3_freeze_ready']}",
+        f"decision={report['release_decision']} agi_core_v1_ready={report['agi_core_v1_ready']} "
+        f"merge_allowed={report['merge_allowed']}",
         flush=True,
     )
     for r in results:
