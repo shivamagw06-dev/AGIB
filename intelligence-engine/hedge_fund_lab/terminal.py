@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any, Callable, Optional
 
 from .scanner import (
+    SOURCES,
     _SCANNERS,
     _base,
     _industry_medians,
@@ -25,6 +26,7 @@ from .scanner import (
     _sane,
     _universe,
     market_regime,
+    universe_meta,
 )
 
 _SNAPSHOT_DAYS = 60
@@ -263,7 +265,39 @@ def run_all(limit: int = 12) -> dict[str, Any]:
             row["strategy"] = key
             row["strategy_label"] = label
         results[key] = rows
-    return {"ok": True, "universe": universe, "medians": medians, "results": results}
+    return {
+        "ok": True,
+        "universe": universe,
+        "medians": medians,
+        "results": results,
+        "universe_meta": universe_meta(),
+    }
+
+
+def record_daily_snapshot(*, limit: int = 1000) -> dict[str, Any]:
+    """Persist today's scanner hits after the warehouse refresh.
+
+    The Hedge Fund page day-on-day strip reads this file. Calling it from the
+    nightly refresh means the page updates itself without waiting for a visit.
+    """
+    run = run_all(limit=limit)
+    if not run.get("ok"):
+        return {"ok": False, "error": run.get("error") or "universe_empty", "skipped": True}
+    day = _today()
+    snapshot = {
+        key: [_identity(r)[0] for r in rows if _identity(r)[0]]
+        for key, rows in (run.get("results") or {}).items()
+    }
+    _save_snapshot(day, snapshot)
+    meta = universe_meta()
+    return {
+        "ok": True,
+        "as_of": day,
+        "universe_scanned": len(run.get("universe") or []),
+        "strategies": {k: len(v) for k, v in snapshot.items()},
+        "universe_meta": meta,
+        "sources": dict(SOURCES),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -543,12 +577,8 @@ def overview(limit: int = 1000) -> dict[str, Any]:
                 else f"Compared with the scan recorded on {prior_day}."
             ),
         },
-        "sources": {
-            "market_data": "yahoo_finance",
-            "consensus": "capital_iq",
-            "classification": "capital_iq_registry",
-            "interpretation": "agi",
-        },
+        "sources": dict(SOURCES),
+        "universe_meta": universe_meta(),
         "policy": "Research observations only — no buy, sell, target price or personalised advice.",
     }
 
@@ -774,7 +804,7 @@ def opportunity(ticker: str, limit: int = 1000) -> dict[str, Any]:
         "company_name": row.get("company_name"),
         "sector": row.get("primary_sector"),
         "industry": industry,
-        "identity_source": "capital_iq_registry",
+        "identity_source": "warehouse.company_master",
         "market": {
             "price": row.get("price"),
             "market_cap": row.get("market_cap"),
@@ -783,9 +813,14 @@ def opportunity(ticker: str, limit: int = 1000) -> dict[str, Any]:
             "pb": _sane(row, "pb"),
             "ev_ebitda": _sane(row, "ev_ebitda"),
             "dividend_yield": yld,
-            "source": "yahoo_finance",
+            "source": SOURCES["market_data"],
         },
-        "quality": {"roe": roe, "profit_margin": margin, "debt_to_equity": debt, "source": "yahoo_finance"},
+        "quality": {
+            "roe": roe,
+            "profit_margin": margin,
+            "debt_to_equity": debt,
+            "source": SOURCES["fundamentals"],
+        },
         "industry_context": {
             "primary_metric": metric,
             "company_value": value,
@@ -801,8 +836,9 @@ def opportunity(ticker: str, limit: int = 1000) -> dict[str, Any]:
             "buy_count": consensus.get("buy_count"),
             "target": consensus.get("target_price") or consensus.get("target"),
             "return_1y": r1,
-            "source": "capital_iq",
+            "source": consensus.get("source") or SOURCES["consensus"],
         },
+        "factors": row.get("factors") or {},
         "strategies_matched": matched,
         "calculation_chain": chain,
         "risks": risks,
@@ -841,11 +877,7 @@ def scan(strategy: str, *, limit: int = 20, sector: Optional[str] = None) -> dic
         "universe_scanned": len(rows),
         "results": results,
         "count": len(results),
-        "sources": {
-            "market_data": "yahoo_finance",
-            "consensus": "capital_iq",
-            "classification": "capital_iq_registry",
-            "interpretation": "agi",
-        },
+        "sources": dict(SOURCES),
+        "universe_meta": universe_meta(),
         "policy": "Research observations only — no buy, sell or price target.",
     }
