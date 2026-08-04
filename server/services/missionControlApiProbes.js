@@ -6,6 +6,7 @@
 import { getCmsLearningSchedulerStatus } from './cmsArticleLearning.js';
 import { getCioSchedulerStatus } from './cioMorningScheduler.js';
 import { getInstitutionalFlowSchedulerStatus } from './institutionalFlowScheduler.js';
+import { getValuationRatiosSchedulerStatus } from './valuationRatiosScheduler.js';
 import { getUpstoxHealth } from './upstoxHealth.js';
 import { getGrowwHealth } from './growwHealth.js';
 
@@ -340,13 +341,14 @@ function probeSchedulers() {
   const cms = getCmsLearningSchedulerStatus();
   const cio = getCioSchedulerStatus();
   const flows = getInstitutionalFlowSchedulerStatus();
-  const enabled = Boolean(cms?.enabled || cio?.enabled || flows?.enabled);
+  const ratios = getValuationRatiosSchedulerStatus();
+  const enabled = Boolean(cms?.enabled || cio?.enabled || flows?.enabled || ratios?.enabled);
   return card({
     name: 'Scheduler',
     status: enabled ? 'Healthy' : 'Warning',
     configured: true,
-    note: `CMS learn=${cms?.enabled ? 'on' : 'off'}; CIO morning=${cio?.enabled ? 'on' : 'off'}; FII/DII EOD=${flows?.enabled ? 'on' : 'off'}`,
-    detail: { cms, cio, institutional_flow: flows },
+    note: `CMS=${cms?.enabled ? 'on' : 'off'}; CIO=${cio?.enabled ? 'on' : 'off'}; FII/DII=${flows?.enabled ? 'on' : 'off'}; ValRatios=${ratios?.enabled ? 'on' : 'off'}`,
+    detail: { cms, cio, institutional_flow: flows, valuation_ratios: ratios },
   });
 }
 

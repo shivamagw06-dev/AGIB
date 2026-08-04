@@ -123,6 +123,34 @@ export default function createMarketRouter(env = {}) {
     }
   });
 
+  // Upstox key-ratios → warehouse.valuation_ratios (admin / scheduler)
+  router.post('/upstox-valuation-ratios/refresh', async (req, res) => {
+    try {
+      const { refreshUpstoxValuationRatios } = await import('../services/upstoxValuationRatiosRefresh.js');
+      const result = await refreshUpstoxValuationRatios({
+        limit: req.body?.limit,
+        symbols: req.body?.symbols,
+        concurrency: req.body?.concurrency,
+      });
+      return res.status(result.status || (result.ok ? 200 : 502)).json(result);
+    } catch (err) {
+      return res.status(502).json({ ok: false, error: err?.message || 'upstox_valuation_ratios_refresh_failed' });
+    }
+  });
+
+  router.get('/upstox-valuation-ratios/status', async (_req, res) => {
+    try {
+      const { getValuationRatiosSchedulerStatus } = await import('../services/valuationRatiosScheduler.js');
+      return res.status(200).json({
+        ok: true,
+        scheduler: getValuationRatiosSchedulerStatus(),
+        note: 'Upstox key-ratios ingested daily at 18:15 IST into warehouse.valuation_ratios',
+      });
+    } catch (err) {
+      return res.status(200).json({ ok: false, error: err?.message || 'status_unavailable' });
+    }
+  });
+
   router.get('/intelligence', async (_req, res) => {
     // Warm Groww/NSE ticker in the same 30-min cycle as AGI outlook.
     void getTickerData(env).catch(() => null);

@@ -183,12 +183,45 @@ def _derive(metric: str, values: dict[str, Value]) -> Value:
                  note=note)
 
 
+def _overlay_provider_ratios(values: dict[str, Value], record: dict[str, Any]) -> None:
+    """Prefer Upstox key-ratios for PE/PB/ROA/ROE/ROCE/EV-EBITDA when present.
+
+    Provider values are authoritative. AGI still computes market cap, EV,
+    price/sales, dividend yield, percentiles and relative scores.
+    """
+    pack = record.get("provider_ratios") or {}
+    ratios = pack.get("ratios") if isinstance(pack.get("ratios"), dict) else pack
+    if not isinstance(ratios, dict):
+        return
+    for metric in graph.PROVIDER_OWNED_RATIOS:
+        block = ratios.get(metric)
+        if block is None:
+            continue
+        if isinstance(block, dict):
+            number = _num(block.get("company_value") if "company_value" in block else block.get("value"))
+            source = block.get("source") or "upstox"
+        else:
+            number = _num(block)
+            source = "upstox"
+        if number is None:
+            continue
+        values[metric] = Value(
+            metric=metric,
+            value=round(number, 4),
+            sources=[str(source)],
+            missing=[],
+            note="provider",
+            inputs={"provider": source},
+        )
+
+
 def compute(record: dict[str, Any], *, metrics: Optional[list[str]] = None) -> dict[str, Value]:
     """Every valuation figure for one company, in dependency order."""
     values = read_inputs(record)
+    _overlay_provider_ratios(values, record)
     for metric in graph.topological():
         if metric in values:
-            continue  # an input, already read
+            continue  # an input or provider ratio, already set
         if metric in ("sector_premium", "historical_percentile", "relative_score"):
             continue  # need peers or history; the service layer supplies them
         values[metric] = _derive(metric, values)

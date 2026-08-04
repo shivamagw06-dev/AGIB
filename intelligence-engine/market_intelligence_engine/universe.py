@@ -76,6 +76,22 @@ def load_universe(*, limit: int = 5000) -> dict[str, Any]:
         if not existing or str(row.get("consensus_date") or "") > str(existing.get("consensus_date") or ""):
             consensus_map[sym] = row
 
+    # Latest Upstox valuation_ratios (long format) → per-symbol packs.
+    provider_map: dict[str, dict[str, dict[str, Any]]] = {}
+    try:
+        for row in store.all_rows("valuation_ratios", limit=limit * 8):
+            sym = str(row.get("symbol") or "").upper()
+            name = str(row.get("ratio_name") or "")
+            if not sym or not name:
+                continue
+            pack = provider_map.setdefault(sym, {})
+            prev = pack.get(name)
+            if prev and str(prev.get("reported_date") or "") >= str(row.get("reported_date") or ""):
+                continue
+            pack[name] = row
+    except Exception:
+        provider_map = {}
+
     rows: list[dict[str, Any]] = []
     for master in masters:
         sym = str(master.get("symbol") or "").upper()
@@ -84,13 +100,28 @@ def load_universe(*, limit: int = 5000) -> dict[str, Any]:
         val = valuations.get(sym) or {}
         prev = prev_vals.get(sym) or {}
         consensus = consensus_map.get(sym) or {}
+        provider = provider_map.get(sym) or {}
         industry_dna = master.get("industry_dna") or master.get("industry")
         lens = lens_for(industry_dna, master.get("sector")) or {}
         primary = lens.get("primary_metric") or "pe"
 
-        pe = _sane("pe", val.get("pe"))
-        pb = _sane("pb", val.get("pb"))
-        ev = _sane("ev_ebitda", val.get("ev_ebitda"))
+        # Prefer Upstox provider ratios over sparse computed warehouse multiples.
+        def _provider_or_val(metric: str) -> Optional[float]:
+            block = provider.get(metric) or {}
+            return _sane(metric, block.get("company_value")) if block else _sane(metric, val.get(metric))
+
+        pe = _provider_or_val("pe")
+        pb = _provider_or_val("pb")
+        ev = _provider_or_val("ev_ebitda")
+        roe = _provider_or_val("roe")
+        roa = _num((provider.get("roa") or {}).get("company_value"))
+        roce = _num((provider.get("roce") or {}).get("company_value"))
+        sector_pe = _num((provider.get("pe") or {}).get("sector_value")) or _num(val.get("sector_median"))
+        sector_pb = _num((provider.get("pb") or {}).get("sector_value"))
+        sector_ev = _num((provider.get("ev_ebitda") or {}).get("sector_value"))
+        sector_roe = _num((provider.get("roe") or {}).get("sector_value"))
+
+        source = "upstox" if provider else (val.get("source") or "warehouse.historical_valuation")
         row = {
             "symbol": sym,
             "company_name": master.get("company_name") or sym,
@@ -103,9 +134,15 @@ def load_universe(*, limit: int = 5000) -> dict[str, Any]:
             "pe": pe,
             "pb": pb,
             "ev_ebitda": ev,
+            "roe": roe,
+            "roa": roa,
+            "roce": roce,
             "dividend_yield": _sane("dividend_yield", val.get("dividend_yield")),
             "percentile": _num(val.get("percentile")),
-            "sector_median_pe": _num(val.get("sector_median")),
+            "sector_median_pe": sector_pe,
+            "sector_median_pb": sector_pb,
+            "sector_median_ev_ebitda": sector_ev,
+            "sector_median_roe": sector_roe,
             "industry_median_pe": _num(val.get("industry_median")),
             "relative_score": _num(val.get("relative_valuation_score")),
             "prev_pe": _sane("pe", prev.get("pe")),
@@ -115,10 +152,22 @@ def load_universe(*, limit: int = 5000) -> dict[str, Any]:
             "consensus_target": _num(consensus.get("target_price")),
             "consensus_upside": _pct_change(val.get("cmp"), consensus.get("target_price")),
             "analyst_count": _num(consensus.get("analyst_count") or consensus.get("buy")),
-            "valuation_date": val_date,
-            "source": val.get("source") or "warehouse.historical_valuation",
+            "valuation_date": val_date or (next(iter(provider.values()), {}) or {}).get("reported_date"),
+            "source": source,
+            "provider_coverage": len(provider),
         }
-        row["primary_value"] = row.get(primary) if is_meaningful(primary, industry_dna) else pe
+        primary_val = row.get(primary)
+        if primary_val is None or not is_meaningful(primary, industry_dna):
+            primary_val = pe if pe is not None else pb
+        row["primary_value"] = primary_val
+        # Premium vs Upstox sector benchmark for the primary metric.
+        sector_bench = {
+            "pe": sector_pe, "pb": sector_pb, "ev_ebitda": sector_ev, "roe": sector_roe,
+        }.get(primary)
+        if primary_val is not None and sector_bench:
+            row["sector_premium_pct"] = round(100.0 * (primary_val - sector_bench) / sector_bench, 2)
+        else:
+            row["sector_premium_pct"] = None
         rows.append(row)
 
     return {

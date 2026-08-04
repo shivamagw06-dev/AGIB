@@ -35,7 +35,10 @@ DEPENDENCIES: dict[str, tuple[str, ...]] = {
     "pat": (),
     "target_price": (),
     "forward_eps": (),
-    # Derived.
+    # Provider-owned profitability ratios (Upstox key-ratios). Not derived here.
+    "roa": (),
+    "roce": (),
+    # Derived (skipped when Upstox already supplies the multiple).
     "market_cap": ("cmp", "shares_outstanding"),
     "enterprise_value": ("market_cap", "debt", "cash"),
     "pe": ("cmp", "eps"),
@@ -52,6 +55,11 @@ DEPENDENCIES: dict[str, tuple[str, ...]] = {
     "historical_percentile": ("pe", "pb", "ev_ebitda"),
     "relative_score": ("sector_premium", "historical_percentile", "roe"),
 }
+
+#: Multiples/ratios Upstox reports — never recompute when provider value exists.
+PROVIDER_OWNED_RATIOS: frozenset[str] = frozenset({
+    "pe", "pb", "roa", "roe", "roce", "ev_ebitda",
+})
 
 #: Nodes a consumer may ask for. Inputs are reachable too, deliberately: a desk
 #: that wants the share count should not have to read the warehouse itself.
