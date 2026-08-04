@@ -1,10 +1,25 @@
 // vite.config.js
+import fs from 'node:fs';
 import path from 'node:path';
 import react from '@vitejs/plugin-react';
 import { createLogger, defineConfig, loadEnv } from 'vite';
 import inlineEditPlugin from './plugins/visual-editor/vite-plugin-react-inline-editor.js';
 import editModeDevPlugin from './plugins/visual-editor/vite-plugin-edit-mode.js';
 import iframeRouteRestorationPlugin from './plugins/vite-plugin-iframe-route-restoration.js';
+
+function readBuildId() {
+  try {
+    const fromFile = fs.readFileSync(path.resolve(__dirname, '.build-id'), 'utf8').trim();
+    if (fromFile) return fromFile;
+  } catch {
+    /* first build before write-build-version */
+  }
+  return (
+    process.env.VITE_BUILD_ID ||
+    process.env.GITHUB_SHA?.slice(0, 12) ||
+    `dev-${Date.now().toString(36)}`
+  );
+}
 
 /* ---- NOTE: don't compute isDev at top-level using process.env.NODE_ENV.
    Vite passes `mode` into defineConfig — use that. ---- */
@@ -39,6 +54,7 @@ export default defineConfig(({ mode }) => {
 
   // load .env* into process.env-like object for vite (prefix handling done below)
   const env = loadEnv(mode, process.cwd(), '');
+  const buildId = env.VITE_BUILD_ID || readBuildId();
 
   // configurable backends / keys (read VITE_ vars for client usage)
   const apiBackend = env.VITE_API_BACKEND || 'http://localhost:3001';
@@ -52,6 +68,9 @@ export default defineConfig(({ mode }) => {
   return {
     base: BASE_PATH,
     customLogger: logger,
+    define: {
+      'import.meta.env.VITE_BUILD_ID': JSON.stringify(buildId),
+    },
     plugins: [
       // dev-only plugins
       ...(isDev ? [inlineEditPlugin(), editModeDevPlugin(), iframeRouteRestorationPlugin()] : []),

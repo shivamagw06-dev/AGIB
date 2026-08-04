@@ -186,7 +186,10 @@ export default function MarketSectorIntelligence() {
               </div>
             </Section>
 
-            <Section title="Institutional flow (FII / DII)" subtitle={flows.available ? `Latest ${flows.latest_date}` : flows.note}>
+            <Section
+              title="Institutional flow (FII / DII)"
+              subtitle={flows.available ? `Latest ${flows.latest_date}` : 'Warehouse institutional_flow'}
+            >
               {flows.available ? (
                 <>
                   <div className="msi-grid">
@@ -199,7 +202,14 @@ export default function MarketSectorIntelligence() {
                   {flows.explanation ? <p className="msi-note">{flows.explanation}</p> : null}
                 </>
               ) : (
-                <p className="msi-hint">Flow data not in warehouse yet. Ops: POST /api/market/upstox-flows/refresh</p>
+                <div className="msi-empty-flow">
+                  <p className="msi-hint"><strong>No data collected yet</strong></p>
+                  <p className="msi-hint">Last successful refresh: Never</p>
+                  <p className="msi-hint">
+                    Daily EOD ingest runs automatically at 18:05 IST after market close
+                    (Upstox → DQIV → warehouse). Admin may also trigger refresh from Mission Control.
+                  </p>
+                </div>
               )}
             </Section>
 

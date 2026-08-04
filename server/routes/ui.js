@@ -311,10 +311,18 @@ async function buildMarketSnapshotFresh() {
     /* soft */
   }
 
-  // Soft desk close levels — last resort only. No Indian / US cash / commodity desk fakes.
+  // Soft desk close levels — last successful snapshot. Never blank the strip.
   if (!cards.length) {
     const cached = cachedMarketSnapshot();
-    if (cached.rows?.length) return cached.rows.map((row) => ({ ...row }));
+    if (cached.rows?.length) {
+      return cached.rows.map((row) => ({
+        ...row,
+        liveUnavailable: true,
+        stale: true,
+        session: row.session || 'Last snapshot',
+        updatedAt: row.updatedAt || new Date(cached.at || Date.now()).toISOString(),
+      }));
+    }
   }
 
   const order = [
@@ -341,6 +349,8 @@ async function buildMarketSnapshotFresh() {
   return cards.map(({ _priority, ...rest }) => ({
     ...rest,
     updatedAt: cycleUpdatedAt,
+    stale: false,
+    liveUnavailable: false,
   }));
 }
 

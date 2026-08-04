@@ -21,6 +21,7 @@ import { getIpoDetail, getIpoPlatform, getIpoSummary } from "./services/ipoServi
 import { getMarketContext } from "./services/marketContextService.js";
 import { startCioMorningScheduler } from "./services/cioMorningScheduler.js";
 import { startContinuousGatherLearnScheduler } from "./services/continuousGatherLearnScheduler.js";
+import { startInstitutionalFlowScheduler } from "./services/institutionalFlowScheduler.js";
 import { llmProviderStatus } from "./services/llmClient.js";
 import rateLimit from "express-rate-limit";
 import cors from "cors";
@@ -310,6 +311,7 @@ app.post('/api/notify-subscribers', (req, res, next) => {
 });
 startCioMorningScheduler();
 startContinuousGatherLearnScheduler();
+startInstitutionalFlowScheduler();
 
 /* ---------- /api/perplexity/deals ----------
    Ask Perplexity for a strict JSON array of deals with these fields:
@@ -583,12 +585,27 @@ reg('/api/market-context', async (_req, res) => {
 
 // NSE index snapshot for homepage Market Snapshot (IndianAPI has no /indices endpoint).
 const INDEX_NAMES = ['NIFTY 50', 'NIFTY BANK', 'BANK NIFTY'];
-let indicesCache = null;
-let indicesExpiry = 0;
+const INDICES_FRESH_MS = 60_000;
+const INDICES_STALE_MS = 30 * 60_000;
+let indicesCache = null; // { body, at }
+
+function sendIndices(res, cacheHit, { reason } = {}) {
+  const body = {
+    ...cacheHit.body,
+    stale: Boolean(cacheHit.stale || reason),
+    live_unavailable: Boolean(reason),
+    updated_at: cacheHit.body?.updated_at || new Date(cacheHit.at).toISOString(),
+  };
+  res.set('Cache-Control', 'public, max-age=30, stale-while-revalidate=300');
+  if (reason) res.set('X-AGI-Upstream-Cache', reason);
+  return res.status(200).json(body);
+}
 
 reg('/api/indices', async (req, res) => {
   const now = Date.now();
-  if (indicesCache && now < indicesExpiry) return res.json(indicesCache);
+  if (indicesCache && now - indicesCache.at < INDICES_FRESH_MS) {
+    return sendIndices(res, { ...indicesCache, stale: false });
+  }
 
   try {
     const r = await fetchWithTimeout('https://www.nseindia.com/api/allIndices', {
@@ -602,7 +619,15 @@ reg('/api/indices', async (req, res) => {
 
     const text = await r.text().catch(() => '');
     if (!r.ok || !text) {
-      return res.status(502).json({ error: 'Failed to fetch NSE indices', indices: [] });
+      if (indicesCache && now - indicesCache.at < INDICES_STALE_MS) {
+        return sendIndices(res, { ...indicesCache, stale: true }, { reason: `upstream-${r.status || 'empty'}` });
+      }
+      return res.status(200).json({
+        error: 'Failed to fetch NSE indices',
+        indices: [],
+        stale: true,
+        live_unavailable: true,
+      });
     }
 
     const payload = JSON.parse(text);
@@ -629,13 +654,30 @@ reg('/api/indices', async (req, res) => {
       indices.push({ ...bank, name: 'BANK NIFTY' });
     }
 
-    const body = { indices };
-    indicesCache = body;
-    indicesExpiry = Date.now() + 60_000;
-    return res.json(body);
+    if (!indices.length) {
+      if (indicesCache && now - indicesCache.at < INDICES_STALE_MS) {
+        return sendIndices(res, { ...indicesCache, stale: true }, { reason: 'empty-payload' });
+      }
+      return res.status(200).json({ indices: [], stale: true, live_unavailable: true });
+    }
+
+    const body = { indices, updated_at: new Date().toISOString(), stale: false, live_unavailable: false };
+    indicesCache = { body, at: Date.now() };
+    return sendIndices(res, { ...indicesCache, stale: false });
   } catch (err) {
     console.error('[indices] fetch failed:', err?.message || err);
-    return res.status(502).json({ error: 'Indices fetch failed', indices: [] });
+    if (indicesCache && Date.now() - indicesCache.at < INDICES_STALE_MS) {
+      return sendIndices(res, { ...indicesCache, stale: true }, {
+        reason: err?.isTimeout ? 'timeout' : 'fetch-failed',
+      });
+    }
+    return res.status(200).json({
+      error: 'Indices fetch failed',
+      indices: [],
+      stale: true,
+      live_unavailable: true,
+      detail: String(err?.message || err),
+    });
   }
 });
 

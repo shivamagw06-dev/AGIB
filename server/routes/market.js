@@ -95,34 +95,31 @@ export default function createMarketRouter(env = {}) {
   });
 
   // Fetch Upstox FII/DII and persist to warehouse via intelligence engine.
+  // Prefer the daily EOD scheduler (18:05 IST); this route is admin/manual fallback.
   router.post('/upstox-flows/refresh', async (req, res) => {
     try {
-      const { getMarketFiiDii } = await import('../providers/upstox.js');
-      const pack = await getMarketFiiDii({
+      const { refreshUpstoxInstitutionalFlows } = await import('../services/upstoxFlowRefresh.js');
+      const result = await refreshUpstoxInstitutionalFlows({
         dataType: req.body?.dataType || 'NSE_EQ',
         interval: req.body?.interval || '1D',
+        date: req.body?.date,
       });
-      const engineBase = process.env.AGIB_INTELLIGENCE_ENGINE_URL || process.env.INTELLIGENCE_ENGINE_URL;
-      const token = process.env.AGIB_SERVICE_TOKEN || process.env.INTELLIGENCE_ENGINE_TOKEN;
-      if (!engineBase || !token) {
-        return res.status(503).json({ ok: false, error: 'intelligence_engine_not_configured', upstox: pack });
-      }
-      const ingest = await fetch(`${engineBase.replace(/\/$/, '')}/v1/market-intelligence/flows/ingest`, {
-        method: 'POST',
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-          'X-AGI-Intelligence-Token': token,
-        },
-        body: JSON.stringify({ ...pack, date: req.body?.date }),
-      });
-      const text = await ingest.text();
-      let data = null;
-      try { data = text ? JSON.parse(text) : null; } catch { data = { raw: text.slice(0, 400) }; }
-      return res.status(ingest.status).json({ ok: ingest.ok, upstox: pack, warehouse: data });
+      return res.status(result.status || (result.ok ? 200 : 502)).json(result);
     } catch (err) {
       return res.status(502).json({ ok: false, error: err?.message || 'upstox_flows_refresh_failed' });
+    }
+  });
+
+  router.get('/upstox-flows/status', async (_req, res) => {
+    try {
+      const { getInstitutionalFlowSchedulerStatus } = await import('../services/institutionalFlowScheduler.js');
+      return res.status(200).json({
+        ok: true,
+        scheduler: getInstitutionalFlowSchedulerStatus(),
+        note: 'FII/DII is ingested daily after close into warehouse.institutional_flow',
+      });
+    } catch (err) {
+      return res.status(200).json({ ok: false, error: err?.message || 'status_unavailable' });
     }
   });
 
