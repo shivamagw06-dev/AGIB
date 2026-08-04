@@ -8,7 +8,7 @@ import { getAgiIntelligence, getDashboardFromIntelligence } from '../services/in
 import { getTickerData } from '../services/marketDataService.js';
 import { MARKET_REFRESH_MS } from '../config/marketRefresh.js';
 import { getGrowwHealth } from '../services/growwHealth.js';
-import { getUpstoxHealth } from '../services/upstoxHealth.js';
+import { getUpstoxCapabilities, getUpstoxHealth } from '../services/upstoxHealth.js';
 import { getMarketBriefing, startMarketBriefingScheduler } from '../services/marketBriefingService.js';
 import { getMacroBriefing, askMacroEconomist, startMacroBriefingScheduler } from '../services/macroBriefingService.js';
 import { getPreMarketBriefing, startPreMarketBriefingScheduler } from '../services/preMarketBriefingService.js';
@@ -74,6 +74,21 @@ export default function createMarketRouter(env = {}) {
         configured: false,
         ok: false,
         message: err?.message || 'Upstox status unavailable',
+        checkedAt: new Date().toISOString(),
+      });
+    }
+  });
+
+  // What Upstox can actually serve for one ISIN — endpoint availability + shapes
+  router.get('/upstox-capabilities', async (req, res) => {
+    try {
+      const isin = typeof req.query.isin === 'string' ? req.query.isin : undefined;
+      return res.status(200).json(await getUpstoxCapabilities({ isin }));
+    } catch (err) {
+      return res.status(200).json({
+        provider: 'upstox',
+        ok: false,
+        message: err?.message || 'Upstox capabilities probe unavailable',
         checkedAt: new Date().toISOString(),
       });
     }
