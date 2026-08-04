@@ -19,6 +19,7 @@ def test_registry_lists_all_expected_providers():
     reg = KnowledgeRegistry()
     ids = {p.spec.id for p in reg.all()}
     for required in (
+        "investment_intelligence",
         "industry_intelligence",
         "business_intelligence",
         "capiq_ikt",
@@ -137,6 +138,24 @@ def test_industry_question_routes_ii_before_bi():
     assert "business_intelligence" in plan.provider_ids
     assert plan.provider_ids.index("industry_intelligence") < plan.provider_ids.index(
         "business_intelligence"
+    )
+
+
+def test_investment_question_routes_inv_before_bi():
+    from knowledge_unification.knowledge_planner import build_knowledge_plan
+    from knowledge_unification.query_planner import plan_query
+    from knowledge_unification.registry import KnowledgeRegistry
+
+    q = plan_query("Evaluate Reliance's investment quality.")
+    plan = build_knowledge_plan(q, registry=KnowledgeRegistry())
+    assert "investment" in q.question_types
+    assert "investment_intelligence" in plan.provider_ids
+    assert plan.provider_ids[0] == "investment_intelligence"
+    assert plan.provider_ids.index("investment_intelligence") < plan.provider_ids.index(
+        "business_intelligence"
+    )
+    assert plan.provider_ids.index("investment_intelligence") < plan.provider_ids.index(
+        "industry_intelligence"
     )
 
 

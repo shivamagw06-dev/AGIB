@@ -27,6 +27,19 @@ _BUSINESS_MENU = (
     "cgl",
     "legacy_kip",
 )
+# Phase 3.2.5 — Investment Intelligence first for investment-shaped questions.
+# INV consumes BI + Industry DNA conceptually; planner still consults BI/II.
+_INVESTMENT_MENU = (
+    "investment_intelligence",
+    "business_intelligence",
+    "industry_intelligence",
+    "capiq_ikt",
+    "company_memory",
+    "ikl",
+    "knowledge_factory",
+    "cgl",
+    "legacy_kip",
+)
 # Pure industry / KPI / valuation pedagogy — II first (canonical Industry DNA).
 _INDUSTRY_CONCEPT_MENU = (
     "industry_intelligence",
@@ -92,6 +105,39 @@ def build_knowledge_plan(
 
     business_shaped = bool(types.intersection(_BUSINESS_TYPES))
     company_bound = bool(query.ticker_hint or query.company_hint or "comparison" in types)
+    qlow = (query.question or "").lower()
+    investment_shaped = "investment" in types or any(
+        k in qlow
+        for k in (
+            "investment thesis",
+            "catalyst",
+            "scenario analysis",
+            "bull and bear",
+            "bear case",
+            "base scenario",
+            "scenario",
+            "downside",
+            "investors monitor",
+            "for an investor",
+            "monitoring priorit",
+            "monitoring point",
+            "evidence strength",
+            "from an investment",
+            "investment quality",
+            "investment risk",
+            "investment case",
+            "committee",
+            "what drives valuation",
+            "valuation driver",
+            "quality perspective",
+            "business quality",
+            "unknowns remain",
+            "allocate capital",
+            "capital allocation",
+            "roic improve",
+            "why might roic",
+        )
+    )
     industry_pedagogy = bool(
         types.intersection({"industry", "unit_economics", "business_risk"})
         or (
@@ -122,7 +168,12 @@ def build_knowledge_plan(
         )
     )
 
-    if business_shaped and company_bound:
+    if investment_shaped and (company_bound or "comparison" in types or "investment" in types):
+        selected.extend(_INVESTMENT_MENU)
+        rationale.append(
+            "Investment-shaped → Investment Intelligence → BI → Industry DNA → CapIQ → memory → KF."
+        )
+    elif business_shaped and company_bound:
         selected.extend(_BUSINESS_MENU)
         rationale.append(
             "Business-shaped + company → BI → Industry DNA → CapIQ → memory → KF → CGL → legacy."

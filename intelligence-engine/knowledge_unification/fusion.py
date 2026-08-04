@@ -113,6 +113,44 @@ def fuse(
             "academy",
             "legacy_kip",
         )
+    elif "investment" in qtypes or any(
+        r.provider_id == "investment_intelligence" and not r.empty for r in used
+    ) or any(
+        k in ((getattr(plan.query, "question", None) or "").lower())
+        for k in (
+            "investment thesis",
+            "catalyst",
+            "scenario analysis",
+            "bull and bear",
+            "investors monitor",
+            "for an investor",
+            "monitoring priorit",
+            "evidence strength",
+            "from an investment",
+            "investment quality",
+            "investment committee",
+            "what drives valuation",
+            "valuation driver",
+            "quality perspective",
+            "business quality",
+            "unknowns remain",
+            "capital allocation",
+        )
+    ):
+        # Phase 3.2.5 — Investment Intelligence leads investment-shaped answers.
+        preferred_order = (
+            "investment_intelligence",
+            "business_intelligence",
+            "industry_intelligence",
+            "capiq_ikt",
+            "company_memory",
+            "ikl",
+            "knowledge_factory",
+            "cgl",
+            "financial_concepts",
+            "academy",
+            "legacy_kip",
+        )
     elif qtypes.intersection(
         {"business_model", "moat", "unit_economics", "comparison", "business_risk", "industry"}
     ):
@@ -181,6 +219,7 @@ def fuse(
             preferred_order = (
                 "business_intelligence",
                 "industry_intelligence",
+                "investment_intelligence",
                 "capiq_ikt",
                 "company_memory",
                 "ikl",
@@ -245,6 +284,7 @@ def fuse(
         "financial_foundations",
         "financial_statement_intelligence",
         "financial_concepts",
+        "investment_intelligence",
         "industry_intelligence",
         "business_intelligence",
         "capiq_ikt",
