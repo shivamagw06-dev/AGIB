@@ -24,6 +24,7 @@ def health() -> dict[str, Any]:
         "pipeline": st.get("pipeline"),
         "completion": st.get("completion"),
         "endpoints": [
+            "/v1/hvie/runtime/board",
             "/v1/hvie/runtime/status",
             "/v1/hvie/runtime/company/{symbol}",
             "/v1/hvie/runtime/coverage",
@@ -44,6 +45,10 @@ def health() -> dict[str, Any]:
 
 def status() -> dict[str, Any]:
     return runtime.status()
+
+
+def board() -> dict[str, Any]:
+    return runtime.board()
 
 
 def coverage() -> dict[str, Any]:

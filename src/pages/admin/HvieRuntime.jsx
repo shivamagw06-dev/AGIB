@@ -1,11 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Pause, Play, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Pause, Play, RefreshCw, Zap } from 'lucide-react';
 import {
-  getHvieUniverseFailures,
-  getHvieUniversePipeline,
-  getHvieUniverseSector,
-  getHvieUniverseStatus,
+  getHvieUniverseBoard,
   postHvieUniverseResume,
   postHvieUniverseRun,
   postHvieUniverseStart,
@@ -16,6 +13,17 @@ import './valuationPolicy.css';
 function fmt(n, d = 0) {
   if (n == null || Number.isNaN(Number(n))) return '—';
   return Number(n).toLocaleString(undefined, { maximumFractionDigits: d });
+}
+
+function friendlyError(err) {
+  const msg = String(err?.message || err || '');
+  if (/502|503|504|Bad Gateway|Service Unavailable|HTML/i.test(msg)) {
+    return 'The intelligence engine is busy or restarting. Wait a minute, then press Refresh — your progress is saved.';
+  }
+  if (/timeout|aborted|Failed to fetch|NetworkError/i.test(msg)) {
+    return 'Could not reach the engine. Check that the service is up, then try again.';
+  }
+  return msg || 'Something went wrong loading HVIE Runtime.';
 }
 
 function Stat({ label, value, hint }) {
@@ -29,35 +37,24 @@ function Stat({ label, value, hint }) {
 }
 
 export default function HvieRuntime() {
-  const [status, setStatus] = useState(null);
-  const [pipeline, setPipeline] = useState(null);
-  const [sectors, setSectors] = useState(null);
-  const [failures, setFailures] = useState(null);
+  const [board, setBoard] = useState(null);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState(null);
   const [error, setError] = useState(null);
 
   const refresh = useCallback(async () => {
     try {
-      const [st, pipe, sec, fail] = await Promise.all([
-        getHvieUniverseStatus(),
-        getHvieUniversePipeline(),
-        getHvieUniverseSector(),
-        getHvieUniverseFailures({ limit: 40 }),
-      ]);
-      setStatus(st);
-      setPipeline(pipe);
-      setSectors(sec);
-      setFailures(fail);
+      const data = await getHvieUniverseBoard();
+      setBoard(data);
       setError(null);
     } catch (err) {
-      setError(err.message || 'hvie_universe_status_failed');
+      setError(friendlyError(err));
     }
   }, []);
 
   useEffect(() => {
     refresh();
-    const id = setInterval(refresh, 10000);
+    const id = setInterval(refresh, 15000);
     return () => clearInterval(id);
   }, [refresh]);
 
@@ -66,148 +63,221 @@ export default function HvieRuntime() {
     setNote(null);
     try {
       const out = await fn();
-      setNote(`${label}: ${out?.ok === false ? out.error || 'failed' : 'ok'}`);
+      if (out?.already_running) {
+        setNote('Worker is already running — progress continues in the background.');
+      } else if (out?.ok === false) {
+        setNote(`${label} failed: ${out.error || 'unknown error'}`);
+      } else {
+        setNote(
+          label === 'start' || label === 'resume'
+            ? 'Worker started. It will keep going until the list is finished — you can leave this page.'
+            : label === 'stop'
+              ? 'Worker paused. Finished companies stay finished.'
+              : `${label}: ok`,
+        );
+      }
       await refresh();
     } catch (err) {
-      setError(err.message);
+      setError(friendlyError(err));
     } finally {
       setBusy(false);
     }
   };
 
-  const pipe = status?.pipeline || {};
-  const thr = status?.throughput || pipeline?.throughput || {};
-  const stages = pipeline?.stages || [];
-  const queue = status?.queue || {};
+  const progress = board?.progress || {};
+  const thr = board?.throughput || {};
+  const runtimeStatus = board?.runtime?.status || 'idle';
+  const isRunning = runtimeStatus === 'running';
+  const pct = Number(progress.percent || 0);
+  const stages = board?.stages || [];
 
   return (
-    <div className="vp-page">
-      <header className="vp-header">
+    <div className="vp-root">
+      <div className="vp-shell">
         <Link to="/admin" className="vp-back"><ArrowLeft size={16} /> Admin</Link>
-        <div>
-          <div className="vp-eyebrow">Phase 8.3A</div>
-          <h1>HVIE Universe Runtime</h1>
-          <p className="vp-muted">
-            Persisted full-universe bootstrap — reconstructs PE/PB/EV from prices + statements + corporate actions.
-            Never downloads vendor historical multiples.
-          </p>
-        </div>
-        <div className="vp-actions">
-          <button type="button" disabled={busy} onClick={() => act('start', postHvieUniverseStart)}>
-            <Play size={14} /> Start
+
+        <p className="vp-kicker">Historical Valuation · Universe build</p>
+        <h1 className="vp-title">HVIE Runtime</h1>
+        <p className="vp-sub">
+          {board?.what_this_does
+            || 'Builds historical PE, PB and EV for every company from warehouse data. Press Start and leave it running.'}
+        </p>
+
+        <div className="hr-actions">
+          <button
+            type="button"
+            className="hr-btn primary"
+            disabled={busy || isRunning}
+            onClick={() => act('start', postHvieUniverseStart)}
+            title={board?.buttons?.start}
+          >
+            <Play size={14} /> {isRunning ? 'Running…' : 'Start'}
           </button>
-          <button type="button" disabled={busy} onClick={() => act('resume', postHvieUniverseResume)}>
-            <RefreshCw size={14} /> Resume
+          <button
+            type="button"
+            className="hr-btn"
+            disabled={busy}
+            onClick={() => act('resume', postHvieUniverseResume)}
+            title={board?.buttons?.resume}
+          >
+            <RefreshCw size={14} /> Resume / reload
           </button>
-          <button type="button" disabled={busy} onClick={() => act('run', () => postHvieUniverseRun({ batch: 12 }))}>
-            Run batch
+          <button
+            type="button"
+            className="hr-btn"
+            disabled={busy}
+            onClick={() => act('run', () => postHvieUniverseRun({ batch: 3 }))}
+            title={board?.buttons?.run_batch}
+          >
+            <Zap size={14} /> Run 3 now
           </button>
-          <button type="button" disabled={busy} onClick={() => act('stop', postHvieUniverseStop)}>
+          <button
+            type="button"
+            className="hr-btn ghost"
+            disabled={busy || !isRunning}
+            onClick={() => act('stop', postHvieUniverseStop)}
+            title={board?.buttons?.stop}
+          >
             <Pause size={14} /> Stop
           </button>
+          <button type="button" className="hr-btn ghost" disabled={busy} onClick={refresh}>
+            Refresh
+          </button>
         </div>
-      </header>
 
-      {error ? <p className="hint">Error — {error}</p> : null}
-      {note ? <p className="hint">{note}</p> : null}
+        {error ? <div className="vp-error">{error}</div> : null}
+        {note ? <p className="hr-note">{note}</p> : null}
 
-      <section className="vp-stats">
-        <Stat label="Universe" value={fmt(pipe.universe)} />
-        <Stat label="Eligible" value={fmt(pipe.eligible)} />
-        <Stat label="Complete" value={fmt(pipe.complete)} />
-        <Stat label="Pending" value={fmt(pipe.pending)} />
-        <Stat label="Retry" value={fmt(pipe.retry)} />
-        <Stat label="Failed" value={fmt(pipe.failed)} />
-        <Stat label="Skipped" value={fmt(pipe.skipped)} hint="waiting on prices/statements" />
-        <Stat
-          label="Speed"
-          value={thr.speed_per_hour != null ? `${fmt(thr.speed_per_hour, 1)}/h` : '—'}
-        />
-        <Stat
-          label="ETA"
-          value={thr.eta_hours != null ? `${fmt(thr.eta_hours, 1)} h` : '—'}
-          hint={`remaining ${fmt(thr.remaining)}`}
-        />
-        <Stat label="Runtime" value={status?.runtime?.status || '—'} />
-      </section>
+        <section className="hr-hero">
+          <div className="hr-hero-top">
+            <div>
+              <span className={`hr-status ${isRunning ? 'on' : runtimeStatus === 'stopped' ? 'off' : 'idle'}`}>
+                {isRunning ? 'Working' : runtimeStatus === 'stopped' ? 'Paused' : 'Idle'}
+              </span>
+              <p className="hr-plain">{board?.plain_english || 'Loading progress…'}</p>
+            </div>
+            <div className="hr-pct">
+              <strong>{fmt(pct, 1)}%</strong>
+              <span>complete</span>
+            </div>
+          </div>
+          <div className="hr-bar" aria-hidden="true">
+            <div className="hr-bar-fill" style={{ width: `${Math.min(100, Math.max(0, pct))}%` }} />
+          </div>
+          <p className="vp-muted hr-bar-caption">
+            {fmt(progress.complete)} finished · {fmt(progress.pending)} waiting · {fmt(progress.running)} in progress
+            {progress.skipped ? ` · ${fmt(progress.skipped)} missing data` : ''}
+            {progress.failed ? ` · ${fmt(progress.failed)} failed` : ''}
+          </p>
+        </section>
 
-      <section className="vp-card">
-        <h2>HVIE Pipeline</h2>
-        <p className="vp-muted">Stage completion across the classified universe — not a single percentage.</p>
-        <ul className="vp-list">
-          {stages.map((s) => (
-            <li key={s.name}>
-              <span>{s.name}</span>
-              <strong>{fmt(s.count)}</strong>
-            </li>
-          ))}
-        </ul>
-      </section>
+        <section className="vp-stats">
+          <Stat label="Companies" value={fmt(progress.universe)} hint="On the work list" />
+          <Stat label="Finished" value={fmt(progress.complete)} hint={`${fmt(pct, 1)}%`} />
+          <Stat label="Waiting" value={fmt(progress.pending)} hint="Not started yet" />
+          <Stat label="Retry" value={fmt(progress.retry)} hint="Will try again" />
+          <Stat label="Failed" value={fmt(progress.failed)} hint="Need attention" />
+          <Stat
+            label="Speed"
+            value={thr.speed_per_hour != null ? `${fmt(thr.speed_per_hour, 1)}/h` : '—'}
+            hint={thr.eta_hours != null ? `~${fmt(thr.eta_hours, 1)} h left` : 'ETA after Start'}
+          />
+        </section>
 
-      <section className="vp-card">
-        <h2>Bootstrap queue</h2>
-        <ul className="vp-list">
-          {Object.entries(queue).map(([k, v]) => (
-            <li key={k}><span>{k}</span><strong>{fmt(v)}</strong></li>
-          ))}
-        </ul>
-      </section>
+        <section className="hr-panel">
+          <h2>What each stage means</h2>
+          <p className="vp-muted">
+            These are counts of companies that reached each step — not separate jobs.
+            “Finished” is what Coverage Health uses for historical intelligence.
+          </p>
+          <ul className="hr-stages">
+            {stages.map((s) => (
+              <li key={s.name}>
+                <div>
+                  <strong>{s.name}</strong>
+                  <span className="vp-muted">{s.hint}</span>
+                </div>
+                <em>{fmt(s.count)}</em>
+              </li>
+            ))}
+          </ul>
+        </section>
 
-      <section className="vp-card">
-        <h2>Sector coverage</h2>
-        <div className="vp-table-wrap">
-          <table className="vp-table">
-            <thead>
-              <tr>
-                <th>Sector</th>
-                <th>Companies</th>
-                <th>Complete</th>
-                <th>Percentiles</th>
-                <th>Coverage</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(sectors?.rows || []).slice(0, 20).map((r) => (
-                <tr key={r.sector}>
-                  <td>{r.sector}</td>
-                  <td>{fmt(r.companies)}</td>
-                  <td>{fmt(r.complete)}</td>
-                  <td>{fmt(r.percentiles)}</td>
-                  <td>{fmt(r.coverage_pct, 1)}%</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="hr-grid">
+          <section className="hr-panel">
+            <h2>Next up</h2>
+            <p className="vp-muted">Companies the worker will pick next.</p>
+            <div className="vp-table-wrap">
+              <table className="vp-table">
+                <thead>
+                  <tr>
+                    <th>Symbol</th>
+                    <th>Sector</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(board?.next_up || []).length === 0 ? (
+                    <tr><td colSpan={3} className="vp-muted">Nothing waiting — queue may be done or still loading.</td></tr>
+                  ) : (board?.next_up || []).map((r) => (
+                    <tr key={`n-${r.symbol}`}>
+                      <td>{r.symbol}</td>
+                      <td>{r.sector || '—'}</td>
+                      <td>{r.queue_status}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section className="hr-panel">
+            <h2>Needs attention</h2>
+            <p className="vp-muted">Failed, retrying, or waiting on prices/statements.</p>
+            <div className="vp-table-wrap">
+              <table className="vp-table">
+                <thead>
+                  <tr>
+                    <th>Symbol</th>
+                    <th>State</th>
+                    <th>Why</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(board?.failures || []).length === 0 ? (
+                    <tr><td colSpan={3} className="vp-muted">No failures right now.</td></tr>
+                  ) : (board?.failures || []).map((r) => (
+                    <tr key={`f-${r.symbol}-${r.queue_status}`}>
+                      <td>{r.symbol}</td>
+                      <td>
+                        <span className={`vp-pill ${r.queue_status === 'FAILED' ? 'bad' : 'warn'}`}>
+                          {r.queue_status}
+                        </span>
+                      </td>
+                      <td className="vp-reason">{r.last_error || r.reason || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
         </div>
-      </section>
 
-      <section className="vp-card">
-        <h2>Failures / retry / skipped</h2>
-        <div className="vp-table-wrap">
-          <table className="vp-table">
-            <thead>
-              <tr>
-                <th>Symbol</th>
-                <th>Queue</th>
-                <th>Lifecycle</th>
-                <th>Reason</th>
-                <th>Error</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(failures?.rows || []).slice(0, 40).map((r) => (
-                <tr key={`${r.symbol}-${r.queue_status}`}>
-                  <td>{r.symbol}</td>
-                  <td>{r.queue_status}</td>
-                  <td>{r.lifecycle}</td>
-                  <td>{r.reason || r.blocking_reason || '—'}</td>
-                  <td>{r.last_error || '—'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+        <section className="hr-panel">
+          <h2>Recently finished</h2>
+          <ul className="hr-chips">
+            {(board?.recent_complete || []).length === 0 ? (
+              <li className="vp-muted">None yet this view.</li>
+            ) : (board?.recent_complete || []).map((r) => (
+              <li key={`c-${r.symbol}`}>{r.symbol}</li>
+            ))}
+          </ul>
+        </section>
+
+        {board?.runtime?.last_error ? (
+          <p className="vp-muted">Last worker error: {board.runtime.last_error}</p>
+        ) : null}
+      </div>
     </div>
   );
 }
