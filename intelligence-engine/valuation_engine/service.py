@@ -21,7 +21,59 @@ VERSION = "3.0"
 _COMPARABLE = ("pe", "pb", "ev_ebitda", "ev_sales", "ps", "dividend_yield", "roe", "roa", "roce")
 
 
-def _sector_lens(industry_dna: Optional[str], sector: Optional[str]) -> dict[str, Any]:
+def _policy_for(symbol: str, record: dict[str, Any]) -> dict[str, Any]:
+    """Mandatory VPAE gate — every valuation response carries policy."""
+    try:
+        from valuation_policy import evaluate
+
+        return evaluate(symbol, record=record) or {}
+    except Exception:
+        # Fall back to sector_lens baseline so a policy import failure never
+        # blanks the terminal — but mark that the gate degraded.
+        try:
+            from valuation_terminal.sector_lens import lens_for
+
+            master = record.get("master") or {}
+            lens = lens_for(master.get("industry_dna") or master.get("industry"), master.get("sector")) or {}
+            return {
+                "ok": True,
+                "degraded": True,
+                "primary_metric": lens.get("primary_metric") or "pe",
+                "primary_model": str(lens.get("primary_metric") or "pe").upper(),
+                "supporting_metrics": list(lens.get("supporting_metrics") or []),
+                "hidden_metrics": list(lens.get("suppressed_metrics") or []),
+                "unavailable_metrics": [],
+                "status": "UNDER_REVIEW",
+                "reason": lens.get("rationale") or "Degraded to sector_lens baseline.",
+                "confidence": "LOW",
+                "coverage": "PARTIAL",
+                "lens_baseline": lens,
+            }
+        except Exception:
+            return {}
+
+
+def _sector_lens(industry_dna: Optional[str], sector: Optional[str],
+                 policy: Optional[dict[str, Any]] = None) -> dict[str, Any]:
+    """Lens payload for consumers — VPAE-enriched when policy is present."""
+    if policy and policy.get("ok"):
+        baseline = policy.get("lens_baseline") or {}
+        return {
+            "industry_dna": (policy.get("company") or {}).get("industry_dna") or industry_dna,
+            "primary_sector": (policy.get("company") or {}).get("sector") or sector,
+            "primary_metric": policy.get("primary_metric") or baseline.get("primary_metric") or "pe",
+            "primary_metric_label": policy.get("primary_model") or baseline.get("primary_metric_label"),
+            "supporting_metrics": list(policy.get("supporting_metrics") or []),
+            "suppressed_metrics": list(policy.get("hidden_metrics") or []),
+            "visible_metrics": [
+                policy.get("primary_metric"),
+                *[m for m in (policy.get("supporting_metrics") or []) if m != policy.get("primary_metric")],
+            ],
+            "rationale": policy.get("reason") or baseline.get("rationale"),
+            "status": policy.get("status"),
+            "confidence": policy.get("confidence"),
+            "policy_engine": policy.get("engine"),
+        }
     try:
         from valuation_terminal.sector_lens import lens_for
 
@@ -30,16 +82,24 @@ def _sector_lens(industry_dna: Optional[str], sector: Optional[str]) -> dict[str
         return {}
 
 
-def _visible(metric: str, industry_dna: Optional[str]) -> bool:
+def _visible(metric: str, industry_dna: Optional[str],
+             policy: Optional[dict[str, Any]] = None) -> bool:
     """Whether a metric means anything for this business.
 
     A bank has no conventional enterprise value, so EV/EBITDA is hidden rather
-    than shown as a number nobody should read.
+    than shown as a number nobody should read. VPAE is the authority when present.
     """
-    try:
-        from valuation_terminal.sector_lens import is_meaningful
+    if policy and policy.get("ok"):
+        try:
+            from valuation_policy import is_meaningful
 
-        return bool(is_meaningful(metric, industry_dna))
+            return bool(is_meaningful(metric, policy))
+        except Exception:
+            pass
+    try:
+        from valuation_terminal.sector_lens import is_meaningful as lens_meaningful
+
+        return bool(lens_meaningful(metric, industry_dna))
     except Exception:
         return True
 
@@ -65,7 +125,7 @@ def get_company_valuation(symbol: str, *, record: Optional[dict[str, Any]] = Non
                 "engine": ENGINE_CODE, "version": VERSION}
 
     master = record.get("master") or {}
-    industry_dna = master.get("industry") or master.get("industry_dna")
+    industry_dna = master.get("industry_dna") or master.get("industry")
     sector = master.get("sector")
 
     # Attach latest Upstox ratios when the caller did not already supply them.
@@ -77,14 +137,27 @@ def get_company_valuation(symbol: str, *, record: Optional[dict[str, Any]] = Non
         except Exception:
             pass
 
+    # Policy first — UVE computes numbers; VPAE decides what may be shown.
+    policy = _policy_for(ticker, record)
+    if policy.get("ok") and (policy.get("company") or {}).get("industry_dna"):
+        industry_dna = policy["company"]["industry_dna"]
+
     values = engine.compute(record)
-    lens = _sector_lens(industry_dna, sector)
+    lens = _sector_lens(industry_dna, sector, policy)
     provider = (record.get("provider_ratios") or {}).get("ratios") or {}
 
     metrics: dict[str, Any] = {}
     for name, value in values.items():
         payload = value.to_dict()
-        payload["meaningful"] = _visible(name, industry_dna)
+        payload["meaningful"] = _visible(name, industry_dna, policy)
+        policy_metric = (policy.get("metrics") or {}).get(name) if policy else None
+        if policy_metric:
+            payload["applicability"] = {
+                "status": policy_metric.get("status"),
+                "reason": policy_metric.get("reason"),
+                "confidence": policy_metric.get("confidence"),
+                "model": policy_metric.get("model"),
+            }
         if name in provider and isinstance(provider.get(name), dict):
             payload["provider"] = {
                 "source": "upstox",
@@ -131,11 +204,33 @@ def get_company_valuation(symbol: str, *, record: Optional[dict[str, Any]] = Non
             "name": master.get("company_name"),
             "sector": sector,
             "industry": industry_dna,
+            "instrument_type": (policy.get("company") or {}).get("instrument_type"),
         },
         "metrics": metrics,
         "context": context,
         "lens": lens,
-        "coverage": _coverage(values, industry_dna),
+        "policy": {
+            "ok": bool(policy.get("ok")),
+            "primary_model": policy.get("primary_model"),
+            "primary_metric": policy.get("primary_metric"),
+            "supporting_models": policy.get("supporting_models") or [],
+            "supporting_metrics": policy.get("supporting_metrics") or [],
+            "hidden_models": policy.get("hidden_models") or [],
+            "hidden_metrics": policy.get("hidden_metrics") or [],
+            "unavailable_models": policy.get("unavailable_models") or [],
+            "unavailable_metrics": policy.get("unavailable_metrics") or [],
+            "status": policy.get("status"),
+            "reason": policy.get("reason"),
+            "reason_codes": policy.get("reason_codes") or [],
+            "confidence": policy.get("confidence"),
+            "coverage": policy.get("coverage"),
+            "metrics": policy.get("metrics") or {},
+            "dqiv": policy.get("dqiv"),
+            "engine": policy.get("engine"),
+            "version": policy.get("version"),
+            "provenance": policy.get("provenance"),
+        } if policy else None,
+        "coverage": _coverage(values, industry_dna, policy),
         "provenance": _provenance(record, values),
     }
 
@@ -147,11 +242,15 @@ def _as_number(value: Any) -> Optional[float]:
         return None
 
 
-def _coverage(values: dict[str, engine.Value], industry_dna: Optional[str]) -> dict[str, Any]:
+def _coverage(
+    values: dict[str, engine.Value],
+    industry_dna: Optional[str],
+    policy: Optional[dict[str, Any]] = None,
+) -> dict[str, Any]:
     """What could be computed, counted only over metrics that apply here."""
     applicable = [name for name in graph.METRICS
                   if name not in ("sector_premium", "historical_percentile", "relative_score")
-                  and _visible(name, industry_dna)]
+                  and _visible(name, industry_dna, policy)]
     available = [name for name in applicable
                  if values.get(name) and values[name].available]
     unavailable = {
@@ -159,12 +258,15 @@ def _coverage(values: dict[str, engine.Value], industry_dna: Optional[str]) -> d
         for name in applicable
         if values.get(name) and not values[name].available
     }
-    return {
+    out = {
         "applicable": len(applicable),
         "available": len(available),
         "pct": round(100.0 * len(available) / len(applicable), 1) if applicable else 0.0,
         "unavailable": unavailable,
     }
+    if policy and policy.get("coverage_detail"):
+        out["policy"] = policy["coverage_detail"]
+    return out
 
 
 def _provenance(record: dict[str, Any], values: dict[str, engine.Value]) -> dict[str, Any]:

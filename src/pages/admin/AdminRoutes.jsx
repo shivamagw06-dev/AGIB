@@ -62,6 +62,7 @@ import ValuationTerminal from '@/pages/admin/ValuationTerminal';
 import DataWarehouse from '@/pages/admin/DataWarehouse';
 import HistoricalCoverage from '@/pages/admin/HistoricalCoverage';
 import UpstoxBootstrap from '@/pages/admin/UpstoxBootstrap';
+import ValuationPolicy from '@/pages/admin/ValuationPolicy';
 import IntelligenceCmsRoutes from '@/pages/admin/intelligence/IntelligenceCmsRoutes';
 
 export default function AdminRoutes() {
@@ -80,6 +81,8 @@ export default function AdminRoutes() {
         <Route path="historical-coverage" element={<HistoricalCoverage />} />
         {/* Full-bleed Upstox full-universe valuation bootstrap (Phase 7.4d) */}
         <Route path="upstox-bootstrap" element={<UpstoxBootstrap />} />
+        {/* Full-bleed Valuation Policy & Applicability Engine (Phase 8.2A) */}
+        <Route path="valuation-policy" element={<ValuationPolicy />} />
         {/* Full-bleed Institutional Morning Office — daily investment desk */}
         <Route path="investment-office" element={<InvestmentOfficeAdmin />} />
         {/* Intelligence CMS — structured data modules (Valuation Monitor first) */}

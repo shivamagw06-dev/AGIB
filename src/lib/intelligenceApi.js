@@ -2840,6 +2840,26 @@ export const getUveCompany = (symbol) =>
   intelligenceFetch(`/valuation-engine/company/${encodeURIComponent(symbol)}`, { timeoutMs: 60_000 });
 export const getUveHealth = () => intelligenceFetch('/valuation-engine/health');
 
+/** Valuation Policy & Applicability Engine (VPAE) — Phase 8.2A */
+export const getValuationPolicyHealth = () =>
+  intelligenceFetch('/valuation-policy/health');
+export const getValuationApplicability = (symbol) =>
+  intelligenceFetch(`/valuation/applicability/${encodeURIComponent(symbol)}`, { timeoutMs: 60_000 });
+export const getValuationModel = (symbol) =>
+  intelligenceFetch(`/valuation/model/${encodeURIComponent(symbol)}`, { timeoutMs: 60_000 });
+export const getValuationExplanation = (symbol) =>
+  intelligenceFetch(`/valuation/explanation/${encodeURIComponent(symbol)}`, { timeoutMs: 60_000 });
+export const getValuationCoverage = (symbol) =>
+  intelligenceFetch(`/valuation/coverage/${encodeURIComponent(symbol)}`, { timeoutMs: 60_000 });
+export const getValuationStatus = (symbol) =>
+  intelligenceFetch(`/valuation/status/${encodeURIComponent(symbol)}`, { timeoutMs: 60_000 });
+export const getValuationPolicyUniverse = (params = {}) => {
+  const qs = new URLSearchParams(
+    Object.fromEntries(Object.entries(params).filter(([, v]) => v != null && v !== '')),
+  ).toString();
+  return intelligenceFetch(`/valuation/universe${qs ? `?${qs}` : ''}`, { timeoutMs: 120_000 });
+};
+
 /** Market & Sector Intelligence Terminal v1.0 */
 export const getMiHealth = () => intelligenceFetch('/market-intelligence/health');
 export const getMiDashboard = () =>

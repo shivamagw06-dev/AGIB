@@ -18974,6 +18974,77 @@ async def warehouse_remediate_zeros(
                            dry_run=bool(body.get("dry_run")))
 
 
+# ---------------------------------------------------------------------------
+# Valuation Policy & Applicability Engine (VPAE) — Phase 8.2A
+# Mandatory decision layer in front of the Unified Valuation Engine.
+# ---------------------------------------------------------------------------
+
+
+@router.get("/valuation-policy/health")
+async def valuation_policy_health():
+    from valuation_policy import health as vpae_health
+
+    return vpae_health()
+
+
+@router.get("/valuation/applicability/{symbol}")
+async def valuation_applicability(symbol: str):
+    from valuation_policy import applicability
+
+    return applicability(symbol)
+
+
+@router.get("/valuation/model/{symbol}")
+async def valuation_model(symbol: str):
+    from valuation_policy import model as vpae_model
+
+    return vpae_model(symbol)
+
+
+@router.get("/valuation/explanation/{symbol}")
+async def valuation_explanation(symbol: str):
+    from valuation_policy import explanation as vpae_explanation
+
+    return vpae_explanation(symbol)
+
+
+@router.get("/valuation/coverage/{symbol}")
+async def valuation_coverage(symbol: str):
+    from valuation_policy import coverage as vpae_coverage
+
+    return vpae_coverage(symbol)
+
+
+@router.get("/valuation/status/{symbol}")
+async def valuation_status(symbol: str):
+    from valuation_policy import status as vpae_status
+
+    return vpae_status(symbol)
+
+
+@router.get("/valuation/universe")
+async def valuation_universe(
+    sector: str = "",
+    instrument_type: str = "",
+    primary_model: str = "",
+    status: str = "",
+    confidence: str = "",
+    limit: int = 100,
+    offset: int = 0,
+):
+    from valuation_policy import universe as vpae_universe
+
+    return vpae_universe(
+        sector=sector or None,
+        instrument_type=instrument_type or None,
+        primary_model=primary_model or None,
+        status_filter=status or None,
+        confidence=confidence or None,
+        limit=min(max(int(limit or 100), 1), 500),
+        offset=max(int(offset or 0), 0),
+    )
+
+
 @router.get("/valuation-engine/health")
 async def valuation_engine_health():
     """The one valuation contract: what it computes and what it reads."""

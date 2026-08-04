@@ -2333,6 +2333,76 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // Valuation Policy & Applicability Engine (VPAE) — Phase 8.2A
+  router.get('/valuation-policy/health', kfGet('/v1/valuation-policy/health'));
+  router.get('/valuation/applicability/:symbol', async (req, res) => {
+    try {
+      const r = await engineFetch(
+        `/v1/valuation/applicability/${encodeURIComponent(req.params.symbol)}`,
+        { timeoutMs: 60_000 },
+      );
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'valuation applicability failed' });
+    }
+  });
+  router.get('/valuation/model/:symbol', async (req, res) => {
+    try {
+      const r = await engineFetch(
+        `/v1/valuation/model/${encodeURIComponent(req.params.symbol)}`,
+        { timeoutMs: 60_000 },
+      );
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'valuation model failed' });
+    }
+  });
+  router.get('/valuation/explanation/:symbol', async (req, res) => {
+    try {
+      const r = await engineFetch(
+        `/v1/valuation/explanation/${encodeURIComponent(req.params.symbol)}`,
+        { timeoutMs: 60_000 },
+      );
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'valuation explanation failed' });
+    }
+  });
+  router.get('/valuation/coverage/:symbol', async (req, res) => {
+    try {
+      const r = await engineFetch(
+        `/v1/valuation/coverage/${encodeURIComponent(req.params.symbol)}`,
+        { timeoutMs: 60_000 },
+      );
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'valuation coverage failed' });
+    }
+  });
+  router.get('/valuation/status/:symbol', async (req, res) => {
+    try {
+      const r = await engineFetch(
+        `/v1/valuation/status/${encodeURIComponent(req.params.symbol)}`,
+        { timeoutMs: 60_000 },
+      );
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'valuation status failed' });
+    }
+  });
+  router.get('/valuation/universe', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query || {}).toString();
+      const r = await engineFetch(
+        `/v1/valuation/universe${qs ? `?${qs}` : ''}`,
+        { timeoutMs: 120_000 },
+      );
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'valuation universe failed' });
+    }
+  });
+
   // Unified Valuation Engine — terminal migration surface
   router.get('/valuation-engine/health', kfGet('/v1/valuation-engine/health'));
   router.get('/valuation-engine/company/:symbol', async (req, res) => {
