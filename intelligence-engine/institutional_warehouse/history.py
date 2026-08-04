@@ -54,7 +54,15 @@ SERIES: dict[str, dict[str, Any]] = {
     "fii": {"tab": "ownership", "period": "as_of", "field": "fii"},
 }
 
-WINDOWS = {"1y": 365, "3y": 1095, "5y": 1826, "10y": 3652, "20y": 7305, "max": None}
+WINDOWS = {
+    "1y": 365,
+    "3y": 1095,
+    "5y": 1826,
+    "10y": 3652,
+    "15y": 5479,
+    "20y": 7305,
+    "max": None,
+}
 
 
 def _window_floor(window: Optional[str]) -> Optional[str]:

@@ -2403,6 +2403,40 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // Historical Valuation Intelligence Engine (HVIE) — Phase 8.3
+  router.get('/historical-valuation/health', kfGet('/v1/historical-valuation/health'));
+  const hvieGet = (suffix, timeoutMs = 60_000) => async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query || {}).toString();
+      const r = await engineFetch(
+        `/v1/historical-valuation/${suffix}/${encodeURIComponent(req.params.symbol)}${qs ? `?${qs}` : ''}`,
+        { timeoutMs },
+      );
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || `historical-valuation ${suffix} failed` });
+    }
+  };
+  router.get('/historical-valuation/company/:symbol', hvieGet('company'));
+  router.get('/historical-valuation/history/:symbol', hvieGet('history', 90_000));
+  router.get('/historical-valuation/statistics/:symbol', hvieGet('statistics'));
+  router.get('/historical-valuation/bands/:symbol', hvieGet('bands'));
+  router.get('/historical-valuation/percentiles/:symbol', hvieGet('percentiles'));
+  router.get('/historical-valuation/regimes/:symbol', hvieGet('regimes'));
+  router.get('/historical-valuation/rerating/:symbol', hvieGet('rerating'));
+  router.get('/historical-valuation/coverage/:symbol', hvieGet('coverage'));
+  router.post('/historical-valuation/reconstruct/:symbol', async (req, res) => {
+    try {
+      const r = await engineFetch(
+        `/v1/historical-valuation/reconstruct/${encodeURIComponent(req.params.symbol)}`,
+        { method: 'POST', body: req.body || {}, timeoutMs: 180_000 },
+      );
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'historical-valuation reconstruct failed' });
+    }
+  });
+
   // Unified Valuation Engine — terminal migration surface
   router.get('/valuation-engine/health', kfGet('/v1/valuation-engine/health'));
   router.get('/valuation-engine/company/:symbol', async (req, res) => {
