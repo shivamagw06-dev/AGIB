@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
   getVarieCompany,
-  getVarieMarket,
   getVarieSector,
   getVarieTimeline,
 } from '@/lib/intelligenceApi';
@@ -260,41 +259,6 @@ export function SectorAttributionPanel({ sector }) {
         {(pack.why || []).map((w, i) => <li key={i}>✓ {w}</li>)}
       </ul>
       <p className="hint">Analysis only — not a recommendation.</p>
-    </section>
-  );
-}
-
-export function MarketAttributionStrip() {
-  const [pack, setPack] = useState(null);
-  useEffect(() => {
-    let cancelled = false;
-    getVarieMarket()
-      .then((r) => { if (!cancelled) setPack(r); })
-      .catch(() => { if (!cancelled) setPack(null); });
-    return () => { cancelled = true; };
-  }, []);
-  if (!pack?.ok) return null;
-  const drivers = pack.drivers || [];
-  return (
-    <section className="varie-panel varie-market">
-      <div className="varie-head">
-        <div>
-          <h3>Market attribution</h3>
-          <p className="hint">
-            Market premium {pack.snapshot?.premium_pct != null ? `${fmt(pack.snapshot.premium_pct, 1)}%` : '—'}
-            {pack.largest_contributor ? ` · largest contributor ${pack.largest_contributor.sector}` : ''}
-          </p>
-        </div>
-      </div>
-      <ul className="varie-breakdown varie-market-drivers">
-        {drivers.slice(0, 8).map((d) => (
-          <li key={d.sector}>
-            <span>{d.sector}</span>
-            <strong>{d.contribution_pct != null ? `${fmt(d.contribution_pct, 1)}%` : '—'}</strong>
-          </li>
-        ))}
-      </ul>
-      <p className="hint">Derived from sector premiums weighted by covered market cap — analysis only.</p>
     </section>
   );
 }
