@@ -34,7 +34,26 @@ async function intelligenceFetch(path, { method = 'GET', body, timeoutMs = 45_00
     );
   }
   if (!resp.ok) {
-    throw new Error(`Intelligence API error (${resp.status}) ${text.slice(0, 160)}`);
+    let detail = text.slice(0, 160);
+    try {
+      const parsed = text ? JSON.parse(text) : null;
+      const raw = typeof parsed?.raw === 'string' ? parsed.raw : '';
+      if (raw.trim().startsWith('<')) {
+        detail =
+          parsed?.error ||
+          parsed?.detail ||
+          'Upstream intelligence engine returned an HTML error page (often a Render 502 during redeploy). Retry in a minute.';
+      } else {
+        detail =
+          parsed?.error ||
+          parsed?.detail ||
+          parsed?.message ||
+          detail;
+      }
+    } catch {
+      /* keep truncated text */
+    }
+    throw new Error(`Intelligence API error (${resp.status}) ${String(detail).slice(0, 220)}`);
   }
   try {
     return text ? JSON.parse(text) : null;
@@ -2816,9 +2835,10 @@ export const getVtSeries = (symbol, metric, window = '5Y') => {
     { timeoutMs: 60_000 },
   );
 };
-export const getVeCompany = (symbol) =>
+/** Unified Valuation Engine (warehouse contract) — distinct from legacy /ve/* */
+export const getUveCompany = (symbol) =>
   intelligenceFetch(`/valuation-engine/company/${encodeURIComponent(symbol)}`, { timeoutMs: 60_000 });
-export const getVeHealth = () => intelligenceFetch('/valuation-engine/health');
+export const getUveHealth = () => intelligenceFetch('/valuation-engine/health');
 
 /** Hedge Fund Strategy Lab */
 export const getHflHealth = () => intelligenceFetch('/hedge-fund-lab/health');
