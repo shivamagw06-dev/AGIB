@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 ENGINE_CODE = "historical_valuation_intelligence_engine"
-VERSION = "8.3"
+VERSION = "8.3B"
 
 # Spec windows — never assume 20y; MAX = listing history.
 WINDOWS: dict[str, int | None] = {
@@ -16,6 +16,7 @@ WINDOWS: dict[str, int | None] = {
     "max": None,
 }
 
+# Metrics reconstructed onto historical_valuation (warehouse-only).
 METRICS = (
     "pe",
     "pb",
@@ -25,7 +26,17 @@ METRICS = (
     "dividend_yield",
     "market_cap",
     "enterprise_value",
+    "roe",
+    "roce",
+    "roa",
 )
+
+# Map HVIE metric → warehouse history.series key when names differ.
+SERIES_ALIASES = {
+    "roe": "valuation_roe",
+    "roce": "valuation_roce",
+    "roa": "valuation_roa",
+}
 
 REGIME_BANDS = (
     (0, 20, "VERY_CHEAP"),

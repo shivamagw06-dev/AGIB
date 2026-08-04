@@ -38,9 +38,11 @@ def _points(n=40, start_pe=15.0, step=0.5):
 def test_health_contract():
     h = health()
     assert h["ok"] is True
-    assert h["version"] == "8.3"
+    assert h["version"] == "8.3B"
     assert h["vendor_historical_ratios"] is False
+    assert h.get("reconstruction_version") == "8.3B"
     assert "1y" in h["windows"] and "15y" in h["windows"] and "max" in h["windows"]
+    assert any("/v1/hvie/company/" in e for e in (h.get("endpoints") or []))
 
 
 def test_statistics_windows_and_percentile():

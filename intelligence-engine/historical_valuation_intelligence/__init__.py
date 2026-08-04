@@ -1,7 +1,8 @@
-"""Historical Valuation Intelligence Engine (HVIE) — Phase 8.3.
+"""Historical Valuation Intelligence Engine (HVIE) — Phase 8.3B.
 
-Reconstructs historical multiples from prices + statements + corporate actions.
-Never downloads vendor historical PE/PB series. Gated by Phase 8.2A VPAE.
+Reconstructs historical multiples from warehouse prices + normalized financial
+statements + corporate actions. Never downloads vendor historical PE/PB/EV.
+Gated by Phase 8.2A VPAE.
 """
 
 from historical_valuation_intelligence.models import ENGINE_CODE, VERSION

@@ -10,7 +10,13 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from historical_valuation_intelligence import dqiv
-from historical_valuation_intelligence.models import ENGINE_CODE, METRICS, VERSION, WINDOWS
+from historical_valuation_intelligence.models import (
+    ENGINE_CODE,
+    METRICS,
+    SERIES_ALIASES,
+    VERSION,
+    WINDOWS,
+)
 from historical_valuation_intelligence.statistics import (
     all_window_stats,
     bands_from_stats,
@@ -59,7 +65,8 @@ def _metric_applicable(metric: str, policy: dict[str, Any]) -> dict[str, Any]:
 def _load_points(symbol: str, metric: str) -> list[dict[str, Any]]:
     from institutional_warehouse import history
 
-    series = history.series(symbol, metric, window="max", limit=20000)
+    series_key = SERIES_ALIASES.get(metric, metric)
+    series = history.series(symbol, series_key, window="max", limit=20000)
     if not series.get("ok"):
         return []
     return [

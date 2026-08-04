@@ -9,6 +9,7 @@ from historical_valuation_intelligence.universe_programme.models import (
     LIFE_NOT_STARTED,
     LIFE_READY,
     LIFE_WAITING_PRICE,
+    LIFE_WAITING_SHARE_COUNT,
     LIFE_WAITING_STATEMENTS,
     MIN_PRICE_OBS,
     MIN_STATEMENT_OBS,
@@ -49,6 +50,24 @@ def _statements_available(symbol: str) -> tuple[bool, int]:
     ok_q, n_q, _, _ = _entity_has("financials_quarterly", symbol, min_rows=MIN_STATEMENT_OBS)
     total = n_a + n_q
     return (ok_a or ok_q), total
+
+
+def _has_share_count(symbol: str) -> tuple[bool, Optional[float]]:
+    """Share count from statements or price history — required for P/B and EV."""
+    from institutional_warehouse import store
+    from institutional_warehouse.values import to_number
+
+    ticker = str(symbol or "").strip().upper()
+    for tab in ("financials_annual", "financials_quarterly", "daily_market_history"):
+        try:
+            rows = store.fetch(tab, entity=ticker, limit=20).get("rows") or []
+        except Exception:
+            rows = []
+        for row in rows:
+            shares = to_number(row.get("shares_outstanding"))
+            if shares is not None and shares > 0:
+                return True, shares
+    return False, None
 
 
 def _policy(symbol: str) -> tuple[Optional[str], Optional[str]]:
@@ -93,6 +112,8 @@ def classify_company(symbol: str, *, master: Optional[dict[str, Any]] = None) ->
     blocking = None
     reason = "ready_for_hvie"
 
+    has_shares, share_n = _has_share_count(ticker)
+
     if not has_price:
         lifecycle = LIFE_WAITING_PRICE
         eligible = False
@@ -103,6 +124,11 @@ def classify_company(symbol: str, *, master: Optional[dict[str, Any]] = None) ->
         eligible = False
         blocking = "missing_statements"
         reason = f"Need annual or quarterly statements; found {stmt_n}."
+    elif not has_shares:
+        lifecycle = LIFE_WAITING_SHARE_COUNT
+        eligible = False
+        blocking = "missing_share_count"
+        reason = "Need shares_outstanding on statements or daily_market_history for P/B and EV."
 
     row = upsert_queue_row(
         ticker,
@@ -131,6 +157,8 @@ def classify_company(symbol: str, *, master: Optional[dict[str, Any]] = None) ->
         "reason": reason,
         "price_observations": price_n,
         "statement_observations": stmt_n,
+        "has_share_count": has_shares,
+        "shares_outstanding": share_n,
         "corporate_actions": ca_n,
         "has_corporate_actions_table": has_ca,
         "primary_metric": primary_metric,

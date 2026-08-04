@@ -2801,7 +2801,105 @@ export default function createIntelligenceRouter() {
     }
   });
 
-  // HVIE Universe Completion Programme (Phase 8.3A)
+  // Phase 8.3B — HVIE intelligence aliases (warehouse-reconstructed)
+  router.get('/hvie/company/:symbol', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query || {}).toString();
+      const r = await engineFetch(
+        `/v1/hvie/company/${encodeURIComponent(req.params.symbol)}${qs ? `?${qs}` : ''}`,
+        { timeoutMs: 60_000 },
+      );
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'hvie company failed' });
+    }
+  });
+  router.get('/hvie/history/:symbol', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query || {}).toString();
+      const r = await engineFetch(
+        `/v1/hvie/history/${encodeURIComponent(req.params.symbol)}${qs ? `?${qs}` : ''}`,
+        { timeoutMs: 90_000 },
+      );
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'hvie history failed' });
+    }
+  });
+  router.get('/hvie/statistics/:symbol', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query || {}).toString();
+      const r = await engineFetch(
+        `/v1/hvie/statistics/${encodeURIComponent(req.params.symbol)}${qs ? `?${qs}` : ''}`,
+        { timeoutMs: 60_000 },
+      );
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'hvie statistics failed' });
+    }
+  });
+  router.get('/hvie/percentiles/:symbol', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query || {}).toString();
+      const r = await engineFetch(
+        `/v1/hvie/percentiles/${encodeURIComponent(req.params.symbol)}${qs ? `?${qs}` : ''}`,
+        { timeoutMs: 60_000 },
+      );
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'hvie percentiles failed' });
+    }
+  });
+  router.get('/hvie/bands/:symbol', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query || {}).toString();
+      const r = await engineFetch(
+        `/v1/hvie/bands/${encodeURIComponent(req.params.symbol)}${qs ? `?${qs}` : ''}`,
+        { timeoutMs: 60_000 },
+      );
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'hvie bands failed' });
+    }
+  });
+  router.get('/hvie/regimes/:symbol', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query || {}).toString();
+      const r = await engineFetch(
+        `/v1/hvie/regimes/${encodeURIComponent(req.params.symbol)}${qs ? `?${qs}` : ''}`,
+        { timeoutMs: 60_000 },
+      );
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'hvie regimes failed' });
+    }
+  });
+  router.get('/hvie/rerating/:symbol', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query || {}).toString();
+      const r = await engineFetch(
+        `/v1/hvie/rerating/${encodeURIComponent(req.params.symbol)}${qs ? `?${qs}` : ''}`,
+        { timeoutMs: 60_000 },
+      );
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'hvie rerating failed' });
+    }
+  });
+  router.get('/hvie/coverage/:symbol', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query || {}).toString();
+      const r = await engineFetch(
+        `/v1/hvie/coverage/${encodeURIComponent(req.params.symbol)}${qs ? `?${qs}` : ''}`,
+        { timeoutMs: 60_000 },
+      );
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'hvie coverage failed' });
+    }
+  });
+
+  // HVIE Universe Completion Programme (Phase 8.3A/B)
   router.get('/hvie/runtime/health', kfGet('/v1/hvie/runtime/health'));
   router.get('/hvie/runtime/status', kfGet('/v1/hvie/runtime/status'));
   router.get('/hvie/runtime/board', kfGet('/v1/hvie/runtime/board'));

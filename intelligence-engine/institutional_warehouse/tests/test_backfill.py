@@ -357,6 +357,8 @@ def test_reconstruction_writes_point_in_time_observations():
     result = valuation_history.reconstruct_company("AAA", actor="tester", cadence="quarterly")
     assert result["ok"] is True
     assert result["observations"] > 20
+    assert result.get("reconstruction_version") == "8.3B"
+    assert result.get("vendor_historical_ratios") is False
 
     rows = store.fetch("historical_valuation", entity="AAA", sort="date", order="asc",
                        limit=500)["rows"]
@@ -365,6 +367,68 @@ def test_reconstruction_writes_point_in_time_observations():
     assert len({r["date"] for r in rows}) == len(rows)   # one observation per date
     assert any(r["pe"] for r in rows)
     assert any(r["pb"] for r in rows)
+    assert any(r.get("enterprise_value") for r in rows)
+    assert any(r.get("roe") for r in rows)
+
+
+def test_reconstruction_prefers_consolidated_statements():
+    """Phase 8.3B — never mix CONSOLIDATED and STANDALONE in one series."""
+    from institutional_warehouse import gateway
+
+    prices_fetch = chart_fetcher({"AAA": month_ends(2022, 4)})
+    prices.backfill_company("AAA", actor="tester", fetch=prices_fetch)
+    gateway.write(
+        "financials_annual",
+        [
+            {
+                "symbol": "AAA",
+                "statement_type": "STANDALONE",
+                "fiscal_year": "FY24",
+                "revenue": 500.0,
+                "pat": 50.0,
+                "equity": 200.0,
+                "shares_outstanding": 100.0,
+                "debt": 10.0,
+                "cash": 5.0,
+                "ebitda": 80.0,
+                "source": "test",
+            },
+            {
+                "symbol": "AAA",
+                "statement_type": "CONSOLIDATED",
+                "fiscal_year": "FY24",
+                "revenue": 1000.0,
+                "pat": 100.0,
+                "equity": 500.0,
+                "shares_outstanding": 100.0,
+                "debt": 250.0,
+                "cash": 50.0,
+                "ebitda": 200.0,
+                "source": "test",
+            },
+            {
+                "symbol": "AAA",
+                "statement_type": "CONSOLIDATED",
+                "fiscal_year": "FY25",
+                "revenue": 1200.0,
+                "pat": 140.0,
+                "equity": 600.0,
+                "shares_outstanding": 100.0,
+                "debt": 250.0,
+                "cash": 50.0,
+                "ebitda": 240.0,
+                "source": "test",
+            },
+        ],
+        source="test",
+        actor="tester",
+        reason="test_consolidated_preference",
+    )
+    out = valuation_history.reconstruct_company("AAA", actor="tester", cadence="quarterly")
+    assert out["ok"] is True
+    assert out["statement_type"] == "CONSOLIDATED"
+    timeline = valuation_history._statement_timeline("AAA")
+    assert all(e["statement_type"] == "CONSOLIDATED" for e in timeline)
 
 
 def test_reconstruction_never_uses_a_statement_before_it_was_published():
