@@ -2436,6 +2436,49 @@ export default function createIntelligenceRouter() {
       res.status(502).json({ error: err.message || 'historical-valuation reconstruct failed' });
     }
   });
+  router.get('/historical-valuation/coverage-dashboard', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query || {}).toString();
+      const r = await engineFetch(
+        `/v1/historical-valuation/coverage-dashboard${qs ? `?${qs}` : ''}`,
+        { timeoutMs: 120_000 },
+      );
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'historical-valuation coverage-dashboard failed' });
+    }
+  });
+  router.get('/historical-valuation/runtime/status', kfGet('/v1/historical-valuation/runtime/status'));
+  router.post('/historical-valuation/runtime/run', async (req, res) => {
+    try {
+      const r = await engineFetch('/v1/historical-valuation/runtime/run', {
+        method: 'POST', body: req.body || {}, timeoutMs: 180_000,
+      });
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'hvie runtime run failed' });
+    }
+  });
+  router.post('/historical-valuation/runtime/start', async (req, res) => {
+    try {
+      const r = await engineFetch('/v1/historical-valuation/runtime/start', {
+        method: 'POST', body: {}, timeoutMs: 30_000,
+      });
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'hvie runtime start failed' });
+    }
+  });
+  router.post('/historical-valuation/runtime/stop', async (req, res) => {
+    try {
+      const r = await engineFetch('/v1/historical-valuation/runtime/stop', {
+        method: 'POST', body: {}, timeoutMs: 30_000,
+      });
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'hvie runtime stop failed' });
+    }
+  });
 
   // Unified Valuation Engine — terminal migration surface
   router.get('/valuation-engine/health', kfGet('/v1/valuation-engine/health'));

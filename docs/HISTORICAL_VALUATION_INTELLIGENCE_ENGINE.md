@@ -1,9 +1,12 @@
 # Phase 8.3 — Historical Valuation Intelligence Engine (HVIE)
 
-**Status:** Implemented  
+**Status:** Implemented (+ Continuous Runtime 8.3R)  
 **Module:** `intelligence-engine/historical_valuation_intelligence/`  
 **Version:** 8.3  
-**Depends on:** Warehouse reconstruction + Phase 8.2A VPAE
+**Depends on:** Warehouse reconstruction + Phase 8.2A VPAE  
+
+Continuous self-maintenance (bootstrap / daily append / weekly stats) is documented in
+`docs/HVIE_CONTINUOUS_RUNTIME.md`.
 
 ## Philosophy
 

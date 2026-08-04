@@ -19136,6 +19136,47 @@ async def historical_valuation_reconstruct(
     )
 
 
+@router.get("/historical-valuation/coverage-dashboard")
+async def historical_valuation_coverage_dashboard(limit: int = 200):
+    from historical_valuation_intelligence import coverage_dashboard
+
+    return coverage_dashboard(limit=min(max(int(limit or 200), 1), 2000))
+
+
+@router.get("/historical-valuation/runtime/status")
+async def historical_valuation_runtime_status():
+    from historical_valuation_intelligence import runtime_status
+
+    return runtime_status()
+
+
+@router.post("/historical-valuation/runtime/run")
+async def historical_valuation_runtime_run(payload: dict[str, Any] = Body(default_factory=dict)):
+    from historical_valuation_intelligence import runtime_run
+
+    body = payload or {}
+    return runtime_run(
+        str(body.get("mode") or "auto"),
+        batch=body.get("batch"),
+        symbol=body.get("symbol"),
+        release_date=body.get("release_date"),
+    )
+
+
+@router.post("/historical-valuation/runtime/start")
+async def historical_valuation_runtime_start():
+    from historical_valuation_intelligence import runtime_start
+
+    return runtime_start()
+
+
+@router.post("/historical-valuation/runtime/stop")
+async def historical_valuation_runtime_stop():
+    from historical_valuation_intelligence import runtime_stop
+
+    return runtime_stop()
+
+
 @router.get("/valuation-engine/health")
 async def valuation_engine_health():
     """The one valuation contract: what it computes and what it reads."""
