@@ -18,7 +18,17 @@ The committed Yahoo JSON loader (`market_data/*valuation*.json`) is **retired**.
 The terminal never reads snapshot files. Every multiple is computed from warehouse
 rows through the engine, with coverage, provenance and a Valuation Health Score.
 
-## What it shows (company-first)
+## What it shows
+
+### Top-down (Sector Valuation Explorer)
+
+1. **All sectors** — live cards under company search (median PE/PB, historical %, opportunity)
+2. **Sector workspace** — dashboard, explanation (`sector_lens`), outcome, company table, filters, leaders, distributions, research priorities
+3. **Company drill-down** — reuses the existing company valuation pack
+
+See `docs/SECTOR_VALUATION_EXPLORER.md`.
+
+### Company-first (unchanged)
 
 1. **Company search** — autocomplete over `company_master`, recent searches, favorites
 2. **Overview** — CMP, market cap, sector, industry, historical/consensus coverage, updated, data quality
@@ -30,13 +40,6 @@ rows through the engine, with coverage, provenance and a Valuation Health Score.
 8. **Change log** — why a multiple moved (price declined, EPS unchanged, …)
 9. **Coverage / provenance / DQIV** — on every surface
 10. **Valuation Health Score** — confidence in the *analysis*, not a buy/sell score
-
-## Deferred (later PRs)
-
-- Market / Sector / Opportunity dashboards
-- Daily research narratives and briefs
-- Historical re-rating / timeline intelligence
-- Portfolio valuation, watchlists, alerts
 
 ## API
 

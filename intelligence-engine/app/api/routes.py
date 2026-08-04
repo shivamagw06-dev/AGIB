@@ -19046,6 +19046,104 @@ async def valuation_universe(
 
 
 # ---------------------------------------------------------------------------
+# Sector Valuation Explorer — top-down institutional valuation workspace
+# ---------------------------------------------------------------------------
+
+
+@router.get("/valuation/sectors")
+async def sve_sectors(universe_limit: int = 5000):
+    from sector_valuation_explorer import sectors as sve_list
+
+    return sve_list(universe_limit=min(max(int(universe_limit or 5000), 100), 20000))
+
+
+@router.get("/valuation/sector/{sector}")
+async def sve_sector(sector: str, universe_limit: int = 5000):
+    from sector_valuation_explorer import sector_pack
+
+    return sector_pack(sector, universe_limit=min(max(int(universe_limit or 5000), 100), 20000))
+
+
+@router.get("/valuation/sector/{sector}/summary")
+async def sve_sector_summary(sector: str, universe_limit: int = 5000):
+    from sector_valuation_explorer import summary as sve_summary
+
+    return sve_summary(sector, universe_limit=min(max(int(universe_limit or 5000), 100), 20000))
+
+
+@router.get("/valuation/sector/{sector}/companies")
+async def sve_sector_companies(
+    sector: str,
+    industry: str = "",
+    status: str = "",
+    market_cap: str = "",
+    sort: str = "market_cap",
+    order: str = "desc",
+    limit: int = 500,
+    universe_limit: int = 5000,
+):
+    from sector_valuation_explorer import sector_companies
+
+    return sector_companies(
+        sector,
+        universe_limit=min(max(int(universe_limit or 5000), 100), 20000),
+        industry=industry or None,
+        status=status or None,
+        market_cap=market_cap or None,
+        sort=sort or "market_cap",
+        order=order or "desc",
+        limit=min(max(int(limit or 500), 1), 2000),
+    )
+
+
+@router.get("/valuation/sector/{sector}/leaders")
+async def sve_sector_leaders(sector: str, top: int = 10, universe_limit: int = 5000):
+    from sector_valuation_explorer import leaders as sve_leaders
+
+    return sve_leaders(
+        sector,
+        universe_limit=min(max(int(universe_limit or 5000), 100), 20000),
+        top=min(max(int(top or 10), 1), 25),
+    )
+
+
+@router.get("/valuation/sector/{sector}/heatmap")
+async def sve_sector_heatmap(sector: str, universe_limit: int = 5000):
+    from sector_valuation_explorer import heatmap as sve_heatmap
+
+    return sve_heatmap(sector, universe_limit=min(max(int(universe_limit or 5000), 100), 20000))
+
+
+@router.get("/valuation/sector/{sector}/research")
+async def sve_sector_research(sector: str, universe_limit: int = 5000):
+    from sector_valuation_explorer import research as sve_research
+
+    return sve_research(sector, universe_limit=min(max(int(universe_limit or 5000), 100), 20000))
+
+
+@router.get("/valuation/company/{symbol}")
+async def sve_company(symbol: str, window: str = "10Y", peer_limit: int = 12):
+    """Company drill-down — Unified Valuation Engine terminal pack."""
+    from valuation_engine.terminal import company_pack
+
+    return company_pack(symbol, window=window or "10Y", peer_limit=min(max(int(peer_limit or 12), 1), 40))
+
+
+@router.get("/valuation/company/{symbol}/history")
+async def sve_company_history(symbol: str, metric: str = "pe", window: str = "MAX"):
+    from sector_valuation_explorer import company_history
+
+    return company_history(symbol, metric=metric or "pe", window=window or "MAX")
+
+
+@router.get("/valuation/explorer/health")
+async def sve_health():
+    from sector_valuation_explorer import health as sve_health_fn
+
+    return sve_health_fn()
+
+
+# ---------------------------------------------------------------------------
 # Historical Valuation Intelligence Engine (HVIE) — Phase 8.3
 # Reconstructs multiples from prices + statements; gated by VPAE.
 # ---------------------------------------------------------------------------

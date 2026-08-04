@@ -2403,6 +2403,111 @@ export default function createIntelligenceRouter() {
     }
   });
 
+  // Sector Valuation Explorer — top-down institutional valuation workspace
+  router.get('/valuation/explorer/health', kfGet('/v1/valuation/explorer/health'));
+  router.get('/valuation/sectors', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query || {}).toString();
+      const r = await engineFetch(`/v1/valuation/sectors${qs ? `?${qs}` : ''}`, { timeoutMs: 120_000 });
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'valuation sectors failed' });
+    }
+  });
+  router.get('/valuation/sector/:sector', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query || {}).toString();
+      const r = await engineFetch(
+        `/v1/valuation/sector/${encodeURIComponent(req.params.sector)}${qs ? `?${qs}` : ''}`,
+        { timeoutMs: 120_000 },
+      );
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'valuation sector failed' });
+    }
+  });
+  router.get('/valuation/sector/:sector/summary', async (req, res) => {
+    try {
+      const r = await engineFetch(
+        `/v1/valuation/sector/${encodeURIComponent(req.params.sector)}/summary`,
+        { timeoutMs: 120_000 },
+      );
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'valuation sector summary failed' });
+    }
+  });
+  router.get('/valuation/sector/:sector/companies', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query || {}).toString();
+      const r = await engineFetch(
+        `/v1/valuation/sector/${encodeURIComponent(req.params.sector)}/companies${qs ? `?${qs}` : ''}`,
+        { timeoutMs: 120_000 },
+      );
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'valuation sector companies failed' });
+    }
+  });
+  router.get('/valuation/sector/:sector/leaders', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query || {}).toString();
+      const r = await engineFetch(
+        `/v1/valuation/sector/${encodeURIComponent(req.params.sector)}/leaders${qs ? `?${qs}` : ''}`,
+        { timeoutMs: 120_000 },
+      );
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'valuation sector leaders failed' });
+    }
+  });
+  router.get('/valuation/sector/:sector/heatmap', async (req, res) => {
+    try {
+      const r = await engineFetch(
+        `/v1/valuation/sector/${encodeURIComponent(req.params.sector)}/heatmap`,
+        { timeoutMs: 120_000 },
+      );
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'valuation sector heatmap failed' });
+    }
+  });
+  router.get('/valuation/sector/:sector/research', async (req, res) => {
+    try {
+      const r = await engineFetch(
+        `/v1/valuation/sector/${encodeURIComponent(req.params.sector)}/research`,
+        { timeoutMs: 120_000 },
+      );
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'valuation sector research failed' });
+    }
+  });
+  router.get('/valuation/company/:symbol', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query || {}).toString();
+      const r = await engineFetch(
+        `/v1/valuation/company/${encodeURIComponent(req.params.symbol)}${qs ? `?${qs}` : ''}`,
+        { timeoutMs: 90_000 },
+      );
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'valuation company failed' });
+    }
+  });
+  router.get('/valuation/company/:symbol/history', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query || {}).toString();
+      const r = await engineFetch(
+        `/v1/valuation/company/${encodeURIComponent(req.params.symbol)}/history${qs ? `?${qs}` : ''}`,
+        { timeoutMs: 90_000 },
+      );
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'valuation company history failed' });
+    }
+  });
+
   // Historical Valuation Intelligence Engine (HVIE) — Phase 8.3
   router.get('/historical-valuation/health', kfGet('/v1/historical-valuation/health'));
   const hvieGet = (suffix, timeoutMs = 60_000) => async (req, res) => {
