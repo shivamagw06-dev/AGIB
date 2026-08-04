@@ -2403,8 +2403,17 @@ export default function createIntelligenceRouter() {
     }
   });
 
-  // Sector Valuation Explorer — top-down institutional valuation workspace
+  // Institutional Valuation Research Workspace v2 — warehouse → UVE / HVIE / VPAE
   router.get('/valuation/explorer/health', kfGet('/v1/valuation/explorer/health'));
+  router.get('/valuation/market', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query || {}).toString();
+      const r = await engineFetch(`/v1/valuation/market${qs ? `?${qs}` : ''}`, { timeoutMs: 120_000 });
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'valuation market failed' });
+    }
+  });
   router.get('/valuation/sectors', async (req, res) => {
     try {
       const qs = new URLSearchParams(req.query || {}).toString();
@@ -2424,6 +2433,30 @@ export default function createIntelligenceRouter() {
       res.status(r.status).json(r.data);
     } catch (err) {
       res.status(502).json({ error: err.message || 'valuation sector failed' });
+    }
+  });
+  router.get('/valuation/sector/:sector/industries', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query || {}).toString();
+      const r = await engineFetch(
+        `/v1/valuation/sector/${encodeURIComponent(req.params.sector)}/industries${qs ? `?${qs}` : ''}`,
+        { timeoutMs: 120_000 },
+      );
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'valuation sector industries failed' });
+    }
+  });
+  router.get('/valuation/industry/:industry', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query || {}).toString();
+      const r = await engineFetch(
+        `/v1/valuation/industry/${encodeURIComponent(req.params.industry)}${qs ? `?${qs}` : ''}`,
+        { timeoutMs: 120_000 },
+      );
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'valuation industry failed' });
     }
   });
   router.get('/valuation/sector/:sector/summary', async (req, res) => {
@@ -2481,6 +2514,45 @@ export default function createIntelligenceRouter() {
       res.status(r.status).json(r.data);
     } catch (err) {
       res.status(502).json({ error: err.message || 'valuation sector research failed' });
+    }
+  });
+  router.get('/valuation/sector/:sector/rotation', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query || {}).toString();
+      const r = await engineFetch(
+        `/v1/valuation/sector/${encodeURIComponent(req.params.sector)}/rotation${qs ? `?${qs}` : ''}`,
+        { timeoutMs: 120_000 },
+      );
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'valuation sector rotation failed' });
+    }
+  });
+  router.get('/valuation/opportunities', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query || {}).toString();
+      const r = await engineFetch(`/v1/valuation/opportunities${qs ? `?${qs}` : ''}`, { timeoutMs: 120_000 });
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'valuation opportunities failed' });
+    }
+  });
+  router.get('/valuation/premium', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query || {}).toString();
+      const r = await engineFetch(`/v1/valuation/premium${qs ? `?${qs}` : ''}`, { timeoutMs: 120_000 });
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'valuation premium failed' });
+    }
+  });
+  router.get('/valuation/rerating', async (req, res) => {
+    try {
+      const qs = new URLSearchParams(req.query || {}).toString();
+      const r = await engineFetch(`/v1/valuation/rerating${qs ? `?${qs}` : ''}`, { timeoutMs: 120_000 });
+      res.status(r.status).json(r.data);
+    } catch (err) {
+      res.status(502).json({ error: err.message || 'valuation rerating failed' });
     }
   });
   router.get('/valuation/company/:symbol', async (req, res) => {

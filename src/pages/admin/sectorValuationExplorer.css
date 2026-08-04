@@ -333,12 +333,173 @@
   background: rgba(154, 52, 18, 0.06);
 }
 
+.sve-market {
+  margin: 1rem 0 1.5rem;
+  border: 1px solid var(--vi-line);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(241, 246, 250, 0.94)),
+    radial-gradient(100% 80% at 100% 0%, rgba(23, 56, 79, 0.06), transparent 50%);
+  padding: 1rem 1.05rem 0.85rem;
+}
+
+.sve-market-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin-top: 0.75rem;
+}
+
+.sve-market-grid > div {
+  border: 1px solid rgba(23, 56, 79, 0.08);
+  background: rgba(255, 255, 255, 0.7);
+  padding: 0.55rem 0.65rem;
+}
+
+.sve-market-grid .k {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--vi-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.sve-market-grid .v {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 1rem;
+  font-weight: 650;
+}
+
+.sve-market-focus {
+  grid-column: span 2;
+}
+
+.sve-directory-tools {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.sve-directory-tools input,
+.sve-directory-tools select {
+  border: 1px solid var(--vi-line);
+  background: #fff;
+  font: inherit;
+  font-size: 0.82rem;
+  padding: 0.4rem 0.55rem;
+}
+
+.sve-directory-tools input { min-width: 220px; flex: 1; }
+
+.sve-card-on {
+  border-color: #17384f !important;
+  box-shadow: inset 3px 0 0 #17384f;
+}
+
+.sve-industry-cards {
+  margin-top: 0.55rem;
+}
+
+.sve-export {
+  margin-left: auto;
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.sve-export button {
+  border: 1px solid var(--vi-line);
+  background: #fff;
+  font: inherit;
+  font-size: 0.75rem;
+  padding: 0.3rem 0.5rem;
+  cursor: pointer;
+}
+
+.sve-tip {
+  position: relative;
+  cursor: help;
+  border-bottom: 1px dotted rgba(23, 56, 79, 0.35);
+}
+
+.sve-tip-pop {
+  display: none;
+  position: absolute;
+  z-index: 5;
+  left: 0;
+  top: 1.3rem;
+  min-width: 180px;
+  padding: 0.55rem 0.65rem;
+  background: #0f2433;
+  color: #f4f7fa;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+
+.sve-tip:hover .sve-tip-pop,
+.sve-tip:focus .sve-tip-pop {
+  display: block;
+}
+
+.sve-tip-pop .hint { color: rgba(244, 247, 250, 0.7); }
+
+.sve-boards { margin: 1.5rem 0 2rem; }
+
+.sve-boards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.7rem;
+  margin-top: 0.75rem;
+}
+
+.sve-board-card h4 {
+  margin: 0 0 0.45rem;
+  font-size: 0.86rem;
+}
+
+.sve-board-card ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.sve-board-card li {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  font-size: 0.8rem;
+}
+
+.sve-rotation ul {
+  list-style: none;
+  margin: 0.4rem 0 0;
+  padding: 0;
+}
+
+.sve-rotation li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  padding: 0.3rem 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  font-size: 0.8rem;
+}
+
 @media (max-width: 1100px) {
   .sve-dash { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .sve-two { grid-template-columns: 1fr; }
   .sve-research li { grid-template-columns: 1fr; gap: 0.15rem; }
+  .sve-market-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .sve-market-focus { grid-column: span 2; }
 }
 
 @media (max-width: 720px) {
   .sve-dash { grid-template-columns: 1fr 1fr; }
+  .sve-market-grid { grid-template-columns: 1fr 1fr; }
+  .sve-workspace-head { flex-wrap: wrap; }
+  .sve-export { margin-left: 0; }
 }

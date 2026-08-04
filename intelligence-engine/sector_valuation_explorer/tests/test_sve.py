@@ -1,9 +1,18 @@
-"""Sector Valuation Explorer contract tests."""
+"""Institutional Valuation Research Workspace v2 contract tests."""
 
 from __future__ import annotations
 
 from sector_valuation_explorer import health
-from sector_valuation_explorer.production import _canonical_sector, _enrich_company, _sector_explanation
+from sector_valuation_explorer.production import (
+    _canonical_sector,
+    _enrich_company,
+    _industry_medians,
+    _sector_explanation,
+    market,
+    opportunities,
+    premium_board,
+    rerating_board,
+)
 from sector_valuation_explorer.status import opportunity_label, outcome_label, valuation_status
 from valuation_terminal.sector_lens import lens_for
 
@@ -12,8 +21,12 @@ def test_health_contract():
     h = health()
     assert h["ok"] is True
     assert h["engine"] == "sector_valuation_explorer"
+    assert h["version"] == "2.0.0"
     assert "Financials" in h["sectors"]
     assert h["rule"] == "no_ui_calculations_no_buy_sell"
+    assert "/v1/valuation/market" in h["endpoints"]
+    assert "/v1/valuation/opportunities" in h["endpoints"]
+    assert "/v1/valuation/sector/{sector}/industries" in h["endpoints"]
 
 
 def test_canonical_sector_aliases():
@@ -65,7 +78,51 @@ def test_enrich_company_status():
             "source": "upstox",
         },
         {"median_pe": 24, "median_pb": 6},
+        {"IT Services": {"median_pe": 26, "median_pb": 7}},
     )
     assert row["valuation_status"] == "Premium"
     assert row["market_cap_bucket"] == "large"
     assert row["sector_pe"] == 24
+    assert row["industry_pe"] == 26
+    assert row["historical_regime"] == "Premium"
+
+
+def test_industry_medians():
+    out = _industry_medians([
+        {"industry": "IT Services", "sector": "Information Technology", "pe": 28, "pb": 8, "roe": 30, "percentile": 80, "provider_coverage": 3, "market_cap": 1e12},
+        {"industry": "IT Services", "sector": "Information Technology", "pe": 24, "pb": 6, "roe": 22, "percentile": 60, "provider_coverage": 2, "market_cap": 5e11},
+        {"industry": "Software Products", "sector": "Information Technology", "pe": 40, "pb": 10, "roe": 18, "percentile": 90, "provider_coverage": 1, "market_cap": 2e11},
+    ])
+    assert out["IT Services"]["companies"] == 2
+    assert out["IT Services"]["median_pe"] == 26.0
+    assert "Software Products" in out
+
+
+def test_market_and_boards_empty_universe(monkeypatch):
+    empty = {"ok": True, "rows": [], "valuation_date": "2026-08-04"}
+
+    def _fake_load(limit=5000):
+        return empty
+
+    monkeypatch.setattr(
+        "sector_valuation_explorer.production._load_universe",
+        _fake_load,
+    )
+    m = market()
+    assert m["ok"] is True
+    assert m["market"] == "Indian Market"
+    assert m["companies_covered"] == 0
+    assert m["language"] == "analysis_only"
+
+    opps = opportunities(top=5)
+    assert opps["ok"] is True
+    assert "boards" in opps
+    assert "most_attractive" in opps["boards"]
+
+    prem = premium_board(top=5)
+    assert prem["ok"] is True
+    assert prem["rows"] == []
+
+    re = rerating_board(top=5)
+    assert re["ok"] is True
+    assert re["rows"] == []

@@ -19046,8 +19046,15 @@ async def valuation_universe(
 
 
 # ---------------------------------------------------------------------------
-# Sector Valuation Explorer — top-down institutional valuation workspace
+# Sector Valuation Explorer — institutional valuation research workspace v2
 # ---------------------------------------------------------------------------
+
+
+@router.get("/valuation/market")
+async def sve_market(universe_limit: int = 5000):
+    from sector_valuation_explorer import market as sve_market_fn
+
+    return sve_market_fn(universe_limit=min(max(int(universe_limit or 5000), 100), 20000))
 
 
 @router.get("/valuation/sectors")
@@ -19062,6 +19069,20 @@ async def sve_sector(sector: str, universe_limit: int = 5000):
     from sector_valuation_explorer import sector_pack
 
     return sector_pack(sector, universe_limit=min(max(int(universe_limit or 5000), 100), 20000))
+
+
+@router.get("/valuation/sector/{sector}/industries")
+async def sve_sector_industries(sector: str, universe_limit: int = 5000):
+    from sector_valuation_explorer import sector_industries
+
+    return sector_industries(sector, universe_limit=min(max(int(universe_limit or 5000), 100), 20000))
+
+
+@router.get("/valuation/industry/{industry}")
+async def sve_industry(industry: str, universe_limit: int = 5000):
+    from sector_valuation_explorer import industry_pack
+
+    return industry_pack(industry, universe_limit=min(max(int(universe_limit or 5000), 100), 20000))
 
 
 @router.get("/valuation/sector/{sector}/summary")
@@ -19119,6 +19140,43 @@ async def sve_sector_research(sector: str, universe_limit: int = 5000):
     from sector_valuation_explorer import research as sve_research
 
     return sve_research(sector, universe_limit=min(max(int(universe_limit or 5000), 100), 20000))
+
+
+@router.get("/valuation/sector/{sector}/rotation")
+async def sve_sector_rotation(sector: str, universe_limit: int = 5000):
+    from sector_valuation_explorer import sector_rotation
+
+    return sector_rotation(sector, universe_limit=min(max(int(universe_limit or 5000), 100), 20000))
+
+
+@router.get("/valuation/opportunities")
+async def sve_opportunities(limit: int = 10, universe_limit: int = 5000):
+    from sector_valuation_explorer import opportunities as sve_opps
+
+    return sve_opps(
+        universe_limit=min(max(int(universe_limit or 5000), 100), 20000),
+        limit=min(max(int(limit or 10), 1), 50),
+    )
+
+
+@router.get("/valuation/premium")
+async def sve_premium(limit: int = 10, universe_limit: int = 5000):
+    from sector_valuation_explorer import premium_board
+
+    return premium_board(
+        universe_limit=min(max(int(universe_limit or 5000), 100), 20000),
+        limit=min(max(int(limit or 10), 1), 50),
+    )
+
+
+@router.get("/valuation/rerating")
+async def sve_rerating(limit: int = 20, universe_limit: int = 5000):
+    from sector_valuation_explorer import rerating_board
+
+    return rerating_board(
+        universe_limit=min(max(int(universe_limit or 5000), 100), 20000),
+        limit=min(max(int(limit or 20), 1), 50),
+    )
 
 
 @router.get("/valuation/company/{symbol}")
