@@ -62,6 +62,7 @@ const authorNavItems = [
 const navItems = [
   { to: '/admin', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/admin/data-warehouse', label: 'Data Warehouse', icon: Database },
+  { to: '/admin/financial-warehouse', label: 'Financial Warehouse', icon: Database },
   { to: '/admin/historical-coverage', label: 'Historical Coverage', icon: CalendarRange },
   { to: '/admin/upstox-bootstrap', label: 'Upstox Bootstrap', icon: Database },
   { to: '/admin/upstox-fundamentals', label: 'Upstox Fundamentals', icon: Building2 },

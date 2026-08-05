@@ -8320,6 +8320,24 @@ export default function createIntelligenceRouter() {
   router.get('/warehouse/stats', warehouseGet('/v1/warehouse/stats'));
   router.get('/warehouse/whoami', warehouseGet('/v1/warehouse/whoami'));
   router.get('/warehouse/coverage', warehouseGet('/v1/warehouse/coverage'));
+  // Phase 7.4F — Financial Warehouse Completion Programme
+  router.get('/fwcp/health', warehouseGet('/v1/fwcp/health'));
+  router.get('/warehouse/financial-coverage', warehouseGet('/v1/warehouse/financial-coverage'));
+  router.get('/warehouse/company/:symbol/coverage', warehouseGet((req) =>
+    `/v1/warehouse/company/${encode(req.params.symbol)}/coverage`));
+  router.get('/warehouse/missing-statements', warehouseGet('/v1/warehouse/missing-statements'));
+  router.get('/warehouse/missing-share-count', warehouseGet('/v1/warehouse/missing-share-count'));
+  router.get('/warehouse/import/status', warehouseGet('/v1/warehouse/import/status'));
+  router.get('/warehouse/import/board', warehouseGet('/v1/warehouse/import/board'));
+  router.get('/warehouse/import/capital-iq', warehouseGet('/v1/warehouse/import/capital-iq'));
+  router.post('/warehouse/import/start', warehousePost('/v1/warehouse/import/start'));
+  router.post('/warehouse/import/stop', warehousePost('/v1/warehouse/import/stop'));
+  router.post('/warehouse/import/resume', warehousePost('/v1/warehouse/import/resume'));
+  router.post('/warehouse/import/retry', warehousePost('/v1/warehouse/import/retry', 300_000));
+  router.post('/warehouse/import/run', warehousePost('/v1/warehouse/import/run', 300_000));
+  router.post('/warehouse/import/capital-iq', warehousePost('/v1/warehouse/import/capital-iq', 300_000));
+  router.post('/warehouse/share-count/:symbol/sync', warehousePost((req) =>
+    `/v1/warehouse/share-count/${encode(req.params.symbol)}/sync`));
   router.get('/warehouse/audit', warehouseGet('/v1/warehouse/audit'));
   router.get('/warehouse/validate', warehouseGet('/v1/warehouse/validate'));
   router.get('/warehouse/imports', warehouseGet('/v1/warehouse/imports'));

@@ -18726,6 +18726,162 @@ async def warehouse_coverage():
 
 
 # ---------------------------------------------------------------------------
+# Phase 7.4F — Financial Warehouse Completion Programme (FWCP)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/fwcp/health")
+async def fwcp_health():
+    from financial_warehouse_completion import health
+
+    return health()
+
+
+@router.get("/warehouse/financial-coverage")
+async def warehouse_financial_coverage():
+    from financial_warehouse_completion import financial_coverage
+
+    return financial_coverage()
+
+
+@router.get("/warehouse/company/{symbol}/coverage")
+async def warehouse_company_financial_coverage(symbol: str):
+    from financial_warehouse_completion import company_coverage
+
+    return company_coverage(symbol)
+
+
+@router.get("/warehouse/missing-statements")
+async def warehouse_missing_statements(limit: int = 500):
+    from financial_warehouse_completion import missing_statements
+
+    return missing_statements(limit=limit)
+
+
+@router.get("/warehouse/missing-share-count")
+async def warehouse_missing_share_count(limit: int = 500):
+    from financial_warehouse_completion import missing_share_count
+
+    return missing_share_count(limit=limit)
+
+
+@router.get("/warehouse/import/status")
+async def warehouse_import_status():
+    from financial_warehouse_completion import import_status
+
+    return import_status()
+
+
+@router.get("/warehouse/import/board")
+async def warehouse_import_board():
+    from financial_warehouse_completion import import_board
+
+    return import_board()
+
+
+@router.post("/warehouse/import/start")
+async def warehouse_import_start(
+    payload: dict[str, Any] = Body(default_factory=dict),
+    x_agi_actor: str | None = Header(default=None),
+):
+    from financial_warehouse_completion import import_start
+
+    body = payload or {}
+    return import_start(
+        batch=int(body.get("batch") or 15),
+        actor=_warehouse_actor(body, x_agi_actor),
+    )
+
+
+@router.post("/warehouse/import/stop")
+async def warehouse_import_stop():
+    from financial_warehouse_completion import import_stop
+
+    return import_stop()
+
+
+@router.post("/warehouse/import/resume")
+async def warehouse_import_resume(
+    payload: dict[str, Any] = Body(default_factory=dict),
+    x_agi_actor: str | None = Header(default=None),
+):
+    from financial_warehouse_completion import import_resume
+
+    body = payload or {}
+    return import_resume(
+        batch=int(body.get("batch") or 15),
+        actor=_warehouse_actor(body, x_agi_actor),
+    )
+
+
+@router.post("/warehouse/import/retry")
+async def warehouse_import_retry(
+    payload: dict[str, Any] = Body(default_factory=dict),
+    x_agi_actor: str | None = Header(default=None),
+):
+    from financial_warehouse_completion import import_retry
+
+    body = payload or {}
+    return import_retry(
+        limit=int(body.get("limit") or 50),
+        actor=_warehouse_actor(body, x_agi_actor),
+    )
+
+
+@router.post("/warehouse/import/run")
+async def warehouse_import_run(
+    payload: dict[str, Any] = Body(default_factory=dict),
+    x_agi_actor: str | None = Header(default=None),
+):
+    from financial_warehouse_completion import import_run
+
+    body = payload or {}
+    symbols = body.get("symbols")
+    if isinstance(symbols, str):
+        symbols = [symbols]
+    return import_run(
+        batch=int(body.get("batch") or 10),
+        symbols=symbols,
+        actor=_warehouse_actor(body, x_agi_actor),
+        include_capital_iq=bool(body.get("include_capital_iq")),
+    )
+
+
+@router.get("/warehouse/import/capital-iq")
+async def warehouse_import_capital_iq_status():
+    from financial_warehouse_completion import capital_iq
+
+    return capital_iq()
+
+
+@router.post("/warehouse/import/capital-iq")
+async def warehouse_import_capital_iq_run(
+    payload: dict[str, Any] = Body(default_factory=dict),
+    x_agi_actor: str | None = Header(default=None),
+):
+    from financial_warehouse_completion import run_capital_iq
+
+    body = payload or {}
+    limit = body.get("limit")
+    return run_capital_iq(
+        limit=int(limit) if limit is not None else None,
+        actor=_warehouse_actor(body, x_agi_actor),
+    )
+
+
+@router.post("/warehouse/share-count/{symbol}/sync")
+async def warehouse_share_count_sync(
+    symbol: str,
+    payload: dict[str, Any] = Body(default_factory=dict),
+    x_agi_actor: str | None = Header(default=None),
+):
+    from financial_warehouse_completion import sync_shares
+
+    body = payload or {}
+    return sync_shares(symbol, actor=_warehouse_actor(body, x_agi_actor))
+
+
+# ---------------------------------------------------------------------------
 # Historical Backfill & Time-Series (Phase 7.1a)
 # ---------------------------------------------------------------------------
 

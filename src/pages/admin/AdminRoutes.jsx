@@ -66,6 +66,7 @@ import UpstoxFundamentals from '@/pages/admin/UpstoxFundamentals';
 import ValuationPolicy from '@/pages/admin/ValuationPolicy';
 import HistoricalValuation from '@/pages/admin/HistoricalValuation';
 import HvieRuntime from '@/pages/admin/HvieRuntime';
+import FinancialWarehouse from '@/pages/admin/FinancialWarehouse';
 import ResearchIntelligence from '@/pages/admin/ResearchIntelligence';
 import ForecastRuntime from '@/pages/admin/ForecastRuntime';
 import MacroRuntime from '@/pages/admin/MacroRuntime';
@@ -97,6 +98,8 @@ export default function AdminRoutes() {
         {/* Full-bleed Historical Valuation Intelligence Engine (Phase 8.3) */}
         <Route path="historical-valuation" element={<HistoricalValuation />} />
         <Route path="hvie-runtime" element={<HvieRuntime />} />
+        {/* Full-bleed Financial Warehouse Completion (Phase 7.4F) */}
+        <Route path="financial-warehouse" element={<FinancialWarehouse />} />
         <Route path="research-intelligence" element={<ResearchIntelligence />} />
         <Route path="forecast-runtime" element={<ForecastRuntime />} />
         <Route path="macro-runtime" element={<MacroRuntime />} />
