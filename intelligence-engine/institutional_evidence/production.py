@@ -331,11 +331,12 @@ def enqueue_nifty_500_expansion(*, force: bool = False) -> Dict[str, Any]:
 def soft_slice_knowledge_health() -> Dict[str, Any]:
     """Cheap Mission Control Knowledge Health slice."""
     try:
-        from .integration.layer import kil_status
+        from .integration.layer import health as kil_health, kil_status
         from .integration.versioning.snapshots import get_latest_snapshot
         from .integration.schema import KIL_PHASE1_DEMO, KIL_VERSION, KIL_WORKSTREAM_ID
 
-        snap = get_latest_snapshot()
+        kil = kil_health() if callable(kil_health) else kil_status()
+        snap = get_latest_snapshot() or kil.get("latest_snapshot")
         cgl_cov = None
         try:
             from continuous_gather_learn.production import dashboard as cgl_dash
@@ -346,19 +347,27 @@ def soft_slice_knowledge_health() -> Dict[str, Any]:
                 "covered_companies": d.get("covered_companies"),
                 "total_companies": d.get("total_companies"),
                 "collector_success": d.get("collector_success_rate"),
+                "effective_gather": d.get("effective_gather"),
+                "gather_sidecar": d.get("gather_sidecar"),
             }
         except Exception:
             pass
         return {
-            "status": "ok",
+            "status": "ok" if kil.get("ok") else "error",
             "board": "Knowledge Health",
             "workstream_id": KIL_WORKSTREAM_ID,
             "version": KIL_VERSION,
-            "kil": kil_status(),
-            "latest_knowledge_version": (snap or {}).get("knowledge_version"),
+            "kil": kil,
+            "companies_integrated": kil.get("companies_integrated"),
+            "latest_knowledge_version": (snap or {}).get("knowledge_version")
+            if isinstance(snap, dict)
+            else None,
             "phase1_demo": list(KIL_PHASE1_DEMO),
             "cgl": cgl_cov,
-            "note": "Call /api/intelligence/iep/knowledge-health for live demo metrics",
+            "note": (
+                "KIL state is persisted from the gather sidecar. "
+                "GET /api/intelligence/iep/knowledge-health uses cached integration rows."
+            ),
         }
     except Exception as exc:
         return {"status": "error", "error": str(exc)[:240]}

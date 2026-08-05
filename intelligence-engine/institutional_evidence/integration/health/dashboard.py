@@ -13,8 +13,13 @@ from ..schema import (
 )
 
 
-def knowledge_health_board(*, demo_only: bool = True) -> Dict[str, Any]:
-    from ..layer import integrate_company, kil_status
+def knowledge_health_board(*, demo_only: bool = True, live_integrate: bool = False) -> Dict[str, Any]:
+    """Mission Control Knowledge Health.
+
+    Default uses persisted / in-memory KIL state (fast). Set live_integrate=True
+    only for explicit deep refresh — integrating five companies is too slow for MC.
+    """
+    from ..layer import get_integrated_company, integrate_company, kil_status
     from ..versioning.snapshots import get_latest_snapshot
     from ..schema import EXPANSION_NEXT_UNIVERSE, EXPANSION_NEXT_SIZE
 
@@ -30,7 +35,20 @@ def knowledge_health_board(*, demo_only: bool = True) -> Dict[str, Any]:
 
     for t in tickers:
         try:
-            integ = integrate_company(t, trigger_repair=False)
+            integ = get_integrated_company(t)
+            if integ is None and live_integrate:
+                integ = integrate_company(t, trigger_repair=False)
+            if integ is None:
+                rows.append(
+                    {
+                        "ticker": t,
+                        "coverage_state": "PENDING_INTEGRATION",
+                        "research_ready": False,
+                        "note": "Awaiting KIL integrate (CGL cycle or POST /iep/kil/integrate)",
+                    }
+                )
+                missing_statements += 1
+                continue
             st = integ.get("coverage_state") or {}
             kc = integ.get("knowledge_confidence") or {}
             if integ.get("research_ready"):

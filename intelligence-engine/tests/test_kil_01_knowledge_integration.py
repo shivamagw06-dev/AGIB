@@ -25,11 +25,14 @@ from institutional_evidence.integration.coverage_states.states import compute_co
 from institutional_evidence.integration.confidence.score import compute_knowledge_confidence
 from institutional_evidence.integration.transform.kf_to_canonical import transform_company_knowledge
 from institutional_evidence.integration.layer import (
+    health,
     kil_status,
     integrate_cgl_run,
     integrate_company,
+    get_integrated_company,
 )
 from institutional_evidence.integration.expansion import expansion_status
+from institutional_evidence.integration import persist as kil_persist
 from institutional_evidence.production import get_kil_status, soft_slice_knowledge_health
 from institutional_evidence.schema import AGI_PLATFORM_VERSION, IEP_VERSION
 
@@ -37,12 +40,22 @@ from institutional_evidence.schema import AGI_PLATFORM_VERSION, IEP_VERSION
 def test_kil_identity_and_mission():
     st = kil_status()
     assert st["workstream_id"] == "KIL-01"
+    assert st["status"] == "ok"
+    assert st["enabled"] is True
     assert KIL_VERSION.startswith("kil-01")
     assert "Knowledge Operating System" in MISSION_STATEMENT
     assert st["pipeline"][1] == "Continuous Gather → Learn"
     assert st["pipeline"][2] == "Knowledge Integration Layer"
     assert AGI_PLATFORM_VERSION == "1.1.2-kil"
     assert IEP_VERSION == "iep-01-v1.1.2"
+
+
+def test_kil_health_alias_for_agent_map():
+    h = health()
+    assert h["ok"] is True
+    assert h["status"] == "ok"
+    assert h["enabled"] is True
+    assert h["workstream_id"] == "KIL-01"
 
 
 def test_phase1_demo_five_companies():
@@ -136,6 +149,16 @@ def test_integrate_cgl_run_creates_snapshot_and_events():
     assert out["snapshot"]["knowledge_version"]
     assert out["summary"]["companies"] == 2
     assert out["events"]
+    # Persisted so HTTP Mission Control can see gather-sidecar integrations
+    assert kil_persist.get_company("RELIANCE") is not None
+    assert kil_persist.get_latest_snapshot() is not None
+    assert health()["companies_integrated"] >= 2
+    # Simulate cold HTTP process cache
+    from institutional_evidence.integration import layer as kil_layer
+
+    kil_layer._COMPANY_STATE.clear()
+    assert get_integrated_company("TCS") is not None
+    assert get_integrated_company("TCS")["ticker"] == "TCS"
 
 
 def test_knowledge_confidence_structure():
@@ -168,6 +191,27 @@ def test_expansion_locked_until_top20_complete():
 def test_production_kil_soft_slice():
     st = get_kil_status()
     assert st["workstream_id"] == KIL_WORKSTREAM_ID
+    assert st.get("status") == "ok"
     slice_ = soft_slice_knowledge_health()
     assert slice_["board"] == "Knowledge Health"
     assert slice_["status"] == "ok"
+
+
+def test_knowledge_health_board_uses_cache_not_live_integrate():
+    from institutional_evidence.integration.health.dashboard import knowledge_health_board
+
+    integrate_company("INFY", trigger_repair=False)
+    board = knowledge_health_board(demo_only=True, live_integrate=False)
+    assert board["ok"] is True
+    rows = {r["ticker"]: r for r in board["companies"] if r.get("ticker")}
+    assert "INFY" in rows
+    assert rows["INFY"].get("coverage_state") not in {None, "PENDING_INTEGRATION"}
+
+
+def test_agent_map_marks_kil_working():
+    from mission_control.agent_map import build_agent_map
+
+    am = build_agent_map()
+    kil = next(a for a in am["agents"] if a["id"] == "knowledge_integration_layer")
+    assert kil["status"] == "working"
+    assert kil["name"].startswith("Knowledge Integration Layer")

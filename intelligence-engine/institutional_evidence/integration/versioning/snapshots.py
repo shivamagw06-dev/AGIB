@@ -30,6 +30,12 @@ def create_knowledge_snapshot(
 ) -> Dict[str, Any]:
     when = _now()
     version = _version_label(slot, when)
+    try:
+        from ..persist import list_snapshots as disk_list
+
+        prior = len(disk_list(limit=500))
+    except Exception:
+        prior = len(_SNAPSHOTS)
     snap = {
         "snapshot_id": f"ks_{uuid.uuid4().hex[:14]}",
         "run_id": run_id,
@@ -39,19 +45,40 @@ def create_knowledge_snapshot(
         "financial_statements_updated": int(financial_statements_updated),
         "knowledge_graph_changes": int(knowledge_graph_changes),
         "research_invalidated": list(research_invalidated or []),
-        "version_number": len(_SNAPSHOTS) + 1,
+        "version_number": prior + 1,
         "knowledge_version": version,
         "immutable": True,
         "schema": "KnowledgeSnapshot.v1",
     }
     _SNAPSHOTS.append(snap)
+    try:
+        from ..persist import append_snapshot
+
+        append_snapshot(snap)
+    except Exception:
+        pass
     return dict(snap)
 
 
 def get_latest_snapshot() -> Optional[Dict[str, Any]]:
-    return dict(_SNAPSHOTS[-1]) if _SNAPSHOTS else None
+    if _SNAPSHOTS:
+        return dict(_SNAPSHOTS[-1])
+    try:
+        from ..persist import get_latest_snapshot as disk_latest
+
+        return disk_latest()
+    except Exception:
+        return None
 
 
 def list_snapshots(*, limit: int = 50) -> Dict[str, Any]:
-    rows = _SNAPSHOTS[-max(1, min(limit, 200)) :]
+    lim = max(1, min(limit, 200))
+    rows = list(_SNAPSHOTS[-lim:])
+    if not rows:
+        try:
+            from ..persist import list_snapshots as disk_list
+
+            rows = disk_list(limit=lim)
+        except Exception:
+            rows = []
     return {"ok": True, "count": len(rows), "snapshots": list(rows)}

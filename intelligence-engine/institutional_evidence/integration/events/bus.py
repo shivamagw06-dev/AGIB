@@ -85,6 +85,14 @@ def emit_cgl_events(
     if not emitted and cgl_run.get("ok"):
         _emit("KnowledgeCollected", companies=companies, volumes=volumes)
 
+    if emitted:
+        try:
+            from ..persist import append_events
+
+            append_events(emitted)
+        except Exception:
+            pass
+
     return emitted
 
 
@@ -93,6 +101,13 @@ def list_events(*, limit: int = 100, event_type: Optional[str] = None) -> Dict[s
     if event_type:
         rows = [e for e in rows if e.get("event_type") == event_type]
     rows = rows[-max(1, min(limit, 500)) :]
+    if not rows:
+        try:
+            from ..persist import list_events as disk_list
+
+            rows = disk_list(limit=limit, event_type=event_type)
+        except Exception:
+            rows = []
     return {
         "ok": True,
         "count": len(rows),
