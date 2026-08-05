@@ -61,6 +61,41 @@ def _write_json(path: Path, data: Dict[str, Any]) -> None:
 
 
 def main() -> int:
+    try:
+        from ask_product_test.acceptance_data import check_acceptance_data
+
+        health = check_acceptance_data(verbose=False)
+        if health.get("status") != "PASS":
+            report = {
+                "suite": "Coverage Acceptance Test v1.0",
+                "timestamp": _ts(),
+                "total_companies": 0,
+                "passed": 0,
+                "pass_rate_pct": None,
+                "release_decision": "NOT_EVALUATED",
+                "failure_class": "INFRASTRUCTURE",
+                "reason": "Acceptance dataset unavailable — coverage cannot evaluate zero companies.",
+                "acceptance_data_health": health,
+            }
+            write_artifact("coverage_acceptance_v1.json", report)
+            print(
+                f"\n[coverage_acceptance_v1] NOT EVALUATED — {report['reason']}",
+                flush=True,
+            )
+            return 2
+    except Exception as exc:
+        report = {
+            "suite": "Coverage Acceptance Test v1.0",
+            "timestamp": _ts(),
+            "total_companies": 0,
+            "passed": 0,
+            "release_decision": "NOT_EVALUATED",
+            "failure_class": "INFRASTRUCTURE",
+            "reason": f"Acceptance data health check failed: {type(exc).__name__}",
+        }
+        write_artifact("coverage_acceptance_v1.json", report)
+        return 2
+
     latency = int(os.environ.get("ASK_TEST_LATENCY_MS") or "120000")
     cooldown = float(os.environ.get("ASK_TEST_CASE_COOLDOWN_SEC", "4") or "4")
     h = AskProductHarness(latency_budget_ms=latency)

@@ -1,7 +1,7 @@
 name: Production Release Gate (AGI Core v1.0)
 
 # Permanent merge policy — every PR must PASS before merge.
-# See docs/AGI_CORE_V1_0.md
+# See docs/AGI_CORE_V1_0.md and docs/CI_ACCEPTANCE_DATA.md
 
 on:
   pull_request:
@@ -16,9 +16,19 @@ jobs:
     name: AGI Core v1.0 Production Regression
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    defaults:
-      run:
-        working-directory: intelligence-engine
+    env:
+      ASK_TEST_MODE: inprocess
+      ASK_TEST_CASE_COOLDOWN_SEC: '0'
+      ASK_SLIM: 'true'
+      FAA_BACKGROUND_COLLECTOR: 'false'
+      CONTINUOUS_GATHER_LEARN: 'false'
+      KIP_DATA_DIR: ${{ github.workspace }}/intelligence-engine/data
+      VALUATION_CONSENSUS_ROOT: ${{ github.workspace }}/intelligence-engine/data/valuation_consensus
+      IKT_STORE_ROOT: ${{ github.workspace }}/intelligence-engine/data/institutional_knowledge_tables
+      KF_STORE_ROOT: ${{ github.workspace }}/intelligence-engine/data/knowledge_factory
+      IERE_STORE_ROOT: ${{ github.workspace }}/intelligence-engine/data/evidence_retrieval
+      ACCEPTANCE_FIXTURES_ROOT: ${{ github.workspace }}/intelligence-engine/acceptance_fixtures
+      ASK_TEST_ARTIFACTS: ${{ github.workspace }}/artifacts
     steps:
       - uses: actions/checkout@v5
 
@@ -28,25 +38,26 @@ jobs:
           python-version: '3.12'
 
       - name: Install dependencies
+        working-directory: intelligence-engine
         run: |
           python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
           pip install pytest pydantic || true
 
       - name: Prepare artifacts directory
-        run: |
-          mkdir -p "$GITHUB_WORKSPACE/artifacts"
-          echo "ASK_TEST_ARTIFACTS=$GITHUB_WORKSPACE/artifacts" >> "$GITHUB_ENV"
+        run: mkdir -p "$GITHUB_WORKSPACE/artifacts"
+
+      - name: Bootstrap Acceptance Data
+        run: python scripts/ci/bootstrap_acceptance_data.py
+
+      - name: Acceptance Data Health Check
+        run: python scripts/ci/check_acceptance_data.py
 
       - name: Run Production Release Gate
+        working-directory: intelligence-engine
         env:
-          ASK_TEST_MODE: inprocess
-          ASK_TEST_CASE_COOLDOWN_SEC: '0'
-          ASK_SLIM: 'true'
-          FAA_BACKGROUND_COLLECTOR: 'false'
-          CONTINUOUS_GATHER_LEARN: 'false'
           PYTHONPATH: .
-          IKT_STORE_ROOT: ${{ github.workspace }}/intelligence-engine/data/institutional_knowledge_tables
+          SKIP_ACCEPTANCE_BOOTSTRAP: '1'
         run: python -m ask_product_test.run_production_regression_v1
 
       - name: Upload gate artifacts
