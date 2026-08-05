@@ -1,8 +1,8 @@
-# AGI Architecture Freeze v1.0
+# AGI Architecture Freeze v1.0 (Final)
 
 **Effective:** 2026-08-05  
-**Status:** Active  
-**Supersedes:** All prior architecture specifications as living design documents  
+**Status:** Active — Final  
+**Supersedes:** All prior architecture specifications  
 
 ---
 
@@ -14,6 +14,75 @@ From this date forward, work prioritizes **knowledge quality, coverage, research
 
 ---
 
+## Final frozen architecture
+
+```text
+Raw Data
+    │
+    ▼
+Collectors
+    │
+    ▼
+Knowledge Production Engine (KPE)
+    ├── Compile Mode
+    ├── Incremental Mode
+    ├── Evidence Graph          ← KPE-owned infrastructure
+    ├── Assertion Compiler      ← KPE sub-component
+    └── Knowledge KPIs
+    │
+    ▼
+Knowledge Objects (KO)
+    │
+    ▼
+Knowledge Runtime (KR)
+    │
+    ▼
+Research Workflow
+    │
+    ▼
+Institutional Research Engine (IRE)
+    │
+    ▼
+Ask / Workspace / APIs
+```
+
+---
+
+## Component ownership
+
+| Component | Owns | Never owns |
+|-----------|------|----------|
+| **Evidence Graph** | Evidence nodes, assertion links, provenance | Business logic, research conclusions, direct app queries |
+| **KPE** | Compilation, extraction, graph writes, KO generation | User responses |
+| **Knowledge Objects** | Canonical institutional understanding | Raw documents |
+| **Knowledge Runtime** | Validation, dependency resolution, monitoring | Compilation, raw evidence storage |
+| **IRE** | Research orchestration and presentation | Knowledge persistence |
+
+### Evidence Graph rules
+
+- **KPE owns Evidence Graph writes** (`institutional_knowledge_factory/evidence_graph.py`)
+- **KR reads validated assertions**, resolving refs via graph pack — never stores raw evidence
+- **IRE assembles research from Knowledge Objects**, not from the graph
+- Applications **never query the Evidence Graph directly**
+- Legacy `institutional_evidence_graph` module is telemetry only — not the canonical graph
+
+---
+
+## Engineering rule
+
+Every new feature must answer:
+
+> **Which existing component owns this responsibility?**
+
+| If the answer is… | Then… |
+|-------------------|-------|
+| KPE, KR, KO, or IRE | Extend that component |
+| None (demonstrably) | Only then consider a new component — requires architecture review |
+
+> **No new architectural component may be added unless an existing component demonstrably cannot solve the problem.**
+
+---
+
 ## Stable components
 
 Changes to these require **exceptional justification** and architecture review:
@@ -22,39 +91,17 @@ Changes to these require **exceptional justification** and architecture review:
 |-----------|--------|------|
 | **Knowledge Objects (KO)** | `institutional_knowledge_object` | Claim-centric institutional memory |
 | **Knowledge Production Engine (KPE)** | `institutional_knowledge_factory` | Compile + Incremental modes |
+| **Evidence Graph (KPE infra)** | `institutional_knowledge_factory/evidence_graph.py` | KPE-owned evidence → assertion links |
+| **Assertion Compiler (KPE infra)** | `institutional_knowledge_factory/assertion_compiler.py` | Extract + validate assertions |
 | **Knowledge Runtime (KR)** | `institutional_knowledge_runtime` | Validation, selection, versioning |
-| **Evidence Graph** | `institutional_evidence_graph` (in build) | Evidence → assertion edges |
 | **Decision Memory** | `institutional_knowledge_factory/decision_memory` | Explainable evolution |
 | **Research Workflow** | `research_workflow_framework` | Session orchestration |
 | **Institutional Playbooks** | `institutional_playbook_framework` | Research methodology |
 | **Ask Intelligence** | `ask_intelligence_constitution` | Response methodology |
 | **Response Layer** | `response_constitution` | Institutional voice |
+| **Institutional Research Engine (IRE)** | User-facing | Research orchestration and presentation |
 
 Legacy names (`IKO`, `IKF`, `IKR`, `IKC`) remain as aliases during migration.
-
----
-
-## Canonical stack
-
-```text
-Evidence Sources
-  ↓
-Evidence Graph
-  ↓
-Knowledge Production Engine (KPE)
-  ├── Compile Mode      (historical / backfill / rebuild)
-  └── Incremental Mode  (filings / earnings / live updates)
-  ↓
-Knowledge Objects (KO)
-  ↓
-Knowledge Runtime (KR)
-  ↓
-Research Workflow
-  ↓
-Institutional Research Engine (IRE)   ← user-facing experience
-  ↓
-Response
-```
 
 ---
 
@@ -69,20 +116,47 @@ There is **one production engine**. Not separate Factory and Compiler architectu
 
 ---
 
-## Governance rule
+## Milestone 1 — NIFTY 50 Institutional Knowledge
 
-> **No new architectural component may be added unless an existing component demonstrably cannot solve the problem.**
+**Definition of done** (replaces "PR merged"):
+
+| Criterion | Target |
+|-----------|--------|
+| Companies compiled | 50/50 |
+| Supported assertions per company | ≥ 10 |
+| Evidence linked to every supported assertion | 100% |
+| DNA sections populated | Business, Management, Financial, Valuation, Risk, Investment Thesis |
+| Knowledge maturity grade | Computed per company |
+| Monitoring rules | Active per company |
+| Ask responses | Generated primarily from compiled KO + KR validation |
 
 ---
 
-## Future work priorities (in order)
+## Knowledge KPIs (product metrics)
 
-1. **NIFTY 50 compilation** — 100% compiled, evidence-linked, Ask powered by KO
-2. **Evidence Graph persistence** — durable evidence → assertion edges
-3. **Decision Memory store** — durable version history
-4. **Knowledge KPI dashboard** — product metrics, not module counts
-5. **Expand universe** — NIFTY 500, then full market
-6. **Institutional Research Engine (IRE)** — user experience over internal orchestration names
+Track product outcomes, not architecture artifacts:
+
+```text
+NIFTY 50 Compiled:              50/50
+Knowledge Grade:                  A-
+Average Supported Assertions:     ≥ 10
+Average Unknowns:                 ≤ 5
+Average Contradictions:           ≤ 1
+Evidence Coverage:                ≥ 90%
+Stale Assertions:                 ≤ 5%
+Last Refresh:                     < 24h
+```
+
+---
+
+## Execution priorities (post-freeze)
+
+1. NIFTY 50 compilation (`compile_universe`)
+2. Wire Ask to assemble from compiled Knowledge Objects
+3. Decision Memory durable store
+4. Knowledge KPI dashboard
+5. Expand to NIFTY 500, then full market
+6. Phased namespace migration (aliases only until Milestone 1)
 
 ---
 
@@ -91,39 +165,8 @@ There is **one production engine**. Not separate Factory and Compiler architectu
 - New constitutions or methodology documents
 - New orchestration layers
 - New runtime abstractions
-- Namespace renames (gradual aliases only until Milestone 1 complete)
-
----
-
-## Success metrics — Knowledge KPIs
-
-Track product outcomes, not architecture artifacts:
-
-```text
-NIFTY 50 Compiled:           50/50
-Knowledge Grade:             A-
-Average Supported Claims:    18.4
-Average Unknowns:            3.2
-Average Contradictions:      0.8
-Evidence Coverage:           94%
-Stale Assertions:            2%
-Last Refresh:                3h
-```
-
----
-
-## Milestone 1
-
-**Institutional Knowledge Milestone 1 — NIFTY 50**
-
-- [ ] 100% compiled
-- [ ] Evidence linked
-- [ ] Company DNA generated
-- [ ] Investment thesis generated
-- [ ] Monitoring active
-- [ ] Ask powered entirely by Knowledge Objects
-
-This milestone replaces "PR merged" as the definition of done.
+- Evidence Graph as standalone application layer
+- Big-bang renames
 
 ---
 
