@@ -84,7 +84,14 @@ _INTENT_RULES: list[tuple[str, re.Pattern[str]]] = [
     ),
     ("lifecycle", re.compile(r"\b(lifecycle|life cycle|hypergrowth|turnaround|mature|decline|cyclical recovery)\b", re.I)),
     ("graph", re.compile(r"\b(suppliers?|customers?|competitors?|value chain|ecosystem)\b", re.I)),
-    ("business_model", re.compile(r"\b(business model|how does .+ make money|revenue stream|monetis|monetiz)\b", re.I)),
+    (
+        "business_model",
+        re.compile(
+            r"\b(business model|membership model|how does .+ make money|"
+            r"revenue stream|monetis|monetiz|cost advantages?)\b",
+            re.I,
+        ),
+    ),
 ]
 
 
@@ -146,7 +153,13 @@ def analyse(
         vd = analyse_value_drivers(ev)
         pkg.value_drivers = vd
         modules_used.append("value_drivers")
-        if "value_drivers" in intents:
+        # Named company pedagogy / business-model answers must lead — never let
+        # a generic "For retail, enterprise value is primarily driven by…" card
+        # overwrite Costco/Apple/Reliance how-it-makes-money prose.
+        named_lead = bool(summary_parts and not str(summary_parts[0]).lower().startswith("for "))
+        if "value_drivers" in intents and "business_model" not in intents and not named_lead:
+            summary_parts.insert(0, vd.get("summary") or "")
+        elif "value_drivers" in intents and not named_lead and not summary_parts:
             summary_parts.insert(0, vd.get("summary") or "")
         why.append(vd.get("summary") or "")
 

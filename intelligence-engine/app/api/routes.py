@@ -20193,6 +20193,37 @@ async def ifac_dashboard():
     return dashboard()
 
 
+@router.get("/aqe/health")
+async def aqe_health():
+    """Phase 9.2 — Ask Product Quality & Institutional Answer Excellence."""
+    from ask_product_quality.production import health
+
+    return health()
+
+
+@router.get("/aqe/dashboard")
+async def aqe_dashboard():
+    from ask_product_quality.production import dashboard
+
+    return dashboard()
+
+
+@router.post("/aqe/inspect")
+async def aqe_inspect(payload: dict[str, Any] = Body(default_factory=dict)):
+    from ask_product_quality.routing import inspect_routing
+
+    body = payload or {}
+    return inspect_routing(str(body.get("question") or ""), ticker=body.get("ticker"))
+
+
+@router.post("/aqe/quality-gate")
+async def aqe_quality_gate(payload: dict[str, Any] = Body(default_factory=dict)):
+    from ask_product_quality.production import quality_gate
+
+    body = payload or {}
+    return quality_gate(body.get("answer") or body, question=str(body.get("question") or ""))
+
+
 @router.get("/valuation-engine/health")
 async def valuation_engine_health():
     """The one valuation contract: what it computes and what it reads."""

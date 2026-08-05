@@ -112,6 +112,7 @@ TEMPLATES: dict[str, tuple[tuple[str, str, tuple[str, ...]], ...]] = {
 FAMILY_TEMPLATE = {
     "company": "company",
     "company_intel": "company",
+    "business": "company",
     "research": "company",
     "investment": "company",
     "valuation": "valuation",

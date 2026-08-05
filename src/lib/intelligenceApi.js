@@ -3235,6 +3235,14 @@ export const getIfacDebug = (limit = 20) =>
 export const postIfacCompose = (body = {}) =>
   intelligenceFetch('/ifac/compose', { method: 'POST', body, timeoutMs: 120_000 });
 
+export const getAqeHealth = () => intelligenceFetch('/aqe/health');
+export const getAqeDashboard = () =>
+  intelligenceFetch('/aqe/dashboard', { timeoutMs: 60_000 });
+export const postAqeInspect = (body = {}) =>
+  intelligenceFetch('/aqe/inspect', { method: 'POST', body, timeoutMs: 60_000 });
+export const postAqeQualityGate = (body = {}) =>
+  intelligenceFetch('/aqe/quality-gate', { method: 'POST', body, timeoutMs: 60_000 });
+
 /** Market & Sector Intelligence Terminal v1.0 */
 export const getMiHealth = () => intelligenceFetch('/market-intelligence/health');
 export const getMiDashboard = () =>

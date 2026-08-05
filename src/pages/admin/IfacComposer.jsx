@@ -65,6 +65,19 @@ export default function IfacComposer() {
       </section>
 
       <section className="vp-panel">
+        <h2>Product quality</h2>
+        <p className="vp-lede">
+          Phase 9.2 adds routing accuracy, evidence ranking, and answer completeness tracking
+          under <a href="/admin/aqe">Ask Product Quality</a> and <a href="/admin/kul">KUL Routing</a>.
+        </p>
+        <div className="vp-grid">
+          <Stat label="Template coverage" value={Object.keys(stats.templates || {}).length || '—'} />
+          <Stat label="Provider usage keys" value={Object.keys(stats.primary_engines || {}).length || '—'} />
+          <Stat label="DQIV fail rate" value={stats.dqiv_fail_rate} />
+        </div>
+      </section>
+
+      <section className="vp-panel">
         <h2>Template usage</h2>
         <pre className="vp-pre">{JSON.stringify(stats.templates || {}, null, 2)}</pre>
       </section>

@@ -49,6 +49,12 @@ class CompanyIdentity:
     products: Optional[str] = None
     competitors: Optional[str] = None
     business_description: Optional[str] = None
+    market_cap: Optional[str] = None
+    enterprise_value: Optional[str] = None
+    company_type: Optional[str] = None
+    currency: Optional[str] = None
+    trading_status: Optional[str] = None
+    isin: Optional[str] = None
     allowed_valuation: tuple[str, ...] = ()
     forbidden_valuation: tuple[str, ...] = ()
     kpis: tuple[str, ...] = ()

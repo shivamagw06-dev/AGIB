@@ -135,6 +135,11 @@ def _executive_summary(
             "forecast_intelligence_engine",
             "macro_intelligence_engine",
         ),
+        "business": (
+            "industry_intelligence",
+            "investment_intelligence",
+            "research_intelligence_engine",
+        ),
         "forecast": ("research_intelligence_engine", "macro_intelligence_engine"),
         "valuation": ("historical_valuation_intelligence", "valuation_attribution_engine"),
         "attribution": (
@@ -166,7 +171,8 @@ def _executive_summary(
             parts.append(snippet)
         if len(parts) >= 3:
             break
-    if conflicts:
+    # Moat / business answers should not append valuation conflict outlooks.
+    if conflicts and family not in {"business"}:
         parts.append(f"Overall outlook: {conflicts[0].get('stance')} — {conflicts[0].get('reason')}")
     return "\n\n".join(parts), lead.provider_id, consensus_demoted
 

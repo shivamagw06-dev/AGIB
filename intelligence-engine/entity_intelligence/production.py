@@ -58,6 +58,10 @@ def gate_allows_kul(contract: dict[str, Any]) -> bool:
 def should_short_circuit(contract: dict[str, Any]) -> bool:
     if not contract:
         return False
+    # Pedagogy-only unsupported globals (Costco moat, Visa vs Mastercard) may
+    # allow the planner with no CapIQ ticker — never short-circuit those.
+    if contract.get("allow_planner"):
+        return False
     if contract.get("state") in {STATE_CLARIFICATION_REQUIRED, STATE_UNSUPPORTED_ENTITY}:
         return True
     # Verified private / insufficient coverage with planner blocked

@@ -243,21 +243,24 @@ _SCREEN_MENU = (
     "investment_intelligence",
 )
 # Cross-company institutional comparison.
+# BI + CapIQ/memory early so evidence_fusion survives max_providers budgets.
 _COMPARE_MENU = (
+    "business_intelligence",
+    "industry_intelligence",
+    "capiq_ikt",
+    "company_memory",
+    "knowledge_factory",
     "research_intelligence_engine",
     "unified_valuation_engine",
     "historical_valuation_intelligence",
     "valuation_attribution_engine",
     "forecast_intelligence_engine",
     "valuation_policy_engine",
-    "business_intelligence",
-    "industry_intelligence",
     "institutional_warehouse",
     "valuation_terminal",
     "valuation_consensus",
     "financial_statement_warehouse",
-    "capiq_ikt",
-    "company_memory",
+    "ikl",
 )
 # Today's market / breadth / flows / rotation.
 _MARKET_MENU = (
@@ -639,10 +642,10 @@ def build_knowledge_plan(
         rationale.append(
             "Forecast-shaped → FIE → MIE → RIE → warehouse/valuation layers (no recalculation)."
         )
-    elif comparison_shaped and company_bound:
+    elif comparison_shaped and (company_bound or business_shaped):
         selected.extend(_COMPARE_MENU)
         rationale.append(
-            "Comparison → RIE → UVE/HVIE/VARIE/FIE → BI/Industry (dual-company institutional profile)."
+            "Comparison → BI/Industry + CapIQ/memory → RIE → UVE/HVIE/VARIE/FIE."
         )
     elif research_shaped and (company_bound or "research" in types or "comparison" in types):
         selected.extend(_RESEARCH_MENU)
