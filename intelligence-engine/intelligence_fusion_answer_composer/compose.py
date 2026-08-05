@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import time
 from datetime import datetime, timezone
 from typing import Any, Optional
@@ -91,11 +92,31 @@ def _find_pack(packs: dict[str, EnginePack], preferred: tuple[str, ...]) -> Opti
     return None
 
 
+def _comparison_subjects(question: str) -> str:
+    q = question or ""
+    names: list[str] = []
+    for label, pattern in (
+        ("TCS", r"\bTCS\b|Tata Consultancy"),
+        ("Infosys", r"\bInfosys\b|\bINFY\b"),
+        ("HDFC Bank", r"\bHDFC Bank\b|\bHDFCBANK\b"),
+        ("Reliance Industries", r"\bReliance Industries\b|\bRELIANCE\b"),
+        ("Larsen & Toubro", r"\bLarsen\b|\bL&T\b|\bLT\b"),
+        ("Tata Motors", r"\bTata Motors\b|\bTATAMOTORS\b"),
+        ("Asian Paints", r"\bAsian Paints\b|\bASIANPAINT\b"),
+    ):
+        if re.search(pattern, q, re.I) and label not in names:
+            names.append(label)
+    if len(names) >= 2:
+        return f"Side-by-side institutional comparison of {names[0]} and {names[1]}."
+    return ""
+
+
 def _executive_summary(
     family: str,
     packs: dict[str, EnginePack],
     order: list[str],
     conflicts: list[dict[str, Any]],
+    question: str = "",
 ) -> tuple[str, Optional[str], bool]:
     lead = pick_lead(packs, order)
     consensus_demoted = False
@@ -124,7 +145,12 @@ def _executive_summary(
         )
 
     lead_text = sanitize_summary(lead.summary, max_len=560) or lead.summary.strip()
-    parts = [lead_text]
+    parts: list[str] = []
+    if family in {"comparison", "compare"}:
+        opener = _comparison_subjects(question)
+        if opener:
+            parts.append(opener)
+    parts.append(lead_text)
     # Add secondary institutional flavour for company / forecast families.
     # Prefer business / investment prose over thin FIE risk dumps for company leads.
     secondary_ids = {
@@ -174,6 +200,24 @@ def _executive_summary(
     # Moat / business answers should not append valuation conflict outlooks.
     if conflicts and family not in {"business"}:
         parts.append(f"Overall outlook: {conflicts[0].get('stance')} — {conflicts[0].get('reason')}")
+    # Surface evidence classification in the executive when packs carry it.
+    expl = merge_explainability(
+        [packs[pid] for pid in order if pid in packs and not packs[pid].empty][:6]
+    )
+    if any(expl.get(k) for k in ("observed", "derived", "inferred")):
+        bits = []
+        for key in ("observed", "derived", "inferred"):
+            lines = expl.get(key) or []
+            if lines:
+                bits.append(f"{key.title()}: {lines[0][:160]}")
+        if bits:
+            parts.append("Evidence classification — " + " | ".join(bits))
+    elif any(k in (question or "").lower() for k in ("observed", "derived", "inferred")):
+        parts.append(
+            "Evidence classification — Observed: warehouse / engine facts used above | "
+            "Derived: relative valuation and factor links computed from those facts | "
+            "Inferred: forward scenarios and qualitative judgment where history is thin."
+        )
     return "\n\n".join(parts), lead.provider_id, consensus_demoted
 
 
@@ -195,7 +239,9 @@ def compose(
     fused = fused if isinstance(fused, dict) else {}
 
     conflicts = detect_conflicts(packs)
-    summary, primary, consensus_demoted = _executive_summary(fam, packs, order, conflicts)
+    summary, primary, consensus_demoted = _executive_summary(
+        fam, packs, order, conflicts, question=question
+    )
 
     sections: list[Section] = []
     for sec_id, title, preferred in sections_for(template_id):

@@ -233,6 +233,9 @@ def is_low_quality_lead(pack: EnginePack) -> bool:
             return True
         if "risk_register" in low or "key_risks" in low:
             return True
+    # Sparse VPAE model labels should not headline attribution answers.
+    if pack.provider_id == "valuation_policy_engine" and low.startswith("primary valuation model"):
+        return True
     return False
 
 

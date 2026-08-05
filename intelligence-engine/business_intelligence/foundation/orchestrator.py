@@ -201,19 +201,39 @@ def analyse(
         summary_parts.insert(0, mg.get("summary") or "")
         why.append(mg.get("summary") or "")
 
+    # Full IC / research memoranda list "risks" as a section — keep risk in why,
+    # but never let a risk dump overwrite the business-model lead.
+    ic_shaped = any(
+        k in (question or "").lower()
+        for k in (
+            "investment committee",
+            "research memorandum",
+            "committee memorandum",
+            "as if you were",
+            "dossier",
+            "monitoring points",
+        )
+    )
+
     if "risks" in intents:
         rk = analyse_risks(ev)
         pkg.risks = rk
         modules_used.append("risks")
-        summary_parts.insert(0, rk.get("summary") or "")
-        why.append(rk.get("summary") or "")
+        if ic_shaped or "business_model" in intents:
+            why.append(rk.get("summary") or "")
+        else:
+            summary_parts.insert(0, rk.get("summary") or "")
+            why.append(rk.get("summary") or "")
 
     if "lifecycle" in intents:
         lc = analyse_lifecycle(ev)
         pkg.lifecycle = lc
         modules_used.append("lifecycle")
-        summary_parts.insert(0, lc.get("summary") or "")
-        why.append(lc.get("summary") or "")
+        if ic_shaped or "business_model" in intents:
+            why.append(lc.get("summary") or "")
+        else:
+            summary_parts.insert(0, lc.get("summary") or "")
+            why.append(lc.get("summary") or "")
 
     if "graph" in intents or (ev.get("ticker") and "business_model" in modules_used):
         kg = build_knowledge_graph(ev)
@@ -225,8 +245,13 @@ def analyse(
     pkg.modules_used = [m for m in modules_used if not (m in seen or seen.add(m))]
 
     # Prefer direct answer first: business model how-money, else comparison, else value drivers.
+    # Never headline with a pure risk dump when a business description exists.
     summary = ""
-    for part in summary_parts:
+    preferred = [
+        p for p in summary_parts
+        if p and p.strip() and not str(p).lower().startswith("primary business risks")
+    ]
+    for part in preferred or summary_parts:
         if part and part.strip():
             summary = part.strip()
             break

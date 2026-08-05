@@ -167,20 +167,25 @@ _FAMILY_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
         r"\b(screen|scanner|hedge fund|long/?short|market neutral|pair trade|"
         r"value trap|momentum|quality screen|compounders?|find (?:high-quality|companies)|"
         r"which (?:stocks|companies))\b", re.I)),
+    # Full IC / research memoranda beat incidental "business model" section lists.
     ("company_intel", re.compile(
         r"\b(institutional equity analyst|complete company intelligence|"
-        r"investment committee|ic report|committee report|research report|"
-        r"as if you were|dossier|key monitoring points|"
+        r"investment committee|ic (?:report|memorandum)|committee (?:report|memorandum)|"
+        r"research report|research memorandum|as if you were|"
+        r"preparing an investment|dossier|key monitoring points|"
         r"observed,? derived,? and inferred)\b", re.I)),
     ("forecast", re.compile(
         r"\b(forecast|outlook|bull case|bear case|base case|"
         r"next 3(?:\s*[–-]\s*5)? years|scenario probabilities)\b", re.I)),
+    ("market", re.compile(
+        r"\b(today'?s (?:indian )?market|market summary|market breadth|"
+        r"sector rotation|institutional flows)\b", re.I)),
     # Moat / premium-pricing business questions must win over valuation attribution.
     ("business", re.compile(
         r"\b(business model|what does .+ do|explain .{0,40}do|moat|"
         r"competes?|unit economics|switching costs?|pricing power|"
         r"sustain(?:s|ed|ing)? premium pricing|premium pricing|"
-        r"competitive advantage|membership model)\b", re.I)),
+        r"competitive advantages?|membership model)\b", re.I)),
     # Attribution / premium decomposition must win over incidental "macro factors"
     # mentions inside company valuation questions (HDFC premium, etc.).
     # Do not steal moat/pricing-power questions ("sustain premium pricing").
@@ -200,9 +205,6 @@ _FAMILY_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("historical", re.compile(
         r"\b(historical valuation|own history|similar to today|when has|"
         r"what happened afterwards|versus history|vs\.? history|ever traded)\b", re.I)),
-    ("market", re.compile(
-        r"\b(today'?s (?:indian )?market|market summary|market breadth|"
-        r"sector rotation|institutional flows)\b", re.I)),
     # Avoid bare \bmacro\b — "macro exposure/factors" appear inside company IC
     # and attribution questions and must not steal those families.
     ("macro", re.compile(
