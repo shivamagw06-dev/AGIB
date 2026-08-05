@@ -76,6 +76,36 @@ function deepText(answer, chipId) {
   }
 }
 
+function ResearchProgress({ journey, playbook }) {
+  if (!journey?.steps?.length) return null;
+  const pct = Math.min(100, Math.max(0, Number(journey.progress_pct) || 0));
+  return (
+    <section className="ac-block ac-journey">
+      <h2>Institutional Research Progress</h2>
+      {playbook?.name && (
+        <p className="ac-intent-note" style={{ fontSize: '0.82rem', color: '#5b6570', marginTop: 0 }}>
+          Playbook: {playbook.name}
+          {playbook.purpose ? ` — ${playbook.purpose}` : ''}
+        </p>
+      )}
+      <div className="ac-journey-bar" aria-label={`Research progress ${pct}%`}>
+        <div className="ac-journey-fill" style={{ width: `${pct}%` }} />
+      </div>
+      <p style={{ fontSize: '0.78rem', color: '#6b7280', margin: '0.35rem 0 0.65rem' }}>
+        {journey.progress_label || `${pct}%`} complete
+        {journey.next_step ? ` · Next: ${journey.next_step}` : ''}
+      </p>
+      <ul className="ac-journey-steps">
+        {journey.steps.map((step) => (
+          <li key={step.label} className={step.completed ? 'done' : step.current ? 'current' : ''}>
+            <span>{step.completed ? '✓' : '□'}</span> {step.label}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 function AnswerTurn({ answer, onAsk }) {
   const [openChip, setOpenChip] = useState(null);
   if (!answer) return null;
@@ -83,6 +113,8 @@ function AnswerTurn({ answer, onAsk }) {
   return (
     <div className="ac-msg ac-msg-agi">
       <div className="ac-label">AGI</div>
+
+      <ResearchProgress journey={answer.researchJourney} playbook={answer.playbook} />
 
       {/* 1. Direct Answer */}
       <div className="ac-direct">

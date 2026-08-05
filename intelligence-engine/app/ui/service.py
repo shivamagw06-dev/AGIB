@@ -4129,6 +4129,16 @@ class UiService:
             decision_engine = {}
 
         answer_meta_institutional: dict[str, Any] = {}
+        intent_resolution_pack: dict[str, Any] = {}
+        try:
+            intent_resolution_pack = (ask_pipeline_runtime or {}).get("intent_resolution") or {}
+            if not intent_resolution_pack:
+                from ask_pipeline.intent_resolution import resolve_intent
+
+                intent_resolution_pack = resolve_intent(q) or {}
+        except Exception:
+            intent_resolution_pack = {}
+        _playbook_selection = (ask_pipeline_runtime or {}).get("playbook_selection") or {}
         try:
             from answer_construction.production import package_for_ask_agi as ac_package
 
@@ -4136,6 +4146,8 @@ class UiService:
                 ac_package(
                     query=q,
                     ticker=detected_ticker,
+                    intent_resolution=intent_resolution_pack if isinstance(intent_resolution_pack, dict) else None,
+                    playbook_selection=_playbook_selection if isinstance(_playbook_selection, dict) else None,
                     executive=executive,
                     thesis=thesis,
                     house_label=house_label,
@@ -4252,6 +4264,32 @@ class UiService:
                 else None
             ),
             "response_constitution": _rc if isinstance(_rc, dict) else None,
+            "institutional_playbook_framework": (
+                (answer_construction or {}).get("institutional_playbook_framework")
+                if isinstance(answer_construction, dict)
+                else None
+            ),
+            "research_journey": (
+                (answer_construction or {}).get("research_journey")
+                if isinstance(answer_construction, dict)
+                else None
+            ),
+            "research_journey_state": (
+                (answer_construction or {}).get("research_journey_state")
+                if isinstance(answer_construction, dict)
+                else None
+            ),
+            "suggested_next_research": (
+                (answer_construction or {}).get("suggested_next_research")
+                if isinstance(answer_construction, dict)
+                else None
+            ),
+            "playbook_validation": (
+                (answer_construction or {}).get("playbook_validation")
+                if isinstance(answer_construction, dict)
+                else None
+            ),
+            "intent_resolution": intent_resolution_pack if isinstance(intent_resolution_pack, dict) else None,
             "answer_structure": (
                 (answer_construction or {}).get("answer_structure")
                 if isinstance(answer_construction, dict)
@@ -4356,6 +4394,13 @@ class UiService:
                     if isinstance(a, dict) and a.get("title")
                 ],
             )
+        _next_research = (
+            (answer_construction or {}).get("suggested_next_research")
+            if isinstance(answer_construction, dict)
+            else None
+        )
+        if isinstance(_next_research, list) and _next_research:
+            followups = [str(x) for x in _next_research if x] + [x for x in followups if x not in _next_research]
         recommendations["related_questions"] = followups[:6]
 
         timeline_enriched = enrich_timeline(timeline if isinstance(timeline, list) else [])

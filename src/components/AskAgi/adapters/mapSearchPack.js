@@ -922,6 +922,28 @@ export function mapSearchPack(pack) {
         : pack.answer?.response_constitution?.enabled
           ? pack.answer.response_constitution
           : null,
+    institutionalPlaybookFramework:
+      ac?.institutional_playbook_framework?.enabled
+        ? ac.institutional_playbook_framework
+        : pack.answer?.institutional_playbook_framework?.enabled
+          ? pack.answer.institutional_playbook_framework
+          : null,
+    researchJourney:
+      ac?.research_journey ||
+      pack.answer?.research_journey ||
+      ac?.institutional_playbook_framework?.research_journey ||
+      null,
+    researchJourneyState:
+      ac?.research_journey_state ||
+      pack.answer?.research_journey_state ||
+      ac?.institutional_playbook_framework?.research_journey_state ||
+      null,
+    suggestedNextResearch:
+      ac?.suggested_next_research ||
+      pack.answer?.suggested_next_research ||
+      ac?.institutional_playbook_framework?.suggested_next_research ||
+      null,
+    playbookValidation: ac?.playbook_validation || pack.answer?.playbook_validation || null,
     bottomLine:
       asText(ac?.bottom_line) ||
       asText(ac?.response_constitution?.bottom_line) ||

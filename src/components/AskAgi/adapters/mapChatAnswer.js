@@ -1,10 +1,14 @@
 /**
  * Project mapSearchPack → chat-first AGIB answer model.
- * Follows Response Constitution v1.0:
- * Direct Answer → Why → Thesis → Bull/Bear → Bottom Line → Supporting → Follow-ups.
+ * Response Constitution (shape) + Institutional Playbook Framework (methodology).
  */
 
 import { mapSearchPack } from './mapSearchPack';
+import {
+  enrichJourneyMap,
+  getResearchJourneyState,
+  mergeResearchJourneyState,
+} from '@/lib/researchJourney';
 
 function asList(v, n = 8) {
   if (!Array.isArray(v)) return [];
@@ -61,6 +65,24 @@ export function mapChatAnswer(pack) {
   if (!vm) return null;
 
   const rc = vm.responseConstitution || pack?.answer_construction?.response_constitution || null;
+  const ipf =
+    vm.institutionalPlaybookFramework ||
+    pack?.answer_construction?.institutional_playbook_framework ||
+    pack?.answer?.institutional_playbook_framework ||
+    null;
+  const playbook = ipf?.playbook || null;
+  const ticker = vm.ticker;
+  const playbookKey = playbook?.playbook_key || 'investment_assessment';
+
+  let journeyState = vm.researchJourneyState || ipf?.research_journey_state || null;
+  if (journeyState) {
+    journeyState = mergeResearchJourneyState(ticker, playbookKey, journeyState);
+  } else {
+    journeyState = getResearchJourneyState(ticker, playbookKey);
+  }
+  const journeyRaw = vm.researchJourney || ipf?.research_journey || null;
+  const researchJourney = enrichJourneyMap(journeyRaw, journeyState) || journeyRaw;
+
   const view = institutionalViewLabel(
     vm.stance || vm.institutionalView?.stance || '',
     vm.institutionalAnswer?.recommendation || vm.decisionEngine?.action || ''
@@ -178,8 +200,10 @@ export function mapChatAnswer(pack) {
 
   const followUps = asList(
     [
+      ...(vm.suggestedNextResearch || []),
       ...(rc?.suggested_follow_ups || []),
       ...(vm.explore || []),
+      researchJourney?.next_step ? `Continue: ${researchJourney.next_step}` : null,
       `Why ${view}?`,
       vm.ticker ? `Compare ${vm.ticker} with peers` : 'Show peer comparison',
       'Explain the valuation in plain English',
@@ -245,7 +269,11 @@ export function mapChatAnswer(pack) {
     recentResearch,
     freshness: vm.freshness,
     lastUpdated: vm.lastUpdated,
-    constitutionVersion: rc?.version || '1.0',
+    constitutionVersion: ipf?.version || rc?.version || '1.0',
+    playbook,
+    researchJourney,
+    researchJourneyState: journeyState,
+    suggestedNextResearch: asList(vm.suggestedNextResearch || [], 6),
     deep: {
       thesis: vm.thesis,
       why: whyAgib,
