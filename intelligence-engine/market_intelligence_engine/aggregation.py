@@ -149,16 +149,25 @@ def sector_table(universe: dict[str, Any]) -> list[dict[str, Any]]:
         sector_bench = None
         if covered > 0:
             sector_bench = _median([m.get(sector_key) for m in members if m.get(sector_key) is not None])
-        # Prefer HVIE historical median for premium when available; else Upstox bench.
+        # Premium vs Upstox sector benchmark (table column) and vs HVIE history (audit).
         hist_median_level = hist_pack.get("historical_median")
-        premium = None
-        premium_basis = None
+        benchmark_premium = None
+        historical_premium = None
+        if current is not None and sector_bench:
+            benchmark_premium = round(100.0 * (current - sector_bench) / sector_bench, 1)
         if current is not None and hist_median_level:
-            premium = round(100.0 * (current - hist_median_level) / abs(hist_median_level), 1)
-            premium_basis = "hvie_sector_history"
-        elif current is not None and sector_bench:
-            premium = round(100.0 * (current - sector_bench) / sector_bench, 1)
-            premium_basis = "upstox_sector_benchmark"
+            historical_premium = round(
+                100.0 * (current - hist_median_level) / abs(hist_median_level), 1
+            )
+        # UI "Sector" column shows Upstox benchmark — premium must match that denominator.
+        premium = benchmark_premium if sector_bench is not None else historical_premium
+        premium_basis = (
+            "upstox_sector_benchmark"
+            if sector_bench is not None
+            else "hvie_sector_history"
+            if hist_median_level
+            else None
+        )
         opportunity = _opportunity_label(hist_pct)
         out.append({
             "sector": sector,
@@ -183,6 +192,8 @@ def sector_table(universe: dict[str, Any]) -> list[dict[str, Any]]:
                 round(peer_pct_median, 1) if peer_pct_median is not None else None
             ),
             "premium_pct": premium,
+            "benchmark_premium_pct": benchmark_premium,
+            "historical_premium_pct": historical_premium,
             "premium_basis": premium_basis,
             "opportunity": opportunity,
             "median_pe": _median([m.get("pe") for m in members]),
