@@ -1,7 +1,6 @@
-"""TCS editorial curriculum — 20 playbooks × 5 questions.
+"""TCS lifecycle curriculum — superseded by institutional_investor_curriculum v1.0.
 
-Questions a real institutional investor asks throughout the investment lifecycle.
-Phase 1 anchor company: TCS. Phase 2 replicates this structure for 10 more companies.
+Retained for reference. Primary benchmarks: institutional_investor_curriculum.
 """
 
 from __future__ import annotations

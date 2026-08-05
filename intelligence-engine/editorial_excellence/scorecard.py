@@ -51,6 +51,10 @@ def _infer_forward_rating(overall: float, problems: list[str]) -> str:
     return "REWRITE"
 
 
+def _forward_score(rating: str) -> float:
+    return {"YES": 100.0, "MINOR_EDITS": 85.0, "MAJOR_EDITS": 65.0, "REWRITE": 30.0}.get(rating, 0.0)
+
+
 def score_editorial(pack: dict[str, Any]) -> dict[str, Any]:
     """Full editorial scorecard for one response pack."""
     text = _collect_response_text(pack)
@@ -92,21 +96,19 @@ def score_editorial(pack: dict[str, Any]) -> dict[str, Any]:
     scores = {
         "clarity": max(0, min(100, base + 6 - len(problems))),
         "institutional_tone": max(0, 95 - len(forbidden) * 15 - len(avoid_hits) * 5),
+        "business_understanding": max(0, min(100, base + (10 if "because" in lower or "make money" in lower or "business" in lower else 0))),
+        "investment_insight": max(0, min(100, base + (10 if debate.get("narrative") or debate.get("text") else 0))),
+        "evidence_integration": max(0, min(100, base + (10 if evidence.get("assertion_backed") or evidence.get("observations") else 0))),
         "narrative_flow": max(0, min(100, base + (8 if debate.get("narrative") else 0))),
-        "prioritization": max(0, min(100, base + (6 if _section(pack, "what_matters_most", "investment_meaning") else 2))),
-        "evidence_integration": max(0, min(100, base + (10 if evidence.get("assertion_backed") else 0))),
         "explanation_quality": max(0, min(100, base + (8 if "because" in lower or "depends on" in lower else -5))),
-        "uncertainty_handling": max(0, min(100, base + (10 if uncertainty else -8))),
+        "portfolio_relevance": max(0, min(100, base + (6 if len(questions.get("questions") or []) >= 3 else 0))),
         "investor_usefulness": max(0, min(100, base + 4)),
-        "executive_summary_quality": max(0, min(100, base + (8 if exec_sec.get("text") else -10))),
-        "investment_debate_quality": max(0, min(100, base + (10 if debate.get("narrative") else 0))),
-        "questions_before_you_decide": max(0, min(100, base + (8 if len(questions.get("questions") or []) >= 3 else -5))),
+        "forward_without_editing": 0.0,  # set after overall computed
     }
-    overall = round(sum(scores.values()) / len(scores) - penalty * 0.3, 1)
+    overall = round(sum(v for k, v in scores.items() if k != "forward_without_editing") / 9 - penalty * 0.3, 1)
     overall = max(0, min(100, overall))
     scores["overall_editorial_score"] = overall
-
-    forward = _infer_forward_rating(overall, problems)
+    scores["forward_without_editing"] = _forward_score(forward := _infer_forward_rating(overall, problems))
     passed = overall >= EDITORIAL_PASS_THRESHOLD and not forbidden
 
     return {

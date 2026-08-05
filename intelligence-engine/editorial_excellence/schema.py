@@ -17,26 +17,34 @@ FORWARD_RATINGS: tuple[str, ...] = (
 SUCCESS_FORWARD_YES_PCT = 90.0
 EDITORIAL_PASS_THRESHOLD = 90.0
 
-# Editorial scorecard dimensions
+# Editorial scorecard — aligned with Institutional Investor Curriculum v1.0
 EDITORIAL_SCORECARD: tuple[str, ...] = (
     "clarity",
     "institutional_tone",
-    "narrative_flow",
-    "prioritization",
+    "business_understanding",
+    "investment_insight",
     "evidence_integration",
+    "narrative_flow",
     "explanation_quality",
-    "uncertainty_handling",
+    "portfolio_relevance",
     "investor_usefulness",
-    "executive_summary_quality",
-    "investment_debate_quality",
-    "questions_before_you_decide",
+    "forward_without_editing",
     "overall_editorial_score",
 )
 
-from institutional_writing_benchmark.schema import (
-    BENCHMARK_CATEGORIES,
+# Legacy dimensions retained for IWC section scoring (internal)
+IWC_SCORECARD: tuple[str, ...] = (
+    "executive_summary_quality",
+    "investment_debate_quality",
+    "questions_before_you_decide",
+    "prioritization",
+    "uncertainty_handling",
+)
+
+from institutional_investor_curriculum.schema import (
     HALL_OF_FAME_COUNT,
     TARGET_BENCHMARK_COUNT,
+    UNIVERSAL_QUESTION_COUNT,
 )
 
 COMMON_WRITING_PROBLEMS: tuple[str, ...] = (

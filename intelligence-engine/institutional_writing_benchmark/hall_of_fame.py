@@ -17,10 +17,10 @@ def _now() -> str:
 
 
 def hall_of_fame_ids() -> list[str]:
-    """Top 100 benchmark IDs — editorial gold standard set."""
-    from institutional_writing_benchmark.registry import BENCHMARK_QUESTIONS
+    """Hall of Fame — 100 universal questions on TCS anchor."""
+    from institutional_investor_curriculum.benchmarks import hall_of_fame_benchmark_ids
 
-    return [q["id"] for q in BENCHMARK_QUESTIONS[:HALL_OF_FAME_COUNT]]
+    return hall_of_fame_benchmark_ids()
 
 
 def _hof_path() -> Path:
