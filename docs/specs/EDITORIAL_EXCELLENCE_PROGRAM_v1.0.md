@@ -73,7 +73,7 @@ The constitution remains stable. Editorial rules evolve.
 | Package | Role |
 |---------|------|
 | `intelligence-engine/editorial_excellence/` | Scorecard, rules, workspace, reports, production wiring |
-| `intelligence-engine/institutional_writing_benchmark/` | 500-question benchmark registry + Hall of Fame |
+| `intelligence-engine/institutional_writing_benchmark/` | TCS editorial curriculum (100 questions) + Hall of Fame |
 | `intelligence-engine/answer_construction/production.py` | Applies editorial review after IWC |
 
 ### Production wiring
@@ -85,20 +85,70 @@ apply_editorial_excellence(out, query=..., benchmark_id=...)
 
 ---
 
-## Benchmark dataset
+## Benchmark dataset — editorial curriculum
 
-Location: `institutional_writing_benchmark/registry.py`
+Location: `institutional_writing_benchmark/tcs_curriculum.py`
 
-- **500** real investment questions (`IWB_001` … `IWB_500`)
-- **13** categories: investment assessment, valuation, earnings, peer comparison, business quality, management, capital allocation, risks, competitive position, sector analysis, macro, portfolio construction, monitoring
+**Not random questions.** Each question reflects what a real institutional investor asks throughout the investment lifecycle.
+
+### Phase 1 — TCS (100 questions)
+
+- **20 playbooks** × **5 questions** = **100** curated questions (`IWB_001` … `IWB_100`)
+- Anchor company: **TCS** (Tata Consultancy Services)
+
+| # | Playbook |
+|---|----------|
+| 1 | Investment Assessment |
+| 2 | Business Quality |
+| 3 | Management Quality |
+| 4 | Financial Quality |
+| 5 | Valuation |
+| 6 | Growth |
+| 7 | Risks |
+| 8 | Investment Debate |
+| 9 | Earnings |
+| 10 | Competitive Position |
+| 11 | Industry |
+| 12 | Portfolio Fit |
+| 13 | Macro Impact |
+| 14 | Monitoring |
+| 15 | Historical Perspective |
+| 16 | Scenario Analysis |
+| 17 | Decision Support |
+| 18 | Explainability |
+| 19 | Communication |
+| 20 | Institutional Thinking |
 
 Each benchmark stores:
 
 - Question
+- Playbook and lifecycle stage
 - Expected response structure
-- Editorial notes
+- Editorial notes (per playbook)
 - Latest score (populated by review loop)
 - Revision history
+
+### Phase 2 — expand to 1,000 questions
+
+Once the TCS curriculum is consistently excellent, replicate the same 100-question structure for:
+
+Infosys, HDFC Bank, Reliance Industries, ICICI Bank, Bharti Airtel, Titan, Asian Paints, Larsen & Toubro, Maruti Suzuki, HAL.
+
+See `phase2_expansion_plan()` in `institutional_writing_benchmark/registry.py`.
+
+---
+
+## Editorial curriculum process (recommended)
+
+Do not use the benchmark only for automated scoring. Treat it as the **editorial curriculum**:
+
+1. Run all 100 questions
+2. Read every answer manually
+3. Score it (forward without editing?)
+4. Improve only the weakest patterns
+5. Repeat
+
+Re-run the Hall of Fame set after every writing-layer change. Compare old vs new. Keep improvements only if objectively better.
 
 ---
 
