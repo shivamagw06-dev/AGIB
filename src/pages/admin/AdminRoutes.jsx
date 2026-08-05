@@ -67,6 +67,7 @@ import ValuationPolicy from '@/pages/admin/ValuationPolicy';
 import HistoricalValuation from '@/pages/admin/HistoricalValuation';
 import HvieRuntime from '@/pages/admin/HvieRuntime';
 import FinancialWarehouse from '@/pages/admin/FinancialWarehouse';
+import FinancialCoverage from '@/pages/admin/FinancialCoverage';
 import ResearchIntelligence from '@/pages/admin/ResearchIntelligence';
 import ForecastRuntime from '@/pages/admin/ForecastRuntime';
 import MacroRuntime from '@/pages/admin/MacroRuntime';
@@ -100,6 +101,8 @@ export default function AdminRoutes() {
         <Route path="hvie-runtime" element={<HvieRuntime />} />
         {/* Full-bleed Financial Warehouse Completion (Phase 7.4F) */}
         <Route path="financial-warehouse" element={<FinancialWarehouse />} />
+        {/* Phase 7.4F Step 0 — read-only financial coverage audit */}
+        <Route path="financial-coverage" element={<FinancialCoverage />} />
         <Route path="research-intelligence" element={<ResearchIntelligence />} />
         <Route path="forecast-runtime" element={<ForecastRuntime />} />
         <Route path="macro-runtime" element={<MacroRuntime />} />
