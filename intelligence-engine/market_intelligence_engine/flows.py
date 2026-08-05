@@ -25,8 +25,9 @@ def institutional_flows(*, limit: int = 120) -> dict[str, Any]:
     latest = rows[-1] if rows else {}
     fii_net = _num(latest.get("fii_net"))
     dii_net = _num(latest.get("dii_net"))
+    latest_values_available = fii_net is not None or dii_net is not None
     combined = None
-    if fii_net is not None or dii_net is not None:
+    if latest_values_available:
         combined = round((fii_net or 0) + (dii_net or 0), 2)
 
     def trend(days: int) -> Optional[float]:
@@ -51,11 +52,14 @@ def institutional_flows(*, limit: int = 120) -> dict[str, Any]:
     return {
         "ok": True,
         "available": True,
+        "latest_values_available": latest_values_available,
         "latest_date": latest.get("date"),
-        "fii_net_buy": fii_net if (fii_net or 0) >= 0 else None,
-        "fii_net_sell": abs(fii_net) if (fii_net or 0) < 0 else None,
-        "dii_net_buy": dii_net if (dii_net or 0) >= 0 else None,
-        "dii_net_sell": abs(dii_net) if (dii_net or 0) < 0 else None,
+        "fii_net": fii_net,
+        "dii_net": dii_net,
+        "fii_net_buy": fii_net if fii_net is not None and fii_net >= 0 else None,
+        "fii_net_sell": abs(fii_net) if fii_net is not None and fii_net < 0 else None,
+        "dii_net_buy": dii_net if dii_net is not None and dii_net >= 0 else None,
+        "dii_net_sell": abs(dii_net) if dii_net is not None and dii_net < 0 else None,
         "net_institutional_flow": combined,
         "trend_5d": trend(5),
         "trend_20d": trend(20),
@@ -88,17 +92,26 @@ def _num(value: Any) -> Optional[float]:
 def _explain_flows(recent: list[dict[str, Any]]) -> str:
     if not recent:
         return "Institutional flow history is not yet available in the warehouse."
-    fii_streak = sum(1 for r in recent if (_num(r.get("fii_net")) or 0) > 0)
-    dii_streak = sum(1 for r in recent if (_num(r.get("dii_net")) or 0) > 0)
+    fii_vals = [_num(r.get("fii_net")) for r in recent]
+    dii_vals = [_num(r.get("dii_net")) for r in recent]
+    fii_obs = [v for v in fii_vals if v is not None]
+    dii_obs = [v for v in dii_vals if v is not None]
     parts = []
-    if fii_streak >= 3:
-        parts.append(
-            f"Foreign institutional investors were net buyers on {fii_streak} of the last {len(recent)} sessions."
-        )
-    elif fii_streak == 0 and recent:
-        parts.append("Foreign institutions were net sellers across recent sessions.")
-    if dii_streak >= 3:
-        parts.append("Domestic institutions provided supportive flow on recent sessions.")
+    if fii_obs:
+        fii_streak = sum(1 for v in fii_obs if v > 0)
+        if fii_streak >= 3:
+            parts.append(
+                f"Foreign institutional investors were net buyers on {fii_streak} "
+                f"of the last {len(fii_obs)} sessions with FII data."
+            )
+        elif fii_streak == 0:
+            parts.append(
+                "Foreign institutions were net sellers across recent sessions with FII data."
+            )
+    if dii_obs:
+        dii_streak = sum(1 for v in dii_obs if v > 0)
+        if dii_streak >= 3:
+            parts.append("Domestic institutions provided supportive flow on recent sessions.")
     if not parts:
         parts.append("Institutional flows are mixed — no sustained one-direction streak in recent data.")
     parts.append("This is flow context, not a recommendation.")

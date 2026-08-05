@@ -72,8 +72,10 @@ def explain_change(metric: str, before: dict[str, Any], after: dict[str, Any]) -
         drivers = "; ".join(_describe(m["input"], m["change_pct"]) for m in moved)
         summary = f"{metric} moved {metric_change:+.1f}% as {drivers}."
     else:
-        summary = (f"{metric} moved {metric_change:+.1f}% but its inputs could not be "
-                   f"compared ({', '.join(unknown)} unavailable).")
+        summary = (
+            f"{metric.upper()} moved {metric_change:+.1f}% but price/earnings attribution "
+            f"could not be decomposed ({', '.join(unknown)} unavailable)."
+        )
 
     return {
         "metric": metric,

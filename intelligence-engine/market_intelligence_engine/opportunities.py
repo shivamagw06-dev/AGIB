@@ -26,8 +26,10 @@ def _card(
             "pb": row.get("pb"),
             "percentile": row.get("percentile"),
             "consensus_upside": row.get("consensus_upside"),
+            "analyst_count": row.get("analyst_count"),
             "primary_metric": row.get("primary_metric"),
             "primary_value": row.get("primary_value"),
+            "provider_coverage": row.get("provider_coverage"),
         },
         "historical_context": f"Historical percentile {row.get('percentile')}" if row.get("percentile") is not None else "Historical coverage limited",
         "peer_context": f"Sector {row.get('sector')}" if row.get("sector") else None,
@@ -108,7 +110,7 @@ def research_priorities(universe: dict[str, Any], opportunities: dict[str, Any],
     ranked = sorted(cards, key=lambda c: -c.get("research_priority", 0))[:limit]
     out = []
     for i, card in enumerate(ranked, start=1):
-        confidence = min(99, 55 + card.get("research_priority", 0) // 2)
+        confidence = _research_confidence(card)
         out.append({
             "rank": i,
             "symbol": card.get("symbol"),
@@ -118,6 +120,27 @@ def research_priorities(universe: dict[str, Any], opportunities: dict[str, Any],
             "kind": card.get("kind"),
         })
     return out
+
+
+def _research_confidence(card: dict[str, Any]) -> int:
+    """Derive confidence from data quality — not a fixed formula."""
+    ev = card.get("evidence") or {}
+    score = 35
+    if ev.get("percentile") is not None:
+        score += 18
+    if ev.get("pe") is not None or ev.get("pb") is not None:
+        score += 12
+    if ev.get("provider_coverage"):
+        score += 8
+    if (ev.get("analyst_count") or 0) >= 3:
+        score += 10
+    if ev.get("consensus_upside") is not None:
+        score += 7
+    if card.get("coverage") in {"warehouse", "upstox"}:
+        score += 5
+    # Modest priority lift — should not collapse everyone to ~95%.
+    score += min(12, (card.get("research_priority") or 0) // 8)
+    return min(99, max(35, score))
 
 
 def _median(values: list[Any]) -> float | None:

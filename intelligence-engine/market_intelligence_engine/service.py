@@ -47,6 +47,11 @@ def dashboard(*, universe_limit: int = 5000) -> dict[str, Any]:
     heatmap = aggregation.sector_heatmap(sectors)
     industries = aggregation.industry_table(uni)
     breadth_pack = breadth.market_breadth()
+    if overview.get("companies"):
+        breadth_pack["universe_total"] = overview["companies"]
+        breadth_pack["not_tracked"] = max(
+            0, overview["companies"] - breadth_pack.get("sample_size", 0)
+        )
     flow_pack = flows.institutional_flows()
     opps = opportunities.detect_opportunities(uni)
     priorities = opportunities.research_priorities(uni, opps)

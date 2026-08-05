@@ -1,6 +1,6 @@
 """Market Intelligence Engine tests."""
 
-from market_intelligence_engine import aggregation, ingest_flows, opportunities, summary
+from market_intelligence_engine import aggregation, flows, ingest_flows, opportunities, rotation, summary
 
 
 def test_opportunity_label_bands():
@@ -124,3 +124,106 @@ def test_text_confidence_does_not_crash_gateway():
     )
     assert result.get("ok") is True
     assert result.get("written", 0) >= 1
+
+
+def test_sector_table_premium_matches_upstox_benchmark(monkeypatch):
+    """Premium % must use the Upstox benchmark shown in the Sector column, not HVIE median."""
+    def fake_hist(sector, *, current, metric):
+        return {
+            "historical_percentile": 97,
+            "historical_median": 1.54,  # wrong denominator — would yield ~877% premium
+            "status": "OK",
+            "source": "hvie",
+        }
+
+    monkeypatch.setattr(aggregation, "_sector_own_history_percentile", fake_hist)
+    uni = {
+        "ok": True,
+        "rows": [
+            {
+                "symbol": "AAA",
+                "sector": "Industrials",
+                "industry_dna": "capital_goods",
+                "ev_ebitda": 17.01,
+                "sector_median_ev_ebitda": 13.51,
+                "percentile": 60,
+                "provider_coverage": 1,
+            },
+            {
+                "symbol": "BBB",
+                "sector": "Industrials",
+                "industry_dna": "capital_goods",
+                "ev_ebitda": 17.01,
+                "sector_median_ev_ebitda": 13.51,
+                "percentile": 65,
+                "provider_coverage": 1,
+            },
+        ],
+    }
+    rows = aggregation.sector_table(uni)
+    assert len(rows) == 1
+    assert rows[0]["benchmark_premium_pct"] == 25.9
+    assert rows[0]["premium_pct"] == 25.9
+    assert rows[0]["premium_basis"] == "upstox_sector_benchmark"
+    assert rows[0]["historical_premium_pct"] == 1004.5
+
+
+def test_flows_latest_unavailable_not_zero(monkeypatch):
+    monkeypatch.setattr(
+        "institutional_warehouse.store.all_rows",
+        lambda *args, **kwargs: [
+            {"date": "2026-08-01", "fii_net": -200, "dii_net": 100},
+            {"date": "2026-08-04", "fii_net": None, "dii_net": None, "source": "upstox"},
+        ],
+    )
+    out = flows.institutional_flows()
+    assert out["available"] is True
+    assert out["latest_values_available"] is False
+    assert out["fii_net"] is None
+    assert out["dii_net"] is None
+    assert out["net_institutional_flow"] is None
+
+
+def test_rotation_median_caps_outliers():
+    sectors = [{"sector": "Materials", "historical_percentile": 50}]
+    uni = {
+        "rows": [
+            {"sector": "Materials", "pe_change_pct": 500},
+            {"sector": "Materials", "pe_change_pct": 2},
+            {"sector": "Materials", "pe_change_pct": 3},
+            {"sector": "Materials", "pe_change_pct": 4},
+            {"sector": "Materials", "pe_change_pct": 5},
+            {"sector": "Materials", "pe_change_pct": 6},
+            {"sector": "Materials", "pe_change_pct": 7},
+            {"sector": "Materials", "pe_change_pct": 8},
+        ]
+    }
+    out = rotation.market_rotation(sectors, uni)
+    row = out["rows"][0]
+    assert row["median_pe_change_pct"] <= rotation.PE_CHANGE_CAP
+    assert row["median_pe_change_pct"] == 5.5
+
+
+def test_research_confidence_varies_by_data_quality():
+    opps = {
+        "cards": [
+            {
+                "symbol": "AAA",
+                "research_priority": 80,
+                "evidence": {"percentile": 10, "pe": 15, "analyst_count": 5},
+                "coverage": "warehouse",
+                "why": "Rich coverage",
+            },
+            {
+                "symbol": "BBB",
+                "research_priority": 55,
+                "evidence": {},
+                "coverage": "unknown",
+                "why": "Sparse coverage",
+            },
+        ]
+    }
+    pri = opportunities.research_priorities({}, opps)
+    assert pri[0]["confidence"] != pri[1]["confidence"]
+    assert pri[0]["confidence"] > pri[1]["confidence"]
+    assert pri[1]["confidence"] < 90

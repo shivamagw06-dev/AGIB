@@ -19,6 +19,23 @@ function fmt(v, d = 2) {
   return String(v);
 }
 
+function fmtFlow(buy, sell) {
+  if (buy != null) return fmt(buy);
+  if (sell != null) return fmt(-sell);
+  return '—';
+}
+
+function breadthHint(b) {
+  const adv = b.advancing ?? 0;
+  const dec = b.declining ?? 0;
+  const flat = b.unchanged ?? 0;
+  let hint = `${adv}↑ ${dec}↓ ${flat}→`;
+  if (b.universe_total != null && b.not_tracked > 0) {
+    hint += ` · ${b.not_tracked} untracked`;
+  }
+  return hint;
+}
+
 function Stat({ label, value, hint }) {
   return (
     <div className="msi-stat">
@@ -130,7 +147,7 @@ export default function MarketSectorIntelligence() {
                 <Stat label="Median P/B" value={fmt(overview.averages?.pb)} />
                 <Stat label="Median EV/EBITDA" value={fmt(overview.averages?.ev_ebitda)} />
                 <Stat label="Median Div Yield" value={`${fmt(overview.averages?.dividend_yield)}%`} />
-                <Stat label="Breadth" value={breadth.heatmap || '—'} hint={`${breadth.advancing || 0}↑ ${breadth.declining || 0}↓`} />
+                <Stat label="Breadth" value={breadth.heatmap || '—'} hint={breadthHint(breadth)} />
                 <Stat label="Sentiment" value={breadth.sentiment || '—'} />
               </div>
               {pack.summary ? <blockquote className="msi-summary">{pack.summary}</blockquote> : null}
@@ -216,14 +233,37 @@ export default function MarketSectorIntelligence() {
 
             <Section
               title="Institutional flow (FII / DII)"
-              subtitle={flows.available ? `Latest ${flows.latest_date}` : 'Warehouse institutional_flow'}
+              subtitle={
+                flows.available
+                  ? flows.latest_values_available === false
+                    ? `History through ${flows.latest_date} · latest session unavailable`
+                    : `Latest ${flows.latest_date}`
+                  : 'Warehouse institutional_flow'
+              }
             >
               {flows.available ? (
                 <>
                   <div className="msi-grid">
-                    <Stat label="FII net" value={fmt(flows.fii_net_buy ?? -(flows.fii_net_sell || 0))} />
-                    <Stat label="DII net" value={fmt(flows.dii_net_buy ?? -(flows.dii_net_sell || 0))} />
-                    <Stat label="Combined" value={fmt(flows.net_institutional_flow)} />
+                    <Stat
+                      label="FII net"
+                      value={
+                        flows.latest_values_available === false
+                          ? 'Latest unavailable'
+                          : fmtFlow(flows.fii_net_buy, flows.fii_net_sell)
+                      }
+                    />
+                    <Stat
+                      label="DII net"
+                      value={
+                        flows.latest_values_available === false
+                          ? 'Latest unavailable'
+                          : fmtFlow(flows.dii_net_buy, flows.dii_net_sell)
+                      }
+                    />
+                    <Stat
+                      label="Combined"
+                      value={flows.latest_values_available === false ? '—' : fmt(flows.net_institutional_flow)}
+                    />
                     <Stat label="5D trend" value={fmt(flows.trend_5d)} />
                     <Stat label="20D trend" value={fmt(flows.trend_20d)} />
                   </div>
