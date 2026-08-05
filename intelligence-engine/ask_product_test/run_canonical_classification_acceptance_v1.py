@@ -27,6 +27,14 @@ def main() -> int:
         if not r["passed"]:
             print(f"  [FAIL] {r['id']} {r['ticker']} — {r['failed']} {r['leak_violations']}")
 
+    if report.get("decision") == "NOT_EVALUATED":
+        print(
+            f"\n[canonical_classification] NOT EVALUATED — {report.get('reason', 'acceptance dataset unavailable')}",
+            flush=True,
+        )
+        write_artifact("canonical_classification_acceptance_v1.json", report)
+        return 2
+
     print(
         f"\n[canonical_classification] {report['passed']}/{report['total']} "
         f"({report['pass_rate_pct']}%) decision={report['decision']}"

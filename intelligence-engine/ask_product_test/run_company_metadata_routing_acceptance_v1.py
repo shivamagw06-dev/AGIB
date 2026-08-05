@@ -36,6 +36,13 @@ def main() -> int:
 
     write_artifact("company_metadata_routing_acceptance_v1.json", report)
 
+    if report.get("decision") == "NOT_EVALUATED":
+        print(
+            f"\n[company_metadata_routing] NOT EVALUATED — {report.get('reason', 'acceptance dataset unavailable')}",
+            flush=True,
+        )
+        return 2
+
     return 0 if report["decision"] == "PASS" else 1
 
 

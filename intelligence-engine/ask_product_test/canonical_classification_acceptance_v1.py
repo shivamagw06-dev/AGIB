@@ -232,8 +232,59 @@ def evaluate_case(case: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _acceptance_data_unavailable() -> bool:
+    try:
+        from ask_product_test.acceptance_data import _load_vc_rows, MINIMUM_REQUIRED
+
+        return len(_load_vc_rows()) < MINIMUM_REQUIRED["valuation_consensus_rows"]
+    except Exception:
+        return True
+
+
 def run(target_questions: int = 300) -> dict[str, Any]:
+    if _acceptance_data_unavailable():
+        return {
+            "suite": "canonical_classification_acceptance_v1",
+            "version": SUITE_VERSION,
+            "total": 0,
+            "passed": 0,
+            "pass_rate_pct": None,
+            "golden_total": 0,
+            "golden_passed": 0,
+            "golden_pass_rate_pct": None,
+            "cross_industry_leakage": 0,
+            "wrong_sector": 0,
+            "wrong_industry": 0,
+            "sectors_covered": [],
+            "sectors_covered_count": 0,
+            "decision": "NOT_EVALUATED",
+            "failure_class": "INFRASTRUCTURE",
+            "reason": "Acceptance dataset unavailable — valuation consensus has insufficient rows.",
+            "results": [],
+        }
+
     cases = build_cases(target_questions)
+    if not cases:
+        return {
+            "suite": "canonical_classification_acceptance_v1",
+            "version": SUITE_VERSION,
+            "total": 0,
+            "passed": 0,
+            "pass_rate_pct": None,
+            "golden_total": 0,
+            "golden_passed": 0,
+            "golden_pass_rate_pct": None,
+            "cross_industry_leakage": 0,
+            "wrong_sector": 0,
+            "wrong_industry": 0,
+            "sectors_covered": [],
+            "sectors_covered_count": 0,
+            "decision": "NOT_EVALUATED",
+            "failure_class": "INFRASTRUCTURE",
+            "reason": "Acceptance dataset unavailable — zero evaluation cases built.",
+            "results": [],
+        }
+
     results = [evaluate_case(c) for c in cases]
     passed = sum(1 for r in results if r["passed"])
     total = len(results)

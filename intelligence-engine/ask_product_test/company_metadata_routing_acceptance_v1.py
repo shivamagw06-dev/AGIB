@@ -215,6 +215,25 @@ def results_to_report(results: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def run(*, include_pipeline: bool = True) -> dict[str, Any]:
+    try:
+        from ask_product_test.acceptance_data import _load_vc_rows, MINIMUM_REQUIRED
+
+        if len(_load_vc_rows()) < MINIMUM_REQUIRED["valuation_consensus_rows"]:
+            return {
+                "suite": "company_metadata_routing_acceptance_v1",
+                "version": SUITE_VERSION,
+                "total": 0,
+                "passed": 0,
+                "pass_rate_pct": None,
+                "by_kind": {},
+                "decision": "NOT_EVALUATED",
+                "failure_class": "INFRASTRUCTURE",
+                "reason": "Acceptance dataset unavailable — valuation consensus has insufficient rows.",
+                "results": [],
+            }
+    except Exception:
+        pass
+
     report = evaluate()
     results = list(report["results"])
     if include_pipeline:

@@ -60,7 +60,15 @@ from ask_product_test.agi_core_v1_0 import (  # noqa: E402
     RELEASE_GATE_TARGETS,
     baseline_manifest,
 )
+from ask_product_test.acceptance_data import (  # noqa: E402
+    apply_env_defaults,
+    bootstrap_acceptance_data,
+    check_acceptance_data,
+)
 from ask_product_test.harness import _artifacts_dir, mirror_artifact_dirs  # noqa: E402
+
+# Exit codes: 0 = all pass, 1 = product failure, 2 = infrastructure failure
+EXIT_INFRASTRUCTURE = 2
 
 SUITE_MODULES: Dict[str, str] = {
     "founder_evaluation_v2": "ask_product_test.run_founder_evaluation_v2",
@@ -268,14 +276,26 @@ def _decide(suite_id: str, report: Dict[str, Any], rc: int) -> Dict[str, Any]:
     if suite_id in {"founder_evaluation_v2", "founder_evaluation_v3", "afi_acceptance"} and hallucinations:
         ok = False
 
+    failure_class = "PRODUCT"
+    if data.get("failure_class") == "INFRASTRUCTURE" or data.get("decision") == "NOT_EVALUATED":
+        failure_class = "INFRASTRUCTURE"
+        ok = False
+        actual = data.get("decision") or "NOT_EVALUATED"
+    elif rc == EXIT_INFRASTRUCTURE:
+        failure_class = "INFRASTRUCTURE"
+        ok = False
+        actual = "NOT_EVALUATED"
+
     return {
         "suite": suite_id,
         "target": target,
         "actual": actual,
         "exit_code": rc,
         "pass": bool(ok),
+        "failure_class": failure_class,
         "hallucination_or_hard_fail_count": hallucinations,
-        "release_decision_artifact": data.get("release_decision"),
+        "release_decision_artifact": data.get("release_decision") or data.get("decision"),
+        "reason": data.get("reason"),
     }
 
 
@@ -284,6 +304,28 @@ def main() -> int:
     art = _art()
     os.environ.setdefault("ASK_TEST_ARTIFACTS", str(art))
     mirror_artifact_dirs()  # optional cloud-agent mirrors; never raises
+
+    # Bootstrap + health check — deterministic acceptance dataset for CI/local parity
+    skip_bootstrap = os.environ.get("SKIP_ACCEPTANCE_BOOTSTRAP", "").strip() in {"1", "true", "yes"}
+    if not skip_bootstrap:
+        try:
+            bootstrap_acceptance_data(force=False, verbose=False)
+        except Exception as exc:
+            print(f"[production_regression_v1] bootstrap failed: {exc}", flush=True)
+
+    apply_env_defaults()
+    infra_health = check_acceptance_data(verbose=True)
+    (art / "acceptance_data_health.json").write_text(
+        json.dumps(infra_health, indent=2, default=str) + "\n",
+        encoding="utf-8",
+    )
+    if infra_health.get("status") != "PASS":
+        print(
+            "\n[production_regression_v1] INFRASTRUCTURE FAILURE — acceptance data incomplete",
+            flush=True,
+        )
+        print("[production_regression_v1] Regression not executed.", flush=True)
+        return EXIT_INFRASTRUCTURE
 
     quick = os.environ.get("PROD_REGRESSION_QUICK", "").strip() in {"1", "true", "yes"}
     skip_afi = os.environ.get("PROD_REGRESSION_SKIP_AFI", "").strip() in {"1", "true", "yes"}
@@ -320,6 +362,8 @@ def main() -> int:
         )
 
     all_pass = all(r["pass"] for r in results)
+    infra_failures = [r for r in results if r.get("failure_class") == "INFRASTRUCTURE"]
+    product_failures = [r for r in results if not r["pass"] and r.get("failure_class") != "INFRASTRUCTURE"]
     full_gate = bool(all_pass and with_afi and not quick)
     report = {
         "suite": "AGI Core v1.0 — Production Release Gate",
@@ -332,6 +376,23 @@ def main() -> int:
         "quick": quick,
         "with_afi": with_afi,
         "merge_allowed": full_gate,
+        "acceptance_data_health": infra_health,
+        "infrastructure": {
+            "status": "PASS" if not infra_failures else "FAIL",
+            "acceptance_dataset": infra_health.get("status"),
+            "suite_failures": [r["suite"] for r in infra_failures],
+        },
+        "product": {
+            "status": "PASS" if not product_failures else "FAIL",
+            "suite_failures": [
+                {"suite": r["suite"], "actual": r["actual"]} for r in product_failures
+            ],
+            "reason": (
+                None
+                if not product_failures
+                else f"{product_failures[0]['suite']} below threshold (actual={product_failures[0]['actual']})"
+            ),
+        },
         "targets": {
             "Founder Evaluation V2": "≥95%",
             "Founder Evaluation V3": "≥95%",
@@ -380,9 +441,18 @@ def main() -> int:
         f"merge_allowed={report['merge_allowed']}",
         flush=True,
     )
+    print("\nInfrastructure", flush=True)
+    print(f"  Acceptance Dataset: {report['infrastructure']['acceptance_dataset']}", flush=True)
+    if infra_failures:
+        print(f"  Infrastructure suite failures: {[r['suite'] for r in infra_failures]}", flush=True)
+    print("\nProduct", flush=True)
     for r in results:
-        mark = "PASS" if r["pass"] else "FAIL"
-        print(f"  [{mark}] {r['suite']}: actual={r['actual']}", flush=True)
+        mark = "PASS" if r["pass"] else r.get("failure_class", "FAIL")
+        print(f"  {r['suite']}: {r['actual']} [{mark}]", flush=True)
+    if product_failures:
+        print(f"\n  Product failure reason: {report['product']['reason']}", flush=True)
+    if infra_failures and not product_failures:
+        return EXIT_INFRASTRUCTURE
     return 0 if all_pass else 1
 
 
