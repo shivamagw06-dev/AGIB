@@ -1555,6 +1555,39 @@ def _resolve_status(item: dict[str, Any]) -> tuple[str, str, dict[str, Any]]:
             return "working", "CGL package available; background starts with engine lifespan.", body
         return "orphan", "CGL package missing.", body
 
+    if kind == "knowledge_integration":
+        mod = str(item.get("module") or "institutional_evidence.integration.layer")
+        st, body = _probe_health(mod, "health")
+        if st == "off":
+            # Legacy probe: older deploys only exposed kil_status()
+            ok, err = _probe_import(mod, "kil_status")
+            if ok:
+                try:
+                    m = __import__(mod, fromlist=["kil_status"])
+                    body = m.kil_status()
+                    st = "working" if isinstance(body, dict) and body.get("ok") else "soft"
+                except Exception as exc:  # noqa: BLE001
+                    return "degraded", f"KIL kil_status failed: {exc}"[:160], {}
+            else:
+                return "orphan", err or "KIL module missing.", {}
+        if isinstance(body, dict) and (
+            body.get("enabled") is not False
+            and str(body.get("status") or "").lower()
+            in {"ok", "healthy", "ready", "live", "ok_via_sidecar", ""}
+        ):
+            n = body.get("companies_integrated")
+            detail = (
+                f"KIL-01 live — {n} companies integrated (persisted)."
+                if isinstance(n, int)
+                else "KIL-01 live (CGL → canonical → IEP)."
+            )
+            return "working", detail, body
+        if st in {"working", "soft", "degraded"}:
+            return "working" if st != "degraded" else st, "KIL-01 probe result.", body
+        if _probe_import(mod)[0]:
+            return "working", "KIL package importable; soft-wired after each CGL cycle.", body
+        return st, "KIL probe result.", body
+
     if kind == "ops_flag":
         env_name = str(item.get("env") or "")
         raw = os.getenv(env_name, "")

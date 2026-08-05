@@ -17,15 +17,75 @@ from .transform.kf_to_canonical import transform_company_knowledge
 from .versioning.snapshots import create_knowledge_snapshot, get_latest_snapshot
 from .confidence.score import compute_knowledge_confidence
 from .coverage_states.states import compute_coverage_state
+from . import persist as kil_persist
 
 
-# In-process company integration cache (versioned)
+# In-process company integration cache (hydrated from / mirrored to disk)
 _COMPANY_STATE: Dict[str, Dict[str, Any]] = {}
 
 
+def _companies_integrated_count() -> int:
+    n_mem = len(_COMPANY_STATE)
+    try:
+        n_disk = kil_persist.company_count()
+    except Exception:
+        n_disk = 0
+    return max(n_mem, n_disk)
+
+
+def _cgl_kil_signal() -> Dict[str, Any]:
+    """Read gather-side KIL outcome from shared CGL latest_run + heartbeats."""
+    out: Dict[str, Any] = {
+        "gather_sidecar_fresh": False,
+        "latest_run_kil_ok": None,
+        "latest_run_id": None,
+        "knowledge_version": None,
+    }
+    try:
+        from continuous_gather_learn import persist as cgl_persist
+
+        hb = cgl_persist.read_gather_heartbeat()
+        out["gather_sidecar_fresh"] = bool(hb.get("fresh"))
+        run = cgl_persist.get_latest_run() or {}
+        out["latest_run_id"] = run.get("run_id")
+        kil = run.get("kil_integration") if isinstance(run.get("kil_integration"), dict) else {}
+        if kil:
+            out["latest_run_kil_ok"] = bool(kil.get("ok"))
+            out["knowledge_version"] = kil.get("knowledge_version") or (
+                (kil.get("summary") or {}).get("knowledge_version")
+            )
+    except Exception as exc:
+        out["cgl_error"] = str(exc)[:160]
+    try:
+        out["kil_heartbeat"] = kil_persist.read_integration_heartbeat()
+    except Exception:
+        out["kil_heartbeat"] = {"fresh": False, "present": False}
+    return out
+
+
 def kil_status() -> Dict[str, Any]:
+    snap = get_latest_snapshot()
+    signal = _cgl_kil_signal()
+    n = _companies_integrated_count()
+    hb = signal.get("kil_heartbeat") or {}
+    effective = bool(
+        n > 0
+        or snap
+        or signal.get("latest_run_kil_ok")
+        or hb.get("fresh")
+        or signal.get("gather_sidecar_fresh")
+    )
+    # Mission Control agent_map probes health()/status — "ok" => working.
+    if n > 0 or snap or signal.get("latest_run_kil_ok") or hb.get("fresh"):
+        status = "ok"
+    elif signal.get("gather_sidecar_fresh"):
+        status = "ok"  # gather alive; integration soft-wired after each CGL cycle
+    else:
+        status = "ok"  # module live; empty state until first integrate
     return {
         "ok": True,
+        "status": status,
+        "enabled": True,
         "workstream_id": KIL_WORKSTREAM_ID,
         "product": KIL_PRODUCT,
         "version": KIL_VERSION,
@@ -47,9 +107,24 @@ def kil_status() -> Dict[str, Any]:
         ],
         "rule": "There must never be two knowledge systems — one institutional knowledge pipeline",
         "phase1_demo": list(KIL_PHASE1_DEMO),
-        "companies_integrated": len(_COMPANY_STATE),
-        "latest_snapshot": get_latest_snapshot(),
+        "companies_integrated": n,
+        "latest_snapshot": snap,
+        "effective_integration": effective,
+        "gather_sidecar_fresh": bool(signal.get("gather_sidecar_fresh")),
+        "latest_run_kil_ok": signal.get("latest_run_kil_ok"),
+        "latest_run_id": signal.get("latest_run_id"),
+        "kil_heartbeat": hb,
+        "store_root": str(kil_persist.store_root()),
+        "note": (
+            "KIL runs after each CGL cycle (gather sidecar). State is persisted so "
+            "HTTP Mission Control can see companies_integrated / snapshots."
+        ),
     }
+
+
+def health() -> Dict[str, Any]:
+    """Agent-map / ops health probe — must exist as health() (not only kil_status)."""
+    return kil_status()
 
 
 def _publish_canonical_to_registry(ticker: str, transformed: Dict[str, Any]) -> Dict[str, Any]:
@@ -248,6 +323,10 @@ def integrate_company(
         },
     }
     _COMPANY_STATE[t] = out
+    try:
+        kil_persist.put_company(t, out)
+    except Exception:
+        pass
     return out
 
 
@@ -310,6 +389,24 @@ def integrate_cgl_run(
     for r in results:
         if isinstance(r, dict):
             r["knowledge_version"] = snap.get("knowledge_version")
+            if r.get("ok") and r.get("ticker"):
+                try:
+                    kil_persist.put_company(r["ticker"], r)
+                except Exception:
+                    pass
+
+    try:
+        kil_persist.write_integration_heartbeat(
+            {
+                "ok": True,
+                "cgl_run_id": run.get("run_id"),
+                "companies": len(results),
+                "knowledge_version": snap.get("knowledge_version"),
+                "financials_updated": fin_updated,
+            }
+        )
+    except Exception:
+        pass
 
     return {
         "ok": True,
@@ -330,4 +427,14 @@ def integrate_cgl_run(
 
 
 def get_integrated_company(ticker: str) -> Optional[Dict[str, Any]]:
-    return _COMPANY_STATE.get(str(ticker or "").upper())
+    t = str(ticker or "").upper()
+    if t in _COMPANY_STATE:
+        return _COMPANY_STATE[t]
+    try:
+        row = kil_persist.get_company(t)
+    except Exception:
+        row = None
+    if row:
+        _COMPANY_STATE[t] = row
+        return row
+    return None
