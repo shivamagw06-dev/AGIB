@@ -207,13 +207,30 @@ export default function FinancialCoverage() {
 
         {note ? <p className="hr-note">{note}</p> : null}
         {error ? <p className="vp-error">{error}</p> : null}
+        {yahoo?.diagnosis ? (
+          <p className="vp-error" style={{ marginTop: '0.75rem' }}>{yahoo.diagnosis}</p>
+        ) : null}
         {yahoo?.plain_english ? (
           <p className="vp-sub" style={{ marginTop: '0.75rem' }}>
             Yahoo worker: <strong>{yahoo?.runtime?.status || 'idle'}</strong>
             {' · '}filled {fmt(yahoo?.progress?.filled)} / processed {fmt(yahoo?.progress?.processed)}
+            {' · '}failed {fmt(yahoo?.progress?.failed)}
+            {yahoo?.progress?.blocked ? ` · blocked ${fmt(yahoo.progress.blocked)}` : ''}
             {' · '}EMPTY waiting {fmt(yahoo?.progress?.empty_waiting)}
-            {' · '}{yahoo.plain_english}
+            {' · '}skipped funds {fmt(yahoo?.progress?.skipped_non_equity)}
           </p>
+        ) : null}
+        {(yahoo?.last_errors || []).length ? (
+          <div className="vp-panel" style={{ marginTop: '0.75rem' }}>
+            <h2 className="vp-h2">Recent Yahoo errors</h2>
+            <ul className="vp-muted" style={{ margin: 0, paddingLeft: '1.1rem', fontSize: '0.8rem' }}>
+              {yahoo.last_errors.slice(-8).map((e) => (
+                <li key={`${e.symbol}-${e.at}`}>
+                  <strong>{e.symbol}</strong>: {e.error}
+                </li>
+              ))}
+            </ul>
+          </div>
         ) : null}
         {board?.plain_english ? (
           <p className="vp-sub" style={{ marginTop: '0.5rem' }}>{board.plain_english}</p>
