@@ -475,6 +475,20 @@ def package_for_ask_agi(**kwargs: Any) -> dict[str, Any]:
     except Exception:
         out.setdefault("institutional_writing_constitution", {"enabled": False, "bypassed": True})
 
+    # Editorial Excellence Program v1.0 — review loop after institutional writing.
+    try:
+        from editorial_excellence import apply_editorial_excellence
+
+        out = apply_editorial_excellence(
+            out,
+            query=str(kwargs.get("query") or ""),
+            ticker=kwargs.get("ticker"),
+            company=kwargs.get("company"),
+            benchmark_id=kwargs.get("benchmark_id"),
+        )
+    except Exception:
+        out.setdefault("editorial_excellence", {"enabled": False, "bypassed": True})
+
     return out
 
 
@@ -499,6 +513,7 @@ def quality_gates() -> dict[str, Any]:
             "institutional_knowledge_factory_v1": True,
             "institutional_knowledge_runtime_v1": True,
             "institutional_writing_constitution_v1": True,
+            "editorial_excellence_v1": True,
         },
         "flags": flags_dict(),
     }
