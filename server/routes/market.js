@@ -5,13 +5,14 @@
 
 import { Router } from 'express';
 import { getAgiIntelligence, getDashboardFromIntelligence } from '../services/intelligenceService.js';
-import { getTickerData } from '../services/marketDataService.js';
+import { getDashboardData, getTickerData } from '../services/marketDataService.js';
 import { MARKET_REFRESH_MS } from '../config/marketRefresh.js';
 import { getGrowwHealth } from '../services/growwHealth.js';
 import { getUpstoxCapabilities, getUpstoxHealth } from '../services/upstoxHealth.js';
 import { getMarketBriefing, startMarketBriefingScheduler } from '../services/marketBriefingService.js';
 import { getMacroBriefing, askMacroEconomist, startMacroBriefingScheduler } from '../services/macroBriefingService.js';
 import { getPreMarketBriefing, startPreMarketBriefingScheduler } from '../services/preMarketBriefingService.js';
+import { fetchYahooIndices } from '../providers/yahooIndices.js';
 
 const CACHE_CONTROL = `public, max-age=${Math.floor(MARKET_REFRESH_MS / 1000)}, stale-while-revalidate=60`;
 
@@ -395,6 +396,65 @@ export default function createMarketRouter(env = {}) {
       }));
     } catch (err) {
       return res.status(502).json({ ok: false, error: err?.message || 'upstox_fill_run_failed' });
+    }
+  });
+
+  // Never proxy these to IndianAPI — that path 429s from Render and blanks desks.
+  router.get('/overview', async (_req, res) => {
+    try {
+      const [ticker, dashboard] = await Promise.all([
+        getTickerData(env).catch(() => ({ items: [], source: 'unavailable', updatedAt: new Date().toISOString() })),
+        getDashboardData(env).catch(() => null),
+      ]);
+      const items = Array.isArray(ticker?.items) ? ticker.items : [];
+      return sendJson(res, {
+        ok: true,
+        items,
+        data: items,
+        indices: items,
+        gainers: dashboard?.gainers || [],
+        losers: dashboard?.losers || [],
+        pulse: dashboard?.pulse || null,
+        outlook: dashboard?.outlook || null,
+        source: ticker?.source || 'groww+nse+yahoo',
+        updatedAt: ticker?.updatedAt || new Date().toISOString(),
+        stale: items.length === 0,
+      });
+    } catch (err) {
+      console.error('[market/overview]', err?.message || err);
+      return sendJson(res, {
+        ok: false,
+        items: [],
+        data: [],
+        error: err?.message || 'overview_unavailable',
+        stale: true,
+        updatedAt: new Date().toISOString(),
+      });
+    }
+  });
+
+  router.get('/global-snapshot', async (_req, res) => {
+    try {
+      const wanted = ['NASDAQ', 'S&P', 'Dow', 'Gold', 'Silver', 'Brent', 'Bitcoin', 'USDINR'];
+      const rows = await fetchYahooIndices(wanted).catch(() => []);
+      return sendJson(res, {
+        ok: true,
+        items: rows,
+        data: rows,
+        source: 'yahoo',
+        updatedAt: new Date().toISOString(),
+        stale: rows.length === 0,
+      });
+    } catch (err) {
+      console.error('[market/global-snapshot]', err?.message || err);
+      return sendJson(res, {
+        ok: false,
+        items: [],
+        data: [],
+        error: err?.message || 'global_snapshot_unavailable',
+        stale: true,
+        updatedAt: new Date().toISOString(),
+      });
     }
   });
 

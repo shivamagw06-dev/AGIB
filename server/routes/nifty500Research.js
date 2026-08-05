@@ -21,7 +21,7 @@ function sendError(res, error) {
 export default function createNifty500ResearchRouter() {
   const router = Router();
 
-  router.get('/summary', async (_req, res) => {
+  async function summaryHandler(_req, res) {
     try {
       const data = await getResearchSummary();
       res.set('Cache-Control', CACHE_CONTROL);
@@ -29,7 +29,11 @@ export default function createNifty500ResearchRouter() {
     } catch (error) {
       return sendError(res, error);
     }
-  });
+  }
+
+  // Root used to 503 via the IndianAPI wildcard; serve summary instead.
+  router.get('/', summaryHandler);
+  router.get('/summary', summaryHandler);
 
   router.get('/search', async (req, res) => {
     try {
