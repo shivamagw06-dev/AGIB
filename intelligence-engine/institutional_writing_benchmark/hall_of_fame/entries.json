@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "updated_at": "2026-08-05T16:34:53.137008Z",
+  "updated_at": "2026-08-05T17:04:01.475960Z",
   "entries": {
     "IWB_001": {
       "benchmark_id": "IWB_001",
@@ -21,6 +21,22 @@
       "revision_history": [
         {
           "archived_at": "2026-08-05T16:34:53.136987Z",
+          "editorial_score": 85.0,
+          "forward_rating": "MINOR_EDITS",
+          "response_excerpt": "The central investment debate centers on durability."
+        }
+      ]
+    },
+    "IWB_HOF_TEST": {
+      "benchmark_id": "IWB_HOF_TEST",
+      "question": "Test question",
+      "response_text": "Improved response with because and depends on clarity.",
+      "editorial_score": 92.0,
+      "forward_rating": "YES",
+      "updated_at": "2026-08-05T17:04:01.475941Z",
+      "revision_history": [
+        {
+          "archived_at": "2026-08-05T17:04:01.475936Z",
           "editorial_score": 85.0,
           "forward_rating": "MINOR_EDITS",
           "response_excerpt": "The central investment debate centers on durability."
