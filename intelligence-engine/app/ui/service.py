@@ -126,10 +126,94 @@ _RESEARCH_SHAPED_QUESTION_RE = re.compile(
     re.I,
 )
 
+# QUE decision types that must reach answer_construction / research desk —
+# never a thin CapIQ/KUL company dump.
+_QUE_FULL_DESK_DECISIONS = frozenset(
+    {
+        "Capital Allocation",
+        "Research Priority",
+        "Valuation Assessment",
+        "Thesis Validation",
+        "Peer Selection",
+        "Risk Assessment",
+        "Earnings Review",
+        "Portfolio Construction",
+        "Idea Generation",
+        "Monitoring",
+        "Macro Impact",
+        "Sector Allocation",
+    }
+)
+
 
 def _is_research_shaped_question(question: str) -> bool:
     """Research questions need filed documents, not a company profile."""
     return bool(_RESEARCH_SHAPED_QUESTION_RE.search(str(question or "")))
+
+
+def _build_que_answer_construction(
+    question: str,
+    *,
+    ticker: str | None = None,
+    company: str | None = None,
+) -> dict[str, Any]:
+    """QUE v1.1 research brief pack for Ask — attach on every path including short-circuits."""
+    try:
+        from question_understanding_engine import apply_question_understanding_engine
+
+        out = apply_question_understanding_engine(
+            {},
+            query=question,
+            ticker=ticker,
+            company=company,
+        )
+        brief = out.get("research_brief") if isinstance(out.get("research_brief"), dict) else {}
+        que = (
+            out.get("question_understanding_engine")
+            if isinstance(out.get("question_understanding_engine"), dict)
+            else {}
+        )
+        return {
+            "enabled": True,
+            "version": que.get("version") or "1.1",
+            "engine": "question_understanding_engine",
+            "pipeline_position": "first",
+            "question_understanding_engine": que,
+            "research_brief": brief,
+            "question_understanding": brief,
+            "decision_type": out.get("decision_type") or brief.get("decision_type"),
+            "primary_investment_question": out.get("primary_investment_question")
+            or brief.get("primary_investment_question"),
+            "research_objective": out.get("research_objective") or brief.get("research_objective"),
+            "response_promise": out.get("response_promise") or brief.get("response_promise"),
+            "top_research_questions": list(
+                out.get("top_research_questions") or brief.get("top_research_questions") or []
+            ),
+            "required_information": list(
+                out.get("required_information") or brief.get("required_information") or []
+            ),
+            "optional_information": list(
+                out.get("optional_information") or brief.get("optional_information") or []
+            ),
+            "irrelevant_information": list(
+                out.get("irrelevant_information") or brief.get("irrelevant_information") or []
+            ),
+            "knowledge_gap": out.get("knowledge_gap") or brief.get("knowledge_gap"),
+            "success_criteria": list(out.get("success_criteria") or brief.get("success_criteria") or []),
+            "downstream_contract": out.get("downstream_contract") or {},
+            "response_objective": out.get("response_objective") or brief.get("response_objective"),
+            "expected_deliverable": out.get("expected_deliverable") or brief.get("expected_deliverable"),
+        }
+    except Exception:
+        return {"enabled": False, "engine": "question_understanding_engine", "bypassed": True}
+
+
+def _que_requires_full_desk(que_pack: dict[str, Any] | None) -> bool:
+    """Investment decisions must not short-circuit on a company profile dump."""
+    if not isinstance(que_pack, dict) or not que_pack.get("enabled"):
+        return False
+    decision = str(que_pack.get("decision_type") or "")
+    return decision in _QUE_FULL_DESK_DECISIONS
 
 
 def _is_recommendation_bait(question: str) -> bool:
@@ -814,8 +898,9 @@ class UiService:
         entity_resolution: dict[str, Any],
         ere_body: dict[str, Any],
         alias_hit: str | None,
+        que_pack: dict[str, Any] | None = None,
     ) -> SearchView:
-        """Fast path: refuse transactional advice without RQ/ICE/retrieval fan-out."""
+        """Refuse buy/sell, but answer the underlying capital-allocation decision via QUE."""
         name = ticker or "this company"
         display = {
             "HDFCBANK": "HDFC Bank",
@@ -824,16 +909,38 @@ class UiService:
             "TCS": "TCS",
             "META": "Meta",
         }.get(str(ticker or "").upper(), name)
+        que = que_pack if isinstance(que_pack, dict) else _build_que_answer_construction(
+            question, ticker=ticker, company=display
+        )
+        brief = que.get("research_brief") if isinstance(que.get("research_brief"), dict) else {}
+        primary = (
+            que.get("primary_investment_question")
+            or brief.get("primary_investment_question")
+            or f"What evidence supports allocating capital to {display} rather than another opportunity?"
+        )
+        promise = que.get("response_promise") or brief.get("response_promise") or ""
+        gap = que.get("knowledge_gap") or brief.get("knowledge_gap") or ""
+        top_q = list(que.get("top_research_questions") or brief.get("top_research_questions") or [])
+        required = list(que.get("required_information") or brief.get("required_information") or [])
         executive = (
             f"AGIB does not issue buy or sell recommendations. "
-            f"{display} can be monitored through franchise quality, asset quality, "
-            f"and valuation versus history — without a price target or transactional advice."
+            f"The investment decision underneath is capital allocation: {primary} "
+            f"Evaluate {display} on {', '.join(required[:4]) or 'franchise quality, valuation, and risk'} "
+            f"— without a price target or transactional advice."
         )
         why = [
             "AGIB explains evidence and risks; it does not tell investors what to trade.",
-            f"Key watch items for {display}: earnings quality, balance-sheet strength, and valuation versus its own history.",
-            "Ask a monitoring-framed question (risks, peers, valuation drivers) for a full research brief.",
+            f"Primary investment question: {primary}",
         ]
+        if gap:
+            why.append(f"Knowledge gap to close: {gap}")
+        if promise:
+            why.append(str(promise))
+        if not any("watch" in str(w).lower() for w in why):
+            why.append(
+                f"Key watch items for {display}: earnings quality, balance-sheet strength, "
+                "and valuation versus its own history."
+            )
         stage_timer.mark("ikl")
         stage_timer.mark("retrieval")
         stage_timer.mark("ranking")
@@ -844,6 +951,8 @@ class UiService:
             "executive_source": "recommendation_policy",
             "short_circuit": "recommendation_policy",
             "rq_stack": "skipped_recommendation_policy",
+            "que_decision_type": que.get("decision_type") or "Capital Allocation",
+            "que_attached": bool(que.get("enabled")),
         }
         orch = finalize_orchestration(
             ask_orchestration,
@@ -856,7 +965,11 @@ class UiService:
                 {
                     "source": "policy",
                     "title": "AGIB recommendation policy — monitoring only",
-                }
+                },
+                {
+                    "source": "question_understanding_engine",
+                    "title": f"Research brief — {que.get('decision_type') or 'Capital Allocation'}",
+                },
             ],
             why=why,
             executive=executive,
@@ -872,8 +985,13 @@ class UiService:
             orch["timeout"] = False
         except Exception:
             pass
+        followups = top_q[:3] or [
+            f"What are the biggest risks for {display}?",
+            f"How does {display} valuation compare with peers?",
+            f"What is changing in {display}'s franchise?",
+        ]
         return SearchView(
-            meta=UiMeta(surface="search", sources=["recommendation_policy"]),
+            meta=UiMeta(surface="search", sources=["recommendation_policy", "question_understanding_engine"]),
             question=question,
             status="ok",
             degradation={
@@ -881,6 +999,7 @@ class UiService:
                 "short_circuit": "recommendation_policy",
                 "rq_stack": "skipped",
                 "reasoning": "policy_refuse",
+                "que_attached": True,
             },
             ask_orchestration=orch,
             intent="recommendation_request",
@@ -897,34 +1016,37 @@ class UiService:
                 "why": why,
                 "house_view_label": "Monitoring",
                 "policy": "no_buy_sell_recommendation",
+                "decision_type": que.get("decision_type") or "Capital Allocation",
+                "primary_investment_question": primary,
+                "research_brief": brief,
             },
             executive_summary=executive,
             house_view={"label": "Monitoring", "stance": "Neutral"},
             confidence=70.0,
             investment_thesis=(
-                f"No transactional recommendation. Monitor {display} on evidence — "
-                "franchise, risks, and valuation — rather than a buy/sell call."
+                f"No transactional recommendation. Capital-allocation question: {primary}"
             ),
             bull_case=[],
             bear_case=[
                 "Acting on a buy/sell prompt without a full evidence pack would violate AGIB policy."
             ],
             key_risks=[
-                f"Policy path: deep research was not run because the question asked for a trade recommendation on {display}."
+                f"Policy path: buy/sell wording refused; research brief frames the real decision on {display}."
             ],
             why=why,
             evidence_used=[
                 {
                     "source": "policy",
                     "title": "AGIB recommendation policy — monitoring only",
-                }
+                },
+                {
+                    "source": "question_understanding_engine",
+                    "title": f"Research brief — {que.get('decision_type') or 'Capital Allocation'}",
+                },
             ],
-            follow_up_questions=[
-                f"What are the biggest risks for {display}?",
-                f"How does {display} valuation compare with peers?",
-                f"What is changing in {display}'s franchise?",
-            ],
+            follow_up_questions=followups,
             answer_policy="no_buy_sell_recommendation",
+            answer_construction=scrub(que) if que else {},
             entity_resolution=scrub(entity_resolution) if entity_resolution else {},
         )
 
@@ -1634,8 +1756,19 @@ class UiService:
         except Exception:
             pipeline.set_entities([], none_found=True)
 
-        # Recommendation / buy-sell bait: refuse before RQ cascade and full retrieval.
-        # SMOKE-06 and similar must not invoke the research pipeline.
+        # QUE v1.1 — first pipeline stage. Built once; attached to every Ask path
+        # (including short-circuits) so downstream always knows the decision.
+        que_pack = _build_que_answer_construction(q, ticker=detected_ticker)
+        ask_orchestration["que_decision_type"] = que_pack.get("decision_type")
+        ask_orchestration["que_attached"] = bool(que_pack.get("enabled"))
+        if que_pack.get("primary_investment_question"):
+            ask_orchestration["primary_investment_question"] = que_pack.get(
+                "primary_investment_question"
+            )
+
+        # Recommendation / buy-sell bait: refuse transactional advice, but still
+        # attach the capital-allocation research brief (QUE) so Ask answers the
+        # real decision rather than going silent on the investment question.
         if _is_recommendation_bait(q):
             try:
                 pipeline.set_intent("Recommendation Request", confidence=0.99)
@@ -1666,6 +1799,7 @@ class UiService:
                 entity_resolution=entity_resolution,
                 ere_body=ere_body if isinstance(ere_body, dict) else {},
                 alias_hit=alias_hit,
+                que_pack=que_pack,
             )
 
         # Unsupported Coverage Policy (Phase 2.6 Module 12) — a REAL, well-
@@ -1890,6 +2024,32 @@ class UiService:
                 entity_resolution=scrub(entity_resolution) if entity_resolution else {},
             )
 
+        # Investment decisions (Research Priority, Valuation, etc.) must reach
+        # answer_construction / QUE-shaped research — not a thin company dump.
+        kul_providers_preview = list((kul_hit or {}).get("providers_used") or []) if kul_hit else []
+        kul_is_finance_concept = bool(
+            kul_hit
+            and any(
+                p in kul_providers_preview
+                for p in (
+                    "financial_concepts",
+                    "financial_foundations",
+                    "financial_statement_intelligence",
+                )
+            )
+            and not ((kul_hit.get("company_intelligence") or {}).get("identity") or {}).get("ticker")
+        )
+        if (
+            kul_hit
+            and (kul_hit.get("summary") or kul_hit.get("why"))
+            and _que_requires_full_desk(que_pack)
+            and not kul_is_finance_concept
+        ):
+            ask_orchestration["kul_deferred_for_que"] = True
+            ask_orchestration["kul_deferred_providers"] = kul_providers_preview[:8]
+            ask_orchestration["kul_deferred_summary"] = str(kul_hit.get("summary") or "")[:280]
+            kul_hit = None  # fall through to full desk
+
         if kul_hit and (kul_hit.get("summary") or kul_hit.get("why")):
             for stage in ("ikl", "retrieval", "ranking", "reasoning", "response_assembly"):
                 stage_timer.mark(stage)
@@ -1978,7 +2138,8 @@ class UiService:
             except Exception:
                 pass
             conf = float(coverage.get("confidence") or 80.0)
-            sources = ["knowledge_unification", *providers_used]
+            sources = ["knowledge_unification", "question_understanding_engine", *providers_used]
+            followups = list(que_pack.get("top_research_questions") or [])[:3]
             return SearchView(
                 meta=UiMeta(surface="search", sources=sources),
                 question=q,
@@ -1988,6 +2149,7 @@ class UiService:
                     "short_circuit": "knowledge_unification",
                     "rq_stack": "skipped",
                     "reasoning": "kul_fused_evidence",
+                    "que_attached": bool(que_pack.get("enabled")),
                 },
                 ask_orchestration=orch,
                 intent=intent,
@@ -2007,6 +2169,9 @@ class UiService:
                     "coverage": coverage,
                     "company_intelligence": kul_hit.get("company_intelligence") or {},
                     "concept_intelligence": kul_hit.get("concept_intelligence") or {},
+                    "decision_type": que_pack.get("decision_type"),
+                    "primary_investment_question": que_pack.get("primary_investment_question"),
+                    "research_brief": que_pack.get("research_brief") or {},
                 },
                 executive_summary=executive,
                 house_view={"label": "Unified Knowledge", "stance": "Neutral"},
@@ -2017,8 +2182,9 @@ class UiService:
                 key_risks=list(coverage.get("missing_information") or []),
                 why=why,
                 evidence_used=kul_hit.get("evidence") or [],
-                follow_up_questions=[],
+                follow_up_questions=followups,
                 answer_policy="knowledge_unification",
+                answer_construction=scrub(que_pack) if que_pack else {},
                 entity_resolution=scrub(entity_resolution) if entity_resolution else {},
             )
 
@@ -2027,6 +2193,9 @@ class UiService:
         try:
             ikt_hit = company_router_route(q)
         except Exception:
+            ikt_hit = None
+        if ikt_hit and _que_requires_full_desk(que_pack):
+            ask_orchestration["ikt_deferred_for_que"] = True
             ikt_hit = None
         if ikt_hit:
             for stage in ("ikl", "retrieval", "ranking", "reasoning", "response_assembly"):
@@ -2110,8 +2279,9 @@ class UiService:
                 key_risks=[],
                 why=why,
                 evidence_used=ikt_hit.get("evidence") or [],
-                follow_up_questions=[],
+                follow_up_questions=list(que_pack.get("top_research_questions") or [])[:3],
                 answer_policy="ikt_company_profile",
+                answer_construction=scrub(que_pack) if que_pack else {},
                 entity_resolution=scrub(entity_resolution) if entity_resolution else {},
             )
 

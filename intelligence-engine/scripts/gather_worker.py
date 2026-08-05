@@ -34,6 +34,7 @@ def _apply_worker_defaults() -> None:
     defaults = {
         "CONTINUOUS_GATHER_LEARN": "true",
         "FAA_BACKGROUND_COLLECTOR": "true",
+        "FAA_LIVE_FETCH": "true",
         "CONTINUOUS_HISTORICAL_BACKFILL": "true",
         "CONTINUOUS_BACKFILL_UNTIL_COMPLETE": "true",
         "KF_HD_LIVE_COLLECTORS": "true",
@@ -55,6 +56,10 @@ def _apply_worker_defaults() -> None:
     if _truthy("AGI_GATHER_FORCE", "true"):
         for key, value in defaults.items():
             os.environ[key] = value
+    # Live public acquisition must be on for the gather process even when the
+    # HTTP Blueprint/dashboard left FAA_LIVE_FETCH unset/false.
+    if _truthy("AGI_GATHER_FORCE", "true") and not _truthy("FAA_LIVE_FETCH_FORCE_OFF", "false"):
+        os.environ["FAA_LIVE_FETCH"] = "true"
 
 
 def main() -> int:
@@ -159,7 +164,21 @@ def main() -> int:
     signal.signal(signal.SIGINT, _handle_stop)
 
     log.info("gather_worker_ready")
+    _heartbeat = None
+    try:
+        from continuous_gather_learn.persist import write_gather_heartbeat as _heartbeat
+
+        _heartbeat({"phase": "ready"})
+    except Exception as exc:  # noqa: BLE001
+        log.warning("gather_worker_heartbeat_failed", extra={"error": str(exc)[:160]})
+        _heartbeat = None
+
     while not stopping["flag"]:
+        if _heartbeat is not None:
+            try:
+                _heartbeat({"phase": "running"})
+            except Exception:
+                pass
         time.sleep(5.0)
 
     for fn in stop_fns:

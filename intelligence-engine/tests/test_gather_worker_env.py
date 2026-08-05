@@ -27,6 +27,7 @@ def test_gather_worker_force_enables_flags(monkeypatch):
 
     assert os.environ["CONTINUOUS_GATHER_LEARN"] == "true"
     assert os.environ["FAA_BACKGROUND_COLLECTOR"] == "true"
+    assert os.environ["FAA_LIVE_FETCH"] == "true"
     assert os.environ["KF_HD_LIVE_COLLECTORS"] == "true"
     assert os.environ["AGI_ROLE"] == "gather_worker"
 
@@ -37,6 +38,7 @@ def test_start_engine_script_exists():
     text = script.read_text(encoding="utf-8")
     assert "gather_worker.py" in text
     assert "CONTINUOUS_GATHER_LEARN=false" in text
+    assert "FAA_LIVE_FETCH" in text
     assert "uvicorn app.main:app" in text
     assert "AGI_GATHER_SIDECAR_DELAY_SEC" in text
     assert "nice -n 10" in text
