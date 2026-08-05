@@ -18744,6 +18744,35 @@ async def warehouse_financial_coverage():
     return financial_coverage()
 
 
+@router.get("/warehouse/financial-audit")
+async def warehouse_financial_audit():
+    """Phase 7.4F Step 0 — read-only financial warehouse coverage audit."""
+    from financial_warehouse_completion import financial_audit
+
+    return financial_audit()
+
+
+@router.get("/warehouse/coverage/summary")
+async def warehouse_coverage_summary():
+    from financial_warehouse_completion import coverage_summary
+
+    return coverage_summary()
+
+
+@router.get("/warehouse/coverage/sector")
+async def warehouse_coverage_sector():
+    from financial_warehouse_completion import coverage_sector
+
+    return coverage_sector()
+
+
+@router.get("/warehouse/missing-financials")
+async def warehouse_missing_financials(limit: int = 500, classification: str | None = None):
+    from financial_warehouse_completion import missing_financials
+
+    return missing_financials(limit=limit, classification=classification)
+
+
 @router.get("/warehouse/company/{symbol}/coverage")
 async def warehouse_company_financial_coverage(symbol: str):
     from financial_warehouse_completion import company_coverage

@@ -111,6 +111,10 @@ export default function FinancialWarehouse() {
           {board?.what_this_does
             || 'Completes statements, share counts, ownership and consensus so HVIE and research engines stop stalling on missing inputs. Never imports vendor historical PE/PB/EV.'}
         </p>
+        <p className="vp-sub">
+          Before importing, measure existing depth on{' '}
+          <Link to="/admin/financial-coverage">Financial Coverage Audit (Step 0)</Link>.
+        </p>
 
         <div className="hr-actions">
           <button

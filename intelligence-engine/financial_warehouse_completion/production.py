@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from financial_warehouse_completion import coverage, import_runtime
+from financial_warehouse_completion import audit, coverage, import_runtime
 from financial_warehouse_completion.capital_iq_import import import_framework_status, run_capital_iq_stage
 from financial_warehouse_completion.models import ENGINE_CODE, PROGRAMME_CODE, PROGRAMME_VERSION, TARGETS
 from financial_warehouse_completion.share_count import sync_symbol as sync_share_count
@@ -27,6 +27,10 @@ def health() -> dict[str, Any]:
         "runtime": st.get("runtime"),
         "endpoints": [
             "/v1/warehouse/financial-coverage",
+            "/v1/warehouse/financial-audit",
+            "/v1/warehouse/coverage/summary",
+            "/v1/warehouse/coverage/sector",
+            "/v1/warehouse/missing-financials",
             "/v1/warehouse/company/{symbol}/coverage",
             "/v1/warehouse/missing-statements",
             "/v1/warehouse/missing-share-count",
@@ -45,8 +49,52 @@ def financial_coverage() -> dict[str, Any]:
     return coverage.financial_coverage()
 
 
+def financial_audit() -> dict[str, Any]:
+    """Phase 7.4F Step 0 — full read-only coverage board."""
+    return audit.run_audit()
+
+
+def coverage_summary() -> dict[str, Any]:
+    return audit.audit_summary()
+
+
+def coverage_sector() -> dict[str, Any]:
+    return audit.audit_sector()
+
+
+def missing_financials(limit: int = 500, classification: Optional[str] = None) -> dict[str, Any]:
+    return audit.missing_financials(limit=limit, classification=classification)
+
+
 def company_coverage(symbol: str) -> dict[str, Any]:
-    return coverage.company_coverage(symbol)
+    base = coverage.company_coverage(symbol)
+    try:
+        detail = audit.company_audit(symbol)
+        base["audit"] = {
+            "classification": detail.get("classification"),
+            "annual": {
+                "earliest": (detail.get("annual") or {}).get("earliest"),
+                "latest": (detail.get("annual") or {}).get("latest"),
+                "years": (detail.get("annual") or {}).get("years"),
+                "missing_years": (detail.get("annual") or {}).get("missing_years"),
+                "has_consolidated": (detail.get("annual") or {}).get("has_consolidated"),
+                "has_standalone": (detail.get("annual") or {}).get("has_standalone"),
+            },
+            "quarterly": {
+                "earliest": (detail.get("quarterly") or {}).get("earliest"),
+                "latest": (detail.get("quarterly") or {}).get("latest"),
+                "quarters": (detail.get("quarterly") or {}).get("quarters"),
+            },
+            "share_count": detail.get("share_count"),
+            "missing_fields": detail.get("missing_fields"),
+            "needs_backfill": detail.get("needs_backfill"),
+            "agib_standard": detail.get("agib_standard"),
+        }
+        base["phase"] = "7.4F-step0"
+        base["read_only"] = True
+    except Exception as exc:
+        base["audit"] = {"ok": False, "error": str(exc)[:200]}
+    return base
 
 
 def missing_statements(limit: int = 500) -> dict[str, Any]:

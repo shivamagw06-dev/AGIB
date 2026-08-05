@@ -3,6 +3,9 @@
 from financial_warehouse_completion.production import (
     capital_iq,
     company_coverage,
+    coverage_sector,
+    coverage_summary,
+    financial_audit,
     financial_coverage,
     health,
     import_board,
@@ -12,6 +15,7 @@ from financial_warehouse_completion.production import (
     import_start,
     import_status,
     import_stop,
+    missing_financials,
     missing_share_count,
     missing_statements,
     run_capital_iq,
@@ -21,6 +25,10 @@ from financial_warehouse_completion.production import (
 __all__ = [
     "health",
     "financial_coverage",
+    "financial_audit",
+    "coverage_summary",
+    "coverage_sector",
+    "missing_financials",
     "company_coverage",
     "missing_statements",
     "missing_share_count",

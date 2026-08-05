@@ -62,12 +62,32 @@ Capital IQ / Upstox / Yahoo / Connector
    Coverage board + HVIE eligibility
 ```
 
+## Step 0 — Financial Warehouse Coverage Audit (read-only)
+
+Before CapIQ / provider import, measure what already exists.
+
+| Classification | Annual | Quarters |
+|----------------|--------|----------|
+| COMPLETE_10Y | ≥8 years | ≥40 |
+| GOOD | 6–9 years | 24–39 |
+| PARTIAL | 3–5 years | 8–23 |
+| MINIMAL | 1–2 years | sparse |
+| EMPTY | none | none |
+
+Audit answers: % with ≥10y annual, % with ≥40 quarters, who needs backfill, weakest sectors, most-missing fields. **No data is modified.**
+
+Admin: `/admin/financial-coverage`
+
 ## APIs
 
 | Method | Path |
 |--------|------|
 | GET | `/v1/fwcp/health` |
 | GET | `/v1/warehouse/financial-coverage` |
+| GET | `/v1/warehouse/financial-audit` |
+| GET | `/v1/warehouse/coverage/summary` |
+| GET | `/v1/warehouse/coverage/sector` |
+| GET | `/v1/warehouse/missing-financials` |
 | GET | `/v1/warehouse/company/{symbol}/coverage` |
 | GET | `/v1/warehouse/missing-statements` |
 | GET | `/v1/warehouse/missing-share-count` |
@@ -84,12 +104,14 @@ BFF mirrors under `/api/intelligence/…`.
 
 ## Admin
 
-`/admin/financial-warehouse` — coverage board, missing lists, Start / Resume / Retry / Run batch.
+- `/admin/financial-coverage` — Step 0 audit (histograms, sector gaps, missing fields, import queue)
+- `/admin/financial-warehouse` — import runtime board, Start / Resume / Retry / Run batch
 
 ## Package
 
 `intelligence-engine/financial_warehouse_completion/`
 
+- `audit.py` — Step 0 read-only coverage audit  
 - `coverage.py` — universe / company / gap metrics  
 - `share_count.py` — harvest + write `share_count_history`  
 - `dqiv_rules.py` — share-count & statement reject rules  

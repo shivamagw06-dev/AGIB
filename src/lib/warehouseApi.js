@@ -263,6 +263,15 @@ async function fwcpFetch(path, opts = {}) {
 export const getFwcpHealth = () => fwcpFetch('/fwcp/health');
 export const getFinancialCoverage = () =>
   warehouseFetch('/financial-coverage', { timeoutMs: 90_000 });
+/** Phase 7.4F Step 0 — full financial warehouse coverage audit (read-only). */
+export const getFinancialAudit = () =>
+  warehouseFetch('/financial-audit', { timeoutMs: 180_000 });
+export const getCoverageSummary = () =>
+  warehouseFetch('/coverage/summary', { timeoutMs: 180_000 });
+export const getCoverageBySector = () =>
+  warehouseFetch('/coverage/sector', { timeoutMs: 180_000 });
+export const getMissingFinancials = (limit = 200, classification) =>
+  warehouseFetch(`/missing-financials${qs({ limit, classification })}`, { timeoutMs: 180_000 });
 export const getCompanyFinancialCoverage = (symbol) =>
   warehouseFetch(`/company/${encodeURIComponent(symbol)}/coverage`);
 export const getMissingStatements = (limit = 200) =>

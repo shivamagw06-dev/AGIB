@@ -8284,12 +8284,12 @@ export default function createIntelligenceRouter() {
         'admin',
     ).slice(0, 200);
 
-  const warehouseGet = (buildPath) => async (req, res) => {
+  const warehouseGet = (buildPath, timeoutMs = 120_000) => async (req, res) => {
     try {
       const qs = new URLSearchParams(req.query || {}).toString();
       const target = typeof buildPath === 'function' ? buildPath(req) : buildPath;
       const result = await engineFetch(`${target}${qs ? `?${qs}` : ''}`, {
-        timeoutMs: 120_000,
+        timeoutMs,
         headers: { 'X-AGI-Actor': warehouseActor(req) },
       });
       return res.status(result.status).json(result.data);
@@ -8323,6 +8323,11 @@ export default function createIntelligenceRouter() {
   // Phase 7.4F — Financial Warehouse Completion Programme
   router.get('/fwcp/health', warehouseGet('/v1/fwcp/health'));
   router.get('/warehouse/financial-coverage', warehouseGet('/v1/warehouse/financial-coverage'));
+  // Phase 7.4F Step 0 — Financial Warehouse Coverage Audit (read-only)
+  router.get('/warehouse/financial-audit', warehouseGet('/v1/warehouse/financial-audit', 180_000));
+  router.get('/warehouse/coverage/summary', warehouseGet('/v1/warehouse/coverage/summary', 180_000));
+  router.get('/warehouse/coverage/sector', warehouseGet('/v1/warehouse/coverage/sector', 180_000));
+  router.get('/warehouse/missing-financials', warehouseGet('/v1/warehouse/missing-financials', 180_000));
   router.get('/warehouse/company/:symbol/coverage', warehouseGet((req) =>
     `/v1/warehouse/company/${encode(req.params.symbol)}/coverage`));
   router.get('/warehouse/missing-statements', warehouseGet('/v1/warehouse/missing-statements'));
