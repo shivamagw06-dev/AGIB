@@ -8343,6 +8343,16 @@ export default function createIntelligenceRouter() {
   router.post('/warehouse/import/capital-iq', warehousePost('/v1/warehouse/import/capital-iq', 300_000));
   router.post('/warehouse/share-count/:symbol/sync', warehousePost((req) =>
     `/v1/warehouse/share-count/${encode(req.params.symbol)}/sync`));
+  // Phase 7.4F — Yahoo-first financial fill (fast EMPTY / thin path)
+  router.get('/warehouse/yahoo-fill/status', warehouseGet('/v1/warehouse/yahoo-fill/status', 180_000));
+  router.get('/warehouse/yahoo-fill/board', warehouseGet('/v1/warehouse/yahoo-fill/board', 180_000));
+  router.get('/warehouse/yahoo-fill/queue', warehouseGet('/v1/warehouse/yahoo-fill/queue', 180_000));
+  router.post('/warehouse/yahoo-fill/start', warehousePost('/v1/warehouse/yahoo-fill/start'));
+  router.post('/warehouse/yahoo-fill/stop', warehousePost('/v1/warehouse/yahoo-fill/stop'));
+  router.post('/warehouse/yahoo-fill/resume', warehousePost('/v1/warehouse/yahoo-fill/resume'));
+  router.post('/warehouse/yahoo-fill/run', warehousePost('/v1/warehouse/yahoo-fill/run', 600_000));
+  router.post('/warehouse/yahoo-fill/:symbol', warehousePost((req) =>
+    `/v1/warehouse/yahoo-fill/${encode(req.params.symbol)}`, 120_000));
   router.get('/warehouse/audit', warehouseGet('/v1/warehouse/audit'));
   router.get('/warehouse/validate', warehouseGet('/v1/warehouse/validate'));
   router.get('/warehouse/imports', warehouseGet('/v1/warehouse/imports'));

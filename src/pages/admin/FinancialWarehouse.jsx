@@ -112,8 +112,9 @@ export default function FinancialWarehouse() {
             || 'Completes statements, share counts, ownership and consensus so HVIE and research engines stop stalling on missing inputs. Never imports vendor historical PE/PB/EV.'}
         </p>
         <p className="vp-sub">
-          Before importing, measure existing depth on{' '}
-          <Link to="/admin/financial-coverage">Financial Coverage Audit (Step 0)</Link>.
+          Measure depth and run the Yahoo-first fill on{' '}
+          <Link to="/admin/financial-coverage">Financial Coverage Audit</Link>
+          {' '}(EMPTY/thin → Yahoo; CapIQ still needed for 10y).
         </p>
 
         <div className="hr-actions">

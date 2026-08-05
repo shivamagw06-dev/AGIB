@@ -18911,6 +18911,103 @@ async def warehouse_share_count_sync(
 
 
 # ---------------------------------------------------------------------------
+# Phase 7.4F — Yahoo-first financial fill (fast EMPTY / thin path)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/warehouse/yahoo-fill/status")
+async def warehouse_yahoo_fill_status():
+    from financial_warehouse_completion import yahoo_fill_status
+
+    return yahoo_fill_status()
+
+
+@router.get("/warehouse/yahoo-fill/board")
+async def warehouse_yahoo_fill_board():
+    from financial_warehouse_completion import yahoo_fill_board
+
+    return yahoo_fill_board()
+
+
+@router.get("/warehouse/yahoo-fill/queue")
+async def warehouse_yahoo_fill_queue(limit: int = 200, include_thin: bool = True):
+    from financial_warehouse_completion import yahoo_fill_queue
+
+    return yahoo_fill_queue(limit=limit, include_thin=include_thin)
+
+
+@router.post("/warehouse/yahoo-fill/start")
+async def warehouse_yahoo_fill_start(
+    payload: dict[str, Any] = Body(default_factory=dict),
+    x_agi_actor: str | None = Header(default=None),
+):
+    from financial_warehouse_completion import yahoo_fill_start
+
+    body = payload or {}
+    return yahoo_fill_start(
+        batch=int(body.get("batch") or 25),
+        actor=_warehouse_actor(body, x_agi_actor) or "yahoo_fill",
+        pause_seconds=float(body.get("pause_seconds") if body.get("pause_seconds") is not None else 0.35),
+        include_thin=bool(body.get("include_thin", True)),
+    )
+
+
+@router.post("/warehouse/yahoo-fill/stop")
+async def warehouse_yahoo_fill_stop():
+    from financial_warehouse_completion import yahoo_fill_stop
+
+    return yahoo_fill_stop()
+
+
+@router.post("/warehouse/yahoo-fill/resume")
+async def warehouse_yahoo_fill_resume(
+    payload: dict[str, Any] = Body(default_factory=dict),
+    x_agi_actor: str | None = Header(default=None),
+):
+    from financial_warehouse_completion import yahoo_fill_resume
+
+    body = payload or {}
+    return yahoo_fill_resume(
+        batch=int(body.get("batch") or 25),
+        actor=_warehouse_actor(body, x_agi_actor) or "yahoo_fill",
+        pause_seconds=float(body.get("pause_seconds") if body.get("pause_seconds") is not None else 0.35),
+        include_thin=bool(body.get("include_thin", True)),
+    )
+
+
+@router.post("/warehouse/yahoo-fill/run")
+async def warehouse_yahoo_fill_run(
+    payload: dict[str, Any] = Body(default_factory=dict),
+    x_agi_actor: str | None = Header(default=None),
+):
+    from financial_warehouse_completion import yahoo_fill_run
+
+    body = payload or {}
+    symbols = body.get("symbols")
+    if isinstance(symbols, str):
+        symbols = [symbols]
+    return yahoo_fill_run(
+        batch=int(body.get("batch") or 25),
+        symbols=symbols,
+        actor=_warehouse_actor(body, x_agi_actor) or "yahoo_fill",
+        pause_seconds=float(body.get("pause_seconds") if body.get("pause_seconds") is not None else 0.35),
+        include_thin=bool(body.get("include_thin", True)),
+    )
+
+
+@router.post("/warehouse/yahoo-fill/{symbol}")
+async def warehouse_yahoo_fill_symbol(
+    symbol: str,
+    payload: dict[str, Any] = Body(default_factory=dict),
+    x_agi_actor: str | None = Header(default=None),
+):
+    from financial_warehouse_completion import yahoo_fill_company
+
+    body = payload or {}
+    return yahoo_fill_company(symbol, actor=_warehouse_actor(body, x_agi_actor) or "yahoo_fill")
+
+
+# ---------------------------------------------------------------------------
 # Historical Backfill & Time-Series (Phase 7.1a)
 # ---------------------------------------------------------------------------
 

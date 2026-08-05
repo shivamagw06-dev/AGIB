@@ -62,6 +62,24 @@ Capital IQ / Upstox / Yahoo / Connector
    Coverage board + HVIE eligibility
 ```
 
+## Yahoo-first fill (fast path)
+
+After Step 0, use Yahoo Finance to fill EMPTY / thin companies quickly:
+
+| Method | Path |
+|--------|------|
+| GET | `/v1/warehouse/yahoo-fill/status` |
+| GET | `/v1/warehouse/yahoo-fill/board` |
+| GET | `/v1/warehouse/yahoo-fill/queue` |
+| POST | `/v1/warehouse/yahoo-fill/start` |
+| POST | `/v1/warehouse/yahoo-fill/run` |
+| POST | `/v1/warehouse/yahoo-fill/stop` |
+| POST | `/v1/warehouse/yahoo-fill/{symbol}` |
+
+**Honest ceiling:** Yahoo ≈4–5 annual years and ≈4–6 quarters. Enough to clear EMPTY → PARTIAL for most equities. **Not** enough for COMPLETE_10Y — CapIQ / filings still required for 10y depth.
+
+Admin controls live on `/admin/financial-coverage` (Start Yahoo fill).
+
 ## Step 0 — Financial Warehouse Coverage Audit (read-only)
 
 Before CapIQ / provider import, measure what already exists.
@@ -112,6 +130,7 @@ BFF mirrors under `/api/intelligence/…`.
 `intelligence-engine/financial_warehouse_completion/`
 
 - `audit.py` — Step 0 read-only coverage audit  
+- `yahoo_fill.py` — Yahoo-first EMPTY/thin statement fill + share harvest  
 - `coverage.py` — universe / company / gap metrics  
 - `share_count.py` — harvest + write `share_count_history`  
 - `dqiv_rules.py` — share-count & statement reject rules  

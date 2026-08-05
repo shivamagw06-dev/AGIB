@@ -1,9 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, RefreshCw, Search } from 'lucide-react';
+import { ArrowLeft, Pause, Play, RefreshCw, Search, Zap } from 'lucide-react';
 import {
   getCompanyFinancialCoverage,
   getFinancialAudit,
+  getYahooFillBoard,
+  postYahooFillResume,
+  postYahooFillRun,
+  postYahooFillStart,
+  postYahooFillStop,
 } from '@/lib/warehouseApi';
 import './valuationPolicy.css';
 
@@ -53,7 +58,10 @@ const CLASS_TONE = {
 
 export default function FinancialCoverage() {
   const [board, setBoard] = useState(null);
+  const [yahoo, setYahoo] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState(null);
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState('');
   const [classFilter, setClassFilter] = useState('ALL');
@@ -63,8 +71,12 @@ export default function FinancialCoverage() {
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await getFinancialAudit();
+      const [data, yb] = await Promise.all([
+        getFinancialAudit(),
+        getYahooFillBoard().catch(() => null),
+      ]);
       setBoard(data);
+      setYahoo(yb);
       setError(null);
     } catch (err) {
       setError(String(err?.message || err));
@@ -75,7 +87,38 @@ export default function FinancialCoverage() {
 
   useEffect(() => {
     refresh();
+    const id = setInterval(() => {
+      getYahooFillBoard().then(setYahoo).catch(() => {});
+    }, 15000);
+    return () => clearInterval(id);
   }, [refresh]);
+
+  const yahooAct = async (label, fn) => {
+    setBusy(true);
+    setNote(null);
+    try {
+      const out = await fn();
+      if (out?.already_running) {
+        setNote('Yahoo fill already running — EMPTY/thin names are being written.');
+      } else if (out?.ok === false) {
+        setNote(`${label} failed: ${out.error || 'unknown'}`);
+      } else if (label === 'run') {
+        const b = out?.batch || {};
+        setNote(`Yahoo batch: ${b.filled ?? 0} filled, ${b.failed ?? 0} failed. Ceiling ≈4–5 annual years.`);
+      } else {
+        setNote(
+          label === 'start' || label === 'resume'
+            ? 'Yahoo fill started. Prioritises EMPTY → MINIMAL → thin. Will not create 10y depth alone.'
+            : 'Yahoo fill paused.',
+        );
+      }
+      setYahoo(await getYahooFillBoard().catch(() => out?.board || null));
+    } catch (err) {
+      setError(String(err?.message || err));
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const summary = board?.summary || {};
   const annual = summary.annual || {};
@@ -115,24 +158,65 @@ export default function FinancialCoverage() {
       <div className="vp-shell">
         <Link to="/admin" className="vp-back"><ArrowLeft size={16} /> Admin</Link>
 
-        <p className="vp-kicker">Phase 7.4F · Step 0 · Read-only</p>
+        <p className="vp-kicker">Phase 7.4F · Step 0 audit + Yahoo fill</p>
         <h1 className="vp-title">Financial Coverage Audit</h1>
         <p className="vp-sub">
-          Measures what the Institutional Warehouse already holds — annual years, quarters,
-          share counts, missing fields, and sector gaps — before any Capital IQ backfill.
-          This page never writes data.
+          Measures warehouse depth, then fills EMPTY / thin names from Yahoo Finance
+          (≈4–5 annual years, ≈4–6 quarters). CapIQ remains the path to 10-year COMPLETE depth.
+          Audit scan is read-only; Yahoo fill writes statements + share counts only — never vendor PE/PB/EV.
         </p>
 
         <div className="hr-actions">
+          <button
+            type="button"
+            className="hr-btn primary"
+            disabled={busy || yahoo?.runtime?.status === 'running'}
+            onClick={() => yahooAct('start', () => postYahooFillStart({ batch: 25, pause_seconds: 0.35, include_thin: true }))}
+          >
+            <Play size={14} /> Start Yahoo fill
+          </button>
+          <button
+            type="button"
+            className="hr-btn"
+            disabled={busy || yahoo?.runtime?.status !== 'running'}
+            onClick={() => yahooAct('stop', () => postYahooFillStop())}
+          >
+            <Pause size={14} /> Pause
+          </button>
+          <button
+            type="button"
+            className="hr-btn"
+            disabled={busy}
+            onClick={() => yahooAct('resume', () => postYahooFillResume({ batch: 25 }))}
+          >
+            Resume
+          </button>
+          <button
+            type="button"
+            className="hr-btn"
+            disabled={busy}
+            onClick={() => yahooAct('run', () => postYahooFillRun({ batch: 15, include_thin: true }))}
+          >
+            <Zap size={14} /> Run 15 now
+          </button>
           <button type="button" className="hr-btn" disabled={loading} onClick={refresh}>
             <RefreshCw size={14} /> {loading ? 'Scanning…' : 'Re-run audit'}
           </button>
           <Link to="/admin/financial-warehouse" className="hr-btn">Import runtime →</Link>
         </div>
 
+        {note ? <p className="hr-note">{note}</p> : null}
         {error ? <p className="vp-error">{error}</p> : null}
+        {yahoo?.plain_english ? (
+          <p className="vp-sub" style={{ marginTop: '0.75rem' }}>
+            Yahoo worker: <strong>{yahoo?.runtime?.status || 'idle'}</strong>
+            {' · '}filled {fmt(yahoo?.progress?.filled)} / processed {fmt(yahoo?.progress?.processed)}
+            {' · '}EMPTY waiting {fmt(yahoo?.progress?.empty_waiting)}
+            {' · '}{yahoo.plain_english}
+          </p>
+        ) : null}
         {board?.plain_english ? (
-          <p className="vp-sub" style={{ marginTop: '0.75rem' }}>{board.plain_english}</p>
+          <p className="vp-sub" style={{ marginTop: '0.5rem' }}>{board.plain_english}</p>
         ) : null}
 
         <div className="vp-stats">

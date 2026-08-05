@@ -295,3 +295,21 @@ export const postFwcpCapitalIq = (body = {}) =>
   warehouseFetch('/import/capital-iq', { method: 'POST', body, timeoutMs: 300_000 });
 export const postSyncShareCount = (symbol) =>
   warehouseFetch(`/share-count/${encodeURIComponent(symbol)}/sync`, { method: 'POST', body: {} });
+
+/* Phase 7.4F — Yahoo-first financial fill */
+export const getYahooFillStatus = () =>
+  warehouseFetch('/yahoo-fill/status', { timeoutMs: 180_000 });
+export const getYahooFillBoard = () =>
+  warehouseFetch('/yahoo-fill/board', { timeoutMs: 180_000 });
+export const getYahooFillQueue = (limit = 200, includeThin = true) =>
+  warehouseFetch(`/yahoo-fill/queue${qs({ limit, include_thin: includeThin })}`, { timeoutMs: 180_000 });
+export const postYahooFillStart = (body = {}) =>
+  warehouseFetch('/yahoo-fill/start', { method: 'POST', body });
+export const postYahooFillStop = () =>
+  warehouseFetch('/yahoo-fill/stop', { method: 'POST', body: {} });
+export const postYahooFillResume = (body = {}) =>
+  warehouseFetch('/yahoo-fill/resume', { method: 'POST', body });
+export const postYahooFillRun = (body = {}) =>
+  warehouseFetch('/yahoo-fill/run', { method: 'POST', body, timeoutMs: 600_000 });
+export const postYahooFillCompany = (symbol) =>
+  warehouseFetch(`/yahoo-fill/${encodeURIComponent(symbol)}`, { method: 'POST', body: {}, timeoutMs: 120_000 });
