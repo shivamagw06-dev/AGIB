@@ -241,8 +241,12 @@ def yahoo_fill_probe(symbol: str = "RELIANCE") -> dict[str, Any]:
     return yahoo_fill.probe(symbol)
 
 
-def upstox_fill_queue(limit: int = 200, include_thin: bool = True) -> dict[str, Any]:
-    return upstox_fill.queue_candidates(limit=limit, include_thin=include_thin)
+def upstox_fill_queue(
+    limit: int = 200,
+    include_thin: bool = True,
+    exclude: list[str] | None = None,
+) -> dict[str, Any]:
+    return upstox_fill.queue_candidates(limit=limit, include_thin=include_thin, exclude=exclude)
 
 
 def upstox_fill_board() -> dict[str, Any]:

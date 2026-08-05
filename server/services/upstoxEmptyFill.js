@@ -59,9 +59,12 @@ const state = {
   processed: 0,
   filled: 0,
   failed: 0,
+  skipped: 0,
   lastBatch: null,
   lastError: null,
   recent: [],
+  /** Symbols already attempted this run — keep the queue advancing. */
+  attempted: [],
 };
 
 let loopPromise = null;
@@ -70,11 +73,25 @@ function pushRecent(entry) {
   state.recent = [{ at: nowIso(), ...entry }, ...(state.recent || [])].slice(0, 40);
 }
 
+function rememberAttempted(symbols) {
+  const seen = new Set(state.attempted || []);
+  for (const s of symbols || []) {
+    const sym = String(s || '').trim().toUpperCase();
+    if (sym) seen.add(sym);
+  }
+  // Cap memory; oldest drop first so recent skips stay excluded.
+  state.attempted = [...seen].slice(-2000);
+}
+
 async function loadQueue(limit) {
   const qs = new URLSearchParams({
     limit: String(limit),
     include_thin: state.includeThin ? 'true' : 'false',
   });
+  // Keep the query string bounded; session memory still tracks up to 2000.
+  if ((state.attempted || []).length) {
+    qs.set('exclude', state.attempted.slice(-150).join(','));
+  }
   const result = await engineFetch(`/v1/warehouse/upstox-fill/queue?${qs}`);
   if (!result.ok) {
     throw new Error(result.data?.error || `queue_http_${result.status}`);
@@ -107,20 +124,20 @@ async function runBatch({ batchSize = state.batchSize, symbols = null } = {}) {
   });
 
   const fetched = Number(result.fetched || 0);
-  const ok = Boolean(result.ok);
   const ingestRows = Number(result.ingest?.totals?.rows || 0);
-  const filled = ok && ingestRows > 0 ? todo.length : (ok ? 0 : 0);
-  // Count companies with successful ingest results when available.
   const ingestResults = result.ingest?.results || [];
   const companyOk = new Set(
     ingestResults.filter((r) => r?.ok && r?.symbol).map((r) => String(r.symbol).toUpperCase()),
   );
-  const filledCount = companyOk.size || (ingestRows > 0 ? Math.min(todo.length, fetched) : 0);
+  // Prefer explicit per-company ingest success; do not invent fills from row totals.
+  const filledCount = companyOk.size;
   const failedCount = Math.max(0, todo.length - filledCount);
 
+  rememberAttempted(todo);
   state.processed += todo.length;
   state.filled += filledCount;
   state.failed += failedCount;
+  state.skipped = (state.attempted || []).length;
   state.lastBatch = {
     size: todo.length,
     filled: filledCount,
@@ -139,9 +156,9 @@ async function runBatch({ batchSize = state.batchSize, symbols = null } = {}) {
   });
 
   if ((result.errors || []).some((e) => e.status === 429)) {
-    state.pauseMs = Math.min(60_000, Math.max(state.pauseMs * 2, 5_000));
+    state.pauseMs = Math.min(60_000, Math.max(state.pauseMs * 2, 8_000));
   } else {
-    state.pauseMs = Math.max(1_500, Math.floor(state.pauseMs * 0.9));
+    state.pauseMs = Math.max(2_500, Math.floor(state.pauseMs * 0.9));
   }
 
   return {
@@ -219,7 +236,7 @@ export function getUpstoxEmptyFillStatus() {
 export async function startUpstoxEmptyFill({
   batchSize = 10,
   concurrency = 2,
-  pauseMs = 2000,
+  pauseMs = 2500,
   includeThin = true,
 } = {}) {
   if (loopPromise) {
@@ -227,11 +244,13 @@ export async function startUpstoxEmptyFill({
   }
   state.batchSize = Math.max(1, Math.min(Number(batchSize) || 10, 40));
   state.concurrency = Math.max(1, Math.min(Number(concurrency) || 2, 4));
-  state.pauseMs = Math.max(500, Number(pauseMs) || 2000);
+  state.pauseMs = Math.max(500, Number(pauseMs) || 2500);
   state.includeThin = includeThin !== false;
   state.processed = 0;
   state.filled = 0;
   state.failed = 0;
+  state.skipped = 0;
+  state.attempted = [];
   state.startedAt = nowIso();
   state.recent = [];
   loopPromise = loop();

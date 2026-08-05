@@ -262,9 +262,30 @@ def raw_row(tab_id: str, row_id: str) -> Optional[dict[str, Any]]:
 
 
 def all_rows(tab_id: str, *, entity: Optional[str] = None, limit: int = MAX_LIMIT) -> list[dict[str, Any]]:
-    """Effective rows (overrides applied) for engine consumers."""
-    page = fetch(tab_id, entity=entity, limit=limit)
-    return page["rows"]
+    """Effective rows (overrides applied) for engine consumers.
+
+    ``fetch`` clamps each page to ``MAX_LIMIT`` (5000). Callers that need a
+    fuller tab scan — coverage audits, EMPTY fill queues — pass a higher
+    ``limit``; we page internally so they are not silently truncated.
+    """
+    want = max(1, int(limit or MAX_LIMIT))
+    if want <= MAX_LIMIT:
+        return list(fetch(tab_id, entity=entity, limit=want).get("rows") or [])
+
+    out: list[dict[str, Any]] = []
+    offset = 0
+    while len(out) < want:
+        page_limit = min(MAX_LIMIT, want - len(out))
+        page = fetch(tab_id, entity=entity, limit=page_limit, offset=offset)
+        rows = list(page.get("rows") or [])
+        if not rows:
+            break
+        out.extend(rows)
+        offset += len(rows)
+        total = int(page.get("total") or 0)
+        if offset >= total or len(rows) < page_limit:
+            break
+    return out[:want]
 
 
 def entities(tab_id: str) -> list[str]:
