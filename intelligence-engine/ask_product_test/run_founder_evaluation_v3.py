@@ -27,6 +27,7 @@ from ask_product_test.founder_evaluation_v3 import (  # noqa: E402
 )
 from knowledge_unification.production import plan_and_gather  # noqa: E402
 from knowledge_unification.registry import KnowledgeRegistry  # noqa: E402
+import knowledge_unification.registry as kul_registry  # noqa: E402
 from ask_product_test.harness import write_artifact  # noqa: E402
 
 
