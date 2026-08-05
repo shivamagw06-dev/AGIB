@@ -5,7 +5,7 @@
 **Status:** Core Intelligence System  
 **Architecture Freeze:** v1.0 — see `docs/ARCHITECTURE_FREEZE_v1.0.md`
 
-> **Note:** IKF is the legacy module name. KPE (Knowledge Production Engine) is the canonical name. IKC (Compiler) is **Compile Mode** — not a separate system.
+> **Note:** `institutional_knowledge_factory` is the legacy module name. KPE (Knowledge Production Engine) is the canonical name. IKC (Compiler) is **Compile Mode** — not a separate system.
 
 ---
 
@@ -48,64 +48,18 @@ Collect → Normalize → Extract → Identify Claims → Validate Evidence
 → Update Monitoring → Version Decision Memory → Notify Research Workflows
 ```
 
----
-
-## Position in architecture
-
-```text
-Evidence Sources → Evidence Graph
-  ↓
-Knowledge Production Engine (KPE)
-  ├── Compile Mode
-  └── Incremental Mode
-  ↓
-Knowledge Objects (KO)
-  ↓
-Knowledge Runtime (KR)
-  ↓
-Research Workflow → Institutional Research Engine (IRE) → Response
-```
-
----
-
-## Public API
-
-| Method | Mode |
-|--------|------|
-| `compile_company(ticker)` | Compile |
-| `compile_universe(tickers)` | Compile |
-| `process_evidence(ticker, items)` | Incremental |
-| `calculate_maturity(iko)` | Both |
-| `calculate_knowledge_kpis(ikos)` | Compile reporting |
-| `apply_ikf()` / `apply_kpe()` | Pipeline integration |
-
----
-
-## Persistence
-
-Compiled Knowledge Objects persist to `data/iko/<TICKER>.json`.
-
----
-
-## What comes next (build only)
-
-1. NIFTY 50 compile milestone
-2. Evidence Graph persistence
-3. Ask powered by Knowledge Objects
-4. Namespace migration (phased aliases)
-
-*Architecture is frozen. No new specs after this.*
+Implementation: `institutional_knowledge_factory/pipeline.py`
 
 ---
 
 ## Purpose
 
-IKF answers one question:
+KPE answers one question:
 
 > How does AGI continuously improve its understanding of every listed company?
 
 ```text
-Raw Evidence
+Raw Evidence / Existing Stores
   ↓
 Knowledge Assertions
   ↓
@@ -123,18 +77,20 @@ Investment Intelligence
 ```text
 Evidence Sources
   ↓
-Institutional Knowledge Factory (IKF)     ← this spec (production)
-  ↓
 Evidence Graph (refs)
   ↓
-Institutional Knowledge Runtime (IKR)     ← validation at consumption
+Knowledge Production Engine (KPE)
+  ├── Compile Mode
+  └── Incremental Mode
   ↓
 Institutional Knowledge Objects (IKO)
   ↓
-Research Workflows → Ask → Investment OS
+Institutional Knowledge Runtime (IKR)
+  ↓
+Research Workflows → Institutional Research Engine (IRE) → Response
 ```
 
-IKF **writes** knowledge (via approved writers). IKR **validates** knowledge at read time. LLMs are never writers.
+KPE **writes** knowledge (via approved writers). IKR **validates** knowledge at read time. LLMs are never writers.
 
 ---
 
@@ -160,31 +116,13 @@ IKF **writes** knowledge (via approved writers). IKR **validates** knowledge at 
 
 Every source receives: `source_id`, `timestamp`, `trust_score`, `coverage`, `freshness`.
 
----
-
-## Knowledge pipeline
-
-```text
-1. Collect
-2. Normalize
-3. Extract
-4. Identify Claims
-5. Validate Evidence
-6. Resolve Contradictions
-7. Update Assertions
-8. Update Company DNA
-9. Update Monitoring
-10. Version Decision Memory
-11. Notify Research Workflows
-```
-
-Implementation: `institutional_knowledge_factory/pipeline.py`
+Compile mode additionally consumes: IKT facts, KF company objects, KF evidence packs, decision quality records.
 
 ---
 
 ## Claim generation
 
-IKF never stores raw documents as knowledge. It extracts institutional assertions.
+KPE never stores raw documents as knowledge. It extracts institutional assertions.
 
 Every assertion must contain:
 
@@ -214,6 +152,8 @@ Every update records:
 - Impact  
 
 Implementation uses IKR `update_assertion()` with writer `evidence_pipeline`.
+
+Compiled Knowledge Objects persist to `data/iko/<TICKER>.json`.
 
 ---
 
@@ -253,7 +193,7 @@ Delegates status transitions to IKR monitoring evaluation.
 
 ---
 
-## Knowledge quality
+## Knowledge quality & maturity
 
 Every company receives measured (not assumed) quality:
 
@@ -268,11 +208,13 @@ Every company receives measured (not assumed) quality:
 | `data_quality` | Source trust weighted score |
 | `review_status` | healthy / needs_review / stale |
 
+Knowledge maturity assigns institutional grades (A–C) per DNA dimension. See `maturity.py`.
+
 ---
 
 ## Institutional review
 
-IKF continuously surfaces:
+KPE continuously surfaces:
 
 - What do we now know?  
 - What changed?  
@@ -289,6 +231,7 @@ IKF continuously surfaces:
 - Updated monitoring rules  
 - Updated investment thesis  
 - Updated decision memory  
+- Knowledge maturity grade  
 - Evidence graph delta  
 - Research notifications  
 
@@ -296,17 +239,20 @@ IKF continuously surfaces:
 
 ## Public API
 
-| Method | Purpose |
-|--------|---------|
-| `process_evidence(entity_id, evidence_items)` | Run full factory pipeline |
-| `normalize_source(raw)` | Normalize input source |
-| `extract_claims(normalized)` | Identify claims from evidence |
-| `update_company_dna(iko, updates)` | Append-only DNA evolution |
-| `evaluate_thesis(iko, changes)` | Re-evaluate thesis |
-| `record_decision_memory(...)` | Version decision trail |
-| `compute_knowledge_quality(iko)` | Quality metrics |
-| `institutional_review(iko, changes)` | Review questions |
-| `apply_ikf(out, **kwargs)` | Soft-wire into answer pipeline |
+| Method | Mode |
+|--------|------|
+| `compile_company(ticker)` | Compile |
+| `compile_universe(tickers)` | Compile |
+| `process_evidence(ticker, items)` | Incremental |
+| `normalize_source(raw)` | Both |
+| `extract_claims(normalized)` | Incremental |
+| `update_company_dna(...)` | Both |
+| `evaluate_thesis(iko, changes)` | Both |
+| `calculate_maturity(iko)` | Both |
+| `calculate_knowledge_kpis(ikos)` | Compile reporting |
+| `compute_knowledge_quality(iko)` | Both |
+| `institutional_review(iko, changes)` | Both |
+| `apply_ikf()` / `apply_kpe()` | Pipeline integration |
 
 ---
 
@@ -314,7 +260,7 @@ IKF continuously surfaces:
 
 | Writer | Role |
 |--------|------|
-| `evidence_pipeline` | Primary IKF writer |
+| `evidence_pipeline` | Primary KPE writer |
 | `workflow_completion` | Post-research updates |
 | `monitoring_engine` | Status/monitoring only |
 | **LLM** | **Never** |
@@ -329,17 +275,20 @@ IKF continuously surfaces:
 | Claims extracted | ✓ |
 | Assertions validated | ✓ |
 | Company DNA updated (append-only) | ✓ |
+| Compile mode merges sources | ✓ |
 | Thesis re-evaluated on change | ✓ |
 | Decision memory versioned | ✓ |
 | Knowledge quality computed | ✓ |
+| Knowledge maturity calculated | ✓ |
 | Institutional review generated | ✓ |
 | Research notifications emitted | ✓ |
+| Compiled IKO persisted | ✓ |
 
 ---
 
 ## Non-goals
 
-IKF does **not**:
+KPE does **not**:
 
 - Generate prose for users  
 - Perform valuation or forecasting  
@@ -349,12 +298,12 @@ IKF does **not**:
 
 ---
 
-## What comes next (build, not spec)
+## What comes next (build only)
 
-1. **Evidence Graph** — persistent evidence → assertion edges  
-2. **Populate Company DNA** — NIFTY 50 high-quality assertions  
+1. **NIFTY 50 compilation milestone** — 100% compiled, evidence-linked  
+2. **Evidence Graph persistence** — durable evidence → assertion edges  
 3. **Decision Memory store** — durable version history  
-4. **Wire Ask** — assemble responses from validated assertions  
+4. **Wire Ask** — assemble responses from validated Knowledge Objects  
 5. **Expand universe** — full Indian market  
 
-*This is the last product intelligence specification. Next artifacts are build implementations.*
+*Architecture is frozen. No new specs after this.*
