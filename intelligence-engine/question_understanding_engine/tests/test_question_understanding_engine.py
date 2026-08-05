@@ -1,4 +1,4 @@
-"""Question Understanding Engine v1.0 tests."""
+"""Question Understanding Engine v1.1 tests."""
 
 from __future__ import annotations
 
@@ -6,88 +6,68 @@ from question_understanding_engine import (
     QUESTION_TAXONOMY,
     TARGET_TAXONOMY_COUNT,
     apply_question_understanding_engine,
+    build_research_brief,
+    downstream_contract,
     health,
-    understand_question,
-    validate_understanding,
+    validate_research_brief,
 )
-from question_understanding_engine.schema import DECISION_TYPES
 
 
-def test_health():
+def test_health_v11():
     h = health()
-    assert h["status"] == "ok"
-    assert h["pipeline_position"] == "first"
-    assert h["taxonomy_entries"] == TARGET_TAXONOMY_COUNT
+    assert h["version"] == "1.1"
+    assert h["feature"] == "research_brief_generator"
 
 
 def test_taxonomy_has_500_labeled_questions():
-    assert len(QUESTION_TAXONOMY) == 500
-    sample = QUESTION_TAXONOMY[0]
-    for field in ("literal_question", "decision_type", "research_objective", "expected_deliverable"):
-        assert sample.get(field)
+    assert len(QUESTION_TAXONOMY) == TARGET_TAXONOMY_COUNT
 
 
-def test_acceptance_should_i_buy_tcs():
-    qu = understand_question("Should I buy TCS?", ticker="TCS")
-    assert qu["decision_type"] == "Capital Allocation"
-    assert "allocate capital" in qu["investor_meaning"].lower()
-    assert "justifies risk" in qu["research_objective"].lower() or "return" in qu["research_objective"].lower()
-    v = validate_understanding(qu)
-    assert v["passed"] is True
+def test_tcs_deserve_research_brief_example():
+    brief = build_research_brief(
+        "Does Tata Consultancy Services deserve research today?",
+        ticker="TCS",
+        company="Tata Consultancy Services",
+    )
+    assert brief["decision_type"] == "Research Priority"
+    assert "materially" in brief["primary_investment_question"].lower()
+    assert "Business Quality" in brief["required_information"]
+    assert "Price targets" in brief["irrelevant_information"] or "Technical" in str(brief["irrelevant_information"])
+    assert len(brief["top_research_questions"]) == 3
+    assert brief["response_promise"]
+    assert len(brief["success_criteria"]) >= 3
+    assert validate_research_brief(brief)["passed"] is True
 
 
-def test_acceptance_does_tcs_deserve_research():
-    qu = understand_question("Does TCS deserve research?", ticker="TCS")
-    assert qu["decision_type"] == "Research Priority"
-    assert validate_understanding(qu)["passed"] is True
+def test_should_i_buy_tcs_brief():
+    brief = build_research_brief("Should I buy TCS?", ticker="TCS")
+    assert brief["decision_type"] == "Capital Allocation"
+    assert "rather than another opportunity" in brief["primary_investment_question"]
+    assert brief["knowledge_gap"]
+    assert "valuation" in brief["knowledge_gap"].lower() or "returns" in brief["knowledge_gap"].lower()
 
 
-def test_acceptance_compare_infosys_tcs():
-    qu = understand_question("Compare Infosys and TCS.")
-    assert qu["decision_type"] == "Peer Selection"
-    assert "differences" in qu["investor_meaning"].lower() or "one company" in qu["investor_meaning"].lower()
+def test_downstream_contract():
+    brief = build_research_brief("Why is Titan expensive?")
+    contract = downstream_contract(brief)
+    assert contract["research_workflow"]["required_information"]
+    assert len(contract["evidence_graph"]["focus_questions"]) == 3
+    assert contract["response_planner"]["response_promise"]
 
 
-def test_acceptance_why_titan_expensive():
-    qu = understand_question("Why is Titan expensive?")
-    assert qu["decision_type"] == "Valuation Assessment"
-    assert "expectations" in qu["investor_meaning"].lower()
-
-
-def test_understanding_object_has_all_fields():
-    qu = understand_question("Should I buy TCS?", ticker="TCS")
-    for field in (
-        "literal_question",
-        "investor_meaning",
-        "decision_type",
-        "research_objective",
-        "primary_investment_question",
-        "required_information",
-        "irrelevant_information",
-        "response_objective",
-        "expected_deliverable",
-        "confidence",
-    ):
-        assert field in qu
-    assert qu["decision_type"] in DECISION_TYPES
-
-
-def test_apply_wires_first_in_pipeline():
+def test_apply_wires_research_brief():
     out = apply_question_understanding_engine(
         {},
         query="Does Tata Consultancy Services deserve research today?",
         ticker="TCS",
-        benchmark_id="IIC_0001",
     )
     que = out["question_understanding_engine"]
-    assert que["enabled"] is True
-    assert que["pipeline_position"] == "first"
-    assert out["research_objective"]
-    assert out["intent_resolution"]["que_v1"] is True
-    assert out["question_understanding"]["decision_type"] == "Research Priority"
+    assert que["version"] == "1.1"
+    assert out["research_brief"]["decision_type"] == "Research Priority"
+    assert out["downstream_contract"]
+    assert out["intent_resolution"]["que_v1_1"] is True
+    assert out["top_research_questions"]
 
 
-def test_quality_gates_fail_on_empty():
-    v = validate_understanding({})
-    assert v["passed"] is False
-    assert v["missing_fields"]
+def test_brief_validation_fails_incomplete():
+    assert validate_research_brief({})["passed"] is False

@@ -30,7 +30,13 @@ def apply_institutional_writing_constitution(out: dict[str, Any], **kwargs: Any)
     ticker = kwargs.get("ticker") or out.get("ticker")
     company = kwargs.get("company") or out.get("company") or ticker or "This company"
 
-    plan = plan_response(out, query=query, ticker=ticker, company=str(company))
+    plan = plan_response(
+        out,
+        query=query,
+        ticker=ticker,
+        company=str(company),
+        research_brief=out.get("research_brief") if isinstance(out.get("research_brief"), dict) else None,
+    )
     sections = assemble_writing_sections(
         out,
         company=str(company),
