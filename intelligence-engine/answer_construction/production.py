@@ -89,9 +89,26 @@ _AC_POLICY_KEYS = {
 def package_for_ask_agi(**kwargs: Any) -> dict[str, Any]:
     """Soft entry used by UiService after IRP / IC / ECP orchestration.
 
-    Runs Institutional Analyst Framework (opinions → committee → CIO → Research Writer),
+    Runs Question Understanding Engine FIRST, then Institutional Analyst Framework,
     then applies Answer Construction V3 policy. Engines remain unchanged.
     """
+    out: dict[str, Any] = {}
+
+    # Question Understanding Engine v1.0 — FIRST stage. Every answer starts here.
+    try:
+        from question_understanding_engine import apply_question_understanding_engine
+
+        out = apply_question_understanding_engine(out, **kwargs)
+        kwargs = {
+            **kwargs,
+            "question_understanding": out.get("question_understanding"),
+            "research_objective": out.get("research_objective"),
+            "decision_type": out.get("decision_type"),
+            "primary_investment_question": out.get("primary_investment_question"),
+        }
+    except Exception:
+        out.setdefault("question_understanding_engine", {"enabled": False, "bypassed": True})
+
     iaf_pack: dict[str, Any] = {}
     try:
         from institutional_analysts.production import package_for_ask_agi as iaf_package
@@ -124,10 +141,11 @@ def package_for_ask_agi(**kwargs: Any) -> dict[str, Any]:
         iaf_pack = {}
 
     policy_kwargs = {k: kwargs[k] for k in _AC_POLICY_KEYS if k in kwargs}
-    out = apply_answer_construction_v3(
+    ac_out = apply_answer_construction_v3(
         institutional_analysts=iaf_pack if iaf_pack.get("enabled") else None,
         **policy_kwargs,
     )
+    out = {**out, **ac_out}
     if iaf_pack.get("enabled"):
         out["institutional_analysts"] = iaf_pack
         out["base"] = list(iaf_pack.get("base_case") or out.get("base") or [])[:6]
@@ -514,6 +532,7 @@ def quality_gates() -> dict[str, Any]:
             "institutional_knowledge_runtime_v1": True,
             "institutional_writing_constitution_v1": True,
             "editorial_excellence_v1": True,
+            "question_understanding_engine_v1": True,
         },
         "flags": flags_dict(),
     }
