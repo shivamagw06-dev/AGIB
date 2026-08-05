@@ -240,3 +240,49 @@ export const suggestCompanies = (prefix, limit = 10) =>
   warehouseFetch(`/suggest${qs({ prefix, limit })}`);
 export const getCompanyView = (symbol, perTab = 25) =>
   warehouseFetch(`/company/${encodeURIComponent(symbol)}${qs({ per_tab: perTab })}`);
+
+/* Phase 7.4F — Financial Warehouse Completion Programme (FWCP) */
+async function fwcpFetch(path, opts = {}) {
+  // /fwcp/* lives beside /warehouse/* on the intelligence BFF.
+  if (!BASE) throw new Error('API origin is not configured. Set VITE_API_URL to the backend.');
+  const url = `${BASE}/api/intelligence${path}`;
+  const headers = { 'X-AGI-Actor': currentActor };
+  if (opts.body) headers['Content-Type'] = 'application/json';
+  const resp = await fetch(url, {
+    method: opts.method || 'GET',
+    credentials: 'include',
+    headers,
+    body: opts.body ? JSON.stringify(opts.body) : undefined,
+    signal: AbortSignal.timeout(opts.timeoutMs || 60_000),
+  });
+  const text = await resp.text().catch(() => '');
+  if (!resp.ok) throw new Error(`FWCP API error (${resp.status}) ${text.slice(0, 200)}`);
+  return text ? JSON.parse(text) : null;
+}
+
+export const getFwcpHealth = () => fwcpFetch('/fwcp/health');
+export const getFinancialCoverage = () =>
+  warehouseFetch('/financial-coverage', { timeoutMs: 90_000 });
+export const getCompanyFinancialCoverage = (symbol) =>
+  warehouseFetch(`/company/${encodeURIComponent(symbol)}/coverage`);
+export const getMissingStatements = (limit = 200) =>
+  warehouseFetch(`/missing-statements${qs({ limit })}`, { timeoutMs: 90_000 });
+export const getMissingShareCount = (limit = 200) =>
+  warehouseFetch(`/missing-share-count${qs({ limit })}`, { timeoutMs: 90_000 });
+export const getFwcpImportStatus = () => warehouseFetch('/import/status');
+export const getFwcpImportBoard = () => warehouseFetch('/import/board', { timeoutMs: 90_000 });
+export const postFwcpImportStart = (body = {}) =>
+  warehouseFetch('/import/start', { method: 'POST', body });
+export const postFwcpImportStop = () =>
+  warehouseFetch('/import/stop', { method: 'POST', body: {} });
+export const postFwcpImportResume = (body = {}) =>
+  warehouseFetch('/import/resume', { method: 'POST', body });
+export const postFwcpImportRetry = (body = {}) =>
+  warehouseFetch('/import/retry', { method: 'POST', body, timeoutMs: 300_000 });
+export const postFwcpImportRun = (body = {}) =>
+  warehouseFetch('/import/run', { method: 'POST', body, timeoutMs: 300_000 });
+export const getFwcpCapitalIq = () => warehouseFetch('/import/capital-iq');
+export const postFwcpCapitalIq = (body = {}) =>
+  warehouseFetch('/import/capital-iq', { method: 'POST', body, timeoutMs: 300_000 });
+export const postSyncShareCount = (symbol) =>
+  warehouseFetch(`/share-count/${encodeURIComponent(symbol)}/sync`, { method: 'POST', body: {} });

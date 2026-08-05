@@ -1,0 +1,108 @@
+"""API-facing FWCP surface."""
+
+from __future__ import annotations
+
+from typing import Any, Optional
+
+from financial_warehouse_completion import coverage, import_runtime
+from financial_warehouse_completion.capital_iq_import import import_framework_status, run_capital_iq_stage
+from financial_warehouse_completion.models import ENGINE_CODE, PROGRAMME_CODE, PROGRAMME_VERSION, TARGETS
+from financial_warehouse_completion.share_count import sync_symbol as sync_share_count
+
+
+def health() -> dict[str, Any]:
+    st = import_runtime.status()
+    return {
+        "ok": True,
+        "programme": PROGRAMME_CODE,
+        "engine": ENGINE_CODE,
+        "version": PROGRAMME_VERSION,
+        "role": "institutional_financial_warehouse_completion",
+        "creates_intelligence": False,
+        "vendor_historical_multiples": False,
+        "primary_sources": ["capital_iq", "upstox", "financial_connector"],
+        "secondary_sources": ["yahoo_finance", "warehouse_history"],
+        "validation": ["formula_engine", "dqiv", "fwcp_dqiv_rules"],
+        "targets": TARGETS,
+        "runtime": st.get("runtime"),
+        "endpoints": [
+            "/v1/warehouse/financial-coverage",
+            "/v1/warehouse/company/{symbol}/coverage",
+            "/v1/warehouse/missing-statements",
+            "/v1/warehouse/missing-share-count",
+            "/v1/warehouse/import/start",
+            "/v1/warehouse/import/retry",
+            "/v1/warehouse/import/status",
+            "/v1/warehouse/import/run",
+            "/v1/warehouse/import/stop",
+            "/v1/warehouse/import/board",
+            "/v1/fwcp/health",
+        ],
+    }
+
+
+def financial_coverage() -> dict[str, Any]:
+    return coverage.financial_coverage()
+
+
+def company_coverage(symbol: str) -> dict[str, Any]:
+    return coverage.company_coverage(symbol)
+
+
+def missing_statements(limit: int = 500) -> dict[str, Any]:
+    return coverage.missing_statements(limit=limit)
+
+
+def missing_share_count(limit: int = 500) -> dict[str, Any]:
+    return coverage.missing_share_count(limit=limit)
+
+
+def import_status() -> dict[str, Any]:
+    return import_runtime.status()
+
+
+def import_board() -> dict[str, Any]:
+    return import_runtime.board()
+
+
+def import_start(batch: int = 15, actor: str = "fwcp") -> dict[str, Any]:
+    return import_runtime.start(batch=batch, actor=actor)
+
+
+def import_stop() -> dict[str, Any]:
+    return import_runtime.stop()
+
+
+def import_resume(batch: int = 15, actor: str = "fwcp") -> dict[str, Any]:
+    return import_runtime.resume(batch=batch, actor=actor)
+
+
+def import_retry(limit: int = 50, actor: str = "fwcp") -> dict[str, Any]:
+    return import_runtime.retry(limit=limit, actor=actor)
+
+
+def import_run(
+    *,
+    batch: int = 10,
+    symbols: Optional[list[str]] = None,
+    actor: str = "fwcp",
+    include_capital_iq: bool = False,
+) -> dict[str, Any]:
+    return import_runtime.run_batch(
+        batch=batch,
+        symbols=symbols,
+        actor=actor,
+        include_capital_iq=include_capital_iq,
+    )
+
+
+def capital_iq() -> dict[str, Any]:
+    return import_framework_status()
+
+
+def run_capital_iq(limit: Optional[int] = None, actor: str = "fwcp") -> dict[str, Any]:
+    return run_capital_iq_stage(limit=limit, actor=actor)
+
+
+def sync_shares(symbol: str, actor: str = "fwcp") -> dict[str, Any]:
+    return sync_share_count(symbol, actor=actor)
