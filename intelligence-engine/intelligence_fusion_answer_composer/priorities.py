@@ -8,17 +8,17 @@ from typing import Optional
 FAMILY_PRIORITY: dict[str, dict[str, tuple[str, ...]]] = {
     "company": {
         "primary": ("research_intelligence_engine",),
-        "secondary": ("forecast_intelligence_engine",),
+        # Business narrative before thin FIE scenario dumps for IC memoranda.
+        "secondary": ("business_intelligence", "investment_intelligence"),
         "supporting": (
+            "forecast_intelligence_engine",
             "valuation_attribution_engine",
             "historical_valuation_intelligence",
             "unified_valuation_engine",
             "macro_intelligence_engine",
             "valuation_policy_engine",
             "market_intelligence_engine",
-            "business_intelligence",
             "industry_intelligence",
-            "investment_intelligence",
             "historical_intelligence",
             "institutional_warehouse",
             "valuation_terminal",
@@ -27,17 +27,16 @@ FAMILY_PRIORITY: dict[str, dict[str, tuple[str, ...]]] = {
     },
     "company_intel": {
         "primary": ("research_intelligence_engine",),
-        "secondary": ("forecast_intelligence_engine",),
+        "secondary": ("business_intelligence", "investment_intelligence"),
         "supporting": (
+            "forecast_intelligence_engine",
             "valuation_attribution_engine",
             "historical_valuation_intelligence",
             "unified_valuation_engine",
             "macro_intelligence_engine",
             "valuation_policy_engine",
             "market_intelligence_engine",
-            "business_intelligence",
             "industry_intelligence",
-            "investment_intelligence",
             "historical_intelligence",
             "institutional_warehouse",
             "valuation_terminal",

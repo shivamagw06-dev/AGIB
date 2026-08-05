@@ -233,6 +233,13 @@ def is_low_quality_lead(pack: EnginePack) -> bool:
             return True
         if "risk_register" in low or "key_risks" in low:
             return True
+        # Probability-only dumps are fine inside Forecast sections, but are a
+        # weak headline for company / IC memoranda when richer BI exists.
+        if low.startswith("scenario probabilities") and "business" not in low[:80]:
+            return True
+    # Sparse VPAE model labels should not headline attribution answers.
+    if pack.provider_id == "valuation_policy_engine" and low.startswith("primary valuation model"):
+        return True
     return False
 
 
