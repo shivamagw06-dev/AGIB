@@ -1,6 +1,7 @@
 /**
  * Project mapSearchPack → chat-first AGIB answer model.
- * Response Constitution (shape) + Institutional Playbook Framework (methodology).
+ * Layered stack:
+ * Response Constitution (shape) → Ask Intelligence Constitution → Playbook Framework (journey).
  */
 
 import { mapSearchPack } from './mapSearchPack';
@@ -65,6 +66,13 @@ export function mapChatAnswer(pack) {
   if (!vm) return null;
 
   const rc = vm.responseConstitution || pack?.answer_construction?.response_constitution || null;
+  const aic =
+    vm.askIntelligenceConstitution ||
+    pack?.answer_construction?.ask_intelligence_constitution ||
+    pack?.answer?.ask_intelligence_constitution ||
+    null;
+  const aicSections = aic?.sections || {};
+  const investmentContext = aicSections.investment_context || aic?.intent || null;
   const ipf =
     vm.institutionalPlaybookFramework ||
     pack?.answer_construction?.institutional_playbook_framework ||
@@ -198,9 +206,34 @@ export function mapChatAnswer(pack) {
     conviction: vm.conviction || view,
   };
 
+  const directAnswer =
+    aicSections.executive_summary ||
+    rc?.direct_answer ||
+    vm.institutionalAnswer?.text ||
+    vm.executive ||
+    vm.conclusion ||
+    'AGIB is assembling institutional intelligence for this question.';
+
+  const researchConclusion =
+    vm.researchConclusion ||
+    pack?.answer?.research_conclusion ||
+    aicSections.research_conclusion ||
+    null;
+
+  const questionsBeforeYouDecide = asList(
+    vm.questionsBeforeYouDecide ||
+      pack?.answer?.questions_before_you_decide ||
+      aicSections.questions_before_you_decide ||
+      researchConclusion?.key_questions_remaining,
+    8
+  );
+
+  const institutionalThinkingFramework = aic?.institutional_thinking_framework || null;
+
   const followUps = asList(
     [
       ...(vm.suggestedNextResearch || []),
+      ...questionsBeforeYouDecide,
       ...(rc?.suggested_follow_ups || []),
       ...(vm.explore || []),
       researchJourney?.next_step ? `Continue: ${researchJourney.next_step}` : null,
@@ -224,13 +257,6 @@ export function mapChatAnswer(pack) {
     ],
     4
   );
-
-  const directAnswer =
-    rc?.direct_answer ||
-    vm.institutionalAnswer?.text ||
-    vm.executive ||
-    vm.conclusion ||
-    'AGIB is assembling institutional intelligence for this question.';
 
   const whyAgib = asList(rc?.why_agib_thinks_this?.length ? rc.why_agib_thinks_this : vm.why, 5);
 
@@ -269,7 +295,13 @@ export function mapChatAnswer(pack) {
     recentResearch,
     freshness: vm.freshness,
     lastUpdated: vm.lastUpdated,
-    constitutionVersion: ipf?.version || rc?.version || '1.0',
+    constitutionVersion: aic?.version || ipf?.version || rc?.version || '1.0',
+    investmentContext,
+    researchConclusion,
+    questionsBeforeYouDecide,
+    institutionalThinkingFramework,
+    methodologyIntent: investmentContext?.primary_intent || aic?.intent?.primary_intent || null,
+    realIntent: investmentContext?.real_intent || aic?.intent?.real_intent || null,
     playbook,
     researchJourney,
     researchJourneyState: journeyState,

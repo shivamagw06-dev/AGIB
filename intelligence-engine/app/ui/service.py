@@ -4264,6 +4264,21 @@ class UiService:
                 else None
             ),
             "response_constitution": _rc if isinstance(_rc, dict) else None,
+            "ask_intelligence_constitution": (
+                (answer_construction or {}).get("ask_intelligence_constitution")
+                if isinstance(answer_construction, dict)
+                else None
+            ),
+            "research_conclusion": (
+                (answer_construction or {}).get("research_conclusion")
+                if isinstance(answer_construction, dict)
+                else None
+            ),
+            "questions_before_you_decide": (
+                (answer_construction or {}).get("questions_before_you_decide")
+                if isinstance(answer_construction, dict)
+                else None
+            ),
             "institutional_playbook_framework": (
                 (answer_construction or {}).get("institutional_playbook_framework")
                 if isinstance(answer_construction, dict)

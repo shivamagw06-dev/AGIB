@@ -119,6 +119,11 @@ function AnswerTurn({ answer, onAsk }) {
       {/* 1. Direct Answer */}
       <div className="ac-direct">
         <p className="ac-kicker">Direct Answer</p>
+        {answer.realIntent && (
+          <p className="ac-intent-note" style={{ fontSize: '0.82rem', color: '#5b6570', marginBottom: '0.55rem' }}>
+            Research focus: {answer.realIntent}
+          </p>
+        )}
         <p className="ac-direct-text">{answer.directAnswer}</p>
         <div className="ac-meta-row">
           <div>
@@ -197,7 +202,40 @@ function AnswerTurn({ answer, onAsk }) {
         </div>
       </section>
 
-      {/* 5. Bottom Line */}
+      {/* 5. Research Conclusion */}
+      {answer.researchConclusion && (
+        <section className="ac-block ac-research-conclusion">
+          <h2>Research Conclusion</h2>
+          <p>{answer.researchConclusion.summary || answer.bottomLine}</p>
+          {answer.researchConclusion.key_uncertainties?.length > 0 && (
+            <>
+              <h3 style={{ fontSize: '0.88rem', marginTop: '0.75rem' }}>Key Uncertainties</h3>
+              <ul className="ac-why-list">
+                {answer.researchConclusion.key_uncertainties.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </>
+          )}
+          <p className="ac-confidence-why" style={{ marginTop: '0.65rem' }}>
+            The final investment decision remains yours — AGI provides institutional research context, not instructions.
+          </p>
+        </section>
+      )}
+
+      {/* 6. Questions Before You Decide */}
+      {answer.questionsBeforeYouDecide?.length > 0 && (
+        <section className="ac-block">
+          <h2>Questions Before You Decide</h2>
+          <ul className="ac-why-list">
+            {answer.questionsBeforeYouDecide.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {/* 7. Bottom Line */}
       {answer.bottomLine && (
         <section className="ac-block ac-bottom-line">
           <h2>Bottom Line</h2>
@@ -205,7 +243,7 @@ function AnswerTurn({ answer, onAsk }) {
         </section>
       )}
 
-      {/* 6. Supporting Intelligence */}
+      {/* 8. Supporting Intelligence */}
       <section className="ac-block">
         <h2>Supporting Intelligence</h2>
         <div className="ac-chips">
@@ -227,7 +265,7 @@ function AnswerTurn({ answer, onAsk }) {
         )}
       </section>
 
-      {/* 7. Suggested Follow-up Questions */}
+      {/* 9. Suggested Follow-up Questions */}
       <section className="ac-block">
         <h2>Suggested Follow-up Questions</h2>
         <div className="ac-follows">
