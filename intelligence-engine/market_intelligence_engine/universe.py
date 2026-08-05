@@ -238,6 +238,10 @@ def load_universe(*, limit: int = 5000) -> dict[str, Any]:
     }
 
 
+# Cap extreme % changes from tiny denominators / sign flips (matches rotation).
+_PCT_CHANGE_CAP = 150.0
+
+
 def _pct_change(before: Any, after: Any) -> Optional[float]:
     try:
         start, end = float(before), float(after)
@@ -245,4 +249,9 @@ def _pct_change(before: Any, after: Any) -> Optional[float]:
         return None
     if start == 0:
         return None
-    return round(100.0 * (end - start) / abs(start), 2)
+    # Require a meaningful prior multiple so 0.0002 → 30 does not explode.
+    if abs(start) < 0.5:
+        return None
+    raw = 100.0 * (end - start) / abs(start)
+    capped = max(-_PCT_CHANGE_CAP, min(_PCT_CHANGE_CAP, raw))
+    return round(capped, 2)

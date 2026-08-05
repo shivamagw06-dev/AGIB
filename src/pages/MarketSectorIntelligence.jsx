@@ -169,8 +169,15 @@ export default function MarketSectorIntelligence() {
                     onClick={() => openSector(s.sector)}
                   >
                     <strong>{s.sector}</strong>
-                    <span>{fmt(s.historical_percentile, 0)}%ile</span>
+                    <span>
+                      {s.historical_percentile != null
+                        ? `${fmt(s.historical_percentile, 0)}%ile`
+                        : (s.historical_percentile_status === 'DATA_QUALITY_FAIL' ? 'n/a' : 'n/a')}
+                    </span>
                     <span className="tag">{s.historical_range_status || s.opportunity}</span>
+                    {s.historical_observations != null ? (
+                      <span className="msi-obs">{s.historical_observations} obs</span>
+                    ) : null}
                   </button>
                 ))}
               </div>
@@ -226,7 +233,15 @@ export default function MarketSectorIntelligence() {
                             ? `${fmt(s.premium_pct, 1)}%`
                             : '—'}
                         </td>
-                        <td>{fmt(s.historical_percentile, 0)}</td>
+                        <td title={s.historical_percentile_reason || ''}>
+                          {s.historical_percentile != null
+                            ? fmt(s.historical_percentile, 0)
+                            : (s.historical_percentile_status === 'INSUFFICIENT_HISTORY'
+                              ? 'n/a'
+                              : s.historical_percentile_status === 'DATA_QUALITY_FAIL'
+                                ? 'unreliable'
+                                : '—')}
+                        </td>
                         <td>{s.historical_range_status || s.opportunity}</td>
                         <td>{s.upstox_coverage_pct != null ? `${fmt(s.upstox_coverage_pct, 0)}%` : '—'}</td>
                         <td>{fmt(s.companies, 0)}</td>

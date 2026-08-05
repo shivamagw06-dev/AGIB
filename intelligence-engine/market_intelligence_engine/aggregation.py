@@ -54,20 +54,28 @@ def market_overview(universe: dict[str, Any]) -> dict[str, Any]:
     cheapest_industry = min(industry_pe, key=industry_pe.get) if industry_pe else None
     expensive_industry = max(industry_pe, key=industry_pe.get) if industry_pe else None
 
+    def _finite_change(row: dict[str, Any], field: str) -> bool:
+        v = row.get(field)
+        try:
+            f = float(v)
+        except (TypeError, ValueError):
+            return False
+        return abs(f) <= 150.0  # matches universe / rotation cap
+
     pe_expansion = sorted(
-        [r for r in rows if r.get("pe_change_pct") is not None],
+        [r for r in rows if _finite_change(r, "pe_change_pct")],
         key=lambda r: -(r["pe_change_pct"] or 0),
     )[:5]
     pe_compression = sorted(
-        [r for r in rows if r.get("pe_change_pct") is not None],
+        [r for r in rows if _finite_change(r, "pe_change_pct")],
         key=lambda r: r["pe_change_pct"] or 0,
     )[:5]
     pb_expansion = sorted(
-        [r for r in rows if r.get("pb_change_pct") is not None],
+        [r for r in rows if _finite_change(r, "pb_change_pct")],
         key=lambda r: -(r["pb_change_pct"] or 0),
     )[:5]
     pb_compression = sorted(
-        [r for r in rows if r.get("pb_change_pct") is not None],
+        [r for r in rows if _finite_change(r, "pb_change_pct")],
         key=lambda r: r["pb_change_pct"] or 0,
     )[:5]
 
@@ -155,10 +163,16 @@ def sector_table(universe: dict[str, Any]) -> list[dict[str, Any]]:
         historical_premium = None
         if current is not None and sector_bench:
             benchmark_premium = round(100.0 * (current - sector_bench) / sector_bench, 1)
-        if current is not None and hist_median_level:
-            historical_premium = round(
-                100.0 * (current - hist_median_level) / abs(hist_median_level), 1
-            )
+        if (
+            current is not None
+            and hist_median_level
+            and abs(hist_median_level) >= 0.5
+            and hist_pack.get("status") == "OK"
+        ):
+            raw_hist_premium = 100.0 * (current - hist_median_level) / abs(hist_median_level)
+            # Cap display; absurd ratios mean contaminated history.
+            if abs(raw_hist_premium) <= 500:
+                historical_premium = round(raw_hist_premium, 1)
         # UI "Sector" column shows Upstox benchmark — premium must match that denominator.
         premium = benchmark_premium if sector_bench is not None else historical_premium
         premium_basis = (
@@ -168,8 +182,14 @@ def sector_table(universe: dict[str, Any]) -> list[dict[str, Any]]:
             if hist_median_level
             else None
         )
-        opportunity = _opportunity_label(hist_pct)
-        range_status = _historical_range_status(hist_pct)
+        hist_status = str(hist_pack.get("status") or "")
+        if hist_status == "DATA_QUALITY_FAIL":
+            opportunity = "History Unreliable"
+            range_status = "History Unreliable"
+            hist_median_level = None  # do not surface contaminated median
+        else:
+            opportunity = _opportunity_label(hist_pct)
+            range_status = _historical_range_status(hist_pct)
         out.append({
             "sector": sector,
             "companies": len(members),
@@ -269,12 +289,19 @@ def industry_table(universe: dict[str, Any], *, limit: int = 80) -> list[dict[st
     out = []
     for rank, (industry, members) in enumerate(ranked, start=1):
         pe_vals = [m.get("pe") for m in members if m.get("pe") is not None]
+        # Do not publish peer-rank medians as "historical_percentile" — they
+        # collapse to ~50 by construction. Industry own-history is not yet wired.
         out.append({
             "industry": industry,
             "sector": members[0].get("sector") if members else None,
             "companies": len(members),
             "current_pe": _median(pe_vals),
-            "historical_percentile": _median([m.get("percentile") for m in members]),
+            "historical_percentile": None,
+            "historical_percentile_status": "UNAVAILABLE",
+            "historical_percentile_reason": "Industry own-history series not yet persisted",
+            "peer_relative_percentile_median": _median(
+                [m.get("percentile") for m in members if m.get("percentile") is not None]
+            ),
             "industry_rank": rank,
             "peer_count": len(members),
             "coverage": len(pe_vals),

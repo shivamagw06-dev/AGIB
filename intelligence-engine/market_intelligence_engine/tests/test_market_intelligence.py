@@ -165,7 +165,8 @@ def test_sector_table_premium_matches_upstox_benchmark(monkeypatch):
     assert rows[0]["benchmark_premium_pct"] == 25.9
     assert rows[0]["premium_pct"] == 25.9
     assert rows[0]["premium_basis"] == "upstox_sector_benchmark"
-    assert rows[0]["historical_premium_pct"] == 1004.5
+    # Contaminated HVIE median (1.54 vs current 17) must not publish a 1000%+ premium.
+    assert rows[0]["historical_premium_pct"] is None
 
 
 def test_flows_latest_unavailable_not_zero(monkeypatch):
