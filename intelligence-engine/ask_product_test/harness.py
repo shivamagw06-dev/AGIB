@@ -36,15 +36,42 @@ def _artifacts_dir() -> Path:
     return path
 
 
+def _try_mkdir(path: Path) -> bool:
+    try:
+        path.mkdir(parents=True, exist_ok=True)
+        return True
+    except OSError:
+        return False
+
+
+def mirror_artifact_dirs() -> list[Path]:
+    """Primary ASK_TEST_ARTIFACTS dir plus optional cloud-agent mirrors (never raises)."""
+    roots = [_artifacts_dir()]
+    for candidate in (
+        (os.environ.get("ASK_TEST_ARTIFACTS_MIRROR") or "").strip(),
+        "/workspace/artifacts",
+        "/opt/cursor/artifacts",
+    ):
+        if not candidate:
+            continue
+        p = Path(candidate)
+        if p in roots:
+            continue
+        if _try_mkdir(p):
+            roots.append(p)
+    return roots
+
+
 def write_artifact(filename: str, report: Dict[str, Any]) -> Path:
-    """Write acceptance artifact to ASK_TEST_ARTIFACTS (and /workspace mirror if present)."""
+    """Write acceptance artifact to ASK_TEST_ARTIFACTS (and optional mirrors if writable)."""
     text = json.dumps(report, indent=2, default=str) + "\n"
     primary = _artifacts_dir() / filename
     primary.write_text(text, encoding="utf-8")
-    if Path("/workspace").exists():
-        mirror = Path("/workspace/artifacts")
-        mirror.mkdir(parents=True, exist_ok=True)
-        (mirror / filename).write_text(text, encoding="utf-8")
+    for mirror in mirror_artifact_dirs()[1:]:
+        try:
+            (mirror / filename).write_text(text, encoding="utf-8")
+        except OSError:
+            pass
     return primary
 
 

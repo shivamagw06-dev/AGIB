@@ -15,8 +15,7 @@ os.environ.setdefault("IKT_STORE_ROOT", str(ROOT / "data" / "institutional_knowl
 os.environ.setdefault("VALUATION_CONSENSUS_ROOT", str(ROOT / "data" / "valuation_consensus"))
 
 from ask_product_test.canonical_classification_acceptance_v1 import run  # noqa: E402
-
-ARTIFACTS = Path("/workspace/artifacts")
+from ask_product_test.harness import write_artifact  # noqa: E402
 
 
 def main() -> int:
@@ -40,13 +39,7 @@ def main() -> int:
     print(f"  cross-industry leakage: {report['cross_industry_leakage']}")
     print(f"  wrong sector: {report['wrong_sector']}  wrong industry: {report['wrong_industry']}")
 
-    try:
-        ARTIFACTS.mkdir(parents=True, exist_ok=True)
-        (ARTIFACTS / "canonical_classification_acceptance_v1.json").write_text(
-            json.dumps(report, indent=2, default=str), encoding="utf-8"
-        )
-    except Exception:
-        pass
+    write_artifact("canonical_classification_acceptance_v1.json", report)
 
     return 0 if report["decision"] == "PASS" else 1
 

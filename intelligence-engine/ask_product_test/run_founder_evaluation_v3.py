@@ -28,6 +28,7 @@ from ask_product_test.founder_evaluation_v3 import (  # noqa: E402
 from knowledge_unification.production import plan_and_gather  # noqa: E402
 from knowledge_unification.registry import KnowledgeRegistry  # noqa: E402
 import knowledge_unification.registry as kul_registry  # noqa: E402
+from ask_product_test.harness import write_artifact  # noqa: E402
 
 
 def main() -> int:
@@ -79,9 +80,7 @@ def main() -> int:
         "release_decision": "PASS" if rate >= gate else "FAIL",
         "questions": rows,
     }
-    out = Path("/workspace/artifacts")
-    out.mkdir(parents=True, exist_ok=True)
-    (out / "founder_evaluation_v3.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    write_artifact("founder_evaluation_v3.json", report)
     print(f"\n[founder_v3] {passed}/{len(rows)} ({rate}%) decision={report['release_decision']}", flush=True)
     fails = [r for r in rows if not r["pass"]]
     for r in fails[:15]:

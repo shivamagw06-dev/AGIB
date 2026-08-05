@@ -29,7 +29,7 @@ import urllib.request
 
 from ask_product_test import checks
 from ask_product_test.afi_acceptance_v1 import AFI_ACCEPTANCE_40, SECTIONS, score_afi_answer
-from ask_product_test.harness import AskProductHarness, _artifacts_dir
+from ask_product_test.harness import AskProductHarness, _artifacts_dir, mirror_artifact_dirs, write_artifact
 
 
 def _deployment_info(base_url: str) -> Dict[str, Any]:
@@ -291,8 +291,6 @@ def main() -> int:
     h = AskProductHarness(latency_budget_ms=latency)
     out_dir = _artifacts_dir()
     out_dir.mkdir(parents=True, exist_ok=True)
-    ws = Path("/workspace/artifacts")
-    ws.mkdir(parents=True, exist_ok=True)
 
     deployment_info = _deployment_info(h.base_url) if h.mode == "live" else {"commit": None, "environment": h.mode}
     print(
@@ -334,8 +332,8 @@ def main() -> int:
             "planned_total": len(AFI_ACCEPTANCE_40),
             "questions": rows,
         }
-        _write_json(ws / "afi_acceptance_v1.json", partial)
         _write_json(out_dir / "afi_acceptance_v1.json", partial)
+        write_artifact("afi_acceptance_v1.json", partial)
 
     metrics = _compute_metrics(rows)
     decision = _release_decision(metrics, rows)
@@ -357,14 +355,15 @@ def main() -> int:
         "all_failures": all_failures,
         "questions": rows,
     }
-    _write_json(ws / "afi_acceptance_v1.json", report)
-    _write_json(out_dir / "afi_acceptance_v1.json", report)
-    _write_json(ws / "afi_acceptance_report_live.json", report)
-    _write_json(out_dir / "afi_acceptance_report_live.json", report)
-
+    write_artifact("afi_acceptance_v1.json", report)
+    write_artifact("afi_acceptance_report_live.json", report)
     summary_md = _render_summary_markdown(report)
-    (ws / "afi_acceptance_summary.md").write_text(summary_md, encoding="utf-8")
     (out_dir / "afi_acceptance_summary.md").write_text(summary_md, encoding="utf-8")
+    for mirror in mirror_artifact_dirs()[1:]:
+        try:
+            (mirror / "afi_acceptance_summary.md").write_text(summary_md, encoding="utf-8")
+        except OSError:
+            pass
 
     print(
         f"\n[afi_acceptance_v1] overall={metrics['overall_score_pct']}% "

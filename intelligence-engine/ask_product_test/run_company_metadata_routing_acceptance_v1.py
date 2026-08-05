@@ -16,8 +16,7 @@ os.environ.setdefault("VALUATION_CONSENSUS_ROOT", str(ROOT / "data" / "valuation
 os.environ.setdefault("ASK_TEST_MODE", "inprocess")
 
 from ask_product_test.company_metadata_routing_acceptance_v1 import run  # noqa: E402
-
-ARTIFACTS = Path("/workspace/artifacts")
+from ask_product_test.harness import write_artifact  # noqa: E402
 
 
 def main() -> int:
@@ -35,13 +34,7 @@ def main() -> int:
     for kind, bucket in sorted(report["by_kind"].items()):
         print(f"  {kind}: {bucket['passed']}/{bucket['total']}")
 
-    try:
-        ARTIFACTS.mkdir(parents=True, exist_ok=True)
-        (ARTIFACTS / "company_metadata_routing_acceptance_v1.json").write_text(
-            json.dumps(report, indent=2, default=str), encoding="utf-8"
-        )
-    except Exception:
-        pass
+    write_artifact("company_metadata_routing_acceptance_v1.json", report)
 
     return 0 if report["decision"] == "PASS" else 1
 

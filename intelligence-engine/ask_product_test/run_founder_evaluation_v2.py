@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 from ask_product_test.founder_evaluation_v2 import FOUNDER_EVAL_V2_50, evaluate_founder_v2_case
-from ask_product_test.harness import AskProductHarness, _artifacts_dir
+from ask_product_test.harness import AskProductHarness, _artifacts_dir, write_artifact
 
 
 def _ts() -> str:
@@ -35,10 +35,6 @@ def main() -> int:
     cooldown = float(os.environ.get("ASK_TEST_CASE_COOLDOWN_SEC", "0") or "0")
     h = AskProductHarness(latency_budget_ms=latency)
     out_dir = _artifacts_dir()
-    out_dir.mkdir(parents=True, exist_ok=True)
-    ws = Path("/workspace/artifacts")
-    ws.mkdir(parents=True, exist_ok=True)
-
     print(
         f"[founder_eval_v2] mode={h.mode} cases={len(FOUNDER_EVAL_V2_50)} cooldown={cooldown}s",
         flush=True,
@@ -73,7 +69,7 @@ def main() -> int:
             "completed_so_far": len(results),
             "questions": results,
         }
-        _write_json(ws / "founder_evaluation_v2.json", partial)
+        write_artifact("founder_evaluation_v2.json", partial)
 
     passed = sum(1 for r in results if r.get("pass"))
     rate = round(100.0 * passed / max(1, len(results)), 2)
@@ -115,8 +111,7 @@ def main() -> int:
         "release_decision": "PASS" if release_pass else "FAIL",
         "questions": results,
     }
-    _write_json(ws / "founder_evaluation_v2.json", report)
-    _write_json(out_dir / "founder_evaluation_v2.json", report)
+    write_artifact("founder_evaluation_v2.json", report)
     print(
         f"\n[founder_eval_v2] {passed}/{len(results)} ({rate}%) avg={avg_score}/30 "
         f"decision={report['release_decision']} hard={list(hard_union)}",

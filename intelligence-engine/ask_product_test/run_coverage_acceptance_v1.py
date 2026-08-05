@@ -22,7 +22,7 @@ from typing import Any, Dict, List
 
 from ask_product_test import checks
 from ask_product_test.coverage_acceptance_v1 import COVERAGE_ACCEPTANCE_50, evaluate_coverage_item
-from ask_product_test.harness import AskProductHarness, _artifacts_dir
+from ask_product_test.harness import AskProductHarness, _artifacts_dir, write_artifact
 
 
 def _ts() -> str:
@@ -65,8 +65,6 @@ def main() -> int:
     cooldown = float(os.environ.get("ASK_TEST_CASE_COOLDOWN_SEC", "4") or "4")
     h = AskProductHarness(latency_budget_ms=latency)
     out_dir = _artifacts_dir()
-    ws = Path("/workspace/artifacts")
-    ws.mkdir(parents=True, exist_ok=True)
 
     print(
         f"[coverage_acceptance_v1] mode={h.mode} base={h.base_url} cases={len(COVERAGE_ACCEPTANCE_50)}",
@@ -159,7 +157,7 @@ def main() -> int:
         "pr_451_scoped_decision": "PASS" if pr_scoped_pass else "FAIL",
         "questions": rows,
     }
-    _write_json(ws / "coverage_acceptance_v1.json", report)
+    write_artifact("coverage_acceptance_v1.json", report)
     _write_json(out_dir / "coverage_acceptance_v1.json", report)
 
     print(

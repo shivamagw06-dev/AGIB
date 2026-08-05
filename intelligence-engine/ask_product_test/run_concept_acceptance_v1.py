@@ -20,7 +20,7 @@ from typing import Any, Dict, List
 
 from ask_product_test import checks
 from ask_product_test.concept_acceptance_v1 import CONCEPT_ACCEPTANCE_QUESTIONS, evaluate_concept_question
-from ask_product_test.harness import AskProductHarness, _artifacts_dir
+from ask_product_test.harness import AskProductHarness, _artifacts_dir, write_artifact
 
 
 def _ts() -> str:
@@ -60,8 +60,6 @@ def main() -> int:
     cooldown = float(os.environ.get("ASK_TEST_CASE_COOLDOWN_SEC", "4") or "4")
     h = AskProductHarness(latency_budget_ms=latency)
     out_dir = _artifacts_dir()
-    ws = Path("/workspace/artifacts")
-    ws.mkdir(parents=True, exist_ok=True)
 
     print(
         f"[concept_acceptance_v1] mode={h.mode} base={h.base_url} cases={len(CONCEPT_ACCEPTANCE_QUESTIONS)}",
@@ -106,7 +104,7 @@ def main() -> int:
         "release_decision": "PASS" if passed == total else "FAIL",
         "questions": rows,
     }
-    _write_json(ws / "concept_acceptance_v1.json", report)
+    write_artifact("concept_acceptance_v1.json", report)
     _write_json(out_dir / "concept_acceptance_v1.json", report)
 
     print(
