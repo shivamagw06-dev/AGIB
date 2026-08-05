@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-QUE_VERSION = "1.0"
+QUE_VERSION = "1.1"
 QUE_NAME = "AGI Question Understanding Engine"
 LAYER = "Institutional Research Engine (IRE)"
-ARCHITECTURE_STATUS = "Architecture Freeze v1.0 — core runtime, deterministic"
+ARCHITECTURE_STATUS = "Architecture Freeze v1.1 — core runtime, research brief contract"
 
 TARGET_TAXONOMY_COUNT = 500
 
@@ -25,6 +25,7 @@ DECISION_TYPES: tuple[str, ...] = (
     "Idea Generation",
     "Education",
     "Explainability",
+    "Decision Review",
     "Unknown",
 )
 
@@ -79,7 +80,7 @@ DOMAIN_DECISION_MAP: dict[str, str] = {
     "investment_debate": "Thesis Validation",
     "portfolio_construction": "Portfolio Construction",
     "monitoring": "Monitoring",
-    "decision_review": "Thesis Validation",
+    "decision_review": "Decision Review",
 }
 
 RESEARCH_OBJECTIVES: dict[str, str] = {
@@ -98,6 +99,7 @@ RESEARCH_OBJECTIVES: dict[str, str] = {
     "Idea Generation": "Determine whether the company deserves analyst attention.",
     "Education": "Build investor understanding of concepts or businesses.",
     "Explainability": "Show evidence chain and confidence behind conclusions.",
+    "Decision Review": "Determine what was learned and how conclusions evolved.",
     "Unknown": "Clarify the underlying investment decision before proceeding.",
 }
 
@@ -117,5 +119,6 @@ RESPONSE_STRUCTURE_BY_DECISION: dict[str, str] = {
     "Idea Generation": "executive_summary → why_interesting → catalysts → research_priority → conclusion",
     "Education": "executive_summary → plain_explanation → implications → conclusion",
     "Explainability": "executive_summary → thesis → supporting_evidence → contradicting_evidence → confidence",
+    "Decision Review": "executive_summary → assumptions_review → lessons → evolved_conclusion",
     "Unknown": "executive_summary → clarifying_questions → evidence → conclusion",
 }

@@ -28,6 +28,9 @@ def apply_research_workflow_framework(out: dict[str, Any], **kwargs: Any) -> dic
     irl = kwargs.get("intent_resolution") or out.get("intent_resolution") or {}
     irl_intent = irl.get("intent") if isinstance(irl, dict) else None
 
+    brief = out.get("research_brief") if isinstance(out.get("research_brief"), dict) else {}
+    brief_required = brief.get("required_information") or []
+
     ipf = out.get("institutional_playbook_framework") if isinstance(out.get("institutional_playbook_framework"), dict) else {}
     playbook_resolution = ipf.get("playbook") if isinstance(ipf.get("playbook"), dict) else {}
     playbook_key = playbook_resolution.get("playbook_key")
@@ -97,6 +100,8 @@ def apply_research_workflow_framework(out: dict[str, Any], **kwargs: Any) -> dic
         "research_status": research_status,
         "research_session": session,
         "next_best_research_question": nbrq,
+        "research_brief_required_information": brief_required,
+        "research_brief_top_questions": list(brief.get("top_research_questions") or []),
         "deterministic": True,
         "llm": False,
         "executed_by_investment_os": False,

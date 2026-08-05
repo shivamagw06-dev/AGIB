@@ -102,9 +102,11 @@ def package_for_ask_agi(**kwargs: Any) -> dict[str, Any]:
         kwargs = {
             **kwargs,
             "question_understanding": out.get("question_understanding"),
+            "research_brief": out.get("research_brief"),
             "research_objective": out.get("research_objective"),
             "decision_type": out.get("decision_type"),
             "primary_investment_question": out.get("primary_investment_question"),
+            "top_research_questions": out.get("top_research_questions"),
         }
     except Exception:
         out.setdefault("question_understanding_engine", {"enabled": False, "bypassed": True})
@@ -533,6 +535,7 @@ def quality_gates() -> dict[str, Any]:
             "institutional_writing_constitution_v1": True,
             "editorial_excellence_v1": True,
             "question_understanding_engine_v1": True,
+            "question_understanding_engine_v1_1": True,
         },
         "flags": flags_dict(),
     }

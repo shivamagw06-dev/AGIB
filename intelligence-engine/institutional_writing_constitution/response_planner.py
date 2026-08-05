@@ -15,9 +15,11 @@ def plan_response(
     ticker: str | None = None,
     company: str | None = None,
     category: str | None = None,
+    research_brief: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Decide template, prioritization, and section emphasis before writing."""
-    template_id = resolve_template(query, category=category)
+    brief = research_brief or pack.get("research_brief") or {}
+    template_id = resolve_template(query, category=category or brief.get("decision_type"))
     template = RESPONSE_TEMPLATES.get(template_id) or RESPONSE_TEMPLATES[DEFAULT_TEMPLATE]
     sections = template_sections(template_id)
     length_class = infer_answer_length(query)
@@ -32,6 +34,9 @@ def plan_response(
     ]
 
     top_insights: list[str] = []
+    brief_questions = brief.get("top_research_questions") or []
+    if brief_questions:
+        top_insights = list(brief_questions)[:3]
     for a in supported[:3]:
         stmt = str(a.get("statement") or "").strip()
         if stmt:
@@ -71,13 +76,17 @@ def plan_response(
 
     return {
         "enabled": True,
-        "resolved_question": query or f"Institutional research on {company or ticker or 'this entity'}",
+        "resolved_question": brief.get("primary_investment_question") or query or f"Institutional research on {company or ticker or 'this entity'}",
         "template_id": template_id,
         "template_label": template["label"],
         "section_order": list(sections),
         "top_insights": top_insights[:3],
-        "omit": omit,
+        "omit": omit + list(brief.get("irrelevant_information") or []),
         "expand_sections": expand,
+        "required_information": list(brief.get("required_information") or []),
+        "response_promise": brief.get("response_promise"),
+        "success_criteria": brief.get("success_criteria"),
+        "research_brief_driven": bool(brief),
         "detail_level": detail_map.get(length_class, "standard"),
         "answer_length_class": length_class,
         "entity": {"ticker": ticker, "company": company},
