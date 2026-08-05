@@ -401,6 +401,21 @@ def package_for_ask_agi(**kwargs: Any) -> dict[str, Any]:
     except Exception:
         out.setdefault("ask_intelligence_constitution", {"enabled": False, "bypassed": True})
 
+    # Institutional Playbook Framework v1.0 — methodology layer (Ask → Investment OS).
+    try:
+        from institutional_playbook_framework import apply_institutional_playbook_framework
+
+        out = apply_institutional_playbook_framework(
+            out,
+            query=str(kwargs.get("query") or ""),
+            intent_resolution=kwargs.get("intent_resolution") or out.get("intent_resolution"),
+            playbook_selection=kwargs.get("playbook_selection") or out.get("playbook_selection"),
+            ticker=kwargs.get("ticker"),
+            research_journey_state=kwargs.get("research_journey_state"),
+        )
+    except Exception:
+        out.setdefault("institutional_playbook_framework", {"enabled": False, "bypassed": True})
+
     return out
 
 
@@ -420,6 +435,7 @@ def quality_gates() -> dict[str, Any]:
             "institutional_research_writer_soft": True,
             "response_constitution_v1": True,
             "ask_intelligence_constitution_v1": True,
+            "institutional_playbook_framework_v1": True,
         },
         "flags": flags_dict(),
     }

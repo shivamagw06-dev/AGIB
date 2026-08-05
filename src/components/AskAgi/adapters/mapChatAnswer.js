@@ -1,10 +1,15 @@
 /**
  * Project mapSearchPack → chat-first AGIB answer model.
- * Layered constitutions:
- * Response Constitution v1.0 (shape) → Ask Intelligence Constitution v1.0 (methodology).
+ * Layered stack:
+ * Response Constitution (shape) → Ask Intelligence Constitution → Playbook Framework (journey).
  */
 
 import { mapSearchPack } from './mapSearchPack';
+import {
+  enrichJourneyMap,
+  getResearchJourneyState,
+  mergeResearchJourneyState,
+} from '@/lib/researchJourney';
 
 function asList(v, n = 8) {
   if (!Array.isArray(v)) return [];
@@ -68,6 +73,24 @@ export function mapChatAnswer(pack) {
     null;
   const aicSections = aic?.sections || {};
   const investmentContext = aicSections.investment_context || aic?.intent || null;
+  const ipf =
+    vm.institutionalPlaybookFramework ||
+    pack?.answer_construction?.institutional_playbook_framework ||
+    pack?.answer?.institutional_playbook_framework ||
+    null;
+  const playbook = ipf?.playbook || null;
+  const ticker = vm.ticker;
+  const playbookKey = playbook?.playbook_key || 'investment_assessment';
+
+  let journeyState = vm.researchJourneyState || ipf?.research_journey_state || null;
+  if (journeyState) {
+    journeyState = mergeResearchJourneyState(ticker, playbookKey, journeyState);
+  } else {
+    journeyState = getResearchJourneyState(ticker, playbookKey);
+  }
+  const journeyRaw = vm.researchJourney || ipf?.research_journey || null;
+  const researchJourney = enrichJourneyMap(journeyRaw, journeyState) || journeyRaw;
+
   const view = institutionalViewLabel(
     vm.stance || vm.institutionalView?.stance || '',
     vm.institutionalAnswer?.recommendation || vm.decisionEngine?.action || ''
@@ -183,32 +206,6 @@ export function mapChatAnswer(pack) {
     conviction: vm.conviction || view,
   };
 
-  const followUps = asList(
-    [
-      ...questionsBeforeYouDecide,
-      ...(rc?.suggested_follow_ups || []),
-      ...(vm.explore || []),
-      `Why ${view}?`,
-      vm.ticker ? `Compare ${vm.ticker} with peers` : 'Show peer comparison',
-      'Explain the valuation in plain English',
-      'Show financials',
-      'Latest earnings',
-      'What changed?',
-      'Bull vs Bear case',
-      'Show risks',
-    ],
-    10
-  );
-
-  const recentResearch = asList(
-    [
-      ...(vm.supporting || []).map((s) => s.title || s.source || s),
-      'Internal AGIB',
-      'Exchange Filing',
-    ],
-    4
-  );
-
   const directAnswer =
     aicSections.executive_summary ||
     rc?.direct_answer ||
@@ -232,6 +229,34 @@ export function mapChatAnswer(pack) {
   );
 
   const institutionalThinkingFramework = aic?.institutional_thinking_framework || null;
+
+  const followUps = asList(
+    [
+      ...(vm.suggestedNextResearch || []),
+      ...questionsBeforeYouDecide,
+      ...(rc?.suggested_follow_ups || []),
+      ...(vm.explore || []),
+      researchJourney?.next_step ? `Continue: ${researchJourney.next_step}` : null,
+      `Why ${view}?`,
+      vm.ticker ? `Compare ${vm.ticker} with peers` : 'Show peer comparison',
+      'Explain the valuation in plain English',
+      'Show financials',
+      'Latest earnings',
+      'What changed?',
+      'Bull vs Bear case',
+      'Show risks',
+    ],
+    10
+  );
+
+  const recentResearch = asList(
+    [
+      ...(vm.supporting || []).map((s) => s.title || s.source || s),
+      'Internal AGIB',
+      'Exchange Filing',
+    ],
+    4
+  );
 
   const whyAgib = asList(rc?.why_agib_thinks_this?.length ? rc.why_agib_thinks_this : vm.why, 5);
 
@@ -270,13 +295,17 @@ export function mapChatAnswer(pack) {
     recentResearch,
     freshness: vm.freshness,
     lastUpdated: vm.lastUpdated,
-    constitutionVersion: aic?.version || rc?.version || '1.0',
+    constitutionVersion: aic?.version || ipf?.version || rc?.version || '1.0',
     investmentContext,
     researchConclusion,
     questionsBeforeYouDecide,
     institutionalThinkingFramework,
     methodologyIntent: investmentContext?.primary_intent || aic?.intent?.primary_intent || null,
     realIntent: investmentContext?.real_intent || aic?.intent?.real_intent || null,
+    playbook,
+    researchJourney,
+    researchJourneyState: journeyState,
+    suggestedNextResearch: asList(vm.suggestedNextResearch || [], 6),
     deep: {
       thesis: vm.thesis,
       why: whyAgib,
